@@ -1,18 +1,3 @@
-/**
- * Opt-in integration test: the answer-feedback platform reads against a REAL
- * Postgres with every migration applied, as the restricted runtime role.
- *
- * The unit suite doubles drizzle and can only pin the SQL's shape. Every claim
- * here is a claim about what Postgres does with it: which question a lateral
- * join pairs with an answer, how a NULL groups, where a window starts. Those
- * are exactly the claims a mocked handle agrees with whatever the fixture says.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/feedback/repository.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database and runs it.
- */
-
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { NO_RATINGS_FILTERS, type FeedbackQuery, type RatingsFilters } from './filters'
@@ -27,34 +12,23 @@ const ORG = `org_feedback_${STAMP}`
 const USER = `user_feedback_${STAMP}`
 const CHAT = `s_feedback_chat_${STAMP}`
 
-/** Fixed ids, so a failing assertion names the row it is about. */
 const Q1 = '0f0f0f0f-0000-4000-8000-000000000001'
 const A1 = '0f0f0f0f-0000-4000-8000-000000000002'
 const Q2 = '0f0f0f0f-0000-4000-8000-000000000003'
 const A2 = '0f0f0f0f-0000-4000-8000-000000000004'
-/** An answer id with no message row: the turn was never persisted. */
 const A_MISSING = '0f0f0f0f-0000-4000-8000-0000000000ff'
-/** A1's trace id, as the agent writes it: the answer UUID's 32 hex digits. */
 const TRACE_A1 = A1.replace(/-/g, '')
-/** An answer from before every window, rated today. */
 const A_OLD = '0f0f0f0f-0000-4000-8000-000000000005'
 
-/** ORG's project, which the chat belongs to, with a federal state in its profile. */
 const PROJECT = '0f0f0f0f-0000-4000-8000-0000000000a1'
-/** A deep-research run's backend job id, named by A2's provenance. */
 const JOB = `job_feedback_${STAMP}`
 const LESSON = '0f0f0f0f-0000-4000-8000-0000000000b1'
 
-/** Another tenant, with an answer of its own that ORG's vote will name. */
 const OTHER_ORG = `org_feedback_other_${STAMP}`
 const OTHER_CHAT = `s_feedback_other_${STAMP}`
 const OTHER_Q = '0f0f0f0f-0000-4000-8000-000000000011'
 const OTHER_A = '0f0f0f0f-0000-4000-8000-000000000012'
 
-/**
- * A third tenant whose votes CLAIM a conversation: the client sends
- * `conversation_id` with every vote, and here it names OTHER_ORG's chat.
- */
 const CLAIM_ORG = `org_feedback_claims_${STAMP}`
 const CLAIM_CHAT = `s_feedback_claims_${STAMP}`
 const CLAIM_A = '0f0f0f0f-0000-4000-8000-000000000021'
@@ -62,7 +36,6 @@ const CLAIM_MISSING = '0f0f0f0f-0000-4000-8000-0000000000fe'
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
 
-/** A ratings request over the last `days` days, for the given organizations and filters. */
 const ask = (
   organizationIds: string | string[],
   ratings: Partial<RatingsFilters> = {},
@@ -94,7 +67,7 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -112,9 +85,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
       await db.execute(sql`
         insert into conversations (id, organization_id, created_by, title) values (${CHAT}, ${ORG}, ${USER}, 'Fluchtwege')
       `)
-      // Two turns, in order: Q1 -> A1, then Q2 -> A2. Q2 is the NEWEST user
-      // message, which is what the old predicate paired with an answer it
-      // could not find.
       await db.execute(sql`
         insert into messages (id, conversation_id, role, content, created_at) values
           (${Q1}::uuid, ${CHAT}, 'user',      'Wie lang darf der Fluchtweg sein?', ${minutesAgo(40)}::timestamptz),
@@ -123,10 +93,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
           (${A2}::uuid, ${CHAT}, 'assistant', 'Ebenfalls 40 m.',                   ${minutesAgo(19)}::timestamptz),
           (${A_OLD}::uuid, ${CHAT}, 'assistant', 'Eine alte Antwort.',             ${minutesAgo(100 * 24 * 60)}::timestamptz)
       `)
-      // The agent names the trace an answer was produced in on its row
-      // (`observability/turn_trace.py`); A1 has one, A2 predates the field.
-      // A1 is a researched chat answer with three sources, one retrieved but
-      // not cited; A2 is a deep-research run's report.
       await db.execute(sql`
         update messages set metadata = jsonb_build_object(
           'trace_id', ${TRACE_A1}::text,
@@ -156,8 +122,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
                 '{"facts": {"federal_state": {"value": "tyrol"}}, "goals": {}, "unknowns": [], "assumptions": {}}'::jsonb)
       `)
       await db.execute(sql`update conversations set project_id = ${PROJECT}::uuid where id = ${CHAT}`)
-      // The ledger: two calls for A1's turn, one of them in another
-      // conversation that must not count, and two for the research run.
       await db.execute(sql`
         insert into llm_usage_events (organization_id, conversation_id, message_id, job_id, model, total_tokens, cost_usd) values
           (${ORG}, ${CHAT},       ${A1}, null,    'model-a', 1000, 0.010000),
@@ -167,8 +131,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
           (${ORG}, null,          null,  ${JOB},  'model-c', 3000, 0.100000)
       `)
     })
-    // The other tenant's turn. ORG's vote names its answer id below: nothing at
-    // vote time can see that row, so only the read can keep the two apart.
     await platform(() =>
       db.execute(
         sql`insert into organizations (workos_organization_id, display_name) values (${OTHER_ORG}, ${OTHER_ORG}) on conflict do nothing`,
@@ -201,8 +163,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
         insert into messages (id, conversation_id, role, content, created_at)
         values (${CLAIM_A}::uuid, ${CLAIM_CHAT}, 'assistant', 'Eigene Antwort', ${minutesAgo(10)}::timestamptz)
       `)
-      // Both votes name OTHER_ORG's chat. The first rated an answer whose row
-      // says otherwise; the second rated a turn that was never persisted.
       await db.execute(sql`
         insert into answer_feedback (organization_id, conversation_id, message_id, user_id, verdict) values
           (${CLAIM_ORG}, ${OTHER_CHAT}, ${CLAIM_A},       ${`${USER}_claim_a`},       'down'),
@@ -212,7 +172,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
     await vote(A1, 'down', { reason: 'inaccurate' })
     await vote(A2, 'down', { reason: 'other' })
     await vote(A_MISSING, 'down')
-    // A2's down-vote became a lesson (A1's stays unprocessed for the sweep spec below).
     await platform(async () => {
       await db.execute(sql`
         insert into platform_lessons (id, content, category, status) values (${LESSON}::uuid, 'Fluchtweglänge je GK prüfen', 'inaccurate', 'active')
@@ -224,7 +183,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
       `)
     })
     await vote(A_OLD, 'up')
-    // A second person rating the same answer: one more vote, no more answers.
     await inOrg(() =>
       db.execute(sql`
         insert into answer_feedback (organization_id, conversation_id, message_id, user_id, verdict)
@@ -275,11 +233,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
   })
 
   describe('coverage', () => {
-    /**
-     * Two answers were produced in the window and six votes landed on five
-     * answers: one old, one never persisted (from this tenant's side: OTHER_A is
-     * another tenant's), one rated twice. Votes over produced answers said 300 %.
-     */
     it('counts every answer the window is about, so coverage cannot pass 100 %', async () => {
       const health = await platform(() => repo.getFeedbackHealth(ask(ORG, {}, 7)))
 
@@ -304,16 +257,11 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
         platform(() => repo.listFeedbackTurns(ask(ORG, { verdict: 'down', query })))
 
       expect((await search('40 m bei')).map((turn) => turn.messageId)).toEqual([A1])
-      // Unescaped, `_` is "any one character" and this matched both answers.
       expect(await search('4_ m')).toEqual([])
     })
   })
 
   describe('reason counts', () => {
-    /**
-     * A down-vote with no chip used to group as its own NULL row beside
-     * `other`, and the digest keyed both as `other`, keeping whichever came last.
-     */
     it('folds a missing reason into `other`, so the rows sum to the down-votes', async () => {
       const health = await platform(() => repo.getFeedbackHealth(ask(ORG)))
       const byReason = Object.fromEntries(health.reasons.map((row) => [row.reason, row.count]))
@@ -332,10 +280,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
   })
 
   describe("another tenant's answer", () => {
-    /**
-     * A vote's `message_id` is client text. Joined on the id alone, ORG's vote on
-     * OTHER_A showed OTHER_ORG's answer, question and topic under ORG's row.
-     */
     it('is never paired with a vote cast in a different organization', async () => {
       const turns = await platform(() => repo.listFeedbackTurns(ask(ORG, { verdict: 'up' })))
       const crossed = turns.find((turn) => turn.messageId === OTHER_A)
@@ -353,11 +297,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
   })
 
   describe('the conversation a vote belongs to', () => {
-    /**
-     * `answer_feedback.conversation_id` is what the client sent. The readers
-     * joined titles and topics on it, so a vote could wear another tenant's
-     * conversation title and count under its topics.
-     */
     it("is the persisted answer's, whatever the client claimed", async () => {
       const turns = await platform(() => repo.listFeedbackTurns(ask(CLAIM_ORG, { verdict: 'down' })))
       const byMessage = new Map(turns.map((turn) => [turn.messageId, turn]))
@@ -523,7 +462,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
 
     it("never pairs a vote with another tenant's answer", async () => {
       const crossed = (await exportRows()).find((row) => row.messageId === OTHER_A)
-      // The vote named ORG's own chat, so that title is fine; OTHER_ORG's text is not.
       expect(crossed).toMatchObject({ answer: null, question: null, conversationTitle: 'Fluchtwege' })
     })
   })

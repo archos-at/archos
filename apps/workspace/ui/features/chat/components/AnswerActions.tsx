@@ -1,52 +1,5 @@
 'use client'
 
-/**
- * AnswerActions — getting the answer out of Piloti.
- *
- * Two ways out, and only two — the clipboard and the file:
- *
- *   ❞  Antwort mit Quellenangaben       → the prose with its sources written
- *                                        out (clipboard, rich + markdown)
- *   ⧉  Antwort kopieren                 → the prose alone, when the turn
- *                                        resolved no sources to write out
- *   ⤓  Als Word-Dokument               → the export route's .docx, cards and all
- *
- * The copy puts the answer on the clipboard in two flavors at once
- * (`clipboard-rich`): rendered HTML, so Word, Outlook and Notion paste real
- * tables and emphasis, and the markdown source as the plain-text fallback. The
- * internal `[[card:N]]` placement markers are stripped — they mean nothing
- * outside the app. The download hands over the server-built document, which
- * carries what no clipboard copy can: the question, the resolved citations,
- * the cards as tables and the confidence note.
- *
- * EXACTLY ONE of the two copies is rendered, and one of them always is: an
- * answer that finished can always be put on the clipboard. Which one is a fact
- * about the turn's SOURCES and nothing else — with resolved citations the copy
- * writes them out, without them it hands over the prose, because a button that
- * would copy an empty "Quellen" heading is a dead button and this row is not the
- * place to promise provenance an answer does not have.
- *
- * The download is a THIRD thing and never stands in for either. It was once
- * treated as one — the plain copy was withheld from any turn that had an export
- * — which left every uncited answer in a real conversation with a .docx
- * download as its only way out, because a persisted turn always has an export.
- * A Rückfrage, a conversational reply, an answer whose citations were all
- * dropped: none of them could be copied. Downloading a Word document is not
- * copying a sentence into an e-mail.
- *
- * ── Weight ───────────────────────────────────────────────────────────────────
- * This sits in the answer's meta row, beside the feedback thumbs, so it
- * borrows their language exactly: 24px ghost icon buttons, muted ink at rest,
- * full contrast on hover/focus, no band and no divider of its own. Confirmation
- * is the Check-swap `CopyCitation` already uses — no toast on success, and the
- * error path is that component's `toast.error`, not a new mechanism.
- *
- * Each glyph carries a tooltip with the same words as its `aria-label`. Two
- * unlabelled 14px icons in a row read as one control with two states, so the
- * quote mark on the first is the difference made visible: the sources come
- * along.
- */
-
 import { useCallback, useMemo, useState, useSyncExternalStore, type FC } from 'react'
 import { BookMarked, Check, Copy, FileDown, Share } from 'lucide-react'
 import { toast } from 'sonner'
@@ -73,56 +26,19 @@ import type { CitedDocument } from '../lib/citations'
 import { answerShareUrl, canShareNatively, shareAnswer } from '../lib/share-answer'
 
 export interface AnswerActionsProps {
-  /**
-   * The answer markdown exactly as the agent wrote it — its own written sources
-   * section included. This is what "Antwort kopieren" hands over.
-   */
   content: string
-  /**
-   * The same answer with its written sources section already lifted out
-   * (`splitAnswerBody`). The resolved-citations copy appends its own list, so
-   * pasting it must not state the sources twice.
-   */
   body: string
-  /**
-   * The turn's citation model, derived ONCE by the answer and passed in. The
-   * resolved sources list is a projection of it — never a second parse of the
-   * markdown.
-   */
   documents: CitedDocument[]
-  /**
-   * Where the .docx export lives:
-   * `/api/conversations/{conversationId}/messages/{messageId}/export`. Both
-   * halves are required — a local-only turn that has neither gets no download
-   * button rather than a dead one (the diagram-filing rule).
-   */
   conversationId?: string | null
   messageId?: string
   className?: string
-  /**
-   * The answer is still arriving: the actions hold their place in the row,
-   * invisible and inert, and fade in when it settles (`AgentResponse`).
-   */
   pending?: boolean
 }
 
-/** Which button is currently showing its Check. */
 type Copied = 'plain' | 'withSources' | null
 
-/**
- * The buttons. Same 24px glyph and muted ink as the feedback thumbs next to
- * them — a footnote affordance that does not compete with the answer above it.
- *
- * On a finger they GROW to 44px instead of borrowing a catchment
- * (`touch-target`): the buttons sit two pixels apart, so two overhanging
- * catchments overlap and the later one takes the tap of the earlier. A copy
- * that opens a share sheet is a confidently wrong target.
- */
 const actionButton = cn(
   'inline-flex size-6 items-center justify-center rounded-control pointer-coarse:size-11',
-  // The shared press: its transition list carries the hover background too,
-  // which this list used to leave out, so the fill snapped in under an
-  // easing colour.
   'text-muted-foreground',
   PRESSABLE,
   'hover:bg-hover hover:text-foreground',
@@ -131,12 +47,6 @@ const actionButton = cn(
 
 const noopSubscribe = (): (() => void) => () => {}
 
-/**
- * Whether the share sheet is the right way out: the browser has one AND a
- * finger is driving. On a desktop the copy and the Word export are the way out,
- * and a share sheet there is a menu of apps nobody pastes an answer into.
- * Decided after hydration (the server has no `navigator`).
- */
 function useNativeShare(): boolean {
   const hasShare = useSyncExternalStore(noopSubscribe, () => canShareNatively(), () => false)
   const touch = useMediaQuery('(pointer: coarse)')
@@ -154,12 +64,9 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
 }) => {
   const t = useTranslations(chatCopy)
   const swap = useIconSwapTransition()
-  // Which copy showed its check, for as long as the receipt stands. The flag
-  // owns the clock: a second press restarts it, and an unmount clears it.
   const [copiedOn, raiseCopied] = useTransientFlag()
   const [copiedWhich, setCopiedWhich] = useState<Copied>(null)
   const copied = copiedOn ? copiedWhich : null
-  // A pasted answer carries the project's values, never the `:project[…]` handle.
   const { project } = useAnswerData()
   const strip = useMemo(
     (): StripOptions => ({ projectValue: (key) => (project ? project(key).text : null) }),
@@ -171,26 +78,16 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
     async (text: string, which: Exclude<Copied, null>): Promise<void> => {
       if (!text.trim()) return
       try {
-        // Both flavors: rendered HTML for Word/Outlook/Notion, the markdown
-        // source as the plain-text fallback — see `clipboard-rich`.
         await copyMarkdownToClipboard(text)
         setCopiedWhich(which)
         raiseCopied()
       } catch {
-        // Clipboard unavailable or blocked (insecure context, denied permission).
         toast.error(t('answerActions.copyFailed'))
       }
     },
     [t, raiseCopied]
   )
 
-  /**
-   * The .docx the export route builds for this answer — question, citations,
-   * cards and confidence included, which no clipboard copy carries. Fetched
-   * rather than navigated to (`downloadFetched`), so a failure (a turn the
-   * server never persisted, access lost meanwhile) is a toast instead of a
-   * JSON error filling a tab.
-   */
   const handleDownloadDocx = useCallback(async (): Promise<void> => {
     if (!conversationId || !messageId || exporting) return
     setExporting(true)
@@ -203,7 +100,6 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
       toast.error(t('answerActions.downloadFailed'))
       return
     }
-    // The kind and the format, never the file name (it carries the question).
     capturePosthog('report_exported', { kind: 'answer', format: 'docx' })
   }, [conversationId, messageId, exporting, t])
 
@@ -252,8 +148,6 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
     }
   }, [withSources, body, documents, content, strip, t, conversationId, raiseCopied])
   const canExport = Boolean(conversationId && messageId)
-  // The two copies are exclusive and exhaustive: sources decide WHICH, never
-  // whether. The export is orthogonal and cannot stand in for either.
   const showPlainCopy = !withSources
   const copyLabel = copied === 'plain' ? t('answerActions.copied') : t('answerActions.copy')
   const copyWithSourcesLabel =
@@ -267,8 +161,6 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
         pending && 'opacity-0',
         className
       )}
-      // Held in the row while the answer arrives, so it takes its width from
-      // the first frame; nothing to see, reach or press until it is complete.
       inert={pending}
       aria-hidden={pending || undefined}
     >
@@ -333,10 +225,6 @@ export const AnswerActions: FC<AnswerActionsProps> = ({
         </Tooltip>
       )}
       {nativeShare && (
-        // The phone's way out: the system share sheet, with the answer as text
-        // and the thread's address when it has one. Present only where there is
-        // a sheet and a finger; the copy beside it stays the way out everywhere
-        // else, and the fallback when the sheet refuses.
         <button data-attr="answer-share"
           type="button"
           onClick={() => void handleShare()}

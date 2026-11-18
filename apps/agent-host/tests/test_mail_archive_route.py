@@ -1,5 +1,3 @@
-"""The two archive-reading routes: the internal token, the wire shape, and the errors."""
-
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -92,9 +90,6 @@ def test_the_routes_refuse_a_caller_without_the_internal_token(client):
     assert response.status_code == 403
 
 
-#: URLs the archive must never be read from: another host, the store's host on
-#: another port (SeaweedFS's master and filer share it), credentials before the
-#: host, and a scheme that is not HTTP.
 OFF_STORE_URLS = [
     "http://169.254.169.254/latest/meta-data/",
     "http://seaweedfs:9333/cluster/status",
@@ -112,7 +107,6 @@ OFF_STORE_URLS = [
     ],
 )
 def test_an_archive_url_off_the_object_store_is_refused_before_anything_is_read(client, url, path, body):
-    """The archive URL is the caller's, and this tier requests it: an SSRF unless it names the store."""
     response = client.post(
         path,
         json={**body, "archive": {**ARCHIVE, "url": url}},
@@ -125,7 +119,6 @@ def test_an_archive_url_off_the_object_store_is_refused_before_anything_is_read(
 
 
 def test_a_caller_without_the_token_learns_nothing_about_the_url_gate(client):
-    """The token is checked before the body: an outsider gets 403 whatever URL it sends, never 422."""
     response = client.post(
         "/v1/mail-archive/messages",
         json={"archive": {**ARCHIVE, "url": OFF_STORE_URLS[0]}, "start": 0},
@@ -134,8 +127,6 @@ def test_a_caller_without_the_token_learns_nothing_about_the_url_gate(client):
 
 
 def test_the_archive_is_read_at_the_configured_origin_whatever_the_spelling(client):
-    """Same origin in another spelling: the archive is opened at the store as
-    configured, with only the object's path and presigned query from the caller."""
     spelled = {**ARCHIVE, "url": "HTTP://SeaweedFS:8333/x?sig"}
     response = client.post(
         "/v1/mail-archive/messages",

@@ -49,7 +49,6 @@ describe.skipIf(!url)('listBimModels shelf scoping', () => {
   let listBimModels: typeof import('./repository').listBimModels
   let closeDb: typeof import('@/lib/db').closeDb
 
-  /** The models seeded below, by the shelf their document sits on. */
   const models: { project: string; otherProject: string; officeShelf: string; session: string } = {
     project: '',
     otherProject: '',
@@ -60,7 +59,7 @@ describe.skipIf(!url)('listBimModels shelf scoping', () => {
   let OTHER_PROJECT: string
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const { getDb, closeDb: close } = await import('@/lib/db')
     const { withPlatformAccess } = await import('@/lib/db/tenant-context')
     const repository = await import('./repository')
@@ -68,9 +67,6 @@ describe.skipIf(!url)('listBimModels shelf scoping', () => {
     closeDb = close
     const db = getDb()
 
-    // Seeded through the platform role: a tenant-scoped insert cannot create
-    // the projects and conversations the document rows point at, and
-    // `documents.organization_id` has no FK (WorkOS owns org identity).
     const seedProject = async (name: string): Promise<string> => {
       const rows = await withPlatformAccess('seed a project', () =>
         db.execute<{ id: string }>(sql`
@@ -92,12 +88,6 @@ describe.skipIf(!url)('listBimModels shelf scoping', () => {
       return id
     }
 
-    /**
-     * A document on a named shelf. The scope/owner pairing is what migration
-     * 0049's CHECK constraint insists on, so a row that gets it wrong fails
-     * here rather than being quietly seeded into a state production cannot
-     * reach — which would make the test prove nothing.
-     */
     const seedDocument = async (input: {
       filename: string
       scope: 'project' | 'office_shelf' | 'session'
@@ -183,9 +173,6 @@ describe.skipIf(!url)('listBimModels shelf scoping', () => {
   })
 
   it('never hands a private chat’s model to a project', async () => {
-    // The regression this suite exists for. `privater-chat.ifc` is readable
-    // only inside its conversation; before the predicate read the SHELF it
-    // appeared here, in every project in the organization.
     const listed = await listBimModels(ORG, { projectId: PROJECT, includeOfficeShelf: true, reader: REVIEWER_READER })
 
     expect(listed.map((model) => model.filename)).not.toContain('privater-chat.ifc')
@@ -193,8 +180,6 @@ describe.skipIf(!url)('listBimModels shelf scoping', () => {
   })
 
   it('never hands a private chat’s model to a project-less caller either', async () => {
-    // What `/api/internal/bim/query` passes for a conversation with no project:
-    // the org Archiv is what such a chat is entitled to, and nothing more.
     const listed = await listBimModels(ORG, { projectId: null, includeOfficeShelf: true, reader: REVIEWER_READER })
 
     expect(listed.map((model) => model.id)).toEqual([models.officeShelf])

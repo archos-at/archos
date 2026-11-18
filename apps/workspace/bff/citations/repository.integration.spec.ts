@@ -1,22 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: the citation-health reads against a REAL Postgres
- * with every migration applied, as the restricted runtime role.
- *
- * The unit suite renders the scope predicate and can only pin its text. Every
- * claim here is one about what Postgres does with it: that the raw lateral
- * queries still parse with the predicate spliced in, that the range end is
- * exclusive, that a project resolves through the conversation of the same
- * organization, and that an event with no conversation drops out of a
- * project-filtered view.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/citations/repository.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database.
- */
 
 import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
@@ -30,17 +14,12 @@ const STAMP = Date.now()
 const ORG_A = `org_cite_a_${STAMP}`
 const ORG_B = `org_cite_b_${STAMP}`
 const USER = `user_cite_${STAMP}`
-/** ORG_A's conversation in PROJECT, its conversation without one, and ORG_B's. */
 const CHAT_P = `s_cite_p_${STAMP}`
 const CHAT_A = `s_cite_a_${STAMP}`
 const CHAT_B = `s_cite_b_${STAMP}`
 const PROJECT = '0f0f0f0f-0000-4000-8000-0000000000c1'
 const turn = (name: string) => `turn_cite_${name}_${STAMP}`
 
-/**
- * March 2031: far from any other suite's rows, so an unnarrowed read sees only
- * what this file seeded.
- */
 const MARCH: CitationScopeFilter = {
   start: new Date('2031-03-01T00:00:00.000Z'),
   endExclusive: new Date('2031-04-01T00:00:00.000Z'),
@@ -54,7 +33,7 @@ describe.skipIf(!url)('citation-health scope against live Postgres', () => {
   let repo: typeof import('./repository')
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     platform = (fn) => context.withPlatformAccess('test: citation scope', fn)
     repo = await import('./repository')
@@ -122,10 +101,8 @@ describe.skipIf(!url)('citation-health scope against live Postgres', () => {
     const inProject = { ...MARCH, projectIds: [PROJECT] }
     expect(await platform(() => repo.countObservedTurns(inProject))).toBe(1)
     expect(await platform(() => repo.countDefectiveTurns(inProject))).toBe(1)
-    // The orphan quote turn is ORG_A's, and still not in the project.
     const recent = await platform(() => repo.listRecentDefects(inProject))
     expect(recent.map((row) => row.turnId)).toEqual([turn('p')])
-    // A project of ORG_A combined with ORG_B only: nothing satisfies both.
     expect(
       await platform(() => repo.countObservedTurns({ ...inProject, organizationIds: [ORG_B] }))
     ).toBe(0)
@@ -152,7 +129,6 @@ describe.skipIf(!url)('citation-health scope against live Postgres', () => {
     expect(mix).toEqual([{ dimension: 'lane', label: 'oib', turns: 1 }])
     expect(targets.rows.map((row) => row.target)).toEqual(['oib-rl-2.pdf'])
     expect(targetTurns).toBe(1)
-    // ORG_B's outage is outside an ORG_A scope.
     expect(tools).toEqual({ rows: [], total: 0 })
     expect(daily).toEqual([{ day: '2031-03-10', turns: 1, defectTurns: 1 }])
     expect(byKind.map((row) => row.kind).sort()).toEqual(['citations_removed', 'turn_verified'])

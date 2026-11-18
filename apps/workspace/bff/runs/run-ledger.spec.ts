@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The bound on the run ledger, and the moves that grow one.
- *
- * What is under test is not "does it copy fields". It is the three properties a
- * reader's safety rests on: the key set is CLOSED, every list and string is
- * BOUNDED, and everything the ledger can check for itself is DERIVED rather than
- * believed. The hostile payload at the end is the whole file in one case.
- */
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -80,9 +72,6 @@ describe('sanitizeRunLedger', () => {
     expect(
       sanitizeRunLedger({ runId: 'run-1', status: 'running', phases: [], steps: [] }),
     ).toBeNull()
-    // `startedAt` is not optional in the type and inventing "now" for a stored
-    // row would date a week-old run to whenever somebody opened it, so it falls
-    // back to another instant the ledger itself carries.
     const recovered = sanitizeRunLedger({
       runId: 'run-1',
       steps: [step()],
@@ -110,7 +99,6 @@ describe('sanitizeRunLedger', () => {
       steps: [
         {
           ...step(),
-          // The one field this ledger is defined by not having.
           tool: 'search_norms',
           docs: [{ name: 'oib-2.pdf', loci: ['S. 12'], provider: 'milvus' }],
         },
@@ -130,7 +118,6 @@ describe('sanitizeRunLedger', () => {
       steps: many(MAX_STEPS + 12, (index) => step({ id: `step-${index}` })),
     })
     expect(ledger?.steps).toHaveLength(MAX_STEPS)
-    // The FIRST steps are kept: the beginning of a run is what explains it.
     expect(ledger?.steps[0].id).toBe('step-0')
 
     const docs = sanitizeRunLedger({
@@ -366,8 +353,6 @@ describe('the moves', () => {
       { phase: 'researching', startedAt: T1.toISOString() },
     ])
     expect(applied.steps).toEqual([step()])
-    // The stated status wins over the „läuft" a step implies: a run that has
-    // asked the person a question is waiting, whatever it did just before.
     expect(applied.status).toBe('waiting')
   })
 
@@ -417,7 +402,6 @@ describe('an ended ledger stays ended', () => {
   })
 
   it('keeps a salvaged run interrupted when its result arrives, and takes the result', () => {
-    // The worker's own order: the status with its last append, then the finish op.
     const interrupted = setRunStatus(researching(), 'interrupted', T1)
     const finished = applyRunLedgerFinish(interrupted, { result: { filedAt: T2.toISOString(), reportMessageId: 'm-1' } }, T2)
     expect(finished.status).toBe('interrupted')
@@ -433,7 +417,6 @@ describe('an ended ledger stays ended', () => {
   })
 
   it('completes a settled ending with what the worker knows, and keeps when it ended', () => {
-    // The outcome settles the block first; the worker's finish names the message.
     const settledByOutcome = finishRun(researching(), { filedAt: T1.toISOString() }, T1)
     const completed = finishRun(settledByOutcome, { filedAt: T2.toISOString(), reportMessageId: 'm-1' }, T2)
     expect(completed.status).toBe('done')

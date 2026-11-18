@@ -5,12 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const listOrganizationFeatureFlags = vi.fn()
 
-/**
- * The SDK returns an `AutoPaginatable`, not a plain list: `data` is the FIRST
- * page (10 flags by default) and `autoPagination()` follows the cursor. The
- * double mirrors both, so a reader that only maps `data` fails here instead of
- * in production, where it silently reports every flag past the tenth as off.
- */
 function paginated(...pages: { slug: string }[][]) {
   return {
     data: pages[0] ?? [],
@@ -23,6 +17,7 @@ vi.mock('./client', () => ({
 }))
 
 import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
+import { LEGACY_FLAG_KEYS } from '@/lib/authz/legacy-feature-flags'
 import {
   _clearFeatureFlagCache,
   enabledPostAnswerStages,
@@ -36,8 +31,6 @@ import {
 const MEMORY_REFLECTION = FEATURE_FLAGS.memoryReflection
 
 beforeEach(async () => {
-  // Where people sign in — every deployed stack. The anonymous deployment is
-  // its own describe block below.
   vi.stubEnv('REQUIRE_AUTH', 'true')
   vi.stubEnv('WORKOS_API_KEY', 'sk_test')
   await _clearFeatureFlagCache('org-1')
@@ -56,9 +49,6 @@ describe('isOrgFeatureEnabled', () => {
   })
 
   it('reads past the first page, because the endpoint returns ten at a time', async () => {
-    // The defect: `data` alone is one page. Production serves an organization
-    // more than ten flags, and a reader that stops at the first page reports
-    // whatever sorts after it as OFF — silently, and per organization.
     listOrganizationFeatureFlags.mockResolvedValue(
       paginated(Array.from({ length: 10 }, (_, i) => ({ slug: `filler-${i}` })), [
         { slug: MEMORY_REFLECTION },
@@ -105,6 +95,20 @@ describe('isOrgFeatureEnabled', () => {
     await isOrgFeatureEnabled(MEMORY_REFLECTION, 'org-1')
     expect(listOrganizationFeatureFlags).toHaveBeenCalledTimes(1)
   })
+
+  it.each([
+    FEATURE_FLAGS.threadReplies,
+    FEATURE_FLAGS.agentActs,
+    FEATURE_FLAGS.agentNotices,
+    FEATURE_FLAGS.agentAsk,
+  ])('%s is on for its new key, and for the key it had before the rename', async (flag) => {
+    listOrganizationFeatureFlags.mockResolvedValue(paginated([{ slug: flag }]))
+    await expect(isOrgFeatureEnabled(flag, 'org-1')).resolves.toBe(true)
+
+    await _clearFeatureFlagCache('org-1')
+    listOrganizationFeatureFlags.mockResolvedValue(paginated([{ slug: String(LEGACY_FLAG_KEYS[flag]) }]))
+    await expect(isOrgFeatureEnabled(flag, 'org-1')).resolves.toBe(true)
+  })
 })
 
 describe('a deployment that authenticates nobody (REQUIRE_AUTH not true)', () => {
@@ -127,8 +131,6 @@ describe('a deployment that authenticates nobody (REQUIRE_AUTH not true)', () =>
   })
 
   it('ignores a WorkOS key that happens to be configured', async () => {
-    // A key set for Vault or the audit log does not make an anonymous stack a
-    // tenant one: there is still nobody signed in to hold an entitlement.
     listOrganizationFeatureFlags.mockResolvedValue(paginated([{ slug: FEATURE_FLAGS.deepResearch }]))
     await expect(isDeepResearchEnabledForOrg('org-1')).resolves.toBe(false)
     expect(listOrganizationFeatureFlags).not.toHaveBeenCalled()
@@ -173,8 +175,6 @@ describe('isMemoryReflectionEnabled', () => {
 
 describe('enabledPostAnswerStages', () => {
   it('mirrors the backend stage ids, not the flag slugs', () => {
-    // A stage the backend declares but this registry omits can never be
-    // switched on, so the ids have to be the StageSpec ids verbatim.
     expect(POST_ANSWER_STAGE_FLAGS.map((stage) => stage.id)).toEqual(['memory_reflection', 'follow_ups'])
   })
 

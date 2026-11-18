@@ -45,7 +45,7 @@ Sign-out calls `signOut({ returnTo: '/' })` which clears the WorkOS session cook
 The sealed session holds the access token, and WorkOS puts every permission and
 every feature flag the person has into that token. A browser keeps a cookie
 only while its name and value fit in 4096 bytes and drops a larger one
-silently. In October 2026 an admin of GRID Test in Staging held 18 permissions
+silently. In October 2026 an admin of a test organization in Staging held 18 permissions
 and 33 flags, the cookie came to about 4,180 bytes, and every new browser
 signed in, lost the cookie, and was sent back to WorkOS, which was still signed
 in and sent it straight back: `ERR_TOO_MANY_REDIRECTS`, nothing in any log.

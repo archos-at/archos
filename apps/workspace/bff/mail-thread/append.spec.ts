@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Filing a mail's text into its E-Mail-Verlauf (`./append.ts`): the pure parts
- * (what came with the message, the entry, who may see where an attachment
- * went, which refusal is which failure) and the orchestration over a mocked
- * repository and upload path (the lease, the retry, a new thread's name, every
- * refusal a typed failure). The SQL is `append.integration.spec.ts`'s.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -577,7 +570,6 @@ describe('appending to a thread', () => {
     await appendInboundMessage(request())
     const commit = vi.mocked(commitAppend).mock.calls[0]![0] as AppendCommit
     expect(commit.newThread).toBeNull()
-    // It answers the earlier message its In-Reply-To names.
     expect(commit.entry).toMatchObject({
       id: entryIdOf(DECISION_ID),
       threadId: THREAD_ID,
@@ -689,7 +681,6 @@ describe('appending to a thread', () => {
   })
 
   it('numbers a heading the thread already has, never renumbers the earlier one', async () => {
-    // The same sender, the same minute: an earlier message the thread already holds.
     const same = inboundEntryOf({
       id: 'e1',
       threadId: THREAD_ID,

@@ -1,15 +1,3 @@
-/**
- * The viewport's UI kit.
- *
- * Eleven atoms, and everything the model stage draws is built from them. The
- * rule this barrel exists to enforce is that the organisms import from HERE
- * and not from Tailwind: if a control needs a shape the kit does not have, the
- * kit gains an atom rather than the organism gaining a `<div className="...">`.
- * That is what keeps the chrome coherent as it grows — the previous viewport
- * had four floating panels in three different materials, all of them written
- * inline, none of them testable.
- */
-
 export { ViewerSurface, type ViewerSurfaceProps } from './viewer-surface'
 export {
   ViewerIconButton,

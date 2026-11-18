@@ -12,14 +12,8 @@ vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({ authRequired: true, fileUpload: { acceptedTypes: '.pdf', maxFileSize: 100 * 1e6 } }),
 }))
 
-/**
- * Dateien's tool row (review of 2026-11-10, findings 1, 2, 8 and 19): one row under the tabs that never wraps, the
- * level's tools in it before Hochladen, „Ordner anlegen“ in Hochladen's menu where the row has no room for it, and
- * Hochladen the raised press while an empty level's own Hochladen is the pane's one ink press.
- */
 const FOLDERS: FolderItem[] = [{ id: 'a', parentId: null, name: 'Grundlagen', path: '/Grundlagen' }]
 
-/** The row measures itself: every box reports `width`, as a section that wide would. */
 function renderRow({ width, emptyLevel = false }: { width: number; emptyLevel?: boolean }) {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 32, top: 0, left: 0, right: width, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
   const onCreateFolder = vi.fn(async () => true)

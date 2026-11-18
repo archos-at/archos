@@ -23,49 +23,15 @@ import {
   resourceUrl,
 } from "./mcp-gateway-config";
 
-/**
- * Requests per minute per client address at the edge. A signed-in client
- * lists tools and calls them a few times a minute; the budget is for what an
- * anonymous loop costs, since every 401 and metadata request is answered here.
- */
 const RATE_PER_MINUTE = 300;
-/**
- * Seconds a terminating pod keeps serving while Envoy drops it as an endpoint.
- * The image has no shell, so the hook is the kubelet's own sleep (Kubernetes
- * 1.30 and later; the provider runs 1.33).
- */
 const DRAIN_SECONDS = 5;
 
-/** The key the session Secret holds; agentgateway reads it as `SESSION_KEY`. */
 const SESSION_KEY = "session-key"; // pragma: allowlist secret (Secret key name, not a credential)
 
-/**
- * The tools of Langfuse's MCP server an operator's agent may reach (ADR-0160),
- * read against Langfuse 4.74.0 (`web/src/features/mcp/`, the version
- * `config/langfuse.ts` pins).
- *
- * Nothing that holds what offices wrote: traces carry every turn's question and
- * answer, so observations, scores and their comments, comments, datasets and
- * experiments, annotation queues, media, metrics and dashboards over traces,
- * alerts, and batch or test evaluation runs are left out.
- *
- * Nothing that would let an agent move offices' content out either. Prompts and
- * evaluators are read-only here: a rewritten prompt under the `production`
- * label steers every office's turns within a minute (`prompt_store.py`), and an
- * evaluator or rule runs over every trace, a `CODE` evaluator with code the
- * agent wrote. Both change through the repo's own reviewed, ask-first tasks
- * (`task prompts:push -- --apply`, `task langfuse:provision -- --apply`) or in
- * Langfuse's UI. Models, score configs and Langfuse's own skills, which the
- * product does not read, stay writable.
- *
- * A tool a later Langfuse adds stays refused until it is named here.
- */
 export const LANGFUSE_PLATFORM_TOOLS = [
-  // Prompts, read only: the platform prompt and the judges' templates.
   "getPrompt",
   "getPromptUnresolved",
   "listPrompts",
-  // Skills kept in Langfuse; the product does not read them.
   "getSkill",
   "listSkills",
   "loadSkill",
@@ -73,18 +39,15 @@ export const LANGFUSE_PLATFORM_TOOLS = [
   "createSkillVersion",
   "updateSkillLabels",
   "updateSkillTags",
-  // Model definitions and prices.
   "listModels",
   "getModel",
   "createModel",
   "deleteModel",
-  // The score catalogue (`SCORE_DEFINITIONS`).
   "listScoreConfigs",
   "getScoreConfig",
   "createScoreConfig",
   "updateScoreConfig",
   "deleteScoreConfig",
-  // The judges' configuration, read only.
   "listEvaluators",
   "getEvaluator",
   "listManagedEvaluatorTemplates",
@@ -94,11 +57,32 @@ export const LANGFUSE_PLATFORM_TOOLS = [
   "getHealth",
 ] as const;
 
-/**
- * The MCP servers behind the gateway, each at `/<name>/mcp`. Adding one is an
- * entry here, with its `tools` classified (ADR-0160), plus the NetworkPolicy that lets the gateway reach it when its
- * pod is withheld from the namespace-wide allow (`network-policies.ts`).
- */
+export const LANGFUSE_TRACE_TOOLS = {
+  pinned: ["listObservations"],
+  schema: ["getObservationFilterSchema", "getObservationFieldSchema"],
+  unpinnable: ["getObservation", "getObservationFilterValues"],
+} as const;
+
+export const orgTraceTag = (organizationId: string): string => `org:${organizationId}`;
+
+function langfuseTools(traceOrgs: "all" | readonly string[]): Pick<McpServer, "tools" | "pinnedToTags"> {
+  if (traceOrgs === "all") {
+    return {
+      tools: [
+        ...LANGFUSE_PLATFORM_TOOLS,
+        ...LANGFUSE_TRACE_TOOLS.pinned,
+        ...LANGFUSE_TRACE_TOOLS.schema,
+        ...LANGFUSE_TRACE_TOOLS.unpinnable,
+      ],
+    };
+  }
+  if (traceOrgs.length === 0) return { tools: LANGFUSE_PLATFORM_TOOLS };
+  return {
+    tools: [...LANGFUSE_PLATFORM_TOOLS, ...LANGFUSE_TRACE_TOOLS.pinned, ...LANGFUSE_TRACE_TOOLS.schema],
+    pinnedToTags: { tools: LANGFUSE_TRACE_TOOLS.pinned, tags: traceOrgs.map(orgTraceTag) },
+  };
+}
+
 export function mcpServers(cfg: DeployConfig): McpServer[] {
   return [
     ...(cfg.langfuse.enabled
@@ -106,17 +90,10 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
           {
             name: "langfuse",
             url: `http://${LANGFUSE.web}:${PORT.langfuseWeb}/api/public/mcp`,
-            // Langfuse's MCP endpoint answers 403 to a Host it does not know.
-            // Its docs' first choice is to keep the public one, over listing
-            // the internal name in LANGFUSE_MCP_ALLOWED_HOSTS.
             authority: cfg.langfuse.domain,
-            // The project key's precomputed `Basic …` header, the one the
-            // collector already presents. A project key: it reads and writes
-            // that project, prompts included (`ADMITTED_ROLES`).
             credential: { secretName: LANGFUSE_SECRETS_NAME, secretKey: LANGFUSE_SECRET_KEYS.otlpBasicAuth },
             timeout: "300s",
-            // Traces hold every office's turns: configuration tools only (ADR-0160).
-            tools: LANGFUSE_PLATFORM_TOOLS,
+            ...langfuseTools(cfg.mcpGateway.langfuseTraceOrgs),
           },
         ]
       : []),
@@ -125,11 +102,8 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
           {
             name: "cms",
             url: `${CMS_INTERNAL_URL}/api/mcp`,
-            // The CMS's MCP key of its agent account (apps/cms/src/provision.ts):
-            // every write is a draft that a publisher reviews in the admin panel.
             credential: { secretName: CMS_GATEWAY_CREDENTIAL_SECRET, secretKey: CMS_GATEWAY_CREDENTIAL_KEY },
             timeout: "120s",
-            // The public website and its blog, written by the team: platform-public whole (ADR-0160).
             tools: "all" as const,
           },
         ]
@@ -137,17 +111,11 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
   ];
 }
 
-/**
- * `PLATFORM_MCP_SERVER_URLS` for the frontend: each server's public URL, so
- * Platform → Agents lists exactly what this stack serves; and the admission
- * route's token. Absent where the gateway does not run, and the page says so.
- */
 export function platformMcpServerEnv(cfg: DeployConfig): k8s.types.input.core.v1.EnvVar[] {
   if (!cfg.mcpGateway.enabled) return [];
   const urls = mcpServers(cfg).map((server) => resourceUrl(`https://${cfg.mcpGateway.domain}`, server));
   return [
     { name: "PLATFORM_MCP_SERVER_URLS", value: urls.join(",") },
-    // The admission route's own secret (`installMcpAdmissionSecret`).
     {
       name: "PLATFORM_MCP_ADMISSION_TOKEN",
       valueFrom: { secretKeyRef: { name: MCP_GATEWAY.admissionSecret, key: ADMISSION_KEY } },
@@ -163,22 +131,14 @@ export function mcpGatewayConfigYaml(cfg: DeployConfig): string {
     issuer: cfg.mcpGateway.issuer,
     platformOrgId: cfg.mcpGateway.platformOrgId,
     servers: mcpServers(cfg),
-    // Its spans go where every other surface's go: through the collector to
-    // Langfuse, as service `platform-mcp-gateway` (ADR-0089).
     otlpHttpHost: cfg.observability.enabled ? "otel-collector:4318" : undefined,
     admission: { host: `frontend:${PORT.frontend}`, tokenFile: ADMISSION_TOKEN_FILE },
   });
 }
 
-/** Where the admission route's token is mounted in the gateway. */
 const ADMISSION_TOKEN_FILE = "/var/run/secrets/mcp/admission/token";
 const ADMISSION_KEY = "token"; // pragma: allowlist secret (Secret key name, not a credential)
 
-/**
- * The admission route's token, one Secret for both its holders: the frontend
- * reads it as `PLATFORM_MCP_ADMISSION_TOKEN`, the gateway as a file. Created
- * with the frontend, which must not start without it.
- */
 export function installMcpAdmissionSecret(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -200,7 +160,6 @@ function credentialVolumes(servers: McpServer[]) {
   return {
     volumes: withCredential.map((s) => ({
       name: `credential-${s.name}`,
-      // Only the one key, so the gateway never holds the rest of that Secret.
       secret: { secretName: s.credential!.secretName, items: [{ key: s.credential!.secretKey, path: "authorization" }] },
     })),
     mounts: withCredential.map((s) => ({
@@ -241,16 +200,12 @@ export function installMcpGateway(
     {
       metadata: { name: MCP_GATEWAY.name, namespace, labels },
       spec: {
-        // Two, so a roll or a lost node leaves one serving. Both hold the same
-        // session key, so either one serves any session.
         replicas: 2,
         ...surgeRollout(ROLLOUT.observability),
         selector: { matchLabels: labels },
         template: {
           metadata: {
             labels,
-            // agentgateway reloads routes when the file changes, but its
-            // `config:` block and SESSION_KEY are read once, at start.
             annotations: secretChecksumAnnotations(
               secretChecksum({ "config.yaml": configYaml, [SESSION_KEY]: cfg.mcpGateway.sessionKey }),
             ),
@@ -261,7 +216,6 @@ export function installMcpGateway(
             securityContext: { runAsNonRoot: true, runAsUser: MCP_GATEWAY.uid, runAsGroup: MCP_GATEWAY.uid },
             terminationGracePeriodSeconds: gracefulShutdown(ROLLOUT.observability).terminationGracePeriodSeconds,
             ...onNodeGroup(cfg.nodeGroups.app),
-            // One node lost must not take both replicas with it.
             topologySpreadConstraints: spreadAcrossNodes(labels),
             containers: [
               {
@@ -290,8 +244,6 @@ export function installMcpGateway(
                   requests: { cpu: "100m", memory: "128Mi" },
                   limits: { cpu: "500m", memory: "256Mi" },
                 },
-                // The JWKS is fetched as the config loads; until AuthKit
-                // answered, the pod is not ready.
                 startupProbe: {
                   httpGet: { path: "/healthz/ready", port: MCP_GATEWAY_READINESS_PORT },
                   periodSeconds: 2,
@@ -324,7 +276,6 @@ export function installMcpGateway(
     { provider, dependsOn: [...dependsOn, configMap, sessionSecret] },
   );
 
-  // A node drain evicts one replica at a time, so the host keeps answering.
   installPdb(MCP_GATEWAY.name, namespace, provider, labels, [deployment]);
 
   const service = new k8s.core.v1.Service(
@@ -342,8 +293,6 @@ export function installMcpGateway(
     { provider, dependsOn: [deployment] },
   );
 
-  // During a domain move the former host is served by the same route: agents
-  // hold its URL, and agentgateway answers it under its own resource identifiers.
   const former = formerMcpGatewayHost(cfg.ingress, cfg.mcpGateway);
   const routeSpec: IHTTPRouteSpec = {
     parentRefs: [
@@ -354,14 +303,10 @@ export function installMcpGateway(
     rules: [
       {
         backendRefs: [{ name: MCP_GATEWAY.name, port: MCP_GATEWAY_PORT }],
-        // A client's SSE stream stays open for the length of a session; the
-        // edge budget, as for the app and Langfuse routes.
         timeouts: { request: EDGE_TIMEOUT, backendRequest: EDGE_TIMEOUT },
       },
     ],
   };
-  // Retries only where the request never reached a pod (a draining one
-  // included), and a per-address budget, like every other public route.
   const trafficSpec: IBackendTrafficPolicySpec = {
     targetRefs: [{ group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: MCP_GATEWAY.routeName }],
     retry: edgeRetry,
@@ -386,8 +331,6 @@ export function installMcpGateway(
       metadata: { name: MCP_GATEWAY.routeName, namespace, labels },
       spec: routeSpec,
     },
-    // After the Service has endpoints, so the host never answers 503 on a
-    // first deploy.
     { provider, dependsOn: [...dependsOn, service] },
   );
 

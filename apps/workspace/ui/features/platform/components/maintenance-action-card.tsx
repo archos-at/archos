@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * One platform maintenance action: a cross-organization, irreversible button
- * that explains itself, asks before it fires and leaves its counts on screen.
- *
- * The orphaned-vector sweep and the deep-research kill switch were two
- * near-copies of this shape, and they had already drifted: only one named its
- * failures under a summary, both kept showing the previous run's counts under
- * a fresh failure. This organism is that shape once. A caller supplies the
- * endpoint, the copy and three readers over its result type (the outcome line,
- * the measures, the failures); everything else, from the abortable request to
- * the read-only gate, is decided here.
- *
- * The counts are the only record a press leaves in the UI: there is no history
- * endpoint, so they live in component state and are gone on reload. The copy
- * says so in the "last run" hint.
- */
-
 import type { JSX } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
@@ -56,14 +39,12 @@ export interface MaintenanceMeasure {
 }
 
 export interface MaintenanceFailure {
-  /** What could not be handled: a collection name, a job id. */
   id: string
   error: string
 }
 
 export interface MaintenanceOutcome {
   title: string
-  /** True when the run changed something; picks the info over the success tone. */
   changed: boolean
   detail?: string
 }
@@ -73,7 +54,6 @@ export interface MaintenanceActionCopy {
   description: string
   run: string
   running: string
-  /** The "what / when / what it costs" terms, in reading order. */
   explainers: readonly { key: string; term: string; body: string }[]
   lastRunTitle: string
   lastRunHint: string
@@ -92,33 +72,21 @@ export interface MaintenanceActionCopy {
   failuresHint: string
   colFailureId: string
   colFailureError: string
-  /** Shown beside the disabled trigger for a viewer who cannot run it. */
   readOnly: string
 }
 
 export interface MaintenanceActionCardProps<R> {
   copy: MaintenanceActionCopy
   icon: LucideIcon
-  /** `danger` paints the icon well and the trigger in the destructive tokens. */
   tone?: 'default' | 'danger'
   endpoint: string
-  /**
-   * The confirm dialog refuses to close mid-flight, so a stalled request would
-   * leave it locked. Past this the request is aborted to release the UI; the
-   * work itself is server-owned and may still complete, which `failedHint`
-   * must say.
-   */
   timeoutMs: number
-  /** Normalise the response body; a BFF older than the panel may omit fields. */
   parse: (body: unknown) => R
   outcome: (result: R) => MaintenanceOutcome
   measures: (result: R) => MaintenanceMeasure[]
   failures: (result: R) => MaintenanceFailure[]
-  /** Seeds the last-run panel. Only the dev preview and tests pass this. */
   initialResult?: R | null
-  /** Card test id. */
   testId: string
-  /** Prefix for the inner test ids: `-trigger`, `-confirm`, `-result`, `-failures`, `-error`, `-never-run`. */
   idPrefix: string
 }
 
@@ -144,7 +112,6 @@ export function MaintenanceActionCard<R>({
   const [hasFailed, setHasFailed] = useState(false)
   const controllerRef = useRef<AbortController | null>(null)
 
-  // Leaving the page releases the request; the server finishes on its own.
   useEffect(() => () => controllerRef.current?.abort(), [])
 
   const handleRun = useCallback(async () => {
@@ -158,14 +125,10 @@ export function MaintenanceActionCard<R>({
       if (!res.ok) throw new Error(`${endpoint} answered ${res.status}`)
       const result = parse(await res.json())
       setLastResult(result)
-      // The toast is the nudge for an operator who looked away; the table
-      // below is the record.
       toast.success(outcome(result).title)
       const failed = failures(result)
       if (failed.length > 0) toast.warning(copy.failuresTitle(failed.length))
     } catch {
-      // A failed press must not leave the previous run's counts standing under
-      // the error, where they read as this press's result.
       setLastResult(null)
       setHasFailed(true)
       toast.error(copy.failed)

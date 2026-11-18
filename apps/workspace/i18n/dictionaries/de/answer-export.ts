@@ -1,30 +1,8 @@
 import type { en } from '../en'
 
-/**
- * `answerExport` namespace — siehe die englische Quelle für die Begründung.
- *
- * Der Wortschatz folgt dem, was die App im Gespräch schon sagt (`chat.cards.*`):
- * „Zuständig“, „Voraussetzungen“, „Fristbeginn“, „Wenn versäumt“, „Grenzwert“,
- * „Bisher“/„Dann“ stehen dort bereits an denselben Feldern. Ein Dokument, das
- * dieselbe Sache anders benennt als der Bildschirm, auf dem sie entstanden ist,
- * zwingt die Leserin, beides zu übersetzen.
- *
- * `label-coverage.spec.ts` leitet aus `contracts/cards/schemas.json` ab, welche
- * Feldnamen der Export überhaupt beschriften kann, und schlägt fehl, sobald
- * einer davon hier fehlt — ein fehlender Schlüssel wird sonst zu einem
- * englischen Wort im deutschen Befund. Dasselbe gilt für `values`: jedes
- * Mitglied jedes `Literal` aus `models.py` braucht hier ein Wort, sonst stünde
- * `Wirkung | tightens` in einem deutschen Bauakt.
- */
 export const answerExport: typeof en.answerExport = {
   documentTitle: 'Antwort',
   fileName: 'antwort',
-  /**
-   * Die Offenlegung nach Art. 50 Abs. 1 KI-Verordnung, oben auf jedem
-   * Dokument, das {productName} verfasst: dass ein KI-System schreibt, und für
-   * wen (Leitlinien der Kommission zu Art. 50, 5.11.2026, Rn. 31 und 36). Nicht
-   * Teil des Brandings, das ein Büro überschreiben kann.
-   */
   aiDisclosure: {
     withOrganization: 'Verfasst von {productName}, einem KI-System, für {organization}.',
     withoutOrganization: 'Verfasst von {productName}, einem KI-System.',
@@ -33,9 +11,6 @@ export const answerExport: typeof en.answerExport = {
     title: 'KI-generiert — nicht geprüft',
     body: 'Dieses Dokument hat {productName} erstellt; ein Mensch hat es nicht geprüft. Es ist ein Entwurf und kein Nachweis — prüfen Sie jede Angabe, bevor Sie das Dokument weitergeben oder einreichen.',
   },
-  // Siehe die englische Quelle für die drei Bedingungen an diesen Satz: wahr
-  // zum Satzzeitpunkt, kein Fehler und keine Entschuldigung. „nicht
-  // dargestellt" beschreibt die Datei; „konnte nicht" beschriebe die Arbeit.
   diagramPlaceholder:
     'Diagramm — in dieser Datei nicht dargestellt. Die Antwort in {productName} zeigt es als Grafik.',
   question: 'Frage',
@@ -59,12 +34,6 @@ export const answerExport: typeof en.answerExport = {
     grounding: { sourced: 'belegt', derived: 'abgeleitet', open: 'ohne Beleg' },
   },
   legalBasis: 'Rechtsgrundlagen',
-  // Beschriftungen eines Deckblatts, keine Sätze: „Standort“ und „Erstellt
-  // von“ stehen links in einer zweispaltigen Aufstellung, so wie es eine
-  // Amtsleserin auf dem Ausdruck erwartet. „Bundesland“ und „Analyse-ID“
-  // bleiben in beiden Sprachfassungen bei ihrem jeweiligen Fachwort — die
-  // englische Fassung folgt hier `platform`, das den Begriff dort schon
-  // beschriftet.
   reportCover: {
     location: 'Standort',
     bundesland: 'Bundesland',
@@ -122,9 +91,6 @@ export const answerExport: typeof en.answerExport = {
       computed: 'gemessen',
       inferred: 'vermutlich',
     },
-    // Ausgeschrieben nur dort, wo der Vergleich allein in einer Zeile steht.
-    // Neben einer Zahl bleibt das Zeichen stehen: „<= 18 cm“ liest sich als
-    // eine Größe, „höchstens 18 cm“ als ein Satz in einer Tabellenzelle.
     comparator: {
       '<=': 'höchstens',
       '>=': 'mindestens',
@@ -137,7 +103,6 @@ export const answerExport: typeof en.answerExport = {
       window: 'Fenster',
       roof_terrace: 'Dachterrasse',
     },
-    // `building_section.markers.kind`: the role of a section marker.
     kind: {
       escape_level: 'Fluchtniveau',
       threshold: 'Schwellenwert',
@@ -198,11 +163,6 @@ export const answerExport: typeof en.answerExport = {
     true: 'Ja',
     false: 'Nein',
   },
-  // Die Ausnahmen zur flachen `fields`-Tabelle, nach PFAD im Kartenpayload.
-  // „Ist“ stand über dem Grenzwert einer Berechnung — ein Name für zwei
-  // Bedeutungen. Der Schlüssel ist der Pfad, an dem der Walker steht; ein
-  // Schlüssel darf auf `?<Nachbarfeld>=<Wert>` enden, wenn die Bedeutung vom
-  // Wert eines Nachbarfelds abhängt. Siehe die englische Quelle.
   fieldsByPath: {
     calculation: {
       limit: {

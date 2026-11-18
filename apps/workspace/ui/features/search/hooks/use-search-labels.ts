@@ -22,16 +22,9 @@ export interface SearchLabels {
   facetValue: (dimension: SearchFacetDimension, facet: Pick<FacetCount, 'value' | 'label'>) => string
   day: (iso: string | null | undefined) => string | null
   activeFilter: (filter: ActiveFilter, projectName: (id: string) => string | null) => string
-  /** The filter's value alone („Einreichplan“, „Nur aktuelle Fassung“); null for a project the page cannot name. */
   filterValue: (filter: ActiveFilter, projectName: (id: string) => string | null) => string | null
 }
 
-/**
- * The words for the search's values. Document types, party roles and facts
- * speak the dossier's vocabulary (`dossier.*`), so a facet reads as the
- * document's own rail does; a value the vocabulary does not know shows as the
- * server labelled it.
- */
 export function useSearchLabels(): SearchLabels {
   const t = useTranslations(searchCopy)
   const tDossier = useTranslations(dossierCopy)

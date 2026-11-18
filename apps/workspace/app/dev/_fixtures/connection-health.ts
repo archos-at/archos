@@ -1,15 +1,3 @@
-/**
- * The connection's health ping (`GET /api/health`), answered in the browser,
- * for the shell previews (`/dev/app-rail`, `/dev/app-shell-scopes`). The
- * previews have no backend, and an unanswered ping reads as „reconnecting“
- * after its timeout, so a shot showed the connection row or not depending on
- * how long the page took to load.
- *
- * `?presence=` picks the state: healthy by default (the row says nothing, as
- * in the product), `reconnecting` (the server does not answer) or `offline`
- * (the browser says it has no network). Call it at MODULE scope, like
- * `installInboxBadgeFake`; development and browser only, installed once.
- */
 export function installConnectionHealthFake(): void {
   if (typeof window === 'undefined' || process.env.NODE_ENV !== 'development') return
   const w = window as unknown as { __connectionHealthFake?: boolean }

@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What may leave a conversation that drew on a restricted folder (ADR-0087).
- *
- * The decision is driven here with the conversation's record and the folder
- * tree mocked: a run, task or profile patch from a conversation that recorded a
- * source folder not every member may read is refused outright, a filing from
- * one goes only where every reader may read every folder it recorded, and a
- * conversation that recorded nothing (however much it could have searched) is
- * not confined.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -36,12 +26,10 @@ import { PRODUCT_NAME } from '@/lib/brand'
 const ORG = 'org_1'
 const PROJECT = '3f8b0d2e-0000-4000-8000-000000000001'
 const COLLECTION = 'proj_3f8b0d2e'
-/** Source folders, by id (ADR-0088): the record names folders, not collections. */
 const VERTRAEGE = 'vertraege'
 const FEES = 'honorare'
 const CONV = 's_conv_1'
 
-/** Verträge (own list) › Honorare (own list); Offen inherits; Alt is a deleted folder's tombstone. */
 const TREE: AccessFolder[] = [
   { id: VERTRAEGE, parentId: null, accessMode: 'custom', everyoneReads: false },
   { id: FEES, parentId: VERTRAEGE, accessMode: 'custom', everyoneReads: false },
@@ -157,10 +145,6 @@ describe('requireMayFileFrom — only where every reader is cleared for what the
   })
 })
 
-/**
- * The same test for a DOCUMENT: a revision task quotes a draft's text into a
- * run whose goal and filename every project member sees (`openRevisionTask`).
- */
 describe('folderRestrictsReading — whether a revision task may quote a draft', () => {
   it('is true for a folder with its own list, and for one below it', async () => {
     await expect(folderRestrictsReading(ORG, PROJECT, VERTRAEGE)).resolves.toBe(true)

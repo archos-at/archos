@@ -1,36 +1,17 @@
 /**
  * @vitest-environment node
  */
-/**
- * ADR-0047 — a document's shelf travels as DATA on the scope header.
- *
- * `X-Grid-Collection-Scope` used to be `base64url(JSON.stringify(string[]))`:
- * a bare list of collection ids. The shelf each collection sits on was erased
- * at this boundary and guessed back downstream from an `archiv_`/`proj_`/`s_`
- * name prefix — which is why a file privately attached to a chat came back
- * cited as "Projektwissen".
- *
- * These specs pin the emission half of the contract: the BFF, which BUILDS
- * every one of these collection names, states the shelf alongside each name,
- * and states nothing at all for a collection it cannot attribute.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The office's corpus countries are read on every request (ADR-0175); this office is entitled to Austria.
 vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
-// The project's knowledge context: which countries of the base corpus it reads (ADR-0173). AT unless a case says otherwise.
 const contextForPage = vi.fn(async () => ({ retrieval: { countries: ['AT'] } }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage: (...args: unknown[]) => contextForPage(...(args as [])) }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn() }))
-// The profile a site would be read from; nothing in it places the project unless a test says so.
 vi.mock('@/lib/projects/repository', () => ({ findProjectCollectionName: vi.fn(), findProjectProfile: vi.fn(async () => null) }))
 vi.mock('@/lib/user-preferences/repository', () => ({ findUserPreferencesForSession: vi.fn() }))
-// Passthrough: the real scope assembly runs, so these specs exercise the names
-// actually put on the wire. One test overrides it to inject a collection the
-// BFF never built — the only way to reach the "cannot attribute" branch.
 vi.mock('@/lib/retrieval-scope/collection-scope', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/retrieval-scope/collection-scope')>()
   return { ...actual, computeCollectionScope: vi.fn(actual.computeCollectionScope) }
@@ -58,7 +39,6 @@ const session = {
   featureFlags: null,
 } as unknown as AuthorizedSession
 
-/** Decode the header exactly as the Python reader does. */
 function decodeHeader(headerValue: string): ScopedCollection[] {
   return JSON.parse(Buffer.from(headerValue, 'base64url').toString()) as ScopedCollection[]
 }
@@ -70,8 +50,8 @@ function shelfOf(payload: ScopedCollection[], collection: string): string | unde
 }
 
 beforeEach(() => {
-  process.env.REQUIRE_AUTH = 'true'
-  process.env.BASE_COLLECTION_NAME = 'oib_knowledge'
+  vi.stubEnv('REQUIRE_AUTH', 'true')
+  vi.stubEnv('BASE_COLLECTION_NAME', 'oib_knowledge')
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
   vi.mocked(findConversationTenancy).mockResolvedValue(null)
   vi.mocked(findProjectCollectionName).mockResolvedValue(null)
@@ -94,9 +74,6 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
   })
 
   it('emits shelf `project` for the project collection — even when its stored name has no proj_ prefix', async () => {
-    // The name comes from the projects table and need not look like anything.
-    // The shelf is known because the BFF is the one that put it in scope, so a
-    // rename can never turn project knowledge into "unknown" (or into base law).
     vi.mocked(findProjectCollectionName).mockResolvedValue('kb_custom_7')
 
     const { headerValue } = await buildCollectionScopeFromRequest(session, {
@@ -113,8 +90,6 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
   })
 
   it('emits shelf `session` for a private chat attachment collection', async () => {
-    // The defect ADR-0047 names: this used to reach the citation layer as
-    // "Projektwissen", because ('s_', 'projekt') was the only guess available.
     const { headerValue } = await buildCollectionScopeFromRequest(session, {
       conversationId: CONVERSATION_ID,
     })
@@ -133,7 +108,7 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
   })
 
   it('emits shelf `base` for the base knowledge corpus under any configured name', async () => {
-    process.env.BASE_COLLECTION_NAME = 'grid_base_corpus'
+    vi.stubEnv('BASE_COLLECTION_NAME', 'grid_base_corpus')
 
     const { headerValue } = await buildCollectionScopeFromRequest(session, {})
 
@@ -141,10 +116,6 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
   })
 
   it('OMITS the shelf for a collection it cannot attribute, rather than defaulting it', async () => {
-    // A collection the BFF did not build has no known shelf. Missing reads as
-    // unknown downstream and renders unattributed; defaulting it to `base`
-    // would let a stranger collection claim to be authoritative base law —
-    // exactly the fail-open this ADR removes.
     vi.mocked(computeCollectionScope).mockReturnValueOnce([
       'oib_knowledge',
       'some_custom_corpus',
@@ -156,7 +127,6 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
     expect(payload).toContainEqual({ collection: 'some_custom_corpus' })
     expect(shelfOf(payload, 'some_custom_corpus')).toBeUndefined()
     expect(Object.keys(payload[1])).toEqual(['collection'])
-    // The base corpus in the same payload is still attributed.
     expect(shelfOf(payload, 'oib_knowledge')).toBe('base')
   })
 
@@ -175,12 +145,7 @@ describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {
   })
 })
 
-// Dev QC 2026-11-12: a project with no site asked about OIB-RL 6, the scope left the base corpus out, and the
-// answer said the released text "could not be read". Which countries a read sees is the knowledge context's to
-// say (ADR-0173): the turn's and the run's narrow the signed list, a foreign site's to its own country or none.
 describe('the base corpus is in every project scope, whatever its site (ADR-0173)', () => {
-  // What the project's own knowledge context reads (`resolve.ts`): an unplaced site the office's countries
-  // (`site_unknown`), an Austrian one Austria, one where the office holds no country nothing (`not_entitled`).
   it.each([
     ['unplaced', ['AT'], ['AT']],
     ['placed in AT', ['AT'], ['AT']],

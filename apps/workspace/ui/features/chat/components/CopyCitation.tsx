@@ -1,20 +1,3 @@
-/**
- * Copying a source as a citation somebody can actually use.
- *
- * A link the user has to retype into their Befund is not provenance they can
- * work with. These two affordances hand over a real citation instead:
- *
- *  - `CopySourceCitationButton` — inside a source's preview popover / document
- *    dialog: copies the German Fachtext citation of that one source (the form
- *    an Austrian Einreichung / Gutachten uses).
- *  - `CopyCitationsMenu` — on the block: copies ALL of the answer's sources in
- *    the chosen format — Fachtext, APA, BibTeX, EndNote/Zotero (.ris) or
- *    CSL-JSON, i.e. the formats reference managers and Word actually ingest.
- *
- * The heavy citation renderer (citation-js) is loaded lazily by
- * `renderCitations`, so a chat that never copies never pays for it.
- */
-
 'use client'
 
 import { type FC, type ReactNode } from 'react'
@@ -41,25 +24,16 @@ import { toTechnicalText, toQuoteList } from '../lib/source-citation'
 import type { CitationRef } from '../lib/citations'
 import { useCitationStyles } from '../hooks/use-citation-styles'
 
-/** Write to the clipboard, reporting failure instead of swallowing it. */
 const copyText = async (text: string, onDone: () => void, failedMessage: string): Promise<void> => {
   if (!text) return
   try {
     await navigator.clipboard.writeText(text)
     onDone()
   } catch {
-    // Clipboard unavailable or blocked (insecure context, denied permission).
     toast.error(failedMessage)
   }
 }
 
-/**
- * The quiet text action a copy control is: muted ink that darkens on hover,
- * the shared press, the one focus ring. Under a finger it takes the 44px
- * floor as its own height (`pointer-coarse:min-h-11`) rather than through an
- * invisible `touch-target` overhang, because these sit two or three to a row
- * and overhangs that overlap hand a tap to whichever sibling paints last.
- */
 export const COPY_ACTION_CLASSES = cn(
   'inline-flex shrink-0 items-center gap-1 rounded-control px-1.5 py-0.5 text-xs font-medium outline-none',
   'text-muted-foreground hover:text-foreground pointer-coarse:min-h-11',
@@ -67,17 +41,6 @@ export const COPY_ACTION_CLASSES = cn(
   FOCUS_RING
 )
 
-/**
- * The inside of a copy control: an icon that swaps to a check, and a label
- * that swaps to „Kopiert" WITHOUT changing the control's width.
- *
- * Both labels sit in one grid cell, so the box is as wide as the longer of the
- * two at rest and in receipt alike: a label that reflowed to its new width
- * nudged every control to its right, twice, for a confirmation the reader only
- * glances at. The labels cross-fade; the icons swap on `iconSwapTransition`
- * (scale on `springSnap`, a small element landing inside that spring's 24px
- * travel budget; opacity on a tween, because opacity never springs).
- */
 export const CopyActionFace: FC<{
   copied: boolean
   icon: ReactNode
@@ -123,13 +86,6 @@ export const CopyActionFace: FC<{
   )
 }
 
-/**
- * The receipt a screen reader hears. The visible „Kopiert" lives inside a
- * button whose name is its `aria-label`, so it is never read; this polite
- * status beside the control is. Always mounted, so the region exists before
- * its text changes — a live region that appears with its message is not
- * reliably announced.
- */
 export const CopiedAnnouncement: FC<{ copied: boolean }> = ({ copied }) => {
   const t = useTranslations(chatCopy)
   return (
@@ -139,7 +95,6 @@ export const CopiedAnnouncement: FC<{ copied: boolean }> = ({ copied }) => {
   )
 }
 
-/** Per-row copy: the Fachtext citation of one source. */
 export const CopySourceCitationButton: FC<{ citation: CitationRef }> = ({ citation }) => {
   const t = useTranslations(chatCopy)
   const styles = useCitationStyles()
@@ -175,7 +130,6 @@ export const CopySourceCitationButton: FC<{ citation: CitationRef }> = ({ citati
   )
 }
 
-/** Block-level copy: every source of the answer, in a chosen citation format. */
 export const CopyCitationsMenu: FC<{ citations: CitationRef[] }> = ({ citations }) => {
   const t = useTranslations(chatCopy)
   const swap = useIconSwapTransition()
@@ -183,10 +137,6 @@ export const CopyCitationsMenu: FC<{ citations: CitationRef[] }> = ({ citations 
   const [copied, flashCopied] = useTransientFlag()
 
   const handleCopy = async (format: CitationFormat): Promise<void> => {
-    // Inside the same failure path as the clipboard write: `renderCitations`
-    // lazily imports citation-js, and a chunk that fails to load (offline, a
-    // deploy in between) used to reject UNHANDLED — the menu just closed and
-    // nothing said why nothing was on the clipboard.
     let text: string
     try {
       text = await renderCitations(citations, format, new Date(), styles)

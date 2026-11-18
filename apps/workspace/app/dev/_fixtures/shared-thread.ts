@@ -1,14 +1,7 @@
-/**
- * The shared thread the chat previews render (`/dev/shared-thread`,
- * `/dev/inbox-dock?page=chat`): three people and the agent in one conversation, and
- * the `fetch` and `EventSource` shims that serve it to the real `ChatArea` with
- * no backend. One copy, so both previews show the same thread.
- */
-
 import { useChatStore } from '@/features/chat/store'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 
-/** `useAuth` returns this id when auth is disabled, so it is "me" in the preview. */
 const ME = 'default-user'
 const ANNA = 'user_anna'
 const TOBIAS = 'user_tobias'
@@ -33,7 +26,6 @@ const PEOPLE = {
 
 const at = (minute: number): string => new Date(Date.UTC(2026, 6, 29, 9, minute, 0)).toISOString()
 
-/** Server message rows, exactly as `GET .../messages` returns them. */
 const MESSAGE_ROWS = [
   {
     id: 'm1',
@@ -65,7 +57,6 @@ const MESSAGE_ROWS = [
     createdAt: at(8),
   },
   {
-    // Anna again: this one groups under the header above it.
     id: 'm4',
     conversationId: CONVERSATION_ID,
     role: 'user',
@@ -81,23 +72,15 @@ const MESSAGE_ROWS = [
     authorUserId: TOBIAS,
     content:
       'Dann zählt der Innenhof nicht als zweiter Rettungsweg. @' + PRODUCT_NAME + ' wie wirkt sich das auf den Nachweis aus?',
-    // Structured mentions ride in the metadata and are rendered as chips; the
-    // addressee ruling next to them is the SERVER's, stored at persist time (MN-2).
     metadata: {
       messageType: 'user',
-      mentions: [{ targetId: 'agent:piloti', display: PRODUCT_NAME }],
+      mentions: [{ targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }],
       addressees: { agent: true, users: [] },
     },
     createdAt: at(11),
   },
 ]
 
-/**
- * The hand-back variant's thread: the reader asked Anna (a hand-off — the server
- * ruled `{ agent: false, users: [Anna] }`, so no turn was started), and Anna has
- * now answered. The wait is therefore closed, the agent is out of the loop, and the
- * thread sits at the moment where the way on has to be offered.
- */
 const HANDBACK_ROWS = [
   MESSAGE_ROWS[0],
   MESSAGE_ROWS[1],
@@ -111,7 +94,6 @@ const HANDBACK_ROWS = [
     metadata: {
       messageType: 'user',
       mentions: [{ targetId: ANNA, display: 'Anna Berger' }],
-      // The hand-off ruling: people, and deliberately NOT the agent (MN-1/MN-7).
       addressees: { agent: false, users: [ANNA] },
     },
     createdAt: at(9),
@@ -123,8 +105,6 @@ const HANDBACK_ROWS = [
     authorUserId: ANNA,
     content:
       'Ja, verschlossen — im Bestandsplan von 2019 als Fluchtweg gestrichen. Der Innenhof zählt nicht.',
-    // A plain message while the thread awaited her: a remark to the thread, which
-    // is exactly what resolves her request.
     metadata: { messageType: 'user', addressees: { agent: false, users: [] } },
     createdAt: at(14),
   },
@@ -146,22 +126,12 @@ const SHARING_STATE = {
   ],
 }
 
-/** Read from the URL on every call, so the shim needs no React state. */
 const variant = (): string | null =>
   typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('variant')
 
 const isHandbackVariant = (): boolean => variant() === 'handback'
-/** The live variant: a colleague's turn being WATCHED, plus somebody composing. */
 const isLiveVariant = (): boolean => variant() === 'live'
 
-/**
- * The frames the live variant replays, in the order the backend would emit them
- * (`conversation_bus` envelopes, unwrapped by `/api/conversations/:id/live`).
- *
- * Real agent-runtime shapes, not a convenient summary: the whole value of this preview is
- * that it exercises the actual reducer, so a change to the wire format shows up
- * here as a blank panel rather than passing silently.
- */
 const LIVE_FRAMES: unknown[] = [
   {
     type: 'system_intermediate_message',
@@ -187,7 +157,6 @@ const LIVE_FRAMES: unknown[] = [
     },
     status: 'in_progress',
   },
-  // The masthead, written before the prose and sent ahead of it (ADR-0066).
   {
     type: 'system_response_message',
     id: 'r0',
@@ -224,11 +193,6 @@ const LIVE_FRAMES: unknown[] = [
   },
 ]
 
-/**
- * Serves the thread to the real hooks in place of the BFF. Call it at module
- * scope, so the very first fetch of the hook is already served (idempotent,
- * browser + dev only).
- */
 export function installSharedThreadShim(): void {
   if (typeof window === 'undefined' || process.env.NODE_ENV !== 'development') return
   const w = window as unknown as { __sharedThreadShim?: boolean }
@@ -238,7 +202,6 @@ export function installSharedThreadShim(): void {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const href =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      // Matched on the path: the reads carry their paging and `include` in the query.
       const url = new URL(href, window.location.origin).pathname
 
       if (url === `/api/conversations/${CONVERSATION_ID}`) {
@@ -250,8 +213,6 @@ export function installSharedThreadShim(): void {
           shared: true,
           myRole: 'collaborator',
           visibility: 'project',
-          // The reader last read up to their own answer, so the separator lands
-          // above Anna's first message.
           myReadState: { lastReadAt: at(4), lastReadMessageId: 'm2' },
         })
       }
@@ -261,9 +222,6 @@ export function installSharedThreadShim(): void {
           nextCursor: null,
         })
       }
-      // The derived hand-off state. Empty in both variants — in the hand-back one
-      // that emptiness IS the fixture: Anna's answer closed her request, which is
-      // why the banner is gone and the offer has to take over.
       if (url === `/api/conversations/${CONVERSATION_ID}/awaiting`) {
         return Response.json({ pending: [], awaitingMe: false })
       }
@@ -276,12 +234,6 @@ export function installSharedThreadShim(): void {
       return real(input, init)
     }
 
-    // The turn-in-flight banner is driven by a live `conversation.turn` event, so
-    // the preview stands up a one-frame EventSource rather than faking the
-    // component's state: the screenshot then exercises the real path
-    // (event-hub → useLiveEvents → useSharedThread → banner). Replacing the
-    // constructor also stops the real `/api/stream` route being polled behind an
-    // auth wall for the life of the preview.
     class PreviewEventSource {
       static readonly CONNECTING = 0
       static readonly OPEN = 1
@@ -291,10 +243,6 @@ export function installSharedThreadShim(): void {
       onerror: (() => void) | null = null
 
       constructor(url: string) {
-        // Two different channels reach this one constructor: the session-wide
-        // collaboration hub (`/api/stream`) and — in the live variant — the
-        // per-conversation frame relay opened by `useSpectatedTurn`. Branching on
-        // the URL keeps the preview honest about which surface reads which.
         const isFrameRelay = url.endsWith('/live')
         setTimeout(() => {
           this.onopen?.()
@@ -302,8 +250,6 @@ export function installSharedThreadShim(): void {
             this.replayFrames()
             return
           }
-          // A turn in flight would contradict the hand-back variant (the agent is
-          // precisely NOT working there), so that variant only opens the channel.
           if (isHandbackVariant()) return
           this.emitEnvelope({
             kind: 'conversation.turn',
@@ -311,16 +257,6 @@ export function installSharedThreadShim(): void {
             phase: 'started',
             actorUserId: TOBIAS,
           })
-          // Somebody at a keyboard, alongside the agent working — the two live
-          // signals are independent, and the live variant shows both at once.
-          //
-          // Deliberately on a LATER timer than the turn event, and not merely for
-          // realism (a colleague starts typing during a turn, not in the same
-          // millisecond): the indicator resolves its names against the roster, so a
-          // claim that lands before `GET /api/sharing/...` has answered is held
-          // until it does. Firing both in one tick made the capture race that
-          // fetch, which is a flaky screenshot rather than a product defect —
-          // but a flaky screenshot is not evidence.
           if (isLiveVariant()) {
             setTimeout(
               () =>
@@ -329,8 +265,6 @@ export function installSharedThreadShim(): void {
                   conversationId: CONVERSATION_ID,
                   userId: ANNA,
                   typing: true,
-                  // Long enough to outlive the capture; the expiry itself is
-                  // covered by the hook's unit tests, not by a picture.
                   ttlMs: 600_000,
                 }),
               600
@@ -343,7 +277,6 @@ export function installSharedThreadShim(): void {
         this.onmessage?.({ data: JSON.stringify({ id: 'preview-1', at: at(11), event }) })
       }
 
-      /** Feed the spectator reducer the same frames the backend would publish. */
       private replayFrames(): void {
         LIVE_FRAMES.forEach((payload, index) => {
           setTimeout(
@@ -364,11 +297,6 @@ export function installSharedThreadShim(): void {
   }
 }
 
-/**
- * Puts the reader in the thread, as opening it would. The store starts EMPTY on
- * purpose: a shared thread's history comes from the server (ADR-0033), so the
- * preview proves the load path rather than dressing a local fixture.
- */
 export function seedSharedThread(): void {
   useChatStore.setState({
     currentUserId: ME,

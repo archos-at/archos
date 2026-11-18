@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Detach (D34): the thread a message leaves gets a Fassung without it (the
- * recorded exception), written first; the thread it joins a Fassung with it;
- * only then does the row move, and the follows of the thread it left end. Every
- * refusal is a 409 with its reason, and nothing moves on one.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

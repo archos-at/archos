@@ -1,17 +1,3 @@
-"""Post-answer stages — the reusable shape, and the stages declared on it.
-
-A **post-answer stage** is a bounded, gated, independently-failing unit of work
-that runs after a turn's answer exists, produces at most one payload addressed to
-that turn, and may not affect the answer in any way. Adding one costs a
-declaration and a handler: the single call site iterates the registry and never
-names a stage.
-
-Importing this package registers every built-in stage, the same way importing an
-agent-runtime plugin package registers its functions.
-
-See docs/architecture/post-answer-stages.md.
-"""
-
 from agent.stages.delivery import StageFrameSink
 from agent.stages.delivery import get_stage_frame_sink
 from agent.stages.delivery import register_stage_frame_sink
@@ -28,9 +14,6 @@ from agent.stages.spec import StageSpec
 from agent.stages.spec import StageStatus
 from agent.stages.spec import TurnFacts
 
-# Import for the registration side effect: the declarations must exist before
-# the call site iterates them. Kept last so the primitive is fully importable
-# even if a stage module grows a heavier import.
 from agent.stages import memory_reflection as _memory_reflection  # noqa: E402  isort:skip
 from agent.stages import follow_ups as _follow_ups  # noqa: E402  isort:skip
 

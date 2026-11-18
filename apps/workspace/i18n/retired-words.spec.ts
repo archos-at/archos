@@ -2,25 +2,9 @@
  * @vitest-environment node
  */
 
-/**
- * One German word per concept in the product's copy (CONTEXT.md, „Aufgabe“,
- * „Lauf“, „Chat“, „Zuständig“).
- *
- * The work handed to Piloti is an „Aufgabe“ and one attempt at it a „Lauf“; a
- * thread is a „Chat“; the person who answers for something is „zuständig“. The
- * copy used five words for those two things and three for a chat (Auftrag,
- * Aufgabe, Lauf, Job, Run; Chat, Unterhaltung, Gespräch), and a reader
- * scanning for one could not know the others meant the same. This is the
- * ratchet for the retired words, over every German value.
- *
- * {@link KEPT} lists the values where a retired word means something else,
- * each with why.
- */
-
 import { describe, expect, it } from 'vitest'
 import { de } from './dictionaries'
 
-/** The retired words, each with the one that replaced it. */
 const RETIRED: readonly { word: RegExp; use: string }[] = [
   { word: /\bAuftr(ag|äge|ags)\b/, use: 'Aufgabe (the work) or Lauf (one attempt)' },
   { word: /\bUnterhaltung(en)?\b/, use: 'Chat' },
@@ -28,12 +12,11 @@ const RETIRED: readonly { word: RegExp; use: string }[] = [
   { word: /\b[Vv]erantwortlich\b/, use: 'zuständig' },
 ]
 
-/** Values where a retired word names another concept, by dictionary path. */
 const KEPT: Readonly<Record<string, string>> = {
   'projects.lifecycle.closeDialog.outcome.cancelledHint':
-    'a client’s commission to the office (a withdrawn Auftrag), not work handed to Piloti',
-  'files.lifecycle.submit.orderLabel': 'the instruction a person gives the reviewer of a revision, not work for Piloti',
-  'files.lifecycle.submit.needOrder': 'the instruction a person gives the reviewer of a revision, not work for Piloti',
+    'a client’s commission to the office (a withdrawn Auftrag), not work handed to the agent',
+  'files.lifecycle.submit.orderLabel': 'the instruction a person gives the reviewer of a revision, not work for the agent',
+  'files.lifecycle.submit.needOrder': 'the instruction a person gives the reviewer of a revision, not work for the agent',
 }
 
 function values(node: unknown, path: string, into: [string, string][]): [string, string][] {

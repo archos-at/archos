@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Rewording and deleting one's own reply, driven through the TYPED CLIENT and
- * the real routes, service and inbox emitters (ADR-0055): only the document
- * reader, the repository, the wake record, who may open the document and the
- * inbox's writes are faked.
- *
- * What is pinned: only the person who wrote a reply changes it, never
- * Piloti's and never a colleague's; only while the mark is live; never once
- * Piloti took it up (it answered after it, or its wake is queued or ran); an
- * edit tells only whom it adds, withdraws whom it drops, keeps an @Piloti only
- * when the reply had one, and wakes nobody; a delete takes the rows that still
- * quote the reply with it; and both tell the room.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -124,7 +111,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler; params:
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -266,9 +253,7 @@ describe('rewording one’s own reply', () => {
 
     expect(emitted.map((row) => [row.type, row.recipientUserId])).toEqual([['annotation.mentioned', 'user_ben']])
     expect(emitted[0].payload).toMatchObject({ excerpt: '@Ben Gruber bitte prüfen', replyId: 'rep_1' })
-    // An edit is not a reply: the thread hears nothing new.
     expect(emitted.some((row) => row.type === 'annotation.activity')).toBe(false)
-    // The rows that quote the reply quote its new words, in place: nobody's row resurfaces.
     expect(rewriteInboxPayloadsAnchoredOn).toHaveBeenCalledWith({
       organizationId: 'org_1',
       types: ['annotation.activity', 'annotation.mentioned'],
@@ -295,7 +280,7 @@ describe('rewording one’s own reply', () => {
     expect(markInboxItemsInertAnchoredOn).not.toHaveBeenCalled()
   })
 
-  it('never wakes Piloti: an @Piloti added in an edit is not kept', async () => {
+  it('never wakes the agent: an @agent added in an edit is not kept', async () => {
     await editReply('doc_1', 'ann_1', 'rep_1', { body: `@${PRODUCT_NAME} @Anna Berger bitte prüfen`, mentions: [AGENT, ANNA] }, { run })
 
     expect(updateAnnotationReply).toHaveBeenCalledWith('org_1', 'ann_1', 'rep_1', expect.any(String), {
@@ -305,9 +290,8 @@ describe('rewording one’s own reply', () => {
     expect(insertAnnotationReply).not.toHaveBeenCalled()
   })
 
-  it('keeps an @Piloti the reply already had, while Piloti has not taken it up', async () => {
+  it('keeps an @agent the reply already had, while the agent has not taken it up', async () => {
     withReplies([replyRow({ body: `@${PRODUCT_NAME} stimmt das?`, mentions: [AGENT], addressesAgent: true })])
-    // A cap held its wake: Piloti never read it.
     vi.mocked(findWake).mockResolvedValue(wake('suppressed'))
 
     await editReply('doc_1', 'ann_1', 'rep_1', { body: `@${PRODUCT_NAME} stimmt die Breite?`, mentions: [AGENT] }, { run })
@@ -336,7 +320,6 @@ describe('deleting one’s own reply', () => {
     expect(retractInboxOccurrenceAnchoredOn).toHaveBeenCalledWith(
       expect.objectContaining({ types: ['annotation.activity'], anchorId: 'ann_1', payloadHas: { replyId: 'rep_1' } })
     )
-    // Anna was mentioned only there: her mention goes too.
     expect(markInboxItemsInertAnchoredOn).toHaveBeenCalledWith(
       expect.objectContaining({ types: ['annotation.mentioned'], recipientUserId: 'user_anna' })
     )
@@ -370,7 +353,7 @@ describe('who may change a reply, and when', () => {
     expect(deleteAnnotationReply).not.toHaveBeenCalled()
   })
 
-  it('refuses Piloti’s reply, even one posted for this person: that goes by undo', async () => {
+  it('refuses the agent’s reply, even one posted for this person: that goes by undo', async () => {
     withReplies([replyRow({ authorKind: 'piloti', mentions: [] })])
 
     expect(await Promise.all(both())).toEqual([
@@ -395,7 +378,7 @@ describe('who may change a reply, and when', () => {
     ])
   })
 
-  it('refuses a reply to Piloti that Piloti answered after', async () => {
+  it('refuses a reply to the agent that the agent answered after', async () => {
     withReplies([
       replyRow({ body: `@${PRODUCT_NAME} stimmt das?`, mentions: [AGENT], addressesAgent: true }),
       replyRow({ id: 'rep_2', authorKind: 'piloti', body: 'Ja.', mentions: [], createdAt: new Date('2026-10-01T09:01:00Z') }),
@@ -422,7 +405,7 @@ describe('who may change a reply, and when', () => {
     }
   )
 
-  it('refuses an answer on Piloti’s own Rückfrage once its wake ran, with no @Piloti in it', async () => {
+  it('refuses an answer on the agent’s own Rückfrage once its wake ran, with no @agent in it', async () => {
     withReplies([replyRow({ body: 'Ja, 1,00 m.', mentions: [] })], {
       authorKind: 'piloti',
       kind: 'question',
@@ -445,7 +428,7 @@ describe('who may change a reply, and when', () => {
     }
   )
 
-  it('does not ask after Piloti for a reply that was not for it, whatever Piloti wrote since', async () => {
+  it('does not ask after the agent for a reply that was not for it, whatever the agent wrote since', async () => {
     withReplies([
       replyRow(),
       replyRow({ id: 'rep_2', authorKind: 'piloti', body: 'Notiz', mentions: [], createdAt: new Date('2026-10-01T09:01:00Z') }),

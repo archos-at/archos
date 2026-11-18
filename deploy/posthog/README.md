@@ -7,7 +7,8 @@ paste the source into the destination (PostHog → Data pipelines → Destinatio
 or the PostHog MCP `cdp-functions-partial-update`), test it with a real event,
 then enable it.
 
-Staging (`app.dev.piloti.at`) and production (`app.piloti.at`) share one
+Staging (`app.dev.archos.tech`) and production (`app.archos.tech`; `app.dev.piloti.at` and
+`app.piloti.at` until the moves of 2026-11-05 and 2026-11-15) share one
 PostHog project (269895). Every destination below therefore works out which
 deployment a ticket belongs to before it links to or calls one.
 
@@ -41,9 +42,10 @@ project token) and reading the destination's logs, not only by test-invoking it.
 
 Inputs each destination needs: the Slack integration (`slack_workspace`,
 integration 91399) and `channel` (`C0CBG0ZC0TB`) for the two Slack ones;
-`default_host` (`app.piloti.at`) for the alert; `assignee_names` (PostHog user
+`default_host` (`app.archos.tech`) for the alert; `assignee_names` (PostHog user
 id → display name, optional) for the claim update; `allowed_hosts`
-(`["app.piloti.at", "app.dev.piloti.at"]`) for the poke.
+(`["app.archos.tech", "app.dev.archos.tech", "app.piloti.at", "app.dev.piloti.at"]`)
+for the poke: a ticket keeps the origin it was opened under, so the former hosts stay.
 
 The two Slack destinations also take `copy` (JSON): every word they post. The
 code is English like the rest of the repo and reads `inputs.copy.<key>`; the
@@ -90,17 +92,31 @@ Fold a new rule in with the same wrapper:
 The inner columns are renamed because ClickHouse refuses an outer
 `countIf(breach > 0)` over an inner `breach` alias.
 
+**One alert reads either `events` or `posthog.metrics`, never both.** PostHog
+keeps them on different clusters: a query over both runs nowhere („Cannot query
+tables from different clusters in the same query. Found tables requiring
+clusters: Default, Metrics"), and the scheduled check errors, emails „errored"
+once and **switches the alert off**. That happened to Product incidents on
+2026-11-14, after a SeaweedFS rule was folded into its event rules: from 02:05
+nothing it watched could fire. Metric rules go in a metrics alert
+(Infrastructure incidents, Platform health), event rules in an events one. Run
+the whole query once in the SQL editor before saving it; after saving, read the
+alert back (`alert-get`) and check `enabled: true` and that its last check has
+no `error`.
+
 | Alert | Insight (Slack destination) | Checked | Rules |
 |---|---|---|---|
-| Platform health (prod) | `tqqimEor` (`01a17ea5-0076-0000-c725-3cd6187d926a`) | hourly | The five per-area health tables of `docs/observability/metrics.md`, merged, plus „production sends no metrics at all", which the old heartbeat could not see: it only noticed a service that sent and then stopped |
+| Platform health (prod) | `tqqimEor` (`01a17ea5-0076-0000-c725-3cd6187d926a`) | hourly | Its SQL is [`alerts/platform-health.sql`](alerts/platform-health.sql). Metrics only, production only. The five per-area health tables of `docs/observability/metrics.md`, merged, plus „production sends no metrics at all", which the old heartbeat could not see: it only noticed a service that sent and then stopped. Off from 2026-11-05 to 2026-11-17: it fired four hours on two failed kopia maintenance pods whose Job had succeeded on retry, and from 2026-11-14 its query no longer ran (it read past PostHog's 139.7 GiB per-query limit), so it did not see prod's SeaweedFS reach 95 %. Back on since 2026-11-17: a Job's pod counts only when Pending for a whole hour, and every label join reads a `metric_series` subquery cut to the rule's hours, which took a check from 75 GiB to 0.3 GiB |
 | Support: feedback ticket waiting 24h+ (prod) | `gsIfpLwh` (`01a17ea5-03eb-0000-0596-3dccfc406539`) | hourly | A prod ticket, contact allowed, where the reporter spoke last more than 24 h and less than 7 days ago. Read from `$conversation_message_*` events: PostHog emits no event when a ticket is resolved, so a ticket resolved without a reply stays listed until its 7 days pass |
+| Product incidents (prod) | `xWv00W5B` (no Slack destination: it emails its subscriber) | hourly | Its SQL is [`alerts/product-incidents.sql`](alerts/product-incidents.sql): edit the file, then paste it into the insight. **Not yet pasted:** the file's `[Antworten]` rule reads the chat host's `answer_finished`; paste it only once `SELECT count() FROM events WHERE event = 'answer_finished' AND properties.app_host IN ('app.piloti.at', 'app.archos.tech')` is above zero, or every question reads as unanswered. Events only. 402s from a provider, `MissingTenantContextError`, failed or hour-long ingests, blocked budgets, unanswered chat questions, and `[Projekt-E-Mail]` on **every** stack, dev included: three or more deliveries on one host in an hour refused for a reason of ours (not an unknown address, a switched-off office or an oversized mail), counted per host with every cause in the text, and a host whose first refusal is six or more hours old, that refused within the last hour and accepted none since. The rule names the `stage` and `error` the webhook records. Added 2026-11-14, after dev refused every delivery to one office for two days and nothing looked: the sending server retries a refused mail silently, so the sender never learns either |
+| Infrastructure incidents | `qBCjesPb` (no Slack destination: it emails its subscriber) | hourly | Its SQL is [`alerts/infrastructure-incidents.sql`](alerts/infrastructure-incidents.sql). Metrics only, on **every** stack. Its label joins read `metric_series` subqueries cut to the rule's hours and metric names: 0.01 GiB a check, against 16 GiB joined bare (2026-11-17). `[Objektspeicher]` from SeaweedFS's own metrics: a disk over 85 % full, or a collection whose volumes the volume server made read-only for low disk space (every write into it answers 500). `[Jobs]` a Kubernetes Job (a CronJob's run, its timestamp suffix stripped) that failed and has not succeeded within 26 h: `qdrant-snapshot` failed daily on dev and prod and its retries filled prod's object store. Added 2026-11-14; it took the slot of the retired „data stores degraded" alert, whose rules Platform health already holds |
 | Costs and budgets (prod) | `1GfF4oj1` (`01a17ea5-06b2-0000-a138-a2d2cd892bc5`) | hourly | An office at 90 %+ of its monthly budget or blocked by it; today's LLM cost above 25 USD and above twice the 14-day daily average; Claude chat reading under 20 % of its input from the prompt cache over 24 h (it read 0 % for a month until 2026-10-27, `packages/agent/src/agent/common/prompt_caching.py`). Cost equals price on the price list today, so a negative-margin rule would never fire |
 
 ## Destinations outside `support/`
 
 | File | Destination in PostHog | Trigger | What it does |
 |---|---|---|---|
-| none: PostHog's Slack template with its inputs set | „Piloti answers: thumbs-down with a reason → Slack (prod)" `01a17e99-0271-0000-4f5a-8c22030a5fd0` | `answer_feedback_submitted` with `verdict = down`, `reason` set and `$host = app.piloti.at` | Posts to `#answer-quality`: the reason, the office, the page, the conversation and message ids, links to Platform → Answer quality and the person's replays. The vote's comment never reaches PostHog. A thumbs-down without a reason does not post: on its own it says too little to act on |
+| none: PostHog's Slack template with its inputs set | „Piloti answers: thumbs-down with a reason → Slack (prod)" `01a17e99-0271-0000-4f5a-8c22030a5fd0` | `answer_feedback_submitted` with `verdict = down`, `reason` set and `$host` one of `app.archos.tech`, `app.piloti.at` | Posts to `#answer-quality`: the reason, the office, the page, the conversation and message ids, links to Platform → Answer quality and the person's replays. The vote's comment never reaches PostHog. A thumbs-down without a reason does not post: on its own it says too little to act on |
 | [`surveys/chat-message-count.hog`](surveys/chat-message-count.hog) | „Piloti: count chat messages per person (NPS audience)" `01a17ea6-7a0c-0000-b8fe-252e2147be8c` | `chat_message_sent` | Sets the person property `chat_messages_total`, which the NPS survey targets (≥ 15) |
 
 ## Surveys and reports
@@ -137,9 +153,10 @@ What every query shares, as the `WITH` block at its top:
   same on Monday morning and on Thursday.
 - **Production is two properties.** A browser event carries `$host` and no
   `app_host`; a server event carries `app_host` and no `$host`. A filter on one
-  of them silently drops the other half. The Python services carry neither and
-  report `environment = production` on both stacks, so their errors cannot be
-  told apart by deployment.
+  of them silently drops the other half. The Python services carry `app_host`
+  (`POSTHOG_APP_HOST`) since the deploy of 2026-11-17; their earlier events carry
+  neither and report `environment = production` on both stacks, so those cannot
+  be told apart by deployment.
 - **Customers** are every office except `internal_offices`, the same ids as the
   project's „internal and test" filter (Settings → Project). A new internal
   office is added in both places. Cost is the exception: it is the platform's
@@ -163,6 +180,28 @@ messages, exports and votes read 0 (they were 94, 21 and 6), „active people"
 was a count of 2 955 server events, and a daily budget warning was reported as
 80 % of a monthly budget. A report whose numbers must be right is saved
 insights; a model may summarise them, never query for them.
+
+## Views: `views/`
+
+Saved views that put production, and the customer offices, in the data rather
+than in each query. An agent reads them by name and their description says what
+a row is. Edit the file, then save it with `view-update` (it needs the view's
+`latest_history_id` as `edited_history_id`), and re-check that a one-day query
+reads only that day in `query_log`: a lambda (`arrayFirst`) or `person_id`
+in the view makes PostHog read every row.
+
+| File | View |
+|---|---|
+| [`prod_events.sql`](views/prod_events.sql) | `prod_events`: every production event, staging left out, with `deployment`, `app_host` and `organization_id` |
+| [`customer_events.sql`](views/customer_events.sql) | `customer_events`: `prod_events` without the platform's own offices |
+
+## Skills
+
+The project skill `querying-product-analytics`, which PostHog serves to every agent on
+its MCP (`learn project:querying-product-analytics`), has its source in
+[`../../skills/querying-product-analytics/SKILL.md`](../../skills/querying-product-analytics/SKILL.md),
+where apm also installs it for coding agents. After editing it, publish it with
+`skill-update`: the body without the frontmatter, the description from it.
 
 ## Announcements
 

@@ -2,20 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `parity.config.ts` lists every capability of the review canvas with its form
- * on the canvas and in the chat (ADR-0128). These cases hold it against the
- * code: an entry for every annotation op and every canvas operation of the
- * catalog, a mirror or a reason on each side, components that exist, cards the
- * generated schema holds, and no gap that has since been closed.
- *
- * Python reads `tests/fixtures/surface-parity.json`
- * (`packages/agent/tests/tools/test_surface_parity.py`: every tool of the canvas
- * group and `look` has an entry). A changed entry fails here until it is
- * regenerated:
- *
- *   UPDATE_FIXTURES=1 bunx vitest run bff/surface-parity/parity.config.spec.ts
- */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -46,7 +32,6 @@ const sides = entries.flatMap(([name, entry]) => [
 const kindOf = (form: SurfaceForm): 'exempt' | 'gap' | 'rendering' =>
   'exempt' in form ? 'exempt' : 'gap' in form ? 'gap' : 'rendering'
 
-/** The `type` literal of each member of the generated card union. */
 function cardTypes(): Set<string> {
   const types = new Set<string>()
   for (const option of answerCardSchema.options) {
@@ -127,7 +112,6 @@ describe('the surface parity registry', () => {
   })
 })
 
-/** The registry as JSON for Python: tool, op, operations and what each side is. */
 function render(): string {
   const side = (form: SurfaceForm) => {
     if ('exempt' in form) return { kind: 'exempt', reason: form.exempt }

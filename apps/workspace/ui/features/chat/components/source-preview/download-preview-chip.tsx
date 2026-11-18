@@ -20,29 +20,18 @@ import type { DownloadTarget } from './document-target'
 import { useCitationDownload } from './use-citation-download'
 import { InfoPreviewChip } from './info-preview-chip'
 
-/**
- * A cited document with no in-app viewer — offered as a file, with the reason.
- *
- * Same face as every other citation chip, because it is the same kind of thing:
- * the reader must not have to learn that a `.dwg` source is a different
- * species of chip. What differs is the one control the popover holds — a
- * download rather than an open — and the line above it saying why.
- */
 export const DownloadPreviewChip: FC<{
   target: DownloadTarget
   signal: SourceTint
   label: string
   authority?: string
   className?: string
-  /** The marker(s) this source carries in the answer prose. */
   index?: string
   variant?: CitationVariant
-  /** The reference this chip stands for — powers the peek and "copy citation". */
   citation?: CitationRef
   trailing?: ReactNode
   detail?: CitationDetail
   kind: SourceKind
-  /** Fine authority tier, for the fallback popover. */
   tier?: string
   bindingNote?: string
   meta?: string
@@ -66,8 +55,6 @@ export const DownloadPreviewChip: FC<{
   const { isDownloading, download } = useCitationDownload(target)
   const peek = useHoverPopover()
 
-  // Without a reference there is no peek to fill, so the popover the info chip
-  // already draws is the right one; it gains the download and the reason.
   if (!citation) {
     return (
       <InfoPreviewChip

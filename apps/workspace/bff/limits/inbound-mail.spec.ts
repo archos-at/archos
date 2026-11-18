@@ -1,16 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Project mail's three count buckets against REAL counting (ADR-0137 D18).
- *
- * The webhook charges address, then organization, then signing key, and stops
- * at the first refusal (`enforceInboundLimits` in `lib/inbound-mail/receive.ts`,
- * whose own spec pins that order). What is asserted here is the sizing: one
- * office flooding its budget defers its own mail and nobody else's, and the
- * one bucket every office shares does not run out while the offices are
- * within theirs.
- */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -23,10 +13,8 @@ import { createInProcessStore, setLimitStore } from './store'
 
 const KEY = 'keyid:worker-1'
 
-/** How many offices may be at their full hourly cap at once before the shared ceiling defers anyone. */
 const OFFICES_AT_FULL_CAP = 100
 
-/** One delivery, charged the way the webhook charges it; the rule that refused it, or null. */
 async function deliver(
   organizationId: string,
   addressId: string,
@@ -66,12 +54,10 @@ describe('inbound mail limits', () => {
   it(`the shared ceiling holds ${OFFICES_AT_FULL_CAP} offices at their full cap at once`, async () => {
     const cap = INBOUND_MAIL_ORGANIZATION_LIMIT.limit
     for (let office = 0; office < OFFICES_AT_FULL_CAP; office++) {
-      // An office's hour at its cap, charged in one step: the address bucket is not what is measured here.
       expect(
         (await consumeLimit(INBOUND_MAIL_ORGANIZATION_LIMIT, `org-${office}`, cap)).allowed
       ).toBe(true)
       expect((await consumeLimit(INBOUND_MAIL_SIGNING_KEY_LIMIT, KEY, cap)).allowed).toBe(true)
-      // Past its cap, an office is refused at its own bucket, never at the one every office shares.
       expect(await deliver(`org-${office}`, 'addr-0')).toBe(INBOUND_MAIL_ORGANIZATION_LIMIT.name)
     }
   })

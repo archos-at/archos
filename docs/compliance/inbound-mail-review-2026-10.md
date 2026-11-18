@@ -34,7 +34,7 @@ paragraph saying so; a draft is at the end of this document.
 | Follows: who follows which Verlauf, until when, why it ended | `mail_thread_follows`; audit `mail_thread.follow_started` / `.follow_ended` | until the thread is deleted | with the thread |
 | The address and its rotation history | `inbound_mail_addresses` | until the project is purged | the project purge |
 | Product analytics | PostHog: ids, counts, codes, trust labels; never a sender, subject, file name or address | PostHog's retention (12 months) | — |
-| Transit | Cloudflare Email Routing (the MX) and the Email Worker | Cloudflare's Email Routing activity log (sender, recipient, time, outcome); the Worker logs nothing (observability off, no Logpush) | Cloudflare's own retention **[sign-off: confirm Cloudflare's activity-log retention and DPA coverage]** |
+| Transit | Cloudflare Email Routing (the MX) and the Email Worker | Cloudflare's Email Routing activity log (sender, recipient, time, outcome); the Worker logs one line per mail to Workers Logs since 2026-11-14 (outcome, the BFF's status and verdict, its request id; no address, subject or body: invocation logs off, no Logpush) | Cloudflare's own retention **[sign-off: confirm Cloudflare's activity-log retention and DPA coverage]** |
 | Malware scans | the in-cluster ClamAV | nothing: bytes arrive on a socket and are gone with the reply | — |
 
 Filed attachments are ordinary documents: they live, are deleted and are

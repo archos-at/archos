@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * „Grundlage“ beside a Büroablage file that is one of the office's standards
- * (ADR-0163, ticket 32: „als Grundlage erkennbar, nicht als eine Datei unter
- * vielen“). A press opens the file in Grundlagen des Büros, with its
- * edition, validity and last check beside it; the row's own press opens the
- * same file here.
- */
-
 import Link from 'next/link'
 import type { JSX } from 'react'
 import { Library } from 'lucide-react'

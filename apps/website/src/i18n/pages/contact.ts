@@ -1,9 +1,3 @@
-/**
- * Copy of the contact page, both locales. `{name}` is the brand name, filled by
- * `withName`; `{street}`, `{postalCode}` and `{city}` are filled from identity
- * by the view. Labels and text only: the form and the address block live in
- * `src/views/ContactView.astro`.
- */
 const de = {
   meta: {
     title: 'Kontakt',

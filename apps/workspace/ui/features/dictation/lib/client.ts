@@ -1,12 +1,5 @@
-/**
- * The browser's call to `POST /api/dictation`. Never throws: every outcome is
- * a value the composer can render, because a failed dictation must leave the
- * chat exactly as it was.
- */
-
 import type { DictationAudioFormat, DictationResult } from '@/lib/dictation/contract'
 
-/** Why no text came back; each maps to one inline error message. */
 export type DictationFailure = 'rateLimited' | 'tooLarge' | 'notConfigured' | 'failed'
 
 export type DictationOutcome = { ok: true; text: string } | { ok: false; reason: DictationFailure }

@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * The first screen a new customer sees after signing in: name the
- * organization, become its admin, go in.
- *
- * It used to open with a 5xl headline over a rotating starfield, three feature
- * tiles and the same three-step list twice, once as a promise and once as a
- * receipt. The design language asks for the opposite (no decoration, one focal
- * point, 20px page titles), and the screen asks one question, so it is now
- * built like the question it is: a narrow column, the name and the office's
- * country (its seat, never the law of its sites), one ink button,
- * and three quiet lines saying what happens next. Everything else it said was
- * restating the button.
- *
- * Presentational on purpose: the route (`app/app/onboarding/organization`)
- * owns the fetches, and `/dev/onboarding` renders every state from fixtures.
- * Sign-out stays in the header in every state: signed in with the wrong
- * account, or waiting on an invitation, must never be a dead end (UX-17).
- */
-
 import * as React from 'react'
 import { z } from 'zod'
 import { Check, Compass, Lock, LogOut, UserPlus, type LucideIcon } from 'lucide-react'
@@ -41,15 +22,10 @@ import { HOME_COUNTRIES, type HomeCountry } from '@/lib/organizations/home-count
 const isHomeCountry = (value: string): value is HomeCountry => (HOME_COUNTRIES as readonly string[]).includes(value)
 
 export interface OrganizationSetupProps {
-  /** The signed-in account, shown beside sign-out. */
   email?: string | null
-  /** The platform creates organizations itself; this person needs an invite. */
   selfServeDisabled: boolean
-  /** Set once the organization exists: the screen becomes the hand-off. */
   createdName: string | null
-  /** A translated failure from the last attempt. */
   error: string | null
-  /** Resolves when created; rejects are the caller's to turn into `error`. */
   onCreate: (input: { name: string; homeCountry: HomeCountry }) => Promise<void>
   onSignOut: () => void
 }
@@ -120,7 +96,6 @@ function SetupForm({
 
   const schema = z.object({
     name: z.string().trim().min(1, t('validation.nameRequired')).max(100, t('validation.nameTooLong')),
-    // No default: the office says where it is; nothing guesses it (migration 0200).
     homeCountry: z.string().refine(isHomeCountry, t('validation.homeCountryRequired')),
   })
 

@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * "+ Add" in the outline, unfolding in place (country-onboarding-ux.md, B):
- * an act for a region, and an edition with its text for a series. Both write
- * into the country's draft through routes the door already serves; an act is
- * checked by a dry run first, and what the kit refuses is shown as it says it.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { useId, useState } from 'react'
 import { toast } from 'sonner'
@@ -95,13 +88,11 @@ function FormShell({ title, children, problems, onCancel, busy, submit, onSubmit
   )
 }
 
-/** "+ Add an act to <region>": the act, the gazette page and its adopting clause, the day and the editions. */
 export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCancel }: { map: LawMap; territoryId: string; countryId: string; sources: readonly SourceStatusView[]; onAdded: () => void; onCancel: () => void }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   const region = map.territories.get(territoryId)?.name ?? territoryId
   const acts = [...new Map(map.statements.filter((statement) => statement.territoryId === territoryId).map((statement) => [statement.actWorkId, statement.actTitle])).entries()]
   const labels = [...new Set([...map.editions.values()].map((edition) => edition.label))]
-  // The edition most series have, the usual one an act adopts, comes first.
   const usual = [...labels].sort((x, y) => [...map.editions.values()].filter((e) => e.label === y).length - [...map.editions.values()].filter((e) => e.label === x).length)[0] ?? ''
   const [act, setAct] = useState(acts[0]?.[0] ?? NEW)
   const [title, setTitle] = useState('')
@@ -118,7 +109,6 @@ export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCa
   const [exceptLabel, setExceptLabel] = useState(labels[0] ?? '')
   const [busy, setBusy] = useState(false)
   const [problems, setProblems] = useState<FormProblem[]>([])
-  // One capture per page and draft: a second try reuses it, so the draft a reviewer reads holds no copies.
   const [captured, setCaptured] = useState<{ requestId: string; url: string; text: string; captureId: string } | null>(null)
   const sourceId = url ? sourceFor(url, sources) : null
 
@@ -181,7 +171,6 @@ export function AddActForm({ map, territoryId, countryId, sources, onAdded, onCa
   )
 }
 
-/** "+ Add an edition": its label, the day it applies from, and its text from the publisher, fetched or uploaded. */
 export function AddEditionForm({ workId, designation, countryId, onAdded, onCancel }: { workId: string; designation: string; countryId: string; onAdded: () => void; onCancel: () => void }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   const [label, setLabel] = useState('')

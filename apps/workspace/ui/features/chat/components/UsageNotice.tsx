@@ -1,17 +1,3 @@
-/**
- * The usage notice above the composer: one budget window, before it stops this
- * person (`lib/budgets/usage-notice.ts` decides which, and at what level).
- *
- * It answers the three things a person needs at that moment: whose budget it
- * is, when it renews, and what they can do about it. Someone who can move the
- * binding limit gets a button to where it is edited; everyone else is told an
- * admin can, and where their usage is. Every level but `exhausted` can be
- * dismissed; that one is a fact about whether the next message will go out.
- *
- * Presentational: `ChatUsageNotice.tsx` reads and refreshes the notice, so the
- * /dev preview and the specs render exactly this.
- */
-
 'use client'
 
 import type { FC } from 'react'
@@ -38,7 +24,6 @@ const LOOK: Record<
 
 export interface UsageNoticeProps {
   notice: ChatUsageNotice
-  /** Absent for an exhausted window, which cannot be dismissed. */
   onDismiss?: () => void
 }
 
@@ -71,9 +56,6 @@ export const UsageNotice: FC<UsageNoticeProps> = ({ notice, onDismiss }) => {
   const renews =
     notice.window === 'day' ? t('usageNotice.renewsDay', { time }) : t('usageNotice.renewsMonth', { date })
 
-  // Whoever cannot move the limit is told who can, at every level: a warning
-  // that ends in nothing to do is noise, and one that points at a settings
-  // page they cannot edit is a dead end.
   const askAdmin = notice.canChange ? null : t('usageNotice.askAdmin')
   const sentences: Array<string | null> = exhausted
     ? [
@@ -93,7 +75,6 @@ export const UsageNotice: FC<UsageNoticeProps> = ({ notice, onDismiss }) => {
   return (
     <Alert
       variant={look.variant}
-      // Only a spent budget interrupts a screen reader; the rest is news, not an alarm.
       role={exhausted ? 'alert' : 'status'}
       aria-live={exhausted ? 'assertive' : 'polite'}
       className="relative"

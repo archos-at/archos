@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The `site-resolution` flag is the gate of both site routes (ADR-0172): off,
- * each answers 403 and the service is never reached; on, the route hands the
- * service what it parsed. The service itself runs against Postgres in
- * `bff/site-resolution/site-resolution.integration.spec.ts`.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 

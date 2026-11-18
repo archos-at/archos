@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * One microphone button's lifecycle: check support, record up to 45 seconds,
- * send, hand the text back. The composer only ever sees `onTranscript` with
- * text to insert, or `onError` with a message key; it never sees audio.
- *
- * Silence is decided here, before anything is sent: a recording shorter than
- * {@link MIN_RECORDING_MS}, or whose loudest moment stayed under
- * {@link SILENCE_RMS}, inserts nothing and costs nothing. Transcription models
- * invent text over silence (subtitle credits, "Thank you."), so not sending it
- * is the reliable half; the backend drops the known phrases as the other.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMachine } from '@xstate/react'
 import { fromCallback, fromPromise } from 'xstate'
@@ -38,25 +26,12 @@ export {
   type DictationState,
 } from '../lib/dictation-machine'
 
-/**
- * How often the recorder hands over what it has. Without it the only chunk
- * comes with the stop, so a recorder whose stop never reports left nothing to
- * send; with it a forced finish holds all but the last second. The chunks are
- * one stream cut at arbitrary points, and only their concatenation, in order,
- * is a file: they are never sent singly.
- *
- * Only for WebM, where the sliced file was measured to decode whole (Chromium,
- * November 2026). Safari records MP4 and nobody has sent its slices through
- * the transcription yet, so there the recorder runs as it always did.
- */
 const RECORDER_TIMESLICE_MS = 1_000
 const sliced = (mimeType: string): boolean => mimeType.startsWith('audio/webm')
 
-/** How often the level is read: the silence gate's sample rate and the waveform's frame rate. */
 const LEVEL_SAMPLE_MS = 60
 
 export interface UseDictationOptions {
-  /** The UI language, sent as a wording hint. Never fixes the transcription language. */
   locale: string
   onTranscript: (text: string) => void
   onError: (key: DictationErrorKey) => void
@@ -74,13 +49,11 @@ interface RecordingSession {
   chunks: Blob[]
   startedAt: number
   ticker: ReturnType<typeof setInterval> | null
-  /** Set when the machine left the capture, or the button unmounted: nothing is reported after it. */
   cancelled: boolean
 }
 
 type AudioContextConstructor = new () => AudioContext
 
-/** Created inside the click, before any await: Safari starts a context made later suspended. */
 function createAudioContext(): AudioContext | null {
   const scope = window as unknown as { AudioContext?: AudioContextConstructor; webkitAudioContext?: AudioContextConstructor }
   const Context = scope.AudioContext ?? scope.webkitAudioContext
@@ -114,7 +87,6 @@ function attachMeter(context: AudioContext | null, stream: MediaStream): LevelMe
   }
 }
 
-/** Lets go of whatever the session still holds. Safe to call again: a stream that arrives late is released by a second call. */
 function release(session: RecordingSession): void {
   if (session.ticker) clearInterval(session.ticker)
   session.ticker = null
@@ -138,11 +110,6 @@ async function checkSupport(): Promise<RecordingSupport> {
   return denied ? { available: false, reason: 'denied' } : support
 }
 
-/**
- * The microphone for one recording: opens it, records, samples the level, and
- * reports each step to the machine. The machine stops it by leaving the state
- * that invoked it, which is also what an unmount does.
- */
 function captureMicrophone(
   mimeType: string,
   sendBack: (event: CaptureEvent) => void,
@@ -156,7 +123,6 @@ function captureMicrophone(
     ticker: null,
     cancelled: false,
   }
-  // Runs inside the click that started the machine's `capturing` state, before any await.
   const context = createAudioContext()
 
   const finish = () => {
@@ -181,7 +147,6 @@ function captureMicrophone(
     session.ticker = setInterval(() => {
       const level = session.meter?.read() ?? 0
       const elapsedSeconds = Math.floor((Date.now() - session.startedAt) / 1000)
-      // Only this button re-renders: the state lives in its machine, not in the composer.
       sendBack({ type: 'level.sampled', level, elapsedSeconds })
     }, LEVEL_SAMPLE_MS)
     sendBack({ type: 'microphone.opened' })
@@ -192,7 +157,6 @@ function captureMicrophone(
       session.stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
       })
-      // Given up on while the prompt was open: `cancel` closed the context, and the stream goes straight back.
       if (session.cancelled) return release(session)
       session.meter = attachMeter(context, session.stream)
       if (!session.meter) void context?.close().catch(() => {})
@@ -201,8 +165,6 @@ function captureMicrophone(
       const meterAttached = session.meter !== null
       release(session)
       if (!meterAttached) void context?.close().catch(() => {})
-      // A refusal that lands after the person gave up, or left, is said to nobody: the
-      // composer it would reach is gone or has moved on, and the next press learns it afresh.
       if (!session.cancelled) sendBack({ type: 'microphone.failed', key: startErrorKey(error) })
     }
   }
@@ -213,11 +175,9 @@ function captureMicrophone(
       const recorder = session.recorder
       if (recorder && recorder.state !== 'inactive') recorder.stop()
     },
-    // For a recorder that never fired `onstop`: report what arrived, as `onstop` would have.
     finish,
     cancel: () => {
       session.cancelled = true
-      // Until a stream arrives the context belongs to no meter, and a microphone that never answers would keep it open.
       if (!session.meter) void context?.close().catch(() => {})
       release(session)
     },
@@ -230,7 +190,6 @@ export function useDictation({ locale, onTranscript, onError }: UseDictationOpti
     callbacks.current = { locale, onTranscript, onError }
   }, [locale, onTranscript, onError])
 
-  // Provided once: the actor keeps the machine it was created with, and each implementation reads the latest callbacks.
   const [machine] = useState(() =>
     dictationMachine.provide({
       actors: {
@@ -250,7 +209,6 @@ export function useDictation({ locale, onTranscript, onError }: UseDictationOpti
       },
     }),
   )
-  // Starts on mount and stops on unmount, which cancels the capture and aborts a request in flight.
   const [snapshot, send] = useMachine(machine)
 
   const state = useMemo(() => dictationStateOf(snapshot), [snapshot])

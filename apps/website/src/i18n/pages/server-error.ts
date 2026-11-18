@@ -1,7 +1,3 @@
-/**
- * Copy of the page shown when a page rendered on request fails on our side (status 500,
- * src/pages/500.astro), both locales. `{name}` is the brand name, filled by `withName`.
- */
 const de = {
   title: 'Etwas ist schiefgelaufen',
   description: 'Beim Laden dieser Seite ist auf unserer Seite ein Fehler aufgetreten.',

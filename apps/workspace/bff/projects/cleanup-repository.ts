@@ -1,8 +1,3 @@
-/**
- * The rows „Ausmisten" reads and undoes beyond what the folder and document
- * services already offer (ADR-0092). Tenant-scoped, bounded by their input.
- */
-
 import 'server-only'
 import { and, eq, isNull, notExists } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
@@ -11,12 +6,6 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { documents } from '@/lib/db/schema/documents'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 
-/**
- * Remove a folder the clean-out created, when it is living and empty: no
- * document filed in it and no folder below it. The undo of a clean-out that
- * failed halfway; never a delete a person asked for (that is the Papierkorb).
- * True when the row went.
- */
 export async function deleteEmptyCreatedFolder(organizationId: string, projectId: string, folderId: string): Promise<boolean> {
   const db = getDb()
   const child = alias(projectFolders, 'child')

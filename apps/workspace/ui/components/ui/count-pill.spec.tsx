@@ -8,7 +8,6 @@ describe('CountPill', () => {
     const pill = screen.getByText('5 Dokumente')
     expect(pill).toHaveAttribute('data-slot', 'count-pill')
     expect(pill).toHaveClass('bg-muted')
-    // Ink at 70 %: muted ink on the muted fill was 4.44:1, under WCAG AA.
     expect(pill).toHaveClass('text-foreground/70')
     expect(pill).not.toHaveClass('text-muted-foreground')
     expect(pill).toHaveClass('tabular-nums')
@@ -19,7 +18,6 @@ describe('CountPill', () => {
     const pill = screen.getByText('7')
     expect(pill).toHaveClass('bg-primary')
     expect(pill).toHaveClass('text-primary-foreground')
-    // Same shape either way — the tone changes colour, never padding.
     expect(pill).toHaveClass('rounded-full')
     expect(pill).toHaveClass('px-2')
   })
@@ -35,7 +33,6 @@ describe('CountPill with a count', () => {
     const { container } = render(<CountPill count={count} max={max} />)
     return container.querySelector('[data-slot="count-pill"]') as HTMLElement
   }
-  /** What a sighted reader sees: the text outside the screen-reader-only span. */
   const visible = (element: HTMLElement): string =>
     Array.from(element.childNodes)
       .filter((node) => !(node instanceof HTMLElement && node.classList.contains('sr-only')))

@@ -1,24 +1,3 @@
-/**
- * The cases of a `:::cases{by=…}` block, read off their cells, and the one that
- * holds for this project.
- *
- * With `by` naming a project key the RENDERER marks the case that applies, from
- * the profile, and a mark the model wrote that disagrees is overruled
- * (answer-richness guardrail 1). So each case has to be something a value can
- * be held against:
- *
- *  - a **class** („GK 4", „Gebäudeklasse 4") for `by=building_class`;
- *  - a **range** („bis 7 m", „über 7 m bis 11 m", „7–11 m", „ab 22 m") for a
- *    numeric key (`escape_level_m`, `storeys`, `gross_floor_area_m2`); a run of
- *    „bis …" rows reads as consecutive ranges, each starting where the one
- *    before it ended;
- *  - a **text** (the case's words) for `use` and `state`.
- *
- * A column is a case column only when every one of its cells parses; one that
- * does not stays a table, marked as the model wrote it. Pure, so the shaping
- * pass can settle the cases once and a component only matches a value.
- */
-
 import { parseNumber } from './quantities'
 import type { ProjectKey } from '@/lib/text/answer-directives'
 
@@ -26,7 +5,6 @@ export interface CaseRange {
   kind: 'range'
   min: number | null
   max: number | null
-  /** `>` / „über": the bound itself is outside. */
   minStrict: boolean
   maxStrict: boolean
 }
@@ -35,7 +13,6 @@ export type CaseDescriptor = { kind: 'class'; value: number } | CaseRange | { ki
 
 export type CaseKind = CaseDescriptor['kind']
 
-/** The kind of case a key's value is held against. */
 export const caseKindFor = (key: ProjectKey): CaseKind =>
   key === 'building_class' ? 'class' : key === 'use' || key === 'state' ? 'text' : 'range'
 
@@ -49,7 +26,6 @@ export function parseCaseClass(text: string): number | null {
 const NUMBER = String.raw`\d[\d.,]*`
 const BELOW = String.raw`bis|≤|<=|<|max\.?|maximal|höchstens|up to|under`
 const ABOVE = String.raw`über|mehr als|>=|≥|>|ab|mind\.?|mindestens|over|above|from`
-/** „über 7 m bis 11 m", „> 7 bis ≤ 11 m", „7–11 m", „7 bis 11 m". */
 const BETWEEN = new RegExp(
   String.raw`(?:(${ABOVE})\s*)?(${NUMBER})\s*[^\d\s–-]{0,3}\s*(?:–|-|bis|to)\s*(?:(≤|<=|<)\s*)?(${NUMBER})`,
   'i'
@@ -58,7 +34,6 @@ const ONE = new RegExp(String.raw`(${BELOW}|${ABOVE})\s*(${NUMBER})`, 'i')
 
 const isStrictAbove = (word: string | undefined): boolean => /^(über|mehr als|>|over|above)$/i.test(word ?? '')
 
-/** One cell's range, or null for a cell that states none. */
 export function parseCaseRange(text: string): CaseRange | null {
   const between = BETWEEN.exec(text)
   if (between) {
@@ -79,7 +54,6 @@ export function parseCaseRange(text: string): CaseRange | null {
   return { kind: 'range', min: value, max: null, minStrict: isStrictAbove(word), maxStrict: false }
 }
 
-/** A run of „bis …" rows: each case starts where the one before it ended. */
 function chainRanges(ranges: CaseRange[]): CaseRange[] {
   return ranges.map((range, index) => {
     const before = ranges[index - 1]
@@ -89,7 +63,6 @@ function chainRanges(ranges: CaseRange[]): CaseRange[] {
   })
 }
 
-/** Every cell of one column as a case of `kind`, or null when one of them is not. */
 export function parseCases(kind: CaseKind, texts: readonly string[]): CaseDescriptor[] | null {
   if (texts.length < 2) return null
   if (kind === 'class') {
@@ -110,10 +83,6 @@ const inRange = (range: CaseRange, value: number): boolean =>
 
 const fold = (text: string) => text.toLocaleLowerCase('de').replace(/\s+/g, ' ').trim()
 
-/**
- * The first case the project's value falls in, or -1. `number` is the numeric
- * value (a class's number, a figure), `text` what the profile shows.
- */
 export function matchCase(cases: readonly CaseDescriptor[], value: { number: number | null; text: string | null }): number {
   return cases.findIndex((entry) => {
     if (entry.kind === 'class') return value.number === entry.value
@@ -125,12 +94,7 @@ export function matchCase(cases: readonly CaseDescriptor[], value: { number: num
   })
 }
 
-// ---------------------------------------------------------------------------
-// The threshold ruler
-// ---------------------------------------------------------------------------
-
 export interface RulerTick {
-  /** Where the tick sits, 0–100 along the scale. */
   at: number
   value: number
 }
@@ -139,24 +103,16 @@ export interface RulerSegment {
   from: number
   to: number
   label: string
-  /** The segment the project's value is in. */
   holds: boolean
 }
 
 export interface Ruler {
   ticks: RulerTick[]
   segments: RulerSegment[]
-  /** The pin, 0–100. */
   pin: number
-  /** The nearest threshold above the value and the case it opens, else the one below. */
   nearest: { delta: number; direction: 'below' | 'above'; label: string } | null
 }
 
-/**
- * The scale a set of consecutive ranges draws: a tick at every threshold, a
- * segment per case, and a pin at the project's value. Null when the ranges
- * are not a scale (fewer than two thresholds).
- */
 export function rulerOf(cases: readonly CaseDescriptor[], labels: readonly string[], value: number): Ruler | null {
   const ranges = cases.filter((entry): entry is CaseRange => entry.kind === 'range')
   if (ranges.length !== cases.length || ranges.length < 2) return null

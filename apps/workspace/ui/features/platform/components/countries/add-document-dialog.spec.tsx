@@ -3,13 +3,6 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { AddDocumentDialog, guessFromName } from './add-document-dialog'
 
-/**
- * "Add a document" (Platform → a country → Works and editions): the URL and the
- * upload path, an existing and a new work, prefill from the name, and each
- * refusal worded as what to do. The routes are stood in for; the composition
- * behind them is `document-add-wire.spec.ts` and the services it calls.
- */
-
 const WORKS = { works: [{ workKey: 'xx-rl-1', title: 'Mechanical resistance', designation: 'RL 1', kind: 'model_code', editions: [{ editionKey: 'xx-rl-1-2023', label: '2023' }] }] }
 const ADDED = { changeRequestId: 'cr-9', changeRequestTitle: 'RL 1 2019', opened: true, workKey: 'xx-rl-1', editionKey: 'xx-rl-1-2019', manifestationKey: 'xx-rl-1-2019-text', sha256: 'a'.repeat(64) }
 

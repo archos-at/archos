@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The tab's live connection: one EventSource for every channel, reopened once
- * when the channel set settles, frames handed to the channel they name, and a
- * channel the server closed not asked for again.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRetryLadder } from '@/shared/utils/backoff'
@@ -135,11 +130,9 @@ describe('the realtime connection', () => {
     expect(a.closed).toEqual(['revoked'])
     expect(connection.status('doc:a')).toBe('offline')
 
-    // The stream still carries doc:b, so nothing reconnects for the revoke alone.
     vi.advanceTimersByTime(250)
     expect(FakeSource.all).toHaveLength(1)
 
-    // Dropped, and a retry asks only for what is left.
     open()[0].onerror?.(new Event('error'))
     vi.advanceTimersByTime(1_000)
     expect(open()).toHaveLength(1)
@@ -184,7 +177,6 @@ describe('the realtime connection', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(sent()).toBe(1)
 
-    // Refused: the pointer waits; presence, a selection and another channel's motion do not.
     status = 200
     connection.send('doc:a', cursor, { motion: true })
     expect(sent()).toBe(1)

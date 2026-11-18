@@ -1,11 +1,3 @@
-"""The old ways of deciding which law applies stay gone (ADR-0175).
-
-Each module below once decided, beside the knowledge context, which country's law a turn read or
-whether a source binds: from a host regex, a filename, the project's own text, a hand-written verdict
-table, or a static block every turn read. Bringing one back would make two sources of the same
-answer again, and the old one always guessed Austria.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -30,7 +22,6 @@ def test_a_retired_module_cannot_be_imported(module: str) -> None:
 
 
 def test_no_prompt_file_carries_a_building_law_block() -> None:
-    """The chain text in the turn context is the only building law a turn reads, rendered in code."""
     carriers = [
         path.relative_to(AGENT_ROOT)
         for pattern in ("*.md", "*.j2")
@@ -41,7 +32,6 @@ def test_no_prompt_file_carries_a_building_law_block() -> None:
 
 
 def test_no_document_class_label_claims_that_it_binds() -> None:
-    """A Dokumentart names a document's role; whether it binds here is its edition's role (ADR-0175)."""
     from agent.knowledge.doc_class_vocabulary import DOCUMENT_CLASS_LABELS
 
     claims = {key: label for key, label in DOCUMENT_CLASS_LABELS.items() if "verbindlich" in label.lower()}

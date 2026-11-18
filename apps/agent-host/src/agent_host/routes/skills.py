@@ -1,42 +1,3 @@
-"""Internal skills submit endpoint (Agent Skills, replaces ADR-0023 workflows).
-
-``POST /v1/internal/skills/submit`` is the single backend entry point for
-scheduled and manual skill runs (the successor of ``/v1/internal/workflows/
-submit``). The BFF's fire path calls it service-to-service; there is no live
-user JWT, so the skill run's identity (organization, user, project, owner
-email) is supplied explicitly in the body and reconstituted into a Principal +
-usage context here.
-
-The route wraps ``submit_agent_job`` exactly like the public
-``/v1/jobs/async/submit`` route, so scheduled runs inherit admission control,
-cost tracking, ownership (``job_access``), the ghost reaper, SSE and
-cancellation for free.
-
-Agent selection is DETERMINISTIC and derived from the JOB's chosen output kind.
-A skill no longer declares how it runs — scheduling is a property of the job (a
-prompt on a timer), and the output kind is the user's choice on that job:
-
-* ``output='chat'``          → ``researcher`` (quick single-turn job)
-* ``output='deep-research'`` → ``deep_researcher`` (the deep research agent)
-
-``agent_type`` is an explicit escape hatch for future output kinds; when
-omitted the table above decides. A job may legitimately attach NO skill at all,
-in which case the list is empty and the run is the prompt alone.
-
-An attached skill reaches the run through ``input`` and nothing else: the BFF
-composes the job prompt WITH the skill's body before it calls this route.
-``skills`` is therefore a name list for the log and nothing is forced on the
-worker — no agent state carries a forced-skill list any more, because a skill
-is a working method the model picks from its catalog, and a body already in the
-prompt needs no tool call to arrive.
-
-Guarded by ``INTERNAL_API_TOKEN`` (the ``maintenance.py`` pattern) and,
-critically, NOT added to ``AuthMiddleware.EXTERNAL_ALLOWED_PATHS`` — so it is
-unreachable from outside the compose network. (The signed X-Grid-Request-Context
-envelope middleware enforces this path too, but internal-token calls are
-exempt there by design — see ``context_envelope.py``.)
-"""
-
 from __future__ import annotations
 
 import logging
@@ -58,46 +19,16 @@ from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)
 
-# The JOB's chosen output kind maps onto exactly one async-job-capable agent
-# type. Both entries are registered in AGENT_REGISTRY at import time
-# (deep_researcher, researcher). Deterministic by construction: there is
-# no path from an output kind to "some other agent".
-#
-# The mapping itself is unchanged; only where the value comes from moved. It
-# used to be read off the skill's ``grid-execution`` metadata, which made a
-# skill declare how it ran. It is now a column on the job row, chosen by the
-# user, and a skill is merely attached on top.
 _OUTPUT_AGENT_TYPES: dict[str, str] = {
     "chat": "researcher",
     "deep-research": "deep_researcher",
 }
 
 
-#: The longest composed ``input`` a run accepts. The BFF mirrors it as
-#: ``AGENT_RUN_INPUT_MAX_CHARS`` (``apps/workspace/bff/jobs/types.ts``) and
-#: derives every prompt budget from that copy; ``test_skill_submit.py`` holds
-#: the two equal.
 SUBMIT_INPUT_MAX_CHARS = 48_000
 
 
 class SkillSubmitPayload(BaseModel):
-    """Body of ``POST /v1/internal/skills/submit`` (Agent Skills contract).
-
-    Identity fields are supplied explicitly because the caller is the scheduler
-    / BFF, not the skill's owner — there is no request JWT to read them from.
-    ``organization_id`` is required so per-org admission counting and cost
-    attribution always have a tenant to key on. ``input`` is the deterministic
-    prompt built BFF-side.
-    """
-
-    # `input` is a COMPOSED prompt: the job's own prompt, plus the full body of
-    # the attached skill when there is one, or a revision task's instruction
-    # plus the document it revises. A job prompt and a skill body each fit
-    # inside the 32000-char skill-body limit (MAX_SKILL_BODY_LENGTH), but their
-    # sum need not, so the ceiling is 48000 here. It is a ceiling, not a target:
-    # an over-long prompt is rejected with a 422 and never silently truncated,
-    # because a run that quietly drops half its instructions is worse than one
-    # that refuses to start.
     input: str = Field(
         ...,
         min_length=1,
@@ -111,12 +42,6 @@ class SkillSubmitPayload(BaseModel):
             "composed into `input`; nothing is forced on the worker. Empty = no skill attached."
         ),
     )
-    # The wire field is `output`; `execution` is the pre-rename spelling, kept
-    # readable for ONE release. The BFF and this service deploy separately, and
-    # a hard rename would fail every scheduled run in the window between the two
-    # deploys — precisely the window nobody is watching. Delete `execution`
-    # (and `_resolved_output`'s fallback) once the BFF that sends `output` is
-    # deployed everywhere.
     output: Literal["chat", "deep-research"] | None = Field(
         None,
         description="The job's chosen output kind; decides the agent",
@@ -222,26 +147,12 @@ class SkillSubmitPayload(BaseModel):
 
     @model_validator(mode="after")
     def _require_an_output_kind(self) -> SkillSubmitPayload:
-        """One of ``output`` / ``execution`` must be present.
-
-        Both are Optional so either spelling satisfies the schema during the
-        rename window, which leaves "neither" structurally legal — and reading
-        an absent key straight out of the agent table would be a KeyError, i.e.
-        a 500 on a payload the caller got wrong. Rejecting it here makes it the
-        422 it always was.
-        """
         if self.output is None and self.execution is None:
             raise ValueError("one of 'output' or 'execution' is required")
         return self
 
     @property
     def resolved_output(self) -> str:
-        """The output kind to run: ``output`` when sent, else ``execution``.
-
-        The validator guarantees at least one is set. When a caller sends both
-        (it should not), ``output`` wins — it is the field that survives the
-        rename — and a disagreement is logged rather than guessed at silently.
-        """
         if self.output is not None:
             if self.execution is not None and self.execution != self.output:
                 logger.warning(
@@ -266,10 +177,6 @@ class SkillSubmitResponse(BaseModel):
 
 
 async def _check_skill_data_sources(body: SkillSubmitPayload, agent_type: str, config_name: str) -> None:
-    """Validate the data sources as the public submit route does, per agent when the builder is up."""
-    # Validate data sources the same way the public submit route does. The
-    # per-agent availability check needs the builder captured at job-route
-    # registration; import the validator (it pulls in the agent runtime) only when we have one.
     from .builder_state import get_active_builder
 
     builder = get_active_builder()
@@ -283,10 +190,6 @@ async def _check_skill_data_sources(body: SkillSubmitPayload, agent_type: str, c
             data_sources=body.data_sources,
         )
     elif body.data_sources:
-        # Startup window before register_job_routes publishes the builder:
-        # don't silently skip validation — fall back to the registry-level
-        # check (unknown IDs still 422; only per-agent availability is
-        # unverifiable without the builder).
         from agent.common.data_source_registry import get_all_sources
 
         known_ids = {source.id for source in get_all_sources()}
@@ -301,9 +204,6 @@ async def _check_skill_data_sources(body: SkillSubmitPayload, agent_type: str, c
 
 
 def _skill_usage_context(body: SkillSubmitPayload) -> dict:
-    """The identity and budget the worker's usage ledger attributes the run's spend to."""
-    # Identity keys must match cost_tracking._read_identity_from_context so
-    # the worker's usage ledger attributes scheduled-run spend correctly.
     context: dict = {
         "identity": {
             "organization_id": body.organization_id,
@@ -314,9 +214,6 @@ def _skill_usage_context(body: SkillSubmitPayload) -> dict:
         "budget_header": body.budget_header,
     }
     if body.temporary_conversation:
-        # Beside the identity, not in it: the worker reads it to skip the memory
-        # reflection (``job_outcome.reflection_enabled``). Only when true, so a
-        # run's stored payload is unchanged for every other conversation.
         context[TEMPORARY_CONVERSATION_KEY] = True
     return context
 
@@ -329,9 +226,6 @@ async def _submit_skill_run(
     usage_context: dict,
     request_envelope: dict[str, str] | None,
 ) -> str:
-    """Queue the skill's job and return its id; the submit errors become the route's HTTP statuses."""
-    # Import the async-job layer lazily (it pulls in the agent runtime) so this module
-    # stays cheap to import next to the maintenance routes.
     from ..jobs.submit import DuplicateJobIdError
     from ..jobs.submit import MissingPrincipalError
     from ..jobs.submit import submit_agent_job as submit_authorized_job
@@ -349,16 +243,8 @@ async def _submit_skill_run(
             project_memory=body.project_memory,
             model_overrides=body.model_overrides,
             usage_context=usage_context,
-            # The flag is the BFF's to evaluate (per organization); the
-            # reflection LLM ref is the worker's to resolve from its config.
             memory_reflection_enabled=body.memory_reflection_enabled,
-            # Explicit, because a scheduled run has no request context to
-            # inherit one from. This is what lets the worker write the
-            # answer into a thread a human can open and continue.
             conversation_id=body.conversation_id,
-            # And this is what lets it narrate itself there: without the run
-            # id the worker builds no `RunLedgerFold`, the block is minted
-            # and then never moves (`jobs/runner.py`).
             run_id=body.run_id,
             clarifier_result=body.clarifier_result,
             documents=body.documents,
@@ -383,16 +269,11 @@ async def _submit_skill_run(
 async def submit_skill(body: SkillSubmitPayload, request: Request) -> SkillSubmitResponse:
     _require_internal_token(request)
 
-    # Import the envelope helper lazily, like the job layer.
     from ..jobs.run_envelope import capture_request_envelope
 
-    # Deterministic agent selection (see module docstring): the job's chosen
-    # output kind decides the agent, unless an explicit override arrived.
-    # Never substitutes one output kind for another.
     output = body.resolved_output
     agent_type = body.agent_type or _OUTPUT_AGENT_TYPES[output]
 
-    # Validate agent_type against the registry, like the public submit route.
     try:
         agent_config = get_agent_config(agent_type)
     except KeyError as exc:
@@ -400,19 +281,10 @@ async def submit_skill(body: SkillSubmitPayload, request: Request) -> SkillSubmi
 
     await _check_skill_data_sources(body, agent_type, agent_config.config_name)
 
-    # Reconstitute the skill owner's identity. The job is owned by the
-    # owner (type "jwt" matches the WorkOS-authenticated principal they
-    # present when later viewing the run), so existing job-access authz
-    # keeps working. Fall back through email/org when the owner id is
-    # absent so a Principal can always be built.
     subject = body.user_id or body.owner_email or body.organization_id
     principal = Principal(type="jwt", sub=subject, email=body.owner_email)
     owner = principal.email or principal.sub
 
-    # The requester's envelope the BFF signed for this fire, carried so the
-    # run's person-acting tools act as them (ADR-0108). Kept only when it
-    # speaks for the body's requester in the body's organization: the
-    # internal token authenticates the BFF, not a person.
     request_envelope = capture_request_envelope(
         request.headers, user_id=body.user_id, organization_id=body.organization_id
     )
@@ -433,12 +305,6 @@ async def submit_skill(body: SkillSubmitPayload, request: Request) -> SkillSubmi
 
 
 def add_skill_routes(router: APIRouter) -> None:
-    """Register the internal skills submit route.
-
-    Wired alongside the maintenance routes (same router, same middleware
-    treatment) so it stays internal-only. Heavy job-submission imports are
-    deferred to request time, matching the maintenance/jobs modules.
-    """
     router.post(
         "/v1/internal/skills/submit",
         response_model=SkillSubmitResponse,

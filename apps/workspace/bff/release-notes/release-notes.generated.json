@@ -24,6 +24,48 @@
   ],
   "releases": [
     {
+      "id": "2026-W47",
+      "kind": "week",
+      "version": null,
+      "date": "2026-11-16",
+      "dateEnd": "2026-11-22",
+      "summary": null,
+      "notes": [
+        {
+          "section": "improvements",
+          "area": "agents",
+          "text": {
+            "en": "When you connect your own AI assistant to the workspace, the setup steps now suggest the server name „workspace“. Assistants you have already connected keep the name you gave them and need no change.",
+            "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbinden, schlagen die Einrichtungsschritte jetzt den Servernamen „workspace“ vor. Bereits verbundene Assistenten behalten den von Ihnen vergebenen Namen und müssen nicht geändert werden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A document the agent wrote and you published no longer drops out of search after the weekly cleanup. Until now it could only be found again once it was published anew.",
+            "de": "Ein vom Agenten erstelltes und von Ihnen veröffentlichtes Dokument verschwindet nach der wöchentlichen Bereinigung nicht mehr aus der Suche. Bislang lässt es sich erst wieder finden, wenn es erneut veröffentlicht wird."
+          }
+        },
+        {
+          "section": "deprecations",
+          "area": "agents",
+          "text": {
+            "en": "An assistant connected to your workspace now reads its guide, catalog and project overviews under new addresses that start with „workspace://“. The old addresses keep working until the end of 2026, so connected assistants have time to pick up the new ones on their own.",
+            "de": "Ein mit Ihrem Workspace verbundener Assistent ruft seine Anleitung, den Katalog und Projektübersichten jetzt unter neuen Adressen ab, die mit „workspace://“ beginnen. Die alten Adressen funktionieren bis Ende 2026 weiter, damit verbundene Assistenten Zeit haben, selbst auf die neuen umzusteigen."
+          }
+        },
+        {
+          "section": "upgrade",
+          "area": "administration",
+          "text": {
+            "en": "New audit log entries for the agent's actions start with „agent.“, while earlier entries keep their old names, so the audit log shows both. If you filter or export the agent's actions, include both names.",
+            "de": "Neue Audit-Log-Einträge für Aktionen des Agenten beginnen mit „agent.“, während frühere Einträge ihre alten Namen behalten, sodass im Audit-Log beide angezeigt werden. Wenn Sie die Aktionen des Agenten filtern oder exportieren, müssen Sie beide Namen berücksichtigen."
+          }
+        }
+      ]
+    },
+    {
       "id": "2026-W46",
       "kind": "week",
       "version": null,
@@ -944,6 +986,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The app and the website now live at the web address of the new name. Your bookmarks, links in e-mails and connected AI clients keep working: the former addresses forward you to the same page at the new one, and you stay signed in.",
+            "de": "Die App und die Website sind jetzt unter der Webadresse des neuen Namens erreichbar. Ihre Lesezeichen, Links in E-Mails und verbundenen KI-Clients funktionieren weiterhin: Die bisherigen Adressen leiten Sie auf dieselbe Seite unter der neuen Adresse weiter, und Sie bleiben angemeldet."
+          }
+        },
+        {
           "section": "fixes",
           "area": "general",
           "text": {
@@ -1125,6 +1175,22 @@
           "text": {
             "en": "When you ask which edition of a guideline or standard applied at your project's site on a particular day, for example for a submission on 1 October, the assistant now names the edition that was binding there on that day and says which day it means. Before, it named only today's edition and called the earlier one undeterminable.",
             "de": "Wenn Sie fragen, welche Fassung einer Richtlinie oder Norm am Standort Ihres Projekts an einem bestimmten Tag galt, etwa bei einer Einreichung am 1. Oktober, nennt der Assistent nun die an diesem Tag dort verbindliche Fassung und gibt an, auf welchen Tag er sich bezieht. Bisher nennt er nur die aktuelle Fassung und erklärt die frühere für nicht bestimmbar."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "Projects keep the building class they already had while the law at their site cannot be read, and a project with no location recorded is again treated as being in your office's home region until you confirm or change it.",
+            "de": "Projekte behalten ihre bisherige Gebäudeklasse bei, solange die am Standort geltenden Vorschriften nicht ausgelesen werden können, und ein Projekt ohne erfassten Standort wird wieder der Heimatregion Ihres Büros zugeordnet, bis Sie den Standort bestätigen oder ändern."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "Calculation cards in earlier answers show their result as they did when they were written, and a check that now only gives a hint no longer shows an old confirmation in the Prüfbuch.",
+            "de": "Berechnungskarten in früheren Antworten zeigen ihr Ergebnis so an, wie es zum Zeitpunkt ihrer Erstellung angezeigt wurde. Eine Prüfung, die jetzt nur noch einen Hinweis gibt, zeigt im Prüfbuch keine frühere Bestätigung mehr an."
           }
         },
         {

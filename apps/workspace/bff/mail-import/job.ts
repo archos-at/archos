@@ -1,31 +1,3 @@
-/**
- * The job that files a staged archive into its project (ADR-0085), one slice
- * at a time on the BFF job queue (ADR-0079).
- *
- * A slice reads pages of messages from the backend from the import's cursor
- * and files each mail before it moves the cursor past it, until its time
- * budget is spent; then it renders each E-Mail-Verlauf its mails were written
- * into, once (D33, `lib/mail-thread/archive.ts`), and hands back for the runner
- * to call it again. All state is on the `mail_imports` row and the Verläufe'
- * own rows (`render_pending_at`), so a slice on another worker resumes exactly
- * there, and the job's own payload only names the import and who asked.
- *
- * Endings. The archive filed completely and every Verlauf rendered:
- * `completed`. The archive is not one the backend can read, the quota is full,
- * or the person lost access: `failed`, at once, because no retry changes that.
- * Anything else (the store, the backend restarting) is a passing failure: the
- * job HANDS THE IMPORT ON to a fresh job that waits out a backoff, and ends
- * itself. The queue's own attempts are spent per job and never given back for
- * progress, so leaning on them would end a twenty-gigabyte import on its third
- * blip, hours and thousands of mails apart. `failure_streak` counts failures
- * since a mail was last filed, and only a streak that runs through every
- * backoff ends the import `failed`. A Verlauf another filing is writing is no
- * failure: the slice comes back shortly (`notBefore`) without counting one.
- * Each ending seals the import's upload batches (`./upload-batch`), deletes
- * the staged archive and tells the person in their inbox; each batch's own
- * summary follows once everything filed has been read.
- */
-
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import {
@@ -81,7 +53,6 @@ import { discardStaging } from './service'
 import { archiveUrlForBackend } from './staging'
 import { importBatchWithRoom, openImportBatch, sealImportBatch } from './upload-batch'
 
-/** A reason no retry changes; the import ends `failed` with it. */
 class PermanentImportFailure extends Error {
   constructor(
     readonly code: MailImportErrorCode,
@@ -91,21 +62,15 @@ class PermanentImportFailure extends Error {
   }
 }
 
-/** Why an import failed: a code the UI words, and the detail for whoever debugs it. */
 interface Failure {
   code: MailImportErrorCode
   detail: string
 }
 
-/** The states the job works an import in: what it may end. An `uploading` import is still the browser's. */
 const OPEN: readonly MailImportStatus[] = MAIL_IMPORT_LIFECYCLE.sourcesOf('complete')
 
 const ARCHIVE_FOLDER_DELETED = 'The import’s folder was deleted (Papierkorb); nothing more is filed into it.'
 
-/**
- * One slice. `session` is the requester's today, or null when they are no
- * longer a member, which ends the import.
- */
 export async function runMailImportSlice(
   session: AuthorizedSession | null,
   payload: MailImportPayload,
@@ -137,11 +102,6 @@ export async function runMailImportSlice(
   }
 }
 
-/**
- * After a passing failure: count it, and give the import to a fresh job that
- * waits out the next backoff, or end it once the streak has run through every
- * backoff without a mail filed.
- */
 async function handOn(organizationId: string, payload: MailImportPayload, detail: string): Promise<void> {
   const current = await repository.findMailImport(organizationId, payload.projectId, payload.importId)
   if (!current || !OPEN.includes(current.status)) return
@@ -165,19 +125,10 @@ async function handOn(organizationId: string, payload: MailImportPayload, detail
   })
 }
 
-/** How a slice ended: the import is done, more remains, or it comes back no sooner than `notBefore`. */
 type SliceEnd = 'done' | 'more' | { notBefore: Date }
 
-/** How filing from the cursor ended. */
 type FilingEnd = 'completed' | 'more' | 'moved_on' | 'busy'
 
-/**
- * File from the cursor until the budget is spent, then render every Verlauf
- * the import wrote into and has not rendered (`renderThreads`), whatever
- * ended the filing: the mails before the cursor are filed, and their text is
- * readable once its Fassung exists. The import completes only once the
- * cursor passed the last item AND no Verlauf still owes it a Fassung.
- */
 async function fileUntilBudget(session: AuthorizedSession, initial: MailImport): Promise<SliceEnd> {
   const deadline = Date.now() + MAIL_IMPORT_SLICE_BUDGET_MS
   const context = await startSlice(session, initial, deadline)
@@ -186,16 +137,11 @@ async function fileUntilBudget(session: AuthorizedSession, initial: MailImport):
   try {
     filing = await fileFrom(context, deadline)
   } catch (error) {
-    // Out of time inside a mail: its folder is recorded, the next slice resumes into it.
     if (error instanceof SliceBudgetSpentError) filing = 'more'
-    // Cancelled, or taken over: nothing more for this slice to file.
     else if (error instanceof ImportMovedOnError) filing = 'moved_on'
-    // The mail's Verlauf is another filing's for now: come back shortly, uncounted.
     else if (error instanceof ThreadBusyError) filing = 'busy'
     else {
       await renderQuietly(context, deadline)
-      // A write into a binned folder is refused (GFD01, or "not found" before the
-      // insert); when the archive folder is what went to the bin, no retry helps.
       if (!(await archiveFolderLive(context.mailImport))) throw new PermanentImportFailure('stopped', ARCHIVE_FOLDER_DELETED)
       throw error
     }
@@ -209,13 +155,6 @@ async function fileUntilBudget(session: AuthorizedSession, initial: MailImport):
   return 'done'
 }
 
-/**
- * One Fassung per Verlauf the import wrote into since its last one (D33),
- * into the import's Verlauf batch; what the upload path refused for good is
- * counted and named on the import. The Verläufe left for later (another
- * writer holds one, or the slice's time is up). Throws
- * {@link MailImportQuotaError} when the storage is full.
- */
 async function renderThreads(context: FilingContext, deadline: number): Promise<number> {
   const rendered = await renderPendingThreads(context, {
     uploadBatchId: async () => {
@@ -234,7 +173,6 @@ async function renderThreads(context: FilingContext, deadline: number): Promise<
   return rendered.waiting
 }
 
-/** Render what this slice wrote before a failure ends it; a render that fails too is the next slice's. */
 async function renderQuietly(context: FilingContext, deadline: number): Promise<void> {
   try {
     await renderThreads(context, deadline)
@@ -243,7 +181,6 @@ async function renderQuietly(context: FilingContext, deadline: number): Promise<
   }
 }
 
-/** Name a Verlauf the upload path refused on the import, and count it skipped. */
 async function recordThreadSkips(
   context: FilingContext,
   skips: ReadonlyArray<{ name: string; reason: MailImportSkippedSample['reason'] }>,
@@ -268,10 +205,6 @@ async function fileFrom(context: FilingContext, deadline: number): Promise<Filin
   return 'more'
 }
 
-/**
- * Mark the import running, check the person may still write where it files,
- * and build the filing context.
- */
 async function startSlice(
   session: AuthorizedSession,
   initial: MailImport,
@@ -287,7 +220,6 @@ async function startSlice(
     await requireShelfWrite(session, projectShelf(running.projectId))
     archiveFolderId = await ensureArchiveFolder(session, running)
   } catch (error) {
-    // Only a refusal is lost access. A database or FGA outage is a passing failure.
     if (!isRefusal(error)) throw error
     throw new PermanentImportFailure(
       'access',
@@ -299,7 +231,6 @@ async function startSlice(
     url: await archiveUrlForBackend({ bucket: running.stagingBucket, key: running.stagingKey }),
     size: Number(running.sizeBytes),
   }
-  // The audit trail reads an IP and a user agent off the request; a job has neither.
   const request = new Request('http://bff-jobs.internal/mail-import', { headers: { 'user-agent': 'piloti-mail-import' } })
   return filingContext({
     session,
@@ -313,24 +244,6 @@ async function startSlice(
   })
 }
 
-/**
- * `E-Mail-Import/<archive name>`, made once per import and remembered on the
- * row, after a write check on it every slice (ADR-0088).
- *
- * The root folder is found by name whoever may see it, so an existing one with
- * its own access list (read-only for this person, or hidden from them) would
- * otherwise be reused, and every folder created under it refused, a slice at a
- * time, until the streak ran out as `stopped`. The check refuses it once, as
- * lost access. A root that does not exist yet is created at the project root,
- * inheriting the project, and is judged as such; one a concurrent writer made
- * meanwhile is checked again, as `generated.ts` does for its destination.
- *
- * A remembered folder someone has since put in the Papierkorb (itself or a
- * folder above it) ends the import, checked before the write check so the
- * reason is the bin and not lost access: it is not made again, because the
- * mails before the cursor are in the bin and a new folder would hold only the
- * rest, and because deleting the import's folder is a person's word on it.
- */
 async function ensureArchiveFolder(session: AuthorizedSession, row: MailImport): Promise<string> {
   if (row.rootFolderId) {
     if (!(await archiveFolderLive(row))) throw new PermanentImportFailure('stopped', ARCHIVE_FOLDER_DELETED)
@@ -346,11 +259,6 @@ async function ensureArchiveFolder(session: AuthorizedSession, row: MailImport):
   return folder.id
 }
 
-/**
- * Whether the remembered archive folder is still a folder of the project. The
- * bin marks a deleted folder's whole subtree, so a binned ancestor is seen here
- * too.
- */
 async function archiveFolderLive(row: MailImport): Promise<boolean> {
   if (!row.rootFolderId) return true
   const path = await resolveShelfFolderPath(projectShelf(row.projectId), row.rootFolderId, row.organizationId)
@@ -365,7 +273,6 @@ async function recordTotal(context: FilingContext, total: number): Promise<void>
   context.mailImport = { ...context.mailImport, totalItems: total }
 }
 
-/** File one item and move the cursor past it; false when the import stopped meanwhile. */
 async function fileItem(context: FilingContext, item: ArchiveItem): Promise<boolean> {
   const current = context.mailImport
   const advance = {
@@ -381,7 +288,6 @@ async function fileItem(context: FilingContext, item: ArchiveItem): Promise<bool
   let samples: MailImportSkippedSample[] = []
   let filedMail: FiledMail | null = null
   if (item.kind === 'other') {
-    // Counted, not sampled: a calendar walked first would fill every sample.
     advance.itemsSkipped = 1
   } else if (item.kind === 'unreadable') {
     advance.itemsSkipped = 1
@@ -405,8 +311,6 @@ async function fileItem(context: FilingContext, item: ArchiveItem): Promise<bool
     skippedSamples,
   })
   if (!moved) return false
-  // Once the cursor moved, which happens once per mail however often a retry
-  // files it: so a name-check stop counts once on the batch.
   if (filedMail) await recordNameStops(context, filedMail)
   context.mailImport = {
     ...current,
@@ -425,7 +329,6 @@ async function fileItem(context: FilingContext, item: ArchiveItem): Promise<bool
   return true
 }
 
-/** End the import, delete its staging, and tell the person. A second ending is a no-op. */
 async function finish(row: MailImport, status: 'completed' | 'failed', failure: Failure | null): Promise<void> {
   const ended = await repository.updateMailImport(row.organizationId, row.id, OPEN, {
     status,
@@ -441,18 +344,11 @@ async function finish(row: MailImport, status: 'completed' | 'failed', failure: 
   try {
     await discardStaging(ended)
   } catch (cause) {
-    // The archive outlives its import; the sweep's next pass deletes it.
     console.error(`[mail-import] could not delete the staged archive of ${ended.id}:`, cause)
   }
   await announce(ended)
 }
 
-/**
- * Tell the project's shelf that the import moved: a slice filed folders and
- * mails and counted them, or the import ended. The import dialog reads its
- * list again on this hint instead of every five seconds (`useMailImports`);
- * the hint names nothing, and the list has the shelf's own gate (`project:view`).
- */
 function announceToShelf(row: MailImport): void {
   publishShelfChanged(row.organizationId, projectShelf(row.projectId), { folders: true })
 }
@@ -469,7 +365,6 @@ async function announce(row: MailImport): Promise<void> {
         resourceType: 'project',
         resourceId: row.projectId,
         anchorId,
-        // Piloti did the work; an actor equal to the recipient would drop the row.
         actorUserId: null,
         groupKey: inboxGroupKey(type, 'project', row.projectId, anchorId),
         payload: { subject: row.filename, ...(row.rootFolderId ? { folderId: row.rootFolderId } : {}) },
@@ -487,7 +382,6 @@ function failureOf(error: unknown): Failure | null {
   return null
 }
 
-/** A refusal of the person, as opposed to a failure to ask. */
 function isRefusal(error: unknown): boolean {
   return isAuthzRefusal(error)
 }
@@ -505,14 +399,6 @@ export interface MailImportSweepResult {
   errors: number
 }
 
-/**
- * Settle imports nothing will move on: abort an upload nobody finished within
- * two days; give a queued or running import that has made no progress for half
- * an hour and has no live job a new one (the streak decides when to stop); and
- * delete the staged archive of an import that ended while its deletion failed.
- * Discovery under the platform bypass, each settling inside its own
- * organization. Bounded, like every housekeeping step.
- */
 export async function sweepStaleMailImports(now: Date = new Date(), batch = 50): Promise<MailImportSweepResult> {
   const uploadsBefore = new Date(now.getTime() - STALE_UPLOAD_HOURS * 3_600_000)
   const stalledBefore = new Date(now.getTime() - STALLED_IMPORT_MINUTES * 60_000)
@@ -534,7 +420,6 @@ export async function sweepStaleMailImports(now: Date = new Date(), batch = 50):
 
 async function settleStale(row: MailImport): Promise<'aborted' | 'requeued' | 'failed' | 'waiting'> {
   if (!OPEN.includes(row.status) && row.status !== 'uploading') {
-    // Ended, but its staged archive survived the ending: delete it now.
     await discardStaging(row)
     return 'aborted'
   }
@@ -553,11 +438,6 @@ async function settleStale(row: MailImport): Promise<'aborted' | 'requeued' | 'f
   return (await requeue(row)) ? 'requeued' : 'failed'
 }
 
-/**
- * Give an import whose job is gone (it died with its attempts spent, or the
- * enqueue after the upload failed) a new one, counted on the streak like any
- * passing failure. True when it was queued again.
- */
 async function requeue(row: MailImport): Promise<boolean> {
   const session = await resolvePinnedRequesterSession({
     userId: row.userId,

@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the office-wide search INSIDE the app's frame: the real
- * shell chrome (`AppShellChrome`: the org header, the phone tab bar, the
- * frame's one scroller) around the body `/app/search` renders, `ShellContent`
- * with the page header and the URL-driven `SearchWorkspace`. `/app/search`
- * itself needs a WorkOS session; this route does not, and it is what a capture
- * of the page in the shell takes.
- *
- * What differs from the real page: the chrome's props are fixtures, not the
- * session's (an organization, a user, no projects), the path is
- * `/dev/search-shell`, so no header entry is marked current, and the search
- * calls `/api/search` like the page does, so a capture answers it (the
- * screenshot script routes it to the fixture answer). The page's title is
- * the dictionary's, as the server page reads it.
- */
-
 import type { JSX } from 'react'
 import { Suspense } from 'react'
 

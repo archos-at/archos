@@ -1,31 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the four model-backed chat cards.
- *
- * These are the surfaces that leave the app: a card ends up in a screenshot
- * pasted into an email, so what it says has to hold up without the
- * conversation around it. That makes them worth looking at, and until now
- * nothing did.
- *
- * The fixtures are chosen so each card shows the state it is hardest to get
- * right, not its happy path:
- *
- * - **Raumbuch** — a storey where two rooms publish no area, so the total is a
- *   subset and the card has to say so instead of presenting it as the sum.
- * - **Bauteil** — a wall with a real `Pset_WallCommon`, because the point of
- *   the card is that the properties come from the model rather than from the
- *   answer.
- * - **Anforderungen** — one requirement nothing can decide (34 walls with no
- *   fire rating) and one that passes, plus the BCF download that turns the
- *   first into work somebody can do.
- * - **Revisionsvergleich** — one added door against 99 unchanged elements: the
- *   shape of a real revision, where the delta is small and the denominator is
- *   what makes it meaningful.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import type { BimComparison } from '@/lib/bim/compare'
@@ -193,15 +167,6 @@ const COMPLIANCE = {
   ],
 }
 
-/**
- * Typed against the card's own contract, not left as a loose literal.
- *
- * The fixture lacked `counts` once, `IfcDiffCard` read `counts.added`, and the
- * whole route threw on render ("Cannot read properties of undefined (reading
- * 'added')") — the one preview of the four cards was an error page, silently,
- * because an untyped literal answers to nobody. The annotation makes the next
- * field the contract grows a compile error here instead.
- */
 const COMPARISON: { comparison: BimComparison } = {
   comparison: {
     added: [
@@ -231,7 +196,6 @@ const COMPARISON: { comparison: BimComparison } = {
   },
 }
 
-/** Which fixture answers a `/query` POST, keyed on the op in its body. */
 const QUERY_FIXTURES: Record<string, unknown> = {
   schedule: SCHEDULE,
   element: ELEMENT,
@@ -239,8 +203,6 @@ const QUERY_FIXTURES: Record<string, unknown> = {
   compare: COMPARISON,
 }
 
-// Module scope, not a useEffect: a shim installed from an effect loses the race
-// with the child component's own mount-time fetch.
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const w = window as unknown as { __bimCardsShim?: boolean }
   if (!w.__bimCardsShim) {
@@ -249,9 +211,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
-      // `/query` first: `/api/bim/models/<id>/query` also contains the
-      // model-list path, so declaration order would hand every query the model
-      // list and render four empty cards.
       if (url.includes('/query')) {
         const op = String(JSON.parse(String(init?.body ?? '{}')).op ?? '')
         const fixture = QUERY_FIXTURES[op]

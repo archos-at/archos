@@ -7,7 +7,6 @@ import { officeShelfCollectionName } from './collection'
 describe('officeShelfCollectionName', () => {
   it('derives a deterministic, org-scoped collection name', () => {
     expect(officeShelfCollectionName('org_01HZ')).toBe('archiv_org_01HZ')
-    // Pure function of the org id — same input, same output.
     expect(officeShelfCollectionName('org_01HZ')).toBe(officeShelfCollectionName('org_01HZ'))
   })
 

@@ -1,18 +1,9 @@
 import type { en } from '../en'
 
-/**
- * Was ein Upload gebracht hat, und alle Uploads eines Projekts (ADR-0086).
- *
- * Die Statuswörter („Zitierbar", „Wird gelesen", „Zurückgehalten",
- * „Fehlgeschlagen", „Abgelegt") stehen NICHT hier: Die Übersicht liest sie aus
- * `files.status.*`, damit eine Zahl und das Badge daneben einen Zustand nicht
- * zweimal verschieden benennen.
- */
 export const uploadBatches: typeof en.uploadBatches = {
   summary: {
     title: 'Was angekommen ist',
     loading: 'Übersicht wird geladen…',
-    // Wohin der Upload ging, wenn sich der Projektname nicht lesen lässt.
     place: {
       project: 'Projekt',
       office_shelf: 'Büroablage',
@@ -43,8 +34,6 @@ export const uploadBatches: typeof en.uploadBatches = {
     },
     excluded: {
       title: 'Nicht hochgeladen',
-      // Von der Namensprüfung gestoppt: im Browser (die Datei verließ den
-      // Rechner nie), beim Server oder im E-Mail-Import (gespeichert wurde nichts).
       description:
         'Die Namensprüfung hat diese Dateien nicht hochgeladen, gespeichert wurde nichts davon. Ihr Büro stuft diese Begriffe in Datei- und Ordnernamen als sensibel ein.',
       listLabel: 'Nicht hochgeladene Dateien nach Begriff',
@@ -67,9 +56,6 @@ export const uploadBatches: typeof en.uploadBatches = {
       releaseRequestedToast: 'Die Personen, die „{name}“ prüfen und zulassen dürfen, sind benachrichtigt.',
       releaseRequestNobody: 'Außer Ihnen darf niemand „{name}“ prüfen. Sie finden die Datei unter Organisation → Quarantäne.',
       releaseRequestError: 'Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es erneut.',
-      // Wer über eine zurückgehaltene Datei entscheiden darf, lässt sie dort zu,
-      // wo er von ihr erfährt (ADR-0086): eine Prüfung irrt, eine Auftragsnummer
-      // sieht aus wie eine Kartennummer.
       allowAnyway: 'Trotzdem zulassen',
       viewFinding: 'Fundstelle ansehen',
       allowAnywayTitle: '„{name}“ trotzdem zulassen?',

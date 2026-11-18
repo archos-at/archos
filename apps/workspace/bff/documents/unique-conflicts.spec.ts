@@ -33,8 +33,6 @@ describe('mapDocumentInsertError', () => {
   })
 
   it('leaves every other 23505 on documents alone', () => {
-    // The authored-ref index has its own recovery in `fileGeneratedDocument`,
-    // which must see the original error.
     const other = violation('uniq_documents_authored_ref_producer_per_project')
     expect(mapDocumentInsertError(other, 'x')).toBe(other)
   })
@@ -108,8 +106,6 @@ describe('retryRacedUpload', () => {
   })
 
   it('does not retry a document deleted after the upload wrote it', async () => {
-    // In commit order that is "upload, then delete": the file being gone is the
-    // delete's outcome, and a retry would re-create what somebody just removed.
     const attempt = vi.fn<() => Promise<string>>().mockRejectedValue(new DocumentDeletedError('doc_1'))
 
     await expect(retryRacedUpload(attempt)).rejects.toBeInstanceOf(DocumentDeletedError)

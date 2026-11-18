@@ -2,17 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * The pooler with ONE instance, which is what the dev stack runs (ADR-0083).
- *
- * A separate file from `index-pooler.spec.ts` for the reason `index-single.spec.ts`
- * gives: the program builds once per process. The branch is small and sharp: the
- * repo's rule (`platform/scheduling.ts`) is that a single-replica workload gets no
- * PodDisruptionBudget, because one that forbids evicting the only pod deadlocks
- * the provider's automatic node upgrades, and a spread constraint across nodes
- * for one pod is noise.
- */
-
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(

@@ -1,21 +1,3 @@
-/**
- * Internal WebSocket Collection Scope Endpoint
- *
- * Called by server.js during the WebSocket upgrade handshake. It resolves the
- * current Grid session from the encrypted WorkOS cookie, builds the ordered
- * collection scope, and returns the base64url-encoded header value.
- *
- * The authenticated handshake carries only identity, scope and policy. Prompt blocks are
- * loaded by the authenticated per-turn POST /api/internal/turn-context route,
- * never here: base64 expansion alone can exceed the upstream header-line limit.
- * No upgrade carries them inline: an anonymous one has no tenant to read them in.
- *
- * Every project-scoped lookup uses the EFFECTIVE project id (the authorized
- * scope's project, falling back to the query param) — never the raw query
- * param — so an implicit project from the stored active-project preference is
- * not silently dropped from budget, prompt, Bundesland, memory or decisions.
- */
-
 import { NextResponse } from 'next/server'
 import { tenantSlotRoute } from '@/lib/db/tenant-context'
 import { getUserSession } from '@/lib/auth/session'
@@ -35,8 +17,6 @@ export const GET = tenantSlotRoute(async function GET(req: Request): Promise<Res
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // The body of this route is `resolveTurnContext`, shared with the wake job
-    // that opens a turn as a person (ADR-0106): one resolution, two callers.
     return NextResponse.json(await resolveTurnContext(session, { projectId, conversationId }), { status: 200 })
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError) {

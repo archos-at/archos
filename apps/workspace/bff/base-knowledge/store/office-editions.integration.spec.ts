@@ -74,7 +74,6 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
       return Number(rows[0].n) > 0
     })
 
-  /** A confirmed first edition, as a person's confirmation leaves it. */
   async function confirmedFirst() {
     const documentId = await newDocument()
     const ids = await repo.insertProposedEntry(documentId, VALUES, context)
@@ -84,7 +83,7 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const tenant = await import('@/lib/db/tenant-context')
     withTenant = tenant.withTenant
     withPlatformAccess = tenant.withPlatformAccess
@@ -106,16 +105,13 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
     expect(first.workStandsAlone).toBe(false)
     const secondDocument = await newDocument()
     const ids = await editions.insertEditionOfWork(secondDocument, first, NEWER, context)
-    // Confirmed as the service writes it once the work is shared (`writeValues`): without the edition's date.
     await repo.writeConfirmedValues(ids, { ...NEWER, designation: 'ÖNORM B 1600' }, { ...context, firstCheck: true })
 
     const all = await repo.readOfficeEntries(ORG)
     const series = all.filter((entry) => entry.workId === ids.workId)
     expect(series.map((entry) => entry.values.editionLabel).sort()).toEqual(['2017-04-01', '2023-02-01'])
     expect(series.every((entry) => entry.workStandsAlone && entry.confirmed)).toBe(true)
-    // One work, cited without either edition's date; each edition says its own through its label.
     expect(series.map((entry) => entry.values.designation)).toEqual(['ÖNORM B 1600', 'ÖNORM B 1600'])
-    // The read the platform's „which edition applied“ takes: both editions, one work.
     const read = await time.readWorkInTime(ORG, ids.workId)
     expect(read?.work.editions.map((edition) => edition.label).sort()).toEqual(['2017-04-01', '2023-02-01'])
   })
@@ -135,20 +131,17 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
   it('ends two newer editions added at once in one work, though both read the first before either wrote', async () => {
     const { documentId: firstDocument, stored: first } = await confirmedFirst()
     const [a, b] = await Promise.all([newDocument(), newDocument()])
-    // Both callers hold the same stale read: the first edition still belongs to its document's work.
     const [one, two] = await Promise.all([
       editions.insertEditionOfWork(a, first, NEWER, context),
       editions.insertEditionOfWork(b, first, { ...NEWER, editionLabel: '2024-01-01' }, context),
     ])
     expect(two.workId).toBe(one.workId)
-    // The Büroablage finds each document's own edition, also now that the work belongs to no document.
     const marks = await repo.entryIdsForDocuments(ORG, [firstDocument, a, b])
     expect(marks).toEqual(new Map([[firstDocument, first.editionId], [a, one.editionId], [b, two.editionId]]))
   })
 
   it('keeps an edit from a read made before a newer edition joined on the shared work', async () => {
     const { stored: first } = await confirmedFirst()
-    // The edit's read is the stale one: the first edition still on its document's work.
     const ids = await editions.insertEditionOfWork(await newDocument(), first, NEWER, context)
     await repo.writeConfirmedValues(first, { ...first.values, title: 'Barrierefreies Bauen, korrigiert' }, context)
 

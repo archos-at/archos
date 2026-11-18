@@ -28,7 +28,6 @@ describe('parseFeedbackQuery', () => {
       scope: { from: '2026-07-01', to: '2026-09-30', organizationIds: ['org_a', 'org_b'], projectIds: [PROJECT] },
       ratings: {
         verdict: 'down',
-        // Canonical order, whatever order the URL had: one set, one cache key.
         reasons: ['inaccurate', 'wrong_source'],
         topics: ['fire_safety', 'structural'],
         modes: ['shallow', 'report'],
@@ -82,7 +81,6 @@ describe('parseFeedbackQuery', () => {
       expect(ok('days=7').scope).toMatchObject({ from: '2026-10-03', to: '2026-10-09' })
     })
 
-    /** The old drill-in export defaulted to the down-votes when no verdict was sent. */
     it('maps `scope=selection` to the filters, down-votes by default', () => {
       const query = ok('scope=selection&days=7&org=org_2&topic=fire_safety&reason=inaccurate&q=GK')
       expect(query.scope.organizationIds).toEqual(['org_2'])

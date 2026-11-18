@@ -30,7 +30,6 @@ const WIDTHS = [[1700, 800], [1440, 900], [1024, 768], [768, 1024], [390, 844]]
 
 /** Runs in the page; returns the findings. */
 const inPage = // Runs in the page (page.evaluate). Returns findings: cut text without its full text reachable,
-// controls pushed off-screen, horizontal scroll, and sheet edges (box-shadow rings) clipped by an ancestor.
 () => {
   const out = []
   const vw = window.innerWidth
@@ -48,15 +47,12 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
     if (cs.clip && cs.clip !== 'auto') return false
     return true
   }
-  // The text a reader sees: a screen reader's copy of a drawn name (`.sr-only` beside its `aria-hidden` lines) is not,
-  // nor what is not drawn at this width (`phone:hidden`).
   const shownText = (el) => {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
     let text = ''
     for (let node = walker.nextNode(); node; node = walker.nextNode()) if (!node.parentElement?.closest('.sr-only') && node.parentElement?.checkVisibility() !== false) text += node.textContent
     return text
   }
-  // Words only: a drawn title's word joiners and a tooltip's „ · “ between the name and its count are not words.
   const words = (value) => value.replace(/[^\p{L}\p{N}]+/gu, '')
   const reachable = (el) => {
     const text = words(shownText(el))
@@ -72,25 +68,20 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
     const cs = getComputedStyle(el)
     const hiddenX = cs.overflowX === 'hidden' || cs.overflowX === 'clip' || cs.textOverflow === 'ellipsis'
     const hiddenY = cs.overflowY === 'hidden' || cs.overflowY === 'clip'
-    // Cut text: content wider (or, clamped, taller) than the box, the rest not reachable as a title or a label.
     if (el.childElementCount === 0 || cs.textOverflow === 'ellipsis' || cs.webkitLineClamp !== 'none') {
       const cutX = hiddenX && el.scrollWidth > el.clientWidth + 1
       const cutY = hiddenY && el.scrollHeight > el.clientHeight + 1 && (cs.webkitLineClamp !== 'none' || el.childElementCount === 0)
       if ((cutX || cutY) && !reachable(el)) out.push({ kind: 'cut-text', el: label(el), w: [el.scrollWidth, el.clientWidth] })
     }
-    // A scroll box that scrolls sideways hides what is past its edge.
     if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 1 && el !== document.scrollingElement) {
       out.push({ kind: 'h-scroll', el: label(el), w: [el.scrollWidth, el.clientWidth] })
     }
-    // A control the reader cannot reach without scrolling the page sideways.
     if (/^(BUTTON|A|INPUT)$/.test(el.tagName)) {
       const r = el.getBoundingClientRect()
       if (r.right > vw + 1 || r.left < -1) out.push({ kind: 'off-screen', el: label(el), x: [Math.round(r.left), Math.round(r.right)] })
     }
-    // A sheet's edge is a ring OUTSIDE its box: an ancestor that clips at the box's own edge cuts it.
     if (cs.boxShadow && cs.boxShadow !== 'none' && /0px 0px 0px 1px/.test(cs.boxShadow)) {
       const r = el.getBoundingClientRect()
-      // Once past a box that scrolls, a cut at the top or bottom of a box around it is scrolling too.
       let scrolled = false
       for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
         const acs = getComputedStyle(a)
@@ -103,7 +94,6 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
         const inView = r.bottom > ar.top && r.top < ar.bottom && r.right > ar.left && r.left < ar.right
         if (!inView) break
         const cutX = clipsX && (r.left - 1 < ar.left || r.right + 1 > ar.right)
-        // Cut at the top or bottom of a box that scrolls is scrolling, not a cut; elsewhere it is.
         const cutY = clipsY && !scrollsY && !scrolled && (r.top - 1 < ar.top || r.bottom + 1 > ar.bottom)
         if (scrollsY) scrolled = true
         if (cutX || cutY) {
@@ -113,15 +103,12 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
       }
     }
   }
-  // A band painted over a sheet's edge (a sticky row with the page's fill right under a sheet): the topmost thing at a
-  // point of the ring is neither the sheet nor one of its ancestors, and it has a fill of its own.
   for (const el of all) {
     if (!visible(el)) continue
     const cs = getComputedStyle(el)
     if (!cs.boxShadow || !/0px 0px 0px 1px/.test(cs.boxShadow)) continue
     const r = el.getBoundingClientRect()
     if (r.top < 0 || r.bottom > window.innerHeight) continue
-    // A floating control (fixed) lies over the page on purpose; what is under its edge is not painted over it.
     let floating = false
     for (let a = el; a && a !== document.body; a = a.parentElement) if (getComputedStyle(a).position === 'fixed') floating = true
     if (floating) continue
@@ -131,8 +118,6 @@ const inPage = // Runs in the page (page.evaluate). Returns findings: cut text w
       const top = document.elementFromPoint(x, y)
       if (!top || top === el || el.contains(top) || top.contains(el)) continue
       const bg = getComputedStyle(top).backgroundColor
-      // Only a band that stays put over the scrolling page (sticky, fixed) paints over what scrolls under it; the ring is
-      // not hit-testable, so anything else found there lies under it.
       if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' && /sticky|fixed/.test(getComputedStyle(top).position)) {
         out.push({ kind: 'edge-painted-over', el: label(el), by: label(top).slice(0, 60) })
         break

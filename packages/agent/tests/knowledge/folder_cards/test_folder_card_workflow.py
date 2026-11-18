@@ -1,10 +1,3 @@
-"""The ``folder-cards-*`` tasks as our code hands them to Hatchet, and what each attempt does with the builder.
-
-No engine here (``agent_testing.orchestrator_fake``): the declaration, the trigger and each
-task's function, called as a worker calls it. ``test_folder_card_workflow_engine.py`` runs the
-same on a real engine.
-"""
-
 from __future__ import annotations
 
 from datetime import timedelta
@@ -60,7 +53,6 @@ class TestDeclaration:
         options = build.step("build").options
         assert options["retries"] == 2 and options["backoff_factor"] > 1
         assert options["execution_timeout"] > timedelta(seconds=worker.RUN_BUDGET_SECONDS)
-        # The claim queue's reclaim window, after which it built a folder a second time.
         assert options["execution_timeout"] > timedelta(seconds=900)
 
     def test_a_run_that_failed_for_good_has_a_handler(self, hatchet):
@@ -73,7 +65,6 @@ class TestDeclaration:
 
         assert sweep.options["on_crons"] == ["* * * * *"]
         assert reconcile.options["on_crons"] == [workflow.RECONCILE_CRON]
-        # A sweep that found no worker is dropped before the next one is due.
         assert sweep.step("sweep").options["schedule_timeout"] < timedelta(minutes=1)
 
     def test_the_run_carries_ids_and_nothing_a_person_wrote(self):
@@ -159,7 +150,6 @@ class TestBuildStep:
             await workflow.build_step(_run_input(), orchestrator_fake.FakeContext(attempt=1))
 
         assert _paths() == ["Behörde"]
-        # What Hatchet stores of it: a class and a category, never the message or the folder.
         assert "Behörde" not in str(raised.value) and raised.value.__cause__ is None
         assert not isinstance(raised.value, NonRetryableException)
 

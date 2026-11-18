@@ -32,9 +32,7 @@ vi.mock('@/lib/audit/service', () => ({
 vi.mock('@/lib/sharing/directory', () => ({
   resolvePeople: vi.fn(async () => new Map()),
 }))
-// No WorkOS here: the admin bypass falls back to the session's own permissions.
 vi.mock('@/lib/auth/membership-roles', () => ({ resolveMembershipRoles: vi.fn(async () => null) }))
-/** The folders whose list in WorkOS names the membership `om_gf` (ADR-0097): Verträge, once made. */
 const gfList = vi.hoisted(() => new Set<string>())
 vi.mock('@/lib/authz/folder-roles', () => ({
   heldFolderLevels: vi.fn(async (_org: string, membershipId: string) =>
@@ -78,7 +76,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
       ...overrides,
     }) as import('@/lib/auth/types').AuthorizedSession
 
-  /** A document row, as `recordDocumentAccess` receives it from the access check. */
   const logged = (id: string, folderId: string | null, scope: 'project' | 'office_shelf' = 'project', filename = 'Plan.pdf') =>
     ({
       id,
@@ -147,7 +144,7 @@ describe.skipIf(!url)('the download log against Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     service = await import('./service')
@@ -162,9 +159,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
         `)
       )
     )
-    //   Allgemein/    inherits
-    //   Verträge/     its own list
-    //     Anhänge/    inherits the list
     folder.open = firstId(
       await inTenant(() =>
         db.execute<{ id: string }>(sql`
@@ -255,7 +249,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
     it('does not block a download from an ordinary folder when the log cannot be written', async () => {
       await clear()
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-      // An empty name violates the table's own CHECK: the insert fails.
       await expect(
         service.recordDocumentAccess(session(), logged(doc.plain, folder.open, 'project', ''), 'download')
       ).resolves.toBeUndefined()
@@ -308,7 +301,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
       await clear()
       await insertRaw({ at: '2026-10-01T10:00:00Z' })
       expect(await rows(OTHER_ORG)).toHaveLength(0)
-      // Signed in as ORG, naming another organization in the row.
       const foreign = await refused(() =>
         inTenant(() =>
           db.execute(sql`
@@ -323,7 +315,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
   describe('the admin view', () => {
     it('pages newest first without skipping or repeating rows that share a millisecond', async () => {
       await clear()
-      // Five rows in one millisecond, microseconds apart, then an older one.
       for (let i = 0; i < 5; i += 1) await insertRaw({ at: `2026-10-02T10:00:00.00${i}123Z`, name: `Gleich ${i}.pdf` })
       await insertRaw({ at: '2026-10-01T10:00:00Z', name: 'Aelter.pdf' })
 
@@ -355,7 +346,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
 
       expect(await read({ userId: OTHER_USER })).toEqual(['Lageplan.pdf', 'Werkvertrag 100x.pdf'])
       expect(await read({ document: wanted })).toEqual(['Werkvertrag 100%.pdf'])
-      // `%` in the typed name is the character, not a wildcard: it finds one, not both.
       expect(await read({ document: '100%' })).toEqual(['Werkvertrag 100%.pdf'])
       expect(await read({ document: 'werkvertrag' })).toEqual(['Werkvertrag 100x.pdf', 'Werkvertrag 100%.pdf'])
       expect(await read({ from: new Date('2026-09-10T00:00:00Z'), to: new Date('2026-09-30T00:00:00Z') })).toEqual(['Werkvertrag 100x.pdf'])
@@ -367,7 +357,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
       await service.recordDocumentAccess(session(), logged(doc.plain, folder.open, 'project', 'Gehalt alt.pdf'), 'download')
       await service.recordDocumentAccess(session(), logged(doc.plain, folder.open, 'project', 'Gehalt neu.pdf'), 'download')
       await service.recordDocumentAccess(session(), logged(doc.child, folder.child, 'project', 'Gehalt geheim.pdf'), 'download')
-      // A project purged since: no folder rows, so no list answers for it now.
       await inTenant(() =>
         db.execute(sql`
           INSERT INTO document_access_log
@@ -388,9 +377,7 @@ describe.skipIf(!url)('the download log against Postgres', () => {
         return seen
       }
 
-      // Not on the Verträge list: every page is full, and only what they may read is found.
       expect(await pages(session({ permissions: ['org:downloads:view'] }))).toEqual([['Gehalt neu.pdf'], ['Gehalt alt.pdf']])
-      // On the list: the subfolder's hit too, but not the purged project's, which only an admin reads.
       expect(await pages(session({ organizationMembershipId: 'om_gf', permissions: ['org:downloads:view'] }))).toEqual([
         ['Gehalt geheim.pdf'],
         ['Gehalt neu.pdf'],
@@ -437,8 +424,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
     const DAY = 'now() - interval'
 
     async function seedAged(): Promise<void> {
-      // Two organizations of the default retention and one that chose 90 days.
-      // Rows at 400, 200, 100 and 10 days old in each.
       await inTenant(
         () =>
           db.execute(sql`
@@ -473,7 +458,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
     it('deletes past twelve months for everyone and past an organization’s own shorter time for it alone', async () => {
       await clear()
       await seedAged()
-      // BAD_ORG stored a value the app calls invalid: it counts as unset.
       await inTenant(
         () =>
           db.execute(sql`
@@ -494,7 +478,6 @@ describe.skipIf(!url)('the download log against Postgres', () => {
       const client = postgres(url as string, { prepare: false, max: 1 })
       try {
         const result = await pruneDownloadLog(client)
-        // 400 days: gone for ORG and SHORT_ORG (and any other org's leftovers); 200 and 100 days: SHORT_ORG only.
         expect(result.capped).toBe(false)
         expect(result.deleted).toBeGreaterThanOrEqual(4)
       } finally {

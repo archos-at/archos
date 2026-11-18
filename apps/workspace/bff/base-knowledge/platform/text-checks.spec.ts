@@ -43,7 +43,6 @@ const manifestation = (corpusFile: string | null) =>
     citations: [{ captureId: CAPTURE, quote: 'herausgegeben vom OIB' }],
   })
 
-/** The kit as the service runs it: the outside checks first, then the pure proposal check. */
 async function kit(corpusFile: string | null) {
   const records = [manifestation(corpusFile)]
   return validateProposal(records, 'AT', KNOWN, CAPTURES, [], (await checksOutsideKit(records, new Map(), true)).checks)
@@ -86,7 +85,6 @@ describe('a manifestation’s text is in the base corpus before the record is wr
   })
 
   it('fails closed when nobody asked the corpus at all', () => {
-    // The pure kit without the outside check: unknown is a problem, never a pass.
     expect(validateProposal([manifestation('oib-rl-1-2019.pdf')], 'AT', KNOWN, CAPTURES)).toMatchObject([
       { code: 'KC-1', pointer: '/corpusFile', detail: expect.stringContaining('was not checked') },
     ])
@@ -134,7 +132,6 @@ describe('the reviewed bytes are the published bytes', () => {
   })
 
   it('does not take another file’s hash for this one', async () => {
-    // The draft's revision named another file; this proposal names a new one, which is pinned afresh.
     const { pins } = await textChecksOf(text, pinnedTo(OTHER, 'earlier.pdf'), true)
     expect(pins.get(ID)).toBe(SHA)
   })

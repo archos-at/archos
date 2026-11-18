@@ -1,22 +1,3 @@
-"""An ingest worker for the real-engine tests: our workflow, served with a scripted ingestor.
-
-``python -m agent_testing.orchestrator_engine_worker <dir>`` serves the real
-``ingest-document`` workflow (``agent.knowledge.ingest_workflow.serve``) against
-the engine the ``HATCHET_CLIENT_*`` variables name. Only the ingestor is a
-stand-in, because reading a document needs Qdrant, a model and an object store;
-everything between Hatchet and the ingestor is the production code.
-
-The job id says how the scripted job ends:
-
-* ``ok-…``: completes at once.
-* ``slow-…``: runs ``SLOW_SECONDS``, stopping early when told to (a cancel).
-* ``flaky-…``: fails for the moment on its first attempt, completes on the next.
-* ``bytes-…``: fails for good (the bytes).
-
-Each attempt's start and end is a line in ``<dir>/events.log``:
-``<event> <job id> <attempt> <monotonic seconds>``, read by the tests.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -49,7 +30,6 @@ def status(job_id: str, state: JobState = JobState.PENDING, organization_id: str
 
 
 def payload(job_id: str, organization_id: str) -> str:
-    """The test's stand-in for the encrypted payload: ids only."""
     return json.dumps({"job_id": job_id, "organization_id": organization_id})
 
 

@@ -12,8 +12,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory statically imports the session guard, which pulls in
-// authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))
 
 vi.mock('@/lib/bim/repository', () => ({ listBimModels: vi.fn() }))
@@ -35,11 +33,6 @@ const PROJECT = '44444444-4444-4444-4444-444444444444'
 
 const model = (over: Partial<BimModelHeader> & Pick<BimModelHeader, 'id' | 'filename'>): BimModelHeader => ({
   documentId: `doc-${over.id}`,
-  // Every REQUIRED field of `BimModelHeader` needs a default here, or a
-  // `Partial` spread leaves it `undefined` and the fixture stops satisfying the
-  // type it claims to be. `displayName` arrived on develop after this spec was
-  // written and broke exactly that way — invisibly on the branch, and only in
-  // CI, which type-checks the merge rather than the branch.
   displayName: null,
   projectId: PROJECT,
   status: 'ready',
@@ -67,8 +60,8 @@ const post = (body: unknown): Promise<Response> =>
 describe('POST /api/internal/bim/source', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
     vi.mocked(listBimModels).mockResolvedValue([NEW, OLD])
     vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
     vi.mocked(findDocumentInOrg).mockResolvedValue({
@@ -98,17 +91,12 @@ describe('POST /api/internal/bim/source', () => {
     const body = await response.json()
     expect(body.resolved).toBe(true)
     expect(body.model).toMatchObject({ filename: 'Haus-A_V3.ifc', modelId: NEW.id })
-    // The ETag and the revision timestamp are what let the caller keep a parsed
-    // model across turns without downloading the file again to find out it
-    // already has it — and what stops it serving a re-export out of that cache.
     expect(body.source).toMatchObject({ etag: 'abc123', bytes: 2_300_000 })
     expect(body.model.updatedAt).toBe('2026-05-04T09:30:15.400Z')
     expect(body.source.url).toContain('X-Amz-Signature')
   })
 
   it('still serves the file when the store will not answer a HEAD', async () => {
-    // The size and the ETag are hints. A store that refuses the probe must not
-    // cost the agent the model.
     vi.mocked(s3Client.send).mockRejectedValue(new Error('no such method'))
 
     const body = await (await post({ organizationId: 'org-1', projectId: PROJECT, modelName: 'V3' })).json()
@@ -119,9 +107,6 @@ describe('POST /api/internal/bim/source', () => {
 
   describe('the ifc-models feature flag', () => {
     it('refuses when the organization does not have the feature', async () => {
-      // The same gate as the query route, evaluated the same way. A second tool
-      // that answered after the flag was revoked would make withdrawing the
-      // feature meaningless.
       vi.mocked(isOrgFeatureEnabled).mockResolvedValue(false)
 
       const response = await post({ organizationId: 'org-1', projectId: PROJECT, modelName: 'V3' })
@@ -142,10 +127,6 @@ describe('POST /api/internal/bim/source', () => {
     })
 
     it('refuses a body that names neither a project nor a model', async () => {
-      // The same requirement the query route states. Without it the model list
-      // would be resolved with an UNDEFINED projectId, which `listBimModels`
-      // reads as "no project predicate at all" — every model in the
-      // organization, including projects the conversation holds no grant on.
       const response = await post({ organizationId: 'org-1', modelName: 'V3' })
 
       expect(response.status).toBe(400)
@@ -169,10 +150,6 @@ describe('POST /api/internal/bim/source', () => {
     })
 
     it('reports a modelId whose extraction has not finished as not ready', async () => {
-      // The selector-less case above went through `readable`; this one did not.
-      // A `modelId` naming a model still being extracted used to resolve, and
-      // this route — unlike its sibling — never re-checks `status`, so it
-      // presigned the raw `.ifc` of a half-written building.
       vi.mocked(listBimModels).mockResolvedValue([model({ ...NEW, status: 'extracting' }), OLD])
 
       const body = await (
@@ -185,8 +162,6 @@ describe('POST /api/internal/bim/source', () => {
     })
 
     it('reports a modelId whose extraction failed as not ready, in its own words', async () => {
-      // "Still being read" and "cannot be read" are different answers, and
-      // waiting only helps for one of them.
       vi.mocked(listBimModels).mockResolvedValue([model({ ...NEW, status: 'failed' }), OLD])
 
       const body = await (
@@ -198,8 +173,6 @@ describe('POST /api/internal/bim/source', () => {
       expect(getSignedUrl).not.toHaveBeenCalled()
     })
 
-    // ADR-0087: the agent's routes carry no session to clear, and a model's
-    // building data is keyed by project, so every restricted subtree is hidden.
     it('leaves every restricted folder out of the model list', async () => {
       vi.mocked(getRestrictedFolderIds).mockResolvedValueOnce(['folder-verwaltung'])
 
@@ -211,7 +184,6 @@ describe('POST /api/internal/bim/source', () => {
 
     it('404s the modelId of a model filed under a restricted folder, and signs nothing', async () => {
       vi.mocked(getRestrictedFolderIds).mockResolvedValueOnce(['folder-verwaltung'])
-      // What the query does with the hidden folders: NEW is filed under one.
       vi.mocked(listBimModels).mockImplementation(async (_org, options) =>
         options?.hiddenFolderIds?.includes('folder-verwaltung') ? [OLD] : [NEW, OLD]
       )

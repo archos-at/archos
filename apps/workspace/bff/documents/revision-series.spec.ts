@@ -11,11 +11,6 @@ import {
   revisionSeriesKeyOf,
 } from './revision-series'
 
-/**
- * The cases are shared with the agent's Python parser
- * (`tests/knowledge_layer_tests/test_revision_series.py`): one file, so the folder
- * brief and `list_files` cannot read the same file name differently.
- */
 interface Cases {
   parse: { name: string; key: string | null; index: [string, string] | null; date: string | null }[]
   series: {

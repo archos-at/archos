@@ -1,11 +1,3 @@
-"""The scores the office's base knowledge produces (ADR-0163), declared into ``SCORE_DEFINITIONS``.
-
-Its own module, spread into ``SCORE_DEFINITIONS`` with one line, so the list
-does not grow with every part that declares scores. The builder is pure: the
-turn's answer-label records in, a count out, emitted by ``turn.context`` when
-the turn context is loaded.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -26,15 +18,11 @@ BASE_KNOWLEDGE_SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         ),
         min_value=0,
     ),
-    # The country onboarding tooling's (ADR-0174): the platform's base knowledge, kept in its own module.
     *ONBOARDING_SCORE_DEFINITIONS,
-    # A country's quality bar (ADR-0165 amendment): the golden run's scores and the six citation scores.
     *GOLDEN_SCORE_DEFINITIONS,
-    # Whether law was cited from its own source (the web screen and the binding-claim check).
     *LAW_SOURCE_SCORE_DEFINITIONS,
 )
 
 
 def overdue_count(labels: Sequence[dict[str, object]]) -> float:
-    """How many answer-label records say their copy's check is overdue. Pure."""
     return float(sum(1 for label in labels if label.get("checkOverdue") is True))

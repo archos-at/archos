@@ -1,16 +1,5 @@
 'use client'
 
-/**
- * „Aus dem Büro hinzufügen": a colleague who holds no role on the project yet,
- * the role they get in Piloti, and what they do on the project. The role goes
- * to the members route (WorkOS, ADR-0038), so the colleague is on the
- * Steckbrief from then on without anyone typing them in (ADR-0101); the
- * Funktion, when given, is the Steckbrief row that describes them.
- *
- * The picker is `Popover` + `Command` over the roster already loaded: WorkOS
- * has no member search, and an office's roster is short.
- */
-
 import { useId, useState, type FormEvent, type JSX } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'

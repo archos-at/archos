@@ -1,14 +1,3 @@
-/**
- * One platform skill category (ADR-0016). Platform owners only.
- *
- * PATCH  — rename, re-describe, re-order it. Renaming never detaches the
- *          builtin file offers: they resolve to a category by slug, not by the
- *          display name. Deleting a seeded category unassigns them (they read
- *          as unsorted) — removing the category removes the mapping.
- * DELETE — remove it. Skills standing on it fall back to unsorted; the skills
- *          themselves are untouched.
- */
-
 import { parseJsonBody } from '@/lib/api/handler'
 import { platformApiRoute } from '@/lib/api/platform-handler'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'

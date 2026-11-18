@@ -1,10 +1,3 @@
-"""A chat turn's use of restricted folders, the agent's half (ADR-0087, ADR-0088).
-
-The BFF decides; these pin that the agent asks before anything reads the
-scope, keeps only what it may draw on, admits a tool round's restricted content
-before the model reads it, withholds what the BFF refuses, and fails closed.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -33,8 +26,6 @@ SCOPE = ["oib_knowledge", "proj_p1", VERTRAEGE, PERSONAL]
 
 
 class Bff:
-    """The restricted-use route: what each POST asked, and what it answers."""
-
     def __init__(self, answer: dict[str, Any] | None) -> None:
         self.answer = answer
         self.asked: list[dict[str, Any]] = []
@@ -85,7 +76,6 @@ class TestTurnStart:
         bff.answer = {"drawable": [VERTRAEGE, "proj_other_r000000000000"], "recorded": []}
         use = await begin_restricted_use(_request(envelope_header="x"), "c1")
         assert bff.asked == [{"candidates": [VERTRAEGE, PERSONAL]}]
-        # Never more than was offered, whatever the answer says.
         assert use is not None and use.drawable == {VERTRAEGE}
         assert use.confined is False
 
@@ -111,8 +101,6 @@ class TestTurnStart:
 
 
 class TestTheAnswerTravels:
-    """ADR-0093: the BFF marks the answer the turn writes, so its id rides every question."""
-
     @pytest.fixture
     def posted(self, monkeypatch) -> list[dict[str, Any]]:
         import json
@@ -181,7 +169,6 @@ def _result(text: str, call_id: str = "call-1") -> ToolMessage:
 
 class TestAToolRoundIsAdmittedBeforeTheModelReadsIt:
     async def test_restricted_content_outside_a_restricted_turn_is_withheld_without_asking(self, bff):
-        """No use bound: nothing could admit it, so it fails closed (ADR-0088)."""
         messages = [_result(f"Collection: {VERTRAEGE}\nHonorar pauschal")]
         with bound(None):
             out = await admit_tool_results(messages)
@@ -195,7 +182,6 @@ class TestAToolRoundIsAdmittedBeforeTheModelReadsIt:
         assert bff.asked == []
 
     async def test_a_collection_the_turn_may_not_draw_on_is_withheld_without_asking(self, bff):
-        """Only drawable collections are put to the BFF; any other restricted one is withheld."""
         bff.answer = {"admitted": [VERTRAEGE], "refused": []}
         personal = _result(f"Collection: {PERSONAL}\nGehalt", "call-1")
         contract = _result(f"Collection: {VERTRAEGE}\nHonorar pauschal", "call-2")
@@ -224,8 +210,6 @@ def _reported(text: str, collections: set[str], call_id: str = "call-1") -> Tool
 
 
 class TestToolsReportWhatTheyRead:
-    """The side channel: admission does not depend on a tool naming its collection in the text."""
-
     async def test_a_reported_read_is_admitted_though_the_text_names_no_collection(self, bff):
         bff.answer = {"admitted": [VERTRAEGE], "refused": []}
         message = _reported("Das Honorar beträgt pauschal 48.000 €.", {VERTRAEGE, "proj_p1"})
@@ -282,7 +266,6 @@ class TestToolsReportWhatTheyRead:
         assert ru.collections_read(second) == {PERSONAL}
 
     async def test_a_note_in_a_worker_thread_reaches_the_call(self):
-        """``asyncio.to_thread`` copies the context; the set is the same object."""
         import asyncio
 
         async def execute(_request):
@@ -353,7 +336,6 @@ class TestNaming:
         assert use is not None and use.confined is True
 
     async def test_refused_content_is_withheld_with_the_same_call_id_and_leaves_the_scope(self, bff):
-        """A share raced the turn: the BFF refuses, the passages never reach the model."""
         bff.answer = {"admitted": [], "refused": [VERTRAEGE]}
         restricted = _result(f"Collection: {VERTRAEGE}\nHonorar pauschal", "call-1")
         open_one = _result("Collection: proj_p1\nPlan EG", "call-2")

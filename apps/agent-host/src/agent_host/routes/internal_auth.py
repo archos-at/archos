@@ -1,15 +1,3 @@
-"""Shared guard for service-to-service internal endpoints.
-
-The maintenance purge routes and the skills submit route are both reachable
-only from inside the compose network (never on the AuthMiddleware external-path
-allowlist) and are authenticated with the shared ``INTERNAL_API_TOKEN``.
-
-Factored here so both route modules import one implementation rather than
-copy-pasting the constant-time compare / dev-default-refusal logic. Behavior is
-identical to the original ``routes.maintenance`` guard (which re-exports these
-names for backwards compatibility).
-"""
-
 import asyncio
 import hmac
 import logging
@@ -22,26 +10,14 @@ from fastapi import Request
 
 from agent.project_context import ORGANIZATION_ID_HEADER
 
+from ..legacy_headers import legacy_name
+
 logger = logging.getLogger(__name__)
 
-# Well-known default shipped in docker-compose for local development. It must
-# never authenticate anything outside a dev environment.
 _DEV_DEFAULT_TOKEN = "grid-internal-dev-token"
 _DEV_APP_ENVS = {"development", "dev", "local"}
 
-#: Both spellings of the internal-token header, in the order they are tried.
-#:
-#: This guard read ``x-internal-token`` ONLY, while every caller in the repo —
-#: the BFF's skill submit and model-config fetch, and each of the nine Python
-#: clients under ``packages/agent/src/agent`` — sends ``x-grid-internal-token``. So the
-#: routes this guard protects rejected every real request with a 403. Nothing
-#: caught it because the two sides are tested separately and each test pinned
-#: its own spelling, and because the ASGI envelope middleware
-#: (``context_envelope._INTERNAL_TOKEN_HEADER_NAMES``) already accepts both —
-#: so a request got far enough to look healthy before the route guard refused
-#: it. Accepting both here matches that middleware and the sibling guard in
-#: ``routes/config_info.py``.
-_TOKEN_HEADERS: tuple[str, ...] = ("x-grid-internal-token", "x-internal-token")
+_TOKEN_HEADERS: tuple[str, ...] = (legacy_name(b"x-internal-token").decode("ascii"), "x-internal-token")
 
 
 def _require_internal_token(request: Request) -> None:
@@ -59,9 +35,6 @@ def _require_internal_token(request: Request) -> None:
             app_env,
         )
         raise HTTPException(status_code=503, detail="Internal API disabled")
-    # Constant-time compare: a plain != leaks the token via response timing.
-    # Every candidate header is compared even after one matches, so the number
-    # of comparisons does not depend on which spelling the caller used.
     matched = False
     for name in _TOKEN_HEADERS:
         provided = request.headers.get(name) or ""
@@ -71,15 +44,6 @@ def _require_internal_token(request: Request) -> None:
 
 
 def internal_office(request: Request) -> str | None:
-    """The office a plain route reads an office's scope as (ADR-0163), or None.
-
-    A plain FastAPI route has no agent-runtime context, so the structural reads
-    (``knowledge_layer.vector_store.office_read``) find no office and refuse a
-    project or session scope. The office is the signed envelope's organization
-    (``document_search.request_office``) or, for a caller holding the internal
-    token (the BFF), the organization it names in ``ORGANIZATION_ID_HEADER``.
-    A route reads inside ``knowledge_layer.search.reading_as(internal_office(request))``.
-    """
     from .document_search import request_office
 
     office = request_office(request)
@@ -93,7 +57,6 @@ def internal_office(request: Request) -> str | None:
 
 
 async def read_as_internal_office[T](request: Request, read: Callable[..., T], *args: Any) -> T:
-    """``read(*args)`` on a worker thread, as the office :func:`internal_office` names (``to_thread`` carries it)."""
     from knowledge_layer.search import reading_as
 
     with reading_as(internal_office(request)):

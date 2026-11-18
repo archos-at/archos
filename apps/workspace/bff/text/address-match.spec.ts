@@ -24,7 +24,6 @@ describe('distanceMetres', () => {
   })
 
   it('measures a few tens of metres', () => {
-    // 0.0003 degrees of latitude is about 33 m.
     const near = distanceMetres(stephansplatz, { lat: 48.2088, lon: 16.3731 })
     expect(near).toBeGreaterThan(30)
     expect(near).toBeLessThan(36)

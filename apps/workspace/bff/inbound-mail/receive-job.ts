@@ -1,69 +1,3 @@
-/**
- * The receive job (`inbound_mail_receive`, ADR-0137, DECISION §6 "Read and
- * stage"): read one staged mail, scan it, label it and hold it for a person.
- *
- * Runs AS THE SYSTEM (`SYSTEM_ACTORS.inboundMail`), one step, bulk. It decides
- * nothing a person would and it cannot file: it imports no filing code
- * (`review-first.spec.ts`), and the database refuses a filed part without a
- * person's decision (migrations 0196, 0197). What it leaves is a `waiting` mail
- * with its parts and its sender's class (`./sender-class.ts`), and at most two
- * jobs queued for later: The agent's suggestion (metadata only, D21) and
- * either the sender's own filing (`inbound_mail_sender_file`, for a verified
- * writer's mail: it runs as that member and files what they sent as them) or,
- * when a person's standing decision to follow the thread could cover the
- * reply, the follow job, which runs as that person and re-checks everything
- * before it appends a word. Each is queued by its kind's name only.
- *
- * Each run asks again, in this order:
- *  1. Load the row and read `raw.eml`. A mail past `received` was done by an
- *     earlier run (a `waiting` one not yet announced is announced now).
- *  2. Scan the whole raw message (`ScanMail yes`) and store the verdict, before
- *     anything else: a mail is never `waiting` unscanned (CHECK).
- *  3. Drop auto-replies, delivery reports and loops, erasing the raw message by
- *     its key (a legal hold defers that). List and bulk mail is kept, marked
- *     `automatic`. A forward records its original's author (`./receive-original`);
- *     its original's Message-ID is the sender's word and never drops a delivery.
- *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a DNS fault is waited out briefly.
- *  5. Read the MIME tree (`mime.ts`) against the office's accepted types, then
- *     find the member by exact address, or an outsider's display name that
- *     claims a member's (`claims_member_name`), and whether that member may
- *     write in the project (`project:documents:write`). A directory or write
- *     check WorkOS does not answer is a fault, never a "no".
- *  6. The Namensprüfung on each attachment's name and the base subject.
- *  7. Scan each attachment, at most {@link ATTACHMENT_SCANS_IN_FLIGHT} at once.
- *     A run after a fault reuses the sender's authentication and each scan an
- *     earlier run reached, unless transient or failed (`./receive-progress.ts`).
- *  8. The Python reader (`/v1/mail/read`): own text, quotes, invitations; the
- *     content check on the own text, after the signature was removed.
- *  9. Redact every other project's address (B8) in the subject, the
- *     participants, the text, every quote and its header, the invitations.
- * 10. Match the project's threads and look up the Message-ID
- *     (`message_id_reused`, `already_filed`); ids and strengths only.
- * 11. Classify the sender (`senderClassOf`), stage the attachments and
- *     `read.json`, insert the parts, `waiting`, with the class and its window
- *     (an outsider's mail waits 14 days, every other 30).
- * 12. A verified writer's mail queues its sender's filing; any other mail,
- *     when conditions 1–6 of D31 hold (`followEligibility`, pure), queues
- *     `inbound_mail_follow`.
- * 13. Announce: a verified writer's mail is the sender job's to tell about;
- *     every other mail `inbound_mail.waiting`, and the member it names hears
- *     why it waits (`inbound_mail.held`, `inbound_mail.held_for_writers`).
- *     Then the live hint, the audit event, PostHog, and the agent's
- *     suggestion unless `suggestionSkipReason` says otherwise (an unconfirmed
- *     sender, an impersonation, automatic mail).
- *
- * A dependency that does not answer (WorkOS, the reader, the object store,
- * the database) spends no attempt: the job waits it out for about six hours
- * and only then holds the mail with what it could not learn, flagged, never
- * guessed (`./receive-faults.ts`). DNS for DKIM, which the sender's own
- * nameserver can fail at will, gets twelve minutes and then its transient
- * reason stands. Any other failure retries
- * through the queue, and on the last attempt the mail is held anyway, flagged
- * `unreadable`, with a text part whose original can be downloaded once its scan
- * is clean: mail is never lost to a parser bug. Its sender keeps the class the
- * evidence gave before the failure, or `sender_unchecked` when there was none.
- */
-
 import 'server-only'
 import { createHash } from 'node:crypto'
 import { captureServer } from '@/lib/analytics/posthog-server'
@@ -131,20 +65,8 @@ import { announceHeldMail, classified, inboundMailJobId, queueSenderFiling } fro
 
 export { inboundMailJobId } from './receive-sender'
 
-/**
- * Attachment scans one mail runs at once. clamd runs `MaxThreads 8` and queues
- * `MaxConnectionQueueLength 30` (`deploy/compose/clamav/clamd.conf`) for every
- * `bff-jobs` replica together, each running `BFF_JOBS_CONCURRENCY` jobs. A mail
- * of 100 attachments scanned all at once overran that queue, and its scans came
- * back `failed` with no outage at all (S2 of the 2026-11 ship review).
- */
 export const ATTACHMENT_SCANS_IN_FLIGHT = 4
 
-/**
- * The job's slice (`systemSliceHandler`): one run, done, or given back while a
- * dependency does not answer (`./receive-faults.ts`). Throws to retry a bug;
- * holds the mail anyway on its last attempt.
- */
 export async function runInboundMailReceive(
   organizationId: string,
   payload: InboundMailReceivePayload,
@@ -159,7 +81,6 @@ export async function runInboundMailReceive(
     const dependency = dependencyOf(error)
     const next = dependency ? nextFaultTry(dependency, payload, new Date()) : null
     if (!dependency || !next) {
-      // The last attempt must not leave the mail `received`: nothing would read it again (see `holdAfterFailure`).
       if (attempt.last && (await holdAfterFailure(payload.mailId))) return { done: true, payload }
       throw error
     }
@@ -171,14 +92,6 @@ export async function runInboundMailReceive(
   }
 }
 
-/**
- * The last attempt failed before the mail was held (its raw message cannot be
- * read, a step before the read threw): hold it unreadable, as the run does for
- * a failure while reading. Otherwise the job dies with the mail still
- * `received`, and the sweep queues it again every time the queue purges the dead
- * row (sweep 2), for ever. A held mail is visible to the person and ends by its
- * window. False when the mail is not `received` any more, or this could not hold it.
- */
 async function holdAfterFailure(mailId: string): Promise<boolean> {
   try {
     const mail = await findMailForReceive(mailId)
@@ -196,17 +109,11 @@ async function holdAfterFailure(mailId: string): Promise<boolean> {
   }
 }
 
-/**
- * What a run may no longer wait for. `degraded`: the long budget is spent, so
- * what a dependency could not answer is held as unknown. `dkimSpent`: DNS for
- * DKIM had its two waits, so a transient reason stands as the verdict.
- */
 interface ReceiveBudget {
   degraded: boolean
   dkimSpent: boolean
 }
 
-/** One run (see {@link ReceiveBudget}). */
 async function receive(organizationId: string, payload: InboundMailReceivePayload, attempt: JobAttempt, budget: ReceiveBudget): Promise<void> {
   const { degraded } = budget
   const mail = await findMailForReceive(payload.mailId)
@@ -214,7 +121,6 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
   const domain = inboundMailDomain()
   if (!domain) throw new Error('INBOUND_MAIL_DOMAIN is not set: a received mail cannot be read')
   if (mail.status === 'waiting') {
-    // An earlier run held it and died before telling anyone.
     if (!mail.notifiedAt) await afterHold(mail.id, domain, null)
     return
   }
@@ -226,17 +132,14 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
 
   const automatic = classifyAutomaticMail({ headers: rawHeaderFields(raw), envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
   if (automatic.outcome === 'drop') return dropAutomaticMail(mail, automatic.reason, attempt)
-  // A forward: who wrote the original (`./receive-original`). Never a reason to drop: anyone can write its Message-ID.
   await recordOriginal(mail, raw, domain)
 
-  // What the run learned of the sender before anything failed: a mail held unreadable keeps it.
   const evidence: SenderEvidence = { progress: progressOf(mail.receiveProgress) }
   let held: boolean
   try {
     held = await readAndHold(mail, raw, domain, automatic.automatic, budget, evidence)
   } catch (error) {
     const fault = dependencyOf(error) !== null
-    // A fault is waited out: the next run reuses the verdicts this one reached (`./receive-progress`).
     if (fault && !degraded) await keepProgress(mail.id, evidence.progress)
     if (fault ? !degraded : !attempt.last) throw error
     console.error(`[inbound-mail] mail ${mail.id} could not be read (${errorName(error)}); holding it as unreadable`)
@@ -245,18 +148,12 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
   if (held) await afterHold(mail.id, domain, raw)
 }
 
-// ---------------------------------------------------------------------------
-// Steps 4-11: read, label, hold
-// ---------------------------------------------------------------------------
-
-/** The sender as far as a run judged it: the verdict and the flags it carries, and what the next run may reuse. */
 interface SenderEvidence {
   verdict?: SenderVerdict
   flags?: SenderFlag[]
   progress: ReceiveProgress
 }
 
-/** Best effort: progress the database does not take is asked again by the next run. */
 async function keepProgress(mailId: string, progress: ReceiveProgress): Promise<void> {
   await keepReceiveProgress(mailId, progress).catch(() => undefined)
 }
@@ -333,7 +230,6 @@ async function readAndHold(
     ...senderFields(verdict, flags, mail, mime.headers.from?.address ?? null),
     ...(await classified(mail, verdict, flags, automatic, degraded)),
     readStorageKey: readKey,
-    // The reader did not answer for the whole budget: the sweep reads the text again (`./receive-reread.ts`).
     readerFaultAt: text.readerFault ? new Date() : null,
     messageId: mime.headers.messageId,
     inReplyTo: mime.headers.inReplyTo.slice(0, 5),
@@ -352,12 +248,6 @@ async function readAndHold(
   return holdMail(mail.id, fields, [messagePart, ...attachmentParts])
 }
 
-/**
- * The Message-ID flags (D11, D33): the project already received this id
- * (`message_id_reused`, perhaps a forger took it first), or the same message is
- * in a Verlauf already (`already_filed`: the same own text, or an entry from
- * the person's own archive). Neither blocks anything; each unchecks a default.
- */
 async function messageIdFlags(projectId: string, messageId: string | null, ownTextSha256: string): Promise<SenderFlag[]> {
   if (!messageId) return []
   const filed = await findFiledMessages(projectId, messageId)
@@ -366,7 +256,6 @@ async function messageIdFlags(projectId: string, messageId: string | null, ownTe
   return [same ? 'already_filed' : 'message_id_reused']
 }
 
-/** Steps 6, 7 and the ids of step 10, per attachment: the part rows (bytes are written by the caller). */
 async function attachmentPartsOf(
   mail: InboundMailRow,
   attachments: readonly MailAttachment[],
@@ -413,7 +302,6 @@ async function attachmentPartsOf(
   })
 }
 
-/** The mail's own text as the one part every mail has, at position 0. Its raw message was scanned whole. */
 function textPartOf(
   mail: InboundMailRow,
   read: MailRead,
@@ -437,7 +325,6 @@ function textPartOf(
   }
 }
 
-/** The sender columns from the verdict (D4). A mail with no single From shows its envelope sender, never ''. */
 function senderFields(
   verdict: SenderVerdict,
   flags: readonly SenderFlag[],
@@ -470,7 +357,6 @@ function senderFields(
   }
 }
 
-/** What was left out of the parts, by name while the mail waits (redacted), and counted by reason. */
 function notStagedFields(
   notStaged: readonly NotStagedPart[],
   overflow: number,
@@ -485,15 +371,6 @@ function notStagedFields(
   return { notStaged: listed, ignored }
 }
 
-/**
- * The mail held without being read (the last attempt failed, or the parser
- * refused the message): one text part flagged `unreadable`, the sender as the
- * run judged it before it failed. A sender it never judged is not called an
- * outsider: unverified, nobody's member, flagged `sender_unchecked`, so it
- * waits the full 30 days for the project's writers. The original is
- * downloadable once its scan is clean; a raw scan that never ran counts as
- * `failed` and the sweep scans it again.
- */
 async function holdUnreadable(mail: InboundMailRow, raw: Uint8Array, automatic: boolean, evidence: SenderEvidence): Promise<boolean> {
   const current = await findMailForReceive(mail.id)
   if (!current || current.status !== 'received') return false
@@ -505,7 +382,6 @@ async function holdUnreadable(mail: InboundMailRow, raw: Uint8Array, automatic: 
   const read = unreadableRead('failed')
   const fields: HeldMailFields = {
     ...senderFields(verdict, flags, mail, null),
-    // No retry is left to wait for a write check here: one WorkOS does not answer is held unchecked.
     ...(await classified(mail, verdict, flags, automatic, true)),
     readStorageKey: null,
     automatic,
@@ -513,7 +389,6 @@ async function holdUnreadable(mail: InboundMailRow, raw: Uint8Array, automatic: 
   return holdMail(mail.id, fields, [textPartOf(mail, read, sha256Hex(''), [])])
 }
 
-/** The verdict of a mail whose sender could not be checked at all: unverified, nobody's member, and said so. */
 function uncheckedVerdict(receivedAt: Date, sentAtHeader: Date | null): SenderVerdict {
   const clamped = clampSentAt(sentAtHeader, receivedAt)
   return {
@@ -529,22 +404,11 @@ function uncheckedVerdict(receivedAt: Date, sentAtHeader: Date | null): SenderVe
   }
 }
 
-// ---------------------------------------------------------------------------
-// Steps 12-13: after the mail is held
-// ---------------------------------------------------------------------------
-
-/**
- * Everything that follows holding a mail, read back from the row so a run that
- * finds it held but not announced does the same. `raw` is the message when the
- * caller still has it; the follow check reads its header block for which
- * recipient fields it carries.
- */
 async function afterHold(mailId: string, domain: string, raw: Uint8Array | null): Promise<void> {
   const mail = await findMailForReceive(mailId)
   if (!mail || mail.status !== 'waiting' || mail.notifiedAt || !mail.senderTrust) return
   const parts = await findPartSummaries(mail.id)
   const direct = mail.senderClass === 'verified_writer'
-  // A verified writer's mail is filed by its sender; a follow would race it for the text.
   const followQueued = direct ? false : await queueFollowIfEligible(mail, parts, domain, raw)
   if (suggestionSkipReason(mail) === null) await queueSuggestion(mail)
   if (direct) await queueSenderFiling(mail)
@@ -577,7 +441,6 @@ async function afterHold(mailId: string, domain: string, raw: Uint8Array | null)
   await markNotified(mail.id)
 }
 
-/** The audit metadata of a held mail: codes, counts and flags only (the PII canary checks it). */
 export function receivedMetadata(mail: InboundMailRow, parts: readonly PartSummary[], followQueued: boolean) {
   const attachments = parts.filter((part) => part.kind === 'attachment')
   const notStaged = Object.values(mail.ignored).reduce((sum: number, count) => sum + (count ?? 0), 0)
@@ -597,7 +460,6 @@ export function receivedMetadata(mail: InboundMailRow, parts: readonly PartSumma
   }
 }
 
-/** PostHog's size bucket for a raw message, never the size itself. */
 export function sizeBucket(bytes: number): string {
   if (bytes < 100 * 1024) return 'lt_100k'
   if (bytes < 1024 * 1024) return 'lt_1m'
@@ -605,7 +467,6 @@ export function sizeBucket(bytes: number): string {
   return 'ge_10m'
 }
 
-/** The agent's suggestion (D21), queued once per mail; the job reads the budget and the names itself. */
 async function queueSuggestion(mail: InboundMailRow): Promise<void> {
   await enqueueJobIfAbsent({
     kind: 'inbound_mail_suggest',
@@ -616,12 +477,6 @@ async function queueSuggestion(mail: InboundMailRow): Promise<void> {
   })
 }
 
-/**
- * Step 12: queue the follow job when conditions 1–6 of D31 hold for the
- * thread the mail matched by reference. The job runs as the follower and
- * re-checks all nine; this only decides whether there is anything to check.
- * Whether a follow job was queued.
- */
 async function queueFollowIfEligible(
   mail: InboundMailRow,
   parts: readonly PartSummary[],
@@ -639,8 +494,6 @@ async function queueFollowIfEligible(
     email: follower?.email ?? null,
     organizationId: mail.organizationId,
   })
-  // A follower who left the organization appends nothing; the follow job, which
-  // ends such a follow, is not needed for that: the mail simply waits.
   if (!session) return false
   return enqueueJobIfAbsent({
     kind: 'inbound_mail_follow',
@@ -655,7 +508,6 @@ function sha256Hex(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex')
 }
 
-/** The class and code of an error, never its message (which may quote the mail). */
 function errorName(error: unknown): string {
   if (!(error instanceof Error)) return typeof error
   const code = 'code' in error && typeof error.code === 'string' ? `:${error.code}` : ''

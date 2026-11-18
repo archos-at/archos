@@ -1,5 +1,3 @@
-"""Tests for the unified LLM credential resolver (credential_resolution.py)."""
-
 import logging
 from unittest.mock import patch
 
@@ -18,8 +16,6 @@ from agent.common.llm_credentials import OrgLLMCredential
 _OTHER_HOST = "https://llm.example.test/v1"
 _OPENROUTER = "https://openrouter.ai/api/v1"
 
-# Every env var any of these tests touches — cleared before each so the host's
-# real environment can never leak in.
 _ALL_ENVS = (
     "VLM_API_KEY",
     "SOME_FALLBACK_KEY",
@@ -42,11 +38,6 @@ def _clear_env(monkeypatch):
     monkeypatch.setattr(credential_resolution, "_nvidia_deprecation_warned", False)
 
 
-# ---------------------------------------------------------------------------
-# read_api_key_env — the promoted ${...} placeholder guard
-# ---------------------------------------------------------------------------
-
-
 def test_read_api_key_env_returns_value(monkeypatch):
     monkeypatch.setenv("PRIMARY_KEY", "sk-real")
     assert read_api_key_env("PRIMARY_KEY") == "sk-real"
@@ -57,18 +48,11 @@ def test_read_api_key_env_missing_is_empty():
 
 
 def test_read_api_key_env_treats_unresolved_placeholder_as_unset(monkeypatch):
-    # docker compose env_file does not interpolate ${VAR}.
     monkeypatch.setenv("PRIMARY_KEY", "${OPENROUTER_API_KEY}")
     assert read_api_key_env("PRIMARY_KEY") == ""
 
 
-# ---------------------------------------------------------------------------
-# Resolution order
-# ---------------------------------------------------------------------------
-
-
 def test_read_api_key_env_logs_the_name_never_the_value(monkeypatch, caplog):
-    """A key variable's value stays out of the log, even when it looks like a placeholder."""
     monkeypatch.setenv("SOME_API_KEY", "${sk-live-not-a-placeholder}")
     with caplog.at_level(logging.ERROR, logger=credential_resolution.__name__):
         assert read_api_key_env("SOME_API_KEY") == ""
@@ -135,11 +119,6 @@ def test_placeholder_primary_falls_through_to_fallback(monkeypatch):
     assert result.source == "env"
 
 
-# ---------------------------------------------------------------------------
-# base_url / model resolution
-# ---------------------------------------------------------------------------
-
-
 def test_base_url_and_model_from_env(monkeypatch):
     monkeypatch.setenv("PRIMARY_KEY", "k")
     monkeypatch.setenv("SOME_BASE_URL", "https://gw.example.com/v1/")
@@ -151,7 +130,6 @@ def test_base_url_and_model_from_env(monkeypatch):
         base_url_env="SOME_BASE_URL",
         model_env="SOME_MODEL",
     )
-    # Trailing slash trimmed; env overrides the defaults.
     assert result.base_url == "https://gw.example.com/v1"
     assert result.model == "vendor/model-x"
 
@@ -166,11 +144,6 @@ def test_base_url_env_placeholder_falls_back_to_default(monkeypatch):
         base_url_env="SOME_BASE_URL",
     )
     assert result.base_url == _OTHER_HOST
-
-
-# ---------------------------------------------------------------------------
-# Provider inference by resolved base-URL host
-# ---------------------------------------------------------------------------
 
 
 def test_provider_inference_openrouter(monkeypatch):
@@ -197,7 +170,6 @@ def test_provider_inference_openai(monkeypatch):
 
 
 def test_provider_inference_only_picks_key_never_changes_base(monkeypatch):
-    # Base URL stays exactly as configured; inference selects the KEY only.
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-key")
     result = resolve_llm_credential(
         primary_env="PRIMARY_KEY",
@@ -218,7 +190,6 @@ def test_unknown_host_has_no_inference():
 
 
 def test_explicit_env_beats_provider_inference(monkeypatch):
-    # An explicit primary key must win even when the base URL would infer another.
     monkeypatch.setenv("PRIMARY_KEY", "explicit")
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-key")
     result = resolve_llm_credential(
@@ -229,10 +200,6 @@ def test_explicit_env_beats_provider_inference(monkeypatch):
     assert result.api_key == "explicit"
     assert result.source == "env"
 
-
-# ---------------------------------------------------------------------------
-# BYOK (org credential)
-# ---------------------------------------------------------------------------
 
 _BYOK = OrgLLMCredential(
     credential_id="cred-1",
@@ -245,8 +212,6 @@ _BYOK = OrgLLMCredential(
 
 def test_byok_hit_swaps_key_and_base_url_not_model(monkeypatch):
     monkeypatch.setenv("PRIMARY_KEY", "env-key")
-    # The resolver imports resolve_org_llm_credential lazily from its source
-    # module, so patch it there.
     with patch("agent.common.llm_credentials.resolve_org_llm_credential", return_value=_BYOK):
         result = resolve_llm_credential(
             primary_env="PRIMARY_KEY",
@@ -255,7 +220,6 @@ def test_byok_hit_swaps_key_and_base_url_not_model(monkeypatch):
             organization_id="org-1",
         )
     assert result.api_key == "sk-tenant"
-    # base_url swapped (trailing slash trimmed); model left untouched.
     assert result.base_url == "https://tenant.openrouter.ai/api/v1"
     assert result.model == "platform-model"
     assert result.source == "byok"
@@ -275,8 +239,6 @@ def test_byok_miss_falls_through_to_env(monkeypatch):
 
 
 def test_byok_fail_open_falls_through_to_env(monkeypatch):
-    # resolve_org_llm_credential fails open (returns None) on any error; the
-    # resolver must then continue down the env chain, never raise.
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-key")
     with patch("agent.common.llm_credentials.resolve_org_llm_credential", return_value=None):
         result = resolve_llm_credential(
@@ -290,7 +252,6 @@ def test_byok_fail_open_falls_through_to_env(monkeypatch):
 
 
 def test_no_org_id_skips_byok(monkeypatch):
-    # With no org id the BYOK lookup must not even be attempted.
     monkeypatch.setenv("PRIMARY_KEY", "env-key")
     with patch("agent.common.llm_credentials.resolve_org_llm_credential") as mock_resolve:
         result = resolve_llm_credential(
@@ -302,10 +263,6 @@ def test_no_org_id_skips_byok(monkeypatch):
     mock_resolve.assert_not_called()
     assert result.source == "env"
 
-
-# ---------------------------------------------------------------------------
-# NIM removal — fail fast, never a deep client failure
-# ---------------------------------------------------------------------------
 
 _NIM_HOST = "https://integrate.api.nvidia.com/v1"
 
@@ -349,8 +306,6 @@ def test_validate_llm_configs_fails_fast_on_nim():
 
 
 def test_validate_llm_configs_still_reports_missing_keys(monkeypatch):
-    # A supported config without its key keeps the old behaviour: no raise,
-    # the missing key is reported.
     is_valid, missing = validate_llm_configs({"llms": {"ok": {"_type": "openai"}}})
     assert not is_valid
     assert missing == ["OPENAI_API_KEY"]
@@ -374,11 +329,6 @@ def test_resolve_rejects_nim_base_url_from_env(monkeypatch):
             default_model="m",
             base_url_env="SOME_BASE_URL",
         )
-
-
-# ---------------------------------------------------------------------------
-# Legacy NVIDIA_API_KEY — deprecation warning, not a credential
-# ---------------------------------------------------------------------------
 
 
 def test_legacy_nvidia_key_only_warns_once(monkeypatch, caplog):

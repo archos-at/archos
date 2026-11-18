@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The platform door (ADR-0126), end to end through the real principal: a signed
- * AuthKit token, verified against a local key set, decides who gets in, and the
- * same MCP server as the office door answers with the platform domain only.
- *
- * Pinned: the audiences do not cross (an office token here, a platform token on
- * `/api/mcp`); only the GRID Platform organization, with the door switched on,
- * for platform staff; never Piloti's credential; a JSON 503 when WorkOS cannot
- * answer; one charge of the agent budget; the listing is exactly the platform
- * domain, and the office door does not list it for the same person.
- */
 
 import { webcrypto } from 'node:crypto'
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose'
@@ -21,7 +10,6 @@ const keys: { current: ReturnType<typeof createLocalJWKSet> | null } = { current
 
 vi.mock('jose', async (original) => ({
   ...(await original<typeof import('jose')>()),
-  // AuthKit's key set, answered locally: the token is really signed and really verified.
   createRemoteJWKSet: () => (...args: Parameters<ReturnType<typeof createLocalJWKSet>>) => {
     if (!keys.current) throw new Error('no key set')
     return keys.current(...args)
@@ -56,10 +44,10 @@ import { POST as officePOST } from '../../mcp/route'
 import { platformOverviewCalls } from '@/lib/agent-api/test-operations'
 import { DELETE, GET, POST } from './route'
 
-const DOMAIN = 'auth.piloti.test'
-const OFFICE = 'https://app.piloti.test/api/mcp'
-const A2A = 'https://app.piloti.test/api/a2a'
-const PLATFORM = 'https://app.piloti.test/api/platform/mcp'
+const DOMAIN = 'auth.example.test'
+const OFFICE = 'https://app.example.test/api/mcp'
+const A2A = 'https://app.example.test/api/a2a'
+const PLATFORM = 'https://app.example.test/api/platform/mcp'
 const PLATFORM_ORG = 'org_platform'
 const SECRET = 'internal-token-for-tests' // pragma: allowlist secret
 const KID = 'test-key'
@@ -79,7 +67,6 @@ const operator: AuthorizedSession = {
 let privateKey: CryptoKey
 
 beforeAll(async () => {
-  // The shared setup file swaps `crypto` for a stub with no randomUUID, which the SDK uses.
   vi.stubGlobal('crypto', webcrypto)
   const pair = await generateKeyPair('RS256')
   privateKey = pair.privateKey as CryptoKey
@@ -107,7 +94,6 @@ function rpc(url: string, method: string, params: unknown, headers: Record<strin
 
 const bearer = async (options?: { aud?: string; org?: string }) => ({ authorization: `Bearer ${await token(options)}` })
 
-/** The JSON-RPC message of a response, an SSE frame or a plain body. */
 async function messageOf<T>(response: Response): Promise<T> {
   const raw = await response.text()
   const data = raw.split('\n').find((line) => line.startsWith('data:'))
@@ -125,10 +111,10 @@ async function toolsOf(post: typeof POST, url: string, headers: Record<string, s
 beforeEach(() => {
   vi.clearAllMocks()
   platformOverviewCalls.length = 0
-  process.env.WORKOS_AUTHKIT_DOMAIN = DOMAIN
-  process.env.MCP_RESOURCE_URL = OFFICE
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.WORKOS_REDIRECT_URI = 'https://app.piloti.test/api/auth/callback'
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', DOMAIN)
+  vi.stubEnv('MCP_RESOURCE_URL', OFFICE)
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(operator)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
   vi.mocked(getPlatformOrganizationId).mockResolvedValue(PLATFORM_ORG)
@@ -148,7 +134,7 @@ describe('who may knock', () => {
     const response = await POST(rpc(PLATFORM, 'tools/list', {}))
     expect(response.status).toBe(401)
     expect(response.headers.get('www-authenticate')).toContain(
-      'resource_metadata="https://app.piloti.test/.well-known/oauth-protected-resource/api/platform/mcp"',
+      'resource_metadata="https://app.example.test/.well-known/oauth-protected-resource/api/platform/mcp"',
     )
     expect(enforceLimit).not.toHaveBeenCalled()
   })
@@ -172,8 +158,6 @@ describe('who may knock', () => {
   it('admits platform staff who picked an office at sign-in, as their platform membership, not the office’s', async () => {
     const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer({ org: 'org_office' })))
     expect(response.status).toBe(200)
-    // The session is resolved in the platform organization, live: the office's
-    // membership and its rights are never read.
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({ userId: 'user_ops', email: null, organizationId: PLATFORM_ORG })
     expect(resolvePinnedRequesterSession).not.toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org_office' }))
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('platform-agent-mcp', PLATFORM_ORG)
@@ -192,7 +176,6 @@ describe('who may knock', () => {
     const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer()))
     expect(response.status).toBe(403)
     expect(isOrgFeatureEnabled).toHaveBeenCalledWith('platform-agent-mcp', PLATFORM_ORG)
-    // The office door's flag opens nothing here.
     expect(isOrgFeatureEnabled).not.toHaveBeenCalledWith('agent-mcp', PLATFORM_ORG)
   })
 
@@ -208,7 +191,7 @@ describe('who may knock', () => {
     expect((await POST(rpc(PLATFORM, 'tools/list', {}, await bearer()))).status).toBe(403)
   })
 
-  it('never takes Piloti’s own credential', async () => {
+  it('never takes the agent’s own credential', async () => {
     const { header, signature } = buildRequestContextEnvelope(
       { organizationId: PLATFORM_ORG, userId: 'user_ops', conversationId: 'conv_1', issuedAt: Date.now() },
       SECRET,
@@ -256,7 +239,6 @@ describe('what it offers', () => {
 
   it('lists exactly the platform domain in tools mode: no office operation, no agent read tool', async () => {
     const tools = await toolsOf(POST, `${PLATFORM}?mode=tools`, await bearer())
-    // platform-audit-portal-link is `secret`: hidden until the step-up scope is enforced, as on the office door.
     expect(tools.map((tool) => tool.name)).toEqual(['platform-overview-get', 'platform-model-defaults-update', 'report-missing-operation'])
   })
 

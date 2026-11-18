@@ -1,8 +1,6 @@
-/** personalMemory namespace: the person's own notes, read by nobody else (`/app/memory`, ADR-0180). */
 export const personalMemory = {
   title: 'My memory',
   subtitle: 'What {productName} keeps about you and how you want to work.',
-  // The one checkable promise of the page. It names colleagues and the office's administrators, as ADR-0180 does.
   audience: 'Only you see these notes, neither colleagues nor the administrators of your office.',
   backToApp: 'Back',
   add: 'Add note',
@@ -42,7 +40,6 @@ export const personalMemory = {
   unpinnedNote: 'Note unpinned.',
   removed: 'Note removed.',
   removedAll: '{count, plural, one {# note} other {# notes}} removed.',
-  // Why the server refused a note (`details.kind`, `bff/knowledge/note-refusal.ts`). Never the value found.
   refused: {
     iban: 'Not saved: a note may not hold a bank account number (IBAN). Leave it out and save again.',
     at_svnr: 'Not saved: a note may not hold a social-insurance number. Leave it out and save again.',

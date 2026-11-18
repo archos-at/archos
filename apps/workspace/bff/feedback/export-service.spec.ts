@@ -41,7 +41,7 @@ vi.mock('@/lib/organizations/display-names', () => ({
   getOrganizationDisplayNames: vi.fn(async () => new Map([['org_1', 'Planungsbüro Huber']])),
 }))
 
-vi.mock('@/lib/app-origin', () => ({ configuredAppOrigin: vi.fn(() => 'https://app.piloti.example') }))
+vi.mock('@/lib/app-origin', () => ({ configuredAppOrigin: vi.fn(() => 'https://app.example.test') }))
 
 vi.mock('@/lib/sharing/registry', () => ({
   describeResource: () => ({
@@ -77,7 +77,6 @@ import {
 } from './export-service'
 import { NO_RATINGS_FILTERS, type FeedbackQuery } from './filters'
 
-/** A repository row: the record fixture without what the service adds. */
 function row(overrides: Partial<FeedbackExportRow> = {}): FeedbackExportRow {
   const { organizationName: _name, appUrl: _url, langfuseTraceUrl: _trace, ...rest } = feedbackExportRecord({
     organizationId: 'org_1',
@@ -91,7 +90,6 @@ const ALL: FeedbackQuery = {
   scope: { from: '2026-09-10', to: '2026-10-09', organizationIds: [], projectIds: [] },
   ratings: NO_RATINGS_FILTERS,
 }
-/** What the page might be showing: one organization, a project and a few filters. */
 const PAGE: FeedbackQuery = {
   scope: { from: '2026-10-03', to: '2026-10-09', organizationIds: ['org_1'], projectIds: [PROJECT] },
   ratings: { ...NO_RATINGS_FILTERS, verdict: 'down', reasons: ['inaccurate'], topics: ['fire_safety'], query: 'GK' },
@@ -113,7 +111,6 @@ describe('getAnswerFeedbackExport', () => {
     expect(getFeedbackWeeklySummary).not.toHaveBeenCalled()
   })
 
-  /** The file is the set the page shows: one query for the rows, the totals and the weeks. */
   it('reads the rows, the totals and the weeks with the page’s query', async () => {
     const exported = await getAnswerFeedbackExport(null, { query: PAGE, withSummary: true }, NOW)
 
@@ -125,7 +122,6 @@ describe('getAnswerFeedbackExport', () => {
       organizations: [{ id: 'org_1', name: 'Planungsbüro Huber' }],
       projects: [{ id: PROJECT, name: 'Stadthaus Lend' }],
     })
-    // The weekly sheet can apply the topic, not the verdict, the reason or the search.
     expect(exported.weeksIgnored).toEqual(['verdict', 'reasons', 'query'])
   })
 
@@ -167,10 +163,9 @@ describe('getAnswerFeedbackExport', () => {
 
     expect(exported.records[0].organizationName).toBe('Planungsbüro Huber')
     expect(exported.records.map((record) => record.appUrl)).toEqual([
-      'https://app.piloti.example/app/projects/p_1/chat?session=s_1#message-m_1',
-      'https://app.piloti.example/app/chat?session=s_2#message-m_2',
+      'https://app.example.test/app/projects/p_1/chat?session=s_1#message-m_1',
+      'https://app.example.test/app/chat?session=s_2#message-m_2',
     ])
-    // No conversation row: a link to a deleted chat is a 404 with extra steps.
     expect(deleted.records[0].appUrl).toBeNull()
   })
 })

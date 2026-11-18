@@ -1,17 +1,3 @@
-/**
- * The streamed answer is rendered block by block (`markdown-blocks.ts`), so a
- * reveal step parses only the block that grew. The rule that makes that safe,
- * set in `docs/design/streaming-chat-answer.md` before the blocks existed: for
- * every prefix of the recorded answers, including the settled snapshot and
- * the terminal text, the blocks must render the same HTML as the whole text
- * rendered at once.
- *
- * The candidate is one mounted renderer fed the prefixes in the order the
- * reveal shows them, so its memoised blocks are exercised the way a stream
- * exercises them. The reference is the same renderer with splitting switched
- * off, which renders the text as one document. The prefixes are rendered
- * with the chat's own remark plugins, in streaming mode until the terminal.
- */
 import { describe, expect, it, vi } from 'vitest'
 import type { PluggableList } from 'unified'
 import { render } from '@/test-utils'
@@ -19,7 +5,6 @@ import { STREAM_FRAMES } from '@/app/dev/_fixtures/stream-frames'
 import { MIN_BLOCK_CHARS, type MarkdownBlock } from '@/shared/components/MarkdownRenderer/markdown-blocks'
 
 type Split = (markdown: string, minChars?: number) => MarkdownBlock[] | null
-/** The split the renderer uses: `current` when set, else the real one, kept in `real`. */
 const splitter = vi.hoisted(() => ({ current: null as Split | null, real: null as Split | null }))
 
 vi.mock('@/shared/components/MarkdownRenderer/markdown-blocks', async (importOriginal) => {
@@ -38,7 +23,6 @@ import { remarkCardMarkers } from '@/features/cards/card-markers'
 import { remarkFileReferences } from '@/features/layout/lib/file-reference-markers'
 import { splitAnswerBody } from '../lib/citations/views'
 
-/** One text the answer's renderer is handed, with what `AgentResponse` parses it with. */
 interface Step {
   body: string
   numbers: ReadonlySet<number>
@@ -50,16 +34,6 @@ interface Step {
 const stepKey = (step: Step): string =>
   JSON.stringify([step.body, [...step.numbers], step.cards, step.callout, step.streaming])
 
-/**
- * Whether the prefix `text.slice(0, length)` can render differently from the
- * one a character shorter in a way the cut has to answer for. The cut moves
- * only at a line, and what a line is (a heading, a list item, a table row, a
- * fence, a marker) is decided by its punctuation, so a prefix that ends inside
- * a run of letters, digits and spaces adds nothing a neighbour does not show:
- * the run is kept every {@link RUN_STRIDE} characters, the rest is checked.
- * `STREAM_EQUIVALENCE_EVERY_PREFIX=1` checks every prefix, as the rule reads;
- * the short constructs in {@link CORPUS} always are.
- */
 const RUN_STRIDE = 8
 const EVERY_PREFIX = process.env.STREAM_EQUIVALENCE_EVERY_PREFIX === '1'
 const PLAIN = /[\p{L}\p{N} ]/u
@@ -68,12 +42,6 @@ function telling(text: string, length: number): boolean {
   return !PLAIN.test(text[length - 1]) || !PLAIN.test(text[length - 2] ?? '\n') || !PLAIN.test(text[length])
 }
 
-/**
- * The prefixes of every text a recorded turn went through (the deltas as they
- * add up, the settled snapshot, anything after it) that {@link telling} keeps,
- * in the order the reveal shows them, then the terminal text whole: the
- * terminal is never paced.
- */
 function recordedSteps(name: keyof typeof STREAM_FRAMES): Step[] {
   const steps = new Map<string, Step>()
   const add = (step: Step) => steps.set(stepKey(step), step)
@@ -94,14 +62,6 @@ function recordedSteps(name: keyof typeof STREAM_FRAMES): Step[] {
   return [...steps.values()]
 }
 
-/**
- * Texts the recorded answers do not reach, each one a construct that ties
- * blocks together or sits on a cut: a loose list, fences and math with blank
- * lines inside, setext headings and breaks, two tables, footnotes and
- * definitions (rendered whole), repeated headings, quotes, card and callout
- * markers (placed, stripped, half-written mid-text and at the end), an HTML
- * comment, indented code, and a fence inside a list item.
- */
 const CORPUS = [
   'Intro\n\n- a\n\n- b\n  more\n\n  indented para\n\nAfter.\n',
   'Text\n\n```ts\nconst a = 1\n\n\nconst b = 2\n```\n\nAfter\n\n~~~\nx\n\n~~~\n\nEnd',
@@ -134,18 +94,12 @@ function corpusSteps(): Step[] {
   return steps
 }
 
-/** `AgentResponse`'s `markerPlugins`, with no file index. */
 const pluginsFor = (step: Step): PluggableList => [
   [remarkCitationMarkers, { numbers: step.numbers, anchorPrefix: 'answer-src-', pending: step.streaming }],
   [remarkCardMarkers, { count: step.cards, callout: step.callout, pending: step.streaming }],
   [remarkFileReferences, { fileNames: [] }],
 ]
 
-/**
- * The first step whose HTML differs between a block renderer (one per split,
- * each splitting with its own) and the whole text rendered at once, or `null`.
- * The whole text, the expensive half, is rendered once per step for all of them.
- */
 function firstMismatch(
   steps: readonly Step[],
   ...splits: Split[]
@@ -156,7 +110,6 @@ function firstMismatch(
   const renderers = splits.map((split) => ({ split, blocks: render(<div />) }))
   const whole = render(<div />)
   try {
-    // The plugin list keeps its identity while its inputs do, as the chat's does.
     let plugins: PluggableList = []
     let pluginsKey = ''
     for (const step of steps) {
@@ -180,7 +133,6 @@ function firstMismatch(
   }
 }
 
-/** Split at every blank line, as if Markdown were block-local: the split this spec exists to refuse. */
 const naiveSplit: Split = (markdown) => {
   const blocks: MarkdownBlock[] = []
   let line = 0
@@ -191,12 +143,9 @@ const naiveSplit: Split = (markdown) => {
   return blocks
 }
 
-/** Split after every line. */
 const lineSplit: Split = (markdown) => markdown.split('\n').map((source, line) => ({ source, line }))
 
-/** The renderer's split. */
 const splitMarkdownBlocks: Split = (markdown) => splitter.real!(markdown)
-/** The same split with no minimum block size: a cut at every place the renderer may cut. */
 const everyCut: Split = (markdown) => splitter.real!(markdown, 0)
 
 const RECORDED = Object.keys(STREAM_FRAMES) as (keyof typeof STREAM_FRAMES)[]
@@ -226,7 +175,6 @@ describe('the streamed answer rendered block by block', () => {
       let finished: MarkdownBlock[] = []
       for (let length = 0; length <= terminal.length; length++) {
         const blocks = split(terminal.slice(0, length)) ?? []
-        // Every block but the last is finished, and must stay as it was.
         expect(blocks.slice(0, finished.length)).toEqual(finished)
         finished = blocks.slice(0, -1)
       }
@@ -246,7 +194,6 @@ describe('a reveal step', () => {
   it('parses only the block that grew', () => {
     let parses = 0
     const counting: PluggableList = [() => () => void (parses += 1)]
-    // Each block but the last past the size after which the text is cut.
     const long = ' Satz'.repeat(MIN_BLOCK_CHARS / 5)
     const blocks = [
       `## Erstens\n\n${long}`,
@@ -261,13 +208,8 @@ describe('a reveal step', () => {
     expect(parses).toBe(1)
   })
 
-  // What is already on screen keeps its DOM nodes through the next step, the
-  // growing paragraph's included: nothing shown is remounted, so nothing shown
-  // replays an entrance, loses a selection or flickers.
   it.each(RECORDED)('keeps the DOM nodes of the recorded %s answer that are already shown', (name) => {
     const { body } = splitAnswerBody(STREAM_FRAMES[name].frames.at(-1)!.content)
-    // A point in the second half of the answer followed by three plain words
-    // on the same line: the steps a reveal takes through running prose.
     const words = /(?<= )[\p{L}\p{N},.;:-]+ [\p{L}\p{N},.;:-]+ [\p{L}\p{N},.;:-]+ /gu
     const match = [...body.matchAll(words)].find((m) => m.index! > body.length / 2)!
     const start = match.index!

@@ -17,10 +17,6 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('project.nav.members') }
 }
 
-/**
- * Settings → Members. 404 without roster access, like every section a reader
- * cannot use: the roster endpoint would refuse them anyway.
- */
 export default async function ProjectMembersSettingsPage({
   params,
 }: PageProps): Promise<JSX.Element> {
@@ -34,8 +30,6 @@ export default async function ProjectMembersSettingsPage({
     return (
       <MembersSettings
         projectId={id}
-        // Same id space as the roster's `organizationMembershipId`: lets the
-        // form recognize the reader's own row and guard against self-lockout.
         currentMembershipId={session.organizationMembershipId}
       />
     )

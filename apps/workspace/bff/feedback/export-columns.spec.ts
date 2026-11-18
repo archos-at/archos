@@ -3,19 +3,12 @@
  * @vitest-environment node
  */
 
-/**
- * The export's one column list, and the three things that must agree with it:
- * the dictionary that labels it, the documentation that explains it, and the
- * script that reads it by name.
- */
-
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { feedbackExportCopy } from '@/i18n/namespaces/feedback-export'
 import { platformCopy } from '@/i18n/namespaces/platform'
 
-/** The two namespaces an export reads, in the dictionary's shape. */
 const en = { feedbackExport: feedbackExportCopy.messages.en, platform: platformCopy.messages.en }
 const de = { feedbackExport: feedbackExportCopy.messages.de, platform: platformCopy.messages.de }
 import { CONVERSATION_TAG_KEYS } from '@/lib/conversations/tags'
@@ -41,7 +34,6 @@ describe('the column keys', () => {
     }
   })
 
-  /** `scripts/feedback_to_cases.py` reads these by name. */
   it('keep the names the answer-suite converter reads', () => {
     expect(voteKeys).toEqual(expect.arrayContaining(['verdict', 'question', 'expected_answer', 'reason', 'voted_at']))
   })
@@ -59,7 +51,6 @@ describe('the column keys', () => {
 })
 
 describe('the dictionary', () => {
-  /** A column is typed against its dictionary key; this catches the other direction, a label nobody renders. */
   it('labels exactly the columns that exist, in both languages', () => {
     const fixedVoteKeys = voteKeys.filter((key) => !key.startsWith('topic_'))
     for (const dictionary of [en, de]) {
@@ -80,15 +71,9 @@ describe('the dictionary', () => {
   })
 })
 
-/**
- * The data dictionary in the docs is read by people who never open the code.
- * It drifted the moment a column was added and nobody remembered the page, so
- * its key tables are held to the definitions here, in order.
- */
 describe('docs/technical-reference/answer-feedback-export.md', () => {
   const doc = readFileSync(join(process.cwd(), '..', '..', 'docs', 'technical-reference', 'answer-feedback-export.md'), 'utf8')
 
-  /** The first-column backticked keys of the table under `heading`. */
   const tableKeys = (heading: string): string[] => {
     const start = doc.indexOf(`## ${heading}`)
     expect(start, heading).toBeGreaterThan(-1)

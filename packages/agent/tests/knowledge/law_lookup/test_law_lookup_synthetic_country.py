@@ -1,12 +1,3 @@
-"""The synthetic country XA answers a law lookup from its own record, and no code names it (plan step 4's gate).
-
-XA's gazette is a record as an operator's agent proposes it through the door
-(``synthetic-country-door.integration.spec.ts`` takes the same one to a release):
-a portal that lists one document and offers no search, an HTML statute page, a
-locus grammar in English. A turn in XA carries it; the lookup reads it, fetches
-the page through the network edge and cuts the provision the question names.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -24,7 +15,6 @@ _PAGE = """<!DOCTYPE html><html><head><title>Building Code of Xanadu</title></he
 <section><span class="nr">§ 2</span><h2>Heights</h2><p>No building in Xanadu is higher than the palace.</p></section>
 </body></html>"""
 
-#: The gazette as the door releases it to a turn: the proposed record in snake case, without its fixtures.
 XA_GAZETTE = {
     "id": "xa-gazette",
     "title": "Gazette of Xanadu",
@@ -73,18 +63,15 @@ async def test_a_provision_the_gazette_does_not_hold_is_a_miss_in_its_own_words(
     assert result.output.startswith("No Gazette passage answered")
 
 
-#: The gazette's statute page at the address that states its number, as the record declares (``nr``).
 _NUMBERED_URL = f"{_CODE_URL}?nr=42"
 
 
 def _numbered(declares: dict) -> dict:
-    """XA's gazette serving the code at its numbered address, declaring ``declares`` as its identifiers."""
     documents = [{"id": "code", "url": _NUMBERED_URL, "title": "Building Code"}]
     return {**XA_GAZETTE, "identifiers": declares, "access": {"documents": documents}}
 
 
 def _code_use(value: str):
-    """XA's building code as the turn's records resolve it: read live, carrying its number at the gazette."""
     from agent.common.knowledge_context import EditionUse
     from agent.common.knowledge_context import SourceRef
 
@@ -101,8 +88,6 @@ def _code_use(value: str):
     ],
 )
 async def test_a_passage_from_the_gazette_finds_its_work_by_a_scheme_only_records_name(declares, carried, work):
-    """A country's identifier is a record: the gazette's record says its addresses state ``xa_gazette_number``
-    in ``nr``, the work's record carries the value, and no code names the scheme (country-as-data §3.5)."""
     case = Case("xa-numbered", {"question": "How high may a building in Xanadu be?", "instrument": "§ 2 Building Code"})
     upstream = Upstream(responses={_NUMBERED_URL: {"content_type": "text/html; charset=utf-8", "body": _PAGE}})
 

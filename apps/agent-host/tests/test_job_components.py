@@ -1,48 +1,3 @@
-"""
-Tests for async job components.
-
-Module under test: apps/agent-host/src/agent_host/jobs/
-
-Test coverage:
-    TestIntermediateStepEvent:
-        - Event type property generation (category.state)
-        - SSE dict serialization
-        - Event data handling
-        - Artifact category and types
-
-    TestDeepResearchEventCallback:
-        - Initialization with/without event store
-        - Event emission for workflow/agent chains
-        - Tool event emission with URL extraction
-        - LLM event emission
-        - Graceful handling when no event store is set
-
-    TestDeepResearchEventCallbackAdvanced:
-        - URL extraction and cleanup
-        - Search tool detection
-        - Tool call syntax detection
-        - Artifact emission with workflow metadata
-        - Input/output extraction
-
-    TestEventStore:
-        - Event storage and retrieval
-        - Cursor-based pagination with after_id
-        - Async event retrieval
-        - Event cleanup
-        - Engine caching and disposal
-
-    TestToolArtifactMapping:
-        - Default tool mappings
-        - Custom mapping registration
-
-    TestCancellationMonitor:
-        - Initialization and state
-        - Cancellation check
-
-    TestSQLAlchemyPoolFilter:
-        - Error message filtering for CancelledError
-"""
-
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -62,7 +17,6 @@ from tests.provider_doubles import nat_langchain_client
 
 @pytest.fixture(name="event_store_cache_guard", autouse=True)
 def fixture_event_store_cache_guard():
-    """Reset EventStore caches to avoid cross-test leakage."""
     from agent_host.jobs.event_store import EventStore
 
     EventStore.dispose_all_engines()
@@ -71,10 +25,7 @@ def fixture_event_store_cache_guard():
 
 
 class TestIntermediateStepEvent:
-    """Tests for the IntermediateStepEvent model."""
-
     def test_event_type_property(self):
-        """Test event_type property generates category.state format."""
         event = IntermediateStepEvent(
             category=EventCategory.LLM,
             state=EventState.START,
@@ -84,7 +35,6 @@ class TestIntermediateStepEvent:
         assert event.event_type == "llm.start"
 
     def test_event_type_workflow_end(self):
-        """Test event_type for workflow.end."""
         event = IntermediateStepEvent(
             category=EventCategory.WORKFLOW,
             state=EventState.END,
@@ -94,7 +44,6 @@ class TestIntermediateStepEvent:
         assert event.event_type == "workflow.end"
 
     def test_event_type_tool_start(self):
-        """Test event_type for tool.start."""
         event = IntermediateStepEvent(
             category=EventCategory.TOOL,
             state=EventState.START,
@@ -104,7 +53,6 @@ class TestIntermediateStepEvent:
         assert event.event_type == "tool.start"
 
     def test_to_sse_dict_basic(self):
-        """Test to_sse_dict generates correct structure."""
         event = IntermediateStepEvent(
             category=EventCategory.LLM,
             state=EventState.START,
@@ -119,7 +67,6 @@ class TestIntermediateStepEvent:
         assert "timestamp" in result
 
     def test_to_sse_dict_with_data(self):
-        """Test to_sse_dict includes data when present."""
         event = IntermediateStepEvent(
             category=EventCategory.TOOL,
             state=EventState.END,
@@ -132,7 +79,6 @@ class TestIntermediateStepEvent:
         assert result["data"] == {"output": "search results"}
 
     def test_to_sse_dict_with_metadata(self):
-        """Test to_sse_dict includes metadata when present."""
         event = IntermediateStepEvent(
             category=EventCategory.LLM,
             state=EventState.END,
@@ -146,7 +92,6 @@ class TestIntermediateStepEvent:
         assert result["metadata"]["thinking"] == "reasoning..."
 
     def test_to_sse_dict_excludes_none_values(self):
-        """Test to_sse_dict excludes None values."""
         event = IntermediateStepEvent(
             category=EventCategory.WORKFLOW,
             state=EventState.START,
@@ -158,7 +103,6 @@ class TestIntermediateStepEvent:
         assert "name" not in result
 
     def test_event_type_artifact_update(self):
-        """Test event_type for artifact.update."""
         event = IntermediateStepEvent(
             category=EventCategory.ARTIFACT,
             state=EventState.UPDATE,
@@ -169,7 +113,6 @@ class TestIntermediateStepEvent:
         assert event.event_type == "artifact.update"
 
     def test_artifact_types_exist(self):
-        """Test all ArtifactType values are available."""
         assert ArtifactType.FILE.value == "file"
         assert ArtifactType.OUTPUT.value == "output"
         assert ArtifactType.CITATION_SOURCE.value == "citation_source"
@@ -178,23 +121,18 @@ class TestIntermediateStepEvent:
 
 
 class TestDeepResearchEventCallback:
-    """Tests for the DeepResearchEventCallback class."""
-
     def test_init_without_event_store(self):
-        """Test initialization without event store."""
         callback = DeepResearchEventCallback()
 
         assert callback._event_store is None
 
     def test_init_with_event_store(self):
-        """Test initialization with event store."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
         assert callback._event_store == mock_store
 
     def test_get_chain_name_from_serialized_name(self):
-        """Test _get_chain_name extracts name from serialized dict."""
         callback = DeepResearchEventCallback()
 
         name = callback._get_chain_name({"name": "test_chain"})
@@ -202,7 +140,6 @@ class TestDeepResearchEventCallback:
         assert name == "test_chain"
 
     def test_get_chain_name_from_serialized_id(self):
-        """Test _get_chain_name extracts name from id list."""
         callback = DeepResearchEventCallback()
 
         name = callback._get_chain_name({"id": ["module", "class", "chain_name"]})
@@ -210,7 +147,6 @@ class TestDeepResearchEventCallback:
         assert name == "chain_name"
 
     def test_get_chain_name_from_kwargs(self):
-        """Test _get_chain_name falls back to kwargs."""
         callback = DeepResearchEventCallback()
 
         name = callback._get_chain_name(None, name="kwarg_name")
@@ -218,7 +154,6 @@ class TestDeepResearchEventCallback:
         assert name == "kwarg_name"
 
     def test_get_chain_name_default(self):
-        """Test _get_chain_name returns 'unknown' as default."""
         callback = DeepResearchEventCallback()
 
         name = callback._get_chain_name(None)
@@ -226,7 +161,6 @@ class TestDeepResearchEventCallback:
         assert name == "unknown"
 
     def test_on_chain_start_with_agent_emits_workflow_start(self):
-        """Test on_chain_start emits workflow.start event for agent chains."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -238,7 +172,6 @@ class TestDeepResearchEventCallback:
         assert call_args["name"] == "planner-agent"
 
     def test_on_chain_start_non_agent_chain_no_event(self):
-        """Test on_chain_start does not emit for non-agent chains."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -247,13 +180,11 @@ class TestDeepResearchEventCallback:
         mock_store.store.assert_not_called()
 
     def test_on_chain_start_without_event_store(self):
-        """Test on_chain_start does nothing without event store."""
         callback = DeepResearchEventCallback()
 
         callback.on_chain_start({"name": "planner-agent"}, inputs={})
 
     def test_on_chain_end_with_agent_emits_workflow_end(self):
-        """Test on_chain_end emits workflow.end event for agent chains."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -268,7 +199,6 @@ class TestDeepResearchEventCallback:
         assert call_args["name"] == "researcher-agent"
 
     def test_on_tool_start_emits_event(self):
-        """Test on_tool_start emits tool.start event."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -281,7 +211,6 @@ class TestDeepResearchEventCallback:
         assert "data" in call_args
 
     def test_on_tool_end_emits_event(self):
-        """Test on_tool_end emits tool.end event."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -289,23 +218,17 @@ class TestDeepResearchEventCallback:
 
         callback.on_tool_end("search results", run_id="test-run-id", name="web_search")
 
-        # on_tool_end emits the tool.end event first; a source-bearing output
-        # additionally emits a citation_source artifact (restored by the PB-1
-        # fix — previously this second emit crashed with a TypeError), so there
-        # may be more than one store call. Assert the first is the tool.end event.
         assert mock_store.store.call_count >= 1
         call_args = mock_store.store.call_args_list[0][0][0]
         assert call_args["type"] == "tool.end"
         assert call_args["name"] == "web_search"
 
     def test_on_tool_start_without_event_store(self):
-        """Test on_tool_start does nothing without event store."""
         callback = DeepResearchEventCallback()
 
         callback.on_tool_start({"name": "web_search"}, input_str="query")
 
     def test_on_tool_start_with_none_serialized(self):
-        """Test on_tool_start handles None serialized dict."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -315,7 +238,6 @@ class TestDeepResearchEventCallback:
         assert call_args["name"] == "unknown"
 
     def test_on_llm_start_emits_event(self):
-        """Test on_llm_start emits llm.start event."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -327,7 +249,6 @@ class TestDeepResearchEventCallback:
         assert call_args["name"] == "nemotron-70b"
 
     def test_on_chat_model_start_emits_event(self):
-        """Test on_chat_model_start emits llm.start event."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -340,11 +261,8 @@ class TestDeepResearchEventCallback:
 
 
 class TestRunAgentStateFields:
-    """_run_agent forwards structured context onto state-based agents."""
-
     @pytest.mark.asyncio
     async def test_run_agent_sets_deep_research_state_fields(self):
-        """user_info, clarifier_result, and project_context land on the deep state."""
         from agent.agents.deep_researcher.models import DeepResearchAgentState
         from agent_host.jobs.runner import _run_agent
 
@@ -380,14 +298,6 @@ class TestRunAgentStateFields:
 
     @pytest.mark.asyncio
     async def test_run_agent_carries_the_organization_onto_the_deep_state(self):
-        """The tenant a deep job resolves its skills for arrives on the state.
-
-        There are no request headers inside a research worker, so the organization
-        cannot be read from the context the way the synchronous chat path reads
-        it — it is captured at submit time and handed over here. Without it the
-        run resolves no organization skills at all, which is how the platform's
-        own standard skills came to be silently absent from every report.
-        """
         from agent.agents.deep_researcher.models import DeepResearchAgentState
         from agent_host.jobs.runner import _run_agent
 
@@ -419,8 +329,7 @@ class TestRunAgentStateFields:
 
     @pytest.mark.asyncio
     async def test_run_agent_skips_unsupported_state_fields(self):
-        """Fields absent from a state model are not passed (no validation errors)."""
-        from agent.agents.piloti.models import ResearchAgentState
+        from agent.core.models import ResearchAgentState
         from agent_host.jobs.runner import _run_agent
 
         captured: dict = {}
@@ -430,7 +339,7 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeChatAgent.__module__ = "agent.agents.piloti.agent"
+        FakeChatAgent.__module__ = "agent.core.agent"
         FakeChatAgent.__name__ = "ChatAgent"
         FakeChatAgent.state_model = ResearchAgentState
 
@@ -455,13 +364,6 @@ class TestRunAgentStateFields:
         assert not hasattr(state, "clarifier_result")
 
     def test_every_registered_agent_declares_its_state_model(self):
-        """The state model is declared, never spelled out of the class name.
-
-        ``_get_agent_state_class`` falls back to guessing from the class name,
-        and the guess is silent when it misses: the agent is handed a bare
-        dict and every field this class forwards is dropped. Renaming
-        ``ResearcherAgent`` to ``ChatAgent`` is exactly the miss.
-        """
         import importlib
 
         from agent_host.jobs.runner import _get_agent_state_class
@@ -478,16 +380,7 @@ class TestRunAgentStateFields:
 
 
 class TestResolveWorkerToolRefs:
-    """Tests for worker tool-ref resolution (registry inheritance)."""
-
     def test_empty_tools_inherits_registry(self):
-        """An omitted/empty tools list (the config default) inherits the whole registry.
-
-        Regression: DeepResearchAgentConfig.tools uses default_factory=list, so an
-        omitted list is [] (never None). A prior `is None` guard skipped
-        inheritance and built a tool-less worker whose researcher sub-agents got
-        no source tools.
-        """
         from agent_host.jobs.runner import _resolve_worker_tool_refs
 
         class FakeConfig:
@@ -497,7 +390,6 @@ class TestResolveWorkerToolRefs:
             assert _resolve_worker_tool_refs(FakeConfig()) == ["ris_search_tool", "knowledge_search"]
 
     def test_none_tools_inherits_registry(self):
-        """A missing tools attribute also inherits the registry."""
         from agent_host.jobs.runner import _resolve_worker_tool_refs
 
         class FakeConfig:
@@ -507,7 +399,6 @@ class TestResolveWorkerToolRefs:
             assert _resolve_worker_tool_refs(FakeConfig()) == ["web_search_tool"]
 
     def test_explicit_tools_are_used_verbatim_without_inheriting(self):
-        """A non-empty explicit list is used as-is; the registry is never consulted."""
         from agent_host.jobs.runner import _resolve_worker_tool_refs
 
         class FakeConfig:
@@ -518,10 +409,7 @@ class TestResolveWorkerToolRefs:
 
 
 class TestEventStore:
-    """Tests for the EventStore class."""
-
     def test_store_event(self, tmp_path):
-        """Test storing an event."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "test.db"
@@ -535,7 +423,6 @@ class TestEventStore:
         assert events[0]["type"] == "test.event"
 
     def test_get_events_empty(self, tmp_path):
-        """Test get_events returns empty list for unknown job."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "test.db"
@@ -546,7 +433,6 @@ class TestEventStore:
         assert events == []
 
     def test_get_events_with_after_id(self, tmp_path):
-        """Test get_events with after_id cursor."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "test.db"
@@ -566,7 +452,6 @@ class TestEventStore:
 
     @pytest.mark.asyncio
     async def test_get_events_async(self, tmp_path):
-        """Test async get_events."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "test.db"
@@ -580,7 +465,6 @@ class TestEventStore:
         await EventStore.dispose_all_engines_async()
 
     def test_cleanup_job_events(self, tmp_path):
-        """Test cleanup_job_events deletes events."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "test.db"
@@ -597,7 +481,6 @@ class TestEventStore:
         assert len(events) == 0
 
     def test_engine_caching(self, tmp_path):
-        """Test that engines are cached and reused."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "test.db"
@@ -614,7 +497,6 @@ class TestEventStore:
         assert engine1 is engine2
 
     def test_dispose_all_engines(self, tmp_path):
-        """Test dispose_all_engines clears cache."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "test.db"
@@ -628,7 +510,6 @@ class TestEventStore:
 
     @pytest.mark.asyncio
     async def test_dispose_all_engines_async_disposes_all(self):
-        """Test dispose_all_engines_async disposes sync and async engines."""
         from agent_host.jobs.event_store import EventStore
 
         sync_engine = MagicMock()
@@ -648,7 +529,6 @@ class TestEventStore:
         assert EventStore._tables_initialized == set()
 
     def test_dispose_all_engines_schedules_async_cleanup(self):
-        """Test dispose_all_engines schedules async dispose with running loop."""
         from agent_host.jobs.event_store import EventStore
 
         sync_engine = MagicMock()
@@ -679,7 +559,6 @@ class TestEventStore:
         assert EventStore._async_engine_cache == {}
 
     def test_cleanup_stale_engines_disposes_async_engine(self):
-        """Test stale async engines are disposed with a running loop."""
         from agent_host.jobs.event_store import ENGINE_CACHE_TTL_SECONDS
         from agent_host.jobs.event_store import EventStore
 
@@ -707,7 +586,6 @@ class TestEventStore:
         assert cache == {}
 
     def test_cleanup_stale_engines_uses_asyncio_run_without_loop(self):
-        """Test stale async engines use asyncio.run without a loop."""
         from agent_host.jobs.event_store import ENGINE_CACHE_TTL_SECONDS
         from agent_host.jobs.event_store import EventStore
 
@@ -738,10 +616,7 @@ class TestEventStore:
 
 
 class TestToolArtifactMapping:
-    """Tests for the ToolArtifactMapping class."""
-
     def test_default_mappings(self):
-        """Test default tool mappings are registered."""
         from agent_host.jobs.callbacks import ToolArtifactMapping
 
         mapping = ToolArtifactMapping()
@@ -751,7 +626,6 @@ class TestToolArtifactMapping:
         assert not mapping.is_artifact_tool("unknown_tool")
 
     def test_get_mapping(self):
-        """Test get_mapping returns correct mapping."""
         from agent_host.jobs.callbacks import ArtifactType
         from agent_host.jobs.callbacks import ToolArtifactMapping
 
@@ -762,7 +636,6 @@ class TestToolArtifactMapping:
         assert todo_mapping["artifact_type"] == ArtifactType.TODO
 
     def test_register_custom_mapping(self):
-        """Test registering a custom tool mapping."""
         from agent_host.jobs.callbacks import ArtifactType
         from agent_host.jobs.callbacks import ToolArtifactMapping
 
@@ -779,10 +652,7 @@ class TestToolArtifactMapping:
 
 
 class TestDeepResearchEventCallbackAdvanced:
-    """Additional tests for DeepResearchEventCallback."""
-
     def test_extract_urls(self):
-        """Test URL extraction from text."""
         callback = DeepResearchEventCallback()
 
         text = "Check out https://example.com and http://test.org/page for more info."
@@ -791,7 +661,6 @@ class TestDeepResearchEventCallbackAdvanced:
         assert urls == ["https://example.com", "http://test.org/page"]
 
     def test_extract_urls_cleans_trailing_punctuation(self):
-        """Test URL extraction removes trailing punctuation."""
         callback = DeepResearchEventCallback()
 
         text = "Visit https://example.com)."
@@ -800,7 +669,6 @@ class TestDeepResearchEventCallbackAdvanced:
         assert urls == ["https://example.com"]
 
     def test_is_search_tool(self):
-        """Test search tool detection."""
         callback = DeepResearchEventCallback()
 
         assert callback._is_search_tool("tavily_search")
@@ -809,18 +677,14 @@ class TestDeepResearchEventCallbackAdvanced:
         assert not callback._is_search_tool("write_file")
 
     def test_contains_tool_call_syntax(self):
-        """Test tool call syntax detection."""
         callback = DeepResearchEventCallback()
 
-        # Pattern matches quoted arguments and keyword arguments
         assert callback._contains_tool_call_syntax('Let me call task("query")')
         assert callback._contains_tool_call_syntax("Let me call task(query=value)")
         assert not callback._contains_tool_call_syntax("Normal text without calls")
-        # Bare positional arguments don't match to avoid false positives
         assert not callback._contains_tool_call_syntax("Let me call task(query)")
 
     def test_emit_artifact_adds_workflow_metadata(self):
-        """Test that artifact emission includes workflow metadata when provided."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
 
@@ -837,7 +701,6 @@ class TestDeepResearchEventCallbackAdvanced:
         assert call_args["metadata"]["agent_id"] == "run-1"
 
     def test_on_chain_end_clears_agent_tracking(self):
-        """Test on_chain_end removes agent from tracking when matching."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
         callback._agent_run_ids["run-1"] = ("researcher-agent", "run-1")
@@ -849,7 +712,6 @@ class TestDeepResearchEventCallbackAdvanced:
         assert len(callback._agent_run_ids) == 0
 
     def test_on_tool_end_extracts_search_urls(self):
-        """Test on_tool_end extracts URLs from search tool results."""
         mock_store = MagicMock()
         callback = DeepResearchEventCallback(event_store=mock_store)
         callback._run_id_to_name["run-1"] = "tavily_search"
@@ -860,21 +722,18 @@ class TestDeepResearchEventCallbackAdvanced:
         assert mock_store.store.call_count >= 2
 
     def test_parse_tool_input_dict_string(self):
-        """Test parsing dict-like string input."""
         callback = DeepResearchEventCallback()
 
         result = callback._parse_tool_input("{'key': 'value'}")
         assert result == {"key": "value"}
 
     def test_parse_tool_input_plain_string(self):
-        """Test parsing plain string input."""
         callback = DeepResearchEventCallback()
 
         result = callback._parse_tool_input("plain text query")
         assert result == "plain text query"
 
     def test_extract_input_with_messages(self):
-        """Test extracting input from dict with messages."""
         callback = DeepResearchEventCallback()
         msg = MagicMock()
         msg.content = "message content"
@@ -883,7 +742,6 @@ class TestDeepResearchEventCallbackAdvanced:
         assert result == "message content"
 
     def test_extract_output_with_output_key(self):
-        """Test extracting output from dict with output key."""
         callback = DeepResearchEventCallback()
 
         result = callback._extract_output({"output": "the result"})
@@ -891,10 +749,7 @@ class TestDeepResearchEventCallbackAdvanced:
 
 
 class TestCancellationMonitor:
-    """Tests for CancellationMonitor."""
-
     def test_init(self):
-        """Test CancellationMonitor initialization."""
         from agent_host.jobs.runner import CancellationMonitor
 
         monitor = CancellationMonitor(
@@ -906,7 +761,6 @@ class TestCancellationMonitor:
         assert not monitor.is_cancelled
 
     def test_is_cancelled_initially_false(self):
-        """Test is_cancelled is initially False."""
         from agent_host.jobs.runner import CancellationMonitor
 
         monitor = CancellationMonitor(
@@ -917,7 +771,6 @@ class TestCancellationMonitor:
         assert monitor.is_cancelled is False
 
     def test_check_raises_when_cancelled(self):
-        """Test check() raises CancelledError when cancelled."""
         import asyncio
 
         from agent_host.jobs.runner import CancellationMonitor
@@ -932,7 +785,6 @@ class TestCancellationMonitor:
             monitor.check()
 
     def test_stop_cancels_monitor_task(self):
-        """Test stop() cancels the monitor task."""
         from agent_host.jobs.runner import CancellationMonitor
 
         monitor = CancellationMonitor(
@@ -950,10 +802,7 @@ class TestCancellationMonitor:
 
 
 class TestDataSourceModel:
-    """Tests for the DataSource Pydantic model."""
-
     def test_data_source_basic_creation(self):
-        """Test creating DataSource with required fields."""
         from agent_host.routes.job_models import DataSource
 
         source = DataSource(id="web_search", name="Web Search")
@@ -963,7 +812,6 @@ class TestDataSourceModel:
         assert source.description is None
 
     def test_data_source_with_description(self):
-        """Test creating DataSource with description."""
         from agent_host.routes.job_models import DataSource
 
         source = DataSource(
@@ -977,7 +825,6 @@ class TestDataSourceModel:
         assert source.description == "Enterprise content from Confluence."
 
     def test_data_source_serialization(self):
-        """Test DataSource serialization to dict."""
         from agent_host.routes.job_models import DataSource
 
         source = DataSource(
@@ -993,11 +840,8 @@ class TestDataSourceModel:
 
 
 class TestJobErrorEventEmission:
-    """Tests for job.error event emission on job failure."""
-
     @pytest.mark.asyncio
     async def test_exception_emits_job_error_event(self, tmp_path):
-        """Test that exceptions emit job.error events to event store."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "error_test.db"
@@ -1024,7 +868,6 @@ class TestJobErrorEventEmission:
         assert events[0]["data"]["error_type"] == "ValueError"
 
     def test_job_error_event_structure(self, tmp_path):
-        """Test job.error event has correct structure."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "structure_test.db"
@@ -1054,7 +897,6 @@ class TestJobErrorEventEmission:
         assert "_id" in event
 
     def test_job_error_preserves_error_type(self, tmp_path):
-        """Test that different error types are preserved correctly."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "types_test.db"
@@ -1088,7 +930,6 @@ class TestJobErrorEventEmission:
             assert events[i]["data"]["error_type"] == expected_type
 
     def test_job_error_with_long_message(self, tmp_path):
-        """Test job.error handles long error messages."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "long_error_test.db"
@@ -1115,7 +956,6 @@ class TestJobErrorEventEmission:
 
     @pytest.mark.asyncio
     async def test_job_error_async_retrieval(self, tmp_path):
-        """Test job.error events can be retrieved asynchronously."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "async_error_test.db"
@@ -1142,10 +982,7 @@ class TestJobErrorEventEmission:
 
 
 class TestJobCancelledEventComparison:
-    """Tests comparing job.cancelled and job.error event patterns."""
-
     def test_cancelled_and_error_events_coexist(self, tmp_path):
-        """Test that cancelled and error events can coexist for same job."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "coexist_test.db"
@@ -1164,7 +1001,6 @@ class TestJobCancelledEventComparison:
         assert "job.error" in types
 
     def test_job_error_follows_status_event_pattern(self, tmp_path):
-        """Test job.error follows same pattern as job.cancelled."""
         from agent_host.jobs.event_store import EventStore
 
         db_path = tmp_path / "pattern_test.db"
@@ -1191,10 +1027,7 @@ class TestJobCancelledEventComparison:
 
 
 class TestSQLAlchemyPoolFilter:
-    """Tests for SQLAlchemyPoolFilter."""
-
     def test_filter_passes_normal_errors(self):
-        """Test filter passes normal error messages."""
         import logging
 
         from agent_host.jobs.event_store import SQLAlchemyPoolFilter
@@ -1213,7 +1046,6 @@ class TestSQLAlchemyPoolFilter:
         assert filter_obj.filter(record) is True
 
     def test_filter_blocks_cancelled_errors(self):
-        """Test filter blocks CancelledError messages."""
         import logging
 
         from agent_host.jobs.event_store import SQLAlchemyPoolFilter
@@ -1232,7 +1064,6 @@ class TestSQLAlchemyPoolFilter:
         assert filter_obj.filter(record) is False
 
     def test_filter_passes_info_level(self):
-        """Test filter passes INFO level messages."""
         import logging
 
         from agent_host.jobs.event_store import SQLAlchemyPoolFilter
@@ -1252,11 +1083,8 @@ class TestSQLAlchemyPoolFilter:
 
 
 class TestAsyncJobRunnerAgentFactory:
-    """Tests for async job agent construction."""
-
     @pytest.mark.asyncio
     async def test_create_llm_provider_configures_deep_research_roles(self):
-        """Async workers honor all deep-research role-specific LLM config fields."""
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
         from agent.common import LLMRole
         from agent_host.jobs.runner import _create_llm_provider
@@ -1294,7 +1122,6 @@ class TestAsyncJobRunnerAgentFactory:
 
     @pytest.mark.asyncio
     async def test_create_llm_provider_reuses_shared_llm_refs(self):
-        """Shared role/default LLM refs should initialize one wrapper instance."""
         from types import SimpleNamespace
 
         from agent.common import LLMRole
@@ -1326,7 +1153,6 @@ class TestAsyncJobRunnerAgentFactory:
         builder.get_llm.assert_awaited_once()
 
     def test_create_agent_instance_passes_deep_research_config_as_explicit_args(self):
-        """Async workers pass DeepResearchAgentConfig fields through the explicit constructor surface."""
         from agent.agents.deep_researcher.deepagents_runtime import DeepResearchSandboxConfig
         from agent.agents.deep_researcher.deepagents_runtime import DeepResearchSkillsConfig
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
@@ -1403,11 +1229,9 @@ class TestAsyncJobRunnerAgentFactory:
         assert agent.max_research_concurrency == 2
         assert agent.max_concurrent_source_tool_calls == 3
         assert agent.max_source_tool_batch_size == 4
-        # F5: max_run_seconds wired through from fn_config (DeepResearchAgentConfig default 2400)
         assert agent.max_run_seconds == 2400
 
     def test_async_deep_researcher_constructor_applies_config_tuning(self):
-        """Async construction preserves catalog and concurrency settings."""
         from agent.agents.deep_researcher.agent import DeepResearcherAgent
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
         from agent.common import LLMProvider
@@ -1445,7 +1269,6 @@ class TestAsyncJobRunnerAgentFactory:
         assert agent.max_source_tool_batch_size == 4
 
     def test_async_deep_researcher_constructor_preserves_writer_skills(self):
-        """Async job construction preserves writer-only skills and sandbox job scoping."""
         from langchain_core.messages import HumanMessage
         from langchain_core.tools import tool
 
@@ -1458,9 +1281,8 @@ class TestAsyncJobRunnerAgentFactory:
         from agent.common import LLMRole
         from agent_host.jobs.runner import _create_agent_instance
 
-        @tool
+        @tool(description="Search test tool.")
         def async_test_search(query: str) -> str:
-            """Search test tool."""
             return f"results for {query}"
 
         mock_llm = MagicMock()
@@ -1534,7 +1356,6 @@ class TestAsyncJobRunnerAgentFactory:
         assert create_backend.call_args.args[1] == "async-job-123"
 
     def test_async_deep_researcher_empty_data_sources_keeps_internal_tools(self):
-        """Explicit empty data_sources disables source tools but keeps DeepResearcher helpers."""
         from langchain_core.messages import HumanMessage
 
         from agent.agents.deep_researcher.agent import DeepResearcherAgent
@@ -1589,7 +1410,6 @@ class TestAsyncJobRunnerAgentFactory:
         ]
 
     def test_create_agent_instance_does_not_swallow_deep_research_constructor_type_error(self):
-        """Constructor bugs must not silently fall back to another construction pattern."""
         from agent.agents.deep_researcher.deepagents_runtime import DeepResearchSandboxConfig
         from agent.agents.deep_researcher.deepagents_runtime import DeepResearchSkillsConfig
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
@@ -1637,8 +1457,6 @@ class TestAsyncJobRunnerAgentFactory:
 
 
 class TestDeepResearchReflection:
-    """Worker-side memory reflection over a finished deep-research report."""
-
     @staticmethod
     def _identity(project_id="proj-1"):
         return {
@@ -1651,7 +1469,6 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_reflects_on_successful_report(self):
-        """Enabled + ref + project in scope → reflection runs over the report."""
         from contextlib import nullcontext
 
         from agent_host.jobs.runner import _run_deep_research_reflection
@@ -1695,7 +1512,6 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_skips_when_disabled(self):
-        """Feature flag off → no LLM built, no reflection."""
         from agent_host.jobs.runner import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
@@ -1723,7 +1539,6 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_skips_without_llm_ref(self):
-        """No reflection LLM configured → no-op."""
         from agent_host.jobs.runner import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
@@ -1751,7 +1566,6 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_skips_without_project_scope(self):
-        """Org-only job (no project) → reflection has nothing it may write."""
         from agent_host.jobs.runner import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
@@ -1779,7 +1593,6 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_never_raises_on_reflection_failure(self):
-        """A reflection failure is swallowed — job outcome is unaffected."""
         from contextlib import nullcontext
 
         from agent_host.jobs.runner import _run_deep_research_reflection
@@ -1797,7 +1610,6 @@ class TestDeepResearchReflection:
                 side_effect=lambda **_: nullcontext(),
             ),
         ):
-            # Must not raise.
             await _run_deep_research_reflection(
                 builder=builder,
                 job_id="job-1",
@@ -1813,9 +1625,6 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_a_slow_reflection_is_cut_at_the_stage_timeout(self):
-        """The job's SUCCESS bookkeeping waits for reflection, so the wait is
-        bounded by the same timeout the chat path's stage declares — not by the
-        reflection model's own retries."""
         import asyncio
         from contextlib import nullcontext
 
@@ -1859,15 +1668,6 @@ class TestDeepResearchReflection:
 
 
 class TestCitedSourceEmission:
-    """A knowledge-base document must be markable as CITED, not just discovered.
-
-    ``citation_use`` was URL-only, so a KB source could never earn the flag. The
-    frontend's provenance row filters on it and only falls back to "show every
-    discovered source" when NOTHING is flagged — so a run that cited four OIB
-    Richtlinien plus one web page marked only the web page, and the row rendered
-    that web page alone.
-    """
-
     def _registry(self):
         from agent.citations.entries import SourceEntry
         from agent.citations.registry import SourceRegistry
@@ -1933,13 +1733,6 @@ class TestCitedSourceEmission:
         assert [item.get("citation_key") for item in cited] == []
 
     def test_a_document_only_MENTIONED_in_prose_is_not_flagged(self):
-        """Naming a document is not citing it — it may be the opposite.
-
-        This runs on intermediate agent output too, where documents are
-        discussed far more often than cited. The URL path gets away with a
-        looser rule only because URLs rarely appear in prose; filenames
-        routinely do.
-        """
         prose = (
             "Ich konnte oib-rl_2_ausgabe_mai_2023.pdf nicht vollständig abrufen "
             "und habe daher keine belastbare Aussage."
@@ -1990,12 +1783,6 @@ class TestCitedSourceEmission:
 
 
 class _StubMessage:
-    """Minimal LLM message shape ``_extract_llm_response`` understands.
-
-    A MagicMock cannot stand in here: every ``hasattr`` on it is true, so the
-    handler would read a Mock as a tool call and skip the output path entirely.
-    """
-
     def __init__(self, content: str) -> None:
         self.content = content
         self.tool_calls: list = []
@@ -2014,7 +1801,6 @@ class _StubLLMResult:
 
 
 def _kb_registry():
-    """A registry holding one OIB document and one web page, as a run would."""
     from agent.citations.entries import SourceEntry
     from agent.citations.registry import SourceRegistry
 
@@ -2033,7 +1819,6 @@ def _kb_registry():
 
 
 def _capture_artifacts(callback):
-    """Patch ``_emit_artifact`` and collect every emitted artifact as a dict."""
     emitted: list[dict] = []
     patcher = patch.object(
         callback,
@@ -2058,16 +1843,6 @@ REPORT_CITING_BOTH = (
 
 
 class TestCitedSourceRegistryResolution:
-    """A knowledge-base citation must be markable as cited INSIDE A JOB.
-
-    ``_get_source_registry`` used to read the session-scoped contextvar only,
-    and nothing binds that inside a research worker — only the synchronous chat
-    paths call ``set_session_registry``. So in a deep-research job the lookup
-    always returned None, ``_emit_cited_documents`` early-returned, and no OIB
-    document could ever be marked cited: the live panel showed a run's four
-    Richtlinien as merely "discovered" next to the one web page it cited.
-    """
-
     def test_an_attached_registry_marks_a_document_cited(self):
         callback = DeepResearchEventCallback(source_registry=_kb_registry())
         emitted, patcher = _capture_artifacts(callback)
@@ -2086,12 +1861,6 @@ class TestCitedSourceRegistryResolution:
         assert any(item.get("url") == "https://example.com/a" for item in _cited(emitted))
 
     def test_a_provider_callable_is_resolved_at_emit_time(self):
-        """The wiring hands over an accessor, not a snapshot.
-
-        ``SourceRegistryMiddleware.active_registry`` prefers a session registry
-        when one exists, so calling it late is what keeps the callback pointed
-        at the registry ``verify_citations`` will actually use.
-        """
         registry = _kb_registry()
         calls: list[int] = []
 
@@ -2109,7 +1878,6 @@ class TestCitedSourceRegistryResolution:
         assert any(item.get("citation_key") for item in _cited(emitted))
 
     def test_a_broken_provider_falls_back_to_the_session_registry(self):
-        """Transparency artifacts never fail a job — not even on bad wiring."""
         from agent.citations.session import reset_session_registry
         from agent.citations.session import set_session_registry
 
@@ -2128,13 +1896,6 @@ class TestCitedSourceRegistryResolution:
         assert any(item.get("citation_key") for item in _cited(emitted))
 
     def test_tool_results_alone_are_enough_to_mark_a_document_cited(self):
-        """No wiring at all: the mirror built from the run's own tool results.
-
-        This is the tier that makes a job truthful with no change outside the
-        callback — the same parser the SourceRegistryMiddleware uses, over the
-        same tool output, so the mirror cannot drift in shape from the real
-        registry.
-        """
         callback = DeepResearchEventCallback()
         tool_output = (
             "Found 1 relevant document(s):\n\n"
@@ -2154,11 +1915,6 @@ class TestCitedSourceRegistryResolution:
         assert "oib-rl_2_ausgabe_mai_2023.pdf, p.12" in keys
 
     def test_a_document_no_tool_ever_returned_is_not_guessed(self):
-        """An empty mirror is "no registry", not "a registry that knows nothing".
-
-        Treating it as a registry would make every document citation
-        unverifiable-but-unchecked instead of simply undecided.
-        """
         callback = DeepResearchEventCallback()
         emitted, patcher = _capture_artifacts(callback)
         with patcher:
@@ -2168,16 +1924,6 @@ class TestCitedSourceRegistryResolution:
 
 
 class TestVerifiedCitedSourceStream:
-    """ "Cited" is claimed only for citations the FINAL, verified report carries.
-
-    ``_emit_cited_sources`` used to run on raw ``on_llm_end`` content, which is
-    produced before ``verify_citations`` (in ``DeepResearcherAgent._finalize``)
-    strips fabricated or unverifiable citations — and before the writer decides
-    which of an intermediate agent's sources reach the answer at all. The
-    frontend's merge is monotonic (``isCited`` is sticky once true), so a
-    premature claim could never be taken back.
-    """
-
     def test_raw_streaming_output_claims_nothing_as_cited(self):
         callback = DeepResearchEventCallback(source_registry=_kb_registry())
         emitted, patcher = _capture_artifacts(callback)
@@ -2185,7 +1931,6 @@ class TestVerifiedCitedSourceStream:
             callback.on_llm_end(_StubLLMResult(REPORT_CITING_BOTH + "x" * 200), run_id="run-1")
 
         assert _cited(emitted) == []
-        # The output artifact itself still streams — only the "cited" claim waits.
         assert any(item["type"] == ArtifactType.OUTPUT for item in emitted)
 
     def test_the_verified_report_is_what_announces_cited_sources(self):
@@ -2200,24 +1945,6 @@ class TestVerifiedCitedSourceStream:
         assert any(item.get("url") == "https://example.com/a" for item in cited)
 
     def test_a_citation_verification_stripped_is_never_announced(self):
-        """The real verifier decides; the stream only reports its verdict.
-
-        The stripped citation here is a DOCUMENT the run genuinely retrieved,
-        not an invented URL, and that distinction is the whole test. A
-        fabricated URL is refused by the callback's own registry check on its
-        own, so a draft-driven stream would decline to announce it anyway and
-        the assertion would hold whether or not the emit site was ever fixed —
-        false comfort, in the shape of a passing test.
-
-        So line [1] names the real OIB Richtlinie in the shape of an
-        already-read digest line, which cites the conversation's index rather
-        than a passage. Verification drops the whole line, so the verified
-        report no longer claims that document — while the DRAFT still names it
-        and the callback's document matcher would happily accept it, because
-        the run really did retrieve it. That is a stripped citation the old
-        code announced. (An unbacked URL on the line no longer does this: the
-        document's key now carries the line and only the link is dropped.)
-        """
         from agent.citations.verification import verify_citations
 
         registry = _kb_registry()
@@ -2242,18 +1969,11 @@ class TestVerifiedCitedSourceStream:
         cited = _cited(emitted)
         cited_urls = [item.get("url") for item in cited]
         cited_keys = [item.get("citation_key") for item in cited]
-        # The retrieved-but-stripped document: announcing it is the real bug.
         assert "oib-rl_2_ausgabe_mai_2023.pdf, p.12" not in cited_keys
         assert "https://fabricated.example.org/nie-abgerufen" not in cited_urls
         assert "https://example.com/a" in cited_urls
 
     def test_a_source_only_an_intermediate_agent_cited_is_not_announced(self):
-        """The writer drops sources; the panel must drop them too.
-
-        A researcher's notes cite everything that worker retrieved. Announcing
-        those as cited marked sources the finished answer never carries — and
-        with `isCited` sticky in the frontend, permanently.
-        """
         from agent.citations.entries import SourceEntry
 
         registry = _kb_registry()
@@ -2278,7 +1998,6 @@ class TestVerifiedCitedSourceStream:
         assert cited_urls == ["https://example.com/a"]
 
     def test_the_runners_second_emit_does_not_duplicate_citations(self):
-        """The runner re-emits the same report with Grid cards attached."""
         callback = DeepResearchEventCallback(source_registry=_kb_registry())
         emitted, patcher = _capture_artifacts(callback)
         with patcher:
@@ -2297,15 +2016,11 @@ class TestVerifiedCitedSourceStream:
 
 
 class TestWorkerHeaderInjection:
-    """A worker has no inbound request; what a chat turn reads from headers is
-    placed there by hand, layered so each injection keeps the earlier ones."""
-
     @staticmethod
     def _context_state():
         from starlette.datastructures import Headers
 
         request = SimpleNamespace(headers=Headers(headers={"x-existing": "1"}))
-        # `attrs.headers` must follow `_request.headers`, as the real object does.
         return SimpleNamespace(metadata=_Slot(_LiveAttrs(request)))
 
     def test_layers_headers_and_keeps_existing_ones(self):
@@ -2340,8 +2055,6 @@ class TestWorkflowReflectionLlmRef:
 
 
 class _LiveAttrs:
-    """Mirrors the agent runtime's request attributes: ``headers`` reads through to the request."""
-
     def __init__(self, request):
         self._request = request
 

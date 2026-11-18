@@ -1,4 +1,3 @@
-/** members namespace — populated during component i18n. */
 export const members = {
   header: {
     eyebrow: 'Access',
@@ -70,12 +69,6 @@ export const members = {
     noMatchDescription: 'No one matches your search. Clear it to see the full roster.',
     clearSearch: 'Clear search',
   },
-  /**
-   * Confirmation copy for role changes that are easy to click without
-   * meaning to: an admin editing their own row (self-demotion/lockout), or
-   * "Add member" landing on someone who already has a different role
-   * (a silent downgrade dressed up as an add).
-   */
   confirm: {
     selfChangeTitle: 'Change your own role?',
     selfChangeDescription:

@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * The touch door into the command palette.
- *
- * The palette (jump to a project, a section, the Büroablage, the organization)
- * opened only on ⌘K, so on a phone it existed and could not be reached. This is
- * the same palette behind a magnifier, in both headers. It writes the flag the
- * chord writes (`useShellOverlays`), so there is one palette with two doors,
- * not a phone search beside a desktop one.
- *
- * 44px on a coarse pointer and 36px on a fine one, the header's other icons'
- * size; `aria-keyshortcuts` names the chord for the reader who has a keyboard.
- */
-
 import type { JSX } from 'react'
 import { Search } from 'lucide-react'
 

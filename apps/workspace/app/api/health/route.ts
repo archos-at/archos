@@ -1,14 +1,3 @@
-/**
- * Health Proxy Route
- *
- * Proxies GET /api/health to the backend's /health endpoint.
- * This allows client-side code to check backend health via same-origin
- * requests, which is required in K8s when the backend is not publicly exposed.
- *
- * Intentionally unauthenticated (`publicApiRoute`) — a health probe. It is a
- * transport pass-through, not a data endpoint, so the fetch stays inline.
- */
-
 import { NextResponse } from 'next/server'
 import { publicApiRoute } from '@/lib/api/handler'
 import { getBackendUrl } from '@/lib/backend-url'

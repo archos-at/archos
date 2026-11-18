@@ -25,7 +25,6 @@ describe('the record types an agent is told about', () => {
   it('are each named in the guide’s propose step', () => {
     const step = GUIDE.split('\n').find((line) => line.includes('platform-knowledge-records-propose {dryRun: true')) ?? ''
     for (const type of PROPOSED_RECORD_TYPES.filter((name) => name !== 'territory')) {
-      // Territories come in through the import step before it; the rest by name, in the plural.
       expect(step, type).toContain(`${type === 'authority' ? 'authorities' : `${type}s`}`)
     }
   })

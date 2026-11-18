@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The webhook's limits (step 7): charged narrowest first, address, then
- * organization, then signing key, so a refusal never spends a wider bucket and
- * one flooded address cannot use up its office's or every office's budget.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

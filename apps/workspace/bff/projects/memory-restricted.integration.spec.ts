@@ -71,13 +71,10 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
   interface Seeded {
     projectId: string
     collection: string
-    /** The restricted folders' ids, in folder order: what a note is restricted to (ADR-0088). */
     restricted: [string, string]
-    /** Their retrieval collections, as the agent names them. */
     collections: [string, string]
   }
 
-  /** A project with two restricted folders, so a case's rows are its own. */
   async function seedProject(name: string): Promise<Seeded> {
     const collection = `proj_${name}_${Date.now()}`
     const projectId = firstId(
@@ -92,7 +89,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       folderIds.push(
         firstId(
           await inTenant(() =>
-            // Its own list; who is on it is WorkOS's (ADR-0097).
             db.execute<{ id: string }>(sql`
               insert into project_folders (organization_id, project_id, name, path, access_mode, access_changed_by, access_changed_at)
               values (${ORG}, ${projectId}::uuid, ${folder}, ${folder}, 'custom', ${USER}, now())
@@ -128,7 +124,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
     inTenant(() => db.select().from(projectMemory).where(eq(projectMemory.projectId, projectId)))
   const live = (rows: ProjectMemoryItem[]) => rows.filter((row) => row.status === 'active')
 
-  /** The error text a statement fails with, the driver's cause included; '' when it succeeds. */
   async function failureOf(run: () => Promise<unknown>): Promise<string> {
     try {
       await run()
@@ -148,7 +143,7 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -184,12 +179,9 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       ['an empty restriction', sql`'{}'::uuid[]`, 'project'],
       ['a NULL entry', sql`ARRAY['01234567-89ab-4cde-8f01-23456789abcd', NULL]::uuid[]`, 'project'],
       ['more than twenty', sql`array_fill('01234567-89ab-4cde-8f01-23456789abcd'::uuid, ARRAY[21])`, 'project'],
-      // Without a project id, as organization memory is: 0008's scope CHECK
-      // allows that, so only the restriction's own scope clause refuses it.
       ['organization scope', sql`ARRAY['01234567-89ab-4cde-8f01-23456789abcd']::uuid[]`, 'organization'],
     ])('refuses %s', async (_label, restricted, scope) => {
       const { projectId } = await seedProject('check')
-      // The CHECK by name, not any error: an RLS refusal would also throw.
       expect(await failureOf(() => rawInsert(projectId, scope, restricted))).toContain(
         'project_memory_restricted_folders_check'
       )
@@ -265,7 +257,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       const open = await write(projectId, 'Der Bauherr wünscht ein Flachdach')
       const secret = await write(projectId, 'Flachdach ist gewünscht', [restricted[0]])
       expect(secret.id).not.toBe(open.id)
-      // Within one restriction the semantic gate still merges.
       const again = await write(projectId, 'Ein Flachdach ist gewünscht', [restricted[0]])
       expect(again.id).toBe(secret.id)
     })
@@ -288,14 +279,12 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
         )
       const byId = async () => new Map((await rowsOf(projectId)).map((row) => [row.id, row]))
 
-      // A member not cleared for the folder: its note keeps its salience.
       expect(await implicate([])).toBe(1)
       let rows = await byId()
       expect(rows.get(open.id)?.confidence).toBe('low')
       expect(rows.get(secret.id)?.confidence).toBe(secret.confidence)
       expect(rows.get(secret.id)?.salience).toBe(secret.salience)
 
-      // A member cleared for it reaches both.
       expect(await implicate([restricted[0]])).toBe(2)
       rows = await byId()
       expect(rows.get(secret.id)?.confidence).toBe('low')
@@ -325,7 +314,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
         inTenant(() =>
           memory.buildProjectMemoryDigest(projectId, ORG, {
             readableFolderIds: cleared,
-            // Admission is the conversation's to make; here every folder offered is admitted.
             admitRestricted: async (ids) => new Set(ids),
           })
         )
@@ -341,7 +329,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       const uncleared = await digest([])
       expect(uncleared).toContain('Offene Notiz')
       expect(uncleared).not.toContain('Honorar')
-      // The "+N more notes" line is a count; a hidden note must not be in it.
       expect(uncleared).not.toContain('weitere Notizen')
       const cleared = await digest([restricted[0]])
       expect(cleared).toContain('[restricted | decision')
@@ -349,8 +336,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
     })
 
     it('recalls a restricted note by meaning only for a reader who may read all of its folders', async () => {
-      // The embedder runs (`/v1/note-embeddings`), so recall ranks by vector: a
-      // query aimed straight at the restricted notes, sharing none of their words.
       const { projectId, restricted } = await seedProject('meaning')
       const vectors: Record<string, number[]> = {
         'Offene Notiz zur Fassade': [0, 1, 0, 0],
@@ -409,13 +394,11 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       }
       expect(await asMember()).toEqual([])
 
-      // Opened to every member: the note is everyone's now.
       await inTenant(() =>
         db.execute(sql`update project_folders set access_mode = 'inherit' where id = ${restricted[0]}::uuid`)
       )
       expect((await asMember()).map((item) => item.id)).toEqual([note.id])
 
-      // Narrowed again: closed again, the same row unchanged.
       await inTenant(() =>
         db.execute(sql`update project_folders set access_mode = 'custom' where id = ${restricted[0]}::uuid`)
       )
@@ -429,7 +412,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       await inTenant(() =>
         db.execute(sql`update project_folders set deleted_at = now(), deleted_by = ${USER} where id = ${restricted[0]}::uuid`)
       )
-      // Someone holding the folder role on it, as WorkOS reports it (ADR-0097), and someone holding none.
       const listed = async (levels: Record<string, 'read' | 'write'>) =>
         inTenant(async () =>
           memory.listProjectMemory(projectId, {
@@ -452,7 +434,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
           restrictedCollections: [collections[0]],
         })
       )
-      // Stored as the folder, not the collection (ADR-0088).
       expect(stored?.restrictedFolderIds).toEqual([restricted[0]])
 
       await expect(
@@ -541,7 +522,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
         await db.execute(sql`
           insert into conversation_restricted_folders (organization_id, conversation_id, folder_id)
           values (${ORG}, ${conversationIds.restricted}, ${restricted[0]}::uuid)`)
-        // Drew on another project that is still restricting its readers ...
         await db.execute(sql`
           insert into conversation_source_projects (organization_id, conversation_id, project_id)
           values (${ORG}, ${conversationIds.crossProject}, ${other.projectId}::uuid)`)
@@ -559,13 +539,11 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
                     ${status}, 'piloti', ${USER}, ${origin}, ${USER}, ${decidedAt}::timestamptz,
                     ${status === 'dismissed' ? null : '[]'}::jsonb)`)
         )
-      // Dismissed carries no results (the CHECK); every other decided status does.
       await decide(conversationIds.open, 'Offene Entscheidung')
       await decide(conversationIds.restricted, 'Honorar 184.000 Euro')
       await decide(conversationIds.crossProject, 'Aus dem anderen Projekt', 'applied', '2026-10-01T10:00:00Z')
       await decide(conversationIds.deleted, 'Aus gelöschtem Gespräch')
       await decide(null, 'Ohne Gespräch')
-      // Not a decision the block states: still open, or nothing went through.
       await inTenant(() =>
         db.execute(sql`
           insert into proposed_changes (organization_id, project_id, kind, payload, status, proposed_by_kind, on_behalf_of, origin_conversation_id)
@@ -573,7 +551,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       )
       await decide(conversationIds.open, 'Fehlgeschlagen', 'failed', '2026-10-03T10:00:00Z')
       await decide(conversationIds.open, 'Abgelehnt', 'dismissed', '2026-10-04T10:00:00Z')
-      // Another project's decided proposal in a conversation of this one.
       await inTenant(() =>
         db.execute(sql`
           insert into proposed_changes
@@ -586,7 +563,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       const read = (limit = 40) =>
         inTenant(() => proposalRows.listRecentDecidedProposals(projectId, ORG, limit))
       const rows = await read()
-      // Newest decision first; only the open conversation's decided ones.
       expect(rows.map((row) => [row.status, (row.payload as { content: string }).content])).toEqual([
         ['dismissed', 'Abgelehnt'],
         ['applied', 'Offene Entscheidung'],
@@ -594,7 +570,6 @@ describe.skipIf(!url)('restricted project memory against live Postgres', () => {
       expect(rows[0].decidedAt).toBeInstanceOf(Date)
       expect(await read(1)).toHaveLength(1)
 
-      // A source project closed by now is read by the whole office: its conversation is open again.
       await inTenant(() =>
         db.execute(sql`
           insert into conversation_source_projects (organization_id, conversation_id, project_id)

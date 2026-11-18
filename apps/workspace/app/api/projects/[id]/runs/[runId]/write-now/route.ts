@@ -1,9 +1,3 @@
-/**
- * „Jetzt schreiben" for one run: an adapter over `writeNowRun`, the way the
- * cancel route is over `cancelRun`. The ids in the path reach the service
- * unchanged; the view comes back as the body.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { writeNowRun } from '@/lib/runs/service'
 

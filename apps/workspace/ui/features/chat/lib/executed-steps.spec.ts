@@ -5,7 +5,6 @@ import { describe, test, expect } from 'vitest'
 import { fixtureSteps, storedStep } from '@/test-utils/wire-v2-steps'
 import { deriveExecutedSteps, stepNameLabel } from './executed-steps'
 
-// Echo translator: returns the key, except for the skill template.
 const t = (key: string) => (key === 'thinking.stepName.skill' ? 'Skill: {name}' : key)
 
 let n = 0
@@ -21,20 +20,16 @@ describe('stepNameLabel', () => {
     ['advanced_web_search_tool', 'thinking.stepName.webSearch'],
     ['ris_catalog_lookup_tool', 'thinking.stepName.ris'],
     ['law_lookup', 'thinking.stepName.ris'],
-    // The law lookup's name before the rename: a stored turn keeps its chip.
     ['ris_lookup_tool', 'thinking.stepName.ris'],
     ['knowledge_search', 'thinking.stepName.corpus'],
-    // ADR-0094: a settled Herleitung says the chat looked beyond its own project.
     ['project_lookup', 'thinking.stepName.otherProjects'],
     ['read_passage', 'thinking.stepName.reading'],
     ['look', 'thinking.stepName.drawing'],
-    // Retired for `look` (ADR-0128): stored turns still carry the old name.
     ['view_knowledge_image', 'thinking.stepName.drawing'],
     ['write_file', 'thinking.stepName.draft'],
     ['file_draft', 'thinking.stepName.filing'],
     ['document_annotations', 'thinking.stepName.annotations'],
     ['set_doc_class', 'thinking.stepName.fileProposal'],
-    // ADR-0125: a workspace read or proposal is work the Herleitung names.
     ['call', 'thinking.stepName.workspace'],
   ])('%s → %s', (name, key) => {
     expect(stepNameLabel(name, t)).toBe(key)
@@ -42,7 +37,6 @@ describe('stepNameLabel', () => {
 
   test('a basename without an entry has no label; nothing is pattern-matched', () => {
     expect(stepNameLabel('ask_user', t)).toBeNull()
-    // The workspace's bookkeeping calls name nothing the reader asked for.
     expect(stepNameLabel('search', t)).toBeNull()
     expect(stepNameLabel('describe', t)).toBeNull()
     expect(stepNameLabel('my_knowledge_thing', t)).toBeNull()
@@ -85,7 +79,6 @@ describe('deriveExecutedSteps', () => {
         fileStep('read_file', 'project'),
         fileStep('grep', 'estate'),
         fileStep('read_file', 'drafts'),
-        // A stored turn's file step carries no mount, and only ever reached the drafts.
         fileStep('ls'),
       ],
       t

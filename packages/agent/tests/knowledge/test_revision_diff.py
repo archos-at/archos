@@ -1,11 +1,3 @@
-"""The cheap layers of the Fassung compare, held to planted changes (ADR-0104).
-
-Each fixture is two Fassungen of one document as their chunks are stored, with
-one change planted in the newer. The compare must find the planted change and
-nothing else: a report that lists unchanged pages, or a reworded model summary,
-as changes sends the reader hunting for differences that are not there.
-"""
-
 from __future__ import annotations
 
 import json
@@ -48,7 +40,6 @@ class TestPrintedText:
         change = diff.pages[0]
         assert change.kind == "changed" and change.newer_page == "1"
         assert [(v.subject, v.older, v.newer) for v in change.values] == [("Fluchtweglänge", "38 m", "42 m")]
-        # A value that moved is not also reported as a removed and an added line.
         assert change.removed_lines == () and change.added_lines == ()
         assert diff.unchanged_pages == 1
 
@@ -60,7 +51,6 @@ class TestPrintedText:
         assert change.removed_lines == ()
 
     def test_an_inserted_page_shifts_nothing_after_it(self) -> None:
-        """Page n against page n would report every page after the insertion as changed."""
         older = [_text("1", PAGE_1), _text("2", PAGE_2), _text("3", PAGE_3)]
         newer = [_text("1", PAGE_1), _text("2", "Neues Blatt\nAußenanlagen"), _text("3", PAGE_2), _text("4", PAGE_3)]
 
@@ -75,7 +65,6 @@ class TestPrintedText:
         assert [(c.kind, c.older_page) for c in diff_revisions(older, newer).pages] == [("removed", "2")]
 
     def test_overlapping_chunks_of_one_page_do_not_read_as_a_change(self) -> None:
-        """Chunks overlap; a line read twice in a row is one line on both sides."""
         older = [_text("1", PAGE_1)]
         lines = PAGE_1.splitlines()
         newer = [_text("1", "\n".join(lines[:2])), _text("1", "\n".join(lines[1:]))]
@@ -102,7 +91,6 @@ class TestDrawingReading:
         ]
         assert change.annotations_added == ("3,40",)
         assert change.annotations_removed == ("3,20",)
-        # The summary is prose a model wrote; it is not compared.
         assert change.added_lines == () and change.removed_lines == ()
 
     def test_the_same_reading_is_no_change(self) -> None:
@@ -171,8 +159,6 @@ class TestRendering:
 
 
 class TestChangedPages:
-    """What a notice spends its look on (ADR-0130): the newer Fassung's changed pages, by number."""
-
     def test_only_changed_and_new_pages_of_the_newer_revision(self) -> None:
         older = [_text("1", PAGE_1), _text("2", PAGE_2), _text("3", PAGE_3)]
         newer = [_text("1", PAGE_1), _text("2", PAGE_2.replace("REI 90", "REI 60")), _text("3", PAGE_3)]

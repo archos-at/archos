@@ -6,7 +6,6 @@ export interface PostCardProps {
   text?: string;
   date?: string;
   href?: string;
-  /** Image 3:2 */
   media?: ReactNode;
   className?: string;
 }

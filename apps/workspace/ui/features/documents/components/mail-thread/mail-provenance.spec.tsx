@@ -1,10 +1,3 @@
-/**
- * Which mail brought a Fassung (D36): the line names the sender and the day,
- * says how far the domain was confirmed in the tab's three words, and opens
- * the thread document at the entry; the header row speaks for the NEWEST
- * Fassung only and says nothing when no mail brought it.
- */
-
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 

@@ -1,12 +1,3 @@
-/**
- * A directive block while it streams: drawn as it arrives, never cut.
- *
- * The renderer parses a long answer block by block (`markdown-blocks.ts`),
- * cutting at a blank line once a block is long enough. A cut inside an open
- * `:::check` would end the block there, and the rows after the cut would be
- * parsed apart from their table, so they were lost. The splitter reads the
- * dialect's one fence scanner (`directiveDepths`) and never cuts inside.
- */
 import { render } from '@/test-utils'
 import { describe, expect, it } from 'vitest'
 
@@ -15,7 +6,6 @@ import { splitMarkdownBlocks } from './markdown-blocks'
 
 const ROWS = 25
 
-/** A long check, with blank lines around it and a long paragraph before, so the splitter wants to cut. */
 const LONG_CHECK = [
   'Einleitung. '.repeat(120).trim(),
   '',
@@ -48,16 +38,12 @@ describe('a long :::check', () => {
       const rows = container.querySelectorAll('tbody tr').length
       const written = lines.slice(0, end).filter((line) => /^\| Kriterium /.test(line)).length
       expect(rows).toBeGreaterThanOrEqual(previous)
-      // Every row written so far is drawn, as soon as the delimiter row is there.
       if (end > 5) expect(rows).toBe(written)
       previous = rows
     }
     rerender(<MarkdownRenderer content={LONG_CHECK} />)
-    // All passing, but the reader was reading it: the table stays open when
-    // the stream ends, so the page does not shrink under them.
     expect(container.querySelectorAll('tbody tr')).toHaveLength(ROWS)
     expect(container.textContent).not.toContain(`${ROWS} of ${ROWS} met`)
-    // Loaded as final, it collapses to its tally.
     const { container: loaded } = render(<MarkdownRenderer content={LONG_CHECK} />)
     expect(loaded.textContent).toContain(`${ROWS} of ${ROWS} met`)
   })
@@ -69,7 +55,6 @@ describe('a long :::check', () => {
     expect(rows).toHaveLength(2)
     expect(rows[1].textContent).not.toContain('not met')
     expect(container.querySelector('[data-testid="status-tally"]')).toBeNull()
-    // …but holds its line, so the tally fades in where the rows already are.
     expect(container.querySelector('[data-testid="status-tally-reserve"]')).not.toBeNull()
   })
 })

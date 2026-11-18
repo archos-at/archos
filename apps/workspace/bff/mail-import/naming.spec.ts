@@ -16,7 +16,6 @@ import {
 
 describe('mail names', () => {
   it('stamps a mail in Vienna time, with dots so the name is a path segment', () => {
-    // 08:15 UTC on 30 September is 10:15 in Vienna (summer time).
     expect(mailTimestamp('2026-09-30T08:15:00+00:00')).toBe('2026-09-30 10.15')
     expect(mailTimestamp('2026-01-15T08:15:00+00:00')).toBe('2026-01-15 09.15')
     expect(mailTimestamp(null)).toBe('ohne Datum')
@@ -84,7 +83,6 @@ describe('archiveThreadName', () => {
   const at = new Date('2025-03-12T23:30:00Z')
 
   it('names an archive Verlauf by its other party and the day, Vienna, never by subject (D33)', () => {
-    // 23:30 UTC is already the 13th in Vienna (UTC+1).
     expect(archiveThreadName({ name: 'Statik Huber', address: 'office@statik-huber.at' }, at, 'Unbekannt')).toBe(
       'Statik Huber 2025-03-13',
     )

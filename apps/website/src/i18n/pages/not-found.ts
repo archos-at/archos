@@ -1,8 +1,3 @@
-/**
- * Copy of the page shown for an address that does not exist, both locales, and of
- * its variant for an old address removed on purpose (status 410, see redirects.mjs).
- * `{name}` is the brand name, filled by `withName`.
- */
 const de = {
   title: 'Seite nicht gefunden',
   description: 'Diese Seite gibt es nicht oder nicht mehr.',

@@ -1,27 +1,3 @@
-"""Render the fixture office's permit records with the PRODUCTION pen: ``precedent/permits.json``.
-
-The precedent eval's fixture BFF (``fixture_bff.py``) answers ``permits`` in the
-cross-project search from this file, as production answers them from the rows
-the ingest wrote. Those rows come from ``extract_permit_record``, a model with a
-strict schema reading the document, so the fixture's records must too: a record
-written by hand would test the agent against what its author thinks the pen
-says, and hide the day the pen reads a Bescheid differently. This runs the pen
-over every document of ``office.json`` the ingest's own type decision tagged
-``Bescheid`` (``is_permit_decision``) and writes what it returned.
-
-    PYTHONPATH=packages/agent/src .venv/bin/python scripts/turn_census/render_fixture_permits.py
-
-Needs the network and an OpenRouter key (``BACKFILL_SUMMARY_API_KEY``, or the
-provider key its base URL implies). The model is the
-ingest's summary model, pinned to zero-data-retention endpoints through the
-OpenRouter seam (``PLATFORM_FIXED``). Nothing is written when a document yields
-no record, so an outage cannot commit half a fixture; re-run it.
-
-Commit the output with the change that moved the pen (its prompt, its schema or
-the model). Never edit it by hand: a record the pen gets wrong is a finding
-about the pen.
-"""
-
 from __future__ import annotations
 
 import json
@@ -49,11 +25,6 @@ COMMENT = (
 
 
 def build_extraction_llm():
-    """The platform-fixed chat model the ingest's summary step uses, built outside the agent runtime.
-
-    Wrapped in the request contract (``enforce_chat_request_contract``), the seam
-    where every chat call takes its provider slot (ADR-0081).
-    """
     from langchain_openai import ChatOpenAI
 
     from agent.common.credential_resolution import resolve_llm_credential
@@ -79,7 +50,6 @@ def build_extraction_llm():
 
 
 def render(llm: object, office: dict) -> tuple[dict[str, dict], list[str]]:
-    """(records by document id, the documents that yielded none), for every Bescheid of the office."""
     records: dict[str, dict] = {}
     missing: list[str] = []
     for project in office["projects"]:

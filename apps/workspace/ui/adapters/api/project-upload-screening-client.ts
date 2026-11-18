@@ -1,10 +1,3 @@
-/**
- * One project's sensitive-data list (ADR-0086, amendment of 2026-10-20), through
- * `GET|PUT /api/projects/[id]/upload-screening`: the policy uploads into the
- * project are screened with, the office's list, and what the project changes
- * about its name terms.
- */
-
 import { z } from 'zod'
 import { uploadScreeningPolicySchema } from '@/lib/upload-screening/policy'
 import type { ProjectScreeningOverride } from '@/lib/upload-screening/project-policy'

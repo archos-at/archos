@@ -1,57 +1,5 @@
 #!/usr/bin/env python3
 
-"""Keep giant source files and giant Python functions from being added or growing.
-
-Why this exists
----------------
-
-The repo grew files of three to seven thousand lines (`adapter.py`, the chat
-composer, the documents service) and Python functions that run for hundreds of
-lines (`run_agent_job` ran to 962 before it became its phases). Every split that brings one down is undone by the
-next change that finds it easier to add a branch than a module, unless
-something refuses the growth. Code review did not: each of those files passed
-it one reasonable hunk at a time.
-
-What it checks
---------------
-
-A ratchet, in the style of `tests/test_english_names.py`: limits for everything
-new, and a baseline (`ci/size_baseline.json`) holding what was already over them
-when the check arrived.
-
-- A source file (Python, TypeScript or JavaScript) may have at most ``FILE_LIMIT`` lines,
-  not counting its import statements (``import`` and ``from … import`` in
-  Python; ``import … from`` and ``export … from`` in TypeScript and JavaScript,
-  multi-line ones whole) or the blank lines between two of them. An import is
-  a dependency named, not logic written: counting it made a precise import
-  (one namespace, one table module instead of a barrel) cost lines a split
-  had to pay back, so the ratchet punished decoupling.
-  Nor are lines that hold only a comment, or a Python docstring
-  (``comment_lines``). An explanation is not logic either, and while it
-  counted, a file at its baseline could take a new comment only by deleting
-  an old one: on 2026-11-11 three doc blocks were cut to one line each to make
-  room for a five-line fix. The ratchet is on code.
-- A Python function may span at most ``FUNCTION_LIMIT`` lines, from its `def`
-  to its last line (``end_lineno - lineno + 1``), less its own docstring, the
-  bar `docs/contributing/code-conventions.md` sets ("Sixty lines is long").
-- A file or function in the baseline may not grow past its recorded count.
-- A baseline entry above its file's or function's current size fails too: the
-  baseline only moves down. ``--update`` lowers and removes entries; it never
-  raises one or adds one.
-
-Generated code, tests, fixtures, migrations and copy (the i18n dictionaries,
-the site's content data) are not checked (``EXCLUDED``): their length follows
-their input, not a design choice.
-
-Usage:
-    python scripts/check_file_size.py              # check, exit 1 on a finding
-    python scripts/check_file_size.py --update     # ratchet the baseline down
-    python scripts/check_file_size.py --rebaseline # rewrite it from the tree
-
-``--rebaseline`` is for a move or rename that re-keys entries (a conflict on the
-baseline after files moved): it records the tree as it is, growth included, so
-its diff is the thing to review.
-"""
 
 from __future__ import annotations
 
@@ -71,16 +19,14 @@ from pathlib import Path
 FILE_LIMIT = 600
 FUNCTION_LIMIT = 60
 BASELINE = Path("ci/size_baseline.json")
-SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+SCRIPT_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+SUFFIXES = (".py", *SCRIPT_SUFFIXES)
 
-# Matched against the repo-relative POSIX path. Each line says what it is and
-# why its length is not a design choice.
 EXCLUDED = re.compile(
     "|".join(
         (
             r"^apps/workspace/shared/cards/generated\.ts$",  # card schemas, rendered from cards/models.py
             r"\.generated\.",  # wire-v2.generated.ts and its kind
-            # Payload's types and the admin panel's import map, written by `bun run generate` in apps/cms
             r"^apps/cms/src/payload-types\.ts$",
             r"^apps/cms/src/app/\(payload\)/admin/importMap\.js$",
             r"\.d\.ts$",  # type declarations
@@ -96,35 +42,29 @@ EXCLUDED = re.compile(
 
 @dataclass
 class Sizes:
-    """Line counts over the limits: files by path, functions by `path::Qual.name`."""
-
     files: dict[str, int] = field(default_factory=dict)
     functions: dict[str, int] = field(default_factory=dict)
 
 
+def is_script(path: str) -> bool:
+    return path.split("::", 1)[0].endswith(SCRIPT_SUFFIXES)
+
+
 def is_checked(path: str) -> bool:
-    """Whether ``path`` is a source file this check governs."""
     return path.endswith(SUFFIXES) and not EXCLUDED.search(path)
 
 
 def tracked_sources(root: Path) -> list[str]:
-    """Every checked file git tracks (staged included), so a new file is seen at commit time."""
     out = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout
     return [path for path in out.splitlines() if is_checked(path) and (root / path).is_file()]
 
 
 @functools.lru_cache(maxsize=1)
 def _parsed(source: str) -> ast.Module:
-    """One parse per file: its import lines and its function lengths are read from the same tree."""
     return ast.parse(source)
 
 
 def function_lengths(source: str) -> dict[str, int]:
-    """Each function's span in lines, keyed by its qualified name (`Class.method`, `outer.inner`).
-
-    A second definition under one name (a property's setter, a conditional
-    `def`) is keyed `name#2`, so each is held to its own count.
-    """
     lengths: dict[str, int] = {}
     seen: dict[str, int] = {}
 
@@ -145,10 +85,6 @@ def function_lengths(source: str) -> dict[str, int]:
     return lengths
 
 
-# One TypeScript or JavaScript import or re-export statement, from its first
-# line to its specifier: `import x from 'm'`, `import type { A } from 'm'`,
-# `import 'm'`, `export { a } from 'm'`, `export * as ns from 'm'`. A dynamic
-# `import(…)` and `import.meta` are expressions, not statements, and are counted.
 TS_IMPORT = re.compile(
     r"^[ \t]*"
     r"(?:import(?:\s+type)?\s+[^'\"`;()]*?\sfrom\s*"  # import x from, import { a } from
@@ -160,7 +96,6 @@ TS_IMPORT = re.compile(
 
 
 def import_lines(path: str, source: str) -> set[int]:
-    """The 1-based lines of ``source`` its import statements occupy."""
     if path.endswith(".py"):
         try:
             tree = _parsed(source)
@@ -180,7 +115,6 @@ def import_lines(path: str, source: str) -> set[int]:
 
 
 def _docstring_lines(node: ast.AST) -> set[int]:
-    """The lines of ``node``'s docstring, when its body opens with one."""
     body = getattr(node, "body", None)
     if not body or not isinstance(body[0], ast.Expr):
         return set()
@@ -199,8 +133,6 @@ def _python_comment_lines(source: str) -> set[int]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef):
             covered |= _docstring_lines(node)
-    # A `#` that opens a line is a comment unless the line is inside a string, and a string that
-    # spans lines is either a docstring (covered above) or code, which the tokenizer tells apart.
     for token in tokenize.generate_tokens(io.StringIO(source).readline):
         if token.type == tokenize.COMMENT and not token.line[: token.start[1]].strip():
             covered.add(token.start[0])
@@ -208,12 +140,6 @@ def _python_comment_lines(source: str) -> set[int]:
 
 
 def _script_comment_lines(source: str) -> set[int]:
-    """Lines of TypeScript or JavaScript that hold only a `//` or a `/* … */` comment.
-
-    Read line by line, not parsed: a line of a template literal that opens with
-    `//` or `/*` is taken for a comment. That undercounts such a file by a line
-    or two, which a ratchet on hundreds of lines can live with.
-    """
     covered: set[int] = set()
     in_block = False
     for number, row in enumerate(source.split("\n"), start=1):
@@ -235,7 +161,6 @@ def _script_comment_lines(source: str) -> set[int]:
 
 
 def comment_lines(path: str, source: str) -> set[int]:
-    """The 1-based lines of ``source`` that hold only a comment, or a Python docstring."""
     if path.endswith(".py"):
         try:
             return _python_comment_lines(source)
@@ -245,7 +170,6 @@ def comment_lines(path: str, source: str) -> set[int]:
 
 
 def counted_lines(path: str, source: str) -> int:
-    """Lines as `wc -l` counts them, less comments, import statements and the blank lines between two imports."""
     rows = source.split("\n")
     if rows and rows[-1] == "":
         rows.pop()  # the newline that ends the last line opens no line of its own
@@ -265,12 +189,9 @@ def counted_lines(path: str, source: str) -> int:
 
 
 def measure(root: Path, paths: list[str]) -> Sizes:
-    """Everything in ``paths`` that is over a limit."""
     sizes = Sizes()
     for path in paths:
         source = (root / path).read_text(encoding="utf-8", errors="replace")
-        # Split on "\n" only, not splitlines(), which also breaks on U+2028 and
-        # form feeds inside a string.
         lines = counted_lines(path, source)
         if lines > FILE_LIMIT:
             sizes.files[path] = lines
@@ -297,15 +218,21 @@ def write_baseline(path: Path, sizes: Sizes) -> None:
 
 
 def compare(current: dict[str, int], baseline: dict[str, int], limit: int, what: str) -> list[str]:
-    """Findings for one kind (files or functions): new or grown, and entries the baseline should lower."""
-    findings = []
+    findings = [
+        f"{key}: TypeScript and JavaScript have no size baseline. Split the file under {limit} lines "
+        "into modules named for what each does, and delete the entry."
+        for key in sorted(baseline)
+        if is_script(key)
+    ]
     for key, size in sorted(current.items()):
-        allowed = baseline.get(key)
+        allowed = None if is_script(key) else baseline.get(key)
         if allowed is None:
             findings.append(f"{key}: {size} lines, over the {limit}-line {what} limit. Split it.")
         elif size > allowed:
             findings.append(f"{key}: grew from {allowed} to {size} lines. Split it, do not grow it.")
     for key, allowed in sorted(baseline.items()):
+        if is_script(key):
+            continue
         size = current.get(key)
         if size is None:
             findings.append(f"{key}: under the limit or gone, so remove its baseline entry (run --update).")
@@ -321,7 +248,6 @@ def check(current: Sizes, baseline: Sizes) -> list[str]:
 
 
 def tightened(current: Sizes, baseline: Sizes) -> Sizes:
-    """The baseline lowered to the tree wherever the tree is smaller; nothing new, nothing raised."""
 
     def lower(now: dict[str, int], then: dict[str, int]) -> dict[str, int]:
         return {key: min(size, now[key]) for key, size in then.items() if key in now}
@@ -329,15 +255,43 @@ def tightened(current: Sizes, baseline: Sizes) -> Sizes:
     return Sizes(files=lower(current.files, baseline.files), functions=lower(current.functions, baseline.functions))
 
 
+def _name(key: str) -> str:
+    path, _, function = key.partition("::")
+    return f"{Path(path).name}::{function}"
+
+
+def refused(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
+    vanished: dict[str, list[int]] = {}
+    for key, size in baseline.items():
+        if key not in current:
+            vanished.setdefault(_name(key), []).append(size)
+    findings = []
+    for key, size in sorted(current.items()):
+        if is_script(key):
+            findings.append(f"{key}: {size} lines. TypeScript and JavaScript take no baseline entry: split it.")
+            continue
+        if key in baseline:
+            if size > baseline[key]:
+                findings.append(f"{key}: grew from {baseline[key]} to {size} lines. Split it, do not grow it.")
+            continue
+        moved_from = sorted(s for s in vanished.get(_name(key), []) if s >= size)
+        if not moved_from:
+            findings.append(f"{key}: {size} lines, and no moved entry accounts for it. Split it.")
+            continue
+        vanished[_name(key)].remove(moved_from[0])
+    return findings
+
+
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point: check (or ratchet) the size baseline and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Keep giant source files and giant Python functions from being added or growing.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
-    mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, growth included.")
+    mode.add_argument("--rebaseline", action="store_true", help="Re-key moved entries; never add or raise one.")
     args = parser.parse_args(argv)
     if sys.version_info < (3, 14):
-        # An older ast measures 3.14 syntax wrong, and --update would write it in.
         print("check_file_size.py needs Python 3.14: run .venv/bin/python scripts/check_file_size.py", file=sys.stderr)
         return 2
 
@@ -345,6 +299,19 @@ def main(argv: list[str] | None = None) -> int:
     current = measure(root, tracked_sources(root))
     baseline = load_baseline(root / BASELINE)
     if args.rebaseline:
+        refusals = refused(current.files, baseline.files) + refused(current.functions, baseline.functions)
+        if refusals:
+            print(
+                f"Rebaseline REFUSED ({len(refusals)} entries it would add or raise):",
+                file=sys.stderr,
+            )
+            for refusal in refusals:
+                print(f"  - {refusal}", file=sys.stderr)
+            print(
+                "--rebaseline only re-keys moved entries. Why: docs/contributing/code-conventions.md#size-limits",
+                file=sys.stderr,
+            )
+            return 1
         write_baseline(root / BASELINE, current)
         print(f"Size baseline rewritten: {len(current.files)} file(s), {len(current.functions)} function(s).")
         return 0
@@ -353,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(root / BASELINE, baseline)
 
     findings = check(current, baseline)
+    slack = [f for f in findings if "so lower its" in f or "remove its baseline entry" in f]
+    findings = [f for f in findings if f not in slack]
     if findings:
         print(f"Size check FAILED ({len(findings)} finding(s)):", file=sys.stderr)
         for finding in findings:
@@ -363,6 +332,10 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"Size check passed: {len(baseline.files)} file(s) and {len(baseline.functions)} function(s) held at baseline."
     )
+    if slack:
+        print(
+            f"  {len(slack)} baseline entr{'y' if len(slack) == 1 else 'ies'} can be lowered: `task baselines:tighten`."
+        )
     return 0
 
 

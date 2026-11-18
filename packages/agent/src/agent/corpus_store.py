@@ -1,51 +1,3 @@
-"""The base corpus: objects in SeaweedFS, one table in the knowledge database, a cache on disk (ADR-0082, step A2).
-
-A base-corpus PDF has exactly one source of record, the object
-``base-corpus/<file name>`` in ``SEAWEED_BUCKET``. One table in the knowledge
-database (``SUMMARY_DB``), ``oib_corpus_files``, lists what is in the corpus
-and keeps what ingestion needs to know about each file:
-
-====================== ======================================================
-``file_name``          primary key, the PDF's name (the index keys chunks on it)
-``storage_key``        the object's key in the bucket
-``sha256`` / ``size``  of the stored bytes; a download is verified against them
-``ingested_sha256``    the hash the index was last built from, ``NULL`` before
-``chunk_format_version`` the chunking pipeline's version at that ingestion
-``failed_job_id``      the ingest job that gave up on the current bytes, ``NULL`` if none
-``mark_generation``    how often the file was marked (:func:`set_mark`), 0 before
-``job_mark_generation`` the ``mark_generation`` the job for these bytes was prepared at
-====================== ======================================================
-
-A file needs ingestion when its ``ingested_sha256`` differs from its
-``sha256`` or its ``chunk_format_version`` differs from the pipeline's current
-one (:meth:`FileRow.needs_ingestion`). That one rule is the whole change
-detector: a changed PDF, a new PDF, a chunking change and a wiped vector store
-all reach ingestion through it, and nothing else keeps a registry. The ingestion
-itself is a job on the ingest queue (``agent.oib_sync``); ``failed_job_id``
-is the one thing remembered about a job that ran and failed, so the file is not
-tried again until its bytes change or an admin asks.
-
-Local files are a CACHE and nothing more. They live in
-``BASE_CORPUS_CACHE_DIR`` (default ``/tmp/base-corpus``), are filled one
-file at a time by :func:`ensure_local` for whoever needs a path (ingestion, the
-PDF route, the export, the page renderer), and may disappear at any restart.
-Nothing pulls the corpus speculatively.
-
-WHO WRITES WHAT. The backend holds a read-only object credential
-(``agent.common.seaweed_s3``), so it reads objects itself and asks the BFF to
-write them: ``POST /api/internal/base-corpus/upload-url`` returns a presigned PUT,
-``DELETE /api/internal/base-corpus/<name>`` removes the object. Same internal
-channel and token header as ``knowledge_layer.ingest.image_store``. A
-presigned URL is a live bearer credential and is never logged, nor is any
-exception text that could carry it.
-
-THE CACHE IS CHECKED, NOT TRUSTED. A file counts as present when its sha256
-matches the table row (hashes are memoised by size and mtime, so a check is a
-``stat``). A download goes to a temp file beside its target, is verified against
-the row, and only then renamed into place, so a reader never sees a partial or
-mismatched PDF.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -80,7 +32,6 @@ from agent.knowledge.document_metadata_store import DocumentMetadataStore
 logger = logging.getLogger(__name__)
 
 CACHE_DIR_ENV = "BASE_CORPUS_CACHE_DIR"
-# A cache that may vanish at any restart, by design: the table and the bucket are the record.
 DEFAULT_CACHE_DIR = "/tmp/base-corpus"
 
 _UPLOAD_URL_PATH = "/api/internal/base-corpus/upload-url"
@@ -94,25 +45,14 @@ _CHUNK_BYTES = 1024 * 1024
 _initialized: set[str] = set()
 _INIT_LOCK = threading.Lock()
 
-# sha256 of a cache file keyed by path, valid while (size, mtime_ns) hold.
 _SHA_CACHE: dict[str, tuple[int, int, str]] = {}
 _SHA_LOCK = threading.Lock()
 
 
-class CorpusStoreError(RuntimeError):
-    """The object store, the BFF or the corpus table could not do what was asked.
-
-    The message is safe to show an admin: it never carries a URL or credential.
-    """
+class CorpusStoreError(RuntimeError): ...
 
 
 class CorpusFileImmutable(CorpusStoreError):
-    """A name the corpus keeps was offered other bytes: a corpus file's bytes never change (ADR-0165).
-
-    Another text is another file. To put other bytes under a name, the file is
-    removed first, and the BFF refuses to remove one a platform record names.
-    """
-
     def __init__(self, name: str):
         super().__init__(f"the base corpus keeps other bytes as {name}; remove that file first, or use another name")
         self.file_name = name
@@ -120,8 +60,6 @@ class CorpusFileImmutable(CorpusStoreError):
 
 @dataclass(frozen=True)
 class FileRow:
-    """One corpus PDF as the table records it."""
-
     file_name: str
     storage_key: str
     sha256: str
@@ -133,21 +71,13 @@ class FileRow:
     job_mark_generation: int | None = None
 
     def job_carries_the_mark(self) -> bool:
-        """Whether the job for these bytes was prepared at the file's current mark (:func:`begin_job`)."""
         return self.job_mark_generation == self.mark_generation
 
     def needs_ingestion(self, chunk_format_version: int) -> bool:
-        """True when the index was not built from these bytes with this pipeline version."""
         return self.ingested_sha256 != self.sha256 or self.chunk_format_version != chunk_format_version
 
 
-# ----------------------------------------------------------------------------
-# Small helpers
-# ----------------------------------------------------------------------------
-
-
 def cache_dir() -> Path:
-    """This process's cache of corpus files (``BASE_CORPUS_CACHE_DIR``), read at call time."""
     return Path(os.environ.get(CACHE_DIR_ENV, "").strip() or DEFAULT_CACHE_DIR)
 
 
@@ -160,7 +90,6 @@ def sha256_file(path: Path) -> str:
 
 
 def _local_sha(path: Path) -> str | None:
-    """sha256 of ``path``, or ``None`` when it is not a file. Memoised by size and mtime."""
     try:
         stat = path.stat()
     except OSError:
@@ -177,7 +106,6 @@ def _local_sha(path: Path) -> str | None:
 
 
 def is_valid_name(name: str) -> bool:
-    """A plain ``*.pdf`` file name: no directory part, so it cannot leave the cache or the key prefix."""
     return bool(name) and Path(name).name == name and name.lower().endswith(".pdf")
 
 
@@ -186,16 +114,9 @@ def _require_name(name: str) -> None:
         raise CorpusStoreError(f"not a corpus file name: {name!r}")
 
 
-# ----------------------------------------------------------------------------
-# The table
-# ----------------------------------------------------------------------------
-
-
 def _db_url() -> str:
     url = os.environ.get("SUMMARY_DB") or os.environ.get("NAT_JOB_STORE_DB_URL")
     if not url:
-        # A silent fall back to a local SQLite file would bring back exactly the
-        # per-replica state the corpus store exists to remove.
         raise CorpusStoreError("the base corpus needs SUMMARY_DB (the shared knowledge database)")
     return url
 
@@ -204,7 +125,6 @@ def _ensure_table(url: str) -> None:
     with _INIT_LOCK:
         if url in _initialized:
             return
-        # Replicas that first touch the table together would race the CREATE.
         engine = DocumentMetadataStore._get_or_create_sync_engine(url)
         ensure_schema(engine, _files.name, _create_files)
         ensure_schema(engine, _marks.name, _create_marks)
@@ -213,7 +133,6 @@ def _ensure_table(url: str) -> None:
 
 @contextlib.contextmanager
 def _transaction():
-    """A connection on the corpus table, committed when the block ends."""
     url = _db_url()
     _ensure_table(url)
     with DocumentMetadataStore._get_or_create_sync_engine(url).begin() as conn:
@@ -235,7 +154,6 @@ def _row_from(record) -> FileRow:
 
 
 def list_files() -> dict[str, FileRow]:
-    """Every corpus PDF the table lists, by file name."""
     with _transaction() as conn:
         return {record.file_name: _row_from(record) for record in conn.execute(select(_files))}
 
@@ -247,10 +165,8 @@ def get_file(name: str) -> FileRow | None:
 
 
 def _upsert_file(row: FileRow) -> None:
-    """Record ``row``'s bytes. A replaced file keeps its ingested hash, so it reads as stale until re-ingested."""
     values = {"storage_key": row.storage_key, "sha256": row.sha256, "size_bytes": row.size_bytes}
     with _transaction() as conn:
-        # `ON CONFLICT` is in the dialect's own INSERT, not the generic one.
         insert = postgresql.insert if conn.dialect.name == "postgresql" else sqlite.insert
         conn.execute(
             insert(_files)
@@ -267,11 +183,6 @@ def _delete_file_row(name: str) -> None:
 
 @dataclass(frozen=True)
 class FileMark:
-    """The country and the edition a corpus file is the text of, and whether it is released; any may be unknown.
-
-    ``released`` is None on a row from before the flag: such a row is read by its country alone.
-    """
-
     country_id: str | None = None
     edition_id: str | None = None
     released: bool | None = None
@@ -281,7 +192,6 @@ class FileMark:
         return cls(country_id=record.country_id, edition_id=record.edition_id, released=record.released)
 
     def job_config(self) -> dict[str, str | bool]:
-        """The fields an ingest job carries (``vector_store.writes.licence_mark`` writes them on every chunk)."""
         fields = {"country_id": self.country_id, "knowledge_edition_id": self.edition_id}
         config: dict[str, str | bool] = {key: value for key, value in fields.items() if value}
         if self.released is not None:
@@ -290,11 +200,6 @@ class FileMark:
 
 
 def set_mark(name: str, mark: FileMark) -> None:
-    """Record which country and edition ``name`` is the text of; a later ingest job carries them.
-
-    Each call is a new generation of the file's mark, in the same transaction: a job prepared before
-    it (:func:`begin_job`) no longer counts as the file's index (:func:`mark_ingested`).
-    """
     _require_name(name)
     values = {"country_id": mark.country_id, "edition_id": mark.edition_id, "released": mark.released}
     with _transaction() as conn:
@@ -310,11 +215,6 @@ def set_mark(name: str, mark: FileMark) -> None:
 
 
 def begin_job(name: str) -> FileMark | None:
-    """Record that a job for ``name`` is prepared at the file's current mark generation; the mark it carries.
-
-    The generation is taken before the mark is read, so a mark that lands in between leaves the job
-    a generation behind and its result is refused: never a job that counts and lacks the mark.
-    """
     with _transaction() as conn:
         conn.execute(
             update(_files).where(_files.c.file_name == name).values(job_mark_generation=_files.c.mark_generation)
@@ -323,14 +223,11 @@ def begin_job(name: str) -> FileMark | None:
     return FileMark.of(record) if record is not None else None
 
 
-#: The country of the corpus that predates ``country_id``: it held Austria alone (ADR-0173).
 LEGACY_CORPUS_COUNTRY = "AT"
-#: The row that records the one-time backfill ran; a name no PDF can have.
 _BACKFILL_DONE = "__legacy_country_backfill_done__"
 
 
 def legacy_unmarked() -> list[str]:
-    """Files without a mark, until the one-time backfill has run; then nothing, ever."""
     with _transaction() as conn:
         if conn.execute(select(_marks.c.file_name).where(_marks.c.file_name == _BACKFILL_DONE)).first():
             return []
@@ -343,7 +240,6 @@ def legacy_unmarked() -> list[str]:
 
 
 def record_legacy_backfill() -> None:
-    """Record that the one-time backfill ran: a file uploaded from now on carries its release's mark, or none."""
     with _transaction() as conn:
         insert = postgresql.insert if conn.dialect.name == "postgresql" else sqlite.insert
         conn.execute(
@@ -358,30 +254,16 @@ def get_mark(name: str) -> FileMark | None:
 
 
 def released_to(name: str, countries: Iterable[str]) -> bool:
-    """Whether a reader of ``countries`` reads ``name``: its release mark names one of them and does not withhold
-    it; unmarked, nobody's."""
-    # The file-level form of ``vector_store.scope.corpus_country_condition`` (ADR-0173).
     mark = get_mark(name)
     return mark is not None and mark.released is not False and mark.country_id in set(countries)
 
 
 def list_marks() -> dict[str, FileMark]:
-    """Every file's mark, by file name: what the status reads to say which files a country reads."""
     with _transaction() as conn:
         return {record.file_name: FileMark.of(record) for record in conn.execute(select(_marks))}
 
 
 def mark_ingested(name: str, sha256: str, chunk_format_version: int) -> bool:
-    """Record that the index was built from ``sha256`` by pipeline ``chunk_format_version``.
-
-    Only if the row still holds those bytes: a file replaced while it was being
-    ingested keeps its old ingested hash and so still needs ingestion. And only
-    if the job was prepared at the file's current mark (:func:`begin_job`): one
-    prepared before the last :func:`set_mark` wrote chunks without that mark, and
-    the check is in this one statement, so a mark set while a cycle settles is not
-    missed. False when the row is gone or changed, or the job is a mark behind.
-    A recorded success clears a recorded failure.
-    """
     with _transaction() as conn:
         result = conn.execute(
             update(_files)
@@ -396,7 +278,6 @@ def mark_ingested(name: str, sha256: str, chunk_format_version: int) -> bool:
 
 
 def mark_failed(name: str, sha256: str, job_id: str) -> bool:
-    """Record that ingest job ``job_id`` gave up on ``sha256``; False when the row is gone or has other bytes."""
     with _transaction() as conn:
         result = conn.execute(
             update(_files).where(_files.c.file_name == name, _files.c.sha256 == sha256).values(failed_job_id=job_id)
@@ -405,17 +286,11 @@ def mark_failed(name: str, sha256: str, job_id: str) -> bool:
 
 
 def forget_ingested(name: str | None = None) -> None:
-    """Mark ``name`` (or every file) as neither ingested nor failed, so a sync cycle ingests it again."""
     statement = update(_files).values(ingested_sha256=None, chunk_format_version=None, failed_job_id=None)
     if name is not None:
         statement = statement.where(_files.c.file_name == name)
     with _transaction() as conn:
         conn.execute(statement)
-
-
-# ----------------------------------------------------------------------------
-# BFF writes and object-store reads. Module-level so a test can replace each.
-# ----------------------------------------------------------------------------
 
 
 def _bff() -> tuple[str, dict[str, str]]:
@@ -427,7 +302,6 @@ def _bff() -> tuple[str, dict[str, str]]:
 
 
 def _request_upload_url(name: str) -> tuple[str, str]:
-    """``(presigned PUT url, storage key)`` for ``name``, from the BFF."""
     base_url, headers = _bff()
     try:
         response = httpx.post(
@@ -435,7 +309,6 @@ def _request_upload_url(name: str) -> tuple[str, str]:
         )
         data = response.json() if response.status_code == 200 else {}
     except (httpx.HTTPError, ValueError) as e:
-        # Class name only: an httpx error's text embeds the request URL.
         raise CorpusStoreError(f"upload-url request for {name} failed: {type(e).__name__}") from e
     if response.status_code != 200:
         raise CorpusStoreError(f"upload-url request for {name} was refused (HTTP {response.status_code})")
@@ -459,7 +332,6 @@ def _put_object(upload_url: str, data: bytes) -> None:
 def _delete_object(name: str) -> None:
     base_url, headers = _bff()
     try:
-        # Encoded exactly once: the BFF's router decodes the path parameter once.
         response = httpx.delete(
             f"{base_url}{_DELETE_PATH}{quote(name, safe='')}", headers=headers, timeout=_BFF_TIMEOUT_SECONDS
         )
@@ -476,7 +348,6 @@ def _copy_body(body, out: BinaryIO) -> None:
 
 
 def _download_object(storage_key: str, out: BinaryIO) -> None:
-    """Stream ``storage_key`` from the shared bucket into ``out`` on the backend's read credential."""
     try:
         client = seaweed_s3.s3_client()
         if client is None:
@@ -488,14 +359,8 @@ def _download_object(storage_key: str, out: BinaryIO) -> None:
         raise CorpusStoreError(f"download of {storage_key} failed: {type(e).__name__}") from e
 
 
-# ----------------------------------------------------------------------------
-# The cache
-# ----------------------------------------------------------------------------
-
-
 @contextlib.contextmanager
 def _temp_beside(target: Path):
-    """A temp file in ``target``'s directory, removed on the way out, so a rename into place is atomic."""
     tmp: Path | None = None
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -517,7 +382,6 @@ def _write_cache(target: Path, data: bytes) -> None:
 
 
 def _fetch(row: FileRow, target: Path) -> None:
-    """Download ``row`` into ``target``: verified against the row, then renamed into place."""
     with _temp_beside(target) as tmp:
         with tmp.open("wb") as out:
             _download_object(row.storage_key, out)
@@ -528,14 +392,6 @@ def _fetch(row: FileRow, target: Path) -> None:
 
 
 def ensure_local(name: str) -> Path | None:
-    """The cached path of corpus file ``name``, downloaded first when this process lacks the current bytes.
-
-    ``None`` when the table does not list ``name`` (or it is not a plain PDF
-    name); any copy this process still holds is deleted then, since the table is
-    what says the file exists. Raises :class:`CorpusStoreError` when the file is
-    listed but cannot be fetched, and whatever the database raises when the
-    table cannot be read: neither is "not in the corpus".
-    """
     if not is_valid_name(name):
         return None
     target = cache_dir() / name
@@ -548,19 +404,7 @@ def ensure_local(name: str) -> Path | None:
     return target
 
 
-# ----------------------------------------------------------------------------
-# Writes
-# ----------------------------------------------------------------------------
-
-
 def put(name: str, data: bytes) -> FileRow:
-    """Store a PDF in the corpus, and keep this process's copy in the cache.
-
-    The object first, then the row: the row is what makes the file part of the
-    corpus, so a failed upload raises :class:`CorpusStoreError` and leaves
-    nothing listed. Storing a name again replaces its bytes and leaves it
-    needing ingestion.
-    """
     _require_name(name)
     upload_url, storage_key = _request_upload_url(name)
     _put_object(upload_url, data)
@@ -571,40 +415,16 @@ def put(name: str, data: bytes) -> FileRow:
 
 
 def remove(name: str) -> None:
-    """Take ``name`` out of the corpus: its row, then its object, then this process's cached copy. Idempotent.
-
-    The row is what makes the file part of the corpus, so it goes first; a
-    failure to delete the object afterwards raises and leaves an unreachable
-    object that a later upload of the same name overwrites.
-    """
     _require_name(name)
     _delete_file_row(name)
     _delete_object(name)
     (cache_dir() / name).unlink(missing_ok=True)
 
 
-# ----------------------------------------------------------------------------
-# The download an ingest job runs
-# ----------------------------------------------------------------------------
-
-#: Every corpus object's key starts here (the BFF's ``buildBaseCorpusStorageKey``).
 _KEY_PREFIX = "base-corpus/"
 
 
 class CorpusObjectDownload:
-    """The original of a queued ingest job: a corpus object the worker reads itself.
-
-    The ingest queue carries a job as data, and a job that waits for a worker for
-    a long time cannot carry a presigned URL that expires in an hour. This
-    carries the object's key and hash instead, and the worker, which holds the same
-    read credential as every backend process (``agent.common.seaweed_s3``),
-    downloads it when it reaches the file, to a temp file the job then owns and
-    deletes (``knowledge_layer.ingest.deferred_files``: any zero-argument callable that
-    returns a path). The bytes are checked against the hash the job was made for, so a
-    file replaced while the job waited fails here, as a failed download, instead of
-    being indexed under the wrong hash.
-    """
-
     __slots__ = ("sha256", "storage_key")
 
     def __init__(self, storage_key: str, sha256: str) -> None:
@@ -621,7 +441,6 @@ class CorpusObjectDownload:
 
     @classmethod
     def from_payload(cls, data: dict) -> CorpusObjectDownload:
-        """Rebuild one from a queue payload; the key is checked again, a row is not a request that was."""
         return cls(str(data["storage_key"]), str(data["sha256"]))
 
     def __call__(self) -> str:

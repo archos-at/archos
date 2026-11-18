@@ -1,9 +1,3 @@
-"""What a web search may hand on as a source about law (ADR-0175, staging QC run 1 F1 and run 2 #1).
-
-What is a copy is read from data: the source records and the works the turn holds. The data-driven cases use
-invented hosts and works; the live cases (dev, 2026-11-10) run against the repository's own records.
-"""
-
 from __future__ import annotations
 
 import re
@@ -28,7 +22,6 @@ from agent.common.web_sources import preamble
 from agent.common.web_sources import screen
 from agent.knowledge.inventory import set_norm_families
 
-#: An invented country's legal database: its own host, and a site that republishes it.
 INVENTED = SourceHosts(
     title="Lawbase of Ruritania", country="XR", hosts=("law.example.org",), copy_hosts=("mirror.example.net",)
 )
@@ -55,9 +48,6 @@ def _reads(*countries: str, uses: tuple[EditionUse, ...] = (), gate: str = "site
     )
 
 
-# -- a copy by host: the source record's copy_hosts ---------------------------
-
-
 def test_a_hit_on_a_copy_host_is_withheld_while_the_source_can_be_read(invented_source):
     _reads("XR")
     found = assess("https://www.mirror.example.net/code/para-7", "§ 7 Building Code")
@@ -66,7 +56,6 @@ def test_a_hit_on_a_copy_host_is_withheld_while_the_source_can_be_read(invented_
 
 
 def test_a_hit_on_a_copy_host_is_labelled_while_the_source_cannot_be_read(invented_source):
-    """Withholding the only text the turn can reach would leave the answer nothing to say what it rests on."""
     _reads()  # the gate reads no country's law
     found = assess("https://mirror.example.net/code/para-7", "§ 7 Building Code")
     assert found.withheld is None
@@ -85,7 +74,6 @@ def test_a_lookalike_of_a_copy_host_is_not_one(invented_source):
 
 
 def test_the_copy_hosts_are_read_from_a_source_record_s_file(tmp_path, monkeypatch):
-    """A new country's mirrors are a line in its source record: no code names them."""
     from public_sources_testing import HTML_PAGE
     from public_sources_testing import html_source
     from public_sources_testing import write_source
@@ -108,7 +96,6 @@ def test_the_copy_hosts_are_read_from_a_source_record_s_file(tmp_path, monkeypat
 
 
 def test_a_released_record_the_turn_carries_names_its_copies(monkeypatch):
-    """A published source's ``copy_hosts`` screen the web as a repository file's did, with no file at all."""
     from agent.common.knowledge_context import KnowledgeContext
     from agent.common.knowledge_context import LawSource
     from agent.common.knowledge_context import set_turn_knowledge_context
@@ -134,7 +121,6 @@ def test_a_released_record_the_turn_carries_names_its_copies(monkeypatch):
 
 
 def test_an_unreadable_record_set_knows_no_copy_and_fails_no_search(monkeypatch):
-    """An unreadable repository record set is no error: no host of it is known as a copy."""
     monkeypatch.setenv("PUBLIC_SOURCES_DIR", "/nonexistent/sources")
     web_sources._sources_under.cache_clear()
     try:
@@ -143,8 +129,6 @@ def test_an_unreadable_record_set_knows_no_copy_and_fails_no_search(monkeypatch)
     finally:
         web_sources._sources_under.cache_clear()
 
-
-# -- a copy by designation: the works the turn holds --------------------------
 
 GUIDELINE = EditionUse(
     work_id="xr:guideline-2",
@@ -188,7 +172,6 @@ def test_a_web_page_about_a_held_work_is_handed_on_with_a_label(invented_source)
 
 
 def test_part_2_2_is_not_part_2(invented_source):
-    """``2.2`` is one token: a document of another part is no copy of this one."""
     _reads("XR", uses=(GUIDELINE,), gate="core")
     assert assess("https://vendor.example.com/x.pdf", "Technical Guideline 2.2 Garages") == web_sources.KEEP
 
@@ -202,13 +185,11 @@ def test_a_page_naming_a_law_a_legal_database_holds_is_labelled_never_withheld(i
 
 
 def test_the_host_an_edition_s_identity_names_is_its_own_source(invented_source):
-    """The records name where an edition is read (its ELI): a hit there is the law's source, not a copy."""
     _reads("XR", uses=(STATUTE,), gate="core")
     assert assess("https://statutes.example.org/eli/2008/34", "Ruritanian Parking Act 2008") == web_sources.KEEP
 
 
 def test_only_an_eli_names_a_host_of_the_work_s_own(invented_source):
-    """An open scheme's value is no address by any rule: an https value under it trusts no host."""
     planted = EditionUse(
         work_id="xr:parking-act",
         edition_id=None,
@@ -235,15 +216,12 @@ def test_a_short_name_identifies_no_work():
 
 
 def test_the_base_shelf_s_documents_are_held_works(invented_source):
-    """The shelf names its documents by the display title their file resolves to; no pattern in this module."""
     set_norm_families([NormFamily(key="3", members=("3",), files=("oib-rl_3_ausgabe_mai_2023.pdf",))])
     held = web_sources.held_works()
     assert [work.designation for work in held if work.where == "knowledge_base"] == ["OIB-Richtlinie 3"]
     assert assess("https://vendor.example.com/media/x.pdf", "OIB-Richtlinie 3 – Hygiene").withheld is not None
     assert assess("https://vendor.example.com/media/x.pdf", "OIB-Richtlinie 2 – Brandschutz") == web_sources.KEEP
 
-
-# -- the live cases (dev, 2026-11-10), against the repository's records -------
 
 LIVE_MIRRORS = [
     (
@@ -263,7 +241,6 @@ LIVE_MIRRORS = [
 
 @pytest.mark.parametrize(("url", "title"), LIVE_MIRRORS)
 def test_the_mirrors_the_dev_answer_cited_are_withheld_where_the_legal_database_can_be_read(url, title):
-    """„Was sagt § 50 Wiener Garagengesetz?" (dev, 20:10Z) cited these three; the legal database was not read."""
     _reads("AT")
     assert assess(url, title).withheld is not None
     assert copied_work(url, title) is not None
@@ -276,7 +253,6 @@ def test_the_mirrors_are_labelled_copies_where_the_gate_reads_no_law(url, title)
 
 
 def test_a_plain_http_page_is_never_handed_on_as_a_source():
-    """„Laut OIB gilt dort seit 16. Juli 2026 die Ausgabe 2025 [2]" rested on this address (dev, 17:21Z)."""
     reason = assess("http://www.oib.or.at/de/inkrafttreten-2015", "Inkrafttreten").withheld
     assert reason is not None and "not an https address" in reason
 
@@ -293,13 +269,9 @@ def test_the_legal_database_s_own_host_is_not_a_copy():
 
 
 def test_the_site_the_norm_registry_points_at_for_a_law_is_not_labelled_a_copy():
-    """The city's own gazette page was among the hits of that turn: it is where the registry reads such law."""
     _reads("AT")
     url = "https://www.wien.gv.at/recht/landesrecht-wien/landesgesetzblatt/jahrgang/2010/html/lg2010046.html"
     assert assess(url, "LGBl 46/2010 - Wiener Garagengesetz 2008 – WGarG 2008; Änderung") == web_sources.KEEP
-
-
-# -- the product's own site, and what the agent reads -------------------------
 
 
 @pytest.mark.parametrize(
@@ -341,8 +313,6 @@ def test_a_search_scores_how_many_hits_it_withheld(monkeypatch):
     assert [(score.name, score.value) for score in emitted] == [("web-sources-withheld", 2.0)]
 
 
-# -- a country is data --------------------------------------------------------
-
 _SRC = Path(web_sources.__file__).resolve().parents[1]
 DATA_DRIVEN_MODULES = [
     _SRC / "common" / "web_sources.py",
@@ -353,7 +323,6 @@ DATA_DRIVEN_MODULES = [
 
 
 def _data_names() -> set[str]:
-    """Every host of a source record and every law the norm registry names: what may stand in data only."""
     from public_sources.source import load_sources
 
     from agent.common.norm_registry import load_registry
@@ -370,8 +339,6 @@ def _data_names() -> set[str]:
 
 @pytest.mark.parametrize("module", DATA_DRIVEN_MODULES, ids=lambda path: path.name)
 def test_no_host_and_no_law_of_a_country_is_written_into_the_screen_s_code(module):
-    """A country is data (ADR-0162, ADR-0173): a host or a law's name in these modules is a rule that holds
-    for one country and silently for no other. They are read from the records."""
     source = module.read_text(encoding="utf-8").casefold()
     found = sorted(name for name in _data_names() if name.casefold() in source)
     assert not found, f"{module.name} names {found}: put it in a source record or the norm registry"
@@ -379,7 +346,6 @@ def test_no_host_and_no_law_of_a_country_is_written_into_the_screen_s_code(modul
 
 
 def test_a_hit_whose_url_does_not_parse_is_screened_not_raised(invented_source):
-    """A malformed hit (an unclosed IPv6 bracket) used to raise in urlparse and fail the whole search."""
     _reads("XR")
     found = assess("https://[::1/x", "§ 7 Building Code")
     assert found.withheld is not None or found.note is not None

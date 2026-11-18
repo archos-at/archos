@@ -142,7 +142,7 @@ track_llm_costs()  ──sets──▶  cost_tracker_var (ContextVar)
 ```
 
 - **Activation points (the only wiring, 4 total)**:
-  - sync chat turn — `piloti/conversation_register.py` around `agent.run(...)`
+  - sync chat turn — `core/conversation_register.py` around `agent.run(...)`
   - async research job — `agent_host/jobs/runner.py` around `_run_agent(...)`
     (identity + budget captured at submit time via `capture_usage_context()`)
   - background memory reflection — `project_memory/reflection.py` (own
@@ -282,7 +282,7 @@ Everything on this page is in the organization's unit — credits
 (`formatCredits`, "credits" / "Punkte") or tokens (`formatTokens`,
 compact above a thousand) — with the unit word from the dictionary. No cost,
 no currency, never the other unit. An own-key organization gets one note
-saying its usage is on its own bill and Piloti charges no credits.
+saying its usage is on its own bill and the agent charges no credits.
 
 - **Two budget meters** (today / this month): stacked segments per model as
   share of the limit, 2px surface gaps, muted remaining track; exhausted →

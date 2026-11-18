@@ -9,7 +9,6 @@ describe('previousEntryIs', () => {
   const REVIEW = `${FILES}?doc=d1&review=1&mark=a1&back=${encodeURIComponent('/app/inbox?filter=unread')}`
 
   test('Dateien → Postfach → a row in the same project: the entry behind the review is the Postfach', () => {
-    // The trail cut itself back to Dateien here (same path); the history did not.
     const entries = at(FILES, '/app/inbox?filter=unread', REVIEW)
     expect(previousEntryIs(entries, 2, '/app/inbox?filter=unread', ORIGIN)).toBe(true)
   })

@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -24,9 +22,9 @@ const request = (token: string | null): Request =>
 describe('GET /api/internal/oib-corpus', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.CORPUS_EXPORT_TOKEN = 'export-token'
-    process.env.INTERNAL_API_TOKEN = 'service-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('CORPUS_EXPORT_TOKEN', 'export-token')
+    vi.stubEnv('INTERNAL_API_TOKEN', 'service-token')
+    vi.stubEnv('APP_ENV', 'development')
   })
 
   it('streams the corpus for its own token', async () => {
@@ -46,7 +44,7 @@ describe('GET /api/internal/oib-corpus', () => {
   })
 
   it('fails closed when its token is unconfigured', async () => {
-    delete process.env.CORPUS_EXPORT_TOKEN
+    vi.stubEnv('CORPUS_EXPORT_TOKEN', undefined)
     expect((await GET(request('export-token'))).status).toBe(503)
     expect(streamKnowledgeBaseCorpus).not.toHaveBeenCalled()
   })

@@ -1,10 +1,3 @@
-/**
- * Fix 2: the deterministic pre-save gate runs before the actual save and used to
- * sit OUTSIDE any try/catch while Save was fired as `void handleSave()` — so any
- * throw there left the Save button silently inert. The gate is now wrapped: on a
- * throw it logs and proceeds straight to the save (fail-open). This spec mocks the
- * checker to throw and asserts the save still completes.
- */
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,7 +9,6 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: pushMock, refresh: refreshMock }),
 }))
 
-// The deterministic gate throws; the free-text collectors are inert.
 vi.mock('@/lib/project-profile/intake-consistency', () => ({
   checkIntakeConsistencyFromAnswers: () => {
     throw new Error('boom')
@@ -67,9 +59,6 @@ describe('ProjectIntakeWizard — Fix 2 pre-save gate fail-open', () => {
     localStorage.setItem(
       `intake-draft-v3-${PROJECT_ID}`,
       JSON.stringify({
-        // Every required answer, because `handleSave` now refuses without them
-        // — a fixture missing them exercises that gate rather than the fail-open
-        // path this spec is about.
         answers: {
           A1: 'Test',
           A2_adr: 'Wien 1',
@@ -84,13 +73,11 @@ describe('ProjectIntakeWizard — Fix 2 pre-save gate fail-open', () => {
 
     await user.click(await screen.findByRole('button', { name: /save & see/i }))
 
-    // The save completed despite the gate throwing.
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith(projectTourUrl(PROJECT_ID)))
     const putCalls = calls.filter(
       (c) => c.url.endsWith(`/projects/${PROJECT_ID}/profile`) && c.method === 'PUT'
     )
     expect(putCalls).toHaveLength(1)
-    // ...and the throw was logged rather than swallowed silently.
     expect(console.error).toHaveBeenCalled()
   })
 })

@@ -1,5 +1,3 @@
-"""The decision model's observation (ADR-0064, ADR-0089): a generation with its usage, never a state."""
-
 import json
 
 from agent.observability.decision_trace import decision_observation

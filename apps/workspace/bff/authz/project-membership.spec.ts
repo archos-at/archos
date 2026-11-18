@@ -25,8 +25,6 @@ describe('resolveSubjectMembership', () => {
   })
 
   it('does not cache a failed lookup as "not a member"', async () => {
-    // Stored as `null`, one failed lookup hid the colleague from every picker
-    // for the negative TTL.
     listOrganizationMemberships.mockRejectedValueOnce(new Error('workos 429'))
     listOrganizationMemberships.mockResolvedValueOnce({ data: [MEMBERSHIP] })
 
@@ -49,8 +47,6 @@ describe('resolveSubjectMembership', () => {
     expect(listOrganizationMemberships).toHaveBeenCalledTimes(1)
   })
 
-  // The push job removes every device of a person who left; "could not ask"
-  // must reach it as a failure, not as "not a member".
   it('lets a caller that cannot undo "not a member" tell a failed lookup from an answered one', async () => {
     listOrganizationMemberships.mockRejectedValueOnce(new Error('workos 503'))
     await expect(lookupSubjectMembership('org_1', 'u-anna')).rejects.toThrow('workos 503')

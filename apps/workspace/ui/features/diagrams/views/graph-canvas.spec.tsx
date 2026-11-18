@@ -1,7 +1,3 @@
-/**
- * The graph canvas: what a screen reader is given, and the room an edge label
- * is laid out with.
- */
 import { render, screen, within } from '@/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -16,7 +12,6 @@ describe('an edge label', () => {
     const long = 'nach Vorlage des vollständigen Brandschutzkonzepts'
     const box = edgeLabelBox(long)
     expect(box.width).toBe(160)
-    // Three lines of ~22 characters: „nach Vorlage des", „vollständigen", „Brandschutzkonzepts".
     expect(box.height).toBe(Math.ceil(3 * 12 * 1.375 + 6))
   })
 

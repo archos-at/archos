@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * PATCH /api/conversations/[id] with `temporary` (ADR-0180 rule 2): the switch
- * a person sets so that nothing from the conversation is kept in memory. The
- * service's own gate is `temporary.spec.ts`; here, the route's dispatch.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/auth/require-auth', () => ({

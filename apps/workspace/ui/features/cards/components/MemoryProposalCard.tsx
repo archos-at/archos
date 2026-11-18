@@ -22,37 +22,14 @@ interface MemoryProposalCardProps {
   content: string
   kind: MemoryKind
   confidence?: MemoryConfidence
-  /** Message this card belongs to — keys its persisted decision. */
   messageId?: string
-  /** Stable identity of this card within that message (`cardKey`). */
   cardKey: string
-  /**
-   * Whether this surface requires the answer to be persisted. With no owning
-   * message the card then shows WHAT is proposed and offers nothing — see
-   * `AnswerCards.decisionsMustPersist`.
-   */
   decisionsMustPersist?: boolean
-  /** The earlier note this one corrects, quoted; accepting the proposal retires it. */
   supersedes?: string | null
-  /** The subject the note is filed under on its shelf; the fallback below sends it with the note. */
   topic?: string | null
-  /** The stored proposal this card is a receipt of (ADR-0105). Absent: the fallback below. */
   proposalId?: string | null
 }
 
-/**
- * Confirmation card emitted by the `remember` tool when an org-scoped memory
- * write can't be completed by the agent's service token (default-deny). The
- * agent never writes org-wide memory silently; instead the user completes the
- * write through their OWN authenticated session — org-wide (allowed for any org
- * member) or scoped to just this project. Mirrors ProjectProfilePatchCard:
- * propose, never auto-apply.
- *
- * A card with a `proposal_id` is the receipt of a stored `memory` proposal
- * (ADR-0105) and is drawn by {@link MemoryReceipt}: the server files the note in
- * the deciding person's session and records who decided and when. Without one
- * it is the fallback below.
- */
 export function MemoryProposalCard({ proposalId, ...props }: MemoryProposalCardProps) {
   return proposalId ? (
     <MemoryReceipt
@@ -68,14 +45,6 @@ export function MemoryProposalCard({ proposalId, ...props }: MemoryProposalCardP
   )
 }
 
-/**
- * FALLBACK for answers older than server proposals (and for a proposal the
- * agent could not store): the browser writes the note through the reader's own
- * session, and the answer is recorded on the owning message
- * (`useCardDecision`), not in local state. A card that forgot it had been saved
- * would ask again after a reload. Kept as it was for those answers; a new
- * proposal never reaches it when the server could store it.
- */
 function BrowserWrittenMemoryCard({
   title,
   content,
@@ -88,24 +57,16 @@ function BrowserWrittenMemoryCard({
 }: Omit<MemoryProposalCardProps, 'proposalId' | 'supersedes'>) {
   const t = useTranslations(chatCopy)
   const kindLabels = useMemoryKindLabels()
-  // Same source as ProjectProfilePatchCard's projectId: the active chat store.
   const projectId = useChatStore((s) => s.projectId)
-  // A temporary chat keeps nothing (ADR-0180 rule 2). The routes this card
-  // writes through are the memory panels' own and are not told the
-  // conversation, so the card itself holds the rule for its own chat.
   const temporary = useChatStore((s) => s.currentConversation?.temporary === true)
   const { decision, decide, canDecide } = useCardDecision(messageId, cardKey, {
     mustPersist: decisionsMustPersist,
   })
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  // Which button is working: the project save used to say nothing while the
-  // org-wide Yes beside it was the one that announced „Speichern …".
   const [savingTo, setSavingTo] = useState<'org' | 'project'>('org')
 
   const save = async (url: string, savedDecision: 'savedOrg' | 'savedProject') => {
-    // Ignored while a save is in flight, rather than refused by `disabled`:
-    // see the buttons below.
     if (isSubmitting) return
     if (temporary) {
       setError(t('memoryProposal.temporaryConversation'))

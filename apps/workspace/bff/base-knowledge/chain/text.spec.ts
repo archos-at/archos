@@ -83,8 +83,6 @@ describe('the chain text', () => {
     )
   })
 
-  // Owner, 2026-11-12: an answer that names a binding edition always says since when it binds and through what,
-  // asked or not, and only from the records. The header above the binding lines is where the model reads it.
   it('tells the answer to state since when each binding edition binds, and through what, from the records alone', () => {
     const header = text('AT-9').split('\n')[1]
     expect(header).toBe(BINDING_HEADER)
@@ -94,12 +92,10 @@ describe('the chain text', () => {
       'even if not asked',
       "the records' own, never a web page's",
       'the records name none',
-      // A line by territory dates the edition's text, not the law: the answer must not say the law binds from then.
       'not when the law began to bind',
     ]) {
       expect(header, words).toContain(words)
     }
-    // The line under it carries both: the route and the records' day.
     expect(text('AT-9')).toContain('declared binding by Wiener Bautechnikverordnung (§ 1 WBTV 2023) since 2024-02-23')
   })
 

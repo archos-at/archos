@@ -1,11 +1,3 @@
-"""``workspace__*``: the identity on the wire, the refusal without one, and the server's words relayed.
-
-Only the socket is replaced. The request context, the headers and the tool
-functions are the real ones: what is under test is that EVERY call carries the
-envelope of the turn that made it (never one read at build time) and that a
-run with no acting person calls nothing.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -22,6 +14,7 @@ import pytest
 from agent.common import bff_http
 from agent.tools.workspace import client
 from agent.tools.workspace import register as workspace
+from agent.tools.workspace.legacy_names import LEGACY_MODE_HEADER
 
 SECRET = "workspace-test-secret"  # noqa: S105 - test fixture value  # pragma: allowlist secret
 
@@ -45,7 +38,6 @@ def bind(monkeypatch: pytest.MonkeyPatch, headers: dict[str, str]) -> None:
 
 
 def turn_of(user: str) -> dict[str, str]:
-    """The BFF's own encoding of a signed envelope for ``user``: base64url(JSON) and the hex HMAC of the JSON."""
     raw = json.dumps({"organizationId": "org_1", "userId": user, "issuedAt": 1_757_500_000_000})
     header = base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
     signature = hmac.new(SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
@@ -75,7 +67,6 @@ def result(text: str, *, is_error: bool = False) -> str:
 
 @pytest.fixture
 def sent(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
-    """Every request that reached the socket; answers with a plain result."""
     requests: list[Any] = []
 
     def _open(request: Any, timeout: float) -> _Response:
@@ -110,7 +101,6 @@ async def test_each_call_echoes_the_envelope_of_its_own_turn(monkeypatch, sent) 
 
 
 async def test_concurrent_turns_never_swap_identities(monkeypatch, sent) -> None:
-    """Two turns, two tasks, one process: each call reads the context of the task it runs in."""
     from nat.plugin_api import Context
 
     current: dict[str, str] = {}
@@ -137,9 +127,9 @@ async def test_the_request_is_one_stateless_tools_call_in_search_mode(monkeypatc
     await workspace.run_call("project-get", {"params": {"id": "p1"}})
 
     (request,) = sent
-    assert request.full_url == "http://bff.test/api/mcp"
+    assert request.full_url == "http://bff.test/api/mcp?mode=search"
     assert header(request, "X-internal-token") == SECRET
-    assert header(request, "X-piloti-mcp-mode") == "search"
+    assert header(request, LEGACY_MODE_HEADER) == "search"
     assert json.loads(request.data) == {
         "jsonrpc": "2.0",
         "id": 1,
@@ -149,7 +139,6 @@ async def test_the_request_is_one_stateless_tools_call_in_search_mode(monkeypatc
 
 
 async def test_each_call_names_the_answer_its_turn_writes(monkeypatch, sent) -> None:
-    """The BFF marks that answer when a read runs in a conversation that drew on a restricted folder (ADR-0093)."""
     from agent.turn.response import turn_answer_message_id
 
     bind(monkeypatch, turn_of("anna"))
@@ -244,7 +233,6 @@ def test_a_jsonrpc_error_is_a_workspace_error() -> None:
 
 
 def test_a_long_answer_is_passed_on_whole_because_the_server_caps_it() -> None:
-    """One cap, the server's (``MAX_RESULT_CHARS`` in ``discovery.ts``): a second cut here would end mid-JSON."""
     long = "x" * 60_000
     message = json.loads(result(long))
 
@@ -257,7 +245,6 @@ def test_the_group_exposes_exactly_the_four_named_functions() -> None:
 
 
 def test_the_descriptions_are_the_servers_words_read_from_the_fixture() -> None:
-    """The server writes the meta-tools once (``metaToolsFor``); this group keeps no copy, only its own tool names."""
     tools = json.loads(workspace.META_TOOLS_PATH.read_text(encoding="utf-8"))["tools"]
 
     assert set(tools) == set(workspace.SERVER_TOOLS.values())
@@ -266,7 +253,6 @@ def test_the_descriptions_are_the_servers_words_read_from_the_fixture() -> None:
         for other_step, other_name in workspace.SERVER_TOOLS.items():
             expected = expected.replace(other_name, f"workspace__{other_step}")
         assert workspace.DESCRIPTIONS[step] == expected
-        # The model knows these tools by this group's names only.
         assert not any(name in workspace.DESCRIPTIONS[step] for name in workspace.SERVER_TOOLS.values())
 
 
@@ -276,9 +262,6 @@ def test_the_in_product_search_never_offers_the_platform_domain() -> None:
     assert "platform" not in tools["search-operations"]["inputSchema"]["properties"]["domain"]["enum"]
 
 
-# The server caps a long read and sends it without `structuredContent` (discovery.ts `success`). That read
-# ran: its action row must read ok. Dev QC 2026-11-12: every `project-base-get` the agent made (43,651
-# characters, capped at 40,000) showed as a workspace error in the Herleitung, though the model read it.
 async def test_a_capped_read_ran_and_its_row_is_not_a_failure(monkeypatch, sent) -> None:
     from agent.common.action_outcome import ActionOutcome
 

@@ -2,12 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The committed JSON Schema is what the Erfassungs-Agent's tools
- * (`packages/agent/src/agent/agents/intake/`) are tested against, and this keeps it from
- * going stale: it REWRITES the fixture when `UPDATE_FIXTURES=1` and otherwise
- * compares.
- */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'

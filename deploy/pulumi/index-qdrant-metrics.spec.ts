@@ -3,20 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { load } from "js-yaml";
 import { baseStackConfig } from "./src/test-support/stack-config";
 
-/**
- * Qdrant's metrics, end to end through the manifests: the whole program built
- * once with Qdrant (three peers) and the collector both on.
- *
- * Nothing here would fail a plan. A scrape target on the ClusterIP Service
- * samples a different peer each time; a missing NetworkPolicy rule reads as
- * `up == 0` for every peer, which is indistinguishable from the cluster being
- * down; a collector given the API key is one more holder of a key that writes
- * every office's vectors. The rendered config was also run in the pinned
- * collector image against three real `qdrant/qdrant:v1.19.2` peers (the
- * 2026-10-13 drill, `docs/deployment/qdrant-runbook.md`); this suite holds the
- * strings to what ran.
- */
-
 type Env = { name: string; value?: string; valueFrom?: unknown };
 type Policy = {
   spec: {
@@ -90,7 +76,6 @@ describe("Qdrant metrics through the collector", () => {
       receivers: ["prometheus/qdrant"],
       exporters: ["prometheus"],
     });
-    // The OTLP pipelines keep their receivers; the scrape feeds metrics only.
     const traces = Object.entries(collector.service.pipelines).filter(([name]) => name.split("/")[0] === "traces");
     expect(traces.length).toBeGreaterThan(0);
     for (const [, p] of traces) expect(p.receivers).toEqual(["otlp"]);
@@ -98,9 +83,6 @@ describe("Qdrant metrics through the collector", () => {
     expect(ports).toContainEqual(expect.objectContaining({ port: 8889, name: "metrics" }));
   });
 
-  // The collector reads its file once, at start, and the ConfigMap keeps its
-  // name: without the config in the pod's digest, turning Qdrant on would add
-  // a pipeline that waits for the next unrelated restart.
   it("rolls the collector when its config changes", async () => {
     const { loadConfig } = await import("./src/config");
     const { secretChecksum, SECRET_CHECKSUM_ANNOTATION } = await import("./src/platform/rollout");
@@ -136,7 +118,6 @@ describe("Qdrant metrics through the collector", () => {
         ports: [{ protocol: "TCP", port: 6336 }],
       },
     ]);
-    // The client and peer rules never open 6336, so this rule is its only door.
     for (const name of ["allow-app-to-qdrant", "qdrant-peers"]) {
       const ports = (find("kubernetes:networking.k8s.io/v1:NetworkPolicy", name) as Policy).spec.ingress[0].ports;
       expect(ports.map((p) => p.port), name).not.toContain(6336);

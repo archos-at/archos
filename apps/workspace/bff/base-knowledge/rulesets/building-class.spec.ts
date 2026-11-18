@@ -27,7 +27,6 @@ import { failingExamples } from './decision-table'
 
 const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '2026-11-10T00:00:00Z' })
 
-/** What an Austrian project's site selects from Austria's records, through the product's own path. */
 const AUSTRIA = buildingClassificationOf(setupScopeOf({ facts: { country: fact('at') }, assumptions: {} }, { records: AT_SETUP_RECORDS }))
 if (!AUSTRIA) throw new Error('an Austrian project selects the OIB 2023 classification')
 const AT_CLASSIFICATION = AUSTRIA
@@ -89,12 +88,6 @@ describe('the OIB 2023 building class ruleset', () => {
     expect(buildingClassFromRuleset(open)).toEqual(deriveBuildingClass(open))
   })
 
-  /**
-   * Each input on its thresholds and just past them, as stored or missing. The
-   * derivation decides by enumerating every completion of the missing inputs;
-   * the ruleset by Kleene's logic, row by row. Agreement on the class, on
-   * Hochhaus and applicability, and on exactly which inputs are missing.
-   */
   it('agrees with the coded derivation on generated Buildings, missing inputs included', () => {
     const maybe = <T>(arbitrary: fc.Arbitrary<T>) =>
       fc.option(arbitrary, { nil: undefined, freq: 3 })
@@ -124,7 +117,6 @@ describe('the OIB 2023 building class ruleset', () => {
   })
 
   it('reads a list of uses holding anything but tokens as unknown, never as rein Wohnen', () => {
-    // Outside the profile's type (a string list); the derivation reads it as not residential.
     const odd = {
       ...singleFamilyHouse,
       gfa_above_ground: 600,

@@ -1,18 +1,3 @@
-"""Agent-agnostic async job API routes.
-
-Routes:
-    GET  /v1/jobs/async/agents                            - List available agent types
-    POST /v1/jobs/async/submit                            - Submit a new job for any agent
-    GET  /v1/jobs/async/job/{job_id}                      - Get job status
-    GET  /v1/jobs/async/job/{job_id}/stream               - SSE stream from beginning
-    GET  /v1/jobs/async/job/{job_id}/stream/{last_event_id} - SSE stream from event ID
-    POST /v1/jobs/async/job/{job_id}/cancel               - Cancel running job
-    GET  /v1/jobs/async/job/{job_id}/state                - Get artifacts from event store
-    GET  /v1/jobs/async/job/{job_id}/report               - Get final report
-    GET  /v1/internal/jobs/{job_id}/outcome               - A job's verdict for the BFF's run reconciler
-                                                            (service token, never on the external allowlist)
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -48,7 +33,6 @@ from .job_reaper import reap_stale_jobs_once
 logger = logging.getLogger(__name__)
 
 
-#: The catalog routes, answered without a job store: (method, path, handler in `job_handlers`, metadata).
 _CATALOG_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     (
         "GET",
@@ -73,7 +57,6 @@ _CATALOG_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     ),
 )
 
-#: The job routes, registered in this order on a `JobRouteHandlers` bound to the job store.
 _JOB_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     (
         "POST",
@@ -259,22 +242,13 @@ _JOB_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
 
 
 def _add_routes(app: FastAPI, handlers: Any, routes: tuple[tuple[str, str, str, dict[str, Any]], ...]) -> None:
-    """Register each route on ``app``, as ``@app.get`` / ``@app.post`` would, with its metadata."""
     for method, path, name, metadata in routes:
         app.add_api_route(path, getattr(handlers, name), methods=[method], **metadata)
 
 
 async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: FastApiFrontEndPluginWorker) -> None:
-    """
-    Register agent-agnostic async job routes.
-
-    Uses the agent runtime's JobStore for job metadata. Research runs on Hatchet
-    (ADR-0150). The /v1/data_sources endpoint is always registered.
-    """
     from .builder_state import set_active_builder
 
-    # Publish the builder so the internal skills submit route (registered
-    # without one) can reuse validate_data_sources_for_agent.
     set_active_builder(builder)
 
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
@@ -294,13 +268,7 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     logger.info("Registered /v1/data_sources and /v1/jobs/async/agents routes")
 
     db_url = getattr(worker, "_db_url", None) or os.environ.get("NAT_JOB_STORE_DB_URL", "sqlite:///./data/jobs.db")
-    # The job store the routes read and write. Research runs on Hatchet (ADR-0150),
-    # so there is no Dask scheduler: JobStore only stores the address it is given,
-    # and every call here goes to the database.
     job_store = JobStore(scheduler_address="", db_url=db_url)
-    # submit_agent_job resolves the database from the environment only; publish the
-    # worker-provided value so an agent-runtime-config-only deployment (no env vars) doesn't
-    # register routes whose every submission then fails.
     os.environ.setdefault("NAT_JOB_STORE_DB_URL", db_url)
     config_path = getattr(worker, "_config_file_path", None) or os.environ.get("NAT_CONFIG_FILE", "")
     if not config_path:
@@ -316,25 +284,12 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     _add_routes(app, handlers, _JOB_ROUTES)
     logger.info("Registered async job routes at /v1/jobs/async")
 
-    # Ensure job_events table exists before reaper runs (reaper queries it via raw SQL;
-    # table is otherwise created lazily on first EventStore write).
     EventStore._ensure_table_exists(db_url)
 
-    # Housekeeping runs only through these routes, one cycle per call, on a
-    # schedule outside the process (the housekeeping CronJobs; Compose's
-    # housekeeping service). ADR-0082 step A1.
     _add_housekeeping_routes(app, job_store, db_url, default_expiry_seconds)
 
 
 def _add_housekeeping_routes(app: FastAPI, job_store, db_url: str, expiry_seconds: int) -> None:
-    """One cycle of each housekeeping job, behind the internal token.
-
-    The first three take the same Postgres advisory lock as their loop did, so a
-    call that overlaps a running cycle (a slow previous call) skips and reports
-    nothing done. The base-corpus cycle instead waits on the cross-replica
-    ``oib-sync`` lock and then finds nothing left to queue. It ingests nothing itself: it
-    records the ingest jobs that finished and queues one for each file that needs it.
-    """
 
     @app.post("/v1/maintenance/housekeeping/ghost-jobs", tags=["maintenance"], include_in_schema=False)
     async def housekeeping_ghost_jobs(request: Request) -> dict:

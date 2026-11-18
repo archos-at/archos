@@ -1,16 +1,3 @@
-/**
- * One project folder — rename, move, delete.
- *
- * Thin handlers; authz and logic live in `@/lib/projects/folder-service`. The
- * rename and move share their request handling with the Archiv's folders
- * (`@/lib/documents/folder-route-handlers`). The delete does not: a project
- * folder goes to the Papierkorb with its subfolders and their documents
- * (`@/lib/projects/folder-bin`, ADR-0088), restorable with its access for
- * `FOLDER_PURGE_GRACE_DAYS`, then purged to a tombstone. It answers
- * `{ documentsBinned, foldersBinned, purgeAfter }`, not the Archiv's re-filing
- * counts.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { updateFolderHandler } from '@/lib/documents/folder-route-handlers'
 import { deleteProjectFolder, updateProjectFolder } from '@/lib/projects/folder-service'

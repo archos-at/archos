@@ -5,14 +5,12 @@ import { ChunkReloadGuard, isChunkLoadError } from './chunk-reload-guard'
 
 const RELOAD_TS_KEY = 'chunk-reload-ts'
 
-/** Dispatch a window `error` event carrying `error` (what webpack ChunkLoadError surfaces as). */
 function dispatchError(error: unknown): void {
   const event = new Event('error') as ErrorEvent
   Object.defineProperty(event, 'error', { configurable: true, value: error })
   window.dispatchEvent(event)
 }
 
-/** Dispatch a window `unhandledrejection` event carrying `reason` (a failed dynamic import). */
 function dispatchRejection(reason: unknown): void {
   const event = new Event('unhandledrejection') as PromiseRejectionEvent
   Object.defineProperty(event, 'reason', { configurable: true, value: reason })

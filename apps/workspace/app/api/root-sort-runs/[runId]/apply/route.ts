@@ -1,8 +1,3 @@
-/**
- * Apply what the person kept of a ready run (ADR-0121). Answers at once; the
- * `root_sort` job creates the kept folders and moves the files.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { applyRootSort } from '@/lib/filing/root-sort-run'
 import { applyRootSortRequestSchema } from '@/lib/filing/root-sort-wire'

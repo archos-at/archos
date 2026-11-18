@@ -1,8 +1,3 @@
-/**
- * Copy of the changelog page, both locales. The weekly summaries themselves are product data from
- * src/data/changelog.json (generated, see src/lib/changelog.ts); this is the frame around them.
- * `{name}` is the brand name, filled by `withName`.
- */
 const de = {
   meta: {
     title: 'Neuerungen',
@@ -12,7 +7,6 @@ const de = {
     title: 'Neuerungen.',
     text: 'Was sich in {name} geändert hat, Woche für Woche zusammengefasst.',
   },
-  // Every single change is in the app, behind sign-in (ADR-0156); this page carries the week's summary.
   inApp: 'Jede einzelne Änderung, nach Bereich sortiert, finden Sie nach der Anmeldung in {name} unter Neuerungen.',
   formerName: 'Einträge aus der Zeit vor der Umbenennung nennen {name} bei seinem früheren Namen.',
   unreleased: 'In Kürze',

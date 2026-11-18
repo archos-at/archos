@@ -1,32 +1,3 @@
-/**
- * The measurement drawing, over the model.
- *
- * ## Why this is DOM and not GPU
- *
- * ifc-lite can draw 3D lines (`uploadAnnotationLines3D`) and even glyphs, and
- * both were the wrong tool here. Annotation lines are folded into the model's
- * bounds, so every measurement would grow the box that Home frames and that
- * the cut slider is ranged over — measure across a room and the section slider
- * silently re-scales. And a dimension line is not part of the building: it must
- * be readable through a wall, at a constant weight regardless of zoom, in the
- * app's own type. That is a description of an overlay, not of geometry.
- *
- * So: an `<svg>` for the lines and ticks, absolutely-positioned `<div>`s for
- * the labels, both driven from `Camera.projectToScreen`.
- *
- * ## Why it is imperative
- *
- * It is updated every frame the camera moves. Routing sixty position updates a
- * second through React would re-render the whole stage — the rail, the dock,
- * the inspector — to move two line ends. The nodes are created when the set of
- * measurements changes (rare) and only their coordinates are written per frame
- * (constant work, no allocation, no reconciliation).
- *
- * Kept out of the canvas component so it can be driven by a fake projector in
- * a test, which is the only way to assert that a measurement lands where the
- * camera says it does.
- */
-
 import {
   distanceMetres,
   formatMetres,
@@ -42,45 +13,17 @@ import {
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
-/** World point → canvas pixel, or null when the point is behind the camera. */
 export type Projector = (point: MeasurePoint) => { x: number; y: number } | null
 
-/**
- * Wording the overlay needs, injected rather than imported.
- *
- * The overlay is created inside the canvas, which is behind `next/dynamic` and
- * has no translation context of its own at construction time. Two short
- * strings are cheaper to pass than a whole i18n dependency, and it keeps this
- * module a pure function of its inputs.
- */
 export interface MeasureOverlayLabels {
-  /** e.g. `horizontal` / `horizontal` — prefixes the run component. */
   horizontal: string
-  /** e.g. `vertical` / `vertikal` — prefixes the rise component. */
   vertical: string
-  /**
-   * The INTERFACE locale, carried alongside the words because the numbers are
-   * as translated as they are: `toFixed` writes `2.40 m` into a German
-   * readout, where a point is a thousands separator. This is the one number an
-   * architect checks a lichte Durchgangsbreite with.
-   */
   locale: string
 }
 
-/** Radius of the tick drawn at each placed end, in CSS pixels. */
 const TICK_RADIUS = 4
-/** The snap marker under the cursor is bigger — it is a target, not a record. */
 const CURSOR_RADIUS = 6
 
-/**
- * How each snap kind is drawn.
- *
- * A corner, a point on an edge and a point on a face are three different
- * strengths of claim, and a reader has to be able to tell them apart at a
- * glance — a "1.20 m" taken between two face points is a rougher number than
- * the same one taken between two corners. Shape rather than colour, because
- * colour in this viewport already means compliance status.
- */
 const SNAP_SHAPE: Record<MeasureSnapKind, 'square' | 'diamond' | 'circle'> = {
   vertex: 'square',
   edge: 'diamond',
@@ -90,18 +33,6 @@ const SNAP_SHAPE: Record<MeasureSnapKind, 'square' | 'diamond' | 'circle'> = {
   none: 'circle',
 }
 
-/**
- * Width of the halo drawn under every dimension line.
- *
- * A 1.5 px hairline in `--foreground` is invisible against any facade of a
- * similar tone, and the model's colours are the model's — a dark render in
- * light mode swallows the line, a pale one in dark mode does the same. The
- * halo is a wider stroke in `--background` underneath, which is the standard
- * way a drawing keeps annotation readable over arbitrary content. Markers
- * already do this by filling with `--background`; the lines never did, and the
- * `paint-order` attribute that was supposed to arrange it does nothing on an
- * element with a single paint.
- */
 const HALO_WIDTH = '4'
 const LINE_WIDTH = '1.5'
 
@@ -114,7 +45,6 @@ interface MeasurementNodes {
   measurement: Measurement
 }
 
-/** The marker path for a snap kind, centred on the origin. */
 function markerPath(kind: MeasureSnapKind, radius: number): string {
   switch (SNAP_SHAPE[kind]) {
     case 'square':
@@ -126,7 +56,6 @@ function markerPath(kind: MeasureSnapKind, radius: number): string {
   }
 }
 
-/** The full readout for one measurement. */
 export function measurementText(
   measurement: Measurement,
   labels: MeasureOverlayLabels
@@ -145,7 +74,6 @@ export class MeasureOverlay {
   private readonly labels: MeasureOverlayLabels
   private nodes: MeasurementNodes[] = []
 
-  /** The rubber band: a placed first point, and wherever the cursor is now. */
   private pendingHalo: SVGLineElement | null = null
   private pendingLine: SVGLineElement | null = null
   private pendingMarker: SVGPathElement | null = null
@@ -160,13 +88,6 @@ export class MeasureOverlay {
     this.labels = labels
   }
 
-  /**
-   * Replace the drawn set.
-   *
-   * Rebuilds nodes wholesale rather than diffing: the list changes when a
-   * reader finishes a measurement, which is a human-speed event, and a diff
-   * here would be code that runs rarely and is wrong the one time it matters.
-   */
   setMeasurements(measurements: readonly Measurement[]): void {
     for (const node of this.nodes) {
       node.halo.remove()
@@ -183,8 +104,6 @@ export class MeasureOverlay {
 
       const label = document.createElement('div')
       label.className =
-        // 95%: a measurement label sits ON the 3D canvas, and it has to stay
-        // readable without fully hiding the geometry it is measuring.
         'pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-md bg-background/95 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm'
       label.textContent = measurementText(measurement, this.labels)
       this.labelLayer.appendChild(label)
@@ -193,30 +112,22 @@ export class MeasureOverlay {
     })
   }
 
-  /** The in-progress measurement: a placed anchor and the live cursor. */
   setPending(anchor: MeasureAnchor | null, cursor: MeasureAnchor | null): void {
     this.anchor = anchor
     this.cursor = cursor
 
     if (anchor && !this.pendingLine) {
-      // Dashed while it is a proposal. The moment it is committed it becomes a
-      // solid line, which is the only feedback that the second click landed.
       const pending = this.appendLine(true)
       this.pendingHalo = pending.halo
       this.pendingLine = pending.line
       this.pendingMarker = this.appendMarker(anchor.snap, TICK_RADIUS)
       this.pendingLabel = document.createElement('div')
       this.pendingLabel.className =
-        // 95%: a measurement label sits ON the 3D canvas, and it has to stay
-        // readable without fully hiding the geometry it is measuring.
         'pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-md bg-background/95 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm'
       this.labelLayer.appendChild(this.pendingLabel)
     }
     if (!anchor) this.clearPending()
 
-    // The cursor marker exists whenever measuring is live, anchor or not: it
-    // is what tells the reader the tool has locked onto a corner BEFORE they
-    // commit to it, which is the difference between measuring and guessing.
     if (cursor && !this.cursorMarker) {
       this.cursorMarker = this.appendMarker(cursor.snap, CURSOR_RADIUS)
     } else if (cursor && this.cursorMarker) {
@@ -227,14 +138,6 @@ export class MeasureOverlay {
     }
   }
 
-  /**
-   * Move everything to where the camera now says it is.
-   *
-   * Called once per drawn frame. A point the camera cannot see — behind it, or
-   * off the near plane — hides its whole measurement rather than clamping it
-   * to an edge, because a dimension line stretching to a screen corner is a
-   * measurement of something that is not there.
-   */
   update(project: Projector): void {
     for (const node of this.nodes) {
       const from = project(node.measurement.from.point)
@@ -294,11 +197,6 @@ export class MeasureOverlay {
     this.setPending(null, null)
   }
 
-  /**
-   * A dimension line: the halo first, then the line, so the DOM order is the
-   * paint order. Both carry the same dash pattern — a haloed solid stroke over
-   * a dashed proposal would read as a solid line with a shadow.
-   */
   private appendLine(dashed: boolean): { halo: SVGLineElement; line: SVGLineElement } {
     const halo = this.svg.appendChild(document.createElementNS(SVG_NS, 'line'))
     halo.setAttribute('stroke', 'var(--background)')

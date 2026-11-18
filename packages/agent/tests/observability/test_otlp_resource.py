@@ -1,5 +1,3 @@
-"""Where each OTLP signal goes, and the resource that says who sent it."""
-
 import pytest
 
 from agent.observability.otlp_resource import resource_attributes
@@ -22,8 +20,6 @@ def test_every_signal_is_a_sibling_on_the_same_collector(configured, signal):
 
 
 def test_the_resource_names_the_tier_the_build_and_the_process():
-    # service.version tells a regression from a pod still running the old
-    # image; the instance keeps two replicas' cumulative counters apart.
     env = {"OTEL_SERVICE_NAME": "grid-agent-worker", "GIT_SHA": " abc123 ", "HOSTNAME": "agent-worker-7f9c-x2"}
     assert resource_attributes(env, pid=7) == {
         "service.name": "grid-agent-worker",

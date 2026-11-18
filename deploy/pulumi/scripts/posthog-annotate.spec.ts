@@ -4,17 +4,6 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-/**
- * The deploy marker, run as the workflow runs it: bash and a `curl` stub that
- * records what it was asked to send.
- *
- * Two promises are pinned here. A repository without a PostHog key deploys as
- * before, so the script must exit 0 and send nothing. A repository with one gets
- * exactly one project annotation per deploy, named "deploy <env> <sha>", sent to
- * the app host (not the ingestion host) with the key in a Bearer header, never
- * in the URL or the body.
- */
-
 const SCRIPT = join(__dirname, "posthog-annotate.sh");
 const ROOT = mkdtempSync(join(tmpdir(), "posthog-annotate-"));
 const BIN = join(ROOT, "bin");

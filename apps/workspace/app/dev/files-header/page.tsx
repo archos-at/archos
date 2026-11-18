@@ -1,33 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the Dateien page HEADER — the row that carries the section
- * title, its description, and every control that acts on the listing.
- *
- * This surface had no committed evidence, and it is where a layout regression
- * actually landed: folder upload shipped as a SECOND full-width button, the
- * action side took the width it needed, and the header's `min-w-0` title block
- * gave up the rest — so „Dokumente, auf die sich Piloti in diesem Projekt
- * stützt." rendered as a four-word column beside it. Nothing photographed the
- * header, so nothing caught it.
- *
- * Three things answered it, and this route is what holds them honest: folder
- * upload folded back into ONE button with a menu, the filters folded into one
- * `FileFilterMenu`, and `PageHeader` given a title floor so the action side is
- * the one that yields. The narrow variant is the proof — it is the width where
- * the squeeze showed first.
- *
- * The composition is the one `ProjectFileWorkspace` builds: `PageHeader` with
- * the same children, in the same order, at the same widths. The REAL controls,
- * so the shot measures the real thing — the failure mode is width, and a
- * stand-in with different intrinsic widths would prove nothing.
- *
- * `?variant=narrow` renders it at a laptop width, which is where the squeeze
- * appeared first. The E-Mail-Eingang's entry carries its muted count (three
- * mails wait), and the upload menu offers „Per E-Mail senden …“ (ADR-0137).
- * Not linked from anywhere; 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { use, useState } from 'react'
 import { notFound } from 'next/navigation'
@@ -49,9 +21,7 @@ function Header() {
   const [sort, setSort] = useState<FileSort>(DEFAULT_FILE_SORT)
   const [query, setQuery] = useState('')
 
-  // The waiting count the rail would have read, for the E-Mail-Eingang tab.
   primeInboundMailWaiting('dev', { count: 3, more: false })
-  // The real section frame, as a project's Dateien heads itself: title, subtitle, the places as tabs, the toolbar.
   return (
     <ProjectSectionFrame projectId="dev" projectName="Dev" pathname="/app/projects/dev/files" inboundMail>
       <ProjectSectionActions>
@@ -88,9 +58,6 @@ export default function FilesHeaderDevPage({
   const narrow = use(searchParams).variant === 'narrow'
 
   return (
-    // German, pinned: the copy that squeezed is German, and it is the language
-    // most users read. An English shot would understate the width the
-    // description needs.
     <I18nProvider initialLocale="de" fixedLocale>
       <main className="bg-background min-h-dvh py-10">
         <div className={narrow ? 'mx-auto max-w-[900px]' : 'mx-auto max-w-[1400px]'}>

@@ -1,12 +1,3 @@
-/**
- * The model explorer — the half of the model page that needs no GPU.
- *
- * These are the assertions that matter for a user who cannot run the viewport
- * at all: the numbers are right and carry their units, the storey filter
- * actually narrows the element list, and an element's properties render as
- * something readable rather than as raw JSON.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -29,7 +20,7 @@ const SUMMARY: BimModelSummary = {
     timeStamp: '2026-02-03T10:00:00',
     author: ['A. Muster'],
     organization: ['Musterbuero ZT GmbH'],
-    preprocessorVersion: 'GRID',
+    preprocessorVersion: 'Fixture Exporter',
     originatingSystem: 'Revit 2026',
     description: [],
   },
@@ -108,7 +99,6 @@ describe('IfcModelOverview', () => {
   })
 
   it('distinguishes an absent quantity from a zero one', () => {
-    // A model that publishes no volume must not read as a building of 0 m³.
     const withoutVolume = {
       ...SUMMARY,
       quantityTotals: { ...SUMMARY.quantityTotals, netVolumeM3: null },
@@ -155,9 +145,6 @@ describe('IfcSpatialTree', () => {
 
 describe('IfcElementTable — an empty table has three different reasons', () => {
   it('does not blame the reader\u2019s filter while the walk is still running', () => {
-    // The walk is two hundred requests on a 200 000-element model. For all of
-    // it the table asserted the building has no elements AND blamed a filter
-    // nobody had set — with the search box and the type select both empty.
     render(
       <IfcElementTable
         elements={[]}
@@ -168,7 +155,6 @@ describe('IfcElementTable — an empty table has three different reasons', () =>
       />
     )
     expect(screen.queryByText(/no element matches/i)).not.toBeInTheDocument()
-    // And no count, because a count is a claim about the building.
     expect(screen.queryByText(/0 of 0 matches/i)).not.toBeInTheDocument()
   })
 
@@ -213,9 +199,6 @@ describe('IfcElementTable', () => {
         onSelect={vi.fn()}
       />
     )
-    // `total` is the FILTERED row count, so "of 4 elements" claimed the
-    // building has four; with a type selected it read "300 of 812 elements"
-    // about 812 walls.
     expect(screen.getByText('4 of 4 matches')).toBeInTheDocument()
   })
 
@@ -228,8 +211,6 @@ describe('IfcElementTable', () => {
         onSelect={vi.fn()}
       />
     )
-    // Singular: the translator substitutes tokens and does not select
-    // plurals, so a one-row result needs its own key.
     expect(screen.getByText('1 of 1 match')).toBeInTheDocument()
     expect(screen.getByText('Aussenwand OG')).toBeInTheDocument()
     expect(screen.queryByText('Innenwand EG')).not.toBeInTheDocument()
@@ -354,13 +335,11 @@ describe('IfcModelHealthPanel', () => {
   it('leads with the error, whatever order the rules ran in', () => {
     render(<IfcModelHealthPanel health={HEALTH} />)
     const items = screen.getAllByRole('listitem')
-    // The validator emits stage by stage; a reader wants severity first.
     expect(items[0]).toHaveTextContent('Elements in no storey')
   })
 
   it('states the share affected, not a bare count', () => {
     render(<IfcModelHealthPanel health={HEALTH} />)
-    // "11 walls are missing a property set" and "11 of 64" are different facts.
     expect(screen.getByText(/IfcWall · Pset_WallCommon · 11 of 64/)).toBeInTheDocument()
   })
 
@@ -425,9 +404,6 @@ describe('IfcModelCompare', () => {
             },
           ],
           unchangedCount: 38,
-          // The badges read these, NOT the list lengths — the lists are capped
-          // at 500 rows, so a revision that added three thousand elements used
-          // to render "Neu 500".
           counts: { added: 1, removed: 1, changed: 1 },
           totals: { base: 40, revision: 40 },
           truncated: false,
@@ -441,8 +417,6 @@ describe('IfcModelCompare', () => {
 
     expect(await screen.findByText('Added 1')).toBeInTheDocument()
     expect(screen.getByText('Unchanged 38')).toBeInTheDocument()
-    // The changed field is shown with both sides — "something changed" is not
-    // an answer an architect can act on.
     expect(screen.getByText('Pset_WallCommon.FireRating')).toBeInTheDocument()
     expect(screen.getByText('REI 30')).toBeInTheDocument()
     vi.unstubAllGlobals()
@@ -470,8 +444,6 @@ describe('IfcModelCompare', () => {
     render(<IfcModelCompare modelId="model-v2" candidates={CANDIDATES} />)
     await userEvent.click(screen.getByRole('button', { name: 'Compare' }))
 
-    // "No differences" over a partial index is the most dangerous sentence this
-    // panel can produce, so the caveat sits next to it.
     expect(await screen.findByText(/comparison may be incomplete/)).toBeInTheDocument()
     expect(screen.getByText('No differences between these two revisions.')).toBeInTheDocument()
     vi.unstubAllGlobals()
@@ -481,9 +453,6 @@ describe('IfcModelCompare', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({}) })))
     render(<IfcModelCompare modelId="model-v2" candidates={CANDIDATES} />)
     await userEvent.click(screen.getByRole('button', { name: 'Compare' }))
-    // Named for what it compares. Two panels sit in the Revisionen tab, both
-    // called "vergleichen", and their failure text was byte-identical — so a
-    // reader who ran both could not tell which one had failed.
     expect(
       await screen.findByText('The element comparison could not be run.')
     ).toBeInTheDocument()

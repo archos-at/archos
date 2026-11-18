@@ -34,13 +34,10 @@ describe('retrieval settings catalog', () => {
 
   it('pins every default to the value the tools ship with', () => {
     expect(retrievalSettingDefaults()).toEqual({
-      // On: the answer streams unless the platform owner switches it off.
       'chat.answer_streaming': 1,
       'lessons.holdout_pct': 0,
       'knowledge.top_k': 16,
       'knowledge.max_chunks_per_document': 5,
-      // 0 disables the floor, and that is the shipped default deliberately: measured on
-      // this corpus, similarity does not separate answerable from out-of-scope questions.
       'knowledge.relevance_floor_pct': 0,
       'surface.chunk_top_k': 40,
       'surface.max_files': 3,
@@ -53,8 +50,6 @@ describe('retrieval settings catalog', () => {
   })
 
   it('matches the cross-language contract fixture byte-for-byte', () => {
-    // The Python parity test reads the same file and asserts it against
-    // `_BOUNDS`/`_ALLOWED_VALUES`.
     expect(
       RETRIEVAL_SETTINGS.map(({ key, defaultValue, min, max, allowedValues, label, description }) => ({
         key,

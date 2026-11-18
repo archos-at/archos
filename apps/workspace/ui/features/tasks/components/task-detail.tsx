@@ -1,56 +1,5 @@
 'use client'
 
-/**
- * One task in detail, as a drawer over the list.
- *
- * It holds no copy of the ROW — the panel resolves the selection against the
- * live list on every render, so a poll landing while the drawer is open moves
- * the drawer, and a row deleted elsewhere reads as gone rather than as a stale
- * snapshot.
- *
- * ## The body is the run block, not a second description of the run
- *
- * The question a person asks by clicking a row in Aufträge is „what did this
- * actually do, and is it worth opening" — which is the run block's whole job
- * and nothing else's. So the drawer FETCHES the run (`useTaskRun`) and renders
- * `RunBlock`: the same phases, rounds, documents and status line the thread
- * shows, off the same ledger.
- *
- * It used to restate the card instead — a kind chip, a status chip, the goal,
- * the review reason and the error, all of which the card the reader had just
- * clicked already showed, in a second grammar assembled from `SheetTitle` and
- * `SectionLabel`. That is the lookalike `apps/workspace/AGENTS.md` forbids
- * („show something a surface already shows → reuse the organism"), and it made
- * the bigger, more deliberate surface say strictly LESS about the run than the
- * row that opened it: the card at least carried the run line.
- *
- * What survives around the block, in this order:
- *
- *   1. **The result.** One primary button to the one place the result lives
- *      (`taskResultTarget` decides which). This is what the reader opened the
- *      drawer for, so it is PINNED under the scrolling body: on a phone the block
- *      above it is a thousand pixels of sources, and a button that scrolls away
- *      with them is a button nobody finds.
- *   2. **„Im Verlauf öffnen".** The drawer reads a run; the thread is where a
- *      live one is followed and where a `waiting` question is answered. The
- *      drawer must never become the only door to it.
- *   3. **„Als Zeitplan speichern".** The moment a person has just read a result
- *      they liked is the moment they are most willing to commit to getting it
- *      every week — and it used to cost them a walk to another tab and a
- *      retyped prompt. Offered only on work that is not already on a schedule:
- *      on a scheduled run it would propose duplicating the thing that produced
- *      it.
- *
- * The goal, the review reason and the error are NOT repeated here: the block's
- * title carries the ask, its status line carries the failure, and its review
- * quote carries the reviewer's words. A task with no ledger at all — a run from
- * before run messages existed — falls back to exactly those paragraphs, because
- * then they are the only account there is.
- *
- * The template half of this drawer moved to `features/jobs/schedule-detail`
- * with the schedules themselves.
- */
-
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { ArrowRight, CalendarPlus, FileText, MessageSquare, MessagesSquare } from 'lucide-react'
@@ -70,12 +19,6 @@ import { RunBlock } from '@/features/runs/components/RunBlock'
 import { useTaskRun } from '../hooks/use-task-run'
 import { isActiveTask, taskResultTarget, taskThreadHref, type TaskRunView } from '../lib/task-view'
 
-/**
- * One icon per place a result can live. Two of them, because a run's report and
- * its thinking are no longer destinations of their own: both lived behind
- * `?job=` in the side panel, and both are the run's own message in its thread
- * now (ADR-0062) — which the block above this button already renders.
- */
 const RESULT_ICON: Record<'document' | 'conversation', LucideIcon> = {
   document: FileText,
   conversation: MessageSquare,
@@ -83,25 +26,11 @@ const RESULT_ICON: Record<'document' | 'conversation', LucideIcon> = {
 
 interface TaskDetailProps {
   projectId: string
-  /** The task the drawer is showing, or null when it is shut. */
   task: TaskRunView | null
-  /** True while the drawer is open — a selection may be open and unresolved. */
   open: boolean
-  /**
-   * Why the selection resolves to nothing. `deleted` is a row the drawer saw
-   * and that left. `unresolved` is a deep link that never matched a row in this
-   * project: the drawer cannot say it left, only that it is not here.
-   */
   goneReason?: 'deleted' | 'unresolved'
-  /**
-   * The deep link has not been checked against a loaded list yet. Neither gone
-   * claim is earned while the first load is pending, so the drawer waits
-   * instead of flashing "not found" at a row that is still arriving.
-   */
   resolving?: boolean
-  /** Whether this member may create standing tasks (`project:skills:manage`). */
   canManageJobs: boolean
-  /** Hands a pre-filled draft to the task wizard. Omit to hide the action. */
   onPromoteToTask?: (draft: ScheduleDraft) => void
   onClose: () => void
 }
@@ -125,9 +54,6 @@ export function TaskDetail({
         side="right"
         closeLabel={t('detail.close')}
         data-testid="task-detail"
-        // The drawer's own scroll is turned off: the body scrolls and the result
-        // is pinned under it (see `TaskDetailBody`), so the bottom padding is
-        // what clears the home indicator.
         className="flex flex-col overflow-y-hidden pb-[max(1.5rem,env(safe-area-inset-bottom))]"
       >
         {task ? (
@@ -180,14 +106,8 @@ function TaskDetailBody({
   const result = taskResultTarget(projectId, task)
   const ResultIcon = result ? RESULT_ICON[result.kind] : null
   const threadHref = taskThreadHref(projectId, task)
-  // Only work a person WROTE, and only work that is not already recurring.
-  // A scheduled run's prompt is the schedule's, and promoting it would offer
-  // to duplicate the schedule that fired it.
   const promotable =
     canManageJobs && onPromoteToTask && task.trigger !== 'schedule' && Boolean(task.goal)
-  // Re-read when the panel's poll has moved this row, and never otherwise. A
-  // finished run cannot move, so its revision is constant and the drawer reads
-  // it once however long it stays open.
   const revision = isActiveTask(task)
     ? `${task.status}:${task.runSummary?.status ?? ''}:${task.runSummary?.rounds ?? 0}`
     : 'settled'
@@ -229,15 +149,7 @@ function TaskDetailBody({
           <RunBlock
             ledger={ledger}
             title={task.title}
-            // No `projectId`, which is what enables the block's own „Im Projekt
-            // anzeigen". The drawer's primary button is already that door, and
-            // two controls opening one document is the duplication this rewrite
-            // came to remove. In a thread the block has no result button beside
-            // it and keeps the link; here it yields.
             projectId={null}
-            // The drawer body is the scroller, so the block keeps its own
-            // height: as a shrinkable flex child it gets squeezed by whatever
-            // sits below it and clips its last round against `overflow-hidden`.
             className="shrink-0"
             defaultOpen
             review={task.review ? { decision: task.review, reason: task.reviewReason } : null}
@@ -319,16 +231,6 @@ function TaskDetailBody({
   )
 }
 
-/**
- * What the drawer says when there is no block to show.
- *
- * Two different silences, said differently. A run from before run messages
- * existed HAS no account — the drawer falls back to the facts the row carries,
- * which is exactly what the old drawer always showed and is the right answer
- * for a legacy row. A read that was refused has an account the reader simply
- * could not be given, and saying „Auftrag" over the goal would quietly imply
- * that is all there ever was.
- */
 function TaskDetailFallback({ task, failed }: { task: TaskRunView; failed: boolean }): JSX.Element {
   const t = useTranslations(tasksCopy)
 

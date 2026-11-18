@@ -1,19 +1,3 @@
-"""The two topological reads the spike left out, added for the tool surface.
-
-``COVERAGE.md`` records ``connects`` and ``elementsOfStorey`` as **direct** and
-**better than ours** respectively, and as *not ported* — they were skipped
-because the parity table did not need them to answer its question. The tool
-surface does need them: ``relations`` exposes eleven relation names with a
-German gloss each, and shipping nine of them with two silently missing would
-make the enum lie about what this engine can do.
-
-They live here rather than in :mod:`ifc_spatial.operators` because that module
-is the spike's frozen parity spec — the thing the 37 tests measure against — and
-appending to it after the measurement would blur what was measured. Everything
-else is unchanged: same envelope, same German, same rule that an unknown
-GlobalId raises.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -31,47 +15,6 @@ from .operators import _wrong_kind
 
 
 def connects(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
-    """Elements physically joined to this one — wall-to-wall corners and
-    T-joints, beam-to-column connections.
-
-    ``IfcRelConnectsPathElements`` and ``IfcRelConnectsElements``, traversed in
-    BOTH directions. The relation is symmetric in meaning and IFC stores it once
-    with a fixed relating/related orientation, so reading only ``ConnectedTo``
-    would make the answer depend on which of two walls the caller happened to
-    ask about — the kind of silent asymmetry that reads as a modelling defect
-    and is not one.
-
-    Most exports write no connections at all, which is why the absence is an
-    ``undecidable`` with the relation named rather than an empty list: "diese
-    Wand schließt an nichts an" is a claim about a building that would be false
-    for every building ever built.
-
-    ## Why the presence test is per TYPE and not per FILE
-
-    The file-wide test — does this model contain any ``IfcRelConnects*`` at all
-    — passes on an export that wrote connections for ONE kind of element, and
-    then every other kind gets the confident empty list the paragraph above
-    calls false for every building ever built. Both ArchiCAD files in the corpus
-    do exactly that: ``AC20-Institute-Var-2.ifc`` carries 216
-    ``IfcRelConnectsPathElements``, every one of them
-    ``IfcWallStandardCase``-to-``IfcWallStandardCase``, so the guard passed and
-    all 77 ``IfcDoor``, 206 ``IfcWindow``, 26 ``IfcSlab``, 12 ``IfcRailing``,
-    4 ``IfcStair`` and 2 ``IfcColumn`` were answered „joined to nothing" with
-    ``decidable=True``. ``AC20-FZK-Haus.ifc`` is the same shape at 16 + 16.
-
-    So the subject's OWN type has to appear on at least one side of at least one
-    connection relation in this file before an empty answer counts as a
-    measurement. Subtypes count as their supertype (``subject.is_a(T)``), so a
-    file that connects ``IfcWall`` still answers for an ``IfcWallStandardCase``.
-    The type set is built once per model and cached on it, because this operator
-    runs per element: re-deriving it would walk the Institute's 216 relations
-    once for each of its 988 ``IfcElement``. Cached, the whole sweep of those
-    988 takes 0.28 s.
-
-    An element that DOES carry connections is answered from them without the
-    type test ever being consulted — the traversal is the measurement, and it
-    cannot be wrong about a relation it is holding.
-    """
     method = f"connects({global_id})"
     subject = model.by_id(global_id, method)
 
@@ -102,12 +45,6 @@ def connects(model: SpatialModel, global_id: str) -> Answer[list[ElementRef]]:
 
 
 def _connected_types(model: SpatialModel) -> frozenset[str]:
-    """The IFC types this file writes connections for, built once per model.
-
-    Cached on the model rather than recomputed: ``connects`` is called per
-    element, and the Institute's 216 relations would otherwise be walked once
-    for each of its 988 ``IfcElement``.
-    """
     cached = getattr(model, "_connected_types", None)
     if cached is not None:
         return cached
@@ -128,7 +65,6 @@ def _connected_types(model: SpatialModel) -> frozenset[str]:
 
 
 def _no_connections_for_this_type(subject: Any, connected: frozenset[str], method: str) -> Answer[Any]:
-    """The refusal for an element whose whole TYPE the export left unconnected."""
     written = ", ".join(sorted(connected)) if connected else "keine"
     return undecidable(
         from_=[subject.GlobalId],
@@ -153,18 +89,6 @@ def _no_connections_for_this_type(subject: Any, connected: frozenset[str], metho
 
 
 def elements_of_storey(model: SpatialModel, storey_global_id: str) -> Answer[list[ElementRef]]:
-    """Everything on this storey.
-
-    BESSER: ``ifcopenshell.util.element.get_decomposition`` walks aggregation
-    AND containment, which is exactly the chain the TS parser had to resolve by
-    hand. The difference is not academic — a door assigned to a space, or a beam
-    inside an assembly, is contained by the space or the assembly and would be
-    missing from a walk of ``IfcRelContainedInSpatialStructure`` out of the
-    storey. It is still on the storey, and every per-floor count ("wie viele
-    Fenster im Erdgeschoß") is wrong if it is left out.
-
-    The storey itself is excluded, and each element appears at most once.
-    """
     method = f"elementsOfStorey({storey_global_id})"
     subject = model.by_id(storey_global_id, method)
 
@@ -177,10 +101,6 @@ def elements_of_storey(model: SpatialModel, storey_global_id: str) -> Answer[lis
             "für einen Raum oder ein Gebäude: contains()",
         )
 
-    # The storey resolution is model-wide or absent — if the export wrote no
-    # spatial containment at all, nothing decomposes out of any storey, and
-    # "dieses Geschoss ist leer" would be a wrong answer about a building that
-    # has floors.
     if not _has(model, "IfcRelContainedInSpatialStructure") and not _has(model, "IfcRelAggregates"):
         return undecidable(
             from_=[storey_global_id],

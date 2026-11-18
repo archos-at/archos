@@ -1,24 +1,14 @@
 /**
  * @vitest-environment node
  */
-/**
- * The outcome webhook, ONE lookup and ONE recorder over `task_runs`: the
- * backend job id belongs to exactly one row now, so there is no first-table
- * then second-table fallback to test — only the tenant cross-check and the
- * platform-scope-then-tenant shape the run is resolved through.
- */
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
 
 vi.mock('@/lib/db/tenant-context', () => ({
-  // The route factory opens a tenant slot around every handler; the two
-  // scope helpers the handler itself calls are pass-through here.
   runWithTenantSlot: vi.fn((fn: () => unknown) => fn()),
   withPlatformAccess: vi.fn((_reason: string, fn: () => unknown) => fn()),
   withTenant: vi.fn((_ctx: unknown, fn: () => unknown) => fn()),
@@ -29,8 +19,6 @@ vi.mock('@/lib/tasks/service', () => ({
   recordRunOutcome: vi.fn(),
 }))
 
-// A reading of a project's documents has no run row (ADR-0111); its fallback
-// is the intake's. No intake has the job unless a spec says so.
 vi.mock('@/lib/project-intake/service', () => ({
   settleIntakeOutcome: vi.fn(async () => null),
 }))
@@ -46,7 +34,7 @@ const REAL_TOKEN = 'a-real-secret-token'
 const BACKEND_JOB_ID = 'backend-job-1'
 
 const makeRequest = (body: unknown, token?: string) =>
-  new Request(`https://grid.test/api/internal/jobs/${BACKEND_JOB_ID}/outcome`, {
+  new Request(`https://example.test/api/internal/jobs/${BACKEND_JOB_ID}/outcome`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -96,8 +84,6 @@ describe('POST /api/internal/jobs/[jobId]/outcome', () => {
     )
 
     expect(response.status).toBe(200)
-    // The lookup genuinely has no tenant yet, so it is the narrow bypass; the
-    // recorder then runs inside the run's own tenant.
     expect(withPlatformAccess).toHaveBeenCalled()
     expect(loadRunForOutcome).toHaveBeenCalledWith(BACKEND_JOB_ID)
     expect(recordRunOutcome).toHaveBeenCalledWith(run, {
@@ -115,8 +101,6 @@ describe('POST /api/internal/jobs/[jobId]/outcome', () => {
 
     const response = await POST(makeRequest({ organizationId: 'org-1', status: 'success' }, REAL_TOKEN), routeContext)
 
-    // The ordinary case, not an error: an interactive deep-research job has no
-    // row, and the worker reads 404 as "nothing to notify".
     expect(response.status).toBe(404)
     expect(recordRunOutcome).not.toHaveBeenCalled()
   })

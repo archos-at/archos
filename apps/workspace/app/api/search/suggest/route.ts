@@ -1,13 +1,3 @@
-/**
- * Complete a free-text filter of the search from what the office holds: party
- * names, places, cited norms and drawings, scales, drawing numbers, revisions,
- * a fact's values, each with how many documents hold it. Where to look is the
- * query, as for `POST /api/search`; the body names the filter, the typed start
- * and the search's other filters. Thin handler; the work is `@/lib/search/suggest`.
- *
- * `Server-Timing` carries `sql`, as the search's route does.
- */
-
 import { NextResponse } from 'next/server'
 
 import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'

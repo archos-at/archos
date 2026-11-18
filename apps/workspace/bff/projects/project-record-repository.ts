@@ -1,9 +1,3 @@
-/**
- * The Steckbrief's own rows (ADR-0091): a project's period on `projects`, and
- * its people in `project_people`. Every query names the organization and runs
- * in its tenant context; the people list of one project is bounded.
- */
-
 import 'server-only'
 import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -12,7 +6,6 @@ import { projectPeople, type ProjectPersonRow } from '@/lib/db/schema/project-pe
 import { projects } from '@/lib/db/schema/projects'
 import type { ProjectStatus } from './project-status'
 
-/** Most people one project lists. Far above any real project team; a bound, not a quota. */
 export const PROJECT_PEOPLE_LIMIT = 500
 
 export interface ProjectPeriodRow {
@@ -47,9 +40,6 @@ export async function updateProjectPeriod(
   startedOn: string | null
 ): Promise<ProjectPeriodRow | null> {
   const db = getDb()
-  // The Beginn only (ADR-0098). A running project may still hold the month it
-  // was last closed in, as the next close's suggestion; one a new Beginn would
-  // put before itself is dropped rather than refused, since nobody sees it.
   const [row] = await withTenant({ organizationId }, () =>
     db
       .update(projects)
@@ -62,8 +52,6 @@ export async function updateProjectPeriod(
           eq(projects.id, projectId),
           eq(projects.organizationId, organizationId),
           isNull(projects.deletedAt),
-          // A close that committed after the service's access check: the row is
-          // read-only now, so nothing changes (ADR-0090).
           ne(projects.status, 'closed')
         )
       )
@@ -84,7 +72,6 @@ export async function listProjectPeople(projectId: string, organizationId: strin
   )
 }
 
-/** The row describing a member (or former member), when there is one. */
 export async function findProjectPersonByUser(
   projectId: string,
   organizationId: string,
@@ -156,7 +143,6 @@ export async function updateProjectPersonRow(
   return row ?? null
 }
 
-/** Deletes the row outright: the erasure. True when a row went. */
 export async function deleteProjectPersonRow(projectId: string, organizationId: string, personId: string): Promise<boolean> {
   const db = getDb()
   const rows = await withTenant({ organizationId }, () =>

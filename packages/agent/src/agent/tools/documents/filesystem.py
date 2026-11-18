@@ -1,24 +1,3 @@
-"""Piloti's filesystem tools: one namespace over the estate and the drafts (ADR-0133).
-
-Deep Agents' ``FilesystemMiddleware`` builds the tools; this module configures it
-and replaces the result text where the text is evidence:
-
-* the backend is a ``CompositeBackend``: ``/drafts/`` routes to the conversation's
-  draft store (:class:`DraftBackend`, unchanged, write-once), everything else to
-  the read-only estate backend (``knowledge_layer.estate.backend.EstateBackend``);
-* ``write_file`` and ``edit_file`` are the stock tools, so a draft is written and
-  edited exactly as before, and the tool-level permissions keep both inside
-  ``/drafts/``;
-* ``read_file`` on a draft is the stock tool (lines, because a draft is edited);
-  on the estate it renders grounding blocks, one per page, with the citations on
-  ``ToolMessage.artifact`` (``common.citation_collector``).
-
-The subclass keeps the name ``FilesystemMiddleware`` (prototype p5: a subclass
-with another name is appended beside the stock instance by ``create_deep_agent``),
-and the builders it overrides are private API pinned by
-``packages/agent/tests/test_deepagents_contract.py``.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -56,21 +35,10 @@ from .draft_store import modernize_draft_path
 
 logger = logging.getLogger(__name__)
 
-#: Said when a draft path is asked for on a turn with no working directory (a CLI run, an eval).
 NO_DRAFTS = "This turn has no working directory: /drafts/ exists only in a conversation."
 
 
 class _DraftRoute(BackendProtocol):
-    """The draft store as a ``CompositeBackend`` route, keeping its stored keys.
-
-    The composite strips the route prefix before it asks a routed backend
-    (``/drafts/a.md`` arrives as ``/a.md``) and adds it back to every path the
-    backend returns. The draft store keys its items by the full path
-    (``/drafts/a.md``, ``draft_store.DRAFT_ROOT``), which every stored draft, its
-    card and ``file_draft`` already use, so this puts the prefix back on the way
-    in and takes it off again on the way out. Nothing else changes.
-    """
-
     def __init__(self, drafts: DraftBackend) -> None:
         self.drafts = drafts
         self._root = DRAFT_ROOT.rstrip("/")
@@ -151,8 +119,6 @@ class _DraftRoute(BackendProtocol):
 
 
 class _NoEstate(BackendProtocol):
-    """The composite's default on a turn without an estate backend: every path outside ``/drafts/`` is absent."""
-
     async def als(self, path: str) -> LsResult:
         return LsResult(entries=[])
 
@@ -169,14 +135,6 @@ class _NoEstate(BackendProtocol):
 def composite_backend(
     drafts: DraftBackend | None, estate: BackendProtocol | None, *, skills: BackendProtocol | None = None
 ) -> CompositeBackend:
-    """The one backend the middleware sees: the estate by default, ``/drafts/`` and ``/skills/`` routed.
-
-    ``/drafts/`` is the draft store (keys re-prefixed, :class:`_DraftRoute`);
-    ``/skills/`` the turn's read-only skills backend (ADR-0135), which takes its
-    paths relative to its root, as a route hands them. ``artifacts_root`` is the
-    drafts: eviction writing to a read-only default fails silently and the
-    result stays whole in context (ADR-0133 trap 4).
-    """
     routes: dict[str, BackendProtocol] = {DRAFT_ROOT: _DraftRoute(drafts)} if drafts is not None else {}
     if skills is not None:
         routes[SKILLS_ROOT] = skills
@@ -184,13 +142,10 @@ def composite_backend(
 
 
 def _off_the_estate(path: str | None) -> bool:
-    """A path the stock tool answers: the drafts (and their legacy root) or the skills."""
     return path is not None and (is_draft_path(path) or is_skill_path(path))
 
 
 class EstateReadFileSchema(BaseModel):
-    """``read_file``'s arguments, bare: the description says what each means."""
-
     file_path: str
     pages: str | int | None = None
     clause: str | None = None
@@ -199,18 +154,10 @@ class EstateReadFileSchema(BaseModel):
     conclusion: str = Field(default="", description=CONCLUSION_DESCRIPTION)
 
 
-#: A coroutine of one estate call: returns a ``knowledge_layer.estate.backend.ToolOutput``.
 EstateCall = Callable[[], Awaitable[Any]]
 
 
 async def estate_message(name: str, runtime: ToolRuntime, call: EstateCall) -> ToolMessage:
-    """Run one estate call and return its ``ToolMessage``, the citations it rendered on ``artifact``.
-
-    The collector is opened here, around the call, so a call's records are its
-    own however many calls of the round run in parallel (each is its own task).
-    An error status is the tool's, so the round signs nothing for it and its
-    text is never captured as a source.
-    """
     with collect_citations() as collected:
         output = await call()
     return ToolMessage(
@@ -223,21 +170,13 @@ async def estate_message(name: str, runtime: ToolRuntime, call: EstateCall) -> T
 
 
 class DocumentFilesystem(FilesystemMiddleware):
-    """``FilesystemMiddleware`` over the estate and the drafts, with our result text on the estate.
-
-    ``estate`` is the read-only estate backend (``None``: the drafts alone, as
-    before ADR-0133); ``drafts`` says whether this turn has a working directory.
-    """
-
     def __init__(self, *, estate: Any = None, drafts: bool = True, **kwargs: Any) -> None:
-        # Set before the parent builds the tools, which it does in its constructor.
         self._estate = estate
         self._has_drafts = drafts
         super().__init__(**kwargs)
 
     @property
     def name(self) -> str:
-        """The stock name, so ``create_deep_agent`` would replace the stock instance rather than add one."""
         return "FilesystemMiddleware"
 
     def _create_read_file_tool(self) -> BaseTool:
@@ -342,7 +281,6 @@ class DocumentFilesystem(FilesystemMiddleware):
             if _off_the_estate(path):
                 if not has_drafts and is_draft_path(path):
                     return _refusal("grep", runtime, NO_DRAFTS)
-                # The drafts are lines the answer wrote: the stock literal grep, never evidence.
                 return await stock.coroutine(
                     pattern=pattern,
                     runtime=runtime,
@@ -376,8 +314,6 @@ class DocumentFilesystem(FilesystemMiddleware):
 
 
 class EstateGrepSchema(BaseModel):
-    """``grep``'s arguments, bare: the stock five, then how the pattern is read and how much is shown around it."""
-
     pattern: str
     path: str | None = None
     glob: str | None = None
@@ -390,41 +326,31 @@ class EstateGrepSchema(BaseModel):
 
 
 class EstateLsSchema(BaseModel):
-    """``ls``'s arguments, bare."""
-
     path: str
     depth: int = Field(default=1, ge=1, le=4)
 
 
 class EstateGlobSchema(BaseModel):
-    """``glob``'s arguments, bare."""
-
     pattern: str
     path: str | None = None
 
 
 class DraftWriteSchema(BaseModel):
-    """``write_file``'s arguments, bare (the stock schema repeats its description per field)."""
-
     file_path: str
     content: str
 
 
 class DraftEditSchema(BaseModel):
-    """``edit_file``'s arguments, bare."""
-
     file_path: str
     old_string: str
     new_string: str
     replace_all: bool = False
 
 
-#: The bare schema each stock tool is rebound with, by name.
 BARE_STOCK_SCHEMAS: dict[str, type[BaseModel]] = {"write_file": DraftWriteSchema, "edit_file": DraftEditSchema}
 
 
 def with_bare_schema(tool: BaseTool) -> BaseTool:
-    """A stock tool with its field descriptions dropped; its description already says what each field means."""
     bare = BARE_STOCK_SCHEMAS.get(tool.name)
     return tool.model_copy(update={"args_schema": bare}) if bare is not None else tool
 

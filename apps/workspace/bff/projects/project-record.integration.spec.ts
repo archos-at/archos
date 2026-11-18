@@ -43,7 +43,7 @@ describe.skipIf(!url)('the Steckbrief against Postgres', () => {
   })
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     repo = await import('./project-record-repository')
@@ -70,7 +70,6 @@ describe.skipIf(!url)('the Steckbrief against Postgres', () => {
       OTHER_ORG
     )
     expect(Array.from(seenByOther)).toHaveLength(0)
-    // Naming this project under another organization breaks the composite key (and the policy).
     await expect(repo.insertProjectPerson(projectId, OTHER_ORG, USER, person())).rejects.toThrow()
 
     expect(await repo.deleteProjectPersonRow(projectId, ORG, added.id)).toBe(true)
@@ -99,7 +98,6 @@ describe.skipIf(!url)('the Steckbrief against Postgres', () => {
     await close('2026-09-01')
     expect(await repo.findProjectPeriod(projectId, ORG)).toEqual({ startedOn: '2023-03-01', endedOn: '2026-09-01', status: 'closed', createdAt: expect.any(Date) })
 
-    // The 0116 guard covers the Steckbrief's people too; erasing one is still possible.
     await expect(repo.insertProjectPerson(projectId, ORG, USER, person({ name: 'Später' }))).rejects.toThrow()
     expect(await repo.deleteProjectPersonRow(projectId, ORG, kept.id)).toBe(true)
 

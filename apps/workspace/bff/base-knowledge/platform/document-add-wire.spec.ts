@@ -3,8 +3,6 @@ import { keyPart, quoteNaming, uploadDocumentFieldsSchema } from './document-add
 import { citationProblems } from './validate'
 import { proposedRecordSchema } from './wire'
 
-/** What "Add a document" composes before it calls the services: keys, the quotes KC-6 checks, and the upload's form fields. */
-
 describe('document-add wire', () => {
   test('a key part is lower case, unaccented and dashed', () => {
     expect(keyPart('Ö-Norm B 1600: Barrierefreies Bauen')).toBe('o-norm-b-1600-barrierefreies-bauen')

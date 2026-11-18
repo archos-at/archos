@@ -26,7 +26,7 @@ none of them has a foreign key to `conversations` (the one FK in
 `migrations/0027_collaboration.sql` is on `conversation_reads`, a chat-only table
 outside the sharing layer). **A new type needs no migration on these three tables.**
 
-**Effective access.** `lib/sharing/access.ts` — tenancy → container → strongest
+**Effective access.** `apps/workspace/bff/sharing/access.ts` — tenancy → container → strongest
 of (visibility, grant, creator) — contains no conversation reference at all.
 This is the security core and it is clean.
 
@@ -45,12 +45,11 @@ and `ownership-notice.ts` tells the resource's owners through the
 `resource.ownership_taken` inbox type, whose copy names no resource kind. A new
 type inherits all three by its probe and its `describeRef`.
 
-**The inbox read path.** `lib/inbox/service.ts` has no conversation literal in
-435 lines. Emission, read-time re-authorization, redaction, projection and the
+**The inbox read path.** `apps/workspace/bff/inbox/inbox-listing.ts`, with the item view in `apps/workspace/bff/inbox/inbox-item-view.ts`, has no conversation literal. Emission, read-time re-authorization, redaction, projection and the
 deep link all resolve through the registry.
 
 **Authorization.** There are no per-resource-type permissions in
-`lib/authz/catalog.ts` to add — resource authorization is the `RESOURCE_ROLES`
+`apps/workspace/bff/authz/catalog.ts` to add — resource authorization is the `RESOURCE_ROLES`
 ladder plus one container check.
 
 **Presentation.** `AccessChip`, `AccessOverview`, `ShareDialog`, `InboxItemRow`,
@@ -60,24 +59,24 @@ and the event hub all take the type as data.
 ## 2. What you legitimately write
 
 1. A member in `SHAREABLE_RESOURCE_TYPES` and one `ShareableDescriptor` in
-   `lib/sharing/registry.ts`.
+   `apps/workspace/bff/sharing/registry.ts`.
 2. On your own table: a `visibility` column, a tenancy read and a visibility
    write.
 3. Per inbox item type: the steps in
    [Adding an inbox item type](#adding-an-inbox-item-type).
 4. Your surface's own toolbar/composer wiring, and hooking your delete path into
-   the cascade in `lib/collaboration/cleanup.ts`.
+   the cascade in `apps/workspace/bff/collaboration/cleanup.ts`.
 
 ### Adding an inbox item type
 
 An inbox type need not belong to a shareable resource; the steps are the same.
 
-1. Add the type to `INBOX_ITEM_TYPES` (`lib/inbox/inbox-vocabulary.ts`; the
+1. Add the type to `INBOX_ITEM_TYPES` (`apps/workspace/bff/inbox/inbox-vocabulary.ts`; the
    schema re-exports it).
-2. Add its `INBOX_TYPE_DEFINITIONS` entry (`lib/inbox/registry.ts`):
+2. Add its `INBOX_TYPE_DEFINITIONS` entry (`apps/workspace/bff/inbox/registry.ts`):
    `actionable`, `grouping` (`collapse` or `per-anchor`), `retentionDays`,
    `gate`, `email` and `push`.
-3. Add its `INBOX_TYPE_PRESENTATION` entry (`lib/inbox/types.ts`). A new icon
+3. Add its `INBOX_TYPE_PRESENTATION` entry (`apps/workspace/bff/inbox/types.ts`). A new icon
    also goes into `ICONS` in `features/collaboration/components/InboxItemRow.tsx`.
    Both records are `Record<InboxItemType, …>`, so `tsc` fails until each has
    the entry.
@@ -86,23 +85,23 @@ An inbox type need not belong to a shareable resource; the steps are the same.
    `bestEffortInbox` so a failed row never fails the event. A recipient who is
    the actor is dropped. The exception is an item that something retries until
    it is written: `upload.completed` is emitted bare, so a failed write throws
-   and `settleUploadBatches` (`lib/upload-batches/settle.ts`) reopens the
+   and `settleUploadBatches` (`apps/workspace/bff/upload-batches/settle.ts`) reopens the
    batch for the sweep to complete and announce again. Wrapped, the batch
    would stay completed and its uploader never told.
 6. Settle it when what it announced is answered or gone:
    `resolveInboxItemsFor`, `resolveInboxItemsAnchoredOn`,
-   `markInboxItemsInertAnchoredOn` (`lib/inbox/service.ts`). A `collapse` row
+   `markInboxItemsInertAnchoredOn` (`apps/workspace/bff/inbox/inbox-resolution.ts`). A `collapse` row
    takes the anchor of its NEWEST emission (`upsertInboxItems` sets
    `anchor_id = excluded.anchor_id`), so settling it by the anchor of the
    occurrence that just ended misses the row whenever a later one folded in.
    Settle a collapsed row by its group key for every open recipient
    (`openRecipientsOf`, then `resolveInboxItemsFor`), once nothing it counts is
-   left: `settleProjectNotices` in `lib/inbound-mail/announce.ts` does this for
+   left: `settleProjectNotices` in `apps/workspace/bff/inbound-mail/announce.ts` does this for
    `inbound_mail.waiting` and `.expiring`.
-7. Touch `lib/inbox/targets.ts` only for a new target kind (its deep link and
+7. Touch `apps/workspace/bff/inbox/targets.ts` only for a new target kind (its deep link and
    access check).
 8. No migration: `inbox_items.type` is text with no CHECK (migration 0177).
-   Retention follows from `retentionDays` (`lib/collaboration/retention.ts`
+   Retention follows from `retentionDays` (`apps/workspace/bff/collaboration/retention.ts`
    takes the longest).
 9. The specs that fail a missing piece: `registry.spec.ts`,
    `push-policy.spec.ts`, `item-copy.spec.ts`, `targets.spec.ts`.
@@ -115,7 +114,7 @@ than working around it, or the second consumer pays and the third pays again.
 
 ### 3.1 A visibility change on a new type silently does nothing
 
-`lib/sharing/service.ts` switches on `resourceType` to apply the write, and the
+`apps/workspace/bff/sharing/service.ts` switches on `resourceType` to apply the write, and the
 switch returns `void`. Widening the union therefore **compiles**, falls through,
 writes a truthful-looking `resource.visibility.changed` audit record, publishes
 `resource.access.changed`, and returns the *unchanged* visibility. This is the
@@ -125,7 +124,7 @@ single worst leak: it fails silently and leaves a misleading audit trail.
 
 ### 3.2 Mentions are typed to conversations
 
-`type MentionResourceType = 'conversation'` in `lib/mentions/service.ts` narrows
+`type MentionResourceType = 'conversation'` in `apps/workspace/bff/mentions/service.ts` narrows
 nine signatures, and there is a `as MentionResourceType` cast that silently
 mislabels a row loaded from the database. The repository beneath it is already
 generic. `descriptor.supportsMentions` exists for exactly this gate and is read
@@ -162,7 +161,7 @@ chat-turn events and belong to the chat domain.
 
 ### 3.5 Cleanup is conversation-only, and one literal is already wrong
 
-`lib/collaboration/cleanup.ts` passes a hardcoded `'conversation'` into generic
+`apps/workspace/bff/collaboration/cleanup.ts` passes a hardcoded `'conversation'` into generic
 repository functions in five places. One of them composes an inbox group key
 from the literal instead of from `request.resourceType`, which is on the row —
 so for any other type the key would never match and the item is never resolved.

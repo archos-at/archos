@@ -1,8 +1,3 @@
-/**
- * A held mail's subject as the list shows it: the leader chain and gateway
- * tags stripped, case and wording as sent; and whether it says „forwarded“.
- */
-
 import { describe, expect, it } from 'vitest'
 import { displaySubject, isForwardSubject, subjectWithinThread } from './subject'
 

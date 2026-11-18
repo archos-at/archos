@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * `/dev/file-browser?variant=revisions` — documents with Fassungen, as the
- * listing draws them (ADR-0099, `revision-chain.ts`).
- *
- * Three panes over one corpus, each filtered the way the workspace filters:
- *
- *  a. Kacheln, older Fassungen hidden (the default): one card per document,
- *     „3 Fassungen" on the name line, the approval state below it.
- *  b. Kacheln with „Ältere Fassungen" shown: the older ones appear with ONE
- *     badge, „Ältere Fassung", whose tooltip names what replaced it. One of
- *     them failed to read, one carries a same-name history of its own.
- *  c. The same in the list: every row one line tall, the count beside the
- *     name, never in the „Freigabe" column.
- *
- * German by default, the copy that has to fit; `&lang=en` for English.
- * `&section=a|b|c` shows one pane, for captures.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -67,7 +49,6 @@ function row(id: string, filename: string, extra: Partial<FileItem> = {}): FileI
 }
 
 export const REVISION_FILES: FileItem[] = [
-  // Three Fassungen, and a published same-name history of its own.
   row(C.id, C.filename, {
     summary: 'Grundriss Erdgeschoß Index C mit Stellplatzzufahrt und verschobener Technikraumtür.',
     versionState: 'published',
@@ -82,7 +63,6 @@ export const REVISION_FILES: FileItem[] = [
     createdAt: '2026-09-18T10:00:00Z',
     revision: { ...EMPTY_REVISION_LINKS, supersedes: [SECTION_A], history: history(SECTION_A) },
   }),
-  // A long German name: the count must not push it off the card.
   row(SITE_PLAN_D.id, SITE_PLAN_D.filename, {
     summary: 'Lageplan mit Grundstücksgrenzen, Höhenkoten und dem Leitungsbestand der Stadtwerke.',
     createdAt: '2026-09-14T10:00:00Z',
@@ -93,7 +73,6 @@ export const REVISION_FILES: FileItem[] = [
     contentTypes: ['text'],
     createdAt: '2026-09-10T10:00:00Z',
   }),
-  // The older Fassungen. Only visible with „Ältere Fassungen" on.
   row(B.id, B.filename, {
     summary: 'Grundriss Erdgeschoß Index B, noch ohne Stellplatzzufahrt.',
     versionState: 'superseded',
@@ -129,7 +108,6 @@ const PANES = [
 function Pane({ view, showOlder }: { view: 'cards' | 'list'; showOlder: boolean }): JSX.Element {
   const [selected, setSelected] = useState<string | null>(null)
   const search = useFileSearch(projectSearchScope('proj-demo'))
-  // What the workspace hands the pane: the older ones leave unless asked for.
   const files = withoutOlderRevisions(REVISION_FILES, showOlder)
   return (
     <FileBrowserPane

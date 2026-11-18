@@ -1,16 +1,3 @@
-/**
- * AgentResponse Component
- *
- * Displays a completed agent response in the chat area: the prose, the cards it
- * placed, the sources it stands on and the footer beneath them. Left-aligned
- * with distinct styling from user messages.
- *
- * It is the WHOLE rendering of an answer. A run's report is this same card,
- * drawn under the run's block in the thread that commissioned it (ADR-0062), so
- * there is no other surface an answer can send the reader to and no control here
- * that offers one.
- */
-
 'use client'
 
 import { type FC } from 'react'
@@ -38,9 +25,6 @@ import { useAgentResponseController } from './agent-response/use-agent-response-
 import { memo } from 'react'
 import { AnswerFeedback } from './AnswerFeedback'
 
-/**
- * Agent response bubble component for completed responses
- */
 const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
   const controller = useAgentResponseController(props)
 
@@ -383,12 +367,6 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
   )
 }
 
-/**
- * Memoized so only the streaming answer bubble re-renders as tokens arrive
- * (its `content`/`isStreaming` change); every completed answer above it stays
- * put. React.memo's default shallow prop compare is sufficient here — the
- * props are primitives plus stable store-derived arrays/objects.
- */
 export const AgentResponse = memo(AgentResponseComponent)
 
 AgentResponse.displayName = 'AgentResponse'

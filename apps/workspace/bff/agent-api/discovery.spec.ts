@@ -49,7 +49,7 @@ import { recordOperationCalled, recordOperationMissing } from './telemetry'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -59,7 +59,7 @@ const session = {
   featureFlags: null,
 }
 const person: AgentPrincipal = { actor: 'external_agent', session, clientId: 'c', scopes: [] }
-const piloti: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
+const inProduct: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
 const ctx = (principal: AgentPrincipal) => ({ principal, mode: 'search' as const })
 
 interface Structured extends Record<string, unknown> {
@@ -92,15 +92,11 @@ describe('search-operations', () => {
   })
 
   it('weighs the name above the summary above the description', () => {
-    // "folder" is in project-folder-access-set's name only for a sensitive op the person cannot see;
-    // "delete" is in project-delete's name and nowhere else's name.
     const result = searchOperations(ctx(person), { query: 'delete' })
     expect(names(result)[0]).toBe('project-delete')
   })
 
   it('never compiles the caller’s text as a regular expression (ReDoS)', () => {
-    // A catastrophic pattern is just words here: it must return promptly, and
-    // its letters still find the operations they name.
     const result = searchOperations(ctx(person), { query: '^(a+)+$ project-(list|delete)' })
     expect(names(result)).toEqual(expect.arrayContaining(['project-delete', 'project-list']))
   })
@@ -121,12 +117,11 @@ describe('search-operations', () => {
   })
 
   it('says a hidden operation would have answered, without naming it, when it outranks every hit', () => {
-    const result = searchOperations(ctx(piloti), { query: 'widen folder access' })
+    const result = searchOperations(ctx(inProduct), { query: 'widen folder access' })
     expect(names(result)).not.toContain('project-folder-access-set')
     expect(structured(result).next).toMatch(/^An operation that changes who may do what/)
     expect(JSON.stringify(result)).not.toContain('project-folder-access-set')
-    // A search the visible operations answer best carries no such note.
-    expect(structured(searchOperations(ctx(piloti), { query: 'list projects' })).next).not.toMatch(/who may do what/)
+    expect(structured(searchOperations(ctx(inProduct), { query: 'list projects' })).next).not.toMatch(/who may do what/)
   })
 
   it('says what to do when nothing matches', () => {
@@ -140,7 +135,6 @@ describe('search-operations', () => {
   })
 
   it('ignores one-letter words, which match nearly every operation and rank nothing', () => {
-    // `(a+)+$` used to match all 248 operations: its one word, "a", is in nearly every description.
     expect(structured(searchOperations(ctx(person), { query: '(a+)+$' })).total).toBe(0)
     expect(names(searchOperations(ctx(person), { query: 'a project delete' }))[0]).toBe('project-delete')
   })
@@ -151,7 +145,7 @@ describe('search-operations', () => {
   })
 
   it('never offers the platform domain on the office door, to anyone, and refuses it when named', () => {
-    for (const caller of [piloti, person]) {
+    for (const caller of [inProduct, person]) {
       const domains = (metaToolsFor(caller)['search-operations'].inputSchema as { properties: { domain: { enum: string[] } } })
         .properties.domain.enum
       expect(domains).not.toContain('platform')
@@ -225,7 +219,7 @@ describe('call-operation', () => {
       { params: { id: 'p1' }, body: { userId: 'u2', role: 'viewer' } },
       session,
       'agent',
-      { decisionSource: undefined, clientId: 'c' },
+      { decisionSource: undefined, clientId: 'c', door: 'mcp', sessionSource: 'mcp' },
     )
     expect(result.isError).toBeUndefined()
     expect(structured(result)).toEqual({ projects: [] })
@@ -248,7 +242,6 @@ describe('call-operation', () => {
   })
 
   it('teaches when the input does not fit the schema, with the schema itself: one round, not two', async () => {
-    // The real dispatcher validates before it calls the route; keep that step.
     vi.mocked(callOperation).mockImplementation(async (op, input) => {
       validateOperationInput(op, input)
       return { status: 200, ok: true, body: {} }
@@ -262,18 +255,17 @@ describe('call-operation', () => {
     expect(text(result)).toContain('The input schema of project-member-add: {')
   })
 
-  it('proposes instead of running a write for in-product Piloti', async () => {
-    const result = await callOperationTool(ctx(piloti), {
+  it('proposes instead of running a write for the in-product agent', async () => {
+    const result = await callOperationTool(ctx(inProduct), {
       name: 'project-member-add',
       input: { params: { id: 'p1' }, body: { userId: 'u2', role: 'viewer' } },
     })
     expect(callOperation).not.toHaveBeenCalled()
     expect(proposeOperation).toHaveBeenCalledWith({
-      principal: piloti,
+      principal: inProduct,
       op: expect.objectContaining({ name: 'project-member-add' }),
       input: expect.objectContaining({ params: { id: 'p1' } }),
     })
-    // The shape the in-product client reads to put the card in the chat (tools/workspace/register.py).
     expect(structured(result)).toEqual({
       decision: 'propose',
       proposalId: 'prop_1',
@@ -287,8 +279,8 @@ describe('call-operation', () => {
     )
   })
 
-  it('lets Piloti read directly', async () => {
-    await callOperationTool(ctx(piloti), { name: 'project-list' })
+  it('lets the in-product agent read directly', async () => {
+    await callOperationTool(ctx(inProduct), { name: 'project-list' })
     expect(callOperation).toHaveBeenCalled()
     expect(proposeOperation).not.toHaveBeenCalled()
   })
@@ -297,7 +289,7 @@ describe('call-operation', () => {
     it('answers a refusal, not an exception, when the input is wrong, and records the read', async () => {
       vi.mocked(callOperation).mockRejectedValue(new OperationInputError('query.nameContains is too long'))
 
-      const read = await readOperationBody(ctx(piloti), 'project-list', { query: { nameContains: 'x'.repeat(300) } })
+      const read = await readOperationBody(ctx(inProduct), 'project-list', { query: { nameContains: 'x'.repeat(300) } })
 
       expect(read).toEqual({ refusal: expect.stringContaining('query.nameContains is too long') })
       expect(recordOperationCalled).toHaveBeenCalledWith(
@@ -310,13 +302,13 @@ describe('call-operation', () => {
       vi.mocked(callOperation).mockRejectedValue(new Error('boom'))
       vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      await expect(readOperationBody(ctx(piloti), 'project-list', {})).resolves.toEqual({
+      await expect(readOperationBody(ctx(inProduct), 'project-list', {})).resolves.toEqual({
         refusal: expect.stringContaining('failed'),
       })
     })
 
     it('records a read that ran with its status', async () => {
-      const read = await readOperationBody(ctx(piloti), 'project-list', {})
+      const read = await readOperationBody(ctx(inProduct), 'project-list', {})
 
       expect(read).toEqual({ body: { projects: [] } })
       expect(recordOperationCalled).toHaveBeenCalledWith(
@@ -355,7 +347,7 @@ describe('call-operation', () => {
       expect.objectContaining({ ifMatch: '"3"' }),
       session,
       'agent',
-      { decisionSource: undefined, clientId: 'c' },
+      { decisionSource: undefined, clientId: 'c', door: 'mcp', sessionSource: 'mcp' },
     )
   })
 
@@ -395,7 +387,6 @@ describe('call-operation', () => {
   })
 
   it('leaves call-operation\'s input untyped, so an agent read tool\'s own arguments get through', () => {
-    // knowledge-search takes `query` as a string; a schema typing input.query as an object made the SDK refuse it.
     const input = (metaToolsFor(person)['call-operation'].inputSchema as { properties: { input: Record<string, unknown> } }).properties
       .input
     expect(input).toEqual({ type: 'object', description: expect.any(String) })
@@ -421,10 +412,8 @@ describe('call-operation', () => {
     const result = await callOperationTool(ctx(person), { name: 'project-list' })
     expect(text(result).length).toBeLessThan(MAX_RESULT_CHARS + 500)
     expect(text(result)).toMatch(/Truncated/)
-    // project-list has no query in the fake catalog: the hint says so, not "pass a limit".
     expect(text(result)).toMatch(/has no limit or filter/)
     expect(text(result)).toMatch(/search-operations with this domain/)
-    // The full payload must not slip through as structured content.
     expect(result.structuredContent).toBeUndefined()
   })
 
@@ -459,7 +448,7 @@ describe('call-operation with a file in the answer', () => {
       { type: 'text', text: expect.stringContaining('"Grundriss EG.pdf", application/pdf, 19 bytes') },
       {
         type: 'resource',
-        resource: { uri: 'piloti://operation/project-list/Grundriss_EG.pdf', mimeType: 'application/pdf', blob: base64 },
+        resource: { uri: 'workspace://operation/project-list/Grundriss_EG.pdf', mimeType: 'application/pdf', blob: base64 },
       },
     ])
     expect(text(result)).not.toContain(base64)
@@ -474,7 +463,7 @@ describe('call-operation with a file in the answer', () => {
     })
     const result = await callOperationTool(ctx(person), { name: 'project-list' })
     expect(result.content[1]).toMatchObject({
-      resource: { uri: 'piloti://operation/project-list/result', mimeType: 'application/octet-stream' },
+      resource: { uri: 'workspace://operation/project-list/result', mimeType: 'application/octet-stream' },
     })
   })
 
@@ -559,7 +548,6 @@ describe('the Python agent’s read tools', () => {
   it('are described with the fixture’s input schema and read-only annotations', () => {
     const result = describeOperation(ctx(person), { name: 'knowledge-search' })
     const described = result.structuredContent as { inputSchema: { required: string[] }; annotations: Record<string, unknown> }
-    // The project is optional for the shared corpus (`shelf: "base"`), so the query leads the required ones.
     expect(described.inputSchema.required).toEqual(['query'])
     expect(described.annotations).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: false })
   })
@@ -596,16 +584,13 @@ describe('the Python agent’s read tools', () => {
     expect(text(result)).toBe('You cannot use this project (HTTP 403, forbidden)')
   })
 
-  it('are absent for in-product Piloti, which has them natively', async () => {
-    expect(structured(searchOperations(ctx(piloti), { query: 'knowledge search' })).operations.map((op) => op.name)).not.toContain(
+  it('are absent for the in-product agent, which has them natively', async () => {
+    expect(structured(searchOperations(ctx(inProduct), { query: 'knowledge search' })).operations.map((op) => op.name)).not.toContain(
       'knowledge-search',
     )
-    expect(describeOperation(ctx(piloti), { name: 'knowledge-search' }).isError).toBe(true)
-    // Flat, as its native tool takes it: `query` a string, where call-operation's input wants an object.
-    const result = await callOperationTool(ctx(piloti), { name: 'knowledge-search', input: { query: 'Stellplatz', projectId: PROJECT } })
+    expect(describeOperation(ctx(inProduct), { name: 'knowledge-search' }).isError).toBe(true)
+    const result = await callOperationTool(ctx(inProduct), { name: 'knowledge-search', input: { query: 'Stellplatz', projectId: PROJECT } })
     expect(result.isError).toBe(true)
-    // Hidden from Piloti because it is Piloti's own tool (`native:knowledge_search`): it is sent to that tool,
-    // not told how to shape an input it cannot use.
     expect((result.content[0] as { text: string }).text).toBe(nativeToolRefusal('knowledge-search', 'knowledge_search'))
     expect(callBackendOperation).not.toHaveBeenCalled()
   })

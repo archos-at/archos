@@ -14,7 +14,6 @@ vi.mock('@/lib/conversations/repository', () => ({ conversationOpenToProjectRead
 import type { DbExecutor } from '@/lib/db/executor'
 import { listRecentDecidedProposals } from './proposal-decision-rows'
 
-/** A drizzle stand-in: every chained call returns itself, `limit` resolves to `rows`. */
 function executorReturning(rows: unknown[]) {
   const limit = vi.fn(async () => rows)
   const chain: Record<string, unknown> = { limit }

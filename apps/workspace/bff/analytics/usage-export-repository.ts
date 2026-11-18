@@ -1,24 +1,9 @@
-/**
- * The reads and the bookkeeping behind the PostHog usage export
- * (`usage-export.ts`): the cursor per stream, the ledger summed per hour, and
- * the organizations worth a budget snapshot. Raw data access only (ADR-0017).
- *
- * Every function here reads across tenants or writes a platform table, so each
- * runs inside the caller's `withPlatformAccess` scope; the exporter is the only
- * caller.
- */
-
 import 'server-only'
 import { and, eq, gte, isNull, lt, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { analyticsExportCursors, type AnalyticsExportStream } from '@/lib/db/schema/analytics-export-cursors'
 import { budgetPolicies, llmUsageEvents, llmUsageRollups, type UsageActivity } from '@/lib/db/schema/budgets'
 
-/**
- * Take the stream for `leaseMs`, or `null` when another run holds it. A stream
- * with no row yet is created at `initialThrough`, which is where its first run
- * starts (the backfill horizon). Returns where this run starts.
- */
 export async function claimCursor(
   stream: AnalyticsExportStream,
   initialThrough: Date,
@@ -44,7 +29,6 @@ export async function claimCursor(
   return claimed ? new Date(claimed.exportedThrough) : null
 }
 
-/** Move the stream on to `through` and let it go. */
 export async function advanceCursor(stream: AnalyticsExportStream, through: Date, now: Date): Promise<void> {
   await getDb()
     .update(analyticsExportCursors)
@@ -52,7 +36,6 @@ export async function advanceCursor(stream: AnalyticsExportStream, through: Date
     .where(eq(analyticsExportCursors.stream, stream))
 }
 
-/** Let the stream go without moving it: the next run sends the same hours again. */
 export async function releaseCursor(stream: AnalyticsExportStream, now: Date): Promise<void> {
   await getDb()
     .update(analyticsExportCursors)
@@ -60,10 +43,8 @@ export async function releaseCursor(stream: AnalyticsExportStream, now: Date): P
     .where(eq(analyticsExportCursors.stream, stream))
 }
 
-/** One organization's spend in one hour on one model, for one person, project and purpose. */
 export interface UsageHourRow {
   organizationId: string
-  /** Start of the UTC hour. */
   hour: Date
   model: string
   activity: UsageActivity | null
@@ -86,12 +67,6 @@ export interface UsageHourRow {
 
 const num = (value: unknown): number => Number.parseFloat(String(value ?? '0')) || 0
 
-/**
- * The ledger in `[from, to)`, summed per organization, UTC hour, model,
- * activity, purpose, person, project and key. Bounded by the window the
- * exporter passes, never by a row limit: a cut-off group would send a wrong
- * hour that the cursor then marks as sent.
- */
 export async function sumUsageByHour(from: Date, to: Date): Promise<UsageHourRow[]> {
   const db = getDb()
   const hour = sql<string>`date_trunc('hour', ${llmUsageEvents.createdAt})`
@@ -132,7 +107,6 @@ export async function sumUsageByHour(from: Date, to: Date): Promise<UsageHourRow
       ownKey,
     )
 
-  // Coerce at the boundary: raw `sql<T>` columns arrive as strings.
   return rows.map((row) => ({
     organizationId: row.organizationId,
     hour: new Date(row.hour),
@@ -156,14 +130,10 @@ export async function sumUsageByHour(from: Date, to: Date): Promise<UsageHourRow
   }))
 }
 
-/** One outcome's spend in one hour on one model and purpose: an answer, an ingest job, a run. */
 export interface UsageOutcomeRow {
   organizationId: string
-  /** Start of the UTC hour. */
   hour: Date
-  /** The chat answer the calls belong to (migration 0098); NULL for jobs and older rows. */
   messageId: string | null
-  /** The ingest job or research run the calls ran in. */
   jobId: string | null
   conversationId: string | null
   model: string
@@ -177,29 +147,12 @@ export interface UsageOutcomeRow {
   reasoningTokens: number
   costUsd: number
   priceUsd: number
-  /**
-   * The prompt and cached tokens of the answer's FIRST agent call, on the one
-   * row that holds it (0 elsewhere). Its cached share is how much of the
-   * conversation's prefix carried over from the previous turn: every later call
-   * of a turn re-reads its own predecessor, so only the first one says whether
-   * the conversation, rather than the turn, stayed warm.
-   */
   firstCallPromptTokens: number
   firstCallCachedTokens: number
-  /**
-   * When the group's first and last agent calls ran (NULL for a group with none):
-   * the gap from one answer's last call to the next one's first is how long the
-   * provider had to keep the conversation's prefix, which bounds the carry.
-   */
   firstAgentCallAt: Date | null
   lastAgentCallAt: Date | null
 }
 
-/**
- * Whether a ledger row is its answer's first agent call: the earliest row of
- * its organization and message with no usage role. Indexed by
- * `idx_llm_usage_events_org_message`.
- */
 const isFirstAgentCall = sql`(
   ${llmUsageEvents.messageId} IS NOT NULL
   AND ${llmUsageEvents.agentGroup} IS NULL
@@ -211,13 +164,6 @@ const isFirstAgentCall = sql`(
   )
 )`
 
-/**
- * The ledger in `[from, to)` summed per organization, UTC hour, outcome key
- * (message, job, conversation), model, activity and purpose: what one answer or
- * one ingest cost, which `sumUsageByHour` sums away. Rows with none of the three
- * keys are left out; the hourly stream already carries them. Bounded by the
- * window like `sumUsageByHour`, never by a row limit.
- */
 export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutcomeRow[]> {
   const db = getDb()
   const hour = sql<string>`date_trunc('hour', ${llmUsageEvents.createdAt})`
@@ -288,12 +234,6 @@ export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutc
   }))
 }
 
-/**
- * The organizations a budget snapshot is worth sending for: every one that
- * spent since `since`, and every one with an explicit organization limit. An
- * organization that never spent and never set a limit runs on the seeded
- * allowance, which the snapshot of any other organization already shows.
- */
 export async function listSnapshotOrganizations(since: Date): Promise<string[]> {
   const db = getDb()
   const sinceDay = since.toISOString().slice(0, 10)

@@ -1,9 +1,3 @@
-"""Tests for the ``retrieval_precision`` citation-health event.
-
-The retrieval feedback loop: per research turn, how many of the sources
-retrieval returned did the answer actually cite, and which were ignored?
-"""
-
 from __future__ import annotations
 
 from agent.common.citation_events import CitationEvent
@@ -30,7 +24,6 @@ class TestRetrievalPrecisionEvent:
         assert "retrieval_precision" not in [e.kind for e in not_emitted]
 
     def test_overlap_math_dedupes_repeated_labels(self) -> None:
-        """Counts are over unique labels; a source cited twice is one source."""
         events = build_turn_events(
             source_count=4,
             cited_count=3,

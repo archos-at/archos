@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -28,8 +26,8 @@ const request = (token: string | null = 'test-token'): Request =>
 describe('GET /api/internal/retrieval-settings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
   })
 
   it('rejects when the token is missing or wrong', async () => {
@@ -39,7 +37,7 @@ describe('GET /api/internal/retrieval-settings', () => {
   })
 
   it('fails closed when the token is unconfigured', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await GET(request('anything'))).status).toBe(503)
   })
 

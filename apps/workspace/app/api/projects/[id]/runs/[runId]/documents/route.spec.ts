@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The documents route is an adapter and nothing else: the ids in the path and
- * the one document in the body reach the service unchanged, the view comes
- * back as the body, and a body that is not a document is refused before the
- * service is asked.
- */
 
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -63,7 +57,6 @@ describe('POST /api/projects/[id]/runs/[runId]/documents', () => {
       PROJECT,
       RUN,
       { name: 'Einreichplan.pdf', title: 'Einreichplan', shelf: 'project' },
-      // A refusal of a restricted-folder document is read by the person who picked it.
       expect.stringMatching(/^(en|de)$/)
     )
   })

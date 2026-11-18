@@ -1,18 +1,11 @@
 /**
  * @vitest-environment node
  */
-/**
- * `project_intake_read` (ADR-0111): the job runs AS the uploader, resolved
- * from the identity provider when it runs, not from the payload's snapshot;
- * an uploader who left ends it quietly, and what the reading does is the
- * intake service's (`runIntakeReadSlice`).
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
-// The other kinds' work is out of scope; stubbed so the import graph stays out of the database.
 vi.mock('@/lib/documents/extraction-jobs', () => ({
   runBimExtractJob: vi.fn(),
   runOfficeRenditionJob: vi.fn(),

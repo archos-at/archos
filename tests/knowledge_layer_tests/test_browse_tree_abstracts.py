@@ -1,5 +1,3 @@
-"""The written (tier-1) abstract in ``list_files(view="tree")``: under its folder's head, stale said, off when off."""
-
 from __future__ import annotations
 
 from unittest.mock import MagicMock
@@ -61,7 +59,6 @@ def scope(monkeypatch):
 
 
 def _flag(monkeypatch, on: bool) -> None:
-    """The ``folder-cards`` flag as the BFF answers it for the turn's organization."""
     from agent.knowledge.folder_cards import gate
 
     gate.forget()

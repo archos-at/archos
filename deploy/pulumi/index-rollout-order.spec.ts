@@ -3,17 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
 
-/**
- * The api tier and the chat tier roll out first, then the frontend that dials
- * them, so an upgrade needs no sequencing by hand. A frontend pointed at a
- * Service with no ready pod behind it fails every call (HTTP) or every new
- * conversation (the socket) until that tier catches up. Pulumi awaits a
- * workload's rollout before it creates what depends on it, so `dependsOn` is the
- * whole mechanism, and nothing in a green `pulumi up` says it went missing.
- *
- * Nothing here contacts a cluster. It reads the dependencies the SDK registers.
- */
-
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
 const STATEFULSET = "kubernetes:apps/v1:StatefulSet";
 const SERVICE = "kubernetes:core/v1:Service";
@@ -50,8 +39,6 @@ describe("rollout order: api and chat, then the frontend", () => {
   });
 
   it("rolls the frontend out only after the chat tier it dials", () => {
-    // The switch step (`src/app/tier-names.ts`): a frontend that points its socket
-    // at `chat` before `chat` is ready drops every new conversation.
     expect(graph.waitsOn(DEPLOYMENT, "frontend", STATEFULSET, "chat")).toBe(true);
     expect(graph.waitsOn(DEPLOYMENT, "frontend", SERVICE, "chat")).toBe(true);
   });

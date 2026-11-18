@@ -1,17 +1,3 @@
-/**
- * The rendering half of the version diff.
- *
- * `version-diff.spec.ts` pins the alignment; this pins what a reader actually
- * gets, and in particular the two things that are easy to lose in a retune:
- *
- *   - **no chroma.** The design language spends colour on provenance alone, so
- *     a green or red wash creeping in here is a real regression and not a taste
- *     question. Asserted on the class list, because that is where it would
- *     arrive.
- *   - **the difference does not depend on seeing anything.** The `+`/`−`
- *     markers are `aria-hidden`, so each changed row carries its word.
- */
-
 import { describe, expect, it } from 'vitest'
 import { render, screen, within } from '@/test-utils'
 import { DocumentVersionDiff } from './document-version-diff'
@@ -37,7 +23,6 @@ describe('DocumentVersionDiff', () => {
   })
 
   it('leaves an unchanged line unmarked when one is inserted above it', () => {
-    // The case the old side-by-side view refused to fake.
     renderDiff('eins\nzwei\n', 'eins\nneu\nzwei\n')
 
     expect(rowKinds()).toEqual(['context', 'added', 'context'])
@@ -82,11 +67,7 @@ describe('DocumentVersionDiff', () => {
       .map((row) => row.className)
       .join(' ')
 
-    // The whole family of colour utilities a diff renderer reaches for by
-    // reflex, plus the two source signals the wrong choice would collide with.
     expect(classes).not.toMatch(/green|red|emerald|rose|destructive|source-project|signal-error/)
-    // What carries the difference instead: the +/− marker and a fill, and no
-    // side stripe (design-language.md, "Emphasis without a stripe").
     expect(classes).not.toMatch(/border-l/)
     const rows = screen.getAllByTestId('document-version-diff-row')
     const added = rows.find((row) => row.dataset.kind === 'added')
@@ -98,7 +79,6 @@ describe('DocumentVersionDiff', () => {
   })
 
   it('renders a blank line as a row rather than collapsing it away', () => {
-    // An emptied paragraph is a change somebody made on purpose.
     renderDiff('eins\n\nzwei\n', 'eins\nzwei\n')
 
     expect(rowKinds()).toContain('removed')

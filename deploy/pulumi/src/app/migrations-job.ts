@@ -10,17 +10,6 @@ import { AppSecrets, AppWiring } from "./config";
 import { migrationEnv } from "./job-env";
 import { logicalName } from "../names";
 
-/**
- * Runs `drizzle-kit migrate` against `app` once per deploy, from the frontend
- * image. This is why the frontend Deployment overrides its command to
- * `node server.js` (dropping the image's default `drizzle-kit migrate && …`):
- * with ≥2 frontend replicas, per-pod migration would race. Centralising it in
- * one Job makes rollout deterministic. drizzle migrations are transactional and
- * idempotent, so re-running is always safe. NOTE: the Job re-fires when its
- * spec changes (e.g. the per-SHA imageTag CI pins) or under `--refresh` after
- * the TTL reaped it — with a MOVING tag and no refresh a redeploy is a no-op
- * and migrations do NOT re-run (see kubernetes.md §2b).
- */
 export function runMigrations(
   w: AppWiring,
   cfg: DeployConfig,

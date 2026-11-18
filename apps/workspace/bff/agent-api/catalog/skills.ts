@@ -1,5 +1,3 @@
-/** The skills operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules. */
-
 import { z } from 'zod'
 import {
   createCategorySchema,

@@ -1,9 +1,3 @@
-/**
- * The look card (ADR-0128): per place a thumbnail with the box marked and the
- * page and the place in words; folded under them, what Piloti looked for and,
- * marked as such, what it read there; pressing a place, with the mouse or the keyboard, opens
- * the document at that page with the box on it. pdf.js is the shared fake.
- */
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -18,7 +12,6 @@ const state = vi.hoisted((): FakePdfState => ({ fail: false, pages: [], destroye
 vi.mock('@/features/knowledge/lib/pdfjs-runtime', () => fakePdfjsRuntime(state))
 
 const DOCUMENT = { id: '00000000-0000-4000-8000-0000000000c1', name: 'Grundriss EG.pdf', shelf: 'stored' as const }
-/** Items as the card arrives: parsed by the generated schema, defaults filled in. */
 const parsed = (items: Record<string, unknown>[]) => lookCardSchema.parse({ document: DOCUMENT, items }).items
 const ITEMS = parsed([
   {
@@ -61,7 +54,6 @@ describe('LookCard', () => {
     expect(reference).toHaveTextContent('Laufbreite 1,10 m')
   })
 
-  // Notion #38, topic 10: the section mark is the word alone, no icon beside it.
   test('marks its section with the word, not an icon', () => {
     render(<LookCard document={DOCUMENT} items={ITEMS} />)
     const mark = screen.getByText('Looked at')
@@ -69,8 +61,6 @@ describe('LookCard', () => {
     expect(mark.querySelector('svg')).toBeNull()
   })
 
-  // Notion #38, topic 10: the question and the readings are folded until asked
-  // for; the places stay on screen.
   test('folds the explanation, and opens it on a press: the question, the reading, marked as read', async () => {
     const user = userEvent.setup()
     render(<LookCard document={DOCUMENT} items={ITEMS} />)
@@ -90,7 +80,6 @@ describe('LookCard', () => {
     expect(within(panel).getByTestId('look-reading')).toHaveTextContent('Read: M 1:100')
     expect(within(panel).getByTestId('look-reading')).toHaveAttribute('title', `Read off the page by ${PRODUCT_NAME}, not measured.`)
     expect(within(panel).getByTestId('look-reading-note')).toHaveTextContent('not measured')
-    // A reference explains nothing here: its label is on its place.
     expect(panel).not.toHaveTextContent('Laufbreite')
   })
 

@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * The notification offer for people who never open the inbox (ADR-0112).
- *
- * The inbox makes the offer as a quiet card (`./notification-prompt`), which
- * reaches only people who go there. The person who needs a notification most is
- * the one who does not: so the shell makes the SAME offer once, as a toast, the
- * moment its badge goes from nothing to something waiting —
- * „Anna Weber hat Sie erwähnt. Möchten Sie auf diesem Gerät benachrichtigt
- * werden?“ [Einschalten] [Nicht jetzt].
- *
- * It is the prompt's offer, not a second one: due under the same rule
- * (`promptIsDue`), turned on by the same hook from the person's click, and
- * silenced by the same dismissal (`usePushPromptDismissal`). Made at most once
- * per browser session, so a person who lets it pass is asked again another day
- * rather than on every page.
- *
- * Renders nothing. Mounted once in the signed-in shell beside `PushLifecycle`,
- * only where the deployment sends notifications and the inbox is reachable.
- */
-
 import { useEffect, useRef, useState, type JSX } from 'react'
 import { toast } from 'sonner'
 
@@ -27,12 +7,12 @@ import { useTranslations } from '@/i18n'
 import { notificationsCopy } from '@/i18n/namespaces/notifications'
 import { inboxClient, type InboxClient } from '@/lib/inbox/client'
 import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
+import { canonicalInboxType } from '@/lib/inbox/types'
 import { usePushNotifications } from '../hooks/use-push-notifications'
 import { promptIsDue, usePromptOnScreen, usePushPromptDismissal } from './notification-prompt'
 
 const SHOWN_KEY = 'push-offer.shown'
 const TOAST_ID = 'agent-push-offer'
-/** Long enough to read two sentences and decide; a toast, not a dialog. */
 const OFFER_MS = 20_000
 
 function shownThisSession(): boolean {
@@ -51,27 +31,19 @@ function markShown(): void {
   }
 }
 
-/** What the newest request is, for the sentence that names it. */
 type Asker = { kind: 'piloti' } | { kind: 'person'; actor: string | null; mentioned: boolean }
 
-/**
- * Who to name: the newest thing waiting on the person. Piloti's Rückfrage
- * (`piloti.asks_you`) is Piloti's, whoever its turn acted for, so the offer
- * says Piloti asked rather than that somebody needs them.
- */
 async function newestAsker(client: InboxClient): Promise<Asker> {
   try {
-    // A request, never an FYI: the sentence must not name someone who only replied.
     const page = await client.list({ filter: 'requests' })
     const newest = page.items[0]
-    if (newest?.type === 'piloti.asks_you') return { kind: 'piloti' }
+    if (newest && canonicalInboxType(newest.type) === 'agent.asks_you') return { kind: 'piloti' }
     return { kind: 'person', actor: newest?.actorName ?? null, mentioned: newest?.type === 'mention.requested' }
   } catch {
     return { kind: 'person', actor: null, mentioned: false }
   }
 }
 
-/** The offer's first sentence, by who is waiting. */
 function offerKey(asker: Asker): 'offer.piloti' | 'offer.mentioned' | 'offer.actor' | 'offer.someone' {
   if (asker.kind === 'piloti') return 'offer.piloti'
   if (!asker.actor) return 'offer.someone'
@@ -87,10 +59,6 @@ export function InboxPushOffer({
 }): JSX.Element | null {
   const { pending } = useInboxBadge(enabled, client)
   const { dismissed } = usePushPromptDismissal()
-  // The badge's last count. Starts at 0, so a first read that finds something
-  // waiting is the step from nothing to something, as a later arrival is. The
-  // step is remembered while something still waits, so a dismissal read a
-  // moment later does not lose it.
   const previous = useRef(0)
   const rose = useRef(false)
   const [armed, setArmed] = useState(false)
@@ -102,27 +70,20 @@ export function InboxPushOffer({
     if (enabled && rose.current && !dismissed && !shownThisSession()) setArmed(true)
   }, [enabled, pending, dismissed])
 
-  // The device's state is read only once there is something to offer: three
-  // requests on every page for an offer made once would be the wrong price.
   return armed ? <OfferWhenDue client={client} /> : null
 }
 
-/** Reads this device, and makes the offer once if it is due. */
 function OfferWhenDue({ client }: { client: InboxClient }): JSX.Element | null {
   const t = useTranslations(notificationsCopy)
   const push = usePushNotifications()
   const { dismissed, dismiss } = usePushPromptDismissal()
   const promptOnScreen = usePromptOnScreen()
   const offered = useRef(false)
-  // The newest hook result, for the toast's buttons: the toast outlives the
-  // render that made it.
   const latest = useRef({ push, dismiss })
   useEffect(() => {
     latest.current = { push, dismiss }
   }, [push, dismiss])
 
-  // The inbox's own card is the offer while the inbox is open: the toast
-  // stands down, and goes if it was already up.
   useEffect(() => {
     if (promptOnScreen) toast.dismiss(TOAST_ID)
   }, [promptOnScreen])

@@ -1,9 +1,3 @@
-/**
- * A rule's basis at the site: a verdict only where its edition binds on a
- * settled gate and its scope waits on nothing; a hint with its reason
- * elsewhere, naming no country, also where the work has no use at all.
- */
-
 import { describe, expect, it } from 'vitest'
 import { ruleBasis } from './rule-basis'
 import { MAX_CONTEXT_USES } from '@/lib/base-knowledge/context/wire'
@@ -84,7 +78,6 @@ describe('ruleBasis', () => {
   })
 
   it('is a hint, never "not applicable", where no use carries the designation, and names no country', () => {
-    // A renamed designation in the records must not turn every project into a confident „nicht einschlägig“.
     expect(ruleBasis(DOOR, contextAt('DE-NW', 'core', [contextUse('BauO NRW', '2018')]))).toEqual({
       kind: 'hint',
       reason:

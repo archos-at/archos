@@ -1,4 +1,4 @@
-# Rate limiting & load protection — state of the art, and what Piloti should build
+# Rate limiting & load protection — state of the art, and what the agent should build
 
 > Research note and the design it produced. Commissioned as "a sophisticated
 > rate limiter that plays nicely with Kubernetes and doesn't need requirements
@@ -482,7 +482,7 @@ because `server.js` has no unit seam.
 
 ### L3 — interactive-turn admission (`packages/agent/src/agent/common/turn_admission.py`)
 
-A lease-based semaphore around `agent.run(...)` in `piloti/conversation_register.py`:
+A lease-based semaphore around `agent.run(...)` in `core/conversation_register.py`:
 slots held for the duration of a turn, per organization and globally, refused
 turns answered with a friendly message the way a budget refusal already is.
 
@@ -506,8 +506,8 @@ A document is one `ingest-document` run on Hatchet (ADR-0150,
 strategy, `GROUP_ROUND_ROBIN` keyed on the organization id, with run priority
 for interactive before bulk. The vision ceiling below is still the Dragonfly
 pool until page reading is its own task. Where a bullet says "claim", it
-describes the claim queue Hatchet replaced, `ingest_job_queue`, kept until the
-cutover drains it.
+describes the claim queue Hatchet replaced, `ingest_job_queue`, whose table
+stays, unread, until a migration drops it.
 
 - **Fair share, not a cap.** When an office has more runs than its share, its
   runs wait and the next free slot rotates to the next office. A lone office
@@ -539,13 +539,9 @@ cutover drains it.
   never fill. The budget (`vlmFleetConcurrency`,
   `ingestPageReadParallelism`, `providerLimitCeiling`, `providerModelLimitCeiling`) is
   stack config, not image defaults.
-- **Measured, in PostHog Metrics.** `grid.queue.depth{queue,status}`,
-  `grid.queue.oldest_age_seconds`, `grid.queue.claim_latency_ms`,
-  `grid.queue.job_duration_seconds{kind}` and `grid.queue.dead_total`, for
-  every queue (the BFF's included), reach PostHog through the collector
-  (ADR-0119, [`metrics.md`](../observability/metrics.md)). Every replica
-  reports the same depth, read from the same table, so chart depth and age
-  with `max`, not `sum`.
+- **Measured, in the engine's metrics.** The backlog is
+  `hatchet_tenant_queue_size` and its age `hatchet_queued_to_assigned_time_seconds`,
+  with alerts on both ([`hatchet.md`](../deployment/hatchet.md)).
 - **A fixed ceiling at the provider.** However many workers run, at most
   `VLM_FLEET_CONCURRENCY` vision calls are in flight, a Dragonfly lease pool
   sharing L3's scripts (`common/lease_slots.py`). A 429 backs off outside its
@@ -642,7 +638,7 @@ Research is not refused for capacity either: it
 waits, so its L3 is the same order and ceiling ingestion has. A research job
 is one `research-run` on Hatchet (ADR-0150) with the same organization-keyed
 round robin; the admission caps are unchanged. The old `research_job_queue`
-table is kept until the cutover drains it.
+table stays, unread, until a migration drops it.
 
 - **Capacity waits, it never fails.** A submit writes a `SUBMITTED` `job_info`
   row and starts its run, which waits in Hatchet until a slot frees; the UI

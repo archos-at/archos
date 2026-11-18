@@ -1,9 +1,3 @@
-/**
- * Who sees each mail operation: the project address, held mail, the archive
- * import and filed threads. Spread into `EXPOSURE` (`exposure.config.ts`), the
- * one table that decides exposure; split out so that table stays readable.
- */
-
 import type { Exposure } from './exposure.config'
 import { ARCHIVE_BYTES, HELD_MAIL, OFFERED, SENSITIVE, externalOnly, withheldAs } from './exposure-presets'
 
@@ -12,8 +6,6 @@ export const MAIL_EXPOSURE = {
   'inbound-mail-address-delete': OFFERED,
   'inbound-mail-address-get': OFFERED,
   'inbound-mail-address-rotate': OFFERED,
-  // The agent proposes these as a card that files clean, unflagged parts only (RT-S5); an
-  // outside agent's call runs only on the person's own yes (`requiresPersonConfirmation`).
   'inbound-mail-dismiss': OFFERED,
   'inbound-mail-file': OFFERED,
   'inbound-mail-get': OFFERED,
@@ -36,9 +28,6 @@ export const MAIL_EXPOSURE = {
     'evidence',
     'a filed message as received, kept as proof of what was sent; no model reads it, a person downloads it in the app',
   ),
-  // A person's standing decision to let replies' text in without a click (D31):
-  // it turns review down for one conversation, so it is never the agent's to make,
-  // and an outside agent's only under the office's opt-in and the step-up scope.
   'mail-thread-follow': SENSITIVE,
   'mail-thread-get': OFFERED,
   'mail-thread-list': OFFERED,

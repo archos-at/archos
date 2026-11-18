@@ -1,10 +1,3 @@
-"""Typed client of the BFF's authenticated per-turn prompt-context API.
-
-Requester identity comes only from the original signed capsule, echoed without
-re-signing. An unavailable or refused context is an error, not an empty brief:
-answering without the office's current instructions would silently drop policy.
-"""
-
 from __future__ import annotations
 
 import re
@@ -28,96 +21,42 @@ REQUEST_TIMEOUT_SECONDS = 5
 
 @dataclass(frozen=True)
 class ContextBlocks:
-    """The three prompt blocks, independently nullable and bounded at intake."""
-
     project_context: str | None
     project_memory: str | None
     org_instructions: str | None
-    #: The conversation drew on another project through a cross-project lookup
-    #: (ADR-0094). Absent from an older BFF's answer, which reads as False: the
-    #: BFF refuses every door such a conversation may not use on its own.
     drew_on_other_projects: bool = False
-    #: The office's reference projects, one line each (the closed projects most
-    #: like this one), so the agent can look there unasked. None from an older
-    #: BFF, or when the office has none.
     reference_projects: str | None = None
-    #: The WORKSPACE block (ADR-0123): who asks, where, and what is open now,
-    #: this conversation's proposals included. None from an older BFF.
     workspace: str | None = None
-    #: The office's confirmed base knowledge (ADR-0163): its licensed standards,
-    #: commentaries, directives, guidelines and laws, one line each with edition,
-    #: role and last check (``lib/base-knowledge/office/turn-block.ts``). None
-    #: from an older BFF, with the flag off, or when the office holds none.
     base_knowledge: str | None = None
-    #: The data of each confirmed office copy's answer label (``officeAnswerLabel``
-    #: in ``lib/base-knowledge/office/answer-label.ts``): document id, kind,
-    #: designation, edition, role, last check, text use. Tokens for the answer's
-    #: renderer (S2) to word; empty from an older BFF or with the flag off.
     base_knowledge_labels: tuple[dict[str, object], ...] = ()
-    #: The turn's knowledge context (ADR-0173): gate, coverage, chains, packs and
-    #: the countries it may retrieve from. A missing key or one that is not its
-    #: shape reads as ``knowledge_unavailable`` (ADR-0175), the default too.
     knowledge_context: KnowledgeContext = UNAVAILABLE
-    #: Which kinds of model file the project holds and this turn may read
-    #: (``"ifc"``, ``"dxf"``), so the tools that measure one are bound only
-    #: where there is one (the chat agent's ``turn_tools``). None from an older
-    #: BFF or outside a project: unknown, and the tools stay as they were.
     project_models: frozenset[str] | None = None
-    #: Where the BFF spent its time, read off the route's ``Server-Timing``
-    #: (``bff_<phase>_ms``, and ``bff_memory_desc``: whether the memory read
-    #: waited for the query embed). Scalars only, never content; empty from an
-    #: older BFF. Recorded on the ``setup.project_context`` phase.
     timing: dict[str, float | str] = field(default_factory=dict)
-    #: The asker's personal notes (ADR-0180): the ``PERSONAL_MEMORY v1`` block,
-    #: which only that person reads. None from an older BFF or without notes.
     personal_memory: str | None = None
-    #: The conversation is temporary (ADR-0180): nothing from it is kept.
-    #: Absent from an older BFF's answer, which reads as False; the BFF
-    #: refuses the write from such a conversation on its own.
     temporary: bool = False
 
 
-#: The catalog is a dozen short lines; anything longer is cut at a line.
 REFERENCE_PROJECTS_MAX_CHARS = 4000
 
-#: The block is a few header lines, at most eight proposals of a summary and an
-#: outcome of ~200 chars each (``MAX_WORKSPACE_PROPOSALS`` in
-#: ``lib/turn-context/workspace-block.ts``), and, last, at most seven lines of
-#: the office's conventions (``lib/office-conventions/render.ts``, ADR-0129),
-#: which a cut at a line drops first.
 WORKSPACE_MAX_CHARS = 6500
 
-#: A header and at most 40 lines of 400 chars (``MAX_TURN_ENTRIES``,
-#: ``MAX_TURN_LINE_CHARS`` in ``lib/base-knowledge/office/turn-block.ts``).
 BASE_KNOWLEDGE_MAX_CHARS = 17_000
 
-#: The BFF sends at most 1,500 characters (20 notes); the slack keeps a block
-#: of exactly that length whole, since the cut below counts a newline per line.
 PERSONAL_MEMORY_MAX_CHARS = 1600
 
-#: As many labels as the block carries lines (``MAX_TURN_ENTRIES``).
 BASE_KNOWLEDGE_MAX_LABELS = 40
 
 
 def _labels(value: object) -> tuple[dict[str, object], ...]:
-    """The answer-label records, bounded; anything not a list of objects reads as none. Pure."""
     if not isinstance(value, list):
         return ()
     return tuple(item for item in value if isinstance(item, dict))[:BASE_KNOWLEDGE_MAX_LABELS]
 
 
-#: The line that opens the office's conventions in the WORKSPACE block
-#: (``officeConventionsHeader`` in ``lib/office-conventions/render.ts``).
 OFFICE_CONVENTIONS_HEADER = "office conventions ("
 
 
 def office_convention_lines(workspace: str | None) -> int:
-    """How many convention lines the WORKSPACE block carries under its header; 0 without one. Pure.
-
-    Counts every ``- `` line after the header, which is right only while the BFF
-    renders the conventions LAST in the block (``renderWorkspaceBlock``); a
-    section added after them would be counted as conventions.
-    """
     if not workspace:
         return 0
     lines = workspace.splitlines()
@@ -128,7 +67,6 @@ def office_convention_lines(workspace: str | None) -> int:
 
 
 def _bounded_lines(value: str | None, max_chars: int) -> str | None:
-    """``value`` cut to whole lines within ``max_chars``; None when nothing is left."""
     if not value or not value.strip():
         return None
     kept: list[str] = []
@@ -142,19 +80,15 @@ def _bounded_lines(value: str | None, max_chars: int) -> str | None:
 
 
 def _personal_memory(value: object) -> str | None:
-    """The asker's personal-memory block, bounded; anything that is not that block reads as none. Pure."""
     block = _bounded_lines(value if isinstance(value, str) else None, PERSONAL_MEMORY_MAX_CHARS)
     return block if block and block.startswith(PERSONAL_MEMORY_HEADER) else None
 
 
 def personal_memory_lines(block: str | None) -> int:
-    """How many notes the personal-memory block carries; 0 without one. Pure."""
     return sum(1 for line in (block or "").splitlines() if line.startswith("- "))
 
 
 class TurnContextError(bff_http.BffError):
-    """Required context could not be loaded; the turn must not answer without it."""
-
     def __init__(self, message: str, *, status: int | None = None) -> None:
         super().__init__(message, status=status)
 
@@ -168,16 +102,10 @@ def _nullable_text(data: dict[str, object], field: str) -> str | None:
     return value
 
 
-#: A ``Server-Timing`` metric name or description the agent records: short tokens only.
 _TIMING_TOKEN = re.compile(r"^[a-z][a-z0-9-]{0,31}$")
 
 
 def parse_server_timing(header: str | None) -> dict[str, float | str]:
-    """``Server-Timing`` (W3C) as phase facts: ``bff_<name>_ms`` per metric, ``bff_<name>_desc`` per description. Pure.
-
-    Never raises: a malformed entry is skipped, and anything but a short token
-    is dropped, so nothing a header carries can put content into a trace.
-    """
     facts: dict[str, float | str] = {}
     for entry in (header or "").split(","):
         name, *params = (part.strip() for part in entry.split(";"))
@@ -221,7 +149,6 @@ def _parse_blocks(body: object) -> ContextBlocks:
             BASE_KNOWLEDGE_MAX_CHARS,
         ),
         base_knowledge_labels=_labels(data.get("baseKnowledgeLabels")),
-        # Absent is ``knowledge_unavailable`` (ADR-0175): the BFF sends one on every turn, so none fails closed.
         knowledge_context=parse_knowledge_context(data.get("knowledgeContext")),
         project_models=_model_kinds(data.get("projectModels")),
         personal_memory=_personal_memory(data.get("personalMemory")),
@@ -230,19 +157,12 @@ def _parse_blocks(body: object) -> ContextBlocks:
 
 
 def _model_kinds(value: object) -> frozenset[str] | None:
-    """``{"ifc": true, "dxf": false}`` as the kinds present; anything else is unknown (None). Pure."""
     if not isinstance(value, dict):
         return None
     return frozenset(kind for kind in ("ifc", "dxf") if value.get(kind) is True)
 
 
 def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str | None:
-    """The memory part of the project context with the office's base knowledge after it, tagged. Pure.
-
-    It rides in the project context so every agent that reads the project
-    (the conversation, deep research) reads which standards the office holds
-    and how far each binds here, without a field of its own on every state.
-    """
     if not base_knowledge:
         return memory
     block = f"<office_base_knowledge>\n{base_knowledge}\n</office_base_knowledge>"
@@ -250,7 +170,6 @@ def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str |
 
 
 def fetch_turn_context(request: RequestContext, *, query: str | None = None) -> ContextBlocks:
-    """Read fresh context for this signed requester. Blocking; use ``to_thread``."""
     if not bff_http.internal_token():
         raise TurnContextError("INTERNAL_API_TOKEN is not configured for turn context")
     if not request.envelope_header or not request.envelope_signature:

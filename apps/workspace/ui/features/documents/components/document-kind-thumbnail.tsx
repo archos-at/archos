@@ -1,19 +1,3 @@
-/**
- * Skeleton thumbnails for the Files card grid — small stroke-based line
- * drawings, one per inferred {@link DocumentKind} (floor plan, section, site
- * plan, notice, photo, model, spreadsheet, notes, generic document). Plain
- * inline SVG drawing with
- * `currentColor` so the ink follows the surrounding text token; the subtle
- * fills use opacity, never a literal color. Purely decorative (`aria-hidden`):
- * the owning card carries the accessible name (filename).
- *
- * Two presentations:
- *   - `variant="icon"` (default): a compact centred glyph, sized by the caller's
- *     `className` (used by the Archiv library cards).
- *   - `variant="fill"`: a full-bleed content-aware sketch that fills the card's
- *     thumbnail header, mirroring the click-dummy's Dateien cards.
- */
-
 import type { JSX } from 'react'
 import type { ReactNode, SVGProps } from 'react'
 import { ImageIcon, ImageOff } from 'lucide-react'
@@ -21,10 +5,6 @@ import type { DocumentKind } from '../document-kind'
 import { cn } from '@/lib/utils'
 
 type SvgProps = Omit<SVGProps<SVGSVGElement>, 'viewBox' | 'children'>
-
-/* --------------------------------------------------------------------------
- * Compact icon glyphs (Archiv library cards) — unchanged.
- * ------------------------------------------------------------------------ */
 
 function Frame({ children, ...props }: SVGProps<SVGSVGElement>) {
   return (
@@ -44,7 +24,6 @@ function Frame({ children, ...props }: SVGProps<SVGSVGElement>) {
   )
 }
 
-/** Floor plan: outer walls, interior partitions, a door swing. */
 function FloorPlanSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -59,7 +38,6 @@ function FloorPlanSketch(props: SvgProps) {
   )
 }
 
-/** Section: ground line, roof profile, floor slabs, hatch ticks. */
 function SectionSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -73,7 +51,6 @@ function SectionSketch(props: SvgProps) {
   )
 }
 
-/** Site plan: dashed plot boundary, building footprint, north arrow. */
 function SitePlanSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -87,7 +64,6 @@ function SitePlanSketch(props: SvgProps) {
   )
 }
 
-/** Generic text document: page with folded corner and text lines. */
 function DocumentSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -98,7 +74,6 @@ function DocumentSketch(props: SvgProps) {
   )
 }
 
-/** Official notice (Bescheid): page, heading block, round stamp, signature. */
 function NoticeSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -111,7 +86,6 @@ function NoticeSketch(props: SvgProps) {
   )
 }
 
-/** Photo: frame, sun, mountain ridge. */
 function PhotoSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -122,13 +96,6 @@ function PhotoSketch(props: SvgProps) {
   )
 }
 
-/**
- * BIM model: an axonometric box with a hinted storey slab and an opening.
- *
- * Deliberately reads as a VOLUME rather than as a sheet — an IFC file is the
- * one document in the library that is not a drawing of the building but the
- * building itself, and the thumbnail is where a user first learns that.
- */
 function ModelSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -140,14 +107,6 @@ function ModelSketch(props: SvgProps) {
   )
 }
 
-/**
- * Spreadsheet / CSV: a ruled table with its header band.
- *
- * A `.csv` used to draw the generic document — six paragraph bars, which is a
- * picture of prose over a file that has no prose in it — or, if it happened to
- * be called `Zeitplan.csv`, a floor plan. A grid is the one shape that says
- * "rows and columns" at 24px.
- */
 function SheetSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -160,13 +119,6 @@ function SheetSketch(props: SvgProps) {
   )
 }
 
-/**
- * Notes / Markdown: a page with a heading and a bulleted list.
- *
- * Distinct from {@link DocumentSketch}, which is justified paragraph rules — a
- * formal document, the shape of a Gutachten or a contract. A `.md` is somebody
- * writing things down, and the bullets are what says so.
- */
 function TextSketch(props: SvgProps) {
   return (
     <Frame {...props}>
@@ -193,13 +145,6 @@ const SKETCHES: Record<DocumentKind, (props: SvgProps) => JSX.Element> = {
   document: DocumentSketch,
 }
 
-/* --------------------------------------------------------------------------
- * Full-bleed sketches (Dateien cards) — fill the thumbnail header, matching
- * the click-dummy. Line drawings use a 200×96 viewBox with `currentColor`;
- * document/notice/photo lean on token-tinted fills (never a literal color).
- * ------------------------------------------------------------------------ */
-
-/** Shared frame for the stroke-based fill sketches. */
 function FillSvg({ children }: { children: ReactNode }) {
   return (
     <svg
@@ -265,7 +210,6 @@ function SitePlanFill() {
   )
 }
 
-/** Generic document: heading line + paragraph skeleton bars. */
 function DocumentFill() {
   return (
     <div className="absolute inset-0 flex flex-col gap-[6px] px-[18px] py-[15px]">
@@ -278,7 +222,6 @@ function DocumentFill() {
   )
 }
 
-/** Official notice: letterhead + reference dot, paragraph bars, round stamp. */
 function NoticeFill() {
   return (
     <div className="absolute inset-0 flex flex-col gap-[6px] px-[18px] py-[15px]">
@@ -299,13 +242,6 @@ function NoticeFill() {
   )
 }
 
-/**
- * BIM model, full-bleed: an axonometric massing with a storey line.
- *
- * Its own drawing rather than the generic document fill, because the whole
- * point of the model card is that it is NOT a sheet — a page-shaped placeholder
- * would say the opposite of what the file is.
- */
 function ModelFill() {
   return (
     <FillSvg>
@@ -326,14 +262,6 @@ function ModelFill() {
   )
 }
 
-/**
- * Spreadsheet, full-bleed: a ruled table under a filled header band.
- *
- * Drawn rather than composed from bars, because the thing that has to read at
- * a glance is the GRID — columns crossing rows. The header band is also what
- * separates it from the floor plan two cards over, which is likewise a
- * rectangle with lines in it.
- */
 function SheetFill() {
   return (
     <FillSvg>
@@ -346,7 +274,6 @@ function SheetFill() {
   )
 }
 
-/** Notes / Markdown: a heading, two lines of prose, then a bulleted list. */
 function TextFill() {
   return (
     <div className="absolute inset-0 flex flex-col gap-[6px] px-[18px] py-[15px]">
@@ -368,9 +295,6 @@ const FILLS: Record<DocumentKind, () => JSX.Element> = {
   section: SectionFill,
   siteplan: SitePlanFill,
   notice: NoticeFill,
-  // Photos are handled specially in the fill branch (warm image placeholder
-  // with a format chip); this entry keeps the record type-complete but is never
-  // reached for `variant="fill"`.
   photo: DocumentFill,
   model: ModelFill,
   sheet: SheetFill,
@@ -378,7 +302,6 @@ const FILLS: Record<DocumentKind, () => JSX.Element> = {
   document: DocumentFill,
 }
 
-/** Line sketches sit in a padded box; document/notice/photo fill edge-to-edge. */
 const FILL_PADDED: Record<DocumentKind, boolean> = {
   floorplan: true,
   section: true,
@@ -402,16 +325,11 @@ export function DocumentKindThumbnail({
   kind: DocumentKind
   className?: string
   variant?: 'icon' | 'fill'
-  /** Format/kind chip on the image placeholder (e.g. "PNG" / "Bild"). */
   formatLabel?: string
-  /** A GENUINE load failure — a distinct, honest treatment (never a broken-image look). */
   failed?: boolean
-  /** Label for the genuine-failure treatment (e.g. "Vorschau nicht verfügbar"). */
   failedLabel?: string
 }) {
   if (variant === 'fill') {
-    // Genuine load failure: a distinct, muted "couldn't load" tile — never red,
-    // and clearly different from the "no thumbnail available" placeholders below.
     if (failed) {
       return (
         <div
@@ -421,7 +339,6 @@ export function DocumentKindThumbnail({
           data-state="failed"
           title={failedLabel}
           className={cn(
-            // The sheet's own white, the glyph saying what failed: a grey well in the white sheet was a box in a box.
             'absolute inset-0 flex flex-col items-center justify-center bg-sheet text-muted-foreground',
             className
           )}
@@ -434,10 +351,6 @@ export function DocumentKindThumbnail({
       )
     }
 
-    // An image with no thumbnail: an intentional placeholder on the sheet's white,
-    // an image glyph over the format in words — never a lone glyph that reads as a
-    // browser broken-image icon. No tint: ochre says „needs you“ (paper on a desk,
-    // principle 7), and a format is no verdict.
     if (kind === 'photo') {
       return (
         <div
@@ -453,8 +366,6 @@ export function DocumentKindThumbnail({
           <ImageIcon className="size-[26px] opacity-45" aria-hidden />
           {formatLabel && (
             <span
-              // The codes' 11/16/500 (paper on a desk). Capitals and tracking because the label is a file-format
-              // code (PDF, DWG), not because the eyebrow is set in capitals.
               className="text-[11px] font-medium uppercase leading-4 tracking-wider"
             >
               {formatLabel}

@@ -2,31 +2,8 @@ import type { JSX, ReactNode } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PAGE_SHEET_OVERLAY_CLASS, PAGE_SHEET_PANEL_CLASS } from '@/components/ui/page-sheet'
 
-/** How `RoutePageSheet` finds the skeleton it takes over from. */
 export const PAGE_SHEET_SKELETON_SLOT = 'page-sheet-skeleton'
 
-/**
- * The page sheet's loading state — the same scrim and panel geometry as
- * {@link import('@/components/ui/page-sheet').PageSheet}, drawn in plain divs
- * so a route-level `loading.tsx` (a server file) can render it without
- * mounting a dialog. No focus trap: the state lasts one server round-trip, and
- * trapping focus in a skeleton would fight the real sheet arriving.
- *
- * It ARRIVES like the sheet it stands in for — the same rise on the same
- * curve, in CSS since there is no client component here. The skeleton's rise
- * IS the sheet's arrival: `RoutePageSheet` sees this on screen
- * (`PAGE_SHEET_SKELETON_SLOT`) and takes over in place, without a rise of its
- * own. So the chrome here is the sheet's to the pixel (the grabber's band, the
- * title's and subtitle's line boxes, the close control), and the swap moves
- * nothing.
- *
- * `children` is the body: a place passes the shape of its own content, in its
- * own padding, so what loads lands where its skeleton stood. Without it, three
- * rows.
- *
- * `loadingLabel` is announced (`role="status"`), so the arrival is not silent
- * for a screen-reader user either.
- */
 export function PageSheetSkeleton({ loadingLabel, children }: { loadingLabel: string; children?: ReactNode }): JSX.Element {
   return (
     <div aria-busy="true" data-slot={PAGE_SHEET_SKELETON_SLOT}>

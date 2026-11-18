@@ -1,31 +1,3 @@
-// A TEST DOUBLE of the WorkOS API, for the local stack only (docs/contributing/local-stack.md).
-//
-// It implements just enough for the workspace to run with a real signed-in
-// session and no WorkOS account:
-//
-//   - the JWKS AuthKit verifies access tokens with (GET /sso/jwks/:clientId);
-//   - one organization ("Büro Testwerk") with two users, anna and bert, both
-//     active members with the `admin` role;
-//   - the reads the BFF makes on most requests: memberships, users, the
-//     organization, its roles, permissions and feature flags;
-//   - GET /organizations/external_id/:id answers 404, so nobody is on the
-//     platform organization and the operator console stays closed;
-//   - every write (resources, role assignments, deletes) answers 200 with an
-//     object carrying an `id`, a `resource` and a `source`, which is what
-//     project creation reads back; nothing is stored.
-//
-// It does NOT implement sign-in (no hosted page, no code exchange, no token
-// refresh: an expired session is minted again), directory sync, SSO, audit
-// logs, widgets, or any check of what a write asked for. Authorization that
-// WorkOS decides in production is "allowed" here.
-//
-// Usage:
-//   node fake-workos.mjs serve        serve on 127.0.0.1:$LOCAL_STACK_WORKOS_PORT
-//   node fake-workos.mjs mint <user>  print a sealed `wos-session` cookie value
-//
-// Reads LOCAL_STACK_DIR (signing key), LOCAL_STACK_UI_DIR (for `jose`,
-// `iron-session` and the feature-flag registry), WORKOS_CLIENT_ID and
-// WORKOS_COOKIE_PASSWORD, all set by local-stack.sh.
 import fs from 'node:fs'
 import http from 'node:http'
 import { createRequire } from 'node:module'
@@ -50,8 +22,6 @@ const stackDir = env('LOCAL_STACK_DIR')
 const require = createRequire(path.join(uiDir, 'package.json'))
 const jose = require('jose')
 
-// WorkOS-shaped ids (a prefix and 26 upper-case characters): internal routes
-// refuse an organization id that is not `org_` plus letters and digits.
 const workosId = (prefix, tag) => `${prefix}_${`01${tag}`.padEnd(26, '0')}`
 const ORG = { id: workosId('org', 'LOCALOFFICE'), name: 'Büro Testwerk' }
 const USERS = {
@@ -68,9 +38,6 @@ const RESOURCE_PERMISSIONS = [
   'project:members:manage', 'project:memory:write', 'project:skills:manage', 'project:view', 'folder:read', 'folder:write',
 ]
 
-// The flags this office has: every `rollout` flag of the registry (what a
-// customer sees), plus `runtime-model-config` so the Organization → Models page
-// can switch zero data retention off and pick a model, plus LOCAL_STACK_FLAGS.
 function featureFlags() {
   const registry = fs.readFileSync(path.join(uiDir, 'bff/authz/feature-flags.ts'), 'utf8')
   const rollout = [...registry.matchAll(/^\s*'([a-z0-9-]+)': 'rollout',$/gm)].map((match) => match[1])

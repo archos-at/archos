@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One held attachment's bytes: the service's response is passed through unchanged.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

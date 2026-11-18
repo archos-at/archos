@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Card-reveals dev preview: the calculation card in the states a reader has to
- * CLICK for, in the real 680px thread column.
- *
- * The card is built on „nicht zurück zum LLM … ich klick das und sehe mehr",
- * and what that promise buys is not visible at rest — the gallery shows it
- * folded. So this route drives it open before the shot:
- *
- *   1. RECHENWEG, HERKUNFT OFFEN — the calculation's sources disclosure open:
- *      each operand's provenance tag, its ± band and where the figure is
- *      written down, plus the sentence saying the result was computed here.
- *   2. RECHENWEG, KNAPPE ENTSCHEIDUNG — the U-value whose exact result (0,2506)
- *      would round to the limit itself. The card must print the fourth decimal
- *      rather than show „0,25" beside „nicht erfüllt"; this is the shot that
- *      proves the printed number and the printed verdict cannot disagree.
- *
- * Not linked anywhere; the `/dev` server layout 404s it outside development.
- */
-
 import { useEffect, type FC, type ReactNode } from 'react'
 import { CalculationCard } from '@/features/cards/components/CalculationCard'
 import { I18nProvider } from '@/i18n'
@@ -47,11 +28,6 @@ const STEP_DIMENSIONS: CalculationStepData[] = [
   },
 ]
 
-/**
- * Rsi + 3,25 + 0,55 + Rse = 3,99 m²K/W, so U = 1 ÷ 3,99 = 0,25062… W/(m²K).
- * Against a „≤ 0,25" limit that FAILS, while the house two-decimal format would
- * print „0,25" — the one case where the number and the verdict would argue.
- */
 const U_VALUE: CalculationStepData[] = [
   {
     label: 'Wärmedurchgangswiderstand',
@@ -85,25 +61,8 @@ const Block: FC<{ title: string; note: string; children: ReactNode }> = ({ title
   </section>
 )
 
-/**
- * Which blocks have already been driven, at MODULE scope and keyed per block.
- *
- * `reactStrictMode` mounts every effect twice in development, so a driver that
- * simply clicks runs twice — the first press opens the disclosure and the
- * second closes it, and the shot is then the resting state under the name of
- * the driven one. A flag inside the effect cannot see the second mount, and one
- * the cleanup resets cannot either.
- */
 const driven = new Set<string>()
 
-/**
- * Presses the nth (from the end) disclosure inside the named block until it
- * REPORTS itself open.
- *
- * Polling rather than a fixed delay, for the reason `/dev/citation-interaction`
- * gives: a fixed wait loses the race whenever the dev server still has to
- * compile the route, and the shot then silently duplicates the resting state.
- */
 const Open: FC<{ block: string; fromEnd?: number }> = ({ block, fromEnd = 1 }) => {
   useEffect(() => {
     if (driven.has(block)) return

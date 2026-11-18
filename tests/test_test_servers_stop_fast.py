@@ -1,12 +1,3 @@
-"""A stdlib HTTP server a test starts in a thread is told to stop quickly.
-
-``socketserver.BaseServer.serve_forever`` looks for a shutdown request once per
-``poll_interval``, 0.5 s by default, and ``shutdown()`` blocks until it does. A
-fixture that starts a server per test therefore sleeps half a second in every
-teardown: 58 teardowns and 13 calls in the core suite on 2026-11-11, about 35
-worker-seconds of waiting that no test needed.
-"""
-
 from __future__ import annotations
 
 import ast
@@ -15,13 +6,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: ``websockets.sync.server.serve`` has its own ``serve_forever``, which takes
-#: no ``poll_interval`` and stops at once.
 NOT_SOCKETSERVER = frozenset({"tests/test_loop_eval.py"})
 
 
 def slow_server_threads(source: str) -> list[int]:
-    """The lines of calls that hand ``serve_forever`` to a thread without a ``poll_interval``."""
     lines = []
     for node in ast.walk(ast.parse(source)):
         if not isinstance(node, ast.Call):

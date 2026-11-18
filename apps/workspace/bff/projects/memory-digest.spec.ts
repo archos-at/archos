@@ -117,8 +117,6 @@ describe('formatTopicDigest', () => {
   })
 
   it('does not name a topic whose note the budget left out', () => {
-    // One long note fills the budget. The second note fits beside it only if the
-    // index is left out, so the index must be written from the note that printed.
     const long = 'x'.repeat(1600)
     const digest = formatTopicDigest(
       [note({ content: long, topic: 'Brandschutz' }), note({ content: 'roof load', topic: 'Geheim' })],
@@ -142,13 +140,9 @@ describe('formatTopicDigest', () => {
     const printedLines = lines.filter((line) => line.startsWith('- ['))
     expect(printedLines.length).toBeGreaterThan(0)
     expect(printedLines.length).toBeLessThan(items.length)
-    // The index is bounded: it names some topics and counts the rest in its tail.
     const index = lines[1]
     const named = [...index.matchAll(/"([^"]*)" \(\d+\)/g)].map((match) => match[1])
     const tail = /\(\+(\d+) more topics, not named\)/.exec(index)
-    // Without the shelf's topics the index is over the printed notes, so every printed topic
-    // is either named or among the topics the tail counts (the tail counts all unnamed topics).
-    // A printed line opens `- ["Topic" | `, so the topic runs from index 4 to its closing quote.
     const printedTopics = new Set(printedLines.map((line) => line.slice(4, line.indexOf('" | '))))
     const unnamed = [...printedTopics].filter((topic) => !named.includes(topic))
     if (unnamed.length > 0) expect(tail?.[1]).toBe(String(unnamed.length))
@@ -189,8 +183,6 @@ describe("formatTopicDigest with the shelf's open topics", () => {
   })
 
   it('names no topic of a restricted note the caller did not pass (not admitted)', () => {
-    // The caller leaves a restricted note out of `items` when its folders are not admitted, so its
-    // topic can reach the index only through the shelf's OPEN topics, which never hold a restricted topic.
     const digest = formatTopicDigest([note({ content: 'Dach in Holz', topic: 'Dach' })], 1, BUDGET, [
       { name: 'Dach', count: 1 },
       { name: 'Brandschutz', count: 2 },

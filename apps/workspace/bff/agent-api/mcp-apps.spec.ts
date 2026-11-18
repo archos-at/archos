@@ -1,30 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The door's MCP Apps (ADR-0142), through the real SDK, the real catalog and the
- * door's own server, read the way a host reads them (the MCP Apps SDK's own
- * host helpers, `@modelcontextprotocol/ext-apps/app-bridge`):
- *
- *  - the `ui://` resource is listed and read with the MCP Apps mime type and an
- *    empty CSP, and its document is the built file, the same for every caller;
- *  - `proposal-get` links to it, in both modes, and its result carries the
- *    route's `{ proposal }` as `structuredContent`, which the card parses;
- *  - the card's buttons are app-only tools: a host keeps them from the model,
- *    and they run `proposal-apply` / `proposal-dismiss` as the person, through
- *    `callOperation`, the dispatcher every call takes, so the route's `authz`
- *    decides; a refusal carries the route's status;
- *  - Piloti's own door and the platform door get none of it, and on the
- *    2026-07-28 era neither does a client that did not declare it renders MCP
- *    Apps; a 2025-era client, which declares nothing, gets them as before, and a
- *    press from it is recorded as `app-unverified`;
- *  - a model's own `proposal-apply` or `proposal-dismiss` is put to the person
- *    first (elicitation), like a destructive write;
- *  - a large proposal keeps its `structuredContent`; only the text is capped.
- *
- * That the route's gate refuses a person without the right is proven against
- * Postgres in `operation-proposals.integration.spec.ts`.
- */
 
 import { webcrypto } from 'node:crypto'
 import { getToolUiResourceUri, isToolVisibilityAppOnly } from '@modelcontextprotocol/ext-apps/app-bridge'
@@ -77,7 +53,7 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -87,7 +63,7 @@ const session = {
   featureFlags: null,
 }
 const outside: AgentPrincipal = { actor: 'external_agent', clientId: 'client_claude', scopes: [], session }
-const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
+const inProduct: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
 const platform: AgentPrincipal = { ...outside, door: 'platform' }
 
 const PROPOSAL_ID = '5f0c8a3e-2b7d-4e1a-9c6f-1d2e3f4a5b6c'
@@ -124,7 +100,6 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-/** A client that renders MCP Apps, as it declares itself (MCP Apps, "Capability Negotiation"). */
 const RENDERS_APPS = { extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] } } }
 const handler = createAgentDoorHandler(() => undefined)
 
@@ -138,15 +113,13 @@ async function rpc(
   capabilities: Record<string, unknown> = RENDERS_APPS,
 ) {
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
-      // A 2026-07-28 request, as a current host sends it: the version and the client's capabilities on every request.
       headers: {
         'content-type': 'application/json',
         accept: 'application/json, text/event-stream',
         'mcp-protocol-version': '2026-07-28',
         'mcp-method': method,
-        // The routing header a 2026-07-28 call names its tool or resource in.
         ...('name' in params || 'uri' in params ? { 'mcp-name': String((params as { name?: string; uri?: string }).name ?? (params as { uri: string }).uri) } : {}),
       },
       body: JSON.stringify({
@@ -172,7 +145,6 @@ async function rpc(
 
 const tools = async (principal: AgentPrincipal, mode: 'search' | 'tools') =>
   ((await rpc(principal, mode, 'tools/list')).result?.tools ?? []) as Listed[]
-/** What a host shows its model: every listed tool but the app-only ones (MCP Apps, "Visibility"). */
 const modelTools = (listed: Listed[]) => listed.filter((tool) => !isToolVisibilityAppOnly(tool))
 type CallResult = {
   isError?: boolean
@@ -188,10 +160,9 @@ const callTool = async (
   capabilities: Record<string, unknown> = RENDERS_APPS,
 ) => (await rpc(principal, mode, 'tools/call', { name, arguments: args }, capabilities)).result as CallResult
 
-/** The same request as a 2025-era client sends it: no envelope, no capabilities, nothing to read them from. */
 async function legacyRpc(method: string, params: object = {}) {
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json', 'mcp-protocol-version': '2025-11-25' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -215,7 +186,6 @@ describe('the proposal card resource', () => {
     expect(read.contents).toHaveLength(1)
     const [content] = read.contents
     expect(content).toMatchObject({ uri: PROPOSAL_CARD_URI, mimeType: 'text/html;profile=mcp-app', text: VIEW_HTML })
-    // No origin to connect to, load from or frame: the host applies its restrictive default.
     expect(content?._meta.ui.csp).toEqual({ connectDomains: [], resourceDomains: [], frameDomains: [], baseUriDomains: [] })
     expect(content?._meta.ui.permissions).toEqual({})
   })
@@ -227,8 +197,8 @@ describe('the proposal card resource', () => {
     expect(await read(other)).toBe(await read(outside))
   })
 
-  it('is not offered on Piloti’s own door or the platform door', async () => {
-    for (const who of [piloti, platform]) {
+  it('is not offered on the in-product agent’s own door or the platform door', async () => {
+    for (const who of [inProduct, platform]) {
       const listed = ((await rpc(who, 'search', 'resources/list')).result?.resources ?? []) as { uri: string }[]
       expect(listed.map((resource) => resource.uri)).not.toContain(PROPOSAL_CARD_URI)
       const names = (await tools(who, 'tools')).map((tool) => tool.name)
@@ -242,7 +212,6 @@ describe('the tool that draws it', () => {
     const get = (await tools(outside, mode)).find((tool) => tool.name === 'proposal-get')
     expect(get, 'proposal-get is listed').toBeDefined()
     expect(getToolUiResourceUri(get as Listed)).toBe(PROPOSAL_CARD_URI)
-    // The SDK also writes the deprecated flat key, for a host that reads only that.
     expect(get?._meta?.['ui/resourceUri']).toBe(PROPOSAL_CARD_URI)
     expect(get?.description).toContain('MCP Apps')
   })
@@ -251,13 +220,12 @@ describe('the tool that draws it', () => {
     const result = await callTool(outside, 'search', 'proposal-get', { params: { id: PROPOSAL_ID } })
     expect(result.isError).toBeFalsy()
     expect(proposalResponseSchema.safeParse(result.structuredContent).success).toBe(true)
-    // And the text a host without MCP Apps, and the model, read.
     expect(result.content[0]?.text).toContain(PROPOSAL_ID)
     expect(vi.mocked(callOperation).mock.calls[0]?.[0].name).toBe('proposal-get')
   })
 
-  it('is no view for Piloti: its proposal-get links to nothing', async () => {
-    const get = (await tools(piloti, 'tools')).find((tool) => tool.name === 'proposal-get')
+  it('is no view for the in-product agent: its proposal-get links to nothing', async () => {
+    const get = (await tools(inProduct, 'tools')).find((tool) => tool.name === 'proposal-get')
     expect(get && getToolUiResourceUri(get)).toBeUndefined()
   })
 })
@@ -273,7 +241,6 @@ describe('the card’s buttons, app-only tools', () => {
     }
     const shown = modelTools(listed).map((tool) => tool.name)
     for (const tool of APP_TOOLS) expect(shown).not.toContain(tool.name)
-    // What the model is shown in search mode: the four meta-tools and the card's read.
     if (mode === 'search') {
       expect(shown).toEqual(['search-operations', 'describe-operation', 'call-operation', 'report-missing-operation', 'proposal-get'])
     }
@@ -298,7 +265,6 @@ describe('the card’s buttons, app-only tools', () => {
     expect(input).toEqual({ params: { id: PROPOSAL_ID }, body: {} })
     expect(person).toBe(session)
     expect(reader).toBe('agent')
-    // Recorded as the person's press on the card.
     expect(vi.mocked(recordOperationCalled).mock.calls[0]?.[0]).toMatchObject({ decisionSource: 'app' })
   })
 
@@ -406,7 +372,6 @@ describe('a model deciding a proposal itself', () => {
     const question = questionOf(apply)
     expect(question.startsWith(`An agent connected to ${PRODUCT_NAME} wants to make this change as you: Apply a proposed change`)).toBe(true)
     expect(question).toMatch(/Nothing changes unless you confirm\.$/)
-    // Neither the proposal's summary, its kind nor a project: nothing the person may not read.
     expect(question).not.toMatch(new RegExp(`this ${PRODUCT_NAME} proposal|Rename the folder|In project|an action`))
     expect(callOperation).not.toHaveBeenCalled()
   })
@@ -481,30 +446,30 @@ describe('a refusal before the route answers', () => {
 })
 
 describe('who may press', () => {
-  it('is an outside agent only: Piloti’s audience has no app-only tool', () => {
+  it('is an outside agent only: the in-product agent’s audience has no app-only tool', () => {
     for (const tool of APP_TOOLS) {
       expect(isAppToolFor('external', tool.name)).toBe(true)
       expect(isAppToolFor('agent', tool.name), tool.name).toBe(false)
     }
   })
 
-  it('refuses Piloti’s own press of a button, even with a host that declares MCP Apps, and runs no route', async () => {
+  it('refuses the in-product agent’s own press of a button, even with a host that declares MCP Apps, and runs no route', async () => {
     for (const tool of APP_TOOLS) {
-      const result = await runAppTool({ principal: piloti, mode: 'tools', appHost: 'declared' }, tool, { id: PROPOSAL_ID })
+      const result = await runAppTool({ principal: inProduct, mode: 'tools', appHost: 'declared' }, tool, { id: PROPOSAL_ID })
       expect(result, tool.name).toMatchObject({ isError: true, structuredContent: { status: 404 } })
     }
-    const call = await callTool(piloti, 'tools', 'proposal-card-apply', { id: PROPOSAL_ID })
+    const call = await callTool(inProduct, 'tools', 'proposal-card-apply', { id: PROPOSAL_ID })
     expect(call?.structuredContent?.proposal).toBeUndefined()
     expect(callOperation).not.toHaveBeenCalled()
   })
 })
 
 describe('the extension', () => {
-  it('is declared to an outside agent on the 2026-07-28 era, never to Piloti', async () => {
+  it('is declared to an outside agent on the 2026-07-28 era, never to the in-product agent', async () => {
     const extensions = async (who: AgentPrincipal) =>
       ((await rpc(who, 'search', 'server/discover')).result as { capabilities: { extensions?: Record<string, unknown> } }).capabilities.extensions ?? {}
     expect(await extensions(outside)).toHaveProperty(['io.modelcontextprotocol/ui'])
-    expect(await extensions(piloti)).not.toHaveProperty(['io.modelcontextprotocol/ui'])
+    expect(await extensions(inProduct)).not.toHaveProperty(['io.modelcontextprotocol/ui'])
     const undeclared = (await rpc(outside, 'search', 'server/discover', {}, {})).result as { capabilities: { extensions?: object } }
     expect(undeclared.capabilities.extensions ?? {}).not.toHaveProperty(['io.modelcontextprotocol/ui'])
   })

@@ -4,7 +4,6 @@
 import { describe, test, expect } from 'vitest'
 import { classifySourceSignal, computePresetSourceIds } from './source-presets'
 
-/** The sources the reference backend config actually exposes to the UI. */
 const REFERENCE_SOURCES = [
   { id: 'web_search', name: 'Web Search' },
   { id: 'ris', name: 'RIS – Österreichisches Recht' },
@@ -44,8 +43,6 @@ describe('computePresetSourceIds', () => {
   })
 
   test('project preset yields an empty subset when no matching source exists', () => {
-    // Honest mapping: project documents live in the (non-toggleable) knowledge
-    // layer, so the preset just switches external sources off.
     expect(computePresetSourceIds('project', REFERENCE_SOURCES)).toEqual([])
   })
 

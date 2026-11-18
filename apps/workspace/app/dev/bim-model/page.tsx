@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the IFC/BIM model surfaces.
- *
- * Renders the REAL explorer components (overview, spatial tree, element table,
- * property panel) plus the viewer's no-WebGPU fallback against fixture data
- * matching `tests/fixtures/ifc/sample-building.ifc`, so the layout is
- * reviewable and screenshottable without a backend, an upload, or a GPU.
- *
- * The 3D viewport itself is deliberately NOT exercised here: headless Chromium
- * has no WebGPU adapter, so a screenshot of it would be a picture of the
- * fallback either way — and the fallback is the state worth pinning, because it
- * is what a Safari or Firefox user actually sees.
- *
- * Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { notFound } from 'next/navigation'

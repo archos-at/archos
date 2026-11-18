@@ -1,38 +1,5 @@
 'use client'
 
-/**
- * An ```` ```excalidraw ```` fence in an answer, drawn: a sketch Piloti wrote in
- * Excalidraw's own element format (ADR-0146).
- *
- * ## The states
- *
- *   - **streaming** — the fence is still arriving. Every element that has
- *     arrived whole is drawn as it lands (`streamedSketchElements`), the way
- *     Excalidraw's own MCP app draws while the model writes; before the first
- *     one, the drawing's placeholder.
- *   - **refused** — the server refused the fence (it arrives tagged
- *     `excalidraw-refused`) or the browser's check does (an answer stored
- *     before the server checked). One quiet line on the drawing's plane, and
- *     never the source: a sketch is JSON, and JSON is not something a reader
- *     of an answer can use. Never a red box either.
- *   - **drawn** — the sketch on a sheet, the line that says it is not to scale,
- *     and inside a project „Im Projekt ablegen" and „Als Skizze bearbeiten".
- *
- * ## Why the drawn SVG is injected as markup
- *
- * `renderSketch` returns a string Excalidraw exported and the server's own SVG
- * validator re-serialised from its allow-list (`sketch-svg.ts`), the same
- * provenance `mermaid-diagram.tsx` argues for its markup. The skeletons it drew
- * passed `lib/diagrams/sketch-fence.ts` first: no image, no embed, no link.
- *
- * ## The sheet
- *
- * A sketch is drawn and filed on white, as the editor draws it. In dark mode
- * the sheet takes Excalidraw's own dark theme, a filter over the same picture
- * (`invert(93%) hue-rotate(180deg)`, what its canvas does), so the inline
- * sketch, the editor in dark mode and the filed copy are one drawing.
- */
-
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { useTranslations } from '@/i18n'
@@ -50,20 +17,11 @@ import { CAPTION_CONTROL, DiagramFilingControls } from './diagram-filing-control
 import { DrawingCaption, DrawingReveal, DrawingSkeleton } from './drawing-skeleton'
 
 export interface SketchFigureProps {
-  /** The fence's body, as written. */
   source: string
-  /** True while the fence is still being written. */
   isStreaming?: boolean
-  /** The server refused the fence (`excalidraw-refused`). */
   refused?: boolean
 }
 
-/**
- * The paper SVG for a list of skeletons, drawn by Excalidraw once its chunk is
- * loaded. One render at a time: while one runs, the newest list waits, and the
- * lists between are skipped, so a fast stream redraws at Excalidraw's pace, not
- * the token rate.
- */
 function useRenderedSketch(elements: readonly SceneSkeleton[] | null) {
   const [rendered, setRendered] = useState<RenderedSketch | null>(null)
   const [failed, setFailed] = useState(false)
@@ -100,7 +58,6 @@ function useRenderedSketch(elements: readonly SceneSkeleton[] | null) {
         running.current = false
       }
     })()
-    // `key` names the elements' content; a new array with the same content is no change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
@@ -115,7 +72,6 @@ export function SketchFigure({ source, isStreaming = false, refused = false }: S
   const { rendered, failed } = useRenderedSketch(elements)
   const title = fence?.ok ? fence.title : null
 
-  // Filed as drawn: the scene Excalidraw made of the fence, and its paper SVG.
   const renderedRef = useRef(rendered)
   renderedRef.current = rendered
   const filing = useDiagramFiling({
@@ -158,14 +114,7 @@ export function SketchFigure({ source, isStreaming = false, refused = false }: S
         <DrawingReveal drawn={Boolean(rendered)}>
           {rendered ? (
             <div
-              // At its own width, or the column's: a sketch is a picture, and one
-              // scrolled sideways hides its right half (a comparison board's
-              // second column). The editor is where a reader zooms in.
               style={{ width: `${viewBoxWidth(rendered.svg) ?? 720}px`, maxWidth: '100%' }}
-              // Safe because of what produced the string: Excalidraw drew allow-listed
-              // skeletons and `fileableSketchSvg` re-serialised the result through
-              // `lib/diagrams/svg.ts` (see the header).
-              // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
               dangerouslySetInnerHTML={{ __html: rendered.svg }}
             />
           ) : (

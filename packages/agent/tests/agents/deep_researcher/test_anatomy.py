@@ -1,5 +1,3 @@
-"""The report's anatomy and findings, read off the finished report post hoc."""
-
 import json
 
 import pytest

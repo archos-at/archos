@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The platform MCP gateway's admission for a token of another organization
- * (ADR-0154, amendment of 2026-11-05): live membership of the platform
- * organization with an admitted role, from a token AuthKit really signed.
- */
 
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -47,12 +42,11 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.WORKOS_AUTHKIT_DOMAIN = DOMAIN
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', DOMAIN)
   vi.mocked(getPlatformOrganizationId).mockResolvedValue(PLATFORM_ORG)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(owner)
 })
 
-/** An office token, as a person who picked their office at sign-in holds it. */
 async function bearer(options: { iss?: string; sub?: string; key?: CryptoKey } = {}): Promise<string> {
   const jwt = new SignJWT({ org_id: 'org_office', roles: ['admin'] })
     .setProtectedHeader({ alg: 'RS256', kid: KID })
@@ -94,7 +88,7 @@ describe('platformGatewayAdmission', () => {
   it('answers 503 while it cannot tell: no AuthKit domain, or no platform organization', async () => {
     vi.mocked(getPlatformOrganizationId).mockResolvedValue(null)
     expect(await platformGatewayAdmission(await bearer(), OWNER, { jwks })).toMatchObject({ admitted: false, status: 503 })
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     expect(await platformGatewayAdmission(await bearer(), OWNER, { jwks })).toMatchObject({ admitted: false, status: 503 })
   })
 })

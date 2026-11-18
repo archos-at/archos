@@ -1,16 +1,9 @@
-/**
- * A blog post as the views render it, whichever source it came from: the CMS
- * (Payload, apps/cms, ADR-0155) or the MDX fixtures in src/content/blog that the
- * site falls back to without one. Pure: `fromCms` maps the CMS's JSON (a post
- * read with `locale=all`, every localized field an object by locale).
- */
 import type { CollectionEntry } from 'astro:content';
 import type { Locale } from '../i18n/paths';
 import { CATEGORY_IDS, type Category } from './categories';
 import type { ImageSize } from './cms';
 import { isLexicalRoot, type LexicalNode } from './rich-text';
 
-/** An uploaded image as the CMS serves it (apps/cms/src/collections/media.ts), populated by `depth=1`. */
 export interface MediaFile {
   url: string;
   alt?: string | null;
@@ -27,22 +20,17 @@ export type PostBody = { kind: 'mdx'; entry: CollectionEntry<'blog'> } | { kind:
 export interface Post {
   locale: Locale;
   slug: string;
-  /** For <title>, JSON-LD and the feed: soft hyphens removed. */
   title: string;
-  /** For the page's heading: soft hyphens (U+00AD) kept, so a long compound breaks where the author said. */
   heading: string;
   description: string;
   pubDate: Date;
-  /** The last change, for the sitemap's lastmod and JSON-LD's dateModified. */
   updated?: Date;
   category: Category;
   cover: Cover;
-  /** The other locale's slug, when the post has a twin. */
   translationSlug?: string;
   seoTitle?: string;
   seoDescription?: string;
   noindex: boolean;
-  /** Slugs this post had before; each answers with a 301 to the current one. */
   previousSlugs: string[];
   author?: { name: string; jobTitle?: string; url?: string };
   body: PostBody;
@@ -50,10 +38,8 @@ export interface Post {
 
 const SOFT_HYPHEN = /\u00AD/g;
 
-/** A localized field read with `locale=all`. */
 type Localized<T> = Partial<Record<Locale, T | null>> | null | undefined;
 
-/* The CMS's JSON, as cms.ts reads it. Loose on purpose: it crosses a network. */
 export interface CmsPost {
   id: number | string;
   publishedAt: string;
@@ -85,10 +71,6 @@ function coverFromCms(post: CmsPost, locale: Locale): Cover | undefined {
   return post.cover ? { kind: 'drawing', id: post.cover } : undefined;
 }
 
-/**
- * The post in `locale`, or undefined when it has no such version or holds
- * something this site cannot show (an unknown category, no cover, no body).
- */
 export function fromCms(post: CmsPost, locale: Locale): Post | undefined {
   const slug = text(post.slug?.[locale]);
   const title = text(post.title?.[locale]);
@@ -120,7 +102,6 @@ export function fromCms(post: CmsPost, locale: Locale): Post | undefined {
   };
 }
 
-/** A fixture post (src/content/blog/<locale>/<slug>.mdx) in the same shape. */
 export function fromFixture(entry: CollectionEntry<'blog'>): Post {
   const { data } = entry;
   return {

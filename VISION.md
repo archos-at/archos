@@ -110,11 +110,63 @@ These are directions with a document behind them, not promises:
    folders, Fassungen and records the people do, through the same API
    (ADR-0055). Everything it does is observable (Langfuse, ADR-0089).
 
+## Staying necessary
+
+Product-market fit is not kept, it is earned again. Attackers keep coming, from
+frontier labs and from teams of three, so the product disrupts itself before
+they do. Source: Cleo Lant, "Find PMF again", PostHog newsletter, 2026-08-25
+(<https://posthog.com/newsletter/find-pmf-again>), a vendor post with anecdotal
+evidence. These are the axioms we take from it.
+
+1. **Write down how we die.** Keep three or four one-line threats, each naming
+   who or what would make the workspace unnecessary to an office. Revisit them
+   whenever the roadmap moves. A first draft, for the product owner to correct:
+   - A general agent from a frontier lab, given the office's file server and
+     mail, does enough of the work that nothing is needed around it.
+   - The CAD and BIM vendors put an agent inside ArchiCAD or Revit, where the
+     drawings already are.
+   - The document-exchange portal, or an authority's own e-submission, adds
+     the checks and the record, and the office never leaves it.
+2. **Bet against ourselves, and judge the bet as a seed bet.** A bet that could
+   replace part of today's product gets a small team and a blank slate. Before
+   it starts, write down the criteria it will be judged on, its resources and
+   the date of the decision to kill it or carry on. Do not compare its numbers
+   with the established product's. Writing them down first prevents both an
+   early kill and a bet that is funded forever.
+3. **When offices assemble the next version themselves, the demand is proven.**
+   An office that wires its own agent to the agent door, to do what the
+   workspace does not, is the strongest signal we get. Study what they built.
+   It is a product signal, not a support case.
+4. **Build first, then win the existing offices over.** Offices judge the
+   product they use well and a category that does not exist yet poorly
+   ("why risk what works?"). Validate a new category with something real
+   behind a beta, not with a survey beforehand.
+5. **Ask the disappointment question, early and often.** "How disappointed would
+   you be if this disappeared?" Ask the architects on the team and the offices.
+   Around 40% "very disappointed" is the usual bar. The team will tell you the
+   truth before churn does, but only if you ask.
+6. **Usage overrules vibes, including the owner's.** Vibes decide what to try,
+   not what to keep building. Session replay and its summaries
+   ([`posthog-migration.md`](docs/observability/posthog-migration.md)) and the
+   Langfuse traces are the record. Existing offices judge against their old
+   workflow, and new ones show what the product invites. Read both and do not
+   average them.
+7. **Build on what an attacker cannot copy.** Ours is the office's work in one
+   place: its documents read and cited, the project record, the Fassungen, what
+   the office knows, and the trust to hold it. A new interface may share no code
+   with today's UI, but it shares that data and the agent door (ADR-0055,
+   ADR-0122).
+8. **Ship before it is ready.** Losing most comparisons, renaming things and
+   killing a feature two weeks after it shipped are what self-disruption looks
+   like. If none of that is happening, we are not disrupting ourselves.
+
 ## How to use this document
 
 - **Deciding a feature:** does it help an architect do their work, in the
   office's language, in the place they already work? Building law is a means
-  to that, never the measure.
+  to that, never the measure. Then [Staying necessary](#staying-necessary):
+  which threat it answers, and what usage, not opinion, says to keep building
+  it.
 - **Writing a doc, a prompt or copy:** lead with the work. Mention the legal
   corpus where it is the topic, and describe it as the capability it is.
 - **Disagreeing with this document:** change it in a pull request. A vision

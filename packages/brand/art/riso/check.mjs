@@ -1,29 +1,4 @@
 #!/usr/bin/env node
-/*
- * The fast riso gate. No browser: it evaluates each work's JOBS table in Node
- * (kit.mjs) and reads image headers with sharp (borrowed from apps/website).
- *
- *   node packages/brand/art/riso/check.mjs      (task art:check)
- *
- * Fails when:
- *   - a work has no PRINT.md, or packages/brand/art/riso/LICENSE-NOTICE.md is missing
- *   - a work's JOBS table does not evaluate (bad format, plate, alt text ...)
- *   - an app job's file is not exported (public/art/<file> missing in apps/workspace)
- *   - the manifest (apps/workspace/bff/art/art.json) differs from what the JOBS tables and the files on disk give
- *     (stale alt text, a re-export whose ?v= hash was not written, a hand
- *     edit): run node packages/brand/art/riso/export.mjs --manifest, or a full export
- *   - a manifest file is missing, has other pixel dimensions than declared, or
- *     is over 1 MB (the pre-commit hook's limit)
- *   - an on-page file (formats with `onPage`) is missing, differs in size
- *     or densities from its paper twin, has no alpha, or does not reproduce
- *     the paper file when multiplied onto the paper colour (onPageParity)
- *   - alt text or a caption is missing in a locale, or still says TODO
- *   - a file in the app's public/art/ is in no manifest entry (an orphan)
- *   - the app's source names an art id not in its manifest, or a /art/ file
- *     path at all: the app reaches art by id through apps/workspace/bff/art/
- *
- * The expensive determinism check is separate: node packages/brand/art/riso/verify.mjs.
- */
 import fs from 'node:fs';
 import path from 'node:path';
 import {
@@ -36,7 +11,6 @@ const problems = [];
 const fail = (m) => problems.push(m);
 const rel = (p) => path.relative(REPO, p);
 
-// ── works and their paperwork ────────────────────────────────────────────────
 if (!fs.existsSync(path.join(HERE, 'LICENSE-NOTICE.md'))) fail('packages/brand/art/riso/LICENSE-NOTICE.md is missing (the kit is MIT: its notice must ship with adapted code)');
 const works = listWorks();
 const jobsByWork = [];
@@ -71,9 +45,6 @@ async function onPageParity(paperFile, pageFile, paper) {
   return bad / (info.width * info.height);
 }
 
-// ── each destination: its manifest, its files, its orphans, its references ──
-// app is apps/workspace (kit.mjs DESTS), held to the JOBS tables, so every
-// committed riso file has one source: a work under art/riso/.
 const workNames = works.map((w) => w.name).join('|');
 const idRe = new RegExp(`['"\`]((?:${workNames || '\\u0000'})/[a-z0-9-]+/[a-z0-9-]+)['"\`]`, 'g');
 const pathRe = /['"`(]\/art\/[^'"`)\s]*/g;
@@ -89,7 +60,6 @@ let totalIds = 0, totalFiles = 0;
 for (const [dest, d] of Object.entries(DESTS)) {
   const { manifest: expected, missing } = manifestFrom(jobsByWork, dest);
   const declared = Object.keys(expected.art).length + missing.length > 0;
-  // The app is a sibling folder; a checkout without it (web's own build context) skips it.
   if (!fs.existsSync(d.root)) { if (declared) fail(`${dest}: ${rel(d.root)} does not exist, but works export to it`); continue; }
   for (const m of missing) fail(`${rel(path.join(d.art, m.file))} is not exported: node packages/brand/art/riso/export.mjs --only ${m.id}`);
   const committed = fs.existsSync(d.manifest) ? fs.readFileSync(d.manifest, 'utf8') : '';
@@ -118,7 +88,6 @@ for (const [dest, d] of Object.entries(DESTS)) {
       const m = await sharp(file).metadata();
       if (m.width !== f.width || m.height !== f.height) fail(`${id}: ${rel(file)} is ${m.width}x${m.height}, the manifest says ${f.width}x${f.height}`);
     }
-    // the on-page twins: same densities and sizes as the paper files, alpha, the same inks
     if (!e.page) continue;
     const twins = (e.files || []).map((f) => `${f.density}:${f.width}x${f.height}`).join(' ');
     if (e.page.map((f) => `${f.density}:${f.width}x${f.height}`).join(' ') !== twins) fail(`${id}: its on-page files are not at the paper files' densities and sizes (${twins})`);
@@ -140,14 +109,12 @@ for (const [dest, d] of Object.entries(DESTS)) {
     }
   }
 
-  // orphans in this destination's public/art/
   if (fs.existsSync(d.art)) {
     for (const f of fs.readdirSync(d.art)) {
       if (!listed.has(f)) fail(`${rel(path.join(d.art, f))} is in no manifest entry: delete it, or declare it in a work's JOBS`);
     }
   }
 
-  // references from this destination's source tree: by id, and only ids it has
   const ids = new Set(Object.keys(manifest.art || {}));
   for (const file of d.srcs.flatMap((dir) => [...files(dir, new Set([d.manifest]))])) {
     const text = fs.readFileSync(file, 'utf8');

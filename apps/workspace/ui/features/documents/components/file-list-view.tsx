@@ -31,67 +31,20 @@ import { OpenMarksChip } from './open-marks-chip'
 import { BaseKnowledgeChip } from './base-knowledge-chip'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-/**
- * The explorer's detail view, for a corpus past what a card grid holds: a set of Einreichunterlagen is a
- * hundred files whose names are their index, asked ordering questions (which failed, the newest, the
- * 200 MB one). A dense sortable list, numeric-aware names (`Plan_2` before `Plan_10`), full keyboard
- * navigation. The card grid stays the default.
- */
-
-/** A listing row, optionally carrying the evidence for a semantic match. */
 export type FileListRow = FileItem & { snippet?: string; page?: number | null; rank?: number }
 
 interface FileListViewProps {
   files: FileListRow[]
   selectedFileId: string | null
   onSelectFile: (id: string | null) => void
-  /** Per-row file operations. Clicks here must not select the row. */
   renderActions?: (file: FileItem) => ReactNode
-  /** Wrap each `<tr>` (right-click host). Must keep a `forwardRef` row as the child. */
   wrapRow?: (file: FileItem, row: ReactNode) => ReactNode
-  /**
-   * These rows are RANKED semantic results, not a plain listing.
-   *
-   * Relevance becomes a column and the default order, and each row shows the
-   * passage that matched in place of the document's summary. Without this the
-   * list would re-sort a ranked answer by upload date and throw the ranking
-   * away without saying so.
-   */
   semantic?: boolean
-  /** The query the ranked rows answer: its words are marked in each row's passage. */
   query?: string | null
-  /**
-   * The listing's order, when somebody outside owns it.
-   *
-   * The workspace does, so its filter menu and these column headers set the
-   * same thing and switching to the card grid keeps the order. Left out — by
-   * the semantic branches, and by fixtures — the view falls back to holding it
-   * itself, which is what it did before the order was lifted.
-   */
   sort?: FileSort
   onSortChange?: (next: FileSort) => void
-  /**
-   * Whether a row can be dragged into a folder.
-   *
-   * The card grid had this and the detail view did not, so the same corpus was
-   * re-fileable by drag in one view and not the other — and the detail view is
-   * the one people switch to when there are enough documents for the filing to
-   * matter. Opt-in for the same reason the card's is: a row that lifts under
-   * the finger where nothing can receive it promises a move the surface (the
-   * flat Archiv) cannot make.
-   */
   draggable?: boolean
-  /**
-   * Selection mode (`useDocumentSelection`): a leading checkbox per row, a
-   * press toggles the row instead of opening it, the ⋯ steps aside and nothing
-   * drags. Absent is the ordinary list.
-   */
   selection?: { active: boolean; selectedIds: ReadonlySet<string>; onToggle: (id: string) => void }
-  /**
-   * The level's folders, as rows of this table under its column head (`FolderRow`): one head, one set of columns,
-   * one row height. Round 3 drew them as a block above the table, its own head mid-table and the counts 10px off
-   * the Größe column.
-   */
   folderRows?: ReactNode
 }
 
@@ -114,9 +67,6 @@ export function FileListView({
   const [uncontrolledSort, setUncontrolledSort] = useState<FileSort>(
     semantic ? RELEVANCE_SORT : DEFAULT_FILE_SORT
   )
-  // A ranked result set keeps its own relevance order whatever the workspace
-  // holds — the same rule as the menu, which hides the sort section while a
-  // semantic search is active.
   const sort = semantic || !controlledSort ? uncontrolledSort : controlledSort
   const showRank = semantic && sort.key !== 'relevance'
   const setSort = semantic || !onSortChange ? setUncontrolledSort : onSortChange
@@ -124,12 +74,8 @@ export function FileListView({
 
   const rows = useMemo(() => sortFiles(files, sort, locale), [files, sort, locale])
   const fileColumns = useMemo(() => listColumns(files), [files])
-  // A folder fills the size column with what it holds, so folders alone keep it.
   const columns = useMemo(() => (folderRows ? { ...fileColumns, size: true } : fileColumns), [fileColumns, folderRows])
 
-  // A press means „open it" in the ordinary list and „pick it" in a selection.
-  // One function per mode, so the memoised rows are not re-rendered by a
-  // selection that did not change.
   const picking = selection?.active === true
   const onToggle = selection?.onToggle
   const activate = useCallback(
@@ -140,40 +86,18 @@ export function FileListView({
     [picking, onToggle, onSelectFile]
   )
 
-  /**
-   * Which row owns the list's single tab stop.
-   *
-   * A roving tabindex that never roves is worse than none: the stop stayed
-   * pinned to row 0, so tabbing out of row 30 and back landed the reader at the
-   * top of a hundred-row list, and shift-tabbing out of a row's action menu
-   * skipped every row to reach the header. Clamped, because the set shrinks
-   * under the cursor when a filter narrows it.
-   */
   const [focusedIndex, setFocusedIndex] = useState(0)
   const tabStop = Math.min(focusedIndex, Math.max(0, rows.length - 1))
 
-  /**
-   * Roving focus down the list. A file list that cannot be walked with the
-   * arrow keys is a list you have to aim at, and aiming at a 28px row is the
-   * difference between skimming a hundred documents and hunting through them.
-   *
-   * One function for the life of the list, reading the rows through a ref, so
-   * the memoised rows below are not all re-rendered when one of them changes.
-   */
   const rowsRef = useRef(rows)
   useEffect(() => {
     rowsRef.current = rows
   }, [rows])
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTableRowElement>, index: number) => {
-      // A key pressed on a control inside the row (its ⋯) is that control's:
-      // Enter there opens the menu, it does not also open the preview, and
-      // ArrowDown moves inside the menu, not to the next row.
       if (event.target !== event.currentTarget) return
       const current = rowsRef.current
       const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0
-      // Home/End are what a hundred-row list is actually walked with; arrowing
-      // from the last row to the first is thirty keystrokes nobody presses.
       const absolute = event.key === 'Home' ? 0 : event.key === 'End' ? current.length - 1 : null
       if (step !== 0 || absolute !== null) {
         event.preventDefault()
@@ -192,11 +116,6 @@ export function FileListView({
   )
 
   return (
-    // `@container/filelist`: the columns step out by the LIST's width, not the
-    // screen's. Beside the chat a desktop screen holds a half-width list, and
-    // viewport breakpoints kept every column there and left the name a sliver.
-    // The cells' 8px inset is the rows' hover fill, so on a desk the list bleeds by it and the text stands on the
-    // column's edge (the title's); on a phone, where the column has no margin, the list keeps it.
     <div className="@container/filelist px-2 pb-4 pt-1 md:-mx-2 md:px-0">
       {/* `table-fixed` IS THE TRUNCATION. Every filename cell below already
           carries `truncate`, and under the browser's default `table-layout: auto`
@@ -242,13 +161,6 @@ export function FileListView({
                 sort={sort}
                 onSort={setSort}
                 align="right"
-                // Relevance is a reference column too, and it was the one that
-                // never said so: `pages`, `size` and `added` all step out below
-                // their breakpoints and this stayed at every width, taking 92px
-                // out of the Name column on the narrowest screen there is. In a
-                // ranked list the rows already ARRIVE in relevance order and each
-                // one carries the matched passage under its name — the percentage
-                // refines that, it does not carry it.
                 className="hidden w-[92px] @3xl/filelist:table-cell"
               />
             )}
@@ -323,19 +235,14 @@ interface FileListRowItemProps {
   file: FileListRow
   index: number
   isSelected: boolean
-  /** Whether this row holds the list's one tab stop (roving tabindex). */
   isTabStop: boolean
   semantic: boolean
   query: string | null
-  /** The relevance column is drawn (another column orders the rows). */
   showRank: boolean
-  /** The optional columns any row fills (`listColumns`). */
   columns: FileListColumns
   draggable: boolean
-  /** Selection mode: the leading checkbox, and no ⋯. */
   picking: boolean
   checked: boolean
-  /** What the checkbox calls; a row press goes through `onSelectFile`, which the list points at it in selection mode. */
   onToggle?: (id: string) => void
   onSelectFile: (id: string | null) => void
   onFocusIndex: (index: number) => void
@@ -344,11 +251,6 @@ interface FileListRowItemProps {
   wrapRow?: (file: FileItem, row: ReactNode) => ReactNode
 }
 
-/**
- * One row of the list. Memoised, and handed only stable functions, so a list
- * of thousands re-renders the rows whose document, selection or tab stop
- * changed and leaves the rest alone.
- */
 const FileListRowItem = memo(function FileListRowItem({
   file,
   index,
@@ -372,7 +274,6 @@ const FileListRowItem = memo(function FileListRowItem({
   const { locale } = useLocale()
   const approvalSubject = approvalSubjectOf(file)
   const approvalState = documentBadgeState(approvalSubject)
-  // A filing decision in view would move this file: outlined inside the row, which the table's scroll box would clip outside it.
   const lit = useFilingHighlighted(file.id)
   const row = (
     <TableRow
@@ -381,14 +282,12 @@ const FileListRowItem = memo(function FileListRowItem({
       {...(draggable ? documentDragProps(file.id, file.folderId ?? null) : {})}
       data-state={isSelected || checked ? 'selected' : undefined}
       data-filled={isSelected || checked || undefined}
-      // Roving tabindex: one stop for the whole list, then arrows.
       tabIndex={isTabStop ? 0 : -1}
       aria-selected={picking ? checked : isSelected}
       onClick={() => onSelectFile(file.id)}
       onFocus={() => onFocusIndex(index)}
       onKeyDown={(event) => onRowKeyDown(event, index)}
       className={cn(
-        // The one inset hairline (`TABLE_ROW_HAIRLINE`): from the name, past the cell's 8px, the 32px format column and 10px.
         'group/row cursor-pointer border-b-0 focus-visible:outline-none [--row-end:8px] [--row-lead:50px]', TABLE_ROW_HAIRLINE,
         lit && HIGHLIGHT_OUTLINE_INSET,
         'transition-colors duration-snap ease-out motion-reduce:transition-none',
@@ -427,7 +326,7 @@ const FileListRowItem = memo(function FileListRowItem({
               )}
               {/* What is still open on its pages; a press opens the review, not the row. */}
               <OpenMarksChip file={file} name={documentDisplayName(file)} className="self-center" />
-              {/* Where Piloti would file it: the same chip as on the card,
+              {/* Where the agent would file it: the same chip as on the card,
                   right after the name, so the row keeps its one height. */}
               <FilingSuggestionSlot documentId={file.id} className="max-w-[45%] shrink-0 self-center" />
               {/* The summary on the name's line, in what is left of it (Gmail's snippet): one 40px row, not two lines.
@@ -517,7 +416,6 @@ const FileListRowItem = memo(function FileListRowItem({
       </TableCell>
       {renderActions && (
         <TableCell
-          // 40px wide, and its 32px trigger 4px off the row's top and foot: 44px here made a file row taller than a folder's.
           className="w-10 px-1 py-1 text-right pointer-coarse:w-11 pointer-coarse:px-0" /* a finger's ⋯ is 44px: in 32px it ran 8px past the table and the list scrolled sideways */
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
@@ -532,12 +430,6 @@ const FileListRowItem = memo(function FileListRowItem({
   return wrapRow ? wrapRow(file, row) : row
 })
 
-/**
- * A sortable column header.
- *
- * `aria-sort` is the whole point of using a real table here: the direction is
- * announced rather than being carried only by an arrow glyph.
- */
 function SortHeader({
   label,
   column,
@@ -566,14 +458,7 @@ function SortHeader({
         type="button"
         onClick={() => onSort(nextSort(sort, column))}
         className={cn(
-          // Sorting is how you find a document in a long list, and on a phone it
-          // is the only way — there is no second pane to scan. The header sat at
-          // 26px. Padding rather than a catchment: these are adjacent cells in one
-          // row, so an overhang would put each header's target on top of its
-          // neighbour's.
-          // `min-h-11`, not padding (`py-3.5` measured 42): the `<th>` is `h-auto p-0`, so a min-height is exact.
           'flex w-full items-center gap-1 px-2 py-1.5 pointer-coarse:min-h-11 text-xs font-medium transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 motion-reduce:transition-none',
-          // A right-aligned head puts its reserved arrow before the word, so the word ends where the values do.
           align === 'right' && 'flex-row-reverse',
           isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         )}

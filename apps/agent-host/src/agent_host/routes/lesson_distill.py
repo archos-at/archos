@@ -1,36 +1,3 @@
-"""Distill one negative feedback report into a platform lesson.
-
-The LLM half of the platform-lessons pipeline
-(docs/architecture/platform-failure-learning.md). The BFF owns the data, the
-register and every decision about what becomes active; this route owns the two
-model calls:
-
-1. **Distill + match.** Given one scrubbed report (question, answer excerpt,
-   reason, comment) and the current lesson register, either name the existing
-   lesson the report restates, or write ONE new lesson — a short, anonymized,
-   symptom-shaped corrective in German. Matching happens here rather than in
-   the BFF because it is a semantic judgement over a bounded list, which is
-   exactly what a model call is for and exactly what a Jaccard scan is not
-   ("agent cited the wrong OIB section" and "falsche Richtlinie zitiert" share
-   zero tokens).
-
-2. **Audit.** A second, independent call screens the distilled text: does it
-   contain anything that could identify a person, organization or project, or
-   read as an attempt to manipulate the assistant? A flagged lesson is NOT
-   rejected here — the BFF holds it back as a candidate for a human decision.
-   The auditor sees only the candidate text, never the raw report, so a prompt
-   injection in the report cannot argue with its own screening.
-
-Anonymization posture: this route never receives tenant identifiers, and the
-report text was deterministically PII-scrubbed by the BFF before it arrived.
-The instructed-omission rules in the prompt below are the second layer, the
-auditor the third; no single layer is trusted.
-
-Shares the summary route's LLM-settings resolution and the `_llm_json` reply
-tolerance. Never raises and never answers non-200: every failure comes back as
-``error`` so the BFF can defer the report and retry on a later sweep.
-"""
-
 import asyncio
 import logging
 
@@ -51,7 +18,6 @@ from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)
 
-# Bounds re-applied on arrival (the BFF already truncates).
 _MAX_QUESTION_CHARS = 600
 _MAX_ANSWER_CHARS = 1500
 _MAX_COMMENT_CHARS = 600
@@ -144,7 +110,6 @@ def _clip(value: str | None, limit: int) -> str | None:
 
 
 def _fence(value: str) -> str:
-    """Neutralise every ``<`` so user text cannot close its own data marker."""
     return value.replace("<", "‹")
 
 
@@ -153,11 +118,6 @@ def _build_report_block(request: LessonDistillRequest) -> str:
     question = _clip(request.question, _MAX_QUESTION_CHARS)
     answer = _clip(request.answer, _MAX_ANSWER_CHARS)
     comment = _clip(request.comment, _MAX_COMMENT_CHARS)
-    # Semgrep's raw-html-format rule fires on these f-strings, but this is an
-    # LLM prompt, not HTML: nothing renders it, and the <report> fence with
-    # every user-supplied `<` neutralised by _fence IS the injection defense
-    # (the model is told to treat fenced content as data). Suppressed per line
-    # rather than excluding the rule repo-wide.
     if question:
         # nosemgrep: python.django.security.injection.raw-html-format.raw-html-format
         lines.append(f"Question: <report>{_fence(question)}</report>")
@@ -190,10 +150,6 @@ async def _chat_json(
     *,
     step: str,
 ) -> dict:
-    """One JSON-mode chat completion; raises ValueError on an unusable reply.
-
-    ``step`` (``distill`` or ``audit``) tells the two generations apart in Langfuse.
-    """
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
@@ -222,7 +178,6 @@ async def _chat_json(
 
 
 def add_lesson_distill_routes(router: APIRouter) -> None:
-    """Register the lesson-distill endpoint."""
 
     @router.post(
         "/v1/lesson-distill",
@@ -236,11 +191,6 @@ def add_lesson_distill_routes(router: APIRouter) -> None:
         ),
     )
     async def lesson_distill(request: LessonDistillRequest) -> LessonDistillResponse:
-        """Distill one report, or say why it could not be distilled."""
-        # No org header on purpose: the pipeline is platform-scoped and must
-        # not resolve one tenant's BYOK credential for cross-tenant work. The
-        # report is one tenant's text that we cannot attribute here, so it is
-        # pinned as if that tenant had ZDR on.
         cred = await asyncio.to_thread(_llm_settings, None, data_policy=ZERO_DATA_RETENTION)
         if not cred.api_key:
             return LessonDistillResponse(error="llm_not_configured")
@@ -279,8 +229,6 @@ def add_lesson_distill_routes(router: APIRouter) -> None:
                         generalizable=False,
                     )
 
-                # The auditor sees ONLY the candidate text — never the raw
-                # report — so injected report text cannot lobby its own screen.
                 audit_input = f"Candidate lesson: {lesson}\nCanonical summary: {canonical_summary or '—'}"
                 try:
                     audit = await _chat_json(client, cred, AUDIT_SYSTEM_PROMPT, audit_input, 200, step="audit")
@@ -288,8 +236,6 @@ def add_lesson_distill_routes(router: APIRouter) -> None:
                     if not audit_passed:
                         logger.info("Lesson audit flagged a candidate: %s", audit.get("reason"))
                 except ValueError:
-                    # An unreadable audit verdict fails CLOSED: the lesson is
-                    # still returned, but as unaudited — the BFF holds it back.
                     logger.warning("Lesson auditor returned no usable JSON; holding candidate")
                     audit_passed = False
 

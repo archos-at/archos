@@ -40,7 +40,6 @@ vi.mock('@/lib/documents/move-to-folder', () => ({ moveDocumentToFolder: mocks.m
 vi.mock('@/lib/documents/shelf-folders', () => ({ FOLDER_NAME_TAKEN: 'A folder with this name already exists here.' }))
 vi.mock('./folder-bin', () => ({ moveFolderToBin: mocks.moveFolderToBin, restoreFolderFromBin: mocks.restoreFolderFromBin }))
 vi.mock('./cleanup-repository', () => ({ deleteEmptyCreatedFolder: mocks.deleteEmptyCreatedFolder }))
-// The closer reads the project as a member (ADR-0086): screened files, and the held ones they uploaded.
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({
   shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user_pl' })),
 }))
@@ -83,7 +82,6 @@ const row = (n: number, filename: string, folderId: string | null, extra: Record
   ...extra,
 })
 
-/** Pläne: write. Verträge: read only. Honorare: hidden. */
 const ROWS = [
   row(1, 'Einreichplan_v1.pdf', FOLDER.plans),
   row(2, 'Einreichplan_v2.pdf', FOLDER.plans),
@@ -124,11 +122,6 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals())
 
-/**
- * The content gate's outcome per document number, on the rows the listing
- * returns; every other document passed (`clean`). The listing already leaves
- * out what is hidden, as the real repository does.
- */
 function screening(
   outcomes: Record<number, { status?: string; screeningOutcome: string | null; screenedHash?: string; authoredBy?: string }>
 ) {
@@ -154,7 +147,6 @@ describe('proposeCleanup', () => {
       '~$Baubeschreibung.docx',
       'Baubeschreibung.docx',
     ])
-    // Read-only Verträge and hidden Honorare never leave the BFF.
     expect(JSON.stringify(body)).not.toMatch(/Werkvertrag|Honorarnote/)
     const keys = new Set(body.documents.flatMap((doc) => Object.keys(doc)))
     expect([...keys].sort()).toEqual(
@@ -173,11 +165,8 @@ describe('proposeCleanup', () => {
     const proposal = await proposeCleanup(session, 'p1', 'de')
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as { documents: Array<Record<string, unknown>> }
-    // Released by a reviewer: passed. Still in flight, a verdict about earlier
-    // bytes, quarantined: held, and never reach the model.
     expect(body.documents.map((doc) => doc.filename)).toEqual(['Einreichplan_v1.pdf'])
     expect(JSON.stringify(body)).not.toMatch(/Einreichplan_v2|Baubeschreibung/)
-    // The rules still look at what the gate has not passed; the quarantined one is not proposed at all.
     expect(proposal.considered).toBe(3)
     expect(proposal.items.map((item) => item.filename)).toEqual(['~$Baubeschreibung.docx', 'Einreichplan_v1.pdf'])
     await expect(
@@ -187,12 +176,9 @@ describe('proposeCleanup', () => {
 
   it('names to the model every file the gate passed, by the one definition of screened', async () => {
     screening({
-      // Read by its name alone (a scan): passes, as it passes to every member.
       1: { screeningOutcome: 'partial' },
       2: { screeningOutcome: 'unchecked' },
-      // Indexed with screening switched off: no verdict at a settled status.
       5: { status: 'completed', screeningOutcome: null },
-      // Piloti's own report carries no verdict and was never an upload.
       6: { authoredBy: 'agent', screeningOutcome: null },
     })
     modelAnswers([])
@@ -210,7 +196,6 @@ describe('proposeCleanup', () => {
   it("merges the model's reasons with the rules, and marks the proposal as the model's", async () => {
     modelAnswers([
       { id: UUID(1), category: 'superseded', reason: 'Ältere Fassung von Einreichplan_v2.' },
-      // An id the closer may not write, should the model name one: dropped.
       { id: UUID(3), category: 'working_copy', reason: 'Kopie.' },
     ])
     const proposal = await proposeCleanup(session, 'p1', 'de')
@@ -254,7 +239,6 @@ describe('confirmCleanup', () => {
       `bin-holder-${FOLDER.plans}`,
       'bin-holder-root',
     ])
-    // Each subfolder is binned only holding exactly what was moved into it.
     expect(mocks.moveFolderToBin.mock.calls.map(([, , , options]) => options?.onlyDocuments)).toEqual([
       [UUID(1)],
       [UUID(5), UUID(6)],
@@ -284,7 +268,6 @@ describe('confirmCleanup', () => {
       confirmCleanup(session, 'p1', { documentIds: [UUID(1), UUID(5), UUID(6)], proposedIds: [], aiUsed: true })
     ).rejects.toMatchObject({ status: 502 })
 
-    // The first subfolder, already binned, is restored; every document goes back where it was; both subfolders go.
     expect(mocks.restoreFolderFromBin.mock.calls.map(([, input]) => input.folderId)).toEqual([`bin-holder-${FOLDER.plans}`])
     expect(mocks.moveDocumentToFolder.mock.calls.slice(3).map(([input]) => [input.documentId, input.folderId])).toEqual([
       [UUID(6), null],
@@ -320,7 +303,6 @@ describe('confirmCleanup', () => {
 
   it('says where files may be left when the undo itself stops short, and keeps the original status', async () => {
     mocks.moveFolderToBin.mockResolvedValueOnce({}).mockRejectedValueOnce(new UpstreamError('index did not confirm'))
-    // The Pläne subfolder cannot be removed: something is still in it.
     mocks.deleteEmptyCreatedFolder.mockImplementation(async (_org: string, _project: string, id: string) => id !== `bin-holder-${FOLDER.plans}`)
     const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
 

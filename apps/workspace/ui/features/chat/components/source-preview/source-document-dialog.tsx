@@ -18,24 +18,6 @@ import { useCitationDownload } from './use-citation-download'
 import { useDocumentPreview } from './use-document-preview'
 import { EMPTY_DOCUMENT_TARGET } from './document-target'
 
-// ---------------------------------------------------------------------------
-// Standalone document dialog — the same viewer, opened from outside a chip
-// ---------------------------------------------------------------------------
-
-/**
- * Opens a citation's document immediately, with no chip in between.
- *
- * The inline `[3]` marker and a deep link both need to put a reader in front of
- * the document without there being a chip to click. They get the SAME dialog —
- * same Fundstellen rail, same passage box, same copy actions — because a source
- * must not behave differently depending on which affordance reached it.
- *
- * Where it lands is the REFERENCE's business, not the caller's: the citation's
- * own locus, or — when it names the document as a whole — the first passage the
- * document was read at. A caller-supplied page would be a second, weaker way to
- * say the same thing (the dialog marks an active *locus*, and a bare page cannot
- * name one), so there is no page prop to disagree with the citation.
- */
 export const SourceDocumentDialog: FC<{
   citation: CitationRef
   onClose: () => void
@@ -62,10 +44,6 @@ export const SourceDocumentDialog: FC<{
     citation
   )
 
-  // The reader went from an answer to its evidence: counted once the viewer is
-  // actually showing, never for a dialog that mounted and closed because there
-  // was nothing to open. `verified` is a quote the server found word for word
-  // (`atQuote` keys its locus `…#quote`). Kinds and flags only: no name, no page.
   const openedReportedRef = useRef(false)
   const reportOpened = (viewer: 'document' | 'ris'): void => {
     if (openedReportedRef.current) return
@@ -77,27 +55,15 @@ export const SourceDocumentDialog: FC<{
     })
   }
 
-  // Open as soon as resolution succeeds; close the owner when the reader
-  // dismisses the dialog, so the mount is tied to the viewing session. An
-  // office citation opens its rendition here like any PDF; when there is none
-  // (415/502) the preview has already handed over the original, and when the
-  // open failed outright there is nothing left to show either — in both cases
-  // the owner is released rather than left mounted over no dialog.
   useEffect(() => {
     if (isDocument && !isOpen)
       void openPreview(citation.locus).then((outcome) => {
         if (outcome === 'opened') reportOpened('document')
         else onClose()
       })
-    // Opening is a one-shot per resolved target; re-running on every render
-    // would reopen a dialog the reader just dismissed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDocument])
 
-  // A `?cite=` link to a document with no in-app viewer hands over the FILE.
-  // It used to fall through to "nothing openable" and close silently — the same
-  // dead control #623 removed from the chip, left behind on the one path a
-  // reader arrives at from outside the conversation.
   const downloadStartedRef = useRef(false)
   useEffect(() => {
     if (!downloadTarget || downloadStartedRef.current) return
@@ -108,18 +74,14 @@ export const SourceDocumentDialog: FC<{
   useEffect(() => {
     if (isRis || downloadTarget) return
     if (isDocument && previewIndex && !isOpen) return
-    // Nothing openable and the index has answered: there is no viewer to show.
     if (previewIndex && !isDocument) onClose()
   }, [previewIndex, isDocument, isRis, downloadTarget, isOpen, onClose])
 
   useEffect(() => {
     if (isRis) reportOpened('ris')
-    // One report per mounted dialog (the ref guards a re-run).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRis])
 
-  // A RIS source opens its own reader — no stored-document index, no presign,
-  // and no page: the reader marks the passage in the text instead.
   if (isRis && target.kind === 'ris') {
     return (
       <RisDocumentDialog
@@ -147,7 +109,6 @@ export const SourceDocumentDialog: FC<{
   return <>{dialog}</>
 }
 
-/** The RIS provenance chip, so the reader's header matches the chip that opened it. */
 const RisHeaderChip: FC<{ signal: SourceTint }> = ({ signal }) => {
   const t = useTranslations(chatCopy)
   return <SourceSignalChip signal={signal}>{t('sourcePreview.risDocument')}</SourceSignalChip>

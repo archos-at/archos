@@ -1,10 +1,3 @@
-"""A push diffs against the newest commit CI passed, and anything doubtful widens the diff.
-
-`ci/last_green.py` picks the base a push's path filter diffs against. Picking
-too new a commit skips a tier that still owes a run, and a skipped tier counts
-as passed; picking too old only runs more. So every refusal below errs old.
-"""
-
 from __future__ import annotations
 
 import importlib.util
@@ -83,9 +76,6 @@ def test_no_green_ancestor_means_no_base(mod):
 
 
 def test_a_failed_lookup_widens_the_diff_and_keeps_the_output_parseable(mod, monkeypatch, tmp_path):
-    # The reason feeds the Plan job's summary. An exception message spanning
-    # lines must not end the value early: GitHub rejects an output file with a
-    # line that is not `key=value`, and the step would fail instead of widening.
     commits = {("rev-parse", "HEAD"): HEAD, ("rev-list", "--max-parents=0", "HEAD"): "r" * 40}
     monkeypatch.setattr(mod, "_git", lambda *args: commits.get(args, f"{HEAD} {'p' * 40}"))
 

@@ -6,22 +6,16 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import type { AnnotationChange } from '@/lib/annotations/room-types'
 import type { DocumentReview } from '../../hooks/use-document-review'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind, type AgentKind } from '@/lib/agent-kind'
 
-/** How long the announcer gathers what the others did before it says it, as one sentence per who and what. */
 export const ANNOUNCE_AFTER_MS = 3_000
 
-/** One thing heard: somebody else changed marks, or Piloti answered a question this reader asked. */
 export type Heard =
-  | { kind: 'change'; actor: { name: string; kind: 'person' | 'piloti'; userId: string }; change: AnnotationChange; ids: readonly string[] }
+  | { kind: 'change'; actor: { name: string; kind: 'person' | AgentKind; userId: string }; change: AnnotationChange; ids: readonly string[] }
   | { kind: 'answered' }
 
 type Translate = ReturnType<typeof useTranslations>
 
-/**
- * What a burst of changes says, in one line: each person's (or Piloti's)
- * changes of one kind gathered into one sentence, in the order they came.
- * „Piloti hat 3 Vorschläge gesetzt. Anna Berger: neue Anmerkung 7".
- */
 export function announcementOf(
   heard: readonly Heard[],
   numberOf: (annotationId: string) => number | null,
@@ -41,32 +35,24 @@ export function announcementOf(
   }
   const lines = [...groups.values()].map(({ actor, change, ids }) => {
     const count = ids.size
-    if (change === 'created' && actor.kind === 'piloti') return t('review.announce.agentProposed', { count })
+    if (change === 'created' && isAgentKind(actor.kind)) return t('review.announce.agentProposed', { count })
     const numbers = [...ids]
       .map(numberOf)
       .filter((number): number is number => number !== null)
       .sort((a, b) => a - b)
       .join(', ')
-    const name = actor.kind === 'piloti' ? PRODUCT_NAME : actor.name
+    const name = isAgentKind(actor.kind) ? PRODUCT_NAME : actor.name
     return t(`review.announce.${change}`, { name, count, numbers }).replace(/\s+$/, '').replace(/\s{2,}/g, ' ')
   })
   if (answered) lines.push(t('review.announce.agentAnswered'))
   return lines.join('. ')
 }
 
-/**
- * One polite live region for the review, there from the moment it opens: what
- * the others did to the marks, gathered for {@link ANNOUNCE_AFTER_MS} and said
- * as one line, and that Piloti answered a question this reader asked. Never a
- * pointer or who came and went (that is motion, and the faces say it), never
- * what this reader did themselves, in this tab or another.
- */
 export function ReviewAnnouncer({ review }: { review: Pick<DocumentReview, 'room' | 'annotations' | 'piloti'> }): JSX.Element {
   const t = useTranslations(filesCopy)
   const [said, setSaid] = useState('')
   const { onAnnotationsChanged, peerId, self } = review.room
   const selfUserId = self?.userId ?? null
-  // Every number this tab has seen: a deleted mark is gone from the list by the time the line is said.
   const numbers = useRef(new Map<string, number>())
   useEffect(() => {
     for (const annotation of review.annotations) numbers.current.set(annotation.id, annotation.number)
@@ -85,8 +71,6 @@ export function ReviewAnnouncer({ review }: { review: Pick<DocumentReview, 'room
       const heard = queue.current
       queue.current = []
       const line = announcementOf(heard, (id) => numbers.current.get(id) ?? null, translate.current)
-      // The same line twice is news twice: a region whose text did not change says nothing,
-      // so a repeat carries a zero-width space, toggled, and reads the same.
       if (line) setSaid((before) => (before === line ? `${line}\u200b` : line))
     }, ANNOUNCE_AFTER_MS)
   }, [])
@@ -112,7 +96,6 @@ export function ReviewAnnouncer({ review }: { review: Pick<DocumentReview, 'room
     [onAnnotationsChanged, peerId, selfUserId, hear]
   )
 
-  // A question this reader asked Piloti, answered: the card says it on the page, this says it aloud.
   const statuses = useRef(new Map<string, string>())
   useEffect(() => {
     for (const ask of review.piloti.asks) {

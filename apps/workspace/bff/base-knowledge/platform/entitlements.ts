@@ -1,14 +1,3 @@
-/**
- * Which countries an office is entitled to (migration 0205, ADR-0165, design
- * §5.1): its home country, and each country the platform entitled it to. The
- * read policy of every platform record asks the same question in SQL
- * (`knowledge_country_entitled`); this is the platform's write side and the
- * office's read.
- *
- * A home change keeps the old home as an entitlement, so an office that moves
- * keeps what it read until an operator withdraws it.
- */
-
 import 'server-only'
 import { and, eq, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -18,7 +7,6 @@ import { organizationCountries } from '@/lib/db/schema/knowledge-platform'
 import { HOME_COUNTRY_TIME_ZONES, type HomeCountry } from '@/lib/organizations/home-country'
 import type { OrganizationCountriesView } from './wire'
 
-/** The most countries one office is entitled to: every ISO 3166-1 country, and some room. */
 const MAX_COUNTRIES = 300
 
 export interface Decision {
@@ -26,7 +14,6 @@ export interface Decision {
   decisionSource: 'app' | 'elicitation'
 }
 
-/** Entitle an office to a country, or withdraw it; returns whether anything changed. */
 export async function setEntitlement(organizationId: string, countryId: string, entitled: boolean, decision: Decision): Promise<boolean> {
   return withPlatformAccess('platform base knowledge: entitle an office to a country', async () => {
     const db = getDb()
@@ -46,7 +33,6 @@ export async function setEntitlement(organizationId: string, countryId: string, 
   })
 }
 
-/** Move an office's seat; the old home stays an entitlement. Returns the previous home. */
 export async function moveHomeCountry(organizationId: string, homeCountry: HomeCountry, decision: Decision): Promise<string | null> {
   return withPlatformAccess('platform base knowledge: set an office home country', () =>
     getDb().transaction(async (tx) => {
@@ -74,7 +60,6 @@ export async function moveHomeCountry(organizationId: string, homeCountry: HomeC
   )
 }
 
-/** What an office is entitled to, read as the office (its own rows only). */
 export async function readOrganizationCountries(organizationId: string): Promise<OrganizationCountriesView> {
   return withTenant({ organizationId }, async () => {
     const db = getDb()

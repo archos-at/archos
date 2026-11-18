@@ -1,10 +1,3 @@
-/**
- * The inline citation, as a reader uses it.
- *
- * Each case is a question the old scroll-link could not answer: what is this,
- * which chip did I just get sent to, and how do I reach the other pages.
- */
-
 import { fireEvent, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach, afterEach } from 'vitest'
@@ -14,7 +7,6 @@ import type { CitationSource } from '../types'
 import { popoverMounts, resetPopoverMounts } from '@/test-utils/popover-mounts'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-// Real popover, counted: a read answer must not pay for peeks nobody opened.
 vi.mock('@/components/ui/popover', async (importOriginal) =>
   (await import('@/test-utils/popover-mounts')).countPopoverMounts(await importOriginal())
 )
@@ -26,8 +18,6 @@ vi.mock('@/features/layout/store', () => ({
   }),
 }))
 
-// Mutable, so one case can put the chat inside a project: the peek reads the
-// project id off the store, exactly as the marker's own resolver does.
 const chatStore = vi.hoisted(() => ({ projectId: null as string | null }))
 
 vi.mock('../store', () => ({
@@ -44,10 +34,6 @@ vi.mock('../store', () => ({
 vi.mock('@/adapters/api', () => ({ cancelJob: vi.fn() }))
 
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ accessToken: null }) }))
-
-// NOT mocked: the real MarkdownRenderer, because the marker only exists
-// because of how it renders in-page anchors. Stubbing it would leave these
-// tests asserting against markup no reader ever sees.
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
@@ -118,10 +104,6 @@ describe('an inline citation marker', () => {
     vi.unstubAllGlobals()
   })
 
-  // A stopped answer keeps its resolved `[N]` and its sources but is cut
-  // before its written list (`stopped-answer.ts`). Its markers must still
-  // resolve from the numbered wire sources, or they settle to plain "[1]",
-  // wider than the pills they were, and the line re-wraps under the reader.
   test.each([
     ['as it stops', true],
     ['read back after a reload', false],
@@ -145,8 +127,6 @@ describe('an inline citation marker', () => {
 
     await user.click(screen.getByRole('button', { name: /Source 1: OIB-Richtlinie 2\.1/i }))
 
-    // Scoped to the peek: the chip below names the same document, which is the
-    // point — but this asserts what the MARKER put on screen.
     const peek = await screen.findByRole('dialog')
     expect(within(peek).getByText('OIB-Richtlinie 2.1, Ausgabe Mai 2023')).toBeInTheDocument()
     expect(within(peek).getByText('OIB-Richtlinie')).toBeInTheDocument()
@@ -161,8 +141,6 @@ describe('an inline citation marker', () => {
     expect(container.querySelector('[data-focused]')).toBeNull()
     await user.click(screen.getByRole('button', { name: /Source 2: OIB-Richtlinie 2\.1/i }))
 
-    // Both markers belong to ONE document, so the one chip is the one marked —
-    // which is the truth the flat shape could only fake with two chips.
     const focused = container.querySelector('[data-focused]')
     expect(focused).not.toBeNull()
     expect(within(focused as HTMLElement).getByText(/OIB-Richtlinie 2\.1/)).toBeInTheDocument()
@@ -188,16 +166,11 @@ describe('an inline citation marker', () => {
     renderAnswer()
 
     await user.click(screen.getByRole('button', { name: /Source 2: / }))
-    // Marker [2] names p.18 — not p.5, which is merely the document's first
-    // cited locus and what a document-level reference would have opened at.
     const peek = await screen.findByRole('dialog')
     expect(within(peek).getByText('p. 18')).toBeInTheDocument()
   })
 
   test('hovering asks the question; the reader never has to commit to it', async () => {
-    // Checking a source mid-sentence is a glance. Charging a click for it — and
-    // then a dismissal — is charging a commitment for a question the reader
-    // wanted answered in passing.
     const user = userEvent.setup()
     renderAnswer()
 
@@ -208,8 +181,6 @@ describe('an inline citation marker', () => {
   })
 
   test('a hovered peek yields when the pointer leaves; a clicked one stays', async () => {
-    // The two states earn their difference: a peek that vanished on pointer-out
-    // could never hold a button, because reaching for one means leaving.
     const user = userEvent.setup()
     renderAnswer()
     const marker = screen.getByRole('button', { name: /Source 1: OIB-Richtlinie 2\.1/i })
@@ -222,7 +193,6 @@ describe('an inline citation marker', () => {
     await user.click(marker)
     await screen.findByRole('dialog')
     await user.unhover(marker)
-    // Still there: the click pinned it.
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
@@ -230,7 +200,6 @@ describe('an inline citation marker', () => {
     const user = userEvent.setup()
     renderAnswer()
     const marker = screen.getByRole('button', { name: /Source 1: OIB-Richtlinie 2\.1/i })
-    // Let the source row's index resolve, so every chip has settled.
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled())
 
     expect(popoverMounts.total).toBe(0)
@@ -271,11 +240,6 @@ describe('an inline citation marker', () => {
   })
 
   test('two sources behind one claim are two markers, not literal text', async () => {
-    // `[1][2]` is the shape the report writers are told to emit for a claim
-    // carried by two sources, and it used to reach the reader as the characters
-    // "[1][2]" — beside neighbours that got their pill — because the markers
-    // were linked by rewriting the markdown source, where an adjacent pair is
-    // indistinguishable from `[label][ref]` reference-link syntax.
     const user = userEvent.setup()
     render(
       <AgentResponse
@@ -296,23 +260,11 @@ describe('an inline citation marker', () => {
     expect(screen.getByRole('button', { name: /Source 2: OIB-Richtlinie 2\.1/i })).toBeInTheDocument()
     expect(screen.queryByText(/\[1\]\[2\]/)).toBeNull()
 
-    // And each still resolves to its OWN locus.
     await user.click(screen.getByRole('button', { name: /Source 2: / }))
     expect(within(await screen.findByRole('dialog')).getByText('p. 18')).toBeInTheDocument()
   })
 
   test('the pill reserves no width its number does not use', () => {
-    // Twice now the marker has pushed the sentence's own punctuation away from
-    // the word it belongs to. First the literal brackets ("erforderlich [1] .");
-    // then, after those went, a `min-w` floor a single digit could not fill,
-    // whose surplus `justify-center` split evenly — parking a strip of tinted
-    // pill between the digit and the period ("REI 90 1 ."). Both are the same
-    // fault: a box wider than its contents has to put the difference somewhere,
-    // and next to a full stop there is nowhere harmless to put it.
-    //
-    // jsdom has no layout to measure, but the fault is not really about pixels:
-    // it is about the marker claiming width in advance. `tabular-nums` is what
-    // actually holds the single-digit pills to one width, and it costs nothing.
     renderAnswer()
 
     const marker = screen.getByRole('button', { name: /Source 1: OIB-Richtlinie 2\.1/i })
@@ -332,17 +284,6 @@ describe('an inline citation marker', () => {
     expect(link).toHaveAttribute('href', '#some-heading')
   })
 
-  /**
-   * A CONTROL THAT DOES NOTHING IS WORSE THAN NO CONTROL.
-   *
-   * „An dieser Stelle öffnen" used to be offered for every citation without an
-   * outbound URL, with no resolution attempted. On a source the viewer cannot
-   * render — a plan, a `.dwg`, a citation whose shelf holds no such file — the
-   * click mounted the dialog, which resolved to `info`, closed itself and
-   * rendered nothing. The popover shut and nothing happened. Both directions
-   * are pinned here, because closing only one of them would trade a silent
-   * dead control for a silently missing live one.
-   */
   describe('the open control is offered only when there is something to open', () => {
     test('offers it for a base-corpus PDF the viewer can render', async () => {
       const user = userEvent.setup()
@@ -358,9 +299,6 @@ describe('an inline citation marker', () => {
     })
 
     test('says so instead when the cited file is in no shelf the reader can reach', async () => {
-      // The knowledge base answers with no such file, and there are no stored
-      // documents — the citation resolves to `info`, which is exactly the state
-      // that used to render a button that closed the popover and did nothing.
       fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ files: [], documents: [] })))
 
       const user = userEvent.setup()
@@ -376,12 +314,6 @@ describe('an inline citation marker', () => {
     })
   })
 
-  /**
-   * "What is this?" is answered; "where does it live?" gets a link — but only
-   * for a document that HAS a home in the app. A project file's home is the
-   * project's files page, the office archive has its own route; the base
-   * corpus has neither, and offering a link there would open nothing.
-   */
   describe('the link to the document\'s home shelf', () => {
     const projectFile = 'brandschutzkonzept_ausgabe_2026.pdf'
     const shelved = (shelf: 'project' | 'office_shelf'): CitationSource => ({

@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The masked text of one held mail.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

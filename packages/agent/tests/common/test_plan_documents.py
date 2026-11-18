@@ -1,5 +1,3 @@
-"""The Unterlagen contract: what a reader names, and what a run may be told."""
-
 from __future__ import annotations
 
 from agent.common.plan_documents import MAX_PLAN_DOCUMENTS

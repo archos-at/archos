@@ -1,10 +1,3 @@
-"""Every registered tool as the model is shown it, built offline from the deployment config.
-
-The workflow builder runs in a subprocess: plugin discovery registers every
-entry point process-wide, and a test process must not keep that state. One
-build per test process (``built_tools`` is cached); about 13 s.
-"""
-
 from __future__ import annotations
 
 import json
@@ -58,7 +51,6 @@ asyncio.run(main())
 
 @lru_cache(maxsize=1)
 def built_tools() -> dict[str, tuple[str, dict]]:
-    """``{name: (description, input JSON schema)}`` for every function and group member the config registers."""
     src = ROOT / "packages" / "agent" / "src"
     env = {**os.environ, "PYTHONPATH": f"{src}{os.pathsep}{ROOT}"}
     done = subprocess.run(

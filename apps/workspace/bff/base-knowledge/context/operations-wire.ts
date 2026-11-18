@@ -1,10 +1,3 @@
-/**
- * The wire of the knowledge context's operations (ADR-0173, design §4.5):
- * `coverage-get`, `base-knowledge-report`, `project-base-get` and
- * `project-base-confirm`. Shared by the routes and the agent catalog, so the
- * contract is written once (ADR-0055). English, one word per concept.
- */
-
 import { z } from 'zod'
 import { projectLawSchema } from '../wire/project-law'
 import { queryDay } from '../wire/time'
@@ -24,7 +17,6 @@ export const coverageNodeSchema = z
     territoryId: z.string(),
     name: z.string(),
     kind: z.string(),
-    /** The coverage this node states; null inherits from its parent. */
     level: z.enum(COVERAGE_LEVELS).nullable(),
     municipalLaw: z.boolean().nullable(),
   })
@@ -36,9 +28,7 @@ export const coverageViewSchema = z
       z
         .object({
           countryId,
-          /** The country's own coverage; `none` when no node states one. */
           level: z.enum(COVERAGE_LEVELS),
-          /** The nodes below it that state a coverage of their own. */
           nodes: z.array(coverageNodeSchema).max(500),
         })
         .strict(),
@@ -58,7 +48,6 @@ export const baseKnowledgeReportBodySchema = z
 
 export const baseKnowledgeReportResultSchema = z.object({ changeRequestId: z.uuid(), status: z.literal('draft') }).strict()
 
-/** `project-base-get`'s query: the day to resolve on, when it is not the turn's own (today, or a filing day that has come). */
 export const projectBaseQuerySchema = z
   .object({
     asOf: queryDay
@@ -70,9 +59,7 @@ export const projectBaseQuerySchema = z
 export const projectBaseViewSchema = z
   .object({
     context: knowledgeContextSchema,
-    /** The law at the site, with designations and editions: what a person reads of the context. */
     law: projectLawSchema,
-    /** The newest base a person confirmed for this project (the Steckbrief); null when none was. */
     confirmed: z
       .object({ id: z.uuid(), confirmedAt: z.string(), confirmedBy: z.string(), packSeqs: z.record(z.string(), z.number()) })
       .strict()

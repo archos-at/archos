@@ -1,26 +1,5 @@
 'use client'
 
-/**
- * What a root sort shows while the server works it, and once it has moved
- * files. Presentational: the dialog passes the run's numbers in, and the
- * `/dev/root-sort` preview renders these same bodies from props.
- *
- * A sort of a thousand files takes minutes, so the body is built to answer the
- * three questions a person waiting asks, every few seconds and in words:
- *
- *   - **Where am I?** The four steps as a track (`RootSortStages`), the same in
- *     the intro, while it works, in the review and at the end, so the review
- *     reads as step three of four rather than a surprise.
- *   - **Is it moving, and how much is left?** A count and a bar that move as
- *     each call finishes (the server writes its progress per chunk, migration
- *     0174), a time left once there is a rate to read it from, and, where there
- *     is no count (grouping is one call), a clock that visibly runs.
- *   - **What is it doing?** The files it just placed and where, so the work is
- *     seen happening rather than taken on trust.
- *
- * And one thing it must never leave unsaid: that closing the window is safe.
- */
-
 import type { JSX } from 'react'
 import { ArrowRight, CheckCircle2, FileText } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
@@ -34,7 +13,6 @@ import type { WorkingRootSortStatus } from '../../lib/root-sort-phase'
 
 const STAGES = ['judge', 'group', 'review', 'move'] as const
 
-/** Where a status stands on the track; null where the track says nothing true (an undo, an end). */
 function stagePosition(status: RootSortRunStatus | null): { reached: number; active: boolean; tone: StageTrackTone } | null {
   switch (status) {
     case null:
@@ -55,11 +33,9 @@ function stagePosition(status: RootSortRunStatus | null): { reached: number; act
 }
 
 export interface RootSortStagesProps {
-  /** The run's status; null before there is a run (the intro shows the way ahead). */
   status: RootSortRunStatus | null
 }
 
-/** The sort's four steps, with the one it is in. Hidden for an undo and for a run that ended early. */
 export function RootSortStages({ status }: RootSortStagesProps): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const position = stagePosition(status)
@@ -81,13 +57,9 @@ export interface RootSortProgressProps {
   status: WorkingRootSortStatus
   done: number
   total: number
-  /** The job waits for a free slot (the dialog only says so once it has stayed so for a moment). */
   waiting: boolean
-  /** While judging: the files just placed, newest first. */
   recent: readonly { name: string; folderPath: string }[]
-  /** Seconds left at the current rate; null until there is a rate to read it from. */
   remainingSeconds: number | null
-  /** While grouping: how long it has been going. */
   elapsedSeconds: number
 }
 
@@ -165,7 +137,6 @@ export function RootSortProgress({
 export interface RootSortOutcomeProps {
   moved: number
   failedCount: number
-  /** The first few names of the files that did not move; the rest are counted. */
   failedNames: readonly string[]
 }
 

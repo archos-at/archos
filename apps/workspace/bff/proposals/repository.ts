@@ -1,13 +1,3 @@
-/**
- * Proposed changes repository — the SQL over `proposed_changes` (migrations
- * 0140, 0143). No authorization here; `./service` owns it. Every statement is
- * keyed by the organization as well as the id, and runs in its tenant scope.
- *
- * Every transition is a compare-and-swap on `proposed`, so two people (or two
- * tabs) deciding at once cannot both win: the loser's update finds no row and
- * the service turns that into a 409.
- */
-
 import 'server-only'
 import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -19,42 +9,28 @@ export type { ProposedChangeRow }
 
 export interface NewProposedChange {
   organizationId: string
-  /** Null for a Büroablage proposal (0146); `scope` says which shelf. */
   projectId: string | null
   scope: ProposalScope
   kind: ProposedChangeKind
-  /** The contract's payload for `kind`, parsed by the service before it gets here. */
   payload: unknown
   proposedByKind: ProposerKind
   onBehalfOf: string
   originConversationId: string | null
   originMessageId: string | null
-  /** Which card of the origin answer made it; needs `originMessageId` (0143's CHECK). */
   originCardIndex?: number | null
-  /** The Langfuse trace of the judgement that proposed it, for a proposal no turn made (0146). */
   originTraceId?: string | null
 }
 
-/** What an insert came to: the row, and whether this call made it or found the card's earlier one. */
 export interface InsertedProposedChange {
   row: ProposedChangeRow
   created: boolean
 }
 
-/** What names one call of an operation: which, and with what input. */
 export interface OperationCall {
   operation: string
   input: unknown
 }
 
-/**
- * The still-`proposed` operation proposal of this conversation for this call,
- * made for this person, or null (0176, 0178). `payload->'input'` is compared as
- * jsonb, which has one spelling per value, so key order and white space do not
- * tell two calls apart; this is the predicate of
- * `uniq_proposed_changes_open_operation`. The person is part of it: in a
- * conversation two people ask in, B's call is B's card, never A's.
- */
 const openOperationCall = (organizationId: string, conversationId: string, onBehalfOf: string, call: OperationCall) =>
   and(
     eq(proposedChanges.organizationId, organizationId),
@@ -84,22 +60,12 @@ export async function findOpenOperationProposal(
   return row ?? null
 }
 
-/** The call an operation proposal's payload names, when it is one with a conversation to dedupe in (and no card: that key is its own). */
 function dedupedCall(input: NewProposedChange): OperationCall | null {
   if (input.kind !== 'operation' || !input.originConversationId || input.originCardIndex != null) return null
   const payload = input.payload as Partial<OperationCall> | null
   return typeof payload?.operation === 'string' ? { operation: payload.operation, input: payload.input } : null
 }
 
-/**
- * Store a proposal. With a card index it is idempotent on
- * `uniq_proposed_changes_origin_card`: the same card of the same answer a
- * second time inserts nothing and returns the FIRST proposal, as it stands.
- * An operation proposal in a conversation is idempotent on
- * `uniq_proposed_changes_open_operation` (0176): a second identical call
- * while the first is still `proposed` returns the first, so two calls running
- * at once still make one.
- */
 export async function insertProposedChange(input: NewProposedChange): Promise<InsertedProposedChange> {
   const db = getDb()
   const { organizationId, originMessageId, originCardIndex } = input
@@ -115,7 +81,6 @@ export async function insertProposedChange(input: NewProposedChange): Promise<In
         .where(openOperationCall(organizationId, input.originConversationId, input.onBehalfOf, call))
         .orderBy(proposedChanges.createdAt)
         .limit(1)
-      // The conflict was on this call's open row, so it is there: a miss is a bug, not a race.
       if (!open) throw new Error('A proposal for this call conflicted and could not be read back')
       return { row: open, created: false }
     }
@@ -143,13 +108,11 @@ export async function insertProposedChange(input: NewProposedChange): Promise<In
         )
       )
       .limit(1)
-    // The conflict was on this card's row, so it is there: a miss is a bug, not a race.
     if (!existing) throw new Error('A proposal for this card conflicted and could not be read back')
     return { row: existing, created: false }
   })
 }
 
-/** One proposed change of this organization, or null. */
 export async function findProposedChange(organizationId: string, id: string): Promise<ProposedChangeRow | null> {
   const db = getDb()
   const [row] = await withTenant({ organizationId }, () =>
@@ -162,7 +125,6 @@ export async function findProposedChange(organizationId: string, id: string): Pr
   return row ?? null
 }
 
-/** Still `proposed`, and nobody is applying it (a claim older than `staleBefore` no longer counts). */
 const undecided = (organizationId: string, id: string, staleBefore: Date) =>
   and(
     eq(proposedChanges.organizationId, organizationId),
@@ -171,7 +133,6 @@ const undecided = (organizationId: string, id: string, staleBefore: Date) =>
     or(isNull(proposedChanges.applyingSince), lt(proposedChanges.applyingSince, staleBefore))
   )
 
-/** The claim this apply holds: still `proposed`, and still claimed by the same person at the same moment. */
 const heldClaim = (organizationId: string, id: string, by: string, since: Date) =>
   and(
     eq(proposedChanges.organizationId, organizationId),
@@ -181,11 +142,6 @@ const heldClaim = (organizationId: string, id: string, by: string, since: Date) 
     eq(proposedChanges.applyingSince, since)
   )
 
-/**
- * Claim the change for applying: set `applying_by` / `applying_since` when it
- * is still `proposed` and unclaimed. Null when somebody decided it, or is
- * applying it, first.
- */
 export async function claimProposedChange(
   organizationId: string,
   id: string,
@@ -203,11 +159,6 @@ export async function claimProposedChange(
   return row ?? null
 }
 
-/**
- * Settle a claimed apply: the final status, the results, who decided and when,
- * and the claim cleared. Null when the claim is no longer this one (it went
- * stale and someone else decided it).
- */
 export async function settleProposedChange(
   organizationId: string,
   claim: Pick<ProposedChangeRow, 'id' | 'applyingBy' | 'applyingSince'>,
@@ -233,7 +184,6 @@ export async function settleProposedChange(
   return row ?? null
 }
 
-/** Give a claim back without deciding (the apply broke before it could record anything). */
 export async function releaseProposedChange(
   organizationId: string,
   claim: Pick<ProposedChangeRow, 'id' | 'applyingBy' | 'applyingSince'>
@@ -249,7 +199,6 @@ export async function releaseProposedChange(
   )
 }
 
-/** Dismiss it when still `proposed` and nobody is applying it; null when somebody decided or claimed it first. */
 export async function dismissProposedChange(
   organizationId: string,
   id: string,
@@ -267,7 +216,6 @@ export async function dismissProposedChange(
   return row ?? null
 }
 
-/** A shelf's proposals: a project's, the Büroablage's, or the organization's (the last two have no project). */
 export type ProposalShelf = { scope: 'project'; projectId: string } | { scope: 'office_shelf' | 'organization' }
 
 const onShelf = (organizationId: string, shelf: ProposalShelf) =>
@@ -277,12 +225,6 @@ const onShelf = (organizationId: string, shelf: ProposalShelf) =>
     shelf.scope === 'project' ? eq(proposedChanges.projectId, shelf.projectId) : isNull(proposedChanges.projectId)
   )
 
-/**
- * A shelf's proposals in the given statuses, newest first, at most `limit`
- * (bounded here: a caller's number is clamped to {@link MAX_SHELF_PROPOSALS}).
- * Optionally one kind, and optionally only those no conversation made (the
- * filing suggestions, `lib/filing`).
- */
 export const MAX_SHELF_PROPOSALS = 500
 
 export async function listShelfProposals(
@@ -292,7 +234,6 @@ export async function listShelfProposals(
     statuses: readonly ProposedChangeStatus[]
     kind?: ProposedChangeKind
     withoutConversation?: boolean
-    /** The id of the last row of the previous page: only older rows are read. */
     after?: string
     limit: number
   }
@@ -319,15 +260,8 @@ export async function listShelfProposals(
   )
 }
 
-/** Most proposals one conversation's list returns: the WORKSPACE block names the newest few. */
 export const MAX_CONVERSATION_PROPOSALS = 20
 
-/**
- * The proposals made in one conversation, every status, newest first, bounded
- * by `limit` (at most {@link MAX_CONVERSATION_PROPOSALS}). Read for the turn
- * context of that same conversation, whose readers saw every one of them as a
- * card, so no audience is narrowed here (ADR-0123).
- */
 export async function listConversationProposals(
   organizationId: string,
   conversationId: string,
@@ -350,12 +284,6 @@ export async function listConversationProposals(
   )
 }
 
-/**
- * Take back a proposal nobody has decided: delete it while it is still
- * `proposed` and nobody is applying it. Piloti withdraws its own filing
- * suggestion this way when a later reading no longer supports it; a decided
- * proposal is a record and is never deleted. Whether a row went.
- */
 export async function deleteUndecidedProposedChange(
   organizationId: string,
   id: string,

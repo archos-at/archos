@@ -1,9 +1,3 @@
-/**
- * The tasks operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the
- * rules. A task is the standing definition (`/api/projects/[id]/tasks`), a task run one attempt at it
- * (`/api/projects/[id]/runs`): ADR-0131, rule 1. The wire is `lib/tasks/task-wire.ts`.
- */
-
 import { z } from 'zod'
 import { createJobSchema, patchJobSchema } from '@/lib/jobs/types'
 import { commissionRunSchema } from '@/lib/runs/commission-wire'

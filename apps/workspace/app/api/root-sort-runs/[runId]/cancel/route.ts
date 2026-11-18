@@ -1,5 +1,3 @@
-/** Stop a root-sort run before anything moved (ADR-0121). */
-
 import { apiRoute } from '@/lib/api/handler'
 import { cancelRootSort } from '@/lib/filing/root-sort-run'
 

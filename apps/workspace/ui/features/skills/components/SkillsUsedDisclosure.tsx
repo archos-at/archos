@@ -1,36 +1,5 @@
 'use client'
 
-/**
- * "Skills used" — what the agent actually LOADED while writing this answer.
- *
- * The distinction this component exists to make visible: every skill in the org
- * contributes its name and description to the agent's catalogue on every turn
- * (progressive disclosure level 1, ~a line each), but a skill's full
- * instructions enter the conversation only when the agent decides to load them
- * with `read_file`. Those decisions are what `skills_activated` reports, and
- * they are the ones worth showing — "this skill was available" is not news,
- * "this skill's instructions shaped this answer" is.
- *
- * Quiet by default for the same reason the confidence chip is: on a normal turn
- * nothing was activated and this renders nothing at all. When something was, a
- * single muted line says so, and opening it shows which skills and what they
- * are for.
- *
- * Descriptions are fetched only on expand. The names arrive on the answer
- * frame; the descriptions are a separate org-scoped read, and paying for it on
- * every rendered answer to fill a panel almost nobody opens would be exactly the
- * eager loading the skills model is designed to avoid.
- *
- * HIDDEN skills (`grid-hidden`) are treated with care here, because this panel
- * is the RECORD. A hidden skill is kept out of the noisy LIVE line, but the
- * disclosure is not the live line — it is the honest answer to "what shaped
- * this answer". So a hidden skill is NEVER dropped from it: doctrine is that a
- * product built on traceable sourcing must not have a class of instruction it
- * declines to admit ran. It is merely DE-EMPHASISED (muted) until the reader
- * turns the reasoning view on (`showReasoning`), at which point it reads at full
- * weight with everything else. Hidden governs the live line, not this record.
- */
-
 import { useState, type FC } from 'react'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import { ClampedText } from '@/components/ui/clamped-text'
@@ -40,24 +9,11 @@ import { skillsCopy } from '@/i18n/namespaces/skills'
 import { cn } from '@/lib/utils'
 import { useInvocableSkills } from '../hooks/use-invocable-skills'
 import { skillLabel } from '../lib/skill-activity'
-import { canonicalSkillName } from '@/lib/skills/legacy-names'
+import { findSkillNamed } from '@/lib/skills/legacy-names'
 
 export interface SkillsUsedDisclosureProps {
-  /** Skill names the agent activated, in activation order. */
   skillsActivated?: string[]
-  /**
-   * The subset of `skillsActivated` that are HIDDEN (`grid-hidden`) — kept out
-   * of the live line, but never out of this record. Populated by the caller
-   * from the streamed technical-channel activations. Absent = none hidden, so
-   * an existing caller renders exactly as before.
-   */
   hiddenSkills?: string[]
-  /**
-   * The reader's reasoning-view preference (`showReasoningSkills`). When true,
-   * hidden skills read at full weight alongside the rest; when false they are
-   * present but de-emphasised. Either way they are shown — the toggle changes
-   * emphasis, never presence.
-   */
   showReasoning?: boolean
   className?: string
 }
@@ -85,11 +41,6 @@ export const SkillsUsedDisclosure: FC<SkillsUsedDisclosureProps> = ({
           'text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 flex items-center gap-1.5',
           'rounded-md text-xs leading-relaxed transition-colors duration-quick ease-out',
           'focus-visible:outline-none focus-visible:ring-2',
-          // A 20px caption line under the answer, and the only way to find out
-          // which skills the agent used. `touch-target` widens the catchment to
-          // 44px without moving the line: it is the last thing in the turn, so
-          // the overhang has the gap below the answer to spend and no other
-          // control to take a tap from.
           'touch-target',
         )}
         data-testid="skills-used-trigger"
@@ -114,19 +65,9 @@ export const SkillsUsedDisclosure: FC<SkillsUsedDisclosureProps> = ({
 
           <ul className="flex flex-col gap-1.5">
             {skillsActivated.map((name) => {
-              // An answer given before the builtins were renamed (0169) lists the old name.
-              const known = skills.find((skill) => skill.name === name || skill.name === canonicalSkillName(name))
-              // The ONE naming rule, shared with the live header line and the
-              // Herleitung chip (features/skills/lib/skill-activity): an
-              // authored title in proportional text, otherwise the bare
-              // identifier in `font-mono` — which is what this panel has always
-              // rendered, so nothing changes until titles exist. A row that
-              // cannot name its skill is dropped rather than shown blank.
+              const known = findSkillNamed(skills, name)
               const label = skillLabel({ name })
               if (!label) return null
-              // A hidden skill stays in the record; it is only muted until the
-              // reasoning view is on. Never `return null` for one — dropping it
-              // would be the one thing the transparency doctrine forbids.
               const hidden = hiddenSet.has(name)
               const deEmphasised = hidden && !showReasoning
               return (
@@ -148,8 +89,6 @@ export const SkillsUsedDisclosure: FC<SkillsUsedDisclosureProps> = ({
                       the skill has since been deleted or renamed. The name alone
                       is still true, so the row stays rather than disappearing. */}
                   {known?.description ? (
-                    // A clamped line is a claim the skill does less than it does,
-                    // and a phone has no hover title to read the rest from.
                     <ClampedText
                       lines={2}
                       moreLabel={t('composer.activated.descriptionMore')}

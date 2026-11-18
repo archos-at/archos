@@ -3,8 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -18,9 +16,7 @@ vi.mock('@/lib/projects/memory-service', () => ({
 vi.mock('@/lib/documents/review-decisions', () => ({ buildReviewDecisionsBlock: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({
   ANY_MEMBER: { levels: {}, seesEverything: false },
-  // The asker holds a folder role on SECRET (ADR-0097).
   clearanceOfMember: vi.fn(async () => ({ levels: { 'folder-secret': 'read' }, seesEverything: false })),
-  // Every member reads OPEN; the asker reads OPEN and SECRET.
   readableFolderIdsFor: vi.fn(
     async (_org: string, _project: string, clearance: { levels: Record<string, 'read' | 'write'> }) =>
       clearance.levels['folder-secret'] ? ['folder-open', 'folder-secret'] : ['folder-open']
@@ -35,9 +31,6 @@ vi.mock('@/lib/conversations/restricted-use', () => ({
 }))
 vi.mock('@/lib/projects/proposal-decisions', () => ({
   buildProposalDecisionsBlock: vi.fn(async () => null),
-  // The real function's shape, three blocks on one channel — kept in step with
-  // `composeMemoryContext` rather than reimplemented differently, so a spec
-  // asserting on the joined string is asserting the same join the route makes.
   composeMemoryContext: (digest: string | null, decisions: string | null, reviewDecisions: string | null = null) =>
     [digest, decisions, reviewDecisions].filter(Boolean).join('\n\n') || null,
 }))
@@ -55,7 +48,7 @@ const PROJECT_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
 const ORG_ID = 'org_123'
 
 const makeRequest = (query: string, token?: string) =>
-  new Request(`https://grid.test/api/internal/memory/digest${query}`, {
+  new Request(`https://example.test/api/internal/memory/digest${query}`, {
     method: 'GET',
     headers: token ? { 'x-grid-internal-token': token } : {},
   })
@@ -144,12 +137,6 @@ describe('GET /api/internal/memory/digest', () => {
     expect(response.status).toBe(500)
   })
 
-  /**
-   * A project-only request used to read under platform scope — RLS bypassed —
-   * with the query filtered by project id alone, so ANY project id returned
-   * that project's memory to any holder of the internal token. The tenant is
-   * now resolved from the project row and the read happens inside it.
-   */
   describe('a request that names only a project', () => {
     it('resolves the tenant from the project row and reads the digest inside it', async () => {
       vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
@@ -160,8 +147,6 @@ describe('GET /api/internal/memory/digest', () => {
 
       expect(response.status).toBe(200)
       expect(resolveProjectOrganization).toHaveBeenCalledWith(PROJECT_ID)
-      // The organization the PROJECT names — never undefined, which is what
-      // made the read unscoped.
       expect(buildProjectMemoryDigest).toHaveBeenCalledWith(PROJECT_ID, ORG_ID, {
       query: undefined,
       readableFolderIds: expect.any(Array),
@@ -229,8 +214,6 @@ describe('what a person decided about the drafts this conversation filed', () =>
   })
 
   it('is not asked for at all when the caller has no conversation', async () => {
-    // The WS handshake and a background run: the digest and the proposal
-    // decisions are exactly what they were before this block existed.
     vi.stubEnv('INTERNAL_API_TOKEN', REAL_TOKEN)
     vi.mocked(resolveProjectOrganization).mockResolvedValue(ORG_ID)
     vi.mocked(buildProjectMemoryDigest).mockResolvedValue(null)
@@ -252,13 +235,6 @@ describe('what a person decided about the drafts this conversation filed', () =>
   })
 })
 
-/**
- * ADR-0087, ADR-0088: restricted memory names its source folders and is judged
- * at read time. An interactive chat turn (one that sends the restricted
- * collections it may draw on) is served the notes whose folders its ASKER may
- * read now, each admitted for the conversation before it is printed; any other
- * caller only the notes whose folders every member may read now.
- */
 describe('restricted memory in the per-turn digest', () => {
   const DRAWABLE = 'proj_x_raaaaaaaaaaaa'
   const ANSWER_ID = '0b7c6d2e-5f1a-5c3b-9d4e-8f7a6b5c4d3e'
@@ -281,7 +257,6 @@ describe('restricted memory in the per-turn digest', () => {
     expect(response.status).toBe(200)
     expect(clearanceOfMember).toHaveBeenCalledWith(ORG_ID, 'user_gf', PROJECT_ID)
     expect(options().readableFolderIds).toEqual(['folder-open', 'folder-secret'])
-    // The answer the turn writes is marked in the admission's transaction (ADR-0093).
     expect(admitSourceFolders).toHaveBeenCalledWith(
       {
         organizationId: ORG_ID,
@@ -292,7 +267,6 @@ describe('restricted memory in the per-turn digest', () => {
       },
       ['folder-secret']
     )
-    // The agent counts the served folders as this turn's use.
     expect(await response.json()).toMatchObject({ restrictedFoldersServed: ['folder-secret'] })
   })
 

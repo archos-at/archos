@@ -10,7 +10,6 @@ export default async function NotFound() {
   const t = await getTranslations(errorsCopy)
   return (
     <StatusScreen
-      // A door that opens onto a room that was never built.
       art={<StatusDrawing kind="missing" className="w-72 sm:w-96" />}
       code={t('notFound.code')}
       title={t('notFound.title')}

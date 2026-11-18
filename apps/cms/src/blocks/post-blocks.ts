@@ -1,20 +1,7 @@
-/**
- * The blocks an editor inserts into a post's body (Lexical's BlocksFeature).
- * Each one is a component of the website's design system, with the component's
- * props as typed fields, so a block holds nothing the component cannot draw and
- * there is no block that takes raw HTML, MDX or script.
- *
- * Adding a block is one config here (or in `content-blocks.ts`), added to
- * `POST_BLOCKS` or `POST_INLINE_BLOCKS`, and one renderer entry on the website
- * (apps/cms/README.md, "Adding a block"). A block changes no table: the body is
- * one JSON column, so it needs no migration. The website's
- * `src/lib/rich-text.test.ts` fails a block slug that the website does not draw.
- */
 import type { Block, Field } from 'payload';
 import { CTA_TARGETS, options } from '../fields/choices';
 import { CONTENT_BLOCKS } from './content-blocks';
 
-/** The frame every figure sits in (apps/website/src/components/figures/FigureFrame.astro). */
 const FRAME: Field[] = [
   { name: 'alt', type: 'textarea', required: true, admin: { description: 'What the drawing shows, for screen readers. Required: the text in a drawing is not enough.' } },
   { name: 'kicker', type: 'text', admin: { description: 'Short tag above the figure, e.g. ABB. 01.' } },
@@ -24,7 +11,6 @@ const FRAME: Field[] = [
 
 const SIDES = options(['left', 'right']);
 
-/** apps/website/src/components/figures/IsoStackFigure.astro */
 export const IsoStackFigureBlock: Block = {
   slug: 'isoStackFigure',
   interfaceName: 'IsoStackFigureBlock',
@@ -59,7 +45,6 @@ export const IsoStackFigureBlock: Block = {
   ],
 };
 
-/** apps/website/src/components/figures/ScopeFigure.astro */
 export const ScopeFigureBlock: Block = {
   slug: 'scopeFigure',
   interfaceName: 'ScopeFigureBlock',
@@ -88,7 +73,6 @@ const labelPair = (name: string): Field[] => [
   { name: `${name}Sub`, type: 'text', required: true },
 ];
 
-/** apps/website/src/components/figures/HybridFigure.astro */
 export const HybridFigureBlock: Block = {
   slug: 'hybridFigure',
   interfaceName: 'HybridFigureBlock',
@@ -99,7 +83,6 @@ export const HybridFigureBlock: Block = {
   ],
 };
 
-/** apps/website/src/components/figures/LessonLoopFigure.astro */
 export const LessonLoopFigureBlock: Block = {
   slug: 'lessonLoopFigure',
   interfaceName: 'LessonLoopFigureBlock',
@@ -129,7 +112,6 @@ export const LessonLoopFigureBlock: Block = {
   ],
 };
 
-/** An image in the figures' frame, cut at its focal point by the CMS's sizes. */
 export const ImageBlock: Block = {
   slug: 'image',
   interfaceName: 'ImageBlock',
@@ -140,7 +122,6 @@ export const ImageBlock: Block = {
   ],
 };
 
-/** A product screenshot: the whole image, uncropped, with the figures' kicker and title. */
 export const ScreenshotBlock: Block = {
   slug: 'screenshot',
   interfaceName: 'ScreenshotBlock',
@@ -151,7 +132,6 @@ export const ScreenshotBlock: Block = {
   ],
 };
 
-/** apps/website/src/components/Gallery.astro: a carousel of images with a sentence each. */
 export const GalleryBlock: Block = {
   slug: 'gallery',
   interfaceName: 'GalleryBlock',
@@ -172,7 +152,6 @@ export const GalleryBlock: Block = {
   ],
 };
 
-/** apps/website/src/components/Callout.astro: a note set off from the text. */
 export const CalloutBlock: Block = {
   slug: 'callout',
   interfaceName: 'CalloutBlock',
@@ -183,7 +162,6 @@ export const CalloutBlock: Block = {
   ],
 };
 
-/** apps/website/src/components/Quote.astro */
 export const QuoteBlock: Block = {
   slug: 'quote',
   interfaceName: 'QuoteBlock',
@@ -196,7 +174,6 @@ export const QuoteBlock: Block = {
   ],
 };
 
-/** apps/website/src/components/CTABand.astro, pointing at pages of the site by route key. */
 export const CtaBlock: Block = {
   slug: 'cta',
   interfaceName: 'CtaBlock',
@@ -211,7 +188,6 @@ export const CtaBlock: Block = {
 
 export const CODE_LANGUAGES = ['text', 'bash', 'json', 'yaml', 'typescript', 'python', 'sql'] as const;
 
-/** Source code, shown as text: escaped, never run, never highlighted by a script. */
 export const CodeBlock: Block = {
   slug: 'code',
   interfaceName: 'CodeBlock',
@@ -221,7 +197,6 @@ export const CodeBlock: Block = {
   ],
 };
 
-/** Inline: an abbreviation with its expansion (`<abbr title>`), e.g. OIB. */
 export const AbbreviationInlineBlock: Block = {
   slug: 'abbreviation',
   interfaceName: 'AbbreviationInlineBlock',
@@ -241,7 +216,6 @@ export const POST_BLOCKS: Block[] = [
   QuoteBlock,
   CtaBlock,
   CodeBlock,
-  // Charts, key figures, before and after, annotated images, legal sources, Q&A, takeaways.
   ...CONTENT_BLOCKS,
 ];
 export const POST_INLINE_BLOCKS: Block[] = [AbbreviationInlineBlock];

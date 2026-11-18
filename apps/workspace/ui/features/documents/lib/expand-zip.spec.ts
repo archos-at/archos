@@ -9,7 +9,6 @@ import { isZipArchive, withZipAccepted } from './zip-types'
 
 const text = (value: string): Uint8Array => strToU8(value)
 
-/** A real archive, made the way a person's tool would. */
 const zipFile = (name: string, entries: Record<string, Uint8Array>): File =>
   new File([zipSync(entries) as BlobPart], name, { type: 'application/zip' })
 
@@ -125,7 +124,6 @@ describe('expandZips', () => {
 
     const { files } = await expandZips([zip])
 
-    // Not decided here: the validator that already reports a type by name does.
     expect(files.map((file) => file.name)).toEqual(['inner.zip', 'tool.exe'])
   })
 

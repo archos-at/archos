@@ -1,11 +1,8 @@
-"""A vision call the provider rate-limits, or holds for in-flight credits, waits and retries; the page is read."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import vision_calls
 
 
@@ -43,7 +40,7 @@ def slept(monkeypatch):
 
 
 def _caption(client) -> str:
-    return adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=100)
+    return vision_calls._vlm_chat_create(client, model="m", messages=[], max_tokens=100)
 
 
 def test_a_rate_limited_call_backs_off_and_succeeds(slept):
@@ -94,7 +91,6 @@ def test_every_attempt_holds_a_fleet_slot(slept, monkeypatch):
 
     _caption(client)
 
-    # Two attempts, each inside its own slot, the wait between them outside.
     assert held == ["in", "out", "in", "out"]
 
 
@@ -110,14 +106,11 @@ class PaymentRequired(Exception):
 
 
 class TestInFlightCredits:
-    """The provider's 402 for credits held by running requests clears by itself; an empty balance does not."""
-
     def test_an_in_flight_402_waits_and_the_page_is_read(self, slept):
         client = Client([PaymentRequired(), PaymentRequired()])
 
         assert _caption(client) == "Grundriss EG"
         assert client.calls == 3
-        # The transport already waited 1, 2, 4 s on the same 402; this picks up from there.
         assert slept == [4.0, 8.0]
 
     def test_the_waits_stop_at_the_budget(self, slept):
@@ -125,7 +118,6 @@ class TestInFlightCredits:
 
         with pytest.raises(PaymentRequired):
             _caption(client)
-        # 4 + 8 + 16 + 32 = 60: the last wait is cut to what the budget had left.
         assert slept == [4.0, 8.0, 16.0, 32.0]
         assert sum(slept) <= vision_calls.CREDIT_WAIT_BUDGET_SECONDS
         assert client.calls == 5
@@ -144,7 +136,6 @@ class TestInFlightCredits:
 
         with pytest.raises(PaymentRequired):
             _caption(client)
-        # 25 s, wait 4, 25 s more (54 spent): one last wait for the 6 s left, then 79 s spent and final.
         assert slept == [4.0, 6.0]
         assert client.calls == 3
 

@@ -4,18 +4,6 @@ import { useEffect, useState } from 'react'
 import { listAssignmentCandidates } from '@/lib/assignments/client'
 import type { DirectoryPerson } from '@/lib/sharing/types'
 
-/**
- * Who may be mentioned on a document's Anmerkungen: whoever may open it, the
- * same list the Zuständige picker reads (`listAssignmentCandidates`, by
- * permission and folder, never by role name). Asked for when an „@" is typed
- * (`attempt`, which the composer counts up on each new „@"), so a composer
- * nobody mentions from asks nothing.
- *
- * A failed read is `failed`, never an empty list: „nobody can be mentioned"
- * and „the list did not load" are different sentences, and the next „@" asks
- * again. A loaded list is kept for the document. The server decides again on
- * every write either way.
- */
 export function useMentionablePeople(
   documentId: string | null,
   attempt: number

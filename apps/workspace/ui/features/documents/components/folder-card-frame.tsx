@@ -3,17 +3,10 @@
 import type { JSX, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-/** The folder tile's glyph column: as tall as its two lines, so the glyph centres on them. */
 export const FOLDER_WELL = 'flex h-9 shrink-0 items-center'
 
-/** A folder tile's body: a white sheet with its edge and elevation 1, the documents' material (paper on a desk). */
 export const FOLDER_SHEET = 'rounded-surface bg-sheet shadow-sm'
 
-/**
- * The tile's open button, or a plain box with the same layout while the name is being edited. The sheet itself takes
- * the pointer's fill (`group-hover`, so it holds while the pointer is on the ⋯ beside it): a grey laid behind a white
- * sheet read as a second box around the folder (2026-11-11).
- */
 export function FolderCardFrame({
   editing,
   onOpen,

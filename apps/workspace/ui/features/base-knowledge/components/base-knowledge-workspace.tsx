@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * Grundlagen des Büros: the office's standards, commentaries and directives as
- * a place of their own (ADR-0163), built like the Dateien it sits beside: the
- * section header, the path row that drills into folders, folder tiles at each
- * level, one control row, and the list. No side panel: a standard opens as a
- * page in place of the list (`?entry=`), and the open folder is in the URL
- * (`?folder=`), so either can be sent to a colleague.
- *
- * What it adds over a file list is what an office standard needs: what needs a
- * person (proposals to confirm, checks due, copies whose text is not read) as
- * filters with their counts, a table that shows edition, status, text use and
- * last check, bulk actions over a selection, and an entry page that explains
- * each decision where it is made. A member without `org:office_shelf:manage`
- * reads all of it and changes nothing.
- */
-
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -51,7 +35,6 @@ import { Guide } from './guide'
 import { ShelfPickerDialog } from './shelf-picker-dialog'
 
 export interface BaseKnowledgeWorkspaceProps {
-  /** Controls after the header's own, such as the sheet's close. */
   trailingActions?: ReactNode
 }
 
@@ -60,11 +43,6 @@ const failure = (t: Translate, error: unknown) => (error instanceof Error && err
 
 type Place = { folderId?: string | null; entryId?: string | null; fileId?: string | null }
 
-/**
- * The folder, the standard open as its file (`?file=`) and the standard's own page (`?entry=`) live in the URL, so
- * the back button and a shared link land where the person was. A standard opens as its file; its page is where it
- * is managed.
- */
 function useLocation(): {
   folderId: string | null
   entryId: string | null
@@ -97,11 +75,6 @@ function useLocation(): {
   return { folderId, entryId, fileId, go, back }
 }
 
-/**
- * The open standard: from the page on screen, else read by id (a link sent by a
- * colleague). A read that fails says so and can be tried again, rather than
- * waiting on a skeleton for as long as the link stays open.
- */
 function useOpenEntry(
   entryId: string | null,
   entries: readonly BaseKnowledgeEntry[],
@@ -143,14 +116,10 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
   const openEntry = open.entry
   const viewed = useOpenEntry(location.fileId, entries)
 
-  // A standard whose file cannot be read: say so, and stay on the list.
   const { go, back } = location
-  // Closing the viewer undoes opening it: the person lands where they pressed (the list, a folder, a standard's
-  // page), and the browser's back does not open the file again. A file reached by a link has nowhere to go back to.
   const openedHere = useRef(false)
   const openFile = useCallback(
     (entryId: string) => {
-      // A file already on screen (or still loading) is replaced, never stacked: closing still leads back to where the first was opened.
       if (location.fileId) {
         go({ fileId: entryId }, { replace: true })
         return
@@ -171,18 +140,15 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
     go({ fileId: null }, { replace: true })
   }, [viewed.failed, go, t])
 
-  // A further page that did not load: the entries on screen stay, and the person is told.
   const hasList = list !== null
   useEffect(() => {
     if (state.failed && hasList) toast.error(t('loadMoreError'))
   }, [state.failed, hasList, t])
 
-  // The URL leads; the filters follow a back or forward step.
   useEffect(() => {
     if (location.folderId !== filters.folderId) setFilters({ folderId: location.folderId })
   }, [location.folderId, filters.folderId, setFilters])
 
-  /** The tree as Dateien draws it: the standards root is the top, so its children have no parent. */
   const tree: FolderItem[] = useMemo(
     () =>
       (folders?.folders ?? []).map((folder) => ({
@@ -223,8 +189,6 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
     await reload()
   }
 
-  // Adding a standard is filling in what it is: the file only starts it. What was just added opens as its
-  // form, one after another, and each confirmation leads to the next; what is left stays in the list to confirm.
   const [adding, setAdding] = useState<{ ids: string[]; total: number }>({ ids: [], total: 0 })
   const startAdding = (ids: string[]) => {
     setAdding({ ids, total: ids.length })
@@ -233,7 +197,6 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
   const addingStep = (entryId: string) =>
     adding.ids.includes(entryId) ? { position: adding.total - adding.ids.length + 1, count: adding.total } : undefined
 
-  // The files are the browser's own bytes, sent one after another into the open folder.
   const upload = async (files: File[]) => {
     setUploading(true)
     const added: string[] = []
@@ -303,7 +266,6 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
     if (!list || !folders) return <Skeleton className="h-64 w-full" />
     if (location.entryId) {
       if (open.failed) {
-        // The page that failed has no path row of its own: the way back to the list sits above the retry.
         return (
           <div className="flex flex-col gap-4">
             <BackControl label={t('detail.back')} onClick={() => location.go({ entryId: null })} className="self-start" testId="base-knowledge-back" />
@@ -325,7 +287,6 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           adding={addingStep(openEntry.id)}
           onChanged={(entry) => {
             open.set(entry)
-            // A new standard confirmed or removed: on to the next one just added, else back to the list.
             if (adding.ids.includes(openEntry.id) && (!entry || entry.status === 'confirmed')) {
               const rest = adding.ids.filter((id) => id !== openEntry.id)
               setAdding({ ids: rest, total: adding.total })

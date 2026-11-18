@@ -1,10 +1,3 @@
-"""The golden set scores as the door's golden run does, and sees what the old scorecard missed.
-
-``scripts/turn_census/golden_eval.py`` mirrors ``apps/workspace/bff/base-knowledge/golden/score.ts``.
-``tests/fixtures/golden/scoring_parity.json`` holds recorded answers of the before-baseline with the
-verdict both must give (``score.spec.ts`` writes it); a scorer that drifts from the other fails here.
-"""
-
 from __future__ import annotations
 
 import json

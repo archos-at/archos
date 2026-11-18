@@ -28,7 +28,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 
 vi.mock('server-only', () => ({}))
 
-/** What the stand-in upload was handed, in order. */
 const uploads = vi.hoisted(() => [] as Array<{ filename: string; folderId: string | null; text: string; batch: string | null }>)
 vi.mock('@/lib/documents/document-dispatch', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/documents/document-dispatch')>()
@@ -117,7 +116,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
   const renderTarget = () => ({ uploadBatchId: async () => null as unknown as string, counted: () => {}, deadline: Date.now() + 60_000 })
 
   let position = 0
-  /** An archived mail of the conversation `subject`, its Message-ID `id`, answering `answers`. */
   function archived(id: string, overrides: Partial<import('@/lib/mail-import/archive-client').ArchiveMail> = {}): import('@/lib/mail-import/archive-client').ArchiveMail {
     position += 1
     return {
@@ -149,7 +147,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
 
   const render = (holder?: string) => inTenant(() => archive.renderPendingThreads(filing(holder), renderTarget()))
 
-  /** A Verlauf of the project's address, with one inbound entry received as `messageId`, its document in `folderId`. */
   async function inboundThread(name: string, messageId: string, folderId: string | null = null): Promise<{ threadId: string; documentId: string }> {
     const { mailThreadEntries, mailThreads, mailThreadMessageIds } = await import('@/lib/db/schema')
     const { renderEntryOf } = await import('./append')
@@ -195,7 +192,7 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -229,7 +226,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
   })
 
   afterAll(async () => {
-    // The project cascades to every row this spec wrote; the purge path is the platform's.
     await withPlatformAccess('test cleanup', () => db.execute(sql`DELETE FROM projects WHERE organization_id = ${ORG}`))
   })
 
@@ -263,7 +259,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
       ],
     })
 
-    // Nothing is rendered while the slice files: the Verlauf owes one Fassung.
     expect(uploads).toHaveLength(0)
     const pending = await one<{ document_id: string | null; pending: boolean }>(
       sql`SELECT document_id, render_pending_at IS NOT NULL AS pending FROM mail_threads WHERE id = ${opened.threadId}::uuid`,
@@ -289,7 +284,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
     expect(firstVersions).toHaveLength(1)
     expect(firstVersions[0].v).not.toBeNull()
 
-    // D36: one row per attachment, whatever became of it.
     const attachments = await rows<{ position: number; disposition: string; reason: string | null; version: string | null; section: string | null }>(sql`
       SELECT a.position, a.disposition, a.not_filed_reason AS reason, a.document_version_id::text AS version, a.section_name AS section
         FROM mail_thread_entry_attachments a JOIN mail_thread_entries e ON e.id = a.entry_id
@@ -299,7 +293,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
       { position: 1, disposition: 'not_filed', reason: 'screened', version: null, section: null },
     ])
 
-    // The next slice: one more mail, one more Fassung, holding every section of the last byte for byte.
     const fourth = archived(`a4-${STAMP}`, { subject: 'AW: Stellplatznachweis', in_reply_to: `<a3-${STAMP}@ma37.wien.gv.at>` })
     expect(await append(fourth)).toMatchObject({ threadId: opened.threadId, threadCreated: false })
     await render()
@@ -309,7 +302,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
       expect(sections(uploads[1].text).map((s) => s.trimEnd())).toContain(section.trimEnd())
     }
     expect(await one<{ n: number }>(sql`SELECT count(*)::int AS n FROM document_versions WHERE document_id = (SELECT document_id FROM mail_threads WHERE id = ${opened.threadId}::uuid)`)).toEqual({ n: 2 })
-    // A slice with nothing new renders nothing.
     await render()
     expect(uploads).toHaveLength(2)
   })
@@ -335,7 +327,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
   it('makes an archive entry what an inbound mail of the same Message-ID is checked against (the other way)', async () => {
     await append(archived(`d3-${STAMP}`))
     const filed = await inTenant(() => inbound.findFiledMessages(projectId, `d3-${STAMP}@ma37.wien.gv.at`))
-    // `messageIdFlags` (receive-job.ts) flags such a mail `already_filed`: an archive entry is the same message.
     expect(filed).toEqual([expect.objectContaining({ source: 'archive' })])
   })
 
@@ -349,7 +340,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
     await render()
     expect(uploads.map((upload) => upload.filename)).toEqual([`Verlauf ${STAMP}.md`])
     expect(uploads[0].text.match(/^## /gm)).toHaveLength(3)
-    // A Verlauf that was there keeps its parties: who took part in unchecked mail widens no follow.
     expect(await one<{ domains: string[] }>(sql`SELECT participant_domains AS domains FROM mail_threads WHERE id = ${existing.threadId}::uuid`)).toEqual({
       domains: ['ma37.wien.gv.at'],
     })
@@ -365,7 +355,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
     expect(outcome.threadId).not.toBe(readOnly.threadId)
     expect(await one<{ n: number }>(sql`SELECT count(*)::int AS n FROM mail_thread_entries WHERE thread_id = ${readOnly.threadId}::uuid`)).toEqual({ n: 1 })
 
-    // Unreadable to the person (a binned document): the same.
     const binned = await inboundThread(`Binned ${STAMP}.md`, `w3-${STAMP}@ma37.wien.gv.at`)
     await rows(sql`UPDATE documents SET lifecycle = 'archived' WHERE id = ${binned.documentId}::uuid`)
     const another = archived(`w4-${STAMP}`, { subject: 'AW: Stellplatznachweis', in_reply_to: `<w3-${STAMP}@ma37.wien.gv.at>` })
@@ -377,7 +366,6 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
     const existing = await inboundThread(`Busy ${STAMP}.md`, `b1-${STAMP}@ma37.wien.gv.at`)
     const other = crypto.randomUUID()
     expect(await inTenant(() => write.acquireRenderLease(existing.threadId, other, new Date(Date.now() + 60_000)))).toBe(true)
-    // Real time: the wait is `RENDER_LEASE_RETRY_MS` (15 s) of polls, and the database client needs real timers.
     const started = Date.now()
     expect(await append(archived(`b2-${STAMP}`, { subject: 'AW: Stellplatznachweis', in_reply_to: `<b1-${STAMP}@ma37.wien.gv.at>` }))).toEqual({ kind: 'busy' })
     expect(Date.now() - started).toBeGreaterThanOrEqual(13_000)

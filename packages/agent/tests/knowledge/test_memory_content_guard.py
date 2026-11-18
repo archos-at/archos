@@ -1,5 +1,3 @@
-"""One personal-data guard on the path both memory writers share."""
-
 from __future__ import annotations
 
 import pytest

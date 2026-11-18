@@ -1,18 +1,3 @@
-/**
- * What one person may read, for one search (ADR-0136): computed once, from the
- * gates the listing already uses, and handed to every provider. No provider
- * asks a gate of its own, so the kinds cannot disagree about a project.
- *
- * - Projects: `listProjects` (`project:view`, a closed project as
- *   `requireProjectAccess` decides it), or `requireProjectAccess` for one.
- * - Folders: `getProjectFolderAccess`, the folders hidden from this person
- *   (restricted ones they are not cleared for, and every deleted one) and the
- *   restricted collections they may search (ADR-0087, ADR-0088).
- * - Held uploads: `shelfReaderFor` per shelf, folded into the `projects` reader
- *   the projects grid counts with (ADR-0086).
- * - The office shelf: every member reads it.
- */
-
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import 'server-only'
 import { and, eq, isNull, like, or } from 'drizzle-orm'
@@ -36,43 +21,27 @@ import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { inPool } from '@/lib/utils/in-pool'
 import type { SearchScope } from './search-wire'
 
-/** One project the person may read, with what they may read of it. */
 export interface ReachedProject {
   project: Project
   hiddenFolderIds: readonly string[]
-  /** The project's collection and every restricted one they are cleared for. */
   collections: readonly string[]
   reviewsQuarantine: boolean
 }
 
 export interface SearchReach {
   organizationId: string
-  /** The office's clock (`officeTimeZone`): which day an upload or a photo fell on. Europe/Vienna when absent. */
   timeZone?: string
   userId: string
   scope: SearchScope
   projects: readonly ReachedProject[]
-  /** The office shelf, when the scope covers it. */
   officeShelf: { collection: string; reviewsQuarantine: boolean } | null
-  /** With a folder scope: the folder and its subfolders. */
   folderIds: readonly string[] | null
-  /**
-   * Only documents whose screening passed (`SCREENED_ONLY`, ADR-0086): set for
-   * a conversation's audience that is more than its asker, where an upload held
-   * for the asker alone must not reach the other readers.
-   */
   screenedOnly?: boolean
-  /**
-   * The reach was cut to named projects (a `projectIds` filter): no office
-   * shelf, and no conversation outside those projects.
-   */
   narrowedToProjects?: boolean
 }
 
-/** Projects whose folder access is read at once. Each is a tenancy probe and a folder-tree read. */
 const PROJECTS_AT_ONCE = 8
 
-/** Resolve a scope query to a scope; a folder needs its shelf. */
 export function resolveScope(query: { scope?: 'office' | 'project' | 'office_shelf'; projectId?: string; folderId?: string }): SearchScope {
   if (query.projectId && (query.scope === undefined || query.scope === 'project')) {
     return { kind: 'project', projectId: query.projectId, ...(query.folderId ? { folderId: query.folderId } : {}) }
@@ -102,10 +71,6 @@ async function reachOfficeShelf(session: AuthorizedSession): Promise<NonNullable
   return { collection: officeShelfCollectionName(session.organizationId), reviewsQuarantine: reader.kind === 'reviewer' }
 }
 
-/**
- * A folder and its subfolders on `shelf`, refused like a folder that does not
- * exist when it is hidden from this person or on another shelf.
- */
 async function folderSubtree(
   organizationId: string,
   shelf: DocumentShelf,
@@ -137,7 +102,6 @@ async function folderSubtree(
   return rows.map((row) => row.id).filter((id) => !hidden.includes(id))
 }
 
-/** What `session` may read within `scope`. A project they may not view is a 403/404, as on the listing. */
 export async function reachFor(session: AuthorizedSession, scope: SearchScope): Promise<SearchReach> {
   const base = { organizationId: session.organizationId, userId: session.userId, scope, timeZone: await officeTimeZone(session.organizationId) }
   if (scope.kind === 'project') {
@@ -161,30 +125,12 @@ export async function reachFor(session: AuthorizedSession, scope: SearchScope): 
   return { ...base, projects, officeShelf, folderIds: null }
 }
 
-/**
- * What a conversation's whole audience may read, as the same {@link SearchReach}
- * (ADR-0094's `audienceReach`): for the agent tier's reads from a chat, so the
- * search and the folder tree share {@link reachWhere} rather than a second rule.
- *
- * - Projects: the audience's (`audienceReach`); a scoped project outside it is
- *   not found.
- * - Restricted folders: searched only in a chat that is the asker's alone
- *   (`restrictedFolders`); otherwise every folder not every member may read is
- *   hidden and only the project's own collection is named.
- * - Held uploads: the asker's own only in their solo chat; any other audience
- *   reads screened documents only.
- * - The office shelf: every member reads it.
- */
 export async function reachForAudience(
   session: AuthorizedSession,
   conversationId: string,
   scope: SearchScope,
   options: {
     includeOwnProject?: boolean
-    /**
-     * A listing (the agent's folder tree): restricted folders are left out even
-     * in the asker's own chat, where a search may still reach them.
-     */
     listing?: boolean
   } = {}
 ): Promise<SearchReach> {
@@ -229,12 +175,6 @@ export async function reachForAudience(
   return { ...base, projects, officeShelf: scope.kind === 'project' ? null : shelfOffice, folderIds }
 }
 
-/**
- * The reach cut to `projectIds`, for every kind at once: a `projectIds` filter
- * names the projects a search may say anything about, so the folders, projects,
- * conversations and annotations it finds come from those projects alone, and
- * the office shelf drops out. A project outside the reach stays out.
- */
 export function narrowReach(reach: SearchReach, projectIds: readonly string[]): SearchReach {
   const wanted = new Set(projectIds)
   return {
@@ -245,14 +185,6 @@ export function narrowReach(reach: SearchReach, projectIds: readonly string[]): 
   }
 }
 
-/**
- * The audience's projects with the conversation's own project added, when
- * asked (`includeOwnProject`): `audienceReach` answers which OTHER projects a
- * lookup may search, and a shared chat's own project is not among them, while
- * a reader of the conversation reads its project (the agent's `/project/`).
- * Asked of the asker's `project:view`, as every project read is; the folder
- * pruning of the audience applies to it like to the rest.
- */
 async function withOwnProject(
   session: AuthorizedSession,
   conversationId: string,
@@ -268,17 +200,14 @@ async function withOwnProject(
   return own ? { ...audience, projects: [own, ...audience.projects] } : audience
 }
 
-/** The shelves a reach covers, for the projection's staleness check. */
 export function reachShelves(reach: SearchReach): DocumentShelf[] {
   return [...reach.projects.map((reached) => projectShelf(reached.project.id)), ...(reach.officeShelf ? [OFFICE_SHELF] : [])]
 }
 
-/** The collections the content search may name, in the order the projects came. */
 export function reachCollections(reach: SearchReach): string[] {
   return [...reach.projects.flatMap((reached) => reached.collections), ...(reach.officeShelf ? [reach.officeShelf.collection] : [])]
 }
 
-/** The reader the documents predicate takes for this reach (`documentVisibleTo`). */
 export function reachReader(reach: SearchReach): DocumentReader {
   if (reach.screenedOnly) return SCREENED_ONLY
   return {

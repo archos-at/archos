@@ -1,12 +1,3 @@
-"""Memory reflection as a post-answer stage.
-
-The gate cases moved here verbatim from
-``packages/agent/tests/agents/piloti/test_register_helpers.py`` — the
-predicate is the same predicate, it just reads ``TurnFacts`` instead of the graph
-state now. The new cases are the two defects the migration closes: a hard
-timeout, and a gate that finally reads ``research_truncated``.
-"""
-
 import dataclasses
 from unittest.mock import patch
 
@@ -46,8 +37,6 @@ def _gate(**overrides):
     return MEMORY_REFLECTION.gate(_facts(**overrides))
 
 
-#: What `run_memory_reflection` reports it wrote — one row per project_memory
-#: insert, in write order, as the reader will see it.
 _WRITTEN = [
     {"id": "9d2f6b41", "kind": "constraint", "content": "Das Projekt liegt in Wien."},
     {"id": "1a7c9e02", "kind": "derived_fact", "content": "Das oberste Fluchtniveau beträgt 9,80 m."},
@@ -59,27 +48,15 @@ class TestDeclaration:
         assert get_stage("memory_reflection") is MEMORY_REFLECTION
 
     def test_it_declares_a_hard_timeout(self):
-        """The defect this migration closes: before, the only bound was the
-        provider's 120s x 2 retries, holding one of four concurrency slots."""
         assert MEMORY_REFLECTION.timeout_s == 45.0
 
     def test_it_delivers_a_frame_and_keeps_its_flag(self):
-        """Slice 4b: the DB write is still the durable act, and the turn that
-        caused it is now TOLD. That frame is the whole reason the per-answer
-        memory poll could be deleted rather than merely slowed down — with
-        `silent` there was no channel, so a browser had to guess when to ask.
-
-        The flag does not move: an operator who switches `memory-reflection` off
-        still switches off the writes AND the frame, which is what they mean.
-        """
         assert MEMORY_REFLECTION.delivery == "frame"
         assert MEMORY_REFLECTION.flag_slug == "memory-reflection"
 
 
 class TestFlagPlumbing:
     def test_the_legacy_boolean_still_switches_the_stage_on(self):
-        """One release of overlap: an older BFF sends only
-        `memoryReflectionEnabled`, and a mixed deployment must not go dark."""
         assert "memory_reflection" in legacy_enabled_stages(memory_reflection_enabled=True)
 
     def test_the_legacy_boolean_off_switches_it_off(self):
@@ -95,8 +72,6 @@ class TestGate:
         assert _gate().run is True
 
     def test_direct_reply_skipped(self):
-        """A greeting, a listing, an off-topic decline: the turn consulted
-        nothing and graded nothing, so there is nothing to remember."""
         decision = _gate(routing_decision="meta", answer="Hello! How can I help?")
         assert decision.run is False
         assert decision.reason == "routing_meta"
@@ -105,9 +80,6 @@ class TestGate:
         assert _gate(routing_decision="error", answer="Something went wrong.").reason == "routing_error"
 
     def test_an_unobserved_route_still_runs(self):
-        """``None`` is "not recorded", not "direct reply": a deep-research
-        answer delivered off the WebSocket path has no observation and must
-        not be filed as small talk."""
         assert _gate(routing_decision=None).run is True
 
     def test_insufficiency_answer_skipped(self):
@@ -123,15 +95,11 @@ class TestGate:
         assert _gate(answer="   ").reason == "empty_turn"
 
     def test_a_truncated_turn_is_not_reflected_on(self):
-        """`research_truncated` rides the wire but the old gate never read it, so
-        durable project memory was distilled out of evidence-gathering that had
-        been cut off at the tool-iteration ceiling."""
         decision = _gate(research_truncated=True)
         assert decision.run is False
         assert decision.reason == "research_truncated"
 
     def test_a_turn_that_only_commissioned_a_run_is_skipped(self):
-        # The run reflects on its own report, on the worker, once it exists.
         assert _gate(run_id="run_1").reason == "commissioned_run"
 
     def test_a_project_less_conversation_has_nothing_it_may_write(self):
@@ -155,13 +123,6 @@ class TestHandler:
 
     @pytest.mark.asyncio
     async def test_the_payload_carries_the_item_text_and_not_only_its_id(self):
-        """What the chip renders is the finding's own words.
-
-        A payload of ids would leave the browser holding a receipt for text it
-        cannot read, and the only way to read it would be the GET this slice
-        exists to delete — the poll would come back, wearing a frame as a
-        trigger. The writer had the words in hand; it sends them.
-        """
         with patch("agent.memory.reflection.run_memory_reflection", return_value=_WRITTEN):
             payload = await MEMORY_REFLECTION.handler(StageContext(facts=_facts(), llm=object()))
         items = MemoryReflectionPayload.model_validate(payload).items
@@ -182,9 +143,6 @@ class TestHandler:
 
 
 class TestMatchesEscalationKeywords:
-    """The insufficiency heuristic, read ONLY by this stage's gate: escalation
-    itself requires Piloti's explicit structured ask."""
-
     def test_english_phrase_hits(self):
         assert matches_escalation_keywords("Unfortunately I don't have enough information to answer.") is True
 
@@ -199,15 +157,11 @@ class TestMatchesEscalationKeywords:
         assert matches_escalation_keywords(content) is False
 
     def test_keyword_before_last_800_chars_no_hit(self):
-        # Keyword placed well before the last 800 characters is not matched.
         content = "unable to find" + ("x" * 900)
         assert matches_escalation_keywords(content) is False
 
 
 class TestRestrictedContent:
-    """ADR-0087: a turn that could read a restricted folder still reflects; what
-    it writes is restricted memory (``memory/restriction.py``)."""
-
     _EVIDENCE = RestrictionEvidence(scope=("proj_1_r0123456789ab",), read=("proj_1_r0123456789ab",))
 
     def test_a_restricted_turn_is_not_skipped(self):
@@ -230,8 +184,6 @@ class TestRestrictedContent:
 
 
 class TestTemporaryConversation:
-    """ADR-0180: a temporary conversation keeps nothing, and the skip says so by name."""
-
     def test_the_gate_declines_and_names_the_reason(self):
         decision = _gate(temporary=True)
         assert (decision.run, decision.reason) == (False, "temporary_conversation")
@@ -244,9 +196,6 @@ class TestTemporaryConversation:
 
 
 class TestPersonalNotes:
-    """ADR-0180: the frame is stored on the answer's message, which everyone the
-    conversation is shared with reads, so a personal note never rides it."""
-
     _ENVELOPE = SignedEnvelope(header="env-header", signature="env-signature")
     _PERSONAL = {"id": "n-1", "kind": "profile", "content": "Leitet die Einreichplanung.", "about": "person"}
     _PROJECT = {"id": "p-1", "kind": "constraint", "content": "Das Projekt liegt in Wien.", "about": "project"}
@@ -290,8 +239,6 @@ def _note(note_id: str = "n-1", **overrides) -> TurnMemoryNote:
 
 
 class TestInTurnNotes:
-    """What the ``remember`` tool wrote while answering is on the same frame (ADR-0180: every save on its answer)."""
-
     @pytest.mark.asyncio
     async def test_the_frame_lists_the_tools_notes_ahead_of_the_stages(self):
         facts = _facts(noted_this_turn=(_note("n-1"), _note("n-2", scope="organization", kind="preference")))
@@ -306,7 +253,6 @@ class TestInTurnNotes:
             "provenance": "agent",
         }
         assert items[1]["scope"] == "organization"
-        # The stage's own rows keep the shape they always had: no provenance key.
         assert "provenance" not in items[2]
 
     @pytest.mark.asyncio
@@ -326,7 +272,6 @@ class TestInTurnNotes:
         ]
 
     def test_a_turn_with_notes_gets_its_frame_where_reflection_is_declined(self):
-        """A direct reply, a short answer, a turn outside a project: the tool's notes still owe the answer a record."""
         for declined in ({"routing_decision": "meta"}, {"project_id": None}, {"research_truncated": True}):
             assert _gate(**declined).run is False
             assert _gate(**declined, noted_this_turn=(_note(),)).run is True
@@ -355,17 +300,13 @@ class TestInTurnNotes:
         assert len(payload["items"]) == MAX_NOTED_ITEMS
 
     def test_a_temporary_conversation_has_no_notes_and_no_frame(self):
-        """Nothing is kept from it (the tool answers without writing), so there is nothing to report."""
         decision = _gate(temporary=True)
         assert (decision.run, decision.reason) == (False, "temporary_conversation")
 
 
 class TestWhatThePassWrote:
-    """The stage reads each row's outcome from what the BFF answered, under a memory log of its own."""
-
     @staticmethod
     def _pass_that_writes(*answers):
-        """A reflection pass whose project writes the BFF answered with ``answers``, one per row."""
         from agent.knowledge import project_memory as pm
 
         async def run(**_kwargs):
@@ -411,7 +352,6 @@ class TestWhatThePassWrote:
                 "content": "OIB-RL 2.1 gilt.",
                 "supersedes": "OIB-RL 2.1 gilt nicht.",
             },
-            # A quote the BFF did not resolve retired nothing, and the frame does not claim it did.
             {"id": "r-2", "kind": "constraint", "content": "Die Statik ist freigegeben.", "restricted": True},
         ]
 

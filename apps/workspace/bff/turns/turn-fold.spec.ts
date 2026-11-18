@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The one fold (`docs/design/chat-wire-v2.md` §e.1), over every recorded turn in
- * `contracts/wire/v2/` and the synthetic cases the recordings do not hold.
- */
 import { describe, expect, it } from 'vitest'
 import type { WireEvent } from '@/adapters/api/wire-v2'
 import { WIRE_TURN_FILES, eventOf, frameOf, wireEvents } from '@/test-utils/wire-v2-fixtures'
@@ -76,7 +72,6 @@ describe('turn-answered', () => {
     ])
     const tool = view.steps['tool:call_7Qd2']
     expect(tool).toMatchObject({ kind: 'tool', tool: 'knowledge_search', isComplete: true, userMessageId: view.turnId })
-    // The row keeps the time it opened, not the time it finished.
     expect(tool.timestamp).toBe(new Date(events[4].ts).toISOString())
   })
 
@@ -200,9 +195,7 @@ describe('seq', () => {
     const view = fold(events.slice(0, 2))
     const gapped = foldTurnEvent(view, events[3])
     expect(gapped).toMatchObject({ gap: true, lastSeq: 2, text: 'Ja, ' })
-    // A second event past the gap changes nothing more.
     expect(foldTurnEvent(gapped, events[3])).toBe(gapped)
-    // attach{after_seq: 2} replays 3 and 4.
     const filled = foldTurnEvents(gapped, events.slice(2))
     expect(filled).toMatchObject({ gap: false, lastSeq: 4, text: 'Ja, ab drei Geschossen.' })
   })
@@ -280,8 +273,6 @@ describe('a skill row replaced by a later phase', () => {
   })
 })
 
-// L23: Stop pressed on this page marks the view cancelled before the server
-// has answered. What was on screen at the press is the answer.
 describe('after a Stop pressed on this page', () => {
   const stoppedHere = (): TurnView => ({
     ...fold([delta(1, 'Nach § 87 '), card(2, 0, 'k1')]),
@@ -322,9 +313,6 @@ describe('after a Stop pressed on this page', () => {
     const view = fold([delta(1, 'Nach § 87 '), finished(2, { text: 'Nach § 87 der Wiener Bauordnung …' }, 'cancelled')])
     expect(view.text).toBe('Nach § 87 der Wiener Bauordnung …')
   })
-  // The Stop crossed the server's finished answer: the server stored it
-  // whole, and the view is cut to what was on screen, by the rule the BFF
-  // cuts that row by (`stopped-answer.ts`).
   describe('when the terminal that comes back is not the cancelled one', () => {
     const settled = 'Die Höhe beträgt 3 m [1].\n\n[[card:1]]\n\nWeiter [2].'
     const answered = () =>
@@ -362,7 +350,6 @@ describe('after a Stop pressed on this page', () => {
       })
       expect(after.sources.map((source) => source.number)).toEqual([1, 2])
       expect(after.cards.map((kept) => kept?.key)).toEqual(['k1'])
-      // The live card object is kept, so its node is.
       expect(after.cards[0]).toBe(view.cards[0])
     })
 

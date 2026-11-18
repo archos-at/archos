@@ -3,8 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -19,7 +17,7 @@ import { POST } from './route'
 const REAL_TOKEN = 'a-real-secret-token'
 
 const makeRequest = (token?: string) =>
-  new Request('https://grid.test/api/internal/maintenance/reconcile-vectors', {
+  new Request('https://example.test/api/internal/maintenance/reconcile-vectors', {
     method: 'POST',
     headers: { ...(token ? { 'x-grid-internal-token': token } : {}) },
   })
@@ -45,8 +43,6 @@ describe('POST /api/internal/maintenance/reconcile-vectors', () => {
     const response = await POST(makeRequest(REAL_TOKEN))
 
     expect(response.status).toBe(200)
-    // The body IS the run's record: the CronJob's pod log captures it, and the
-    // failures are named there for the operator who reads that log.
     expect(await response.json()).toEqual(RESULT)
     expect(reconcileMock).toHaveBeenCalledTimes(1)
   })

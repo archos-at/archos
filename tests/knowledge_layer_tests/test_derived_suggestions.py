@@ -1,11 +1,3 @@
-"""Suggestions for documents ingested before the Fassung step existed, derived on read.
-
-A document with no stored suggestion still shows one in the collection listing when the title blocks
-(same ``document_number``, strictly later Index or date) or the revision grammar of the file names say it
-is the current member of a series. Nothing is stored, no model is called, a dismissed or linked pair is
-skipped, and a held or in-flight name is never named; when the job store cannot be read, nothing is.
-"""
-
 from __future__ import annotations
 
 import pytest

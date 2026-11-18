@@ -1,5 +1,3 @@
-"""The revision-compare card: what changed between two Fassungen of a document."""
-
 from typing import Annotated
 from typing import Any
 from typing import Literal
@@ -14,18 +12,17 @@ from agent.cards.look_card import UUID_PATTERN
 from agent.cards.look_card import Share
 from agent.cards.look_card import refuse_data_urls
 
-#: Changes one card carries: the comparison returns at most this many boxes.
 MAX_REVISION_CHANGES = 12
 
 
-#: Sentences one card carries: the comparison returns at most this many.
 MAX_REVISION_SUMMARY = 8
 
 
 class RevisionCompareChange(CardModel):
-    """One change, boxed on the page (the same frame on both Fassungen)."""
-
-    model_config = ConfigDict(regex_engine="python-re")
+    model_config = ConfigDict(
+        regex_engine="python-re",
+        json_schema_extra={"description": "One change, boxed on the page (the same frame on both Fassungen)."},
+    )
 
     region: list[Share] = Field(
         min_length=4,
@@ -43,14 +40,18 @@ class RevisionCompareChange(CardModel):
 
 
 class RevisionCompareCard(CardModel):
-    """The same page of an older and a newer Fassung, side by side, with the changes boxed on each.
-
-    System-emitted (``tools/workspace/cards.py``) from a ``document-revision-compare``
-    result; the model cannot emit it (``SYSTEM_CARD_TYPES``). The boxes were found
-    on the newer page and are drawn at the same place on the older one.
-    """
-
-    model_config = ConfigDict(regex_engine="python-re")
+    model_config = ConfigDict(
+        regex_engine="python-re",
+        json_schema_extra={
+            "description": (
+                "The same page of an older and a newer Fassung, side by side, with the changes boxed on each.\n"
+                "\n"
+                "System-emitted (``tools/workspace/cards.py``) from a ``document-revision-compare``\n"
+                "result; the model cannot emit it (``SYSTEM_CARD_TYPES``). The boxes were found\n"
+                "on the newer page and are drawn at the same place on the older one."
+            )
+        },
+    )
 
     type: Literal["revision_compare"] = "revision_compare"
     older_id: str = Field(pattern=UUID_PATTERN, description="The older Fassung's workspace document id")

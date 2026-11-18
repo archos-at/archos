@@ -2,23 +2,16 @@ import { sql } from 'drizzle-orm'
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 import type { KeptMove, NewFolderProposal, RootSortPlacement, RootSortRunStatus } from '@/lib/filing/root-sort-types'
 
-/** A document the run moved, and the folder it put it in: what an undo checks before it moves it back. */
 export interface RootSortMovedDocument {
   documentId: string
   folderId: string
 }
 
-/** A move the person kept that could not be applied, and why. */
 export interface RootSortMoveFailure {
   documentId: string
   error: string
 }
 
-/**
- * A person's run of sorting a shelf's root into its folders (ADR-0121), worked
- * by the BFF job `root_sort`. Migration 0173 holds the bounds and says why each
- * column exists.
- */
 export const rootSortRuns = pgTable(
   'root_sort_runs',
   {

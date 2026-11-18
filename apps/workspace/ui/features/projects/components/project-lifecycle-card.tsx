@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * The project's lifecycle on its Overview (ADR-0098), for whoever holds
- * `project:manage`: where it stands, what that means, and the moves it has.
- *
- *   Aktiv ⇄ Ruhend → Abgeschlossen → (wieder öffnen) Aktiv
- *
- * The track draws the three states with the current one marked, so the model
- * is visible rather than implied by whichever button happens to show. Below
- * it, one line on what the current state means, and the moves from it: pause
- * or close an active project, resume or close a paused one, reopen a closed
- * one. A closed project says how it ended and its Abschluss.
- *
- * The moves themselves, and their dialogs, are `useProjectLifecycle`, which the
- * hero's menu and the banner share.
- */
-
 import type { JSX } from 'react'
 import { Lock, LockOpen, PauseCircle, PlayCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -32,9 +16,7 @@ import { useProjectLifecycle } from '../lib/use-project-lifecycle'
 export interface ProjectLifecycleCardProps {
   projectId: string
   lifecycle: ProjectLifecycleView
-  /** The profile, for the closing debrief's fingerprint. */
   profile?: ProjectProfile | null
-  /** Whether the closer may confirm decisions and record a lesson in the debrief. */
   canWriteMemory?: boolean
 }
 
@@ -125,7 +107,6 @@ export function ProjectLifecycleCard({
   )
 }
 
-/** The three states in a row, the current one marked: the model, drawn. */
 function LifecycleTrack({ current }: { current: ProjectLifecycleView['status'] }): JSX.Element {
   const t = useTranslations(projectsCopy)
   return (

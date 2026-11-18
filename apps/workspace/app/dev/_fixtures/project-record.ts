@@ -1,10 +1,3 @@
-/**
- * A Steckbrief for the `/dev` previews, and the answers its routes give there:
- * two members (one already described), a former member, and an external
- * planner. Writes change the fixture, and a preview re-reads it with
- * `useDevProjectRecord`, so editing in the preview shows its result.
- */
-
 import { useSyncExternalStore } from 'react'
 import type { ProjectPersonView, ProjectRecordView } from '@/lib/projects/project-record-types'
 
@@ -58,7 +51,6 @@ const publish = (next: ProjectRecordView): void => {
   for (const listener of listeners) listener()
 }
 
-/** The fixture as it stands after the preview's edits. */
 export function useDevProjectRecord(): ProjectRecordView {
   return useSyncExternalStore(
     (listener) => {
@@ -74,7 +66,6 @@ type PersonBody = Pick<ProjectPersonView, 'name' | 'function' | 'company' | 'sta
 
 const orNull = (value: string | null): string | null => (value && value.trim().length > 0 ? value.trim() : null)
 
-/** The Steckbrief routes of `projectId`, answered from the fixture; null for any other URL. */
 export async function answerProjectRecord(projectId: string, url: string, init?: RequestInit): Promise<Response | null> {
   const base = `/api/projects/${projectId}`
   const method = init?.method ?? 'GET'

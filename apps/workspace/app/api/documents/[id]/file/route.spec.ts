@@ -4,7 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NextRequest } from 'next/server'
 
-// An open project: no folder of it is restricted (ADR-0087).
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({
@@ -31,8 +30,6 @@ vi.mock('@/lib/s3', () => ({
   bucketName: 'grid-documents',
 }))
 
-// The converter is `rendition.spec.ts`'s subject; here only its outcomes are
-// driven, with the real error classes.
 vi.mock('@/lib/documents/rendition', async (importOriginal) => {
   const { renditionModuleMock } = await import('@/test-utils/rendition-module')
   return renditionModuleMock(await importOriginal(), true)
@@ -43,11 +40,6 @@ import { getDb } from '@/lib/db'
 import { RenditionFailedError, ensureRendition, isRenditionEnabled } from '@/lib/documents/rendition'
 import type { getDb as getDbType } from '@/lib/db'
 
-/**
- * A drizzle query-builder stand-in: this route only walks
- * `select().from().where().limit()`, so the stub implements that chain and the
- * assertion stays confined here.
- */
 const asDb = (stub: Record<string, unknown>): ReturnType<typeof getDbType> =>
   stub as unknown as ReturnType<typeof getDbType>
 
@@ -68,10 +60,6 @@ const PDF_ROW = {
   filename: 'Einreichplan Ostfassade.pdf',
   organizationId: 'org-1',
   projectId: 'proj-1',
-  // NOT NULL with a 'project' default in the schema, so a row without it is a
-  // row the database cannot produce. The item routes authorize per SHELF now
-  // (ADR-0047 Phase 2) — an omitted scope is an unattributable document, and
-  // this fixture is meant to stand for an ordinary project upload.
   scope: 'project',
 }
 
@@ -99,16 +87,9 @@ describe('GET /api/documents/[id]/file', () => {
     expect(response.headers.get('Content-Disposition')).toBe(
       'inline; filename="Einreichplan Ostfassade.pdf"'
     )
-    // Tenant bytes must never reach a shared cache.
     expect(response.headers.get('Cache-Control')).toBe('private, max-age=300')
   })
 
-  /**
-   * This route exists so the viewer can FETCH a document same-origin; when
-   * pdf.js cannot run it degrades to a same-origin iframe on the same URL. The
-   * global next.config rule stamps `DENY` on every route, so without these the
-   * fallback renders as a blank frame.
-   */
   it('allows same-origin framing so the viewer fallback can render it', async () => {
     withRow(PDF_ROW)
     send.mockResolvedValue({ Body: { transformToWebStream: () => new ReadableStream() } })
@@ -126,7 +107,6 @@ describe('GET /api/documents/[id]/file', () => {
   it('is 404 when the row carries no stored object', async () => {
     withRow({ ...PDF_ROW, storageKey: null })
     expect((await call()).status).toBe(404)
-    // The object store must not even be consulted for a row with no key.
     expect(send).not.toHaveBeenCalled()
   })
 
@@ -142,13 +122,6 @@ describe('GET /api/documents/[id]/file', () => {
     expect(send).not.toHaveBeenCalled()
   })
 
-  /**
-   * The one that matters. `PREVIEW_CONTENT_TYPES` — the gate the presigned
-   * preview uses — admits `image/svg+xml`, and an SVG is a script carrier:
-   * served inline from THIS origin it would execute in the app's origin with
-   * the user's session. Widening this route back to that list is stored XSS,
-   * so the narrower gate is pinned here rather than left to a comment.
-   */
   it('refuses an SVG, which would otherwise run script in this origin', async () => {
     withRow({ ...PDF_ROW, contentType: 'image/svg+xml', filename: 'logo.svg' })
     expect((await call()).status).toBe(415)
@@ -168,11 +141,6 @@ describe('GET /api/documents/[id]/file', () => {
     expect(response.headers.get('Content-Disposition')).toBe('inline; filename="Geb_ude_plan.pdf"')
   })
 
-  /**
-   * An office document streams its PDF rendition, so pdf.js and the cited-
-   * passage highlight work on it as on any PDF (ADR-0070). What leaves this
-   * route is still only ever a PDF — the office bytes never do.
-   */
   describe('an office document', () => {
     const DOCX_ROW = {
       ...PDF_ROW,

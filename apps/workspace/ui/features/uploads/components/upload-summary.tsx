@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * What one upload brought in (ADR-0086; ticket „Übersicht"): the counts at a
- * glance, where it went, what kinds of documents arrived, what the office's
- * screening kept on the uploader's machine, and every file by folder with how
- * it ended.
- *
- * {@link UploadSummaryView} draws a summary it is handed, so the preview route
- * and the specs render the real thing; {@link UploadSummaryDialog} is the
- * route-backed modal an inbox row opens, which loads it and keeps it current
- * while Piloti is still reading.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import Link from 'next/link'
@@ -46,7 +34,6 @@ import {
 import { FolderHeading, NamedCount, TallyTile, useTallyLabel } from './upload-atoms'
 import { UploadedFileRow } from './uploaded-file-row'
 
-/** The summary's sections. Each opens with the design language's eyebrow. */
 function Section({ label, testId, children }: { label: string; testId: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3" aria-label={label} data-testid={testId}>
@@ -135,7 +122,6 @@ export function UploadSummaryView({ summary }: { summary: UploadSummary }): JSX.
   )
 }
 
-/** Where the upload went, when, and whether it is still moving: the dialog's description. */
 export function UploadSummaryMeta({
   summary,
   projectName,
@@ -194,7 +180,6 @@ function UploadSummarySkeleton(): JSX.Element {
   )
 }
 
-/** Whatever the summary's state calls for: the summary, its skeleton, the not-found answer, or a retry. */
 export function UploadSummaryBody({ state, retry }: { state: UploadSummaryState; retry: () => void }): JSX.Element {
   const t = useTranslations(uploadBatchesCopy)
   const tCommon = useTranslations(commonCopy)
@@ -228,10 +213,6 @@ export function UploadSummaryBody({ state, retry }: { state: UploadSummaryState;
   }
 }
 
-/**
- * The summary as a route-backed modal. `standalone` is the hard load of
- * `/app/uploads/<id>`; closing it then lands where the upload went.
- */
 export function UploadSummaryDialog({ batchId, standalone }: { batchId: string; standalone: boolean }): JSX.Element {
   const t = useTranslations(uploadBatchesCopy)
   const tCommon = useTranslations(commonCopy)

@@ -26,9 +26,7 @@ describe('RouteError', () => {
     render(<RouteError error={new Error('Not found')} reset={reset} />)
 
     expect(screen.getByText(/don.t have access to this/i)).toBeDefined()
-    // Always-offered retry per the fix, even on the access screen.
     expect(screen.getByRole('button', { name: /try again/i })).toBeDefined()
-    // The escape action must not point back at the page that just failed.
     const homeLink = screen.getByRole('link', { name: /go home/i })
     expect(homeLink.getAttribute('href')).toBe('/')
   })

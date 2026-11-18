@@ -1,18 +1,3 @@
-"""The sheet around a drawing: frame, title block, scale bar and north arrow (ADR-0152).
-
-Laid out the way a plotted sheet is, so the PDF reads as a drawing an office
-would hand on rather than a screenshot of one. The frame follows ISO 5457 (a
-20 mm filing margin on the left, 10 mm elsewhere). Along its foot runs one band
-of cells: the north arrow (for a georeferenced drawing only), the scale bar with
-the scale under it, the notes, and the title block proper, whose fields carry a
-small label above each value as a Schriftfeld does. On a narrow sheet the notes
-take a row of their own above the rest. Under the frame, in the margin, one quiet
-line names what made the sheet (``house_style``).
-
-Everything here is in millimetres on the page, drawn into one axes that spans
-it. Copy is German: this page is a document for the office.
-"""
-
 from __future__ import annotations
 
 import textwrap
@@ -42,14 +27,11 @@ NORTH_CELL_MM = 24.0
 SCALE_CELL_MM = 58.0
 TITLE_CELL_MM = 132.0
 
-#: The app icon's tile at the sheet's foot, and its corner (20/96 of the side, as the brand's icon).
 _ICON_MM = 3.4
 
 
 @dataclass(frozen=True)
 class SheetField:
-    """One labelled value in the title block, ``span`` columns wide out of three."""
-
     label: str
     value: str
     span: int = 1
@@ -57,19 +39,14 @@ class SheetField:
 
 @dataclass(frozen=True)
 class SheetFacts:
-    """What the title band says."""
-
     title: str
     subtitle: str
     first_row: list[SheetField]
     second_row: list[SheetField]
     notes: list[str] = field(default_factory=list)
     scale: int | None = None
-    #: Why there is no scale, when there is none.
     unscaled_reason: str = ""
-    #: Whether up is (grid) north, so the arrow may be drawn.
     north_up: bool = False
-    #: Set on a page with no drawing (the parcel list): shown where the scale bar would be.
     page_label: str = ""
 
 
@@ -79,8 +56,6 @@ def _mm(width_mm: float) -> float:
 
 @dataclass(frozen=True)
 class SheetPen:
-    """Writes on a page axes in millimetres, in the house type and ink."""
-
     axes: Axes
     style: HouseStyle
 
@@ -94,7 +69,6 @@ class SheetPen:
 
 
 def draw_sheet(figure: Figure, sheet: Sheet, facts: SheetFacts) -> None:
-    """Frame, title band and its cells, on top of the drawing."""
     width, height = sheet.page_mm
     axes = figure.add_axes((0.0, 0.0, 1.0, 1.0), zorder=10)
     axes.set_axis_off()
@@ -130,7 +104,6 @@ def draw_sheet(figure: Figure, sheet: Sheet, facts: SheetFacts) -> None:
 
 
 def _fit(text: str, width_mm: float, size_pt: float) -> str:
-    """Cut a line to what fits, by an average glyph width of half the size."""
     capacity = max(int(width_mm / (size_pt * 0.52 / _PT_PER_MM)), 4)
     return text if len(text) <= capacity else text[: capacity - 1].rstrip() + "…"
 
@@ -215,7 +188,6 @@ def _north_arrow(page: SheetPen, left: float, bottom: float, right: float, top: 
 
 
 def _maker(page: SheetPen, right: float, frame_bottom: float) -> None:
-    """„Erstellt mit …“ and the app icon, right-aligned in the margin under the frame."""
     name = page.style.product_name
     if not name:
         return

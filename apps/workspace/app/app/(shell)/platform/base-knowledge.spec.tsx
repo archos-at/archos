@@ -10,20 +10,10 @@ import { platform as dePlatform } from '@/i18n/dictionaries/de/platform'
 import { DOC_CLASS_LABELS } from '@/lib/knowledge/doc-class'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 
-/**
- * The manager was rebuilt on the shared admin primitives (SectionCard +
- * DataToolbar + Table + Sheet + Pagination). These tests pin the CAPABILITIES,
- * not the old layout: every edit a row used to carry inline is still reachable
- * (now from the detail sheet or as a bulk action), and the list survives more
- * documents than fit on one screen.
- */
-
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }))
 
-// The in-app PDF viewer pulls in an iframe/dialog we don't exercise here.
-// The dropzone is `useFileDragDrop`'s, which reads the app's upload config.
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     fileUpload: {
@@ -83,7 +73,6 @@ const STATUS: KnowledgeBaseStatus = {
   ],
 }
 
-/** 14 documents — more than the page size, so the pager has something to do. */
 const MANY: KnowledgeBaseStatus = {
   ...STATUS,
   summary: { ...STATUS.summary, totalFiles: 14, ingested: 14, totalChunks: 56 },
@@ -99,13 +88,11 @@ function jsonResponse(body: unknown, ok = true, statusCode = 200) {
   return { ok, status: statusCode, json: async () => body } as Response
 }
 
-/** Open a row's detail sheet — where rename / reclassify / view / delete live now. */
 async function openDetail(user: ReturnType<typeof userEvent.setup>, name: string) {
   await user.click(await screen.findByRole('button', { name: `Open details for ${name}` }))
   return screen.getByTestId('knowledge-detail')
 }
 
-/** Open the overflow menu and pick an entry. */
 async function pickMenu(user: ReturnType<typeof userEvent.setup>, name: RegExp) {
   await user.click(screen.getByRole('button', { name: 'More actions' }))
   await user.click(await screen.findByRole('menuitem', { name }))
@@ -131,7 +118,6 @@ describe('BaseKnowledge', () => {
   })
 
   test('groups the files by the country of the record that names each, with its edition and change request', async () => {
-    // The owner's complaint: an Austrian guideline looked like part of a shared, country-less pile.
     const placement = (corpusFile: string, countryId: string, released: boolean) => ({
       corpusFile,
       countryId,
@@ -158,7 +144,6 @@ describe('BaseKnowledge', () => {
       'Germany',
       expect.stringContaining('Assigned to no country'),
     ])
-    // Each group opens above its own files, in table order.
     const rows = screen.getAllByRole('row').map((row) => row.textContent ?? '')
     const at = (text: string) => rows.findIndex((row) => row.includes(text))
     expect(at('Austria')).toBeLessThan(at('oib-richtlinie-2.pdf'))
@@ -174,7 +159,6 @@ describe('BaseKnowledge', () => {
       '/app/platform/countries?request=0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e'
     )
     expect(within(screen.getAllByRole('row')[at('oenorm-b-1600.pdf')]!).getByTestId('corpus-placement')).toHaveTextContent('not released yet')
-    // A file no record names carries no placement; its group says so.
     expect(within(screen.getAllByRole('row')[at('sonstiges-notiz.pdf')]!).queryByTestId('corpus-placement')).toBeNull()
   })
 
@@ -183,8 +167,6 @@ describe('BaseKnowledge', () => {
 
     render(<BaseKnowledge />)
 
-    // The corpus summary — documents / indexed / pending / chunks — was
-    // invisible before the rebuild.
     const summary = await screen.findByTestId('knowledge-summary')
     expect(within(summary).getByText('Documents')).toBeInTheDocument()
     expect(within(summary).getByText('Sections')).toBeInTheDocument()
@@ -194,7 +176,6 @@ describe('BaseKnowledge', () => {
     expect(screen.getByText('oib-richtlinie-2.pdf')).toBeInTheDocument()
     expect(screen.getByText('oenorm-b-1600.pdf')).toBeInTheDocument()
     expect(screen.getByText('sonstiges-notiz.pdf')).toBeInTheDocument()
-    // The Dokumentart label surfaces per row, translated (it used to be German in every locale).
     expect(screen.getAllByText(/^OIB directive$/).length).toBeGreaterThan(0)
     expect(screen.queryByText(/^OIB-Richtlinie$/)).not.toBeInTheDocument()
   })
@@ -237,7 +218,6 @@ describe('BaseKnowledge', () => {
     render(<BaseKnowledge />)
     const sheet = await openDetail(user, 'oenorm-b-1600.pdf')
 
-    // The sheet's dropdown is pre-filled with the current class label.
     const trigger = within(sheet).getByRole('combobox', {
       name: /Document type for oenorm-b-1600\.pdf/i,
     })
@@ -283,7 +263,6 @@ describe('BaseKnowledge', () => {
     render(<BaseKnowledge />)
     const sheet = await openDetail(user, 'BO_Wien_konsolidiert.pdf')
 
-    // Offered beside the picker, never applied: the picker still shows the stored class.
     expect(within(sheet).getByText('Read from the text: Law / building code')).toBeInTheDocument()
     expect(
       within(sheet).getByRole('combobox', { name: /Document type for BO_Wien/i })
@@ -365,8 +344,6 @@ describe('BaseKnowledge', () => {
   })
 
   test('reads the whole corpus from the platform route, never from the office listing', async () => {
-    // The office listing holds only what is released to the operator's own office (ADR-0173);
-    // the page manages every file, released or not.
     const fetchSpy = vi.fn((_url: string, _init?: RequestInit) => Promise.resolve(jsonResponse(STATUS)))
     vi.stubGlobal('fetch', fetchSpy as unknown as typeof fetch)
 
@@ -393,7 +370,6 @@ describe('BaseKnowledge', () => {
 
     await pickMenu(user, /Sync corpus/)
 
-    // Sync costs model calls on every new PDF, so it asks first and says so.
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('Sync the corpus?')
     expect(dialog).toHaveTextContent(/costs model calls/)
@@ -423,7 +399,6 @@ describe('BaseKnowledge', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Select oib-richtlinie-2.pdf' }))
     await user.click(screen.getByRole('checkbox', { name: 'Select oenorm-b-1600.pdf' }))
 
-    // The toolbar swaps to the selection bar.
     const selectionBar = await screen.findByTestId('data-toolbar-selection')
     expect(selectionBar).toHaveTextContent('2 selected')
 
@@ -446,9 +421,6 @@ describe('BaseKnowledge', () => {
   })
 
   test('re-indexing sends exactly the selected documents in one request', async () => {
-    // Sync is incremental and gates on each PDF's sha256, so it does nothing for an
-    // unchanged file. This is the control for rebuilding chunks after a change to how
-    // they are BUILT, and it must not touch documents the admin did not select.
     const fetchSpy = vi.fn((url: string, _init?: RequestInit) => {
       if (url.includes('/reingest')) {
         return Promise.resolve(
@@ -472,7 +444,6 @@ describe('BaseKnowledge', () => {
     const selectionBar = await screen.findByTestId('data-toolbar-selection')
     await user.click(within(selectionBar).getByRole('button', { name: /Re-index/i }))
 
-    // Re-indexing re-runs OCR, captioning and embedding: confirm, with the scope named.
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent('Re-index 1 document?')
     expect(within(dialog).getByTestId('confirm-name-list')).toHaveTextContent(
@@ -516,7 +487,6 @@ describe('BaseKnowledge', () => {
     await user.click(await screen.findByTestId('knowledge-reingest-confirm'))
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
 
-    // The selection survives, because nothing was started and the admin may want to retry.
     await waitFor(() => {
       expect(screen.getByTestId('data-toolbar-selection')).toHaveTextContent('1 selected')
     })
@@ -529,7 +499,6 @@ describe('BaseKnowledge', () => {
     render(<BaseKnowledge />)
     await screen.findByText('base-01.pdf')
 
-    // Page one holds ten of the fourteen documents.
     expect(screen.getByText('1–10 of 14')).toBeInTheDocument()
     expect(screen.queryByText('base-14.pdf')).not.toBeInTheDocument()
 
@@ -547,7 +516,6 @@ describe('BaseKnowledge', () => {
     render(<BaseKnowledge />)
     await screen.findByText('base-01.pdf')
 
-    // First click sorts ascending by name, second descending.
     const header = screen.getByRole('button', { name: 'Sort by Document' })
     await user.click(header)
     await user.click(header)
@@ -575,14 +543,10 @@ describe('BaseKnowledge', () => {
   })
 
   test('the German document-type labels equal the backend vocabulary', () => {
-    // The UI reads the dictionary, the parity test pins DOC_CLASS_LABELS to the
-    // Python file; this keeps the two German spellings from drifting apart.
     expect(dePlatform.knowledge.docClasses).toEqual(DOC_CLASS_LABELS)
   })
 
   test('a failed refresh keeps the loaded table and says so in a toast', async () => {
-    // Regression: any failed load set the status to null, so a transient error
-    // after a reclassify replaced the whole table with an error card.
     let loads = 0
     const fetchSpy = vi.fn((url: string, init?: RequestInit) => {
       if (init?.method === 'PATCH') return Promise.resolve(jsonResponse({ ok: true }))
@@ -606,7 +570,6 @@ describe('BaseKnowledge', () => {
       )
     )
     expect(screen.queryByText('The knowledge base could not be loaded.')).not.toBeInTheDocument()
-    // `hidden`: the open sheet aria-hides the page; the row is still rendered behind it.
     expect(
       screen.getByRole('button', { name: 'Open details for oib-richtlinie-2.pdf', hidden: true })
     ).toBeInTheDocument()

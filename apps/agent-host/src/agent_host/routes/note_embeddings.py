@@ -1,31 +1,3 @@
-"""Embeddings for SHORT NOTES — memory items and platform lessons.
-
-The knowledge layer embeds documents; nothing embedded the other half of the
-system's knowledge, so both note stores deduplicated and recalled lexically:
-project memory by a 200-row Jaccard scan (memory-system-audit-2026-07 F2/F3)
-and the lesson register by a rank-ordered window. Neither survives paraphrase —
-"der Bauherr wünscht ein Flachdach" and "Flachdach ist gewünscht" score 0.0 —
-which is exactly the case both stores exist to collapse.
-
-This route is the seam that fixes it: the BFF owns the notes (single writer,
-tenancy, RLS) and calls here for vectors, which it stores ALONGSIDE the row.
-There is no second index and no sync job, deliberately — see
-docs/architecture/semantic-notes.md. What the backend contributes is the one
-thing it owns: the embedding model, resolved through exactly the same
-env/credential chain the document pipeline uses, so notes and documents are
-embedded by the same model or not at all.
-
-**The fingerprint is the load-bearing return value.** A vector is only
-comparable to vectors from the same model, and a model swap is a config change
-away. Every response carries ``fingerprint``; the caller stores it next to the
-vector and treats a mismatch as "not embedded yet" rather than comparing across
-models — the same rule ``qdrant.schema.identity_mismatch`` enforces for the
-vector store's collections, applied to a column.
-
-Never raises and never answers non-200: an unavailable embedder degrades both
-callers to their lexical path, which is worse but correct.
-"""
-
 import logging
 
 from fastapi import APIRouter
@@ -37,8 +9,6 @@ from .internal_auth import _require_internal_token
 
 logger = logging.getLogger(__name__)
 
-#: Bounds re-applied here; a route that trusts its caller's bounds is one
-#: refactor away from embedding a transcript.
 _MAX_TEXTS = 64
 _MAX_TEXT_CHARS = 2000
 
@@ -49,7 +19,6 @@ def _clip(value: str) -> str:
 
 
 def add_note_embedding_routes(router: APIRouter) -> None:
-    """Register the note-embedding endpoint."""
 
     @router.post(
         "/v1/note-embeddings",
@@ -63,7 +32,6 @@ def add_note_embedding_routes(router: APIRouter) -> None:
         ),
     )
     async def note_embeddings(request: NoteEmbeddingRequest, http_request: Request) -> NoteEmbeddingResponse:
-        """Embed up to 64 short texts, or say why it could not be done."""
         _require_internal_token(http_request)
 
         texts = [_clip(text) for text in request.texts[:_MAX_TEXTS] if text and text.strip()]
@@ -87,8 +55,6 @@ def add_note_embedding_routes(router: APIRouter) -> None:
             from knowledge_layer.embedding import make_embed_model
 
             embedder = make_embed_model(base_url=base_url, model=model, api_key=api_key)
-            # Synchronous HTTP inside; keep it off the event loop like the
-            # retriever's own embed call does.
             vectors = await asyncio.to_thread(embedder.get_text_embedding_batch, texts)
         except ImportError:
             logger.warning("Embedding dependencies unavailable; notes stay on the lexical path")

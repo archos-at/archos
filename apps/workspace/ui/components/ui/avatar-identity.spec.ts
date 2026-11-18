@@ -15,7 +15,6 @@ import {
   personInitials,
 } from './avatar-identity'
 
-/** The relative luminance of an `oklch(L C h)` colour, through OKLab to linear sRGB (clipped to the gamut). */
 function luminanceOf(oklch: string): number {
   const [L, C, h] = (/oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)/.exec(oklch) ?? []).slice(1).map(Number)
   const a = C * Math.cos((h * Math.PI) / 180)
@@ -31,7 +30,6 @@ function luminanceOf(oklch: string): number {
   return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
 }
 
-/** The relative luminance of a `#rrggbb` colour. */
 function luminanceOfHex(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16) / 255)
   const linear = [r, g, b].map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
@@ -40,7 +38,6 @@ function luminanceOfHex(hex: string): number {
 
 const luminance = (colour: string): number => (colour.startsWith('#') ? luminanceOfHex(colour) : luminanceOf(colour))
 
-/** WCAG contrast between two colours (`oklch()` or `#rrggbb`), or of white text on one. */
 const contrast = (a: string, b: string): number => {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number]
   return (hi + 0.05) / (lo + 0.05)
@@ -51,11 +48,6 @@ const read = (path: string): string => readFileSync(fileURLToPath(new URL(path, 
 const themeBlock = (css: string, theme: 'light' | 'dark'): string =>
   theme === 'dark' ? css.slice(css.indexOf('.dark')) : css
 
-/**
- * `--background` as `styles/tokens.css` sets it, in the light theme (`:root`) or the dark one
- * (`.dark`), followed into the brand package's `--ds-*` vars when it names one (its dist/ copy,
- * which `sync.mjs --check` holds identical to the one the app imports).
- */
 function backgroundToken(theme: 'light' | 'dark'): string {
   const value = /--background:\s*([^;]+);/.exec(themeBlock(read('../../styles/tokens.css'), theme))?.[1].trim()
   const brand = value && /^var\(--(ds-[a-z-]+)\)$/.exec(value)?.[1]
@@ -66,13 +58,11 @@ function backgroundToken(theme: 'light' | 'dark'): string {
   return resolved
 }
 
-/** One user id per hue of the ring. */
 const idOnHue = (hue: number): string =>
   [...Array(500).keys()].map((index) => `user-${index}`).find((candidate) => avatarHue(candidate) === hue) ?? ''
 
 describe('identityInk', () => {
   test('carries white text at 4.5:1 or more on every hue of the ring', () => {
-    // A name tag, a cursor chat and a filled pin are white words on this ink.
     for (const hue of AVATAR_HUES) {
       const id = idOnHue(hue)
       expect(id, `a user id on hue ${hue}`).not.toBe('')
@@ -104,9 +94,6 @@ describe('avatarHue', () => {
   })
 
   test('different people generally get different colours', () => {
-    // Not a promise of uniqueness (10 hues, so collisions exist by design) but
-    // the hash must actually spread: a naive char-code sum collapses ids like
-    // these onto one bucket.
     const hues = new Set(
       ['u-anna', 'u-markus', 'u-sabine', 'u-klaus', 'u-matthias', 'u-eva'].map(avatarHue),
     )
@@ -162,7 +149,7 @@ describe('personInitials', () => {
   })
 
   test('handles a single name', () => {
-    expect(personInitials('Piloti')).toBe('P')
+    expect(personInitials('Paula')).toBe('P')
   })
 
   test('collapses extra whitespace', () => {

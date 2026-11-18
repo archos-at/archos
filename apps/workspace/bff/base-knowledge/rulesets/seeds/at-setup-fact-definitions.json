@@ -77,7 +77,8 @@
         "outside": {
           "token": "outside_austria",
           "label": "Außerhalb Österreichs"
-        }
+        },
+        "assumedWhenUnstated": "vienna"
       },
       "facts": [
         {

@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * The E-Mail-Eingang's header actions: „Adresse kopieren“ and „Mehr zur Adresse“.
- *
- * The first thing a person comes here for, after the mail, is the address to
- * put in Cc, and what they need of it here is the copy, not the 45 characters:
- * shown whole in monospace it was the loudest thing in the header, cut in the
- * middle it lost the part that says whose it is. So the header copies it with a
- * press that says so; the address itself is read in „Mehr zur Adresse“ (the
- * dialog: what it is for, the contact card, the size limit) and in the
- * never-used empty state. Without an address, a manager reads „Adresse
- * erzeugen“; a member reads nothing here, the empty list says whom to ask.
- */
-
 import type { JSX } from 'react'
 import { Check, Copy, Info, MailPlus, MoreHorizontal } from 'lucide-react'
 import { ActionMenu } from '@/components/ui/action-menu'
@@ -31,7 +18,6 @@ export function InboundMailHeaderActions({
 }: {
   state: AddressState
   onOpenAddress: () => void
-  /** A phone: the two presses behind one ⋯ at the end of the tabs' line, so the first mail starts under the tabs. */
   compact?: boolean
 }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
@@ -69,13 +55,11 @@ export function InboundMailHeaderActions({
       )
     }
     return (
-      // Two tonal presses 12px apart: each does something (copies, opens the address), so each looks pressable.
       <div className="flex min-w-0 items-center gap-3" data-testid="inbound-mail-header-address">
         <Button
           type="button"
           size="sm"
           variant="secondary"
-          // Tonal at every width: the one press of this tab's tools looks the same on a desk and a phone.
           onClick={copy}
           data-testid="inbound-mail-address-copy"
         >

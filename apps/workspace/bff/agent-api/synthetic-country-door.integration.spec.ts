@@ -55,7 +55,6 @@ const url = process.env.TEST_DATABASE_URL
 const RUN = Date.now().toString(36)
 const BACKEND = 'http://localhost:8000'
 
-/** The synthetic country. Its source key is per run, so a rerun on the same database starts clean. */
 const COUNTRY = 'XA'
 const SOURCE = `xa-gazette-${RUN}`
 const HOST = 'gazette.xa.example'
@@ -68,7 +67,6 @@ const ISO_LIST = 'XA Republic of Xanadu (a user-assigned code, for testing)'
 
 const sha = (text: string) => createHash('sha256').update(text).digest('hex')
 
-/** The source record as an operator's agent proposes it. */
 const sourceRecord = (captureId: string, overrides: Record<string, unknown> = {}) => ({
   type: 'source',
   key: SOURCE,
@@ -93,7 +91,6 @@ const sourceRecord = (captureId: string, overrides: Record<string, unknown> = {}
     },
   ],
   citations: [{ captureId, quote: 'the gazette is published under an open licence' }],
-  // How a law lookup reads the gazette: Xanadu's own words, as data (country-as-data plan, step 4).
   lookup: {
     language: 'en',
     locus: { units: [{ sign: '§', forms: ['§'], repeatable: true, word: false }], subsection: ['para'], conjunctions: ['and'], range_words: ['to'] },
@@ -123,14 +120,11 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
   const counsel = platformOperator(session(`user_xa_counsel_${RUN}`, [...MANAGE, 'platform:knowledge:approve_as_counsel']))
   const { door, ok } = doorScript(() => handler)
 
-  /** What the api tier was asked, so a test can say what left this tier. */
   const asked: { path: string; body: Record<string, unknown> }[] = []
-  /** What the source serves now; a test moves it to make the monitor see a change. */
   let served = PAGE_V1
   let checkerDown = false
   let builtInDown = false
 
-  /** The api tier's public-source routes, answered as `packages/public-sources` answers them. */
   function stubPublicSources() {
     vi.stubGlobal('fetch', async (target: string | URL | Request, init?: RequestInit) => {
       const address = typeof target === 'string' ? target : target instanceof URL ? target.href : target.url
@@ -141,7 +135,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
       const config = body.config as { hosts?: string[]; fixtures?: { responses: Record<string, unknown> }[] } | undefined
       if (path === '/v1/public-sources/check') {
         if (checkerDown) return new Response('down', { status: 503 })
-        // As the package checks it: every URL a fixture records is on the record's hosts.
         const off = (config?.fixtures ?? []).flatMap((fixture) => Object.keys(fixture.responses)).filter((u) => !config?.hosts?.includes(new URL(u).hostname))
         return Response.json({
           valid: off.length === 0,
@@ -151,7 +144,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
       }
       if (path === '/v1/public-sources/capture') {
         const page = String(body.url)
-        // A configured source's hosts travel with it; a source the api tier does not know by id is a 404.
         if (!config) return Response.json({ detail: `no source ${String(body.source)}` }, { status: 404 })
         if (!config.hosts?.includes(new URL(page).hostname)) return Response.json({ detail: 'not on a host' }, { status: 403 })
         const text = page === TERMS_URL ? TERMS : served
@@ -159,7 +151,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
       }
       if (path === '/v1/public-sources/built-in') {
         if (builtInDown) return Response.json({ detail: 'broken' }, { status: 500 })
-        // The repository's own sources, as the api tier lists them (one, abridged).
         return Response.json({
           sources: [
             {
@@ -199,7 +190,7 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
 
   beforeAll(async () => {
     Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     vi.stubEnv('INTERNAL_API_TOKEN', 'a-real-internal-token-for-the-synthetic-spec')
     vi.stubEnv('BACKEND_URL', BACKEND)
     vi.stubEnv('BYOK_SECRET_BACKEND', 'local-aes-gcm')
@@ -243,7 +234,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
       body: { format: 'iso3166', captureId: captures.get('iso'), rows: [{ code: COUNTRY, name: 'Republic of Xanadu' }] },
     })
 
-    // KC-7: a fixture that records a URL off the source's hosts.
     const offHost = sourceRecord(captures.get('terms')!, {
       fixtures: [{ name: 'code', operation: 'document', args: { id: 'code' }, responses: { 'https://elsewhere.example/x': { contentType: 'text/html', body: 'x' } }, expect: {} }],
     })
@@ -251,20 +241,17 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     expect(dry.valid).toBe(false)
     expect((dry.results as { problems: { code: string; pointer: string }[] }[])[0]?.problems).toEqual([expect.objectContaining({ code: 'KC-7', pointer: '/fixtures/0' })])
 
-    // A licensed source is no record: its fixtures and captures would keep licensed text (ADR-0164).
     const licensed = await door(author, 'platform-knowledge-records-propose', {
       params: { changeRequestId: requestId },
       body: { dryRun: true, records: [sourceRecord(captures.get('terms')!, { terms: { url: TERMS_URL, licence: 'licensed', checked: '2026-11-01' } })] },
     })
     expect(licensed.problem).toMatchObject({ status: 400 })
 
-    // Unknown fails closed: with the checker down, the source is a problem, never a pass.
     checkerDown = true
     const unchecked = await ok(author, 'platform-knowledge-records-propose', { params: { changeRequestId: requestId }, body: { dryRun: true, records: [sourceRecord(captures.get('terms')!)] } })
     checkerDown = false
     expect(unchecked.valid).toBe(false)
 
-    // Positive control: the repaired record is written.
     const written = await ok(author, 'platform-knowledge-records-propose', { params: { changeRequestId: requestId }, body: { records: [sourceRecord(captures.get('terms')!)] } })
     expect((written.results as { status: string }[])[0]?.status).toBe('written')
   })
@@ -273,11 +260,9 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     const own = await ok(author, 'platform-knowledge-source-test', { params: { sourceKey: SOURCE }, body: { changeRequestId: requestId } })
     expect(own).toMatchObject({ state: 'testing', hosts: [HOST], fixtures: { valid: true } })
 
-    // No egress to an unregistered host: unpublished, so not usable without its request.
     const published = await door(author, 'platform-knowledge-source-test', { params: { sourceKey: SOURCE }, body: {} })
     expect(published.problem).toMatchObject({ status: 404 })
 
-    // Another request cannot fetch through this draft's hosts.
     const other = await ok(author, 'platform-knowledge-change-request-create', { body: { title: 'Another draft', countryId: COUNTRY } })
     asked.length = 0
     const elsewhere = await door(author, 'platform-knowledge-citation-capture', {
@@ -287,7 +272,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     expect(elsewhere.ok).toBe(false)
     expect(asked.every((call) => call.body.config === undefined)).toBe(true)
 
-    // Positive control: its own request fetches the page through the source's configuration.
     const page = await capture(author, 'code', { basis: 'fetched', sourceId: SOURCE, url: CODE_URL })
     expect(page.sha256).toBe(sha(PAGE_V1))
     expect((asked.at(-1)?.body.config as { id: string }).id).toBe(SOURCE)
@@ -313,7 +297,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
 
   it('needs counsel’s approval for an advice policy: one domain expert’s yes leaves it submitted', async () => {
     const view = await ok(expert, 'platform-knowledge-change-request-get', { params: { changeRequestId: requestId } })
-    // The expert checked the operator-supplied pages (the ISO list, the terms) against their sources.
     const decisions = (view.revisions as { revisionId: string; claims: { path: string }[] }[]).flatMap((revision) =>
       revision.claims.map((claim) => ({ revisionId: revision.revisionId, claimPath: claim.path, decision: 'accepted', sourceChecked: true })),
     )
@@ -324,7 +307,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     const early = await door(expert, 'platform-knowledge-publish', { params: { changeRequestId: requestId }, body: { channel: 'preview' } }, { person: 'yes' })
     expect(early.ok).toBe(false)
 
-    // The role is the approver's, held in WorkOS: the expert cannot approve as counsel.
     const claimed = await door(expert, 'platform-knowledge-change-request-decide', { params: { changeRequestId: requestId }, body: { decision: 'approve', role: 'counsel' } }, { person: 'yes' })
     expect(claimed.problem).toMatchObject({ status: 403 })
 
@@ -344,7 +326,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     expect(dropped).toEqual([])
     const gazette = sources.find((source) => source.key === SOURCE)
     expect(gazette).toMatchObject({ country: COUNTRY, config: { id: SOURCE, territory: COUNTRY, lookup: { language: 'en' } } })
-    // The fixtures proved it before release; a turn carries what a lookup reads.
     expect(gazette?.config).not.toHaveProperty('fixtures')
     expect(await lookupSourcesFor(['XB'])).toEqual({ sources: [], dropped: [] })
   })
@@ -354,14 +335,12 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     const [source] = status.sources as { origin: string; state: string; hosts: { state: string }[]; credential: { set: boolean } }[]
     expect(source).toMatchObject({ origin: 'record', state: 'active', hosts: [{ state: 'active' }], credential: { set: false } })
 
-    // The built-in sources are listed beside the records, read-only, with their recorded fixtures' result.
     const every = await ok(author, 'platform-knowledge-source-status', { query: {} })
     const listed = every.sources as { sourceKey: string; origin: string; recordId: string | null; fixtures: { valid: boolean } | null }[]
     expect(listed.find((one) => one.sourceKey === 'at-ris')).toMatchObject({ origin: 'built_in', recordId: null, fixtures: { valid: true } })
     expect(listed.find((one) => one.sourceKey === SOURCE)).toMatchObject({ origin: 'record', fixtures: null })
     expect(every.builtInUnavailable).toBeNull()
 
-    // An api tier that cannot list them costs the built-in sources only: the records are listed, and the answer says why.
     builtInDown = true
     const degraded = await ok(author, 'platform-knowledge-source-status', { query: {} })
     builtInDown = false
@@ -402,11 +381,9 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
       await ok(author, 'platform-knowledge-source-test', { params: { sourceKey: SOURCE }, body: { changeRequestId: request, live: true } })
       return asked.find((call) => call.path === '/v1/public-sources/probe')?.body
     }
-    // A draft that adds a host nobody reviewed is probed without the key.
     const widened = await reproposed([HOST, 'attacker.example'])
     expect(widened?.config).toMatchObject({ hosts: [HOST, 'attacker.example'] })
     expect(widened?.credential).toBeUndefined()
-    // Positive control: the same hosts as released, so the key goes.
     expect((await reproposed([HOST]))?.credential).toBe('xa-key-0123456789')
   })
 
@@ -417,7 +394,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     const deps = { probe: probeSource, record: async (run: (typeof runs)[number]) => void runs.push(run) }
     const recordId = `source:${SOURCE}`
 
-    // Flag off, through the real check of the platform's flags: nothing read, nothing fetched.
     fixed.flagsOff.add('source-monitors')
     asked.length = 0
     expect((await runSourceMonitor(new Date(), { probe: probeSource, record: deps.record })).enabled).toBe(false)
@@ -427,13 +403,11 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     const t0 = new Date()
     const baseline = await runSourceMonitor(t0, deps)
     expect(baseline.opened[recordId]).toBeUndefined()
-    // The key went to the api tier for the fetch, and only there.
     expect(asked.find((call) => call.path === '/v1/public-sources/probe')?.body.credential).toBe('xa-key-0123456789')
     expect(runs.at(-1)?.lags.find((lag) => lag.recordId === recordId)?.days).toBe(0)
 
     served = PAGE_V2
     const later = new Date(t0.getTime() + 25 * 3_600_000)
-    // Two runs overlap (one outlives the sweep's timeout): B read the state (V1) before A opened the request and wrote V2.
     let changed: Awaited<ReturnType<typeof runSourceMonitor>> | undefined
     const overlapping = {
       ...deps,
@@ -449,7 +423,6 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
       withPlatformAccess('synthetic spec baseline', async () =>
         (await db.execute<{ sha256: string }>(sql`SELECT sha256 FROM knowledge_source_monitor_states WHERE record_id = ${recordId}`))[0]?.sha256,
       )
-    // B kept the row's baseline, never its own snapshot: the page A's request holds.
     expect(await storedSha()).toBe(sha(PAGE_V2))
     const opened = changed.opened[recordId]
     expect(opened).toBeTruthy()
@@ -458,17 +431,14 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     const request = (found.changeRequests as { id: string; status: string; origin: string; sourceRecordId: string; monitorFinding: { needs: string[]; previous: { sha256: string } } }[]).find((row) => row.id === opened)
     expect(request).toMatchObject({ status: 'draft', origin: 'monitor', sourceRecordId: recordId, monitorFinding: { needs: ['recheck_records'], previous: { sha256: sha(PAGE_V1) } } })
     expect(await count(sql`SELECT count(*)::int AS n FROM knowledge_citation_captures WHERE change_request_id = ${opened} AND sha256 = ${sha(PAGE_V2)}`)).toBe(1)
-    // Monitors only open: nothing of it is released.
     expect(await count(sql`SELECT count(*)::int AS n FROM knowledge_release_moves WHERE change_request_id = ${opened}`)).toBe(0)
 
-    // A second change while that request is open opens no second request; it waits, unreviewed, for the next one.
     served = `${PAGE_V2}\n§ 3 Gardens`
     const againAt = new Date(later.getTime() + 25 * 3_600_000)
     const again = await runSourceMonitor(againAt, deps)
     expect(again.opened[recordId]).toBeUndefined()
     expect(await count(sql`SELECT count(*)::int AS n FROM knowledge_change_requests WHERE source_record_id = ${recordId}`)).toBe(1)
 
-    // The state stays the page under review (V2): the check moved only its clock.
     const state = async () =>
       withPlatformAccess('synthetic spec state', async () =>
         (await db.execute<{ sha256: string; checked_at: string }>(sql`SELECT sha256, checked_at::text FROM knowledge_source_monitor_states WHERE record_id = ${recordId}`))[0],
@@ -476,10 +446,8 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
     expect((await state())?.sha256).toBe(sha(PAGE_V2))
     expect(new Date(String((await state())?.checked_at)).getTime()).toBe(againAt.getTime())
 
-    // A reviewer who finds nothing to do in V2 rejects the draft (the person's yes).
     const closed = await ok(expert, 'platform-knowledge-change-request-decide', { params: { changeRequestId: opened }, body: { decision: 'reject', role: 'domain_expert' } }, { person: 'yes' })
     expect(closed.status).toBe('rejected')
-    // The change made while it was open (§ 3) was never reviewed: the next check files it, with no further change to the page.
     const reopened = await runSourceMonitor(new Date(later.getTime() + 75 * 3_600_000), deps)
     const next = reopened.opened[recordId]
     expect(next).toBeTruthy()

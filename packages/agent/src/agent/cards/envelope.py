@@ -1,35 +1,3 @@
-"""Cards as a field of the answer envelope — the model's own cards, without a round.
-
-``emit_card`` is a tool call, and a tool call ends a message: a model that
-emitted its cards had to be called AGAIN to write the prose, re-sending the
-whole context (40-80k tokens on a researched turn) for text it could have
-written in the same breath, and a third time when a shape was wrong. That was
-the one round on every card-bearing answer that bought the reader no evidence,
-and it was structural — no prompt sentence removes it.
-
-The envelope already made the same move for the verdict, the takeaways and
-the callout (``common/answer_envelope.py``, header): emission through a tool
-was "optional twice — the model had to recognise the trigger AND spend a tool
-call". Cards are the last of the model's own output on the tool channel. So the
-envelope carries ``cards``: the same card objects ``emit_card`` takes, in the
-same message as the answer, validated here by the same adapter and the same two
-closed channels, and registered in the same per-turn ``CardRegistry`` the
-frontend already reads. Nothing on the wire changes.
-
-Two things stay on the tool channel, on purpose. SYSTEM cards are pushed by
-the tool that did the work (``document_draft`` by ``write_file``,
-``document_grid`` by ``surface_documents``, …) and were never the model's to
-compose; and ``emit_card`` stays bound for deep research. Piloti (chat) no
-longer binds it: its cards travel in the envelope's ``cards`` field only.
-
-A shape the model got wrong is not a round any more either: the pipeline hands
-the failed object, the validator's clauses and the type's full shape to a
-bounded call on the small card model (``cards/repair.py``) — a few thousand
-tokens instead of a full-context round — and registers what comes back, or
-drops the card and records that it did (``status:card:invalid``). Never the
-answer: a card is an enhancement of an answer that already exists.
-"""
-
 from __future__ import annotations
 
 import json
@@ -56,41 +24,17 @@ from agent.common.tool_errors import render_error_detail
 
 logger = logging.getLogger(__name__)
 
-#: The card types whose FULL shape the envelope contract teaches up front: none.
-#:
-#: The whole catalog's shapes are far too much for a prefix re-sent on every
-#: call. `calculation` and `formula` (ADR-0143) stood here, 2,506 tokens of
-#: shapes and worked examples, 23 % of the system prompt, on every call of
-#: every turn, though most turns earn neither. "An instruction belongs in the
-#: system prompt only if it is relevant to about a third of traffic, the rest
-#: goes in skills" (Claude blog, The anatomy of effective commerce agents,
-#: 2026-09-02). They are now offered to the turn's decision like every other
-#: type (the chat agent's ``register._turn_facts``), whose pick attaches the full
-#: shape to that turn's note (``card_shapes_block``); a turn that emits one
-#: unpicked writes it from its index line, and a miss is repaired by the small
-#: model (``card:invalid`` counts ``repaired`` against ``dropped``). The cards
-#: that stood here before they were deleted (`legal_basis`, `condition_tree`,
-#: `process_map`) are written in the answer's Markdown now
-#: (``catalog.RETIRED_CARD_TYPES``).
 ENVELOPE_SHAPE_TYPES: tuple[str, ...] = ()
 
-#: What the short-answer floor may not clear (``answer_pipeline._suppress_cards``). A tool's card is
-#: the product, and a card that shows the model is the answer to "zeig mir", whose prose is short by
-#: nature. The picker names no ids, so it joins here and not ``MODEL_BACKED_CARD_TYPES``.
 FLOOR_EXEMPT_CARD_TYPES = SYSTEM_CARD_TYPES | MODEL_BACKED_CARD_TYPES | {"ifc_model_picker"}
 
 
 def is_floor_exempt(card: dict[str, Any]) -> bool:
-    """Whether the short-answer floor must keep ``card``; a ``surface`` counts by the leaves it holds."""
     if card.get("type") != "surface":
         return card.get("type") in FLOOR_EXEMPT_CARD_TYPES
     return any(leaf.get("component") in FLOOR_EXEMPT_CARD_TYPES for leaf in card.get("components", []))
 
 
-#: Composition (ADR-0065). Taught as prose plus one worked shape rather than
-#: through `render_card_details`: the model's `components` field is an A2UI
-#: list of objects, and the rendered field line ("list[object]") says nothing
-#: a model could fill it from.
 _COMPOSE_RULE = (
     "COMPOSE. Variants the reader picks ONE of to read (two designs, two Bundesländer, Bestand "
     "against Umbau, Außentreppe against zweites Treppenhaus) travel as ONE `surface` card, an A2UI "
@@ -116,9 +60,6 @@ _COMPOSE_RULE = (
     '{"id": "b", "component": "Text", "text": "1. …\\n2. …"}]}'
 )
 
-#: The marker rule the envelope's cards carry. Stated once, here, and rendered
-#: into the taught schema: it is about the ANSWER (where a card is drawn), and
-#: the envelope is where the answer is written.
 _MARKER_RULE = (
     "PLACEMENT. `[[card:N]]` alone on a line of `answer` draws the N-th card of your `cards` array at "
     "that point; a card with no marker lands after the whole answer. N counts your array from 1 — "
@@ -129,15 +70,6 @@ _MARKER_RULE = (
 
 
 def render_envelope_cards_contract() -> str:
-    """The whole contract for the envelope's ``cards`` field, for the taught schema.
-
-    The doctrine (which trigger takes which card, the craft, the honesty rule,
-    the ceiling), the index of every type the model may emit, the full shapes
-    of :data:`ENVELOPE_SHAPE_TYPES`, and the placement rule. One home: the
-    ``emit_card`` description points here rather than carrying a second copy,
-    which is the register's row-8 rule (a trigger table that exists twice
-    disagrees with itself) applied to the move that made the tool secondary.
-    """
     shapes = render_card_details(ENVELOPE_SHAPE_TYPES)
     return "\n\n".join(
         part
@@ -159,30 +91,16 @@ def render_envelope_cards_contract() -> str:
     )
 
 
-#: Why a card was refused. Stable tokens: the two channels word their
-#: refusals differently (a tool tells the model what to call next, the
-#: pipeline tells the repair what to fix) and both read the kind.
 REFUSED_NOT_AN_OBJECT = "not_an_object"
 REFUSED_SHAPE = "shape"
 REFUSED_SYSTEM_TYPE = "system_type"
 REFUSED_RETIRED_TYPE = "retired_type"
 REFUSED_CONFINED = "confined"
 
-#: Card types a turn whose scope holds a restricted folder's collection may not
-#: compose (ADR-0087): accepting one writes something the whole project reads.
-#: A ``project_profile_patch`` writes the project profile. (``memory_proposal``
-#: is a system card, and the ``remember`` tool never pushes one for a restricted
-#: finding.)
 CONFINED_CARD_TYPES = frozenset({"project_profile_patch"})
 
 
 def _turn_is_confined() -> bool:
-    """Whether this turn may draw on, or its conversation already drew on, a restricted folder; False outside a request.
-
-    The scope read is already narrowed to what the turn may draw on
-    (:func:`agent.knowledge.scoping.get_scoped_collections_from_context`);
-    the bound use adds what the conversation recorded (ADR-0087, ADR-0088).
-    """
     from agent.knowledge.restricted_collections import restricted_collections_in
     from agent.knowledge.restricted_use import current_restricted_use
     from agent.knowledge.restricted_use import drew_on_other_projects
@@ -192,7 +110,6 @@ def _turn_is_confined() -> bool:
         use = current_restricted_use()
         if use is not None and use.confined:
             return True
-        # A conversation that drew on another project (ADR-0094) is confined the same way.
         if drew_on_other_projects():
             return True
         return bool(restricted_collections_in(get_collection_scope_from_context()))
@@ -203,19 +120,13 @@ def _turn_is_confined() -> bool:
 
 @dataclass(frozen=True)
 class CardRefusal:
-    """What the validator could not accept about one card, and why."""
-
     kind: str
-    #: The declared ``type``, ``"?"`` when the payload declared none.
     card_type: str
-    #: One clause per rejected field on a shape miss; empty otherwise.
     detail: str = ""
-    #: The type's FULL shape on a shape miss — what a retry or a repair needs.
     hint: str | None = None
 
     @property
     def message(self) -> str:
-        """One sentence naming the fault, without a channel's own advice around it."""
         if self.kind == REFUSED_NOT_AN_OBJECT:
             return "card_json must be a JSON object with a 'type' field, or an array of them."
         if self.kind == REFUSED_SHAPE:
@@ -230,24 +141,10 @@ class CardRefusal:
         return retired_refusal(self.card_type)
 
     def for_repair(self) -> str:
-        """The refusal as the repair model reads it: the clauses, then the shape."""
         return self.message + (f"\n\n{self.hint}" if self.hint else "")
 
 
 def validate_model_card(payload: object) -> tuple[dict[str, Any] | None, CardRefusal | None]:
-    """One card object through the shape check and the two closed channels.
-
-    The ONE validator for a card the MODEL composes, whichever channel it came
-    by: an ``emit_card`` argument, an element of its array, or an element of
-    the envelope's ``cards``. A channel that validated more softly would be a
-    channel worth routing every card through, so there is one. Returns
-    ``(validated, None)`` or ``(None, refusal)``; a shape refusal carries the
-    validator's clauses and the type's full shape — what a retry or a repair
-    needs, and nothing a reader must not see (no traceback, no documentation
-    link: ``common/tool_errors``). Every exit logs, the refusals as warnings:
-    a turn that came back with no card must be tellable from one that never
-    reached for a card, and the two call for opposite fixes.
-    """
     from agent.cards.models import answer_card_adapter
 
     if not isinstance(payload, dict):
@@ -255,9 +152,6 @@ def validate_model_card(payload: object) -> tuple[dict[str, Any] | None, CardRef
         return None, CardRefusal(REFUSED_NOT_AN_OBJECT, type(payload).__name__)
 
     card_type = str(payload.get("type", "?"))
-    # The closed channels first: a system card, or a type that no longer
-    # exists, is refused by its declared type, before a shape miss could send
-    # it to the repair model with nothing to repair it into.
     if card_type in SYSTEM_CARD_TYPES:
         logger.warning("card rejected: '%s' is system-emitted", card_type)
         return None, CardRefusal(REFUSED_SYSTEM_TYPE, card_type)
@@ -274,31 +168,12 @@ def validate_model_card(payload: object) -> tuple[dict[str, Any] | None, CardRef
         logger.warning("card rejected: a '%s' card failed validation: %s", card_type, detail)
         return None, CardRefusal(REFUSED_SHAPE, card_type, detail=detail, hint=_repair_hint(payload, card_type))
 
-    # What only the server fills is never the model's: an id it wrote would point
-    # a person's Accept at a proposal this turn did not make.
     for field in SERVER_FILLED_CARD_FIELDS:
         validated.pop(field, None)
     return validated, None
 
 
 async def register_envelope_card(registry: CardRegistry, card: dict[str, Any]) -> None:
-    """Put one validated envelope card in the turn's registry: the point where a model's card becomes final.
-
-    A ``project_profile_patch`` is a change to the project's facts that a person
-    applies, so it leaves here as a server proposal (kind ``project_profile``,
-    ADR-0105) and the card carries its ``proposal_id``. The model composed the
-    card and no tool ran, so this is the one place the turn can create it: the
-    answer's cards are final and each has its position in the registry, which is
-    the proposal's ``originCardIndex`` (with the answer's id it makes the create
-    idempotent). A turn that may not compose the card never gets here: the
-    confined-turn refusal in :func:`validate_model_card` comes first. When the
-    proposal cannot be created (an older BFF, no envelope, an unreachable
-    route) the card is registered without an id, and accepting it applies the
-    patch from the browser as before.
-
-    The proposal records the title, the rationale and the patch. ``preview``,
-    which the model may still write, is neither rendered nor recorded.
-    """
     from agent.tools.proposals_client import add_card
 
     if card.get("type") != "project_profile_patch":
@@ -311,12 +186,6 @@ async def register_envelope_card(registry: CardRegistry, card: dict[str, Any]) -
 
 
 def _repair_hint(payload: dict[str, Any], card_type: str) -> str | None:
-    """The full shape a retry or repair of ``payload`` needs.
-
-    A surface's own hint is the COMPOSE rule, which names no card's fields; a
-    leaf that failed its card model is fixed from that card's shape, so the
-    shapes of the card types the surface holds ride with it.
-    """
     if card_type != "surface":
         return shape_hint_for(card_type)
     components = payload.get("components")
@@ -329,13 +198,6 @@ def _repair_hint(payload: dict[str, Any], card_type: str) -> str | None:
 
 
 def envelope_card_objects(raw: Sequence[Any] | None) -> list[Any]:
-    """The envelope's ``cards`` as objects: a JSON string element is parsed, the rest passed through.
-
-    A model that learned ``emit_card`` writes a card as a JSON STRING; one that
-    reads the schema writes an object. Both are the same card. Anything that
-    is neither parses to itself and is refused by the validator with its type
-    named, so a stray string is a counted refusal rather than a silent drop.
-    """
     objects: list[Any] = []
     for element in raw or ():
         if isinstance(element, str):
@@ -349,5 +211,4 @@ def envelope_card_objects(raw: Sequence[Any] | None) -> list[Any]:
 
 
 def compose_rule() -> str:
-    """How a ``surface`` is composed, with its worked example: the rule its shape hint is."""
     return _COMPOSE_RULE

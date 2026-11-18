@@ -1,17 +1,8 @@
 /**
  * @vitest-environment node
  */
-/**
- * The job envelope signs the project only for a caller who may steer its runs.
- *
- * ADR-0084 lets anyone signed into a project's scope read and control that
- * project's jobs. A closed project is readable by the whole office (ADR-0090),
- * but steering somebody else's run stays a member's: a caller who reads the
- * project only because it is closed is signed no project, so the backend lets
- * them reach their own jobs and nothing more through it.
- */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { UserSession } from '@/lib/auth/types'
 import { REQUEST_CONTEXT_HEADER_NAMES, verifyRequestContextEnvelope } from '@/lib/request-context'
@@ -50,11 +41,11 @@ describe('signJobRequestContext', () => {
   let previous: string | undefined
   beforeEach(() => {
     previous = process.env.INTERNAL_API_TOKEN
-    process.env.INTERNAL_API_TOKEN = SECRET
+    vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   })
   afterEach(() => {
-    if (previous === undefined) delete process.env.INTERNAL_API_TOKEN
-    else process.env.INTERNAL_API_TOKEN = previous
+    if (previous === undefined) vi.stubEnv('INTERNAL_API_TOKEN', undefined)
+    else vi.stubEnv('INTERNAL_API_TOKEN', previous)
   })
 
   it('signs the project and its collection for a member', () => {
@@ -76,7 +67,6 @@ describe('signJobRequestContext', () => {
     const envelope = signed({ ...scope, projectReadOnly: true })
     expect(envelope.projectId).toBeNull()
     expect(envelope.collectionScope).not.toContain('proj_p1')
-    // The rest of the scope, and the conversation they may view, still travel.
     expect(envelope.collectionScope).toEqual(['oib_knowledge', 'archiv_org_1', 's_conv-1'])
     expect(envelope.conversationId).toBe('conv-1')
   })

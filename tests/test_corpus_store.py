@@ -1,10 +1,3 @@
-"""The base corpus: table, cache, hash checks and the ingestion state (ADR-0082, step A2).
-
-The BFF and SeaweedFS are replaced by an in-memory bucket (``tests/object_corpus_fakes``);
-the corpus table is a real SQLite file (a real Postgres when ``TEST_CORPUS_DB`` is set),
-so the store's own logic runs for real.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -38,13 +31,11 @@ def _sha(data: bytes) -> str:
 
 
 def _job_done(name: str, sha256: str, chunk_format_version: int) -> bool:
-    """A job for ``name`` prepared at the file's current mark and finished: what ``oib_sync`` records."""
     corpus_store.begin_job(name)
     return corpus_store.mark_ingested(name, sha256, chunk_format_version)
 
 
 def _stored_elsewhere(name: str, data: bytes, cache: Path) -> None:
-    """A file another replica uploaded: object and row exist, this process's cache does not hold it."""
     corpus_store.put(name, data)
     (cache / name).unlink()
 
@@ -414,8 +405,6 @@ class TestWireDetails:
 
 
 class TestMarkGeneration:
-    """A job counts as the file's index only if it was prepared at the file's current mark (ADR-0165)."""
-
     AT = corpus_store.FileMark(country_id="AT")
 
     def test_each_mark_is_a_new_generation_and_a_job_records_the_one_it_was_prepared_at(self, bucket):
@@ -437,7 +426,6 @@ class TestMarkGeneration:
         assert corpus_store.get_file("a.pdf").needs_ingestion(FORMAT)
 
     def test_a_file_no_job_was_prepared_for_here_is_not_recorded(self, bucket):
-        """A job from before the column (a deploy) has no generation: it is done again, never taken on trust."""
         corpus_store.put("a.pdf", b"alpha")
 
         assert corpus_store.mark_ingested("a.pdf", _sha(b"alpha"), FORMAT) is False
@@ -456,8 +444,6 @@ class TestMarkGeneration:
 
 
 class TestReleased:
-    """A release marks a file released, a rollback unreleased with its country kept (ADR-0173)."""
-
     def test_a_file_is_read_by_its_countries_until_it_is_withdrawn(self, bucket):
         corpus_store.put("a.pdf", b"alpha")
         corpus_store.set_mark("a.pdf", corpus_store.FileMark(country_id="XA", released=True))

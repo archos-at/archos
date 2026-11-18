@@ -1,13 +1,3 @@
-"""A visual chunk's bbox becomes a region only where it maps onto what the viewer shows (issue #433).
-
-The visual analysis stores a box per segment, normalised over the picture it
-read. That picture is the whole page for a rendered PDF page and the whole image
-for an uploaded one, so the box can be drawn as it is. For a raster embedded in
-a document the picture is the raster, whose place on the page was never stored,
-and a box drawn on the page would point at the wrong drawing with full
-confidence. These tests hold that line.
-"""
-
 import json
 from types import SimpleNamespace
 
@@ -32,7 +22,6 @@ def test_an_uploaded_image_carries_its_segment_box():
 
 
 def test_a_raster_embedded_in_a_pdf_carries_none():
-    """Its box is relative to the raster, and where the raster sits on the page is unknown."""
     assert grounding_hits._hit_regions(_chunk(image_index=3)) == ()
 
 
@@ -59,7 +48,6 @@ def test_out_of_range_coordinates_are_clamped():
 
 
 def test_a_non_finite_coordinate_drops_the_box_instead_of_clamping_it():
-    """NaN clamps to 0.0 and inf to an edge; both would pass as a box around the wrong drawing."""
     for bbox in ((float("nan"), 0.2, 0.8, 0.9), (0.1, 0.2, float("inf"), 0.9), (float("-inf"), 0.2, 0.8, 0.9)):
         assert grounding_hits._hit_regions(_chunk(bbox=bbox)) == ()
     assert grounding_hits._hit_regions(_chunk(bbox=(0.1, 0.2, 0.5))) == ()

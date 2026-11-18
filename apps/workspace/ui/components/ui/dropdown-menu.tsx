@@ -19,19 +19,8 @@ const DropdownMenuSub = DropdownMenuPrimitive.Sub
 
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
 
-/**
- * How close a menu may come to the screen edge before it shifts or flips. Radix
- * defaults to 0, which on a phone put the kebab menus at the right edge flush
- * against the glass; 8px is the gutter the rest of the overlays keep.
- */
 const MENU_COLLISION_PADDING = 8
 
-/**
- * Menus fit the screen they open on, at every width: the available width and
- * height Radix measures are the cap, and a menu longer than the room scrolls
- * inside itself. A 393px phone, or a phone on its side with 393px of HEIGHT,
- * is where an uncapped menu ran off the glass.
- */
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
@@ -66,8 +55,6 @@ const DropdownMenuItem = React.forwardRef<
     data-inset={inset}
     data-variant={variant}
     className={cn(
-      // A menu row is a full-width control, so only its height can miss the
-      // 44px floor — see the Button size comment for why `pointer-coarse`.
       "focus:bg-hover focus:text-accent-foreground data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive data-[variant=destructive]:*:[svg]:!text-destructive [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-control px-2.5 py-1.5 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-8 pointer-coarse:min-h-11 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
       className
     )}
@@ -162,11 +149,6 @@ function DropdownMenuShortcut({ className, ...props }: React.HTMLAttributes<HTML
   )
 }
 
-/**
- * A row's two lines: what the item does, and a muted hint under it (which file,
- * which format, what the selection holds). For a row whose label alone would
- * leave the reader guessing between two similar actions.
- */
 function DropdownMenuItemText({
   title,
   hint,
@@ -195,11 +177,6 @@ const DropdownMenuSubTrigger = React.forwardRef<
     data-slot="dropdown-menu-sub-trigger"
     data-inset={inset}
     className={cn(
-      // `gap-2` and the four `[&_svg]` rules are shadcn's own sub-trigger classes,
-      // dropped when this file was vendored — DropdownMenuItem below still has
-      // them. Without them a sub trigger with a leading icon sets it flush
-      // against its own label while every ordinary row beside it is spaced, and
-      // an unsized icon renders at whatever the font gives it.
       "focus:bg-hover focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground flex cursor-default items-center gap-2 rounded-control px-2.5 py-1.5 text-sm outline-hidden select-none data-[inset]:pl-8 pointer-coarse:min-h-11 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
       className
     )}
@@ -211,12 +188,6 @@ const DropdownMenuSubTrigger = React.forwardRef<
 ))
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName
 
-/**
- * Capped and scrolling exactly like the root menu. It was `overflow-hidden`
- * with no height at all, so a long submenu (Verschieben lists every folder of
- * the shelf) was cut off at the bottom of the screen with no way to reach the
- * rest; Radix publishes the same available-size variables for a submenu.
- */
 const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>

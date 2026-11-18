@@ -1,6 +1,6 @@
 # Deploy
 
-This directory contains deployment assets for Piloti.
+This directory contains the deployment assets for the workspace.
 
 ## Docker Compose
 
@@ -17,3 +17,25 @@ SeaweedFS, behind Envoy Gateway (Gateway API) + cert-manager TLS:
 - [pulumi/README.md](pulumi/README.md) — deploy steps
 - [../docs/deployment/kubernetes.md](../docs/deployment/kubernetes.md) —
   architecture, storage/SeaweedFS decisions, and the agent-scaling roadmap
+
+## Rules for changes
+
+Three deployment paths share one image set: Compose (`compose/`), Helm (`helm/`), and the
+Pulumi program (`pulumi/`), which is the Kubernetes source of truth. `pulumi/` and `pulumi/policy/` are two Node programs with separate lockfiles.
+`task setup` installs both. `infra:preview` needs stack credentials;
+`infra:types` and `infra:test` do not.
+
+| When you | You must | What fails you |
+|---|---|---|
+| Change a manifest | Add or update a case in `index*.spec.ts` | `typecheck` proves the program is well-typed and nothing about the manifests. A manifest bug is a string: a renamed flag, a missing port, a probe on the wrong endpoint |
+| Add a service | Add it to Compose **and** Pulumi, or say in the PR why only one | The paths silently diverge and the difference is found in production |
+| Edit `Pulumi.<stack>.yaml` | Leave the `secure:` values untouched; set or rotate one only with `pulumi config set --secret` | They are encrypted by the stack's Pulumi-Cloud key and deliberately committed. |
+| Add or change a KEDA ScaledObject | Build a queue tier's through `installQueueScaledObject` (`pulumi/src/app/keda-scaling.ts`) and give it a `fallback`; a tier with a `cpu` trigger cannot have one. Point its trigger at Hatchet's backlog (`hatchetBacklogQuery`) on `background-work-pg` through the login that cannot write (`keda_scaler`, whose column grants are `backgroundWorkGrantsSql` in `pulumi/src/data/background-work-pg.ts`), never the owner's DSN. Runbook: [`docs/deployment/hatchet.md`](../docs/deployment/hatchet.md) | `keda-scaling.spec.ts`. Otherwise a trigger KEDA cannot read leaves the tier at its count while the queue grows, and nothing alerts |
+| Raise `ingestWorkerMaxReplicas`, its concurrency or `ingestPageReadParallelism` | Check it against `vlmFleetConcurrency`, the lease pool that caps vision calls: replicas x concurrency documents may not outnumber its slots, one file's page-read pool (which bounds threads and memory, not calls) may not be larger than it, and the pool may be at most `providerModelLimitCeiling` and `providerLimitCeiling` | `assertVlmPeakFitsCeiling` fails the plan with the numbers. Documents past the pool only wait for a slot |
+| Add a replica | Read the tier's own module under `deploy/pulumi/src/app/` first. `frontend.ts`, `api.ts` and `web.ts` are HPA-owned, so their count is not yours to set | All carry `ignoreChanges: ["spec.replicas"]`, so a hand-set count is reverted. The agent tier's count is static while `chatAffinity` is on (ADR-0028: the hash is taken modulo it) and KEDA's, on running turns, once it is off (ADR-0080, `backend-scaling.ts`); `agent-worker` executes jobs (ADR-0021) |
+
+- [`pulumi/README.md`](pulumi/README.md) explains the committed-secrets design.
+- [`docs/deployment/kubernetes.md`](../docs/deployment/kubernetes.md) §6.3 has
+  the open scaling follow-ups; [`docs/deployment/docker-compose.md`](../docs/deployment/docker-compose.md)
+  is the service reference.
+- ADR-0020 (Dragonfly), ADR-0029 (the OTel collector; its Aspire dashboard is retired), ADR-0043 (SeaweedFS topology).

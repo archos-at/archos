@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The intake's reading talks to the BFF (`POST /api/internal/project-intake`).
- *
- * What is pinned here: the internal token is required; the project is the
- * signed envelope's and never the body's (a body naming one is refused by the
- * strict schema); a run outside a project gets a typed 422; each op reaches
- * its one service function as the envelope's pinned session, in its
- * organization's tenant scope, and its answer parses against the contract;
- * a stale reading's 409 reaches the tool with its reason. The service's own
- * rules are `lib/project-intake/service.spec.ts`.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -62,7 +51,7 @@ const CONTEXT = {
 
 const post = (body: unknown, token = SECRET) =>
   POST(
-    new Request('https://grid.test/api/internal/project-intake', {
+    new Request('https://example.test/api/internal/project-intake', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-grid-internal-token': token },
       body: JSON.stringify(body),
@@ -77,7 +66,7 @@ const RECORD: InternalIntakeRequest = {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
   vi.mocked(requirePinnedSession).mockResolvedValue(SESSION)
   vi.mocked(intakeNeeds).mockResolvedValue({ needs: [], unreadFiles: ['Einreichplan.pdf'], description: null, location: null, mode: 'active', previousSummary: null })
@@ -91,7 +80,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
 })
 
 describe('POST /api/internal/project-intake', () => {

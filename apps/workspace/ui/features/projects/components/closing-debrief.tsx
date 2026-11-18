@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * The closing debrief (docs/roadmap/office-experience.md, step 3): what a
- * project leaves the office when it closes, shown in the close dialog before
- * the project locks. Closing makes project memory read-only (ADR-0090), so this
- * is the last moment to keep what the project learned.
- *
- * Three parts, each composing what already exists rather than a second editor:
- *
- *   - the fingerprint the reference ranking reads (`lib/cross-project/fingerprint.ts`),
- *     each fact, „offen", or „trifft nicht zu" where the intake does not ask it
- *     of this project, with one link to the intake wizard, the profile's one
- *     editor, when a fact it writes is open. (The period is the Steckbrief's,
- *     shown beside this debrief by `ClosingProjectRecord`.) A fact
- *     the closing extraction suggested (`docs/design/closed-project-experience.md`)
- *     shows its evidence and „Übernehmen", which writes it through the ordinary
- *     profile patch; the OIB edition is shown beside the facts when it is known;
- *   - the decisions and constraints the project memory recorded. Confirming one
- *     (`PATCH …/memory/{id}`, verification `user_confirmed`) makes other
- *     projects cite it as „von einer Person bestätigt"; dismissing a decision the
- *     extraction drafted removes it (`status: dismissed`); a lesson in the
- *     closer's words is added as a decision (`POST …/memory`);
- *   - „Aus den Unterlagen erschließen", which has the backend read the project's
- *     own documents once and writes what they say as the suggestions above.
- *
- * Nothing here blocks closing: an incomplete fingerprint is said, not enforced.
- */
-
 import { collectPages } from '@/lib/api/offset-page'
 import { useCallback, useEffect, useState, type JSX } from 'react'
 import Link from 'next/link'
@@ -55,20 +28,15 @@ import { applyProjectProfileFact } from '@/adapters/api/project-profile-client'
 export interface ClosingDebriefProps {
   projectId: string
   profile: ProjectProfile | null
-  /** Whether the reader may confirm decisions and record a lesson (project memory write). */
   canWriteMemory: boolean
 }
 
-/** A memory item as the list route sends it. */
 type DebriefItem = ProjectMemoryEntry
 
-/** The memory kinds that are experience for other projects: what the lookups search. */
 const KEPT_KINDS = new Set(['decision', 'constraint'])
 
-/** The fact beside the fingerprint that the extraction may also suggest. */
 const OIB_KEY = 'oib_edition'
 
-/** The sentence for each reason the extraction answered without a result; `null` is a failed request. */
 const EXTRACTION_ERROR_KEY = {
   backend_unavailable: 'backendUnavailable',
   no_documents: 'noDocuments',
@@ -76,22 +44,18 @@ const EXTRACTION_ERROR_KEY = {
   extraction_failed: 'failed',
 } as const satisfies Record<ProjectExperienceError, string>
 
-/** How the last „Aus den Unterlagen erschließen" went; null before the first one. */
 type Extraction =
   | { status: 'done'; suggested: number; drafted: number; documents: number }
   | { status: 'failed'; error: ProjectExperienceError | null }
 
-/** Drafted by the closing extraction and not yet a person's: it waits for a confirm or a dismiss. */
 function isSourceGrounded(item: Pick<DebriefItem, 'verification' | 'pinned' | 'provenanceType'>): boolean {
   return item.verification === 'source_grounded' && !isConfirmedMemory(item)
 }
 
-/** A confirmed fact of this key, flat or per building: the same reading the experience route makes. */
 function hasConfirmedFact(profile: ProjectProfile | null, key: string): boolean {
   return Object.entries(profile?.facts ?? {}).some(([name, fact]) => name.split('@')[0] === key && fact.value !== null)
 }
 
-/** The agent's suggestion for a key nobody has answered yet, or null. */
 function suggestionFor(profile: ProjectProfile | null, key: string): ProjectAssumption | null {
   if (hasConfirmedFact(profile, key)) return null
   const assumption = profile?.assumptions[key]
@@ -131,7 +95,6 @@ export function ClosingDebrief({ projectId, profile, canWriteMemory }: ClosingDe
         drafted: result.drafted,
         documents: result.documentsRead.length,
       })
-      // The fingerprint is the server's prop, so a refresh re-reads it; the memory is local.
       router.refresh()
       await loadMemory().catch(() => setFailed(true))
     } catch {
@@ -210,9 +173,6 @@ export function ClosingDebrief({ projectId, profile, canWriteMemory }: ClosingDe
   }
 
   const facts = fingerprintOf(profile)
-  // Missing is what a person can add in the briefing: a fact the intake does not
-  // ask of this project, or one it derives, is shown but never counted. A
-  // suggestion is not an answer yet, so it still counts until it is accepted.
   const fillable = facts.filter(
     (fact) => fact.applies && fact.editable && (fact.value === null || suggestionFor(profile, fact.key) !== null)
   )
@@ -341,7 +301,7 @@ export function ClosingDebrief({ projectId, profile, canWriteMemory }: ClosingDe
                   <ItemContent className="space-y-1">
                     <Badge variant="outline">{t(`lifecycle.debrief.decisions.kind.${item.kind === 'constraint' ? 'constraint' : 'decision'}`)}</Badge>
                     {grounded && <Badge variant="info">{t('lifecycle.debrief.decisions.grounded')}</Badge>}
-                    {/* Every origin named, as other projects will cite it: Piloti's own note too. */}
+                    {/* Every origin named, as other projects will cite it: the agent's own note too. */}
                     {memoryOriginOf(item) === 'agent' && (
                       <Badge variant="secondary">{t('lifecycle.debrief.decisions.noted')}</Badge>
                     )}

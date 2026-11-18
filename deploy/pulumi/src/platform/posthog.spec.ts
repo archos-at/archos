@@ -5,18 +5,8 @@ import { loadConfig } from '../config'
 import { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } from '../config/posthog'
 import { posthogEnv } from "../app/posthog-env";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
-import { BFF_SERVICE_NAME } from "../app/config";
+import { BFF_SERVICE_NAME, appOrigin } from "../app/config";
 import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
-
-/**
- * One PostHog configuration for every runtime, and the logs path to it.
- *
- * What goes wrong here is quiet. A Python tier that never gets the pair
- * captures nothing and logs nothing; a logs pipeline that shares another
- * consumer's processors strips that consumer's INFO lines; a pipeline without
- * the severity filter ships every INFO line to a 10 GB free tier. Each is
- * pinned below.
- */
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
@@ -45,6 +35,8 @@ function resolve(value: unknown): Promise<any> {
   );
 }
 
+const byName = (env: Array<{ name: string }>, name: string) => env.find((e) => e.name === name);
+
 function find(type: string, name: string) {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
   if (!hit) throw new Error(`${type} ${name} was not created`);
@@ -62,9 +54,6 @@ async function deploy(values: Record<string, string>): Promise<{
 }> {
   vi.resetModules();
   RESOURCES.length = 0;
-  // Langfuse is on in every case, so the collector exists even where PostHog
-  // logs are off: it is what keeps these tests about the logs pipelines, not
-  // about whether a collector was deployed.
   pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...langfuseStackConfig(), ...values });
   await import("../../index");
   await new Promise((r) => setTimeout(r, 200));
@@ -88,8 +77,6 @@ describe("PostHog logs in the collector, enabled", () => {
   }, 120_000);
 
   it("exports to PostHog's logs path, with the project token as a bearer", () => {
-    // `logs_endpoint` is the whole URL; a trailing slash on the stack's host
-    // must not become `//i/v1/logs`.
     expect(collector).toContain("logs_endpoint: https://eu.i.posthog.com/i/v1/logs");
     expect(parseCollectorConfig(collector).exporters["otlp_http/posthog"]).toMatchObject({
       headers: { Authorization: "Bearer phc_test_token" },
@@ -101,8 +88,13 @@ describe("PostHog logs in the collector, enabled", () => {
   it("puts it on its own logs pipeline behind a WARN filter and the text redaction, with no unfiltered logs pipeline beside it", () => {
     const { processors, service } = parseCollectorConfig(collector);
     expect(service.pipelines["logs/posthog"]).toEqual(
-      pipeline(["otlp_http/posthog"], { processors: ["filter/warn_and_above", "transform/posthog_redact"] }),
+      pipeline(["otlp_http/posthog"], {
+        processors: ["filter/warn_and_above", "transform/posthog_redact", "resource/logs_environment"],
+      }),
     );
+    expect(processors["resource/logs_environment"]).toMatchObject({
+      attributes: [{ key: "deployment.environment.name", action: "insert" }],
+    });
     expect(processors["transform/posthog_redact"]).toMatchObject({ error_mode: "propagate" });
     expect(processors["filter/warn_and_above"]).toMatchObject({
       log_conditions: ["log.severity_number < SEVERITY_NUMBER_WARN"],
@@ -111,8 +103,6 @@ describe("PostHog logs in the collector, enabled", () => {
   });
 
   it("sends the BFF's request traces to PostHog Tracing, and only those", () => {
-    // LLM traces reach PostHog through Langfuse's integration (ADR-0100); the
-    // agent tiers' spans carry prompts and must not leave this pipeline.
     const { exporters, processors, service } = parseCollectorConfig(collector);
     expect(exporters["otlp_http/posthog_traces"]).toMatchObject({
       traces_endpoint: "https://eu.i.posthog.com/i/v1/traces",
@@ -123,7 +113,6 @@ describe("PostHog logs in the collector, enabled", () => {
         processors: ["filter/app_spans_only", "transform/strip_url_queries", "resource/traces_environment"],
       }),
     );
-    // A search box's text or a signed URL's token must not leave in a span.
     expect(processors["transform/strip_url_queries"]).toEqual({
       error_mode: "ignore",
       trace_statements: [
@@ -134,7 +123,6 @@ describe("PostHog logs in the collector, enabled", () => {
     });
     expect(processors["filter/app_spans_only"]).toEqual({
       error_mode: "ignore",
-      // Exactly the names the Next tiers are given as OTEL_SERVICE_NAME.
       trace_conditions: [
         `not (resource.attributes["service.name"] == "${BFF_SERVICE_NAME}" or resource.attributes["service.name"] == "${BFF_JOBS_SERVICE_NAME}")`,
       ],
@@ -156,7 +144,7 @@ describe("PostHog logs in the collector, enabled", () => {
 });
 
 describe("PostHog logs in the collector, by default and off", () => {
-  it("ships WARN+ to Piloti's project when the stack sets nothing", async () => {
+  it("ships WARN+ to the platform's project when the stack sets nothing", async () => {
     const { collector } = await deploy({});
     expect(collector).toContain(`${POSTHOG_DEFAULT_HOST}/i/v1/logs`);
     expect(collector).toContain(POSTHOG_DEFAULT_PROJECT_TOKEN);
@@ -176,7 +164,6 @@ describe("PostHog logs in the collector, by default and off", () => {
   }, 120_000);
 });
 
-/** A stack config key, in the namespace Pulumi gives this project's keys. */
 const stackKey = (name: string) => `${pulumi.getProject()}:${name}`;
 
 describe("PostHog request traces, switched off", () => {
@@ -203,13 +190,47 @@ describe("the Python tiers' PostHog pair", () => {
   const appCfg = (host: string, projectToken: string, releaseId = "") =>
     ({
       posthog: { host, projectToken, logsEnabled: false, sessionReplay: false, replaySampleRate: "0.2", releaseId },
+      ingress: { appDomain: "app.archos.tech" },
     }) as unknown as Parameters<typeof posthogEnv>[0];
 
-  it("emits both names when both are set", () => {
+  it("emits both names when both are set, and the app's host and the stack beside them", () => {
     expect(posthogEnv(appCfg("https://eu.i.posthog.com", "phc_x"))).toEqual([
       { name: "POSTHOG_HOST", value: "https://eu.i.posthog.com" },
       { name: "POSTHOG_PROJECT_TOKEN", value: "phc_x" },
+      { name: "POSTHOG_APP_HOST", value: "app.archos.tech" },
+      { name: "POSTHOG_DEPLOYMENT", value: "test" },
     ]);
+  });
+
+  it("names the deployment by the stack, the value the collector stamps as deployment.environment.name", async () => {
+    const { collector } = await deploy(POSTHOG);
+    const stamped = pulumi.getStack();
+    expect(parseCollectorConfig(collector).processors["resource/traces_environment"]).toEqual({
+      attributes: [{ key: "deployment.environment.name", value: stamped, action: "insert" }],
+    });
+    const envOf = async (type: string, name: string) =>
+      ((await resolve(find(type, name).inputs.spec)) as any).template.spec.containers[0].env as Array<{
+        name: string;
+        value?: string;
+      }>;
+    for (const [type, name] of [
+      ["kubernetes:apps/v1:Deployment", "frontend"],
+      ["kubernetes:apps/v1:Deployment", "bff-jobs"],
+      ["kubernetes:apps/v1:Deployment", "api"],
+      ["kubernetes:apps/v1:StatefulSet", "chat"],
+    ]) {
+      expect(byName(await envOf(type, name), "POSTHOG_DEPLOYMENT"), name).toEqual({
+        name: "POSTHOG_DEPLOYMENT",
+        value: stamped,
+      });
+    }
+  }, 120_000);
+
+  it("names the app host the BFF reads off its redirect URI, so a filter on app_host keeps Python errors", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...POSTHOG });
+    const cfg = loadConfig();
+    const appHost = posthogEnv(cfg).find((e) => e.name === "POSTHOG_APP_HOST")?.value;
+    expect(appHost).toBe(new URL(`${appOrigin(cfg)}/api/auth/callback`).host);
   });
 
   it.each([
@@ -220,8 +241,6 @@ describe("the Python tiers' PostHog pair", () => {
     expect(posthogEnv(appCfg(host, token))).toEqual([]);
   });
 
-  // The id PostHog/resolve-release printed for the backend image, which
-  // posthog-python sends as $release_id (deploy.yml sets the key per run).
   it("adds the release id the deploy resolved, and only beside the pair", () => {
     expect(posthogEnv(appCfg("https://eu.i.posthog.com", "phc_x", "0193f5a6-rel"))).toContainEqual({
       name: "POSTHOG_RELEASE_ID",
@@ -230,7 +249,7 @@ describe("the Python tiers' PostHog pair", () => {
     expect(posthogEnv(appCfg("", "", "0193f5a6-rel"))).toEqual([]);
   });
 
-  it("reaches chat, api and agent-worker, Piloti's project by default, and nothing once opted out", async () => {
+  it("reaches chat, api and agent-worker, the platform's project by default, and nothing once opted out", async () => {
     const withPosthog = async (values: Record<string, string>, name: string, type: string) => {
       await deploy(values);
       const spec = (await resolve(find(type, name).inputs.spec)) as any;
@@ -249,10 +268,14 @@ describe("the Python tiers' PostHog pair", () => {
       expect(await withPosthog(POSTHOG, name, type), name).toEqual([
         { name: "POSTHOG_HOST", value: "https://eu.i.posthog.com/" },
         { name: "POSTHOG_PROJECT_TOKEN", value: "phc_test_token" },
+        { name: "POSTHOG_APP_HOST", value: "app.example.test" },
+        { name: "POSTHOG_DEPLOYMENT", value: "test" },
       ]);
       expect(await withPosthog({}, name, type), name).toEqual([
         { name: "POSTHOG_HOST", value: POSTHOG_DEFAULT_HOST },
         { name: "POSTHOG_PROJECT_TOKEN", value: POSTHOG_DEFAULT_PROJECT_TOKEN },
+        { name: "POSTHOG_APP_HOST", value: "app.example.test" },
+        { name: "POSTHOG_DEPLOYMENT", value: "test" },
       ]);
       expect(await withPosthog({ "grid-oib:posthogHost": "" }, name, type), name).toEqual([]);
     }

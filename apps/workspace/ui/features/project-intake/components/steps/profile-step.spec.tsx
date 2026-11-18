@@ -1,11 +1,3 @@
-/**
- * Step 5, Steckbrief, from its fixtures, inside the setup's footer as the page
- * draws it: the Gebäudeklasse as a result with its working folded, the law at
- * the site from the records as chips with their role (or why none is named), one table of what Piloti found (the
- * decisive rows up front, the rest by topic, each source peeking its page),
- * the line to the Rückfragen while a contradiction is open, and the one way
- * on, „Einrichtung abschließen", with the exact decisions each control sends.
- */
 import type { JSX } from 'react'
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -79,7 +71,6 @@ describe('ProfileStep', () => {
       expect(within(card).getByTestId('profile-class-reason')).toHaveTextContent(
         'Escape level 18,4 m · 6 storeys above ground · 14 units'
       )
-      // Taken with everything else by the footer's one action.
       expect(within(card).queryByRole('button', { name: /Confirm/ })).toBeNull()
     })
 
@@ -165,7 +156,6 @@ describe('ProfileStep', () => {
       expect(screen.getByTestId('profile-rules')).toHaveAttribute('data-gate', 'site_unknown')
       expect(screen.getByTestId('profile-rules-gate')).toHaveTextContent('The site is still missing.')
       expect(within(screen.getByTestId('profile-rules')).queryAllByRole('button')).toEqual([])
-      // Nothing named, so no legend and no basis line under it.
       expect(screen.queryByTestId('profile-rules-basis')).toBeNull()
     })
 
@@ -183,7 +173,7 @@ describe('ProfileStep', () => {
     })
   })
 
-  describe('what Piloti found', () => {
+  describe('what the agent found', () => {
     it('shows the most decisive few, the class’s inputs first, and never a contested value', () => {
       setup(PROFILE_REVIEW)
       expect(rows()).toEqual([

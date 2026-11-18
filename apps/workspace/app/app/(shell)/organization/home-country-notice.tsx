@@ -1,12 +1,5 @@
 'use client'
 
-/**
- * The notice an admin sees while the organization has no home country
- * (ADR-0158): a dashboard-made organization, or one from before migration
- * 0200's backfill reached it. It states the country once, through the settings
- * route the `organization-settings-update` operation also calls.
- */
-
 import { type JSX, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { MapPin } from 'lucide-react'

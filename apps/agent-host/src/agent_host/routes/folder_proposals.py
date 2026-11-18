@@ -1,31 +1,3 @@
-"""New folders for the documents a shelf's root holds that fit none of its folders: ``POST /v1/folder-proposals``.
-
-A person sorting the shelf root (the „Ablage“ sort, ``docs/architecture/proposed-changes.md``) gets
-``filing-fit`` with ``purpose: sort`` first: a folder for every document that has one. What is left fits
-no existing folder, and this route groups it into at most 12 NEW folders a person in the office would
-create. The BFF reads nothing of its own and creates nothing: it gets metadata (file name, Dokumentart,
-tags, summary), returns proposals, and a person decides.
-
-Map-reduce, because a shelf root can hold about a thousand documents:
-
-* MAP: the documents go in chunks of ``MAP_CHUNK``, one call each, at most ``MAP_CONCURRENCY`` in flight.
-  Each chunk proposes candidate folders under the same rules. A chunk whose call fails is skipped.
-* REDUCE: when more than one chunk proposed a folder, one call sees only the candidates (path,
-  description, document count, never a document) and merges the ones that mean the same thing. A path two
-  chunks proposed is one candidate holding both chunks' documents. A failed reduce proposes the largest
-  grouped candidates instead, so the map's work is not thrown away.
-* VERIFY: Jev (ADR-0064) gives each proposed document's probability for its folder, as
-  ``confidences``. It only adds a number: a failed decision leaves the proposals as they are.
-
-Every answer is checked here before it leaves: an existing folder is never proposed, a parent must be the
-root or an existing folder, a name is never empty or over 255 characters, a folder needs two known
-documents, a document goes into one folder only, and a path appears once. What the model invents is
-dropped, never repaired.
-
-One ``folder-proposals.map`` or ``folder-proposals.reduce`` generation per call (ADR-0089), all queued
-``interactive`` because a person waits for the sort (ADR-0081).
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -61,16 +33,10 @@ from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)
 
-#: The generations' names in Langfuse (``docs/observability/langfuse.md``).
 MAP_TRACE = "folder-proposals.map"
 REDUCE_TRACE = "folder-proposals.reduce"
-#: The decision slot of the verification (``decide.folder-proposals``).
 SCORE_SLOT = "folder-proposals"
 
-# The BFF waits at most 240 s for this endpoint, inside a 300 s job slice. Worst case with these numbers:
-# 10 chunks at MAP_CONCURRENCY 5 are 2 rounds of 45 s, the reduce 45 s, the verification 60 s: 195 s.
-# The provider slot wait is not in that sum: an interactive call waits as long as the pool stays full
-# (agent.common.openrouter._slot_wait), so a saturated fleet can still outlast the BFF's 240 s.
 MAX_DOCUMENTS = 1000
 MAP_CHUNK = 100
 MAP_CONCURRENCY = 5
@@ -112,8 +78,6 @@ NONE_OPTION = "None of these new folders fits the document."
 
 
 class FolderProposalDocument(BaseModel):
-    """One document of the shelf root, as ingestion described it. No content."""
-
     model_config = ConfigDict(extra="forbid")
 
     id: str = Field(..., min_length=1, max_length=64)
@@ -134,10 +98,8 @@ class FolderProposalsRequest(BaseModel):
 
 class FolderProposal(BaseModel):
     path: str
-    #: What belongs in the new folder, one sentence a person reads.
     description: str | None = None
     ids: list[str]
-    #: Jev's probability per document id for this folder; empty when the verification did not run.
     confidences: dict[str, float] = Field(default_factory=dict)
 
 
@@ -149,7 +111,6 @@ class FolderProposalsResponse(BaseModel):
 
 
 def _user_content(locale: str, folders: Sequence[FilingFolder], sections: Sequence[tuple[str, list[dict]]]) -> str:
-    """A language line, the FOLDERS, then each named section, one JSON object per line."""
     language = "German" if locale.lower().startswith("de") else "English"
     lines = [f"Write each folder name and description in {language}.", "", "FOLDERS"]
     lines += [json.dumps(_without_empty(folder.model_dump()), ensure_ascii=False) for folder in folders]
@@ -164,7 +125,6 @@ def _document_rows(documents: Sequence[FolderProposalDocument]) -> list[dict]:
 
 
 def _candidate_rows(candidates: Sequence[FolderProposal]) -> list[dict]:
-    """A candidate as the reduce reads it: its path and description and how many documents it holds, no ids."""
     return [
         _without_empty({"path": candidate.path, "description": candidate.description, "documents": len(candidate.ids)})
         for candidate in candidates
@@ -172,7 +132,6 @@ def _candidate_rows(candidates: Sequence[FolderProposal]) -> list[dict]:
 
 
 def _checked_path(raw: object, existing: set[str]) -> str | None:
-    """The proposal's path, or ``None`` when it names an existing folder or cannot be created as asked."""
     if not isinstance(raw, str):
         return None
     segments = [segment.strip() for segment in raw.strip().split("/")]
@@ -187,7 +146,6 @@ def _checked_path(raw: object, existing: set[str]) -> str | None:
 
 
 def _checked_ids(raw: object, documents: set[str], used: set[str]) -> list[str]:
-    """The ids the input named, each once, that no earlier folder took."""
     if not isinstance(raw, list):
         return []
     ids: list[str] = []
@@ -203,15 +161,10 @@ def _description(raw: object) -> str | None:
 
 
 def _union(*lists: Sequence[str]) -> list[str]:
-    """Each id once, in the order the lists name them."""
     return list(dict.fromkeys(document_id for ids in lists for document_id in ids))
 
 
 def group_by_path(candidates: Iterable[FolderProposal]) -> list[FolderProposal]:
-    """One folder per path key, in first-appearance order, holding the documents of every candidate under that key.
-
-    The first non-empty description is kept. Two chunks that proposed the same path give one folder, never two rows.
-    """
     grouped: dict[str, FolderProposal] = {}
     for candidate in candidates:
         key = _path_key(candidate.path)
@@ -228,7 +181,6 @@ def group_by_path(candidates: Iterable[FolderProposal]) -> list[FolderProposal]:
 
 
 def _disjoint(folders: Sequence[FolderProposal], documents: set[str]) -> list[FolderProposal]:
-    """Folders in order, each keeping the documents no earlier folder took, needing two, at most ``MAX_PROPOSALS``."""
     found: list[FolderProposal] = []
     used: set[str] = set()
     for folder in folders:
@@ -245,7 +197,6 @@ def _disjoint(folders: Sequence[FolderProposal], documents: set[str]) -> list[Fo
 def _checked_folders(
     raw: object, existing: set[str], documents: set[str], ids_of: Callable[[dict[str, Any]], object]
 ) -> list[FolderProposal] | None:
-    """Folders checked in order, a path named twice as one folder; ``None`` when the list is not a list."""
     if not isinstance(raw, list):
         return None
     named: list[FolderProposal] = []
@@ -262,7 +213,6 @@ def _checked_folders(
 def _parse_proposals(
     data: dict[str, Any], folders: Sequence[FilingFolder], documents: Sequence[FolderProposalDocument]
 ) -> list[FolderProposal] | None:
-    """One map call's candidates, checked against the chunk it was sent."""
     existing = {_path_key(folder.path) for folder in folders}
     return _checked_folders(
         data.get("proposals"), existing, {document.id for document in documents}, lambda item: item.get("ids")
@@ -270,12 +220,10 @@ def _parse_proposals(
 
 
 def parse_proposals(data: dict[str, Any], request: FolderProposalsRequest) -> list[FolderProposal] | None:
-    """The model's proposals, checked against the input; ``None`` when the answer is not the shape asked for."""
     return _parse_proposals(data, request.folders, request.documents)
 
 
 def _merged_ids(merge: object, candidates: dict[str, FolderProposal]) -> list[str]:
-    """The documents of the candidates one final folder merges, in the order they are named."""
     if not isinstance(merge, list):
         return []
     ids: list[str] = []
@@ -289,7 +237,6 @@ def _merged_ids(merge: object, candidates: dict[str, FolderProposal]) -> list[st
 def _parse_final(
     data: dict[str, Any], folders: Sequence[FilingFolder], candidates: Sequence[FolderProposal]
 ) -> list[FolderProposal] | None:
-    """The reduce's final folders, checked against the candidates it was sent."""
     existing = {_path_key(folder.path) for folder in folders}
     by_key = {_path_key(candidate.path): candidate for candidate in candidates}
     documents = {document_id for candidate in candidates for document_id in candidate.ids}
@@ -311,7 +258,6 @@ def _metadata(request: FolderProposalsRequest, **counts: int) -> dict[str, Any]:
 async def _call(
     cred: Any, *, system: str, user: str, trace: str, metadata: dict[str, Any]
 ) -> tuple[dict[str, Any] | None, str | None, str | None]:
-    """One model call as ``(answer, error, trace_id)``: the answer is ``None`` with the code that stopped it."""
     payload = cred.request_body(
         {
             "model": cred.model,
@@ -346,7 +292,6 @@ async def _call(
 async def _map_chunk(
     cred: Any, request: FolderProposalsRequest, chunk: Sequence[FolderProposalDocument], gate: asyncio.Semaphore
 ) -> tuple[list[FolderProposal] | None, str | None]:
-    """One chunk's candidates (``None`` when its call failed or was unreadable), and its trace id."""
     user = _user_content(request.locale, request.folders, [("DOCUMENTS", _document_rows(chunk))])
     async with gate:
         answer, error, trace_id = await _call(
@@ -366,7 +311,6 @@ async def _map_chunk(
 
 
 async def _map_shelf(cred: Any, request: FolderProposalsRequest) -> tuple[list[list[FolderProposal]], str | None]:
-    """The candidates of every chunk that answered, and the first trace id."""
     gate = asyncio.Semaphore(MAP_CONCURRENCY)
     documents = request.documents
     chunks = [documents[start : start + MAP_CHUNK] for start in range(0, len(documents), MAP_CHUNK)]
@@ -379,7 +323,6 @@ async def _map_shelf(cred: Any, request: FolderProposalsRequest) -> tuple[list[l
 async def _reduce(
     cred: Any, request: FolderProposalsRequest, candidates: Sequence[FolderProposal]
 ) -> tuple[list[FolderProposal] | None, str | None, str | None]:
-    """The final folders that merge the candidates, as ``(folders, error, trace_id)``."""
     user = _user_content(request.locale, request.folders, [("CANDIDATES", _candidate_rows(candidates))])
     answer, error, trace_id = await _call(
         cred,
@@ -399,7 +342,6 @@ async def _reduce(
 async def _verify(
     documents: Sequence[FolderProposalDocument], proposals: Sequence[FolderProposal], organization_id: str | None
 ) -> None:
-    """Jev's p(the assigned folder) per document, set on each proposal's ``confidences``. Never drops one (ADR-0064)."""
     from agent.common.decisions import choice
     from agent.common.decisions import decide_many
 
@@ -409,8 +351,6 @@ async def _verify(
     by_id = {document.id: document for document in documents}
     options = {f"f{index}": _option(proposal.path, proposal.description) for index, proposal in enumerate(proposals)}
     options["none"] = NONE_OPTION
-    # No catch: `decide_many` already answers None for a call that failed, so
-    # anything raised here is a fault in this code and must be seen.
     decisions = await decide_many(
         [_score_state(by_id[document_id]) for _index, document_id in slots],
         {"folder": choice(VERIFY_QUESTION, options)},
@@ -423,7 +363,6 @@ async def _verify(
 def _apply_confidences(
     proposals: Sequence[FolderProposal], slots: Sequence[tuple[int, str]], decisions: Sequence[Any]
 ) -> None:
-    """Set each decided slot's probability for its own folder; an undecided slot stays without one."""
     for (index, document_id), decision in zip(slots, decisions, strict=True):
         if decision is None:
             continue
@@ -432,7 +371,6 @@ def _apply_confidences(
 
 
 def _fallback(request: FolderProposalsRequest, candidates: Sequence[FolderProposal]) -> list[FolderProposal]:
-    """What a failed reduce leaves: the grouped candidates under the same rules, the twelve with the most documents."""
     existing = {_path_key(folder.path) for folder in request.folders}
     valid = [candidate for candidate in candidates if _checked_path(candidate.path, existing) is not None]
     ranked = sorted(valid, key=lambda candidate: len(candidate.ids), reverse=True)
@@ -442,7 +380,6 @@ def _fallback(request: FolderProposalsRequest, candidates: Sequence[FolderPropos
 async def _verify_within_budget(
     documents: Sequence[FolderProposalDocument], proposals: Sequence[FolderProposal], organization_id: str | None
 ) -> None:
-    """``_verify`` under ``VERIFY_BUDGET_S``. Over it the proposals stay, with empty confidences (ADR-0064)."""
     try:
         await asyncio.wait_for(_verify(documents, proposals, organization_id), timeout=VERIFY_BUDGET_S)
     except TimeoutError:
@@ -452,7 +389,6 @@ async def _verify_within_budget(
 
 
 async def _propose(cred: Any, request: FolderProposalsRequest, organization_id: str | None) -> FolderProposalsResponse:
-    """Map, reduce when several chunks proposed folders, then verify. A failed reduce keeps the grouped candidates."""
     answered, trace_id = await _map_shelf(cred, request)
     if not answered:
         return FolderProposalsResponse(error="llm_request_failed", model=cred.model, trace_id=trace_id)
@@ -471,7 +407,6 @@ async def _propose(cred: Any, request: FolderProposalsRequest, organization_id: 
 
 
 def add_folder_proposals_routes(router: APIRouter) -> None:
-    """Register the new-folder proposal endpoint."""
 
     @router.post(
         "/v1/folder-proposals",

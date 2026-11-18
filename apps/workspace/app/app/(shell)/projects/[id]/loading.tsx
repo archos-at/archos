@@ -3,12 +3,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getTranslations } from '@/i18n/server'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 
-/**
- * Content-area loading state for all project sections (Overview, Files,
- * Research, Members, Intake, Chat). The sidebar layout persists across
- * navigations, so this only fills the swapped content pane — the user keeps
- * their navigation context while the server page resolves.
- */
 export default async function ProjectSectionLoading(): Promise<JSX.Element> {
   const t = await getTranslations(projectsCopy)
   return (

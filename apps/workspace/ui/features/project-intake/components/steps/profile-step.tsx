@@ -23,19 +23,6 @@ export interface ProfileStepProps extends SetupStepProps {
   onComplete: () => Promise<boolean>
 }
 
-/**
- * Step 5, Steckbrief (ticket 26, `docs/design/project-setup-five-steps.md`):
- * the result first, then the evidence. On top the Gebäudeklasse, big, with why
- * in one line and a confirm, and beside it which OIB-Richtlinien apply; under
- * them one table of what Piloti found, each value with the place it stands and
- * its page on a peek. The few values that decide the most are shown, the rest
- * fold away by topic, and every open one can be taken at once.
- *
- * Contradictions are decided in the Rückfragen; one quiet line points there
- * while any is open. The person checks rather than approves: nothing asks to
- * be clicked one by one. They change what is wrong, and the one way on,
- * „Alles übernehmen und abschließen“, takes the rest as theirs.
- */
 export function ProfileStep({ view, projectId, canDecide, busy, onDecide, onComplete, onGoTo }: ProfileStepProps): JSX.Element {
   const t = useTranslations(intakeProfileStepCopy)
   const decide = { canDecide, busy, onDecide }
@@ -70,24 +57,15 @@ export function ProfileStep({ view, projectId, canDecide, busy, onDecide, onComp
   )
 }
 
-/** Nothing for a person to look at yet: no value, no contradiction, no question. */
 function nothingToReview(view: IntakeView): boolean {
   return view.counts.suggested === 0 && view.contradictions.length === 0 && view.questions.length === 0
 }
 
-/** Whether the setup can be finished from here: not yet finished, allowed, and something read or the reading done. */
 export function canFinish(view: IntakeView): boolean {
   if (view.status === 'completed' || !view.canComplete) return false
   return view.status === 'ready' || !nothingToReview(view)
 }
 
-/**
- * The footer's one action. „Alles übernehmen und abschließen“ takes every open
- * value and class as the person's confirmation, then ends the setup; what they
- * changed or struck out is already decided. Finishing an ongoing project goes
- * at once; finishing a past one closes the project with its outcome and
- * period, so that asks first. A reader who may not decide only finishes.
- */
 function FinishFooter({
   view,
   canDecide,

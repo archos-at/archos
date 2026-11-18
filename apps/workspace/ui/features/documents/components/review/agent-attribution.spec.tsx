@@ -1,14 +1,3 @@
-/**
- * Piloti on the canvas and in the Prüfansicht says whose request it works on (ADR-0105; EU AI Act
- * Art. 50): its cursor tag reads „Piloti · für Anna", or „Treppe · für Anna"
- * beside a pointer label (in the specs' English: „Piloti · for Anna"), and the
- * name is never the part that is clipped. Its marks and replies carry the same
- * line: „Piloti · für Anna" on the pin's tooltip, the list row and the thread,
- * a proposal as „Proposal by Piloti · for Anna", and a reply a wake wrote says
- * what woke it. The name is the server's (`publishAsAgent` stamps `forName`); a
- * Piloti peer without one keeps its plain tag rather than inventing a person.
- */
-
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, within } from '@/test-utils'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
@@ -23,7 +12,7 @@ import { fixedStore } from '@/features/realtime/use-channel'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const AGENT: RoomPeer = {
-  peerId: 'piloti-conv_42',
+  peerId: 'agent-conv_42',
   userId: 'user_anna',
   name: PRODUCT_NAME,
   kind: 'piloti',
@@ -46,7 +35,6 @@ const agentState = (overrides: Partial<RoomPeerState> = {}): RoomPeerState => ({
   ...overrides,
 })
 
-/** The review as far as the page layer reads it: no marks, no tool in hand, one room. */
 function reviewWith(peers: RoomPeerState[]): DocumentReview {
   const room: Partial<DocumentReview['room']> = {
     peers: fixedStore(peers),
@@ -54,7 +42,7 @@ function reviewWith(peers: RoomPeerState[]): DocumentReview {
     sendCursor: () => {},
     sendDraft: () => {},
   }
-  const piloti: Partial<DocumentReview['piloti']> = { asks: [], openId: null, compose: () => 'ask_1', open: () => {} }
+  const agent: Partial<DocumentReview['piloti']> = { asks: [], openId: null, compose: () => 'ask_1', open: () => {} }
   const review: Partial<DocumentReview> = {
     annotations: [],
     tool: 'select',
@@ -63,7 +51,7 @@ function reviewWith(peers: RoomPeerState[]): DocumentReview {
     hoveredId: null,
     filter: 'open',
     room: room as DocumentReview['room'],
-    piloti: piloti as DocumentReview['piloti'],
+    piloti: agent as DocumentReview['piloti'],
     select: () => {},
     setDraft: () => {},
     hover: () => {},
@@ -93,8 +81,8 @@ beforeEach(() => {
 })
 afterEach(() => restore())
 
-describe('Piloti’s cursor on the canvas', () => {
-  it('reads „Piloti · for Anna" when its pointer says nothing else', () => {
+describe('the agent’s cursor on the canvas', () => {
+  it('reads the agent · for Anna when its pointer says nothing else', () => {
     renderLayer([agentState()])
     const tag = cursorTag()
     expect(within(tag).getByText(PRODUCT_NAME)).toBeInTheDocument()
@@ -104,7 +92,6 @@ describe('Piloti’s cursor on the canvas', () => {
 
   it('keeps „for Anna" beside its pointer label and what it is doing, outside the part that truncates', () => {
     renderLayer([agentState({ label: 'Treppe' })])
-    // Its name always leads: a pointer saying „Treppe" is never taken for a colleague of that name.
     expect(within(cursorTag()).getByText(`${PRODUCT_NAME} · Treppe`)).toHaveClass('truncate')
     expect(within(cursorTag()).getByTestId('agent-cursor-for')).toHaveTextContent('· for Anna')
     expect(within(cursorTag()).getByTestId('agent-cursor-for')).not.toHaveClass('truncate')
@@ -194,7 +181,6 @@ const reply = (overrides: Partial<AnnotationView['replies'][number]> = {}): Anno
   ...overrides,
 })
 
-/** The review as far as the list, the pins and the thread read it. */
 function reviewOf(annotations: AnnotationView[]): DocumentReview {
   const review: Partial<DocumentReview> = {
     ...(reviewWith([]) as DocumentReview),
@@ -218,7 +204,7 @@ function reviewOf(annotations: AnnotationView[]): DocumentReview {
 const renderThread = (annotation: AnnotationView) =>
   render(<ThreadCard review={reviewOf([annotation])} annotation={annotation} placement="right" canPickAssignee={false} />)
 
-describe('Piloti’s marks name the person they were set for', () => {
+describe('the agent’s marks name the person they were set for', () => {
   it('on the pin’s tooltip and for a screen reader', () => {
     const annotation = mark()
     render(
@@ -275,13 +261,13 @@ describe('Piloti’s marks name the person they were set for', () => {
     expect(screen.getByText('Proposal')).toBeInTheDocument()
   })
 
-  it('falls back to plain „Piloti" for a mark nobody can be named for', () => {
+  it('falls back to the plain agent name for a mark nobody can be named for', () => {
     renderThread(mark({ createdByName: null }))
     expect(screen.getByTestId('thread-byline').textContent).toBe(PRODUCT_NAME)
   })
 })
 
-describe('Piloti’s replies in a thread', () => {
+describe('the agent’s replies in a thread', () => {
   it('name the person they were written for, and a person’s reply keeps their own name', () => {
     renderThread(
       mark({
@@ -292,7 +278,6 @@ describe('Piloti’s replies in a thread', () => {
       })
     )
     const bylines = screen.getAllByTestId('thread-byline')
-    // The finding, then Piloti's reply; Ben's is no Piloti byline.
     expect(bylines.map((node) => node.textContent)).toEqual([`${PRODUCT_NAME} · for Anna Berger`, `${PRODUCT_NAME} · for Anna Berger`])
     expect(screen.getByText('Ben Huber')).toBeInTheDocument()
     expect(screen.queryByTestId('thread-woken')).toBeNull()

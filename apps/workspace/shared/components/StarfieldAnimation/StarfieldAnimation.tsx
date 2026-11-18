@@ -12,12 +12,6 @@ const DEFAULT_ROTATION_SPEED = 0.001
 const DEFAULT_SEED = 12345
 const DEFAULT_PARTICLE_COLOR = 'var(--primary)'
 
-/**
- * Animated starfield background using canvas.
- * Creates a rotating particle field effect suitable for loading screens.
- * Canvas resolution dynamically matches container size for crisp rendering.
- * Based on Kyle Pinkerton original
- */
 export const StarfieldAnimation: FC<StarfieldAnimationProps> = ({
   particleCount = DEFAULT_PARTICLE_COUNT,
   maxRadius = DEFAULT_MAX_RADIUS,
@@ -40,27 +34,20 @@ export const StarfieldAnimation: FC<StarfieldAnimationProps> = ({
       const angle = rng.next() * Math.PI * 2
       const distribution = rng.next()
 
-      // Distribute particles with density increasing toward the edge
       let radius: number
       if (distribution < 0.7) {
-        // 70% of particles near the outer edge
         radius = maxRadius * (0.8 + rng.next() * 0.2)
       } else if (distribution < 0.95) {
-        // 25% in the middle band
         radius = maxRadius * (0.4 + rng.next() * 0.4)
       } else {
-        // 5% near the center
         radius = maxRadius * (0.15 + rng.next() * 0.25)
       }
 
-      // Size variation - most particles small, few larger accent particles
-      // Multiply by particleSize prop for user control
       const size =
         (distribution < 0.95
           ? rng.next() * 0.7 + 0.3
           : rng.next() * 1.2 + 0.7) * particleSize
 
-      // Opacity variation - most bright, some slightly dimmer
       const opacity =
         distribution < 0.6
           ? 0.95 + rng.next() * 0.05
@@ -79,20 +66,17 @@ export const StarfieldAnimation: FC<StarfieldAnimationProps> = ({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Resolve CSS variable to a concrete color so canvas can use it.
     const resolvedColor =
       typeof window !== 'undefined' && particleColor.startsWith('var(')
         ? getComputedStyle(document.documentElement).getPropertyValue(particleColor.slice(4, -1)).trim() || particleColor
         : particleColor
 
-    // Get the actual display size from the container
     const updateCanvasSize = (): { width: number; height: number; scale: number } => {
       const rect = canvas.getBoundingClientRect()
       const dpr = window.devicePixelRatio || 1
       const width = rect.width * dpr
       const height = rect.height * dpr
 
-      // Only update if size actually changed
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width
         canvas.height = height
@@ -103,11 +87,8 @@ export const StarfieldAnimation: FC<StarfieldAnimationProps> = ({
 
     updateCanvasSize()
 
-    // Initialize particles
     particlesRef.current = createParticles()
 
-    // Respect the user's reduced-motion preference: draw a single static
-    // frame instead of running the rotation loop.
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 
     const drawFrame = (advanceRotation: boolean): void => {
@@ -122,10 +103,8 @@ export const StarfieldAnimation: FC<StarfieldAnimationProps> = ({
       const centerX = width / 2
       const centerY = height / 2
 
-      // Scale factor for particle positions and sizes based on canvas size
       const scaleFactor = currentScale
 
-      // Batch render all particles as triangles
       ctx.fillStyle = resolvedColor
 
       for (let i = 0; i < particles.length; i++) {
@@ -137,7 +116,6 @@ export const StarfieldAnimation: FC<StarfieldAnimationProps> = ({
         ctx.globalAlpha = p.opacity
         ctx.beginPath()
 
-        // Draw equilateral triangle pointing outward from center
         const triangleRotation = p.angle + rotation
         const cos0 = Math.cos(triangleRotation - Math.PI / 2)
         const sin0 = Math.sin(triangleRotation - Math.PI / 2)

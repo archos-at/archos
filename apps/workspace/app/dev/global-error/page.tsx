@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * Dev preview of the last error boundary (`app/global-error.tsx`): the screen
- * shown when the root layout itself crashes, so its copy and its two actions
- * are screenshot-reviewable without breaking the layout. 404s outside
- * development.
- *
- *   /dev/global-error          German, the default for our users
- *   /dev/global-error?lang=en  English
- */
-
 import { notFound, useSearchParams } from 'next/navigation'
 
 import { GlobalErrorScreen } from '@/app/global-error'

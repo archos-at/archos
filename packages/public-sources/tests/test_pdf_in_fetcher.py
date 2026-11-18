@@ -1,12 +1,3 @@
-"""A third party's PDF is parsed in the fetcher, never in a pod that reaches the cluster (ADR-0162 amendment).
-
-With ``PUBLIC_SOURCE_FETCHER_URL`` set, as on every backend role, ``read_pdf``
-sends the bytes to the fetcher's ``/v1/extract`` and parses nothing itself; an
-unreachable fetcher is a refusal, not a parse here. Without a fetcher, a
-source is not read and a PDF is not parsed: only the fixture runner and the
-tests say in code that they parse here.
-"""
-
 from __future__ import annotations
 
 import httpx
@@ -34,7 +25,6 @@ def _sources(monkeypatch):
 
 @pytest.fixture
 def fetcher(monkeypatch):
-    """The fetcher app behind ``PUBLIC_SOURCE_FETCHER_URL``; ``paths`` records what was asked of it."""
     monkeypatch.setenv(routing.ENV_FETCHER_URL, FETCHER)
     paths: list[str] = []
     app = make_app()
@@ -73,7 +63,6 @@ def test_an_unreachable_fetcher_is_a_refusal_and_nothing_is_parsed_here(monkeypa
 
 
 def test_without_a_fetcher_a_pdf_is_refused_and_nothing_is_parsed_here(monkeypatch):
-    """A backend role missing its variable (a KC-7 check of a fixture PDF in the api pod) parses nothing itself."""
     monkeypatch.delenv(routing.ENV_FETCHER_URL, raising=False)
     monkeypatch.setattr(pdf_module, "_parse_here", False)
     parsed: list[bytes] = []
@@ -98,7 +87,6 @@ def test_without_a_fetcher_a_source_is_not_read_in_process(monkeypatch):
 
 
 def test_a_rollout_lets_the_fetcher_finish_the_longest_extract_a_caller_waits_for():
-    """Else a deploy kills a parse mid-read, and the capture it belongs to answers pdf_reader_failed."""
     import re
     from pathlib import Path
 
@@ -111,7 +99,6 @@ def test_a_rollout_lets_the_fetcher_finish_the_longest_extract_a_caller_waits_fo
 
 
 async def test_busy_readers_answer_at_once_and_leave_host_lookups_free(monkeypatch):
-    """Parses held on the readers' own threads; a third is a 503, and the pool that resolves hosts stays free."""
     import asyncio
     import threading
     from concurrent.futures import ThreadPoolExecutor
@@ -129,7 +116,6 @@ async def test_busy_readers_answer_at_once_and_leave_host_lookups_free(monkeypat
 
     monkeypatch.setattr(pdf_module, "parse_pdf", held_parse)
     loop = asyncio.get_running_loop()
-    # As few default threads as readers: a reader waiting on that pool would take every one.
     loop.set_default_executor(ThreadPoolExecutor(max_workers=MAX_PDF_READERS))
     try:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=make_app()), base_url=FETCHER) as client:
@@ -141,7 +127,6 @@ async def test_busy_readers_answer_at_once_and_leave_host_lookups_free(monkeypat
 
             busy = await asyncio.wait_for(client.post("/v1/extract", content=b"%PDF-"), 2)
             assert busy.status_code == 503 and busy.json()["code"] == "pdf_parse_timeout"
-            # What /v1/fetch's guard does for every host (public_sources.egress._resolve).
             assert await asyncio.wait_for(loop.getaddrinfo("localhost", 443), 2)
 
             release.set()
@@ -160,7 +145,6 @@ def test_a_body_past_the_ceiling_is_a_413(monkeypatch):
 
 
 async def test_uploads_that_overlap_never_queue_for_a_reader(monkeypatch):
-    """Five uploads pass the first check together; once their bodies are in, two parse and three are refused at once."""
     import asyncio
     import threading
 

@@ -1,32 +1,8 @@
-/**
- * The guard that a card's NESTED fields are actually validated.
- *
- * `generate-card-schemas.mjs` used to flatten every nested `$ref` to
- * `z.any()`, because `json-schema-to-zod` has no `$ref` resolution and a
- * single `$def` handed to it in isolation cannot see the siblings it points
- * at. The result was not weak validation of nested card fields, it was none:
- * `{ type: 'verdict_header', …, reference: 'banana' }` was a valid card, and
- * because `z.any()` also accepts `undefined`, 14 card types could arrive
- * missing a field `models.py` requires. Eight of those threw during render,
- * and with no error boundary between a card and its route that unmounted the
- * whole thread rather than dropping the one card.
- *
- * So the assertion here is deliberately EXHAUSTIVE over the canonical JSON
- * Schema rather than a handful of examples: every field that `schemas.json`
- * describes with a `$ref` must be a field the Zod mirror really checks. A
- * regression in the generator brings this file down, whichever card type it
- * happens to hit first.
- */
-
 import { discriminatedOptions } from '@/lib/api/zod-union'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import * as generated from './generated'
 import { answerCardSchema, validateAnswerCards } from './schemas'
-// The canonical card JSON Schema, generated from `models.py` and the input the
-// Zod mirror is generated FROM. Loaded at runtime (it lives above the app
-// root, outside the Docker build context) — see the helper for why a static
-// import breaks the production image build.
 import { loadCardJsonSchema } from '@/test-utils/card-json-schema'
 
 const cardJsonSchema = loadCardJsonSchema()
@@ -55,7 +31,6 @@ const constOf = (node: JsonSchemaNode | undefined): string | undefined => {
   return typeof value === 'string' ? value : undefined
 }
 
-/** Peel `.optional()`, `.nullable()`, `.default()`, arrays and unions. */
 function bottomsOutInAny(schema: z.core.$ZodType, depth = 0): boolean {
   if (depth > 8) return false
   const def = schema._zod.def
@@ -76,7 +51,6 @@ function bottomsOutInAny(schema: z.core.$ZodType, depth = 0): boolean {
   }
 }
 
-/** Does this property's JSON Schema reach a `$ref` without leaving the field? */
 function describesARef(node: JsonSchemaNode | undefined, depth = 0): boolean {
   if (!node || depth > 8) return false
   if (typeof node.$ref === 'string') return true
@@ -84,7 +58,6 @@ function describesARef(node: JsonSchemaNode | undefined, depth = 0): boolean {
   return (node.anyOf ?? []).some((member) => describesARef(member, depth + 1))
 }
 
-/** Every `<card type>.<field>` the canonical schema describes with a `$ref`. */
 const nestedFields = cardDefNames.flatMap((defName) => {
   const definition = defs[defName]
   const cardType = constOf(definition.properties?.type)
@@ -101,7 +74,6 @@ const schemaFor = (defName: string) =>
 
 describe('nested card fields are validated, not waved through', () => {
   it('finds nested fields to check at all', () => {
-    // A zero here would make every assertion below vacuously true.
     expect(nestedFields.length).toBeGreaterThan(25)
   })
 
@@ -134,10 +106,6 @@ describe('nested card fields are validated, not waved through', () => {
       const fixture = { type: entry.cardType, ...Object.fromEntries(
         Object.keys(defs[entry.defName].properties ?? {}).map((field) => [field, undefined])
       ) }
-      // Only the absence of THIS field is under test, so hand the parser a
-      // card that is otherwise whatever the type demands: a missing required
-      // field is a rejection either way, and the assertion is that removing
-      // the nested one is enough on its own to fail.
       delete (fixture as Record<string, unknown>)[entry.field]
       const result = schemaFor(entry.defName).safeParse(fixture)
       expect(result.success).toBe(false)
@@ -149,9 +117,6 @@ describe('nested card fields are validated, not waved through', () => {
   )
 
   it('still accepts every card the gallery ships', async () => {
-    // The other half of the guard: tightening must not start dropping cards
-    // that render fine today. `preview-fixtures.ts` runs its raw fixtures
-    // through `validateAnswerCards`, so a rejected one is simply absent.
     const { CARD_PREVIEW_FIXTURES, PREVIEW_EXCLUDED } = await import('@/features/cards/preview-fixtures')
     const previewable = [...discriminatedOptions(answerCardSchema).keys()]
       .filter((type): type is string => typeof type === 'string')
@@ -160,9 +125,6 @@ describe('nested card fields are validated, not waved through', () => {
   })
 
   it('holds the position of the malformed card and keeps the rest of the answer', () => {
-    // The failure mode this whole line of work is about: one bad card must
-    // cost one card, not the thread — and not the positions after it, which
-    // `[[card:N]]` markers and persisted decisions address by index.
     const kept = validateAnswerCards([
       {
         type: 'calculation',

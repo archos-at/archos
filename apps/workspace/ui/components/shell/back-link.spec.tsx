@@ -18,11 +18,6 @@ function renderBackLink() {
   return render(<BackLink fallbackHref="/app/projects" fallbackLabel="Back to projects" />)
 }
 
-/**
- * How many entries the tab's history holds. A test document has one, and the
- * control deliberately refuses to go "back" to nothing (a link opened in a new
- * tab copies the trail but not the history), so the normal case has to say so.
- */
 function setHistoryLength(length: number): void {
   Object.defineProperty(window.history, 'length', { configurable: true, get: () => length })
 }
@@ -47,7 +42,6 @@ describe('BackLink — where it points', () => {
     renderBackLink()
 
     const link = screen.getByTestId('back-link')
-    // The name comes from the destination's own nav entry (`nav.sections.files`).
     await waitFor(() => expect(link).toHaveTextContent('Back to Files'))
     expect(link).toHaveAttribute('href', '/app/projects/p1/files')
   })
@@ -60,7 +54,6 @@ describe('BackLink — where it points', () => {
     renderBackLink()
 
     const link = screen.getByTestId('back-link')
-    // Not "Back to Files": leaving that project is what the reader is undoing.
     await waitFor(() => expect(link).toHaveTextContent('Back to Stadthaus Wien'))
     expect(link).toHaveAttribute('href', '/app/projects/p1/files')
   })
@@ -109,8 +102,6 @@ describe('BackLink — how it navigates', () => {
   })
 
   test('does not walk a settings tab when the destination is the project', async () => {
-    // Older trails stacked every org tab. Back must leave the shell, not land
-    // on the previous submenu — so this click follows the href, not history.
     pathname = '/app/organization/models'
     writeTrail(visits('/app/projects/p1/chat', '/app/organization', '/app/organization/models'))
     const user = userEvent.setup()
@@ -123,8 +114,6 @@ describe('BackLink — how it navigates', () => {
   })
 
   test('does not call history.back when there is no history to go back to', async () => {
-    // A link opened in a new tab: the browser copies session storage, so the
-    // trail is there, but the history behind it is not.
     setHistoryLength(1)
     writeTrail(visits('/app/projects/p1/files', '/app/office-shelf'))
     const user = userEvent.setup()

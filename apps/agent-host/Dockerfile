@@ -1,5 +1,5 @@
 # =============================================================================
-# Multi-stage build for AI-Q Blueprint Backend
+# Multi-stage build for the agent host backend
 # =============================================================================
 #
 # Build targets:

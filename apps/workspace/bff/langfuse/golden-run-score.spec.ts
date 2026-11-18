@@ -20,10 +20,8 @@ import { goldenDatasetItemId, toGoldenScores } from './golden-run-score'
 
 const catalogue = (file: string) => readFileSync(join(process.cwd(), '..', '..', 'packages', 'agent', 'src', 'agent', 'observability', file), 'utf8')
 const DECLARED = catalogue('golden_scores.py')
-/** Where the agent's four citation scores are declared: written on every answered turn, never by the golden run. */
 const AGENT_CITATION = catalogue('law_source_scores.py') + catalogue('langfuse_scores.py')
 
-/** Each declared score: its name, its data type and who writes it (`agent` when the definition names nobody). */
 const declared = [...DECLARED.matchAll(/ScoreDefinition\(\s*name="([a-z-]+)",\s*data_type="([A-Z]+)",[\s\S]*?\n {4}\),/g)].map((match) => ({
   name: match[1] as string,
   dataType: match[2] as string,

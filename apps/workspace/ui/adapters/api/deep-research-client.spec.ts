@@ -7,10 +7,6 @@ import {
 } from './deep-research-client'
 import { ApiRequestError } from './api-error'
 
-/**
- * Minimal EventSource fake: records the URL it was opened with and lets tests
- * dispatch typed SSE events into the client's handlers.
- */
 class FakeEventSource {
   static readonly CONNECTING = 0
   static readonly OPEN = 1
@@ -97,7 +93,6 @@ describe('deep research SSE client', () => {
 
       expect(client.getLastEventId()).toBe('17')
 
-      // A new connect on the same client resumes after the tracked id.
       client.disconnect()
       client.connect()
       const resumed = FakeEventSource.instances[FakeEventSource.instances.length - 1]
@@ -106,8 +101,6 @@ describe('deep research SSE client', () => {
   })
 
   describe('reopening a stream the browser closed', () => {
-    // The browser closes for good on any non-200, which is what the proxy
-    // answers while an api replica is replaced (ADR-0082 step B).
     const closeLikeTheBrowser = (source: FakeEventSource) => {
       source.readyState = FakeEventSource.CLOSED
       source.onerror?.()
@@ -267,8 +260,6 @@ describe('deep research SSE client', () => {
   })
 
   describe('job.phase handling', () => {
-    // Regression: the case existed and the listener did not, so the browser
-    // never subscribed to the named event and `onPhase` never fired.
     test('reaches onPhase through a registered listener', () => {
       const onPhase = vi.fn()
       const { source } = connectWithFakeEventSource({ onPhase })
@@ -322,13 +313,6 @@ describe('deep research REST client', () => {
   })
 })
 
-/**
- * The report body is REBUILT at this boundary rather than passed through, so a
- * malformed `filed` cannot cross wearing a type it does not satisfy. The cost
- * of that choice is that a key this function does not name is a key no caller
- * ever sees — which is exactly how `filingFailed` came to be set by the BFF,
- * asserted by its route spec, and read by nobody.
- */
 describe('report filing, as it crosses the wire', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -353,14 +337,10 @@ describe('report filing, as it crosses the wire', () => {
 
     expect(response.filingFailed).toBe(true)
     expect(response.filed).toBeUndefined()
-    // Never at the answer's expense: the report the user waited minutes for is
-    // returned alongside the bad news, not instead of it.
     expect(response.report).toBe('# Bericht')
   })
 
   test('reports no failure when the server claimed none', async () => {
-    // Absence still means "nothing was promised" — no project, no attempt, a
-    // run older than the feature. That state must stay silent.
     reportBody({})
 
     const response = await getJobReport('job-1', undefined, { projectId: 'proj-1' })
@@ -369,9 +349,6 @@ describe('report filing, as it crosses the wire', () => {
   })
 
   test('carries the numbered sources through the rebuild', async () => {
-    // The [N] a report cites a source by exists only in the persisted output,
-    // and this rebuild names every key the caller can see — so a key left out
-    // here is a source list the report tab never gets.
     const source = { file_name: 'oib-rl_2_ausgabe_mai_2023.pdf', page: 7, number: 3 }
     reportBody({ sources: [source] })
 
@@ -389,9 +366,6 @@ describe('report filing, as it crosses the wire', () => {
   })
 
   test('believes only a real boolean', async () => {
-    // A retraction is a claim about a promise the server made. A truthy string
-    // arriving in this key would have the banner take back a promise nobody
-    // said was broken.
     reportBody({ filingFailed: 'yes' })
 
     const response = await getJobReport('job-1', undefined, { projectId: 'proj-1' })

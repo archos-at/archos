@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The agent door's HTTP edge (ADR-0122): who is turned away before the MCP
- * handler runs, the challenge an MCP client needs to start OAuth, and one real
- * round trip through the SDK so the server we build is the server that answers.
- */
 
 import { webcrypto } from 'node:crypto'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -32,16 +27,17 @@ vi.mock('@/lib/limits', async (importOriginal) => ({
 
 import { TooManyRequestsError } from '@/lib/api/errors'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
+import { LEGACY_MODE_HEADER } from '@/lib/agent-api/legacy-names'
 import { MCP_REQUEST_LIMIT, enforceLimit, memberSubject } from '@/lib/limits'
 import { buildRequestContextEnvelope, REQUEST_CONTEXT_HEADER_NAMES } from '@/lib/request-context'
 import { DELETE, GET, POST } from './route'
 
 const SECRET = 'internal-token-for-tests' // pragma: allowlist secret
-const URL_ = 'https://app.piloti.test/api/mcp'
+const URL_ = 'https://app.example.test/api/mcp'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -71,17 +67,16 @@ function rpc(method: string, params: unknown, headers: Record<string, string> = 
   })
 }
 
-// The shared setup file swaps `crypto` for a stub with no randomUUID, which the SDK uses.
 beforeAll(() => {
   vi.stubGlobal('crypto', webcrypto)
 })
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.piloti.test'
-  process.env.MCP_RESOURCE_URL = URL_
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.WORKOS_REDIRECT_URI = 'https://app.piloti.test/api/auth/callback'
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', 'auth.example.test')
+  vi.stubEnv('MCP_RESOURCE_URL', URL_)
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.example.test/api/auth/callback')
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(enforceLimit).mockResolvedValue({
     allowed: true,
@@ -99,7 +94,7 @@ describe('authentication', () => {
     expect(response.status).toBe(401)
     expect(response.headers.get('www-authenticate')).toBe(
       'Bearer error="invalid_token", error_description="Missing Authorization header", ' +
-        'resource_metadata="https://app.piloti.test/.well-known/oauth-protected-resource/api/mcp"',
+        'resource_metadata="https://app.example.test/.well-known/oauth-protected-resource/api/mcp"',
     )
   })
 
@@ -110,13 +105,13 @@ describe('authentication', () => {
   })
 
   it('answers 503 on the external door while AuthKit is not configured', async () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     const response = await POST(rpc('tools/list', {}, { authorization: 'Bearer x.y.z' }))
     expect(response.status).toBe(503)
   })
 
-  it('keeps Piloti\'s door working without an AuthKit domain', async () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+  it('keeps the agent\'s door working without an AuthKit domain', async () => {
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     const response = await POST(rpc('tools/list', {}, signedMcpHeaders()))
     expect(response.status).toBe(200)
   })
@@ -129,7 +124,7 @@ describe('origin', () => {
   })
 
   it('lets the app\'s own origin and clients with no origin through to authentication', async () => {
-    const own = await POST(rpc('tools/list', {}, { origin: 'https://app.piloti.test' }))
+    const own = await POST(rpc('tools/list', {}, { origin: 'https://app.example.test' }))
     expect(own.status).toBe(401)
     const none = await POST(rpc('tools/list', {}))
     expect(none.status).toBe(401)
@@ -222,18 +217,13 @@ describe('stateless transport', () => {
   })
 })
 
-/**
- * The JSON-RPC message in a response. The 2025-era leg of the SDK answers as an
- * SSE stream (`responseMode: 'json'` shapes the 2026 leg only); either way one
- * message comes back.
- */
 async function messageOf<T>(response: Response): Promise<T> {
   const raw = await response.text()
   const data = raw.split('\n').find((line) => line.startsWith('data:'))
   return JSON.parse(data ? data.slice('data:'.length) : raw) as T
 }
 
-describe('MCP round trip as Piloti', () => {
+describe('MCP round trip as the agent', () => {
   async function toolNames(url: string, headers: Record<string, string> = {}): Promise<string[]> {
     const response = await POST(rpc('tools/list', {}, { ...signedMcpHeaders(), ...headers }, url))
     expect(response.status).toBe(200)
@@ -250,14 +240,13 @@ describe('MCP round trip as Piloti', () => {
     ])
   })
 
-  it('lists one tool per operation in tools mode, chosen by query or header', async () => {
-    // project-folder-access-set is sensitive: Piloti may not propose it, so it never sees it (M4).
+  it('lists one tool per operation in tools mode, chosen by the query or the legacy header', async () => {
     const expected = ['project-list', 'project-member-add', 'project-delete', 'workspace-search', 'report-missing-operation']
     expect(await toolNames(`${URL_}?mode=tools`)).toEqual(expected)
-    expect(await toolNames(URL_, { 'x-piloti-mcp-mode': 'tools' })).toEqual(expected)
+    expect(await toolNames(URL_, { [LEGACY_MODE_HEADER]: 'tools' })).toEqual(expected)
   })
 
-  it('serves the instructions that say what Piloti is', async () => {
+  it('serves the instructions that say what the agent is', async () => {
     const response = await POST(
       rpc('initialize', {
         protocolVersion: '2025-06-18',

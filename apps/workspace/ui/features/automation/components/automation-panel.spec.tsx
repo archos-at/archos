@@ -1,17 +1,3 @@
-/**
- * The Automation section's tabs — which panel is mounted, when.
- *
- * The join is all this file pins; the two panels have specs of their own. Two
- * properties carry it:
- *
- *   - **Only the active tab mounts.** Load-bearing rather than an optimization:
- *     the panels portal their primary action into ONE header slot, so two
- *     mounted panels would fight over it.
- *   - **A drawer deep link picks its own tab.** `?task=` and `?schedule=` both
- *     live on Tasks — a run drawer and a standing-task drawer are two drawers
- *     over one list, not two destinations.
- */
-
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
@@ -130,7 +116,6 @@ describe('a drawer deep link', () => {
     window.history.replaceState(null, '', '/?tab=skills&task=t1')
     render(<AutomationPanel {...baseProps} initialTab="skills" />)
     expect(new URL(window.location.href).searchParams.get('tab')).toBe('tasks')
-    // The drawer param survives the correction — it is the whole point of it.
     expect(new URL(window.location.href).searchParams.get('task')).toBe('t1')
   })
 })

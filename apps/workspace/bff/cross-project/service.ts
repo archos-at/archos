@@ -1,57 +1,3 @@
-/**
- * Cross-project lookups (ADR-0094, docs/design/cross-project-escalation.md):
- * list and find the projects in reach, read one project's brief, and search
- * documents across them. The one place that decides what a lookup may return;
- * the agent's routes (`app/api/internal/cross-project/*`) are thin adapters
- * over it.
- *
- * ## Who may ask, and what is recorded
- *
- * Any chat. A lookup searches AS THE CONVERSATION'S AUDIENCE
- * (`audience-reach.ts`): a solo chat reaches what its asker may chat in, a
- * shared one what every reader may open, which always includes the office's
- * closed projects. Every answer is recorded on the conversation BEFORE it is
- * returned (`recordCrossProjectHandOut`): the projects it says anything about
- * and the restricted folders its passages came from, under the lock every
- * share takes, refused when the audience changed since the reach was computed.
- * The record then decides who may read the conversation next and what may leave
- * it; a project closed now restricts nobody.
- *
- * ## Access, with no second rule
- *
- * A project is in reach when the reader may CHAT in it (`listChatProjects`, the
- * rule a chat turn's own scope uses: a project viewer reads documents but does
- * not get the agent pointed at them). The conversation's own project is never
- * in a lookup's scope; its own tools search it under its own scope. Inside a
- * project, the collections searched are the ones the project's own search
- * names (`planProjectSearch`): hidden folders are left out, and a restricted
- * folder's collection is searched only for a reader who may read it.
- *
- * ## Fact filters narrow, likeness still ranks
- *
- * A search or a listing may ask for only projects with given facts
- * (`projectFacts`: Bundesland, Gebäudeklasse, Bauweise, Nutzungen,
- * Vorhabensart). They are judged on the Postgres profile (`holdsFacts`) over
- * what the audience's reach already holds, before the page is cut, so a filter
- * can only narrow the reach, and `projectsInScope`, the paging, the decisions
- * and the permits all count the same narrowed set. In `similar` and `closed`
- * the likeness order and the search's likeness lift still rank what is left.
- *
- * ## Cost
- *
- * Qdrant is the one store (ADR-0115), with one shared index (ADR-0116), so a
- * page of up to {@link CROSS_PROJECT_PAGE_PROJECTS} projects, and at most
- * {@link BACKEND_SEARCH_MAX_COLLECTIONS} collections, is ONE search:
- * every collection the reader is cleared for, ranked together, so hits from
- * different projects are ordered by one ranking instead of by scores from
- * separate indexes. The tag filters run inside that search, and the current
- * project's fingerprint lifts passages from projects like it
- * (`project-facts-mirror.ts`); the walk order no longer decides which
- * projects are searched. A failed search is an upstream error, never an empty
- * page. The answer carries the offset of the next page; the agent asks again
- * when it wants more.
- */
-
 import 'server-only'
 import { decisionOriginOf } from './decision-origin'
 import { BadRequestError, NotFoundError, UpstreamError } from '@/lib/api/errors'
@@ -88,30 +34,17 @@ import {
   type ProjectStatus,
 } from './types'
 
-/** How many projects are authorized, joined to their rows or read for memory at the same time within one page. */
 export const SEARCH_CONCURRENCY = 4
 
-/**
- * How long a passage the search hands back may be. The snippet is the
- * evidence: the agent cannot open another project's document further, so a
- * person's 300-character hit-list snippet would be too thin to answer from.
- */
 export const CROSS_PROJECT_SNIPPET_CHARS = 900
 
-/** Who asks, from which conversation, in which project (null: a chat outside every project). */
 export interface CrossProjectCaller {
   session: AuthorizedSession
   conversationId: string
   currentProjectId: string | null
-  /** The answer the turn is writing, from the request body; marked with the hand-out (ADR-0093). */
   answerMessageId?: string | null
 }
 
-/**
- * The caller of an agent route, from the turn's VERIFIED envelope and the
- * pinned session built from it (ADR-0054 §4). A turn without a conversation has
- * nothing to keep the findings to, and is refused.
- */
 export function crossProjectCaller(
   context: Pick<VerifiedRequestContext, 'conversationId' | 'projectId'>,
   session: AuthorizedSession,
@@ -135,16 +68,10 @@ function party(caller: CrossProjectCaller): HandOutParty {
   }
 }
 
-/** A project's status (ADR-0098): active, paused or closed; anything unreadable reads as active. */
 export function projectStatusOf(project: Pick<Project, 'status'>): ProjectStatus {
   return toProjectStatus(project.status)
 }
 
-/**
- * A project's period, as days: the Steckbrief's Beginn (month precision,
- * migration 0117), else the day the project was created in Piloti; and its
- * Abschluss once it is closed, else an open end (ADR-0098).
- */
 export function projectPeriodOf(
   project: Pick<Project, 'createdAt' | 'startedOn' | 'endedOn' | 'status'>
 ): { start: string; end: string | null } {
@@ -152,18 +79,15 @@ export function projectPeriodOf(
   return { start, end: closingOf(project) }
 }
 
-/** Whether a period overlaps `[from, to]`, both optional and inclusive; an open end runs to today and beyond. */
 export function periodOverlaps(period: { start: string; end: string | null }, from?: string, to?: string): boolean {
   return (!to || period.start <= to) && (!from || period.end === null || period.end >= from)
 }
 
-/** The project's address, from the brief's `site_address` fact, when one was confirmed. */
 export function projectAddressOf(project: Pick<Project, 'profile'>): string | null {
   const value = project.profile?.facts?.site_address?.value
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
-/** What every answer says about a project it drew on: who it is, whether it is closed, and its Land. */
 function projectRefOf(project: Project): CrossProjectRef {
   return {
     id: project.id,
@@ -173,11 +97,6 @@ function projectRefOf(project: Project): CrossProjectRef {
   }
 }
 
-/**
- * The OIB edition a project was planned under: a confirmed fact, else the
- * agent's suggestion from its documents (unconfirmed), else null. A wizard default
- * is no evidence and is not read.
- */
 export function oibEditionOf(profile: Project['profile'] | null): CrossProjectListed['oibEdition'] {
   const fact = profile?.facts?.oib_edition?.value
   if (typeof fact === 'string' && fact.trim()) return { value: fact.trim(), confirmed: true }
@@ -199,14 +118,6 @@ function listed(project: Project, currentProjectId: string | null): CrossProject
   }
 }
 
-/**
- * Whether a project holds the facts a lookup asked for (`crossProjectFactsSchema`):
- * within a fact any of its values, across facts all of them; no filter, or an
- * empty one, holds for every project. Read off Postgres, the authority, as the
- * similarity reads a profile (`similarityFacts`), which is also what every
- * chunk's mirrored copy carries; a fact the profile does not record does not
- * match. Only ever narrows what the audience's reach already holds.
- */
 export function holdsFacts(profile: Project['profile'] | null, filter: CrossProjectFacts | undefined): boolean {
   if (!filter) return true
   const facts = similarityFacts(profile)
@@ -221,14 +132,6 @@ export function holdsFacts(profile: Project['profile'] | null, filter: CrossProj
   )
 }
 
-/**
- * The projects a search scope covers, the conversation's own left out and
- * narrowed by the period and the asked facts first: for `similar` and `closed`,
- * most like the current project first (`similarity.ts`), so a search of the
- * closed projects (the turn's precedent prefetch) walks the same projects the
- * reference catalog lists first; for `all` and `named`, in the listing's order
- * (newest first). The facts narrow every scope and reorder none.
- */
 export function projectsInScope(
   reachable: readonly Project[],
   request: Pick<CrossProjectSearchRequest, 'scope' | 'projectIds' | 'from' | 'to'> &
@@ -258,11 +161,6 @@ export function projectsInScope(
   return others
 }
 
-/**
- * `ranked` with the projects `order` names walked first, in its order: the
- * turn's reference fit. Only a reorder of what the scope already holds; an id
- * it does not hold is ignored.
- */
 function fitFirst(ranked: Project[], order: readonly string[] | undefined): Project[] {
   if (!order?.length) return ranked
   const position = new Map(order.map((id, index) => [id, index]))
@@ -271,12 +169,10 @@ function fitFirst(ranked: Project[], order: readonly string[] | undefined): Proj
   return [...first, ...ranked.filter((project) => !position.has(project.id))]
 }
 
-/** The current project, for the similarity order; null outside every project or when it is gone. */
 async function currentProjectOf(caller: CrossProjectCaller): Promise<Project | null> {
   return caller.currentProjectId ? findProjectInOrg(caller.currentProjectId, caller.session.organizationId) : null
 }
 
-/** List and find the projects in reach (ADR-0094). Every project listed is recorded. */
 export async function listLookupProjects(
   caller: CrossProjectCaller,
   request: CrossProjectListRequest
@@ -300,13 +196,11 @@ export async function listLookupProjects(
   return { projects, total: matching.length }
 }
 
-/** One project's brief: its confirmed facts and its summary, for a project in reach. Recorded. */
 export async function readProjectBrief(
   caller: CrossProjectCaller,
   request: CrossProjectBriefRequest
 ): Promise<CrossProjectBriefResponse> {
   const reach = await audienceReach(caller.session, caller.conversationId)
-  // The conversation's own project is always readable here; any other must be in reach.
   const project =
     reach.projects.find((candidate) => candidate.id === request.projectId) ??
     (request.projectId === caller.currentProjectId ? await currentProjectOf(caller) : null)
@@ -328,7 +222,6 @@ export async function readProjectBrief(
   return brief
 }
 
-/** Run `work` over `items`, at most `limit` at a time, in order. */
 async function mapBounded<T, R>(items: readonly T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = []
   for (let start = 0; start < items.length; start += limit) {
@@ -337,11 +230,6 @@ async function mapBounded<T, R>(items: readonly T[], limit: number, work: (item:
   return results
 }
 
-/**
- * Whether a hit's tags satisfy the request's type and discipline filters (each
- * group: any of). Behind the grouped search, which filters on the chunks' copy
- * of the tags, a backstop that judges by the document row.
- */
 export function matchesTags(
   tags: readonly string[],
   request: Pick<CrossProjectSearchRequest, 'documentTypes' | 'disciplines'>
@@ -350,20 +238,12 @@ export function matchesTags(
   return has(request.documentTypes) && has(request.disciplines)
 }
 
-/** A hit, and the restricted folder its passage came from (null for the project's own collection). */
 interface FoundHit {
   hit: CrossProjectHit
   folderId: string | null
-  /** Position in the page's one ranking, when the page was searched at once. */
   rank?: number
 }
 
-/**
- * The hits of one project a reader may be handed: the request's tag filters,
- * no restricted folder in a shared chat, and every restricted passage
- * carrying the folder it came from (one whose folder cannot be named is
- * dropped rather than handed out unrecorded).
- */
 async function foundHitsOf(
   project: Project,
   found: Array<SearchedDocument<ListedDocument>>,
@@ -372,11 +252,6 @@ async function foundHitsOf(
   accessOf: () => Promise<{ sourceFolderOf: (collection: string) => string | null | undefined }>
 ): Promise<FoundHit[]> {
   const ref = projectRefOf(project)
-  // `collectionName` on a found hit is the collection the PASSAGE came from:
-  // `joinHitsToFiles` joins a hit only to the row of the hit's own collection,
-  // so this is the hit's collection and not a filename match with a row filed
-  // elsewhere. Restricted or not, and which folder, is decided from it alone.
-  // A shared chat searches no restricted folder: not every reader was asked about it.
   const matching = found.filter(
     (hit) => matchesTags(hit.tags ?? [], request) && (reach.restrictedFolders || hit.collectionName === project.collectionName)
   )
@@ -406,30 +281,11 @@ async function foundHitsOf(
   })
 }
 
-/** What one page's search found, and how many of the page's projects it covered. */
 interface SearchedPage {
   found: FoundHit[]
-  /** The page's leading projects searched; the rest wait for the next page (the backend's collection cap). */
   searched: number
 }
 
-/**
- * A page of projects in ONE search (ADR-0116): each project is authorized and
- * its cleared collections named exactly as its own search names them
- * (`planProjectSearch`), then every collection is ranked together and each
- * project's hits are joined to its screened rows. A shared chat does not even
- * search a restricted folder, rather than searching and discarding it.
- *
- * One search names at most {@link BACKEND_SEARCH_MAX_COLLECTIONS}
- * collections, and each project brings its own plus every restricted folder
- * the reader is cleared for. The page stops at the project that would pass
- * the cap; it and the ones after it are searched on the next page.
- *
- * A project whose access went between the listing and the search yields
- * nothing. A page not one project of which could be planned (a database
- * failure, or every access withdrawn at once) is an upstream error rather than
- * an empty page reported as searched.
- */
 async function searchPage(
   session: AuthorizedSession,
   page: readonly Project[],
@@ -447,8 +303,6 @@ async function searchPage(
     reach.restrictedFolders ? plan.collections : [plan.project.collectionName]
   const searched = projectsWithinCollectionCap(planned.map((plan) => (plan ? collectionsOf(plan).length : 0)))
   const plans = planned.slice(0, searched).filter((plan): plan is ProjectSearchPlan => plan !== null)
-  // The tag filters run inside the search, so a project is asked for exactly
-  // `limit` documents; `matchesTags` below stays as a backstop.
   const hits = await fetchGroupedSemanticHits(
     session.organizationId,
     plans.flatMap(collectionsOf).slice(0, BACKEND_SEARCH_MAX_COLLECTIONS),
@@ -461,7 +315,6 @@ async function searchPage(
     const own = new Set(collectionsOf(plan))
     const projectHits = hits.filter((hit) => own.has(hit.collection))
     if (projectHits.length === 0) return []
-    // A join that fails is a failed search, never a project with nothing found.
     const found = await hydrateProjectHits(session, plan, projectHits, { forModel: true }).catch((error: unknown) => {
       throw new UpstreamError(
         'The hits could not be joined to their documents',
@@ -473,15 +326,6 @@ async function searchPage(
   return { found: perProject.flat(), searched }
 }
 
-/**
- * The request's type and discipline filters as the grouped search's pre-filters; undefined when none.
- *
- * The fact filter is deliberately not sent as `project_facts`: the page holds
- * only projects whose Postgres profile matches (`projectsInScope`), so the
- * collections named already carry it. The chunks' mirrored copy can lag (a
- * backfilled chunk carries no facts until the weekly sync), and filtering on
- * it too would drop a project the authority says matches.
- */
 function tagFiltersOf(request: CrossProjectSearchRequest): GroupedSearchFilters | undefined {
   if (request.documentTypes.length + request.disciplines.length === 0) return undefined
   return {
@@ -490,18 +334,11 @@ function tagFiltersOf(request: CrossProjectSearchRequest): GroupedSearchFilters 
   }
 }
 
-/** Best first: by the page's one ranking when it has one, else by score. */
 function byRelevance(a: FoundHit, b: FoundHit): number {
   if (a.rank !== undefined && b.rank !== undefined) return a.rank - b.rank
   return b.hit.score - a.hit.score
 }
 
-/**
- * What of each project's memory the reader may see: in a chat that is the
- * asker's alone, every restricted item the asker is cleared for in THAT
- * project (ticket 1's per-project clearance); elsewhere open memory only, as
- * passages from restricted folders stay out of a shared chat.
- */
 async function decisionScopes(
   session: AuthorizedSession,
   projects: readonly Project[],
@@ -552,7 +389,6 @@ function asPermit(found: FoundPermitRecord, byId: ReadonlyMap<string, Project>):
   }
 }
 
-/** Search documents, recorded decisions and permit records across the projects in reach, one bounded page of projects per call (ADR-0094). */
 export async function searchAcrossProjects(
   caller: CrossProjectCaller,
   request: CrossProjectSearchRequest
@@ -561,7 +397,6 @@ export async function searchAcrossProjects(
     audienceReach(caller.session, caller.conversationId),
     request.scope === 'similar' || request.scope === 'closed' ? currentProjectOf(caller) : Promise.resolve(null),
   ])
-  // `openFoldersOnly` searches as a shared chat would: no restricted folder, so nothing that narrows the readers.
   const reach = request.openFoldersOnly ? { ...audience, restrictedFolders: false } : audience
   const scope = projectsInScope(
     reach.projects,
@@ -570,17 +405,13 @@ export async function searchAcrossProjects(
   )
   const candidates = scope.slice(request.offset, request.offset + CROSS_PROJECT_PAGE_PROJECTS)
   const { found: documents, searched } = await searchPage(caller.session, candidates, request, reach, current)
-  // What the collection cap deferred is the next page's, decisions and permits included.
   const page = candidates.slice(0, searched)
   const memoryScopes = decisionScopes(caller.session, page, reach)
-  // Decisions and permit records are judged over the same scopes: the same
-  // projects, the same folder clearance, so the two cannot disagree on reach.
   const [decided, permitted] = await Promise.all([
     memoryScopes.then((scopes) => searchProjectDecisions(caller.session.organizationId, scopes, request.query)),
     memoryScopes.then(async (scopes) =>
       searchPermitRequirements(
         caller.session.organizationId,
-        // Permits are judged by the document's live folder (permits/live-access.ts), from the same clearance.
         await mapBounded(scopes, SEARCH_CONCURRENCY, async (scope) => ({
           projectId: scope.projectId,
           access: await liveFolderAccess(caller.session.organizationId, scope.projectId, scope.readableFolderIds),
@@ -599,8 +430,6 @@ export async function searchAcrossProjects(
     return permit ? [{ permit, folderIds: found.restrictedFolderIds ?? [] }] : []
   })
   const kept = [...documents].sort(byRelevance).slice(0, request.limit)
-  // Recorded before anything is returned: the projects and restricted folders
-  // of the hits AND of the decisions and permit records handed out.
   await recordCrossProjectHandOut(
     party(caller),
     {

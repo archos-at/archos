@@ -1,6 +1,6 @@
 # Cards — the agent's rich-UI presentation layer
 
-> How Piloti's agent returns structured, rendered UI instead of plain prose when
+> How the agent returns structured, rendered UI instead of plain prose when
 > that serves the user better. See also [ADR-0012](../adr/0012-cards-as-rich-ui-layer.md).
 
 ## What a card is
@@ -63,7 +63,7 @@ paragraph the model anchored it to with an own-line `[[callout]]` marker
 (`answer_envelope.CALLOUT_MARKER`), or after the prose when unanchored. A
 model that still reaches for a deleted type by name is refused on every
 channel with the Markdown that replaced it (`RETIRED_CARD_REPLACEMENTS`,
-`retired_refusal`). On the generation side the envelope is REQUESTED from the provider too, not only taught: Piloti
+`retired_refusal`). On the generation side the envelope is REQUESTED from the provider too, not only taught: the agent
 walks an enforcement ladder per call — OpenRouter structured
 outputs (`json_schema`, strict, derived from the same Pydantic models by
 `render_envelope_response_format`), then `json_object`, then a plain request —
@@ -149,11 +149,11 @@ catalog omits them entirely).
 |---|---|---|
 | `document_grid` | project/Büroablage files the user asked to see — the same raised `FileCard` the Files grid uses | the `surface_documents` tool |
 | `memory_proposal` **(interactive)** | a finding to be written to org- or project-scoped memory, for the user to confirm. With `proposal_id` it is the receipt of a stored `memory` proposal (same frame as the file card, `ProposalReceipt`): the note, its kind and confidence, where it goes, „Ersetzt: …“ for a correction, „Übernehmen“ / „Verwerfen“ for whoever `canDecide`, „Nur im Projekt merken“ for an office note, and who decided when. Without one, the browser writes it, as before | the `remember` tool |
-| `document_draft` | a document written into this conversation's working directory — title, path, `v{n}` and size, with the Files feature's „Von Piloti erstellt" byline. Its „Ins Projekt übernehmen" is drawn **inert**: filing is a later slice, and until it is wired the card reports the draft rather than offering to move it | the working directory's `write_file` / `edit_file` |
-| `task_created` | work Piloti has taken on, as a task row somebody can come back to — title, goal, due date and a link to the run's thread. Informational: the task is already queued when it renders, so there is no Accept | the `create_task` tool |
+| `document_draft` | a document written into this conversation's working directory — title, path, `v{n}` and size, with the Files feature's „Von {productName} erstellt" byline. Its „Ins Projekt übernehmen" is drawn **inert**: filing is a later slice, and until it is wired the card reports the draft rather than offering to move it | the working directory's `write_file` / `edit_file` |
+| `task_created` | work the agent has taken on, as a task row somebody can come back to — title, goal, due date and a link to the run's thread. Informational: the task is already queued when it renders, so there is no Accept | the `create_task` tool |
 | `file_operation_proposal` **(interactive)** | a workspace change the agent PROPOSED and did not make — a move, a rename, a new folder, an assignment. One card type for four verbs, discriminated by `operation`, carrying a capped LIST so an „organise the Einreichung" turn is one decision and not four. With `proposal_id` it shows a proposal stored on the server ([`proposed-changes.md`](proposed-changes.md), ADR-0105): accepting asks the server to apply it in the accepting person's session, and every reader sees the same decision. The result is reported per row — a batch where the third fails says two landed and one did not, with the reason. Without one (an answer older than server proposals, or one the agent could not store) the card is read-only: nothing runs in the browser any more, a decision recorded on the message is replayed, and an undecided card says „Konnte nicht als Vorschlag angelegt werden“ | `propose_file_change` under `packages/agent/src/agent/tools/files/` (a Dokumentart proposal waits for a project-scoped doc_class route) |
-| `canvas_activity` **(interactive)** | what Piloti did on ONE document: the marks it proposed (each drawn on a small page at its normalized place, numbered like the canvas's pins, dashed while a proposal), the marks it set, changed or deleted because the person asked, and the threads it answered in. Each proposed mark is answered on its own, „Übernehmen" / „Verwerfen", through the annotations client (`PATCH …/annotations/{id}`, status `open` / `dismissed`), and stored per mark under `itemDecisionKey`. A change reads „#4 erledigt" with Piloti's note, and „Rückgängig" PATCHes the inverse with the status Piloti left as `expectedStatus`, stored per row. The card reads the document's marks once it is on screen and lets the canvas win, so a mark a colleague answered there reads as answered here. „Im Dokument zeigen" opens the Prüfansicht at that mark over the chat (`features/documents/lib/open-review.ts`) | the canvas tools under `packages/agent/src/agent/tools/canvas/` |
-| `look` | where Piloti looked on ONE document in this turn (ADR-0128): an item per look the answer relies on (page, region as `[x, y, w, h]`, `where` in words, the `question` and the first `reading`) and a `reference` item per box or pointer it showed the room. An ADDRESS (document id, Fassung as `revision_id`, page, region, `image_index`), never pixels: a `data:` string is refused anywhere on it, by the model and by the generated schema. Which looks become items is decided once the answer is final: the looked-at documents the answer cites, or all of them when it cites none, and every gesture (`tools/look/cards.py`). Drawn per item as the page clip with the place marked (`PageRegionThumbnail`, from the document's own routes, so only a reader who may open the document sees it), the place in words; the question and the reading, marked as read, not measured, are folded under the places behind „Erläuterung“ and open on a press (Notion #38, topic 10); pressing an item opens the viewer at the page with the box glowing (`PagePlaceButton`). Not exported: printed, it is coordinates without the picture | `look`, through `place_look_cards` in `finalize_answer`; `canvas__highlight` and `canvas__point` add the `reference` items |
+| `canvas_activity` **(interactive)** | what the agent did on ONE document: the marks it proposed (each drawn on a small page at its normalized place, numbered like the canvas's pins, dashed while a proposal), the marks it set, changed or deleted because the person asked, and the threads it answered in. Each proposed mark is answered on its own, „Übernehmen" / „Verwerfen", through the annotations client (`PATCH …/annotations/{id}`, status `open` / `dismissed`), and stored per mark under `itemDecisionKey`. A change reads „#4 erledigt" with the agent's note, and „Rückgängig" PATCHes the inverse with the status the agent left as `expectedStatus`, stored per row. The card reads the document's marks once it is on screen and lets the canvas win, so a mark a colleague answered there reads as answered here. „Im Dokument zeigen" opens the Prüfansicht at that mark over the chat (`features/documents/lib/open-review.ts`) | the canvas tools under `packages/agent/src/agent/tools/canvas/` |
+| `look` | where the agent looked on ONE document in this turn (ADR-0128): an item per look the answer relies on (page, region as `[x, y, w, h]`, `where` in words, the `question` and the first `reading`) and a `reference` item per box or pointer it showed the room. An ADDRESS (document id, Fassung as `revision_id`, page, region, `image_index`), never pixels: a `data:` string is refused anywhere on it, by the model and by the generated schema. Which looks become items is decided once the answer is final: the looked-at documents the answer cites, or all of them when it cites none, and every gesture (`tools/look/cards.py`). Drawn per item as the page clip with the place marked (`PageRegionThumbnail`, from the document's own routes, so only a reader who may open the document sees it), the place in words; the question and the reading, marked as read, not measured, are folded under the places behind „Erläuterung“ and open on a press (Notion #38, topic 10); pressing an item opens the viewer at the page with the box glowing (`PagePlaceButton`). Not exported: printed, it is coordinates without the picture | `look`, through `place_look_cards` in `finalize_answer`; `canvas__highlight` and `canvas__point` add the `reference` items |
 | `revision_compare` | the same page of two Fassungen side by side, the changes boxed on each (ADR-0128, V10): `older_id`, `newer_id`, optional `older_name` / `newer_name` (the file names `document-revision-compare` returns; the sides are labelled with them, and with the role words when absent), `page`, `changes` (`region` as `[x, y, w, h]` and a `label`) and the `summary` sentences. An ADDRESS, never pixels (a `data:` string is refused). The boxes were found on the newer page and are drawn at the same place on the older. Each side is the whole page drawn from its own document's routes (`PageRegionThumbnail`, so only a reader who may open both sees them); pressing a side opens the viewer at the page with every box (`PagePlaceButton` with `marks`). Not exported | `workspace__call` of `document-revision-compare`, once the result is in (`tools/workspace/cards.py`); one card per pair and page |
 
 **(interactive)** marks a card whose answer is a commitment and is therefore
@@ -271,7 +271,7 @@ for an Energieeffizienzklasse, and a cited quote line `> „…“ [N]` for the
 wording an answer turns on, verified against the source like every quote
 (`verify_quoted_spans`). The backend treats the directive lines as inert text:
 citation verification, renumbering, quote verification and the report hygiene
-pass keep them byte-equal (`packages/agent/tests/agents/piloti/test_answer_pipeline_directives.py`;
+pass keep them byte-equal (`packages/agent/tests/core/test_answer_pipeline_directives.py`;
 the hygiene pass keeps a line's leading indentation and never pulls the space
 out of „Klasse :energy-class[B]").
 
@@ -296,7 +296,7 @@ the caveat has to travel with it.
 The four data cards go one step further: their payload is a file name, a
 GlobalId or a pair of revisions **and nothing else**, and the component fetches
 the figures from the model when it renders
-(`features/cards/components/IfcDataCards.tsx`). The agent therefore cannot
+(`features/cards/components/ifc-data-cards/`). The agent therefore cannot
 state a floor area, get a fire rating wrong or invent a delta, because it never
 supplies one — the worst it can do is point at the wrong table, which is visible
 immediately. That also keeps a card honest after the fact: re-open a
@@ -357,7 +357,7 @@ including `trifft zu` and `aktuell`, the directive dialect) live in the
 `<formatting>` block of `chat_static.md`.
 
 Deep research can still emit cards via the **`emit_card` tool**
-(`cards/register.py`); Piloti (chat) no longer binds it, and its cards travel
+(`cards/register.py`); the agent no longer binds it, and its cards travel
 in the envelope's `cards` field only. Mid-turn, with full context, the
 researcher calls the tool whenever a structured element communicates better
 than prose. The card is
@@ -433,7 +433,7 @@ states the author's preference AND it decides which shapes are already in contex
 at the moment the model would emit. The `piloti-cards` standard skill used to be
 the heaviest user of this — six shapes inlined on every answering turn — until
 migration `0071` retired it together with `piloti-voice`: the card craft moved
-into the `<cards>` section of Piloti's system prompt, and the rhetorical
+into the `<cards>` section of the agent's system prompt, and the rhetorical
 shapes it inlined became `answer_meta` trailer fields. Today the mechanism
 serves the genre skills (e.g. `oib/fire-safety` inlines its five), which pay
 for their shapes only on the turns that activate them.
@@ -481,7 +481,7 @@ every channel.
 
 The description used to say "emit a card only when it adds real value". That is
 a disclaimer, not an instruction, and fifteen diagram renderers sat behind it —
-while eight lines away in `piloti.j2` the IFC block named a trigger and gave
+while eight lines away in `system.j2` the IFC block named a trigger and gave
 a reason, which is exactly why the IFC cards were emitted and the schematics
 were not.
 
@@ -534,7 +534,7 @@ reason is the same each time: they are not true there.
 The CRAFT — which card actually improves an ordinary answer, and how the
 verdict divides the ruling with the answer's first sentence — is in neither
 rendering. It lives in the `<cards>` and `<answer_meta>` sections of
-Piloti's system prompt (`piloti/prompts/piloti.j2`), where
+the agent's system prompt (`core/prompts/system.j2`), where
 the retired `piloti-cards` platform skill used to carry it: a forced skill's
 body only reached the model through a `use_skill` call it could skip, and the
 prompt is unconditional. The post-hoc path cannot read a prompt meant for the
@@ -556,7 +556,7 @@ submission.
 Two content cards is the doctrine's ceiling. For a long time it was also
 unreachable, for a reason that had nothing to do with the doctrine.
 
-Piloti forces synthesis at `tool_iteration_ceiling` (`max_tool_iterations`,
+The agent forces synthesis at `tool_iteration_ceiling` (`max_tool_iterations`,
 seven in production — one number, with nothing reserved on top of it since no
 skill is forced on a turn), and every tool CALL used to be charged to it —
 `emit_card` and `describe_card` included. Those are the answer's OUTPUT
@@ -585,11 +585,11 @@ question happened to need.
 Every turn. On chat the answer envelope's `cards` field is part of every
 answer (ADR-0052: there is no classifier and no narrowed "meta" binding in
 front of the answering agent), so whether a turn ships a card is decided by
-what the answer has to show, never by a label given before the answer. Piloti
+what the answer has to show, never by a label given before the answer. The agent
 no longer binds `emit_card`; only deep research does.
 
 This used to be contradictory rather than decided: when the intent classifier
-still existed, Piloti's prompt's meta output contract said "no tool calls"
+still existed, the agent's prompt's meta output contract said "no tool calls"
 while the `<cards>` block six lines below sat outside both `requires_sources`
 guards and told the model to emit one. The mandatory-sounding half won, and a
 Baurecht question that classified `meta` — „Wie läuft das
@@ -621,7 +621,7 @@ never got the card named, versus a shape the model cannot fill in), so every exi
 in `_emit` now logs: refusals at `warning` naming the card TYPE the model reached
 for, the success at `info` as before.
 
-Because the doctrine lives on the tool, Piloti's `<cards>` block
+Because the doctrine lives on the tool, the agent's `<cards>` block
 no longer restates it — and since the craft moved there too, it no longer
 restates that either. The prompt points at the `emit_card` description and keeps
 only what the tool cannot say, because it is a fact about the ANSWER rather than
@@ -688,7 +688,7 @@ the model nothing it has not already written. A group giving both is refused by
 the Pydantic validator — the renderer would have to pick, and either choice
 silently discards half the request.
 
-Emitting one is not optional politeness: Piloti's `<cards>`
+Emitting one is not optional politeness: the agent's `<cards>`
 block asks for the matching card by default on any answer that came from
 `ifc_query`, and names which card goes with which operation. That is the one
 part of the trigger doctrine that stayed in the prompt rather than moving to the
@@ -711,7 +711,7 @@ Since ADR-0065 a card reaches the screen through
 [A2UI](https://a2ui.org) v0.9: `AnswerCardItem` hands it to `A2uiCard`
 (`features/a2ui/`), which turns it into an A2UI surface (a stored card is a
 one-component surface whose root is the card) and draws it with
-`@a2ui/react` on the Piloti catalog. The catalog registers one A2UI component
+`@a2ui/react` on the agent catalog. The catalog registers one A2UI component
 per card type, named by the type and validated by that card's generated Zod
 schema, plus `Row`, `Column`, `Tabs` and `Text` in the basic catalog's shapes. Each
 card component calls back into `AnswerCardView`, the per-type dispatch that used
@@ -802,7 +802,7 @@ an id would have to survive validation, persistence AND the deep-research path,
 which builds its cards post-hoc from a finished report and has no emission order
 to refer back to.
 
-The contract is stated in `piloti.j2` as well as in the tool return, and
+The contract is stated in `system.j2` as well as in the tool return, and
 deliberately so: a marker the model only learns about from the tool result
 arrives after it has already committed to the paragraph the card belongs to, so
 placement could only ever be retrofitted. Named up front, it can be planned.
@@ -1038,11 +1038,11 @@ appear there.
 Two differences from the model-facing catalog (`render_card_catalog`), which is
 rendered from the same models for the `emit_card` tool: system cards are
 **included** and flagged `emittedBy: "system"` rather than hidden (a model that
-learns they exist can fabricate them; a person asking "can Piloti show me X?" is
+learns they exist can fabricate them; a person asking "can the agent show me X?" is
 misled by a list with holes in it), and every entry is data rather than prose.
 
 The response also carries `featureRequest` — the repository plus a link to the
-enhancement issue form — because the question that follows "here is what Piloti
+enhancement issue form — because the question that follows "here is what the agent
 can render" is "and how do I get the one thing that is missing?".
 
 ### The gallery: Platform → cards
@@ -1051,7 +1051,7 @@ can render" is "and how do I get the one thing that is missing?".
 between "Answer quality" and "Base knowledge"). Every entry is a **real render**
 — the sample card goes through the same `AnswerCards` dispatcher chat uses — so
 the page cannot advertise a card the renderers do not produce, and a platform
-owner's visual question ("can Piloti show me a Stellplatznachweis?") gets a visual
+owner's visual question ("can the agent show me a Stellplatznachweis?") gets a visual
 answer. The values each card carries expand underneath, straight from the
 endpoint, and the request-a-card link sits in the header and again at the foot.
 
@@ -1123,10 +1123,10 @@ instead. Next phases: a 3D massing card
   researcher's own prompts have no `<cards>` block at all — it holds `emit_card`
   with nothing but the tool description to go on. That description is a much
   better thing to hold since it gained the doctrine, but the doctrine names no
-  IFC trigger (that guidance stayed in Piloti's prompt, above), so a deep
+  IFC trigger (that guidance stayed in the agent's prompt, above), so a deep
   answer about the building still comes back as prose with element links.
   Closing this means giving
-  the deep researcher the same `<cards>` guidance Piloti now has, not
+  the deep researcher the same `<cards>` guidance the agent now has, not
   relaxing the post-hoc restriction, which would only license invented ids.
 - A silent card-generation failure is currently indistinguishable from "no cards";
   emission should surface failures.

@@ -37,7 +37,6 @@ import type { UserSession } from '@/lib/auth/types'
 
 const PLATFORM_ORG = 'org_platform'
 const SUPPORT_ROLE_SLUG = 'org-platform-support'
-/** What the owner's token carries inside the platform org. */
 const OWNER_CLAIMS = [
   'platform:organizations:view',
   'platform:organizations:manage',
@@ -46,7 +45,6 @@ const OWNER_CLAIMS = [
   'platform:settings:manage',
 ]
 
-/** In-process store, cleared per test so a cached role list cannot leak across. */
 class TestStore implements CacheStore {
   map = new Map<string, string>()
   async get(key: string): Promise<string | null> {
@@ -81,10 +79,9 @@ describe('platform tier', () => {
     vi.clearAllMocks()
     _clearPlatformCaches()
     setCacheStore(new TestStore())
-    delete process.env.PLATFORM_OWNER_EMAILS
+    vi.stubEnv('PLATFORM_OWNER_EMAILS', undefined)
     getOrganizationByExternalId.mockResolvedValue({ id: PLATFORM_ORG })
     listOrganizationMemberships.mockResolvedValue({ data: [] })
-    // What WorkOS says the two platform-org roles hold, as the catalog provisions them.
     listOrganizationRoles.mockResolvedValue({
       data: [
         {
@@ -125,7 +122,6 @@ describe('platform tier', () => {
           session({ organizationId: PLATFORM_ORG, role: PLATFORM_OWNER_ROLE_SLUG, permissions: OWNER_CLAIMS })
         )
       ).toBe(true)
-      // The role's NAME is not staff: the token carries what WorkOS gave it.
       expect(
         await isPlatformStaff(session({ organizationId: PLATFORM_ORG, role: PLATFORM_OWNER_ROLE_SLUG }))
       ).toBe(false)
@@ -138,8 +134,6 @@ describe('platform tier', () => {
           })
         )
       ).toBe(true)
-      // An analyst holding only the edge-checked Langfuse permission has no
-      // platform surface here, so the area stays closed (ADR-0089).
       expect(
         await isPlatformStaff(
           session({
@@ -149,8 +143,6 @@ describe('platform tier', () => {
           })
         )
       ).toBe(false)
-      // Membership in the platform org without a platform role or claim is NOT
-      // enough — the org is not a permission.
       expect(await isPlatformStaff(session({ organizationId: PLATFORM_ORG, role: 'member' }))).toBe(
         false
       )
@@ -185,10 +177,6 @@ describe('platform tier', () => {
   })
 
   describe('read-only Platform Support holds no write permission', () => {
-    // The defect this replaced: every platform route was gated on one binary
-    // "is this platform staff", and Support passed it — so a role documented as
-    // changing nothing could PUT the model defaults and DELETE base-corpus
-    // documents.
     const support = () =>
       session({
         organizationId: PLATFORM_ORG,
@@ -253,11 +241,9 @@ describe('platform tier', () => {
 
   describe('break-glass', () => {
     it('works without any provisioning, and grants every platform permission', async () => {
-      process.env.PLATFORM_OWNER_EMAILS = 'owner@grid.com, second@grid.com'
+      vi.stubEnv('PLATFORM_OWNER_EMAILS', 'owner@grid.com, second@grid.com')
       getOrganizationByExternalId.mockRejectedValue(new Error('not found'))
       expect(await isPlatformStaff(session({ email: 'Owner@grid.com' }))).toBe(true)
-      // Total by design: it exists to recover an unprovisioned environment, and
-      // a partial grant would leave the recovery half-usable.
       expect(
         await hasPlatformPermission(
           session({ email: 'owner@grid.com' }),
@@ -268,7 +254,7 @@ describe('platform tier', () => {
     })
 
     it('is audited (throttled) into the platform org when it exists', async () => {
-      process.env.PLATFORM_OWNER_EMAILS = 'owner@grid.com'
+      vi.stubEnv('PLATFORM_OWNER_EMAILS', 'owner@grid.com')
       expect(await isPlatformStaff(session({ email: 'owner@grid.com' }))).toBe(true)
       expect(await isPlatformStaff(session({ email: 'owner@grid.com' }))).toBe(true)
       expect(recordAuditEvent).toHaveBeenCalledTimes(1) // throttled per actor
@@ -281,7 +267,7 @@ describe('platform tier', () => {
     })
 
     it('still grants (log-only) when the platform org is missing', async () => {
-      process.env.PLATFORM_OWNER_EMAILS = 'owner@grid.com'
+      vi.stubEnv('PLATFORM_OWNER_EMAILS', 'owner@grid.com')
       getOrganizationByExternalId.mockRejectedValue(new Error('not found'))
       expect(await isPlatformStaff(session({ email: 'owner@grid.com' }))).toBe(true)
       expect(recordAuditEvent).not.toHaveBeenCalled()
@@ -291,13 +277,9 @@ describe('platform tier', () => {
   it('platformPermissions distinguishes "not staff" from "staff holding nothing"', async () => {
     expect(await platformPermissions(session())).toBeNull()
 
-    // A fresh membership cache: the "no membership" answer above is cached per
-    // user, and caching it is the point (a non-member costs one lookup per TTL).
     _clearPlatformCaches()
     setCacheStore(new TestStore())
     listOrganizationMemberships.mockResolvedValue({ data: [{ role: { slug: 'unknown-role' } }] })
-    // A member whose role the catalog and WorkOS both report as empty is staff
-    // with no permissions, which must still deny every surface.
     listOrganizationRoles.mockResolvedValue({ data: [{ slug: 'unknown-role', permissions: [] }] })
     const permissions = await platformPermissions(session())
     expect(permissions).not.toBeNull()

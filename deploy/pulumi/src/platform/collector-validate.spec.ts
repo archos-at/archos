@@ -6,21 +6,6 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-config";
 
-/**
- * Every collector config the program can render, run through the collector's
- * own `validate` command.
- *
- * The other collector specs hold the config to what we meant. This holds it to
- * what the collector accepts: a component id that does not exist in the
- * pinned build, a key a receiver does not know, a pipeline naming an exporter
- * nobody declared. Each of those stops the collector from starting, and with
- * it every export in the cluster, and none of them fails a plan.
- *
- * Needs `OTELCOL_BIN`, the `otelcol-contrib` binary of the version the image
- * digest in `config/observability.ts` pins; CI's infra job installs it. Without it the suite
- * is reported as skipped.
- */
-
 const OTELCOL_BIN = process.env.OTELCOL_BIN;
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
@@ -42,7 +27,6 @@ function resolve<T>(value: unknown): Promise<T> {
   return new Promise((done) => (pulumi.output(value) as pulumi.Output<T>).apply((v) => (done(v), v)));
 }
 
-/** Every `collector.yaml` the program renders for one stack, by ConfigMap name. */
 async function renderedConfigs(values: Record<string, string>): Promise<Record<string, string>> {
   vi.resetModules();
   RESOURCES.length = 0;
@@ -57,12 +41,6 @@ async function renderedConfigs(values: Record<string, string>): Promise<Record<s
   return configs;
 }
 
-/**
- * The config as it reads outside a pod. `validate` builds every receiver, and
- * kubelet_stats reads the pod's service account certificate while it does; a
- * CI runner has none. That identity is the one thing swapped, and only it:
- * every other key still reaches the build.
- */
 function outsideThePod(yaml: string): string {
   return yaml.split("auth_type: serviceAccount").join("auth_type: none");
 }
@@ -93,8 +71,6 @@ describe.skipIf(!OTELCOL_BIN)("every rendered collector config passes `otelcol-c
       const file = join(dir, `${index}-${name}.yaml`);
       writeFileSync(file, outsideThePod(yaml));
       try {
-        // `${env:…}` references must resolve for validate to load the file;
-        // the values are placeholders, the shape is what is under test.
         execFileSync(OTELCOL_BIN!, ["validate", `--config=${file}`], {
           env: { ...process.env, LANGFUSE_OTLP_AUTH: "Basic placeholder", K8S_NODE_NAME: "node-0" },
           stdio: "pipe",

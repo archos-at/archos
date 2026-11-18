@@ -1,21 +1,5 @@
 'use client'
 
-/**
- * The project Overview: a bento dashboard of where this project stands.
- *
- * It replaced a settings page. A person opening a project's hub wants to know
- * how the project is doing (is the briefing complete, what is it costing, what
- * has Piloti learned, who is on it) and only now and then to change something.
- * So every tile is a live summary with one number up front, and opens the
- * section where that thing is changed. Renaming and deleting moved into the
- * hero's menu: one deliberate click away, out of the reading flow.
- *
- * What comes from the server (documents, activity, spend, the Steckbrief)
- * arrives as props; similar projects stream in through a Suspense slot. Memory
- * and the roster are fetched by their tiles, from the same endpoints their
- * sections use, so a tile never shows a number its section would not.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -58,19 +42,13 @@ import { MembersTile, MemoryTile } from './live-tiles'
 import { UsageTile } from './usage-tile'
 
 export interface ProjectOverviewAccess {
-  /** Rename (`project:manage`, refused in a closed project). */
   manage: boolean
-  /** Pause, resume, close, reopen and delete: `project:manage` even when closed (ADR-0090, ADR-0098). */
   changeStatus: boolean
-  /** The closing debrief's confirm and lesson (`project:memory:write`). */
   writeMemory: boolean
-  /** Open the intake wizard (`project:edit`). */
   editProfile: boolean
-  /** The roster tile (`project:members:manage`). */
   manageMembers: boolean
 }
 
-/** Where the open setup stands, for the note on its entry: the intake's status and its last counts. */
 export interface OverviewSetupProgress {
   status: IntakeStatus
   counts: IntakeCounts | null
@@ -78,29 +56,13 @@ export interface OverviewSetupProgress {
 
 export interface ProjectOverviewProps {
   data: ProjectOverviewData
-  /** Questions asked, for everyone: counts only, never whose or which. */
   activity: ProjectActivityView
-  /** Null for a reader who may not see the project's spend. */
   usage: ProjectUsageView | null
-  /** The Steckbrief (ADR-0091): period and people, what stays once the project closes. */
   projectRecord?: ProjectRecordView
-  /**
-   * The similar-projects tile, streamed: finding them reads every closed
-   * project's memory and permits, and the rest of the dashboard should not wait
-   * for that. The page passes a Suspense boundary here.
-   */
   similar?: ReactNode
-  /** Piloti's reading of the project's documents is still open (ADR-0111): the hero links to it. */
   setupOpen?: boolean
-  /** What the open setup still asks for; given, the setup counts as open and its entry says what waits. */
   setupProgress?: OverviewSetupProgress
   access: ProjectOverviewAccess
-  /**
-   * The project's mail address tile (ADR-0137, `InboundMailAddressTile`), for a
-   * reader who may decide the project's held mail; it draws itself once an
-   * address is active. Absent: no tile. The route passes it in, so the projects
-   * feature never imports the inbound-mail feature (module-seams.md).
-   */
   inboundMailAddress?: ReactNode
 }
 
@@ -116,14 +78,8 @@ export function ProjectOverview({
   inboundMailAddress,
 }: ProjectOverviewProps): JSX.Element {
   const id = data.id
-  // Documents and Memory stack beside the hero, so every reader's first two
-  // rows are full. Below them, Usage and Members share a row when a reader gets
-  // both and either takes the whole row alone; a hole in a bento reads as
-  // something missing.
   const usageSpan: BentoSpan = access.manageMembers ? 'major' : 'wide'
   const membersSpan: BentoSpan = usage ? 'small' : 'wide'
-  // The project's record beside the control that closes it; alone, the record
-  // takes the row.
   const projectRecordSpan: BentoSpan = access.changeStatus ? 'major' : 'wide'
   return (
     <div className="flex flex-col gap-4">
@@ -173,13 +129,6 @@ export function ProjectOverview({
   )
 }
 
-/**
- * What the open setup waits for, in a few words on its one entry: Piloti is
- * still reading, then what a person must decide (Rückfragen before
- * Widersprüche, as the steps run), and once a reading has found something,
- * the Steckbrief to check. A setup still waiting for its first reading gets no
- * note: whether its documents are on the way is not known here.
- */
 export function setupOpenNote({ status, counts }: OverviewSetupProgress, tSetup: Translator): string | undefined {
   if (status === 'reading') return tSetup('overview.reading')
   if (!counts) return undefined
@@ -231,8 +180,6 @@ function HeroTile({
         ]
       : []),
     ...(access.manage && access.changeStatus ? [{ type: 'separator' as const }] : []),
-    // The lifecycle's moves from here too, so they are not only at the foot of
-    // the page (ADR-0098); the status card says what each one means.
     ...(access.changeStatus && status === 'active'
       ? [{ type: 'item' as const, id: 'pause', label: tProjects('lifecycle.card.pause'), icon: PauseCircle, onSelect: () => void lifecycle.pause() }]
       : []),
@@ -246,7 +193,6 @@ function HeroTile({
       ? [{ type: 'item' as const, id: 'reopen', label: tProjects('lifecycle.card.reopen'), icon: LockOpen, onSelect: lifecycle.requestReopen }]
       : []),
     ...(access.changeStatus ? [{ type: 'separator' as const }] : []),
-    // Deleting stays open in a closed project: it is still the way to remove it.
     ...(access.changeStatus
       ? [
           {

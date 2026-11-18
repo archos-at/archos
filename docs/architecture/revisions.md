@@ -1,6 +1,6 @@
 # Fassungen: how a document keeps its history
 
-A document in Piloti is one entry with every Fassung inside it. This page follows
+A document in the agent is one entry with every Fassung inside it. This page follows
 that from the upload to the answer, and says which module owns each step. What
 the word means: [`CONTEXT.md`](../../CONTEXT.md), „Fassung“. What a person sees
 and does: [`documents.md`](../user-guides/documents.md#fassungen-und-freigabe).
@@ -57,7 +57,7 @@ the listing is read.
   and download and compare behind its ⋯. An earlier upload under the same name
   offers none of the three to a reader who may not receive its bytes
   (`bytesReadable` on the version listing, see Privacy). The header speaks about the newest
-  Fassung and names the older one Piloti still answers from by number
+  Fassung and names the older one the agent still answers from by number
   (`features/documents/lib/revision-standing.ts`). Which one that is follows the
   reading status as well as the review state: a published upload that is still
   being read, or failed, is not current, and the upload it replaced is
@@ -67,15 +67,15 @@ the listing is read.
 
 ## Detection
 
-Piloti recognises a new Fassung in five places, cheapest first. Each one produces
+The agent recognises a new Fassung in five places, cheapest first. Each one produces
 a suggestion or a decision. None of them links two documents without a person.
 
 | Layer | Reads | Says | Model call | Code |
 |---|---|---|---|---|
-| Name grammar | The file name: `Index C`, `idx-B`, `Rev 12`, `v3`, a date as `2026-08-14`, `14.08.2026`, `260814_…`, a bare letter after a sheet number (`A-101_C_…`) | Which names are one series, and which looks current | No | `apps/workspace/bff/documents/revision-series.ts`, `packages/knowledge-layer/src/revision_series.py` |
-| Title block | The Plankopf: document number, Index, date, scale, title, read once per drawing page during ingestion | Same `document_number` means same document. Higher Index, else later date, means later state | No extra call: it rides the drawing analysis | `packages/agent/src/agent/knowledge/title_block.py`, `packages/knowledge-layer/src/ingest/visual_analysis.py` |
+| Name grammar | The file name: `Index C`, `idx-B`, `Rev 12`, `v3`, a date as `2026-08-14`, `14.08.2026`, `260814_…`, a bare letter after a sheet number (`A-101_C_…`) | Which names are one series, and which looks current | No | `apps/workspace/bff/documents/revision-series.ts`, `packages/knowledge-layer/src/knowledge_layer/revision_series.py` |
+| Title block | The Plankopf: document number, Index, date, scale, title, read once per drawing page during ingestion | Same `document_number` means same document. Higher Index, else later date, means later state | No extra call: it rides the drawing analysis | `packages/agent/src/agent/knowledge/title_block.py`, `packages/knowledge-layer/src/knowledge_layer/ingest/visual_analysis.py` |
 | LLM judge | Name, Dokumentart, tags and one-line summary of up to eight candidates in the collection | Whether the new file is a newer Fassung of exactly one of them | One, on the summary model | `packages/agent/src/agent/knowledge/document_revisions.py` |
-| Derived on read | The rows already stored: title blocks first, then the name grammar | A suggestion for documents ingested before the Fassung step existed | No | `packages/knowledge-layer/src/ingest/revisions.py`, `derive_suggestions` |
+| Derived on read | The rows already stored: title blocks first, then the name grammar | A suggestion for documents ingested before the Fassung step existed | No | `packages/knowledge-layer/src/knowledge_layer/ingest/revisions.py`, `derive_suggestions` |
 | Upload decision | A tick in the upload dialog | „Als neue Fassung von X ablegen“ | No (only the change summary) | `revision_of`, below |
 
 ### Name grammar
@@ -217,7 +217,7 @@ the document again. A link only a person makes has to survive that.
 |---|---|---|
 | Archive (`archiveDocument`, `lib/documents/version-content.ts`) | An un-archive, which re-reads the index (the row and every version stay; the BFF has no un-archive yet) | nothing (`permanent: false`) |
 | Folder to the bin (`purgeChunksOf`, `lib/projects/folder-bin.ts`) | Restore from the bin (`restore_folder_bin` job) | nothing |
-| Publish purges the replaced version (`purgeSupersededChunks`, `lib/documents/lifecycle.ts`) | The publish re-reads under the same name | nothing |
+| Publish purges the replaced version (`purgeSupersededChunks`, `lib/documents/version-ingest.ts`) | The publish re-reads under the same name | nothing |
 | Delete, Archiv delete, the bin's final purge (`eraseProjectDocument`, `lib/office-shelf/service.ts`) | Nothing | `permanent: true` |
 | Move to another collection (`moveDocument`, `lib/projects/collection-placement.ts`) | Nothing in the old collection: Fassungen share one collection, so its links end there | `permanent: true` |
 
@@ -229,7 +229,7 @@ reversible purge, and the specs of each caller above pin which one it sends.
 `(collection, file name)` in `document_revision_retained`: the row's own
 `superseded_by`, its refusals (`dismissed_of`), and a change line whose
 `change_basis` is another file (one told against the document's own earlier
-upload describes bytes the re-read replaces, and an open suggestion is Piloti's,
+upload describes bytes the re-read replaces, and an open suggestion is the agent's,
 read again). The links other rows hold TO it are left alone. While it is gone they
 read as nothing, because `_attach_supersedes` and `get_superseded_files` count a
 link only while both rows exist: the older Fassung it replaced answers again. The
@@ -262,16 +262,16 @@ content of a version. It is not the link between two documents.
   a version. `ingestPublished` appears on the `approve` and `publish` rows of the
   transition table and nowhere else (`lib/documents/lifecycle-types.ts`).
 - **„Freigeben“ is one step** (ADR-0104 rule 5). Approving a version in review
-  publishes it: it becomes the one Piloti answers from, and the open review round
+  publishes it: it becomes the one the agent answers from, and the open review round
   is decided in the same transaction. `publish` remains only for a version
   approved before this.
 - **A person's upload is born published, and approved by nobody**
   (`origin = 'upload'`, migration 0137). Putting the file there is the assertion;
   no approver column carries the uploader's name. Approval matters for what
-  Piloti wrote and for revisions that need a second pair of eyes.
-- **Piloti answers from the published version** while a newer one is in review,
+  the agent wrote and for revisions that need a second pair of eyes.
+- **The agent answers from the published version** while a newer one is in review,
   and from the previous upload while a person's re-upload is still being read
-  or after its reading failed. The section says so („Piloti antwortet weiter aus
+  or after its reading failed. The section says so („{productName} antwortet weiter aus
   Fassung 1.“).
 - **Publishing purges first.** The previous version's chunks go before the new
   bytes are sent, so a failed dispatch stops the document answering instead of
@@ -279,7 +279,7 @@ content of a version. It is not the link between two documents.
   Fassung stays indexed, keyed by its id) is accepted and not built: until it
   is, search sees only the current Fassung of a name. Fassungen under
   different file names are both indexed.
-- **Actors.** Approve, request changes, reject and publish are a person's. Piloti
+- **Actors.** Approve, request changes, reject and publish are a person's. The agent
   may create, update and submit.
 
 The two notions meet in the timeline, and nowhere else: a Fassung under another
@@ -293,7 +293,7 @@ Four things, in rising cost.
 |---|---|---|---|
 | **Look** | Two Fassungen side by side, overlaid (older cyan, newer orange) or swiped, page by page, through the preview's pdf.js runtime | No | `features/documents/components/revision-compare/` |
 | **Pages and values** | For the agent: which pages changed, the values that moved in the printed text, the quantities and dimension strings that changed in the drawing reading, and the Plankopf. Read from the index, so nothing is read again | No | `packages/agent/src/agent/knowledge/revision_diff.py`, `list_files(compare_to=…)` |
-| **Marks** | On request, or unasked where the office switched it on (below, „Piloti notices a new Fassung“), Piloti boxes what changed on the newer page and says it in words | One vision call per page pair, cached | `lib/documents/revision-compare-service.ts`, `routes/revision_compare.py`, `packages/agent/src/agent/knowledge/revision_compare.py` |
+| **Marks** | On request, or unasked where the office switched it on (below, „Piloti notices a new Fassung“), the agent boxes what changed on the newer page and says it in words | One vision call per page pair, cached | `lib/documents/revision-compare-service.ts`, `routes/revision_compare.py`, `packages/agent/src/agent/knowledge/revision_compare.py` |
 | **Words** | The change summary: what differs between two descriptions | Summary model, at ingest or at confirmation | `document_revisions.py`, `summarize_change` |
 
 `POST /api/documents/[id]/revision-compare` takes `{ older, page }`.
@@ -322,11 +322,11 @@ The agent reads the same facts the UI does, through the knowledge layer.
 
 | Tool | What it does with Fassungen | Code |
 |---|---|---|
-| `list_files` | Marks a row that a person replaced („ersetzt durch X (bestätigt)“), then rows that share a title-block number („aktuelle / ältere Fassung laut Plankopf“), then the name reading. A confirmed link beats the sheets, which beat the name. Prints `Plankopf: Nr. …, Index …, Stand …` | `packages/knowledge-layer/src/browse/rows.py`, `confirmed_revision_marks`, `title_block_marks` |
+| `list_files` | Marks a row that a person replaced („ersetzt durch X (bestätigt)“), then rows that share a title-block number („aktuelle / ältere Fassung laut Plankopf“), then the name reading. A confirmed link beats the sheets, which beat the name. Prints `Plankopf: Nr. …, Index …, Stand …` | `packages/knowledge-layer/src/knowledge_layer/browse/rows.py`, `confirmed_revision_marks`, `title_block_marks` |
 | `list_files(revisions_of=…)` | The whole chain of one document, newest first, with Index and date, upload date and what changed against the one before. The chain follows a confirmed link in both directions, the same title-block number and the name series, transitively | `browse/revisions.py`, `render_revisions`, `_chain_members`, `_chain_order` |
 | `list_files(revisions_of=…, compare_to=…)` | What changed between two Fassungen of the chain: the Plankopf, pages aligned by their text, values that moved in printed lines, and quantities and dimension strings from the drawing analysis. No model call; the stored change line rides along when its basis is exactly that older file | `browse/compare.py`, `resolve_compare`, `compare_revisions`; `packages/agent/src/agent/knowledge/revision_diff.py` |
-| `knowledge_search` | Leaves confirmed older Fassungen out of the ranking on the user shelves, so an older state cannot outrank its replacement on similarity. Says „Ältere Fassungen ausgeblendet: …“. `file_name=…` bypasses the exclusion, and when the named file is an older Fassung the result carries the same line `read_passage` gives („Ältere Fassung: … ist durch … ersetzt“, the end of the chain). The base corpus is untouched | `packages/knowledge-layer/src/register.py`, `_superseded_files`, `_named_older_revision_notice`; `document_metadata_store.get_superseded_files` |
-| `read_passage` | Reading an older Fassung is allowed, because „Index B“ and „die alte Fassung“ ask for it. A one-line notice names the current one and tells the answer to say it read the older state | `packages/knowledge-layer/src/read_passage/revisions.py`, `_current_revision`, `_older_revision_notice` |
+| `knowledge_search` | Leaves confirmed older Fassungen out of the ranking on the user shelves, so an older state cannot outrank its replacement on similarity. Says „Ältere Fassungen ausgeblendet: …“. `file_name=…` bypasses the exclusion, and when the named file is an older Fassung the result carries the same line `read_passage` gives („Ältere Fassung: … ist durch … ersetzt“, the end of the chain). The base corpus is untouched | `packages/knowledge-layer/src/knowledge_layer/register.py`, `_superseded_files`, `_named_older_revision_notice`; `document_metadata_store.get_superseded_files` |
+| `read_passage` | Reading an older Fassung is allowed, because „Index B“ and „die alte Fassung“ ask for it. A one-line notice names the current one and tells the answer to say it read the older state | `packages/knowledge-layer/src/knowledge_layer/read_passage/revisions.py`, `_current_revision`, `_older_revision_notice` |
 | Inventory | A row suffix carries only the confirmed link, never a suggestion | `packages/agent/src/agent/knowledge/inventory.py` |
 
 A citation of an older Fassung says so. The citation peek shows „Ältere Fassung –
@@ -369,7 +369,7 @@ name, each labelled as what it is.
   orphaned silently. With no open mark nobody is told, and the Fassung is still
   claimed, so a later re-read does not announce it to everyone. A batch opened
   by the browser or an agent is always `all`: only a server-side caller sets
-  the column. The `upload` transition's own announcement (`lifecycle.ts`)
+  the column. The `upload` transition's own announcement (`version-effects.ts`)
   carries no audience; for a person's upload it says nothing, because the new
   bytes are held until screened, and the settle hook is the one that tells.
   The agent's notice of a cross-name Fassung is not people being told and does
@@ -401,7 +401,7 @@ name, each labelled as what it is.
   „Fassungen vergleichen“: `…?doc=<newer>&compare=<older>`
   (`features/documents/lib/revision-compare-link.ts`), which the files workspace
   reads (`hooks/use-compare-param.ts`) to open the preview with the visual
-  comparison on top. „Mit Piloti besprechen“ follows it.
+  comparison on top. „Mit {productName} besprechen“ follows it.
 - **Once.** Each Fassung is announced once: `notifyNewRevision` claims the newer
   document and the item's anchor (the new version, or the older document for a
   link) in `document_revision_announcements` (migration 0130) before it writes,
@@ -486,7 +486,7 @@ an earlier upload's bytes is kept on its version: `document_versions.screened_ha
   the item must have passed, and a version holding a person's upload
   (`published`, `superseded`) must hold bytes a passing verdict judged, its own
   (`screened_hash = content_hash`) or the item's. Workflow text follows the
-  item, Piloti's own documents are never held.
+  item, the agent's own documents are never held.
 - **So** a member opens, downloads and compares every screened earlier upload,
   and an upload replaced while it was still being read, after its reading
   failed or while quarantined stays closed to everyone but its uploader and the
@@ -522,7 +522,7 @@ sequenceDiagram
     participant IN as Ingest job
     participant KL as Knowledge layer<br/>document_metadata
     participant PV as Preview
-    participant AG as Piloti
+    participant AG as the agent
 
     P->>UI: drops EG_Grundriss_Index_C.pdf
     UI->>BFF: probe the names (revision-candidates)

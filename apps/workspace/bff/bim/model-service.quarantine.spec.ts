@@ -93,8 +93,6 @@ const quarantinedOfficeShelfIfc = (): Document =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // The repository answers each read by the reader it is given (the in-memory
-  // twin of `documentVisibleTo`).
   const row = quarantinedOfficeShelfIfc()
   vi.mocked(findDocumentInOrg).mockImplementation(async (_id, _org, reader) => (mayReadDocument(row, reader) ? row : null))
   vi.mocked(canManageOfficeShelf).mockReturnValue(false)
@@ -125,9 +123,6 @@ describe('the model of a quarantined IFC', () => {
     })
   })
 
-  // The list spans the project and the Büroablage, and each shelf has its own
-  // reviewers: one reader for both showed a project admin every quarantined
-  // Büroablage model, and hid them from a curator who reviews them.
   it('asks each shelf its own reviewer rule', async () => {
     vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-admin' } as Awaited<
       ReturnType<typeof requireProjectAccess>
@@ -152,8 +147,6 @@ describe('the model of a quarantined IFC', () => {
     })
   })
 
-  // A confirmation names a model revision and carries a note about it. One on
-  // a held revision was read for every project viewer, model id and note.
   it("keeps a held revision's Prüfbuch confirmations to the people who may see the revision", async () => {
     await listAccessibleCheckConfirmations(member, 'proj-1')
     expect(vi.mocked(listBimCheckConfirmations).mock.calls[0]).toEqual([

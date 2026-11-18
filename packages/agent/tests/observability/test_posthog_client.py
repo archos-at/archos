@@ -1,15 +1,3 @@
-"""The one PostHog client the Python tiers capture through (ADR-0100).
-
-What these cases hold in place: the client is off until both settings arrive
-and is then built once with the options the module header promises; and the
-behaviour the module leaves to the SDK (personless system events, never
-raising, super properties on every event) is checked against the real SDK, so
-an upgrade that changes it fails here rather than in PostHog.
-
-The real-SDK cases build the client with ``send=False``: the event runs the
-SDK's whole enrichment path and ``before_send``, and nothing leaves the process.
-"""
-
 from __future__ import annotations
 
 import functools
@@ -18,6 +6,7 @@ from typing import Any
 import pytest
 
 from agent.observability import posthog_client
+from agent.observability import trace_context
 
 
 class FakePosthog:
@@ -47,11 +36,12 @@ def configured_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "Staging")
     monkeypatch.setenv("OTEL_SERVICE_NAME", "grid-agent-worker")
     monkeypatch.setenv("GIT_SHA", "abc1234")
+    monkeypatch.setenv(trace_context.APP_HOST_ENV, "app.dev.archos.tech")
+    monkeypatch.setenv(trace_context.DEPLOYMENT_ENV, "dev")
 
 
 @pytest.fixture
 def sent(monkeypatch: pytest.MonkeyPatch, configured_env: None) -> list[dict[str, Any]]:
-    """Every event the real SDK hands to ``before_send``, after the scrubber ran."""
     import posthog
 
     events: list[dict[str, Any]] = []
@@ -98,7 +88,13 @@ def test_builds_one_client_with_the_promised_options(configured_env: None, fake_
         "disable_geoip": True,
         "enable_exception_autocapture": False,
         "before_send": posthog_client._scrub_event,
-        "super_properties": {"environment": "staging", "service": "grid-agent-worker", "release": "abc1234"},
+        "super_properties": {
+            "environment": "staging",
+            "service": "grid-agent-worker",
+            "release": "abc1234",
+            "app_host": "app.dev.archos.tech",
+            "deployment": "dev",
+        },
         "in_app_modules": ["agent", "agent_host"],
     }
 
@@ -107,6 +103,8 @@ def test_absent_super_properties_are_omitted(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     monkeypatch.delenv("GIT_SHA", raising=False)
+    monkeypatch.delenv(trace_context.APP_HOST_ENV, raising=False)
+    monkeypatch.delenv(trace_context.DEPLOYMENT_ENV, raising=False)
 
     assert posthog_client.super_properties() == {}
 
@@ -167,12 +165,22 @@ def test_every_event_carries_the_super_properties_and_no_geoip(sent: list[dict[s
     assert properties["environment"] == "staging"
     assert properties["service"] == "grid-agent-worker"
     assert properties["release"] == "abc1234"
+    assert properties["app_host"] == "app.dev.archos.tech"
+    assert properties["deployment"] == "dev"
     assert properties["$geoip_disable"] is True
 
 
+def test_an_exception_names_the_deployment_it_came_from(sent: list[dict[str, Any]]) -> None:
+    posthog_client.capture_exception(ValueError("x"))
+
+    assert sent[0]["event"] == "$exception"
+    assert (sent[0]["properties"]["environment"], sent[0]["properties"]["app_host"]) == (
+        "staging",
+        "app.dev.archos.tech",
+    )
+
+
 def test_the_deploys_release_id_links_every_event(sent: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch) -> None:
-    # The deploy resolves the PostHog release and hands its id over in this
-    # variable; the SDK reads it when the client is built (ci.md).
     monkeypatch.setenv("POSTHOG_RELEASE_ID", "0193f5a6-release")
     posthog_client.capture_exception(ValueError("x"))
 
@@ -200,8 +208,6 @@ def test_the_scrubber_runs_on_every_event(sent: list[dict[str, Any]]) -> None:
     error = RuntimeError(f"Client error for url '{url}'")
     posthog_client.capture_exception(error, properties={"message": f"failed {url}"})
 
-    # The frames' source context is this file's code, which spells the URL out;
-    # what is checked is the data the event carries.
     properties = sent[0]["properties"]
     assert "deadbeef" not in properties["message"]
     assert "deadbeef" not in properties["$exception_list"][0]["value"]

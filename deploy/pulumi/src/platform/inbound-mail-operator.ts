@@ -4,87 +4,84 @@ import type { DeployConfig } from "../config";
 import { RFC2142_LOCAL_PARTS } from "../config/inbound-mail";
 import type { MailZone } from "./email-routing";
 
-/**
- * The receiving domain's two other addresses: `postmaster@<domain>` and
- * `abuse@<domain>` (RFC 2142 §2 and §4), each a literal Email Routing rule that
- * forwards to the operator's mailbox (`inboundMailOperatorAddress`), and that
- * mailbox as a destination address of the zone's account.
- *
- * ## The verification click
- *
- * Creating the destination address makes Cloudflare send a verification mail
- * to it. Its docs say "all routing rules are automatically disabled until the
- * destination address is validated by the user" (developers.cloudflare.com
- * /email-service/configuration/email-routing-addresses/, "Routing rule
- * actions"), but the API refuses to create a forward to an unverified address:
- * `400`, code `2054`, "Destination address is not verified" (dev, 2026-11-05).
- * So the first `up` creates the address and fails at both rules; after the
- * click, a second `up` creates them (runbook §7). The stack output
- * `inboundMailOperator` says which state Pulumi last read.
- *
- * ## Account-level, and kept
- *
- * Destination addresses belong to the ACCOUNT, are shared by every zone in it,
- * and "deleting a destination address automatically disables all routing rules
- * that use that address" (same page). So the address is `retainOnDelete`:
- * unsetting the domain, or a destroy, deletes this stack's two rules and leaves
- * the address, which another zone's rule may use. One that already exists in
- * the account (added in the dashboard, or by another stack) is not created
- * twice: import it once, `pulumi import
- * cloudflare:index/emailRoutingAddress:EmailRoutingAddress inbound-mail-operator
- * '<account_id>/<destination_address_id>'` (the runbook's §7).
- *
- * Declared whenever the domain is set, switched off included: the domain still
- * has MX at Cloudflare, and its postmaster must still answer.
- */
-
 export interface OperatorForwards {
-  address: cloudflare.EmailRoutingAddress;
-  /** `postmaster@`, then `abuse@`. */
+  address?: cloudflare.EmailRoutingAddress;
+  email: pulumi.Output<string>;
+  verified: pulumi.Output<string>;
   rules: cloudflare.EmailRoutingRule[];
 }
 
-/**
- * The address's options beyond the provider. Exported for the spec: Pulumi's
- * mocks do not carry resource options.
- */
 export const OPERATOR_ADDRESS_OPTIONS = {
-  // Deleting it disables every rule in the account that forwards to it.
   retainOnDelete: true,
 } as const satisfies pulumi.CustomResourceOptions;
 
-export function installOperatorForwards(cfg: DeployConfig, zone: MailZone): OperatorForwards {
-  const { domain, operatorAddress } = cfg.inboundMail;
-  const address = new cloudflare.EmailRoutingAddress(
-    "inbound-mail-operator",
-    // From the guarded zone lookup, like every other resource here.
-    { accountId: zone.accountId, email: operatorAddress },
-    { provider: zone.provider, ...OPERATOR_ADDRESS_OPTIONS },
+export interface DestinationAddress {
+  email: string;
+  verified?: string | null;
+}
+
+export function assertSharedAddressVerified(email: string, accountId: string, addresses: readonly DestinationAddress[]): string {
+  const found = addresses.find((a) => a.email.trim().toLowerCase() === email);
+  if (found?.verified) return found.verified;
+  throw new Error(
+    `inboundMailOperatorAddressShared is true, but ${email} is ` +
+      (found ? "a destination address of the account NOT verified yet" : `no destination address of account ${accountId}`) +
+      ": the postmaster@ and abuse@ forwards would fail with Cloudflare error 2054. Open Cloudflare's verification mail " +
+      "to it and click, or set inboundMailOperatorAddressShared false so this stack creates the address (then the first " +
+      "apply stops at the forwards until the click; runbook §7).",
   );
+}
+
+export function installOperatorForwards(cfg: DeployConfig, zone: MailZone): OperatorForwards {
+  const { domain, operatorAddress, operatorAddressShared } = cfg.inboundMail;
+  const owned = operatorAddressShared ? undefined : ownedAddress(operatorAddress, zone);
+  const guard = owned ? undefined : sharedAddressGuard(operatorAddress, zone);
+  const zoneId = guard ? pulumi.all([zone.zoneId, guard]).apply(([id]) => id) : zone.zoneId;
+  const email = owned ? owned.email : pulumi.output(operatorAddress);
   const rules = RFC2142_LOCAL_PARTS.map(
     (local) =>
       new cloudflare.EmailRoutingRule(
         `inbound-mail-${local}`,
         {
-          zoneId: zone.zoneId,
+          zoneId,
           name: `${local}@ (RFC 2142), forwarded to the operator`,
           enabled: true,
           matchers: [{ type: "literal", field: "to", value: `${local}@${domain}` }],
-          actions: [{ type: "forward", values: [address.email] }],
+          actions: [{ type: "forward", values: [email] }],
         },
-        { provider: zone.provider, dependsOn: [zone.routing, address] },
+        { provider: zone.provider, dependsOn: [zone.routing, ...(owned ? [owned] : [])] },
       ),
   );
-  return { address, rules };
+  return {
+    address: owned,
+    email,
+    verified: owned ? owned.verified.apply((v) => v ?? "") : (guard as pulumi.Output<string>),
+    rules,
+  };
 }
 
-/** The stack output: the address, and whether Pulumi last read it as verified. */
-export function operatorAddressStatus(forwards: OperatorForwards): pulumi.Output<string> {
+function ownedAddress(email: string, zone: MailZone): cloudflare.EmailRoutingAddress {
+  return new cloudflare.EmailRoutingAddress(
+    "inbound-mail-operator",
+    { accountId: zone.accountId, email },
+    { provider: zone.provider, ...OPERATOR_ADDRESS_OPTIONS },
+  );
+}
+
+function sharedAddressGuard(email: string, zone: MailZone): pulumi.Output<string> {
+  const listed = cloudflare.getEmailRoutingAddressesOutput({ accountId: zone.accountId }, { provider: zone.provider });
   return pulumi
-    .all([forwards.address.email, forwards.address.verified])
+    .all([zone.accountId, listed])
+    .apply(([accountId, addresses]) => assertSharedAddressVerified(email, accountId, addresses.results));
+}
+
+export function operatorAddressStatus(forwards: OperatorForwards): pulumi.Output<string> {
+  const shared = forwards.address === undefined;
+  return pulumi
+    .all([forwards.email, forwards.verified])
     .apply(([email, verified]) =>
       verified
-        ? `${email} (verified ${verified})`
+        ? `${email} (verified ${verified}${shared ? "; shared: another owner's destination address, not created here" : ""})`
         : `${email} (NOT verified as of Pulumi's last read: the postmaster@ and abuse@ rules exist, but Cloudflare ` +
           "keeps them disabled until someone opens its verification mail to this address and clicks. `pulumi refresh` re-reads it)",
     );

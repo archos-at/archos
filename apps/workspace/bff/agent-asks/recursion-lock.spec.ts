@@ -1,17 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The recursion lock (ADR-0124): Piloti never asks Piloti.
- *
- * In-product Piloti reaches the catalog only through its own door, where every
- * write becomes a proposal (ADR-0122), and a turn an ask started is such a turn.
- * So the lock is held where proposals are filed and applied: an ask is refused
- * when it is proposed (nothing is filed) and when an old one is applied
- * (nothing is called). Before both, Piloti never sees an ask (`canSee` in
- * `policy.ts`), so `agent-ask-get`, a read, cannot run either. The A2A door's
- * half, refusing Piloti's credential, is in `app/api/a2a/route.spec.ts`.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -37,7 +26,7 @@ const SESSION = { userId: 'user_anna', organizationId: 'org_1' } as AuthorizedSe
 const payload = (operation: string): OperationPayload => ({
   operation,
   input: { body: { question: 'Was gilt hier?' } },
-  summary: 'Ask Piloti a question and get its answer',
+  summary: 'Ask the agent a question and get its answer',
 })
 
 beforeEach(() => vi.clearAllMocks())
@@ -56,20 +45,20 @@ describe('the lock names real operations', () => {
   })
 })
 
-describe('Piloti does not see an ask', () => {
-  const piloti: AgentPrincipal = { actor: 'piloti', session: SESSION, clientId: null, scopes: [] }
+describe('the agent does not see an ask', () => {
+  const officeAgent: AgentPrincipal = { actor: 'piloti', session: SESSION, clientId: null, scopes: [] }
   const agent: AgentPrincipal = { actor: 'external_agent', session: SESSION, clientId: 'claude', scopes: [] }
 
-  it.each(AGENT_ASK_OPERATIONS)('%s is absent from Piloti’s catalog and offered to an external agent', (name) => {
-    expect(visibleOperations(piloti).map((op) => op.name)).not.toContain(name)
-    expect(findVisibleOperation(piloti, name)).toBeUndefined()
+  it.each(AGENT_ASK_OPERATIONS)('%s is absent from the agent’s catalog and offered to an external agent', (name) => {
+    expect(visibleOperations(officeAgent).map((op) => op.name)).not.toContain(name)
+    expect(findVisibleOperation(officeAgent, name)).toBeUndefined()
     const offered = findVisibleOperation(agent, name)
     expect(offered?.name).toBe(name)
     expect(callDecision(agent, offered!)).toBe('run')
   })
 })
 
-describe('Piloti cannot propose an ask', () => {
+describe('the agent cannot propose an ask', () => {
   it.each(AGENT_ASK_OPERATIONS)('refuses to file %s, with the sentence the model relays', (name) => {
     expect(() => requireProposableOperation(payload(name))).toThrow(UnprocessableError)
     expect(() => requireProposableOperation(payload(name))).toThrow(AGENT_ASK_REFUSAL)

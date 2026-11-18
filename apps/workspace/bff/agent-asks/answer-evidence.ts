@@ -1,20 +1,3 @@
-/**
- * The evidence of Piloti's answer, for the agent that asked (ADR-0124).
- *
- * Read from what the answer's message already stores, never recomputed:
- * `metadata.citations` (the sources the answer cited, ADR-0125's per-sentence
- * provenance rides beside it) and `metadata.provenance.answerConfidence`.
- * Nothing is added to the message, so nothing here is more than the person
- * would see on the same answer in their own thread.
- *
- * A source's link is the UI's own citation link (`?cite=` on the conversation,
- * `features/chat/lib/citations/deep-link.ts`): it opens the thread at that
- * answer's citation, at the cited page. The conversation is the asker's own
- * private thread, so only the asker can follow it.
- *
- * Pure: no database, no session.
- */
-
 import { buildCitationModel } from '@/features/chat/lib/citations/build'
 import { CITATION_PARAM, encodeCitationLink } from '@/features/chat/lib/citations/deep-link'
 import { citedLoci, isHttpUrl, refHost } from '@/features/chat/lib/citations/model'
@@ -34,7 +17,6 @@ interface EvidenceMessage {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-/** The conversation's link in the app: absolute where the deployment pins its origin. */
 function threadPath(conversationId: string, projectId: string | null, origin: string | null): string {
   const path = describeResource('conversation').deepLink(conversationId, { projectId: projectId ?? undefined })
   return origin ? `${origin}${path}` : path
@@ -53,7 +35,6 @@ function sourcesOf(
   for (const document of buildCitationModel({ citations })) {
     const loci = citedLoci(document)
     if (loci.length === 0) continue
-    // A web or RIS source links out; a document opens in the thread at its page.
     const outbound = document.url && isHttpUrl(document.url) ? document.url : null
     const pages = new Set<number | undefined>()
     for (const locus of loci) {
@@ -66,7 +47,6 @@ function sourcesOf(
         ...(locus.clause !== undefined && { clause: locus.clause }),
         kind: document.kind,
         url: outbound ?? `${base}&${CITATION_PARAM}=${encodeCitationLink({ document, locus })}`,
-        // The line the browser's copy writes, dated by the answer.
         citation: sourceLine({ ...document, host: refHost({ document }), locus: locus.clause, page: locus.page }, answeredAt, thread.styles),
       })
     }
@@ -86,7 +66,6 @@ function confidenceOf(message: EvidenceMessage): AskAnswerEvidence['confidence']
   }
 }
 
-/** The sources and confidence the answer's message stores; a key is absent where the message has none. */
 export function answerEvidence(
   message: EvidenceMessage,
   thread: { conversationId: string; projectId: string | null; origin?: string | null; styles?: CitationStylePayload },

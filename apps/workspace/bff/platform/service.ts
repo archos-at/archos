@@ -1,12 +1,3 @@
-/**
- * Platform-tier data service (ADR-0016): the cross-organization overview for
- * the platform owner's dashboard. Combines the WorkOS organization directory
- * with app-side per-org stats (projects, LLM spend from the usage ledger).
- *
- * Caller authorization (requirePlatformPermission) happens in the routes — this
- * module is data-only and must never be exposed to tenant sessions.
- */
-
 import 'server-only'
 import { count, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -24,13 +15,6 @@ import {
 import { getEffectivePricing } from '@/lib/pricing/service'
 import { getPlatformOrganizationId } from '@/lib/authz/platform'
 
-/**
- * Every money figure here is USD as OpenRouter charges it (`costUsd`, of which
- * `ownKeyCostUsd` was billed to a tenant's own key, not to the platform), what
- * the tenant is charged for it (`priceUsd`) and the tenant's units (`credits`,
- * `tokens`) — no currency conversion anywhere (ADR-0053). The platform's own
- * cost is `costUsd - ownKeyCostUsd`; price minus that is its gross margin.
- */
 export interface PlatformOrganization {
   id: string
   name: string
@@ -44,9 +28,7 @@ export interface PlatformOrganization {
 
 export interface PlatformOverview {
   organizations: PlatformOrganization[]
-  /** True when more than one page of organizations exists (list shows the first 100). */
   organizationsCapped: boolean
-  /** Platform-wide daily spend, last 30 UTC days (zero-filled). */
   dailyTrend: DailySpendPoint[]
   totals: {
     organizations: number
@@ -54,7 +36,6 @@ export interface PlatformOverview {
     day: SpendWindow
     month: SpendWindow
   }
-  /** The price list in force right now — the numbers behind every credit above. */
   pricing: { marginMultiplier: number; usdPerCredit: number; explicit: boolean }
 }
 
@@ -70,7 +51,6 @@ async function projectCountsByOrganization(): Promise<Map<string, number>> {
   return new Map(rows.map((row) => [row.organizationId, Number(row.projectCount)]))
 }
 
-/** The full platform overview: every org, biggest month spender first. */
 export async function getPlatformOverview(): Promise<PlatformOverview> {
   const workos = getWorkOS()
   const [orgList, projectCounts, spend, platformOrgId, dailyTrend, pricing] = await Promise.all([

@@ -17,8 +17,6 @@ export interface SpinnerProps extends React.HTMLAttributes<HTMLSpanElement> {
 
 const Spinner = React.forwardRef<HTMLSpanElement, SpinnerProps>(
   ({ className, size = 'default', label = 'Loading', ...props }, ref) => {
-    // Next to visible status copy, callers pass aria-hidden so we don't
-    // announce "Loading" (or the same phrase twice) through role=status + sr-only.
     const decorative = props['aria-hidden'] === true || props['aria-hidden'] === 'true'
     return (
       <span

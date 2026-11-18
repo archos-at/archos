@@ -1,19 +1,9 @@
-/**
- * What the application tiers are handed: the model gateway, WorkOS, the internal job-payload key, Web Push and skills.
- */
 import * as pulumi from "@pulumi/pulumi";
 import { bool, num } from "../config/readers";
 
-/**
- * The workloads that each spend from their own OpenRouter key, so one cannot
- * drain the credit another needs: the provider answers 402 to every caller of
- * a key once its in-flight requests could exceed the balance (2026-11-02).
- * `chat` is the conversation: the chat and api tiers, and the frontend's model
- * catalog reads. `research` is the agent-worker, `ingest` the ingest-worker.
- */
+// The provider answers 402 to every caller of a key once its in-flight requests could exceed the balance (2026-11-02).
 export type ModelWorkload = "chat" | "research" | "ingest";
 
-/** The stack secret each workload's key is read from; unset falls back to `openrouterApiKey`. */
 export const OPENROUTER_KEY_CONFIG: Record<ModelWorkload, string> = {
   chat: "openrouterChatKey",
   research: "openrouterResearchKey",
@@ -21,7 +11,6 @@ export const OPENROUTER_KEY_CONFIG: Record<ModelWorkload, string> = {
 };
 
 export interface LlmConfig {
-  /** One OpenRouter key per workload, each the shared `openrouterApiKey` until the stack sets its own. */
   openrouterKeys: Record<ModelWorkload, pulumi.Output<string>>;
   tavilyApiKey: pulumi.Output<string>;
   embedModel: string;
@@ -33,12 +22,6 @@ export interface LlmConfig {
 export interface AuthConfig {
   requireAuth: boolean;
   workosClientId: string;
-  /**
-   * The environment's AuthKit domain, no scheme (`<slug>.authkit.app` or a
-   * custom auth domain): the authorization server of the agent doors
-   * (ADR-0122). Empty keeps `/api/mcp`, `/api/a2a` and `/api/platform/mcp`
-   * answering 503; Piloti's own calls still work.
-   */
   workosAuthkitDomain: string;
   workosApiKey: pulumi.Output<string>;
   workosCookiePassword: pulumi.Output<string>;
@@ -49,30 +32,14 @@ export interface AuthConfig {
   byokSecretBackend: string;
   byokLocalKek: pulumi.Output<string>;
   allowAgentOrgMemory: boolean;
-  /**
-   * One operator reviews, approves and publishes a platform change request
-   * alone (`KNOWLEDGE_SINGLE_OPERATOR`, migration 0233). The owner's decision
-   * of 2026-11-11: dev only. Prod keeps four eyes, so it never sets the key.
-   */
   knowledgeSingleOperator: boolean;
+  knowledgeCarry: boolean;
 }
 
 export interface InternalConfig {
   apiToken: pulumi.Output<string>;
   adminToken: pulumi.Output<string>;
-  /**
-   * Token for `/api/internal/oib-corpus`, the corpus tarball. Its only
-   * consumer was the answer-suite CI workflow, which has been removed; the
-   * export stays until someone decides to delete it. Its own secret, because
-   * it lived outside the cluster (a repository secret). Empty = the export is
-   * disabled (503).
-   */
   corpusExportToken: pulumi.Output<string>;
-  /**
-   * 32-byte base64 KEK encrypting DB-claimed job payloads at rest (they carry
-   * the user auth token). Empty = plaintext (dev only). Strongly recommended
-   * Generate: `openssl rand -base64 32`.
-   */
   jobPayloadKek: pulumi.Output<string>;
 }
 
@@ -83,19 +50,9 @@ export interface WebPushConfig {
 }
 
 export interface SkillsConfig {
-  /**
-   * Floor on how often a job may be scheduled to fire, in minutes. Reaches
-   * the frontend as `SKILL_MIN_INTERVAL_MINUTES` and is enforced at
-   * save time.
-   */
   minIntervalMinutes: number;
 }
 
-/**
- * Each workload's OpenRouter key: its own stack secret when set (a key with a
- * credit limit in OpenRouter), else the shared `openrouterApiKey`, so a stack
- * changes nothing until an operator sets one.
- */
 function openrouterKeys(cfg: pulumi.Config): Record<ModelWorkload, pulumi.Output<string>> {
   const shared = cfg.requireSecret("openrouterApiKey");
   const own = (workload: ModelWorkload) => cfg.getSecret(OPENROUTER_KEY_CONFIG[workload]) ?? shared;
@@ -105,10 +62,6 @@ function openrouterKeys(cfg: pulumi.Config): Record<ModelWorkload, pulumi.Output
 export function loadAppServices(
   cfg: pulumi.Config,
 ): { llm: LlmConfig; auth: AuthConfig; internal: InternalConfig; webPush: WebPushConfig; skills: SkillsConfig } {
-  // Fail closed: db-claimed job payloads carry the user's auth token and persist
-  // in Postgres (table + WAL + backups + replicas). Refuse to deploy db mode
-  // without a KEK to encrypt them at rest, unless plaintext is explicitly opted
-  // into for dev. Guards against the silent plaintext-token-at-rest default.
   const jobPayloadKek = cfg.getSecret("jobPayloadKek");
   const allowPlaintextJobPayloads = bool(cfg, "allowPlaintextJobPayloads", false);
   if (jobPayloadKek === undefined && !allowPlaintextJobPayloads) {
@@ -145,6 +98,7 @@ export function loadAppServices(
       byokLocalKek: cfg.getSecret("byokLocalKek") ?? pulumi.output(""),
       allowAgentOrgMemory: bool(cfg, "allowAgentOrgMemory", false),
       knowledgeSingleOperator: bool(cfg, "knowledgeSingleOperator", false),
+      knowledgeCarry: bool(cfg, "knowledgeCarry", false),
     },
     internal: {
       apiToken: cfg.requireSecret("gridInternalApiToken"),

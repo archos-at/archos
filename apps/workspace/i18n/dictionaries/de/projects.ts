@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** projects namespace — populated during component i18n. */
 export const projects: typeof en.projects = {
   list: {
     heading: 'Projekte',
@@ -123,7 +122,6 @@ export const projects: typeof en.projects = {
     cancel: 'Abbrechen',
     removed: '{count} Dateien in den Papierkorb gelegt.',
     error: 'Das Ausmisten hat nicht geklappt; das Projekt ist noch offen.',
-    /** Das Ausmisten ist gescheitert und ließ sich nicht ganz zurücknehmen (ADR-0092): wo nachsehen. */
     partial:
       'Das Ausmisten hat nicht geklappt und ließ sich nicht ganz zurücknehmen. Manche Dateien liegen womöglich noch in einem Ordner „{folders}“ in ihrem Ordner oder im Papierkorb. Das Projekt ist noch offen.',
     rules: {
@@ -620,7 +618,6 @@ export const projects: typeof en.projects = {
     deleted: 'Notiz entfernt.',
     heading: 'Projektgedächtnis',
     description: 'Was {productName} über dieses Projekt gelernt hat — bearbeitbar.',
-    // Wer liest (ADR-0180): die eine Zeile unter der Überschrift.
     audience: 'Alle Mitglieder dieses Projekts sehen diese Notizen.',
     addMemory: 'Notiz hinzufügen',
     kindAria: 'Art der Notiz',

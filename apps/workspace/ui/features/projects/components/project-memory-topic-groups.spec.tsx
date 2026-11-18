@@ -1,8 +1,3 @@
-/**
- * The project memory shelf draws its notes as folders by topic (ADR-0180): a
- * note sits under its topic's folder, a note without one under no topic, and a
- * reader who may not edit gets no action on a note or on a folder.
- */
 import { describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 import { render, screen, within } from '@/test-utils'

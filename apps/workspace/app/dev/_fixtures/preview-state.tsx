@@ -1,16 +1,10 @@
 'use client'
 
-/**
- * A preview's selectable state: a row of toggles, and `?state=<name>` in the
- * address so a capture can open one state directly.
- */
-
 import { useEffect, useState, type JSX } from 'react'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export function usePreviewState<State extends string>(states: readonly State[]): [State, (state: State) => void] {
   const [state, setState] = useState<State>(states[0])
-  // After mount: the address is the browser's, and the first render must match the server's.
   useEffect(() => {
     const asked = new URLSearchParams(window.location.search).get('state')
     const match = states.find((candidate) => candidate === asked)

@@ -1,22 +1,7 @@
-/**
- * A country's law as a person reads it (docs/design/international/country-onboarding-ux.md):
- * the territory tree, and for each region the acts that make guideline
- * editions binding there, grouped into adoption statements. A statement is
- * one act adopting editions on one day: a country's hundred-odd bindings are
- * a few dozen of these.
- *
- * Pure, and computed from the records of a change request as the review reads
- * them (`RevisionView`), so the map is a view of what the door already serves
- * (`platform-knowledge-change-request-get`) and needs no route of its own.
- * Nothing here names a country: rows come from the territory records,
- * columns from the works the relations bind.
- */
-
 import type { CaptureView, RevisionView } from './wire'
 
 export type ReviewState = 'accepted' | 'rejected' | 'open'
 
-/** Where a statement's citations point: a host the region's own law is read at, another page, or nothing. */
 export type SourceKind = 'primary' | 'secondary' | 'none'
 
 export interface LawMapTerritory {
@@ -32,19 +17,16 @@ export interface LawMapEdition {
   workId: string
   label: string
   issuedOn: string | null
-  /** The file its manifestation holds and the page it cites, when the request carries one. */
   text: { file: string | null; url: string | null } | null
   review: ReviewState
 }
 
-/** A column: a work some relation makes binding (a guideline series, a standard). */
 export interface LawMapTopic {
   workId: string
   designation: string
   title: string
 }
 
-/** A work that applies in a region by itself (its building act), read where it is published. */
 export interface LawMapStatute {
   workId: string
   territoryId: string
@@ -75,7 +57,6 @@ export interface LawMapSource {
   note: string | null
 }
 
-/** One act adopting editions in one region from one day: the unit a person checks. */
 export interface LawMapStatement {
   key: string
   territoryId: string
@@ -94,7 +75,6 @@ export interface LawMapStatement {
 export interface LawMap {
   countryId: string
   territories: ReadonlyMap<string, LawMapTerritory>
-  /** The country itself, or the topmost regions the request holds when it holds no country record. */
   rootIds: string[]
   topics: LawMapTopic[]
   editions: ReadonlyMap<string, LawMapEdition>
@@ -106,7 +86,6 @@ type Body = Record<string, unknown>
 
 const bodyOfRevision = (revision: RevisionView): Body => Object.fromEntries(revision.claims.map((claim) => [claim.path, claim.value]))
 
-/** The work kinds that are a region's own acts, published in its legal database. */
 const LEGAL_ACT_KINDS: ReadonlySet<string> = new Set(['statute', 'ordinance', 'administrative_regulation'])
 
 const text = (value: unknown): string | null => (typeof value === 'string' && value.length > 0 ? value : null)
@@ -114,8 +93,6 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
 export function reviewOf(revisions: readonly RevisionView[]): ReviewState {
   const decisions = revisions.flatMap((revision) => revision.claims.map((claim) => claim.decision))
   if (decisions.some((decision) => decision === 'rejected')) return 'rejected'
-  // An edited claim is not confirmed: it blocks approval and goes into a follow-up request (`decide.ts`).
-  // A record with no stated claim has nothing to decide.
   if (decisions.every((decision) => decision === 'accepted')) return 'accepted'
   return 'open'
 }
@@ -128,7 +105,6 @@ const hostOf = (url: string): string | null => {
   }
 }
 
-/** A host on one of the sites: the same host, or a subdomain of one (`ogd.` beside `www.` of the same legal database). */
 function onSite(host: string | null, sites: ReadonlySet<string>): boolean {
   if (!host) return false
   return [...sites].some((site) => {
@@ -137,19 +113,16 @@ function onSite(host: string | null, sites: ReadonlySet<string>): boolean {
   })
 }
 
-/** Where a work is published: its identifiers' addresses first, then the pages its own record cites. */
 function actUrls(body: Body, revision: RevisionView, captures: ReadonlyMap<string, CaptureView>): string[] {
   return [...identifierUrls(body), ...revision.citations.map((citation) => citedUrl(citation, captures)).filter((url): url is string => url !== null)]
 }
 
-/** Every http(s) address among a work's identifiers (its ELI, a database link). */
 function identifierUrls(body: Body): string[] {
   const identifiers = body.identifiers
   if (!identifiers || typeof identifiers !== 'object') return []
   return Object.values(identifiers as Record<string, unknown>).filter((value): value is string => typeof value === 'string' && /^https?:\/\//.test(value))
 }
 
-/** A natural order for designations: `RL 2` before `RL 2.1` before `RL 10`. */
 const byDesignation = (a: { designation: string }, b: { designation: string }): number =>
   a.designation.localeCompare(b.designation, undefined, { numeric: true, sensitivity: 'base' })
 
@@ -158,8 +131,6 @@ function territoriesOf(revisions: readonly RevisionView[]): Map<string, LawMapTe
   for (const revision of revisions.filter((one) => one.type === 'territory')) {
     const body = bodyOfRevision(revision)
     const parents = Array.isArray(body.parents) ? (body.parents as { id?: unknown; validFrom?: unknown; validTo?: unknown }[]) : []
-    // The tree follows the parent without dates: a union a country joined on a day is not where it sits.
-    // Below a country, a region with only dated parents sits under the newest of them.
     const kind = text(body.kind) ?? 'territory'
     const dated = kind === 'country' || kind === 'union' ? [] : [...parents].sort((a, b) => String(b.validFrom ?? '').localeCompare(String(a.validFrom ?? '')))
     const parent = parents.find((one) => !one.validFrom && !one.validTo) ?? dated[0] ?? null
@@ -185,7 +156,6 @@ interface Indexed {
   editionRevisions: Map<string, RevisionView>
 }
 
-/** A citation's page: its own URL, else the URL of the capture it quotes. */
 const citedUrl = (citation: RevisionView['citations'][number], captures: ReadonlyMap<string, CaptureView>): string | null =>
   citation.url ?? (citation.captureId ? captures.get(citation.captureId)?.url : undefined) ?? null
 
@@ -201,7 +171,6 @@ function indexWorksAndEditions(revisions: readonly RevisionView[], captures: Rea
       editionRevisions.set(revision.recordId, revision)
     }
   }
-  // Every manifestation of an edition counts toward its review; the text shown is the first by record id, whatever the order.
   const manifestations = revisions.filter((one) => one.type === 'manifestation').sort((a, b) => a.recordId.localeCompare(b.recordId))
   const byEdition = new Map<string, RevisionView[]>()
   for (const revision of manifestations) {
@@ -236,9 +205,7 @@ function statementsOf(revisions: readonly RevisionView[], indexed: Indexed, capt
   const relations = revisions.filter((revision) => revision.type === 'relation').map((revision) => ({ revision, body: bodyOfRevision(revision) }))
   const primaryHosts = new Map<string, Set<string>>()
   for (const { body, revision } of indexed.works.values()) {
-    // A region's legal database is where its acts are published; a guideline's or a standard's publisher is not it.
     if (!LEGAL_ACT_KINDS.has(text(body.kind) ?? '')) continue
-    // Where an act is published: its identifiers' addresses, and the pages its own record cites (an act may name only its designation).
     const hosts = actUrls(body, revision, captures).map(hostOf).filter((host): host is string => host !== null)
     for (const territoryId of (body.territoryIds as string[] | undefined) ?? []) {
       const known = primaryHosts.get(territoryId) ?? new Set<string>()
@@ -251,7 +218,6 @@ function statementsOf(revisions: readonly RevisionView[], indexed: Indexed, capt
     const actWorkId = text(relation.body.fromId) ?? ''
     const territoryIds = (indexed.works.get(actWorkId)?.body.territoryIds as string[] | undefined) ?? []
     const validFrom = text(relation.body.validFrom)
-    // An act for several regions makes the edition binding in each: one statement per region, keyed apart.
     for (const territoryId of territoryIds.length > 0 ? territoryIds : ['']) {
       const key = territoryIds.length > 1 ? `${actWorkId}|${validFrom ?? ''}|${territoryId}` : `${actWorkId}|${validFrom ?? ''}`
       const group = groups.get(key) ?? { territoryId, actWorkId, validFrom, members: [] }
@@ -297,7 +263,6 @@ function statementsOf(revisions: readonly RevisionView[], indexed: Indexed, capt
   })
 }
 
-/** The law map of the records a change request holds, for one country. */
 export function lawMapOf(countryId: string, revisions: readonly RevisionView[], captures: readonly CaptureView[]): LawMap {
   const territories = territoriesOf(revisions)
   const captureById = new Map(captures.map((capture) => [capture.captureId, capture]))
@@ -329,23 +294,19 @@ export function lawMapOf(countryId: string, revisions: readonly RevisionView[], 
   return { countryId, territories, rootIds, topics, editions: indexed.editions, statutes, statements }
 }
 
-/** The cell that binds for a topic in a region on a day, with its statement; half-open intervals. */
 export function bindingOn(map: LawMap, territoryId: string, topicWorkId: string, date: string): { cell: LawMapCell; statement: LawMapStatement } | null {
   let found: { cell: LawMapCell; statement: LawMapStatement } | null = null
   for (const statement of map.statements) {
-    // A statement a reviewer marked wrong stays on the map for review, but binds nothing.
     if (statement.territoryId !== territoryId || statement.review === 'rejected') continue
     for (const cell of statement.cells) {
       if (cell.topicWorkId !== topicWorkId) continue
       if ((cell.validFrom ?? '') > date || (cell.validTo !== null && date >= cell.validTo)) continue
-      // Where an older binding was left open, the newest one in force wins.
       if (!found || (cell.validFrom ?? '') > (found.cell.validFrom ?? '')) found = { cell, statement }
     }
   }
   return found
 }
 
-/** How many statements under a territory (itself and below) are open, accepted or rejected. */
 export function reviewCounts(map: LawMap, territoryId: string): Record<ReviewState, number> {
   const under = new Set<string>()
   const walk = (id: string): void => {
@@ -358,7 +319,6 @@ export function reviewCounts(map: LawMap, territoryId: string): Record<ReviewSta
   return counts
 }
 
-/** The topics a region binds on a day, said once: the edition most of them use, then the exceptions by topic. */
 export function summaryOn(map: LawMap, territoryId: string, date: string): { main: LawMapEdition | null; exceptions: { topic: LawMapTopic; edition: LawMapEdition }[] } {
   const bound = map.topics.flatMap((topic) => {
     const binding = bindingOn(map, territoryId, topic.workId, date)
@@ -368,12 +328,10 @@ export function summaryOn(map: LawMap, territoryId: string, date: string): { mai
   return summaryOf(bound)
 }
 
-/** When an edition was issued, for ordering: its date, else a year its label names. */
 export function editionOrder(edition: LawMapEdition): string {
   return edition.issuedOn ?? edition.label.match(/\b(1[89]|20)\d{2}\b/)?.[0] ?? edition.label
 }
 
-/** Editions said once: the label most of them share, then each one that differs. */
 export function summaryOf<T extends { edition: LawMapEdition }>(bound: readonly T[]): { main: LawMapEdition | null; exceptions: T[] } {
   const counts = new Map<string, number>()
   for (const { edition } of bound) counts.set(edition.label, (counts.get(edition.label) ?? 0) + 1)
@@ -382,7 +340,6 @@ export function summaryOf<T extends { edition: LawMapEdition }>(bound: readonly 
   return { main, exceptions: bound.filter(({ edition }) => edition.label !== label) }
 }
 
-/** The next statement in a region that starts after a day: what is coming. */
 export function nextChange(map: LawMap, territoryId: string, date: string): LawMapStatement | null {
   return map.statements.filter((statement) => statement.territoryId === territoryId && statement.review !== 'rejected' && (statement.validFrom ?? '') > date).sort((a, b) => (a.validFrom ?? '').localeCompare(b.validFrom ?? ''))[0] ?? null
 }

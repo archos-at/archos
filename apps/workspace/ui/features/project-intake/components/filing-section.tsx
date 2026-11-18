@@ -7,22 +7,11 @@ import { useTranslations } from '@/i18n'
 import { projectIntakeCopy } from '@/i18n/namespaces/project-intake'
 import { IntakeSection } from './intake-atoms'
 
-/**
- * Ablage: where Piloti would file the project's documents, one line per target
- * folder. Drawn by the same `FilingBar` as above a folder in Dateien and in the
- * upload tray, so applying or dismissing one is the same call to the proposals
- * service and the same record as a click there. The page shows no cards to
- * light, so each line names its files. A secondary section: the quiet bar,
- * never a card, so the page's one focal point stays the review above it.
- *
- * Nothing renders without an open suggestion.
- */
 export function FilingSection({
   entries,
   onSettled,
 }: {
   entries: readonly FilingFolderSuggestion[]
-  /** A suggestion was decided: re-read the open ones. */
   onSettled: () => void
 }): JSX.Element | null {
   const t = useTranslations(projectIntakeCopy)

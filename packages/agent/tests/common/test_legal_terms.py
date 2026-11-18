@@ -1,5 +1,3 @@
-"""Tests for agent.common.legal_terms.extract_exact_terms."""
-
 from agent.common.legal_terms import extract_exact_terms
 
 
@@ -38,7 +36,6 @@ class TestOibGuidelineReferences:
         assert extract_exact_terms("oib-richtlinie 3 Treppen") == ["OIB-Richtlinie 3"]
 
     def test_without_number_falls_back_to_allcaps(self):
-        # "OIB-Richtlinie" alone is not ALLCAPS (mixed case) and has no number.
         assert extract_exact_terms("die OIB-Richtlinie allgemein") == []
 
     def test_trailing_period_on_number(self):
@@ -83,8 +80,6 @@ class TestAllcapsTokens:
 
 
 class TestCaseInsensitiveIdentifiers:
-    """Backlog item 13: casefold predicate — normalization, not vocabulary."""
-
     def test_bare_lowercase_matches_uppercase(self):
         assert extract_exact_terms("oib 2") == extract_exact_terms("OIB 2") == ["OIB"]
 
@@ -103,13 +98,9 @@ class TestCaseInsensitiveIdentifiers:
         assert extract_exact_terms("b1800") == extract_exact_terms("B1800") == ["B1800"]
 
     def test_trailing_number_is_not_part_of_term(self):
-        # The number is shape evidence, not term content: the parity basis.
         assert extract_exact_terms("OIB 2") == ["OIB"]
 
     def test_bare_lowercase_acronym_without_shape_stays_silent(self):
-        # No identifier shape (no digits, no adjacent number) -> no term.
-        # Vocabulary-free means bare "oib" is indistinguishable from prose;
-        # only the citation shape unlocks the casefold.
         assert extract_exact_terms("was ist oib") == []
 
     def test_mixed_case_prose_without_shape_stays_silent(self):
@@ -117,8 +108,6 @@ class TestCaseInsensitiveIdentifiers:
 
 
 class TestStopwordProbe:
-    """Backlog item 13 ratchet: German function words must never leak into exact terms."""
-
     def test_sentence_probe_yields_zero_terms(self):
         assert extract_exact_terms("was weißt du über die und der") == []
 
@@ -152,7 +141,6 @@ class TestMixedQueries:
         assert extract_exact_terms(query) == ["§ 3", "OIB-Richtlinie 1", "ausreichende Breite"]
 
     def test_quoted_phrase_consumes_inner_terms(self):
-        # Terms inside quotes belong to the phrase, not extracted separately.
         assert extract_exact_terms('"§ 3 OIB" suchen') == ["§ 3 OIB"]
 
 

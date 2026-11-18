@@ -1,21 +1,12 @@
-"""Tests for agentic filters on knowledge retrieval.
-
-``knowledge_retrieval.search`` accepts ``doc_class`` (validated against the
-store vocabulary, store-authoritative), ``title_contains`` (case-insensitive
-substring on file name OR display title), and ``file_name`` (indexed name).
-Filtering happens post-merge so a reclassification without re-ingest is
-honored; invalid input returns a clear message instead of raising.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 from knowledge_layer.search import AGENT_FILTER_OVERFETCH
+from knowledge_layer.search import _file_name_matches
 from knowledge_layer.search import apply_agent_filters
 from knowledge_layer.search import empty_search_message
-from knowledge_layer.search.hit_metadata import _file_name_matches
 
 from agent.knowledge.document_classification import DOCUMENT_CLASSES
 
@@ -43,13 +34,11 @@ def test_overfetch_constant() -> None:
 
 
 def test_doc_class_filter_uses_store_value_when_available(monkeypatch) -> None:
-    # Store says oib_guideline for this file even though chunk metadata disagrees.
     chunk = _chunk(file_name="oib-3.pdf", doc_class="other")
     monkeypatch.setattr(
         "agent.knowledge.factory.get_document_doc_classes",
         lambda *args, **kwargs: {"oib-3.pdf": "oib_guideline"},
     )
-    # The resolved store value must win, so the oib_guideline filter keeps it.
     kept = apply_agent_filters([chunk], doc_class="oib_guideline", title_contains=None)
     assert len(kept) == 1
 
@@ -67,7 +56,6 @@ def test_title_contains_matches_file_name_case_insensitive() -> None:
 
 
 def test_title_contains_matches_display_title(monkeypatch) -> None:
-    # Display title (store) is preferred over the raw file name.
     chunks = [_chunk(file_name="norms_2023.pdf"), _chunk(file_name="other.pdf")]
     monkeypatch.setattr(
         "agent.knowledge.factory.get_document_display_titles",
@@ -94,7 +82,6 @@ def test_doc_class_and_title_combined() -> None:
 
 
 def test_document_classes_vocabulary_is_known() -> None:
-    # Guards the vocabulary the tool validates against.
     assert "oib_guideline" in DOCUMENT_CLASSES
     assert "law" in DOCUMENT_CLASSES
     assert "other" in DOCUMENT_CLASSES
@@ -119,33 +106,26 @@ def test_empty_search_message_steers_and_forbids_invented_citations() -> None:
     assert "fehlend.pdf" in text
     assert "inventory" in text
     assert "do not invent" in text.lower()
-    # QC: the hint named a tool the agent door does not offer; it names none, and says how to open a document.
     assert "surface_documents" not in text and "open a document by the name" in text
 
 
 def test_knowledge_search_description_is_a_contract_for_the_evidence_tool() -> None:
     desc = _KNOWLEDGE_SEARCH_DESCRIPTION
     assert "evidence" in desc.lower()
-    # The boundary with the nearest tool, stated once.
     assert "surface_documents" in desc
     assert "file_name=" in desc and "never invent" in desc
     assert "Citation" in desc
-    # A contract, not a procedure: no when-to blocks and no sequencing.
     assert "WHEN TO CALL" not in desc and "WHEN NOT TO CALL" not in desc
     assert "ALWAYS" not in desc
 
 
 def test_knowledge_search_takes_the_checkpoint_as_an_optional_argument() -> None:
-    """The Herleitung checkpoint has a slot, and filling it is the model's option."""
     desc = _KNOWLEDGE_SEARCH_DESCRIPTION
     assert "`conclusion=`: Optional" in desc
     assert "No effect on the result" in desc
 
 
 def test_the_description_says_what_an_agent_document_may_be_cited_for() -> None:
-    """The sentence that separates "the office decided this" from "the OIB requires this" for a
-    document the office approved but Piloti wrote. Since ADR-0133 slice 6 it rides the hit's own
-    `Herkunft:` line, so every tool that returns such a passage says it where it is read."""
     from agent.common.grounding_block import AGENT_DOCUMENT_NOTE
 
     assert "Piloti-Dokument" not in _KNOWLEDGE_SEARCH_DESCRIPTION

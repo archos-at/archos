@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * The building over time.
- *
- * A submission is not a file, it is a sequence: the version the Behörde has, the
- * version answering their Verbesserungsauftrag, the version as built. The
- * question that decides a resubmission — "what did we change since the version
- * they already reviewed" — needs that sequence to exist as an object, and
- * everywhere else in the product it does not: Files shows four `.ifc` rows
- * sorted by date and calls it a day.
- *
- * The timeline reads the revision series out of the file names and shows each
- * step's summary deltas — elements, rooms, floor area, model quality. Those are
- * free (they are already in each model's stored summary) so the whole timeline
- * costs no queries, and they are enough to answer "did anything move" before
- * paying for the per-element diff, which the same row starts on demand.
- *
- * A delta shown here is a delta between two exports, not between two buildings:
- * an office that re-exports with a different mapping can move 300 elements
- * without touching the design. That is exactly why the element-level compare is
- * one click away rather than replaced by these numbers.
- */
-
 import type { JSX } from 'react'
 import { GitBranch, GitCompare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -34,18 +12,10 @@ import type { BimRevision, BimRevisionDelta, BimRevisionSeries } from '../lib/re
 export interface IfcRevisionTimelineProps {
   series: BimRevisionSeries | null
   currentModelId: string | null
-  /** Open a revision — the page switches the whole view to it. */
   onOpen: (model: BimModelHeaderView) => void
-  /**
-   * Diff this revision against its predecessor. The page has to switch to the
-   * newer model first, because a comparison is always run FROM the model on
-   * screen — which is also what makes the result honest: you are looking at the
-   * thing you are diffing.
-   */
   onCompareWithPrevious: (revision: BimRevision, previous: BimModelHeaderView) => void
 }
 
-/** Signed, with the sign — `+12`, `−3`, and `±0` for "measured, unchanged". */
 function useSigned(): (value: number | null) => string {
   const { locale } = useLocale()
   const format = new Intl.NumberFormat(locale, {
@@ -58,17 +28,6 @@ function useSigned(): (value: number | null) => string {
 function DeltaRow({ delta }: { delta: BimRevisionDelta }): JSX.Element {
   const t = useTranslations(bimCopy)
   const signed = useSigned()
-  /**
-   * `judged` marks the one metric that has a direction.
-   *
-   * Every delta used to be painted green when positive and red when negative.
-   * `+300 Bauteile` is not good news and `−40 m² Netto-Grundfläche` is not bad
-   * news — this file's own header warns that "an office that re-exports with a
-   * different mapping can move 300 elements without touching the design", and
-   * then the row painted that move green. Only the health score improves when
-   * it goes up; the rest are facts, and a colour on a fact is an opinion the
-   * data does not support.
-   */
   const entries: Array<{ key: string; value: number | null; judged?: boolean }> = [
     { key: 'elements', value: delta.elements },
     { key: 'spaces', value: delta.spaces },
@@ -107,8 +66,6 @@ export function IfcRevisionTimeline({
   const t = useTranslations(bimCopy)
   const { locale } = useLocale()
 
-  // One revision is not a timeline — the compare panel below already covers
-  // "this model against some other file", and a single dot would just be noise.
   if (!series || series.revisions.length < 2) return null
 
   const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' })
@@ -173,9 +130,6 @@ export function IfcRevisionTimeline({
                 </div>
               ) : (
                 revision.index > 1 && (
-                  // No summary on one side — a failed or still-extracting
-                  // revision. Saying so beats printing zeros that would read as
-                  // "nothing changed".
                   <p className="mt-1 text-xs text-muted-foreground">{t('timeline.noDelta')}</p>
                 )
               )}

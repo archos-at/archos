@@ -1,24 +1,15 @@
-// @disk-inputs: migrations/0149_piloti_wakes_document_idx.down.sql, migrations/0149_piloti_wakes_document_idx.sql, migrations/meta/_journal.json
+// @disk-inputs: migrations/0149_piloti_wakes_document_idx.down.sql, migrations/0149_piloti_wakes_document_idx.sql, migrations/0242_agent_actor_kind.down.sql, migrations/0242_agent_actor_kind.sql, migrations/meta/_journal.json
 /**
  * @vitest-environment node
- */
-/**
- * The index a document's wakes are read by (migration 0149), written in three
- * places that nothing else makes agree: the drizzle table, the migration, and
- * the journal that decides whether the migration runs at all.
- *
- * `listLatestWakes` and `listAnsweringWakes` filter `piloti_wakes` by the
- * document. Without an index that leads with `document_id` each read scans the
- * organization's wakes, which is the cost this pins away.
  */
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { getTableConfig, IndexedColumn } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
-import { pilotiWakes } from './document-annotations'
+import { documentAnnotations, pilotiWakes } from './document-annotations'
+import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
 
-// Built under the table's old name (0149); 0189 renamed both.
 const BUILT_AS = 'idx_piloti_wakes_document_annotation_created'
 const NAME = 'idx_agent_wakes_document_annotation_created'
 const read = (file: string) => readFileSync(join(process.cwd(), 'migrations', file), 'utf8')
@@ -43,5 +34,32 @@ describe('the index of a document’s wakes (migration 0149)', () => {
 
   it('is dropped on the way down', () => {
     expect(read('0149_piloti_wakes_document_idx.down.sql')).toContain(`DROP INDEX IF EXISTS "${BUILT_AS}"`)
+  })
+})
+
+describe('the actor kind of a mark, a reply and a proposal (migration 0242)', () => {
+  it('the schema names the two constraints for the new value', () => {
+    const checks = getTableConfig(documentAnnotations).checks.map((check) => check.name)
+    expect(checks).toEqual(
+      expect.arrayContaining(['document_annotations_only_agent_proposes', 'document_annotations_agent_needs_a_person'])
+    )
+  })
+
+  it('the migration widens each CHECK that allowed the old value, and keeps the old value allowed', () => {
+    const up = read('0242_agent_actor_kind.sql')
+    expect(up).toContain(`CHECK ("author_kind" IN ('person', 'agent', '${LEGACY_AGENT_KIND}'))`)
+    expect(up).toContain(`CHECK ("proposed_by_kind" IN ('${LEGACY_AGENT_KIND}', 'person', 'agent'))`)
+    expect(up).toContain('document_annotations_only_agent_proposes')
+    expect(up).toContain('document_annotations_agent_needs_a_person')
+  })
+
+  it('the migration rewrites no row: the writers keep the old value until the switch', () => {
+    expect(read('0242_agent_actor_kind.sql')).not.toMatch(/\bUPDATE\s/)
+  })
+
+  it('the down migration moves the new value back and restores the narrower CHECK', () => {
+    const down = read('0242_agent_actor_kind.down.sql')
+    expect(down).toContain(`SET "author_kind" = '${LEGACY_AGENT_KIND}' WHERE "author_kind" = 'agent'`)
+    expect(down).toContain(`CHECK ("author_kind" IN ('person', '${LEGACY_AGENT_KIND}'))`)
   })
 })

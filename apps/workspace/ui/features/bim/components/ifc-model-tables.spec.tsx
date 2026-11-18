@@ -1,15 +1,3 @@
-/**
- * The Raumbuch, the Massenermittlung and the derived project facts.
- *
- * These three tables go into a submission, a cost estimate and the project
- * brief, so every assertion here is about the same thing: the screen must never
- * show a total without also showing what the total could not see. A missing area
- * rendered as `0` is the failure this whole subsystem exists to prevent, and it
- * is invisible unless a test looks for it.
- *
- * Rendered in English — the default test locale.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -91,8 +79,6 @@ describe('IfcRoomSchedule', () => {
       <IfcRoomSchedule schedule={SCHEDULE} isLoading={false} error={null} filename="haus-a.ifc" />
     )
     const bad = screen.getByText('Bad').closest('tr')
-    // Two em-dashes: no area and no volume. A zero here would be a room the
-    // Einreichung silently counts as having no floor.
     expect(within(bad!).getAllByText('—')).toHaveLength(2)
     expect(within(bad!).queryByText('0')).not.toBeInTheDocument()
   })
@@ -113,10 +99,6 @@ describe('IfcRoomSchedule', () => {
   })
 
   it('lets a keyboard select a room, not just a pointer', async () => {
-    // The row carried the click handler and nothing else did: no Tab stop, no
-    // Enter, nothing announced as actionable. The Raumbuch was the one table
-    // on this page a keyboard could not select from — and selecting is how
-    // every other surface here is reached.
     const onSelect = vi.fn()
     render(
       <IfcRoomSchedule
@@ -134,9 +116,6 @@ describe('IfcRoomSchedule', () => {
   })
 
   it('says which room is selected, rather than only tinting its row', async () => {
-    // `aria-selected` on a `<tr>` inside a `role="table"` is dropped from the
-    // accessibility tree, so the selection was a background colour and
-    // nothing else.
     render(
       <IfcRoomSchedule
         schedule={SCHEDULE}
@@ -154,14 +133,9 @@ describe('IfcRoomSchedule', () => {
   })
 
   it('heads each block of rooms with the storey they are on', () => {
-    // `scope="colgroup"` claims to head the rest of a COLUMN, so reading the
-    // Raumbuch cell by cell never said which floor a room was on — which is
-    // the first thing the table is sorted by.
     render(
       <IfcRoomSchedule schedule={SCHEDULE} isLoading={false} error={null} filename="haus-a.ifc" />
     )
-    // Queried as a DOM node rather than by role: `scope` is the whole point
-    // and it is exactly what changes which role the cell reports.
     const heading = screen.getByText('Erdgeschoss').closest('th')
     expect(heading).toHaveAttribute('scope', 'rowgroup')
   })
@@ -214,8 +188,6 @@ describe('IfcQuantityTakeoff', () => {
       />
     )
     expect(screen.getByText('46.5')).toBeInTheDocument()
-    // The banner is the point: "56.5 m² of wall" over an incomplete set is a
-    // different number from the same figure over a complete one.
     expect(
       screen.getByText('Elements with no published value for this quantity: 1.')
     ).toBeInTheDocument()
@@ -287,8 +259,6 @@ describe('IfcProfileSuggestions', () => {
     )
     expect(screen.getByText('Storeys above ground')).toBeInTheDocument()
     expect(screen.getByText('High confidence')).toBeInTheDocument()
-    // Evidence is not a tooltip: a derived Gebäudeklasse input has to show its
-    // working on the same screen.
     expect(screen.getByText(/3 Geschosse mit Höhenlage/)).toBeInTheDocument()
     expect(screen.getByText('Medium confidence')).toBeInTheDocument()
   })
@@ -304,7 +274,6 @@ describe('IfcProfileSuggestions', () => {
     )
     const action = screen.getByRole('link', { name: 'Apply via the assistant' })
     expect(action).toHaveAttribute('href', '/app/projects/p1/chat?ask=x')
-    // No Apply button: a brief change goes through the confirm-the-patch card.
     expect(screen.queryByRole('button', { name: /Apply/ })).not.toBeInTheDocument()
   })
 

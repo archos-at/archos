@@ -1,6 +1,6 @@
 # Kubernetes deployment (Pulumi)
 
-This is the operator guide for running the full Piloti stack on a Kubernetes
+This is the operator guide for running the full stack on a Kubernetes
 cluster. The infrastructure is defined as code in
 [`deploy/pulumi`](../../deploy/pulumi) (Pulumi / TypeScript); this document
 explains the architecture, the storage/SeaweedFS decisions, how to deploy, and
@@ -31,7 +31,6 @@ their own namespaces.
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
 | `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0157; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
-| `chroma-migration` (one-shot copy of the retired Chroma store into Qdrant; `chromaMigration`, default off) | Job | 1 pod | exports from the still-running `chroma` Service over HTTP, awaited before the backend tiers roll; scratch is a generic ephemeral claim | n/a ([runbook](qdrant-runbook.md#migrating-from-chroma-on-kubernetes)) |
 | `seaweedfs` (filer + S3 gateway) | StatefulSet | 1 (`single`) / N (`split`) | RWO PVC `/data` (unused under the Postgres filer store) | See §4 |
 | `seaweedfs-master` (`split` only) | StatefulSet | 1 (3 = HA, untested) | RWO PVC `/data` (raft + volume-id sequence) | Odd replica counts only |
 | `seaweedfs-volume` (`split` only) | StatefulSet | N | RWO PVC `/data` per replica | `seaweedfsVolumeReplicas` — this is the object-capacity knob |
@@ -144,9 +143,17 @@ an object store. So:
 - Volumes **expand online**, but for the three StatefulSets NOT via config:
   `volumeClaimTemplates` are immutable (a size change would *replace* the
   StatefulSet while the existing PVC kept its old size — the program pins
-  `ignoreChanges` on the templates so that can't happen by accident). Grow a
-  live volume by patching the PVC directly, e.g.
-  `kubectl -n grid patch pvc data-seaweedfs-0 -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'`,
+  `ignoreChanges` on the templates so that can't happen by accident).
+  **SeaweedFS (`single`) grows via config**: with `seaweedfsGrowVolume: "true"`
+  (dev and prod) the deploy reads `data-seaweedfs-0` and patches it to the
+  larger of its current size and `seaweedfsStorageSize`, so raising the value
+  grows the volume and a smaller value is a no-op, never a shrink
+  (`src/data/pvc-grow.ts`). **On a new cluster, leave `seaweedfsGrowVolume`
+  unset for the first `pulumi up`**: the read fails while `data-seaweedfs-0`
+  does not exist yet, and the template creates it at the configured size. Set it
+  once the PVC exists. Qdrant and the
+  split topology still grow by hand:
+  `kubectl -n grid patch pvc <pvc> -p '{"spec":{"resources":{"requests":{"storage":"50Gi"}}}}'`,
   then update the config value so future clusters start at the new size. Only
   `pgStorageSize` (CNPG manages its own PVCs) expands via config + `pulumi up`.
   Volumes cannot shrink. **VolumeSnapshots** via the `lightbits` SnapshotClass.
@@ -263,9 +270,10 @@ a node get added.
 
 **Node loss wipes ephemeral storage; only PVCs survive.** On node replacement,
 `emptyDir` / `hostPath` / container-fs are gone. This stack uses **none** of
-those for durable data — no `emptyDir`, no `hostPath`, and the one DaemonSet,
-`otel-agent` (`deploy/pulumi/src/platform/otel-agent.ts`), mounts only its
-ConfigMap — so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
+those for durable data — no `emptyDir`, no durable `hostPath`; of the two
+DaemonSets, `otel-agent` (`deploy/pulumi/src/platform/otel-agent.ts`) mounts only
+its ConfigMap and `otel-logs` (`log-shipper.ts`) reads `/var/log/pods`
+read-only — so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
 `/var/lib/kubelet`) is a non-issue here; the only ephemeral file is the
 agent-worker's `/tmp` liveness marker, which is meant to be transient. All state
 lives on PVCs (which survive) or in Postgres.
@@ -341,8 +349,8 @@ The 2026-10-12 run copied all seven PVCs: `grid-pg-1` to `-3`,
 `data-seaweedfs-0` (the documents), `data-chroma-0`, `data-clickhouse-0` and
 `data-aiq-agent-0`, about 30 GB in under three minutes. A new PVC in `grid` is
 included without any change here: the `data-qdrant-N` peers' volumes from the
-release that replaced Chroma with Qdrant, and `data-chroma-0` until it is
-deleted after the migration.
+release that replaced Chroma with Qdrant, and `data-chroma-0` while it
+exists.
 
 Each volume is snapshotted on its own, minutes apart, so a restore is
 crash-consistent per volume and not across them. Postgres recovers like after a
@@ -561,6 +569,15 @@ until a person files it (ADR-0137 and its amendment of 2026-11-03,
 [`inbound-mail.md`](../architecture/inbound-mail.md)). Off by default: nothing
 is deployed until `inboundMailDomain` is set.
 
+**Status (2026-11-14):** dev receives mail on `inbox.dev.piloti.at` since
+2026-11-05. Prod's block in `Pulumi.prod.yaml` is on and unpaused, to go live
+for all offices in ONE promotion with the November release (owner decision
+2026-11-14, against the three promotions below): the scanner is not awaited,
+the forwards share dev's verified destination address, and `deploy.yml`
+switches subaddressing on and runs G7 (and G3 with a test address) after
+`pulumi up`. What still needs a person:
+[`project-mail-runbook.md`](project-mail-runbook.md), "Prod: one promotion".
+
 **Taking it to production:** [`project-mail-runbook.md`](project-mail-runbook.md),
 the owner's checklist from "off" to the first office, in order: decisions, the
 Cloudflare and ESC steps, the three promotions, gates G0–G9 as a test protocol,
@@ -611,6 +628,8 @@ scheduler container.
   mail domain forward to (RFC 2142). Pulumi creates it as a destination
   address and the two forwarding rules; the forwards work once someone opens
   Cloudflare's verification mail to it (stack output `inboundMailOperator`).
+  With `inboundMailOperatorAddressShared` the stack points the forwards at an
+  address the account already holds verified and creates none (prod: dev's).
 - `inboundMailDmarc`, optional: the zone apex's `_dmarc` record for a mail zone
   of its own. Refused beside `dnsDmarc` on the same zone, in one stack
   (`loadConfig`), across stacks (`stack-files.spec.ts`) and against a record
@@ -623,15 +642,19 @@ scheduler container.
   domain whose MX points anywhere but `*.mx.cloudflare.net`; the apex's MX are
   not read. Email Routing adds and locks the subdomain's MX, an SPF TXT and a
   DKIM TXT.
-- **Subaddressing** on the zone, by hand: one `PATCH
-  /zones/{zone}/email/routing` with `{"support_subaddress":true}` (the runbook's
-  §7). Pulumi cannot set it: the provider's only handle onboards the apex
+- **Subaddressing** on the zone: one `PATCH
+  /zones/{zone}/email/routing` with `{"support_subaddress":true}`, which
+  `deploy.yml` makes after `pulumi up` when it is off
+  (`deploy/pulumi/scripts/inbound-mail-after-deploy.sh subaddress`; by hand, the
+  runbook's §7, for a stack applied outside CI). Pulumi cannot set it: the provider's only handle onboards the apex
   (`platform/email-routing.ts` says why). Without it `project+<slug>.<token>@`
   does not reach the rule for `project@`, and every project address bounces. Gate G0
   checks it and proves it on the subdomain.
-- **The scanner first.** `loadConfig` refuses an inbound domain while
-  `malwareScanEnabled` is false. Promote the scanner on its own and wait for its
-  pod to be ready (signatures under 48 h old) before the mail promote.
+- **The scanner with or before the domain.** `loadConfig` refuses an inbound
+  domain while `malwareScanEnabled` is false. Both may go in one apply: `pulumi
+  up` does not wait for the `clamav` Deployment (`pulumi.com/skipAwait`), whose
+  first readiness waits on freshclam's update (signatures under 48 h old), and
+  until then every scan fails closed and is retried.
 - The WorkOS entitlement `inbound-mail` exists (gate O1, created 2026-10-27,
   [`workos-provisioning.md`](workos-provisioning.md)). Staging: ON for all
   organizations since 2026-11-05 (the owner's decision: every office is a pilot,
@@ -648,7 +671,8 @@ scheduler container.
 message's entry can point at its Fassung with the project (the 0067 shape).
 `ALTER TABLE … ADD CONSTRAINT … UNIQUE` builds the index under an `ACCESS
 EXCLUSIVE` lock, and `drizzle-kit migrate` runs every pending migration in one
-transaction (0039, 0149), so the lock is held until 0196 to 0199 all commit:
+transaction (0039, 0149), so the lock is held until every pending migration
+commits (on prod's jump from 0191 to 0235, until 0235):
 every read and write of any document's versions waits for the build (uploads,
 the viewer, retrieval's version reads). `CONCURRENTLY` cannot run in that
 transaction, and the runner has no non-transactional step.
@@ -660,22 +684,43 @@ SELECT pg_size_pretty(pg_relation_size('document_versions')) AS heap,
        (SELECT reltuples::bigint FROM pg_class WHERE relname = 'document_versions') AS rows;
 ```
 
-The lock lasts as long as the index build. To know it rather than guess, time
-the same build on a restored copy (`\timing`, then the `CREATE UNIQUE INDEX`
-below without `CONCURRENTLY`). A pause of a few seconds needs nothing more.
-Longer, build the index online first, outside any transaction, as the owner:
+**The deploy builds the index online first; nobody runs it by hand.** The Job
+`app-online-indexes` (on both projects;
+`deploy/pulumi/src/app/online-indexes-job.ts`) runs before the migration Job,
+which depends on it, with the migration Job's credentials
+(`APP_MIGRATION_DATABASE_URL`, the schema owner) from `postgres:17-alpine`
+(the frontend image has no `psql`). For each entry of `ONLINE_INDEXES` it reads
+one state and acts on it, each statement on its own outside any transaction:
 
-```sql
-CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key"
-  ON "document_versions" ("id", "project_id");
--- Check it is valid; an interrupted build leaves an INVALID index: DROP INDEX CONCURRENTLY it and build again.
-SELECT indisvalid FROM pg_index WHERE indexrelid = 'document_versions_id_project_id_key'::regclass;
-```
+| State | What it does |
+|---|---|
+| no table, or a column missing (a fresh database) | nothing: the migration builds it, on an empty table |
+| the constraint exists (0196 applied: staging, prod after its first such deploy) | nothing |
+| a valid index of that name | nothing |
+| an invalid one (an interrupted build) | `DROP INDEX CONCURRENTLY`, then builds it again |
+| none | `CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key" ON "document_versions" ("id", "project_id")` |
 
-0196 then adopts it (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes the
-lock only for a catalog change. Either way, deploy outside office hours: the
-migrate Job runs before the new pods take traffic, and a document request that
-waits on the lock times out at Envoy after its route timeout.
+It runs with `statement_timeout=0` (a build takes as long as it takes, and
+blocks no reader or writer) and `lock_timeout=30s`: `CONCURRENTLY` waits for
+every older transaction, and behind a long one it fails, leaves an invalid
+index, and the next of its six attempts drops it and builds again. Pulumi
+awaits it (50 minutes at most; `activeDeadlineSeconds` 45 minutes in the
+cluster), so a build that keeps failing stops the deploy before any migration
+took a lock. Its log has one line per index: `document_versions_id_project_id_key
+(0196): missing`, then `built`.
+
+0196 then adopts the index (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes
+the lock only for a catalog change; that lock is still held until the whole
+batch commits, so its length is the time of every migration after 0196. A later migration that wants a large index
+does the same: it adopts a pre-built one by name, still builds it itself when
+it is missing, and adds the entry to `ONLINE_INDEXES` (only for a table and
+columns that exist before the deploy's migrations run; the spec
+`index-deploy-jobs.spec.ts` checks the migration names the index).
+
+The other locks of a batch are not moved out of the transaction (0200's scans,
+0203, 0220, 0230), so deploy outside office hours all the same: the migrate Job
+runs before the new pods take traffic, and a document request that waits on a
+lock times out at Envoy after its route timeout.
 
 ### Setup: the first promote is paused
 
@@ -738,7 +783,10 @@ Record of runs: none yet.
 
 ### Operating
 
-- **Alerts** (BFF log lines and PostHog `inbound_mail_refused.reason`):
+- **Alerts** (BFF log lines and PostHog `inbound_mail_refused.reason`, `.stage`
+  and `.error`; the `[Projekt-E-Mail]` rules of the Product incidents alert and
+  `[Objektspeicher]` of the Infrastructure incidents alert,
+  [`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts), on every stack):
   `bad-signature` (a key or `BFF_URL` mismatch), `body-truncated`,
   `unavailable` (storage or database), `cap_reached`, and no `received` for
   24 hours on a deployment that usually receives mail. The receive log line per
@@ -822,8 +870,10 @@ needs every staged object and kept original erased first
 
 ### Privacy settings at Cloudflare
 
-Workers observability is off (Pulumi sets `observability.enabled: false`); no
-Logpush. Cloudflare keeps Email Routing's activity log (sender, recipient,
+Workers Logs keep the Worker's own line per delivery (ids and the outcome),
+and invocation logs, which record the envelope sender and recipient, are off
+(`observability.logs.invocationLogs: false` in `platform/inbound-mail.ts`; G7
+checks it); no Logpush. Cloudflare keeps Email Routing's activity log (sender, recipient,
 time, outcome). Cloudflare is a transit processor of project mail: the
 sub-processor row and the customer notice belong to gate O7
 ([`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)).
@@ -1522,7 +1572,7 @@ below lands.
 ### 6.2 The highest-impact code change (do this first)
 
 Per scaling-review §6.2, the single biggest capacity defect is that
-`LlamaIndexRetriever.retrieve` (`packages/knowledge-layer/src/search/retriever.py`)
+`LlamaIndexRetriever.retrieve` (`packages/knowledge-layer/src/knowledge_layer/search/retriever.py`)
 does a **synchronous** embedding call + vector query on the only event loop —
 one user's retrieval stalls every other user's chat stream. Wrapping it in
 `asyncio.to_thread` (hours of work, no behaviour change) is the difference
@@ -1567,8 +1617,8 @@ The token-heavy workload (deep research) now scales out:
 - **A drain gives work back.** On SIGTERM the worker waits
   `agentWorkerDrainSeconds` for the runs it holds; Hatchet reassigns what a lost
   worker held, up to the task's retries, and the on-failure task writes FAILURE
-  when they are spent. The old `research_job_queue` table is kept until the
-  cutover drains it ([`hatchet.md`](hatchet.md), "Cutover from the claim queues").
+  when they are spent. The old `research_job_queue` table stays, unread, until
+  a migration drops it ([`hatchet.md`](hatchet.md), "Cutover from the claim queues").
 
 `agentWorkerMinReplicas` /
 `agentWorkerMaxReplicas` / `agentWorkerConcurrency` size the worker tier.
@@ -1587,7 +1637,7 @@ lost on restart, and then a claim queue of our own (ADR-0076). Now:
   priority and the encrypted payload, never document text. When a job ends the
   worker pushes `POST /api/internal/ingest/settled`, so the document's status
   does not wait for someone to read it. The claim queue it replaced,
-  `ingest_job_queue`, is kept until the cutover drains it.
+  `ingest_job_queue`, stays, unread, until a migration drops it.
 - **A dedicated `ingest-worker` tier** (same image, `PROCESS_ROLE=ingest-worker`,
   no port, no PVC) runs them, and it is the only process that does: the `chat`
   and `api` roles only start runs (ADR-0082), so a PDF's parse never shares
@@ -1832,7 +1882,7 @@ workload now spends its own:
 |---|---|---|---|
 | `openrouterChatKey` | the conversation | `aiq-agent` (chat), `aiq-api`, `frontend` and `bff-jobs` (model catalog reads only, no completions) | `OPENROUTER_API_KEY`, and on the Python tiers also `EMBED_API_KEY`, `VLM_API_KEY` |
 | `openrouterResearchKey` | research | `agent-worker` | the same three names |
-| `openrouterIngestKey` | ingestion (vision, transcription, embeddings, summaries) | `ingest-worker`, the Chroma migration Job | the same three names |
+| `openrouterIngestKey` | ingestion (vision, transcription, embeddings, summaries) | `ingest-worker` | the same three names |
 
 Each falls back to `openrouterApiKey` while unset, so a stack changes nothing
 until an operator sets one. The env names are the ones the code already reads;
@@ -1930,15 +1980,11 @@ ingestion in the web process. See [`oib-sync.md`](../technical-reference/oib-syn
 `volumeClaimTemplates`, an immutable field, so the first `pulumi up` plans a
 **replace** of `aiq-agent` (delete-before-replace: a short outage of the chat
 tier). The old `data-aiq-agent-*` claims are retained by Kubernetes and nothing
-the new pods mount them. A one-shot `legacy-corpus-import` Job carried the
-corpus off `data-aiq-agent-0` into the corpus store
-(`agent.legacy_corpus_import`). It ran on staging and on production
-(2026-10-11) and has been removed from this program with its
-`grid-oib:legacyCorpusClaim` key. A stack that still holds a pre-A2 claim
-runs the importer by hand, from a pod that mounts the claim read-only:
-`python -m agent.legacy_corpus_import <mount>`. Deleting the old
-`data-aiq-agent-*` claims stays an operator step, once the knowledge view lists
-the corpus.
+the new pods mount them. A one-shot Job carried the corpus off
+`data-aiq-agent-0` into the corpus store on staging and on production
+(2026-10-11); it, its `grid-oib:legacyCorpusClaim` key and the importer
+(`agent.legacy_corpus_import`, removed 2026-11) are gone. Deleting the old
+`data-aiq-agent-*` claims stays an operator step.
 
 ### 6.4b Chat scale-out: affinity off, KEDA on running turns (ADR-0080)
 
@@ -2326,10 +2372,9 @@ re-running `pulumi up`:
   the vector index.
 
 Removing a protected resource from the program fails the `up` the same way.
-The release that replaced Chroma with Qdrant deletes the `chroma`
-StatefulSet, so on a stack with this on, unprotect it first (the runbook's
-"Migrating from Chroma on Kubernetes"); its claim `data-chroma-0` was never a
-Pulumi resource and stays. The same release also replaces the **SeaweedFS**
+The release that replaced Chroma with Qdrant deleted the `chroma`
+StatefulSet, so a stack with this on had to unprotect it first; its claim
+`data-chroma-0` was never a Pulumi resource. The same release also replaces the **SeaweedFS**
 StatefulSet: the `grid-qdrant` identity changes the rendered `s3.json`, so the
 plan re-creates the Secret and the StatefulSet that mounts it. Unprotect that
 one too
@@ -2375,7 +2420,7 @@ Three things are true of this whole table and are easy to miss:
 | SeaweedFS offsite documents backup (`seaweedfsBackupEnabled`) | **Destination's problem** | The mirror is pushed over `https://` (enforced at config load), so it is encrypted in transit. Whether the target bucket encrypts at rest is a property of that bucket, which this program does not configure. |
 | **SeaweedFS filer namespace** (`split` + `seaweedfsFilerStore: postgres`) | **No — and it is the key store** | The `seaweedfs_filer` database holds a decryption key for every encrypted chunk in the object store, in ordinary Postgres rows with no application-level encryption. Confidentiality at rest is the PVC's, exactly as for the three application databases. It is separated by *credential* rather than by encryption: its own role, its own database, `CONNECT` revoked from `PUBLIC`, so the application logins cannot reach it and it cannot reach `app`. Its inclusion in the PITR archive is the reason the `pgBackupEncryption` row above matters more than it used to. ADR-0043. |
 | Qdrant vector store | **No** | Persisted on a PVC per peer, no application-level encryption. It holds every office's chunk text beside the embeddings, so treat it as sensitive as the documents. Its shard snapshots in the `qdrant-snapshots` bucket inherit SeaweedFS's chunk encryption. |
-| Retained Chroma volume (`data-chroma-0`, until deleted after the migration) | **No** | The retired store's PVC, kept unmounted after the release that removed Chroma: the same chunk text and embeddings, until the runbook's last step deletes it. |
+| Retained Chroma volume (`data-chroma-0`, where not yet deleted) | **No** | The retired store's PVC, unmounted since the release that removed Chroma: the same chunk text and embeddings. Nothing reads it; delete it where `kubectl -n grid get pvc data-chroma-0` still finds it. |
 | Kubernetes Secrets in etcd | **Unknown to this repo — operator action** | Every credential above (DSNs, S3 keys, the KEKs themselves, the Dragonfly passwords) is a Kubernetes Secret, which is **base64, not encryption**. Encrypting them at rest needs an `EncryptionConfiguration` on the API server, which is a control-plane file on a managed cluster and is not reachable from this program. **Ask the provider whether etcd encryption-at-rest is enabled**, and treat the answer as the ceiling on every "encrypted" row in this table — the KEKs are stored there. |
 | **PVCs (all of them)** | **Unknown to this repo — operator action** | The StorageClass is provider-supplied (`grid-oib:storageClass`, e.g. `premium` / `single-replica`, Lightbits NVMe/TCP) and **nothing in this repo creates a StorageClass**. Kubernetes has no per-PVC encryption field: whether volumes are encrypted is decided by the StorageClass's `parameters`, which are fixed when the class is created. There is therefore no config key here that could enable it, and adding one would be a setting that does nothing. **Operator action:** obtain (or have the provider create) an encrypted StorageClass and point `grid-oib:storageClass` at it; `kubectl get storageclass <name> -o yaml` shows the parameters actually in force. This remains the control that actually matches "encrypted at rest", and it is the one ADR-0042 named as the better answer than volume-chunk encryption. |
 
@@ -2530,6 +2575,11 @@ call gateway and agent:
   every node, deployed only with PostHog metrics on. It reads its node's
   kubelet (`kubelet_stats`) and scrapes the annotated pods scheduled on its node
   (`prometheus/pods`), and sends both to the gateway. It holds no credential.
+- **`otel-logs`** (`deploy/pulumi/src/platform/log-shipper.ts`), a DaemonSet on
+  every node in its own namespace `observability`, deployed with PostHog logs
+  on (`grid-oib:namespace` may not be `observability`; `loadConfig` refuses it). It tails the container logs of the app namespaces and sends them to the
+  gateway (below, "Container logs and Kubernetes events"). It holds no PostHog
+  token; it mounts a Kubernetes service-account token, to read pod metadata.
 
 The config each one runs is composed from one fragment per consumer or source
 (`collector-config.ts`), which also holds the invariants every collector
@@ -2593,6 +2643,8 @@ grid-ui / backend-chat / grid-agent-worker / grid-bff-jobs / grid-purger
      │  └───── scrape every 30 s: qdrant-0 / qdrant-1 / qdrant-2 (port 6336)
      │ OTLP
   otel-agent (one per node) ◀── its kubelet (:10250) and its annotated pods
+     │ OTLP
+  otel-logs (one per node, ns observability) ◀── /var/log/pods of grid, background-work, cms
 ```
 
 A signal no consumer takes ends in the collector's own `nop` exporter, because
@@ -2605,7 +2657,30 @@ filter:
 
 | Pipeline | Exporter | Filter | Switch |
 |---|---|---|---|
-| `logs/posthog` | `otlp_http/posthog` | below WARN dropped (`severity_number < 13`, records without a severity too); then `transform/posthog_redact` withholds the text: the body keeps only a leading `[area]` tag, attributes only code location, exception and error type and HTTP status (`POSTHOG_LOG_ATTRIBUTES`; positive control `posthog-log-redaction.spec.ts`) | `posthogLogsEnabled` (default `true`) plus `posthogHost` and `posthogProjectToken` (both default to Piloti's project; an empty `posthogHost` opts the stack out) |
+| `logs/posthog` | `otlp_http/posthog` | below WARN dropped (`severity_number < 13`, records without a severity too); then `transform/posthog_redact` withholds the text: the body keeps only a leading `[area]` tag, attributes only code location, exception and error type and HTTP status (`POSTHOG_LOG_ATTRIBUTES`; positive control `posthog-log-redaction.spec.ts`); `resource/logs_environment` names the stack in `deployment.environment.name`, as on metrics and traces, so a query reads `resource_attributes['deployment.environment.name'] = 'prod'` (logs before 2026-11-17 have none) | `posthogLogsEnabled` (default `true`) plus `posthogHost` and `posthogProjectToken` (both default to the platform's project; an empty `posthogHost` opts the stack out) |
+
+**Container logs and Kubernetes events** reach the same exporter on two more
+pipelines, so a failed rollout can be read in PostHog
+([`observability/debug-a-failed-rollout.md`](../observability/debug-a-failed-rollout.md)):
+
+| Pipeline | Source | What it keeps |
+|---|---|---|
+| `logs/containers` | OTLP from `otel-logs` on a port of its own, 4319 (`otlp/shipper`), which marks every row `collector.log.source=container`; the SDK pipeline reads only 4318, so an SDK row goes through the redaction whatever it claims to be | the line as written. The shipper's `filelog/pods` reads `/var/log/pods/<ns>_*` for `appNamespaces(cfg)` only, skips the OTLP-instrumented containers (`LOG_SHIPPER.otlpInstrumentedContainers`; `log-shipper.spec.ts` fails if a container with `OTEL_EXPORTER_OTLP_ENDPOINT` is missing from it), the collectors and the noisy stores; the `container` parser and `k8sattributes` stamp `k8s.namespace.name`, `k8s.pod.name`, `k8s.container.name`, `k8s.deployment.name`, and `service.name` is the container name. Debug dropped, warn and above kept, info sampled at 10%, lines cut at 16 KiB after CRI recombination. `k8s.deployment.name` is best effort: a new pod's first lines can come before `k8sattributes` has seen the pod, and carry the path's pod name only |
+| `logs/k8s_events` | `k8sobjects/events` on the gateway: a watch on `events.k8s.io` events in the app namespaces | one row per watch notification, so an event that repeats comes again with its count raised (`k8s.event.count`, from `series.count`) (Warning as warn, Normal as info), body the note, attributes `k8s.event.reason`, `k8s.event.type`, `k8s.object.kind`, `k8s.object.name`; `service.name` `k8s-events`, `k8s.pod.name` on the resource for a pod's events. Deletions dropped |
+
+Excluding the instrumented containers rather than filtering their stdout keeps
+the redaction whole (their stdout carries office text) and costs only their
+pre-SDK crash output, which the events cover (`BackOff`, `Unhealthy`). The
+shipper lives in its own namespace because a `hostPath` volume is refused by the
+app namespace's `baseline` admission: `observability` enforces `privileged` and
+warns at `baseline`, and the pod itself runs as UID 10001 with no capabilities,
+a read-only root, and group 0 only to read the kubelet's `0640 root:root` files.
+It reads pod metadata through a ClusterRole of get/list/watch on pods,
+namespaces and replicasets; `allow-log-shipper-to-collector` lets it through the
+app namespace's default-deny to port 4319. The events are read by the gateway
+alone, which is one replica (a second would ship every event twice; a surge
+rollout overlaps for seconds), through a Role of get/list/watch on events in
+each app namespace, bound to `otel-collector`.
 
 PostHog Logs takes `{posthogHost}/i/v1/logs` with `Authorization: Bearer
 <project token>`. The token is PostHog's public `phc_` key, the same one the
@@ -2892,7 +2967,7 @@ next token, within the five-minute access-token lifetime. The Langfuse account
 stays behind, unreachable; remove it in Langfuse to keep the member list honest.
 
 Analysts in the platform org also pass the app's platform-staff check
-(`isPlatformStaff`), so Piloti shows them the platform area and its nav. Every
+(`isPlatformStaff`), so the app shows them the platform area and its nav. Every
 section's data route requires its own permission and answers them 403; hiding
 the area from observability-only staff is an open UI follow-up.
 

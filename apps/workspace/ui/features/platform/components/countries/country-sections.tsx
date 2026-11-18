@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * The sections of one country's page (Platform → Länder → a country), in the
- * order the work runs: overview, works and editions with their texts, sources,
- * rules, review, quality. Each reads a route the platform door also offers, and
- * each empty state says what to do. Every change goes through a change request:
- * a text is attached inside a draft, never uploaded beside one.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -29,7 +21,6 @@ import type { Load } from './use-platform-json'
 
 const AGENTS_HREF = '/app/platform/agents'
 
-/** Where to go when nothing is there yet: the operator's own assistant on the platform door proposes records. */
 function ConnectAssistant(): JSX.Element {
   const t = useTranslations(platformCopy)
   return (
@@ -98,7 +89,6 @@ export function OverviewSection({
   )
 }
 
-/** The texts grouped by work, then edition: what offices read, and what a draft still holds. */
 function byWork(texts: readonly TextPlacementView[]): { work: string; editions: { edition: string; texts: TextPlacementView[] }[] }[] {
   const works = new Map<string, Map<string, TextPlacementView[]>>()
   for (const text of texts) {

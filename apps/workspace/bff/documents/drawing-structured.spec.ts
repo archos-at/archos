@@ -6,7 +6,6 @@ import {
   type DrawingStructured,
 } from './drawing-structured'
 
-/** A payload shaped exactly as the extraction schema writes it. */
 const RAW = {
   schema_version: 4,
   registry: 'architecture+general@850c9b2d770a',
@@ -20,7 +19,6 @@ const RAW = {
       { name: 'Atelier', category: 'space', role: 'Arbeiten', measure: '24,5 m²' },
       { name: 'Technikraum', category: 'space', role: null, measure: null },
       { name: 'Wärmepumpe', category: 'services', role: null, measure: null },
-      // A nameless entity carries nothing.
       { name: '', category: 'space', role: 'leer', measure: null },
     ],
     compositions: [
@@ -39,7 +37,6 @@ const RAW = {
         source: 'text',
         confidence: 'high',
       },
-      // Meaningless without an object — the schema drops these, and so must we.
       { object: '', property: 'x', value: '9', unit: null, source: null, confidence: null },
     ],
     relations: [{ subject: 'Rampe', relation: 'verbindet', object: 'Hof und Dach' }],
@@ -74,8 +71,6 @@ describe('normalizeDrawingStructured', () => {
   })
 
   test('groups entities by category, whatever the categories are', () => {
-    // The UI must not know a domain's vocabulary: a category it has never seen
-    // still groups and still renders.
     const result = normalizeDrawingStructured({
       segment: {
         entities: [
@@ -104,7 +99,6 @@ describe('normalizeDrawingStructured', () => {
   test('drops entries the schema treats as meaningless', () => {
     const result = normalizeDrawingStructured(RAW) as DrawingStructured
 
-    // A nameless entity and an object-less quantity carry no information.
     const spaces = result.segment.entityGroups.find((group) => group.category === 'space')
     expect(spaces?.entities.map((entity) => entity.name)).toEqual(['Atelier', 'Technikraum'])
     expect(result.segment.quantities).toHaveLength(1)
@@ -156,7 +150,6 @@ describe('normalizeDrawingStructured', () => {
 
 describe('humanizeTerm', () => {
   test('reads a vocabulary key this build has no label for', () => {
-    // The fallback that lets a backend domain ship without a frontend release.
     expect(humanizeTerm('building_physics')).toBe('Building physics')
     expect(humanizeTerm('space')).toBe('Space')
     expect(humanizeTerm('')).toBe('')
@@ -169,8 +162,6 @@ describe('hasStructuredDetail', () => {
   })
 
   test('false when the payload only repeats the description', () => {
-    // The summary is already rendered above the disclosure, so a segment
-    // carrying nothing else must not offer an empty one to open.
     const summaryOnly = normalizeDrawingStructured({
       segment: { domain: 'general', segment_type: 'photo', summary: 'Ein Baustellenfoto.' },
       document: {},

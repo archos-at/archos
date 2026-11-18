@@ -1,13 +1,3 @@
-"""Reading any DXF by its own vocabulary: its texts and its layers (ADR-0153).
-
-The cadastre operations (``site_ops``) need a Katastralmappe. These two work on
-any drawing: ``texts`` finds labels (a room name, a parcel number, a street) and
-says where they stand and on which parcel; ``layers`` says what each layer holds
-and sums what can be summed there (length of lines, area of closed outlines), so
-a question like "how much area is on the layer GRÜNFLÄCHE" has an answer with
-its provenance.
-"""
-
 from __future__ import annotations
 
 from collections import Counter
@@ -24,7 +14,6 @@ from .site import closed_outlines
 from .site_ops import SiteAnswer
 from .site_ops import accuracy_note
 
-#: The most of one label an answer quotes: an MTEXT can be a page of prose.
 _LABEL_CHARS = 200
 
 _LENGTH_TYPES = frozenset({"LINE", "LWPOLYLINE", "POLYLINE", "ARC", "CIRCLE", "SPLINE", "ELLIPSE"})
@@ -44,7 +33,6 @@ def _labels(site: Site) -> Iterator[tuple[str, str, Vec3]]:
 
 
 def texts(site: Site, query: str, limit: int = 30) -> SiteAnswer:
-    """Labels containing ``query`` (case-insensitive), where they stand, and on which parcel."""
     wanted = " ".join((query or "").split()).lower()
     answer = SiteAnswer()
     found = 0
@@ -74,7 +62,6 @@ def _parcel_at(site: Site, x: float, y: float) -> str:
 
 
 def _length(entity: DXFGraphic) -> float:
-    """The entity's length along its flattened path (arcs and bulges to 1 cm), 0 for what has none."""
     try:
         points = list(dxf_path.make_path(entity).flattening(0.01))
     except TypeError, ValueError, AttributeError:
@@ -87,7 +74,6 @@ def _number(value: float) -> str:
 
 
 def layers(site: Site, limit: int = 40) -> SiteAnswer:
-    """What each layer holds: entity kinds, total line length, and closed outlines with their area."""
     kinds: dict[str, Counter[str]] = defaultdict(Counter)
     lengths: dict[str, float] = defaultdict(float)
     for entity in site.source.doc.modelspace():

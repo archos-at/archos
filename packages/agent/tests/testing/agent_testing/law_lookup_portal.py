@@ -1,22 +1,3 @@
-"""A searchable statute portal of the synthetic country XA, and a law lookup bound to it for a whole test.
-
-The parity rig (``law_lookup_parity``) holds the lookup to what the RIS tool
-returned for recorded calls; this module is what the lookup's own behaviour
-suites drive it through. Same seams: the network edge is the rig's
-:class:`Upstream` (every request logged, an unknown one a 404) and the two
-model calls are scripted. What it adds is what a behaviour test needs and a
-parity case does not: a source with a live search, a version window and a
-territory filter that names no real country; scripted model calls that record
-whether they were made; a catalog the test chooses; and one bound tool for
-several calls, so a repeat can be measured against the shared cache.
-
-XA's portal is a record (:data:`XA_STATUTES`) on a protocol and a format the
-platform already speaks (``rest`` + the OGD JSON engine): two provinces
-(Northmark, Southmark), a national and a regional statute collection, case
-law, a version date parameter, and documents placed by a number prefix. Its
-search answers are built by :func:`search_answer` in that format's shape.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -40,10 +21,8 @@ from agent_testing.law_lookup_parity import _turn_carrying
 API = "api.statutes.xa.example"
 DOCS = "law.statutes.xa.example"
 SEARCH_BASE = f"https://{API}/v1"
-#: The whole consolidated laws, the documents a statute hit's provisions are cut from.
 CODE_URL = f"https://{DOCS}/consolidated/building-code"
 REGIONAL_CODE_URL = f"https://{DOCS}/consolidated/southmark-building-code"
-#: The repository record the bound tool falls back to (and describes itself by), as the rig binds it.
 FALLBACK_SOURCE = "at-ris"
 
 XA_STATUTES: dict[str, Any] = {
@@ -152,13 +131,6 @@ Parking
 
 
 def page(title: str, text: str) -> dict[str, str]:
-    """A document page in the portal's shape: the law's lines inside ``#content``, one per line.
-
-    Line breaks, not one ``<p>`` per line: the engine puts a blank line between paragraphs, and a heading
-    a blank line above its ``§ 63.`` is not read as its heading (by the RIS tool neither: the parity
-    golden's indexes carry none). The suites ported here assert headings on the text shape the RIS tool's
-    fake client handed it, so the page converts to exactly that text.
-    """
     paragraphs = "<br>".join(text.strip().splitlines())
     body = (
         f"<!DOCTYPE html><html><head><title>{title}</title></head><body>"
@@ -179,7 +151,6 @@ def hit(
     until: str = "",
     provision: str = "",
 ) -> dict[str, Any]:
-    """One search hit in the format's shape; its field names are the format's (``engines.ris_xml``)."""
     url = url or f"https://{DOCS}/documents/national/{number}.html"
     fields = {
         "Kurztitel": title,
@@ -202,7 +173,6 @@ def hit(
 
 
 def search_answer(*hits: dict[str, Any], error: str = "") -> dict[str, str]:
-    """A search answer holding ``hits``, or the format's own refusal (``error``)."""
     if error:
         payload: dict[str, Any] = {"OgdSearchResult": {"Error": {"Applikation": "National", "Message": error}}}
     else:
@@ -216,21 +186,13 @@ def search_answer(*hits: dict[str, Any], error: str = "") -> dict[str, str]:
 
 @dataclass
 class Portal(Upstream):
-    """The rig's recorded upstream, plus one search answer for every search the lookup sends.
-
-    The search's query string is the lookup's to build (and :attr:`searches` lets a test read it); a
-    document is answered only at its exact URL, so a fetch the lookup was not meant to make is a 404.
-    """
-
     responses: dict[str, dict[str, str]] = field(default_factory=dict)
     search: dict[str, str] = field(default_factory=search_answer)
-    #: When set, the answer to each search by its query parameters (else :attr:`search`, whatever was asked).
     answer: Callable[[dict[str, str]], dict[str, str]] | None = None
     searches: list[dict[str, str]] = field(default_factory=list)
 
     @classmethod
     def with_codes(cls) -> Portal:
-        """The national and the Southmark building code, at their whole-law URLs."""
         return cls(
             responses={
                 CODE_URL: page("Building Code", BUILDING_CODE),
@@ -265,8 +227,6 @@ class Portal(Upstream):
 
 
 class Recorder:
-    """A scripted model call that records every call it gets, so a test can assert it got none."""
-
     def __init__(self, answer: Any) -> None:
         self.answer = answer
         self.calls: list[tuple] = []
@@ -277,7 +237,6 @@ class Recorder:
 
 
 def xa_law():
-    """XA's portal as the lookup reads it."""
     from public_sources.source import parse_released_source
 
     from agent.knowledge.law_lookup.source import law_source_from_record
@@ -286,14 +245,12 @@ def xa_law():
 
 
 def planner(*, collection: str = "National", terms: str = "building", title: str = "", territory: str = ""):
-    """The search planner, scripted: the plan it answers with."""
     from agent.knowledge.law_lookup.planner import plan_model
 
     return Recorder(plan_model(xa_law())(collection=collection, terms=terms, title=title, territory=territory))
 
 
 def picker(*sections: str) -> Recorder:
-    """The provision picker, scripted: the provisions it names."""
     from agent.knowledge.law_lookup.picker import PassagePick
     from agent.knowledge.law_lookup.picker import PassagePlan
 
@@ -301,7 +258,6 @@ def picker(*sections: str) -> Recorder:
 
 
 def catalog_entry(**overrides):
-    """One curated catalog entry, defaulted to the national building code (``agent.common.norm_registry``)."""
     from agent.common.norm_registry import NormEntry
 
     data = {
@@ -323,12 +279,9 @@ def catalog_entry(**overrides):
 
 @dataclass
 class Session:
-    """One bound lookup: call it as often as the test needs; the shared cache lives as long as the session."""
-
     portal: Portal
     law: Any
     _fn: Any = None
-    #: The bound tool as the agent runtime holds it (its description and its function).
     info: Any = None
     records: list[tuple] = field(default_factory=list)
 
@@ -345,11 +298,6 @@ async def session(
     catalog: list | None = None,
     record: dict[str, Any] | None = None,
 ) -> AsyncIterator[Session]:
-    """The lookup bound under the turn that carries ``record`` (XA's portal by default), at the two edges.
-
-    ``catalog`` is the norm catalog's entries; ``None`` is no catalog at all, so the repository's own
-    never decides a test.
-    """
     from public_sources.source import parse_released_source
 
     from agent.common.norm_registry import NormRegistry
@@ -386,7 +334,6 @@ async def session(
 
 
 def body_of(output: str, index: int = 1) -> str:
-    """The passage body of one ``--- Result N ---`` block, as the citation reader sees it."""
     from agent.citations.grounding_text import _extract_kl_chunk_bodies
 
     return _extract_kl_chunk_bodies(output)[index - 1]

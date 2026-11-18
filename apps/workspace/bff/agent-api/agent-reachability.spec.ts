@@ -2,30 +2,12 @@
 /**
  * @vitest-environment node
  */
-/**
- * The agent-reachability gate (ADR-0122): everything a person can do in
- * Piloti, an agent can do through Piloti's MCP server.
- *
- * It walks every `app/api/**\/route.ts` the way `authz-coverage.spec.ts` does
- * and asserts:
- *
- *   1. Every person-facing route method is in the catalog (`AGENT_OPERATIONS`),
- *      exempt in {@link NOT_AN_AGENT_CAPABILITY} with a reason, or still
- *      listed in the baseline of routes that predate the rule.
- *   2. The baseline only shrinks: a route that is now covered, or gone, must
- *      leave it. `UPDATE_FIXTURES=1` rewrites it, and the diff is the review.
- *   3. Every operation is well formed: a unique `<entity>-<verb>` name, a
- *      description a model can act on, a `load` that imports the route its
- *      `path` names, params that match the path's segments, and schemas the
- *      JSON Schema export can describe.
- *
- * A new route without an agent door fails here, in the commit that adds it.
- */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { calleeName, nodesOf, parseSource, ts } from '@/test-utils/source-ast'
 import { toJsonSchema } from '@/lib/api/zod-json-schema'
 import { AGENT_OPERATIONS, RENAMED_OPERATIONS, findOperation, renamedTo } from './catalog'
 import { isOnDoor } from './exposure'
@@ -40,11 +22,6 @@ const BASELINE_FILE = join(HERE, 'agent-reachability-baseline.json')
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
 
-/**
- * Why a route or an operation is not on the agent door, in the categories of
- * ADR-0122's amendment: the withheld ones (`WithheldCategory`), plus `other`
- * for what is not an act at all (transport, sign-in plumbing, the doors themselves).
- */
 type ExemptionCategory = WithheldCategory | 'other'
 
 interface Exemption {
@@ -52,13 +29,6 @@ interface Exemption {
   readonly reason: string
 }
 
-/**
- * Route methods that are not something a person does, each with its category
- * and reason. Keyed `METHOD /api/path`, or `* /api/path` for every method of a
- * route. Growing this map needs the same kind of sentence its entries carry. A
- * capability a person has but an agent should not be offered is not exempt
- * here: it is catalogued and withheld in `exposure.config.ts`.
- */
 const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
   'GET /api/ris/document': {
     category: 'external-service',
@@ -126,7 +96,7 @@ const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
   },
   '* /api/a2a': {
     category: 'other',
-    reason: 'the A2A endpoint (ADR-0124): another protocol onto the piloti-ask operations, which an MCP client calls directly',
+    reason: 'the A2A endpoint (ADR-0124): another protocol onto the ask operations, which an MCP client calls directly',
   },
   '* /api/v1/[...path]': {
     category: 'other',
@@ -146,15 +116,6 @@ const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
   },
 }
 
-/**
- * Every route method an agent reaches only under the extra guards of ADR-0122
- * ("Sensitive operations"), with its class: `access` changes who may see or do
- * what, `secret` touches the organization's credentials, `control` turns a
- * security or compliance control down or off. Each is catalogued
- * with exactly this `sensitivity`, and nothing else carries one, so a grant of
- * access cannot become a plain operation, nor a plain one a guarded one, without
- * a line here. Keyed `METHOD /api/path`.
- */
 const SENSITIVE: Record<string, Sensitivity> = {
   'PUT /api/projects/[id]/folders/[folderId]/access': 'access',
   'PATCH /api/sharing/[resourceType]/[resourceId]': 'access',
@@ -164,7 +125,6 @@ const SENSITIVE: Record<string, Sensitivity> = {
   'POST /api/organization/roles': 'access',
   'PATCH /api/organization/roles/[slug]': 'access',
   'DELETE /api/organization/roles/[slug]': 'access',
-  // A project role up to project-admin is a grant of access like any folder grant.
   'POST /api/projects/[id]/members': 'access',
   'DELETE /api/projects/[id]/members/[assignmentId]': 'access',
   'GET /api/organization/llm-credentials': 'secret',
@@ -183,17 +143,9 @@ const SENSITIVE: Record<string, Sensitivity> = {
   'PUT /api/organization/download-log/retention': 'control',
   'PUT /api/organization/deleted-folder-content': 'control',
   'PUT /api/organization/web-search': 'control',
-  // Following a mail thread turns review down for one conversation (D31).
   'POST /api/projects/[id]/mail-threads/[threadId]/follow': 'control',
 }
 
-/**
- * Where product configuration and a person's own screen state live. An
- * operation on one of these paths that an office door offers fails, unless its
- * entry in `exposure.config.ts` gives the `reason`: how Piloti itself works for
- * the office is not a thing the door hands to another agent, and it must not
- * drift back in with a new operation nobody marked.
- */
 const CONFIG_PATH_PREFIXES = [
   '/api/organization/settings',
   '/api/organization/instructions',
@@ -237,20 +189,46 @@ function apiPathOf(file: string): string {
   return dir === '.' ? '/api' : `/api/${dir}`
 }
 
-/**
- * Every method a PERSON can call: what `internalApiRoute` (a service's door)
- * and `publicApiRoute` (health, signed images) export is not a person's act.
- */
+interface Handler {
+  readonly method: string
+  readonly wrapper: string | undefined
+}
+
+const NOT_PERSON_FACING_WRAPPERS: readonly string[] = ['internalApiRoute', 'publicApiRoute']
+
+const isMethod = (name: string): boolean => METHODS.some((method) => method === name)
+
+function isExported(statement: ts.Statement): boolean {
+  const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined
+  return modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false
+}
+
+function wrapperOf(initializer: ts.Expression | undefined): string | undefined {
+  if (initializer && ts.isCallExpression(initializer)) return calleeName(initializer)
+  return initializer && ts.isIdentifier(initializer) ? initializer.text : undefined
+}
+
+function handlersIn(file: string): Handler[] {
+  return parseSource(file).statements.flatMap((statement): Handler[] => {
+    if (!isExported(statement)) return []
+    if (ts.isFunctionDeclaration(statement) && statement.name && isMethod(statement.name.text)) {
+      return [{ method: statement.name.text, wrapper: undefined }]
+    }
+    if (!ts.isVariableStatement(statement)) return []
+    return statement.declarationList.declarations.flatMap((declaration): Handler[] =>
+      ts.isIdentifier(declaration.name) && isMethod(declaration.name.text)
+        ? [{ method: declaration.name.text, wrapper: wrapperOf(declaration.initializer) }]
+        : [],
+    )
+  })
+}
+
 function personFacingRouteMethods(): RouteMethod[] {
   const found: RouteMethod[] = []
   for (const file of findRouteFiles(API_DIR)) {
-    const source = readFileSync(file, 'utf8')
     const path = apiPathOf(file)
-    for (const method of METHODS) {
-      const exported = new RegExp(`export\\s+(?:const\\s+${method}\\s*=\\s*(\\w+)|async\\s+function\\s+${method}\\s*\\()`)
-      const match = source.match(exported)
-      if (!match) continue
-      if (match[1] === 'internalApiRoute' || match[1] === 'publicApiRoute') continue
+    for (const { method, wrapper } of handlersIn(file)) {
+      if (wrapper !== undefined && NOT_PERSON_FACING_WRAPPERS.includes(wrapper)) continue
       found.push({ key: `${method} ${path}`, path, method, file })
     }
   }
@@ -317,8 +295,6 @@ describe('every person-facing route is agent-reachable (ADR-0122)', () => {
     for (const [key, { reason }] of Object.entries(NOT_AN_AGENT_CAPABILITY)) {
       expect(reason.length, key).toBeGreaterThan(30)
       const [method, path] = key.split(' ') as [string, string]
-      // The MCP route answers with its own factory-less handler, so it may not
-      // be a person-facing method yet while it is being added.
       if (path === '/api/mcp') continue
       expect(method === '*' ? paths.has(path) : keys.has(key), `${key} matches no route`).toBe(true)
     }
@@ -351,7 +327,6 @@ describe('what the door offers (ADR-0122, amendments of 2026-10-21)', () => {
     for (const op of AGENT_OPERATIONS) {
       expect(op.domain === 'platform', op.name).toBe(underPrefix(op.path, '/api/platform'))
     }
-    // The config's side of the same rule (`platform: true` exactly for that domain) is exposure.config.spec.ts's.
     expect(AGENT_OPERATIONS.filter((op) => op.domain === 'platform' && isOnDoor(op.name, 'office')).map((op) => op.name)).toEqual([])
   })
 
@@ -365,12 +340,36 @@ describe('what the door offers (ADR-0122, amendments of 2026-10-21)', () => {
   })
 })
 
+function propertyOf(object: ts.ObjectLiteralExpression, key: string): ts.Expression | undefined {
+  for (const property of object.properties) {
+    if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.name) && property.name.text === key) return property.initializer
+  }
+  return undefined
+}
+
+function dynamicImportsIn(node: ts.Node): string[] {
+  return nodesOf(node, ts.isCallExpression)
+    .filter((call) => call.expression.kind === ts.SyntaxKind.ImportKeyword)
+    .flatMap((call) => call.arguments.flatMap((argument) => (ts.isStringLiteralLike(argument) ? [argument.text] : [])))
+}
+
+function loadedRoutes(): Map<string, string[]> {
+  const loads = new Map<string, string[]>()
+  for (const file of readdirSync(CATALOG_DIR).filter((name) => name.endsWith('.ts') && !name.endsWith('.spec.ts'))) {
+    for (const entry of nodesOf(parseSource(join(CATALOG_DIR, file)), ts.isObjectLiteralExpression)) {
+      const name = propertyOf(entry, 'name')
+      const load = propertyOf(entry, 'load')
+      if (name && ts.isStringLiteralLike(name) && load) {
+        loads.set(name.text, [...(loads.get(name.text) ?? []), ...dynamicImportsIn(load)])
+      }
+    }
+  }
+  return loads
+}
+
 describe('the catalog is well formed', () => {
   const routeKeys = new Set(ROUTES.map((route) => route.key))
-  const catalogSource = readdirSync(CATALOG_DIR)
-    .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
-    .map((file) => readFileSync(join(CATALOG_DIR, file), 'utf8'))
-    .join('\n')
+  const loads = loadedRoutes()
 
   it('names are unique kebab-case <entity>-<verb>, at most 52 characters', () => {
     const names = AGENT_OPERATIONS.map((op) => op.name)
@@ -395,11 +394,7 @@ describe('the catalog is well formed', () => {
 
   it('load imports the route its path names', () => {
     for (const op of AGENT_OPERATIONS) {
-      // The operation's own entry: from its name to the next entry's name.
-      const block = catalogSource.slice(catalogSource.indexOf(`name: '${op.name}',`))
-      const next = block.indexOf("name: '", 10)
-      const entry = next > 0 ? block.slice(0, next) : block
-      expect(entry.includes(`load: () => import('@/app${op.path}/route')`), op.name).toBe(true)
+      expect(loads.get(op.name) ?? [], op.name).toContain(`@/app${op.path}/route`)
     }
   })
 

@@ -1,0 +1,9 @@
+---
+# area: administration
+operators:
+  - >
+    Production now brings project mail up in the promotion that carries the
+    mail block, the scanner and the receiving domain together and unpaused, with no
+    verification click and no hand-made Cloudflare call: the deploy switches
+    subaddressing on and reports the Cloudflare and signed-route gates in its
+    summary. Offices receive mail once the inbound-mail flag is on in WorkOS.

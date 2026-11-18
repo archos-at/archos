@@ -3,8 +3,6 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-// `@/lib/backend-proxy` statically imports the session guard, which pulls in
-// authkit; the collection-authz decision logic never calls it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -31,7 +29,6 @@ const session = { organizationId: 'org-1', userId: 'user-1' } as unknown as User
 const deps = (overrides: Partial<CollectionAuthzDeps> = {}): CollectionAuthzDeps => ({
   findProjectIdByCollection: vi.fn().mockResolvedValue('proj-id-1'),
   requireProjectAccess: vi.fn().mockResolvedValue({ role: 'project-editor' }),
-  // Fail closed by default: a session is cleared for no restricted collection.
   clearedRestrictedCollections: vi.fn().mockResolvedValue([]),
   ...overrides,
 })
@@ -90,9 +87,6 @@ describe('validateCollectionName', () => {
     const d = deps()
     const response = await validateCollectionName(['collections', 'proj_abc'], session, {}, { deps: d })
     expect(response).toBeNull()
-    // Any-of, not the bare umbrella: proxy collection routes are corpus writes,
-    // so the permission is `project:documents:write`, with the deprecated
-    // `project:edit` still accepted for roles provisioned before that split.
     expect(d.requireProjectAccess).toHaveBeenCalledWith(session as AuthorizedSession, 'proj-id-1', [
       'project:documents:write',
       'project:edit',
@@ -114,7 +108,6 @@ describe('validateCollectionName', () => {
       const response = await validateCollectionName(['collections', RESTRICTED, 'documents'], session, {}, { deps: d })
 
       expect(response).toBeNull()
-      // The project is found by the collection the restricted one extends.
       expect(d.findProjectIdByCollection).toHaveBeenCalledWith(PROJECT_COLLECTION, 'org-1')
       expect(d.requireProjectAccess).toHaveBeenCalled()
       expect(d.clearedRestrictedCollections).toHaveBeenCalledWith(session, 'proj-id-1', PROJECT_COLLECTION)
@@ -183,13 +176,11 @@ describe('validateCollectionName', () => {
     expect((await errorBody(response as Response)).error.code).toBe('INVALID_COLLECTION')
   })
 
-  // The org-wide Archiv collection (ADR-0024): must be THIS org's Archiv AND the
-  // caller must hold org:archiv:manage (proxy routes cover writes).
   const officeShelfManager = {
     organizationId: 'org-1',
     userId: 'user-1',
     role: 'member',
-    permissions: ['org:archiv:manage'],
+    permissions: ['org:office_shelf:manage'],
   } as unknown as UserSession
   const officeShelfMember = {
     organizationId: 'org-1',
@@ -266,14 +257,6 @@ describe('request context extraction', () => {
   })
 })
 
-/**
- * A chat's attachment collection through the proxy. Its files are document rows
- * now (ADR-0047 Phase 2): uploaded and deleted through `/api/session/documents`,
- * and the collection erased by the conversation delete. A raw upload here skipped
- * the file-type gate and the storage quota, and a raw file delete removed chunks
- * while the row naming them stayed, so the proxy writes nothing into an `s_`
- * collection, whoever asks.
- */
 describe('validateCollectionName — a chat collection is read-only', () => {
   const CHAT = 's_11111111_2222_4333_8444_555555555555'
   const chatContext = { conversationId: CHAT }
@@ -348,7 +331,7 @@ describe('validateCollectionName — what the proxy never does', () => {
   const officeShelfManager = {
     organizationId: 'org-1',
     userId: 'user-1',
-    permissions: ['org:archiv:manage'],
+    permissions: ['org:office_shelf:manage'],
   } as unknown as UserSession
 
   it.each([

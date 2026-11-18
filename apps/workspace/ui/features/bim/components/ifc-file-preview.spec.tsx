@@ -1,14 +1,3 @@
-/**
- * The model as a file preview.
- *
- * What matters here is not the picture — happy-dom cannot create a WebGPU
- * device, so the canvas is a marker — but that each of the four things that can
- * be true of an `.ifc` in the Dateien pane produces a DIFFERENT answer. "Still
- * being read", "could not be read", "there is no model" and "the list did not
- * load" are four distinct facts, and collapsing any of them into "no preview"
- * would tell a user their upload vanished.
- */
-
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { IfcFilePreview } from './ifc-file-preview'
@@ -27,10 +16,8 @@ interface ModelsState {
   error: string | null
 }
 
-/** What the mocked hooks return for the test currently running. */
 const state: {
   models: ModelsState
-  /** The document-scoped lookup, which is what the Archiv resolves through. */
   documentModel: { data: BimModelHeaderView | null; isLoading: boolean; error: string | null }
   elements: BimViewerElement[]
   source: string | null
@@ -41,7 +28,6 @@ const state: {
   source: 'https://example.test/model.ifc',
 }
 
-/** Idle is what either hook returns when it is the one passed null. */
 const IDLE = { data: null, isLoading: false, error: null, reload: () => {} }
 
 vi.mock('../hooks/use-bim-model', () => ({
@@ -75,7 +61,6 @@ function model(overrides: Partial<BimModelHeaderView> = {}): BimModelHeaderView 
   }
 }
 
-/** Install or remove `navigator.gpu`, which happy-dom does not provide. */
 function setWebGpu(available: boolean): void {
   if (available) {
     Object.defineProperty(navigator, 'gpu', { value: {}, configurable: true })
@@ -88,7 +73,6 @@ function renderPreview(): void {
   render(<IfcFilePreview documentId="doc-1" filename="Haus-A.ifc" projectId="proj-1" />)
 }
 
-/** The same preview on a shelf that has no project — the org-wide Archiv. */
 function renderOfficeShelfPreview(props: { canOpenWorkspace?: boolean } = {}): void {
   render(<IfcFilePreview documentId="doc-1" filename="Haus-A.ifc" {...props} />)
 }
@@ -107,8 +91,6 @@ describe('IfcFilePreview', () => {
     state.models = { data: [model()], isLoading: false, error: null }
     renderPreview()
 
-    // `next/dynamic` resolves the viewport chunk a tick later, so this is
-    // awaited — the same reason the viewer's own spec awaits it.
     const canvas = await screen.findByTestId('ifc-canvas')
     expect(canvas.dataset.source).toBe('https://example.test/model.ifc')
   })
@@ -160,8 +142,6 @@ describe('IfcFilePreview', () => {
 
     expect(screen.queryByTestId('ifc-canvas')).not.toBeInTheDocument()
     expect(screen.getByText(/needs WebGPU/)).toBeInTheDocument()
-    // The viewer's own fallback points at "the left" — the model page's element
-    // tables — which do not exist in a file preview.
     expect(screen.queryByText(/still available on the left/)).not.toBeInTheDocument()
   })
 
@@ -182,20 +162,9 @@ describe('IfcFilePreview', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 
-  /*
-    The org-wide Archiv, which has no project.
-
-    Every model surface used to be reached through a project's model list, so
-    an `.ifc` uploaded into the Archiv — parsed, indexed, listed as ready —
-    previewed as the grey "no inline preview" placeholder every unknown format
-    gets. The file the feature is about was the one file the Archiv could do
-    nothing with.
-  */
   describe('without a project (the org Archiv)', () => {
     it('shows the building, resolved by its document rather than a project list', async () => {
       setWebGpu(true)
-      // Deliberately populated: reading the project list here would be reading
-      // a list this surface must never have asked for.
       state.models = { data: [], isLoading: false, error: null }
       state.documentModel = { data: model({ projectId: null }), isLoading: false, error: null }
       renderOfficeShelfPreview()
@@ -217,16 +186,6 @@ describe('IfcFilePreview', () => {
       expect(screen.queryByTestId('ifc-canvas')).not.toBeInTheDocument()
     })
 
-    /**
-     * This used to assert the opposite, and the assertion was right about the
-     * code and wrong about the product: the Archiv's preview offered no way out
-     * because the stage required a project, so the same `.ifc` opened as a
-     * full-screen building in Dateien and as a dead-end viewport here.
-     *
-     * The stage takes `projectId: null` now, so the offer is the same on both
-     * surfaces — only the path differs, because the Archiv is not under a
-     * project.
-     */
     it('offers the workspace on the Archiv’s own route, not a project’s', async () => {
       setWebGpu(true)
       state.documentModel = { data: model({ projectId: null }), isLoading: false, error: null }
@@ -235,10 +194,7 @@ describe('IfcFilePreview', () => {
       await screen.findByTestId('ifc-canvas')
       const link = screen.getByRole('link')
       expect(link).toHaveAttribute('href', expect.stringContaining('/app/office-shelf?'))
-      // The model is named the same way it is named everywhere else, so a view
-      // copied from one surface parses on the other.
       expect(link.getAttribute('href')).toContain('model=')
-      // And no project id was invented to make the link buildable.
       expect(link.getAttribute('href')).not.toContain('/projects/')
     })
 

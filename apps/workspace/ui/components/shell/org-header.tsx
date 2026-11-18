@@ -26,39 +26,16 @@ import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 
 
-/**
- * The org-scope chrome: one slim header instead of a rail.
- *
- * Above a project there is no section list to navigate — the projects home IS
- * the org scope's content, and everything else up here is either a sheet that
- * floats above it (Archiv, Postfach) or an account destination that already
- * lives in the avatar menu (Profil, Organisation, Plattform). A 236px rail
- * repeating those five links earned its column inside a project and spent it up
- * here, so org scope trades it for a header and gives the page the full width.
- *
- * The header carries exactly what must stay one click away: the wordmark (the
- * way home), the two org-wide doorways with the inbox badge, and the avatar.
- * Someone who works in several offices also gets WorkOS's organization
- * switcher beside the wordmark, since which office they are in is the scope of
- * everything below it.
- * Everything account-shaped is behind the avatar — two clicks, deliberately.
- *
- * On a phone the doorways move to the tab bar at the bottom of the screen
- * (`PhoneTabBar`), where the thumb is, and this band keeps the wordmark, the
- * search that opens the command palette, the avatar, and, while the network is
- * gone, a line that says so (`ConnectionBand`).
- */
-
 export interface OrgHeaderProps {
   user?: SidebarUser
   organizationName?: string | null
   authRequired: boolean
-  /** The organizations the avatar menu offers to switch to (`switchableOrganizations`); empty for one. */
   organizations?: readonly SwitchableOrganization[]
   canManageOrganization: boolean
   canViewOrganization: boolean
   canManagePlatform: boolean
   canAccessOfficeShelf: boolean
+  canAccessOfficeStandards?: boolean
   canAccessInbox: boolean
 }
 
@@ -71,13 +48,13 @@ export function OrgHeader({
   canViewOrganization,
   canManagePlatform,
   canAccessOfficeShelf,
+  canAccessOfficeStandards = false,
   canAccessInbox,
 }: OrgHeaderProps): JSX.Element {
   const pathname = usePathname() ?? ''
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
   const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-  // The bell opens the Postfach beside the page where it fits.
   const inboxDoor = useStartDockDoor('inbox')
   const tFeedback = useTranslations(feedbackCopy)
   const openFeedback = useOpenFeedback()
@@ -87,10 +64,6 @@ export function OrgHeader({
   return (
     <header
       data-scope="org"
-      // One rule under it, as under a project page's header (`SECTION_HEADER_CLASS`): the bar stays put while the page
-      // scrolls under it, and without a line its doorways read as the page's first row (review of 2026-11-12). The
-      // design system's handover has none under a header; the app's layer deviates here, recorded in
-      // packages/brand/README.md („Where this package deviates from the handover“).
       className="border-border bg-background flex w-full shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]"
     >
       <div className={cn(BRAND_ROW, BRAND_INSET_ORG, 'justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] md:pr-6')}>
@@ -127,7 +100,7 @@ export function OrgHeader({
           )}
           {/* The office's standards beside the Büroablage they are filed in:
               a place of their own, so a standard is not one file among many. */}
-          {canAccessOfficeShelf && (
+          {canAccessOfficeStandards && (
             <OrgHeaderIconLink
               href="/app/base-knowledge"
               label={t('sections.baseKnowledge')}
@@ -199,9 +172,7 @@ function OrgHeaderIconLink({
   icon: React.ComponentType<{ className?: string }>
   active: boolean
   badgeCount?: number
-  /** Marks the link as a product-tour stop. */
   tourAnchor?: TourAnchor
-  /** A door to a panel docked beside the page (the Postfach). */
   door?: StartDockDoor
 }): JSX.Element {
   return (
@@ -216,9 +187,6 @@ function OrgHeaderIconLink({
           onClick={door?.onClick}
           data-tour={tourAnchor}
           className={cn(
-            // From 1280px the doorway carries its word, as the rail's row does
-            // inside a project: an icon alone asked the reader to recall which
-            // box was the Büroablage.
             'relative hidden size-9 items-center justify-center gap-2 rounded-control text-[13px] transition-colors pointer-coarse:size-11 md:flex xl:w-auto xl:px-2.5 duration-quick ease-out motion-reduce:transition-none',
             active || door?.open
               ? // On paper, with no track: open is the picked grey, the pointer the desk.
@@ -240,7 +208,6 @@ function OrgHeaderIconLink({
   )
 }
 
-/** The header's one action that is not a place: the same key shape as a link. */
 function OrgHeaderIconButton({
   label,
   hint,

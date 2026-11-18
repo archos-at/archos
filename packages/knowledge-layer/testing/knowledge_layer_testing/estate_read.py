@@ -1,5 +1,3 @@
-"""The estate read suites' rows, pages and backend, with the grounding capture."""
-
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -33,7 +31,6 @@ PAGES = {
     3: "3. Anlagen\nKeine Sprinkleranlage.",
 }
 
-#: Which tenant the current "turn" is: the rows loader reads it, as the real one reads the turn's scope.
 TURN: ContextVar[str] = ContextVar("turn", default="org_a")
 ROWS = {"org_a": [BSK, NOTE], "org_b": [FileRow(file_name="Fremd.pdf", shelf="project", collection="proj_b")]}
 

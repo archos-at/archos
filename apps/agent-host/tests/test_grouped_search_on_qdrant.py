@@ -1,12 +1,3 @@
-"""``POST /v1/collections/search`` end to end on a real Qdrant: the route, the adapter, the store.
-
-``test_document_search.py`` pins the route over a mocked retriever; this
-checks that what the real stack hands the BFF has the shape those tests
-assume: documents interleaved across projects in one fused order, the
-searched collection on every hit, facts filtering and lifting inside the
-query. Without ``QDRANT_TEST_URL`` it skips locally and fails on CI.
-"""
-
 from __future__ import annotations
 
 import math
@@ -56,15 +47,18 @@ def stack(monkeypatch):
             pytest.fail("QDRANT_TEST_URL is unset on CI: the Qdrant service container is missing")
         pytest.skip("QDRANT_TEST_URL not set")
     from knowledge_layer.search import LlamaIndexRetriever
-    from knowledge_layer.vector_store import schema
-    from knowledge_layer.vector_store import store as store_module
+    from knowledge_layer.vector_store import ALIASES
+    from knowledge_layer.vector_store import FIRST_VERSION
+    from knowledge_layer.vector_store import Physical
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import reset_store
 
     suffix = uuid.uuid4().hex[:8]
-    monkeypatch.setitem(schema.ALIASES, schema.Physical.CORPUS, f"route_corpus_{suffix}")
-    monkeypatch.setitem(schema.ALIASES, schema.Physical.OFFICE, f"route_office_{suffix}")
+    monkeypatch.setitem(ALIASES, Physical.CORPUS, f"route_corpus_{suffix}")
+    monkeypatch.setitem(ALIASES, Physical.OFFICE, f"route_office_{suffix}")
     monkeypatch.setenv("QDRANT_URL", url)
     monkeypatch.delenv("REQUIRE_AUTH", raising=False)
-    store_module.reset_store()
+    reset_store()
     retriever = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     retriever._initialized = True
     retriever.hybrid_search = False
@@ -75,14 +69,14 @@ def stack(monkeypatch):
     add_document_search_routes(router)
     add_project_facts_routes(router)
     app.include_router(router)
-    store = store_module.get_store(retriever._identity())
+    store = get_store(retriever._identity())
     yield app, store
     clear_active_retriever()
-    for physical in schema.Physical:
-        name = schema.ALIASES[physical] + schema.FIRST_VERSION
+    for physical in Physical:
+        name = ALIASES[physical] + FIRST_VERSION
         if store.client.collection_exists(name):
             store.client.delete_collection(name)
-    store_module.reset_store()
+    reset_store()
 
 
 def _put(store, scope: str, *files: tuple[str, float]) -> None:
@@ -98,7 +92,6 @@ def _put(store, scope: str, *files: tuple[str, float]) -> None:
 
 
 def _client(app) -> AsyncClient:
-    """The route's client, as the office ``org_test`` in anonymous mode (``document_search.request_office``)."""
     return AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test", headers={ORGANIZATION_ID_HEADER: "org_test"}
     )
@@ -120,7 +113,6 @@ async def test_documents_interleave_across_projects_in_the_real_answer(stack):
     assert res.status_code == 200
     hits = res.json()["hits"]
     first_page = [hit["collection"] for hit in hits[:10]]
-    # The BFF keeps the order and cuts it to `limit` (10): one project must not fill it with weak documents.
     assert first_page[0] == "proj_00" and hits[0]["file_name"] == "strong.pdf"
     assert "proj_00" not in first_page[1:]
     assert len(set(first_page)) == 10
@@ -154,7 +146,6 @@ async def test_facts_put_then_filter_and_lift_through_the_routes(stack):
 
 
 async def test_a_superseded_revision_stays_out_of_the_grouped_search(stack):
-    """ADR-0099: search leaves a replaced Fassung out; the cross-project lookup would hand it to the model."""
     app, store = stack
     _put(store, "proj_a", ("plan_index_b.pdf", 0.90), ("plan_index_c.pdf", 0.80))
     _put(store, "proj_b", ("detail.pdf", 0.70))
@@ -169,5 +160,4 @@ async def test_a_superseded_revision_stays_out_of_the_grouped_search(stack):
 
     assert plain.status_code == 200
     assert [hit["file_name"] for hit in plain.json()["hits"]] == ["plan_index_c.pdf", "detail.pdf"]
-    # Beside another filter too: none of these points carries the tag, so nothing is left.
     assert tagged.status_code == 200 and tagged.json()["hits"] == []

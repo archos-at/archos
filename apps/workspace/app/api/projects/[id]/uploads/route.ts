@@ -1,10 +1,3 @@
-/**
- * A project's upload history (ticket „Verlauf/Protokoll", ADR-0086): who
- * brought how many files in when, and how they ended, one keyset page at a
- * time (`?cursor=` from the previous page's `nextCursor`, `null` on the last
- * page). The per-file detail stays in each uploader's summary.
- */
-
 import { apiRoute, parseQuery } from '@/lib/api/handler'
 import { decodeDocumentListCursor } from '@/lib/documents/list-cursor'
 import { uploadHistoryQuerySchema } from '@/lib/upload-batches/batch-wire'

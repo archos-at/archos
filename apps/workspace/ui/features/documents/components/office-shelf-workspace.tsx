@@ -19,32 +19,12 @@ import { FileWorkspace } from './file-workspace'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 interface OfficeShelfWorkspaceProps {
-  /** Whether the viewer may change the Archiv (holds `org:office_shelf:manage`). */
   canManage: boolean
-  /** Whether an `.ifc` here can reach the model workspace (`ifc-models`). */
   showModels?: boolean
-  /**
-   * Controls beside the header, after the upload button. The Archiv sheet slots
-   * its close control here so the workspace's own header stays the sheet's ONE
-   * header instead of gaining a twin above it.
-   */
   trailingActions?: ReactNode
-  /** The office's name, the crumb over the title as a project's name is over its Dateien. */
   organizationName?: string | null
 }
 
-/**
- * The office Archiv: {@link FileWorkspace} over the organization's shelf.
- *
- * It is a project's Dateien with the project taken out, and it looks it: the
- * project section's header (crumb, title, tool row, the open folder as its
- * title), the same cards and rows.
- * What it adds is the count beside the title, the sheet's close control, and the
- * permission model: a member without `org:office_shelf:manage` gets
- * the read-only view (list, folders, search, filters, preview, download).
- * There is no assignment (collaboration is project-scoped) and no „Frage zur
- * Datei" (there is no project chat to ask in).
- */
 export function OfficeShelfWorkspace({
   canManage,
   showModels = false,
@@ -54,7 +34,6 @@ export function OfficeShelfWorkspace({
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
   const phone = usePhoneLayout()
-  // „Suche“ in place of the listing (`?mode=search`), scoped to the shelf and the open folder.
   const search = useShelfSearchMode()
 
   const shelf: FileShelf = {
@@ -64,9 +43,6 @@ export function OfficeShelfWorkspace({
     projectId: null,
     canManage,
     canCollaborate: false,
-    // Only managers drive the upload engine; no collection for a read-only
-    // viewer keeps its orchestrator effects inert (no background calls that
-    // would 403 for them anyway).
     useUpload: ({ collectionName, folderId, onComplete }) =>
       useOfficeShelfDocuments({
         collectionName: canManage ? collectionName : undefined,
@@ -100,10 +76,6 @@ export function OfficeShelfWorkspace({
   }
 
   return (
-    // Dateien's header, the same three parts in the same order: where you are (the crumb, inside a folder), what it is
-    // (the title, the folder's name inside one, with the way up at its start), what you can do (the tool row). The
-    // Büroablage had its own: a standing subtitle, a path row with „Zurück zu …“ under the tools, and no title for
-    // the folder (review of 2026-11-11, „passt noch nicht mit der Seite Dateien zusammen“).
     <SectionPlaceScope root={t('title')}>
       <SectionToolRowScope enabled={!phone}>
         <FileWorkspace
@@ -118,11 +90,6 @@ export function OfficeShelfWorkspace({
   )
 }
 
-/**
- * The Büroablage's header: the open folder (from {@link useSectionPlace}) or the store with its count, the sheet's
- * close at the end of the title's line (top right on a phone too, where the thumb looks for the way out), and the tool
- * row under it. The count stays with the store's title: the one number a reader wants before they filter.
- */
 function OfficeShelfHeader({
   controls,
   count,
@@ -154,9 +121,6 @@ function OfficeShelfHeader({
         titleClassName="line-clamp-2"
         titleTooltip={place?.title}
         titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden">{place.count}</span>}
-        // As a project's Dateien: the office over the store („Atelier Nord“), the way there inside a folder („Atelier
-        // Nord › Büroablage › Planung“), so the title keeps its line from the top level into a folder. A phone has
-        // only the folder's short trail.
         crumb={
           phone ? (
             place?.phoneTrail

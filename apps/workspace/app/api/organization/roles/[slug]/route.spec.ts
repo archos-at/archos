@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Deleting a custom role: the route hands the slug to the service and answers
- * its refusal as it is. The rule itself is `custom-roles.spec.ts`.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 

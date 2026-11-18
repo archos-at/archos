@@ -1,21 +1,3 @@
-/**
- * Org-wide Archiv, presented as a page sheet (ADR-0024).
- *
- * One component behind both arrivals: the intercepted overlay
- * (`(shell)/@overlay/(.)office-shelf`), where the sheet rises above whatever page
- * the reader is on, and the real `/app/office-shelf` page, where a hard load renders
- * the same sheet standing alone over the org chrome. Only `standalone` — what
- * "close" means — differs; see {@link RoutePageSheet}.
- *
- * Reachable by any org member, with uploads and deletes gated on
- * `org:office_shelf:manage`.
- *
- * Headerless on purpose: {@link OfficeShelfWorkspace} already opens with the
- * project section's header (name, count, controls). A sheet header above it
- * would say "Archiv" twice, so the sheet's close control slots in beside it
- * instead and the workspace's header is the sheet's one header.
- */
-
 import type { JSX } from 'react'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
@@ -32,10 +14,6 @@ export async function OfficeShelfSheet({ standalone }: { standalone: boolean }):
     const t = await getTranslations(officeShelfCopy)
     const tCommon = await getTranslations(commonCopy)
     const canManage = canManageOfficeShelf(session)
-    // The same gate a project's Dateien reads, from the same helper. An `.ifc`
-    // opened here has to behave the way an `.ifc` opened there behaves, and the
-    // only way to guarantee that is for both surfaces to ask the same question
-    // rather than each deciding locally.
     const showModels = isIfcModelsEnabled(session)
 
     return (

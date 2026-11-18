@@ -39,8 +39,6 @@ export const TARGETS = [
   { dir: 'apps/website/src/styles/brand', files: ['tokens.css', 'components.css', 'motion.css', 'covers.css', 'status.css', 'blocks.css', 'fonts/', 'identity.json'] },
   { dir: 'apps/workspace/shared/brand', files: ['tokens.vars.css', 'fonts/', 'identity.json'] },
   { dir: 'packages/agent/src/agent/common', files: ['identity.json'], shared: true },
-  // The sheet the backend draws a DXF onto (ADR-0152): the type of its title block,
-  // and the name for its small „Erstellt mit …“ line.
   { dir: 'apps/agent-host/src/agent_host/drawings/brand', files: ['fonts/', 'identity.json'] },
 ]
 

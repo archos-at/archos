@@ -1,9 +1,3 @@
-/**
- * One office standard's page: a licensed proposal is confirmed only with the
- * office's licence statement, and sends both statements with the values; a
- * confirmed copy records a check in one click.
- */
-
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -84,7 +78,6 @@ describe('EntryPage', () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe('/api/base-knowledge/oenorm-b-1600/licence')
     expect(JSON.parse(String(init.body))).toEqual({ licenceClass: 'licensed', licenceAttested: true, aiProcessingAttested: true })
-    // The text use stays `used`; the page still shows the copy as bought, not the controls of a free one.
     rerender(page(BOUGHT))
     expect(await screen.findByRole('button', { name: 'Ist doch frei verfügbar' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Ist doch gekauft' })).toBeNull()

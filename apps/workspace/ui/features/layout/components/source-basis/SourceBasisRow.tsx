@@ -34,7 +34,6 @@ import type { SourceBasisEntry } from './source-basis-model'
 
 export interface SourceBasisRowProps {
   entry: SourceBasisEntry
-  /** A turn is in flight — the basis is frozen for its duration. */
   isBusy?: boolean
   onToggle?: (id: string, enabled: boolean) => void
 }

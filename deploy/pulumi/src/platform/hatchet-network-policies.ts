@@ -1,20 +1,3 @@
-/**
- * NetworkPolicies of the `background-work` namespace (ADR-0150): a default-deny
- * for ingress, the same shape as the app namespace's (`network-policies.ts`),
- * and the few callers Hatchet and its Postgres have.
- *
- * The gRPC engine accepts any worker that presents the token, and the API
- * answers the dashboard's login and every SDK call, so reachability is a
- * control worth having: only the app tiers that start or run Hatchet runs (the
- * ones built with `hatchetEnv`) reach the gRPC engine and the API. The cluster
- * is reached by Hatchet itself (same namespace), the CloudNativePG operator and
- * KEDA's operator (the backlog count, as the read-only scaler login).
- * RabbitMQ is withheld from the namespace's wholesale allow: Hatchet's four
- * backend components alone publish and consume, the nodes talk among
- * themselves, and the RabbitMQ operator reaches the management API. The
- * dashboard has no route: an operator's `kubectl port-forward` goes through the
- * API server, which NetworkPolicy does not see.
- */
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from "../config";
@@ -25,12 +8,6 @@ import { HATCHET, HATCHET_COMPONENTS } from "./hatchet";
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { RABBITMQ, RABBITMQ_OPERATOR_NAMESPACE } from "./rabbitmq";
 
-/**
- * The app tiers that get `hatchetEnv`: the request tiers start runs (chat and
- * api under both names while they run side by side, `tier-names.ts`; the
- * frontend's BFF), the worker tiers run them. A tier that starts runs and is
- * missing here times out on every call while its plan is green.
- */
 export const HATCHET_CALLERS = [
   ...CHAT_TIERS,
   ...API_TIERS,
@@ -65,8 +42,6 @@ export function installHatchetNetworkPolicies(
 
   const policies = [
     mk("default-deny-ingress", { podSelector: {}, policyTypes: ["Ingress"] }),
-    // Hatchet's components, Caddy and the cluster's instances among themselves;
-    // not RabbitMQ (`NotIn` also matches a pod without the label).
     mk("allow-same-namespace", {
       podSelector: { matchExpressions: [{ key: rabbitmqKey, operator: "NotIn", values: [rabbitmqValue] }] },
       policyTypes: ["Ingress"],
@@ -122,8 +97,6 @@ export function installHatchetNetworkPolicies(
       ],
     }),
   ];
-  // The node agents (ADR-0119) scrape the engine's and the instances' metrics
-  // ports from the app namespace; those ports alone.
   if (cfg.posthog.metricsEnabled) {
     const agent = { ...inNamespace(appNamespace), ...byName("otel-agent") };
     policies.push(

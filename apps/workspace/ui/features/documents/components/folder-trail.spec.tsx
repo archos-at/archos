@@ -8,11 +8,6 @@ import type { FolderItem } from '../file-types'
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/app/projects/p1/files' }))
 
-/**
- * Inside a folder the page's title names the folder and the crumb carries the way there. On dev (2026-11-10) the
- * header still said „All files“ over a folder's contents, and a path row under the tabs said the way back twice
- * („← Back to All Files   All Files › Berichte“), its labels wrapping and its long names cut without their text.
- */
 const folder = (id: string, parentId: string | null, name: string): FolderItem => ({ id, parentId, name, path: `/${name}` })
 const FOLDERS: FolderItem[] = [
   folder('a', null, 'Grundlagen'),
@@ -43,7 +38,6 @@ describe('a folder in the header', () => {
   })
 
   it('says beside the title what the folder holds, and keeps it in the title’s tooltip when the title is cut', () => {
-    // A folder of 240 drawings said nothing of its size (review of 2026-11-10, finding 22).
     renderAt('b', vi.fn(), 240)
     const title = screen.getByRole('heading', { level: 1 })
     expect(within(title).getByTestId('page-header-count')).toHaveTextContent('240 items')
@@ -52,7 +46,6 @@ describe('a folder in the header', () => {
   })
 
   it('carries the way there in the crumb, each step a way up, and draws no path row under the tabs', async () => {
-    // A wide tool row (it measures itself), where „Create folder“ is a press of its own.
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1100, height: 32, top: 0, left: 0, right: 1100, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
     const onNavigate = renderAt('b')
     const crumb = screen.getByTestId('page-header-crumb')
@@ -60,13 +53,11 @@ describe('a folder in the header', () => {
     const trail = within(crumb).getByTestId('folder-trail')
     expect(trail).toHaveTextContent('Files')
     expect(trail).toHaveTextContent('Grundlagen')
-    // The open folder is the title, never a step of its own crumb.
     expect(trail).not.toHaveTextContent('Gutachten')
     await userEvent.click(within(trail).getByRole('button', { name: 'Grundlagen' }))
     expect(onNavigate).toHaveBeenCalledWith('a')
     expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
     expect(screen.queryByTestId('folder-back')).not.toBeInTheDocument()
-    // The level's tools stand in the tool row, as at the root.
     expect(within(screen.getByTestId('files-tool-row')).getByRole('button', { name: /Create folder/ })).toBeInTheDocument()
     vi.restoreAllMocks()
   })
@@ -79,7 +70,6 @@ describe('a folder in the header', () => {
   })
 
   it('lets a long folder title wrap after its underscores, never after a hyphen, and reads it whole', () => {
-    // A phone's title line broke „Rauchabschnittsbildung_Bauteil_C_Index-“ over a lone „D“.
     renderAt('e')
     const title = screen.getByRole('heading', { level: 1, name: /^Rauchabschnittsbildung_Bauteil_C_Index-D/ })
     expect(title.querySelectorAll('wbr')).toHaveLength(3)

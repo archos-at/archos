@@ -1,10 +1,3 @@
-/**
- * A workspace read in the Herleitung (ADR-0125): the ledger names it by the
- * operation it ran (`shelf: 'workspace'`, `tools/workspace/register.py`), an
- * identifier. The slot is worded for the reader, with the operation beneath it,
- * and never drawn as a file.
- */
-
 import { render, screen } from '@/test-utils'
 import { describe, expect, test } from 'vitest'
 import { sanitizeRetrievalLedger } from '@/lib/conversations/message-retrieval-ledger'

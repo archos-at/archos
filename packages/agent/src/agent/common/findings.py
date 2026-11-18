@@ -1,18 +1,3 @@
-"""The findings of a report: one Befund per requirement, as data.
-
-A planning office commissions a Prüfung, not a whitepaper: which requirements
-apply to this project, is each one met, where is that written, and what is
-still open. The unit of that work is a *Befund*, and this module is its
-contract. The deep report is extracted into a list of them after it is
-written (``agents/deep_researcher/anatomy.py``); the frontend renders the list
-as the Befundmatrix over the prose, mirrors this contract in
-``lib/conversations/message-findings.ts``, and a committed fixture
-(``tests/fixtures/findings/wire_payload.json``) pins the two to one shape.
-
-Every string is bounded here and again on the client, because the payload
-lands in message jsonb and is rendered as a table.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -24,17 +9,12 @@ from pydantic import Field
 
 FINDINGS_VERSION = 1
 
-#: Whether the requirement is met, in the reader's words on the wire.
 FindingStatus = Literal["met", "not_met", "open", "not_applicable"]
-#: How the finding stands on its evidence: quoted from a source, derived from
-#: cited values, or still without a source.
 FindingGrounding = Literal["sourced", "derived", "open"]
 
 FINDING_STATUSES: tuple[FindingStatus, ...] = ("met", "not_met", "open", "not_applicable")
 FINDING_GROUNDINGS: tuple[FindingGrounding, ...] = ("sourced", "derived", "open")
 
-#: Spellings written before the English names (messages stored by an older
-#: build, a pod that has not rolled yet). Read-only: nothing writes these.
 LEGACY_FINDING_STATUS: dict[str, FindingStatus] = {
     "erfuellt": "met",
     "nicht_erfuellt": "not_met",
@@ -55,8 +35,6 @@ MAX_CITATIONS = 8
 
 
 class FindingReference(BaseModel):
-    """Where the requirement is written: the document, and the Punkt or page."""
-
     model_config = ConfigDict(extra="forbid")
 
     document: str = Field(min_length=1, max_length=MAX_LABEL_CHARS, description="e.g. 'OIB-Richtlinie 2'")
@@ -67,15 +45,10 @@ class FindingReference(BaseModel):
 
 
 class Finding(BaseModel):
-    """One requirement read against the project."""
-
     model_config = ConfigDict(extra="forbid")
 
     requirement: str = Field(min_length=1, max_length=MAX_LABEL_CHARS, description="the requirement, as a noun phrase")
     value: str | None = Field(default=None, max_length=MAX_VALUE_CHARS, description="the copyable value, e.g. 'REI 60'")
-    #: The verdict, when the report judged the requirement. None for a row a
-    #: Vergleich or an Aktenvermerk states without judging it: the matrix is a
-    #: list of Ergebnisse then, not of Befunde.
     status: FindingStatus | None = None
     grounding: FindingGrounding
     reference: FindingReference | None = None
@@ -85,28 +58,19 @@ class Finding(BaseModel):
 
 
 class Findings(BaseModel):
-    """The versioned wire payload: ``metadata.findings`` on a report message."""
-
     model_config = ConfigDict(extra="forbid")
 
     v: int = FINDINGS_VERSION
     items: list[Finding] = Field(min_length=1, max_length=MAX_FINDINGS)
 
     def counts(self) -> dict[str, int]:
-        """How many findings carry each status, for the summary line."""
         return {status: sum(1 for item in self.items if item.status == status) for status in FINDING_STATUSES}
 
     def judged(self) -> bool:
-        """Whether any row carries a verdict: Befunde then, Ergebnisse otherwise."""
         return any(item.status is not None for item in self.items)
 
 
 def sanitize_findings(raw: Any) -> dict[str, Any] | None:
-    """Reduce an untrusted findings payload to the contract, or ``None``.
-
-    Fail-soft per item: a row the contract rejects is dropped, the rest stay,
-    and an empty result is ``None`` rather than an empty table.
-    """
     if not isinstance(raw, dict):
         return None
     items = raw.get("items")
@@ -126,7 +90,6 @@ def sanitize_findings(raw: Any) -> dict[str, Any] | None:
 
 
 def _trimmed(item: dict[str, Any]) -> dict[str, Any]:
-    """Cut the free text to the bounds instead of refusing the row for length."""
     out = dict(item)
     status = out.get("status")
     if isinstance(status, str):

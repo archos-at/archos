@@ -120,7 +120,7 @@ platform layer, as additions).
   result again, another body with that key is a 422
   (`bff/base-knowledge/http/`). The door forwarding the header to every
   operation comes with the agent-grade door.
-- **Flag** `office-base-knowledge`, an entitlement, default off. (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path.)
+- **Flag** `office-base-knowledge`, an entitlement, default off. (Amended by [ADR-0175](0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md): the switch and its off path are removed; the records are the only path. Amended again 2026-11-14: the office's own standards are behind a new entitlement, `office-standards`, so production can ship without them; `bff/authz/feature-flags.ts` says what it gates.)
 
 ### Consequences
 

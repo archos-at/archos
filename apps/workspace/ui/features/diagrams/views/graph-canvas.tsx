@@ -1,23 +1,5 @@
 'use client'
 
-/**
- * A read-only node graph, laid out by dagre, drawn by @xyflow/react.
- *
- * The same canvas conventions as the Herleitung (`ReasoningFlow`): HTML nodes
- * in the card style, 1:1, no pan, no zoom, nothing focusable but real buttons,
- * and a height taken from MEASURED nodes rather than guessed. Two passes: the
- * nodes mount invisible, React Flow measures them, dagre lays them out with
- * those sizes, and only then does the canvas fade in at its final height.
- *
- * Edges follow dagre's own route (`data.points`), not a straight or
- * smooth-step path between handles: dagre routes around the nodes it placed,
- * so a return loop ("Verbesserung → Einreichung") does not cut through the
- * step it skips. Labels sit where dagre reserved room for them.
- *
- * A layout wider than the column scrolls sideways inside `HorizontalScroll`
- * rather than shrinking: labels stay at reading size.
- */
-
 import {
   type FC,
   type ReactNode,
@@ -47,7 +29,6 @@ import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
 import { useTranslations } from '@/i18n'
 import { diagramsCopy } from '@/i18n/namespaces/diagrams'
 
-/** Same ink as the Herleitung's edges: foreground at 30%, on any surface. */
 export const EDGE_STROKE = 'color-mix(in oklch, var(--foreground) 30%, transparent)'
 
 export interface GraphNodeSpec {
@@ -68,7 +49,6 @@ export interface GraphEdgeSpec {
 export interface GraphSpec {
   nodes: GraphNodeSpec[]
   edges: GraphEdgeSpec[]
-  /** Chosen by the builder for the width it was given; top to bottom by default. */
   direction?: 'TB' | 'LR'
 }
 
@@ -78,35 +58,23 @@ export interface GraphCanvasProps extends GraphSpec {
   label: string
   nodesep?: number
   ranksep?: number
-  /** The column's width; the layout centres in it and scrolls past it. */
   width: number
-  /** Arrowheads: a flow has a direction, a tree does not. */
   arrows?: boolean
 }
 
 const PAD = 8
 
-/** An edge label's widest box; past it the label wraps. `max-w-[160px]` below. */
 const LABEL_MAX_WIDTH = 160
-/** Border and `px-1.5` around the text, and border and `py-0.5` above and below it. */
 const LABEL_INSET = { x: 14, y: 6 }
-/** One character of 12px text, on average; one line of it at `leading-snug`. 12px is the floor for text on a phone. */
 const LABEL_CHAR_WIDTH = 7
 const LABEL_LINE_HEIGHT = 12 * 1.375
 
-/**
- * Room dagre reserves for an edge label, before the label is measured: as wide
- * as its text up to the cap, and one line taller for every line it wraps to.
- * The lines are counted the way the browser breaks them, a word at a time, and
- * a word too long for a line runs over as many as it fills.
- */
 export function edgeLabelBox(label: string): { width: number; height: number } {
   const room = LABEL_MAX_WIDTH - LABEL_INSET.x
   let lines = 0
   let widest = 0
   for (const paragraph of label.split('\n')) {
     const words = paragraph.split(/\s+/).filter(Boolean).map((word) => word.length * LABEL_CHAR_WIDTH)
-    // Shrink-to-fit: the box is as wide as the unbroken line, up to the cap.
     widest = Math.max(widest, words.reduce((sum, width) => sum + width, 0) + Math.max(0, words.length - 1) * LABEL_CHAR_WIDTH)
     lines += 1
     let used = 0
@@ -128,7 +96,6 @@ export function edgeLabelBox(label: string): { width: number; height: number } {
 
 type Point = { x: number; y: number }
 
-/** A smooth path through dagre's points: straight ends, quadratic joints. */
 function routedPath(points: Point[]): string {
   if (points.length < 2) return ''
   let path = `M ${points[0].x} ${points[0].y}`
@@ -242,22 +209,14 @@ function Canvas({
   const initialized = useNodesInitialized()
   const onNodesChange = useCallback((changes: NodeChange[]) => setRfNodes((prev) => applyNodeChanges(changes, prev)), [])
 
-  // A new graph starts measuring again. The graph it was built from is STATE,
-  // compared during render — React's reset-on-prop-change pattern — rather
-  // than a ref written during render, which a concurrent render that React
-  // throws away would still have written.
   const [builtFrom, setBuiltFrom] = useState(initial)
   if (builtFrom !== initial) {
     setBuiltFrom(initial)
-    // Keep the previous layout on screen while the new one is measured: a
-    // resize rebuilds the graph for the new width, and blanking it here made
-    // every diagram blink out and fade back in on each resize.
     setRfNodes((prev) => {
       const at = new Map(prev.map((node) => [node.id, node.position]))
       return initial.map((node) => ({ ...node, position: at.get(node.id) ?? node.position }))
     })
   }
-  // Read and written in the layout effect only.
   const laidOutFor = useRef<{ graph: Node[]; key: string } | null>(null)
 
   useLayoutEffect(() => {
@@ -267,8 +226,6 @@ function Canvas({
       if (!node.measured?.width || !node.measured?.height) return
       sizes.set(node.id, { width: node.measured.width, height: node.measured.height })
     }
-    // Once per set of measured sizes: `rfNodes` also changes when the layout
-    // below is applied, and that must not lay out again.
     const key = `${width}|${[...sizes].map(([id, size]) => `${id}:${size.width}x${size.height}`).join(',')}`
     if (laidOutFor.current?.graph === builtFrom && laidOutFor.current.key === key) return
     laidOutFor.current = { graph: builtFrom, key }
@@ -360,10 +317,6 @@ function BuiltCanvas({
   )
 }
 
-/**
- * Measures its column and draws the graph in it. `build` makes the graph for a
- * column width, so a node can be as wide as the column allows (memoise it).
- */
 export function GraphCanvas({
   build,
   ...props

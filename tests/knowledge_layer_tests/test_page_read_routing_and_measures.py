@@ -1,5 +1,3 @@
-"""A page read carries a cache key and keeps sticky routing; a file's stages and coverage reach its job status."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -80,7 +78,6 @@ class TestThePromptCacheKey:
         assert "extra_body" not in request
 
     def test_a_zdr_page_read_is_eu_only_and_keeps_sticky_routing(self, monkeypatch):
-        """Decided 2026-11-03: `only` the EU slugs, no fallback, no `order` (which turns sticky routing off)."""
         built = {}
         monkeypatch.setattr(openrouter, "openai_client", lambda **kwargs: built.update(kwargs) or Client())
         monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
@@ -130,8 +127,6 @@ class _Recorder:
 
 
 class TestNoAllowedEuEndpoint:
-    """An EU-only page read the provider cannot place now waits, like the in-flight 402."""
-
     class NoProvider(Exception):
         def __init__(self, status: int) -> None:
             super().__init__(f"Error code: {status} - No allowed providers are available for the selected model.")
@@ -202,9 +197,8 @@ class TestAnUnreadImageIsCounted:
 
 
 def test_a_page_read_in_the_vision_pool_nests_under_its_files_trace(monkeypatch):
-    """The pool's threads copy the job's context, the file's trace included (12% were orphans on 2026-11-02)."""
-    from knowledge_layer.ingest import adapter
     from knowledge_layer.ingest import processing
+    from knowledge_layer.ingest import vision_reads
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
     from agent.observability import direct_trace
@@ -220,7 +214,7 @@ def test_a_page_read_in_the_vision_pool_nests_under_its_files_trace(monkeypatch)
         vision_calls._vlm_chat_create(Client(), model="m", messages=[], max_tokens=10)
         return ("drawing", "Grundriss", {"summary": "x"})
 
-    monkeypatch.setattr(adapter, "analyze_visual", _analyze)
+    monkeypatch.setattr(vision_reads, "analyze_visual", _analyze)
     pages = [{"page_number": n, "image_bytes": bytes([n])} for n in range(1, 5)]
     try:
         with ingest_measures.file_trace("Plan.pdf", {}, "job-1"):
@@ -240,8 +234,6 @@ def test_a_page_read_in_the_vision_pool_nests_under_its_files_trace(monkeypatch)
 
 
 class TestAnImageIsScreenedByWhatTheModelRead:
-    """Without a Qdrant: the image branch alone, on a real ingestor's screen (the job harness skips without one)."""
-
     TERMS = {"content_terms": ["Gehaltsabrechnung"], "detectors": []}
 
     @pytest.fixture
@@ -262,12 +254,12 @@ class TestAnImageIsScreenedByWhatTheModelRead:
 
     def _read(self, ingestor, monkeypatch, caption: str | None, tmp_path):
         from knowledge_layer.ingest import ScreeningRules
-        from knowledge_layer.ingest import adapter
+        from knowledge_layer.ingest import caption_documents
         from knowledge_layer.ingest import read_standalone_image
         from llama_index.core import Document
 
         documents = None if caption is None else [Document(text=caption, metadata={"content_type": "image"})]
-        monkeypatch.setattr(adapter, "_build_image_documents", lambda *a, **k: documents)
+        monkeypatch.setattr(caption_documents, "_build_image_documents", lambda *a, **k: documents)
         path = tmp_path / "foto.png"
         path.write_bytes(b"\x89PNG\r\n\x1a\n")
         job = _job(FileProgress(file_name="foto.png", status=FileStatus.INGESTING))

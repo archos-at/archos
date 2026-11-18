@@ -1,19 +1,3 @@
-/**
- * Organisation → Anweisungen, at the surface a person actually uses.
- *
- * Three things this pins, and each one is a way the box could quietly stop
- * doing its job:
- *
- *   - the COUNTER is live and counts against the same 1500 the server enforces.
- *     A bound somebody only meets by being refused is a bound they meet with a
- *     paragraph already written.
- *   - over the cap, Save is REFUSED rather than the text being truncated. An
- *     instruction cut mid-sentence says something its author never wrote.
- *   - CLEAR is its own control. The box is often emptied on the way to
- *     rewriting it, so a Save that happened to be enabled must not be the thing
- *     that wipes the organization's instructions.
- */
-
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -44,10 +28,9 @@ const body = (): Record<string, unknown> =>
   JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>
 
 describe('the instruction editor', () => {
-  test('shows what the organization already told Piloti', () => {
+  test('shows what the organization already told the agent', () => {
     render(<OrgInstructionsForm initialInstructions="Assume Vienna." />)
     expect(box()).toHaveValue('Assume Vienna.')
-    // Nothing has changed yet, so there is nothing to save.
     expect(saveButton()).toBeDisabled()
   })
 
@@ -63,8 +46,6 @@ describe('the instruction editor', () => {
   test('over the cap it refuses to save, and says by how much', async () => {
     render(<OrgInstructionsForm initialInstructions={null} />)
 
-    // Pasted, not typed: a person meets this bound by pasting a house style
-    // guide, not by typing 1501 characters.
     const tooLong = 'a'.repeat(ORG_INSTRUCTIONS_MAX_CHARS + 12)
     await userEvent.setup().click(box())
     await userEvent.setup().paste(tooLong)
@@ -72,7 +53,6 @@ describe('the instruction editor', () => {
     await waitFor(() => expect(counter()).toHaveTextContent('12 characters over'))
     expect(box()).toHaveAttribute('aria-invalid', 'true')
     expect(saveButton()).toBeDisabled()
-    // And nothing was silently shortened to fit.
     expect(box()).toHaveValue(tooLong)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -97,7 +77,6 @@ describe('the instruction editor', () => {
     await user.click(clearButton())
     expect(fetchMock).not.toHaveBeenCalled()
 
-    // Backing out leaves the instruction as it was.
     await user.click(await screen.findByRole('button', { name: /^cancel$/i }))
     expect(fetchMock).not.toHaveBeenCalled()
     expect(box()).toHaveValue('Assume Vienna.')
@@ -120,8 +99,6 @@ describe('the instruction editor', () => {
     render(<OrgInstructionsForm initialInstructions="Assume Vienna." />)
 
     await user.clear(box())
-    // Save is live, because the text genuinely changed — but nothing is written
-    // until the person presses something.
     expect(fetchMock).not.toHaveBeenCalled()
   })
 

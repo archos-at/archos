@@ -1,22 +1,6 @@
-/**
- * The office's conventions as lines a person decides on (ADR-0129), and what
- * their decisions do to the lines the agent reads. Pure.
- *
- * A line's key is stable across recounts: it names the kind and the value (the
- * Dokumentart and its folder, one folder of the skeleton, a Plannummer shape),
- * never the counts. So a decision about "Gutachten are filed under Behörde"
- * survives the next count, and a new count that finds another folder is
- * another line.
- *
- * Confirmed beats counted: a confirmed line is kept with the snapshot taken
- * when it was confirmed, even if the next count no longer clears the threshold.
- * Declined beats everything: it never reaches the agent.
- */
-
 import { conventionPathKey, type OfficeConventions } from './extract'
 import type { ConventionDecision, ConventionLine, ConventionLineView } from './office-conventions-wire'
 
-/** A person's decision on one line, with the line as it was when decided. */
 export interface StoredDecision {
   lineKey: string
   decision: ConventionDecision
@@ -28,7 +12,6 @@ export interface StoredDecision {
 const KEY_MAX = 300
 const keyOf = (kind: ConventionLine['kind'], value: string): string => `${kind}:${value}`.slice(0, KEY_MAX)
 
-/** Every line the count shows, most useful first (filing, folders, then the naming lines). */
 export function conventionLines(conventions: OfficeConventions): ConventionLine[] {
   const lines: ConventionLine[] = []
   for (const entry of conventions.filing) {
@@ -47,11 +30,6 @@ export function conventionLines(conventions: OfficeConventions): ConventionLine[
   return lines
 }
 
-/**
- * The counted lines with the decisions laid over them, plus every decided line
- * the count no longer shows (so a confirmed one is kept and a declined one can
- * be taken back). Counted lines come first in their order.
- */
 export function resolveLines(counted: readonly ConventionLine[], decisions: readonly StoredDecision[]): ConventionLineView[] {
   const decided = new Map(decisions.map((entry) => [entry.lineKey, entry]))
   const view = (line: ConventionLine, isCounted: boolean): ConventionLineView => {
@@ -69,11 +47,6 @@ export function resolveLines(counted: readonly ConventionLine[], decisions: read
   return [...counted.map((line) => view(line, true)), ...kept]
 }
 
-/**
- * The lines the agent may read: declined ones removed, confirmed ones kept
- * (counted or not), and a counted filing line dropped when the office
- * confirmed another folder for the same Dokumentart.
- */
 export function linesForAgent(views: readonly ConventionLineView[]): ConventionLineView[] {
   const confirmedTypes = new Set(
     views.flatMap((view) => (view.decision === 'confirmed' && view.line.kind === 'filing' ? [view.line.docType.toLowerCase()] : []))

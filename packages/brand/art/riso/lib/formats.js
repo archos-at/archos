@@ -1,34 +1,3 @@
-/* ─────────────────────────────────────────────────────────────────────────────
-   Every slot a riso work can be exported for, by name. A work's JOBS table
-   names a format; it never states a pixel size.
-
-   A classic script, because the page must read it over file:// (where fetch
-   of a .json is blocked); export.mjs and new.mjs read the same file in Node.
-
-   Per format:
-     compose    the composition a plate draws for it (its aspect). Plates
-                declare which compositions they draw; several formats share one
-     sizes      one entry per density: exact pixels and screen pitch in device
-                px. A 2x twin doubles pixels and pitch, so both show the same
-                screen at the same CSS size. Nothing is ever resized after
-                the bake: resampling a halftone screen makes moiré
-     encode     'webp' (quality 95, sharp-YUV) or 'png' (256-colour palette when
-                committed, lossless for 'out' and separations)
-     dest       'app'  -> apps/workspace/public/art/, committed, in the app's
-                          bff/art/art.json (the product app, Next.js)
-                'out'  -> art/riso/out/<work>/, gitignored, reproducible (the
-                          retired public site's formats export here now)
-     file       name template: {base} {w} {h}
-     numeral    false leaves the plate numeral off (tiny formats)
-     separations  also write one grayscale PNG per ink for a riso print shop
-     onPage     also write the on-page file, '<file>-page.<encode>': the same
-                inks with no paper, as alpha, for a print shown bare on the
-                page with mix-blend-mode: multiply (art/riso/README.md)
-     use        where it goes; the pitch reasoning is in art/riso/README.md
-
-   Adding a format: add it here, give the plates that should wear it a
-   composition of that name, then export and check. See art/riso/README.md.
-   ───────────────────────────────────────────────────────────────────────── */
 'use strict';
 
 const FORMATS = {

@@ -12,7 +12,6 @@ vi.mock('next/navigation', () => ({
   usePathname: () => pathname.value,
 }))
 
-/** Everything an org admin would be handed. */
 const ALL_SECTIONS: OrganizationSectionKey[] = ORGANIZATION_SECTIONS.map((section) => section.key)
 
 describe('OrganizationNav', () => {
@@ -20,14 +19,12 @@ describe('OrganizationNav', () => {
     pathname.value = '/app/organization'
     render(<OrganizationNav sections={ALL_SECTIONS} />)
 
-    // Both viewports render the full set; CSS decides which is visible.
     expect(screen.getAllByRole('link')).toHaveLength(ALL_SECTIONS.length * 2)
     expect(screen.getAllByRole('link', { name: 'People & access' })).toHaveLength(2)
     expect(screen.getAllByRole('link', { name: 'Enterprise' })).toHaveLength(2)
   })
 
   test('renders only the sections it was granted', () => {
-    // What a plain member gets: the overview and their own usage, nothing else.
     pathname.value = '/app/organization'
     render(<OrganizationNav sections={['overview', 'budgets']} />)
 
@@ -38,8 +35,6 @@ describe('OrganizationNav', () => {
   })
 
   test('keeps the canonical order whatever order the sections arrive in', () => {
-    // The layout builds the set from capability checks, not from the nav's
-    // order — so the nav, not its caller, decides how the tier reads.
     pathname.value = '/app/organization'
     render(<OrganizationNav sections={['enterprise', 'budgets', 'overview']} />)
 
@@ -51,8 +46,6 @@ describe('OrganizationNav', () => {
   })
 
   test('marks only the overview active at the bare organization path', () => {
-    // A prefix test would light up every section here — the overview owns the
-    // bare route, so it must match exactly.
     pathname.value = '/app/organization'
     render(<OrganizationNav sections={ALL_SECTIONS} />)
 
@@ -80,8 +73,6 @@ describe('OrganizationNav', () => {
   })
 
   test('does not mark a sibling route active on a shared prefix', () => {
-    // `/app/organization/access-log` is not under `/app/organization/access`;
-    // matching must stop at a path boundary, not at any shared prefix.
     pathname.value = '/app/organization/access-log'
     render(<OrganizationNav sections={ALL_SECTIONS} />)
 

@@ -1,0 +1,6 @@
+---
+# area: projects
+operators:
+  - >
+    A refused delivery to a project address now says at which step it failed and why, in PostHog and in
+    Cloudflare's Worker logs, and the Product incidents alert fires when mail is refused on any stack.

@@ -1,14 +1,5 @@
 'use client'
 
-/**
- * A record the outline has no branch for (a source, a test question, a rule,
- * an authority), said in words under its row: where a source fetches from, on
- * what licence, whether it is watched, the documents it may fetch and the test
- * that proves it; what a test question asks and what a right answer says.
- * The record's fields as stored stay one click away, behind "Technical
- * details", never as the first thing a reviewer reads.
- */
-
 import type { JSX, ReactNode } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -27,11 +18,6 @@ const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : [])
 const strings = (value: unknown): string[] => list(value).filter((one): one is string => typeof one === 'string')
 const bodyOf = (revision: RevisionView): Body => Object.fromEntries(revision.claims.map((claim) => [claim.path, claim.value]))
 
-/**
- * A record id in words, never the id where the request names it: a region by its name, a work by its designation
- * or title, an edition as its work and label ("Erläuternde Bemerkungen zu OIB-Richtlinie 1 · Ausgabe Mai 2023"),
- * a text as its edition, else as its file.
- */
 export function namer(map: LawMap, revisions: readonly RevisionView[]): (id: string) => string {
   const byId = new Map(revisions.map((revision) => [revision.recordId, bodyOf(revision)]))
   const workName = (body: Body | undefined): string | null => {
@@ -54,7 +40,6 @@ export function namer(map: LawMap, revisions: readonly RevisionView[]): (id: str
   return name
 }
 
-/** One line of a record in words, with its label when it has one. */
 function Line({ label, children }: { label?: string; children: ReactNode }): JSX.Element {
   return (
     <p className="break-words">
@@ -74,7 +59,6 @@ function ExternalLink({ href, children }: { href: string; children: ReactNode })
   )
 }
 
-/** What one recorded test proves, in a line: "OIB-RL 2 reads with ≥ 30 passages". */
 function testLine(fixture: Body, documents: ReadonlyMap<string, string>, t: Translator): string {
   const args = isObject(fixture.args) ? fixture.args : {}
   const expect = isObject(fixture.expect) ? fixture.expect : {}
@@ -206,7 +190,6 @@ function AuthorityRecord({ body, name }: { body: Body; name: (id: string) => str
   )
 }
 
-/** Any other record: the fields that read as words; whatever is structured stays in the technical details. */
 function PlainRecord({ revision, name }: { revision: RevisionView; name: (id: string) => string }): JSX.Element {
   const plain = revision.claims.filter((claim) => ['string', 'number', 'boolean'].includes(typeof claim.value) || strings(claim.value).length === list(claim.value).length)
   return (
@@ -220,7 +203,6 @@ function PlainRecord({ revision, name }: { revision: RevisionView; name: (id: st
   )
 }
 
-/** The record as stored, folded: for whoever needs the configuration itself. */
 export function TechnicalDetails({ revision }: { revision: RevisionView }): JSX.Element {
   const t = useTranslations(lawMapCopy)
   return (
@@ -236,7 +218,6 @@ export function TechnicalDetails({ revision }: { revision: RevisionView }): JSX.
   )
 }
 
-/** A record in words, then its technical details. */
 export function RecordBody({ revision, name }: { revision: RevisionView; name: (id: string) => string }): JSX.Element {
   const body = bodyOf(revision)
   const words =

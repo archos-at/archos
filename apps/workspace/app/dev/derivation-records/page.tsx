@@ -1,20 +1,5 @@
 'use client'
 
-/**
- * The Herleitung of stored building-law answers, read back the way a reload
- * reads them: the payload `conversation-message-list` returned on dev, mapped
- * by `mapServerMessageToChatMessage` and drawn by the real `ChatThinking`,
- * opened. The records a source carries (the work's designation, the edition's
- * label, the act that declares it binding) are what a person should read in
- * it, never a corpus file name. Not linked anywhere; 404s outside development.
- *
- * `?case=` picks a committed answer: `stairs` (default, two citations of one
- * corpus text plus the adopting act read live) or `u-value` (one corpus text
- * cited twice, two confidence findings). `?id=<conversationId>` instead reads
- * `public/dev-stored-answers/<id>.json`, a `conversation-message-list` result
- * saved locally (gitignored), so any stored answer can be reviewed as drawn.
- */
-
 import { useEffect, useState } from 'react'
 import { notFound } from 'next/navigation'
 import { ChatThinking } from '@/features/chat/components/ChatThinking'
@@ -36,7 +21,6 @@ const CASES: Record<string, StoredTurn> = {
   'u-value': { label: 'case=u-value', ...uValue },
 }
 
-/** The last question and the answer after it, from a saved `conversation-message-list` result. */
 const turnOf = (id: string, listed: { messages?: ServerMessageInput[] }): StoredTurn | null => {
   const messages = listed.messages ?? []
   const answerAt = messages.findLastIndex((message) => message.role === 'assistant')

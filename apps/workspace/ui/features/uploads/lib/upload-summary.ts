@@ -1,23 +1,11 @@
-/**
- * What an upload summary says, computed: the headline counts, the files by
- * folder, the document types, whether it is still moving, and where each
- * thing links. Pure, so the dialog, the preview route and the specs agree.
- */
-
 import type { UploadHistoryEntry, UploadSummary, UploadSummaryDocument } from '@/adapters/api/upload-batches-client'
 import { documentFilesHref } from '@/features/documents/lib/document-question'
 import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
 
-/** Every count the summary can headline, in reading order. */
 export const TALLY_KEYS = ['ready', 'reading', 'quarantined', 'failed', 'stored', 'unchanged', 'excluded'] as const
 export type TallyKey = (typeof TALLY_KEYS)[number]
 export type UploadTally = Record<TallyKey, number>
 
-/**
- * The headline counts. `failed` adds the uploads that never arrived (the
- * batch's `failedCount`) to the documents whose reading failed: both are files
- * the person sent that Piloti cannot use.
- */
 export function tallySummary(summary: UploadSummary): UploadTally {
   const tally: UploadTally = {
     ready: 0,
@@ -32,7 +20,6 @@ export function tallySummary(summary: UploadSummary): UploadTally {
   return tally
 }
 
-/** The same counts for one history row, which carries totals instead of documents. */
 export function tallyHistoryEntry(entry: UploadHistoryEntry): UploadTally {
   return {
     ...entry.counts,
@@ -42,24 +29,15 @@ export function tallyHistoryEntry(entry: UploadHistoryEntry): UploadTally {
   }
 }
 
-/** The non-zero counts, in reading order. „Zitierbar" stays even at zero: it is the number people look for. */
 export function visibleTally(tally: UploadTally): Array<{ key: TallyKey; count: number }> {
   return TALLY_KEYS.filter((key) => key === 'ready' || tally[key] > 0).map((key) => ({ key, count: tally[key] }))
 }
 
-/**
- * What a file of the upload was besides how it ended (ticket „Übersicht"): a
- * new version of a document already there, or filed in a folder with its own
- * access list. They cut across the outcomes (a changed file is also
- * „Zitierbar"), so they are counted beside the tally, not in it.
- */
 export const FACET_KEYS = ['changed', 'protected'] as const
 export type FacetKey = (typeof FACET_KEYS)[number]
 
-/** Every count a tile or a pill can show. */
 export type CountKey = TallyKey | FacetKey
 
-/** The non-zero facets of a summary, in reading order. */
 export function summaryFacets(summary: UploadSummary): Array<{ key: FacetKey; count: number }> {
   const counts: Record<FacetKey, number> = {
     changed: summary.documents.filter((document) => document.replaced).length,
@@ -69,12 +47,10 @@ export function summaryFacets(summary: UploadSummary): Array<{ key: FacetKey; co
 }
 
 export interface FolderGroup {
-  /** `null` is the shelf's root. */
   path: string | null
   documents: UploadSummaryDocument[]
 }
 
-/** Files grouped by folder: the root first, then folders by path, files by name inside each. */
 export function groupByFolder(documents: readonly UploadSummaryDocument[]): FolderGroup[] {
   const groups = new Map<string | null, UploadSummaryDocument[]>()
   for (const document of documents) {
@@ -90,7 +66,6 @@ export function groupByFolder(documents: readonly UploadSummaryDocument[]): Fold
     .sort((a, b) => (a.path === null ? -1 : b.path === null ? 1 : a.path.localeCompare(b.path, 'de')))
 }
 
-/** A folder path as the reader sees it: segments separated by a spaced slash. */
 export function formatFolderPath(path: string): string {
   return path
     .split('/')
@@ -102,7 +77,6 @@ export function displayNameOf(document: Pick<UploadSummaryDocument, 'displayName
   return document.displayName?.trim() || document.filename
 }
 
-/** How many files of each detected document type, most first. Files with no detected type are left out. */
 export function documentTypeCounts(documents: readonly UploadSummaryDocument[]): Array<{ type: string; count: number }> {
   const counts = new Map<string, number>()
   for (const document of documents) {
@@ -114,28 +88,20 @@ export function documentTypeCounts(documents: readonly UploadSummaryDocument[]):
     .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type, 'de'))
 }
 
-/** The tags after the document type, in their stored order. */
 export function otherTags(tags: readonly string[]): string[] {
   const type = documentTypeOf(tags)
   return tags.filter((tag) => tag !== type)
 }
 
-/**
- * Whether the summary will still change on its own, and is worth asking again.
- * A completed batch is final; an open one is only worth polling while a file
- * of it is being read.
- */
 export function isSettling(summary: UploadSummary): boolean {
   return summary.completedAt === null && summary.documents.some((document) => document.outcome === 'reading')
 }
 
-/** Where the person reads one file: the project's Files view or the Archiv, opened on it. A chat has no per-file view. */
 export function documentHref(summary: Pick<UploadSummary, 'scope' | 'projectId'>, documentId: string): string | null {
   if (summary.scope === 'office_shelf') return `/app/office-shelf?doc=${encodeURIComponent(documentId)}`
   return summary.scope === 'project' && summary.projectId ? documentFilesHref(summary.projectId, documentId) : null
 }
 
-/** Where the upload went, as a link. */
 export function placeHref(summary: Pick<UploadSummary, 'scope' | 'projectId' | 'conversationId'>): string | null {
   if (summary.scope === 'office_shelf') return '/app/office-shelf'
   if (summary.scope === 'session') {

@@ -1,5 +1,3 @@
-"""ADR-0064 use 9: each sampled down-vote filed under one cause, or none."""
-
 from types import SimpleNamespace
 from unittest.mock import patch
 

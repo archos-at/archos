@@ -19,33 +19,12 @@ import { OBSERVABILITY_VIEW_PERMISSION, OIDC_CLIENT_SECRET_KEY, platformOidcSecu
 import { EDGE_TIMEOUT, LANGFUSE, PORT } from "../constants";
 import { logicalName, objectName } from "../names";
 
-/** Secret name. A constant rather than `secret.metadata.name` because the
- *  SecurityPolicy spec is a plain (typed) object, not a Pulumi resource input. */
 const SECRETS_NAME = "langfuse-secrets"; // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 
-/** {@link SECRETS_NAME}, for the app workers that call Langfuse's API (purger, bff-jobs). */
 export const LANGFUSE_SECRETS_NAME = SECRETS_NAME;
 
-/**
- * The uid/gid both Langfuse images run as. Re-checked on the 4.74.0 bump from
- * the images' own config, where `User` is `"1001"` on both (as on 4.68.0 and 4.63.0,
- * with identical entrypoints, commands and PATH), and it matches
- * 4.56.0's Dockerfiles (`ARG UID=1001` / `ARG GID=1001`, the `nextjs` and
- * `expressjs` users baked into the UBI 9 micro rootfs, `/app` chowned to them,
- * and a numeric `USER ${UID}`).
- *
- * Named because it is a fact ABOUT THE IMAGE, not a preference: it must be
- * re-checked on an image bump, and it deliberately differs from the 1000 the
- * rest of this repo's workloads use.
- */
 const LANGFUSE_IMAGE_UID = 1001;
 
-/**
- * The `LANGFUSE_*MIGRATION_V4*` env (upstream's v3 -> v4 guide). Langfuse writes
- * v4's events table only: v3's tables were a rollback path we no longer keep,
- * nothing in this repo reads the v3 APIs, and the PostHog export reads the
- * events table (kubernetes.md §9b).
- */
 export function langfuseV4MigrationEnv(historicBackfill: boolean): k8s.types.input.core.v1.EnvVar[] {
   return [
     { name: "LANGFUSE_MIGRATION_V4_WRITE_MODE", value: "events_only" },
@@ -58,22 +37,6 @@ export function langfuseV4MigrationEnv(historicBackfill: boolean): k8s.types.inp
   ];
 }
 
-/**
- * Where a new Langfuse user lands: the seeded org and project, as
- * `defaultRole` (upstream's automated access provisioning,
- * https://langfuse.com/self-hosting/administration/automated-access-provisioning).
- *
- * Without it a first SSO sign-in creates an account that belongs to no
- * organization: the edge admitted the person, Langfuse let them in, and they
- * see an empty "create an organization" screen. Langfuse applies it when it
- * creates the account and when it first links an SSO identity to an existing
- * one, upserting with "keep the existing role", so a promotion made in the
- * Langfuse UI is never reverted by it.
- *
- * `NONE` has no project counterpart (the project enum stops at VIEWER), and a
- * project default with no org access would contradict it, so `NONE` sets the
- * org alone.
- */
 export function langfuseDefaultMembershipEnv(
   lf: Pick<DeployConfig["langfuse"], "orgId" | "projectId" | "defaultRole">,
 ): k8s.types.input.core.v1.EnvVar[] {
@@ -89,20 +52,9 @@ export function langfuseDefaultMembershipEnv(
   ];
 }
 
-/**
- * startupProbe geometry for the web tier, in one place because two things read
- * it: the probe itself, and the plan-time assertion that it fits inside the
- * rollout deadline. Splitting them is how the two silently disagreed.
- */
 const WEB_STARTUP_PERIOD_SECONDS = 10;
 const WEB_STARTUP_FAILURE_THRESHOLD = 60;
 
-/**
- * Keys in the Langfuse Secret. Exported for the collector's Basic-auth header.
- *
- * Every value here is a Secret KEY NAME — the string a `secretKeyRef` looks up
- * — not a credential.
- */
 export const LANGFUSE_SECRET_KEYS = {
   databaseUrl: "database-url",
   clickhousePassword: "clickhouse-password", // pragma: allowlist secret (Secret key name, not a credential)
@@ -116,53 +68,17 @@ export const LANGFUSE_SECRET_KEYS = {
   s3AccessKey: "s3-access-key",
   s3SecretKey: "s3-secret-key", // pragma: allowlist secret (Secret key name, not a credential)
   oidcClientSecret: OIDC_CLIENT_SECRET_KEY,
-  /**
-   * `Basic base64(publicKey:secretKey)` — precomputed here so the OTel
-   * Collector can put it straight into an exporter header.
-   *
-   * The collector's config is a ConfigMap and its only secret-injection
-   * mechanism is `${env:VAR}` interpolation of a whole header value. It cannot
-   * base64 two env vars together, so building the header anywhere else would
-   * mean either putting the credential in the ConfigMap or teaching the
-   * collector to shell out. One derived Secret key is the smaller thing.
-   */
   otlpBasicAuth: "otlp-basic-auth",
 } as const;
 
-/**
- * In-cluster OTLP/HTTP traces endpoint on the web tier.
- *
- * A function rather than two string literals because the collector and the
- * stack output both need it, and the collector's copy is the one that has to
- * be right — an endpoint that has drifted by a path segment fails as HTTP 404s
- * inside the exporter, which surfaces only as "no traces in Langfuse".
- */
 export function langfuseOtlpTracesEndpoint(): string {
   return `${langfuseInClusterUrl()}${LANGFUSE.otlpTracesPath}`;
 }
 
-/** The web tier's in-cluster base URL: what the collector and the BFF call. */
 export function langfuseInClusterUrl(): string {
   return `http://${LANGFUSE.web}:${PORT.langfuseWeb}`;
 }
 
-/**
- * What the BFF needs to write answer feedback into Langfuse as scores and to
- * link a rated turn to its trace (ADR-0044, Amendment 3;
- * `apps/workspace/bff/langfuse/config.ts` reads exactly these names).
- *
- * Empty unless the tier is deployed, so a stack without Langfuse renders the
- * frontend exactly as before and the BFF's scoring stays a no-op.
- *
- * - `LANGFUSE_HOST` is the in-cluster web Service, never the public host: the
- *   public route sits behind the edge's OIDC gate, which a server-side API call
- *   cannot pass. `allow-frontend-to-langfuse` is the NetworkPolicy that makes
- *   the Service reachable at all.
- * - `LANGFUSE_PUBLIC_URL` + `LANGFUSE_PROJECT_ID` build the browser links.
- * - The keys come from the Langfuse Secret by reference, never as literals. A
- *   non-optional reference: a pod started before the Secret exists waits for it
- *   rather than starting with scoring silently off until its next restart.
- */
 export function frontendLangfuseEnv(cfg: DeployConfig): k8s.types.input.core.v1.EnvVar[] {
   if (!cfg.langfuse.enabled) return [];
   const fromSecret = (name: string, key: string): k8s.types.input.core.v1.EnvVar => ({
@@ -178,17 +94,6 @@ export function frontendLangfuseEnv(cfg: DeployConfig): k8s.types.input.core.v1.
   ];
 }
 
-/**
- * A pod's rollout checksum with the Langfuse project keys folded in, for every
- * app pod that reads them from the Langfuse Secret (`frontendLangfuseEnv`,
- * `langfuseApiEnv`): the frontend and bff-jobs, the backend tiers that write
- * scores, and the purger.
- *
- * `secretKeyRef` is read once at container start, and the app checksum covers
- * `grid-secrets` only, so without this a key rotation would leave each of them
- * calling Langfuse with a retired key until something else restarted it.
- * Unchanged without the tier, so a stack without Langfuse restarts nothing.
- */
 export function withLangfuseKeysChecksum(
   cfg: DeployConfig,
   appChecksum: pulumi.Input<string>,
@@ -197,16 +102,6 @@ export function withLangfuseKeysChecksum(
   return secretChecksum({ app: appChecksum, langfuse: langfuseOtlpBasicAuth(cfg) });
 }
 
-/**
- * The `Basic base64(publicKey:secretKey)` header the collector presents to
- * Langfuse's OTLP receiver.
- *
- * Exported, and derived in ONE place, because two things need it: the Secret
- * this module writes, and the collector's rotation checksum. Computing it twice
- * would mean a rotation could change the stored header without changing the
- * hash that is supposed to force the collector to re-read it — a drift whose
- * only symptom is telemetry quietly stopping.
- */
 export function langfuseOtlpBasicAuth(cfg: DeployConfig): pulumi.Output<string> {
   return pulumi
     .all([cfg.langfuse.publicKey, cfg.langfuse.secretKey])
@@ -219,72 +114,18 @@ export interface Langfuse {
   webService: k8s.core.v1.Service;
   secret: k8s.core.v1.Secret;
   route: k8s.apiextensions.CustomResource;
-  /** Edge-enforced OIDC + platform-permission gate in front of the UI. */
   securityPolicy: k8s.apiextensions.CustomResource;
-  /** Full OTLP/HTTP traces endpoint the collector exports to. */
   otlpTracesEndpoint: pulumi.Output<string>;
 }
 
 export interface LangfuseInputs {
-  /** DSN for the dedicated `langfuse` database, as its own role. */
   databaseUrl: pulumi.Output<string>;
-  /** `CLICKHOUSE_URL` (HTTP) and `CLICKHOUSE_MIGRATION_URL` (native TCP). */
   clickhouseHttpUrl: pulumi.Output<string>;
   clickhouseMigrationUrl: pulumi.Output<string>;
-  /** `redis://…` for the dedicated ingestion queue. */
   redisUrl: pulumi.Output<string>;
-  /** In-cluster SeaweedFS S3 endpoint (`http://seaweedfs:8333`). */
   s3Endpoint: pulumi.Output<string>;
 }
 
-/**
- * Langfuse — the durable LLM-observability backend (ADR-0044).
- *
- * Two workloads over four backing stores, which is simply what Langfuse v3 is:
- *
- *   - **web** serves the UI, the public API, and the OTLP receiver the
- *     collector exports to. It does NOT write traces to ClickHouse inline: it
- *     parks each event in S3 and enqueues a reference.
- *   - **worker** drains that queue into ClickHouse and runs the background
- *     jobs (evaluators, batch exports).
- *
- * **This is the free, self-hosted OSS build.** No license key is set anywhere
- * in this module, deliberately. Everything wired here — tracing, sessions,
- * users, cost tracking, prompt management, datasets, evals, SSO — is
- * MIT-licensed core. The visible absence is retention: data-retention policies
- * are an Enterprise feature, so nothing here expires anything, and the
- * ClickHouse PVC is the resource that consequence lands on.
- *
- * **Access.** Two independent gates, and both are wanted:
- *
- *   1. The Envoy SecurityPolicy on the route (`platformOidcSecurityPolicySpec`)
- *      admits only WorkOS identities holding `platform:organizations:view`
- *      (the data is every tenant's prompts and model output) or the narrower
- *      `platform:observability:view`, which the read-only
- *      `org-platform-observability-analyst` role carries.
- *   2. Langfuse's own SSO (`AUTH_CUSTOM_*`) against that same issuer then
- *      establishes a real Langfuse session. A first sign-in joins the seeded
- *      org and project as `defaultRole` (VIEWER), so an analyst reads and an
- *      owner promotes in the Langfuse UI.
- *
- * The second is not redundant. Langfuse cannot run unauthenticated — it has
- * users, projects and API keys of its own, and needs to know who is asking. But it would, on its own, accept anyone who can sign
- * in to the WorkOS environment at all; the permission check that narrows that
- * to platform operators exists only at the edge. Removing either one is a real
- * widening of who can read cross-tenant telemetry.
- *
- * The two OIDC flows chain without conflicting: Envoy claims only
- * `/oauth2/callback` and `/logout`, while NextAuth uses
- * `/api/auth/callback/custom`, and by the time Langfuse redirects the browser
- * the WorkOS session already exists, so the second hop is silent.
- *
- * BOTH callbacks must be registered as redirect URIs on the Connect
- * application. The second one is easy to talk yourself out of — it is behind an
- * already-authenticated edge — but WorkOS validates `redirect_uri` against the
- * application allowlist on every authorization request regardless of session
- * state, so omitting it breaks SSO sign-in entirely while the edge gate
- * continues to work. `docs/deployment/kubernetes.md` §9b lists both.
- */
 export function installLangfuse(
   cfg: DeployConfig,
   provider: k8s.Provider,
@@ -295,19 +136,12 @@ export function installLangfuse(
   const { langfuse: lf } = cfg;
   const publicUrl = `https://${lf.domain}`;
 
-  // The web tier's startupProbe covers a schema migration, so it is long — long
-  // enough that it once exactly equalled the rollout deadline, which turns a
-  // healthy first deploy into `ProgressDeadlineExceeded`. Checked rather than
-  // commented, because the two numbers live in different files.
   assertStartupFitsRollout(
     "langfuse-web",
     ROLLOUT.langfuse,
     startupBudgetSeconds(WEB_STARTUP_PERIOD_SECONDS, WEB_STARTUP_FAILURE_THRESHOLD),
   );
 
-  // Everything sensitive in one Secret, reached by `secretKeyRef` so no
-  // credential is ever a plain value on a pod spec (readable by anything with
-  // `get pod` in the namespace).
   const secretValues: Record<string, pulumi.Input<string>> = {
     [LANGFUSE_SECRET_KEYS.databaseUrl]: inputs.databaseUrl,
     [LANGFUSE_SECRET_KEYS.clickhousePassword]: lf.clickhousePassword,
@@ -337,12 +171,6 @@ export function installLangfuse(
     secretKeyRef: { name: SECRETS_NAME, key },
   });
 
-  /**
-   * Env shared by both containers. Langfuse requires the SAME database,
-   * ClickHouse, Redis and S3 configuration on web and worker — they are two
-   * halves of one application, not a client and a server — so this is built
-   * once rather than kept in sync by hand.
-   */
   const sharedEnv: k8s.types.input.core.v1.EnvVar[] = [
     { name: "NEXTAUTH_URL", value: publicUrl }, // the worker's PostHog export builds `langfuse_url` from it
     { name: "DATABASE_URL", valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.databaseUrl) },
@@ -358,15 +186,8 @@ export function installLangfuse(
       name: "CLICKHOUSE_PASSWORD",
       valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.clickhousePassword),
     },
-    // Single node (data/clickhouse.ts): this makes the migrator emit plain
-    // `MergeTree` DDL instead of the `Replicated*` engines, which is a SCHEMA
-    // decision, not a performance one. Flipping it on an existing deployment
-    // does not convert anything.
     { name: "CLICKHOUSE_CLUSTER_ENABLED", value: "false" },
 
-    // S3 event upload — REQUIRED, not an optimisation. This is where the raw
-    // ingestion event lands before the queue reference is pushed, so it is the
-    // reason a queue drop is recoverable at all.
     { name: "LANGFUSE_S3_EVENT_UPLOAD_BUCKET", value: LANGFUSE.bucket },
     { name: "LANGFUSE_S3_EVENT_UPLOAD_PREFIX", value: LANGFUSE.eventPrefix },
     { name: "LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT", value: inputs.s3Endpoint },
@@ -379,14 +200,8 @@ export function installLangfuse(
       name: "LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY",
       valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.s3SecretKey),
     },
-    // SeaweedFS serves buckets as PATHS (`/bucket/key`), never as virtual-host
-    // subdomains. Without this the SDK addresses `http://langfuse.seaweedfs:8333`,
-    // which does not resolve — surfacing as a DNS error inside the S3 client
-    // rather than anything that names the bucket.
     { name: "LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE", value: "true" },
 
-    // Batch export (CSV/JSON download of filtered traces) — same bucket, its
-    // own prefix. Core OSS, not an Enterprise feature.
     { name: "LANGFUSE_S3_BATCH_EXPORT_ENABLED", value: "true" },
     { name: "LANGFUSE_S3_BATCH_EXPORT_BUCKET", value: LANGFUSE.bucket },
     { name: "LANGFUSE_S3_BATCH_EXPORT_PREFIX", value: LANGFUSE.batchExportPrefix },
@@ -402,20 +217,12 @@ export function installLangfuse(
     },
     { name: "LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE", value: "true" },
 
-    // NOT configured, deliberately: LANGFUSE_S3_MEDIA_UPLOAD_*. Media capture
-    // is opt-in by presence of that bucket, and nothing in this deployment
-    // produces it — OTLP spans from the collector carry text attributes only.
-    // Wiring it would add a browser-facing presign path (and therefore the
-    // public S3 endpoint) to buy a feature with no producer.
-
     { name: "TELEMETRY_ENABLED", value: "false" },
     { name: "LANGFUSE_LOG_LEVEL", value: "info" },
 
-    // Langfuse v4, events table only (kubernetes.md §9b, "Langfuse v4").
     ...langfuseV4MigrationEnv(lf.v4HistoricBackfill),
   ];
 
-  /** Headless initialization (`LANGFUSE_INIT_*`) — see the config doc comment. */
   const initEnv: k8s.types.input.core.v1.EnvVar[] = [
     { name: "LANGFUSE_INIT_ORG_ID", value: lf.orgId },
     { name: "LANGFUSE_INIT_ORG_NAME", value: "Grid" },
@@ -444,27 +251,10 @@ export function installLangfuse(
   };
   const podSecurity: k8s.types.input.core.v1.PodSecurityContext = {
     runAsNonRoot: true,
-    // 1001, matching the images — NOT the 1000 the rest of this repo uses.
-    //
-    // Both Dockerfiles create their runtime user at `ARG UID=1001` (`nextjs`
-    // on web, `expressjs` on worker) and `--chown` all of `/app` to it. The
-    // value here OVERRIDES the image's own `USER`, so a mismatched uid runs the
-    // process as an identity that owns nothing it was given — which is not
-    // hypothetical for these two, since `readOnlyRootFilesystem` is false
-    // precisely because they write under `/app` at runtime.
-    //
-    // And it cannot simply be omitted: the images declare `USER` by NAME, and
-    // `runAsNonRoot: true` against a non-numeric image user makes the kubelet
-    // refuse the pod outright ("cannot verify user is non-root"). So a number
-    // is required, and it has to be the right one.
     runAsUser: LANGFUSE_IMAGE_UID,
     runAsGroup: LANGFUSE_IMAGE_UID,
   };
 
-  // ── web ────────────────────────────────────────────────────────────────────
-  // The web tier is the routed one, so it is the one that gets the preStop
-  // endpoint drain. The worker calls `gracefulShutdown` without a runtime and
-  // therefore gets no hook — correct, it sits behind no Service.
   const webShutdown = gracefulShutdown(ROLLOUT.langfuse, "node");
   const webLabels = commonLabels(LANGFUSE.web);
   const web = new k8s.apps.v1.Deployment(
@@ -472,45 +262,18 @@ export function installLangfuse(
     {
       metadata: { name: LANGFUSE.web, namespace, labels: webLabels },
       spec: {
-        // Single replica. Not a scaling statement — a migration one: this
-        // container runs the Postgres and ClickHouse migrations at startup
-        // (see `LANGFUSE_AUTO_*_MIGRATION_DISABLED` on the worker), and two
-        // replicas starting together would run them concurrently.
         replicas: 1,
-        // Recreate, and `replicas: 1` alone does not achieve it — a surge
-        // starts the replacement BEFORE the old pod exits, which is precisely
-        // the overlap the single replica exists to prevent. The two settings
-        // contradicted each other here until a review caught it.
-        //
-        // The overlap is worse than the double-migrator it obviously causes.
-        // On a version bump that carries schema changes, a surging deploy
-        // leaves the OLD code serving traffic while the NEW pod migrates the
-        // schema underneath it — old queries against a new schema, for however
-        // long the roll takes. A short gap is the cheaper failure, and this is
-        // an operator dashboard, not a request path.
-        //
-        // The cost is real and accepted: the Langfuse UI is unavailable for the
-        // length of a restart on every deploy, and the OTLP receiver with it —
-        // the collector's bounded sending queue (2000 batches) covers that.
         ...recreateRollout(ROLLOUT.langfuse),
         selector: { matchLabels: webLabels },
         template: {
           metadata: {
             labels: webLabels,
-            // Rotating any credential must roll the pods that read it once at
-            // startup, or the Secret changes and nothing picks it up
-            // (rollout.ts §5).
             annotations: secretChecksumAnnotations(secretChecksum(secretValues)),
           },
           spec: {
             enableServiceLinks: false,
             automountServiceAccountToken: false,
             securityContext: podSecurity,
-            // The FULL shutdown budget, not just the grace period. Taking only
-            // `terminationGracePeriodSeconds` (as this did) silently discards
-            // the `lifecycle.preStop` hook, so the pod behind the Gateway had
-            // no endpoint-propagation wait at all — the classic "a few 502s on
-            // every deploy", which `endpointDrainSeconds` exists to remove.
             terminationGracePeriodSeconds: webShutdown.terminationGracePeriodSeconds,
             ...onNodeGroup(cfg.nodeGroups.app),
             containers: [
@@ -519,10 +282,6 @@ export function installLangfuse(
                 image: lf.webImage,
                 imagePullPolicy: pullPolicyFor(lf.webImage),
                 securityContext: hardened,
-                // `"node"` because the hook is a `node -e setTimeout(...)` and
-                // it has to be a binary the image actually ships. Since 4.56.0
-                // the runtime is UBI 9 micro with the nodejs:24 RPM (it was
-                // node:24-alpine), and `node` is still on the PATH.
                 ...(webShutdown.lifecycle ? { lifecycle: webShutdown.lifecycle } : {}),
                 ports: [{ containerPort: PORT.langfuseWeb, name: "http" }],
                 env: [
@@ -534,10 +293,6 @@ export function installLangfuse(
                     name: "NEXTAUTH_SECRET",
                     valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.nextAuthSecret),
                   },
-                  // SSO against the platform Connect application. Free in OSS
-                  // Langfuse; only SSO *enforcement* is an Enterprise feature,
-                  // which is why password sign-in stays available as the
-                  // break-glass path for the headless-init account.
                   { name: "AUTH_CUSTOM_NAME", value: "WorkOS" },
                   { name: "AUTH_CUSTOM_ISSUER", value: cfg.observability.oidcIssuer },
                   { name: "AUTH_CUSTOM_CLIENT_ID", value: cfg.observability.oidcClientId },
@@ -546,31 +301,11 @@ export function installLangfuse(
                     valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.oidcClientSecret),
                   },
                   { name: "AUTH_CUSTOM_SCOPE", value: "openid profile email" },
-                  // Same human arriving by SSO after the init account was
-                  // created by email must land on THAT account, not a second
-                  // one that owns nothing. Safe here because the edge already
-                  // proved the identity: an unverified-email provider is what
-                  // makes account linking dangerous, and WorkOS is not one.
                   { name: "AUTH_CUSTOM_ALLOW_ACCOUNT_LINKING", value: "true" },
-                  // A first SSO sign-in joins the seeded org and project as
-                  // `defaultRole` (VIEWER unless configured) instead of landing
-                  // in no organization. Web only: sign-up happens here, the
-                  // worker never creates a user.
                   ...langfuseDefaultMembershipEnv(lf),
-                  // TLS terminates at the Gateway; without this NextAuth builds
-                  // its callback as http:// and the SSO hop fails.
                   { name: "AUTH_TRUST_HOST", value: "true" },
                 ],
                 resources: LANGFUSE.webResources,
-                // Migrations run before the server listens, and a cold
-                // ClickHouse makes that slow. A generous startup budget keeps
-                // the kubelet from killing a pod that is mid-migration — which
-                // on a first deploy would restart the migration from the top.
-                //
-                // `ROLLOUT.langfuse.progressDeadlineSeconds` must stay above
-                // this plus minReadySeconds plus the image pull, or the deploy
-                // fails while the pod is starting normally. Asserted below, not
-                // left to this comment.
                 startupProbe: {
                   httpGet: { path: "/api/public/health", port: PORT.langfuseWeb },
                   periodSeconds: WEB_STARTUP_PERIOD_SECONDS,
@@ -608,7 +343,6 @@ export function installLangfuse(
     { provider, dependsOn: web },
   );
 
-  // ── worker ─────────────────────────────────────────────────────────────────
   const workerLabels = commonLabels(LANGFUSE.worker);
   const worker = new k8s.apps.v1.Deployment(
     LANGFUSE.worker,
@@ -616,11 +350,6 @@ export function installLangfuse(
       metadata: { name: LANGFUSE.worker, namespace, labels: workerLabels },
       spec: {
         replicas: 1,
-        // Recreate, not surge. Two workers draining one queue is safe
-        // (Langfuse's queue is designed for it), but during a roll the OLD
-        // worker is mid-batch against a schema the NEW web tier may have just
-        // migrated. A gap costs queue depth, which is bounded and visible;
-        // an overlap costs failed inserts, which are neither.
         ...recreateRollout(ROLLOUT.langfuse),
         selector: { matchLabels: workerLabels },
         template: {
@@ -646,13 +375,6 @@ export function installLangfuse(
                   ...sharedEnv,
                   { name: "PORT", value: String(PORT.langfuseWorker) },
                   { name: "HOSTNAME", value: "0.0.0.0" },
-                  // Migrations belong to ONE container. Both images ship them
-                  // and both run them by default, so leaving this unset means
-                  // web and worker race at every deploy — they contend on an
-                  // advisory lock rather than corrupting anything, but the
-                  // loser sits blocked for the length of the migration and can
-                  // exhaust its startup probe. The web tier owns them because
-                  // it is the one that must not serve a stale schema.
                   { name: "LANGFUSE_AUTO_POSTGRES_MIGRATION_DISABLED", value: "true" },
                   { name: "LANGFUSE_AUTO_CLICKHOUSE_MIGRATION_DISABLED", value: "true" },
                 ],
@@ -679,22 +401,15 @@ export function installLangfuse(
         },
       },
     },
-    // The worker is gated on the WEB deployment, which is what runs the
-    // migrations: started first it would query tables that do not exist yet and
-    // crash-loop until the web tier caught up.
     { provider, dependsOn: [...dependsOn, secret, web] },
   );
 
-  // ── edge ───────────────────────────────────────────────────────────────────
   const routeSpec: IHTTPRouteSpec = {
     parentRefs: [{ name: GATEWAY_NAME, sectionName: LANGFUSE.listenerName }],
     hostnames: [lf.domain],
     rules: [
       {
         backendRefs: [{ name: LANGFUSE.web, port: PORT.langfuseWeb }],
-        // Langfuse's trace views and CSV exports run analytical ClickHouse
-        // queries over an unbounded date range, which Envoy's 15s default cuts
-        // off as a 504 mid-render. Same budget the app routes already use.
         timeouts: { request: EDGE_TIMEOUT, backendRequest: EDGE_TIMEOUT },
       },
     ],
@@ -720,8 +435,6 @@ export function installLangfuse(
         routeName: LANGFUSE.routeName,
         domain: lf.domain,
         secretName: SECRETS_NAME,
-        // Read-only analysts reach Langfuse without the operator permission;
-        // inside it they land as `defaultRole` (VIEWER).
         alsoAdmit: [OBSERVABILITY_VIEW_PERMISSION],
       }),
     },
@@ -735,8 +448,6 @@ export function installLangfuse(
     secret,
     route,
     securityPolicy,
-    // Cluster-internal: the collector never traverses the edge, so it never
-    // meets the SecurityPolicy. Its credential is the project API key.
     otlpTracesEndpoint: pulumi.output(langfuseOtlpTracesEndpoint()),
   };
 }

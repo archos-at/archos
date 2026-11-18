@@ -1,18 +1,5 @@
 'use client'
 
-/**
- * Subagent groups dev preview: the nested groups the Herleitung draws for a
- * turn that ran subagents (AG-UI 1.0 `SUBAGENT_*`), folded from wire frames by
- * the app's own fold, in the 680 px box the thread uses. Not linked anywhere;
- * the `/dev` layout 404s it outside development.
- *
- * `?variant=`:
- *   - (none) → an in-chat deep research, finished: planning, two researchers
- *     (one failed) and the report, nested under it.
- *   - live   → the same run mid-research: a researcher still working.
- *   - phone  → the finished run at 380 px and 320 px.
- */
-
 import { useEffect, useState } from 'react'
 import { parseWireEvent, type WireEvent } from '@/adapters/api/wire-v2'
 import { SubagentGroups } from '@/features/chat/components/reasoning/SubagentGroups'
@@ -60,7 +47,6 @@ const BODIES: Record<string, unknown>[] = [
     subagent_run_id: RESEARCH_A,
   },
   { type: 'SUBAGENT_FINISHED', subagent_run_id: RESEARCH_A },
-  // `live` stops here: the second researcher is still working.
   { type: 'SUBAGENT_ERROR', subagent_run_id: RESEARCH_B, message: 'failed', code: 'ResearcherExhaustedError' },
   { type: 'SUBAGENT_STARTED', subagent_run_id: WRITER, name: 'writer-agent', parent_subagent_run_id: DEEP },
   { type: 'SUBAGENT_FINISHED', subagent_run_id: WRITER },

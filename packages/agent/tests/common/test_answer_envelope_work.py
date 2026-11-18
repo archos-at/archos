@@ -1,12 +1,3 @@
-"""The work report: ``kind: "work"`` and its ``work`` field (ADR-0123).
-
-An operations turn is not forced into the legal answer's shape any more: it
-reports what it did, what waits for the person as a proposal, what is blocked
-and what comes next. The gate keeps the report on work turns only, bounds each
-list and drops a line that is a paragraph, and the gated payload is the one the
-frontend's sanitizer passes through verbatim (`work_payload.json`).
-"""
-
 from __future__ import annotations
 
 import json

@@ -1,15 +1,3 @@
-"""The licensed seam, end to end through a real LangChain chat model on a mock wire (``common/licensed_text.py``).
-
-A licensed passage is planted with a shingle no other text holds. The tests follow it
-from the grounding block a tool renders, through the chat-request contract, to the
-wire and back, and fail if any recorder other than the wire saw more of it than the
-quote cap allows: LangChain's callbacks (which is what Langfuse and the agent runtime's
-spans are built from), the messages a checkpoint would store, the citation registry,
-the direct-trace payloads and the log. Every leak assertion has its positive control:
-the same passage UNMARKED must be seen by the same recorder, or the recorder is blind
-and the assertion proves nothing.
-"""
-
 from __future__ import annotations
 
 import json
@@ -41,7 +29,6 @@ from agent.common.llm_factory import enforce_chat_request_contract
 
 CAP = 120
 
-#: A norm-like passage with a table; every row is distinct so any 24-character window is unique to it.
 LICENSED = "\n".join(
     [
         "4.3 Brüstungen und Geländer. Die Höhe von Absturzsicherungen ist von der Standfläche zu messen.",
@@ -54,11 +41,9 @@ LICENSED = "\n".join(
         "4.4 Handläufe sind beidseitig anzuordnen, wenn die Laufbreite 1,20 m überschreitet.",
     ]
 )
-#: The planted shingle: deep inside the passage, far past any quote cap.
 SHINGLE = LICENSED[1500:1560]
 
 TERMS = LicenceTerms(licence_class="licensed", quote_max_chars=CAP, ai_processing=True)
-#: The office's own copy, marked licensed, its licence NOT attested for AI processing: no model may read it.
 UNATTESTED = LicenceTerms(licence_class="licensed", quote_max_chars=CAP)
 
 
@@ -94,7 +79,6 @@ def _norm(text: str) -> str:
 
 
 def longest_licensed_run(text: str, licensed: str = LICENSED) -> int:
-    """The longest stretch of ``text`` that is also in ``licensed`` (whitespace and case normalised)."""
     a, b = _norm(text), _norm(licensed)
     best = 0
     previous = [0] * (len(b) + 1)
@@ -108,14 +92,7 @@ def longest_licensed_run(text: str, licensed: str = LICENSED) -> int:
     return best
 
 
-# ---------------------------------------------------------------------------
-# The wire: a mock OpenRouter that records what it was sent and quotes it back
-# ---------------------------------------------------------------------------
-
-
 class Wire:
-    """Records each request body; answers by quoting 900 characters of the licensed text, when it was sent any."""
-
     def __init__(self) -> None:
         self.bodies: list[str] = []
 
@@ -129,7 +106,6 @@ class Wire:
 
 
 def _all_text(body: str) -> str:
-    """Every message's text in a request body, decoded from JSON."""
     payload = json.loads(body)
     return "\n".join(str(message.get("content")) for message in payload.get("messages", []))
 
@@ -195,7 +171,6 @@ def _completion(quote: str) -> dict:
 
 
 def _strings(value) -> list[str]:
-    """Every string leaf of a serialised LangChain object, decoded: what a trace exporter writes out."""
     if isinstance(value, str):
         return [value]
     if isinstance(value, dict):
@@ -210,8 +185,6 @@ def _serialised(value) -> str:
 
 
 class Recorder(AsyncCallbackHandler):
-    """Everything a callback handler (Langfuse's, the agent runtime's) is told about the call."""
-
     def __init__(self) -> None:
         self.seen: list[str] = []
 
@@ -263,7 +236,6 @@ def _turn_messages(block: str) -> list:
 async def _turn(
     *, licence: LicenceTerms | None, allowed: bool = True, streaming: bool = True, zero_retention: bool = True
 ):
-    """One turn: render the hit, call the model, return the wire, the recorder, the messages and the reply."""
     wire, recorder = Wire(), Recorder()
     token = begin_grounding_capture(licensed_text=allowed)
     try:
@@ -273,11 +245,6 @@ async def _turn(
     finally:
         end_grounding_capture(token)
     return wire, recorder, messages, reply
-
-
-# ---------------------------------------------------------------------------
-# The seam
-# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("streaming", [True, False])
@@ -348,11 +315,6 @@ async def test_a_call_without_licensed_text_sends_and_reports_exactly_what_it_di
 
     assert reply.content == "Laut Norm: „nichts“ [1]"
     assert any(seen.startswith("Laut") for seen in recorder.seen), "tokens are reported by LangChain itself"
-
-
-# ---------------------------------------------------------------------------
-# The pieces
-# ---------------------------------------------------------------------------
 
 
 def test_the_cap_lets_a_short_quote_through_and_cuts_a_long_one():
@@ -433,7 +395,6 @@ def test_a_licensed_ingest_traces_metadata_only_and_the_public_control_its_text(
 
 
 def test_the_vision_generation_of_a_licensed_page_records_no_text(monkeypatch):
-    """``vision_calls._observed_vlm_call`` inside a licensed ingest: the model is kept, the text is not."""
     from agent.observability import direct_trace
 
     starts = direct_trace.generation_start_attributes("ingest-vision", model="m", messages=[{"content": LICENSED}])
@@ -454,11 +415,6 @@ def test_the_citation_registry_keeps_only_a_quote_of_a_licensed_hit():
 
     assert len(_entry_from_hit_fields(_hit(), "knowledge_search").chunk_text) == CAP
     assert _entry_from_hit_fields(_hit(licence=None), "knowledge_search").chunk_text == LICENSED.strip()
-
-
-# ---------------------------------------------------------------------------
-# A licence not attested for AI processing: usable by no model call
-# ---------------------------------------------------------------------------
 
 
 async def test_an_unattested_licensed_passage_reaches_no_model_even_with_the_flag_on():
@@ -502,7 +458,6 @@ def test_the_ingest_of_an_unattested_licensed_document_calls_no_model():
 
 
 async def test_a_call_not_pinned_to_zero_retention_gets_no_licensed_text():
-    """An organization that switched retention limits off, or a BYOK endpoint: the provider may keep what it reads."""
     wire, _, _, reply = await _turn(licence=TERMS, zero_retention=False)
 
     sent = _all_text(wire.bodies[0])
@@ -511,7 +466,6 @@ async def test_a_call_not_pinned_to_zero_retention_gets_no_licensed_text():
 
 
 async def test_the_model_reads_the_passage_whole_and_every_call_sends_the_same_bytes():
-    """Nothing caps what the model READS; and identical bytes per call are what the provider's prompt cache keys on."""
     wire, recorder = Wire(), Recorder()
     token = begin_grounding_capture(licensed_text=True)
     try:
@@ -525,11 +479,6 @@ async def test_the_model_reads_the_passage_whole_and_every_call_sends_the_same_b
     first, second = (_all_text(body) for body in wire.bodies)
     assert _norm(LICENSED) in _norm(first), "the expanded passage is the whole passage"
     assert first == second
-
-
-# ---------------------------------------------------------------------------
-# Outbound queries, labels, judges and the score
-# ---------------------------------------------------------------------------
 
 
 def test_a_web_search_that_repeats_licensed_text_is_refused_and_an_own_words_one_is_not():
@@ -595,16 +544,9 @@ async def test_the_score_counts_the_quotes_a_reply_had_cut(monkeypatch):
 
 
 def test_outside_a_turn_capture_a_licensed_hit_is_listed_only():
-    """The agent door's tools (agent-host) open no turn capture: an outside agent gets the place, never the text,
-    so the cumulative quote cap per document and session (design E19) holds at zero."""
     block = _block(_hit())
     assert licensed_text.WITHHELD_NOTE in block
     assert longest_licensed_run(block) < licensed_text.SHINGLE_CHARS
-
-
-# ---------------------------------------------------------------------------
-# Work on a licensed document goes to zero retention through OpenRouter, whatever the organization chose
-# ---------------------------------------------------------------------------
 
 
 def _sent_through(url: str, policy_name: str = "NO_RETENTION_LIMITS") -> dict:
@@ -643,12 +585,10 @@ async def test_inside_a_licensed_scope_the_chat_contract_pins_an_unpinned_model(
 
 
 def test_a_reply_cannot_rebuild_the_norm_from_quotes_each_under_the_cap():
-    """Five quotes of 100 characters, each under the 120 cap: together they stop at three caps."""
     cap = QuoteCap([(LICENSED, CAP)])
     pieces = [LICENSED[start : start + 100] for start in (0, 300, 600, 900, 1200)]
     reply = cap.cap_text(" Und weiter: ".join(f"„{piece}“" for piece in pieces))
     kept = sum(longest_licensed_run(part) for part in reply.split(" Und weiter: "))
-    # A quote after the budget is spent still shows the characters before its first full shingle: under 24 each.
     late_quotes = 2
     assert kept <= licensed_text.ANSWER_QUOTE_FACTOR * CAP + late_quotes * (licensed_text.SHINGLE_CHARS - 1)
     assert kept < 5 * 100
@@ -656,7 +596,6 @@ def test_a_reply_cannot_rebuild_the_norm_from_quotes_each_under_the_cap():
 
 
 def test_a_quote_from_later_in_a_licensed_passage_verifies_against_the_turns_whole_passage():
-    """The stored excerpt stops at the cap; verification reads the passage whole, for this turn only."""
     from agent.citations.extraction import _entry_from_hit_fields
     from agent.citations.quote_verification import _verification_chunks
     from agent.citations.quote_verification import normalize_for_quote_match
@@ -680,7 +619,6 @@ def test_a_quote_from_later_in_a_licensed_passage_verifies_against_the_turns_who
 
 
 def test_two_chunks_of_one_page_both_verify_their_quotes():
-    """A page's chunks share one citation key: the second is joined to the first, never written over it."""
     from agent.citations.registry import SourceRegistry
 
     registry = SourceRegistry()
@@ -694,11 +632,6 @@ def test_two_chunks_of_one_page_both_verify_their_quotes():
 
 
 def test_the_licensed_tag_reaches_the_turns_root_observation_from_inside_a_tool():
-    """The judges' filter reads the trace's tags, and the root span is stamped from the turn's own context.
-
-    A tool runs in a COPY of that context (a LangGraph node), so a ContextVar it sets never reaches the
-    root; the tag rides the turn-outcome box, shared by reference, and survives the terminal's fill.
-    """
     import contextvars
 
     from agent.observability import turn_outcome

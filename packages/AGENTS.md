@@ -1,164 +1,38 @@
 # Libraries: `packages/`
 
-Two families live here: the standalone IFC engine, outside every workspace,
-and the Python packages of the root uv workspace ([below](#the-python-packages-agent-knowledge-layer-public-sources-ris-adapter-tavily-web-search)).
-`brand/` is neither: the shared corporate design. `tokens.json` is the source;
-`build-tokens.mjs` renders `dist/`, and `sync.mjs` writes committed copies into
-`apps/website` and `apps/workspace`, each only its layer: a token with `"scope": "app"`
-reaches the workspace only (`--check` fails on drift and on a file a copy should not hold).
-It also writes `identity.json` into `agent/src/agent/common/` and the product's name into
-the few literal copies `name-copies.mjs` lists (ADR-0149).
-The brand rules a machine can hold run in `scripts/check_brand_rules.mjs`. Brand strings live
-in `identity.json` only, the React components in `react/`, AuthKit's stylesheet in
-`authkit/authkit.css` (pasted into WorkOS branding per environment). `mark.svg` and
-`build-brand-assets.mjs` render the icons into both apps, borrowing `apps/website`'s
-sharp; `email-signatures.mjs` writes the founders' signatures from `identity.json`; `art/riso/`
-is the riso print kit whose committed outputs are the app's vignettes. Its README holds the design rules.
+The IFC engine, the shared design (`brand/`) and the Python packages of the root
+uv workspace. How they fit and how they are tested:
+[`python-packages.md`](../docs/architecture/python-packages.md).
 
-## The IFC engine
-
-`ifc-spatial-py`, the spatial engine over IFC on IfcOpenShell, is the one
-engine. The agent reaches it through `agent/knowledge/ifc_spatial_client.py`
-(ADR-0045). A TypeScript twin, `ifc-spatial`, was deleted on 2026-11-04: it
-answered nothing in the product and only cross-checked this one, and two
-engines are two definitions of every operator. The reference numbers it produced
-stay in `ifc-spatial-py/tests/test_parity.py` as frozen regressions, and its
-fixtures live in `ifc-spatial-py/tests/fixtures/`.
-
-### The gate, and why it is not in `task verify`
-
-The suite runs in CI behind a `packages/ifc-spatial-py/**` paths filter: the
-`packages` job in [`ci.yml`](../.github/workflows/ci.yml), which `CI OK`
-requires. It is its own job because the package sits outside the root uv
-workspace (its own `uv.lock`), so the backend tier's install cannot run it.
-
-```bash
-task pkg:install    # its toolchain; `task setup` does this too
-task pkg:test       # its suite (pkg:test:py), 1m40s on four workers, measured 2026-10-22
-```
-
-`task verify` does **not** run it, and the four minutes are the whole reason:
-it is a per-commit tax on a directory most changes never touch, and CI already
-pays it on the commits that earn it. Run `task pkg:test` yourself when you
-change `packages/ifc-spatial-py` — the same discipline `task db:test:rls` asks
-for at the tenant boundary. A change here is unverified until you have pasted
-that output.
-
-`--all-extras`, not `--extra dev`: `pytest` is the `dev` extra, and the suite
-also collects `test_ids_export.py`, which needs `ifctester` from the `ids`
-extra. Plain `uv run pytest` installs neither.
-
-### Obligations
-
-| When you | You must | What fails you |
-|---|---|---|
-| Return a measurement | Carry the provenance: GlobalIds, the operator expression, an absolute tolerance | A measurement without provenance is a number the agent cannot defend, and it is not a citable source |
-| Add a geometry dependency | Check the version floor comment in `ifc-spatial-py/pyproject.toml` first | The `shapely>=2.1` floor is there for the *test suite's* GEOS cross-checks, not for the operators. Leave it where it is |
-
-### Reference
-
-- ADR-0045, IFC models are a queryable building rather than another document.
-- `ifc-spatial-py/COVERAGE.md` and `CORPUS.md` record what the spike actually
-  covers, which is less than the operator list suggests.
+- `brand/`: edit `tokens.json`, `identity.json` or `css/`, never an app's copy,
+  then run `node packages/brand/sync.mjs` (`--check` fails on drift in CI).
+- `ifc-spatial-py` has its own `uv.lock`. Run its suite with `task pkg:test`;
+  plain `uv run pytest` lacks the `dev` and `ids` extras.
+- An IFC measurement goes through `ifc_spatial.envelope`: provenance, tolerance
+  and method on every value. `tests/test_parity.py` numbers are frozen; nothing
+  regenerates them.
 
 ## The Python packages: `agent`, `knowledge-layer`, `public-sources`, `ris-adapter`, `tavily-web-search`
 
-`agent` (the agent itself, `packages/agent/src/agent`, distribution `agent`) moved
-here from `src/` in ADR-0145 row 8. Its suite is `packages/agent/tests`, and it runs in the
-core suite (`be:test`, with the coverage gate) beside `tests/`, not in `be:test:sources`;
-`tests/test_python_packages.py` knows that. Its own `AGENTS.md` is
-[`agent/src/agent/AGENTS.md`](agent/src/agent/AGENTS.md).
-
-`knowledge-layer` (ingestion and retrieval, the library the agent is built on),
-`ris-adapter` (the RIS legal adapter) and `tavily-web-search` (web search), all
-agent-runtime plugins, and `public-sources` (legal and geodata sources as
-configured records over protocol access types and format engines, ADR-0162;
-a library and the sandboxed fetcher, no plugin). A new country's source is a
-record under `configs/sources/`, not a package: see its
-[`README.md`](public-sources/README.md). Each is its own uv workspace member with its own `pyproject.toml`
-and tests, installed into the shared venv. They moved here from `sources/` in
-ADR-0145 row 6 (`public-sources` was born here).
-
-### Running these tests
-
-`task be:test:sources` runs them, and the backend CI job runs the same task.
-Each package is named in three places, because `packages/` also holds the IFC
-packages above, which no glob may catch: the root `pyproject.toml`'s
-`[tool.uv.workspace]` members and pytest `testpaths`, and `PY_PACKAGES` in
-`taskfiles/backend.yml`. `tests/test_python_packages.py` fails a package
-listed in one and not the others.
-
-```bash
-task be:test:sources                          # what CI runs: every package, one run, xdist by file
-.venv/bin/pytest packages/<package>/tests -q  # one package
-```
-
-No package here carries a `tests/__init__.py`. With one, pytest names its
-conftest `tests.conftest`, the same name as the repo's own `tests/` suite, and a
-run over both aborts with "Plugin already registered under a different name".
-Keep it that way. A helper a test needs from another file lives in the
-package's support package beside `tests/`, `<package>/testing/<package>_testing/`,
-which pytest's `pythonpath` lists, and is imported by that name
-(`from ris_adapter_testing.lookup import LookupHarness`), never by a dotted path
-through a `tests` directory: `tests/test_test_imports.py` fails it, because a
-hyphenated `packages/<distribution>/` has no dotted path to import by. A conftest only registers fixtures, imported from there.
-
-The run is parallel (`-n logical --dist loadfile`), so a test may not write
-into the repository or share any other state with a test in another file:
-`test_qdrant_import_boundary.py` plants its offenders under `tmp_path` for that
-reason. A collection costs one payload index per indexed field (70 in November 2026, over four seconds) to make, so
-`qdrant_store` gives a test module one pair it shares, emptied after each test,
-and drops it when a test changed more than its points; a test of how a
-collection comes to be asks for `fresh_qdrant_store`. It also costs about
-300 MiB of storage while it exists, empty (two 1 MiB null-flag files per index
-and segment), and CI keeps that storage on a tmpfs of half the runner's memory,
-so a process holds one module's pair at a time: the first test of the next
-module deletes it (`test_vector_store_test_pairs.py`). A fixture that keeps
-collections past its module fills that tmpfs at about 27 collections. A test asserts what OUR
-code sends and gets back, not what Qdrant does on its own: a check that only a
-Qdrant upgrade could fail is not one of ours. A run without
-`QDRANT_TEST_URL` skips them; `qdrant` (the release binary) on port 6333 is
-enough to run them locally.
-
-This suite went uncovered for a long time. CI now runs it in the Backend suites
-job (`task be:test:sources`). A package once carried
-three tests asserting a function signature the implementation had already
-changed, and they stayed green through every gate because nothing ran them.
-
-### Obligations
-
-| When you | You must | What fails you |
-|---|---|---|
-| Add a Python package | Put it at `packages/<distribution>/`, list it in the three places above, then run `uv sync --group dev` | `tests/test_python_packages.py`; unlisted, it is a directory nothing installs or tests |
-| Register a function | `@register_function` with a `FunctionBaseConfig` subclass, plus a `nat.plugins` entry point in the **package's own** `pyproject.toml` | The runtime never discovers it |
-| Use `knowledge_layer.ingest`, `.search`, `.read_passage`, `.browse`, `.estate` or `.vector_store` from outside it | Import the name from the package (its `_LAZY` surface), patch the module object rather than a dotted string, and put a name outside code needs into the surface ([the rule](../docs/contributing/code-conventions.md#a-package-is-imported-by-its-surface)) | The `package-surfaces` hook (`scripts/check_package_surfaces.py`), a ratchet on `ci/package_surface_baseline.json` |
-| Make it toggleable in the UI | Add it to the `data_sources` registry in `configs/config_oib_openrouter.yml` (the entry shape is `DataSourceEntry` in `agent/common/data_source_registry.py`) | The tool works and no user can turn it on |
-| Add a third-party API | Read the key from config, never from a module-level `os.environ` at import | The plugin fails to import on a deployment that does not use it, taking unrelated tools with it |
-| Return retrieved text | Return passages a citation can resolve to and be verified against | An unverifiable "source" launders an ungrounded claim. See `agent/common/source_kinds.py` |
-| Return EVIDENCE the answer may cite | Build `GroundingHit` records and call `render_grounding_block` (`agent/common/grounding_block.py`, ADR-0061). Never write `Source:` / `Citation:` / `Relevance Score:` lines yourself, and never put a body outside the renderer's `<document_content>` fence (`agent/common/passage_fence.py`): it is what keeps an instruction inside a document or a filed mail from reading as one. A trailer that prints a document's own lines (grep's lines index) goes through `fence()` too, and code that splits rendered text on `--- Result N ---` or `## Trace-Lanes` finds them with `passage_fence.unfenced`, or a body spelling them forges a hit | Nothing local, and the reader quietly loses the fields you meant to state. The renderer files the records under the bytes it returns, and `extract_sources_from_tool_result` reads them back; text it did not render falls to the regex parser, which recovers less than you stated |
-
-### Reference
-
-- `knowledge_search` has two answer shapes. A query that names a Richtlinie and
-  nothing else returns the whole family: `norm_registry.family_query_number`
-  detects it, `read_passage.family_overview` reads every member the corpus
-  holds, and `ranked_search.RankedSearch` renders their scope passages ahead of the ranked
-  hits with one `## Gliederung` per member as the block's trailer. It keeps at
-  most four ranked hits beside the overview (`family_branch.FAMILY_RANKED_HITS`), and the
-  requery judge does not run on a query whose overview was built
-  (recorded as `search_input["requery_skipped"] = "family"`); a family the
-  corpus lacks is judged as usual.
-  Membership is derived from what is indexed, never listed.
-- A ranked search the requery judge found insufficient is re-read by the `jev`
-  decider after the requery round (`requery.judge_coverage`). A complete "no"
-  adds a `Coverage: insufficient — …` line (`GroundingBlock.coverage_gap`)
-  and keeps the pool whole (ADR-0064: a decision never withholds a passage);
-  anything less claims nothing. Say
-  "insufficient" through that field, never as text a producer writes itself:
-  the line also says what it means (`COVERAGE_GAP_LABEL`, `COVERAGE_GAP_NOTE`),
-  which the system prompt no longer does.
-- The step-by-step for a new tool or data source, from package layout to
-  binding it to an agent:
-  [`adding-a-tool.md`](../docs/architecture/adding-a-tool.md).
-- `uv run` here resolves an environment without the workspace packages. Use the
-  venv that `uv sync --group dev` builds, which is what the Taskfile does.
+- A new package is listed in three places: the root `pyproject.toml`'s workspace
+  members and `testpaths`, and `PY_PACKAGES` in `taskfiles/backend.yml`
+  (`tests/test_python_packages.py`).
+- A package's `tests/` has no `__init__.py`. Shared test helpers live in
+  `<package>/testing/<package>_testing/` and are imported by that name
+  (`tests/test_test_imports.py`).
+- Tests run in parallel by file: write only under `tmp_path`. For Qdrant take
+  `qdrant_store`, or `fresh_qdrant_store` for a collection's own life, and keep no
+  collection past its module (`test_vector_store_test_pairs.py`).
+- A tool's `nat.plugins` entry point goes in its **own package's**
+  `pyproject.toml`, one per registering module; a tool on an optional extra gets
+  its own (`bim_measure`). Nothing reports a missing one.
+- Outside a `knowledge_layer` subpackage, import its surface and patch where
+  your code looks a name up, never a submodule (`package-surfaces`).
+- Read a third-party key from the tool's config at build time, never from
+  `os.environ` at import.
+- Return citable evidence as `GroundingHit` records through
+  `render_grounding_block`, every body inside the `passage_fence` fence. Before
+  you change a producer, read
+  [Returning evidence](../docs/architecture/python-packages.md#returning-evidence).
+- Say "no supporting passage" only through `GroundingBlock.coverage_gap`, and
+  never withhold a passage (ADR-0064).

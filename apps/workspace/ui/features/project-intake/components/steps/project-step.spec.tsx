@@ -1,9 +1,3 @@
-/**
- * Step 1, Projekt: what the dialog took, shown in one card and edited in a
- * sheet through the profile's door, and the Beteiligte in the other card,
- * colleagues with a role and externals with a Funktion, against the preview's
- * in-memory client. „Weiter zur Ablage" is always there, in the frame's footer.
- */
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -43,7 +37,6 @@ function renderStep(state: ProjectStepState, overrides: { client?: ParticipantsC
   return { onNext, onDecide, client }
 }
 
-/** The step inside the frame's footer channel, so its one action is where a person finds it. */
 function Framed(props: ComponentProps<typeof ProjectStep>) {
   const { channel, progress, ownsPrimary, slotRef } = useStepFooterChannel()
   return (
@@ -58,7 +51,6 @@ const people = () => screen.getAllByTestId('project-step-person')
 
 describe('ProjectStep', () => {
   beforeEach(() => {
-    // The address search: no geocoder configured.
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ enabled: false, results: [] })))
   })
   afterEach(() => vi.unstubAllGlobals())
@@ -125,7 +117,7 @@ describe('ProjectStep', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  test('adds an external person without a Piloti account, with a Funktion and a company', async () => {
+  test('adds an external person without a workspace account, with a Funktion and a company', async () => {
     const user = userEvent.setup()
     renderStep('fresh')
     await user.click(await screen.findByRole('button', { name: 'External person' }))

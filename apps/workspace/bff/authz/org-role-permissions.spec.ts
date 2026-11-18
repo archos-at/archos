@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The role resolver's own spec: what the roles a person holds grant, as WorkOS
- * says, for the paths with roles and no token. These are the properties the
- * module's header claims.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -23,7 +18,6 @@ class TestStore implements CacheStore {
   async get(key: string): Promise<string | null> {
     return this.map.get(key) ?? null
   }
-  /** The life each stored entry was given, in the order stored. */
   ttls: number[] = []
   async set(key: string, value: string, ttlMs = Number.POSITIVE_INFINITY): Promise<void> {
     this.ttls.push(ttlMs)
@@ -48,8 +42,7 @@ beforeEach(() => {
     data: [
       { slug: 'admin', permissions: ['org:settings:manage', 'org:projects:administer'] },
       { slug: 'member', permissions: ['org:projects:create'] },
-      // An office's own role: WorkOS lists it beside the environment's.
-      { slug: 'org-geschaeftsfuehrung', permissions: ['org:projects:administer', 'org:archiv:manage'] },
+      { slug: 'org-geschaeftsfuehrung', permissions: ['org:projects:administer', 'org:office_shelf:manage'] },
     ],
   })
 })
@@ -57,7 +50,7 @@ beforeEach(() => {
 describe('rolePermissions', () => {
   it('is what WorkOS says the roles hold, every role together', async () => {
     expect(await rolePermissions(ORG, ['member', 'org-geschaeftsfuehrung'])).toEqual(
-      new Set(['org:projects:create', 'org:projects:administer', 'org:archiv:manage'])
+      new Set(['org:projects:create', 'org:projects:administer', 'org:office_shelf:manage'])
     )
     expect(listOrganizationRoles).toHaveBeenCalledWith(ORG)
   })
@@ -95,9 +88,5 @@ describe('rolesHoldPermission', () => {
   it("answers for an office's own custom role", async () => {
     expect(await rolesHoldPermission(ORG, ['org-geschaeftsfuehrung'], 'org:projects:administer')).toBe(true)
     expect(await rolesHoldPermission(ORG, ['member'], 'org:projects:administer')).toBe(false)
-  })
-
-  it('counts a grant of the old org:archiv:manage as org:office_shelf:manage', async () => {
-    expect(await rolesHoldPermission(ORG, ['org-geschaeftsfuehrung'], 'org:office_shelf:manage')).toBe(true)
   })
 })

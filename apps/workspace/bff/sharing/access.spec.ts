@@ -1,14 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Effective-access rules (ADR-0032, spec SH-4…SH-6).
- *
- * These are the security-critical cases: each one is a way access could leak or
- * vanish, and each is a line in the spec's decision tree. The registry's probe
- * and the grant lookup are mocked so the assertions are about the RULE, not about
- * drizzle.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,9 +22,6 @@ vi.mock('@/lib/authz/folder-access', () => ({
   requireFolderWrite: vi.fn(),
 }))
 
-// What the conversation recorded, judged per person at read time, has its own
-// specs (`restricted-use.spec.ts`). Here it is a stub whose answer each test
-// sets: by default everybody may read.
 vi.mock('@/lib/conversations/restricted-use', () => ({
   peopleWhoMayRead: vi.fn(async (_organizationId: string, _conversationId: string, userIds: readonly string[]) => new Set(userIds)),
   assertMayWidenConversation: vi.fn(),
@@ -62,7 +51,6 @@ const session = {
   email: 'me@example.test',
 } as unknown as AuthorizedSession
 
-/** Stub the registry's one probe: existence, tenancy, container, visibility, creator. */
 function stubConversation(
   overrides: Partial<{
     organizationId: string
@@ -82,7 +70,6 @@ function stubConversation(
   })
 }
 
-/** The caller's project role, i.e. whether they can reach the container at all. */
 function stubContainer(role: ProjectRole | 'denied'): void {
   if (role === 'denied') {
     vi.mocked(requireProjectAccess).mockRejectedValue(new NotFoundError())
@@ -125,7 +112,6 @@ describe('resolveResourceAccess — the two preconditions no grant can override'
     await expect(resolveResourceAccess(session, 'conversation', 'conv_1')).rejects.toBeInstanceOf(
       NotFoundError,
     )
-    // Tenancy is checked FIRST: the grant lookup must not even happen.
     expect(findGrantForSubject).not.toHaveBeenCalled()
   })
 
@@ -138,8 +124,6 @@ describe('resolveResourceAccess — the two preconditions no grant can override'
   })
 
   it('denies access when the container project is unreachable, even with an owner grant', async () => {
-    // Spec SH-5: losing project membership removes effective access to
-    // everything inside it, whatever grants remain recorded.
     stubContainer('denied')
     stubGrant('owner')
 
@@ -180,10 +164,6 @@ describe('resolveResourceAccess — effective role is the STRONGEST applicable',
   })
 
   it('gives a project admin neither ownership nor canEscalate on a private resource they cannot read', async () => {
-    // Spec SH-10: if admins silently owned every private thread, "private" would
-    // be a lie. Nor may they take ownership of one they are not party to
-    // (ADR-0032 decision 5, amended 2026-11-11): the takeover would be a way to
-    // read a colleague's private chat.
     stubConversation({ visibility: 'private', createdBy: 'user_creator' })
     stubContainer('project-admin')
     stubGrant(null)
@@ -192,18 +172,12 @@ describe('resolveResourceAccess — effective role is the STRONGEST applicable',
     expect(access.role).toBeNull()
     expect(access.canEscalate).toBe(false)
 
-    // And escalation does not silently satisfy an authorization check.
     await expect(
       requireResourceAccess(session, 'conversation', 'conv_1', 'viewer'),
     ).rejects.toBeInstanceOf(NotFoundError)
   })
 
   it('withholds canEscalate from a project admin who ALREADY owns the resource', async () => {
-    // An audit-integrity claim, not a cosmetic one: offering the button to an
-    // owner let them "take ownership" of something they already owned, writing
-    // `resource.ownership.escalated` with `previousRole: 'owner'` — a permanent
-    // record of an escalation that never happened, in the very log spec SH-10
-    // exists to keep trustworthy.
     stubConversation({ visibility: 'private', createdBy: 'user_creator' })
     stubContainer('project-admin')
     stubGrant('owner')
@@ -214,9 +188,6 @@ describe('resolveResourceAccess — effective role is the STRONGEST applicable',
   })
 
   it('still offers canEscalate to that same admin when their grant is only collaborator', async () => {
-    // The other half of the rule: ownership is what withholds escalation, not
-    // holding a grant, so a project admin party to the thread as a collaborator
-    // keeps the capability spec SH-10 gives them.
     stubConversation({ visibility: 'private', createdBy: 'user_creator' })
     stubContainer('project-admin')
     stubGrant('collaborator')
@@ -250,8 +221,6 @@ describe('resolveResourceAccess — effective role is the STRONGEST applicable',
   })
 
   it('withholds canEscalate on a legacy private document the admin is not party to', async () => {
-    // The rule is the shared resolution's, not the conversation's: a document row
-    // that still says `private` (refused for new writes) is held the same way.
     vi.mocked(findDocumentTenancy).mockResolvedValue({
       organizationId: 'org_1',
       projectId: 'proj_1',
@@ -276,8 +245,6 @@ describe('resolveResourceAccess — effective role is the STRONGEST applicable',
   })
 
   it('does not require a container when the resource hangs off the organization', async () => {
-    // Legacy conversations predate project stamping; no project membership could
-    // describe them, so there is nothing to gate on.
     stubConversation({ projectId: null, visibility: 'private', createdBy: session.userId })
 
     const access = await resolveResourceAccess(session, 'conversation', 'conv_1')
@@ -348,7 +315,6 @@ describe('resolveResourceAccess — a document in a restricted folder (ADR-0087)
 })
 
 describe('the read gate: a role is not the right to read what the conversation drew on (ADR-0088)', () => {
-  /** The folders the conversation recorded are no longer ones the asker may read. */
   function lockFor(...locked: string[]): void {
     vi.mocked(peopleWhoMayRead).mockImplementation(async (_organizationId, _conversationId, userIds) =>
       new Set(userIds.filter((userId) => !locked.includes(userId))),

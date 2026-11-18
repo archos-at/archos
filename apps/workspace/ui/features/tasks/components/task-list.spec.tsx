@@ -1,14 +1,3 @@
-/**
- * The Tasks list — cards, filters and recency groups.
- *
- * What is asserted is what one CARD has to answer, because that is the whole
- * reason the surface exists: a person delegated work in a chat and had nowhere
- * to ask what became of it. What it is, where it got to, how it was judged, and
- * WHERE THE RESULT IS. Plus the two things the rewrite added and the old row
- * could not do — that the whole card is the target, and that a finished task
- * nobody has judged is visibly an open loop.
- */
-
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
@@ -68,13 +57,9 @@ describe('a task card', () => {
     const line = screen.getByTestId('run-block-line')
     expect(line).toHaveAttribute('data-status', 'running')
     expect(screen.getByTestId('run-glyph-running')).toBeInTheDocument()
-    // The spinner speaks its label too, so the text is matched, not anchored.
     expect(line).toHaveTextContent('Running · 3 rounds · 9 documents')
-    // No title (the heading is the title) and no link (the tray's is).
     expect(screen.queryByTestId('run-line-open')).not.toBeInTheDocument()
 
-    // A run that is starting: the word alone, and zero tallies are left out
-    // rather than shown as zeros.
     rerender(
       <TaskList
         projectId="p1"
@@ -86,8 +71,6 @@ describe('a task card', () => {
     )
     expect(screen.getByTestId('run-block-line')).not.toHaveTextContent('round')
 
-    // Finished: the same line with the block's word for done, dated by when
-    // it finished — the tallies say how much work stands behind the result.
     rerender(
       <TaskList
         projectId="p1"
@@ -125,9 +108,6 @@ describe('a task card', () => {
   test('and it opens from the keyboard, because a div that acts as a button must', async () => {
     const user = userEvent.setup()
     const { onSelectTask } = list()
-    // The filter row comes first in the tab order, so the card is focused
-    // directly — what is under test is that a focused card answers Enter, not
-    // where it sits in the sequence.
     screen.getByTestId('task-card').focus()
     await user.keyboard('{Enter}')
     expect(onSelectTask).toHaveBeenCalled()
@@ -263,7 +243,6 @@ describe('the three states that are not a list', () => {
 describe('on a phone', () => {
   test('an unreviewed card says so in words, not only in a dot with a title', () => {
     list({ tasks: [task({ status: 'succeeded', review: null })] })
-    // Both are mounted; the pointer media query decides which one is painted.
     expect(screen.getByTestId('task-card-unreviewed')).toBeInTheDocument()
     const chip = screen.getByTestId('task-card-to-review')
     expect(chip).toHaveTextContent('To review')
@@ -290,7 +269,6 @@ describe('the filter row on a phone', () => {
     const group = screen.getByTestId('task-filters')
     expect(group.className).toMatch(/\bgrid\b/)
     expect(group.className).toMatch(/\bgrid-cols-2\b/)
-    // From `sm` it is the one scrolling cluster again.
     expect(group.className).toMatch(/\bsm:flex\b/)
   })
 })
@@ -307,12 +285,6 @@ describe('when a card says it was made', () => {
   })
 })
 
-/**
- * The glide's contract, asserted on what the DOM can carry: motion's
- * `layoutId` never reaches it, so the list mirrors each one onto
- * `data-layout-id`. A card whose place changed keeps its id (motion flies it
- * from its old box); a filter press re-keys the whole group (nothing flies).
- */
 describe('when a card moves, and when the filter changes', () => {
   const props = (tasks: TaskRunView[], filter: TaskFilter = 'all') => ({
     projectId: 'p1',
@@ -336,7 +308,6 @@ describe('when a card moves, and when the filter changes', () => {
       expect(sectionOf(before)).toBe('Today')
       const id = before.getAttribute('data-layout-id')
 
-      // The poll after midnight: the run finished, and „today" is now „yesterday".
       vi.setSystemTime(new Date(2026, 9, 16, 0, 10))
       rerender(<TaskList {...props([{ ...running, status: 'succeeded' }])} />)
       const after = cardFor('Aktenvermerk')

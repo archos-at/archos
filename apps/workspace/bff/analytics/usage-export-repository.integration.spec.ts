@@ -1,13 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Opt-in integration test: the PostHog usage export's SQL against a REAL
- * Postgres with the whole migration chain applied, as the restricted runtime
- * role. The cursor is claimed once while a run holds it, moves only when told
- * to, and the hourly sum puts each ledger row in its own UTC hour. Runs under
- * `task db:test:rls`; skipped unless TEST_DATABASE_URL is set.
- */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -22,7 +15,7 @@ describe.skipIf(!url)('usage export repository against live Postgres', () => {
   }
 
   beforeAll(() => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
   })
 
   afterAll(async () => {
@@ -37,7 +30,6 @@ describe.skipIf(!url)('usage export repository against live Postgres', () => {
 
     const first = await asPlatform(() => claimCursor('posthog_usage_hourly', horizon, 600_000, now))
     expect(first?.toISOString()).toBe(horizon.toISOString())
-    // Held: a second run gets nothing.
     expect(await asPlatform(() => claimCursor('posthog_usage_hourly', horizon, 600_000, now))).toBeNull()
 
     await asPlatform(() => releaseCursor('posthog_usage_hourly', now))
@@ -49,7 +41,6 @@ describe.skipIf(!url)('usage export repository against live Postgres', () => {
     const next = await asPlatform(() => claimCursor('posthog_usage_hourly', horizon, 600_000, now))
     expect(next?.toISOString()).toBe(through.toISOString())
 
-    // A lease that ran out can be taken over.
     const later = new Date(now.getTime() + 11 * 60_000)
     expect((await asPlatform(() => claimCursor('posthog_usage_hourly', horizon, 600_000, later)))?.toISOString()).toBe(
       through.toISOString(),
@@ -97,7 +88,6 @@ describe.skipIf(!url)('usage export repository against live Postgres', () => {
         [orgB, '2026-10-20T06:00:00.000Z', 1, 7],
       ].sort(),
     )
-    // Boot-floor pricing: one credit is one US cent of cost.
     expect(rows.find((entry) => entry.organizationId === orgA)?.credits).toBeCloseTo(2, 6)
   })
 
@@ -127,11 +117,9 @@ describe.skipIf(!url)('usage export repository against live Postgres', () => {
     })
     await withTenant({ organizationId: org }, () =>
       recordUsageEvents([
-        // The decision ran before the agent: it is not the agent's first call.
         call(new Date('2026-10-21T06:01:00Z'), { agentGroup: 'decision', model: 'typesafe/jev-1.13', promptTokens: 900 }),
         call(new Date('2026-10-21T06:02:00Z'), { promptTokens: 37000, cachedTokens: 30000, totalTokens: 37010 }),
         call(new Date('2026-10-21T06:03:00Z'), { promptTokens: 45000, cachedTokens: 44000, totalTokens: 45010 }),
-        // An ingest job's call, no message.
         call(new Date('2026-10-21T06:04:00Z'), {
           messageId: null,
           conversationId: null,

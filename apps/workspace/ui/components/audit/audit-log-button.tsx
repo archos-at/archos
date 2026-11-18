@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * Opens the native WorkOS Admin Portal audit-log viewer. Each click mints a
- * fresh short-lived, org-scoped portal link via the given endpoint (POST) —
- * links are single-use sessions, so nothing is prefetched or cached.
- */
-
 import { type FC, useState } from 'react'
 import { ExternalLink, ScrollText } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
@@ -25,9 +19,6 @@ export const AuditLogButton: FC<AuditLogButtonProps> = ({ endpoint, label, error
 
   const open = async (): Promise<void> => {
     setLoading(true)
-    // Open the tab SYNCHRONOUSLY inside the click's user activation —
-    // Safari blocks window.open after an await. Navigate it once the
-    // short-lived link arrives; fall back to same-tab if a blocker ate it.
     const tab = window.open('', '_blank')
     try {
       const res = await fetch(endpoint, { method: 'POST' })
@@ -47,9 +38,6 @@ export const AuditLogButton: FC<AuditLogButtonProps> = ({ endpoint, label, error
   }
 
   return (
-    // Busy is not disabled: it keeps the focus the press gave it, swallows a
-    // second press, and swaps its glyph for the spinner only once the wait
-    // has lasted 150 ms (same slot, so the label does not move).
     <Button
       variant="secondary"
       size="sm"

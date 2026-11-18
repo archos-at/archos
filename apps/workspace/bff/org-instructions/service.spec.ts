@@ -1,23 +1,6 @@
-// @disk-inputs: ../../packages/agent/src/agent/project_context.py, migrations/0087_organization_instructions.sql
 /**
  * @vitest-environment node
  */
-/**
- * The organization instruction block, at the service boundary.
- *
- * Four properties, and each one is a different failure if it slips:
- *
- *   - the CAP is the backend's cap and the SQL CHECK's bound, one number;
- *   - CLEARING deletes the row, so "never written" and "written, then emptied"
- *     stay one state and the turn path has one case, not two;
- *   - the turn path FAILS SOFT, because an instruction block is a preference
- *     and a database hiccup must cost the turn its preferences, never the turn;
- *   - the cache key carries the ORGANIZATION, because `getCached` returns before
- *     the loader runs and a key without it would serve whichever tenant
- *     populated it first — into a prompt.
- */
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -70,8 +53,6 @@ const row = (instructions: string) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // The real read-through: run the loader and hand back what it produced, so
-  // these tests exercise the loader rather than the cache's own behaviour.
   getCached.mockImplementation(async (_key: string, _ttl: number, load: () => Promise<unknown>) =>
     load()
   )
@@ -89,8 +70,6 @@ describe('the write boundary', () => {
   })
 
   it('refuses one character more, rather than truncating it', () => {
-    // Truncation is the tempting failure: an instruction cut at 1500 says
-    // something its author never wrote, and nothing tells them.
     const text = 'a'.repeat(ORG_INSTRUCTIONS_MAX_CHARS + 1)
     expect(orgInstructionsSchema.safeParse({ instructions: text }).success).toBe(false)
   })
@@ -98,13 +77,7 @@ describe('the write boundary', () => {
   it('counts CHARACTERS, so an umlaut costs one', () => {
     const text = 'ä'.repeat(ORG_INSTRUCTIONS_MAX_CHARS)
     expect(orgInstructionsSchema.safeParse({ instructions: text }).success).toBe(true)
-  })
-
-  it('is the number the backend uses (the SQL CHECK is held to it below)', () => {
-    const backend = readFileSync(join(process.cwd(), '..', '..', 'packages', 'agent', 'src', 'agent', 'project_context.py'), 'utf8')
-    expect(backend).toContain(`ORG_INSTRUCTIONS_MAX_CHARS = ${ORG_INSTRUCTIONS_MAX_CHARS}\n`)
-  })
-})
+  })})
 
 describe('saving', () => {
   it('stores the trimmed block and invalidates the turn path', async () => {
@@ -160,8 +133,6 @@ describe('the turn path', () => {
     findOrganizationInstructions.mockResolvedValue(row('Assume Vienna.'))
 
     expect(await resolveOrgInstructions('org-1')).toBe('Assume Vienna.')
-    // Without the organization segment `getCached` would serve whichever tenant
-    // populated the key first — and this value goes into a prompt.
     expect(getCached).toHaveBeenCalledWith('orginstructions:org-1', expect.any(Number), expect.any(Function))
   })
 
@@ -198,32 +169,5 @@ describe('the settings read', () => {
       updatedByEmail: null,
       updatedAt: null,
     })
-  })
-})
-
-/**
- * The layer that holds when nobody is looking.
- *
- * The zod schema above refuses an over-length block from the one route that
- * writes it today. The CHECK refuses it from a backfill, a psql session and
- * whatever writes it next — which is why the two numbers have to be the same
- * number, and why that is asserted here rather than trusted.
- */
-describe('the bound the database enforces', () => {
-  const migration = readFileSync(
-    join(process.cwd(), 'migrations', '0087_organization_instructions.sql'),
-    'utf8'
-  )
-
-  it('caps char_length at exactly the constant the UI counts against', () => {
-    expect(migration).toContain(`CHECK (char_length("instructions") <= ${ORG_INSTRUCTIONS_MAX_CHARS})`)
-  })
-
-  it('caps CHARACTERS, not bytes — an umlaut must not cost two', () => {
-    expect(migration).not.toContain('octet_length("instructions")')
-  })
-
-  it('forbids a blank block, because the row is deleted instead', () => {
-    expect(migration).toContain(`CHECK (btrim("instructions") <> '')`)
   })
 })

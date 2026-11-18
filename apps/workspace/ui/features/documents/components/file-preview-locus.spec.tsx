@@ -1,12 +1,3 @@
-/**
- * A link that names a place in the document (`?page=` and `?highlight=`,
- * `lib/document-locus.ts`, a search hit's passage) opens the inline viewer
- * there: the pane hands the viewer the page and the passage, as a citation
- * does. Only for the document `doc` names.
- *
- * The viewer is a stand-in: what is pinned is what the pane hands it.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
 import { FilePreviewPane } from './file-preview-pane'
@@ -54,7 +45,6 @@ beforeEach(() => {
     if (url.endsWith('/preview')) return json({ url: 'https://example.test/brandschutz.pdf', contentType: 'application/pdf' })
     return json({}, 404)
   })
-  // The well mounts its viewer once it has been on screen.
   vi.stubGlobal(
     'IntersectionObserver',
     class {

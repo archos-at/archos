@@ -2,7 +2,6 @@
   "$defs": {
     "ActionCounts": {
       "additionalProperties": false,
-      "description": "What one call found. Each count is absent when the call does not count it.",
       "properties": {
         "documents": {
           "anyOf": [
@@ -81,7 +80,6 @@
     },
     "ActionStep": {
       "additionalProperties": false,
-      "description": "One call of the agent's work, as the reader sees it (ADR-0132): verb, target, outcome, time.\n\nThe tool emits it itself, at start (``running``) and at end, under one id,\nfrom the values it already holds: typed and clipped, never its raw input or\nits text. ``elapsed_ms`` is set on the end row.",
       "properties": {
         "call_id": {
           "description": "Shared with the sources step this call returned.",
@@ -378,7 +376,6 @@
     },
     "AnswerSnapshot": {
       "additionalProperties": false,
-      "description": "The streamed prose settled (ADR-0066): it REPLACES text, citations and masthead; cards are untouched.",
       "properties": {
         "answer_meta": {
           "anyOf": [
@@ -414,7 +411,6 @@
     },
     "Attach": {
       "additionalProperties": false,
-      "description": "After a reconnect or a reload: replay this turn from ``after_seq`` + 1, then continue live.",
       "properties": {
         "after_seq": {
           "minimum": 0,
@@ -456,7 +452,6 @@
     },
     "CancelTurn": {
       "additionalProperties": false,
-      "description": "Stop. Authorised: only the asker (or an internal caller) may cancel a turn.",
       "properties": {
         "conversation_id": {
           "minLength": 1,
@@ -686,7 +681,6 @@
     },
     "ClarificationStep": {
       "additionalProperties": false,
-      "description": "The clarify step started: the one row it contributes before its first question.",
       "properties": {
         "id": {
           "maxLength": 200,
@@ -754,7 +748,6 @@
     },
     "ConfidenceCheck": {
       "additionalProperties": false,
-      "description": "What the answer check found (ADR-0139): ``judged``, a level and what holds it down; or ``unavailable``.",
       "properties": {
         "findings": {
           "items": {
@@ -809,7 +802,6 @@
     },
     "ConfidenceFinding": {
       "additionalProperties": false,
-      "description": "A statement the answer relies on that its evidence does not back, or contradicts.",
       "properties": {
         "problem": {
           "enum": [
@@ -846,7 +838,6 @@
     },
     "ConfidenceUnavailable": {
       "additionalProperties": false,
-      "description": "Why the answer check gave no level (``claim_judge.Unavailable``), and what its call looked like.",
       "properties": {
         "answer_chars": {
           "anyOf": [
@@ -945,7 +936,6 @@
     },
     "FocusRegion": {
       "additionalProperties": false,
-      "description": "A box on one page of the conversation's document: what the question is about.\n\nNormalized to the page as it is shown (its own rotation applied), origin\ntop left, so ``x`` and ``w`` are shares of the page's width and ``y`` and\n``h`` of its height: the frame an Anmerkung's region uses\n(``lib/annotations/types.ts``). Drawn on the review canvas; the turn shows\nthe model exactly that crop (``look(region=[x, y, w, h])``).",
       "properties": {
         "annotation_id": {
           "anyOf": [
@@ -1082,7 +1072,6 @@
     },
     "Hello": {
       "additionalProperties": false,
-      "description": "The server's first frame on every socket, before it reads any client message.\n\nSent once the version and the caller have been checked, so it says: this\nserver speaks wire v2 and will answer what you send. A connection event, not\na turn's: no ``conversation_id``, ``turn_id`` or ``seq``, never published to\nthe conversation's stream, never replayed. The client sends nothing until it\nhas it, and treats a socket that stays silent, or opens with anything else,\nas a server that does not speak this wire.",
       "properties": {
         "name": {
           "const": "hello",
@@ -1226,7 +1215,6 @@
     },
     "InteractionRequestValue": {
       "additionalProperties": false,
-      "description": "The turn is waiting for its asker (``prompt_user_input``): a question, maybe with choices.",
       "properties": {
         "expires_at": {
           "description": "Epoch ms; after it the turn ends with RUN_ERROR interaction_expired.",
@@ -1365,7 +1353,6 @@
     },
     "InteractionResponse": {
       "additionalProperties": false,
-      "description": "The asker's answer to an ``interaction_request``: typed text or a chosen option, never both.",
       "properties": {
         "answer": {
           "anyOf": [
@@ -1419,7 +1406,6 @@
     },
     "KeyedCard": {
       "additionalProperties": false,
-      "description": "A card and its identity key, so a card equal to one already drawn keeps its node.",
       "properties": {
         "card": {
           "additionalProperties": true,
@@ -1443,7 +1429,6 @@
     },
     "LookStep": {
       "additionalProperties": false,
-      "description": "One look that rendered (``look``, ADR-0128): which document, which page, where on it.\n\nAn address, never pixels: the reader's thumbnail is drawn from the\ndocument's own preview route (``document_id``, ``revision_id``), so it is\nauthorized exactly like the document. A refused look leaves no step.",
       "properties": {
         "document_id": {
           "anyOf": [
@@ -1685,7 +1670,6 @@
     },
     "OptionAnswer": {
       "additionalProperties": false,
-      "description": "A chosen option, by the id the ``interaction_request`` gave it.",
       "properties": {
         "option_id": {
           "minLength": 1,
@@ -1701,7 +1685,6 @@
     },
     "QuoteStamp": {
       "additionalProperties": false,
-      "description": "The server's check of one quote line ``> „…“ [N]`` (``common/quote_stamps.py``), in document order.\n\n``verbatim`` names the passage that holds the wording and the ``[N]`` it\ncarries (absent for a passage read but not cited); ``not_found`` means no\nretrieved passage holds it; ``unchecked`` means there was nothing to check\nagainst, or the span is too short to mean anything.",
       "properties": {
         "clause": {
           "anyOf": [
@@ -1858,7 +1841,6 @@
     },
     "RejectedValue": {
       "additionalProperties": false,
-      "description": "A client message was refused. Out of band: ``seq == 0``, never replayed, never ends a turn.\n\n``of`` is the refused message's ``type``, or ``unknown`` for a frame that is\nnot JSON or names no type this contract has: that is answered too, so a\nclient never waits on silence.\n\n``busy`` answers only a ``user_message`` that said ``if_idle``: the\nconversation runs another turn, and this one would have superseded it.\n``steer_limit`` answers a ``steer`` past the turn's cap\n(``common.steering.MAX_STEERS_PER_TURN``).",
       "properties": {
         "code": {
           "enum": [
@@ -1909,7 +1891,6 @@
     },
     "RetrievalStep": {
       "additionalProperties": false,
-      "description": "One announced retrieval round: where it looks, for what, and the model's own conclusion.",
       "properties": {
         "id": {
           "maxLength": 200,
@@ -2124,7 +2105,6 @@
     },
     "RunHandoff": {
       "additionalProperties": false,
-      "description": "The run a turn commissioned (ADR-0062) and the message it narrates itself in: both or neither.",
       "properties": {
         "run_id": {
           "minLength": 1,
@@ -2200,7 +2180,6 @@
     },
     "ShownAnswer": {
       "additionalProperties": false,
-      "description": "How much of the answer the asker had on screen when they pressed Stop.\n\nThe first ``chars`` characters (Unicode code points) of the answer's text\nas the client had folded it through ``seq``. A position, not the text: the\nserver keeps only what the model wrote, and the frame stays a few dozen\nbytes, which the gateway's frame limiter reads in full (``ws-frames.js``).",
       "properties": {
         "chars": {
           "description": "How many characters of that text were on screen, in code points.",
@@ -2224,7 +2203,6 @@
     },
     "SkillStep": {
       "additionalProperties": false,
-      "description": "A skill was offered (count only), activated or loaded (``skills/events.py``).",
       "properties": {
         "channel": {
           "default": "live",
@@ -2320,7 +2298,6 @@
     },
     "SourcesStep": {
       "additionalProperties": false,
-      "description": "What one evidence tool returned, as lanes. Built from the grounding records, never from text.",
       "properties": {
         "call_id": {
           "anyOf": [
@@ -2452,7 +2429,6 @@
     },
     "StageValue": {
       "additionalProperties": false,
-      "description": "A post-answer stage's outcome (``docs/architecture/post-answer-stages.md`` §4).",
       "properties": {
         "payload": {
           "anyOf": [
@@ -2546,7 +2522,6 @@
     },
     "StatusStep": {
       "additionalProperties": false,
-      "description": "A status line or a technical record (``turn_status.emit_status`` and its siblings).",
       "properties": {
         "channel": {
           "default": "live",
@@ -2643,7 +2618,6 @@
     },
     "Steer": {
       "additionalProperties": false,
-      "description": "A note for the running turn, typed while it works („nicht die Tür, die Treppe“).\n\nNot a turn: it never claims, holds or supersedes the conversation. The turn\nreads it at its next tool-round boundary and the model decides again with\nit; a note the turn never read (it arrived during the final call) is the\nclient's to ask as the next question. Only the asker may steer (v1), as\nonly the asker may stop. Sent only to a server whose hello accepts 'steer'.",
       "properties": {
         "conversation_id": {
           "minLength": 1,
@@ -2765,7 +2739,6 @@
     },
     "SteerAppliedValue": {
       "additionalProperties": false,
-      "description": "The turn read the note: it is in the request of the decision numbered ``round`` (from 1).",
       "properties": {
         "round": {
           "minimum": 1,
@@ -2846,7 +2819,6 @@
     },
     "SteerReceivedValue": {
       "additionalProperties": false,
-      "description": "A steering note reached the running turn's inbox. ``text`` is the note as the model will read it (masked).",
       "properties": {
         "steer_id": {
           "maxLength": 128,
@@ -3314,7 +3286,6 @@
     },
     "TextAnswer": {
       "additionalProperties": false,
-      "description": "A typed answer. \"skip\" is only ever typed.",
       "properties": {
         "text": {
           "minLength": 1,
@@ -3495,7 +3466,6 @@
     },
     "ToolStep": {
       "additionalProperties": false,
-      "description": "A tool call ran: its basename and outcome. Never its arguments or its result.",
       "properties": {
         "id": {
           "maxLength": 200,
@@ -3566,7 +3536,6 @@
     },
     "TraceLane": {
       "additionalProperties": false,
-      "description": "One lane of a search's fan-out: the fine lane and the coarse kind it renders as.",
       "properties": {
         "hit_count": {
           "minimum": 0,
@@ -3612,7 +3581,6 @@
     },
     "TraceLaneSource": {
       "additionalProperties": false,
-      "description": "One document in a lane: identity, the locus that round reached, its shelf.",
       "properties": {
         "detail": {
           "anyOf": [
@@ -3697,7 +3665,6 @@
     },
     "TurnResult": {
       "additionalProperties": false,
-      "description": "Everything the finished turn delivers; authoritative, and what the server persists.\n\nIt replaces the text once more and takes back what it omits (a card\nsuppressed, a masthead gated out). The persisted row is built from this\nmodel and nothing else (``agent_host`` ``persist_turn_result``).",
       "properties": {
         "answer_confidence": {
           "anyOf": [
@@ -3959,7 +3926,6 @@
     },
     "TurnTrigger": {
       "additionalProperties": false,
-      "description": "The event that woke this turn, when no person typed it (ADR-0105 draft, §3(b)).\n\nSet by the BFF, never by a browser: the person whose act is the event holds\nthe socket (their pinned session), and the turn answers where the event\nhappened. For a wake, ``event_id`` is the reply (or assignment) id the job\nwas enqueued for and ``annotation_id`` the Anmerkung it happened on.\n``agent_consult`` is a question another agent asked on the person's behalf\n(ADR-0124): ``event_id`` is the ask's id, and there is no Anmerkung.\n``new_document`` is a document that just finished indexing, which the agent\nchecks against the project's other documents unasked (ADR-0130):\n``event_id`` is the check's id, and there is no Anmerkung.",
       "properties": {
         "annotation_id": {
           "anyOf": [
@@ -4002,7 +3968,6 @@
     },
     "UserMessage": {
       "additionalProperties": false,
-      "description": "A question (or, with ``context_only``, a colleague's line the agent must see but not answer).\n\n``type`` stays ``user_message``: the gateway's per-socket turn limiter\n(``apps/workspace/bff/limits/ws-frames.js``) counts turns by it.",
       "properties": {
         "author_name": {
           "anyOf": [
@@ -4335,7 +4300,6 @@
     },
     "ViewerActionArgs": {
       "additionalProperties": false,
-      "description": "Where the viewer goes: a stored document the BFF let this turn see, and the place on it.\n\n``document_id`` is a workspace document's id, resolved and checked against\nthe BFF by the tool before the event is sent. The browser reads it again, in\nthe asker's own session, before it moves anything: ``GET /api/documents/{id}``,\nthe read Files and every agent door already use.",
       "properties": {
         "against_document_id": {
           "anyOf": [
@@ -4450,7 +4414,6 @@
     },
     "ViewerActionValue": {
       "additionalProperties": false,
-      "description": "One frontend tool call: AG-UI's ``toolCallId``, ``toolCallName`` and ``args``, whole in one frame.\n\nAG-UI would carry it as ``TOOL_CALL_CHUNK`` (one frame the client expands to\n``TOOL_CALL_START`` / ``ARGS`` / ``END``), with ``TOOL_CALL_RESULT`` optional.\nThis wire keeps every tool out of ``TOOL_CALL_*`` (``docs/design/chat-wire-v2.md``\n§a), and nothing returns to the model, so the call rides ``CUSTOM`` under\nAG-UI's field names. Returning the person's \"not now\" to the model would be\nthe reason to move it to ``TOOL_CALL_*`` (ADR-0144).\n\nThe server writes only a name of the allow-list. The JSON Schema says\n``string``, so a page one release older passes over a sixth action instead\nof refusing the frame; the page holds its own allow-list (``viewer-actions.ts``).",
       "properties": {
         "args": {
           "$ref": "#/$defs/ViewerActionArgs"
@@ -4650,7 +4613,6 @@
     },
     "WireSource": {
       "additionalProperties": true,
-      "description": "A cited source (``source_entry_to_wire``). ``number`` is its ``[N]`` in the prose.",
       "properties": {
         "content": {
           "title": "Content",

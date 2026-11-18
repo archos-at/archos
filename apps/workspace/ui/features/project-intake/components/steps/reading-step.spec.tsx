@@ -1,13 +1,3 @@
-/**
- * Step 3, Erfassung, drawn from its fixtures inside the frame's footer: the
- * documents bar and the milestones it names in each state, that every number
- * is the view's, the values found with their page, the way out (the chat, the
- * footer's one primary action), reading what is unread and adding documents,
- * and what it leaves to the frame (the failed alert's retry).
- *
- * Carried over: the reading shows as a determinate bar, nothing spins, and a
- * failed reading keeps what was found.
- */
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -30,7 +20,6 @@ import { ReadingStep } from './reading-step'
 import type { SetupStepProps } from './types'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-// The project's own upload, drawn hidden behind „Dokumente hinzufügen".
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({
     fileUpload: {
@@ -87,7 +76,7 @@ const footer = () => within(screen.getByTestId('intake-setup-footer'))
 describe('ReadingStep', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  describe('while Piloti reads', () => {
+  describe('while the agent reads', () => {
     it('shows the documents as a bar and the milestones with the view’s own numbers', () => {
       setup(READING_RUNNING)
 

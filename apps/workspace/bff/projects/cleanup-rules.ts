@@ -1,24 +1,3 @@
-/**
- * „Ausmisten" by rule (ADR-0092): the documents a closing project plainly no
- * longer needs, found from their metadata alone. The floor under the model's
- * proposal: it holds when the model call fails, and it is shown beside it when
- * the call works. Pure, no I/O.
- *
- * Each rule names what it saw, so the person deciding can check it:
- *
- *   - temporary: Office lock files (`~$Plan.docx`), LibreOffice locks,
- *     `.tmp`/`.bak`, `Thumbs.db`, `.DS_Store`;
- *   - working copy: „Kopie von …", „… - Kopie", „Copy of …", „Plan (1).pdf",
- *     a name marked `_alt`, `_old` or `_backup`;
- *   - duplicate: the same bytes (`content_hash`) as a document uploaded earlier;
- *     the earliest stays;
- *   - superseded: an older numbered version of a name in the same folder
- *     (`Plan_v2` beside `Plan_v3`, `Index A` beside `Index B`); the newest stays;
- *   - unpublished draft: a draft Piloti wrote that nobody ever published.
- *
- * A document is proposed once, under the first rule that matches in that order.
- */
-
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 
 export const CLEANUP_CATEGORIES = [
@@ -31,7 +10,6 @@ export const CLEANUP_CATEGORIES = [
 ] as const
 export type CleanupCategory = (typeof CLEANUP_CATEGORIES)[number]
 
-/** What the rules (and the model) see of a document: metadata already indexed, no content. */
 export interface CleanupDocumentFacts {
   id: string
   filename: string
@@ -39,20 +17,17 @@ export interface CleanupDocumentFacts {
   folderPath: string | null
   contentType: string | null
   tags: readonly string[]
-  /** The one-line summary ingestion already wrote. */
   summary: string | null
   versionState: DocumentVersionState | null
   authoredBy: 'user' | 'agent' | string
   contentHash: string | null
   createdAt: string
-  /** The content gate passed these bytes (`hasPassedScreening`): only then may it reach the model. */
   screeningPassed: boolean
 }
 
 export interface RuleCandidate {
   id: string
   category: CleanupCategory
-  /** Which rule matched, as the key the UI words (`projects.cleanup.rules.<rule>`). */
   rule: 'lock-file' | 'temp-file' | 'system-file' | 'copy-name' | 'old-name' | 'same-content' | 'older-version' | 'unpublished-draft'
 }
 
@@ -72,7 +47,6 @@ function stemAndExtension(filename: string): [string, string] {
   return dot > 0 ? [filename.slice(0, dot), filename.slice(dot + 1).toLowerCase()] : [filename, '']
 }
 
-/** `Plan_v3` → `plan` and 3; `Plan Index B` → `plan` and 2; null without a version marker. */
 export function versionOf(filename: string): { base: string; version: number } | null {
   const [stem] = stemAndExtension(filename)
   const numbered = /^(.*?)[\s_.-]*(?:v|ver|version|rev|r|stand)[\s_.-]?(\d{1,3})$/i.exec(stem)
@@ -99,7 +73,6 @@ function byName(document: CleanupDocumentFacts): RuleCandidate | null {
   return null
 }
 
-/** Later uploads of the same bytes; the earliest of each content stays. */
 function duplicates(documents: readonly CleanupDocumentFacts[]): Set<string> {
   const byHash = new Map<string, CleanupDocumentFacts[]>()
   for (const document of documents) {
@@ -114,7 +87,6 @@ function duplicates(documents: readonly CleanupDocumentFacts[]): Set<string> {
   return found
 }
 
-/** Older numbered versions of a name in the same folder; the newest stays. */
 function olderVersions(documents: readonly CleanupDocumentFacts[]): Set<string> {
   const groups = new Map<string, Array<{ id: string; version: number }>>()
   for (const document of documents) {

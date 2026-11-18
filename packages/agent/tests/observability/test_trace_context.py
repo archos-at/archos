@@ -1,11 +1,3 @@
-"""Environment, release, observation type and trace name on every exported span (ADR-0089).
-
-Langfuse ignores an attribute it does not recognise without a word, so each of
-these mappings is invisible when it breaks: the trace still arrives, filed as
-"default", with no release and every observation a plain span. Only a test
-notices.
-"""
-
 import pytest
 
 from agent.observability.langfuse_trace_attributes import TAGS_ATTRIBUTE
@@ -16,9 +8,12 @@ from agent.observability.trace_context import ENVIRONMENT_ATTRIBUTE
 from agent.observability.trace_context import OBSERVATION_TYPE_ATTRIBUTE
 from agent.observability.trace_context import RELEASE_ATTRIBUTE
 from agent.observability.trace_context import TRACE_NAME_ATTRIBUTE
+from agent.observability.trace_context import deployment
+from agent.observability.trace_context import deployment_tags
 from agent.observability.trace_context import langfuse_environment
 from agent.observability.trace_context import langfuse_release
 from agent.observability.trace_context import observation_type
+from agent.observability.trace_context import process_trace_attributes
 from agent.observability.trace_context import trace_name_for_root
 from agent.observability.turn_outcome import begin_turn_outcome
 from agent.observability.turn_outcome import end_turn_outcome
@@ -50,6 +45,32 @@ class TestRelease:
     @pytest.mark.parametrize("raw", ["", "unknown"])
     def test_an_unknown_build_has_no_release(self, raw):
         assert langfuse_release(raw) is None
+
+
+class TestDeploymentTag:
+    def test_the_app_host_names_the_deployment(self, monkeypatch):
+        monkeypatch.setenv("POSTHOG_APP_HOST", " App.Dev.Example.Test ")
+        assert deployment_tags() == ["app_host:app.dev.example.test"]
+
+    @pytest.mark.parametrize("raw", ["", "   "])
+    def test_an_unknown_host_adds_no_tag(self, monkeypatch, raw):
+        monkeypatch.setenv("POSTHOG_APP_HOST", raw)
+        monkeypatch.delenv("POSTHOG_DEPLOYMENT", raising=False)
+        assert deployment_tags() == []
+        assert TAGS_ATTRIBUTE not in process_trace_attributes()
+
+    def test_the_stack_names_the_deployment_beside_the_host(self, monkeypatch):
+        monkeypatch.setenv("POSTHOG_APP_HOST", "app.example.test")
+        monkeypatch.setenv("POSTHOG_DEPLOYMENT", " prod ")
+        assert deployment_tags() == ["app_host:app.example.test", "deployment:prod"]
+        assert process_trace_attributes()[TAGS_ATTRIBUTE] == ["app_host:app.example.test", "deployment:prod"]
+
+    @pytest.mark.parametrize("raw", ["", "   "])
+    def test_an_unknown_stack_adds_no_deployment_tag(self, monkeypatch, raw):
+        monkeypatch.delenv("POSTHOG_APP_HOST", raising=False)
+        monkeypatch.setenv("POSTHOG_DEPLOYMENT", raw)
+        assert deployment() is None
+        assert deployment_tags() == []
 
 
 class TestObservationType:
@@ -85,9 +106,10 @@ class TestTraceName:
 
 
 class TestContextAttributes:
-    def test_every_span_carries_environment_release_and_type(self, monkeypatch):
+    def test_every_span_carries_environment_release_deployment_and_type(self, monkeypatch):
         monkeypatch.setenv("APP_ENV", "production")
         monkeypatch.setenv("GIT_SHA", "abc123")
+        monkeypatch.setenv("POSTHOG_APP_HOST", "app.example.test")
 
         attributes = context_attributes_for(
             name="openai/gpt-x", attributes={"nat.span.kind": "LLM"}, is_root=False, outcome=None
@@ -96,8 +118,17 @@ class TestContextAttributes:
         assert attributes == {
             ENVIRONMENT_ATTRIBUTE: "production",
             RELEASE_ATTRIBUTE: "abc123",
+            TAGS_ATTRIBUTE: ["app_host:app.example.test"],
             OBSERVATION_TYPE_ATTRIBUTE: "generation",
         }
+
+    def test_a_roots_outcome_tags_join_the_deployment_tag_rather_than_replace_it(self, monkeypatch):
+        monkeypatch.setenv("POSTHOG_APP_HOST", "app.example.test")
+        outcome = {TAGS_ATTRIBUTE: ["outcome:answered", "route:deep"]}
+
+        root = context_attributes_for(name="chat_deepresearcher_agent", attributes={}, is_root=True, outcome=outcome)
+
+        assert root[TAGS_ATTRIBUTE] == ["app_host:app.example.test", "outcome:answered", "route:deep"]
 
     def test_only_a_root_names_its_trace_and_carries_the_outcome(self, monkeypatch):
         monkeypatch.delenv("GIT_SHA", raising=False)
@@ -140,12 +171,6 @@ class TestProcessor:
         assert "error:workflow_error" in span.attributes[TAGS_ATTRIBUTE]
 
     async def test_a_chat_root_needs_no_incoming_trace_context(self):
-        """The BFF registers no trace provider, so no request carries a ``traceparent``.
-
-        A root is an agent-runtime span with no agent-runtime parent, not a span that continues a W3C
-        context, so the chat turn must still name its trace and carry its outcome
-        with nothing ambient and nothing upstream.
-        """
         from opentelemetry import trace as otel_trace
 
         from nat.data_models.span import Span
@@ -196,7 +221,6 @@ class TestPipelineWiring:
         assert positions["trace_context"] < positions["header_redaction"]
 
     async def test_tool_contributions_reach_the_trace_with_identity_off(self, monkeypatch):
-        """The privacy switch must not also switch off cost and quality reporting."""
         from agent.observability.langfuse_trace_attributes import IDENTITY_ATTRIBUTES_ENV
         from agent.observability.otel_header_redaction_exporter import OtelCollectorRedactionTelemetryExporter
         from agent.observability.otel_header_redaction_exporter import otelcollector_redaction_telemetry_exporter

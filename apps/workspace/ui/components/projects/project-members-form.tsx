@@ -1,16 +1,15 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '@tanstack/react-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { Lock, Search, UserPlus, Users } from 'lucide-react'
 import { collectPages } from '@/lib/api/offset-page'
 import { cn } from '@/lib/utils'
-import { FieldShell, useAppForm, useFieldContext } from '@/components/form'
+import { useAppForm } from '@/components/form'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -18,7 +17,6 @@ import { Chip } from '@/components/ui/chip'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { FieldError } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import {
   Item,
   ItemActions,
@@ -30,7 +28,6 @@ import {
 } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { SearchField } from '@/components/ui/search-field'
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -43,35 +40,17 @@ import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { membersCopy } from '@/i18n/namespaces/members'
 import { capturePosthog } from '@/lib/analytics/posthog'
-
-type ProjectRole = 'project-viewer' | 'project-contributor' | 'project-editor' | 'project-admin'
-
-interface Member {
-  organizationMembershipId: string
-  userId: string
-  email: string | null
-  name: string
-  profilePictureUrl: string | null
-  role: ProjectRole | null
-}
+import { MemberAvatar } from './project-members-form/member-avatar'
+import type { Member, ProjectRole } from './project-members-form/member-types'
+import { MemberSuggestField } from './project-members-form/member-suggest-field'
+import { RoleSelectField } from './project-members-form/role-select-field'
 
 interface ProjectMembersFormProps {
   projectId: string
-  /** Whether the current user may change roles / add members. */
   canManage: boolean
-  /**
-   * The signed-in user's own `organizationMembershipId` (same id space as
-   * {@link Member.organizationMembershipId}), so the roster can tell which
-   * row is "you". Used to guard against an admin silently stripping their
-   * own project access. `null`/omitted when unknown — the guard then simply
-   * never matches, i.e. it fails open to the pre-existing (unguarded)
-   * behavior rather than blocking legitimate changes.
-   */
   currentMembershipId?: string | null
 }
 
-/** A pending, user-confirmed role change — either a self-row edit or an
- * "Add member" that would actually change an existing member's role. */
 interface PendingRoleConfirm {
   title: string
   description: string
@@ -87,237 +66,11 @@ const ROLE_VALUES: ProjectRole[] = [
   'project-admin',
 ]
 
-/** Radix Select items cannot use an empty-string value; sentinel for "no access". */
 const NO_ACCESS = 'none'
-
-const initials = (name: string): string => {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  const letters = parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase())
-  return letters.join('') || '?'
-}
 
 const searchSchema = z.object({
   query: z.string(),
 })
-
-/** Identity disc for a roster row or suggestion. The Avatar primitive's own
- * geometry stands — no radius or size overrides here. */
-function MemberAvatar({ member, className }: { member: Member; className?: string }): JSX.Element {
-  return (
-    <Avatar className={className}>
-      {member.profilePictureUrl && <AvatarImage src={member.profilePictureUrl} alt="" />}
-      <AvatarFallback className="text-xs font-medium">
-        {initials(member.name)}
-      </AvatarFallback>
-    </Avatar>
-  )
-}
-
-const MAX_SUGGESTIONS = 6
-
-interface MemberSuggestFieldProps {
-  label: string
-  placeholder: string
-  /** Full org roster to suggest from; picking one fills the field with their email. */
-  members: Member[]
-  roleLabel: (role: ProjectRole) => string
-  containerClassName?: string
-}
-
-interface RoleSelectFieldProps {
-  label: string
-  options: Array<{ value: ProjectRole; label: string; description: string }>
-  containerClassName?: string
-}
-
-/**
- * Role picker for the invite form. Built directly on the base Select
- * primitives (rather than the shared `field.SelectField`) so each option can
- * carry a one-line explainer of what the role actually grants.
- */
-function RoleSelectField({
-  label,
-  options,
-  containerClassName,
-}: RoleSelectFieldProps): JSX.Element {
-  const field = useFieldContext<ProjectRole>()
-  const errors = field.state.meta.isTouched
-    ? (field.state.meta.errors as Array<string | { message: string } | undefined>)
-    : []
-  // The closed trigger should show only the role name — SelectValue would
-  // otherwise mirror the full option content, description included.
-  const selectedLabel = options.find((option) => option.value === field.state.value)?.label
-
-  return (
-    <FieldShell label={label} htmlFor={field.name} errors={errors} className={containerClassName}>
-      <Select
-        value={field.state.value}
-        onValueChange={(value) => field.handleChange(value as ProjectRole)}
-      >
-        <SelectTrigger id={field.name} className="w-full" onBlur={field.handleBlur}>
-          <SelectValue>{selectedLabel}</SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              <div className="flex flex-col gap-0.5 py-0.5 text-left">
-                <span>{option.label}</span>
-                <span className="text-muted-foreground text-xs font-normal">
-                  {option.description}
-                </span>
-              </div>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </FieldShell>
-  )
-}
-
-/**
- * Combobox over the already-loaded org roster. WorkOS has no member-search
- * API (listUsers only filters by exact email), so suggestions are filtered
- * client-side; the field's submitted value stays a plain email address.
- */
-function MemberSuggestField({
-  label,
-  placeholder,
-  members,
-  roleLabel,
-  containerClassName,
-}: MemberSuggestFieldProps): JSX.Element {
-  const t = useTranslations(membersCopy)
-  const field = useFieldContext<string>()
-  const listboxId = useId()
-  const [open, setOpen] = useState(false)
-  const [highlight, setHighlight] = useState(0)
-
-  const query = (field.state.value ?? '').trim().toLowerCase()
-  const suggestions = members
-    .filter((member) => member.email)
-    .filter((member) => `${member.name} ${member.email}`.toLowerCase().includes(query))
-    .sort(
-      (a, b) =>
-        // Members without project access first — they're the ones being added.
-        Number(Boolean(a.role)) - Number(Boolean(b.role)) || a.name.localeCompare(b.name)
-    )
-    .slice(0, MAX_SUGGESTIONS)
-
-  const active = Math.min(highlight, Math.max(suggestions.length - 1, 0))
-  const optionId = (index: number): string => `${listboxId}-option-${index}`
-
-  const errors = field.state.meta.isTouched
-    ? (field.state.meta.errors as Array<string | { message: string } | undefined>)
-    : []
-
-  const pick = (member: Member): void => {
-    field.handleChange(member.email ?? '')
-    setOpen(false)
-  }
-
-  return (
-    <FieldShell label={label} htmlFor={field.name} errors={errors} className={containerClassName}>
-      {/* The suggestion list is the shared floating `PopoverContent` anchored
-          to the field, not a hand-rolled absolute panel: same floating
-          chrome, same outside-click/Escape contract. Keyboard behaviour is
-          ported unchanged (ArrowUp/Down move, Enter picks, Escape closes) and
-          rows grow to the touch floor on a coarse pointer. */}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverAnchor asChild>
-          <Input
-            id={field.name}
-            name={field.name}
-            type="text"
-            role="combobox"
-            autoComplete="off"
-            aria-expanded={open}
-            aria-controls={listboxId}
-            aria-autocomplete="list"
-            aria-activedescendant={open && suggestions[active] ? optionId(active) : undefined}
-            aria-invalid={errors.length > 0 || undefined}
-            placeholder={placeholder}
-            value={field.state.value ?? ''}
-            onChange={(event) => {
-              field.handleChange(event.target.value)
-              setOpen(true)
-              setHighlight(0)
-            }}
-            onFocus={() => setOpen(true)}
-            onBlur={() => {
-              field.handleBlur()
-              setOpen(false)
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowDown') {
-                event.preventDefault()
-                setOpen(true)
-                setHighlight((value) => Math.min(value + 1, suggestions.length - 1))
-              } else if (event.key === 'ArrowUp') {
-                event.preventDefault()
-                setHighlight((value) => Math.max(value - 1, 0))
-              } else if (event.key === 'Enter') {
-                if (open && suggestions[active]) {
-                  event.preventDefault()
-                  pick(suggestions[active])
-                }
-              } else if (event.key === 'Escape') {
-                setOpen(false)
-              }
-            }}
-          />
-        </PopoverAnchor>
-        <PopoverContent
-          align="start"
-          sideOffset={4}
-          className="max-h-72 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1"
-          onOpenAutoFocus={(event) => event.preventDefault()}
-          onCloseAutoFocus={(event) => event.preventDefault()}
-        >
-          <div
-            id={listboxId}
-            role="listbox"
-            aria-label={t('invite.suggestionsAria')}
-          >
-            {suggestions.length === 0 ? (
-              <p className="text-muted-foreground px-3 py-2.5 text-sm">
-                {t('invite.noSuggestions')}
-              </p>
-            ) : (
-              suggestions.map((member, index) => (
-                <div
-                  key={member.organizationMembershipId}
-                  id={optionId(index)}
-                  role="option"
-                  aria-selected={index === active}
-                  // preventDefault keeps focus on the input so blur doesn't
-                  // close the list before the click lands.
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    pick(member)
-                  }}
-                  onMouseEnter={() => setHighlight(index)}
-                  className={cn(
-                    'duration-snap flex cursor-pointer items-center gap-3 rounded-control px-3 py-2 transition-colors ease-out pointer-coarse:min-h-11 motion-reduce:transition-none',
-                    index === active && 'bg-accent'
-                  )}
-                >
-                  <MemberAvatar member={member} className="size-7" />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">{member.name}</span>
-                    <span className="text-muted-foreground truncate text-xs">{member.email}</span>
-                  </div>
-                  <span className="text-muted-foreground shrink-0 text-xs">
-                    {member.role ? roleLabel(member.role) : t('roster.noAccess')}
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </FieldShell>
-  )
-}
 
 export function ProjectMembersForm({
   projectId,
@@ -345,14 +98,9 @@ export function ProjectMembersForm({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [inviteError, setInviteError] = useState<string | null>(null)
-  // A destructive-ish role change (self-row edit, or an "Add member" that
-  // would actually change an existing member's role) waiting on explicit
-  // confirmation before it is sent to the server.
   const [pendingConfirm, setPendingConfirm] = useState<PendingRoleConfirm | null>(null)
   const [isConfirming, setIsConfirming] = useState(false)
 
-  // Keep a live reference so the invite form's onSubmit resolves against the
-  // current roster rather than a stale closure.
   const membersRef = useRef<Member[]>([])
   membersRef.current = members
 
@@ -366,7 +114,6 @@ export function ProjectMembersForm({
     setIsLoading(true)
     setLoadError(null)
     try {
-      // The whole organization: this form picks whom to add as well as whom to change.
       const all = await collectPages<Member>(async (cursor) => {
         const params = new URLSearchParams({ scope: 'organization', limit: '200' })
         if (cursor) params.set('cursor', cursor)
@@ -404,9 +151,6 @@ export function ProjectMembersForm({
 
         if (!response.ok) {
           const data = await response.json().catch(() => ({}))
-          // The server rejects any change that would leave the project with no
-          // admin; surface that as its own localized message rather than the
-          // generic failure copy.
           const message =
             data?.details?.reason === 'last-admin'
               ? t('errors.lastAdmin')
@@ -438,13 +182,6 @@ export function ProjectMembersForm({
     [projectId, t]
   )
 
-  /**
-   * Roster row role change. Guards the current user's own row: an admin
-   * changing their own role/access on this Select otherwise commits
-   * instantly (lockout footgun — see project-members-form ticket), so a
-   * self-edit is routed through an explicit confirmation instead of
-   * `assignRole` directly.
-   */
   const handleRosterRoleChange = (member: Member, nextRole: ProjectRole | ''): void => {
     const isSelf =
       currentMembershipId != null && member.organizationMembershipId === currentMembershipId
@@ -500,23 +237,17 @@ export function ProjectMembersForm({
       }
 
       if (!match.role) {
-        // Genuinely new access — no existing role to clobber.
         await grantAndAnnounce()
         return
       }
 
       if (match.role === value.roleSlug) {
-        // Nothing would actually change; say so instead of a no-op success.
         setInviteError(
           t('invite.alreadyHasRole', { name: match.name, role: roleLabel(match.role) })
         )
         return
       }
 
-      // `match` already has a project role — "Add member" here would
-      // silently change it (e.g. an admin picked as a "viewer" invite gets
-      // downgraded). Confirm the change explicitly instead of presenting a
-      // role change as a cheerful "added" toast.
       setPendingConfirm({
         title: t('confirm.roleChangeTitle'),
         description: t('confirm.roleChangeDescription', {

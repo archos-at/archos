@@ -1,5 +1,3 @@
-"""A mail body as text, from whichever form the message stored it in."""
-
 from __future__ import annotations
 
 from agent_host.mail import body_text as module
@@ -58,7 +56,6 @@ def test_a_body_past_the_bound_is_cut_and_says_so(monkeypatch):
 
 
 def test_an_html_table_keeps_its_cells_apart():
-    """RT-X3: a table flattened without separators reads "Stellplätze12"."""
     markup = (
         "<table><tr><th>Bauteil</th><th>Anzahl</th></tr>"
         "<tr><td>Stellplätze</td><td>12</td></tr>"
@@ -69,7 +66,6 @@ def test_an_html_table_keeps_its_cells_apart():
 
 
 def test_html_that_declares_its_own_encoding_reads_as_text_not_markup():
-    """lxml refuses a str with an encoding declaration; Outlook writes one."""
     markup = '<?xml version="1.0" encoding="utf-8"?><html><body><p>Grüße aus Wien</p></body></html>'
 
     assert html_to_text(markup).strip() == "Grüße aus Wien"
@@ -78,9 +74,6 @@ def test_html_that_declares_its_own_encoding_reads_as_text_not_markup():
 def test_markup_with_nothing_to_show_is_no_text():
     assert html_to_text("<!-- only a comment -->") == ""
     assert body_text(None, "<!-- only a comment -->", None).source == "none"
-
-
-# ADR-0137, amendment of 2026-11-03: what a reader cannot see is not indexed.
 
 
 def test_a_hidden_instruction_is_not_text():
@@ -108,7 +101,6 @@ def test_hidden_text_keeps_the_visible_text_after_it():
 
 
 def test_zero_font_size_hides_only_what_does_not_set_its_own_size():
-    # A responsive mail's columns: the cell swallows the spaces between them, each column sets its size back.
     markup = (
         '<table><tr><td style="font-size:0">swallowed'
         '<div style="display:inline-block;font-size:14px">Spalte eins</div> '
@@ -119,7 +111,6 @@ def test_zero_font_size_hides_only_what_does_not_set_its_own_size():
         '<p style="font-size:0.5em">klein, aber lesbar</p>'
     )
 
-    # The emptied paragraph is still a block: a blank line, as an empty <p> is.
     assert body_text(None, markup, None).text == "Spalte eins\nSpalte zwei\n\nklein, aber lesbar"
 
 
@@ -141,14 +132,12 @@ def test_a_tracking_pixel_leaves_no_text_and_an_image_no_alt():
 
 
 def test_zero_width_characters_no_longer_split_a_word():
-    # A word split by invisible characters is missed by every search for it.
     plain = "Stell\u200bplatz\u200c nach\u200dweis \u2060Brand\ufeffschutz Ab\u00adstands\u00adfläche"
 
     assert body_text(plain, None, None).text == "Stellplatz nachweis Brandschutz Abstandsfläche"
 
 
 def test_bidi_controls_are_dropped_from_every_form():
-    # "Rechnung_<RLO>fdp.exe" shows as "Rechnung_exe.pdf" on screen.
     spoofed = "Anhang: Rechnung_\u202efdp.exe \u2066isoliert\u2069 \u200fmark\u200e"
     expected = "Anhang: Rechnung_fdp.exe isoliert mark"
 

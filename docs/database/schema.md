@@ -215,7 +215,7 @@ union and `decidedAt` a UTC ISO instant (ADR-0030). It is why a settled
 `project_profile_patch` / `memory_proposal` cannot re-offer a button that would
 apply the same write twice, for a card without a `proposal_id`. A card that has
 one (ADR-0105) is decided on the `proposed_changes` row and writes nothing here;
-the row is also what Piloti reads back in `PROPOSAL_DECISIONS`. Unlike the other keys it is usually written *after*
+the row is also what the agent reads back in `PROPOSAL_DECISIONS`. Unlike the other keys it is usually written *after*
 the insert, via `PATCH /api/conversations/{id}/messages/{messageId}` (merged per
 card key); it also rides the INSERT when a decision was already recorded
 locally, which is how a decision made before the row existed still reaches the
@@ -293,7 +293,7 @@ export const documents = pgTable('documents', {
   // `Wohnbau Nord/03_Einreichung/EG.pdf`. NULL for a picked file, which
   // genuinely has none. Written once and never rewritten: this is a fact about
   // the ORIGINAL, deliberately not `folder_id` / the materialised folder path
-  // (ADR-0049), which are Piloti's own filing and are meant to be rearranged.
+  // (ADR-0049), which are the agent's own filing and are meant to be rearranged.
   // Migration 0072.
   originPath: text('origin_path'),
   // A digest of the stored bytes, `sha256:<hex>`, or NULL when unknown. What
@@ -332,19 +332,19 @@ export const documents = pgTable('documents', {
 | `authored_by_producer` | `text` | | **Migration `0063`**: WHAT wrote a non-`user` document, as a producer identifier (`deep_research`, `diagram_svg`, `diagram_pdf`), never a display label. A producer is a KIND OF DELIVERABLE, not a piece of software — which is why one run can carry two of them, and why migration `0065` makes it half of the idempotency key. `NULL` for everything a person uploaded. Separate from `authored_by_ref` because a reference identifies the producer only while there is exactly one of them; recovering it later from pruned job history is archaeology. Since migration `0066` it is also what the reference KIND is derived from. |
 | `authored_by_ref` | `text` | | **Migration `0063`, renamed by `0066`**: the identifier of the thing that produced a non-`user` document. `NULL` for everything a person uploaded. `text`, not `uuid` — every kind of reference is carried from somewhere else, never generated here. It was called `authored_by_run_id` and documented as "the backend async job id of the run", which was true while `deep_research` was the only producer and false for the two diagram producers, whose reference is the chat answer the drawing came from plus a hash of its source. Read it WITH `authored_by_ref_kind`. |
 | `authored_by_ref_kind` | `text` | | **Migration `0066`**: what kind of identifier `authored_by_ref` holds — `agent_run` (a backend async job id in the `agent_host` job store) or `answer_artifact` (one artifact inside one chat answer). `NULL` for everything a person uploaded. Derived from `authored_by_producer` by the one filing path (`GENERATED_DOCUMENT_PRODUCER_REF_KINDS`), never chosen at a call site, so a producer and the kind of identity it files under cannot disagree. No CHECK on the value, so a further kind is a TypeScript change — the `authored_by`/`scope` arrangement. It is ALSO the WorkOS audit target type on `document.generated`, so a kind added to `AUTHORED_REF_KINDS` owes an entry in `lib/audit/schemas.mjs` — without it WorkOS rejects the event, and because that emit throws, the rejection unfiles the document rather than losing a log line. Backfilled from the producer by `0066`, which refuses to run rather than guess a kind for a producer it does not know. |
-| `filename` | `text` | NOT NULL | Original filename — the document's IDENTITY, not its label. It addresses the SeaweedFS object and, as `(collection_name, filename)`, every chunk the retrieval index holds for the document, so it is written at upload and never updated. A document Piloti wrote whose versions may be **published** carries the namespace `piloti/<document id>/<name>` from creation (ADR-0054, `lib/documents/agent-namespace.ts`), so a model-chosen title cannot collide with a person's upload; the OBJECT key is built from the bare name and stays flat, and the ingest dispatch states this column as `file_name` rather than letting the backend derive it from the key. |
+| `filename` | `text` | NOT NULL | Original filename — the document's IDENTITY, not its label. It addresses the SeaweedFS object and, as `(collection_name, filename)`, every chunk the retrieval index holds for the document, so it is written at upload and never updated. A document the agent wrote whose versions may be **published** carries the namespace `piloti/<document id>/<name>` from creation (ADR-0054, `lib/documents/agent-namespace.ts`), so a model-chosen title cannot collide with a person's upload; the OBJECT key is built from the bare name and stays flat, and the ingest dispatch states this column as `file_name` rather than letting the backend derive it from the key. |
 | `display_name` | `text` | | **Migration `0048`**: what a reader sees, once somebody has renamed the document. `NULL` = never renamed → show `filename`, which is what every earlier row means (no backfill). Resolve the pair with `documentDisplayName` (`lib/documents/display-name`) rather than reading the column directly. Written by `PATCH /api/documents/{id}`, which also mirrors the value onto the backend metadata store's `display_title` so citation chips follow the rename without a re-ingestion. Renaming `filename` instead would orphan the document's chunks — the migration spells out why. |
 | `storage_key` | `text` | NOT NULL | Object storage key |
 | `storage_bucket` | `text` | | **ADR-0043** (migration `0033`): the S3 bucket holding this document's bytes. `NULL` means the deployment's shared bucket (`SEAWEED_BUCKET`), which is what every row written before per-organization buckets existed means — and the meaning is fixed, so no backfill is needed or wanted. Recorded rather than derived from `organization_id`: deriving it would make `SEAWEED_PER_ORG_BUCKETS` a cutover, where flipping it makes every earlier object unreachable. `resolveDocumentBucket` in `lib/storage/bucket` is the one place that turns it back into a name. |
 | `collection_name` | `text` | NOT NULL | The retrieval collection holding the document's chunks. For a project document it is the project's `collection_name`, **or, under a restricted folder, that folder's own collection** `<project collection>_r<12 hex of the folder id>` (ADR-0087). Which one is a function of the folder tree: `lib/projects/collection-placement.ts` moves rows when the tree changes: purge and re-point in the caller, the re-ingest by a bulk `placement_reingest` job. |
 | `file_size` | `integer` | | Size in bytes |
 | `content_type` | `text` | | MIME type |
-| `status` | `text` | NOT NULL, DEFAULT `'uploaded'`, CHECK `documents_status_known` | **Migration `0135`** (ADR-0104): one of `uploaded` (bytes here, nothing dispatched), `pending` (an ingest job is queued), `processing` (the BFF works on it locally: IFC, Office rendition, placement re-read), `completed` (read; citable), `failed`, `quarantined` (the content check holds it, ADR-0086), `stored` (bytes here and deliberately not read: a Piloti document nobody published, an archived document), `cancelled` (a person stopped the read before it finished; **migration `0153`** widened the CHECK to add it). TERMINAL: `completed`, `failed`, `quarantined`, `stored`, `uploaded`, `cancelled`; `stored` and `cancelled` must stay out of the in-flight set the reconcile polls, and a `cancelled` row is re-checked for a short window in case its job finalized in the same instant as the stop (`reconcile-status.ts`). Open `text` until 0135, which rewrote the legacy spellings (`ready`, `ingested`, `success`, `processed` → `completed`; `error` → `failed`). Vocabulary: `lib/documents/document-status.ts` — `DOCUMENT_STATUSES` |
+| `status` | `text` | NOT NULL, DEFAULT `'uploaded'`, CHECK `documents_status_known` | **Migration `0135`** (ADR-0104): one of `uploaded` (bytes here, nothing dispatched), `pending` (an ingest job is queued), `processing` (the BFF works on it locally: IFC, Office rendition, placement re-read), `completed` (read; citable), `failed`, `quarantined` (the content check holds it, ADR-0086), `stored` (bytes here and deliberately not read: an agent document nobody published, an archived document), `cancelled` (a person stopped the read before it finished; **migration `0153`** widened the CHECK to add it). TERMINAL: `completed`, `failed`, `quarantined`, `stored`, `uploaded`, `cancelled`; `stored` and `cancelled` must stay out of the in-flight set the reconcile polls, and a `cancelled` row is re-checked for a short window in case its job finalized in the same instant as the stop (`reconcile-status.ts`). Open `text` until 0135, which rewrote the legacy spellings (`ready`, `ingested`, `success`, `processed` → `completed`; `error` → `failed`). Vocabulary: `lib/documents/document-status.ts` — `DOCUMENT_STATUSES` |
 | `error_message` | `text` | | Error details if status is `failed`. A `quarantined` row still carries the job's legacy `quarantined:{json}` text for one release; nothing reads it but `quarantineVerdictOf`, and only where `quarantine` is NULL |
 | `quarantine` | `jsonb` | CHECK `documents_quarantine_shape_check` (NULL, or an object with a `reasons` array), CHECK `documents_quarantine_held_check` (NULL unless `status = 'quarantined'`) | **Migration `0148`, ADR-0113**: why the content check held the row, as the ingest job's typed verdict (`{reasons:[{kind, term?, count, pages, pages_truncated?, sample?}], checked, omitted?, after_transcription?}`; kinds kept as the job wrote them). Written by `setDocumentReconciledStatus` with the `quarantined` status, cleared by `markScreeningReleased`. Read through `quarantineVerdictOf` (`lib/upload-screening/quarantine.ts`), and shown only to whoever may see the held row. The migration backfilled it row by row from `error_message`; a row whose message did not parse stays NULL and is read from the message. The down drops it (lossless for older builds, which read `error_message`) |
 | `metadata` | `jsonb` | | Internal to the BFF, never sent to a browser. `ingestJobId` and `ingestContentHash` (the dispatch's job and the digest of the bytes it reads, `setDocumentIngestJob`, which rewrites the object), `filingChoice` (`{documentType?, revisionOfId?}`: what the person filing those bytes chose, the Fassung as the older document's id, recorded by the same dispatch so a reviewer's release of a held file sends it again after re-resolving the id; `lib/documents/filing-choice.ts`), `bffJobId` (a job at `processing`, below) |
 | `screening_outcome` | `text` | CHECK `NULL` or `clean`/`partial`/`unchecked`/`quarantined`/`released` | **Migration `0109`, ADR-0086**: what the local content screening found before the first model call. `NULL` = not screened (a row older than the column, or one replaced since: a replacement resets it). `partial` = some pages had no text layer and were checked by name only; `unchecked` = no text could be read locally at all; `quarantined` = a term or detector matched and nothing went to a model. Written by reconciliation from the ingest job's `file_details[].screening`. |
-| `screened_hash` | `text` | | **Migration `0123`, ADR-0086**: the `content_hash` of the bytes `screening_outcome` judged (or, with screening off, the completed read covered). Recorded by the dispatch beside its job id (`metadata.ingestContentHash`), written by reconciliation with the verdict and by a release. A person's upload passes the hold only while it equals `content_hash`, so bytes swapped in after a verdict are held until their own screen. Backfilled to `content_hash` for every person's upload; NULL for Piloti's documents, which are never held. |
+| `screened_hash` | `text` | | **Migration `0123`, ADR-0086**: the `content_hash` of the bytes `screening_outcome` judged (or, with screening off, the completed read covered). Recorded by the dispatch beside its job id (`metadata.ingestContentHash`), written by reconciliation with the verdict and by a release. A person's upload passes the hold only while it equals `content_hash`, so bytes swapped in after a verdict are held until their own screen. Backfilled to `content_hash` for every person's upload; NULL for the agent's documents, which are never held. |
 | `screening_released_hash` / `screening_released_by` / `screening_released_at` | `text` / `text` / `timestamptz` | all three or none (CHECK) | **Migration `0109`**: a reviewer released a quarantined document. The release names the BYTES (`content_hash` at the time), so a replacement under the same id is screened again instead of riding the old release. |
 | `upload_batch_id` | `uuid` | partial index | **Migration `0110`**: the upload gesture this row arrived in (`upload_batches.id`). Recorded only when the batch is the uploader's own, open one for this shelf; anything else is ignored rather than refused. No FK: a batch is history, and pruning it must not touch documents. |
 | `created_at` | `timestamptz` | NOT NULL, `defaultNow()` | |
@@ -358,7 +358,7 @@ export const documents = pgTable('documents', {
 - `documents_upload_batch_idx` — on `upload_batch_id`, **PARTIAL** (`WHERE upload_batch_id IS NOT NULL`) — a batch's documents, for its settlement and summary (migration `0110`)
 - `documents_org_scope_idx` — on (`organization_id`, `scope`) — bounds the org-wide Archiv listing (ADR-0024)
 - `documents_conversation_idx` — on `conversation_id`, **PARTIAL** (`WHERE conversation_id IS NOT NULL`) — the session-document listing and the composite FK's referencing side (migration `0049`)
-- `documents_agent_authored_idx` — on (`project_id`, `created_at DESC`), **PARTIAL** (`WHERE authored_by = 'agent'`) — makes "everything Piloti wrote in this project" a point query in the listing's own sort order, while carrying no entry for the human uploads that are the overwhelming majority (migration `0063`). The predicate names `agent` rather than `<> 'user'`, so a second producer needs it widened or an index of its own.
+- `documents_agent_authored_idx` — on (`project_id`, `created_at DESC`), **PARTIAL** (`WHERE authored_by = 'agent'`) — makes "everything the agent wrote in this project" a point query in the listing's own sort order, while carrying no entry for the human uploads that are the overwhelming majority (migration `0063`). The predicate names `agent` rather than `<> 'user'`, so a second producer needs it widened or an index of its own.
 
 - `uniq_documents_authored_ref_producer_per_project` — **UNIQUE**, on (`organization_id`, `project_id`, `authored_by_ref`, `authored_by_producer`), **PARTIAL** (`WHERE authored_by <> 'user'`) — one machine-authored document per reference per producer. Its columns are exactly the WHERE clause of `findDocumentAuthoredByRef`: an index narrower than that probe rejects rows the probe would accept, a wider one admits the duplicates the probe was meant to prevent, so the two are changed together or not at all. Introduced without the producer as `uniq_documents_authored_run_per_project` (migration `0064`, one document per RUN) and widened by migration `0065`, because a run can owe more than one file — a diagram is a previewable SVG that carries its own source and an attachable PDF, and under the old key the second call answered "already filed". Restated under the renamed column by migration `0066` rather than renamed, so the live rule is readable in one file instead of split between a `CREATE` in `0065` and an `ALTER … RENAME` in `0066`. `authored_by_ref_kind` is deliberately NOT in the key: it is a function of `authored_by_producer`, which is already in it. Partial on `<> 'user'` because the CHECK below deliberately lets a HUMAN row carry a reference too, and two colleagues saving one run's artefact into one project must not collide. A NULL producer is not covered (NULL never equals NULL), which `documents_authorship_requires_provenance` makes unreachable for these rows.
 
@@ -393,7 +393,7 @@ threw the previous bytes away. That was versioning without the history. Now:
 |---|---|
 | a person uploads a file | version 1, `published`, `origin = 'upload'`, `published_by = created_by` and **no approver** (migration `0137`) — the person who uploaded it IS the assertion, and no review round is invented. Rows written before 0137 carried the uploader in `approved_by`; the migration cleared it |
 | a person re-uploads the same name | version N+1, `published`; version N becomes `superseded` and **keeps its object**, under the `v<n>/` storage prefix it was written to |
-| Piloti files a document | version 1, `draft`, `origin = 'draft'`, which walks `draft → in_review → published` (approving publishes in one step, ADR-0104 rule 5) and can be sent back with `changes_requested` or `rejected`. A version still `approved` from before 0137 is published by `publish` |
+| The agent files a document | version 1, `draft`, `origin = 'draft'`, which walks `draft → in_review → published` (approving publishes in one step, ADR-0104 rule 5) and can be sent back with `changes_requested` or `rejected`. A version still `approved` from before 0137 is published by `publish` |
 
 `documents.published_version_id` points at the live version and the item's
 `storage_key` / `storage_bucket` / `file_size` / `content_type` / `content_hash`
@@ -449,7 +449,7 @@ both wrote the same object key. Now:
 
 - the number is allocated INSIDE the inserting transaction, under a
   per-document advisory lock (`allocateVersionNumber`,
-  `lib/documents/version-repository.ts`, key `document_versions:<document id>`).
+  `lib/documents/version-repository/insert.ts`, key `document_versions:<document id>`).
   Neither insert accepts a number from its caller; the type does not have the
   field;
 - the object key is unique per WRITE, not per number: `…/doc/<id>/v<n>/<write
@@ -554,7 +554,7 @@ a shrinking write is always admitted. It used to be an unlocked
 submit transition. `submitted_by` stays whose AUTHORITY the submission carried —
 permissions, the audit actor and the inbox all read it. The distinction has one
 reader: the not-the-submitter guard on `approve`. „Der Einreichende darf nicht
-freigeben" is about a person asserting their own work, and a report Piloti filed
+freigeben" is about a person asserting their own work, and a report the agent filed
 in the commissioning human's session is not their own work — reading
 `submitted_by` alone refused the one person who had asked for the report the
 right to release it.
@@ -594,7 +594,7 @@ boundary, so it is deliberately not in that list.
 One review round on one version. A submit opens a round (`outcome = 'requested'`);
 an approval, a request for changes or a rejection decides it. Written in the
 transaction that swaps the version's `state` (`compareAndSwapVersionState`,
-`lib/documents/version-repository.ts`), so a round and the state it describes
+`lib/documents/version-repository/state-swap.ts`), so a round and the state it describes
 cannot disagree.
 
 | Column | Type | Constraints | Notes |
@@ -1514,7 +1514,7 @@ exists. The audit trail holds the event under its own retention.
 | `id` | `uuid` | PK, `gen_random_uuid()` | The event's idempotency key, `document.quarantined:<id>` |
 | `organization_id` | `text` | NOT NULL | RLS: `organization_id = current_org()` |
 | `document_id` | `uuid` | NOT NULL | No FK: a reviewer may delete the file before the decision reaches the trail. The retention, not the document, ends the row |
-| `job_id` | `text` | UNIQUE with `document_id` (`document_quarantine_decisions_dispatch_key`) | The ingest job whose gate decided: one dispatch, one decision. NULL only when the row carried no job (the backend's file list said quarantined). A row that carries a job takes a failure only from that job, never from the file list, whose failed entry under the name may be an earlier dispatch's (`attributableFailure`, `lib/documents/reconcile-status.ts`) |
+| `job_id` | `text` | UNIQUE with `document_id` (`document_quarantine_decisions_dispatch_key`) | The ingest job whose gate decided: one dispatch, one decision. NULL only when the row carried no job (the backend's file list said quarantined). A row that carries a job takes a failure only from that job, never from the file list, whose failed entry under the name may be an earlier dispatch's (`attributableFailure`, `apps/workspace/bff/documents/reconcile-status/ingest-resolution.ts`) |
 | `decided_at` | `timestamptz` | NOT NULL, `now()` | The event's `occurredAt` |
 | `scope` | `text` | NOT NULL, CHECK `project`/`office_shelf`/`session` | |
 | `project_id` | `uuid` | | CHECK `(scope = 'project') = (project_id IS NOT NULL)` |
@@ -2265,7 +2265,7 @@ Indexes: `uniq_inbox_items_recipient_group`;
 the migration and not declared in the schema file — matching the badge
 predicate exactly (`archived_at IS NULL AND inert_at IS NULL AND (read_at IS NULL
 OR (actionable AND resolved_at IS NULL))`). Keep the predicate and
-`pendingPredicate()` in `lib/inbox/repository.ts` in step, or the badge silently
+`pendingPredicate()` in `lib/inbox/inbox-item-queries.ts` in step, or the badge silently
 stops using its index.
 
 ### mention_requests
@@ -2389,9 +2389,10 @@ any query the layer emits and was dropped in 0036.
 Deliberately **no** `organization_id`: the parent model's column is the truth
 and the RLS policy joins it, per the child-table rule in ADR-0041. The join is
 asserted against a live Postgres in `src/lib/bim/query.integration.spec.ts`,
-which runs under `task db:test:rls` — as is the agreement between the
-TypeScript `buildSearchKeys` and 0038's SQL backfill, which are two
-implementations of the same map.
+which runs under `task db:test:rls`. The write path is asserted against the
+TypeScript `buildSearchKeys` in `query.search-keys.integration.spec.ts`. No spec
+asserts that 0038's SQL backfill agrees with it: a spec may not read the
+migration's SQL, so that agreement is unverified.
 
 ### `bim_check_confirmations`
 
@@ -2512,7 +2513,7 @@ platform only.
 | `knowledge_golden_run_cases` | One case of a run at the revision it was read: `ask_id` and `conversation_id` once asked, then `passed` with `result` (checks, scores, seconds, cost, trace id) or `failure` once settled (0228) | Platform-private; asked before settled, a verdict or a failure and never both, one case per conversation (CHECKs and a unique index) |
 | `knowledge_approvals` | A person's yes (`role`, `decision_source` `app`/`elicitation`) | Insert-only; only on a submitted request; never by an author of one of its revisions (`knowledge_approval_four_eyes`); none, alone or not, while `knowledge_sources_unchecked` holds: a revision cites a capture that does not count as fetched, or (0224) a manifestation names a text that does not (`knowledge_text_counts_as_fetched`: `provenance.text.origin` is not `url`, the revision no longer names the fetched file and hash, or the fetch went through a source that `knowledge_source_reviewed` does not accept: a draft's own, or one released by one person alone and not yet confirmed), and nobody but its author and its uploader marked a verdict on it `source_checked` |
 | `knowledge_release_moves` | A publish or rollback of one record on `preview` or `stable`, `from`/`to` revision, who, how they said yes | Insert-only; a publish only of an approved request's own revision; a platform head moves only to where the newest stable move points (`knowledge_platform_head_follows_release`), and a platform record is born without a head |
-| `knowledge_index_runs` | The indexing of one published text: `requested`, `queued`, or `failed` with `failure` | Platform-private |
+| `knowledge_index_runs` | The indexing of one published text: `requested`, `queued`, or `failed` with `failure`; `handed_at` once it handed the text to the corpus, so a retry does not ingest it again | Platform-private |
 | `organization_countries` | A country the platform entitled an office to (`entitled_by`, `decision_source`) | The office reads its own rows; only the platform writes (restrictive guards `false`) |
 
 Reads: an office reads a platform record once it has a head and its country is

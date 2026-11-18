@@ -4,8 +4,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PutObjectCommand } from '@aws-sdk/client-s3'
 
-// The route factory (`@/lib/api/handler`) statically imports the session
-// guard, which pulls in authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(),
 }))
@@ -31,8 +29,8 @@ const request = (body: unknown, token: string | null = 'test-token'): Request =>
 describe('POST /api/internal/base-corpus/upload-url', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
     vi.mocked(getSignedUrl).mockResolvedValue('http://seaweedfs/grid-documents/base-corpus/x.pdf?X-Amz-Signature=abc')
   })
 
@@ -43,7 +41,7 @@ describe('POST /api/internal/base-corpus/upload-url', () => {
   })
 
   it('fails closed when the token is unconfigured', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await POST(request({ fileName: 'x.pdf' }))).status).toBe(503)
     expect(getSignedUrl).not.toHaveBeenCalled()
   })
@@ -69,7 +67,6 @@ describe('POST /api/internal/base-corpus/upload-url', () => {
       storageKey: 'base-corpus/OIB-RL 2.pdf',
     })
     const [client, command, options] = vi.mocked(getSignedUrl).mock.calls[0]
-    // The backend PUTs this from inside the network: the in-network client, not the browser's.
     const actual = await vi.importActual<typeof import('@/lib/s3')>('@/lib/s3')
     expect(client).toBe(actual.s3Client)
     expect(client).not.toBe(signingClient)

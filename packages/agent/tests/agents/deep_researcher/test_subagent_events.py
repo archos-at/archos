@@ -1,12 +1,3 @@
-"""Deep research's subagents reach the chat wire as AG-UI 1.0 ``SUBAGENT_*`` events.
-
-Two producers: the orchestrator's ``task`` calls (``SubagentEventsMiddleware``,
-through a real ``create_agent`` tool loop) and each researcher worker of
-``run_research_batch`` (``_run_research_query``). Both run inside a compiled
-outer graph under ``astream``, the shape an in-process deep research has on a
-chat turn, because only there does the writer reach them.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -40,8 +31,6 @@ from agent.common.wire_v2 import SubagentStartedBody
 
 
 class _ToolCallingFake(GenericFakeChatModel):
-    """A scripted chat model that accepts tools, for a real ``create_agent`` loop."""
-
     def bind_tools(self, tools: Any, **kwargs: Any) -> _ToolCallingFake:
         return self
 
@@ -64,15 +53,13 @@ async def _bodies_of(node: Any) -> list[Any]:
     graph.add_node("deep_research", node)
     graph.set_entry_point("deep_research")
     graph.add_edge("deep_research", END)
-    # `subgraphs=True`, as the conversation graph streams: a nested graph's writes reach the stream only so.
     stream = graph.compile().astream({}, stream_mode="custom", subgraphs=True)
     return [chunk async for _namespace, chunk in stream]
 
 
 def _orchestrator(responses: Iterator[AIMessage], task_body: Any) -> Any:
-    @tool("task")
+    @tool("task", description="Run a subagent.")
     async def task(description: str, subagent_type: str) -> str:
-        """Run a subagent."""
         return await task_body(subagent_type)
 
     return create_agent(
@@ -84,7 +71,6 @@ def _orchestrator(responses: Iterator[AIMessage], task_body: Any) -> Any:
 
 async def test_a_task_call_is_one_subagent_whose_steps_carry_its_id() -> None:
     async def planner(subagent_type: str) -> str:
-        # The subagent's own graph: a node that writes a step, like a planner's search.
         inner = StateGraph(_Outer)
 
         async def search(state: _Outer) -> _Outer:
@@ -118,7 +104,6 @@ async def test_a_task_call_is_one_subagent_whose_steps_carry_its_id() -> None:
         if isinstance(body, StepStartedBody | StepFinishedBody)
     }
     assert steps[("status:planner-search", "StepFinishedBody")] == started.subagent_run_id
-    # The `task` call that spawned it is the orchestrator's own row.
     task_rows = [run for (step_id, _), run in steps.items() if step_id.startswith("tool:")]
     assert task_rows and all(run is None for run in task_rows)
     assert [body.subagent_run_id for body in bodies if isinstance(body, SubagentFinishedBody)] == [
@@ -133,8 +118,6 @@ async def test_a_task_that_comes_back_as_an_error_is_a_failed_subagent() -> None
     agent = _orchestrator(iter([_task_call("planner-agent", "call_plan"), AIMessage(content="done")]), broken)
 
     async def node(state: _Outer) -> _Outer:
-        # ToolNode turns a raising tool into an error ToolMessage, or raises:
-        # either way the subagent is reported failed.
         try:
             await agent.ainvoke({"messages": [HumanMessage(content="Fluchtwege?")]})
         except RuntimeError:
@@ -145,7 +128,6 @@ async def test_a_task_that_comes_back_as_an_error_is_a_failed_subagent() -> None
     errors = [body for body in bodies if isinstance(body, SubagentErrorBody)]
     assert len(errors) == 1
     assert "planner blew up" not in errors[0].message
-    # An invocation ends once: no SUBAGENT_FINISHED after its error.
     assert not [body for body in bodies if isinstance(body, SubagentFinishedBody)]
 
 
@@ -191,8 +173,6 @@ def _notes(topic: str) -> dict[str, Any]:
 
 
 class _Researcher:
-    """A researcher runnable that writes one step, then returns notes (or nothing usable)."""
-
     def __init__(self, empty_for: str | None = None) -> None:
         self.empty_for = empty_for
 
@@ -237,7 +217,6 @@ async def test_each_researcher_worker_is_its_own_subagent_and_a_useless_one_fail
 
 
 async def test_an_error_result_from_the_task_tool_is_a_failed_subagent_too() -> None:
-    """A middleware further in may turn the raise into an error ToolMessage: still a failure, ended once."""
     middleware = SubagentEventsMiddleware(["writer-agent"])
     request = SimpleNamespace(tool_call={"name": "task", "args": {"subagent_type": "writer-agent"}, "id": "call_w"})
 

@@ -1,13 +1,3 @@
-"""The seams the refactor introduced, pinned.
-
-The first test is the one that matters: the skill resolver is a synchronous
-HTTP round trip to the BFF, and running it on the event loop inside
-``_prepare_run`` stalled the research worker's heartbeat for as long as the BFF
-took to answer — the ghost reaper then failed healthy jobs
-(``docs/contributing/gotchas.md``). The rest pin the pure functions that were
-carved out of ``_finalize``, ``run``, the batch tool and the middleware.
-"""
-
 from __future__ import annotations
 
 import threading
@@ -40,7 +30,6 @@ from agent.common.turn_notices import CUTOFF_WALL_CLOCK
 
 @pytest.mark.asyncio
 async def test_the_skill_resolver_never_runs_on_the_event_loop_thread():
-    """A sync HTTP call inside ``_build_skill_runtime`` must run in a worker thread."""
     loop_thread = threading.get_ident()
     seen: dict[str, object] = {}
 

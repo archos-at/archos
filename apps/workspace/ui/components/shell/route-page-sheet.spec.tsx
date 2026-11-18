@@ -1,12 +1,3 @@
-/**
- * A route's sheet rises once.
- *
- * The route's `loading.tsx` draws `PageSheetSkeleton`, which rises as the
- * sheet. When the route resolved, the real sheet used to start again from the
- * screen's foot: two rises of one panel on every open. It now takes over where
- * the skeleton stands.
- */
-
 import { describe, expect, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 

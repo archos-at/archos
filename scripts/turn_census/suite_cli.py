@@ -1,9 +1,3 @@
-"""The answer suite's command line: its flags, and the combinations it refuses before any work.
-
-Split out of ``suite.py`` (``docs/contributing/code-conventions.md#size-limits``);
-``suite.main`` reads its arguments here and does the rest.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -16,7 +10,6 @@ CASES_HELP = (
 
 
 def build_parser(description: str | None) -> argparse.ArgumentParser:
-    """The suite's flags."""
     parser = argparse.ArgumentParser(description=description, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--all", action="store_true", help="every question with a family, not only `suite: core`")
     parser.add_argument("--only", nargs="*", help="question ids to run")
@@ -77,8 +70,10 @@ def build_parser(description: str | None) -> argparse.ArgumentParser:
     return parser
 
 
-def parse_args(argv: list[str] | None, *, description: str | None) -> argparse.Namespace:
-    """``argv`` as the suite's arguments; exits with the usage line on a combination it cannot run."""
+DESCRIPTION = "Answer suite: the reference questions through the real agent, timed and checked."
+
+
+def parse_args(argv: list[str] | None, *, description: str = DESCRIPTION) -> argparse.Namespace:
     parser = build_parser(description)
     args = parser.parse_args(argv)
     if args.corpus is not None and not args.ingest:
@@ -92,7 +87,6 @@ def parse_args(argv: list[str] | None, *, description: str | None) -> argparse.N
     if args.cases is not None:
         import golden_eval
 
-        # Before any question is loaded, a --report's among them: the set reads its rows from this file.
         golden_eval.CASES_FILE = args.cases.resolve()
     if args.look != "on" and args.set != "visual":
         parser.error("--look is for --set visual")

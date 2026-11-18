@@ -1,9 +1,3 @@
-/**
- * The sender rule's classifier (ADR-0137, amendment of 2026-11-03): one case
- * per class, and every way a writer's mail falls short of a direct filing. The
- * database holds the same rule (`inbound_mails_verified_writer_evidence`,
- * `scripts/rls-test-db.sh`); this is the code that must never ask it for more.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { directFilingEnabled } from './direct-filing'
 import { judgeSender, type SenderAuthentication } from './sender-auth'
@@ -32,7 +26,6 @@ describe('senderClassOf', () => {
   })
 
   it('a member’s signed mail to an outsider, re-sent by that outsider to the project within 24 hours, waits', () => {
-    // Signed To: the outsider, sent at 09:00; the outsider re-sends the unchanged bytes to the project at 12:00.
     const replayed: SenderAuthentication = {
       fromAddress: 'miriam@buero.example',
       fromDomain: 'buero.example',
@@ -98,7 +91,6 @@ describe('senderClassOf', () => {
       expect(senderWaitReason(held)).toBe('paused')
       expect(senderWaitReason({ ...held, directFiling: false })).toBe('paused')
       vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'true')
-      // On, a verified writer's mail still waiting is one direct filing left: any writer files it, and the reader is told so.
       expect(senderWaitReason(held)).toBe('not_filed')
       expect(senderClassOf(input())).toBe('verified_writer')
     })
@@ -135,7 +127,6 @@ describe('what the class means to a reader', () => {
     }
     expect(senderWaitReason(held({ senderFlags: ['not_addressed_to_project', 'bcc_own'] }))).toBe('replay')
     expect(senderWaitReason(held({ automatic: true }))).toBe('automatic')
-    // A subdomain's key is a signature that did not come from the address's own domain.
     expect(senderWaitReason(held({ senderFlags: ['relaxed_alignment'] }))).toBe('signature')
   })
 
@@ -149,10 +140,8 @@ describe('what the class means to a reader', () => {
 
 describe('a sender the receive job could not check (R14)', () => {
   it('is said to be unchecked, never an outsider nor read-only: with the directory down no impersonation check could run', () => {
-    // The directory did not answer: no member could be named, so the class is `external` and no `claims_member_name`.
     const directoryDown = { senderClass: 'external', senderTrust: 'external_verified', senderFlags: ['sender_unchecked'], automatic: false } as const
     expect(senderWaitReason(directoryDown)).toBe('sender_unchecked')
-    // The write check did not answer: the member is named, but not called read-only.
     expect(senderWaitReason({ ...directoryDown, senderClass: 'office_member', senderTrust: 'member_verified' })).toBe('sender_unchecked')
     expect(senderWaitReason({ ...directoryDown, senderFlags: [] })).toBe('outside_office')
   })

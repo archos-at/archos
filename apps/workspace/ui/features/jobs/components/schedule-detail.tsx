@@ -1,25 +1,5 @@
 'use client'
 
-/**
- * One schedule in detail, as a drawer over the Zeitplan tab.
- *
- * The drawer holds no copy of its own — the panel resolves the selection
- * against the live list on every render, so a poll landing while it is open
- * moves it, and a schedule deleted elsewhere reads as gone rather than as a
- * stale snapshot.
- *
- * The three upcoming fire times at the top are the point of the surface. A cron
- * expression, and even the sentence built from one, is a CLAIM the reader
- * cannot check: „Monatlich am 1. um 06:00" is right up until the month it is
- * not. Three real dates turn it into something checkable at a glance, and they
- * come from the same library the scheduler advances the row with — so what is
- * shown is what will happen, not a second opinion about it.
- *
- * Delete lives here rather than on the card. It is the one irreversible thing
- * in this section (the run history goes with it), and an irreversible control
- * does not belong on a surface a person scans.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { CalendarClock, Pencil, Play, Sparkles, Trash2 } from 'lucide-react'
@@ -49,22 +29,14 @@ import { ScheduleEnableSwitch } from './schedule-card'
 import { nextOccurrences } from '../lib/occurrences'
 import { whenSummary } from '../lib/schedule'
 
-/** How many upcoming fire times the drawer proves the schedule with. */
 const PREVIEW_COUNT = 3
 
 interface ScheduleDetailProps {
   projectId: string
-  /** The schedule the drawer is showing, or null when it is shut or gone. */
   job: Job | null
   open: boolean
-  /** Whether this member may pause/edit/run/delete (`project:skills:manage`). */
   canManage: boolean
-  /**
-   * Why the selection resolves to nothing. `deleted` is a row the drawer saw
-   * and that left; `unresolved` is a deep link that never matched one here.
-   */
   goneReason?: 'deleted' | 'unresolved'
-  /** The deep link has not been checked against a loaded list yet. */
   resolving?: boolean
   onChanged?: (job: Job) => void
   onDeleted?: (jobId: string) => void
@@ -149,7 +121,6 @@ function ScheduleDetailBody({
   const [running, setRunning] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  // Remounts the run history so a just-started run shows up immediately.
   const [historyToken, setHistoryToken] = useState(0)
   const upcoming = useUpcoming(job)
 
@@ -162,19 +133,13 @@ function ScheduleDetailBody({
       } else if (result.status === 'error' || result.status === 'failed') {
         toast.error(tj('run.error'), { description: result.error ?? undefined })
       } else {
-        // Carried over from the retired job card, unchanged.
         capturePosthog('job_run_submitted', { output: job.output })
-        // Retry with the same plan: the schedule, prompt and skill are
-        // untouched, only a new run is fired — it appears in the history below.
         toast.success(tj('run.submitted'), { description: tj('run.submittedDetail') })
         setHistoryToken((token) => token + 1)
         onChanged?.({ ...job, lastRunAt: new Date().toISOString() })
       }
     } catch (err) {
       if (err instanceof JobApiError && err.status === 409) {
-        // The row was stale-enabled: the schedule is paused server-side, so it
-        // moves now rather than on the next poll — the paused chip, the switch
-        // and the disabled retry all render from this one object.
         onChanged?.({ ...job, enabled: false })
         toast.error(tj('run.disabled'))
       } else {
@@ -321,14 +286,6 @@ function ScheduleDetailBody({
   )
 }
 
-/**
- * The next few fire times, or `null` while they are being computed.
- *
- * `null` rather than an empty array during the load, because the two mean
- * different things: "not worked out yet" is a spinner and "never fires again"
- * is a sentence, and showing the sentence first would be a claim the drawer has
- * not earned.
- */
 function useUpcoming(job: Job): Date[] | null {
   const [upcoming, setUpcoming] = useState<Date[] | null>(null)
   const cron = job.scheduleCron

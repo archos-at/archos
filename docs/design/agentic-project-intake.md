@@ -1,10 +1,10 @@
-# Projekterfassung: Piloti sets a project up from its documents
+# Projekterfassung: The agent sets a project up from its documents
 
 Status: building. Ticket: Notion „Agentische Projekterfassung statt Wizard" (ID 26).
 Decision record: [ADR-0111](../adr/0111-piloti-sets-a-project-up-from-its-documents.md).
 
 A person creating a project names it, gives its address and, if they want, one
-sentence about it. Then they drop the project's folder. Piloti reads the
+sentence about it. Then they drop the project's folder. The agent reads the
 documents in the background, suggests every value it finds with the page it
 found it on, works out the Gebäudeklasse, and asks only for what would change
 that classification. The person checks and confirms. The wizard stays: it is the
@@ -22,10 +22,10 @@ this design says so and builds the version that fits.
 | A new Determinanten-Register with rule, threshold, Ampel effect, where found, question | The intake definition **is** the register: its questions already carry conditions, rationale (`why`) and the profile key. This adds where a value is usually found (`foundIn`) and which derivation it feeds. The one derivation built is the Gebäudeklasse, as data with its Fundstelle | `compliance-derivation-graph.md` §2 counts five encodings of one rulebook already. A sixth table beside the wizard's would drift from it the first time someone edits a question |
 | „Nur fragen, was die Einstufung ändert" (C8 logic) | Computed, not listed: a gap is asked only when filling it with each band it could fall in gives different Gebäudeklassen | A hand-kept list of decisive questions is the C8 condition again, written once more. The computation is the rule itself |
 | Regelwerks-Ampel | Since ADR-0175 the Steckbrief's „Was für dieses Projekt gilt“ shows the law the platform's records resolve at the site (`projectLawFor`, `bff/base-knowledge/context/project-law.ts`): each edition with its role, or why none is named. The OIB verdict list (`applicable-standards.ts`) is gone | No Ampel exists anywhere in the code. Inventing one is a product decision of its own; the panel is the shipped answer to "which rules apply" |
-| Geocoder for AT and DE, address autocomplete | Built for Austria only, behind one BFF route, with Photon (OSM) as the adapter; off unless `GEOCODER_URL` is set. The address is one text field either way: a chosen hit adds Gemeinde, Bundesland and position, a typed line is kept as the person's `site_address`, an unconfirmed assumption until someone confirms it (no register confirmed it). Its Postleitzahl and the place after it suggest the Bundesland, as an unconfirmed assumption with a `postal_code` derivation (`bff/project-profile/postal-place.ts`, a table from GeoNames' postal codes, https://www.geonames.org, CC BY 4.0, written by `scripts/generate_austrian_postal_codes.py`; no request leaves the cell). The code alone places nothing, because Swiss and Liechtenstein codes have four digits too, and a code serving two Länder answers only through a place in one. Beside the address the create form asks for the country first and then, in Austria, the Bundesland, both optional; a country other than Austria writes `federal_state=outside_austria`. Otherwise the Bundesland is the reading's to find or the review's to ask. `country=at` is written only for an Austrian site: never for `outside_austria`. (Until 2026-10 the field turned into a Bundesland select when no geocoder answered, which threw away what was typed in every deployment without one.) | Piloti supports Austria only. Buy, don't build. The provider is komoot's public Photon, no account and no workload of ours (ADR-0151, superseding the self-hosted Photon of ADR-0120); since ADR-0159 a deployment opts in by setting `GEOCODER_URL`, because every keystroke goes to it. A second country is a filter and a state mapping in the adapter |
+| Geocoder for AT and DE, address autocomplete | Built for Austria only, behind one BFF route, with Photon (OSM) as the adapter; off unless `GEOCODER_URL` is set. The address is one text field either way: a chosen hit adds Gemeinde, Bundesland and position, a typed line is kept as the person's `site_address`, an unconfirmed assumption until someone confirms it (no register confirmed it). Its Postleitzahl and the place after it suggest the Bundesland, as an unconfirmed assumption with a `postal_code` derivation (`bff/project-profile/postal-place.ts`, a table from GeoNames' postal codes, https://www.geonames.org, CC BY 4.0, written by `scripts/generate_austrian_postal_codes.py`; no request leaves the cell). The code alone places nothing, because Swiss and Liechtenstein codes have four digits too, and a code serving two Länder answers only through a place in one. Beside the address the create form asks for the country first and then, in Austria, the Bundesland, both optional; a country other than Austria writes `federal_state=outside_austria`. Otherwise the Bundesland is the reading's to find or the review's to ask. `country=at` is written only for an Austrian site: never for `outside_austria`. (Until 2026-10 the field turned into a Bundesland select when no geocoder answered, which threw away what was typed in every deployment without one.) | The app supports Austria only. Buy, don't build. The provider is komoot's public Photon, no account and no workload of ours (ADR-0151, superseding the self-hosted Photon of ADR-0120); since ADR-0159 a deployment opts in by setting `GEOCODER_URL`, because every keystroke goes to it. A second country is a filter and a state mapping in the adapter |
 | A point on a map when there is no address (competitions) | The place or Gemeinde name through the same search | A map needs a map library and tiles; what the address decides (Land, Gemeinde) a place name decides too |
 | Projektbeteiligte with roles at creation | Not at creation. The Steckbrief already holds people (ADR-0091, ADR-0101) | People are kept apart from the profile and the prompt on purpose, and a step at creation breaks the one-minute target |
-| Ablage-Onboarding: folder tree, blacklist, role permissions | Upload, folder access per role and the content check stay as they are. Each folder says what belongs in it, and on every upload Piloti proposes the folder a file belongs in, learned from the office's other projects, confirmed folder by folder (see „Ablage" below) | Upload and access are built (ADR-0078, ADR-0087, ADR-0088, ADR-0086). What was missing is the sorting, and a folder that says what it holds |
+| Ablage-Onboarding: folder tree, blacklist, role permissions | Upload, folder access per role and the content check stay as they are. Each folder says what belongs in it, and on every upload the agent proposes the folder a file belongs in, learned from the office's other projects, confirmed folder by folder (see „Ablage" below) | Upload and access are built (ADR-0078, ADR-0087, ADR-0088, ADR-0086). What was missing is the sorting, and a folder that says what it holds |
 | Create a project as „abgeschlossen" and fill it from its documents | The project is created **active with a closing intent** (outcome and period), read, and closed when the person finishes the review | A closed project is read-only (ADR-0090) and refuses profile writes. ADR-0096 reads a closed project the same way: reopen, read, close |
 | Historical editions of the law per Stichtag | The intake records the OIB edition the project's documents name (`oib_edition`); the corpus holds one edition today | Keeping every edition of the law is corpus work, not intake work. It stays open, as the ticket says |
 | Delta review when a new Stand arrives | A finished upload batch on a project with an intake starts a reading of the documents not read yet (by content hash, so a new Fassung counts). A value that differs from a confirmed one is shown as a contradiction, never written over it | `settleUploadBatches` is where "these documents are read" first becomes true on the server |
@@ -86,7 +86,7 @@ suggestion, and nothing once the setup is finished.
 
 The work has a different shape from a chat turn. It has no question, it runs for
 minutes, nobody waits on it, and its output is values on the profile. ADR-0105:
-a turn does not outlive its answer; long work is a run. Piloti's answering
+a turn does not outlive its answer; long work is a run. The agent's answering
 prompt and its 28 tools are tuned for answers. The intake needs a handful of
 tools and a prompt that says what a value is and when it counts as found.
 
@@ -99,7 +99,7 @@ on the `api` role, which ADR-0082 does not size for long work.
 The agent is not a pipeline, and its prompt prescribes no procedure (the
 product owner, 2026-10-14: "provide tools rather than explicitly stating a
 graph or an approach it should take"). The prompt (`prompts/system.j2`) says
-who Piloti is, why the values matter, the goal (a profile a person can confirm
+who the agent is, why the values matter, the goal (a profile a person can confirm
 page by page; an open value is a correct result), the rules a value must meet,
 what each tool is for in one line, and the budget as information; the model
 chooses its own way through the documents. How each tool is used, what its
@@ -139,7 +139,7 @@ refused.
 
 ### Why the profile, not a ledger of its own
 
-A value Piloti found is a suggested state on the profile, the way ADR-0096
+A value the agent found is a suggested state on the profile, the way ADR-0096
 already writes them: an `assumption` with `source: agent_suggested`. Adding
 the evidence to it keeps one record that the wizard, the chat's prompt view,
 the brief and the applicability panel already read. ADR-0105 names "a proposed
@@ -340,7 +340,7 @@ Suggestion = { key, baseKey, buildingId, label, value, display, state: 'suggeste
                evidence: ProfileEvidence[], alternatives: ProfileAlternative[], decisive }
 ```
 
-### Piloti's route: `POST /api/internal/project-intake`
+### The agent's route: `POST /api/internal/project-intake`
 
 Signed envelope (ADR-0054 §4, ADR-0108), pinned session, the project from the
 envelope, `withTenant`. Discriminated on `op`, each branch strict, each with
@@ -407,7 +407,7 @@ what it means for the intake:
   characters, migration 0145), on both shelves, written in Dateien and the
   Büroablage, and handed to the agents with the folder tree
   (`FOLDER_DESCRIPTIONS v1`).
-- **Piloti proposes, folder by folder.** Every upload batch is judged twice as
+- **The agent proposes, folder by folder.** Every upload batch is judged twice as
   its uploader (`filing_review`): from the names at the seal, from what
   ingestion read at the settle. Each target folder is one `file_operation`
   proposal with no conversation, so a person confirms per folder („bestätigt

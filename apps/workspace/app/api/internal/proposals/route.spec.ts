@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Piloti proposes a change to the workspace (`POST /api/internal/proposals`).
- *
- * What is pinned here: the project and the conversation are the signed
- * envelope's and never the body's (a body naming a project is refused by the
- * strict schema); a turn outside a project gets a typed 422 the tool relays;
- * the asker must be able to read the project, as their pinned session; every
- * item carries the fields its verb needs; and the proposal is filed as Piloti's
- * on the asker's behalf, born `proposed`, through the REAL service. Each kind
- * is filed with its own payload, and the same card of the same answer twice
- * returns the first proposal.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -31,8 +19,6 @@ vi.mock('@/lib/proposals/repository', () => ({
   releaseProposedChange: vi.fn(),
   dismissProposedChange: vi.fn(),
 }))
-// The executors' services are not reached when proposing; stubbed so the
-// import graph stays out of the database and WorkOS.
 vi.mock('@/lib/proposals/executors', async (original) => ({
   ...(await original<typeof import('@/lib/proposals/executors')>()),
   applyFileOperations: vi.fn(),
@@ -54,7 +40,6 @@ vi.mock('@/lib/documents/reindex', () => ({}))
 vi.mock('@/lib/documents/reingest', () => ({}))
 vi.mock('@/lib/documents/semantic-search', () => ({}))
 vi.mock('@/lib/projects/folder-service', () => ({}))
-// The memory and profile appliers' services are not reached when proposing either.
 vi.mock('@/lib/projects/service', () => ({ MEMORY_WRITE_PERMISSIONS: ['project:memory:write', 'project:edit'] }))
 vi.mock('@/lib/project-profile/profile-service', () => ({}))
 vi.mock('@/lib/conversations/cross-project-use', () => ({}))
@@ -105,7 +90,7 @@ const MOVE: InternalProposalRequest = {
 
 const post = (body: unknown, token = SECRET) =>
   POST(
-    new Request('https://grid.test/api/internal/proposals', {
+    new Request('https://example.test/api/internal/proposals', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-grid-internal-token': token },
       body: JSON.stringify(body),
@@ -114,7 +99,7 @@ const post = (body: unknown, token = SECRET) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
   vi.mocked(requirePinnedSession).mockResolvedValue(SESSION)
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-viewer', closed: false, readsBecauseClosed: false })
@@ -126,11 +111,11 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
 })
 
 describe('POST /api/internal/proposals', () => {
-  it('files the proposal in the envelope’s project and conversation, as Piloti for the asker', async () => {
+  it('files the proposal in the envelope’s project and conversation, as the agent for the asker', async () => {
     const response = await post(MOVE)
 
     expect(response.status).toBe(200)
@@ -142,7 +127,7 @@ describe('POST /api/internal/proposals', () => {
       scope: 'project',
       kind: 'file_operation',
       payload: MOVE.payload,
-      proposedByKind: 'piloti',
+      proposedByKind: 'agent',
       onBehalfOf: 'user_1',
       originConversationId: 'conv_1',
       originMessageId: ANSWER,

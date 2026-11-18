@@ -1,17 +1,5 @@
 'use client'
 
-/**
- * „Befunde aus den Dokumenten“: what a project's documents say about each
- * other, in the folder brief at the root of a project's files — a contradiction between two of them,
- * a document or drawing number one points at that the project does not hold,
- * a document Piloti could not read in full (`lib/documents/findings.ts`).
- *
- * A section of the folder brief at the root, one row per finding with the
- * documents it rests on as links, and absent when there is nothing to say: an
- * empty section would be a claim that the documents were checked against each
- * other and found clean, which nobody made.
- */
-
 import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { FileSearch } from 'lucide-react'
@@ -25,15 +13,12 @@ import { DocumentLink, pagesLabel, ProjectProfileLink } from './document-dossier
 
 type Translate = ReturnType<typeof useTranslations>
 
-/** The id the panel carries, so the inbox's upload report can link straight to it. */
 export const DOCUMENT_FINDINGS_ANCHOR = 'document-findings'
 
-/** What a profile contradiction is about: a fact key's label, or the Land. */
 export function profileSubjectLabel(t: Translate, subject: ProfileComparedKey): string {
   return subject === 'federal_state' ? t('findings.federalState') : t(`factKeys.${subject}`)
 }
 
-/** The Steckbrief's value as the line shows it: the Gebäudeklasse with its „GK“. */
 function profileValueText(t: Translate, finding: Extract<DocumentFinding, { kind: 'profile_contradiction' }>): string {
   return finding.subject === 'building_class'
     ? t('findings.buildingClassValue', { value: finding.profileValue })
@@ -60,7 +45,6 @@ function findingText(t: Translate, finding: DocumentFinding): string {
   }
 }
 
-/** One document a finding rests on: its link, the value it states, the pages. */
 function SourceItem({ source, projectId }: { source: FindingSource; projectId: string }): JSX.Element {
   const t = useTranslations(dossierCopy)
   const pages = pagesLabel(t, source.pages)
@@ -102,13 +86,6 @@ function FindingLine({ finding, projectId }: { finding: DocumentFinding; project
   )
 }
 
-/**
- * The findings as a section of the folder brief at the shelf's root (`FolderBrief`): what {productName} found beside
- * what it read, one block on the listing's column instead of a second bordered strip across the page (dev,
- * 2026-11-10: the panel ran from the page's left edge to its right, over a brief on the 1280px column). The brief's
- * folded line counts them; open, this is its section, a heading by weight over one row per finding, each a sentence
- * and the documents it rests on. Ink, no hue: a finding is a pointer to check, not a verdict (principle 7).
- */
 export function DocumentFindingsSection({
   projectId,
   response,
@@ -140,10 +117,6 @@ export function DocumentFindingsSection({
   )
 }
 
-/**
- * The inbox's upload report links to `#document-findings`: the brief opens, and the findings come into view once
- * they are drawn (they arrive after the page, so the browser's own jump to the anchor misses them).
- */
 export function useOpenOnFindingsLink(shown: boolean, collapsed: boolean, onCollapsedChange: (collapsed: boolean) => void): void {
   useEffect(() => {
     if (!shown || window.location.hash !== `#${DOCUMENT_FINDINGS_ANCHOR}`) return

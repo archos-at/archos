@@ -1,8 +1,3 @@
-/**
- * A project address on a phone used to break mid-word (`…@inbox.e` /
- * `xample.org`). It now carries its own break opportunities.
- */
-
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import { EmailAddress, emailAddressSegments } from './email-address'

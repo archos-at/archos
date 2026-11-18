@@ -1,11 +1,3 @@
-/**
- * The website's blog posts (ADR-0155). One post holds both languages
- * (`localized` fields), so the twins of a post can no longer point at a slug
- * nobody checked. Drafts, versions and autosave are on: a published post is
- * edited in a draft, and a publisher publishes it, now or at a time
- * (`schedulePublish`, run by the jobs queue). Who may do what:
- * `access/editorial.ts`.
- */
 import type { CollectionConfig } from 'payload';
 import { deletePosts, draftsUnlessPublisher, readPosts, readPostVersions, writePosts } from '../access/editorial';
 import { CATEGORIES, COVER_DRAWINGS, options } from '../fields/choices';
@@ -148,8 +140,6 @@ export const Posts: CollectionConfig = {
     { name: 'category', type: 'select', required: true, options: options(CATEGORIES), admin: { position: 'sidebar' } },
     { name: 'author', type: 'relationship', relationTo: 'authors', admin: { position: 'sidebar' } },
     {
-      // What scripts/import-blog.ts last wrote, as a hash: a post whose content no longer
-      // matches it was edited here since, and a re-run leaves it alone.
       name: 'importHash',
       type: 'text',
       admin: { hidden: true },

@@ -1,29 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The one-published-version invariant, exercised against a repository that
- * ENFORCES it (ADR-0054, migration 0082).
- *
- * ## Why this suite exists beside `lifecycle.spec.ts`
- *
- * That suite doubles `insertDocumentVersion` and `promoteVersionToPublished` at
- * their seams, which is right for what it asserts — permissions, effects,
- * whether the swap is asked for with the state that was read. It is exactly the
- * wrong shape for THIS bug, because the bug was an ORDERING that only a
- * database refuses: `createDocumentVersion` inserted the new version as
- * `published` and superseded the old one afterwards, and
- * `uniq_document_versions_published_per_document` is a plain partial unique
- * index — checked per statement, never deferred — so the insert was refused
- * while the previous version was still published. Every re-upload of a
- * document. A double that says "yes" to any insert cannot see it.
- *
- * So the repository is an in-memory FAKE rather than a mock: it holds rows, and
- * it refuses a second `published` row for one document exactly as Postgres
- * does. Not a substitute for `task db:test:rls` and not pretending to be one —
- * what it stands in for is a UNIQUE INDEX, which is the one part of the
- * database whose behaviour can be stated in four lines and checked here.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeDocument } from '@/test-utils/db-fixtures'
@@ -31,7 +8,6 @@ import type { DocumentVersion, NewDocumentVersion } from '@/lib/db/schema/docume
 import type { Document } from '@/lib/db/schema/documents'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
-/** Postgres' `uniq_document_versions_published_per_document`, in four lines. */
 class PublishedPerDocumentViolation extends Error {
   constructor(documentId: string) {
     super(
@@ -52,11 +28,6 @@ function assertOnePublished(documentId: string): void {
   if (published.length > 1) throw new PublishedPerDocumentViolation(documentId)
 }
 
-/**
- * A row as the repository would write it. The number is ALLOCATED here, as the
- * real inserts allocate it inside their transaction (`allocateVersionNumber`):
- * callers no longer hand one in.
- */
 function materialize(values: Omit<NewDocumentVersion, 'versionNumber'>): DocumentVersion {
   return {
     id: `ver_${rows.length + 1}`,
@@ -88,10 +59,6 @@ vi.mock('./version-repository', () => ({
   nextVersionNumber: vi.fn(async (documentId: string) =>
     rows.filter((row) => row.documentId === documentId).length + 1,
   ),
-  /**
-   * The pre-fix path: insert, then supersede. Kept callable so the revert check
-   * is a one-line edit in `lifecycle.ts` rather than a rewrite of this fake.
-   */
   insertDocumentVersion: vi.fn(async (values: Omit<NewDocumentVersion, 'versionNumber'>) => {
     const row = materialize(values)
     rows.push(row)
@@ -99,7 +66,6 @@ vi.mock('./version-repository', () => ({
     return row
   }),
   insertPublishedVersion: vi.fn(async (values: Omit<NewDocumentVersion, 'versionNumber'>) => {
-    // Supersede FIRST, inside the transaction, exactly as the real one does.
     const superseded = rows.filter(
       (row) => row.documentId === values.documentId && row.state === 'published',
     )
@@ -208,8 +174,6 @@ describe('a re-upload, against a repository that holds the index', () => {
   })
 
   it('leaves the superseded version’s bytes named by its own row', async () => {
-    // History you cannot open is a list of dates: the previous version keeps
-    // its object, and nothing here deletes it.
     await upload(1_000)
     await upload(2_000)
 

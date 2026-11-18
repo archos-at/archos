@@ -1,17 +1,3 @@
-/**
- * Organization → sensitive data. The lists every upload is screened against
- * before any model reads it (ADR-0086), and who sees content derived from a
- * deleted folder (ADR-0088).
- *
- * The chrome, the back link and the section nav live in the shared `layout.tsx`;
- * this page only names its section and renders it.
- *
- * Deliberately NOT gated, for the same reason as storage: the person whose file
- * was held back is usually not an admin, and this page is where they see which
- * list caught it. Editing needs `org:settings:manage`, the same permission
- * `PUT /api/organization/upload-screening` enforces; everyone else reads.
- */
-
 import type { JSX } from 'react'
 import { FolderX, ScanSearch } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'

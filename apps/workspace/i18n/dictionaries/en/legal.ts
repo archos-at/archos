@@ -1,4 +1,3 @@
-/** legal namespace — chrome for the public legal pages (documents themselves live in `@/lib/legal`). */
 export const legal = {
   nav: {
     home: 'Go to home page',

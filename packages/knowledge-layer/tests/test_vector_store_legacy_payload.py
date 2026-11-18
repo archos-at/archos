@@ -1,11 +1,3 @@
-"""Points written before the English payload rename stay readable until the operator rewrite.
-
-``docs/deployment/qdrant-payload-rename-runbook.md`` rewrites the German keys (``punkt_id``,
-``project_facts.bundesland``, ``chunking: "punkt"``) in place. Until it has run on a collection, a read
-must see both spellings: a hit's metadata under the English names, a filter and a boost matching either.
-Delete this file with ``schema.LEGACY_FIELDS``.
-"""
-
 from __future__ import annotations
 
 from knowledge_layer.vector_store import FactWeights
@@ -91,8 +83,6 @@ def test_a_boost_term_matches_the_german_key_with_the_german_token():
     assert federal_state.should[1].match.any == ["wien"]
     assert _keys(terms[1]) == ["project_facts.building_class", "project_facts.gebaeudeklasse"]
 
-
-# ----------------------------------------------------- the operator rewrite (scripts/qdrant_rename_payload_keys.py)
 
 LEGACY_POINT = {
     "text": "x",

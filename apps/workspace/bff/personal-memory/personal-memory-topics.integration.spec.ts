@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * A personal topic is the person’s own (ADR-0180, migration 0238): against a
- * REAL Postgres with the full migration chain, as the restricted runtime role.
- * Removing or renaming a topic as person A never touches person B’s notes on
- * the same topic, in the same organization, even though the service’s WHERE
- * names only A: the row-level security holds the line on its own.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/personal-memory/personal-memory-topics.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database and runs this file.
- */
 
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -46,14 +34,13 @@ describe.skipIf(!url)('personal memory topics against live Postgres', () => {
 
   const as = <T>(owner: typeof A, run: () => Promise<T>): Promise<T> => withTenant(owner, run)
 
-  /** Each note of the person as its topic column holds it, read with no WHERE on the person. */
   const topicsSeenBy = async (owner: typeof A): Promise<string[]> => {
     const rows = await as(owner, () => db.execute(sql`select coalesce(topic, '-') as topic from personal_memory where organization_id = ${ORG} order by content`))
     return [...rows].map((row) => String(row.topic))
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -127,7 +114,6 @@ describe.skipIf(!url)('personal memory topics against live Postgres', () => {
     const filed = await topicOfNote()
     expect(['Brandschutz', 'Stellplätze']).toContain(filed)
 
-    // A later restatement naming another topic leaves the one the note holds.
     await as(A, () => service.createPersonalMemoryItem(A, { kind: 'preference', content, provenanceType: 'agent', topic: 'Parken' }))
     expect(await topicOfNote()).toBe(filed)
   })

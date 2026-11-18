@@ -2,16 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The one route a machine may write a version through (ADR-0054 §4).
- *
- * The assertions that matter here are not about happy paths. They are about the
- * four ways this route could stop being a door: an unsigned request getting in,
- * a replayed envelope working forever, the body naming its own acting user, and
- * an op reaching a transition only a person may take. The last one is asserted
- * against the TABLE rather than against a list in this file, so widening the op
- * set without changing an `actor` fails here.
- */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -22,15 +12,11 @@ vi.mock('@/lib/documents/lifecycle', () => ({
   toDocumentVersionView: (value: unknown) => value,
 }))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
-// Partial: the factory itself opens a request-scoped slot, and replacing that
-// would test a handler the app does not run.
 vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
 }))
 
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
 import { replaceVersionContent, transitionDocumentVersion } from '@/lib/documents/lifecycle'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
@@ -42,8 +28,8 @@ import {
 } from '@/lib/request-context'
 import {
   AGENT_REACHABLE_OPS,
+  DOCUMENT_VERSION_OPS,
   findDocumentVersionTransition,
-  transitionsForOp,
   type DocumentVersionOp,
 } from '@/lib/documents/lifecycle-types'
 import { POST } from './route'
@@ -52,6 +38,18 @@ const SECRET = 'internal-token-for-tests' // pragma: allowlist secret
 const DOC = '11111111-1111-4111-8111-111111111111'
 const VERSION = '22222222-2222-4222-8222-222222222222'
 const PROJECT = '33333333-3333-4333-8333-333333333333'
+
+const AGENT_REQUEST_BODIES: Partial<Record<DocumentVersionOp, Record<string, unknown>>> = {
+  create: {
+    op: 'create',
+    projectId: PROJECT,
+    ref: 's_conv_1-aktenvermerk',
+    title: 'Aktenvermerk',
+    content: '# Aktenvermerk',
+  },
+  update: { op: 'update', documentId: DOC, versionId: VERSION, content: 'korrigiert', ifMatch: 'sha256:abc' },
+  submit: { op: 'submit', documentId: DOC, versionId: VERSION },
+}
 
 const session = {
   userId: 'user_requester',
@@ -87,7 +85,7 @@ function envelopeHeaders(
 
 function call(body: unknown, headers: Record<string, string> = envelopeHeaders()) {
   return POST(
-    new Request('https://grid.test/api/internal/document-versions', {
+    new Request('https://example.test/api/internal/document-versions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -101,7 +99,7 @@ function call(body: unknown, headers: Record<string, string> = envelopeHeaders()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(fileAgentDocumentDraft).mockResolvedValue({
     documentId: DOC,
@@ -112,9 +110,6 @@ beforeEach(() => {
 
 describe('the origin conversation', () => {
   it('is stamped from the VERIFIED envelope and never from the body', async () => {
-    // The `ref` the caller mints STARTS with a conversation id, and reading it
-    // off that string is precisely what this route exists not to do: the ref is
-    // the client's, the identity and the origin are not.
     await call({
       op: 'create',
       projectId: PROJECT,
@@ -144,10 +139,6 @@ describe('the project the body names must be the project the envelope names', ()
   })
 
   it('refuses a body pointed at a DIFFERENT project, with a 400 and no filing', async () => {
-    // Every other field of the acting context comes from the signature.
-    // `projectId` was the one a captured envelope could still be pointed at a
-    // second project the requester happens to be able to write to — which is
-    // more than the turn it was minted for ever had.
     const other = '99999999-9999-4999-8999-999999999999'
     const response = await call(draft(other))
 
@@ -156,9 +147,6 @@ describe('the project the body names must be the project the envelope names', ()
   })
 
   it('constrains nothing when the envelope names no project', async () => {
-    // A turn that is not in a project — the org-wide Archiv, a projectless
-    // chat. The body's own project is then gated by `requireProjectAccess` in
-    // the service exactly as before.
     const other = '99999999-9999-4999-8999-999999999999'
     const response = await call(draft(other), envelopeHeaders({ projectId: null }))
 
@@ -168,17 +156,10 @@ describe('the project the body names must be the project the envelope names', ()
 })
 
 describe('the op set is closed by the transition table, not by this file', () => {
-  it('admits only ops whose every transition is reachable by a machine', () => {
-    const source = readFileSync(fileURLToPath(new URL('./route.ts', import.meta.url)), 'utf8')
-    // Read off the route's own schema import rather than restated: the union
-    // lives in `lifecycle-types.ts` and this asserts the route cannot reach past
-    // it.
-    for (const op of ['create', 'update', 'submit'] as const) {
-      expect(source).toContain(`'${op}'`)
-      expect(AGENT_REACHABLE_OPS).toContain(op)
-      for (const row of transitionsForOp(op)) {
-        expect(row.actor, `${op} must be reachable by a machine`).toBe('either')
-      }
+  it('admits exactly the ops the transition table makes agent-reachable', async () => {
+    for (const op of DOCUMENT_VERSION_OPS) {
+      const response = await call(AGENT_REQUEST_BODIES[op] ?? { op })
+      expect(response.status, op).toBe(AGENT_REACHABLE_OPS.includes(op) ? 201 : 400)
     }
   })
 
@@ -276,15 +257,9 @@ describe('the ops it does serve', () => {
       VERSION,
       'korrigiert',
       'sha256:abc',
-      // A run is not a person: `update` is an `either` row so nothing is
-      // refused today, and that is exactly why the flag has to be right — the
-      // door is the `actor` field, and a caller that lies about who it is
-      // bypasses it the moment a row changes.
       {
         request: expect.any(Request),
         actingHuman: false,
-        // The thread rides along, so content from a conversation that drew on a
-        // restricted folder goes only where it may (ADR-0087, ADR-0088).
         origin: { conversationId: expect.any(String), locale: 'de' },
       },
     )
@@ -315,12 +290,9 @@ describe('the ops it does serve', () => {
     expect(transitionDocumentVersion).not.toHaveBeenCalled()
   })
 
-  // 403, which is what `requireInternalToken` answers for a service that is not
-  // this one; the 401s above are the envelope's, and the two are deliberately
-  // different questions: who is calling, and as whom.
   it('refuses the internal token being absent', async () => {
     const response = await POST(
-      new Request('https://grid.test/api/internal/document-versions', {
+      new Request('https://example.test/api/internal/document-versions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...envelopeHeaders() },
         body: JSON.stringify({ op: 'submit', documentId: DOC, versionId: VERSION }),

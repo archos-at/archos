@@ -15,11 +15,6 @@ import { rolesHoldPermission } from '@/lib/authz/org-role-permissions'
 import { listOrganizationMembersWithRoles } from '@/lib/organizations/service'
 import { findStorageAlertRecipients, STORAGE_ALERT_PERMISSION } from './alerts'
 
-/**
- * A custom role an office built for itself in WorkOS (here a Geschäftsführung
- * holding org:settings:manage) is somebody who can act on a full disk. The
- * recipients used to come from the catalog alone, which has never heard of it.
- */
 describe('findStorageAlertRecipients', () => {
   it("asks WorkOS about each member's role within the organization, custom roles included", async () => {
     vi.mocked(listOrganizationMembersWithRoles).mockResolvedValue([

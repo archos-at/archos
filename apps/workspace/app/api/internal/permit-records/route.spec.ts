@@ -3,8 +3,6 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The route factory statically imports the session guard, which pulls in
-// authkit; internal routes never call it.
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))
 vi.mock('@/lib/permits/service', () => ({ storePermitRecord: vi.fn() }))
 
@@ -45,8 +43,8 @@ const request = (payload: unknown, token: string | null = 'test-token') =>
 describe('POST /api/internal/permit-records', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
     vi.mocked(storePermitRecord).mockResolvedValue({ stored: true, requirements: 1 })
   })
 
@@ -57,7 +55,7 @@ describe('POST /api/internal/permit-records', () => {
   })
 
   it('fails closed when the token is unconfigured', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await POST(request(body()))).status).toBe(503)
     expect(storePermitRecord).not.toHaveBeenCalled()
   })
@@ -114,8 +112,6 @@ describe('POST /api/internal/permit-records', () => {
   })
 
   it('accepts a delete with no model, as the worker sends it when a document is re-typed', async () => {
-    // Every such delete was a 400 (~320 a week in PostHog Logs), so a re-typed
-    // document kept its stale permit record.
     const response = await POST(request(body({ record: null, model: '' })))
     expect(response.status).toBe(200)
     expect(storePermitRecord).toHaveBeenCalledWith(body({ record: null, model: '' }))

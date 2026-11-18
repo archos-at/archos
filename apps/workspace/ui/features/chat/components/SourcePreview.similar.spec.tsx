@@ -1,18 +1,3 @@
-/**
- * „Im Büro behandelt" from a citation: the join between the citation viewer,
- * the rail and the stage. The viewer is a recorder (its drawing is
- * `pdf-document-view.spec.tsx`'s business); what is pinned is what the dialog
- * asks for and what it hands the viewer:
- *
- * - the header action asks about the cited Fundstelle as CITED text (its
- *   stored chunk stands in, nothing is embedded), from the cited document and
- *   the chat's project;
- * - a selection asks as SELECTED text;
- * - the rail replaces the Fundstellen, and a passage opened from it takes the
- *   stage in the same dialog, at its page, marked, without the citation's copy
- *   actions; going back restores the citation.
- */
-
 import { fireEvent, render, screen } from '@/test-utils'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import type { PdfViewerDialogProps } from '@/features/knowledge/components/pdf-viewer-dialog'
@@ -156,7 +141,6 @@ describe('CitationDocumentDialog and similar passages', () => {
       onFindSimilar: undefined,
     })
     expect(screen.queryByRole('button', { name: 'Check where your office has dealt with this passage' })).toBeNull()
-    // One dialog throughout: swapping it would remount the rail and search again.
     expect(seen.mounts).toBe(1)
     expect(asked).toHaveLength(1)
 

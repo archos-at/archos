@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * How a platform change request was approved (ADR-0176): nothing for four eyes;
- * for one its author approved alone, that mark and where its second review
- * stands. Platform-internal: offices never see it.
- */
-
 import type { JSX } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { useTranslations } from '@/i18n'

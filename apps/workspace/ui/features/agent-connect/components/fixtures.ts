@@ -1,7 +1,6 @@
 import type { AgentConnectState } from '../lib/connect-state'
 import type { PlatformConnectState } from '../lib/platform-connect-state'
 
-/** One fixture per state the section can be in, for the specs and `/dev/connect-agent`. */
 export const CONNECT_AGENT_FIXTURES = {
   ready: { availability: 'ready', url: 'https://app.piloti.at/api/mcp', canAdminister: false },
   orgDisabledMember: { availability: 'org-disabled', url: null, canAdminister: false },
@@ -10,7 +9,6 @@ export const CONNECT_AGENT_FIXTURES = {
   notConfiguredAdmin: { availability: 'not-configured', url: null, canAdminister: true },
 } as const satisfies Record<string, AgentConnectState>
 
-/** Platform → Agents, one fixture per state, for the specs and `/dev/platform-agents`. */
 export const PLATFORM_CONNECT_FIXTURES = {
   both: {
     consoleUrl: 'https://app.example.test/api/platform/mcp',

@@ -115,16 +115,12 @@ describe('planFlagCheck (task workspace:provision:flags)', () => {
   })
 
   it('reports a flag no code reads without failing on it', () => {
-    // A retired flag still in the dashboard is a human's to delete; the check
-    // must not turn every environment red until somebody has.
     const plan = planFlagCheck(['skills'], ['skills', 'source-origin-badges', 'organization-archiv'])
     expect(plan.ok).toBe(true)
     expect(plan.unknown).toEqual(['organization-archiv', 'source-origin-badges'])
   })
 
   it('checks the whole registry, the stage flags included', () => {
-    // The stage flags used to live outside the registry, so nothing that read
-    // it would have asked WorkOS about them.
     expect(REGISTRY_FLAG_SLUGS).toEqual(expect.arrayContaining(['memory-reflection', 'post-answer-follow-ups']))
     const plan = planFlagCheck(REGISTRY_FLAG_SLUGS, REGISTRY_FLAG_SLUGS.filter((slug) => slug !== 'mail-import'))
     expect(plan.missing).toEqual(['mail-import'])

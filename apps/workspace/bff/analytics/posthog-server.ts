@@ -1,52 +1,16 @@
-/**
- * PostHog from the BFF — the server-side twin of `posthog.ts` (ADR-0100).
- *
- * Every server path that sends something to PostHog (a server-decided product
- * event) goes through this module, so there is one place that decides whether
- * PostHog is on and how a server event is shaped. Request errors are the one
- * path with a client of its own, `@posthog/next`'s (`request-error.ts`), and it
- * takes its settings and its scrubber from here.
- *
- * Fail-open like the browser client: it reads the same
- * `NEXT_PUBLIC_POSTHOG_HOST` / `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` the layout
- * hands the browser, and with either unset every function is a no-op. The
- * project token is public by design, so the server needs no secret of its own
- * to capture.
- *
- * Server events carry no GeoIP: the caller is our cluster, not the user, so a
- * lookup would attribute every event to the data centre. They carry the
- * deployed commit and the service as super properties (`register`), and a
- * system event has no distinct id at all: posthog-node then sends it under a
- * fresh id with `$process_person_profile: false`, so no person is minted.
- */
 import 'server-only'
 
 import { PostHog } from 'posthog-node'
 
-import { configuredAppOrigin } from '@/lib/app-origin'
-import { deployedSha } from '@/lib/boot'
+import { configuredAppHost } from '@/lib/app-origin'
+import { deployedSha, deploymentName } from '@/lib/boot'
 
 import { scrubServerEvent } from './scrub-server-event'
 
 type ServerProperties = Record<string, unknown>
 
-/** What a server event may carry: scalars only, so a nested object cannot smuggle free text. */
 export type ServerEventProperties = Record<string, string | number | boolean | null | undefined>
 
-/**
- * Product events the BFF emits, a closed union like the browser's
- * `PostHogEvent` (`posthog.ts`) so a typo'd name fails the build instead of
- * minting a second, almost-identical event in PostHog. Add the name here when a
- * call site starts emitting a new one, and its row to
- * `docs/observability/posthog-events.md`.
- *
- * These are the events the server is the truth for: the browser cannot see
- * them (a scheduled run, an ingest finishing), or could be wrong or blocked by
- * an ad blocker (a sign-in, an organization created, a budget refusal).
- *
- * Properties are non-personal by rule: ids of our own rows, kinds, counts,
- * durations and statuses. Never a document name, a question, an email, a URL.
- */
 export type ServerEvent =
   | 'user_signed_in'
   | 'organization_created'
@@ -76,8 +40,6 @@ export type ServerEvent =
   | 'agent_operation_missing'
   | 'product_feedback_ticket_opened'
   | 'product_feedback_reply_sent'
-  // The E-Mail-Eingang (ADR-0137). Codes, counts and buckets only: a mail is a
-  // stranger's, and no sender, subject, file name or address is ever a property.
   | 'inbound_mail_received'
   | 'inbound_mail_refused'
   | 'inbound_mail_dropped'
@@ -90,7 +52,6 @@ export type ServerEvent =
 let client: PostHog | null = null
 let resolved = false
 
-/** The host and project token, read at call time; `null` unless both are set. */
 export const posthogServerSettings = (): { host: string; projectToken: string } | null => {
   const host = (process.env.NEXT_PUBLIC_POSTHOG_HOST ?? '').trim().replace(/\/+$/, '')
   const projectToken = (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ?? '').trim()
@@ -98,29 +59,24 @@ export const posthogServerSettings = (): { host: string; projectToken: string } 
   return { host, projectToken }
 }
 
-/** Whether the BFF sends anything to PostHog: both settings reached it. */
 export const isPosthogServerEnabled = (): boolean => posthogServerSettings() !== null
 
-/**
- * What every server event carries: the deployed commit, which process sent it,
- * and which deployment it came from. Staging and production share one PostHog
- * project and both run `APP_ENV=production`, so `app_host` (the app's own host,
- * from the pinned redirect URI) is what tells their server events apart, the
- * way `$host` does for the browser's. Absent when the deployment pins no origin.
- */
-export const serverSuperProperties = (): { release: string; service: string; app_host?: string } => {
-  // The MCP resource URL is pinned per deployment too, so a process that was
-  // given it but not the redirect URI still names its deployment.
-  const origin = configuredAppOrigin() ?? configuredAppOrigin({ WORKOS_REDIRECT_URI: process.env.MCP_RESOURCE_URL })
+export const serverSuperProperties = (): {
+  release: string
+  service: string
+  app_host?: string
+  deployment?: string
+} => {
+  const host = configuredAppHost()
+  const deployment = deploymentName()
   return {
     release: deployedSha(),
-    // `||`, not `??`: a blank variable (a template that renders it empty) is no name.
     service: process.env.OTEL_SERVICE_NAME?.trim() || 'grid-ui',
-    ...(origin ? { app_host: new URL(origin).host } : {}),
+    ...(host ? { app_host: host } : {}),
+    ...(deployment ? { deployment } : {}),
   }
 }
 
-/** The process-wide client, built on first use; `null` while PostHog is off. */
 export const getPosthogServer = (): PostHog | null => {
   if (resolved) return client
   const config = posthogServerSettings()
@@ -128,38 +84,24 @@ export const getPosthogServer = (): PostHog | null => {
     client = new PostHog(config.projectToken, {
       host: config.host,
       disableGeoip: true,
-      // Every event passes the scrubber last, whichever path queued it: a
-      // credential in a URL must not depend on each caller remembering.
       before_send: scrubServerEvent,
-      // Batch small: the BFF is long-lived, but a scale-down must not lose a
-      // feedback vote that sat in a large buffer.
       flushAt: 20,
       flushInterval: 5_000,
     })
-    // Synchronous for this client (memory persistence is ready at construction).
     void client.register(serverSuperProperties())
   }
   resolved = true
   return client
 }
 
-/** PostHog group type for an office; the browser and Python use the same one. */
 export const ORGANIZATION_GROUP = 'organization'
-/** The distinct id of an event no user stands behind and no office is known for. */
 export const SYSTEM_DISTINCT_ID = 'system'
 
-/** The office as a property and as the `organization` group. */
 export const organizationProperties = (organizationId: string): ServerProperties => ({
   organization_id: organizationId,
   $groups: { [ORGANIZATION_GROUP]: organizationId },
 })
 
-/**
- * Who an event belongs to. The acting user when known; otherwise a stable id per
- * office (so a system event still groups by office, not by a fresh random UUID),
- * otherwise one shared system id. The latter two mint no person profile. The
- * office also rides as the `organization` group.
- */
 export const serverEventIdentity = (
   distinctId: string | null | undefined,
   organizationId: string | null | undefined,
@@ -172,22 +114,11 @@ export const serverEventIdentity = (
 
 export interface ServerCapture {
   event: ServerEvent
-  /** The acting WorkOS user id. `null` sends a personless event (no person minted): a system action. */
   distinctId: string | null
-  /**
-   * The WorkOS organization the event happened in, sent as the
-   * `organization_id` property. Also sent as the `organization` group.
-   */
   organizationId?: string | null
   properties?: ServerEventProperties
 }
 
-/**
- * Queue one event; whether it was queued. Never throws, and returns before
- * anything is sent (the client batches), so a call site can call it inline and
- * ignore the answer: a failure here must not change a route's behaviour or
- * latency.
- */
 export const captureServer = ({ event, distinctId, organizationId, properties }: ServerCapture): boolean => {
   const posthog = getPosthogServer()
   if (!posthog) return false
@@ -202,22 +133,12 @@ export const captureServer = ({ event, distinctId, organizationId, properties }:
   }
 }
 
-/**
- * A client of its own for one export run (`usage-export.ts`), unlike the shared
- * fire-and-forget one: it never flushes by itself, so every event reaches
- * PostHog through `flush()`, which rejects when the send failed. The export only
- * moves its cursor after that resolves, which is what keeps an hour from being
- * lost or sent twice. Each event carries its own `timestamp` (the hour it sums)
- * and is personless. `null` while PostHog is off.
- */
 export interface PosthogBatch {
   capture(event: ServerCapture & { timestamp: Date }): void
-  /** Send what is queued; rejects when PostHog did not take it. */
   flush(): Promise<void>
   close(): Promise<void>
 }
 
-/** Larger than the exporter's flush chunk, so nothing queued is ever dropped. */
 const BATCH_QUEUE_LIMIT = 2_000
 
 export const createPosthogBatch = (): PosthogBatch | null => {
@@ -253,7 +174,6 @@ export const createPosthogBatch = (): PosthogBatch | null => {
   }
 }
 
-/** Flush and stop. Called from the shutdown path; safe to call twice. */
 export const shutdownPosthogServer = async (): Promise<void> => {
   if (!client) return
   try {
@@ -263,7 +183,6 @@ export const shutdownPosthogServer = async (): Promise<void> => {
   }
 }
 
-/** Forget the cached client so a spec can change the environment. */
 export const resetPosthogServerForTests = (): void => {
   client = null
   resolved = false

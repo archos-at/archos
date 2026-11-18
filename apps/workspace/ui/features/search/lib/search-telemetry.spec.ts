@@ -35,7 +35,6 @@ const issued = (overrides: Partial<IssuedSearch> = {}): IssuedSearch => ({
   ...overrides,
 })
 
-/** A tracker on a fake clock: timers run when the spec says. */
 function tracked() {
   const capture = vi.fn()
   let now = 0
@@ -156,7 +155,6 @@ describe('the helpers', () => {
     const sections = { document: { hits: SEARCH_FIXTURE_DOCUMENTS } }
     expect(findHitByHref(sections, hitHref(hit), hitHref)).toEqual({ hit, rank: 2 })
     expect(findHitByHref(sections, '/app/elsewhere', hitHref)).toBeNull()
-    // The page's links carry `back` to return to the search; the hit is still found.
     expect(findHitByHref(sections, hitHref(hit, { back: '/app/search?q=Fluchtweg' }), hitHref)).toEqual({ hit, rank: 2 })
   })
 

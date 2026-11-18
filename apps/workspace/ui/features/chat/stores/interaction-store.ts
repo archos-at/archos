@@ -1,14 +1,3 @@
-/**
- * Interaction slice: the one HITL prompt the agent is waiting on, and the
- * send path that answers it.
- *
- * `pendingInteraction` is derived from the running turn's view
- * (`turnStateFor`): a reload re-attaches the turn, and its replayed
- * `interaction_request` opens the question again. `respondToInteractionFn` is
- * the socket's own callback, registered by the composer while it holds the
- * connection.
- */
-
 import type { StateCreator } from 'zustand'
 import type { ChatStore, PendingInteraction } from '../types'
 

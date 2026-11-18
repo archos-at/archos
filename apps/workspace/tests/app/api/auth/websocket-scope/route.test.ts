@@ -21,7 +21,6 @@ vi.mock('@/lib/project-profile/prompt-view', () => ({
   loadProjectFederalState: vi.fn().mockResolvedValue(null),
 }))
 
-// Keep the test hermetic: the real digest builder requires a database.
 vi.mock('@/lib/projects/memory-service', () => ({
   buildProjectMemoryDigest: vi.fn(),
 }))
@@ -40,12 +39,12 @@ const mockLoadProjectPromptView = vi.mocked(loadProjectPromptView)
 describe('/api/auth/websocket-scope', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     mockLoadProjectPromptView.mockResolvedValue(null)
   })
 
   it('returns scope and header when auth is disabled', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
     mockGetUserSession.mockResolvedValue(null)
     mockBuildCollectionScopeFromRequest.mockResolvedValue({
       scope: ['oib_knowledge'],
@@ -68,12 +67,8 @@ describe('/api/auth/websocket-scope', () => {
       scope: ['oib_knowledge'],
       scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }],
       header: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
-      // The route echoes the requested projectId so server.js can scope the socket,
-      // and the conversationId it authorized so the signed envelope carries it.
       projectId: 'proj-1',
       conversationId: 'conv-1',
-      // Anonymous mode: nobody signs in, so the reflection stage gets a
-      // rollout's fixed answer — ON.
       memoryReflectionEnabled: true,
     })
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
@@ -85,7 +80,7 @@ describe('/api/auth/websocket-scope', () => {
   })
 
   it('returns 401 when auth is required and there is no session', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     mockGetUserSession.mockResolvedValue(null)
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope')
@@ -97,7 +92,7 @@ describe('/api/auth/websocket-scope', () => {
   })
 
   it('authorizes project access when auth is required and projectId is provided', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     const session = {
       userId: 'user_1',
       email: 'a@b.com',
@@ -124,20 +119,16 @@ describe('/api/auth/websocket-scope', () => {
     const res = await GET(req)
 
     expect(res.status).toBe(200)
-    // Access enforcement lives in buildCollectionScopeFromRequest (covered by
-    // its own tests); the route must delegate with the session and NOT run a
-    // second, redundant check.
     expect(mockBuildCollectionScopeFromRequest).toHaveBeenCalledWith(session, {
       projectId: 'proj-1',
       conversationId: undefined,
-      // The upgrade is the one interactive chat scope (ADR-0087).
       interactiveChat: true,
     })
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
   })
 
   it('returns 403 on authorization failure', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     const session = {
       userId: 'user_1',
       email: 'a@b.com',
@@ -150,7 +141,6 @@ describe('/api/auth/websocket-scope', () => {
   featureFlags: null,
     }
     mockGetUserSession.mockResolvedValue(session)
-    // The access check inside the scope builder rejects (tenancy/FGA denial).
     mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope?projectId=proj-1')
@@ -162,7 +152,7 @@ describe('/api/auth/websocket-scope', () => {
   })
 
   it('returns 500 for unexpected errors', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
     mockGetUserSession.mockRejectedValue(new Error('database unavailable'))
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope')

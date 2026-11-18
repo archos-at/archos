@@ -1,22 +1,5 @@
 'use client'
 
-/**
- * Dev preview for the platform default-model surface. Renders the REAL card
- * with fixture data so the three states that matter can be reviewed and
- * screenshotted without a backend or an OpenRouter key:
- *
- *  - a group pinned to a platform default (`shallow_research`, `follow_ups`),
- *  - a group still on the workflow config (`clarifier`, `deep_research`, …),
- *  - a pinned default that has lost its zero-data-retention endpoint
- *    (`deep_research_router`): every ZDR organization inheriting it has that
- *    group's requests refused, so the row warns,
- *  - the thinking level on the same rows: pinned at both ends of the scale and
- *    inheriting the concrete workflow level everywhere else.
- *
- * A module-scope fetch shim (browser + dev only) serves the defaults payload
- * and the picker search. Not linked from anywhere and 404s outside development.
- */
-
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { PlatformModelDefaults } from '@/app/app/(shell)/platform/models/platform-model-defaults'
@@ -28,9 +11,6 @@ import { platformCopy } from '@/i18n/namespaces/platform'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import { AGENT_GROUPS as REGISTRY } from '@/lib/model-config/agent-groups'
 
-// The real registry, not a copy of it: a renamed group or a reworded
-// description should show up in this preview (and its screenshots) instead of
-// quietly drifting from what the surface actually renders.
 const AGENT_GROUPS = REGISTRY.map(({ id, label, description }) => ({ id, label, description }))
 
 const DEFAULTS = {
@@ -58,9 +38,6 @@ const WORKFLOW_DEFAULTS = Object.fromEntries(
   AGENT_GROUPS.map((group) => [group.id, 'openai/gpt-6-luna'])
 )
 
-// The thinking-level half of the same card. Pinned at both ends of the scale
-// (`follow_ups` → none, `deep_research` → xhigh) so the cheapest and most expensive
-// labels are both on screen; the rest inherit.
 const EFFORTS = {
   follow_ups: {
     effort: 'none',
@@ -74,10 +51,6 @@ const EFFORTS = {
   },
 }
 
-// Mirrors the shipped config: routing roles run reasoning-off, everything else
-// medium. `ingest_vlm` is deliberately null — the backend reports no YAML effort
-// for the env-configured VLM, and the option must degrade to the generic label
-// instead of inventing one.
 const WORKFLOW_EFFORTS: Record<string, string | null> = {
   follow_ups: 'none',
   clarifier: 'medium',
@@ -107,26 +80,6 @@ const CATALOG = [
 
 const PREVIEW_PATH = '/dev/platform-models'
 
-/**
- * Install the fixture responder. Installed ONCE at module scope and never torn
- * down — scope is controlled by the pathname check inside, not by a lifecycle.
- *
- * Both halves of that are load-bearing, and the obvious alternative is broken:
- *
- *  - Module scope, not an effect. The card fetches from an effect of its own,
- *    and a child's effects run BEFORE its parent's, so a shim armed on mount
- *    arrives after the first request has already left for the real API.
- *  - No teardown on unmount. Under React's StrictMode double-invoke (dev only),
- *    a remount runs cleanups child→parent and then effects child→parent — so a
- *    parent cleanup that restores `window.fetch` does it EXACTLY between the
- *    child's two fetch attempts, and the second one escapes to the real API.
- *    That is not a hypothetical: this preview (and its screenshots) rendered
- *    the error state for exactly this reason while the install flag read `true`.
- *
- * Leaving the patch installed is safe because it answers only while the preview
- * is the page on screen; a client navigation to the real platform surface takes
- * the `real` branch on every request.
- */
 function installShim(): void {
   if (typeof window === 'undefined' || process.env.NODE_ENV !== 'development') return
   const w = window as unknown as { __platformModelDefaultsShim?: boolean }

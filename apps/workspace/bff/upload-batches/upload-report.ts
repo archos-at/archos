@@ -1,24 +1,3 @@
-/**
- * The Eingangsbericht: what one upload brought the project
- * (`docs/roadmap/ingestion-north-star.md`, "an ingestion is a job that looks
- * at what this upload provides for the project"). Pure: the settle computes it
- * from the project's documents as the uploader may see them
- * (`./upload-report-service`), the inbox row renders it, and a dev preview
- * computes the same report from fixtures.
- *
- * It names no document. It counts them, by the dossier's document type, and
- * names what the findings name: a document type, a drawing number, a fact key.
- * The report is frozen on the `upload.completed` row while the documents live
- * on, so a name in it could outlive the reader's right to see the file; counts
- * and keys say what changed, and the findings panel the row links to shows the
- * documents, re-authorized on every read.
- *
- * "New" findings are a diff: the findings of the project without the batch's
- * documents against those with them. A document this upload replaced keeps its
- * id (ADR-0054), so its older Fassung is in neither side; a finding only the
- * older Fassung carried is then counted neither new nor resolved.
- */
-
 import { z } from 'zod'
 import {
   DOSSIER_DOCUMENT_TYPES,
@@ -37,50 +16,33 @@ import {
 } from '@/lib/documents/findings'
 import type { ProfileFacts } from '@/lib/documents/profile-contradictions'
 
-/** How much of each list the report keeps: an inbox row is a glance, the panel is the rest. */
 export const UPLOAD_REPORT_LIMITS = { types: 8, facts: 6, findings: 5 } as const
 
 const count = z.number().int().min(0).max(100_000)
 
-/** One finding the upload brought, as the row names it. */
 const uploadReportFindingSchema = z.object({
   kind: z.enum(DOCUMENT_FINDING_KINDS),
-  /** The fact key, the document type, the profile subject or the drawing number. */
   key: z.string().min(1).max(120),
-  /** A drawing number as the document writes it; null for the other kinds. */
   label: z.string().max(120).nullable(),
-  /** How many documents the finding rests on. */
   documents: count,
 })
 
-/**
- * The report as the `upload.completed` payload carries it (`payload.report`),
- * and as the inbox read path parses it back: a payload is never trusted, so a
- * row whose report does not parse shows none.
- */
 export const uploadReportSchema = z.object({
   projectId: z.string().min(1).max(64),
-  /** The batch's documents the uploader may see on the shelf. */
   documents: count,
-  /** Of those, the ones Piloti read: a dossier or a reading coverage. */
   read: count,
   byType: z
     .array(z.object({ type: z.enum(DOSSIER_DOCUMENT_TYPES), count }))
     .max(UPLOAD_REPORT_LIMITS.types),
-  /** Facts the batch's documents state, all of them. */
   facts: count,
-  /** One per fact key, in the dossier's key order, as the document writes it. */
   factSamples: z
     .array(
       z.object({ key: z.enum(DOSSIER_FACT_KEYS), value: z.string().max(120), unit: z.string().max(24).nullable() })
     )
     .max(UPLOAD_REPORT_LIMITS.facts),
-  /** Findings the project has because of this upload, all of them. */
   newFindings: count,
   findings: z.array(uploadReportFindingSchema).max(UPLOAD_REPORT_LIMITS.findings),
-  /** Findings the project no longer has because of it: the Bodengutachten that came. */
   resolvedFindings: count,
-  /** Distinct references to a document or a drawing number the project does not hold. */
   unresolvedReferences: count,
   pagesNotRead: count,
   documentsNotFullyRead: count,
@@ -89,16 +51,13 @@ export const uploadReportSchema = z.object({
 export type UploadReport = z.infer<typeof uploadReportSchema>
 export type UploadReportFinding = z.infer<typeof uploadReportFindingSchema>
 
-/** A report as the pure function derives it; the service adds the project. */
 export type UploadReportSummary = Omit<UploadReport, 'projectId'>
 
-/** A stored payload's report, or null when it is absent or does not parse. */
 export function parseUploadReport(value: unknown): UploadReport | null {
   const parsed = uploadReportSchema.safeParse(value)
   return parsed.success ? parsed.data : null
 }
 
-/** The type a document is counted under: its dossier's, else the first its tags stand for. */
 function countedType(document: FindingsDocument): DossierDocumentType | null {
   if (document.dossier?.documentType) return document.dossier.documentType
   const [first] = [...documentTypesOf(document)].sort(
@@ -131,7 +90,6 @@ function factSamples(documents: readonly FindingsDocument[]): UploadReport['fact
     .slice(0, UPLOAD_REPORT_LIMITS.facts)
 }
 
-/** A finding as the row names it; `incomplete_read` is the pages line, not a finding line. */
 function reportFinding(finding: DocumentFinding): UploadReportFinding | null {
   const documents = new Set(finding.sources.map((source) => source.documentId)).size
   switch (finding.kind) {
@@ -148,7 +106,6 @@ function reportFinding(finding: DocumentFinding): UploadReportFinding | null {
   }
 }
 
-/** The references of the batch's documents the project cannot resolve, counted once each. */
 function unresolvedReferenceCount(batch: readonly FindingsDocument[], project: readonly FindingsDocument[]): number {
   const missing = new Set<string>()
   for (const document of batch) {
@@ -159,12 +116,6 @@ function unresolvedReferenceCount(batch: readonly FindingsDocument[], project: r
   return missing.size
 }
 
-/**
- * What `batchDocuments` brought the project whose documents are
- * `projectDocuments` (the batch's own may be among them or not; a batch
- * document's row wins). With `profile`, the documents are compared with the
- * Steckbrief too, before and after alike.
- */
 export function uploadReport(
   batchDocuments: readonly FindingsDocument[],
   projectDocuments: readonly FindingsDocument[],
@@ -201,7 +152,6 @@ export function uploadReport(
   }
 }
 
-/** Does the report say anything a person would want told? An upload nothing was read of has nothing to report. */
 export function reportSaysSomething(report: UploadReportSummary): boolean {
   return report.read > 0
 }

@@ -40,7 +40,6 @@ vi.mock('server-only', () => ({}))
 const STAMP = Date.now()
 const ORG = `org_subj_${STAMP}`
 
-/** This organization's down-votes, over a range that holds every seeded vote. */
 const DOWN_IN_ORG: FeedbackQuery = {
   scope: {
     from: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
@@ -51,7 +50,6 @@ const DOWN_IN_ORG: FeedbackQuery = {
   ratings: { ...NO_RATINGS_FILTERS, verdict: 'down' },
 }
 
-/** Today's profiled turns in this organization, for the staff directory. */
 const PROFILER_SCOPE = {
   start: new Date(Date.now() - 86_400_000),
   endExclusive: new Date(Date.now() + 86_400_000),
@@ -62,7 +60,6 @@ const CLEARED = `user_subj_cleared_${STAMP}`
 const UNCLEARED = `user_subj_uncleared_${STAMP}`
 const THREAD = `s_subj_thread_${STAMP}`
 
-/** The restricted folder, once made: CLEARED holds folder-reader on it (ADR-0097), UNCLEARED nothing. */
 const listed = { folderId: '' }
 const clearanceFor = (userId: string): FolderClearance => ({
   levels: userId === CLEARED && listed.folderId ? { [listed.folderId]: 'read' } : {},
@@ -122,7 +119,6 @@ describe.skipIf(!url)('revision tasks judged by their document’s current folde
   const moveDocumentTo = (folderId: string | null) =>
     inOrg(() => db.execute(sql`update documents set folder_id = ${folderId}::uuid where id = ${documentId}::uuid`))
 
-  /** What platform staff read of this organization: the drill-in, the lessons input, the profiler row of the thread. */
   async function staffSees() {
     const { listFeedbackTurns } = await import('@/lib/feedback/repository')
     const { listUnprocessedDownvotes } = await import('@/lib/platform-lessons/repository')
@@ -153,7 +149,6 @@ describe.skipIf(!url)('revision tasks judged by their document’s current folde
       ).n
     )
 
-  /** Whether the thread's vote is scored in Langfuse without its words (`isRestrictedUseVote`, the same rule). */
   async function scoredWithoutWords(): Promise<boolean> {
     const { isRestrictedUseVote } = await import('@/lib/feedback/repository')
     const vote = first(
@@ -187,7 +182,7 @@ describe.skipIf(!url)('revision tasks judged by their document’s current folde
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -202,7 +197,6 @@ describe.skipIf(!url)('revision tasks judged by their document’s current folde
         )
       ).id
     )
-    // Its own list; who is on it is WorkOS's (`listed`).
     restrictedFolder = String(
       first(
         await inOrg(() =>
@@ -316,12 +310,6 @@ describe.skipIf(!url)('revision tasks judged by their document’s current folde
     })
   })
 
-  /**
-   * Staff read across organizations and hold no clearance to ask, so the
-   * database answers with a superset of the folder rule. Nothing is marked
-   * while the document sits at the project's root; moving it is enough, and
-   * the move marks the thread.
-   */
   it('keeps the thread out of the staff views once its document sits in a folder of a project with an access list', async () => {
     await moveDocumentTo(null)
     const draft = `Überarbeiteter Entwurf: Zimmerer 48.000 EUR ${STAMP}`
@@ -357,17 +345,9 @@ describe.skipIf(!url)('revision tasks judged by their document’s current folde
       reports: [],
       profiled: { title: null, titleWithheld: true },
     })
-    // The question, the answer and the vote's message id: one mark each, the
-    // answer's shared by the message and the vote.
     expect(await threadMarks()).toBe(2)
   })
 
-  /**
-   * The rule's revision branch is asked at read time, and forgets the thread
-   * once the document moves back or the thread is deleted (its task's
-   * `conversation_id` is set null). The marks the move wrote do not, and the
-   * rule asks them: ordinary chats and revision threads are both sticky.
-   */
   it('keeps the thread out of the staff views and Langfuse after the document moves back and the thread is deleted', async () => {
     const hidden = { answers: [], titles: [], reports: [] }
     await moveDocumentTo(null)

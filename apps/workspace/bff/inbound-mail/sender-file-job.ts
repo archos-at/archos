@@ -1,47 +1,4 @@
 import 'server-only'
-/**
- * The sender's own filing (`inbound_mail_sender_file`, ADR-0137, amendment of
- * 2026-11-03, rule 1): a mail whose From is a member who may write in the
- * project, signed by their domain (`sender_class = 'verified_writer'`), is
- * filed AS THAT MEMBER, without a click. The receive job queued it by name;
- * nothing it read then is trusted now. Modelled on the follow job, the earlier
- * filing without a click (`./follow-job.ts`). Per run:
- *
- * 1. **The mail.** Still waiting, still a verified writer's (the class is
- *    frozen at the hold, migration 0197), and direct filing still switched
- *    on (`./direct-filing.ts`): a job queued before the switch went off
- *    files nothing, and the mail waits for any of the project's writers.
- * 2. **The suggestion.** While the agent's suggestion for the mail is still
- *    queued or running, the run waits for it (`notBefore`), at most
- *    {@link SENDER_FILE_MAX_WAITS} times: the attachments go where the review
- *    would put them, and that is the suggestion's folder. Without one they
- *    go where the text's new Verlauf would (`./sender-filing.ts`).
- * 3. **The sender, resolved now, strictly** (a directory that does not answer
- *    retries; only WorkOS's "not a member" is "left"), and their rights asked
- *    again: the office's `inbound-mail` entitlement, `project:documents:write`
- *    in an open project (`requireMailReviewer`).
- * 4. **What to file** (`./sender-filing.ts`): the member's own view of the
- *    mail, filed as offered, every check of a person's decision applied
- *    (`planMailDecision`, `requireDecisionRights`: type, name check, name
- *    taken, folder write); a part the review refuses is left waiting and the
- *    rest goes.
- * 5. **The decision**, `via = 'sender'` in the sender's name, written with the
- *    claims and the filing job in one transaction; the other parts are left
- *    waiting, not dismissed. The database refuses the row unless the mail is
- *    a verified writer's, its raw message clean and the part unflagged.
- * 6. **The filing**, by the filing job (`inbound_mail_file`) in the sender's
- *    session: every upload check asked again as them. It tells the sender when
- *    the whole mail went (`inbound_mail.decided`, `direct`).
- *
- * Whatever waits afterwards, the whole mail when a step refused, is announced
- * as any held mail is (`inbound_mail.waiting`, to the sender per D9), so a
- * verified writer's mail is never left untold. Every run that ends (filed, left
- * waiting with its reason, or failed) is one `inbound_mail_sender_filed`
- * PostHog event and one info line, naming the mail and an outcome code, never
- * a sender, subject or address: the share of verified writers' mail that is
- * filed, and why the rest waits, is the number that says whether direct
- * filing works.
- */
 
 import { captureServer, type ServerEventProperties } from '@/lib/analytics/posthog-server'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
@@ -66,44 +23,29 @@ import { CORRESPONDENCE_FOLDER } from './review-defaults'
 import { senderDecision, withoutPart, type FolderChoice } from './sender-filing'
 import { decisionContext, FILING_CLAIM_MS, filingJobId } from './service'
 
-/** How long one wait for the agent's suggestion lasts. */
 export const SENDER_FILE_WAIT_MS = 30_000
-/** How often the run waits for the suggestion before it files without it (five minutes in all). */
 export const SENDER_FILE_MAX_WAITS = 10
 
-/** Why a verified writer's mail, or some of it, waits after all, for any of the project's writers (wait reason `not_filed`). */
 export const SENDER_FILE_WAIT_REASONS = [
-  /** A person decided first, or the mail is gone. */
   'not_waiting',
-  /** Not a verified writer's mail (the receive job queues this job for no other). */
   'not_verified_writer',
-  /** Direct filing is switched off (`INBOUND_MAIL_DIRECT_FILING=false`, `./direct-filing.ts`). */
   'direct_filing_off',
-  /** The sender is no longer a member of the office. */
   'sender_left',
-  /** The office's `inbound-mail` entitlement is off for the sender. */
   'disabled',
-  /** The sender may no longer write in the project, or it is closed. */
   'no_access',
-  /** Nothing of it can go without the sender: flagged, unnamed, or with no confident folder. */
   'nothing_to_file',
-  /** The review refused it (its type, a name check, every folder); the refusal's code is logged. */
   'refused',
-  /** The mail changed under the decision (someone decided first): the sender's filing yields. */
   'changed',
 ] as const
 export type SenderFileWaitReason = (typeof SENDER_FILE_WAIT_REASONS)[number]
 
-/** What one run did. */
 export type SenderFileOutcome =
   | { kind: 'filed'; parts: number; left: number }
-  /** The agent's suggestion is still being made: the run comes back. */
   | { kind: 'later' }
   | { kind: 'waits'; reason: SenderFileWaitReason }
 
 const waits = (reason: SenderFileWaitReason): SenderFileOutcome => ({ kind: 'waits', reason })
 
-/** The slice (`systemSliceHandler`): one mail, then „not yet“ while its suggestion is being made. */
 export async function runInboundMailSenderFile(
   organizationId: string,
   payload: InboundMailSenderFilePayload,
@@ -116,7 +58,6 @@ export async function runInboundMailSenderFile(
     const name = error instanceof Error ? error.name : 'unknown'
     console.warn(`[inbound-mail] sender filing of mail ${payload.mailId}: failed (${name})${attempt.last ? ', last attempt' : ''}`)
     captureOutcome(organizationId, { outcome: 'failed', last_attempt: attempt.last })
-    // The last attempt leaves the mail waiting, and someone must hear that it does.
     if (attempt.last) await tellWaiting(await findMailForReceive(payload.mailId))
     throw error
   }
@@ -135,18 +76,15 @@ export async function runInboundMailSenderFile(
   return { done: true, payload }
 }
 
-/** The job's INFO line: how a direct filing ended is the operator's trail, as a delivery's is (`./receive.ts`). */
 function logInfo(line: string): void {
   // oxlint-disable-next-line no-console -- the per-run INFO line is the operator's trail
   console.info(line)
 }
 
-/** One run's end, as `inbound_mail_sender_filed`: codes and counts only, personless (the job acts, not a person). */
 function captureOutcome(organizationId: string, properties: ServerEventProperties): void {
   captureServer({ event: 'inbound_mail_sender_filed', distinctId: null, organizationId, properties })
 }
 
-/** Steps 1–6 of the module header. Exported for its spec. */
 export async function fileAsSender(organizationId: string, payload: InboundMailSenderFilePayload): Promise<SenderFileOutcome> {
   const mail = await findMailForReceive(payload.mailId)
   if (!mail || mail.organizationId !== organizationId || mail.projectId !== payload.projectId || mail.status !== 'waiting') {
@@ -168,7 +106,6 @@ export async function fileAsSender(organizationId: string, payload: InboundMailS
   return fileDecision(session, mail, rows, decision)
 }
 
-/** The sender may still decide the project's mail: entitled, a writer, the project open. */
 async function mayFile(session: AuthorizedSession, projectId: string): Promise<boolean> {
   try {
     return !(await requireMailReviewer(session, projectId)).closed
@@ -178,12 +115,10 @@ async function mayFile(session: AuthorizedSession, projectId: string): Promise<b
   }
 }
 
-/** Whether the agent's suggestion for the mail is still queued or running. */
 async function suggestionPending(organizationId: string, mailId: string): Promise<boolean> {
   return (await findOpenJobId({ kind: 'inbound_mail_suggest', organizationId, matching: { mailId } })) !== null
 }
 
-/** The first correspondence folder the sender may write in, for a new Verlauf the agent placed nowhere. */
 async function correspondenceFolder(session: AuthorizedSession, projectId: string): Promise<FolderChoice | null> {
   const folders = (await listProjectsFolders(session.organizationId, [projectId])).filter((folder) => CORRESPONDENCE_FOLDER.test(folder.path))
   for (const folder of folders) {
@@ -197,11 +132,6 @@ async function correspondenceFolder(session: AuthorizedSession, projectId: strin
   return null
 }
 
-/**
- * Steps 4–6: plan the decision as a person's is planned, dropping each part
- * the review refuses by name; then write it, `via = 'sender'`, with the filing
- * job, leaving every other part waiting.
- */
 async function fileDecision(
   session: AuthorizedSession,
   mail: InboundMailRow,
@@ -227,7 +157,6 @@ async function fileDecision(
   return told(mail, 'refused')
 }
 
-/** The part a refusal names, when it names one: that part waits and the rest is filed. */
 function refusedPart(error: unknown): string | null {
   if (!(error instanceof ConflictError)) return null
   const details = (error as { details?: { partId?: unknown } }).details
@@ -283,7 +212,6 @@ async function writeAsSender(
   return { kind: 'filed', parts: plan.files.length, left }
 }
 
-/** The mail waits after all, whole or in part: announced as any held mail is. */
 async function told(mail: InboundMailRow, reason: SenderFileWaitReason): Promise<SenderFileOutcome> {
   await tellWaiting(mail)
   return waits(reason)

@@ -11,18 +11,6 @@ import { cn } from '@/lib/utils'
 import { BIM_CAMERA_VIEWS, type BimCameraView } from '../lib/viewer-camera'
 import { ViewerIconButtonBase, ViewerToolButton } from './viewer'
 
-/**
- * Which way the building is facing.
- *
- * A menu rather than six buttons in the bar. The old toolbar spent six of its
- * nine slots on view names, which put the two controls anyone uses — the cut
- * and the see-through — at the end of a row of words. Folding the directions
- * into one control is what made room for the bar to be readable.
- *
- * The projection toggle lives in here too, at the bottom, because it only ever
- * matters in the sentence "…and draw it parallel so it measures" — which is a
- * thought you have while choosing a view, not on its own.
- */
 export function StageViewMenu({
   view,
   orthographic,
@@ -37,23 +25,10 @@ export function StageViewMenu({
   onViewChange: (view: BimCameraView) => void
   onOrthographicChange: (orthographic: boolean) => void
   disabled: boolean
-  /**
-   * `icon` is the desktop dock's glyph; `tool` is the phone's glyph over a
-   * caption. Same menu, same state — a finger gets the name written on the
-   * control, because it has no tooltip to ask.
-   */
   trigger?: 'icon' | 'tool'
-  /** Which edge of the trigger the menu opens from: above a bar, beside a column. */
   side?: 'top' | 'right'
 }): JSX.Element {
   const t = useTranslations(bimCopy)
-  /**
-   * Controlled so choosing a view CLOSES the menu.
-   *
-   * It did not, so picking "Grundriss" left an 11 rem popover sitting over the
-   * lower-left of the building the reader had just re-oriented to look at —
-   * and the one thing they wanted to see was behind it.
-   */
   const [open, setOpen] = useState(false)
 
   return (
@@ -70,9 +45,6 @@ export function StageViewMenu({
             label={
               view === 'iso' ? t('stage.views') : `${t('stage.views')}: ${t(`viewer.view.${view}`)}`
             }
-            // The active view takes the caption's place: "Grundriss" says more
-            // than "Ansicht" does once one has been chosen, and it is the only
-            // way a finger can learn the state without opening the menu.
             caption={view === 'iso' ? t('stage.views') : t(`viewer.view.${view}`)}
             icon={Video}
             disabled={disabled}
@@ -126,9 +98,6 @@ export function StageViewMenu({
                 setOpen(false)
               }}
               className={cn(
-                // `pointer-coarse:min-h-11`: these are raw buttons, so they
-                // never see the floor `Button` applies. ~30 px rows two pixels
-                // apart are the only route to a plan or an elevation.
                 'focus-visible:ring-ring/60 pointer-coarse:min-h-11 duration-quick flex items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm font-medium outline-none transition-colors ease-out focus-visible:ring-2',
                 view === candidate
                   ? 'bg-accent text-foreground'

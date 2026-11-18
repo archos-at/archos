@@ -1,11 +1,3 @@
-/**
- * A citation peek whose locus carries a region shows the cited page with the
- * place marked (ADR-0128, "Citations become places"). Drawing the page is
- * pdf.js's business and is replaced by a recorder; the claims are which page,
- * which box, and that a peek without a region or without a drawable PDF is
- * what it always was.
- */
-
 import { render, screen, waitFor } from '@/test-utils'
 import { describe, expect, test, vi } from 'vitest'
 import { buildCitationModel, resolveCitationTarget, type CitationRef } from '../lib/citations'

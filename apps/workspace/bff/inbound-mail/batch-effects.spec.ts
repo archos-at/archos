@@ -1,12 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * ADR-0137's „who hears what“ table, row by row (DECISION D35): a filing is a
- * person's decision, so it neither announces itself like a dropped folder nor
- * asks the agent to judge a placement a person made; a Verlauf append tells only
- * the people with open marks and runs no document check.
- */
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatchEffects } from '@/lib/db/schema/upload-batches'
 import {

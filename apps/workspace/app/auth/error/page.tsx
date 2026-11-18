@@ -1,10 +1,3 @@
-/**
- * Auth Error Page
- *
- * Displayed when authentication fails.
- * Redirects to home when REQUIRE_AUTH=false since auth is not needed.
- */
-
 'use client'
 
 import { type ReactNode, Suspense, useEffect } from 'react'
@@ -19,9 +12,6 @@ import { useAuth } from '@/adapters/auth'
 import { useTranslations } from '@/i18n'
 import { errorsCopy } from '@/i18n/namespaces/errors'
 
-/**
- * Error content that uses useSearchParams (requires Suspense wrapper)
- */
 const ErrorContent = (): ReactNode => {
   const router = useRouter()
   const { authRequired } = useAppConfig()
@@ -33,14 +23,12 @@ const ErrorContent = (): ReactNode => {
   const messageKey = knownKeys.includes(error) ? error : 'Default'
   const errorMessage = t(`auth.messages.${messageKey}`)
 
-  // Redirect to home if auth is disabled - this page is not needed
   useEffect(() => {
     if (!authRequired) {
       router.replace('/')
     }
   }, [authRequired, router])
 
-  // Show loading while redirecting
   if (!authRequired) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -49,8 +37,6 @@ const ErrorContent = (): ReactNode => {
     )
   }
 
-  // "Try again" re-initiates the AuthKit sign-in flow (the same mechanism the
-  // landing page uses) rather than merely bouncing home like "Go home".
   const handleRetry = (): void => {
     void signIn()
   }
@@ -79,9 +65,6 @@ const ErrorContent = (): ReactNode => {
   )
 }
 
-/**
- * Auth Error Page
- */
 const AuthErrorPage = (): ReactNode => {
   const t = useTranslations(errorsCopy)
   return (

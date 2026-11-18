@@ -1,8 +1,3 @@
-/**
- * Closing a preview a link opened. Without `back` the shelf stays, the
- * document's params gone; with one (a search hit's) the reader goes back to
- * the page the link came from, and a `back` outside the app is never followed.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@/test-utils'
 import type { FileItem } from '../file-types'
@@ -22,7 +17,6 @@ vi.mock('next/navigation', () => ({
 const FILE = { id: 'd1' } as FileItem
 const SEARCH = '/app/search?q=REI&view=register'
 
-/** The link has opened d1; then the preview closes. */
 function closeAfterLink(search: string): void {
   currentSearch = search
   const { rerender } = renderHook(

@@ -1,8 +1,3 @@
-"""What a batch delete reports (``BaseIngestor.delete_files``): a file with
-nothing indexed is ``not_found``, which leaves nothing behind; only a delete
-that raised is ``failed``, so the BFF can tell a confirmed purge from one whose
-points may remain (``purgeIngestedChunks``)."""
-
 from __future__ import annotations
 
 from types import SimpleNamespace

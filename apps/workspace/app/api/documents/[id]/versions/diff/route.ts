@@ -1,12 +1,3 @@
-/**
- * Two versions' contents, for the client to render.
- *
- * The server deliberately does NOT diff. A diff is a rendering decision — word
- * or line granularity, whitespace, whether a moved paragraph is a move or a
- * delete plus an insert — and baking one into the API would freeze it for every
- * later surface while buying nothing: the bytes are what both sides need.
- */
-
 import { apiRoute } from '@/lib/api/handler'
 import { BadRequestError } from '@/lib/api/errors'
 import { refuseLicensedFileForAgent } from '@/lib/base-knowledge/door-guard'
@@ -21,7 +12,6 @@ export const GET = apiRoute<Params>(
     const from = url.searchParams.get('from')
     const to = url.searchParams.get('to')
     if (!from || !to) throw new BadRequestError('from and to are required')
-    // Two versions of a licensed copy are the whole norm twice: not sent to an agent (ADR-0159).
     await refuseLicensedFileForAgent(session, params.id)
 
     const [fromVersion, toVersion, fromContent, toContent] = await Promise.all([

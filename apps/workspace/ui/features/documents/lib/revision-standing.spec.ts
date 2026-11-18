@@ -31,7 +31,6 @@ const version = (
   ...overrides,
 })
 
-/** A person's upload as the server stores it: born published, the uploader standing in as approver. */
 const upload = (versionNumber: number, state: DocumentVersionState = 'published') =>
   version(versionNumber, state, { approvedBy: 'user_author', publishedBy: 'user_author' })
 
@@ -78,7 +77,7 @@ function standingOf(
 }
 
 describe('revisionStanding — the header describes the newest Fassung', () => {
-  it('says a round in review is waiting while Piloti still answers from the older published Fassung, by number', () => {
+  it('says a round in review is waiting while the agent still answers from the older published Fassung, by number', () => {
     const standing = standingOf([reviewed(1, 'published', { approvedBy: 'user_r', publishedBy: 'user_r' }), reviewed(2, 'in_review')])
 
     expect(standing).toMatchObject({ number: 2, state: 'in_review', answer: { kind: 'older', number: 1 } })
@@ -109,7 +108,7 @@ describe('revisionStanding — the header describes the newest Fassung', () => {
 })
 
 describe('revisionStanding — no fake approval', () => {
-  it('gives a plain upload no state word and no track, and says Piloti answers from it', () => {
+  it('gives a plain upload no state word and no track, and says the agent answers from it', () => {
     const standing = standingOf([upload(1)])
 
     expect(standing).toMatchObject({ number: 1, state: null, progress: null, stage: null, nextStep: null, answer: { kind: 'this' } })
@@ -152,7 +151,7 @@ describe('revisionStanding — published is not yet answerable until it has been
     expect(standingOf([], { read: 'reading' }).answer).toEqual({ kind: 'notYetRead' })
   })
 
-  it('does not lean on the previous Fassung of a Piloti document, whose publish removed it first', () => {
+  it('does not lean on the previous Fassung of an agent document, whose publish removed it first', () => {
     const versions = [reviewed(1, 'superseded'), reviewed(2, 'published')]
     expect(standingOf(versions, { read: 'reading', agent: true }).answer).toEqual({ kind: 'notYetRead' })
     expect(standingOf(versions, { read: 'failed', agent: true }).answer).toEqual({ kind: 'never' })
@@ -182,7 +181,6 @@ describe('revisionStanding — the next step, with a person', () => {
   it('falls back to the reader when the round names nobody and they may approve, and to nobody otherwise', () => {
     expect(standingOf([reviewed(1, 'in_review')], { viewer: REVIEWER }).nextStep).toMatchObject({ people: [], you: true })
     expect(standingOf([reviewed(1, 'in_review')], { viewer: WRITER }).nextStep).toMatchObject({ people: [], you: false })
-    // The submitter may not approve their own round.
     expect(
       standingOf([reviewed(1, 'in_review', { submittedBy: 'user_me' })], { viewer: REVIEWER }).nextStep,
     ).toMatchObject({ people: [], you: false })

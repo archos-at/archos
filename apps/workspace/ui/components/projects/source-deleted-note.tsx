@@ -7,12 +7,6 @@ import { commonCopy } from '@/i18n/namespaces/common'
 import { formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-/**
- * „Quelle gelöscht am …" — the one line every surface shows under content
- * derived from a folder that was permanently deleted (ADR-0088): a chat
- * answer, a memory note, a filed report. Provenance, not an error: muted, one
- * line, the date the purge ran.
- */
 export function SourceDeletedNote({ at, className }: { at: string; className?: string }): JSX.Element {
   const t = useTranslations(commonCopy)
   const { locale } = useLocale()

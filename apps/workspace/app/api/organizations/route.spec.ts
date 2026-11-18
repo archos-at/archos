@@ -36,13 +36,12 @@ const request = (body: unknown): Request =>
 describe('POST /api/organizations', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    delete process.env.DISABLE_SELF_SERVE_ORGS
+    vi.stubEnv('DISABLE_SELF_SERVE_ORGS', undefined)
     createOrganization.mockResolvedValue({ id: 'org_new' })
     createOrganizationMembership.mockResolvedValue({})
     listOrganizationMemberships.mockResolvedValue({ data: [] })
   })
 
-  // Review of #1545, fix 12: a retry after a failed row write must not make a second organization.
   it('asks WorkOS with one idempotency key per person and name, and joins only once', async () => {
     await POST(request({ name: 'Acme', homeCountry: 'AT' }))
     placeOrganization.mockRejectedValueOnce(new Error('db down'))
@@ -82,7 +81,7 @@ describe('POST /api/organizations', () => {
   })
 
   it('is blocked when self-serve org creation is disabled (invite-only platform)', async () => {
-    process.env.DISABLE_SELF_SERVE_ORGS = 'true'
+    vi.stubEnv('DISABLE_SELF_SERVE_ORGS', 'true')
     const res = await POST(request({ name: 'Acme', homeCountry: 'AT' }))
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ error: 'self-serve-disabled' })
@@ -121,7 +120,7 @@ describe('POST /api/organizations', () => {
   })
 
   it('reports nothing when self-serve creation is disabled', async () => {
-    process.env.DISABLE_SELF_SERVE_ORGS = 'true'
+    vi.stubEnv('DISABLE_SELF_SERVE_ORGS', 'true')
 
     await POST(request({ name: 'Acme', homeCountry: 'AT' }))
 

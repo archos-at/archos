@@ -1,8 +1,3 @@
-/**
- * What a verified writer's direct filing files, and where (`./sender-filing.ts`):
- * what the review offers that member checked, minus anything a person weighs,
- * and nothing without a confident place.
- */
 import { describe, expect, it } from 'vitest'
 import { DOCUMENT_ID, FILE_PART_ID, filePart, FOLDER_ID, MAIL_ID, PROJECT_ID, TEXT_PART_ID, textPart, THREAD_ID } from './__fixtures__/review'
 import type { InboundMailPartView, InboundMailThreadCandidateView, InboundMailView } from './inbound-mail-wire'
@@ -112,7 +107,6 @@ describe('senderDecision', () => {
   })
 
   it('files attachments without a suggestion where the text goes: the text’s suggested folder, else correspondence, else the root', () => {
-    // The agent's suggestion is off, out of budget or failed: nothing is suggested for any part.
     const unsuggested = partView({ suggestion: null })
     expect(senderDecision(view([textView(), unsuggested]), rows, { folderId: FOLDER_ID })?.parts).toEqual([
       { partId: FILE_PART_ID, folderId: FOLDER_ID, newFolderPath: null, name: 'S-101_C.pdf', documentType: undefined },
@@ -124,7 +118,6 @@ describe('senderDecision', () => {
     expect(senderDecision(view([textSuggested, unsuggested]), rows, { folderId: FOLDER_ID })?.parts).toEqual([
       expect.objectContaining({ partId: FILE_PART_ID, folderId: null, newFolderPath: 'Korrespondenz/Statik' }),
     ])
-    // The risk-flag and name checks hold without a suggestion too.
     expect(senderDecision(view([unsuggested]), [textPart(), filePart({ riskFlags: ['encrypted'] })], null)).toBeNull()
     expect(senderDecision(view([partView({ suggestion: null, filename: null })]), rows, null)).toBeNull()
   })

@@ -9,12 +9,6 @@ import { ChangeRequestReview } from './change-request-review'
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }))
 vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ user: { id: 'reviewer' } }) }))
 
-/**
- * The text of an edition on its change request (ADR-0165, "Texts are attached
- * in the request"): the reviewer opens it beside the record, and in a draft
- * whoever may write platform knowledge attaches it there, by upload or by URL.
- */
-
 const ID = '0b8f6d2e-6a51-4d6c-9a0e-4b2f9f1c2d3e'
 const BASE = `/api/platform/knowledge/change-requests/${ID}`
 
@@ -100,7 +94,6 @@ describe('a manifestation’s text on its change request', () => {
     expect(within(text).getByRole('link', { name: /oib-rl-1-2019\.pdf/ })).toHaveAttribute('href', expect.stringMatching(/^\/api\/platform\/knowledge\/change-requests\/[^/]+\/texts\/at-oib-rl-1-2019-text$/))
     expect(within(text).getByRole('link', { name: 'fetched from www.oib.or.at' })).toHaveAttribute('href', TEXT.url)
     expect(within(text).getByText('12 pages')).toBeInTheDocument()
-    // Submitted: no more records or texts go in.
     expect(within(text).queryByRole('button', { name: /Upload/ })).not.toBeInTheDocument()
   })
 
@@ -121,7 +114,6 @@ describe('a manifestation’s text on its change request', () => {
     const form = init.body as FormData
     expect(form.get('manifestationKey')).toBe('at-oib-rl-1-2019-text')
     expect((form.get('file') as File).name).toBe('oib-rl-1-2019.pdf')
-    // The view is read again, so the attached text shows.
     await waitFor(() => expect(fetchMock.mock.calls.filter(([url, call]) => url === BASE && !call).length).toBeGreaterThan(1))
   })
 

@@ -1,9 +1,3 @@
-/**
- * ClampedText: the reader can always reach the whole text without a hover.
- *
- * jsdom has no layout, so the clamp is simulated the way the component reads it:
- * `scrollHeight` against `clientHeight`.
- */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'

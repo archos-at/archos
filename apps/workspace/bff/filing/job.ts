@@ -1,10 +1,3 @@
-/**
- * The `filing_review` job's one step (`lib/jobs-queue/handlers.ts`): judge the
- * batch as its uploader and file the proposals. A refusal a retry would meet
- * again (the uploader lost the project, the batch is gone) ends the job
- * quietly; anything else throws, and the queue retries it.
- */
-
 import 'server-only'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'

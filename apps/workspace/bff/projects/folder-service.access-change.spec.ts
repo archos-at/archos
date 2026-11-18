@@ -44,10 +44,8 @@ interface FolderRow {
 }
 
 const at = new Date('2026-10-01T00:00:00Z')
-/** Each custom folder's list: membership → the level of the folder role WorkOS has assigned it there. */
 type List = Record<string, FolderGrantLevel>
 const listOf = vi.hoisted(() => new Map<string, Record<string, 'read' | 'write'>>())
-/** The custom folders every project member reads. */
 const everyoneReads = vi.hoisted(() => new Set<string>())
 const folder = (
   id: string,
@@ -77,12 +75,9 @@ const byId = new Map(Object.values(TREE).map((row) => [row.id, row]))
 
 const state = vi.hoisted(() => ({
   granted: new Set<string>(),
-  /** Rows the next `.limit()` reads answer with, in order. */
   reads: [] as unknown[][],
-  /** Rows a read without a limit answers with. */
   children: [] as unknown[],
   transactions: 0,
-  /** What the last write outside a transaction set (a description). */
   written: null as Record<string, unknown> | null,
 }))
 
@@ -94,7 +89,6 @@ vi.mock('@/lib/authz/projects', () => ({
   }),
 }))
 
-// The decision runs for real over the tree below; only its reads are stubbed.
 vi.mock('@/lib/authz/folder-access-repository', () => ({
   listProjectDocumentCollections: vi.fn(async () => []),
   projectHasCustomFolders: vi.fn(async () => true),
@@ -129,7 +123,6 @@ vi.mock('@/lib/projects/repository', () => ({
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
 
 vi.mock('@/lib/db', () => {
-  /** A statement that can be awaited, `.returning()`ed, or both. */
   const statement = (rows: unknown[]) =>
     Object.assign(Promise.resolve(undefined), { returning: async () => rows })
   const tx = {
@@ -173,16 +166,10 @@ const session = {
   roles: ['member'],
   permissions: [],
 } as unknown as AuthorizedSession
-/** May only read „Verträge“. */
 const reader = { ...session, organizationMembershipId: 'om-bh' } as unknown as AuthorizedSession
 const WRITE_ONLY = ['project:documents:write']
 const MANAGER = ['project:documents:write', 'project:manage']
 
-/**
- * Queue the folder lookups a call makes: the folder (twice: once for the
- * access check here, once by the shelf core that writes), then the parent it
- * reads. A refused call stops after the first.
- */
 function reads(folder: FolderRow, ...rest: FolderRow[]) {
   state.reads = [[folder], [folder], ...rest.map((row) => [row])]
 }
@@ -242,7 +229,6 @@ describe('moving a folder', () => {
     )
     expect(vi.mocked(recordAuditEvent).mock.calls[0][0].metadata).toEqual({
       folderId: TREE.projectFolder.id,
-      // The folder that now governs it, by id: who is on its list is WorkOS's (ADR-0097).
       grants: 'folder:f-vertraege',
       roles: '',
       documentsMoved: 3,
@@ -264,9 +250,6 @@ describe('moving a folder', () => {
   })
 
   describe('a subtree holding a folder the mover cannot read', () => {
-    // Sub sits under Verträge (gf, bh) and holds Geheim, whose own list names hr only. The path's
-    // minimum leaves nobody reading Geheim. Taking Sub out from under Verträge makes hr read it, and
-    // the mover could not see what they changed.
     it('refuses to move it out from under a restricting folder, even for a manager, and writes nothing', async () => {
       state.granted = new Set(MANAGER)
       reads(TREE.sub, TREE.officeShelf)
@@ -297,7 +280,6 @@ describe('moving a folder', () => {
     it('does not stop a move that leaves the lists above it as they were', async () => {
       state.granted = new Set(WRITE_ONLY)
       reads(TREE.sub, TREE.old)
-      // Sub into Alt: both sit under Verträge, so who reads Geheim does not change.
       const result = await updateProjectFolder(
         { projectId: 'proj-1', folderId: TREE.sub.id, parentId: TREE.old.id },
         session

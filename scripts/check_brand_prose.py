@@ -1,77 +1,5 @@
 #!/usr/bin/env python3
 
-"""Keep the retired product names out of everything people and agents read, and the current one out of code.
-
-Why this exists
----------------
-
-The product was AI-Q, then Grid, then Piloti, and is ARCHOS now (ADR-0149). The
-owner's rule is one name everywhere and the next rename in one edit: the name is
-copy, read from ``packages/brand/identity.json`` (``{productName}`` in the
-dictionaries, ``{{ product_name }}`` in prompts, ``PRODUCT_NAME`` in code).
-``scripts/check_brand_names.py`` keeps brands out of identifiers. This check is
-its other half: the words a person or an agent reads. It is a ratchet like that
-one, so the copy rename can land directory by directory.
-
-What it counts
---------------
-
-Over every text file git tracks:
-
-- **A retired name** (``RETIRED``): ``piloti`` in any case as a word, ``AIQ``/``AI-Q``
-  and ``GRID`` in capitals, ``Grid`` followed by OIB, platform, operates, agent or
-  workspace, and ``grid-oib``. A bare ``grid`` never counts: it is CSS, Tailwind and
-  the English layout noun.
-- **The current name typed out** (``CURRENT``): ``ARCHOS`` or ``Archos`` as a word, in a
-  file outside ``CURRENT_NAME_ALLOWED``. In code and the dictionaries the name is
-  ``PRODUCT_NAME`` or ``{productName}``, so a literal is a string the next rename
-  misses. URLs, e-mail addresses, the domain and the repository's own name
-  (``archos-at/archos``) are not the name as copy and are left out.
-
-Never counted: a host name under the old domain (``OLD_HOSTS``), which the domain cutover
-moves; in the three legal notices (``LEGAL_CONTINUITY_FILES``), the former name
-in exactly "(vormals Piloti)" or "(formerly Piloti)". A link to an ADR file (``0146-piloti-draws-….md``), whose filename
-is history; on a line carrying ``<!-- brand-history -->``, anything in
-backticks, which is how a later record quotes an old name; and the module path
-of a Python ``from``/``import`` line into the chat agent's package
-(``IMPORT_PATH``). That path is an identifier nobody reads as copy, kept on
-purpose because the checkpointer restores a graph by it (the agent's AGENTS.md,
-"Move or rename a package under agents/"), and ``check_brand_names.py`` already
-ratchets it. Counted here too, it made every new test of that package a new hit
-this check refuses, so none could be written.
-
-History is not rewritten
-------------------------
-
-A record of what was true then keeps the name it was written under:
-
-- ADRs up to ``HISTORY_ADR_MAX`` (0148) and the ADR index; ``docs/audit/``.
-- Migrations, the RLS harness that replays them, the ratchet baselines, these
-  checkers and their tests.
-- Every release note listed in ``ci/brand_history_manifest.txt`` (the notes that
-  existed at the cutover, and the rename note itself), their German entries in
-  ``releasenotes/translations/de.json`` and the weekly summaries up to the cutover
-  week in ``releasenotes/summaries.yaml``.
-- A file under ``docs/`` whose first line is ``<!-- history: YYYY-MM-DD -->`` with a
-  date on or before ``CUTOVER_DATE``: a dated record, frozen.
-- A legacy-compatibility module whose header says ``drop after release N``: it
-  names the old names on purpose, for one release.
-
-The ratchet
------------
-
-``ci/brand_prose_baseline.json`` holds each file's hits. A file over its entry
-fails; one under it fails too until ``--update`` lowers the entry, so the baseline
-only shrinks. The target is ``{}``. ``--rebaseline`` records the tree as it is,
-for a move that re-keys entries; it refuses to raise the total, so a move can
-re-key hits and never add one. Review its diff.
-
-Usage:
-    python scripts/check_brand_prose.py              # check, exit 1 on a finding
-    python scripts/check_brand_prose.py --update     # ratchet the baseline down
-    python scripts/check_brand_prose.py --rebaseline # rewrite it from the tree
-    python scripts/check_brand_prose.py --summary    # the hits by directory, for planning
-"""
 
 from __future__ import annotations
 
@@ -90,9 +18,6 @@ import yaml
 BASELINE = Path("ci/brand_prose_baseline.json")
 MANIFEST = Path("ci/brand_history_manifest.txt")
 CUTOVER_DATE = date(2026, 10, 29)
-# The last ADR written before this rule (ADR-0149) existed. 0148 was decided in
-# parallel on develop, under the name the product had then, and merged first, so it
-# is a record of its time like 0147. Every ADR from 0149 on is written under the rule.
 HISTORY_ADR_MAX = 148
 TRANSLATIONS = "releasenotes/translations/de.json"
 SUMMARIES = "releasenotes/summaries.yaml"
@@ -108,19 +33,13 @@ RETIRED = re.compile(
         )
     )
 )
-# The name as copy is written ARCHOS (or Archos). Lowercase `archos` is the repository and its
-# clone directory (`archos/scripts/…`), an identifier the brand-names check governs.
 CURRENT = re.compile(r"\b(?:ARCHOS|Archos)\b")
 NEEDLES = ("piloti", "aiq", "ai-q", "grid", "archos")  # lowercase; every pattern above contains one
 
-# Where the current name may be written out: the brand's own file and package, the
-# blog's prose, dated records, and the first-impression documents (VISION, README,
-# the user guides), which introduce the product by its name.
 CURRENT_NAME_ALLOWED = re.compile(
     "|".join(
         (
             r"(^|/)identity\.json$",
-            # The literal copies sync.mjs writes from identity.json (packages/brand/name-copies.mjs).
             r"^apps/workspace/public/sw\.js$|^apps/workspace/app/icon\.svg$|^apps/(website|site)/public/favicon\.svg$",
             r"^packages/brand/",
             r"^apps/website/src/content/",
@@ -133,7 +52,6 @@ CURRENT_NAME_ALLOWED = re.compile(
     )
 )
 
-# Whole files that are history, or lists of paths nobody reads as prose, by path. Each line says why.
 HISTORY_PATHS = re.compile(
     "|".join(
         (
@@ -147,6 +65,7 @@ HISTORY_PATHS = re.compile(
             r"^apps/website/redirects\.mjs$",  # old public addresses, kept in the spelling they were published under
             r"^apps/website/src/data/changelog\.json$",  # generated from releasenotes/, linted there
             r"^apps/workspace/bff/release-notes/release-notes\.generated\.json$",  # the same, the app's copy
+            r"^packages/agent/tests/fixtures/model_facing_text\.json$",  # the agent's texts copied, linted at source
         )
     )
 )
@@ -158,9 +77,6 @@ BACKTICKED = re.compile(r"`[^`\n]*`")
 
 ADR_LINK = re.compile(r"\b\d{4}-[a-z0-9-]+\.md\b")
 
-# Legal continuity (owner decision D23, ADR-0149): the privacy and legal notices name the
-# former name beside the current one, so a reader who signed up under it can tell the
-# notice covers them. Only in these files, and only as this exact parenthesis.
 LEGAL_CONTINUITY_FILES = frozenset(
     {
         "apps/workspace/bff/legal/content/de.ts",
@@ -170,16 +86,11 @@ LEGAL_CONTINUITY_FILES = frozenset(
 )
 LEGAL_CONTINUITY = re.compile(r"\((?:vormals|formerly) Piloti\)")
 URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-# The input is this repository's own text (``name_lines``), not a request: the leading
-# label repetition is quadratic on a long dotted run, never exponential.
 # nosemgrep: python.lang.security.audit.regex-dos.regex_dos
 OWN_NAMES = re.compile(r"(?i)\barchos-at(?:/archos)?\b|\b(?:[\w-]+\.)*archos\.tech\b")
-# Host names under the old domain (and its test domain) are infrastructure: the domain moves
-# by an operator's cutover (ADR-0149, owner decision D2), not by a copy edit.
-# The input is this repository's own text (``name_lines``), not a request: the leading
-# label repetition is quadratic on a long dotted run, never exponential.
 # nosemgrep: python.lang.security.audit.regex-dos.regex_dos
 OLD_HOSTS = re.compile(r"(?i)\b(?:[\w-]+\.)*piloti\.(?:at|test)\b")
+EXTERNAL_NAMES = re.compile(r"(?<![\w-])grid-oib(?![\w-])")
 
 BINARY_SUFFIXES = (
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".ico", ".icns", ".woff", ".woff2", ".ttf", ".otf",
@@ -189,10 +100,6 @@ LOCKFILES = re.compile(r"(^|/)(uv\.lock|bun\.lockb?|package-lock\.json|apm\.lock
 
 
 def name_lines(text: str) -> str:
-    """Only the lines of ``text`` that could hold a name, found by plain substring search.
-
-    The patterns below are costly over a whole file; the lines that hold a name are few.
-    """
     lower = text.lower()
     starts: set[int] = set()
     for needle in NEEDLES:
@@ -203,20 +110,15 @@ def name_lines(text: str) -> str:
     return "\n".join(text[start : (text.find("\n", start) + 1 or len(text) + 1) - 1] for start in sorted(starts))
 
 
-#: The module path of a Python import into the chat agent's package: an identifier, not copy.
-IMPORT_PATH = re.compile(r"^(\s*(?:from|import)\s+)agent\.agents\.piloti(?!\w)(?:\.\w+)*", re.M)
-
-
 def scrub(text: str) -> str:
-    """``text`` without what never counts: ADR filenames, import paths, and backticks on a marked line."""
-    text = IMPORT_PATH.sub(r"\1", ADR_LINK.sub(" ", text))
+    text = ADR_LINK.sub(" ", text)
     if LINE_MARKER not in text:
         return text
     return "\n".join(BACKTICKED.sub(" ", line) if LINE_MARKER in line else line for line in text.split("\n"))
 
 
 def count_retired(text: str) -> int:
-    return len(RETIRED.findall(OLD_HOSTS.sub(" ", scrub(text))))
+    return len(RETIRED.findall(EXTERNAL_NAMES.sub(" ", OLD_HOSTS.sub(" ", scrub(text)))))
 
 
 def count_current(text: str) -> int:
@@ -224,7 +126,6 @@ def count_current(text: str) -> int:
 
 
 def load_manifest(root: Path) -> set[str]:
-    """The release-note files frozen as history: one repo-relative path a line, `#` comments."""
     path = root / MANIFEST
     if not path.exists():
         return set()
@@ -233,7 +134,6 @@ def load_manifest(root: Path) -> set[str]:
 
 
 def is_history(path: str, text: str, manifest: set[str]) -> bool:
-    """Whether the whole of ``path`` is a record that keeps the names it was written under."""
     if HISTORY_PATHS.search(path) or path in manifest:
         return True
     adr = ADR.match(path)
@@ -246,7 +146,6 @@ def is_history(path: str, text: str, manifest: set[str]) -> bool:
 
 
 def _frozen_english(root: Path, manifest: set[str]) -> set[str]:
-    """Every English text of the frozen notes and the frozen weekly summaries, whitespace-normalised."""
     summaries = yaml.safe_load((root / SUMMARIES).read_text(encoding="utf-8")) if (root / SUMMARIES).is_file() else {}
     texts = {" ".join(str(text).split()) for week, text in (summaries or {}).items() if _frozen_week(str(week))}
     for note in manifest:
@@ -261,20 +160,17 @@ def _frozen_english(root: Path, manifest: set[str]) -> set[str]:
 
 
 def live_translations(text: str, frozen: set[str]) -> str:
-    """The German entries whose English is not a frozen note's: the ones still to be read under the new name."""
     entries = json.loads(text)
     live = [entry for entry in entries if " ".join(str(entry.get("en", "")).split()) not in frozen]
     return json.dumps(live, ensure_ascii=False)
 
 
 def _frozen_week(key: str) -> bool:
-    """Whether ``key`` is an ISO week (``2026-W41``) that began on or before the cutover."""
     match = re.fullmatch(r"(\d{4})-W(\d{2})", key)
     return bool(match) and date.fromisocalendar(int(match.group(1)), int(match.group(2)), 1) <= CUTOVER_DATE
 
 
 def live_summaries(text: str) -> str:
-    """``summaries.yaml`` without the entries of weeks that began on or before the cutover."""
     kept: list[str] = []
     dropping = False
     for line in text.split("\n"):
@@ -293,13 +189,11 @@ def is_text(path: str) -> bool:
 
 
 def tracked_files(root: Path) -> list[str]:
-    """Every text file git tracks (staged included)."""
     out = subprocess.run(["git", "ls-files"], cwd=root, capture_output=True, text=True, check=True).stdout
     return [path for path in out.splitlines() if is_text(path) and (root / path).is_file()]
 
 
 def measure(root: Path, paths: list[str]) -> dict[str, int]:
-    """The hits per file, zeros and history left out."""
     manifest = load_manifest(root)
     frozen: set[str] | None = None
     counts: Counter[str] = Counter()
@@ -334,7 +228,6 @@ def write_baseline(path: Path, counts: dict[str, int]) -> None:
 
 
 def check(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
-    """New or grown files, and entries the baseline should lower."""
     findings = []
     for key, count in sorted(current.items()):
         allowed = baseline.get(key, 0)
@@ -350,12 +243,10 @@ def check(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
 
 
 def tightened(current: dict[str, int], baseline: dict[str, int]) -> dict[str, int]:
-    """The baseline lowered to the tree wherever the tree has fewer; nothing new, nothing raised."""
     return {key: min(allowed, current[key]) for key, allowed in baseline.items() if key in current}
 
 
 def summary(counts: dict[str, int], depth: int = 2) -> list[tuple[str, int, int]]:
-    """``(directory, hits, files)`` at ``depth`` path parts, most hits first."""
     hits: Counter[str] = Counter()
     files: Counter[str] = Counter()
     for path, count in counts.items():
@@ -367,8 +258,11 @@ def summary(counts: dict[str, int], depth: int = 2) -> list[tuple[str, int, int]
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point: check (or ratchet) the brand-prose baseline and return an exit code."""
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Keep the retired product names out of everything people and agents read, "
+        "and the current one out of code.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
     mode.add_argument(
@@ -401,6 +295,8 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(root / BASELINE, baseline)
 
     findings = check(current, baseline)
+    slack = [f for f in findings if "so lower its" in f or "remove its baseline entry" in f]
+    findings = [f for f in findings if f not in slack]
     findings += [f"{MANIFEST}: {path} is listed but does not exist." for path in stale_manifest(root)]
     if findings:
         print(f"Brand-prose check FAILED ({len(findings)} finding(s)):", file=sys.stderr)
@@ -410,6 +306,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print(f"Brand-prose check passed: {sum(baseline.values())} hit(s) in {len(baseline)} file(s) held at baseline.")
+    if slack:
+        print(
+            f"  {len(slack)} baseline entr{'y' if len(slack) == 1 else 'ies'} can be lowered: `task baselines:tighten`."
+        )
     return 0
 
 

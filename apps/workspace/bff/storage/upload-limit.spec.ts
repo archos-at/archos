@@ -1,18 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The per-organization upload limit.
- *
- * What these protect, in order of how expensive the bug would be:
- *   - an organization with no value of its own gets the deployment default,
- *     exactly what every tenant had before the setting existed;
- *   - no stored value can make the limit exceed the transport ceiling, because
- *     bytes past it never reach the app and the refusal would name a size that
- *     cannot arrive;
- *   - a write is visible to the next upload, not thirty seconds later;
- *   - only platform staff write it, checked before the organization is probed.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -60,7 +48,6 @@ import {
 
 const MB = 1e6
 
-/** A real store, so the read-through and the invalidation are what is tested. */
 const mapStore = (): CacheStore => {
   const entries = new Map<string, string>()
   return {
@@ -94,8 +81,8 @@ describe('per-organization upload limit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setCacheStore(mapStore())
-    delete process.env.FILE_UPLOAD_MAX_SIZE_MB
-    delete process.env.BIM_MAX_IFC_BYTES
+    vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', undefined)
+    vi.stubEnv('BIM_MAX_IFC_BYTES', undefined)
     getOrgSettings.mockResolvedValue(withOwnLimit(undefined))
     aggregateStorageUsage.mockResolvedValue({
       project: { bytes: 0, documents: 0 },
@@ -108,8 +95,8 @@ describe('per-organization upload limit', () => {
   })
 
   afterEach(() => {
-    delete process.env.FILE_UPLOAD_MAX_SIZE_MB
-    delete process.env.BIM_MAX_IFC_BYTES
+    vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', undefined)
+    vi.stubEnv('BIM_MAX_IFC_BYTES', undefined)
   })
 
   describe('bounds', () => {
@@ -127,7 +114,6 @@ describe('per-organization upload limit', () => {
       const bounds = uploadLimitBounds({})
       expect(effectiveUploadLimit(null, bounds)).toBe(100 * MB)
       expect(effectiveUploadLimit(20 * MB, bounds)).toBe(20 * MB)
-      // Set when the ceiling was higher, read after it was lowered.
       expect(effectiveUploadLimit(900 * MB, bounds)).toBe(250 * MB)
       expect(effectiveUploadLimit(10, bounds)).toBe(1 * MB)
     })
@@ -139,7 +125,7 @@ describe('per-organization upload limit', () => {
     })
 
     it('follows FILE_UPLOAD_MAX_SIZE_MB for the default', async () => {
-      process.env.FILE_UPLOAD_MAX_SIZE_MB = '40'
+      vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', '40')
       expect(await getEffectiveMaxUploadBytes('org-1')).toBe(40 * MB)
     })
 
@@ -168,7 +154,6 @@ describe('per-organization upload limit', () => {
       expect(await getEffectiveMaxUploadBytes('org-1')).toBe(20 * MB)
       expect(getOrgSettings).toHaveBeenCalledTimes(1)
 
-      // Another organization is its own entry, never the first one's answer.
       getOrgSettings.mockResolvedValue(withOwnLimit(undefined))
       expect(await getEffectiveMaxUploadBytes('org-2')).toBe(100 * MB)
 

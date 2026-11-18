@@ -1,15 +1,7 @@
-/**
- * Builtin skills renamed to English (migration 0169), old name to current name.
- *
- * A skill's name is the token people type after a slash, what a stored
- * schedule's prompt says (`/einreichcheck`) and what an older message lists as
- * activated, so the old names keep resolving. `canonicalSkillName` is the one
- * place that maps them; nothing writes an old name again.
- *
- * Mirrored in `packages/agent/src/agent/skills/builtin.py::LEGACY_SKILL_NAMES`;
- * `legacy-names.spec.ts` reads the Python file and fails when the two differ.
- * Pure data, so a client component can import it. Remove after one release.
- */
+import { LEGACY_METADATA_KEYS, LEGACY_PLATFORM_SKILL_NAMES, type MetadataKey } from './legacy-brand-names'
+
+export { LEGACY_METADATA_KEYS, LEGACY_PLATFORM_SKILL_NAMES, type MetadataKey }
+
 export const LEGACY_SKILL_NAMES: Readonly<Record<string, string>> = {
   einreichcheck: 'submission-check',
   brandschutz: 'fire-safety',
@@ -21,14 +13,37 @@ export const LEGACY_SKILL_NAMES: Readonly<Record<string, string>> = {
   'pruefbericht-writer': 'inspection-report-writer',
 }
 
-/** The current name for `name`, following one renamed builtin; any other name as given. */
-export function canonicalSkillName(name: string): string {
-  return LEGACY_SKILL_NAMES[name] ?? name
+const CURRENT_SKILL_NAME: Readonly<Record<string, string>> = {
+  ...LEGACY_SKILL_NAMES,
+  ...LEGACY_PLATFORM_SKILL_NAMES,
 }
 
-/** The names this skill was called before the rename, so a typed fragment can still find it. */
+export function canonicalSkillName(name: string): string {
+  return Object.hasOwn(CURRENT_SKILL_NAME, name) ? CURRENT_SKILL_NAME[name]! : name
+}
+
 export function legacyNamesOf(name: string): string[] {
-  return Object.entries(LEGACY_SKILL_NAMES)
+  return Object.entries(CURRENT_SKILL_NAME)
     .filter(([, current]) => current === name)
     .map(([legacy]) => legacy)
+}
+
+export function skillNameFamily(name: string): string[] {
+  const current = canonicalSkillName(name)
+  return [current, ...legacyNamesOf(current)]
+}
+
+export function findSkillNamed<T extends { name: string }>(skills: readonly T[], name: string): T | undefined {
+  return (
+    skills.find((skill) => skill.name === name) ??
+    skills.find((skill) => canonicalSkillName(skill.name) === canonicalSkillName(name))
+  )
+}
+
+export function readMetadata(metadata: Readonly<Record<string, string>>, key: MetadataKey): string | undefined {
+  return metadata[key] ?? metadata[LEGACY_METADATA_KEYS[key]]
+}
+
+export function writtenMetadataKey(key: MetadataKey): string {
+  return LEGACY_METADATA_KEYS[key]
 }

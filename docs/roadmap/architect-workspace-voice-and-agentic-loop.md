@@ -41,7 +41,7 @@
 > repair as workflows the agent could neither see nor react to. Both now leave
 > an observation the model reads: a widened `knowledge_search` leads its result
 > with one German line naming the alternative formulations and why they were
-> tried (`packages/knowledge-layer/src/search/requery.py::requery_notice`). The
+> tried (`packages/knowledge-layer/src/knowledge_layer/search/requery.py::requery_notice`). The
 > repair half did not last: a failed verification used to reach the rewrite
 > as a `citation_check` tool result naming the marker and the quote that
 > failed, and that observation went with the rewrite
@@ -57,7 +57,7 @@
 > both sides.
 > **Method.** Read the live system prompt, the answer envelope, the shallow ReAct loop, the Herleitung graph, and the production config. Cross-checked against the 2026-09-01 workspace architecture review, ADRs 0051–0052, and current industry writing on agentic RAG, coding agents, legal AI, and AEC clouds.
 
-**What “Harvey for architects” means here.** Harvey is a workspace for lawyers, not a statute chatbot. Piloti is a workspace for architects, not an OIB chatbot. Questions are about the work — files, drawings, the model, how to organise, what to tell a colleague. Answers are *grounded* in whichever of these actually bears: the project’s files, the office archive, and the Austrian building-regulation corpus. Not every question is a legal question. A ruling is only when there is a copyable legal value. Treating “workspace for architects” as “every answer is about law” is the same colocation this report is trying to kill.
+**What “Harvey for architects” means here.** Harvey is a workspace for lawyers, not a statute chatbot. The app is a workspace for architects, not an OIB chatbot. Questions are about the work — files, drawings, the model, how to organise, what to tell a colleague. Answers are *grounded* in whichever of these actually bears: the project’s files, the office archive, and the Austrian building-regulation corpus. Not every question is a legal question. A ruling is only when there is a copyable legal value. Treating “workspace for architects” as “every answer is about law” is the same colocation this report is trying to kill.
 
 The two questions this answers:
 
@@ -99,13 +99,13 @@ flowchart LR
 
 The first sentence the model reads on every chat turn:
 
-> You are the Grid OIB Research Agent. You cover internal office knowledge (Bürowissen), Austrian building regulations (OIB Richtlinien, Bauordnung, Baurecht, RIS), technische Richtlinien, and related technical and energy standards. Your job is fast, citation-backed answers from the tools you have.
+> You are the OIB Research Agent. You cover internal office knowledge (Bürowissen), Austrian building regulations (OIB Richtlinien, Bauordnung, Baurecht, RIS), technische Richtlinien, and related technical and energy standards. Your job is fast, citation-backed answers from the tools you have.
 
 `packages/agent/src/agent/agents/shallow_researcher/prompts/researcher.j2:2`
 
-Deep research copies the same frame. Planner, researcher, writer, and orchestrator all open as “Grid OIB — an assistant for … Austrian building regulations”. The fallback if the Jinja file is missing is still “You are a research assistant.” (`shallow_researcher/agent.py:600`)
+Deep research copies the same frame. Planner, researcher, writer, and orchestrator all open as “OIB — an assistant for … Austrian building regulations”. The fallback if the Jinja file is missing is still “You are a research assistant.” (`shallow_researcher/agent.py:600`)
 
-The product UI has already renamed the speaker. The composer says “Fragen Sie **Piloti** zu diesem Projekt”. The permission denial still says “Der **Recherche-Agent** steht Ihnen in diesem Projekt derzeit nicht zur Verfügung.” (`apps/workspace/i18n/dictionaries/de/chat.ts:94–95`)
+The product UI has already renamed the speaker. The composer says “Fragen Sie **den Agenten** zu diesem Projekt”. The permission denial still says “Der **Recherche-Agent** steht Ihnen in diesem Projekt derzeit nicht zur Verfügung.” (`apps/workspace/i18n/dictionaries/de/chat.ts:94–95`)
 
 The product currently claims **three identities**, written about six weeks apart. The live agent still speaks the oldest.
 
@@ -113,15 +113,15 @@ The product currently claims **three identities**, written about six weeks apart
 |---|---|---|
 | undated, still canonical | `docs/product/vision.md:5` | “B2B research assistant for Austrian building regulations and law.” Value: “Turn a regulation question into a cited answer in seconds.” |
 | 2026-07-05 | `docs/architecture/system-overview.md:17` | “AI compliance assistant for Austrian building regulations.” Diagram label: `Multi-agent compliance assistant`. |
-| 2026-09-01 | `docs/roadmap/agentic-workspace-architecture.md` | “From compliance assistant to agentic workspace.” “Piloti the agent is a **member of that office**.” Explicitly: vision.md is “right about the wedge and wrong about the frame.” |
+| 2026-09-01 | `docs/roadmap/agentic-workspace-architecture.md` | “From compliance assistant to agentic workspace.” “the agent is a **member of that office**.” Explicitly: vision.md is “right about the wedge and wrong about the frame.” |
 
 The live app chrome is a mix, and the oldest label is still in the window title:
 
 - `{PRODUCT_NAME} — OIB Compliance Assistant` (`apps/workspace/app/layout.tsx:77`)
 - Tagline: “KI-gestützter Recherche-Assistent”
-- Project copy: “Piloti is an OIB/RIS **building-compliance copilot**” / “Copilot für die OIB/RIS-**Baukonformität**” (`dictionaries/{en,de}/projects.ts`)
-- Marketing site (`apps/site`): “Die KI-Plattform für Architektur- und Planungsbüros”, hero “Planen. Statt suchen.”, “Sie entwerfen, Piloti liefert den Kontext”, and **“Zu jeder Empfehlung sehen Sie Begründung, Annahmen und Regeln.”**
-- Composer: “Fragen Sie Piloti zu diesem Projekt …” (EN still: “Check data sources and ask a research question…”)
+- Project copy: “The agent is an OIB/RIS **building-compliance copilot**” / “Copilot für die OIB/RIS-**Baukonformität**” (`dictionaries/{en,de}/projects.ts`)
+- Marketing site (`apps/site`): “Die KI-Plattform für Architektur- und Planungsbüros”, hero “Planen. Statt suchen.”, “Sie entwerfen, der Agent liefert den Kontext”, and **“Zu jeder Empfehlung sehen Sie Begründung, Annahmen und Regeln.”**
+- Composer: “Fragen Sie den Agenten zu diesem Projekt …” (EN still: “Check data sources and ask a research question…”)
 - Permission denial: “Der **Recherche-Agent** …”
 - Direct-reply example in the prompt teaches the model to introduce itself as answering OIB/RIS/Bürowissen questions, not as an office colleague.
 
@@ -139,7 +139,7 @@ ADR-0052 deleted the intent router so every turn has every tool. That was correc
 
 The 2026-09-01 architecture review already named the gap, and it still holds:
 
-> Piloti is an unusually well-engineered **question-answering system wearing a workspace**. … The product's own vision says "compliance assistant"; the pilot's feedback, the ADRs and the shape of the schema all say the customer is buying **a place where project work happens and an agent does part of it**.
+> The app is an unusually well-engineered **question-answering system wearing a workspace**. … The product's own vision says "compliance assistant"; the pilot's feedback, the ADRs and the shape of the schema all say the customer is buying **a place where project work happens and an agent does part of it**.
 
 `docs/roadmap/agentic-workspace-architecture.md:74–82`
 
@@ -210,9 +210,9 @@ Two product bets merged past each other:
 
 Harvey-the-answer-document is CoCounsel’s shape (research-first, conclusion then audit trail). Harvey-the-2026-platform is the workspace. The repo copied the former on the morning of 1 September and declared the latter that evening, without touching the prompt.
 
-`docs/product/vision.md` has **one commit**: the initial import `3ffeca6b4` (2026-07-01). Identity was not leftover runtime-template copy. The June 2026 backend plan already said “You are the Grid OIB Research Agent.” `f9bb78b9c` (2026-07-05) moved that persona onto the shallow agent when the classifier became a pure router. `e129561d8` (2026-07-21, PB-14) broadened it to Bürowissen **while keeping the pinned Grid OIB / Austrian building regulations substrings**. The last identity edit (`21ff238c4` / [PR #614](https://github.com/GRID-check/grid-oib-agent/pull/614), 2026-09-04) is punctuation plus “route regulation questions to the corpus, not the law database.” Still “Grid OIB Research Agent. … fast, citation-backed answers.”
+`docs/product/vision.md` has **one commit**: the initial import `3ffeca6b4` (2026-07-01). Identity was not leftover runtime-template copy. The June 2026 backend plan already said “You are the OIB Research Agent.” `f9bb78b9c` (2026-07-05) moved that persona onto the shallow agent when the classifier became a pure router. `e129561d8` (2026-07-21, PB-14) broadened it to Bürowissen **while keeping the pinned OIB / Austrian building regulations substrings**. The last identity edit (`21ff238c4` / [PR #614](https://github.com/GRID-check/grid-oib-agent/pull/614), 2026-09-04) is punctuation plus “route regulation questions to the corpus, not the law database.” Still “OIB Research Agent. … fast, citation-backed answers.”
 
-`Agents.md` still opens “Grid is an OIB building-regulation assistant.” Contributor onboarding will keep writing a Prüfer until that line moves with the prompt.
+`Agents.md` still opens “The app is an OIB building-regulation assistant.” Contributor onboarding will keep writing a Prüfer until that line moves with the prompt.
 
 ---
 
@@ -310,7 +310,7 @@ Function calling without an explicit Thought step is a known collapse. ReAct int
 
 Two quality loops already exist. Both are **workflows inside a tool or after the answer**, not agent decisions.
 
-**Requery (CRAG-shaped, inside `knowledge_search`).** If `requery_llm` is set, a sufficiency judge may fire alternative formulations against every in-scope collection, fuse them with RRF, and rerank. The live line can show `status.retrieval.requery`. The model issued one search. The pipeline widened it. (`packages/knowledge-layer/src/search/requery.py`, `register.py` around the `judge_sufficiency` call; `turn_status.py:164–167`)
+**Requery (CRAG-shaped, inside `knowledge_search`).** If `requery_llm` is set, a sufficiency judge may fire alternative formulations against every in-scope collection, fuse them with RRF, and rerank. The live line can show `status.retrieval.requery`. The model issued one search. The pipeline widened it. (`packages/knowledge-layer/src/knowledge_layer/search/requery.py`, `register.py` around the `judge_sufficiency` call; `turn_status.py:164–167`)
 
 **Repair pass (evaluator-optimizer, after verification).** If a citation or quote fails, the turn may retrieve once more aimed at the failing text and rewrite, then re-verify (`repair_pass: true`). The reader may see `status.repair`. The model did not choose this. *(2026-09-24: superseded by [ADR-0067](../adr/0067-the-repair-corrects-a-misremembered-quote-in-place.md). With the prose streaming, the rewrite replaced an answer the reader had read; the repair now corrects only a misremembered quote, in place, on the small model.)*
 
@@ -363,7 +363,7 @@ Four layers. Changing one and not the others is why previous voice work did not 
 
 | Layer | Today | To feel like a workspace colleague who still cites |
 |---|---|---|
-| **Prompt** | Grid OIB Research Agent; stimme is a ruling; retrieve-then-write; max 2 calls/tool; no self-narration; examples are all OIB | Piloti, a member of this office. Ground every normative claim. Ruling is one earned form. Allow “I have X, I still need Y”. Workspace examples. Lift the 2-call cap or make it a budget, not a style rule. |
+| **Prompt** | OIB Research Agent; stimme is a ruling; retrieve-then-write; max 2 calls/tool; no self-narration; examples are all OIB | The agent, a member of this office. Ground every normative claim. Ruling is one earned form. Allow “I have X, I still need Y”. Workspace examples. Lift the 2-call cap or make it a budget, not a style rule. |
 | **Schema** | One envelope; verdict is the headline; summary owed | `kind` the UI can branch on. Verdict rare. Summary not owed. Citations stay. |
 | **Runtime** | ReAct with 7 charged calls; hidden requery + repair; no think; forced synthesis on truncate | Keep the loop. Charge checkpoints like cards (interaction budget), not like searches. Surface requery/repair as model-visible observations so the next call can react. Optional `think` / checkpoint tool whose text is a Herleitung node. |
 | **Herleitung** | Framing → parallel Quellen → assessment | A spine of checkpoints. Sources hang off the checkpoint that fetched them. A later checkpoint can fan out again. Persist queries on the message (already argued in the 2026-09-01 review). |
@@ -378,9 +378,9 @@ This is Anthropic’s distinction, applied here: the **workflow** pieces (requer
 
 The 2026 SoK on Agentic RAG ([arXiv:2603.07379](https://arxiv.org/abs/2603.07379)) is the clean formalization. Classic RAG is retrieve-once-then-generate. Agentic RAG is a finite-horizon loop whose action space includes retrieve, reason, other tools, and STOP. Necessary properties: iterative control, **dynamic retrieval** (queries generated from evolving memory, not only from the user string), tool-mediated retrieval, state persistence.
 
-They distinguish **Active RAG** (FLARE-style: retrieve during token generation on a confidence heuristic, still one forward pass) from **Agentic RAG** (planning separated from generation; can discard a pool and try another query). Piloti’s hidden requery is Active/CRAG. Piloti’s LangGraph loop is Agentic in topology and Active in behaviour, because the prompt forbids re-planning.
+They distinguish **Active RAG** (FLARE-style: retrieve during token generation on a confidence heuristic, still one forward pass) from **Agentic RAG** (planning separated from generation; can discard a pool and try another query). The agent’s hidden requery is Active/CRAG. The agent’s LangGraph loop is Agentic in topology and Active in behaviour, because the prompt forbids re-planning.
 
-ReAct (Yao et al., 2023) is still the named pattern: Thought → Action → Observation, repeated, then a final answer. IRCoT (interleaving CoT with retrieval) is the RAG-specific version: the next search is written from the last reasoning step. Self-RAG / CRAG add a judge that may retrieve again. Piloti implemented the judge *inside the retriever* and stripped Thought from the chat agent.
+ReAct (Yao et al., 2023) is still the named pattern: Thought → Action → Observation, repeated, then a final answer. IRCoT (interleaving CoT with retrieval) is the RAG-specific version: the next search is written from the last reasoning step. Self-RAG / CRAG add a judge that may retrieve again. The agent implemented the judge *inside the retriever* and stripped Thought from the agent.
 
 Production write-ups in 2026 put typical agentic RAG at 2–6 retrievals per hard query, with a cap, and say the evaluation surface is the **per-iteration trace**, not only the answer (MarsDevs 2026 guide, summarizing Self-RAG, CRAG, Adaptive RAG, ReAct-over-docs).
 
@@ -388,7 +388,7 @@ Production write-ups in 2026 put typical agentic RAG at 2–6 retrievals per har
 
 Claude Code is documented as a `while (tool_call)` loop with no intent classifier, no RAG pipeline, no DAG. The model decides when to read, when to grep, when it is done. Anthropic’s 2024 “Building effective agents” ([engineering post](https://www.anthropic.com/engineering/building-effective-agents)) draws the line we need:
 
-- **Workflows** — LLMs orchestrated on predefined code paths (Piloti’s requery, repair, citation verification, compliance_check pipeline).
+- **Workflows** — LLMs orchestrated on predefined code paths (the agent’s requery, repair, citation verification, compliance_check pipeline).
 - **Agents** — the LLM dynamically directs tool use.
 
 Their three production principles: keep the agent simple; **prioritize transparency by explicitly showing planning steps**; invest in the tool interface as much as the prompt.
@@ -399,7 +399,7 @@ Cursor Composer / Claude Code / Codex all show the user the tool trail as the wo
 
 Harvey vs CoCounsel in 2026 is the closest market analogue.
 
-- **CoCounsel** (Thomson Reuters) is research-first, Westlaw-grounded, citation-checked. That is where Piloti’s answering contract still lives.
+- **CoCounsel** (Thomson Reuters) is research-first, Westlaw-grounded, citation-checked. That is where the agent’s answering contract still lives.
 - **Harvey II** (2026) is a matter workspace: Spaces, memory as standing instructions, agents that run work, “Delegate the Work. Own the Judgment.” Chat is one surface; the platform is agentic.
 
 Law360 Pulse (2026-08-24): legal AI is moving from attorneys prompting chatbots to systems that handle work with limited supervision. Joel Hron (Thomson Reuters CTO): agentic apps are “goal-oriented”, not input-output chat.
@@ -414,7 +414,7 @@ Autodesk’s 2025–2026 Forma story is the industry-cloud version of the same s
 
 Newer AEC bets (FORMAS.AI “AI-native design workspace”, Illoca Plamo “agentic 3D workspace”, 2026) sell the same frame: the agent works in the place, it does not grade the place.
 
-Piloti already has the place (projects, shelves, BIM, memory, tasks, inbox). The answering contract was not updated when the place arrived.
+The workspace already has the place (projects, shelves, BIM, memory, tasks, inbox). The answering contract was not updated when the place arrived.
 
 ---
 
@@ -473,7 +473,7 @@ A turn like “Soll-Ist über alle OIB-Richtlinien” should create a task of ki
 ## 9. Risks if we only change the prompt
 
 - **Two desired voices exist in the repo.** Marketing + 09-01 review + this report: colleague who designs with you and sometimes checks. `compliance-derivation-graph.md`: every legal answer *is* a verdict, drawn as a graph. Pick one for chat before rewriting `<stimme>`. The derivation graph is the right object for `compliance_check` / `einreichcheck` tasks, not for “ordne die Dokumente”.
-- **Liability voice was load-bearing.** “Einschätzung, nicht Empfehlung” exists because someone did not want Piloti to look like it was performing a Planungsleistung. A voice change needs a product sentence that replaces it, not a deletion. Candidate: *Piloti cites the rule and can help you apply it to this project. It does not replace the Entwurfsverfasser or the Behörde.* The marketing site already says “Empfehlung”; the ToS still says research assistant. Those have to be made to agree.
+- **Liability voice was load-bearing.** “Einschätzung, nicht Empfehlung” exists because someone did not want the agent to look like it was performing a Planungsleistung. A voice change needs a product sentence that replaces it, not a deletion. Candidate: *The agent cites the rule and can help you apply it to this project. It does not replace the Entwurfsverfasser or the Behörde.* The marketing site already says “Empfehlung”; the ToS still says research assistant. Those have to be made to agree.
 - **Truncation is already the worst failure on this surface.** The 7-call ceiling was calibrated so Lichteinfall / Fluchtweg chains finish the measurement. Checkpoints must not steal those calls. Follow the `emit_card` accounting.
 - **PF-12.** Stakeholders reverted visible search queries. Checkpoints are conclusions, not queries. Do not smuggle the reverted UI back in as “transparency”.
 - **Stale docs.** `vision.md` still sells a research assistant. `agentic-workspace-architecture.md` is slightly behind the code (repair and requery have landed; the “no repair / no retrieval loop” table is wrong on this tip). If the prompt moves and the vision does not, the next agent will write another Prüfer.
@@ -489,10 +489,10 @@ A turn like “Soll-Ist über alle OIB-Richtlinien” should create a task of ki
 - `packages/agent/src/agent/agents/shallow_researcher/agent.py` — ReAct loop, budgets, forced synthesis, repair
 - `configs/config_oib_openrouter.yml` — tool list, `max_tool_iterations: 7`, `repair_pass` (the `compliance_check` binding is retired; see §1)
 - `packages/agent/src/agent/common/turn_status.py` — live status keys, requery/repair events, replace-not-accumulate
-- `packages/knowledge-layer/src/search/requery.py` — hidden sufficiency judge
+- `packages/knowledge-layer/src/knowledge_layer/search/requery.py` — hidden sufficiency judge
 - `apps/workspace/ui/features/chat/components/reasoning/ReasoningFlow.tsx` + `.spec.ts` — fan-out, never a chain
 - `apps/workspace/ui/features/chat/components/ChatThinking.tsx`, `AnswerAnatomy.tsx`
-- `apps/workspace/i18n/dictionaries/de/chat.ts` — Piloti vs Recherche-Agent
+- `apps/workspace/i18n/dictionaries/de/chat.ts` — the agent vs Recherche-Agent
 - `docs/product/vision.md`
 - `docs/architecture/system-overview.md`
 - `docs/roadmap/agentic-workspace-architecture.md`

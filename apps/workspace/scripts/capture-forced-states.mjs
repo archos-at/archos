@@ -46,14 +46,10 @@ function markForced() {
     const state = cell.getAttribute('data-force')
     const target = cell.getAttribute('data-force-target')
     if (state === 'focus') {
-      // The keys are on ONE control: the cell's target, or the first thing in it a Tab would reach. Never the cell
-      // (a frame round the whole cell is not the control's ring) and never what is inside the control.
-      // The first one that is drawn: a nav renders its strip and its rail, and hides one of them.
       const control = [...cell.querySelectorAll(target ?? FOCUSABLE)].find((node) => node.getClientRects().length > 0)
       if (control) control.setAttribute('data-forced', state)
       continue
     }
-    // The pointer is over an element and everything inside it.
     const roots = target ? [...cell.querySelectorAll(target)] : [cell]
     for (const root of roots) for (const node of [root, ...root.querySelectorAll('*')]) node.setAttribute('data-forced', state)
   }
@@ -63,7 +59,6 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const context = await browser.newContext({ viewport: { width: 1480, height: 1000 }, deviceScaleFactor: 2, locale: 'de-DE', colorScheme: dark ? 'dark' : 'light' })
 const page = await context.newPage()
 await page.goto(url, { waitUntil: 'networkidle', timeout: 180_000 })
-// Dark is the media query AND the class; a repaint needs its moment (docs/ux/visual-screenshots.md).
 if (dark) await page.evaluate(() => document.documentElement.classList.add('dark'))
 await page.evaluate(() => document.querySelectorAll('nextjs-portal').forEach((node) => node.remove()))
 await page.waitForTimeout(dark ? 2600 : 1000)

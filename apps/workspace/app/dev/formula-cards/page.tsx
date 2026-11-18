@@ -1,28 +1,5 @@
 'use client'
 
-/**
- * Dev preview — the formula card, the what-if on a computing card (ADR-0143).
- *
- * The cards are the fixture's own (`features/cards/lib/formula-cases.json`,
- * the cases marked `preview`), the ones `formulas.spec.ts` computes by hand, so
- * this page cannot drift into showing a card the tests do not cover. Each goes
- * through the chat's own path (`AnswerCardItem` → A2UI on the Piloti catalog), so
- * a changed input lands in the surface's data model exactly as in an answer.
- * The last panel puts two of them in tabs: each keeps its own what-if when you
- * switch.
- *
- * What the screenshot is FOR: that a changed value reads as the reader's
- * assumption at a glance (beside the field, beside each verdict resting on it,
- * beside the header's verdict), with the source's value beside it, and that the
- * bound names its Punkt and row and has no control. Pinned to German. 404s
- * outside development.
- *
- * The server stamps each card with the editions that bind at the turn's site
- * (`site_binding`). The fixture's cards get a site where the 2023 editions bind,
- * so they judge; the panel before the tabs is the U-value at a site where RL 6
- * binds in its 2025 edition, and shows the hint instead of a verdict.
- */
-
 import { I18nProvider } from '@/i18n'
 import { AnswerCardItem } from '@/features/cards/components/AnswerCards'
 import cases from '@/features/cards/lib/formula-cases.json'
@@ -35,9 +12,7 @@ const siteWhere = (editions: Record<string, string>) => ({
   coverage: 'settled',
   editions: Object.entries(editions).map(([designation, edition_label]) => ({ designation, edition_label })),
 })
-/** A settled site where the 2023 editions bind, as the server stamps it. */
 const BINDS_2023 = siteWhere(Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])))
-/** A settled site where RL 6 binds in its 2025 edition. */
 const BINDS_RL6_2025 = siteWhere({
   ...Object.fromEntries(GUIDELINES.map((work) => [work, 'Ausgabe Mai 2023'])),
   'OIB-Richtlinie 6': 'Ausgabe September 2025',

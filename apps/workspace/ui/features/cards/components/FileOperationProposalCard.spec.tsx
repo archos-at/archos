@@ -1,21 +1,3 @@
-/**
- * The `file_operation_proposal` card WITHOUT a `proposal_id`: an answer older
- * than server proposals, or a proposal the agent could not store.
- *
- * Nothing in the browser executes a proposal any more (ADR-0105), so this
- * file holds the card to three things:
- *
- * 1. **It reads.** Every row of every verb is drawn in the verb's own words.
- * 2. **It offers nothing it could not stand behind.** An undecided card has no
- *    Apply and no Discard, says why, and calls no route: a click here would
- *    write from the browser what no server ever recorded.
- * 3. **A decision recorded before server proposals is replayed**, so a file
- *    that was moved stays moved in the transcript.
- *
- * The card WITH a `proposal_id` is held in `FileOperationProposalCard.live.spec.tsx`.
- *
- * Rendered without an `I18nProvider`, so the dictionary falls back to `en`.
- */
 import { render, screen } from '@/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CardInteractions } from '../card-decision'
@@ -78,8 +60,6 @@ describe('FileOperationProposalCard without a proposal_id — what it shows', ()
 
     expect(screen.getByText('Grundriss EG.pdf')).toBeInTheDocument()
     expect(screen.getByText('Grundriss OG.pdf')).toBeInTheDocument()
-    // The current folder is on the row, because a move the reader cannot place
-    // is a move they cannot judge. An empty `current` is the project root.
     expect(screen.getByText(/Nachweise/)).toBeInTheDocument()
     expect(screen.getByText(/Top level/)).toBeInTheDocument()
   })

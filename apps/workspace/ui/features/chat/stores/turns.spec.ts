@@ -1,8 +1,3 @@
-/**
- * The store holds a turn (docs/design/chat-wire-v2.md §e.3): the recorded v2
- * turns (`contracts/wire/v2/`) folded through `applyTurnEvents`, and what the
- * thread shows and persists for each.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WireEvent } from '@/adapters/api/wire-v2'
 import { wireEvents } from '@/test-utils/wire-v2-fixtures'
@@ -27,7 +22,9 @@ const client = vi.hoisted(() => ({
   generateTitle: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('@/adapters/api/conversations-client', () => ({ conversationsClient: client }))
+vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { useChatStore } from '../store'
 import { registerStopStreamingHandler } from './messages-store'
 import { registerShownText } from './answer-reveal-store'
@@ -42,7 +39,6 @@ const RESULT = finished.type === 'RUN_FINISHED' ? finished.result : undefined!
 const upTo = (events: WireEvent[], seq: number) => events.filter((event) => event.seq <= seq)
 const from = (events: WireEvent[], seq: number) => events.filter((event) => event.seq >= seq)
 
-/** Open `events`' conversation with the question its turn answers, and start folding the turn. */
 const ask = (events: WireEvent[]): { turnId: string; conversationId: string } => {
   const { turn_id: turnId, conversation_id: conversationId } = events[0]!
   const question: ChatMessage = {
@@ -95,7 +91,6 @@ describe('a turn folded into its thread', () => {
     useChatStore.getState().applyTurnEvents(upTo(answered, 1))
 
     expect(useChatStore.getState()).toMatchObject({ isStreaming: true, isLoading: false })
-    // Nothing to draw yet: no empty bubble in place of the typing cue.
     expect(messages()).toHaveLength(1)
   })
 
@@ -160,6 +155,20 @@ describe('a turn folded into its thread', () => {
     expect(answerOf(RESULT.message_id)!.answerDurationMs).toBeGreaterThanOrEqual(4_000)
   })
 
+  it('tells PostHog the answer completed once, with the time from send to its terminal event', () => {
+    ask(answered)
+    useChatStore.setState({ currentTurnStartedAt: Date.now() - 4_000 })
+    useChatStore.getState().applyTurnEvents(answered)
+    useChatStore.getState().applyTurnEvents(answered)
+
+    const completed = vi.mocked(capturePosthog).mock.calls.filter(([event]) => event === 'answer_completed')
+    expect(completed).toHaveLength(1)
+    const properties = completed[0]![1] as { message_id: string; duration_ms: number; outcome: string }
+    expect(properties).toMatchObject({ message_id: RESULT.message_id, outcome: 'ok' })
+    expect(properties.duration_ms).toBeGreaterThanOrEqual(4_000)
+    expect(properties.duration_ms).toBeLessThan(60_000)
+  })
+
   it('records the Aufwand the question was sent with on its answer, and mirrors it', async () => {
     ask(answered)
     useChatStore.getState().beginTurn(CONVERSATION, TURN, 'low')
@@ -187,7 +196,6 @@ describe('a turn folded into its thread', () => {
     useChatStore.getState().applyTurnEvents(answered)
 
     expect(answerOf(RESULT.message_id)!.stages?.followUps).toBeUndefined()
-    // Mirrored all the same: the refusal guards the reader's scroll, not the record.
     await vi.waitFor(() => expect(client.updateMessageStages).toHaveBeenCalled())
   })
 
@@ -221,8 +229,6 @@ describe('Stop', () => {
     useChatStore.getState().stopStreaming()
 
     expect(cancel).toHaveBeenCalledWith(turnId, { seq: 4, chars: Array.from(partial).length })
-    // Cut by the server's rule (`stopped-answer.ts`), which trims: the row
-    // either side writes is the same text.
     expect(answerOf(id)).toMatchObject({ content: partial.trim(), stopped: true })
     expect(answerOf(id)!.isStreaming).toBeUndefined()
     expect(useChatStore.getState().isStreaming).toBe(false)
@@ -243,8 +249,6 @@ describe('Stop', () => {
 
 const CONVERSATION_OF = (events: WireEvent[]) => events[0]!.conversation_id
 
-// L23: what the reader saw at the press is what is kept, in the thread and in
-// the stored message, whatever the stream still had in flight.
 describe('Stop, what was on screen', () => {
   const cancelled = wireEvents('turn-cancelled.jsonl')
   const delta = cancelled.find((event) => event.type === 'TEXT_MESSAGE_CONTENT')!
@@ -262,9 +266,7 @@ describe('Stop, what was on screen', () => {
 
     useChatStore.getState().stopStreaming()
     unregister()
-    // The server's rule trims the cut, so the stored row is the same text.
     expect(answerOf(id)!.content).toBe(shown.trim())
-    // The server is told the same cut, so the row it stores is this text too.
     expect(cancel).toHaveBeenCalledWith(turnId, { seq: 4, chars: shown.length })
 
     const late = { ...delta, seq: 5, delta: ' und noch mehr' } as WireEvent
@@ -291,8 +293,6 @@ describe('Stop, what was on screen', () => {
     expect(client.cutStoppedAnswer).not.toHaveBeenCalled()
   })
 
-  // The Stop crossed the server's finished answer: its terminal is
-  // `answered`, and the server stored the whole of it.
   describe('when the Stop crossed the finished answer', () => {
     const settled = RESULT.text.slice(0, RESULT.text.indexOf('[[card:1]]'))
     const stopBeforeTheTerminal = (): { turnId: string; conversationId: string; id: string } => {
@@ -318,7 +318,6 @@ describe('Stop, what was on screen', () => {
       await vi.waitFor(() =>
         expect(client.cutStoppedAnswer).toHaveBeenCalledWith(conversationId, id, { turnId, shown: settled })
       )
-      // After this browser's own insert, so the row exists whichever write lands first.
       expect(client.createMessage.mock.invocationCallOrder[0]).toBeLessThan(
         client.cutStoppedAnswer.mock.invocationCallOrder[0]!
       )
@@ -326,7 +325,6 @@ describe('Stop, what was on screen', () => {
         conversationId,
         expect.objectContaining({ id, content: settled.trim(), metadata: expect.objectContaining({ provenance: { stopped: true } }) })
       )      // And before the provenance mirror, whose stopped mark would otherwise
-      // reach the server's whole row first.
       await vi.waitFor(() =>
         expect(client.updateMessageProvenance).toHaveBeenCalledWith(conversationId, id, expect.objectContaining({ stopped: true }))
       )
@@ -359,7 +357,6 @@ describe('Stop, what was on screen', () => {
   })
 })
 
-// L17-L20: a RUN_ERROR under a written answer keeps the words, marked failed.
 describe('a turn that fails mid-answer', () => {
   const failure = wireEvents('turn-error.jsonl').find((event) => event.type === 'RUN_ERROR')!
   const failAt = (seq: number) =>
@@ -390,7 +387,6 @@ describe('a turn that fails mid-answer', () => {
   })
 
   it('shows a turn ended from outside the fold as failed before it forgets it, as RUN_ERROR does', () => {
-    // A question the server never acknowledged: no frame, no answer row.
     ask(answered)
     const phases: (string | undefined)[] = []
     const unsubscribe = useChatStore.subscribe((state) => phases.push(state.turns[TURN]?.phase))
@@ -431,7 +427,6 @@ describe('a question for the asker, then a run', () => {
       interactionId: 'ask_01J9Z6',
       input: 'choice',
     })
-    // The composer answers the question; the turn is not "streaming" meanwhile.
     expect(useChatStore.getState().isStreaming).toBe(false)
     await vi.waitFor(() =>
       expect(client.createMessage).toHaveBeenCalledWith(CONVERSATION_OF(hitl), expect.objectContaining({ id: prompt.id }))
@@ -442,9 +437,6 @@ describe('a question for the asker, then a run', () => {
     expect(useChatStore.getState().isStreaming).toBe(true)
   })
 
-  // The run's block takes the answer's place at the terminal, under the id the
-  // server wrote the run's message with, so the turn is never drawn without a
-  // response while that message is fetched (`turn-projection.ts`).
   it('draws the run’s block, not an answer, for a turn that handed off to a run', () => {
     ask(hitl)
     useChatStore.getState().applyTurnEvents(hitl)

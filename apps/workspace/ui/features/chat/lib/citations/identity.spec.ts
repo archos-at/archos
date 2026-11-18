@@ -1,13 +1,3 @@
-/**
- * Identity, locator parsing, snippet extraction and preview-target resolution.
- *
- * Ported from the pre-model `answer-sources.spec.ts`: the behaviour these pin
- * did not change when the two levels were named — only where it lives — so the
- * cases come across intact. Target resolution now takes a document (+ optional
- * locus) instead of a flat citation, which is the one signature that had to
- * move with them.
- */
-
 import { describe, test, expect } from 'vitest'
 import {
   buildCitationModel,
@@ -31,10 +21,6 @@ const citation = (overrides: Partial<CitationSource>): CitationSource => ({
   ...overrides,
 })
 
-/**
- * Resolve a target the way production does: through the real model, so these
- * cases also cover the identity and title resolution the chip depends on.
- */
 const targetFor = (
   overrides: Partial<CitationSource>,
   storedDocuments?: StoredDocumentRef[],
@@ -83,8 +69,6 @@ describe('normalizeFileName', () => {
   })
 
   test('keeps genuinely different names apart', () => {
-    // A revision suffix is identity, not noise: stripping it would re-merge
-    // the two corpus lists `documentIdentity` was fixed to keep apart.
     expect(normalizeFileName('oib-rl_zitierte_normen_ausgabe_mai_2023_rev.1.pdf')).not.toBe(
       normalizeFileName('oib-rl_zitierte_normen_ausgabe_mai_2023.pdf')
     )
@@ -99,9 +83,6 @@ describe('normalizeFileName', () => {
   })
 
   test('only strips a real document extension, not any dot near the end', () => {
-    // The strip was `\.[a-z0-9]{2,5}$`, a "dot near the end" test rather than
-    // an extension test — and `find()` applies this to TITLES. Two Bescheide a
-    // day apart both lost their last segment and matched as one document.
     expect(normalizeFileName('Bescheid vom 12.03')).not.toBe(normalizeFileName('Bescheid vom 12.04'))
     expect(normalizeFileName('Bescheid vom 12.03')).toBe('bescheid-vom-12.03')
   })
@@ -109,8 +90,6 @@ describe('normalizeFileName', () => {
 
 describe('documentIdentity and the file extension', () => {
   test('two formats of one name are two documents', () => {
-    // They shared `doc:<collection>:einreichplan` and merged into a single
-    // chip carrying both documents' loci, whose page opened whichever won.
     const pdf = documentIdentity({ fileName: 'Einreichplan.pdf', collection: 'projekt_a' })
     const docx = documentIdentity({ fileName: 'Einreichplan.docx', collection: 'projekt_a' })
     expect(pdf).not.toBe(docx)
@@ -118,8 +97,6 @@ describe('documentIdentity and the file extension', () => {
   })
 
   test('the written list still meets the wire', () => {
-    // The answer's `## Quellen` line carries no collection and often no
-    // extension; that permissiveness is what identityMatches is for.
     const wire = documentIdentity({ fileName: 'oib-rl_2_ausgabe_mai_2023.pdf', collection: 'oib_knowledge' })
     const written = documentIdentity({ fileName: 'oib-rl-2 ausgabe mai 2023' })
     expect(identityMatches(wire, written)).toBe(true)
@@ -162,10 +139,6 @@ describe('parseKbLocator', () => {
   })
 
   test('reads the shelf out of a LEGACY qualified key and keeps the filename bare', () => {
-    // Emitted only when one filename was retrieved from two collections in the
-    // same turn — the qualifier is the collection half of the document's
-    // identity, not part of its name. New payloads carry the shelf as data
-    // (ADR-0047); this parse survives for keys already persisted in messages.
     expect(parseKbLocator('Plan.pdf (Projektwissen), p.3')).toEqual({
       filename: 'Plan.pdf',
       page: 3,
@@ -179,8 +152,6 @@ describe('parseKbLocator', () => {
   })
 
   test('a parenthetical that is part of the filename is left alone', () => {
-    // Only the KNOWN qualifiers are stripped; trimming any trailing "(…)" would
-    // rename the document and lose the citation.
     expect(parseKbLocator('Bescheid (Kopie).pdf, p.2')).toEqual({
       filename: 'Bescheid (Kopie).pdf',
       page: 2,
@@ -226,21 +197,17 @@ describe('resolveCitationTarget', () => {
   ]
   const baseCorpusFiles = ['oib-rl_2_ausgabe_mai_2023.pdf']
 
-  /** An org Archiv document — a different scope, the SAME preview route. */
   const officeShelfDocument: StoredDocumentRef = {
     id: 'archiv-1',
     filename: 'Bueroe_Detail_Attika.pdf',
     contentType: 'application/pdf',
   }
 
-  test('http(s) URLs link out — except RIS, which Piloti reads itself', () => {
+  test('http(s) URLs link out — except RIS, which the agent reads itself', () => {
     expect(targetFor({ url: 'https://example.com/article', content: '' })).toEqual({
       kind: 'url',
       url: 'https://example.com/article',
     })
-    // A RIS source resolves to the in-app reader (#622) and carries the
-    // authoritative URL with it — the publication of record is never dropped,
-    // it moves into the reader's header.
     expect(targetFor({ url: 'https://www.ris.bka.gv.at/Norm', content: '' })).toMatchObject({
       kind: 'ris',
       url: 'https://www.ris.bka.gv.at/Norm',
@@ -256,7 +223,6 @@ describe('resolveCitationTarget', () => {
 
     expect(target).toEqual({
       kind: 'document',
-      // The human name, not the storage filename — which travels alongside it.
       title: 'Brandschutzkonzept',
       fileName: 'Brandschutzkonzept.pdf',
       page: 3,
@@ -271,10 +237,6 @@ describe('resolveCitationTarget', () => {
   })
 
   test('an org office shelf document opens like any other stored document', () => {
-    // The Buero (Archiv) kind used to be structurally unopenable: the preview
-    // index only ever listed project uploads and the base corpus, so every
-    // Archiv citation degraded to a dead info popover even though the
-    // scope-aware preview route would have served it.
     const target = targetFor(
       { url: '', content: '[KB] Bueroe_Detail_Attika.pdf, p.2' },
       [...storedDocuments, officeShelfDocument],
@@ -304,10 +266,6 @@ describe('resolveCitationTarget', () => {
   })
 
   describe('a citation names its own shelf', () => {
-    // Ordering ("project first") is a tie-break, not an identity. When the
-    // citation CARRIES its shelf, that wins — otherwise a Büroablage citation
-    // opens the project's unrelated file of the same name. The shelf arrives as
-    // data (ADR-0047); the collection id is never prefix-matched for it.
     const shelvedDocuments: StoredDocumentRef[] = [
       { id: 'doc-1', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'project' },
       { id: 'archiv-9', filename: 'Plan.pdf', contentType: 'application/pdf', shelf: 'office_shelf' },
@@ -341,11 +299,6 @@ describe('resolveCitationTarget', () => {
     })
 
     test('a shelf holding no such document is UNAVAILABLE, never another shelf’s copy', () => {
-      // The shelf is part of the document's identity (ADR-0047), so it is not
-      // negotiable: a `base` citation whose shelf holds no `Plan.pdf` must say
-      // so, not open the project's unrelated file of the same name. Failing
-      // OPEN here meant a citation could be honestly labelled "Basiswissen" and
-      // then show a project upload.
       const target = targetFor(
         { url: '', content: '[KB] Plan.pdf, p.2', collection: 'oib_knowledge', shelf: 'base' },
         shelvedDocuments
@@ -355,9 +308,6 @@ describe('resolveCitationTarget', () => {
     })
 
     test('a session citation does not open the project copy of the same name', () => {
-      // The `session` shelf is the case that made this concrete: before the
-      // session list existed, `storedDocuments` held no session row at all, so
-      // every private attachment fell through to the project document beside it.
       const target = targetFor(
         { url: '', content: '[KB] Plan.pdf, p.2', collection: 's_conv1', shelf: 'session' },
         shelvedDocuments
@@ -379,8 +329,6 @@ describe('resolveCitationTarget', () => {
     })
 
     test('a stored-shelf citation does not slide onto a base-corpus file either', () => {
-      // The corpus is the `base` shelf. An `office_shelf` citation naming a filename
-      // the corpus also carries must not be answered with the corpus copy.
       const target = targetFor(
         { url: '', content: '[KB] Handbuch.pdf, p.2', shelf: 'office_shelf' },
         shelvedDocuments,
@@ -391,9 +339,6 @@ describe('resolveCitationTarget', () => {
     })
 
     test('a collection id no longer decides the shelf on its own', () => {
-      // The prefix table is gone: `archiv_org1` with no shelf on the wire is an
-      // UNKNOWN shelf, which resolves by filename alone (project first) rather
-      // than by a guess. This is the fail-open inference ADR-0047 deletes.
       const target = targetFor(
         { url: '', content: '[KB] Plan.pdf, p.2', collection: 'archiv_org1' },
         shelvedDocuments
@@ -403,9 +348,6 @@ describe('resolveCitationTarget', () => {
     })
 
     test('a base-shelf citation opens the base corpus, not a same-named upload', () => {
-      // The base corpus has no StoredDocumentRef row, so `base` was the one shelf
-      // that resolved to the wrong document whenever a project upload shared the
-      // filename.
       const target = targetFor(
         { url: '', content: '[KB] Plan.pdf, p.2', shelf: 'base' },
         shelvedDocuments,
@@ -426,8 +368,6 @@ describe('resolveCitationTarget', () => {
     })
 
     test('a base-shelf citation with no base-corpus copy is UNAVAILABLE', () => {
-      // `base` is the one shelf `storedDocuments` can never represent, so there
-      // is no second place to look — and a same-named project upload is not it.
       const target = targetFor(
         { url: '', content: '[KB] Plan.pdf, p.2', shelf: 'base' },
         shelvedDocuments,
@@ -438,10 +378,6 @@ describe('resolveCitationTarget', () => {
     })
 
     test('untagged rows still resolve for callers that supply no shelf', () => {
-      // A row the caller never tagged states no shelf, so it CONTRADICTS none:
-      // it is not evidence of a different shelf, which is the only thing the
-      // narrowing above rejects. Refusing these would break every caller that
-      // passes a plain list.
       const target = targetFor(
         { url: '', content: '[KB] Brandschutzkonzept.pdf', shelf: 'project' },
         storedDocuments
@@ -467,9 +403,6 @@ describe('resolveCitationTarget', () => {
   })
 
   test('a non-previewable project document is offered as a download, never as a broken viewer', () => {
-    // It used to degrade to `info`, which said nothing and offered nothing —
-    // and the reader concluded the product had lost their file (#623). It had
-    // not; it cannot DRAW a .dwg. The two are different answers.
     const target = targetFor(
       { url: '', content: '[KB] Bestandsplan.dwg' },
       storedDocuments,
@@ -491,9 +424,6 @@ describe('resolveCitationTarget', () => {
   })
 
   test('an office project document opens in the viewer, on its PDF rendition (ADR-0070)', () => {
-    // A .docx was the #623 download example; it now has a viewer, the PDF the
-    // BFF renders from it. The ORIGINAL type travels with the target so the
-    // surface can say it is showing a rendition and download the Word file.
     const target = targetFor(
       { url: '', content: '[KB] Vermessung.docx' },
       storedDocuments,
@@ -516,8 +446,6 @@ describe('resolveCitationTarget', () => {
   })
 
   test('a Word citation opens at its page, which is a rendition page (ADR-0071)', () => {
-    // Word files are indexed from the PDF rendition now, so the chunk's page is
-    // the page the viewer shows. The identity is still the .docx row.
     const target = targetFor(
       { url: '', content: '[KB] Vermessung.docx, p.3' },
       storedDocuments,
@@ -551,8 +479,6 @@ describe('resolveCitationTarget', () => {
 
     expect(target).toEqual({
       kind: 'document',
-      // The Richtlinie's real name — a corpus filename is storage identity and
-      // must never be what a user reads.
       title: 'OIB-Richtlinie 2, Ausgabe Mai 2023',
       fileName: 'oib-rl_2_ausgabe_mai_2023.pdf',
       page: 12,
@@ -588,15 +514,6 @@ describe('resolveCitationTarget', () => {
   })
 })
 
-/**
- * The canonical OIB key is a MERGE HINT, not an identity.
- *
- * It deliberately discards edition, revision and everything after the number,
- * which is right for the one thing it is for — joining a bare name that knows
- * only „OIB-Richtlinie 2" to the citation of that Richtlinie — and
- * catastrophic as an identity: every document whose name merely mentions OIB or
- * "Richtlinie" was identified by its number alone.
- */
 describe('two documents are not one because their names share a guideline', () => {
   const corpusHit = (fileName: string, page: number): CitationSource =>
     citation({
@@ -611,10 +528,6 @@ describe('two documents are not one because their names share a guideline', () =
     })
 
   test('a corpus list and its Rev. 1 stay two documents', () => {
-    // Both ship in `data/oib/`. They are two different tables of normative
-    // references, and they collapsed into one — so a citation to Rev. 1 at
-    // p. 14 opened the superseded list at p. 14, with nothing on screen
-    // suggesting the reader was looking at the wrong document.
     const base = 'oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023.pdf'
     const rev =
       'oib-rl_zitierte_normen_und_sonstige_technische_regelwerke_ausgabe_mai_2023_rev.1.pdf'
@@ -626,10 +539,6 @@ describe('two documents are not one because their names share a guideline', () =
   })
 
   test('a project upload that mentions a guideline is not swallowed by the corpus', () => {
-    // The cross-shelf half, and the worse one: the reader's own document did
-    // not merely get mislabelled, it disappeared from the answer — one chip,
-    // the corpus filename, the base shelf — while its page carried on pointing
-    // into the Richtlinie. That is the collapse ADR-0047 exists to prevent.
     const docs = buildCitationModel({
       citations: [
         corpusHit('oib-rl_6_ausgabe_mai_2023.pdf', 2),
@@ -661,8 +570,6 @@ describe('two documents are not one because their names share a guideline', () =
   })
 
   test('but a bare name never attaches itself to a non-base document', () => {
-    // A Richtlinie is base law. A name for one must not bind to a project
-    // upload or a private attachment that merely mentions it.
     const docs = buildCitationModel({
       citations: [
         citation({
@@ -683,8 +590,6 @@ describe('two documents are not one because their names share a guideline', () =
   })
 
   test('a written-list-only OIB source still renders as one', () => {
-    // The lane inference used to be read off the identity, which no longer
-    // starts with `oib:` for a document that names a file.
     const [doc] = buildCitationModel({
       entries: [{ number: 1, markdown: '[KB] oib-rl_2.1_ausgabe_mai_2023.pdf, p.9' }],
     })

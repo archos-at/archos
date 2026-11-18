@@ -112,21 +112,12 @@ tasks:
       - cmd: '"{{.PY}}" -X faulthandler -m pytest {{.EXTRA}} -q {{.XDIST}}'
         if: '[ -n "{{.EXTRA}}" ]'
 
-  be:test:migration:
-    desc: The Chroma exporter and the whole move (exporter, importer, Qdrant), in a throwaway chromadb environment
-    cmds:
-      # chromadb is not a dependency of this repo (ADR-0115): the exporter's own
-      # PEP 723 pin decides the environment, and pytest's testpaths never reach
-      # deploy/, so no other task imports chromadb. The end-to-end test runs the
-      # importer in .venv and needs QDRANT_TEST_URL (skipped locally without it).
-      - uvx --python 3.12 --with-requirements deploy/migration/chroma_export.py --with pytest pytest deploy/migration/tests -q -p no:cacheprovider
-
   prompts:pull:
     desc: 'Bring a Langfuse prompt version into review: task prompts:pull [-- --label <label>]'
     cmds:
       # Git is the platform prompt's source of truth (ADR-0060 (a)). This only
       # ever READS Langfuse: it writes the version under a label into
-      # `agents/piloti/prompts/chat_static.md`, so an edit made in Langfuse
+      # `core/prompts/chat_static.md`, so an edit made in Langfuse
       # can be committed and reviewed like any other.
       - '{{.PY}} scripts/prompts_pull.py {{.CLI_ARGS}}'
 
@@ -423,15 +414,14 @@ tasks:
 
   be:test:postgres:
     desc: >-
-      The claim-queue suites' Postgres branch (production's SQL), the rename of
-      the AI-Q databases, and the metadata store's mail records, against a
+      The folder card builder's Postgres branch (production's SQL), the rename of
+      the row-level-security roles, and the metadata store's mail records, against a
       throwaway cluster. Needs PostgreSQL server binaries.
     cmds:
       # Serial, not -n logical: every test drops and recreates the same tables
       # in the one scratch database.
       - >-
         bash scripts/rls-test-db.sh --exec "{{.PY}}" -X faulthandler -m pytest -q
-        packages/agent/tests/common/test_claim_queue.py
         packages/agent/tests/knowledge/folder_cards
         tests/test_postgres_rename_legacy_names.py
         packages/agent/tests/knowledge/test_mail_facts.py

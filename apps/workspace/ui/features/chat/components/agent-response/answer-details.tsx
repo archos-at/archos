@@ -16,24 +16,6 @@ import type { ConfidenceCheck } from '@/lib/conversations/confidence-check'
 import { CitationsRemovedNote, ResearchTruncatedNote, AnswerDegradedNote } from './answer-notes'
 import { ReadSourcesSection } from './read-sources'
 
-/**
- * The single disclosure in the answer footer.
- *
- * The footer keeps verdict, body, the "Belegt durch" sources row, the copy
- * actions, the memory chip (`beside` the trigger) and the feedback thumbs
- * visible; everything else the turn carries
- * — confidence, the skills that shaped the answer, the
- * verification notes and the timestamp — lives behind ONE muted text-xs
- * trigger line. When the turn carries something the reader must not miss —
- * a cut-off, a salvaged run, stripped citations, low confidence — the trigger
- * carries a warning dot, because a warning behind an unmarked trigger is a
- * warning nobody read. It does not open itself: the warnings land at the
- * settle, and the disclosure opening then moved the footer under a reader
- * who had just reached the end. `SkillsUsedDisclosure` is MOVED here, not duplicated: it
- * renders null on a turn that activated nothing, like every other item
- * inside. Feedback stays out on purpose: rating the answer must not cost a
- * click first.
- */
 export const AnswerDetails = memo(function AnswerDetails({
   hasConfidence,
   answerConfidence,
@@ -75,31 +57,15 @@ export const AnswerDetails = memo(function AnswerDetails({
   hasAnswerSources: boolean
   timestamp?: Date | string
   answerDurationMs?: number
-  /** Both needed for the answer's cost line; without either it is omitted. */
   conversationId?: string | null
   messageId?: string
-  /** Set on the trigger's own line: the footer's copy actions before it, feedback after. */
   before?: ReactNode
-  /**
-   * Right after the trigger, before the spacer: what the turn wants SEEN
-   * without opening anything (the memory chip). After the trigger so that a
-   * chip arriving late moves nothing the reader already found.
-   */
   beside?: ReactNode
   after?: ReactNode
 }) {
   const t = useTranslations(chatCopy)
-  // Without the locale `formatTime` uses the RUNTIME default, so a German user on
-  // an en-US browser got "03:35 PM" beside cards that all say "15:35".
   const { locale } = useLocale()
   const [open, setOpen] = useState(false)
-  // Something the reader must not miss: a cut-off, a salvaged run, stripped
-  // citations, low confidence. These arrive with the terminal frame, after the
-  // answer settled, and used to OPEN the disclosure from an effect: 100-400px
-  // snapping in under a reader who had just reached the end. Now the trigger
-  // carries a warning dot instead, positioned over the gap beside it so it
-  // takes no width and moves nothing, and fading in only when it arrives in
-  // front of the reader. The details open when the reader asks.
   const needsAttention = Boolean(
     researchTruncated ||
     degradedReasons?.length ||

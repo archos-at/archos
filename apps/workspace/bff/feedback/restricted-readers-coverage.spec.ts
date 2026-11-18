@@ -2,44 +2,23 @@
 /**
  * @vitest-environment node
  */
-/**
- * Every cross-tenant reader of a vote's words asks the database's one rule
- * (ADR-0093).
- *
- * A vote's `comment` and `expected_answer` can quote a folder with restricted
- * access, and every reader outside the voter's tenant (platform staff, the
- * digest's model, the lessons distiller, Langfuse) is outside that folder's
- * audience. Three repair rounds each found another reader that asked the wrong
- * thing. So the readers are found here, in the commit that adds one, the way
- * `download-log/coverage.spec.ts` finds what hands out a document's bytes: from
- * the syntax tree, not the text, so a comment naming a column is not a reader.
- *
- * - A **reader** is a unit of `src` (a top-level function, a declarator, a class
- *   member) whose SQL names `comment`, `expected_answer` or `*` together with
- *   `answer_feedback` or a call to the shared `voteScope` (which supplies
- *   `from answer_feedback f`), or whose drizzle query reads
- *   `answerFeedback.comment` / `.expectedAnswer` or the whole row (`select()`,
- *   `returning()` without a projection), or that hands the words to Langfuse
- *   (`upsertFeedbackScore`).
- * - A reader is **cross-tenant** when it is reached from the callback of a
- *   `withPlatformAccess(...)`, following calls by name.
- * - Every reader is classified in {@link READERS}: either it applies the rule
- *   (`OUTSIDE_RESTRICTED_USE`, `feedback_restricted_use`, `voteScope`
- *   with `contentBearing`, or for the Langfuse score `isRestrictedUseVote`),
- *   or it is tenant-scoped, or it reads only whether a note exists, with the
- *   reason. A tenant-scoped reader reached from a platform callback fails, and
- *   so does a reader nobody classified.
- */
-import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import ts from 'typescript-api'
-import { describe, expect, it } from 'vitest'
-import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
+import type { SQL } from 'drizzle-orm'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import { describe, expect, it, vi } from 'vitest'
+import { getDb } from '@/lib/db'
+import { calleeName, callsTo, parseSource, productionSources, ts, walk } from '@/test-utils/source-ast'
+import { srcKey } from '@/test-utils/source-tree'
+import { tokenizeSql, type SqlToken } from '@/test-utils/sql-statements'
+import { NO_RATINGS_FILTERS, type FeedbackQuery } from './filters'
+import { isRestrictedUseVote } from './repository'
+import { OUTSIDE_RESTRICTED_USE, voteScope } from './vote-scope'
 
+vi.mock('@/lib/db', () => ({
+  getDb: vi.fn(),
+}))
 
 type Classification = { rule: true } | { tenant: string } | { presenceOnly: string }
 
-/** `path::unit` → how it keeps a restricted folder's words from a reader outside its audience. */
 const READERS: Record<string, Classification> = {
   'lib/feedback/repository.ts::upsertAnswerFeedback': {
     tenant: "The caller's own vote, written and returned in the caller's tenant.",
@@ -60,10 +39,14 @@ const READERS: Record<string, Classification> = {
   'lib/platform-lessons/repository.ts::listUnprocessedDownvotes': { rule: true },
 }
 
-const RULE = /\bOUTSIDE_RESTRICTED_USE\b|\b(?:grid_)?feedback_restricted_use\b|\bisRestrictedUseVote\b/
+const RULE_NAMES = new Set([
+  'OUTSIDE_RESTRICTED_USE',
+  'feedback_restricted_use',
+  'grid_feedback_restricted_use',
+  'isRestrictedUseVote',
+])
 
-/** The shared scope applies the rule when asked: `voteScope(…, { contentBearing: true })`. */
-const SCOPED_RULE = /\bcontentBearing:\s*true\b/
+const COLUMN_ACCESSES = new Set(['answerFeedback.comment', 'answerFeedback.expectedAnswer'])
 
 interface Unit {
   key: string
@@ -71,16 +54,19 @@ interface Unit {
   node: ts.Node
 }
 
-function sourceFiles(dir: string): string[] {
-  return (readdirSync(dir, { recursive: true }) as string[])
-    .filter(
-      (file) =>
-        /\.(ts|tsx)$/.test(file) && !/\.(spec|test)\.tsx?$/.test(file) && !file.endsWith('.d.ts')
-    )
-    .map((file) => join(dir, file))
+interface Code {
+  tokens: SqlToken[]
+  accesses: string[]
+  calls: string[]
+  selectsWholeRow: boolean
 }
 
-/** Top-level functions, declarators and class members: each is its own unit. */
+interface Scan {
+  readers: Map<string, Unit>
+  byName: Map<string, Unit[]>
+  units: Unit[]
+}
+
 function unitsOf(rel: string, source: ts.SourceFile): Unit[] {
   const units: Unit[] = []
   const add = (name: string, node: ts.Node) => units.push({ key: `${rel}::${name}`, name, node })
@@ -100,20 +86,12 @@ function unitsOf(rel: string, source: ts.SourceFile): Unit[] {
   return units
 }
 
-/** What a unit says in code: its literal and template text, and its property accesses. Comments are not in it. */
-function codeOf(node: ts.Node): {
-  sql: string
-  accesses: string[]
-  calls: string[]
-  selectsWholeRow: boolean
-} {
+function codeOf(node: ts.Node): Code {
   const sql: string[] = []
   const accesses: string[] = []
   const calls: string[] = []
   let selectsWholeRow = false
-  const visit = (child: ts.Node) => {
-    // Template text only: SQL is written in `sql` templates, and a plain string
-    // (a table definition's column name) is not a query.
+  walk(node, (child) => {
     if (
       ts.isNoSubstitutionTemplateLiteral(child) ||
       ts.isTemplateHead(child) ||
@@ -122,59 +100,80 @@ function codeOf(node: ts.Node): {
     ) {
       sql.push(child.text)
     }
-    if (ts.isPropertyAccessExpression(child)) accesses.push(child.getText())
-    if (ts.isCallExpression(child)) {
-      const callee = child.expression
-      const name = ts.isIdentifier(callee)
-        ? callee.text
-        : ts.isPropertyAccessExpression(callee)
-          ? callee.name.text
-          : null
-      if (name) calls.push(name)
-      if ((name === 'select' || name === 'returning') && child.arguments.length === 0)
-        selectsWholeRow = true
+    if (ts.isPropertyAccessExpression(child) && ts.isIdentifier(child.expression)) {
+      accesses.push(`${child.expression.text}.${child.name.text}`)
     }
-    ts.forEachChild(child, visit)
-  }
-  visit(node)
-  return { sql: sql.join('\n'), accesses, calls, selectsWholeRow }
+    if (ts.isCallExpression(child)) {
+      const name = calleeName(child)
+      if (name) calls.push(name)
+      if ((name === 'select' || name === 'returning') && child.arguments.length === 0) selectsWholeRow = true
+    }
+  })
+  return { tokens: tokenizeSql(sql.join('\n')).flat(), accesses, calls, selectsWholeRow }
+}
+
+function identifiersOf(node: ts.Node): string[] {
+  const names: string[] = []
+  walk(node, (child) => {
+    if (ts.isIdentifier(child)) names.push(child.text)
+  })
+  return names
+}
+
+function wordsOf(tokens: SqlToken[]): string[] {
+  return tokens.filter((token) => token.kind === 'word').map((token) => token.text)
+}
+
+function selectsEveryColumn(tokens: SqlToken[]): boolean {
+  return tokens.some((token, at) => {
+    const word = token.kind === 'word' ? token.text.toLowerCase() : ''
+    return (
+      (word === 'select' && tokens[at + 1]?.text === '*') ||
+      (word === 'f' && tokens[at + 1]?.text === '.' && tokens[at + 2]?.text === '*')
+    )
+  })
 }
 
 function readsWords(unit: Unit): boolean {
   const code = codeOf(unit.node)
-  if (
-    (/\banswer_feedback\b/i.test(code.sql) || code.calls.includes('voteScope')) &&
-    /\bcomment\b|\bexpected_answer\b|\bselect\s+\*|\bf\.\*/i.test(code.sql)
-  ) {
+  const words = wordsOf(code.tokens).map((word) => word.toLowerCase())
+  const votes = words.includes('answer_feedback') || code.calls.includes('voteScope')
+  if (votes && (words.includes('comment') || words.includes('expected_answer') || selectsEveryColumn(code.tokens))) {
     return true
   }
-  if (code.accesses.some((access) => /^answerFeedback\.(comment|expectedAnswer)$/.test(access)))
-    return true
+  if (code.accesses.some((access) => COLUMN_ACCESSES.has(access))) return true
   if (code.selectsWholeRow && identifiersOf(unit.node).includes('answerFeedback')) return true
   return code.calls.includes('upsertFeedbackScore')
 }
 
-/** Everything a unit names in code, so the rule's identifier and its SQL are both found. */
-function codeText(unit: Unit): string {
-  const code = codeOf(unit.node)
-  return [code.sql, ...identifiersOf(unit.node)].join('\n')
+function scopedToContentBearing(node: ts.Node): boolean {
+  return callsTo(node, 'voteScope').some((call) =>
+    call.arguments.some(
+      (argument) =>
+        ts.isObjectLiteralExpression(argument) &&
+        argument.properties.some(
+          (property) =>
+            ts.isPropertyAssignment(property) &&
+            ts.isIdentifier(property.name) &&
+            property.name.text === 'contentBearing' &&
+            property.initializer.kind === ts.SyntaxKind.TrueKeyword,
+        ),
+    ),
+  )
 }
 
-interface Scan {
-  readers: Map<string, Unit>
-  byName: Map<string, Unit[]>
-  units: Unit[]
+function asksRule(unit: Unit): boolean {
+  const names = [...wordsOf(codeOf(unit.node).tokens), ...identifiersOf(unit.node)]
+  return names.some((name) => RULE_NAMES.has(name)) || scopedToContentBearing(unit.node)
 }
 
 function scan(): Scan {
   const readers = new Map<string, Unit>()
   const byName = new Map<string, Unit[]>()
   const units: Unit[] = []
-  for (const file of SOURCE_DIRS.flatMap((root) => sourceFiles(join(process.cwd(), root)))) {
+  for (const file of productionSources()) {
     const rel = srcKey(file)
-    const text = readFileSync(file, 'utf8')
-    const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true)
-    for (const unit of unitsOf(rel, source)) {
+    for (const unit of unitsOf(rel, parseSource(file))) {
       units.push(unit)
       const short = unit.name.split('.').pop() ?? unit.name
       byName.set(short, [...(byName.get(short) ?? []), unit])
@@ -184,24 +183,19 @@ function scan(): Scan {
   return { readers, byName, units }
 }
 
-/** The units a platform callback reaches, following every name it mentions (stricter than calls alone). */
 function reachedFromPlatformAccess({ units, byName }: Scan): Set<string> {
   const reached = new Set<string>()
   const queue: string[] = []
   for (const unit of units) {
-    const visit = (node: ts.Node) => {
+    walk(unit.node, (node) => {
       if (
         ts.isCallExpression(node) &&
         ts.isIdentifier(node.expression) &&
         node.expression.text === 'withPlatformAccess'
       ) {
-        // Every name the callback mentions: a function handed over by reference
-        // (`withPlatformAccess(reason, sweep)`) is reached as surely as a call.
         for (const argument of node.arguments.slice(1)) queue.push(...identifiersOf(argument))
       }
-      ts.forEachChild(node, visit)
-    }
-    visit(unit.node)
+    })
   }
   const seenNames = new Set<string>()
   while (queue.length > 0) {
@@ -221,7 +215,7 @@ describe("every reader of a vote's words outside its tenant asks the rule (ADR-0
   const found = scan()
   const crossTenant = reachedFromPlatformAccess(found)
 
-  it('finds the readers it knows, so a pattern that stopped matching fails here', () => {
+  it('finds every reader it knows, so a syntax check that stopped matching fails here', () => {
     expect([...found.readers.keys()].sort()).toEqual(
       expect.arrayContaining(Object.keys(READERS).sort())
     )
@@ -229,9 +223,7 @@ describe("every reader of a vote's words outside its tenant asks the rule (ADR-0
 
   it('has every reader classified: a new one says whether it reads across tenants', () => {
     const unclassified = [...found.readers.keys()].filter((key) => !(key in READERS))
-    expect(unclassified, 'classify each in READERS (restricted-readers-coverage.spec.ts)').toEqual(
-      []
-    )
+    expect(unclassified, 'classify each in READERS (restricted-readers-coverage.spec.ts)').toEqual([])
   })
 
   it('has every reader that applies the rule actually ask it', () => {
@@ -240,12 +232,9 @@ describe("every reader of a vote's words outside its tenant asks the rule (ADR-0
       .map(([key]) => key)
       .filter((key) => {
         const unit = found.readers.get(key)
-        if (!unit) return true
-        const text = codeText(unit)
-        const scoped = codeOf(unit.node).calls.includes('voteScope') && SCOPED_RULE.test(unit.node.getText())
-        return !RULE.test(text) && !scoped
+        return !unit || !asksRule(unit)
       })
-    expect(skipping).toEqual([])
+    expect(skipping, 'call OUTSIDE_RESTRICTED_USE, or pass contentBearing: true to voteScope').toEqual([])
   })
 
   it('reaches no tenant-scoped reader from a platform callback', () => {
@@ -263,28 +252,33 @@ describe("every reader of a vote's words outside its tenant asks the rule (ADR-0
       expect(crossTenant.has(key), key).toBe(true)
     }
   })
-
-  it('keeps the rule one database function, and the Langfuse score asks it too', () => {
-    const unit = (key: string) => found.units.find((candidate) => candidate.key === key)
-    const rule = unit('lib/feedback/vote-scope.ts::OUTSIDE_RESTRICTED_USE')
-    expect(rule && codeOf(rule.node).sql).toMatch(
-      /not feedback_restricted_use\(f\.organization_id, f\.message_id, f\.conversation_id\)/
-    )
-    // `scoreVoteInLangfuse` applies the rule through this; it must be the same one.
-    const langfuse = unit('lib/feedback/repository.ts::isRestrictedUseVote')
-    expect(langfuse && identifiersOf(langfuse.node)).toContain('OUTSIDE_RESTRICTED_USE')
-    // `contentBearing` is only a promise until the shared scope keeps it.
-    const scope = unit('lib/feedback/vote-scope.ts::voteScope')
-    expect(scope?.node.getText()).toMatch(/if \(options\.contentBearing\) conditions\.push\(OUTSIDE_RESTRICTED_USE\)/)
-  })
 })
 
-function identifiersOf(node: ts.Node): string[] {
-  const names: string[] = []
-  const visit = (child: ts.Node) => {
-    if (ts.isIdentifier(child)) names.push(child.text)
-    ts.forEachChild(child, visit)
-  }
-  visit(node)
-  return names
+const mockGetDb = vi.mocked(getDb)
+
+const ALL: FeedbackQuery = {
+  scope: { from: '2026-09-10', to: '2026-10-09', organizationIds: [], projectIds: [] },
+  ratings: NO_RATINGS_FILTERS,
 }
+
+const RULE_SQL = 'not feedback_restricted_use(f.organization_id, f.message_id, f.conversation_id)'
+
+const renderSql = (fragment: SQL) => new PgDialect().sqlToQuery(fragment).sql
+
+describe('the restricted-use rule, as the readers send it to the database', () => {
+  it('is one database function call on the vote row', () => {
+    expect(renderSql(OUTSIDE_RESTRICTED_USE)).toBe(RULE_SQL)
+  })
+
+  it('voteScope adds the rule only for content-bearing reads', () => {
+    expect(renderSql(voteScope(ALL, { contentBearing: true }))).toContain(RULE_SQL)
+    expect(renderSql(voteScope(ALL))).not.toContain(RULE_SQL)
+  })
+
+  it('isRestrictedUseVote asks the rule of the one vote it names', async () => {
+    const execute = vi.fn<(query: SQL) => Promise<unknown[]>>().mockResolvedValue([])
+    mockGetDb.mockReturnValue({ execute } as never)
+    await isRestrictedUseVote('fb_1', 'org_1')
+    expect(renderSql(execute.mock.calls[0]![0])).toContain(RULE_SQL)
+  })
+})

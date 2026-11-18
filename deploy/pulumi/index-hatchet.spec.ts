@@ -8,30 +8,15 @@ import { baseStackConfig, forProject } from "./src/test-support/stack-config";
 
 const read = (file: string) => readFileSync(join(__dirname, file), "utf8");
 
-/**
- * Built as the brand-free project (ADR-0147), so the app namespace is
- * `workspace` and the app cluster `postgres`; the background-work names are
- * the same in both projects.
- */
 const APP_NAMESPACE = "workspace";
 const stackConfig = (extra: Record<string, string> = {}) =>
   ({ ...forProject(baseStackConfig(), PROJECT), ...Object.fromEntries(Object.entries(extra).map(([k, v]) => [`${PROJECT}:${k}`, v])) });
 
-/**
- * The background-work platform (ADR-0150), built by the whole program: Hatchet
- * from the `hatchet-ha` chart on its own CloudNativePG cluster and a three-node
- * RabbitMQ from the RabbitMQ Cluster Operator, the worker
- * token copied into the app namespace, every tier that starts or runs a run
- * wired to it, and the namespace's network policies.
- *
- * What goes wrong here plans clean: a chart value the chart does not read, a
- * replica count of one with a PDB that blocks every drain, the chart's bundled
- * Bitnami RabbitMQ pulled in by default, a queue URL nobody can expand, a tier
- * missing the token, a network rule that admits nobody.
- */
-
 type Resource = { type: string; name: string; inputs: Record<string, any> };
 const RESOURCES: Resource[] = [];
+type Constructed = { type: string; name: string; resource: pulumi.Resource; dependsOn: unknown };
+const CONSTRUCTED: Constructed[] = [];
+const constructed = (type: string, name: string) => CONSTRUCTED.find((c) => c.type === type && c.name === name);
 
 pulumi.runtime.setMocks(
   {
@@ -48,7 +33,6 @@ pulumi.runtime.setMocks(
 
 const SECRET_SIGNATURE = "4dabf18193072939515e22adb298388d"; // pragma: allowlist secret (Pulumi's public secret marker)
 
-/** Unwrap Pulumi's secret envelopes anywhere in a mock input. */
 function plain(value: any): any {
   if (Array.isArray(value)) return value.map(plain);
   if (value && typeof value === "object") {
@@ -64,7 +48,6 @@ function find(type: string, name: string): Resource {
   return { ...hit, inputs: plain(hit.inputs) };
 }
 
-/** The chart's `hatchet-api` Service, `service.externalPort` 8080 (`charts/hatchet-api/values.yaml`). */
 const IN_CLUSTER_API = "http://hatchet-api.background-work.svc.cluster.local:8080";
 
 const RELEASE = "kubernetes:helm.sh/v3:Release";
@@ -82,7 +65,15 @@ function env(type: string, name: string): Env[] {
 
 beforeAll(async () => {
   pulumi.runtime.setAllConfig(stackConfig({ observabilityEnabled: "false", chatAffinity: "false" }));
-  const stack = (await import("./index")) as Record<string, unknown>;
+  let stack: Record<string, unknown> = {};
+  await pulumi.runtime.runInPulumiStack(async () => {
+    pulumi.runtime.registerStackTransformation(({ resource, type, name, opts }) => {
+      CONSTRUCTED.push({ type, name, resource, dependsOn: opts.dependsOn });
+      return undefined;
+    });
+    stack = (await import("./index")) as Record<string, unknown>;
+    return {};
+  });
   await Promise.all(
     Object.values(stack)
       .filter((v): v is pulumi.Output<unknown> => pulumi.Output.isInstance(v))
@@ -99,12 +90,10 @@ describe("background-work-pg", () => {
     expect(spec.resources.limits).toEqual({ cpu: "2", memory: "4Gi" });
     expect(spec.storage.size).toBe("20Gi");
     expect(spec.enableSuperuserAccess).toBe(false);
-    // The same placement and keepalives as the app cluster: one builder.
     const app = find(CLUSTER, "pg").inputs.spec;
     expect(spec.affinity).toEqual(app.affinity);
     expect(spec.imageName).toBe(app.imageName);
     expect(spec.postgresql.parameters.tcp_keepalives_idle).toBe(app.postgresql.parameters.tcp_keepalives_idle);
-    // No archive unless it is configured, and then off-cluster.
     expect(spec).not.toHaveProperty("backup");
   });
 
@@ -119,8 +108,6 @@ describe("background-work-pg", () => {
     for (const role of Object.values(roles) as any[]) {
       expect(role).toMatchObject({ login: true, superuser: false, createdb: false, createrole: false, bypassrls: false });
     }
-    // 12 processes in a rolling update (8 + one surge each) and two bootstrap Jobs, at 15 each:
-    // with RabbitMQ as the queue, no process opens the Postgres pub/sub pool.
     expect(budget.hatchetRole).toBe(14 * 15);
     expect(budget.total).toBeLessThanOrEqual(budget.limit);
     expect(find(CLUSTER, "background-work-pg").inputs.spec.postgresql.parameters.max_connections).toBe(String(budget.limit));
@@ -151,8 +138,6 @@ describe("the hatchet-ha release", () => {
   });
 
   it("keeps the dashboard's URL on localhost, which no client dials: each is given the in-cluster API", async () => {
-    // `serverUrl` is what the dashboard's links and cookie name, behind the
-    // port-forward, and what the engine stamps into every token as `server_url`.
     expect(values().sharedConfig.serverUrl).toBe("http://localhost:8080");
     const { HATCHET_API_URL } = await import("./src/platform/hatchet");
     expect(HATCHET_API_URL).toBe(IN_CLUSTER_API);
@@ -165,7 +150,6 @@ describe("the hatchet-ha release", () => {
       expect(c.replicaCount, key).toBe(2);
       expect(c.podDisruptionBudget, key).toEqual({ maxUnavailable: 1 });
       expect(c.nameOverride, key).toBe(names[key]);
-      // The chart names the container port after it; Kubernetes refuses a port name over 15 characters.
       expect(c.nameOverride.length, key).toBeLessThanOrEqual(15);
       expect(c.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm, key).toEqual({
         topologyKey: "kubernetes.io/hostname",
@@ -173,13 +157,11 @@ describe("the hatchet-ha release", () => {
       });
       expect(c.resources.requests.memory, key).toBe(c.resources.limits.memory);
       expect(c.ingress, key).toEqual({ enabled: false });
-      // The chart's list is replaced, so the shared config is named again.
       expect(c.envFrom, key).toEqual([
         { secretRef: { name: "hatchet-shared-config" } },
         { secretRef: { name: "hatchet-database" } },
         { prefix: "RABBITMQ_", secretRef: { name: "hatchet-rabbitmq-default-user" } },
       ]);
-      // Expanded by the kubelet from the operator's Secret, read just above.
       expect(c.env, key).toMatchObject({
         SERVER_MSGQUEUE_KIND: "rabbitmq",
         SERVER_MSGQUEUE_RABBITMQ_URL:
@@ -198,7 +180,6 @@ describe("the hatchet-ha release", () => {
       SERVER_ALLOW_SIGNUP: "false",
     });
     expect(sharedConfig.grpcBroadcastAddress).toBe("hatchet-grpc.background-work.svc.cluster.local:7070");
-    // Not the chart's default login.
     expect(sharedConfig.defaultAdminPassword).not.toBe("Admin123!!");
     expect(sharedConfig.defaultAdminPassword).toMatch(/Aa1$/);
   });
@@ -240,8 +221,9 @@ describe("RabbitMQ", () => {
       `https://github.com/rabbitmq/cluster-operator/releases/download/v${RABBITMQ_OPERATOR_VERSION}/cluster-operator.yml`,
     );
     expect(RABBITMQ_OPERATOR_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(read("index.ts")).toMatch(/installRabbitmqOperator\(provider, \[certManager\.release\]\)/);
-    // Never the chart's Bitnami subchart.
+    const certManager = constructed(RELEASE, "cert-manager")?.resource;
+    expect(certManager).toBeDefined();
+    expect(constructed("kubernetes:yaml/v2:ConfigFile", "rabbitmq-cluster-operator")?.dependsOn).toEqual([certManager]);
     expect(find(RELEASE, "hatchet").inputs.values.rabbitmq).toEqual({ enabled: false });
   });
 
@@ -249,9 +231,7 @@ describe("RabbitMQ", () => {
     const { metadata, spec } = find("kubernetes:rabbitmq.com/v1beta1:RabbitmqCluster", "hatchet-rabbitmq").inputs;
     expect(metadata).toEqual({ name: "hatchet-rabbitmq", namespace: "background-work" });
     expect(spec.replicas).toBe(3);
-    // Hatchet's tested RabbitMQ, not the operator's default: 4.3 refuses the
-    // x-consumer-timeout Hatchet puts on its classic queues.
-    expect(spec.image).toBe("rabbitmq:4.2.9-management@sha256:d1fb8b38bd0805935907a22b2b7483fba38c9a8dd7e8a74bfba4a6e7a9e91707");
+    expect(spec.image).toBe("rabbitmq:4.2.9-management@sha256:7fa20d0d23d63ed90499bbf62e24af48ec4ae5eb22d173f3db96e3f85b26884a");
     expect(spec.resources).toEqual({ requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } });
     expect(spec.persistence).toEqual({ storageClassName: "premium", storage: "10Gi" });
     const label = { "background-work/component": "rabbitmq" };
@@ -328,12 +308,8 @@ describe("the worker token", () => {
       expect(byName.HATCHET_CLIENT_HOST_PORT?.value, name).toBe("hatchet-grpc.background-work.svc.cluster.local:7070");
       expect(byName.HATCHET_CLIENT_TLS_STRATEGY?.value, name).toBe("none");
       expect(byName.HATCHET_CLIENT_NAMESPACE?.value, name).toBe("test");
-      // The REST API (scheduled runs, crons, cancels, pauses) under both SDKs'
-      // names: without them each falls back to the token's `server_url`, the
-      // port-forwarded dashboard on localhost, and every such call fails.
       expect(byName.HATCHET_CLIENT_SERVER_URL?.value, name).toBe(IN_CLUSTER_API);
       expect(byName.HATCHET_CLIENT_API_URL?.value, name).toBe(IN_CLUSTER_API);
-      // No dual path: the orchestrator flags are gone.
       expect(Object.keys(byName).filter((k) => k.endsWith("_ORCHESTRATOR")), name).toEqual([]);
     }
   });

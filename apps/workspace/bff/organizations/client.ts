@@ -1,13 +1,5 @@
 'use client'
 
-/**
- * Client helper to read the organization's app-side default locale.
- *
- * Used to seed the interface language for a member who hasn't chosen one yet,
- * so new members start in their org's configured language. Fails soft (returns
- * null) when auth is disabled or the request fails.
- */
-
 import { isLocale, type Locale } from '@/i18n/config'
 
 export async function fetchOrgDefaultLocale(): Promise<Locale | null> {

@@ -48,8 +48,6 @@ describe('loadAgentConnectState', () => {
     permissions,
   })
 
-  // `isFeatureEnabled` answers a fixed value where nobody signs in; pin the
-  // deployment kind the way the flag specs do.
   beforeEach(() => vi.stubEnv('REQUIRE_AUTH', 'true'))
   afterEach(() => vi.unstubAllEnvs())
 

@@ -1,13 +1,3 @@
-"""The document facts half of the weekly vector reconcile: every live collection's facts copied again.
-
-Module under test: ``agent_host.routes.maintenance`` (``refresh_document_facts``
-and its route). ``writes.refresh_facts`` never raises after a person's edit,
-so a copy that failed leaves the old tags, Dokumentart or superseded mark on
-the points, and the pre-filters that read them hide or show a document
-wrongly. This sweep is what repairs that; ``writes.copy_facts`` itself is
-pinned on a real Qdrant in ``packages/knowledge-layer/tests/test_vector_store_adapter.py``.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -15,7 +5,7 @@ from fastapi import APIRouter
 from fastapi import FastAPI
 from httpx import ASGITransport
 from httpx import AsyncClient
-from knowledge_layer.vector_store import writes
+from knowledge_layer import vector_store
 
 from agent_host.routes.maintenance import REFRESH_FACTS_MAX_COLLECTIONS
 from agent_host.routes.maintenance import add_maintenance_routes
@@ -24,7 +14,6 @@ from agent_host.routes.maintenance import refresh_document_facts
 
 @pytest.fixture
 def copied(monkeypatch):
-    """Each collection's file count, or the error its copy raises."""
     outcomes: dict[str, int | Exception] = {}
     calls: list[str] = []
 
@@ -35,7 +24,7 @@ def copied(monkeypatch):
             raise outcome
         return outcome
 
-    monkeypatch.setattr(writes, "copy_facts", copy_facts)
+    monkeypatch.setitem(vars(vector_store), "copy_facts", copy_facts)
     return outcomes, calls
 
 

@@ -1,15 +1,3 @@
-/**
- * EgressDiagramCard — a Fluchtweg drawn to scale from the worst-case point to
- * the exit, with the total walking length checked against the OIB 2 limit.
- *
- * Segments render as one connected polyline honouring each run's turn
- * (straight / left / right, 90° in plan), over a soft "corridor" underlay.
- * The path is coloured by the total-length verdict; each run is annotated
- * with its label and length. A start dot marks the worst-case point, an
- * arrowhead + door tick mark the exit. Below the drawing a LimitBar reads the
- * summed length against the required maximum.
- */
-
 import { type FC } from 'react'
 import { Route } from 'lucide-react'
 import {
@@ -44,8 +32,6 @@ export const EgressDiagramCard: FC<EgressDiagramCardProps> = ({
   reference,
 }) => {
   const t = useTranslations(chatCopy)
-  // Trace the path in metres: start heading +x; a "left" turn after a run is
-  // counter-clockwise when walking (−y with SVG's y-down), "right" clockwise.
   let dirX = 1
   let dirY = 0
   let cx = 0
@@ -94,7 +80,6 @@ export const EgressDiagramCard: FC<EgressDiagramCardProps> = ({
   const end = points[points.length - 1]
   const last = runs[runs.length - 1]
 
-  // Exit arrowhead + door tick, oriented along the final run.
   const eu = last ? { x: last.dirX, y: last.dirY } : { x: 1, y: 0 }
   const exitHead = `M ${end[0] - eu.x * 8 - eu.y * 4.5} ${end[1] - eu.y * 8 + eu.x * 4.5} L ${end[0]} ${end[1]} L ${end[0] - eu.x * 8 + eu.y * 4.5} ${end[1] - eu.y * 8 - eu.x * 4.5}`
   const doorTick = `M ${end[0] + eu.x * 4 - eu.y * 7} ${end[1] + eu.y * 4 + eu.x * 7} L ${end[0] + eu.x * 4 + eu.y * 7} ${end[1] + eu.y * 4 - eu.x * 7}`
@@ -106,8 +91,6 @@ export const EgressDiagramCard: FC<EgressDiagramCardProps> = ({
   const totalCheck: DimensionCheckData = {
     ...total_length,
     unit: total_length.unit ?? 'm',
-    // The sum of the given runs is arithmetic on provided data, not a guess —
-    // use it when the model left the total null.
     value: total_length.value ?? (segments.length > 0 ? summedLength : null),
   }
 

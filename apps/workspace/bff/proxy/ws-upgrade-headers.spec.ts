@@ -2,18 +2,10 @@
 /**
  * @vitest-environment node
  */
-/**
- * The WebSocket proxy strips what only it may set (`server.js`).
- *
- * Each context header was written only when the scope response had the field,
- * so a client's own `x-grid-model-overrides`, `x-grid-budget` or
- * `x-grid-disabled-sources` reached the backend whenever the scope left that
- * field empty. These cases pin the strip itself and that `server.js` runs it
- * before it writes a single context header.
- */
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { findOversizedWsHeader, stripClientContextHeaders, withoutSessionCookies, WS_HEADER_LINE_MAX_BYTES } from './ws-upgrade-headers.js'
+import { TURN_DOOR_HEADER, TURN_SESSION_SOURCE_HEADER } from '../turns/headless-mode'
 
 describe('stripClientContextHeaders', () => {
   it('removes every x-grid-* header a client sent', () => {
@@ -58,6 +50,14 @@ describe('stripClientContextHeaders', () => {
     expect(headers).toEqual({})
   })
 
+  it('removes the agent door a headless ask names, so a browser turn cannot claim one', () => {
+    const headers: Record<string, string> = { [TURN_DOOR_HEADER]: 'mcp', [TURN_SESSION_SOURCE_HEADER]: 'mcp' }
+
+    stripClientContextHeaders(headers)
+
+    expect(headers).toEqual({})
+  })
+
   it('keeps what the proxy and the backend need from the client', () => {
     const headers: Record<string, string> = {
       cookie: 'wos-session=abc',
@@ -66,7 +66,6 @@ describe('stripClientContextHeaders', () => {
       'sec-websocket-key': 'k',
       'sec-websocket-version': '13',
       'x-forwarded-for': '203.0.113.7',
-      // Not the prefix: a header that merely contains the letters survives.
       'x-gridlock': 'y',
     }
     const before = { ...headers }
@@ -107,8 +106,6 @@ describe('server.js strips before it writes', () => {
 
   it('runs it on the upgrade before the first context header is set', () => {
     const strip = source.indexOf('stripClientContextHeaders(req.headers)')
-    // The context headers are written in one place: `turnContextHeaders`
-    // (`lib/turns/turn-headers.js`), assigned onto the upgrade request.
     const firstWrite = source.indexOf('turnContextHeaders(result.data')
     expect(strip, 'the upgrade handler no longer strips client headers').toBeGreaterThan(-1)
     expect(firstWrite).toBeGreaterThan(-1)

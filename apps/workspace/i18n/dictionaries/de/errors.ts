@@ -1,6 +1,5 @@
 import type { en } from '../en'
 
-/** Error, not-found, and auth-error surfaces. */
 export const errors: typeof en.errors = {
   notFound: {
     code: '404',

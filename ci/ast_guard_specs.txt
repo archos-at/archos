@@ -1,0 +1,21 @@
+# Specs (and their helper) that read source files, each a structural guard over the tree that parses
+# the code with a real parser. scripts/check_spec_source_reads.py fails any other spec that reads source
+# text, and any line here whose spec imports no parser. docs/contributing/code-conventions.md#specs-test-behaviour
+apps/workspace/bff/agent-api/agent-reachability.spec.ts
+apps/workspace/bff/agent-api/english-only.spec.ts
+apps/workspace/bff/backend-url.spec.ts
+apps/workspace/bff/db/rls-coverage.spec.ts
+apps/workspace/bff/db/server-component-db-access.spec.ts
+apps/workspace/bff/documents/document-status.spec.ts
+apps/workspace/bff/documents/document-visibility.spec.ts
+apps/workspace/bff/documents/status-writers.spec.ts
+apps/workspace/bff/download-log/coverage.fixtures.ts
+apps/workspace/bff/inbound-mail/review-first.spec.ts
+apps/workspace/bff/internal-auth.spec.ts
+apps/workspace/bff/request-context.spec.ts
+apps/workspace/tests/browser-work-loops.spec.ts
+apps/workspace/tests/english-names.spec.ts
+apps/workspace/tests/test-utils/source-ast.ts
+apps/workspace/ui/components/ui/mobile-affordances.spec.ts
+deploy/pulumi/src/app/bff-jobs.spec.ts
+deploy/pulumi/stack-files.spec.ts

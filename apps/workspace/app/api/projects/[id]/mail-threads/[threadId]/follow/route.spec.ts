@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * Follow and unfollow: the route parses the body or the query with the wire's
- * schema and hands it to the service, which authorizes and decides.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ForbiddenError } from '@/lib/api/errors'
 

@@ -46,7 +46,6 @@ describe('narrowCorpus', () => {
   it('leaves out the summaries when brief', () => {
     expect(narrow({ brief: 'true' }).files.every((f) => !('summary' in f))).toBe(true)
     expect(narrow({ brief: 'false' }).files[0]).toHaveProperty('summary')
-    // An agent sends JSON, so a boolean is the same answer as the query string's text.
     expect(narrow({ brief: true }).files.every((f) => !('summary' in f))).toBe(true)
   })
 

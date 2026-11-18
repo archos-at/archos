@@ -1,13 +1,3 @@
-"""Tests for the internal RIS document-reader route.
-
-The route exists so a RIS citation opens INSIDE Piloti rather than in a browser
-tab (#622), and everything it must not do is a refusal it inherits from
-``RisClient``: a non-RIS host, a document RIS only publishes as a PDF, a
-reference that is neither a number nor a URL. Those are all statements about
-the REQUEST, so they must come back as 400s the BFF can turn into "this source
-cannot be shown here" — never as 502s that send it looking for an outage.
-"""
-
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -29,19 +19,6 @@ URL = "https://www.ris.bka.gv.at/GeltendeFassung.wxe?Abfrage=LrW&Gesetzesnummer=
 
 @pytest.fixture(autouse=True)
 def _no_cached_documents(monkeypatch):
-    """Isolate each case from the two caches the route legitimately has.
-
-    The route holds ONE ``RisClient`` for the process (a per-request client
-    leaks its connection pool and defeats the client's own in-memory cache) and
-    reads through the shared Dragonfly cache. Both are the point in production
-    and both are pollution here: every case below fetches the same URL, so
-    without this the first case's document is served to all the rest and a test
-    asserting a transport failure passes on an earlier test's success. Which is
-    exactly what happened when this file was first written.
-
-    The caching itself is asserted on purpose in its own case below, rather than
-    left as an accident of ordering.
-    """
     ris_module._RIS_CLIENT = None
     monkeypatch.setattr("ris_adapter.cache.cache_get_json", AsyncMock(return_value=None))
     monkeypatch.setattr("ris_adapter.cache.cache_set_json", AsyncMock(return_value=None))
@@ -105,8 +82,6 @@ async def test_accepts_a_bare_document_number(client):
             )
 
     assert response.status_code == 200
-    # A citation can carry either form, so both have to reach a URL the client
-    # will accept — the number goes through the adapter's own URL builder.
     assert fetch.await_args.args[0].startswith("https://www.ris.bka.gv.at/")
 
 
@@ -131,15 +106,7 @@ async def test_says_truncated_rather_than_ending_mid_sentence(client):
 
 @pytest.mark.asyncio
 async def test_an_over_long_document_is_windowed_around_the_cited_passage(client):
-    """A citation is a pointer INTO a document, so clipping the head loses it.
-
-    Measured 2026-09-04: the Bauordnung für Wien is 759,595 characters and its
-    § 108 sits at 524,079; the ASVG is 4,294,779. Whatever the ceiling is set to,
-    a document clipped at its start is the one shape the answer must never take,
-    because it drops the very paragraph the reader clicked to check.
-    """
     passage = "Bauwerke oder Bauwerksteile in denen gefaehrliche Stoffe gelagert werden"
-    # The passage sits three million characters in — far past any head clip.
     text = ("x " * 1_500_000) + passage + (" y" * 1_000_000)
 
     with patch(
@@ -161,7 +128,6 @@ async def test_an_over_long_document_is_windowed_around_the_cited_passage(client
 
 @pytest.mark.asyncio
 async def test_a_passage_that_cannot_be_located_falls_back_to_the_head(client):
-    """No window is better than a wrong one, and the head is the honest default."""
     text = ("x " * 1_500_000) + "eine ganz andere Stelle" + (" y" * 1_000_000)
 
     with patch(
@@ -200,8 +166,6 @@ async def test_a_document_that_fits_is_never_clipped_or_moved(client):
 
 @pytest.mark.asyncio
 async def test_a_non_ris_url_is_the_callers_error_not_an_outage(client):
-    # The refusal comes from the client's own host allow-list; the route must
-    # not launder it into a 502.
     async with client as http:
         response = await http.get(
             "/v1/ris/document",
@@ -230,13 +194,6 @@ async def test_an_unreachable_ris_is_a_bad_gateway(client):
 
 @pytest.mark.asyncio
 async def test_reads_through_the_shared_cache_rather_than_refetching(client, monkeypatch):
-    """The reader and the agent share one cached document.
-
-    The read-through used to be written inline in ``ris_fetch_document``, so this
-    route — added later — fetched live on every open while its own docstring
-    claimed the cache. A helper only one caller applies is a helper the next
-    caller forgets, which is why it is a shared function now.
-    """
     monkeypatch.setattr(
         "ris_adapter.cache.cache_get_json",
         AsyncMock(return_value={"url": URL, "title": "Aus dem Cache", "text": "§ 108. Gecacht"}),
@@ -256,13 +213,6 @@ async def test_reads_through_the_shared_cache_rather_than_refetching(client, mon
 
 @pytest.mark.asyncio
 async def test_an_ambiguous_passage_gets_the_head_rather_than_a_guess(client):
-    """A phrase that occurs twice points at two places at once.
-
-    Legal text repeats its own phrasing constantly — „Die Anforderungen dieser
-    Richtlinie sind sinngemäß anzuwenden" prefaces a dozen sections. Centring
-    the window on the first occurrence would be a guess presented as an answer,
-    and the reader has no way to tell it apart from a real hit.
-    """
     clause = "Die Anforderungen dieser Verordnung sind sinngemaess anzuwenden auf"
     text = f"{clause} Neubauten. " + ("x " * 1_500_000) + f"{clause} Zubauten. " + ("y " * 1_000_000)
 

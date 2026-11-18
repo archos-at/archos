@@ -19,7 +19,6 @@ const INPUT = {
   resourceTypeSlug: 'project',
 } as const
 
-/** WorkOS answering that the membership holds `slugs` on the resource. */
 function holds(...slugs: string[]) {
   return { autoPagination: async () => slugs.map((slug) => ({ slug })) }
 }
@@ -34,14 +33,11 @@ describe('effectiveResourcePermissions', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     store = new MapCacheStore()
     setCacheStore(store)
-    // The default TTL (30s) stays ON: these tests assert what survives it.
-    delete process.env.AUTHZ_CACHE_TTL_MS
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', undefined)
     listEffectivePermissionsByExternalId.mockResolvedValue(holds('project:view'))
   })
 
   it('does not cache an error-induced denial: error then success within TTL succeeds', async () => {
-    // A transport failure fails closed WITHOUT writing the entry, so the
-    // next request re-checks live instead of replaying the denial for 30s.
     listEffectivePermissionsByExternalId.mockRejectedValueOnce(new Error('workos unreachable'))
     expect((await effectiveResourcePermissions(INPUT)).size).toBe(0)
     expect((await effectiveResourcePermissions(INPUT)).has('project:view')).toBe(true)
@@ -56,8 +52,6 @@ describe('effectiveResourcePermissions', () => {
   })
 
   it('never shares a cached answer across organizations', async () => {
-    // Same membership and resource — only the org differs. The first org's
-    // grant must not leak into the second org's check.
     expect((await effectiveResourcePermissions(INPUT)).has('project:view')).toBe(true)
     listEffectivePermissionsByExternalId.mockResolvedValue(holds())
     expect((await effectiveResourcePermissions({ ...INPUT, organizationId: 'org_2' })).size).toBe(0)
@@ -78,7 +72,6 @@ describe('effectiveResourcePermissions', () => {
   it('sees a revocation at once once the membership’s grants are forgotten, not after the TTL', async () => {
     expect((await effectiveResourcePermissions(INPUT)).has('project:view')).toBe(true)
     listEffectivePermissionsByExternalId.mockResolvedValue(holds())
-    // Still the cached grant: nothing said the roles changed.
     expect((await effectiveResourcePermissions(INPUT)).has('project:view')).toBe(true)
 
     await forgetResourceGrants('org_1', 'om_1')
@@ -95,7 +88,6 @@ describe('effectiveResourcePermissions', () => {
     const inFlight = effectiveResourcePermissions(INPUT)
     await vi.waitFor(() => expect(listEffectivePermissionsByExternalId).toHaveBeenCalledTimes(1))
 
-    // The role is removed while WorkOS is still answering with the old grant.
     await forgetResourceGrants('org_1', 'om_1')
     answer(holds('project:view'))
     expect((await inFlight).has('project:view')).toBe(true)

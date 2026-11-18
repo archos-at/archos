@@ -1,10 +1,3 @@
-/**
- * The project selector, the rail's first control (design-language.md, „The app
- * rail“). The founder's verdict on the version before (2026-11-10): „I really
- * hate what the sidebar does to the project selector“. It was a 24px tile of
- * initials beside the name wrapped on two lines, with no box round them:
- * nothing that read as a control.
- */
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
@@ -35,9 +28,7 @@ describe('the project selector is one press', () => {
   test('expanded: the kit’s press across the column, the name on one line, no initials', () => {
     show()
     expect(selector().tagName).toBe('BUTTON')
-    // The kit's secondary press: white with its edge (Paper on a desk, principle 4).
     expect(selector()).toHaveClass('bg-sheet', 'shadow-press', 'h-10', 'w-full')
-    // One line that loses its middle and keeps its end; the whole name is its title.
     const name = selector().querySelector('.whitespace-nowrap')!
     expect(name).toHaveAttribute('title', 'Wohnbau Seestadt Baufeld D12')
     expect(name).toHaveClass('text-[13px]', 'font-medium')
@@ -49,7 +40,6 @@ describe('the project selector is one press', () => {
     show(true)
     expect(selector()).toHaveClass('bg-sheet', 'shadow-press', 'size-9')
     expect(selector().querySelector('[data-slot="project-initials"]')).toHaveTextContent('WS')
-    // No name fits, so the accessible name carries it.
     expect(selector()).toHaveAccessibleName(/Wohnbau Seestadt Baufeld D12/)
   })
 
@@ -59,7 +49,6 @@ describe('the project selector is one press', () => {
     await user.click(selector())
     const list = await screen.findByRole('listbox')
     const options = within(list).getAllByRole('option')
-    // A row is a name: no initials beside it.
     expect(options.map((option) => option.textContent)).toEqual([
       'Wohnbau Seestadt Baufeld D12',
       'Sanierung Amtshaus Favoriten',

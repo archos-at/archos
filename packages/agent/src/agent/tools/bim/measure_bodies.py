@@ -1,5 +1,3 @@
-"""Renders each operation's payload as a body for the reader, and the image blocks that go with it."""
-
 from collections.abc import Callable
 from typing import Any
 
@@ -12,21 +10,16 @@ from agent.tools.bim.measure_render import _render_answer
 from agent.tools.bim.rendering import listed
 from agent.tools.bim.rendering import render_unresolved
 
-# ── the payload shapes ───────────────────────────────────────────────────────
-
 
 def _is_profile(payload: Any) -> bool:
-    """`element_profile`: many measures over ONE element."""
     return isinstance(payload, dict) and "measures" in payload and "element" in payload
 
 
 def _is_batch(payload: Any) -> bool:
-    """`survey`, or `measure` over a list: ONE measure over many elements."""
     return isinstance(payload, dict) and "results" in payload and "summary" in payload
 
 
 def _model_identity(source: dict[str, Any] | None) -> str | None:
-    """Which file, its schema and its size — without the „Model: " label the prose header adds."""
     model = (source or {}).get("model") or {}
     filename = model.get("filename")
     if not filename:
@@ -117,7 +110,6 @@ def _profile_row(name: str, answer: dict[str, Any]) -> str:
 
 
 def _profile_lines(payload: dict[str, Any]) -> list[str]:
-    """Every measure that applies to one element, one line each — never the raw dict."""
     element = payload.get("element") or {}
     storey = f", {payload['storey']}" if payload.get("storey") else ""
     lines = [f"gemessen on {element.get('name') or element.get('globalId')} ({element.get('ifcType')}{storey}):"]
@@ -133,10 +125,6 @@ def _profile_lines(payload: dict[str, Any]) -> list[str]:
 
 
 def _batch_headline(payload: dict[str, Any]) -> str:
-    """The SPREAD first, because that is the finding: „alle 17 bei 2.70 m" and „16 bei 2.70 m, einer bei 0.25 m" differ.
-
-    Flattening this through `_value_text` would print „results=17 Einträge" — seventeen measurements and not one number.
-    """
     summary = payload.get("summary") or {}
     results = payload.get("results") or []
     spread = summary.get("spread")
@@ -152,7 +140,6 @@ def _batch_headline(payload: dict[str, Any]) -> str:
 
 
 def _batch_row(entry: dict[str, Any]) -> str:
-    """The name where the payload has one: a 22-character GlobalId is nothing a reviewer carries to a CAD window."""
     answer = entry.get("answer") or {}
     label = entry.get("name") or entry.get("globalId")
     if entry.get("name") and entry.get("storey"):
@@ -196,7 +183,6 @@ _BODY_RENDERERS: dict[str, Callable[[dict[str, Any]], list[str]]] = {
 
 
 def _body_lines(operation: str, payload: Any) -> list[str]:
-    """The result itself: by operation where the shape is the operation's own, by payload shape otherwise."""
     if operation == "briefing":
         return _briefing_lines(payload)
     renderer = _BODY_RENDERERS.get(operation)
@@ -208,19 +194,10 @@ def _body_lines(operation: str, payload: Any) -> list[str]:
         return _batch_lines(payload)
     if isinstance(payload, dict) and "decidable" in payload:
         return _render_answer(payload)
-    # Never `str(payload)`: a raw dict dump strips the provenance verbs, which
-    # is the defect this renderer exists to prevent. A shape nobody renders is
-    # a bug to fix, and a test should be what finds it.
     raise TypeError(f"ifc_measure: no renderer for the {operation!r} payload ({type(payload).__name__})")
 
 
 def _image_blocks(payload: dict[str, Any], *, source: dict[str, Any] | None, handle: str) -> list[dict]:
-    """The plan as something the model can actually LOOK at: a caption block and an image block.
-
-    The caption carries what the pixels cannot state exactly — storey, rooms,
-    marked GlobalIds — and the prohibition: a dimension read off a raster is
-    guessed even when it happens to be right.
-    """
     lines = [_model_line(source or {}, handle), str(payload.get("note") or "")]
     if payload.get("rooms"):
         lines.append("Rooms in the image: " + ", ".join(str(room) for room in payload["rooms"]) + ".")
@@ -244,5 +221,4 @@ def _image_blocks(payload: dict[str, Any], *, source: dict[str, Any] | None, han
 
 
 def _render_unresolved(result: dict[str, Any]) -> str:
-    """A model that could not be selected — the same shape ``ifc_query`` uses."""
     return render_unresolved(result, "The model could not be read.")

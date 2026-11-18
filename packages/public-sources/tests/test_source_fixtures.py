@@ -1,10 +1,3 @@
-"""Every source record in ``configs/sources`` is valid and passes its recorded fixtures.
-
-This is the gate "a source is validated by a fixture test before it is used":
-a record that does not parse, names a host its URLs are not on, or whose
-fixtures fail, fails here on every commit. Recorded responses only, no live call.
-"""
-
 from __future__ import annotations
 
 import pytest

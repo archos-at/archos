@@ -1,9 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * `/api/projects/[id]/inbound-mails/dismiss`: up to 20 mails, each named once.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const session = {

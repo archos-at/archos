@@ -1,11 +1,3 @@
-/**
- * `document_access_log` repository: SQL only (ADR-0017). Every list is bounded.
- *
- * The table is append-only for the application: the only writer is
- * {@link insertAccessLogEntry}, and the `download-log-retention` sweep deletes
- * through `workers/maintenance-sql.js`, not through here.
- */
-
 import 'server-only'
 import type { ProjectStatus } from '@/lib/projects/project-status'
 import { and, desc, eq, gte, ilike, lt, sql, type SQL } from 'drizzle-orm'
@@ -17,7 +9,6 @@ import { documentAccessLog, type DownloadLogKind, type DownloadLogScope, type Ne
 import { projectFolders } from '@/lib/db/schema/project-folders'
 import { projects } from '@/lib/db/schema/projects'
 
-/** What one hand-over of bytes writes. `occurredAt` is the database's clock. */
 export type NewAccessLogEntry = Omit<NewDocumentAccessLogRow, 'id' | 'occurredAt'>
 
 export async function insertAccessLogEntry(entry: NewAccessLogEntry): Promise<void> {
@@ -30,44 +21,19 @@ export async function insertAccessLogEntry(entry: NewAccessLogEntry): Promise<vo
 export interface AccessLogFilter {
   organizationId: string
   userId?: string
-  /** Exactly one document, by id. */
   documentId?: string
-  /** A document, by part of the name it had when it was taken. */
   documentName?: string
-  /** Inclusive lower bound on when it happened. */
   from?: Date
-  /** Exclusive upper bound. */
   to?: Date
   kind?: DownloadLogKind
-  /** Only rows the viewer may read the folder of; see {@link ReadableFolders}. */
   readable?: ReadableFolders
 }
 
-/**
- * Which rows a viewer may read the folder of, in the terms the database can
- * apply before the limit (the name filter, `./service`). The same rule as the
- * service's `folderReadableBy` applies to a page it has read:
- *
- * - a row on no project folder is readable;
- * - in a project where a folder hides something from someone (one with its own
- *   list, or one in the Papierkorb), a row is readable when its folder is in
- *   `folderIds`;
- * - in any other project it is readable, except a row logged under its own list
- *   whose folder is gone with its project, which only `recordedListReadable`
- *   opens.
- */
 export interface ReadableFolders {
   folderIds: readonly string[]
   recordedListReadable: boolean
 }
 
-/**
- * Whether the row's project has a folder that hides something: the predicate of
- * `projectHasCustomOrBinnedFolders` (`lib/authz/folder-access-repository.ts`),
- * correlated to the row. Decided here rather than from a list of projects, so a
- * project the caller did not read counts as hiding, and its rows match only
- * through `folderIds`: it fails closed.
- */
 const projectHidesSomething = (): SQL => sql`EXISTS (
   SELECT 1 FROM project_folders hiding
   JOIN projects owner ON owner.id = hiding.project_id
@@ -78,13 +44,10 @@ const projectHidesSomething = (): SQL => sql`EXISTS (
 
 function readableCondition(readable: ReadableFolders): SQL {
   const unfiled = sql`(${documentAccessLog.scope} <> 'project' OR ${documentAccessLog.projectId} IS NULL OR ${documentAccessLog.folderId} IS NULL)`
-  // One text parameter however many folders: a list of parameters would meet
-  // Postgres's limit of 65,535 in a large organization.
   const inReadableFolder =
     readable.folderIds.length > 0
       ? sql`${documentAccessLog.folderId} = ANY(string_to_array(${readable.folderIds.join(',')}, ',')::uuid[])`
       : sql`false`
-  // The folder row is gone (a purged project leaves none) and the row was logged under its own list.
   const goneUnderOwnList = sql`(${documentAccessLog.ownList} AND ${projectFolders.path} IS NULL)`
   const elsewhere = readable.recordedListReadable
     ? sql`NOT ${projectHidesSomething()}`
@@ -92,12 +55,6 @@ function readableCondition(readable: ReadableFolders): SQL {
   return sql`(${unfiled} OR ${inReadableFolder} OR ${elsewhere})`
 }
 
-/**
- * Where the previous page ended. `occurredAt` is the database's own text for
- * the timestamp, microseconds included: a JavaScript `Date` keeps milliseconds,
- * and a cursor rounded to them would skip the rows of the same millisecond
- * that sort after the one it names.
- */
 export interface AccessLogCursor {
   occurredAt: string
   id: string
@@ -106,14 +63,12 @@ export interface AccessLogCursor {
 export interface AccessLogRow {
   id: string
   occurredAt: Date
-  /** The cursor that continues the list after this row. */
   cursor: AccessLogCursor
   userId: string
   kind: DownloadLogKind
   scope: DownloadLogScope
   projectId: string | null
   projectName: string | null
-  /** The project's status now (ADR-0090); null outside a project or once it is gone. */
   projectStatus: ProjectStatus | null
   documentId: string
   documentName: string
@@ -123,7 +78,6 @@ export interface AccessLogRow {
   ownList: boolean
 }
 
-/** `%` and `_` in a typed name are the characters, not wildcards. */
 function likePattern(text: string): string {
   return `%${text.replace(/[\\%_]/g, (character) => `\\${character}`)}%`
 }
@@ -143,12 +97,6 @@ function conditions(filter: AccessLogFilter, cursor: AccessLogCursor | null): SQ
   return found
 }
 
-/**
- * One page of the log, newest first, `limit` rows at most (the caller asks for
- * one more than it shows, to know whether another page exists). Project and
- * folder names are read from today's rows: a deleted project or folder leaves
- * its id and its null name, which the page shows as such.
- */
 export async function listAccessLog(
   filter: AccessLogFilter,
   cursor: AccessLogCursor | null,
@@ -190,8 +138,6 @@ export async function listAccessLog(
   )
   return rows.map((row) => ({
     id: row.id,
-    // Coerced at the boundary: a raw `sql<T>` is not validated, and `occurredAt`
-    // is a Date only because drizzle maps the column itself.
     occurredAt: new Date(row.occurredAt),
     cursor: { occurredAt: String(row.cursorAt), id: row.id },
     userId: row.userId,

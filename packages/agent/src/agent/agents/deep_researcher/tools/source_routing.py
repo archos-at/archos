@@ -1,5 +1,3 @@
-"""Source routing catalog helpers for deep research."""
-
 from __future__ import annotations
 
 import json
@@ -18,8 +16,6 @@ from agent.common.data_source_registry import get_source
 
 
 class DomainCatalogEntry(BaseModel):
-    """Config-loaded domain-to-source preference entry shown to the router subagent."""
-
     domain_id: str
     domain_name: str
     description: str = ""
@@ -29,8 +25,6 @@ class DomainCatalogEntry(BaseModel):
 
 
 class DomainCatalogConfig(BaseModel):
-    """Root schema for a source-router domain catalog file."""
-
     domains: tuple[DomainCatalogEntry, ...] = Field(default_factory=tuple)
     default_domain_id: str | None = None
 
@@ -39,7 +33,6 @@ DEFAULT_GENERAL_RESEARCH_DOMAIN_ID = "general_research"
 
 
 def _default_general_research_config(source_ids: Sequence[str]) -> DomainCatalogConfig:
-    """Return a default route over the runtime-configured source set."""
     preferred_source_ids = tuple(sorted(source_ids))
     fallback_source_ids = ("web_search",) if "web_search" in preferred_source_ids else preferred_source_ids[:1]
     return DomainCatalogConfig(
@@ -61,15 +54,12 @@ def _default_general_research_config(source_ids: Sequence[str]) -> DomainCatalog
 
 
 class DomainCatalogRegistry:
-    """File-backed domain catalog registry."""
-
     def __init__(self, config: DomainCatalogConfig | None = None) -> None:
         self.config = config or DomainCatalogConfig()
         self._domains = {entry.domain_id: entry for entry in self.config.domains}
 
     @classmethod
     def from_path(cls, path: str | Path | None) -> DomainCatalogRegistry:
-        """Load a domain catalog registry from a YAML or JSON file."""
         if path is None:
             return cls()
 
@@ -91,7 +81,6 @@ class DomainCatalogRegistry:
 
     @property
     def default_domain_id(self) -> str | None:
-        """Return configured default domain ID when available."""
         if self.config.default_domain_id:
             return self.config.default_domain_id
         for entry in self.config.domains:
@@ -100,7 +89,6 @@ class DomainCatalogRegistry:
         return self.config.domains[0].domain_id if self.config.domains else None
 
     def domain_payloads(self, available_source_ids: set[str]) -> list[dict[str, Any]]:
-        """Build catalog entries with source availability annotations."""
         return [_domain_payload(entry, available_source_ids) for entry in self.config.domains]
 
 
@@ -119,11 +107,6 @@ def runtime_source_tools(
     *,
     allowed_source_ids: Sequence[str] | None = None,
 ) -> dict[str, list[dict[str, str]]]:
-    """Return configured source IDs mapped to exact runtime tool names.
-
-    Only tools that resolve through the data source registry are included.
-    Unmapped helper tools are deliberately kept out of source routing.
-    """
     runtime_tools = list(tools)
     if allowed_source_ids is not None:
         runtime_tools = filter_tools_by_sources(runtime_tools, list(allowed_source_ids))
@@ -150,7 +133,6 @@ def runtime_source_tools(
 
 
 def _source_metadata(source_id: str) -> dict[str, Any]:
-    """Return source metadata from the global registry when available."""
     source = get_source(source_id)
     if source is None:
         return {
@@ -170,17 +152,14 @@ def _source_metadata(source_id: str) -> dict[str, Any]:
 
 
 def _available_source_payload(source_id: str, tools_for_source: list[dict[str, str]]) -> dict[str, Any]:
-    """Build one available source entry for the router catalog."""
     return {**_source_metadata(source_id), "tools": tools_for_source}
 
 
 def _filter_available(source_ids: Sequence[str], available_source_ids: set[str]) -> list[str]:
-    """Keep only source IDs that exist in the active runtime tool set."""
     return [source_id for source_id in source_ids if source_id in available_source_ids]
 
 
 def _default_fallback_source_ids(available_source_ids: set[str]) -> list[str]:
-    """Return a conservative fallback source order for requests with no clear domain."""
     if "web_search" in available_source_ids:
         return ["web_search"]
     return sorted(available_source_ids)[:1]
@@ -192,7 +171,6 @@ def source_catalog_payload(
     allowed_source_ids: Sequence[str] | None = None,
     domain_catalog_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Build the complete source/domain catalog shown to source-router-agent."""
     source_tools = runtime_source_tools(tools, allowed_source_ids=allowed_source_ids)
     if domain_catalog_path is None:
         domain_registry = DomainCatalogRegistry(_default_general_research_config(list(source_tools)))
@@ -226,27 +204,25 @@ def source_catalog_payload(
     }
 
 
+LOOKUP_SOURCE_CATALOG_DESCRIPTION = (
+    "Return configured source domains, available source IDs, and exact source tool names."
+)
+
+
 def build_lookup_source_catalog_tool(
     tools: Sequence[BaseTool],
     *,
     allowed_source_ids: Sequence[str] | None = None,
     domain_catalog_path: str | Path | None = None,
 ) -> BaseTool:
-    """Build the router-only source catalog lookup tool.
-
-    The catalog is rendered ONCE, here: the tool set and the domain file are
-    fixed for the run, and the tool used to re-read and re-parse the YAML on
-    every call inside a synchronous tool.
-    """
     catalog = json.dumps(
         source_catalog_payload(tools, allowed_source_ids=allowed_source_ids, domain_catalog_path=domain_catalog_path),
         indent=2,
         ensure_ascii=False,
     )
 
-    @tool
+    @tool(description=LOOKUP_SOURCE_CATALOG_DESCRIPTION)
     def lookup_source_catalog() -> str:
-        """Return configured source domains, available source IDs, and exact source tool names."""
         return catalog
 
     return lookup_source_catalog

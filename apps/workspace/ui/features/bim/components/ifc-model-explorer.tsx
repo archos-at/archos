@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * The model as DATA: overview, spatial structure, element table, properties.
- *
- * This is the half of the model page that does not need a GPU, and it is the
- * half that answers most questions. It renders identically whether the 3D
- * viewport is present, absent (no WebGPU) or still parsing, which is what makes
- * the browser support question a matter of degree rather than of the feature
- * working at all.
- */
-
 import type { JSX } from 'react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { AlertTriangle, Boxes, CheckCircle2, Info, Layers3, Ruler, XCircle } from 'lucide-react'
@@ -123,9 +113,7 @@ export function IfcModelOverview({ summary, filename }: IfcModelOverviewProps): 
 
 export interface IfcModelHealthPanelProps {
   health: BimHealth
-  /** Show only the findings an answer has to be qualified by. */
   compact?: boolean
-  /** Called with the sample GlobalIds so the viewer can show which elements. */
   onShowElements?: (globalIds: string[]) => void
 }
 
@@ -141,15 +129,6 @@ const SEVERITY_CLASS = {
   info: 'text-muted-foreground',
 } as const
 
-/**
- * The validation report.
- *
- * Ordered by severity, not by stage: a reader wants "what is wrong with my
- * model" before "which conformance tier it failed", and the stage is a chip on
- * the row for anyone who does want it. Each finding states the SHARE affected
- * ("11 of 64 walls") rather than a bare count — the two read very differently
- * and only one of them tells you whether to care.
- */
 export function IfcModelHealthPanel({
   health,
   compact = false,
@@ -289,9 +268,6 @@ export function IfcSpatialTree({
             onClick={() => onSelectStorey(null)}
             aria-pressed={selectedStorey === null}
             className={cn(
-              // "All storeys" sits at the head of the storey list and is the way
-              // back out of a filtered model — the same stacked row as the ones
-              // under it, so it takes the same growth.
               'w-full rounded-md px-2 py-1 text-left font-medium transition-colors duration-quick ease-out hover:bg-hover pointer-coarse:py-3',
               selectedStorey === null && 'bg-selected hover:bg-selected'
             )}
@@ -310,9 +286,6 @@ export function IfcSpatialTree({
                 aria-pressed={selectable ? active : undefined}
                 onClick={() => selectable && onSelectStorey(row.storeyName)}
                 className={cn(
-                  // A storey row, stacked on its neighbours — so it grows rather
-                  // than overhangs, or each row's catchment would sit on the one
-                  // below it.
                   'flex w-full items-center justify-between gap-2 rounded-md px-2 py-1 text-left font-medium pointer-coarse:py-3',
                   selectable
                     ? 'transition-colors duration-quick ease-out hover:bg-hover'
@@ -329,8 +302,6 @@ export function IfcSpatialTree({
                   )}
                 </span>
                 {row.elementCount > 0 && (
-                  // The exact figure is the row's content (a storey of 2,431
-                  // elements is not "99+"), and the tree row has the room.
                   <CountPill count={row.elementCount} max={Number.POSITIVE_INFINITY} />
                 )}
               </button>
@@ -343,28 +314,9 @@ export function IfcSpatialTree({
 }
 
 export interface IfcElementTableProps {
-  /**
-   * The extraction cap, when the stored rows are not the whole file.
-   *
-   * The count line reads "{shown} von {total}", and `total` is a count over
-   * the stored rows — so on a capped model it was a fraction of a fraction.
-   * The type dropdown is built from the same set, so a type that exists only
-   * past the cap is missing from the filter entirely.
-   */
   truncatedAt?: number | null
   elements: readonly BimViewerElement[]
-  /**
-   * The walk that fills {@link elements} is still running.
-   *
-   * Required, because an empty array is otherwise indistinguishable from a
-   * building with no elements — and this table does not say "nothing here", it
-   * says "Kein Bauteil entspricht diesem Filter · 0 von 0 Treffern", which
-   * blames a filter the reader has not set. On a 200 000-element model that
-   * walk is two hundred requests, so that was the state of the Struktur tab
-   * for as long as it took.
-   */
   isLoading?: boolean
-  /** The walk failed. Distinct from "the model has none", and retryable. */
   error?: boolean
   onRetry?: () => void
   storeyFilter: string | null
@@ -391,16 +343,6 @@ export function IfcElementTable({
     [elements]
   )
 
-  /*
-    A different model is a different set of types.
-
-    The drawer is not remounted when the rail switches model, so a filter of
-    `IfcDoor` survived into a building with no doors: the select showed a value
-    that is not in its own option list, the table was empty, and the only
-    message was "Kein Bauteil entspricht diesem Filter" — with the storey half
-    of the filter living in the rail on the other side of the screen. The
-    search box carried over the same way.
-  */
   useEffect(() => {
     setSearch('')
     setTypeFilter('')
@@ -420,8 +362,6 @@ export function IfcElementTable({
     })
   }, [elements, search, storeyFilter, typeFilter])
 
-  // Bounded render: a 200 000-element model must not put 200 000 rows in the
-  // DOM. The count line always states the full total, so the cap is visible.
   const shown = filtered.slice(0, 300)
 
   return (
@@ -435,19 +375,12 @@ export function IfcElementTable({
           onChange={(event) => setSearch(event.target.value)}
           placeholder={t('elements.search')}
           aria-label={t('elements.search')}
-          // The Input primitive already carries the 16px floor and the coarse
-          // height; `h-8` was overriding the latter back down to 32px.
           className="h-8 max-w-56 pointer-coarse:h-11"
         />
         <select
           value={typeFilter}
           onChange={(event) => setTypeFilter(event.target.value)}
           aria-label={t('elements.columns.type')}
-          // A native `<select>`, so it carries none of what `ui/select.tsx` does
-          // for a phone: 32px tall, and under the 16px iOS Safari needs to leave
-          // the page unzoomed when a field takes focus. On the POINTER axis, not
-          // a breakpoint — a `sm:text-sm` override put a coarse-pointer tablet
-          // back at 14px, which is the zoom this was meant to prevent.
           className="h-8 rounded-md border bg-background px-2 text-sm pointer-coarse:h-11 pointer-coarse:text-base"
         >
           <option value="">{t('elements.allTypes')}</option>
@@ -552,12 +485,6 @@ export function IfcElementTable({
                     type="button"
                     onClick={() => onSelect(element)}
                     aria-current={element.globalId === selectedGlobalId}
-                    // 20px: the button is the cell's TEXT, and the cell's own
-                    // `py-1` sits outside it, so the row a finger aims at was
-                    // dead along both edges. It takes that padding into itself
-                    // (`-my-1 py-1` cancels, so nothing moves) and then reaches
-                    // the floor. Selecting an element here is how the model view
-                    // is driven at all — on a phone it is the only way in.
                     className="w-full rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:-my-1 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:items-center pointer-coarse:py-1"
                   >
                     {element.name ?? t('elements.unnamed')}
@@ -596,7 +523,6 @@ export function IfcPropertyPanel({ element, isLoading, error }: IfcPropertyPanel
 
   const identity: Array<[string, ReactNode]> = [
     [t('properties.ifcType'), element.ifcType],
-    // Wrapped and tap-to-copy: see `CopyableValue`.
     [t('properties.globalId'), <CopyableValue key="gid" value={element.globalId} className="font-mono" />],
     [t('properties.predefinedType'), element.predefinedType ?? '—'],
     [t('properties.typeName'), element.typeName ?? '—'],

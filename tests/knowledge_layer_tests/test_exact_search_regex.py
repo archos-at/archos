@@ -1,10 +1,3 @@
-"""``knowledge_search(match="regex")``, context lines, the folder pushdown and the capped counts.
-
-The store is a fake that runs the SAME ``qdrant.retrieval.find_text`` over in-memory points, so the
-person's regex, its timeout and its narrowing words are the production code; only the Qdrant client
-is missing. What a live server adds (the tokenizer, the facet) is covered by the store tests.
-"""
-
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -70,8 +63,6 @@ def _chunk(file_name: str, content: str, *, page: int = 1, chunk_id: str = "1", 
 
 
 class _Store:
-    """The retriever the tool talks to: ``find_text`` runs the real scan over in-memory points."""
-
     def __init__(self, points: list[Chunk], *, indexed: bool = True, candidates: dict[str, int] | None = None):
         self.points = points
         self.calls: list[dict] = []
@@ -328,11 +319,6 @@ class TestCostlyPatterns:
             retrieval.find_text("proj_1", r"(a|aa)+$", None, 5, user_regex=True, office_id="org_test")
 
     def test_a_pattern_cheap_per_chunk_but_costly_over_many_is_stopped_at_the_scan_deadline(self, monkeypatch):
-        """The review's pattern: it names a common word, so the gate passes, and it never matches.
-
-        Each chunk costs it well under the per-chunk limit; sixty of them cost seconds. The scan
-        stops at its own deadline instead of reading on, and says it was the scan.
-        """
         import time
 
         monkeypatch.setattr(retrieval, "USER_REGEX_SCAN_SECONDS", 0.3)
@@ -382,7 +368,6 @@ class TestCostlyPatterns:
         )
         monkeypatch.setattr(retrieval, "get_store", lambda *a, **k: fake)
         retrieval.find_text("proj_1", r"\bFluchtweg \d+", None, 5, user_regex=True, office_id="org_test")
-        # The words' narrowing, then the office the read is made as (``scope.office_condition``).
         assert len(seen) == 2
         assert seen[0].should[0].match.text == "fluchtweg"
         assert seen[1].should[1].match.value == "org_test"
@@ -421,8 +406,6 @@ class TestCappedCounts:
 
 
 class TestLiteralSearchIsRecorded:
-    """A literal search leaves the record the ``file-tools-used`` score counts as navigation (ADR-0127)."""
-
     @pytest.mark.parametrize("mode", ["exact", "regex"])
     async def test_each_literal_search_leaves_one_record(self, search_with, monkeypatch, mode):
         recorded: list[str] = []
@@ -435,8 +418,6 @@ class TestLiteralSearchIsRecorded:
 
 
 class TestDescriptionFollowsMatchModes:
-    """The eval arms' ``match_modes`` knob: the description offers exactly the modes the search accepts."""
-
     async def _description(self, modes):
         config = KnowledgeRetrievalConfig(
             collection_name="oib_knowledge", include_base_collection=True, match_modes=modes
@@ -456,7 +437,6 @@ class TestDescriptionFollowsMatchModes:
 
 
 def _regex_examples(description: str) -> list[str]:
-    """Every backticked regex in the parenthesis after „for a pattern“ in the regex paragraph."""
     import re
 
     paragraph = description[description.index('`match="regex"`') : description.index("Returns: numbered")]
@@ -466,7 +446,7 @@ def _regex_examples(description: str) -> list[str]:
 
 class TestRegexExamplesPassTheirOwnAnchorRule:
     async def test_every_example_in_the_description_is_accepted_without_a_folder(self, search_with):
-        from knowledge_layer.browse.tool import _has_literal_word
+        from knowledge_layer.browse import _has_literal_word
         from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 
         examples = _regex_examples(_KNOWLEDGE_SEARCH_DESCRIPTION)
@@ -564,11 +544,11 @@ class TestPageEndReachesTheHit:
         [({"page_end": "5"}, 4, 5), ({"page_end": "4"}, 4, None), ({}, 4, None), ({"page_end": "x"}, 4, None)],
     )
     def test_only_a_later_numeric_end_is_stated(self, metadata, page, expected):
-        from knowledge_layer.search.grounding_hits import _page_end
+        from knowledge_layer.search import _page_end
 
         assert _page_end(SimpleNamespace(metadata=metadata), page) == expected
 
     def test_a_chunk_without_a_page_states_no_end(self):
-        from knowledge_layer.search.grounding_hits import _page_end
+        from knowledge_layer.search import _page_end
 
         assert _page_end(SimpleNamespace(metadata={"page_end": "5"}), None) is None

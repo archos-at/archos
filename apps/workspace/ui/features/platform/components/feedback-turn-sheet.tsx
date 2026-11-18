@@ -1,15 +1,5 @@
 'use client'
 
-/**
- * One rated answer, opened from the answer-feedback drill-in.
- *
- * The list row is an excerpt; this is the whole case: what was asked, what
- * Piloti answered, what the voter wrote about it and what they say should have
- * been there, and a way into the trace. A Sheet rather than a Dialog because it
- * is the detail of a row the reader just picked, and the list stays put behind
- * it (`design-language.md` §Overlays).
- */
-
 import type { JSX, ReactNode } from 'react'
 import { ExternalLink, ThumbsDown, ThumbsUp } from 'lucide-react'
 
@@ -32,10 +22,6 @@ import { cn } from '@/lib/utils'
 import { Quote } from '@/components/ui/quote'
 import { orgLabel, type FeedbackHealthTurn } from './answer-feedback-types'
 
-/**
- * The verdict, as icon + label + tint (colour never alone). A helpful vote
- * carries no reason, so it says what it is instead of borrowing a failure label.
- */
 export function FeedbackVerdictBadge({
   turn,
 }: {
@@ -54,7 +40,6 @@ export function FeedbackVerdictBadge({
 }
 
 export interface FeedbackTurnSheetProps {
-  /** The turn to show. Kept by the caller while the sheet animates out. */
   turn: FeedbackHealthTurn | null
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -179,7 +164,6 @@ function DetailBlock({
   children,
 }: {
   label: string
-  /** The voter's own words: set as a `Quote` so they read as a quote, not as Piloti's text. */
   quoted?: boolean
   testId?: string
   children: ReactNode

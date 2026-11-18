@@ -117,8 +117,6 @@ describe('sweepUploadBatches', () => {
     warn.mockRestore()
   })
 
-  // The content gate's decisions reach the trail at least once (ADR-0086): a
-  // send that failed when the row moved is the sweep's, batch or no batch.
   it('sends the quarantine decisions still owed to the audit trail, and counts them', async () => {
     vi.mocked(listOpenBatchesBetween).mockResolvedValue([])
     vi.mocked(sweepOwedQuarantines).mockResolvedValue(2)
@@ -141,7 +139,6 @@ describe('sweepUploadBatches', () => {
     warn.mockRestore()
   })
 
-  // Retention (0118): after the send, and even when the send could not run.
   it('deletes the spent quarantine decisions after sending, and counts them', async () => {
     vi.mocked(listOpenBatchesBetween).mockResolvedValue([])
     vi.mocked(sweepOwedQuarantines).mockRejectedValue(new Error('db hiccup'))

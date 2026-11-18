@@ -1,12 +1,3 @@
-/**
- * Open an upload batch (ADR-0086): the browser does this before it sends the
- * first file of an upload, so the server can tell the uploader when it has all
- * been read, and keep the project's upload history.
- *
- * `excluded` carries what the office's screening kept on the uploader's
- * machine as terms and counts only — never file names.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { openUploadBatchSchema } from '@/lib/upload-batches/batch-wire'
 import { openUploadBatch } from '@/lib/upload-batches/service'

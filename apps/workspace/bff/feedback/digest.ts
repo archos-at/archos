@@ -1,42 +1,3 @@
-/**
- * The answer-feedback digest — the aggregate, in sentences.
- *
- * **Why.** The surface next door is numbers: a rate, four bars, a line, a table,
- * a list of failed turns. All of it correct, and all of it asking the reader to
- * assemble the story themselves — which mostly means reading the biggest bar and
- * leaving. This turns one window of feedback into what somebody would have said
- * about it: what is going well, what is not, and what to do next.
- *
- * **Why a model rather than a template.** The arithmetic is already on the page
- * and a template could restate it. What a template cannot do is read forty
- * questions and notice that the failures cluster around escape-route lengths
- * while the praise clusters around fire-compartment sizing. Naming themes is the
- * whole value; the percentages are not.
- *
- * **What leaves this process.** Counts, questions, and the free-text comment of
- * a sampled down-vote, which is what the vote's cause is read from (ADR-0064,
- * use 9) and is quoted to the model as data. The organization rollup is
- * stripped to bare `{up, down}` pairs before it goes anywhere — the digest needs
- * the SHAPE of the distribution ("one tenant accounts for most of it"), never the
- * identity, and the table under the digest names them on screen anyway. Answers
- * are not sent at all: they are the long half and the model does not need its own
- * output back to name a theme.
- *
- * **Cached, because it is expensive and slow-moving.** A 30-day window does not
- * change meaningfully between two page loads, and every load would otherwise be
- * an LLM call on a page an operator refreshes while working. It goes through the
- * shared cache (`@/lib/cache`, Dragonfly when `REDIS_URL` is set), so replicas
- * share one digest per window+filters+locale rather than each buying their own.
- * `refresh: true` bypasses the read — the button exists because a cached
- * narrative with no way to re-ask is the kind of thing people stop believing.
- *
- * Stored, not just cached, was the alternative. It is not worth a table yet:
- * nothing reads a digest older than the current one, and a history nobody opens
- * is a migration plus a retention question in exchange for nothing. The cached
- * value carries `generatedAt` so the UI can say how old the sentences are, which
- * is the part that actually matters.
- */
-
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { getCached, invalidateCached } from '@/lib/cache'
@@ -46,57 +7,28 @@ import { listFeedbackTurns } from './repository'
 import { writeRatingsFilters, type FeedbackQuery } from './filters'
 import { fillTrendWindow, feedbackTrendDelta, MIN_TREND_VOTES } from './trend'
 
-/**
- * How long a digest stays fresh.
- *
- * Six hours is roughly "twice a working day": long enough that a page an
- * operator keeps open all morning costs one call, short enough that a bad
- * afternoon is in the text before the day ends.
- */
 export const FEEDBACK_DIGEST_TTL_MS = 6 * 60 * 60 * 1000
 
-/** How long a FAILED attempt is remembered. See the call site for why it is short. */
 export const FEEDBACK_DIGEST_FAILURE_TTL_MS = 60 * 1000
 
-/** Fewer votes than this and there is nothing to summarise but noise. */
 export const FEEDBACK_DIGEST_MIN_VOTES = 10
 
-/** Questions sampled per direction. Bounded: this becomes a prompt. */
 const SAMPLES_PER_DIRECTION = 25
 
-/** Per-question characters handed over. Enough to name a theme, not a transcript. */
 const MAX_QUESTION_CHARS = 240
 
 const DIGEST_TIMEOUT_MS = 50_000
 
-/**
- * Bump when the prompt, the brief or the turns it samples change, so old
- * entries do not linger. v2: the prompt and brief were reworked for the
- * filtered ratings tab. v3: the sampled turns leave out votes on a
- * conversation that drew on a restricted folder (`OUTSIDE_RESTRICTED_USE`), and
- * a v2 digest may restate one for up to six hours. v4: they leave out votes on
- * a MESSAGE the server marked (migration 0124), which reaches votes the
- * conversation match missed.
- */
 const CACHE_VERSION = 'v4'
 
 export interface FeedbackDigest {
   headline: string
-  /** What the data says is working. Never merged into one list with `concerns`. */
   strengths: string[]
   concerns: string[]
   recommendation: string | null
-  /** When these sentences were written, so the UI can say how old they are. */
   generatedAt: string
-  /** The window they describe — a cached digest must not mislabel itself. */
   windowDays: number
-  /** Votes it was computed over, so a thin digest can be shown as thin. */
   votes: number
-  /**
-   * The sampled unhelpful votes by cause, most frequent first, as the decision
-   * model read them from each vote's comment and reason (ADR-0064, use 9).
-   * Empty when no decision ran. Optional: a digest cached before it existed has none.
-   */
   causes?: FeedbackCause[]
 }
 
@@ -107,36 +39,14 @@ export interface FeedbackCause {
 
 export interface FeedbackDigestResult {
   digest: FeedbackDigest | null
-  /**
-   * Why there is no digest, when there is none. `no_feedback` and
-   * `too_few_votes` are ordinary states, not failures — the UI says so.
-   */
   error: string | null
 }
 
 export interface FeedbackDigestOptions {
   locale?: string
-  /** Skip the cached value and write a fresh one. */
   refresh?: boolean
 }
 
-/**
- * The cache key. Every input that changes the sentences is in it — the range,
- * the organizations, the projects and every ratings filter, and the locale — and
- * nothing that does not.
- *
- * The filters apply to the figures since the page-wide filters (a reason or a
- * search changes the headline the digest summarises), so they are in the key.
- * They ride as a short hash of their canonical query string rather than verbatim:
- * a free-text search has no business in a cache key's length budget.
- *
- * Written as one template rather than a `parts.join(':')` so the organization
- * segment is visible where the key is — to a reader, and to
- * `grid/require-tenant-cache-key`, which can only read what the key expression
- * says. The `*` is the platform-wide digest, which is what this surface asks for
- * when it is not narrowed to organizations; it is a real partition, not an
- * absent one.
- */
 function digestKey(query: FeedbackQuery, locale: string): string {
   const { scope } = query
   const organizationIds = scope.organizationIds.length ? [...scope.organizationIds].sort().join(',') : '*'
@@ -146,10 +56,6 @@ function digestKey(query: FeedbackQuery, locale: string): string {
   return `feedback:digest:${CACHE_VERSION}:${scope.from}:${scope.to}:${organizationIds}:${filters}:${locale.slice(0, 5)}`
 }
 
-/**
- * Flatten and truncate one question for the prompt. `null` for anything that is
- * left empty — a blank sample is a line the model would try to interpret.
- */
 function trimQuestion(value: string | null): string | null {
   if (!value) return null
   const flat = value.replace(/\s+/g, ' ').trim()
@@ -166,17 +72,6 @@ interface BackendDigestResponse {
   error?: string | null
 }
 
-/**
- * Produce (or serve from cache) the digest for one window.
- *
- * `health` is the aggregate the caller already computed — passing it in rather
- * than recomputing it keeps the digest to exactly one extra query (the helpful
- * samples), and guarantees the sentences describe the same numbers on screen.
- *
- * Fails open in every direction: an unreachable backend, a model without a key,
- * a malformed reply and a cache outage all return `{ digest: null, error }`. The
- * page works without this and must keep working when it is broken.
- */
 export async function getFeedbackDigest(
   health: FeedbackHealth,
   query: FeedbackQuery,
@@ -188,16 +83,11 @@ export async function getFeedbackDigest(
 
   if (votes === 0) return { digest: null, error: 'no_feedback' }
   if (votes < FEEDBACK_DIGEST_MIN_VOTES) {
-    // A paragraph about six votes reads exactly as confidently as a paragraph
-    // about six hundred, and that confidence is the whole problem. Refused here
-    // rather than hedged in the prompt, because a hedge is still a paragraph.
     return { digest: null, error: 'too_few_votes' }
   }
 
   if (options.refresh) await invalidateCached(key)
 
-  // Held on an object so the value survives the closure without TypeScript
-  // narrowing it back to its initializer at the read below.
   const outcome: { error: string | null } = { error: null }
   const digest = await getCached<FeedbackDigest | null>(
     key,
@@ -207,9 +97,6 @@ export async function getFeedbackDigest(
       outcome.error = result.error
       return result.digest
     },
-    // A failure is cached for a minute, not six hours. Without this, one
-    // timeout would leave the card empty for the rest of the working day and
-    // the refresh button would be the only way out of it.
     { negativeTtlMs: FEEDBACK_DIGEST_FAILURE_TTL_MS },
   )
 
@@ -217,21 +104,11 @@ export async function getFeedbackDigest(
   return { digest: null, error: outcome.error ?? 'digest_unavailable' }
 }
 
-/**
- * The uncached path: sample both directions, strip every identifier, ask the
- * model. Only reached on a cache miss, and every failure is returned rather than
- * thrown — `getFeedbackDigest` caches the outcome either way.
- */
 async function generateDigest(
   health: FeedbackHealth,
   query: FeedbackQuery,
   locale: string,
 ): Promise<FeedbackDigestResult> {
-  // Both directions, sampled separately so the newest twenty-five of one cannot
-  // crowd out the other. Under the same filters as the figures: a digest of
-  // "these two organizations, Brandschutz" samples those votes. A filter that
-  // names one direction leaves the other sample empty (`listFeedbackTurns`
-  // only narrows).
   const [helpful, unhelpful] = await Promise.all([
     listFeedbackTurns(query, { verdict: 'up', limit: SAMPLES_PER_DIRECTION }),
     listFeedbackTurns(query, { verdict: 'down', limit: SAMPLES_PER_DIRECTION }),
@@ -240,7 +117,6 @@ async function generateDigest(
   const samples = [...helpful, ...unhelpful].flatMap((turn) => {
     const question = trimQuestion(turn.question)
     if (!question) return []
-    // The comment rides only on a down-vote: it is what the cause is read from.
     const comment = turn.verdict === 'down' ? trimQuestion(turn.comment) : null
     return [{ verdict: turn.verdict, reason: turn.reason, topics: turn.topics, question, comment }]
   })
@@ -257,12 +133,8 @@ async function generateDigest(
     down: health.totals.down,
     voters: health.totals.voters,
     down_voters: health.totals.downVoters,
-    // One row per reason, NULL already folded into `other` in SQL, so keying by
-    // reason no longer overwrites one count with another.
     reasons: Object.fromEntries(health.reasons.map((entry) => [entry.reason, entry.count])),
     topics: health.topics.map((t) => ({ topic: t.topic, up: t.up, down: t.down })),
-    // Identity stripped here, at the boundary, so no later edit to the rollup
-    // can widen what leaves the process.
     organizations: health.organizations.map((o) => ({ up: o.up, down: o.down })),
     trend_delta_points: delta,
     samples,
@@ -318,7 +190,6 @@ async function generateDigest(
   }
 }
 
-/** Cause counts off the wire: string keys, positive integer counts, in the order sent. */
 function cleanCauses(values: Record<string, unknown> | undefined): FeedbackCause[] {
   if (!values || typeof values !== 'object') return []
   return Object.entries(values)
@@ -327,7 +198,6 @@ function cleanCauses(values: Record<string, unknown> | undefined): FeedbackCause
     .slice(0, 10)
 }
 
-/** Never trust a list from over the wire — the UI renders these as its own rows. */
 function cleanList(values: unknown): string[] {
   if (!Array.isArray(values)) return []
   return values

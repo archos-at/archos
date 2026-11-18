@@ -1,11 +1,5 @@
 'use client'
 
-/**
- * The outline's atoms: a row that says its value once, the indented branch
- * under it, what unfolds in place under a row, and a quoted source. No side
- * panel: everything a row holds opens under it (country-onboarding-ux.md, B).
- */
-
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { Check } from 'lucide-react'
@@ -13,7 +7,6 @@ import { cn } from '@/lib/utils'
 import { useLocale, useTranslations } from '@/i18n'
 import { lawMapCopy } from '@/i18n/namespaces/law-map'
 
-/** One row of the outline: its name on the left, its value said once on the right. */
 export function OutlineRow({
   name,
   meta,
@@ -71,17 +64,14 @@ export function OutlineRow({
   )
 }
 
-/** What hangs under a row, indented on the tree's line. */
 export function Branch({ children }: { children: ReactNode }): JSX.Element {
   return <div className="ml-5 border-l pl-4 max-sm:ml-2 max-sm:pl-3">{children}</div>
 }
 
-/** What a row holds, opened under it. */
 export function Unfold({ children }: { children: ReactNode }): JSX.Element {
   return <div className="bg-muted my-2 flex flex-col gap-3 rounded-lg px-5 py-4 text-sm">{children}</div>
 }
 
-/** A passage from the source, with where it is. */
 export function SourceQuote({ url, quote, note }: { url: string; quote: string | null; note: string | null }): JSX.Element {
   let host = url
   try {
@@ -100,7 +90,6 @@ export function SourceQuote({ url, quote, note }: { url: string; quote: string |
   )
 }
 
-/** The quiet last row of a list that opens a form in its place: "+ Add …". */
 export function AddLine({ label, onClick, testId }: { label: string; onClick: () => void; testId?: string }): JSX.Element {
   return (
     <button type="button" onClick={onClick} className="text-muted-foreground hover:text-foreground w-full border-b py-2.5 text-left text-sm" data-testid={testId}>
@@ -109,7 +98,6 @@ export function AddLine({ label, onClick, testId }: { label: string; onClick: ()
   )
 }
 
-/** A line of quiet links, one per place to go next. */
 export function QuietLinks({ links }: { links: { href: string; label: string }[] }): JSX.Element | null {
   if (links.length === 0) return null
   return (
@@ -123,7 +111,6 @@ export function QuietLinks({ links }: { links: { href: string; label: string }[]
   )
 }
 
-/** An ISO day as the reader's locale writes it; a dash for none. */
 export function useDate(): (iso: string | null) => string {
   const { locale } = useLocale()
   return (iso) => (iso ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`)) : '–')

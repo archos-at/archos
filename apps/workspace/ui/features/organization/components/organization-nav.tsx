@@ -1,24 +1,5 @@
 'use client'
 
-/**
- * Section nav for the organization tier.
- *
- * The organization tier used to be one scrolling column: settings, members,
- * models, BYOK, budgets and the audit trail stacked as cards, each gated by a
- * different permission, none of them linkable and all of them loading at once.
- * Each is its own route now; this is how you move between them.
- *
- * Which sections exist for you is decided by the layout, on the server, and
- * handed down as keys. Unlike the platform tier this one is read by plain
- * members as well as admins, so the set genuinely differs per person — and a
- * link that lands on a 403 is worse than no link. Re-deriving the permissions
- * in the browser would put a second, drifting copy of the access rules in the
- * client bundle; the nav is deliberately told, not left to work it out.
- *
- * The rail and strip themselves are `components/shell/section-nav.tsx`, shared
- * with the project settings so both tiers move between sections the same way.
- */
-
 import type { JSX } from 'react'
 import {
   Building2,
@@ -37,12 +18,6 @@ import { useTranslations } from '@/i18n'
 import { organizationCopy } from '@/i18n/namespaces/organization'
 import { SectionNav } from '@/components/shell/section-nav'
 
-/**
- * Section order = reading order: the organization itself, then the people in
- * it, then what they may run, what it costs, and finally the upkeep an admin
- * alone touches. The order lives here and only here — callers pass an unordered
- * set of keys and get this sequence back.
- */
 export const ORGANIZATION_SECTIONS = [
   { key: 'overview', href: '/app/organization', icon: Building2 },
   { key: 'access', href: '/app/organization/access', icon: Users },
@@ -59,7 +34,6 @@ export const ORGANIZATION_SECTIONS = [
 export type OrganizationSectionKey = (typeof ORGANIZATION_SECTIONS)[number]['key']
 
 export interface OrganizationNavProps {
-  /** The sections this session may open, in any order — the nav re-orders them. */
   sections: readonly OrganizationSectionKey[]
 }
 

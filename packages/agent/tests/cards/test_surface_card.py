@@ -1,12 +1,3 @@
-"""A composed surface (ADR-0065): valid A2UI, and every card inside it a valid card.
-
-The structure is checked by `a2ui-core` (the protocol's own validators), each
-card inside by the model it would be checked by on its own. What these pin is
-that neither check can be walked around: a surface is not a way to smuggle a
-card shape the validator refuses, a tool's card, or a component the renderer
-does not have.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -60,8 +51,6 @@ class TestAValidSurface:
         assert [component["id"] for component in card.components] == ["root", "a", "b"]
 
     def test_a_card_inside_is_normalised_by_its_own_model(self):
-        # The leaf comes back as its card model dumps it: defaults applied,
-        # nulls dropped, and still addressed by the model's own id.
         leaf = answer_card_adapter.validate_python(_tabs()).components[1]
         assert leaf["id"] == "a" and leaf["component"] == "ifc_model_picker"
         assert "type" not in leaf
@@ -152,8 +141,6 @@ def _text(component_id: str, text: str, **extra: Any) -> dict[str, Any]:
 
 
 class TestTextLeaves:
-    """`Text` is how a tab holds what the Markdown-first answer writes in prose."""
-
     TABLE = "| Kriterium | Status | Fundstelle |\n|---|---|---|\n| **Rauchabzug** | offen | [2] |"
 
     def _variants(self, a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
@@ -161,7 +148,6 @@ class TestTextLeaves:
 
     def test_a_tab_of_markdown_keeps_its_markup(self):
         card = answer_card_adapter.validate_python(self._variants(_text("a", self.TABLE), BASIS_B))
-        # Card fields are flattened to plain text; a Text leaf IS Markdown and is not.
         assert card.components[1]["text"] == self.TABLE
 
     def test_text_counts_as_a_leaf(self):
@@ -181,12 +167,9 @@ class TestTextLeaves:
 
 
 class TestTextCitations:
-    """A tab's `[N]` follows the prose's renumbering, or goes."""
-
     def test_renumbered_with_the_prose_and_uncited_dropped(self):
         from agent.cards.surface_citations import recite_text
 
-        # sanitize's map: every SURVIVING number, old → new. [2] and [4] were removed.
         text = "REI 90 [3], Rauchabzug [5]. Siehe [[card:1]] und [OIB](https://oib.or.at)."
         assert (
             recite_text(text, {1: 1, 3: 2, 5: 3}, {2})
@@ -196,7 +179,6 @@ class TestTextCitations:
     def test_a_removed_number_never_lands_on_the_survivor_renumbered_onto_it(self):
         from agent.cards.surface_citations import recite_text
 
-        # [2] was removed; [3] became [2]. A tab's [2] meant the removed source.
         assert recite_text("A [1], B [2], C [3].", {1: 1, 3: 2}, {1, 2}) == "A [1], B, C [2]."
 
     def test_only_surfaces_are_touched(self):
@@ -209,20 +191,14 @@ class TestTextCitations:
 
 
 class TestTextRecital:
-    """What the prose's citation steps do to a tab's markers, and nothing else."""
-
     def test_a_group_is_expanded_before_it_is_renumbered(self):
         from agent.cards.surface_citations import recite_text
 
-        # The prose's groups are expanded first; a tab's must be, or [2, 3]
-        # stays in the numbering from before verification.
         assert recite_text("REI 90 [2, 3]. Und [3].", {2: 1, 3: 2}, {1, 2}) == "REI 90 [1][2]. Und [2]."
 
     def test_a_merged_duplicate_is_rewritten_not_dropped(self):
         from agent.cards.surface_citations import recite_text
 
-        # [1] and [2] cite one page: the prose's [2] became [1], [2]'s line
-        # went, and sanitize kept {1: 1, 3: 2}. The tab's [2] is that source.
         assert recite_text("A [2], B [3].", {1: 1, 3: 2}, {1, 2}, merged={2: 1}) == "A [1], B [2]."
 
     def test_merged_duplicates_are_read_off_the_removals(self):
@@ -298,7 +274,6 @@ class TestTextRecital:
         recited = recite_surface(card, {1: 1, 5: 2}, {1, 2})
 
         texts = {c["id"]: c["text"] for c in recited["components"] if c.get("component") == "Text"}
-        # Never the stored [5]: after sanitize it is [2], or the tab names a different source.
         assert texts == {"a": BLANK_TEXT, "b": "REI 90 [2]"}
         answer_card_adapter.validate_python(recited)
 
@@ -312,21 +287,17 @@ class TestTextRecital:
 
 
 class TestSurfaceIntegrity:
-    """What `a2ui-core` lets through and the surface does not."""
-
     @pytest.mark.parametrize(
         ("prop", "value"),
         [("justify", "between"), ("align", "spaceBetween"), ("justify", ["start"]), ("align", {"start": 1})],
     )
     def test_a_layout_value_the_renderer_does_not_take_is_refused(self, prop, value):
-        # The frontend's RowApi takes an enum; anything else fails its preflight and the surface degrades.
         card = _tabs(
             components=[{"id": "root", "component": "Row", "children": ["a", "b"], prop: value}, BASIS_A, BASIS_B]
         )
         assert f"`{prop}` is one of" in _refusal(card)
 
     def test_a_non_string_layout_value_is_a_validation_error_not_a_type_error(self):
-        # An unhashable value used to reach `in frozenset` and raise a bare TypeError.
         root = {"id": "root", "component": "Row", "children": ["a", "b"], "justify": ["start"]}
         with pytest.raises(ValidationError, match="`justify` is one of"):
             SurfaceCard.model_validate(_tabs(components=[root, BASIS_A, BASIS_B]))
@@ -373,26 +344,21 @@ class TestSurfaceIntegrity:
                 _text("a", "x"),
             ]
         )
-        # One leaf, so the count fails too; it ran first and named the wrong fault.
         refusal = _refusal(card)
         assert "Circular reference" in refusal
         assert "cards or Text blocks" not in refusal
 
 
 class TestWhereASurfaceIsTaught:
-    """Only the chat envelope teaches COMPOSE and recites a tab's [N]; only it offers a surface."""
-
     def test_the_shape_hint_is_the_compose_rule(self):
         from agent.cards.catalog import shape_hint_for
 
         hint = shape_hint_for("surface") or ""
         assert hint.startswith("COMPOSE.")
         assert '"component": "Tabs"' in hint
-        # The generic entry told a model every text field is PLAIN TEXT, which a `Text` leaf is not.
         assert "PLAIN TEXT" not in hint
 
     def test_the_rendered_details_are_the_compose_rule(self):
-        # describe_card, a skill's preferred cards and the turn decision's picks all render here.
         from agent.cards.catalog import render_card_details
         from agent.cards.envelope import compose_rule
 
@@ -480,15 +446,13 @@ class TestWhereASurfaceIsTaught:
 
 
 class TestPipelineRecital:
-    """`answer_pipeline._recite_surface_cards` applies the recital to the turn's registry."""
-
     def test_a_surface_that_would_collapse_is_stored_recited_in_place(self):
         from types import SimpleNamespace
 
-        from agent.agents.piloti.answer_pipeline import _recite_surface_cards
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import reset_card_registry
         from agent.cards.registry import set_card_registry
+        from agent.core.answer_pipeline import _recite_surface_cards
 
         before = {"type": "ifc_model_picker", "title": "OIB-Richtlinie 2", "note": "x"}
         card = _tabs(components=[_tabs()["components"][0], _text("a", "[3]"), _text("b", "REI 90 [5]")])
@@ -501,7 +465,6 @@ class TestPipelineRecital:
         finally:
             reset_card_registry(token)
         stored = registry.snapshot()
-        # Positions stay: a later [[card:2]] still names this card.
         assert len(stored) == 2 and stored[0] == before
         assert "[5]" not in str(stored[1]) and "REI 90 [2]" in str(stored[1])
         answer_card_adapter.validate_python(stored[1])
@@ -509,10 +472,10 @@ class TestPipelineRecital:
     def test_a_merged_duplicate_in_a_tab_follows_the_prose(self):
         from types import SimpleNamespace
 
-        from agent.agents.piloti.answer_pipeline import _recite_surface_cards
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import reset_card_registry
         from agent.cards.registry import set_card_registry
+        from agent.core.answer_pipeline import _recite_surface_cards
 
         card = _tabs(components=[_tabs()["components"][0], copy.deepcopy(BASIS_A), _text("b", "Brandwand [2].")])
         registry = CardRegistry()
@@ -562,8 +525,6 @@ def _tab(**tab: Any) -> list[dict[str, Any]]:
 
 
 class TestSurfaceLimits:
-    """Each upper bound the validator states is one the validator enforces."""
-
     @pytest.mark.parametrize(
         ("components", "expected"),
         [
@@ -572,7 +533,6 @@ class TestSurfaceLimits:
             (_too_many_leaves(), f"A surface holds 2 to {SURFACE_MAX_LEAVES} cards or Text blocks"),
             (_text_too_long(), f"a tab holds at most {SURFACE_TEXT_MAX}"),
             (_tab(title="  "), "a tab's `title` is text"),
-            # Markup around nothing flattens to nothing: checked raw, each passed.
             (_tab(title="[]()"), "a tab's `title` is text"),
             (_tab(title="`  `"), "a tab's `title` is text"),
             (_tab(icon="star"), "every tab is exactly {title, child}"),
@@ -611,8 +571,6 @@ def test_a_tab_title_is_plain_text_like_every_other_card_string():
 
 
 def test_a_second_root_is_refused_as_a_duplicate_not_as_a_bad_root():
-    # Keyed by id, a later card called "root" replaced the real Tabs and the
-    # refusal said the root must be a layout, which it was.
     card = _tabs()
     card["components"].append({**copy.deepcopy(BASIS_A), "id": "root"})
     refusal = _refusal(card)

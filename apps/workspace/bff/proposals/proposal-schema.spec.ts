@@ -2,11 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The committed JSON Schema is what Piloti's file tool (`packages/agent/src/agent/tools/files/`)
- * is tested against, and this keeps it from going stale: it REWRITES the
- * fixture when `UPDATE_FIXTURES=1` and otherwise compares.
- */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -32,7 +27,6 @@ describe('proposed changes JSON Schema', () => {
   })
 
   it('closes the request: the project is the envelope’s, so the body cannot name one', () => {
-    // One closed object per kind: none of them can name a project.
     const request = (proposalsJsonSchema().$defs as Record<string, Node & { oneOf?: Node[] }>).InternalProposalRequest
     expect(request.oneOf).toHaveLength(3)
     for (const option of request.oneOf ?? []) {

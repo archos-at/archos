@@ -1,9 +1,3 @@
-/**
- * Two drawn sheets for the dev preview and the specs: a floor outline, once as
- * it was and once with a partition wall moved, a door turned and a window
- * added. Drawn in code, so no image file is committed.
- */
-
 import {
   NotComparableError,
   type CompareFile,
@@ -29,29 +23,24 @@ function line(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number,
 }
 
 function floorPlan(ctx: CanvasRenderingContext2D, revision: Revision): void {
-  // Outer walls.
   ctx.lineWidth = 6
   ctx.strokeRect(80, 70, 680, 400)
-  // Corridor spine and the partition that moves between the two revisions.
   line(ctx, 80, 270, 760, 270, 4)
   const partition = revision === 'older' ? 420 : 480
   line(ctx, partition, 70, partition, 270, 4)
   line(ctx, 250, 270, 250, 470, 4)
   line(ctx, 560, 270, 560, 470, 4)
-  // A door: leaf and swing. It swings the other way in the newer sheet.
   const doorX = 330
   line(ctx, doorX, 270, doorX, 270 + (revision === 'older' ? 44 : -44), 2)
   ctx.beginPath()
   ctx.lineWidth = 1
   ctx.arc(doorX, 270, 44, revision === 'older' ? 0 : -Math.PI / 2, revision === 'older' ? Math.PI / 2 : 0)
   ctx.stroke()
-  // Windows on the north wall; the newer sheet has one more.
   const windows = revision === 'older' ? [160, 300] : [160, 300, 620]
   for (const x of windows) {
     ctx.lineWidth = 2
     ctx.strokeRect(x, 64, 80, 12)
   }
-  // Dimension line.
   ctx.lineWidth = 1
   line(ctx, 80, 510, 760, 510, 1)
   line(ctx, 80, 500, 80, 520, 1)
@@ -64,7 +53,6 @@ function floorPlan(ctx: CanvasRenderingContext2D, revision: Revision): void {
 }
 
 function detailSheet(ctx: CanvasRenderingContext2D, revision: Revision): void {
-  // A stair in section: the newer sheet has one more riser.
   const steps = revision === 'older' ? 8 : 9
   ctx.lineWidth = 3
   ctx.beginPath()
@@ -87,7 +75,6 @@ function titleBlock(ctx: CanvasRenderingContext2D, revision: Revision, page: num
   ctx.fillText(`Index ${revision === 'older' ? 'B' : 'C'}  ·  Blatt ${page}`, 570, 560)
 }
 
-/** Paint one fixture sheet into `canvas` at `scale` CSS pixels per unit. */
 export function paintFixtureSheet(
   canvas: HTMLCanvasElement,
   revision: Revision,
@@ -122,11 +109,6 @@ export function fixtureSource(revision: Revision, pageCount: number): PageSource
   }
 }
 
-/**
- * A loader for the preview: the file name picks the story.
- * `*.xlsx` cannot be drawn, `*-kurz*` has one page, `fail*` rejects, anything
- * else is a two-sheet set (the newer one with a third page when named `*-mehr*`).
- */
 export const fixtureLoader: SourceLoader = async (file: CompareFile) => {
   const name = file.filename.toLowerCase()
   if (name.endsWith('.xlsx')) throw new NotComparableError()
@@ -136,7 +118,6 @@ export const fixtureLoader: SourceLoader = async (file: CompareFile) => {
   return fixtureSource(revision, pages)
 }
 
-/** Sample changes on the fixture's newer sheet, in page-relative coordinates. */
 export const FIXTURE_OVERLAYS: readonly CompareRegion[] = [
   { page: 1, x: 0.48, y: 0.1, w: 0.14, h: 0.36, label: 'Trennwand um 60 cm versetzt' },
   { page: 1, x: 0.34, y: 0.42, w: 0.12, h: 0.18, label: 'Türanschlag gedreht' },

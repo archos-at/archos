@@ -2,19 +2,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The chat wire v2 contract, read from this side (`docs/design/chat-wire-v2.md`).
- *
- * `contracts/wire/v2/` holds recorded turns, one event per line, and
- * `packages/agent/tests/common/test_wire_v2.py` reads the same files with the Pydantic
- * models they were generated from. Every event must parse here, parse to the
- * type it says it is, and every frame of the old wire must NOT parse: there is
- * no second reader.
- *
- * The fixtures are read at runtime, walking up from `process.cwd()`, for the
- * reason `test-utils/card-json-schema.ts` gives: `shared/` is outside the
- * frontend image's build context, and `next build` type-checks specs.
- */
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -125,11 +112,6 @@ describe('chat wire v2 fixtures', () => {
   })
 })
 
-/**
- * A tab outlives a deploy, so the bundle reading a frame is often older than the
- * server that wrote it. `newer-events.jsonl` is drift a newer server may send:
- * the server's own models refuse it (`test_wire_v2.py`), this side reads it.
- */
 describe('chat wire v2 frames from a newer server', () => {
   type Raw = Record<string, unknown>
   const newer = lines('newer-events.jsonl') as Raw[]

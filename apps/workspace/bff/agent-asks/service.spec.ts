@@ -1,15 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * An agent asks Piloti (ADR-0124). Pinned here: the switch; the thread (a new
- * private one, or one an earlier ask of the same person started, never another
- * conversation); the question written under the ask's id; the headless turn
- * with the `agent_consult` trigger, `if_idle` and the signed envelope; every way
- * an ask ends without a turn; the wait for the turn's outcome; the answer read by
- * the id the agent derives; only the asker reads or stops an ask; and how a
- * turn's outcome ends its ask.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -43,7 +34,7 @@ vi.mock('@/lib/citations/style', () => ({ citationStylesFor: vi.fn(async () => n
 vi.mock('@/lib/turns/headless-turn', () => ({
   runHeadlessTurn: vi.fn(),
   cancelHeadlessTurn: vi.fn(),
-  chatSocketUrl: vi.fn(() => 'ws://aiq-agent:8000/websocket'),
+  chatSocketUrl: vi.fn(() => 'ws://agent.example.test:8000/websocket'),
 }))
 vi.mock('@/lib/turns/turn-context', async () => {
   const actual = await vi.importActual<typeof import('@/lib/turns/turn-context')>('@/lib/turns/turn-context')
@@ -67,6 +58,7 @@ import { findProjectProfile } from '@/lib/projects/repository'
 import { verifyRequestContextEnvelope } from '@/lib/request-context'
 import { cancelHeadlessTurn, chatSocketUrl, runHeadlessTurn, type HeadlessTurnRequest } from '@/lib/turns/headless-turn'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
+import { runAsActingSession } from '@/lib/agent-api/acting-session'
 import {
   deleteAskQuestion,
   endAsk,
@@ -92,6 +84,7 @@ import {
 } from './service'
 import { CHAT_TURN_DEADLINE_SECONDS, DEFAULT_ASK_MAX_SECONDS } from './ask-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { legacyHeaderName } from '@/lib/http/legacy-header-names'
 
 const SECRET = 'internal-secret'
 const ORG = 'org_1'
@@ -108,7 +101,7 @@ const SESSION: AuthorizedSession = {
   organizationMembershipId: 'om_1',
   role: 'member',
   permissions: [],
-  featureFlags: ['piloti-ask'],
+  featureFlags: ['agent-requests'],
 }
 
 let row: AgentAskRow
@@ -133,8 +126,8 @@ const turnRequest = (): HeadlessTurnRequest => vi.mocked(runHeadlessTurn).mock.c
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.REQUIRE_AUTH = 'true'
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('REQUIRE_AUTH', 'true')
   row = askRow()
   vi.mocked(insertAsk).mockImplementation(async (values) => {
     row = askRow({ ...values })
@@ -165,17 +158,16 @@ beforeEach(() => {
     memoryReflectionEnabled: false,
   }))
   vi.mocked(runHeadlessTurn).mockResolvedValue({ kind: 'started' })
-  vi.mocked(chatSocketUrl).mockReturnValue('ws://aiq-agent:8000/websocket')
+  vi.mocked(chatSocketUrl).mockReturnValue('ws://agent.example.test:8000/websocket')
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
-  delete process.env.REQUIRE_AUTH
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
+  vi.stubEnv('REQUIRE_AUTH', undefined)
 })
 
 describe('askAnswerMessageId', () => {
   it('is the id the agent gives its answer (agent.turn.response.answer_message_id)', () => {
-    // Computed by the Python function for the same pair.
     expect(askAnswerMessageId(THREAD, '22222222-2222-4222-8222-222222222222')).toBe('e007c373-c4c5-504d-9558-2d975bb207d1')
   })
 })
@@ -216,7 +208,7 @@ describe('askAgent', () => {
     })
     expect(request.requires).toEqual(ASK_REQUIRES)
     expect(request.headers['x-chat-mode']).toBe('headless')
-    expect(request.headers['x-aiq-mode']).toBe('headless')
+    expect(request.headers[legacyHeaderName('x-chat-mode')]).toBe('headless')
     const context = verifyRequestContextEnvelope(
       request.headers['x-request-context'],
       request.headers['x-request-context-sig'],
@@ -225,12 +217,26 @@ describe('askAgent', () => {
     expect(context).toMatchObject({ userId: USER, organizationId: ORG, conversationId: row.conversationId })
   })
 
-  it('waits for the turn’s outcome and answers with Piloti’s message', async () => {
+  it('names the agent door the ask came through, so the turn’s answer_finished is filed under it', async () => {
+    await runAsActingSession(
+      SESSION,
+      () => askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?' }, { waitMs: 0 }),
+      'agent',
+      { door: 'a2a', sessionSource: 'script' },
+    )
+    expect(turnRequest().headers).toMatchObject({ 'x-turn-door': 'a2a', 'x-turn-session-source': 'script' })
+  })
+
+  it('names no door for an ask started outside one (the golden run)', async () => {
+    await askAgent(SESSION, { question: 'Welche Fluchtweglänge gilt?' }, { waitMs: 0 })
+    expect(Object.keys(turnRequest().headers)).not.toContain('x-turn-door')
+  })
+
+  it('waits for the turn’s outcome and answers with the agent’s message', async () => {
     vi.mocked(findAsk).mockImplementation(async () => {
       if (row.state === 'working') row = { ...row, state: 'completed', endedAt: new Date() }
       return row
     })
-    // The ask's id is minted inside, so the answer's id is derived from the row as it is read.
     vi.mocked(findMessageInConversation).mockImplementation(async (conversationId, id) =>
       id === askAnswerMessageId(conversationId, row.id) ? ({ id, content: 'Höchstens 40 m.' } as Message) : null,
     )
@@ -310,7 +316,6 @@ describe('askAgent', () => {
     expect(view.state).toBe('rejected')
     expect(view.reason).toMatch(/^budget: The organization LLM budget is exhausted/)
     expect(runHeadlessTurn).not.toHaveBeenCalled()
-    // The thread this ask opened holds nothing anyone will answer: it goes, the ask row with it.
     expect(deleteConversationInOrg).toHaveBeenCalledWith(row.conversationId, ORG)
   })
 
@@ -378,7 +383,6 @@ describe('askAgent', () => {
       let reads = 0
       vi.mocked(findAsk).mockImplementation(async () => {
         reads += 1
-        // Read 1 is the start's re-read, read 2 the one after `working`; read 3 is the first poll.
         if (reads >= 3 && row.state === 'working') row = { ...row, state: 'completed', endedAt: new Date() }
         return row
       })
@@ -525,7 +529,6 @@ describe('getAsk and cancelAsk', () => {
   })
 
   it('leaves an ask alone while its turn may still answer, up to the chat turn deadline', async () => {
-    // The old bound (30 minutes) ended an ask whose turn the socket lets run 45.
     row = askRow({ state: 'working', createdAt: new Date(Date.now() - (CHAT_TURN_DEADLINE_SECONDS - 60) * 1_000) })
     expect((await getAsk(SESSION, row.id)).state).toBe('working')
     expect(endAsk).not.toHaveBeenCalled()
@@ -540,7 +543,6 @@ describe('getAsk and cancelAsk', () => {
 
 describe('endLostAsks (the agent-ask-expiry sweep)', () => {
   it('ends, in its own organization, every ask still open past the age a read would end it at, with the same reason', async () => {
-    // dev, 2026-11-12: six asks read `working` for an hour after a pod restart lost their notices.
     const now = new Date('2026-11-12T14:20:00Z')
     const lost = [
       { id: '33333333-3333-4333-8333-333333333333', organizationId: ORG },

@@ -1,10 +1,3 @@
-/**
- * What the agent is told about a project's documents.
- *
- * The missing half is the point. An agent cannot notice the absence of a line,
- * so a Bebauungsplan that was never attached has to be named as missing or the
- * answer reads as though the plan had been consulted.
- */
 import { describe, expect, it } from 'vitest'
 import { buildDocumentRolesSection } from './prompt-section'
 import type { PromptRoleBinding } from './prompt-section'
@@ -59,8 +52,6 @@ describe('buildDocumentRolesSection', () => {
   })
 
   it('leaves an unrecommended, unbound role out entirely', () => {
-    // Every role is offerable, but telling the agent that a project with no
-    // demolition lacks a Schadstoffgutachten costs tokens on every turn.
     const section = buildDocumentRolesSection(
       [bound()],
       [{ role: 'development_plan', scopeInstanceId: null }]
@@ -86,8 +77,6 @@ describe('buildDocumentRolesSection', () => {
   })
 
   it('collapses a slot holding many documents to a count, not a list', () => {
-    // The scaling property: a project with 1000 bound plan sheets must not emit
-    // 1000 lines into every prompt template on every turn.
     const sheets = Array.from({ length: 47 }, (_, index) =>
       bound({ role: 'existing_plans', scopeInstanceId: 'bldg1', filename: `blatt-${index}.pdf` })
     )
@@ -139,7 +128,6 @@ describe('buildDocumentRolesSection', () => {
   })
 
   it('renders in registry order so the block is stable between turns', () => {
-    // An unstable block churns the prompt cache for no benefit.
     const section = buildDocumentRolesSection([
       bound({ role: 'site_plan', filename: 'lage.pdf' }),
       bound({ role: 'development_plan', filename: 'bplan.pdf' }),
@@ -167,9 +155,6 @@ describe('buildDocumentRolesSection — a recommendation is per scope instance',
       { bldg1: 'Haupthaus', bldg2: 'Hoftrakt' }
     )
 
-    // Keyed on the role alone, binding bldg1's plan counted the role as covered
-    // and silently dropped bldg2 — so the agent could not tell that the Hoftrakt
-    // has no plan, which is the one thing this section exists to say.
     expect(section).toContain('documents_missing:')
     expect(section).toContain('Hoftrakt')
     expect(section).not.toContain('- Bestandspläne (Haupthaus)\n')
@@ -189,7 +174,6 @@ describe('buildDocumentRolesSection — a recommendation is per scope instance',
 })
 
 describe('buildDocumentRolesSection — the cap covers the missing list too', () => {
-  /** Many buildings, nothing bound: the shape that grows fastest. */
   const manyRecommended = Array.from({ length: 90 }, (_, i) => ({
     role: 'existing_plans' as const,
     scopeInstanceId: `bw${i}`,
@@ -198,9 +182,6 @@ describe('buildDocumentRolesSection — the cap covers the missing list too', ()
   it('bounds documents_missing and says how many it withheld', () => {
     const section = buildDocumentRolesSection([], manyRecommended)
 
-    // Bounding only the filled slots left this list free to grow, and it is the
-    // one that grows fastest — every recommended role, per building, unsatisfied
-    // until a document arrives.
     const lines = section.split('\n').filter((line) => line.startsWith('- '))
     expect(lines.length).toBeLessThanOrEqual(61)
     expect(section).toContain('weitere fehlende Unterlagen nicht aufgeführt')

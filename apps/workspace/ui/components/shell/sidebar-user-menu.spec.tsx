@@ -1,7 +1,3 @@
-/**
- * The avatar menu offers „Switch organization" only to someone who works in
- * more than one office.
- */
 import { describe, expect, test, vi } from 'vitest'
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
@@ -26,7 +22,7 @@ async function openMenu(organizations: { id: string; name: string; current: bool
 describe('SidebarUserMenu', () => {
   test('offers the switch to someone in several organizations', async () => {
     await openMenu([
-      { id: 'org_1', name: 'GRID Test', current: true },
+      { id: 'org_1', name: 'Test Office', current: true },
       { id: 'org_2', name: 'feld72 Architekten', current: false },
     ])
 

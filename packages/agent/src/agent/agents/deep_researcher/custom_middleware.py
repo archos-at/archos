@@ -1,5 +1,3 @@
-"""Custom middleware for the deep research agent."""
-
 import asyncio
 import logging
 import re
@@ -34,40 +32,12 @@ logger = logging.getLogger(__name__)
 
 
 def is_retryable_tool_error(exc: Exception) -> bool:
-    """Return whether a tool exception represents a transient failure worth retrying.
-
-    ValueError is the deliberate "invalid input / invalid result" signal used by
-    our tools (e.g. run_research_batch rejecting oversized batches, researcher
-    workers returning malformed ResearchNotes). Re-executing the same call
-    cannot fix it — the MODEL has to change its input — so it must reach the
-    model immediately instead of burning retries.
-
-    Budget exhaustion (the per-run completion-token ceiling
-    ``RunBudgetExceededError`` and the USD-denominated
-    ``cost_tracking.BudgetExceededError``) is likewise never retryable, but for
-    the opposite reason: it is TERMINAL, not model-fixable. Retrying burns the
-    very tokens that are gone — and inside ``run_research_batch`` the tracker
-    stays exceeded, so every resubmission fails again and the orchestrator loops
-    to the wall-clock cutoff. Budget errors must propagate, never become a
-    resubmittable error ToolMessage.
-    """
     if isinstance(exc, (RunBudgetExceededError, BudgetExceededError)):
         return False
     return not isinstance(exc, ValueError)
 
 
 class SelectiveToolRetryMiddleware(ToolRetryMiddleware):
-    """ToolRetryMiddleware that never re-executes designated tools.
-
-    Some tools raise errors as deliberate signals for the MODEL (e.g.
-    run_research_batch raises RuntimeError on partial failure so the
-    orchestrator can resubmit only the failed queries). Blindly re-executing
-    such a tool re-runs all its already-successful expensive work below the
-    LLM. Tools listed in ``no_retry_tools`` are executed exactly once; their
-    failures are converted to error ToolMessages immediately so the model can
-    react.
-    """
-
     def __init__(self, *, no_retry_tools: Iterable[str] = (), **kwargs) -> None:
         super().__init__(**kwargs)
         self.no_retry_tools = set(no_retry_tools)
@@ -77,32 +47,11 @@ class SelectiveToolRetryMiddleware(ToolRetryMiddleware):
         return request.tool.name if request.tool else request.tool_call["name"]
 
     def _handle_failure(self, tool_name: str, tool_call_id: str | None, exc: Exception, attempts_made: int):
-        """Never convert budget exhaustion into a resubmittable error ToolMessage.
-
-        The base retry loop calls this only after exhausting retries, and the
-        ``no_retry_tools`` path below calls it directly — both would otherwise
-        turn a terminal budget error into "Please try again" for the model.
-        Re-raise so the run aborts to the salvage path instead of looping to
-        the wall clock. This is the safety net regardless of caller; the
-        ``except`` clauses below re-raise first for clarity.
-        """
         if isinstance(exc, (RunBudgetExceededError, BudgetExceededError)):
             raise exc
         return super()._handle_failure(tool_name, tool_call_id, exc, attempts_made)
 
     def wrap_tool_call(self, request, handler):
-        """Run tools so failures reach the model as error ToolMessages, not crashes.
-
-        ``no_retry_tools`` are executed exactly once. Other tools go through the
-        base retry loop. In langchain>=1.x the base loop *re-raises* a
-        non-retryable tool error (one ``retry_on`` rejects, e.g. our deliberate
-        ValueError signal) instead of returning it as an error ToolMessage, so
-        we convert it here — the MODEL has to change its input, and it can only
-        do that if the error reaches it. Control-flow signals (``GraphBubbleUp``:
-        interrupts, parent Commands) must always propagate. Budget-exhaustion
-        errors (token ceiling or USD budgets) are terminal and likewise always
-        propagate — never a retryable ToolMessage, regardless of tool.
-        """
         tool_name = self._request_tool_name(request)
         try:
             if tool_name in self.no_retry_tools:
@@ -116,7 +65,6 @@ class SelectiveToolRetryMiddleware(ToolRetryMiddleware):
             return self._handle_failure(tool_name, request.tool_call["id"], exc, 1)
 
     async def awrap_tool_call(self, request, handler):
-        """Async mirror of :meth:`wrap_tool_call`."""
         tool_name = self._request_tool_name(request)
         try:
             if tool_name in self.no_retry_tools:
@@ -131,30 +79,14 @@ class SelectiveToolRetryMiddleware(ToolRetryMiddleware):
 
 
 def _replace_tool_content(msg: ToolMessage, content: str) -> ToolMessage:
-    """A copy of ``msg`` carrying ``content``, keeping the identity fields."""
     return ToolMessage(content=content, tool_call_id=msg.tool_call_id, name=getattr(msg, "name", None), id=msg.id)
 
 
 class EmptyContentFixMiddleware(AgentMiddleware):
-    """
-    Middleware that fixes empty ToolMessage content.
-
-    Some LLM APIs (e.g., NVIDIA, OpenAI) reject messages with empty content.
-    This middleware ensures all ToolMessages have non-empty content by
-    replacing empty strings with a placeholder.
-    """
-
     def __init__(self, placeholder: str = "empty content received."):
-        """
-        Initialize the middleware.
-
-        Args:
-            placeholder: Text to use when ToolMessage content is empty.
-        """
         self.placeholder = placeholder
 
     async def awrap_model_call(self, request, handler):
-        """Fix empty ToolMessage content before sending to the model."""
         fixed_messages = [
             _replace_tool_content(msg, self.placeholder) if isinstance(msg, ToolMessage) and not msg.content else msg
             for msg in request.messages
@@ -162,7 +94,6 @@ class EmptyContentFixMiddleware(AgentMiddleware):
         return await handler(request.override(messages=fixed_messages))
 
 
-# Common hallucinated tool name mappings
 _TOOL_NAME_ALIASES: dict[str, str] = {
     "open_file": "read_file",
     "find": "grep",
@@ -171,39 +102,22 @@ _TOOL_NAME_ALIASES: dict[str, str] = {
 
 
 class ToolNameSanitizationMiddleware(AgentMiddleware):
-    """
-    Middleware that sanitizes corrupted tool names in LLM responses.
-
-    LLMs sometimes generate malformed tool calls with suffixes like
-    <|channel|>commentary or .exec, or hallucinate tool names like
-    open_file or find. This middleware intercepts the model response
-    and fixes tool names before the framework dispatches them.
-    """
-
     def __init__(self, valid_tool_names: list[str]):
         self.valid_tool_names = set(valid_tool_names)
 
     def _sanitize_tool_name(self, name: str) -> str:
-        """Sanitize a potentially corrupted tool name.
-
-        Returns the cleaned name if it maps to a valid tool,
-        otherwise returns the original name unchanged.
-        """
-        # 1. Strip <|channel|> and everything after
         if "<|channel|>" in name:
             candidate = name.split("<|channel|>", maxsplit=1)[0]
             if candidate in self.valid_tool_names:
                 logger.info("Sanitized tool name: '%s' -> '%s'", name, candidate)
                 return candidate
 
-        # 2. Strip dot suffix if base name is valid
         if "." in name:
             candidate = name.split(".", maxsplit=1)[0]
             if candidate in self.valid_tool_names:
                 logger.info("Sanitized tool name: '%s' -> '%s'", name, candidate)
                 return candidate
 
-        # 3. Map common hallucinated names
         if name in _TOOL_NAME_ALIASES:
             mapped = _TOOL_NAME_ALIASES[name]
             if mapped in self.valid_tool_names:
@@ -213,12 +127,6 @@ class ToolNameSanitizationMiddleware(AgentMiddleware):
         return name
 
     def _sanitize_message(self, msg: Any) -> Any:
-        """The message with its tool-call names sanitised, or the same object when clean.
-
-        ``model_copy`` preserves usage_metadata, additional_kwargs and
-        response_metadata — rebuilding the AIMessage from scratch dropped them
-        and broke usage accounting downstream.
-        """
         if not isinstance(msg, AIMessage) or not msg.tool_calls:
             return msg
         tool_calls = [{**tc, "name": self._sanitize_tool_name(tc["name"])} for tc in msg.tool_calls]
@@ -227,7 +135,6 @@ class ToolNameSanitizationMiddleware(AgentMiddleware):
         return msg.model_copy(update={"tool_calls": tool_calls})
 
     async def awrap_model_call(self, request, handler):
-        """Intercept model response and sanitize tool names."""
         response = await handler(request)
         result = [self._sanitize_message(msg) for msg in response.result]
         if all(new is old for new, old in zip(result, response.result, strict=True)):
@@ -236,35 +143,10 @@ class ToolNameSanitizationMiddleware(AgentMiddleware):
 
 
 class DeferredStructuredOutputMiddleware(AgentMiddleware):
-    """Apply a strict structured-output contract only on the agent's exit turn.
-
-    ``create_agent(response_format=ProviderStrategy(..., strict=True))`` binds
-    ``response_format: json_schema strict`` on EVERY model call of the tool
-    loop. OpenRouter/DeepSeek-class endpoints do not reliably combine tools
-    with a strict schema: the constrained decoder satisfies the schema
-    immediately — a schema-valid but empty (or hallucinated) structured answer
-    with no tool calls on turn 1 — so the agent never researches (backlog
-    T2-8; reproduced live against deepseek/deepseek-v4-flash, where the
-    "researched" notes were fabricated from model memory).
-
-    This middleware decouples the two concerns. The tool loop runs with no
-    ``response_format`` at all; only when the model stops calling tools is the
-    call re-issued once — draft message appended, strict schema applied — so
-    the model formats the answer it already researched instead of deciding
-    whether to research under a decoding constraint. The parsed object lands
-    in ``structured_response`` exactly as with
-    ``create_agent(response_format=...)``.
-
-    If the formatting call itself fails (e.g. a provider schema rejection),
-    the draft response is returned unchanged so downstream content-based
-    recovery (``extract_json`` in ``tools/research.py``) still applies.
-    """
-
     def __init__(self, schema: Any) -> None:
         self.strategy = ProviderStrategy(schema, strict=True)
 
     async def awrap_model_call(self, request, handler):
-        """Keep the tool loop format-free; re-issue the exit turn with the strict schema."""
         response = await handler(request)
         draft = response.result[-1] if response.result else None
         if not isinstance(draft, AIMessage) or draft.tool_calls:
@@ -285,13 +167,6 @@ class DeferredStructuredOutputMiddleware(AgentMiddleware):
 
 
 def _request_tool_name(tool: object) -> str | None:
-    """Return a LangChain model-request tool name across the shapes a request carries.
-
-    A request's ``tools`` list may hold ``BaseTool`` objects, chat-shaped
-    dicts (``{"function": {"name": …}}``) or already-flat Responses dicts
-    (``{"name": …}``); a tool with none of them (a provider-native entry such
-    as ``{"type": "tool_search"}``) has no name and is never hidden.
-    """
     name = getattr(tool, "name", None)
     if isinstance(name, str):
         return name
@@ -306,8 +181,6 @@ def _request_tool_name(tool: object) -> str | None:
 
 
 class ToolVisibilityMiddleware(AgentMiddleware):
-    """Hide selected tools from model requests without removing scaffolding middleware."""
-
     def __init__(self, hidden_tool_names: set[str]) -> None:
         self.hidden_tool_names = hidden_tool_names
 
@@ -317,38 +190,21 @@ class ToolVisibilityMiddleware(AgentMiddleware):
         return [tool for tool in tools if _request_tool_name(tool) not in self.hidden_tool_names]
 
     def wrap_model_call(self, request, handler):
-        """Filter hidden tools before a synchronous model call."""
         return handler(request.override(tools=self._filter_tools(request.tools)))
 
     async def awrap_model_call(self, request, handler):
-        """Filter hidden tools before an asynchronous model call."""
         return await handler(request.override(tools=self._filter_tools(request.tools)))
 
 
 class SubagentEventsMiddleware(AgentMiddleware):
-    """Each ``task`` call the orchestrator makes is one subagent invocation on the chat wire (AG-UI 1.0).
-
-    deepagents runs a declarative subagent (planner, writer, source router)
-    inside its ``task`` tool, so the invocation is bound around that tool:
-    SUBAGENT_STARTED with the subagent's name and the spawning call's id, every
-    step inside attributed to it, then SUBAGENT_FINISHED, or SUBAGENT_ERROR
-    when the call raised or came back as an error result. A ``task`` naming a
-    subagent the run does not have runs nothing, so it announces nothing.
-
-    The orchestrator's innermost middleware, so a retried call is one
-    invocation per attempt. Async only: the orchestrator is streamed.
-    """
-
     def __init__(self, subagent_names: Iterable[str], tool_name: str = "task") -> None:
         self.subagent_names = frozenset(subagent_names)
         self.tool_name = tool_name
 
     def wrap_tool_call(self, request, handler):
-        """Synchronous calls are passed through: the orchestrator never runs them on the chat wire."""
         return handler(request)
 
     async def awrap_tool_call(self, request, handler):
-        """Bind the subagent invocation around the ``task`` call that runs it."""
         call = request.tool_call
         name = (call.get("args") or {}).get("subagent_type") if call.get("name") == self.tool_name else None
         if name not in self.subagent_names:
@@ -361,29 +217,6 @@ class SubagentEventsMiddleware(AgentMiddleware):
 
 
 class SourceRegistryMiddleware(AgentMiddleware):
-    """Intercepts tool call results to build a registry of actual sources.
-
-    ``awrap_tool_call`` captures URLs/citation keys from tool results;
-    ``get_source_entries`` hands the writer's ``get_verified_sources`` tool
-    (``tools/source_registry.py``, which renders the list) the compact or full
-    set. The registry is also what ``verify_citations()`` strips fabricated,
-    stale, or intermediate-artifact citations against.
-
-    Source capture is gated only by the agent's loaded tool set
-    (``source_tool_names``). Internal scratchpad/runtime tools (think,
-    write_file, read_file, etc.) are added by deepagents itself and never
-    appear in that set, so they are implicitly excluded. Tools registered as
-    configured data sources additionally carry a ``source_id`` label, but a
-    tool does *not* have to be declared under ``data_sources`` to contribute
-    sources — agents can be passed citable tools directly.
-
-    A fresh instance is constructed for every deep research run
-    (``DeepResearcherAgent._prepare_run``, ADR-0018), so the instance
-    registry and the compact ResearchNotes key set are run-scoped by
-    construction. In conversation mode the session-scoped registry (bound by
-    the chat entrypoint) still spans turns via ``active_registry()``.
-    """
-
     def __init__(
         self,
         source_tool_names: set[str] | None = None,
@@ -393,51 +226,30 @@ class SourceRegistryMiddleware(AgentMiddleware):
         self.registry = SourceRegistry()
         self._source_tool_names = source_tool_names or set()
         self._compact_source_keys: set[str] = set()
-        # The reader's Ausgeschlossen, keyed like the registry keys a file. A
-        # passage from one of them is refused HERE, before it is a source, so
-        # it can neither be cited nor quoted and a citation to it is stripped
-        # like one to a source that never existed.
         self._excluded_keys = {self._locator_key(name) for name in excluded_file_names if name and name.strip()}
-        # The documents THIS run captured a passage from. Not the active
-        # registry: in conversation mode that is the session's, and a document
-        # read in an earlier turn would count as read by this run.
         self._read_keys: set[str] = set()
         self._lock = asyncio.Lock()
 
     def is_excluded(self, entry: SourceEntry) -> bool:
-        """Whether the reader excluded the document this entry came from."""
         if not self._excluded_keys:
             return False
         key = self._entry_key(entry)
         return key is not None and key in self._excluded_keys
 
     def read_file_names(self) -> set[str]:
-        """The file names (page-stripped, lowercased) this run captured a passage from."""
         return set(self._read_keys)
 
     def is_excluded_locator(self, locator: str) -> bool:
-        """Whether a citation key or file name names a document the reader excluded."""
         return bool(self._excluded_keys) and self._locator_key(locator) in self._excluded_keys
 
     def active_registry(self) -> SourceRegistry:
-        """Return the session-scoped registry if set, otherwise the instance registry."""
         return get_session_registry() or self.registry
 
     def has_sources(self) -> bool:
-        """Return True when the active source registry contains captured sources."""
         return bool(self.active_registry().all_sources())
 
     @staticmethod
     def _locator_key(locator: str) -> str:
-        """Return the comparable key used for source locators and registry entries.
-
-        Knowledge-layer locators carry page suffixes ("handbuch.pdf, p.12"),
-        but the registry dedups those entries per file and keeps whichever
-        page it saw first ("handbuch.pdf, p.3"). Comparing full strings would
-        drop a registered document from the compact whitelist whenever a
-        research note cites a different page, so non-URL locators are keyed by
-        their page-stripped, lowercased filename.
-        """
         locator = locator.strip()
         if locator.startswith(("http://", "https://")):
             return normalize_url(locator)
@@ -446,7 +258,6 @@ class SourceRegistryMiddleware(AgentMiddleware):
 
     @classmethod
     def _entry_key(cls, entry: SourceEntry) -> str | None:
-        """Return the comparable key for a registered source entry."""
         if entry.url:
             return cls._locator_key(entry.url)
         if entry.citation_key:
@@ -454,7 +265,6 @@ class SourceRegistryMiddleware(AgentMiddleware):
         return None
 
     def register_research_note_sources(self, notes: list[object]) -> None:
-        """Mark ResearchNotes source locators as the compact writer-facing citation set."""
         locators = (
             getattr(source, "locator", "") for note in notes for source in (getattr(note, "sources", None) or [])
         )
@@ -467,33 +277,16 @@ class SourceRegistryMiddleware(AgentMiddleware):
         )
 
     async def awrap_tool_call(self, request, handler):
-        """Capture sources from tool results after execution.
-
-        A result whose ``status`` is ``"error"`` is skipped: the call raised,
-        so its text is the failure and not a passage.
-
-        Tools that resolve to a configured data source via
-        :func:`get_source_id_for_tool` get a ``source_id`` label. Tools passed
-        directly to the agent without a data-source declaration are still
-        captured — their results are real, citable evidence even when
-        ``data_source_registry`` does not know about them — but their entries
-        carry no ``source_id``.
-        """
         result = await handler(request)
         if not isinstance(result, ToolMessage) or not result.content:
             return result
         if getattr(result, "status", None) == "error":
-            # A failed call returned an error message, not evidence. Mining it
-            # registered whatever URL the message happened to carry, and a
-            # pydantic validation error links to its own error index.
             return result
         tool_call = getattr(request, "tool_call", None)
         tool_name = tool_call.get("name", "") if isinstance(tool_call, dict) else ""
         if tool_name not in self._source_tool_names:
             return result
         source_id = get_source_id_for_tool(tool_name)
-        # Parsed off the text the tool returned, before anything is cut: the
-        # structured records are filed under the hash of exactly these bytes.
         sources = extract_sources_from_tool_result(tool_name, str(result.content), source_id=source_id)
         sources = [s for s in sources if not self.is_excluded(s)]
         result = self._without_excluded_passages(result, tool_name)
@@ -514,12 +307,6 @@ class SourceRegistryMiddleware(AgentMiddleware):
         return result
 
     def _without_excluded_passages(self, result: ToolMessage, tool_name: str) -> ToolMessage:
-        """The result with every passage from an excluded document cut out.
-
-        Refusing the source at the registry is not enough on its own: the
-        researcher model reads this ToolMessage, and a passage it has read it
-        can paraphrase without citing. So the passage never reaches it.
-        """
         if not self._excluded_keys or not isinstance(result.content, str):
             return result
         content, cut = _without_results(result.content, self.is_excluded_locator)
@@ -529,12 +316,6 @@ class SourceRegistryMiddleware(AgentMiddleware):
         return result.model_copy(update={"content": content})
 
     def get_source_entries(self, mode: str = "compact") -> list[SourceEntry]:
-        """Return the source entries represented by the writer-facing source list.
-
-        Compact mode is the subset of registered sources that researcher
-        workers actually carried forward in structured ResearchNotes (the
-        whole registry when no note named any). Full mode is the registry.
-        """
         sources = self.active_registry().all_sources()
         if mode == "full" or not self._compact_source_keys:
             return sources
@@ -542,17 +323,12 @@ class SourceRegistryMiddleware(AgentMiddleware):
         return compact_sources or sources
 
 
-#: A ``--- Result N ---`` hit of the grounding grammar (``common/grounding_block.py``).
 _RESULT_HEADER_RE = re.compile(r"^--- Result \d+ ---$", re.MULTILINE)
-#: Where a hit ends: the next hit, the lanes line, or the batch separator that
-#: opens the next query's section (``source_tool_batching``); never one inside a
-#: body's fence (``passage_fence.unfenced``), nor a bare ``---`` (a markdown rule).
 _RESULT_END_RE = re.compile(r"^(?:--- Result \d+ ---$|## Trace-Lanes$|---\n\n## Query:)", re.MULTILINE)
 _CITATION_LINE_RE = re.compile(r"^Citation: (.+)$", re.MULTILINE)
 
 
 def _without_results(content: str, refused: Callable[[str], bool]) -> tuple[str, int]:
-    """``content`` without the hits whose ``Citation:`` key ``refused`` names (each cut whole), and how many went."""
     kept: list[str] = []
     cursor = cut = 0
     for header in unfenced(_RESULT_HEADER_RE, content):
@@ -579,7 +355,6 @@ def _has_image(msg: ToolMessage) -> bool:
 
 
 def _text_of(content: Any) -> str:
-    """The readable text of a tool result: image blocks (base64) are never text."""
     if isinstance(content, str):
         return content
     if not isinstance(content, list):
@@ -593,19 +368,16 @@ def _text_of(content: Any) -> str:
 
 
 def _measured_chars(msg: ToolMessage) -> int:
-    """Characters of text the result costs the context; an image block counts for none."""
     return len(_text_of(msg.content))
 
 
 def _is_prunable(msg: Any, max_chars: int) -> bool:
-    """An oversized text result, or any result carrying an image (which text length cannot size)."""
     if not isinstance(msg, ToolMessage) or not msg.content:
         return False
     return _has_image(msg) or _measured_chars(msg) > max_chars
 
 
 def _viewed_call_args(messages: Sequence[Any]) -> dict[str, dict[str, Any]]:
-    """Tool-call arguments by call id, to name what an old image result showed."""
     calls: dict[str, dict[str, Any]] = {}
     for msg in messages:
         for call in getattr(msg, "tool_calls", None) or []:
@@ -619,7 +391,6 @@ def _first_arg(args: Mapping[str, Any], *names: str) -> Any:
 
 
 def _image_stub(msg: ToolMessage, args: Mapping[str, Any]) -> str:
-    """What replaces an old image result: where it looked, never the pixels or the base64."""
     document = _first_arg(args, "file_name", "document", "name")
     page = _first_arg(args, "page_number", "page")
     region = _first_arg(args, "region")
@@ -648,20 +419,6 @@ def _evictions(
     total_char_budget: int,
     already: Mapping[str, str],
 ) -> dict[str, str]:
-    """Which oversized tool results to truncate now, as ``message id → content``.
-
-    Two passes. The last-N window: every oversized ToolMessage that fell out of
-    the last ``keep_last_n`` is evicted. The total-char budget: if the oversized
-    results still inside the window together exceed ``total_char_budget``, the
-    oldest of them are evicted until under budget, so the writer's context
-    cannot grow unbounded across many research notes. Messages in ``already``
-    are never decided twice (monotonicity), and only messages with an id can
-    be remembered at all.
-
-    A result with an image block is measured by its text alone and always
-    occupies a window slot; once evicted it becomes a short text stub naming the
-    document, page and region, never a cut of the base64.
-    """
     calls = _viewed_call_args(messages)
     oversized = [msg for msg in messages if _is_prunable(msg, max_chars)]
     window_start = max(len(oversized) - keep_last_n, 0)
@@ -682,36 +439,12 @@ def _evictions(
 
 
 class ToolResultPruningMiddleware(AgentMiddleware):
-    """Truncates older tool results to keep context manageable — cache-stably.
-
-    Keeps the last N oversized tool results intact and truncates older ones to
-    reduce "lost in the middle" degradation. Operates on awrap_model_call so
-    the full results are still available for SourceRegistryMiddleware.
-
-    Truncation is MONOTONIC: once a message has been sent truncated, it is
-    sent in exactly that truncated form on every later call. A naive
-    sliding window recomputed per call changes message bytes mid-history on
-    almost every turn, which invalidates the provider's prompt-prefix cache
-    (OpenRouter/DeepSeek) from that point on — on ~80k-token deep-research
-    contexts that meant re-processing the full prompt every single turn.
-    Decisions are recorded per message id; entries are deterministic and
-    idempotent, so the plain dict is safe even when one middleware instance
-    is shared across concurrently-running subagents (concurrent writers can
-    only ever write the same value for the same id).
-
-    Only messages whose content exceeds max_chars occupy window slots:
-    trivial results (``think``'s "Thought recorded.", ``ls`` listings) need
-    no truncation, and letting them consume protected slots would churn the
-    window — and thus the cache — for zero context savings.
-    """
-
     _TRUNCATION_SUFFIX = _TRUNCATION_SUFFIX
 
     def __init__(self, keep_last_n: int = 3, max_chars: int = 500, total_char_budget: int = 0):
         self.keep_last_n = keep_last_n
         self.max_chars = max_chars
         self.total_char_budget = total_char_budget
-        # message id -> permanently truncated content for that message.
         self._truncated_by_id: dict[str, str] = {}
 
     def _pruned(self, msg: Any) -> Any:
@@ -719,7 +452,6 @@ class ToolResultPruningMiddleware(AgentMiddleware):
         return msg if truncated is None else _replace_tool_content(msg, truncated)
 
     async def awrap_model_call(self, request, handler):
-        """Truncate older oversized ToolMessage content before sending to the model."""
         self._truncated_by_id.update(
             _evictions(
                 request.messages,

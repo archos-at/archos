@@ -1,25 +1,9 @@
-/**
- * Folding a checkpoint layer, at the render level (ledger 19).
- *
- * `ReasoningFlow.spec.ts` covers the pure builder — which node exists, which
- * edge lands where. This covers the half the builder cannot see: that the fold
- * is a real `<button>` a keyboard reaches, that it reports its state, and that
- * pressing it actually takes the fan out of the graph and puts it back.
- *
- * React Flow is configured `nodesFocusable={false}` / `disableKeyboardA11y`
- * here, so a node is reachable ONLY through a real button inside it. That is
- * the property this file exists to keep — a fold implemented as an `onClick`
- * on the card div would pass every structural test in the sibling spec and be
- * unreachable without a mouse.
- */
-
 import { fireEvent, render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, test, expect } from 'vitest'
 import { ReasoningFlow } from './ReasoningFlow'
 import { storedSteps } from '@/test-utils/wire-v2-steps'
 
-/** `n` retrieval rounds, each concluding something and returning one file. */
 const spineSteps = (n: number) =>
   storedSteps(
     Array.from({ length: n }, (_, i) => [
@@ -51,10 +35,6 @@ const spineSteps = (n: number) =>
   )
 
 const toggles = () => screen.queryAllByTestId('reasoning-round-toggle')
-/**
- * A fan's documents on screen: a card each, or — uncited, as every one here is —
- * the one dashed card they fold into (one document per layer in these turns).
- */
 const cards = () =>
   document.querySelectorAll('[data-source-card], [data-testid="uncited-fold"]').length
 
@@ -65,7 +45,6 @@ describe('the fold control', () => {
     expect(controls).toHaveLength(2)
     for (const control of controls) {
       expect(control.tagName).toBe('BUTTON')
-      // A name of its own: the card's body is a conclusion, not a control name.
       expect(control.getAttribute('aria-label')?.trim()).toBeTruthy()
       expect(control.getAttribute('aria-expanded')).toBe('true')
     }
@@ -79,10 +58,6 @@ describe('the fold control', () => {
     await user.click(toggles()[0]!)
     expect(toggles()[0]!.getAttribute('aria-expanded')).toBe('false')
     expect(cards()).toBe(1)
-    // The scent stands in for the fan: the document name, not a bare count —
-    // and nothing about the query. (The suite's default locale is English;
-    // the German wording is asserted against the real dictionary in
-    // `ReasoningFlow.spec.ts`.)
     expect(screen.getByText('Quelle 0')).toBeTruthy()
     expect(screen.queryByText(/Suchbegriff/)).toBeNull()
 
@@ -96,9 +71,6 @@ describe('the fold control', () => {
     const control = toggles()[0]!
     ;(control as HTMLButtonElement).focus()
     expect(document.activeElement).toBe(control)
-    // A native button turns Enter into a click; asserting the click path here
-    // keeps the test about the element being a button rather than about the
-    // DOM implementation's key handling.
     fireEvent.click(control)
     expect(toggles()[0]!.getAttribute('aria-expanded')).toBe('false')
   })
@@ -106,7 +78,6 @@ describe('the fold control', () => {
   test('three rounds arrive expanded — evidence hidden by default reads as no evidence', () => {
     render(<ReasoningFlow steps={spineSteps(3)} userQuestion="Frage?" answerConfidence="high" />)
     expect(toggles().map((c) => c.getAttribute('aria-expanded'))).toEqual(['true', 'true', 'true'])
-    // Every layer's file is on screen.
     expect(cards()).toBe(3)
   })
 

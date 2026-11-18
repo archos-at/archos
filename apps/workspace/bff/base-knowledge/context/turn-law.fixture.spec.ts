@@ -27,11 +27,9 @@ import { knowledgeContextSchema } from './wire'
 const ROOT = join(process.cwd(), '..', '..')
 const FIXTURE = join(ROOT, 'tests', 'fixtures', 'base-knowledge', 'turn_law_austria.json')
 const SCHEMA = join(process.cwd(), 'tests', 'fixtures', 'knowledge-context.schema.json')
-/** The day the fixture resolves on: fixed, so a regeneration moves only with the packs. */
 const DATE = '2026-11-10'
 const LANDS = ['AT-1', 'AT-2', 'AT-3', 'AT-4', 'AT-5', 'AT-6', 'AT-7', 'AT-8', 'AT-9'] as const
 
-/** A pack's records, parsed in batches as records-propose takes them: a pack may hold more than one batch carries. */
 const pack = (name: string) => {
   const raw = (JSON.parse(readFileSync(join(ROOT, 'configs', 'knowledge-packs', name), 'utf8')) as { records: unknown[] }).records
   const batches: unknown[][] = []
@@ -40,11 +38,6 @@ const pack = (name: string) => {
 }
 const graph = graphFromProposals([...pack('eu.json'), ...pack('at.json')])
 
-/**
- * Where nobody curated a country (open coverage, design §4.6): its law is binding only as `uncurated`, and a
- * work bound by the office's seat is information. Synthetic, so the agent's side reads a qualifier, labels and a
- * connecting factor the Austrian packs never give.
- */
 const OPEN = 'open:DE-NW'
 const openGraph = graphFromProposals(
   proposeRecordsBodySchema.parse({
@@ -131,7 +124,6 @@ describe('the knowledge context’s contract with the Python tier', () => {
       expect(use.route?.designation, use.workId).toBeTruthy()
       expect(use.roleSince, use.workId).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     }
-    // Law in its territory has no declaring instrument, and nothing but a binding role is dated.
     for (const { knowledgeContext } of Object.values(contexts)) {
       for (const use of knowledgeContext.uses) {
         if (use.via !== 'relation') expect(use.route, use.workId).toBeNull()

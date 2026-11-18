@@ -14,10 +14,6 @@ afterEach(() => {
 })
 
 describe('classifyConsoleRecord', () => {
-  // ERROR is the level the collector forwards to err2issue, which files a
-  // GitHub issue per unique fingerprint. These cases pin which records are
-  // allowed to reach it — both directions, so neither over- nor under-reporting
-  // can regress silently.
   const DEBUG = { severityNumber: 5, severityText: 'DEBUG' }
   const INFO = { severityNumber: 9, severityText: 'INFO' }
   const WARN = { severityNumber: 13, severityText: 'WARN' }
@@ -34,8 +30,6 @@ describe('classifyConsoleRecord', () => {
 
   it('records a Node deprecation warning at WARN (issue #230)', async () => {
     const { classifyConsoleRecord } = await freshModule()
-    // Verbatim from the issue: Node's default 'warning' handler prints this
-    // through console.error, so the bridge sees an ERROR-stream WARNING.
     const body =
       '(node:1) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. ' +
       'Please use Object.assign() instead.\n' +
@@ -60,9 +54,6 @@ describe('classifyConsoleRecord', () => {
 
   it('keeps a real error that merely mentions a warning at ERROR', async () => {
     const { classifyConsoleRecord } = await freshModule()
-    // The Node pattern is anchored: only a record that OPENS with Node's own
-    // "(node:<pid>) …Warning: " prefix is a process warning. An application
-    // error is free to contain that text anywhere else.
     for (const body of [
       'TypeError: cannot read (node:1) DeprecationWarning: x',
       'failed to parse a DeprecationWarning: banner',
@@ -73,10 +64,6 @@ describe('classifyConsoleRecord', () => {
 
   it('records an expected NotFoundError escaping a render at WARN (issue #262)', async () => {
     const { classifyConsoleRecord } = await freshModule()
-    // Verbatim from the issue: Next's server error logger formatting a
-    // `NotFoundError` from `@/lib/api/errors` that escaped a server component.
-    // The class name is `f` because production output is minified and
-    // `ApiError` sets `this.name = new.target.name`.
     const body =
       '⨯ f: Not found\n' +
       '    at k (.next/server/chunks/ssr/[root-of-the-serve]__156qjxi._.js:1:2004)\n' +
@@ -99,13 +86,6 @@ describe('classifyConsoleRecord', () => {
   })
 
   it('matches #578 as err2issue recorded it, once err2issue\'s own "Error: " prefix is taken off', async () => {
-    // err2issue titles and quotes every record as `<type>: <body>` with the
-    // type `Error`: #800's body was `[job-scheduler] run reconcile failed: …`
-    // and the issue shows `Error: [job-scheduler] run reconcile failed: …`.
-    // So the recorded `Error: ⨯ Error: The destination stream closed early.`
-    // is the body `⨯ Error: …`, the shape the rule is anchored to. A body
-    // that really began with `Error: ⨯` would be a different call shape, and
-    // the join test below pins the one Next actually makes.
     const { classifyConsoleRecord } = await freshModule()
     const recorded = "Error: ⨯ Error: The destination stream closed early.\n    at ignore-listed frames {\n  digest: '1392313014'\n}"
     const body = recorded.replace(/^Error: /, '')
@@ -142,8 +122,6 @@ describe('classifyConsoleRecord', () => {
 
   it('leaves every other ApiError status and code at ERROR', async () => {
     const { classifyConsoleRecord } = await freshModule()
-    // The 404 rule must not become a general "the app threw an ApiError" rule:
-    // an upstream failure or a 500 is exactly what this pipeline exists for.
     for (const envelope of [
       "  status: 502, code: 'UPSTREAM_ERROR', details: undefined",
       "  status: 500, code: 'INTERNAL', details: undefined",
@@ -167,14 +145,11 @@ describe('initOtelLogs', () => {
     vi.stubEnv('OTEL_SERVICE_NAME', 'grid-purger')
     const { initOtelLogs } = await freshModule()
 
-    // Pre-patch mock: the bridge binds the then-current console method as the
-    // passthrough, so this stands in for the original output.
     const passthrough = vi.fn()
     const origLog = console.log
     console.log = passthrough
     try {
       expect(initOtelLogs()).toBe(true)
-      // Idempotent: a second call must not re-patch (no duplicate records).
       expect(initOtelLogs()).toBe(false)
 
       expect(() => console.log('otel bridge smoke %s', 'test')).not.toThrow()
@@ -183,17 +158,12 @@ describe('initOtelLogs', () => {
       console.log = origLog
     }
 
-    // And the global provider must really be the SDK one, not the no-op proxy.
     const { logs } = await import('@opentelemetry/api-logs')
     const { LoggerProvider } = await import('@opentelemetry/sdk-logs')
     expect(logs.getLoggerProvider()).toBeInstanceOf(LoggerProvider)
   })
 
   it('actually exports records end-to-end (regression: SDK 2.x processor ctor)', async () => {
-    // SDK 2.x BatchLogRecordProcessor takes { exporter } — positional
-    // construction left _exporter undefined and every flush threw inside the
-    // processor (swallowed by diag), so init looked fine but nothing ever
-    // landed. This test asserts a real POST reaches the collector endpoint.
     const http = await import('node:http')
     const received = []
     const server = http.createServer((req, res) => {
@@ -207,8 +177,6 @@ describe('initOtelLogs', () => {
     })
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
     try {
-      // The api-logs global registry survives vi.resetModules(), so the
-      // provider registered by the test above would swallow this one.
       const { logs } = await import('@opentelemetry/api-logs')
       logs.disable()
 
@@ -228,16 +196,11 @@ describe('initOtelLogs', () => {
   }, 15000)
 
   it('emits the classified severity, not the console method (issues #230, #262)', async () => {
-    // The classification is only worth anything if the patched console.* is
-    // what applies it — a correct pure function wired to nothing still files
-    // the issue. This asserts on the record the bridge actually hands the SDK.
     const { logs } = await import('@opentelemetry/api-logs')
     logs.disable()
     vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://127.0.0.1:1/v1/logs')
     const { initOtelLogs } = await freshModule()
 
-    // Pre-patch mock: the bridge binds the then-current console.error as its
-    // passthrough, keeping the record out of the test runner's output.
     const passthrough = vi.fn()
     const origError = console.error
     console.error = passthrough
@@ -262,18 +225,12 @@ describe('initOtelLogs', () => {
   })
 
   it("records #578 through Next's own error logger at WARN", async () => {
-    // The production call, not a string written to look like it: Next's
-    // server logs a failed render with `Log.error(err)`
-    // (`base-server.js` logError), which is `console.error('⨯', err)` — the
-    // prefix a separate argument, colourless without a TTY, as in a pod. The
-    // bridge formats both into the body the anchored rule reads.
     const { logs } = await import('@opentelemetry/api-logs')
     logs.disable()
     vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://127.0.0.1:1/v1/logs')
     vi.stubEnv('NO_COLOR', '1')
     const { initOtelLogs } = await freshModule()
 
-    // Next's logger reads the colour setting once, at load: load it fresh.
     const require = createRequire(import.meta.url)
     for (const id of ['next/dist/lib/picocolors', 'next/dist/build/output/log']) {
       delete require.cache[require.resolve(id)]
@@ -287,7 +244,6 @@ describe('initOtelLogs', () => {
       expect(initOtelLogs()).toBe(true)
       const emit = vi.spyOn(logs.getLogger('grid-console'), 'emit')
 
-      // What React hands Next when the browser leaves mid-render.
       const aborted = Object.assign(new Error('The destination stream closed early.'), { digest: '1392313014' })
       nextLog.error(aborted)
 

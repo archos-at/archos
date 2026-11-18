@@ -1,19 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * What a BATCH post to this route costs (ADR-0040 L2).
- *
- * The route factory charges one unit of `DEFAULT_MUTATION_LIMIT` per request,
- * and this endpoint accepts an array. Those two facts together are the hole
- * these tests close: without a cap and a per-message charge, one unit of budget
- * buys arbitrarily many inserts, and the rate limit stops bounding the work the
- * endpoint actually does.
- *
- * So the properties pinned here are about ARITHMETIC, not about the happy path:
- * a batch of N costs N, and an array past the cap is refused by validation
- * before any of it is written.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -51,7 +38,6 @@ import {
 import { GET, POST } from './route'
 
 let orgCounter = 0
-/** A distinct org per test, so each starts with a full budget. */
 function session() {
   return {
     userId: 'user_me',
@@ -97,8 +83,6 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
     const response = await POST(post(tooMany), context)
 
     expect(response.status).toBe(400)
-    // The bound has to bite BEFORE the service runs, or capping the array would
-    // only be documentation.
     expect(createConversationMessages).not.toHaveBeenCalled()
   })
 
@@ -110,17 +94,11 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
   })
 
   it('keeps the cap servable against the burst budget', async () => {
-    // Charging per message means a maximal batch spends its whole size at once.
-    // A cap above the burst clause would therefore document a batch size that
-    // is refused every time — a contract the endpoint cannot honour. This is
-    // the guard for whoever lowers the burst number later.
     const burst = DEFAULT_MUTATION_LIMIT.burst?.limit ?? DEFAULT_MUTATION_LIMIT.limit
     expect(MAX_MESSAGES_PER_REQUEST).toBeLessThanOrEqual(burst)
   })
 
   it('charges one unit per message, not one per request', async () => {
-    // The burst clause is what a batch would race, so it is the budget to
-    // exhaust: N messages must cost the same as N single posts.
     const burst = DEFAULT_MUTATION_LIMIT.burst?.limit ?? DEFAULT_MUTATION_LIMIT.limit
     const batchSize = 10
     const batch = Array.from({ length: batchSize }, (_, i) => message(`m${i}`))
@@ -136,8 +114,6 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
       spent += batchSize
     }
 
-    // Had the route charged per REQUEST, `burst` requests would have passed —
-    // that is `burst * batchSize` messages, far past where this stops.
     expect(refused).not.toBeNull()
     expect(spent).toBeLessThanOrEqual(burst)
     expect(spent).toBeGreaterThan(burst - batchSize - 1)
@@ -153,12 +129,6 @@ describe('POST /api/conversations/[id]/messages batch metering', () => {
   })
 })
 
-/**
- * A stored answer as its reader gets it. The answer is the one live QA found
- * raw (2026-11-12): asked through `agent-ask-create`, read back through
- * `conversation-message-list`, its `[[card:1]]` reached the agent as text,
- * pointing at a card the list does not even carry without `include=metadata`.
- */
 describe('GET /api/conversations/[id]/messages: the stored answer by reader', () => {
   const STORED =
     'In Wien beträgt die Mindesthöhe **1,00 m** [1].\n\n[[card:1]]\n\n' +
@@ -182,12 +152,10 @@ describe('GET /api/conversations/[id]/messages: the stored answer by reader', ()
   it('hands an agent plain Markdown: no card marker, no binding, no German verifier label', async () => {
     actingReaderIsAgent.mockReturnValue(true)
     const body = await read()
-    // The profile prints its value with a no-break space („GK 5“), as the copy button does.
     const answer = (body.messages[1].content as string).replace(/\u00a0/g, ' ')
     expect(answer).not.toMatch(/\[\[card:\d+\]\]/)
     expect(answer).not.toContain(':project[')
     expect(answer).toBe('In Wien beträgt die Mindesthöhe **1,00 m** [1].\n\nGebäudeklasse GK 5 (citation not verified).')
-    // A person's words are theirs, and the cards still ride along for whoever asked for them.
     expect(body.messages[0].content).toBe('Wie hoch? [[card:1]] bleibt, wie getippt.')
     expect(body.messages[1].metadata.cards).toHaveLength(1)
   })

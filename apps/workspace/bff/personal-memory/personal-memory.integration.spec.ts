@@ -1,33 +1,11 @@
 /**
  * @vitest-environment node
  */
-/**
- * Personal memory is one person's, and the database holds that (ADR-0180):
- * against a REAL Postgres with the full migration chain, connected as the
- * restricted runtime role.
- *
- * The claim is about row-level security, so a mocked handle cannot make it.
- * Person A writes a note through the service. Person B, in the SAME
- * organization, then runs raw statements with no WHERE on the user at all (a
- * colleague's query with the filter forgotten) and reads nothing, updates
- * nothing and deletes nothing; so does anyone in another organization. The
- * note is still A's afterwards. The same cluster shows the unique index on the
- * content key (0232), and that a temporary conversation (migration 0230) refuses
- * a memory write while one that is not, or not created yet, does not.
- *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/personal-memory/personal-memory.integration.spec.ts
- *
- * `task db:test:rls` (scripts/rls-test-db.sh) builds that database and runs
- * this file.
- */
 
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-// The office's screening is `service.spec.ts`'s subject and reads the
-// organization's policy; here a note's text is stored as written.
 vi.mock('@/lib/upload-screening/service', () => ({
   maskChatText: vi.fn(async (_organizationId: string, text: string) => ({ text })),
 }))
@@ -45,7 +23,6 @@ const PERSON_C = `user_c_${STAMP}`
 const A = { organizationId: ORG, userId: PERSON_A }
 const B = { organizationId: ORG, userId: PERSON_B }
 const ELSEWHERE = { organizationId: OTHER_ORG, userId: OUTSIDER }
-/** The same person id inside another organization: a note is keyed to both. */
 const A_ELSEWHERE = { organizationId: OTHER_ORG, userId: PERSON_A }
 
 function rootCause(error: unknown): Error {
@@ -54,12 +31,6 @@ function rootCause(error: unknown): Error {
   return current as Error
 }
 
-/**
- * The suite below is opt-in and `describe.skipIf` exits 0 when it skips, which
- * would make a green tenant-isolation job indistinguishable from one that ran
- * nothing. The job sets the marker, so the job that promises a database is the
- * one that fails when it stops providing one.
- */
 describe('the personal memory suite is not silently skipped in CI', () => {
   it('has a database to run against', () => {
     if (!process.env.RLS_SUITE_REQUIRED) return
@@ -82,14 +53,13 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
   type Owner = { organizationId: string; userId: string }
   const as = <T>(owner: Owner, run: () => Promise<T>): Promise<T> => withTenant(owner, run)
 
-  /** Every row of the table as this person's connection sees it: no WHERE at all. */
   const visibleTo = async (owner: Owner): Promise<string[]> => {
     const rows = await as(owner, () => db.execute(sql`select content from personal_memory order by content`))
     return [...rows].map((row) => String(row.content))
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -100,8 +70,6 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
   })
 
   afterAll(async () => {
-    // `beforeAll` may have thrown before `db` was assigned; a TypeError here
-    // would replace the setup failure that is worth reading.
     if (!db) return
     await withPlatformAccess('test teardown', async () => {
       await db.execute(sql`delete from personal_memory where organization_id in (${ORG}, ${OTHER_ORG})`)
@@ -123,18 +91,15 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     expect(created).toBe(true)
     expect(item).toMatchObject({ organizationId: ORG, userId: PERSON_A, provenanceType: 'agent', pinned: false })
 
-    // A, through the service and through a bare select.
     expect((await as(A, () => service.listPersonalMemory(A))).items.map((row) => row.id)).toEqual([item.id])
     expect(await visibleTo(A)).toEqual(['Wants answers in short paragraphs.'])
 
-    // B, a colleague in the same organization: the raw handle, no user filter.
     expect(await visibleTo(B)).toEqual([])
     const byId = await as(B, () => db.execute(sql`select id from personal_memory where id = ${item.id}`))
     expect([...byId]).toEqual([])
     const counted = await as(B, () => db.execute(sql`select count(*)::int as n from personal_memory`))
     expect([...counted][0].n).toBe(0)
 
-    // Anyone in another organization, and A's own id inside another organization.
     expect(await visibleTo(ELSEWHERE)).toEqual([])
     expect(await visibleTo(A_ELSEWHERE)).toEqual([])
   })
@@ -149,8 +114,6 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
       expect([...deleted], `delete as ${other.userId} in ${other.organizationId}`).toEqual([])
     }
 
-    // The service asked to act on A's behalf from B's connection finds no row either:
-    // an owner a caller names is not enough, the connection has to be that person's.
     const [note] = (await as(A, () => service.listPersonalMemory(A))).items
     expect(await as(B, () => service.listPersonalMemory(A))).toEqual({ items: [], nextCursor: null })
     expect(await as(B, () => service.editPersonalMemoryItem(A, note.id, { pinned: true }))).toBeNull()
@@ -162,9 +125,6 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
   })
 
   it('answers a conversation’s notes, each with its answer, to their owner and to nobody else (migration 0231)', async () => {
-    // The answer's chip asks for the notes saved from the conversation it is
-    // in. A colleague reading the SAME shared conversation asks the same
-    // question with the same conversation id and is answered nothing.
     const answer = '4f9c1d2e-3b4a-5c5d-8e6f-7a8b9c0d1e2f'
     const shared = { sourceConversationId: 's_shared_0227' }
     const { item } = await as(A, () =>
@@ -180,13 +140,11 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
 
     const mine = await as(A, () => service.listPersonalMemory(A, { limit: 200, offset: 0 }, shared))
     expect(mine.items.map((row) => [row.id, row.sourceMessageId])).toEqual([[item.id, answer]])
-    // The filter narrows: A's note from the other conversation is not in this list.
     expect((await as(A, () => service.listPersonalMemory(A))).items.length).toBeGreaterThan(1)
 
     for (const other of [B, ELSEWHERE, A_ELSEWHERE]) {
       const theirs = await as(other, () => service.listPersonalMemory(other, { limit: 200, offset: 0 }, shared))
       expect(theirs.items, `list as ${other.userId} in ${other.organizationId}`).toEqual([])
-      // Not even with the owner named and the answer's id in hand.
       expect((await as(other, () => service.listPersonalMemory(A, { limit: 200, offset: 0 }, shared))).items).toEqual([])
       const byAnswer = await as(other, () =>
         db.execute(sql`select id from personal_memory where source_message_id = ${answer}::uuid`)
@@ -225,7 +183,6 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     expect(again.created).toBe(false)
     expect(await visibleTo(A)).toEqual(['Wants answers in short paragraphs.'])
 
-    // The index itself, past the service's lookup: the race two turns can run.
     const raced = await as(A, () =>
       repository.insertPersonalMemory({
         ...A,
@@ -240,7 +197,6 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     const { isUniqueViolation } = await import('@/lib/db/errors')
     expect(isUniqueViolation(raced)).toBe(true)
 
-    // The same sentence is B's own note, a second row A never sees.
     const forB = await as(B, () =>
       service.createPersonalMemoryItem(B, {
         kind: 'preference',
@@ -252,7 +208,6 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     expect(await visibleTo(A)).toHaveLength(1)
     expect(await visibleTo(B)).toHaveLength(1)
 
-    // Editing a second note of A into the first one's text is the 409.
     const second = await as(A, () =>
       service.createPersonalMemoryItem(A, { kind: 'profile', content: 'Leads the fire-safety reviews.', provenanceType: 'agent' })
     )
@@ -306,15 +261,12 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
       status: 403,
       code: 'TEMPORARY_CONVERSATION',
     })
-    // The column's default keeps memory; so does a row that does not exist yet.
     await expect(as(A, () => temporary.requireConversationKeepsMemory(KEPT, ORG))).resolves.toBeUndefined()
     await expect(as(A, () => temporary.requireConversationKeepsMemory(`s_missing_${STAMP}`, ORG))).resolves.toBeUndefined()
-    // Another organization cannot be refused on, or learn of, this one's conversation.
     expect(await as(ELSEWHERE, () => temporary.isTemporaryConversation(TEMPORARY, OTHER_ORG))).toBe(false)
   })
 
   it('keeps notes with no ASCII letter as notes of their own (migration 0232)', async () => {
-    // Under 0229's `[^a-z0-9]+` index all three folded to '' and answered the first one's id.
     const C = { organizationId: ORG, userId: PERSON_C }
     const keep = (content: string) =>
       as(C, () => service.createPersonalMemoryItem(C, { kind: 'preference', content, provenanceType: 'user' }))
@@ -324,9 +276,7 @@ describe.skipIf(!url)('personal memory against live Postgres', () => {
     expect(written.map((result) => result.created)).toEqual([true, true, true])
     expect(new Set(written.map((result) => result.item.id)).size).toBe(3)
     expect((await visibleTo(C)).sort()).toEqual(['Здравствуйте, отвечайте кратко', 'Привет', 'ÄÖÜ'].sort())
-    // The same text in other case and punctuation is still the same note.
     expect((await keep('  привет! ')).created).toBe(false)
-    // And the database refuses a key with nothing in it, whoever writes it.
     const blank = await as(C, () =>
       repository.insertPersonalMemory({ ...C, kind: 'profile', content: '!!!', contentKey: ' ' })
     ).then(

@@ -1,18 +1,3 @@
-"""The knowledge layer never hands the model a restricted folder's content unadmitted (ADR-0088).
-
-The product rule: content from a restricted folder reaches the model only in a
-turn whose signed scope holds that collection AND after the admission records
-it; listing is not use; a person who lost read gets nothing through any tool.
-
-Each tool here is driven the way the Piloti tools node drives it: inside
-:func:`report_collections_read`, then through :func:`admit_tool_results`. What
-these pin is the tool's half: it refuses what the turn may not read, never
-LISTS a restricted file, never confirms one exists, and REPORTS every
-collection whose content it returns, so the admission sees it whatever the text
-says. The first four tests are the independent verifier's proofs of the bypass,
-inverted; each failed against the code before this change.
-"""
-
 from __future__ import annotations
 
 import importlib
@@ -24,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.browse import ListFilesConfig
 from knowledge_layer.browse import list_files
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer.read_passage import ReadPassageConfig
 from knowledge_layer.read_passage import read_passage
 from knowledge_layer.register import KnowledgeRetrievalConfig
@@ -79,7 +64,6 @@ class _Store:
 
 @pytest.fixture
 def scope(monkeypatch):
-    """A turn whose scope carries the base corpus, the project and one restricted folder."""
     monkeypatch.setattr(
         "agent.knowledge.scoping._parse_scope_payload",
         lambda _s: [
@@ -110,7 +94,6 @@ def scope(monkeypatch):
 
 @pytest.fixture
 def use(monkeypatch):
-    """The turn may draw on the restricted folder; every admission asked is recorded."""
     asked: list[list[str]] = []
 
     def _admit(bound, collections):
@@ -130,7 +113,6 @@ def use(monkeypatch):
 
 
 async def _round(run, name: str) -> tuple[ToolMessage, list[Any]]:
-    """One call as the tools node runs it: reported, then admitted."""
 
     async def execute(_request):
         return ToolMessage(content=await run(), tool_call_id="call-1", name=name)
@@ -149,20 +131,13 @@ async def _read(**kwargs) -> str:
         return await info.single_fn(info.input_schema(**kwargs))
 
 
-# ---------------------------------------------------------------------------
-# The verifier's proofs, inverted
-# ---------------------------------------------------------------------------
-
-
 async def test_the_scope_really_carries_the_restricted_folder(scope, use):
-    """The precondition every case below stands on: the turn may draw on R."""
     from agent.knowledge.scoping import get_scoped_collections_from_context
 
     assert R in [entry.collection for entry in get_scoped_collections_from_context()]
 
 
 async def test_list_files_never_lists_a_restricted_file_when_the_inventory_failed(scope, use):
-    """An inventory that failed to load (``Inventory(None, None)``) falls back to the scope, minus restricted."""
     message, admitted = await _round(_list_files, "list_files")
 
     assert "Grundriss_EG.pdf" in message.content
@@ -172,7 +147,6 @@ async def test_list_files_never_lists_a_restricted_file_when_the_inventory_faile
 
 
 async def test_list_files_never_lists_a_restricted_row_the_turn_bound(scope, use):
-    """The filter is on the rows, so a bound row from a restricted folder is dropped as well."""
     set_turn_documents(
         [
             {"file_name": "Grundriss_EG.pdf", "collection": PROJ, "shelf": "project"},
@@ -189,7 +163,6 @@ async def test_read_passage_suggests_no_restricted_file_before_it_is_admitted(sc
 
     assert "No document in scope is named" in message.content
     assert SALARIES not in message.content and R not in message.content
-    # One readable document is counted: the project's plan, not the salaries.
     assert "1 document(s) are readable" in message.content
     assert use.asked == [] and use.confined is False
 
@@ -219,17 +192,10 @@ async def test_view_image_result_of_a_restricted_folder_the_turn_may_not_draw_on
     finally:
         ru.reset_restricted_use(token)
     assert out[0].content == ru.WITHHELD_NOTICE and out[0].tool_call_id == "call-1"
-    # And with no restricted use bound at all, nothing can admit it either.
     assert (await ru.admit_tool_results([message]))[0].content == ru.WITHHELD_NOTICE
 
 
-# ---------------------------------------------------------------------------
-# read_passage: existence is not confirmed, content is reported
-# ---------------------------------------------------------------------------
-
-
 async def test_read_passage_does_not_confirm_a_hidden_document_has_no_such_page(scope, use):
-    """The salaries resolve, the page is empty: answered as if the file did not exist."""
     text = await _read(document=SALARIES, page=99)
 
     assert "carries no passage" not in text and "is registered" not in text
@@ -263,11 +229,6 @@ async def test_read_passage_withholds_a_restricted_passage_the_bff_refuses(scope
     assert admitted[0].content == ru.WITHHELD_NOTICE
 
 
-# ---------------------------------------------------------------------------
-# The exact search: the match table is content of every file it names
-# ---------------------------------------------------------------------------
-
-
 async def test_exact_search_reports_every_collection_its_match_table_names(monkeypatch):
     from knowledge_layer.browse import tool as browse
 
@@ -275,8 +236,6 @@ async def test_exact_search_reports_every_collection_its_match_table_names(monke
         async def find_text(self, collection, pattern, *, filters, limit):
             return [_chunk(collection, content="Gehalt 182.000 EUR")] if collection == R else []
 
-    # The passages are rendered (and reported) by the grounding block; stubbed
-    # here so what is left to report is the match table alone.
     monkeypatch.setattr(importlib.import_module("knowledge_layer.search.results"), "format_results", _no_passages)
     monkeypatch.setattr(
         importlib.import_module("knowledge_layer.read_passage.tool"), "_passage_result", lambda chunks, query: None
@@ -303,11 +262,6 @@ def test_a_failed_restricted_collection_is_never_named_in_a_message():
     assert R not in text and PROJ in text
 
 
-# ---------------------------------------------------------------------------
-# look's renderer (view_image): the collection is checked against the turn
-# ---------------------------------------------------------------------------
-
-
 def _png() -> bytes:
     from PIL import Image
 
@@ -318,7 +272,6 @@ def _png() -> bytes:
 
 @pytest.fixture
 def image_tool(monkeypatch):
-    """``look``'s renderer with storage faked: every lookup it makes is recorded."""
     import knowledge_layer.view_image as vi
 
     asked: list[tuple[str, str]] = []
@@ -329,7 +282,7 @@ def image_tool(monkeypatch):
 
     monkeypatch.setattr(vi, "_resolve_storage_location", _resolve)
     monkeypatch.setattr(vi, "_fetch_seaweed_bytes", lambda key, bucket=None: _png())
-    monkeypatch.setattr(adapter_module, "_get_vlm_api_key", lambda: "k")
+    monkeypatch.setattr(vision_credentials, "_get_vlm_api_key", lambda: "k")
     monkeypatch.setattr(vi, "try_consume_image_view", lambda *_kind: True)
 
     async def view(*, file_name: str, collection: str):
@@ -347,7 +300,6 @@ def _scope_of(monkeypatch, *names: str) -> None:
 
 
 async def test_view_image_refuses_a_restricted_collection_outside_the_turn_before_any_lookup(monkeypatch, image_tool):
-    """The asker is cleared for nothing restricted: no use bound, R not in scope."""
     _scope_of(monkeypatch, PROJ)
 
     message, admitted = await _round(lambda: image_tool(file_name="Gehalt.png", collection=R), "look")
@@ -359,7 +311,6 @@ async def test_view_image_refuses_a_restricted_collection_outside_the_turn_befor
 
 
 async def test_view_image_refuses_a_restricted_collection_in_scope_but_not_drawable(monkeypatch, image_tool):
-    """The scope still names R; the turn's use does not let it be drawn on (a share narrowed it, or no envelope)."""
     _scope_of(monkeypatch, PROJ, R)
     bound = ru.RestrictedUse(organization_id="o", user_id="u", conversation_id="c", project_id="p", drawable=set())
     token = ru.bind_restricted_use(bound)
@@ -401,7 +352,6 @@ async def test_view_image_reaches_an_open_collection_in_scope_without_admitting_
 
 
 async def test_the_lookup_echoes_the_turns_signed_envelope(monkeypatch):
-    """The BFF answers only inside the scope the envelope signs; the tool sends it byte-for-byte."""
     import httpx
     from knowledge_layer.view_image import _resolve_storage_location
 
@@ -436,7 +386,6 @@ async def test_the_lookup_echoes_the_turns_signed_envelope(monkeypatch):
 
 
 async def test_the_lookup_carries_the_revision_the_bff_names(monkeypatch):
-    """``versionId`` rides on the location, so ``look`` can record which Fassung it rendered (ADR-0128)."""
     import httpx
     from knowledge_layer.view_image import _resolve_storage_location
     from knowledge_layer.view_image import location_version

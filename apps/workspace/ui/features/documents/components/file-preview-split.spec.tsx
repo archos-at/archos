@@ -1,48 +1,16 @@
-/**
- * The Files → chat transition, at the level the bug actually lived on.
- *
- * `file-preview-host.spec.tsx` already covers this journey and stayed green
- * through it, because it asserts `data-mode` and the pane's mount count — the
- * half that was never broken. The pane rendered, in `peek` mode, correctly not
- * remounted, inside a panel that was ZERO PIXELS WIDE and parked off the right
- * edge of the viewport. Nothing observed the panel.
- *
- * So this file stubs `react-resizable-panels` and observes exactly two things
- * the real library would act on: the size constraints the file panel is
- * declared with, and the imperative calls made when `split` flips. Both are
- * ours; neither is the library's behaviour under test.
- *
- * The mechanism, for whoever breaks this next. `FilePreviewBridge` is mounted
- * by the PROJECT layout, so it mounts once per project and survives the move
- * from Files to chat. On that mount `split` is false, so the panel mounts
- * COLLAPSED (`defaultSize` 0, the state it mounts in). If its `minSize` /
- * `maxSize` were derived from `split` too, they would be zero at that moment
- * and clamp every later size back to nothing; and since the panel is
- * `collapsible`, `resize()` alone does not bring a collapsed panel back.
- */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render } from '@testing-library/react'
 import { useFilePreviewStore } from '../stores/file-preview-store'
 import type { FileItem } from './project-file-workspace'
 
 const nav = vi.hoisted(() => ({ pathname: '/app/projects/p1/files' }))
-/** Imperative calls the split makes on the file panel, in order. */
 const panel = vi.hoisted(() => ({ calls: [] as string[], sizeInPixels: 320 }))
-/** Size constraints the file panel was last rendered with. */
 const declared = vi.hoisted(
   () => ({ current: null as null | Record<string, unknown> }),
 )
-/** Props the chat panel was last rendered with. */
 const declaredChat = vi.hoisted(
   () => ({ current: null as null | Record<string, unknown> }),
 )
-/**
- * The group's `onLayoutChanged`, as last rendered. Standing in for the library
- * is the only way to fire it here: it is the library that decides a gesture has
- * ENDED, and jsdom has no layout for it to decide anything from.
- */
-/** Props the seam was last rendered with. */
 const separator = vi.hoisted(() => ({ current: null as null | Record<string, unknown> }))
 const group = vi.hoisted(
   () => ({
@@ -62,9 +30,6 @@ vi.mock('./file-preview-pane', async () => {
   }
 })
 
-// A stand-in for the panel library that records rather than lays out. jsdom has
-// no layout, so the real library could not tell us a width here even if we
-// asked it — what it CAN be held to is the instructions we give it.
 vi.mock('react-resizable-panels', async () => {
   const React = await import('react')
   const handle = {
@@ -103,7 +68,6 @@ vi.mock('react-resizable-panels', async () => {
       })
     },
   }
-  /** Drop the library-only props so React does not warn about unknown DOM attributes. */
   function pickDom(props: Record<string, unknown>): Record<string, unknown> {
     const { className, style } = props
     const label = props['aria-label']
@@ -159,10 +123,7 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
   beforeEach(reset)
   afterEach(reset)
 
-  it('EXPANDS the panel, not just resizes it, when Ask Piloti lands on chat', () => {
-    // Exactly the Ask Piloti journey: the peek is opened while still in Files
-    // (askAboutFile does this before it navigates), so the bridge mounts with
-    // the split OFF and the panel collapsed.
+  it('EXPANDS the panel, not just resizes it, when Ask the agent lands on chat', () => {
     useFilePreviewStore.getState().open(FILE, 'peek', { projectId: 'p1' })
     const { rerender } = render(
       <FilePreviewBridge>
@@ -179,18 +140,10 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
       </FilePreviewBridge>,
     )
 
-    // `expand` MUST come first and MUST be there at all: a collapsed panel
-    // ignores `resize`, which is how the pane ended up 0px wide in a peek that
-    // every other assertion called correct.
     expect(panel.calls).toEqual(['expand', 'resize:320'])
   })
 
   it('declares its size bounds independently of the split flag', () => {
-    // Mounted in Files — split OFF. The bounds must ALREADY be the real ones:
-    // bounds of zero would clamp the expand above back to nothing. The default
-    // is the state it mounts in, shut: the library lays a group out again from
-    // its defaults, and a shut panel that declared 320 came back open at 320
-    // on every project page of a phone (`docked-split.spec.tsx`).
     useFilePreviewStore.getState().open(FILE, 'peek', { projectId: 'p1' })
     render(
       <FilePreviewBridge>
@@ -208,11 +161,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
   })
 
   it('gives the chat panel no default of its own, so the two never overflow the row', () => {
-    // The chat panel defaulted to "100" (percent) beside a file panel
-    // defaulting to 320px. When the group could measure itself at mount, which
-    // reduced motion made reliable, the library resolved the overflow by
-    // collapsing the file panel for good, and the peek never opened. Measured
-    // in a browser: 1203px / 0px under reduced motion, 883 / 320 without.
     useFilePreviewStore.getState().open(FILE, 'peek', { projectId: 'p1' })
     nav.pathname = '/app/projects/p1/chat'
     render(
@@ -226,11 +174,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
   })
 
   it('does not feed the dragged width back into `defaultSize`', () => {
-    // THE BUG THAT MADE THE SEAM IMMOVABLE. `defaultSize` was the live store
-    // width and the panel wrote every intermediate width back to that store, so
-    // each pointer move re-rendered the group with a new default and the library
-    // recomputed the layout from it — on top of the drag in progress. The pane
-    // crawled about twenty pixels and stopped, in either direction.
     nav.pathname = '/app/projects/p1/chat'
     useFilePreviewStore.getState().open(FILE, 'peek', { projectId: 'p1' })
     const { rerender } = render(
@@ -240,7 +183,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
     )
     expect(declared.current).toMatchObject({ defaultSize: 320 })
 
-    // What a resize does: it commits a width to the store, which re-renders.
     useFilePreviewStore.getState().setPeekWidth(500)
     rerender(
       <FilePreviewBridge>
@@ -248,8 +190,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
       </FilePreviewBridge>,
     )
 
-    // The mount value, unmoved. A `defaultSize` that tracks the reader is a
-    // `defaultSize` that fights them.
     expect(declared.current).toMatchObject({ defaultSize: 320 })
   })
 
@@ -262,8 +202,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
       </FilePreviewBridge>,
     )
 
-    // No per-move writer on the panel: `onResize` fires on every pointer move,
-    // and this width goes to localStorage.
     expect(declared.current?.onResize).toBeUndefined()
 
     panel.sizeInPixels = 540
@@ -282,9 +220,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
       </FilePreviewBridge>,
     )
 
-    // Expanding, collapsing and re-measuring all change the layout. None of
-    // them is the reader choosing a width, and recording them would let a
-    // window resize quietly rewrite what they chose.
     panel.sizeInPixels = 540
     group.onLayoutChanged?.({}, { isUserInteraction: false })
 
@@ -305,8 +240,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
     group.onLayoutChanged?.({}, { isUserInteraction: true })
 
     const state = useFilePreviewStore.getState()
-    // Same meaning as the ✕ on the peek: the viewer goes away, the question
-    // stays. Zero is never a width to remember.
     expect(state.hidden).toBe(true)
     expect(state.file?.id).toBe('doc-1')
     expect(state.peekWidth).toBe(320)
@@ -322,8 +255,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
       </FilePreviewBridge>,
     )
 
-    // Sized from storage in the same commit as the split opens — not left at
-    // the default until the reader drags it again.
     expect(panel.calls).toContain('resize:620')
     expect(useFilePreviewStore.getState().peekWidth).toBe(620)
   })
@@ -337,9 +268,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
       </FilePreviewBridge>,
     )
 
-    // Arrow keys on this separator resize the pane, so it is a control a
-    // keyboard reader arrives at — announced as "separator" and nothing else
-    // until someone gives it a name.
     expect(getByRole('separator')).toHaveAttribute('aria-label', 'Resize file preview')
   })
 
@@ -356,10 +284,6 @@ describe('FilePreviewSplit — the file panel actually opens', () => {
 
     fireEvent.doubleClick(getByRole('separator'))
 
-    // The library's own double-click COLLAPSES a collapsible panel, and
-    // collapsed is one pixel — two quick clicks near the seam left a sliver of
-    // a document the reader was still asking about. `expand` first, because a
-    // collapsed panel ignores `resize`.
     expect(panel.calls).toEqual(['expand', 'resize:320'])
     expect(useFilePreviewStore.getState().peekWidth).toBe(320)
     expect(separator.current?.disableDoubleClick).toBe(true)

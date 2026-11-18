@@ -40,10 +40,7 @@ describe('parseInboundAddress', () => {
   })
 
   it('takes the segment after the LAST dot, whatever sits in the slug position', () => {
-    // A slug never contains a dot, but a hand-typed address may; only the
-    // token resolves, so the rest is ignored rather than refused.
     expect(parseInboundAddress(`project+a.b.wohnbau.abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
-    // …and a slug that happens to LOOK like a token is not the token.
     expect(parseInboundAddress(`project+zzzzzzzzzzzz.abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
   })
 
@@ -234,7 +231,6 @@ describe('inboundMailLocalPart', () => {
   })
 })
 
-/** The address contract the Email Worker routes on (see its `$comment`). */
 interface AddressContract {
   localPart: string
   domain: string
@@ -257,8 +253,6 @@ describe('the address contract with the Email Worker (contracts/inbound-address.
   const contract = loadAddressContract()
 
   it('uses the same token pattern', () => {
-    // The Worker refuses anything that fails this shape without asking the
-    // BFF, so a pattern changed on one side only drops or misroutes mail.
     expect(TOKEN_PATTERN.source).toBe(contract.tokenPattern)
   })
 

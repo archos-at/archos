@@ -1,20 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * The change record's routes and service (ADR-0109), driven through the TYPED
- * CLIENT (ADR-0055): the card uses the same two functions, so a path, a field
- * or a refusal code the two disagreed on would fail here.
- *
- * The record's repository is an in-memory fake that keeps the undo claim a
- * compare-and-swap on `undone_at IS NULL` and holds every row to the CHECKs of
- * migration 0142. The annotations service is a fake over an in-memory set of
- * marks at its seam (`listAnnotations`, `updateAnnotation`, `createAnnotation`),
- * with `updateAnnotation`'s compare-and-swap on `expectedStatus`; its real
- * state machine (`transition`) decides which status moves have a way back.
- * What is under test is that undo reads the object first, refuses what moved
- * on, and runs the inverse through THAT service as the person clicking.
- */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -75,9 +61,8 @@ const ROUTES: Array<{ pattern: RegExp; method: string; keys: string[]; handler: 
   { pattern: /^\/api\/piloti-changes\/([^/]+)\/undo$/, method: 'POST', keys: ['id'], handler: undo },
 ]
 
-/** `fetch` as the browser's client calls it, answered by the route handlers. */
 async function serve(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const url = new URL(String(input), 'https://grid.test')
+  const url = new URL(String(input), 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -147,7 +132,6 @@ const reply = (patch: Partial<AnnotationReplyView> = {}): AnnotationReplyView =>
   ...patch,
 })
 
-/** A mark Piloti set open for user_1, the person clicking: accepted by them in the same move. */
 const setOpenForAsker = (patch: Partial<AnnotationView> = {}) =>
   mark({ authorKind: 'piloti', status: 'open', createdBy: 'user_1', acceptedBy: 'user_1', canDelete: true, ...patch })
 
@@ -170,7 +154,6 @@ const row = (extra: Partial<AgentChangeRow> = {}): AgentChangeRow => ({
   ...extra,
 })
 
-/** The CHECKs of migration 0142, held against every row the fake stores. */
 function assertChecks(stored: AgentChangeRow): void {
   expect(stored.objectKind !== 'annotation_reply' || stored.op === 'create', 'agent_changes_reply_is_created').toBe(true)
   expect(stored.objectKind !== 'annotation' || stored.objectId === stored.annotationId, 'agent_changes_annotation_is_object').toBe(true)
@@ -182,14 +165,12 @@ function assertChecks(stored: AgentChangeRow): void {
   expect(stored.undoneAt === null, 'agent_changes_undo_complete').toBe(stored.undoneBy === null)
 }
 
-/** The record, in memory, with the repository's compare-and-swap. */
 let changes: Map<string, AgentChangeRow>
 const put = (next: AgentChangeRow) => {
   assertChecks(next)
   changes.set(next.id, next)
   return next
 }
-/** The marks, by document, as the reader sees them. */
 let documents: Map<string, Map<string, AnnotationView>>
 const marksOf = (documentId: string) => documents.get(documentId) ?? new Map<string, AnnotationView>()
 const current = (id = MARK) => marksOf(DOC).get(id)
@@ -231,7 +212,6 @@ beforeEach(() => {
     if (!documents.has(documentId)) throw new NotFoundError()
     return { annotations: [...marksOf(documentId).values()], canAnnotate: true, pilotiWakes: false }
   })
-  // A person's PATCH: compare-and-swap on the status the caller saw.
   vi.mocked(updateAnnotation).mockImplementation(async (_session, documentId, id, input: UpdateAnnotationRequest) => {
     const before = marksOf(documentId).get(id)
     if (!before) throw new NotFoundError()
@@ -245,7 +225,6 @@ beforeEach(() => {
     if (!marksOf(documentId).delete(id)) throw new NotFoundError()
     return null
   })
-  // A reply goes for the person it was posted for, and only while it says what the caller saw.
   vi.mocked(deleteReply).mockImplementation(async (session, documentId, id, replyId, options) => {
     const held = marksOf(documentId).get(id)
     const found = held?.replies.find((candidate) => candidate.id === replyId)
@@ -292,7 +271,6 @@ describe('GET /api/conversations/[id]/messages/[messageId]/changes', () => {
       undoneByName: null,
       canUndo: true,
     })
-    // A mark Piloti set open for the asker has moved on here (it is resolved now), so there is nothing to undo.
     expect(read[0].canUndo).toBe(false)
     expect(requireResourceAccess).toHaveBeenCalledWith(SESSION, 'conversation', CONVERSATION, 'viewer')
     expect(listTurnChangeRows).toHaveBeenCalledWith('org_1', CONVERSATION, ANSWER)
@@ -338,7 +316,7 @@ describe('GET /api/conversations/[id]/messages/[messageId]/changes', () => {
 })
 
 describe('POST /api/piloti-changes/[id]/undo', () => {
-  it('reverts a change through the annotations service, as the person clicking, naming the status Piloti left', async () => {
+  it('reverts a change through the annotations service, as the person clicking, naming the status the agent left', async () => {
     put(row())
 
     const { change: undone } = await undoChange(change(1))
@@ -367,7 +345,7 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
     expect(current()).toMatchObject({ assigneeUserId: null, body: 'Alt' })
   })
 
-  it('dismisses a mark Piloti proposed, which is how a proposal is taken back', async () => {
+  it('dismisses a mark the agent proposed, which is how a proposal is taken back', async () => {
     const proposed = mark({ authorKind: 'piloti', status: 'proposed' })
     documents.get(DOC)?.set(MARK, proposed)
     put(row({ op: 'create', before: null, after: markState(proposed) }))
@@ -401,7 +379,6 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
   })
 
   it("refuses `moved-on` when a colleague changed the mark since, and changes nothing", async () => {
-    // Piloti reworded it; a colleague reworded it again.
     documents.get(DOC)?.set(MARK, mark({ body: 'Anders' }))
     put(row({ before: { body: 'Alt' }, after: { body: 'Neu' } }))
 
@@ -423,7 +400,7 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
     expect(recordDecisionScore).not.toHaveBeenCalled()
   })
 
-  it('refuses `moved-on` for a status Piloti moved that has no way back, and for a reply that is gone', async () => {
+  it('refuses `moved-on` for a status the agent moved that has no way back, and for a reply that is gone', async () => {
     documents.get(DOC)?.set(MARK, mark({ status: 'open', authorKind: 'piloti', acceptedBy: 'user_2' }))
     put(row({ id: change(1), before: { status: 'proposed' }, after: { status: 'open' } }))
     put(row({ id: change(2), objectKind: 'annotation_reply', objectId: REPLY, op: 'create', before: null, after: { body: 'Ja.' } }))
@@ -440,7 +417,6 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
     documents.get(DOC)?.set(MARK, proposed)
     put(row({ op: 'create', before: null, after: markState(proposed) }))
     await undoChange(change(1))
-    // The service's `annotation dismissed` is the one score of that decision.
     expect(recordDecisionScore).not.toHaveBeenCalled()
 
     put(row({ id: change(2) }))
@@ -449,7 +425,7 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
     expect(recordDecisionScore).toHaveBeenCalledTimes(1)
   })
 
-  describe('a mark Piloti set open for the asker', () => {
+  describe('a mark the agent set open for the asker', () => {
     const setUp = (patch: Partial<AnnotationView> = {}) => {
       const open = setOpenForAsker(patch)
       documents.get(DOC)?.set(MARK, open)
@@ -488,7 +464,7 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
       expect(changes.get(change(1))?.undoneAt).toBeNull()
     })
 
-    it('refuses `moved-on` when somebody besides Piloti answered in the thread, so their answer is not deleted with it', async () => {
+    it('refuses `moved-on` when somebody besides the agent answered in the thread, so their answer is not deleted with it', async () => {
       setUp({ replies: [reply({ id: 'r1' }), reply({ id: 'r2', authorKind: 'person', createdBy: 'user_2' })] })
 
       const refusal = await undoChange(change(1)).catch((error: unknown) => error)
@@ -498,20 +474,20 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
       expect(deleteAnnotation).not.toHaveBeenCalled()
     })
 
-    it("still deletes when only Piloti's own notes are in the thread", async () => {
+    it("still deletes when only the agent's own notes are in the thread", async () => {
       setUp({ replies: [reply({ id: 'r1' })] })
       await undoChange(change(1))
       expect(deleteAnnotation).toHaveBeenCalledTimes(1)
     })
   })
 
-  describe('a reply Piloti posted', () => {
+  describe('a reply the agent posted', () => {
     const setUp = (replies: AnnotationReplyView[] = [reply()]) => {
       documents.get(DOC)?.set(MARK, mark({ replies }))
       put(row({ objectKind: 'annotation_reply', objectId: REPLY, op: 'create', before: null, after: { body: reply().body } }))
     }
 
-    it('is deleted while it still says what Piloti wrote, as the person it was posted for, and scored', async () => {
+    it('is deleted while it still says what the agent wrote, as the person it was posted for, and scored', async () => {
       setUp([reply({ id: 'r0', body: 'Davor' }), reply()])
 
       const { change: undone } = await undoChange(change(1))
@@ -591,19 +567,18 @@ describe('POST /api/piloti-changes/[id]/undo', () => {
 
 describe('an undo in the audit trail', () => {
   const audited = (): AuditEventInput[] => vi.mocked(recordAuditEvent).mock.calls.map(([input]) => input)
-  // Whatever was emitted, WorkOS would accept: every target type and key is registered.
   afterEach(() => {
     for (const [input] of vi.mocked(recordAuditEvent).mock.calls) expectRegistered(input)
   })
 
-  it('records one piloti.change.undone, as the person who undid it, naming whom Piloti had made it for', async () => {
+  it('records one agent.change.undone, as the person who undid it, naming whom the agent had made it for', async () => {
     put(row())
 
     await undoChange(change(1))
 
     expect(audited()).toEqual([
       {
-        action: 'piloti.change.undone',
+        action: 'agent.change.undone',
         organizationId: 'org_1',
         actor: { userId: 'user_1', email: 'anna@example.test' },
         targetType: 'document_annotation',
@@ -665,7 +640,7 @@ describe('an undo in the audit trail', () => {
 
     expect(undone.undoneBy).toBe('user_1')
     expect(current()?.status).toBe('open')
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('piloti.change.undone'), expect.any(Error))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('agent.change.undone'), expect.any(Error))
     warn.mockRestore()
   })
 })

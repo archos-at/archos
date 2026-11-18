@@ -1,18 +1,3 @@
-"""``research-run`` on a real Hatchet engine: the main evidence that research runs on Hatchet (ADR-0150).
-
-Runs when ``HATCHET_CLIENT_TOKEN`` and ``HATCHET_CLIENT_HOST_PORT`` are set
-(CI runs ``hatchet-lite`` as a service container); skipped otherwise. Each test
-gets its own namespace, so its workflow registration (with its own concurrency
-cap) and its runs meet nobody else's.
-
-The worker is a real one in a subprocess (``orchestrator_engine_worker.py``):
-``research_workflow.run_worker`` registers the task, Hatchet dispatches to it,
-and a run goes through ``worker.run_stored_job`` to a stand-in agent that writes
-the event store as a run does. The test process submits through
-``research_workflow.start`` and cancels through the cancel route's own
-``stop_interrupted_job``, against one SQLite job store both processes share.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -43,8 +28,6 @@ _WORKER = Path(__file__).with_name("orchestrator_engine_worker.py")
 
 
 class Engine:
-    """One test's namespace on the engine, its job store, and the workers it starts."""
-
     def __init__(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         self.tmp_path = tmp_path
         self.db_url = f"sqlite+aiosqlite:///{tmp_path / 'jobs.db'}"
@@ -58,12 +41,7 @@ class Engine:
             monkeypatch.setenv(name, self.env[name])
         from nat.front_ends.fastapi.async_jobs.job_store import Base
 
-        # The runtime's start-up creates job_info in production; nothing here runs it.
         Base.metadata.create_all(EventStore._get_or_create_sync_engine(self.db_url))
-        # The test reads the store while every worker writes it. In SQLite's default
-        # journal a reader blocks a writer, and a blocked event write is dropped after
-        # its busy wait (a run that finished with no "started"). WAL lets them overlap;
-        # the mode is kept in the file, so every process opening it gets it.
         with sqlite3.connect(tmp_path / "jobs.db") as conn:
             conn.execute("PRAGMA journal_mode=WAL")
         self.workers: list[subprocess.Popen] = []
@@ -89,7 +67,6 @@ class Engine:
                 process.kill()
 
     async def submit(self, job_id: str, input_text: str, organization_id: str, priority: str = "interactive") -> str:
-        """Persist the job's status row and start its run, as ``submit_agent_job`` does."""
         from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
         await JobStore(scheduler_address="", db_url=self.db_url)._create_job(job_id=job_id, expiry_seconds=3600)
@@ -125,13 +102,6 @@ def _wait_for(predicate: Callable[[], bool], *, timeout: float, what: str) -> No
 
 
 async def _hatchet_status_settles(run_id: str, *, timeout: float) -> str:
-    """The Hatchet run's status once it has left RUNNING/QUEUED, or the last one seen at the deadline.
-
-    The worker writes the job's verdict and its last event before its task
-    returns, and the engine marks the run COMPLETED only after that return
-    reaches it: read straight after the events, a passing run can still say
-    RUNNING (PR 1477's run 41713812526).
-    """
     deadline = time.monotonic() + timeout
     while True:
         status = (await orchestrator_client.client().runs.aio_get_status(run_id)).value
@@ -142,7 +112,6 @@ async def _hatchet_status_settles(run_id: str, *, timeout: float) -> str:
 
 @pytest.fixture
 def engine(hatchet, tmp_path, monkeypatch) -> Iterator[Engine]:
-    """A real client (not the suite's fake) in a namespace of this test's own."""
     on_engine = Engine(tmp_path, monkeypatch)
     orchestrator_client.reset_for_tests(None)
     research_workflow._declared.clear()
@@ -180,7 +149,6 @@ async def test_cancel_stops_a_running_run_and_its_hatchet_run(engine, monkeypatc
     run_id = await engine.submit("job-cancel", "sleep:120", "org-a")
     _wait_for(lambda: engine.times("job-cancel", "test.started"), timeout=60, what="the run to start")
 
-    # What the cancel route does: the verdict first, then stop the run.
     from agent_host.jobs.runner import _update_status_if_not_terminal
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
@@ -195,7 +163,6 @@ async def test_cancel_stops_a_running_run_and_its_hatchet_run(engine, monkeypatc
 
 
 async def test_a_run_whose_worker_dies_runs_again_on_another_worker(engine):
-    """The retry: the first worker exits mid-run, Hatchet hands the run to the next one."""
     engine.start_worker()
     marker = engine.tmp_path / "first-attempt"
 

@@ -1,9 +1,3 @@
-/**
- * The shared load-failure block: what failed, a hint, and a retry that is busy
- * without being disabled.
- *
- * Rendered without an I18nProvider, so the copy is the default locale (`en`).
- */
 import { act, render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
@@ -22,7 +16,6 @@ describe('LoadError', () => {
   test('falls back to a generic sentence from the dictionary', () => {
     render(<LoadError />)
     expect(screen.getByRole('alert')).toHaveTextContent('Could not be loaded')
-    // No retry handler, no button that does nothing.
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 

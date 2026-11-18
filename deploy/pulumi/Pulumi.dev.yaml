@@ -91,7 +91,12 @@ config:
   # `seaweedfsFilerStore` / `seaweedfsFilerStorageSize` below are already set so
   # that flipping one line is all the window needs.
   grid-oib:seaweedfsTopology: single
-  grid-oib:seaweedfsStorageSize: 10Gi
+  # 10Gi filled on 2026-11-12 (8 GB of it Langfuse blobs, which keep no
+  # retention): the volumes went read-only and project mail and uploads failed.
+  # The deploy grows the live volume to this size and never shrinks it
+  # (seaweedfsGrowVolume, src/data/pvc-grow.ts).
+  grid-oib:seaweedfsStorageSize: 30Gi
+  grid-oib:seaweedfsGrowVolume: "true"
   grid-oib:seaweedfsBucket: grid-documents
   grid-oib:seaweedfsAccessKey: grid
   # Read-only identity for the aiq-agent tier (the `look` tool, ADR-0039).
@@ -142,10 +147,6 @@ config:
   # invalid_redirect_uri (docs/deployment/qdrant-runbook.md, "Dashboard").
   # To keep it off and port-forward instead:
   # grid-oib:qdrantDashboardEnabled: "false"
-  # The migration off Chroma ran here long ago; `chromaMigration` stays off. While
-  # it was on it also suspended the base-corpus sync and the vector reconcile, so
-  # no corpus file was re-ingested on dev until 2026-11-12
-  # (docs/contributing/gotchas.md, "base-corpus files stay stale").
   # ── Agent (smaller on staging) ──
   grid-oib:backendRequestsCpu: "500m"
   grid-oib:backendRequestsMemory: 1Gi
@@ -154,7 +155,7 @@ config:
   grid-oib:backendMaxActiveJobsPerOrg: "2"
   grid-oib:backendIngestMaxWorkers: "2"
   # ── Research execution ──
-  # KEDA scales the tier on research_job_queue (ADR-0079): zero while no job waits.
+  # KEDA scales the tier on Hatchet's research backlog (ADR-0150): zero while no job waits.
   grid-oib:agentWorkerMinReplicas: "0"
   grid-oib:agentWorkerMaxReplicas: "3"
   grid-oib:agentWorkerConcurrency: "1"
@@ -194,6 +195,9 @@ config:
   # change request (KNOWLEDGE_SINGLE_OPERATOR, migration 0233): the owner's
   # decision of 2026-11-11, for dev only. Never set it in Pulumi.prod.yaml.
   grid-oib:knowledgeSingleOperator: "true"
+  # The promotion's carry of reviewed knowledge releases (ADR-0181). Dev is the
+  # stack the bundles come from, so here the Job only logs that stable holds them.
+  grid-oib:knowledgeCarry: "true"
   # ── Observability / OTel Collector + Aspire dashboard (ADR-0029) ──
   # Deployed only when the flag is on AND every dependency is set; otherwise
   # `pulumi preview` logs a warning naming what is missing and the tier
@@ -311,6 +315,9 @@ config:
   # and the JWT template's roles claim are set in WorkOS staging.
   grid-oib:mcpGatewayEnabled: "true"
   grid-oib:mcpGatewayPlatformOrgId: org_01KX06QQJN3KA25R9G2PNFBGXV
+  # Every agent trace through /langfuse/mcp (ADR-0160, amendment of
+  # 2026-11-17): staging's offices are the team's own test offices.
+  grid-oib:mcpGatewayLangfuseTraceOrgs: "*"
   # ── Feedback → GitHub issues ──
   # Bug reports from the in-app feedback form are filed as issues by the BFF,
   # with the err2issue PAT and repo above (feedbackIssuesEnabled defaults on).
@@ -353,10 +360,12 @@ config:
   # the piloti.at zone, not archos.tech: Email Routing's state is one object per zone, so
   # dev and prod each need a zone of their own (stack-files.spec.ts). piloti.at's apex
   # has no MX, so nothing here can take anyone's mail. Its _dmarc is prod's dnsDmarc:
-  # no inboundMailDmarc here. Subaddressing is one API call after it (runbook §7).
+  # no inboundMailDmarc here. Subaddressing: deploy.yml switches it on after `pulumi up`.
   grid-oib:inboundMailDomain: inbox.dev.piloti.at
   grid-oib:inboundMailZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id of piloti.at, Cloudflare zone Overview page)
-  #   Where postmaster@ and abuse@ forward. Not prod's address: Cloudflare keeps each
-  #   destination address once per account, and two stacks would own the same one.
+  #   Where postmaster@ and abuse@ forward. This stack OWNS the destination address
+  #   (Cloudflare keeps each once per account); prod shares it, verified, without creating
+  #   it (inboundMailOperatorAddressShared). Change it here and prod's preview refuses its
+  #   address: stack-files.spec.ts says so on the pull request.
   grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
   grid-oib:inboundMailPaused: "false"

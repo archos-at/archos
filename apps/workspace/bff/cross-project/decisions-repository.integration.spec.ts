@@ -30,7 +30,6 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
-/** The question's vector, as the embedder would return it; null is an embedder that is down. */
 let queryVector: number[] | null = null
 const MODEL = 'test-embedder'
 vi.mock('@/lib/knowledge/embeddings', async (importOriginal) => ({
@@ -38,7 +37,6 @@ vi.mock('@/lib/knowledge/embeddings', async (importOriginal) => ({
   embedNote: async () => (queryVector ? { vector: queryVector, fingerprint: MODEL } : null),
 }))
 
-// Three axes of meaning, so a test can say what a vector is about: stairs, escape widths, fees.
 const STAIRS = [1, 0, 0]
 const WIDTHS = [0, 1, 0]
 const FEES = [0, 0, 1]
@@ -104,7 +102,7 @@ describe.skipIf(!url)('recorded decisions against live Postgres', () => {
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -131,7 +129,6 @@ describe.skipIf(!url)('recorded decisions against live Postgres', () => {
     )
     await note(ORG, ids.baden, 'decision', 'Das Stiegenhaus wird in Stahlbeton ausgeführt, weil das Brandschutzgutachten nur so die Abweichung zulässt.', { vector: STAIRS })
     await note(ORG, ids.moedling, 'constraint', 'Die Baubehörde Mödling verlangt die Fluchtwegbreite in allen Grundrissen bemaßt.', { vector: WIDTHS })
-    // The same meaning from another embedder: noise of the right shape, never compared.
     await note(ORG, ids.moedling, 'decision', 'Treppenkern betoniert.', { vector: STAIRS, model: 'another-embedder' })
     await note(ORG, ids.baden, 'open_question', 'Ist das Stiegenhaus als Fluchtweg ausreichend breit?', { vector: STAIRS })
     await note(ORG, ids.baden, 'decision', 'Stiegenhaus zuerst in Holz geplant.', { status: 'superseded', vector: STAIRS })
@@ -141,7 +138,6 @@ describe.skipIf(!url)('recorded decisions against live Postgres', () => {
       restricted: [ids.folder],
       vector: FEES,
     })
-    // Drawn on both restricted folders (a judged note from a turn that read them): closer to FEES than anything open.
     await note(ORG, ids.baden, 'constraint', 'Nachtragsangebote nur mit Freigabe der Geschäftsführung.', {
       restricted: [ids.folder, ids.secondFolder],
       vector: FEES,
@@ -173,7 +169,6 @@ describe.skipIf(!url)('recorded decisions against live Postgres', () => {
       content: 'Das Stiegenhaus wird in Stahlbeton ausgeführt, weil das Brandschutzgutachten nur so die Abweichung zulässt.',
       restrictedFolderIds: null,
     })
-    // Its words share nothing with the question and its vector is another model's: not found.
     expect(found.map((decision) => decision.content)).not.toContain('Treppenkern betoniert.')
   })
 
@@ -210,7 +205,6 @@ describe.skipIf(!url)('recorded decisions against live Postgres', () => {
 
   it('by meaning, a query vector aimed at a restricted decision does not reach a reader not cleared for all its folders', async () => {
     queryVector = FEES
-    // No word in common with either restricted note: only the dense channel could find them.
     const question = 'What did we agree on payment?'
     const uncleared = await search(ORG, question)
     const half = await search(ORG, question, { [ids.baden]: [ids.folder] })

@@ -14,11 +14,6 @@ export const projects = pgTable(
     createdBy: text('created_by').notNull(),
     collectionName: text('collection_name').notNull(),
     workosResourceId: text('workos_resource_id').unique(),
-    /**
-     * Never `{}`: the default is the empty profile, and
-     * `projects_profile_shape_check` holds the four parts to their JSON types
-     * (migration 0133), so a reader can always enumerate `facts`.
-     */
     profile: jsonb('profile')
       .$type<ProjectProfile>()
       .notNull()
@@ -27,27 +22,12 @@ export const projects = pgTable(
     profilePromptView: text('profile_prompt_view'),
     profileDisplay: jsonb('profile_display').$type<ProjectProfileDisplay>(),
     profileUpdatedAt: timestamp('profile_updated_at', { withTimezone: true }),
-    /**
-     * `active`, `paused` or `closed` (ADR-0098, migrations 0116 and 0129). A
-     * closed project is read-only and open to every member (ADR-0090); a paused
-     * one only stops its schedules and leaves the active list.
-     */
     status: text('status').$type<ProjectStatus>().notNull().default('active'),
-    /** When it was paused; set exactly when `status` is `paused`. */
     pausedAt: timestamp('paused_at', { withTimezone: true }),
-    /** When it was closed; set exactly when `status` is `closed`. */
     closedAt: timestamp('closed_at', { withTimezone: true }),
-    /** Who closed it (WorkOS user id); set exactly when `status` is `closed`. */
     closedBy: text('closed_by'),
-    /** How it ended, `completed` or `cancelled`; never empty when closed, kept across a reopen as the next close's suggestion. */
     closedOutcome: text('closed_outcome').$type<ProjectOutcome>(),
-    /** Beginn, month precision: the first of its month (migration 0117, ADR-0091). */
     startedOn: date('started_on', { mode: 'string' }),
-    /**
-     * Abschluss, month precision: the first of its month. Set by closing, which
-     * names the month (ADR-0098); never empty on a closed project. A reopen keeps
-     * it as the next close's suggestion, and no surface reads it then.
-     */
     endedOn: date('ended_on', { mode: 'string' }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -58,9 +38,6 @@ export const projects = pgTable(
       table.deletedAt,
       table.createdAt
     ),
-    // Referenceable so a child table can tie its denormalised `organization_id`
-    // to the project it names (see `document_roles`). `id` is already the primary
-    // key, so this adds no new restriction — it exists to be a foreign-key target.
     idOrgKey: unique('projects_id_organization_id_key').on(table.id, table.organizationId),
     orgStatusIdx: index('projects_org_status_idx')
       .on(table.organizationId, table.status)

@@ -1,19 +1,5 @@
 'use client'
 
-/**
- * Rebuild every document's chunks in this project.
- *
- * Lives in Settings → Documents & index, not in a danger zone: this destroys no
- * document and loses no upload, it replaces derived data the pipeline can always
- * rebuild. But it is not free either (every chunk is cut and embedded again), so
- * it is a deliberate button behind a confirmation rather than something a stray
- * click can start.
- *
- * The case it exists for is a change to how chunks are BUILT rather than to what
- * they are built from. A chunker change alters no file, so nothing in the ordinary
- * upload path notices and every document keeps serving chunks cut by the old rules.
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { RefreshCw } from 'lucide-react'
@@ -40,8 +26,6 @@ export function ProjectReindexCard({ projectId }: ProjectReindexCardProps): JSX.
     setIsReindexing(true)
     try {
       await reindexProject(projectId)
-      // 202: the job is queued and runs on its own, so there is no count to
-      // show. The documents' own status is where each one reports.
       toast.success(t('project.documents.reindexStarted'))
     } catch {
       toast.error(t('project.documents.reindexFailed'))

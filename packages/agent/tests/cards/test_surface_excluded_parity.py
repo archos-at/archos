@@ -1,13 +1,3 @@
-"""Parity guard: which card types may not be a leaf of a surface (ADR-0065).
-
-``cards/models.py`` derives ``SURFACE_EXCLUDED_LEAVES`` from the catalog's
-sets and refuses the surface when it is written; ``features/a2ui/catalog.tsx``
-keeps its copy by hand and refuses it before drawing. A system card, an
-envelope shape or an interactive card missing from the frontend's copy would
-sit inside a surface, where an interactive card's decision has no message
-position to be keyed by.
-"""
-
 import re
 from pathlib import Path
 
@@ -18,7 +8,6 @@ TS_CATALOG = REPO_ROOT / "apps" / "workspace" / "ui" / "features" / "a2ui" / "ca
 
 
 def _ts_excluded_leaves() -> set[str]:
-    """The string literals of ``SURFACE_EXCLUDED_LEAVES`` in the frontend catalog."""
     source = TS_CATALOG.read_text(encoding="utf-8")
     match = re.search(
         r"export const SURFACE_EXCLUDED_LEAVES: ReadonlySet<string> = new Set\(\[(.*?)\]\)",

@@ -1,5 +1,3 @@
-"""``room``, ``point``, ``highlight``, and leaving at the end of the turn."""
-
 from __future__ import annotations
 
 import pytest
@@ -30,13 +28,20 @@ class TestTheRoom:
         ):
             assert expected in result, expected
 
+    async def test_an_agent_peer_is_the_agent_under_its_new_kind(self, monkeypatch, calls):
+        peer = {"name": "Martin Huber", "kind": "agent", "page": None, "viewport": None, "selectedMarkNumber": None}
+        answering(monkeypatch, calls, {**ROOM_BODY, "peers": [peer]})
+
+        result = await run_room()
+
+        assert "- Martin Huber (Agent)" in result
+
     async def test_an_empty_room_says_so(self, monkeypatch, calls):
         answering(monkeypatch, calls, {**ROOM_BODY, "peers": []})
 
         assert "Nobody has it open right now" in await run_room()
 
     async def test_the_room_op_names_the_answer_this_turn_writes(self, monkeypatch, calls):
-        """The BFF admits the document against the conversation's audience, and marks the answer."""
         answering(monkeypatch, calls, ROOM_BODY)
 
         await run_room()

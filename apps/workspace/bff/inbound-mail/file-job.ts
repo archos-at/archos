@@ -1,49 +1,4 @@
 import 'server-only'
-/**
- * The filing job (`inbound_mail_file`, ADR-0137, DECISION §6 "File"): files the
- * parts a person decided on, AS THAT PERSON (`handler`, the decider's session
- * resolved for every slice; a person who left the organization ends it, and
- * the claims run out to sweep 5). A run acts only on decisions its person
- * made (and, when the payload names decision ids, only on those): another
- * person's decision on the same mail is filed by their own run. What to file, where, under which name and
- * with which acknowledgements is read from the decision rows each claimed part
- * names (`decision_id`), never from the payload, which says only which mails
- * and who.
- *
- * Per mail, in this order:
- *
- * 1. **A move that stopped half-way is finished**: a mail whose text was filed
- *    while its raw message was still being moved to the entry's original
- *    (`original_move_pending_at`, `lib/mail-thread/originals.ts`).
- * 2. **Each attachment** being filed (`fileAttachment`): the claim renewed; the
- *    bytes read from staging; scanned again when the verdict is older than a
- *    day; checked against the SHA-256 the person saw; its folder (or the path
- *    to create) resolved as the person; then the ordinary upload path in the
- *    person's session (`uploadDocument`: folder rights, Namensprüfung,
- *    Inhaltsprüfung, the office's types, quota), in this run's quiet batch
- *    (D35, `INBOUND_ATTACHMENT_EFFECTS`), with the type the person chose and
- *    the mail it came with (`mail_origin`). Filed: the staged bytes are erased
- *    by their key and the part names its document and Fassung (D36). Refused:
- *    the part waits again with a typed `last_failure`.
- * 3. **The text**, after the attachments, so its entry records what became of
- *    each of them (`lib/mail-thread/append.ts`). A thread another filing is
- *    writing makes the run answer „not yet“ without spending an attempt.
- * 4. **An attachment filed after its text** (a retry, a restore) is linked to
- *    the entry's row that still said `pending` (D36).
- * 5. **Settle**, once every part of the mail is filed: the staged objects are
- *    erased by their keys (deferred under a legal hold) and the row is
- *    scrubbed to ids. A mail with a dismissed part is left to sweep 6: the part
- *    can be restored for seven days.
- * 6. **Tell** (`announce.ts`): the decider when a part failed and waits again
- *    (`inbound_mail.filing_failed`), the member sender when this run filed the
- *    last of the mail (`inbound_mail.decided`, D9); the project's collapsed
- *    rows settle once nothing they count waits.
- *
- * Retry-safe: every write is a compare-and-set on the part's claim, the
- * entry's and a new thread's ids are the decision's, and an upload whose answer
- * was lost is found by its digest. A failure a retry would repeat is a part's
- * `last_failure`; anything else throws for the queue's next attempt.
- */
 
 import { createHash } from 'node:crypto'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -96,20 +51,16 @@ import { mailReadSchema, redactRead, type MailRead } from './read-client'
 import { FILING_CLAIM_MS } from './service'
 import { eraseStagedObjects, readStagedObject } from './staging'
 
-/** A scan older than this is repeated before the bytes are filed: signatures change. */
 export const RESCAN_AFTER_MS = 24 * 60 * 60 * 1000
 
-/** The request the uploads' audit lines carry: a job, not a browser. */
 const jobRequest = (): Request =>
   new Request('http://bff-jobs.internal/inbound-mail-file', {
     headers: { 'user-agent': 'inbound-mail' },
   })
 
-/** What one run shares across its mails: the person, the project, and what it reads or opens at most once. */
 interface FilingRun {
   session: AuthorizedSession
   projectId: string
-  /** The decisions this run may act on: its person's own, and of those only the payload's when it names some. */
   owns: (decision: InboundMailDecisionRow) => boolean
   request: Request
   once: <T>(key: string, load: () => Promise<T>) => Promise<T>
@@ -142,25 +93,16 @@ const threadBatch = (run: FilingRun) =>
 const held = (run: FilingRun) =>
   run.once('held', () => projectIsHeld(run.projectId, run.session.organizationId))
 
-/** The locale a new thread is rendered in, for its whole life (`newThreadLocaleFor`), asked once per run. */
 const newThreadLocale = (run: FilingRun): Promise<MailThreadLocale> =>
   run.once('locale', () => newThreadLocaleFor(run.session))
 
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex')
 
-/**
- * The mail with only the decisions this run may act on (`FilingRun.owns`): a
- * part another person decided is theirs to file, in their session, into the
- * folder and with the release they chose, and is left alone here, claim and
- * all. Without this, a follow job's retry would upload a person's attachments
- * as the follower, or a person's run render the follower's append.
- */
 function ownWork(run: FilingRun, work: FilingWork): FilingWork {
   const decisions = new Map([...work.decisions].filter(([, decision]) => run.owns(decision)))
   return { ...work, decisions }
 }
 
-/** The slice (`handler`): every mail of the payload, then the run's batches sealed. */
 export async function runInboundMailFiling(
   session: AuthorizedSession,
   payload: InboundMailFilePayload
@@ -185,7 +127,6 @@ export async function runInboundMailFiling(
     : { done: true, payload }
 }
 
-/** One mail, in the order of the module header. `busy` when its text waits for another writer of its thread. */
 async function fileMail(run: FilingRun, work: FilingWork): Promise<'done' | 'busy'> {
   await finishInterruptedMove(run, work.mail)
   const filedNow: Array<{
@@ -211,13 +152,6 @@ async function fileMail(run: FilingRun, work: FilingWork): Promise<'done' | 'bus
   return outcome
 }
 
-/**
- * Tell what this run did to the mail (D9, DECISION §9): its decider, once per
- * run that failed a part (`inbound_mail.filing_failed`, the part waits again
- * with its reason); its member sender, once, when this run filed the last of
- * it (`inbound_mail.decided`). A run that found a thread busy tells nothing
- * yet: its text is still being filed.
- */
 async function tellOutcome(run: FilingRun, work: FilingWork): Promise<void> {
   const claimed = work.parts.filter((part) => part.state === 'filing' && work.decisions.has(part.id))
   if (claimed.length === 0) return
@@ -247,19 +181,16 @@ async function tellOutcome(run: FilingRun, work: FilingWork): Promise<void> {
     senderFlags: work.mail.senderFlags,
     decidedBy: run.session.userId,
     outcome: 'filed',
-    // Filed as the sender without a click: they hear it, though they are its decider.
     direct: claimed.every((part) => work.decisions.get(part.id)?.via === 'sender'),
   })
 }
 
-/** A mail whose text was filed while its raw message was still moving to the entry's original (originals.ts). */
 async function finishInterruptedMove(run: FilingRun, mail: InboundMailRow): Promise<void> {
   if (!mail.originalMovePendingAt || !mail.rawStorageKey) return
   const entry = await findEntryOfMail(run.projectId, mail.id)
   if (entry) await finishOriginalMove(mail, entry)
 }
 
-/** The message an attachment came with, as its `mail_origin` names it: a forward's by its author (migration 0198). */
 function messageOf(mail: InboundMailRow) {
   return {
     sentAt: mail.sentAt ?? mail.receivedAt,
@@ -275,7 +206,6 @@ function messageOf(mail: InboundMailRow) {
   } as const
 }
 
-/** The thread the mail's text goes (or went) into, as far as it exists: its document and locale. */
 async function threadOf(
   run: FilingRun,
   work: FilingWork
@@ -292,11 +222,6 @@ async function threadOf(
   return { documentId: null, locale: await newThreadLocale(run) }
 }
 
-/**
- * File one attachment as the person (step 2 of the module header). Null when
- * it was not filed: it waits again with its failure, or it is no longer this
- * run's (its claim was handed back).
- */
 async function fileAttachment(
   run: FilingRun,
   work: FilingWork,
@@ -368,7 +293,6 @@ async function fileAttachment(
   return { documentId, versionId: version?.versionId ?? null }
 }
 
-/** File the mail's text into its thread (step 3), now that its attachments are decided. */
 async function fileText(
   run: FilingRun,
   filedMail: InboundMailRow,
@@ -439,7 +363,6 @@ async function fileText(
   return 'done'
 }
 
-/** Every attachment of the mail with its decision and the document it is now, as the person reads it (for D36). */
 async function attachmentFacts(run: FilingRun, work: FilingWork): Promise<AttachmentFact[]> {
   const attachments = work.parts.filter((part) => part.kind === 'attachment')
   const reader = memberReader(run.session.userId)
@@ -494,7 +417,6 @@ async function attachmentFacts(run: FilingRun, work: FilingWork): Promise<Attach
   })
 }
 
-/** Attachments filed after their mail's text: the entry's `pending` rows learn their documents (step 4). */
 async function linkLateAttachments(
   run: FilingRun,
   mail: InboundMailRow,
@@ -518,12 +440,10 @@ async function linkLateAttachments(
   }
 }
 
-/** Step 5: a mail every part of which is filed is scrubbed, its staged objects erased by key (or kept under a hold). */
 async function settleIfFiled(run: FilingRun, mailId: string): Promise<void> {
   const [work] = await findFilingWork(run.projectId, [mailId])
   if (!work || work.parts.some((part) => part.state !== 'filed')) return
   const { mail } = work
-  // A raw message still moving to its entry's original is the move's to erase.
   const keys = [mail.readStorageKey, mail.originalMovePendingAt ? null : mail.rawStorageKey].filter(
     (key): key is string => key !== null
   )
@@ -533,14 +453,6 @@ async function settleIfFiled(run: FilingRun, mailId: string): Promise<void> {
   await settleProjectNotices(run.session.organizationId, run.projectId)
 }
 
-/**
- * The mail as the Verlauf keeps it: every project address redacted, the
- * receiving project's own included (B8). Staging kept the own token so the
- * person deciding sees which address was written to; a filed entry outlives
- * that decision and can leave the project (a shared or exported Verlauf), so it
- * names no address that mail could be sent to. A participant without a display
- * name is printed by its local part, so its address is redacted too.
- */
 export function filedForm<M extends { participants: readonly { address: string }[] }>(
   mail: M,
   read: MailRead,

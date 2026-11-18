@@ -1,12 +1,3 @@
-"""knowledge_search's narrowing as pre-filters inside the Qdrant query (ADR-0116).
-
-Pure units pin the translation; the rest run against a real Qdrant (see
-``test_qdrant_store.py`` for why and how) and drive ``knowledge_search`` itself
-through the real adapter, so the join from ``register.search`` through
-``prefilter`` and ``scope_filter`` to the server is what is under test, not
-each part alone. The metadata store (Postgres, the authority) is stood in for.
-"""
-
 from __future__ import annotations
 
 import uuid
@@ -19,7 +10,7 @@ from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 from knowledge_layer.search import LlamaIndexRetriever
-from knowledge_layer.search.hit_metadata import _folder_matches
+from knowledge_layer.search import _folder_matches
 from knowledge_layer.vector_store import ChunkRecord
 from knowledge_layer.vector_store import Pushdown
 from knowledge_layer.vector_store import build_payload
@@ -36,17 +27,12 @@ from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.schema import RetrievalResult
 from agent.knowledge.scoping import ScopedCollection
 
-# A search over a project or session scope reads as an office, as every request does (ADR-0163).
 pytestmark = pytest.mark.usefixtures("reads_as_an_office")
 
 PROJECT = "proj_prefilter"
 BASE = "oib_knowledge"
 TOP_K = 5
-#: Dokumentarten from the real vocabulary (``is_valid_doc_class`` refuses others).
 REPORT, PERMIT, DRAWING = "other", "law", "external_standard"
-
-
-# ---------------------------------------------------------------- pure units
 
 
 def test_every_search_gets_a_pushdown():
@@ -91,7 +77,6 @@ PATHS += ["Brandschutzkonzepte", "/Brandschutz/", "Statik", "Pläne/Brandschutz"
 @pytest.mark.parametrize("stored", PATHS)
 @pytest.mark.parametrize("requested", [path for path in PATHS if path])
 def test_the_folder_pre_filter_agrees_with_the_post_filter(stored, requested):
-    """``hit_metadata._folder_matches`` is the oracle: the payload match must agree, case and slashes included."""
     key = prefilter.folder_key(requested)
     assert (key in prefilter.folder_ancestors(stored)) is _folder_matches(stored, requested)
 
@@ -112,9 +97,6 @@ def test_payload_derives_ancestors_from_the_folder_that_won():
 def test_without_files_drops_only_the_named_files():
     chunks = [SimpleNamespace(file_name=name) for name in ("a.pdf", "b.pdf", "a.pdf")]
     assert [chunk.file_name for chunk in prefilter.without_files(chunks, ["a.pdf"])] == ["b.pdf"]
-
-
-# ---------------------------------------------------------------- real Qdrant
 
 
 @pytest.fixture
@@ -143,8 +125,6 @@ def _doc(file_name: str, *, folder: str | None = None, doc_class: str | None = N
     )
 
 
-#: The project as the metadata store holds it. ``Altbescheid`` was replaced by
-#: ``Bescheid``; ``Plan`` carries the class a person set over its chunks' own guess.
 DOCS = [
     _doc("Fluchtwege.pdf", folder="Brandschutz/Fluchtwege", doc_class=REPORT),
     _doc("Brandschutz.pdf", folder="Brandschutz", doc_class=REPORT),
@@ -154,7 +134,6 @@ DOCS = [
     _doc("Altbescheid.pdf", folder="Behörde", doc_class=PERMIT, replaced_by="Bescheid.pdf"),
     _doc("Plan.pdf", folder="Behörde", doc_class=DRAWING),
 ]
-#: Chunk-level guesses written at ingestion; the store's class must beat them.
 CHUNK_CLASS = {"Plan.pdf": PERMIT}
 
 
@@ -190,7 +169,6 @@ async def _files(retriever, filters) -> set[str]:
 async def test_doc_class_narrows_and_the_stored_class_beats_the_chunks_guess(retriever, monkeypatch):
     _ingest(retriever, monkeypatch)
     found = await _files(retriever, Pushdown(doc_class=PERMIT, hide_superseded=False).narrow(None, user_shelf=True))
-    # Plan.pdf's chunks guess PERMIT; a person said DRAWING, and the person wins.
     assert found == {"Bescheid.pdf", "Altbescheid.pdf"}
 
 
@@ -206,14 +184,12 @@ async def test_superseded_is_hidden_on_user_shelves_unless_a_file_is_named(retri
     _ingest(retriever, monkeypatch, skip_facts=frozenset({"Root.pdf"}))
     everything = {doc.file_name for doc in DOCS}
     hidden = await _files(retriever, Pushdown().narrow(None, user_shelf=True))
-    # A point no fact was copied onto (Root.pdf) is kept: `$ne` keeps a missing field.
     assert hidden == everything - {"Altbescheid.pdf"}
     assert await _files(retriever, Pushdown(hide_superseded=False).narrow(None, user_shelf=True)) == everything
     assert await _files(retriever, Pushdown().narrow(None, user_shelf=False)) == everything
 
 
 def test_ingest_keeps_the_jobs_folder_until_the_store_has_one(retriever, monkeypatch):
-    """The store row may not hold the folder yet when the chunks land; its None must not erase the job's."""
     doc = _doc("Neu.pdf", folder=None)
     monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {"Neu.pdf": document_facts(doc)})
     row = ChunkRecord(str(uuid.uuid4()), "Text", _vector("neu"), {"file_name": "Neu.pdf"})
@@ -227,10 +203,6 @@ def test_ingest_keeps_the_jobs_folder_until_the_store_has_one(retriever, monkeyp
 
 
 def test_a_collection_made_before_the_field_gets_its_index_on_first_read(fresh_qdrant_store, monkeypatch):
-    """The migration: an old collection lacks ``folder_ancestors``; strict mode refuses it until a process adds it.
-
-    On a collection of its own, since it makes the old shape.
-    """
     from qdrant_client import models
 
     store = store_module.get_store()
@@ -252,12 +224,7 @@ def test_a_collection_made_before_the_field_gets_its_index_on_first_read(fresh_q
     assert schema.ensure_payload_indexes(store.client, alias) == []  # idempotent
 
 
-# ---------------------------------------------------------------- knowledge_search, end to end
-
-
 class _Recording:
-    """The real adapter, with every ``retrieve`` call's budget and filter written down."""
-
     def __init__(self, inner: LlamaIndexRetriever):
         self.inner = inner
         self.calls: list[dict[str, Any]] = []
@@ -271,7 +238,6 @@ class _Recording:
 
 
 def _harness(monkeypatch, inner: Any):
-    """``knowledge_search`` over base + project on ``inner``, Postgres stood in by DOCS."""
     by_name = {doc.file_name: doc for doc in DOCS}
     replaced = {PROJECT: {d.file_name: d.superseded_by for d in DOCS if d.superseded_by}}
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
@@ -317,7 +283,6 @@ def _harness(monkeypatch, inner: Any):
 
 @pytest.fixture
 def search(retriever, monkeypatch):
-    """``knowledge_search`` on the real store."""
     run = _harness(monkeypatch, retriever)
     run.ingest = lambda **kw: _ingest(retriever, monkeypatch, **kw)
     yield run
@@ -325,8 +290,6 @@ def search(retriever, monkeypatch):
 
 
 class _Nothing:
-    """A store that finds nothing: for tests about what is ASKED of it."""
-
     backend_name = "fake"
     embed_model_name = "fake-embedder"
 
@@ -335,7 +298,6 @@ class _Nothing:
 
 
 async def test_no_search_asks_by_file_list(monkeypatch):
-    """A folder and the replaced Fassungen are payload conditions, never ``$in``/``$nin`` lists of names."""
     run = _harness(monkeypatch, _Nothing())
     try:
         _, calls, span = await run(doc_class=REPORT, folder="Behörde")
@@ -381,10 +343,7 @@ async def test_a_replaced_revision_stays_out_without_a_file_list(search):
 
 
 async def test_a_stale_fact_never_shows_a_replaced_revision(search):
-    """Postgres says replaced, the payload never heard: the backstop still drops it."""
     search.ingest(skip_facts=frozenset({"Altbescheid.pdf"}))
-    # `title_contains` over-fetches the whole pool (3 x 5 >= 14 chunks), so the
-    # unstamped Fassung IS retrieved: only the backstop stands between it and the answer.
     out, calls, _ = await search(title_contains="bescheid")
     assert all(call["top_k"] >= 2 * len(DOCS) for call in calls)
     assert _cited_files(out) == {"Bescheid.pdf"}
@@ -399,8 +358,6 @@ async def test_title_contains_is_still_a_post_filter_and_over_fetches(search):
 
 
 class TestTheReadingNarrowsTheSearch:
-    """`document_type` and `refers_to` run inside the Qdrant query, on the facts the ingest read."""
-
     def test_refers_to_a_norm_is_one_indexed_condition_on_references(self):
         pushdown = prefilter.plan(doc_class=None, folder=None, file_name=None, refers_to="ÖNORM B 1600")
         assert {"references": {"$in": ["norm:önorm b 1600", "norm:önorm b1600"]}} in pushdown.clauses(user_shelf=True)
@@ -425,8 +382,6 @@ class TestTheReadingNarrowsTheSearch:
 
 
 class TestASearchFindsEverySpelling:
-    """What a document stores (``extract_references``) against what a search asks for (``prefilter.plan``)."""
-
     @pytest.mark.parametrize(
         ("document", "asked"),
         [

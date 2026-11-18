@@ -1,5 +1,3 @@
-"""Ghost jobs: runs with no heartbeat for too long are failed, once per cycle, under an advisory lock."""
-
 from __future__ import annotations
 
 import asyncio
@@ -14,19 +12,12 @@ from ..jobs.runner import _update_status_if_not_terminal
 logger = logging.getLogger(__name__)
 
 
-#: Five minutes without a sign of life is a ghost job. One number with the window after
-#: which a waiting retry may take a run over (``run_ownership``): were this one shorter,
-#: the reaper would fail a run a retry was about to rescue.
 GHOST_JOB_TIMEOUT_SECONDS = STALE_SECONDS
 
 
 GHOST_JOB_ERROR = "Job timed out (no heartbeat received from worker)"
 
 
-# Active jobs whose last sign of life is older than the timeout, per dialect: the
-# last event AND the last ``job_info`` write, which is ``run_ownership``'s reading.
-# A retry that takes a dead run over only touches ``updated_at`` and emits nothing
-# until its workflow is built; read by its events alone, it was reaped at the next cycle.
 _STALE_SQL = {
     "postgres": (
         "SELECT DISTINCT je.job_id FROM job_events je "
@@ -46,11 +37,6 @@ _STALE_SQL = {
     ),
 }
 
-# Active jobs that never produced a single event. The INNER JOIN above can't
-# match them, but they are exactly the crash class the reaper exists for: a
-# worker that died during agent setup (RUNNING, before the first
-# heartbeat/callback event). Timestamps come from job_info since these jobs
-# have no events at all.
 _EVENTLESS_SQL = {
     "postgres": (
         "SELECT ji.job_id FROM job_info ji "
@@ -68,23 +54,15 @@ _EVENTLESS_SQL = {
 
 
 def _with_statuses(template: str, statuses: tuple[str, ...]):
-    """``template`` as a statement with one bound ``:sN`` placeholder per status, and its parameters."""
     from sqlalchemy import text
 
     placeholders = ", ".join(f":s{i}" for i in range(len(statuses)))
     params: dict[str, Any] = {f"s{i}": status for i, status in enumerate(statuses)}
-    # The template is a module literal and the placeholders are generated; every status is bound.
     # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     return text(template.format(statuses=placeholders)), params
 
 
 def _find_stale_jobs(db_url: str, active_statuses: tuple[str, ...]) -> list[str]:
-    """
-    Sync helper to query for ghost jobs in any of the given non-terminal statuses.
-
-    Runs in a thread via run_in_executor to avoid blocking the async event loop
-    with DB I/O.
-    """
     from sqlalchemy import inspect
 
     from ..jobs.event_store import EventStore
@@ -109,16 +87,8 @@ def _find_stale_jobs(db_url: str, active_statuses: tuple[str, ...]) -> list[str]
 
 
 async def reap_stale_jobs_once(job_store, db_url: str) -> list[str]:
-    """Run a single reap cycle: mark stale jobs FAILURE so their workers stop.
-
-    Returns the list of reaped job IDs. Factored out of _reap_ghost_jobs for
-    testability.
-    """
     from agent.knowledge.leader_lock import leader_lock_async
 
-    # Only one replica runs the cycle (advisory lock), so N web replicas don't
-    # redundantly re-detect and re-mark the same ghosts. A session lock, so it is
-    # taken on the direct LOCK_DB_URL connection, never on db_url (ADR-0083).
     async with leader_lock_async(_PG_REAPER_LOCK_ID) as is_leader:
         if not is_leader:
             return []
@@ -130,22 +100,12 @@ async def _do_reap_cycle(job_store, db_url: str, loop) -> list[str]:
 
     from ..jobs.event_store import EventStore
 
-    # A SUBMITTED job is a HEALTHY queued row waiting for a free worker (it
-    # legitimately has zero events until claimed), so it must NOT be reaped — the
-    # whole point of the queue is to absorb bursts. Crashed CLAIMED jobs are
-    # recovered by the queue's own heartbeat reclaim / reap_exhausted, not here.
-    # Only genuinely abandoned RUNNING jobs (no events for the ghost window) are
-    # reaped.
     stale_job_ids = await loop.run_in_executor(None, _find_stale_jobs, db_url, (JobStatus.RUNNING.value,))
 
     reaped: list[str] = []
     for stale_job_id in stale_job_ids:
         logger.warning("Reaping ghost job %s (no events for %ds)", stale_job_id, GHOST_JOB_TIMEOUT_SECONDS)
         try:
-            # Conditional write: the worker may have finalized this job after
-            # it was detected as stale (a SUCCESS racing the reaper). An
-            # unconditional update_status here would flip that verdict back to
-            # FAILURE — the mirror image of the runner-overwrites-reaper race.
             written = await _update_status_if_not_terminal(
                 job_store,
                 stale_job_id,
@@ -168,10 +128,6 @@ async def _do_reap_cycle(job_store, db_url: str, loop) -> list[str]:
                     },
                 }
             )
-            # The worker stops by itself: its CancellationMonitor polls the
-            # FAILURE it just wrote and aborts the run.
-            # The run is dead or will lose every later write, so nothing else
-            # will tell the BFF; its run row closes on this report.
             await notify_job_outcome_from_access(
                 job_id=stale_job_id,
                 db_url=db_url,
@@ -186,7 +142,6 @@ async def _do_reap_cycle(job_store, db_url: str, loop) -> list[str]:
 
 
 def _int_env(name: str, default: int) -> int:
-    """Positive-int env override, falling back to ``default`` on unset/invalid/≤0."""
 
     try:
         val = int(os.environ.get(name, ""))
@@ -201,12 +156,9 @@ def _int_env(name: str, default: int) -> int:
 """Module-level reference for the chat checkpoint reaper (shutdown cancellation)."""
 
 
-# Advisory lock ID for PostgreSQL — ensures only one pod runs cleanup at a time.
-# Arbitrary constant; change if it collides with another lock in your deployment.
-PG_ADVISORY_LOCK_ID = 0x41495143_4C45414E  # "AIQCLEAN" in hex
+PG_ADVISORY_LOCK_ID = 0x41495143_4C45414E
 
 
-# Distinct lock for the ghost-job reaper so N web replicas don't double-reap.
 _PG_REAPER_LOCK_ID = PG_ADVISORY_LOCK_ID + 1
 
 
@@ -215,5 +167,4 @@ def checkpoint_retention_seconds() -> int:
 
 
 def job_info_delete_grace_seconds() -> int:
-    """How long an expired, terminal job's rows are kept before the event cleanup deletes them."""
     return _int_env("JOB_INFO_DELETE_GRACE_SECONDS", 604800)  # 7d

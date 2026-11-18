@@ -1,11 +1,6 @@
 /**
  * @vitest-environment node
  */
-/**
- * One document to the bin and back (ADR-0131 rule 7), through the folder bin:
- * a holder made in its folder, the document moved in, the holder binned with
- * exactly it; undone when a step fails, and restored back to its folder.
- */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))

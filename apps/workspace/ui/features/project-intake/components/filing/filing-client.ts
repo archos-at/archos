@@ -1,14 +1,3 @@
-/**
- * What the Ablage step reads and writes, as one typed seam: the project's
- * sensitive-data list (`/api/projects/[id]/upload-screening`), its folders
- * (`/api/projects/[id]/folders`) and, to restrict a folder before its files
- * arrive, the folder upload's own resolver (`…/folders/ensure`), which creates
- * a folder exactly as the upload would and answers it if it exists.
- *
- * The step takes the real one by default; the `/dev` preview and the specs
- * bring their own.
- */
-
 import { z } from 'zod'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import {
@@ -23,7 +12,6 @@ export interface FilingSetupClient {
   loadScreening: (projectId: string) => Promise<ProjectUploadScreeningState>
   saveScreening: (projectId: string, override: ProjectScreeningOverride) => Promise<ProjectUploadScreeningState>
   listFolders: (projectId: string) => Promise<FolderItem[]>
-  /** The project folder at this path from the project's top, created when it is missing. */
   ensureFolder: (projectId: string, path: string) => Promise<FolderItem>
 }
 
@@ -64,8 +52,6 @@ export const filingSetupClient: FilingSetupClient = {
     const { folders, folderIdByPath } = EnsuredSchema.parse(await response.json())
     const id = folderIdByPath[path]
     if (!id) throw new ApiRequestError('The folder was not answered', 500)
-    // The resolver answers the folders it created; one that was there already
-    // is read from the listing, with its access as this reader sees it.
     const folder =
       folders.find((candidate) => candidate.id === id) ??
       (await filingSetupClient.listFolders(projectId)).find((candidate) => candidate.id === id)

@@ -1,5 +1,3 @@
-"""Which tools count as unavailable, and what the reader is told when the searches left nothing."""
-
 from types import SimpleNamespace
 
 from agent.common.canned_replies import NO_SOURCES_MESSAGE
@@ -23,8 +21,6 @@ def test_a_registered_stub_is_unavailable_with_its_reason():
 
 
 def test_a_real_tool_that_mentions_missing_data_is_available():
-    # ifc_query and ifc_measure were reported unavailable on every turn, as
-    # "missing standard" and "missing one", for sentences like these.
     tools = [
         _tool("ifc_query", "Checks the model: duplicated GlobalIds, missing standard property sets."),
         _tool("ifc_measure", "A declared one is repeated, a missing one is missing and is never derived."),

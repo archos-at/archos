@@ -1,8 +1,3 @@
-/**
- * The run picker lists what a run can read. It used to read the first page of
- * each listing, so a project's older documents were simply not offered.
- */
-
 import { describe, expect, it } from 'vitest'
 import { renderHook, waitFor } from '@/test-utils'
 import { HttpResponse } from 'msw'

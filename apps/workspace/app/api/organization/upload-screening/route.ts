@@ -1,14 +1,3 @@
-/**
- * The organization's upload-screening policy (ADR-0086).
- *
- * GET — any member: the upload dialog checks names against it before a byte is
- *       sent, so every uploader needs to read it. `suggested` is true while the
- *       office is still on Piloti's proposed list, and `suggestion` is that list,
- *       so the settings card can offer "back to the suggestion".
- * PUT — `org:settings:manage`. The only writer of `settings.uploadScreening`;
- *       the generic settings save refuses the key. Audited with counts.
- */
-
 import { apiRoute, parseJsonBody } from '@/lib/api/handler'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { SUGGESTED_SCREENING_POLICY, uploadScreeningPolicySchema } from '@/lib/upload-screening/policy'

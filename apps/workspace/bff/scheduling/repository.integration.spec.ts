@@ -58,7 +58,7 @@ describe.skipIf(!url)('taking a due occurrence against Postgres', () => {
     inTenant(() => repo.advanceDueDefinition(id, ORG, dueAt, () => ({ nextRunAt, enabled: true, fire: true })))
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     ;({ withTenant, withPlatformAccess } = await import('@/lib/db/tenant-context'))
     db = (await import('@/lib/db')).getDb()
     repo = await import('./repository')
@@ -125,7 +125,6 @@ describe.skipIf(!url)('taking a due occurrence against Postgres', () => {
     await inTenant(() => repo.setScheduledRunId(id, ORG, 'run_1'))
     const [row] = await inTenant(() => db.execute<{ scheduled_run_id: string }>(sql`SELECT scheduled_run_id FROM task_definitions WHERE id = ${id}::uuid`))
     expect(row?.scheduled_run_id).toBe('run_1')
-    // Still overdue with a run on record: the repair schedules it again.
     expect((await repo.findDefinitionsToRepair(3, 500)).map((row) => row.id)).toContain(id)
   })
 

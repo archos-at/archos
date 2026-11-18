@@ -1,29 +1,9 @@
-/**
- * One request to send a document back through ingestion, and what came of it.
- *
- * Shared by the document's own „Erneut lesen" (`use-document-actions.ts`) and
- * the folder brief's „Alle erneut lesen" (`use-bulk-reingest.ts`), so the two
- * cannot read the server's answer differently. Every refusal is a 409 whose
- * `details.code` says why (`@/lib/documents/reingest-codes`).
- */
-
 import { INGEST_ALREADY_DONE, INGEST_RUNNING, INGEST_WOULD_FAIL_AGAIN } from '@/lib/documents/reingest-codes'
 
 export type ReingestOutcome =
-  /** Dispatched; `status` is the row's new status (usually `pending`). */
   | { kind: 'started'; status: string }
-  /**
-   * Nothing to retry: the row the reader saw was stale — the backend is already
-   * reading it, or already has. `status` is the real one when the server said.
-   */
   | { kind: 'settled'; code: typeof INGEST_RUNNING | typeof INGEST_ALREADY_DONE; status: string | null }
-  /**
-   * Not read again on purpose: the file failed for a lasting reason and
-   * reading the same bytes would fail the same way (`lib/documents/retry-policy.ts`).
-   * Not an error to retry; the way out is a new upload.
-   */
   | { kind: 'unchanged' }
-  /** Refused for another reason, or the request itself failed. */
   | { kind: 'failed' }
 
 async function readReingestRefusal(res: Response): Promise<{ code: string | null; status: string | null } | null> {

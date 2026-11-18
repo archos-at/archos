@@ -1,10 +1,3 @@
-"""Retrieval is store-authoritative for doc_class (Phase B).
-
-The summary store's stored ``doc_class`` must win over the value stamped into
-chunk metadata at ingestion time; chunk metadata is only a fallback when the
-store has no value for the document.
-"""
-
 from __future__ import annotations
 
 import tempfile
@@ -40,7 +33,6 @@ def test_stored_doc_class_wins_over_chunk_metadata():
         configure_summary_db(db_url)
 
         register_summary("oib_knowledge", "doc.pdf", "A document.")
-        # Store says richtlinie; the chunk metadata still carries the old guess.
         assert set_document_doc_class("oib_knowledge", "doc.pdf", "oib_guideline")
 
         result = SimpleNamespace(
@@ -50,10 +42,8 @@ def test_stored_doc_class_wins_over_chunk_metadata():
         )
         text = format_results(result, "q")
 
-        # The STORED class is what the LLM sees, not the chunk-metadata one.
         assert "Dokumentart: oib_guideline" in text
         assert "Dokumentart: oib_guide —" not in text
-        # And the Trace-Lanes lane derives from the stored class (richtlinie).
         assert "building_law_oib" in text
         DocumentMetadataStore.dispose_engine(db_url)
 
@@ -64,7 +54,6 @@ def test_falls_back_to_chunk_metadata_when_store_empty():
         DocumentMetadataStore._tables_initialized.discard(db_url)
         configure_summary_db(db_url)
 
-        # No summary row / no stored doc_class for this document.
         result = SimpleNamespace(
             success=True,
             chunks=[_chunk(file_name="orphan.pdf", collection="oib_knowledge", doc_class="oib_guide")],
@@ -77,7 +66,6 @@ def test_falls_back_to_chunk_metadata_when_store_empty():
 
 
 def test_stored_display_title_is_the_source_label():
-    """The stored display title (admin override) becomes the citation `Source:`."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_url = f"sqlite:///{Path(tmpdir) / 'title.db'}"
         DocumentMetadataStore._tables_initialized.discard(db_url)
@@ -95,8 +83,6 @@ def test_stored_display_title_is_the_source_label():
         )
         text = format_results(result, "q")
 
-        # The human name is the Source label; the raw filename only appears in the
-        # machine Citation (needed for preview/identity), never as the Source.
         assert "Source: Custom OIB Name" in text
         assert "Source: oib-rl_2_ausgabe_mai_2023.pdf" not in text
         assert "Citation: oib-rl_2_ausgabe_mai_2023.pdf, p.3" in text
@@ -104,7 +90,6 @@ def test_stored_display_title_is_the_source_label():
 
 
 def test_display_title_falls_back_to_derived_default():
-    """With no stored title, the Source label is derived from the OIB filename."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_url = f"sqlite:///{Path(tmpdir) / 'title2.db'}"
         DocumentMetadataStore._tables_initialized.discard(db_url)
@@ -122,7 +107,6 @@ def test_display_title_falls_back_to_derived_default():
 
 
 def test_non_oib_upload_keeps_its_filename_as_source():
-    """A project upload with no derivable OIB name keeps its own filename."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_url = f"sqlite:///{Path(tmpdir) / 'title3.db'}"
         DocumentMetadataStore._tables_initialized.discard(db_url)

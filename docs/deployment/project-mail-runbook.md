@@ -20,6 +20,75 @@ sends from their own signed address is filed directly as them, everything else
 waits in the project's E-Mail-Eingang, and gates G0–G9 are recorded as passed in
 `kubernetes.md` §3c.
 
+## Prod: one promotion (owner decision, 2026-11-14)
+
+Prod does not take the three promotions of §6 to §8. The owner decided on
+2026-11-14 that project mail goes live for **all offices** with the November
+develop→prod release (its runbook `docs/deployment/prod-release-2026-11.md`, Phase 4),
+and gave the data-protection go-ahead for all of them. Every office is a pilot,
+and dev has received mail since 2026-11-05. The cost: §8's gates run after
+go-live instead of before, against the first real mail, and G0's open question
+(B2: does archos.tech take subaddressing without its Google apex being
+onboarded?) is answered by the deploy itself.
+
+`Pulumi.prod.yaml` carries the whole block, on and unpaused: `malwareScanEnabled`,
+`inboundMailDomain: inbox.archos.tech`, its zone id, `inboundMailDmarc`,
+`inboundMailOperatorAddress` with `inboundMailOperatorAddressShared: "true"`,
+`inboundMailPaused: "false"`. `stack-files.spec.ts` and `loadConfig` check it on
+the pull request.
+
+**What the promotion does by itself**, in the `Pulumi up (prod)` job:
+
+| Step | Before | Now |
+|---|---|---|
+| The scanner | promotion 1, then wait for ClamAV to be ready | the same apply. `pulumi up` does not wait for the `clamav` Deployment (`pulumi.com/skipAwait`, `src/app/clamav.ts`): its first readiness needs freshclam's update, about ten minutes or more, and would hold back the app tiers. Until it is ready every scan fails closed and is retried; mail is held, never filed unscanned |
+| The verification click | the first apply failed at the forwards (error 2054); click, re-run | none. The forwards point at dev's destination address `matthias.bigl+mail-dev@archos.tech`, which the account holds verified; prod declares no address (`inboundMailOperatorAddressShared`). The preview refuses, with nothing changed, if the account does not hold it verified |
+| Subaddressing (§7) | one `curl` by a person | the step `Project mail - subaddressing` after `pulumi up` (`scripts/inbound-mail-after-deploy.sh subaddress`): GET, PATCH `support_subaddress` only when it is off, GET again; a refusal fails the job (B2) |
+| G7 | a person's `cloudflare` run | the step `Project mail - launch gates`, in the job summary |
+| G3 (signed route) | a person's `signed --run` | the same step, once the `production` environment's secret `INBOUND_MAIL_TEST_ADDRESS` holds a test-office address; until then the summary says it was skipped |
+
+**What still needs a person, before the promotion:**
+
+- [ ] **The deploy token** (§4). Prod's `cloudflareApiToken` in ESC is still the
+  user token on `piloti.at` only ([`domain-cutover.md`](domain-cutover.md), the
+  token row: dev's was replaced 2026-11-05, prod's was not). Replace it with an
+  account-owned token carrying §4's mail scopes on `archos.tech` and the
+  account **and** everything prod's DNS block uses on `piloti.at` today (Zone ·
+  DNS · Edit, Zone · Zone · Read, and the `www` redirect's Single Redirect /
+  Dynamic URL Redirects · Edit). Prove it before setting it:
+  `CLOUDFLARE_API_TOKEN=<token> deploy/pulumi/scripts/check-cloudflare-token.sh --stack prod`.
+  A missing scope fails the preview, or the apply at the resource that needed it.
+- [x] Workers Paid (§3, 2026-11-05). [x] The signing key in prod's ESC (§5, 2026-11-05).
+- [ ] Optional, read-only, so the preview is not where you learn it: dev's
+  destination address still verified, `GET /accounts/<account>/email/routing/addresses`
+  (its `verified` is a date). Staging's deploys being green says so: dev's
+  forwards to it could not exist otherwise.
+- [ ] Langfuse (§3, O3), if not done: `task langfuse:provision -- --apply`.
+  Mail is received without it; the suggestion's scores have no config.
+
+**After the job is green, gates included:**
+
+1. The owner switches `inbound-mail` on in WorkOS Production for all
+   organizations (§9). Not before: until then the frontend shows no address,
+   so no address exists that could bounce while subaddressing is still being
+   switched on.
+2. `kubectl -n grid rollout status deploy/clamav --timeout=30m` (§6's checks).
+   Not ready after that: freshclam's log, §6.
+3. A test-office address into the `production` environment's secret
+   `INBOUND_MAIL_TEST_ADDRESS` (GitHub → Settings → Environments), so the next
+   deploy runs G3; or run `signed --run` by hand now (§8's shell).
+4. The gates no deploy can run, on the live system: G0's test mail, G1, G2,
+   G5, G6's verdicts, G9 (§8, Phase B), recorded in `kubernetes.md` §3c. B1's
+   check of the Worker's `LANDING_URL`.
+
+**If the job fails:** at the forwards' preview guard, the shared address is not
+verified (click its mail, re-run). At the subaddressing step, B2 has happened:
+leave the WorkOS flag off, set `inboundMailPaused: "true"` (or
+`inboundMailEnabled: "false"`) and decide D1 again; never onboard the apex.
+At a gate, the summary names the check; leave the flag off until it is green.
+Rollback, fastest first: the WorkOS flag off, then the pause, then
+`inboundMailEnabled: "false"` (§10).
+
 ## 0. Before you start: what this runbook cannot fix
 
 | # | Open item | Effect | What closes it |
@@ -43,11 +112,13 @@ re-reads the live values.
 | `inbox.` subdomain | does not exist | does not exist |
 | Email Routing | not enabled | not enabled |
 
-In the product today: no stack sets `inboundMailDomain`; prod has
-`malwareScanEnabled` unset (off); the WorkOS entitlement `inbound-mail` exists
+In the product on 2026-11-03: no stack set `inboundMailDomain`; prod had
+`malwareScanEnabled` unset (off). Since then dev receives mail on
+`inbox.dev.piloti.at` (2026-11-05) and prod's block is on for the November
+release (the section above). The WorkOS entitlement `inbound-mail` exists
 in both environments (owner gate O1, 2026-10-27): staging ON for all
-organizations since 2026-11-05, production OFF until §8's gates pass on prod.
-Every office is a pilot (owner, 2026-11-05), so §9 is one switch: production,
+organizations since 2026-11-05, production OFF until the owner switches it on
+after the release's deploy (the section at the top). Every office is a pilot (owner, 2026-11-05), so §9 is one switch: production,
 all organizations.
 
 ## 2. Decisions to make first
@@ -84,8 +155,10 @@ manager creates the address; nobody outside the company may hold it.
 **D3, the operator mailbox.** The address `postmaster@` and `abuse@` of the
 receiving domain forward to (RFC 2142), on the company's own mail, e.g. a Google
 group: `inboundMailOperatorAddress`. Pulumi registers it with Cloudflare; a
-person opens Cloudflare's verification mail to it once (§7). On path (b) it is
-also the DMARC report address (`rua=`).
+person opens Cloudflare's verification mail to it once (§7). Or the stack
+shares one the account already holds verified (`inboundMailOperatorAddressShared`):
+no mail, no click. Prod shares dev's since 2026-11-14. The DMARC report
+address (`rua=`) is set on its own in `inboundMailDmarc`.
 
 **D4, the pilot office.** The first customer office (gate O7), and one of its
 people who can export a few hundred messages of real project mail for G9.
@@ -206,6 +279,10 @@ anything else with the exact `pulumi config set` shape in its message.
 
 ## 6. Promotion 1: the image and the scanner
 
+§6 to §8 are the path for a stack brought up step by step. Prod takes one
+promotion instead (the section at the top); the checks and the failure notes
+below still apply to it.
+
 The scanner must run before the domain is set (`loadConfig` refuses the pair),
 and its first start needs fresh signatures.
 
@@ -305,7 +382,10 @@ its events (`kubectl -n grid describe pod -l app.kubernetes.io/name=clamav`). Pr
   creates the two rules. The stack output `inboundMailOperator` reads
   `… (NOT verified …)` until Pulumi reads it again (`pulumi refresh`); `g0`
   reads it live.
-- [ ] **Subaddressing**, one API call with the deploy token (it has Zone
+- [ ] **Subaddressing.** A deploy through `deploy.yml` does this itself after
+  `pulumi up` (`scripts/inbound-mail-after-deploy.sh subaddress`: GET, then the
+  PATCH below only when it is off; a refusal fails the job). By hand, for a stack
+  applied outside CI: one API call with the deploy token (it has Zone
   Settings · Edit), from the shell of §3:
 
   ```bash
@@ -386,7 +466,7 @@ runs".
 |---|---|---|---|
 | **G0** | `bun scripts/inbound-mail-smoke.ts g0`, then send the mail it prints (to `project+smoke.aaaaaaaaaaaa@inbox.<domain>`) from your own mailbox | Every line PASS: the subdomain's MX are Cloudflare's, the apex's are unchanged, `support_subaddress=true`, the rule `project@inbox.<domain>` → `inbound-mail-prod`, the two forwards, their destination verified, no other rule, exactly one DMARC record at `_dmarc.<apex>` and it is `INBOUND_MAIL_DMARC`. The mail: **no bounce**; hours later your server reports a delay (the paused Worker threw, a temporary failure). Email Routing → Activity log lists it against the rule | MX of the subdomain missing: wait for DNS, re-run. Apex MX changed: someone onboarded the apex; on (b) restore Google's MX at once. `support_subaddress=false`: §7's PATCH. Forward destination not verified: the click of §7. Two DMARC records: someone added one by hand (the preview refuses that on the next deploy); delete the one that is not `inbound-mail-dmarc`. An immediate bounce "Address does not exist": subaddressing does not reach the subdomain's rule, **stop**, risk B2, fallback. A bounce "Unknown address: this message was not delivered.": the Worker's `ADDRESS_*` bindings differ from the address you typed |
 | **G4**, first half | `bun scripts/inbound-mail-smoke.ts signed --run --expect-paused`; and one real mail to the test address | `unsigned request refused` and `unknown key refused` PASS (401), `paused: a signed mail is a retry` PASS (503). The real mail is delayed, not bounced | 503 missing: the frontend has not rolled out `INBOUND_MAIL_PAUSED`; `kubectl -n grid rollout status deploy/frontend` |
-| **G7** | `bun scripts/inbound-mail-smoke.ts cloudflare` | All PASS, including `Workers observability off` and `Worker bindings` (all six, the key a secret) | A binding edited in the dashboard: never fix it there; `pulumi up` restores it from state |
+| **G7** | `bun scripts/inbound-mail-smoke.ts cloudflare` (also run by every deploy, in the job summary) | All PASS, including `Workers invocation logs off` and `Worker bindings` (all seven, the key a secret) | A binding edited in the dashboard: never fix it there; `pulumi up` restores it from state |
 | **G8** | the same run's `compatibility date` line | INFO only. After any later `COMPATIBILITY_DATE` bump in `src/platform/inbound-mail.ts`: G1 and G2 again | — |
 
 ### Unpause (promotion 3)

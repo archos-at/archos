@@ -1,21 +1,3 @@
-"""How the Erfassungs-Agent reads, and how every read reaches the read log.
-
-Two ways in. ``read_document`` reads a project document's pages in full, which
-is what the intake mostly needs: a value sits in a title block, a table or a
-Baubeschreibung paragraph, and a ranked search returns fragments of exactly the
-pages one wants whole. ``knowledge_search`` and ``read_passage`` stay the way to
-FIND where a value is; they are the shared agent-runtime tools, bound unchanged, and
-:class:`IntakeToolMiddleware` logs what they returned.
-
-``read_document`` reads the indexed text page by page from the collection's
-chunks, the reader the closed-project reading uses
-(``knowledge/collection_pages.read_pages``, a structural fetch from the vector
-store in reading order), so nothing is parsed again. It reads
-only documents of the run's own project shelves: the scope the BFF signed into
-the run's envelope, which for an intake is the project's main collection
-(ADR-0111, decision 6), never the corpus and never a restricted folder.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -48,25 +30,18 @@ from .read_log import current_read_log
 logger = logging.getLogger(__name__)
 
 READ_DOCUMENT_TOOL = "read_document"
-#: The shared tools whose results are logged, and the one of them that counts as opening a file.
 SEARCH_TOOL = "knowledge_search"
 PASSAGE_TOOL = "read_passage"
 
-#: Characters one ``read_document`` call returns (about 3 000 tokens): a few dense pages.
 MAX_READ_CHARS = 12_000
-#: Pages one call may name.
 MAX_PAGES_PER_CALL = 30
-#: Page numbers a truncated read offers as the next call.
 NEXT_PAGES_OFFERED = 10
 
-#: A citation as the tools print it: ``Plan.pdf, p.3`` (a grounding key), or ``Plan.pdf, S. 3`` / ``Seite 3``.
 _KEY_PAGE = re.compile(r"^(?P<name>.*?),\s*(?:p\.|S\.|Seite)\s*(?P<page>\d+)$", re.IGNORECASE)
 
 
 @dataclass
 class DocumentPage:
-    """One page of a document as indexed: its label as printed, its number when it is one, and its text."""
-
     label: str | None
     number: int | None
     parts: list[str] = field(default_factory=list)
@@ -87,7 +62,6 @@ def _page_number(label: str | None) -> int | None:
 
 
 def group_pages(chunks: Iterable[tuple[Any, str]]) -> list[DocumentPage]:
-    """``(page_label, chunk text)`` in reading order, as pages. A chunk without a label follows the page before it."""
     pages: list[DocumentPage] = []
     for raw_label, raw_text in chunks:
         body = (raw_text or "").strip()
@@ -101,9 +75,6 @@ def group_pages(chunks: Iterable[tuple[Any, str]]) -> list[DocumentPage]:
     return pages
 
 
-# ── Where a document is ──────────────────────────────────────────────────────
-
-
 @dataclass(frozen=True)
 class ProjectDocument:
     collection: str
@@ -115,12 +86,6 @@ class ProjectDocument:
 
 
 def project_collections() -> list[str]:
-    """The run's project shelves from its signed scope: the corpus, the Archiv, a session and a restricted folder never.
-
-    The BFF signs only the project's main collection into the run, so a restricted folder's
-    collection should never be here. It is refused anyway: what the intake reads becomes a profile
-    every member reads (ADR-0087, ADR-0111), and a scope that drifted must not widen that.
-    """
     from agent.knowledge.scoping import get_scoped_collections_from_context
 
     entries = get_scoped_collections_from_context() or []
@@ -132,7 +97,6 @@ def project_collections() -> list[str]:
 
 
 async def project_documents() -> list[ProjectDocument]:
-    """Every document registered for the run's project shelves; empty on a store error."""
     from agent.knowledge.factory import get_available_documents_async
 
     found: list[ProjectDocument] = []
@@ -147,7 +111,6 @@ async def project_documents() -> list[ProjectDocument]:
 
 
 def fetch_document_pages(collection: str, file_name: str) -> list[tuple[Any, str]] | None:
-    """``(page_label, chunk text)`` of one file from its collection's chunks. Blocking; raises on a store outage."""
     from agent.knowledge.collection_pages import read_pages
 
     return read_pages(collection, file_name)
@@ -159,7 +122,6 @@ def _names_of(document: ProjectDocument) -> list[str]:
 
 
 def resolve_document(name: str, documents: list[ProjectDocument]) -> ProjectDocument | None:
-    """The document named exactly (file name or display title, case aside); never a fragment."""
     wanted = (name or "").strip().casefold()
     return next((document for document in documents if wanted in _names_of(document)), None) if wanted else None
 
@@ -172,9 +134,6 @@ def _unknown_document(name: str, documents: list[ProjectDocument]) -> str:
         f"No document named „{name}“ in this project ({len(names)} documents in scope).{hint} "
         "Call list_files for the exact names, or knowledge_search to find which document holds a value."
     )
-
-
-# ── read_document ────────────────────────────────────────────────────────────
 
 
 def _header(document: ProjectDocument, pages: list[DocumentPage]) -> list[str]:
@@ -203,7 +162,6 @@ def _selected(pages: list[DocumentPage], wanted: list[int]) -> tuple[list[Docume
 def render_pages(
     document: ProjectDocument, pages: list[DocumentPage], wanted: list[int], log: IntakeReadLog | None
 ) -> str:
-    """The pages asked for, under ``[Seite N]`` markers, within :data:`MAX_READ_CHARS`; logs what it shows."""
     selected, missing = _selected(pages, wanted)
     lines = _header(document, pages)
     if missing:
@@ -291,11 +249,7 @@ def make_read_document_tool() -> StructuredTool:
     )
 
 
-# ── Logging what the shared tools returned ───────────────────────────────────
-
-
 def _strip_qualifier(name: str) -> str:
-    """``Plan.pdf (Projektwissen)`` → ``Plan.pdf``: the shelf qualifier a citation key carries when ambiguous."""
     for qualifier in SHELF_QUALIFIERS.values():
         suffix = f" ({qualifier})"
         if name.endswith(suffix):
@@ -304,12 +258,6 @@ def _strip_qualifier(name: str) -> str:
 
 
 def citation_parts(citation: str) -> tuple[str, int | None]:
-    """``(file name, page)`` of a citation as a reading tool printed it.
-
-    ``Plan.pdf, p.3`` (a grounding key) or ``Plan.pdf (Projektwissen), S. 3``.
-    A citation without a page is the file name alone. ``record_values`` takes
-    the citation as the model copied it, so the model does not re-assemble it.
-    """
     match = _KEY_PAGE.match((citation or "").strip())
     if match is None:
         return _strip_qualifier((citation or "").strip()), None
@@ -317,13 +265,6 @@ def citation_parts(citation: str) -> tuple[str, int | None]:
 
 
 def passages_in(tool_name: str, text: str) -> list[tuple[str, int | None, str, str | None]]:
-    """``(file name, page, passage text, shelf)`` of every passage a grounding-block result showed the model.
-
-    The records the knowledge layer filed for this exact text when it rendered
-    it, when they are there (ADR-0061), else the text parsed back
-    (``extract_sources_from_tool_result``), which recovers the file and page from
-    the citation key.
-    """
     from agent.citations.extraction import extract_sources_from_tool_result
     from agent.common.grounding_block import get_grounding_block
 
@@ -342,7 +283,6 @@ def passages_in(tool_name: str, text: str) -> list[tuple[str, int | None, str, s
 
 
 def log_tool_result(tool_name: str, content: Any) -> int:
-    """Log the passages a search or locator result showed; how many. Never raises."""
     log = current_read_log()
     if log is None:
         return 0
@@ -367,15 +307,6 @@ def _budget_text(max_steps: int) -> str:
 
 
 class IntakeToolMiddleware(AgentMiddleware):
-    """Around every tool call of the run: the step budget, a failure as text, and the read log.
-
-    A tool that raises ends a LangGraph run; here it becomes a message the model
-    can act on, as every tool in this repo answers. After ``max_steps`` calls
-    only ``finish_intake`` still runs. Once ``finished`` says the intake was
-    finished, the run ends before the next model call: ``finish_intake`` is not
-    ``return_direct``, because a first call it holds must reach the model.
-    """
-
     def __init__(
         self,
         *,
@@ -388,7 +319,6 @@ class IntakeToolMiddleware(AgentMiddleware):
         self.max_steps = max_steps
         self.finish_tool = finish_tool
         self.finished = finished
-        #: Run after every tool call, once the read log has it: the run's progress report.
         self.after_call = after_call
         self.steps = 0
 
@@ -420,9 +350,6 @@ class IntakeToolMiddleware(AgentMiddleware):
                 status="error",
             )
         if (SEARCH_TOOL in name or PASSAGE_TOOL in name) and isinstance(result, ToolMessage):
-            # Logged from the bytes the knowledge layer filed its records under, THEN
-            # the fan-out JSON goes: it is ~1 000 tokens a search that the model
-            # re-reads on every later call and has no use for (Piloti strips it too).
             log_tool_result(name, result.content)
             if isinstance(result.content, str):
                 stripped = strip_trace_lanes(result.content)

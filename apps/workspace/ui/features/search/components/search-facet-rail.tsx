@@ -13,28 +13,17 @@ import { isFacetActive } from '../lib/search-facets'
 import type { SearchUrlState } from '../lib/search-url'
 import { FacetFind, FacetOption, QuietLine, RailAction, RailSection } from './search-atoms'
 
-/** How many values a dimension shows before „Alle zeigen“. */
 const FACET_PREVIEW = 6
 
 export interface SearchFacetRailProps {
   state: SearchUrlState
   facets: SearchResponse['facets']
-  /** Documents in scope not read yet, which no count above includes. */
   unread?: number | null
   onToggle: (dimension: SearchFacetDimension, value: string) => void
-  /** The project dimension narrows the office-wide page only; inside a project or on the shelf it is no choice. */
   showProjects: boolean
-  /**
-   * A typed filter that belongs to a dimension, under its values: a party's
-   * name in Beteiligte. The group shows for it even when nothing is counted.
-   */
   extras?: Partial<Record<SearchFacetDimension, ReactNode>>
 }
 
-/**
- * The counts over the matched documents, one group per dimension, the values
- * switched on first. A click switches a value on or off (`toggleFacet`).
- */
 export function SearchFacetRail({ state, facets, unread = null, onToggle, showProjects, extras }: SearchFacetRailProps): JSX.Element | null {
   const t = useTranslations(searchCopy, 'facets')
   if (!facets) return null
@@ -68,7 +57,6 @@ function FacetGroup({
   const [find, setFind] = useState('')
   if (values.length === 0 && !extra) return null
   const sorted = [...values].sort((a, b) => Number(isFacetActive(state, dimension, b.value)) - Number(isFacetActive(state, dimension, a.value)) || b.count - a.count)
-  // The long tail is searched, not scrolled: once open, a field narrows the values by their name.
   const needle = find.trim().toLocaleLowerCase()
   const shown = expanded
     ? needle === ''

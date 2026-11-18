@@ -3,19 +3,6 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
 
-/**
- * Qdrant's web dashboard at the edge (`qdrantDashboardEnabled`), the whole
- * program built once with it on and DNS managed.
- *
- * Every assertion here is a string that plans clean and is wrong only on a
- * cluster: a listener whose certificate name nothing issues, a route that sends
- * the dashboard somewhere its REST calls do not follow, a policy whose
- * redirect URI WorkOS has never heard of, a gate that admits analysts to raw
- * vectors, a NetworkPolicy that times out every request behind a green gate,
- * a WorkOS token handed on to Qdrant. The off side (nothing at all) is in
- * `index.spec.ts` and `index-dns.spec.ts`.
- */
-
 const HOST = "qdrant.dev.example.test";
 
 type Listener = {
@@ -91,7 +78,6 @@ const listeners = (): Listener[] =>
   (RESOURCES.find((r) => r.name === "grid-gateway")!.inputs.spec as { listeners: Listener[] }).listeners;
 const route = () => find<Route>(TYPE.route, "grid-qdrant-dashboard-route");
 const policy = () => find<Policy>(TYPE.policy, "grid-qdrant-dashboard-security-policy");
-/** A Secret's `stringData`, unwrapped from the mock's secret envelope. */
 const secretData = (name: string): Record<string, string> => {
   const data = find<{ stringData: Record<string, unknown> }>(TYPE.secret, name).stringData;
   return (typeof data.value === "object" ? data.value : data) as Record<string, string>;
@@ -146,7 +132,6 @@ describe("Qdrant's dashboard, switched on", () => {
     const spec = route().spec;
     expect(spec.parentRefs).toEqual([{ name: "grid-gateway", sectionName: "https-qdrant" }]);
     expect(spec.hostnames).toEqual([HOST]);
-    // The catch-all: no `matches`, so `/collections`, `/cluster`, … all arrive.
     const backend = spec.rules.find((r) => r.backendRefs !== undefined)!;
     expect(backend.matches).toBeUndefined();
     expect(backend.backendRefs).toEqual([{ name: "qdrant", port: 6333 }]);
@@ -154,9 +139,6 @@ describe("Qdrant's dashboard, switched on", () => {
   });
 
   it("removes the forwarded WorkOS token, header and cookie, before Qdrant sees the request", () => {
-    // The gate forwards the access token as `Authorization: Bearer`, which
-    // Qdrant reads as an API key; the OAuth2 filter's BearerToken cookie
-    // carries the same token.
     const backend = route().spec.rules.find((r) => r.backendRefs !== undefined)!;
     const modifiers = (backend.filters ?? []).filter((f): f is HeaderFilter => f.type === "RequestHeaderModifier");
     expect(modifiers).toEqual([
@@ -165,8 +147,6 @@ describe("Qdrant's dashboard, switched on", () => {
   });
 
   it("injects no Qdrant key at the edge", () => {
-    // A `set` here would be a literal value: the key in plaintext in the
-    // HTTPRoute and in Pulumi state.
     const serialized = JSON.stringify(route());
     expect(serialized).not.toMatch(/api-key/i);
     expect(serialized).not.toContain("qd-rw");

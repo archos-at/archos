@@ -1,5 +1,3 @@
-"""The merge-commit release-note guard, against real git merges in a scratch repository."""
-
 from __future__ import annotations
 
 import subprocess
@@ -32,7 +30,6 @@ def guard(repo: Path) -> subprocess.CompletedProcess[str]:
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    """A base commit, a `topic` branch that adds the note, and a `main` that moved on."""
     git(tmp_path, "init", "-q", "-b", "main")
     git(tmp_path, "config", "user.email", "test@example.com")
     git(tmp_path, "config", "user.name", "test")

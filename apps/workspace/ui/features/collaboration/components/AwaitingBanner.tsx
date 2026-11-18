@@ -1,27 +1,5 @@
 'use client'
 
-/**
- * The hand-off banner (spec MN-8, MN-9, MN-10).
- *
- * This component exists for one reason: **the agent's silence must never be
- * unexplained.** When a message tags a person, no turn is started at all (MN-7) —
- * which, without something on screen saying so, is indistinguishable from a broken
- * product. So the banner names who is awaited, says out loud that Piloti is holding
- * off, and — crucially — always offers a way out: any participant may release the
- * wait, and anyone may hand the question to the agent instead. A thread must never
- * be stuck because one person went on holiday.
- *
- * Two states, one component:
- *   - **someone else is awaited** — calm, informational; ink and paper.
- *   - **YOU are awaited** (`awaitingMe`) — the one moment this surface asks for
- *     something, so it carries the "needs attention" gold of the house language
- *     (icon + label + colour, never colour alone) and stronger copy.
- *
- * It renders the derived server state verbatim (`useAwaitingState`) and never
- * computes a wait locally: the banner, the participants' banners and the
- * recipient's inbox all read the same rows, so they cannot disagree (ADR-0034).
- */
-
 import type { JSX } from 'react'
 import { useState } from 'react'
 import { Clock, CornerUpLeft, Hand } from 'lucide-react'
@@ -37,22 +15,9 @@ import { cn } from '@/lib/utils'
 import { Quote } from '@/components/ui/quote'
 
 export interface AwaitingBannerProps {
-  /** The derived hand-off state; `null` or empty `pending` renders nothing. */
   awaiting: AwaitingStateResponse | null
-  /** Release one outstanding request. Resolves false when the server refused. */
   onRelease: (requestId: string) => Promise<boolean> | boolean
-  /** Hand the question to the assistant instead (MN-9.3). Omit to hide. */
   onAskAgent?: () => void
-  /**
-   * Put a question BACK to whoever asked — offered only to the person who was
-   * asked, and only when there is a single named asker to send it to.
-   *
-   * The affordance exists because the obvious move (type a plain reply) is the
-   * one that misfires: a plain contribution settles the request, so a clarifying
-   * question reads as an answer, ends the wait and hands the thread back to the
-   * agent mid-conversation. Routing it as a mention keeps the thread waiting on
-   * the person who can actually answer.
-   */
   onAskBack?: (asker: { userId: string; name: string }) => void
   className?: string
 }
@@ -79,7 +44,6 @@ export function AwaitingBanner({
     (earliest, request) => (request.createdAt < earliest.createdAt ? request : earliest),
     pending[0],
   )
-  /** Names carried by more than one row — see the per-row release button. */
   const repeatedNames = new Set(
     names.filter((name, index) => names.indexOf(name) !== index),
   )
@@ -94,11 +58,6 @@ export function AwaitingBanner({
     ? t('mentions.awaiting.awaitingYouHint')
     : t('mentions.awaiting.hint')
 
-  /**
-   * Release one request, or all of them (the thread-level action). Sequential on
-   * purpose: each release is a write the server answers with the new derived
-   * state, and firing them in parallel would race those answers.
-   */
   const release = async (requests: readonly PendingMentionView[], key: string): Promise<void> => {
     setReleasing(key)
     setFailed(false)
@@ -107,8 +66,6 @@ export function AwaitingBanner({
       for (const request of requests) {
         ok = (await onRelease(request.id)) !== false && ok
       }
-      // A failed release must say so: silently leaving the banner up would read
-      // as "the button does nothing".
       if (!ok) setFailed(true)
     } catch {
       setFailed(true)
@@ -124,10 +81,6 @@ export function AwaitingBanner({
       aria-live="polite"
       className={cn(
         'rounded-lg border px-4 py-3',
-        // `border-warning` / `bg-warning-*` are static `@utility` blocks in
-        // globals.css with no `--modifier()`, so a slash-opacity form
-        // (`border-warning/40`) matches nothing and silently fell back to the
-        // neutral border. Use the tokens as defined.
         awaitingMe ? 'border-warning bg-warning-subtle' : 'bg-card',
         className,
       )}
@@ -137,10 +90,6 @@ export function AwaitingBanner({
           aria-hidden
           className={cn(
             'inline-flex size-8 shrink-0 items-center justify-center rounded-full border',
-            // Same reason as the section border: `bg-warning/15` compiled to
-            // nothing, so this disc had no fill at all. A bordered disc on the
-            // card surface reads against the subtle warning background, which
-            // a second `bg-warning-subtle` would not.
             awaitingMe
               ? 'border-warning bg-card text-warning'
               : 'border-border bg-muted text-muted-foreground',
@@ -216,16 +165,6 @@ export function AwaitingBanner({
                     exit={{ opacity: 0, x: 8 }}
                     transition={motionEntrance}
                     data-testid="awaiting-person"
-                    // The release label carries the person's name and `Button`
-                    // refuses to wrap it, so at phone width the nowrap button won
-                    // the width contest and truncated the name column — the one
-                    // thing the row exists to show — to zero.
-                    //
-                    // `flex-wrap` alone does NOT fix that: a `flex-1` child has a
-                    // flex-basis of 0, so its hypothetical main size is 0 and it
-                    // never contributes to the line-breaking decision. The button
-                    // still fits beside it at any width and still takes the lot.
-                    // The name column needs a real basis to break against.
                     className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-2.5 py-1.5"
                   >
                     <span className="flex min-w-0 grow basis-48 items-center gap-2">
@@ -272,11 +211,6 @@ export function AwaitingBanner({
                       size="sm"
                       className="h-7 shrink-0 px-2 text-xs text-muted-foreground"
                       disabled={releasing !== null}
-                      // Two open requests can name the SAME person — asked twice,
-                      // or by two colleagues — and then every button in this list
-                      // reads "Continue without Anna Weber", with nothing to
-                      // choose between them out of context. When the name repeats,
-                      // the accessible name carries what actually differs.
                       aria-label={
                         repeatedNames.has(request.person.name)
                           ? t('mentions.awaiting.releaseOneSince', {
@@ -326,8 +260,6 @@ export function AwaitingBanner({
               size="sm"
               className="h-8 text-muted-foreground hover:text-foreground"
               disabled={releasing !== null}
-              // One outstanding request → release it by name. Several → release the
-              // whole wait; any participant may do this (MN-9.2).
               onClick={() => void release(pending, 'all')}
             >
               {/* "Continue without Anna" only makes sense about someone ELSE. When

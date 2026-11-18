@@ -1,32 +1,5 @@
 'use client'
 
-/**
- * What the FILE is, when the file is a building — the model's own facts, in the
- * metadata rail of the Dateien preview.
- *
- * ## Why
- *
- * That rail answers "what did Grid make of this file", and for every other
- * format it does: pages, passages, detected type. For a model it answered with
- * the digest's numbers — *Passagen 6* — which are true of the paragraph of prose
- * written ABOUT the building and say nothing about the building. An architect
- * looking at 148 MB of their own model was told how many retrieval chunks its
- * summary produced.
- *
- * So the rail states the model: how many storeys, how many elements, how many
- * rooms, and the floor area IF the export published one. Every number here is
- * read from the model at extraction; nothing is inferred and nothing is summed
- * in the browser.
- *
- * ## Why an absent area is not a zero
- *
- * `quantityTotals` is null when the export published no such quantity — common
- * in IFC2X3, where Qto_* sets are frequently missing entirely. Printing 0 m²
- * would state that a building has no floor area. The row is omitted instead,
- * and the model page's Modellprüfung is where "your export publishes no
- * quantities" is said in full.
- */
-
 import type { JSX } from 'react'
 import { useMemo } from 'react'
 import { Boxes, Layers3, Ruler, ScrollText, Square } from 'lucide-react'
@@ -38,13 +11,7 @@ import { useDocumentBimModel, useProjectBimModels } from '../hooks/use-bim-model
 import { formatMeasure } from '../lib/format-value'
 
 interface IfcFileFactsProps {
-  /** The document being previewed; its model carries the facts. */
   documentId: string
-  /**
-   * The project whose model list resolves this file, when the surface has one.
-   * Absent in the org-wide Archiv, where the model is looked up by its document
-   * instead — see {@link IfcFilePreview} for why that path exists at all.
-   */
   projectId?: string | null
   className?: string
 }
@@ -52,9 +19,6 @@ interface IfcFileFactsProps {
 export function IfcFileFacts({ documentId, projectId, className }: IfcFileFactsProps): JSX.Element | null {
   const t = useTranslations(bimCopy)
   const { locale } = useLocale()
-  // Shares the in-flight request with the viewport beside it — the project list
-  // (see `fetchProjectModels`) or the document lookup (`fetchDocumentModel`),
-  // whichever the surface uses — so the rail costs nothing extra either way.
   const { data: models } = useProjectBimModels(projectId ?? null)
   const { data: documentModel } = useDocumentBimModel(projectId ? null : documentId)
 
@@ -70,16 +34,12 @@ export function IfcFileFacts({ documentId, projectId, className }: IfcFileFactsP
   const rows = useMemo(() => {
     if (!summary) return []
     const areaUnit = summary.units.area?.symbol ?? 'm²'
-    // Grouped like the area beside them. `String(1842)` next to `1.240,5 m²`
-    // reads as two different kinds of number, and four unbroken digits are
-    // measurably slower to take in than `1.842`.
     const count = (value: number): string => value.toLocaleString(locale)
     const entries: Array<{ label: string; value: string; icon: LucideIcon }> = [
       { label: t('overview.storeys'), value: count(summary.totals.storeys), icon: Layers3 },
       { label: t('overview.elements'), value: count(summary.totals.elements), icon: Boxes },
       { label: t('overview.spaces'), value: count(summary.totals.spaces), icon: Square },
     ]
-    // Only when the export actually published it — see the header note.
     if (summary.quantityTotals.netFloorAreaM2 !== null) {
       entries.push({
         label: t('overview.netFloorArea'),
@@ -93,9 +53,6 @@ export function IfcFileFacts({ documentId, projectId, className }: IfcFileFactsP
     return entries
   }, [summary, t, locale])
 
-  // Nothing read yet (extracting, failed, or another project's file): the
-  // viewport in the same pane already says which of those it is, and a second
-  // empty panel saying it again is noise.
   if (rows.length === 0) return null
 
   return (
