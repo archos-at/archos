@@ -26,6 +26,11 @@ class Ctx(dict):
     __getitem__ = __getattr__
 
 
+class Vars(dict):
+    def __getattr__(self, key):
+        return self.get(key, "")
+
+
 def evaluate(expression: str, **context) -> object:
     text = " ".join(str(expression).split())
     if text.startswith("${{"):
@@ -35,6 +40,7 @@ def evaluate(expression: str, **context) -> object:
     text = re.sub(r"\.(\w+(?:-\w+)+)", r"['\1']", text)
     text = text.replace("needs.*.result", "[job.result for job in needs.values()]")
     names = {key: Ctx(value) if isinstance(value, dict) else value for key, value in context.items()}
+    names["vars"] = Vars(context.get("vars", {}))
     names |= {
         "always": lambda: True,
         "cancelled": lambda: False,
@@ -523,12 +529,14 @@ def test_semgrep_finds_its_own_merge_base_from_a_shallow_clone():
 
 
 def test_the_pr_secret_scan_reads_only_the_history_under_test():
-    scan = next(step for step in JOBS["repo"]["steps"] if "gitleaks" in step.get("run", ""))
+    scans = [step for step in JOBS["repo"]["steps"] if "gitleaks" in step.get("run", "")]
 
-    assert scan["env"]["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
-    assert 'range="$BASE_SHA..HEAD"' in scan["run"]
-    assert 'range="--full-history HEAD"' in scan["run"]
-    assert '--log-opts="$range"' in scan["run"]
+    assert len(scans) == 2
+    for scan in scans:
+        assert scan["env"]["BASE_SHA"] == "${{ github.event.pull_request.base.sha }}"
+        assert 'range="$BASE_SHA..HEAD"' in scan["run"]
+        assert 'range="--full-history HEAD"' in scan["run"]
+        assert '--log-opts="$range"' in scan["run"]
 
 
 def test_security_is_surveillance_and_the_gate_lives_in_ci():
@@ -536,7 +544,7 @@ def test_security_is_surveillance_and_the_gate_lives_in_ci():
 
     assert triggers == {"schedule", "workflow_dispatch"}
     assert "gitleaks" in json.dumps(JOBS["repo"])
-    assert JOBS["semgrep"]["container"]["image"].split(":")[1][0].isdigit()  # pinned
+    assert re.fullmatch(r"semgrep/semgrep:\d+\.\d+\.\d+", evaluate(JOBS["semgrep"]["container"]["image"]))
 
 
 DEPLOY = load("deploy.yml")
@@ -674,12 +682,9 @@ def test_a_ci_triggered_deploy_of_what_staging_runs_applies_nothing():
     assert "if" not in steps[_step_index(steps, "Smoke check")]
 
 
-@pytest.mark.parametrize(
-    ("workflow", "variable"), [("ci.yml", "CI_RUNNER"), ("testmon.yml", "CI_RUNNER"), ("deploy.yml", "DEPLOY_RUNNER")]
-)
-def test_the_runner_is_one_repository_variable_away_from_self_hosted(workflow, variable):
-    for name, job in load(workflow)["jobs"].items():
-        assert job["runs-on"] == f"${{{{ vars.{variable} || 'ubuntu-latest' }}}}", name
+def test_deploys_are_one_repository_variable_away_from_self_hosted():
+    for name, job in DEPLOY["jobs"].items():
+        assert job["runs-on"] == "${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}", name
 
 
 def test_source_maps_are_uploaded_after_ci_by_a_workflow_nothing_waits_on():
@@ -766,3 +771,159 @@ def test_dependabot_auto_merge_waits_for_ci_ok_and_starts_the_push_run():
     disable = steps["Turn off auto-merge on an update a person must read"]
     assert disable["if"] == "always() && steps.decide.outputs.merge != 'true'"
     assert "gh pr merge --disable-auto" in disable["run"]
+
+
+# --- Where a job runs: GitHub's runners, or the dev cluster's (ADR-0184) ---
+
+CLUSTER = {"CI_RUNNER": "dev-cluster"}
+ON_CLUSTER = "${{ vars.CI_RUNNER || 'ubuntu-latest' }}"
+CLUSTER_WORKFLOWS = ["ci.yml", "testmon.yml", "sourcemaps.yml"]
+ROOT = WORKFLOWS.parents[1]
+SCRIPT = re.compile(r"\b((?:ci|scripts)/[\w./-]+\.sh)\b")
+TASK = re.compile(r"\btask ([\w:-]+)")
+DOCKER_OR_ROOT = re.compile(r"^(?!\s*#).*\b(docker|sudo)\b", re.M)
+DOCKER_FREE_CALLS = ("ci/hatchet_engine.sh require-ran",)
+
+
+def resolve(value: object, **context) -> object:
+    text = str(value)
+    return evaluate(text, **context) if text.startswith("${{") else text
+
+
+def _tasks() -> dict[str, list]:
+    tasks: dict[str, list] = {}
+    for path in [ROOT / "Taskfile.yml", *sorted((ROOT / "taskfiles").glob("*.yml"))]:
+        for name, task in (yaml.safe_load(path.read_text(encoding="utf-8")).get("tasks") or {}).items():
+            tasks[name] = [*task.get("deps", []), *task.get("cmds", [])] if isinstance(task, dict) else []
+    return tasks
+
+
+TASKS = _tasks()
+
+
+def _needs_docker(text: str, seen: frozenset = frozenset()) -> bool:
+    for call in DOCKER_FREE_CALLS:
+        text = text.replace(call, "")
+    if DOCKER_OR_ROOT.search(text):
+        return True
+    scripts = [ROOT / name for name in SCRIPT.findall(text) if (ROOT / name).is_file()]
+    if any(DOCKER_OR_ROOT.search(path.read_text(encoding="utf-8")) for path in scripts):
+        return True
+    for name in set(TASK.findall(text)) - seen:
+        calls = [cmd["task"] if isinstance(cmd, dict) and "task" in cmd else str(cmd) for cmd in TASKS.get(name, [])]
+        if any(_needs_docker(f"task {call}" if call in TASKS else call, seen | {name}) for call in calls):
+            return True
+    return False
+
+
+def _may_run(step: dict, variables: dict) -> bool:
+    condition = str(step.get("if", ""))
+    if "vars." not in condition or re.search(r"\b(github|needs|matrix|steps|env)\.", condition):
+        return True
+    return bool(evaluate(condition, vars=variables))
+
+
+def github_only(job: dict, variables: dict = CLUSTER) -> list[str]:
+    reasons = []
+    if "write" in (job.get("permissions") or {}).values():
+        reasons.append("can write")
+    if "secrets." in json.dumps(job):
+        reasons.append("reads a secret")
+    if any(resolve(service.get("image", ""), vars=variables) for service in (job.get("services") or {}).values()):
+        reasons.append("a service container")
+    if job.get("container") and resolve(job["container"].get("image", ""), vars=variables):
+        reasons.append("a job container")
+    for step in job.get("steps", []):
+        if not _may_run(step, variables):
+            continue
+        uses = step.get("uses", "")
+        if uses.startswith("docker/") or uses == "./.github/actions/build-image":
+            reasons.append(f"builds images ({uses})")
+        no_docker = resolve(step.get("env", {}).get("NO_DOCKER", "false"), vars=variables) in (True, "true")
+        if not no_docker and _needs_docker(step.get("run", "")):
+            reasons.append(f"Docker or root in {step.get('name') or step['run'].splitlines()[0]!r}")
+    return reasons
+
+
+@pytest.mark.parametrize("workflow", CLUSTER_WORKFLOWS)
+def test_a_job_runs_on_github_exactly_when_it_needs_docker_root_a_secret_or_a_write_token(workflow):
+    for name, job in load(workflow)["jobs"].items():
+        reasons = github_only(job)
+        if reasons:
+            assert job["runs-on"] == "ubuntu-latest", f"{workflow} {name} could land on the cluster: {reasons}"
+        else:
+            assert job["runs-on"] == ON_CLUSTER, f"{workflow} {name} needs nothing the cluster lacks"
+
+
+@pytest.mark.parametrize("workflow", CLUSTER_WORKFLOWS)
+def test_with_ci_runner_unset_every_job_runs_on_github_as_before(workflow):
+    for name, job in load(workflow)["jobs"].items():
+        assert resolve(job["runs-on"]) == "ubuntu-latest", name
+        for service in (job.get("services") or {}).values():
+            assert resolve(service["image"]) == "qdrant/qdrant:v1.19.2", name
+        cluster_only = {step["name"] for step in job["steps"] if not _may_run(step, {})}
+        assert cluster_only <= {"Start Qdrant from its binary", "Secret scan (gitleaks, the runner image's binary)"}
+    assert "pull_request_target" not in load(workflow)["on"]
+
+
+def test_the_cluster_path_swaps_each_container_for_the_runner_images_binary():
+    for name, job in [*JOBS.items(), *load("testmon.yml")["jobs"].items()]:
+        if not job.get("services"):
+            continue
+        start = [step for step in job["steps"] if step.get("name") == "Start Qdrant from its binary"]
+        assert len(start) == 1 and evaluate(start[0]["if"], vars=CLUSTER), name
+        assert "QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start" in start[0]["run"]
+        assert job["env"]["QDRANT_TEST_URL"].endswith(":6333"), name
+        first_test = next(i for i, step in enumerate(job["steps"]) if "task " in step.get("run", ""))
+        assert job["steps"].index(start[0]) < first_test, name
+    assert evaluate(JOBS["semgrep"]["container"]["image"], vars=CLUSTER) == ""
+    trivy = next(step for step in JOBS["trivy"]["steps"] if "trivy_scan.sh" in step.get("run", ""))
+    assert evaluate(trivy["env"]["NO_DOCKER"], vars=CLUSTER) is True
+    assert evaluate(trivy["env"]["NO_DOCKER"]) is False
+
+
+def test_the_jobs_that_stay_on_github_are_the_ones_that_must():
+    hosted = {name for name, job in JOBS.items() if job["runs-on"] == "ubuntu-latest"}
+
+    assert hosted == {"packages", "hatchet", "image", "image-push", "publish"}
+    assert load("sourcemaps.yml")["jobs"]["upload"]["runs-on"] == "ubuntu-latest"
+
+
+def test_the_detector_sees_docker_behind_a_task_and_a_script():
+    assert _needs_docker("task browser:test")
+    assert _needs_docker("task runner:test")
+    assert _needs_docker("bash ci/hatchet_engine.sh start")
+    assert not _needs_docker("task db:test:rls")
+    assert not _needs_docker("bash scripts/qdrant-test-server.sh --start")
+    assert not _needs_docker("bash ci/hatchet_engine.sh require-ran report.xml")
+
+
+def test_the_engine_report_check_runs_without_docker(tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "docker").write_text('#!/bin/sh\necho called >> "$CALLS"\nexit 99\n', encoding="utf-8")
+    (bin_dir / "docker").chmod(0o755)
+    report = tmp_path / "report.xml"
+    report.write_text('<testsuite tests="1" skipped="0"><testcase name="t"/></testsuite>', encoding="utf-8")
+    env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "CALLS": str(tmp_path / "calls.log")}
+
+    subprocess.run(["bash", str(ROOT / "ci" / "hatchet_engine.sh"), "require-ran", str(report)], env=env, check=True)
+
+    assert not (tmp_path / "calls.log").exists()
+
+
+def test_the_trivy_scan_runs_the_binary_on_a_runner_without_docker(tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    for tool in ("trivy", "docker"):
+        (bin_dir / tool).write_text(f'#!/bin/sh\necho "{tool} $*" >> "$CALLS"\n', encoding="utf-8")
+        (bin_dir / tool).chmod(0o755)
+    (tmp_path / "pins.txt").write_text("x@sha256:" + "0" * 64 + "\n", encoding="utf-8")
+    calls = tmp_path / "calls.log"
+    env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "TRIVY_VERSION": "0.0.0", "NO_DOCKER": "true", "CALLS": str(calls)}
+
+    subprocess.run(["bash", str(ROOT / "ci" / "trivy_scan.sh"), "pins.txt"], cwd=tmp_path, env=env, check=True)
+
+    log = calls.read_text(encoding="utf-8").splitlines()
+    assert log and all(line.startswith("trivy ") for line in log)
+    assert f"--ignorefile {tmp_path}/.trivyignore.yaml" in log[-1]

@@ -179,6 +179,7 @@ jobs:
       - name: Backend lint (ruff)
         run: task be:lint -- --output-format=github
       - name: Secret scan (gitleaks)
+        if: ${{ !vars.CI_RUNNER }}
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
@@ -187,6 +188,14 @@ jobs:
           docker run --rm -v "$GITHUB_WORKSPACE:/repo" \
             zricethezav/gitleaks:v8.30.1 detect --source /repo --redact -v \
             --log-opts="$range"
+      - name: Secret scan (gitleaks, the runner image's binary)
+        if: ${{ vars.CI_RUNNER }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          range="--full-history HEAD"
+          if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..HEAD"; fi
+          gitleaks detect --source "$GITHUB_WORKSPACE" --redact -v --log-opts="$range"
 
 
   repo-tests:
@@ -297,7 +306,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     container:
-      image: semgrep/semgrep:1.177.0
+      image: ${{ !vars.CI_RUNNER && 'semgrep/semgrep:1.177.0' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Semgrep scan
@@ -324,7 +333,7 @@ jobs:
         shard: [1, 2, 3, 4]
     services:
       qdrant:
-        image: qdrant/qdrant:v1.19.2
+        image: ${{ !vars.CI_RUNNER && 'qdrant/qdrant:v1.19.2' || '' }}
         options: --tmpfs /qdrant/storage
         env:
           QDRANT__LOG_LEVEL: WARN
@@ -336,6 +345,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Start Qdrant from its binary
+        if: ${{ vars.CI_RUNNER }}
+        run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: "3.14"
@@ -387,7 +399,7 @@ jobs:
         suite: [agent_host, sources, claim queues]
     services:
       qdrant:
-        image: qdrant/qdrant:v1.19.2
+        image: ${{ !vars.CI_RUNNER && 'qdrant/qdrant:v1.19.2' || '' }}
         options: --tmpfs /qdrant/storage
         env:
           QDRANT__LOG_LEVEL: WARN
@@ -399,6 +411,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Start Qdrant from its binary
+        if: ${{ vars.CI_RUNNER }}
+        run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: "3.14"
@@ -433,7 +448,7 @@ jobs:
           - { suite: sources }
     services:
       qdrant:
-        image: qdrant/qdrant:v1.19.2
+        image: ${{ !vars.CI_RUNNER && 'qdrant/qdrant:v1.19.2' || '' }}
         options: --tmpfs /qdrant/storage
         env:
           QDRANT__LOG_LEVEL: WARN
@@ -445,6 +460,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Start Qdrant from its binary
+        if: ${{ vars.CI_RUNNER }}
+        run: QDRANT_HTTP_PORT=6333 bash scripts/qdrant-test-server.sh --start
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: "3.14"
@@ -564,7 +582,8 @@ jobs:
           node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
-      - run: >-
+      - if: ${{ !vars.CI_RUNNER }}
+        run: >-
           npx --yes playwright@1.63.0 install-deps chromium
           || echo "::warning::playwright install-deps failed; website:verify fails if Chromium cannot start"
       - run: task website:verify
@@ -629,7 +648,7 @@ jobs:
     name: Standalone packages (packages/)
     needs: changes
     if: needs.changes.outputs.packages == 'true'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -720,7 +739,7 @@ jobs:
     name: Hatchet engine tests
     needs: changes
     if: needs.changes.outputs.depth == 'full' && needs.changes.outputs.hatchet == 'true'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -795,6 +814,8 @@ jobs:
           path: .trivy-cache/fanal
           key: trivy-layers-${{ env.TRIVY_VERSION }}-${{ hashFiles('pins.txt') }}
       - run: bash ci/trivy_scan.sh pins.txt
+        env:
+          NO_DOCKER: ${{ vars.CI_RUNNER != '' }}
       - name: Save the layer analysis
         if: always() && hashFiles('.trivy-cache/fanal/**') != ''
         continue-on-error: true
@@ -807,7 +828,7 @@ jobs:
     name: Image build (${{ matrix.name }})
     needs: changes
     if: needs.changes.outputs.depth == 'full' && github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
@@ -834,7 +855,7 @@ jobs:
     name: Image build + push (${{ matrix.name }})
     needs: changes
     if: github.event_name == 'push' && needs.changes.outputs.build != '[]'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
@@ -865,7 +886,7 @@ jobs:
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read

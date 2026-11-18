@@ -360,15 +360,26 @@ is the SAST gate.
 
 ## Runners and cost
 
-Every CI job runs on `${{ vars.CI_RUNNER || 'ubuntu-latest' }}`, every deploy
-on `${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}`. Moving to self-hosted runners
-(Actions Runner Controller) is setting the variable to the scale set's name.
-The runner image must carry what the hosted image gives these jobs for free:
-Docker (service containers, buildx, gitleaks), python3, jq, gh, curl and git.
-Deploys have their own variable because a runner inside the cluster it deploys
-to dies with a rollout that takes the cluster down, halfway through
-`pulumi up`. `tests/test_ci_workflows.py` fails a job that names a runner of
-its own.
+A CI job that may run in the dev cluster says
+`runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}`. With the repository
+variable unset it runs on GitHub's runners, exactly as before; set to the scale
+set's name (`dev-cluster`, [ADR-0184](../adr/0184-pull-request-ci-runs-on-runners-in-the-dev-cluster.md))
+it runs on the cluster's. Those runners have no Docker daemon and no root, so
+with the variable set a job starts Qdrant from its binary
+(`scripts/qdrant-test-server.sh`) instead of a service container, runs Semgrep,
+gitleaks and trivy from the runner image (`deploy/ci-runner/Dockerfile`)
+instead of from containers, and skips the `sudo` install of Chromium's
+libraries, which the image carries. A job that needs Docker, root, a secret or
+a write token says `runs-on: ubuntu-latest`: the image builds, `publish`, the
+Hatchet engine tests, the standalone packages (the browser renderer's
+hardened-container suite) and the source-map upload.
+`tests/test_ci_workflows.py` holds both directions: a job runs on GitHub
+exactly when it needs one of those, following `task` calls and scripts, and
+with the variable unset every job runs as before. Switch it on only once the
+repository is private: on a public one a fork's pull request can name the
+scale set in its own copy of a workflow. Deploys have their own variable,
+`DEPLOY_RUNNER`, because a runner inside the cluster it deploys to dies with a
+rollout that takes the cluster down, halfway through `pulumi up`.
 
 The runners are self-hosted, so the budget is wall time, not runner-minutes:
 a job that shortens the critical path is worth its runner, a second runner for
