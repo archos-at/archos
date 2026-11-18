@@ -19,9 +19,9 @@ The stages, and the module seam that owns each:
 | Transcribe scans and garbled pages | `transcription` (same endpoint, key and cache as the analysis; its own prompt and cache namespace) | the drawing stages; its output is ordinary page text |
 | Render | `processing` (pypdfium2 raster: `render_visual_pages_no_vlm` for drawings, `render_pdf_pages` for transcription) | triage, analysis, indexing |
 | Analyse | `adapter.analyze_visual` — ONE entry point for every source — over `_analyze_drawing_page_with_vlm` + `resolve_vlm_credential` (BYOK, per-org model override) | schema, prompt, vocabulary, indexing |
-| Extraction schema + JSON Schema + prompt + parsing | `visual_analysis` (versioned: `SCHEMA_VERSION`) | VLM backend, indexing, vocabulary |
+| Extraction schema + JSON Schema + prompt + parsing | `visual_schema`, `visual_prompt`, `visual_analysis` (versioned: `SCHEMA_VERSION`) | VLM backend, indexing, vocabulary |
 | Domain vocabulary | `visual_domains` (data: segment types, entity categories, states) | the kernel, the parser, the UI |
-| Map to chunks | `visual_analysis.segment_payloads` → `adapter.visual_documents` | schema internals, VLM |
+| Map to chunks | `visual_rendering.segment_payloads` → `adapter.visual_documents` | schema internals, VLM |
 | Office-format text extraction | `office_extractors`: `.xlsx`/`.xlsm` sheets through `openpyxl` as header-repeating row groups, and `.pptx`/`.pptm` speaker notes. `text_formats`: `.md`/`.txt`/`.csv`/`.tsv` with section, line and row locators. Word, presentation, `.xls` and `.ods` files are read only from their PDF rendition (`extraction_ref`) through the PDF stages above; without one they fail as `office_rendition_required` ([ADR-0071](../adr/0071-word-and-presentation-files-are-indexed-from-their-rendition.md)) | everything else |
 
 Concretely, the rules that keep it modular:
