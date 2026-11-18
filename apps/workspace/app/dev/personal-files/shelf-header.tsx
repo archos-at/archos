@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: a calmer head for the Ablage page (concept for ticket 81).
 
 import type { JSX } from 'react'
-import { CheckSquare, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Trash2, Upload, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Trash2, Upload, type LucideIcon } from 'lucide-react'
 
 function Side({ icon: Icon, label, who, picked }: { icon: LucideIcon; label: string; who: string; picked: boolean }): JSX.Element {
   return (
@@ -67,7 +67,6 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false }: {
       </span>
       <span title="Papierkorb" className={`relative flex size-9 items-center justify-center rounded-control ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
         <Trash2 className="size-4" aria-label="Papierkorb" />
-        {!own && <span className="bg-foreground text-background text-meta absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-medium">2</span>}
       </span>
       <span className="bg-sheet shadow-press inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium">
         <Upload className="size-4" aria-hidden />
@@ -153,6 +152,30 @@ export function TrashWindow(): JSX.Element {
           <span className="text-muted-foreground text-meta">2 Dateien</span>
           <span className="text-destructive text-name font-medium">Papierkorb leeren</span>
         </footer>
+      </div>
+    </div>
+  )
+}
+
+export function FolderPath({ trail, name, count }: { trail: string[]; name: string; count: number }): JSX.Element {
+  const shown = trail.length > 3 ? [trail[0]!, '…', trail[trail.length - 1]!] : trail
+  return (
+    <div className="flex flex-col gap-1.5 px-8 pb-1 pt-5">
+      <nav aria-label="Pfad" className="text-muted-foreground text-meta flex items-center gap-1.5">
+        {shown.map((step, index) => (
+          <span key={`${step}-${index}`} className="flex items-center gap-1.5">
+            {index > 0 && <ChevronRight className="size-3" aria-hidden />}
+            <span className={step === '…' ? 'bg-desk rounded-[4px] px-1.5' : 'underline-offset-2 hover:underline'}>{step}</span>
+          </span>
+        ))}
+      </nav>
+      <div className="flex items-center gap-3">
+        <span title={`Zurück zu ${trail[trail.length - 1]}`} className="bg-sheet shadow-press flex size-8 shrink-0 items-center justify-center rounded-control">
+          <ArrowLeft className="size-4" aria-label="Eine Ebene zurück" />
+        </span>
+        <Folder className="size-5 shrink-0" aria-hidden />
+        <h2 className="text-section min-w-0 truncate">{name}</h2>
+        <span className="text-muted-foreground text-meta shrink-0">{count} Elemente</span>
       </div>
     </div>
   )
