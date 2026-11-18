@@ -143,6 +143,7 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Qdrant runbook](deployment/qdrant-runbook.md) | Operating the vector store: metrics and alerts, restore from snapshots, peer replacement, rebuilds, upgrades, key rotation, the backend flip; every procedure with its drill |
 | [Qdrant payload rename runbook](deployment/qdrant-payload-rename-runbook.md) | The English payload keys (`federal_state`, `clause_id`, `guideline`, `chunking: "clause"`), what still reads the German ones, and the rewrite that lets the fallback go |
 | [CD](deployment/cd.md) | Continuous delivery |
+| [Backfills](deployment/backfills.md) | Registering a stored-data rewrite the deploy runs on every deploy: the manifest, the two phases around the rollout, the owner credential, the log lines, and what CI runs twice |
 | [Rollback runbook](deployment/rollback.md) | Putting staging or production back on the build it ran before: when, the one command, what it cannot undo (the program, migrations, the data tier), and the follow-up |
 | [Startup Flow](deployment/startup-flow.md) | Boot sequence: PostgreSQL init, SeaweedFS, uvicorn, gateway |
 | [Security Config](deployment/security-config.md) | Auth configuration, storage credentials, key management |

@@ -20,6 +20,7 @@ import { AppWiring, PULL_SECRET_NAME, buildRegistryPullSecret, buildSecrets } fr
 import { runMigrations } from "./src/app/migrations-job";
 import { buildOnlineIndexes } from "./src/app/online-indexes-job";
 import { runKnowledgeCarry } from "./src/app/knowledge-carry-job";
+import { installBackfills } from "./src/app/backfills";
 import { reconcileAuditSchemas } from "./src/app/audit-schemas-job";
 import { carryOverFolderGrants, reconcileAuthzCatalog } from "./src/app/workos-authz-jobs";
 import { installBackend } from "./src/app/backend";
@@ -173,13 +174,15 @@ const migratedSchema = runMigrations(wiring, cfg, secrets, [
   onlineIndexes,
 ]);
 const migrations = postgres.renameRlsRoles([migratedSchema]);
+const backfillsBefore = installBackfills(wiring, cfg, secrets, "before-readers", [migrations, qdrant.service]);
+const afterBackfills = backfillsBefore ? [backfillsBefore] : [];
 
 const authzCatalog = cfg.auth.requireAuth ? reconcileAuthzCatalog(wiring, cfg, secrets, [ns]) : undefined;
 if (cfg.auth.requireAuth) {
   reconcileAuditSchemas(wiring, cfg, secrets, [ns]);
 }
 
-const workers = installWorkers(wiring, cfg, secrets, [migrations]);
+const workers = installWorkers(wiring, cfg, secrets, [migrations, ...afterBackfills]);
 
 const apiDependsOn = [
   hatchet.tokenSync,
@@ -187,6 +190,7 @@ const apiDependsOn = [
   seaweed.bucketInitJob,
   dragonfly.service,
   qdrant.service,
+  ...afterBackfills,
 ];
 const api = installApi(wiring, cfg, secrets, apiDependsOn);
 const legacyApi = installApi(wiring, cfg, secrets, apiDependsOn, LEGACY_API_TIER);
@@ -200,6 +204,7 @@ const backendDependsOn = [
   seaweed.bucketInitJob,
   dragonfly.service,
   qdrant.service,
+  ...afterBackfills,
 ];
 const backend = installBackend(wiring, cfg, secrets, backendDependsOn);
 
@@ -210,6 +215,7 @@ const frontend = installFrontend(wiring, cfg, secrets, [
   legacyApi.service,
   backend.statefulSet,
   backend.service,
+  ...afterBackfills,
 ]);
 
 if (authzCatalog) {
@@ -246,6 +252,7 @@ const agentWorker = installAgentWorker(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
 const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
@@ -255,15 +262,17 @@ const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
-installIngestWorkerHeavy(wiring, cfg, secrets, [
+const ingestWorkerHeavy = installIngestWorkerHeavy(wiring, cfg, secrets, [
   postgres.initJob,
   postgres.pooler,
   dragonfly.service,
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
 const bffJobs = installBffJobs(wiring, cfg, secrets, [
@@ -271,6 +280,7 @@ const bffJobs = installBffJobs(wiring, cfg, secrets, [
   api.service,
   legacyApi.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
 if (cfg.auth.knowledgeCarry) {
@@ -285,6 +295,22 @@ if (cfg.auth.knowledgeCarry) {
     ingestWorker.deployment,
   ]);
 }
+
+installBackfills(wiring, cfg, secrets, "after-switch", [
+  migrations,
+  workers.purger,
+  api.deployment,
+  legacyApi.deployment,
+  backend.statefulSet,
+  legacyBackend.statefulSet,
+  frontend.deployment,
+  web.deployment,
+  publicSourceFetcher.deployment,
+  agentWorker.deployment,
+  ingestWorker.deployment,
+  ...(ingestWorkerHeavy ? [ingestWorkerHeavy.deployment] : []),
+  bffJobs.deployment,
+]);
 
 if (backendAutoscaled(cfg)) {
   installBackendScaling(wiring, cfg, backend.statefulSet, keda ? [keda] : []);
