@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 
 export interface BudgetSnapshot {
+  activity?: 'ingest'
   remainingOrgUsd: number | null
   remainingUserUsd: number | null
   remainingProjectUsd: number | null

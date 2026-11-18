@@ -5,6 +5,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { getBudgetStatus } from './budget-status'
 import { getOrgBudget, getOrgBudgetUnit } from './policy-lookup'
 import { getDailySpendTrend, getSpendByMember, getSpendSummary } from './spend-queries'
+import { getIngestAllowance } from './ingest-allowance'
 import { toTenantWindow, type TenantSpendWindow } from './spend-windows'
 
 export interface UsageOverview {
@@ -14,6 +15,7 @@ export interface UsageOverview {
     month: TenantSpendWindow
     perModel: Array<{ model: string; day: TenantSpendWindow; month: TenantSpendWindow }>
   }
+  ingest: { month: TenantSpendWindow; monthlyLimit: number | null }
   perMember: Array<{ userId: string; day: TenantSpendWindow; month: TenantSpendWindow }> | null
   dailyTrend: Array<{ day: string } & TenantSpendWindow> | null
   orgBudget: { dailyLimit: number | null; monthlyLimit: number | null; explicit: boolean }
@@ -60,10 +62,11 @@ async function assembleUsageOverview(
   const unit = await getOrgBudgetUnit(organizationId)
   const project = toTenantWindow(unit)
 
-  const [summary, orgBudget, status, perMember, dailyTrend] = await Promise.all([
+  const [summary, orgBudget, status, ingest, perMember, dailyTrend] = await Promise.all([
     getSpendSummary(organizationId, filter),
     getOrgBudget(organizationId, unit),
     getBudgetStatus(organizationId, statusUserId, null),
+    getIngestAllowance(organizationId),
     admin ? getSpendByMember(organizationId) : Promise.resolve(null),
     admin ? getDailySpendTrend({ organizationId, days: 30 }) : Promise.resolve(null),
   ])
@@ -73,11 +76,13 @@ async function assembleUsageOverview(
     summary: {
       day: project(summary.day),
       month: project(summary.month),
-      perModel: summary.perModel.map((entry) => ({
-        model: entry.model,
-        day: project(entry.day),
-        month: project(entry.month),
-      })),
+      perModel: summary.perModel
+        .map((entry) => ({ model: entry.model, day: project(entry.day), month: project(entry.month) }))
+        .filter((entry) => entry.month.events > 0 || entry.month.amount > 0),
+    },
+    ingest: {
+      month: { amount: ingest.used, events: ingest.events },
+      monthlyLimit: ingest.limit,
     },
     perMember: perMember
       ? perMember.map((entry) => ({ userId: entry.userId, day: project(entry.day), month: project(entry.month) }))
