@@ -1,6 +1,7 @@
 import { BadRequestError, FileTooLargeError } from '@/lib/api/errors'
 import { DiagramSvgError, parseDiagramSvg, type DiagramSvgRejection, type SvgElement } from '@/lib/diagrams/svg'
-import { readPdfStructure, decodeStream, dictionaryAt, PdfMetadataError } from '@/lib/pdf/pdf-structure'
+import { decodeName, readPdfObjects, type PdfIndirectObject } from '@/lib/pdf/pdf-objects'
+import { PdfMetadataError } from '@/lib/pdf/pdf-structure'
 import {
   AGENT_FILE_CONTENT_TYPES,
   AGENT_FILE_MAX_BYTES,
@@ -96,43 +97,31 @@ const ACTIVE_PDF_NAMES: ReadonlyMap<string, AgentFileRefusal> = new Map([
   ['GoToE', 'external-relationship'],
 ])
 
-const STREAM_BODY = /stream(?:\r\n|\n|\r)[\s\S]*?endstream/g
-const OBJECT_OR_STREAM = /(stream(?:\r\n|\n|\r)[\s\S]*?endstream)|(\d+\s+\d+\s+obj\s*<<)/g
-
-function pdfObjectTexts(bytes: Uint8Array, text: string): string[] {
-  const texts = [text.replace(STREAM_BODY, 'stream endstream')]
-  for (const match of text.matchAll(OBJECT_OR_STREAM)) {
-    if (match[1]) continue
-    const opening = match.index + match[0].length - 2
-    let dictionary: string
-    try {
-      dictionary = dictionaryAt(text, opening)
-    } catch {
-      continue
-    }
-    if (!/\/Type\s*\/ObjStm\b/.test(decodeName(dictionary))) continue
-    const keyword = /^\s*stream(\r\n|\n|\r)/.exec(text.slice(opening + dictionary.length, opening + dictionary.length + 16))
-    const length = /\/Length\s+(\d+)(?!\s+\d+\s+R)/.exec(dictionary)
-    if (!keyword || !length) throw new PdfMetadataError('an object stream has no readable data')
-    const start = opening + dictionary.length + keyword[0].length
-    texts.push(Buffer.from(decodeStream(dictionary, bytes.subarray(start, start + Number(length[1])))).toString('latin1'))
+function withoutStreamData(text: string, objects: readonly PdfIndirectObject[]): string {
+  const spans = objects.flatMap((object) => (object.data ? [object.data] : [])).sort((a, b) => a.start - b.start)
+  const kept: string[] = []
+  let at = 0
+  for (const span of spans) {
+    kept.push(text.slice(at, span.start), ' ')
+    at = span.end
   }
-  return texts
+  kept.push(text.slice(at))
+  return kept.join('')
 }
 
-const decodeName = (name: string): string => name.replace(/#([0-9A-Fa-f]{2})/g, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+function refuseActiveNames(text: string): void {
+  for (const match of text.matchAll(/\/([^\s/[\]<>(){}%]+)/g)) {
+    const refusal = ACTIVE_PDF_NAMES.get(decodeName(match[1]))
+    if (refusal) throw refuse(refusal, `/${decodeName(match[1])}`)
+  }
+}
 
 function checkPdf(bytes: Uint8Array, contentType: AgentFileContentType): CheckedAgentFile {
-  const text = Buffer.from(bytes).toString('latin1')
-  if (!text.startsWith('%PDF-')) throw refuse('not-the-declared-type', 'no %PDF- header')
+  if (!Buffer.from(bytes.subarray(0, 5)).toString('latin1').startsWith('%PDF-')) throw refuse('not-the-declared-type', 'no %PDF- header')
   try {
-    readPdfStructure(bytes)
-    for (const objects of pdfObjectTexts(bytes, text)) {
-      for (const match of objects.matchAll(/\/([^\s/[\]<>(){}%]+)/g)) {
-        const refusal = ACTIVE_PDF_NAMES.get(decodeName(match[1]))
-        if (refusal) throw refuse(refusal, `/${decodeName(match[1])}`)
-      }
-    }
+    const { structure, objects, objectStreams } = readPdfObjects(bytes)
+    refuseActiveNames(withoutStreamData(structure.text, objects))
+    for (const objectStream of objectStreams) refuseActiveNames(objectStream)
   } catch (error) {
     if (error instanceof PdfMetadataError) throw refuse('malformed', error.message)
     throw error
