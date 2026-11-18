@@ -11,6 +11,7 @@ import { hardenedContainerSecurityContext, hardenedJobSecurityContext } from "..
 import { BACKFILL_POD, BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
 import { AppSecrets, AppWiring, backendQdrantEnv } from "./config";
 import { backfillDatabaseEnv } from "./job-env";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 type Container = k8s.types.input.core.v1.Container;
 
@@ -120,7 +121,7 @@ function sqlContainer(b: SqlBackfill): Container {
     name: b.name,
     image: PSQL_IMAGE,
     securityContext: hardenedJobSecurityContext(),
-    resources: BOOTSTRAP_JOB_RESOURCES,
+    resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
     env: [...backfillDatabaseEnv(b.database), { name: "PGOPTIONS", value: BACKFILL_SESSION }],
     command: [
       "sh",
@@ -147,7 +148,7 @@ function qdrantContainer(w: AppWiring, cfg: DeployConfig, b: QdrantBackfill): Co
       runAsUser: UID.backend,
       runAsGroup: UID.backend,
     },
-    resources: LIGHT_WORKER_RESOURCES,
+    resources: scaledCpuRequest(LIGHT_WORKER_RESOURCES),
     env: backendQdrantEnv(w),
     command: ["sh", "-c", QDRANT_SEQUENCE, b.name, ...b.command],
   };
@@ -196,7 +197,7 @@ export function installBackfills(
                 name: "done",
                 image: PSQL_IMAGE,
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 command: ["sh", "-c", `echo '{"event":"backfill.phase","phase":"${phase}","backfills":${due.length}}'`],
               },
             ],

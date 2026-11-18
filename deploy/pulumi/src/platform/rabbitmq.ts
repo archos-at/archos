@@ -4,6 +4,7 @@ import { DeployConfig } from "../config";
 import { BACKGROUND_WORK } from "../config/background-work";
 import { NODE_GROUP_LABEL } from "../constants";
 import { scrapeAnnotations } from "./scrape";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 // Not the Bitnami chart: its images moved behind a paid catalogue in 2025.
 export const RABBITMQ_OPERATOR_VERSION = "2.23.2";
@@ -39,7 +40,7 @@ export function rabbitmqClusterSpec(cfg: DeployConfig) {
   return {
     image: RABBITMQ_IMAGE,
     replicas: RABBITMQ.replicas,
-    resources: RABBITMQ.resources,
+    resources: scaledCpuRequest(RABBITMQ.resources),
     persistence: { storageClassName: cfg.storage.className, storage: cfg.backgroundWork.rabbitmq.storageSize },
     affinity: {
       ...(cfg.nodeGroups.app
