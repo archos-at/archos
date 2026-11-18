@@ -1,3 +1,6 @@
+# Latent: configurable, not used. A deployment people sign in to refuses to
+# start while one of `activation_env` is set (agent.common.data_flow_register).
+# langsmith is installed transitively; LANGCHAIN_TRACING_V2=true would export full prompts and completions.
 id: langsmith
 kind: processor
 status: latent
@@ -17,6 +20,7 @@ deletion:
 hosts: [api.smith.langchain.com]
 env: [LANGCHAIN_API_KEY, LANGSMITH_API_KEY]
 activation_env: [LANGCHAIN_TRACING_V2, LANGCHAIN_API_KEY, LANGSMITH_TRACING, LANGSMITH_API_KEY]
+# langchain-core ships LangSmith tracing, off unless activation_env switches it on.
 sdks:
   - 'py:langchain-core'
 evidence:

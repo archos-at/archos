@@ -358,8 +358,7 @@ including `trifft zu` and `aktuell`, the directive dialect) live in the
 
 Deep research can still emit cards via the **`emit_card` tool**
 (`cards/register.py`); the agent no longer binds it, and its cards travel
-in the envelope's `cards` field only (bound, its schema was 2 676 tokens on every
-call and a model at low effort spent a whole round on it, September 2026 census). Mid-turn, with full context, the
+in the envelope's `cards` field only. Mid-turn, with full context, the
 researcher calls the tool whenever a structured element communicates better
 than prose. The card is
 validated against the shared schema and pushed into the conversation-scoped
@@ -411,7 +410,7 @@ rule. A surface whose leaf fails its card model is repaired from the rule plus
 the shapes of the card types it holds. A card that was going to be right pays
 nothing; one that was not pays the same single round trip, knowing which field
 was wrong. `describe_card` stays registered but is bound to no
-agent today and is declared only so a config that wants it has the `_type`; deep
+agent today (see its comment in `configs/config_oib_openrouter.yml`); deep
 research, which composes one long report, would pay the lookup once where a
 chat turn paid it per turn.
 

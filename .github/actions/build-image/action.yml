@@ -45,11 +45,15 @@ inputs:
 runs:
   using: composite
   steps:
+    # No cleanup: removing the builder deletes its state on a runner that is
+    # discarded right after, and took 52s of the frontend image job (the
+    # longest job in a pull request run) on 2026-10-09.
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       with:
         cleanup: false
 
+    # Also needed to build only: the layer cache is read from GHCR.
     - name: Log in to GHCR
       uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
       with:
@@ -64,6 +68,9 @@ runs:
         images: ${{ inputs.registry }}/${{ inputs.repository }}
         tags: type=raw,value=inputs-${{ inputs.hash }}
 
+    # The commit the image is built from, and the arguments that are part of
+    # the image. No PostHog key reaches any build: the frontend injects its
+    # source-map chunk ids offline and the Source maps workflow uploads them.
     - name: Build arguments
       id: args
       shell: bash
@@ -79,6 +86,23 @@ runs:
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
 
+    # Layer cache in GHCR, one `buildcache` tag per image, rather than type=gha:
+    # three mode=max caches (3-5 GB) LRU-evicted each other and every other
+    # cache out of the repository's 10 GB Actions budget, and re-exporting them
+    # through the cache API left publishes hanging for half an hour.
+    #
+    # Written only by a push build. A pull request build reads it and writes
+    # nothing, so a pull request can never put a layer into the cache that the
+    # next publish imports without it appearing in any diff. `mode=max` because
+    # the layer worth reusing is the dependency install in an intermediate
+    # stage; `image-manifest`/`oci-mediatypes` because GHCR rejects the legacy
+    # cache manifest.
+    #
+    # GIT_SHA (set above) is the commit that BUILT the image. An image whose
+    # inputs did not change is not rebuilt, only re-tagged, so a container reports
+    # the commit its code came from, which is the one worth reading in a pilot
+    # report. It is also the PostHog release of the frontend's source maps, so an
+    # error's release is the commit the running container names.
     - name: Build${{ inputs.push == 'true' && ' and push' || '' }}
       uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
       with:
@@ -92,6 +116,9 @@ runs:
         cache-from: type=registry,ref=${{ inputs.registry }}/${{ inputs.repository }}:buildcache
         cache-to: ${{ inputs.push == 'true' && format('type=registry,ref={0}/{1}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true', inputs.registry, inputs.repository) || '' }}
 
+    # The same build, stopped at the `sourcemaps` stage and written to a
+    # directory: every layer up to it is in this builder's cache from the step
+    # above, so this takes seconds. Uploaded by .github/workflows/sourcemaps.yml.
     - name: Export the source maps
       if: inputs.export-sourcemaps == 'true'
       uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

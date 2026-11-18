@@ -1,3 +1,7 @@
+# The data-flow register: one file per recipient. Schema and how to add a row:
+# docs/compliance/data-flow-register.md. Generated from these files: the public
+# processor page (apps/workspace/bff/legal/content/subprocessors.generated.ts)
+# and the DPA annex (docs/compliance/dpa-subprocessor-annex.md).
 id: ipax
 kind: processor
 status: active
@@ -20,6 +24,8 @@ deletion:
     The servers and the nightly Velero copy of every volume are at IPAX. A project deletion reaches the database, the
     object store and the vector index; the copies age out after 30 days. No deletion run for a whole organization at
     contract end exists yet.
+# The production load balancer's address at IPAX (Pulumi.prod.yaml loadBalancerIp), and Backupspace, IPAX's own
+# S3 backup product, where its managed Velero writes the nightly copies (docs/deployment/kubernetes.md).
 hosts: [45.144.209.196, backupspace.at]
 env: []
 evidence:

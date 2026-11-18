@@ -1,3 +1,10 @@
+# Curated norm catalog — verified RIS pointers to building-relevant Austrian law,
+# plus prose notes for the legal facts the corpus cannot supply (binding_note) and
+# open verification questions (review_note, surfaced in the platform admin UI).
+# REGENERATE pointers via scripts/build_ris_catalog.py (verifies each entry's `verify`
+# seed live against OGD-RIS and merges document_number/URLs/verified_at — curated
+# fields are never clobbered). The OIB corpus itself lives in data/oib/ and is NOT
+# listed here: the knowledge base is its source of truth.
 version: 1
 corpus_collection: oib_knowledge
 entries:

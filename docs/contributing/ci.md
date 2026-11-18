@@ -73,11 +73,12 @@ It also lists the third-party image pins the change adds or moves
 | SAST (`semgrep`) | PRs touching code | Semgrep, diff-aware: blocks findings the PR introduces |
 | Backend affected tests (`backend-affected`) | PRs, backend tier, selection possible | per suite (core, agent_host, `sources`, the Python packages), only the tests the change reaches (`task be:test:affected`), plus the claim queues on Postgres |
 | Backend core (`backend`) | backend tier: pushes, and PRs testmon cannot select for | the core suite in 4 shards (`task be:test:shard`), each writing coverage data |
-| Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data and applies the 65% gate; the total is in the job log and summary (a sticky PR comment listed only changed files, read "no changed files" on most PRs and re-notified every push, so it was removed) |
+| Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data, the 65% gate, the PR comment |
 | Backend suites (`backend-suites`) | backend tier | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the claim-queue suites on a real Postgres (`task be:test:postgres`) |
 | Workspace (`workspace`) | workspace tier | card schema check, lint, types, and the tenant-isolation suite against a real Postgres |
 | Workspace tests (`workspace-test`) | workspace tier; on a PR, unless nothing a UI spec reads changed | the vitest suite in 8 shards, split by recorded time (`tests/vitest-durations.json`, refreshed with `task workspace:test:durations`, read by `config/vitest/duration-sequencer.ts`); on a PR whose change a selection can see, only the specs it reaches (`task workspace:test:related`) |
 | Workspace accessibility (`task workspace:a11y`) | not in CI yet: run it locally, a shard at a time | axe-core, WCAG 2.2 AA, over every `/dev` preview route except those still listed in `apps/workspace/scripts/a11y-pending-routes.json` (not yet audited; the list only shrinks), light and dark, 1440 and 390 (`task workspace:a11y -- --shard i/4`). The script starts `next dev` itself with placeholder WorkOS settings; fails on a violation not in `apps/workspace/scripts/a11y-baseline.json` and on an entry that is gone. The CI job follows in a separate PR: its first run (4 shards) failed shards 1, 3 and 4 while the same shards pass locally, so the baseline does not yet hold on the runner. On GitHub Actions the script writes each difference as an `::error` annotation, which the check-run API returns where job logs cannot be fetched |
+| Workspace coverage | PRs, workspace tier | merges the shards' coverage into the PR comment. Not in `CI OK` |
 | Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*` |
 | Hatchet engine tests (`hatchet`) | `hatchet` tier: the ingest, folder card and research Hatchet code, the BFF's jobs and scheduler, the SDK pins | starts `hatchet-lite` at production's tag and its Postgres, makes an API token in the container (`ci/hatchet_engine.sh`), and runs every suite that otherwise skips without an engine: `test_ingest_workflow_engine.py`, `test_folder_card_workflow_engine.py`, `test_research_workflow_engine.py` and each `bff/*/orchestrator.integration.spec.ts` over the RLS script's database. Fails when one of them ran no test or skipped one |
 | Image vulns (`trivy`) | a pin added or moved | trivy on those pins |
@@ -102,44 +103,6 @@ which function, and the run is the full backend suite, seven runner-minutes.
 The core shards (`task be:test:shard`) leave out the 17 files of
 `be:test:harness` (the Taskfile variable `HARNESS_TESTS`), which the CI
 machinery leg runs on every run that runs the shards. They used to run twice.
-
-Smaller decisions in `ci.yml`, each with the measurement behind it:
-
-- The Python suites other than core run one job each: back to back they took
-  4:50 (sources 2:32, agent_host 1:00, the rest 0:36), the longest job of a full
-  pull request.
-- `backend-affected` runs the core selection in four shards because half the
-  selections measured on 2026-10-22 were the whole suite (a change to logging or
-  the conftest): 15,200 tests in 4 to 5.5 minutes in one job. The shards all read
-  develop's testmon database, since pytest-split splits what testmon selected.
-  Its cache restore is a step of its own with the path `testmon.yml` saves under,
-  because a cache is found only by the paths it was saved with.
-- The Qdrant service logs at WARN: at INFO the runner's dump of its log after the
-  job buried the pytest failure under thousands of request lines.
-- The pre-commit cache key holds the interpreter path: pre-commit rebuilds an env
-  whose `pyvenv.cfg` names another interpreter, and setup-python floats the patch
-  version. Warm, env building drops from ~25 s to ~0.3 s.
-- gitleaks reads the commits a pull request adds, not `--all`: a full-depth
-  checkout fetches every branch, and one open PR's fixture then failed every
-  other PR's run.
-- A pull request checks out its head, not GitHub's default merge commit, which
-  would mix develop into the diff.
-- The image layer cache lives in GHCR, one `buildcache` tag per image, not
-  `type=gha`: three `mode=max` caches (3 to 5 GB) evicted each other and every
-  other cache from the repository's 10 GB Actions budget, and re-exporting them
-  through the cache API left publishes hanging for half an hour. Only a push
-  writes it, so a pull request cannot put a layer into the next publish unseen;
-  GHCR needs the `image-manifest`/`oci-mediatypes` form. The builder is not
-  cleaned up: on a discarded runner that took 52 s of the frontend image job
-  (2026-10-09).
-- `setup-python-env` caches the synced venv itself, since `uv sync` in copy mode
-  writes ~900 MB (~20 s) even when every wheel is cached. The key holds the exact
-  interpreter and the checkout path, because a venv names both (a venv cached
-  before the repository was renamed left `pre-commit: command not found`).
-- The weekly link sweep (`docs-links.yml`) runs markdown-link-check directly with
-  its own config, because a hook's `args` cannot be overridden per run; the gate's
-  hook ignores `^https?://` and checks relative links only. Its version follows
-  the hook's `rev`.
 
 `task verify` runs the same checks locally, minus the image builds, the RLS
 suite and `packages/` (see
@@ -310,10 +273,8 @@ cannot be caused by a change moved to the weekly run.
 Splitting does shorten the critical path for the two test suites, and by
 2026-10-19 the slots were no longer the constraint: in eleven runs measured
 then, no job waited more than three seconds for a runner. So the backend core
-suite runs in four shards and the UI suite in eight (it had four, which had
-grown to 7 to 11 minutes each; six, split by time, all took 3.4 to 4.2 minutes on
-2026-10-22 and were still the longest job, and with import and setup ~60 % of a
-shard only more shards shorten it); see [The backend lane](#the-backend-lane).
+suite runs in four shards and the UI suite in six (it had four, and they had
+grown to 7 to 11 minutes each); see [The backend lane](#the-backend-lane).
 
 GitHub's **CodeQL default setup**, which ran three analysis jobs on every PR
 push and a five-to-ten minute analysis on every `develop` push beside Semgrep,

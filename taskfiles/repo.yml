@@ -1,6 +1,26 @@
+# Repo-wide tooling: agent skills (apm), release notes, pre-commit, and the
+# local stack (the whole app on this machine, scripts/local-stack/).
+#
+# Included by the root Taskfile.yml with `flatten: true`: task names stay literal
+# (`agents:audit`). Shared vars (UI, SITE, PY, ...) and env live in the root file.
+
 version: '3'
 
 tasks:
+  # ── agent skills (apm) ──────────────────────────────────────────────────────
+  #
+  # `skills/` is the single source: this repo's own skills live there, declared
+  # in `apm.yml` as local paths beside the pinned third-party ones. apm
+  # publishes the whole set into every target in that manifest, so `.claude/`
+  # and `.agents/` are GENERATED and gitignored. Adding a harness is one line
+  # in `apm.yml`, not a new copy step here.
+  #
+  # Run through `uvx` rather than a global install: uv is already required for
+  # the backend venv, and this way the CLI version is pinned in one line here
+  # instead of depending on whatever `apm` happens to be on someone's PATH.
+  # `--frozen` refuses to install when the lockfile is missing or out of sync,
+  # which is what makes this reproducible in CI.
+
   agents:setup:
     desc: Publish every skill in apm.yml into the harness directories it targets
     cmds:
@@ -10,6 +30,11 @@ tasks:
   agents:browser:
     desc: Install agent-browser at the pinned version and run its doctor
     cmds:
+      # Pinned like apm, and skipped when that version is already installed.
+      # `agent-browser install` is NOT run: it downloads Chrome for Testing,
+      # which the cloud network policy blocks. Where Playwright's Chromium
+      # exists, point AGENT_BROWSER_EXECUTABLE_PATH at it (the SessionStart hook
+      # does this in cloud sessions). `doctor` reports what is still missing.
       - |
         have=$(agent-browser --version 2>/dev/null | awk '{print $NF}' || true)
         if [ "$have" != "{{.AGENT_BROWSER_VERSION}}" ]; then
@@ -20,6 +45,37 @@ tasks:
   agents:audit:
     desc: Fail when apm.lock.yaml is stale against skills/, or the deployed skills have drifted
     cmds:
+      # THE GATE for `skills/`. Nothing else can be: `skills/` is the source and
+      # `.claude/`/`.agents/` are generated and gitignored, so a diff shows the
+      # edited skill and never the lockfile it invalidated. That is how
+      # apm.lock.yaml went stale against seven files while a perfectly good
+      # `apm audit` sat one command away — the same shape as the `sources/`
+      # suites before this branch: a check that exists, and no gate that runs it.
+      #
+      # Two different failures, so two checks:
+      #
+      # 1. `apm install --frozen` re-deploys from `skills/` and REWRITES the
+      #    lockfile's recorded hashes. If that rewrite changes the file, the
+      #    committed lockfile did not describe `skills/` — someone edited a
+      #    skill and never re-locked. The file on disk is now correct, so the
+      #    fix is to commit it. (`--frozen` only refuses when apm.yml and the
+      #    lockfile disagree about PACKAGES; it says nothing about content,
+      #    which is why this comparison and not its exit status is the signal.)
+      #
+      # 2. `apm audit` then compares the deployment against the lockfile — a
+      #    post-condition on step 1, confirming the install did what it said.
+      #    It cannot be run FIRST: a fresh checkout has no `.claude/` or
+      #    `.agents/` at all, so an audit before the install reports every file
+      #    missing. (A hand-edited file under `.claude/` is therefore repaired
+      #    by step 1 rather than reported by step 2 — correct, since those
+      #    directories are generated output, and worth knowing so nobody reads
+      #    a green run as proof nobody touched them.) The audit PRINTS its
+      #    verdict and EXITS 0 either way, so the status here comes from
+      #    matching its SUCCESS line. Matching the failure line instead would
+      #    mean a reworded apm release silently stops catching anything — the
+      #    same defect one level up. Its info-level "unusual characters"
+      #    findings are printed and not gated: this repo's prose is German and
+      #    legitimately full of non-ASCII.
       - |
         before=$(sha256sum apm.lock.yaml | cut -d' ' -f1)
         uvx --from apm-cli=={{.APM_VERSION}} apm install --frozen
@@ -48,16 +104,34 @@ tasks:
     cmds:
       - uvx --from apm-cli=={{.APM_VERSION}} apm update --yes
 
+  # ── repo-wide ───────────────────────────────────────────────────────────────
+
+  # ── release notes (releasenotes/ -> the app's What's new, the website's /changelog/)
+  #
+  # Every user-visible change ships a note; on merge the notes are published to
+  # the app (every note, for signed-in members) and the website (the weekly
+  # summaries only). The full rules are in docs/contributing/release-notes.md,
+  # the tiers in ADR-0156, the mandate in AGENTS.md.
+
   release:note:
     desc: 'Start a release note for the change you are making: task release:note -- <slug>'
     cmds:
+      # reno picks the filename (slug + random suffix), which is what keeps two
+      # branches from ever colliding on the same note file.
       - '{{.RENO}} new {{.CLI_ARGS}}'
 
   release:lint:
     desc: Check the release notes against the house rules, then reno's own lint (CI runs this on every PR)
     cmds:
+      # Ours first: it is the one that reads the notes as published prose.
       - task: release:lint:house
+      # reno walks each note's commit back to its parent, and a shallow clone
+      # lacks that history (KeyError on the sha). A pull request's Repo checks
+      # job is shallow, and a container's clone is too, so deepen it here
+      # rather than fail on a sha.
       - if [ "$(git rev-parse --is-shallow-repository)" = true ]; then git fetch --unshallow --quiet; fi
+      # reno's own lint catches the structural problems ours does not look for
+      # (a note on no branch, a malformed section body).
       - '{{.RENO}} lint .'
 
   release:lint:house:
@@ -77,20 +151,41 @@ tasks:
 
   release:changelog:
     desc: Regenerate the public changelog (website) and the customer list (app) from the notes
+    # Normally you never run this: the release-notes workflow does it on merge to
+    # develop and commits both artifacts. Run it locally to preview the page, or to
+    # resolve a conflict in the generated file (regenerate, do not hand-merge).
+    # Without OPENROUTER_API_KEY the German side falls back to English.
     cmds:
       - '{{.RELNOTES}} publish {{.CLI_ARGS}}'
 
   baselines:tighten:
     desc: Lower every shrink-only ratchet baseline to the tree, so a gain cannot be spent again
     cmds:
+      # A shrink passes the checks on its own (it is the direction we want), so
+      # nothing forces a baseline down in the PR that earned it. Run this to lock
+      # the gain in: each `--update` only lowers or removes entries, never raises
+      # one. Commit the ci/*baseline*.json it rewrites.
       - for: [check_file_size, check_nesting, check_comments, check_brand_names, check_brand_prose, check_country_in_code]
         cmd: '{{.VENV_BIN}}/python{{.EXE}} scripts/{{.ITEM}}.py --update'
 
   lint:repo:
     desc: pre-commit across the whole repo, plus the agent-skill lockfile — the same scope CI lints
     cmds:
+      # From the venv, not PATH: `uv sync --group dev` installs pre-commit into
+      # .venv and nothing puts it on PATH.
       - '{{.VENV_BIN}}/pre-commit{{.EXE}} run --all-files'
+      # `skills/` is source and `.claude/`/`.agents/` are generated and
+      # gitignored, so an edit to a skill that was never re-locked shows up
+      # here and nowhere else. See the task for what each half catches.
       - task: agents:audit
+
+  # ── the local stack ─────────────────────────────────────────────────────────
+  #
+  # The workspace, the BFF and the backend on this machine, with a real
+  # signed-in session and no Docker and no WorkOS account: Postgres from the
+  # server binaries, Redis for Dragonfly, a test double of the WorkOS API.
+  # Ports, the data directory and the UI directory are LOCAL_STACK_* variables
+  # (scripts/local-stack/defaults.sh). docs/contributing/local-stack.md.
 
   local:up:
     desc: 'Start the whole app locally (Postgres, Redis, fake WorkOS, backend api + chat, UI) and migrate; open http://localhost:3000 with `task local:session`'

@@ -1,3 +1,10 @@
+# The website's CMS (apps/cms: Payload, ADR-0155): its checks, its Postgres
+# suite, a local instance, the import of the git-era posts, and the social hand-off.
+#
+# Included by the root Taskfile.yml with `flatten: true`. Every task that writes
+# defaults to a dry run; nothing here touches a deployed CMS unless CMS_URL and a
+# key for it, or a DATABASE_URL, are set by hand.
+
 version: '3'
 
 tasks:

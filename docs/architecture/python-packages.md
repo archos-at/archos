@@ -126,35 +126,7 @@ A tool the UI can toggle is in the `data_sources` registry in
 `configs/config_oib_openrouter.yml` (entry shape `DataSourceEntry` in
 `agent/common/data_source_registry.py`). A third-party key is read from the tool's
 config when the tool is built, so a deployment that does not use the plugin can
-still import it. The telemetry `_type`s the shipped YAML names have an entry
-point of their own (`packages/agent/pyproject.toml`): when they rode in on
-another package's import, `load_config` in a clean interpreter raised
-ValidationError and the pod went into CrashLoopBackOff.
-
-### Why a pin is what it is
-
-A dependency line whose bound is not the ordinary floor, with the reason. Move
-a pin only with its reason in mind, and change this table with it.
-
-| Package | Pin | Why |
-|---|---|---|
-| `packages/agent` | `requires-python >=3.14.1` | uv lets a pre-release satisfy `>=3.14`, and on 3.14.0rc2 pydantic passes `typing._eval_type` a keyword that landed after rc2, so every backend test died at import |
-| `packages/agent` | `nvidia-nat-langchain[openai]` | every LLM runs as `_type: openai`; `[langchain]` on the meta package is `[all]`, nine provider stacks we never import |
-| `packages/agent` | `deepagents` exact, `langchain-modal` with it | every 0.7 patch changed a default, a tool's output or a builder we call; bump on purpose and run `packages/agent/tests/test_deepagents_contract.py` (langchain-modal 0.0.7 needs deepagents >=0.7.32,<0.8) |
-| `packages/agent` | `langchain-openai>=1.6.6` | below 1.6.6 a streamed Responses call drops the model's encrypted reasoning items, so every tool round thinks from scratch and nothing fails (a0ec99d2) |
-| `packages/agent` | `posthog>=7.59` | 7.59 reads `POSTHOG_RELEASE_ID`, which links an exception to its release |
-| `packages/agent` | `py3langid` | a 4 MB pure-Python wheel with its model inside; lingua's wheel is 160 MB and fast-langdetect downloads its model at run time |
-| `packages/knowledge-layer` | `boto3` direct | `view_image.py` reads image bytes from the object store with it; it arrived only through langchain-aws before |
-| `packages/knowledge-layer` | `regex` direct | `match="regex"` runs a person's pattern under a match timeout, which `re` has not; it was only a transitive of tiktoken |
-| `packages/knowledge-layer` | `qdrant-client`, not `llama-index-vector-stores-qdrant` | the llama-index store uses none of the Query API (prefetch, server fusion, `group_by`, server-side BM25) |
-| `packages/ifc-spatial-py` | `ifcopenshell` and `ifctester` exact, equal to `uv.lock` | the agent image installs with `uv pip install -e`, which reads this line and never the lock; a range shipped 0.9.0.post1 untested, on which `select_ray` returns a bare SWIG pointer and `clearHeight` raises AttributeError. `ifctester` declares no bound on IfcOpenShell |
-| `packages/ifc-spatial-py` | `shapely>=2.1.0` | for the suite: `minimum_rotated_rectangle` and `maximum_inscribed_circle`, the GEOS functions the hand-rolled geometry is cross-checked against, arrived in 2.1.0 |
-| `packages/ifc-spatial-py` | `pillow>=10.1`, not cairosvg | `render.plan` needs a raster for the model; cairosvg pulls native cairo and pango into the image, and 10.1 brought `ImageFont.load_default(size=…)`, which removes the system-font dependency |
-| `apps/agent-host` | `PyJWT[crypto]>=2.15.1` | the extra is `crypto` (a `cryptography` extra installs nothing); 2.15.1 is the first release clear of the September 2026 advisories |
-| `apps/agent-host` | `libpff-python==20260926` | the only reader of ANSI, Unicode and OST archives from a file object; this release is the first with cp314 wheels, so no compiler reaches the image. LGPL-3.0-or-later, used unmodified |
-| `apps/agent-host` | `ezdxf` without its PDF backend | that backend needs PyMuPDF, which is AGPL; matplotlib writes the PDF |
-| `apps/agent-host` | `mail-parser-reply` exact | its reply and signature rules are what the mail review shows |
-| `evals/oib-retrieval` | `dense` and `record` extras | the CI path uses the hashed embedder and a recorded fixture, never a model download or a network call |
+still import it.
 
 ### Returning evidence
 

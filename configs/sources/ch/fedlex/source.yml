@@ -1,3 +1,17 @@
+# Fedlex, the Swiss Confederation's publication platform for federal law.
+#
+# One configured `http_eli` + `akn` source (ADR-0162). Proves the types with a
+# second country and no code: a federal act's consolidation in force on a
+# date is found through the Fedlex SPARQL endpoint (JOLux), and its Akoma
+# Ntoso file is read into passages anchored by eId (`art_16_b/para_1`).
+#
+# Federal acts in German, French and Italian are equally binding (PublG Art. 14);
+# `language` picks the expression. Cantonal law is not on Fedlex.
+#
+# Not yet entitled to any office: no country pack uses it. It exists to prove
+# the access type and the engine against a real publisher.
+#
+# Check a change with: .venv/bin/python -m public_sources test ch-fedlex
 id: ch-fedlex
 title: Fedlex – Bundesrecht der Schweizerischen Eidgenossenschaft
 territory: CH
@@ -7,15 +21,18 @@ hosts:
   - fedlex.data.admin.ch
 data_flow: public_only
 terms:
+  # Enactments are not protected by copyright (URG Art. 5 Abs. 1 lit. a).
   url: https://www.fedlex.admin.ch/de/broadcasters/legal-notice
   licence: public_open
   attribution: "Quelle: Fedlex, www.fedlex.admin.ch"
   checked: 2026-11-06
 monitor:
+  # A new consolidation is a new expression date; the query states it.
   kind: version
   interval_hours: 24
 
 access:
+  # The work's ELI. `work` is the path after /eli/cc/, e.g. 1979/1573_1573_1573 (RPG, SR 700).
   eli: "https://fedlex.data.admin.ch/eli/cc/{work}"
   resolve: sparql
   args:
@@ -36,6 +53,7 @@ access:
     endpoint: https://fedlex.data.admin.ch/sparqlendpoint
     binding: file
     version_binding: date
+    # The consolidation applicable on `as_of`, in `language`, as Akoma Ntoso XML.
     query: |
       PREFIX jolux: <http://data.legilux.public.lu/resource/ontology/jolux#>
       PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>

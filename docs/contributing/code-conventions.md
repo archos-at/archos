@@ -150,7 +150,7 @@ The check is `scripts/check_comments.py` against `ci/comment_baseline.json`,
 run by the `comments` pre-commit hook on the files you commit and by CI's
 **Repo checks** job on all of them. It counts what
 `scripts/check_file_size.py`'s `comment_lines` counts: lines that hold only a
-comment, and Python docstrings. It reads YAML and TOML too: a line that starts with `#` outside a string counts, a tool directive (`yaml-language-server:`, `nosemgrep`, `pragma`) does not. On 2026-11-16, when it arrived, the tree held
+comment, and Python docstrings. On 2026-11-16, when it arrived, the tree held
 323,379 such lines in 7,452 files over the allowance; the audit that removes
 them is planned in the brand-free sweep.
 
@@ -166,11 +166,6 @@ naming rule.
 
 Ruff, line length 120, Python 3.14. New tools use `@register_function` with a
 `FunctionBaseConfig` subclass.
-
-What runs on the runner's own `python3` (3.12 on ubuntu-24.04) or through
-`uv run --no-project`, CI's scripts, the hook checkers and the release-note tool,
-is formatted for py312 (`[tool.ruff.per-file-target-version]`): on py314 Ruff
-writes `except A, B:` (PEP 758), a SyntaxError on 3.12.
 
 ### Shape of a function
 

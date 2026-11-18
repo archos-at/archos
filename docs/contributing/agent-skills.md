@@ -20,10 +20,8 @@ deployment is gitignored, nothing in your diff says so. `task agents:audit` is
 what catches that, and `task lint:repo` and CI's Repo checks job both run it. It
 re-deploys from `skills/` and fails if the lockfile changed, leaving the correct
 file on disk for you to commit. (Its own `apm audit` exits 0 on drift, which is
-why the task is a wrapper and not a one-liner. The wrapper matches its success
-line, never its failure line, so a reworded apm release fails the gate instead
-of silently passing it; the lockfile went stale against seven files before this
-gate existed.)
+why the task is a wrapper and not a one-liner; the lockfile went stale against
+seven files before this gate existed.)
 
 Adding a harness is one line in `targets`. Adding a skill is a directory in
 `skills/` and one line in `dependencies.apm`. There is no copy step to keep in
@@ -88,7 +86,7 @@ Third-party skills sit in the same manifest, pinned to a commit and locked in
 | `codebase-design` | by name, and by the skill above | The architecture vocabulary the report is written in |
 | `grilling` | by name, and by the skill above | The decision loop once a candidate is picked |
 | `domain-modeling` | by name, and by the skill above | Keeps a `CONTEXT.md` glossary current as terms sharpen |
-| `modern-web-guidance` | automatically, on HTML, CSS and client-side JS work | Native platform APIs over legacy patterns and polyfills; evals by the Chrome, Edge, Firefox and MDN teams. It runs `npx modern-web-guidance@latest`, the one unpinned piece: the skill text and its bundled guides are pinned and are the offline fallback |
+| `modern-web-guidance` | automatically, on HTML, CSS and client-side JS work | Native platform APIs over legacy patterns and polyfills; evals by the Chrome, Edge, Firefox and MDN teams. It runs `npx modern-web-guidance@latest`, the one unpinned piece (see `apm.yml`) |
 | `frontend-design` | automatically, when building or reshaping UI | Anthropic's design skill: aesthetic direction, typography, choices that do not read as templated |
 | `emil-design-eng` | automatically, on UI polish and motion work | The bar for interface craft: easing, duration, origin, press feedback. The one skill kept from its repo |
 
@@ -126,8 +124,7 @@ On 2026-11-15 every skill moved to its upstream's latest commit, and the
 agent-browser CLI from 0.27.0 to 0.43.0, except the four
 `improve-codebase-architecture` skills: upstream renamed their glossary from
 `CONTEXT.md` to GLOSSARY.md, so they stay at `6654f6b` until that rename is
-made here as one change; until then an agent would start a second glossary
-beside ours.
+made here as one change (`apm.yml` says why).
 
 ### Deliberately not taken
 
@@ -263,10 +260,3 @@ files `install` never wrote as drift, so `apm.yml` pins `targets` rather than
 relying on detection. The name for the shared `.agents/skills/` path is
 `agent-skills` in a manifest, while the CLI's `--target` help also lists
 `agents`, which a manifest rejects.
-
-The same divergence is why `before-and-after` deploys as `.claude/skills/skill/`
-and harnesses offer it as "skill": apm names a deployed skill after its
-directory (named skill upstream), and the object form's `alias:` that would fix it
-is honoured by `install` and ignored by the `audit` replay, so `task agents:audit`
-reports permanent drift (confirmed on 0.28.0 and 0.31.0). The string form stays
-until the audit learns aliases; the skill still triggers on its description.

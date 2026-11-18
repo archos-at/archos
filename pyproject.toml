@@ -1,3 +1,7 @@
+# The workspace root: no project of its own. The agent is `packages/agent`; the
+# root holds the repo-wide tool configuration (pytest, ruff, import-linter), the
+# dev dependency group and the uv workspace (ADR-0145 row 8).
+
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
@@ -8,19 +12,58 @@ testpaths = [
     "packages/ris-adapter/tests",
     "packages/tavily-web-search/tests",
 ]
+# `-m "not live"`: a test that calls a real model runs only when asked for by
+# name (`task be:eval:turn-shapes` passes `-m live`, and a later `-m` replaces
+# this one). A key that happens to be in the shell is not that request: before
+# this, `task verify` spent model tokens on any machine that had one.
 addopts = "--import-mode=importlib -m 'not live'"
+# Makes `from tests.provider_doubles import ...` (the shared provider-contract double)
+# resolve the same way under every invocation — `python -m pytest`, the bare
+# `pytest` console script, and an IDE runner — instead of
+# depending on which of those happens to put the repo root on sys.path.
+#
+# `packages/agent/src` is the same guard for `agent`. The venv installs it editable from
+# whichever checkout ran `uv sync`, so a bare `pytest` in a worktree without its
+# own venv tested the MAIN checkout's code while everything passed. This puts
+# the checkout's own `packages/agent/src/` ahead of that install (the editable `.pth` is
+# appended to sys.path, so it loses). `apps/agent-host/src` is the same guard
+# for `agent_host`, which `packages/agent/tests` imports too (the worker's header
+# contract, the job runner): without it a root-level `pytest` in a worktree ran
+# those tests against the MAIN checkout's `agent_host`. `evals/oib-retrieval/src`
+# is the same guard for the retrieval harness, a finder-style editable the evals
+# import by name. `knowledge_layer` is a finder-style editable too and is NOT
+# covered by this; see docs/contributing/gotchas.md.
+# The test-support packages come last: `<distribution>_testing`, one per suite
+# family, so a suite imports its helpers by a name that no directory move changes
+# (ADR-0145 row 5; tests/test_test_imports.py holds it).
 pythonpath = [".", "packages/agent/src", "apps/agent-host/src", "evals/oib-retrieval/src", "packages/knowledge-layer/testing", "packages/ris-adapter/testing", "packages/public-sources/testing", "packages/agent/tests/testing"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 markers = [
+  # Calls a real model through OpenRouter. Deselected by `addopts` above, which
+  # is how the default run, `task verify` and every PR job stay model-free
+  # whatever the shell holds; selected with `-m live`, and then each such test
+  # still skips itself without OPENROUTER_API_KEY.
+  # `.github/workflows/turn-shapes-live.yml` runs them with the key.
   "live: needs a real model behind OPENROUTER_API_KEY; deselected unless -m live",
 ]
 
 
 [tool.ruff]
+# Ruff's default `src` is [".", "src"]; the agent's source root moved with it, and isort
+# keeps `agent` first-party only if it can find it.
 src = [".", "packages/agent/src"]
+# Set the maximum line length to 120.
 line-length = 120
+# The packages require 3.14 (`requires-python` in each pyproject). The root has no
+# [project] to read it from since the agent moved to packages/agent, and ruff would
+# fall back to py310 and flag every lazy annotation, so it is stated here.
 target-version = "py314"
+#
+# Except what runs outside the project venv, on the runner's own `python3`
+# (3.12 on ubuntu-24.04) or `uv run --no-project`: CI's scripts, the hook
+# checkers and the release-note tool.
+# On py314 the formatter writes `except A, B:` (PEP 758), a SyntaxError there.
 [tool.ruff.per-file-target-version]
 "ci/**/*.py" = "py312"
 "scripts/check_*.py" = "py312"
@@ -29,17 +72,23 @@ target-version = "py314"
 [tool.ruff.lint]
 
 select = [
+  # The E, F, W categories are flake8 rules.
   "E",
   "F",
   "W",
+  # Enable isort support
   "I",
+  # Enable partial pylint support
   "PL",
+  # Enable pyupgrade support
   "UP",
+  # banned-api: NAT internals that `nat.plugin_api` re-exports (below)
   "TID251",
 ]
 
 extend-ignore = [
   "PLC0415", # Allow lazy imports inside functions
+  # Disable all the "too-*" checks, as they are too strict for our codebase
   "PLR0904", # too-many-public-methods
   "PLR0911", # too-many-return-statements
   "PLR0912", # too-many-branches
@@ -55,6 +104,8 @@ extend-ignore = [
   "PLE1205"
 ]
 
+# NAT's stable plugin surface is `nat.plugin_api` (1.9, ADR-0068). These are the
+# internal modules it re-exports from. A name `plugin_api` does not export may
 # still come from here, with `# noqa: TID251` saying it is internal.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "nat.builder.builder".msg = "Import from nat.plugin_api"
@@ -68,8 +119,11 @@ extend-ignore = [
 "nat.data_models.evaluator".msg = "Import from nat.plugin_api"
 "nat.data_models.function".msg = "Import from nat.plugin_api"
 "nat.data_models.interactive".msg = "Import from nat.plugin_api"
+# NAT's socket and HTTP frame models. The chat wire is `agent.common.wire_v2`
+# (ADR-0068); nothing here reads or writes a NAT frame.
 "nat.data_models.api_server".msg = "The chat wire is agent.common.wire_v2 (ADR-0068), not NAT's frame models"
 
+# Notebooks: allow long lines (shell/code) and imports after other statements
 [tool.ruff.lint.per-file-ignores]
 "docs/notebooks/*.ipynb" = ["E501", "E402"]
 
@@ -92,8 +146,14 @@ known-third-party = [
 ]
 order-by-type = true
 
+# The seams between the three Python packages, checked by import-linter in
+# `task be:lint` (`lint-imports`). It reads the import graph through grimp, lazy
+# imports inside functions included. An `ignore_imports` entry whose import is
+# gone fails the run (import-linter's default), so these lists only shrink.
+# docs/contributing/module-seams.md
 [tool.importlinter]
 root_packages = ["agent", "agent_host", "knowledge_layer"]
+# Third-party packages become nodes too, so a contract can name one.
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -102,6 +162,8 @@ name = "Only knowledge_layer.vector_store imports qdrant_client"
 type = "forbidden"
 source_modules = ["agent", "agent_host", "knowledge_layer"]
 forbidden_modules = ["qdrant_client"]
+# Who names the client, not who reaches a module that does: everything reaches
+# knowledge_layer.vector_store, which is the point of confining the client there.
 allow_indirect_imports = true
 ignore_imports = ["knowledge_layer.vector_store.** -> qdrant_client"]
 
@@ -118,10 +180,18 @@ name = "agent reaches knowledge_layer only through the retriever and ingestor po
 type = "forbidden"
 source_modules = ["agent"]
 forbidden_modules = ["knowledge_layer"]
+# Direct imports only: agent reaching knowledge_layer through agent_host is the
+# API tier's business, and the agent-api-seam contract already bounds that edge.
 allow_indirect_imports = true
 ignore_imports = [
+  # The port: `agent.knowledge.factory` builds the BaseRetriever and
+  # BaseIngestor the agent talks to, so it is the one module that should.
   "agent.knowledge.factory -> knowledge_layer.**",
+  # The licence port (ADR-0164): a document's licence, and a licensed passage's source
+  # for a later turn, read where the marks and the text live.
   "agent.knowledge.licences -> knowledge_layer.estate",
+  # Known bypasses of the port, from before this contract. Route each one
+  # through the port and delete its line; a new one fails the build.
   "agent.core.register -> knowledge_layer.chat_binding",
   "agent.core.register -> knowledge_layer.estate",
   "agent.knowledge.collection_pages -> knowledge_layer.chunk_positions",
@@ -136,6 +206,9 @@ ignore_imports = [
   "agent.tools.look.reading -> knowledge_layer.ingest",
   "agent.tools.look.register -> knowledge_layer.view_image",
   "agent.tools.look.resolve -> knowledge_layer.view_image",
+  # The law lookup, moved out of ris_adapter (outside `agent`, so unbound by this contract):
+  # the corpus's passage bound and its lane fan-out, read rather than restated. The port
+  # (`agent.knowledge.factory`) is at its size ceiling; route both through it when it shrinks.
   "agent.knowledge.law_lookup.render -> knowledge_layer.search",
   "agent.knowledge.law_lookup.sections -> knowledge_layer.search",
 ]
@@ -147,6 +220,16 @@ split_all_top_level_comma_separated_values = true
 join_multiple_lines = true
 indent_dictionary_value = true
 
+# -----------------------------------------------------------------------------
+# uv Workspace Configuration
+# The Python packages under packages/ and the backend plugin under frontends/
+#
+# Usage:
+#   uv sync                              # Install root + all workspace members
+#   uv sync --package agent  # Install only the agent
+#   uv pip install -e ./packages/ris-adapter  # Install a specific package
+#   uv pip install -e "./apps/agent-host[postgres]"  # With extras
+# -----------------------------------------------------------------------------
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
@@ -158,17 +241,24 @@ dev = [
     "yapf>=0.40.0",
     "mypy>=2.3.0",
     "fakeredis[lua]>=2.40.0",
+    # Workspace packages for testing
     "agent",
     "tavily-web-search",
     "ris-adapter",
     "public-sources",
     "knowledge-layer[all]",
     "agent-host",
+    # The eval harness (evals/), so its tests and `task be:eval:*` import it
+    # by name. Path sources, not workspace members: the backend image's
+    # `uv sync --all-packages` would otherwise need evals/ in its build context.
     "oib-retrieval",
     "pytest-xdist>=3.8.0",
+    # Splits the core suite across CI's backend shards (ci.yml `backend`).
     "pytest-split>=0.11.0",
+    # Runs only the tests a pull request's change reaches (ci.yml `backend-affected`).
     "pytest-testmon>=2.2.0",
     "import-linter>=2.15",
+    # The oracle the German tax-ID check is held to (agent.common.de_numbers); tests only.
     "python-stdnum>=1.20",
     "tree-sitter>=0.25",
     "tree-sitter-typescript>=0.23",
@@ -200,6 +290,10 @@ prerelease = "if-necessary-or-explicit"
 
 [tool.uv.workspace]
 members = [
+    # Explicit, not packages/*: ifc-spatial-py keeps its own uv.lock so that
+    # IfcOpenShell stays out of this one (packages/AGENTS.md), and ifc-spatial
+    # and brand are not Python. tests/test_python_packages.py holds this list,
+    # pytest's testpaths and the Taskfile's PY_PACKAGES to one another.
     "packages/agent",
     "packages/knowledge-layer",
     "packages/public-sources",

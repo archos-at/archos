@@ -1,5 +1,9 @@
 name: Lead time
 
+# Merge to staging and pull request to green, p50 and p90 by stage, in the run
+# summary (ci/lead_time.py). Weekly for the trend, and on demand before and
+# after a change to the pipeline: a CI change states its effect in these
+# numbers, not in a few runs picked by hand (docs/contributing/ci.md).
 on:
   schedule:
     - cron: "17 7 * * 1" # Mondays 07:17 UTC

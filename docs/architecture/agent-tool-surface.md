@@ -3,7 +3,7 @@
 > Which tools the agent is given, what each costs on every call, why
 > the set looks the way it does, and what to change next. Code comments in
 > `packages/knowledge-layer/src/knowledge_layer/browse/tool.py`, `packages/agent/src/agent/tools/files/register.py`
-> point here for the reasons behind a
+> and `configs/config_oib_openrouter.yml` point here for the reasons behind a
 > merge or a split. Written 2026-09-30. Token counts are the tool serialized as
 > OpenAI tool JSON, divided by four, on a project turn.
 
@@ -69,8 +69,6 @@ research call's input ([turns audit](../audit/turns-per-answer-audit-2026-09.md)
 | web search, advanced web search | Tavily | ~400 together | `packages/tavily-web-search/src/tavily_web_search/register.py` |
 
 The `ifc_*` pair is 8.65k of the 17.3k (the turns audit measured ~8.2k).
-
-Both web search instances exclude `ris.bka.gv.at`, because the RIS adapter answers that corpus structured and traceable. `include_domains` is a hard filter that drops every other result, so an allow-list is set on both instances or neither.
 
 ```mermaid
 flowchart LR

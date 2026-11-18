@@ -64,46 +64,6 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
    reads it for which law applies (the knowledge context's site does, ADR-0175);
    the RIS adapter still uses it to address a lookup to the right Land.
 
-### What the source and vocabulary records hold that their keys do not say
-
-Check a source record with `.venv/bin/python -m public_sources test <id>`.
-
-- **`at-ris`** (`configs/sources/at/ris/source.yml`, OGD-RIS API v2.6). `copy_hosts`
-  are sites that republish RIS texts; dev answers of 2026-11-10 cited § 50 WGarG
-  2008 from them instead of RIS. They are never fetched: a web hit on one is
-  withheld where the lookup may run and labelled a copy where not. The monitor
-  hashes bytes because RIS states no version validator and its change feed is SOAP
-  only; its probe is the Bauordnung für Wien's page, where a change of page shape
-  shows first. A provision search by an act's title answers every version of every
-  provision, more than a page for a large act (the Bauordnung für Wien: 478 hits,
-  § 81 alone 6, verified live 2026-11-12), and a lettered paragraph (§ 60a) finds
-  nothing that way, so the lookup falls back to the title alone. `date_from_param`
-  maps to the decision date for case law, the promulgation date for the federal
-  gazette and the version in force for consolidated federal law; consolidated Land
-  law (LrKons) has none there, unverified against the OGD API. The project brief's
-  `federal_state` decides the Land alone, so "Wiener Neustadt" never flips a Lower
-  Austrian project to Wien. `ogd.ris.bka.gv.at`, stated since 2026-09, 301s to the
-  public host and is on no allow-list, hence the host rewrite.
-- **`ch-fedlex`** (`configs/sources/ch/fedlex/source.yml`) proves the `http_eli` and
-  `akn` types with a second country and no code; no pack uses it yet. Enactments
-  carry no copyright (URG Art. 5 Abs. 1 lit. a); German, French and Italian are
-  equally binding (PublG Art. 14), and `language` picks the expression. Cantonal
-  law is not on Fedlex.
-- **The retrieval vocabulary** (`configs/norms/at/vocabulary.yml`) bridges English
-  questions to the German corpus: an English question scored MRR 0.293 against
-  0.678 in German, and prepending the German terms closed it to 0.674. Every German
-  term was counted in the corpus before it was written down. Counted and absent, so
-  never to be added without re-counting: Anleiterbarkeit, Bruttogeschossfläche,
-  Luftschalldämmung, Anleiterstelle, Hauptzugang, Bemessungswert,
-  Standardschallpegeldifferenz (all 0), Hauptgang (2, "Gang" covers it),
-  Abstellfläche (2), Notausgang (3; the corpus says Fluchtweg or Rettungsweg). `en`
-  forms match with punctuation flattened to spaces, so list one spelling.
-- **`configs/domain_catalogs/deep_research_domain_catalog.yml` is read by nothing
-  shipped**: no config sets `domain_catalog_path`, so every agent takes the built-in
-  single-domain fallback and no test checks its `preferred_source_ids`. It is kept
-  while domain routing is an open decision; wiring it is one config line plus a
-  parity test against the data source registry.
-
 ## Deferred until a second country needs it
 
 - **A released text's document class from its records.** The base corpus files

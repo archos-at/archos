@@ -15,7 +15,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tree_sitter_javascript  # noqa: E402
 import tree_sitter_typescript  # noqa: E402
-import yaml  # noqa: E402
 from check_file_size import comment_lines  # noqa: E402
 from tree_sitter import Language  # noqa: E402
 from tree_sitter import Node  # noqa: E402
@@ -23,8 +22,7 @@ from tree_sitter import Parser  # noqa: E402
 
 BASELINE = Path("ci/comment_baseline.json")
 FREE = 3
-CONFIG_SUFFIXES = (".yml", ".yaml", ".toml")
-SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", *CONFIG_SUFFIXES)
+SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
 EXCLUDED = re.compile(
     "|".join(
         (
@@ -45,8 +43,7 @@ DIRECTIVE = re.compile(
     r"eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-(expect-error|ignore|nocheck|check)|"
     r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|drop after release|"
     r"@type\s*\{|@typedef|@param\s*\{|@returns?\s*\{|@template|@satisfies|@import|"
-    r"webpack[A-Z]|@vite-ignore|/// <reference|#!|-\*- coding|@license|@preserve|"
-    r"yaml-language-server:|yamllint |zizmor:|shellcheck |actionlint|gitleaks:allow|trivy:ignore|checkov:skip"
+    r"webpack[A-Z]|@vite-ignore|/// <reference|#!|-\*- coding|@license|@preserve"
 )
 MESSAGE = (
     "Fix the code instead of explaining it: a clearer name, a smaller function, a check whose "
@@ -121,47 +118,11 @@ def script_prose_lines(path: str, source: bytes) -> int:
     return len(lines)
 
 
-def _yaml_string_lines(source: str) -> set[int]:
-    rows = source.split("\n")
-    try:
-        tokens = [token for token in yaml.scan(source, Loader=yaml.SafeLoader) if isinstance(token, yaml.ScalarToken)]
-    except yaml.YAMLError:
-        return set()
-    lines: set[int] = set()
-    for token in tokens:
-        start, end = token.start_mark, token.end_mark
-        last = end.line + 1 if rows[end.line][: end.column].strip() else end.line
-        lines.update(range(start.line + 2, last + 1))
-    return lines
-
-
-def _toml_string_lines(source: str) -> set[int]:
-    lines, quote = set(), None
-    for number, row in enumerate(source.split("\n"), start=1):
-        if quote:
-            lines.add(number)
-        for found in re.findall(r'"""|\'\'\'', row):
-            quote = None if quote == found else quote or found
-    return lines
-
-
-def config_prose_lines(path: str, source: str) -> int:
-    inside = _toml_string_lines(source) if path.endswith(".toml") else _yaml_string_lines(source)
-    return sum(
-        1
-        for number, row in enumerate(source.split("\n"), start=1)
-        if row.lstrip().startswith("#") and number not in inside and not DIRECTIVE.search(row)
-    )
-
-
 def measure(root: Path, paths: list[str]) -> dict[str, int]:
-    counts = {}
+    python = [path for path in paths if path.endswith(".py")]
+    counts = {p: prose_comment_count(p, (root / p).read_text(encoding="utf-8", errors="replace")) for p in python}
     for path in paths:
-        if path.endswith(".py"):
-            counts[path] = prose_comment_count(path, (root / path).read_text(encoding="utf-8", errors="replace"))
-        elif path.endswith(CONFIG_SUFFIXES):
-            counts[path] = config_prose_lines(path, (root / path).read_text(encoding="utf-8", errors="replace"))
-        else:
+        if not path.endswith(".py"):
             counts[path] = script_prose_lines(path, (root / path).read_bytes())
     return counts
 

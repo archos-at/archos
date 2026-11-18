@@ -17,6 +17,8 @@ repos:
       - id: check-merge-conflict
       - id: check-added-large-files
         args: [--maxkb=1024]
+        # A carried knowledge release (ADR-0181) is the reviewed bundle byte for byte, its source captures'
+        # text included; the manifest pins its sha256, so it cannot be split or trimmed. 2 MiB bounds it.
         exclude: ^apps/workspace/config/knowledge-releases/[a-z]{2}-\d+\.json\.gz$
       - id: check-added-large-files
         name: check for added large files (carried knowledge releases, 2 MiB)
@@ -25,12 +27,22 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+        # The forward fixtures are what mail programs write, trailing spaces included.
         exclude: ^apps/workspace/bff/inbound-mail/__fixtures__/forwards/
 
   - repo: local
     hooks:
       - id: sync-platform-skills
         name: platform-skills.ts is generated from the builtin SKILL.md files
+        # This file has broken the build from behind THREE times, and the shape
+        # of the failure is the same every time: a stale generated module
+        # type-checks perfectly, so nothing local objects and only CI knows.
+        # `--check` runs the generator and diffs, which is the one thing that
+        # can see it.
+        #
+        # Scoped to the two inputs rather than run always: the generator stamps
+        # a timestamp into its output, so running it on every commit would make
+        # the file dirty on every commit.
         entry: node apps/workspace/scripts/sync-platform-skills.mjs --check
         language: system
         pass_filenames: false
@@ -38,6 +50,28 @@ repos:
 
       - id: card-schemas
         name: the card schemas are generated from the card models (cards/models.py and its card modules)
+        # Two generated, committed artifacts in one pipeline: the Pydantic
+        # models render to contracts/cards/schemas.json, which renders to the Zod
+        # module the frontend validates with. Neither had a guard, and the
+        # failure mode is the one platform-skills.ts already demonstrated three
+        # times — a stale generated module type-checks perfectly, so nothing
+        # local objects and only CI (or a user) finds out.
+        #
+        # Running the generators IS the check: pre-commit fails the commit if
+        # they modify anything. Neither stamps a timestamp, so a clean tree
+        # stays clean (verified).
+        #
+        # The venv python explicitly, not a bare `python`: `task lint:repo`
+        # invokes `.venv/bin/pre-commit` WITHOUT activating the venv, so a
+        # bare interpreter here resolves to the system one and cannot import
+        # langchain_core.
+        # On Windows this path is .venv/Scripts/python.exe.
+        #
+        # The Zod stage needs `json-schema-to-zod` from apps/workspace/node_modules,
+        # which CI's repo-lint job does not install — it failed every run until
+        # this guard existed. It is skipped where the modules are absent and
+        # covered instead by `task workspace:cards:check`, which the frontend CI job
+        # runs after `task workspace:install`.
         entry: >-
           bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_card_schema.py
           && if [ -d apps/workspace/node_modules ];
@@ -50,6 +84,10 @@ repos:
 
       - id: wire-schemas
         name: the chat wire v2 schemas are generated from common/wire_v2.py
+        # The same two-stage pipeline as card-schemas above, for the chat wire
+        # (docs/design/chat-wire-v2.md), with the same reasons for the venv
+        # python and for skipping the Zod stage where node_modules is absent
+        # (scripts/generate-wire-schemas.spec.mjs covers it in the UI suite).
         entry: >-
           bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_wire_schema.py
           && if [ -d apps/workspace/node_modules ];
@@ -61,6 +99,9 @@ repos:
 
       - id: vocabularies
         name: the UI's shared vocabularies are generated from their Python sources
+        # One stage: each tuple in apps/workspace/shared/vocabularies.generated.ts
+        # is rendered straight from a Python source (scripts/generate_vocabularies.py).
+        # Running the generator is the check; a changed file fails the commit.
         entry: bash -c 'PYTHONPATH=packages/agent/src .venv/bin/python scripts/generate_vocabularies.py'
         language: system
         pass_filenames: false
@@ -68,6 +109,11 @@ repos:
 
       - id: data-flow-register
         name: every outbound flow has a row in the data-flow register, and the pages generated from it are current
+        # configs/subprocessors/*.yaml is the one list of where data leaves the
+        # cluster (docs/compliance/data-flow-register.md). The check fails a host,
+        # key, base URL, Hog file or PostHog destination no row names; the
+        # generator rewrites the legal page's tables and the DPA annex, and a
+        # changed file fails the commit. The files are every tree the scan reads.
         entry: bash -c '.venv/bin/python scripts/check_data_flow_register.py && .venv/bin/python scripts/generate_subprocessor_pages.py'
         language: system
         pass_filenames: false
@@ -75,13 +121,23 @@ repos:
 
       - id: agent-docs
         name: every AGENTS.md is reachable by the agents that need it
+        # Claude Code reads CLAUDE.md, never AGENTS.md, and bridges them with an
+        # `@AGENTS.md` import. The root bridge here was the ten bytes
+        # "AGENTS.md\n" — no `@`, so it was prose, and the root guide loaded in
+        # exactly zero sessions while /context still showed a memory file.
+        # A missing guide has no symptom, so it needs a gate, not a gotcha.
         entry: python3 scripts/check_agent_docs.py
         language: system
         pass_filenames: false
+        # It also resolves every tracked Markdown file's relative links against
+        # git, so it runs on any .md change.
         files: \.md$|^scripts/check_agent_docs\.py$
 
       - id: adr-check
         name: the ADR directory and its index tell the same story
+        # Four numbers used twice, two statuses that disagreed with the index,
+        # and one record indexed nowhere — none of which has a symptom until
+        # somebody acts on a decision that was superseded a month ago.
         entry: python3 scripts/check_adrs.py
         language: system
         pass_filenames: false
@@ -89,12 +145,20 @@ repos:
 
       - id: hidden-unicode
         name: no invisible or bidi-control characters in committed text
+        # A zero-width space or a bidi override renders as nothing, so a grep
+        # or a lookup misses it with no error. The house spelling is the escape.
         entry: python3 scripts/check_hidden_unicode.py
         language: system
         types: [text]
 
       - id: doc-paths
         name: paths in the concept index, the AGENTS.md guides and the docs exist
+        # Paths in code spans are invisible to markdown-link-check, so a rename
+        # leaves a guide pointing at nothing. The concept index and every
+        # AGENTS.md are held to zero dead paths; docs/architecture and
+        # docs/contributing to ci/doc_paths_baseline.json, which only shrinks.
+        # Always run: a rename in code is what kills a doc path, so the commit
+        # that renames is the one to fail. It reads `git ls-files`, under a second.
         entry: python3 scripts/check_doc_paths.py
         language: system
         pass_filenames: false
@@ -102,6 +166,10 @@ repos:
 
       - id: english-names
         name: no Python file gains a German identifier
+        # CI's Backend core shard ran this and nothing local did, so a German
+        # test name (richtlinie, bescheids) reached CI twice on one branch. It
+        # reads `git ls-files`, which includes staged files, so it sees a new
+        # file at commit time. About five seconds, only when Python changed.
         entry: .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_english_names.py
         language: system
         pass_filenames: false
@@ -109,6 +177,8 @@ repos:
 
       - id: import-contracts
         name: the Python packages keep their seams (import-linter)
+        # The contracts in pyproject.toml's [tool.importlinter]; `task be:lint`
+        # runs them too. About a second, only when Python or the contracts change.
         entry: .venv/bin/lint-imports --no-cache
         language: system
         pass_filenames: false
@@ -116,13 +186,26 @@ repos:
 
       - id: file-size
         name: no source file passes 600 lines, no Python function 60, and no giant grows
+        # Files of 3,000 to 7,000 lines and a 962-line function each got there
+        # one reasonable hunk at a time, and review passed every hunk. A ratchet
+        # on ci/size_baseline.json is the layer that holds while people are
+        # tired, so a split stays split. The venv python, not python3: its
+        # `ast` must parse the 3.14 syntax the tree is written in, and a system
+        # interpreter that cannot would read a file as "no functions".
         entry: .venv/bin/python scripts/check_file_size.py
         language: system
         pass_filenames: false
+        # Always, not on matching files: a commit that only deletes a baselined
+        # file passes no filename, and its stale entry would fail the next
+        # person's commit instead. The check takes about three seconds.
         always_run: true
 
       - id: spec-source-reads
         name: no spec reads source text, outside the AST guards in ci/ast_guard_specs.txt
+        # About 220 specs read source files and asserted on their wording, so
+        # they passed on broken behaviour and failed on harmless renames.
+        # Always, for the reason file-size gives: an allowlisted guard that
+        # stops reading must leave the list. About seven seconds.
         entry: .venv/bin/python scripts/check_spec_source_reads.py
         language: system
         pass_filenames: false
@@ -136,13 +219,23 @@ repos:
         always_run: true
 
       - id: comments
-        name: no source or config file gains a comment line past its baseline (three are free)
+        name: no source file gains a comment line past its baseline (three are free)
+        # A comment goes stale, binds nothing, and gives an agent room to justify
+        # a workaround the next agent copies: code-conventions.md#comments.
+        # The staged files only, so a commit pays milliseconds, not the 25 s a
+        # full scan takes; CI's --all-files run passes every file.
         entry: .venv/bin/python scripts/check_comments.py
         language: system
-        types_or: [python, ts, tsx, javascript, jsx, yaml, toml]
+        types_or: [python, ts, tsx, javascript, jsx]
 
       - id: nesting
         name: no Python source function gains a third level of nesting
+        # code-conventions.md sets two levels as the floor and named Ruff's
+        # PLR1702 as the check, but pyproject.toml ignores it and Ruff 0.17 keeps
+        # it in preview, so nothing ran it and 300 files drifted past it. A
+        # ratchet on ci/nesting_baseline.json holds the rest at two levels. The
+        # venv python, so the script finds the venv's pinned Ruff beside it.
+        # Always, for the reason file-size gives. About two seconds.
         entry: .venv/bin/python scripts/check_nesting.py
         language: system
         pass_filenames: false
@@ -150,6 +243,11 @@ repos:
 
       - id: brand-names
         name: no new product name in a code or infrastructure name
+        # The product has had four names, and each rename was a code change
+        # across thousands of lines. The name belongs in copy, read
+        # from one place; a ratchet on ci/brand_names_baseline.json keeps every
+        # new identifier, file, route and variable neutral. Always, for the
+        # reason file-size gives. About five seconds.
         entry: .venv/bin/python scripts/check_brand_names.py
         language: system
         pass_filenames: false
@@ -157,6 +255,11 @@ repos:
 
       - id: brand-prose
         name: no retired product name in text, and the current one only as copy
+        # The other half of brand-names (ADR-0149): a retired name as a word in
+        # copy, prompts and docs, and the current name typed out where it should
+        # be {productName} or PRODUCT_NAME. History is left alone. A ratchet on
+        # ci/brand_prose_baseline.json. Always, for the reason file-size gives.
+        # About five seconds.
         entry: .venv/bin/python scripts/check_brand_prose.py
         language: system
         pass_filenames: false
@@ -164,6 +267,16 @@ repos:
 
       - id: country-in-code
         name: no new country-specific name, host or literal in source code or a prompt
+        # A country is records, never code (ADR-0162, ADR-0168, ADR-0169,
+        # ADR-0173, ADR-0174). Austria came first and was written as code: the
+        # OIB in module and route names, RIS as a package and a model tool, the
+        # Länder as literals. A ratchet on ci/country_in_code_baseline.json
+        # over the tokens in ci/country_tokens.json, in source code and in the
+        # prompts the model reads, keeps a second copy from
+        # arriving while the first is burned down
+        # (docs/architecture/country-extensibility.md). Always, for the reason
+        # file-size gives; the venv python, for the reason file-size gives.
+        # About four seconds.
         entry: .venv/bin/python scripts/check_country_in_code.py
         language: system
         pass_filenames: false
@@ -171,6 +284,8 @@ repos:
 
       - id: coverage-copy
         name: the website claims a country's law only as far as its pack's coverage goes
+        # ADR-0173: the building-law page's country lines are generated from the
+        # coverage the country packs state; its other copy names no other country.
         entry: .venv/bin/python scripts/check_coverage_copy.py
         language: system
         pass_filenames: false
@@ -178,6 +293,7 @@ repos:
 
       - id: package-surfaces
         name: code outside a package imports its surface, not its submodules
+        # Outside code imports a package's surface, never its submodules.
         entry: .venv/bin/python scripts/check_package_surfaces.py
         language: system
         pass_filenames: false
@@ -192,6 +308,9 @@ repos:
 
       - id: env-docs
         name: the queue workers' environment variables have a row in the env reference
+        # AGENTS.md asks for a row per variable; nothing else checks it, and an
+        # operator tuning a worker otherwise finds the knob only in its source.
+        # Scoped to the queue-worker files (SCOPE in the script).
         entry: python3 scripts/check_env_docs.py
         language: system
         pass_filenames: false
@@ -199,6 +318,9 @@ repos:
 
       - id: validate-skills
         name: skill bundles are well-formed
+        # The script existed and nothing ran it — not pre-commit, not the
+        # Taskfile, not CI. A validator nobody invokes is a validator that is
+        # not ratcheting.
         entry: .venv/bin/python scripts/validate_skills.py
         language: system
         pass_filenames: false
@@ -206,6 +328,10 @@ repos:
 
       - id: release-notes
         name: release notes keep to the house rules
+        # The rules (two sentences an entry, no template text, no code words)
+        # were checked only by CI's Repo checks, so a note over the limit was
+        # found after the push, twice on one branch. The house lint needs no
+        # reno; `task release:lint` still runs reno's own scan in CI.
         entry: .venv/bin/python scripts/release_notes.py lint
         language: system
         pass_filenames: false
@@ -213,6 +339,10 @@ repos:
 
       - id: merge-release-notes
         name: a merge commit writes no release note
+        # reno cannot read a merge commit that adds or edits a note, and no
+        # later commit clears it: the fix is a force-push or a new PR. That
+        # happened on #926, #1305 and #1342 with the gotchas row already
+        # written. Does nothing outside a merge.
         entry: .venv/bin/python scripts/check_merge_release_notes.py
         language: system
         pass_filenames: false
@@ -223,6 +353,12 @@ repos:
     hooks:
       - id: markdown-link-check
         args: ["-q", "--config", "ci/markdown-link-check-config.json"]
+        # The vendored SkillCheck rulebook is excluded because it is vendored
+        # VERBATIM (see packages/agent/src/agent/skills/review/README.md): its relative
+        # links resolve upstream, where the whole `references/` directory
+        # exists, and we deliberately took only the one file. Rewriting its
+        # links to make a link checker happy would break the byte-for-byte
+        # guarantee that keeps its MIT licence and attribution intact.
         exclude: ^packages/agent/src/agent/skills/review/skill-check/SKILL\.md$
 
 default_language_version:

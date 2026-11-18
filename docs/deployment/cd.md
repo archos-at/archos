@@ -168,9 +168,9 @@ accepted residual (see
 
 ## Image pinning
 
-The prod job deploys whatever `imageTag` the merged `Pulumi.prod.yaml` names,
-after its downgrade guard (below); the vector-store floor only warns when it
-cannot find the commit. develop's copy of that line is not
+**The prod job has no downgrade guard.** It deploys whatever
+`imageTag` the merged `Pulumi.prod.yaml` names; the vector-store floor
+only warns when it cannot find the commit. develop's copy of that line is not
 maintained (it pinned 2026-09-18 while prod ran 2026-10-28), so a promotion PR
 sets it and checks `git diff origin/prod -- deploy/pulumi/Pulumi.prod.yaml`.
 
@@ -381,30 +381,6 @@ avoids them looks odd without the reason, so don't "simplify" it back.
   (`repository name must be lowercase`). Anything composing an image ref from
   the owner must fold the case first — an uppercase ref reaches the cluster as
   an unpullable image, not as a workflow error.
-
-- **A deploy of exactly what staging runs is skipped.** A re-run CI run fires
-  `workflow_run` again: 19 of 78 commits were deployed twice in two weeks, each
-  holding `deploy-dev` three to four minutes. "Exactly" is the three image refs
-  and the program: the stack tag `deployed-commit`, written by a green apply, must
-  name the commit, because refs alone match after an operator rollback to this
-  commit's tag from a newer develop. A dispatch always applies, and the smoke
-  check runs on a skip too.
-- **The staging job checks the event and the repository, not only the branch.**
-  `workflow_run`'s `branches` filter matches a head branch by name, and a fork's
-  pull request from a branch called `develop` has that name too.
-- **The prod job checks out prod, never the dispatching ref.** A push applies
-  the pushed commit rather than the tip when the job starts, so a later push
-  cannot ride on this run's reviewer approval; a dispatch used to check out its
-  own ref, so `target=both` from develop applied develop's program to production.
-- **The Pulumi CLI is the release of the SDK `bun.lock` pins, not `latest`.**
-  Pulumi releases the two in lockstep; `latest` changed the CLI under a deploy
-  nobody changed.
-- **The timeout is generous on purpose.** Killing `pulumi up` mid-apply leaves
-  pending operations someone clears by hand, and the policy pack's progress
-  deadlines fail a stuck rollout long before it (a green deploy took 6 minutes
-  on 2026-10-09). Both jobs clone blobless with full history (the resolver and
-  the downgrade guards read ancestry): the full clone with every blob took 25 s
-  at the median and up to 414 s on staging, 158 s on prod.
 
 ## Day-to-day
 - Merge to `develop` → staging deploys automatically once green.

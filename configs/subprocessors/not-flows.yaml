@@ -1,3 +1,5 @@
+# Hosts and variables the scan finds that carry no data out of the cluster,
+# each with the reason. An entry that no longer occurs fails the check.
 hosts:
   gesetzefinden.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
   jusline.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
@@ -115,6 +117,9 @@ env:
   WEB_PUSH_VAPID_PRIVATE_KEY: signs our push messages (web-push.yaml); never sent
   WEB_PUSH_VAPID_PUBLIC_KEY: identifies our push messages to the browser's push service (web-push.yaml)
   NVIDIA_API_KEY: credential_resolution maps the removed NIM host to it; config_validation refuses an llm entry on NIM at boot
+# Every direct runtime dependency of an image says where it talks to. A vendor
+# SDK is in its row's `sdks` (it reaches the vendor's default host with no URL in
+# our code); everything else is here, under the reason it opens no flow of its own.
 packages:
   'no network of its own: UI, parsing, rendering, formatting, validation, crypto':
     - 'js:d3-array'

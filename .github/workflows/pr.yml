@@ -1,5 +1,9 @@
 name: PR
 
+# PR hygiene automation. Uses pull_request_target (base-repo context, so it can
+# label and comment on PRs) but NEVER checks out or runs PR code — it only reads
+# the event payload and the base-branch config, so it is safe with the write
+# token.
 on:
   pull_request_target:
     types: [opened, edited, reopened, synchronize]
@@ -18,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # The repo uses Conventional Commits and squash-merges the PR title, so
+      # the title must itself be a valid conventional-commit subject.
       - uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6.1.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,6 +45,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # GitHub closes an issue on merge only when a closing keyword stands
+      # directly before its number: "Fixes #1, #2" closes #1 and leaves #2
+      # open. #756 listed 40 issues that way and closed one. The body is read
+      # from the event payload through the environment, never interpolated
+      # into the script.
       - name: One keyword per issue
         shell: python
         env:
@@ -65,6 +76,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # GitHub skips push and pull_request workflows outright for a commit
+      # message carrying one of these, so CI OK never reports. The squash merge
+      # writes the PR's title and body into the commit message, so a marker
+      # here also skips the develop push run: no checks, no `sha-` image tags,
+      # no staging deploy, and the next merge diffs against the last green
+      # commit to make up for it. The safe way to run less is already built
+      # in: Plan selects no tier for a change that needs none, and CI OK still
+      # reports. Read from the payload through the environment.
       - name: Title and body carry no skip marker
         shell: python
         env:
@@ -85,6 +104,8 @@ jobs:
     name: Auto-label by path
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # Never block a PR on labeling (e.g. before the labels-as-code sync has
+    # seeded them, or a transient labels API hiccup).
     continue-on-error: true
     steps:
       - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0

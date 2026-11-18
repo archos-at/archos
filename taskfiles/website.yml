@@ -1,6 +1,14 @@
+# Website tier (apps/website: the public website) and the riso art kit
+# (packages/brand/art/riso, whose committed outputs are the app's vignettes).
+#
+# Included by the root Taskfile.yml with `flatten: true`: task names stay literal
+# (`website:check`). Shared vars (UI, WEBSITE, PY, ...) and env live in the root file.
+
 version: '3'
 
 tasks:
+  # ── website (apps/website — the public website, on the design system) ──
+
   website:install:
     desc: Install the website dependencies
     dir: '{{.WEBSITE}}'
@@ -26,10 +34,13 @@ tasks:
       - task: website:check
       - task: website:test
       - task: website:build
+      # The brand rules' own tests, then the rules once more over the fresh build:
+      # the AI-tag rule reads the built pages.
       - node --test scripts/check_brand_rules.test.mjs
       - bun scripts/check_brand_rules.mjs --require-build
       - task: website:routes
       - task: website:a11y
+      # The riso kit's fast gate (the app's vignettes against their source); it borrows this install's sharp.
       - task: art:check
 
   website:routes:
@@ -57,6 +68,12 @@ tasks:
     dir: '{{.WEBSITE}}'
     cmds:
       - bun run capture {{.CLI_ARGS}}
+
+  # ── riso art (packages/brand/art/riso — procedural prints) ──────────────
+  # The raw commands are `node art/riso/<script>.mjs` in packages/brand; every
+  # task below is one of them. They borrow apps/website's sharp, so run
+  # website:install first. The workflow and the series rules are in
+  # packages/brand/art/riso/README.md.
 
   art:setup:
     desc: Clone the pinned riso-windowseat kit into the user cache and find a browser (idempotent)
