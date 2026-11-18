@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 MARKER = "drop after release 2026-W50"
@@ -153,3 +156,55 @@ def test_the_registered_expands_name_commits_on_develop(mod):
         text = path.read_text(encoding="utf-8")
         assert text.startswith(f'{{"expires": "{MARKER[:18]}'), f"{path.name}: the expiry marker opens line 1"
         assert mod.NAME.match(path.stem)
+
+
+PROMOTE = ROOT / ".github" / "workflows" / "promote.yml"
+PICK = "Pick the commit"
+GUARD = "Refuse a switch whose expand prod does not run yet"
+
+
+def promote_steps() -> list[dict]:
+    return yaml.safe_load(PROMOTE.read_text(encoding="utf-8"))["jobs"]["promote"]["steps"]
+
+
+def run_promote(origin: Path, workdir: Path, sha: str) -> subprocess.CompletedProcess[str]:
+    """Runs promote.yml's own steps, PICK then GUARD, in a fresh clone of origin."""
+    clone = workdir / "clone"
+    subprocess.run(["git", "clone", "-q", "-b", "develop", str(origin), str(clone)], check=True)
+    (clone / "ci").mkdir()
+    shutil.copy(ROOT / "ci" / "expand_switch.py", clone / "ci" / "expand_switch.py")
+    github_env = workdir / "github_env"
+    github_env.write_text("", encoding="utf-8")
+    env = {**os.environ, "GITHUB_ENV": str(github_env), "INPUT_SHA": sha}
+    steps = {step.get("name"): step for step in promote_steps()}
+
+    def step(name: str) -> subprocess.CompletedProcess[str]:
+        command = ["bash", "-e", "-c", steps[name]["run"]]
+        return subprocess.run(command, check=False, cwd=clone, env=env, capture_output=True, text=True)
+
+    picked = step(PICK)
+    assert picked.returncode == 0, picked.stdout + picked.stderr
+    env.update(line.split("=", 1) for line in github_env.read_text(encoding="utf-8").splitlines())
+    return step(GUARD)
+
+
+def test_promote_guards_the_switch_before_it_writes_a_branch():
+    names = [step.get("name") for step in promote_steps()]
+    assert names.index(PICK) < names.index(GUARD) < names.index("Build the promotion branch")
+
+
+def test_the_promote_step_refuses_a_promotion_carrying_an_expand_and_its_switch(repo, history, tmp_path_factory):
+    pin_prod(repo, history["base"])
+
+    result = run_promote(repo, tmp_path_factory.mktemp("promote"), history["switch"])
+
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "does not run yet" in result.stdout
+
+
+def test_the_promote_step_passes_once_prod_runs_the_expand(repo, history, tmp_path_factory):
+    pin_prod(repo, history["expand"])
+
+    result = run_promote(repo, tmp_path_factory.mktemp("promote"), history["switch"])
+
+    assert result.returncode == 0, result.stdout + result.stderr
