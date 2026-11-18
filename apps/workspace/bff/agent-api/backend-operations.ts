@@ -127,7 +127,7 @@ const ENTRIES = [
       '`view: tree` (with `depth` 1 to 4, default 2) returns a card per folder instead of file lines: counts, document-type mix, pages, ' +
       'dates and the current revision; use it for what is in a project or folder and which revision is current. ' +
       '`revisions_of` (a file name) lists that document’s revisions, newest first, with index or date, upload date and what ' +
-      'changed; add `compare_to` (another revision’s file name, or `previous`) for what changed page by page. Returns one line per ' +
+      'changed; add `compare_to` (another revision’s file name, or `previous`) for what changed page by page. `compare_to` may also name any other file that is no revision of it: the two are then compared as two different documents, and tables and lists row by row with the place of each deviation. Returns one line per ' +
       'file: exact name, title, folder, document type, topics, revision mark, upload date and a one-line summary. An index, not a ' +
       'source: never cite it or answer what a file says from its summary. Copy file names exactly.',
     needsProject: true,

@@ -293,6 +293,7 @@ Four things, in rising cost.
 |---|---|---|---|
 | **Look** | Two Fassungen side by side, overlaid (older cyan, newer orange) or swiped, page by page, through the preview's pdf.js runtime | No | `features/documents/components/revision-compare/` |
 | **Pages and values** | For the agent: which pages changed, the values that moved in the printed text, the quantities and dimension strings that changed in the drawing reading, and the Plankopf. Read from the index, so nothing is read again | No | `packages/agent/src/agent/knowledge/revision_diff.py`, `list_files(compare_to=…)` |
+| **Rows** | For the agent: tables and lists (xlsx, csv, tables in a PDF) row by row. Rows are matched by the column that identifies a row in both files, else in their order; a deviating row names its column, both values and its place in both files. The same number written two ways (`12,50`, `12.5`) is no deviation | No | `packages/agent/src/agent/knowledge/table_diff.py`, in the same `list_files(compare_to=…)` report |
 | **Marks** | On request, or unasked where the office switched it on (below, „Piloti notices a new Fassung“), the agent boxes what changed on the newer page and says it in words | One vision call per page pair, cached | `lib/documents/revision-compare-service.ts`, `routes/revision_compare.py`, `packages/agent/src/agent/knowledge/revision_compare.py` |
 | **Words** | The change summary: what differs between two descriptions | Summary model, at ingest or at confirmation | `document_revisions.py`, `summarize_change` |
 
@@ -324,7 +325,7 @@ The agent reads the same facts the UI does, through the knowledge layer.
 |---|---|---|
 | `list_files` | Marks a row that a person replaced („ersetzt durch X (bestätigt)“), then rows that share a title-block number („aktuelle / ältere Fassung laut Plankopf“), then the name reading. A confirmed link beats the sheets, which beat the name. Prints `Plankopf: Nr. …, Index …, Stand …` | `packages/knowledge-layer/src/knowledge_layer/browse/rows.py`, `confirmed_revision_marks`, `title_block_marks` |
 | `list_files(revisions_of=…)` | The whole chain of one document, newest first, with Index and date, upload date and what changed against the one before. The chain follows a confirmed link in both directions, the same title-block number and the name series, transitively | `browse/revisions.py`, `render_revisions`, `_chain_members`, `_chain_order` |
-| `list_files(revisions_of=…, compare_to=…)` | What changed between two Fassungen of the chain: the Plankopf, pages aligned by their text, values that moved in printed lines, and quantities and dimension strings from the drawing analysis. No model call; the stored change line rides along when its basis is exactly that older file | `browse/compare.py`, `resolve_compare`, `compare_revisions`; `packages/agent/src/agent/knowledge/revision_diff.py` |
+| `list_files(revisions_of=…, compare_to=…)` | What changed between two Fassungen of the chain: the Plankopf, pages aligned by their text, values that moved in printed lines, quantities and dimension strings from the drawing analysis, and tables row by row. No model call; the stored change line rides along when its basis is exactly that older file. When `compare_to` names a file that is no Fassung of the chain, the two are compared the same way as two different documents, first → second, with no older or newer and no change line ([below](#two-different-documents)) | `browse/compare.py`, `resolve_compare`, `compare_files`; `packages/agent/src/agent/knowledge/revision_diff.py`, `table_diff.py` |
 | `knowledge_search` | Leaves confirmed older Fassungen out of the ranking on the user shelves, so an older state cannot outrank its replacement on similarity. Says „Ältere Fassungen ausgeblendet: …“. `file_name=…` bypasses the exclusion, and when the named file is an older Fassung the result carries the same line `read_passage` gives („Ältere Fassung: … ist durch … ersetzt“, the end of the chain). The base corpus is untouched | `packages/knowledge-layer/src/knowledge_layer/register.py`, `_superseded_files`, `_named_older_revision_notice`; `document_metadata_store.get_superseded_files` |
 | `read_passage` | Reading an older Fassung is allowed, because „Index B“ and „die alte Fassung“ ask for it. A one-line notice names the current one and tells the answer to say it read the older state | `packages/knowledge-layer/src/knowledge_layer/read_passage/revisions.py`, `_current_revision`, `_older_revision_notice` |
 | Inventory | A row suffix carries only the confirmed link, never a suggestion | `packages/agent/src/agent/knowledge/inventory.py` |
@@ -334,6 +335,20 @@ aktuell: …“ with a button that opens the current one
 (`features/chat/components/CitationPeek.tsx`, `OlderRevisionLine`;
 `features/chat/hooks/use-open-current-revision.ts`). The link is visible to the
 peek only if the reader may open the newer document.
+
+### Two different documents
+
+„Vergleiche die Raumliste mit dem Raumprogramm“ names two files that are not
+Fassungen of one document. `resolve_compare` looks for `compare_to` in the chain
+first and, when it is not there, among the other files of the turn's rows on the
+same shelves (`restrict_rows_to_turn`, so a shelf the turn did not ask for, a
+restricted folder's collection and a held upload are not in it). One match is
+compared; none or several are refused with the names to choose from. The report
+says that neither file is the older state, reads every „→“ as first file → second
+file, and tells the answer to name both files as its basis and to read the place
+beside a difference before stating it. A licensed copy is refused: its text is
+given only as a cited passage (ADR-0164), so the agent reads the passages and
+holds them against the other file itself.
 
 A stored suggestion is advice to a person and is not shown to the agent's model.
 What the agent sees is the confirmed link and two readings, the sheets and the
@@ -592,6 +607,15 @@ sequenceDiagram
   topics, Dokumentart and display title go with it; `POST /v1/ingest` carries
   only `folder_path` (and `revision_of`) back when the document is read again.
 - **Restricted folders cannot be compared** by a model.
+- **A comparison is two files.** Three or more files, a folder against a folder
+  and a file against a Richtlinie or Norm are read and held together by the agent,
+  not by `compare_to`. Nothing in the Files pane starts a comparison of two
+  different documents; it is asked for in the chat.
+- **A list is compared as the index holds it.** A table the ingestion did not read
+  as one (a scan, a drawing's schedule) is compared as printed lines or not at
+  all. Rows are matched by one column; a list whose rows are identified only by
+  two columns together is matched in its order. At most 60 deviating rows per
+  table are listed, and the report says when it is cut.
 
 ## Where to change what
 

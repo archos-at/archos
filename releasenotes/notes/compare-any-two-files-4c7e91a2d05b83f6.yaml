@@ -1,0 +1,9 @@
+---
+# area: documents
+features:
+  - >
+    Ask Piloti to compare any two files you pick with # in the chat, not only
+    two versions of one document. Two lists, such as room lists in Excel, CSV
+    or a table in a PDF, are compared row by row: which rows differ and in
+    which column, which rows only one file has, and where each stands in both
+    files.

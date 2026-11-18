@@ -20,9 +20,10 @@ from nat.plugin_api import FunctionRef
 from nat.plugin_api import register_function
 
 from .compare import _PREVIOUS_WORDS  # noqa: F401
+from .compare import ComparePair  # noqa: F401
 from .compare import _change_line_between  # noqa: F401
 from .compare import _stored_chunks  # noqa: F401
-from .compare import compare_revisions  # noqa: F401
+from .compare import compare_files  # noqa: F401
 from .compare import resolve_compare  # noqa: F401
 from .matches import MAX_DISTINCT_CHARS  # noqa: F401
 from .matches import MAX_DISTINCT_FILES  # noqa: F401
@@ -278,12 +279,12 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
             if shelf and turn.allowed is not None and shelf not in turn.allowed:
                 return shelf_restricted_message(shelf, turn.allowed)
             if compare_to is not None:
-                older, newer, refusal = resolve_compare(
+                pair, refusal = resolve_compare(
                     turn.rows, revisions_of or "", compare_to, shelf=shelf, default_shelves=turn.own_shelves
                 )
-                if refusal or older is None or newer is None:
+                if pair is None:
                     return refusal
-                return await compare_revisions(older, newer)
+                return await compare_files(pair)
             outcome.completed = True
             return render_revisions(turn.rows, revisions_of or "", shelf=shelf, default_shelves=turn.own_shelves)
         sort = (sort or "folder").strip().lower()
