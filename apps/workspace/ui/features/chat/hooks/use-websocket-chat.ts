@@ -30,7 +30,7 @@ import {
 } from '../lib/canvas-bridge'
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import type { ChatMessage, Conversation, PendingInteraction } from '../types'
-import { createTurnDriver, type DriverHooks, type TurnDriver, type UserMessage } from '../lib/turn-driver'
+import { createTurnDriver, type ConnectionFailure, type DriverHooks, type TurnDriver, type UserMessage } from '../lib/turn-driver'
 import { createDriverPool, type DriverPool } from '../lib/turn-driver-pool'
 import type { TurnView } from '@/lib/turns/turn-fold'
 import {
@@ -184,25 +184,26 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
   })
 
   const budgetCheckedRef = useRef(new Set<string>())
-  const explainConnectionFailure = async (conversationId: string): Promise<'network' | 'other'> => {
-    if (!isOpen(conversationId)) return 'network'
+  const explainConnectionFailure = async (conversationId: string): Promise<ConnectionFailure> => {
+    if (!isOpen(conversationId)) return 'unwatched'
     if (!budgetCheckedRef.current.has(conversationId)) {
       budgetCheckedRef.current.add(conversationId)
       const budgetMessage = await discoverBudgetFailureMessage(tChat)
-      if (!isOpen(conversationId)) return 'network'
+      if (!isOpen(conversationId)) return 'unwatched'
       if (budgetMessage) {
         addErrorCard('budget.exhausted', budgetMessage)
         return 'other'
       }
     }
     const backendUp = await checkBackendHealthCached()
-    if (!isOpen(conversationId)) return 'network'
+    if (!isOpen(conversationId)) return 'unwatched'
     const expired = backendUp && isSessionExpired
     addErrorCard(expired ? 'auth.session_expired' : 'connection.failed')
     return expired ? 'other' : 'network'
   }
 
   const linksRef = useRef(new Map<string, { connected: boolean; steerOffered: boolean }>())
+  const gaveUpRef = useRef(new Set<string>())
   const showLinkOf = useCallback((conversationId: string | undefined): void => {
     const link = conversationId ? linksRef.current.get(conversationId) : undefined
     setIsConnected(link?.connected ?? false)
@@ -217,15 +218,22 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
           refreshAuth: () => hooksRef.current.refreshAuth(),
           onConnected: (connected, offered) => {
             linksRef.current.set(conversationId, { connected, steerOffered: offered })
+            if (connected) gaveUpRef.current.delete(conversationId)
             if (isOpen(conversationId)) showLinkOf(conversationId)
           },
-          onGaveUp: () => hooksRef.current.onGaveUp(conversationId),
+          onGaveUp: () => {
+            gaveUpRef.current.add(conversationId)
+            return hooksRef.current.onGaveUp(conversationId)
+          },
           onOffline: () => hooksRef.current.onOffline(conversationId),
           onQueueFull: (text, retryAfter) => hooksRef.current.onQueueFull(conversationId, text, retryAfter),
         }
         return createTurnDriver(conversationId, projectId, driverHooks)
       },
-      (conversationId) => linksRef.current.delete(conversationId)
+      (conversationId) => {
+        linksRef.current.delete(conversationId)
+        gaveUpRef.current.delete(conversationId)
+      }
     )
   )
 
@@ -246,11 +254,19 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
     })
   }, [pool])
 
+  const redialGivenUp = useCallback((): void => {
+    for (const conversationId of [...gaveUpRef.current]) {
+      gaveUpRef.current.delete(conversationId)
+      void pool.get(conversationId)?.connect()
+    }
+  }, [pool])
+
   useEffect(() => {
     if (currentConversationId && autoConnect && socketPermitted) ensureDriver(currentConversationId)
     reconcileDrivers()
+    redialGivenUp()
     showLinkOf(currentConversationId)
-  }, [currentConversationId, projectId, autoConnect, socketPermitted, ensureDriver, reconcileDrivers, showLinkOf])
+  }, [currentConversationId, projectId, autoConnect, socketPermitted, ensureDriver, reconcileDrivers, redialGivenUp, showLinkOf])
   useEffect(
     () =>
       useChatStore.subscribe((state, previous) => {

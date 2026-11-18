@@ -33,6 +33,9 @@ the contract in [`websocket-protocol.md`](../api/websocket-protocol.md)).
    conversation's frames keep folding into its own thread; its driver closes
    once its turn and stages have landed. Leaving the chat page closes them
    all, and coming back opens one for each turn still running.
+   A left conversation's socket that gives up ends its turns, which then
+   settle from the stored answer; opening or leaving a conversation dials a
+   given-up socket again.
 6. `RUN_STARTED` acknowledges the question; until it arrives the question is
    resent on every reopen. A question not acknowledged within 15 s reopens the
    socket, and a second miss ends the turn with an error card and its Retry.

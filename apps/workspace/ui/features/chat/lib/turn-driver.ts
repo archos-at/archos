@@ -29,10 +29,12 @@ const SILENT_DROPS_BEFORE_GIVING_UP = 2
 type Rejection = Extract<WireEvent, { type: 'CUSTOM'; name: 'rejected' }>
 export type UserMessage = Extract<ClientMessage, { message_id: string }>
 
+export type ConnectionFailure = 'network' | 'other' | 'unwatched'
+
 export interface DriverHooks {
   refreshAuth: () => Promise<void>
   onConnected: (connected: boolean, steerOffered: boolean) => void
-  onGaveUp: () => Promise<'network' | 'other'>
+  onGaveUp: () => Promise<ConnectionFailure>
   onOffline: () => void
   onQueueFull: (text: string, retryAfterSeconds: number | null) => void
 }
@@ -187,7 +189,7 @@ export const createTurnDriver = (conversationId: string, projectId: string | und
     else if (status === 'incompatible') store().addErrorCard('connection.server_incompatible')
     if (status !== 'failed') return endEverything()
     void hooks.onGaveUp().then((cause) => {
-      if (cause === 'other' && !socketOpen) endEverything()
+      if (cause !== 'network' && !socketOpen) endEverything()
     })
   }
 
@@ -286,7 +288,7 @@ export const createTurnDriver = (conversationId: string, projectId: string | und
         if (value.of !== 'user_message') return
         forget(turnId)
         store().dropTurn(turnId)
-        store().addErrorCard('agent.response_failed', value.message ?? undefined)
+        store().addErrorCard('agent.response_failed', value.message ?? undefined, undefined, conversationId)
         return
       case 'not_asker':
       case 'no_pending_interaction':
