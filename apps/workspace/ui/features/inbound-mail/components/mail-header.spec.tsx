@@ -60,11 +60,11 @@ describe('MailHeader', () => {
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_details_opened', { status: 'waiting', risk_level: 'none' })
   })
 
-  it('puts the text right after the header, before any part can be checked', () => {
+  it('puts the text right after the header, before the attachments', () => {
     renderDetail('member-verified')
     const header = screen.getByTestId('mail-header')
     const text = screen.getByText(/der Bescheid der MA 37 zum Stellplatznachweis/)
-    const checkbox = screen.getByTestId('attachment-checkbox')
+    const checkbox = screen.getByTestId('attachments-list')
     expect(header.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(text.compareDocumentPosition(checkbox) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
@@ -126,7 +126,7 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'not_filed')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting to be filed: Miriam Huber sent it and it comes from this domain, but it was not filed directly. File or dismiss it.')
     expect(screen.queryByTestId('claimed-mail-bar')).toBeNull()
-    expect(screen.getAllByTestId('attachment-checkbox').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('decision-open')).toBeInTheDocument()
   })
 
   it('says a signed writer’s mail held as re-sent or misdated, or as sent automatically, waits for that, not for a bad signature', () => {
@@ -147,7 +147,7 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('Did you send this mail?')
   })
 
-  it('lets another writer file a writer’s unsigned mail once they say they checked it is from them (amendment of 2026-11-19)', () => {
+  it('lets another writer file a writer’s unsigned mail once they say they checked it is from them (amendment of 2026-11-19)', async () => {
     renderDetail('claimed-by-colleague')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent(
@@ -157,6 +157,8 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.queryByTestId('claimed-mail-bar')).toBeNull()
     expect(screen.getByTestId('decision-bar')).toBeInTheDocument()
     expect(screen.getByTestId('sender-trust')).toHaveTextContent('Miriam Huber’s address, cannot be verified')
+    await userEvent.click(screen.getByTestId('decision-open'))
+    expect(await screen.findByRole('heading', { name: 'Is this mail from Miriam Huber?' })).toBeInTheDocument()
     expect(screen.getByTestId('acknowledge-sender-row')).toHaveTextContent(/^I checked this mail is from Miriam Huber$/)
     expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent('did you send this mail')
   })

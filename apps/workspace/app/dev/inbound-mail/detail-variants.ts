@@ -64,6 +64,21 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Sehr geehrte Damen und Herren,\n\nanbei unser Angebot für die Fassadenreinigung.\n\nMfG' , quoted: [] }),
   },
+  'unknown-plan-set': {
+    view: mail({
+      key: 'unknown-plan-set',
+      subject: 'Pläne Fassade Ost, Index B',
+      sender: { name: 'Martin Gruber', address: 'm.gruber@fassadenplan.example', domain: 'fassadenplan.example', signerDomain: null, trust: 'external_unverified', reason: 'dkim_none', flags: [] },
+      parts: [
+        messagePart({ id: fixtureId('message:plan-set') }),
+        part({ name: 'FA-201_Ansicht_Ost_B.pdf', sizeBytes: 3_200_000 }),
+        part({ name: 'FA-202_Schnitt_B.pdf', sizeBytes: 2_700_000 }),
+        part({ name: 'FA-210_Details_B.pdf', sizeBytes: 1_900_000 }),
+      ],
+      threadCandidates: [],
+    }),
+    text: text({ ownText: 'Sehr geehrte Frau Huber,\n\nanbei die Pläne der Fassade Ost in Index B, wie in der Besprechung vereinbart.\n\nMit freundlichen Grüßen\nMartin Gruber', quoted: [] }),
+  },
   impersonation: {
     view: mail({
       key: 'impersonation',
