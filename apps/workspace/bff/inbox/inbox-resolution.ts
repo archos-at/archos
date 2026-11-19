@@ -7,7 +7,6 @@ import {
   markItemsInertForResource,
   markItemsInertForSubjectRow,
   openRecipientsOfGroup,
-  refreshOpenGroupItems,
   resolveInboxItemsForTargets,
   resolveOpenItemsAnchoredOn,
   resolveOpenItemsOfType,
@@ -16,7 +15,6 @@ import {
   type AnchoredRows,
   type InboxResolutionTarget,
   type OpenItemsOfType,
-  type OpenGroupRefresh,
 } from './repository'
 
 export async function openRecipientsOf(organizationId: string, groupKey: string): Promise<string[]> {
@@ -51,10 +49,6 @@ export async function resolveInboxItemsOfType(input: OpenItemsOfType): Promise<n
 async function nudge(recipients: readonly string[]): Promise<number> {
   await Promise.all(recipients.map((userId) => publishToUser(userId, { kind: 'inbox.changed', pending: -1 })))
   return recipients.length
-}
-
-export async function refreshOpenInboxGroup(input: OpenGroupRefresh): Promise<number> {
-  return nudge(await refreshOpenGroupItems(input))
 }
 
 export async function markInboxItemsInertAnchoredOn(input: AnchoredRows): Promise<number> {

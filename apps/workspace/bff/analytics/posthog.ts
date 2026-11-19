@@ -67,6 +67,10 @@ export type PostHogEvent =
   | 'inbound_mail_filed_outcome_opened'
   | 'inbound_mail_address_copied'
   | 'inbound_mail_address_contact_saved'
+  | 'norm_dialog_shown'
+  | 'norm_dialog_settled'
+  | 'norm_unlisted'
+  | 'norm_relisted'
 
 let initialized = false
 

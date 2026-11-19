@@ -17,6 +17,7 @@ import {
   type BaseKnowledgeEntry,
   type BaseKnowledgeFolder,
 } from '@/adapters/api/base-knowledge-client'
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -358,6 +359,7 @@ function SheetBody({
   const undo = async ({ entryId, formerFolderId }: { entryId: string; formerFolderId: string | null }) => {
     try {
       onChanged(await relistBaseKnowledge(entryId, formerFolderId))
+      capturePosthog('norm_relisted')
       toast.success(t('detail.relisted', { name }))
     } catch (error) {
       toast.error(error instanceof Error && error.message ? error.message : t('saveError'))
@@ -366,6 +368,7 @@ function SheetBody({
   const unlist = () =>
     run(async () => {
       const unlisting = await unlistBaseKnowledge(entry.id)
+      capturePosthog('norm_unlisted')
       toast.success(t('detail.unlisted', { name }), { action: { label: t('detail.undo'), onClick: () => void undo(unlisting) } })
       return null
     }, null)

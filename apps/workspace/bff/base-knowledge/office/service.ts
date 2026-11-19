@@ -1,5 +1,6 @@
 import 'server-only'
 import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
+import { captureServer } from '@/lib/analytics/posthog-server'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { deleteOfficeShelfDocument, uploadOfficeShelfDocument, type OfficeShelfRemoval } from '@/lib/office-shelf/service'
@@ -475,8 +476,17 @@ export async function baseKnowledgeForTurn(
     const document = documents.get(entry.documentId)
     return document ? [toEntry(entry, document, now, NO_NAMES, works, bindings)] : []
   })
+  const labels = entries.filter((entry) => entry.status === 'confirmed').map((entry) => officeAnswerLabel(entry, territory))
+  if (labels.length > 0) {
+    captureServer({
+      event: 'office_norm_cited',
+      distinctId: null,
+      organizationId,
+      properties: { office_norms: labels.length, has_project: projectId !== null },
+    })
+  }
   return {
     block: renderBaseKnowledgeBlock(entries, territory, listed, directives, { day, bindingOn: context?.date ?? day.day }),
-    labels: entries.filter((entry) => entry.status === 'confirmed').map((entry) => officeAnswerLabel(entry, territory)),
+    labels,
   }
 }

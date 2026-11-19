@@ -5,7 +5,6 @@ import { render, screen, within } from '@/test-utils'
 import { I18nProvider } from '@/i18n'
 import type { InboxItemView } from '@/lib/inbox/types'
 import type { ProposalResponse } from '@/lib/proposals/types'
-import { PRODUCT_NAME } from '@/lib/brand'
 import { waitingGroups } from '../lib/inbox-queue'
 import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
 import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
@@ -51,40 +50,19 @@ const edition: InboxItemView = {
   updatedAt: '2026-11-19T09:00:00Z',
 }
 
-const found: InboxItemView = {
+const suggested: InboxItemView = {
   ...edition,
-  id: 'i-found',
-  type: 'office_shelf.norms_found',
-  anchorId: 'f-recht',
-  count: 2,
-  href: '/app/office-shelf?folder=f-recht',
-  subject: null,
-  related: null,
-  via: null,
-  excerpt: 'OENORM_B_1600_2017.pdf, OIB-RL_4_2023.pdf',
-  variant: null,
-}
-
-const offered: InboxItemView = {
-  ...edition,
-  id: 'i-offer',
-  type: 'office_shelf.norm_offered',
+  id: 'i-suggest',
+  type: 'office_shelf.norm_suggested',
   resourceType: 'project',
   resourceId: 'p1',
-  anchorId: 'doc-1',
+  anchorId: '0b7c8f5e-1d1e-4c39-9d2c-3f0f6c1a2b3c',
   href: '/app/projects/p1/files?folder=f-normen',
   subject: 'Wohnhaus Floridsdorf',
   related: null,
   via: null,
   excerpt: 'ÖNORM B 3691',
   variant: null,
-}
-
-const suggested: InboxItemView = {
-  ...offered,
-  id: 'i-suggest',
-  type: 'office_shelf.norm_suggested',
-  anchorId: '0b7c8f5e-1d1e-4c39-9d2c-3f0f6c1a2b3c',
   actorName: 'Anna Berger',
   actorUserId: 'u-anna',
 }
@@ -159,24 +137,7 @@ describe('a new edition of a norm the office holds, in the Postfach', () => {
   })
 })
 
-describe('the norm items, in one shape: what happened, which norm or files, what you can do', () => {
-  test('norms found in folders lead to the folder, where the choice is made', () => {
-    queue([found])
-    const entry = entryOf('i-found')
-    expect(entry.firstElementChild).toHaveTextContent(`${PRODUCT_NAME} hat 2 Normen in Ordnern gefunden`)
-    expect(within(entry).getByTestId('inbox-norm-names')).toHaveTextContent('OENORM_B_1600_2017.pdf, OIB-RL_4_2023.pdf')
-    expect(screen.getByRole('link', { name: 'Im Ordner entscheiden' })).toHaveAttribute('href', '/app/office-shelf?folder=f-recht')
-  })
-
-  test('a norm offered for the Büroablage leads to its project folder', () => {
-    queue([offered])
-    const entry = entryOf('i-offer')
-    expect(entry.firstElementChild).toHaveTextContent(`${PRODUCT_NAME} schlägt eine Norm für die Büroablage vor`)
-    expect(within(entry).getByTestId('inbox-norm-names')).toHaveTextContent('ÖNORM B 3691')
-    expect(entry).toHaveTextContent('Bisher nur in „Wohnhaus Floridsdorf“. In der Büroablage finden alle Projekte sie.')
-    expect(screen.getByRole('link', { name: 'Im Ordner entscheiden' })).toHaveAttribute('href', '/app/projects/p1/files?folder=f-normen')
-  })
-
+describe('a norm suggested for the Büroablage, the one norm item that asks for a decision', () => {
   test('a norm suggested for the Büroablage is accepted or declined right in the queue', () => {
     queue([suggested])
     const entry = entryOf('i-suggest')
@@ -186,10 +147,7 @@ describe('the norm items, in one shape: what happened, which norm or files, what
     expect(screen.getByRole('button', { name: 'Ablehnen' })).toBeEnabled()
   })
 
-  test('each reads as itself in the full list too, with its action', async () => {
-    const { unmount } = row(found)
-    expect(screen.getByRole('link', { name: 'Im Ordner entscheiden' })).toHaveAttribute('href', '/app/office-shelf?folder=f-recht')
-    unmount()
+  test('reads as itself in the full list too, with its decision', async () => {
     row(suggested)
     await userEvent.click(screen.getByRole('button', { name: 'Ablehnen' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Abgelehnt. Die Norm bleibt im Projekt.')

@@ -128,7 +128,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 function PlainUploadToast(): null {
   const { recognize } = useNormRecognition()
   useEffect(() => {
-    void recognize(['doc_plain'], { announcePlain: true })
+    void recognize(['doc_plain'], { source: 'office_shelf_upload', announcePlain: true })
   }, [recognize])
   return null
 }

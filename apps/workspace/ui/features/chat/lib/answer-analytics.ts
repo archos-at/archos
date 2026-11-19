@@ -9,6 +9,7 @@ export interface AnswerCompletion {
   duration_ms: number | undefined
   citation_count: number
   source_kinds: string
+  office_norm_citations: number
   effort: string | undefined
   has_run: boolean
 }
@@ -33,6 +34,9 @@ const sourceKindsOf = (answer: ChatMessage | undefined): string => {
   return [...kinds].sort().join(',')
 }
 
+const officeNormCitationsOf = (answer: ChatMessage | undefined): number =>
+  (answer?.citations ?? []).filter((citation) => citation.shelf === 'office_shelf' && citation.line?.edition_id).length
+
 export const answerCompletionOf = (
   view: TurnView,
   previous: TurnView | undefined,
@@ -46,6 +50,7 @@ export const answerCompletionOf = (
     duration_ms: durationMs,
     citation_count: answer?.citations?.length ?? view.sources.length,
     source_kinds: sourceKindsOf(answer),
+    office_norm_citations: officeNormCitationsOf(answer),
     effort: answer?.reasoningEffort ?? view.effort,
     has_run: Boolean(view.result?.run),
   }

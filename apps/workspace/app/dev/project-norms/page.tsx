@@ -100,8 +100,6 @@ const suggestion: InboxItemView = {
   updatedAt: '2026-11-19T09:00:00Z',
 }
 
-const offer: InboxItemView = { ...suggestion, id: 'i-offer', type: 'office_shelf.norm_offered', actorName: null, actorUserId: null, anchorId: 'n1' }
-
 const decided = (status: 'applied' | 'dismissed') => ({ proposal: { status, results: [] } }) as unknown as ProposalResponse
 const suggestedNorms = {
   proposal: {
@@ -151,7 +149,6 @@ export default function ProjectNormsPreview(): JSX.Element {
               <SectionLabel>Postfach</SectionLabel>
               <ul className="grid gap-1">
                 <InboxItemRow item={suggestion} normDecisionClient={decisions} />
-                <InboxItemRow item={offer} />
               </ul>
             </section>
           </main>

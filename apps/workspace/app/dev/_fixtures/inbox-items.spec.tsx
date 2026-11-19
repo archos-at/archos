@@ -42,7 +42,7 @@ describe('/dev/inbox', () => {
     expect(entries).toHaveLength(NORM_NOTICE_TYPES.length)
     for (const entry of entries) {
       const actions = entry.parentElement!
-      expect(within(actions).queryAllByTestId(/^inbox-norm-(uploadEdition|decideInFolder|decision)$/).length).toBeGreaterThan(0)
+      expect(within(actions).queryAllByTestId(/^inbox-norm-(uploadEdition|decision)$/).length).toBeGreaterThan(0)
     }
   })
 

@@ -83,8 +83,7 @@ Chosen option 2.
   proposal would bypass the project's own access.
 - **The offer**: a settled project file that `recognizeNorm` reads as a norm, whose work the
   office shelf does not hold, not kept and not suggested. The project's files show it as a
-  banner per folder; after an upload settles, the uploader gets `office_shelf.norm_offered`.
-  When the person uploaded it in Dateien, the norm dialog opens there once it is offered,
+  banner per folder, and nothing goes to the Postfach (ADR-0186). When the person uploaded it in Dateien, the norm dialog opens there once it is offered,
   with the destination: Büroablage (or „Für die Büroablage vorschlagen“), „Nur dieses
   Projekt“ (the keep row), or „Später“, which leaves the banner. Until then the file is an
   ordinary project file. The offer carries the Art and Ausgabe read from the name.

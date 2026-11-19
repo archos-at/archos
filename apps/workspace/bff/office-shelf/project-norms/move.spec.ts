@@ -19,7 +19,6 @@ vi.mock('@/lib/base-knowledge/office/service', () => ({
 vi.mock('@/lib/base-knowledge/office/new-edition', () => ({ addBaseKnowledgeEdition: vi.fn() }))
 vi.mock('./held-works', () => ({ heldWorks: vi.fn(async () => new Map()) }))
 vi.mock('./repository', () => ({ insertReference: vi.fn(async () => ({ id: 'reference-1' })) }))
-vi.mock('./attention', () => ({ settleNormOffers: vi.fn(async () => undefined) }))
 
 import { ApiError, ConflictError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -30,7 +29,6 @@ import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
 import type { Document } from '@/lib/db/schema/documents'
 import { getAccessibleDocument } from '@/lib/documents/access'
 import { moveDocumentToBin } from '@/lib/projects/document-bin'
-import { settleNormOffers } from './attention'
 import { heldWorks } from './held-works'
 import { applyOfficeShelfNorm, moveNormsToOfficeShelf, moveNormToOfficeShelf } from './move'
 import { workKey, type HeldEdition } from './placement'
@@ -126,7 +124,6 @@ describe('a project norm moves into the office shelf', () => {
       placedAs: 'moved',
       createdBy: 'user-1',
     })
-    expect(settleNormOffers).toHaveBeenCalledWith('org-1', ['doc-1'])
     expect(placed).toMatchObject({ outcome: 'moved', officeDocumentId: 'office-doc-1', entryId: 'edition-new', referenceId: 'reference-1' })
     expect(confirmBaseKnowledge).not.toHaveBeenCalled()
   })

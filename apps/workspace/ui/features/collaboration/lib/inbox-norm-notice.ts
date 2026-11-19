@@ -3,12 +3,10 @@ import type { InboxItemView } from '@/lib/inbox/types'
 
 export const NORM_NOTICE_TYPES = [
   'base_knowledge.new_edition',
-  'office_shelf.norms_found',
   'office_shelf.norm_suggested',
-  'office_shelf.norm_offered',
 ] as const satisfies readonly InboxItemView['type'][]
 
-export type NormNoticeLinkId = 'uploadEdition' | 'viewEdition' | 'decideInFolder'
+export type NormNoticeLinkId = 'uploadEdition' | 'viewEdition'
 
 export interface NormNoticeLink {
   id: NormNoticeLinkId
@@ -39,9 +37,7 @@ export function normNoticeOf(item: InboxItemView): NormNotice | null {
           : [],
       }
     }
-    case 'office_shelf.norm_suggested':
-      return { names: item.excerpt, decide: href !== null && item.actionable && item.anchorId !== null, links: [] }
     default:
-      return { names: item.excerpt, decide: false, links: href ? [{ id: 'decideInFolder', href, primary: true }] : [] }
+      return { names: item.excerpt, decide: href !== null && item.actionable && item.anchorId !== null, links: [] }
   }
 }

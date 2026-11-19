@@ -138,8 +138,22 @@ export const removeBaseKnowledge = async (entryId: string): Promise<BaseKnowledg
 export const recognizeNorms = async (body: RecognizeBody): Promise<NormRecognition> =>
   json(await fetch(`${ENDPOINT}/recognize`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'recognise norms')
 
-export const settleNorms = async (body: SettleProposalsBody): Promise<SettleProposalsResult> =>
-  json(await fetch(`${ENDPOINT}/settle`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'settle norms')
+type NormsSettledListener = (result: SettleProposalsResult) => void
+const normsSettledListeners = new Set<NormsSettledListener>()
+
+export function onNormsSettled(listener: NormsSettledListener): () => void {
+  normsSettledListeners.add(listener)
+  return () => normsSettledListeners.delete(listener)
+}
+
+export const settleNorms = async (body: SettleProposalsBody): Promise<SettleProposalsResult> => {
+  const result: SettleProposalsResult = await json(
+    await fetch(`${ENDPOINT}/settle`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }),
+    'settle norms',
+  )
+  for (const listener of normsSettledListeners) listener(result)
+  return result
+}
 
 export const unlistBaseKnowledge = async (entryId: string): Promise<BaseKnowledgeUnlisting> =>
   json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/unlist`, { method: 'POST' }), 'take it off the norms')

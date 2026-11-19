@@ -1104,7 +1104,6 @@ run tries again (the daily ones also retry a few times with backoff).
 | `source-monitor` | `*/15 * * * *` | `runSourceMonitor` (ADR-0174), off unless the platform has source monitors on |
 | `frist-reminder` | `CRON_TZ=Europe/Vienna 45 6 * * *` | `enqueueDueReminders`, at 06:45 on the office's clock |
 | `base-knowledge-new-editions` | `CRON_TZ=Europe/Vienna 13 5 * * *` | `sweepNewEditionNotices`: per office with `office-standards` on, each active project's binding editions by the chain resolver; whoever manages the Büroablage gets `base_knowledge.new_edition` when a confirmed office norm is no longer the binding edition for at least one of them, resolved once the office holds it or no active project is affected (ADR-0163, amendment „the binding edition comes from the chain resolver“) |
-| `office-norms-scan` | `CRON_TZ=Europe/Vienna 13 4 * * *` | `sweepNormsInFolders`: queues the `office_norms_scan` job of every office with `office-standards` on (ADR-0163, amendment of 2026-11-19) |
 
 The sweeps that ticked every 30 s now run every minute: Hatchet crons have no
 seconds. The cross-tenant SQL of the prune, the trace erasure and the download

@@ -72,15 +72,6 @@ describe('the organization target', () => {
     expect(access!.deepLink({ itemType: 'root_sort.failed', anchorId: null })).toBe('/app/office-shelf')
   })
 
-  it('opens the folder the norms were found in on the office shelf', async () => {
-    const access = await organizationTarget.resolve(makeSession(), 'org_1')
-
-    expect(access!.deepLink({ itemType: 'office_shelf.norms_found', anchorId: 'folder 1' })).toBe(
-      '/app/office-shelf?folder=folder%201',
-    )
-    expect(access!.deepLink({ itemType: 'office_shelf.norms_found', anchorId: null })).toBe('/app/office-shelf')
-  })
-
   it('opens the norm a new edition appeared for in Normen & Richtlinien, where its upload starts', async () => {
     const access = await organizationTarget.resolve(makeSession(), 'org_1')
 

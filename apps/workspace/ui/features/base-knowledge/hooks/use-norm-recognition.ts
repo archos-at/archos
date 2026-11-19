@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { recognizeNorms, type NormRecognition } from '@/adapters/api/base-knowledge-client'
+import { onNormsSettled, recognizeNorms, type NormRecognition, type SettleProposalsResult } from '@/adapters/api/base-knowledge-client'
+import { countsOfResults, normDialogSettled, normDialogShown, type NormDialogSource } from '@/components/norms/norm-dialog-telemetry'
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import { OFFICE_SHELF_FILES_HREF } from '@/features/documents'
@@ -22,8 +23,14 @@ export function onePlace(plain: readonly PlainUpload[]): PlainUpload | null {
 
 export interface NormRecognitionState {
   recognition: NormRecognition | null
-  recognize: (documentIds: readonly string[], options?: { asNorm?: boolean; announcePlain?: boolean }) => Promise<void>
-  close: () => void
+  recognize: (documentIds: readonly string[], options: { source: NormDialogSource; asNorm?: boolean; announcePlain?: boolean }) => Promise<void>
+  later: () => void
+  settled: () => void
+}
+
+interface Shown {
+  recognition: NormRecognition
+  source: NormDialogSource
 }
 
 export function plainHref(plain: readonly PlainUpload[]): string {
@@ -47,16 +54,26 @@ export function knownNotice(t: Translate, plain: readonly PlainUpload[]): string
 export function useNormRecognition(): NormRecognitionState {
   const t = useTranslations(baseKnowledgeCopy)
   const router = useRouter()
-  const [recognition, setRecognition] = useState<NormRecognition | null>(null)
+  const [shown, setShown] = useState<Shown | null>(null)
+  const results = useRef<SettleProposalsResult['results']>([])
+  useEffect(() => {
+    if (!shown) return
+    results.current = []
+    const entries = new Set(shown.recognition.proposals.map((proposal) => proposal.entryId))
+    return onNormsSettled((result) => {
+      results.current = result.results.filter((row) => entries.has(row.entryId))
+    })
+  }, [shown])
   const recognize = useCallback<NormRecognitionState['recognize']>(
-    async (documentIds, { asNorm = false, announcePlain = false } = {}) => {
+    async (documentIds, { source, asNorm = false, announcePlain = false }) => {
       const unique = [...new Set(documentIds)]
       const ids = unique.slice(0, MAX_RECOGNIZE_DOCUMENTS)
       if (ids.length === 0) return
       try {
         const answer = await recognizeNorms(asNorm ? { documentIds: ids, asNorm } : { documentIds: ids })
         if (answer.proposals.length > 0) {
-          setRecognition(answer)
+          normDialogShown(source, answer.proposals.length)
+          setShown({ recognition: answer, source })
           return
         }
         if (answer.plain.length === 0) return
@@ -74,6 +91,13 @@ export function useNormRecognition(): NormRecognitionState {
     },
     [t, router],
   )
-  const close = useCallback(() => setRecognition(null), [])
-  return { recognition, recognize, close }
+  const later = useCallback(() => {
+    if (shown) normDialogSettled(shown.source, { later: shown.recognition.proposals.length })
+    setShown(null)
+  }, [shown])
+  const settled = useCallback(() => {
+    if (shown) normDialogSettled(shown.source, countsOfResults(results.current))
+    setShown(null)
+  }, [shown])
+  return { recognition: shown?.recognition ?? null, recognize, later, settled }
 }

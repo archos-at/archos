@@ -798,21 +798,11 @@ export const collaboration = {
           office: { title: 'The sort of the office filing stopped' },
         },
       },
-      officeShelfNormOffered: {
-        title: '{productName} suggests a norm for the office filing',
-        body: 'So far only in “{subject}”. In the office filing every project finds it.',
-      },
       officeShelfNormSuggested: {
         title: '{actor} suggests a norm for the office filing',
         titleNoActor: 'A norm is suggested for the office filing',
         titleResolved: 'The suggestion for the office filing is decided',
         body: 'From “{subject}”. In the office filing every project finds it.',
-      },
-      officeShelfNormsFound: {
-        title: '{productName} found standards in folders',
-        titleOne: '{productName} found a standard in a folder',
-        titleMany: '{productName} found {count} standards in folders',
-        body: 'In the folder you decide whether they are kept under Standards & guidelines or stay ordinary files.',
       },
       unknown: {
         title: 'Something happened',
@@ -844,7 +834,6 @@ export const collaboration = {
       uploadEdition: 'Upload the new edition',
       viewEdition: 'View',
       viewEditionLabel: 'View {subject} in Standards & guidelines',
-      decideInFolder: 'Decide in the folder',
     },
     normSuggestion: {
       accept: 'Take into the office filing',

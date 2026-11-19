@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import type { BaseKnowledgeList, NormRecognition } from '@/lib/base-knowledge/wire'
 import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '@/app/dev/_fixtures/base-knowledge'
 import { countByFolder, countEntries } from '@/lib/base-knowledge/office/listing'
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { BaseKnowledgeWorkspace } from './base-knowledge-workspace'
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), search: '' }))
@@ -18,6 +19,7 @@ vi.mock('next/navigation', () => ({
 
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
+vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
 vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({ fileUpload: { acceptedTypes: '.pdf,.docx', acceptedMimeTypes: ['application/pdf'], maxFileSize: 100 * 1024 * 1024 } }),
@@ -127,6 +129,7 @@ function deskWidth(width: number): void {
 beforeEach(() => deskWidth(1100))
 
 afterEach(() => {
+  vi.mocked(capturePosthog).mockClear()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
   navigation.push.mockReset()
@@ -235,6 +238,8 @@ describe('BaseKnowledgeWorkspace', () => {
     await userEvent.click(within(await screen.findByTestId('norm-dialog')).getByRole('button', { name: 'Später' }))
     await waitFor(() => expect(screen.queryByTestId('norm-dialog')).toBeNull())
     expect(calls.some((call) => call.url === '/api/base-knowledge/settle')).toBe(false)
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_shown', { rows: RECOGNITION.proposals.length, source: 'office_shelf_upload' })
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', expect.objectContaining({ later: RECOGNITION.proposals.length, confirmed: 0, source: 'office_shelf_upload' }))
 
     const line = screen.getByTestId('base-knowledge-pending')
     expect(line.textContent).toContain(`${pending.length} Normen warten auf Bestätigung.`)
@@ -243,6 +248,7 @@ describe('BaseKnowledgeWorkspace', () => {
     const reopened = fetchMock.mock.calls.filter(([url]) => url === '/api/base-knowledge/recognize')
     expect(reopened).toHaveLength(2)
     expect(JSON.parse(String(reopened[1][1]?.body))).toEqual({ documentIds: pending.map((entry) => entry.documentId) })
+    expect(capturePosthog).toHaveBeenLastCalledWith('norm_dialog_shown', { rows: RECOGNITION.proposals.length, source: 'review_pending' })
   })
 
   it('sends a plain file to Ordner and says so, with the way there', async () => {

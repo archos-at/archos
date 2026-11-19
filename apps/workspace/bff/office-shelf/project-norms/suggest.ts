@@ -9,7 +9,7 @@ import { findProjectInOrg } from '@/lib/projects/repository'
 import { auditProposalCreated } from '@/lib/proposals/audit'
 import { insertProposedChange, listShelfProposals } from '@/lib/proposals/repository'
 import { officeShelfNormPayloadSchema, type ProposedChangeStatus } from '@/lib/proposals/types'
-import { announceNorms, settleNormOffers, normSuggestionEmissions } from './attention'
+import { announceNorms, normSuggestionEmissions } from './attention'
 import { normDecidersOf } from './managers'
 import { writableProjectNorm } from './move'
 import type { NormPlacement, PlaceProjectNormsBody } from './wire'
@@ -145,9 +145,5 @@ export async function suggestNormsForOfficeShelf(
     })
   )
   for (const document of fresh) outcomes.set(document.id, suggested(document.id, row.id))
-  await settleNormOffers(
-    session.organizationId,
-    fresh.map((document) => document.id)
-  )
   return answer(deciders.length, null)
 }

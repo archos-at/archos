@@ -805,21 +805,11 @@ export const collaboration: typeof en.collaboration = {
           office: { title: 'Die Sortierung der Büroablage wurde abgebrochen' },
         },
       },
-      officeShelfNormOffered: {
-        title: '{productName} schlägt eine Norm für die Büroablage vor',
-        body: 'Bisher nur in „{subject}“. In der Büroablage finden alle Projekte sie.',
-      },
       officeShelfNormSuggested: {
         title: '{actor} schlägt eine Norm für die Büroablage vor',
         titleNoActor: 'Eine Norm wird für die Büroablage vorgeschlagen',
         titleResolved: 'Der Vorschlag für die Büroablage ist entschieden',
         body: 'Aus „{subject}“. In der Büroablage finden alle Projekte sie.',
-      },
-      officeShelfNormsFound: {
-        title: '{productName} hat Normen in Ordnern gefunden',
-        titleOne: '{productName} hat eine Norm in einem Ordner gefunden',
-        titleMany: '{productName} hat {count} Normen in Ordnern gefunden',
-        body: 'Im Ordner entscheiden Sie, ob sie unter Normen & Richtlinien geführt werden oder normale Dateien bleiben.',
       },
       unknown: {
         title: 'Es gab Aktivität',
@@ -852,7 +842,6 @@ export const collaboration: typeof en.collaboration = {
       uploadEdition: 'Neue Ausgabe hochladen',
       viewEdition: 'Ansehen',
       viewEditionLabel: '{subject} in Normen & Richtlinien ansehen',
-      decideInFolder: 'Im Ordner entscheiden',
     },
     normSuggestion: {
       accept: 'In die Büroablage übernehmen',

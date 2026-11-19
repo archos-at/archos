@@ -248,29 +248,19 @@ Offices kept norms in ordinary Büroablage folders long before Normen & Richtlin
 folder „Normen“). With the standards tree hidden from the Ordner tab, those files would stay ordinary files
 nobody is told about.
 
-- **Found by a BFF job, not the browser.** `office_norms_scan` (`bff/base-knowledge/office/folder-norms-scan.ts`)
-  pages through the office shelf's documents in ordinary folders (never the standards tree, never the top level),
-  500 a slice, and keeps those `recognizeNorm` calls a norm from their name that are neither recorded as base
-  knowledge nor kept as ordinary files. Its trigger: a daily cron sweep, `office-norms-scan` at 04:13 Vienna, queues
-  it for every office with `office-standards` on, because the flag is switched in WorkOS and nothing in the code
-  hears it come on, so the first scan after enabling runs the next night at the latest; and an upload of a file
-  whose name reads as a norm into an ordinary folder queues it a minute later, one queued scan per office
-  (`enqueueJobIfAbsent` on an id derived from the office), so a folder upload of 200 files is one scan. A
-  decision in a folder queues a fresh scan so the inbox item follows.
-- **One Postfach item per office**, `office_shelf.norms_found` („ARCHOS hat Normen in Ordnern gefunden“), to the
-  members whose role holds `org:office_shelf:manage`, listing up to twelve file names and linking to the first
-  folder. A member who already holds it is never told again: an open item is refreshed, a resolved or archived one
-  stays so. When nothing is left, or the flag is off, open items are resolved; one held by a member who lost the
-  permission is resolved too.
+- **Found when the folder is opened, not by a job.** `listFolderNorms` (`bff/base-knowledge/office/folder-norms.ts`)
+  reads the folder's documents (never the standards tree, never the top level) and keeps those `recognizeNorm`
+  calls a norm from their name that are neither recorded as base knowledge nor kept as ordinary files. Nothing is
+  sent to the Postfach: it holds only decisions a person is asked for (ADR-0186), and the state is in the folder.
 - **The decision is in the folder.** The Ordner tab shows a notice in a folder holding such files, to those who
   may manage the Büroablage. „Unter Normen & Richtlinien führen“ proposes each file (`takeAsNorm`, which remembers
   the folder) and then moves it under the standards root, up to 50 a request, where it waits under „Zu bestätigen“,
   and opens the norm dialog for the files it moved; the folder stays, even empty. „Im Ordner lassen“ writes one row per document to `office_shelf_norm_keeps`, the table a
-  project's „Hier lassen“ uses too (ADR-0185, migration 0250, without a project), and no scan offers that document again. Operations:
+  project's „Hier lassen“ uses too (ADR-0185, migration 0250, without a project), and the folder does not offer that document again. Operations:
   `office-shelf-folder-norms-list` and `office-shelf-folder-norms-decide` (the person's own decision, not the
   agent's).
 - **What is read is the file name**, as at upload: the title and summary the backend reads later are not in
-  the scan, because reading them for every document of a shelf is a backend call per collection.
+  the folder's reading, because reading them for every document of a folder is a backend call per collection.
 
 Deferred, with the reason: a masthead reading for the proposal (the file name and a person's correction
 cover most cases; reading needs the licensed seam's zero-retention call), a measure of how well tables in
@@ -305,7 +295,7 @@ says nothing in between. So an entry's Stand is decided in one place (`standOf`,
   work's newest held edition in Normen & Richtlinien (`?entry=`, where a new edition is uploaded) and offers
   „Neue Ausgabe hochladen“ there and „Ansehen“ (`?file=`).
   An office whose `office-standards` flag is off is told nothing, and its open items are resolved
-  (`officeStandardsEnabled`, as the folder-norms sweep asks).
+  (`officeStandardsEnabled`).
 
 Not changed: the turn block and the answer label still read the manual check (`freshness`), so an answer does not
 yet say that the platform lists a newer edition; that changes what shapes an answer and needs its golden run.
@@ -323,7 +313,7 @@ the only way back was a fresh proposal. Now:
   as before, and parks its records: `knowledge_records.unlisted_at` is set and the head moves to
   `unlisted_head_revision_id`, so every reader that reads heads sees nothing of the entry, as of an unconfirmed
   proposal. Every reader by document (`readOfficeEntries`, `documentHasEntry`, `documentsWithEntries`,
-  `entryIdsForDocuments`, `copyForDocument`, the folder-norms scan) reads listed records
+  `entryIdsForDocuments`, `copyForDocument`, the folder notice's reading) reads listed records
   only. The file's text is read again as an ordinary file's.
 - **Rückgängig.** The entry page unlists at once, without a confirmation, and its toast offers „Rückgängig“:
   `POST /api/base-knowledge/{entryId}/relist` (the browser's undo, not an agent operation) moves the file back to

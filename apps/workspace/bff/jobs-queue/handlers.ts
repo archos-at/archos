@@ -61,9 +61,6 @@ import {
   runPlatformTextDeindex,
   runPlatformTextIndex,
 } from '@/lib/base-knowledge/platform/indexing'
-import { officeNormsScanPayloadSchema, runNormsScanSlice } from '@/lib/base-knowledge/office/folder-norms-scan'
-import { normOfferPayloadSchema } from '@/lib/office-shelf/project-norms/offer-job'
-import { offerNormsAfterSettle } from '@/lib/office-shelf/project-norms/service'
 
 export type JobHandler = (job: {
   jobId?: string
@@ -160,10 +157,4 @@ export const JOB_HANDLERS: Record<BffJobKind, JobHandler> = {
   search_facets_sync: systemSliceHandler(searchFacetsSyncPayloadSchema, runSearchFacetsSyncSlice),
   platform_text_index: systemHandler(platformTextIndexPayloadSchema, runPlatformTextIndex),
   platform_text_deindex: systemHandler(platformTextDeindexPayloadSchema, runPlatformTextDeindex),
-  office_norms_scan: systemSliceHandler(officeNormsScanPayloadSchema, (organizationId, payload) =>
-    runNormsScanSlice(organizationId, payload),
-  ),
-  office_shelf_norm_offer: systemHandler(normOfferPayloadSchema, (organizationId, { batchId, projectId, createdBy }) =>
-    offerNormsAfterSettle(organizationId, [{ id: batchId, scope: 'project', projectId, createdBy }]),
-  ),
 }

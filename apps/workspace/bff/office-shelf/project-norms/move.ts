@@ -19,7 +19,6 @@ import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { storedFileOf } from '@/lib/documents/stored-copy'
 import { moveDocumentToBin } from '@/lib/projects/document-bin'
 import type { ConfirmedNorm, OfficeShelfNormPayload, ProposedChangeResult } from '@/lib/proposals/types'
-import { settleNormOffers } from './attention'
 import { heldWorks } from './held-works'
 import { isSettled, placementFor, type ShelfPlacement } from './placement'
 import { insertReference } from './repository'
@@ -126,7 +125,7 @@ export async function moveNormToOfficeShelf(
   if (placement.kind === 'duplicate') {
     await moveDocumentToBin(session, document.id, request)
     const row = await insertReference({ ...reference, officeDocumentId: placement.of.entry.documentId, placedAs: 'duplicate' })
-    await afterMove(session, projectId, document.id)
+    afterMove(session, projectId)
     return placed(document.id, {
       outcome: 'duplicate',
       officeDocumentId: placement.of.entry.documentId,
@@ -150,7 +149,7 @@ export async function moveNormToOfficeShelf(
     officeDocumentId: entry.documentId,
     placedAs: placement.kind === 'edition' ? 'edition' : 'moved',
   })
-  await afterMove(session, projectId, document.id)
+  afterMove(session, projectId)
   return placed(document.id, {
     outcome: placement.kind === 'edition' ? 'edition' : 'moved',
     officeDocumentId: entry.documentId,
@@ -160,10 +159,9 @@ export async function moveNormToOfficeShelf(
   })
 }
 
-async function afterMove(session: AuthorizedSession, projectId: string, documentId: string): Promise<void> {
+function afterMove(session: AuthorizedSession, projectId: string): void {
   publishShelfChanged(session.organizationId, projectShelf(projectId))
   publishShelfChanged(session.organizationId, OFFICE_SHELF)
-  await settleNormOffers(session.organizationId, [documentId])
 }
 
 export async function moveNormsToOfficeShelf(

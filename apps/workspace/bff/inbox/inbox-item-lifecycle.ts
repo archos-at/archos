@@ -144,38 +144,6 @@ export async function retractOccurrenceAnchoredOn(
   return [...new Set(rows.map((row) => row.recipientUserId))]
 }
 
-export interface OpenGroupRefresh {
-  organizationId: string
-  groupKey: string
-  recipientUserIds: readonly string[]
-  anchorId: string | null
-  count: number
-  payload: Record<string, unknown>
-}
-
-export async function refreshOpenGroupItems(input: OpenGroupRefresh): Promise<string[]> {
-  if (input.recipientUserIds.length === 0) return []
-  const rows = await getDb()
-    .update(inboxItems)
-    .set({
-      anchorId: input.anchorId,
-      count: Math.max(1, Math.floor(input.count)),
-      payload: sql`${inboxItems.payload} || ${JSON.stringify(input.payload)}::jsonb`,
-    })
-    .where(
-      and(
-        eq(inboxItems.organizationId, input.organizationId),
-        eq(inboxItems.groupKey, input.groupKey),
-        inArray(inboxItems.recipientUserId, [...input.recipientUserIds]),
-        isNull(inboxItems.resolvedAt),
-        isNull(inboxItems.archivedAt),
-        isNull(inboxItems.inertAt),
-      ),
-    )
-    .returning({ recipientUserId: inboxItems.recipientUserId })
-  return [...new Set(rows.map((row) => row.recipientUserId))]
-}
-
 export async function rewriteItemPayloadsAnchoredOn(
   input: AnchoredRows & { facts: Record<string, unknown> },
 ): Promise<string[]> {

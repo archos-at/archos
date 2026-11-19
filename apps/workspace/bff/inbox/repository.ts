@@ -46,11 +46,10 @@ export {
   markItemsInertForResource,
   markItemsInertForSubjectInProject,
   markItemsInertForSubjectRow,
-  refreshOpenGroupItems,
   resolveInboxItemsForTargets,
   resolveOpenItemsAnchoredOn,
   resolveOpenItemsOfType,
   retractOccurrenceAnchoredOn,
   rewriteItemPayloadsAnchoredOn,
 } from './inbox-item-lifecycle'
-export type { AnchoredRows, InboxResolutionTarget, OpenGroupRefresh, OpenItemsOfType } from './inbox-item-lifecycle'
+export type { AnchoredRows, InboxResolutionTarget, OpenItemsOfType } from './inbox-item-lifecycle'
