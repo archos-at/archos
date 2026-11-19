@@ -1,5 +1,8 @@
 import type { InboundMailSummaryView, InboundMailThreadGroupView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { isReady } from './completeness'
+import { isQuietMail } from './quiet-mail'
+
+export { isQuietMail, waitingShownCount } from './quiet-mail'
 
 export type ListSection =
   | { kind: 'mail'; mail: InboundMailSummaryView }
@@ -24,14 +27,6 @@ export const EXPIRY_SOON_DAYS = 5
 export function readinessOf(mail: Pick<InboundMailSummaryView, 'status' | 'incompleteReason' | 'riskLevel' | 'onlySenderReleases'>): Readiness {
   if (isReady(mail)) return 'ready'
   return mail.onlySenderReleases && mail.riskLevel !== 'impersonation' ? 'others' : 'needs_you'
-}
-
-export function isQuietMail(mail: Pick<InboundMailSummaryView, 'automatic' | 'riskLevel'>): boolean {
-  return mail.automatic && mail.riskLevel !== 'impersonation'
-}
-
-export function waitingShownCount(mails: readonly Pick<InboundMailSummaryView, 'status' | 'automatic' | 'riskLevel'>[]): number {
-  return mails.filter((mail) => mail.status === 'waiting' && !isQuietMail(mail)).length
 }
 
 export function daysUntilExpiry(mail: Pick<InboundMailSummaryView, 'status' | 'expiresAt'>, now: number): number | null {

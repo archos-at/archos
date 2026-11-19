@@ -8,7 +8,7 @@ import {
   type InboundMailListQuery,
   type InboundMailListView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
-import { waitingShownCount } from '@/features/inbound-mail/lib/list-sections'
+import { waitingShownCount } from '@/features/inbound-mail/lib/quiet-mail'
 
 export interface InboundMailListReader {
   list(projectId: string, query?: Partial<InboundMailListQuery>, signal?: AbortSignal): Promise<InboundMailListView>

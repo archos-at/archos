@@ -7,7 +7,7 @@ import { inboundMailParts, inboundMails, type InboundMailPartRow } from '@/lib/d
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 
-export { countWaitingMailsByProject as waitingMailCounts } from './review-read-repository'
+export { countWaitingMailsByProject as waitingMailCounts } from './waiting-count-repository'
 
 export interface ProjectNoticeState {
   waiting: boolean

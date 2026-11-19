@@ -10,12 +10,9 @@ import { projectFolders } from '@/lib/db/schema/project-folders'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { CURSOR_TIMESTAMP_FORMAT } from '@/lib/documents/list-cursor'
 import { documentVisibleTo, internalRead, SCREENED_ONLY } from '@/lib/documents/visibility'
+import { OPEN_PART_STATES, partInState } from './waiting-count-repository'
 
-export const OPEN_PART_STATES = ['waiting', 'filing'] as const
-
-const partInState = (states: readonly string[]) =>
-  sql`EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = ${inboundMails.id}
-      AND p.state IN (${sql.join(states.map((state) => sql`${state}`), sql`, `)}))`
+export { countWaitingMailsByProject, OPEN_PART_STATES } from './waiting-count-repository'
 
 export interface MailListPosition {
   receivedAt: string
@@ -54,17 +51,6 @@ export async function listProjectMails(
     .orderBy(desc(inboundMails.receivedAt), inboundMails.id)
     .limit(query.limit + 1)
   return rows.map((row) => ({ mail: row.mail, position: { receivedAt: String(row.receivedAtText), id: row.mail.id } }))
-}
-
-export async function countWaitingMailsByProject(projectIds: readonly string[]): Promise<Map<string, number>> {
-  if (projectIds.length === 0) return new Map()
-  const rows = await getDb()
-    .select({ projectId: inboundMails.projectId, count: sql<string>`count(*)` })
-    .from(inboundMails)
-    .where(and(inArray(inboundMails.projectId, [...projectIds]), eq(inboundMails.status, 'waiting'), partInState(OPEN_PART_STATES)))
-    .groupBy(inboundMails.projectId)
-    .limit(projectIds.length)
-  return new Map(rows.map((row) => [row.projectId, Number(row.count)]))
 }
 
 export async function findProjectMail(projectId: string, mailId: string, executor: DbExecutor = getDb()): Promise<InboundMailRow | null> {
