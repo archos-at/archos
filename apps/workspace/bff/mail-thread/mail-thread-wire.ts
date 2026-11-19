@@ -214,6 +214,14 @@ export interface MailThreadSummaryView {
   followed: boolean
 }
 
+export const MAIL_THREAD_WAITING_REASONS = ['sender_not_verified', 'attachment_left', 'before_follow', 'needs_check'] as const
+export type MailThreadWaitingReason = (typeof MAIL_THREAD_WAITING_REASONS)[number]
+
+export interface MailThreadWaiting {
+  count: number
+  reasons: MailThreadWaitingReason[]
+}
+
 export interface MailThreadView extends MailThreadSummaryView {
   participantDomains: string[]
   continuesThreadId: string | null
@@ -221,6 +229,7 @@ export interface MailThreadView extends MailThreadSummaryView {
   follows: MailThreadFollowView[]
   managesFollows: boolean
   waitingCount: number | null
+  waitingReasons: MailThreadWaitingReason[]
 }
 
 export interface MailThreadListView {

@@ -33,6 +33,13 @@ export const mailThread = {
     retry: 'Try again',
     empty: 'This mail thread holds no mail you may see.',
     waiting: '{count, plural, one {# mail of this mail thread waits} other {# mails of this mail thread wait}} in Project mail',
+    waitingAnyway: '{count, plural, one {# mail still waits in Project mail} other {# mails still wait in Project mail}}: {reasons}',
+    waitingReasons: {
+      sender_not_verified: 'sender not verifiable',
+      attachment_left: 'no folder for an attachment',
+      before_follow: 'arrived before it was switched on',
+      needs_check: 'a check needed',
+    },
     waitingOpen: 'View',
     order: 'Newest first',
   },

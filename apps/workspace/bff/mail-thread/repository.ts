@@ -11,7 +11,14 @@ import { documentDisplayName } from '@/lib/documents/display-name'
 import { CURSOR_TIMESTAMP_FORMAT } from '@/lib/documents/list-cursor'
 import { documentVisibleTo, SCREENED_ONLY } from '@/lib/documents/visibility'
 import type { ThreadMatch } from './mail-threading'
-import type { MailThreadAttachmentDisposition, MailThreadAttachmentNotFiledReason } from './mail-thread-wire'
+import { VERIFIED_SENDER_TRUSTS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
+import {
+  MAIL_THREAD_WAITING_REASONS,
+  type MailThreadAttachmentDisposition,
+  type MailThreadAttachmentNotFiledReason,
+  type MailThreadWaiting,
+  type MailThreadWaitingReason,
+} from './mail-thread-wire'
 import { MAIL_THREAD_MAX_ENTRIES } from './mail-thread-vocabulary'
 
 export interface ThreadRow {
@@ -257,9 +264,15 @@ export async function findActiveFollows(threadIds: readonly string[]): Promise<M
     .limit(threadIds.length * 50)
 }
 
-export async function countWaitingForThread(projectId: string, threadId: string): Promise<number> {
-  const [row] = await getDb()
-    .select({ count: sql<string>`count(*)` })
+export async function findWaitingForThread(projectId: string, threadId: string): Promise<MailThreadWaiting> {
+  const verified = sql.join(VERIFIED_SENDER_TRUSTS.map((trust) => sql`${trust}`), sql`, `)
+  const reason = sql<MailThreadWaitingReason>`CASE
+    WHEN ${inboundMails.senderTrust} IS NULL OR ${inboundMails.senderTrust} NOT IN (${verified}) THEN 'sender_not_verified'
+    WHEN EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = inbound_mails.id AND p.kind = 'message' AND p.state = 'filed') THEN 'attachment_left'
+    WHEN inbound_mails.received_at < (SELECT min(f.created_at) FROM ${mailThreadFollows} f WHERE f.thread_id = ${threadId}::uuid AND f.ended_at IS NULL) THEN 'before_follow'
+    ELSE 'needs_check' END`
+  const rows = await getDb()
+    .select({ reason, count: sql<string>`count(*)` })
     .from(inboundMails)
     .where(
       and(
@@ -269,7 +282,11 @@ export async function countWaitingForThread(projectId: string, threadId: string)
         sql`EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = ${inboundMails.id} AND p.state = 'waiting')`,
       ),
     )
-  return Number(row?.count ?? 0)
+    .groupBy(sql`1`)
+  return {
+    count: rows.reduce((sum, row) => sum + Number(row.count), 0),
+    reasons: MAIL_THREAD_WAITING_REASONS.filter((known) => rows.some((row) => row.reason === known)),
+  }
 }
 
 const MAX_REMATCHED_MAILS = 50

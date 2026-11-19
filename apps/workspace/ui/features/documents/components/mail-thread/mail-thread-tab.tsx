@@ -12,7 +12,7 @@ import { LoadError } from '@/components/ui/load-error'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
-import { useTranslations } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
 import type { DocumentVersionView } from '@/lib/documents/lifecycle-types'
 import type { MailThreadEntryDetachResultView, MailThreadEntryView, MailThreadView } from '@/lib/mail-thread/mail-thread-wire'
@@ -50,6 +50,7 @@ export function MailThreadTab({
   className,
 }: MailThreadTabProps): JSX.Element {
   const t = useTranslations(mailThreadCopy)
+  const { locale } = useLocale()
   const [load, setLoad] = useState<Load>({ kind: 'loading' })
   const [versions, setVersions] = useState<DocumentVersionView[] | null>(null)
   const [detaching, setDetaching] = useState<MailThreadEntryView | null>(null)
@@ -107,6 +108,13 @@ export function MailThreadTab({
   }
 
   const writable = mayWrite(view)
+  const waitingWords = (count: number): string =>
+    view.followed && view.waitingReasons.length > 0
+      ? t('tab.waitingAnyway', {
+          count,
+          reasons: new Intl.ListFormat(locale, { type: 'disjunction' }).format(view.waitingReasons.map((reason) => t(`tab.waitingReasons.${reason}`))),
+        })
+      : t('tab.waiting', { count })
   const entries = entriesNewestFirst(view.entries)
   const sayingTrust = entriesSayingTrust(entries)
 
@@ -125,7 +133,7 @@ export function MailThreadTab({
         <p className="text-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs" data-testid="mail-thread-waiting">
           <span className="inline-flex min-w-0 items-start gap-1.5">
             <Inbox className="text-muted-foreground mt-px size-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0">{t('tab.waiting', { count: view.waitingCount })}</span>
+            <span className="min-w-0">{waitingWords(view.waitingCount)}</span>
           </span>
           <Button asChild variant="inline" className="touch-target">
             <Link href={inboundMailPaths(projectId).list({ status: 'waiting', outcome: null })}>{t('tab.waitingOpen')}</Link>
