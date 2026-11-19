@@ -637,4 +637,9 @@ export const inboundMail = {
     undo: 'Undo',
     failed: 'That did not work. Try again.',
   },
+
+  autoFiled: {
+    row: 'Filed without a click → {place}',
+    rowNoPlace: 'Filed without a click',
+  },
 }

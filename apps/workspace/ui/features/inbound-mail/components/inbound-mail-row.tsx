@@ -179,6 +179,16 @@ export function InboundMailRow({
                 {t('row.textFollowed')}
               </p>
             )}
+            {!waiting && mail.filedWithoutClick && (
+              <p className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" data-testid="inbound-mail-row-filed-without-click">
+                <Mails className="size-3 shrink-0" aria-hidden />
+                <span className="min-w-0 truncate">
+                  {mail.filedWithoutClick.to
+                    ? t('autoFiled.row', { place: mail.filedWithoutClick.to.name })
+                    : t('autoFiled.rowNoPlace')}
+                </span>
+              </p>
+            )}
             {!waiting && outcomes.length > 0 && (
               <p className="text-muted-foreground text-xs text-pretty" data-testid="inbound-mail-row-outcome" /* no date stranded on a line of its own */>
                 {outcomes.map((outcome) => t(`row.outcome.${outcome}`, { count: mail.outcomes[outcome] })).join(CLAUSE_JOIN)}

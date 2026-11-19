@@ -1,6 +1,6 @@
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import type { InboundMailDecisionRow, InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { domainOf } from '@/lib/mail-thread/mail-threading'
 import { chatScreeningRules, maskText, type ContentScreenRules } from '@/lib/upload-screening/content-screen'
 import { gatePolicy } from '@/lib/upload-screening/service'
@@ -8,7 +8,7 @@ import { candidatesFor, type ViewerCandidates } from './candidates'
 import { mailIfMatch } from './decision'
 import { INBOUND_MAIL_RESTORE_DAYS, type InboundSenderTrust } from './inbound-mail-vocabulary'
 import type { InboundMailListStatus, InboundMailOutcome, InboundMailSummaryView, InboundMailView } from './inbound-mail-wire'
-import { findFollowDeciders, findMailParts } from './repository'
+import { findFiledVias, findFollowDeciders, findMailParts } from './repository'
 import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
 import { dismissalIsFinal, expiryIsFinal, onlySenderReleases, ownClaimedMail, senderWaitReason } from './sender-class'
 import { readSuggestion, suggestionSkipReason } from './suggest'
@@ -111,7 +111,29 @@ function mailView(
   })
 }
 
-export function summaryView(mail: InboundMailRow, parts: readonly InboundMailPartRow[], view: InboundMailView, now: number): InboundMailSummaryView {
+export type FiledVias = ReadonlyMap<string, InboundMailDecisionRow['via']>
+
+const WITHOUT_CLICK: ReadonlyArray<InboundMailDecisionRow['via']> = ['follow', 'sender']
+
+function filedWithoutClick(
+  parts: readonly InboundMailPartRow[],
+  view: InboundMailView,
+  vias: FiledVias,
+): InboundMailSummaryView['filedWithoutClick'] {
+  const filed = parts.filter((part) => part.state === 'filed')
+  if (filed.length === 0 || !filed.every((part) => WITHOUT_CLICK.includes(vias.get(part.id) ?? 'app'))) return null
+  const place = (part: InboundMailPartRow) => view.parts.find((shown) => shown.id === part.id)?.filedAs ?? null
+  const text = filed.find((part) => part.kind === 'message')
+  return { to: (text ? place(text) : null) ?? filed.map(place).find((shown) => shown !== null) ?? null }
+}
+
+export function summaryView(
+  mail: InboundMailRow,
+  parts: readonly InboundMailPartRow[],
+  view: InboundMailView,
+  now: number,
+  vias: FiledVias = new Map(),
+): InboundMailSummaryView {
   const count = (state: InboundMailOutcome) => parts.filter((part) => part.state === state).length
   const until = parts
     .map((part) => restorableUntil(mail, part, now))
@@ -145,6 +167,7 @@ export function summaryView(mail: InboundMailRow, parts: readonly InboundMailPar
     ownClaimedMail: view.ownClaimedMail,
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
+    filedWithoutClick: filedWithoutClick(parts, view, vias),
     updatedAt: view.updatedAt,
   }
 }
@@ -160,19 +183,20 @@ export async function loadMailViews(
   projectId: string,
   mails: readonly InboundMailRow[],
   closed: boolean,
-): Promise<Array<{ mail: InboundMailRow; parts: InboundMailPartRow[]; view: InboundMailView }>> {
+): Promise<Array<{ mail: InboundMailRow; parts: InboundMailPartRow[]; view: InboundMailView; vias: FiledVias }>> {
   const parts = await findMailParts(mails.map((mail) => mail.id))
-  const [candidates, rules, followers] = await Promise.all([
+  const [candidates, rules, followers, vias] = await Promise.all([
     candidatesFor(session, projectId, mails, parts),
     maskRulesFor(session.organizationId, projectId),
     findFollowDeciders(mails.map((mail) => mail.id)),
+    findFiledVias(mails.map((mail) => mail.id)),
   ])
   const byMail = groupParts(parts)
   const now = Date.now()
   return mails.map((mail) => {
     const own = byMail.get(mail.id) ?? []
     const context = { closed, rules, followedBy: followers.get(mail.id) ?? null, now, viewerUserId: session.userId }
-    return { mail, parts: own, view: mailView(mail, own, candidates, context) }
+    return { mail, parts: own, view: mailView(mail, own, candidates, context), vias }
   })
 }
 

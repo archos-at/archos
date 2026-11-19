@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { resolvePinnedRequesterSessionStrict } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -15,7 +15,11 @@ import {
 } from '@/lib/jobs-queue/types'
 import { RENDER_LEASE_RETRY_MS } from '@/lib/mail-thread/append'
 import type { FollowRow } from '@/lib/mail-thread/follow-eligibility'
-import { findThreadDocumentState, writeFollowDecision } from '@/lib/mail-thread/follow-repository'
+import {
+  findThreadDocumentState,
+  writeFollowDecision,
+  type FollowAttachmentDecision,
+} from '@/lib/mail-thread/follow-repository'
 import { endFollowBySystem } from '@/lib/mail-thread/follows'
 import { findWritableThread } from '@/lib/mail-thread/write-repository'
 import { isProjectClosedError } from '@/lib/projects/project-status'
@@ -23,13 +27,18 @@ import { inboundMailDomain } from './address'
 import { announceAppended } from './announce'
 import { auditDecisions } from './audit'
 import { threadIsFull } from './candidates'
-import { THREAD_DOCUMENT_TYPE } from './decision'
+import { planMailDecision, refusedPartOf, requireDecisionRights, THREAD_DOCUMENT_TYPE, type DecisionContext } from './decision'
 import { runInboundMailFiling } from './file-job'
 import { findFilingWork, type FilingWork } from './filing-repository'
 import { judgeFollow } from './follow-candidate'
+import { followAttachmentDecisions } from './follow-filing'
+import type { InboundMailDecision } from './inbound-mail-wire'
+import { mailViews } from './mail-views'
 import { findFiledMessages, findMailParts, type ThreadFollowContext } from './repository'
-import { FILING_CLAIM_MS, hoursWaitingBucket } from './service'
+import { withoutPart } from './sender-filing'
+import { decisionContext, FILING_CLAIM_MS, hoursWaitingBucket } from './service'
 import { scoreMailDecision } from './suggest-scores'
+import { SUGGESTION_MAX_WAITS, SUGGESTION_WAIT_MS, suggestionPending } from './suggestion-wait'
 
 export const FOLLOW_WAIT_REASONS = [
   'not_waiting',
@@ -48,8 +57,9 @@ export const FOLLOW_WAIT_REASONS = [
 export type FollowWaitReason = (typeof FOLLOW_WAIT_REASONS)[number]
 
 export type FollowOutcome =
-  | { kind: 'appended' }
+  | { kind: 'appended'; attachments: number; left: number }
   | { kind: 'busy' }
+  | { kind: 'later' }
   | { kind: 'waits'; reason: FollowWaitReason }
   | { kind: 'ended'; reason: 'access_lost' | 'document_gone' | 'thread_full' }
 
@@ -63,6 +73,9 @@ export async function runInboundMailFollow(
   console.debug(
     `[inbound-mail] follow of mail ${payload.mailId}: ${outcome.kind}${'reason' in outcome ? `:${outcome.reason}` : ''}`,
   )
+  if (outcome.kind === 'later') {
+    return { done: false, payload: { ...payload, waits: payload.waits + 1 }, notBefore: new Date(Date.now() + SUGGESTION_WAIT_MS) }
+  }
   return outcome.kind === 'busy'
     ? { done: false, payload, notBefore: new Date(Date.now() + RENDER_LEASE_RETRY_MS) }
     : { done: true, payload }
@@ -83,7 +96,9 @@ export async function followMail(organizationId: string, payload: InboundMailFol
   if (work.mail.rawScanStatus !== 'clean') return waits('scan_not_clean')
   if (work.mail.messageId && (await findFiledMessages(payload.projectId, work.mail.messageId)).length > 0)
     return waits('already_filed')
+  if (payload.waits < SUGGESTION_MAX_WAITS && (await suggestionPending(organizationId, work.mail.id))) return { kind: 'later' }
 
+  const attachments = await attachmentsToFile(session, work)
   const now = new Date()
   const written = await writeFollowDecision({
     follow: { id: follow.id, userId: follow.userId, threadId },
@@ -95,13 +110,49 @@ export async function followMail(organizationId: string, payload: InboundMailFol
     },
     partId: text.id,
     decision: { messageText: 'full', documentType: THREAD_DOCUMENT_TYPE },
+    attachments,
     claimExpiresAt: new Date(now.getTime() + FILING_CLAIM_MS),
     now,
   })
   if (written.kind !== 'written') return waits(written.kind)
-  await auditDecisions([written.decision])
-  recordFollowDecision(session, work, text, thread, now)
-  return fileDecided(session, payload, written.decision.id, threadId)
+  await auditDecisions([written.decision, ...written.attachments])
+  const left = work.parts.filter((part) => part.kind === 'attachment' && part.state === 'waiting').length - written.attachments.length
+  recordFollowDecision(session, work, text, thread, now, { attachments: written.attachments.length, left })
+  return fileDecided(session, payload, [written.decision.id, ...written.attachments.map((decision) => decision.id)], threadId)
+}
+
+async function attachmentsToFile(session: AuthorizedSession, work: FilingWork): Promise<FollowAttachmentDecision[]> {
+  const [view] = await mailViews(session, work.mail.projectId, [work.mail], false)
+  const parts = view ? followAttachmentDecisions(view, work.parts) : []
+  if (!view || parts.length === 0) return []
+  let decision: InboundMailDecision | null = { mailId: work.mail.id, ifMatch: view.ifMatch, parts, message: null }
+  const context: DecisionContext = {
+    ...(await decisionContext(session, work.mail.projectId, { mails: [decision] }, [work.mail], work.parts)),
+    actor: { decidedBy: session.userId, via: 'follow', proposalId: null },
+  }
+  while (decision) {
+    try {
+      const plan = planMailDecision(work.mail, work.parts, decision, context)
+      await requireDecisionRights(session, work.mail.projectId, [plan])
+      return plan.files.map((row) => ({
+        id: row.id,
+        partId: row.partId,
+        folderId: row.folderId ?? null,
+        folderPath: row.folderPath ?? null,
+        fileName: row.fileName ?? null,
+        targetDocumentId: row.targetDocumentId ?? null,
+        documentType: row.documentType ?? null,
+      }))
+    } catch (error) {
+      const partId = refusedPartOf(error)
+      if (!partId) {
+        if (error instanceof ConflictError || error instanceof NotFoundError || error instanceof ForbiddenError) return []
+        throw error
+      }
+      decision = withoutPart(decision, partId)
+    }
+  }
+  return []
 }
 
 interface AppendingFollower {
@@ -147,7 +198,10 @@ async function resumeDecided(
   if (decision?.via !== 'follow') return waits('not_waiting')
   const session = await followerSession(organizationId, decision.decidedBy, payload)
   if (!session) return waits('not_waiting')
-  return fileDecided(session, payload, decision.id, decision.mailThreadId)
+  const decided = [...work.decisions.values()].filter(
+    (other) => other.via === 'follow' && other.followId === decision.followId && other.id !== decision.id,
+  )
+  return fileDecided(session, payload, [decision.id, ...decided.map((other) => other.id)], decision.mailThreadId)
 }
 
 function followerSession(
@@ -193,18 +247,24 @@ async function endFollow(follows: readonly FollowRow[], reason: FollowEndedBy): 
 async function fileDecided(
   session: AuthorizedSession,
   payload: InboundMailFollowPayload,
-  decisionId: string,
+  decisionIds: readonly string[],
   threadId: string | null,
 ): Promise<FollowOutcome> {
   const filed = await runInboundMailFiling(session, {
     projectId: payload.projectId,
     mailIds: [payload.mailId],
-    decisionIds: [decisionId],
+    decisionIds: [...decisionIds],
     requester: requesterOf(session),
   })
   if (!filed.done) return { kind: 'busy' }
-  const text = (await findMailParts([payload.mailId])).find((part) => part.kind === 'message')
+  const parts = await findMailParts([payload.mailId])
+  const text = parts.find((part) => part.kind === 'message')
   if (text?.state !== 'filed') return waits('not_filed')
+  const ours = new Set(decisionIds)
+  const attachments = parts.filter(
+    (part) => part.kind === 'attachment' && part.state === 'filed' && part.decisionId !== null && ours.has(part.decisionId),
+  ).length
+  const left = parts.filter((part) => part.kind === 'attachment' && part.state === 'waiting').length
   if (threadId) {
     await announceAppended({
       organizationId: session.organizationId,
@@ -212,9 +272,10 @@ async function fileDecided(
       mailId: payload.mailId,
       threadId,
       followerUserId: session.userId,
+      attachments,
     })
   }
-  return { kind: 'appended' }
+  return { kind: 'appended', attachments, left }
 }
 
 function recordFollowDecision(
@@ -223,6 +284,7 @@ function recordFollowDecision(
   text: InboundMailPartRow,
   thread: ThreadFollowContext,
   now: Date,
+  filed: { attachments: number; left: number },
 ): void {
   const mail: InboundMailRow = work.mail
   const { threadId } = thread
@@ -242,7 +304,8 @@ function recordFollowDecision(
     distinctId: session.userId,
     organizationId: session.organizationId,
     properties: {
-      files: 1,
+      files: 1 + filed.attachments,
+      left: filed.left,
       dismissed: 0,
       suggestion_followed: suggestionFollowed,
       thread_action: 'append',

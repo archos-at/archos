@@ -782,8 +782,19 @@ describe('following: the follow job is queued only when D31’s conditions 1–6
     const follow = vi.mocked(enqueueJobIfAbsent).mock.calls.find(([job]) => job.kind === 'inbound_mail_follow')?.[0]
     expect(follow).toMatchObject({
       jobId: inboundMailJobId('follow', MAIL),
-      payload: { mailId: MAIL, projectId: PROJECT, followId: 'f0000000-0000-4000-8000-000000000001', requester: { userId: FOLLOWER_ID } },
+      payload: { mailId: MAIL, projectId: PROJECT, followId: 'f0000000-0000-4000-8000-000000000001', requester: { userId: FOLLOWER_ID }, waits: 0 },
     })
+  })
+
+  it('queues the suggestion first, so the follow job finds it open and waits for it before deciding the attachments', async () => {
+    receive(await sign(message(BODY, REFERENCE_HEADERS)))
+
+    await run()
+
+    expect(jobKinds().filter((kind) => kind === 'inbound_mail_suggest' || kind === 'inbound_mail_follow')).toEqual([
+      'inbound_mail_suggest',
+      'inbound_mail_follow',
+    ])
   })
 
   it('does not queue it when the References were added outside the signature', async () => {

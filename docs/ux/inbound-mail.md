@@ -182,7 +182,12 @@ or on a line of its own with an hourglass); an outsider's mail is erased 14
 days after it came.
 „Ablagebereit“ means the server's `incompleteReason` is null and the mail does not
 read as an impersonation (the client refuses an impersonation on its own side
-too, `fileableReason`). „Bearbeitet“ is one list: each row says its outcome.
+too, `fileableReason`). „Bearbeitet“ is one list: each row says its outcome. A
+mail filed without a click (by a follow, or its sender's own filing) adds a
+line with the mail glyph, „Ohne Klick abgelegt → {Name}“ naming the
+E-Mail-Verlauf its text went into (else its first file), or „Ohne Klick
+abgelegt“ where the reader may not open it (`filedWithoutClick` on the
+summary; i18n group `inboundMail.autoFiled`).
 
 A row: the sender's domain, the subject without `AW:`/`WG:`, the time, „· 3
 Anhänge“; suggestion chips; a trust or risk glyph. Over the rows a field
@@ -229,7 +234,8 @@ count in its title and the section's label) and its press share one row. The row
 not repeat the thread: each subject drops the thread's name in front
 (`subjectWithinThread`), so three replies read „Nachreichung Statik“, „Index C“
 rather than three cut-off „Stellplatznachweis – …“. A row whose text a follow already appended shows no
-thread line; its attachments still wait.
+thread line; what still waits are the attachments the follow could not place
+in an existing folder.
 
 **Impersonation is a stop** (`riskLevel === 'impersonation'`). In the list the
 row reads „Gibt sich als {Name} aus · nicht ablegen“ (a red glyph, the words
@@ -519,14 +525,18 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
 
 - **Top**: „{n} E-Mails dieses E-Mail-Verlaufs warten im E-Mail-Eingang ·
   Ansehen“ (only for whoever may file), then the follow control.
-- **Follow control** (`follow-control.tsx`), in the follow offer's words: not
-  switched on, a card titled „Antworten ohne Klick ablegen“, the line „Weitere
-  Antworten von Beteiligten mit bestätigter Domain kommen 60 Tage lang in Ihrem
-  Namen hierher, ihre Anhänge in den E-Mail-Eingang. Sie können das jederzeit
+- **Follow control** (`follow-control.tsx`), in the follow offer's words. A
+  person who filed a text into this Verlauf already follows it (follow by
+  default, ADR-0137's amendment of 2026-11-19), so for them it usually opens
+  switched on. Not switched on, a card titled „Antworten ohne Klick ablegen“,
+  the line „Weitere Antworten von Beteiligten mit bestätigter Domain kommen 60
+  Tage lang in Ihrem Namen hierher, ihre Anhänge in den bestehenden Ordner, den
+  {productName} vorschlägt, sonst in den E-Mail-Eingang. Sie können das jederzeit
   beenden.“ and „Einschalten“; toast „Antworten in „X“ werden bis {Datum} ohne
   Klick abgelegt“ with „Rückgängig“. Switched on: „Antworten werden bis {Datum}
-  ohne Klick abgelegt“, „In Ihrem Namen, Anhänge warten weiter im
-  E-Mail-Eingang. „Beenden“ hört damit auf.“, „Verlängern“ (only while it can
+  ohne Klick abgelegt“, „In Ihrem Namen: der Text in diesen E-Mail-Verlauf,
+  jeder Anhang in den bestehenden Ordner, den {productName} vorschlägt. Der Rest
+  wartet im E-Mail-Eingang. „Beenden“ hört damit auf.“, „Verlängern“ (only while it can
   grow at least a day within 180 days of its start; otherwise „Höchstens 180
   Tage ab Beginn. Danach wieder einschalten.“) and „Beenden“. Others: „Auch für
   2 weitere Personen eingeschaltet“; for a viewer with `managesFollows`, „Auch
@@ -610,9 +620,9 @@ design system ([`design-language.md`](../design/design-language.md)).
 
 ## Not built yet
 
-- Where a „Bearbeitet“ row went. The row says „1 Teil abgelegt“; the folder or
-  Verlauf needs the parts' `filedAs` on the list's summary view
-  (`summaryView`, `bff/inbound-mail/mail-views.ts`), which carries none.
+- Where a „Bearbeitet“ row a person filed went. The row says „1 Teil
+  abgelegt“; only a mail filed without a click names its place
+  (`filedWithoutClick`).
 - The server's `restorableUntil` for a dismissed part of an unconfirmed
   outsider's mail: it says seven days while the sweep erases the part at once
   (`pastRestore`, `sweep-erasure-repository.ts`). The detail says so in its

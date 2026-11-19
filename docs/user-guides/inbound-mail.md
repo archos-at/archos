@@ -8,8 +8,9 @@ in the project's **E-Mail-Eingang** in Dateien and waits until someone files
 it: its text into the conversation's **E-Mail-Verlauf**, its attachments into
 the project's folders, each as a new document or the next Fassung of one.
 
-**Nothing from anyone else is filed without a person**, except the text of replies in an
-E-Mail-Verlauf where you switched on „Antworten ohne Klick ablegen“. ARCHOS reads a mail only once it is filed.
+**Nothing from anyone else is filed without a person**, except replies from
+people who already write in an E-Mail-Verlauf you filed into: those are filed
+without a click (see below). ARCHOS reads a mail only once it is filed.
 
 Project mail is switched on per office. If you do not see „E-Mail-Eingang“ in
 Dateien, your office does not have it yet.
@@ -160,7 +161,8 @@ another member that only that member can file („Wartet auf {Name}“): you can
 dismiss them, and then only they can restore them. A mail that poses as someone never gets
 the button. Mail from an unconfirmed domain and automatic mail sit below, in a
 folded group. „Bearbeitet“ lists what was filed, dismissed or expired, each row
-saying which. The Postfach's „E-Mails warten“ opens the list at „Ablagebereit“. The count on the E-Mail-Eingang tab, the pill on „Wartet auf Ablage“ and the headings' counts agree: all count the rows on show, without the folded automatic mail.
+saying which; a mail filed without a click says „Ohne Klick abgelegt →“ and the
+E-Mail-Verlauf it went into. The Postfach's „E-Mails warten“ opens the list at „Ablagebereit“. The count on the E-Mail-Eingang tab, the pill on „Wartet auf Ablage“ and the headings' counts agree: all count the rows on show, without the folded automatic mail.
 
 ## Filing a mail
 
@@ -312,14 +314,23 @@ as the E-Mail-Verlauf.
 
 ## Filing replies without a click (following a Verlauf)
 
-After filing, or in the E-Mails tab, „Antworten ohne Klick ablegen“ ·
-**Einschalten** makes later replies' **text** join the Verlauf without a click,
-in your name. It is not a notification: nothing is sent to you per reply. It
-applies only to replies from confirmed domains that already write in the
-conversation, whose reference to it is signed, with nobody new in it, and with
-nothing the name or content check would stop. Everything else waits as usual.
-**Attachments always wait** in the E-Mail-Eingang. (The Postfach's notices
-still call this „folgen“.)
+When you file a mail's text into an E-Mail-Verlauf, later replies in that
+conversation are filed without a click, in your name: „Weitere Antworten in
+diesem Verlauf legt ARCHOS ohne Klick ab.“ In the E-Mails tab of a Verlauf you
+did not file into, „Antworten ohne Klick ablegen“ · **Einschalten** does the
+same. It is not a notification: nothing is sent to you per reply.
+
+- It applies only to replies from confirmed domains that already write in the
+  conversation, whose reference to it is signed, with nobody new in it, and
+  with nothing the name or content check would stop. A reply that is not
+  signed always waits, however well you know the sender.
+- The text joins the Verlauf. Each attachment goes into the folder ARCHOS
+  suggested for it if that folder already exists, or becomes the next Fassung
+  of a document when ARCHOS would have pre-selected that for you. An attachment
+  with no existing folder, or one that needs a look (a macro, a duplicate, a
+  file not scanned clean), waits in the E-Mail-Eingang, and the mail shows
+  there with only what is left.
+- (The Postfach's notices still call this „folgen“.)
 
 - It runs 60 days; „Verlängern“ extends it, up to 180 days from its start.
   You are told five days before it ends.
@@ -330,7 +341,11 @@ still call this „folgen“.)
   herausgelöst from that Verlauf, when the Verlauf is deleted, or when the
   project is closed („Das Projekt wurde abgeschlossen“). Reopening the project
   switches nothing on again: it is your own act.
-- The Postfach tells you, once a day per Verlauf, when replies were added („Eine Antwort wurde einem E-Mail-Verlauf in … angefügt“).
+- The Postfach tells you, once a day per Verlauf, when replies were added
+  („Eine Antwort wurde einem E-Mail-Verlauf in … angefügt“, or „Eine Antwort
+  samt Anhängen wurde in … ohne Klick abgelegt“ when its attachments went too).
+- If you pressed **Beenden** and later file another reply of the same Verlauf
+  yourself, the Verlauf is followed again.
 
 ## Tips
 

@@ -194,6 +194,7 @@ export function summaryOf(view: InboundMailView, overrides: Partial<InboundMailS
     ownClaimedMail: view.ownClaimedMail,
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
+    filedWithoutClick: null,
     updatedAt: view.updatedAt,
     ...overrides,
   }

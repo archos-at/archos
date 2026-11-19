@@ -296,6 +296,7 @@ export interface AppendedReply {
   mailId: string
   threadId: string
   followerUserId: string
+  attachments: number
   at?: Date
 }
 
@@ -316,7 +317,7 @@ export async function announceAppended(reply: AppendedReply): Promise<boolean> {
         anchorId: reply.mailId,
         actorUserId: null,
         groupKey: inboxGroupKey(INBOUND_MAIL_APPENDED, 'document', thread.documentId, appendedGroupAnchor(reply.at ?? new Date())),
-        payload: { subject: project.name },
+        payload: { subject: project.name, variant: reply.attachments > 0 ? 'with_attachments' : 'text' },
       },
     ]
   })

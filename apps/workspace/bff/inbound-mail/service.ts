@@ -61,7 +61,7 @@ export async function listInboundMails(
   const page = rows.slice(0, query.limit)
   const loaded = await loadMailViews(session, projectId, page.map((row) => row.mail), closed)
   const now = Date.now()
-  const items = loaded.map((entry) => ({ entry, summary: summaryView(entry.mail, entry.parts, entry.view, now) }))
+  const items = loaded.map((entry) => ({ entry, summary: summaryView(entry.mail, entry.parts, entry.view, now, entry.vias) }))
   const last = page.at(-1)
   return {
     items: items.map((item) => item.summary),

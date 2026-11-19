@@ -47,6 +47,7 @@ vi.mock('./repository', async () => {
     findProjectMail: vi.fn(async () => store.mail),
     findMailParts: vi.fn(async () => store.parts),
     findFollowDeciders: vi.fn(async () => new Map()),
+    findFiledVias: vi.fn(async () => new Map()),
     findLiveFolders: vi.fn(async (_p: string, ids: string[]) => new Map(ids.map((id) => [id, 'Tragwerk']))),
     findThreadDocuments: vi.fn(async () => []),
     findCandidateDocuments: vi.fn(async () => []),
@@ -100,7 +101,7 @@ import { mailIfMatch } from './decision'
 import { MailChangedError, PartNotWaitingError } from './repository'
 import { scoreMailDecision } from './suggest-scores'
 import { candidatesFor } from './candidates'
-import { findFollowDeciders, findThreadDocuments, listProjectMails, restoreMailParts } from './repository'
+import { findFiledVias, findFollowDeciders, findThreadDocuments, listProjectMails, restoreMailParts } from './repository'
 import {
   decisionActor,
   dismissInboundMails,
@@ -247,6 +248,48 @@ describe('what a mail asks of the person, on the wire', () => {
         firstVersion: 4,
         lastVersion: 5,
       },
+    ])
+  })
+
+  it('says a handled mail was filed without a click, and where to, only when no person filed any of it (Bearbeitet)', async () => {
+    const verlauf = { name: 'Statik Einreichung', folderPath: 'Korrespondenz', version: 5 }
+    const plan = { name: 'S-102.pdf', folderPath: 'Tragwerk', version: 1 }
+    vi.mocked(candidatesFor).mockResolvedValueOnce({
+      threads: () => ({ shown: [], hidden: 0 }),
+      part: () => ({ duplicateOf: null, revisionCandidate: null, revisionCandidateHidden: false }),
+      readsFolder: () => true,
+      readsDocument: () => true,
+      filedAs: (part: { documentId: string | null }) => (part.documentId === 'doc-verlauf' ? verlauf : part.documentId === 'doc-plan' ? plan : null),
+    } as never)
+    const followed = heldMail({ id: 'mail-followed', status: 'settled' })
+    const byPerson = heldMail({ id: 'mail-person', status: 'settled' })
+    const hidden = heldMail({ id: 'mail-hidden', status: 'settled' })
+    vi.mocked(listProjectMails).mockResolvedValueOnce(
+      [followed, byPerson, hidden].map((mail) => ({ mail, position: { receivedAt: new Date(mail.receivedAt).toISOString(), id: mail.id } })) as never,
+    )
+    store.parts = [
+      textPart({ id: 'text-followed', mailId: 'mail-followed', state: 'filed', documentId: 'doc-verlauf' }),
+      filePart({ id: 'file-followed', mailId: 'mail-followed', state: 'filed', documentId: 'doc-plan' }),
+      textPart({ id: 'text-person', mailId: 'mail-person', state: 'filed', documentId: 'doc-verlauf' }),
+      filePart({ id: 'file-person', mailId: 'mail-person', state: 'filed', documentId: 'doc-plan' }),
+      filePart({ id: 'file-hidden', mailId: 'mail-hidden', state: 'filed', documentId: 'doc-secret' }),
+    ]
+    vi.mocked(findFiledVias).mockResolvedValueOnce(
+      new Map([
+        ['text-followed', 'follow'],
+        ['file-followed', 'follow'],
+        ['text-person', 'follow'],
+        ['file-person', 'app'],
+        ['file-hidden', 'sender'],
+      ]),
+    )
+
+    const page = await listInboundMails(session, PROJECT_ID, { status: 'handled', limit: 25 })
+
+    expect(page.items.map((item) => [item.id, item.filedWithoutClick])).toEqual([
+      ['mail-followed', { to: verlauf }],
+      ['mail-person', null],
+      ['mail-hidden', { to: null }],
     ])
   })
 

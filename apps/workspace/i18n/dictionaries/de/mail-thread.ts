@@ -98,10 +98,10 @@ export const mailThread: typeof en.mailThread = {
     offer: 'Antworten ohne Klick ablegen',
     start: 'Einschalten',
     explain:
-      'Weitere Antworten von Beteiligten mit bestätigter Domain kommen {days} Tage lang in Ihrem Namen hierher, ihre Anhänge in den E-Mail-Eingang. Sie können das jederzeit beenden.',
+      'Weitere Antworten von Beteiligten mit bestätigter Domain kommen {days} Tage lang in Ihrem Namen hierher, ihre Anhänge in den bestehenden Ordner, den {productName} vorschlägt, sonst in den E-Mail-Eingang. Sie können das jederzeit beenden.',
     following: 'Antworten werden bis {date} ohne Klick abgelegt',
     followingUndated: 'Antworten werden ohne Klick abgelegt',
-    followingExplain: 'In Ihrem Namen, Anhänge warten weiter im E-Mail-Eingang. „Beenden“ hört damit auf.',
+    followingExplain: 'In Ihrem Namen: der Text in diesen E-Mail-Verlauf, jeder Anhang in den bestehenden Ordner, den {productName} vorschlägt. Der Rest wartet im E-Mail-Eingang. „Beenden“ hört damit auf.',
     renew: 'Verlängern',
     renewLabel: 'Bis {date} verlängern',
     renewLimit: 'Höchstens 180 Tage ab Beginn. Danach wieder einschalten.',

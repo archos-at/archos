@@ -774,7 +774,15 @@ export const collaboration = {
         titleOne: 'A reply was appended to a mail thread in “{subject}”',
         titleMany: '{count} replies were appended to a mail thread in “{subject}”',
         title: 'Replies were appended to a mail thread in “{subject}”',
-        body: 'As you, because you follow the mail thread. Attachments wait in Project mail.',
+        body: 'As you, because you follow the mail thread. Attachments without an existing folder wait in Project mail.',
+        variants: {
+          with_attachments: {
+            titleOne: 'A reply and its attachments were filed in “{subject}” without a click',
+            titleMany: '{count} replies and their attachments were filed in “{subject}” without a click',
+            title: 'Replies and their attachments were filed in “{subject}” without a click',
+            body: 'As you, because you follow the mail thread: the text into the mail thread, the attachments into the folders {productName} suggested. Whatever had no existing folder waits in Project mail.',
+          },
+        },
       },
       mailThreadFollowExpiring: {
         title: 'You follow a mail thread in “{subject}” for {followNoticeDays} more days',

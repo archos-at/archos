@@ -8,7 +8,6 @@ import { isInboundMailEnabled } from '@/lib/authz/feature-flags'
 import { requireFolderWrite } from '@/lib/authz/folder-access'
 import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { listProjectsFolders } from '@/lib/filing/repository'
-import { findOpenJobId } from '@/lib/jobs-queue/repository'
 import { requesterOf, type InboundMailSenderFilePayload, type JobAttempt, type JobSliceResult } from '@/lib/jobs-queue/types'
 import { isProjectClosedError } from '@/lib/projects/project-status'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
@@ -16,15 +15,16 @@ import { requireMailReviewer } from './access'
 import { directFilingEnabled } from './direct-filing'
 import { announceWaiting } from './announce'
 import { auditDecisions } from './audit'
-import { mailIfMatch, planMailDecision, requireDecisionRights, type DecisionContext } from './decision'
+import { mailIfMatch, planMailDecision, refusedPartOf, requireDecisionRights, type DecisionContext } from './decision'
 import { mailViews } from './mail-views'
 import { findMailForReceive, findMailParts, MailChangedError, PartNotWaitingError, writeMailDecisions, type DecisionActor } from './repository'
 import { CORRESPONDENCE_FOLDER } from './review-defaults'
 import { senderDecision, withoutPart, type FolderChoice } from './sender-filing'
 import { decisionContext, FILING_CLAIM_MS, filingJobId } from './service'
+import { SUGGESTION_MAX_WAITS, SUGGESTION_WAIT_MS, suggestionPending } from './suggestion-wait'
 
-export const SENDER_FILE_WAIT_MS = 30_000
-export const SENDER_FILE_MAX_WAITS = 10
+export const SENDER_FILE_WAIT_MS = SUGGESTION_WAIT_MS
+export const SENDER_FILE_MAX_WAITS = SUGGESTION_MAX_WAITS
 
 export const SENDER_FILE_WAIT_REASONS = [
   'not_waiting',
@@ -115,10 +115,6 @@ async function mayFile(session: AuthorizedSession, projectId: string): Promise<b
   }
 }
 
-async function suggestionPending(organizationId: string, mailId: string): Promise<boolean> {
-  return (await findOpenJobId({ kind: 'inbound_mail_suggest', organizationId, matching: { mailId } })) !== null
-}
-
 async function correspondenceFolder(session: AuthorizedSession, projectId: string): Promise<FolderChoice | null> {
   const folders = (await listProjectsFolders(session.organizationId, [projectId])).filter((folder) => CORRESPONDENCE_FOLDER.test(folder.path))
   for (const folder of folders) {
@@ -148,19 +144,13 @@ async function fileDecision(
       await requireDecisionRights(session, mail.projectId, [plan])
       return await writeAsSender(session, mail, rows, plan)
     } catch (error) {
-      const partId = refusedPart(error)
+      const partId = refusedPartOf(error)
       if (!partId) return refusedWhole(mail, error)
       logInfo(`[inbound-mail] sender filing of mail ${mail.id}: a part waits (${refusalCode(error)})`)
       decision = withoutPart(decision, partId)
     }
   }
   return told(mail, 'refused')
-}
-
-function refusedPart(error: unknown): string | null {
-  if (!(error instanceof ConflictError)) return null
-  const details = (error as { details?: { partId?: unknown } }).details
-  return typeof details?.partId === 'string' ? details.partId : null
 }
 
 function refusalCode(error: unknown): string {

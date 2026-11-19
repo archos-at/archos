@@ -1765,6 +1765,13 @@
       "when": 1795601000000,
       "tag": "0251_mail_thread_reply_keeping",
       "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1795601100000,
+      "tag": "0252_follow_files_attachments",
+      "breakpoints": true
     }
   ]
 }

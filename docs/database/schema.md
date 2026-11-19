@@ -1158,7 +1158,10 @@ Nothing reaches a project unless its scan said clean
 
 Triggers:
 - `inbound_mail_parts_decision_guard` (`BEFORE INSERT OR UPDATE OF decision_id`):
-  the named decision must be a `file` (`inbound_mail_parts_decision_files`).
+  the named decision must be a `file` (`inbound_mail_parts_decision_files`);
+  a part flagged since a `sender` decision, or an attachment flagged since a
+  `follow` decision (0252), is not claimed on it
+  (`inbound_mail_parts_sender_files_clean`, `…_follow_files_clean`).
 - `inbound_mail_parts_document_guard` (`BEFORE UPDATE OF document_id`): when
   the document goes, `document_version_id` goes too. Deleting the document
   nulls `document_id` first, after which the composite key to the Fassung is
@@ -1192,16 +1195,23 @@ sent from here.
 | `audited_at` | `timestamptz` | | NULL while owed to the trail |
 
 CHECKs: `inbound_mail_decisions_agent_cards_file_clean` (an agent's card carries
-no release and no acknowledgement); `…_follow_appends_text_only` (a follow is
-`file` + `append` with no release or acknowledgement); `…_destination_when_filing`,
+no release and no acknowledgement); `…_follow_files_clean` (0252, before it
+`…_follow_appends_text_only`: a follow is a `file` with no release or
+acknowledgement, never a new thread, and an attachment it files goes into a
+folder by id, the root `''` or a Fassung of a document, never a folder to be
+made); `…_destination_when_filing`,
 `…_target_only_when_filing`, `…_thread_named`, `…_message_text`, `…_lengths`;
 `…_sender_files_clean` (0197: a `sender` decision files, and acknowledges or
 releases nothing).
 
 Trigger `inbound_mail_decisions_guard`:
-- INSERT: a follow files a text, never an attachment
-  (`inbound_mail_decisions_follow_files_text`); a thread is chosen for a filed
-  text and only for it (`…_thread_for_text`). From 0197: `via = 'sender'` only
+- INSERT: a thread is chosen for a filed text and only for it
+  (`…_thread_for_text`). From 0252 (before it a follow filed a text, never an
+  attachment, `…_follow_files_text`): a follow files an attachment only of a
+  mail whose text the same follow appended in the same name, the raw message
+  and the part scanned `clean`, the part without risk flags or content
+  findings (`…_follow_attachment_clean`; the attachment's decision names no
+  thread, so the follower key binds it only through its text's decision). From 0197: `via = 'sender'` only
   on a `verified_writer` mail, decided by its `sender_user_id`, its raw message
   `clean`, the part without risk flags or content findings
   (`…_sender_files_own_verified_mail`); a `file` on an `unverified_writer` mail

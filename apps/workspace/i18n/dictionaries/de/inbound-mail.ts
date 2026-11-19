@@ -651,4 +651,9 @@ export const inboundMail: typeof en.inboundMail = {
     undo: 'Rückgängig',
     failed: 'Das hat nicht geklappt. Bitte erneut versuchen.',
   },
+
+  autoFiled: {
+    row: 'Ohne Klick abgelegt → {place}',
+    rowNoPlace: 'Ohne Klick abgelegt',
+  },
 }
