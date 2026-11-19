@@ -341,7 +341,7 @@ describe('InboundMailDetail', () => {
 
   it('states every attachment case of the mixed mail', () => {
     renderDetail('mixed-attachments')
-    expect(screen.getByTestId('note-revision')).toHaveTextContent('becomes revision 3 of S-101_B.pdf')
+    expect(screen.getByTestId('note-revision')).toHaveTextContent('becomes revision 4 of S-101_C.pdf')
     expect(screen.getByTestId('note-duplicate')).toHaveTextContent('Already in the project: Behörde/Bescheide/Bescheid_alt.pdf')
     expect(screen.getByTestId('note-encrypted')).toBeInTheDocument()
     expect(screen.getByTestId('note-image')).toBeInTheDocument()

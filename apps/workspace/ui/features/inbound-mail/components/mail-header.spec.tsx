@@ -60,7 +60,7 @@ describe('MailHeader', () => {
   it('puts the text right after the header, before any part can be checked', () => {
     renderDetail('member-verified')
     const header = screen.getByTestId('mail-header')
-    const text = screen.getByText(/der Bescheid zum Stellplatznachweis ist gestern gekommen/)
+    const text = screen.getByText(/der Bescheid der MA 37 zum Stellplatznachweis/)
     const checkbox = screen.getByTestId('attachment-checkbox')
     expect(header.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(text.compareDocumentPosition(checkbox) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
