@@ -41,6 +41,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let write: typeof import('./write-repository')
+  let rematch: typeof import('./rematch') & typeof import('./repository')
   let read: typeof import('./repository')
   let filing: typeof import('@/lib/inbound-mail/filing-repository')
   let reader: typeof import('@/lib/documents/document-reader')
@@ -198,6 +199,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
     write = await import('./write-repository')
+    rematch = { ...(await import('./rematch')), ...(await import('./repository')) }
     read = await import('./repository')
     filing = await import('@/lib/inbound-mail/filing-repository')
     reader = await import('@/lib/documents/document-reader')
@@ -590,6 +592,70 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
         sql`DELETE FROM mail_thread_entries WHERE id = ${commit.entry.id!}::uuid`
       ).catch((error: unknown) => error)
       expect(String((refused as { cause?: unknown }).cause)).toMatch(/permission denied/)
+    })
+  })
+
+  describe('a reply that waited before its first mail was filed', () => {
+    async function waitingReply(inReplyTo: string, textState: 'waiting' | 'dismissed' = 'waiting'): Promise<string> {
+      const mailId = crypto.randomUUID()
+      await rows(sql`
+        INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket,
+          raw_storage_key, read_storage_key, raw_scan_status, raw_scanned_at, sender_address, sender_name, subject, base_subject,
+          sender_trust, sender_class, sender_reason, signer_domain, message_id, in_reply_to, participants, participant_domains, sent_at, expires_at)
+        VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'c')}, 2048, 'org-test-bucket',
+          ${stagingKey(mailId, 'raw.eml')}, ${stagingKey(mailId, 'read.json')}, 'clean', now(), 'huber@ma37.wien.gv.at', 'Mag. Huber',
+          'AW: Statik', 'statik', 'external_verified', 'external', 'dkim_pass', 'ma37.wien.gv.at', ${`<${mailId}@ma37.wien.gv.at>`},
+          ${`{"${inReplyTo}"}`}, '[]'::jsonb, '{ma37.wien.gv.at}', now(), now() + interval '30 days')`)
+      await rows(sql`
+        INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, content_type, size_bytes, sha256, scan_status)
+        VALUES (${ORG}, ${projectId}::uuid, ${mailId}::uuid, 0, 'message', 'text/plain', 12, ${'c'.repeat(64)}, 'not_applicable')`)
+      if (textState === 'dismissed') {
+        await rows(sql`UPDATE inbound_mail_parts SET state = 'dismissed', ended_at = now() WHERE mail_id = ${mailId}::uuid`)
+      }
+      return mailId
+    }
+    const matchOf = async (mailId: string) =>
+      (await one<{ thread_match: unknown }>(sql`SELECT thread_match FROM inbound_mails WHERE id = ${mailId}::uuid`)).thread_match
+
+    it('matches the Verlauf its first mail started, once that Verlauf is written, and no mail it does not cite', async () => {
+      const first = await heldMail()
+      const origin = `<${first.mailId}@statik-weber.at>`
+      const reply = await waitingReply(origin)
+      const unrelated = await waitingReply('<elsewhere@example.test>')
+      await rows(sql`UPDATE inbound_mails SET base_subject = 'anderes' WHERE id = ${unrelated}::uuid`)
+      expect(await matchOf(reply)).toEqual([])
+
+      const document_ = await document('Rematch.md')
+      const commit = newThreadCommit(
+        first,
+        { id: crypto.randomUUID(), documentId: document_.id, versionId: document_.versionId },
+        { documentId: null, versionId: null }
+      )
+      await inTenant(() => write.commitAppend(commit))
+      const thread = { id: commit.threadId, baseSubject: 'statik', threadIndexGuid: null }
+
+      expect((await inTenant(() => rematch.findWaitingMailsNearThread(projectId, thread))).map((mail) => mail.id)).toContain(reply)
+      await inTenant(() => rematch.rematchWaitingMails(projectId, thread))
+      expect(await matchOf(reply)).toEqual([{ threadId: commit.threadId, strength: 'reference', headers: ['in-reply-to'] }])
+      expect(await matchOf(unrelated)).toEqual([])
+    })
+
+    it('looks at a text that may still be restored, never at one already filed', async () => {
+      const first = await heldMail()
+      const origin = `<${first.mailId}@statik-weber.at>`
+      const dismissedText = await waitingReply(origin, 'dismissed')
+      const document_ = await document('Rematch scope.md')
+      const commit = newThreadCommit(
+        first,
+        { id: crypto.randomUUID(), documentId: document_.id, versionId: document_.versionId },
+        { documentId: null, versionId: null }
+      )
+      await inTenant(() => write.commitAppend(commit))
+      const found = (
+        await inTenant(() => rematch.findWaitingMailsNearThread(projectId, { id: commit.threadId, baseSubject: '', threadIndexGuid: null }))
+      ).map((mail) => mail.id)
+      expect(found).toContain(dismissedText)
+      expect(found).not.toContain(first.mailId)
     })
   })
 

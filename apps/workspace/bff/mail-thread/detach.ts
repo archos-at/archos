@@ -42,6 +42,7 @@ import {
   type MailThreadLocale,
 } from './mail-thread-vocabulary'
 import { mailThreadEntryHeading, renderMailThread, type MailThreadRenderEntry } from './render'
+import { rematchAfterWrite } from './rematch'
 import { findVisibleThread } from './repository'
 import {
   acquireRenderLease,
@@ -368,6 +369,12 @@ async function moveEntry(
     })
     await settleFollowExpiring(session.organizationId, ended.map((follow) => follow.id))
     await announceFollowsEnded(session.organizationId, projectId, ended, 'detached', session.userId)
+    await rematchAfterWrite(projectId, [
+      source.thread,
+      destination.kind === 'existing'
+        ? destination.target.thread
+        : { id: toThreadId, baseSubject: moving.baseSubject ?? source.thread.baseSubject, threadIndexGuid: moving.threadIndexGuid },
+    ])
     return {
       entryId: moving.id,
       from: { threadId: source.thread.id, documentId: left.documentId, versionId: left.versionId },

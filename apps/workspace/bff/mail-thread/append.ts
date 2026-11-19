@@ -30,6 +30,7 @@ import { ScreenedUploadError } from '@/lib/upload-screening/service'
 import { attachmentRowsOf, cut, readableWithThread, sectionLineOf, type AttachmentFact } from './attachment-rows'
 import { mailThreadIngestFacts, type MailThreadIngestFacts } from './ingest-facts'
 import { clampSentAt, domainOf } from './mail-threading'
+import { rematchAfterWrite } from './rematch'
 import {
   mailThreadCalendarEventSchema,
   mailThreadMaskedSpanSchema,
@@ -502,6 +503,7 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
   const participantDomains = [
     ...new Set([...(thread?.participantDomains ?? []), ...mail.participantDomains]),
   ].slice(0, 200)
+  const baseSubject = mail.baseSubject ? mail.baseSubject.slice(0, 500) : (thread?.baseSubject ?? '')
   const committed = await commitAppend({
     threadId,
     leaseHolder: target.kind === 'existing' ? decision.id : null,
@@ -512,7 +514,7 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
             organizationId: mail.organizationId,
             projectId: mail.projectId,
             documentId: uploaded.documentId,
-            baseSubject: (mail.baseSubject ?? '').slice(0, 500),
+            baseSubject,
             threadIndexGuid: mail.threadIndexGuid,
             participantDomains,
             locale,
@@ -520,7 +522,7 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
           }
         : null,
     threadUpdate: {
-      baseSubject: mail.baseSubject ? mail.baseSubject.slice(0, 500) : (thread?.baseSubject ?? ''),
+      baseSubject,
       documentId: uploaded.documentId,
       entryCount: entries.length,
       renderedBytes: rendition.bytes,
@@ -535,6 +537,11 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
     movesOriginal: mail.rawStorageKey !== null,
   })
   if (committed === 'lost') return { kind: 'busy' }
+  if (committed === 'committed') {
+    await rematchAfterWrite(mail.projectId, [
+      { id: threadId, baseSubject, threadIndexGuid: thread ? thread.threadIndexGuid : mail.threadIndexGuid },
+    ])
+  }
   return {
     kind: 'filed',
     entryId,

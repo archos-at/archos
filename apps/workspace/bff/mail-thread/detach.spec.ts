@@ -14,6 +14,7 @@ vi.mock('./write-repository', () => ({
   findWritableThread: vi.fn(async () => null),
 }))
 vi.mock('./repository', () => ({ findVisibleThread: vi.fn(async () => ({ id: 'visible' })) }))
+vi.mock('./rematch', () => ({ rematchAfterWrite: vi.fn(async () => undefined) }))
 vi.mock('@/lib/authz/folder-access-repository', () => ({
   listProjectFolderTree: vi.fn(async () => [
     { id: 'board', parentId: null, accessMode: 'custom', everyoneReads: false },
@@ -66,6 +67,7 @@ import { findDocumentIdByStoredName } from '@/lib/inbound-mail/repository'
 import { ensureProjectFolderPaths } from '@/lib/projects/folder-service'
 import { inboundEntryOf } from './append'
 import { detachMailThreadEntry } from './detach'
+import { rematchAfterWrite } from './rematch'
 import type { MailThreadEntryDetachBody } from './mail-thread-wire'
 import { findVisibleThread, type ThreadRow } from './repository'
 import {
@@ -283,6 +285,10 @@ describe('moving a message into another thread', () => {
       PERSON
     )
     expect(releaseRenderLease).toHaveBeenCalledTimes(2)
+    expect(rematchAfterWrite).toHaveBeenCalledWith(PROJECT_ID, [
+      expect.objectContaining({ id: SOURCE }),
+      expect.objectContaining({ id: TARGET }),
+    ])
   })
 
   it('refuses the thread it is in, a thread the reader may not read, and a busy one, moving nothing', async () => {
@@ -385,9 +391,7 @@ describe('what the moved section names of its attachments (RT-S13)', () => {
 
   it('names nothing in a new thread whose folder is not made yet: who reads it is not known', async () => {
     filedIn('board')
-    vi.mocked(ensureProjectFolderPaths).mockResolvedValue({ ok: true, folderIdByPath: { 'Vorstand/Neu': 'folder-new' } } as Awaited<
-      ReturnType<typeof ensureProjectFolderPaths>
-    >)
+    vi.mocked(ensureProjectFolderPaths).mockResolvedValue({ ok: true, folders: [], folderIdByPath: { 'Vorstand/Neu': 'folder-new' } })
     await detach({ action: 'create', name: 'Honorar', newFolderPath: 'Vorstand/Neu' })
     expect(vi.mocked(commitDetach).mock.calls[0]![0].unnamedPositions).toEqual([1])
   })

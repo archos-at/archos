@@ -1,14 +1,19 @@
 import 'server-only'
 
+import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
+import { BFF_JOB_PRIORITY, requesterOf } from '@/lib/jobs-queue/types'
 import {
   followEligibility,
   type FollowCandidateMail,
   type FollowEligibility,
 } from '@/lib/mail-thread/follow-eligibility'
 import type { ThreadMatch } from '@/lib/mail-thread/mail-threading'
+import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { rawHeaderFields } from './mime'
-import { findThreadFollowContext, type ThreadFollowContext } from './repository'
+import { inboundMailJobId } from './receive-sender'
+import { findThreadFollowContext, type PartSummary, type ThreadFollowContext } from './repository'
 import { mailScreeningFor } from './screening'
 import { readStagedObject } from './staging'
 
@@ -64,4 +69,31 @@ async function recipientHeadersOf(mail: InboundMailRow, raw: Uint8Array | null):
   const fields = bytes ? rawHeaderFields(bytes) : null
   if (!fields) return []
   return (['to', 'cc'] as const).filter((name) => fields.some((field) => field.name === name))
+}
+
+export async function queueFollowIfEligible(
+  mail: InboundMailRow,
+  parts: readonly PartSummary[],
+  domain: string,
+  raw: Uint8Array | null,
+): Promise<boolean> {
+  const contentFindings = parts.find((part) => part.kind === 'message')?.contentFindings.length ?? 0
+  const judged = await judgeFollow(mail, contentFindings, domain, raw)
+  if (!judged?.eligibility.eligible) return false
+  const { follow } = judged.eligibility
+  const directory = await loadOrganizationDirectory(mail.organizationId)
+  const follower = directory.get(follow.userId)
+  const session = await resolvePinnedRequesterSession({
+    userId: follow.userId,
+    email: follower?.email ?? null,
+    organizationId: mail.organizationId,
+  })
+  if (!session) return false
+  return enqueueJobIfAbsent({
+    kind: 'inbound_mail_follow',
+    organizationId: mail.organizationId,
+    priority: BFF_JOB_PRIORITY.interactive,
+    jobId: inboundMailJobId('follow', mail.id),
+    payload: { projectId: mail.projectId, mailId: mail.id, followId: follow.id, requester: requesterOf(session) },
+  })
 }

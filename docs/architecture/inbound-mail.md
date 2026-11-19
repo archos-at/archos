@@ -250,7 +250,16 @@ as `unavailable` and neither side recorded why.
     (`thread_match`). At most 50 threads are weighed
     (`findThreadCandidates`): those a cited Message-ID or the Thread-Index
     names first, then those of the same base subject, newest first, so many
-    threads of one subject never crowd out the one a reply cites;
+    threads of one subject never crowd out the one a reply cites. The
+    match is not frozen here: whenever a Verlauf is written (an append, a
+    detach, an archive render), the project's waiting mails that could
+    belong to it (its base subject or Thread-Index GUID, citing one of its
+    Message-IDs, or matched to it before) are matched again
+    (`rematchAfterWrite`, `apps/workspace/bff/mail-thread/rematch.ts`), at most 50 per
+    Verlauf. A reply that arrived before its first mail was filed then
+    matches the Verlauf that mail started, and when it newly cites one by
+    reference, its follow is judged and queued as at receipt. A re-match
+    that fails is logged and the mails keep their match; the filing stands;
 11. **classify the sender** ([the sender rule](#the-sender-rule)): whether the
     From's member may write in the project, asked of WorkOS; stage the
     attachments and `read.json`, insert the parts, `waiting`, with the class
@@ -523,6 +532,7 @@ sequenceDiagram
   Note over RJ: a reply arrives
   RJ->>RJ: judgeFollow: conditions 1–6
   RJ->>DB: queue inbound_mail_follow (only when they hold)
+  Note over RJ: or later, when a written Verlauf<br/>re-matches the waiting reply (rematch.ts)
   FJ->>FJ: judgeFollow again (same function)
   FJ->>FJ: as the follower: entitlement, document live and screened,<br/>project:documents:write, folder write (7, 9)
   FJ->>DB: writeFollowDecision: caps of the last 24 h (8),<br/>decision via=follow, text claimed
@@ -777,7 +787,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
 | Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects}.ts` |
 | The sender rule | `lib/inbound-mail/{sender-class,receive-sender,sender-filing,sender-file-job}.ts` |
-| Threads | `lib/mail-thread/{mail-threading,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
+| Threads | `lib/mail-thread/{mail-threading,rematch,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
 | Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job}.ts` |
 | Sweeps and notices | `lib/inbound-mail/{sweep,sweep-repository,announce,notice-repository}.ts` |
 | Suggestion | `lib/inbound-mail/{suggest,suggest-job,suggest-scores}.ts`; `lib/filing/judge.ts`; `apps/agent-host/src/agent_host/routes/filing_fit.py` |

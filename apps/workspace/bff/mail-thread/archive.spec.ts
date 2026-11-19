@@ -33,6 +33,7 @@ vi.mock('./append', async (importOriginal) => {
   return { ...actual, uploadThreadVersion: vi.fn() }
 })
 vi.mock('@/lib/inbound-mail/repository', () => ({ findThreadCandidates: vi.fn(async () => []) }))
+vi.mock('./rematch', () => ({ rematchAfterWrite: vi.fn(async () => undefined) }))
 vi.mock('@/lib/authz/folder-access', () => ({ canWriteFolder: vi.fn(async () => true) }))
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn(async () => []) }))
 
@@ -70,6 +71,7 @@ import {
 } from './archive-repository'
 import type { ThreadCandidate } from './mail-threading'
 import { MAIL_THREAD_ATTACHMENT_NOT_FILED_REASONS } from './mail-thread-vocabulary'
+import { rematchAfterWrite } from './rematch'
 import { mailThreadEntryHeading, renderMailThread } from './render'
 import { renderEntryOf } from './append'
 import {
@@ -460,6 +462,7 @@ describe('renderPendingThreads: one Fassung per Verlauf per slice', () => {
       facts: { message_count: 1, locale: 'de' },
     })
     expect(commitArchiveRender).toHaveBeenCalledWith(expect.objectContaining({ threadId: 'own', documentId: 'doc_new', versionId: 'v1', entryCount: 1 }))
+    expect(rematchAfterWrite).toHaveBeenCalledWith(IMPORT.projectId, [expect.objectContaining({ id: 'own' })])
     expect(releaseRenderLease).toHaveBeenCalledWith('own', filing().holder)
   })
 
