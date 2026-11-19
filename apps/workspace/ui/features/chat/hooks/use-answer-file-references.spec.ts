@@ -71,6 +71,23 @@ describe('useAnswerFileReferences', () => {
     expect(result.current.resolve('PD8280-2.PDF')?.file.id).toBe('p1')
   })
 
+  it('names one of the office’s standards the answer wrote out, which the Büroablage lists only when asked', async () => {
+    server.use(
+      shelfGet('project', '/api/documents', () => HttpResponse.json({ documents: [] })),
+      shelfGet('office_shelf', '/api/documents', ({ request }) =>
+        HttpResponse.json({
+          documents:
+            new URL(request.url).searchParams.get('includeStandards') === 'true' ? [row('n1', 'Brandschutz-Richtlinie.pdf')] : [],
+        })
+      ),
+      http.get('/api/session/documents', () => HttpResponse.json({ documents: [] }))
+    )
+    const { result } = referencesFor('Siehe Brandschutz-Richtlinie.pdf, Punkt 3.')
+
+    await waitFor(() => expect(result.current.fileNames).toEqual(['Brandschutz-Richtlinie.pdf']))
+    expect(result.current.resolve('Brandschutz-Richtlinie.pdf')?.corpus).toBe('office')
+  })
+
   it('reaches a file attached to this conversation', async () => {
     corpora({ session: [row('s1', 'Bestandsplan-1910.pdf')] })
     const { result } = referencesFor('Der Bestandsplan-1910.pdf zeigt den Konsens.')

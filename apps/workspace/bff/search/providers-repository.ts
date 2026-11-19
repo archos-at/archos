@@ -12,7 +12,7 @@ import { visibleConversationsWhere } from '@/lib/conversations/repository'
 import { likeContains } from '@/lib/text/like-pattern'
 import type { AnnotationKind, AnnotationStatus } from '@/lib/annotations/types'
 import { documentSearchWhere, type DocumentQuery } from './document-repository'
-import type { SearchReach } from './reach'
+import { reachHiddenFolderIds, type SearchReach } from './reach'
 import { SEARCH_LIMIT_MAX } from './search-wire'
 
 export const SEARCH_TOTAL_CAP = 1000
@@ -157,7 +157,7 @@ export interface FolderSearchRow {
 
 export function folderReachWhere(reach: SearchReach): SQL {
   const projectIds = reach.projects.map((reached) => reached.project.id)
-  const hidden = reach.projects.flatMap((reached) => reached.hiddenFolderIds)
+  const hidden = reachHiddenFolderIds(reach)
   const shelves = or(
     projectIds.length > 0
       ? and(eq(projectFolders.scope, 'project'), inArray(projectFolders.projectId, projectIds))

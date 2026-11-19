@@ -84,6 +84,13 @@ vi.mock('@/lib/compliance/repository', () => ({
   isCoveredByActiveHold: vi.fn().mockResolvedValue(false),
 }))
 
+vi.mock('@/lib/documents/shelf-folders', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/documents/shelf-folders')>()),
+  listShelfFolders: vi.fn(),
+}))
+
+vi.mock('@/lib/documents/revision-candidates-repository', () => ({ findRevisionSeriesRows: vi.fn().mockResolvedValue([]) }))
+
 vi.mock('./repository', () => ({
   listOfficeShelfDocumentLevel: vi.fn(),
   findOfficeShelfDocumentsByFilenames: vi.fn(),
@@ -112,6 +119,9 @@ import {
   deleteOfficeShelfDocument as deleteOfficeShelfDocumentRow,
 } from './repository'
 import { encodeDocumentLevelCursor } from '@/lib/documents/list-cursor'
+import { listShelfFolders, type FolderRow } from '@/lib/documents/shelf-folders'
+import { findRevisionSeriesRows } from '@/lib/documents/revision-candidates-repository'
+import { NAME_TAKEN_REASON } from '@/lib/documents/name-taken'
 
 const LEVEL = { folderId: undefined, sort: 'added', dir: 'desc', limit: 100 } as const
 import {
@@ -119,6 +129,7 @@ import {
   uploadOfficeShelfDocument,
   deleteOfficeShelfDocument,
   probeOfficeShelfDocumentNames,
+  probeOfficeShelfRevisionCandidates,
   resolveOfficeShelfDocumentsByName,
 } from './service'
 import { makeDocument, makeLiveDocumentMatch } from '@/test-utils/db-fixtures'
@@ -168,7 +179,7 @@ describe('listOfficeShelf', () => {
 
     expect(result.collectionName).toBe('archiv_org-1')
     expect(result.canManage).toBe(true)
-    expect(listOfficeShelfDocumentLevel).toHaveBeenCalledWith('org-1', { level: LEVEL, reader: { kind: 'reviewer' } })
+    expect(listOfficeShelfDocumentLevel).toHaveBeenCalledWith('org-1', { level: LEVEL, hiddenFolderIds: [], reader: { kind: 'reviewer' } })
     expect(result.nextCursor).toBeNull()
   })
 
@@ -233,6 +244,7 @@ describe('listOfficeShelf', () => {
       includeArchived: true,
       authoredBy: 'agent',
       level: LEVEL,
+      hiddenFolderIds: [],
       reader: { kind: 'member', userId: 'user-1' },
     })
   })
@@ -244,7 +256,7 @@ describe('listOfficeShelf', () => {
 
     await listOfficeShelf(session, { level: LEVEL })
 
-    expect(vi.mocked(listOfficeShelfDocumentLevel).mock.calls[0][1]).toEqual({ level: LEVEL, reader: { kind: 'reviewer' } })
+    expect(vi.mocked(listOfficeShelfDocumentLevel).mock.calls[0][1]).toEqual({ level: LEVEL, hiddenFolderIds: [], reader: { kind: 'reviewer' } })
   })
 
   it('hydrates rows exactly as a project listing does', async () => {
@@ -658,10 +670,146 @@ describe('probeOfficeShelfDocumentNames and a quarantined file', () => {
   it("keeps a member to their own, and a curator to every one", async () => {
     vi.mocked(canManageOfficeShelf).mockReturnValue(false)
     await probeOfficeShelfDocumentNames(session, ['Honorar.pdf'])
-    expect(findOfficeShelfDocumentsByNames).toHaveBeenLastCalledWith('org-1', ['Honorar.pdf'], { reader: { kind: 'member', userId: 'user-1' } })
+    expect(findOfficeShelfDocumentsByNames).toHaveBeenLastCalledWith('org-1', ['Honorar.pdf'], { hiddenFolderIds: [], reader: { kind: 'member', userId: 'user-1' } })
 
     vi.mocked(canManageOfficeShelf).mockReturnValue(true)
     await probeOfficeShelfDocumentNames(session, ['Honorar.pdf'])
-    expect(vi.mocked(findOfficeShelfDocumentsByNames).mock.lastCall?.[2]).toEqual({ reader: { kind: 'reviewer' } })
+    expect(vi.mocked(findOfficeShelfDocumentsByNames).mock.lastCall?.[2]).toEqual({ hiddenFolderIds: [], reader: { kind: 'reviewer' } })
+  })
+})
+
+describe('the Ordner, once the office keeps its own standards (office-standards on)', () => {
+  const standardsOn: AuthorizedSession = { ...session, featureFlags: ['office-standards'] }
+  const folder = (id: string, path: string): FolderRow => ({
+    id,
+    projectId: null,
+    parentId: null,
+    name: path.split('/').at(-1) ?? path,
+    path,
+    description: null,
+    createdAt: new Date('2026-10-01T00:00:00Z'),
+    updatedAt: new Date('2026-10-01T00:00:00Z'),
+  })
+  const STANDARDS_TREE = ['folder-standards', 'folder-fire']
+
+  beforeEach(() => {
+    vi.stubEnv('REQUIRE_AUTH', 'true')
+    vi.mocked(listShelfFolders).mockResolvedValue([
+      folder('folder-plans', 'Pläne'),
+      folder('folder-standards', 'Grundlagen des Büros'),
+      folder('folder-fire', 'Grundlagen des Büros/Brandschutz'),
+      folder('folder-lookalike', 'Pläne/Grundlagen des Büros'),
+    ])
+    vi.mocked(listOfficeShelfDocumentLevel).mockResolvedValue({ rows: [], nextCursor: null })
+    vi.mocked(reconcileDocumentStatuses).mockResolvedValue([])
+    vi.mocked(canManageOfficeShelf).mockReturnValue(true)
+  })
+
+  afterEach(() => vi.unstubAllEnvs())
+
+  it.each([
+    ['the whole shelf, which the brief, its tally and the filter menu read', LEVEL],
+    ['a search across all folders', { ...LEVEL, q: 'Brandschutz', states: ['readable'] }],
+    ['a standards folder asked for by id', { ...LEVEL, folderId: 'folder-fire' }],
+  ] as const)('lists %s without the standards tree', async (_read, level) => {
+    await listOfficeShelf(standardsOn, { level })
+
+    expect(listOfficeShelfDocumentLevel).toHaveBeenCalledWith('org-1', {
+      level,
+      hiddenFolderIds: STANDARDS_TREE,
+      reader: { kind: 'reviewer' },
+    })
+  })
+
+  it('lists the standards tree too for a reader of the whole shelf that asks for it', async () => {
+    await listOfficeShelf(standardsOn, { level: LEVEL, includeStandards: true })
+
+    expect(listOfficeShelfDocumentLevel).toHaveBeenCalledWith('org-1', { level: LEVEL, hiddenFolderIds: [], reader: { kind: 'reviewer' } })
+  })
+
+  it('keeps the whole shelf in the Ordner while the office has no standards of its own', async () => {
+    await listOfficeShelf(session, { level: LEVEL })
+
+    expect(listShelfFolders).not.toHaveBeenCalled()
+    expect(listOfficeShelfDocumentLevel).toHaveBeenCalledWith('org-1', { level: LEVEL, hiddenFolderIds: [], reader: { kind: 'reviewer' } })
+  })
+
+  it('matches an upload’s name against the Ordner only', async () => {
+    await probeOfficeShelfDocumentNames(standardsOn, ['Brandschutz-Richtlinie.pdf'])
+
+    expect(findOfficeShelfDocumentsByNames).toHaveBeenLastCalledWith('org-1', ['Brandschutz-Richtlinie.pdf'], {
+      hiddenFolderIds: STANDARDS_TREE,
+      reader: { kind: 'reviewer' },
+    })
+  })
+
+  it('offers an upload as a new version only of a document in the Ordner', async () => {
+    await probeOfficeShelfRevisionCandidates(standardsOn, ['Brandschutz-Richtlinie_v2.pdf'])
+
+    expect(findRevisionSeriesRows).toHaveBeenCalledWith({ kind: 'office_shelf' }, 'org-1', ['brandschutz'], {
+      hiddenFolderIds: STANDARDS_TREE,
+      reader: { kind: 'reviewer' },
+    })
+  })
+
+  it('offers the whole shelf as revision candidates while the office has no standards of its own', async () => {
+    await probeOfficeShelfRevisionCandidates(session, ['Brandschutz-Richtlinie_v2.pdf'])
+
+    expect(findRevisionSeriesRows).toHaveBeenCalledWith({ kind: 'office_shelf' }, 'org-1', ['brandschutz'], {
+      hiddenFolderIds: [],
+      reader: { kind: 'reviewer' },
+    })
+  })
+
+  describe('an upload named like a document under the standards tree', () => {
+    const norm = makeLiveDocumentMatch({
+      id: 'norm-1',
+      storageKey: 'org/org-1/office_shelf/doc/norm-1/Brandschutz-Richtlinie.pdf',
+      storageBucket: 'test-bucket',
+      fileSize: 8,
+      contentHash: null,
+      folderId: 'folder-fire',
+      status: 'ready',
+    })
+
+    it('is refused in the Ordner as a name already taken, and replaces nothing', async () => {
+      vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Pläne')
+      vi.mocked(findLiveDocumentByFilename).mockResolvedValueOnce(norm)
+
+      const refusal = uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-plans' })
+
+      await expect(refusal).rejects.toBeInstanceOf(ConflictError)
+      await expect(refusal).rejects.toMatchObject({ details: { reason: NAME_TAKEN_REASON } })
+      expect(s3Client.send).not.toHaveBeenCalled()
+      expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
+      expect(dispatchDocument).not.toHaveBeenCalled()
+    })
+
+    it('is refused at the Ordner’s root too', async () => {
+      vi.mocked(findLiveDocumentByFilename).mockResolvedValueOnce(norm)
+
+      await expect(uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request)).rejects.toBeInstanceOf(ConflictError)
+      expect(admitReplacementOrDiscard).not.toHaveBeenCalled()
+    })
+
+    it('still replaces it when filed into the standards tree, as the norms tab files a new copy', async () => {
+      vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Grundlagen des Büros/Brandschutz')
+      vi.mocked(findLiveDocumentByFilename).mockResolvedValueOnce(norm)
+
+      const result = await uploadOfficeShelfDocument(standardsOn, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-fire' })
+
+      expect(result.documentId).toBe('norm-1')
+      expect(admitReplacementOrDiscard).toHaveBeenCalled()
+    })
+
+    it('still replaces it while the office has no standards of its own', async () => {
+      vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Pläne')
+      vi.mocked(findLiveDocumentByFilename).mockResolvedValueOnce(norm)
+
+      const result = await uploadOfficeShelfDocument(session, makeFile('Brandschutz-Richtlinie.pdf'), request, { folderId: 'folder-plans' })
+
+      expect(result.documentId).toBe('norm-1')
+      expect(admitReplacementOrDiscard).toHaveBeenCalled()
+    })
   })
 })

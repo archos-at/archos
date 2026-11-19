@@ -12,6 +12,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { SCREENED_ONLY, type DocumentReader } from '@/lib/documents/document-reader'
 import { OFFICE_SHELF, projectShelf, shelfFolderWhere, type DocumentShelf } from '@/lib/documents/shelf'
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
+import { officeShelfHiddenFolderIds } from '@/lib/office-shelf/folder-service'
 import { audienceReach } from '@/lib/cross-project/audience-reach'
 import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
@@ -34,7 +35,7 @@ export interface SearchReach {
   userId: string
   scope: SearchScope
   projects: readonly ReachedProject[]
-  officeShelf: { collection: string; reviewsQuarantine: boolean } | null
+  officeShelf: { collection: string; reviewsQuarantine: boolean; hiddenFolderIds?: readonly string[] } | null
   folderIds: readonly string[] | null
   screenedOnly?: boolean
   narrowedToProjects?: boolean
@@ -115,8 +116,11 @@ export async function reachFor(session: AuthorizedSession, scope: SearchScope): 
     return { ...base, projects: [reached], officeShelf: null, folderIds }
   }
   if (scope.kind === 'office_shelf') {
-    const folderIds = scope.folderId ? await folderSubtree(session.organizationId, OFFICE_SHELF, scope.folderId, []) : null
-    return { ...base, projects: [], officeShelf: await reachOfficeShelf(session), folderIds }
+    const [officeShelf, hiddenFolderIds] = await Promise.all([reachOfficeShelf(session), officeShelfHiddenFolderIds(session)])
+    const folderIds = scope.folderId
+      ? await folderSubtree(session.organizationId, OFFICE_SHELF, scope.folderId, hiddenFolderIds)
+      : null
+    return { ...base, projects: [], officeShelf: { ...officeShelf, hiddenFolderIds }, folderIds }
   }
   const [projects, officeShelf] = await Promise.all([
     listProjects(session).then((visible) => inPool(visible, PROJECTS_AT_ONCE, (project) => reachProject(session, project))),
@@ -198,6 +202,10 @@ async function withOwnProject(
   await requireProjectAccess(session, ownId, 'project:view')
   const own = await findProjectInOrg(ownId, session.organizationId)
   return own ? { ...audience, projects: [own, ...audience.projects] } : audience
+}
+
+export function reachHiddenFolderIds(reach: SearchReach): string[] {
+  return [...reach.projects.flatMap((reached) => reached.hiddenFolderIds), ...(reach.officeShelf?.hiddenFolderIds ?? [])]
 }
 
 export function reachShelves(reach: SearchReach): DocumentShelf[] {

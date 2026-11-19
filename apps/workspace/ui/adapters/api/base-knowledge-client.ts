@@ -150,7 +150,7 @@ export interface ShelfCandidate {
 }
 
 export const listShelfCandidates = async (q = ''): Promise<ShelfCandidate[]> => {
-  const query = new URLSearchParams({ scope: 'office_shelf', limit: '200' })
+  const query = new URLSearchParams({ scope: 'office_shelf', includeStandards: 'true', limit: '200' })
   if (q.trim()) query.set('q', q.trim())
   const body = await json<{ documents: { id: string; filename: string; displayName?: string | null }[] }>(
     await fetch(`/api/documents?${query.toString()}`),

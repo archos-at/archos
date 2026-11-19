@@ -3,6 +3,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { getHiddenFolderIds } from '@/lib/authz/folder-access'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import type { DocumentAuthor } from '@/lib/db/schema/documents'
+import { officeShelfHiddenFolderIds } from '@/lib/office-shelf/folder-service'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { OFFICE_SHELF, projectShelf, type DocumentShelf } from './shelf'
 import { listShelfFailedDocuments, summarizeShelfFolders, type ShelfReadFilters } from './repository'
@@ -44,8 +45,12 @@ export async function summarizeOfficeShelfDocuments(
   session: AuthorizedSession,
   options: ShelfSummaryOptions = {},
 ): Promise<ShelfSummary> {
-  const reader = await shelfReaderFor(session, { scope: 'office_shelf', projectId: null })
+  const [reader, hiddenFolderIds] = await Promise.all([
+    shelfReaderFor(session, { scope: 'office_shelf', projectId: null }),
+    officeShelfHiddenFolderIds(session),
+  ])
   return readShelfSummary(OFFICE_SHELF, session.organizationId, {
+    hiddenFolderIds,
     reader,
     authoredBy: options.authoredBy,
     includeArchived: options.includeArchived,
