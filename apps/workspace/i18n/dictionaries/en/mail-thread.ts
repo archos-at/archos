@@ -109,10 +109,9 @@ export const mailThread = {
     onUntil: 'On until {date}',
     off: 'Off',
     explain:
-      'For {days} days, {productName} files replies from people whose domain is verified as if you had done it yourself: the text into this mail thread, attachments into the suggested folder. The rest waits in Project mail, and each such filing is listed there under “Handled”.',
+      '{productName} files replies from people whose domain is verified as if you had done it yourself: the text into this mail thread, attachments into the suggested folder. The rest waits in Project mail, and each such filing is listed there under “Handled”. It ends only once nothing has been filed into this mail thread for {days} days.',
     renew: 'Renew',
     renewLabel: 'Renew until {date}',
-    renewLimit: 'At most 180 days from the start. Switch it on again after that.',
     followed: 'Replies in “{name}” are filed without a click until {date}',
     renewed: 'Renewed until {date}',
     unfollowed: 'Replies in “{name}” are no longer filed without a click',

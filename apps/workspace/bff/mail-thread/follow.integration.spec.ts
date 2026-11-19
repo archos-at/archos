@@ -8,7 +8,7 @@
  *
  * Two halves. The first proves the follow SQL keeps the migration's rules
  * rather than meet a refusal in production: one running follow per person and
- * thread, a renewal never past 180 days from the start, an end recorded once;
+ * thread, a renewal that never shortens it, an end recorded once;
  * the follow job's decision transaction with its caps (the follow's own per
  * day, the project's per day, two jobs racing for the last slot), a follow that
  * ended or is younger than the mail deciding nothing, and the database
@@ -320,7 +320,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     })
   })
 
-  it('keeps one running follow per person and thread, renews within 180 days of its start, and ends it once', async () => {
+  it('keeps one running follow per person and thread, renews it without a cap and never shorter, and ends it once', async () => {
     const { projectId, threadId } = await followedProject('rows')
     const now = new Date()
     const start = (userId: string) =>
@@ -333,8 +333,10 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     expect(await start(COLLEAGUE_ID)).not.toBeNull()
 
     const renewed = await inTenant(() => repo.renewFollow(follow!.id, new Date(now.getTime() + 400 * DAY), now))
-    expect(new Date(renewed!.expiresAt).getTime()).toBe(new Date(follow!.createdAt).getTime() + 180 * DAY)
+    expect(new Date(renewed!.expiresAt).getTime()).toBe(now.getTime() + 400 * DAY)
     expect(renewed!.renewedAt).not.toBeNull()
+    const kept = await inTenant(() => repo.renewFollow(follow!.id, new Date(now.getTime() + DAY), now))
+    expect(new Date(kept!.expiresAt).getTime()).toBe(now.getTime() + 400 * DAY)
 
     const ended = await inTenant(() => repo.endFollow(follow!.id, { reason: 'unfollowed', endedBy: MEMBER_ID }))
     expect(ended).toMatchObject({ endedReason: 'unfollowed', endedBy: MEMBER_ID })
@@ -344,6 +346,47 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     expect(await start(MEMBER_ID)).not.toBeNull()
     const colleague = await inTenant(() => repo.findRunningFollow(threadId, COLLEAGUE_ID))
     await expect(inTenant(() => repo.endFollow(colleague!.id, { reason: 'unfollowed', endedBy: MEMBER_ID }))).rejects.toThrow()
+  })
+
+  it('extends only the running follows of the Verlauf, re-arms their renewal notice, and starts none (owner decision 2026-11-19)', async () => {
+    const { projectId, threadId } = await followedProject('extend')
+    const other = await followedProject('extend-other')
+    const now = new Date()
+    const until = new Date(now.getTime() + 60 * DAY)
+    const follow = async (userId: string, fields: { threadId?: string; projectId?: string; expiresIn: number; notified?: boolean; ended?: boolean }) => {
+      const row = await one<{ id: string }>(sql`
+        INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, created_at, expires_at, expiring_notified_at, ended_at, ended_by, ended_reason)
+        VALUES (${ORG}, ${(fields.projectId ?? projectId)}::uuid, ${(fields.threadId ?? threadId)}::uuid, ${userId}, now() - interval '50 days',
+                now() + make_interval(days => ${fields.expiresIn}), ${fields.notified ? sql`now() - interval '1 day'` : null},
+                ${fields.ended ? sql`now() - interval '1 day'` : null}, ${fields.ended ? userId : null}, ${fields.ended ? 'unfollowed' : null})
+        RETURNING id`)
+      return row.id
+    }
+    const announced = await follow(MEMBER_ID, { expiresIn: 4, notified: true })
+    const ahead = await follow(COLLEAGUE_ID, { expiresIn: 90 })
+    const switchedOff = await follow('user_01J0FOLLOWSPEC0000000000C3', { expiresIn: 30, ended: true })
+    const ranOut = await follow('user_01J0FOLLOWSPEC0000000000D4', { expiresIn: -1 })
+    const elsewhere = await follow(MEMBER_ID, { threadId: other.threadId, projectId: other.projectId, expiresIn: 4, notified: true })
+
+    const extended = await inTenant(() => repo.extendRunningFollows(threadId, until, now))
+    expect(extended.map((row) => row.id)).toEqual([announced])
+
+    const state = async (id: string) =>
+      one<{ expires_at: Date; expiring_notified_at: Date | null; ended_at: Date | null }>(
+        sql`SELECT expires_at, expiring_notified_at, ended_at FROM mail_thread_follows WHERE id = ${id}::uuid`,
+      )
+    expect(new Date((await state(announced)).expires_at).getTime()).toBe(until.getTime())
+    expect((await state(announced)).expiring_notified_at).toBeNull()
+    expect(new Date((await state(ahead)).expires_at).getTime()).toBeGreaterThan(until.getTime())
+    expect(await state(switchedOff)).toMatchObject({ ended_at: expect.anything() })
+    expect(new Date((await state(switchedOff)).expires_at).getTime()).toBeLessThan(until.getTime())
+    expect(new Date((await state(ranOut)).expires_at).getTime()).toBeLessThan(now.getTime())
+    expect((await state(elsewhere)).expiring_notified_at).not.toBeNull()
+    expect(await count(sql`SELECT count(*) FROM mail_thread_follows WHERE thread_id = ${threadId}::uuid`)).toBe(4)
+
+    const { claimFollowExpiringNotice } = await import('@/lib/inbound-mail/sweep-thread-repository')
+    expect(await inTenant(() => claimFollowExpiringNotice(announced, now))).toBe(true)
+    expect(await inTenant(() => claimFollowExpiringNotice(announced, now))).toBe(false)
   })
 
   it('tells a live thread document from a gone one, and from one held from the reader', async () => {
@@ -706,9 +749,17 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       })
       expect(await followJobs(mailId)).toHaveLength(1)
       expect(await threadVersionCount()).toBe(1)
+      await rows(sql`UPDATE mail_thread_follows SET expires_at = now() + interval '4 days', expiring_notified_at = now() WHERE id = ${followId}::uuid`)
 
+      const filedFrom = Date.now()
       expect(await runFollow(mailId)).toMatchObject({ done: true })
 
+      const extended = await one<{ expires_at: Date; expiring_notified_at: Date | null }>(
+        sql`SELECT expires_at, expiring_notified_at FROM mail_thread_follows WHERE id = ${followId}::uuid`,
+      )
+      expect(new Date(extended.expires_at).getTime()).toBeGreaterThanOrEqual(filedFrom + 60 * DAY)
+      expect(new Date(extended.expires_at).getTime()).toBeLessThanOrEqual(Date.now() + 60 * DAY)
+      expect(extended.expiring_notified_at).toBeNull()
       expect(await threadVersionCount()).toBe(2)
       expect(uploadDocument).toHaveBeenCalledOnce()
       expect(vi.mocked(uploadDocument).mock.calls[0]![0].userId).toBe(MEMBER_ID)
@@ -790,7 +841,18 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       await rows(sql`UPDATE inbound_mail_parts SET state = 'filing', decision_id = ${decision.id}::uuid, claim_expires_at = now() + interval '5 minutes'
                      WHERE id = ${mail.textPart}::uuid`)
       expect(await inTenant(() => repo.findRunningFollow(fresh.threadId, MEMBER_ID))).toBeNull()
+      const colleague = await inTenant(() =>
+        repo.startFollow({
+          organizationId: ORG,
+          projectId: fresh.projectId,
+          threadId: fresh.threadId,
+          userId: COLLEAGUE_ID,
+          createdAt: new Date(Date.now() - 55 * DAY),
+          expiresAt: new Date(Date.now() + 5 * DAY),
+        }),
+      )
 
+      const filedFrom = Date.now()
       const { runInboundMailFiling } = await import('@/lib/inbound-mail/file-job')
       await inTenant(() =>
         runInboundMailFiling(session, { projectId: fresh.projectId, mailIds: [mail.mailId], decisionIds: [decision.id], requester }),
@@ -801,6 +863,9 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       expect(started).toMatchObject({ userId: MEMBER_ID, threadId: fresh.threadId, endedAt: null })
       const days = (new Date(started!.expiresAt).getTime() - new Date(started!.createdAt).getTime()) / DAY
       expect(Math.round(days)).toBe(60)
+      const kept = await inTenant(() => repo.findRunningFollow(fresh.threadId, COLLEAGUE_ID))
+      expect(kept!.id).toBe(colleague!.id)
+      expect(new Date(kept!.expiresAt).getTime()).toBeGreaterThanOrEqual(filedFrom + 60 * DAY)
     })
 
     it('a reply whose References are outside the signature queues no follow, and the job files nothing for it', async () => {

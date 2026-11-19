@@ -468,8 +468,10 @@ eingegangen“, „eine Prüfung nötig“).
   file not scanned clean), waits in the E-Mail-Eingang, and the mail shows
   there with only what is left.
 
-- It runs 60 days; „Verlängern“ extends it, up to 180 days from its start.
-  You are told five days before it ends.
+- It runs as long as the conversation does: every mail filed into the
+  E-Mail-Verlauf, by you, a colleague or the switch itself, keeps it on for
+  another 60 days. It ends after 60 days with nothing filed there; „Verlängern“
+  moves the end to 60 days from today. You are told five days before it ends.
 - Switching it off ends it. Whoever manages the project can end it for anyone
   („Beenden“ under „Auch eingeschaltet für“).
 - It also ends when you lose access to the project or the Verlauf's folder,

@@ -153,13 +153,6 @@ describe('MailThreadTab', () => {
       await waitFor(() => expect(screen.getByRole('switch')).not.toBeChecked())
     })
 
-    it('offers no renewal when 180 days from the start are nearly reached, and says why', async () => {
-      renderTab('renew-limit')
-      expect(await screen.findByTestId('mail-thread-follow-limit')).toHaveTextContent('At most 180 days from the start')
-      expect(screen.queryByTestId('mail-thread-follow-renew')).toBeNull()
-      expect(screen.getByRole('switch')).toBeChecked()
-    })
-
     it('lets a manager end someone else’s follow, by name', async () => {
       const { client } = renderTab('manager-follows')
       const unfollow = vi.spyOn(client, 'unfollow')

@@ -296,7 +296,9 @@ re-verifiable only on those bytes.
 ### Verlauf folgen: a person's standing decision
 
 A person may follow one E-Mail-Verlauf (`mail_thread_follows`): 60 days by
-default, renewable, at most 180 from its start, at most 20 appends a day. While
+default, renewable, at most 20 appends a day; since 2026-11-19 every mail filed
+into the Verlauf moves it to 60 days after that filing, with no cap from its
+start. While
 it runs, a later reply's **text** is appended to the Verlauf as that person,
 with a decision row `via = 'follow'`. **Attachments always wait** for a person,
 and the mail stays in the E-Mail-Eingang until they are decided; a text-only
@@ -341,8 +343,12 @@ decision to file replies ends with the work). Closing ends every running follow
 of the project as the person who closed it; sweep 12 is the backstop and ends,
 as the system, a follow it finds running in a closed project. Reopening starts
 no follow again. Whether a follow should instead end after 60 quiet days rather
-than run to 180 days with renewals is an open question to the owner; the 180
-days stand. Every start, renewal and end is
+than run to 180 days with renewals was an open question to the owner; the owner
+decided on 2026-11-19 that it runs while the conversation is active: each filing
+into the Verlauf, by hand or by a follow, extends every running follow of it to
+60 days after the filing, and the 180-day cap is gone (migration 0254). An
+extension re-arms the five-days-before notice, never revives an ended follow and
+never starts one. Every start, renewal and end is
 audited (`mail_thread.follow_started`, `mail_thread.follow_ended`). Following
 is a `control`-sensitive operation (ADR-0122): The agent never sees it, an outside
 agent only under the office's opt-in and the step-up scope. Ending is offered

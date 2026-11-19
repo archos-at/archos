@@ -22,7 +22,7 @@ const iso = (offsetDays: number) => new Date(FIXTURE_NOW + offsetDays * DAY).toI
 describe('the viewer’s follow', () => {
   it('is found by user id, with its renewal', () => {
     const own = follow({ userId: VIEWER_ID })
-    expect(viewerFollow(thread({ followed: true, follows: [follow({ userId: 'other' }), own] }), VIEWER_ID)).toEqual({ kind: 'following', follow: own, renewable: true })
+    expect(viewerFollow(thread({ followed: true, follows: [follow({ userId: 'other' }), own] }), VIEWER_ID, FIXTURE_NOW)).toEqual({ kind: 'following', follow: own, renewable: true })
   })
 
   it('is followed without a date where the surface does not know the viewer', () => {
@@ -33,11 +33,11 @@ describe('the viewer’s follow', () => {
     expect(viewerFollow(thread({ followed: false, follows: [follow({ userId: 'other' })] }), VIEWER_ID)).toEqual({ kind: 'none' })
   })
 
-  it('can grow only while 180 days from its start leave at least a day', () => {
-    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-10), expiresAt: iso(50) }))).toBe(true)
-    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-100), expiresAt: iso(79) }))).toBe(true)
-    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-100), expiresAt: iso(79.5) }))).toBe(false)
-    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-100), expiresAt: iso(80) }))).toBe(false)
+  it('can grow while 60 days from now reach at least a day past its end, however long ago it started', () => {
+    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-10), expiresAt: iso(50) }), FIXTURE_NOW)).toBe(true)
+    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-400), expiresAt: iso(59) }), FIXTURE_NOW)).toBe(true)
+    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-400), expiresAt: iso(59.5) }), FIXTURE_NOW)).toBe(false)
+    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-10), expiresAt: iso(60) }), FIXTURE_NOW)).toBe(false)
   })
 })
 

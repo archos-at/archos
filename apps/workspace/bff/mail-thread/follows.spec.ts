@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 vi.mock('./follow-repository', () => ({
   endFollow: vi.fn(),
+  extendRunningFollows: vi.fn(async () => []),
   findRunningFollow: vi.fn(),
   renewFollow: vi.fn(),
   startFollow: vi.fn(),
@@ -44,8 +45,15 @@ import { managesProject, requireInboundMailEnabled, requireMailReviewer } from '
 import { announceFollowEnded, announceFollowsEnded, settleFollowExpiring } from '@/lib/inbound-mail/announce'
 import { endProjectFollows } from '@/lib/inbound-mail/repository'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
-import { endFollow, findRunningFollow, renewFollow, startFollow } from './follow-repository'
-import { endFollowBySystem, endFollowsOnProjectClose, followByDefault, followMailThread, unfollowMailThread } from './follows'
+import { endFollow, extendRunningFollows, findRunningFollow, renewFollow, startFollow } from './follow-repository'
+import {
+  endFollowBySystem,
+  endFollowsOnProjectClose,
+  extendFollowsOnFiling,
+  followByDefault,
+  followMailThread,
+  unfollowMailThread,
+} from './follows'
 import type { ThreadRow } from './repository'
 import { findVisibleThread } from './repository'
 import { findWritableThread, type WritableThread } from './write-repository'
@@ -358,6 +366,23 @@ describe('endFollowsOnProjectClose', () => {
   it('does nothing more where nobody follows', async () => {
     expect(await endFollowsOnProjectClose(session, PROJECT)).toBe(0)
     expect(recordAuditEventAfterCommit).not.toHaveBeenCalled()
+    expect(settleFollowExpiring).not.toHaveBeenCalled()
+  })
+})
+
+describe('extendFollowsOnFiling: a follow runs while the conversation is active', () => {
+  it('asks the Verlauf’s running follows to run 60 days from the filing, and settles their renewal notices so the sweep may ask again', async () => {
+    const filedAt = new Date('2026-11-19T10:00:00Z')
+    vi.mocked(extendRunningFollows).mockResolvedValueOnce([followRow({ id: 'f-1' }), followRow({ id: 'f-2', userId: COLLEAGUE })])
+    expect(await extendFollowsOnFiling('org_1', THREAD, filedAt)).toBe(2)
+    expect(extendRunningFollows).toHaveBeenCalledExactlyOnceWith(THREAD, new Date(filedAt.getTime() + 60 * DAY), filedAt)
+    expect(settleFollowExpiring).toHaveBeenCalledExactlyOnceWith('org_1', ['f-1', 'f-2'])
+  })
+
+  it('starts nothing and settles nothing where no follow runs: one switched off stays off', async () => {
+    expect(await extendFollowsOnFiling('org_1', THREAD)).toBe(0)
+    expect(startFollow).not.toHaveBeenCalled()
+    expect(renewFollow).not.toHaveBeenCalled()
     expect(settleFollowExpiring).not.toHaveBeenCalled()
   })
 })

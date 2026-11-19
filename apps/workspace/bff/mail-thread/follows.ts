@@ -16,7 +16,7 @@ import { auditFollowsEnded } from '@/lib/inbound-mail/audit'
 import { endProjectFollows } from '@/lib/inbound-mail/repository'
 import { isProjectClosedError } from '@/lib/projects/project-status'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
-import { endFollow, findRunningFollow, renewFollow, startFollow, type FollowEnd } from './follow-repository'
+import { endFollow, extendRunningFollows, findRunningFollow, renewFollow, startFollow, type FollowEnd } from './follow-repository'
 import type {
   MailThreadFollowBody,
   MailThreadFollowResultView,
@@ -93,6 +93,13 @@ async function startOrRenew(
     if (follow) return { follow, renewed: false }
   }
   throw new Error(`could not start or renew the follow of mail thread ${threadId}`)
+}
+
+export async function extendFollowsOnFiling(organizationId: string, threadId: string, filedAt: Date = new Date()): Promise<number> {
+  const until = new Date(filedAt.getTime() + MAIL_THREAD_FOLLOW_DEFAULT_DAYS * DAY_MS)
+  const extended = await extendRunningFollows(threadId, until, filedAt)
+  if (extended.length > 0) await settleFollowExpiring(organizationId, extended.map((follow) => follow.id))
+  return extended.length
 }
 
 export type FollowByDefault = 'started' | 'running' | 'refused'

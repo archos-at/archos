@@ -258,9 +258,6 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
   followed: fixture({
     view: thread({ followed: true, follows: [follow({ userId: VIEWER_ID })], waitingCount: 0 }),
   }),
-  'renew-limit': fixture({
-    view: thread({ followed: true, follows: [follow({ userId: VIEWER_ID, createdAt: daysAgo(170), expiresAt: daysAhead(10) })] }),
-  }),
   'manager-follows': fixture({
     view: thread({
       followed: true,

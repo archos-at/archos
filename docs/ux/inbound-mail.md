@@ -823,9 +823,11 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   beside a flow that had said on; `three-messages` follows now,
   `not-followed` does not). Switching on: toast „Antworten in „X“ werden bis
   {Datum} ohne Klick abgelegt“ with „Rückgängig“; switching off ends it.
-  „Verlängern“ under it (only while it can grow at least a day within 180
-  days of its start; otherwise „Höchstens 180 Tage ab Beginn. Danach wieder
-  einschalten.“). Others: „Auch für 2 weitere Personen eingeschaltet“; a
+  „Verlängern“ under it (only while 60 days from now reach at least a day
+  past its end; every mail filed into the Verlauf already moves it to 60 days
+  after that filing, so right after one there is nothing to renew, and the
+  explanation says „Es endet erst, wenn 60 Tage lang nichts in diesen
+  E-Mail-Verlauf abgelegt wurde.“). Others: „Auch für 2 weitere Personen eingeschaltet“; a
   member who may not file reads no switch but „Antworten in diesem
   E-Mail-Verlauf legt {productName} für 2 Personen ohne Klick ab.“; for a
   viewer with `managesFollows`, „Auch eingeschaltet für“ by name with
