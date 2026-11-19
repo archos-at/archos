@@ -121,6 +121,7 @@ function ProposalRow({
           value={row.designation}
           disabled={disabled || off || proposal.editionOf !== null}
           onChange={(event) => onChange({ ...row, designation: event.target.value })}
+          placeholder={t('norms.designationMissing')}
           aria-label={`${t('norms.column.designation')}: ${proposal.fileName}`}
           aria-describedby={info ? infoId : undefined}
           className="h-8 w-full min-w-0"

@@ -226,6 +226,7 @@ export const baseKnowledge = {
     column: { kind: 'Kind', designation: 'Designation', edition: 'Edition', topic: 'Topic' },
     notNorm: 'Not a standard',
     editionMissing: 'Edition missing',
+    designationMissing: 'Enter a designation',
     noTopic: 'No topic',
     newEdition: 'new edition of {designation} (so far {edition})',
     duplicate: 'this edition is already in Office filing and is not filed twice',

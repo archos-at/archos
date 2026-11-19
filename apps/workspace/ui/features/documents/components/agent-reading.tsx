@@ -49,13 +49,14 @@ export function AgentReading({
   const types = tags.filter((tag) => TYPE_SET.has(tag))
   const disciplines = tags.filter((tag) => DISCIPLINE_SET.has(tag))
   const facts = readingFacts(file, locale, t)
+  const kindRecordedElsewhere = Boolean(file.baseKnowledgeEntryId) && types.length + disciplines.length + topics.length === 0
 
   return (
     <div className="flex flex-col gap-2.5" data-testid="agent-reading">
       {facts && <p className="text-muted-foreground text-xs">{facts}</p>}
       {file.capture && <CaptureLine capture={file.capture} />}
 
-      {correcting ? (
+      {kindRecordedElsewhere ? null : correcting ? (
         <div className="flex flex-col gap-2 rounded-control bg-background p-2.5" data-testid="agent-reading-editor">
           <DocumentTagsEditor
             fileId={file.id}

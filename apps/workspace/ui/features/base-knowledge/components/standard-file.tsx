@@ -22,8 +22,8 @@ type StatusBody = Parameters<typeof fileItemFromStatus>[0]
 export function StandardFile({ entry, canManage, onClose, onManage, onOpenEdition, onChanged, onUnavailable }: StandardFileProps): JSX.Element {
   const [file, setFile] = useState<FileItem | null>(null)
   const documentId = entry.documentId
-  const fallback = useRef({ fileName: entry.fileName, onUnavailable })
-  fallback.current = { fileName: entry.fileName, onUnavailable }
+  const fallback = useRef({ fileName: entry.fileName, entryId: entry.id, onUnavailable })
+  fallback.current = { fileName: entry.fileName, entryId: entry.id, onUnavailable }
 
   useEffect(() => {
     let cancelled = false
@@ -33,7 +33,10 @@ export function StandardFile({ entry, canManage, onClose, onManage, onOpenEditio
         if (!response.ok) throw new Error(`status ${response.status}`)
         const body = (await response.json()) as Partial<StatusBody>
         if (cancelled) return
-        setFile(fileItemFromStatus({ ...body, id: documentId, filename: body.filename ?? fallback.current.fileName } as StatusBody))
+        setFile({
+          ...fileItemFromStatus({ ...body, id: documentId, filename: body.filename ?? fallback.current.fileName } as StatusBody),
+          baseKnowledgeEntryId: fallback.current.entryId,
+        })
       })
       .catch(() => !cancelled && fallback.current.onUnavailable())
     return () => {

@@ -226,6 +226,7 @@ export const baseKnowledge = {
     column: { kind: 'Art', designation: 'Bezeichnung', edition: 'Ausgabe', topic: 'Thema' },
     notNorm: 'Keine Norm',
     editionMissing: 'Ausgabe fehlt',
+    designationMissing: 'Bezeichnung eintragen',
     noTopic: 'Ohne Thema',
     newEdition: 'neue Ausgabe von {designation} (bisher {edition})',
     duplicate: 'diese Ausgabe liegt schon in der Büroablage und wird nicht doppelt abgelegt',

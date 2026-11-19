@@ -83,6 +83,11 @@ describe('NormDialog', () => {
     expect(screen.getByTestId('norm-dialog').className).toContain('sm:max-w-4xl')
   })
 
+  it('asks for a designation where the file name gave none', () => {
+    renderDialog()
+    expect(screen.getByRole('textbox', { name: 'Bezeichnung: Haus_A_Weisung_Entwurf.pdf' })).toHaveAttribute('placeholder', 'Bezeichnung eintragen')
+  })
+
   it('drops a row set to Keine Norm and sums up what happened', async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({

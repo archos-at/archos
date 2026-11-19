@@ -75,11 +75,12 @@ const NORMS_FOLDER = 'f-recht'
 const NORM_FILES: FileItem[] = [
   makeFile('n1', 'OENORM_B_1600_2017.pdf', 'Barrierefreies Bauen, Planungsgrundlagen.', ['Norm', 'Barrierefreiheit'], NORMS_FOLDER),
   makeFile('n2', 'OIB-RL_4_2023.pdf', 'OIB-Richtlinie 4, Nutzungssicherheit und Barrierefreiheit.', ['Richtlinie'], NORMS_FOLDER),
+  makeFile('n3', 'MA37_Weisung_Dachgeschoss.pdf', 'Weisung der MA 37 zum Dachgeschoßausbau.', ['Weisung'], NORMS_FOLDER),
 ]
 
 const FOLDER_NORMS: FolderNorm[] = [
   { documentId: 'n1', fileName: 'OENORM_B_1600_2017.pdf', designation: 'ÖNORM B 1600' },
-  { documentId: 'n2', fileName: 'OIB-RL_4_2023.pdf', designation: 'OIB-RL 4' },
+  { documentId: 'n3', fileName: 'MA37_Weisung_Dachgeschoss.pdf', designation: null },
 ]
 
 type ShelfState = { files: FileItem[]; folders: FolderItem[]; normsDecided: boolean }

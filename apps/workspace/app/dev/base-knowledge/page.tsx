@@ -67,7 +67,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       if (url.pathname === '/api/base-knowledge/recognize') {
         return Response.json(
           variant === 'plain-upload'
-            ? { ...NORM_RECOGNITION, proposals: [], plain: [{ documentId: 'doc_plain', fileName: 'Plankopf_Vorlage_A0.pdf', folderId: 'f-plan', folderPath: 'Planung', platformHeld: false }] }
+            ? { ...NORM_RECOGNITION, proposals: [], plain: [{ documentId: 'doc_plain', fileName: 'Plankopf_Vorlage_A0.pdf', folderId: null, folderPath: null, platformHeld: false }] }
             : NORM_RECOGNITION,
         )
       }
