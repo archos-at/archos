@@ -593,6 +593,15 @@ describe('the text', () => {
       warn.mockRestore()
     })
 
+    it('starts none for a text whose filer said „Nicht automatisch“, and one for the other texts of the run', async () => {
+      filedInto('append', 'app')
+      await runInboundMailFiling(session, { ...payload, noFollow: ['decision-0'] })
+      expect(followByDefault).not.toHaveBeenCalled()
+      filedInto('append', 'app')
+      await runInboundMailFiling(session, { ...payload, noFollow: ['decision-of-another-text'] })
+      expect(followByDefault).toHaveBeenCalledExactlyOnceWith(session, PROJECT_ID, THREAD_ID)
+    })
+
     it('starts none when the text was not filed', async () => {
       const message = text()
       vi.mocked(findFilingWork).mockResolvedValue([work([message], [[message, messageDecision]])])

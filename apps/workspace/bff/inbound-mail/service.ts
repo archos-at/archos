@@ -5,7 +5,7 @@ import { captureServer } from '@/lib/analytics/posthog-server'
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import type { InboundMailPartRow, InboundMailRow, NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
 import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { contentDisposition } from '@/lib/documents/content-disposition'
 import { decodeDocumentListCursor, encodeDocumentListCursor } from '@/lib/documents/list-cursor'
@@ -264,6 +264,16 @@ export function hoursWaitingBucket(receivedAt: Date | string, now: number): stri
   return 'gte_7d'
 }
 
+/** The text decisions whose filer chose „Nicht automatisch“, for the filing job that would start the follow. */
+export function unfollowedTexts(
+  body: FileInboundMailsBody,
+  files: ReadonlyArray<Pick<NewInboundMailDecisionRow, 'id' | 'partId'>>,
+): { noFollow?: string[] } {
+  const texts = new Set(body.mails.flatMap((mail) => (mail.message?.follow === false ? [mail.message.partId] : [])))
+  const ids = files.flatMap((row) => (row.id && texts.has(row.partId) ? [row.id] : []))
+  return ids.length > 0 ? { noFollow: ids } : {}
+}
+
 export async function fileInboundMails(
   session: AuthorizedSession,
   projectId: string,
@@ -291,6 +301,7 @@ export async function fileInboundMails(
           projectId,
           mailIds: plans.filter((plan) => plan.files.length > 0).map((plan) => plan.mailId),
           decisionIds: files.flatMap((row) => (row.id ? [row.id] : [])),
+          ...unfollowedTexts(body, files),
           requester: requesterOf(session),
         },
       }
