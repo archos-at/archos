@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { SCREENING_DETECTORS } from '@/lib/upload-screening/policy'
 import type { SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import type { MailOriginView } from '@/lib/inbound-mail/inbound-mail-wire'
+import type { MailThreadWaitingReason } from './mail-thread-vocabulary'
 import {
   THREAD_MATCH_HEADERS,
   THREAD_MATCH_STRENGTHS,
@@ -212,14 +213,6 @@ export interface MailThreadSummaryView {
   entryCount: number
   lastEntryAt: string | null
   followed: boolean
-}
-
-export const MAIL_THREAD_WAITING_REASONS = ['sender_not_verified', 'attachment_left', 'before_follow', 'needs_check'] as const
-export type MailThreadWaitingReason = (typeof MAIL_THREAD_WAITING_REASONS)[number]
-
-export interface MailThreadWaiting {
-  count: number
-  reasons: MailThreadWaitingReason[]
 }
 
 export interface MailThreadView extends MailThreadSummaryView {

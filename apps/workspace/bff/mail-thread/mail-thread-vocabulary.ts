@@ -105,3 +105,6 @@ export const MAIL_THREAD_FOLLOW_DEFAULT_DAILY_CAP = 20
 export const MAIL_THREAD_FOLLOW_MAX_DAILY_CAP = 50
 
 export const MAIL_THREAD_FOLLOW_PROJECT_DAILY_CAP = 100
+
+export const MAIL_THREAD_WAITING_REASONS = ['sender_not_verified', 'attachment_left', 'before_follow', 'needs_check'] as const
+export type MailThreadWaitingReason = (typeof MAIL_THREAD_WAITING_REASONS)[number]

@@ -12,14 +12,8 @@ import { CURSOR_TIMESTAMP_FORMAT } from '@/lib/documents/list-cursor'
 import { documentVisibleTo, SCREENED_ONLY } from '@/lib/documents/visibility'
 import type { ThreadMatch } from './mail-threading'
 import { VERIFIED_SENDER_TRUSTS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
-import {
-  MAIL_THREAD_WAITING_REASONS,
-  type MailThreadAttachmentDisposition,
-  type MailThreadAttachmentNotFiledReason,
-  type MailThreadWaiting,
-  type MailThreadWaitingReason,
-} from './mail-thread-wire'
-import { MAIL_THREAD_MAX_ENTRIES } from './mail-thread-vocabulary'
+import type { MailThreadAttachmentDisposition, MailThreadAttachmentNotFiledReason } from './mail-thread-wire'
+import { MAIL_THREAD_MAX_ENTRIES, MAIL_THREAD_WAITING_REASONS, type MailThreadWaitingReason } from './mail-thread-vocabulary'
 
 export interface ThreadRow {
   id: string
@@ -264,7 +258,7 @@ export async function findActiveFollows(threadIds: readonly string[]): Promise<M
     .limit(threadIds.length * 50)
 }
 
-export async function findWaitingForThread(projectId: string, threadId: string): Promise<MailThreadWaiting> {
+export async function findWaitingForThread(projectId: string, threadId: string): Promise<{ count: number; reasons: MailThreadWaitingReason[] }> {
   const verified = sql.join(VERIFIED_SENDER_TRUSTS.map((trust) => sql`${trust}`), sql`, `)
   const reason = sql<MailThreadWaitingReason>`CASE
     WHEN ${inboundMails.senderTrust} IS NULL OR ${inboundMails.senderTrust} NOT IN (${verified}) THEN 'sender_not_verified'
