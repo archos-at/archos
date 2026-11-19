@@ -755,7 +755,8 @@ numbers from those constants, with a link to Dateien for anything larger.
 ## Observability
 
 - PostHog: `inbound_mail_received`, `_refused`, `_dropped`,
-  `_receive_failed`, `_decided`, `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
+  `_receive_failed`, `_expired`, `_decided`, `_address_created`,
+  `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
   ([`posthog-events.md`](../observability/posthog-events.md)). Ids, codes and
   counts only.
 - Langfuse: the suggestion's `filing-fit` generation (`surface: inbound_mail`),

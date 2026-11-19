@@ -106,12 +106,13 @@ export interface HeldMailFacts {
   senderTrust: InboundSenderTrust
   senderUserId: string | null
   senderFlags: SenderFlag[]
+  senderClass: InboundMailSenderClass | null
   automatic: boolean
 }
 
 const heldFacts = sql`m.id, m.organization_id AS "organizationId", m.project_id AS "projectId",
   m.sender_trust AS "senderTrust", m.sender_user_id AS "senderUserId", m.sender_flags AS "senderFlags",
-  m.automatic`
+  m.sender_class AS "senderClass", m.automatic`
 
 const hasWaitingPart = sql`EXISTS (SELECT 1 FROM inbound_mail_parts p WHERE p.mail_id = m.id AND p.state = 'waiting')`
 

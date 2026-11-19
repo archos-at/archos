@@ -546,6 +546,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
         expect(row?.state === 'expired' && (part === text || row.storage_key !== null)).toBe(true)
       }
       expect(audit.events).toContainEqual({ action: 'inbound_mail.expired', metadata: { projectId: project, parts: 2 } })
+      expect(posthog.events).toContainEqual({ event: 'inbound_mail_expired', properties: { parts: 2, sender_class: 'external', automatic: false, discarded: true } })
       expect((await inboxRows('inbound_mail.waiting')).every((row) => row.resolved_at !== null)).toBe(true)
     })
 

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { randomUUID } from 'node:crypto'
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEvent, SYSTEM_ACTORS } from '@/lib/audit/service'
 import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
@@ -21,6 +22,7 @@ import {
 import { auditDecisions } from './audit'
 import type { InboundMailCapNotice } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
+import { expiryIsFinal } from './sender-class'
 import { INBOUND_MAIL_ADDRESS_STAGED_BYTES, INBOUND_MAIL_ORGANIZATION_STAGED_BYTES } from './receive'
 import { rereadHeldText } from './receive-reread'
 import { queueSenderFiling } from './receive-sender'
@@ -189,6 +191,12 @@ export async function sweepExpiredMails(now: Date): Promise<SweepCounts> {
       metadata: { projectId: row.projectId, parts },
       occurredAt: now,
       idempotencyKey: `inbound_mail.expired:${row.id}:${now.toISOString()}`,
+    })
+    captureServer({
+      event: 'inbound_mail_expired',
+      distinctId: null,
+      organizationId: row.organizationId,
+      properties: { parts, sender_class: row.senderClass, automatic: row.automatic, discarded: expiryIsFinal(row) },
     })
     publishProjectChanged(row.organizationId, row.projectId)
     await settleProjectNotices(row.organizationId, row.projectId)

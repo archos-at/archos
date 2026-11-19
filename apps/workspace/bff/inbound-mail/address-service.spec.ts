@@ -43,6 +43,7 @@ vi.mock('@/lib/audit/after-commit', () => ({ recordAuditEventAfterCommit: vi.fn(
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
 
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import {
@@ -88,6 +89,9 @@ describe('the project address', () => {
     expect(await createInboundMailAddress(session, PROJECT)).toMatchObject({ state: 'active' })
     expect(insertAddress).toHaveBeenCalledTimes(1)
     expect(recordAuditEventAfterCommit).toHaveBeenCalledWith(expect.objectContaining({ action: 'inbound_mail_address.created' }))
+    expect(vi.mocked(captureServer).mock.calls.map(([capture]) => capture)).toEqual([
+      { event: 'inbound_mail_address_created', distinctId: session.userId, organizationId: session.organizationId, properties: {} },
+    ])
   })
 
   it('is replaced with the follows it ended in the trail', async () => {

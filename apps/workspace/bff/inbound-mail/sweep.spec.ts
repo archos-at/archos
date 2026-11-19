@@ -36,6 +36,7 @@ const repository = vi.hoisted(() => {
     findExpiringFollows: empty(),
     findOrphanedThreads: empty(),
     findAddressCapStates: empty(),
+    expireMail: vi.fn(async () => 2),
     takeStaleReceptionKey: vi.fn(async () => true),
     returnStaleReceptionKey: vi.fn(async () => undefined),
     deleteStaleReception: vi.fn(async () => true),
@@ -51,7 +52,11 @@ vi.mock('@/lib/db/tenant-context', () => ({
   withPlatformAccess: async <T>(_reason: string, fn: () => T) => fn(),
   withTenant: async <T>(_scope: unknown, fn: () => T) => fn(),
 }))
-vi.mock('./announce', () => ({ settleProjectNotices: vi.fn(async () => undefined) }))
+vi.mock('./announce', () => ({
+  settleProjectNotices: vi.fn(async () => undefined),
+  settleHeld: vi.fn(async () => undefined),
+  announceExpired: vi.fn(async () => undefined),
+}))
 vi.mock('./audit', () => ({ auditDecisions: vi.fn() }))
 vi.mock('./filing-repository', () => ({ projectIsHeld: vi.fn() }))
 vi.mock('./malware-scan', () => ({ scanForStorage: vi.fn() }))
@@ -70,6 +75,7 @@ vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() })
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn(), SYSTEM_ACTORS: { inboundMail: 'system:inbound_mail' } }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { findEntryOfMail } from '@/lib/mail-thread/write-repository'
 import { scanForStorage } from './malware-scan'
 import { rereadHeldText } from './receive-reread'
@@ -81,6 +87,7 @@ import {
   REREAD_BUDGET_MS,
   SWEEP_ORDER,
   sweepEndedParts,
+  sweepExpiredMails,
   sweepFailedScans,
   sweepInboundMail,
   sweepStaleReceptions,
@@ -311,5 +318,42 @@ describe('a sweep that erases takes the row first, under its hold, and erases on
     startTracking([RAW])
     expect(await sweepStalledMoves(new Date())).toMatchObject({ forgotten: 0, errors: 1 })
     expect(repository.returnStalledMoveRaw).toHaveBeenCalledWith({ id: 'm1', rawStorageKey: RAW, originalMovePendingAt: pending }, expect.any(Date))
+  })
+})
+
+describe('sweep 3 in PostHog', () => {
+  const held = (senderClass: 'external' | 'office_member', senderFlags: string[] = []) => ({
+    id: 'm1',
+    organizationId: 'org_sweep',
+    projectId: 'p1',
+    senderTrust: 'external_verified',
+    senderUserId: null,
+    senderFlags,
+    senderClass,
+    automatic: false,
+  })
+
+  it('sends inbound_mail_expired per mail it expired, and says whether the expiry discarded it for good', async () => {
+    repository.findExpiredMails.mockResolvedValueOnce([held('external'), held('office_member'), held('external', ['sender_unchecked'])] as never)
+
+    await sweepExpiredMails(new Date())
+
+    expect(vi.mocked(captureServer).mock.calls.map(([capture]) => capture)).toEqual(
+      [true, false, false].map((discarded, index) => ({
+        event: 'inbound_mail_expired',
+        distinctId: null,
+        organizationId: 'org_sweep',
+        properties: { parts: 2, sender_class: index === 1 ? 'office_member' : 'external', automatic: false, discarded },
+      })),
+    )
+  })
+
+  it('sends nothing for a mail another run expired first', async () => {
+    repository.findExpiredMails.mockResolvedValueOnce([held('external')] as never)
+    repository.expireMail.mockResolvedValueOnce(0)
+
+    await sweepExpiredMails(new Date())
+
+    expect(captureServer).not.toHaveBeenCalled()
   })
 })
