@@ -112,7 +112,16 @@ describe('the job id', () => {
 
 describe('who is asked about', () => {
   it.each([
-    ['an unconfirmed sender', { senderTrust: 'external_unverified' as const }, 'external_unverified'],
+    ['an outsider whose domain signed nothing', { senderTrust: 'external_unverified' as const, senderUserId: null, senderReason: 'dkim_none' as const }],
+    ['a member’s address its domain did not sign', { senderTrust: 'member_unverified' as const, senderReason: 'dkim_none' as const }],
+  ])('asks about %s, within the same budget', async (_case, overrides) => {
+    state.mail = heldMail({ threadMatch: [], ...overrides })
+    expect(await suggestForMail(ORG, PAYLOAD)).toMatchObject({ status: 'suggested', parts: 2 })
+    expect(unaskedSpendAllowed).toHaveBeenCalledWith({ organizationId: ORG, userId: null }, PROJECT_ID)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
     ['an impersonation of a member', { senderTrust: 'member_unverified' as const, senderReason: 'dkim_fail' as const }, 'impersonation'],
     [
       'a member’s name on an outsider’s signed address',

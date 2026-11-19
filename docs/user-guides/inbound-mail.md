@@ -66,7 +66,7 @@ Each mail says whether its sender's domain confirmed it:
 | Label | Meaning |
 |---|---|
 | **Domain bestätigt: statik-weber.at** | The sender's domain signed the mail (DKIM). This proves the domain, not the person who wrote it |
-| **Domain nicht bestätigt** | The domain did not sign it. ARCHOS makes no suggestion, and no E-Mail-Verlauf is pre-selected |
+| **Domain nicht bestätigt** | The domain did not sign it. ARCHOS still suggests a folder, but no E-Mail-Verlauf is pre-selected |
 | **Mitglied · Domain nicht bestätigt** | The address is a member's, but their domain did not sign it. If that member may file in the project, only they can file it; otherwise you confirm before filing |
 | **Ihre eigene E-Mail (Bcc)** | A copy of a mail you sent to others, with the project in Bcc |
 | **Gibt sich als … aus** | The domain rejected the mail, or a member's name appears on an address that is not theirs |
@@ -218,11 +218,12 @@ original when you file the text.
 
 ## ARCHOS's suggestion
 
-For a mail from a confirmed domain, ARCHOS suggests a folder and a Dokumentart
+For each mail, ARCHOS suggests a folder and a Dokumentart
 for each attachment („Vorschlag von ARCHOS“), and a folder for a new
 E-Mail-Verlauf. It reads only the file names, the subject (masked by your
 office's content check) and the sender's domain, never the text or the files.
-There is no suggestion for unconfirmed or automatic mail.
+There is no suggestion for automatic mail or a mail posing as someone. A
+suggestion only pre-fills: you still file the mail.
 
 ## The E-Mail-Verlauf
 

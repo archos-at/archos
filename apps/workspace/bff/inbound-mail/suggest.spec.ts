@@ -41,9 +41,17 @@ describe('who is asked about', () => {
     expect(suggestionSkipReason(heldMail({ senderTrust: 'external_verified' }))).toBeNull()
   })
 
-  it('never about an unconfirmed sender, automatic mail, or a mail that no longer waits', () => {
-    expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified' }))).toBe('external_unverified')
+  it('asks about an unconfirmed sender too: a suggestion only pre-fills what a person still files', () => {
+    expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_none' }))).toBeNull()
+    expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_unaligned' }))).toBeNull()
+    expect(suggestionSkipReason(heldMail({ senderTrust: 'member_unverified', senderReason: 'dkim_none' }))).toBeNull()
+  })
+
+  it('never about automatic mail, or a mail that no longer waits', () => {
     expect(suggestionSkipReason(heldMail({ automatic: true }))).toBe('automatic')
+    expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_none', automatic: true }))).toBe(
+      'automatic',
+    )
     expect(suggestionSkipReason(heldMail({ status: 'settled' }))).toBe('not_waiting')
     expect(suggestionSkipReason(heldMail({ senderTrust: null }))).toBe('not_waiting')
   })
@@ -54,7 +62,9 @@ describe('who is asked about', () => {
     expect(
       suggestionSkipReason(heldMail({ senderTrust: 'external_verified', senderUserId: null, senderFlags: ['claims_member_name'] })),
     ).toBe('impersonation')
-    expect(suggestionSkipReason(heldMail({ senderTrust: 'member_unverified', senderReason: 'dkim_none' }))).toBe('member_unverified')
+    expect(
+      suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_none', senderFlags: ['claims_member_name'] })),
+    ).toBe('impersonation')
   })
 })
 

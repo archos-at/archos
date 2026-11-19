@@ -181,8 +181,8 @@ label decides:
   Bcc case) and a stale date need `acknowledgeSender`; an append or Fassung the
   defaults would not pre-select needs the part in `acknowledgeRisk`
   (`unverified_thread`), as do `macro` and `type_mismatch` attachments;
-- whether the agent suggests anything (not for `external_unverified`, automatic or
-  impersonating mail);
+- whether the agent suggests anything (not for automatic or impersonating mail;
+  until the [amendment of 2026-11-19](#amendment-2026-11-19-the-agent-suggests-for-unconfirmed-senders-too) not for `external_unverified` either);
 - how the Verlauf cites it: a verified section is headed by the signer's
   domain, an unverified one says „Domain nicht bestätigt“.
 
@@ -413,7 +413,8 @@ hears `held_for_writers`.
   (`/v1/filing-fit`, `basis: mail`) reads the attachments' names that passed
   the name check, the masked subject, the sender's domain, the folders every
   member may read and the office's conventions; never the text, never the bytes;
-  not for an unconfirmed sender, automatic mail or an impersonation. Each
+  not for automatic mail or an impersonation (by the [amendment of 2026-11-19](#amendment-2026-11-19-the-agent-suggests-for-unconfirmed-senders-too);
+  before it, not for an unconfirmed sender either). Each
   decision scores it (`piloti-decision`, subject `inbound_mail_suggestion`;
   `mail-thread-match`).
 - **The agent may propose** `inbound-mail-file` and `inbound-mail-dismiss` as
@@ -472,7 +473,8 @@ Decided in the DDL, each deviating from the design document for a reason:
 
 The one model call before filing is the suggestion, queued `bulk`, checked
 against `unaskedSpendAllowed` for the project (no member's budget: it is system
-work), skipped for unconfirmed and automatic mail. Parsing, matching, rendering
+work), skipped for automatic and impersonating mail (unconfirmed mail too until
+the [amendment of 2026-11-19](#amendment-2026-11-19-the-agent-suggests-for-unconfirmed-senders-too)). Parsing, matching, rendering
 and scanning make no model call. A Verlauf Fassung starts no intake reading, no
 placement review and no document check.
 
@@ -737,3 +739,21 @@ scanner (ADR-0157) and the upload path like any other file.
 - `review-first.spec.ts`: the receive side still imports no filing code; it
   queues `inbound_mail_sender_file` by name, and `sender-file-job.ts` is among
   the filing modules.
+
+## Amendment, 2026-11-19: the agent suggests for unconfirmed senders too
+
+*Product owner.* The suggestion was skipped for `external_unverified` and
+`member_unverified` mail. Outsider mail is most of a small office's real mail
+and is often not DKIM-signed, so most held mail got no suggestion and every
+attachment's folder was picked by hand: the E-Mail-Eingang went unused.
+
+- **The suggestion is asked for every waiting mail except an impersonation or
+  automatic mail** (`suggestionSkipReason` in `lib/inbound-mail/suggest.ts`).
+  A suggestion only pre-fills: for any mail that is not a `verified_writer`'s,
+  a person still files, and the risk flags, the name check and every
+  acknowledgement apply unchanged. The model reads names, never content, so an
+  unconfirmed sender reaches it through the same input as a
+  confirmed one, as data and never as instructions; its answer can only name
+  a folder of the allowlist.
+- **The budget rules stand**: queued `bulk`, `unaskedSpendAllowed` for the
+  project before the call, at most 60 attachments.

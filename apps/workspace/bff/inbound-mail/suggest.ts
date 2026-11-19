@@ -32,8 +32,6 @@ export function readSuggestion(stored: unknown): InboundMailSuggestion | null {
 export type SuggestionSkipReason =
   | 'not_waiting'
   | 'impersonation'
-  | 'external_unverified'
-  | 'member_unverified'
   | 'automatic'
   | 'project_closed'
   | 'switched_off'
@@ -45,8 +43,6 @@ export function suggestionSkipReason(
 ): SuggestionSkipReason | null {
   if (mail.status !== 'waiting' || !mail.senderTrust || !mail.senderReason) return 'not_waiting'
   if (impersonationOf({ trust: mail.senderTrust, reason: mail.senderReason, flags: mail.senderFlags })) return 'impersonation'
-  if (mail.senderTrust === 'external_unverified') return 'external_unverified'
-  if (mail.senderTrust === 'member_unverified') return 'member_unverified'
   if (mail.automatic) return 'automatic'
   return null
 }

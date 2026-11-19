@@ -54,8 +54,8 @@ describe('missingSuggestionReason', () => {
     ...overrides,
   })
 
-  it('says the agent never suggests for unconfirmed senders, impersonations and machines (D21), by the suggest job’s own rule', () => {
-    expect(missingSuggestionReason({ automatic: false, sender: sender({ trust: 'external_unverified', reason: 'dkim_none' }), receivedAt: at(0) }, now)).toBe('skipped')
+  it('says the agent never suggests for impersonations and machines (D21), by the suggest job’s own rule', () => {
+    expect(missingSuggestionReason({ automatic: false, sender: sender({ trust: 'external_unverified', reason: 'dkim_none' }), receivedAt: at(0) }, now)).toBe('pending')
     expect(missingSuggestionReason({ automatic: true, sender: sender(), receivedAt: at(0) }, now)).toBe('skipped')
     expect(missingSuggestionReason({ automatic: false, sender: sender({ trust: 'member_unverified', reason: 'dkim_fail' }), receivedAt: at(0) }, now)).toBe('skipped')
     expect(missingSuggestionReason({ automatic: false, sender: sender({ flags: ['claims_member_name'] }), receivedAt: at(0) }, now)).toBe('skipped')

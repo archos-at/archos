@@ -648,8 +648,8 @@ nothing the forger wrote. Nobody outside the office hears anything. The Postfach
 
 `lib/inbound-mail/suggest-job.ts` (`inbound_mail_suggest`, system, bulk, job id
 uuid5 of the mail). Skipped, with no model call, when `FILING_SUGGESTIONS`
-is off, the mail no longer waits, the sender is `external_unverified`, an
-impersonation or automatic mail, the project is closed, nothing is left to
+is off, the mail no longer waits, it is an impersonation or automatic mail,
+the project is closed, nothing is left to
 place, or the project's unasked budget says no (`unaskedSpendAllowed`, fail
 closed). Placed: waiting attachments with a name, not infected, not
 name-stopped, of an accepted type, at most 60; the text only when the mail
