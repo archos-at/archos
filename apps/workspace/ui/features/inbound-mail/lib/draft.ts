@@ -6,6 +6,7 @@ import type {
   InboundMailView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import { CORRESPONDENCE_FOLDER, defaultThread, messageSelectable as partMessageSelectable } from '@/lib/inbound-mail/review-defaults'
+import { MAX_DOCUMENT_NAME_LENGTH } from '@/lib/documents/display-name'
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { attachmentCase, type AttachmentCase } from './attachment-case'
 import { followOffered, senderDisplayName } from './sender'
@@ -107,11 +108,21 @@ export function defaultThreadFolder(folders: readonly FolderOption[]): FolderTar
   return folder ? { kind: 'existing', folderId: folder.id, path: folder.path } : ROOT_TARGET
 }
 
+const THREAD_NAME_ROOM = MAX_DOCUMENT_NAME_LENGTH - '.md'.length
+
+// eslint-disable-next-line no-control-regex -- control characters are what a file name may not carry
+const NAME_BREAKS = /[/\\\u0000-\u001f\u007f]+/g
+
+export function threadNameOfSubject(subject: string | null | undefined): string | null {
+  const name = [...(displaySubject(subject) ?? '').replace(NAME_BREAKS, ' ').replace(/\s+/g, ' ').trim()].slice(0, THREAD_NAME_ROOM).join('').trim()
+  return name === '' ? null : name
+}
+
 export function newThreadTarget(view: Pick<InboundMailView, 'subject' | 'parts'>, folders: readonly FolderOption[], copy: DraftCopy): MessageTarget {
   const suggested = readSuggestion(view.parts.find((part) => part.kind === 'message')?.suggestion)
   const fromAgent = suggested?.folder != null
   const folder = fromAgent ? targetForPath(suggested.folder ?? '', folders, suggested.folderId) : defaultThreadFolder(folders)
-  return { kind: 'create', name: displaySubject(view.subject) ?? copy.untitledThread, folder, folderSuggested: fromAgent, releaseName: false }
+  return { kind: 'create', name: threadNameOfSubject(view.subject) ?? copy.untitledThread, folder, folderSuggested: fromAgent, releaseName: false }
 }
 
 export function messageSelectable(view: InboundMailView): boolean {
