@@ -5,6 +5,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { canWriteFolder, getProjectFolderAccess } from '@/lib/authz/folder-access'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { officeStandardsEnabled } from '@/lib/base-knowledge/office/access'
+import { entryIdsForDocuments } from '@/lib/base-knowledge/store/repository'
 import type { OfficeShelfReference } from '@/lib/db/schema/office-shelf-references'
 import type { UploadBatch } from '@/lib/db/schema/upload-batches'
 import { memberReader } from '@/lib/documents/document-reader'
@@ -45,7 +46,7 @@ async function offersAmong(
   return offerable(norms, { kept, suggested: new Set(suggested.keys()), works })
 }
 
-function referenceView(row: OfficeShelfReference): OfficeShelfReferenceView {
+function referenceView(row: OfficeShelfReference, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView {
   return {
     id: row.id,
     fileName: row.fileName,
@@ -53,6 +54,7 @@ function referenceView(row: OfficeShelfReference): OfficeShelfReferenceView {
     placedAs: row.placedAs,
     state: row.officeDocumentId ? 'in_office_shelf' : 'removed',
     officeDocumentId: row.officeDocumentId,
+    entryId: row.officeDocumentId ? (entries.get(row.officeDocumentId) ?? null) : null,
     createdAt: row.createdAt.toISOString(),
     createdBy: row.createdBy,
   }
@@ -76,11 +78,16 @@ export async function listProjectNorms(
     listReferences(session.organizationId, projectId, folderId, { offset: start, limit: limit + 1 }),
     canWriteFolder(session, projectId, folderId),
   ])
+  const listed = references.slice(0, limit)
+  const entries = await entryIdsForDocuments(
+    session.organizationId,
+    listed.flatMap((row) => (row.officeDocumentId ? [row.officeDocumentId] : [])),
+  )
   return {
     canManageOfficeShelf: canManageOfficeShelf(session),
     canWrite,
     offers: canWrite ? await offersAmong(session, projectId, rows) : [],
-    references: references.slice(0, limit).map(referenceView),
+    references: listed.map((row) => referenceView(row, entries)),
     nextCursor: references.length > limit ? String(start + limit) : null,
   }
 }
