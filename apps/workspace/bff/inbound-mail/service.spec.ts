@@ -15,7 +15,8 @@ const store = vi.hoisted(() => ({
 }))
 
 vi.mock('./access', () => ({ requireMailReviewer: vi.fn(async () => ({ closed: false })) }))
-vi.mock('./candidates', () => ({
+vi.mock('./candidates', async () => ({
+  ...(await vi.importActual<typeof import('./candidates')>('./candidates')),
   candidatesFor: vi.fn(async () => ({
     threads: () => ({ shown: [], hidden: 0 }),
     part: () => ({ duplicateOf: null, revisionCandidate: null, revisionCandidateHidden: false }),
@@ -46,6 +47,7 @@ vi.mock('./repository', async () => {
     findProjectMail: vi.fn(async () => store.mail),
     findMailParts: vi.fn(async () => store.parts),
     findFollowDeciders: vi.fn(async () => new Map()),
+    findFiledVias: vi.fn(async () => new Map()),
     findLiveFolders: vi.fn(async (_p: string, ids: string[]) => new Map(ids.map((id) => [id, 'Tragwerk']))),
     findThreadDocuments: vi.fn(async () => []),
     findCandidateDocuments: vi.fn(async () => []),
@@ -81,36 +83,45 @@ vi.mock('./suggest-scores', () => ({ scoreMailDecision: vi.fn(() => 'all') }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
 vi.mock('./announce', () => ({
   announceDecided: vi.fn(async () => true),
+  announceWaiting: vi.fn(async () => true),
   settleFilingFailed: vi.fn(async () => undefined),
   settleHeld: vi.fn(async () => undefined),
   settleProjectNotices: vi.fn(async () => undefined),
 }))
 vi.mock('./notice-repository', () => ({ partStatesOf: vi.fn(async () => new Map()) }))
+vi.mock('./sender-memory-repository', () => ({ findSenderFolders: vi.fn(async () => []) }))
+vi.mock('./suggestion-wait', () => ({ suggestionPending: vi.fn(async () => false) }))
+vi.mock('@/lib/authz/folder-access', () => ({ getHiddenFolderIds: vi.fn(async () => ['hidden-folder']) }))
 
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { announceDecided, settleFilingFailed, settleProjectNotices } from './announce'
+import { announceDecided, announceWaiting, settleFilingFailed, settleProjectNotices } from './announce'
 import { partStatesOf } from './notice-repository'
-import { FILE_PART_ID, FOLDER_ID, MAIL_ID, PERSON, PROJECT_ID, filePart, heldMail, textPart } from './__fixtures__/review'
+import { fileInboundMailsBodySchema } from './inbound-mail-wire'
+import { FILE_PART_ID, FOLDER_ID, MAIL_ID, PERSON, PROJECT_ID, TEXT_PART_ID, filePart, heldMail, textPart } from './__fixtures__/review'
 import { auditDecisions } from './audit'
 import { mailIfMatch } from './decision'
-import { MailChangedError } from './repository'
+import { MailChangedError, PartNotWaitingError } from './repository'
 import { scoreMailDecision } from './suggest-scores'
 import { candidatesFor } from './candidates'
-import { findFollowDeciders, listProjectMails } from './repository'
+import { findFiledVias, findFollowDeciders, findThreadDocuments, listProjectMails, restoreMailParts } from './repository'
 import {
   decisionActor,
   dismissInboundMails,
   fileInboundMails,
+  unfollowedTexts,
   filingJobId,
   getInboundMail,
   getInboundMailText,
   listInboundMails,
   readInboundMailOriginal,
   readInboundMailPart,
+  restoreInboundMail,
 } from './service'
 import { readStagedObject } from './staging'
+import { findSenderFolders } from './sender-memory-repository'
+import { suggestionPending } from './suggestion-wait'
 
 const session = {
   userId: PERSON,
@@ -174,6 +185,12 @@ describe('what a reader is shown', () => {
     expect((await readInboundMailPart(session, PROJECT_ID, MAIL_ID, FILE_PART_ID)).status).toBe(200)
   })
 
+  it('refuses a filed part’s staged copy, kept only for a legal hold: its document is what is read', async () => {
+    store.parts = [textPart(), filePart({ state: 'filed', documentId: 'doc-1', erasureDeferredAt: new Date() })]
+    await expect(readInboundMailPart(session, PROJECT_ID, MAIL_ID, FILE_PART_ID)).rejects.toMatchObject({ details: { reason: 'gone' } })
+    expect(readStagedObject).not.toHaveBeenCalled()
+  })
+
   it('scans the original whole on the request and refuses it unless clean, recording the read', async () => {
     await expect(readInboundMailOriginal(session, PROJECT_ID, MAIL_ID)).rejects.toMatchObject({
       details: { reason: 'original_not_clean', scan: 'infected' },
@@ -190,7 +207,7 @@ describe('what a mail asks of the person, on the wire', () => {
   it('offers a confirmed member’s mail with its suggestion, its attachment checked', async () => {
     store.parts = [textPart(), filePart({ suggestion: stored })]
     const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
-    expect(view.parts[1]?.suggestion).toEqual(stored)
+    expect(view.parts[1]?.suggestion).toEqual({ ...stored, source: 'model' })
     expect(view.parts.map((part) => part.preselected)).toEqual([true, true])
     expect(view).toMatchObject({ riskLevel: 'none', impersonation: null, needsSenderAcknowledgement: false })
   })
@@ -227,6 +244,7 @@ describe('what a mail asks of the person, on the wire', () => {
       ['mail-later', null, 'none', null],
       ['mail-earlier', null, 'none', 'user_01JFOLLOWER0000000000000000'],
     ])
+    expect(page.items[0].suggestedPlaces).toEqual({ text: { kind: 'thread', name: 'Stellplatznachweis' }, files: 0, folders: [] })
     expect(page.threadGroups).toEqual([
       {
         threadId: 'thread-1',
@@ -238,6 +256,53 @@ describe('what a mail asks of the person, on the wire', () => {
         firstVersion: 4,
         lastVersion: 5,
       },
+    ])
+  })
+
+  it('says a handled mail was filed without a click, and where to, only when no person filed any of it (Bearbeitet)', async () => {
+    const verlauf = { name: 'Statik Einreichung', folderPath: 'Korrespondenz', version: 5 }
+    const plan = { name: 'S-102.pdf', folderPath: 'Tragwerk', version: 1 }
+    vi.mocked(candidatesFor).mockResolvedValueOnce({
+      threads: () => ({ shown: [], hidden: 0 }),
+      part: () => ({ duplicateOf: null, revisionCandidate: null, revisionCandidateHidden: false }),
+      readsFolder: () => true,
+      readsDocument: () => true,
+      filedAs: (part: { documentId: string | null }) => (part.documentId === 'doc-verlauf' ? verlauf : part.documentId === 'doc-plan' ? plan : null),
+    } as never)
+    const followed = heldMail({ id: 'mail-followed', status: 'settled' })
+    const byPerson = heldMail({ id: 'mail-person', status: 'settled' })
+    const hidden = heldMail({ id: 'mail-hidden', status: 'settled' })
+    vi.mocked(listProjectMails).mockResolvedValueOnce(
+      [followed, byPerson, hidden].map((mail) => ({ mail, position: { receivedAt: new Date(mail.receivedAt).toISOString(), id: mail.id } })) as never,
+    )
+    store.parts = [
+      textPart({ id: 'text-followed', mailId: 'mail-followed', state: 'filed', documentId: 'doc-verlauf' }),
+      filePart({ id: 'file-followed', mailId: 'mail-followed', state: 'filed', documentId: 'doc-plan' }),
+      textPart({ id: 'text-person', mailId: 'mail-person', state: 'filed', documentId: 'doc-verlauf' }),
+      filePart({ id: 'file-person', mailId: 'mail-person', state: 'filed', documentId: 'doc-plan' }),
+      filePart({ id: 'file-hidden', mailId: 'mail-hidden', state: 'filed', documentId: 'doc-secret' }),
+    ]
+    vi.mocked(findFiledVias).mockResolvedValueOnce(
+      new Map([
+        ['text-followed', 'follow'],
+        ['file-followed', 'follow'],
+        ['text-person', 'follow'],
+        ['file-person', 'app'],
+        ['file-hidden', 'sender'],
+      ]),
+    )
+
+    const page = await listInboundMails(session, PROJECT_ID, { status: 'handled', limit: 25 })
+
+    expect(page.items.map((item) => [item.id, item.filedWithoutClick])).toEqual([
+      ['mail-followed', { to: verlauf }],
+      ['mail-person', null],
+      ['mail-hidden', { to: null }],
+    ])
+    expect(page.items.map((item) => [item.id, item.filedTo, item.suggestedPlaces])).toEqual([
+      ['mail-followed', verlauf, null],
+      ['mail-person', verlauf, null],
+      ['mail-hidden', null, null],
     ])
   })
 
@@ -282,9 +347,31 @@ describe('a decision', () => {
     expect(actor).toEqual({ decidedBy: PERSON, via: 'app', proposalId: null })
     const firstId = writes[0]!.files[0]!.id
     expect(job.jobId).toBe(filingJobId(firstId))
-    expect(job.payload).toMatchObject({ projectId: PROJECT_ID, mailIds: [MAIL_ID], requester: { userId: PERSON } })
+    expect(job.payload).toMatchObject({ projectId: PROJECT_ID, mailIds: [MAIL_ID], decisionIds: [firstId], requester: { userId: PERSON } })
     expect(result.filingJobId).toBe(job.jobId)
     expect(auditDecisions).toHaveBeenCalledTimes(1)
+  })
+
+  it('names the texts filed without a follow („Nicht automatisch“) for the filing job, and nothing when every text follows', () => {
+    const decided = (follow?: false) => ({
+      mails: [
+        {
+          mailId: MAIL_ID,
+          ifMatch: 'if',
+          parts: [],
+          message: { partId: TEXT_PART_ID, text: 'full' as const, thread: { action: 'append' as const, mailThreadId: FOLDER_ID }, ...(follow === false ? { follow } : {}) },
+        },
+      ],
+    })
+    const rows = [
+      { id: 'decision-text', partId: TEXT_PART_ID },
+      { id: 'decision-file', partId: FILE_PART_ID },
+    ]
+    expect(unfollowedTexts(decided(false), rows)).toEqual({ noFollow: ['decision-text'] })
+    expect(unfollowedTexts(decided(), rows)).toEqual({})
+    expect(fileInboundMailsBodySchema.safeParse(decided(false)).success).toBe(true)
+    const followTrue = decided()
+    expect(fileInboundMailsBodySchema.safeParse({ mails: [{ ...followTrue.mails[0], message: { ...followTrue.mails[0]!.message, follow: true } }] }).success).toBe(false)
   })
 
   it('scores the agent’s suggestion against the parts as they were, and tells PostHog whether it was followed', async () => {
@@ -344,6 +431,53 @@ describe('a decision', () => {
     vi.mocked(dismissMails).mockResolvedValue({ decisions: [] })
   })
 
+  it('tells a member sender their mail was dismissed when a file call dismisses all of it', async () => {
+    store.write.mockResolvedValueOnce({ decisions: [{ mailId: MAIL_ID, partId: FILE_PART_ID, action: 'dismiss' }] })
+    vi.mocked(partStatesOf).mockResolvedValueOnce(new Map([[MAIL_ID, ['dismissed', 'dismissed']]]))
+    const dismissAll = body()
+    dismissAll.mails[0]!.parts = []
+    await fileInboundMails(session, PROJECT_ID, dismissAll)
+    expect(announceDecided).toHaveBeenCalledWith(expect.objectContaining({ mailId: MAIL_ID, outcome: 'dismissed' }))
+  })
+
+  it('leaves telling a filed mail to its filing job', async () => {
+    vi.mocked(partStatesOf).mockResolvedValue(new Map([[MAIL_ID, ['dismissed', 'filed']]]))
+    await fileInboundMails(session, PROJECT_ID, body())
+    expect(announceDecided).not.toHaveBeenCalled()
+    vi.mocked(partStatesOf).mockResolvedValue(new Map())
+  })
+
+  it('refuses a bulk decision whose appends would overfill a thread, before any write', async () => {
+    const thread = { threadId: 'thread-1', documentId: 'doc-t', name: 'Statik', folderId: null, folderPath: null, nextVersion: 200, entryCount: 199, renderedBytes: 10, participantDomains: [] }
+    vi.mocked(findThreadDocuments).mockResolvedValueOnce([thread])
+    const second = heldMail({ id: 'mail-second' })
+    const secondParts = [textPart({ id: 'text-second', mailId: 'mail-second' })]
+    vi.mocked((await import('./repository')).findProjectMail).mockImplementation(async (_p, id) => (id === 'mail-second' ? second : store.mail) as never)
+    store.parts = [textPart(), filePart(), ...secondParts]
+    const append = { thread: { action: 'append' as const, mailThreadId: 'thread-1' }, text: 'full' as const }
+    try {
+      await expect(
+        fileInboundMails(session, PROJECT_ID, {
+          mails: [
+            { mailId: MAIL_ID, ifMatch: mailIfMatch(heldMail(), [textPart(), filePart()]), parts: [], message: { partId: textPart().id, ...append } },
+            { mailId: 'mail-second', ifMatch: mailIfMatch(second, secondParts), parts: [], message: { partId: 'text-second', ...append } },
+          ],
+        }),
+      ).rejects.toMatchObject({ details: { reason: 'thread_full', partId: 'text-second' } })
+    } finally {
+      vi.mocked((await import('./repository')).findProjectMail).mockImplementation(async () => store.mail as never)
+    }
+    expect(store.write).not.toHaveBeenCalled()
+  })
+
+  it('answers a dismissal that met a part no longer waiting as a refusal, not a failure', async () => {
+    const { dismissMails } = await import('./repository')
+    vi.mocked(dismissMails).mockRejectedValueOnce(new PartNotWaitingError(MAIL_ID))
+    await expect(dismissInboundMails(session, PROJECT_ID, { mailIds: [MAIL_ID] })).rejects.toMatchObject({
+      details: { reason: 'part_not_waiting', mailId: MAIL_ID },
+    })
+  })
+
   it('answers a lost compare-and-set as `stale`, and writes nothing else', async () => {
     store.write.mockRejectedValueOnce(new MailChangedError(MAIL_ID))
     await expect(fileInboundMails(session, PROJECT_ID, body())).rejects.toMatchObject({ details: { reason: 'stale', mailId: MAIL_ID } })
@@ -356,5 +490,143 @@ describe('a decision', () => {
     changed.mails[0]!.ifMatch = mailIfMatch(heldMail(), store.parts as never)
     await expect(fileInboundMails(session, PROJECT_ID, changed)).rejects.toMatchObject({ details: { reason: 'risk_not_acknowledged' } })
     expect(store.write).not.toHaveBeenCalled()
+  })
+})
+
+describe('a restore', () => {
+  it('tells the mail waits again and settles a stale expiry notice', async () => {
+    vi.mocked(restoreMailParts).mockResolvedValueOnce({ decisions: [{ mailId: MAIL_ID, action: 'restore' }] } as never)
+    await restoreInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(announceWaiting).toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org_1', projectId: PROJECT_ID, mailId: MAIL_ID }))
+    expect(settleProjectNotices).toHaveBeenCalledWith('org_1', PROJECT_ID)
+  })
+
+  it('tells nothing when nothing was restored', async () => {
+    vi.mocked((await import('./repository')).hasOpenParts).mockResolvedValueOnce(true)
+    await restoreInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(announceWaiting).not.toHaveBeenCalled()
+  })
+})
+
+describe('a mail that claims a writer, through the service (ADR-0137, amendment of 2026-11-19)', () => {
+  const WRITER = 'user_01JCX0R4D8M2W6YB3N5Q7T9V1W'
+  const claimed = (senderReason: 'dkim_none' | 'dkim_fail') =>
+    heldMail({ senderClass: 'unverified_writer', senderTrust: 'member_unverified', senderReason, senderUserId: WRITER })
+
+  it('shows a colleague what they may do: an unsigned one is theirs to check, an impersonation the writer’s alone', async () => {
+    store.mail = claimed('dkim_none')
+    expect(await getInboundMail(session, PROJECT_ID, MAIL_ID)).toMatchObject({ onlySenderReleases: false, ownClaimedMail: false, needsSenderAcknowledgement: true })
+    store.mail = claimed('dkim_fail')
+    expect(await getInboundMail(session, PROJECT_ID, MAIL_ID)).toMatchObject({ onlySenderReleases: true, ownClaimedMail: false })
+    expect(await getInboundMail({ ...session, userId: WRITER } as AuthorizedSession, PROJECT_ID, MAIL_ID)).toMatchObject({
+      onlySenderReleases: false,
+      ownClaimedMail: true,
+    })
+  })
+
+  it('files an unsigned one for a colleague who acknowledges it, and refuses an impersonation with `sender_only`', async () => {
+    const decide = async (senderReason: 'dkim_none' | 'dkim_fail') => {
+      store.mail = claimed(senderReason)
+      const mail = store.mail as ReturnType<typeof heldMail>
+      return fileInboundMails(session, PROJECT_ID, {
+        mails: [
+          {
+            mailId: MAIL_ID,
+            ifMatch: mailIfMatch(mail, store.parts as never),
+            parts: [{ partId: FILE_PART_ID, folderId: FOLDER_ID, newFolderPath: null, name: 'S-101_C.pdf' }],
+            message: null,
+            acknowledgeSender: true,
+          },
+        ],
+      })
+    }
+    await decide('dkim_none')
+    expect(store.write).toHaveBeenCalledOnce()
+    expect(store.write.mock.calls[0][0][0].files[0]).toMatchObject({ decidedBy: PERSON, acknowledgedSender: true })
+    await expect(decide('dkim_fail')).rejects.toMatchObject({ details: { reason: 'sender_only' } })
+    expect(store.write).toHaveBeenCalledOnce()
+  })
+
+  it('restores an unsigned one for a colleague, and refuses to restore an impersonation with `sender_only`', async () => {
+    store.mail = claimed('dkim_fail')
+    await expect(restoreInboundMail(session, PROJECT_ID, MAIL_ID)).rejects.toMatchObject({ details: { reason: 'sender_only' } })
+    expect(restoreMailParts).not.toHaveBeenCalled()
+    store.mail = claimed('dkim_none')
+    await expect(restoreInboundMail(session, PROJECT_ID, MAIL_ID)).rejects.toMatchObject({ details: { reason: 'not_restorable' } })
+    expect(restoreMailParts).toHaveBeenCalledOnce()
+  })
+})
+
+describe('where this sender’s earlier attachments went (sender memory)', () => {
+  const FACADE = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d'
+  const facade = { folderId: FACADE, path: 'Planung/Fassade', count: 3 }
+  const structure = { folderId: FOLDER_ID, path: 'Tragwerk', count: 1 }
+  const unsigned = () =>
+    heldMail({ senderTrust: 'external_unverified', senderReason: 'dkim_none', senderAddress: 'P.Weber@Fassade-Weber.at', threadMatch: [] })
+
+  it('carries the folders on the single mail, asked as the reader with their hidden folders, for this sender and not this mail', async () => {
+    store.mail = unsigned()
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade, structure])
+    const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(view.senderFolders).toEqual([facade, structure])
+    expect(findSenderFolders).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      projectId: PROJECT_ID,
+      senderAddress: 'p.weber@fassade-weber.at',
+      exceptMailId: MAIL_ID,
+      reader: { kind: 'screened-only' },
+      hiddenFolderIds: ['hidden-folder'],
+    })
+  })
+
+  it('pre-fills a dominant earlier folder for an attachment the agent placed nowhere, marked as the sender’s memory', async () => {
+    store.mail = unsigned()
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade, structure])
+    const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(view.parts[1]?.suggestion).toEqual({
+      folderId: FACADE,
+      folderPath: 'Planung/Fassade',
+      newFolder: false,
+      documentType: null,
+      reason: '',
+      source: 'sender_memory',
+    })
+    expect(view.parts[0]?.suggestion).toBeNull()
+  })
+
+  it('keeps the agent’s own suggestion where it gave one', async () => {
+    store.mail = unsigned()
+    const model = { folderId: FOLDER_ID, folderPath: 'Tragwerk', newFolder: false, documentType: null, reason: 'Die Statik.' }
+    store.parts = [textPart(), filePart({ suggestion: model })]
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade, structure])
+    const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(view.parts[1]?.suggestion).toEqual({ ...model, source: 'model' })
+  })
+
+  it('pre-fills nothing while the agent is still asked, nor when no folder leads', async () => {
+    store.mail = unsigned()
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade])
+    vi.mocked(suggestionPending).mockResolvedValueOnce(true)
+    const pending = await getInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(pending.senderFolders).toEqual([facade])
+    expect(pending.parts[1]?.suggestion).toBeNull()
+
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade, { ...structure, count: 2 }])
+    expect((await getInboundMail(session, PROJECT_ID, MAIL_ID)).parts[1]?.suggestion).toBeNull()
+  })
+
+  it('asks nothing for an impersonation or an automatic mail, and carries no folders', async () => {
+    store.mail = heldMail({ senderTrust: 'member_unverified', senderReason: 'dkim_fail' })
+    expect((await getInboundMail(session, PROJECT_ID, MAIL_ID)).senderFolders).toEqual([])
+    store.mail = heldMail({ ...unsigned(), automatic: true })
+    expect((await getInboundMail(session, PROJECT_ID, MAIL_ID)).senderFolders).toEqual([])
+    expect(findSenderFolders).not.toHaveBeenCalled()
+  })
+
+  it('is not asked for the list: the memory is the single mail’s', async () => {
+    vi.mocked(listProjectMails).mockResolvedValueOnce([{ mail: unsigned(), position: { receivedAt: '2026-10-14T09:01:00.000Z', id: MAIL_ID } }] as never)
+    await listInboundMails(session, PROJECT_ID, { status: 'waiting', limit: 25 } as never)
+    expect(findSenderFolders).not.toHaveBeenCalled()
+    expect(suggestionPending).not.toHaveBeenCalled()
   })
 })

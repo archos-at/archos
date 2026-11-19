@@ -7,9 +7,7 @@ import { DAY_MS, mailErasable, select } from './sweep-sql'
 
 export const RESTORE_WINDOW_MS = 7 * DAY_MS
 
-const pastRestore = (cutoff: Date) => sql`(p.ended_at < ${cutoff.toISOString()}::timestamptz
-  OR (p.state = 'dismissed' AND m.sender_trust = 'external_unverified' AND NOT ('sender_unchecked' = ANY (m.sender_flags)))
-  OR (p.state = 'expired' AND m.sender_class = 'external' AND NOT ('sender_unchecked' = ANY (m.sender_flags))))`
+const pastRestore = (cutoff: Date) => sql`p.ended_at < ${cutoff.toISOString()}::timestamptz`
 
 export interface EndedPartBytes {
   partId: string
@@ -89,6 +87,9 @@ export async function findMailRow(mailId: string): Promise<InboundMailRow | null
   return row ?? null
 }
 
+const noHoldOnMail = sql`NOT legal_hold_blocks('project', ${inboundMails.projectId}::text, ${inboundMails.organizationId})
+  AND (${inboundMails.senderUserId} IS NULL OR NOT legal_hold_blocks('user', ${inboundMails.senderUserId}, ${inboundMails.organizationId}))`
+
 export async function settleEndedMail(mail: InboundMailRow, erasureDeferred: boolean, now: Date): Promise<boolean> {
   const rows = await getDb()
     .update(inboundMails)
@@ -114,6 +115,7 @@ export async function settleEndedMail(mail: InboundMailRow, erasureDeferred: boo
         eq(inboundMails.id, mail.id),
         eq(inboundMails.status, 'waiting'),
         sql`NOT EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = ${inboundMails.id} AND p.state IN ('waiting', 'filing'))`,
+        erasureDeferred ? undefined : noHoldOnMail,
       ),
     )
     .returning({ id: inboundMails.id })
@@ -234,4 +236,44 @@ export async function returnReleasedErasure(row: DeferredErasure, kept: readonly
       updatedAt: now,
     })
     .where(and(eq(inboundMails.id, row.id), isNull(inboundMails.erasureDeferredAt), inArray(inboundMails.status, ['settled', 'dropped'])))
+}
+
+export async function takeStaleReceptionKey(row: { id: string; rawStorageKey: string }, before: Date): Promise<boolean> {
+  const rows = await select<{ id: string }>(sql`
+    UPDATE inbound_mails m SET raw_storage_key = NULL
+     WHERE m.id = ${row.id}::uuid AND m.status = 'receiving' AND m.updated_at < ${before.toISOString()}::timestamptz
+       AND m.raw_storage_key = ${row.rawStorageKey} AND ${mailErasable}
+    RETURNING m.id`)
+  return rows.length === 1
+}
+
+export async function returnStaleReceptionKey(row: { id: string; rawStorageKey: string }): Promise<void> {
+  await getDb()
+    .update(inboundMails)
+    .set({ rawStorageKey: row.rawStorageKey })
+    .where(and(eq(inboundMails.id, row.id), eq(inboundMails.status, 'receiving'), isNull(inboundMails.rawStorageKey)))
+}
+
+export interface StalledRaw {
+  id: string
+  rawStorageKey: string
+  originalMovePendingAt: Date
+}
+
+export async function takeStalledMoveRaw(mail: StalledRaw, now: Date): Promise<boolean> {
+  const rows = await select<{ id: string }>(sql`
+    UPDATE inbound_mails m SET raw_storage_key = NULL, original_move_pending_at = NULL, updated_at = ${now.toISOString()}::timestamptz
+     WHERE m.id = ${mail.id}::uuid AND m.raw_storage_key = ${mail.rawStorageKey}
+       AND m.original_move_pending_at IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM mail_thread_entries e WHERE e.project_id = m.project_id AND e.inbound_mail_id = m.id)
+       AND ${mailErasable}
+    RETURNING m.id`)
+  return rows.length === 1
+}
+
+export async function returnStalledMoveRaw(mail: StalledRaw, now: Date): Promise<void> {
+  await getDb()
+    .update(inboundMails)
+    .set({ rawStorageKey: mail.rawStorageKey, originalMovePendingAt: mail.originalMovePendingAt, updatedAt: now })
+    .where(and(eq(inboundMails.id, mail.id), isNull(inboundMails.rawStorageKey), isNull(inboundMails.originalMovePendingAt)))
 }

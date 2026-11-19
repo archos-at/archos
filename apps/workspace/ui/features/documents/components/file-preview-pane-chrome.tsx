@@ -69,7 +69,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                   <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="shrink-0" />
                 )}
                 <DocumentVersionStateBadge
-                  versionState={file.versionState}
+                  versionState={mailThread ? null : file.versionState}
                   versionCount={file.versionCount}
                   lifecycle={file.lifecycle ?? undefined}
                   authoredBy={file.authoredBy}
@@ -198,7 +198,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                   never on screen together — one names the document, the other
                   labels the section you have just opened. */}
                 <DocumentVersionStateBadge
-                  versionState={file.versionState}
+                  versionState={mailThread ? null : file.versionState}
                   versionCount={file.versionCount}
                   lifecycle={file.lifecycle ?? undefined}
                   authoredBy={file.authoredBy}

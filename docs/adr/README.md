@@ -206,8 +206,8 @@ Consequences, where a reader looks for them.
 | [0134](0134-extracted-page-text-is-stored-per-version.md) | Extracted page text is stored per version, and the index is derived from it | Proposed |
 | [0135](0135-skills-run-on-deep-agents-skills-middleware.md) | Skills run on Deep Agents' SkillsMiddleware, in chat and in deep research | Proposed |
 | [0136](0136-search-is-one-query-over-a-projection-beside-the-index.md) | Search is one query over a projection beside the index: the dossier's facts are filtered where authorization lives | Proposed |
-| [0137](0137-mail-sent-to-a-project-waits-until-a-person-files-it.md) | Mail sent to a project waits until a person files it; a conversation is one document; its originals are evidence; a person may follow it | Proposed |
-| [0138](0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md) | Project mail arrives through Cloudflare Email Routing and a signed Worker; the BFF authenticates the sender | Proposed |
+| [0137](0137-mail-sent-to-a-project-waits-until-a-person-files-it.md) | Mail sent to a project waits until a person files it; a conversation is one document; its originals are evidence; a person may follow it | Accepted |
+| [0138](0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md) | Project mail arrives through Cloudflare Email Routing and a signed Worker; the BFF authenticates the sender | Accepted |
 | [0139](0139-confidence-is-a-groundedness-check-of-the-answer.md) | Confidence is a groundedness check of the answer, graded by a model on everything the turn registered | Accepted |
 | [0140](0140-a-turn-that-needs-the-person-pauses-and-a-new-run-resumes-it.md) | A turn that needs the person pauses, and a new run resumes it: LangGraph `interrupt()` with the checkpointer, as AG-UI 1.0's interrupt outcome | Proposed |
 | [0141](0141-a-person-reworks-piloti-drawing-as-an-excalidraw-sketch.md) | A person reworks Piloti's drawing as an Excalidraw sketch; the model still writes mermaid | Accepted |

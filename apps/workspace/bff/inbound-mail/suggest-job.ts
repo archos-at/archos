@@ -1,4 +1,5 @@
 import 'server-only'
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { folderTree, readableByEveryMember } from '@/lib/authz/folder-access-rule'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { unaskedSpendAllowed } from '@/lib/budgets/unasked-spend'
@@ -10,13 +11,16 @@ import { judgeMailFiling } from '@/lib/filing/judge'
 import { listFiledDocuments, listProjectsFolders, type OfficeFolderRow } from '@/lib/filing/repository'
 import { filingSuggestionsEnabled } from '@/lib/filing/trigger'
 import { MAX_JUDGED_FOLDERS, type FilingConventionInput, type FilingFolderInput } from '@/lib/filing/types'
-import type { InboundMailSuggestPayload } from '@/lib/jobs-queue/types'
+import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import type { InboundMailSuggestPayload, JobAttempt } from '@/lib/jobs-queue/types'
+import { recordMailSuggestionOutcome } from '@/lib/langfuse/mail-suggestion-trace'
 import { folderPathKey } from '@/lib/projects/folders'
 import { isProjectClosed } from '@/lib/projects/project-status'
 import { findProjectInOrg, listProjectsInOrg } from '@/lib/projects/repository'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { chatScreeningRules, maskText } from '@/lib/upload-screening/content-screen'
 import { gatePolicy } from '@/lib/upload-screening/service'
+import { directFilingEnabled } from './direct-filing'
 import { findMailForReceive, findMailParts, storePartSuggestions } from './repository'
 import {
   hasSomethingToPlace,
@@ -30,23 +34,77 @@ const REASON_LOCALE = 'de'
 const CONVENTION_PROJECTS = 20
 const MIN_CONVENTION_PROJECTS = 2
 
-export type SuggestOutcome =
+const RETRIED_FAILURES: ReadonlySet<string> = new Set(['backend_unreachable', 'llm_request_failed', 'llm_response_malformed'])
+
+export const isTransientFailure = (reason: string): boolean => RETRIED_FAILURES.has(reason) || /^backend_5\d\d$/.test(reason)
+
+export type SuggestOutcome = (
   | { status: 'skipped'; reason: SuggestionSkipReason }
-  | { status: 'failed'; reason: string }
-  | { status: 'suggested'; parts: number; traceId: string | null }
+  | { status: 'failed'; reason: string; traceId: string | null }
+  | { status: 'suggested'; asked: number; parts: number; traceId: string | null }
+) & { senderTrust?: InboundMailRow['senderTrust'] }
 
 const skipped = (reason: SuggestionSkipReason): SuggestOutcome => ({ status: 'skipped', reason })
 
-export async function runInboundMailSuggest(organizationId: string, payload: InboundMailSuggestPayload): Promise<void> {
-  const outcome = await suggestForMail(organizationId, payload)
-  const detail = outcome.status === 'suggested' ? `${outcome.parts} part(s)` : outcome.reason
-  console.debug(`[inbound-mail] suggestion for mail ${payload.mailId}: ${outcome.status} (${detail})`)
+export class SuggestionRetryError extends Error {
+  constructor(readonly reason: string) {
+    super(`the filing suggestion failed (${reason}) and is asked again`)
+    this.name = 'SuggestionRetryError'
+  }
+}
+
+export async function runInboundMailSuggest(organizationId: string, payload: InboundMailSuggestPayload, attempt: JobAttempt): Promise<void> {
+  const outcome = await suggestForMail(organizationId, payload).catch((error: unknown) => {
+    recordSuggestOutcome(organizationId, payload.mailId, { status: 'failed', reason: 'unexpected', traceId: null }, !attempt.last)
+    throw error
+  })
+  const retry = outcome.status === 'failed' && isTransientFailure(outcome.reason) && !attempt.last
+  recordSuggestOutcome(organizationId, payload.mailId, outcome, retry)
+  if (retry) throw new SuggestionRetryError(outcome.reason)
+}
+
+export function recordSuggestOutcome(organizationId: string, mailId: string, outcome: SuggestOutcome, willRetry: boolean): void {
+  const detail = outcome.status === 'suggested' ? `${outcome.parts} of ${outcome.asked} part(s)` : outcome.reason
+  const line = `[inbound-mail] suggestion for mail ${mailId}: ${outcome.status} (${detail})${willRetry ? ', asked again' : ''}`
+  if (outcome.status === 'failed') console.warn(line)
+  else console.debug(line)
+  const traceId = outcome.status === 'skipped' ? null : outcome.traceId
+  captureServer({
+    event: 'inbound_mail_suggested',
+    distinctId: null,
+    organizationId,
+    properties: {
+      outcome: outcome.status,
+      reason: outcome.status === 'suggested' ? null : outcome.reason,
+      asked: outcome.status === 'suggested' ? outcome.asked : null,
+      parts: outcome.status === 'suggested' ? outcome.parts : null,
+      will_retry: willRetry,
+      sender_trust: outcome.senderTrust ?? null,
+      mail_id: mailId,
+      langfuse_trace_id: traceId,
+    },
+  })
+  if (outcome.status === 'skipped' || !traceId) return
+  void recordMailSuggestionOutcome({
+    traceId,
+    mailId,
+    status: outcome.status,
+    reason: outcome.status === 'failed' ? outcome.reason : null,
+    asked: outcome.status === 'suggested' ? outcome.asked : 0,
+    stored: outcome.status === 'suggested' ? outcome.parts : 0,
+    willRetry,
+    at: new Date(),
+  })
 }
 
 export async function suggestForMail(organizationId: string, payload: InboundMailSuggestPayload): Promise<SuggestOutcome> {
   if (!filingSuggestionsEnabled()) return skipped('switched_off')
   const mail = await findMailForReceive(payload.mailId)
   if (!mail || mail.projectId !== payload.projectId || mail.organizationId !== organizationId) return skipped('not_waiting')
+  return { ...(await suggestForHeldMail(organizationId, mail)), senderTrust: mail.senderTrust }
+}
+
+async function suggestForHeldMail(organizationId: string, mail: InboundMailRow): Promise<SuggestOutcome> {
   const skip = suggestionSkipReason(mail)
   if (skip) return skipped(skip)
   const project = await findProjectInOrg(mail.projectId, organizationId)
@@ -57,20 +115,25 @@ export async function suggestForMail(organizationId: string, payload: InboundMai
   if (!(await unaskedSpendAllowed({ organizationId, userId: null }, mail.projectId))) return skipped('budget')
 
   const folders = await memberReadableFolders(organizationId, mail.projectId)
-  const [folderInputs, conventions, maskedSubject] = await Promise.all([
+  const [folderInputs, conventions, mask] = await Promise.all([
     folderInputsOf(organizationId, mail.projectId, folders),
-    conventionsFor(organizationId, mail.projectId, folders.map((folder) => folder.path)),
-    maskedSubjectOf(organizationId, mail.projectId, mail.subject),
+    filedUnseen(mail) ? [] : conventionsFor(organizationId, mail.projectId, folders.map((folder) => folder.path)),
+    maskerFor(organizationId, mail.projectId),
   ])
-  const input = mailFilingInput(mail, parts, { maskedSubject, folders: folderInputs, conventions, locale: REASON_LOCALE })
+  const input = mailFilingInput(mail, parts, { mask, folders: folderInputs, conventions, locale: REASON_LOCALE })
   if (!input) return skipped('nothing_to_place')
   const judgement = await judgeMailFiling(organizationId, input)
-  if (judgement.error) return { status: 'failed', reason: judgement.error }
+  if (judgement.error) return { status: 'failed', reason: judgement.error, traceId: judgement.traceId }
 
   const suggestions = suggestionsFrom(judgement.placements, folders)
   const stored = await storePartSuggestions(mail.id, suggestions, judgement.traceId)
   if (stored > 0) publishProjectChanged(organizationId, mail.projectId)
-  return { status: 'suggested', parts: stored, traceId: judgement.traceId }
+  const asked = input.attachments.length + (input.mail.textId ? 1 : 0)
+  return { status: 'suggested', asked, parts: stored, traceId: judgement.traceId }
+}
+
+function filedUnseen(mail: Pick<InboundMailRow, 'senderClass'>): boolean {
+  return mail.senderClass === 'verified_writer' && directFilingEnabled()
 }
 
 async function memberReadableFolders(organizationId: string, projectId: string): Promise<OfficeFolderRow[]> {
@@ -118,7 +181,7 @@ async function conventionsFor(
   return shared.length > 0 ? shared : officeConventions([], existingPaths)
 }
 
-async function maskedSubjectOf(organizationId: string, projectId: string, subject: string | null): Promise<string | null> {
-  if (!subject) return null
-  return maskText(subject, chatScreeningRules(await gatePolicy(organizationId, projectId))).text
+async function maskerFor(organizationId: string, projectId: string): Promise<(written: string) => string> {
+  const rules = chatScreeningRules(await gatePolicy(organizationId, projectId))
+  return (written) => maskText(written, rules).text
 }

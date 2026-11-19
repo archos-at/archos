@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { SCREENING_DETECTORS } from '@/lib/upload-screening/policy'
 import type { SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import type { MailOriginView } from '@/lib/inbound-mail/inbound-mail-wire'
+import type { MailThreadWaitingReason } from './mail-thread-vocabulary'
 import {
   THREAD_MATCH_HEADERS,
   THREAD_MATCH_STRENGTHS,
@@ -26,7 +27,6 @@ export {
   MAIL_THREAD_FILED_VIA,
   MAIL_THREAD_FOLLOW_END_REASONS,
   MAIL_THREAD_FOLLOW_DEFAULT_DAYS,
-  MAIL_THREAD_FOLLOW_MAX_DAYS,
   MAIL_THREAD_MAX_ENTRIES,
   MAIL_THREAD_MAX_RENDERED_BYTES,
   type MailThreadAttachmentDisposition,
@@ -40,7 +40,7 @@ export {
   type MailThreadQuote,
   type MailThreadSectionAttachment,
 } from './mail-thread-vocabulary'
-import { MAIL_THREAD_FOLLOW_DEFAULT_DAYS, MAIL_THREAD_FOLLOW_MAX_DAYS } from './mail-thread-vocabulary'
+import { MAIL_THREAD_FOLLOW_DEFAULT_DAYS } from './mail-thread-vocabulary'
 
 export const MAIL_THREAD_LIST_LIMIT = 50
 
@@ -101,10 +101,10 @@ export const mailThreadFollowBodySchema = z
       .number()
       .int()
       .min(1)
-      .max(MAIL_THREAD_FOLLOW_MAX_DAYS)
+      .max(MAIL_THREAD_FOLLOW_DEFAULT_DAYS)
       .optional()
       .describe(
-        `Days it holds (default ${MAIL_THREAD_FOLLOW_DEFAULT_DAYS}, at most ${MAIL_THREAD_FOLLOW_MAX_DAYS} from its start).`
+        `Days it holds from now (default and at most ${MAIL_THREAD_FOLLOW_DEFAULT_DAYS}); each mail filed into the thread extends it to ${MAIL_THREAD_FOLLOW_DEFAULT_DAYS} days after that filing.`
       ),
   })
   .strict()
@@ -176,6 +176,8 @@ export interface MailThreadAttachmentView {
   notFiledReason?: MailThreadAttachmentNotFiledReason
   documentId?: string
   documentVersionId?: string
+  /** Where the filed document lies now, '' for the top of Dateien. */
+  folderPath?: string
   visible: boolean
 }
 
@@ -221,6 +223,7 @@ export interface MailThreadView extends MailThreadSummaryView {
   follows: MailThreadFollowView[]
   managesFollows: boolean
   waitingCount: number | null
+  waitingReasons: MailThreadWaitingReason[]
 }
 
 export interface MailThreadListView {

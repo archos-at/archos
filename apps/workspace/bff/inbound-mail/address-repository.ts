@@ -83,8 +83,11 @@ export async function replaceAddress(
         .update(inboundMailAddresses)
         .set({ revokedAt: now, revokedBy: next.createdBy, revokedReason: 'rotated' })
         .where(and(eq(inboundMailAddresses.projectId, next.projectId), isNull(inboundMailAddresses.revokedAt)))
-        .returning({ id: inboundMailAddresses.id })
-      const [row] = await tx.insert(inboundMailAddresses).values(next).returning()
+        .returning({ id: inboundMailAddresses.id, forwardedFrom: inboundMailAddresses.forwardedFrom })
+      const [row] = await tx
+        .insert(inboundMailAddresses)
+        .values({ ...next, forwardedFrom: revoked[0]?.forwardedFrom ?? [] })
+        .returning()
       if (!row) throw new Error('inserting an inbound mail address returned no row')
       const followsEnded = await endProjectFollows(tx, next.projectId, { endedBy: next.createdBy, reason: 'address_rotated' }, now)
       return { row, previousAddressId: revoked[0]?.id ?? null, followsEnded }
@@ -95,6 +98,24 @@ export async function replaceAddress(
     if (conflict) return { ok: false, conflict }
     throw error
   }
+}
+
+export async function setForwardedFrom(projectId: string, forwardedFrom: readonly string[]): Promise<InboundMailAddressRow | null> {
+  const [row] = await getDb()
+    .update(inboundMailAddresses)
+    .set({ forwardedFrom: [...forwardedFrom] })
+    .where(and(eq(inboundMailAddresses.projectId, projectId), isNull(inboundMailAddresses.revokedAt)))
+    .returning()
+  return row ?? null
+}
+
+export async function findForwardedFrom(addressId: string): Promise<string[]> {
+  const [row] = await getDb()
+    .select({ forwardedFrom: inboundMailAddresses.forwardedFrom })
+    .from(inboundMailAddresses)
+    .where(eq(inboundMailAddresses.id, addressId))
+    .limit(1)
+  return row?.forwardedFrom ?? []
 }
 
 export async function switchOffAddress(projectId: string, revokedBy: string): Promise<AddressChange | null> {
@@ -110,16 +131,18 @@ export async function switchOffAddress(projectId: string, revokedBy: string): Pr
   })
 }
 
-export async function addressActivity(projectId: string): Promise<{ lastReceivedAt: Date | null; droppedLast30Days: number }> {
+export async function addressActivity(projectId: string): Promise<{ lastReceivedAt: Date | null; received: number; droppedLast30Days: number }> {
   const [row] = await getDb()
     .select({
       lastReceivedAt: sql<string | null>`max(${inboundMails.receivedAt})`,
+      received: sql<string>`count(*) filter (where ${inboundMails.status} <> 'dropped')`,
       dropped: sql<string>`count(*) filter (where ${inboundMails.status} = 'dropped' and ${inboundMails.receivedAt} > now() - make_interval(days => ${INBOUND_MAIL_ADDRESS_STATS_DAYS}))`,
     })
     .from(inboundMails)
     .where(and(eq(inboundMails.projectId, projectId), sql`${inboundMails.status} <> 'receiving'`))
   return {
     lastReceivedAt: row?.lastReceivedAt ? new Date(row.lastReceivedAt) : null,
+    received: Number(row?.received ?? 0),
     droppedLast30Days: Number(row?.dropped ?? 0),
   }
 }

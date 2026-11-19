@@ -244,9 +244,11 @@ not; a mail nobody wants is *verworfen*, and one nobody decides *läuft ab*
 after 30 days (mail from outside the office after 14, and then it is gone);
 both can otherwise be *wiederhergestellt* for seven days. Until a person
 files it, nothing of a mail is a document: nothing indexes it and no model of
-ARCHOS reads it. Anyone may write to the address; each mail says whether its
-sender's domain was confirmed („Domain bestätigt: …“, „Domain nicht
-bestätigt“), which shapes what is suggested; only a signed mail of a member
+ARCHOS reads it. Anyone may write to the address; each mail opens with one
+verdict on its sender in three levels, „Adresse überprüft“ (the domain confirmed
+it; „Domain bestätigt: …“ under „Details“), „Absender nicht überprüfbar“, and
+„Vorsicht: mögliche Fälschung“, the only one in the danger colour, which shapes
+what is suggested; only a signed mail of a member
 who may file is filed directly.
 A mail that poses as a member („Gibt sich als … aus“) is a stop, never a
 default. Attachments are checked for malware before anyone can file them. Who
@@ -258,7 +260,7 @@ Intake; „annehmen“, „ablehnen“, „freigeben“, „zulassen“, „prü
 and **Zurückgehalten** own those); „übernehmen“ for a mail; „anhängen“ (collides
 with Anhänge); „Abgelegt“ as a mail's state; Quarantäne; „Nachricht“ for an
 e-mail („3 neue E-Mails“); „Absender bestätigt“ (DKIM proves a domain, not a
-person); „Kollege“ for the member a mail names (say *Mitglied*); „mit
+person); „Echte Adresse“ (read as odd); „Kollege“ for the member a mail names (say *Mitglied*); „mit
 Schreibrecht“ (say *wer im Projekt ablegen darf*); “release” for filing a
 held mail (**Zurückgehalten** owns it).
 _Code_: `inbound mail` (`lib/inbound-mail`, `inbound_mails`, operations
@@ -284,13 +286,16 @@ _Code_: the sender class `verified_writer`; the decision's `via = 'sender'`;
 
 **Haben Sie diese E-Mail gesendet?** (did you send this mail?):
 The question a mail that carries a member's address, but does not prove the
-member sent it, puts to that member alone: their domain did not confirm it,
-it is their Bcc copy, it reads as re-sent or misdated, or it was sent
-automatically. Only that member files it („Ja, ich habe diese E-Mail
-gesendet. Ablegen“) or restores it; the project's other members see it under
-„Wartet auf andere“ („Wartet auf {Name}“) and may only dismiss it. A mail whose
+member sent it, puts to that member: their domain did not confirm it, it is
+their Bcc copy, it reads as re-sent or misdated, or it was sent automatically.
+The member files it („Ja, ich habe diese E-Mail gesendet“, then „Ablegen“); any
+other of the project's writers may too, once they checked it is from that
+member („Ich habe geprüft, dass diese E-Mail von {Name} ist“); a confirmation
+never ends in „Ablegen“, which read as if ticking filed. A mail whose
 domain *rejected* it is not asked about but shown as an impersonation
-(„Gibt sich als … aus“), to the member it names in their own words.
+(„Gibt sich als … aus“), to the member it names in their own words; only that
+member files or restores it, the others see „Wartet auf {Name}“ and may only
+dismiss it.
 _Avoid_: „Haben Sie das gesendet?“; „freigeben“, “release”.
 _Code_: the sender class `unverified_writer`; `acknowledgeSender`,
 `onlySenderReleases`, the refusal `sender_only`, `mailClaimOf`
@@ -316,9 +321,18 @@ _Avoid_: Projektadresse, which is where the building stands.
 _Code_: `inbound mail address` (`inbound_mail_addresses`,
 `inbound-mail-address-*`, verb `rotate`).
 
+**bestehende E-Mail-Adresse für das Projekt** (an existing email address for
+the project): An address the office already runs for a project in its own mail
+system (projekt-x@buero.at), redirected to the E-Mail-Adresse des Projekts by a
+rule. A signed To or Cc naming one counts as sent to the project.
+_Avoid_: Projektadresse (the building's), „weiterleiten“ for the Outlook rule
+(a forward comes from the mailbox; say „umleiten“).
+_Code_: `forwarded_from` (`inbound_mail_addresses`), `forwardedFrom`,
+`inbound-mail-address-forwards-set`.
+
 **E-Mail-Verlauf** (mail thread):
 One e-mail conversation filed as one document of Dokumentart *Korrespondenz*:
-each filed e-mail is a section, and each one filed later adds a Fassung, so
+each filed e-mail is a section, *angefügt* (added) to it, and each one filed later adds a Fassung, so
 the newest Fassung holds the whole conversation and ARCHOS cites one e-mail of
 it. E-mails from the project's address and from an imported Outlook archive
 end up in the same E-Mail-Verlauf, each once. Each section keeps its *Original
@@ -327,20 +341,24 @@ a model. An e-mail filed into the wrong Verlauf is *herausgelöst* (moved to
 another or a new one; the earlier Fassungen keep it). Its tab in the preview is
 „E-Mails“.
 _Avoid_: bare „Verlauf“ (the chat's), Thread, Unterhaltung, Version,
-„Nachrichten“ for its tab.
+„Nachrichten“ for its tab; „Fassung“ for what a mail's text becomes when it is
+filed („An E-Mail-Verlauf „…“ anfügen“, never „wird Fassung 4“: a Fassung is a
+document's state, and the reader took it for a plan's).
 _Code_: `mail thread` (`lib/mail-thread`, `mail_threads`, `mail_thread_entries`
 for its e-mails, verb `detach`).
 
 **Verlauf folgen** (follow a mail thread):
-A person's standing, revocable decision about one **E-Mail-Verlauf** („Diesem
-E-Mail-Verlauf folgen“, „Sie folgen diesem E-Mail-Verlauf bis …“, „nicht mehr
-folgen“): while it runs (60 days, renewable up to 180), the text of later
+A person's standing, revocable decision about one **E-Mail-Verlauf**, named in
+the app for what it does („Antworten ohne Klick ablegen“ · „Einschalten“,
+„Antworten werden bis … ohne Klick abgelegt“, „Beenden“; „folgen“ read as
+notifications, and the Postfach's notices say „ohne Klick“ too): while it runs (until 60 days pass with nothing filed into the Verlauf), the text of later
 replies from confirmed domains already in the conversation is added without a
 click, in that person's name; attachments still wait in the
 **E-Mail-Eingang**. It ends when the person or a manager ends it, when it runs
-out, when the person loses access, when the address is replaced, or when an
-e-mail is herausgelöst from that Verlauf.
-_Avoid_: abonnieren, automatisch ablegen.
+out, when the person loses access, when the address is replaced or switched
+off, or when an e-mail is herausgelöst from that Verlauf.
+_Avoid_: abonnieren, automatisch ablegen, „Folgen“ as the press (a
+notification's word).
 _Code_: `follow` / `unfollow` (`mail_thread_follows`, `mail-thread-follow`).
 
 **Original (.eml)** (original):

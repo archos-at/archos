@@ -13,7 +13,12 @@ vi.mock('./repository', () => ({
 }))
 vi.mock('./mail-views', () => ({ mailViews: vi.fn() }))
 vi.mock('./sender-filing', () => ({ senderDecision: vi.fn(), withoutPart: vi.fn() }))
-vi.mock('./decision', () => ({ mailIfMatch: vi.fn(() => 'if-1'), planMailDecision: vi.fn(), requireDecisionRights: vi.fn(async () => undefined) }))
+vi.mock('./decision', async (importOriginal) => ({
+  refusedPartOf: (await importOriginal<typeof import('./decision')>()).refusedPartOf,
+  mailIfMatch: vi.fn(() => 'if-1'),
+  planMailDecision: vi.fn(),
+  requireDecisionRights: vi.fn(async () => undefined),
+}))
 vi.mock('./service', () => ({
   decisionContext: vi.fn(async () => ({ actor: { decidedBy: 'x', via: 'app', proposalId: null } })),
   FILING_CLAIM_MS: 300_000,

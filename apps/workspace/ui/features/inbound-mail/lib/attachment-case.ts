@@ -1,6 +1,7 @@
 import type { InboundMailPartView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { NotStagedReason, PartRiskFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
-import { isImageInMail, revisionVouched, senderFactsOfView } from '@/lib/inbound-mail/review-defaults'
+import { isImageInMail, revisionVouchedInThread, senderFactsOfView } from '@/lib/inbound-mail/review-defaults'
+import { indexChange, revisionByDefault, type IndexChange } from './plan-index'
 
 export type AttachmentStatus =
   | 'waiting'
@@ -17,7 +18,16 @@ export type AcknowledgedRisk = Extract<PartRiskFlag, 'macro' | 'type_mismatch' |
 
 export type AttachmentNote =
   | { kind: 'duplicate'; name: string; folderPath: string | null; documentId: string }
-  | { kind: 'revision'; name: string; folderPath: string | null; nextVersion: number; documentId: string; verified: boolean }
+  | {
+      kind: 'revision'
+      name: string
+      folderPath: string | null
+      nextVersion: number
+      documentId: string
+      verified: boolean
+      likely: boolean
+      index: IndexChange | null
+    }
   | { kind: 'revision_hidden' }
   | { kind: 'name_stop'; terms: string[] }
   | { kind: 'risk'; flag: 'macro' | 'type_mismatch' }
@@ -30,7 +40,12 @@ export interface AttachmentCase {
   part: InboundMailPartView
   status: AttachmentStatus
   selectable: boolean
+  /** Filed unless the person says otherwise: everything but what the server keeps out for a reason it names. */
   defaultChecked: boolean
+  /** Might be the next Fassung of a document, and nothing vouches for it: asked as three choices, never a tick. */
+  unsureRevision: boolean
+  /** An unsure next Fassung of a plan with a later index of the same number: „Als Fassung …“ is its default answer (`revisionByDefault`). */
+  revisionDefault: boolean
   notes: AttachmentNote[]
   risk: AcknowledgedRisk | null
   previewable: boolean
@@ -50,7 +65,7 @@ function statusOf(part: InboundMailPartView): AttachmentStatus {
 
 export function attachmentCase(
   part: InboundMailPartView,
-  mail: Pick<InboundMailView, 'projectClosed' | 'sender'> & Partial<Pick<InboundMailView, 'onlySenderReleases'>>,
+  mail: Pick<InboundMailView, 'projectClosed' | 'sender' | 'threadCandidates'> & Partial<Pick<InboundMailView, 'onlySenderReleases' | 'riskLevel'>>,
 ): AttachmentCase {
   const status = statusOf(part)
   const notes: AttachmentNote[] = []
@@ -59,7 +74,8 @@ export function attachmentCase(
   if (part.duplicateOf) {
     notes.push({ kind: 'duplicate', name: part.duplicateOf.name, folderPath: part.duplicateOf.folderPath, documentId: part.duplicateOf.documentId })
   }
-  const revisionVerified = revisionVouched(part, senderFactsOfView(mail))
+  const revisionVerified = revisionVouchedInThread(part, senderFactsOfView(mail), mail.threadCandidates)
+  const revisionLikely = !revisionVerified && part.revisionCandidate !== null && revisionByDefault(part.filename, part.revisionCandidate.name)
   if (part.revisionCandidate) {
     notes.push({
       kind: 'revision',
@@ -68,6 +84,8 @@ export function attachmentCase(
       nextVersion: part.revisionCandidate.nextVersion,
       documentId: part.revisionCandidate.documentId,
       verified: revisionVerified,
+      likely: revisionLikely,
+      index: indexChange(part.filename, part.revisionCandidate.name),
     })
   } else if (part.revisionCandidateHidden) {
     notes.push({ kind: 'revision_hidden' })
@@ -84,15 +102,24 @@ export function attachmentCase(
   if (isImageInMail(part)) notes.push({ kind: 'image_in_mail' })
 
   const selectable = status === 'waiting' && !mail.projectClosed && !mail.onlySenderReleases
+  const unsureRevision = selectable && part.revisionCandidate !== null && !revisionVerified
   return {
     part,
     status,
     selectable,
-    defaultChecked: selectable && part.preselected,
+    defaultChecked: selectable && (part.preselected || (mail.riskLevel !== 'impersonation' && !keptOutForAReason(notes))),
+    unsureRevision,
+    revisionDefault: unsureRevision && revisionLikely,
     notes,
     risk,
     previewable: part.scan === 'clean' && PREVIEW_TYPES.test(part.contentType) && part.sizeBytes <= PREVIEW_MAX_BYTES && status !== 'filed',
   }
+}
+
+const KEPT_OUT: ReadonlySet<AttachmentNote['kind']> = new Set(['duplicate', 'image_in_mail', 'name_stop', 'risk'])
+
+function keptOutForAReason(notes: readonly AttachmentNote[]): boolean {
+  return notes.some((note) => KEPT_OUT.has(note.kind))
 }
 
 export interface NotStagedSummary {

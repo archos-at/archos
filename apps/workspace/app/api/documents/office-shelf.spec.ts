@@ -18,6 +18,7 @@ const session = {
   featureFlags: ['office-standards'] as string[] | null,
 }
 
+vi.mock('@/lib/mail-thread/document-threads', () => ({ mailThreadsOfDocuments: vi.fn(async () => new Map()) }))
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(async () => session),
 }))
@@ -76,7 +77,7 @@ describe('GET /api/documents?scope=office_shelf', () => {
     const body = await (await get()).json()
 
     const expected = JSON.parse(
-      JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 2, state: 'published' }), baseKnowledgeEntryId: 'work_1' }),
+      JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 2, state: 'published' }), baseKnowledgeEntryId: 'work_1', mailThread: null }),
     )
     expect(body.documents[0]).toEqual(expected)
     expect(body.documents[0]).toMatchObject({

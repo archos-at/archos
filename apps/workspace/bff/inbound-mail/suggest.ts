@@ -32,8 +32,6 @@ export function readSuggestion(stored: unknown): InboundMailSuggestion | null {
 export type SuggestionSkipReason =
   | 'not_waiting'
   | 'impersonation'
-  | 'external_unverified'
-  | 'member_unverified'
   | 'automatic'
   | 'project_closed'
   | 'switched_off'
@@ -45,8 +43,6 @@ export function suggestionSkipReason(
 ): SuggestionSkipReason | null {
   if (mail.status !== 'waiting' || !mail.senderTrust || !mail.senderReason) return 'not_waiting'
   if (impersonationOf({ trust: mail.senderTrust, reason: mail.senderReason, flags: mail.senderFlags })) return 'impersonation'
-  if (mail.senderTrust === 'external_unverified') return 'external_unverified'
-  if (mail.senderTrust === 'member_unverified') return 'member_unverified'
   if (mail.automatic) return 'automatic'
   return null
 }
@@ -87,26 +83,26 @@ export function hasSomethingToPlace(mail: Pick<InboundMailRow, 'threadMatch'>, p
 }
 
 export interface SuggestionContext {
-  maskedSubject: string | null
+  mask: (written: string) => string
   folders: FilingFolderInput[]
   conventions: FilingConventionInput[]
   locale: string
 }
 
 export function mailFilingInput(
-  mail: Pick<InboundMailRow, 'id' | 'projectId' | 'threadMatch' | 'senderAddress' | 'signerDomain' | 'senderClass'>,
+  mail: Pick<InboundMailRow, 'id' | 'projectId' | 'threadMatch' | 'subject' | 'senderAddress' | 'signerDomain' | 'senderClass'>,
   parts: readonly PartFacts[],
   context: SuggestionContext,
 ): MailFilingInput | null {
   if (!hasSomethingToPlace(mail, parts)) return null
-  const attachments = attachmentsToPlace(parts).map((part) => ({ id: part.id, file: part.filename }))
+  const attachments = attachmentsToPlace(parts).map((part) => ({ id: part.id, file: context.mask(part.filename) }))
   const text = textToPlace(mail, parts)
   return {
     locale: context.locale,
     folders: context.folders,
     conventions: context.conventions,
     attachments,
-    mail: { subject: context.maskedSubject, senderDomain: senderDomainOf(mail), textId: text?.id ?? null },
+    mail: { subject: mail.subject ? context.mask(mail.subject) : null, senderDomain: senderDomainOf(mail), textId: text?.id ?? null },
     trace: { mailId: mail.id, projectId: mail.projectId, senderClass: mail.senderClass },
   }
 }
@@ -137,10 +133,9 @@ export function suggestionsFrom(
   return stored
 }
 
-export interface DecidedPlacement {
-  folderPath: string | null
-  documentType: DocumentTypeTag | string | null
-}
+export type DecidedPlacement =
+  | { into: 'folder'; folderPath: string; documentType: DocumentTypeTag | string | null }
+  | { into: 'thread' }
 
 export function decidedPlacements(
   decision: Pick<InboundMailDecision, 'parts' | 'message'> | null,
@@ -151,38 +146,44 @@ export function decidedPlacements(
   const pathOf = (folderId: string | null, newFolderPath: string | null): string =>
     newFolderPath ?? (folderId ? (folderPathOf(folderId) ?? '') : '')
   for (const part of decision.parts) {
-    placed.set(part.partId, { folderPath: pathOf(part.folderId, part.newFolderPath), documentType: part.documentType ?? null })
+    placed.set(part.partId, { into: 'folder', folderPath: pathOf(part.folderId, part.newFolderPath), documentType: part.documentType ?? null })
   }
   const message = decision.message
   if (message) {
-    placed.set(message.partId, {
-      folderPath: message.thread.action === 'create' ? pathOf(message.thread.folderId, message.thread.newFolderPath) : null,
-      documentType: 'correspondence',
-    })
+    placed.set(
+      message.partId,
+      message.thread.action === 'create'
+        ? { into: 'folder', folderPath: pathOf(message.thread.folderId, message.thread.newFolderPath), documentType: 'correspondence' }
+        : { into: 'thread' },
+    )
   }
   return placed
 }
 
-export interface SuggestionOutcome {
-  decision: 'accepted' | 'dismissed'
-  folder: 'same' | 'other' | 'not_filed'
-  type: 'same' | 'other' | 'none'
-}
+export type SuggestionOutcome =
+  | { decision: 'accepted' | 'dismissed'; folder: 'same' | 'other'; type: 'same' | 'other' | 'none' }
+  | { decision: 'not_judged'; folder: 'not_filed' | 'thread'; type: 'none' }
+
+export type JudgedOutcome = Extract<SuggestionOutcome, { decision: 'accepted' | 'dismissed' }>
+
+export const isJudged = (outcome: SuggestionOutcome): outcome is JudgedOutcome => outcome.decision !== 'not_judged'
 
 export function suggestionOutcome(suggestion: InboundMailSuggestion, placed: DecidedPlacement | null): SuggestionOutcome {
-  if (!placed) return { decision: 'dismissed', folder: 'not_filed', type: suggestion.documentType ? 'other' : 'none' }
-  const folder =
-    placed.folderPath !== null && folderPathKey(placed.folderPath) === folderPathKey(suggestion.folderPath) ? 'same' : 'other'
+  if (!placed) return { decision: 'not_judged', folder: 'not_filed', type: 'none' }
+  if (placed.into === 'thread') return { decision: 'not_judged', folder: 'thread', type: 'none' }
+  const folder = folderPathKey(placed.folderPath) === folderPathKey(suggestion.folderPath) ? 'same' : 'other'
   const type = !suggestion.documentType ? 'none' : placed.documentType === suggestion.documentType ? 'same' : 'other'
   return { decision: folder === 'same' && type !== 'other' ? 'accepted' : 'dismissed', folder, type }
 }
 
-export type SuggestionFollowed = 'all' | 'partly' | 'none' | 'no_suggestion'
+export type SuggestionFollowed = 'all' | 'partly' | 'none' | 'not_judged' | 'no_suggestion'
 
 export function suggestionFollowed(outcomes: readonly SuggestionOutcome[]): SuggestionFollowed {
   if (outcomes.length === 0) return 'no_suggestion'
-  const accepted = outcomes.filter((outcome) => outcome.decision === 'accepted').length
-  if (accepted === outcomes.length) return 'all'
+  const judged = outcomes.filter(isJudged)
+  if (judged.length === 0) return 'not_judged'
+  const accepted = judged.filter((outcome) => outcome.decision === 'accepted').length
+  if (accepted === judged.length) return 'all'
   return accepted === 0 ? 'none' : 'partly'
 }
 

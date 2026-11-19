@@ -708,7 +708,7 @@ export const collaboration = {
         titleMany: '{count} mails to “{subject}” expire in {noticeDays} days',
         title: 'Mails to “{subject}” expire in {noticeDays} days',
         titleResolved: 'No mail to “{subject}” is about to expire',
-        body: 'What nobody files by then expires. A member’s mail can be restored for {restoreDays} days after, one from outside the office cannot.',
+        body: 'What nobody files by then expires, and can be restored for {restoreDays} days after.',
         variants: {
           unconfirmed: {
             body: 'Some of them come from a domain that is not verified, or were sent automatically. What nobody files expires.',
@@ -749,6 +749,19 @@ export const collaboration = {
       inboundMailRejected: {
         title: 'Your mail to “{subject}” was dismissed',
         body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
+        variants: {
+          reported: {
+            titleRelated: 'Someone posed as you in “{subject}”: {related}',
+            title: 'Someone posed as you in “{subject}”',
+            body: '{actor} reported the forged mail and dismissed it. Whoever gets such a mail in your name should know: it did not come from you.',
+          },
+        },
+      },
+      inboundMailFraudReported: {
+        titleRedacted: 'A forged mail was reported in a project',
+        titleRelated: 'Forged mail as {related} in “{subject}”: do not pay, do not reply',
+        title: 'Forged mail in “{subject}”: do not pay, do not reply',
+        body: '{actor} reported it and dismissed it in Project mail. Please do not pay and do not reply. Check your mail program for the same mail.',
       },
       inboundMailExpired: {
         title: 'Your mail to “{subject}” was not filed in time',
@@ -771,15 +784,48 @@ export const collaboration = {
         },
       },
       inboundMailAppended: {
-        titleOne: 'A reply was appended to a mail thread in “{subject}”',
-        titleMany: '{count} replies were appended to a mail thread in “{subject}”',
-        title: 'Replies were appended to a mail thread in “{subject}”',
-        body: 'As you, because you follow the mail thread. Attachments wait in Project mail.',
+        titleOne: 'A reply was appended to a mail thread in “{subject}” without a click',
+        titleMany: '{count} replies were appended to a mail thread in “{subject}” without a click',
+        title: 'Replies were appended to a mail thread in “{subject}” without a click',
+        body: 'Filed as if you had done it yourself, because you have replies in this mail thread filed without a click. Attachments without an existing folder wait in Project mail.',
+        variants: {
+          with_attachments: {
+            titleOne: 'A reply and its attachments were filed in “{subject}” without a click',
+            titleMany: '{count} replies and their attachments were filed in “{subject}” without a click',
+            title: 'Replies and their attachments were filed in “{subject}” without a click',
+            body: 'Filed as if you had done it yourself, because you have replies in this mail thread filed without a click: the text into the mail thread, the attachments into the folders {productName} suggested. Whatever had no existing folder waits in Project mail.',
+          },
+        },
       },
       mailThreadFollowExpiring: {
-        title: 'You follow a mail thread in “{subject}” for {followNoticeDays} more days',
-        titleResolved: 'Your follow of a mail thread in “{subject}” was renewed or ended',
-        body: 'Renew it so later replies keep being appended.',
+        title: 'Replies in a mail thread in “{subject}” are filed without a click for only {followNoticeDays} more days',
+        titleResolved: 'Filing without a click in a mail thread in “{subject}” was renewed or ended',
+        body: 'Renew it in the mail thread under “Mails” so later replies keep being appended without a click.',
+      },
+      mailThreadFollowEnded: {
+        title: 'Replies in a mail thread in “{subject}” are no longer filed without a click',
+        body: 'Later replies wait in Project mail until someone files them.',
+        variants: {
+          access_lost: { title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: your access to it ended' },
+          document_gone: { title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: it was deleted' },
+          project_closed: { title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: the project was closed' },
+          detached: {
+            title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: a mail was detached from it',
+            body: 'Switch it on again in the mail thread under “Mails” so later replies are appended without a click again.',
+          },
+          revoked_by_manager: {
+            title: '{actor} ended filing without a click for you in a mail thread in “{subject}”',
+            titleNoActor: 'A project manager ended filing without a click for you in a mail thread in “{subject}”',
+          },
+          address_rotated: {
+            title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: the project mail address was replaced',
+            body: 'Replies to the old address no longer arrive. Switch it on again in the mail thread once the new address is in use.',
+          },
+          thread_full: {
+            title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: it is full',
+            body: 'Later replies wait in Project mail. File them as a new mail thread that continues this one.',
+          },
+        },
       },
       rootSortFailed: {
         title: 'The sort of “{subject}” stopped',

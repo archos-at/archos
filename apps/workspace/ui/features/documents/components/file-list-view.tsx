@@ -2,7 +2,7 @@
 
 import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { ArrowDown, ArrowUp, Mail } from 'lucide-react'
 import type { FileItem } from './project-file-workspace'
 import { DocumentStatusBadge, isCitableStatus } from './document-status'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -21,7 +21,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { CLAUSE_JOIN, formatAbsoluteTime, formatBytes, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { documentDisplayName } from '@/lib/documents/display-name'
+import { MailThreadFileFacts, listedFileName, useMailThreadFileFacts } from './mail-thread/mail-thread-file'
 import { documentDragProps } from '../hooks/use-document-drag'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { HIGHLIGHT_OUTLINE_INSET } from '@/components/ui/highlight'
@@ -273,6 +273,7 @@ const FileListRowItem = memo(function FileListRowItem({
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const approvalSubject = approvalSubjectOf(file)
+  const threadFacts = useMailThreadFileFacts(file)
   const approvalState = documentBadgeState(approvalSubject)
   const lit = useFilingHighlighted(file.id)
   const row = (
@@ -300,7 +301,7 @@ const FileListRowItem = memo(function FileListRowItem({
           <Checkbox
             checked={checked}
             onCheckedChange={() => onToggle?.(file.id)}
-            aria-label={documentDisplayName(file)}
+            aria-label={listedFileName(file)}
             data-testid="file-list-check"
           />
         </TableCell>
@@ -309,7 +310,7 @@ const FileListRowItem = memo(function FileListRowItem({
         <div className="flex min-h-8 min-w-0 items-start gap-2.5 py-1.5" /* the format on the name's first line, wrapped or not */>
           {/* The format in words, as the tile's meta writes it (8.5px in a disc was illegible); 32px, a folder's glyph column. */}
           <span className="text-muted-foreground w-8 shrink-0 text-[11px] font-medium uppercase leading-5" aria-hidden>
-            {fileExtensionLabel(file.filename) || '—'}
+            {file.mailThread ? <Mail className="mt-0.5 size-4" strokeWidth={1.75} data-testid="file-list-mail-thread" /> : fileExtensionLabel(file.filename) || '—'}
           </span>
           <span className="min-w-0 flex-1">
             {/* „· 3 Fassungen" after the name, on the same line: the
@@ -318,14 +319,15 @@ const FileListRowItem = memo(function FileListRowItem({
             {/* Wraps rather than cut the name: a chip that does not fit beside it takes the next line (a phone's
                 „E…_Index-C.pdf“ beside „4 offen · 2 für Sie“ was the name cut to its last letters). */}
             <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-[13px] font-medium leading-5 text-foreground" /* 13px, a 20px line a chip fits */>
-              <FileName text={documentDisplayName(file)} className="flex-1" /* the line's width, then the chips: as wide as its own text it measured itself to nothing */ />
-              <RevisionCount file={file} />
+              <FileName text={listedFileName(file)} className="flex-1" /* the line's width, then the chips: as wide as its own text it measured itself to nothing */ />
+              {/* A Verlauf's mails beside its name at desk width; a narrow list says them on its second line. */}
+              {file.mailThread ? <MailThreadFileFacts file={file} className="hidden shrink-0 font-normal @xl/filelist:inline" /> : <RevisionCount file={file} />}
               <BaseKnowledgeChip file={file} className="self-center" />
               {file.status && !isCitableStatus(file.status) && (
                 <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="h-5 shrink-0 self-center px-2 py-0" /* 20px, the open-marks chip's: a 22px badge made its row 42 */ />
               )}
               {/* What is still open on its pages; a press opens the review, not the row. */}
-              <OpenMarksChip file={file} name={documentDisplayName(file)} className="self-center" />
+              <OpenMarksChip file={file} name={listedFileName(file)} className="self-center" />
               {/* Where the agent would file it: the same chip as on the card,
                   right after the name, so the row keeps its one height. */}
               <FilingSuggestionSlot documentId={file.id} className="max-w-[45%] shrink-0 self-center" />
@@ -335,7 +337,7 @@ const FileListRowItem = memo(function FileListRowItem({
             </span>
             {/* A narrow list's second line: what the columns say at desk width (a phone's 56px row, finding 14). */}
             <span className={FILE_LIST_META_LINE} data-testid="file-list-meta">
-              {[typeof file.fileSize === 'number' ? formatBytes(file.fileSize, locale) : null, formatRelativeTime(file.createdAt, locale)].filter(Boolean).join(CLAUSE_JOIN)}
+              {[threadFacts ?? (typeof file.fileSize === 'number' ? formatBytes(file.fileSize, locale) : null), formatRelativeTime(file.createdAt, locale)].filter(Boolean).join(CLAUSE_JOIN)}
             </span>
             {file.sourceDeletedAt && <SourceDeletedNote at={file.sourceDeletedAt} />}
             {/* In a ranked result the second line is WHY this row is here: the snippet answers the query, and a
@@ -378,7 +380,7 @@ const FileListRowItem = memo(function FileListRowItem({
           {/* The editorial state in the card badge's words, silent by the same rule; an older Fassung is one badge. */}
           {isOlderRevisionEntry(file) ? (
             <OlderRevisionBadge file={file} className="max-w-full truncate" />
-          ) : approvalState ? (
+          ) : approvalState && !file.mailThread ? (
             <DocumentVersionStateBadge
               versionState={approvalSubject.versionState}
               versionCount={approvalSubject.versionCount}

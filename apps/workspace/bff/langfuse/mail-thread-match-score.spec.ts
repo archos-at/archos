@@ -33,6 +33,7 @@ const SENDER: SenderEvidence = {
   senderTrust: 'member_verified',
   senderFlags: [],
   signedHeaders: ['from', 'subject', 'in-reply-to', 'references'],
+  senderDomain: 'buero-muster.at',
 }
 
 const record = (patch: Partial<MailThreadMatchRecord> = {}): MailThreadMatchRecord => ({
@@ -42,6 +43,7 @@ const record = (patch: Partial<MailThreadMatchRecord> = {}): MailThreadMatchReco
   partId: 'part-1',
   matches: MATCHES,
   sender: SENDER,
+  strongestThread: { participantDomains: ['buero-muster.at'] },
   choice: { action: 'append', mailThreadId: STRONG },
   via: 'app',
   decidedAt: new Date('2026-10-22T09:00:00.000Z'),
@@ -111,13 +113,18 @@ describe('the batch', () => {
     expect(trace?.body).toMatchObject({ tags: expect.arrayContaining(['feature:inbound-mail', 'app_host:app.example.test']) })
   })
 
+  it('puts the trace in the mail’s session, beside the mail’s filing-fit generations', () => {
+    const [trace] = mailThreadMatchBatch(record(), ['e1', 'e2'])?.batch ?? []
+    expect(trace?.body).toMatchObject({ sessionId: 'mail-1', metadata: { mail_id: 'mail-1' } })
+  })
+
   it('derives both ids from the text part, so a second decision overwrites', () => {
     expect(mailThreadMatchIds('part-1')).toEqual(mailThreadMatchIds('part-1'))
     expect(mailThreadMatchIds('part-1').traceId).not.toBe(mailThreadMatchIds('part-2').traceId)
   })
 
   it('says a stranger’s match was not pre-selected', () => {
-    const stranger: SenderEvidence = { senderTrust: 'external_unverified', senderFlags: [], signedHeaders: [] }
+    const stranger: SenderEvidence = { senderTrust: 'external_unverified', senderFlags: [], signedHeaders: [], senderDomain: 'stranger.example' }
     const [, score] = mailThreadMatchBatch(record({ sender: stranger, via: 'follow' }), ['e1', 'e2'])?.batch ?? []
     expect(score).toMatchObject({ body: { value: 'followed', metadata: { preselected: false, via: 'follow' } } })
   })

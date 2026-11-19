@@ -8,6 +8,7 @@ import { documentVisibleTo, SCREENED_ONLY } from '@/lib/documents/visibility'
 import type { FollowRow } from '@/lib/mail-thread/follow-eligibility'
 import type { ThreadCandidate } from '@/lib/mail-thread/mail-threading'
 import type { InboundMailSenderClass, MalwareScanStatus } from './inbound-mail-vocabulary'
+import { planName, planNamePattern, revisionCandidateOf } from './plan-index'
 
 export async function findMailForReceive(mailId: string): Promise<InboundMailRow | null> {
   const [row] = await getDb().select().from(inboundMails).where(eq(inboundMails.id, mailId)).limit(1)
@@ -86,6 +87,10 @@ export async function findThreadCandidates(
           .from(mailThreadMessageIds)
           .where(and(eq(mailThreadMessageIds.projectId, projectId), inArray(mailThreadMessageIds.messageId, ids)))
       : null
+  const cited = or(
+    byIds ? inArray(mailThreads.id, byIds) : undefined,
+    keys.threadIndexGuid ? eq(mailThreads.threadIndexGuid, keys.threadIndexGuid) : undefined,
+  )
   const threads = await db
     .select({
       threadId: mailThreads.id,
@@ -98,15 +103,10 @@ export async function findThreadCandidates(
       and(
         eq(mailThreads.projectId, projectId),
         or(isNotNull(mailThreads.documentId), pendingOfImport(options.pendingOfImport)),
-        or(
-          byIds ? inArray(mailThreads.id, byIds) : undefined,
-          keys.threadIndexGuid ? eq(mailThreads.threadIndexGuid, keys.threadIndexGuid) : undefined,
-          keys.baseSubject ? eq(mailThreads.baseSubject, keys.baseSubject) : undefined,
-          sql`false`,
-        ),
+        or(cited, keys.baseSubject ? eq(mailThreads.baseSubject, keys.baseSubject) : undefined, sql`false`),
       ),
     )
-    .orderBy(desc(mailThreads.lastEntryAt))
+    .orderBy(...(cited ? [sql`CASE WHEN ${cited} THEN 0 ELSE 1 END`] : []), desc(mailThreads.lastEntryAt))
     .limit(MAX_THREAD_CANDIDATES)
   if (threads.length === 0) return []
   const threadIds = threads.map((thread) => thread.threadId)
@@ -205,16 +205,31 @@ export async function findScreenedDuplicates(projectId: string, sha256s: readonl
   return firstByKey(rows.map((row) => [row.contentHash ?? '', row.id]))
 }
 
-export async function findScreenedNamesakes(projectId: string, filenames: readonly string[]): Promise<Map<string, string>> {
+export async function findScreenedRevisionCandidates(projectId: string, filenames: readonly string[]): Promise<Map<string, string>> {
   const names = [...new Set(filenames)].slice(0, 100)
   if (names.length === 0) return new Map()
+  const patterns = [...new Set(names.flatMap((name) => {
+    const plan = planName(name)
+    return plan ? [planNamePattern(plan)] : []
+  }))]
+  const samePlanNumber = patterns.length === 0
+    ? undefined
+    : sql`lower(${documents.filename}) LIKE ANY(ARRAY[${sql.join(patterns.map((pattern) => sql`${pattern}`), sql`, `)}]::text[])`
   const rows = await getDb()
     .select({ id: documents.id, filename: documents.filename })
     .from(documents)
-    .where(and(eq(documents.projectId, projectId), inArray(documents.filename, names), documentVisibleTo(SCREENED_ONLY)))
-    .orderBy(desc(documents.createdAt))
+    .where(and(eq(documents.projectId, projectId), or(inArray(documents.filename, names), samePlanNumber), documentVisibleTo(SCREENED_ONLY)))
+    .orderBy(
+      sql`(SELECT max(v.created_at) FROM document_versions v WHERE v.document_id = ${documents.id}) DESC NULLS LAST`,
+      desc(documents.createdAt),
+    )
     .limit(500)
-  return firstByKey(rows.map((row) => [row.filename, row.id]))
+  const found = new Map<string, string>()
+  for (const name of names) {
+    const candidate = revisionCandidateOf(name, rows)
+    if (candidate) found.set(name, candidate.id)
+  }
+  return found
 }
 
 function firstByKey(entries: ReadonlyArray<readonly [string, string]>): Map<string, string> {
@@ -226,10 +241,15 @@ function firstByKey(entries: ReadonlyArray<readonly [string, string]>): Map<stri
 export interface ThreadFollowContext {
   threadId: string
   participantDomains: string[]
+  participantAddresses: string[]
   follows: FollowRow[]
 }
 
-export async function findThreadFollowContext(projectId: string, threadId: string): Promise<ThreadFollowContext | null> {
+export async function findThreadFollowContext(
+  projectId: string,
+  threadId: string,
+  addresses: readonly string[],
+): Promise<ThreadFollowContext | null> {
   const db = getDb()
   const [thread] = await db
     .select({ id: mailThreads.id, participantDomains: mailThreads.participantDomains })
@@ -249,9 +269,11 @@ export async function findThreadFollowContext(projectId: string, threadId: strin
     .where(and(eq(mailThreadFollows.threadId, threadId), isNull(mailThreadFollows.endedAt)))
     .orderBy(mailThreadFollows.createdAt)
     .limit(50)
+  const known = await sharedParticipants([thread.id], addresses)
   return {
     threadId: thread.id,
     participantDomains: thread.participantDomains,
+    participantAddresses: known.get(thread.id) ?? [],
     follows: follows.map((follow) => ({
       ...follow,
       createdAt: new Date(follow.createdAt),

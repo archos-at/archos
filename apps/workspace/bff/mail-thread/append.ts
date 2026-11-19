@@ -30,6 +30,7 @@ import { ScreenedUploadError } from '@/lib/upload-screening/service'
 import { attachmentRowsOf, cut, readableWithThread, sectionLineOf, type AttachmentFact } from './attachment-rows'
 import { mailThreadIngestFacts, type MailThreadIngestFacts } from './ingest-facts'
 import { clampSentAt, domainOf } from './mail-threading'
+import { rematchAfterWrite } from './rematch'
 import {
   mailThreadCalendarEventSchema,
   mailThreadMaskedSpanSchema,
@@ -147,6 +148,8 @@ export function inboundEntryOf(input: {
     source: 'inbound',
     inboundMailId: mail.id,
     messageId: mail.messageId,
+    baseSubject: mail.baseSubject?.slice(0, 500) ?? null,
+    threadIndexGuid: mail.threadIndexGuid,
     sentAt: mail.sentAt ?? mail.receivedAt,
     receivedAt: mail.receivedAt,
     heading: input.heading,
@@ -212,6 +215,7 @@ export function renderEntryOf(
     sentAt: new Date(row.sentAt),
     receivedAt: new Date(row.receivedAt),
     filedAt: new Date(row.filedAt ?? 0),
+    subject: row.baseSubject ?? null,
     senderName: row.senderName ?? null,
     senderAddress: row.senderAddress ?? null,
     senderDomain: row.senderDomain ?? null,
@@ -500,8 +504,10 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
   const participantDomains = [
     ...new Set([...(thread?.participantDomains ?? []), ...mail.participantDomains]),
   ].slice(0, 200)
-  await commitAppend({
+  const baseSubject = mail.baseSubject ? mail.baseSubject.slice(0, 500) : (thread?.baseSubject ?? '')
+  const committed = await commitAppend({
     threadId,
+    leaseHolder: target.kind === 'existing' ? decision.id : null,
     newThread:
       target.kind === 'new'
         ? {
@@ -509,7 +515,7 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
             organizationId: mail.organizationId,
             projectId: mail.projectId,
             documentId: uploaded.documentId,
-            baseSubject: (mail.baseSubject ?? '').slice(0, 500),
+            baseSubject,
             threadIndexGuid: mail.threadIndexGuid,
             participantDomains,
             locale,
@@ -517,6 +523,7 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
           }
         : null,
     threadUpdate: {
+      baseSubject,
       documentId: uploaded.documentId,
       entryCount: entries.length,
       renderedBytes: rendition.bytes,
@@ -530,6 +537,12 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
     mailId: mail.id,
     movesOriginal: mail.rawStorageKey !== null,
   })
+  if (committed === 'lost') return { kind: 'busy' }
+  if (committed === 'committed') {
+    await rematchAfterWrite(mail.projectId, [
+      { id: threadId, baseSubject, threadIndexGuid: thread ? thread.threadIndexGuid : mail.threadIndexGuid },
+    ])
+  }
   return {
     kind: 'filed',
     entryId,

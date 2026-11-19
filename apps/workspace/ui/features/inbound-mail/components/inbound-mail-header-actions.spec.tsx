@@ -12,8 +12,10 @@ const view = (over: Partial<InboundMailAddressView>): InboundMailAddressView => 
   address: ADDRESS,
   canManage: true,
   lastReceivedAt: null,
+  receivedCount: 3,
   droppedLast30Days: 0,
   ownDomainVerifiedShare: null,
+  forwardedFrom: [],
   ...over,
 })
 

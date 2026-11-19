@@ -4,8 +4,7 @@
  * The receive side's SQL against a REAL Postgres with migration 0196, through
  * the restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run src/lib/inbound-mail/repository.integration.spec.ts
+ *   bash scripts/rls-test-db.sh --only bff/inbound-mail/repository.integration.spec.ts
  *
  * The unit specs stand the repository in; these prove the statements keep the
  * migration's rules rather than meet a refusal in production: a token resolves
@@ -29,6 +28,13 @@ const ORG = `org_inbound_repo_${STAMP}`
 const OTHER_ORG = `org_inbound_repo_other_${STAMP}`
 const USER = 'user_01J0REPOSPEC0000000000000A'
 const token = (seed: string) => (STAMP + seed).replace(/[^a-z2-7]/g, 'a').padEnd(12, 'q').slice(-12)
+
+describe('the suite is not silently skipped in CI', () => {
+  it('has a database to run against', () => {
+    if (!process.env.RLS_SUITE_REQUIRED) return
+    expect(url, 'TEST_DATABASE_URL is unset while RLS_SUITE_REQUIRED is set').toBeTruthy()
+  })
+})
 
 describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
@@ -368,6 +374,39 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect(none).toEqual([])
     })
 
+    it('keeps the thread a reply cites among its candidates, however many newer threads share its subject', async () => {
+      await one(sql`
+        WITH docs AS (
+          INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+          SELECT ${ORG}, ${USER}, 'Crowd ' || n || '.md', ${`k/inbound/${STAMP}/crowd/`} || n, ${`coll_inbound_${STAMP}`}, 'completed', 'project', ${projectId}::uuid
+            FROM generate_series(1, 60) AS n
+          RETURNING id)
+        INSERT INTO mail_threads (organization_id, project_id, document_id, base_subject, locale, created_by, last_entry_at)
+        SELECT ${ORG}, ${projectId}::uuid, id, 'statik dach', 'de', ${USER}, now() + interval '1 day' FROM docs
+        RETURNING id`)
+      const guided = (
+        await one<{ id: string }>(sql`
+          WITH doc AS (
+            INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+            VALUES (${ORG}, ${USER}, 'Guided.md', ${`k/inbound/${STAMP}/guided`}, ${`coll_inbound_${STAMP}`}, 'completed', 'project', ${projectId}::uuid)
+            RETURNING id)
+          INSERT INTO mail_threads (organization_id, project_id, document_id, base_subject, thread_index_guid, locale, created_by, last_entry_at)
+          SELECT ${ORG}, ${projectId}::uuid, id, 'statik dach', '6f1d2c3b-4a5e-4f60-8172-839405a6b7c8', 'de', ${USER}, now() - interval '30 days' FROM doc
+          RETURNING id`)
+      ).id
+
+      const byReply = await inTenant(() =>
+        repo.findThreadCandidates(projectId, {
+          messageIds: ['m1@statik.example'],
+          threadIndexGuid: '6f1d2c3b-4a5e-4f60-8172-839405a6b7c8',
+          baseSubject: 'statik dach',
+          participants: [],
+        }),
+      )
+      expect(byReply).toHaveLength(50)
+      expect(byReply.slice(0, 2).map((candidate) => candidate.threadId).sort()).toEqual([threadId, guided].sort())
+    })
+
     it('finds the filed messages of a Message-ID with the hash of their own text', async () => {
       const [filed] = await inTenant(() => repo.findFiledMessages(projectId, 'm1@statik.example'))
       const { createHash } = await import('node:crypto')
@@ -384,17 +423,58 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect(await inTenant(() => repo.findScreenedDuplicates(projectId, ['b'.repeat(64), 'c'.repeat(64)]))).toEqual(
         new Map([['b'.repeat(64), documentId]]),
       )
-      expect(await inTenant(() => repo.findScreenedNamesakes(projectId, ['S-101_B.pdf', 'Gehalten.pdf']))).toEqual(
+      expect(await inTenant(() => repo.findScreenedRevisionCandidates(projectId, ['S-101_B.pdf', 'Gehalten.pdf']))).toEqual(
         new Map([['S-101_B.pdf', documentId]]),
       )
     })
 
+    it('names the same plan number’s latest earlier index as a revision candidate, newest version first, screened and unmistakable only', async () => {
+      const screened = async (filename: string, created: string, versionAt: string | null, seed: string): Promise<string> => {
+        const { id } = await one<{ id: string }>(sql`
+          INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
+                                 content_hash, screened_hash, screening_outcome, created_at)
+          VALUES (${ORG}, ${USER}, ${filename}, ${`k/inbound/${STAMP}/plan-${seed}`}, ${`coll_inbound_${STAMP}`}, 'completed', 'project',
+                  ${projectId}::uuid, ${seed.padEnd(64, '0')}, ${seed.padEnd(64, '0')}, 'clean', now() - ${created}::interval) RETURNING id`)
+        if (versionAt) {
+          await one(sql`
+            INSERT INTO document_versions (organization_id, document_id, project_id, version_number, state, storage_key, created_by, created_at)
+            VALUES (${ORG}, ${id}::uuid, ${projectId}::uuid, 1, 'superseded', ${`k/inbound/${STAMP}/plan-${seed}/v1`}, ${USER}, now() - ${versionAt}::interval)
+            RETURNING id`)
+        }
+        return id
+      }
+      const b = await screened('TW-7_B.pdf', '5 days', '5 days', 'd1')
+      const newestC = await screened('TW-7_C.pdf', '3 days', '1 hour', 'd2')
+      await screened('TW-7-C.pdf', '1 day', '1 day', 'd3')
+      await screened('TW-7 Index C.pdf', '1 day', '10 minutes', 'd8')
+      const e = await screened('TW-7_E.pdf', '4 days', '4 days', 'd4')
+      await screened('TW-7_D.dwg', '1 day', '1 day', 'd5')
+      await screened('TW-70_C.pdf', '1 day', '1 day', 'd6')
+      await one(sql`
+        INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, content_hash)
+        VALUES (${ORG}, ${USER}, 'tw-7_c.pdf', ${`k/inbound/${STAMP}/plan-held`}, ${`coll_inbound_${STAMP}`}, 'quarantined', 'project',
+                ${projectId}::uuid, ${'d7'.padEnd(64, '0')}) RETURNING id`)
+
+      const found = await inTenant(() =>
+        repo.findScreenedRevisionCandidates(projectId, ['TW-7_D.pdf', 'TW-7_B.pdf', 'TW-7_A.pdf', 'TW-7_F.pdf', 'Brief.pdf']),
+      )
+      expect(found).toEqual(
+        new Map([
+          ['TW-7_D.pdf', newestC],
+          ['TW-7_B.pdf', b],
+          ['TW-7_F.pdf', e],
+        ]),
+      )
+    })
+
     it('reads a thread’s follows for the follow check, and nothing of another project', async () => {
-      const context = await inTenant(() => repo.findThreadFollowContext(projectId, threadId))
+      const asked = ['Huber@Statik.example', 'planung@buero.example', 'fremd@statik.example']
+      const context = await inTenant(() => repo.findThreadFollowContext(projectId, threadId, asked))
       expect(context).toMatchObject({ threadId, participantDomains: ['statik.example'] })
+      expect([...(context?.participantAddresses ?? [])].sort()).toEqual(['huber@statik.example', 'planung@buero.example'])
       expect(context?.follows).toHaveLength(1)
       expect(context?.follows[0]).toMatchObject({ userId: USER, endedAt: null })
-      expect(await inTenant(() => repo.findThreadFollowContext(otherProjectId, threadId))).toBeNull()
+      expect(await inTenant(() => repo.findThreadFollowContext(otherProjectId, threadId, asked))).toBeNull()
     })
   })
 
@@ -501,8 +581,11 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       await one(sql`
         INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, expires_at)
         VALUES (${ORG}, ${own}::uuid, ${thread}::uuid, ${OTHER_PERSON}, now() + interval '60 days') RETURNING id`)
+      expect((await inTenant(() => repo.setForwardedFrom(own, ['projekt-haus@buero.at'])))?.forwardedFrom).toEqual(['projekt-haus@buero.at'])
 
       const replaced = await inTenant(() => repo.replaceAddress({ organizationId: ORG, projectId: own, token: token('third'), slug: 'haus', createdBy: PERSON }))
+      expect(replaced.ok && replaced.value.row.forwardedFrom).toEqual(['projekt-haus@buero.at'])
+      expect(await inTenant(() => repo.findForwardedFrom(replaced.ok ? replaced.value.row.id : ''))).toEqual(['projekt-haus@buero.at'])
       expect(replaced.ok && replaced.value.previousAddressId).toBe(first.ok ? first.value.id : null)
       expect(replaced.ok && replaced.value.followsEnded).toEqual([expect.objectContaining({ threadId: thread, userId: OTHER_PERSON })])
       expect(await one(sql`SELECT revoked_reason, revoked_by FROM inbound_mail_addresses WHERE id = ${first.ok ? first.value.id : ''}::uuid`)).toEqual({
@@ -583,6 +666,35 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect((await inTenant(() => repo.countWaitingMailsByProject([projectId]))).get(projectId)).toBe(listed.length - 1)
     })
 
+    it('counts a mail being filed as waiting in the inbox row as in the Postfach and the list: one definition', async () => {
+      const { waitingMailCounts } = await import('./notice-repository')
+      const { mailId, fileId } = await heldMail()
+      await inTenant(() =>
+        repo.writeMailDecisions([{ mailId, ifMatch: 'x', files: [fileRow(mailId, fileId)] }], actor, () => 'x', new Date(Date.now() + 300_000), null),
+      )
+      const listed = await inTenant(() => repo.listProjectMails(projectId, { status: 'waiting', limit: 50 }, null))
+      expect(listed.map((row) => row.mail.id)).toContain(mailId)
+      expect((await inTenant(() => waitingMailCounts([projectId]))).get(projectId)).toBe(listed.length)
+      expect((await inTenant(() => repo.countWaitingMailsByProject([projectId]))).get(projectId)).toBe(listed.length)
+    })
+
+    it('locks the mails of one decision in id order, whatever order the request named them in', async () => {
+      const [low, high] = [await heldMail(), await heldMail()].sort((a, b) => (a.mailId < b.mailId ? -1 : 1))
+      const written = await inTenant(() =>
+        repo.writeMailDecisions(
+          [high!, low!].map((mail) => ({ mailId: mail.mailId, ifMatch: 'x', files: [fileRow(mail.mailId, mail.fileId)] })),
+          actor,
+          () => 'x',
+          new Date(Date.now() + 300_000),
+          null,
+        ),
+      )
+      expect([...new Set(written.decisions.map((row) => row.mailId))]).toEqual([low!.mailId, high!.mailId])
+      const [first, second] = [await heldMail(), await heldMail()].sort((a, b) => (a.mailId < b.mailId ? -1 : 1))
+      const dismissed = await inTenant(() => repo.dismissMails(projectId, [second!.mailId, first!.mailId], actor))
+      expect([...new Set(dismissed.decisions.map((row) => row.mailId))]).toEqual([first!.mailId, second!.mailId])
+    })
+
     it('hands the filing job its mails in the order they were written, whatever order the request named them in', async () => {
       const newer = await heldMail()
       const older = await heldMail()
@@ -594,6 +706,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
 
     it('dismisses and restores within the window, each act a decision, and a second restore finds nothing', async () => {
       const { mailId } = await heldMail()
+      await one(sql`UPDATE inbound_mails SET expiring_notified_at = now() WHERE id = ${mailId}::uuid RETURNING id`)
       const dismissed = await inTenant(() => repo.dismissMails(projectId, [mailId], actor))
       expect(dismissed.decisions.map((row) => row.action)).toEqual(['dismiss', 'dismiss'])
       expect(await inTenant(() => repo.hasOpenParts(mailId))).toBe(false)
@@ -605,6 +718,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       const restored = await inTenant(() => repo.restoreMailParts(projectId, mailId, actor, new Date(Date.now() - 7 * 86_400_000), later))
       expect(restored.decisions.map((row) => row.action)).toEqual(['restore', 'restore'])
       expect((await inTenant(() => repo.findMailParts([mailId]))).map((part) => part.state)).toEqual(['waiting', 'waiting'])
+      expect(await one(sql`SELECT expiring_notified_at FROM inbound_mails WHERE id = ${mailId}::uuid`)).toEqual({ expiring_notified_at: null })
       expect(await inTenant(() => repo.restoreMailParts(projectId, mailId, actor, new Date(0), later))).toEqual({ decisions: [] })
 
       await inTenant(() => repo.markDecisionsAudited(restored.decisions.map((row) => row.id)))

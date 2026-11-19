@@ -1,10 +1,10 @@
 'use client'
 
 import type { JSX } from 'react'
-import { Info, X } from 'lucide-react'
+import { useId } from 'react'
+import { CircleAlert, X } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
-import { Toggletip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslations } from '@/i18n'
 import { cn } from '@/lib/utils'
 import type { IncompleteReason } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -26,6 +26,7 @@ export interface SelectionBarProps {
 
 export function SelectionBar({ count, block, max, filing, dismissing, onFile, onDismiss, onClear, className }: SelectionBarProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
+  const whyId = useId()
   const reason = block ? t(`bulk.blocked.${block.reason}`, { count: block.count, max }) : null
   return (
     <div
@@ -44,22 +45,14 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
           <X className="size-4" aria-hidden />
         </Button>
         <span className="text-sm font-medium tabular-nums">{t('bulk.selected', { count })}</span>
-        {reason && (
-          <Toggletip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-foreground touch-target ml-auto inline-flex size-7 items-center justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                aria-label={reason}
-                data-testid="selection-why"
-              >
-                <Info className="size-4" aria-hidden />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-72">{reason}</TooltipContent>
-          </Toggletip>
-        )}
       </div>
+      {/* Why „Ablegen“ is off is said in words under the count: behind a 16px ⓘ a finger never found it. */}
+      {reason && (
+        <p className="text-muted-foreground flex items-start gap-1.5 text-xs text-pretty" id={whyId} data-testid="selection-why">
+          <CircleAlert className="text-warning mt-px size-3.5 shrink-0" aria-hidden />
+          <span>{reason}</span>
+        </p>
+      )}
       {/* The secondary, then the primary at the end, 12px apart, as in Dateien's selection bar and the decision bar. */}
       <div className="flex items-center gap-3">
         <BusyButton
@@ -81,6 +74,7 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
           busyLabel={t('bulk.fileSuggestedBusy')}
           blocked={dismissing}
           disabled={block !== null}
+          aria-describedby={reason ? whyId : undefined}
           onClick={onFile}
           className="min-w-0 flex-1"
           data-testid="selection-file"

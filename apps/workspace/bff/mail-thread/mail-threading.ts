@@ -1,5 +1,6 @@
 import { VERIFIED_SENDER_TRUSTS, type SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { type ThreadMatchHeader, type ThreadMatchStrength } from './mail-thread-vocabulary'
+import { isPublicMailDomain } from './public-mail-domains'
 
 export { SENDER_TRUSTS, VERIFIED_SENDER_TRUSTS, type SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 
@@ -188,12 +189,19 @@ export interface SenderEvidence {
   senderTrust: SenderTrust
   senderFlags: readonly string[]
   signedHeaders: readonly string[]
+  senderDomain: string | null
+}
+
+export interface ThreadParticipation {
+  participantDomains: readonly string[]
 }
 
 export const PRESELECTION_BLOCKS = [
   'weak_match',
   'sender_not_verified',
   'header_not_signed',
+  'sender_domain_new',
+  'public_mail_domain',
   'not_addressed_to_project',
   'stale_date',
   'date_out_of_range',
@@ -227,11 +235,36 @@ export function senderPreselectionBlocks(
   return blocks
 }
 
-export function threadPreselection(match: ThreadMatch, sender: SenderEvidence): ThreadPreselection {
+export function threadPreselection(
+  match: ThreadMatch,
+  sender: SenderEvidence,
+  thread: ThreadParticipation | null
+): ThreadPreselection {
   const blocks = senderPreselectionBlocks(sender)
   if (!PRESELECTABLE_STRENGTHS.includes(match.strength)) blocks.unshift('weak_match')
-  if (sender.senderTrust === 'external_verified' && !restsOnSignedHeader(match, sender)) blocks.push('header_not_signed')
+  if (sender.senderTrust === 'external_verified') blocks.push(...outsiderThreadBlocks(match, sender, thread))
   return { preselected: blocks.length === 0, blocks }
+}
+
+function outsiderThreadBlocks(
+  match: ThreadMatch,
+  sender: SenderEvidence,
+  thread: ThreadParticipation | null
+): PreselectionBlock[] {
+  const blocks: PreselectionBlock[] = []
+  if (!restsOnSignedHeader(match, sender)) blocks.push('header_not_signed')
+  if (isPublicMailDomain(sender.senderDomain)) blocks.push('public_mail_domain')
+  else if (!senderDomainTookPart(sender, thread)) blocks.push('sender_domain_new')
+  return blocks
+}
+
+export function senderDomainTookPart(
+  sender: Pick<SenderEvidence, 'senderDomain'>,
+  thread: ThreadParticipation | null
+): boolean {
+  const domain = sender.senderDomain?.toLowerCase()
+  if (!domain || !thread) return false
+  return thread.participantDomains.some((known) => known.toLowerCase() === domain)
 }
 
 export function restsOnSignedHeader(match: ThreadMatch, sender: Pick<SenderEvidence, 'signedHeaders'>): boolean {
@@ -239,10 +272,14 @@ export function restsOnSignedHeader(match: ThreadMatch, sender: Pick<SenderEvide
   return match.headers.some((header) => signed.has(header))
 }
 
-export function appendNeedsAcknowledgement(sender: SenderEvidence, match: ThreadMatch | undefined): boolean {
+export function appendNeedsAcknowledgement(
+  sender: SenderEvidence,
+  match: ThreadMatch | undefined,
+  thread: ThreadParticipation | null
+): boolean {
   if (senderPreselectionBlocks(sender).length > 0) return true
   if (!match || match.strength === 'subject') return false
-  return sender.senderTrust === 'external_verified' && !restsOnSignedHeader(match, sender)
+  return sender.senderTrust === 'external_verified' && outsiderThreadBlocks(match, sender, thread).length > 0
 }
 
 export const SENT_AT_WINDOW_DAYS = 30

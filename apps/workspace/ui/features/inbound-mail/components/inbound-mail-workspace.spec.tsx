@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), loading: vi.fn(() => 'toast-1') } }))
 const nav = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }))
+const media = vi.hoisted(() => ({ phone: false }))
+vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => media.phone }))
 vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: nav.push, replace: nav.replace, back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -15,6 +17,7 @@ import { capturePosthog } from '@/lib/analytics/posthog'
 import { act, fireEvent, render, screen, waitFor, within } from '@/test-utils'
 import {
   ADDRESS_VARIANTS,
+  DETAIL_BY_ID,
   DETAIL_VARIANTS,
   FIXTURE_NOW,
   FOLDERS,
@@ -23,9 +26,11 @@ import {
   PROJECT_NAME,
   fixtureAddressClient,
   fixtureClient,
+  fixtureId,
   listPage,
 } from '@/app/dev/inbound-mail/fixtures'
-import { resetInboundMailWaitingForTests } from '@/hooks/use-inbound-mail-waiting'
+import { refreshInboundMailWaiting, resetInboundMailWaitingForTests } from '@/hooks/use-inbound-mail-waiting'
+import { SHORTCUTS_PREFERENCE_KEY } from '@/hooks/use-shortcuts-preference'
 import { InboundMailWorkspace } from './inbound-mail-workspace'
 
 function renderWorkspace(variant: string, overrides: Partial<Parameters<typeof InboundMailWorkspace>[0]> = {}) {
@@ -59,7 +64,21 @@ function renderWorkspace(variant: string, overrides: Partial<Parameters<typeof I
 beforeEach(() => {
   vi.clearAllMocks()
   resetInboundMailWaitingForTests()
+  media.phone = false
+  window.localStorage.removeItem(SHORTCUTS_PREFERENCE_KEY)
 })
+
+const EXPIRING = fixtureId('mail:outsider-expiring')
+
+function renderOpen(variant: string, mailId: string, overrides: Partial<Parameters<typeof InboundMailWorkspace>[0]> = {}) {
+  const fixture = DETAIL_BY_ID.get(mailId)
+  return renderWorkspace(variant, { mailId, initialMail: fixture?.view ?? null, initialText: fixture?.text ?? null, ...overrides })
+}
+
+function listWithout(variant: string, ...gone: string[]) {
+  const items = LIST_VARIANTS[variant].items.filter((item) => item.status === 'waiting' && !gone.includes(item.id))
+  return listPage(items, null)
+}
 
 describe('InboundMailWorkspace', () => {
   it('steps the group presses back while mails are picked: the bar under the list files them', () => {
@@ -74,7 +93,7 @@ describe('InboundMailWorkspace', () => {
     renderWorkspace('selected')
     await userEvent.click(screen.getByTestId('selection-clear'))
     const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis”\s· 4 new mails/ })
-    expect(within(group).getByTestId('thread-group-file')).toHaveTextContent('File as revisions 4–7')
+    expect(within(group).getByTestId('thread-group-file')).toHaveTextContent('File these 4')
     await userEvent.click(within(group).getByTestId('thread-group-file'))
     const destinations = await screen.findByTestId('bulk-destinations')
     expect(destinations).toHaveTextContent('In mail thread “Stellplatznachweis”: 4')
@@ -84,7 +103,7 @@ describe('InboundMailWorkspace', () => {
   it('splits a conversation: its ready replies go in one press, the ones that need a look are gone through in order', () => {
     renderWorkspace('thread-group')
     const ready = screen.getByRole('region', { name: /3 new mails/ })
-    expect(within(ready).getByTestId('thread-group-file')).toHaveTextContent('File as revisions 4–6')
+    expect(within(ready).getByTestId('thread-group-file')).toHaveTextContent('File these 3')
     const waiting = screen.getByRole('region', { name: /2 new mails/ })
     expect(within(waiting).queryByTestId('thread-group-file')).toBeNull()
     expect(within(waiting).getByTestId('thread-group-open')).toHaveAttribute('href', expect.stringContaining('/files/mail/'))
@@ -107,7 +126,7 @@ describe('InboundMailWorkspace', () => {
     const { client } = renderWorkspace('worst-case')
     const file = vi.spyOn(client, 'file')
     const press = screen.getByTestId('thread-group-file')
-    expect(press).toHaveTextContent('File the first 20 as revisions 4–23')
+    expect(press).toHaveTextContent('File the first 20')
     expect(screen.queryByTestId('readiness-file-all')).toBeNull()
     await userEvent.click(press)
     await userEvent.click(await screen.findByTestId('bulk-file-confirm'))
@@ -115,10 +134,10 @@ describe('InboundMailWorkspace', () => {
     expect(file.mock.calls[0][1].mails).toHaveLength(20)
   })
 
-  it('heads the list with „Bereit“ and „Braucht Sie“, and says on each waiting row what it needs', () => {
+  it('heads the list with „Ablagebereit“ and „Braucht Sie“, and says on each waiting row what it needs', () => {
     renderWorkspace('many')
-    expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready3')
-    expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you4')
+    expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready to file3')
+    expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you6')
     const nameStop = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['name-stop'].view.id}`)
     expect(within(nameStop).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Check an attachment')
     const unvouched = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['unverified-thread'].view.id}`)
@@ -129,14 +148,14 @@ describe('InboundMailWorkspace', () => {
     expect(within(nameStop).queryByTestId('inbound-mail-row-file')).toBeNull()
   })
 
-  it('phrases a held writer’s row for its reader, and keeps a colleague’s claimed mail out of „Braucht Sie“ (B3)', () => {
+  it('phrases a held writer’s row for its reader: a colleague checks the sender of a writer’s unsigned mail under „Braucht Sie“ (amendment of 2026-11-19)', () => {
     const { unmount } = renderWorkspace('claimed')
     const row = (variant: string) => screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS[variant].view.id}`)
     const claimed = within(row('claimed-by-colleague')).getByTestId('inbound-mail-row-reason')
-    expect(claimed).toHaveAttribute('data-reason', 'claimed')
-    expect(claimed).toHaveTextContent('Waiting for Miriam Huber')
-    expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others')).toBeInTheDocument()
+    expect(claimed).toHaveAttribute('data-reason', 'sender')
+    expect(claimed).toHaveTextContent('Check the sender')
     expect(screen.getByTestId('readiness-needs_you')).toBeInTheDocument()
+    expect(screen.queryByTestId('readiness-others')).toBeNull()
     expect(within(row('not-filed')).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Not filed directly · Choose a folder')
     unmount()
     renderWorkspace('own')
@@ -150,7 +169,7 @@ describe('InboundMailWorkspace', () => {
   })
 
   it('files a ready row in one press: the same request as bulk, no confirmation, and says where everything goes', async () => {
-    const { client } = renderWorkspace('many')
+    const { client } = renderWorkspace('many', { pollMs: 1 })
     const file = vi.spyOn(client, 'file')
     const id = DETAIL_VARIANTS['authority-statement'].view.id
     await userEvent.click(within(screen.getByTestId(`inbound-mail-row-${id}`)).getByTestId('inbound-mail-row-file'))
@@ -161,10 +180,29 @@ describe('InboundMailWorkspace', () => {
     expect(body.mails[0]).not.toHaveProperty('acknowledgeSender')
     expect(body.mails[0]).not.toHaveProperty('acknowledgeRisk')
     expect(screen.queryByTestId('bulk-destinations')).not.toBeInTheDocument()
-    expect(toast.success).toHaveBeenCalledWith('1 mail is being filed as suggested', {
+    expect(toast.loading).toHaveBeenCalledWith('1 mail is being filed as suggested', {
       description: 'In mail thread “Verfahren MA 37”: 1\u00A0· In “Behörde”: 1',
     })
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_filed_as_suggested', { surface: 'row', mails: 1, files: 1, texts: 1 })
+    // The same toast then says that it landed, and where.
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Filed 1 file and the mail text', expect.objectContaining({ id: 'toast-1', action: expect.objectContaining({ label: 'View' }) }))
+    )
+  })
+
+  it('says it when a row’s filing fails, in the same toast', async () => {
+    const { client } = renderWorkspace('many', { pollMs: 1 })
+    const id = DETAIL_VARIANTS['authority-statement'].view.id
+    const get = client.get.bind(client)
+    let reads = 0
+    vi.spyOn(client, 'get').mockImplementation(async (projectId, mailId) => {
+      reads += 1
+      const view = await get(projectId, mailId)
+      if (reads === 1) return view
+      return { ...view, parts: view.parts.map((part) => (part.kind === 'attachment' ? { ...part, state: 'waiting' as const, lastFailure: 'quota' as const } : { ...part, state: 'filed' as const })) }
+    })
+    await userEvent.click(within(screen.getByTestId(`inbound-mail-row-${id}`)).getByTestId('inbound-mail-row-file'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('storage is full'), { id: 'toast-1' }))
   })
 
   it('reads a ready row again before its press and files nothing that changed meanwhile', async () => {
@@ -181,6 +219,7 @@ describe('InboundMailWorkspace', () => {
   it('files every ready mail from the „Bereit“ heading after the bulk confirmation', async () => {
     const { client } = renderWorkspace('many')
     const file = vi.spyOn(client, 'file')
+    expect(screen.getByTestId('readiness-file-all')).toHaveTextContent(/^File all 3$/)
     await userEvent.click(screen.getByTestId('readiness-file-all'))
     const destinations = await screen.findByTestId('bulk-destinations')
     expect(destinations).toHaveTextContent('In mail thread “Stellplatznachweis”: 2')
@@ -191,20 +230,58 @@ describe('InboundMailWorkspace', () => {
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_filed_as_suggested', expect.objectContaining({ surface: 'ready_section', mails: 3 }))
   })
 
-  it('keeps unconfirmed and automatic mail in a quiet group, listed when opened', async () => {
+  it('lists an outsider’s unconfirmed mail as a row with its trust glyph, and folds only automatic mail', async () => {
     renderWorkspace('unverified-group')
+    const outsider = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['external-unverified'].view.id}`)
+    expect(screen.getByTestId('quiet-group')).not.toContainElement(outsider)
+    expect(within(outsider).getByTestId('sender-trust-glyph')).toBeInTheDocument()
     const toggle = screen.getByTestId('quiet-group-toggle')
-    expect(toggle).toHaveTextContent('Domain not verified or automatic (2)')
+    expect(toggle).toHaveTextContent('Automatic1')
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(toggle)
-    expect(within(screen.getByTestId('quiet-group')).getAllByTestId('inbound-mail-row-link')).toHaveLength(2)
+    expect(within(screen.getByTestId('quiet-group')).getAllByTestId('inbound-mail-row-link')).toHaveLength(1)
+  })
+
+  it('opens the automatic group by itself when nothing else waits, and J reaches its rows', async () => {
+    renderWorkspace('only-automatic')
+    expect(screen.getByTestId('quiet-group-toggle')).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.keyDown(window, { key: 'j' })
+    const row = within(screen.getByTestId('quiet-group')).getAllByTestId(/^inbound-mail-row-[0-9a-f]/)[0]
+    await waitFor(() => expect(row).toHaveAttribute('data-focused', 'true'))
+  })
+
+  it('says, calmly and dated, until when an outsider’s mail stays in its last days, and lifts it to the top of its section', () => {
+    renderWorkspace('many')
+    const row = screen.getByTestId(`inbound-mail-row-${EXPIRING}`)
+    const day = new Intl.DateTimeFormat('en', { day: '2-digit', month: '2-digit' }).format(new Date(FIXTURE_NOW + 2 * 86_400_000))
+    expect(within(row).getByTestId('inbound-mail-row-expiry')).toHaveTextContent(`Stays in Project mail until ${day}`)
+    const heading = screen.getByTestId('readiness-needs_you')
+    const below = screen.getAllByTestId(/^inbound-mail-row-[0-9a-f]/).filter((candidate) => heading.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(below[0]).toBe(row)
+    expect(within(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['member-verified'].view.id}`)).queryByTestId('inbound-mail-row-expiry')).toBeNull()
+  })
+
+  it('filters the rows by sender and subject, says the count once, and offers to clear a search that finds nothing', async () => {
+    renderWorkspace('many')
+    const search = screen.getByRole('searchbox', { name: 'Filter mail by sender or subject' })
+    await userEvent.type(search, 'novak')
+    expect(screen.getAllByTestId('inbound-mail-row-link')).toHaveLength(1)
+    expect(screen.getByTestId('inbound-mail-search-status')).toHaveTextContent('1 match')
+    await userEvent.clear(search)
+    await userEvent.type(search, 'zzz')
+    expect(screen.getByTestId('inbound-mail-no-match')).toHaveTextContent('No mail matches “zzz”')
+    await userEvent.click(within(screen.getByTestId('inbound-mail-no-match')).getByRole('button', { name: 'Clear search' }))
+    expect(screen.getAllByTestId('inbound-mail-row-link').length).toBeGreaterThan(1)
   })
 
   it('teaches the address when nothing ever arrived, and says „all done“ otherwise', async () => {
     renderWorkspace('empty')
     expect(await screen.findByTestId('inbound-mail-never')).toHaveTextContent('No mail to this project yet')
-    expect(await screen.findByTestId('inbound-mail-address')).toHaveTextContent('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    expect(screen.getByTestId('inbound-mail-never-lead')).toHaveTextContent('Put this address in Cc when you write about the project.')
+    expect(await screen.findByTestId('inbound-mail-address')).toHaveTextContent('project+bauplatz-12-wohnbau-seestadt.k3x7q2m5p4ab@inbox.example.org')
     expect(screen.getByTestId('address-copy')).toBeInTheDocument()
+    expect(screen.getByTestId('address-not-postfach')).toHaveTextContent('The Inbox shows notices for you.')
+    expect(screen.getByTestId('address-setup-toggle')).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('says „nothing waits“ for a project that had mail', async () => {
@@ -245,8 +322,9 @@ describe('InboundMailWorkspace', () => {
   it('offers „File as suggested“ only when every selected mail is complete, and says why not', async () => {
     renderWorkspace('bulk-blocked')
     const file = await screen.findByTestId('selection-file')
-    await waitFor(() => expect(screen.getByTestId('selection-why')).toHaveAccessibleName(/needs its sender confirmed/))
+    await waitFor(() => expect(screen.getByTestId('selection-why')).toHaveTextContent(/needs its sender confirmed/))
     expect(file).toBeDisabled()
+    expect(file).toHaveAccessibleDescription(/needs its sender confirmed/)
   })
 
   it('never offers an impersonation for bulk filing: no checkbox, a red label, and X does not select it', async () => {
@@ -298,5 +376,160 @@ describe('InboundMailWorkspace', () => {
   it('says a closed project above the rows', () => {
     renderWorkspace('closed')
     expect(screen.getByTestId('inbound-mail-closed')).toHaveTextContent('The project is closed – reopen it to file')
+  })
+
+  it('opens the next waiting mail after the open one is dismissed, and puts the focus on its row', async () => {
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    const { client } = renderOpen('many', id)
+    const dismiss = vi.spyOn(client, 'dismiss')
+    vi.spyOn(client, 'list').mockResolvedValue(listWithout('many', id))
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Backspace' })
+    })
+    await waitFor(() => expect(dismiss).toHaveBeenCalledWith(PROJECT_ID, { mailIds: [id] }))
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(expect.stringMatching(/\/files\/mail\/[0-9a-f-]+$/)))
+    const next = (nav.replace.mock.calls.at(-1)?.[0] as string).split('/').at(-1)
+    expect(next).not.toBe(id)
+    expect(screen.getByTestId(`inbound-mail-row-${next}`)).toHaveAttribute('data-focused', 'true')
+  })
+
+  it('leaves a mail that still waits (a restore, a filing that failed) where it is', async () => {
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    const { client } = renderOpen('many', id)
+    vi.spyOn(client, 'list').mockResolvedValue(listWithout('many'))
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Backspace' })
+    })
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    await act(async () => {})
+    expect(nav.replace).not.toHaveBeenCalled()
+  })
+
+  it('opens the next mail on a phone too after a decision, and the list only when none is left', async () => {
+    media.phone = true
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    const { client, unmount } = renderOpen('many', id)
+    vi.spyOn(client, 'list').mockResolvedValue(listWithout('many', id))
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Backspace' })
+    })
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(expect.stringMatching(/\/files\/mail\/[0-9a-f-]+$/)))
+    expect((nav.replace.mock.calls.at(-1)?.[0] as string).split('/').at(-1)).not.toBe(id)
+    unmount()
+    nav.replace.mockClear()
+    const only = renderOpen('one', id)
+    vi.spyOn(only.client, 'list').mockResolvedValue(listWithout('one', id))
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Backspace' })
+    })
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(`/app/projects/${PROJECT_ID}/files/mail`))
+  })
+
+  it('never dismisses with ⌫ while a button or a box has the focus', async () => {
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    const { client } = renderOpen('many', id)
+    const dismiss = vi.spyOn(client, 'dismiss')
+    const box = within(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS.revision.view.id}`)).getByTestId('inbound-mail-row-checkbox')
+    box.focus()
+    fireEvent.keyDown(box, { key: 'Backspace' })
+    const button = screen.getByTestId('filter-handled')
+    button.focus()
+    fireEvent.keyDown(button, { key: 'Delete' })
+    await act(async () => {})
+    expect(dismiss).not.toHaveBeenCalled()
+  })
+
+  it('dismisses an outsider’s unconfirmed mail on ⌫ without asking, as any other, with the undo', async () => {
+    const { client } = renderOpen('many', EXPIRING)
+    const dismiss = vi.spyOn(client, 'dismiss')
+    vi.spyOn(client, 'list').mockResolvedValue(listWithout('many', EXPIRING))
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'Backspace' })
+    })
+    await waitFor(() => expect(dismiss).toHaveBeenCalledWith(PROJECT_ID, { mailIds: [EXPIRING] }))
+    expect(screen.queryByText('Dismiss this mail?')).toBeNull()
+    expect(toast.success).toHaveBeenCalledWith('Mail dismissed', expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
+  })
+
+  it('answers no single key while the profile turned the shortcuts off', () => {
+    window.localStorage.setItem(SHORTCUTS_PREFERENCE_KEY, 'false')
+    renderWorkspace('one')
+    fireEvent.keyDown(window, { key: 'j' })
+    expect(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['member-verified'].view.id}`)).not.toHaveAttribute('data-focused')
+  })
+
+  it('reads the list again when the shared count sees mail arrive', async () => {
+    const { client } = renderWorkspace('one')
+    await act(async () => {
+      await refreshInboundMailWaiting(PROJECT_ID, client)
+    })
+    const later = Date.now() + 60_000
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(later)
+    vi.spyOn(client, 'list').mockResolvedValue(listPage(LIST_VARIANTS['unverified-group'].items, null))
+    await act(async () => {
+      await refreshInboundMailWaiting(PROJECT_ID, client)
+    })
+    expect(await screen.findByTestId(`inbound-mail-row-${EXPIRING}`)).toBeInTheDocument()
+    clock.mockRestore()
+  })
+
+  it('hangs a group’s rows from its line, exactly as many as its press files', () => {
+    renderWorkspace('thread-group')
+    const ready = screen.getByRole('region', { name: /3 new mails/ })
+    expect(within(ready).getByTestId('thread-group-file')).toHaveTextContent('File these 3')
+    expect(within(within(ready).getByTestId('thread-group-rows')).getAllByTestId('inbound-mail-row-link')).toHaveLength(3)
+    const loose = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['mixed-attachments'].view.id}`)
+    expect(within(ready).queryByTestId(`inbound-mail-row-${DETAIL_VARIANTS['mixed-attachments'].view.id}`)).toBeNull()
+    expect(loose).toBeInTheDocument()
+  })
+
+  it('says after „Alle … ablegen“ how many mails went where, once they landed, with a way to look', async () => {
+    renderWorkspace('many', { pollMs: 1 })
+    await userEvent.click(screen.getByTestId('readiness-file-all'))
+    await userEvent.click(await screen.findByTestId('bulk-file-confirm'))
+    await waitFor(() => expect(toast.loading).toHaveBeenCalledWith('3 mails are being filed as suggested', expect.anything()))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('3 mails filed', expect.objectContaining({ id: 'toast-1' })))
+    const options = vi.mocked(toast.success).mock.calls.at(-1)?.[1] as { description: React.ReactElement; action: { label: string; onClick: () => void } }
+    render(options.description)
+    expect(screen.getByTestId('bulk-landed').textContent).toBe(
+      '2 mail texts →\u00A0“Stellplatznachweis”Mail text →\u00A0“Verfahren MA 37”1 file →\u00A0Behörde1 file →\u00A0Behörde/Bescheide1 file →\u00A0Tragwerk'
+    )
+    expect(options.action.label).toBe('View')
+    act(() => options.action.onClick())
+    expect(nav.replace).toHaveBeenLastCalledWith(expect.stringContaining('status=handled'))
+  })
+
+  it('says at the top how mail gets here until the project received five, with the address to copy, until dismissed', async () => {
+    const fresh = { ...(ADDRESS_VARIANTS.manager as Exclude<(typeof ADDRESS_VARIANTS)['manager'], string>), receivedCount: 1 }
+    const { unmount } = renderWorkspace('one', { addressClient: fixtureAddressClient(fresh) })
+    const hint = await screen.findByTestId('inbound-mail-start-hint')
+    expect(hint).toHaveTextContent('Put the project’s address in Cc or forward mail to it, and it lands here.')
+    expect(within(hint).getByTestId('inbound-mail-start-copy')).toHaveTextContent('Copy address')
+    await userEvent.click(within(hint).getByTestId('inbound-mail-start-dismiss'))
+    expect(screen.queryByTestId('inbound-mail-start-hint')).toBeNull()
+    expect(window.localStorage.getItem(`inbound-mail.start-hint-dismissed:${PROJECT_ID}`)).toBe('1')
+    unmount()
+    const again = fixtureAddressClient(fresh)
+    const read = vi.spyOn(again, 'get')
+    renderWorkspace('one', { addressClient: again })
+    await waitFor(() => expect(read).toHaveBeenCalled())
+    await act(async () => {})
+    expect(screen.queryByTestId('inbound-mail-start-hint')).toBeNull()
+    window.localStorage.clear()
+  })
+
+  it('says nothing of how mail gets here once it flows', async () => {
+    const flowing = fixtureAddressClient(ADDRESS_VARIANTS.manager)
+    const read = vi.spyOn(flowing, 'get')
+    renderWorkspace('many', { addressClient: flowing })
+    await waitFor(() => expect(read).toHaveBeenCalled())
+    await act(async () => {})
+    expect(screen.queryByTestId('inbound-mail-start-hint')).toBeNull()
+  })
+
+  it('opens „Einordnen“ straight from the row of a mail about to be removed', async () => {
+    renderOpen('many', EXPIRING)
+    await userEvent.click(within(screen.getByTestId(`inbound-mail-row-${EXPIRING}`)).getByTestId('inbound-mail-row-file-now'))
+    expect(await screen.findByTestId('filing-dialog')).toBeInTheDocument()
   })
 })

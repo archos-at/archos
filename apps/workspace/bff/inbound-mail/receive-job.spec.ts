@@ -38,11 +38,14 @@ const state = vi.hoisted(() => ({
   filedMessages: [] as unknown[],
   followContext: null as unknown,
   dns: null as unknown,
+  held: false,
+  forwardedFrom: [] as string[],
 }))
 
 vi.mock('./repository', () => ({
   findMailForReceive: vi.fn(async () => (state.row ? { ...state.row } : null)),
   findAddressToken: vi.fn(async () => 'abcdefgh2345'),
+  findForwardedFrom: vi.fn(async () => state.forwardedFrom),
   recordRawScan: vi.fn(async (_id: string, scan: { status: string; engine: string | null; scannedAt: Date }) => {
     state.calls.push(`scan:${scan.status}`)
     if (state.row?.status === 'received') Object.assign(state.row, { rawScanStatus: scan.status, rawScanEngine: scan.engine, rawScannedAt: scan.scannedAt })
@@ -62,7 +65,7 @@ vi.mock('./repository', () => ({
   findThreadCandidates: vi.fn(async () => state.threadCandidates),
   findFiledMessages: vi.fn(async () => state.filedMessages),
   findScreenedDuplicates: vi.fn(async () => new Map()),
-  findScreenedNamesakes: vi.fn(async () => new Map()),
+  findScreenedRevisionCandidates: vi.fn(async () => new Map()),
   findThreadFollowContext: vi.fn(async () => state.followContext),
   holdMail: vi.fn(async (_id: string, fields: Record<string, unknown>, parts: NewInboundMailPartRow[]) => {
     state.calls.push('hold')
@@ -120,7 +123,19 @@ vi.mock('@/lib/upload-screening/service', async () => {
   const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
   return { gatePolicy: vi.fn(async () => SUGGESTED_SCREENING_POLICY) }
 })
-vi.mock('@/lib/compliance/repository', () => ({ isCoveredByActiveHold: vi.fn(async () => false) }))
+vi.mock('./sweep-erasure-repository', () => ({
+  takeReleasedErasure: vi.fn(async (erasure: { id: string; rawKey: string | null }) => {
+    state.calls.push('take')
+    const row = state.row
+    if (state.held || !row || row.status !== 'dropped' || !row.erasureDeferredAt || row.rawStorageKey !== erasure.rawKey) return false
+    Object.assign(row, { rawStorageKey: null, erasureDeferredAt: null })
+    return true
+  }),
+  returnReleasedErasure: vi.fn(async (erasure: { rawKey: string | null }, kept: string[]) => {
+    if (!state.row) return
+    Object.assign(state.row, { rawStorageKey: erasure.rawKey && kept.includes(erasure.rawKey) ? erasure.rawKey : null, erasureDeferredAt: new Date() })
+  }),
+}))
 vi.mock('@/lib/audit/after-commit', () => ({ recordAuditEventAfterCommit: vi.fn() }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
@@ -140,7 +155,6 @@ import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { scanForMalware } from '@/lib/malware-scan/client'
 import { loadOrganizationDirectory, loadOrganizationDirectoryStrict } from '@/lib/sharing/directory'
@@ -162,11 +176,14 @@ import {
   sign,
 } from './__fixtures__/hostile'
 import { userHoldsProjectPermissionStrict as userHoldsProjectPermission } from '@/lib/authz/project-membership'
+import { exchangeRedirect, OFFICE_PROJECT_MAILBOX, SRS_ENVELOPE } from './__fixtures__/exchange-redirect'
 import { announceHeld, announceWaiting } from './announce'
 import { readMail, type MailRead } from './read-client'
+import { authenticateSender } from './sender-auth'
 import { recordOriginal } from './receive-original'
 import { RECEIVE_FAULT_BUDGET, RECEIVE_FAULT_WAITS_MS } from './receive-faults'
-import { findAddressToken, findThreadCandidates } from './repository'
+import { dropMail, findAddressToken, findThreadCandidates } from './repository'
+import { eraseStagedObjects } from './staging'
 import { ATTACHMENT_SCANS_IN_FLIGHT, inboundMailJobId, runInboundMailReceive } from './receive-job'
 
 const ORG = 'org_01RECEIVEJOB'
@@ -295,7 +312,9 @@ beforeEach(() => {
     threadCandidates: [],
     filedMessages: [],
     followContext: null,
+    forwardedFrom: [],
     dns: fakeDns({ ...keyFor(MEMBER_DOMAIN), ...keyFor('statik-weber.at') }),
+    held: false,
   })
   vi.stubEnv('INBOUND_MAIL_DOMAIN', INBOUND_DOMAIN)
   vi.mocked(scanForMalware).mockResolvedValue(CLEAN)
@@ -418,13 +437,13 @@ describe('the receive job holds a mail for a person', () => {
     expect(heldRow().senderReason).not.toBe('dkim_pass')
   })
 
-  it('labels an unsigned stranger external_unverified and spends no model on it', async () => {
+  it('labels an unsigned stranger external_unverified and still asks for a suggestion', async () => {
     receive(message(BODY, { From: 'Wer Auch Immer <x@stranger.example>' }))
 
     await run()
 
     expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'external_unverified', senderUserId: null })
-    expect(jobKinds()).not.toContain('inbound_mail_suggest')
+    expect(jobKinds()).toContain('inbound_mail_suggest')
     expect(announceWaiting).toHaveBeenCalledTimes(1)
   })
 
@@ -490,8 +509,27 @@ describe('automatic mail', () => {
     expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped', properties: { reason: 'auto_reply' } }))
   })
 
+  it('drops an auto-reply whose header block holds a line that is no field: the line is skipped, not every header check', async () => {
+    receive(message(BODY, { 'Auto-Submitted': 'auto-replied', Subject: 'Abwesend' }).replace('\r\nSubject:', '\r\nX-Mailer broken line\r\nSubject:'))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'dropped', droppedReason: 'auto_reply' })
+  })
+
+  it('holds an auto-reply that carries an attachment, flagged automatic, instead of erasing it unseen', async () => {
+    receive(message(multipart('mixed', [BODY, attachment('Plan_S-101.pdf', 'application/pdf', pdf('S-101'))]), { 'Auto-Submitted': 'auto-replied' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', automatic: true })
+    expect(state.parts.map((part) => part.filename)).toEqual([null, 'Plan_S-101.pdf'])
+    expect(state.erased).toEqual([])
+    expect(jobKinds()).not.toContain('inbound_mail_suggest')
+  })
+
   it('keeps the raw message of a dropped mail under a legal hold, for the deferred erasure', async () => {
-    vi.mocked(isCoveredByActiveHold).mockResolvedValue(true)
+    state.held = true
     receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))
 
     await run()
@@ -499,6 +537,32 @@ describe('automatic mail', () => {
     expect(heldRow()).toMatchObject({ status: 'dropped', rawStorageKey: RAW_KEY })
     expect(heldRow().erasureDeferredAt).not.toBeNull()
     expect(state.erased).toEqual([])
+  })
+
+  it('marks the mail dropped before it erases anything, so a failure in between never leaves an empty held mail', async () => {
+    vi.mocked(dropMail).mockRejectedValueOnce(new TypeError('a bug'))
+    receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))
+
+    await expect(run(NOT_LAST)).rejects.toThrow('a bug')
+    expect(state.erased).toEqual([])
+    expect(state.objects.has(RAW_KEY)).toBe(true)
+
+    await run(LAST)
+    expect(heldRow()).toMatchObject({ status: 'dropped', rawStorageKey: null })
+    expect(state.calls.filter((call) => call !== 'scan:clean')).toEqual(['drop:auto_reply', 'take'])
+    expect(state.erased).toEqual([RAW_KEY])
+  })
+
+  it('records a drop whose erasure the store refused, and leaves the raw key to the released-erasure sweep', async () => {
+    vi.mocked(eraseStagedObjects).mockImplementationOnce(async (_bucket: string, keys: readonly string[]) => [...keys])
+    receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))
+
+    await run(LAST)
+
+    expect(heldRow()).toMatchObject({ status: 'dropped', rawStorageKey: RAW_KEY })
+    expect(heldRow().erasureDeferredAt).not.toBeNull()
+    expect(recordAuditEventAfterCommit).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ dropped: 'auto_reply' }) }))
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped' }))
   })
 
   it('holds list mail, marked automatic and announced, with no model spent on it', async () => {
@@ -527,6 +591,34 @@ describe('mail is never lost to a parser bug', () => {
     expect(state.parts).toHaveLength(1)
     expect(state.parts[0].riskFlags).toEqual(['unreadable'])
     expect(announceWaiting).toHaveBeenCalledTimes(1)
+  })
+
+  it('logs and reports a bug on the last attempt by its class only, whether the mail was held or not', async () => {
+    const bug = new TypeError('a bug about anna@buero-muster.at')
+    vi.mocked(recordOriginal).mockRejectedValueOnce(bug).mockRejectedValueOnce(bug)
+    receive(await sign(message()))
+
+    await expect(run(NOT_LAST)).rejects.toThrow('a bug')
+    expect(captureServer).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_receive_failed' }))
+
+    expect(await run(LAST)).toMatchObject({ done: true })
+    expect(captureServer).toHaveBeenCalledWith({
+      event: 'inbound_mail_receive_failed',
+      distinctId: null,
+      organizationId: ORG,
+      properties: { error: 'TypeError', held: true },
+    })
+    expect(vi.mocked(console.error).mock.calls.flat().join('\n')).toContain(`mail ${MAIL} failed on its last attempt (TypeError); held as unreadable`)
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('anna@')
+  })
+
+  it('reports a bug in reading on the last attempt too, where the job holds the mail itself', async () => {
+    vi.mocked(findThreadCandidates).mockRejectedValueOnce(new RangeError('a bug'))
+    receive(await sign(message()))
+
+    await run(LAST)
+
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_receive_failed', properties: { error: 'RangeError', held: true } }))
   })
 
   it('holds the mail unreadable on the last attempt when its raw message cannot be read at all, so no dead job leaves it received', async () => {
@@ -674,6 +766,7 @@ describe('following: the follow job is queued only when D31’s conditions 1–6
     state.followContext = {
       threadId: THREAD,
       participantDomains: [MEMBER_DOMAIN],
+      participantAddresses: [],
       follows: [
         { id: 'f0000000-0000-4000-8000-000000000001', userId: FOLLOWER_ID, createdAt: new Date(RECEIVED.getTime() - 86_400_000), expiresAt: new Date(Date.now() + 86_400_000), endedAt: null },
       ],
@@ -689,8 +782,19 @@ describe('following: the follow job is queued only when D31’s conditions 1–6
     const follow = vi.mocked(enqueueJobIfAbsent).mock.calls.find(([job]) => job.kind === 'inbound_mail_follow')?.[0]
     expect(follow).toMatchObject({
       jobId: inboundMailJobId('follow', MAIL),
-      payload: { mailId: MAIL, projectId: PROJECT, followId: 'f0000000-0000-4000-8000-000000000001', requester: { userId: FOLLOWER_ID } },
+      payload: { mailId: MAIL, projectId: PROJECT, followId: 'f0000000-0000-4000-8000-000000000001', requester: { userId: FOLLOWER_ID }, waits: 0 },
     })
+  })
+
+  it('queues the suggestion first, so the follow job finds it open and waits for it before deciding the attachments', async () => {
+    receive(await sign(message(BODY, REFERENCE_HEADERS)))
+
+    await run()
+
+    expect(jobKinds().filter((kind) => kind === 'inbound_mail_suggest' || kind === 'inbound_mail_follow')).toEqual([
+      'inbound_mail_suggest',
+      'inbound_mail_follow',
+    ])
   })
 
   it('does not queue it when the References were added outside the signature', async () => {
@@ -716,7 +820,7 @@ describe('following: the follow job is queued only when D31’s conditions 1–6
     expect(jobKinds()).not.toContain('inbound_mail_follow')
 
     state.dns = fakeDns(keyFor(MEMBER_DOMAIN))
-    state.followContext = { threadId: THREAD, participantDomains: [MEMBER_DOMAIN], follows: [] }
+    state.followContext = { threadId: THREAD, participantDomains: [MEMBER_DOMAIN], participantAddresses: [], follows: [] }
     receive(await sign(message(BODY, REFERENCE_HEADERS)))
     await run()
     expect(jobKinds()).not.toContain('inbound_mail_follow')
@@ -767,6 +871,30 @@ describe('the sender rule: the class the hold writes (ADR-0137, amendment of 202
     })
     expect(announceWaiting).not.toHaveBeenCalled()
     expect(announceHeld).not.toHaveBeenCalled()
+  })
+
+  it('a writer’s mail an Outlook rule redirects from the office’s registered project mailbox is filed directly, by its own signature', async () => {
+    writes()
+    state.forwardedFrom = [OFFICE_PROJECT_MAILBOX]
+    receive(await exchangeRedirect(await sign(message(BODY, { To: OFFICE_PROJECT_MAILBOX }))), { envelopeFrom: SRS_ENVELOPE })
+
+    await run()
+
+    expect(vi.mocked(authenticateSender).mock.calls[0][1]).toMatchObject({ forwardedFrom: [OFFICE_PROJECT_MAILBOX] })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'member_verified', signerDomain: MEMBER_DOMAIN, senderClass: 'verified_writer', automatic: false })
+    expect(heldRow().senderFlags).toEqual([])
+    expect(jobKinds()).toContain('inbound_mail_sender_file')
+  })
+
+  it('the same redirected mail, its project mailbox not registered, waits for its writer as addressed to others', async () => {
+    writes()
+    receive(await exchangeRedirect(await sign(message(BODY, { To: OFFICE_PROJECT_MAILBOX }))), { envelopeFrom: SRS_ENVELOPE })
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_verified', senderClass: 'unverified_writer' })
+    expect(heldRow().senderFlags).toEqual(['not_addressed_to_project', 'bcc_own'])
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
   })
 
   it('a writer’s mail whose signature fails waits for that writer, who is asked whether they sent it', async () => {
@@ -1000,6 +1128,25 @@ describe('B3: a dependency that does not answer spends no attempt and freezes no
     expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
     expect(heldRow().readerFaultAt).toBeInstanceOf(Date)
     expect(state.parts[0]).toMatchObject({ kind: 'message', riskFlags: ['unreadable'] })
+  })
+
+  it.each(['timeout', 'failed'] as const)('a reader whose reading process answered %s holds the text with reader_fault_at, so sweep 15 reads it again', async (reason) => {
+    vi.mocked(readMail).mockResolvedValue(read({ bodySource: 'none', ownText: '', unreadableReasons: [reason], unreadable: true }))
+    receive(await sign(message()))
+
+    expect(await run()).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting' })
+    expect(heldRow().readerFaultAt).toBeInstanceOf(Date)
+    expect(state.parts[0].riskFlags).toEqual(['unreadable'])
+  })
+
+  it('a text the reader read and found too large is its answer, no re-read due', async () => {
+    vi.mocked(readMail).mockResolvedValue(read({ bodySource: 'none', ownText: '', unreadableReasons: ['message_too_large'], unreadable: true }))
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', readerFaultAt: null })
   })
 
   it('a reader that refuses the request (422) is no fault: unreadable at once, no re-read due', async () => {

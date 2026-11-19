@@ -22,10 +22,14 @@ export default function InboundMailAddressDevPage({ searchParams }: { searchPara
     <I18nProvider initialLocale={locale} fixedLocale>
       <main className="bg-background min-h-dvh px-4 py-8 md:px-8" data-testid="inbound-mail-address-preview">
         <div className="mx-auto flex max-w-3xl flex-col gap-4">
-          <Button type="button" variant="secondary" size="sm" className="w-fit" onClick={() => setOpen(true)}>
-            Per E-Mail senden …
-          </Button>
           <InboundMailAddressCard key={variant} projectId={PROJECT_ID} projectName={PROJECT_NAME} client={cardClient} />
+          {/* Preview chrome, not product: the dialog is what Dateien › Hochladen › „Per E-Mail senden …“ opens. A press
+              of that name floating over the card read as part of it, sending something to someone unnamed. */}
+          {params.chrome !== '0' && (
+            <Button type="button" variant="inline" className="w-fit text-xs" onClick={() => setOpen(true)} data-testid="dev-open-address-dialog">
+              Vorschau: Dialog aus „Hochladen › Per E-Mail senden …“ öffnen
+            </Button>
+          )}
         </div>
         <InboundMailAddressDialog projectId={PROJECT_ID} projectName={PROJECT_NAME} open={open} onOpenChange={setOpen} client={dialogClient} />
         {params.chrome !== '0' && <DevVariantStrip base="/dev/inbound-mail-address" variants={Object.keys(ADDRESS_VARIANTS)} current={variant} locale={locale} />}

@@ -1,10 +1,24 @@
 'use client'
 
-import type { JSX } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { AtSign, BookOpen, Check, CircleSlash, ContactRound, Copy, ExternalLink, Forward, MailPlus, RefreshCw, UserCheck } from 'lucide-react'
+import {
+  AtSign,
+  BookOpen,
+  Check,
+  CircleSlash,
+  ContactRound,
+  Copy,
+  ExternalLink,
+  MailPlus,
+  RefreshCw,
+  Send,
+  Settings2,
+  X,
+} from 'lucide-react'
+import { ActionMenu } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -38,6 +52,7 @@ import { contactCard, contactCardFileName } from '../lib/vcard'
 import { useInboundMailAddress, type AddressState } from '../hooks/use-inbound-mail-address'
 import { FactLine } from './inbound-mail-atoms'
 import { OwnDomainDkimLine } from './own-domain-dkim-line'
+import { AddressSetup, ForwardingAddresses } from './address-setup'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { settingsCopy } from '@/i18n/namespaces/settings'
 
@@ -48,30 +63,7 @@ function saveContact(address: string, projectName: string, name: string, note: s
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
-export type AddressSurface = 'dialog' | 'never_used' | 'overview' | 'settings'
-
-function AddressUses(): JSX.Element {
-  const t = useTranslations(inboundMailCopy)
-  return (
-    <ul className="flex flex-col gap-2" aria-label={t('address.usesLabel')} data-testid="address-uses">
-      <li>
-        <FactLine icon={AtSign} tone="default">
-          {t('address.uses.cc')}
-        </FactLine>
-      </li>
-      <li>
-        <FactLine icon={Forward} tone="default">
-          {t('address.uses.forward')}
-        </FactLine>
-      </li>
-      <li>
-        <FactLine icon={UserCheck} tone="default">
-          {t('address.uses.held', { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS })}
-        </FactLine>
-      </li>
-    </ul>
-  )
-}
+export type AddressSurface = 'dialog' | 'never_used' | 'overview' | 'settings' | 'start_hint'
 
 function AddressValue({ value, surface, className }: { value: string; surface: AddressSurface; className?: string }): JSX.Element {
   return (
@@ -89,20 +81,25 @@ function CopyAddressButton({ value, surface }: { value: string; surface: Address
   const t = useTranslations(inboundMailCopy)
   const [copied, raise] = useTransientFlag()
   return (
-    <Button
-      type="button"
-      size="sm"
-      onClick={() =>
-        void navigator.clipboard?.writeText(value).then(() => {
-          raise()
-          capturePosthog('inbound_mail_address_copied', { surface })
-        }, () => {})
-      }
-      data-testid="address-copy"
-    >
-      {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
-      {t('address.copy')}
-    </Button>
+    <div className="flex items-center">
+      <Button
+        type="button"
+        size="sm"
+        onClick={() =>
+          void navigator.clipboard?.writeText(value).then(() => {
+            raise()
+            capturePosthog('inbound_mail_address_copied', { surface })
+          }, () => {})
+        }
+        data-testid="address-copy"
+      >
+        {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+        {copied ? t('address.copied') : t('address.copy')}
+      </Button>
+      <span className="sr-only" role="status" aria-live="polite">
+        {copied ? t('address.copied') : ''}
+      </span>
+    </div>
   )
 }
 
@@ -125,6 +122,38 @@ function SaveContactButton({ value, projectName, surface }: { value: string; pro
   )
 }
 
+function ShareButton({ value, projectName }: { value: string; projectName: string }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const subject = encodeURIComponent(t('address.share.subject', { project: projectName }))
+  const body = encodeURIComponent(t('address.share.body', { address: value }))
+  return (
+    <Button asChild variant="secondary" size="sm">
+      <a href={`mailto:?subject=${subject}&body=${body}`} data-testid="address-share">
+        <Send className="size-4" aria-hidden />
+        {t('address.share.label')}
+      </a>
+    </Button>
+  )
+}
+
+function AddressHandOn({ value, projectName, surface }: { value: string; projectName: string; surface: AddressSurface }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const rows = [
+    { key: 'contact', press: <SaveContactButton value={value} projectName={projectName} surface={surface} />, hint: t('address.contactHint') },
+    { key: 'share', press: <ShareButton value={value} projectName={projectName} />, hint: t('address.share.hint') },
+  ]
+  return (
+    <ul className="flex flex-col gap-2" data-testid="address-hand-on">
+      {rows.map((row) => (
+        <li key={row.key} className="flex flex-col items-start gap-1" data-testid={`address-hand-on-${row.key}`}>
+          {row.press}
+          <span className="text-muted-foreground text-xs">{row.hint}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 const MEBIBYTE = 1024 * 1024
 
 export function AddressSizeLimit({ projectId, onLeave }: { projectId: string; onLeave?: () => void }): JSX.Element {
@@ -143,70 +172,132 @@ export function AddressSizeLimit({ projectId, onLeave }: { projectId: string; on
   )
 }
 
+function GuideLink(): JSX.Element | null {
+  const t = useTranslations(inboundMailCopy)
+  const { locale } = useLocale()
+  const guideUrl = publicSiteLink(usePublicSiteUrl(), 'projectMail', locale)
+  if (!guideUrl) return null
+  return (
+    <Button asChild variant="inline" className="touch-target w-fit gap-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5">
+      <a href={guideUrl} target="_blank" rel="noopener noreferrer">
+        <BookOpen className="size-3.5" aria-hidden />
+        {t('address.guide')}
+        <ExternalLink className="text-muted-foreground size-3" aria-hidden />
+        <span className="sr-only">{t('address.newTab')}</span>
+      </a>
+    </Button>
+  )
+}
+
+function LastReceived({ address }: { address: InboundMailAddressView }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const { locale } = useLocale()
+  return (
+    <p className="text-muted-foreground text-xs" data-testid="address-last-received">
+      {address.lastReceivedAt ? t('address.lastReceived', { time: formatRelativeTime(address.lastReceivedAt, locale) }) : t('address.nothingReceived')}
+      {address.droppedLast30Days > 0 && (
+        <>
+          {CLAUSE_JOIN}
+          {t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}
+        </>
+      )}
+    </p>
+  )
+}
+
+export function InboundMailStartHint({ address, onDismiss }: { address: string; onDismiss: () => void }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const [copied, raise] = useTransientFlag()
+  return (
+    <div className="text-muted-foreground flex items-start gap-2 text-xs" data-testid="inbound-mail-start-hint">
+      <AtSign className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <p className="min-w-0 flex-1 text-pretty">
+        {t('address.start')}{' '}
+        <Button
+          type="button"
+          variant="inline"
+          className="text-xs"
+          onClick={() =>
+            void navigator.clipboard?.writeText(address).then(() => {
+              raise()
+              capturePosthog('inbound_mail_address_copied', { surface: 'start_hint' })
+            }, () => {})
+          }
+          data-testid="inbound-mail-start-copy"
+        >
+          {t(copied ? 'header.addressCopied' : 'header.addressCopy')}
+        </Button>
+        <span className="sr-only" role="status" aria-live="polite">
+          {copied ? t('header.addressCopied') : ''}
+        </span>
+      </p>
+      <Button type="button" variant="ghost" size="icon" className="-my-1.5 -mr-1.5 size-7 shrink-0" aria-label={t('address.startDismiss')} onClick={onDismiss} data-testid="inbound-mail-start-dismiss">
+        <X className="size-3.5" aria-hidden />
+      </Button>
+    </div>
+  )
+}
+
+export function AddressNotPostfach({ className }: { className?: string }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  return (
+    <p className={cn('text-muted-foreground text-xs', className)} data-testid="address-not-postfach">
+      {t('address.notPostfach')}
+    </p>
+  )
+}
+
 export function InboundMailAddressBlock({
   address,
   projectId,
   projectName,
   surface,
-  showUses = true,
-  showValue = true,
+  setup,
   onLeave,
 }: {
   address: InboundMailAddressView
   projectId: string
   projectName: string
-  surface: AddressSurface
-  showUses?: boolean
-  showValue?: boolean
+  surface: Exclude<AddressSurface, 'overview'>
+  setup?: ReactNode
   onLeave?: () => void
 }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
-  const { locale } = useLocale()
-  const guideUrl = publicSiteLink(usePublicSiteUrl(), 'projectMail', locale)
   if (address.state !== 'active' || !address.address) return <></>
   const value = address.address
+  const quietFirstVisit = surface === 'never_used' && !address.lastReceivedAt && address.droppedLast30Days === 0
   return (
     <div className="flex flex-col gap-4" data-testid="inbound-mail-address">
-      {showUses && <AddressUses />}
       {/* Never used, the address is the page's one object: a white sheet on the paper. In a dialog the dialog is the sheet. */}
-      <div className={cn('flex flex-col gap-2', surface === 'never_used' && 'bg-sheet rounded-surface p-4 shadow-sm')} data-testid="inbound-mail-address-panel">
-        {/* The eyebrow names the value; in the dialog its title already does. */}
-        {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
-        {showValue &&
-          (surface === 'never_used' ? (
-            <p className="text-foreground font-mono text-[13px] leading-5 font-normal [overflow-wrap:anywhere]" data-testid="address-value">
-              <EmailAddress address={value} />
-            </p>
-          ) : (
-            <AddressValue value={value} surface={surface} className="w-full justify-between" />
-          ))}
-        <div className="flex flex-wrap gap-3">
-          {surface === 'never_used' && <CopyAddressButton value={value} surface={surface} />}
-          <SaveContactButton value={value} projectName={projectName} surface={surface} />
+      <div className={cn('flex flex-col gap-4', surface === 'never_used' && 'bg-sheet rounded-surface p-4 shadow-sm')} data-testid="inbound-mail-address-panel">
+        <div className="flex flex-col gap-2">
+          {/* The eyebrow names the value; in the dialog and on the settings card the title already does. */}
+          {surface === 'never_used' && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
+          <p
+            className="text-foreground font-mono text-[13px] leading-5 font-normal [overflow-wrap:anywhere]"
+            data-testid="address-value"
+          >
+            <EmailAddress address={value} />
+          </p>
+          <CopyAddressButton value={value} surface={surface} />
         </div>
-        {/* Inside the panel under a centred empty state: outside it, a left-aligned line hung under centred words. */}
-        {surface === 'never_used' && <AddressSizeLimit projectId={projectId} onLeave={onLeave} />}
-        {/* Under the never-used list's own „Noch keine E-Mails“ the line would say it twice. */}
-        <p className={cn('text-muted-foreground text-xs', surface === 'never_used' && !address.lastReceivedAt && address.droppedLast30Days === 0 && 'hidden')}>
-          {address.lastReceivedAt
-            ? t('address.lastReceived', { time: formatRelativeTime(address.lastReceivedAt, locale) })
-            : t('address.nothingReceived')}
-          {address.droppedLast30Days > 0 && (
-            <>{CLAUSE_JOIN}{t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
-          )}
-        </p>
+        <AddressHandOn value={value} projectName={projectName} surface={surface} />
       </div>
-      {surface !== 'never_used' && <AddressSizeLimit projectId={projectId} onLeave={onLeave} />}
-      {guideUrl && (
-        <Button asChild variant="inline" className="touch-target w-fit gap-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5">
-          <a href={guideUrl} target="_blank" rel="noopener noreferrer">
-            <BookOpen className="size-3.5" aria-hidden />
-            {t('address.guide')}
-            <ExternalLink className="text-muted-foreground size-3" aria-hidden />
-            <span className="sr-only">{t('address.newTab')}</span>
-          </a>
-        </Button>
+      <div className="flex flex-col gap-1">
+        <AddressSizeLimit projectId={projectId} onLeave={onLeave} />
+        {/* Under the never-used page's own „Noch keine E-Mails“ the line would say it twice. */}
+        {!quietFirstVisit && <LastReceived address={address} />}
+      </div>
+      {surface === 'dialog' && (
+        <p className="text-muted-foreground text-xs" data-testid="address-held">
+          {t('address.held', { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS })}
+        </p>
       )}
+      {surface !== 'settings' && <AddressNotPostfach />}
+      <AddressSetup address={value} inSettings={surface === 'settings'}>
+        {setup}
+      </AddressSetup>
+      <GuideLink />
     </div>
   )
 }
@@ -313,6 +404,15 @@ function useAddressActions(address: ReturnType<typeof useInboundMailAddress>) {
     remove: async () => {
       await address.remove().then(() => toast.success(t('address.switchedOff')), fail)
     },
+    setForwardedFrom: async (forwardedFrom: readonly string[]) => {
+      await address.setForwardedFrom(forwardedFrom).then(
+        () => toast.success(t('address.forwards.saved')),
+        (error: unknown) => {
+          toast.error(t('address.forwards.failed'))
+          throw error
+        },
+      )
+    },
   }
 }
 
@@ -333,7 +433,7 @@ export function InboundMailAddressDialog({ projectId, projectName, open, onOpenC
       <DialogContent className="sm:max-w-lg" closeLabel={t('address.cancel')} data-testid="inbound-mail-address-dialog">
         <DialogHeader>
           <DialogTitle>{t('address.dialogTitle')}</DialogTitle>
-          <DialogDescription>{t('address.dialogDescription')}</DialogDescription>
+          <DialogDescription data-testid="address-lead">{t('address.lead')}</DialogDescription>
         </DialogHeader>
         {address.state.kind === 'ready' && address.state.address.state === 'active' ? (
           <InboundMailAddressBlock
@@ -348,6 +448,27 @@ export function InboundMailAddressDialog({ projectId, projectName, open, onOpenC
         )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+function AddressManageMenu({ onRotate, onSwitchOff }: { onRotate: () => void; onSwitchOff: () => void }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  return (
+    <ActionMenu
+      mode="dropdown"
+      align="start"
+      contentClassName="w-72"
+      trigger={
+        <Button type="button" variant="secondary" size="sm" className="w-fit" data-testid="address-manage">
+          <Settings2 className="size-4" aria-hidden />
+          {t('address.manage')}
+        </Button>
+      }
+      entries={[
+        { type: 'item', id: 'rotate', label: t('address.rotate'), hint: t('address.rotateHint'), icon: RefreshCw, onSelect: onRotate, testId: 'address-rotate' },
+        { type: 'item', id: 'switch-off', label: t('address.switchOff'), hint: t('address.switchOffHint'), icon: CircleSlash, onSelect: onSwitchOff, testId: 'address-switch-off' },
+      ]}
+    />
   )
 }
 
@@ -369,32 +490,29 @@ export function InboundMailAddressCard({ projectId, projectName, client }: Inbou
   return (
     <SettingsPanel
       title={tSettings('project.documents.inboundMailTitle')}
-      description={tSettings('project.documents.inboundMailDescription')}
+      description={ready?.state === 'active' ? <span data-testid="address-lead">{t('address.lead')}</span> : undefined}
       data-testid="inbound-mail-address-card"
     >
-      <div className="flex flex-col gap-4">
-        {ready?.state === 'active' ? (
-          <>
-            <InboundMailAddressBlock address={ready} projectId={projectId} projectName={projectName} surface="settings" showUses={false} />
-            {/* The office's own signing (RT-X6) is a manager's to fix, so only a manager reads it. */}
-            {ready.canManage && <OwnDomainDkimLine share={ready.ownDomainVerifiedShare} />}
-          </>
-        ) : (
-          <AddressStatus state={address.state} onRetry={() => void address.reload()} onCreate={actions.create} />
-        )}
-        {manage && (
-          <div className="flex flex-wrap gap-3 pt-2" /* apart by space, no line; tonal presses 12px apart */>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setConfirm('rotate')} data-testid="address-rotate">
-              <RefreshCw className="size-4" aria-hidden />
-              {t('address.rotate')}
-            </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => setConfirm('switchOff')} data-testid="address-switch-off">
-              <CircleSlash className="size-4" aria-hidden />
-              {t('address.switchOff')}
-            </Button>
-          </div>
-        )}
-      </div>
+      {ready?.state === 'active' && ready.address ? (
+        <div className="flex flex-col gap-4">
+        <InboundMailAddressBlock
+          address={ready}
+          projectId={projectId}
+          projectName={projectName}
+          surface="settings"
+          setup={
+            <>
+              <ForwardingAddresses address={{ ...ready, address: ready.address }} onSave={actions.setForwardedFrom} />
+              {/* The office's own signing (RT-X6) is a manager's to fix, so only a manager reads it. */}
+              {ready.canManage && <OwnDomainDkimLine share={ready.ownDomainVerifiedShare} />}
+            </>
+          }
+        />
+        {manage && <AddressManageMenu onRotate={() => setConfirm('rotate')} onSwitchOff={() => setConfirm('switchOff')} />}
+        </div>
+      ) : (
+        <AddressStatus state={address.state} onRetry={() => void address.reload()} onCreate={actions.create} />
+      )}
       <ConfirmDialog
         open={confirm === 'rotate'}
         onOpenChange={(open) => !open && setConfirm(null)}

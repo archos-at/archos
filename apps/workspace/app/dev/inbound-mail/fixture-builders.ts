@@ -7,8 +7,9 @@ import type {
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { DocumentTypeTag } from '@/lib/documents/tag-vocabulary'
 import { partPreselected, withReviewDefaults, type InboundMailPartBase } from '@/lib/inbound-mail/review-defaults'
-import { onlySenderReleases, senderClassOf, senderWaitReason } from '@/lib/inbound-mail/sender-class'
+import { onlySenderReleases, ownClaimedMail, senderClassOf, senderWaitReason } from '@/lib/inbound-mail/sender-class'
 import type { InboundMailSuggestion } from '@/lib/inbound-mail/suggest'
+import { filedTo, suggestedPlaces } from '@/lib/inbound-mail/suggested-places'
 import { daysAhead, fixtureId, minutesAgo, PROJECT_ID } from './fixture-base'
 
 let sequence = 0
@@ -23,7 +24,12 @@ const DEFAULT_SENDER: NonNullable<InboundMailView['sender']> = {
   flags: [],
 }
 
-const PART_DEFAULT_CONTEXT = { projectClosed: false, rawScan: 'clean', sender: { trust: 'external_verified', reason: 'dkim_pass', flags: [] } } as const
+const PART_DEFAULT_CONTEXT = {
+  projectClosed: false,
+  rawScan: 'clean',
+  sender: { trust: 'external_verified', reason: 'dkim_pass', flags: [] },
+  threadCandidates: [{ blocks: [] }],
+} as const
 
 export function part(overrides: Partial<InboundMailPartView> & { name?: string } = {}): InboundMailPartView {
   sequence += 1
@@ -74,11 +80,14 @@ export function thread(overrides: Partial<InboundMailThreadCandidateView> = {}):
   }
 }
 
-const MEMBER_ID = 'user_01JMIRIAMHUBER00000000000'
-const COLLEAGUE_ID = 'user_01JPETRAHUBER000000000000'
+/** Every preview is read by one person, Anna Berger; Miriam Huber is her colleague in the project. */
+const VIEWER_ID = 'user_01JANNABERGER0000000000000'
+const MEMBERS: Record<string, string> = {
+  'a.berger@huber-architektur.at': VIEWER_ID,
+  'm.huber@huber-architektur.at': 'user_01JMIRIAMHUBER00000000000',
+}
 
 export interface FixtureReading {
-  viewer?: 'sender' | 'colleague'
   writes?: boolean
   directFiling?: boolean
 }
@@ -87,23 +96,27 @@ function judged(
   sender: InboundMailView['sender'],
   automatic: boolean,
   reading: FixtureReading,
-): Pick<InboundMailView, 'senderClass' | 'waitReason' | 'onlySenderReleases'> {
-  const member = sender?.trust.startsWith('member_') ? MEMBER_ID : null
+): Pick<InboundMailView, 'senderClass' | 'waitReason' | 'onlySenderReleases' | 'ownClaimedMail'> {
+  const member = sender?.trust.startsWith('member_') ? (MEMBERS[sender.address] ?? null) : null
   const directFiling = reading.directFiling ?? true
   const senderClass = sender
     ? senderClassOf({ trust: sender.trust, reason: sender.reason, senderUserId: member, flags: sender.flags, automatic, writes: reading.writes ?? true })
     : 'external'
   const facts = { senderClass, senderTrust: sender?.trust ?? null, senderFlags: sender?.flags ?? [], automatic, directFiling }
+  const claimed = { senderClass, senderUserId: member, senderTrust: sender?.trust ?? null, senderReason: sender?.reason ?? null, senderFlags: sender?.flags ?? [] }
+  const viewer = VIEWER_ID
   return {
     senderClass,
     waitReason: senderWaitReason(facts),
-    onlySenderReleases: onlySenderReleases({ senderClass, senderUserId: member }, reading.viewer === 'colleague' ? COLLEAGUE_ID : MEMBER_ID),
+    onlySenderReleases: onlySenderReleases(claimed, viewer),
+    ownClaimedMail: ownClaimedMail(claimed, viewer),
   }
 }
 
 export function mail(overrides: Partial<InboundMailView> & { key?: string; reading?: FixtureReading } = {}): InboundMailView {
   const { key, reading = {}, ...rest } = overrides
   const sender = rest.sender === undefined ? DEFAULT_SENDER : rest.sender
+  const verdict = judged(sender, rest.automatic ?? false, reading)
   return withReviewDefaults({
     id: fixtureId(`mail:${key ?? 'default'}`),
     projectId: PROJECT_ID,
@@ -119,7 +132,7 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string; readi
     ],
     sentAt: minutesAgo(14),
     receivedAt: minutesAgo(12),
-    expiresAt: daysAhead(30),
+    expiresAt: daysAhead(verdict.senderClass === 'external' ? 14 : 30),
     automatic: false,
     rawScan: 'clean',
     originalHeld: true,
@@ -128,8 +141,9 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string; readi
     threadCandidates: [thread()],
     hiddenThreadCandidates: 0,
     followedBy: null,
+    senderFolders: [],
     updatedAt: minutesAgo(9),
-    ...judged(sender, rest.automatic ?? false, reading),
+    ...verdict,
     ...rest,
   })
 }
@@ -137,11 +151,11 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string; readi
 export function text(overrides: Partial<InboundMailTextView> = {}): InboundMailTextView {
   return {
     ownText:
-      'Sehr geehrte Frau Huber,\n\nanbei die überarbeitete Statik S-101 in Index C. Die Stellplätze im Hof sind jetzt mit der neuen Lastannahme gerechnet.\n\nBitte um kurze Rückmeldung bis Freitag, ob die Fassung so an die MA 37 gehen kann.\n\nDie Unterlagen liegen auch unter https://cloud.statik-weber.at/s/9fK2 bereit.\n\nMit freundlichen Grüßen\nPetra Weber',
+      'Sehr geehrte Frau Huber,\n\nanbei die überarbeitete Statik S-101 in Index D. Die Stellplätze im Hof sind jetzt mit der neuen Lastannahme gerechnet.\n\nBitte um kurze Rückmeldung bis Freitag, ob die Fassung so an die MA 37 gehen kann.\n\nDie Unterlagen liegen auch unter https://cloud.statik-weber.at/s/9fK2 bereit.\n\nMit freundlichen Grüßen\nPetra Weber',
     ownTextTruncated: false,
     quoted: [
       {
-        header: 'Am 14.10.2026 um 09:12 schrieb Miriam Huber <m.huber@huber-architektur.at>:',
+        header: 'Am 12.11.2026 um 16:40 schrieb Miriam Huber <m.huber@huber-architektur.at>:',
         text: 'Liebe Frau Weber,\n\nkönnen Sie uns die Statik mit den geänderten Stellplätzen bis Ende der Woche schicken?\n\nDanke und lg\nMiriam Huber',
       },
     ],
@@ -182,8 +196,12 @@ export function summaryOf(view: InboundMailView, overrides: Partial<InboundMailS
     senderClass: view.senderClass,
     waitReason: view.waitReason,
     onlySenderReleases: view.onlySenderReleases,
+    ownClaimedMail: view.ownClaimedMail,
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
+    filedWithoutClick: null,
+    filedTo: filedTo(view),
+    suggestedPlaces: suggestedPlaces(view),
     updatedAt: view.updatedAt,
     ...overrides,
   }
@@ -198,10 +216,10 @@ export const suggestion = (
 
 export const statik = (overrides: Partial<InboundMailPartView> = {}) =>
   part({
-    name: 'S-101_C.pdf',
+    name: 'S-101_D.pdf',
     sizeBytes: 2_480_000,
-    revisionCandidate: { documentId: fixtureId('doc:s101'), name: 'S-101_B.pdf', folderPath: 'Tragwerk', nextVersion: 3 },
-    suggestion: suggestion('Tragwerk', 'Gutachten', 'Gleiche Bezeichnung wie S-101_B.pdf in Tragwerk.'),
+    revisionCandidate: { documentId: fixtureId('doc:s101'), name: 'S-101_C.pdf', folderPath: 'Tragwerk', nextVersion: 4 },
+    suggestion: suggestion('Tragwerk', null, 'Gleiche Plannummer wie S-101_C.pdf in Tragwerk.'),
     ...overrides,
   })
 

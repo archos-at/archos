@@ -1,0 +1,33 @@
+---
+features:
+  - >
+    In the E-Mail-Eingang, filing or dismissing a mail opens the next one
+    that waits, so ten mails after a site visit are ten decisions in a row.
+    On a phone the list comes back.
+  - >
+    A field over the list finds mail by sender or subject.
+improvements:
+  - >
+    Mail from outside the office whose domain is not confirmed is now a row
+    like any other instead of hiding in a folded group; only automatic mail
+    is folded, and that group opens by itself when nothing else waits.
+  - >
+    A mail with fewer than five days left says so on its row and moves to the
+    top of its section, before an outsider's mail is erased after 14 days.
+  - >
+    The count beside Dateien and on the start page matches the rows the list
+    shows, and ends in "+" when more wait than it counted.
+  - >
+    "Wie vorgeschlagen ablegen" on a row now reports when the mail has landed
+    and where, or what failed. On a phone it appears only on the open mail.
+  - >
+    The list refreshes on its own when mail arrives or a colleague files it.
+fixes:
+  - >
+    Backspace and Delete no longer dismiss the open mail while a button or a
+    checkbox has the focus, and they ask first for an outsider's mail that
+    cannot be restored once dismissed. No shortcut answers while the profile
+    has keyboard shortcuts turned off.
+  - >
+    Why "Wie vorgeschlagen ablegen" is unavailable for a selection is written
+    out under the selection, instead of behind a small info icon.

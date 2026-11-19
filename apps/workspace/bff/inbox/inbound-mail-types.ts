@@ -92,6 +92,22 @@ export const INBOUND_MAIL_TYPE_DEFINITIONS = {
     email: IN_APP_ONLY,
     push: { category: 'results', urgency: 'low' },
   },
+  'mail_thread.follow_ended': {
+    actionable: false,
+    grouping: 'per-anchor',
+    retentionDays: 30,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'results', urgency: 'low' },
+  },
+  'inbound_mail.fraud_reported': {
+    actionable: false,
+    grouping: 'per-anchor',
+    retentionDays: 90,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'office', urgency: 'high' },
+  },
 } satisfies Partial<Record<InboxItemType, InboxTypeDefinition>>
 
 export function appendedGroupAnchor(at: Date): string {

@@ -14,10 +14,11 @@ import type { InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { formatAbsoluteTime, formatCalendarDate } from '@/lib/format'
 import type { ForwardedOrigin } from '@/lib/inbound-mail/forwarded'
 import { displaySubject } from '@/lib/inbound-mail/subject'
+import { cn } from '@/lib/utils'
 import { expiryShownInline } from '../lib/evidence'
 import { mailClaimOf, senderDisplayName } from '../lib/sender'
 import { FactLine, QuietPanel } from './inbound-mail-atoms'
-import { SenderFlagLines, SenderTrustLine, SenderWaitLine } from './sender-trust'
+import { SenderFlagLines, SenderTrustLine, SenderTrustTechnical, SenderWaitLine } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface MailHeaderProps {
@@ -76,9 +77,10 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
           <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
             {/* Trust is never folded away. */}
             {view.sender && <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />}
-            {view.sender && <MetaDot />}
+            {/* On a phone the time starts its own line: a dot left at the end of the trust's line read as a fault. */}
+            {view.sender && <MetaDot className="max-sm:hidden" />}
             {/* The time and „Details“ keep together, so on a phone „Details“ never stands on a line of its own. */}
-            <span className="inline-flex items-center gap-x-1 whitespace-nowrap">
+            <span className="inline-flex items-center gap-x-1 whitespace-nowrap max-sm:basis-full">
               <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
                 {formatAbsoluteTime(view.receivedAt, locale)}
               </time>
@@ -94,7 +96,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
           </div>
         </div>
         {view.sender && <SenderFlagLines sender={view.sender} />}
-        <SenderWaitLine view={view} />
+        <SenderWaitLine view={view} expirySoon={expirySoon} />
         {forwarded && (
           <p className="text-muted-foreground flex items-start gap-1.5 text-xs" data-testid="mail-forwarded">
             <Forward className="mt-px size-3.5 shrink-0" aria-hidden />
@@ -127,6 +129,14 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
         <CollapsibleContent data-testid="mail-details">
           <QuietPanel className="mt-1 gap-3 text-xs">
             <dl className="text-muted-foreground grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
+              {view.sender && (
+                <>
+                  <dt>{t('trust.technical.label')}</dt>
+                  <dd className="[overflow-wrap:anywhere]" data-testid="mail-trust-technical">
+                    <SenderTrustTechnical sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />
+                  </dd>
+                </>
+              )}
               {view.sentAt && (
                 <>
                   <dt>{t('header.sentLabel')}</dt>
@@ -182,9 +192,9 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
   )
 }
 
-function MetaDot(): JSX.Element {
+function MetaDot({ className }: { className?: string }): JSX.Element {
   return (
-    <span aria-hidden className="text-muted-foreground/40">
+    <span aria-hidden className={cn('text-muted-foreground/40', className)}>
       ·
     </span>
   )

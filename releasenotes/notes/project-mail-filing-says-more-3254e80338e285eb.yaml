@@ -1,0 +1,15 @@
+---
+features:
+  - >
+    The E-Mail-Verlauf now names the folder each filed attachment lies in,
+    under the file's name.
+  - >
+    Before you file an e-mail whose sender cannot be verified, the last step
+    of „Einordnen“ says that filing confirms the e-mail is genuine. An
+    encrypted attachment there says that ARCHOS cannot read its content.
+fixes:
+  - >
+    In the E-Mail-Eingang, the press that files every ready e-mail now says
+    „Alle {n} ablagebereiten E-Mails ablegen“, so it no longer reads like
+    the press beside a conversation. An attachment's „Details ändern“
+    replaces „Name, Dokumentart …“, which looked cut off.

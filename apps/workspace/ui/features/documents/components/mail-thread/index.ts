@@ -1,5 +1,5 @@
 export { mailThreadClient, type MailThreadClient } from './client'
-export { FollowCard, FollowCardHint } from './follow-card'
+export { FollowSwitch } from './follow-switch'
 export { MailOriginLine, mailEntryHref, useOpenMailOrigin } from './mail-origin-line'
 export { MailProvenanceRow } from './mail-provenance-row'
 export { MailThreadTab } from './mail-thread-tab'

@@ -54,6 +54,7 @@ export const INBOUND_MAIL_REFUSALS = [
   'original_not_clean',
   'mail_not_received_here',
   'legal_hold', // kept past erasure for a legal hold: a person may read the bytes, an agent may not
+  'not_impersonation',
 ] as const
 export type InboundMailRefusal = (typeof INBOUND_MAIL_REFUSALS)[number]
 
@@ -65,8 +66,10 @@ export interface InboundMailAddressView {
   address: string | null
   canManage: boolean
   lastReceivedAt: string | null
+  receivedCount: number
   droppedLast30Days: number
   ownDomainVerifiedShare: number | null
+  forwardedFrom: string[]
 }
 
 export const INBOUND_MAIL_INCOMPLETE_REASONS = [
@@ -86,6 +89,7 @@ export interface InboundMailSenderRiskView {
   senderClass: InboundMailSenderClass | null
   waitReason: InboundMailWaitReason | null
   onlySenderReleases: boolean
+  ownClaimedMail: boolean
 }
 
 export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'replay', 'automatic', 'paused', 'not_filed', 'no_write_rights', 'outside_office', 'sender_unchecked'] as const
@@ -159,7 +163,16 @@ export interface InboundMailSummaryView extends InboundMailSenderRiskView {
   thread: Pick<InboundMailThreadCandidateView, 'threadId' | 'name' | 'nextVersion' | 'preselected'> | null
   incompleteReason: IncompleteReason | null
   followedBy: string | null
+  filedWithoutClick: { to: InboundMailFiledAsView | null } | null
+  filedTo: InboundMailFiledAsView | null
+  suggestedPlaces: InboundMailSuggestedPlacesView | null
   updatedAt: string
+}
+
+export interface InboundMailSuggestedPlacesView {
+  text: { kind: 'thread'; name: string } | { kind: 'new_thread' } | null
+  files: number
+  folders: string[]
 }
 
 export interface InboundMailThreadGroupView {
@@ -188,6 +201,17 @@ export interface InboundMailFiledAsView {
   version: number | null
 }
 
+/** `model`, or absent: the agent's suggestion (`inbound_mail_suggest`); `sender_memory`: where this sender's earlier attachments went, offered to a person's review only. */
+export type InboundMailSuggestionSource = 'model' | 'sender_memory'
+
+export type InboundMailPartSuggestionView = InboundMailSuggestion & { source?: InboundMailSuggestionSource }
+
+export interface InboundMailSenderFolderView {
+  folderId: string
+  path: string
+  count: number
+}
+
 export interface InboundMailPartView {
   id: string
   kind: InboundMailPartKind
@@ -208,7 +232,7 @@ export interface InboundMailPartView {
   duplicateOf: InboundMailDocumentRefView | null
   revisionCandidate: (InboundMailDocumentRefView & { nextVersion: number }) | null
   revisionCandidateHidden: boolean
-  suggestion: InboundMailSuggestion | null
+  suggestion: InboundMailPartSuggestionView | null
   preselected: boolean
   restorableUntil: string | null
 }
@@ -233,6 +257,7 @@ export interface InboundMailView extends InboundMailSenderRiskView {
   threadCandidates: InboundMailThreadCandidateView[]
   hiddenThreadCandidates: number
   followedBy: string | null
+  senderFolders: InboundMailSenderFolderView[]
   needsSenderAcknowledgement: boolean
   incompleteReason: IncompleteReason | null
   updatedAt: string
@@ -324,6 +349,10 @@ const messageDecisionSchema = z
       .enum(INBOUND_MAIL_MESSAGE_TEXTS)
       .describe('"masked" only with `contentFindings`.'),
     thread: threadTargetSchema,
+    follow: z
+      .literal(false)
+      .optional()
+      .describe('false: filing the text starts no follow of its E-Mail-Verlauf for the person; omitted, it does.'),
   })
   .strict()
   .refine((message) => message.thread.action === 'append' || message.thread.folderId === null || message.thread.newFolderPath === null, {
@@ -389,6 +418,11 @@ export const dismissInboundMailsBodySchema = z
   .strict()
   .refine((body) => new Set(body.mailIds).size === body.mailIds.length, { message: 'A mail is named twice', path: ['mailIds'] })
 export type DismissInboundMailsBody = z.infer<typeof dismissInboundMailsBodySchema>
+
+export interface InboundMailReportResultView {
+  mail: InboundMailView
+  warned: number
+}
 
 export interface InboundMailDecisionResultView {
   mails: InboundMailView[]

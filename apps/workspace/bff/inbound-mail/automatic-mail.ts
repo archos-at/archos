@@ -1,3 +1,4 @@
+import { addressParser } from 'postal-mime'
 import { asciiLower } from './address'
 import type { DroppedReason } from './contract'
 import type { HeaderField } from './mime'
@@ -8,6 +9,7 @@ export type AutomaticSignal =
   | 'list_headers'
   | 'auto_response_suppress'
   | 'null_sender'
+  | 'auto_reply_with_attachments'
 
 export type AutomaticMailVerdict =
   | { outcome: 'drop'; reason: DroppedReason }
@@ -17,6 +19,7 @@ export interface AutomaticMailInput {
   headers: readonly HeaderField[] | null
   envelopeFrom: string | null
   inboundDomain: string
+  attachments?: number
 }
 
 const AUTO_REPLY_HEADERS = ['x-autoreply', 'x-autorespond', 'x-autoresponder', 'x-auto-reply', 'x-vacation']
@@ -35,6 +38,13 @@ function bareAddress(value: string): string {
   return asciiLower((angle ? angle[1] : value).trim())
 }
 
+function fromAddresses(headers: readonly HeaderField[]): string[] {
+  return values(headers, 'from')
+    .flatMap((value) => addressParser(value, { flatten: true }))
+    .map((mailbox) => asciiLower((mailbox.address ?? '').trim()))
+    .filter((address) => address !== '')
+}
+
 function domainOf(address: string): string {
   const at = address.lastIndexOf('@')
   return at === -1 ? '' : address.slice(at + 1)
@@ -46,11 +56,10 @@ function isOurs(domain: string, inboundDomain: string): boolean {
 }
 
 function dropReason(headers: readonly HeaderField[], input: AutomaticMailInput): DroppedReason | null {
-  const from = values(headers, 'from').map(bareAddress)
+  const from = fromAddresses(headers)
   const envelope = bareAddress(input.envelopeFrom ?? '')
-  if ([...from, envelope].some((address) => address !== '' && isOurs(domainOf(address), input.inboundDomain))) {
-    return 'self_loop'
-  }
+  const ours = (address: string) => isOurs(domainOf(address), input.inboundDomain)
+  if ((from.length > 0 && from.every(ours)) || (envelope !== '' && ours(envelope))) return 'self_loop'
   const contentType = asciiLower(values(headers, 'content-type')[0] ?? '')
   const reportType = /^\s*multipart\/report\b.*?\breport-type\s*=\s*"?([a-z-]+)/.exec(contentType)?.[1]
   if (reportType && DELIVERY_REPORT_TYPES.has(reportType)) return 'delivery_report'
@@ -82,7 +91,8 @@ function automaticSignals(headers: readonly HeaderField[], input: AutomaticMailI
 export function classifyAutomaticMail(input: AutomaticMailInput): AutomaticMailVerdict {
   if (!input.headers) return { outcome: 'keep', automatic: false, signals: [] }
   const reason = dropReason(input.headers, input)
-  if (reason) return { outcome: 'drop', reason }
-  const signals = automaticSignals(input.headers, input)
+  const heldForReview = reason === 'auto_reply' && (input.attachments ?? 0) > 0
+  if (reason && !heldForReview) return { outcome: 'drop', reason }
+  const signals = [...(heldForReview ? (['auto_reply_with_attachments'] as const) : []), ...automaticSignals(input.headers, input)]
   return { outcome: 'keep', automatic: signals.length > 0, signals }
 }

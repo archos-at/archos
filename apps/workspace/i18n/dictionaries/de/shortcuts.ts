@@ -61,7 +61,7 @@ export const shortcuts: typeof en.shortcuts = {
       inboundMailOpen: 'E-Mail öffnen',
       inboundMailSelect: 'E-Mail auswählen',
       inboundMailPreview: 'Anhang ansehen',
-      inboundMailFile: 'Wie gezeigt ablegen',
+      inboundMailFile: 'Einordnen (in der Übersicht: Ablegen)',
       inboundMailDismiss: 'E-Mail verwerfen',
     },
     disableHint: 'Tastaturkürzel lassen sich in den Profileinstellungen deaktivieren.',

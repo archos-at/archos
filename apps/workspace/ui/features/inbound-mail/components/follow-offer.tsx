@@ -2,61 +2,51 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
-import { Check } from 'lucide-react'
-import { BusyButton } from '@/components/ui/busy-button'
-import { FollowCard, FollowCardHint } from '@/features/documents'
+import { FollowSwitch } from '@/features/documents'
 import { useTranslations } from '@/i18n'
+import { cn } from '@/lib/utils'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface FollowOfferProps {
   threadName: string
   onFollow: () => Promise<void>
+  onUnfollow?: () => Promise<void>
   following?: boolean
   className?: string
 }
 
-export function FollowOffer({ threadName, onFollow, following = false, className }: FollowOfferProps): JSX.Element {
+/** After a reply is filed, the switch for the Verlauf's further replies, as the Verlauf's „E-Mails“ tab shows it. */
+export function FollowOffer({ threadName, onFollow, onUnfollow, following = false, className }: FollowOfferProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(following)
 
-  const follow = async (): Promise<void> => {
+  const run = async (action: () => Promise<void>): Promise<void> => {
     setBusy(true)
     try {
-      await onFollow()
-      setDone(true)
+      await action()
     } catch {
-      // The caller says what failed; the offer stands.
+      // The caller says what failed; the switch stands as it was.
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <FollowCard
-      className={className}
+    <section
+      className={cn('bg-card rounded-surface flex flex-col gap-1.5 border p-3', className)}
       data-testid="follow-offer"
-      titleRole={done ? 'status' : undefined}
-      title={done ? t('follow.following', { name: threadName }) : t('follow.thread', { name: threadName })}
-      hint={<FollowCardHint>{t('follow.explain')}</FollowCardHint>}
-      actions={
-        done ? (
-          <Check className="text-muted-foreground size-4 shrink-0" aria-hidden data-testid="follow-offer-done" />
-        ) : (
-        <BusyButton
-          type="button"
-          size="sm"
-          variant="secondary"
-          busy={busy}
-          busyLabel={t('follow.busy')}
-          onClick={() => void follow()}
-          className="w-full @md:w-auto"
-          data-testid="follow-offer-button"
-        >
-          {t('follow.offer')}
-        </BusyButton>
-        )
-      }
-    />
+      data-following={following || undefined}
+      aria-label={t('follow.thread', { name: threadName })}
+    >
+      <p className="text-muted-foreground text-xs [overflow-wrap:anywhere]" data-testid="follow-offer-title">
+        {t('follow.thread', { name: threadName })}
+      </p>
+      <FollowSwitch
+        on={following}
+        disabled={busy || (following && !onUnfollow)}
+        onChange={(on) => void run(on ? onFollow : (onUnfollow ?? onFollow))}
+        testId="follow-offer-switch"
+      />
+    </section>
   )
 }

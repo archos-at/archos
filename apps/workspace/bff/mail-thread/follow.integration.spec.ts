@@ -4,12 +4,11 @@
  * „Verlauf folgen“ against a REAL Postgres with migration 0196, through the
  * restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run src/lib/mail-thread/follow.integration.spec.ts
+ *   bash scripts/rls-test-db.sh --only bff/mail-thread/follow.integration.spec.ts
  *
  * Two halves. The first proves the follow SQL keeps the migration's rules
  * rather than meet a refusal in production: one running follow per person and
- * thread, a renewal never past 180 days from the start, an end recorded once;
+ * thread, a renewal that never shortens it, an end recorded once;
  * the follow job's decision transaction with its caps (the follow's own per
  * day, the project's per day, two jobs racing for the last slot), a follow that
  * ended or is younger than the mail deciding nothing, and the database
@@ -21,14 +20,16 @@
  *
  * - A reply whose References are signed, from a domain already in the thread,
  *   becomes exactly ONE new Fassung of the thread, filed as the follower, with
- *   its attachment still waiting for a person.
+ *   its attachment still waiting for a person while it has no suggestion, and
+ *   filed with it into the folder a suggestion names that exists (0252).
+ * - A person who files a reply's text into a Verlauf follows it from then on.
  * - A reply whose References are NOT signed, and one that brings a new domain
  *   into the conversation, queue no follow job, and the follow job, run for
  *   them anyway, files nothing: no Fassung, no decision.
  *
  * Mocked are only what is outside this tier or the database: the object store
  * (in memory), the scanner, the Python reader, DNS (the signatures are real),
- * the member directory and the identity provider, the folder rights (FGA), the
+ * the member directory and the identity provider, the project and folder rights (FGA), the
  * audit trail and the scores' transport, and the upload path past the decision
  * (`uploadDocument`, which here writes the Fassung an upload would).
  */
@@ -51,6 +52,7 @@ vi.mock('@/lib/inbound-mail/staging', () => ({
     if (!bytes) throw new Error(`no object ${key}`)
     return bytes
   }),
+  readStagedObjectIfHeld: vi.fn(async (_bucket: string, key: string) => store.objects.get(key) ?? null),
   putStagedObject: vi.fn(async (_bucket: string, key: string, body: Uint8Array) => {
     store.objects.set(key, body)
   }),
@@ -79,8 +81,13 @@ vi.mock('@/lib/inbound-mail/sender-auth', async (importOriginal) => {
     ),
   }
 })
-vi.mock('@/lib/documents/accepted-types', () => ({
+vi.mock('@/lib/documents/accepted-types', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/documents/accepted-types')>()),
   acceptedTypesForOrganization: vi.fn(async () => ['.pdf', '.docx', '.txt', '.md']),
+}))
+vi.mock('@/lib/inbound-mail/access', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/inbound-mail/access')>()),
+  requireMailReviewer: vi.fn(async () => ({ closed: false })),
 }))
 vi.mock('@/lib/sharing/directory', () => {
   const loadOrganizationDirectory = vi.fn()
@@ -149,6 +156,13 @@ const token = (seed: string) =>
     .replace(/[^a-z2-7]/g, 'a')
     .padEnd(12, 'q')
     .slice(-12)
+
+describe('the suite is not silently skipped in CI', () => {
+  it('has a database to run against', () => {
+    if (!process.env.RLS_SUITE_REQUIRED) return
+    expect(url, 'TEST_DATABASE_URL is unset while RLS_SUITE_REQUIRED is set').toBeTruthy()
+  })
+})
 
 describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
@@ -221,7 +235,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     return { projectId, addressId, threadId, documentId, ...address }
   }
 
-  async function waitingMail(projectId: string, addressId: string, receivedAt: Date): Promise<{ mailId: string; textPart: string }> {
+  async function waitingMail(projectId: string, addressId: string, receivedAt: Date, trust = 'external_verified'): Promise<{ mailId: string; textPart: string }> {
     const mailId = crypto.randomUUID()
     await rows(sql`
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket,
@@ -229,7 +243,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
         sender_trust, sender_class, sender_reason, signer_domain, message_id, participants, participant_domains, sent_at, received_at, expires_at)
       VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'a')}, 2048, 'org-test-bucket',
         ${`org/${ORG}/project/${projectId}/_inbound-mail/${mailId}/read.json`}, 'clean', now(), 'anna@buero-muster.at', 'Anna Muster', 'AW: Einreichplan', 'einreichplan',
-        'external_verified', 'external', 'dkim_pass', 'buero-muster.at', ${`${mailId}@buero-muster.at`}, '[]'::jsonb, '{buero-muster.at}',
+        ${trust}, 'external', ${trust === 'external_verified' ? 'dkim_pass' : 'dkim_none'}, 'buero-muster.at', ${`${mailId}@buero-muster.at`}, '[]'::jsonb, '{buero-muster.at}',
         ${receivedAt.toISOString()}::timestamptz, ${receivedAt.toISOString()}::timestamptz, now() + interval '30 days')`)
     const text = await one<{ id: string }>(sql`
       INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, content_type, size_bytes, sha256, scan_status)
@@ -268,7 +282,45 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     await withPlatformAccess('test cleanup', () => db.execute(sql`DELETE FROM bff_job_queue WHERE lane = ${ORG}`))
   })
 
-  it('keeps one running follow per person and thread, renews within 180 days of its start, and ends it once', async () => {
+  it('says why the Verlauf’s mail still waits: an unverifiable sender, an attachment the follow left, before the follow, or a check', async () => {
+    const { projectId, addressId, threadId } = await followedProject('why')
+    const threadRepo = await import('./repository')
+    const now = Date.now()
+    const follow = await inTenant(() =>
+      repo.startFollow({ organizationId: ORG, projectId, threadId, userId: MEMBER_ID, createdAt: new Date(now - DAY), expiresAt: new Date(now + 59 * DAY) }),
+    )
+    const inThread = async (receivedAt: Date, trust?: string): Promise<{ mailId: string; textPart: string }> => {
+      const mail = await waitingMail(projectId, addressId, receivedAt, trust)
+      await rows(sql`UPDATE inbound_mails SET thread_match = ${JSON.stringify([{ threadId, strength: 'reference' }])}::jsonb WHERE id = ${mail.mailId}::uuid`)
+      return mail
+    }
+    expect(await inTenant(() => threadRepo.findWaitingForThread(projectId, threadId))).toEqual({ count: 0, reasons: [] })
+
+    await inThread(new Date(now - DAY / 2), 'external_unverified')
+    const leftAt = new Date(now - DAY / 2)
+    const left = await inThread(leftAt)
+    const written = await inTenant(() => repo.writeFollowDecision(decisionInput({ id: follow!.id, userId: MEMBER_ID, threadId }, projectId, left, leftAt)))
+    expect(written.kind).toBe('written')
+    expect(await rows(sql`UPDATE inbound_mail_parts SET state = 'filed', filed_at = now(), claim_expires_at = NULL WHERE id = ${left.textPart}::uuid RETURNING state`)).toEqual([{ state: 'filed' }])
+    await rows(sql`
+      INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, scan_status, storage_key)
+      VALUES (${ORG}, ${projectId}::uuid, ${left.mailId}::uuid, 1, 'attachment', 'Foto.jpg', 'image/jpeg', 12, ${'b'.repeat(64)}, 'pending',
+              ${`org/${ORG}/project/${projectId}/_inbound-mail/${left.mailId}/1`})`)
+    await inThread(new Date(now - 3 * DAY))
+    await waitingMail(projectId, addressId, new Date(now - DAY / 2))
+
+    expect(await inTenant(() => threadRepo.findWaitingForThread(projectId, threadId))).toEqual({
+      count: 3,
+      reasons: ['sender_not_verified', 'attachment_left', 'before_follow'],
+    })
+    await inThread(new Date(now - DAY / 2))
+    expect(await inTenant(() => threadRepo.findWaitingForThread(projectId, threadId))).toEqual({
+      count: 4,
+      reasons: ['sender_not_verified', 'attachment_left', 'before_follow', 'needs_check'],
+    })
+  })
+
+  it('keeps one running follow per person and thread, renews it without a cap and never shorter, and ends it once', async () => {
     const { projectId, threadId } = await followedProject('rows')
     const now = new Date()
     const start = (userId: string) =>
@@ -281,8 +333,10 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     expect(await start(COLLEAGUE_ID)).not.toBeNull()
 
     const renewed = await inTenant(() => repo.renewFollow(follow!.id, new Date(now.getTime() + 400 * DAY), now))
-    expect(new Date(renewed!.expiresAt).getTime()).toBe(new Date(follow!.createdAt).getTime() + 180 * DAY)
+    expect(new Date(renewed!.expiresAt).getTime()).toBe(now.getTime() + 400 * DAY)
     expect(renewed!.renewedAt).not.toBeNull()
+    const kept = await inTenant(() => repo.renewFollow(follow!.id, new Date(now.getTime() + DAY), now))
+    expect(new Date(kept!.expiresAt).getTime()).toBe(now.getTime() + 400 * DAY)
 
     const ended = await inTenant(() => repo.endFollow(follow!.id, { reason: 'unfollowed', endedBy: MEMBER_ID }))
     expect(ended).toMatchObject({ endedReason: 'unfollowed', endedBy: MEMBER_ID })
@@ -292,6 +346,47 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     expect(await start(MEMBER_ID)).not.toBeNull()
     const colleague = await inTenant(() => repo.findRunningFollow(threadId, COLLEAGUE_ID))
     await expect(inTenant(() => repo.endFollow(colleague!.id, { reason: 'unfollowed', endedBy: MEMBER_ID }))).rejects.toThrow()
+  })
+
+  it('extends only the running follows of the Verlauf, re-arms their renewal notice, and starts none (owner decision 2026-11-19)', async () => {
+    const { projectId, threadId } = await followedProject('extend')
+    const other = await followedProject('extend-other')
+    const now = new Date()
+    const until = new Date(now.getTime() + 60 * DAY)
+    const follow = async (userId: string, fields: { threadId?: string; projectId?: string; expiresIn: number; notified?: boolean; ended?: boolean }) => {
+      const row = await one<{ id: string }>(sql`
+        INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, created_at, expires_at, expiring_notified_at, ended_at, ended_by, ended_reason)
+        VALUES (${ORG}, ${(fields.projectId ?? projectId)}::uuid, ${(fields.threadId ?? threadId)}::uuid, ${userId}, now() - interval '170 days',
+                now() + make_interval(days => ${fields.expiresIn}), ${fields.notified ? sql`now() - interval '1 day'` : null},
+                ${fields.ended ? sql`now() - interval '1 day'` : null}, ${fields.ended ? userId : null}, ${fields.ended ? 'unfollowed' : null})
+        RETURNING id`)
+      return row.id
+    }
+    const announced = await follow(MEMBER_ID, { expiresIn: 4, notified: true })
+    const ahead = await follow(COLLEAGUE_ID, { expiresIn: 90 })
+    const switchedOff = await follow('user_01J0FOLLOWSPEC0000000000C3', { expiresIn: 30, ended: true })
+    const ranOut = await follow('user_01J0FOLLOWSPEC0000000000D4', { expiresIn: -1 })
+    const elsewhere = await follow(MEMBER_ID, { threadId: other.threadId, projectId: other.projectId, expiresIn: 4, notified: true })
+
+    const extended = await inTenant(() => repo.extendRunningFollows(threadId, until, now))
+    expect(extended.map((row) => row.id)).toEqual([announced])
+
+    const state = async (id: string) =>
+      one<{ expires_at: Date; expiring_notified_at: Date | null; ended_at: Date | null }>(
+        sql`SELECT expires_at, expiring_notified_at, ended_at FROM mail_thread_follows WHERE id = ${id}::uuid`,
+      )
+    expect(new Date((await state(announced)).expires_at).getTime()).toBe(until.getTime())
+    expect((await state(announced)).expiring_notified_at).toBeNull()
+    expect(new Date((await state(ahead)).expires_at).getTime()).toBeGreaterThan(until.getTime())
+    expect(await state(switchedOff)).toMatchObject({ ended_at: expect.anything() })
+    expect(new Date((await state(switchedOff)).expires_at).getTime()).toBeLessThan(until.getTime())
+    expect(new Date((await state(ranOut)).expires_at).getTime()).toBeLessThan(now.getTime())
+    expect((await state(elsewhere)).expiring_notified_at).not.toBeNull()
+    expect(await count(sql`SELECT count(*) FROM mail_thread_follows WHERE thread_id = ${threadId}::uuid`)).toBe(4)
+
+    const { claimFollowExpiringNotice } = await import('@/lib/inbound-mail/sweep-thread-repository')
+    expect(await inTenant(() => claimFollowExpiringNotice(announced, now))).toBe(true)
+    expect(await inTenant(() => claimFollowExpiringNotice(announced, now))).toBe(false)
   })
 
   it('tells a live thread document from a gone one, and from one held from the reader', async () => {
@@ -384,6 +479,56 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     ])
     expect(outcomes.map((outcome) => outcome.kind).sort()).toEqual(['follow_cap', 'written'])
     expect(await count(sql`SELECT count(*) FROM inbound_mail_decisions WHERE follow_id = ${follow!.id}::uuid`)).toBe(1)
+  })
+
+  it('files the reply’s attachments in the same decision, and counts only replies against the caps', async () => {
+    const { projectId, addressId, threadId } = await followedProject('attachcap')
+    const follow = await inTenant(() =>
+      repo.startFollow({
+        organizationId: ORG, projectId, threadId, userId: MEMBER_ID, dailyCap: 2,
+        createdAt: new Date(Date.now() - DAY), expiresAt: new Date(Date.now() + DAY),
+      }),
+    )
+    const ref = { id: follow!.id, userId: MEMBER_ID, threadId }
+    const folder = await one<{ id: string }>(sql`
+      INSERT INTO project_folders (organization_id, project_id, name, path) VALUES (${ORG}, ${projectId}::uuid, 'Tragwerk', 'Tragwerk') RETURNING id`)
+    const received = new Date(Date.now() - 1_000)
+    const attached = async () => {
+      const mail = await waitingMail(projectId, addressId, received)
+      const parts = await rows<{ id: string }>(sql`
+        INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, storage_key, scan_status, scanned_at)
+        SELECT ${ORG}, ${projectId}::uuid, ${mail.mailId}::uuid, n, 'attachment', 'S-' || n || '.pdf', 'application/pdf', 10, ${'b'.repeat(64)},
+               ${`org/${ORG}/project/${projectId}/_inbound-mail/${mail.mailId}/`} || n, 'clean', now()
+        FROM generate_series(1, 2) AS n RETURNING id`)
+      return { mail, parts: parts.map((part) => part.id) }
+    }
+    const withAttachments = (mail: { mailId: string; textPart: string }, parts: string[]) => ({
+      ...decisionInput(ref, projectId, mail, received),
+      attachments: parts.map((partId, index) => ({
+        id: crypto.randomUUID(),
+        partId,
+        folderId: folder.id,
+        folderPath: 'Tragwerk',
+        fileName: `S-${index + 1}.pdf`,
+        targetDocumentId: null,
+        documentType: null,
+      })),
+    })
+
+    const first = await attached()
+    const written = await inTenant(() => repo.writeFollowDecision(withAttachments(first.mail, first.parts)))
+    expect(written.kind).toBe('written')
+    expect(written.kind === 'written' && written.attachments).toHaveLength(2)
+    expect(await rows(sql`SELECT state FROM inbound_mail_parts WHERE mail_id = ${first.mail.mailId}::uuid ORDER BY position`)).toEqual([
+      { state: 'filing' },
+      { state: 'filing' },
+      { state: 'filing' },
+    ])
+    const second = await attached()
+    expect((await inTenant(() => repo.writeFollowDecision(withAttachments(second.mail, second.parts)))).kind).toBe('written')
+    const third = await attached()
+    expect(await inTenant(() => repo.writeFollowDecision(withAttachments(third.mail, third.parts)))).toEqual({ kind: 'follow_cap' })
+    expect(await count(sql`SELECT count(*) FROM inbound_mail_decisions WHERE mail_id = ${third.mail.mailId}::uuid`)).toBe(0)
   })
 
   it('caps the appends of all follows of one project per day', async () => {
@@ -508,10 +653,22 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       vi.mocked(uploadDocument).mockImplementation(async (asWho, input) => {
         const bytes = new Uint8Array(await input.file.arrayBuffer())
         const hash = createHash('sha256').update(bytes).digest('hex')
-        const [existing] = Array.from(
+        let [existing] = Array.from(
           await db.execute(sql`SELECT id FROM documents WHERE project_id = ${input.projectId}::uuid AND filename = ${input.file.name}`),
         ) as Array<{ id: string }>
-        if (!existing) throw new Error('the follow half files only into an existing thread document')
+        if (!existing) {
+          if (!input.folderId) throw new Error('the follow half files an attachment only into an existing folder')
+          ;[existing] = Array.from(
+            await db.execute(sql`
+              INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, folder_id)
+              SELECT ${asWho.organizationId}, ${asWho.userId}, ${input.file.name}, ${`k/${STAMP}/a/${hash}`}, collection_name, 'completed', 'project',
+                     ${input.projectId}::uuid, ${input.folderId}::uuid
+              FROM projects WHERE id = ${input.projectId}::uuid RETURNING id`),
+          ) as Array<{ id: string }>
+          await db.execute(sql`
+            INSERT INTO document_versions (organization_id, document_id, project_id, version_number, state, storage_key, created_by, approved_by, approved_at)
+            VALUES (${asWho.organizationId}, ${existing!.id}::uuid, ${input.projectId}::uuid, 0, 'superseded', ${`k/${STAMP}/a/${hash}/v0`}, ${asWho.userId}, ${asWho.userId}, now())`)
+        }
         await db.execute(sql`UPDATE documents SET content_hash = ${hash}, screened_hash = ${hash} WHERE id = ${existing.id}::uuid`)
         await db.execute(sql`
           INSERT INTO document_versions (organization_id, document_id, project_id, version_number, state, storage_key, created_by, approved_by, approved_at)
@@ -576,7 +733,8 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
 
     const runFollow = async (mailId: string) => {
       const { runInboundMailFollow } = await import('@/lib/inbound-mail/follow-job')
-      return inTenant(() => runInboundMailFollow(ORG, { projectId: project.projectId, mailId, followId, requester }))
+      const { SUGGESTION_MAX_WAITS } = await import('@/lib/inbound-mail/suggestion-wait')
+      return inTenant(() => runInboundMailFollow(ORG, { projectId: project.projectId, mailId, followId, requester, waits: SUGGESTION_MAX_WAITS }))
     }
 
     const SIGNED = 'from:to:subject:date:message-id:in-reply-to:references:mime-version:content-type'
@@ -591,9 +749,17 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       })
       expect(await followJobs(mailId)).toHaveLength(1)
       expect(await threadVersionCount()).toBe(1)
+      await rows(sql`UPDATE mail_thread_follows SET expires_at = now() + interval '4 days', expiring_notified_at = now() WHERE id = ${followId}::uuid`)
 
+      const filedFrom = Date.now()
       expect(await runFollow(mailId)).toMatchObject({ done: true })
 
+      const extended = await one<{ expires_at: Date; expiring_notified_at: Date | null }>(
+        sql`SELECT expires_at, expiring_notified_at FROM mail_thread_follows WHERE id = ${followId}::uuid`,
+      )
+      expect(new Date(extended.expires_at).getTime()).toBeGreaterThanOrEqual(filedFrom + 60 * DAY)
+      expect(new Date(extended.expires_at).getTime()).toBeLessThanOrEqual(Date.now() + 60 * DAY)
+      expect(extended.expiring_notified_at).toBeNull()
       expect(await threadVersionCount()).toBe(2)
       expect(uploadDocument).toHaveBeenCalledOnce()
       expect(vi.mocked(uploadDocument).mock.calls[0]![0].userId).toBe(MEMBER_ID)
@@ -614,6 +780,92 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       ).toEqual({ entry_count: 2, filed_via: 'follow' })
       expect(await runFollow(mailId)).toMatchObject({ done: true })
       expect(await threadVersionCount()).toBe(2)
+    })
+
+    it('a reply’s clean attachment the suggestion places in an existing folder is filed with its text, as the follower (migration 0252)', async () => {
+      const { uploadDocument } = await import('@/lib/documents/document-dispatch')
+      vi.mocked(uploadDocument).mockClear()
+      const folder = await one<{ id: string }>(sql`
+        INSERT INTO project_folders (organization_id, project_id, name, path) VALUES (${ORG}, ${project.projectId}::uuid, 'Tragwerk', 'Tragwerk') RETURNING id`)
+      const mailId = await receive('attached', {}, SIGNED)
+      await rows(sql`
+        UPDATE inbound_mail_parts
+           SET suggestion = ${JSON.stringify({ folderId: folder.id, folderPath: 'Tragwerk', newFolder: false, documentType: null, reason: 'Wie die anderen Pläne.' })}::jsonb
+         WHERE mail_id = ${mailId}::uuid AND kind = 'attachment'`)
+
+      expect(await runFollow(mailId)).toMatchObject({ done: true })
+
+      expect(
+        await rows(sql`SELECT kind, state FROM inbound_mail_parts WHERE mail_id = ${mailId}::uuid ORDER BY position`),
+      ).toEqual([
+        { kind: 'message', state: 'filed' },
+        { kind: 'attachment', state: 'filed' },
+      ])
+      expect(
+        await rows(sql`SELECT d.via, d.decided_by, d.follow_id, d.folder_id, d.thread_action FROM inbound_mail_decisions d
+                       JOIN inbound_mail_parts p ON p.id = d.part_id WHERE d.mail_id = ${mailId}::uuid ORDER BY p.position`),
+      ).toEqual([
+        { via: 'follow', decided_by: MEMBER_ID, follow_id: followId, folder_id: null, thread_action: 'append' },
+        { via: 'follow', decided_by: MEMBER_ID, follow_id: followId, folder_id: folder.id, thread_action: null },
+      ])
+      const uploads = vi.mocked(uploadDocument).mock.calls.map(([asWho, input]) => [asWho.userId, input.file.name, input.folderId ?? null])
+      expect(uploads).toEqual(expect.arrayContaining([[MEMBER_ID, 'S-attached.pdf', folder.id]]))
+      expect(await one(sql`SELECT status FROM inbound_mails WHERE id = ${mailId}::uuid`)).toEqual({ status: 'settled' })
+    })
+
+    it('waits for a suggestion still queued for the reply before it decides anything', async () => {
+      const mailId = await receive('suggesting', {}, SIGNED)
+      const { findOpenJobId } = await import('@/lib/jobs-queue/repository')
+      expect(await inTenant(() => findOpenJobId({ kind: 'inbound_mail_suggest', organizationId: ORG, matching: { mailId } }))).not.toBeNull()
+      const { runInboundMailFollow } = await import('@/lib/inbound-mail/follow-job')
+      const waited = await inTenant(() => runInboundMailFollow(ORG, { projectId: project.projectId, mailId, followId, requester, waits: 0 }))
+      expect(waited).toMatchObject({ done: false, payload: { waits: 1 } })
+      expect(await count(sql`SELECT count(*) FROM inbound_mail_decisions WHERE mail_id = ${mailId}::uuid`)).toBe(0)
+    })
+
+    it('a person who files a reply’s text into a Verlauf follows it from then on (follow by default)', async () => {
+      const fresh = await followedProject('bydefault')
+      const received = new Date(Date.now() - 60_000)
+      const mail = await waitingMail(fresh.projectId, fresh.addressId, received)
+      store.objects.set(
+        `org/${ORG}/project/${fresh.projectId}/_inbound-mail/${mail.mailId}/read.json`,
+        new TextEncoder().encode(JSON.stringify({
+          readerVersion: 1, bodySource: 'plain', ownText: 'Passt.', ownTextTruncated: false, split: true, signatureRemoved: false,
+          quoted: [], quotedTruncated: false, calendar: [], calendarTruncated: false, encrypted: false, unreadableReasons: [], unreadable: false,
+        })),
+      )
+      const decision = await one<{ id: string }>(sql`
+        INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, thread_action, mail_thread_id, message_text, document_type)
+        VALUES (${ORG}, ${fresh.projectId}::uuid, ${mail.mailId}::uuid, ${mail.textPart}::uuid, 'file', ${MEMBER_ID}, 'app', 'append', ${fresh.threadId}::uuid, 'full', 'correspondence')
+        RETURNING id`)
+      await rows(sql`UPDATE inbound_mail_parts SET state = 'filing', decision_id = ${decision.id}::uuid, claim_expires_at = now() + interval '5 minutes'
+                     WHERE id = ${mail.textPart}::uuid`)
+      expect(await inTenant(() => repo.findRunningFollow(fresh.threadId, MEMBER_ID))).toBeNull()
+      const colleague = await inTenant(() =>
+        repo.startFollow({
+          organizationId: ORG,
+          projectId: fresh.projectId,
+          threadId: fresh.threadId,
+          userId: COLLEAGUE_ID,
+          createdAt: new Date(Date.now() - 55 * DAY),
+          expiresAt: new Date(Date.now() + 5 * DAY),
+        }),
+      )
+
+      const filedFrom = Date.now()
+      const { runInboundMailFiling } = await import('@/lib/inbound-mail/file-job')
+      await inTenant(() =>
+        runInboundMailFiling(session, { projectId: fresh.projectId, mailIds: [mail.mailId], decisionIds: [decision.id], requester }),
+      )
+
+      expect(await one(sql`SELECT state FROM inbound_mail_parts WHERE id = ${mail.textPart}::uuid`)).toEqual({ state: 'filed' })
+      const started = await inTenant(() => repo.findRunningFollow(fresh.threadId, MEMBER_ID))
+      expect(started).toMatchObject({ userId: MEMBER_ID, threadId: fresh.threadId, endedAt: null })
+      const days = (new Date(started!.expiresAt).getTime() - new Date(started!.createdAt).getTime()) / DAY
+      expect(Math.round(days)).toBe(60)
+      const kept = await inTenant(() => repo.findRunningFollow(fresh.threadId, COLLEAGUE_ID))
+      expect(kept!.id).toBe(colleague!.id)
+      expect(new Date(kept!.expiresAt).getTime()).toBeGreaterThanOrEqual(filedFrom + 60 * DAY)
     })
 
     it('a reply whose References are outside the signature queues no follow, and the job files nothing for it', async () => {

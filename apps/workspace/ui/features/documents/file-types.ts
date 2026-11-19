@@ -22,6 +22,11 @@ export interface FolderItem {
   access?: 'read' | 'write'
 }
 
+export interface FileMailThread {
+  entryCount: number
+  lastEntryAt: string | null
+}
+
 export interface FileItem {
   id: string
   filename: string
@@ -57,6 +62,7 @@ export interface FileItem {
   retryable?: boolean
   marks?: MarkTally | null
   baseKnowledgeEntryId?: string | null
+  mailThread?: FileMailThread | null
 }
 
 export interface FileAssignee {

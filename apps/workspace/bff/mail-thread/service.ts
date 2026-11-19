@@ -17,7 +17,7 @@ import type {
   MailThreadView,
 } from './mail-thread-wire'
 import {
-  countWaitingForThread,
+  findWaitingForThread,
   entryAttachments,
   findActiveFollows,
   findThreadEntries,
@@ -60,6 +60,7 @@ export function attachmentViews(attachments: readonly EntryAttachment[], hiddenF
       ...(attachment.notFiledReason ? { notFiledReason: attachment.notFiledReason } : {}),
       ...(attachment.documentId ? { documentId: attachment.documentId } : {}),
       ...(attachment.documentVersionId ? { documentVersionId: attachment.documentVersionId } : {}),
+      ...(filed && attachment.document ? { folderPath: attachment.document.folderPath } : {}),
       visible: true,
     }
   })
@@ -111,6 +112,12 @@ export async function listMailThreads(
   }
 }
 
+async function waitingOf(mayFile: boolean, projectId: string, threadId: string): Promise<Pick<MailThreadView, 'waitingCount' | 'waitingReasons'>> {
+  if (!mayFile) return { waitingCount: null, waitingReasons: [] }
+  const waiting = await findWaitingForThread(projectId, threadId)
+  return { waitingCount: waiting.count, waitingReasons: waiting.reasons }
+}
+
 export async function getMailThread(session: AuthorizedSession, projectId: string, threadId: string): Promise<MailThreadView> {
   const hidden = await requireThreadReader(session, projectId)
   const thread = await findVisibleThread(projectId, threadId, hidden)
@@ -138,6 +145,6 @@ export async function getMailThread(session: AuthorizedSession, projectId: strin
     ),
     follows: follows.map(followView),
     managesFollows,
-    waitingCount: mayFile ? await countWaitingForThread(projectId, thread.id) : null,
+    ...(await waitingOf(mayFile, projectId, thread.id)),
   }
 }

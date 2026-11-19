@@ -6,8 +6,7 @@
  * Postgres with migrations 0196 and 0197 through the restricted runtime role
  * (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/inbound-mail/review-first.e2e.spec.ts
+ *   bash scripts/rls-test-db.sh --only bff/inbound-mail/review-first.e2e.spec.ts
  *
  * The owner's sentence is now: a project writer's own signed mail is filed
  * directly, as them; everything else waits for a person, and a mail that
@@ -58,6 +57,7 @@ vi.mock('./staging', () => ({
     if (!bytes) throw new Error(`no object ${key}`)
     return bytes
   }),
+  readStagedObjectIfHeld: vi.fn(async (_bucket: string, key: string) => store.objects.get(key) ?? null),
   putStagedObject: vi.fn(async (_bucket: string, key: string, body: Uint8Array) => {
     store.writes.push(key)
     store.objects.set(key, body)
@@ -163,6 +163,13 @@ const TOKEN = (STAMP + 'rvfst')
   .replace(/[^a-z2-7]/g, 'a')
   .padEnd(12, 'q')
   .slice(-12)
+
+describe('the suite is not silently skipped in CI', () => {
+  it('has a database to run against', () => {
+    if (!process.env.RLS_SUITE_REQUIRED) return
+    expect(url, 'TEST_DATABASE_URL is unset while RLS_SUITE_REQUIRED is set').toBeTruthy()
+  })
+})
 
 describe.skipIf(!url)('review first: nothing is filed without a person’s decision, the verified writer’s own included', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
@@ -411,7 +418,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
       role: 'member',
       permissions: [],
     }
-    await inTenant(() => runInboundMailFiling(session, { projectId, mailIds: [mailId], requester }))
+    await inTenant(() => runInboundMailFiling(session, { projectId, mailIds: [mailId], decisionIds: [decisionId], requester }))
 
     expect(uploadDocument).toHaveBeenCalledOnce()
     const [asWho, input] = vi.mocked(uploadDocument).mock.calls[0]!

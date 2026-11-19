@@ -487,3 +487,33 @@ describe('FileCard and the version state badge', () => {
     expect(screen.queryByTestId('document-version-badge')).not.toBeInTheDocument()
   })
 })
+
+describe('FileCard: an E-Mail-Verlauf', () => {
+  const verlauf: FileItem = {
+    ...file('v1', 'Stellplatznachweis.md', 'text/markdown'),
+    tags: ['correspondence'],
+    versionCount: 3,
+    versionState: 'published',
+    mailThread: { entryCount: 3, lastEntryAt: '2026-10-14T07:12:00Z' },
+  }
+
+  it('reads as the conversation it is, not as a Markdown file with a Freigabe', () => {
+    render(<FileCard file={verlauf} isSelected={false} onSelect={() => {}} locale="en" />)
+    const card = screen.getByTestId('file-card')
+    expect(card).toHaveTextContent('Stellplatznachweis')
+    expect(card).not.toHaveTextContent('.md')
+    expect(screen.getByTestId('mail-thread-file-facts')).toHaveTextContent(/^3 mails · last /)
+    expect(screen.getByTestId('document-kind-thumbnail')).toHaveAttribute('data-kind', 'mail-thread')
+    expect(screen.queryByTestId('document-version-badge')).not.toBeInTheDocument()
+    const footer = screen.getByTestId('file-card-footer')
+    expect(footer).toHaveTextContent('Mail thread')
+    expect(footer).not.toHaveTextContent(/MD|1 KB/i)
+  })
+
+  it('leaves a Markdown file that is no Verlauf a Markdown file', () => {
+    render(<FileCard file={{ ...verlauf, mailThread: null }} isSelected={false} onSelect={() => {}} locale="en" />)
+    expect(screen.getByTestId('file-card')).toHaveTextContent('Stellplatznachweis.md')
+    expect(screen.queryByTestId('mail-thread-file-facts')).not.toBeInTheDocument()
+    expect(screen.getByTestId('file-card-footer')).toHaveTextContent('MD')
+  })
+})

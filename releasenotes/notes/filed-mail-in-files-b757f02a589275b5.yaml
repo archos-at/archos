@@ -1,0 +1,22 @@
+---
+# area: documents
+features:
+  - >
+    A filed e-mail conversation now shows in Files as what it is: an envelope,
+    its name without ".md", how many e-mails it holds and when the last one
+    came, and "E-Mail-Verlauf" where other files name their format. Its preview
+    says the same at the top.
+  - >
+    In an e-mail conversation, an e-mail whose subject differs from the
+    conversation's name now shows its own subject, so a search for the subject
+    you remember from Outlook finds it. Where its attachments were filed reads
+    as the folder's name.
+  - >
+    The "E-Mails" tab of a conversation lists the e-mails without a row of
+    buttons under each: "Original (.eml)" sits beside when the e-mail came, and
+    "Was diese E-Mail hinzufügte" is in the e-mail's "..." menu. The list says
+    it shows the newest first.
+fixes:
+  - >
+    Notices about replies filed without a click now use the same words as the
+    conversation's "E-Mails" tab instead of "folgen".

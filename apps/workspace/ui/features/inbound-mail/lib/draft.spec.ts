@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest'
+import { fileInboundMailsBodySchema } from '@/lib/inbound-mail/inbound-mail-wire'
+import { validateDocumentName } from '@/lib/documents/display-name'
 import { FOLDERS, mail, messagePart, part, thread } from '@/app/dev/inbound-mail/fixtures'
 import {
-  chooseFinding,
+  chooseRevision,
+  checkAllAttachments,
+  checkedAttachmentIds,
   decisionOf,
+  fileCheckedInto,
+  rebaseDraft,
+  sameSubjectThread,
+  revisionChoiceOf,
   draftSummary,
   initialDraft,
   targetForPath,
@@ -11,7 +19,7 @@ import {
   type DraftCopy,
 } from './draft'
 
-const copy: DraftCopy = { unnamedAttachment: (position) => `Attachment ${position}`, untitledThread: '(no subject)' }
+const copy: DraftCopy = { unnamedAttachment: (part) => `Attachment ${part.position}`, untitledThread: '(no subject)' }
 const permitDecision = part({ name: 'Bescheid.pdf', suggestion: { folderId: null, folderPath: 'Behörde/Bescheide', newFolder: false, documentType: 'Bescheid', reason: 'MA 37' } })
 const message = messagePart({ id: '11111111-1111-4111-8111-111111111111' })
 
@@ -42,7 +50,7 @@ describe('initialDraft', () => {
     expect(initialDraft(view, FOLDERS, copy).message?.target).toEqual({
       kind: 'create',
       name: 'Baustellenbegehung',
-      folder: { kind: 'existing', folderId: FOLDERS[3].id, path: 'Korrespondenz' },
+      folder: { kind: 'existing', folderId: FOLDERS.find((folder) => folder.path === 'Korrespondenz')!.id, path: 'Korrespondenz' },
       folderSuggested: false,
       releaseName: false,
     })
@@ -54,9 +62,22 @@ describe('initialDraft', () => {
     expect(draft.message).toMatchObject({ checked: false, findingChoice: 'masked' })
   })
 
-  it('names a nameless part by its position', () => {
+  it('names a nameless part as the copy says, from the part itself', () => {
     const view = mail({ parts: [message, part({ filename: null, position: 4, contentType: 'image/png' })] })
     expect(initialDraft(view, FOLDERS, copy).attachments[0].name).toBe('Attachment 4')
+  })
+
+  it('numbers nameless parts the copy names alike, so two pictures of the text are not filed under one name', () => {
+    const alike: DraftCopy = { ...copy, unnamedAttachment: () => 'Picture from the mail text' }
+    const view = mail({
+      parts: [
+        message,
+        part({ id: 'p1', filename: null, position: 1, contentType: 'image/png' }),
+        part({ id: 'p2', filename: 'S-101.pdf', position: 2 }),
+        part({ id: 'p3', filename: null, position: 3, contentType: 'image/jpeg' }),
+      ],
+    })
+    expect(initialDraft(view, FOLDERS, alike).attachments.map((row) => row.name)).toEqual(['Picture from the mail text 1', 'S-101.pdf', 'Picture from the mail text 2'])
   })
 })
 
@@ -70,11 +91,14 @@ describe('edits', () => {
     expect(edited.attachments[0].suggested.documentType).toBe(false)
   })
 
-  it('„Getrennt ablegen (eigener E-Mail-Verlauf)“ makes a new thread (D13)', () => {
+  it('a text with findings filed unabridged as a new thread is the old „Getrennt ablegen“: full text, a thread of its own', () => {
     const view = mail({ parts: [messagePart({ id: message.id, contentFindings: ['term'] })] })
-    const draft = chooseFinding(initialDraft(view, FOLDERS, copy), 'own_thread', view, FOLDERS, copy)
-    expect(draft.message).toMatchObject({ findingChoice: 'own_thread', target: { kind: 'create' } })
+    const draft = updateMessage(initialDraft(view, FOLDERS, copy), {
+      findingChoice: 'full',
+      target: { kind: 'create', name: 'Kontodaten', folder: targetForPath('Korrespondenz', FOLDERS), folderSuggested: false, releaseName: false },
+    })
     expect(decisionOf(view, draft).message).toMatchObject({ text: 'full', thread: { action: 'create' } })
+    expect(decisionOf(view, updateMessage(draft, { findingChoice: 'masked' })).message).toMatchObject({ text: 'masked' })
   })
 })
 
@@ -82,13 +106,12 @@ describe('draftSummary', () => {
   it('counts what will be filed and names the thread', () => {
     const view = mail({ parts: [message, permitDecision] })
     const summary = draftSummary(view, initialDraft(view, FOLDERS, copy))
-    expect(summary).toMatchObject({ files: 1, text: true, thread: { name: 'Stellplatznachweis', nextVersion: 4 }, originalErased: false, blockers: [] })
-  })
-
-  it('says the original is erased when the text stays out (D6)', () => {
-    const view = mail({ parts: [message, permitDecision] })
-    const draft = updateMessage(initialDraft(view, FOLDERS, copy), { checked: false })
-    expect(draftSummary(view, draft)).toMatchObject({ text: false, originalErased: true })
+    expect(summary).toMatchObject({
+      files: 1,
+      text: true,
+      thread: { name: 'Stellplatznachweis', nextVersion: 4 },
+      blockers: [],
+    })
   })
 
   it('blocks on a missing folder, an unreleased name, an unaccepted risk and an unconfirmed sender', () => {
@@ -156,9 +179,189 @@ describe('decisionOf', () => {
   })
 })
 
+describe('an unsure next Fassung, asked as three choices', () => {
+  const revisionCandidate = { documentId: '22222222-2222-4222-8222-222222222222', name: 'S-101_C.pdf', folderPath: 'Tragwerk', nextVersion: 4 }
+  const plan = part({ name: 'S-101_Bewehrung.pdf', revisionCandidate, riskFlags: ['unverified_thread'] })
+  const view = mail({ parts: [message, plan] })
+  const tragwerk = FOLDERS.find((folder) => folder.path === 'Tragwerk')!
+
+  it('files a file that is not the same plan with a later index as a new file next to its document by default: its folder, no Fassung, nothing to acknowledge', () => {
+    const draft = initialDraft(view, FOLDERS, copy)
+    expect(revisionChoiceOf(draft.attachments[0])).toBe('new')
+    const decision = decisionOf(view, draft)
+    expect(decision.parts).toEqual([{ partId: plan.id, folderId: tragwerk.id, newFolderPath: null, name: 'S-101_Bewehrung.pdf' }])
+    expect(decision).not.toHaveProperty('acknowledgeRisk')
+    expect(draftSummary(view, draft).blockers).toEqual([])
+  })
+
+  it('files it as the next Fassung of that document once chosen, the choice carrying the acknowledgement the server asks', () => {
+    const draft = chooseRevision(initialDraft(view, FOLDERS, copy), view, plan.id, 'revision', FOLDERS)
+    expect(revisionChoiceOf(draft.attachments[0])).toBe('revision')
+    const decision = decisionOf(view, draft)
+    expect(decision.parts[0]).toMatchObject({ partId: plan.id, revisionOf: revisionCandidate.documentId })
+    expect(decision.acknowledgeRisk).toEqual([plan.id])
+    expect(draftSummary(view, draft).blockers).toEqual([])
+  })
+
+  it('leaves it out on „Nicht ablegen“, and goes back to the new file with its folder', () => {
+    const none = chooseRevision(initialDraft(view, FOLDERS, copy), view, plan.id, 'none', FOLDERS)
+    expect(decisionOf(view, none).parts).toEqual([])
+    const again = chooseRevision(chooseRevision(none, view, plan.id, 'revision', FOLDERS), view, plan.id, 'new', FOLDERS)
+    expect(decisionOf(view, again)).not.toHaveProperty('acknowledgeRisk')
+    expect(decisionOf(view, again).parts[0]).toMatchObject({ folderId: tragwerk.id, newFolderPath: null })
+    expect(decisionOf(view, again).parts[0]).not.toHaveProperty('revisionOf')
+  })
+})
+
+describe('a plan with a later index of the same number', () => {
+  const revisionCandidate = { documentId: '22222222-2222-4222-8222-222222222222', name: 'S-101_C.pdf', folderPath: 'Tragwerk', nextVersion: 4 }
+  const plan = part({ name: 'S-101_D.pdf', revisionCandidate, riskFlags: ['unverified_thread'] })
+  const view = mail({ parts: [message, plan] })
+
+  it('defaults to its next Fassung, which counts as the acknowledgement the server asks', () => {
+    const draft = initialDraft(view, FOLDERS, copy)
+    expect(revisionChoiceOf(draft.attachments[0])).toBe('revision')
+    const decision = decisionOf(view, draft)
+    expect(decision.parts[0]).toMatchObject({ partId: plan.id, revisionOf: revisionCandidate.documentId })
+    expect(decision.acknowledgeRisk).toEqual([plan.id])
+    expect(draftSummary(view, draft).blockers).toEqual([])
+  })
+
+  it('keeps „Als neue Datei“ and „Nicht ablegen“ a click away, neither carrying the acknowledgement', () => {
+    const besides = chooseRevision(initialDraft(view, FOLDERS, copy), view, plan.id, 'new', FOLDERS)
+    expect(decisionOf(view, besides).parts[0]).not.toHaveProperty('revisionOf')
+    expect(decisionOf(view, besides)).not.toHaveProperty('acknowledgeRisk')
+    expect(decisionOf(view, chooseRevision(besides, view, plan.id, 'none', FOLDERS)).parts).toEqual([])
+  })
+
+  it('leaves a macro its own confirmation: the default does not acknowledge for it', () => {
+    const macro = part({ name: 'S-101_D.pdf', revisionCandidate, riskFlags: ['unverified_thread', 'macro'] })
+    const withMacro = mail({ parts: [message, macro] })
+    expect(initialDraft(withMacro, FOLDERS, copy).attachments[0]).toMatchObject({ acknowledgeRisk: false })
+    expect(draftSummary(withMacro, chooseRevision(initialDraft(withMacro, FOLDERS, copy), withMacro, macro.id, 'revision', FOLDERS)).blockers).toEqual([{ kind: 'risk', count: 1 }])
+  })
+
+  it('keeps an older index a new file by default', () => {
+    const older = mail({ parts: [message, part({ name: 'S-101_B.pdf', revisionCandidate, riskFlags: ['unverified_thread'] })] })
+    expect(revisionChoiceOf(initialDraft(older, FOLDERS, copy).attachments[0])).toBe('new')
+  })
+})
+
+describe('the E-Mail-Verlauf of the same subject', () => {
+  const subject = thread({ threadId: '33333333-3333-4333-8333-333333333333', name: 'Tiefgarage Lüftung', strength: 'subject', preselected: false, blocks: ['weak_match'] })
+
+  it('is the dialog’s default when it is the only one that could fit, and appending to it needs no acknowledgement', () => {
+    const view = mail({ parts: [message], threadCandidates: [subject] })
+    expect(sameSubjectThread(view)).toBe(view.threadCandidates[0])
+    const draft = initialDraft(view, FOLDERS, copy)
+    expect(draft.message?.target).toEqual({ kind: 'append', threadId: subject.threadId })
+    expect(decisionOf(view, draft)).not.toHaveProperty('acknowledgeRisk')
+  })
+
+  it('is no default beside another candidate, beside one hidden from the reader, when full, or when appending would need a confirmation', () => {
+    expect(sameSubjectThread(mail({ parts: [message], threadCandidates: [subject, thread({ preselected: false, blocks: ['header_not_signed'] })] }))).toBeNull()
+    expect(sameSubjectThread(mail({ parts: [message], threadCandidates: [subject], hiddenThreadCandidates: 1 }))).toBeNull()
+    expect(sameSubjectThread(mail({ parts: [message], threadCandidates: [{ ...subject, full: true }] }))).toBeNull()
+    expect(sameSubjectThread(mail({ parts: [message], threadCandidates: [{ ...subject, blocks: ['weak_match', 'sender_domain_new'] }] }))).toBeNull()
+    expect(sameSubjectThread(mail({ parts: [message], threadCandidates: [{ ...subject, strength: 'reference_subject_changed', blocks: ['weak_match'] }] }))).toBeNull()
+  })
+
+  it('leaves the server’s own preselection alone', () => {
+    const view = mail({ parts: [message] })
+    expect(sameSubjectThread(view)).toBeNull()
+    expect(initialDraft(view, FOLDERS, copy).message?.target).toEqual({ kind: 'append', threadId: view.threadCandidates[0].threadId })
+  })
+})
+
+describe('the follow a filing starts', () => {
+  it('sends follow: false only when the person said „Nicht automatisch“ for a Verlauf that would be followed', () => {
+    const view = mail({ parts: [message] })
+    const draft = initialDraft(view, FOLDERS, copy)
+    expect(decisionOf(view, draft).message).not.toHaveProperty('follow')
+    expect(decisionOf(view, updateMessage(draft, { follow: false })).message).toMatchObject({ follow: false })
+    const unverified = mail({ parts: [message], sender: { ...mail().sender!, trust: 'external_unverified', reason: 'dkim_none', signerDomain: null } })
+    expect(decisionOf(unverified, updateMessage(initialDraft(unverified, FOLDERS, copy), { follow: false })).message).not.toHaveProperty('follow')
+  })
+})
+
 describe('newThreadTarget', () => {
   it('takes the folder the agent suggested for the text (D14)', () => {
     const view = mail({ parts: [messagePart({ id: message.id, suggestion: { folderId: null, folderPath: 'Behörde', newFolder: false, documentType: null, reason: 'x' } })], threadCandidates: [] })
     expect(initialDraft(view, FOLDERS, copy).message?.target).toMatchObject({ kind: 'create', folder: { kind: 'existing', path: 'Behörde' }, folderSuggested: true })
+  })
+})
+
+describe('a plan set at once', () => {
+  const plans = [1, 2, 3].map((index) => part({ name: `Plan_${index}.pdf` }))
+  const infected = part({ name: 'Virus.pdf', scan: 'infected' })
+  const view = mail({ parts: [message, ...plans, infected] })
+
+  it('ticks and unticks every attachment it can file, and none it cannot', () => {
+    const all = checkAllAttachments(initialDraft(view, FOLDERS, copy), view, true)
+    expect(checkedAttachmentIds(all, view)).toEqual(plans.map((plan) => plan.id))
+    expect(all.attachments.find((attachment) => attachment.partId === infected.id)?.checked).toBe(false)
+    expect(checkedAttachmentIds(checkAllAttachments(all, view, false), view)).toEqual([])
+  })
+
+  it('sends the ticked ones to one folder, and leaves a chosen next Fassung where its document is', () => {
+    let draft = checkAllAttachments(initialDraft(view, FOLDERS, copy), view, true)
+    draft = updateAttachment(draft, plans[2].id, { revisionOf: 'doc-1' })
+    const target = targetForPath('Tragwerk', FOLDERS)
+    const result = fileCheckedInto(draft, view, target)
+    expect(result).toMatchObject({ moved: 2, revisions: 1 })
+    expect(result.draft.attachments.filter((attachment) => attachment.folder?.path === 'Tragwerk').map((attachment) => attachment.partId)).toEqual([plans[0].id, plans[1].id])
+    expect(draftSummary(view, result.draft).blockers).not.toContainEqual(expect.objectContaining({ kind: 'folder_missing' }))
+  })
+})
+
+describe('rebaseDraft', () => {
+  const first = part({ name: 'A.pdf' })
+  const second = part({ name: 'B.pdf', scan: 'pending' })
+  const before = mail({ parts: [message, first, second] })
+
+  it('keeps every choice the person made when the re-read mail has the same parts', () => {
+    const base = initialDraft(before, FOLDERS, copy)
+    const edited = updateAttachment(updateAttachment(base, first.id, { checked: true, folder: targetForPath('Tragwerk', FOLDERS) }), first.id, { name: 'A_Index_C.pdf' })
+    const after = mail({ parts: [message, first, { ...second, scan: 'clean', preselected: true, suggestion: { folderId: null, folderPath: 'Behörde', newFolder: false, documentType: null, reason: 'x' } }] })
+    const fresh = initialDraft(after, FOLDERS, copy)
+    const rebased = rebaseDraft({ ...edited, acknowledgeSender: true }, base, fresh)
+    expect(rebased.attachments.find((attachment) => attachment.partId === first.id)).toMatchObject({ checked: true, name: 'A_Index_C.pdf', folder: { path: 'Tragwerk' } })
+    // The part nobody touched takes what the re-read brought: its scan passed and a suggestion arrived.
+    expect(rebased.attachments.find((attachment) => attachment.partId === second.id)).toMatchObject({ checked: true, folder: { path: 'Behörde' } })
+    expect(rebased.ifMatch).toBe(fresh.ifMatch)
+    expect(rebased.acknowledgeSender).toBe(true)
+  })
+
+  it('starts over when the parts changed, or the mail is another', () => {
+    const base = initialDraft(before, FOLDERS, copy)
+    const edited = updateAttachment(base, first.id, { name: 'X.pdf' })
+    const fewer = initialDraft(mail({ parts: [message, first] }), FOLDERS, copy)
+    expect(rebaseDraft(edited, base, fewer)).toBe(fewer)
+    const other = initialDraft(mail({ key: 'other', parts: [message, first, second] }), FOLDERS, copy)
+    expect(rebaseDraft(edited, base, other)).toBe(other)
+  })
+})
+
+describe('the name of a new Verlauf', () => {
+  const nameOf = (subject: string | null): string => {
+    const view = mail({ subject, parts: [message], threadCandidates: [] })
+    const decision = decisionOf(view, initialDraft(view, FOLDERS, copy))
+    expect(fileInboundMailsBodySchema.safeParse({ mails: [decision] }).success).toBe(true)
+    const thread = decision.message?.thread
+    return thread?.action === 'create' ? thread.name : ''
+  }
+
+  it('is a name a document may carry when the subject is longer than one', () => {
+    expect(validateDocumentName(`${nameOf('Statik '.repeat(40))}.md`)).toMatchObject({ ok: true })
+  })
+
+  it('carries no path separator from the subject', () => {
+    const name = nameOf('Haus A/B Statik')
+    expect(name).toBe('Haus A B Statik')
+    expect(validateDocumentName(`${name}.md`)).toMatchObject({ ok: true })
+  })
+
+  it('falls back to the untitled name when the subject is empty, only a leader, or blank', () => {
+    for (const subject of [null, '', '   ', 'AW:', 'Re: Fwd:']) expect(nameOf(subject)).toBe('(no subject)')
   })
 })

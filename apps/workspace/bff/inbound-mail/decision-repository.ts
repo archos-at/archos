@@ -6,7 +6,6 @@ import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailD
 import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
 import { findMailParts, OPEN_PART_STATES } from './review-read-repository'
-import { expiryIsFinal } from './sender-class'
 
 export class MailChangedError extends Error {
   constructor(readonly mailId: string) {
@@ -31,7 +30,7 @@ export interface MailDecisionWrite {
 
 export interface DecisionActor {
   decidedBy: string
-  via: 'app' | 'agent' | 'agent_proposal' | 'sender'
+  via: 'app' | 'agent' | 'agent_proposal' | 'sender' | 'follow'
   proposalId: string | null
 }
 
@@ -55,7 +54,7 @@ export async function writeMailDecisions(
   return getDb().transaction(async (tx) => {
     const now = new Date()
     const decisions: InboundMailDecisionRow[] = []
-    for (const write of writes) {
+    for (const write of [...writes].sort((a, b) => (a.mailId < b.mailId ? -1 : a.mailId > b.mailId ? 1 : 0))) {
       const [mail] = await tx.select().from(inboundMails).where(eq(inboundMails.id, write.mailId)).for('update').limit(1)
       if (!mail || mail.status !== 'waiting') throw new MailChangedError(write.mailId)
       const parts = await findMailParts([write.mailId], tx)
@@ -131,7 +130,7 @@ export async function dismissMails(projectId: string, mailIds: readonly string[]
   return getDb().transaction(async (tx) => {
     const now = new Date()
     const decisions: InboundMailDecisionRow[] = []
-    for (const mailId of mailIds) {
+    for (const mailId of [...new Set(mailIds)].sort()) {
       const [mail] = await tx
         .select()
         .from(inboundMails)
@@ -146,6 +145,20 @@ export async function dismissMails(projectId: string, mailIds: readonly string[]
     }
     return { decisions }
   })
+}
+
+export function isRestorable(
+  mail: Pick<InboundMailRow, 'status'>,
+  part: Pick<InboundMailPartRow, 'state' | 'kind' | 'endedAt' | 'storageKey'>,
+  restorableAfter: Date,
+): boolean {
+  return (
+    mail.status === 'waiting' &&
+    (part.state === 'dismissed' || part.state === 'expired') &&
+    part.endedAt !== null &&
+    new Date(part.endedAt) > restorableAfter &&
+    (part.kind === 'message' || part.storageKey !== null)
+  )
 }
 
 export async function restoreMailParts(
@@ -164,14 +177,7 @@ export async function restoreMailParts(
       .for('update')
       .limit(1)
     if (!mail || mail.status !== 'waiting') return { decisions: [] }
-    const restorable = (await findMailParts([mailId], tx)).filter(
-      (part) =>
-        (part.state === 'dismissed' || part.state === 'expired') &&
-        !(part.state === 'expired' && expiryIsFinal(mail)) &&
-        part.endedAt !== null &&
-        new Date(part.endedAt) > restorableAfter &&
-        (part.kind === 'message' || part.storageKey !== null),
-    )
+    const restorable = (await findMailParts([mailId], tx)).filter((part) => isRestorable(mail, part, restorableAfter))
     if (restorable.length === 0) return { decisions: [] }
     const decisions = await tx
       .insert(inboundMailDecisions)
@@ -182,7 +188,10 @@ export async function restoreMailParts(
       .set({ state: 'waiting', endedAt: null, updatedAt: now })
       .where(and(inArray(inboundMailParts.id, restorable.map((part) => part.id)), inArray(inboundMailParts.state, ['dismissed', 'expired'])))
     const expiresAt = new Date(Math.max(new Date(mail.expiresAt).getTime(), waitsUntilAtLeast.getTime()))
-    await tx.update(inboundMails).set({ expiresAt, updatedAt: now }).where(eq(inboundMails.id, mailId))
+    await tx
+      .update(inboundMails)
+      .set({ expiresAt, expiringNotifiedAt: null, updatedAt: now })
+      .where(eq(inboundMails.id, mailId))
     return { decisions }
   })
 }

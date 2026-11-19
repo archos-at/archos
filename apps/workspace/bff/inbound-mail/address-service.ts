@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { captureServer } from '@/lib/analytics/posthog-server'
-import { ConflictError, NotFoundError } from '@/lib/api/errors'
+import { BadRequestError, ConflictError, NotFoundError } from '@/lib/api/errors'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { InboundMailAddressRow } from '@/lib/db/schema/inbound-mail'
@@ -9,9 +9,10 @@ import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { managesProject, requireAddressManager, requireMailReviewer } from './access'
 import { formatInboundAddress, inboundMailDomain, mintToken, projectSlug } from './address'
-import { settleFollowExpiring } from './announce'
+import { announceFollowsEnded, settleFollowExpiring } from './announce'
 import { auditFollowsEnded } from './audit'
 import { refusal } from './decision'
+import { forwardingAddressesOf, forwardingListProblem, type InboundMailForwardedFromBody } from './forwarding-addresses'
 import type { InboundMailAddressView } from './inbound-mail-wire'
 import {
   addressActivity,
@@ -19,6 +20,7 @@ import {
   insertAddress,
   ownDomainVerifiedShare,
   replaceAddress,
+  setForwardedFrom,
   switchOffAddress,
   type AddressChange,
   type NewAddress,
@@ -45,8 +47,10 @@ async function addressView(session: AuthorizedSession, projectId: string): Promi
     address: domain && active ? formatInboundAddress(active.slug, active.token, domain) : null,
     canManage,
     lastReceivedAt: activity.lastReceivedAt?.toISOString() ?? null,
+    receivedCount: activity.received,
     droppedLast30Days: activity.droppedLast30Days,
     ownDomainVerifiedShare: share,
+    forwardedFrom: domain && active ? active.forwardedFrom : [],
   }
 }
 
@@ -69,10 +73,10 @@ async function newAddress(session: AuthorizedSession, projectId: string): Promis
 
 function auditAddress(
   session: AuthorizedSession,
-  action: 'inbound_mail_address.created' | 'inbound_mail_address.rotated' | 'inbound_mail_address.deleted',
+  action: 'inbound_mail_address.created' | 'inbound_mail_address.rotated' | 'inbound_mail_address.deleted' | 'inbound_mail_address.forwards_changed',
   addressId: string,
   projectId: string,
-  extra: { previousAddressId?: string; followsEnded?: number } = {},
+  extra: { previousAddressId?: string; followsEnded?: number; forwards?: number } = {},
 ): void {
   recordAuditEventAfterCommit({
     action,
@@ -93,6 +97,7 @@ export async function createInboundMailAddress(session: AuthorizedSession, proje
     const written = await insertAddress(await newAddress(session, projectId))
     if (written.ok) {
       auditAddress(session, 'inbound_mail_address.created', written.value.id, projectId)
+      captureServer({ event: 'inbound_mail_address_created', distinctId: session.userId, organizationId: session.organizationId, properties: {} })
       publishProjectChanged(session.organizationId, projectId)
       return addressView(session, projectId)
     }
@@ -104,6 +109,7 @@ export async function createInboundMailAddress(session: AuthorizedSession, proje
 async function afterAddressChange(session: AuthorizedSession, projectId: string, change: AddressChange): Promise<void> {
   auditFollowsEnded(session.organizationId, projectId, session.userId, change.followsEnded)
   await settleFollowExpiring(session.organizationId, change.followsEnded.map((follow) => follow.id))
+  await announceFollowsEnded(session.organizationId, projectId, change.followsEnded, 'address_rotated', session.userId)
   publishProjectChanged(session.organizationId, projectId)
 }
 
@@ -135,5 +141,27 @@ export async function deleteInboundMailAddress(session: AuthorizedSession, proje
     auditAddress(session, 'inbound_mail_address.deleted', change.previousAddressId, projectId)
     await afterAddressChange(session, projectId, change)
   }
+  return addressView(session, projectId)
+}
+
+export async function setInboundMailForwardedFrom(
+  session: AuthorizedSession,
+  projectId: string,
+  body: InboundMailForwardedFromBody,
+): Promise<InboundMailAddressView> {
+  await requireAddressManager(session, projectId)
+  const domain = requireDomain()
+  const problem = forwardingListProblem(body.forwardedFrom, domain)
+  if (problem) throw new BadRequestError('A forwarding address is not one the office can forward from', { reason: `forwarding_${problem}` })
+  const row = await setForwardedFrom(projectId, forwardingAddressesOf(body.forwardedFrom))
+  if (!row) throw new ConflictError('This project has no address to forward to. Create one first.')
+  auditAddress(session, 'inbound_mail_address.forwards_changed', row.id, projectId, { forwards: row.forwardedFrom.length })
+  captureServer({
+    event: 'inbound_mail_address_forwards_changed',
+    distinctId: session.userId,
+    organizationId: session.organizationId,
+    properties: { forwards: row.forwardedFrom.length },
+  })
+  publishProjectChanged(session.organizationId, projectId)
   return addressView(session, projectId)
 }

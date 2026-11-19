@@ -58,6 +58,10 @@ export const INBOUND_MAIL_AUDIT_SCHEMAS = /** @type {const} */ ({
       acknowledgedRisk: 'boolean',
     },
   },
+  'inbound_mail.reported': {
+    targets: [{ type: 'inbound_mail' }, { type: 'project' }],
+    metadata: { projectId: 'string', basis: 'string', managersWarned: 'number', claimedTold: 'number', own: 'boolean' },
+  },
   'inbound_mail_address.created': {
     targets: [{ type: 'inbound_mail_address' }, { type: 'project' }],
     metadata: { projectId: 'string' },
@@ -69,6 +73,10 @@ export const INBOUND_MAIL_AUDIT_SCHEMAS = /** @type {const} */ ({
   'inbound_mail_address.deleted': {
     targets: [{ type: 'inbound_mail_address' }, { type: 'project' }],
     metadata: { projectId: 'string' },
+  },
+  'inbound_mail_address.forwards_changed': {
+    targets: [{ type: 'inbound_mail_address' }, { type: 'project' }],
+    metadata: { projectId: 'string', forwards: 'number' },
   },
   'mail_thread.follow_started': {
     targets: [{ type: 'mail_thread' }, { type: 'project' }],

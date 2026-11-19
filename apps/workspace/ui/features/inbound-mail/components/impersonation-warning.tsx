@@ -5,9 +5,12 @@ import { ShieldAlert } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useTranslations } from '@/i18n'
 import type { ImpersonationWarning as Warning } from '../lib/impersonation'
+import { FraudReport, type FraudReportProps } from './fraud-report'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
-export function ImpersonationWarning({ warning, own = false }: { warning: Warning; own?: boolean }): JSX.Element {
+export type ReportOffer = Omit<FraudReportProps, 'name' | 'own'>
+
+export function ImpersonationWarning({ warning, own = false, report }: { warning: Warning; own?: boolean; report?: ReportOffer | null }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const title =
     own && warning.basis === 'rejected_signature'
@@ -25,6 +28,7 @@ export function ImpersonationWarning({ warning, own = false }: { warning: Warnin
       <ShieldAlert aria-hidden />
       <AlertTitle className="line-clamp-none font-medium [overflow-wrap:anywhere]">{title}</AlertTitle>
       <AlertDescription className="text-foreground">{t(own ? 'impersonationWarning.ownConsequence' : 'impersonationWarning.consequence')}</AlertDescription>
+      {report && <FraudReport {...report} name={warning.name} own={own} />}
     </Alert>
   )
 }

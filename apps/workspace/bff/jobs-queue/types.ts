@@ -258,6 +258,8 @@ export const inboundMailFilePayloadSchema = z.object({
   projectId: z.string().uuid(),
   mailIds: z.array(z.string().uuid()).min(1).max(20),
   decisionIds: z.array(z.string().uuid()).min(1).max(2_020).optional(),
+  /** The text decisions whose filer said „Nicht automatisch“: filing them starts no follow of their E-Mail-Verlauf. */
+  noFollow: z.array(z.string().uuid()).min(1).max(20).optional(),
   requester: requesterSchema,
 })
 export type InboundMailFilePayload = z.infer<typeof inboundMailFilePayloadSchema>
@@ -267,6 +269,7 @@ export const inboundMailFollowPayloadSchema = z.object({
   mailId: z.string().uuid(),
   followId: z.string().uuid(),
   requester: requesterSchema,
+  waits: z.number().int().nonnegative().default(0),
 })
 export type InboundMailFollowPayload = z.infer<typeof inboundMailFollowPayloadSchema>
 

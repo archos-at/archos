@@ -5,6 +5,7 @@ import type {
   InboundMailDecisionResultView,
   InboundMailListQuery,
   InboundMailListView,
+  InboundMailReportResultView,
   InboundMailTextView,
   InboundMailView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -58,6 +59,14 @@ export function rotateInboundMailAddress(projectId: string): Promise<InboundMail
   return request(`${projectBase(projectId)}/inbound-mail-address/rotate`, 'Failed to replace the project mail address', { method: 'POST' })
 }
 
+export function setInboundMailForwardedFrom(projectId: string, forwardedFrom: readonly string[]): Promise<InboundMailAddressView> {
+  return request(`${projectBase(projectId)}/inbound-mail-address`, 'Failed to save the forwarding addresses', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ forwardedFrom }),
+  })
+}
+
 export function deleteInboundMailAddress(projectId: string): Promise<InboundMailAddressView> {
   return request(`${projectBase(projectId)}/inbound-mail-address`, 'Failed to switch off the project mail address', { method: 'DELETE' })
 }
@@ -89,6 +98,10 @@ export function dismissInboundMails(projectId: string, body: DismissInboundMails
 
 export function restoreInboundMail(projectId: string, mailId: string): Promise<InboundMailView> {
   return request(`${projectBase(projectId)}/inbound-mails/${enc(mailId)}/restore`, 'Failed to restore the mail', { method: 'POST' })
+}
+
+export function reportInboundMail(projectId: string, mailId: string): Promise<InboundMailReportResultView> {
+  return request(`${projectBase(projectId)}/inbound-mails/${enc(mailId)}/report`, 'Failed to report the mail', { method: 'POST' })
 }
 
 export function inboundMailPartContentUrl(projectId: string, mailId: string, partId: string): string {

@@ -7,13 +7,15 @@ import { requireFolderWrite } from '@/lib/authz/folder-access'
 import type { InboundMailPartRow, InboundMailRow, NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
 import { isAcceptedType } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
-import { appendNeedsAcknowledgement, senderPreselectionBlocks } from '@/lib/mail-thread/mail-threading'
+import { appendNeedsAcknowledgement } from '@/lib/mail-thread/mail-threading'
+import { MAIL_THREAD_MAX_ENTRIES } from '@/lib/mail-thread/mail-thread-vocabulary'
 import { normalizeFolderPath } from '@/lib/projects/folders'
 import { senderEvidenceOf, threadIsFull, type ViewerCandidates } from './candidates'
 import type { InboundMailRefusal } from './inbound-mail-wire'
 import type { InboundMailDecision, InboundMailPartDecision } from './inbound-mail-wire'
 import type { DecisionActor } from './repository'
 import { findDocumentIdByStoredName, type CandidateDocument, type ThreadDocument } from './repository'
+import { revisionVouchedInThread } from './review-defaults'
 import { onlySenderReleases } from './sender-class'
 import { senderFactsOf, senderNeedsAcknowledgement as needsAcknowledgement } from './sender-risk'
 
@@ -27,6 +29,12 @@ export function refusal(
   details: Record<string, string | string[] | number> = {},
 ): ConflictError {
   return new ConflictError(message, { reason, ...details })
+}
+
+export function refusedPartOf(error: unknown): string | null {
+  if (!(error instanceof ConflictError)) return null
+  const details = (error as { details?: { partId?: unknown } }).details
+  return typeof details?.partId === 'string' ? details.partId : null
 }
 
 export function mailIfMatch(
@@ -128,9 +136,8 @@ function planAttachment(
     if (!earlier || !context.candidates.readsFolder(earlier.folderId)) {
       throw refusal('target_unknown', 'The document to file a new Fassung of was not found', { partId: part.id })
     }
-    if (senderPreselectionBlocks(senderEvidenceOf(mail)).length > 0 && !acknowledgedRisk.has(part.id)) {
-      throw refuseRisk(part.id, 'unverified_thread')
-    }
+    const vouched = revisionVouchedInThread(part, senderFactsOf(mail), context.candidates.threads(mail).shown)
+    if (!vouched && !acknowledgedRisk.has(part.id)) throw refuseRisk(part.id, 'unverified_thread')
     target = { folderId: earlier.folderId, folderPath: earlier.folderPath ?? '' }
   } else {
     target = folderTarget(decision, context)
@@ -184,7 +191,7 @@ function planMessage(
       })
     }
     const match = mail.threadMatch.find((candidate) => candidate.threadId === threadId)
-    if (appendNeedsAcknowledgement(senderEvidenceOf(mail), match) && !acknowledgedRisk.has(part.id)) {
+    if (appendNeedsAcknowledgement(senderEvidenceOf(mail), match, thread) && !acknowledgedRisk.has(part.id)) {
       throw refuseRisk(part.id, 'unverified_thread')
     }
     return {
@@ -296,6 +303,24 @@ export function planMailDecision(
   }
 }
 
+export function requireThreadsHoldBatch(
+  plans: readonly PlannedMailDecision[],
+  threads: ReadonlyMap<string, Pick<ThreadDocument, 'entryCount'>>,
+): void {
+  const entries = new Map<string, number>()
+  for (const row of plans.flatMap((plan) => plan.files)) {
+    if (row.threadAction !== 'append' || !row.mailThreadId) continue
+    const count = (entries.get(row.mailThreadId) ?? threads.get(row.mailThreadId)?.entryCount ?? 0) + 1
+    entries.set(row.mailThreadId, count)
+    if (count > MAIL_THREAD_MAX_ENTRIES) {
+      throw refusal('thread_full', 'The mail thread cannot hold every message of this decision; file the rest as a new thread that continues it', {
+        partId: row.partId,
+        mailThreadId: row.mailThreadId,
+      })
+    }
+  }
+}
+
 export async function requireDecisionRights(
   session: AuthorizedSession,
   projectId: string,
@@ -303,6 +328,15 @@ export async function requireDecisionRights(
 ): Promise<void> {
   const folders = plans.flatMap((plan) => plan.writeFolders)
   if (folders.length > 0) await requireFolderWrite(session, projectId, folders)
+  const named = new Set<string>()
+  for (const fresh of plans.flatMap((plan) => plan.freshNames)) {
+    if (named.has(fresh.storedName)) {
+      throw refusal('name_taken', 'Two parts of this decision would be filed under one name; rename one of them', {
+        partId: fresh.partId,
+      })
+    }
+    named.add(fresh.storedName)
+  }
   for (const plan of plans) {
     for (const fresh of plan.freshNames) {
       const taken = await findDocumentIdByStoredName(projectId, fresh.storedName)

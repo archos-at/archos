@@ -12,7 +12,7 @@ import { threadGroupsOf } from '@/lib/inbound-mail/thread-groups'
 import type { InboundMailAddressClient, InboundMailClient } from '@/features/inbound-mail/lib/client'
 import { daysAhead, fixtureId, FOLDERS, minutesAgo } from './fixture-base'
 import { DETAIL_VARIANTS, type DetailFixture } from './detail-variants'
-import { mail, messagePart, summaryOf, text } from './fixture-builders'
+import { mail, messagePart, part, summaryOf, text } from './fixture-builders'
 
 export { FIXTURE_NOW, fixtureId, FOLDERS, PROJECT_ID, PROJECT_NAME } from './fixture-base'
 export { mail, messagePart, part, summaryOf, text, thread } from './fixture-builders'
@@ -28,6 +28,7 @@ export interface ListFixture {
   outcome?: 'filed' | 'dismissed' | 'expired' | null
   load?: 'loading' | 'error'
   everReceived?: boolean
+  received?: number
 }
 
 const v = (name: string): InboundMailView => DETAIL_VARIANTS[name].view
@@ -46,6 +47,17 @@ const quietMails = [
   DETAIL_VARIANTS['external-unverified'].view,
 ]
 
+const expiringMail = mail({
+  key: 'outsider-expiring',
+  subject: 'Rückfrage Gerüststellung Hofseite',
+  sender: { name: 'Gerüstbau Novak', address: 'office@geruestbau-novak.example', domain: 'geruestbau-novak.example', signerDomain: null, trust: 'external_unverified', reason: 'dkim_none', flags: [] },
+  receivedAt: minutesAgo(60 * 24 * 12),
+  sentAt: minutesAgo(60 * 24 * 12 + 3),
+  expiresAt: daysAhead(2),
+  parts: [messagePart({ id: fixtureId('message:outsider-expiring') }), part({ name: 'Geruestplan_Hof.pdf' })],
+  threadCandidates: [],
+})
+
 const allMails = [
   v('member-verified'),
   v('revision'),
@@ -54,6 +66,7 @@ const allMails = [
   v('unverified-thread'),
   v('impersonation-colleague'),
   v('name-stop'),
+  expiringMail,
   ...quietMails,
 ]
 
@@ -64,7 +77,7 @@ const bulkMails = Array.from({ length: 24 }, (_, index) =>
 export const DETAIL_BY_ID = new Map<string, DetailFixture>()
 for (const fixture of [
   ...Object.values(DETAIL_VARIANTS),
-  ...[...groupMails, ...quietMails, ...bulkMails].map((view) => ({ view, text: text() })),
+  ...[...groupMails, ...quietMails, expiringMail, ...bulkMails].map((view) => ({ view, text: text() })),
 ]) {
   if (!DETAIL_BY_ID.has(fixture.view.id)) DETAIL_BY_ID.set(fixture.view.id, fixture)
 }
@@ -83,10 +96,11 @@ export const LIST_VARIANTS: Record<string, ListFixture> = {
   done: { items: [], everReceived: true },
   loading: { items: [], load: 'loading' },
   error: { items: [], load: 'error' },
-  one: { items: [summaryOf(v('member-verified'))] },
-  many: { items: allMails.map((view) => summaryOf(view)), nextCursor: 'more', open: v('member-verified').id },
+  one: { items: [summaryOf(v('member-verified'))], received: 1 },
+  many: { items: allMails.map((view) => summaryOf(view)), open: v('member-verified').id },
   'thread-group': { items: [...groupMails.map((view) => summaryOf(view)), summaryOf(v('mixed-attachments')), summaryOf(v('name-stop'))] },
-  'unverified-group': { items: [summaryOf(v('member-verified')), ...quietMails.map((view) => summaryOf(view))] },
+  'unverified-group': { items: [summaryOf(v('member-verified')), summaryOf(expiringMail), ...quietMails.map((view) => summaryOf(view))] },
+  'only-automatic': { items: [summaryOf(quietMails[0])] },
   selected: { items: [...groupMails.map((view) => summaryOf(view)), summaryOf(v('revision'))], checked: [groupMails[0].id, groupMails[1].id] },
   'bulk-blocked': { items: [...allMails, v('not-addressed')].map((view) => summaryOf(view)), checked: [v('member-verified').id, v('not-addressed').id] },
   settled: { status: 'handled', items: [summaryOf(v('filed-outcome')), summaryOf(v('decided-by-other')), summaryOf(v('expired')), summaryOf(v('dismissed'))] },
@@ -113,11 +127,13 @@ export type AddressFixture = InboundMailAddressView | 'loading' | 'error'
 
 const activeAddress: InboundMailAddressView = {
   state: 'active',
-  address: 'project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org',
+  address: 'project+bauplatz-12-wohnbau-seestadt.k3x7q2m5p4ab@inbox.example.org',
   canManage: true,
   lastReceivedAt: minutesAgo(12),
+  receivedCount: 40,
   droppedLast30Days: 0,
   ownDomainVerifiedShare: 0.94,
+  forwardedFrom: [],
 }
 
 export const ADDRESS_VARIANTS: Record<string, AddressFixture> = {
@@ -128,12 +144,14 @@ export const ADDRESS_VARIANTS: Record<string, AddressFixture> = {
   unavailable: { ...activeAddress, state: 'unavailable', address: null, canManage: false, lastReceivedAt: null, ownDomainVerifiedShare: null },
   'long-address': {
     ...activeAddress,
-    address: 'project+stellplatznachweis-tiefgarage-ebene-2-wohnbau-seestadt-nord.k3x7q2m9p4ab@inbox.example.org',
+    address: 'projektpost-wien-seestadt+stellplatznachweis-tiefgarage.k3x7q2m5p4ab@posteingang.example.org',
   },
   loading: 'loading',
   error: 'error',
   refusals: { ...activeAddress, droppedLast30Days: 17, lastReceivedAt: minutesAgo(60 * 24 * 3) },
   'own-dkim-missing': { ...activeAddress, ownDomainVerifiedShare: 0 },
+  forwards: { ...activeAddress, forwardedFrom: ['bauplatz12@huber-architektur.at', 'seestadt-wohnbau@huber-architektur.at'] },
+  'forwards-member': { ...activeAddress, canManage: false, forwardedFrom: ['bauplatz12@huber-architektur.at'] },
 }
 
 const pending = <T,>(): Promise<T> => new Promise<T>(() => {})
@@ -162,18 +180,36 @@ export function fixtureClient(options: { list?: ListFixture; detail?: DetailFixt
   const views = new Map<string, InboundMailView>()
   for (const [id, fixture] of DETAIL_BY_ID) views.set(id, fixture.view)
   if (options.detail) views.set(options.detail.view.id, options.detail.view)
+  const touched = new Set<string>()
   const texts = (id: string): InboundMailTextView => DETAIL_BY_ID.get(id)?.text ?? options.detail?.text ?? text()
   const settle = (view: InboundMailView): InboundMailView =>
     withReviewDefaults({
       ...view,
       parts: view.parts.map((candidate) => (candidate.state === 'filing' ? { ...candidate, state: 'filed', documentId: candidate.documentId ?? fixtureId(`doc:${candidate.id}`) } : candidate)),
     })
+  const dismissed = (id: string): InboundMailView => {
+    const view = views.get(id) as InboundMailView
+    const next = withReviewDefaults({
+      ...view,
+      status: 'handled',
+      parts: view.parts.map((candidate) => (candidate.state === 'waiting' ? { ...candidate, state: 'dismissed' as const, restorableUntil: daysAhead(7) } : candidate)),
+    })
+    views.set(id, next)
+    touched.add(id)
+    return next
+  }
   return {
     list: (_projectId, query = {}) => {
       if (options.list?.load === 'loading') return pending()
       if (options.list?.load === 'error') return failing()
       const status = query.status ?? 'waiting'
-      const items = (options.list?.items ?? []).filter((item) => status === item.status)
+      const current = (item: InboundMailSummaryView): InboundMailSummaryView => {
+        const view = touched.has(item.id) ? views.get(item.id) : undefined
+        if (!view) return item
+        const open = view.parts.some((candidate) => candidate.state === 'waiting' || candidate.state === 'filing')
+        return summaryOf({ ...view, status: open ? 'waiting' : 'handled' })
+      }
+      const items = (options.list?.items ?? []).map(current).filter((item) => status === item.status)
       const page = listPage(items, query.cursor ? null : (options.list?.nextCursor ?? null))
       return Promise.resolve(status === 'waiting' ? page : { ...page, threadGroups: [] })
     },
@@ -203,23 +239,13 @@ export function fixtureClient(options: { list?: ListFixture; detail?: DetailFixt
           ),
         })
         views.set(view.id, next)
+        touched.add(view.id)
         return next
       })
       return Promise.resolve({ mails, filingJobId: 'job-fixture' })
     },
-    dismiss: (_projectId, body) =>
-      Promise.resolve({
-        mails: body.mailIds.map((id) => {
-          const view = views.get(id) as InboundMailView
-          const next = withReviewDefaults({
-            ...view,
-            status: 'handled',
-            parts: view.parts.map((candidate) => (candidate.state === 'waiting' ? { ...candidate, state: 'dismissed' as const, restorableUntil: daysAhead(7) } : candidate)),
-          })
-          views.set(id, next)
-          return next
-        }),
-      }),
+    dismiss: (_projectId, body) => Promise.resolve({ mails: body.mailIds.map(dismissed) }),
+    report: (_projectId, mailId) => Promise.resolve({ mail: dismissed(mailId), warned: 3 }),
     restore: (_projectId, mailId) => {
       const view = views.get(mailId) as InboundMailView
       const next = withReviewDefaults({
@@ -250,11 +276,15 @@ export function fixtureAddressClient(fixture: AddressFixture): InboundMailAddres
       return answer()
     },
     rotate: () => {
-      if (typeof current === 'object') current = { ...current, address: 'project+bauplatz-12.w8n2c4r7t1qz@inbox.example.org' }
+      if (typeof current === 'object') current = { ...current, address: 'project+bauplatz-12-wohnbau-seestadt.w6n2c4r7t3qz@inbox.example.org' }
       return answer()
     },
     remove: () => {
       if (typeof current === 'object') current = { ...current, state: 'none', address: null }
+      return answer()
+    },
+    setForwardedFrom: (_projectId, forwardedFrom) => {
+      if (typeof current === 'object') current = { ...current, forwardedFrom: [...forwardedFrom] }
       return answer()
     },
   }
