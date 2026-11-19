@@ -4,12 +4,13 @@ import { and, desc, eq, inArray, isNull, notInArray, or, sql } from 'drizzle-orm
 import { getDb } from '@/lib/db'
 import { documentVersions } from '@/lib/db/schema/document-versions'
 import { documents } from '@/lib/db/schema/documents'
-import { inboundMailParts, inboundMails } from '@/lib/db/schema/inbound-mail'
-import { mailThreadEntries, mailThreadEntryAttachments, mailThreadFollows, mailThreads, type MailThreadEntryRow, type MailThreadFollowRow } from '@/lib/db/schema/mail-thread'
+import { inboundMailParts, inboundMails, type InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import { mailThreadEntries, mailThreadEntryAttachments, mailThreadFollows, mailThreadMessageIds, mailThreads, type MailThreadEntryRow, type MailThreadFollowRow } from '@/lib/db/schema/mail-thread'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { CURSOR_TIMESTAMP_FORMAT } from '@/lib/documents/list-cursor'
 import { documentVisibleTo, SCREENED_ONLY } from '@/lib/documents/visibility'
+import type { ThreadMatch } from './mail-threading'
 import type { MailThreadAttachmentDisposition, MailThreadAttachmentNotFiledReason } from './mail-thread-wire'
 import { MAIL_THREAD_MAX_ENTRIES } from './mail-thread-vocabulary'
 
@@ -269,4 +270,44 @@ export async function countWaitingForThread(projectId: string, threadId: string)
       ),
     )
   return Number(row?.count ?? 0)
+}
+
+const MAX_REMATCHED_MAILS = 50
+
+export interface ThreadKeysOf {
+  id: string
+  baseSubject: string
+  threadIndexGuid: string | null
+}
+
+export async function findWaitingMailsNearThread(projectId: string, thread: ThreadKeysOf): Promise<InboundMailRow[]> {
+  const threadIds = sql`ARRAY(SELECT m.message_id FROM ${mailThreadMessageIds} m WHERE m.thread_id = ${thread.id}::uuid)`
+  return getDb()
+    .select()
+    .from(inboundMails)
+    .where(
+      and(
+        eq(inboundMails.projectId, projectId),
+        eq(inboundMails.status, 'waiting'),
+        sql`EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = ${inboundMails.id} AND p.kind = 'message' AND p.state IN ('waiting', 'dismissed', 'expired'))`,
+        or(
+          thread.baseSubject ? eq(inboundMails.baseSubject, thread.baseSubject) : undefined,
+          thread.threadIndexGuid ? eq(inboundMails.threadIndexGuid, thread.threadIndexGuid) : undefined,
+          sql`${inboundMails.inReplyTo} && ${threadIds}`,
+          sql`${inboundMails.referenceIds} && ${threadIds}`,
+          sql`${inboundMails.threadMatch} @> ${JSON.stringify([{ threadId: thread.id }])}::jsonb`,
+        ),
+      ),
+    )
+    .orderBy(desc(inboundMails.receivedAt))
+    .limit(MAX_REMATCHED_MAILS)
+}
+
+export async function recordThreadMatch(mailId: string, matches: readonly ThreadMatch[]): Promise<boolean> {
+  const updated = await getDb()
+    .update(inboundMails)
+    .set({ threadMatch: [...matches], updatedAt: new Date() })
+    .where(and(eq(inboundMails.id, mailId), eq(inboundMails.status, 'waiting')))
+    .returning({ id: inboundMails.id })
+  return updated.length === 1
 }

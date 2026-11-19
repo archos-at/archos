@@ -20,6 +20,7 @@ import {
   type InboxEmission,
 } from '@/lib/inbox/service'
 import { findProjectInOrg } from '@/lib/projects/repository'
+import type { MailThreadFollowEndReason } from '@/lib/mail-thread/mail-thread-vocabulary'
 import { findThreadRow } from '@/lib/mail-thread/write-repository'
 import { holds, projectManagers, projectWriters, writes } from './notice-recipients'
 import { filedFolderIds, projectNoticeState } from './notice-repository'
@@ -32,6 +33,7 @@ export const INBOUND_MAIL_FILING_FAILED = 'inbound_mail.filing_failed' as const
 export const INBOUND_MAIL_CAP_REACHED = 'inbound_mail.cap_reached' as const
 export const INBOUND_MAIL_APPENDED = 'inbound_mail.appended' as const
 export const MAIL_THREAD_FOLLOW_EXPIRING = 'mail_thread.follow_expiring' as const
+export const MAIL_THREAD_FOLLOW_ENDED = 'mail_thread.follow_ended' as const
 export const INBOUND_MAIL_HELD = 'inbound_mail.held' as const
 export const INBOUND_MAIL_HELD_FOR_WRITERS = 'inbound_mail.held_for_writers' as const
 export const INBOUND_MAIL_REJECTED = 'inbound_mail.rejected' as const
@@ -356,6 +358,59 @@ export async function settleFollowExpiring(organizationId: string, followIds: re
   })
 }
 
+export const FOLLOW_ENDS_TOLD = [
+  'access_lost',
+  'document_gone',
+  'project_closed',
+  'detached',
+  'revoked_by_manager',
+  'address_rotated',
+  'thread_full',
+] as const satisfies readonly MailThreadFollowEndReason[]
+
+export interface EndedFollowNotice {
+  organizationId: string
+  projectId: string
+  followId: string
+  followerUserId: string
+  reason: MailThreadFollowEndReason
+  endedBy: string | null
+}
+
+export async function announceFollowEnded(follow: EndedFollowNotice): Promise<boolean> {
+  const told: readonly MailThreadFollowEndReason[] = FOLLOW_ENDS_TOLD
+  if (!told.includes(follow.reason) || follow.endedBy === follow.followerUserId) return false
+  return emit(`${MAIL_THREAD_FOLLOW_ENDED} for follow ${follow.followId}`, follow.organizationId, async () => {
+    const project = await findProjectInOrg(follow.projectId, follow.organizationId)
+    if (!project) return null
+    return [
+      {
+        organizationId: follow.organizationId,
+        recipientUserId: follow.followerUserId,
+        type: MAIL_THREAD_FOLLOW_ENDED,
+        resourceType: 'project',
+        resourceId: follow.projectId,
+        anchorId: follow.followId,
+        actorUserId: follow.endedBy,
+        groupKey: inboxGroupKey(MAIL_THREAD_FOLLOW_ENDED, 'project', follow.projectId, follow.followId),
+        payload: { subject: project.name, variant: follow.reason },
+      },
+    ]
+  })
+}
+
+export async function announceFollowsEnded(
+  organizationId: string,
+  projectId: string,
+  follows: ReadonlyArray<{ id: string; userId: string }>,
+  reason: MailThreadFollowEndReason,
+  endedBy: string | null,
+): Promise<void> {
+  for (const follow of follows) {
+    await announceFollowEnded({ organizationId, projectId, followId: follow.id, followerUserId: follow.userId, reason, endedBy })
+  }
+}
+
 export const INBOUND_MAIL_INBOX_TYPES: readonly InboxItemType[] = [
   INBOUND_MAIL_WAITING,
   INBOUND_MAIL_EXPIRING,
@@ -368,4 +423,5 @@ export const INBOUND_MAIL_INBOX_TYPES: readonly InboxItemType[] = [
   INBOUND_MAIL_HELD_FOR_WRITERS,
   INBOUND_MAIL_REJECTED,
   INBOUND_MAIL_EXPIRED,
+  MAIL_THREAD_FOLLOW_ENDED,
 ]

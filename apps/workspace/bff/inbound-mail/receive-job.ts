@@ -3,18 +3,17 @@ import { createHash } from 'node:crypto'
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { SYSTEM_ACTORS } from '@/lib/audit/service'
-import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
 import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
-import { BFF_JOB_PRIORITY, requesterOf, type InboundMailReceivePayload, type JobAttempt, type JobSliceResult } from '@/lib/jobs-queue/types'
-import { baseSubject, clampSentAt, matchThread } from '@/lib/mail-thread/mail-threading'
+import { BFF_JOB_PRIORITY, type InboundMailReceivePayload, type JobAttempt, type JobSliceResult } from '@/lib/jobs-queue/types'
+import { baseSubject, clampSentAt } from '@/lib/mail-thread/mail-threading'
+import { matchProjectThreads } from '@/lib/mail-thread/rematch'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
-import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { inboundMailDomain, redactProjectAddresses } from './address'
 import { classifyAutomaticMail } from './automatic-mail'
-import { judgeFollow } from './follow-candidate'
+import { queueFollowIfEligible } from './follow-candidate'
 import { NULL_SENDER } from './contract'
 import {
   inboundMailStagingKey,
@@ -48,7 +47,6 @@ import {
   findPartSummaries,
   findScreenedDuplicates,
   findScreenedNamesakes,
-  findThreadCandidates,
   holdMail,
   keepReceiveProgress,
   markNotified,
@@ -217,24 +215,15 @@ async function readAndHold(
   const ownTextSha256 = sha256Hex(read.ownText)
 
   const flags: SenderFlag[] = [...evidence.flags, ...(await messageIdFlags(mail.projectId, mime.headers.messageId, ownTextSha256))]
-  const candidates = await findThreadCandidates(mail.projectId, {
-    messageIds: [mime.headers.messageId, ...mime.headers.inReplyTo, ...mime.headers.references].filter((id): id is string => !!id),
+  const threadMatch = await matchProjectThreads(mail.projectId, {
+    messageId: mime.headers.messageId,
+    inReplyTo: mime.headers.inReplyTo,
+    references: mime.headers.references,
     threadIndexGuid: mime.headers.threadIndexGuid,
     baseSubject: base,
     participants: participants.map((participant) => participant.address),
+    sentAt: verdict.sentAt,
   })
-  const threadMatch = matchThread(
-    {
-      messageId: mime.headers.messageId,
-      inReplyTo: mime.headers.inReplyTo,
-      references: mime.headers.references,
-      threadIndexGuid: mime.headers.threadIndexGuid,
-      baseSubject: base,
-      participants: participants.map((participant) => participant.address),
-      sentAt: verdict.sentAt,
-    },
-    candidates,
-  ).slice(0, 50)
 
   const owner = { organizationId: mail.organizationId, projectId: mail.projectId }
   const attachmentParts = await attachmentPartsOf(mail, mime.attachments, scans, screening)
@@ -494,33 +483,6 @@ async function queueSuggestion(mail: InboundMailRow): Promise<void> {
     priority: BFF_JOB_PRIORITY.bulk,
     jobId: inboundMailJobId('suggest', mail.id),
     payload: { mailId: mail.id, projectId: mail.projectId },
-  })
-}
-
-async function queueFollowIfEligible(
-  mail: InboundMailRow,
-  parts: readonly PartSummary[],
-  domain: string,
-  raw: Uint8Array | null,
-): Promise<boolean> {
-  const contentFindings = parts.find((part) => part.kind === 'message')?.contentFindings.length ?? 0
-  const judged = await judgeFollow(mail, contentFindings, domain, raw)
-  if (!judged?.eligibility.eligible) return false
-  const { follow } = judged.eligibility
-  const directory = await loadOrganizationDirectory(mail.organizationId)
-  const follower = directory.get(follow.userId)
-  const session = await resolvePinnedRequesterSession({
-    userId: follow.userId,
-    email: follower?.email ?? null,
-    organizationId: mail.organizationId,
-  })
-  if (!session) return false
-  return enqueueJobIfAbsent({
-    kind: 'inbound_mail_follow',
-    organizationId: mail.organizationId,
-    priority: BFF_JOB_PRIORITY.interactive,
-    jobId: inboundMailJobId('follow', mail.id),
-    payload: { projectId: mail.projectId, mailId: mail.id, followId: follow.id, requester: requesterOf(session) },
   })
 }
 

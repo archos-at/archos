@@ -9,7 +9,7 @@ import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { managesProject, requireAddressManager, requireMailReviewer } from './access'
 import { formatInboundAddress, inboundMailDomain, mintToken, projectSlug } from './address'
-import { settleFollowExpiring } from './announce'
+import { announceFollowsEnded, settleFollowExpiring } from './announce'
 import { auditFollowsEnded } from './audit'
 import { refusal } from './decision'
 import { forwardingAddressesOf, forwardingListProblem, type InboundMailForwardedFromBody } from './forwarding-addresses'
@@ -108,6 +108,7 @@ export async function createInboundMailAddress(session: AuthorizedSession, proje
 async function afterAddressChange(session: AuthorizedSession, projectId: string, change: AddressChange): Promise<void> {
   auditFollowsEnded(session.organizationId, projectId, session.userId, change.followsEnded)
   await settleFollowExpiring(session.organizationId, change.followsEnded.map((follow) => follow.id))
+  await announceFollowsEnded(session.organizationId, projectId, change.followsEnded, 'address_rotated', session.userId)
   publishProjectChanged(session.organizationId, projectId)
 }
 

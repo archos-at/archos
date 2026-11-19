@@ -389,7 +389,7 @@ code, never a sender, subject or file name. A mail's notices go to its sender
 only when it is `member_verified`, addressed to the project or the member's own
 Bcc copy, and the member may read the project; otherwise to the project's
 managers, so whoever forged a member's address never reaches that member
-through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-eleven-notices).
+through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-twelve-notices).
 
 *Amended by the [amendment of 2026-11-03](#amendment-2026-11-03-verified-project-mail-is-filed-directly-only-unverified-mail-waits):* the member a
 From address names now hears why their mail waits and what became of it, forged

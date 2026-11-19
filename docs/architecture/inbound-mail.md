@@ -320,7 +320,19 @@ as `unavailable` and neither side recorded why.
    as well;
 10. **match the project's threads** and look the Message-ID up
     (`message_id_reused`, `already_filed`); ids and strengths only
-    (`thread_match`);
+    (`thread_match`). At most 50 threads are weighed
+    (`findThreadCandidates`): those a cited Message-ID or the Thread-Index
+    names first, then those of the same base subject, newest first, so many
+    threads of one subject never crowd out the one a reply cites. The
+    match is not frozen here: whenever a Verlauf is written (an append, a
+    detach, an archive render), the project's waiting mails that could
+    belong to it (its base subject or Thread-Index GUID, citing one of its
+    Message-IDs, or matched to it before) are matched again
+    (`rematchAfterWrite`, `apps/workspace/bff/mail-thread/rematch.ts`), at most 50 per
+    Verlauf. A reply that arrived before its first mail was filed then
+    matches the Verlauf that mail started, and when it newly cites one by
+    reference, its follow is judged and queued as at receipt. A re-match
+    that fails is logged and the mails keep their match; the filing stands;
 11. **classify the sender** ([the sender rule](#the-sender-rule)): whether the
     From's member may write in the project, asked of WorkOS; stage the
     attachments and `read.json`, insert the parts, `waiting`, with the class
@@ -572,11 +584,18 @@ effects of `batch-effects.ts`:
 
 `lib/mail-thread/append.ts` under the thread's render lease
 (`acquireRenderLease`, 5 minutes; a busy thread answers "not yet" in 15 s
-without spending an attempt):
+without spending an attempt). The commit (`commitAppend`) writes only while
+the run still holds the lease and its text is still `filing`, exactly one
+part; a lease another writer took meanwhile, or a claim that lapsed, writes
+nothing, and the run tries again in 15 s:
 
-1. a new `mail_threads` row, or the existing one;
+1. a new `mail_threads` row, or the existing one. Its `base_subject` becomes
+   the appended mail's (an empty one keeps it): after a subject change, later
+   replies under the new subject match by `reference`, preselected and
+   followable, rather than as `reference_subject_changed`;
 2. the entry (`mail_thread_entries`, `source = 'inbound'`, `received_at`,
-   `masked_spans` when the person chose „Unkenntlich ablegen“), its Message-IDs
+   `masked_spans` when the person chose „Unkenntlich ablegen“, its own
+   `base_subject` and `thread_index_guid`, migration 0251), its Message-IDs
    and one `mail_thread_entry_attachments` row per attachment (D36);
 3. `render.ts` over every entry: one `##` section per message, ordered by the
    clamped send time, headings that never change;
@@ -633,7 +652,17 @@ a new one, as the person, under both render leases. The thread it leaves is
 uploaded first, as Fassung N+1 without the section (the one exception to the
 superset invariant: earlier Fassungen keep it), then the thread it joins; only
 then does the entry's row move (its Message-IDs by `ON UPDATE CASCADE`).
-Every follow of the thread it left ends (`detached`).
+A new Verlauf takes the moved message's own base subject and Thread-Index
+GUID from its entry, so replies to it match the Verlauf it now starts; an
+entry filed before migration 0251 has neither, and the new Verlauf keeps the
+left one's subject. What the moved section names of its attachments was
+decided for the Verlauf it was filed into; the detach names no more than the
+joined Verlauf's readers may open (RT-S13): a file whose folder is closer than
+the joined Verlauf's, one the mover cannot read, or any named file when the
+new Verlauf's folder is only being made, is counted, not named, from the
+joined Verlauf's Fassung on (`section_name` and `section_folder_path` become
+NULL; the 0251 guard lets them only go, never come back). Every follow of the
+thread it left ends (`detached`).
 
 ## Following a Verlauf
 
@@ -649,6 +678,7 @@ sequenceDiagram
   Note over RJ: a reply arrives
   RJ->>RJ: judgeFollow: conditions 1–6
   RJ->>DB: queue inbound_mail_follow (only when they hold)
+  Note over RJ: or later, when a written Verlauf<br/>re-matches the waiting reply (rematch.ts)
   FJ->>FJ: judgeFollow again (same function)
   FJ->>FJ: as the follower: entitlement, document live and screened,<br/>project:documents:write, folder write (7, 9)
   FJ->>DB: writeFollowDecision: caps of the last 24 h (8),<br/>decision via=follow, text claimed
@@ -666,12 +696,17 @@ alignment proves the organizational domain, condition 5 already holds the From
 domain itself to the thread's participants, and a follow appends text only,
 never a file (`follow-eligibility.spec.ts` pins it). The follower is the earliest running
 follow made before the mail arrived, whichever follow the receive job named.
+When that follower lost the project or the folder, their follow ends
+(`access_lost`) and the job judges the next running follow, until one may
+append or none is left, so a second follower still gets the reply.
 Condition 8 counts the follow's own appends against its `daily_cap` (default
 20) and the project's `via = 'follow'` decisions against 100, over the last 24
 hours, under a project advisory lock. A failing condition writes nothing: the
 mail waits as without a follow. A follower who lost the project or the folder
 ends the follow (`access_lost`); a deleted, archived or binned document ends it
-(`document_gone`); a held document only makes the mail wait. Closing a
+(`document_gone`); a held document only makes the mail wait. A Verlauf at
+200 entries or 2 MiB ends every follow on it (`thread_full`, migration 0251):
+no reply can be appended there, so none waits on the follow. Closing a
 project ends every follow on it (`project_closed`), so a run that still meets
 a closed project (closed between its find and its check) leaves the mail
 waiting. One log line per run: `[inbound-mail] follow of mail <id>: <kind>[:<reason>]`.
@@ -681,10 +716,20 @@ Ending: `DELETE …/follow` (own: `unfollowed`; `?userId` with `project:manage`:
 `endFollowsOnProjectClose` in the close itself, as the person who closed it,
 each audited), sweep 12 (`expired`,
 `document_gone`, and `project_closed` for a follow the close missed), address
-rotation or switch-off (`address_rotated`), detach (`detached`). Every system end goes
+rotation or switch-off (`address_rotated`), detach (`detached`), a full Verlauf
+(`thread_full`, the follow job). Every system end goes
 through `endFollowBySystem` (`lib/mail-thread/follows.ts`), which audits
 `mail_thread.follow_ended`, sends a personless `mail_thread_followed`, settles
 the renewal notice and publishes the change.
+
+**The follower is told** (`mail_thread.follow_ended`, `announceFollowEnded`)
+whenever the follow ends for a reason other than their own: `access_lost`,
+`document_gone`, `project_closed`, `detached`, `revoked_by_manager`,
+`address_rotated` and `thread_full`, the reason as the row's variant, so its
+title says why later replies now wait in the E-Mail-Eingang. Never for
+`expired`, which `mail_thread.follow_expiring` announced five days before, nor
+for `unfollowed`, nor when the follower ended it themselves (closing the
+project or replacing its address).
 
 ## Retention: the sweeps
 
@@ -737,7 +782,7 @@ erasure and deletion wait. The `BEFORE DELETE` triggers on `inbound_mails`,
 `mail_thread_entries` and `mail_thread_entry_attachments` (`GLH01`) are the
 backstop, never the filter.
 
-## The eleven notices
+## The twelve notices
 
 `lib/inbound-mail/announce.ts`, in-app and push only (`email: never`). Payload
 `{ subject: <project name>, variant?, related? }`: no sender, subject or file
@@ -765,6 +810,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.cap_reached` | the project's managers; variant `nearly_full` or `full` | per address, actionable | `/files/mail` | requests, normal | below 80%, or a new address |
 | `inbound_mail.appended` | the follower | per Verlauf and day | the Verlauf document | results, low | — |
 | `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed or ended |
+| `mail_thread.follow_ended` | the follower, when the system, a manager, a detach or a full Verlauf ended their follow; variant the end reason | per follow | `/files/mail` | results, low | — |
 
 **A waiting row says what waits, not what arrived.** A collapsed row's `count`
 is occurrences since the reader last read it (`markReadValues`), right for
@@ -930,7 +976,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
 | Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects,entry-attachments}.ts` |
 | The sender rule | `lib/inbound-mail/{sender-class,receive-sender,sender-filing,sender-file-job}.ts` |
-| Threads | `lib/mail-thread/{mail-threading,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
+| Threads | `lib/mail-thread/{mail-threading,rematch,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
 | Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job}.ts` |
 | Sweeps and notices | `lib/inbound-mail/{sweep,sweep-repository,announce,notice-repository}.ts` |
 | Suggestion | `lib/inbound-mail/{suggest,suggest-job,suggest-scores}.ts`; `lib/filing/judge.ts`; `apps/agent-host/src/agent_host/routes/filing_fit.py` |

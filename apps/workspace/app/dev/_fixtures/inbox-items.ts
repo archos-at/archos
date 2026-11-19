@@ -725,6 +725,7 @@ const MAIL_ITEMS: InboxItemView[] = [
     href: '/app/projects/p1/files?doc=d-verlauf',
     updatedAt: ago(240),
   }),
+  mailRow('m-follow-ended', 'mail_thread.follow_ended', { variant: 'thread_full', anchorId: 'follow-2', updatedAt: ago(260) }),
 ]
 
 const isMailVariant = (): boolean =>

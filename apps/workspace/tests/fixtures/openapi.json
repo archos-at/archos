@@ -18252,7 +18252,8 @@
                 "inbound_mail.held",
                 "inbound_mail.held_for_writers",
                 "inbound_mail.rejected",
-                "inbound_mail.expired"
+                "inbound_mail.expired",
+                "mail_thread.follow_ended"
               ]
             },
             "description": "Only this item type."

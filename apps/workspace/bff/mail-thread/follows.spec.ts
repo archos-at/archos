@@ -25,7 +25,11 @@ vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn(async () =>
 vi.mock('@/lib/audit/after-commit', () => ({ recordAuditEventAfterCommit: vi.fn() }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
-vi.mock('@/lib/inbound-mail/announce', () => ({ settleFollowExpiring: vi.fn(async () => undefined) }))
+vi.mock('@/lib/inbound-mail/announce', () => ({
+  announceFollowEnded: vi.fn(async () => true),
+  announceFollowsEnded: vi.fn(async () => undefined),
+  settleFollowExpiring: vi.fn(async () => undefined),
+}))
 vi.mock('@/lib/inbound-mail/repository', () => ({ endProjectFollows: vi.fn(async () => []) }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => 'db') }))
 
@@ -37,7 +41,7 @@ import { requireFolderWrite } from '@/lib/authz/folder-access'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import type { MailThreadFollowRow } from '@/lib/db/schema/mail-thread'
 import { managesProject, requireInboundMailEnabled, requireMailReviewer } from '@/lib/inbound-mail/access'
-import { settleFollowExpiring } from '@/lib/inbound-mail/announce'
+import { announceFollowEnded, announceFollowsEnded, settleFollowExpiring } from '@/lib/inbound-mail/announce'
 import { endProjectFollows } from '@/lib/inbound-mail/repository'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { endFollow, findRunningFollow, renewFollow, startFollow } from './follow-repository'
@@ -197,10 +201,21 @@ describe('unfollowMailThread', () => {
   it('lets a project manager end someone else’s follow, recorded as revoked by them', async () => {
     vi.mocked(managesProject).mockResolvedValue(true)
     vi.mocked(findRunningFollow).mockResolvedValue(followRow({ userId: COLLEAGUE }))
+    vi.mocked(endFollow).mockResolvedValueOnce(
+      followRow({ userId: COLLEAGUE, endedAt: new Date(), endedBy: ME, endedReason: 'revoked_by_manager' }),
+    )
     expect(await unfollowMailThread(session, PROJECT, THREAD, { userId: COLLEAGUE })).toEqual({ endedFollowId: 'f-1' })
     expect(findRunningFollow).toHaveBeenCalledWith(THREAD, COLLEAGUE)
     expect(endFollow).toHaveBeenCalledWith('f-1', { reason: 'revoked_by_manager', endedBy: ME })
     expect(settleFollowExpiring).toHaveBeenCalledWith('org_1', ['f-1'])
+    expect(announceFollowEnded).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      projectId: PROJECT,
+      followId: 'f-1',
+      followerUserId: COLLEAGUE,
+      reason: 'revoked_by_manager',
+      endedBy: ME,
+    })
   })
 
   it('changes nothing when no follow runs, and is not found for a thread the caller may not read', async () => {
@@ -238,6 +253,14 @@ describe('endFollowBySystem', () => {
       expect.objectContaining({ distinctId: null, properties: { action: 'end', reason: 'access_lost' } }),
     )
     expect(settleFollowExpiring).toHaveBeenCalledWith('org_1', ['f-1'])
+    expect(announceFollowEnded).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      projectId: PROJECT,
+      followId: 'f-1',
+      followerUserId: ME,
+      reason: 'access_lost',
+      endedBy: null,
+    })
   })
 
   it('records once: a follow already ended is left as it is', async () => {
@@ -245,6 +268,7 @@ describe('endFollowBySystem', () => {
     expect(await endFollowBySystem({ id: 'f-1' }, 'document_gone')).toBe(false)
     expect(recordAuditEventAfterCommit).not.toHaveBeenCalled()
     expect(settleFollowExpiring).not.toHaveBeenCalled()
+    expect(announceFollowEnded).not.toHaveBeenCalled()
   })
 })
 
@@ -268,6 +292,16 @@ describe('endFollowsOnProjectClose', () => {
       { action: 'end', reason: 'project_closed' },
     ])
     expect(settleFollowExpiring).toHaveBeenCalledWith('org_1', ['f-1', 'f-2'])
+    expect(announceFollowsEnded).toHaveBeenCalledWith(
+      'org_1',
+      PROJECT,
+      [
+        { id: 'f-1', threadId: THREAD, userId: ME },
+        { id: 'f-2', threadId: THREAD, userId: COLLEAGUE },
+      ],
+      'project_closed',
+      ME,
+    )
     expect(publishProjectChanged).toHaveBeenCalledWith('org_1', PROJECT)
   })
 

@@ -52,6 +52,7 @@ import {
   MAIL_THREAD_MAX_RENDERED_BYTES,
   type MailThreadLocale,
 } from './mail-thread-vocabulary'
+import { rematchAfterWrite } from './rematch'
 import { mailThreadEntryHeading, renderMailThread } from './render'
 import { MAIL_THREAD_RENDER_COPY } from './render-copy'
 import {
@@ -445,6 +446,7 @@ async function renderThread(filing: ArchiveFiling, threadId: string, target: Arc
           ? thread.participantDomains
           : participantDomainsOf(rows.flatMap((row) => row.participants), thread.participantDomains),
       })
+      await rematchAfterWrite(mailImport.projectId, [thread])
       return { kind: 'rendered' }
     }
     if (uploaded.failure === 'name_taken' && !current) continue

@@ -11,7 +11,7 @@ import { getDb } from '@/lib/db'
 import type { MailThreadFollowRow } from '@/lib/db/schema/mail-thread'
 import { memberReader } from '@/lib/documents/document-reader'
 import { managesProject, requireInboundMailEnabled, requireMailReviewer } from '@/lib/inbound-mail/access'
-import { settleFollowExpiring } from '@/lib/inbound-mail/announce'
+import { announceFollowEnded, announceFollowsEnded, settleFollowExpiring } from '@/lib/inbound-mail/announce'
 import { auditFollowsEnded } from '@/lib/inbound-mail/audit'
 import { endProjectFollows } from '@/lib/inbound-mail/repository'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
@@ -120,21 +120,27 @@ export async function unfollowMailThread(
   if (!ended) return { endedFollowId: null }
   recordFollowEnded(session.organizationId, { userId: session.userId, email: session.email || null }, ended)
   await settleFollowExpiring(session.organizationId, [ended.id])
+  await announceFollowEnded(endedNotice(ended, end.reason, session.userId))
   publishProjectChanged(session.organizationId, projectId)
   return { endedFollowId: ended.id }
 }
 
 export async function endFollowBySystem(
   follow: Pick<MailThreadFollowRow, 'id'>,
-  reason: Extract<FollowEnd['reason'], 'access_lost' | 'document_gone' | 'expired' | 'project_closed'>,
+  reason: Extract<FollowEnd['reason'], 'access_lost' | 'document_gone' | 'expired' | 'project_closed' | 'thread_full'>,
   now: Date = new Date(),
 ): Promise<boolean> {
   const ended = await endFollow(follow.id, { reason, endedBy: null }, now)
   if (!ended) return false
   recordFollowEnded(ended.organizationId, { userId: SYSTEM_ACTORS.inboundMail, email: null }, ended)
   await settleFollowExpiring(ended.organizationId, [ended.id])
+  await announceFollowEnded(endedNotice(ended, reason, null))
   publishProjectChanged(ended.organizationId, ended.projectId)
   return true
+}
+
+function endedNotice(follow: MailThreadFollowRow, reason: FollowEnd['reason'], endedBy: string | null) {
+  return { organizationId: follow.organizationId, projectId: follow.projectId, followId: follow.id, followerUserId: follow.userId, reason, endedBy }
 }
 
 export async function endFollowsOnProjectClose(session: AuthorizedSession, projectId: string, at: Date = new Date()): Promise<number> {
@@ -150,6 +156,7 @@ export async function endFollowsOnProjectClose(session: AuthorizedSession, proje
     })
   )
   await settleFollowExpiring(session.organizationId, ended.map((follow) => follow.id))
+  await announceFollowsEnded(session.organizationId, projectId, ended, 'project_closed', session.userId)
   publishProjectChanged(session.organizationId, projectId)
   return ended.length
 }

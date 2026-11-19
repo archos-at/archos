@@ -138,6 +138,7 @@ function inboundMailLink(projectId: string, context: InboxTargetLinkContext): st
       return inboundMailReadyPath(projectId)
     case 'inbound_mail.expiring':
     case 'inbound_mail.cap_reached':
+    case 'mail_thread.follow_ended':
       return paths.list(waiting)
     case 'inbound_mail.filing_failed':
     case 'inbound_mail.held': {

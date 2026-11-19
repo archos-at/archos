@@ -37,7 +37,6 @@ export const FOLLOW_WAIT_REASONS = [
   'disabled',
   'project_closed',
   'document_held',
-  'thread_full',
   'unreadable',
   'scan_not_clean',
   'already_filed',
@@ -52,7 +51,7 @@ export type FollowOutcome =
   | { kind: 'appended' }
   | { kind: 'busy' }
   | { kind: 'waits'; reason: FollowWaitReason }
-  | { kind: 'ended'; reason: 'access_lost' | 'document_gone' }
+  | { kind: 'ended'; reason: 'access_lost' | 'document_gone' | 'thread_full' }
 
 const waits = (reason: FollowWaitReason): FollowOutcome => ({ kind: 'waits', reason })
 
@@ -77,17 +76,9 @@ export async function followMail(organizationId: string, payload: InboundMailFol
   if (text.state === 'filing') return resumeDecided(organizationId, payload, work, text)
   if (text.state !== 'waiting') return waits('not_waiting')
 
-  const domain = inboundMailDomain()
-  if (!domain) throw new Error('INBOUND_MAIL_DOMAIN is not set: a followed reply cannot be judged')
-  const judged = await judgeFollow(work.mail, text.contentFindings.length, domain, null)
-  if (!judged?.eligibility.eligible) return waits('ineligible')
-  const { follow } = judged.eligibility
-  const threadId = judged.thread.threadId
-
-  const session = await followerSession(organizationId, follow.userId, payload)
-  if (!session) return endFollow(follow, 'access_lost')
-  const refused = await followerMayAppend(session, payload.projectId, threadId, follow)
-  if (refused) return refused
+  const chosen = await appendingFollower(organizationId, payload, work.mail, text)
+  if ('kind' in chosen) return chosen
+  const { follow, session, threadId, thread } = chosen
   if (!work.mail.readStorageKey || text.riskFlags.includes('unreadable')) return waits('unreadable')
   if (work.mail.rawScanStatus !== 'clean') return waits('scan_not_clean')
   if (work.mail.messageId && (await findFiledMessages(payload.projectId, work.mail.messageId)).length > 0)
@@ -109,8 +100,41 @@ export async function followMail(organizationId: string, payload: InboundMailFol
   })
   if (written.kind !== 'written') return waits(written.kind)
   await auditDecisions([written.decision])
-  recordFollowDecision(session, work, text, judged.thread, now)
+  recordFollowDecision(session, work, text, thread, now)
   return fileDecided(session, payload, written.decision.id, threadId)
+}
+
+interface AppendingFollower {
+  follow: FollowRow
+  session: AuthorizedSession
+  threadId: string
+  thread: ThreadFollowContext
+}
+
+async function appendingFollower(
+  organizationId: string,
+  payload: InboundMailFollowPayload,
+  mail: InboundMailRow,
+  text: InboundMailPartRow,
+): Promise<AppendingFollower | FollowOutcome> {
+  const domain = inboundMailDomain()
+  if (!domain) throw new Error('INBOUND_MAIL_DOMAIN is not set: a followed reply cannot be judged')
+  const passedOver = new Set<string>()
+  let lost: FollowOutcome | null = null
+  for (;;) {
+    const judged = await judgeFollow(mail, text.contentFindings.length, domain, null, new Date(), passedOver)
+    if (!judged?.eligibility.eligible) return lost ?? waits('ineligible')
+    const { follow } = judged.eligibility
+    const threadId = judged.thread.threadId
+    const session = await followerSession(organizationId, follow.userId, payload)
+    const refused = session
+      ? await followerMayAppend(session, payload.projectId, threadId, follow, judged.thread.follows)
+      : await endFollow([follow], 'access_lost')
+    if (!refused && session) return { follow, session, threadId, thread: judged.thread }
+    if (refused?.kind !== 'ended' || refused.reason !== 'access_lost') return refused ?? waits('ineligible')
+    passedOver.add(follow.id)
+    lost = refused
+  }
 }
 
 async function resumeDecided(
@@ -140,10 +164,11 @@ async function followerMayAppend(
   projectId: string,
   threadId: string,
   follow: FollowRow,
+  running: readonly FollowRow[],
 ): Promise<FollowOutcome | null> {
   if (!isInboundMailEnabled(session)) return waits('disabled')
   const state = await findThreadDocumentState(projectId, threadId, memberReader(session.userId))
-  if (state === 'gone') return endFollow(follow, 'document_gone')
+  if (state === 'gone') return endFollow([follow], 'document_gone')
   if (state === 'unseen') return waits('document_held')
   const thread = await findWritableThread(projectId, threadId, SCREENED_ONLY)
   if (!thread) return waits('document_held')
@@ -151,15 +176,17 @@ async function followerMayAppend(
     await requireFolderWrite(session, projectId, [thread.document.folderId])
   } catch (error) {
     if (isProjectClosedError(error)) return waits('project_closed')
-    if (error instanceof NotFoundError || error instanceof ForbiddenError) return endFollow(follow, 'access_lost')
+    if (error instanceof NotFoundError || error instanceof ForbiddenError) return endFollow([follow], 'access_lost')
     throw error
   }
-  if (threadIsFull(thread.thread)) return waits('thread_full')
+  if (threadIsFull(thread.thread)) return endFollow(running, 'thread_full')
   return null
 }
 
-async function endFollow(follow: FollowRow, reason: 'access_lost' | 'document_gone'): Promise<FollowOutcome> {
-  await endFollowBySystem(follow, reason)
+type FollowEndedBy = Extract<FollowOutcome, { kind: 'ended' }>['reason']
+
+async function endFollow(follows: readonly FollowRow[], reason: FollowEndedBy): Promise<FollowOutcome> {
+  for (const follow of follows) await endFollowBySystem(follow, reason)
   return { kind: 'ended', reason }
 }
 

@@ -21,6 +21,7 @@ export const mailThread = {
     document_gone: 'The mail thread was deleted',
     revoked_by_manager: 'Ended by a project manager',
     project_closed: 'The project was closed',
+    thread_full: 'The mail thread is full',
   },
 
   tab: {

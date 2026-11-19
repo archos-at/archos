@@ -781,6 +781,31 @@ export const collaboration = {
         titleResolved: 'Your follow of a mail thread in “{subject}” was renewed or ended',
         body: 'Renew it so later replies keep being appended.',
       },
+      mailThreadFollowEnded: {
+        title: 'You no longer follow a mail thread in “{subject}”',
+        body: 'Later replies are no longer appended as you; they wait in Project mail.',
+        variants: {
+          access_lost: { title: 'You no longer follow a mail thread in “{subject}”: your access to it ended' },
+          document_gone: { title: 'You no longer follow a mail thread in “{subject}”: it was deleted' },
+          project_closed: { title: 'You no longer follow a mail thread in “{subject}”: the project was closed' },
+          detached: {
+            title: 'You no longer follow a mail thread in “{subject}”: a mail was detached from it',
+            body: 'Follow it again so later replies are appended as you again.',
+          },
+          revoked_by_manager: {
+            title: '{actor} ended your follow of a mail thread in “{subject}”',
+            titleNoActor: 'A project manager ended your follow of a mail thread in “{subject}”',
+          },
+          address_rotated: {
+            title: 'You no longer follow a mail thread in “{subject}”: the project mail address was replaced',
+            body: 'Replies to the old address no longer arrive. Follow again once the new address is in use.',
+          },
+          thread_full: {
+            title: 'You no longer follow a mail thread in “{subject}”: it is full',
+            body: 'Later replies wait in Project mail. File them as a new mail thread that continues this one.',
+          },
+        },
+      },
       rootSortFailed: {
         title: 'The sort of “{subject}” stopped',
         body: 'What was moved until then stays. Open the files to see the reason.',

@@ -52,6 +52,7 @@ import {
   announceExpiring,
   announceFilingFailed,
   announceHeld,
+  announceFollowEnded,
   announceFollowExpiring,
   announceWaiting,
   INBOUND_MAIL_INBOX_TYPES,
@@ -436,6 +437,42 @@ describe('inbound_mail.appended and mail_thread.follow_expiring', () => {
   })
 })
 
+describe('mail_thread.follow_ended', () => {
+  const ended = (reason: Parameters<typeof announceFollowEnded>[0]['reason'], endedBy: string | null = null) =>
+    announceFollowEnded({ organizationId: ORG, projectId: PROJECT, followId: 'follow-1', followerUserId: MEMBER, reason, endedBy })
+
+  it.each(['access_lost', 'document_gone', 'project_closed', 'detached', 'address_rotated', 'thread_full'] as const)(
+    'tells the follower their follow ended (%s), on the project, once per follow, saying why',
+    async (reason) => {
+      expect(await ended(reason)).toBe(true)
+      expect(emitted()).toEqual([
+        expect.objectContaining({
+          recipientUserId: MEMBER,
+          type: 'mail_thread.follow_ended',
+          resourceType: 'project',
+          resourceId: PROJECT,
+          anchorId: 'follow-1',
+          groupKey: `mail_thread.follow_ended:project:${PROJECT}:follow-1`,
+          payload: { subject: 'Wohnbau Hietzing', variant: reason },
+        }),
+      ])
+    },
+  )
+
+  it('names the manager who revoked it', async () => {
+    await ended('revoked_by_manager', MANAGER)
+    expect(emitted()).toEqual([expect.objectContaining({ actorUserId: MANAGER, payload: expect.objectContaining({ variant: 'revoked_by_manager' }) })])
+  })
+
+  it('tells nobody of a follow that ran out after its warning, one they ended, or one they ended by closing or replacing', async () => {
+    expect(await ended('expired')).toBe(false)
+    expect(await ended('unfollowed', MEMBER)).toBe(false)
+    expect(await ended('project_closed', MEMBER)).toBe(false)
+    expect(await ended('address_rotated', MEMBER)).toBe(false)
+    expect(emitInboxItems).not.toHaveBeenCalled()
+  })
+})
+
 describe('settling the project’s collapsed rows', () => {
   it('settles `waiting` and `expiring` for everyone once nothing they count waits, whichever mail anchors them', async () => {
     vi.mocked(openRecipientsOf).mockResolvedValue([MANAGER])
@@ -470,6 +507,7 @@ describe('redacted by construction (RT-X1)', () => {
     await announceCapReached({ ...leaky, organizationId: ORG, projectId: PROJECT, addressId: 'address-1', notice: 'nearly_full' })
     await announceAppended({ ...leaky, organizationId: ORG, projectId: PROJECT, mailId: MAIL, threadId: THREAD, followerUserId: MEMBER })
     await announceFollowExpiring({ ...leaky, organizationId: ORG, projectId: PROJECT, followId: 'follow-1', threadDocumentId: DOCUMENT, followerUserId: MEMBER })
+    await announceFollowEnded({ ...leaky, organizationId: ORG, projectId: PROJECT, followId: 'follow-1', followerUserId: MEMBER, reason: 'thread_full', endedBy: null })
     vi.mocked(filedFolderIds).mockResolvedValue([])
 
     const rows = vi.mocked(emitInboxItems).mock.calls.flatMap(([batch]) => batch)

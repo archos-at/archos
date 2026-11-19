@@ -244,12 +244,6 @@ describe('each of D31’s nine conditions, failing alone, leaves the mail waitin
     ['8. the project’s follows made theirs', () => {
       vi.mocked(writeFollowDecision).mockResolvedValue({ kind: 'project_cap' })
     }],
-    ['8. the thread is at its entry cap', () => {
-      vi.mocked(findWritableThread).mockResolvedValue(writable({ entryCount: 200 }))
-    }],
-    ['8. the thread is at its byte cap', () => {
-      vi.mocked(findWritableThread).mockResolvedValue(writable({ renderedBytes: 2 * 1024 * 1024 }))
-    }],
     ['9. the thread document is held by its screening', () => {
       vi.mocked(findWritableThread).mockResolvedValue(null)
     }],
@@ -288,6 +282,52 @@ describe('what ends the follow', () => {
     vi.mocked(requireFolderWrite).mockRejectedValue(error)
     expect(await followMail('org_1', payload)).toEqual({ kind: 'ended', reason: 'access_lost' })
     expect(endFollowBySystem).toHaveBeenCalledWith(expect.objectContaining({ id: FOLLOW_ID }), 'access_lost')
+    expectWaitsUntouched()
+  })
+
+  it.each([
+    ['its entry cap', { entryCount: 200 }],
+    ['its byte cap', { renderedBytes: 2 * 1024 * 1024 }],
+  ])('8. a thread at %s: thread_full, for every follow on it, and the mail waits', async (_name, full) => {
+    vi.mocked(findWritableThread).mockResolvedValue(writable(full))
+    state.followContext = {
+      threadId: THREAD_ID,
+      participantDomains: ['statik-weber.at'],
+      participantAddresses: [],
+      follows: [follow(), follow({ id: 'f-later', userId: OTHER_FOLLOWER })],
+    }
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'ended', reason: 'thread_full' })
+    expect(vi.mocked(endFollowBySystem).mock.calls.map(([ended, reason]) => [ended.id, reason])).toEqual([
+      [FOLLOW_ID, 'thread_full'],
+      ['f-later', 'thread_full'],
+    ])
+    expectWaitsUntouched()
+  })
+
+  it('7. the earliest follower lost access: their follow ends, and the next running follower appends', async () => {
+    state.followContext = {
+      threadId: THREAD_ID,
+      participantDomains: ['statik-weber.at'],
+      participantAddresses: [],
+      follows: [follow({ id: 'f-early', userId: OTHER_FOLLOWER, createdAt: new Date(RECEIVED.getTime() - 2 * DAY) }), follow()],
+    }
+    vi.mocked(resolvePinnedRequesterSessionStrict).mockImplementation(async ({ userId }) => (userId === OTHER_FOLLOWER ? null : follower))
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'appended' })
+    expect(endFollowBySystem).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: 'f-early' }), 'access_lost')
+    expect(vi.mocked(writeFollowDecision).mock.calls[0]![0].follow).toMatchObject({ id: FOLLOW_ID, userId: PERSON })
+    expect(announceAppended).toHaveBeenCalledWith(expect.objectContaining({ followerUserId: PERSON }))
+  })
+
+  it('7. every follower lost access: each follow ends, once, and the mail waits', async () => {
+    state.followContext = {
+      threadId: THREAD_ID,
+      participantDomains: ['statik-weber.at'],
+      participantAddresses: [],
+      follows: [follow({ id: 'f-early', userId: OTHER_FOLLOWER, createdAt: new Date(RECEIVED.getTime() - 2 * DAY) }), follow()],
+    }
+    vi.mocked(requireFolderWrite).mockRejectedValue(new ForbiddenError('no'))
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'ended', reason: 'access_lost' })
+    expect(vi.mocked(endFollowBySystem).mock.calls.map(([ended]) => ended.id)).toEqual(['f-early', FOLLOW_ID])
     expectWaitsUntouched()
   })
 

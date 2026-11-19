@@ -788,6 +788,37 @@ export const collaboration: typeof en.collaboration = {
         titleResolved: 'Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ ist verlängert oder beendet',
         body: 'Verlängern Sie, damit spätere Antworten weiter angefügt werden.',
       },
+      mailThreadFollowEnded: {
+        title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr',
+        body: 'Spätere Antworten werden nicht mehr in Ihrem Namen angefügt, sie warten im E-Mail-Eingang.',
+        variants: {
+          access_lost: {
+            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil Ihr Zugriff auf ihn weggefallen ist',
+          },
+          document_gone: {
+            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil er gelöscht wurde',
+          },
+          project_closed: {
+            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil das Projekt abgeschlossen wurde',
+          },
+          detached: {
+            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil eine E-Mail aus ihm herausgelöst wurde',
+            body: 'Folgen Sie ihm erneut, damit spätere Antworten wieder in Ihrem Namen angefügt werden.',
+          },
+          revoked_by_manager: {
+            title: '{actor} hat Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ beendet',
+            titleNoActor: 'Die Projektverwaltung hat Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ beendet',
+          },
+          address_rotated: {
+            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil die E-Mail-Adresse des Projekts ersetzt wurde',
+            body: 'Antworten an die alte Adresse kommen nicht mehr an. Folgen Sie erneut, sobald die neue Adresse verwendet wird.',
+          },
+          thread_full: {
+            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil er voll ist',
+            body: 'Spätere Antworten warten im E-Mail-Eingang. Legen Sie sie als neuen E-Mail-Verlauf ab, der diesen fortsetzt.',
+          },
+        },
+      },
       rootSortFailed: {
         title: 'Die Sortierung von „{subject}“ wurde abgebrochen',
         body: 'Was bis dahin verschoben wurde, bleibt. Öffnen Sie die Dateien, um den Grund zu sehen.',

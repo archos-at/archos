@@ -322,7 +322,7 @@ describe('hostile: what a verified outsider can get pre-selected', () => {
     flags: verdict.flags,
   })
 
-  const earlierFassung = { documentId: 'd-s101', name: 'S-101_B.pdf', folderPath: 'Tragwerk', nextVersion: 3 }
+  const earlierVersion = { documentId: 'd-s101', name: 'S-101_B.pdf', folderPath: 'Tragwerk', nextVersion: 3 }
 
   it('a verified attacker domain sending a plan under an existing name: the new Fassung is offered, never pre-selected', async () => {
     const raw = await sign(
@@ -335,10 +335,10 @@ describe('hostile: what a verified outsider can get pre-selected', () => {
     expect(filename).toBe('S-101_B.pdf')
     const view = reviewView({
       sender: senderView(verdict, ATTACKER_ADDRESS),
-      parts: [reviewPart({ name: filename, revisionCandidate: earlierFassung })],
+      parts: [reviewPart({ name: filename, revisionCandidate: earlierVersion })],
       threadCandidates: [],
     })
-    expect(view.parts[0]).toMatchObject({ revisionCandidate: earlierFassung, preselected: false })
+    expect(view.parts[0]).toMatchObject({ revisionCandidate: earlierVersion, preselected: false })
     expect(view.incompleteReason).toBe('needs_person')
   })
 
@@ -360,7 +360,7 @@ describe('hostile: what a verified outsider can get pre-selected', () => {
 
     const view = reviewView({
       sender: senderView(verdict, ATTACKER_ADDRESS),
-      parts: [reviewPart({ name: 'S-101_B.pdf', revisionCandidate: earlierFassung })],
+      parts: [reviewPart({ name: 'S-101_B.pdf', revisionCandidate: earlierVersion })],
       threadCandidates: [reviewThread({ preselected: hijack.preselected, blocks: hijack.blocks })],
     })
     expect(view.parts[0]?.preselected).toBe(false)

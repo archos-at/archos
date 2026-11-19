@@ -89,6 +89,7 @@ export const MAIL_THREAD_FOLLOW_END_REASONS = [
   'document_gone',
   'revoked_by_manager',
   'project_closed',
+  'thread_full',
 ] as const
 export type MailThreadFollowEndReason = (typeof MAIL_THREAD_FOLLOW_END_REASONS)[number]
 

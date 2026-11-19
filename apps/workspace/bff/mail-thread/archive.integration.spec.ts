@@ -400,11 +400,31 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
         VALUES (${ORG}, ${existing.documentId}::uuid, ${projectId}::uuid, 2, 'superseded', ${`k/${STAMP}/along/v2`}, ${USER}, ${USER}, now()) RETURNING id`)
     ).id
     const entryId = crypto.randomUUID()
+    const { id: addressId } = await one<{ id: string }>(sql`
+      INSERT INTO inbound_mail_addresses (organization_id, project_id, token, created_by)
+      VALUES (${ORG}, ${projectId}::uuid, ${(STAMP + 'along').replace(/[^a-z2-7]/g, 'a').padEnd(12, 'q').slice(-12)}, ${USER}) RETURNING id`)
+    const { id: mailId } = await one<{ id: string }>(sql`
+      INSERT INTO inbound_mails (organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket,
+        raw_scan_status, raw_scanned_at, sender_address, sender_name, subject, base_subject, sender_trust, sender_class, sender_reason,
+        signer_domain, participants, participant_domains, sent_at, expires_at)
+      VALUES (${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${'d'.repeat(64)}, 100, 'org-test-bucket',
+        'clean', now(), 'huber@ma37.wien.gv.at', 'Mag. Huber', 'Stellplatznachweis', 'stellplatznachweis', 'external_verified', 'external',
+        'dkim_pass', 'ma37.wien.gv.at', '[]'::jsonb, '{ma37.wien.gv.at}', now(), now() + interval '30 days') RETURNING id`)
+    const { id: partId } = await one<{ id: string }>(sql`
+      INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, content_type, size_bytes, sha256, scan_status)
+      VALUES (${ORG}, ${projectId}::uuid, ${mailId}::uuid, 0, 'message', 'text/plain', 7, ${'e'.repeat(64)}, 'not_applicable') RETURNING id`)
+    const { id: decisionId } = await one<{ id: string }>(sql`
+      INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, thread_action, mail_thread_id, message_text, document_type)
+      VALUES (${ORG}, ${projectId}::uuid, ${mailId}::uuid, ${partId}::uuid, 'file', ${USER}, 'append', ${existing.threadId}::uuid, 'full', 'correspondence') RETURNING id`)
+    await rows(
+      sql`UPDATE inbound_mail_parts SET state = 'filing', decision_id = ${decisionId}::uuid, claim_expires_at = now() + interval '5 minutes' WHERE id = ${partId}::uuid`,
+    )
     await inTenant(() =>
       write.commitAppend({
         newThread: null,
         threadId: existing.threadId,
-        threadUpdate: { documentId: existing.documentId, entryCount: 3, renderedBytes: 900, lastEntryAt: new Date(), participantDomains: ['ma37.wien.gv.at'] },
+        leaseHolder: null,
+        threadUpdate: { baseSubject: 'stellplatznachweis', documentId: existing.documentId, entryCount: 3, renderedBytes: 900, lastEntryAt: new Date(), participantDomains: ['ma37.wien.gv.at'] },
         entry: {
           id: entryId,
           organizationId: ORG,
@@ -425,8 +445,8 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
         },
         messageIds: { received: `p3-${STAMP}@ma37.wien.gv.at`, referenced: [] },
         attachments: [],
-        part: { id: crypto.randomUUID(), documentId: existing.documentId, versionId: version },
-        mailId: crypto.randomUUID(),
+        part: { id: partId, documentId: existing.documentId, versionId: version },
+        mailId,
         movesOriginal: false,
       }),
     )
