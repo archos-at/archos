@@ -168,7 +168,15 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     const labels = Array.from(navs)
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
-    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Office standards', 'Search', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Search', 'Inbox'])
+  })
+
+  test('keeps Office filing lit on its standards tab, which has no doorway of its own', () => {
+    pathname = '/app/base-knowledge'
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf canAccessOfficeStandards />)
+    expect(screen.queryByText('Office standards')).not.toBeInTheDocument()
+    const shelf = screen.getAllByRole('link', { name: /Office filing/ })[0]
+    expect(shelf).toHaveAttribute('data-active', 'true')
   })
 
   test('lists no office standards without the office-standards entitlement, the Archiv still there', () => {

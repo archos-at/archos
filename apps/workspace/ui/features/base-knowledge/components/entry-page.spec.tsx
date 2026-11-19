@@ -9,6 +9,16 @@ import { EntryPage } from './entry-page'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
+const licenceStep = vi.hoisted(() => ({ ask: false }))
+vi.mock('@/lib/base-knowledge/wire', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/base-knowledge/wire')>()
+  return {
+    ...actual,
+    get ASK_FOR_LICENCE() {
+      return licenceStep.ask
+    },
+  }
+})
 
 const PROPOSAL = BASE_KNOWLEDGE_ENTRIES.find((entry) => entry.id === 'oenorm-b-1300')!
 const CONFIRMED = BASE_KNOWLEDGE_ENTRIES.find((entry) => entry.id === 'oenorm-b-1600')!
@@ -25,6 +35,7 @@ function renderSheet(entry: BaseKnowledgeEntry, onChanged = vi.fn()) {
 }
 
 afterEach(() => {
+  licenceStep.ask = false
   vi.unstubAllGlobals()
   for (const fn of Object.values(toast)) fn.mockReset()
 })
@@ -55,7 +66,14 @@ describe('EntryPage', () => {
     expect(JSON.parse(String(init.body))).toEqual({ result: 'current' })
   })
 
-  it('marks a freely available copy as bought with the licence statement, and shows it as bought at once', async () => {
+  it('offers no licence step for a freely available copy while the office is not asked about licences', async () => {
+    renderSheet({ ...CONFIRMED, textUse: 'used', values: { ...CONFIRMED.values, licenceClass: 'public_open' } })
+    await screen.findByTestId('base-knowledge-save')
+    expect(screen.queryByRole('button', { name: 'Ist doch gekauft' })).toBeNull()
+  })
+
+  it('marks a freely available copy as bought with the licence statement, and shows it as bought at once, when the licence step is asked', async () => {
+    licenceStep.ask = true
     const PUBLIC: BaseKnowledgeEntry = { ...CONFIRMED, textUse: 'used', values: { ...CONFIRMED.values, licenceClass: 'public_open' } }
     const BOUGHT: BaseKnowledgeEntry = { ...PUBLIC, values: { ...PUBLIC.values, licenceClass: 'licensed' } }
     const fetchMock = vi.fn(async () => Response.json(BOUGHT))

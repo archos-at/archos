@@ -30,7 +30,7 @@ import {
 import { BackControl } from '@/components/shell/back-link'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
-import type { EntryValues } from '@/lib/base-knowledge/wire'
+import { ASK_FOR_LICENCE, type EntryValues } from '@/lib/base-knowledge/wire'
 import { Chip } from '@/components/ui/chip'
 import { day, StatusChip, TextUseChip } from './entry-atoms'
 import { EntryForm, type TerritoryChoice } from './entry-form'
@@ -156,7 +156,7 @@ function LicenceSection({
 }): JSX.Element | null {
   const t = useTranslations(baseKnowledgeCopy)
   if (values.licenceClass !== 'licensed') {
-    return entry.status === 'confirmed' && canManage ? <BoughtAfterAll entry={entry} busy={busy} run={run} /> : null
+    return ASK_FOR_LICENCE && entry.status === 'confirmed' && canManage ? <BoughtAfterAll entry={entry} busy={busy} run={run} /> : null
   }
   const aiAllowed = entry.textUse === 'used'
   return (
@@ -395,7 +395,7 @@ function SheetBody({
           values={values}
           onChange={setValues}
           disabled={!canManage || busy}
-          showLicence={proposed}
+          showLicence={proposed && ASK_FOR_LICENCE}
           territories={territories}
         />
       </section>

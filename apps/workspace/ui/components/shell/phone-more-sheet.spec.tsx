@@ -52,7 +52,7 @@ describe('PhoneMoreSheet', () => {
 
     const sheet = await screen.findByRole('dialog')
     const links = within(sheet).getAllByRole('link').map((link) => link.getAttribute('data-destination'))
-    expect(links).toEqual(['automation', 'officeShelf', 'baseKnowledge', 'search', 'profile', 'memory', 'organization', 'whats-new'])
+    expect(links).toEqual(['automation', 'officeShelf', 'search', 'profile', 'memory', 'organization', 'whats-new'])
     for (const name of ['Chat', 'Files', 'Overview']) {
       expect(within(sheet).queryByRole('link', { name })).toBeNull()
     }

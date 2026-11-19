@@ -14,6 +14,8 @@ const territoryId = z
 
 const isoDate = z.iso.date()
 
+export const ASK_FOR_LICENCE = false
+
 export const ENTRY_PAGE = 50
 export const MAX_ENTRY_PAGE = 200
 

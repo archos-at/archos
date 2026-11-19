@@ -8,8 +8,9 @@ import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import { cn } from '@/lib/utils'
+import { ASK_FOR_LICENCE } from '@/lib/base-knowledge/wire'
 
-const STEPS = ['upload', 'confirm', 'check', 'licence'] as const
+const STEPS = ASK_FOR_LICENCE ? (['upload', 'confirm', 'check', 'licence'] as const) : (['upload', 'confirm', 'check'] as const)
 
 export function Guide({ defaultOpen }: { defaultOpen: boolean }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
@@ -27,7 +28,7 @@ export function Guide({ defaultOpen }: { defaultOpen: boolean }): JSX.Element {
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <ol className="grid gap-4 pt-2 sm:grid-cols-2 xl:grid-cols-4">
+        <ol className={cn('grid gap-4 pt-2 sm:grid-cols-2', STEPS.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3')}>
           {STEPS.map((step) => (
             <li key={step} className="space-y-1">
               <SectionLabel as="h3">{t(`guide.${step}.title`)}</SectionLabel>

@@ -7,6 +7,11 @@ export const officeShelf = {
   toast: {
     ingestionComplete: '“{name}” is now in Office filing — citable',
   },
+  places: {
+    label: 'Office filing places',
+    files: 'Folders',
+    norms: 'Standards & guidelines',
+  },
   workspace: {
     dropToUpload: 'Drop files to add them to Office filing',
   },

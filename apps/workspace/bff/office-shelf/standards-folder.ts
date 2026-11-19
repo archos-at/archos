@@ -8,5 +8,9 @@ export function isUnderStandardsRoot(path: string): boolean {
   return path === STANDARDS_FOLDER_NAME || path.startsWith(`${STANDARDS_FOLDER_NAME}/`)
 }
 
+export function withoutStandardsTree<T extends { path: string }>(folders: readonly T[]): T[] {
+  return folders.filter((folder) => !isUnderStandardsRoot(folder.path))
+}
+
 export const STANDARDS_ROOT_FIXED =
   'This folder holds the office’s base knowledge and keeps its name and place; rename, move or delete its subfolders instead.'

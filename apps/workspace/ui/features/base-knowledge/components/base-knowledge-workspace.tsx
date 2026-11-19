@@ -36,6 +36,7 @@ import { ShelfPickerDialog } from './shelf-picker-dialog'
 
 export interface BaseKnowledgeWorkspaceProps {
   trailingActions?: ReactNode
+  place?: { title: string; crumb: ReactNode; places: ReactNode }
 }
 
 type Translate = ReturnType<typeof useTranslations>
@@ -100,7 +101,7 @@ function useOpenEntry(
   }
 }
 
-export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspaceProps): JSX.Element {
+export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledgeWorkspaceProps): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const location = useLocation()
   const state = useBaseKnowledge({ folderId: location.folderId })
@@ -359,6 +360,13 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="base-knowledge-workspace">
+      {place ? (
+        <div className={SECTION_HEADER_CLASS} data-testid="base-knowledge-header">
+          <PageHeader title={place.title} crumb={place.crumb} action={trailingActions} actionInline />
+          <div className="-mb-2 mt-6 min-w-0 phone:mt-4">{place.places}</div>
+          {headerActions && <div className="mt-4 flex min-w-0 flex-wrap items-center justify-end gap-2">{headerActions}</div>}
+        </div>
+      ) : (
       <div className={SECTION_HEADER_CLASS} data-testid="base-knowledge-header">
         <div className="flex min-w-0 items-start gap-3 sm:items-end">
           <PageHeader
@@ -375,6 +383,7 @@ export function BaseKnowledgeWorkspace({ trailingActions }: BaseKnowledgeWorkspa
           {trailingActions && <div className="flex shrink-0 items-center">{trailingActions}</div>}
         </div>
       </div>
+      )}
 
       <div className="flex flex-col gap-4 px-4 pb-8 sm:px-6 md:px-8">
         {list && !location.entryId && <Guide key={empty ? 'empty' : 'filled'} defaultOpen={empty} />}

@@ -1,13 +1,14 @@
 import type { JSX } from 'react'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
-import { isIfcModelsEnabled } from '@/lib/authz/feature-flags'
+import { isIfcModelsEnabled, isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 import { getTranslations } from '@/i18n/server'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { PageSheetClose } from '@/components/ui/page-sheet'
 import { RoutePageSheet } from '@/components/shell/route-page-sheet'
 import { OfficeShelfWorkspace } from '@/features/documents/components/office-shelf-workspace'
+import { OfficeShelfPlaces } from '@/features/documents'
 
 export async function OfficeShelfSheet({ standalone }: { standalone: boolean }): Promise<JSX.Element> {
   return withPageSession(async (session) => {
@@ -28,6 +29,7 @@ export async function OfficeShelfSheet({ standalone }: { standalone: boolean }):
           canManage={canManage}
           showModels={showModels}
           organizationName={session.organizationName}
+          places={isOfficeStandardsEnabled(session) ? <OfficeShelfPlaces /> : undefined}
           trailingActions={<PageSheetClose label={tCommon('actions.close')} />}
         />
       </RoutePageSheet>

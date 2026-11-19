@@ -23,6 +23,7 @@ interface OfficeShelfWorkspaceProps {
   showModels?: boolean
   trailingActions?: ReactNode
   organizationName?: string | null
+  places?: ReactNode
 }
 
 export function OfficeShelfWorkspace({
@@ -30,6 +31,7 @@ export function OfficeShelfWorkspace({
   showModels = false,
   trailingActions,
   organizationName = null,
+  places,
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
@@ -82,7 +84,7 @@ export function OfficeShelfWorkspace({
           shelf={shelf}
           onOpenSearch={search.open}
           renderHeader={(controls, { count }) => (
-            <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} />
+            <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} places={places} />
           )}
         />
       </SectionToolRowScope>
@@ -96,12 +98,14 @@ function OfficeShelfHeader({
   phone,
   trailingActions,
   organizationName,
+  places,
 }: {
   controls: ReactNode
   count: number | null
   phone: boolean
   trailingActions?: ReactNode
   organizationName: string | null
+  places?: ReactNode
 }): JSX.Element {
   const t = useTranslations(officeShelfCopy)
   const place = useSectionPlace()
@@ -139,6 +143,7 @@ function OfficeShelfHeader({
         action={trailingActions}
         actionInline
       />
+      {places && <div className="-mb-2 mt-6 min-w-0 phone:mt-4">{places}</div>}
       <SectionToolRow className="mt-4">
         <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
           {controls}

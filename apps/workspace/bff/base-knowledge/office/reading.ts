@@ -1,6 +1,6 @@
 import type { LicenceClass } from '@/lib/db/schema/knowledge-records'
 import type { OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
-import type { Addressee, EntryValues } from '../wire'
+import { ASK_FOR_LICENCE, type Addressee, type EntryValues } from '../wire'
 
 export interface DocumentReading {
   fileName: string
@@ -74,7 +74,8 @@ export function readKind(text: string, designation: Designation | null): OfficeW
   return 'technical_standard'
 }
 
-export function defaultLicence(kind: OfficeWorkKind): LicenceClass {
+export function defaultLicence(kind: OfficeWorkKind, askForLicence: boolean = ASK_FOR_LICENCE): LicenceClass {
+  if (!askForLicence) return 'public_open'
   return kind === 'authority_directive' || kind === 'statute' ? 'public_open' : 'licensed'
 }
 

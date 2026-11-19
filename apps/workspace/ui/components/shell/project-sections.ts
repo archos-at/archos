@@ -48,6 +48,7 @@ export interface ProjectSection {
   inPalette: boolean
   shortcutKey?: string
   group?: ProjectNavGroup
+  alsoActiveOn?: readonly string[]
 }
 
 const PROJECT_SECTIONS: readonly ProjectSection[] = [
@@ -99,6 +100,7 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     icon: Archive,
     i18nKey: 'officeShelf',
     gate: 'canAccessOfficeShelf',
+    alsoActiveOn: ['/app/base-knowledge'],
     inRail: true,
     inPalette: true,
     shortcutKey: 'a',
@@ -111,7 +113,7 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
     icon: Library,
     i18nKey: 'baseKnowledge',
     gate: 'canAccessOfficeStandards',
-    inRail: true,
+    inRail: false,
     inPalette: true,
     shortcutKey: 'n',
     group: 'org',
@@ -162,6 +164,10 @@ export const PROJECT_SETTINGS_SECTION: ProjectSection = {
 
 export function sectionHref(section: ProjectSection, base: string): string {
   return section.href ?? `${base}/${section.segment}`
+}
+
+export function isSectionPathActive(section: ProjectSection, base: string, pathname: string): boolean {
+  return [sectionHref(section, base), ...(section.alsoActiveOn ?? [])].some((href) => pathname.startsWith(href))
 }
 
 export function sectionLinkHref(section: ProjectSection, base: string): string {

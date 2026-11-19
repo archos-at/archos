@@ -12,3 +12,4 @@ export { FolderBreadcrumbRow, FolderCard, FolderCardSkeleton } from './component
 export { FileGrid } from './components/file-grid'
 export { FolderAccessMark } from './components/folder-access-mark'
 export { SaveToProjectDialog, type SaveToProjectChoice } from './save-to-project'
+export { OfficeShelfPlaces, OFFICE_SHELF_FILES_HREF, OFFICE_SHELF_NORMS_HREF } from './components/office-shelf-places'

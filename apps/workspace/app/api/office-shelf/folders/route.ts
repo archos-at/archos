@@ -1,9 +1,14 @@
 import { apiRoute } from '@/lib/api/handler'
 import { createFolderHandler, listFoldersHandler } from '@/lib/documents/folder-route-handlers'
 import { createOfficeShelfFolder, listOfficeShelfFolders } from '@/lib/office-shelf/folder-service'
+import { withoutStandardsTree } from '@/lib/office-shelf/standards-folder'
+import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 
 export const GET = apiRoute(
-  listFoldersHandler<unknown>((_params, session) => listOfficeShelfFolders(session)),
+  listFoldersHandler<unknown>(async (_params, session) => {
+    const folders = await listOfficeShelfFolders(session)
+    return isOfficeStandardsEnabled(session) ? withoutStandardsTree(folders) : folders
+  }),
   {
     authz: {
       sessionOnly: true,

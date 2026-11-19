@@ -7,6 +7,11 @@ export const officeShelf = {
   toast: {
     ingestionComplete: '„{name}“ ist jetzt in der Büroablage – zitierbar',
   },
+  places: {
+    label: 'Bereiche der Büroablage',
+    files: 'Ordner',
+    norms: 'Normen & Richtlinien',
+  },
   workspace: {
     dropToUpload: 'Dateien hier ablegen, um sie in die Büroablage aufzunehmen',
   },

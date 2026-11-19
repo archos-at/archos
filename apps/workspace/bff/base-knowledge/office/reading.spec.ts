@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { proposeFromReading, readDesignation } from './reading'
+import { defaultLicence, proposeFromReading, readDesignation } from './reading'
 import { AT_SUBDIVISIONS } from '@/lib/project-intake/at-setup.fixtures'
 
 describe('what the reading proposes for a base-knowledge document', () => {
-  it('reads a licensed ÖNORM with its edition from the masthead', () => {
+  it('reads an ÖNORM with its edition from the masthead, read like any file while the office is not asked about licences', () => {
     const values = proposeFromReading({
       fileName: 'OENORM_B_1600_2017-04-01.pdf',
       title: 'ÖNORM B 1600:2017-04-01 Barrierefreies Bauen — Planungsgrundlagen',
@@ -16,7 +16,7 @@ describe('what the reading proposes for a base-knowledge document', () => {
       territoryIds: [],
       issuer: 'Austrian Standards',
       addressees: [],
-      licenceClass: 'licensed',
+      licenceClass: 'public_open',
     })
   })
 
@@ -31,9 +31,16 @@ describe('what the reading proposes for a base-knowledge document', () => {
     })
   })
 
-  it('reads a commentary as a commentary, licensed, applying nowhere by itself', () => {
+  it('reads a commentary as a commentary, applying nowhere by itself', () => {
     const values = proposeFromReading({ fileName: 'Moritz_BauO_Wien_Kommentar_2019.pdf', federalState: 'vienna' }, AT_SUBDIVISIONS)
-    expect(values).toMatchObject({ kind: 'commentary', licenceClass: 'licensed', territoryIds: [], editionLabel: '2019' })
+    expect(values).toMatchObject({ kind: 'commentary', licenceClass: 'public_open', territoryIds: [], editionLabel: '2019' })
+  })
+
+  it('proposes a bought standard or commentary as licensed only when the licence step is asked', () => {
+    expect(defaultLicence('technical_standard', true)).toBe('licensed')
+    expect(defaultLicence('commentary', true)).toBe('licensed')
+    expect(defaultLicence('authority_directive', true)).toBe('public_open')
+    expect(defaultLicence('technical_standard', false)).toBe('public_open')
   })
 
   it('keeps a document it cannot place a proposal, never a failure', () => {
