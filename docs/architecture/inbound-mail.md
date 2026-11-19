@@ -166,8 +166,9 @@ hash, which reads as `dkim_fail`, an impersonation that only its member may
 file. Whether Exchange's current inbox-rule redirect converts the body has not
 been observed on a real tenant here; the first pilot mail settles it. Trusting
 Microsoft's ARC seal for the original verdict would cover that case and is not
-built. The address card says both setups in a line each, copyable
-(`address.setup` in the dictionaries). Cc and a redirect for the same mail
+built. The address card leads with Cc in one sentence and keeps the redirect,
+copyable, in its folded „Für die IT: Einrichtung“ (`address.setup` in the
+dictionaries). Cc and a redirect for the same mail
 deliver it twice; the second is `message_id_reused`.
 
 ## Receiving: the webhook

@@ -27,7 +27,6 @@ describe('listSections', () => {
     expect(sections[2]).toMatchObject({ kind: 'readiness', readiness: 'needs_you' })
     expect(sections[2].kind === 'readiness' && sections[2].mails.map((mail) => mail.id)).toEqual([unrelated.id, unconfirmed.id, stranger.id])
     const group = sections[1]
-    expect(group.kind === 'thread' && [group.firstVersion, group.lastVersion]).toEqual([4, 5])
     expect(group.kind === 'thread' && group.mails.map((member) => member.id).sort()).toEqual([a.id, b.id].sort())
   })
 
@@ -38,7 +37,6 @@ describe('listSections', () => {
     const sections = sectionsOf([a, held, b, heldToo, c])
     const groups = sections.filter((section) => section.kind === 'thread')
     expect(groups).toHaveLength(2)
-    expect(groups[0]).toMatchObject({ firstVersion: 4, lastVersion: 6 })
     expect(groups[0].kind === 'thread' && groups[0].mails.map((mail) => mail.id)).toEqual(expect.arrayContaining([a.id, b.id, c.id]))
     expect(groups[1].kind === 'thread' && groups[1].mails.map((mail) => mail.id).sort()).toEqual([held.id, heldToo.id].sort())
     expect(sections.findIndex((section) => section === groups[0])).toBeLessThan(sections.findIndex((section) => section.kind === 'readiness' && section.readiness === 'needs_you'))

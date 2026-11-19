@@ -10,8 +10,6 @@ export type ListSection =
       kind: 'thread'
       threadId: string
       name: string
-      firstVersion: number
-      lastVersion: number
       mails: InboundMailSummaryView[]
     }
   | { kind: 'quiet'; mails: InboundMailSummaryView[] }
@@ -55,8 +53,6 @@ export function listSections(
         kind: 'thread' as const,
         threadId: group.threadId,
         name: group.name,
-        firstVersion: group.firstVersion,
-        lastVersion: group.firstVersion + half.length - 1,
         mails: half,
       }
       for (const member of half) groupOf.set(member.id, section)

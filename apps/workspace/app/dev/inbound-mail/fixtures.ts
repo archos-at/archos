@@ -96,7 +96,7 @@ export const LIST_VARIANTS: Record<string, ListFixture> = {
   loading: { items: [], load: 'loading' },
   error: { items: [], load: 'error' },
   one: { items: [summaryOf(v('member-verified'))] },
-  many: { items: allMails.map((view) => summaryOf(view)), nextCursor: 'more', open: v('member-verified').id },
+  many: { items: allMails.map((view) => summaryOf(view)), open: v('member-verified').id },
   'thread-group': { items: [...groupMails.map((view) => summaryOf(view)), summaryOf(v('mixed-attachments')), summaryOf(v('name-stop'))] },
   'unverified-group': { items: [summaryOf(v('member-verified')), summaryOf(expiringMail), ...quietMails.map((view) => summaryOf(view))] },
   'only-automatic': { items: [summaryOf(quietMails[0])] },
@@ -126,7 +126,7 @@ export type AddressFixture = InboundMailAddressView | 'loading' | 'error'
 
 const activeAddress: InboundMailAddressView = {
   state: 'active',
-  address: 'project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org',
+  address: 'project+bauplatz-12-wohnbau-seestadt.k3x7q2m5p4ab@inbox.example.org',
   canManage: true,
   lastReceivedAt: minutesAgo(12),
   droppedLast30Days: 0,
@@ -142,14 +142,14 @@ export const ADDRESS_VARIANTS: Record<string, AddressFixture> = {
   unavailable: { ...activeAddress, state: 'unavailable', address: null, canManage: false, lastReceivedAt: null, ownDomainVerifiedShare: null },
   'long-address': {
     ...activeAddress,
-    address: 'project+stellplatznachweis-tiefgarage-ebene-2-wohnbau-seestadt-nord.k3x7q2m9p4ab@inbox.example.org',
+    address: 'projektpost-wien-seestadt+stellplatznachweis-tiefgarage.k3x7q2m5p4ab@posteingang.example.org',
   },
   loading: 'loading',
   error: 'error',
   refusals: { ...activeAddress, droppedLast30Days: 17, lastReceivedAt: minutesAgo(60 * 24 * 3) },
   'own-dkim-missing': { ...activeAddress, ownDomainVerifiedShare: 0 },
-  forwards: { ...activeAddress, forwardedFrom: ['projekt-bauplatz-12@buero-muster.at', 'bauplatz12@feld72.at'] },
-  'forwards-member': { ...activeAddress, canManage: false, forwardedFrom: ['projekt-bauplatz-12@buero-muster.at'] },
+  forwards: { ...activeAddress, forwardedFrom: ['bauplatz12@huber-architektur.at', 'seestadt-wohnbau@huber-architektur.at'] },
+  'forwards-member': { ...activeAddress, canManage: false, forwardedFrom: ['bauplatz12@huber-architektur.at'] },
 }
 
 const pending = <T,>(): Promise<T> => new Promise<T>(() => {})
@@ -266,7 +266,7 @@ export function fixtureAddressClient(fixture: AddressFixture): InboundMailAddres
       return answer()
     },
     rotate: () => {
-      if (typeof current === 'object') current = { ...current, address: 'project+bauplatz-12.w8n2c4r7t1qz@inbox.example.org' }
+      if (typeof current === 'object') current = { ...current, address: 'project+bauplatz-12-wohnbau-seestadt.w6n2c4r7t3qz@inbox.example.org' }
       return answer()
     },
     remove: () => {

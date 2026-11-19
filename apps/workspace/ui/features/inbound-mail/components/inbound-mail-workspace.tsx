@@ -47,6 +47,7 @@ import { InboundMailAddressBlock, InboundMailAddressDialog } from './inbound-mai
 import { InboundMailHeaderActions } from './inbound-mail-header-actions'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
+import { MailStepper } from './mail-stepper'
 import { SelectionBar, type BulkBlock } from './selection-bar'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -340,10 +341,10 @@ export function InboundMailWorkspace({
     const nextSections = sectionsOf(page.items, page.threadGroups)
     const after = visibleMails(nextSections, quietToggled ?? !hasLoudMail(nextSections))
     if (!wasDecided(open, before.rows, page.items)) return
-    const next = phone ? null : nextOpenAfter(open, before.rows, after)
+    const next = nextOpenAfter(open, before.rows, after)
     if (next) {
       setFocusedId(next)
-      setFocusTarget(next)
+      if (!phone) setFocusTarget(next)
       router.replace(paths.mail(next, filter))
     } else {
       router.replace(paths.list(filter))
@@ -424,8 +425,12 @@ export function InboundMailWorkspace({
   return (
     <div ref={firstMail.ref} className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions onTitleLine>
-        {/* An opened mail on a phone shows the mail; nothing is portalled, or the header kept an empty row's margin. */}
-        {!never && !(mailId && phone) && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} compact={phone} />}
+        {/* An opened mail on a phone has the step to the next mail where the address's menu stands on the list. */}
+        {mailId && phone ? (
+          <MailStepper ids={rows.map((mail) => mail.id)} openId={mailId} hrefFor={(id) => paths.mail(id, filter)} />
+        ) : (
+          !never && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} compact={phone} />
+        )}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
       {/* At the split two whole objects on the title's edges (32px in): the list on the desk, the reader a sheet, 16px
@@ -490,7 +495,6 @@ export function InboundMailWorkspace({
                   projectId={projectId}
                   projectName={projectName}
                   surface="never_used"
-                  showUses={false}
                 />
               ) : addressView?.canManage ? (
                 <Button type="button" size="sm" className="w-fit" onClick={() => setAddressOpen(true)} data-testid="inbound-mail-never-create">

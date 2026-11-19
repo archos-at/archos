@@ -15,9 +15,6 @@ export const inboundMail: typeof en.inboundMail = {
 
   empty: {
     neverTitle: 'Noch keine E-Mails an dieses Projekt',
-    neverText:
-      'Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben: Die Antworten landen hier.',
-    neverForward: 'Hat das Projekt in Ihrem Büro schon eine eigene Adresse, leiten Sie sie hierher weiter.',
     neverNoAddress:
       'Dieses Projekt hat noch keine E-Mail-Adresse. Mit ihr landet die Korrespondenz mit Behörde, Statik und Bauherrschaft im Projekt, ohne dass jemand sie von Hand abspeichert.',
     neverNoAddressMember:
@@ -93,11 +90,11 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   readiness: {
-    ready: 'Bereit',
+    ready: 'Ablagebereit',
     needs_you: 'Braucht Sie',
     others: 'Wartet auf andere',
     othersHint: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen. Sie können sie verwerfen.',
-    readyHint: 'Absender bestätigt, für jeden Teil ein Ziel vorgeschlagen, nichts zu prüfen.',
+    readyHint: 'Domain bestätigt und für jeden Teil ein Ziel vorgeschlagen: Ein Klick legt sie ab.',
     fileAll: 'Alle {count} wie vorgeschlagen ablegen',
     fileFirst: 'Die ersten {count} wie vorgeschlagen ablegen',
   },
@@ -108,7 +105,7 @@ export const inboundMail: typeof en.inboundMail = {
     threadAction: '{count, plural, one {Wie vorgeschlagen ablegen} other {Diese # wie vorgeschlagen ablegen}}',
     threadActionFirst: 'Die ersten {count} wie vorgeschlagen ablegen',
     reviewInOrder: 'Ansehen',
-    quiet: 'Automatisch ({count})',
+    quiet: 'Automatisch',
     quietHint: 'Abwesenheitsnotizen, Newsletter und Benachrichtigungen. {productName} macht für sie keine Vorschläge, und keine davon wird direkt abgelegt.',
   },
 
@@ -167,6 +164,13 @@ export const inboundMail: typeof en.inboundMail = {
     stale_date: 'Datum liegt mehr als {days, plural, one {# Tag} other {# Tage}} vor dem Eingang',
     date_out_of_range: 'Datum liegt außerhalb des erwarteten Zeitraums; es gilt der Eingang',
     already_filed: 'Liegt schon in einem E-Mail-Verlauf',
+  },
+
+  stepper: {
+    label: 'Zwischen den E-Mails wechseln',
+    position: '{index} von {count}',
+    previous: 'Vorige E-Mail',
+    next: 'Nächste E-Mail',
   },
 
   header: {
@@ -550,19 +554,23 @@ export const inboundMail: typeof en.inboundMail = {
 
   address: {
     dialogTitle: 'E-Mail-Adresse des Projekts',
-    dialogDescription: 'So landet die Korrespondenz im Projekt, ohne dass jemand sie aus dem Mailprogramm herunterlädt und wieder hochlädt.',
+    lead: 'Setzen Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben. Die Antworten landen dann im E-Mail-Eingang unter Dateien.',
     label: 'E-Mail-Adresse des Projekts',
     copy: 'Kopieren',
+    copied: 'Kopiert',
     saveContact: 'Als Kontakt sichern',
-    contactName: '{productName}\u00A0· {project}',
+    contactHint: 'Lädt eine Kontaktkarte (.vcf) für Outlook oder Ihr Telefon',
+    contactName: '{productName} · {project}',
     contactNote:
-      'Ihre eigenen E-Mails an diese Adresse, die Ihre Domain bestätigt, legt {productName} direkt ab, wenn Sie im Projekt ablegen dürfen; andere warten, bis jemand sie ablegt.',
-    usesLabel: 'Wofür die Adresse da ist',
-    uses: {
-      cc: 'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im E-Mail-Eingang.',
-      forward: 'Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie weiter.',
-      held: 'Was jemand, der im Projekt ablegen darf, von der eigenen Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles andere wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros {days} Tage lang.',
+      'Setzen Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben. Die Antworten landen dann in {productName} im E-Mail-Eingang des Projekts.',
+    share: {
+      label: 'Per E-Mail weitergeben …',
+      hint: 'Öffnet eine neue E-Mail mit der Adresse, etwa an Ihr Team',
+      subject: 'E-Mail-Adresse des Projekts {project}',
+      body: 'Setzen Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben:\n\n{address}\n\nDie Antworten landen dann in {productName} im E-Mail-Eingang des Projekts.',
     },
+    held: 'Ihre eigenen E-Mails an diese Adresse legt {productName} direkt ab, wenn Ihre Domain sie bestätigt und Sie im Projekt ablegen dürfen. Alles andere wartet im E-Mail-Eingang, bis jemand es ablegt, E-Mails von außerhalb des Büros {days} Tage lang.',
+    notPostfach: 'Der E-Mail-Eingang sammelt E-Mails an das Projekt. Das Postfach zeigt Hinweise an Sie.',
     tileLead: 'In Cc gesetzt, bringt sie die Antworten von Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum Ablegen.',
     openInbox: 'Zum E-Mail-Eingang',
     guide: 'Anleitung',
@@ -575,18 +583,23 @@ export const inboundMail: typeof en.inboundMail = {
     loadError: 'Die E-Mail-Adresse des Projekts konnte nicht geladen werden.',
     lastReceived: 'Zuletzt eingegangen {time}',
     nothingReceived: 'Noch keine E-Mail eingegangen',
-    sizeLimit: 'Anhänge bis etwa {attachments} MB pro E-Mail.',
+    sizeLimit:
+      'Bis {limit} MB pro E-Mail, Anhänge zusammen etwa {attachments} MB. Eine größere E-Mail geht als unzustellbar an den Absender zurück.',
     uploadInstead: 'Größere Dateien direkt hochladen',
     dropped:
       '{count, plural, one {# automatische Antwort oder Zustellbericht in den letzten {days} Tagen, nicht angezeigt} other {# automatische Antworten oder Zustellberichte in den letzten {days} Tagen, nicht angezeigt}}',
+    manage: 'Adresse verwalten',
     rotate: 'Neue Adresse erzeugen …',
+    rotateHint: 'Die bisherige hört sofort auf zu funktionieren.',
     rotateTitle: 'Neue Adresse erzeugen?',
     rotateText:
-      'Die bisherige Adresse funktioniert ab sofort nicht mehr; E-Mails an sie werden abgewiesen. Wer einem E-Mail-Verlauf dieses Projekts folgt, folgt ihm danach nicht mehr. Geben Sie die neue Adresse an alle weiter, die Unterlagen an dieses Projekt senden.',
+      'Die bisherige Adresse hört sofort auf zu funktionieren. E-Mails an sie gehen als unzustellbar an den Absender zurück. Was schon im E-Mail-Eingang wartet, bleibt dort und lässt sich weiter ablegen. Antworten werden in keinem E-Mail-Verlauf des Projekts mehr ohne Klick abgelegt, bis es jemand wieder einschaltet. Tragen Sie die neue Adresse in Ihre Outlook-Regeln ein und geben Sie sie allen, die an das Projekt schreiben.',
     rotateConfirm: 'Neue Adresse erzeugen',
     switchOff: 'Ausschalten …',
+    switchOffHint: 'Neue E-Mails an das Projekt kommen nicht mehr an.',
     switchOffTitle: 'E-Mail-Adresse des Projekts ausschalten?',
-    switchOffText: 'E-Mails an diese Adresse werden ab sofort abgewiesen. Was schon im E-Mail-Eingang wartet, bleibt dort.',
+    switchOffText:
+      'E-Mails an diese Adresse gehen ab sofort als unzustellbar an den Absender zurück. Was schon im E-Mail-Eingang wartet, bleibt dort und lässt sich weiter ablegen. Antworten werden in keinem E-Mail-Verlauf des Projekts mehr ohne Klick abgelegt. Diese Adresse kommt nicht wieder: Wer später wieder E-Mails empfangen will, erzeugt eine neue.',
     switchOffConfirm: 'Ausschalten',
     cancel: 'Abbrechen',
     rotated: 'Neue Adresse erzeugt',
@@ -599,16 +612,19 @@ export const inboundMail: typeof en.inboundMail = {
         'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“ und werden direkt abgelegt, wenn ihr Absender im Projekt ablegen darf. Eine E-Mail mit der Adresse eines Mitglieds, die dessen Domain nicht bestätigt, wartet, bis das Mitglied oder jemand, der geprüft hat, dass sie von ihm ist, sie ablegt.',
     },
     setup: {
-      title: 'So kommt die Korrespondenz ins Projekt',
-      cc: 'In Cc: Setzen Sie {address} in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben.',
-      forward:
-        'Weiterleiten: Leiten Sie Ihre bestehende E-Mail-Adresse für das Projekt in Outlook mit einer Regel an {address} um („umleiten“, nicht „weiterleiten“) und tragen Sie sie unten ein.',
+      title: 'Für die IT: Einrichtung',
+      summary: 'Umleitung aus Outlook',
+      summarySettings: 'Umleitung aus Outlook, bestehende Adressen, Signatur Ihrer Domain',
+      redirect:
+        'Hat das Projekt in Ihrem Büro schon eine eigene Adresse, etwa projekt@ihr-buero.at, leiten Sie sie mit einer Outlook-Regel an {address} um. Wählen Sie „umleiten“, nicht „weiterleiten“, sonst kommt jede E-Mail mit der bestehenden Adresse als Absender an, und wer sie geschrieben hat, lässt sich nicht mehr prüfen. Tragen Sie die bestehende Adresse dann in den Projekteinstellungen unter Dokumente ein.',
+      redirectSettings:
+        'Hat das Projekt in Ihrem Büro schon eine eigene Adresse, etwa projekt@ihr-buero.at, leiten Sie sie mit einer Outlook-Regel an {address} um. Wählen Sie „umleiten“, nicht „weiterleiten“, sonst kommt jede E-Mail mit der bestehenden Adresse als Absender an, und wer sie geschrieben hat, lässt sich nicht mehr prüfen. Tragen Sie die bestehende Adresse dann unten ein.',
       copy: 'Anleitung kopieren',
       copied: 'Anleitung kopiert',
     },
     forwards: {
       title: 'Bestehende E-Mail-Adressen für das Projekt',
-      explain: 'Leiten Sie Ihre bestehende E-Mail-Adresse für das Projekt an diese Adresse weiter, z. B. mit einer Outlook-Regel.',
+      explain: 'Eine E-Mail an eine dieser Adressen, die Ihr Büro hierher umleitet, zählt als an das Projekt gesendet.',
       label: 'Bestehende E-Mail-Adresse für das Projekt',
       placeholder: 'projekt@ihr-buero.at',
       add: 'Hinzufügen',
@@ -623,16 +639,16 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   follow: {
-    offer: 'Folgen',
-    thread: 'E-Mail-Verlauf „{name}“',
+    offer: 'Einschalten',
+    thread: 'Antworten in „{name}“ ohne Klick ablegen',
     explain:
-      'Antworten von bestätigten Domains, die schon im E-Mail-Verlauf schreiben, werden ohne Klick angefügt. Anhänge warten weiter hier.',
-    busy: 'Wird eingerichtet …',
-    following: 'Sie folgen „{name}“',
-    followingExplain: 'Antworten von bestätigten Domains, die schon im E-Mail-Verlauf schreiben, werden ab jetzt ohne Klick angefügt. Anhänge warten weiter hier.',
-    unfollow: 'Nicht mehr folgen',
+      'Weitere Antworten von Beteiligten mit bestätigter Domain kommen {days} Tage lang in Ihrem Namen in diesen E-Mail-Verlauf, ihre Anhänge hierher. Sie können das jederzeit beenden.',
+    busy: 'Wird eingeschaltet …',
+    following: 'Antworten in „{name}“ werden ohne Klick abgelegt',
+    followingExplain: 'In Ihrem Namen, {days} Tage lang. Anhänge warten weiter hier. „Beenden“ hört damit auf.',
+    unfollow: 'Beenden',
     unfollowBusy: 'Wird beendet …',
     undo: 'Rückgängig',
-    failed: 'Das Folgen hat nicht geklappt. Bitte erneut versuchen.',
+    failed: 'Das hat nicht geklappt. Bitte erneut versuchen.',
   },
 }

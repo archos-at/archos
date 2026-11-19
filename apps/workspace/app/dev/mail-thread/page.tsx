@@ -7,6 +7,7 @@ import { MailOriginLine, MailProvenanceRow, MailThreadTab, ThreadRailViews, type
 import type { MailOriginView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { DevVariantStrip } from '../inbound-mail/dev-chrome'
 import {
+  ENTRY_TEXTS,
   MAIL_THREAD_VARIANTS,
   PROJECT_ID,
   PROVENANCE_ORIGINS,
@@ -45,7 +46,24 @@ function Tab({ variant }: { variant: string }): JSX.Element {
   const [view, setView] = useState<RailView>('mail')
   const focus = useMemo(() => (fixture.focusEntryId ? { entryId: fixture.focusEntryId } : undefined), [fixture.focusEntryId])
   return (
-    <div className="bg-surface-sunken mx-auto flex min-h-dvh w-full flex-col border-x p-4 sm:max-w-[280px] sm:box-content">
+    // As the preview draws a Verlauf: its document on the stage, the rail 280px beside it on the same desk; on a phone
+    // the rail alone, as its details sheet. A 280px strip alone in a 1440px window read as the product's layout.
+    <div className="bg-desk flex min-h-dvh w-full" data-testid="mail-thread-frame">
+      <section aria-label={fixture.view.name} className="hidden min-w-0 flex-1 p-6 sm:block">
+        <article className="bg-sheet rounded-surface mx-auto flex max-w-2xl flex-col gap-5 p-8 text-sm shadow-sm">
+          <header className="flex flex-col gap-1">
+            <h1 className="text-lg font-semibold [overflow-wrap:anywhere]">{fixture.view.name}</h1>
+            <p className="text-muted-foreground text-xs">E-Mail-Verlauf · {fixture.view.entries.length} E-Mails</p>
+          </header>
+          {fixture.view.entries.map((item) => (
+            <section key={item.id} className="flex flex-col gap-1.5">
+              <h2 className="font-medium [overflow-wrap:anywhere]">{item.heading}</h2>
+              <p className="text-muted-foreground leading-relaxed">{ENTRY_TEXTS[item.id] ?? '…'}</p>
+            </section>
+          ))}
+        </article>
+      </section>
+      <aside className="flex w-full flex-col p-4 sm:w-[280px] sm:shrink-0 sm:box-content sm:pl-0">
       <ThreadRailViews
         mail={
           <MailThreadTab
@@ -66,6 +84,7 @@ function Tab({ variant }: { variant: string }): JSX.Element {
       >
         <p className="text-muted-foreground text-xs">Details</p>
       </ThreadRailViews>
+      </aside>
     </div>
   )
 }
@@ -83,7 +102,7 @@ function Provenance({ worst }: { worst: boolean }): JSX.Element {
       {/* The preview header's row, as the pane draws it under the header. */}
       <section className="@container bg-card overflow-hidden rounded-lg border" aria-label="Header">
         <div className="flex items-center gap-2 border-b px-3.5 py-3.5 @md:px-5">
-          <span className="min-w-0 truncate text-sm font-medium">{worst ? 'Einreichplan_Hofseite_Stellplätze_Variante_3_final_INDEX_C.pdf' : 'S-101_C.pdf'}</span>
+          <span className="min-w-0 truncate text-sm font-medium">{worst ? 'Einreichplan_Hofseite_Stellplätze_Variante_3_final_INDEX_C.pdf' : 'S-101_B.pdf'}</span>
         </div>
         <MailProvenanceRow projectId={PROJECT_ID} documentId="doc" client={rowClient} />
       </section>

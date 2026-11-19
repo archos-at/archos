@@ -7,7 +7,7 @@ import { UserRound } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { useLocale, useTranslations } from '@/i18n'
 import { formatCalendarDate } from '@/lib/format'
-import type { MailThreadFollowView, MailThreadView } from '@/lib/mail-thread/mail-thread-wire'
+import { MAIL_THREAD_FOLLOW_DEFAULT_DAYS, type MailThreadFollowView, type MailThreadView } from '@/lib/mail-thread/mail-thread-wire'
 import type { MailThreadClient } from './client'
 import { FollowCard, FollowCardHint } from './follow-card'
 import { mayEndFollow, mayWrite, otherFollows, viewerFollow } from './mail-thread-model'
@@ -109,9 +109,13 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
       }
       hint={
         own.kind === 'none' && canFollow ? (
-          <FollowCardHint>{t('follow.explain')}</FollowCardHint>
-        ) : own.kind === 'following' && own.follow && !own.renewable ? (
-          <FollowCardHint testId="mail-thread-follow-limit">{t('follow.renewLimit')}</FollowCardHint>
+          <FollowCardHint testId="mail-thread-follow-explain">{t('follow.explain', { days: MAIL_THREAD_FOLLOW_DEFAULT_DAYS })}</FollowCardHint>
+        ) : own.kind === 'following' ? (
+          <>
+            {/* Switched on, the card still says what runs and how to stop it: the title alone read as a subscription. */}
+            <FollowCardHint testId="mail-thread-follow-explain">{t('follow.followingExplain')}</FollowCardHint>
+            {own.follow && !own.renewable && <FollowCardHint testId="mail-thread-follow-limit">{t('follow.renewLimit')}</FollowCardHint>}
+          </>
         ) : undefined
       }
       actions={

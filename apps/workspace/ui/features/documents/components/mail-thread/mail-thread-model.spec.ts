@@ -3,14 +3,13 @@ import { FIXTURE_NOW, VIEWER_ID, attachment, entry, follow, thread, versions } f
 import {
   attachmentLines,
   comparedVersions,
-  currentVersionNumber,
-  detachKeeps,
   entriesNewestFirst,
   entriesSayingTrust,
   filedSenderTrust,
   focusedEntryId,
   followRenewable,
   headingParts,
+  receivedAtLabel,
   mayEndFollow,
   mayWrite,
   otherFollows,
@@ -81,14 +80,8 @@ it('lists the newest mail first, keeping the document’s section order', () => 
   expect(entries[0].id).toBe(entry({ key: 'a', version: 1 }).id)
 })
 
-describe('Fassungen', () => {
-  it('the current one is the newest version, else the newest an entry names', () => {
-    expect(currentVersionNumber(versions(5), [entry({ key: 'a', version: 3 })])).toBe(5)
-    expect(currentVersionNumber(null, [entry({ key: 'a', version: 3 }), entry({ key: 'b', version: 4 })])).toBe(4)
-    expect(currentVersionNumber(null, [])).toBeNull()
-  })
-
-  it('„Vergleichen“ lays the mail’s Fassung beside the one before', () => {
+describe('what a mail added to the Verlauf', () => {
+  it('lays the Verlauf with the mail beside the Verlauf before it', () => {
     expect(comparedVersions(entry({ key: 'b', version: 3 }), versions(4))).toEqual({
       from: { id: versions(4)[1].id, number: 2 },
       to: { id: versions(4)[2].id, number: 3 },
@@ -100,12 +93,6 @@ describe('Fassungen', () => {
     expect(comparedVersions(entry({ key: 'b', version: 5 }), versions(3))).toBeNull()
     const held = versions(3).map((version) => (version.versionNumber === 1 ? { ...version, bytesReadable: false } : version))
     expect(comparedVersions(entry({ key: 'b', version: 2 }), held)).toBeNull()
-  })
-
-  it('a detach names the Fassungen that keep the mail and the one written without it', () => {
-    expect(detachKeeps(entry({ key: 'b', version: 4 }), 6)).toEqual({ first: 4, last: 6, next: 7 })
-    expect(detachKeeps(entry({ key: 'b', version: 6 }), 6)).toEqual({ first: 6, last: 6, next: 7 })
-    expect(detachKeeps({ firstVersion: null }, 6)).toBeNull()
   })
 })
 
@@ -159,5 +146,17 @@ describe('a heading split where it may wrap', () => {
   it('takes a heading of another shape whole', () => {
     expect(headingParts('Ohne Datum')).toEqual({ when: '', who: 'Ohne Datum', domain: '' })
     expect(headingParts('14.10.2026 · Miriam Huber')).toEqual({ when: '14.10.2026 · ', who: 'Miriam Huber', domain: '' })
+  })
+})
+
+describe('when a mail arrived', () => {
+  it('says it on the office’s clock, as the heading prints the sending, whatever the reader’s clock', () => {
+    const sentAt = '2026-10-14T07:12:00.000Z'
+    expect(receivedAtLabel({ sentAt, receivedAt: '2026-10-14T07:13:00.000Z' }, 'de-AT')).toBe('09:13')
+    expect(entry({ key: 'x', version: 1, sentAt }).heading).toMatch(/^14\.10\.2026 09:12 · /)
+  })
+
+  it('gives the date too when it arrived on another day than it was sent', () => {
+    expect(receivedAtLabel({ sentAt: '2026-10-14T21:50:00.000Z', receivedAt: '2026-10-15T06:02:00.000Z' }, 'de-AT')).toBe('15.10.2026, 08:02')
   })
 })

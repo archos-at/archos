@@ -13,8 +13,15 @@ describe('useInboundMailWaiting', () => {
     const first = renderHook(() => useInboundMailWaiting('p', true, client))
     const second = renderHook(() => useInboundMailWaiting('p', true, client))
     await waitFor(() => expect(first.result.current.count).toBe(9))
-    expect(second.result.current).toMatchObject({ count: 9, more: true })
+    expect(second.result.current).toMatchObject({ count: 9, more: false })
     expect(list).toHaveBeenCalledTimes(1)
+  })
+
+  it('says a read that stopped at its page, so every surface writes „n+“', async () => {
+    const client = fixtureClient({ list: LIST_VARIANTS['worst-case'] })
+    const hook = renderHook(() => useInboundMailWaiting('p-more', true, client))
+    await waitFor(() => expect(hook.result.current.count).not.toBeNull())
+    expect(hook.result.current.more).toBe(true)
   })
 
   it('counts what the list shows as rows: an outsider’s mail yes, automatic mail (its folded group) no', async () => {

@@ -8,8 +8,8 @@ in the project's **E-Mail-Eingang** in Dateien and waits until someone files
 it: its text into the conversation's **E-Mail-Verlauf**, its attachments into
 the project's folders, each as a new document or the next Fassung of one.
 
-**Nothing from anyone else is filed without a person**, except the text of an
-E-Mail-Verlauf you chose to follow. ARCHOS reads a mail only once it is filed.
+**Nothing from anyone else is filed without a person**, except the text of replies in an
+E-Mail-Verlauf where you switched on „Antworten ohne Klick ablegen“. ARCHOS reads a mail only once it is filed.
 
 Project mail is switched on per office. If you do not see „E-Mail-Eingang“ in
 Dateien, your office does not have it yet.
@@ -18,17 +18,32 @@ Dateien, your office does not have it yet.
 
 ## The project's address
 
-The address looks like `project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`: the
-project's name and a random part behind the `+`. **What it is for:** put it in Cc when you write to the
-Behörde, the Statik or the Bauherrschaft, and their replies land in the
-E-Mail-Eingang; forward documents from your mail program to it. Your own mail
-is filed directly (below); everything else waits for a person.
+The address looks like
+`project+bauplatz-12-wohnbau-seestadt.k3x7q2m5p4ab@inbox.example.org`: the
+project's name and a random part behind the `+`. **What it is for:** „Setzen
+Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben.“ The replies of the
+Behörde, the Statik or the Bauherrschaft then land in the E-Mail-Eingang. You
+can also forward documents from your mail program to it. Your own mail is filed
+directly (below); everything else waits for a person.
 
 Find it on the project overview (the tile „E-Mail-Adresse des Projekts“, for
-whoever may decide the project's mail), under **Adresse** in the
+whoever may decide the project's mail), under **Mehr zur Adresse** in the
 E-Mail-Eingang, in Dateien under the upload menu (**Per E-Mail senden …**) and
-under **Einstellungen › Dokumente**, each with **Kopieren** and **Als Kontakt
-sichern** (a contact card for your mail program).
+under **Einstellungen › Dokumente**. Each leads with that sentence, the address
+and **Kopieren**, then:
+
+- **Als Kontakt sichern** downloads a contact card (.vcf) for Outlook or your
+  phone.
+- **Per E-Mail weitergeben …** opens a new e-mail in your mail program with the
+  address and the sentence, for your team or anyone else you choose.
+- The size: up to 25 MB per e-mail, attachments together about 18 MB. A larger
+  e-mail goes back to its sender as undeliverable; **Größere Dateien direkt
+  hochladen** leads to Dateien.
+- The E-Mail-Eingang is not the Postfach: it holds mail sent to the project,
+  the Postfach notices for you.
+- **Für die IT: Einrichtung**, folded: the Outlook redirect for an existing
+  project address (below), and on the settings card the list of those
+  addresses and how often your office's mail arrived confirmed.
 
 - Whoever manages the project creates the address, in the dialog or under
   **Einstellungen › Dokumente**. Until then the dialog says the project has
@@ -36,19 +51,24 @@ sichern** (a contact card for your mail program).
 - Anyone who knows the address can send mail to it. That is the point: when
   the project is in Cc, the Statik's reply-all arrives too. It is also why
   only a member's own, confirmed mail is filed directly.
-- A leaked address is replaced with **Neue Adresse erzeugen …**. The old
-  address stops working at once (mail to it bounces), and everyone who follows
-  an E-Mail-Verlauf of the project stops following it. Give the new address to
-  everyone who sends documents to the project.
-- **Ausschalten …** switches the address off. Mail already waiting stays.
+- **Adresse verwalten**, at the foot of the settings card, holds the two rare
+  steps. **Neue Adresse erzeugen …** replaces a leaked address: the old one
+  stops working at once (mail to it goes back to its sender as undeliverable),
+  mail already waiting stays and can still be filed, and replies are no longer
+  filed without a click in any Verlauf of the project. Put the new address in
+  your Outlook rules and give it to everyone who writes to the project.
+- **Ausschalten …** switches the address off: mail to it goes back as
+  undeliverable, mail already waiting stays. The address does not come back;
+  to receive mail again, create a new one.
 - **Your office already has a project address** (projekt-x@ihr-buero.at, used
   for all project mail or put in Cc)? Keep it. Redirect it to the project's
   address with an Outlook rule („an eine Person oder öffentliche Gruppe
   umleiten“, not „weiterleiten“: a forwarded mail comes from the mailbox, not
-  from its sender), and enter it under **Einstellungen › Dokumente ›
-  Bestehende E-Mail-Adressen für das Projekt** (whoever manages the project; at most ten). Mail
-  to it then counts as sent to the project, so your own mail is filed directly.
-  The card shows both setups, Cc and redirect, in a line each to copy.
+  from its sender), and enter it under **Einstellungen › Dokumente › Für die
+  IT: Einrichtung › Bestehende E-Mail-Adressen für das Projekt** (whoever
+  manages the project; at most ten). Mail to it then counts as sent to the
+  project, so your own mail is filed directly. The redirect instruction is
+  there to copy for whoever runs your mail.
 
 Do not send fee, contract or personnel mail to the project's address: everyone
 who may add documents to the project sees what waits there.
@@ -118,9 +138,9 @@ gesendet“, then „Ablegen“) or restore it; the others in the project see wh
 can only dismiss it. If you did not send it, dismiss it: someone is using your
 address.
 
-## Bereit and Braucht Sie
+## Ablagebereit and Braucht Sie
 
-The waiting mails stand under up to three headings. **Bereit** means the sender's
+The waiting mails stand under up to three headings. **Ablagebereit** (ready to file in one press, not yet filed) means the sender's
 domain is confirmed, every part has a suggested place, and nothing needs
 checking. „Wie vorgeschlagen ablegen“ on such a row files it in one press,
 without a confirmation; the mail is read again first, and if it changed
@@ -140,7 +160,7 @@ another member that only that member can file („Wartet auf {Name}“): you can
 dismiss them, and then only they can restore them. A mail that poses as someone never gets
 the button. Mail from an unconfirmed domain and automatic mail sit below, in a
 folded group. „Bearbeitet“ lists what was filed, dismissed or expired, each row
-saying which. The Postfach's „E-Mails warten“ opens the list at „Bereit“.
+saying which. The Postfach's „E-Mails warten“ opens the list at „Ablagebereit“. The count on the E-Mail-Eingang tab, the pill on „Wartet auf Ablage“ and the headings' counts agree: all count the rows on show, without the folded automatic mail.
 
 ## Filing a mail
 
@@ -198,9 +218,9 @@ override is recorded.
 ablegen“: it files every selected mail as its defaults and ARCHOS's suggestions
 say, after a confirmation grouped by destination. It is offered only when every
 selected mail is complete: nothing to confirm, a folder for every attachment.
-Ready replies of one conversation are one group under „Bereit“: „Diese 4 wie
-vorgeschlagen ablegen“. Its replies that need a look are a group under
-„Braucht Sie“ with „Der Reihe nach ansehen“.
+Ready replies of one conversation are one group under „Ablagebereit“: „Diese 4
+wie vorgeschlagen ablegen“. Its replies that need a look are a group under
+„Braucht Sie“ with „Ansehen“, which opens the first of them.
 
 **After filing** each part says where it went: „Abgelegt in
 Behörde/Bescheide · Fassung 1 · Öffnen“, „In E-Mail-Verlauf
@@ -262,12 +282,17 @@ Zustellung. Fristen run from the Zustellung.
 
 Open the Verlauf in Dateien and choose the **E-Mails** tab in its preview:
 
-- one row per e-mail, newest first, with „ab Fassung N“, when it arrived, the
-  domain label and how it was filed;
-- its attachments, each linked to the document it became, or „nicht abgelegt“
-  with the reason;
+- one row per e-mail, newest first: its heading as the document prints it
+  (when it was sent, on the office's clock), when it arrived („eingegangen
+  09:13“, with the date when that was another day), the domain label and how
+  it was filed;
+- its attachments, each linked to the document it became; a note stands under
+  the file it is about („lag schon im Projekt“, „nicht abgelegt · {Grund}“),
+  and an attachment filed in a folder you cannot see reads „Anhang 4 ·
+  abgelegt in einem Ordner, den Sie nicht sehen“;
 - **Original (.eml)**: the mail exactly as it arrived (below);
-- **Vergleichen**: this e-mail's Fassung against the one before;
+- **Was diese E-Mail hinzufügte**: the Verlauf before this e-mail against the
+  Verlauf with it, so you can see that nothing earlier changed;
 - **Herauslösen …**: move an e-mail filed into the wrong conversation into
   another Verlauf or a new one. The Verlauf gets a new Fassung without it; its
   earlier Fassungen keep it.
@@ -285,24 +310,26 @@ download, and refused if it is not clean. It opens in your mail program, which
 may load pictures from outside. No AI model ever reads it. It is kept as long
 as the E-Mail-Verlauf.
 
-## Following an E-Mail-Verlauf
+## Filing replies without a click (following a Verlauf)
 
-After filing, or in the E-Mails tab, „Diesem E-Mail-Verlauf folgen“ makes
-later replies' **text** join the Verlauf without a click, in your name. It
+After filing, or in the E-Mails tab, „Antworten ohne Klick ablegen“ ·
+**Einschalten** makes later replies' **text** join the Verlauf without a click,
+in your name. It is not a notification: nothing is sent to you per reply. It
 applies only to replies from confirmed domains that already write in the
 conversation, whose reference to it is signed, with nobody new in it, and with
 nothing the name or content check would stop. Everything else waits as usual.
-**Attachments always wait** in the E-Mail-Eingang.
+**Attachments always wait** in the E-Mail-Eingang. (The Postfach's notices
+still call this „folgen“.)
 
-- A follow runs 60 days; „Verlängern“ extends it, up to 180 days from its
-  start. You are told five days before it ends.
-- „Nicht mehr folgen“ ends it. Whoever manages the project can end anyone's
-  follow („Beenden“ under „Wer folgt“).
+- It runs 60 days; „Verlängern“ extends it, up to 180 days from its start.
+  You are told five days before it ends.
+- **Beenden** ends it. Whoever manages the project can end it for anyone
+  („Beenden“ under „Auch eingeschaltet für“).
 - It also ends when you lose access to the project or the Verlauf's folder,
-  when the project's address is replaced, when an e-mail is herausgelöst from
-  that Verlauf, when the Verlauf is deleted, or when the project is closed
-  („Das Projekt wurde abgeschlossen“). Reopening the project starts no follow
-  again: following is your own act.
+  when the project's address is replaced or switched off, when an e-mail is
+  herausgelöst from that Verlauf, when the Verlauf is deleted, or when the
+  project is closed („Das Projekt wurde abgeschlossen“). Reopening the project
+  switches nothing on again: it is your own act.
 - The Postfach tells you, once a day per Verlauf, when replies were added („Eine Antwort wurde einem E-Mail-Verlauf in … angefügt“).
 
 ## Tips

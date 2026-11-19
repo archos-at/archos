@@ -2,7 +2,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
-import { AtSign, CheckCircle2, ChevronDown, Forward, History, Inbox as InboxGlyph, MailOpen, Mails, SearchX } from 'lucide-react'
+import { CheckCircle2, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Mails, SearchX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -235,28 +235,16 @@ function ListBody({
         <div className="box-content flex max-w-lg flex-col gap-6 px-4 pb-4 pt-2 sm:pb-6" data-testid="inbound-mail-never" /* one 512px width for its words and its panel */>
           {/* One column, one edge: the glyph, the words and the sheet stand on the column's left edge, where the title
               and the tabs stand. Centred in the pane at 464px it was an edge of its own (round 3). */}
-          <div className="flex flex-col gap-3">
-            <EmptyState
-              variant="bare"
-              className="items-start py-0 text-left phone:px-0 [&>p]:max-w-none"
-              icon={InboxGlyph}
-              title={t('empty.neverTitle')}
-              description={teaches ? undefined : t(neverCase === 'create' ? 'empty.neverNoAddress' : 'empty.neverNoAddressMember')}
-            />
-            {/* The two ways mail gets here, one line each: what keeps a first visit from ending at an empty list. */}
-            {teaches && (
-              <ul className="text-muted-foreground flex flex-col gap-2 text-sm" data-testid="inbound-mail-never-ways">
-                <li className="flex items-start gap-2">
-                  <AtSign className="mt-0.5 size-4 shrink-0" aria-hidden />
-                  <span>{t('empty.neverText')}</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Forward className="mt-0.5 size-4 shrink-0" aria-hidden />
-                  <span>{t('empty.neverForward')}</span>
-                </li>
-              </ul>
-            )}
-          </div>
+          {/* One sentence says what to do, and the address with „Kopieren“ comes right after it: a first visit ends with
+              the address in the clipboard. The redirect for an existing project address is the IT's, folded under it. */}
+          <EmptyState
+            variant="bare"
+            className="items-start py-0 text-left phone:px-0 [&>p]:max-w-none"
+            icon={InboxGlyph}
+            title={t('empty.neverTitle')}
+            description={teaches ? t('address.lead') : t(neverCase === 'create' ? 'empty.neverNoAddress' : 'empty.neverNoAddressMember')}
+            data-testid="inbound-mail-never-lead"
+          />
           {addressBlock}
         </div>
       )
@@ -369,11 +357,7 @@ function ListBody({
               onClick={() => onFileGroup(groupKey, batch.map((mail) => mail.id))}
               data-testid="thread-group-file"
             >
-              {t(batch.length < section.mails.length ? 'group.threadActionFirst' : 'group.threadAction', {
-                count: batch.length,
-                first: section.firstVersion,
-                last: section.firstVersion + batch.length - 1,
-              })}
+              {t(batch.length < section.mails.length ? 'group.threadActionFirst' : 'group.threadAction', { count: batch.length })}
             </BusyButton>
           ) : (
             <Button asChild size="sm" variant="secondary" className={GROUP_ACTION}>
@@ -403,7 +387,9 @@ function ListBody({
                   data-testid="quiet-group-toggle"
                 >
                   <ChevronDown className={cn('size-3.5 transition-transform duration-quick ease-out motion-reduce:transition-none', !quietOpen && '-rotate-90')} aria-hidden />
-                  {t('group.quiet', { count: head.mails.length })}
+                  {t('group.quiet')}
+                  {/* The count is the sections' muted pill: one way to write a count in the list. */}
+                  <CountPill count={head.mails.length} tone="muted" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-col gap-1">
                   <p className="text-muted-foreground px-4 text-xs">{t('group.quietHint')}</p>

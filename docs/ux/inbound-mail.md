@@ -1,9 +1,9 @@
 # Project mail: the E-Mail-Eingang, the E-Mails tab and provenance
 
-**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words 2026-11-19 (round 2)
+**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words, and the address, the list and the E-Mails tab again after a cold read, 2026-11-19 (round 2)
 **Status:** Implemented, the W1 rework included
 **Surfaces:** Dateien › E-Mail-Eingang (`/app/projects/[id]/files/mail`, `…/mail/[mailId]`), the address dialog and the settings card, the „E-Mails“ tab of a Verlauf's preview, the provenance row of a document that came by mail, the Postfach rows
-**Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…`, `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip. The variant lists are in each page's header.
+**Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…` (the rail beside its Verlauf on a wide screen, alone on a phone, as the preview draws it), `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip. The variant lists are in each page's header.
 **Why:** [ADR-0137](../adr/0137-mail-sent-to-a-project-waits-until-a-person-files-it.md); the flow: [`inbound-mail.md`](../architecture/inbound-mail.md); the words: [`CONTEXT.md`](../../CONTEXT.md#project-mail).
 
 ## The rule
@@ -37,8 +37,9 @@ English copy calls the place „Project mail“.
   Every count (the rail, the phone tab bar, the greeting's line, the shelf's
   line, the list's own pill) is what the list shows as rows: waiting mail
   without the automatic group (`waitingShownCount`, `lib/list-sections.ts`).
-  A read that stopped at its page says so: „50+“ and „Mehr als 50 E-Mails
-  warten auf Ablage“; the list primes the count only from a page it read whole.
+  A read that stopped at its page says so on every one, the section tab
+  included (`SectionNavItem.countMore`; it once said „9“ beside the list's
+  „9+“): „50+“ and „Mehr als 50 E-Mails warten auf Ablage“; the list primes the count only from a page it read whole.
   On a phone the tabs are a scrolling strip, hidden on an opened mail.
 - The chat's start: under the greeting, the same quiet line as in Dateien,
   while something waits (the UI revision's „what happened since your last
@@ -55,66 +56,105 @@ English copy calls the place „Project mail“.
   only while an address is active; creating one stays in Einstellungen ›
   Dokumente.
 - The upload menu „Per E-Mail senden …“ opens the address dialog.
-- Settings › Dokumente: the address card (create, „Neue Adresse erzeugen …“,
-  „Ausschalten …“; managers only), „So kommt die Korrespondenz ins Projekt“
-  (Cc and redirect, a line each with „Anleitung kopieren“) and „Bestehende E-Mail-Adressen
-  für das Projekt“ (managers add and remove, members read;
-  `/dev/inbound-mail-address?variant=forwards`).
+- Settings › Dokumente: the address card (below), with the folded „Für die IT:
+  Einrichtung“ holding the redirect and „Bestehende E-Mail-Adressen für das
+  Projekt“ (managers add and remove, members read;
+  `/dev/inbound-mail-address?variant=forwards`), and at its foot „Adresse
+  verwalten“ (managers only): „Neue Adresse erzeugen …“ and „Ausschalten …“.
 - The Postfach rows of the seven notices (`/dev/inbox?variant=mail`).
-  „E-Mails warten“ opens the list at „Bereit“ (`/files/mail#ready`,
+  „E-Mails warten“ opens the list at „Ablagebereit“ (`/files/mail#ready`,
   `lib/inbox/targets.ts`).
 
 ## The address dialog
 
-Every door leads with what the address is for
-(`features/inbound-mail/components/inbound-mail-address.tsx`). The dialog
-(from „Per E-Mail senden …“ and „Adresse“) is titled „E-Mail-Adresse des
-Projekts“, says „So landet die Korrespondenz im Projekt, ohne dass jemand sie
-aus dem Mailprogramm herunterlädt und wieder hochlädt.“, then three lines: „Setzen Sie sie in Cc, wenn Sie an
-Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im
-E-Mail-Eingang.“, „Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie
-weiter.“, „Was jemand, der im Projekt ablegen darf, von der eigenen
-Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles
-andere wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros 14 Tage
-lang.“
-Then the address, which a press copies (`CopyableValue`: a copy glyph beside
-it, its name „Kopieren: {Adresse}“, „Kopiert“ announced; `EmailAddress` marks
-where it may wrap: after
-the `+`, before the token's dot and before the `@`, so a phone never splits
-the domain, as `break-all` once did), „Als Kontakt sichern“ (a vCard), when mail last
-arrived, how many automatic replies were dropped in 30 days, the size line
-„Bis 25 MB pro E-Mail, Anhänge zusammen bis etwa 18 MB. Größere Dateien direkt
-hochladen“ (the link goes to Dateien and closes the dialog; the overview tile
-carries the same line), and „Anleitung“ (the help page, `/e-mail-eingang/`,
-`/en/project-mail/`). Every number of days or bytes in this copy is a
-placeholder filled from `inbound-mail-vocabulary.ts` (`INBOUND_MAIL_RESTORE_DAYS`,
-`INBOUND_MAIL_STALE_DATE_DAYS`, `INBOUND_MAIL_ADDRESS_STATS_DAYS`,
-`INBOUND_MAIL_MAX_MESSAGE_BYTES`), so the words cannot drift from the rule.
+Every door to the address hands it out in one order
+(`features/inbound-mail/components/inbound-mail-address.tsx`,
+`InboundMailAddressBlock`), because a cold read (2026-11-19: a Projektleiterin
+who lives in Outlook, twelve screenshots, no explanation) found the old card a
+wall of statistics and setup with the address somewhere inside:
 
-The office's own DKIM line („{n} % der E-Mails Ihres Büros der letzten 30 Tage
-waren von Ihrer Domain bestätigt“, or „Ihre Domain signiert ihre E-Mails nicht
-– so richten Sie es ein“ linking to the help page's `#dkim`) is on the settings
-card only, and only for a manager; derived from rows, never a DNS probe. The
-settings card's description leads with Cc too. A member without the right to
+1. One sentence, the card's or dialog's description or the empty page's lead:
+   „Setzen Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben. Die
+   Antworten landen dann im E-Mail-Eingang unter Dateien.“
+2. The address (`EmailAddress` marks where it may wrap: after the `+`, before
+   the token's dot and before the `@`, so a phone never splits the domain) and
+   „Kopieren“, the primary, „Kopiert“ announced.
+3. The other ways to hand it on, each a press with a line under it saying where
+   it goes: „Als Kontakt sichern“ („Lädt eine Kontaktkarte (.vcf) für Outlook
+   oder Ihr Telefon“) and „Per E-Mail weitergeben …“ („Öffnet eine neue E-Mail
+   mit der Adresse, etwa an Ihr Team“: a `mailto:` with the address and the
+   sentence, no recipient).
+4. The size: „Bis 25 MB pro E-Mail, Anhänge zusammen etwa 18 MB. Eine größere
+   E-Mail geht als unzustellbar an den Absender zurück.“ with „Größere Dateien
+   direkt hochladen“ (to Dateien; it closes the dialog). True to the receive
+   path: Cloudflare and the webhook refuse a larger mail with the reject
+   verdict, so its sender's server bounces it
+   ([`inbound-mail.md`](../architecture/inbound-mail.md#receiving-the-webhook)).
+   Then when mail last arrived and how many automatic replies were dropped in
+   30 days.
+5. In the dialog only, who is filed directly: „Ihre eigenen E-Mails an diese
+   Adresse legt {productName} direkt ab, wenn Ihre Domain sie bestätigt und Sie
+   im Projekt ablegen dürfen. Alles andere wartet im E-Mail-Eingang, bis jemand
+   es ablegt, E-Mails von außerhalb des Büros 14 Tage lang.“
+6. In the dialog and on the never-used page, where the two places first meet:
+   „Der E-Mail-Eingang sammelt E-Mails an das Projekt. Das Postfach zeigt
+   Hinweise an Sie.“ (the one mail string allowed to name the Postfach,
+   `NAMES_THE_POSTFACH` in `i18n/forbidden-file-words.spec.ts`).
+7. „Für die IT: Einrichtung · Umleitung aus Outlook“, folded (a muted
+   disclosure, chevron turning): the redirect for an existing project address,
+   one line with „Anleitung kopieren“ („… leiten Sie sie mit einer
+   Outlook-Regel an {Adresse} um. Wählen Sie „umleiten“, nicht „weiterleiten“,
+   sonst kommt jede E-Mail mit der bestehenden Adresse als Absender an …“). On
+   the settings card it also holds „Bestehende E-Mail-Adressen für das
+   Projekt“ and, for a manager, the office's DKIM line („{n} % der E-Mails
+   Ihres Büros der letzten 30 Tage waren von Ihrer Domain bestätigt“, or „Ihre
+   Domain signiert ihre E-Mails nicht – so richten Sie es ein“ linking to the
+   help page's `#dkim`; derived from rows, never a DNS probe), and its summary
+   names all three.
+8. „Anleitung“ (the help page, `/e-mail-eingang/`, `/en/project-mail/`).
+
+Every number of days or bytes in this copy is a placeholder filled from
+`inbound-mail-vocabulary.ts` (`INBOUND_MAIL_RESTORE_DAYS`,
+`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`, `INBOUND_MAIL_ADDRESS_STATS_DAYS`,
+`INBOUND_MAIL_MAX_MESSAGE_BYTES`, `INBOUND_MAIL_MAX_ATTACHMENT_BYTES`), so the
+words cannot drift from the rule.
+
+The dialog (from Dateien › Hochladen › „Per E-Mail senden …“ and „Mehr zur
+Adresse“) is titled „E-Mail-Adresse des Projekts“. The settings card has the
+same title and no eyebrow over the address; a member without the right to
 manage sees „Bitten Sie jemanden, der das Projekt verwaltet, sie in den
-Projekteinstellungen zu erzeugen.“ Rotation's confirm says that every follow on
-the project ends.
+Projekteinstellungen zu erzeugen.“
 
-The E-Mail-Eingang's header shows the address itself (a press copies it) and
-„Mehr zur Adresse“ (the dialog); a manager without an address reads „Adresse
-erzeugen“ there, a member nothing.
+**Replacing and switching off are a manager's rare step**, behind „Adresse
+verwalten“ at the card's foot (a header action stood between the sentence and
+„Kopieren“ on a phone). Each menu entry says what it does: „Neue Adresse
+erzeugen …“ · „Die bisherige hört sofort auf zu funktionieren.“, „Ausschalten
+…“ · „Neue E-Mails an das Projekt kommen nicht mehr an.“ Each confirmation
+says what happens to the old address and to held mail, as
+`address-service.ts` does it: the old address is revoked at once and mail to
+it is refused with the reject verdict (its sender gets it back as
+undeliverable); held mail is the project's, not the address's, and stays and
+can be filed; every running follow of the project ends (`endProjectFollows`,
+reason `address_rotated`, for a switch-off too); a rotation carries the
+registered existing addresses over, so the confirmation asks to update the
+Outlook rules; a switched-off address never comes back, a new one is created
+instead.
+
+The E-Mail-Eingang's header shows „Adresse kopieren“ and „Mehr zur Adresse“
+(the dialog); a manager without an address reads „Adresse erzeugen“ there, a
+member nothing.
 
 Never used, the page is about the address: the list takes the whole width,
-says „Noch keine E-Mails an dieses Projekt“ and the two ways mail gets here,
-one line each: „Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder
-Bauherrschaft schreiben: Die Antworten landen hier.“ and „Hat das Projekt in
-Ihrem Büro schon eine eigene Adresse, leiten Sie sie hierher weiter.“ (what is
-filed directly is the address dialog's), and holds one sheet with the address a size up, „Kopieren“
-(primary) and „Als Kontakt sichern“; the header's address and the
-Wartet/Bearbeitet switch stand down. Without an address: „Dieses Projekt hat
-noch keine E-Mail-Adresse …“ with „Adresse erzeugen“ for a manager, or whom to
-ask for a member. An empty list never shows the „Wählen Sie …“ pane.
-
+says „Noch keine E-Mails an dieses Projekt“ with the sentence under it, and
+holds one sheet with the eyebrow, the address a size up, „Kopieren“ and the
+two hand-on presses; the size, the Postfach line and the folded setup follow
+under the sheet. The header's address and the Wartet/Bearbeitet switch stand
+down. Without an address: „Dieses Projekt hat noch keine E-Mail-Adresse …“
+with „Adresse erzeugen“ for a manager, or whom to ask for a member. An empty
+list never shows the „Wählen Sie …“ pane. Previews:
+`/dev/inbound-mail?variant=empty&rail=1`,
+`/dev/inbound-mail-address?variant=manager` (its „Vorschau: Dialog …“ link is
+preview chrome, gone with `&chrome=0`).
 ## The E-Mail-Eingang
 
 **Layout by container, not viewport** (`inbound-mail-workspace.tsx`): a 22rem
@@ -125,10 +165,11 @@ list and the detail while the component's own box is wider than 48rem
 
 **The list** („Wartet auf Ablage · Bearbeitet“; `lib/list-sections.ts`,
 `lib/completeness.ts`, `inbound-mail-list.tsx`, `inbound-mail-row.tsx`).
-„Wartet auf Ablage“ has up to three headings: „Bereit ({n})“ first, „Braucht Sie
-({n})“ second, „Wartet auf andere ({n})“ third (mail only another member may
+„Wartet auf Ablage“ has up to three headings, each with its count as the tabs'
+muted pill: „Ablagebereit“ first (ready to file in one press and not yet filed;
+„Bereit“ alone read as done), „Braucht Sie“ second, „Wartet auf andere“ third (mail only another member may
 file, `onlySenderReleases`, never an impersonation: dismissing a forgery is the
-reader's to do), then the group „Automatisch ({n})“ (absence notes,
+reader's to do), then the group „Automatisch“ with the same pill (absence notes,
 newsletters, notifications). Mail from an unconfirmed domain is a row like any
 other, with its trust glyph: for a small office it is most of the real mail,
 and folded away it was never seen. The automatic group is folded while
@@ -139,7 +180,7 @@ first (soonest first, the rest in the server's order) and says so on its row:
 „Läuft in 2 Tagen ab“, „Läuft in weniger als einem Tag ab“ (after its reason,
 or on a line of its own with an hourglass); an outsider's mail is erased 14
 days after it came.
-„Bereit“ means the server's `incompleteReason` is null and the mail does not
+„Ablagebereit“ means the server's `incompleteReason` is null and the mail does not
 read as an impersonation (the client refuses an impersonation on its own side
 too, `fileableReason`). „Bearbeitet“ is one list: each row says its outcome.
 
@@ -150,8 +191,8 @@ word, without case or accents (`matchesQuery`, `lib/inbox-triage.ts`); the
 count of matches is said once by a status, Escape clears it, and a search that
 finds nothing says „Keine E-Mail passt zu „…““ with „Suche leeren“. The list's
 rhythm is one: 32px between sections, 12px between a heading, a thread and a
-run of rows inside one. Under „Bereit“: „Domain
-bestätigt, für jeden Teil ein Ziel, nichts zu prüfen.“ and, with two or more
+run of rows inside one. „Ablagebereit“ says on hover „Domain bestätigt und
+für jeden Teil ein Ziel vorgeschlagen: Ein Klick legt sie ab.“ and, with two or more
 ready mails, „Alle {n} wie vorgeschlagen ablegen“ (bulk, confirmed and grouped
 by destination; more than 20: „Die ersten 20 wie vorgeschlagen ablegen“, since
 one request decides at most 20). A ready row outside a thread group carries
@@ -179,9 +220,11 @@ under „Wartet auf andere“. A verified writer's mail direct filing left
 (`waitReason: 'not_filed'`) reads „Nicht direkt abgelegt · {what it needs}“.
 
 Thread groups are split by readiness: a conversation's ready replies are one
-group under „Bereit“ with „Diese {n} wie vorgeschlagen ablegen“ (or „Die ersten
-20 wie vorgeschlagen ablegen“); its replies that need a look are a group under
-„Braucht Sie“ with „Ansehen“ (opens the first). The group line (the thread's glyph and „{name}“; „E-Mail-Verlauf“ and the
+group under „Ablagebereit“ with „Diese {n} wie vorgeschlagen ablegen“ (or
+„Die ersten 20 wie vorgeschlagen ablegen“; no Fassung range, which made a
+mail's text read as a plan's next Fassung); its replies that need a look are a group under „Braucht
+Sie“ with „Ansehen“ (opens the first, with no Fassung range, which would depend
+on what is filed first). The group line (the thread's glyph and „{name}“; „E-Mail-Verlauf“ and the
 count in its title and the section's label) and its press share one row. The rows do
 not repeat the thread: each subject drops the thread's name in front
 (`subjectWithinThread`), so three replies read „Nachreichung Statik“, „Index C“
@@ -364,10 +407,16 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    confirmation's whole row is its label, 44px tall under a coarse pointer. „E“
    with a blocker files nothing and says the first blocker in a `role="status"`
    region. A colleague of a claimed mail gets `ClaimedMailBar` instead (above).
-6. After filing, the follow offer: „E-Mail-Verlauf „{Name}““ with one line
-   of what it does and the button „Folgen“, only when the sender would qualify.
-   Followed, the card says „Sie folgen „{Name}““, that replies are added from
-   now on, and offers „Nicht mehr folgen“.
+6. After filing, the follow offer (`follow-offer.tsx`), named for what it does,
+   since „Folgen“ read as notifications: „Antworten in „{Name}“ ohne Klick
+   ablegen“, one line („Weitere Antworten von Beteiligten mit bestätigter Domain
+   kommen 60 Tage lang in Ihrem Namen in diesen E-Mail-Verlauf, ihre Anhänge
+   hierher. Sie können das jederzeit beenden.“) and „Einschalten“, only when
+   the sender would qualify. Switched on, the card says „Antworten in „{Name}“
+   werden ohne Klick abgelegt“, „In Ihrem Namen, 60 Tage lang. Anhänge warten
+   weiter hier. „Beenden“ hört damit auf.“ and offers „Beenden“. The days are
+   `MAIL_THREAD_FOLLOW_DEFAULT_DAYS`. Code and the Postfach's notices still say
+   follow / „folgen“.
 
 Above the header, what happened to the mail (the closed project, someone else
 deciding it, a partial failure, a full storage): one notice stands whole; two
@@ -422,9 +471,13 @@ an acknowledgement and confirms with a dialog grouped by destination.
 **After a decision the next mail opens.** When the open mail no longer waits
 after the reader filed (once it landed) or dismissed it, the mail below it in
 the list opens, else the one above, and the focus goes to its row; with none
-left the list stands alone; on a phone the list comes back
-(`nextOpenAfter`, `wasDecided`; the detail's `onChanged`). A mail that still
-waits, a restore or a filing that failed, stays open.
+left the list stands alone, on a phone too (`nextOpenAfter`, `wasDecided`; the
+detail's `onChanged`). A mail that still waits, a restore or a filing that
+failed, stays open. On a phone the open mail's header carries where it stands
+and the step to its neighbours, where the address menu stands over the list:
+„2 von 9“ with ↑ „Vorige E-Mail“ and ↓ „Nächste E-Mail“ (`mail-stepper.tsx`,
+the rows on show, replaced not pushed); the list once came back after each
+decision and the way to the next mail was a guess.
 
 **Live.** The list reads itself again when the shared count's read (every 60 s
 and on focus) sees the waiting mail change, and on the project shelf's hint
@@ -466,17 +519,26 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
 
 - **Top**: „{n} E-Mails dieses E-Mail-Verlaufs warten im E-Mail-Eingang ·
   Ansehen“ (only for whoever may file), then the follow control.
-- **Follow control** (`follow-control.tsx`): following, „Sie folgen diesem E-Mail-Verlauf
-  bis {Datum}“ with „Verlängern“ (only while the follow can grow at least a day
-  within 180 days of its start; otherwise „Folgen gilt höchstens 180 Tage ab
-  Beginn. Danach erneut folgen.“) and „Nicht mehr folgen“. Not following: a
-  card titled „Diesem E-Mail-Verlauf folgen“, one line of what it does and the
-  button „Folgen“; toast „Sie folgen
-  „X“ bis {Datum}“ with „Rückgängig“. Others: a count („2 weitere Personen
-  folgen“); for a viewer with `managesFollows`, „Wer folgt“ by name with
-  „Beenden“ each.
+- **Follow control** (`follow-control.tsx`), in the follow offer's words: not
+  switched on, a card titled „Antworten ohne Klick ablegen“, the line „Weitere
+  Antworten von Beteiligten mit bestätigter Domain kommen 60 Tage lang in Ihrem
+  Namen hierher, ihre Anhänge in den E-Mail-Eingang. Sie können das jederzeit
+  beenden.“ and „Einschalten“; toast „Antworten in „X“ werden bis {Datum} ohne
+  Klick abgelegt“ with „Rückgängig“. Switched on: „Antworten werden bis {Datum}
+  ohne Klick abgelegt“, „In Ihrem Namen, Anhänge warten weiter im
+  E-Mail-Eingang. „Beenden“ hört damit auf.“, „Verlängern“ (only while it can
+  grow at least a day within 180 days of its start; otherwise „Höchstens 180
+  Tage ab Beginn. Danach wieder einschalten.“) and „Beenden“. Others: „Auch für
+  2 weitere Personen eingeschaltet“; for a viewer with `managesFollows`, „Auch
+  eingeschaltet für“ by name with „Beenden“ each.
 - **One row per mail, newest first** (`mail-thread-entry.tsx`): the heading
-  exactly as the document cites it; „ab Fassung N · eingegangen {Zeit}“; trust
+  exactly as the document cites it, which prints the sending on the office's
+  clock; „eingegangen {Zeit}“ on that clock too (`receivedAtLabel`,
+  `OFFICE_TIME_ZONE`): the time alone on the heading's day, else date and time.
+  On the reader's clock a heading at 09:12 once stood over „eingegangen 07:13“,
+  and the preview's hand-written headings over one fixed arrival made every
+  mail „eingegangen 09:30“ (`printedHeading` in the fixture now prints them as
+  the server does). No „ab Fassung N“: the mail is not a Fassung; trust
   in three words: „Domain bestätigt: {domain}“ once per run of consecutive
   mails from the same confirmed domain, on the newest (`entriesSayingTrust`);
   „Absender nicht überprüfbar“ with the warning glyph and „Aus dem
@@ -485,21 +547,26 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   outside the unbroken date, or a name had no place to wrap but inside a
   word), a long German name hyphenates (`lang="de"`, `hyphens: auto`), and
   it is still exactly what the document prints; an attachment's name is one
-  line cut in its middle (`FittedName`), one underline; „ab Fassung N“ and „eingegangen …“ wrap as two units. Preview:
+  line cut in its middle (`FittedName`), one underline. Preview:
   `/dev/mail-thread?variant=same-sender`; how it was
   filed only where no person decided in the app (agent, the agent card, follow,
-  archive import); „Anhänge“: each a link to its document, „lag schon im
-  Projekt“, „nicht abgelegt · {Grund}“ (15 reasons), or „Ein Anhang in einem
-  Ordner, den Sie nicht sehen“ (never named).
+  archive import); „Anhänge“: each a link to its document, its note under its
+  own name, indented past the file's glyph, the files 8px apart (with 2px a
+  note read as the next file's): „lag schon im Projekt“, „nicht abgelegt ·
+  {Grund}“ (15 reasons); one in a folder the reader cannot see is „Anhang {n}“
+  with „abgelegt in einem Ordner, den Sie nicht sehen“ (never named).
 - **Row actions**: „Original (.eml)“ (a 409 `original_not_clean` replaces the
   button with „Das Original enthält Schadsoftware und kann nicht
   heruntergeladen werden“; an archive entry says „Kein Original: aus dem
-  Outlook-Archiv übernommen“; a running scan says so), „Vergleichen“ (this mail's
-  Fassung against the one before, inline), ⋯ „Herauslösen …“ (only for whoever
+  Outlook-Archiv übernommen“; a running scan says so), „Was diese E-Mail
+  hinzufügte“ (the Verlauf before this mail against the Verlauf with it, inline;
+  closed by „Ausblenden“), ⋯ „Herauslösen …“ (only for whoever
   may file, never on the thread's only mail).
-- **Herauslösen** (`detach-dialog.tsx`): „Fassung {a} bis {b} behalten diese
-  E-Mail. Dieser E-Mail-Verlauf bekommt Fassung {b+1} ohne sie.“ and „Wer
-  diesem E-Mail-Verlauf folgt, folgt ihm danach nicht mehr.“; the target is
+- **Herauslösen** (`detach-dialog.tsx`): „Der E-Mail-Verlauf enthält diese
+  E-Mail danach nicht mehr. Seine früheren Fassungen unter „Details“ behalten
+  sie.“ (the Verlauf is a document, its Fassungen are listed there; the tab
+  names no numbers) and „Antworten werden danach in diesem E-Mail-Verlauf für
+  niemanden mehr ohne Klick abgelegt.“; the target is
   another thread or „Als neuen E-Mail-Verlauf“ (name, same folder). It is the
   kit's form dialog, not the confirm dialog: „Abbrechen“ a raised press beside
   the ink primary „Herauslösen“, the focus on the dialog on opening, never on a
