@@ -147,6 +147,8 @@ export function inboundEntryOf(input: {
     source: 'inbound',
     inboundMailId: mail.id,
     messageId: mail.messageId,
+    baseSubject: mail.baseSubject?.slice(0, 500) ?? null,
+    threadIndexGuid: mail.threadIndexGuid,
     sentAt: mail.sentAt ?? mail.receivedAt,
     receivedAt: mail.receivedAt,
     heading: input.heading,
@@ -518,6 +520,7 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
           }
         : null,
     threadUpdate: {
+      baseSubject: mail.baseSubject ? mail.baseSubject.slice(0, 500) : (thread?.baseSubject ?? ''),
       documentId: uploaded.documentId,
       entryCount: entries.length,
       renderedBytes: rendition.bytes,

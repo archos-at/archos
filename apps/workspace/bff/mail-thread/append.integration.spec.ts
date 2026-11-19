@@ -139,6 +139,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
         createdBy: USER,
       },
       threadUpdate: {
+        baseSubject: 'statik',
         documentId: thread.documentId,
         entryCount: 1,
         renderedBytes: 420,

@@ -218,7 +218,7 @@ export interface AppendCommit {
   leaseHolder: string | null
   threadUpdate: Pick<
     MailThreadRow,
-    'documentId' | 'entryCount' | 'renderedBytes' | 'lastEntryAt' | 'participantDomains'
+    'baseSubject' | 'documentId' | 'entryCount' | 'renderedBytes' | 'lastEntryAt' | 'participantDomains'
   >
   entry: NewMailThreadEntryRow
   messageIds: { received: string | null; referenced: readonly string[] }

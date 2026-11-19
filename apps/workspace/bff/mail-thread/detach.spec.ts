@@ -330,9 +330,28 @@ describe('moving a message into a new thread', () => {
       documentId: 'doc-new',
       locale: 'de',
       createdBy: PERSON,
-      baseSubject: 'statik',
     })
     expect(commit.toThreadId).toBe(commit.newThread!.id)
+  })
+
+  it('starts it under the moved message’s own subject and conversation, so replies to it match by reference', async () => {
+    const guid = '6f1d2c3b-4a5e-4f60-8172-839405a6b7c8'
+    vi.mocked(findThreadEntryRows).mockImplementation(async (id) =>
+      id === SOURCE ? [KEEP, { ...MOVE, baseSubject: 'einreichung statik', threadIndexGuid: guid }] : []
+    )
+    await detach({ action: 'create', name: 'Einreichung Statik' })
+    expect(vi.mocked(commitDetach).mock.calls[0]![0].newThread).toMatchObject({
+      baseSubject: 'einreichung statik',
+      threadIndexGuid: guid,
+    })
+  })
+
+  it('keeps the left thread’s subject for a message filed before entries kept their own', async () => {
+    vi.mocked(findThreadEntryRows).mockImplementation(async (id) =>
+      id === SOURCE ? [KEEP, { ...MOVE, baseSubject: null, threadIndexGuid: null }] : []
+    )
+    await detach({ action: 'create', name: 'Einreichung Statik' })
+    expect(vi.mocked(commitDetach).mock.calls[0]![0].newThread).toMatchObject({ baseSubject: 'statik', threadIndexGuid: null })
   })
 
   it('refuses a stopped name unless released, and a taken one', async () => {

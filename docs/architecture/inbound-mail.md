@@ -443,9 +443,13 @@ the run still holds the lease and its text is still `filing`, exactly one
 part; a lease another writer took meanwhile, or a claim that lapsed, writes
 nothing, and the run tries again in 15 s:
 
-1. a new `mail_threads` row, or the existing one;
+1. a new `mail_threads` row, or the existing one. Its `base_subject` becomes
+   the appended mail's (an empty one keeps it): after a subject change, later
+   replies under the new subject match by `reference`, preselected and
+   followable, rather than as `reference_subject_changed`;
 2. the entry (`mail_thread_entries`, `source = 'inbound'`, `received_at`,
-   `masked_spans` when the person chose „Unkenntlich ablegen“), its Message-IDs
+   `masked_spans` when the person chose „Unkenntlich ablegen“, its own
+   `base_subject` and `thread_index_guid`, migration 0250), its Message-IDs
    and one `mail_thread_entry_attachments` row per attachment (D36);
 3. `render.ts` over every entry: one `##` section per message, ordered by the
    clamped send time, headings that never change;
@@ -493,7 +497,10 @@ a new one, as the person, under both render leases. The thread it leaves is
 uploaded first, as Fassung N+1 without the section (the one exception to the
 superset invariant: earlier Fassungen keep it), then the thread it joins; only
 then does the entry's row move (its Message-IDs by `ON UPDATE CASCADE`).
-Every follow of the thread it left ends (`detached`).
+A new Verlauf takes the moved message's own base subject and Thread-Index
+GUID from its entry, so replies to it match the Verlauf it now starts; an
+entry filed before migration 0250 has neither, and the new Verlauf keeps the
+left one's subject. Every follow of the thread it left ends (`detached`).
 
 ## Following a Verlauf
 

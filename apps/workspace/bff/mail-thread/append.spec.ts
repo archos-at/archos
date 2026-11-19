@@ -592,6 +592,23 @@ describe('appending to a thread', () => {
     )
   })
 
+  it('takes the appended mail’s subject for the thread, so a later reply under it matches by reference', async () => {
+    await appendInboundMessage(request({ mail: heldMail({ baseSubject: 'statik einreichung freigabe' }) }))
+    expect(vi.mocked(commitAppend).mock.calls[0]![0].threadUpdate.baseSubject).toBe('statik einreichung freigabe')
+    vi.mocked(commitAppend).mockClear()
+    await appendInboundMessage(request({ mail: heldMail({ baseSubject: '' }) }))
+    expect(vi.mocked(commitAppend).mock.calls[0]![0].threadUpdate.baseSubject).toBe('statik einreichung')
+  })
+
+  it('keeps the mail’s own subject and conversation on its entry, for a detach to start a Verlauf from', async () => {
+    const guid = '6f1d2c3b-4a5e-4f60-8172-839405a6b7c8'
+    await appendInboundMessage(request({ mail: heldMail({ baseSubject: 'statik einreichung freigabe', threadIndexGuid: guid }) }))
+    expect(vi.mocked(commitAppend).mock.calls[0]![0].entry).toMatchObject({
+      baseSubject: 'statik einreichung freigabe',
+      threadIndexGuid: guid,
+    })
+  })
+
   it('commits only while it still holds the thread, and waits to try again when another writer took it', async () => {
     vi.mocked(commitAppend).mockResolvedValueOnce('lost')
     expect(await appendInboundMessage(request())).toEqual({ kind: 'busy' })

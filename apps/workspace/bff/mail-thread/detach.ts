@@ -323,7 +323,8 @@ async function moveEntry(
               organizationId: session.organizationId,
               projectId,
               documentId: joined.documentId,
-              baseSubject: source.thread.baseSubject,
+              baseSubject: moving.baseSubject ?? source.thread.baseSubject,
+              threadIndexGuid: moving.threadIndexGuid,
               locale: targetLocale,
               createdBy: session.userId,
             }

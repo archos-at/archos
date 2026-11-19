@@ -418,7 +418,7 @@ describe.skipIf(!url)('the archive import’s Verläufe against Postgres (D33)',
         newThread: null,
         threadId: existing.threadId,
         leaseHolder: null,
-        threadUpdate: { documentId: existing.documentId, entryCount: 3, renderedBytes: 900, lastEntryAt: new Date(), participantDomains: ['ma37.wien.gv.at'] },
+        threadUpdate: { baseSubject: 'stellplatznachweis', documentId: existing.documentId, entryCount: 3, renderedBytes: 900, lastEntryAt: new Date(), participantDomains: ['ma37.wien.gv.at'] },
         entry: {
           id: entryId,
           organizationId: ORG,
