@@ -20,6 +20,7 @@ import type { DocumentAuthor } from '@/lib/db/schema/documents'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import type { ShelfReader } from '@/lib/documents/document-reader'
+import { scanAfterUpload } from '@/lib/base-knowledge/office/folder-norms-scan'
 import { officeShelfCollectionName } from './collection'
 import { officeShelfHiddenFolderIds } from './folder-service'
 import { STANDARDS_FOLDER_NAME } from './standards-folder'
@@ -117,12 +118,14 @@ export async function uploadOfficeShelfDocument(
   }: Omit<ShelfUploadInput, 'file' | 'folderId'> & { folderId?: string | null } = {},
 ): Promise<UploadOfficeShelfDocumentResult> {
   await assertNameFreeOfStandards(session, file, folderId)
-  return uploadToShelf(
+  const uploaded = await uploadToShelf(
     session,
     OFFICE_SHELF,
     { file, folderId, originPath, screeningRelease, uploadBatchId, revisionOf, beforeDispatch },
     request,
   )
+  await scanAfterUpload(session, { folderId, filename: uploaded.filename })
+  return uploaded
 }
 
 export interface OfficeShelfRemoval {

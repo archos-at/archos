@@ -122,6 +122,7 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'root_sort.failed': { icon: 'alert-triangle', i18nKey: 'rootSortFailed', tone: 'warning' },
   'office_shelf.norm_offered': { icon: 'agent', i18nKey: 'officeShelfNormOffered', tone: 'request' },
   'office_shelf.norm_suggested': { icon: 'layers', i18nKey: 'officeShelfNormSuggested', tone: 'request' },
+  'office_shelf.norms_found': { icon: 'agent', i18nKey: 'officeShelfNormsFound', tone: 'request' },
   'inbound_mail.waiting': { icon: 'mail', i18nKey: 'inboundMailWaiting', tone: 'request' },
   'inbound_mail.expiring': { icon: 'mail-clock', i18nKey: 'inboundMailExpiring', tone: 'warning' },
   'inbound_mail.decided': { icon: 'mail-check', i18nKey: 'inboundMailDecided', tone: 'info' },

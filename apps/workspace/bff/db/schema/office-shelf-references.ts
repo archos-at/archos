@@ -43,7 +43,7 @@ export const officeShelfNormKeeps = pgTable(
   {
     documentId: uuid('document_id').primaryKey(),
     organizationId: text('organization_id').notNull(),
-    projectId: uuid('project_id').notNull(),
+    projectId: uuid('project_id'),
     keptBy: text('kept_by').notNull(),
     keptAt: timestamp('kept_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -8610,6 +8610,162 @@
         }
       }
     },
+    "/api/office-shelf/folders/{folderId}/norms": {
+      "post": {
+        "operationId": "office-shelf-folder-norms-decide",
+        "summary": "Move a folder’s norms to base knowledge, or keep them as ordinary files",
+        "description": "Acts on office-shelf-folder-norms-list’s files, up to 50 a call (`remaining` counts the rest). The folder stays. Needs org:office_shelf:manage.",
+        "tags": [
+          "folders"
+        ],
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "An office shelf folder id, from office-shelf-folder-list."
+            },
+            "description": "An office shelf folder id, from office-shelf-folder-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "record",
+                      "keep"
+                    ],
+                    "description": "`record`: proposed as base knowledge, moved to its root. `keep`: ordinary files, never offered again."
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Move a folder’s norms to base knowledge, or keep them as ordinary files",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "office-shelf-folder-norms-list",
+        "summary": "List the files in an office shelf folder that read as norms",
+        "description": "Files in the folder whose name reads as a norm and that are neither base knowledge nor kept as ordinary files. A person decides whether they move. Needs org:office_shelf:manage.",
+        "tags": [
+          "folders"
+        ],
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "An office shelf folder id, from office-shelf-folder-list."
+            },
+            "description": "An office shelf folder id, from office-shelf-folder-list."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Default and max 100.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Default and max 100."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The previous page’s `nextCursor`.",
+              "type": "string",
+              "pattern": "^\\d{1,4}$"
+            },
+            "description": "The previous page’s `nextCursor`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the files in an office shelf folder that read as norms",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/office-shelf/root-sort": {
       "get": {
         "operationId": "office-shelf-root-sort-get",
@@ -18177,6 +18333,7 @@
                 "root_sort.failed",
                 "office_shelf.norm_offered",
                 "office_shelf.norm_suggested",
+                "office_shelf.norms_found",
                 "inbound_mail.waiting",
                 "inbound_mail.expiring",
                 "inbound_mail.decided",

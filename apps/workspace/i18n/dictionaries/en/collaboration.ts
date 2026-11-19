@@ -808,6 +808,10 @@ export const collaboration = {
         titleResolved: 'The suggestion for the office filing is decided',
         body: 'Then every project finds it, and everyone in the office can see it.',
       },
+      officeShelfNormsFound: {
+        title: '{productName} found standards in folders',
+        body: 'In the folder you decide whether they move to Standards & guidelines or stay as ordinary files.',
+      },
       unknown: {
         title: 'Something happened',
         body: 'in {subject}',

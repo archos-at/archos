@@ -326,6 +326,14 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: IN_APP_ONLY,
     push: { category: 'requests', urgency: 'normal' },
   },
+  'office_shelf.norms_found': {
+    actionable: true,
+    grouping: 'collapse',
+    retentionDays: 60,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'office', urgency: 'low' },
+  },
   ...INBOUND_MAIL_TYPE_DEFINITIONS,
 }
 

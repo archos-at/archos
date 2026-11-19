@@ -7,6 +7,7 @@ export {
   markItemsInertForDeletedResource,
   markItemsInertForSubject,
   openRecipientsOf,
+  refreshOpenInboxGroup,
   resolveInboxItemsAnchoredOn,
   resolveInboxItemsFor,
   retractInboxOccurrenceAnchoredOn,

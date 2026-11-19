@@ -60,7 +60,7 @@ export interface FileWorkspaceProps {
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
   initialFolderId?: string | null
-  renderLevelNotice?: (folderId: string | null, revision: string) => ReactNode
+  renderLevelNotice?: (level: { folderId: string | null; revision: string; reload: () => void }) => ReactNode
 }
 
 const renderDocumentActions = (): ReactNode => <DocumentActionsTrigger />
@@ -163,7 +163,7 @@ export function FileWorkspace({
   const mayPick = canManage && writableHere
   const pickable = useMemo(() => levelFiles.map((file) => file.id), [levelFiles])
   const levelRevision = useMemo(() => levelFiles.map((file) => `${file.id}:${file.status ?? ''}`).join('|'), [levelFiles])
-  const levelNotice = searchingNow || sliceOpen ? null : renderLevelNotice?.(selectedFolderId, levelRevision)
+  const levelNotice = searchingNow || sliceOpen ? null : renderLevelNotice?.({ folderId: selectedFolderId, revision: levelRevision, reload: () => void reloadAll() })
   const moveSelection = async (folderId: string | null, folderName: string): Promise<void> => {
     setMoveSheetOpen(false)
     const ids = [...selection.selectedIds]

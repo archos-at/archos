@@ -785,6 +785,28 @@ describe('OfficeShelfWorkspace — folders', () => {
     expect(new URLSearchParams(href.split('?')[1]).get('folder')).toBe('f-1')
   })
 
+  it('asks about the norms in the open folder only of one who may manage the office shelf, with office-standards on', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('/api/office-shelf/folders/:folderId/norms', ({ params }) => {
+        asked.push(String(params.folderId))
+        return HttpResponse.json({ folderId: params.folderId, total: 2, norms: [], nextCursor: null })
+      })
+    )
+    currentSearch = 'folder=f-2'
+    const { unmount } = render(<OfficeShelfWorkspace canManage normsInFolders />)
+    expect(await screen.findByTestId('office-shelf-folder-norms')).toHaveTextContent('2 files here are standards.')
+    expect(asked).toEqual(['f-2'])
+    unmount()
+
+    render(<OfficeShelfWorkspace canManage={false} normsInFolders />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+    render(<OfficeShelfWorkspace canManage />)
+    await screen.findAllByText('brandschutz-gutachten.pdf')
+    expect(screen.queryByTestId('office-shelf-folder-norms')).not.toBeInTheDocument()
+    expect(asked).toEqual(['f-2'])
+  })
+
   it('reads the level out of the URL', async () => {
     currentSearch = 'folder=f-2'
     render(<OfficeShelfWorkspace canManage />)

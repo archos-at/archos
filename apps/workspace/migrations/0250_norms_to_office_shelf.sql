@@ -9,9 +9,10 @@
 -- the column NULL and keeps the row, so the project shows the reference as
 -- removed instead of losing it.
 --
--- `office_shelf_norm_keeps` remembers „Hier lassen“: a project norm somebody
--- decided stays in its project. Nothing offers it for the Büroablage again;
--- the row goes with its document.
+-- `office_shelf_norm_keeps` remembers a file somebody keeps as an ordinary
+-- file although its name reads as a norm: „Hier lassen“ in a project, or „Im
+-- Ordner lassen“ in a Büroablage folder (no project). Nothing offers it for
+-- Normen & Richtlinien again; the row goes with its document.
 --
 -- `proposed_changes` takes a fifth kind, `office_shelf_norm`: somebody without
 -- the right to manage the Büroablage suggests a project norm for it, and a
@@ -49,7 +50,7 @@ SELECT secure_table('office_shelf_references', 'organization_id = current_org()'
 CREATE TABLE IF NOT EXISTS "office_shelf_norm_keeps" (
   "document_id" uuid PRIMARY KEY NOT NULL,
   "organization_id" text NOT NULL,
-  "project_id" uuid NOT NULL,
+  "project_id" uuid,
   "kept_by" text NOT NULL,
   "kept_at" timestamp with time zone DEFAULT now() NOT NULL,
   CONSTRAINT office_shelf_norm_keeps_document_fkey FOREIGN KEY ("document_id", "organization_id")

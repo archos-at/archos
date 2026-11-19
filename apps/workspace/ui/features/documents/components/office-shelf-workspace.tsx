@@ -16,6 +16,7 @@ import { useOfficeShelfDocuments, type StoredUpload } from '../hooks/use-office-
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
+import { OfficeShelfFolderNorms } from './office-shelf-folder-norms'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 export interface OfficeShelfWorkspaceProps {
@@ -26,6 +27,7 @@ export interface OfficeShelfWorkspaceProps {
   places?: ReactNode
   onUploadsStored?: (uploads: StoredUpload[]) => void
   fileActions?: FileShelf['fileActions']
+  normsInFolders?: boolean
 }
 
 export function OfficeShelfWorkspace({
@@ -36,6 +38,7 @@ export function OfficeShelfWorkspace({
   places,
   onUploadsStored,
   fileActions,
+  normsInFolders = false,
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
@@ -89,6 +92,12 @@ export function OfficeShelfWorkspace({
         <FileWorkspace
           shelf={shelf}
           onOpenSearch={search.open}
+          renderLevelNotice={
+            normsInFolders && canManage
+              ? ({ folderId, reload }) =>
+                  folderId === null ? null : <OfficeShelfFolderNorms key={folderId} folderId={folderId} onChanged={reload} />
+              : undefined
+          }
           renderHeader={(controls, { count }) => (
             <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} places={places} />
           )}

@@ -815,6 +815,10 @@ export const collaboration: typeof en.collaboration = {
         titleResolved: 'Der Vorschlag für die Büroablage ist entschieden',
         body: 'Danach finden alle Projekte sie, und sie ist für alle im Büro sichtbar.',
       },
+      officeShelfNormsFound: {
+        title: '{productName} hat Normen in Ordnern gefunden',
+        body: 'Im Ordner entscheiden Sie, ob sie unter Normen & Richtlinien geführt werden oder als normale Dateien bleiben.',
+      },
       unknown: {
         title: 'Es gab Aktivität',
         body: 'in {subject}',

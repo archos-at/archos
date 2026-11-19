@@ -31,6 +31,7 @@ export const INBOX_ITEM_TYPES = [
   'root_sort.failed',
   'office_shelf.norm_offered',
   'office_shelf.norm_suggested',
+  'office_shelf.norms_found',
   'inbound_mail.waiting',
   'inbound_mail.expiring',
   'inbound_mail.decided',

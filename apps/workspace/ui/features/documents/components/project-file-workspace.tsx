@@ -138,7 +138,7 @@ export function ProjectFileWorkspace({
         initialFolderId={initialFolderId}
         renderLevelNotice={
           officeStandards
-            ? (folderId, revision) => <ProjectNormNotices projectId={projectId} folderId={folderId} revision={revision} />
+            ? ({ folderId, revision }) => <ProjectNormNotices projectId={projectId} folderId={folderId} revision={revision} />
             : undefined
         }
       />
