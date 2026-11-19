@@ -4609,6 +4609,96 @@ apply_in rel_0250 0250_inbound_mail_release_and_forwards.sql
 check_in rel_0250 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0250" "0250 applies again after its down"
 echo "==> migration 0250 verified"
 
+# Migration 0252 (ADR-0137, amendment of 2026-11-19: replies from known
+# correspondents are filed without a click): a follow files a reply's clean
+# attachment into an existing folder, or as a Fassung, alongside the text it
+# appended; never a flagged, unscanned or stray one, never into a new folder.
+echo "==> verifying a follow's attachments and the down migration on fol_0252"
+migrate_before fol_0252 0252_follow_files_attachments
+U252="user_01J0MA1LUSERU00000000000U2"   # follows the Verlauf and appended the replies' text
+X252="user_01J0MA1LUSERX00000000000X2"   # follows it too, appended nothing
+P252="a0000000-0000-4000-8000-000000000252"
+A252="aa000000-0000-4000-8000-000000000252"
+T252="ea000000-0000-4000-8000-000000000252"
+F252="fa000000-0000-4000-8000-000000000252"
+G252="fb000000-0000-4000-8000-000000000252"
+D252="d1000000-0000-4000-8000-000000000252"
+FOLDER252="f0000000-0000-4000-8000-000000000252"
+M252="1a000000-0000-4000-8000-000000000252"   # a reply the follow appended
+N252="1b000000-0000-4000-8000-000000000252"   # a reply whose text nobody's follow appended
+R252="1c000000-0000-4000-8000-000000000252"   # a reply whose raw message did not scan clean
+sql_in fol_0252 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES ('$P252', 'org_0252', 'Follow', '$U252', 'proj_0252');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id) VALUES
+  ('$D252', 'org_0252', '$U252', 'Statik.md', 'k/0252/a', 'proj_0252', 'completed', 'project', '$P252');
+INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES ('$A252', 'org_0252', '$P252', 'aaaaaaaaaa52', 'follow', '$U252');
+INSERT INTO mail_threads (id, organization_id, project_id, document_id, base_subject, participant_domains, locale, created_by) VALUES
+  ('$T252', 'org_0252', '$P252', '$D252', 'Statik', '{statik.at}', 'de', '$U252');
+INSERT INTO mail_thread_follows (id, organization_id, project_id, thread_id, user_id, created_at, expires_at) VALUES
+  ('$F252', 'org_0252', '$P252', '$T252', '$U252', now() - interval '1 day', now() + interval '60 days'),
+  ('$G252', 'org_0252', '$P252', '$T252', '$X252', now() - interval '1 day', now() + interval '60 days');
+SQL
+reply252() {  # <mail id> <raw scan>
+  sql_in fol_0252 <<SQL
+INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_reason, sender_class, expires_at)
+VALUES ('$1', 'org_0252', '$P252', '$A252', 'waiting', md5('$1') || md5('$1'), 100, 'b', '$2', now(), 'huber@statik.at', 'external_verified', 'dkim_pass', 'external', now() + interval '14 days');
+INSERT INTO inbound_mail_parts (id, organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, storage_key, scan_status, scanned_at, risk_flags) VALUES
+  (md5('text' || '$1')::uuid, 'org_0252', '$P252', '$1', 0, 'message', NULL, 'text/plain', 10, repeat('a', 64), NULL, 'not_applicable', NULL, '{}'::text[]),
+  (md5('clean' || '$1')::uuid, 'org_0252', '$P252', '$1', 1, 'attachment', 'S-101.pdf', 'application/pdf', 10, repeat('b', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/1', 'clean', now(), '{}'::text[]),
+  (md5('flagged' || '$1')::uuid, 'org_0252', '$P252', '$1', 2, 'attachment', 'Rechnung.docm', 'application/pdf', 10, repeat('c', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/2', 'clean', now(), '{macro}'::text[]),
+  (md5('unscanned' || '$1')::uuid, 'org_0252', '$P252', '$1', 3, 'attachment', 'S-102.pdf', 'application/pdf', 10, repeat('d', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/3', 'pending', NULL, '{}'::text[]),
+  (md5('other' || '$1')::uuid, 'org_0252', '$P252', '$1', 4, 'attachment', 'S-103.pdf', 'application/pdf', 10, repeat('e', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/4', 'clean', now(), '{}'::text[]),
+  (md5('fassung' || '$1')::uuid, 'org_0252', '$P252', '$1', 5, 'attachment', 'Statik.pdf', 'application/pdf', 10, repeat('f', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/5', 'clean', now(), '{}'::text[]);
+SQL
+}
+text252() {  # <mail id>: the follow F252 appends its text, as U252
+  echo "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, thread_action, mail_thread_id, message_text) VALUES ('org_0252', '$P252', '$1', md5('text' || '$1')::uuid, 'file', '$U252', 'follow', '$F252', 'append', '$T252', 'full')"
+}
+att252() {  # <mail id> <part> <decider> <follow> <folder_id> <folder_path> <target document> [<acknowledged_risk>]
+  echo "INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, folder_id, folder_path, file_name, target_document_id, acknowledged_risk) VALUES (md5('decision' || '$2' || '$1' || '$3' || '$6')::uuid, 'org_0252', '$P252', '$1', md5('$2' || '$1')::uuid, 'file', '$3', 'follow', '$4', $5, '$6', 'Datei.pdf', $7, ${8:-false})"
+}
+claim252() {  # <mail id> <part> <decider> <folder_path>
+  echo "UPDATE inbound_mail_parts SET state = 'filing', decision_id = md5('decision' || '$2' || '$1' || '$3' || '$4')::uuid, claim_expires_at = now() + interval '5 minutes' WHERE id = md5('$2' || '$1')::uuid"
+}
+V252=$'\\set VERBOSITY verbose\n'
+reply252 "$M252" clean
+reply252 "$N252" clean
+reply252 "$R252" failed
+sql_in fol_0252 <<<"$(text252 "$M252"); $(text252 "$R252");"
+refused_in fol_0252 "${V252}$(att252 "$M252" clean "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_files_text" "before 0252: a follow filing its reply's clean attachment into an existing folder"
+
+apply_in fol_0252 0252_follow_files_attachments.sql
+AFTER_0252=$($PSQL -d fol_0252 -tAc "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'")
+apply_in fol_0252 0252_follow_files_attachments.sql
+check_in fol_0252 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0252" "0252 re-applied changes nothing"
+
+# The follow that appended the text files the reply's clean attachments: into a folder, or as a Fassung, and claims them.
+sql_in fol_0252 <<<"$(att252 "$M252" clean "$U252" "$F252" "'$FOLDER252'" Statik NULL); $(claim252 "$M252" clean "$U252" Statik);"
+sql_in fol_0252 <<<"$(att252 "$M252" fassung "$U252" "$F252" NULL '' "'$D252'"); $(claim252 "$M252" fassung "$U252" '');"
+check_in fol_0252 "SELECT string_agg(p.filename || ':' || p.state, ',' ORDER BY p.position) FROM inbound_mail_parts p JOIN inbound_mail_decisions d ON d.id = p.decision_id WHERE p.mail_id = '$M252' AND d.via = 'follow'" \
+  "S-101.pdf:filing,Statik.pdf:filing" "0252: a follow files a reply's clean attachment into an existing folder and one as a Fassung"
+
+# Never a flagged, unscanned or stray attachment, never into a folder to be made, never with an acknowledgement.
+refused_in fol_0252 "${V252}$(att252 "$M252" flagged "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: a follow filing a flagged attachment"
+refused_in fol_0252 "${V252}$(att252 "$M252" unscanned "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: a follow filing an attachment not yet scanned"
+refused_in fol_0252 "${V252}$(att252 "$N252" clean "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: a follow filing an attachment of a reply whose text it did not append"
+refused_in fol_0252 "${V252}$(att252 "$M252" other "$X252" "$G252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: another follower's follow filing an attachment of a reply it did not append"
+refused_in fol_0252 "${V252}$(att252 "$R252" clean "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: a follow filing an attachment of a reply whose raw message did not scan clean"
+refused_in fol_0252 "$(att252 "$M252" other "$U252" "$F252" NULL 'Statik/Neu' NULL)" "inbound_mail_decisions_follow_files_clean" "0252: a follow filing an attachment into a folder it would create"
+refused_in fol_0252 "$(att252 "$M252" other "$U252" "$F252" "'$FOLDER252'" Statik NULL true)" "inbound_mail_decisions_follow_files_clean" "0252: a follow acknowledging an attachment's risk"
+refused_in fol_0252 "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, folder_path, file_name, thread_action, message_text) VALUES ('org_0252', '$P252', '$N252', md5('text' || '$N252')::uuid, 'file', '$U252', 'follow', '$F252', 'Statik', 'Neu', 'create', 'full')" "inbound_mail_decisions_follow_files_clean" "0252: a follow starting a new Verlauf"
+# An attachment flagged after its follow's decision is not claimed on it.
+sql_in fol_0252 <<<"$(att252 "$M252" other "$U252" "$F252" "'$FOLDER252'" Statik NULL); UPDATE inbound_mail_parts SET risk_flags = '{type_mismatch}' WHERE id = md5('other' || '$M252')::uuid;"
+refused_in fol_0252 "${V252}$(claim252 "$M252" other "$U252" Statik)" "inbound_mail_parts_follow_files_clean" "0252: an attachment flagged since its follow's decision claimed on it"
+
+# Down: what a follow decided stays, and a follow files a text and nothing else again.
+apply_in fol_0252 0252_follow_files_attachments.down.sql
+check_in fol_0252 "SELECT count(*) FROM inbound_mail_decisions d JOIN inbound_mail_parts p ON p.id = d.part_id WHERE d.via = 'follow' AND p.kind = 'attachment'" "3" "0252 down keeps a follow's attachment decisions"
+refused_in fol_0252 "${V252}$(att252 "$M252" unscanned "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_files_text" "0252 down: a follow filing an attachment is refused again"
+apply_in fol_0252 0252_follow_files_attachments.sql
+check_in fol_0252 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0252" "0252 applies again after its down"
+echo "==> migration 0252 verified"
+
 # ---------------------------------------------------------------------------
 # Every registered SQL backfill (apps/workspace/backfills/), run twice through
 # the deploy Job's runner against the full schema with every suite's rows in
