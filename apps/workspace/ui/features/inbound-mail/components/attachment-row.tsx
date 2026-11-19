@@ -59,6 +59,8 @@ export interface AttachmentRowProps {
   /** The step asks the folder below the rows: for this file alone ('only'), or for it and others ('shared', each row still offering its own). */
   folderBelow?: false | 'only' | 'shared'
   folderPicks?: readonly QuickPick[]
+  /** Says where a pre-filled folder came from when it is not the agent's suggestion. */
+  suggestionLabel?: string
   onChange: (change: Partial<Omit<AttachmentDraft, 'partId' | 'suggested'>>) => void
   onRevisionChoice?: (choice: RevisionChoice) => void
   /** Opens the larger viewer; the press that opened it takes the focus back when it closes. */
@@ -77,6 +79,7 @@ export function AttachmentRow({
   focused = false,
   folderBelow = false,
   folderPicks = [],
+  suggestionLabel,
   onChange,
   onRevisionChoice,
   onPreview,
@@ -150,8 +153,8 @@ export function AttachmentRow({
           <div className="mt-1 flex flex-col gap-1.5" data-testid="attachment-target">
             {anySuggested && !threeWay && (
               <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-                <AgentGlyph size="xs" className="size-4" />
-                {t('suggestion.label')}
+                {!suggestionLabel && <AgentGlyph size="xs" className="size-4" />}
+                {suggestionLabel ?? t('suggestion.label')}
               </p>
             )}
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">

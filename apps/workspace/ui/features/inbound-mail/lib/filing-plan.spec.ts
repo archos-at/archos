@@ -155,6 +155,17 @@ describe('what keeps „Weiter“ and what „Übersicht“ leaves out', () => {
   })
 })
 
+describe('a folder remembered from the sender’s earlier mail', () => {
+  it('is offered as the sender’s, never as the agent’s suggestion', () => {
+    const remembered = part({ name: 'FA-201.pdf', suggestion: { folderId: null, folderPath: 'Pläne/Fassade', newFolder: false, documentType: null, reason: '', source: 'sender_memory' } })
+    const view = mail({ parts: [message, remembered] })
+    const draft = initialDraft(view, FOLDERS, copy)
+    const sender = { target: targetForPath('Pläne/Fassade', FOLDERS), why: 'sender' as const, of: 'Hierhin gingen 3 Anhänge von Martin Gruber' }
+    expect(quickPicks(view, draft, [remembered.id], FOLDERS, copy).some((pick) => pick.why === 'suggestion')).toBe(false)
+    expect(quickPicks(view, draft, [remembered.id], FOLDERS, copy, { extra: [sender] }).map((pick) => [pick.why, pick.target.path])).toEqual([['sender', 'Pläne/Fassade']])
+  })
+})
+
 describe('one folder for the attachments without one', () => {
   it('offers the folders this mail’s other attachments go to first, each once', () => {
     const view = mail({

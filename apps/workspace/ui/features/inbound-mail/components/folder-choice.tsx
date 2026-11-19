@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react'
 import { useMemo, useState } from 'react'
-import { FileStack, FolderPlus, Paperclip } from 'lucide-react'
+import { FileStack, FolderPlus, History, Paperclip } from 'lucide-react'
 import { AgentGlyph } from '@/components/ui/agent-glyph'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -41,7 +41,8 @@ export function FolderChoice({ count, current, picks, folders, onPick, label, li
   const place = (target: FolderTarget): string => (target.path === '' ? t('suggestion.root') : target.path.split('/').join(' / '))
   const here = (target: FolderTarget): boolean => current !== null && current.path === target.path
   const hint = (pick: QuickPick): string => {
-    const base = pick.why === 'suggestion' ? t('suggestion.label') : t(`filing.attachments.quick.${pick.why}`, { name: pick.of ?? '' })
+    const base =
+      pick.why === 'suggestion' ? t('suggestion.label') : pick.why === 'sender' ? (pick.of ?? '') : t(`filing.attachments.quick.${pick.why}`, { name: pick.of ?? '' })
     return pick.target.kind === 'new' ? `${base}${CLAUSE_JOIN}${t('suggestion.newFolder')}` : base
   }
   const heading = label === undefined ? (count > 1 ? t('filing.attachments.pickAll', { count }) : t('filing.attachments.pickOne')) : label
@@ -54,7 +55,7 @@ export function FolderChoice({ count, current, picks, folders, onPick, label, li
             key={pick.target.path}
             label={place(pick.target)}
             hint={hint(pick)}
-            icon={pick.why === 'suggestion' ? AgentIcon : pick.target.kind === 'new' ? FolderPlus : pick.why === 'revision' ? FileStack : Paperclip}
+            icon={pick.why === 'suggestion' ? AgentIcon : pick.target.kind === 'new' ? FolderPlus : pick.why === 'revision' ? FileStack : pick.why === 'sender' ? History : Paperclip}
             here={here(pick.target)}
             disabled={here(pick.target)}
             onPick={() => onPick(pick.target)}

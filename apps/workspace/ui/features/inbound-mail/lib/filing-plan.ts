@@ -172,7 +172,7 @@ export function folderlessIds(view: InboundMailView, draft: MailDraft, missing: 
 
 export interface QuickPick {
   target: FolderTarget
-  why: 'suggestion' | 'sibling' | 'revision'
+  why: 'suggestion' | 'sender' | 'sibling' | 'revision'
   of: string | null
 }
 
@@ -195,8 +195,10 @@ export function quickPicks(
     if (!picks.some((known) => known.target.path === pick.target.path)) picks.push(pick)
   }
   for (const id of ids) {
-    const suggested = readSuggestion(view.parts.find((part) => part.id === id)?.suggestion)
-    if (suggested?.folder != null) add({ target: targetForPath(suggested.folder, folders, suggested.folderId), why: 'suggestion', of: null })
+    const suggested = readSuggestion(view.parts.find((candidate) => candidate.id === id)?.suggestion)
+    const part = view.parts.find((candidate) => candidate.id === id)
+    if (suggested?.folder != null && part?.suggestion?.source !== 'sender_memory')
+      add({ target: targetForPath(suggested.folder, folders, suggested.folderId), why: 'suggestion', of: null })
   }
   for (const pick of extra) add(pick)
   for (const row of draft.attachments) {

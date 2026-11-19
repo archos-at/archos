@@ -20,6 +20,7 @@ import {
   fileCheckedInto,
   selectableAttachmentIds,
   chooseRevision,
+  targetForPath,
   updateAttachment,
   updateMessage,
   type DraftCopy,
@@ -27,7 +28,8 @@ import {
   type FolderOption,
   type MailDraft,
 } from '../lib/draft'
-import { fileAllInto, filesAnything, keptWithoutFolder, planLines, quickPicks, type FilingStep, type MissingSuggestion, type PlanLine } from '../lib/filing-plan'
+import { fileAllInto, filesAnything, keptWithoutFolder, planLines, quickPicks, type FilingStep, type MissingSuggestion, type PlanLine, type QuickPick } from '../lib/filing-plan'
+import { senderFolderPicks, senderMemoryReason } from '../lib/sender-folders'
 import { followOffered, mailClaimOf, senderDisplayName } from '../lib/sender'
 import { AttachmentRow } from './attachment-row'
 import { AttachmentsHeading } from './attachments-heading'
@@ -202,7 +204,16 @@ export function FilingDialog({
 
   const selectableIds = selectableAttachmentIds(view)
   const checkedIds = checkedAttachmentIds(draft, view)
-  const picks = useMemo(() => quickPicks(view, draft, pickIds, folders, copy), [view, draft, pickIds, folders, copy])
+  const senderPicks = useMemo<QuickPick[]>(
+    () =>
+      senderFolderPicks(view, { pick: (count, name) => t('senderMemory.pick', { count, name }) }).map((pick) => ({
+        target: targetForPath(pick.path, folders, pick.folderId),
+        why: 'sender',
+        of: pick.reason,
+      })),
+    [view, folders, t]
+  )
+  const picks = useMemo(() => quickPicks(view, draft, pickIds, folders, copy, { extra: senderPicks }), [view, draft, pickIds, folders, copy, senderPicks])
   const pickedFolders = draft.attachments.filter((row) => pickIds.includes(row.partId) && row.checked).map((row) => row.folder)
   const sharedFolder =
     pickedFolders.length > 0 && pickedFolders.every((folder) => folder !== null && folder.path === pickedFolders[0]?.path) ? (pickedFolders[0] ?? null) : null
@@ -223,7 +234,8 @@ export function FilingDialog({
             contentUrl={url}
             missingSuggestion={missing}
             folderBelow={pickIds.includes(entry.part.id) ? (pickIds.length > 1 ? 'shared' : 'only') : false}
-            folderPicks={quickPicks(view, draft, [entry.part.id], folders, copy)}
+            folderPicks={quickPicks(view, draft, [entry.part.id], folders, copy, { extra: senderPicks })}
+            suggestionLabel={senderMemoryReason(view, entry.part, { suggestion: (name) => t('senderMemory.suggestion', { name }) }) ?? undefined}
             onChange={(change) => onDraft((current) => updateAttachment(current, entry.part.id, change))}
             onRevisionChoice={(choice) => onDraft((current) => chooseRevision(current, view, entry.part.id, choice, folders))}
             onPreview={url ? (trigger) => onPreview(entry.part.id, trigger) : undefined}
