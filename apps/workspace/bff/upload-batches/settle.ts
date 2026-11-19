@@ -10,6 +10,8 @@ import { emitInboxItems, type InboxEmission } from '@/lib/inbox/service'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { queueIntakeReadsAfterUpload } from '@/lib/project-intake/trigger'
 import { queueFilingReviewsAfterSettle } from '@/lib/filing/trigger'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
+import { normOfferJobId, normOffersOf } from '@/lib/office-shelf/project-norms/offer-job'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { quarantineNoticePayload } from '@/lib/upload-screening/quarantine'
 import { auditOwedQuarantines } from '@/lib/upload-screening/quarantine-audit'
@@ -61,9 +63,18 @@ export async function settleUploadBatches(organizationId: string, batchIds: read
   }
   await startIntakeReadings(organizationId, completed)
   await queueFilingReviewsAfterSettle(organizationId, completed)
-  const { offerNormsAfterSettle } = await import('@/lib/office-shelf/project-norms/service')
-  await offerNormsAfterSettle(organizationId, completed)
+  await queueNormOffersAfterSettle(organizationId, completed)
   return completed
+}
+
+async function queueNormOffersAfterSettle(organizationId: string, completed: readonly UploadBatch[]): Promise<void> {
+  for (const payload of normOffersOf(completed)) {
+    try {
+      await enqueueJobIfAbsent({ kind: 'office_shelf_norm_offer', organizationId, jobId: normOfferJobId(payload.batchId), payload })
+    } catch (error) {
+      console.warn(`[office-shelf] could not queue the norm offer for upload ${payload.batchId}; the project banner still offers them:`, error)
+    }
+  }
 }
 
 async function startIntakeReadings(organizationId: string, completed: readonly UploadBatch[]): Promise<void> {

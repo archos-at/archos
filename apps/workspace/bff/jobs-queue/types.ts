@@ -30,6 +30,7 @@ export const BFF_JOB_KINDS = [
   'platform_text_index',
   'platform_text_deindex',
   'office_norms_scan',
+  'office_shelf_norm_offer',
 ] as const
 export type BffJobKind = (typeof BFF_JOB_KINDS)[number]
 
