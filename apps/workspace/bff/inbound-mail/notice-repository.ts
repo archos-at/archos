@@ -7,6 +7,8 @@ import { inboundMailParts, inboundMails, type InboundMailPartRow } from '@/lib/d
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 
+export { countWaitingMailsByProject as waitingMailCounts } from './review-read-repository'
+
 export interface ProjectNoticeState {
   waiting: boolean
   expiring: boolean
@@ -27,22 +29,6 @@ export async function projectNoticeState(projectId: string): Promise<ProjectNoti
       ),
     )
   return { waiting: row?.waiting === true, expiring: row?.expiring === true }
-}
-
-export async function waitingMailCounts(projectIds: readonly string[]): Promise<Map<string, number>> {
-  if (projectIds.length === 0) return new Map()
-  const rows = await getDb()
-    .select({ projectId: inboundMails.projectId, count: sql<number>`count(*)::int` })
-    .from(inboundMails)
-    .where(
-      and(
-        inArray(inboundMails.projectId, [...projectIds]),
-        eq(inboundMails.status, 'waiting'),
-        sql`EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = ${inboundMails.id} AND p.state = 'waiting')`,
-      ),
-    )
-    .groupBy(inboundMails.projectId)
-  return new Map(rows.map((row) => [row.projectId, Number(row.count)]))
 }
 
 export async function filedFolderIds(mailId: string, reader: DocumentReader): Promise<Array<string | null>> {

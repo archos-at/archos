@@ -583,6 +583,18 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect((await inTenant(() => repo.countWaitingMailsByProject([projectId]))).get(projectId)).toBe(listed.length - 1)
     })
 
+    it('counts a mail being filed as waiting in the inbox row as in the Postfach and the list: one definition', async () => {
+      const { waitingMailCounts } = await import('./notice-repository')
+      const { mailId, fileId } = await heldMail()
+      await inTenant(() =>
+        repo.writeMailDecisions([{ mailId, ifMatch: 'x', files: [fileRow(mailId, fileId)] }], actor, () => 'x', new Date(Date.now() + 300_000), null),
+      )
+      const listed = await inTenant(() => repo.listProjectMails(projectId, { status: 'waiting', limit: 50 }, null))
+      expect(listed.map((row) => row.mail.id)).toContain(mailId)
+      expect((await inTenant(() => waitingMailCounts([projectId]))).get(projectId)).toBe(listed.length)
+      expect((await inTenant(() => repo.countWaitingMailsByProject([projectId]))).get(projectId)).toBe(listed.length)
+    })
+
     it('hands the filing job its mails in the order they were written, whatever order the request named them in', async () => {
       const newer = await heldMail()
       const older = await heldMail()
