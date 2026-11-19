@@ -66,6 +66,12 @@ describe('EntryPage', () => {
     expect(JSON.parse(String(init.body))).toEqual({ result: 'current' })
   })
 
+  it('keeps the way out of a proposal already stored as licensed while the office is not asked about licences', async () => {
+    renderSheet(PROPOSAL)
+    await userEvent.click(await screen.findByRole('radio', { name: /Frei zugänglich/ }))
+    expect((screen.getByTestId('base-knowledge-save') as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('offers no licence step for a freely available copy while the office is not asked about licences', async () => {
     renderSheet({ ...CONFIRMED, textUse: 'used', values: { ...CONFIRMED.values, licenceClass: 'public_open' } })
     await screen.findByTestId('base-knowledge-save')

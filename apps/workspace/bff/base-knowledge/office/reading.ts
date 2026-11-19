@@ -63,7 +63,8 @@ export function readDesignation(text: string): Designation | null {
   return { designation: edition ? `${base}:${edition.slice(0, 4)}` : base, prefix, edition }
 }
 
-const BARE_STANDARD_NUMBER = /^([AB])[ _-]?(\d{4}(?:-\d+)?)(?=[ _.-]|$)/i
+const BARE_STANDARD_NUMBER = /^([AB])[ _-]?(\d{4}(?:-\d+)*)(?=[ _.-]|$)/i
+const DATE_SHAPED = /^(19|20)\d{2}(?:-(0[1-9]|1[0-2])(?:-\d{2})?)?$/
 const DIRECTIVE = /\bWeisung|Erlass|Rundschreiben|Dienstanweisung/i
 const COMMENTARY = /\bKommentar|Kommentierung|Erläuterungen\s+zu|commentary/i
 const GUIDELINE = /\bLeitfaden|Richtlinie|Merkblatt|guideline|\bRVS\b/i
@@ -81,7 +82,7 @@ export function recognizeNorm(reading: DocumentReading): NormRecognition {
   if (heldByPlatform(designation)) return { norm: false, platformHeld: true }
   if (designation) return { norm: true, designation: designation.designation }
   const bare = BARE_STANDARD_NUMBER.exec(reading.fileName)
-  if (bare && !/^(19|20)\d{2}$/.test(bare[2])) return { norm: true, designation: `ÖNORM ${bare[1].toUpperCase()} ${bare[2]}` }
+  if (bare && !DATE_SHAPED.test(bare[2])) return { norm: true, designation: `ÖNORM ${bare[1].toUpperCase()} ${bare[2]}` }
   if (DIRECTIVE.test(text) || GUIDELINE.test(text) || (COMMENTARY.test(text) && LAW.test(text))) return { norm: true, designation: null }
   return { norm: false, platformHeld: false }
 }

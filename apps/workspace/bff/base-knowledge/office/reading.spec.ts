@@ -64,6 +64,7 @@ describe('which uploaded file is a norm', () => {
     expect(norm('EN_1991-1-1.pdf')).toEqual({ norm: true, designation: 'EN 1991-1-1' })
     expect(norm('DIN_4109-1_2018-01.pdf')).toMatchObject({ norm: true })
     expect(norm('B2320_2017_08_01_de.pdf')).toEqual({ norm: true, designation: 'ÖNORM B 2320' })
+    expect(norm('B_1991-1-1_Nationaler_Anhang.pdf')).toEqual({ norm: true, designation: 'ÖNORM B 1991-1-1' })
   })
 
   it('recognises authority directives, guidelines and commentaries on the law', () => {
@@ -76,6 +77,7 @@ describe('which uploaded file is a norm', () => {
   it('leaves ordinary project files alone, even when their names look like a designation', () => {
     expect(norm('Haus_A_2024_Einreichung.pdf')).toEqual({ norm: false, platformHeld: false })
     expect(norm('Bauteil_B_2023-05-12_Fotos.pdf')).toEqual({ norm: false, platformHeld: false })
+    expect(norm('B_2023-05-12_Fotos.pdf')).toEqual({ norm: false, platformHeld: false })
     expect(norm('Bescheid_MA37_2024-05.pdf')).toEqual({ norm: false, platformHeld: false })
     expect(norm('Kommentar_Bauherr_Planbesprechung.pdf')).toEqual({ norm: false, platformHeld: false })
     expect(norm('Plankopf_Vorlage_A0.pdf')).toEqual({ norm: false, platformHeld: false })

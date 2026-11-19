@@ -395,7 +395,7 @@ function SheetBody({
           values={values}
           onChange={setValues}
           disabled={!canManage || busy}
-          showLicence={proposed && ASK_FOR_LICENCE}
+          showLicence={proposed && (ASK_FOR_LICENCE || entry.values.licenceClass === 'licensed')}
           territories={territories}
         />
       </section>

@@ -5,6 +5,7 @@ import { Suspense, type JSX } from 'react'
 import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { BaseKnowledgeWorkspace } from '@/features/base-knowledge'
+import { OfficeShelfPlaces, OFFICE_SHELF_NORMS_HREF } from '@/features/documents'
 import {
   byAttention,
   countByFolder,
@@ -108,7 +109,14 @@ function Preview(): JSX.Element {
       className="bg-background mx-auto flex min-h-screen max-w-6xl flex-col"
       data-testid="base-knowledge-preview"
     >
-      <BaseKnowledgeWorkspace key={variant ?? 'default'} />
+      <BaseKnowledgeWorkspace
+        key={variant ?? 'default'}
+        place={
+          variant === 'in-office-shelf'
+            ? { title: 'Büroablage', crumb: 'Atelier Nord', places: <OfficeShelfPlaces pathname={OFFICE_SHELF_NORMS_HREF} /> }
+            : undefined
+        }
+      />
     </main>
   )
 }
