@@ -124,7 +124,7 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
 describe('the offer of a project norm, in the Postfach', () => {
   test('is the agent suggesting the Büroablage, leading to the project folder', () => {
     german(offer)
-    expect(screen.getByText(`${PRODUCT_NAME} schlägt die Büroablage vor`)).toHaveAttribute('href', '/app/projects/p1/files?folder=f-normen')
+    expect(screen.getByText(`${PRODUCT_NAME} schlägt eine Norm für die Büroablage vor`)).toHaveAttribute('href', '/app/projects/p1/files?folder=f-normen')
     expect(screen.queryByTestId('inbox-norm-decision')).not.toBeInTheDocument()
   })
 })

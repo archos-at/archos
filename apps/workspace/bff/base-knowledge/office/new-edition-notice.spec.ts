@@ -25,8 +25,8 @@ import { listOrganizationsWithOfficeEditions } from './repository'
 import { directoryStandingsOf } from './service'
 
 const NOW = new Date('2026-11-19T05:13:00Z')
-const B1600 = { workId: 'work_b1600', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } }
-const B3806 = { workId: 'work_b3806', designation: 'ÖNORM B 3806', standing: { inForce: { editionLabel: '2023-03-01', startsOn: '2023-03-01' }, held: true } }
+const B1600 = { workId: 'work_b1600', entryId: 'edition_b1600_2017', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } }
+const B3806 = { workId: 'work_b3806', entryId: 'edition_b3806_2023', designation: 'ÖNORM B 3806', standing: { inForce: { editionLabel: '2023-03-01', startsOn: '2023-03-01' }, held: true } }
 const filed = (day: string) => ({ facts: { 'procedure_type@p1': { value: 'baubewilligung' }, 'filed_on@p1': { value: day } } })
 const project = (name: string, status: string, profile: object) => ({ name, status, profile }) as unknown as Awaited<ReturnType<typeof listProjectsInOrg>>[number]
 
@@ -62,6 +62,7 @@ describe('a newer edition the platform lists', () => {
         groupKey,
         payload: {
           subject: 'ÖNORM B 1600',
+          entryId: 'edition_b1600_2017',
           related: '2023-02-01',
           startsOn: '2023-02-01',
           variant: 'projects',
@@ -71,7 +72,7 @@ describe('a newer edition the platform lists', () => {
     )
   })
 
-  it('reads as a Postfach item naming the norm, the edition in force and the projects after it', () => {
+  it('reads as a Postfach item headed by the norm, with the edition in force, since when, and the projects after it in its body', () => {
     const dictionary = { collaboration: collaborationCopy.messages.de }
     const t = createTranslator(dictionary, 'collaboration')
     const item = {
@@ -80,16 +81,17 @@ describe('a newer edition the platform lists', () => {
       resourceType: 'organization',
       actorName: null,
       count: 1,
-      href: '/app/base-knowledge',
+      href: '/app/base-knowledge?entry=edition_b1600_2017',
       subject: 'ÖNORM B 1600',
       related: '2023-02-01',
-      excerpt: 'Wohnbau Seestadt Baufeld D12',
+      since: '2023-02-01',
+      excerpt: 'Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
       variant: 'projects',
       answerIn: null,
     } as unknown as InboxItemView
-    expect(inboxItemCopy(item, t, dictionary)).toEqual({
+    expect(inboxItemCopy(item, t, dictionary, 'de')).toEqual({
       title: 'ÖNORM B 1600: neue Ausgabe erschienen',
-      body: 'Laut Normenverzeichnis gilt heute die Ausgabe 2023-02-01, die Büroablage hat nur eine ältere. Projekte mit Stichtag danach:',
+      body: 'Seit 01.02.2023 gilt die Ausgabe 2023-02-01, die Büroablage hat nur eine ältere. Betrifft Projekte mit Stichtag danach: Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
     })
   })
 

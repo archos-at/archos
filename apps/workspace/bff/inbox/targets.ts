@@ -15,6 +15,7 @@ import { findOwnUploadBatch } from '@/lib/upload-batches/service'
 import { getOwnProductFeedback } from '@/lib/product-feedback/repository'
 import { feedbackThreadHref } from '@/lib/product-feedback/types'
 import { inboundMailPaths, inboundMailReadyPath } from '@/lib/inbound-mail/paths'
+import { baseKnowledgeHref } from '@/lib/base-knowledge/entry-link'
 
 export interface InboxTargetLinkContext {
   itemType: InboxItemType
@@ -22,6 +23,7 @@ export interface InboxTargetLinkContext {
   taskId?: string | null
   run?: RunMessageRef | null
   folderId?: string | null
+  entryId?: string | null
 }
 
 export interface RunMessageRef {
@@ -48,7 +50,6 @@ const ORGANIZATION_DESTINATIONS: Partial<Record<InboxItemType, string>> = {
   'document.quarantined': '/app/organization/quarantine',
   'document.release_requested': '/app/organization/quarantine',
   'agent.proposal_waiting': '/app/office-shelf',
-  'base_knowledge.new_edition': '/app/base-knowledge',
 }
 
 function rootSortHref(shelfPath: string, runId: string | null | undefined): string {
@@ -94,6 +95,7 @@ const organizationTarget: InboxTargetDescriptor = {
       deepLink: (context) => {
         if (context.itemType.startsWith('root_sort.')) return rootSortHref('/app/office-shelf', context.anchorId)
         if (context.itemType === 'office_shelf.norms_found') return officeShelfFolderHref(context.anchorId)
+        if (context.itemType === 'base_knowledge.new_edition') return baseKnowledgeHref(context.entryId)
         return ORGANIZATION_DESTINATIONS[context.itemType] ?? '/app/organization'
       },
     }

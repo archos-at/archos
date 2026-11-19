@@ -56,7 +56,9 @@ import { MARK_CLIENT, useMarkAnswer, type InboxMarkClient } from '../hooks/use-m
 import { InboxItemCaption } from './InboxItemCaption'
 import { inboxDue } from '../lib/inbox-due'
 import { InboxReviewDecision, type InboxReviewClient } from './InboxReviewDecision'
-import { InboxNormSuggestionDecision, type InboxNormDecisionClient } from './InboxNormSuggestionDecision'
+import type { InboxNormDecisionClient } from './InboxNormSuggestionDecision'
+import { InboxNormActions, InboxNormLines } from './InboxNormNotice'
+import { normNoticeOf } from '../lib/inbox-norm-notice'
 import { isPlainClick } from '../lib/plain-click'
 import { UploadReportLines } from '@/features/uploads/components/upload-report'
 
@@ -185,10 +187,9 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
     item.resourceType === 'document' &&
     item.anchorId !== null &&
     item.subject !== null
-  const canDecideNorm =
-    item.type === 'office_shelf.norm_suggested' && item.actionable && !resolved && !inert && !redacted && item.anchorId !== null
+  const normNotice = redacted ? null : normNoticeOf(item)
   const showBody =
-    body !== null && !answerHere && !answerInReview && !canDecideReview && (!item.excerpt || isWarning || redacted)
+    body !== null && !normNotice && !answerHere && !answerInReview && !canDecideReview && (!item.excerpt || isWarning || redacted)
   const chatName = item.subject ?? t('inbox.untitledConversation')
   const place =
     item.resourceType === 'conversation' &&
@@ -317,7 +318,9 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
           {/* Two lines when it is the row's only body (what a colleague
               asked, what changed): one cut the sentence in its middle. One
               line under a body, which already said what the row is. */}
-          {item.excerpt && (
+          {normNotice && <InboxNormLines notice={normNotice} body={body} className="mt-1" />}
+
+          {item.excerpt && !normNotice && (
             <Quote
               as="p"
               className={cn(
@@ -348,8 +351,15 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
               — so triage opens the file, it does not pretend to compare. */}
           {canDecideReview && <InboxReviewDecision item={item} reviewClient={reviewClient} onOpen={onOpen} />}
 
-          {canDecideNorm && item.anchorId && (
-            <InboxNormSuggestionDecision proposalId={item.anchorId} client={normDecisionClient} />
+          {normNotice && (
+            <InboxNormActions
+              item={item}
+              notice={normNotice}
+              decisionClient={normDecisionClient}
+              onFollow={(event) => {
+                if (isPlainClick(event)) onOpen?.(item)
+              }}
+            />
           )}
 
           {answerHere && replying && item.anchorId && (

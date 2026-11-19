@@ -1,5 +1,5 @@
 import { getByPath, type Translator } from '@/i18n/translate'
-import { formatDayRange } from '@/lib/format'
+import { formatCalendarDay, formatDayRange } from '@/lib/format'
 import {
   INBOUND_MAIL_EXPIRING_NOTICE_DAYS,
   INBOUND_MAIL_RESTORE_DAYS,
@@ -40,6 +40,8 @@ export function inboxItemCopy(item: InboxItemView, t: Translator, dictionary: un
     actor: item.actorName ?? t('inbox.unknownActor'),
     subject: item.subject ?? t(redacted ? 'inbox.inert' : 'inbox.untitledConversation'),
     related: item.related ?? '',
+    excerpt: item.excerpt ?? '',
+    since: item.since ? formatCalendarDay(item.since, locale) : '',
     count: item.count,
     due: item.dueOn ? formatDayRange(item.dueOn, item.dueOn, locale) : '',
     marks: item.openMarks ?? 0,
