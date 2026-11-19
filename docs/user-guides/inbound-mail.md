@@ -302,32 +302,45 @@ A filed conversation is one document of Dokumentart *Korrespondenz*. Each
 filed e-mail is a section headed with its time, its sender and the confirmed
 domain („14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)“), or „Domain nicht
 bestätigt“ when it was not confirmed. Each section says when it arrived
-(„eingegangen …“). Each later e-mail adds a Fassung, and the newest Fassung
-holds the whole conversation. ARCHOS answers from it and cites one e-mail:
-„laut E-Mail von … vom …“.
+(„eingegangen …“), and, where the e-mail's subject differs from the Verlauf's
+name, its subject („Betreff: Stellplatznachweis – Nachreichung Statik“), so a
+search for the subject you remember from Outlook finds it. Under „Anhänge“ it
+names where each file went („S-101_B.pdf (abgelegt in Pläne/Statik)“). The
+document reads oldest first, like a printed file. Each later e-mail adds a
+Fassung, and the newest Fassung holds the whole conversation. ARCHOS answers
+from it and cites one e-mail: „laut E-Mail von … vom …“.
+
+In Dateien a Verlauf is listed as what it is: an envelope instead of a page,
+its name without „.md“, „3 E-Mails · zuletzt 14.10.2026“ under it and
+„E-Mail-Verlauf“ where other files name their format. Its preview header reads
+„E-Mail-Verlauf · 3 E-Mails“. Neither shows a Freigabe state for a Verlauf:
+its Fassungen are its e-mails, which nobody releases.
 
 A Bescheid that arrived by e-mail is a **copy** („Kopie per E-Mail“), not its
 Zustellung. Fristen run from the Zustellung.
 
 Open the Verlauf in Dateien and choose the **E-Mails** tab in its preview:
 
-- one row per e-mail, newest first: its heading as the document prints it
-  (when it was sent, on the office's clock), when it arrived („eingegangen
-  09:13“, with the date when that was another day), the domain label and how
-  it was filed;
+- one row per e-mail, newest first (the list says so: „Neueste zuerst“): its
+  heading as the document prints it (when it was sent, on the office's
+  clock), when it arrived („eingegangen 09:13“, with the date when that was
+  another day) and beside it **Original (.eml)**, the mail exactly as it
+  arrived (below), then the domain label and how it was filed;
 - its attachments, each linked to the document it became; a note stands under
   the file it is about („lag schon im Projekt“, „nicht abgelegt · {Grund}“),
   and an attachment filed in a folder you cannot see reads „Anhang 4 ·
   abgelegt in einem Ordner, den Sie nicht sehen“;
-- **Original (.eml)**: the mail exactly as it arrived (below);
-- **Was diese E-Mail hinzufügte**: the Verlauf before this e-mail against the
-  Verlauf with it, so you can see that nothing earlier changed;
-- **Herauslösen …**: move an e-mail filed into the wrong conversation into
-  another Verlauf or a new one. The Verlauf gets a new Fassung without it; its
-  earlier Fassungen keep it.
+- in the row's **⋯**: **Was diese E-Mail hinzufügte**, the Verlauf before
+  this e-mail against the Verlauf with it, so you can see that nothing
+  earlier changed („Ausblenden“ closes it), and **Herauslösen …** to move an e-mail filed into the wrong conversation into
+  another Verlauf or a new one (only for whoever may file the project's mail).
+  The Verlauf gets a new Fassung without it; its earlier Fassungen keep it.
 
 A file that came by e-mail shows under its preview header which e-mail it
-came with, and „Im E-Mail-Verlauf ansehen“ leads there.
+came with: „Kam mit der E-Mail von DI Petra Weber am 09.10.2026 · Domain
+bestätigt: statik-weber.at · Im E-Mail-Verlauf ansehen“. The link opens the
+Verlauf with that e-mail marked in its E-Mails tab. Each Fassung under
+„Fassungen und Freigabe“ that an e-mail brought carries the same line.
 
 ## The original (.eml)
 
@@ -357,7 +370,6 @@ same. It is not a notification: nothing is sent to you per reply.
   with no existing folder, or one that needs a look (a macro, a duplicate, a
   file not scanned clean), waits in the E-Mail-Eingang, and the mail shows
   there with only what is left.
-- (The Postfach's notices still call this „folgen“.)
 
 - It runs 60 days; „Verlängern“ extends it, up to 180 days from its start.
   You are told five days before it ends.
@@ -369,8 +381,13 @@ same. It is not a notification: nothing is sent to you per reply.
   project is closed („Das Projekt wurde abgeschlossen“). Reopening the project
   switches nothing on again: it is your own act.
 - The Postfach tells you, once a day per Verlauf, when replies were added
-  („Eine Antwort wurde einem E-Mail-Verlauf in … angefügt“, or „Eine Antwort
-  samt Anhängen wurde in … ohne Klick abgelegt“ when its attachments went too).
+  („Eine Antwort wurde ohne Klick einem E-Mail-Verlauf in … angefügt“, or
+  „Eine Antwort samt Anhängen wurde in … ohne Klick abgelegt“ when its
+  attachments went too); the notice opens the Verlauf, newest e-mail on top.
+  Five days before it ends: „Antworten in einem E-Mail-Verlauf in … werden nur
+  noch 5 Tage ohne Klick abgelegt“; when something else ended it: „… werden
+  nicht mehr ohne Klick abgelegt, weil …“. The notices name the project, not
+  the Verlauf: no subject or file name of a mail reaches a notice or a push.
 - If you pressed **Beenden** and later file another reply of the same Verlauf
   yourself, the Verlauf is followed again.
 

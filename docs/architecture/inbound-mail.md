@@ -608,13 +608,19 @@ nothing, and the run tries again in 15 s:
    `base_subject` and `thread_index_guid`, migration 0251), its Message-IDs
    and one `mail_thread_entry_attachments` row per attachment (D36);
 3. `render.ts` over every entry: one `##` section per message, ordered by the
-   clamped send time, headings that never change;
+   clamped send time, headings that never change, a „Betreff“ line where the
+   entry's own subject differs from the Verlauf's name (render version 4);
 4. the upload, same name, `documentType: 'correspondence'`, in the quiet append
    batch: the next Fassung; `first_version_id` set on every entry that had none;
 5. the original moved: copied to `_mail-originals/<entryId>.eml`, read back,
    SHA-256 checked, recorded on the entry, and only then the staged raw erased
    (`lib/mail-thread/originals.ts`; `original_move_pending_at` makes it
    retry-safe, sweep 13 finishes it).
+
+The documents listing (`toDocumentWireRows`) carries `mailThread: { entryCount,
+lastEntryAt }` for a document that is a Verlauf (`mailThreadsOfDocuments`), so
+Dateien lists it as an E-Mail-Verlauf, not as a `.md` file
+([UX](../ux/inbound-mail.md#a-verlauf-in-dateien)).
 
 `mail-thread-get` lists each entry's attachments by position: a filed one by
 its name when the reader may open its document, and one that was not filed
