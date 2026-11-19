@@ -469,9 +469,15 @@ backend jobs run, Python outside the tested packages (tests load `scripts/` and
 no test names, or no recorded database. A data fixture under `tests/fixtures/`
 adds the tests that name it or one of its directories, as tests read whole
 fixture directories. A non-Python file that a helper or conftest reads (a
-quoted name) runs the full suite, since nothing says which tests load it. Known blind spot: a test that only exercises
-code in a subprocess is selected when its own file changes, not when the code
-it spawns does; the push run is what catches that.
+quoted name) runs the full suite, since nothing says which tests load it. A test
+that runs package code in a subprocess (`sys.executable`, itself or through a
+`*_testing` helper) is invisible to testmon, so any change under a package's
+source, Python or data, adds every such test file; a spawning helper no test
+file connects to runs the full suite. The token ceilings of
+`test_static_prefix_size.py` went unrun on two pull requests that way and
+turned `develop` red on 2026-11-18. Named test files run in their suite's first
+shard; the core suite's include `packages/agent/tests/`, which they silently
+skipped from 2026-10-27 until the same fix.
 
 **The UI suite selects the same way, by import graph.** `vitest related`
 keeps the specs whose imports reach a changed file, split over the same eight
