@@ -321,12 +321,15 @@ the whole PR. Merging or closing a pull request cancels its run too
 (`ci-cancel.yml` joins the same concurrency group): the squash merge's push run
 tests the merged tree, and the PR run's slots go back to the queue.
 
-What this does not give you is a test of each PR against the PR merged just
-before it. GitHub's merge queue does that, by testing the merge group before it
-lands; the push run here is what catches a semantic conflict after the fact,
-and it does catch it before staging. Enabling the queue is a repository setting
-(and for a private repository, a plan question); `ci.yml` would need a
-`merge_group` trigger, and the reuse marker would then hit on every merge.
+A pull request run tests the PR against the develop it branched from, not
+against the PR merged just before it. The merge queue closes that gap. `ci.yml`
+answers its `merge_group` event with a full run (`ci/ci_depth.py`) on the
+queue's merge of develop and the PRs ahead. That run records its tree as green,
+and the push that lands it reuses the result (`ci/reuse_green_run.py`). To use
+it, an owner ticks **Require merge queue** in the `protect-develop` ruleset
+(Settings → Rules → Rulesets), with `CI OK` as the required check. The
+release-notes push uses `RELEASE_PAT`, an admin's token, and admins bypass the
+queue.
 
 ## Runner slots are the budget
 
@@ -545,7 +548,7 @@ Checked against GitHub's feature set on 2026-10-09.
 | Actions pinned by commit SHA | Used | A tag can be moved after review (tj-actions/changed-files, March 2025). Dependabot bumps the SHA and its version comment, workflows and composite actions both. A test and Semgrep's `github-actions-mutable-action-tag` rule refuse a tag |
 | Job-scoped `GITHUB_TOKEN` permissions | Used | Read-only by default; only `image-push` and `publish` can write packages |
 | Caching | Used where measured | pre-commit envs, uv, npm, Astro assets, trivy layers. Not `bun install`: 8 seconds cold, so a cache restore would buy nothing |
-| Merge queue | **Not used: plan** | Would test each PR on top of the one merged before it. Needs the `merge_group` trigger and, for a private repository, GitHub Enterprise Cloud |
+| Merge queue | **Ready, off until an owner enables it** | Tests each PR on top of the ones queued before it, with the full suite. `ci.yml` answers `merge_group`; the switch is **Require merge queue** in the `protect-develop` ruleset |
 | Artifact attestations | **Not used: plan** | Signed provenance for the images. Private repositories need GitHub Enterprise Cloud |
 | OIDC to Pulumi Cloud | **Not used: your setting** | Would replace the stored `PULUMI_ACCESS_TOKEN` with a short-lived token per job. [cd.md](../deployment/cd.md#3-github-environments-settings--environments) has the steps |
 | Environment branch policies | **Your setting** | `staging` deploys only from `develop`, `production` only from `prod`, and the token is an environment secret, not a repository one. [cd.md](../deployment/cd.md#3-github-environments-settings--environments) |
