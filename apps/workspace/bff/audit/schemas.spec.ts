@@ -138,6 +138,7 @@ describe('audit schema coverage', () => {
         'inbound_mail.original_read',
         'inbound_mail.part_read',
         'inbound_mail.received',
+        'inbound_mail.reported',
         'inbound_mail_address.created',
         'inbound_mail_address.deleted',
         'inbound_mail_address.forwards_changed',

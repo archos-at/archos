@@ -92,6 +92,8 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
     'A correlated count beside the thread document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
   'lib/inbound-mail/review-read-repository.ts#findCandidateDocuments|documentVersions':
     'A correlated count beside the document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
+  'lib/inbound-mail/receive-repository.ts#findScreenedRevisionCandidates|documentVersions':
+    'The newest version time orders the documents the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A timestamp, no fact.',
   'lib/documents/version-repository/lookup.ts#listDocumentVersions|documentVersions':
     'The version list and the last refusers, after `getAccessibleDocument` / `findDocumentForSession` read the document.',
   'lib/documents/version-repository/lookup.ts#findDocumentVersion|documentVersions':
