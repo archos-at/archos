@@ -6,7 +6,7 @@ import { recordMailThreadMatchScore, type ThreadChoice } from '@/lib/langfuse/ma
 import { senderEvidenceOf } from './candidates'
 import type { InboundMailDecisionVia } from './inbound-mail-vocabulary'
 import type { InboundMailDecision } from './inbound-mail-wire'
-import { decidedSuggestions, suggestionFollowed, type SuggestionFollowed } from './suggest'
+import { decidedSuggestions, isJudged, suggestionFollowed, type SuggestionFollowed } from './suggest'
 
 export interface MailDecisionToScore {
   organizationId: string
@@ -22,7 +22,7 @@ export interface MailDecisionToScore {
 export function scoreMailDecision(input: MailDecisionToScore): SuggestionFollowed {
   const decided = decidedSuggestions(input.parts, input.decision, input.folderPathOf)
   for (const entry of decided) {
-    if (!entry.traceId) continue
+    if (!entry.traceId || !isJudged(entry.outcome)) continue
     void recordDecisionScore({
       organizationId: input.organizationId,
       subject: 'inbound_mail_suggestion',

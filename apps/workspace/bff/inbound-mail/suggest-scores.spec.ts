@@ -68,10 +68,24 @@ describe('scoreMailDecision', () => {
     )
   })
 
-  it('dismisses every suggestion of a mail dismissed whole, and scores no Verlauf', () => {
-    expect(scoreMailDecision(input({ decision: null }))).toBe('none')
-    expect(vi.mocked(recordDecisionScore).mock.calls[0][0]).toMatchObject({ decision: 'dismissed', detail: { folder: 'not_filed' } })
+  it('scores nothing for a mail dismissed whole: discarding junk is no verdict on where it would have gone', () => {
+    expect(scoreMailDecision(input({ decision: null }))).toBe('not_judged')
+    expect(recordDecisionScore).not.toHaveBeenCalled()
     expect(recordMailThreadMatchScore).not.toHaveBeenCalled()
+  })
+
+  it('scores a part left unfiled not at all, and the rest as decided', () => {
+    const other = filePart({ id: 'p2', position: 2, suggestion: SUGGESTION, suggestionTraceId: TRACE })
+    expect(scoreMailDecision(input({ parts: [textPart(), filePart({ suggestion: SUGGESTION, suggestionTraceId: TRACE }), other] }))).toBe('all')
+    expect(vi.mocked(recordDecisionScore).mock.calls.map(([call]) => call.subjectId)).toEqual([FILE_PART_ID])
+  })
+
+  it('scores a text appended to a Verlauf as no verdict on its suggested folder', () => {
+    const text = textPart({ suggestion: { ...SUGGESTION, documentType: null }, suggestionTraceId: TRACE })
+    expect(scoreMailDecision(input({ mail: heldMail({ threadMatch: [] }), parts: [text], decision: { parts: [], message: input().decision?.message ?? null } }))).toBe(
+      'not_judged',
+    )
+    expect(recordDecisionScore).not.toHaveBeenCalled()
   })
 
   it('writes no decision score for a suggestion without a trace, and answers no_suggestion without one', () => {

@@ -1,0 +1,7 @@
+---
+improvements:
+  - >
+    In the E-Mail-Eingang, ARCHOS now also suggests a folder and a Dokumentart
+    for mail whose sender's domain did not confirm it, which is most mail from
+    outside the office. You still file it yourself, with fewer folders to pick
+    by hand.

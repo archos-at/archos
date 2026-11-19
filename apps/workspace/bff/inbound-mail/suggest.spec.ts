@@ -31,7 +31,7 @@ import {
 } from './suggest'
 
 const FOLDERS: FilingFolderInput[] = [{ path: 'Tragwerk', description: 'Statik und Tragwerksplanung', docTypes: ['Gutachten'] }]
-const CONTEXT = { maskedSubject: 'AW: Statik Einreichung', folders: FOLDERS, conventions: [], locale: 'de' }
+const CONTEXT = { mask: (written: string) => written, folders: FOLDERS, conventions: [], locale: 'de' }
 
 const OWN_TEXT = 'Sehr geehrte Frau Architektin, anbei die Statik. Das Honorar überweisen Sie bitte auf AT61 1904 3002 3457 3201.'
 
@@ -41,9 +41,17 @@ describe('who is asked about', () => {
     expect(suggestionSkipReason(heldMail({ senderTrust: 'external_verified' }))).toBeNull()
   })
 
-  it('never about an unconfirmed sender, automatic mail, or a mail that no longer waits', () => {
-    expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified' }))).toBe('external_unverified')
+  it('asks about an unconfirmed sender too: a suggestion only pre-fills what a person still files', () => {
+    expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_none' }))).toBeNull()
+    expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_unaligned' }))).toBeNull()
+    expect(suggestionSkipReason(heldMail({ senderTrust: 'member_unverified', senderReason: 'dkim_none' }))).toBeNull()
+  })
+
+  it('never about automatic mail, or a mail that no longer waits', () => {
     expect(suggestionSkipReason(heldMail({ automatic: true }))).toBe('automatic')
+    expect(suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_none', automatic: true }))).toBe(
+      'automatic',
+    )
     expect(suggestionSkipReason(heldMail({ status: 'settled' }))).toBe('not_waiting')
     expect(suggestionSkipReason(heldMail({ senderTrust: null }))).toBe('not_waiting')
   })
@@ -54,7 +62,9 @@ describe('who is asked about', () => {
     expect(
       suggestionSkipReason(heldMail({ senderTrust: 'external_verified', senderUserId: null, senderFlags: ['claims_member_name'] })),
     ).toBe('impersonation')
-    expect(suggestionSkipReason(heldMail({ senderTrust: 'member_unverified', senderReason: 'dkim_none' }))).toBe('member_unverified')
+    expect(
+      suggestionSkipReason(heldMail({ senderTrust: 'external_unverified', senderUserId: null, senderReason: 'dkim_none', senderFlags: ['claims_member_name'] })),
+    ).toBe('impersonation')
   })
 })
 
@@ -93,13 +103,14 @@ describe('what the model reads (D21): names and labels, never the text or the by
   const mail = heldMail({ threadMatch: [], senderName: 'DI Petra Weber' })
   const parts = [textPart({ sha256: 'd'.repeat(64) }), filePart()]
 
-  it('sends the attachment names, the masked subject, the sender’s domain and the folders, nothing else', () => {
-    const input = mailFilingInput(mail, parts, { ...CONTEXT, maskedSubject: 'AW: Statik ███' })
+  it('sends the attachment names and the subject masked, the sender’s domain and the folders, nothing else', () => {
+    const mask = (written: string) => written.replace('Einreichung', '███').replace('S-101', '███')
+    const input = mailFilingInput(mail, parts, { ...CONTEXT, mask })
     expect(input).toEqual({
       locale: 'de',
       folders: FOLDERS,
       conventions: [],
-      attachments: [{ id: FILE_PART_ID, file: 'S-101_C.pdf' }],
+      attachments: [{ id: FILE_PART_ID, file: '███_C.pdf' }],
       mail: { subject: 'AW: Statik ███', senderDomain: 'statik-weber.at', textId: TEXT_PART_ID },
       trace: { mailId: mail.id, projectId: mail.projectId, senderClass: mail.senderClass },
     })
@@ -162,12 +173,15 @@ describe('whether a decision followed it', () => {
     expect(suggestionOutcome(suggestion, placed)).toEqual({ decision: 'accepted', folder: 'same', type: 'same' })
   })
 
-  it('is dismissed when another folder, another Dokumentart, or nothing was chosen, and says which', () => {
+  it('is dismissed when another folder or another Dokumentart was chosen, and says which', () => {
     const elsewhere = decidedPlacements(decision({ parts: [{ ...decision().parts[0], folderId: 'other' }] }), pathOf)
     expect(suggestionOutcome(suggestion, elsewhere.get(FILE_PART_ID) ?? null)).toEqual({ decision: 'dismissed', folder: 'other', type: 'same' })
     const retyped = decidedPlacements(decision({ parts: [{ ...decision().parts[0], documentType: 'Vertrag' }] }), pathOf)
     expect(suggestionOutcome(suggestion, retyped.get(FILE_PART_ID) ?? null)).toEqual({ decision: 'dismissed', folder: 'same', type: 'other' })
-    expect(suggestionOutcome(suggestion, null)).toEqual({ decision: 'dismissed', folder: 'not_filed', type: 'other' })
+  })
+
+  it('is no judgement of the folder when the part was not filed: dismissed junk is not a wrong suggestion', () => {
+    expect(suggestionOutcome(suggestion, null)).toEqual({ decision: 'not_judged', folder: 'not_filed', type: 'none' })
   })
 
   it('matches a new folder by its path, whatever its spelling', () => {
@@ -179,19 +193,19 @@ describe('whether a decision followed it', () => {
     expect(suggestionOutcome(convention, placed.get(FILE_PART_ID) ?? null)).toEqual({ decision: 'accepted', folder: 'same', type: 'none' })
   })
 
-  it('reads the text as filed into a new Verlauf’s folder, and an append as another place', () => {
+  it('reads the text as filed into a new Verlauf’s folder, and an append as its own outcome, not a wrong folder', () => {
     const create = decidedPlacements(
       decision({ parts: [], message: { partId: TEXT_PART_ID, text: 'full', thread: { action: 'create', folderId: FOLDER_ID, newFolderPath: null, name: 'Statik' } } }),
       pathOf,
     )
-    expect(create.get(TEXT_PART_ID)).toEqual({ folderPath: 'Tragwerk', documentType: 'correspondence' })
+    expect(create.get(TEXT_PART_ID)).toEqual({ into: 'folder', folderPath: 'Tragwerk', documentType: 'correspondence' })
     const append = decidedPlacements(
       decision({ parts: [], message: { partId: TEXT_PART_ID, text: 'full', thread: { action: 'append', mailThreadId: THREAD_ID } } }),
       pathOf,
     )
-    expect(append.get(TEXT_PART_ID)).toEqual({ folderPath: null, documentType: 'correspondence' })
+    expect(append.get(TEXT_PART_ID)).toEqual({ into: 'thread' })
     const text: InboundMailSuggestion = { ...suggestion, documentType: null }
-    expect(suggestionOutcome(text, append.get(TEXT_PART_ID) ?? null).decision).toBe('dismissed')
+    expect(suggestionOutcome(text, append.get(TEXT_PART_ID) ?? null)).toEqual({ decision: 'not_judged', folder: 'thread', type: 'none' })
   })
 
   it('scores only waiting parts with a suggestion, each on its own trace', () => {
@@ -214,5 +228,14 @@ describe('whether a decision followed it', () => {
     expect(suggestionFollowed([accepted, accepted])).toBe('all')
     expect(suggestionFollowed([accepted, dismissed])).toBe('partly')
     expect(suggestionFollowed([dismissed])).toBe('none')
+  })
+
+  it('counts only judged parts: a dismissed mail or a thread append is not a rejection', () => {
+    const accepted = { decision: 'accepted', folder: 'same', type: 'same' } as const
+    const notFiled = { decision: 'not_judged', folder: 'not_filed', type: 'none' } as const
+    const appended = { decision: 'not_judged', folder: 'thread', type: 'none' } as const
+    expect(suggestionFollowed([accepted, notFiled, appended])).toBe('all')
+    expect(suggestionFollowed([notFiled, notFiled])).toBe('not_judged')
+    expect(suggestionFollowed([appended])).toBe('not_judged')
   })
 })

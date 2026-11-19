@@ -74,6 +74,7 @@ export function mailThreadMatchBatch(record: MailThreadMatchRecord, eventIds: [s
           id: traceId,
           timestamp,
           name: MAIL_THREAD_MATCH_SCORE_NAME,
+          sessionId: record.mailId,
           metadata,
           tags: ['feature:inbound-mail', `strength:${strongest.strength}`, `via:${record.via}`, ...deploymentTags()],
           ...(env ? { environment: env } : {}),

@@ -418,13 +418,13 @@ describe('the receive job holds a mail for a person', () => {
     expect(heldRow().senderReason).not.toBe('dkim_pass')
   })
 
-  it('labels an unsigned stranger external_unverified and spends no model on it', async () => {
+  it('labels an unsigned stranger external_unverified and still asks for a suggestion', async () => {
     receive(message(BODY, { From: 'Wer Auch Immer <x@stranger.example>' }))
 
     await run()
 
     expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'external_unverified', senderUserId: null })
-    expect(jobKinds()).not.toContain('inbound_mail_suggest')
+    expect(jobKinds()).toContain('inbound_mail_suggest')
     expect(announceWaiting).toHaveBeenCalledTimes(1)
   })
 
