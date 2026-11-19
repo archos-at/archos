@@ -825,6 +825,15 @@ export const collaboration = {
       stale: 'Someone decided first. The current revision is in the file.',
       reload: 'Open current revision',
     },
+    normSuggestion: {
+      accept: 'Take into the office filing',
+      decline: 'Decline',
+      visibility: 'Everyone in the office can see it then.',
+      accepted: 'Now in the office filing. The project keeps a reference.',
+      declined: 'Declined. The norm stays in the project.',
+      failed: 'That did not go through: {reason}',
+      stale: 'Someone has already decided.',
+    },
   },
 
   thread: {

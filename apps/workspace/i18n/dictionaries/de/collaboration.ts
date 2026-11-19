@@ -833,6 +833,15 @@ export const collaboration: typeof en.collaboration = {
       stale: 'Jemand hat zuerst entschieden – die aktuelle Fassung liegt in der Datei.',
       reload: 'Aktuelle Fassung öffnen',
     },
+    normSuggestion: {
+      accept: 'In die Büroablage übernehmen',
+      decline: 'Ablehnen',
+      visibility: 'Danach ist sie für alle im Büro sichtbar.',
+      accepted: 'Liegt jetzt in der Büroablage. Das Projekt behält einen Verweis.',
+      declined: 'Abgelehnt. Die Norm bleibt im Projekt.',
+      failed: 'Das hat nicht geklappt: {reason}',
+      stale: 'Jemand hat schon entschieden.',
+    },
   },
 
   thread: {
