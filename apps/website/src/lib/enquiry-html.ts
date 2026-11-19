@@ -23,11 +23,14 @@ function block(tokensCss: string, selector: string): string {
   return tokensCss.slice(start, tokensCss.indexOf('}', start));
 }
 
+const COLOUR_VARIABLE = /--([a-z-]+):\s*(#[0-9a-fA-F]{3,8})\s*;/g;
+
 function theme(css: string): Theme {
+  const colours = new Map([...css.matchAll(COLOUR_VARIABLE)].map(([, name, value]) => [name, value]));
   const colour = (name: string) => {
-    const match = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{3,8})\\s*;`));
-    if (!match) throw new Error(`tokens.css has no --${name} colour`);
-    return match[1];
+    const value = colours.get(name);
+    if (!value) throw new Error(`tokens.css has no --${name} colour`);
+    return value;
   };
   return {
     surface: colour('surface'),
