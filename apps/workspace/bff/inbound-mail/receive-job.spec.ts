@@ -549,7 +549,7 @@ describe('automatic mail', () => {
   })
 
   it('records a drop whose erasure the store refused, and leaves the raw key to the released-erasure sweep', async () => {
-    vi.mocked(eraseStagedObjects).mockImplementationOnce(async (_bucket: string, keys: string[]) => keys)
+    vi.mocked(eraseStagedObjects).mockImplementationOnce(async (_bucket: string, keys: readonly string[]) => [...keys])
     receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))
 
     await run(LAST)
