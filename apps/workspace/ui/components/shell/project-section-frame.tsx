@@ -17,6 +17,7 @@ import { ArrowLeft, ChevronRight, FolderOpen, ListTodo, Mail, Trash2 } from 'luc
 import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
+import { filesCopy } from '@/i18n/namespaces/files'
 import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
 import { PHONE_QUERY } from '@/hooks/use-is-mobile'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -177,6 +178,7 @@ function BreakableName({ text }: { text: string }): JSX.Element {
 
 function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; inboundMail: boolean; pathname: string }): JSX.Element {
   const t = useTranslations(navCopy)
+  const tFiles = useTranslations(filesCopy)
   const waiting = useInboundMailWaitingShown(inboundMail ? projectId : null)
   const base = `/app/projects/${projectId}/files`
   const items: SectionNavItem[] = [
@@ -189,7 +191,8 @@ function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; in
             icon: Mail,
             label: t('subpages.files/mail.title'),
             count: waiting.count,
-            countLabel: waiting.count ? t('inboundMailWaiting', { count: waiting.count }) : undefined,
+            countMore: waiting.more,
+            countLabel: waiting.count ? (waiting.more ? tFiles('inboundMail.waitingLineMore', { count: waiting.count }) : t('inboundMailWaiting', { count: waiting.count })) : undefined,
           },
         ]
       : []),
