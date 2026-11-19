@@ -100,7 +100,7 @@ Listed in the cheatsheet only for offices with project mail:
 | **Enter** | Open the mail |
 | **X** | Select the mail for a bulk action (never a mail that poses as someone) |
 | **Space** | Preview the attachment |
-| **E** | File as shown („Wie gezeigt ablegen“) |
+| **E** | Review and file, and in its overview: file („Einordnen“, in der Übersicht „Ablegen“) |
 | **⌫** | Dismiss the mail |
 
 ## The command palette

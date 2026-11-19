@@ -1,6 +1,6 @@
 # Project mail: the E-Mail-Eingang, the E-Mails tab and provenance
 
-**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words 2026-11-19 (round 2)
+**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words 2026-11-19 (round 2); the mail read in the pane and filed through „Einordnen“ 2026-11-19 (round 3)
 **Status:** Implemented, the W1 rework included
 **Surfaces:** Dateien › E-Mail-Eingang (`/app/projects/[id]/files/mail`, `…/mail/[mailId]`), the address dialog and the settings card, the „E-Mails“ tab of a Verlauf's preview, the provenance row of a document that came by mail, the Postfach rows
 **Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…`, `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip. The variant lists are in each page's header.
@@ -273,97 +273,156 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    Plain text only. A link stays inert text; after it stand its domain in ink
    („→ dropbox.com“, so a look-alike host shows itself on a phone, which has no
    hover) and „Kopieren“ (`CopyableValue`), which copies the whole address.
-3. The „E-Mail-Text“ row: a checkbox and the target („An E-Mail-Verlauf „…“
-   anfügen“, „Als neuen E-Mail-Verlauf ablegen“ with a name field and
-   „Ordner: Korrespondenz“ beside one „Ändern“; the arrow chip „→ Korrespondenz“
-   read as neither a label nor a press). When the mail's own text says
-   something (six words or more, `substantiveText`), the row reads „Den
-   E-Mail-Text mit ablegen (empfohlen)“; unchecked, the bar names it among what
-   „Ablegen“ dismisses, in ink with the warning glyph. Which part is preselected
-   stays the server's (`preselected`). A matching Verlauf in a folder the
-   reader cannot see says what to do: „Ein weiterer passender E-Mail-Verlauf
-   liegt in einem Ordner, den Sie nicht sehen. Gehört die E-Mail dorthin,
-   lassen Sie sie für jemanden liegen, der ihn sieht.“
-   When the text has content findings, they are one more question inside this
-   row, under its target (`ContentFindingChoice`): „Im Text steht: IBAN, …“,
-   „Die Inhaltsprüfung hält solche Angaben von {productName} fern, bis jemand
-   sie prüft.“, then „Unkenntlich machen“ (selected) or „Ungekürzt ablegen“,
-   whose hint names what it holds back: „… den ganzen E-Mail-Verlauf „X“ …
-   Als neuer E-Mail-Verlauf abgelegt, bleibt „X“ frei.“ or „… den neuen
-   E-Mail-Verlauf …“. The three choices of round 1 („Getrennt ablegen (eigener
-   E-Mail-Verlauf)“ beside a selected „In E-Mail-Verlauf …“) read as two
-   decisions that contradicted each other; „getrennt“ is „Ungekürzt“ with „Als
-   neuen E-Mail-Verlauf ablegen“, the same request (`text: 'full'`,
-   `thread.action: 'create'`).
-4. „Anhänge“: on its heading, with two or more attachments to file, the count
-   once, „{n} von {m} ausgewählt“, then „Alle auswählen“ / „Alle abwählen“ and
-   „Ausgewählte in einen Ordner …“ (the folder picker; one choice sets the
-   folder of every ticked attachment, a ticked next Fassung stays with its
-   document, and a live region says „{n} Anhänge kommen nach „{Ordner}“.“).
-   Two counts on two presses made the reader lose count. Per row: checkbox,
+3. „Anhänge“, read only (`AttachmentLine`, `attachment-line.tsx`): per row the
    thumbnail (clean images and PDFs only, drawn client-side in the sandboxed
    viewer; Office files show their tile), the name, „{Typ} · {Größe} ·
-   Vorschau“ on a clean PDF or picture, the agent's suggestion, and the case
-   notes (duplicate, revision, name stop, macro, type mismatch, not accepted,
-   not staged). Where it goes is said as labelled facts, never as two chips
-   that look alike (`PlaceFact`): „Ordner: Behörde/Bescheide“ (the whole path,
-   the one the agent's reason names; „neuer Ordner“ when filing creates it;
-   „Ordner: noch keiner“), „Dokumentart: Bescheid“, „Name: …“ when renamed.
-   One press changes them: „Ändern“ opens the dialog, which holds the folder
-   too („Anderen Ordner wählen …“; a next Fassung stays in its document's
-   folder), and while there is no folder the press is „Ordner wählen“, never
-   both side by side. An unverified next Fassung says why it is only a guess:
-   „könnte Fassung {N} von {Name} sein, aber nur der Dateiname spricht dafür“
-   (it said „Absender nicht überprüfbar“ under a header saying the domain was
-   confirmed). An attachment the defaults left unticked for a reason a person
-   should weigh (`asksForDecision`: selectable, not preselected, not a copy the
-   project has, not a picture in the text) says so in ink with an ochre glyph:
-   „Nicht vorausgewählt: Ohne Häkchen wird die Datei beim Ablegen
-   verworfen.“ The parts that cannot be filed one by one are listed without a
-   suffix each, and one line under them says where they are: „Diese Dateien
-   stecken nur im Original (.eml): Laden Sie es oben unter „Details“ herunter.
-   Mit dem E-Mail-Text abgelegt, bleibt es beim E-Mail-Verlauf.“
-   „Vorschau“ (and Space, from the list) opens the attachment large: a PDF in
-   the app's own viewer (`PdfDocumentView`: every page, the page steps, zoom,
-   search; pdf.js draws it, nothing of it runs), a picture whole; full screen
-   on a phone; with more than one, „Anhang 2 von 5“, „Voriger“ / „Nächster“
-   and ← →. Closing it, and closing „Ändern“, hands the focus back to the
-   press that opened it. A clean attachment
+   Vorschau“ on a clean PDF or picture, a scan or failure line where there is
+   one, and **one muted phrase of what filing does with it**, in the words
+   „Übersicht“ uses (`usePlanWords`, `plan-words.tsx`, from `planLines` in
+   `lib/filing-plan.ts`): „Kommt nach Behörde/Bescheide · Bescheid“, „Wird
+   Fassung 4 von S-101_C.pdf“, „Bleibt weg – liegt schon im Projekt“, „Noch
+   kein Ordner“. Until the person has seen „Übersicht“ once, a part that asks
+   for a decision says so instead (`attachmentOpenReason`): „Offen: Ordner
+   wählen“, „Offen: {productName} liest noch …“, „Offen: könnte Fassung 4 von
+   S-101_C.pdf sein“, „Offen: nicht vorausgewählt“, „Offen: Namensprüfung“,
+   „Offen: Warnung prüfen“. **The pane has no checkbox, radio, chip or per-row
+   press** but „Vorschau“ (pinned in `brand-literals.spec.ts`, „the mail is
+   read, „Einordnen“ edits“): round 2's pane, with every control of the
+   filing beside the mail, was still too much at once for the owner. The
+   parts that cannot be filed one by one are listed without a suffix each,
+   and one line under them says where they are: „Diese Dateien stecken nur im
+   Original (.eml): Laden Sie es oben unter „Details“ herunter. Mit dem
+   E-Mail-Text abgelegt, bleibt es beim E-Mail-Verlauf.“ A text that cannot be
+   filed says why under the text (`MessageFacts`: unreadable, the original's
+   scan, „Liegt schon in einem E-Mail-Verlauf“). „Vorschau“ (and Space, from
+   the list) opens the attachment large: a PDF in the app's own viewer
+   (`PdfDocumentView`: every page, the page steps, zoom, search; pdf.js draws
+   it, nothing of it runs), a picture whole; full screen on a phone; with
+   more than one, „Anhang 2 von 5“, „Voriger“ / „Nächster“ and ← →. Closing
+   it hands the focus back to the press that opened it. A clean attachment
    says nothing about its scan; „Wird auf Schadsoftware geprüft …“, „Prüfung
    fehlgeschlagen, wird wiederholt“ and „Schadsoftware gefunden · lässt sich
    nicht ablegen“ still show.
-5. The decision bar, pinned and safe-area padded, says what one press does
-   (`planLabel`, `leftLabel`, `draftSummary`'s `textPlan`, `filesPlan`, `left`,
-   `undecided`, `dismissErases`), in three lines left of the presses on a desk
-   and above them on a phone: what „Ablegen“ files, in ink („E-Mail-Text an
-   E-Mail-Verlauf „Stellplatznachweis“ anfügen · 4 Anhänge in 2 Ordner
-   ablegen“; one file by name, „Bescheid….pdf in Behörde/Bescheide ablegen“ or
-   „S-101_D.pdf als Fassung 4 von S-101_C.pdf ablegen“; „ (Fundstellen
-   unkenntlich)“ after a masked text; at most two lines, it is the press's
-   description); what „Ablegen“ dismisses with it, because the server
-   dismisses every waiting part not ticked (`writeMailDecisions`):
-   „Nicht ausgewählt, beim Ablegen verworfen: E-Mail-Text samt Original,
-   S-101_D.pdf“ (names while one or two files, else „{n} Anhänge“), muted, and
-   in ink with the warning glyph when it holds the mail's own words or an
-   attachment that asks for a decision; and what „Verwerfen“ does, which the
-   reader asked about her Outlook: „Verwerfen wirkt nur in {productName}, nicht
-   im Mailprogramm, und lässt sich 7 Tage lang wiederherstellen.“, for an
-   unconfirmed outsider „… Bei einem nicht überprüfbaren Absender ist
-   Verworfenes gleich gelöscht.“ (`dismissErases`; that dismissal's toast
-   offers no „Rückgängig“). Then „Verwerfen“ and „Ablegen“ side by side, on a
-   phone too (the primary the wider, nearest the thumb).
-   „Ich kenne den Absender und vertraue dieser E-Mail“ (the member's own: „Ja,
-   ich habe diese E-Mail gesendet“; a colleague's checked by another writer:
-   „Ich habe geprüft, dass diese E-Mail von {Name} ist“; a forgery's: „Ich habe
-   telefonisch geprüft, dass die E-Mail echt ist“) only where the server asks
-   for `acknowledgeSender`; no confirmation ends in „Ablegen“, which read as if
-   ticking filed. Every confirmation says what the person affirms, never
-   one „Trotzdem ablegen“ for six things: „Ich vertraue dem Absender dieser
-   Datei“ (macro, type mismatch), „Ich bin sicher, dass es die nächste Fassung
-   ist“; „Trotzdem ablegen“ is left to the Namensprüfung, whose word it is. A
-   confirmation's whole row is its label, 44px tall under a coarse pointer. „E“
-   with a blocker files nothing and says the first blocker in a `role="status"`
-   region. A colleague of a claimed mail gets `ClaimedMailBar` instead (above).
+4. The decision bar, pinned and safe-area padded (`DecisionBar`): **one
+   primary, „Einordnen …“**, and „Verwerfen“ beside it, on a phone too (the
+   primary the wider, nearest the thumb). On a desk one ink line left of the
+   presses says what the primary does: „Zeigt zuerst, was wohin kommt.
+   Abgelegt wird erst, wenn Sie es bestätigen.“, or „2 Fragen, dann die
+   Übersicht. …“ when „Einordnen“ asks some; under it, muted, what
+   „Verwerfen“ does, which the reader asked about her Outlook: „Verwerfen
+   wirkt nur in {productName}, nicht im Mailprogramm, und lässt sich 7 Tage
+   lang wiederherstellen.“, for an unconfirmed outsider „… Bei einem nicht
+   überprüfbaren Absender ist Verworfenes gleich gelöscht.“ (`dismissErases`;
+   that dismissal's toast offers no „Rückgängig“). On a phone only that
+   second line stands over the two presses. Where nothing can be filed (a
+   closed project, an infected original with nothing else), „Verwerfen“ is
+   the one press and the primary. While a batch is selected in the list,
+   „Einordnen …“ yields to the batch bar's primary and „Verwerfen“ stands
+   down. A colleague of a claimed mail gets `ClaimedMailBar` instead (above).
+5. **„Einordnen“** (`FilingDialog`, `filing-dialog.tsx`): the kit's `Dialog`,
+   full screen on a phone (`fullScreenOnMobile`) with its presses pinned at
+   the foot, opened on the agent's proposal (`initialDraft`: the server's
+   defaults and the agent's suggestion). It asks **only the steps the draft
+   needs** (`filingSteps`, `lib/filing-plan.ts`), in this order, one question
+   per screen, „Schritt 2 von 3“ above the question only when there are two
+   or more:
+   1. „Absender“ when the server asks for `acknowledgeSender`
+      (`senderNeedsDecision`): the sender's name, address and verdict, the
+      flags, and the one confirmation, worded as before: „Ich kenne den
+      Absender und vertraue dieser E-Mail“, for the member's own „Ja, ich
+      habe diese E-Mail gesendet“, a colleague's checked by another writer
+      „Ich habe geprüft, dass diese E-Mail von {Name} ist“
+      (`claimedWriter`), a forgery's „Ich habe telefonisch geprüft, dass die
+      E-Mail echt ist“. The question is the title („Kennen Sie den
+      Absender?“, „Haben Sie diese E-Mail gesendet?“, „Ist diese E-Mail von
+      {Name}?“, „Haben Sie telefonisch geprüft, dass die E-Mail echt ist?“);
+      „Weiter“ waits for the tick. A confirmation's whole row is its label,
+      44px tall under a coarse pointer.
+   2. „E-Mail-Text“ when an E-Mail-Verlauf could be chosen but none is
+      preselected, the chosen one is an unsure match (`blocks`), or the
+      text has content findings (`textNeedsDecision`). A new E-Mail-Verlauf
+      with no existing one to choose instead is the proposal, not a
+      question (the owner: no step only to confirm a proposal). The step is
+      the text's row as before (`MessageRow`): „Den E-Mail-Text mit ablegen
+      (empfohlen)“ when the text says something (`substantiveText`), „An
+      E-Mail-Verlauf „…“ anfügen“ per candidate with its doubt, „Als neuen
+      E-Mail-Verlauf ablegen“ with a name field and „Ordner: Korrespondenz“
+      beside one „Ändern“, the hidden candidate's line („Ein weiterer
+      passender E-Mail-Verlauf liegt in einem Ordner, den Sie nicht sehen.
+      …“), and the content findings' one question under the target
+      (`ContentFindingChoice`: „Im Text steht: IBAN, …“, „Unkenntlich
+      machen“ selected or „Ungekürzt ablegen“, whose hint names what it holds
+      back).
+   3. „Anhänge“ for the attachments that need a decision
+      (`openAttachmentIds`: no folder, a suggestion still pending, an unsure
+      next Fassung, not preselected for a reason a person weighs
+      (`asksForDecision`), a name stop or a risk not confirmed). The title
+      is „Wohin kommt dieser Anhang?“ while each only lacks a folder, „Was
+      geschieht mit diesem Anhang?“ / „… diesen 2 Anhängen?“ while one is a
+      „whether“. Each is the editing row as before (`AttachmentRow`:
+      checkbox, case notes, „Ordner: …“, „Dokumentart: …“, „Ändern“ with the
+      target dialog, the confirmations „Ich vertraue dem Absender dieser
+      Datei“, „Ich bin sicher, dass es die nächste Fassung ist“, „Trotzdem
+      ablegen“). **An attachment without any folder is answered in the
+      step** (`FolderChoice`, `folder-choice.tsx`; `folderlessIds`): the
+      project's folders inline (`FolderPickerList`, the body of the
+      documents' `FolderPickerSheet`, searchable), under up to four likely
+      folders first (`quickPicks`: the agent's suggestion, the folders this
+      mail's other attachments go to, where a plan's earlier Fassung lies).
+      With two or more it reads „Alle 3 in diesen Ordner“ and one pick sends
+      every ticked one there (`fileAllInto`; none ticked, it ticks and sends
+      them all), so a plan set from an unknown sender is one choice. The
+      attachments with a sure proposal are folded under „4 weitere wie
+      vorgeschlagen · Ändern“; opened, and whenever every row shows, the
+      heading's „Alle auswählen“ / „Alle abwählen“ and „Ausgewählte in einen
+      Ordner …“ (with „{n} von {m} ausgewählt“) apply to all.
+   4. „Übersicht“, always: „So wird die E-Mail abgelegt“ and one sentence per
+      waiting part (`planLines`), the part first: „E-Mail-Text → an
+      E-Mail-Verlauf „Stellplatznachweis“ anfügen“ (with „ (Fundstellen
+      unkenntlich)“ after a masked text), „E-Mail-Text → als neuen
+      E-Mail-Verlauf „…“ in Korrespondenz ablegen“, „Bescheid_MA37.pdf →
+      Behörde/Bescheide · Bescheid“, „S-101_D.pdf → Fassung 4 von
+      S-101_C.pdf“, „Foto_Baustelle.jpg → Fotos (neuer Ordner) · Foto“,
+      „Angebot_2026.pdf → noch kein Ordner“, „Bescheid_alt.pdf bleibt weg –
+      liegt schon im Projekt“, „E-Mail-Text bleibt weg, samt Original“, and
+      for a part filing cannot take „bleibt weg – wird noch auf
+      Schadsoftware geprüft“, „– Schadsoftware gefunden“, „– lässt sich nicht
+      ablegen“. When the text goes into an E-Mail-Verlauf and its sender
+      could be followed (`followOffered`), one quiet line under it:
+      „Weitere Antworten in diesem E-Mail-Verlauf legt {productName} ohne
+      Klick ab.“ (filing a text starts the follow; stopping it stays in the
+      E-Mails tab). „E-Mail-Text ändern“ and „Anhänge ändern“ add that step
+      when it was not asked. Then, truthfully, what pressing does to the rest,
+      because the server dismisses every waiting part not in the decision
+      (`writeMailDecisions`): „Was „bleibt weg“, verwirft {productName} beim
+      Ablegen. Wiederherstellen lässt es sich 7 Tage lang.“, for an
+      unconfirmed outsider (`dismissalIsFinal`) „… Bei einem nicht
+      überprüfbaren Absender ist es damit gelöscht.“ What blocks filing
+      stands above the primary with the warning glyph (`blockerText`), and the
+      primary is disabled. The primary names the act: „Ablegen“; a forgery's
+      „Als echt ablegen“; with nothing left to file „Verwerfen“.
+
+   A mail with nothing to decide opens straight on „Übersicht“: „Einordnen“,
+   then „Ablegen“. „Zurück“ and „Weiter“ walk the steps; the first step's
+   left press is „Abbrechen“. Each new step's question takes the focus, so a
+   screen reader reads it; „Übersicht“ opens with the focus on „Ablegen“.
+   Escape, the X and a scrim click close it **without changing anything**:
+   the draft lives in the detail, so closing and reopening keep every
+   answer while the mail is open, and once „Übersicht“ was seen the next
+   opening starts there. Closing hands the focus back to „Einordnen …“, however
+   it was opened. **Filing sends exactly the decision the draft gave before**
+   (`decisionOf`; the server API and every rule are unchanged): the dialog
+   only orders the questions. A refusal keeps the dialog open; a name stop
+   on a new E-Mail-Verlauf's name goes back to „E-Mail-Text“ with the
+   release. A filing that the server took closes it, and the detail says
+   „Wird abgelegt …“.
+
+   **An impersonation keeps its stop.** The warning stands above the header,
+   „Verwerfen“ is the primary, and „Einordnen …“ is offered (as the quiet
+   press) only after „Trotzdem ablegen …“ („Nur wenn Sie telefonisch
+   geprüft haben, dass die E-Mail echt ist.“; „Ablage schließen“ folds it
+   again). Its first step is the phone check, nothing is preselected, so
+   „E-Mail-Text“ and „Anhänge“ follow, and the yes is „Als echt ablegen“.
 6. After filing, the follow offer: „E-Mail-Verlauf „{Name}““ with one line
    of what it does and the button „Folgen“, only when the sender would qualify.
    Followed, the card says „Sie folgen „{Name}““, that replies are added from
@@ -440,7 +499,7 @@ dismiss possible), expired and dismissed („… · wiederherstellbar bis {Datum
 original not clean, feature off (`notFound()`).
 
 **Keyboard** (group `inboundMail`, documented in the cheatsheet only with the
-flag): J/K, Enter, X, Space, E „Wie gezeigt ablegen“, ⌫ „Verwerfen“. None of
+flag): J/K, Enter, X, Space, E „Einordnen (in der Übersicht: Ablegen)“, ⌫ „Verwerfen“. E opens „Einordnen“ on the open mail; inside it the list's keys stand down (a dialog is open) and the dialog's own E files from „Übersicht“, never while a field has the focus. None of
 them answers while the profile turned shortcuts off (`useShortcutsPreference`).
 ⌫ and Entf act only where the reader is in the list or the mail: from the page,
 the open row or the mail's text, never from a focused button, box, menu or
@@ -449,11 +508,10 @@ confirm it, which the sweep erases at once when dismissed, ⌫ asks first
 („E-Mail verwerfen? … Verworfen wird die E-Mail gelöscht und lässt sich nicht
 wiederherstellen.“) and its toast offers no „Rückgängig“ (`dismissErases`).
 
-**Phone**: rows of at least 44px, visible checkboxes, the detail as a page,
-bottom sheets, a decision bar of its plan, what goes with it and what
-„Verwerfen“ does over its two presses side by side with
-`env(safe-area-inset-bottom)`,
-`text-base`, `dvh`.
+**Phone**: rows of at least 44px, the detail as a page, bottom sheets, a
+decision bar of one note („Verwerfen“'s) over its two presses side by side with
+`env(safe-area-inset-bottom)`, „Einordnen“ full screen with its presses pinned
+at the foot, `text-base`, `dvh`.
 
 ## The „E-Mails“ tab of a Verlauf
 
