@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { CARD_DECISIONS } from '@/features/cards/card-decision'
 import { CONVERSATION_ENGAGEMENTS } from '@/lib/db/schema/conversations'
-import { MAX_MENTIONS_PER_MESSAGE, MAX_MESSAGES_PER_REQUEST } from '@/lib/limits'
+import { MAX_MENTIONS_PER_MESSAGE, MAX_MESSAGES_PER_REQUEST } from '@/lib/limits/catalog'
 
 export const createConversationSchema = z.object({
   id: z.string().min(1).max(128),
@@ -152,6 +152,30 @@ export const fileDraftBodySchema = z
     path: z.string().min(1).max(500),
     title: z.string().max(500).optional(),
     force: z.boolean().optional().default(false),
+    folderId: z
+      .guid()
+      .nullable()
+      .optional()
+      .describe('The folder to file into, from project-folder-list; null files at the project root; omit for the default folder.'),
+    name: z
+      .string()
+      .min(1)
+      .max(500)
+      .optional()
+      .describe('The file name in the project; its extension is set to the draft’s own type. Omit to keep the title.'),
+    as: z
+      .enum(['own', 'revision'])
+      .optional()
+      .describe('`revision`: the next revision of the document the draft was made from; `own` (default): a separate file.'),
+    overChanges: z
+      .boolean()
+      .optional()
+      .describe('Write over a revision a person changed since filing.'),
+    changeNote: z
+      .string()
+      .max(500)
+      .optional()
+      .describe('With `revision`: what changed, one sentence.'),
   })
   .strict()
 

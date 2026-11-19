@@ -88,6 +88,7 @@ Reach for the narrow task rather than the whole gate:
 | UI lint (oxlint; why not ESLint or Biome: [lint-evaluation.md](lint-evaluation.md)), and the module seams (dependency-cruiser: [module-seams.md](module-seams.md)) | `task workspace:lint` |
 | Backend lint (ruff), and the package seams (import-linter: [module-seams.md](module-seams.md)) | `task be:lint` |
 | Backend tests | `task be:test`, or `task be:test:api` for the plugin suite |
+| A suite that needs Qdrant (the store, ranking, grouped search) | `bash scripts/qdrant-test-server.sh --exec task be:test:sources`: production's Qdrant from its checksummed binary, no Docker; without a server those tests skip locally and fail on CI |
 | Pulumi and the policy pack | `task infra:types` |
 | The public website (`apps/website`) and the riso kit | `task website:verify` |
 | A page behind a session, in the real app (click through, capture, Playwright) | `task local:up`, then `task local:session -- anna` ([local-stack.md](local-stack.md)) |
@@ -95,6 +96,12 @@ Reach for the narrow task rather than the whole gate:
 Then run `task verify:fast` before you push.
 
 ## Traps the task list cannot tell you about
+
+**The core and agent_host suites run on one xdist worker per logical CPU**
+(`XDIST` in `Taskfile.yml`). Much of their wall clock is asyncio waits: on two
+workers agent_host went from 67 s to 44 s and the core suite from about 3m20s to
+2m27s. A test that passes only after another one ran fails under it; fix the
+test, do not drop the flag.
 
 **The UI suite runs in vitest's vm pool, and seven specs do not.** A worker
 process runs many spec files, each in a fresh vm context, instead of one
@@ -143,6 +150,9 @@ specs). Each listed file carries a `RLS_SUITE_REQUIRED` guard so the CI job
 fails if the database goes missing instead of skipping green; CI sets that
 variable (`.github/workflows/ci.yml`), the script does not, so a local run can
 still skip green.
+The script takes the newest server binaries under `/usr/lib/postgresql` (or
+`PGBIN`): production runs 17, Ubuntu and `ubuntu-latest` ship 16, and the dev
+cluster's CI runners carry 17 (`deploy/ci-runner/Dockerfile`).
 
 The per-migration sections at the end of that script prove a backfill, a data
 rewrite or a down migration on a clone of the chain. Once the migration has
@@ -215,6 +225,16 @@ selection locally, record once with `task be:test:testmon` and then
 `task workspace:test:related SHARD=1/1 FILES="src/path/changed.ts"`. Locally `task workspace:verify` runs lint, types, tests and
 build in order instead.
 
+The mechanics behind those tasks, each a reason a flag is there:
+
+- **testmon** keeps one database per suite and never runs under coverage, since it switches itself off under pytest-cov. CI caches a database only from a green run, because a failed test is recorded as failed and re-runs every time. `--testmon-forceselect` is needed because `addopts` carries `-m`, which otherwise switches selection off; exit 5 (nothing selected) is a pass.
+- **pytest-split** deselects after testmon (both `trylast`, split second), so the shards together run exactly the selection, provided they start from the same database. A test missing from `tests/.test_durations` counts at the average, so a stale file unbalances shards and never drops a test. `be:test:durations` records with the ingest tests' server present, because a skipped test is stored at the milliseconds its skip took (on 2026-11-11 that file weighed a third of the suite at nothing), and with `--clean-durations`, without which the file only grows (1,086 of 20,206 entries were gone tests on 2026-11-11).
+- **The packages run with `--dist loadfile`**, so a file's Qdrant collections and module fixtures stay on one worker. The database suites run serially: every test drops and recreates the same tables in one scratch database.
+- **Coverage instrumentation** costs the core suite 30 s (168 s against 138 s, 2026-11-10) for a 65 % gate it clears at 93 %, so the fast paths leave it off.
+- **`be:test:harness`** runs on workers: 16 s serial against 9 s on four (2026-11-10).
+- **The UI shards** each write a blob report to an explicit `--outputFile` named for the shard (`.vitest-reports/blob-1-8.json` for the first of eight), so the shards of one local run sit side by side in one directory, where a fixed name would overwrite the rest. The default reporter and, on Actions, the `github-actions` reporter are named beside it, because Vitest adds the latter only when no reporter is named. CI runs each shard with `COVERAGE=false` and uploads and merges nothing, since nothing gates on UI coverage. Locally, coverage is collected per shard (a shard loads only its slice of the app) and `workspace:test:merge` stitches the blobs together with `--merge-reports=.vitest-reports`.
+- **`ifc-spatial-py` runs with `--dist loadfile`** too: its modules build their IFC models in module-scoped fixtures.
+
 What decides which jobs run (a pull request against its base, a push against the
 last commit CI passed), when a push reuses its pull request's result, and how
 images are built and tagged: [ci.md](ci.md). The reuse decision and every reason
@@ -255,7 +275,9 @@ copy of the engine's names without installing the engine.
 
 The single required status check is **CI OK**
 ([`ci.yml`](../../.github/workflows/ci.yml)), which passes only when every
-needed job succeeded or was skipped by the path filter.
+needed job succeeded or was skipped. A pull request runs the light checks, the
+push to `develop` the full suite, and a pull request labelled `ci:full` both
+([ci.md](ci.md#how-a-ci-run-decides-what-to-run)).
 
 ## The live turn-shape eval
 
@@ -279,6 +301,11 @@ Selected without the key, it skips itself. Locally:
 ```bash
 OPENROUTER_API_KEY=… task be:eval:turn-shapes
 ```
+
+The `code_runner` marker is the same arrangement for the tests that start the
+real code runner (`apps/code-runner`) and drive the agent's `execute` tool
+against it: deselected by `addopts`, selected by `task runner:e2e`, run in CI's
+`runner-e2e` job. What it covers: [the runner's README](../../apps/code-runner/README.md#running-and-testing).
 
 `DEFAULT_MODEL` moves the model under test, the same way it moves the
 config's boot floor. In CI,
@@ -482,7 +509,7 @@ and broken in production:
 
 | Writer | Reader | What the reader got |
 |---|---|---|
-| `visual_analysis.segment_payloads`: one `segment` per chunk | `dossier.lifted_drawing_facts` iterated `segments` | No printed fact from any drawing (#1491) |
+| `visual_rendering.segment_payloads`: one `segment` per chunk | `dossier.lifted_drawing_facts` iterated `segments` | No printed fact from any drawing (#1491) |
 | The wake and the document check sent the display name | Retrieval matches `focus_file_name` against the stored filename | No focus on any renamed document (#1492) |
 | `references.norm_key` keeps the document's spacing | The `refers_to` filter used the asker's spelling | No match for `B1600` against `B 1600` (#1493) |
 | Only the plain-text reader stamps chunk dates | The file listing read only those | No ingest date a day after upload (#1494) |

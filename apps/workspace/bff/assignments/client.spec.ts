@@ -1,11 +1,9 @@
-// @disk-inputs: ui/adapters/**, ui/components/**, ui/features/**, ui/hooks/**
 /**
  * @vitest-environment node
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { assignPerson, listAssignees, listAssignmentCandidates, releasePerson } from './client'
+import { nodesOf, parseSource, productionSources, ts } from '@/test-utils/source-ast'
 
 const ANNA = { userId: 'user_anna', name: 'Anna Berger', email: null, profilePictureUrl: null }
 
@@ -53,21 +51,25 @@ describe('the assignments client', () => {
   })
 })
 
-function sources(root: string): string[] {
-  return readdirSync(root).flatMap((name) => {
-    const path = join(root, name)
-    if (statSync(path).isDirectory()) return sources(path)
-    return /\.(ts|tsx)$/.test(name) && !/\.spec\.tsx?$/.test(name) ? [path] : []
-  })
-}
+const UI_DIRS = ['ui/features/', 'ui/components/', 'ui/hooks/', 'ui/adapters/']
+const CLIENT = 'bff/assignments/client.ts'
+const ASSIGNMENTS_PATH = '/api/assignments'
+
+type TextNode = ts.StringLiteralLike | ts.TemplateHead | ts.TemplateMiddle | ts.TemplateTail
+
+const isTextNode = (node: ts.Node): node is TextNode =>
+  ts.isStringLiteralLike(node) || ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)
+
+const namesAssignmentsPath = (file: string) =>
+  nodesOf(parseSource(file), isTextNode).some((node) => node.text.includes(ASSIGNMENTS_PATH))
 
 describe('the browser reaches the assignments through their client only', () => {
-  it('names no /api/assignments path outside lib/assignments/client.ts', () => {
-    const src = process.cwd()
-    const offenders = ['ui/features', 'ui/components', 'ui/hooks', 'ui/adapters']
-      .flatMap((root) => sources(join(src, root)))
-      .filter((path) => readFileSync(path, 'utf8').includes('/api/assignments'))
-      .map((path) => path.slice(src.length + 1))
+  it('names no /api/assignments path outside the client', () => {
+    const uiFiles = productionSources().filter((file) => UI_DIRS.some((dir) => file.startsWith(dir)))
+    expect(uiFiles.length).toBeGreaterThan(0)
+    expect(namesAssignmentsPath(CLIENT)).toBe(true)
+
+    const offenders = uiFiles.filter(namesAssignmentsPath)
     expect(offenders).toEqual([])
   })
 })

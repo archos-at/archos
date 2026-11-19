@@ -32,6 +32,7 @@ export async function listSessionDocuments(
         screenedHash: documents.screenedHash,
         status: documents.status,
         authoredBy: documents.authoredBy,
+        authoredByProducer: documents.authoredByProducer,
         publishedVersionId: documents.publishedVersionId,
       lifecycle: documents.lifecycle,
         collectionName: documents.collectionName,

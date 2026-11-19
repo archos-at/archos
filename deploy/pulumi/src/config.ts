@@ -9,6 +9,9 @@ import {
 import { type DnsConfig, loadDns } from "./config/dns";
 import { type DragonflyConfig, type RateLimitConfig, loadDragonfly } from "./config/dragonfly";
 import { type ImagesConfig, loadImages } from "./config/images";
+import { type BrowserRendererConfig, loadBrowserRenderer } from "./config/browser-renderer";
+import { type CodeRunnerConfig, loadCodeRunner } from "./config/code-runner";
+import { type CiRunnersConfig, loadCiRunners } from "./config/ci-runners";
 import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./config/langfuse";
 import { LOG_SHIPPER, type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
@@ -24,8 +27,10 @@ import {
 } from "./config/qdrant";
 import { type McpGatewayConfig, loadMcpGateway } from "./config/mcp-gateway";
 import { bool, nodeGroup, num } from "./config/readers";
+import { cpuRequestScale } from "./config/cpu-requests";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
+import { type WebsiteMailConfig, loadWebsiteMail } from "./config/website-mail";
 import { malwareScanConfig } from "./config/malware-scan";
 import { publicSourceFetcherConfig } from "./config/public-source-fetcher";
 import { type InboundMailConfig, inboundMailConfig } from "./config/inbound-mail";
@@ -84,6 +89,10 @@ export interface DeployConfig {
 
   gotenberg: GotenbergConfig;
 
+  codeRunner: CodeRunnerConfig;
+
+  browserRenderer: BrowserRendererConfig;
+
   geocoderUrl: string;
 
   malwareScan: {
@@ -104,6 +113,7 @@ export interface DeployConfig {
   frontend: FrontendConfig;
 
   web: WebConfig;
+  websiteMail: WebsiteMailConfig;
 
   conversationBus: boolean;
   agentWorker: AgentWorkerConfig;
@@ -113,6 +123,8 @@ export interface DeployConfig {
   bffJobs: BffJobsConfig;
 
   keda: KedaConfig;
+
+  ciRunners: CiRunnersConfig;
 
   providerLimits: ProviderLimitsConfig;
 
@@ -150,6 +162,7 @@ export interface DeployConfig {
 export function loadConfig(): DeployConfig {
   const cfg = new pulumi.Config();
   refuseLangfuseV4WriteMode(cfg.get("langfuseV4WriteMode"));
+  cpuRequestScale();
 
   const rejectPlaceholder = (key: string, markers: string[]) => {
     const v = cfg.get(key);
@@ -254,6 +267,7 @@ export function loadConfig(): DeployConfig {
     },
   );
 
+  const codeRunner = loadCodeRunner(cfg, images);
   const namespace = cfg.get("namespace") ?? objectName("namespace");
   if (namespace === LOG_SHIPPER.namespace) {
     throw new Error(
@@ -299,6 +313,10 @@ export function loadConfig(): DeployConfig {
 
     ...loadWorkers(cfg),
 
+    codeRunner,
+    ciRunners: loadCiRunners(cfg),
+    browserRenderer: loadBrowserRenderer(cfg, images, codeRunner.enabled),
+
     geocoderUrl: loadGeocoderUrl(cfg),
 
     qdrant: loadQdrant(cfg, qdrantDashboard),
@@ -308,6 +326,7 @@ export function loadConfig(): DeployConfig {
     ...chatTier,
 
     ...webTier,
+    websiteMail: loadWebsiteMail(cfg),
 
     ...appServices,
 

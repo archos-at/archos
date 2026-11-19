@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -47,7 +48,7 @@ CI = load("ci.yml")
 JOBS = CI["jobs"]
 PLAN = JOBS["changes"]
 STEPS = {step["id"]: step for step in PLAN["steps"] if "id" in step}
-TIERS = ["backend", "workspace", "site", "cms", "infra", "packages", "sast", "hatchet", "skills"]
+TIERS = ["backend", "workspace", "site", "cms", "infra", "packages", "sast", "hatchet", "skills", "runner_e2e"]
 BUILD = json.dumps([{"name": "backend"}])
 
 
@@ -60,9 +61,12 @@ def plan(
     py_mode: str | None = None,
     ui_mode: str | None = None,
     reference: str | None = None,
+    depth: str | None = None,
 ) -> dict:
     github = {"event_name": event}
     steps: dict = {}
+    if depth:
+        steps["depth"] = {"outputs": {"depth": depth}}
     if evaluate(STEPS["green"]["if"], github=github):
         steps["green"] = {"outputs": {"sha": "f" * 40, "parent-is-green": "true" if parent_green else "false"}}
     if evaluate(STEPS["reuse"]["if"], github=github, steps=steps) and hit is not None:
@@ -85,15 +89,75 @@ def runs(job: str, *, event: str, outputs: dict) -> bool:
     return bool(evaluate(condition, github={"event_name": event}, needs=needs))
 
 
-CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push")]
+PULL_REQUEST_ONLY = ("infra-preview",)
+CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push", *PULL_REQUEST_ONLY)]
 FULL_PY = ["backend", "backend-coverage", "backend-suites"]
+FULL_ONLY = [*FULL_PY, "workspace-test", "hatchet", "image"]
 
 
-def test_a_pull_request_diffs_its_whole_base_and_a_push_its_last_green_commit():
+def test_a_light_pull_request_run_skips_what_only_the_full_suite_runs():
+    light = plan(event="pull_request", py_mode="full", ui_mode="full", depth="light")
+    full = plan(event="pull_request", py_mode="full", ui_mode="full", depth="full")
+
+    assert light["depth"] == "light"
+    assert not [job for job in FULL_ONLY if runs(job, event="pull_request", outputs=light)]
+    assert all(runs(job, event="pull_request", outputs=full) for job in FULL_ONLY)
+
+
+def test_a_light_run_keeps_the_cheap_checks():
+    light = plan(event="pull_request", py_mode="select", ui_mode="select", depth="light")
+
+    for job in ["repo", "repo-tests", "release-notes", "semgrep", "backend-affected", "workspace", "site", "infra"]:
+        assert runs(job, event="pull_request", outputs=light), job
+
+
+def test_a_push_runs_the_full_suite_the_deploy_waits_for():
+    push = plan(event="push", depth="full")
+
+    for job in [*FULL_PY, "workspace-test", "hatchet", "image-push"]:
+        assert runs(job, event="push", outputs=push), job
+
+
+def test_a_failed_depth_step_reads_as_full():
+    assert plan(event="pull_request")["depth"] == "full"
+
+
+def test_light_runs_have_an_off_switch_in_the_repository_variable():
+    assert STEPS["depth"]["env"]["LIGHT_RUNS"] == "${{ vars.CI_LIGHT_RUNS }}"
+
+
+def test_the_depth_step_reads_labels_with_the_least_permission_it_needs():
+    assert PLAN["permissions"]["pull-requests"] == "read"
+    assert "statuses" not in PLAN["permissions"]
+    assert "types" not in CI["on"]["pull_request"]
+
+
+def test_only_a_full_run_leaves_the_green_marker_a_push_reuses():
+    steps = {step.get("name"): step for step in JOBS["ci-ok"]["steps"]}
+
+    assert "needs.changes.outputs.depth == 'full'" in steps["Name the tree this run tested"]["if"]
+
+
+def test_a_pull_request_or_queue_diffs_its_whole_base_and_a_push_its_last_green_commit():
     base = STEPS["filter"]["with"]["base"]
     pins = STEPS["pins"]["env"]["BASE"]
 
-    assert base == pins == "${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}"
+    assert (
+        base
+        == pins
+        == ("${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}")
+    )
+
+
+def test_a_merge_queue_run_is_full_and_builds_what_a_pull_request_would():
+    outputs = plan(event="merge_group", depth="full")
+
+    assert "checks_requested" in CI["on"]["merge_group"]["types"]
+    assert all(runs(job, event="merge_group", outputs=outputs) for job in FULL_ONLY)
+    assert not runs("backend-affected", event="merge_group", outputs=outputs)
+    assert not runs("infra-preview", event="merge_group", outputs=outputs)
+    assert not runs("image-push", event="merge_group", outputs=outputs)
+    assert not runs("publish", event="merge_group", outputs=outputs)
 
 
 def test_no_workflow_diffs_against_the_previous_push():
@@ -241,10 +305,15 @@ def test_the_reuse_lookup_cannot_fail_the_run():
 
     assert reuse["continue-on-error"] is True
     assert reuse["run"] == "python3 ci/reuse_green_run.py ci-green"
-    assert PLAN["permissions"] == {"contents": "read", "actions": "read", "packages": "read"}
+    assert PLAN["permissions"] == {
+        "contents": "read",
+        "actions": "read",
+        "packages": "read",
+        "pull-requests": "read",
+    }
 
 
-def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
+def test_the_marker_is_uploaded_only_by_a_passing_pull_request_or_queue_gate():
     steps = JOBS["ci-ok"]["steps"]
     check = next(i for i, step in enumerate(steps) if "Require needed jobs" in step.get("name", ""))
     uploads = [i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/upload-artifact")]
@@ -254,7 +323,7 @@ def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
     assert len(uploads) == 1 and uploads[0] > check
     upload = steps[uploads[0]]
     assert not re.search(r"always\(\)|failure\(\)|cancelled\(\)", upload["if"])
-    assert "github.event_name == 'pull_request'" in upload["if"]
+    assert "github.event_name != 'push'" in upload["if"]
     assert upload["with"]["name"] == "ci-green-${{ steps.tree.outputs.tree }}"
     assert int(upload["with"]["retention-days"]) <= 7
     for other in WORKFLOWS.glob("*.yml"):
@@ -310,8 +379,76 @@ def test_the_engine_suites_run_on_the_engine_production_runs():
 
 
 def test_the_engine_job_runs_on_its_own_tier():
-    assert JOBS["hatchet"]["if"] == "needs.changes.outputs.hatchet == 'true'"
+    assert JOBS["hatchet"]["if"] == "needs.changes.outputs.depth == 'full' && needs.changes.outputs.hatchet == 'true'"
     assert not runs("hatchet", event="pull_request", outputs=plan(event="pull_request") | {"hatchet": "false"})
+
+
+def test_a_report_with_a_skipped_test_fails_and_an_expected_failure_does_not(tmp_path):
+    def require_ran(case: str) -> int:
+        report = tmp_path / "report.xml"
+        report.write_text(f'<testsuite><testcase name="a">{case}</testcase></testsuite>', encoding="utf-8")
+        script = WORKFLOWS.parents[1] / "ci/hatchet_engine.sh"
+        return subprocess.run(["bash", script, "require-ran", report], capture_output=True, check=False).returncode
+
+    assert require_ran("") == 0
+    assert require_ran('<skipped type="pytest.xfail" message="a known bug"/>') == 0
+    assert require_ran('<skipped type="pytest.skip" message="no engine"/>') == 1
+    assert require_ran("<skipped/>") == 1
+
+
+def test_the_agent_engine_job_runs_every_suite_that_skips_without_the_engine():
+    root = WORKFLOWS.parents[1]
+    gated = {
+        path.relative_to(root).as_posix()
+        for tests in ("packages/agent/tests", "apps/agent-host/tests")
+        for path in (root / tests).rglob("test_*.py")
+        if 'importorskip("ifc_spatial' in path.read_text(encoding="utf-8")
+    }
+    steps = JOBS["agent-engine"]["steps"]
+    suites = next(step["run"] for step in steps if "pytest" in step.get("run", ""))
+    named = {
+        match.relative_to(root).as_posix()
+        for pattern in re.findall(r"\S+/test_\S+\.py", suites)
+        for match in root.glob(pattern)
+    }
+
+    assert "packages/agent/tests/tools/bim/test_question_battery.py" in gated
+    assert named == gated
+    assert any("require-ran" in step.get("run", "") for step in steps)
+
+
+def test_the_agent_engine_job_installs_the_engine_the_way_the_image_does():
+    dockerfile = (WORKFLOWS.parents[1] / "apps/agent-host/Dockerfile").read_text(encoding="utf-8")
+    install = re.search(r"(uv pip install -e \S*ifc-spatial-py\S*)$", dockerfile, re.MULTILINE)
+    steps = JOBS["agent-engine"]["steps"]
+
+    assert install
+    assert any(install[1] in step.get("run", "") for step in steps)
+    assert not [step for step in steps if "setup-python-env" in step.get("uses", "")]
+
+
+@pytest.mark.parametrize("tier", ["backend", "packages"])
+def test_the_agent_engine_job_runs_when_either_side_of_the_path_changes(tier):
+    nothing = plan(event="pull_request") | {"backend": "false", "packages": "false"}
+
+    assert not runs("agent-engine", event="pull_request", outputs=nothing)
+    assert runs("agent-engine", event="pull_request", outputs=nothing | {tier: "true"})
+
+
+def test_the_agent_engine_job_waits_for_a_full_run_and_runs_where_there_is_no_depth():
+    full = plan(event="pull_request")
+    without_depth = {key: value for key, value in full.items() if key != "depth"}
+
+    assert not runs("agent-engine", event="pull_request", outputs=full | {"depth": "light"})
+    assert runs("agent-engine", event="pull_request", outputs=full | {"depth": "full"})
+    assert runs("agent-engine", event="pull_request", outputs=without_depth)
+
+
+def test_the_agent_engine_job_runs_when_the_script_it_calls_changes():
+    filters = yaml.safe_load((WORKFLOWS.parent / "filters.yml").read_text(encoding="utf-8"))
+
+    assert any("ci/hatchet_engine.sh" in step.get("run", "") for step in JOBS["agent-engine"]["steps"])
+    assert "ci/hatchet_engine.sh" in filters["packages"]
 
 
 def test_a_push_lints_its_release_notes_and_a_pull_request_must_add_one():
@@ -368,6 +505,29 @@ def test_the_skill_lockfile_is_audited_only_when_something_it_hashes_changed():
     assert audit["if"] == "needs.changes.outputs.skills == 'true'"
     assert {"skills/**", "apm.yml", "apm.lock.yaml", "Taskfile.yml"} <= set(filters["skills"])
     assert evaluate(PLAN["outputs"]["skills"], steps={"filter": {"outputs": {"skills": "true"}}}) == "true"
+
+
+def test_only_the_helper_unshallows_a_clone():
+    root = WORKFLOWS.parents[1]
+    sources = [
+        *WORKFLOWS.glob("*.yml"),
+        *(root / ".github" / "actions").rglob("*.yml"),
+        *(root / "ci").glob("*"),
+        *(root / "taskfiles").glob("*.yml"),
+        root / "Taskfile.yml",
+    ]
+    bare = [
+        f"{path.relative_to(root)}:{number}"
+        for path in sources
+        if path.is_file() and path.name != "unshallow.sh"
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        if "--unshallow" in line
+    ]
+
+    assert bare == [], (
+        f"{bare} run `git fetch --unshallow`, which aborts on a clone an earlier step completed: "
+        "call ci/unshallow.sh instead"
+    )
 
 
 def test_semgrep_finds_its_own_merge_base_from_a_shallow_clone():
@@ -622,3 +782,21 @@ def test_dependabot_auto_merge_waits_for_ci_ok_and_starts_the_push_run():
     disable = steps["Turn off auto-merge on an update a person must read"]
     assert disable["if"] == "always() && steps.decide.outputs.merge != 'true'"
     assert "gh pr merge --disable-auto" in disable["run"]
+
+
+def test_the_named_test_files_reach_every_path_their_suite_runs():
+    paths = yaml.safe_load((WORKFLOWS.parents[1] / "taskfiles/backend.yml").read_text(encoding="utf-8"))
+    step = next(s for s in JOBS["backend-affected"]["steps"] if s.get("id") == "affected")
+    roots = dict(re.findall(r"(\w+)\) root='([^']+)'", step["run"]))
+    for suite, value in paths["vars"]["TESTMON_PATHS"]["map"].items():
+        for path in value.split():
+            if (WORKFLOWS.parents[1] / path).is_dir():
+                assert re.match(roots[suite], path.rstrip("/") + "/"), (suite, path)
+
+
+def test_the_staging_preview_runs_on_a_pull_request_from_this_repository_only():
+    condition = CI["jobs"]["infra-preview"]["if"]
+
+    assert "github.event_name == 'pull_request'" in condition
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in condition
+    assert "infra-preview" in CI["jobs"]["ci-ok"]["needs"]

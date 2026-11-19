@@ -215,17 +215,68 @@ export const conversationsOperations = [
     load: () => import('@/app/api/conversations/[id]/draft/route'),
   },
   {
+    name: 'conversation-draft-download',
+    domain: 'conversations',
+    summary: 'Get the bytes of a file in a conversation’s working directory',
+    description:
+      'The raw bytes of one file in the conversation’s working directory (a Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a ' +
+      'script made, or a Markdown draft), as an attached resource (base64 `blob`) up to 5 MiB; `path` is the one the answer’s card names.',
+    method: 'GET',
+    path: '/api/conversations/[id]/draft/download',
+    params: conversationParams,
+    query: draftPreviewQuerySchema,
+    binaryResponse: [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/pdf',
+      'image/*',
+      'text/csv',
+      'text/markdown',
+      'text/plain',
+      'application/json',
+      'application/octet-stream',
+    ],
+    load: () => import('@/app/api/conversations/[id]/draft/download/route'),
+  },
+  {
+    name: 'conversation-draft-rendition-get',
+    domain: 'conversations',
+    summary: 'Read a Word, Excel or PowerPoint draft as a PDF',
+    description:
+      'The PDF of one Word, Excel, PowerPoint or PDF file in the conversation’s working directory, converted for reading, as an ' +
+      'attached resource (base64 `blob`) up to 5 MiB. 422 for any other type; 503 when no converter is configured.',
+    method: 'GET',
+    path: '/api/conversations/[id]/draft/rendition',
+    params: conversationParams,
+    query: draftPreviewQuerySchema,
+    binaryResponse: ['application/pdf'],
+    load: () => import('@/app/api/conversations/[id]/draft/rendition/route'),
+  },
+  {
     name: 'conversation-draft-file',
     domain: 'conversations',
-    summary: 'File an unfiled draft into the project',
+    summary: 'File a draft into the project, or update what was filed from it',
     description:
-      'Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project. A same-name ' +
-      'collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.',
+      'Files a draft (path from its card) into the project, into `folderId` under `name`; again after a change, it updates ' +
+      'the filed document. 409 `same-name`: `force` after the person confirmed. 409 `changed-in-project`: only the person ' +
+      'decides `overChanges`.',
     method: 'POST',
     path: '/api/conversations/[id]/draft/file',
     params: conversationParams,
     body: fileDraftBodySchema,
     load: () => import('@/app/api/conversations/[id]/draft/file/route'),
+  },
+  {
+    name: 'conversation-draft-delete',
+    domain: 'conversations',
+    summary: 'Delete a draft from a conversation',
+    description: 'Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.',
+    method: 'DELETE',
+    path: '/api/conversations/[id]/draft',
+    params: conversationParams,
+    query: draftPreviewQuerySchema,
+    load: () => import('@/app/api/conversations/[id]/draft/route'),
   },
   {
     name: 'answer-feedback-list',

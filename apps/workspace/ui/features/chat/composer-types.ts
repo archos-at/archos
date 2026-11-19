@@ -11,6 +11,15 @@ export interface ComposerSubject {
   versionState?: DocumentVersionState | null
 }
 
+export interface AnswerExcerpt {
+  messageId: string
+  text: string
+}
+
+export interface ComposerExcerpt extends AnswerExcerpt {
+  conversationId: string
+}
+
 export interface ComposerPrefill {
   text: string
   mentions?: DraftMention[]

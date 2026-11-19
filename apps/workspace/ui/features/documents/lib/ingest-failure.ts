@@ -8,6 +8,7 @@ export type IngestFailureKind =
   | 'unreadable_pages'
   | 'vision_not_configured'
   | 'dispatch_failed'
+  | 'allowance_spent'
   | 'timeout'
   | 'empty'
   | 'deleted'
@@ -33,6 +34,7 @@ export const INGEST_FAILURE_PREFIXES = {
 
 export const BFF_FAILURE_PHRASES = {
   'Ingestion could not be started': 'dispatch_failed',
+  'The ingestion allowance of this month is used up': 'allowance_spent',
   'The PDF version of this file could not be created': 'rendition_failed',
   'This DXF drawing could not be read': 'drawing_unreadable',
 } as const satisfies Record<string, IngestFailureKind>

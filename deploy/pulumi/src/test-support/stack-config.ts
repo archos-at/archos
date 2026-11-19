@@ -46,6 +46,18 @@ export function langfuseStackConfig(): Record<string, string> {
   };
 }
 
+export const CI_RUNNER_TEST_IMAGE = `ghcr.io/archos-at/ci-runner@sha256:${"a".repeat(64)}`;
+
+export function ciRunnersStackConfig(): Record<string, string> {
+  return {
+    "grid-oib:ciRunnersEnabled": "true",
+    "grid-oib:ciRunnersGithubAppId": "123",
+    "grid-oib:ciRunnersGithubAppInstallationId": "456",
+    "grid-oib:ciRunnersGithubAppPrivateKey": "-----BEGIN PRIVATE KEY-----", // pragma: allowlist secret
+    "grid-oib:ciRunnersImage": CI_RUNNER_TEST_IMAGE,
+  };
+}
+
 export function forProject(config: Record<string, string>, project: string): Record<string, string> {
   return Object.fromEntries(Object.entries(config).map(([k, v]) => [k.replace(/^grid-oib:/, `${project}:`), v]));
 }

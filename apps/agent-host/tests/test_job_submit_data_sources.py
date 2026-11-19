@@ -48,7 +48,7 @@ async def submit_app(monkeypatch, tmp_path):
 
     submitted_job = AsyncMock(return_value="job-1")
     agent_config = AgentConfig(
-        class_path="agent.agents.deep_researcher.agent.DeepResearcherAgent",
+        load=lambda: type("Agent", (), {}),
         config_name="deep_research_agent",
         description="Test deep researcher",
     )
@@ -409,7 +409,7 @@ async def test_submit_job_validates_sources_for_researcher(submit_app, monkeypat
     app, submitted_job, builder = submit_app
 
     research_config = AgentConfig(
-        class_path="agent.core.agent.ChatAgent",
+        load=lambda: type("Agent", (), {}),
         config_name="shallow_research_agent",
         description="Test researcher",
     )

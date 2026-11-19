@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from agent.tools.bim import register
+from agent.tools.bim import query_build
 
 QUERY_TS = Path(__file__).resolve().parents[5] / "apps" / "workspace" / "bff" / "bim" / "query-schema.ts"
 
@@ -16,12 +16,12 @@ def _const_list(source: str, name: str) -> set[str]:
 
 def test_the_operations_are_the_routes() -> None:
     source = QUERY_TS.read_text(encoding="utf-8")
-    assert register.VALID_OPERATIONS == set(re.findall(r"op: z\.literal\('([^']+)'\)", source))
+    assert query_build.VALID_OPERATIONS == set(re.findall(r"op: z\.literal\('([^']+)'\)", source))
 
 
 def test_the_main_uses_are_the_routes() -> None:
-    assert register._MAIN_USES == _const_list(QUERY_TS.read_text(encoding="utf-8"), "BIM_MAIN_USE")
+    assert query_build._MAIN_USES == _const_list(QUERY_TS.read_text(encoding="utf-8"), "BIM_MAIN_USE")
 
 
 def test_the_metrics_are_the_routes() -> None:
-    assert register._METRICS == _const_list(QUERY_TS.read_text(encoding="utf-8"), "BIM_METRICS")
+    assert query_build._METRICS == _const_list(QUERY_TS.read_text(encoding="utf-8"), "BIM_METRICS")

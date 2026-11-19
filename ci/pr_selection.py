@@ -163,6 +163,24 @@ def _importers(helper: str, test_files: dict[str, str]) -> set[str] | None:
     return {file for file, text in test_files.items() if Path(file).name.startswith("test_") and imports.search(text)}
 
 
+SPAWNS_PYTHON = re.compile(r"\bsys\.executable\b")
+
+
+def _spawners(test_files: dict[str, str]) -> tuple[set[str], str | None]:
+    spawners: set[str] = set()
+    for file, text in test_files.items():
+        if not SPAWNS_PYTHON.search(text):
+            continue
+        if Path(file).name.startswith("test_"):
+            spawners.add(file)
+            continue
+        importers = _importers(file, test_files)
+        if importers is None:
+            return set(), file
+        spawners |= importers
+    return spawners, None
+
+
 def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool) -> tuple[str, list[str], str]:
     if not recorded:
         return "full", [], "no recorded testmon database to select from"
@@ -188,6 +206,12 @@ def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool
             return "full", [], f"{path} is package data no test names"
         extra |= named
     reason = f"{len(changed)} changed files; testmon selects, plus {len(extra)} test files naming a non-Python change"
+    if any(_matches(path, PY_PACKAGE_SRC) for path in changed):
+        spawners, unconnected = _spawners(test_files)
+        if unconnected:
+            return "full", [], f"{unconnected} runs Python in a subprocess, and no test file connects to it"
+        extra |= spawners
+        reason += f" and {len(spawners)} that run package code in a subprocess"
     return "select", sorted(extra), reason
 
 
@@ -224,6 +248,8 @@ def _python_test_files() -> dict[str, str]:
             relative = path.relative_to(ROOT).as_posix()
             if root == "packages" and "/tests/" not in f"/{relative}" and "/testing/" not in f"/{relative}":
                 continue
+            if "/.venv/" in f"/{relative}":
+                continue
             files[relative] = path.read_text(encoding="utf-8", errors="ignore")
     return files
 
@@ -244,11 +270,18 @@ def _disk_readers() -> DiskReaders:
     return dict(sorted(readers.items()))
 
 
+def was_full(get: Get, repo: str, run_id: object) -> bool:
+    artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
+    return any(a.get("name", "").startswith("ci-green-") and not a.get("expired") for a in artifacts)
+
+
 def previous_green(get: Get, repo: str, branch: str, head: str, is_ancestor: Callable[[str], bool]) -> dict | None:
     query = urllib.parse.urlencode({"branch": branch, "event": "pull_request", "status": "success", "per_page": 30})
     for run in get(f"/repos/{repo}/actions/workflows/ci.yml/runs?{query}").get("workflow_runs", []):
         sha = run.get("head_sha", "")
-        if re.fullmatch(r"[0-9a-f]{40}", sha) and (sha == head or is_ancestor(sha)):
+        if not (re.fullmatch(r"[0-9a-f]{40}", sha) and (sha == head or is_ancestor(sha))):
+            continue
+        if was_full(get, repo, run.get("id")):
             return run
     return None
 

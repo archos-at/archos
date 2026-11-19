@@ -6,10 +6,11 @@ from agent.common.wire_v2 import RunStartedBody
 from agent.common.wire_v2 import StageValue
 from agent.common.wire_v2 import TurnResult
 from agent.stages import delivery
-from agent_host import chat_socket
-from agent_host.chat_socket import ChatRegistry
-from agent_host.chat_socket import RunningTurn
-from agent_host.chat_socket import TurnWire
+from agent_host import chat_registry
+from agent_host import chat_turn
+from agent_host.chat_registry import ChatRegistry
+from agent_host.chat_turn import RunningTurn
+from agent_host.chat_wire import TurnWire
 
 CONVERSATION_ID = "conv-stage-sink"
 TURN_ID = "msg_1755600000000_3"
@@ -31,7 +32,7 @@ class _Socket:
 
 
 async def _answered_turn(monkeypatch, socket: _Socket | None) -> ChatRegistry:
-    monkeypatch.setattr(chat_socket, "_persist_in_background", lambda *args: None)
+    monkeypatch.setattr(chat_turn, "_persist_in_background", lambda *args: None)
     registry = ChatRegistry()
     if socket is not None:
         registry.set_socket(CONVERSATION_ID, socket)
@@ -47,7 +48,7 @@ class TestTheStageReachesTheSocket:
     async def test_the_published_sink_is_the_one_the_agent_tier_calls(self) -> None:
         import agent_host.plugin  # noqa: F401 — registers the sink at import
 
-        assert delivery.get_stage_frame_sink() is chat_socket.send_stage
+        assert delivery.get_stage_frame_sink() is chat_registry.send_stage
 
     async def test_a_ready_stage_arrives_on_the_turn_s_seq_after_its_terminal(self, monkeypatch) -> None:
         socket = _Socket()

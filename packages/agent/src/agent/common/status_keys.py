@@ -50,7 +50,25 @@ KEY_ACTION_FILE_PROPOSAL = "status.action.fileProposal"
 KEY_ACTION_DRAFT_FILED = "status.action.draftFiled"
 
 
-KEY_ACTION_DRAFT_SUBMITTED = "status.action.draftSubmitted"
+KEY_ACTION_CODE_RUN = "status.action.codeRun"
+
+
+KEY_ACTION_FILE_MAKE = "status.action.fileMake"
+
+
+KEY_ACTION_FILES_MAKE = "status.action.filesMake"
+
+
+KEY_ACTION_FILE_EDIT = "status.action.fileEdit"
+
+
+KEY_ACTION_FILE_CHECK = "status.action.fileCheck"
+
+
+KEY_ACTION_FILE_RETRY = "status.action.fileRetry"
+
+
+KEY_ACTION_CALCULATION = "status.action.calculation"
 
 
 KEY_ACTION_TASK_CREATED = "status.action.taskCreated"
@@ -111,7 +129,13 @@ ALL_STATUS_KEYS: tuple[str, ...] = (
     "status.action.draftEdit",
     "status.action.fileProposal",
     "status.action.draftFiled",
-    "status.action.draftSubmitted",
+    "status.action.codeRun",
+    "status.action.fileMake",
+    "status.action.filesMake",
+    "status.action.fileEdit",
+    "status.action.fileCheck",
+    "status.action.fileRetry",
+    "status.action.calculation",
     "status.action.taskCreated",
     "status.action.annotationsRead",
     "status.action.annotationsPropose",

@@ -20,6 +20,7 @@ import { AppWiring, PULL_SECRET_NAME, buildRegistryPullSecret, buildSecrets } fr
 import { runMigrations } from "./src/app/migrations-job";
 import { buildOnlineIndexes } from "./src/app/online-indexes-job";
 import { runKnowledgeCarry } from "./src/app/knowledge-carry-job";
+import { installBackfills } from "./src/app/backfills";
 import { reconcileAuditSchemas } from "./src/app/audit-schemas-job";
 import { carryOverFolderGrants, reconcileAuthzCatalog } from "./src/app/workos-authz-jobs";
 import { installBackend } from "./src/app/backend";
@@ -28,7 +29,10 @@ import { installApi } from "./src/app/api";
 import { LEGACY_API_TIER, LEGACY_CHAT_TIER } from "./src/app/tier-names";
 import { installFrontend } from "./src/app/frontend";
 import { installWeb } from "./src/app/web";
+import { installWebMailSecret } from "./src/app/web-mail";
 import { installGotenberg } from "./src/app/gotenberg";
+import { installBrowserRenderer, installBrowserRendererScaling } from "./src/app/browser-renderer";
+import { installCodeRunner, installCodeRunnerScaling } from "./src/app/code-runner";
 import { installPublicSourceFetcher } from "./src/app/public-source-fetcher";
 import { installClamAV } from "./src/app/clamav";
 import { installWorkers, syncBaseCorpusAfterRollout } from "./src/app/workers";
@@ -42,6 +46,7 @@ import { installHatchetNetworkPolicies } from "./src/platform/hatchet-network-po
 import { installRabbitmq, installRabbitmqOperator } from "./src/platform/rabbitmq";
 import { installBackgroundWorkAlerts } from "./src/platform/background-work-alerts";
 import { installKeda } from "./src/platform/keda";
+import { installCiRunners } from "./src/platform/ci-runners";
 import { installHttpRoutes } from "./src/app/httproutes";
 import { installOtelCollector } from "./src/platform/otel-collector";
 import { installOtelAgent } from "./src/platform/otel-agent";
@@ -71,6 +76,9 @@ const gatewayController = installGatewayController(cfg, provider);
 const certManager = installCertManager(cfg, provider, namespace, [gatewayController]);
 if (cfg.ingress.installMetricsServer) {
   installMetricsServer(provider);
+}
+if (cfg.ciRunners.enabled) {
+  installCiRunners(cfg.ciRunners, provider);
 }
 
 const extraBuckets = [
@@ -149,6 +157,12 @@ const clamav = cfg.malwareScan.enabled
   : undefined;
 const pullSecret = buildRegistryPullSecret(cfg, provider, namespace);
 const publicSourceFetcher = installPublicSourceFetcher(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : []);
+const browserRenderer = cfg.browserRenderer.enabled
+  ? installBrowserRenderer(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : [])
+  : undefined;
+const codeRunner = cfg.codeRunner.enabled
+  ? installCodeRunner(cfg, provider, namespace, [ns, ...(pullSecret ? [pullSecret] : [])], pullSecret ? [{ name: PULL_SECRET_NAME }] : [], browserRenderer?.addr)
+  : undefined;
 const wiring: AppWiring = {
   cfg,
   namespace,
@@ -158,6 +172,7 @@ const wiring: AppWiring = {
   seaweedPublicEndpoint: seaweed.publicEndpoint,
   gotenbergUrl: gotenberg?.url,
   malwareScanUrl: clamav?.url,
+  codeRunnerUrl: codeRunner?.url,
   qdrantUrl: qdrant.url,
   dsn: postgres.dsn,
   imagePullSecrets: pullSecret ? [{ name: PULL_SECRET_NAME }] : [],
@@ -173,13 +188,15 @@ const migratedSchema = runMigrations(wiring, cfg, secrets, [
   onlineIndexes,
 ]);
 const migrations = postgres.renameRlsRoles([migratedSchema]);
+const backfillsBefore = installBackfills(wiring, cfg, secrets, "before-readers", [migrations, qdrant.service]);
+const afterBackfills = backfillsBefore ? [backfillsBefore] : [];
 
 const authzCatalog = cfg.auth.requireAuth ? reconcileAuthzCatalog(wiring, cfg, secrets, [ns]) : undefined;
 if (cfg.auth.requireAuth) {
   reconcileAuditSchemas(wiring, cfg, secrets, [ns]);
 }
 
-const workers = installWorkers(wiring, cfg, secrets, [migrations]);
+const workers = installWorkers(wiring, cfg, secrets, [migrations, ...afterBackfills]);
 
 const apiDependsOn = [
   hatchet.tokenSync,
@@ -187,6 +204,7 @@ const apiDependsOn = [
   seaweed.bucketInitJob,
   dragonfly.service,
   qdrant.service,
+  ...afterBackfills,
 ];
 const api = installApi(wiring, cfg, secrets, apiDependsOn);
 const legacyApi = installApi(wiring, cfg, secrets, apiDependsOn, LEGACY_API_TIER);
@@ -200,6 +218,7 @@ const backendDependsOn = [
   seaweed.bucketInitJob,
   dragonfly.service,
   qdrant.service,
+  ...afterBackfills,
 ];
 const backend = installBackend(wiring, cfg, secrets, backendDependsOn);
 
@@ -210,6 +229,7 @@ const frontend = installFrontend(wiring, cfg, secrets, [
   legacyApi.service,
   backend.statefulSet,
   backend.service,
+  ...afterBackfills,
 ]);
 
 if (authzCatalog) {
@@ -225,13 +245,22 @@ const legacyBackend = installBackend(
 );
 
 const webCmsSecret = installWebCmsSecret(cfg, provider, cfg.namespace, [ns]);
+const webMailSecret = installWebMailSecret(cfg, provider, cfg.namespace, [ns]);
 const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
   ns,
   ...(pullSecret ? [pullSecret] : []),
   ...(webCmsSecret ? [webCmsSecret] : []),
+  ...(webMailSecret ? [webMailSecret] : []),
 ]);
 
 const keda = cfg.keda.install ? installKeda(provider) : undefined;
+
+if (codeRunner) {
+  installCodeRunnerScaling(cfg, provider, namespace, codeRunner, keda ? [keda] : []);
+}
+if (browserRenderer) {
+  installBrowserRendererScaling(cfg, provider, namespace, browserRenderer, keda ? [keda] : []);
+}
 
 const hatchetQueueAuth = installHatchetQueueAuth(wiring, backgroundWorkPg.scalerDsn, [
   ...(keda ? [keda] : []),
@@ -246,6 +275,7 @@ const agentWorker = installAgentWorker(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
 const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
@@ -255,15 +285,17 @@ const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
-installIngestWorkerHeavy(wiring, cfg, secrets, [
+const ingestWorkerHeavy = installIngestWorkerHeavy(wiring, cfg, secrets, [
   postgres.initJob,
   postgres.pooler,
   dragonfly.service,
   seaweed.bucketInitJob,
   qdrant.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
 const bffJobs = installBffJobs(wiring, cfg, secrets, [
@@ -271,6 +303,7 @@ const bffJobs = installBffJobs(wiring, cfg, secrets, [
   api.service,
   legacyApi.service,
   ...queueScalerDeps,
+  ...afterBackfills,
 ]);
 
 if (cfg.auth.knowledgeCarry) {
@@ -285,6 +318,22 @@ if (cfg.auth.knowledgeCarry) {
     ingestWorker.deployment,
   ]);
 }
+
+installBackfills(wiring, cfg, secrets, "after-switch", [
+  migrations,
+  workers.purger,
+  api.deployment,
+  legacyApi.deployment,
+  backend.statefulSet,
+  legacyBackend.statefulSet,
+  frontend.deployment,
+  web.deployment,
+  publicSourceFetcher.deployment,
+  agentWorker.deployment,
+  ingestWorker.deployment,
+  ...(ingestWorkerHeavy ? [ingestWorkerHeavy.deployment] : []),
+  bffJobs.deployment,
+]);
 
 if (backendAutoscaled(cfg)) {
   installBackendScaling(wiring, cfg, backend.statefulSet, keda ? [keda] : []);
@@ -404,6 +453,8 @@ export const deployedImages = {
   frontend: frontendImage(cfg),
   web: webImage(cfg),
   cms: cmsImage(cfg.images, cfg.cms.imageOverride),
+  "code-runner": cfg.codeRunner.image,
+  "browser-renderer": cfg.browserRenderer.image,
 };
 export const ingestWorkerDeployment = ingestWorker.deployment.metadata.name;
 export const bffJobsDeployment = bffJobs.deployment.metadata.name;

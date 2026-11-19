@@ -4,7 +4,7 @@ import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { Document } from '@/lib/db/schema/documents'
 import { getBackendUrl } from '@/lib/backend-proxy'
 import { resolvePeople } from '@/lib/sharing/directory'
-import { isAgentDocumentFilename } from './agent-namespace'
+import { isNamespacedAgentDocument } from './agent-namespace'
 import { collectionFileRef, purgeIngestedChunks } from './collection-file-ref'
 import type { DispatchDocumentResult } from './document-dispatch'
 import { resolveDocumentFolderPath } from './folder-path'
@@ -42,13 +42,13 @@ export async function agentProvenance(
   document: Document,
   version: DocumentVersion,
 ): Promise<AgentDocumentProvenance> {
-  const approver = version.approvedBy
-    ? (await resolvePeople(organizationId, [version.approvedBy])).get(version.approvedBy)
-    : undefined
+  const signedOffBy = version.approvedBy ?? version.publishedBy
+  const signedOffAt = version.approvedAt ?? version.publishedAt
+  const approver = signedOffBy ? (await resolvePeople(organizationId, [signedOffBy])).get(signedOffBy) : undefined
   return {
     authored_by: 'agent',
     approved_by: approver?.name ?? null,
-    approved_at: version.approvedAt?.toISOString() ?? null,
+    approved_at: signedOffAt?.toISOString() ?? null,
     producer: document.authoredByProducer,
   }
 }
@@ -60,7 +60,7 @@ export async function redispatchPublishedVersion(
 ): Promise<DispatchDocumentResult> {
   const { dispatchDocument, AgentAuthoredDocumentNotIndexableError } = await import('./document-dispatch')
   const version = await findPublishedVersion(document.id, organizationId)
-  if (!version || !isAgentDocumentFilename(document.filename)) {
+  if (!version || !isNamespacedAgentDocument(document)) {
     throw new AgentAuthoredDocumentNotIndexableError(document.id)
   }
   return dispatchDocument({

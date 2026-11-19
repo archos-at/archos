@@ -611,7 +611,7 @@
     }
   },
   "backend_tool:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -2527,10 +2527,36 @@
       "description": "A document the agent wrote into this conversation's working directory.\n\nSystem-emitted by the working directory's ``write_file`` / ``edit_file``, and\nagain by ``file_draft`` once the draft has become a project document.\n\n**The card has two states, and the difference is three fields.** Unfiled, it\nreports a file that exists in this conversation and nowhere else: not filed,\nnot indexed, not citable, not in the Files pane. Filed, it names a\n``documents`` row — and then it can offer the two things a reader wants,\nopening it and sending it for review, both through the routes the Files pane\nitself uses.\n\nThe three fields travel together or not at all: a card carrying a\n``document_id`` and no ``version_state`` could not say whether the draft is\nstill submittable, and one carrying a state with no ``version_id`` could not\nsubmit it. ``_require_filed_together`` is what refuses the half-filled shape,\nbecause the alternative is a card that renders a live-looking control over\nnothing.",
       "properties": {
         "bytes": {
-          "description": "Size of the draft as stored, in UTF-8 bytes",
+          "description": "Size in bytes: UTF-8 for text, the file's own size for a binary file",
           "minimum": 0,
           "title": "Bytes",
           "type": "integer"
+        },
+        "derived_from_document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The project document the run read this file from, when it is a changed copy of one",
+          "title": "Derived From Document Id"
+        },
+        "derived_from_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "That document's name, as the person knows it",
+          "title": "Derived From Name"
         },
         "document_id": {
           "anyOf": [
@@ -2545,11 +2571,51 @@
           "description": "The project document this draft was filed as; absent while it is unfiled",
           "title": "Document Id"
         },
+        "filed_draft_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing",
+          "title": "Filed Draft Version"
+        },
+        "media_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The file's media type when a script wrote it (Word, Excel, PowerPoint, PDF, CSV, SVG, PNG); absent for a Markdown draft",
+          "title": "Media Type"
+        },
         "path": {
           "description": "Path in the working directory, e.g. '/drafts/aktenvermerk.md'",
           "minLength": 1,
           "title": "Path",
           "type": "string"
+        },
+        "removed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True once the draft was deleted from the conversation",
+          "title": "Removed"
         },
         "title": {
           "description": "The document's first heading, or its file name when it has none",
@@ -8548,7 +8614,7 @@
               "constraints": [
                 ">= 0"
               ],
-              "description": "Size of the draft as stored, in UTF-8 bytes",
+              "description": "Size in bytes: UTF-8 for text, the file's own size for a binary file",
               "name": "bytes",
               "required": true,
               "type": "integer"
@@ -8561,6 +8627,13 @@
               "name": "version",
               "required": true,
               "type": "integer"
+            },
+            {
+              "constraints": [],
+              "description": "The file's media type when a script wrote it (Word, Excel, PowerPoint, PDF, CSV, SVG, PNG); absent for a Markdown draft",
+              "name": "media_type",
+              "required": false,
+              "type": "string"
             },
             {
               "constraints": [],
@@ -8582,6 +8655,36 @@
               "name": "version_state",
               "required": false,
               "type": "\"draft\" | \"in_review\" | \"changes_requested\" | \"approved\" | \"published\" | \"superseded\" | \"rejected\""
+            },
+            {
+              "constraints": [
+                ">= 1"
+              ],
+              "description": "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing",
+              "name": "filed_draft_version",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "constraints": [],
+              "description": "The project document the run read this file from, when it is a changed copy of one",
+              "name": "derived_from_document_id",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "constraints": [],
+              "description": "That document's name, as the person knows it",
+              "name": "derived_from_name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "constraints": [],
+              "description": "True once the draft was deleted from the conversation",
+              "name": "removed",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "interaction": "interactive",
@@ -13498,14 +13601,53 @@
       "type": "object"
     }
   },
-  "tool:chat:file_draft": {
-    "description": "Files a draft from the working directory into the project AS A DRAFT, so that others can see and review it. `path` is the path in the working directory (`/drafts/<name>.md`), `title` is optionally the title in the project — by default the document's first heading. Call it when the user asks for it („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after every write. A second call for the same path replaces the content of the same draft; no second document is created. What is filed is a DRAFT: nobody has approved it, it is not published and is not searched. `submit=true` then submits the draft FOR APPROVAL: it goes into review and appears in the reviewers' inbox. If it is already filed and unchanged since, it is only submitted. Call with `submit=true` only when the user asks for approval, review or hand-over — „ablegen“ alone is not such a request. Submitting costs a person attention, and the draft cannot be changed afterwards. `reviewer` applies only together with `submit=true` and is optional: the person who is to review, named exactly as the user named them (name or email) — THIS execution does not know the project members and does not check the name; it is resolved on submission against the project's members. So fill it only when the user named the person themselves, and take the name over unchanged. Without `reviewer` the draft goes to the project's editors. Even after submission the document is NOT approved: it waits for approval by a person.",
+  "tool:chat:execute": {
+    "description": "Runs a JavaScript or TypeScript module you write in a sandbox with no network, and keeps the files it writes. Use it to calculate exactly, to work over documents and other tools' results, and to make real files (Word, Excel, PowerPoint, PDF, charts). Read the `execute` skill first: what a run can import and how data gets in and files get out. `code` is `export default async function () { … }`; its return value comes back as `value` and must be plain JSON. /drafts/ is /workspace/ inside the run; `documents` named here appear read-only under /workspace/in/ (the report names each path). `data` takes the references other tools name on their 'Data for execute:' line (e.g. [\"r3\"]) and puts each result, exact and with its provenance, read-only at /workspace/in/<tool>-<ref>.json: compute on that instead of typing figures into the code. Files written under /workspace/ are kept in /drafts/. Errors come back on stderr: fix and run again, at most three times per file.",
     "schema": {
       "properties": {
-        "path": {
+        "code": {
           "type": "string"
         },
-        "reviewer": {
+        "data": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "documents": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "type": "object"
+    }
+  },
+  "tool:chat:file_draft": {
+    "description": "Files a draft from the working directory into the project. `path`: `/drafts/<name>.md`; `title` optional. Call it only when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after every write: the user who files it signs it off, and it becomes a project document like their own upload, marked as made by you. Again for the same path puts the current draft into the same document. `folder`: a folder the user named. A file made from a project document files as its own file, unless the user asks for its new version: `file_as=\"new_revision\"` and `change_note`. `file_as=\"separate_file\"` only when the user asks for one after a refusal.",
+    "schema": {
+      "properties": {
+        "change_note": {
           "anyOf": [
             {
               "type": "string"
@@ -13516,9 +13658,34 @@
           ],
           "default": null
         },
-        "submit": {
-          "default": false,
-          "type": "boolean"
+        "file_as": {
+          "anyOf": [
+            {
+              "enum": [
+                "new_revision",
+                "separate_file"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "folder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "type": "string"
         },
         "title": {
           "anyOf": [
@@ -13968,7 +14135,7 @@
     }
   },
   "tool:chat:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -14812,7 +14979,7 @@
     }
   },
   "tool:clarifier:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -16037,7 +16204,7 @@
     }
   },
   "tool:deep_research.researcher:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {
@@ -16751,7 +16918,7 @@
     }
   },
   "tool:intake:list_files": {
-    "description": "Lists the reader's OWN files the way the Files pane shows them: which files exist, in which folder, of which Dokumentart, uploaded when. A deterministic listing, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling do not matter). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's whole chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; every other filter is ignored. With `compare_to=` another Fassung of the chain (its file name, or \"previous\"), it returns what changed, page by page, in the printed text and in the reading of the drawings, with the Plankopf's Index and Stand („was hat sich zwischen Index B und C geändert“).\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
+    "description": "Lists the reader's OWN files the way the Files pane shows them: folder, Dokumentart, upload date. Deterministic, paged, not capped by the prompt inventory. It says which files exist, not what they say: reading or searching the documents does.\nInputs, all optional: with none, every file on Projektwissen, Büroablage and Private Sitzung, ordered by folder, after an overview of the top-level folders with file counts. `folder=` one folder and everything below it. `name_contains=` words that must all appear in the file name or title (case and umlaut spelling ignored). `doc_class=` a Dokumentart key. `added_since=` YYYY-MM-DD. `sort=newest`. `topic=` a Thema recognised in the documents (Attika, Holzrahmenbau). `shelf=` project | office_shelf | session | base (base, the platform OIB corpus, is listed only when asked). `offset=` the next page, as the result says.\n`view=\"tree\"` (`depth=` 1-4, default 2) returns a card per folder instead of file lines: counts, Dokumentart mix, pages, dates, the current Fassung; filters apply, no paging.\n`revisions_of=` a file name returns that document's chain of Fassungen, newest first, each with Index/Datum, upload date and what changed against the one before; other filters are ignored. Add `compare_to=` another Fassung's file name or \"previous\" („was hat sich zwischen Index B und C geändert“), or any other file of the reader („vergleiche Raumliste und Raumprogramm“), for what changed, first → second: page by page in the printed text and the drawing reading, tables and lists row by row.\nReturns: a count, the subfolders, then one line per file: exact file name, title, folder, Dokumentart, page count, topics, the date a photo was taken, a Fassung mark (read from the name, or a replacement a person confirmed, with what changed), upload date, a one-line summary. An index, not a source: it is never cited, and a summary does not say what a file contains. File names are written exactly as returned; each becomes a link the reader can open.",
     "schema": {
       "properties": {
         "added_since": {

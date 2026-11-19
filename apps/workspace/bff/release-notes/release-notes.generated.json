@@ -32,11 +32,123 @@
       "summary": null,
       "notes": [
         {
+          "section": "features",
+          "area": "answers",
+          "text": {
+            "en": "{productName} can now lay out a PDF like a designed report, draw diagrams such as a process or a schedule, and make a picture of a page or a chart, for a Word file or a presentation.",
+            "de": "{productName} kann jetzt ein PDF wie einen gestalteten Bericht layouten, Diagramme wie Abläufe oder Zeitpläne zeichnen und Bilder von Seiten oder Diagrammen für Word-Dateien oder Präsentationen erstellen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "answers",
+          "text": {
+            "en": "{productName} can now make real Word, Excel, PowerPoint and PDF files and calculate exactly, so totals and ratios are worked out rather than estimated. When you ask, it files them into the project as drafts, marked as made by AI, for you to check and send for review.",
+            "de": "{productName} kann jetzt echte Word-, Excel-, PowerPoint- und PDF-Dateien erstellen und exakt berechnen, sodass Summen und Verhältnisse berechnet statt geschätzt werden. Auf Ihre Anfrage legt es sie als Entwürfe im Projekt ab, gekennzeichnet als von KI erstellt, damit Sie sie prüfen und zur Prüfung weiterleiten können."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Ask the assistant to compare any two files you pick with # in the chat, not only two versions of one document. Two lists, such as room lists in Excel, CSV or a table in a PDF, are compared row by row: which rows differ and in which column, which rows only one file has, and where each stands in both files.",
+            "de": "Lassen Sie den Assistenten beliebige zwei Dateien Ihrer Wahl mit # im Chat vergleichen, nicht nur zwei Versionen desselben Dokuments. Zwei Listen, etwa Raumlisten in Excel, CSV oder als Tabelle in einem PDF, werden zeilenweise verglichen: Welche Zeilen sich unterscheiden und in welcher Spalte, welche Zeilen nur in einer Datei vorkommen und an welcher Stelle sie in beiden Dateien stehen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A Word, Excel, PowerPoint, PDF or image file the agent makes in a chat now arrives as a file card with its first page, to open, download or file into the project as a draft for review. You see what you got before you keep it, and a rewrite shows the new version instead of a second card.",
+            "de": "Eine Word-, Excel-, PowerPoint-, PDF- oder Bilddatei, die der Agent in einem Chat erstellt, wird jetzt als Dateikarte mit der ersten Seite angezeigt – zum Öffnen, Herunterladen oder Ablegen im Projekt als Entwurf zur Prüfung. Sie sehen, was Sie erhalten, bevor Sie die Datei übernehmen, und bei einer Überarbeitung wird die neue Version statt einer zweiten Karte angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A CSV file from the agent says why it cannot be filed into the project and offers to ask for an Excel workbook instead.",
+            "de": "Die CSV-Datei des Agenten erklärt, warum sie nicht im Projekt abgelegt werden kann, und bietet an, stattdessen eine Excel-Arbeitsmappe anzufordern."
+          }
+        },
+        {
+          "section": "features",
+          "area": "administration",
+          "text": {
+            "en": "Reading uploaded documents in no longer uses up your daily and monthly limit: it has its own allowance per month, three times your monthly limit, and Verbrauch & Budgets shows it separately. A large upload at the start of a project now leaves the day's allowance for your questions.",
+            "de": "Das Lesen hochgeladener Dokumente belastet Ihr Tages- und Monatslimit nicht mehr: Dafür steht Ihnen monatlich ein eigenes Kontingent in dreifacher Höhe Ihres Monatslimits zur Verfügung, das unter Verbrauch & Budgets separat angezeigt wird. Ein großer Upload zu Projektbeginn lässt Ihr Tageslimit nun für Ihre Fragen unangetastet."
+          }
+        },
+        {
+          "section": "features",
+          "area": "answers",
+          "text": {
+            "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",
+            "de": "Mehrere Chats können jetzt gleichzeitig antworten: Während ein Chat noch verarbeitet wird, können Sie einen anderen öffnen oder einen neuen starten. Wenn Sie zurückkommen, ist die erste Antwort fertig. In der Chatliste und in der Seitenleiste sehen Sie, welcher Chat gerade verarbeitet wird, auf Ihre Antwort wartet oder dessen Antwort bereitsteht bzw. fehlgeschlagen ist."
+          }
+        },
+        {
+          "section": "features",
+          "area": "answers",
+          "text": {
+            "en": "Select text in an answer and choose „Dazu fragen“ to ask about exactly that part, which appears above the message field until you send or remove it. A follow-up no longer has to describe or retype the sentence it means.",
+            "de": "Wählen Sie Text in einer Antwort aus und klicken Sie auf „Dazu fragen“, um genau dazu eine Frage zu stellen. Der ausgewählte Text erscheint über dem Nachrichtenfeld, bis Sie ihn senden oder entfernen. Bei einer Nachfrage müssen Sie den gemeinten Satz nicht mehr beschreiben oder erneut eingeben."
+          }
+        },
+        {
           "section": "improvements",
           "area": "agents",
           "text": {
             "en": "When you connect your own AI assistant to the workspace, the setup steps now suggest the server name „workspace“. Assistants you have already connected keep the name you gave them and need no change.",
             "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbinden, schlagen die Einrichtungsschritte jetzt den Servernamen „workspace“ vor. Bereits verbundene Assistenten behalten den von Ihnen vergebenen Namen und müssen nicht geändert werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "When you file a draft or a file {productName} made into the project, a small dialog now lets you pick the folder, or start a new one, and change the name while the file keeps its extension. The card then says which folder the draft is in, so you find it again without searching.",
+            "de": "Wenn Sie einen Entwurf oder eine mit {productName} erstellte Datei im Projekt ablegen, können Sie jetzt in einem kleinen Dialog den Ordner auswählen oder einen neuen anlegen und den Namen ändern, während die Dateiendung erhalten bleibt. Auf der Karte sehen Sie anschließend, in welchem Ordner sich der Entwurf befindet, damit Sie ihn ohne Suchen wiederfinden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "A file {productName} changed after you filed it now updates the project document in one click, and the card warns you first when someone else has changed that document.",
+            "de": "Wenn sich eine Datei {productName} nach dem Ablegen geändert hat, können Sie jetzt das Projektdokument mit einem Klick aktualisieren. Die Karte warnt Sie vorher, wenn jemand anderes das Dokument geändert hat."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "A file made from a project document can be filed as its next Fassung with a short note of what changed, and a draft you no longer need can be deleted from the chat.",
+            "de": "Eine aus einem Projektdokument erstellte Datei kann mit einer kurzen Notiz zu den Änderungen als nächste Fassung abgelegt werden. Einen Entwurf, den Sie nicht mehr benötigen, können Sie aus dem Chat löschen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "A file or draft {productName} made is now in the project as soon as you file it, signed off by you like your own upload, and {productName} can cite it in later answers, marked as made by {productName}.",
+            "de": "Sobald Sie eine von {productName} erstellte Datei oder einen Entwurf ablegen, ist die Datei bzw. der Entwurf im Projekt und von Ihnen wie Ihr eigener Upload freigegeben; {productName} kann sich in späteren Antworten darauf beziehen, gekennzeichnet als von {productName} erstellt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "administration",
+          "text": {
+            "en": "The list of subprocessors now names Google Workspace and Attio. They handle enquiries sent through the contact and demo forms on our website, and they receive none of your office's project data.",
+            "de": "Die Liste der Unterauftragsverarbeiter führt jetzt Google Workspace und Attio auf. Sie bearbeiten Anfragen über die Kontakt- und Demoformulare auf unserer Website und erhalten keine Projektdaten Ihres Büros."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "In the derivation, a source card read across many pages no longer lists every page one by one. It names the pages as ranges, shows the first three, and counts the rest, so the card stays readable.",
+            "de": "In der Ableitung listet eine Quellenkarte mit vielen Seiten nicht mehr jede Seite einzeln auf. Stattdessen fasst sie Seiten zu Bereichen zusammen, zeigt die ersten drei an und zählt die übrigen, damit die Karte übersichtlich bleibt."
           }
         },
         {

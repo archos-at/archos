@@ -92,7 +92,13 @@ export async function renderVersionBytes(
   document: Document,
   version: DocumentVersion,
   content: string,
+  stage: { filed: boolean } = { filed: false },
 ): Promise<RenderedVersionBytes> {
+  if (document.authoredBy !== 'user' && document.authoredByProducer === 'agent_file') {
+    throw new ConflictError('This draft is a file the agent made; replace it with update_file, not with text', {
+      producer: document.authoredByProducer,
+    })
+  }
   const renderer =
     document.authoredBy === 'user'
       ? undefined
@@ -113,6 +119,7 @@ export async function renderVersionBytes(
   const branding = await resolveDocumentBranding({
     organizationId: document.organizationId,
     organizationName,
+    filed: stage.filed,
   })
   const rendered = renderer(content, marking, branding)
   if (!markingIsInBytes(rendered.bytes, marking)) {

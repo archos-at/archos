@@ -1,0 +1,260 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@/test-utils'
+import userEvent from '@testing-library/user-event'
+import { FileDraftCard } from './FileDraftCard'
+import { filingBody, fileThroughDialog, openSaveDialog, stubFetch } from './draft-filing.fixtures'
+
+const setCardDecision = vi.fn()
+const setComposerPrefill = vi.fn()
+
+const storeState = () => ({
+  projectId: 'proj-1',
+  setCardDecision,
+  setComposerPrefill,
+  currentConversation: { id: 'conv-1', messages: [{ id: 'msg-1' }] },
+  conversations: [],
+})
+
+vi.mock('@/features/chat/store', () => {
+  const useChatStore = (selector: (s: unknown) => unknown) => selector(storeState())
+  useChatStore.getState = () => storeState()
+  return { useChatStore }
+})
+
+const openFiledDocument = vi.hoisted(() => vi.fn(() => Promise.resolve(true)))
+vi.mock('@/features/documents/lib/open-filed-document', () => ({ openFiledDocument }))
+
+vi.mock('@/hooks/use-seen-once', () => ({ useSeenOnce: () => [() => {}, true] }))
+
+const thumbnail = vi.hoisted(() => ({ calls: [] as Array<string | null>, source: null as string | null }))
+vi.mock('@/features/knowledge/file-preview', () => ({
+  useFileThumbnailState: (url: string | null) => {
+    thumbnail.calls.push(url)
+    return url && thumbnail.source ? { source: thumbnail.source, state: 'drawn' } : { source: null, state: url ? 'loading' : 'idle' }
+  },
+  PdfViewerDialog: ({ open, src, title, description }: { open: boolean; src: string; title: string; description: string }) =>
+    open ? (
+      <div role="dialog" aria-label={title} data-src={src}>
+        {description}
+      </div>
+    ) : null,
+}))
+
+const XLSX = {
+  title: 'Flächenaufstellung Top 4.xlsx',
+  path: '/drafts/Flächenaufstellung Top 4.xlsx',
+  bytes: 9412,
+  version: 1,
+  cardKey: 'document_draft-0',
+  messageId: 'msg-1',
+}
+
+const filedResponse = (folderName: string | null = 'Berichte') => () =>
+  Promise.resolve({
+    ok: true,
+    status: 201,
+    json: async () => ({ documentId: 'doc-1', versionId: 'ver-1', state: 'draft', alreadyFiled: false, folderName }),
+  })
+
+describe('FileDraftCard — a file a script made', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    thumbnail.calls = []
+    thumbnail.source = null
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, status: 200, json: async () => ({}) })))
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it.each([
+    ['docx', 'word', 'Word document'],
+    ['xlsx', 'excel', 'Excel workbook'],
+    ['pptx', 'powerpoint', 'PowerPoint presentation'],
+    ['pdf', 'pdf', 'PDF document'],
+    ['png', 'image', 'Image'],
+  ])('names a .%s by its kind, its name and its size', (extension, format, kind) => {
+    render(<FileDraftCard {...XLSX} title={`Datei.${extension}`} path={`/drafts/Datei.${extension}`} />)
+
+    const card = screen.getByTestId('file-draft-card')
+    expect(card).toHaveAttribute('data-format', format)
+    expect(card).toHaveAccessibleName(`${kind}: Datei.${extension}`)
+    expect(screen.getByText(`Datei.${extension}`)).toBeInTheDocument()
+    expect(screen.getByTestId('file-draft-facts')).toHaveTextContent(`${extension.toUpperCase()} · 9 kB`)
+    expect(screen.getByText('Draft in this chat')).toBeInTheDocument()
+    expect(screen.queryByTestId('document-draft-state')).not.toBeInTheDocument()
+  })
+
+  it('says a script made it, as every agent draft says', () => {
+    render(<FileDraftCard {...XLSX} />)
+    expect(screen.getByText(/^Created by /)).toBeInTheDocument()
+  })
+
+  it('downloads the original file from the conversation, under its own name', () => {
+    render(<FileDraftCard {...XLSX} />)
+
+    const link = screen.getByRole('link', { name: 'Download Flächenaufstellung Top 4.xlsx' })
+    expect(link).toHaveAttribute(
+      'href',
+      '/api/conversations/conv-1/draft/download?path=%2Fdrafts%2FFl%C3%A4chenaufstellung%20Top%204.xlsx&v=1',
+    )
+    expect(link).toHaveAttribute('download', 'Flächenaufstellung Top 4.xlsx')
+  })
+
+  it('draws the first page of an Office file from its PDF rendition', async () => {
+    thumbnail.source = 'data:image/png;base64,AAAA'
+    render(<FileDraftCard {...XLSX} />)
+
+    await waitFor(() => expect(screen.getByTestId('file-draft-thumbnail')).toHaveAttribute('data-drawn', 'true'))
+    expect(thumbnail.calls.filter(Boolean).at(-1)).toContain('/draft/rendition?path=')
+    expect(screen.getByAltText('First page of Flächenaufstellung Top 4.xlsx')).toBeInTheDocument()
+  })
+
+  it('shows an image as itself, from the download route', () => {
+    render(<FileDraftCard {...XLSX} title="Schnitt.png" path="/drafts/Schnitt.png" />)
+
+    const image = screen.getByAltText('Preview of Schnitt.png')
+    expect(image.getAttribute('src')).toContain('/draft/download?path=%2Fdrafts%2FSchnitt.png')
+    expect(thumbnail.calls.every((url) => url === null)).toBe(true)
+  })
+
+  it('keeps the format and its glyph when there is no page to show', () => {
+    render(<FileDraftCard {...XLSX} title="Folien.pptx" path="/drafts/Folien.pptx" />)
+
+    const sheet = screen.getByTestId('file-draft-thumbnail')
+    expect(sheet).not.toHaveAttribute('data-drawn')
+    expect(within(sheet).getByText('PPTX')).toBeInTheDocument()
+  })
+
+  it('opens the PDF of an Office file in the viewer, and says the download is the original', async () => {
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await user.click(screen.getByRole('button', { name: 'Open' }))
+
+    const viewer = screen.getByRole('dialog', { name: XLSX.title })
+    expect(viewer.getAttribute('data-src')).toContain('/draft/rendition?path=')
+    expect(viewer).toHaveTextContent('Download gives the original file (Excel workbook)')
+  })
+
+  it('opens from the thumbnail too, by keyboard', async () => {
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    screen.getByRole('button', { name: `Open ${XLSX.title}` }).focus()
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByRole('dialog', { name: XLSX.title })).toBeInTheDocument()
+  })
+
+  it('shows the version once the same path was written again, in one card', () => {
+    render(<FileDraftCard {...XLSX} version={2} />)
+    expect(screen.getAllByTestId('file-draft-card')).toHaveLength(1)
+    expect(screen.getByTestId('file-draft-facts')).toHaveTextContent('XLSX · 9 kB · v2')
+  })
+})
+
+describe('FileDraftCard — filing', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    thumbnail.calls = []
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('files the file through the save dialog, then says where it lies and offers the project', async () => {
+    stubFetch(filedResponse('Berichte'))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await fileThroughDialog(user)
+
+    await waitFor(() => expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in “Berichte”'))
+    expect(fetch).toHaveBeenCalledWith('/api/conversations/conv-1/draft/file', expect.objectContaining({ method: 'POST' }))
+    expect(filingBody()).toEqual({
+      path: XLSX.path,
+      title: XLSX.title,
+      force: false,
+      folderId: null,
+      name: 'Flächenaufstellung Top 4.xlsx',
+    })
+    expect(setCardDecision).toHaveBeenCalled()
+    expect(screen.getByText('In the project')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open in the project' })).toHaveAttribute('href', expect.stringContaining('doc-1'))
+    expect(screen.queryByRole('link', { name: /^Download/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'File into the project' })).not.toBeInTheDocument()
+  })
+
+  for (const versionState of ['draft', 'in_review', 'changes_requested', 'approved', 'published'] as const) {
+    it(`shows a filed file as in the project, with no submit and no review state (${versionState})`, () => {
+      render(<FileDraftCard {...XLSX} documentId="doc-1" versionId="ver-1" versionState={versionState} />)
+
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent(/^Filed in the project$/)
+      expect(screen.queryByRole('button', { name: /approval/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Open in the project' })).toHaveAttribute('href', expect.stringContaining('doc-1'))
+    })
+  }
+
+  it('opens a filed file in the project from its thumbnail', async () => {
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} documentId="doc-1" versionId="ver-1" versionState="draft" />)
+
+    await user.click(screen.getByTestId('file-draft-thumbnail'))
+
+    expect(openFiledDocument).toHaveBeenCalledWith({ documentId: 'doc-1', projectId: 'proj-1' })
+  })
+
+  it('says honestly when filing failed, in the dialog that is still open', async () => {
+    stubFetch(() => Promise.resolve({ ok: false, status: 502, json: async () => ({ error: 'upstream' }) }))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await fileThroughDialog(user)
+
+    expect(await screen.findByTestId('save-to-project-error')).toHaveTextContent('Filing failed. Please try again.')
+    expect(screen.getByTestId('save-to-project')).toBeInTheDocument()
+  })
+
+  it('files into the folder and under the name the person chose, and says so on the card', async () => {
+    stubFetch(filedResponse('Protokolle'))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await openSaveDialog(user)
+    expect(screen.getByTestId('save-to-project-extension')).toHaveTextContent('.xlsx')
+    expect(screen.getByTestId('save-to-project-name')).toHaveValue('Flächenaufstellung Top 4')
+    await user.click(screen.getByRole('button', { name: 'Open folder “Planung”' }))
+    await user.click(screen.getByRole('button', { name: 'Open folder “Protokolle”' }))
+    await user.clear(screen.getByTestId('save-to-project-name'))
+    await user.type(screen.getByTestId('save-to-project-name'), 'Flächen EG{Enter}')
+
+    await waitFor(() =>
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in “Protokolle”'),
+    )
+    expect(filingBody()).toMatchObject({ folderId: 'f-prot', name: 'Flächen EG.xlsx' })
+    expect(screen.queryByTestId('save-to-project')).not.toBeInTheDocument()
+  })
+
+  it('names the project root when the file went there', async () => {
+    stubFetch(filedResponse(null))
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} />)
+
+    await fileThroughDialog(user)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in “All Files”'),
+    )
+  })
+
+  it('offers no filing for a CSV, says why, and asks for Excel instead', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    const user = userEvent.setup()
+    render(<FileDraftCard {...XLSX} title="Raumliste.csv" path="/drafts/Raumliste.csv" />)
+
+    expect(screen.queryByRole('button', { name: 'File into the project' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('file-draft-refusal')).toHaveTextContent('A CSV cannot be filed into the project')
+    expect(screen.getByRole('link', { name: 'Download Raumliste.csv' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Ask for Excel' }))
+
+    expect(setComposerPrefill).toHaveBeenCalledWith(expect.stringContaining('Raumliste as an Excel workbook'))
+  })
+})

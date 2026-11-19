@@ -7,11 +7,12 @@ import type { IClientTrafficPolicySpec } from "@kubernetes-models/envoy-gateway/
 import { DeployConfig } from '../config'
 import { commonLabels } from "./namespaces";
 import { EDGE_SHUTDOWN, SURGE_ONLY_STRATEGY } from "./rollout";
-import { EDGE_RATE_LIMIT, EDGE_TIMEOUT, LANGFUSE, PLATFORM_RESOURCES, QDRANT } from "../constants";
+import { EDGE_RATE_LIMIT, EDGE_TIMEOUT, LANGFUSE, PLATFORM_RESOURCES, QDRANT, HELM_RELEASE_TIMEOUT_SECONDS } from "../constants";
 import { MCP_GATEWAY } from "./mcp-gateway-config";
 import { logicalName, objectName } from "../names";
 import { formerDomainListener, formerDomainRedirects, formerMcpGatewayHost } from "../app/former-domain";
 import { CMS } from "../config/cms";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const GATEWAY_NAME = objectName("gateway");
 export const GATEWAY_CLASS = objectName("gatewayClass");
@@ -45,6 +46,7 @@ export function installGatewayController(
     {
       chart: "oci://docker.io/envoyproxy/gateway-helm",
       version: ENVOY_GATEWAY_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: ns.metadata.name,
       values: cfg.rateLimit.enabled
         ? { config: { envoyGateway: rateLimitConfig(cfg, redisAuthSecret !== undefined) } }
@@ -126,7 +128,7 @@ export function installGatewayResources(
         envoyDeployment: {
           replicas: 2,
           strategy: SURGE_ONLY_STRATEGY,
-          container: { resources: PLATFORM_RESOURCES.envoyProxy },
+          container: { resources: scaledCpuRequest(PLATFORM_RESOURCES.envoyProxy) },
           pod: {
             affinity: {
               podAntiAffinity: {

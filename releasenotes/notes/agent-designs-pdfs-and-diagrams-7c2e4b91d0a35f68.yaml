@@ -1,0 +1,14 @@
+---
+# area: answers
+features:
+  - >
+    {productName} can now lay out a PDF like a designed report, draw diagrams
+    such as a process or a schedule, and make a picture of a page or a chart,
+    for a Word file or a presentation.
+operators:
+  - >
+    Designed PDFs, diagrams and pictures need the browser renderer beside the
+    code runner, which is off until a stack sets
+    grid-oib:browserRendererEnabled to "true". Its nodes must allow
+    unprivileged user namespaces for the browser's sandbox. The steps are in
+    docs/deployment/code-runner-runbook.md.

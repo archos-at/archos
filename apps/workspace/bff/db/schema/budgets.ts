@@ -55,6 +55,8 @@ export type UsageActivity = (typeof USAGE_ACTIVITIES)[number]
 
 export const UNBILLED_USAGE_ACTIVITIES: ReadonlySet<UsageActivity> = new Set(['dictation'])
 
+export const INGEST_USAGE_ACTIVITY = 'ingest' satisfies UsageActivity
+
 export const llmUsageEvents = pgTable(
   'llm_usage_events',
   {
@@ -117,6 +119,9 @@ export const llmUsageRollups = pgTable(
     priceUsd: numeric('price_usd', { precision: 14, scale: 8 }).notNull().default('0'),
     credits: numeric('credits', { precision: 14, scale: 6 }).notNull().default('0'),
     tokens: bigint('tokens', { mode: 'number' }).notNull().default(0),
+    ingestCredits: numeric('ingest_credits', { precision: 14, scale: 6 }).notNull().default('0'),
+    ingestTokens: bigint('ingest_tokens', { mode: 'number' }).notNull().default(0),
+    ingestEvents: integer('ingest_events').notNull().default(0),
     ownKeyCostUsd: numeric('own_key_cost_usd', { precision: 14, scale: 8 }).notNull().default('0'),
     events: integer('events').notNull().default(0),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

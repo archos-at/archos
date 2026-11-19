@@ -12,7 +12,11 @@ from jsonschema import Draft202012Validator
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
+import answer_checks  # noqa: E402
+import run_record  # noqa: E402
 import suite  # noqa: E402
+import suite_fixtures  # noqa: E402
+import suite_report  # noqa: E402
 from fixture_bff import FixtureBFF  # noqa: E402
 from fixture_bff import FixtureOffice  # noqa: E402
 
@@ -161,7 +165,7 @@ def test_the_fixture_permit_records_are_of_documents_the_office_holds_and_the_in
 
 def test_the_envelope_the_suite_mints_is_one_the_agent_accepts():
     office = FixtureOffice().office
-    header, signature = suite.precedent_envelope(office, "suite-1-traufe-frueher-1", TOKEN)
+    header, signature = suite_fixtures.precedent_envelope(office, "suite-1-traufe-frueher-1", TOKEN)
 
     context = RequestContext.from_envelope(header, signature, TOKEN)
 
@@ -178,9 +182,9 @@ def test_the_envelope_the_suite_mints_is_one_the_agent_accepts():
 def test_every_project_a_question_expects_is_in_its_scenarios_office():
     for question in suite.load_precedent_questions():
         office = FixtureOffice(scenario=question.get("scenario") or "default")
-        folded = suite._normal(" ".join(project["name"] for project in office.projects.values()))
+        folded = answer_checks._normal(" ".join(project["name"] for project in office.projects.values()))
         for group in (question.get("expect") or {}).get("cites") or []:
-            assert any(suite._normal(option) in folded for option in group), (question["id"], group)
+            assert any(answer_checks._normal(option) in folded for option in group), (question["id"], group)
 
 
 def test_the_questions_hold_a_held_out_share_in_every_scenario():
@@ -263,7 +267,7 @@ class TestTheSearchRanksByMeaning:
 
     def test_the_envelope_sits_in_the_scenarios_current_project(self):
         office = FixtureOffice(scenario="wien-bestand")
-        header, signature = suite.precedent_envelope(office.office, "suite-1-wien-1", TOKEN, office.current)
+        header, signature = suite_fixtures.precedent_envelope(office.office, "suite-1-wien-1", TOKEN, office.current)
 
         context = RequestContext.from_envelope(header, signature, TOKEN)
 
@@ -276,15 +280,17 @@ class TestTheSearchRanksByMeaning:
 
     def test_the_report_scores_held_out_and_each_scenario_apart(self):
         runs = [
-            suite.Run(question_id="a", run=1, checks={"cites:Baden": True}),
-            suite.Run(question_id="b", run=1, checks={"cites:Baden": False}, holdout=True, scenario="wien-bestand"),
+            run_record.Run(question_id="a", run=1, checks={"cites:Baden": True}),
+            run_record.Run(
+                question_id="b", run=1, checks={"cites:Baden": False}, holdout=True, scenario="wien-bestand"
+            ),
         ]
 
-        lines = suite.split_lines(runs)
+        lines = suite_report.split_lines(runs)
 
         assert "**Tuned questions** (1 runs):" in lines and "**Held-out questions** (1 runs):" in lines
         assert "**Scenario `wien-bestand`** (1 runs):" in lines
-        assert suite.split_lines([suite.Run(question_id="a", run=1)]) == []
+        assert suite_report.split_lines([run_record.Run(question_id="a", run=1)]) == []
 
 
 def test_every_question_says_whether_it_expects_a_lookup():
@@ -293,14 +299,14 @@ def test_every_question_says_whether_it_expects_a_lookup():
 
 
 class TestTheChecks:
-    def _run(self, tools: list[str], answer: str) -> suite.Run:
-        return suite.Run(question_id="q", run=1, tool_calls=tools, answer=answer)
+    def _run(self, tools: list[str], answer: str) -> run_record.Run:
+        return run_record.Run(question_id="q", run=1, tool_calls=tools, answer=answer)
 
     def test_a_required_lookup_and_its_citations_hold(self):
         expect = {"lookup": "required", "cites": [["Baden"]], "not_cites": ["Linz"]}
         run = self._run(["knowledge_search", "project_lookup"], "Beim Holzwohnbau Baden (2021) …")
 
-        assert suite.precedent_checks(expect, run, suite._normal(run.answer)) == {
+        assert answer_checks.precedent_checks(expect, run, answer_checks._normal(run.answer)) == {
             "looked_up": True,
             "cites:Baden": True,
             "not_cites:Linz": True,
@@ -309,7 +315,9 @@ class TestTheChecks:
     def test_a_lookup_on_a_norm_question_fails(self):
         run = self._run(["project_lookup"], "Das Fluchtniveau ist …")
 
-        assert suite.precedent_checks({"lookup": "forbidden"}, run, suite._normal(run.answer)) == {"no_lookup": False}
+        assert answer_checks.precedent_checks({"lookup": "forbidden"}, run, answer_checks._normal(run.answer)) == {
+            "no_lookup": False
+        }
 
     def test_meaning_is_the_judges_and_it_gets_the_question_and_the_raw_answer(self):
         asked = []
@@ -319,8 +327,12 @@ class TestTheChecks:
             return kind == "says_none"
 
         run = self._run(["project_lookup"], "Ein Hallenbad hatten wir **noch nie**.")
-        checks = suite.precedent_checks(
-            {"says_none": True, "caveat": True}, run, suite._normal(run.answer), question="Hallenbad?", judge=judge
+        checks = answer_checks.precedent_checks(
+            {"says_none": True, "caveat": True},
+            run,
+            answer_checks._normal(run.answer),
+            question="Hallenbad?",
+            judge=judge,
         )
 
         assert checks == {"says_none": True, "caveat": False}
@@ -333,15 +345,17 @@ class TestTheChecks:
         for judge in (None, lambda *_: None):
             run = self._run([], "Nichts Vergleichbares.")
 
-            checks = suite.precedent_checks({"says_none": True}, run, "", judge=judge)
+            checks = answer_checks.precedent_checks({"says_none": True}, run, "", judge=judge)
 
             assert checks == {"says_none": False}
             assert run.signals == ["judge_unavailable:says_none"]
 
     def test_a_judge_that_answers_leaves_no_trace_and_a_rerun_clears_the_old_one(self):
-        run = suite.Run(question_id="q", run=1, answer="Nichts Vergleichbares.", signals=["judge_unavailable:caveat"])
+        run = run_record.Run(
+            question_id="q", run=1, answer="Nichts Vergleichbares.", signals=["judge_unavailable:caveat"]
+        )
 
-        checks = suite.precedent_checks(
+        checks = answer_checks.precedent_checks(
             {"says_none": True, "caveat": True}, run, "", judge=lambda kind, *_: kind == "caveat"
         )
 
@@ -352,36 +366,38 @@ class TestTheChecks:
         asked = []
         run = self._run([], "")
 
-        checks = suite.precedent_checks({"says_none": True}, run, "", judge=lambda *args: asked.append(args))
+        checks = answer_checks.precedent_checks({"says_none": True}, run, "", judge=lambda *args: asked.append(args))
 
         assert checks == {"says_none": False}
         assert asked == [] and run.signals == []
 
     def test_the_report_shows_caveat_and_how_many_meaning_checks_the_judge_could_not_answer(self):
         runs = [
-            suite.Run(question_id="a", run=1, checks={"says_none": True, "looked_up": True}),
-            suite.Run(question_id="b", run=1, checks={"says_none": False}, signals=["judge_unavailable:says_none"]),
-            suite.Run(question_id="c", run=1, checks={"caveat": True}),
-            suite.Run(question_id="d", run=1, checks={"caveat": False}, signals=["judge_unavailable:caveat"]),
+            run_record.Run(question_id="a", run=1, checks={"says_none": True, "looked_up": True}),
+            run_record.Run(
+                question_id="b", run=1, checks={"says_none": False}, signals=["judge_unavailable:says_none"]
+            ),
+            run_record.Run(question_id="c", run=1, checks={"caveat": True}),
+            run_record.Run(question_id="d", run=1, checks={"caveat": False}, signals=["judge_unavailable:caveat"]),
         ]
 
-        assert suite.aggregate_lines(runs) == [
+        assert suite_report.aggregate_lines(runs) == [
             "- `caveat`: 1/2",
             "- `looked_up`: 1/1",
             "- `says_none`: 1/2",
             "- judge could not answer: 2 of 4 meaning checks (says_none 1, caveat 1)",
         ]
-        assert suite.aggregate_lines([suite.Run(question_id="a", run=1, checks={"looked_up": True})]) == [
+        assert suite_report.aggregate_lines([run_record.Run(question_id="a", run=1, checks={"looked_up": True})]) == [
             "- `looked_up`: 1/1"
         ]
 
     def test_the_report_counts_each_kind_of_check_over_every_run(self):
         runs = [
-            suite.Run(question_id="a", run=1, checks={"looked_up": True, "cites:Baden": True}),
-            suite.Run(question_id="b", run=1, checks={"looked_up": False, "cites:Mödling": True}),
+            run_record.Run(question_id="a", run=1, checks={"looked_up": True, "cites:Baden": True}),
+            run_record.Run(question_id="b", run=1, checks={"looked_up": False, "cites:Mödling": True}),
         ]
 
-        assert suite.aggregate_lines(runs) == ["- `cites`: 2/2", "- `looked_up`: 1/2"]
+        assert suite_report.aggregate_lines(runs) == ["- `cites`: 2/2", "- `looked_up`: 1/2"]
 
 
 def test_a_lookup_counts_for_the_run_it_served_however_it_was_asked_for(tmp_path):
@@ -391,7 +407,7 @@ def test_a_lookup_counts_for_the_run_it_served_however_it_was_asked_for(tmp_path
     server = FixtureBFF(TOKEN, tmp_path / "requests.jsonl").start()
     try:
         for conversation in ("suite-1-a-1", "suite-1-b-1"):
-            header, signature = suite.precedent_envelope(office, conversation, TOKEN)
+            header, signature = suite_fixtures.precedent_envelope(office, conversation, TOKEN)
             request = urllib.request.Request(
                 f"{server.url}/api/internal/cross-project/search",
                 data=json.dumps({"query": "Traufe"}).encode("utf-8"),
@@ -409,13 +425,13 @@ def test_a_lookup_counts_for_the_run_it_served_however_it_was_asked_for(tmp_path
 
     assert lookups_served(tmp_path / "requests.jsonl", "suite-1-a-1") == ["search"]
     assert lookups_served(tmp_path / "requests.jsonl", "suite-1-c-1") == []
-    run = suite.Run(question_id="a", run=1, lookups=["search"])
-    assert suite.precedent_checks({"lookup": "required"}, run, "") == {"looked_up": True}
+    run = run_record.Run(question_id="a", run=1, lookups=["search"])
+    assert answer_checks.precedent_checks({"lookup": "required"}, run, "") == {"looked_up": True}
 
 
-def _repeating(question: dict) -> tuple[suite.Run, str]:
-    run = suite.Run(question_id=str(question["id"]), run=1, answer=str(question["question"]))
-    return run, suite._normal(run.answer)
+def _repeating(question: dict) -> tuple[run_record.Run, str]:
+    run = run_record.Run(question_id=str(question["id"]), run=1, answer=str(question["question"]))
+    return run, answer_checks._normal(run.answer)
 
 
 class TestCites:
@@ -425,37 +441,39 @@ class TestCites:
         for question in questions:
             run, answer = _repeating(question)
 
-            checks = suite.precedent_checks(question["expect"], run, answer, question=question["question"])
+            checks = answer_checks.precedent_checks(question["expect"], run, answer, question=question["question"])
 
             assert not [key for key, held in checks.items() if key.startswith("cites:") and held], question["id"]
 
     def test_every_group_can_be_met_by_a_name_the_question_does_not_contain(self):
         for question in suite.load_precedent_questions():
-            asked = suite._normal(question["question"])
+            asked = answer_checks._normal(question["question"])
             for group in question["expect"].get("cites") or []:
-                assert any(suite._normal(option) not in asked for option in group), (question["id"], group)
+                assert any(answer_checks._normal(option) not in asked for option in group), (question["id"], group)
 
     def test_the_project_by_a_name_the_question_leaves_out_does_count(self):
         question = next(q for q in suite.load_precedent_questions() if q["id"] == "kapselung-wie-baden")
         answer = "Das Brandschutzkonzept stammt aus dem Projekt Wiener Straße (2020)."
-        run = suite.Run(question_id="kapselung-wie-baden", run=1, answer=answer)
+        run = run_record.Run(question_id="kapselung-wie-baden", run=1, answer=answer)
 
-        checks = suite.precedent_checks(question["expect"], run, suite._normal(answer), question=question["question"])
+        checks = answer_checks.precedent_checks(
+            question["expect"], run, answer_checks._normal(answer), question=question["question"]
+        )
 
         assert checks["cites:Wiener Straße"] is True
 
     def test_a_word_of_the_question_is_no_alternative_even_inside_a_longer_group(self):
         expect = {"cites": [["Dachgeschoßausbau", "Neubaugasse"]]}
         question = "Welche Auflagen gab es bei unserem Dachgeschoßausbau?"
-        repeated = suite.Run(question_id="q", run=1, answer=question)
-        named = suite.Run(question_id="q", run=1, answer="Das Projekt Neubaugasse.")
+        repeated = run_record.Run(question_id="q", run=1, answer=question)
+        named = run_record.Run(question_id="q", run=1, answer="Das Projekt Neubaugasse.")
 
-        assert suite.precedent_checks(expect, repeated, suite._normal(question), question=question) == {
+        assert answer_checks.precedent_checks(expect, repeated, answer_checks._normal(question), question=question) == {
             "cites:Dachgeschoßausbau": False
         }
-        assert suite.precedent_checks(expect, named, suite._normal(named.answer), question=question) == {
-            "cites:Dachgeschoßausbau": True
-        }
+        assert answer_checks.precedent_checks(
+            expect, named, answer_checks._normal(named.answer), question=question
+        ) == {"cites:Dachgeschoßausbau": True}
 
 
 SOURCES = (
@@ -470,57 +488,65 @@ SOURCES = (
 
 class TestTheProjectsAnAnswerNames:
     def test_the_projects_the_source_lines_name_are_read_off_the_cross_project_lines_only(self):
-        assert suite.sourced_projects(SOURCES) == [
+        assert answer_checks.sourced_projects(SOURCES) == [
             "Holzwohnbau Baden, Wiener Straße",
             "Wohnhausanlage Mödling, Brunner Gasse",
         ]
 
     def test_a_filename_with_parentheses_of_its_own_is_no_project(self):
-        assert suite.sourced_projects("- [1] [KB] Plan (1).pdf, p.3\n- [2] [KB] Plan (Entwurf).pdf") == []
+        assert answer_checks.sourced_projects("- [1] [KB] Plan (1).pdf, p.3\n- [2] [KB] Plan (Entwurf).pdf") == []
 
     def test_projects_the_office_holds_pass(self):
         names = FixtureOffice().project_names()
-        run = suite.Run(question_id="q", run=1, answer=SOURCES)
+        run = run_record.Run(question_id="q", run=1, answer=SOURCES)
 
-        checks = suite.precedent_checks({"lookup": "optional"}, run, suite._normal(SOURCES), projects=names)
+        checks = answer_checks.precedent_checks(
+            {"lookup": "optional"}, run, answer_checks._normal(SOURCES), projects=names
+        )
 
         assert checks == {"real_projects": True}
 
     def test_an_invented_project_in_a_source_line_fails_however_real_the_rest_looks(self):
         invented = SOURCES + "- [6] [KB] Brandschutzkonzept.pdf (Wohnhausanlage Tulln, Hauptstraße), p.3\n"
-        run = suite.Run(question_id="q", run=1, answer=invented)
+        run = run_record.Run(question_id="q", run=1, answer=invented)
 
-        checks = suite.precedent_checks(
-            {"lookup": "optional"}, run, suite._normal(invented), projects=FixtureOffice().project_names()
+        checks = answer_checks.precedent_checks(
+            {"lookup": "optional"}, run, answer_checks._normal(invented), projects=FixtureOffice().project_names()
         )
 
         assert checks == {"real_projects": False}
 
     def test_a_real_project_the_scenarios_office_does_not_hold_is_invented_there(self):
-        run = suite.Run(question_id="q", run=1, answer=SOURCES)
+        run = run_record.Run(question_id="q", run=1, answer=SOURCES)
         names = FixtureOffice(scenario="leeres-buero").project_names()
 
         assert names == ["Wohnhaus Perchtoldsdorf, Hochstraße"]
-        assert suite.precedent_checks({"lookup": "optional"}, run, "", projects=names) == {"real_projects": False}
+        assert answer_checks.precedent_checks({"lookup": "optional"}, run, "", projects=names) == {
+            "real_projects": False
+        }
 
     def test_a_name_differing_only_in_case_and_spacing_is_the_same_project(self):
-        run = suite.Run(question_id="q", run=1, answer="- [1] [KB] x.pdf (holzwohnbau  baden, wiener straße), p.1")
+        run = run_record.Run(question_id="q", run=1, answer="- [1] [KB] x.pdf (holzwohnbau  baden, wiener straße), p.1")
 
-        assert suite.precedent_checks({}, run, "", projects=FixtureOffice().project_names()) == {"real_projects": True}
+        assert answer_checks.precedent_checks({}, run, "", projects=FixtureOffice().project_names()) == {
+            "real_projects": True
+        }
 
     def test_without_a_name_list_the_check_is_not_asked(self):
-        assert suite.precedent_checks({}, suite.Run(question_id="q", run=1, answer=SOURCES), "") == {}
+        assert answer_checks.precedent_checks({}, run_record.Run(question_id="q", run=1, answer=SOURCES), "") == {}
 
     def test_a_turn_with_a_lookup_expectation_is_checked_against_its_scenarios_office(self, monkeypatch):
-        monkeypatch.setattr(suite, "_judge", lambda: None)
+        monkeypatch.setattr(answer_checks, "_judge", lambda: None)
         question = next(q for q in suite.load_precedent_questions() if q["id"] == "leer-aehnliche")
-        run = suite.Run(question_id="leer-aehnliche", run=1, answer=SOURCES, lookups=["search"])
+        run = run_record.Run(question_id="leer-aehnliche", run=1, answer=SOURCES, lookups=["search"])
 
-        checks = suite.check(question, run, {"kind": "answer", "cards": []})
+        checks = answer_checks.check(question, run, {"kind": "answer", "cards": []})
 
         assert checks["real_projects"] is False
         norm = next(q for q in suite.load_questions(core_only=False)[0] if not q.get("expect", {}).get("lookup"))
-        assert "real_projects" not in suite.check(norm, suite.Run(question_id=str(norm["id"]), run=1), None)
+        assert "real_projects" not in answer_checks.check(
+            norm, run_record.Run(question_id=str(norm["id"]), run=1), None
+        )
 
 
 NEEDS_THE_EMBEDDER = {"hold-english-escape-stair"}
@@ -580,7 +606,7 @@ class TestTheFixtureOfficeIsLargeEnoughToTestRanking:
                     p for p in office.projects.values() if any(d["documentId"] == document_id for d in p["documents"])
                 )
                 cited = [
-                    suite._normal(option) in suite._normal(owner["name"])
+                    answer_checks._normal(option) in answer_checks._normal(owner["name"])
                     for g in question["expect"]["cites"]
                     for option in g
                 ]

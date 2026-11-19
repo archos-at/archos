@@ -74,7 +74,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "Slack Technologies, LLC",
-          "Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Fehler und Betriebswarnungen",
+          "Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Anfragen über die Website, Fehler und Betriebswarnungen",
           "Ticketnummer, Art der Rückmeldung, Grund einer negativen Bewertung, Name der Organisation, Links; Titel von Fehlermeldungen, die den Namen eines Dokuments oder Projekts enthalten können; Kennzahlen zu Betrieb und Kosten. Kein Text Ihrer Rückmeldungen oder Chats",
           "USA",
           "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
@@ -127,6 +127,22 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "Von Ihrer Organisation bestimmt",
           "Keine Vereinbarung mit uns; Ihre Organisation wählt den Empfänger und schließt den Vertrag mit ihm",
           "Optional (nur falls konfiguriert)"
+        ],
+        [
+          "Google Cloud EMEA Limited (Google Workspace)",
+          "Zustellung von Kontakt- und Demoanfragen der Website an uns und der Bestätigung an die anfragende Person",
+          "Name, E-Mail-Adresse, Büro, Funktion, Bürogröße, Land und Nachricht aus dem Formular",
+          "Weltweit (Google-Rechenzentren)",
+          "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
+          "Nein, nur für Anfragen über die Website"
+        ],
+        [
+          "Attio Ltd",
+          "Kundenverwaltung (CRM) für Kontakt- und Demoanfragen über die Website",
+          "Name, E-Mail-Adresse und der Inhalt der Anfrage aus dem Formular",
+          "Zu bestätigen (laut Attio Google Cloud)",
+          "Vereinbarung mit Attio wird geprüft",
+          "Nein, nur für Anfragen über die Website"
         ]
       ]
     },
@@ -192,7 +208,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
       "GitHub (USA) — Quellcode-Hosting, CI-Pipelines, Sicherheits-Scans.",
       "Pulumi Cloud (Pulumi Corporation, USA) — Zustand der Infrastruktur und die Zugangsschlüssel des Betriebs (Pulumi ESC), darunter der Zugang zum Cluster; keine Inhalte aus {productName}.",
       "Anthropic (USA) — KI-Assistent in der Entwicklung (Claude Code in Issues und Pull Requests); erhält Quellcode, Issue-Texte und CI-Protokolle, keine Daten aus {productName}.",
-      "Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.",
+      "Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Typst, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.",
       "Let’s Encrypt (USA) — TLS-Zertifikate für die Domains von {productName}; erhält nur die Domainnamen.",
       "ClamAV-Signaturen (Cisco Talos) — Signaturen für die Virenprüfung werden heruntergeladen; nichts wird hochgeladen.",
       "Google Fonts — Schriften werden einmalig zur Build-Zeit geladen und selbst gehostet; Ihr Browser kontaktiert bei der Nutzung von {productName} niemals Google.",
@@ -260,7 +276,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "Slack Technologies, LLC",
-          "Notifying our team internally about new reports, answer ratings, errors and operational alerts",
+          "Notifying our team internally about new reports, answer ratings, enquiries through the website, errors and operational alerts",
           "Ticket number, kind of report, reason of a negative rating, organization name, links; titles of error messages, which can contain the name of a document or project; operational and cost figures. No text of your reports or chats",
           "USA",
           "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
@@ -313,6 +329,22 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "Chosen by your organization",
           "No agreement with us; your organization chooses the recipient and holds the contract with it",
           "Optional (only if configured)"
+        ],
+        [
+          "Google Cloud EMEA Limited (Google Workspace)",
+          "Delivering contact and demo enquiries from the website to us, and the confirmation to the person who asked",
+          "Name, email address, office, function, office size, country and message from the form",
+          "Worldwide (Google data centres)",
+          "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
+          "No, only for enquiries through the website"
+        ],
+        [
+          "Attio Ltd",
+          "Customer relationship management (CRM) for contact and demo enquiries through the website",
+          "Name, email address and the content of the enquiry from the form",
+          "To be confirmed (Google Cloud, according to Attio)",
+          "Agreement with Attio under review",
+          "No, only for enquiries through the website"
         ]
       ]
     },
@@ -378,7 +410,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
       "GitHub (USA) — source-code hosting, CI pipelines, security scanning.",
       "Pulumi Cloud (Pulumi Corporation, USA) — the infrastructure's state and the operator's secrets (Pulumi ESC), among them the cluster credentials; no content from {productName}.",
       "Anthropic (USA) — AI assistant in development (Claude Code on issues and pull requests); receives source code, issue text and CI logs, no data from {productName}.",
-      "Package registries, Helm charts and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.",
+      "Package registries, Helm charts and base images (PyPI, npm, Typst, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.",
       "Let’s Encrypt (USA) — TLS certificates for the {productName} domains; receives only the domain names.",
       "ClamAV signatures (Cisco Talos) — malware signatures are downloaded; nothing is uploaded.",
       "Google Fonts — fonts are downloaded once at build time and self-hosted; your browser never contacts Google when using {productName}.",

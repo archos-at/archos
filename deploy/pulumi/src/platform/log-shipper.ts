@@ -14,6 +14,7 @@ import {
   renderCollectorConfig,
 } from "./collector-config";
 import { GATEWAY_EXPORTER, toGateway } from "./otel-agent";
+import { cpuRequest } from "../config/cpu-requests";
 
 const COMPONENT = LOG_SHIPPER.name;
 const POD_LOGS = "filelog/pods";
@@ -100,7 +101,7 @@ export function installLogShipper(
                   { name: "pod-logs", mountPath: LOG_SHIPPER.podLogDir, readOnly: true },
                 ],
                 resources: {
-                  requests: { cpu: "50m", memory: "64Mi" },
+                  requests: { cpu: cpuRequest("50m"), memory: "64Mi" },
                   limits: { cpu: "250m", memory: "192Mi" },
                 },
                 readinessProbe: { httpGet: { path: "/", port: HEALTH_PORT }, periodSeconds: 10, timeoutSeconds: 5 },
@@ -139,6 +140,8 @@ const ottl = (pattern: string) => JSON.stringify(pattern);
 const bodyMatches = (pattern: string) => `IsString(log.body) and IsMatch(log.body, ${ottl(pattern)})`;
 
 const LEVEL_PREFIX = String.raw`^[^a-z]{0,48}?\[?`;
+
+export const UNSAMPLED_POD = `^(${LOG_SHIPPER.unsampledPodPrefixes.join("|")})-`;
 
 export const LEVEL_PATTERNS = {
   debug: String.raw`(?i:level"?[=:]\s*"?(debug|trace)\b)|${LEVEL_PREFIX}(DEBUG|TRACE)\b|"level":\s*(10|20)\b`,
@@ -189,6 +192,7 @@ export function podLogs(readNamespaces: string[]): CollectorFragment {
               `set(log.severity_text, "error") where log.severity_number == ${SEVERITY}_ERROR`,
               `set(log.attributes["sampling.key"], UUID())`,
               `set(log.attributes["sampling.priority"], 100) where log.severity_number >= ${SEVERITY}_WARN`,
+              `set(log.attributes["sampling.priority"], 100) where IsMatch(resource.attributes["k8s.pod.name"], ${ottl(UNSAMPLED_POD)})`,
             ],
           },
         ],

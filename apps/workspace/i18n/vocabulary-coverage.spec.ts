@@ -54,30 +54,23 @@ const ONE_FACT_ONE_WORD: Record<string, string[]> = {
   ],
 
   'fassung status: draft': ['files.lifecycle.states.draft', 'chat.cards.documentDraft.draftState'],
-  'fassung status: in review': ['files.lifecycle.states.inReview', 'chat.cards.documentDraft.inReview'],
   'fassung status: changes requested': [
     'files.lifecycle.states.changesRequested',
     'files.lifecycle.versions.changesRequested',
-    'chat.cards.documentDraft.changesRequested',
   ],
   'fassung status: approved': [
     'files.lifecycle.states.approved',
     'files.lifecycle.versions.approved',
-    'chat.cards.documentDraft.approved',
   ],
   'fassung status: published': [
     'files.lifecycle.states.published',
     'files.lifecycle.versions.published',
-    'chat.cards.documentDraft.published',
   ],
-  'fassung status: replaced': ['files.lifecycle.states.superseded', 'chat.cards.documentDraft.ersetzt'],
 
   'fassung approval: the signature': [
     'files.lifecycle.approveConfirm.checkbox',
     'collaboration.inbox.review.approveConfirm',
   ],
-
-  'fassung approval: submit': ['files.lifecycle.actions.submit', 'chat.cards.documentDraft.submit'],
 }
 
 const LOCALES = { en, de } as const

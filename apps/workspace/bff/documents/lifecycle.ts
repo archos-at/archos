@@ -18,7 +18,8 @@ import { findDocumentInOrg } from './repository'
 import { DocumentDeletedError } from './unique-conflicts'
 import { discardObject } from '@/lib/storage/discard'
 import { resolveDocumentBucket } from '@/lib/storage/bucket'
-import { renderVersionBytes, writeVersionContent } from './version-content'
+import { renderVersionBytes, writeVersionContent, type RenderedVersionBytes } from './version-content'
+import type { Document } from '@/lib/db/schema/documents'
 import { DOCUMENT_VERSION_TRANSITIONS, findDocumentVersionTransition, type DocumentVersionOp } from './lifecycle-types'
 import { runEffects, type TransitionInput } from './version-effects'
 import {
@@ -114,17 +115,35 @@ export async function transitionDocumentVersion(
   return swapped
 }
 
+export interface ReplaceVersionOptions {
+  request?: Request
+  actingHuman?: boolean
+  origin?: ConversationOrigin
+  versionFields?: { changeNote: string | null }
+}
+
+type VersionBytesRenderer = (document: Document, version: DocumentVersion) => Promise<RenderedVersionBytes>
+
 export async function replaceVersionContent(
   session: AuthorizedSession,
   documentId: string,
   versionId: string,
   content: string,
   ifMatch: string | null | undefined,
-  options: {
-    request?: Request
-    actingHuman?: boolean
-    origin?: ConversationOrigin
-  } = {},
+  options: ReplaceVersionOptions = {},
+): Promise<DocumentVersion> {
+  return replaceVersionFile(session, documentId, versionId, ifMatch, options, (document, version) =>
+    renderVersionBytes(document, version, content),
+  )
+}
+
+export async function replaceVersionFile(
+  session: AuthorizedSession,
+  documentId: string,
+  versionId: string,
+  ifMatch: string | null | undefined,
+  options: ReplaceVersionOptions,
+  render: VersionBytesRenderer,
 ): Promise<DocumentVersion> {
   const document = await getAccessibleDocument(session, documentId, 'write')
   const version = await findDocumentVersion(versionId, documentId, session.organizationId)
@@ -148,13 +167,17 @@ export async function replaceVersionContent(
     })
   }
 
-  const rendered = await renderVersionBytes(document, version, content)
+  const rendered = await render(document, version)
   const swapped = await writeVersionContent({
     organizationId: session.organizationId,
     document,
     version,
     rendered,
-    stamp: stampFor(transition, session, {}, new Date()),
+    stamp: {
+      ...stampFor(transition, session, {}, new Date()),
+      ...(options.versionFields ?? {}),
+      ...(options.origin?.conversationId ? { originConversationId: options.origin.conversationId } : {}),
+    },
   })
 
   await runEffects({

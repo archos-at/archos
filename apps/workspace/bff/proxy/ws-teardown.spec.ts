@@ -1,9 +1,7 @@
-// @disk-inputs: server.js
 /**
  * @vitest-environment node
  */
 import { EventEmitter } from 'node:events'
-import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 import { handleWsProxyError, watchSplicedSockets } from './ws-teardown.js'
 
@@ -116,20 +114,5 @@ describe('handleWsProxyError before the upgrade', () => {
     handleWsProxyError(new Error('Invalid header'), socket as never, { logger })
     expect(socket.written.join('')).toContain('502 Bad Gateway')
     expect(logger.error).toHaveBeenCalledTimes(1)
-  })
-})
-
-describe('server.js wiring', () => {
-  const source = readFileSync(new URL('../../server.js', import.meta.url), 'utf8')
-
-  it('watches the pair from the proxied request, and has no unclassified socket error log', () => {
-    expect(source).toMatch(
-      /proxyReq\.once\('upgrade'[\s\S]{0,200}watchSplicedSockets\(socket, proxySocket\)/
-    )
-    expect(source).not.toContain('upstream socket error')
-  })
-
-  it('routes the ws() callback through handleWsProxyError', () => {
-    expect(source).toContain('handleWsProxyError(err, socket)')
   })
 })

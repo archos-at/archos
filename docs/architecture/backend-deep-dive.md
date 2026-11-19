@@ -60,7 +60,7 @@ Browser WebSocket
     neutrally as "Assistant" (getDisplayName in intermediate-step-parser.ts),
     not "Research Agent" — a greeting is not a research run.
   → the turn's wire bodies, stamped and sent by the chat socket (wire v2, ADR-0068)
-      apps/agent-host/src/agent_host/chat_socket.py
+      apps/agent-host/src/agent_host/chat_wire.py, apps/agent-host/src/agent_host/chat_socket.py
   → the UI's turn socket and fold (docs/api/websocket-protocol.md, "The client")
   → apps/workspace/ui/features/layout/components/ChatArea.tsx → AgentResponse.tsx
 ```
@@ -79,7 +79,7 @@ The turn ends with `RUN_FINISHED`, whose `result` is a typed `TurnResult`
 confidence and its reason, and the run hand-off `run: {run_id, run_message_id}`
 (ADR-0062; the text is then empty, because the run's block is the narration).
 It is authoritative, and it is what the socket persists
-(`chat_socket.persist_turn_result`). No field is lifted by name any more.
+(`chat_turn.persist_turn_result`). No field is lifted by name any more.
 
 **Transparency extras (WP-A).** A family of optional, additive "why did the turn
 behave this way?" signals are fields of the same `TurnResult`, which
@@ -312,7 +312,7 @@ Key pieces:
 
 A turn can outlive its socket: the browser tab sleeps, the network blips, or a
 token rotation forces a reconnect while a long answer is still generating. The
-backend pieces live in `chat_socket.py` and `conversation_bus.py`; the design is
+backend pieces live in `chat_socket.py` and its `chat_*` siblings, and in `conversation_bus.py`; the design is
 `docs/design/chat-wire-v2.md` §c/§d.
 
 - **One socket, one conversation.** Every client message names its
@@ -1128,7 +1128,7 @@ The text parsers in `citations/text_parsers.py`
 (`_parse_knowledge_layer` and the eleven `_KL_*` regexes) stay for the callers
 that hold the bytes without the records: a registry hydrated from the shared
 cache, a turn replayed out of Postgres, and the job runner's callback in
-`apps/agent-host/src/agent_host/jobs/callbacks.py`. A text those parsers find no
+`apps/agent-host/src/agent_host/jobs/citation_events.py`. A text those parsers find no
 `Citation:` line in carries no sources at all. A web search is read by its
 result records (`citations/web_results.py`: one `<Document href>` header per
 hit, never an address inside a page's text, and no address `common/url_safety.py`
@@ -1899,7 +1899,7 @@ is what that framework costs.
   (the skill resolver was one) fails healthy jobs with a timeout that names
   nothing, so it is wrapped in `asyncio.to_thread`, as `agent.py` does for
   `_resolve_skills_blocking`. The runner heartbeats only once
-  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/runner.py`) is
+  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/job_cancellation.py`) is
   entered, so slow pre-run work belongs inside it. The symptom is in
   [`gotchas.md`](../contributing/gotchas.md) ("no heartbeat received from worker").
 - **Nothing request-scoped is read from context.** There is no request in a

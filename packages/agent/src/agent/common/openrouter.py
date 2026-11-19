@@ -20,6 +20,7 @@ import httpx
 
 from agent.common import credit_retry
 from agent.common import provider_limiter
+from agent.common import rate_limit_errors
 from agent.common import residency
 from agent.common.licensed_text import licensed_scope_active
 from agent.common.licensed_text import refuse_unattested_model_read
@@ -227,23 +228,23 @@ def _takes_slot(request: httpx.Request) -> bool:
 
 def _scope_of_body(body: bytes) -> str:
     try:
-        return provider_limiter.scope_of_error(json.loads(body))
+        return rate_limit_errors.scope_of_error(json.loads(body))
     except ValueError:
-        return provider_limiter.MODEL_SCOPE
+        return rate_limit_errors.MODEL_SCOPE
 
 
 def _scope_of_response(read: Callable[[], bytes]) -> str:
     try:
         return _scope_of_body(read())
     except Exception:  # noqa: BLE001 - an unreadable body is unclassifiable, which counts against the model
-        return provider_limiter.MODEL_SCOPE
+        return rate_limit_errors.MODEL_SCOPE
 
 
 async def _ascope_of_response(response: httpx.Response) -> str:
     try:
         return _scope_of_body(await response.aread())
     except Exception:  # noqa: BLE001 - see _scope_of_response
-        return provider_limiter.MODEL_SCOPE
+        return rate_limit_errors.MODEL_SCOPE
 
 
 def _pool_timeout(request: httpx.Request, error: provider_limiter.ProviderWaitTimeout) -> httpx.PoolTimeout:

@@ -10,7 +10,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
+import answer_checks  # noqa: E402
+import run_record  # noqa: E402
 import suite  # noqa: E402
+import suite_preflight  # noqa: E402
+import suite_report  # noqa: E402
+import suite_runs  # noqa: E402
+import turn_observation  # noqa: E402
 
 ENVELOPE = {
     "answer": "…",
@@ -68,7 +74,7 @@ QUESTION = {
 
 
 def test_a_recorded_turn_reads_as_one_run(tmp_path):
-    run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path))
+    run = turn_observation.observe(QUESTION, 1, *_recorded_turn(tmp_path))
     assert (run.wall_s, run.research_calls, run.final_call_s) == (28.0, 2, 20.0)
     assert (run.reasoning_tokens, run.max_reasoning_tokens) == (1900, 1500)
     assert run.tool_calls == ["read_passage"]
@@ -79,12 +85,12 @@ def test_a_recorded_turn_reads_as_one_run(tmp_path):
 
 def test_a_file_under_its_published_2019_name_counts_as_cited(tmp_path):
     answer = ANSWER + "\n[2] oib-rl-6-energieeinsparung-und-waermeschutz-2019.pdf, p.3"
-    run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path, answer))
+    run = turn_observation.observe(QUESTION, 1, *_recorded_turn(tmp_path, answer))
     assert run.cited_families == ["2", "6"]
 
 
 def test_every_expectation_is_its_own_check(tmp_path):
-    run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path))
+    run = turn_observation.observe(QUESTION, 1, *_recorded_turn(tmp_path))
     assert run.checks == {
         "envelope": True,
         "kind": True,
@@ -97,20 +103,20 @@ def test_every_expectation_is_its_own_check(tmp_path):
 
 
 def test_a_false_claim_and_a_wrong_family_fail(tmp_path):
-    run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path))
+    run = turn_observation.observe(QUESTION, 1, *_recorded_turn(tmp_path))
     run.answer = "OIB-RL 2.1 ist im Korpus nicht enthalten. [1] oib-rl_4_ausgabe_mai_2023.pdf"
     run.cited_families = ["4"]
-    checks = suite.check(QUESTION, run, run.envelope)
+    checks = answer_checks.check(QUESTION, run, run.envelope)
     assert checks["not:nicht enthalten"] is False
     assert checks["family_cited"] is False
     assert checks["mentions:REI 60"] is False
 
 
 def test_the_report_names_what_did_not_hold_and_compares_medians(tmp_path):
-    good = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path))
-    bad = suite.Run(**{**good.__dict__, "run": 2, "wall_s": 60.0, "checks": {**good.checks, "kind": False}})
+    good = turn_observation.observe(QUESTION, 1, *_recorded_turn(tmp_path))
+    bad = run_record.Run(**{**good.__dict__, "run": 2, "wall_s": 60.0, "checks": {**good.checks, "kind": False}})
     baseline = {"runs": [{**good.__dict__, "wall_s": 20.0}]}
-    report = suite.render([good, bad], ["ordner-listing"], {"started": "t", "runs_per_question": 2}, baseline)
+    report = suite_report.render([good, bad], ["ordner-listing"], {"started": "t", "runs_per_question": 2}, baseline)
     assert "| treppenhaus-gk4-tabelle | 44 (28–60) (+24)" in report
     assert "`kind` held in 50% of runs" in report
     assert "Skipped, need a project: ordner-listing." in report
@@ -123,35 +129,35 @@ def test_the_core_set_needs_no_project():
 
 
 def test_a_value_inside_a_tab_counts(tmp_path):
-    run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path))
+    run = turn_observation.observe(QUESTION, 1, *_recorded_turn(tmp_path))
     run.answer = "Die Nachweise unterscheiden sich je Variante: [[card:1]]"
     envelope = {
         "cards": [{"type": "surface", "components": [{"id": "a", "component": "Text", "text": "| Wand | REI 60 |"}]}]
     }
-    assert suite.check(QUESTION, run, envelope)["mentions:REI 60"] is True
+    assert answer_checks.check(QUESTION, run, envelope)["mentions:REI 60"] is True
 
 
 def test_the_answer_is_the_last_envelope_not_the_repair_after_it(tmp_path):
     record, log = _recorded_turn(tmp_path)
     repair = _call(30.0, 4.0, reasoning=100, output=[{"type": "message", "content": [{"text": "Überarbeitet [1]."}]}])
     record.write_text(record.read_text() + "\n" + json.dumps(repair))
-    run = suite.observe(QUESTION, 1, record, log)
+    run = turn_observation.observe(QUESTION, 1, record, log)
     assert run.kind == "ruling" and run.checks["envelope"] is True
 
 
 def test_a_handoff_to_deep_research_is_not_a_crash(tmp_path):
     record, log = _recorded_turn(tmp_path)
     log.write_text("INFO Clarifier: Starting clarification\nERROR Workflow failed: \n")
-    run = suite.observe(QUESTION, 1, record, log)
+    run = turn_observation.observe(QUESTION, 1, record, log)
     assert "escalated" in run.signals and run.error == "" and run.kind == "ruling"
 
 
 def test_a_second_kind_the_question_accepts_holds(tmp_path):
-    run = suite.observe(QUESTION, 1, *_recorded_turn(tmp_path))
+    run = turn_observation.observe(QUESTION, 1, *_recorded_turn(tmp_path))
     run.kind = "walkthrough"
-    assert suite.check(QUESTION, run, run.envelope)["kind"] is False
+    assert answer_checks.check(QUESTION, run, run.envelope)["kind"] is False
     both = {**QUESTION, "expect": {**QUESTION["expect"], "kind_also": ["walkthrough"]}}
-    assert suite.check(both, run, run.envelope)["kind"] is True
+    assert answer_checks.check(both, run, run.envelope)["kind"] is True
 
 
 def test_a_question_about_a_guideline_the_corpus_lacks_is_skipped_by_name(tmp_path, monkeypatch):
@@ -160,15 +166,15 @@ def test_a_question_about_a_guideline_the_corpus_lacks_is_skipped_by_name(tmp_pa
 
     install(monkeypatch, tmp_path)
     corpus_store.put("oib-rl_2_ausgabe_mai_2023.pdf", b"%PDF")
-    families = suite.corpus_families()
+    families = suite_preflight.corpus_families()
     assert families == {"2"}
-    assert suite.lacking_family({"family": "OIB-RL 5"}, families) == "OIB-RL 5"
-    assert suite.lacking_family(QUESTION, families) is None
-    assert suite.lacking_family({"family": "Bauordnung"}, families) is None
+    assert suite_preflight.lacking_family({"family": "OIB-RL 5"}, families) == "OIB-RL 5"
+    assert suite_preflight.lacking_family(QUESTION, families) is None
+    assert suite_preflight.lacking_family({"family": "Bauordnung"}, families) is None
     monkeypatch.delenv("SUMMARY_DB")
     monkeypatch.delenv("NAT_JOB_STORE_DB_URL", raising=False)
-    assert suite.lacking_family({"family": "OIB-RL 5"}, suite.corpus_families()) is None
-    report = suite.render([], [], {"started": "t", "runs_per_question": 1}, None, ["schallschutz (OIB-RL 5)"])
+    assert suite_preflight.lacking_family({"family": "OIB-RL 5"}, suite_preflight.corpus_families()) is None
+    report = suite_report.render([], [], {"started": "t", "runs_per_question": 1}, None, ["schallschutz (OIB-RL 5)"])
     assert "the ingested corpus lacks the Richtlinie: schallschutz (OIB-RL 5)." in report
 
 
@@ -178,7 +184,7 @@ def test_an_answer_without_its_fence_still_has_its_envelope(tmp_path):
     rows = [json.loads(line) for line in record.read_text().splitlines()]
     rows[-1]["resp"]["output"] = [bare]
     record.write_text("\n".join(json.dumps(row) for row in rows))
-    run = suite.observe(QUESTION, 1, record, log)
+    run = turn_observation.observe(QUESTION, 1, record, log)
     assert run.checks["envelope"] is True and run.kind == "ruling"
 
 
@@ -275,9 +281,9 @@ def test_the_first_text_column_reads_the_final_call(tmp_path):
     rows = [json.loads(line) for line in record.read_text().splitlines()]
     rows[-1]["t_first_text"] = 21.5  # the final call starts at 8.0, the turn at 0.0
     record.write_text("\n".join(json.dumps(row) for row in rows))
-    run = suite.observe(QUESTION, 1, record, log)
+    run = turn_observation.observe(QUESTION, 1, record, log)
     assert run.first_text_s == 21.5
-    report = suite.render([run], [], {"started": "t", "runs_per_question": 1})
+    report = suite_report.render([run], [], {"started": "t", "runs_per_question": 1})
     assert "| First text s |" in report and "| 21.5 |" in report
 
 
@@ -285,22 +291,22 @@ def test_an_empty_inventory_refuses_to_measure(tmp_path):
     import sqlite3
 
     empty = tmp_path / "empty.db"
-    assert suite.inventory_ready(empty) is False
+    assert suite_preflight.inventory_ready(empty) is False
 
     filled = tmp_path / "filled.db"
     with sqlite3.connect(filled) as db:
         db.execute("CREATE TABLE document_metadata (collection TEXT, filename TEXT)")
         db.execute("INSERT INTO document_metadata VALUES ('oib_knowledge', 'oib-rl_2_ausgabe_mai_2023.pdf')")
-    assert suite.inventory_ready(filled) is True
+    assert suite_preflight.inventory_ready(filled) is True
 
 
 def test_the_inventory_checked_is_the_one_the_runs_read(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("SUMMARY_DB", raising=False)
-    assert suite.inventory_database() == (suite.ROOT / "summaries.db").resolve()
+    assert suite_preflight.inventory_database() == (suite.ROOT / "summaries.db").resolve()
 
     monkeypatch.setenv("SUMMARY_DB", f"sqlite+aiosqlite:///{tmp_path}/elsewhere.db")
-    assert suite.inventory_database() == tmp_path / "elsewhere.db"
+    assert suite_preflight.inventory_database() == tmp_path / "elsewhere.db"
 
 
 def test_the_runs_import_this_checkout(tmp_path):
@@ -313,7 +319,7 @@ def test_the_runs_import_this_checkout(tmp_path):
     assert (shim / "knowledge_layer").resolve() == (
         census.ROOT / "packages/knowledge-layer/src/knowledge_layer"
     ).resolve()
-    assert suite.foreign_imports(tmp_path) == []
+    assert suite_preflight.foreign_imports(tmp_path) == []
 
 
 def test_the_workers_can_ask_for_the_path_at_once(tmp_path):
@@ -361,32 +367,34 @@ def test_one_failing_run_does_not_sink_the_suite(tmp_path, monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError("nat died")
 
-    monkeypatch.setattr(suite, "run_once", boom)
-    [run] = suite.run_suite([{"id": "q1", "question": "Frage?"}], 1, tmp_path, 1, None)
+    monkeypatch.setattr(suite_runs, "run_once", boom)
+    [run] = suite_runs.run_suite([{"id": "q1", "question": "Frage?"}], 1, tmp_path, 1, None)
 
     assert run.error == "RuntimeError: nat died"
 
 
 def test_a_table_or_a_drawing_in_a_card_counts(tmp_path):
-    run = suite.Run(question_id="q", run=1, answer="Siehe Tabelle: [[card:1]]")
+    run = run_record.Run(question_id="q", run=1, answer="Siehe Tabelle: [[card:1]]")
     table = {"expect": {"shape": "table"}}
     in_text = {"cards": [{"type": "surface", "components": [{"component": "Text", "text": "| Wand | REI 60 |"}]}]}
-    assert suite.check(table, run, in_text)["shape:table"] is True
-    assert suite.check(table, run, {"cards": [{"type": "calculation", "title": "keine"}]})["shape:table"] is False
+    assert answer_checks.check(table, run, in_text)["shape:table"] is True
+    assert (
+        answer_checks.check(table, run, {"cards": [{"type": "calculation", "title": "keine"}]})["shape:table"] is False
+    )
     drawing = {"expect": {"shape": "diagram"}}
     fence = {"cards": [{"type": "surface", "components": [{"component": "Text", "text": "```mermaid\nflowchart TD"}]}]}
-    assert suite.check(drawing, run, fence)["shape:diagram"]
-    assert suite.check(drawing, run, {"cards": []})["shape:diagram"] is False
+    assert answer_checks.check(drawing, run, fence)["shape:diagram"]
+    assert answer_checks.check(drawing, run, {"cards": []})["shape:diagram"] is False
 
 
 def test_a_dialect_block_counts_as_its_shape_and_plain_means_none(tmp_path):
     check_answer = ":::check\n| A | Status |\n|---|---|\n| x | offen |\n:::"
-    run = suite.Run(question_id="q", run=1, answer=check_answer)
-    assert suite.check({"expect": {"shape": "check"}}, run, {"cards": []})["shape:check"] is True
-    assert suite.check({"expect": {"shape": "plain"}}, run, {"cards": []})["shape:plain"] is False
-    in_code = suite.Run(question_id="q", run=1, answer="```text\n:::check\n```\nKurz: **REI 60** [1].")
-    assert suite.check({"expect": {"shape": "plain"}}, in_code, {"cards": []})["shape:plain"] is True
-    assert suite.check({"expect": {"shape": "check"}}, in_code, {"cards": []})["shape:check"] is False
+    run = run_record.Run(question_id="q", run=1, answer=check_answer)
+    assert answer_checks.check({"expect": {"shape": "check"}}, run, {"cards": []})["shape:check"] is True
+    assert answer_checks.check({"expect": {"shape": "plain"}}, run, {"cards": []})["shape:plain"] is False
+    in_code = run_record.Run(question_id="q", run=1, answer="```text\n:::check\n```\nKurz: **REI 60** [1].")
+    assert answer_checks.check({"expect": {"shape": "plain"}}, in_code, {"cards": []})["shape:plain"] is True
+    assert answer_checks.check({"expect": {"shape": "check"}}, in_code, {"cards": []})["shape:check"] is False
 
 
 def test_a_repair_after_the_answer_is_neither_the_final_call_nor_a_research_round(tmp_path):
@@ -396,7 +404,7 @@ def test_a_repair_after_the_answer_is_neither_the_final_call_nor_a_research_roun
     repair = _call(30.0, 4.0, reasoning=100, output=[{"type": "message", "content": [{"text": "Überarbeitet [1]."}]}])
     repair["t_first_text"] = 31.0
     record.write_text("\n".join(json.dumps(row) for row in [*rows, repair]))
-    run = suite.observe(QUESTION, 1, record, log)
+    run = turn_observation.observe(QUESTION, 1, record, log)
     assert (run.final_call_s, run.first_text_s) == (20.0, 21.5)
     assert (run.research_calls, run.post_answer_calls) == (2, 1)
     assert run.reasoning_tokens == 2000  # the repair was billed all the same
@@ -422,7 +430,7 @@ def test_the_import_check_asks_the_interpreter_the_runs_use(tmp_path, monkeypatc
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(census.subprocess, "Popen", fake_popen)
-    suite.foreign_imports(tmp_path)
+    suite_preflight.foreign_imports(tmp_path)
     try:
         census.run_once("Frage?", tmp_path, "c1")
     except Stop:
@@ -440,11 +448,11 @@ def test_an_inventory_under_a_path_with_uri_syntax_is_read(tmp_path):
         db.execute("CREATE TABLE document_metadata (collection TEXT, filename TEXT)")
         db.execute("INSERT INTO document_metadata VALUES ('oib_knowledge', 'oib-rl_2_ausgabe_mai_2023.pdf')")
     db.close()
-    assert suite.inventory_ready(filled) is True
+    assert suite_preflight.inventory_ready(filled) is True
     assert not (tmp_path / "run ").exists()  # nothing opened beside it
 
 
-def _results(folder: Path, runs: list[suite.Run], meta: dict) -> Path:
+def _results(folder: Path, runs: list[run_record.Run], meta: dict) -> Path:
     from dataclasses import asdict
 
     path = folder / "results.json"
@@ -456,7 +464,7 @@ def test_report_rereads_the_recording_beside_the_results(tmp_path, monkeypatch, 
     record, log = _recorded_turn(tmp_path)
     record.rename(tmp_path / f"suite-101010-7-{QUESTION['id']}-1.jsonl")
     log.rename(tmp_path / f"suite-101010-7-{QUESTION['id']}-1.log")
-    stale = suite.Run(question_id=QUESTION["id"], run=1, wall_s=99.0, error="old harness bug")
+    stale = run_record.Run(question_id=QUESTION["id"], run=1, wall_s=99.0, error="old harness bug")
     report = _results(tmp_path, [stale], {"started": "t", "runs_per_question": 1, "stamp": "101010-7"})
     monkeypatch.setattr(suite, "load_questions", lambda **_: ([QUESTION], []))
 
@@ -466,7 +474,7 @@ def test_report_rereads_the_recording_beside_the_results(tmp_path, monkeypatch, 
 
 
 def test_a_recording_belongs_to_its_own_question_and_stamp(tmp_path):
-    run = suite.Run(question_id="gk4", run=1)
+    run = run_record.Run(question_id="gk4", run=1)
     mine = tmp_path / "suite-101010-7-gk4-1.jsonl"
     other_question = tmp_path / "suite-101010-7-treppenhaus-gk4-1.jsonl"
     other_suite = tmp_path / "suite-235959-8-gk4-1.jsonl"
@@ -484,7 +492,7 @@ def test_a_recording_belongs_to_its_own_question_and_stamp(tmp_path):
 def test_a_run_the_census_timed_out_says_so(tmp_path):
     record, log = _recorded_turn(tmp_path)
     log.write_text("INFO searching\n\ncensus: timed out after 600s\n")
-    assert suite.observe(QUESTION, 1, record, log).error == "timed out"
+    assert turn_observation.observe(QUESTION, 1, record, log).error == "timed out"
 
 
 def test_only_a_question_that_needs_a_project_says_why(capsys):
@@ -530,8 +538,8 @@ def test_the_startup_probe_reexecutes_into_this_checkout(monkeypatch, tmp_path):
 
 def test_a_landed_quote_patch_explains_the_settled_replacement():
     replaced = "Piloti: the terminal frame replaced the settled answer (10 -> 9 chars)\n"
-    landed = suite.log_signals("Piloti: quote patch corrected 1 of 2 quote(s)\n" + replaced)
-    missed = suite.log_signals("Piloti: quote patch corrected 0 of 1 quote(s)\n" + replaced)
+    landed = turn_observation.log_signals("Piloti: quote patch corrected 1 of 2 quote(s)\n" + replaced)
+    missed = turn_observation.log_signals("Piloti: quote patch corrected 0 of 1 quote(s)\n" + replaced)
 
     assert "quote_patch" in landed and "settled_patched" in landed and "settled_replaced" not in landed
     assert "quote_patch" not in missed and "settled_replaced" in missed
@@ -569,12 +577,12 @@ def test_a_foreign_checkout_is_refused_before_the_ingest(monkeypatch, tmp_path):
 
     import agent
 
-    monkeypatch.setattr(suite, "ensure_key", lambda: True)
-    monkeypatch.setattr(suite, "foreign_imports", lambda out: ["agent: /elsewhere/agent/__init__.py"])
+    monkeypatch.setattr(suite_preflight, "ensure_key", lambda: True)
+    monkeypatch.setattr(suite_preflight, "foreign_imports", lambda out: ["agent: /elsewhere/agent/__init__.py"])
     sync = types.SimpleNamespace(sync=lambda: pytest.fail("ingested before the import check"))
     monkeypatch.setitem(sys.modules, "agent.oib_sync", sync)
     monkeypatch.setattr(agent, "oib_sync", sync, raising=False)
-    assert suite._preflight(tmp_path, ingest=True) == 2
+    assert suite_preflight._preflight(tmp_path, ingest=True) == 2
 
 
 def test_census_report_without_recordings_names_the_mistake(capsys):
@@ -599,19 +607,19 @@ def test_wall_time_ends_with_the_call_that_ends_last(tmp_path):
 
 
 def test_a_summary_db_given_as_a_path_is_refused_before_any_run(monkeypatch, tmp_path, capsys):
-    monkeypatch.setattr(suite, "ensure_key", lambda: True)
-    monkeypatch.setattr(suite, "foreign_imports", lambda out: [])
-    monkeypatch.setattr(suite, "_corpus_ready", lambda: True)
+    monkeypatch.setattr(suite_preflight, "ensure_key", lambda: True)
+    monkeypatch.setattr(suite_preflight, "foreign_imports", lambda out: [])
+    monkeypatch.setattr(suite_preflight, "_corpus_ready", lambda: True)
     monkeypatch.setenv("SUMMARY_DB", str(tmp_path / "summaries.db"))
 
-    assert suite._preflight(tmp_path, ingest=False) == 2
+    assert suite_preflight._preflight(tmp_path, ingest=False) == 2
     assert "not a database URL" in capsys.readouterr().err
 
 
 def test_the_suite_reads_the_dialect_the_validator_holds():
     from agent.common.answer_dialect import DIRECTIVE_BLOCKS
 
-    assert suite._DIALECT_BLOCKS == frozenset(DIRECTIVE_BLOCKS)
+    assert answer_checks._DIALECT_BLOCKS == frozenset(DIRECTIVE_BLOCKS)
 
 
 def test_a_corpus_in_the_store_reads_as_ready(qdrant_store):
@@ -620,9 +628,9 @@ def test_a_corpus_in_the_store_reads_as_ready(qdrant_store):
 
     from agent import oib_sync
 
-    assert not suite._corpus_ready()
+    assert not suite_preflight._corpus_ready()
     write(oib_sync.COLLECTION_NAME, [record("Punkt 12", "oib-rl_2.pdf")])
-    assert suite._corpus_ready()
+    assert suite_preflight._corpus_ready()
 
 
 def _ingest_in_this_process(monkeypatch, tmp_path, *, succeed: bool):
@@ -648,7 +656,7 @@ def _ingest_in_this_process(monkeypatch, tmp_path, *, succeed: bool):
 def test_ingest_runs_the_corpus_jobs_in_this_process(monkeypatch, tmp_path):
     ran, _ingestor, needs_ingestion = _ingest_in_this_process(monkeypatch, tmp_path, succeed=True)
 
-    assert suite._ingest_corpus(poll_seconds=0) is None
+    assert suite_preflight._ingest_corpus(poll_seconds=0) is None
     assert len(ran) == 1
     assert not needs_ingestion()
 
@@ -656,7 +664,7 @@ def test_ingest_runs_the_corpus_jobs_in_this_process(monkeypatch, tmp_path):
 def test_ingest_reports_a_file_whose_job_failed_instead_of_waiting_for_it(monkeypatch, tmp_path):
     _attach, _ingestor, needs_ingestion = _ingest_in_this_process(monkeypatch, tmp_path, succeed=False)
 
-    assert suite._ingest_corpus(poll_seconds=0) == "1 file(s) could not be ingested"
+    assert suite_preflight._ingest_corpus(poll_seconds=0) == "1 file(s) could not be ingested"
     assert needs_ingestion()
 
 
@@ -666,9 +674,9 @@ def test_the_turn_decisions_precedent_is_read_off_its_log_line():
         "families=[] skill=None cards=[] self_contained=0.9 precedent=0.83\n"
     )
 
-    assert suite.precedent_of(line) == 0.83
-    assert suite.precedent_of(line.replace("precedent=0.83", "precedent=None")) is None
-    assert suite.precedent_of("") is None
+    assert turn_observation.precedent_of(line) == 0.83
+    assert turn_observation.precedent_of(line.replace("precedent=0.83", "precedent=None")) is None
+    assert turn_observation.precedent_of("") is None
 
 
 def test_a_local_corpus_directory_is_ingested_without_a_bff_or_an_object_store(monkeypatch, tmp_path):
@@ -693,13 +701,13 @@ def test_a_local_corpus_directory_is_ingested_without_a_bff_or_an_object_store(m
     downloaded: list[bytes] = []
     ingestor.run_prepared = lambda prepared, still_owner=None: finish(prepared, downloaded=downloaded)
 
-    assert suite.use_local_corpus(corpus) == 1
-    assert suite._ingest_corpus(poll_seconds=0) is None
+    assert suite_preflight.use_local_corpus(corpus) == 1
+    assert suite_preflight._ingest_corpus(poll_seconds=0) is None
 
     row = corpus_store.get_file("oib-rl_2_ausgabe_mai_2023.pdf")
     assert row is not None and not row.needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
     assert downloaded == [b"%PDF-1.4 rl2"]
-    assert suite.use_local_corpus(corpus) == 1
+    assert suite_preflight.use_local_corpus(corpus) == 1
     assert not corpus_store.get_file("oib-rl_2_ausgabe_mai_2023.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION)
 
 

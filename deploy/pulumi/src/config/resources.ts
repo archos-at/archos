@@ -1,3 +1,5 @@
+import { cpuRequest } from "./cpu-requests";
+
 export interface ResourceSpec {
   requestsCpu: string;
   requestsMemory: string;
@@ -7,7 +9,7 @@ export interface ResourceSpec {
 
 export function toResourceRequirements(r: ResourceSpec) {
   return {
-    requests: { cpu: r.requestsCpu, memory: r.requestsMemory },
+    requests: { cpu: cpuRequest(r.requestsCpu), memory: r.requestsMemory },
     limits: { cpu: r.limitsCpu, memory: r.limitsMemory },
   };
 }

@@ -242,9 +242,9 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
     makes: ['internal:just-written'],
     why: 'Reads back the row the upload wrote a moment ago, to record its version.',
   },
-  'lib/documents/agent-document.ts#fileAgentDocumentDraft': {
+  'lib/documents/agent-document.ts#recordGeneratedDraft': {
     makes: ['internal:just-written'],
-    why: "Reads back the agent's own document it just filed.",
+    why: "Reads back the agent's own document or file it just filed, to record its draft version.",
   },
   'lib/documents/research-report.ts#openReviewRound': {
     makes: ['internal:just-written'],

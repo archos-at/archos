@@ -1335,13 +1335,31 @@
    "describe": "{\"name\":\"conversation-delete\",\"domain\":\"conversations\",\"summary\":\"Delete a conversation\",\"description\":\"Deletes a conversation and its messages for everyone in it, permanently. The answer is the same whether or not the id was real.\",\"annotations\":{\"title\":\"Delete a conversation\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
+   "name": "conversation-draft-delete",
+   "domain": "conversations",
+   "summary": "Delete a draft from a conversation",
+   "description": "Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"conversation-draft-delete\",\"domain\":\"conversations\",\"summary\":\"Delete a draft from a conversation\",\"description\":\"Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.\",\"annotations\":{\"title\":\"Delete a draft from a conversation\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}},\"required\":[\"path\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
+  },
+  {
+   "name": "conversation-draft-download",
+   "domain": "conversations",
+   "summary": "Get the bytes of a file in a conversation’s working directory",
+   "description": "The raw bytes of one file in the conversation’s working directory (a Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a script made, or a Markdown draft), as an attached resource (base64 `blob`) up to 5 MiB; `path` is the one the answer’s card names.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"conversation-draft-download\",\"domain\":\"conversations\",\"summary\":\"Get the bytes of a file in a conversation’s working directory\",\"description\":\"The raw bytes of one file in the conversation’s working directory (a Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a script made, or a Markdown draft), as an attached resource (base64 `blob`) up to 5 MiB; `path` is the one the answer’s card names.\",\"annotations\":{\"title\":\"Get the bytes of a file in a conversation’s working directory\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}},\"required\":[\"path\"]}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
+  },
+  {
    "name": "conversation-draft-file",
    "domain": "conversations",
-   "summary": "File an unfiled draft into the project",
-   "description": "Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project. A same-name collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.",
+   "summary": "File a draft into the project, or update what was filed from it",
+   "description": "Files a draft (path from its card) into the project, into `folderId` under `name`; again after a change, it updates the filed document. 409 `same-name`: `force` after the person confirmed. 409 `changed-in-project`: only the person decides `overChanges`.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"conversation-draft-file\",\"domain\":\"conversations\",\"summary\":\"File an unfiled draft into the project\",\"description\":\"Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project. A same-name collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.\",\"annotations\":{\"title\":\"File an unfiled draft into the project\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500},\"title\":{\"type\":\"string\",\"maxLength\":500},\"force\":{\"default\":false,\"type\":\"boolean\"}},\"required\":[\"path\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+   "describe": "{\"name\":\"conversation-draft-file\",\"domain\":\"conversations\",\"summary\":\"File a draft into the project, or update what was filed from it\",\"description\":\"Files a draft (path from its card) into the project, into `folderId` under `name`; again after a change, it updates the filed document. 409 `same-name`: `force` after the person confirmed. 409 `changed-in-project`: only the person decides `overChanges`.\",\"annotations\":{\"title\":\"File a draft into the project, or update what was filed from it\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500},\"title\":{\"type\":\"string\",\"maxLength\":500},\"force\":{\"default\":false,\"type\":\"boolean\"},\"folderId\":{\"description\":\"The folder to file into, from project-folder-list; null files at the project root; omit for the default folder.\",\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]},\"name\":{\"description\":\"The file name in the project; its extension is set to the draft’s own type. Omit to keep the title.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":500},\"as\":{\"description\":\"`revision`: the next revision of the document the draft was made from; `own` (default): a separate file.\",\"type\":\"string\",\"enum\":[\"own\",\"revision\"]},\"overChanges\":{\"description\":\"Write over a revision a person changed since filing.\",\"type\":\"boolean\"},\"changeNote\":{\"description\":\"With `revision`: what changed, one sentence.\",\"type\":\"string\",\"maxLength\":500}},\"required\":[\"path\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
   },
   {
    "name": "conversation-draft-get",
@@ -1351,6 +1369,15 @@
    "readOnly": true,
    "destructive": false,
    "describe": "{\"name\":\"conversation-draft-get\",\"domain\":\"conversations\",\"summary\":\"Read an unfiled draft ARCHOS wrote\",\"description\":\"One draft in the conversation’s working directory, to read before filing; `path` is the one the answer’s card names. To keep it: conversation-draft-file.\",\"annotations\":{\"title\":\"Read an unfiled draft ARCHOS wrote\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}},\"required\":[\"path\"]}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
+  },
+  {
+   "name": "conversation-draft-rendition-get",
+   "domain": "conversations",
+   "summary": "Read a Word, Excel or PowerPoint draft as a PDF",
+   "description": "The PDF of one Word, Excel, PowerPoint or PDF file in the conversation’s working directory, converted for reading, as an attached resource (base64 `blob`) up to 5 MiB. 422 for any other type; 503 when no converter is configured.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"conversation-draft-rendition-get\",\"domain\":\"conversations\",\"summary\":\"Read a Word, Excel or PowerPoint draft as a PDF\",\"description\":\"The PDF of one Word, Excel, PowerPoint or PDF file in the conversation’s working directory, converted for reading, as an attached resource (base64 `blob`) up to 5 MiB. 422 for any other type; 503 when no converter is configured.\",\"annotations\":{\"title\":\"Read a Word, Excel or PowerPoint draft as a PDF\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":500}},\"required\":[\"path\"]}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
   },
   {
    "name": "conversation-get",
@@ -2518,25 +2545,25 @@
    "conversation-create",
    "conversation-list",
    "conversation-delete",
-   "conversation-get",
-   "conversation-message-add",
-   "conversation-message-list",
-   "conversation-update",
-   "conversation-awaiting-get",
-   "conversation-mention-candidate-list",
-   "saved-search-update"
-  ],
-  "Unterhaltung teilen": [
-   "conversation-list",
-   "sharing-get",
-   "conversation-create",
-   "conversation-delete",
+   "conversation-draft-download",
    "conversation-get",
    "conversation-message-add",
    "conversation-message-list",
    "conversation-update",
    "conversation-awaiting-get",
    "conversation-mention-candidate-list"
+  ],
+  "Unterhaltung teilen": [
+   "conversation-list",
+   "sharing-get",
+   "conversation-create",
+   "conversation-delete",
+   "conversation-draft-download",
+   "conversation-get",
+   "conversation-message-add",
+   "conversation-message-list",
+   "conversation-update",
+   "conversation-awaiting-get"
   ],
   "": [
    "classification-evaluate",

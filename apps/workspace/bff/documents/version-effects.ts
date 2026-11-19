@@ -12,7 +12,7 @@ import { folderRestrictsReading } from '@/lib/conversations/restricted-egress'
 import { hasPassedScreening } from '@/lib/documents/document-reader'
 import { documentDisplayName } from './display-name'
 import { announceNewRevision } from './revision-notify'
-import { isAgentDocumentFilename } from './agent-namespace'
+import { isNamespacedAgentDocument } from './agent-namespace'
 import { resolveDocumentFolderPath } from './folder-path'
 import { resolveReviewers } from './reviewers'
 import { readVersionTextForTask } from './version-content'
@@ -173,9 +173,9 @@ const EFFECT_REGISTRY: Record<DocumentVersionEffect, EffectRunner> = {
       return
     }
 
-    if (!isAgentDocumentFilename(document.filename)) {
+    if (!isNamespacedAgentDocument(document)) {
       console.warn(
-        `[documents] published version ${version.id} is not under the agent document namespace; not indexed`,
+        `[documents] published version ${version.id} is not an agent document that may be indexed; not indexed`,
       )
       return
     }

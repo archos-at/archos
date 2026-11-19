@@ -11,6 +11,7 @@
 #   local-stack.sh psql [args]      psql on the app database, as the superuser
 #   local-stack.sh copy-ui <dir>    a copy of the UI to run a second stack from (see LOCAL_STACK_UI_DIR)
 #   local-stack.sh smoke            the browser check: anna adds a memory note, bert sees none
+#   local-stack.sh previews         only `next dev`, for the /dev/* previews and screenshots (no database, no backend)
 #
 # Postgres 16 (server binaries), Redis, the UI (`next dev` behind server.js) and
 # the backend in its two roles (`api`, `chat`), plus fake-workos.mjs, a test
@@ -230,11 +231,57 @@ ui_up() {
     NEXT_INTERNAL_URL="http://127.0.0.1:$LOCAL_STACK_NEXT_PORT" node server.js
 }
 
+# Every prerequisite of `next dev`, each refused with its fix before anything starts.
+ui_preflight() {
+  [ -d "$LOCAL_STACK_UI_DIR/node_modules/next" ] ||
+    die "no node_modules in $LOCAL_STACK_UI_DIR (a fresh worktree has none). Fix: task workspace:install"
+  local free_mb
+  free_mb=$(df -Pm "$LOCAL_STACK_UI_DIR" | awk 'NR==2 {print $4}')
+  if [ -n "$free_mb" ] && [ "$free_mb" -lt "$LOCAL_STACK_MIN_FREE_MB" ]; then
+    die "only ${free_mb} MB free under $LOCAL_STACK_UI_DIR, ${LOCAL_STACK_MIN_FREE_MB} MB needed: Turbopack's dev cache fails with ENOSPC and every page answers 500. Fix: free disk (rm -rf $LOCAL_STACK_UI_DIR/.next is yours to drop; other checkouts' .next and node_modules are the usual weight)"
+  fi
+  if ! grep -q "agentUpgrade: false" "$LOCAL_STACK_UI_DIR/next.config.ts"; then
+    die "next.config.ts lacks experimental.agentUpgrade: false. Under a coding agent next dev then exits 1 after printing an upgrade notice. Fix: restore it (docs/contributing/gotchas.md)"
+  fi
+}
+
+# Placeholder AuthKit settings: the middleware throws on every request without
+# them, previews included. Nothing calls WorkOS to draw a preview.
+PREVIEW_ENV=(env APP_ENV=development NEXT_TELEMETRY_DISABLED=1
+  WORKOS_CLIENT_ID=client_previews WORKOS_API_KEY=sk_test_previews
+  WORKOS_COOKIE_PASSWORD="$LOCAL_STACK_COOKIE_PASSWORD"
+  NEXT_PUBLIC_WORKOS_REDIRECT_URI="http://localhost:$LOCAL_STACK_PREVIEW_PORT/api/auth/callback")
+
+cmd_previews() {
+  ui_preflight
+  mkdir -p "$RUN_DIR" "$LOG_DIR"
+  claim_port previews "$LOCAL_STACK_PREVIEW_PORT"
+  if ! running previews; then
+    next_lock_free
+    say "previews: staging pdf.js, Excalidraw and MCP app assets"
+    (cd "$LOCAL_STACK_UI_DIR" && node scripts/copy-pdfjs-assets.mjs && node scripts/copy-excalidraw-assets.mjs &&
+      bun run build:mcp-apps) >>"$LOG_DIR/previews.log" 2>&1
+  fi
+  start previews "$LOCAL_STACK_UI_DIR" "${PREVIEW_ENV[@]}" node node_modules/next/dist/bin/next dev --turbopack \
+    -p "$LOCAL_STACK_PREVIEW_PORT"
+  local probe="http://localhost:$LOCAL_STACK_PREVIEW_PORT/dev/atoms"
+  if ! (wait_http previews "$probe" 300); then
+    if grep -q "ENOSPC" "$LOG_DIR/previews.log"; then
+      die "next dev ran out of disk (ENOSPC). Fix: free disk, rm -rf $LOCAL_STACK_UI_DIR/.next, then again"
+    fi
+    if grep -q "You must provide a redirect URI" "$LOG_DIR/previews.log"; then
+      die "AuthKit found no redirect URI. An .env.local in $LOCAL_STACK_UI_DIR that blanks NEXT_PUBLIC_WORKOS_REDIRECT_URI wins over this script's; fix or remove it"
+    fi
+    exit 1
+  fi
+  say "previews up: http://localhost:$LOCAL_STACK_PREVIEW_PORT/dev/<name> (log $LOG_DIR/previews.log). Stop: task local:down"
+}
+
 # ── commands ─────────────────────────────────────────────────────────────────
 
 cmd_up() {
   [ -x "$REPO_ROOT/.venv/bin/nat" ] || die "no backend venv; run \`task setup\` first"
-  [ -d "$LOCAL_STACK_UI_DIR/node_modules" ] || die "no node_modules in $LOCAL_STACK_UI_DIR; run \`task setup\` first"
+  ui_preflight
   mkdir -p "$RUN_DIR" "$LOG_DIR"
   # Every port first, so a clash stops `up` before anything has started.
   pg_running || ! port_taken "$LOCAL_STACK_PG_PORT" || die "port $LOCAL_STACK_PG_PORT (postgres) is taken by another process"
@@ -265,7 +312,7 @@ cmd_up() {
 
 cmd_down() {
   local name
-  for name in gateway next chat api workos redis; do stop "$name"; done
+  for name in previews gateway next chat api workos redis; do stop "$name"; done
   if [ -x "$PGBIN/pg_ctl" ] && pg_running; then
     as_pg "'$PGBIN/pg_ctl' -D '$PG_DATA' -m fast -w stop" >/dev/null
     say "postgres stopped"
@@ -277,8 +324,9 @@ cmd_status() {
   printf '%-9s %-6s %-8s %s\n' component port state pid
   if pg_running; then state=up; else state=down; fi
   printf '%-9s %-6s %-8s %s\n' postgres "$LOCAL_STACK_PG_PORT" "$state" "$(head -1 "$PG_DATA/postmaster.pid" 2>/dev/null || true)"
-  for name in redis workos api chat next gateway; do
+  for name in redis workos api chat next gateway previews; do
     case $name in
+      previews) port=$LOCAL_STACK_PREVIEW_PORT ;;
       redis) port=$LOCAL_STACK_REDIS_PORT ;; workos) port=$LOCAL_STACK_WORKOS_PORT ;;
       api) port=$LOCAL_STACK_API_PORT ;; chat) port=$LOCAL_STACK_CHAT_PORT ;;
       next) port=$LOCAL_STACK_NEXT_PORT ;; gateway) port=$LOCAL_STACK_UI_PORT ;;
@@ -348,5 +396,6 @@ case "$command" in
   psql) exec "$PGBIN/psql" -h "$PG_DIR" -p "$LOCAL_STACK_PG_PORT" -U postgres -d app "$@" ;;
   copy-ui) cmd_copy_ui "$@" ;;
   smoke) cmd_smoke ;;
-  *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+  previews) cmd_previews ;;
+  *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
 esac

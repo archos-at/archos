@@ -11,7 +11,6 @@ from pathlib import Path
 from pathlib import PurePosixPath
 
 ALLOWLIST = Path("ci/ast_guard_specs.txt")
-PENDING = Path("ci/spec_source_reads_pending.txt")
 DOC = "docs/contributing/code-conventions.md#specs-test-behaviour"
 
 SCRIPT = re.compile(r"\.(?:[cm]?[jt]sx?)$")
@@ -49,6 +48,9 @@ PARSERS = (
     "@/test-utils/sql-statements",
     "postcss",
     "./sql-statements",
+    "../../apps/workspace/tests/test-utils/sql-statements",
+    "dockerfile-ast",
+    "@astrojs/compiler-rs",
 )
 
 
@@ -295,13 +297,10 @@ def parses(source: str) -> bool:
 
 def check(root: Path) -> list[str]:
     allowed = load_allowlist(root / ALLOWLIST)
-    pending = load_allowlist(root / PENDING)
     findings = {finding.path: finding for finding in find(root, tracked(root))}
-    problems = [
-        f"{PENDING}: {path} no longer reads source files. Remove the line." for path in pending if path not in findings
-    ]
+    problems = []
     for path, finding in sorted(findings.items()):
-        if path in allowed or path in pending:
+        if path in allowed:
             continue
         problems.append(
             f"{path}: reads source text ({', '.join(finding.names[:3])}). Test behaviour: import the code, call it "

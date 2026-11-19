@@ -11,11 +11,13 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
+import answer_checks  # noqa: E402
 import files_eval  # noqa: E402
 import fixture_files  # noqa: E402
 import judge  # noqa: E402
 import north_star_eval  # noqa: E402
 import render_fixture_drawings as drawings  # noqa: E402
+import run_record  # noqa: E402
 import suite  # noqa: E402
 import turn_input  # noqa: E402
 import visual_eval  # noqa: E402
@@ -206,8 +208,8 @@ class TestWhatRunsOnThisCommit:
 
 
 def _run(row: dict, answer: str, calls: list[dict], rounds: int = 1) -> dict[str, bool]:
-    run = suite.Run(question_id=row["id"], run=1, answer=answer, tool_args=calls, research_calls=rounds)
-    checks = suite.check(row, run, {"cards": []})
+    run = run_record.Run(question_id=row["id"], run=1, answer=answer, tool_args=calls, research_calls=rounds)
+    checks = answer_checks.check(row, run, {"cards": []})
     expect = {**row["expect"], "judge": []}
     if row["set"] == "visual":
         checks.update(visual_eval.visual_checks(expect, calls, row["gold"], answer, row["question"], None, [], rounds))

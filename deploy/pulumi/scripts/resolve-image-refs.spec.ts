@@ -54,6 +54,8 @@ beforeAll(() => {
     "pulumi",
     [
       'if [ "$1 $2 $3" = "config get cmsEnabled" ]; then [ -n "${STUB_CMS_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_CMS_ENABLED"; exit 0; fi',
+      'if [ "$1 $2 $3" = "config get browserRendererEnabled" ]; then [ -n "${STUB_BROWSER_RENDERER_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_BROWSER_RENDERER_ENABLED"; exit 0; fi',
+      'if [ "$1 $2 $3" = "config get codeRunnerEnabled" ]; then [ -n "${STUB_CODE_RUNNER_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_CODE_RUNNER_ENABLED"; exit 0; fi',
       '[ "$1 $2" = "stack output" ] || exit 64',
       '[ -z "${STUB_PULUMI_FAIL:-}" ] || exit 1',
       'out="${STUB_OUTPUTS:-}"; [ -n "$out" ] || out="{}"',
@@ -112,14 +114,14 @@ function run(script: string, env: Record<string, string>, args: string[] = []): 
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-const repository = (service: string) => (service === "cms" ? "cms" : `grid-oib-${service}`);
+const repository = (service: string) => (["cms", "code-runner", "browser-renderer"].includes(service) ? service : `grid-oib-${service}`);
 
 const ref = (service: string, commitName: string) =>
   `ghcr.io/archos-at/${repository(service)}:sha-${C[commitName]}`;
 
 const publishedAt = (...commitNames: string[]) =>
   commitNames
-    .flatMap((n) => ["backend", "frontend", "web", "cms"].map((s) => `${s} sha-${C[n]}`))
+    .flatMap((n) => ["backend", "frontend", "web", "cms", "code-runner", "browser-renderer"].map((s) => `${s} sha-${C[n]}`))
     .join("\n");
 
 const deployed = (refs: Record<string, string>) => JSON.stringify({ deployedImages: refs });
@@ -146,6 +148,8 @@ describe("resolve-image-refs.sh", () => {
       FRONTEND_IMAGE_REF: ref("frontend", "c5"),
       WEB_IMAGE_REF: ref("web", "c5"),
       CMS_IMAGE_REF: ref("cms", "c5"),
+      CODE_RUNNER_IMAGE_REF: ref("code-runner", "c5"),
+      BROWSER_RENDERER_IMAGE_REF: ref("browser-renderer", "c5"),
     });
   });
 
@@ -169,6 +173,8 @@ describe("resolve-image-refs.sh", () => {
       FRONTEND_IMAGE_REF: ref("frontend", "c5"),
       WEB_IMAGE_REF: ref("web", "c5"),
       CMS_IMAGE_REF: ref("cms", "c5"),
+      CODE_RUNNER_IMAGE_REF: ref("code-runner", "c5"),
+      BROWSER_RENDERER_IMAGE_REF: ref("browser-renderer", "c5"),
     });
   });
 
@@ -316,6 +322,51 @@ describe("resolve-image-refs.sh", () => {
   });
 });
 
+describe("resolve-image-refs.sh, the code runner", () => {
+  const older = () => ["backend", "frontend", "web", "cms"].map((s) => `${s} sha-${C.c2}`).join("\n");
+
+  it("looks the code runner up in its own repository and prints CODE_RUNNER_IMAGE_REF", () => {
+    const out = resolve({ STUB_PUBLISHED: publishedAt("c3") });
+    expect(out.status, out.stderr).toBe(0);
+    expect(pinned(out).CODE_RUNNER_IMAGE_REF).toBe("ghcr.io/archos-at/code-runner:sha-" + C.c3);
+  });
+
+  it("keeps the running code runner when a rollback tag has no code-runner image", () => {
+    const out = resolve({
+      EXPLICIT_TAG: `sha-${C.c2}`,
+      STUB_PUBLISHED: older(),
+      STUB_OUTPUTS: deployed({ backend: ref("backend", "c5"), "code-runner": ref("code-runner", "c5") }),
+    });
+    expect(out.status, out.stderr).toBe(0);
+    expect(pinned(out).CODE_RUNNER_IMAGE_REF).toBe(ref("code-runner", "c5"));
+    expect(out.stderr).toContain(`::warning::code-runner: sha-${C.c2} has no code-runner image`);
+  });
+
+  it("leaves the code runner unpinned while it is off and no commit in the walk has its image", () => {
+    const out = resolve({ STUB_PUBLISHED: older() });
+    expect(out.status, out.stderr).toBe(0);
+    expect(pinned(out).CODE_RUNNER_IMAGE_REF).toBe("");
+    expect(out.stderr).toContain("::warning::code-runner: no image in the last 200 develop commits and none is deployed; it is off");
+  });
+
+  it("fails that walk when the code runner is on, rather than deploy it with no image", () => {
+    const out = resolve({ STUB_PUBLISHED: older(), STUB_CODE_RUNNER_ENABLED: "true" });
+    expect(out.status).toBe(1);
+    expect(out.stderr).toContain("::error::code-runner: no image in the last 200 develop commits and no deployed ref to keep.");
+  });
+
+  it("fails a rollback with the code runner on and no image to keep, naming codeRunnerImage", () => {
+    const out = resolve({
+      EXPLICIT_TAG: `sha-${C.c2}`,
+      STUB_PUBLISHED: older(),
+      STUB_CODE_RUNNER_ENABLED: "true",
+      STUB_OUTPUTS: deployed({ backend: ref("backend", "c5") }),
+    });
+    expect(out.status).toBe(1);
+    expect(out.stderr).toContain("Set codeRunnerImage to a published code-runner image (ghcr.io/archos-at/code-runner:sha-<commit>)");
+  });
+});
+
 describe("find-published-tag.sh", () => {
   const find = (codes: string, ...tags: string[]) =>
     run("find-published-tag.sh", { STUB_CURL_CODES: codes }, ["archos-at", "backend", ...tags]);
@@ -360,5 +411,14 @@ describe("verify-image-tag.sh", () => {
     expect(out.status).toBe(1);
     expect(out.stdout).toContain("not published for cms");
     expect(run("verify-image-tag.sh", { STUB_CURL_CODES: all("sha-a", "200") }, ["archos-at", "sha-a"]).status).toBe(0);
+  });
+
+  it("checks the code-runner image as well when the stack runs the code runner", () => {
+    const withRunner = `${all("sha-a", "200")}\narchos-at/code-runner:sha-a 200`;
+    const env = { CODE_RUNNER_ENABLED: "true" };
+    expect(run("verify-image-tag.sh", { STUB_CURL_CODES: withRunner, ...env }, ["archos-at", "sha-a"]).status).toBe(0);
+    const out = run("verify-image-tag.sh", { STUB_CURL_CODES: all("sha-a", "200"), ...env }, ["archos-at", "sha-a"]);
+    expect(out.status).toBe(1);
+    expect(out.stdout).toContain("not published for code-runner");
   });
 });

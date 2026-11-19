@@ -24,8 +24,9 @@ for its landscape. How the pieces are built: [`apps/website/README.md`](../../ap
 
 One action: **request a demo on a real project** (`/demo/`). Every page ends in the same
 `CTABand`: "Demo anfragen" first, "Datensicherheit" second (the security page ends with
-contact instead). The form hands off to the visitor's mail program for now (D9); its funnel is
-measured in PostHog (`apps/website/README.md`, "Analytics").
+contact instead). The form sends through the site to the contact inbox, confirms to the visitor and,
+with Attio configured, records the lead there; when the site cannot send it falls back to the visitor's
+mail program (D9). Its funnel is measured in PostHog (`form_submitted`, `method` `site` or `mailto`; `apps/website/README.md`, "Forms" and "Analytics").
 
 ## Pages and the searches they meet
 

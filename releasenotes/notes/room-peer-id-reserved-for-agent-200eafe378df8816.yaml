@@ -1,0 +1,9 @@
+---
+# area: collaboration
+security:
+  - >
+    In a document's review, a person's browser could take the agent's place in
+    the room's list of who is there: it could replace the agent's presence and
+    pointer, or mark the agent as gone, and its own edits carried the agent's
+    room id. The agent's place in the room is now the server's alone, and such
+    a message is refused.

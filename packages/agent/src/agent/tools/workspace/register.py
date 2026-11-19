@@ -20,6 +20,9 @@ from nat.plugin_api import FunctionGroup
 from nat.plugin_api import FunctionGroupBaseConfig
 from nat.plugin_api import register_function_group
 
+from ..execute.tool_data import WORKSPACE_ABOUT
+from ..execute.tool_data import ToolData
+from ..execute.tool_data import keep_tool_data
 from .cards import REVISION_COMPARE_OPERATION
 from .cards import emit_operation_proposal_card
 from .cards import emit_revision_compare_card
@@ -121,8 +124,26 @@ async def run_workspace(step: str, arguments: dict[str, Any], outcome: ActionOut
             if number is not None:
                 text = f"{text}\n\nThe person sees both pages side by side, the changes boxed: [[card:{number}]]."
         _record_read(result, arguments, observed)
+        handed = await _hand_over_read(result, arguments, observed)
+        text = f"{text}\n\n{handed}" if handed else text
     _observe(step, {"tool": SERVER_TOOLS[step], "operation": arguments.get("name")}, observed)
     return text
+
+
+async def _hand_over_read(result: Any, arguments: dict[str, Any], outcome: dict[str, Any]) -> str:
+    structured = result.structured
+    operation = str(arguments.get("name") or "").strip()
+    if operation not in WORKSPACE_ABOUT or "proposed" in outcome or result.is_error or not structured:
+        return ""
+    return await keep_tool_data(
+        ToolData(
+            tool="workspace",
+            operation=operation,
+            about=WORKSPACE_ABOUT[operation],
+            content=structured,
+            provenance="As the workspace answered the operation for the signed-in person; nothing was computed.",
+        )
+    )
 
 
 def _record_read(result: Any, arguments: dict[str, Any], outcome: dict[str, Any]) -> None:

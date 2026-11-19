@@ -581,3 +581,50 @@ wire.
 - **Revisit when** a tenant asks for retention on superseded versions, or when
   the first non-Markdown deliverable needs a review round — the first is a
   policy table, the second is a renderer, and neither should reopen this record.
+
+## Update (2026-11-18): filing is the sign-off
+
+The product owner decided: **„Wer ablegt, segnet ab.“** When a person files a
+file or draft the agent made into the project, from the card („Ins Projekt
+ablegen“, „Im Projekt aktualisieren“) or through the agent's `file_draft`, which
+the agent calls only when the person asks, that person signs it off, exactly as
+their own upload does. The filing writes a version born `published`, with
+`origin = 'filing'` (migration 0249 widens `document_versions_published_is_approved`
+to `origin IN ('upload', 'filing')`) and the filer as `published_by`, and no
+approval nobody gave. The version list says „Abgelegt“.
+It no longer starts as `draft` and walks the review states.
+
+Why. The review round asked the person who had just said „leg das ins Projekt“
+to say it a second time, to themselves, on a separate button. A person who files
+a file is the assertion this record looks for, just as a person who uploads one
+is; the rule that the agent never publishes on its own stays true, because
+`file_draft` runs only at the person's request and the card is the person's
+gesture.
+
+What changed:
+
+- The transition table has an op `file`: `null → published` for a first filing,
+  `draft → published` for a filing again (the bytes are written into a draft
+  Fassung first, then published). Both run `ingestPublished`, so a filed agent
+  file is indexed and citable at once, with its provenance: `authored_by:
+  agent` and, as `approved_by` / `approved_at`, the person who filed it. The
+  grounding block reads „ARCHOS-Dokument · freigegeben von {Name} am {Datum}“,
+  and a citation of it carries the lane „ARCHOS-Dokument“. This is the
+  labelled-citation condition of 2026-08-20, met.
+- A new Fassung of a person's document from an agent file (`revise_file`, the
+  card's „Als neue Fassung ablegen“) is a person's filing too and lands the same
+  way.
+- No review notification is opened for a filing; `openReviewInbox` belongs to
+  `submit` alone. `file_draft` lost `submit` and `reviewer`, and the cards lost
+  „Zur Freigabe einreichen“ and every review-state line.
+- Provenance stays: the AI marking in the bytes, `authored_by = 'agent'`, the
+  `generated/` filename namespace, „Von ARCHOS erstellt“ on the card. A filed
+  Markdown document's footer says „Von ARCHOS erstellt“ and that the person who
+  filed it signed it off; only a draft's says „Entwurf, nicht freigegeben“
+  (`filedFooter` / `filedProse` in `branding.ts`).
+
+What did not change: the review states, the review round and its inbox stay for
+any document a person chooses to send for review. A background run that files
+its result without a person at hand (a task's report, a deep-research report)
+still files a `draft` and submits it to the person who asked, because nobody
+has signed it off.

@@ -234,6 +234,56 @@ updates:
       - dependency-name: "typescript"
         versions: [">=7"]
 
+  - package-ecosystem: docker
+    directory: "/apps/browser-renderer"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Vienna
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    groups:
+      chromium:
+        patterns: ["ghcr.io/puppeteer/puppeteer"]
+      browser-renderer-build:
+        patterns: ["node", "oven/bun"]
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: docker
+    directory: "/deploy/ci-runner"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Vienna
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 1
+    allow:
+      - dependency-name: "ghcr.io/actions/actions-runner"
+
+  - package-ecosystem: bun
+    directory: "/apps/browser-renderer"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Vienna
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 2
+    groups:
+      browser-renderer-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+      browser-renderer-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
   # Keep the Actions current. They are pinned by commit SHA with a version
   # comment (tests/test_ci_workflows.py), and Dependabot bumps both. "/" reads
   # .github/workflows only; the composite actions need their own directories,

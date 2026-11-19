@@ -71,15 +71,16 @@ Trace metadata on the root:
 | `turn_surface` | where the question was asked: `chat`, `review_canvas` (a box drawn on a document, `user_message.focus_region`) or `annotation_thread` (asked in an Anmerkung's thread, `reply_in_thread` with the mark's id). Recorded by the socket for every turn (`record_turn_surface`); both canvas values also carry the tag `surface:review-canvas` |
 | `turn_trigger`, `trigger_event_id` | on a turn an event woke, not typed (`user_message.trigger`, the BFF's wake job; ADR-0106): the kind (`thread_mention`, `thread_reply`, `assigned`) and the id of the reply or assignment that woke it. Recorded by the socket (`record_turn_trigger`) with the tag `trigger:<kind>`; absent on a typed turn The trace id's turn is `wakeTurnId(<event id>)`, the same id as the `agent_wakes` row and the job. A wake that started no turn (a cap, the switch, rights lost, a spent budget) has no model call and so no trace: it is on its `agent_wakes` row and in the WorkOS audit trail, as `piloti.wake.suppressed` when it was held (`lib/annotations/wake.ts`), as `piloti.wake.ended` when the job was refused or gave up (`lib/annotations/wake-audit.ts`) |
 | `question_language`, `question_language_confidence`, `answer_language_instructed` | the language py3langid calls the person's newest message (ISO 639-1, or `undetermined` for one too short to call), its probability, and whether the turn context ended with the line telling the model to answer in it: only for a confident call that is not German (`common/question_language.py`, recorded by `agent.run`). A turn answered in German with `answer_language_instructed: true` is the model ignoring the line |
-| `steer_count` | on a turn the asker steered: how many of their notes (`steer`, typed while the turn ran) it has read so far, recorded by the agent node each time it reads one (`agent._announce_steer`). With the tag `steered` |
+| `steer_count` | on a turn the asker steered: how many of their notes (`steer`, typed while the turn ran) it has read so far, recorded by the agent node each time it reads one (`turn_steering._announce_steer`). With the tag `steered` |
 | `thread_reply` | on a turn asked to answer in an Anmerkung's thread (`reply_in_thread`): `replied` (the model called `canvas__reply` on that mark), `skipped` (it did not, so the socket posts the answer in the thread after the turn, `agent.turn.annotation_reply`), or `skipped_withheld` (it did not, and the conversation drew on a restricted folder, so nothing is posted). Recorded when the turn leaves the canvas (`settle_thread_reply`). The fallback's own post runs after the trace closes and is not an observation; this value is what keeps a model that stops replying in threads visible |
+| `answer_excerpt_chars` | on a turn asked about a selected part of an earlier answer (`user_message.answer_excerpt`): the length of that part, recorded by `conversation_register._finished`. Absent on every other turn |
 | `focus_region_viewed` | on a turn with a box only: whether a region view (`look` with `region`) ran, read off the turn's image budget (`conversation_register._finished`). `false` is a turn that answered about a drawing it never looked at |
 
 Tags, the trace list's fast filter: `outcome:<…>`, `route:<…>`,
 `confidence:<…>`, `capped:<…>`, `citations-removed`, `quote-not-found`,
 `research-truncated`, `handed-off`, `error:<code>`, `feature:ifc`,
 `feature:cross-project` (a `project_lookup` ran), `feature:canvas` (a canvas
-tool ran), `surface:review-canvas` (the question was asked from a document's
+tool ran), `feature:execute` (a script ran in the code runner), `surface:review-canvas` (the question was asked from a document's
 review canvas or one of its threads), `steered` (the asker typed a note the
 turn read mid-run), `trigger:<kind>` (an event woke the turn),
 `reference-prefetch`, `kind:work` (an operations turn's work report),
@@ -148,6 +149,31 @@ the document would see, refused because the conversation drew on a restricted
 folder or another project: `tools/canvas/policy.py`). The harness's one call,
 taking the agent's cursor off a document when the turn ends, is a `canvas.leave`
 step.
+
+Each `execute` run (a script in the code runner, `tools/execute/`) is a
+`execute.run` step under the tool's observation (`tools/execute/trace.py`),
+with its real start and end, and the turn gets the tag `feature:execute`. Its
+input: the run's ordinal in the turn (`run`), the script's `code_chars` and
+`code_sha256` (16 hex characters: the same script twice is the same hash),
+whether named documents were passed (`documents`) and how many
+(`documents_named`), how many tool results were handed over (`data_named`),
+the `input_files` and `input_bytes` sent (the working directory plus those
+documents and results) and `timeout_s`. Its output: `status` (`ok`,
+`error`, `timeout`, `unavailable`, `refused`), `reason` on an unavailable or
+refused run (`no_runner`, `unreachable`, `busy`, `http_error`;
+`no_conversation`, `no_envelope`, `unresolved`, `base_corpus`, `too_large`,
+`unreadable`, `unknown_data`, `too_many_data`), the runner's own `runner_ms` beside the tool's `wall_ms` (the
+difference is reading the documents, the busy retries and keeping the files),
+`files_kept`, `files_new` (not in the working directory before), `kept_bytes`,
+`file_types` (the extensions), `files_refused` (over the conversation's cap)
+and, on `error` or `timeout`, `stderr_first_line` (200 characters). Never the
+script, its value, its stdout, the rest of stderr or a file's bytes: the
+script holds the office's data. Per run the scores `execute-status`,
+`execute-files-made` and `execute-runs-to-file`, and when `file_draft` first
+files a file a run made, `execute-files-filed` ([Scores](#scores)); a run's
+scores carry the item `run:<n>`, so the turn's runs are told apart. A kept file
+is stamped `made_by: execute` in the working directory, which is how
+`file_draft` knows it.
 
 Each steering note the turn reads (`common/steering.py`) is a `turn.steer`
 step under the decision that read it: its input the `round` it was read in,
@@ -333,8 +359,12 @@ a name is written but not declared, or declared but not listed here.
 | `steer-count` | numeric | agent, at the terminal | on a steered turn only: the notes the asker typed into it; the comment says how many it read (`applied N`). A note left unread became the next question |
 | `turn-slots-stranded` | numeric | agent, when the turn's workflow stream stops | only when it is above zero: the admission slots (ADR-0040 L3) the turn's workflow still held when the turn ended, because its teardown outran `PRODUCER_TEARDOWN_SECONDS`; the stream gave them back (`agent_host/workflow_stream.py`). Before, such a slot was renewed for as long as the teardown ran and the organization was refused „several answers in progress" with nothing running. Any value is a teardown that hangs, worth its trace |
 | `work-report-matches` | boolean | agent, at the terminal | on a work turn (`kind: work`, ADR-0123) only: true when the report's `proposed` list is as long as the proposal cards the turn showed. The comment says both counts (`reported N, filed M`). Counted after the unfiled lines below are dropped, so false is mostly a turn that filed a proposal it did not report |
-| `work-proposals-unfiled` | numeric | agent | on a work turn only: the report's `proposed` lines whose `ref` named no proposal this turn's workspace writes filed, dropped before the person saw them (`answer_envelope.drop_unfiled_proposals`). Above zero is a turn that claimed a proposal it did not make |
+| `work-proposals-unfiled` | numeric | agent | on a work turn only: the report's `proposed` lines whose `ref` named no proposal this turn's workspace writes filed, dropped before the person saw them (`envelope_gates.drop_unfiled_proposals`). Above zero is a turn that claimed a proposal it did not make |
 | `thread-answered-in-place` | boolean | agent, when the turn leaves the canvas | on a turn asked to answer in an Anmerkung's thread: true when the model replied there itself (`canvas__reply`), false when it did not and the socket posts the answer for it. No score when the turn may not post there (`thread_reply` = `skipped_withheld`). The false rate is how often the prompt is ignored, which the fallback otherwise hides |
+| `execute-status` | categorical | agent, the `execute` tool | per run (item `run:<n>`): `ok`, `error` (the script threw, or the runner refused the request), `timeout`, `unavailable` (no runner configured, unreachable, busy past its retries, another HTTP answer), `refused` (nothing sent: no conversation, a named document that could not be resolved or read, over 50 MB). The comment is the `reason` of an unavailable or refused run. The share `error` is the run error rate; the step `execute.run` holds the first stderr line |
+| `execute-runs-to-file` | numeric ≥ 1 | agent, the `execute` tool | on a run that kept at least one file: the runs the turn made since its last run that kept one, this run included. 1 is a file on the first try; its mean is the tries until a file, the signal for the `execute` skill and the runner's libraries |
+| `execute-files-made` | numeric ≥ 0 | agent, the `execute` tool | on every run that reached the runner: the files it kept that were new to the working directory (a rewritten file is not counted again). Zero is a measurement |
+| `execute-files-filed` | numeric 0–1 | agent, `file_draft` | 1 when `file_draft` files a run's file into the project for the first time (item: the path's hash), on the filing turn's trace, which may be later than the turn that made it. Summed over a period against the sum of `execute-files-made`, the share of made files that reached the project |
 | `review-correctness` | categorical | reviewer, in the queue | `correct`, `partly_correct`, `incorrect` |
 | `review-sources` | categorical | reviewer, in the queue | `right_sources`, `missing_sources`, `wrong_sources` |
 | `judge-answers-question` | numeric 0–1 | LLM judge | how directly the answer addresses the question |
@@ -487,7 +517,7 @@ never reads a trace's body, so this is the whole cost.
   carries the browser's PostHog session id there:
   `getPosthogSessionId()` (`apps/workspace/bff/analytics/posthog.ts`) is read
   per question and sent as `user_message.posthog_session_id`; `_drive` in
-  `agent_host/chat_socket.py` records it with `record_posthog_session`
+  `agent_host/chat_run.py` records it with `record_posthog_session`
   (`langfuse_trace_attributes.py`). From a trace, open the same `$session_id`
   in PostHog's replay list.
 * It is **identity-gated**, on the rule in that module's header ("no span names a
@@ -545,7 +575,7 @@ Gotenberg has an egress policy, so no rule is needed. A spec
 |---|---|
 | Environment, release, deployment tag, types, trace names | `packages/agent/src/agent/observability/trace_context.py` |
 | The processors on the runtime's exporter | `packages/agent/src/agent/observability/langfuse_trace_attributes.py`, installed in `otel_header_redaction_exporter.py` |
-| A turn's outcome on its root | `packages/agent/src/agent/observability/turn_outcome.py`, bound in `agent_host/chat_socket.py` `_drive` |
+| A turn's outcome on its root | `packages/agent/src/agent/observability/turn_outcome.py`, bound in `agent_host/chat_run.py` `_drive` |
 | Runtime scores | `packages/agent/src/agent/observability/langfuse_scores.py` |
 | Model calls outside the runtime | `packages/agent/src/agent/observability/direct_trace.py` |
 | Hatchet's spans (trigger, step run) | `packages/agent/src/agent/observability/orchestrator_tracing.py` |
@@ -553,6 +583,6 @@ Gotenberg has an egress policy, so no rule is needed. A spec
 | Votes, reasons, review queue | `apps/workspace/bff/langfuse/feedback-score.ts` |
 | Decisions on the agent's proposals, marks and changes | `apps/workspace/bff/langfuse/decision-score.ts` |
 | Tool calls on the agent door (MCP) | `apps/workspace/bff/langfuse/tool-call-trace.ts`, called from `lib/agent-api/telemetry.ts` |
-| PostHog session link | `record_posthog_session` in `langfuse_trace_attributes.py`, bound in `agent_host/chat_socket.py` `_drive`; the browser side is `getPosthogSessionId` in `apps/workspace/bff/analytics/posthog.ts` |
+| PostHog session link | `record_posthog_session` in `langfuse_trace_attributes.py`, bound in `agent_host/chat_run.py` `_drive`; the browser side is `getPosthogSessionId` in `apps/workspace/bff/analytics/posthog.ts` |
 | Retention and erasure | `apps/workspace/workers/langfuse-traces.js` ([`deletion-pipeline.md`](../architecture/deletion-pipeline.md)) |
 | Deployment | `deploy/pulumi/src/platform/langfuse.ts` ([`kubernetes.md`](../deployment/kubernetes.md) § Langfuse) |

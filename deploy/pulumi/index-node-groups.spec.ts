@@ -164,7 +164,7 @@ describe("worker-group placement with prod's knobs", () => {
     const [container] = podOf("kubernetes:apps/v1:Deployment", "ingest-worker").spec.containers;
 
     expect(container.resources).toEqual({
-      requests: { cpu: "1", memory: "6Gi" },
+      requests: { cpu: "1200m", memory: "6Gi" },
       limits: { cpu: "2", memory: "6Gi" },
     });
   });

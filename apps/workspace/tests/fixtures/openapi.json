@@ -15575,11 +15575,11 @@
         }
       }
     },
-    "/api/conversations/{id}/draft/file": {
-      "post": {
-        "operationId": "conversation-draft-file",
-        "summary": "File an unfiled draft into the project",
-        "description": "Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project. A same-name collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.",
+    "/api/conversations/{id}/draft": {
+      "delete": {
+        "operationId": "conversation-draft-delete",
+        "summary": "Delete a draft from a conversation",
+        "description": "Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.",
         "tags": [
           "conversations"
         ],
@@ -15593,37 +15593,18 @@
               "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
             },
             "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "path": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 500
-                  },
-                  "title": {
-                    "type": "string",
-                    "maxLength": 500
-                  },
-                  "force": {
-                    "default": false,
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "path"
-                ],
-                "additionalProperties": false
-              }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
             }
           }
-        },
+        ],
         "responses": {
           "200": {
             "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
@@ -15650,15 +15631,13 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "File an unfiled draft into the project",
+          "title": "Delete a draft from a conversation",
           "readOnlyHint": false,
-          "destructiveHint": false,
-          "idempotentHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
           "openWorldHint": false
         }
-      }
-    },
-    "/api/conversations/{id}/draft": {
+      },
       "get": {
         "operationId": "conversation-draft-get",
         "summary": "Read an unfiled draft ARCHOS wrote",
@@ -15715,6 +15694,318 @@
         },
         "x-mcp-annotations": {
           "title": "Read an unfiled draft ARCHOS wrote",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/conversations/{id}/draft/download": {
+      "get": {
+        "operationId": "conversation-draft-download",
+        "summary": "Get the bytes of a file in a conversation’s working directory",
+        "description": "The raw bytes of one file in the conversation’s working directory (a Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a script made, or a Markdown draft), as an attached resource (base64 `blob`) up to 5 MiB; `path` is the one the answer’s card names.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is a file; the media type depends on the request (a text format such as Markdown or CSV is returned as text). Over MCP it arrives as an embedded resource up to 5 MiB and is described, not sent, above that. A redirect to a time-limited link is handed on as a resource link and never followed.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/markdown": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Get the bytes of a file in a conversation’s working directory",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/conversations/{id}/draft/file": {
+      "post": {
+        "operationId": "conversation-draft-file",
+        "summary": "File a draft into the project, or update what was filed from it",
+        "description": "Files a draft (path from its card) into the project, into `folderId` under `name`; again after a change, it updates the filed document. 409 `same-name`: `force` after the person confirmed. 409 `changed-in-project`: only the person decides `overChanges`.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "title": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "force": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "folderId": {
+                    "description": "The folder to file into, from project-folder-list; null files at the project root; omit for the default folder.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "name": {
+                    "description": "The file name in the project; its extension is set to the draft’s own type. Omit to keep the title.",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "as": {
+                    "description": "`revision`: the next revision of the document the draft was made from; `own` (default): a separate file.",
+                    "type": "string",
+                    "enum": [
+                      "own",
+                      "revision"
+                    ]
+                  },
+                  "overChanges": {
+                    "description": "Write over a revision a person changed since filing.",
+                    "type": "boolean"
+                  },
+                  "changeNote": {
+                    "description": "With `revision`: what changed, one sentence.",
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "File a draft into the project, or update what was filed from it",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/conversations/{id}/draft/rendition": {
+      "get": {
+        "operationId": "conversation-draft-rendition-get",
+        "summary": "Read a Word, Excel or PowerPoint draft as a PDF",
+        "description": "The PDF of one Word, Excel, PowerPoint or PDF file in the conversation’s working directory, converted for reading, as an attached resource (base64 `blob`) up to 5 MiB. 422 for any other type; 503 when no converter is configured.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is a file; the media type depends on the request (a text format such as Markdown or CSV is returned as text). Over MCP it arrives as an embedded resource up to 5 MiB and is described, not sent, above that. A redirect to a time-limited link is handed on as a resource link and never followed.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read a Word, Excel or PowerPoint draft as a PDF",
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,

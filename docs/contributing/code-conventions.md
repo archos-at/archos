@@ -99,6 +99,7 @@ asserts on the syntax tree, never on text, comments or prose:
 - SQL migrations: `@/test-utils/sql-statements` (`readSql`, `createdTables`,
   `functionCalls`), which skips comments, strings and dollar-quoted bodies.
 - A stylesheet: `postcss`.
+- A Dockerfile: `dockerfile-ast`. An Astro component: `@astrojs/compiler-rs`.
 
 Every guard is listed in `ci/ast_guard_specs.txt`. The `spec-source-reads`
 hook (`scripts/check_spec_source_reads.py`, in `task lint:repo` and CI's
@@ -108,7 +109,10 @@ names a source file (`.ts`, `.tsx`, `.js`, `.py`, `.css`, `.sql`, a
 longer reads. Data is not source: a JSON contract, a PDF or IFC fixture, a
 stack's YAML, and a generated file a spec compares with its generator all pass.
 A spec that checks what a Python file says belongs on the Python side, or
-asserts against the shared contract in `contracts/`.
+asserts against the shared contract in `contracts/`, or against a module a
+generator writes from the Python values (`scripts/generate_vocabularies.py`,
+`generate_agent_host_contract.py`, `generate_provider_limits.py`, each kept in
+sync by its pre-commit hook).
 
 **A spec sets the environment through `vi.stubEnv`**, never by assigning to
 `process.env`: `vi.stubEnv(name, value)`, and `vi.stubEnv(name, undefined)` to
@@ -150,7 +154,7 @@ The check is `scripts/check_comments.py` against `ci/comment_baseline.json`,
 run by the `comments` pre-commit hook on the files you commit and by CI's
 **Repo checks** job on all of them. It counts what
 `scripts/check_file_size.py`'s `comment_lines` counts: lines that hold only a
-comment, and Python docstrings. On 2026-11-16, when it arrived, the tree held
+comment, and Python docstrings. It reads YAML and TOML too: a line that starts with `#` outside a string counts. A tool directive does not, in the syntax the tool reads at the start of the comment (`# yaml-language-server: $schema=`, `# yamllint disable`, `# zizmor: ignore[...]`, `# checkov:skip=`), and neither does a release note's `# area:` line, which `scripts/release_notes_areas.py` reads; a comment that only mentions a tool by name counts. Strings are found with PyYAML's scanner, so lines break where PyYAML breaks them (U+2028 included); a file it rejects for a tab is scanned again with the tabs as spaces, and one it still rejects counts every `#` line outside an indented block scalar. On 2026-11-16, when it arrived, the tree held
 323,379 such lines in 7,452 files over the allowance; the audit that removes
 them is planned in the brand-free sweep.
 
@@ -166,6 +170,11 @@ naming rule.
 
 Ruff, line length 120, Python 3.14. New tools use `@register_function` with a
 `FunctionBaseConfig` subclass.
+
+What runs on the runner's own `python3` (3.12 on ubuntu-24.04) or through
+`uv run --no-project`, CI's scripts, the hook checkers and the release-note tool,
+is formatted for py312 (`[tool.ruff.per-file-target-version]`): on py314 Ruff
+writes `except A, B:` (PEP 758), a SyntaxError on 3.12.
 
 ### Shape of a function
 
@@ -236,6 +245,9 @@ finding:
 - a string holding a submodule's path: a patch target, an
   `importlib.import_module` path, a logger name. A docstring is prose and is
   not counted.
+- `from knowledge_layer.vector_store import name` where `_LAZY` lacks `name`:
+  it passes a local run that never reaches the import, then raises
+  `ImportError` in the pod. Add the name to `_LAZY` and `__all__`.
 
 When the surface exports the name, the finding names the import to write, as
 in `from knowledge_layer.search import RankedSearch`; when it does not, the

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { DocumentDraftCard } from './DocumentDraftCard'
+import { filingBody, filingCalls, fileThroughDialog, stubFetch } from './draft-filing.fixtures'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const setCardDecision = vi.fn()
@@ -40,7 +41,7 @@ const FILED = {
   ...DRAFT,
   documentId: 'doc-1',
   versionId: 'ver-1',
-  versionState: 'draft' as const,
+  versionState: 'published' as const,
 }
 
 describe('DocumentDraftCard — the draft, before it is filed', () => {
@@ -75,30 +76,28 @@ describe('DocumentDraftCard — the draft, before it is filed', () => {
   })
 
   it('files the draft into the project on one press, and remembers that it did', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
+    stubFetch(() =>
         Promise.resolve({
           ok: true,
           status: 201,
           json: async () => ({ documentId: 'doc-1', versionId: 'ver-1', state: 'draft', alreadyFiled: false }),
         }),
-      ),
-    )
+      )
     const user = userEvent.setup()
     render(<DocumentDraftCard {...DRAFT} />)
 
-    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+    await fileThroughDialog(user)
 
     expect(fetch).toHaveBeenCalledWith(
       '/api/conversations/conv-1/draft/file',
       expect.objectContaining({ method: 'POST' }),
     )
-    const [, init] = vi.mocked(fetch).mock.calls[0]
-    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+    expect(filingBody()).toEqual({
       path: DRAFT.path,
       title: DRAFT.title,
       force: false,
+      folderId: null,
+      name: `${DRAFT.title}.md`,
     })
     expect(await screen.findByRole('link', { name: 'Open in the project' })).toHaveAttribute(
       'href',
@@ -109,22 +108,23 @@ describe('DocumentDraftCard — the draft, before it is filed', () => {
 
   it('says it is filing while the request is in flight', async () => {
     let resolveFile!: (response: Response) => void
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => new Promise<Response>((resolve) => { resolveFile = resolve })),
-    )
+    stubFetch(() => new Promise<Response>((resolve) => { resolveFile = resolve }))
     const user = userEvent.setup()
     render(<DocumentDraftCard {...DRAFT} />)
 
     const fileButton = screen.getByRole('button', { name: 'File into the project' })
     fileButton.focus()
     await user.keyboard('{Enter}')
-
-    const busy = await screen.findByRole('button', { name: 'Filing …' })
-    expect(busy).toHaveAttribute('aria-disabled', 'true')
-    expect(busy).toHaveFocus()
+    await screen.findByTestId('save-to-project')
+    await waitFor(() => expect(screen.getByTestId('save-to-project-submit')).not.toHaveAttribute('aria-disabled'))
     await user.keyboard('{Enter}')
-    expect(fetch).toHaveBeenCalledTimes(1)
+
+    const busy = screen.getByTestId('save-to-project-submit')
+    await waitFor(() => expect(busy).toHaveAttribute('aria-busy', 'true'))
+    expect(busy).toHaveAttribute('aria-disabled', 'true')
+    await user.click(busy)
+    await user.keyboard('{Enter}')
+    expect(filingCalls()).toHaveLength(1)
     resolveFile({
       ok: true,
       status: 201,
@@ -134,9 +134,7 @@ describe('DocumentDraftCard — the draft, before it is filed', () => {
   })
 
   it('parks a same-name collision for an explicit confirmation, never a silent copy', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
+    stubFetch(() =>
         Promise.resolve({
           ok: false,
           status: 409,
@@ -146,32 +144,27 @@ describe('DocumentDraftCard — the draft, before it is filed', () => {
             details: { reason: 'same-name', documentId: 'doc-9', displayName: 'Bestehender Bericht' },
           }),
         }),
-      ),
-    )
+      )
     const user = userEvent.setup()
     render(<DocumentDraftCard {...DRAFT} />)
 
-    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+    await fileThroughDialog(user)
 
     expect(await screen.findByTestId('document-draft-conflict')).toBeInTheDocument()
     expect(screen.getByText('A document with this name is already in the project.')).toBeInTheDocument()
     expect(screen.getByTestId('document-draft-conflict-open')).toHaveTextContent('Bestehender Bericht')
     expect(setCardDecision).not.toHaveBeenCalled()
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
+    stubFetch(() =>
         Promise.resolve({
           ok: true,
           status: 201,
           json: async () => ({ documentId: 'doc-2', versionId: 'ver-2', state: 'draft', alreadyFiled: false }),
         }),
-      ),
-    )
+      )
     await user.click(screen.getByRole('button', { name: 'File anyway' }))
 
-    const [, init] = vi.mocked(fetch).mock.calls[0]
-    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({ force: true })
+    expect(filingBody()).toMatchObject({ force: true, folderId: null, name: `${DRAFT.title}.md` })
     expect(await screen.findByRole('link', { name: 'Open in the project' })).toHaveAttribute(
       'href',
       expect.stringContaining('doc-2'),
@@ -180,9 +173,7 @@ describe('DocumentDraftCard — the draft, before it is filed', () => {
   })
 
   it('names the Files pane when the reference filed and moved on', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
+    stubFetch(() =>
         Promise.resolve({
           ok: false,
           status: 409,
@@ -192,14 +183,13 @@ describe('DocumentDraftCard — the draft, before it is filed', () => {
             details: { reason: 'already-submitted' },
           }),
         }),
-      ),
-    )
+      )
     const user = userEvent.setup()
     render(<DocumentDraftCard {...DRAFT} />)
 
-    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+    await fileThroughDialog(user)
 
-    await waitFor(() => expect(screen.getByTestId('document-draft-error')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('save-to-project-error')).toBeInTheDocument())
     expect(screen.getByText('This draft has already been filed. Continue in Files.')).toBeInTheDocument()
     expect(screen.queryByTestId('document-draft-conflict')).not.toBeInTheDocument()
     expect(setCardDecision).not.toHaveBeenCalled()
@@ -208,58 +198,50 @@ describe('DocumentDraftCard — the draft, before it is filed', () => {
   it('says why a thread that drew on a restricted folder cannot file here (ADR-0087)', async () => {
     const refusal =
       'This conversation draws on a folder with restricted access, so nothing from it can be filed there.'
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
+    stubFetch(() =>
         Promise.resolve({
           ok: false,
           status: 403,
           json: async () => ({ error: refusal, code: 'CONVERSATION_CONFINED', details: { action: 'filing' } }),
         }),
-      ),
-    )
+      )
     const user = userEvent.setup()
     render(<DocumentDraftCard {...DRAFT} />)
 
-    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+    await fileThroughDialog(user)
 
-    await waitFor(() => expect(screen.getByTestId('document-draft-error')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('save-to-project-error')).toBeInTheDocument())
     expect(screen.getByText(refusal)).toBeInTheDocument()
     expect(screen.queryByText('Filing failed. Please try again.')).not.toBeInTheDocument()
     expect(setCardDecision).not.toHaveBeenCalled()
   })
 
-  it('keeps the card pending when filing fails, with the retry still offered', async () => {    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
+  it('keeps the card pending when filing fails, with the retry still offered', async () => {
+    stubFetch(() =>
         Promise.resolve({
           ok: false,
           status: 502,
           json: async () => ({ error: 'Upstream service error', code: 'UPSTREAM_ERROR' }),
         }),
-      ),
-    )
+      )
     const user = userEvent.setup()
     render(<DocumentDraftCard {...DRAFT} />)
 
-    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+    await fileThroughDialog(user)
 
-    await waitFor(() => expect(screen.getByTestId('document-draft-error')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByTestId('save-to-project-error')).toBeInTheDocument())
     expect(screen.getByText('Filing failed. Please try again.')).toBeInTheDocument()
     expect(setCardDecision).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'File into the project' })).toBeInTheDocument()
+    expect(screen.getByTestId('save-to-project-submit')).toBeInTheDocument()
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
+    stubFetch(() =>
         Promise.resolve({
           ok: true,
           status: 201,
           json: async () => ({ documentId: 'doc-1', versionId: 'ver-1', state: 'draft', alreadyFiled: false }),
         }),
-      ),
-    )
-    await user.click(screen.getByRole('button', { name: 'File into the project' }))
+      )
+    await user.click(screen.getByTestId('save-to-project-submit'))
 
     expect(await screen.findByRole('link', { name: 'Open in the project' })).toBeInTheDocument()
     await waitFor(() => expect(setCardDecision).toHaveBeenCalledWith('msg-1', 'document_draft-0', 'filed'))
@@ -407,7 +389,7 @@ describe('DocumentDraftCard — filed by the reader, after a reload', () => {
         Promise.resolve({
           ok: true,
           status: 201,
-          json: async () => ({ documentId: 'doc-1', versionId: 'ver-1', state: 'draft', alreadyFiled: true }),
+          json: async () => ({ documentId: 'doc-1', versionId: 'ver-1', state: 'published', alreadyFiled: true }),
         }),
       ),
     )
@@ -430,7 +412,7 @@ describe('DocumentDraftCard — filed by the reader, after a reload', () => {
       title: DRAFT.title,
       force: false,
     })
-    expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in the project as a draft')
+    expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in the project')
     expect(await screen.findByRole('link', { name: 'Open in the project' })).toHaveAttribute(
       'href',
       expect.stringContaining('doc-1'),
@@ -489,47 +471,16 @@ describe('DocumentDraftCard — filed by the reader, after a reload', () => {
   })
 })
 
-describe('DocumentDraftCard — filed, and still the reader’s to send', () => {
+describe('DocumentDraftCard — filed, and so signed off by the person who filed it', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            version: {
-              id: 'ver-1',
-              documentId: 'doc-1',
-              versionNumber: 1,
-              state: 'in_review',
-              contentType: 'text/markdown',
-              fileSize: 10,
-              contentHash: 'h1',
-              submittedBy: 'user_1',
-              submittedAt: '2026-09-10T00:00:00.000Z',
-              reviewedBy: null,
-              reviewedAt: null,
-              approvedBy: null,
-              approvedAt: null,
-              publishedBy: null,
-              publishedAt: null,
-              reviewComment: null,
-              createdBy: 'user_1',
-              createdAt: '2026-09-10T00:00:00.000Z',
-              updatedAt: '2026-09-10T00:00:00.000Z',
-            },
-          }),
-        }),
-      ),
-    )
+    vi.stubGlobal('fetch', vi.fn())
   })
   afterEach(() => vi.unstubAllGlobals())
 
-  it('says the document is in the project, as a draft', () => {
+  it('says the document is in the project, and nothing about a draft or a review', () => {
     render(<DocumentDraftCard {...FILED} />)
-    expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Filed in the project as a draft')
+    expect(screen.getByTestId('document-draft-state')).toHaveTextContent(/^Filed in the project$/)
     expect(screen.queryByText('v3')).not.toBeInTheDocument()
   })
 
@@ -550,66 +501,18 @@ describe('DocumentDraftCard — filed, and still the reader’s to send', () => 
     expect(openFiledDocument).toHaveBeenCalledWith({ documentId: 'doc-1', projectId: 'proj-1' })
   })
 
-  it('sends it for approval through the lifecycle client, and remembers that it did', async () => {
-    const user = userEvent.setup()
+  it('still says who made it', () => {
     render(<DocumentDraftCard {...FILED} />)
-
-    await user.click(screen.getByRole('button', { name: 'Submit for approval' }))
-
-    await waitFor(() => expect(setCardDecision).toHaveBeenCalledWith('msg-1', 'document_draft-0', 'submitted'))
-    expect(fetch).toHaveBeenCalledWith(
-      '/api/documents/doc-1/versions/ver-1/submit',
-      expect.objectContaining({ method: 'POST' }),
-    )
+    expect(screen.getByText(`Created by ${PRODUCT_NAME}`)).toBeInTheDocument()
   })
 
-  it('keeps the card pending when the submit fails', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        Promise.resolve({ ok: false, status: 409, json: async () => ({ error: 'conflict', code: 'CONFLICT' }) }),
-      ),
-    )
-    const user = userEvent.setup()
-    render(<DocumentDraftCard {...FILED} />)
+  for (const versionState of ['draft', 'in_review', 'changes_requested', 'approved', 'published', 'superseded'] as const) {
+    it(`offers no submit and names no review state for a filing that is ${versionState}`, () => {
+      render(<DocumentDraftCard {...FILED} versionState={versionState} />)
 
-    await user.click(screen.getByRole('button', { name: 'Submit for approval' }))
-
-    await waitFor(() => expect(screen.getByTestId('document-draft-error')).toBeInTheDocument())
-    expect(setCardDecision).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Submit for approval' })).toBeInTheDocument()
-  })
-
-  it('takes no answer it could not keep', () => {
-    render(<DocumentDraftCard {...FILED} messageId={undefined} decisionsMustPersist />)
-
-    expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Open in the project' })).toBeInTheDocument()
-  })
-})
-
-describe('DocumentDraftCard — already with a reviewer', () => {
-  it('reports the state instead of offering a control that would be refused', () => {
-    render(<DocumentDraftCard {...FILED} versionState="in_review" />)
-
-    expect(screen.getByTestId('document-draft-state')).toHaveTextContent('In review')
-    expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()
-  })
-
-  it('never says an agent draft is approved just because a version state is', () => {
-    render(<DocumentDraftCard {...FILED} versionState="approved" />)
-    expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Approved')
-    expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()
-  })
-
-  it('names a superseded version replaced, never published', () => {
-    render(<DocumentDraftCard {...FILED} versionState="superseded" />)
-    expect(screen.getByTestId('document-draft-state')).toHaveTextContent('Replaced')
-    expect(screen.queryByRole('button', { name: 'Submit for approval' })).not.toBeInTheDocument()
-  })
-
-  it('offers the send again after a reviewer asked for changes', () => {
-    render(<DocumentDraftCard {...FILED} versionState="changes_requested" />)
-    expect(screen.getByRole('button', { name: 'Submit for approval' })).toBeInTheDocument()
-  })
+      expect(screen.queryByRole('button', { name: /approval/i })).not.toBeInTheDocument()
+      expect(screen.getByTestId('document-draft-state')).toHaveTextContent(/^Filed in the project$/)
+      expect(screen.getByRole('link', { name: 'Open in the project' })).toBeInTheDocument()
+    })
+  }
 })

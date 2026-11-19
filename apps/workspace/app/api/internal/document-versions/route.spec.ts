@@ -6,8 +6,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/documents/agent-document', () => ({ fileAgentDocumentDraft: vi.fn() }))
+vi.mock('@/lib/documents/agent-file', () => ({ fileAgentFileDraft: vi.fn() }))
+vi.mock('@/lib/documents/agent-file-revision', () => ({
+  reviseWithAgentWork: vi.fn(async (_session: unknown, input: { documentId: string }) => ({
+    document: { id: input.documentId, folderId: null },
+    version: { id: '22222222-2222-4222-8222-222222222222', state: 'draft' },
+    forked: false,
+  })),
+}))
+vi.mock('@/lib/documents/agent-folder', () => ({
+  agentDestination: vi.fn(async (_session: unknown, _projectId: string, named: { folder?: string }) =>
+    named.folder === undefined ? undefined : 'folder-einreichung',
+  ),
+}))
+vi.mock('@/lib/documents/access', () => ({
+  getAccessibleDocument: vi.fn(async (_session: unknown, id: string) => ({ id, folderId: null })),
+}))
+vi.mock('@/lib/documents/version-repository', () => ({
+  findOpenVersion: vi.fn(async () => null),
+  findPublishedVersion: vi.fn(async () => ({ id: 'ver-pub', state: 'published', contentHash: 'sha256:person', versionNumber: 3 })),
+}))
 vi.mock('@/lib/documents/lifecycle', () => ({
-  replaceVersionContent: vi.fn(),
   transitionDocumentVersion: vi.fn(),
   toDocumentVersionView: (value: unknown) => value,
 }))
@@ -18,7 +37,10 @@ vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
 }))
 
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
-import { replaceVersionContent, transitionDocumentVersion } from '@/lib/documents/lifecycle'
+import { fileAgentFileDraft } from '@/lib/documents/agent-file'
+import { reviseWithAgentWork } from '@/lib/documents/agent-file-revision'
+import { AGENT_FILE_MAX_BYTES } from '@/lib/documents/agent-file-types'
+import { transitionDocumentVersion } from '@/lib/documents/lifecycle'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import { withTenant } from '@/lib/db/tenant-context'
 import {
@@ -39,14 +61,17 @@ const DOC = '11111111-1111-4111-8111-111111111111'
 const VERSION = '22222222-2222-4222-8222-222222222222'
 const PROJECT = '33333333-3333-4333-8333-333333333333'
 
+const FILE_DRAFT_BODY = {
+  op: 'create',
+  projectId: PROJECT,
+  ref: 's_conv_1-aktenvermerk',
+  title: 'Aktenvermerk',
+  content: '# Aktenvermerk',
+}
+
 const AGENT_REQUEST_BODIES: Partial<Record<DocumentVersionOp, Record<string, unknown>>> = {
-  create: {
-    op: 'create',
-    projectId: PROJECT,
-    ref: 's_conv_1-aktenvermerk',
-    title: 'Aktenvermerk',
-    content: '# Aktenvermerk',
-  },
+  create: FILE_DRAFT_BODY,
+  file: FILE_DRAFT_BODY,
   update: { op: 'update', documentId: DOC, versionId: VERSION, content: 'korrigiert', ifMatch: 'sha256:abc' },
   submit: { op: 'submit', documentId: DOC, versionId: VERSION },
 }
@@ -105,6 +130,13 @@ beforeEach(() => {
     documentId: DOC,
     version: { id: VERSION } as never,
     alreadyFiled: false,
+    folderId: null,
+  })
+  vi.mocked(fileAgentFileDraft).mockResolvedValue({
+    documentId: DOC,
+    version: { id: VERSION } as never,
+    alreadyFiled: false,
+    folderId: null,
   })
 })
 
@@ -122,6 +154,14 @@ describe('the origin conversation', () => {
       ref: 's_someone_elses-aktenvermerk',
       originConversationId: 's_conv_1',
     })
+  })
+})
+
+describe('filing at the person’s request', () => {
+  it('files as the person’s sign-off, never as a draft that waits for review', async () => {
+    await call(FILE_DRAFT_BODY)
+
+    expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).toMatchObject({ op: 'file' })
   })
 })
 
@@ -251,18 +291,20 @@ describe('the ops it does serve', () => {
       ifMatch: 'sha256:abc',
     })
 
-    expect(replaceVersionContent).toHaveBeenCalledWith(
-      session,
-      DOC,
-      VERSION,
-      'korrigiert',
-      'sha256:abc',
-      {
+    expect(reviseWithAgentWork).toHaveBeenCalledWith(session, {
+      documentId: DOC,
+      work: { kind: 'markdown', content: 'korrigiert' },
+      ifMatch: 'sha256:abc',
+      projectId: PROJECT,
+      ownVersionId: VERSION,
+      changeNote: undefined,
+      agentFiledOnly: true,
+      options: {
         request: expect.any(Request),
         actingHuman: false,
         origin: { conversationId: expect.any(String), locale: 'de' },
       },
-    )
+    })
   })
 
   it('hands both writes the conversation, never the signed scope: what may leave is what the conversation USED (ADR-0088)', async () => {
@@ -279,7 +321,7 @@ describe('the ops it does serve', () => {
       { op: 'update', documentId: DOC, versionId: VERSION, content: 'Honorar 48.000', ifMatch: 'sha256:abc' },
       headers,
     )
-    expect(vi.mocked(replaceVersionContent).mock.calls[0][5]).toMatchObject({
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1].options).toMatchObject({
       origin: { conversationId: 's_conv_1', locale: 'de' },
     })
   })
@@ -299,5 +341,158 @@ describe('the ops it does serve', () => {
       }),
     )
     expect(response.status).toBe(403)
+  })
+})
+
+describe('files the agent made by running code', () => {
+  const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  const bytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3])
+  const contentBase64 = Buffer.from(bytes).toString('base64')
+  const createFile = (overrides: Record<string, unknown> = {}) => ({
+    op: 'create_file',
+    projectId: PROJECT,
+    ref: 's_conv_1-kosten',
+    title: 'Kostenschätzung',
+    filename: 'Kostenschaetzung.docx',
+    contentType: DOCX,
+    contentBase64,
+    ...overrides,
+  })
+
+  it('create_file files the decoded bytes as the envelope’s conversation and answers 201', async () => {
+    const response = await call(createFile())
+
+    expect(response.status).toBe(201)
+    expect(await response.json()).toMatchObject({ documentId: DOC, alreadyFiled: false, version: { id: VERSION } })
+    const input = vi.mocked(fileAgentFileDraft).mock.calls[0][0]
+    expect(input).toMatchObject({
+      op: 'file',
+      session,
+      projectId: PROJECT,
+      ref: 's_conv_1-kosten',
+      title: 'Kostenschätzung',
+      filename: 'Kostenschaetzung.docx',
+      contentType: DOCX,
+      actingHuman: false,
+      originConversationId: 's_conv_1',
+    })
+    expect(input.bytes).toEqual(bytes)
+    expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
+  })
+
+  it('create_file is held to the envelope’s project like create', async () => {
+    const response = await call(createFile({ projectId: '99999999-9999-4999-8999-999999999999' }))
+    expect(response.status).toBe(400)
+    expect(fileAgentFileDraft).not.toHaveBeenCalled()
+  })
+
+  it('create_file refuses content that is not base64, at the schema', async () => {
+    const response = await call(createFile({ contentBase64: 'not base64!' }))
+    expect(response.status).toBe(400)
+    expect(fileAgentFileDraft).not.toHaveBeenCalled()
+  })
+
+  it('create_file refuses a file over 25 MB with a message that says so', async () => {
+    const response = await call(createFile({ contentBase64: Buffer.alloc(AGENT_FILE_MAX_BYTES + 3).toString('base64') }))
+    expect([400, 413]).toContain(response.status)
+    expect(JSON.stringify(await response.json())).toMatch(/25 MB/)
+    expect(fileAgentFileDraft).not.toHaveBeenCalled()
+  })
+
+  it('create_file without a content type is refused at the schema', async () => {
+    const { contentType: _omitted, ...body } = createFile()
+    expect((await call(body)).status).toBe(400)
+  })
+
+  it('update_file replaces a draft’s bytes with the If-Match it was given, as the conversation', async () => {
+    const response = await call({
+      op: 'update_file',
+      documentId: DOC,
+      versionId: VERSION,
+      contentType: DOCX,
+      contentBase64,
+      ifMatch: 'sha256:abc',
+    })
+
+    expect(response.status).toBe(201)
+    expect(await response.json()).toMatchObject({ documentId: DOC, version: { id: VERSION } })
+    expect(reviseWithAgentWork).toHaveBeenCalledWith(session, {
+      documentId: DOC,
+      work: { kind: 'file', file: { contentType: DOCX, bytes } },
+      ifMatch: 'sha256:abc',
+      projectId: PROJECT,
+      ownVersionId: VERSION,
+      changeNote: undefined,
+      agentFiledOnly: true,
+      options: { request: expect.any(Request), actingHuman: false, origin: { conversationId: 's_conv_1', locale: 'de' } },
+    })
+  })
+
+  it('never lets the agent write over a person’s change: overChanges is refused at the schema', async () => {
+    for (const op of ['update', 'update_file'] as const) {
+      const response = await call({
+        op,
+        documentId: DOC,
+        versionId: VERSION,
+        ...(op === 'update' ? { content: 'x' } : { contentType: DOCX, contentBase64 }),
+        ifMatch: 'sha256:abc',
+        overChanges: true,
+      })
+      expect(response.status, op).toBe(400)
+    }
+    expect(reviseWithAgentWork).not.toHaveBeenCalled()
+  })
+
+  it('revise_file makes the next Fassung of a project document, with its Änderungsvermerk', async () => {
+    const response = await call({
+      op: 'revise_file',
+      documentId: DOC,
+      contentType: DOCX,
+      contentBase64,
+      ifMatch: 'sha256:read',
+      changeNote: 'Fläche Raum 2.04 korrigiert',
+    })
+    expect(response.status).toBe(201)
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({
+      documentId: DOC,
+      projectId: PROJECT,
+      ifMatch: 'sha256:read',
+      changeNote: 'Fläche Raum 2.04 korrigiert',
+      agentFiledOnly: false,
+    })
+  })
+
+  it('status answers the current Fassung of a document the agent filed, so a run knows when a person changed it', async () => {
+    const response = await call({ op: 'status', documentId: DOC })
+    expect(response.status).toBe(201)
+    expect(await response.json()).toMatchObject({
+      documentId: DOC,
+      version: { id: 'ver-pub', contentHash: 'sha256:person', versionNumber: 3 },
+    })
+  })
+
+  it('create_file files into the folder the agent named', async () => {
+    vi.mocked(fileAgentFileDraft).mockResolvedValue({
+      documentId: DOC,
+      version: { id: VERSION, state: 'draft' } as never,
+      alreadyFiled: false,
+      folderId: 'folder-einreichung',
+    })
+    await call({
+      op: 'create_file',
+      projectId: PROJECT,
+      ref: 's_conv_1-plan',
+      title: 'Plan',
+      folder: 'Einreichung',
+      contentType: DOCX,
+      contentBase64,
+    })
+    expect(vi.mocked(fileAgentFileDraft).mock.calls[0][0]).toMatchObject({ folderId: 'folder-einreichung' })
+  })
+
+  it('update_file without If-Match is refused at the schema', async () => {
+    const response = await call({ op: 'update_file', documentId: DOC, versionId: VERSION, contentType: DOCX, contentBase64 })
+    expect(response.status).toBe(400)
+    expect(reviseWithAgentWork).not.toHaveBeenCalled()
   })
 })

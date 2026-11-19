@@ -66,6 +66,7 @@ export async function reingestDocument(
       collectionName: doc.collectionName,
       filename: doc.filename,
       authoredBy: doc.authoredBy,
+      authoredByProducer: doc.authoredByProducer,
       publishedVersionId: doc.publishedVersionId,
     })
     if (knowledge.state === 'in-progress') {

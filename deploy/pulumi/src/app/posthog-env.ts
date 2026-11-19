@@ -26,5 +26,6 @@ export function webPosthogEnv(cfg: DeployConfig): EnvVar[] {
   return [
     { name: "PUBLIC_POSTHOG_HOST", value: host },
     { name: "PUBLIC_POSTHOG_PROJECT_TOKEN", value: projectToken },
+    posthogDeploymentEnv(),
   ];
 }

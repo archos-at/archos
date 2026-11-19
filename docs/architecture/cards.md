@@ -149,7 +149,7 @@ catalog omits them entirely).
 |---|---|---|
 | `document_grid` | project/Büroablage files the user asked to see — the same raised `FileCard` the Files grid uses | the `surface_documents` tool |
 | `memory_proposal` **(interactive)** | a finding to be written to org- or project-scoped memory, for the user to confirm. With `proposal_id` it is the receipt of a stored `memory` proposal (same frame as the file card, `ProposalReceipt`): the note, its kind and confidence, where it goes, „Ersetzt: …“ for a correction, „Übernehmen“ / „Verwerfen“ for whoever `canDecide`, „Nur im Projekt merken“ for an office note, and who decided when. Without one, the browser writes it, as before | the `remember` tool |
-| `document_draft` | a document written into this conversation's working directory — title, path, `v{n}` and size, with the Files feature's „Von {productName} erstellt" byline. Its „Ins Projekt übernehmen" is drawn **inert**: filing is a later slice, and until it is wired the card reports the draft rather than offering to move it | the working directory's `write_file` / `edit_file` |
+| `document_draft` | a document written into this conversation's working directory — title, path, `v{n}` and size, with the Files feature's „Von {productName} erstellt" byline; „Ins Projekt ablegen" files it, then the card opens it in the project and submits it for approval. A Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file a script made is drawn by `FileDraftCard` instead (first page, Öffnen, Herunterladen; [agent-made-files-ux.md](../design/agent-made-files-ux.md)). One card per path per turn: a rewrite replaces the turn's earlier card | the working directory's `write_file` / `edit_file`, `execute` |
 | `task_created` | work the agent has taken on, as a task row somebody can come back to — title, goal, due date and a link to the run's thread. Informational: the task is already queued when it renders, so there is no Accept | the `create_task` tool |
 | `file_operation_proposal` **(interactive)** | a workspace change the agent PROPOSED and did not make — a move, a rename, a new folder, an assignment. One card type for four verbs, discriminated by `operation`, carrying a capped LIST so an „organise the Einreichung" turn is one decision and not four. With `proposal_id` it shows a proposal stored on the server ([`proposed-changes.md`](proposed-changes.md), ADR-0105): accepting asks the server to apply it in the accepting person's session, and every reader sees the same decision. The result is reported per row — a batch where the third fails says two landed and one did not, with the reason. Without one (an answer older than server proposals, or one the agent could not store) the card is read-only: nothing runs in the browser any more, a decision recorded on the message is replayed, and an undecided card says „Konnte nicht als Vorschlag angelegt werden“ | `propose_file_change` under `packages/agent/src/agent/tools/files/` (a Dokumentart proposal waits for a project-scoped doc_class route) |
 | `canvas_activity` **(interactive)** | what the agent did on ONE document: the marks it proposed (each drawn on a small page at its normalized place, numbered like the canvas's pins, dashed while a proposal), the marks it set, changed or deleted because the person asked, and the threads it answered in. Each proposed mark is answered on its own, „Übernehmen" / „Verwerfen", through the annotations client (`PATCH …/annotations/{id}`, status `open` / `dismissed`), and stored per mark under `itemDecisionKey`. A change reads „#4 erledigt" with the agent's note, and „Rückgängig" PATCHes the inverse with the status the agent left as `expectedStatus`, stored per row. The card reads the document's marks once it is on screen and lets the canvas win, so a mark a colleague answered there reads as answered here. „Im Dokument zeigen" opens the Prüfansicht at that mark over the chat (`features/documents/lib/open-review.ts`) | the canvas tools under `packages/agent/src/agent/tools/canvas/` |
@@ -358,7 +358,8 @@ including `trifft zu` and `aktuell`, the directive dialect) live in the
 
 Deep research can still emit cards via the **`emit_card` tool**
 (`cards/register.py`); the agent no longer binds it, and its cards travel
-in the envelope's `cards` field only. Mid-turn, with full context, the
+in the envelope's `cards` field only (bound, its schema was 2 676 tokens on every
+call and a model at low effort spent a whole round on it, September 2026 census). Mid-turn, with full context, the
 researcher calls the tool whenever a structured element communicates better
 than prose. The card is
 validated against the shared schema and pushed into the conversation-scoped
@@ -410,7 +411,7 @@ rule. A surface whose leaf fails its card model is repaired from the rule plus
 the shapes of the card types it holds. A card that was going to be right pays
 nothing; one that was not pays the same single round trip, knowing which field
 was wrong. `describe_card` stays registered but is bound to no
-agent today (see its comment in `configs/config_oib_openrouter.yml`); deep
+agent today and is declared only so a config that wants it has the `_type`; deep
 research, which composes one long report, would pay the lookup once where a
 chat turn paid it per turn.
 
@@ -448,7 +449,7 @@ drift `test_seeded_answer_cards_survive_the_read_path` exists to catch.
 A card type is retired by **deleting** it: the pydantic model leaves the
 `AnswerCard` union, the generated schemas are regenerated, and the frontend drops
 its renderer. The name moves into `RETIRED_CARD_REPLACEMENTS` in
-`cards/catalog.py` with one line saying what carries its content now. That map
+`cards/retired_cards.py` with one line saying what carries its content now. That map
 is the whole of what survives, and it exists for the model, not for stored
 data: `validate_model_card` (the envelope's `cards` and `emit_card`) refuses a
 retired name by its declared type, before the shape check could send it to the
@@ -498,9 +499,9 @@ they would have made. A match is a reason, not an obligation.
 
 ### Where the doctrine lives, and which surface gets which half
 
-The text is assembled by `render_card_doctrine()` in `cards/catalog.py` — the
-framing-free module that already owns `render_card_index` / `render_card_details`
-— because there are TWO surfaces that produce cards and only one of them used to
+The text is assembled by `render_card_doctrine()` in `cards/card_doctrine.py`,
+beside `cards/catalog.py`, the framing-free module that owns `render_card_index` /
+`render_card_details`, because there are TWO surfaces that produce cards and only one of them used to
 be taught how to choose.
 
 `register.py` composes `render_card_doctrine()` with the envelope redirect note
@@ -566,6 +567,18 @@ research. The forced-synthesis anchor then says "Do not attempt any further tool
 calls", which made the second card unreachable by construction: the model had
 already decided to draw it, and nothing in the answer, the log or the
 `research_truncated` note said what had been lost.
+
+Why seven: the longest chains this surface answers take five rounds
+(OIB 3 Lichteinfall: `use_skill`, `knowledge_search`, `find_elements` with
+relations, overhang, `light_incidence`; OIB 2 Fluchtweg likewise), and a
+storey-name miss is the commonest repair, so seven is that floor plus two
+repairs. The number stayed at seven when the unit changed from calls to
+rounds: reading the freed calls as headroom would bring the failure back.
+Seven rounds are 14 node visits plus the forced synthesis, inside the graph's
+`recursion_limit` of `(max_tool_iterations * 2) + 10` = 24. What bounds the
+cost of a round is `max_input_tokens_per_turn`, not this ceiling. A cut-off
+turn emits a `status:budget` step and a `Forcing synthesis (rounds)` warning
+with the ceiling, rounds spent, input tokens and the tool shape.
 
 The fix was the UNIT, not an exemption. The budget counts tool-calling ROUNDS
 now — one LLM decision that emitted tool calls, costing one whatever it asked
@@ -746,7 +759,8 @@ on the server. `catalog.tsx` is the server-safe half (component APIs,
   source verification removed is dropped, never renumbered onto the source
   that now holds N: sanitize's map lists only survivors. An empty map leaves
   numbers as they are, and each is kept only if it is cited (applied in
-  `answer_pipeline.py` on the settled frame and after sanitisation). Code is
+  `live_answer.py` on the settled frame and in `answer_pipeline.py` after
+  sanitisation). Code is
   left alone: `S[1]` in a mermaid fence or `x[1]` in inline code is not a
   citation. A `Text` left blank is dropped with its tab or child; when the
   surface cannot stand without it, the one card left becomes the card, and
@@ -972,7 +986,7 @@ without re-plumbing generation or transport.
 5. Add a fixture to the `/dev/cards` gallery, then capture it and attach the
    capture to the PR (`docs/ux/visual-screenshots.md`).
 6. **Give it a trigger in the doctrine** (`render_card_doctrine` in
-   `cards/catalog.py`) — which question calls for it, in the same
+   `cards/card_doctrine.py`) — which question calls for it, in the same
    "trigger → card" form as the rest. A type that is only listed in the index is
    a renderer nobody is asked for, which is a renderer nobody sees; that is
    exactly how the schematic cards once sat behind a disclaimer. The trigger row
@@ -996,7 +1010,7 @@ without re-plumbing generation or transport.
    `ui/features/cards` never reaches it: run the whole workspace suite. #1658 missed
    this and left develop red.
 10. For an **envelope** field (native answer anatomy, never a tool call): add
-   a model, a registry entry and a gate in `common/answer_envelope.py` (the
+   a model in `common/answer_envelope.py`, a registry entry and a gate in `common/envelope_gates.py` (the
    taught schema renders itself from the models), an earned-when line in the
    prompt's `<answer_envelope>` section, a sanitizer clause in
    `lib/conversations/message-answer-meta.ts`, and a layout slot in
@@ -1096,7 +1110,7 @@ instead. Next phases: a 3D massing card
 
 - The post-hoc generation path (`cards/generate.py` / `cards/prompt.py`) is
   deliberately kept next to the `emit_card` tool: async deep-research jobs use
-  it (`jobs/runner.py::_generate_answer_cards`) for the cards derived from the
+  it (`jobs/report_passes.py::_generate_answer_cards`) for the cards derived from the
   finished report. The job runner ALSO binds a fresh `CardRegistry` around the
   run (`_bound_card_registry`), so `emit_card` and `surface_documents` called
   by a researcher worker during the run deliver — a deep answer can show a

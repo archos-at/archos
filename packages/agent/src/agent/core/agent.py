@@ -2,13 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 import uuid
-from collections.abc import Iterable
-from collections.abc import Mapping
 from collections.abc import Sequence
-from dataclasses import dataclass
-from dataclasses import field
 from dataclasses import replace
 from typing import Any
 from typing import Protocol
@@ -25,89 +20,57 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt import tools_condition
 
-from agent.citations.entries import is_look_place
-from agent.citations.entries import is_look_tool
-from agent.citations.extraction import extract_sources_from_tool_result
 from agent.citations.registry import SourceRegistry
 from agent.citations.session import begin_turn_capture
 from agent.citations.session import end_turn_capture
 from agent.citations.session import get_session_registry
 from agent.citations.session import get_turn_captures
-from agent.citations.session import record_turn_capture
 from agent.citations.session import reset_session_registry
-from agent.citations.session import set_session_registry
 from agent.common import LLMProvider
 from agent.common import LLMRole
 from agent.common import content_to_text
-from agent.common.cost_tracking import cost_tracker_var
-from agent.common.data_sources import disabled_source_notice
-from agent.common.data_sources import source_id_for_call
 from agent.common.grounding_block import end_grounding_capture
-from agent.common.grounding_block import strip_trace_lanes
 from agent.common.licensed_recall import open_grounding_capture
 from agent.common.model_vision import chat_model_scope
 from agent.common.model_vision import model_name_of
 from agent.common.prompt_caching import begin_stable_prefix
 from agent.common.prompt_caching import end_stable_prefix
-from agent.common.retrieval_rounds import assistant_checkpoint
 from agent.common.retrieval_rounds import failed_call_ids
 from agent.common.retrieval_rounds import ran_signatures
-from agent.common.retrieval_rounds import repeat_fetches
-from agent.common.retrieval_rounds import signatures_of
 from agent.common.retrieval_status import emit_retrieval
 from agent.common.retrieval_status import emit_synthesis
 from agent.common.retrieval_status import record_round_announcement
-from agent.common.steering import HELD_FOR_STEER
 from agent.common.steering import AppliedSteer
-from agent.common.steering import SteerInbox
-from agent.common.steering import SteerNote
-from agent.common.steering import current_steer_inbox
-from agent.common.steering import is_write_call
-from agent.common.steering import render_note
-from agent.common.tool_calls import fetch_signature
 from agent.common.tool_calls import is_retrieval_round
-from agent.common.tool_calls import is_skill_read
-from agent.common.tool_calls import tool_basename
 from agent.common.tool_errors import render_tool_error
-from agent.common.turn_notices import emit_family_coverage
 from agent.common.turn_notices import emit_input_budget_exhausted
-from agent.common.turn_notices import emit_refused_source
-from agent.common.turn_notices import emit_repeat_fetch
 from agent.common.turn_notices import emit_research_truncated
-from agent.common.turn_notices import emit_steered_writes
-from agent.common.turn_notices import emit_width_cap
 from agent.common.turn_status import begin_lane_capture
-from agent.common.turn_status import emit
 from agent.common.turn_status import end_lane_capture
 from agent.common.turn_status import get_lane_captures
 from agent.common.turn_status import retrieval_round_scope
-from agent.common.wire_v2 import SteerAppliedBody
-from agent.common.wire_v2 import SteerAppliedValue
 from agent.knowledge.already_read import merge_digest
 from agent.knowledge.restricted_use import admit_tool_results
 from agent.knowledge.restricted_use import report_collections_read
-from agent.observability.langfuse_trace_attributes import add_trace_tag
 from agent.observability.langfuse_trace_attributes import begin_turn_prompt_link
 from agent.observability.langfuse_trace_attributes import end_turn_prompt_link
-from agent.observability.retrieval_trace import emit_step_span
-from agent.observability.turn_outcome import record_turn_facts
 from agent.tools.bim.measurement_sources import begin_measurement_capture
 from agent.tools.bim.measurement_sources import end_measurement_capture
 from agent.tools.bim.measurement_sources import get_measurement_captures
 from agent.turn.answer_stream import streaming_call
 
 from .answer_check import turn_check
-from .answer_pipeline import CardRepairFn
 from .answer_pipeline import FinalAnswer
-from .answer_pipeline import LiveAnswer
 from .answer_pipeline import RepairFn
 from .answer_pipeline import finalize_answer
 from .answer_pipeline import handed_this_turn
 from .envelope_call import ainvoke
 from .envelope_call import ainvoke_synthesis
 from .envelope_call import ainvoke_with_envelope_json_mode
+from .envelope_cards import CardRepairFn
 from .grounding import tool_result_is_measurement
 from .ledger import assemble_result
+from .live_answer import LiveAnswer
 from .models import ResearchAgentState
 from .prompt import TurnPrompt
 from .prompt import build_tools_info
@@ -119,45 +82,33 @@ from .prompt import shelf_label
 from .prompt import stamp_static_prompt_for_turn
 from .prompt import system_prompt_template
 from .quote_patch import quote_patcher
+from .round_charge import SKILL_READ_SHAPE
+from .round_charge import _charge_tool_calls
+from .round_charge import _executing_retrieval_round
+from .round_charge import _starts_synthesis
+from .round_charge import _tool_call_shape
+from .round_split import _fetch_results
+from .round_split import _split_round
+from .round_split import _without_dropped_calls
+from .source_capture import _bind_registry
+from .source_capture import _capture_sources
+from .source_capture import _report_family_coverage
+from .source_capture import _without_trace_lanes
+from .turn_binding import _DEFAULT_MAX_CALLS_PER_ROUND
+from .turn_binding import _DEFAULT_MAX_INPUT_TOKENS_PER_TURN
+from .turn_binding import _TURN_BINDING_KEY
+from .turn_binding import CUTOFF_INPUT_TOKENS
+from .turn_binding import TurnBinding
+from .turn_binding import TurnConfig
+from .turn_binding import _recursion_limit
+from .turn_binding import _turn_cutoff
+from .turn_binding import _turn_input_tokens
+from .turn_steering import _hold_writes_for_steer
+from .turn_steering import _take_steering
 
 logger = logging.getLogger(__name__)
 
 _shelf_label = shelf_label
-
-_DEFAULT_MAX_INPUT_TOKENS_PER_TURN = 600_000
-
-_REPEAT_FETCH_PREFIX = (
-    "Repeated call: this call already ran identically in this turn and was not executed "
-    "again. Below is its earlier result, unchanged — continue with a different place "
-    "or a different question."
-)
-
-_REPEAT_FETCH_MESSAGE = (
-    "Not executed: this call already ran identically in this turn; "
-    "the result above is the answer — continue with a different place or a different question, "
-    "not with a repetition"
-)
-
-_FAILED_FETCH_REPEAT_MESSAGE = (
-    "Not executed: this call was already included once in this round, and that first "
-    "attempt failed — there is no result. You can make it again in the next round "
-    "or choose a different place."
-)
-
-_DEFAULT_MAX_CALLS_PER_ROUND = 12
-
-_WIDTH_CAP_MESSAGE = (
-    "Not executed: this round requested more parallel calls than a round may "
-    "run. The first calls of the round ran; this one did not. Make it again in the next "
-    "round if you still need it after the results above."
-)
-
-CUTOFF_ROUNDS = "rounds"
-CUTOFF_INPUT_TOKENS = "input_tokens"
-
-_TURN_BINDING_KEY = "piloti_turn"
-
-STEERED_TAG = "steered"
 
 _SYNTHESIS_ANCHOR = (
     "The research limit for this turn is reached; answer from what you have and say what you could not check. "
@@ -171,367 +122,11 @@ class FinalReportSink(Protocol):
     def emit_final_report(self, text: str) -> None: ...
 
 
-@dataclass(frozen=True)
-class TurnConfig:
-    llm_provider: LLMProvider | None = None
-    tools: Sequence[BaseTool] | None = None
-    disabled_sources: frozenset[str] = frozenset()
-    prefetch: tuple[dict[str, Any], ...] = ()
-
-
-@dataclass(frozen=True)
-class TurnBinding:
-    llm: BaseChatModel
-    llm_with_tools: Any
-    tools: tuple[BaseTool, ...]
-    tools_info: list[dict[str, str]]
-    tool_node: ToolNode
-    source_tool_names: frozenset[str]
-    ceiling: int
-    max_input_tokens: int = 0
-    max_calls_per_round: int = 0
-    prefetch: tuple[dict[str, Any], ...] = ()
-    disabled_sources: frozenset[str] = frozenset()
-
-
-def _call_name(call: Any) -> str:
-    name = call.get("name") if isinstance(call, dict) else getattr(call, "name", None)
-    return str(name or "")
-
-
-def _call_args(call: Any) -> Any:
-    return call.get("args") if isinstance(call, dict) else getattr(call, "args", None)
-
-
-SKILL_READ_SHAPE = "read_skill"
-
-
-def _call_basenames(message: Any) -> list[str]:
-    names: list[str] = []
-    for call in getattr(message, "tool_calls", None) or []:
-        name = call.get("name") if isinstance(call, dict) else getattr(call, "name", None)
-        if name:
-            names.append(SKILL_READ_SHAPE if is_skill_read(call) else tool_basename(str(name)))
-    return names
-
-
-def _tool_call_shape(messages: Sequence[Any], *, limit: int = 24) -> list[str]:
-    shape: list[str] = []
-    for message in messages:
-        shape.extend(_call_basenames(message))
-        if len(shape) >= limit:
-            return shape[:limit]
-    return shape
-
-
-def _over_width(running: Sequence[Any], max_calls: int) -> list[Any]:
-    if max_calls <= 0 or len(running) <= max_calls:
-        return []
-    return list(running[max_calls:])
-
-
-def _withheld_calls(
-    calls: Sequence[Any],
-    state: ResearchAgentState,
-    disabled: frozenset[str],
-    max_calls: int = 0,
-) -> tuple[list[Any], list[tuple[Any, str]], list[Any]]:
-    repeats = repeat_fetches(calls, state.executed_fetches)
-    seen = {id(call) for call in repeats}
-    refused = [
-        (call, sentence)
-        for call in calls
-        if id(call) not in seen
-        and (sentence := disabled_source_notice(_call_name(call), disabled, _call_args(call))) is not None
-    ]
-    seen |= {id(call) for call, _ in refused}
-    over_width = _over_width([call for call in calls if id(call) not in seen], max_calls)
-    return repeats, refused, over_width
-
-
-def _drop_withheld(
-    calls: list[Any],
-    state: ResearchAgentState,
-    disabled: frozenset[str],
-    max_calls: int = 0,
-) -> list[Any]:
-    repeats, refused, over_width = _withheld_calls(calls, state, disabled, max_calls)
-    if repeats:
-        emit_repeat_fetch(round_index=state.retrieval_round, withheld=len(repeats))
-        logger.info(
-            "Duplicate fetch withheld: %d call(s) answered with the earlier result, %d asked for (round=%d)",
-            len(repeats),
-            len(calls),
-            state.retrieval_round,
-        )
-    if refused:
-        emit_refused_source(round_index=state.retrieval_round, withheld=len(refused))
-        logger.info(
-            "Disabled source: %d call(s) answered with the refusal notice (round=%d)",
-            len(refused),
-            state.retrieval_round,
-        )
-    if over_width:
-        emit_width_cap(
-            round_index=state.retrieval_round,
-            kept=max_calls,
-            withheld=len(over_width),
-        )
-        logger.warning(
-            "Round width cap: %d of %d call(s) run, %d deferred to the next round (cap=%d, round=%d)",
-            max_calls,
-            len(calls),
-            len(over_width),
-            max_calls,
-            state.retrieval_round,
-        )
-    withheld = {id(call) for call in (*repeats, *(call for call, _ in refused), *over_width)}
-    if not withheld:
-        return calls
-    return [call for call in calls if id(call) not in withheld]
-
-
-def _starts_synthesis(response: Any, state: ResearchAgentState) -> bool:
-    calls = getattr(response, "tool_calls", None) or []
-    if calls:
-        return False
-    text = " ".join(content_to_text(getattr(response, "content", "") or "").split())
-    if not text:
-        return False
-    return state.tool_iterations > 0
-
-
-def _charge_empty_round(state: ResearchAgentState, ceiling: int) -> tuple[int, int, dict[str, Any] | None]:
-    rounds = state.tool_iterations + 1
-    logger.info(
-        "Round withheld in full (repeat or switched-off source); charged 1 round. Rounds spent: %d/%d",
-        rounds,
-        ceiling,
-    )
-    return rounds, state.retrieval_round, None
-
-
-def _charge_tool_calls(
-    response: Any,
-    state: ResearchAgentState,
-    ceiling: int,
-    disabled: frozenset[str] = frozenset(),
-    max_calls: int = 0,
-) -> tuple[int, int, dict[str, Any] | None]:
-    calls = getattr(response, "tool_calls", None) or []
-    if not calls:
-        return state.tool_iterations, state.retrieval_round, None
-    calls = _drop_withheld(calls, state, disabled, max_calls)
-    if not calls:
-        return _charge_empty_round(state, ceiling)
-    rounds = state.tool_iterations + 1
-    logger.info(
-        "Round of %d tool call(s). Rounds spent: %d/%d",
-        len(calls),
-        rounds,
-        ceiling,
-    )
-    conclusion = assistant_checkpoint(response)
-    searched = emit_retrieval(
-        calls,
-        round_index=state.retrieval_round,
-        conclusion=conclusion,
-    )
-    retrieval_round = state.retrieval_round + (1 if searched else 0)
-    record = record_round_announcement(
-        round_index=state.retrieval_round,
-        calls=calls,
-        conclusion=conclusion,
-    )
-    return rounds, retrieval_round, record
-
-
-def _executing_retrieval_round(state: ResearchAgentState, ran: Sequence[Any]) -> int | None:
-    calls = [call for call in ran if isinstance(call, dict)]
-    if not is_retrieval_round(calls):
-        return None
-    return max(state.retrieval_round - 1, 0)
-
-
-def _opened_documents(sources: Iterable[Any]) -> set[str]:
-    names: set[str] = set()
-    for source in sources or ():
-        key = str(getattr(source, "citation_key", "") or "")
-        name = key.split(",", 1)[0].strip()
-        if "(" in name:
-            name = name.split("(", 1)[0].strip()
-        if name:
-            names.add(name)
-    return names
-
-
-def _report_family_coverage(turn_sources: Sequence[Any]) -> None:
-    try:
-        from agent.common.norm_registry import oib_family_member
-        from agent.knowledge.inventory import get_norm_families
-
-        families = get_norm_families()
-        if not families:
-            return
-        opened = {member for name in _opened_documents(turn_sources) if (member := oib_family_member(name))}
-        for family in families:
-            hit = [member for member in family.members if member in opened]
-            if hit:
-                emit_family_coverage(family=family.key, listed=len(family.members), opened=len(hit))
-    except Exception:  # noqa: BLE001 — a coverage count must never take a turn down
-        logger.debug("Family-coverage record not emitted", exc_info=True)
-
-
-def _last_tool_calls(state: ResearchAgentState) -> list[dict[str, Any]]:
-    last = state.messages[-1] if state.messages else None
-    return [call for call in (getattr(last, "tool_calls", None) or []) if isinstance(call, dict)]
-
-
-def _without_dropped_calls(state: ResearchAgentState, dropped: Sequence[Any]) -> ResearchAgentState:
-    withheld = {id(call) for call in dropped}
-    last = state.messages[-1]
-    kept = [call for call in (getattr(last, "tool_calls", None) or []) if id(call) not in withheld]
-    trimmed = last.model_copy(update={"tool_calls": kept})
-    return state.model_copy(update={"messages": [*state.messages[:-1], trimmed]})
-
-
-def _without_trace_lanes(message: Any) -> Any:
-    if not isinstance(message, ToolMessage) or not isinstance(message.content, str):
-        return message
-    stripped = strip_trace_lanes(message.content)
-    if stripped == message.content:
-        return message
-    return message.model_copy(update={"content": stripped})
-
-
-def _notice(call: Any, content: str) -> ToolMessage:
-    return ToolMessage(
-        content=content,
-        name=_call_name(call),
-        tool_call_id=str(call.get("id") or ""),
-    )
-
-
-def _repeat_answer(call: Any, results: Mapping[str, str], attempted: frozenset[str] = frozenset()) -> str:
-    signature = fetch_signature(call)
-    cached = results.get(signature) if signature is not None else None
-    if cached:
-        return f"{_REPEAT_FETCH_PREFIX}\n\n{cached}"
-    if signature is not None and signature in attempted:
-        return _FAILED_FETCH_REPEAT_MESSAGE
-    return _REPEAT_FETCH_MESSAGE
-
-
-@dataclass(frozen=True)
-class _RoundSplit:
-    ran: list[Any]
-    repeats: list[Any]
-    refused: list[tuple[Any, str]]
-    over_width: list[Any]
-    steered: list[Any] = field(default_factory=list)
-
-    @property
-    def withheld(self) -> list[Any]:
-        return [*self.repeats, *(call for call, _ in self.refused), *self.over_width, *self.steered]
-
-    def held_for_steer(self) -> _RoundSplit:
-        steered = [call for call in self.ran if is_write_call(call)]
-        if not steered:
-            return self
-        held = {id(call) for call in steered}
-        return replace(self, ran=[call for call in self.ran if id(call) not in held], steered=steered)
-
-    @property
-    def attempted(self) -> frozenset[str]:
-        return signatures_of(self.ran)
-
-    def notices(self, results: Mapping[str, str]) -> list[ToolMessage]:
-        attempted = self.attempted
-        return [
-            *(_notice(call, _repeat_answer(call, results, attempted)) for call in self.repeats),
-            *(_notice(call, sentence) for call, sentence in self.refused),
-            *(_notice(call, _WIDTH_CAP_MESSAGE) for call in self.over_width),
-            *(_notice(call, HELD_FOR_STEER) for call in self.steered),
-        ]
-
-
-def _split_round(state: ResearchAgentState, disabled: frozenset[str], max_calls: int = 0) -> _RoundSplit:
-    calls = _last_tool_calls(state)
-    repeats, refused, over_width = _withheld_calls(calls, state, disabled, max_calls)
-    withheld = {id(call) for call in (*repeats, *(call for call, _ in refused), *over_width)}
-    return _RoundSplit(
-        ran=[call for call in calls if id(call) not in withheld],
-        repeats=repeats,
-        refused=refused,
-        over_width=over_width,
-    )
-
-
-def _steer_round(state: ResearchAgentState) -> int:
-    return state.tool_iterations + 1
-
-
-def _announce_steer(note: SteerNote, applied: AppliedSteer, inbox: SteerInbox) -> None:
-    emit(SteerAppliedBody(value=SteerAppliedValue(steer_id=note.steer_id, round=applied.round)))
-    waited_ms = max(0, int((time.monotonic() - note.received_at) * 1000))
-    emit_step_span(
-        "turn.steer",
-        {
-            "round": applied.round,
-            "chars": len(note.text),
-            "waited_ms": waited_ms,
-            "region": note.focus_region is not None,
-        },
-        {"applied": True, "at": applied.at},
-    )
-    add_trace_tag(STEERED_TAG)
-    record_turn_facts(steer_count=len(inbox.applied))
-
-
-def _take_steering(state: ResearchAgentState) -> list[AppliedSteer] | None:
-    inbox = current_steer_inbox()
-    if inbox is None or not inbox.has_pending():
-        return None
-    round_index = _steer_round(state)
-    at = len(state.messages)
-    taken = inbox.take()
-    new = [
-        AppliedSteer(steer_id=note.steer_id, content=render_note(note, round_index), at=at, round=round_index)
-        for note in taken
-    ]
-    for note, applied in zip(taken, new, strict=True):
-        _announce_steer(note, applied, inbox)
-    logger.info("Steering: %d note(s) read before round %d", len(new), round_index)
-    return [*state.steering, *new]
-
-
-def _hold_writes_for_steer(state: ResearchAgentState, split: _RoundSplit) -> _RoundSplit:
-    inbox = current_steer_inbox()
-    if inbox is None or not inbox.has_pending():
-        return split
-    held = split.held_for_steer()
-    if held.steered:
-        emit_steered_writes(round_index=state.retrieval_round, withheld=len(held.steered))
-        logger.info("Steering: %d write call(s) held back for a note that arrived after them", len(held.steered))
-    return held
-
-
 def _turn_index(state: ResearchAgentState) -> int:
     try:
         return max(1, sum(1 for message in state.messages if isinstance(message, HumanMessage)))
     except Exception:  # noqa: BLE001 — a turn number must never take a turn down
         return 1
-
-
-def _recursion_limit(ceiling: int) -> int:
-    return (ceiling * 2) + 10
-
-
-def _turn_input_tokens() -> int:
-    tracker = cost_tracker_var.get()
-    if tracker is None:
-        return 0
-    return tracker.prompt_tokens
 
 
 def _live_answer(state: ResearchAgentState) -> LiveAnswer | None:
@@ -542,69 +137,6 @@ def _live_answer(state: ResearchAgentState) -> LiveAnswer | None:
         registry,
         handed=handed_this_turn(state.messages),
     )
-
-
-def _turn_cutoff(state: ResearchAgentState, binding: TurnBinding) -> str | None:
-    if state.tool_iterations >= binding.ceiling:
-        return CUTOFF_ROUNDS
-    if binding.max_input_tokens > 0 and _turn_input_tokens() >= binding.max_input_tokens:
-        return CUTOFF_INPUT_TOKENS
-    return None
-
-
-def _fetch_results(
-    ran: Sequence[Any],
-    messages: Sequence[Any],
-    failed_ids: set[str],
-) -> dict[str, str]:
-    by_id = {
-        str(getattr(message, "tool_call_id", "") or ""): str(message.content or "")
-        for message in messages
-        if isinstance(message, ToolMessage)
-    }
-    results: dict[str, str] = {}
-    for call in ran:
-        call_id = str(call.get("id") or "")
-        signature = fetch_signature(call)
-        content = by_id.get(call_id)
-        if call_id in failed_ids or signature is None or not content:
-            continue
-        results[signature] = content
-    return results
-
-
-def _capture_sources(
-    tool_name: str,
-    content: str,
-    source_tool_names: frozenset[str],
-    registry: SourceRegistry,
-    artifact: Any = None,
-) -> None:
-    if tool_name not in source_tool_names:
-        return
-    source_id = source_id_for_call(tool_name)
-    if source_id is None and not is_look_tool(tool_name):
-        logger.debug("[CitationRegistry] Skipping non-data-source tool result from %s", tool_name)
-        return
-    sources = extract_sources_from_tool_result(tool_name, content, source_id=source_id, artifact=artifact)
-    for source in sources:
-        registry.add(source)
-    record_turn_capture([source for source in sources if not is_look_place(source)])
-    if sources:
-        logger.info(
-            "[CitationRegistry] Captured %d source(s) from %s: %s",
-            len(sources),
-            tool_name,
-            [s.url or s.citation_key for s in sources],
-        )
-
-
-def _bind_registry() -> tuple[SourceRegistry, Any]:
-    registry = get_session_registry()
-    if registry is not None:
-        return registry.for_turn(), None
-    registry = SourceRegistry()
-    return registry, set_session_registry(registry)
 
 
 PREFETCH_NOTE = (

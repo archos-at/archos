@@ -5,6 +5,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readSql } from '@/test-utils/sql-statements'
 
 const DRIZZLE_DIR = path.resolve(__dirname, '../../migrations')
 
@@ -35,6 +36,11 @@ describe('drizzle migration journal', () => {
     const onDisk = new Set(migrationFiles)
     const dangling = journal.entries.map((entry) => entry.tag).filter((tag) => !onDisk.has(tag))
     expect(dangling).toEqual([])
+  })
+
+  it('has a statement in every forward migration file', () => {
+    const empty = migrationFiles.filter((tag) => readSql(path.join(DRIZZLE_DIR, `${tag}.sql`)).length === 0)
+    expect(empty).toEqual([])
   })
 
   it('numbers migrations uniquely and without gaps', () => {

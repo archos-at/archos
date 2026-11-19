@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
 import ts from "typescript";
-import { baseStackConfig } from "./src/test-support/stack-config";
+import { baseStackConfig, ciRunnersStackConfig } from "./src/test-support/stack-config";
 
 const RELEASE = "kubernetes:helm.sh/v3:Release";
 const CLUSTER = "kubernetes:postgresql.cnpg.io/v1:Cluster";
@@ -50,6 +50,7 @@ describe("every Helm chart the program installs is pinned", () => {
   beforeAll(async () => {
     pulumi.runtime.setAllConfig({
       ...baseStackConfig(),
+      ...ciRunnersStackConfig(),
       "grid-oib:installMetricsServer": "true",
       "grid-oib:observabilityEnabled": "false",
     });
@@ -77,6 +78,13 @@ describe("every Helm chart the program installs is pinned", () => {
     }
   });
 
+  it("waits long enough for a release to come up on a node whose image cache is empty", async () => {
+    const { HELM_RELEASE_TIMEOUT_SECONDS } = await import("./src/constants");
+    for (const release of releases()) {
+      expect(release.inputs.timeout, release.name).toBeGreaterThanOrEqual(HELM_RELEASE_TIMEOUT_SECONDS);
+    }
+  });
+
   it("installs each chart at its exported constant", async () => {
     const { CNPG_CHART_VERSION } = await import("./src/data/postgres");
     const { CERT_MANAGER_CHART_VERSION } = await import("./src/platform/cert-manager");
@@ -84,6 +92,7 @@ describe("every Helm chart the program installs is pinned", () => {
     const { METRICS_SERVER_CHART_VERSION } = await import("./src/platform/metrics-server");
     const { KEDA_CHART_VERSION } = await import("./src/platform/keda");
     const { HATCHET_CHART_VERSION } = await import("./src/config/background-work");
+    const { ARC_CHART_VERSION } = await import("./src/platform/ci-runners");
 
     const versions = Object.fromEntries(releases().map((r) => [r.name, r.inputs.version]));
     expect(versions).toEqual({
@@ -93,6 +102,8 @@ describe("every Helm chart the program installs is pinned", () => {
       "metrics-server": METRICS_SERVER_CHART_VERSION,
       keda: KEDA_CHART_VERSION,
       hatchet: HATCHET_CHART_VERSION,
+      "arc-controller": ARC_CHART_VERSION,
+      "arc-scale-set": ARC_CHART_VERSION,
     });
   });
 });

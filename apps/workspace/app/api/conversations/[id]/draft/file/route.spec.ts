@@ -3,7 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { NotFoundError } from '@/lib/api/errors'
+import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { Conversation } from '@/lib/db/schema/conversations'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { DocumentListRow } from '@/lib/documents/repository'
@@ -39,17 +39,29 @@ vi.mock('@/lib/documents/repository', async (importOriginal) => ({
 
 vi.mock('@/lib/documents/version-repository', () => ({
   findOpenVersion: vi.fn(),
+  findPublishedVersion: vi.fn(),
+  listDocumentVersions: vi.fn(),
+}))
+
+vi.mock('@/lib/documents/agent-file-revision', () => ({
+  reviseWithAgentWork: vi.fn(),
 }))
 
 vi.mock('@/lib/documents/agent-document', () => ({
   fileAgentDocumentDraft: vi.fn(),
 }))
 
+vi.mock('@/lib/projects/folder-service', () => ({
+  findProjectFolder: vi.fn(),
+}))
+
 import { findConversationInOrg } from '@/lib/conversations/repository'
 import { filingReference } from '@/lib/conversations/draft-filing'
 import { fileAgentDocumentDraft } from '@/lib/documents/agent-document'
 import { findDocumentAuthoredByRef, listProjectDocuments } from '@/lib/documents/repository'
-import { findOpenVersion } from '@/lib/documents/version-repository'
+import { listDocumentVersions } from '@/lib/documents/version-repository'
+import { reviseWithAgentWork } from '@/lib/documents/agent-file-revision'
+import { findProjectFolder } from '@/lib/projects/folder-service'
 import { POST } from './route'
 
 const PROJECT = '33333333-3333-4333-8333-333333333333'
@@ -97,18 +109,24 @@ describe('POST /api/conversations/[id]/draft/file', () => {
       documentId: DOC,
       version: { id: VERSION, state: 'draft' } as DocumentVersion,
       alreadyFiled: false,
+      folderId: 'folder-1',
     })
+    vi.mocked(findProjectFolder).mockResolvedValue({ id: 'folder-1', name: 'Berichte' } as never)
   })
 
   it('files the draft in the reader session under the shared reference', async () => {
     const res = await post({ path: PATH, title: TITLE })
 
     expect(res.status).toBe(201)
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       documentId: DOC,
       versionId: VERSION,
       state: 'draft',
       alreadyFiled: false,
+      folderId: 'folder-1',
+      folderName: 'Berichte',
+      outcome: 'filed',
+      draftVersion: 2,
     })
     expect(requireResourceAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user_1', organizationId: 'org_1' }),
@@ -129,23 +147,35 @@ describe('POST /api/conversations/[id]/draft/file', () => {
     expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).not.toHaveProperty('actingHuman', false)
   })
 
-  it('converges with the agent filing: an already-filed reference creates nothing', async () => {
+  it('converges with the agent filing: an already-filed reference gets the draft’s content, never a second document', async () => {
     vi.mocked(findDocumentAuthoredByRef).mockResolvedValue({
       id: DOC,
       filename: 'piloti/x.md',
       folderId: 'folder-1',
     })
-    vi.mocked(findOpenVersion).mockResolvedValue({ id: VERSION, state: 'draft' } as DocumentVersion)
+    vi.mocked(listDocumentVersions).mockResolvedValue([
+      { id: VERSION, state: 'draft', contentHash: 'sha256:a', originConversationId: 'conv-1' },
+    ] as DocumentVersion[])
+    vi.mocked(reviseWithAgentWork).mockResolvedValue({
+      document: { id: DOC, folderId: 'folder-1' } as never,
+      version: { id: VERSION, state: 'draft', contentHash: 'sha256:b', versionNumber: 1 } as DocumentVersion,
+      forked: false,
+      unchanged: false,
+    })
 
     const res = await post({ path: PATH, title: TITLE })
 
     expect(res.status).toBe(201)
-    expect(await res.json()).toEqual({
+    expect(await res.json()).toMatchObject({
       documentId: DOC,
       versionId: VERSION,
       state: 'draft',
       alreadyFiled: true,
+      folderId: 'folder-1',
+      folderName: 'Berichte',
+      outcome: 'updated',
     })
+    expect(vi.mocked(reviseWithAgentWork).mock.calls[0][1]).toMatchObject({ documentId: DOC, ifMatch: 'sha256:a' })
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
 
@@ -155,14 +185,17 @@ describe('POST /api/conversations/[id]/draft/file', () => {
       filename: 'piloti/x.md',
       folderId: 'folder-1',
     })
-    vi.mocked(findOpenVersion).mockResolvedValue({ id: VERSION, state: 'in_review' } as DocumentVersion)
+    vi.mocked(listDocumentVersions).mockResolvedValue([
+      { id: VERSION, state: 'in_review', contentHash: 'sha256:a', originConversationId: 'conv-1' },
+    ] as DocumentVersion[])
+    vi.mocked(reviseWithAgentWork).mockRejectedValue(new ConflictError('in review', { reason: 'in-review' }))
 
     const res = await post({ path: PATH, title: TITLE })
 
     expect(res.status).toBe(409)
     expect(await res.json()).toMatchObject({
       code: 'CONFLICT',
-      details: { reason: 'already-submitted' },
+      details: { reason: 'in-review' },
     })
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
@@ -238,6 +271,87 @@ describe('POST /api/conversations/[id]/draft/file', () => {
     expect(res.status).toBe(502)
     expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
   })
+
+  describe('a folder and a name the person chose', () => {
+    const FOLDER = '44444444-4444-4444-8444-444444444444'
+
+    it('files into the chosen folder under the chosen name, with the draft’s own extension', async () => {
+      vi.mocked(fileAgentDocumentDraft).mockResolvedValue({
+        documentId: DOC,
+        version: { id: VERSION, state: 'draft' } as DocumentVersion,
+        alreadyFiled: false,
+        folderId: FOLDER,
+      })
+      vi.mocked(findProjectFolder).mockResolvedValue({ id: FOLDER, name: 'Protokolle' } as never)
+
+      const res = await post({ path: PATH, title: TITLE, folderId: FOLDER, name: 'Aktenvermerk Baustelle.docx' })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toMatchObject({ folderId: FOLDER, folderName: 'Protokolle' })
+      expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).toMatchObject({
+        folderId: FOLDER,
+        title: 'Aktenvermerk Baustelle.docx.md',
+      })
+    })
+
+    it('files at the project root when the folder is null, and names it as the root', async () => {
+      vi.mocked(fileAgentDocumentDraft).mockResolvedValue({
+        documentId: DOC,
+        version: { id: VERSION, state: 'draft' } as DocumentVersion,
+        alreadyFiled: false,
+        folderId: null,
+      })
+
+      const res = await post({ path: PATH, folderId: null, name: 'Notiz' })
+
+      expect(await res.json()).toMatchObject({ folderId: null, folderName: null })
+      expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).toMatchObject({ folderId: null, title: 'Notiz.md' })
+    })
+
+    it('sanitises the name: no path, no control characters, no leading dots', async () => {
+      await post({ path: PATH, folderId: null, name: '../Bau\u0007/Protokoll.md' })
+
+      expect(vi.mocked(fileAgentDocumentDraft).mock.calls[0][0]).toMatchObject({ title: '-Bau-Protokoll.md' })
+    })
+
+    it('refuses a name that is only an extension, before anything is filed', async () => {
+      const res = await post({ path: PATH, folderId: null, name: ' .md ' })
+
+      expect(res.status).toBe(400)
+      expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
+    })
+
+    it('refuses a folder id that is not an id', async () => {
+      const res = await post({ path: PATH, folderId: 'Berichte', name: 'Notiz' })
+
+      expect(res.status).toBe(400)
+      expect(fileAgentDocumentDraft).not.toHaveBeenCalled()
+    })
+
+    it('checks a same-name collision in the chosen folder only', async () => {
+      vi.mocked(listProjectDocuments).mockResolvedValue([
+        { id: 'elsewhere', filename: 'x.md', displayName: 'Notiz.md', folderId: 'other-folder' } as DocumentListRow,
+      ])
+
+      const res = await post({ path: PATH, folderId: FOLDER, name: 'Notiz' })
+      expect(res.status).toBe(201)
+
+      vi.mocked(listProjectDocuments).mockResolvedValue([
+        { id: 'here', filename: 'x.md', displayName: 'Notiz.md', folderId: FOLDER } as DocumentListRow,
+      ])
+      const clash = await post({ path: PATH, folderId: FOLDER, name: 'Notiz' })
+      expect(clash.status).toBe(409)
+      expect(await clash.json()).toMatchObject({ details: { reason: 'same-name', documentId: 'here' } })
+    })
+
+    it('passes a refusal of the folder through: another project’s folder answers 404', async () => {
+      vi.mocked(fileAgentDocumentDraft).mockRejectedValue(new NotFoundError('Folder not found'))
+
+      const res = await post({ path: PATH, folderId: FOLDER, name: 'Notiz' })
+
+      expect(res.status).toBe(404)
+    })
+  })
 })
 
 describe('filingReference — parity with the agent tier', () => {
@@ -253,4 +367,5 @@ describe('filingReference — parity with the agent tier', () => {
   it('bounds the reference like the agent tier', () => {
     expect(filingReference('c'.repeat(300), '/entwuerfe/a.md')).toHaveLength(200)
   })
+
 })

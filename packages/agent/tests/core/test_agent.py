@@ -14,10 +14,10 @@ from agent.citations.session import reset_session_registry
 from agent.citations.session import set_session_registry
 from agent.common import LLMProvider
 from agent.common import LLMRole
-from agent.common.answer_envelope import render_envelope_response_format
 from agent.common.brand import PRODUCT_NAME
 from agent.common.data_source_registry import populate_from_config
 from agent.common.data_source_registry import reset_registry
+from agent.common.envelope_schema import render_envelope_response_format
 from agent.common.retrieval_rounds import assistant_checkpoint
 from agent.core.agent import ChatAgent
 from agent.core.models import ResearchAgentState
@@ -2840,16 +2840,14 @@ class TestTheDraftingRulesLiveInTheTools:
         for phrase in ("leg das ins Projekt", "ablegen", "abspeichern"):
             assert phrase in _FILE_DRAFT_DESCRIPTION
         assert "not on your own after every write" in _FILE_DRAFT_DESCRIPTION
-        assert "DRAFT" in _FILE_DRAFT_DESCRIPTION
-        assert "nobody has approved it" in _FILE_DRAFT_DESCRIPTION
 
-    def test_submitting_needs_an_explicit_request(self):
+    def test_filing_is_the_users_sign_off_and_asks_for_no_approval(self):
         from agent.tools.documents.register import _FILE_DRAFT_DESCRIPTION
 
-        assert "Call with `submit=true` only when the user asks for approval" in _FILE_DRAFT_DESCRIPTION
-        assert "„ablegen“ alone is not such a request" in _FILE_DRAFT_DESCRIPTION
-        assert "unchanged" in _FILE_DRAFT_DESCRIPTION
-        assert "project's editors" in _FILE_DRAFT_DESCRIPTION
+        assert "the user who files it signs it off" in _FILE_DRAFT_DESCRIPTION
+        assert "marked as made by you" in _FILE_DRAFT_DESCRIPTION
+        assert "submit" not in _FILE_DRAFT_DESCRIPTION
+        assert "DRAFT" not in _FILE_DRAFT_DESCRIPTION
 
 
 class TestTheDelegationRulesLiveInTheTool:
@@ -2891,12 +2889,12 @@ class TestTheDelegationRulesLiveInTheTool:
 
 class TestTheWorkingDirectoryBudget:
     def test_the_recursion_limit_derives_from_the_ceiling_alone(self):
-        from agent.core.agent import _recursion_limit
+        from agent.core.turn_binding import _recursion_limit
 
         assert _recursion_limit(5) == (5 * 2) + 10
 
     def test_a_draft_read_back_is_never_a_source(self):
-        from agent.core.agent import _capture_sources
+        from agent.core.source_capture import _capture_sources
 
         registry = SourceRegistry()
         for verb in ("ls", "read_file", "write_file", "edit_file"):
@@ -3051,7 +3049,7 @@ class TestATurnThatWritesADraft:
         return AIMessage(content="", tool_calls=[{"name": name, "args": args, "id": call_id}])
 
     @pytest.mark.asyncio
-    async def test_write_then_edit_leaves_one_file_and_two_cards(
+    async def test_write_then_edit_leaves_one_file_and_one_card_at_its_second_version(
         self, provider, scripted_llm, cards, working_directory
     ):
         backend, tools = working_directory
@@ -3091,7 +3089,6 @@ class TestATurnThatWritesADraft:
         assert stored.value["content"] == "# Aktenvermerk\n\nPunkt 3: Fluchtweg, gekürzt.\n"
 
         assert [(card["type"], card["version"], card["title"]) for card in cards.snapshot()] == [
-            ("document_draft", 1, "Aktenvermerk"),
             ("document_draft", 2, "Aktenvermerk"),
         ]
 
@@ -3150,7 +3147,7 @@ class TestATurnThatWritesADraft:
         assert posted[0]["content"] == "# Aktenvermerk\n\nFluchtweg.\n"
 
         drafts = [card for card in cards.snapshot() if card["type"] == "document_draft"]
-        assert "document_id" not in drafts[0]
+        assert len(drafts) == 1
         assert (drafts[-1]["document_id"], drafts[-1]["version_id"], drafts[-1]["version_state"]) == (
             "doc-7",
             "ver-7",

@@ -107,7 +107,7 @@ class TestTheListing:
         assert response.status_code == 200
         assert response.json() == {
             "conversation_id": CONVERSATION,
-            "drafts": [{"path": PATH, "bytes": len(CONTENT.encode("utf-8")), "version": 1}],
+            "drafts": [{"path": PATH, "bytes": len(CONTENT.encode("utf-8")), "version": 1, "encoding": "utf-8"}],
         }
 
     async def test_the_listing_carries_no_content(self, client, prod_token, store) -> None:
@@ -230,7 +230,9 @@ class TestTheRefusals:
         listing = _list(client).json()
 
         assert first == second == {"path": PATH, "content": CONTENT, "version": 1}
-        assert listing["drafts"] == [{"path": PATH, "bytes": len(CONTENT.encode("utf-8")), "version": 1}]
+        assert listing["drafts"] == [
+            {"path": PATH, "bytes": len(CONTENT.encode("utf-8")), "version": 1, "encoding": "utf-8"}
+        ]
 
     async def test_an_oversize_draft_is_a_413_not_a_stream(self, client, prod_token, store) -> None:
         namespace = draft_namespace(CONVERSATION)
@@ -246,3 +248,86 @@ class TestAuthRefusedWithoutToken:
         assert _list(client, token=None).status_code == 403
         assert _read(client, PATH, token=None).status_code == 403
         assert _read_suffix(client, PATH, token="wrong").status_code == 403
+
+
+class TestABinaryFile:
+    XLSX = b"PK\x03\x04 not really a workbook \xff\x00"
+
+    async def _write_binary(self, store: InMemoryStore) -> str:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        path = f"{DRAFT_ROOT}flaechen.xlsx"
+        assert await backend.awrite_run_file(path, self.XLSX) is None
+        return path
+
+    async def test_its_preview_carries_size_and_encoding_but_no_content(self, client, prod_token, store) -> None:
+        path = await self._write_binary(store)
+        response = _read_suffix(client, path)
+        assert response.status_code == 200
+        assert response.json() == {"path": path, "encoding": "base64", "bytes": len(self.XLSX), "version": 1}
+
+    async def test_its_bytes_come_back_raw(self, client, prod_token, store) -> None:
+        path = await self._write_binary(store)
+        response = client.get(
+            f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}", params={"raw": "true"}, headers=_headers()
+        )
+        assert response.status_code == 200
+        assert response.content == self.XLSX
+
+    async def test_it_lists_with_its_real_size(self, client, prod_token, store) -> None:
+        path = await self._write_binary(store)
+        listing = _list(client).json()["drafts"]
+        assert listing == [{"path": path, "bytes": len(self.XLSX), "version": 1, "encoding": "base64"}]
+
+
+class TestOneDraftsLife:
+    XLSX = b"PK-version-1"
+
+    async def _one(self, store: InMemoryStore) -> str:
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        path = f"{DRAFT_ROOT}raumbuch.xlsx"
+        assert await backend.awrite_run_file(path, self.XLSX) is None
+        return path
+
+    async def test_deleting_one_draft_leaves_the_others(self, client, prod_token, store) -> None:
+        path = await self._one(store)
+        await _write(store, CONVERSATION, "befund")
+        response = client.delete(f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}", headers=_headers())
+        assert response.status_code == 204
+        assert _read_suffix(client, path).status_code == 404
+        assert _read_suffix(client, PATH).status_code == 200
+        again = client.delete(f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}", headers=_headers())
+        assert again.status_code == 404
+
+    async def test_a_filing_from_the_person_is_recorded_on_the_draft(self, client, prod_token, store) -> None:
+        path = await self._one(store)
+        body = {
+            "documentId": "doc-1",
+            "versionId": "ver-1",
+            "contentHash": "abc",
+            "state": "draft",
+            "draftVersion": 1,
+            "kind": "revision",
+        }
+        response = client.put(f"/v1/drafts/{CONVERSATION}/filing", params={"path": path}, json=body, headers=_headers())
+        assert response.status_code == 200
+        read = _read_suffix(client, path).json()
+        assert read["filing"][FILED_DOCUMENT_KEY] == "doc-1"
+        assert read["filing"][FILED_HASH_KEY] == "abc"
+        assert read["filed"]["kind"] == "revision"
+        assert read["filed_at_version"] == 1
+
+    async def test_recording_a_filing_keeps_the_bytes_a_run_wrote_since(self, client, prod_token, store) -> None:
+        path = await self._one(store)
+        backend = DraftBackend(store=store, conversation_id=CONVERSATION)
+        assert await backend.awrite_run_file(path, b"PK-version-2") is None
+        body = {"documentId": "doc-1", "versionId": "ver-1", "contentHash": "abc", "state": "draft", "draftVersion": 1}
+        client.put(f"/v1/drafts/{CONVERSATION}/filing", params={"path": path}, json=body, headers=_headers())
+        raw = client.get(f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}", params={"raw": "true"}, headers=_headers())
+        assert raw.content == b"PK-version-2"
+        assert _read_suffix(client, path).json()["filed_at_version"] == 1
+
+    async def test_the_new_routes_need_the_internal_token(self, client, prod_token, store) -> None:
+        path = await self._one(store)
+        assert client.delete(f"/v1/drafts/{CONVERSATION}/{path.lstrip('/')}").status_code == 403
+        body = {"documentId": "d", "versionId": "v", "contentHash": "h", "state": "draft"}
+        assert client.put(f"/v1/drafts/{CONVERSATION}/filing", params={"path": path}, json=body).status_code == 403

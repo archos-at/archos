@@ -29,70 +29,138 @@ SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic L
 - The provider's **StorageClass** name — `premium` (default, 3 replicas),
   `standard` (2), or `single-replica` (1). Confirm with `kubectl get storageclass`.
   (`lightbits` is the VolumeSnapshotClass, not a StorageClass.)
-- Images published to a registry (CI pushes them to GHCR and tags all three
+- Images published to a registry (CI pushes them to GHCR and tags every one
   `sha-<commit>` for every `develop` commit whose checks passed).
 
 ## Quick start
 
+Staging (`dev`) and `prod` keep their secrets in their Pulumi ESC environment
+(`grid-oib/<stack>`, imported by the stack file's `environment:` block), and
+the committed `Pulumi.<stack>.yaml` holds non-secret config, apart from the two
+`dev` exceptions named below. Stack config
+wins over ESC on a conflict, so never run `pulumi config set --secret` on these
+two stacks: it writes ciphertext into the committed file and shadows the ESC
+value. Set each secret with `pulumi env set`, or edit them together with
+`pulumi env edit grid-oib/<stack>` (under `values.pulumiConfig`, as `fn::secret`).
+One exception today: `Pulumi.dev.yaml` still holds `pgRuntimePassword` and
+`seaweedfsBackendReadSecretKey` as `secure:` values, and those win over ESC
+until they are moved ("Moving a stack's secrets into ESC" below).
+
 ```bash
 task infra:install   # the program and its policy pack, each from its own lockfile
 cd deploy/pulumi
-pulumi stack init prod
+pulumi stack select prod   # `pulumi stack init prod` the first time
+```
 
-# Non-secret config is templated in Pulumi.prod.yaml — edit the placeholders
-# (storageClass, baseDomain, letsEncryptEmail, imageTag, …).
+Edit the non-secret placeholders in `Pulumi.prod.yaml` (`storageClass`,
+`baseDomain`, `letsEncryptEmail`, `imageTag`, …), then set the secrets:
 
-# Secrets: with ESC adopted (see docs/deployment/pulumi-cloud-feature-audit.md),
-# dev secrets live in the `grid-oib/dev` environment. Migrate in three steps —
-# the middle one is not optional, `--keep-config` leaves the values in BOTH
-# places and stack config wins over ESC, so skipping it means the secrets never
-# actually move:
-#   1. pulumi config env init --stack dev --keep-config   # copy into ESC
-#   2. delete every `secure:` block from Pulumi.dev.yaml   # drop the duplicates
-#   3. pulumi preview --stack dev                          # must be a NO-OP:
-#      resolving through ESC yields the same values, so a non-empty diff means
-#      a key did not make it across (restore from git and retry).
-# Edit secrets afterwards via `pulumi env edit grid-oib/dev` (add under
-# values.pulumiConfig as fn::secret), or one key at a time with
-#   esc env set matthiasbigl/grid-oib/<stack> pulumiConfig.grid-oib:<key> "<value>" --secret
-# Staging (dev) and prod keep EVERY secret in ESC: for them, run each line below
-# as that `esc env set` (the stack files' headers list them in that form). A
-# `pulumi config set --secret` writes ciphertext into the committed stack file
-# instead, and stack config wins over ESC, so on those stacks it shadows the
-# ESC value. The lines below are for a scratch stack without ESC:
-pulumi config set --secret grid-oib:kubeconfig           "$(cat ~/.kube/grid-config)"
-pulumi config set --secret grid-oib:pgAppPassword        "$(openssl rand -base64 24)"
-pulumi config set --secret grid-oib:seaweedfsSecretKey   "$(openssl rand -base64 24)"
-pulumi config set --secret grid-oib:gridInternalApiToken "$(openssl rand -hex 32)"
-pulumi config set --secret grid-oib:gridAdminToken       "$(openssl rand -hex 32)"
-pulumi config set --secret grid-oib:openrouterApiKey     "sk-or-..."
-pulumi config set --secret grid-oib:tavilyApiKey         "tvly-..."
-pulumi config set --secret grid-oib:workosApiKey         "sk_live_..."
-pulumi config set --secret grid-oib:workosCookiePassword "$(openssl rand -hex 32)"
-# REQUIRED (deploy fails closed without it):
-pulumi config set --secret grid-oib:jobPayloadKek      "$(openssl rand -base64 32)"
-# REQUIRED: Dragonfly `requirepass` on both instances. Deploy fails closed
-# without them (opt out deliberately with allowUnauthenticatedRedis=true). The
-# two MUST differ — every app pod holds the cache password in its REDIS_URL, and
-# sharing it would let the app tier flush the edge rate-limit counters.
-pulumi config set --secret grid-oib:dragonflyPassword       "$(openssl rand -base64 32)"
-pulumi config set --secret grid-oib:rateLimitStorePassword  "$(openssl rand -base64 32)"
-# REQUIRED with seaweedfsTopology=split + seaweedfsFilerStore=postgres (both
-# defaults on a new stack): the login for the dedicated `seaweedfs_filer` role
-# that owns the filer namespace. Deploy fails closed without it.
+```bash
+ESC=matthiasbigl/grid-oib/prod
+pulumi env set $ESC pulumiConfig.grid-oib:kubeconfig             "$(cat ~/.kube/grid-config)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:pgAppPassword          "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:pgRuntimePassword      "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:seaweedfsSecretKey     "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:seaweedfsBackendReadSecretKey "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:gridInternalApiToken   "$(openssl rand -hex 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:gridAdminToken         "$(openssl rand -hex 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:openrouterApiKey       "sk-or-..." --secret
+pulumi env set $ESC pulumiConfig.grid-oib:tavilyApiKey           "tvly-..." --secret
+pulumi env set $ESC pulumiConfig.grid-oib:workosApiKey           "sk_live_..." --secret
+pulumi env set $ESC pulumiConfig.grid-oib:workosCookiePassword   "$(openssl rand -hex 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:jobPayloadKek          "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:dragonflyPassword      "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:rateLimitStorePassword "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:seaweedfsFilerDbPassword "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:seaweedfsTenantAdminSecretKey "$(openssl rand -base64 24)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:qdrantApiKey           "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:qdrantReadOnlyApiKey   "$(openssl rand -base64 32)" --secret
+pulumi env set $ESC pulumiConfig.grid-oib:qdrantS3SecretKey      "$(openssl rand -base64 32)" --secret
+pulumi preview
+pulumi up
+```
+
+What each secret is for, and which are required:
+
+- `jobPayloadKek` encrypts the job payloads claimed from the database. The
+  deploy fails closed without it (`allowPlaintextJobPayloads=true` overrides,
+  for dev or a single node).
+- `dragonflyPassword` and `rateLimitStorePassword` are the `requirepass` of the
+  cache and of the edge rate-limit store. The deploy fails closed without them
+  (`allowUnauthenticatedRedis=true` opts out). The two must differ: every app
+  pod holds the cache password in its `REDIS_URL`, and sharing it would let the
+  app tier flush the edge rate-limit counters.
+- `seaweedfsFilerDbPassword` is the login of the `seaweedfs_filer` role that
+  owns the filer namespace, required with `seaweedfsTopology=split` and
+  `seaweedfsFilerStore=postgres`, both defaults on a new stack.
+- `seaweedfsTenantAdminSecretKey` is the only identity allowed to create and
+  drop tenant buckets, required with `seaweedfsPerOrgBuckets=true`.
+- `qdrantApiKey`, `qdrantReadOnlyApiKey` and `qdrantS3SecretKey` are required
+  on every stack, each its own value (ADR-0115). Rotating `qdrantApiKey` takes
+  three deploys through `qdrantAltApiKey`:
+  [`qdrant-runbook.md`](../../docs/deployment/qdrant-runbook.md), "Rotate the API key".
+- Optional: `posthogPersonalApiKey` (product feedback tickets, ADR-0118),
+  `byokLocalKek` (the local BYOK backend), and `openrouterChatKey`,
+  `openrouterResearchKey`, `openrouterIngestKey` (one OpenRouter key per
+  workload, each falling back to `openrouterApiKey`).
+
+### Moving a stack's secrets into ESC
+
+A secret left in a stack file wins over ESC, so it must leave the file once it
+is in ESC, and `pulumi preview` must then show no change.
+
+- **A stack that already imports an environment** (`dev` imports `grid-oib/dev`):
+  copy each remaining `secure:` value into that environment:
+
+  ```bash
+  ESC=matthiasbigl/grid-oib/dev
+  for key in pgRuntimePassword seaweedfsBackendReadSecretKey; do
+    pulumi env set $ESC "pulumiConfig.grid-oib:$key" "$(pulumi config get "grid-oib:$key" --stack dev)" --secret
+  done
+  ```
+
+  Then delete those `secure:` blocks from `Pulumi.dev.yaml`. Only then does the
+  preview read the values from ESC, so only then does a no-op prove they arrived:
+
+  ```bash
+  pulumi preview --stack dev
+  ```
+
+- **A stack with no environment yet**: `pulumi config env init --stack <stack>
+  --keep-config` creates one and copies the values; then delete the `secure:`
+  blocks and preview. `--keep-config` leaves the values in both places, so
+  the deletion is not optional.
+
+A non-empty preview means a key did not make it across: restore the stack file
+from git and retry.
+
+### A scratch stack without ESC
+
+Only a stack with no ESC environment takes its secrets as stack config. Select
+or create that stack first, so the ciphertext lands in its own file and never
+in `Pulumi.prod.yaml` or `Pulumi.dev.yaml`:
+
+```bash
+pulumi stack init scratch   # or `pulumi stack select scratch`
+pulumi config set --secret grid-oib:kubeconfig             "$(cat ~/.kube/grid-config)"
+pulumi config set --secret grid-oib:pgAppPassword          "$(openssl rand -base64 24)"
+pulumi config set --secret grid-oib:pgRuntimePassword      "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:seaweedfsSecretKey     "$(openssl rand -base64 24)"
+pulumi config set --secret grid-oib:seaweedfsBackendReadSecretKey "$(openssl rand -base64 24)"
+pulumi config set --secret grid-oib:gridInternalApiToken   "$(openssl rand -hex 32)"
+pulumi config set --secret grid-oib:gridAdminToken         "$(openssl rand -hex 32)"
+pulumi config set --secret grid-oib:openrouterApiKey       "sk-or-..."
+pulumi config set --secret grid-oib:tavilyApiKey           "tvly-..."
+pulumi config set --secret grid-oib:workosApiKey           "sk_live_..."
+pulumi config set --secret grid-oib:workosCookiePassword   "$(openssl rand -hex 32)"
+pulumi config set --secret grid-oib:jobPayloadKek          "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:dragonflyPassword      "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:rateLimitStorePassword "$(openssl rand -base64 32)"
 pulumi config set --secret grid-oib:seaweedfsFilerDbPassword "$(openssl rand -base64 24)"
-# REQUIRED with seaweedfsPerOrgBuckets=true: the credential for the only
-# identity allowed to create and drop tenant buckets.
 pulumi config set --secret grid-oib:seaweedfsTenantAdminSecretKey "$(openssl rand -base64 24)"
-# REQUIRED on every stack (Qdrant is always deployed): the read-write and
-# read-only API keys and the snapshot S3 identity's secret, each its own value
-# (ADR-0115).
-pulumi config set --secret grid-oib:qdrantApiKey         "$(openssl rand -base64 32)"
-pulumi config set --secret grid-oib:qdrantReadOnlyApiKey "$(openssl rand -base64 32)"
-pulumi config set --secret grid-oib:qdrantS3SecretKey    "$(openssl rand -base64 32)"
-# Rotating qdrantApiKey later takes three deploys through qdrantAltApiKey:
-# docs/deployment/qdrant-runbook.md, "Rotate the API key".
-
+pulumi config set --secret grid-oib:qdrantApiKey           "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:qdrantReadOnlyApiKey   "$(openssl rand -base64 32)"
+pulumi config set --secret grid-oib:qdrantS3SecretKey      "$(openssl rand -base64 32)"
 pulumi preview
 pulumi up
 ```
@@ -183,6 +251,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | — | — | `/api/internal/signed/*` (the RFC 9421 signed internal routes, today the project mail webhook) has a route of its own and **no** edge bucket: all of it arrives from Cloudflare's shared egress, so a per-client bucket would let other Cloudflare traffic defer mail. Its edge ceiling is a `Content-Length` of at most 27 MiB matched on the header (Envoy answers 413 otherwise, without buffering a byte), and its upstream budget is 120 s (`SIGNED_INTERNAL_ROUTE` in `src/signed-route-constants.ts`). The BFF limits per signing key, address and organization after the signature |
 | `rateLimitS3` | `300`/min | Presigned preview/download URLs (one preview fans out into many GETs) |
 | `rateLimitWeb` | `120`/min | Landing site + blog |
+| `rateLimitWebEnquiryPerHour` | `5`/hour | The website's contact and demo forms (`/api/enquiry`) per client IP. Enforced even with `rateLimitShadowMode` on: each send can mail a confirmation to an address the visitor typed |
 | `rateLimitStoreMaxmemory` | `256mb` | Counter-store dataset cap (floor 256mb — Dragonfly's per-thread boot minimum) |
 | `rateLimitStoreMemoryLimit` | `384Mi` | Counter-store pod memory limit; must exceed maxmemory |
 | `protectDataResources` | `true` | Pulumi `protect` on the CNPG Cluster + SeaweedFS/Qdrant StatefulSets: refuses any delete/replace, so a stray rename or `pulumi destroy` fails loudly instead of destroying data. `false` on scratch stacks; lift one resource with `pulumi state unprotect <urn>` |
@@ -248,7 +317,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `malwareScanEnabled` | `false` | clamd and freshclam in a `clamav` Deployment of one (`src/app/clamav.ts`), and `MALWARE_SCAN_URL=tcp://clamav:3310` on the frontend and the `bff-jobs` pool. Off, every scan fails closed (`not-configured`) and nothing that needs a clean scan is filed. Requests 2 GiB of memory; freshclam needs HTTPS egress to `database.clamav.net`. The pod is ready only while its signatures are under 48 hours old. With `networkPolicies` on it admits the frontend and the `bff-jobs` pool alone (`clamav-bff-only`). Its config is `deploy/compose/clamav/{clamd,freshclam}.conf`, shared with Compose |
 | `malwareScanImage` | `clamav/clamav:1.5.4@sha256:…` | The official image with its signatures baked in. Refused unless pinned by digest; keep it equal to the Compose pin. `malwareScanUrl` is refused on every stack: the URL is always the stack's own clamd |
 | **SeaweedFS (S3)** | | |
-| `seaweedfsImage` | `chrislusf/seaweedfs:latest` | Prod template pins 3.80 (storage engine) |
+| `seaweedfsImage` | `chrislusf/seaweedfs:4.54` | Prod pins 3.80 (storage engine): change it only with a SeaweedFS upgrade plan |
 | `seaweedfsStorageSize` | `20Gi` | Object-store volume (grow via PVC patch) |
 | `seaweedfsBucket` | `grid-documents` | Documents bucket (auto-created + verified) |
 | `seaweedfsAccessKey` / 🔒 **`seaweedfsSecretKey`** | `grid` / — | S3 identity |
@@ -271,7 +340,9 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `seaweedfsTenantBucketPrefix` | `grid-org-` | Leading segment of every tenant bucket name — and the string the tenant grants are wildcarded on (`Read:<prefix>*`), matched by plain string prefix. Refused when it is also a prefix of a platform bucket: `grid-` would hand `grid-documents` **and** `grid-pg-backups`, the Postgres PITR archive, to every identity holding a tenant scope. Must be lowercase alphanumeric/hyphen, ≤32 chars, ending in `-`. Reaches the **frontend only** as `SEAWEED_TENANT_BUCKET_PREFIX` (see above) |
 | `seaweedfsTenantAdminAccessKey` / 🔒 `seaweedfsTenantAdminSecretKey` | `grid-tenant-admin` / — | The one identity scoped `Admin:<prefix>*`, i.e. the only one that can create or drop a tenant bucket. Separate from the object credential because SeaweedFS's `Admin:<bucket>` authorises CreateBucket and DeleteBucket together and cannot express one without the other — a distinct key is the only way to keep "drop a tenant" off the request path, and it is why the purger never receives it. The secret is REQUIRED when `seaweedfsPerOrgBuckets` is `true` |
 | **Agent (backend web tier)** | | |
-| `backendRequestsCpu/Memory`, `backendLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Vertical scaling |
+| `cpuRequestScale` | `1` (dev: `0.25`) | Multiplies every container CPU **request** the program sets (`cpuRequest`/`scaledCpuRequest` in `src/config/cpu-requests.ts`), rounded up to a whole millicore, never below 10m. CPU limits and all memory stay as set; CPU HPA/KEDA targets are divided by it, so a tier scales out at the same absolute CPU. Above 0, at most 1. Dev sets 0.25: idle staging requested its four 4-vCPU app nodes full and no rolling update's surge pod fit (2026-11-18). `index-cpu-requests.spec.ts` holds prod's render to a snapshot and fails on any request set without the helper |
+| `backendRequestsCpu/Memory`, `backendLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Vertical scaling (prod: 1400m CPU) |
+| `legacyChatRequestsCpu` | `backendRequestsCpu` (prod: 400m) | CPU request of the draining `aiq-agent` tier alone, which carries far less than `chat`; everything else it takes from `backend*` |
 | `backendMaxActiveJobsPerOrg` | 3 | Research jobs one organization runs at once (0 = off). It is the workers' claim cap: a job over it waits in the queue (ADR-0079), it is not refused |
 | `backendMaxQueuedJobsPerOrg` | `50` | `db` execution: research jobs one organisation may have waiting (`MAX_QUEUED_JOBS_PER_ORG`), the only 429 left. 0 = off |
 | `backendIngestMaxWorkers` | `2` | Concurrent ingestion bound |
@@ -286,17 +357,17 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `conversationBus` | `true` | Dragonfly pub/sub chat bus (ADR-0028) |
 | 🔒 `jobPayloadKek` | — | REQUIRED for db mode (encrypts job payloads at rest) |
 | `allowPlaintextJobPayloads` | `false` | Dev-only escape hatch for the KEK requirement |
-| `agentWorkerRequestsCpu/Memory`, `agentWorkerLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Worker sizing |
+| `agentWorkerRequestsCpu/Memory`, `agentWorkerLimitsCpu/Memory` | 375m / 2Gi / 4 / 8Gi | Worker sizing |
 | `agentWorkerMinReplicas` / `agentWorkerMaxReplicas` | 1 / 8 | KEDA bounds for the worker tier, which scales on the `research-run` backlog in Hatchet (not CPU). 0 lets it idle while nothing waits; dev sets 0 |
 | `agentWorkerConcurrency` | `1` | Jobs per worker process; KEDA asks for one replica per this many open jobs |
 | `agentWorkerDrainSeconds` | `600` | Seconds a terminating worker may spend finishing the research runs it holds (the Hatchet SDK waits for them on SIGTERM; no env variable carries it); the grace period is this plus 30 s. A run still going when it ends is a lost worker's, which Hatchet assigns again, so the budget decides how much work a deploy repeats. Costs deploy latency — workers roll one at a time. Floor 30 |
 | **The api tier** (ADR-0082): `aiq-api`, every backend HTTP route but the chat socket, which `BACKEND_URL` names | | |
 | `apiMinReplicas` / `apiMaxReplicas` | 2 / 4 (prod 1 / 3, dev 1 / 2) | Bounds of its CPU HPA. A ceiling below the floor fails the plan |
-| `apiHpaCpuTargetPercent` | `70` | HPA target average CPU, as a percentage of requests (`apiRequestsCpu`) |
-| `apiRequestsCpu/Memory`, `apiLimitsCpu/Memory` | 500m / 1536Mi / 2 / 6Gi | Sizing |
+| `apiHpaCpuTargetPercent` | `40` | HPA target average CPU, as a percentage of requests (`apiRequestsCpu`): 40% of 875m scales out at 350m a pod. Change it with the request, so that number holds (`index-cpu-requests.spec.ts`) |
+| `apiRequestsCpu/Memory`, `apiLimitsCpu/Memory` | 875m / 1536Mi / 2 / 6Gi | Sizing |
 | **Ingestion tier, BFF pool and KEDA** (ADR-0076, ADR-0079) | | |
 | `ingestWorkerMinReplicas` / `ingestWorkerMaxReplicas` | 1 / 5 (prod 1 / 8) | KEDA bounds for the ingest tier, which scales on the `ingest-document` backlog in Hatchet. The ceiling is held to the provider budget below: the deploy fails when it is more than 2x `vlmFleetConcurrency`. Prod's 8 x 2 x 4 = 64 sits exactly at it |
-| `ingestWorkerRequestsCpu/Memory`, `ingestWorkerLimitsCpu/Memory` | 500m / 4Gi / 2 / 6Gi (prod: 1 / 6Gi / 2 / 6Gi, on the batch group) | Sizing. The memory request is what a worker holds while it parses, so the scheduler cannot pack several onto one node; prod sets request = limit, so it cannot overcommit at all |
+| `ingestWorkerRequestsCpu/Memory`, `ingestWorkerLimitsCpu/Memory` | 500m / 4Gi / 2 / 6Gi (prod: 1200m / 6Gi / 2 / 6Gi, on the batch group) | Sizing. The memory request is what a worker holds while it parses, so the scheduler cannot pack several onto one node; prod sets request = limit, so it cannot overcommit at all |
 | `ingestWorkerConcurrency` / `ingestWorkerDrainSeconds` | 3 (prod 2) / 600 | Jobs per worker (also KEDA's jobs-per-replica target) / SIGTERM budget; the grace period is the drain plus 30 s |
 | `ingestMaxPerOrg` | `0` | Most ingest jobs one organisation may run fleet-wide at once; 0 = no cap (the claim is fair regardless) |
 | `bffJobsEnabled` | `true` | Must stay `true`: `false` fails the plan. The `bff-jobs` pool runs project reindex, failed-ingestion rescan, IFC extraction, Office → PDF rendition, research-report filing, and the scheduling crons (every scheduled automation's fire and every maintenance sweep), which no other worker runs |
@@ -311,9 +382,9 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `ingestPageReadParallelism` | `16` | `INGEST_PAGE_READ_PARALLELISM`: threads one file's page reads (OCR and vision together) share. It bounds a file's threads and memory; `vlmFleetConcurrency` caps the calls, and the plan fails when this is larger than it |
 | `providerLimitCeiling` / `providerModelLimitCeiling` | 128 / 32 | `PROVIDER_LIMIT_CEILING` / `PROVIDER_MODEL_LIMIT_CEILING`: model calls in flight fleet-wide, all models together and any one model; where the adaptive limiter starts and what it recovers to |
 | **Frontend** | | |
-| `frontendRequestsCpu/Memory`, `frontendLimitsCpu/Memory` | 100m / 256Mi / 1 / 1Gi | Sizing |
+| `frontendRequestsCpu/Memory`, `frontendLimitsCpu/Memory` | 925m / 512Mi / 1 / 1536Mi | Sizing |
 | `frontendMinReplicas` / `frontendMaxReplicas` | 2 / 6 | HPA bounds |
-| `frontendHpaCpuTargetPercent` | `70` | HPA target |
+| `frontendHpaCpuTargetPercent` | `38` | HPA target: 38% of 925m scales out at 350m a pod. Change it with the request, so that number holds (`index-cpu-requests.spec.ts`) |
 | **Web (the public website, apps/website)** | | |
 | `webRequestsCpu/Memory`, `webLimitsCpu/Memory` | 50m / 128Mi / 250m / 256Mi | Sizing — static-first Astro site, near-idle CPU |
 | `webMinReplicas` / `webMaxReplicas` | 2 / 4 | HPA bounds |
@@ -378,6 +449,29 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `cmsPgInstances` / `cmsPgStorageSize` | `1` / `5Gi` | `cms-pg`'s instances and volume |
 | 🔒 `cmsSecret` / `cmsAdminPassword` / `cmsPgPassword` / `cmsS3SecretKey` / `cmsWebsiteApiKey` / `cmsSocialHandoffApiKey` / `cmsRevalidateToken` / `cmsPreviewSecret` | HMACs of `pgAppPassword` | Each defaults to its own one-way HMAC, so the CMS needs no new secret; set one to rotate it alone. `cmsAdminEmail` defaults to `letsEncryptEmail` |
 | `cmsPgBackupsEnabled` / `cmsPgBackupEndpoint` / `cmsPgBackupAccessKey` / 🔒 `cmsPgBackupSecretKey` / `cmsPgBackupBucket` / `cmsPgBackupRetention` / `cmsPgBackupSchedule` / `cmsPgBackupEncryption` | `false` / — / — / — / `cms-pg-backups` / `30d` / `0 15 2 * * *` / unset | `cms-pg`'s PITR archive, to object storage outside the cluster, as the `backgroundWorkPg*` keys. Turn it on before the first post is written there |
+| **The website's forms** (`apps/website`, contact and demo): the `web-mail` Secret and the website's `SMTP_*` / `ATTIO_API_KEY` env. Unset, both forms hand off to the visitor's mail program | | |
+| `websiteSmtpUser` / 🔒 `websiteSmtpPassword` | unset | The Google Workspace user the forms send through `smtp.gmail.com`, and its app password. Set both or neither; on `dev` and `prod` in the stack's ESC environment (`pulumi env set $ESC pulumiConfig.grid-oib:websiteSmtpPassword … --secret`). The user must be allowed to send as the site's contact address (Gmail, "Send mail as"), or Gmail rewrites the confirmation's sender |
+| 🔒 `attioApiKey` | unset | An Attio API key with write access to people and notes: each enquiry upserts the person by email and attaches the enquiry as a note |
+| **The code runner** (`apps/code-runner`): the `code-runner` Deployment, Service, PDB and KEDA ScaledObject behind the agent's `execute` tool, and the `code-runner-agent-only` NetworkPolicy. Image `code-runner`, built by CI from `apps/code-runner`. Off by default | | |
+| `codeRunnerEnabled` | `false` | Deploy the runner and set `CODE_RUNNER_URL` on the chat tier and `agent-worker` |
+| `codeRunnerImage` | `<imageRegistry>/code-runner:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
+| `codeRunnerMinReplicas` / `codeRunnerMaxReplicas` | `2` / `10` | The ScaledObject's bounds |
+| `codeRunnerCpuTargetPercent` / `codeRunnerMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
+| `browserRendererEnabled` | `false` | Needs `codeRunnerEnabled`. Deploy the `browser-renderer` Deployment (headless Chromium, `apps/browser-renderer`), Service, KEDA ScaledObject and the `browser-renderer-code-runner-only` NetworkPolicy (ingress from `code-runner` only, no egress), open the runner's egress to it, and set `BROWSER_RENDERER_ADDR` on the runner. No PDB. The container is the browser's sandbox: `RuntimeDefault` seccomp, no capabilities, read-only root, and Chromium runs `--no-sandbox` ([runbook](../../docs/deployment/code-runner-runbook.md#the-browser-puppeteer-in-a-run)) |
+| `browserRendererImage` | `<imageRegistry>/browser-renderer:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
+| `browserRendererMinReplicas` / `browserRendererMaxReplicas` | `1` / `3` | The ScaledObject's bounds |
+| `browserRendererSessionsPerPod` | `2` | Browsers one pod runs at once; the next run is answered `busy` |
+| `browserRendererCpuTargetPercent` / `browserRendererMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
+| **CI runners** (ADR-0184): actions-runner-controller and one runner scale set for CI jobs, in `arc-systems` and `arc-runners`. Dev stack only, and only once the repository is private. Off by default | | |
+| `ciRunnersEnabled` | `false` | Install the controller, the scale set, its NetworkPolicy and the `ci-runner` PriorityClass. On, it needs `networkPolicies`, the three GitHub App keys and a digest-pinned `ciRunnersImage`, or the plan fails naming the missing one |
+| `ciRunnersImage` | — | `ghcr.io/archos-at/ci-runner@sha256:…`, built from `deploy/ci-runner` by the `CI runner image` workflow; a tag is refused |
+| `ciRunnersGithubAppId` / `ciRunnersGithubAppInstallationId` / 🔒 `ciRunnersGithubAppPrivateKey` | — | The GitHub App the controller registers runners with: Actions and Administration read/write on this repository. The key goes into a Secret of its own, not the Helm release's values |
+| `ciRunnersGithubConfigUrl` | `https://github.com/archos-at/archos` | Where the scale set registers |
+| `ciRunnersScaleSetName` | `dev-cluster` | The `runs-on` label, and the value of the repository variable `CI_RUNNER` |
+| `ciRunnersMinRunners` / `ciRunnersMaxRunners` | `0` / `3` | Idle runners cost a pod each; at zero a job waits for one to start. Three is what staging had room for in the ci-shadow trial |
+| `ciRunnersRequestsCpu/Memory`, `ciRunnersLimitsCpu/Memory` | 250m / 4Gi / 3 / 7Gi | Per runner; the CPU request is scaled by `cpuRequestScale` like every other. The CPU limit is also pytest's worker count (`PYTEST_XDIST_AUTO_NUM_WORKERS`), since `-n logical` counts the node's CPUs |
+| `ciRunnersScratchStorageClass` / `ciRunnersScratchSize` | `storageClass` / `15Gi` | Each runner's ephemeral volume for the checkout, caches and `/tmp`, off the node's disk |
+| `ciRunnersNodeGroup` | (unset) | A worker group for the runners alone. Unset, they share staging's nodes at the lowest priority |
 | **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |
 | `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
 | `mcpGatewayDomain` | `platform-mcp.<baseDomain>` | Its public host. Must stay under the WorkOS resource indicator `https://<host>/*` |

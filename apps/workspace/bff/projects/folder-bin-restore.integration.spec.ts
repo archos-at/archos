@@ -182,7 +182,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
               INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, folder_id,
                                      authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind)
               VALUES (${ORG}, ${USER}, 'piloti/bericht.pdf', 'k/bericht', ${COLLECTION}, 'completed', 'project', ${projectId}::uuid,
-                      ${folder.officeShelf}::uuid, 'agent', 'report', 'answer-1', 'answer_artifact')
+                      ${folder.officeShelf}::uuid, 'agent', 'agent_document', 'answer-1', 'answer_artifact')
               RETURNING id, project_id
             )
             INSERT INTO document_versions (organization_id, document_id, project_id, version_number, state, storage_key,

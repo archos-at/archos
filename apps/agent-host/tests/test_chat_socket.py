@@ -58,22 +58,28 @@ from agent.turn.annotation_reply import note_thread_post
 from agent.turn.annotation_reply import settle_thread_reply
 from agent.turn.response import answer_message_id
 from agent_host import after_terminal_writes
+from agent_host import chat_fencing
+from agent_host import chat_loops
+from agent_host import chat_registry
+from agent_host import chat_run
 from agent_host import chat_socket
+from agent_host import chat_turn
+from agent_host import chat_wire
 from agent_host import internal_api as chat_socket_internal
 from agent_host.auth.errors import AuthError
-from agent_host.chat_socket import ChatRegistry
+from agent_host.chat_auth import authenticate_websocket_connection
+from agent_host.chat_auth import configure_websocket_auth
+from agent_host.chat_auth import handshake_conversation_binding
+from agent_host.chat_registry import ChatRegistry
 from agent_host.chat_socket import ChatSocket
-from agent_host.chat_socket import authenticate_websocket_connection
-from agent_host.chat_socket import configure_websocket_auth
-from agent_host.chat_socket import handshake_conversation_binding
-from agent_host.chat_socket import persist_turn_result
-from agent_host.chat_socket import turn_row_metadata
+from agent_host.chat_turn import persist_turn_result
 from agent_host.conversation_bus import ConversationBus
 from agent_host.conversation_bus import InMemoryTransport
 from agent_host.conversation_bus import force_multi_replica_for_tests
 from agent_host.conversation_bus import reset_bus_for_tests
 from agent_host.internal_api import ChatScreening
 from agent_host.legacy_headers import legacy_header
+from agent_host.turn_record import turn_row_metadata
 from nat.plugin_api import InteractionPrompt
 
 CONV = "conv-1"
@@ -212,7 +218,7 @@ def _wiring(monkeypatch):
         persisted.append(kwargs)
         return True
 
-    monkeypatch.setattr(chat_socket, "post_internal_conversation_message", post)
+    monkeypatch.setattr(chat_turn, "post_internal_conversation_message", post)
     yield persisted
     configure_websocket_auth()
     reset_bus_for_tests()
@@ -582,7 +588,7 @@ async def test_a_context_only_line_is_remembered_and_answers_nothing(harness, mo
 
 
 async def test_the_heartbeat_is_stamped_on_the_turn_and_stops_at_the_terminal(harness, monkeypatch):
-    monkeypatch.setattr(chat_socket, "TURN_HEARTBEAT_SECONDS", 0.02)
+    monkeypatch.setattr(chat_run, "TURN_HEARTBEAT_SECONDS", 0.02)
     gate = Gate()
     h = harness(gate.turn)
     sock = h.connect()
@@ -700,7 +706,7 @@ def test_a_relayed_stop_carries_shown_beside_the_message_so_an_older_owner_still
     ],
 )
 def test_the_owner_reads_the_relayed_shown_position_leniently(payload, shown):
-    assert chat_socket._relayed_shown(payload) == shown
+    assert chat_registry._relayed_shown(payload) == shown
 
 
 def test_the_hello_names_the_shown_position_among_what_this_server_accepts():
@@ -806,7 +812,7 @@ async def test_a_question_goes_out_and_the_asker_s_choice_comes_back(harness):
 
 
 async def test_an_unanswered_question_expires_and_ends_the_turn(harness, monkeypatch):
-    monkeypatch.setattr(chat_socket, "HITL_RESPONSE_TIMEOUT_SECONDS", 0.02)
+    monkeypatch.setattr(chat_turn, "HITL_RESPONSE_TIMEOUT_SECONDS", 0.02)
     sock = harness(_asking([])).connect()
 
     sock.client(type="user_message", message_id="t1", text="?")
@@ -955,14 +961,14 @@ async def test_stages_follow_the_terminal_on_the_turn_s_seq(harness, monkeypatch
 
     delivered = await h.registry.send_stage(CONV, "t1", StageValue(stage="follow_ups", status="empty"))
     wire = h.registry.wire(CONV, "t1")
-    assert not await wire.send(chat_socket.HeartbeatBody(value=chat_socket.HeartbeatValue(every_ms=1)))
+    assert not await wire.send(chat_run.HeartbeatBody(value=chat_run.HeartbeatValue(every_ms=1)))
 
     assert delivered
     stage = sock.events()[-1]
     assert (stage["seq"], stage["name"], stage["value"]) == (6, "stage", {"stage": "follow_ups", "status": "empty"})
     assert not await h.registry.send_stage(CONV, "t-unknown", StageValue(stage="follow_ups", status="empty"))
-    later = time.monotonic() + chat_socket.STAGE_WIRE_TTL_S + 1
-    monkeypatch.setattr(chat_socket.time, "monotonic", lambda: later)
+    later = time.monotonic() + chat_registry.STAGE_WIRE_TTL_S + 1
+    monkeypatch.setattr(chat_registry.time, "monotonic", lambda: later)
     assert not await h.registry.send_stage(CONV, "t1", StageValue(stage="follow_ups", status="failed"))
 
 
@@ -1048,7 +1054,7 @@ async def _hung(request, ask):
 
 
 async def test_a_hung_turn_ends_at_its_deadline_with_run_error(harness, monkeypatch, persisted):
-    monkeypatch.setattr(chat_socket, "TURN_DEADLINE_SECONDS", 0.1)
+    monkeypatch.setattr(chat_turn, "TURN_DEADLINE_SECONDS", 0.1)
     torn_down = asyncio.Event()
 
     async def hung(request, ask):
@@ -1065,7 +1071,7 @@ async def test_a_hung_turn_ends_at_its_deadline_with_run_error(harness, monkeypa
 
     terminal = sock.events()[-1]
     assert terminal["code"] == "workflow_error"
-    assert terminal["details"].startswith(chat_socket.DEADLINE_DETAILS)
+    assert terminal["details"].startswith(chat_run.DEADLINE_DETAILS)
     assert "too long" in terminal["message"]
     assert torn_down.is_set()  # the hung call was cancelled, not abandoned
     await until(lambda: h.registry.running(CONV) is None)
@@ -1073,7 +1079,7 @@ async def test_a_hung_turn_ends_at_its_deadline_with_run_error(harness, monkeypa
 
 
 async def test_waiting_on_a_person_does_not_count_against_the_deadline_but_model_work_does(harness, monkeypatch):
-    monkeypatch.setattr(chat_socket, "TURN_DEADLINE_SECONDS", 0.15)
+    monkeypatch.setattr(chat_turn, "TURN_DEADLINE_SECONDS", 0.15)
     answered = asyncio.Event()
 
     async def asks_then_hangs(request, ask):
@@ -1092,13 +1098,13 @@ async def test_waiting_on_a_person_does_not_count_against_the_deadline_but_model
     sock.client(type="interaction_response", turn_id="t1", interaction_id="ask_01", answer={"option_id": "1"})
     await until(answered.is_set)
     await until(lambda: _last(sock) == "RUN_ERROR")
-    assert sock.events()[-1]["details"].startswith(chat_socket.DEADLINE_DETAILS)
+    assert sock.events()[-1]["details"].startswith(chat_run.DEADLINE_DETAILS)
 
 
 def test_the_deadline_never_pre_empts_the_in_process_deep_research_budget():
     from agent.agents.deep_researcher.agent import DEFAULT_MAX_RUN_SECONDS
 
-    assert chat_socket.TurnDeadline().seconds > DEFAULT_MAX_RUN_SECONDS
+    assert chat_turn.TurnDeadline().seconds > DEFAULT_MAX_RUN_SECONDS
 
 
 async def test_a_base_exception_group_still_ends_the_turn_and_is_logged(harness, caplog):
@@ -1145,7 +1151,7 @@ async def test_a_stop_ends_the_turn_even_when_the_workflow_teardown_hangs(harnes
 
 
 async def test_a_dead_relay_loop_is_restarted(harness, monkeypatch):
-    monkeypatch.setattr(chat_socket, "_LOOP_RESTART_MIN_S", 0.01)
+    monkeypatch.setattr(chat_loops, "_LOOP_RESTART_MIN_S", 0.01)
     owner, relay, relay_bus = _replicas()
     gate = Gate()
     asker = harness(gate.turn, owner).connect()
@@ -1331,7 +1337,7 @@ async def test_a_second_question_on_another_replica_starts_only_after_the_first_
 
 
 async def test_a_question_is_refused_when_the_running_turn_does_not_stop_in_time(harness, monkeypatch):
-    monkeypatch.setattr(chat_socket, "SUPERSEDE_WAIT_SECONDS", 0.3)
+    monkeypatch.setattr(chat_fencing, "SUPERSEDE_WAIT_SECONDS", 0.3)
     owner, relay, relay_bus = _replicas()
     ghost = ConversationBus(relay_bus._t, replica_id="ghost")  # a replica that holds the marker and answers nobody
     await ghost.acquire_running(CONV, "t0")
@@ -1562,7 +1568,7 @@ async def test_the_level_reaches_the_frame_only_with_the_additive_fields_on(pers
         published.append(frame)
         return True
 
-    wire = chat_socket.TurnWire(CONV, "t1", publish)
+    wire = chat_wire.TurnWire(CONV, "t1", publish)
     await wire.send(RunFinishedBody(outcome="answered", result=_result(text="Fertig.", reasoning_effort="low")))
 
     [frame] = published
@@ -1578,8 +1584,8 @@ def test_the_level_the_turn_ran_at_is_kept_on_the_row():
 
 async def test_a_stopped_turn_keeps_the_level_the_asker_stated(persisted):
     registry = ChatRegistry()
-    wire = chat_socket.TurnWire(CONV, "t1", registry.publish)
-    turn = chat_socket.RunningTurn(wire=wire, asker_subject=None, reasoning_effort="xhigh")
+    wire = chat_wire.TurnWire(CONV, "t1", registry.publish)
+    turn = chat_turn.RunningTurn(wire=wire, asker_subject=None, reasoning_effort="xhigh")
     await turn.publish(TextMessageContentBody(message_id="m", delta="Teil"))
 
     await turn.finish_cancelled()
@@ -1641,12 +1647,12 @@ async def test_a_turn_that_read_licensed_text_marks_its_row_from_the_workflow_s_
 
     from agent.common.licensed_text import LICENSED_TRACE_TAG
     from agent.observability import turn_outcome
-    from agent_host.chat_socket import _persist_in_background
+    from agent_host.chat_turn import _persist_in_background
 
     async def publish(_conversation_id: str, _frame: dict) -> bool:
         return True
 
-    wire = chat_socket.TurnWire(CONV, "t1", publish)
+    wire = chat_wire.TurnWire(CONV, "t1", publish)
     box = turn_outcome.begin_turn_outcome()
     try:
         contextvars.copy_context().run(turn_outcome.record_turn_tag, LICENSED_TRACE_TAG)
@@ -1676,7 +1682,7 @@ async def test_a_stopped_turn_keeps_the_settled_text_with_its_sources(
     persisted, monkeypatch, after_settle, text, numbers
 ):
     registry = ChatRegistry()
-    turn = chat_socket.RunningTurn(wire=chat_socket.TurnWire(CONV, "t1", registry.publish), asker_subject=None)
+    turn = chat_turn.RunningTurn(wire=chat_wire.TurnWire(CONV, "t1", registry.publish), asker_subject=None)
     await turn.publish(TextMessageContentBody(message_id="m", delta="alt [1]"))
     snapshot = AnswerSnapshot(text="Neu [1].", sources=[WireSource(content="c", number=1)])
     await turn.publish(StateSnapshotBody(snapshot=snapshot))
@@ -1830,6 +1836,27 @@ async def test_the_focus_file_name_reaches_the_agent_masked(harness, office):
     assert names == ["[Begriff entfernt] [IBAN entfernt].pdf"]
 
 
+async def test_the_selected_part_of_an_answer_reaches_the_agent_masked(harness, office):
+    excerpts: list[str | None] = []
+
+    async def turn(request, ask):
+        excerpts.append(request.answer_excerpt)
+        yield _finished(request, text="ok")
+
+    h = harness(turn)
+    sock = h.connect(headers=_office_envelope())
+
+    sock.client(
+        type="user_message",
+        message_id="t1",
+        text="Was heißt das?",
+        answer_excerpt=f"Die Zahlung geht an {_IBAN}",
+    )
+    await until(lambda: _last(sock) == "RUN_FINISHED")
+
+    assert excerpts == ["Die Zahlung geht an [IBAN entfernt]"]
+
+
 async def test_without_the_office_s_policy_every_detector_applies_and_no_term(harness, monkeypatch):
     monkeypatch.delenv("FRONTEND_INTERNAL_URL", raising=False)
     monkeypatch.delenv("FRONTEND_URL", raising=False)
@@ -1949,8 +1976,8 @@ def _fenced_cluster(monkeypatch, log: WriteLog) -> tuple[FencedReplica, FencedRe
     monkeypatch.setattr(conversation_bus, "RUNNING_TTL_SECONDS", FENCE_TTL)
     monkeypatch.setattr(turn_fence, "GUARDED_WRITE_TIMEOUT_SECONDS", FENCE_WRITE_TIMEOUT)
     monkeypatch.setattr(turn_fence, "FENCE_SLACK_SECONDS", FENCE_SLACK)
-    monkeypatch.setattr(chat_socket, "SUPERSEDE_WAIT_SECONDS", 3.0)
-    monkeypatch.setattr(chat_socket, "SUPERSEDE_REPUBLISH_SECONDS", 0.1)
+    monkeypatch.setattr(chat_fencing, "SUPERSEDE_WAIT_SECONDS", 3.0)
+    monkeypatch.setattr(chat_fencing, "SUPERSEDE_REPUBLISH_SECONDS", 0.1)
     owner_registry, relay_registry, shared = _replicas()
     transport = shared._t
     real_set_nx = transport.set_nx
@@ -2080,13 +2107,13 @@ async def test_one_failed_bus_command_for_another_conversation_does_not_starve_t
 
 
 async def test_a_renewal_that_fails_is_tried_again_before_the_deadline(monkeypatch):
-    monkeypatch.setattr(chat_socket, "RENEW_RETRY_SECONDS", 1.0)
-    monkeypatch.setattr(chat_socket, "running_renew_interval", lambda: 3.0)
+    monkeypatch.setattr(chat_fencing, "RENEW_RETRY_SECONDS", 1.0)
+    monkeypatch.setattr(chat_fencing, "running_renew_interval", lambda: 3.0)
 
-    assert chat_socket._renew_wait(None) == 3.0
-    assert chat_socket._renew_wait(None, retrying=True) == 1.0
+    assert chat_fencing._renew_wait(None) == 3.0
+    assert chat_fencing._renew_wait(None, retrying=True) == 1.0
     guard = SimpleNamespace(remaining=lambda: 0.4)
-    assert chat_socket._renew_wait(guard, retrying=True) == 0.4
+    assert chat_fencing._renew_wait(guard, retrying=True) == 0.4
 
 
 async def test_a_renewal_that_finds_the_marker_gone_fences_the_turn_and_cancels_it_with_a_terminal(
@@ -2667,7 +2694,7 @@ async def test_a_headless_turn_hands_its_steps_over_after_its_row_and_its_outcom
         await stuck.wait()  # a slow or failing route, retried
         return True
 
-    monkeypatch.setattr(chat_socket, "post_internal_turn_steps", steps)
+    monkeypatch.setattr(chat_turn, "post_internal_turn_steps", steps)
 
     async def stepping(request, ask):
         yield StepStartedBody(step=ToolStep(id="tool:1", tool="knowledge_search"))
@@ -2698,7 +2725,7 @@ async def test_a_turn_that_took_no_step_hands_nothing_over(harness, monkeypatch)
         handed.append(args)
         return True
 
-    monkeypatch.setattr(chat_socket, "post_internal_turn_steps", steps)
+    monkeypatch.setattr(chat_turn, "post_internal_turn_steps", steps)
 
     async def plain(request, ask):
         yield _finished(request, text="Antwort.")
@@ -2834,7 +2861,7 @@ async def test_a_drain_ends_only_once_the_outcome_of_its_headless_turn_is_report
         reported.append(report["outcome"])
         return True
 
-    monkeypatch.setattr(chat_socket, "post_internal_turn_outcome", slow_notice)
+    monkeypatch.setattr(chat_turn, "post_internal_turn_outcome", slow_notice)
     gate = Gate()
     h = harness(gate.turn)
     sock = h.connect(headers=HEADLESS)
@@ -2866,7 +2893,7 @@ async def test_a_drain_reports_the_outcome_of_a_headless_turn_whose_teardown_han
         reported.append(report["outcome"])
         return True
 
-    monkeypatch.setattr(chat_socket, "post_internal_turn_outcome", notice)
+    monkeypatch.setattr(chat_turn, "post_internal_turn_outcome", notice)
     started, unstuck = asyncio.Event(), asyncio.Event()
 
     async def stubborn(request, ask):
@@ -3030,7 +3057,7 @@ async def test_a_turn_that_listed_and_searched_scores_both(harness, monkeypatch)
         scored.extend((score.name, score.value) for score in scores)
         return len(scores)
 
-    monkeypatch.setattr(chat_socket, "emit_scores", capture)
+    monkeypatch.setattr(chat_run, "emit_scores", capture)
 
     async def turn(request, ask):
         for number, tool in enumerate(("knowledge_search", "list_files", "list_files"), start=1):
@@ -3054,7 +3081,7 @@ async def test_a_turn_whose_only_search_was_literal_scores_navigate(harness, mon
         scored.extend((score.name, score.value) for score in scores)
         return len(scores)
 
-    monkeypatch.setattr(chat_socket, "emit_scores", capture)
+    monkeypatch.setattr(chat_run, "emit_scores", capture)
 
     async def turn(request, ask):
         yield StepStartedBody(step=ToolStep(id="tool:1", tool="knowledge_search"))
@@ -3071,23 +3098,23 @@ async def test_a_turn_whose_only_search_was_literal_scores_navigate(harness, mon
 
 
 def test_only_a_tool_step_names_a_tool():
-    assert chat_socket.tool_called_by(StepFinishedBody(step=ToolStep(id="t", tool="read_passage"))) == "read_passage"
+    assert chat_run.tool_called_by(StepFinishedBody(step=ToolStep(id="t", tool="read_passage"))) == "read_passage"
     status = StepFinishedBody(step=StatusStep(id="s", slot="documents", key="status.documents.session"))
-    assert chat_socket.tool_called_by(status) is None
-    assert chat_socket.tool_called_by(TextMessageStartBody(message_id="m")) is None
+    assert chat_run.tool_called_by(status) is None
+    assert chat_run.tool_called_by(TextMessageStartBody(message_id="m")) is None
 
 
 def test_a_service_token_turn_is_filed_under_the_envelope_user_not_internal():
-    wire = chat_socket.TurnWire(CONV, "t1", ChatRegistry().publish)
+    wire = chat_wire.TurnWire(CONV, "t1", ChatRegistry().publish)
     internal = {"type": "internal"}
 
-    bare = chat_socket.RunningTurn(wire=wire, asker_subject=None)
-    signed = chat_socket.RunningTurn(wire=wire, asker_subject=None, envelope_user_id="user_01")
-    verified = chat_socket.RunningTurn(wire=wire, asker_subject="user_02", envelope_user_id="user_01")
+    bare = chat_turn.RunningTurn(wire=wire, asker_subject=None)
+    signed = chat_turn.RunningTurn(wire=wire, asker_subject=None, envelope_user_id="user_01")
+    verified = chat_turn.RunningTurn(wire=wire, asker_subject="user_02", envelope_user_id="user_01")
 
-    assert chat_socket.trace_user_id(bare, internal) == "internal"
-    assert chat_socket.trace_user_id(signed, internal) == "user_01"
-    assert chat_socket.trace_user_id(verified, internal) == "user_02"
+    assert chat_run.trace_user_id(bare, internal) == "internal"
+    assert chat_run.trace_user_id(signed, internal) == "user_01"
+    assert chat_run.trace_user_id(verified, internal) == "user_02"
 
 
 @pytest.fixture

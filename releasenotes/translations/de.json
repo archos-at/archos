@@ -16,6 +16,10 @@
     "de": "In „Mein Gedächtnis“ gibt es „Alle Notizen entfernen“: Nach einer Bestätigung mit der Anzahl der zu löschenden Notizen wird alles, was der Assistent über Sie gespeichert hat, in einem Schritt entfernt."
   },
   {
+    "en": "A CSV file from the agent says why it cannot be filed into the project and offers to ask for an Excel workbook instead.",
+    "de": "Die CSV-Datei des Agenten erklärt, warum sie nicht im Projekt abgelegt werden kann, und bietet an, stattdessen eine Excel-Arbeitsmappe anzufordern."
+  },
+  {
     "en": "A CSV or text file exported from Excel on Windows now shows its €, „ “ and – characters correctly in the preview.",
     "de": "Eine unter Windows aus Excel exportierte CSV- oder Textdatei zeigt in der Vorschau jetzt die Zeichen €, „ “ und den Strich „–“ richtig an."
   },
@@ -62,6 +66,10 @@
   {
     "en": "A Viewer who opens a project's chat now sees the message box locked, with the reason, instead of typing a question that fails when sent. The member list shows the role each person really holds, instead of rounding narrower roles down to \"Viewer\".",
     "de": "Wenn Sie als Viewer den Chat eines Projekts öffnen, sehen Sie jetzt, dass das Eingabefeld mit Begründung gesperrt ist, statt eine Frage einzugeben, die beim Senden fehlschlägt. Die Mitgliederliste zeigt die Rolle, die jede Person tatsächlich hat, statt engere Rollen auf „Viewer“ abzurunden."
+  },
+  {
+    "en": "A Word, Excel, PowerPoint, PDF or image file the agent makes in a chat now arrives as a file card with its first page, to open, download or file into the project as a draft for review. You see what you got before you keep it, and a rewrite shows the new version instead of a second card.",
+    "de": "Eine Word-, Excel-, PowerPoint-, PDF- oder Bilddatei, die der Agent in einem Chat erstellt, wird jetzt als Dateikarte mit der ersten Seite angezeigt – zum Öffnen, Herunterladen oder Ablegen im Projekt als Entwurf zur Prüfung. Sie sehen, was Sie erhalten, bevor Sie die Datei übernehmen, und bei einer Überarbeitung wird die neue Version statt einer zweiten Karte angezeigt."
   },
   {
     "en": "A background task now works with the same knowledge as the chat: it reads the project memory, writes its own notes and checks its report against what the project already knows.",
@@ -316,6 +324,10 @@
     "de": "Eine Datei wird auch gefunden, wenn die Antwort ihren Namen anders groß schreibt oder wenn sie als Beilage in diesem Chat hochgeladen wurde."
   },
   {
+    "en": "A file made from a project document can be filed as its next Fassung with a short note of what changed, and a draft you no longer need can be deleted from the chat.",
+    "de": "Eine aus einem Projektdokument erstellte Datei kann mit einer kurzen Notiz zu den Änderungen als nächste Fassung abgelegt werden. Einen Entwurf, den Sie nicht mehr benötigen, können Sie aus dem Chat löschen."
+  },
+  {
     "en": "A file named with a split term („Gehalts-Abrechnung“) or with invisible characters is now stopped by the name check too.",
     "de": "Eine Datei mit einem durch Bindestrich getrennten Begriff („Gehalts-Abrechnung“) oder unsichtbaren Zeichen im Namen wird jetzt ebenfalls von der Namensprüfung blockiert."
   },
@@ -326,6 +338,10 @@
   {
     "en": "A file opened beside the chat now shows its format, page count and size under its name, and a PDF's page number and zoom float over its pages. You see what you are asking about before you ask.",
     "de": "Eine neben dem Chat geöffnete Datei zeigt jetzt unter ihrem Namen Format, Seitenanzahl und Größe an; bei PDFs werden Seitenzahl und Zoom über den Seiten eingeblendet. So sehen Sie, worauf sich Ihre Frage bezieht, bevor Sie sie stellen."
+  },
+  {
+    "en": "A file or draft {productName} made is now in the project as soon as you file it, signed off by you like your own upload, and {productName} can cite it in later answers, marked as made by {productName}.",
+    "de": "Sobald Sie eine von {productName} erstellte Datei oder einen Entwurf ablegen, ist die Datei bzw. der Entwurf im Projekt und von Ihnen wie Ihr eigener Upload freigegeben; {productName} kann sich in späteren Antworten darauf beziehen, gekennzeichnet als von {productName} erstellt."
   },
   {
     "en": "A file that Piloti cannot load now fails, with a reason that says so.",
@@ -402,6 +418,10 @@
   {
     "en": "A file you upload no longer shows you as having approved it. Nobody reviewed it, and the history now says so.",
     "de": "Bei einer von Ihnen hochgeladenen Datei wird nicht mehr angezeigt, dass Sie sie genehmigt haben. Niemand hat sie geprüft, und der Verlauf zeigt das jetzt."
+  },
+  {
+    "en": "A file {productName} changed after you filed it now updates the project document in one click, and the card warns you first when someone else has changed that document.",
+    "de": "Wenn sich eine Datei {productName} nach dem Ablegen geändert hat, können Sie jetzt das Projektdokument mit einem Klick aktualisieren. Die Karte warnt Sie vorher, wenn jemand anderes das Dokument geändert hat."
   },
   {
     "en": "A filed Recherchebericht now always lands in the project its research was run for. Before, a report from a run started outside a project, or from an older run reopened while another project was open, could end up in the wrong project, with that project's Bundesland on its cover sheet.",
@@ -1492,6 +1512,10 @@
     "de": "Fragen Sie im Chat, wie sich die Gebäudeklasse eines bestehenden Gebäudes durch die geplanten Arbeiten ändert: Die Antwort nennt die aktuelle und die künftige Gebäudeklasse, was für die Entscheidung noch fehlt und welches Dokument die Frage klärt."
   },
   {
+    "en": "Ask the assistant to compare any two files you pick with # in the chat, not only two versions of one document. Two lists, such as room lists in Excel, CSV or a table in a PDF, are compared row by row: which rows differ and in which column, which rows only one file has, and where each stands in both files.",
+    "de": "Lassen Sie den Assistenten beliebige zwei Dateien Ihrer Wahl mit # im Chat vergleichen, nicht nur zwei Versionen desselben Dokuments. Zwei Listen, etwa Raumlisten in Excel, CSV oder als Tabelle in einem PDF, werden zeilenweise verglichen: Welche Zeilen sich unterscheiden und in welcher Spalte, welche Zeilen nur in einer Datei vorkommen und an welcher Stelle sie in beiden Dateien stehen."
+  },
+  {
     "en": "Asked for an Excalidraw diagram or a sketch, Piloti now draws it, and you can open the drawing as a sketch to rework it, instead of being told it cannot. Asked about itself, such as whether it works inside your own assistant, Piloti now answers instead of searching your files.",
     "de": "Wenn Sie Piloti um ein Excalidraw-Diagramm oder eine Skizze bitten, erstellt es diese jetzt. Sie können die Zeichnung als Skizze öffnen und weiterbearbeiten, statt die Meldung zu erhalten, dass dies nicht möglich ist. Fragen Sie Piloti nach sich selbst, etwa ob es in Ihrem eigenen Assistenten funktioniert, antwortet es jetzt, statt Ihre Dateien zu durchsuchen."
   },
@@ -2524,6 +2548,10 @@
     "de": "Im Chat können Sie jetzt eine DXF-Zeichnung vermessen: wie weit ein Haus von jeder Grundstücksgrenze entfernt ist, wie lang die Grenze zum Nachbarn ist und welche Fläche nach den von Ihnen angegebenen Abständen und der Bebauungsdichte noch bebaubar ist."
   },
   {
+    "en": "In the derivation, a source card read across many pages no longer lists every page one by one. It names the pages as ranges, shows the first three, and counts the rest, so the card stays readable.",
+    "de": "In der Ableitung listet eine Quellenkarte mit vielen Seiten nicht mehr jede Seite einzeln auf. Stattdessen fasst sie Seiten zu Bereichen zusammen, zeigt die ersten drei an und zählt die übrigen, damit die Karte übersichtlich bleibt."
+  },
+  {
     "en": "In the derivation, project documents, the Office filing and chat attachments now each have their own label and color instead of all appearing as building law.",
     "de": "In der Herleitung haben Projektdokumente, die Büroablage und Chat-Anhänge jetzt jeweils eine eigene Kennzeichnung und Farbe, statt alle als Baurecht zu erscheinen."
   },
@@ -3392,6 +3420,10 @@
     "de": "Das Lesen eines hochgeladenen Dokuments zählt jetzt zu den Ausgaben Ihres Büros und wird dem Projekt und der hochladenden Person zugeordnet. Bisher fehlten in den Ausgaben alle Kosten eines Uploads, und Uploads, die gerade laufen, werden nicht durch ein Budget gestoppt."
   },
   {
+    "en": "Reading uploaded documents in no longer uses up your daily and monthly limit: it has its own allowance per month, three times your monthly limit, and Verbrauch & Budgets shows it separately. A large upload at the start of a project now leaves the day's allowance for your questions.",
+    "de": "Das Lesen hochgeladener Dokumente belastet Ihr Tages- und Monatslimit nicht mehr: Dafür steht Ihnen monatlich ein eigenes Kontingent in dreifacher Höhe Ihres Monatslimits zur Verfügung, das unter Verbrauch & Budgets separat angezeigt wird. Ein großer Upload zu Projektbeginn lässt Ihr Tageslimit nun für Ihre Fragen unangetastet."
+  },
+  {
     "en": "Refreshing a project's search or restoring a folder from the Papierkorb does not take a file out of quarantine. A release does.",
     "de": "Das Auffrischen der Suche eines Projekts oder das Wiederherstellen eines Ordners aus dem Papierkorb holt eine Datei nicht aus der Quarantäne. Das tut nur eine Freigabe."
   },
@@ -3524,6 +3556,10 @@
     "de": "Sehen Sie, was eine neue Fassung geändert hat: Filtern Sie nach Dokumenten, deren Angaben von der ersetzten Fassung abweichen, etwa eine neue Gebäudeklasse oder ein Geschoss mehr, und jeder Treffer nennt die Änderung mit altem und neuem Wert. Die Filterleiste sagt außerdem, wie viele Dokumente Piloti noch nicht gelesen hat, damit eine Zahl nie den Eindruck erweckt, ihnen fehle ein Wert."
   },
   {
+    "en": "Select text in an answer and choose „Dazu fragen“ to ask about exactly that part, which appears above the message field until you send or remove it. A follow-up no longer has to describe or retype the sentence it means.",
+    "de": "Wählen Sie Text in einer Antwort aus und klicken Sie auf „Dazu fragen“, um genau dazu eine Frage zu stellen. Der ausgewählte Text erscheint über dem Nachrichtenfeld, bis Sie ihn senden oder entfernen. Bei einer Nachfrage müssen Sie den gemeinten Satz nicht mehr beschreiben oder erneut eingeben."
+  },
+  {
     "en": "Send a draft back with Änderungen anfordern and Piloti revises it from your reason, producing the next version of the same document rather than a second one.",
     "de": "Geben Sie einen Entwurf mit „Änderungen anfordern“ zurück, überarbeitet Piloti ihn anhand Ihrer Begründung; es entsteht die nächste Fassung desselben Dokuments, kein zweites."
   },
@@ -3546,6 +3582,10 @@
   {
     "en": "Several annotations reaching you at once, such as the morning's due date reminders or a batch handed over to you, now arrive as one notification on your devices that says how many are due and how many are overdue.",
     "de": "Mehrere Anmerkungen, die Sie gleichzeitig erreichen, etwa die morgendlichen Fälligkeitserinnerungen oder ein an Sie übergebener Stapel, werden auf Ihren Geräten nun in einer einzigen Benachrichtigung zusammengefasst, die angibt, wie viele fällig und wie viele überfällig sind."
+  },
+  {
+    "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",
+    "de": "Mehrere Chats können jetzt gleichzeitig antworten: Während ein Chat noch verarbeitet wird, können Sie einen anderen öffnen oder einen neuen starten. Wenn Sie zurückkommen, ist die erste Antwort fertig. In der Chatliste und in der Seitenleiste sehen Sie, welcher Chat gerade verarbeitet wird, auf Ihre Antwort wartet oder dessen Antwort bereitsteht bzw. fehlgeschlagen ist."
   },
   {
     "en": "Sheets that show several drawings at once, such as two floor plans side by side, are now read drawing by drawing instead of as one merged description. The detail view also says which drawing on the sheet each entry describes.",
@@ -4230,6 +4270,10 @@
   {
     "en": "The list of references now always sits beside the document and shows which passage you are reading, and the toolbar shows the page you are on.",
     "de": "Die Fundstellenliste steht jetzt immer neben dem Dokument und zeigt, welche Stelle Sie gerade lesen, und die Werkzeugleiste zeigt die aktuelle Seite."
+  },
+  {
+    "en": "The list of subprocessors now names Google Workspace and Attio. They handle enquiries sent through the contact and demo forms on our website, and they receive none of your office's project data.",
+    "de": "Die Liste der Unterauftragsverarbeiter führt jetzt Google Workspace und Attio auf. Sie bearbeiten Anfragen über die Kontakt- und Demoformulare auf unserer Website und erhalten keine Projektdaten Ihres Büros."
   },
   {
     "en": "The list of what changed each week is back on the website, under \"What's new\" in the footer, in German and English. The newest week opens with its new features, and every section of every week is one click away.",
@@ -5164,6 +5208,10 @@
     "de": "Wenn Sie ein Rechteck zeichnen und Piloti dazu befragen, antwortet Piloti wieder zu diesem Rechteck. Eine Frage mit @Piloti in einer Anmerkung wird im zugehörigen Thread beantwortet. Alle sehen im Thread, wenn Piloti daran arbeitet – auch nach dem Neuladen. Kann Piloti nicht antworten, steht im Thread, warum."
   },
   {
+    "en": "When you file a draft or a file {productName} made into the project, a small dialog now lets you pick the folder, or start a new one, and change the name while the file keeps its extension. The card then says which folder the draft is in, so you find it again without searching.",
+    "de": "Wenn Sie einen Entwurf oder eine mit {productName} erstellte Datei im Projekt ablegen, können Sie jetzt in einem kleinen Dialog den Ordner auswählen oder einen neuen anlegen und den Namen ändern, während die Dateiendung erhalten bleibt. Auf der Karte sehen Sie anschließend, in welchem Ordner sich der Entwurf befindet, damit Sie ihn ohne Suchen wiederfinden."
+  },
+  {
     "en": "When you mention Piloti in an annotation's thread, or hand an open annotation to Piloti, your inbox tells you when it is done or when it has a question for you. Taking an annotation back from Piloti stops the work.",
     "de": "Wenn Sie Piloti im Thread einer Anmerkung erwähnen oder Piloti eine offene Anmerkung übergeben, informiert Sie Ihre Inbox, sobald die Aufgabe erledigt ist oder Piloti eine Rückfrage hat. Wenn Sie eine Anmerkung von Piloti zurücknehmen, wird die Arbeit gestoppt."
   },
@@ -5510,6 +5558,14 @@
   {
     "en": "Zero data retention is on by default for every organization, and it covers AI requests for chat, document reading, search and research reports unless an admin switches it off under Organization → Models. Where a provider offers EU hosting, Piloti prefers it; that is a preference, not a guarantee of where data is processed.",
     "de": "Zero Data Retention ist für jede Organisation standardmäßig aktiviert und gilt für KI-Anfragen zu Chat, Dokumentlesen, Suche und Recherche-Berichten, solange ein Admin sie nicht unter Organisation → Modelle abschaltet. Bietet ein Anbieter EU-Hosting, bevorzugt Piloti ihn; das ist eine Präferenz und keine Garantie dafür, wo Daten verarbeitet werden."
+  },
+  {
+    "en": "{productName} can now lay out a PDF like a designed report, draw diagrams such as a process or a schedule, and make a picture of a page or a chart, for a Word file or a presentation.",
+    "de": "{productName} kann jetzt ein PDF wie einen gestalteten Bericht layouten, Diagramme wie Abläufe oder Zeitpläne zeichnen und Bilder von Seiten oder Diagrammen für Word-Dateien oder Präsentationen erstellen."
+  },
+  {
+    "en": "{productName} can now make real Word, Excel, PowerPoint and PDF files and calculate exactly, so totals and ratios are worked out rather than estimated. When you ask, it files them into the project as drafts, marked as made by AI, for you to check and send for review.",
+    "de": "{productName} kann jetzt echte Word-, Excel-, PowerPoint- und PDF-Dateien erstellen und exakt berechnen, sodass Summen und Verhältnisse berechnet statt geschätzt werden. Auf Ihre Anfrage legt es sie als Entwürfe im Projekt ab, gekennzeichnet als von KI erstellt, damit Sie sie prüfen und zur Prüfung weiterleiten können."
   },
   {
     "en": "Übersicht now stands with the project's other sections, under the project switcher, rather than at the foot of the sidebar among the organisation's Büroablage, Suche and Postfach.",

@@ -1,10 +1,11 @@
+// @disk-inputs: app/api/**
 /**
  * @vitest-environment node
  *
  * Signed internal routes and the proxy exclusion are one decision, held from
  * both sides.
  *
- * `src/proxy.ts` leaves `/api/internal/signed/` off its matcher so a raw body
+ * `proxy.ts` leaves `/api/internal/signed/` off its matcher so a raw body
  * reaches the route unbuffered: behind the proxy, a body above
  * `proxyClientMaxBodySize` is cut short without an error. So a route guarded by
  * a signature must live under that folder, and a route in that folder must be
@@ -13,27 +14,37 @@
  * run time (`assertSignedPath`); this catches it before anyone calls it.
  */
 import { describe, expect, it } from 'vitest'
-import { readdirSync, readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { dirname, join, relative } from 'node:path'
+import { callsTo, parseSource, parseSourceText, productionSources, ts } from '@/test-utils/source-ast'
 import { SIGNED_INTERNAL_PREFIX } from './handler'
 
-const API_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../app/api')
-const SIGNED_FOLDER = SIGNED_INTERNAL_PREFIX.replace(/^\/api\//, '')
+const WORKSPACE = join(dirname(fileURLToPath(import.meta.url)), '../..')
+const API_PREFIX = 'app/api/'
+const SIGNED_FOLDER = SIGNED_INTERNAL_PREFIX.slice('/api/'.length)
 
-function findRouteFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) return findRouteFiles(path)
-    return entry.name === 'route.ts' ? [path] : []
-  })
+function propertyNamed(object: ts.ObjectLiteralExpression, key: string): ts.ObjectLiteralElementLike | undefined {
+  return object.properties.find(
+    (property) =>
+      !ts.isSpreadAssignment(property) &&
+      property.name !== undefined &&
+      ts.isIdentifier(property.name) &&
+      property.name.text === key
+  )
 }
 
-function declaresSignature(source: string): boolean {
-  return /\binternalApiRoute\s*\(/.test(source) && /\bauth:\s*\{\s*signature:/.test(source)
+function declaresSignature(source: ts.SourceFile): boolean {
+  return callsTo(source, 'internalApiRoute').some((call) =>
+    call.arguments.some((argument) => {
+      if (!ts.isObjectLiteralExpression(argument)) return false
+      const auth = propertyNamed(argument, 'auth')
+      if (!auth || !ts.isPropertyAssignment(auth) || !ts.isObjectLiteralExpression(auth.initializer)) return false
+      return propertyNamed(auth.initializer, 'signature') !== undefined
+    })
+  )
 }
 
-function placementProblems(file: string, source: string): string[] {
+function placementProblems(file: string, source: ts.SourceFile): string[] {
   const inSignedFolder = file.startsWith(SIGNED_FOLDER)
   const signed = declaresSignature(source)
   if (signed && !inSignedFolder) return [`${file}: a signed route outside ${SIGNED_INTERNAL_PREFIX} sits behind the proxy`]
@@ -41,10 +52,12 @@ function placementProblems(file: string, source: string): string[] {
   return []
 }
 
-const ROUTES = findRouteFiles(API_DIR).map((absolute) => ({
-  file: relative(API_DIR, absolute).replace(/\\/g, '/'),
-  source: readFileSync(absolute, 'utf8'),
-}))
+const ROUTES = productionSources(WORKSPACE)
+  .filter((file) => file.startsWith(API_PREFIX) && file.endsWith('/route.ts'))
+  .map((file) => ({
+    file: file.slice(API_PREFIX.length),
+    source: parseSource(file, WORKSPACE),
+  }))
 
 describe('signed internal routes', () => {
   it('finds the route surface (a broken walk would pass vacuously)', () => {
@@ -56,8 +69,11 @@ describe('signed internal routes', () => {
   })
 
   it('catch both misplacements (the check above is not vacuous)', () => {
-    const signed = `export const POST = internalApiRoute('x', run, { auth: { signature: { keysEnv: 'K' } }, tenancy })`
-    const token = `export const POST = internalApiRoute('x', run, { tenancy })`
+    const signed = parseSourceText(
+      `export const POST = internalApiRoute('x', run, { auth: { signature: { keysEnv: 'K' } }, tenancy })`,
+      'route.ts'
+    )
+    const token = parseSourceText(`export const POST = internalApiRoute('x', run, { tenancy })`, 'route.ts')
 
     expect(placementProblems('internal/memory/route.ts', signed)).toHaveLength(1)
     expect(placementProblems(`${SIGNED_FOLDER}inbound-mail/route.ts`, token)).toHaveLength(1)

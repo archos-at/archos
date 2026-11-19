@@ -49,7 +49,7 @@ that closes a loop is named where it ran.
 | A | The Punkt and the retrieval score are parsed off the grounding block, fold under page dedup, reach the wire and the stored message, and the locus reads "Pkt. 3.5.2 · S. 7" | `citation_verification.py`, `features/chat/lib/citations/*`, `SourcePreview.tsx`, `CitationPeek.tsx` |
 | A | The turn's retrieval query survives the storage prune and the server whitelist, so a reloaded or shared thread keeps what was searched | `prune-message-for-storage.ts`, `message-provenance.ts`, `turn-events.ts` |
 | A · pass | The structural retrievability harness runs in CI as a gate (`task be:eval:retrieval`, 95% floor, 98.3% measured). *(Retired 2026-09-09: the corpus became operator-provided and gitignored, so no CI checkout can measure it. The harness stays as a local tool — [ADR-0058, Update (2026-09-09)](../adr/0058-retrieval-correctness-and-the-measurement-gate.md).)* | `Taskfile.yml`, `evals/oib-retrieval/src/oib_retrieval/runner.py` |
-| B | A background run carries the project, organization and user identity, fetches the live memory digest, composes it into the agent's context and hands the reflection pass a real digest; the fire path builds the digest and evaluates the reflection flag | `agent_host/jobs/runner.py`, `routes/skills.py`, `lib/jobs/service.ts` |
+| B | A background run carries the project, organization and user identity, fetches the live memory digest, composes it into the agent's context and hands the reflection pass a real digest; the fire path builds the digest and evaluates the reflection flag | `agent_host/jobs/runner.py`, `agent_host/jobs/report_passes.py`, `routes/skills.py`, `lib/jobs/service.ts` |
 | B | A finished or failed run tells the job's creator: `job.completed` / `job.failed` inbox items, a `project` inbox target, an internal outcome route the worker calls from its terminal arms | `lib/inbox/*`, `app/api/internal/jobs/[jobId]/outcome`, `agent_host/jobs/outcome_notify.py` |
 | B | One personal-data guard on the write path both memory writers share; a date is no longer dropped as a phone number | `knowledge/project_memory.py` |
 | B | Accepted and declined proposals reach the next turn as a `PROPOSAL_DECISIONS` block on the memory channel | `lib/projects/proposal-decisions.ts`, `system.j2` |
@@ -61,7 +61,7 @@ that closes a loop is named where it ran.
 | D · L0 | The turn's one repair: a failed citation or quote triggers one retrieval aimed at the failing text and one rewrite, re-verified, the better answer ships (`repair_pass`, `status.repair`). (Superseded by ADR-0067: a misremembered quote is corrected in place, quote_patch.py; repair_pass is the off switch.) | `core/agent.py` |
 | D · L1 | The retrieval loop: a sufficiency judge beside the reranker, alternative formulations retrieved from every collection and fused into the same RRF, a second rerank; `status.retrieval.requery` on the live line and `requery_queries` in the trace | `knowledge_layer/search/requery.py`, `register.py`, `config_oib_openrouter.yml` |
 | D · L5 | The turn holds for an attachment still being indexed (`INGEST_WAIT_SECONDS`, `status.documents.waiting`), re-reads the inventory when it finishes; the in-flight filter that never fired is fixed | `core/conversation_register.py`, `knowledge/ingest_status_store.py` |
-| fix | Deep research no longer dies of one slow source: a tool's own timeout is a tool error the model routes around; the writer's call bound matches its output (600 s, one retry); a budget exhaustion keeps its actionable message; the banner names the real cause | `deep_researcher/tools/source_tool_batching.py`, `deep_researcher/agent.py`, `jobs/runner.py`, `config_oib_openrouter.yml` |
+| fix | Deep research no longer dies of one slow source: a tool's own timeout is a tool error the model routes around; the writer's call bound matches its output (600 s, one retry); a budget exhaustion keeps its actionable message; the banner names the real cause | `deep_researcher/tools/source_tool_batching.py`, `deep_researcher/agent.py`, `jobs/job_errors.py`, `config_oib_openrouter.yml` |
 | B | Reinforcement fires only on a build ranked against a question; a refused supersede is recorded as `conflicts_with_id` on the new row (migration 0076); every bound tool's context needs are declared (`TOOL_CONTEXT_REQUIREMENTS`) and checked against what the job worker injects | `lib/projects/memory-service.ts`, `project_context.py`, `packages/agent/tests/test_tool_context_contract.py` |
 | delete | `card_generator_llm` (a field nothing read), the unmaintained `config_grid_oib.yml`, the two-hop research → history → chat redirect, and the backlog lines closed at HEAD | `core/conversation_register.py`, `configs/`, `docs/audit/overnight-run-backlog.md` |
 | C | The `tasks` row (ADR-0051): one per attempt, requester pinned, plan frozen, lifecycle and review as separate axes; a scheduled deep-research report is filed at completion as the requester through the outcome callback; a rejection's reason reaches the next run's prompt as `PREVIOUS_DECISIONS`; audit `task.created` / `task.completed` / `task.reviewed`; `GET …/tasks`, `POST …/tasks/[taskId]/review` | `lib/tasks/*`, `lib/auth/pinned-session.ts`, `migrations/0075_tasks.sql`, `jobs/outcome_notify.py` |
@@ -269,7 +269,7 @@ absent**:
 1. **The autonomous surfaces run without memory.** `fireJob` sends the
    project prompt view and no digest (`lib/jobs/service.ts:362-391`); the job
    runner hands the reflection pass the *profile* as its memory digest
-   (`jobs/runner.py:1474`), so on a scheduled run supersede quotes cannot
+   (`jobs/report_passes.py`), so on a scheduled run supersede quotes cannot
    resolve and findings that appear in the profile text are suppressed. The
    surfaces closest to "the agent takes over work" are the ones with stale or
    no memory.
@@ -303,7 +303,7 @@ What a delegated task needs, and what already exists for each:
 | Execution | Two correct DB-claimed worker tiers (`FOR UPDATE SKIP LOCKED`, heartbeat, stale reclaim, leader-elected reaper) | `agent_host/jobs/queue.py`, `scheduler/db.js`, `purger/db.js` | One shared claim library; a `kind` on the queue so a non-research step can be queued; a migration and RLS for `research_job_queue`, which is created by runtime DDL |
 | Trigger | A job: prompt, optional skill snapshot, output kind, cron | `schema/jobs.ts:98` | An overlap policy (`skip_if_running` / `queue`); an event trigger of any kind |
 | Playbook | Skills: versioned, org-owned, platform-shadowable, snapshotted, progressively disclosed | `skills/resolver.py`, `runtime.py` | Nothing. This is the most finished part |
-| Plan + approval | The clarifier's plan preview with approve / short answer / cancel | `core/clarify.py` (`preview_plan`) | It is an `asyncio` future on a live socket. A job has no socket, so it cannot be approved |
+| Plan + approval | The clarifier's plan preview with approve / short answer / cancel | `core/clarify_plan.py` (`preview_plan`) | It is an `asyncio` future on a live socket. A job has no socket, so it cannot be approved |
 | Artifact | `fileGeneratedDocument`, `authored_by` / `authored_by_producer`, the "KI-generiert — nicht geprüft" block, deliberately not indexed | `lib/documents/generated.ts`, migration 0063 | Filing happens only on an interactive report GET. A scheduled run's report expires with `job_info` in 24 h and is filed by nobody (`api/jobs/async/[...path]/route.ts:237-245`) |
 | Notification | Inbox with six typed items, per-filter empty states, deep links that hold the anchor | `schema/inbox.ts:45-63`, `lib/inbox/registry.ts` | No `task.*` or `job.*` type. ADR-0035 priced one at "a registry entry plus two translations" and named a failed workflow run as the motivating case |
 | Review | Assignment *is* approval for a filed report ("being answerable for the content is the approval") | `agent-authored-reports.md:107-111` | No queue of agent output awaiting a human. The `Unvergeben + Vom Agenten` filter is one page in one project |
@@ -497,7 +497,7 @@ Nothing new; each line joins two things that are built.
 
 | Change | Module |
 |---|---|
-| Send the live memory digest on the job fire path; fetch it in the worker's reflection pass instead of passing the profile | `lib/jobs/service.ts:362-391`, `agent_host/jobs/runner.py:1409-1477` |
+| Send the live memory digest on the job fire path; fetch it in the worker's reflection pass instead of passing the profile | `lib/jobs/service.ts:362-391`, `agent_host/jobs/report_passes.py` |
 | Re-inject `x-grid-project-id` / `x-grid-organization-id` in the runner so `remember` works on deep research; a startup check that every bound tool can run in its context | `jobs/runner.py:749-785`, `packages/agent/tests/test_config_tool_wiring.py` |
 | Two inbox types, `task.completed` and `task.failed` (today keyed on the job run) | `lib/inbox/registry.ts`, `schema/inbox.ts:45` |
 | A project-wide "Läufe" tab in Automation from the existing per-job run history | `automation-panel.tsx`, `job-run-history.tsx` |
@@ -521,7 +521,7 @@ The one new table, and the seams that already exist hung off it.
 | Change | Module | Kind |
 |---|---|---|
 | `tasks` table with lifecycle, pinned requester, plan, budget, deadline, concurrency policy; `jobs` creates tasks | `apps/workspace/bff/db/schema/tasks.ts`, `lib/tasks/`, migration with `secure_table` | new row, generalises `jobs`/`job_runs`/`mention_requests` |
-| Persist the clarifier's plan on the task; approval is a row transition resolved by an event, not a socket future | `core/clarify.py` (`preview_plan`), `lib/tasks/` | generalisation |
+| Persist the clarifier's plan on the task; approval is a row transition resolved by an event, not a socket future | `core/clarify_plan.py` (`preview_plan`), `lib/tasks/` | generalisation |
 | File the run's artifact at completion as the pinned requester, off the interactive GET | `lib/documents/research-report.ts`, `api/jobs/async/[...path]/route.ts:247` | generalisation; the route comment names this as "v1.1, decision 10" |
 | Audit actions `task.created … task.accepted`; per-task budget and deadline enforced by `CostTracker` and `BudgetGuardCallback` | `lib/audit/schemas.mjs`, `common/budget_guard.py`, `lib/request-context.ts` | generalisation |
 | A review surface: the `Unvergeben + Vom Agenten` preset becomes the inbox row's landing view; accept / reject / edit writes a decision the next run reads | `documents/lib/file-filters.ts:20,80`, `file-filter-menu.tsx` | generalisation |

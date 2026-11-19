@@ -3,11 +3,13 @@ import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { backendAutoscaled } from '../config/chat-tier'
 import { CLAMAV } from "../clamav-constants";
-import { EDGE_RATE_LIMIT, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
+import { BACKFILL_POD, EDGE_RATE_LIMIT, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 import { PUBLIC_SOURCE_FETCHER } from "../app/public-source-fetcher";
+import { BROWSER_RENDERER } from "../app/browser-renderer";
+import { CODE_RUNNER } from "../app/code-runner";
 import { LOG_SHIPPER } from "../config/observability";
 import { HEALTH_PORT, OTLP_GRPC_PORT, OTLP_HTTP_PORT, SHIPPER_OTLP_PORT } from "./collector-config";
 import { METRICS_EXPORT_PORT } from "./otel-collector";
@@ -19,6 +21,10 @@ const CLICKHOUSE = LANGFUSE.clickhouse;
 const OTEL_COLLECTOR = "otel-collector";
 const OTEL_AGENT_POD = { podSelector: { matchLabels: { "app.kubernetes.io/name": "otel-agent" } } };
 
+export const CNPG_INSTANCE_LABEL = "cnpg.io/cluster";
+
+export const CNPG_POOLER_LABEL = "cnpg.io/poolerName";
+
 export const LANGFUSE_BACKEND_CALLERS = [...CHAT_TIERS, ...API_TIERS, "agent-worker"] as const;
 
 export const QDRANT_CALLERS = [
@@ -29,6 +35,7 @@ export const QDRANT_CALLERS = [
   "ingest-worker-heavy",
   QDRANT.snapshotJob,
   QDRANT.opsLabel,
+  BACKFILL_POD,
 ] as const;
 
 export function installNetworkPolicies(
@@ -62,6 +69,8 @@ export function installNetworkPolicies(
           values: [
             ...langfuseWithheld,
             ...(cfg.gotenberg.enabled ? [GOTENBERG.name] : []),
+            ...(cfg.codeRunner.enabled ? [CODE_RUNNER.name] : []),
+            ...(cfg.browserRenderer.enabled ? [BROWSER_RENDERER.name] : []),
             ...(cfg.malwareScan.enabled ? [CLAMAV.name] : []),
             PUBLIC_SOURCE_FETCHER.name,
             QDRANT.name,
@@ -75,10 +84,14 @@ export function installNetworkPolicies(
     ingress: [{ from: [{ podSelector: {} }] }],
   });
 
+  const cnpgManaged = (label: string) => ({ matchExpressions: [{ key: label, operator: "Exists" }] });
   const cnpg = mk("allow-cnpg-operator", {
-    podSelector: cfg.posthog.logsEnabled
-      ? { matchExpressions: [{ key: "app.kubernetes.io/name", operator: "NotIn", values: [OTEL_COLLECTOR] }] }
-      : {},
+    podSelector: cnpgManaged(CNPG_INSTANCE_LABEL),
+    policyTypes: ["Ingress"],
+    ingress: [{ from: [nsLabel("cnpg-system")] }],
+  });
+  const cnpgPooler = mk("allow-cnpg-operator-to-pooler", {
+    podSelector: cnpgManaged(CNPG_POOLER_LABEL),
     policyTypes: ["Ingress"],
     ingress: [{ from: [nsLabel("cnpg-system")] }],
   });
@@ -234,6 +247,45 @@ export function installNetworkPolicies(
       })
     : undefined;
 
+  const codeRunner = cfg.codeRunner.enabled
+    ? mk("code-runner-agent-only", {
+        podSelector: { matchLabels: { "app.kubernetes.io/name": CODE_RUNNER.name } },
+        policyTypes: ["Ingress", "Egress"],
+        ingress: [
+          {
+            from: CODE_RUNNER.callers.map((name) => ({
+              podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
+            })),
+            ports: [{ protocol: "TCP", port: CODE_RUNNER.port }],
+          },
+        ],
+        egress: cfg.browserRenderer.enabled
+          ? [
+              {
+                to: [{ podSelector: { matchLabels: { "app.kubernetes.io/name": BROWSER_RENDERER.name } } }],
+                ports: [{ protocol: "TCP", port: BROWSER_RENDERER.port }],
+              },
+            ]
+          : [],
+      })
+    : undefined;
+
+  const browserRenderer = cfg.browserRenderer.enabled
+    ? mk("browser-renderer-code-runner-only", {
+        podSelector: { matchLabels: { "app.kubernetes.io/name": BROWSER_RENDERER.name } },
+        policyTypes: ["Ingress", "Egress"],
+        ingress: [
+          {
+            from: BROWSER_RENDERER.callers.map((name) => ({
+              podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
+            })),
+            ports: [{ protocol: "TCP", port: BROWSER_RENDERER.port }],
+          },
+        ],
+        egress: [],
+      })
+    : undefined;
+
   const kedaOperator = [{ ...nsLabel(KEDA_NAMESPACE), podSelector: { matchLabels: { ...KEDA_OPERATOR_LABEL } } }];
 
   const kedaToBackend = backendAutoscaled(cfg)
@@ -374,6 +426,7 @@ export function installNetworkPolicies(
     deny,
     intra,
     cnpg,
+    cnpgPooler,
     ...(kedaToBackend ? [kedaToBackend] : []),
     edgeFrontend,
     edgeS3,
@@ -387,6 +440,8 @@ export function installNetworkPolicies(
     ...(backendToLangfuse ? [backendToLangfuse] : []),
     ...(langfuseToClickhouse ? [langfuseToClickhouse] : []),
     ...(gotenberg ? [gotenberg] : []),
+    ...(codeRunner ? [codeRunner] : []),
+    ...(browserRenderer ? [browserRenderer] : []),
     ...(clamav ? [clamav] : []),
     appToQdrant,
     qdrantPeers,

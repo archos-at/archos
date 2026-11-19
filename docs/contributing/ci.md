@@ -8,15 +8,16 @@ Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 
 | Job to do | When | Where | Gate? |
 |---|---|---|---|
-| Prove a pull request, applied to its base, keeps every check its change could break | every push to a PR | `ci.yml` | **Yes: `CI OK`**, meant as the one required status check. On 2026-11-03 the `protect-develop` ruleset required none, so a red pull request could merge: [ci-north-star.md](ci-north-star.md#decisions-only-an-owner-can-make) |
+| Prove a pull request, applied to its base, keeps every check its change could break | the light check on every push to a PR, the full suite with the label `ci:full` | `ci.yml` | **Yes: `CI OK`**, meant as the one required status check. On 2026-11-03 the `protect-develop` ruleset required none, so a red pull request could merge: [ci-north-star.md](ci-north-star.md#decisions-only-an-owner-can-make) |
 | Prove the merged result, build its images, tag them for the commit | every push to `develop` and `release/**` | `ci.yml` | It is what the deploy waits for |
 | Put a green `develop` commit on staging | after a green push run of CI | `deploy.yml` | Staging only ever runs a commit CI passed |
 | Put the pinned commit on production | push to `prod`, with reviewers | `deploy.yml` | The `production` environment's reviewers |
 | Notice what turns red without a code change: new CVEs, a secret in history, external links, model drift, WorkOS drift | weekly | `security.yml`, `docs-links.yml`, `turn-shapes-live.yml`, `workos-drift.yml` | No. A red run is a finding to triage |
 | PR hygiene: Conventional title, closing keywords, labels | PR events | `pr.yml` | The title check |
 | Publish the changelog | merge touching `releasenotes/` | `release-notes.yml` | No |
+| Build the dev cluster's CI runner image ([ADR-0184](../adr/0184-pull-request-ci-runs-on-runners-in-the-dev-cluster.md)) | a pull request that changes `deploy/ci-runner/` builds it; dispatched on `develop`, it pushes it | `ci-runner-image.yml` | No |
 | Merge Dependabot's minor and patch updates once `CI OK` passes | Dependabot pull requests | `dependabot-auto-merge.yml` | `CI OK`, through auto-merge ([setup](testing-and-verification.md)) |
-| Close a pull request opened since 2026-11-18 after 10 days without activity (`stale` label at 7, closed at 10; `keep-open` and Dependabot exempt) | daily | `stale-prs.yml` | No |
+| Close a pull request opened since 2026-11-18 after 10 days without activity (`stale` label at 7, closed at 10; any push, comment, review or label change resets it; reopening undoes it; `keep-open` and Dependabot exempt, since a closed Dependabot PR makes it skip that version; issues untouched) | daily | `stale-prs.yml` | No |
 
 Everything else (`claude.yml`, `labels.yml`) is assistance, not verification. Pull requests are reviewed by the CodeRabbit app; the `claude-code-review.yml` workflow that reviewed them a second time was removed on 2026-11-04.
 
@@ -64,6 +65,38 @@ reaches production without anyone asking.
 It also lists the third-party image pins the change adds or moves
 ([`ci/pinned_images.py`](../../ci/pinned_images.py)), for trivy.
 
+**4. How much does this run owe?** A pull request gets the light check: Plan, the
+three Repo checks, Semgrep, the Workspace job, Website, Infra, Packages, CMS, the
+code runner end to end and trivy when touched, and the affected backend tests
+when testmon can select them.
+Those fail most and cost least. Backend core and suites, the Workspace tests, the
+Hatchet engine tests and the image builds run on the push to `develop` after the
+merge, the run the deploy to staging waits for, and production only ever gets a
+commit staging ran ([cd.md](../deployment/cd.md)). So staging and production are
+always proven in full, and a pull request in a few minutes
+([`ci/ci_depth.py`](../../ci/ci_depth.py)).
+
+Always full: every push, a pull request into `release/**`, a Dependabot pull
+request (it merges itself once `CI OK` passes), and a pull request labelled
+**`ci:full`**. The label is read when the run starts, so add it, then
+push or use **Re-run all jobs** (re-running only failed jobs keeps the light
+Plan). Use it for a change the light check cannot see: CI itself, a
+migration, a large refactor, or a Python change testmon cannot select tests for
+(the Plan summary says so), which otherwise gets no Python tests before the merge.
+Setting the repository variable `CI_LIGHT_RUNS` to `false` makes every pull
+request full again, without a revert.
+
+What a light run gives up: a break in the suites it skips shows on `develop`,
+not on the pull request. The deploy waits for a green push run, so it never
+reaches staging, but it holds staging for everyone until the next commit fixes
+it. Two things keep the shortcut sound. Every run, light or full, chooses its
+tests since the last *full* green run or against the base, never since a light
+one: a light run skipped tests, so its green proves nothing about them, and a
+change testmon cannot select for keeps its warning on every light push
+(`previous_green` in [`ci/pr_selection.py`](../../ci/pr_selection.py)). And only a
+full run leaves the `ci-green-<tree>` marker a push reuses, so a push after a
+light run always runs in full.
+
 ## The jobs
 
 | Job | Runs when | What it does |
@@ -72,20 +105,22 @@ It also lists the third-party image pins the change adds or moves
 | Repo checks, three legs side by side | unless reused | **lint, secrets** (`repo`): pre-commit on all files, ruff, gitleaks over the commits a PR adds (a push: its full history). **CI machinery tests** (`repo-tests`): `task be:test:harness`, the tests of `ci/`, the workflows and the release-note pipeline. **Release notes, skills, migrations** (`release-notes`): release-note lint and (PRs) the requirement, the agent-skill lockfile when the `skills` tier changed, and (PRs) the expand/contract check on added migrations (`ci/migration_contract.py`, label `migration:contract`). As one job they ran in series and finished last in 21 of 45 PR runs (2026-11-03) |
 | SAST (`semgrep`) | PRs touching code | Semgrep, diff-aware: blocks findings the PR introduces |
 | Backend affected tests (`backend-affected`) | PRs, backend tier, selection possible | per suite (core, agent_host, `sources`, the Python packages), only the tests the change reaches (`task be:test:affected`), plus the claim queues on Postgres |
-| Backend core (`backend`) | backend tier: pushes, and PRs testmon cannot select for | the core suite in 4 shards (`task be:test:shard`), each writing coverage data |
-| Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data, the 65% gate, the PR comment |
-| Backend suites (`backend-suites`) | backend tier | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the claim-queue suites on a real Postgres (`task be:test:postgres`) |
+| Backend core (`backend`) | backend tier: pushes, and `ci:full` PRs testmon cannot select for | the core suite in 4 shards (`task be:test:shard`), each writing coverage data |
+| Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data and applies the 65% gate; the total is in the job log and summary (a sticky PR comment listed only changed files, read "no changed files" on most PRs and re-notified every push, so it was removed) |
+| Backend suites (`backend-suites`) | backend tier: pushes, and `ci:full` PRs testmon cannot select for | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the claim-queue suites on a real Postgres (`task be:test:postgres`) |
 | Workspace (`workspace`) | workspace tier | card schema check, lint, types, and the tenant-isolation suite against a real Postgres |
-| Workspace tests (`workspace-test`) | workspace tier; on a PR, unless nothing a UI spec reads changed | the vitest suite in 8 shards, split by recorded time (`tests/vitest-durations.json`, refreshed with `task workspace:test:durations`, read by `config/vitest/duration-sequencer.ts`); on a PR whose change a selection can see, only the specs it reaches (`task workspace:test:related`) |
+| Workspace tests (`workspace-test`) | workspace tier: pushes, and `ci:full` PRs unless nothing a UI spec reads changed | the vitest suite in 8 shards, split by recorded time (`tests/vitest-durations.json`, refreshed with `task workspace:test:durations`, read by `config/vitest/duration-sequencer.ts`); on a PR whose change a selection can see, only the specs it reaches (`task workspace:test:related`) |
 | Workspace accessibility (`task workspace:a11y`) | not in CI yet: run it locally, a shard at a time | axe-core, WCAG 2.2 AA, over every `/dev` preview route except those still listed in `apps/workspace/scripts/a11y-pending-routes.json` (not yet audited; the list only shrinks), light and dark, 1440 and 390 (`task workspace:a11y -- --shard i/4`). The script starts `next dev` itself with placeholder WorkOS settings; fails on a violation not in `apps/workspace/scripts/a11y-baseline.json` and on an entry that is gone. The CI job follows in a separate PR: its first run (4 shards) failed shards 1, 3 and 4 while the same shards pass locally, so the baseline does not yet hold on the runner. On GitHub Actions the script writes each difference as an `::error` annotation, which the check-run API returns where job logs cannot be fetched |
-| Workspace coverage | PRs, workspace tier | merges the shards' coverage into the PR comment. Not in `CI OK` |
-| Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*` |
-| Hatchet engine tests (`hatchet`) | `hatchet` tier: the ingest, folder card and research Hatchet code, the BFF's jobs and scheduler, the SDK pins | starts `hatchet-lite` at production's tag and its Postgres, makes an API token in the container (`ci/hatchet_engine.sh`), and runs every suite that otherwise skips without an engine: `test_ingest_workflow_engine.py`, `test_folder_card_workflow_engine.py`, `test_research_workflow_engine.py` and each `bff/*/orchestrator.integration.spec.ts` over the RLS script's database. Fails when one of them ran no test or skipped one |
+| Agent to engine tests (`agent-engine`) | backend or packages tier, except on a light pull request run | the root environment plus the IFC engine as `apps/agent-host/Dockerfile` installs it, and every suite that otherwise skips without the engine (`importorskip("ifc_spatial…")`): `test_question_battery.py` and three more. Fails when its one report holds no test or a skipped one; an expected failure counts as run, here and in `hatchet`, which shares the check (`ci/hatchet_engine.sh require-ran`). `tests/test_ci_workflows.py` fails when a gated suite is not named here. The install floats on purpose, like the image's: a new release of a dependency can turn this red with no commit, on every full run in these tiers and on `publish`. The image built next would carry that release, which is how ifcopenshell 0.9 got there unnoticed. Green proves only what these suites call, not that the engine works on that release |
+| Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*`, and in the same `packages` job `task browser:test` and `task runner:test` (the browser renderer's and the code runner's own suites) |
+| Infra preview (`infra-preview`) | infra tier, pull requests from this repository only (not Dependabot) | `deploy/pulumi/scripts/preview-pull-request.sh`: `pulumi preview` with the policy pack against the staging stack, pinned to the images and PostHog release staging runs, then `deploy/pulumi/scripts/validate-crs.mjs` and `deploy/pulumi/scripts/summarize-plan.mjs`. The job summary lists what the change would create, update, replace and delete. It fails when the preview fails, when a custom resource is invalid, or when it would replace or delete a Namespace, PersistentVolumeClaim, StatefulSet or CNPG Cluster, unless the pull request is labelled `infra:destroys-state` |
+| Code runner end to end (`runner-e2e`) | `runner_e2e` tier: the code runner, the agent's `tools/execute/` and `tools/documents/`, the office skills, their test | the root venv and the runner's Node toolchain in one job; `task runner:e2e` starts the real runner and drives the agent's `execute` and `file_draft` tools against it (about 20 s after install). The task builds first, so a missing toolchain fails rather than skips |
+| Hatchet engine tests (`hatchet`) | pushes and `ci:full` PRs, `hatchet` tier: the ingest, folder card and research Hatchet code, the BFF's jobs and scheduler, the SDK pins | starts `hatchet-lite` at production's tag and its Postgres, makes an API token in the container (`ci/hatchet_engine.sh`), and runs every suite that otherwise skips without an engine: `test_ingest_workflow_engine.py`, `test_folder_card_workflow_engine.py`, `test_research_workflow_engine.py` and each `bff/*/orchestrator.integration.spec.ts` over the RLS script's database. Fails when one of them ran no test or skipped one |
 | Image vulns (`trivy`) | a pin added or moved | trivy on those pins |
-| Image build (`image`) | PRs that change an image's inputs | builds it, read-only token, no push. For the UI this IS the production build check: `workspace:build` is not run separately |
+| Image build (`image`) | `ci:full` PRs that change an image's inputs (a push builds in `image-push`) | builds it, read-only token, no push. For the UI this IS the production build check: `workspace:build` is not run separately |
 | Image build + push (`image-push`) | pushes, image not in GHCR | builds and pushes `inputs-<hash>` and the layer cache |
-| Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on all three images, and `latest` on `develop` |
-| `CI OK` (`ci-ok`) | always | fails unless every needed job passed or was skipped; on a green PR, records the tested tree for reuse |
+| Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on every image `ci/image_inputs.py` lists (backend, frontend, web, cms, code-runner, browser-renderer), and `latest` on `develop` |
+| `CI OK` (`ci-ok`) | always | fails unless every needed job passed or was skipped; on a green `ci:full` PR, records the tested tree for reuse |
 
 One more workflow runs on a push to `develop` and is not CI:
 **Test database** (`testmon.yml`) records which test runs which code
@@ -104,6 +139,44 @@ The core shards (`task be:test:shard`) leave out the 17 files of
 `be:test:harness` (the Taskfile variable `HARNESS_TESTS`), which the CI
 machinery leg runs on every run that runs the shards. They used to run twice.
 
+Smaller decisions in `ci.yml`, each with the measurement behind it:
+
+- The Python suites other than core run one job each: back to back they took
+  4:50 (sources 2:32, agent_host 1:00, the rest 0:36), the longest job of a full
+  pull request.
+- `backend-affected` runs the core selection in four shards because half the
+  selections measured on 2026-10-22 were the whole suite (a change to logging or
+  the conftest): 15,200 tests in 4 to 5.5 minutes in one job. The shards all read
+  develop's testmon database, since pytest-split splits what testmon selected.
+  Its cache restore is a step of its own with the path `testmon.yml` saves under,
+  because a cache is found only by the paths it was saved with.
+- The Qdrant service logs at WARN: at INFO the runner's dump of its log after the
+  job buried the pytest failure under thousands of request lines.
+- The pre-commit cache key holds the interpreter path: pre-commit rebuilds an env
+  whose `pyvenv.cfg` names another interpreter, and setup-python floats the patch
+  version. Warm, env building drops from ~25 s to ~0.3 s.
+- gitleaks reads the commits a pull request adds, not `--all`: a full-depth
+  checkout fetches every branch, and one open PR's fixture then failed every
+  other PR's run.
+- A pull request checks out its head, not GitHub's default merge commit, which
+  would mix develop into the diff.
+- The image layer cache lives in GHCR, one `buildcache` tag per image, not
+  `type=gha`: three `mode=max` caches (3 to 5 GB) evicted each other and every
+  other cache from the repository's 10 GB Actions budget, and re-exporting them
+  through the cache API left publishes hanging for half an hour. Only a push
+  writes it, so a pull request cannot put a layer into the next publish unseen;
+  GHCR needs the `image-manifest`/`oci-mediatypes` form. The builder is not
+  cleaned up: on a discarded runner that took 52 s of the frontend image job
+  (2026-10-09).
+- `setup-python-env` caches the synced venv itself, since `uv sync` in copy mode
+  writes ~900 MB (~20 s) even when every wheel is cached. The key holds the exact
+  interpreter and the checkout path, because a venv names both (a venv cached
+  before the repository was renamed left `pre-commit: command not found`).
+- The weekly link sweep (`docs-links.yml`) runs markdown-link-check directly with
+  its own config, because a hook's `args` cannot be overridden per run; the gate's
+  hook ignores `^https?://` and checks relative links only. Its version follows
+  the hook's `rev`.
+
 `task verify` runs the same checks locally, minus the image builds, the RLS
 suite and `packages/` (see
 [testing-and-verification.md](testing-and-verification.md)).
@@ -115,14 +188,17 @@ The contract, end to end:
 1. A push builds content-addressed images (`inputs-<hash>`) beside its checks.
    An image tag of that kind claims nothing about any commit.
 2. Only when every check on the push has passed does `publish` put
-   `sha-<commit>` on **all three** images. A commit CI failed has no `sha-` tag.
+   `sha-<commit>` on **every** image in `IMAGES` of `ci/image_inputs.py`: backend, frontend,
+   web, `cms`, `code-runner` and `browser-renderer`. A commit CI failed has no `sha-` tag.
 3. `CI OK` needs `publish`, so a push run concludes `success` only with the
    tags in place.
 4. `deploy.yml` runs on `workflow_run` of CI, for a successful **push** run of
-   this repository on `develop`, and pins all three services to
+   this repository on `develop`, and pins every service to
    `sha-<commit>`. No polling, no per-service guessing.
-5. A prod promotion pins any `develop` commit CI passed. All of them have all
-   three images.
+5. A prod promotion pins any `develop` commit CI passed. All of them have every
+   image. The CMS, the code runner and the browser renderer are optional: `verify-image-tag.sh` checks
+   them only where the stack turns them on (`cmsEnabled`, `codeRunnerEnabled`, `browserRendererEnabled`), and
+   a rollback to a commit from before one had an image keeps the one deployed.
 
 What this replaced, and why it had to go: Publish Images rebuilt each image
 only when its own paths changed since the previous push, from two hand-written
@@ -245,12 +321,15 @@ the whole PR. Merging or closing a pull request cancels its run too
 (`ci-cancel.yml` joins the same concurrency group): the squash merge's push run
 tests the merged tree, and the PR run's slots go back to the queue.
 
-What this does not give you is a test of each PR against the PR merged just
-before it. GitHub's merge queue does that, by testing the merge group before it
-lands; the push run here is what catches a semantic conflict after the fact,
-and it does catch it before staging. Enabling the queue is a repository setting
-(and for a private repository, a plan question); `ci.yml` would need a
-`merge_group` trigger, and the reuse marker would then hit on every merge.
+A pull request run tests the PR against the develop it branched from, not
+against the PR merged just before it. The merge queue closes that gap. `ci.yml`
+answers its `merge_group` event with a full run (`ci/ci_depth.py`) on the
+queue's merge of develop and the PRs ahead. That run records its tree as green,
+and the push that lands it reuses the result (`ci/reuse_green_run.py`). To use
+it, an owner ticks **Require merge queue** in the `protect-develop` ruleset
+(Settings → Rules → Rulesets), with `CI OK` as the required check. The
+release-notes push uses `RELEASE_PAT`, an admin's token, and admins bypass the
+queue.
 
 ## Runner slots are the budget
 
@@ -270,8 +349,10 @@ cannot be caused by a change moved to the weekly run.
 Splitting does shorten the critical path for the two test suites, and by
 2026-10-19 the slots were no longer the constraint: in eleven runs measured
 then, no job waited more than three seconds for a runner. So the backend core
-suite runs in four shards and the UI suite in six (it had four, and they had
-grown to 7 to 11 minutes each); see [The backend lane](#the-backend-lane).
+suite runs in four shards and the UI suite in eight (it had four, which had
+grown to 7 to 11 minutes each; six, split by time, all took 3.4 to 4.2 minutes on
+2026-10-22 and were still the longest job, and with import and setup ~60 % of a
+shard only more shards shorten it); see [The backend lane](#the-backend-lane).
 
 GitHub's **CodeQL default setup**, which ran three analysis jobs on every PR
 push and a five-to-ten minute analysis on every `develop` push beside Semgrep,
@@ -393,9 +474,15 @@ backend jobs run, Python outside the tested packages (tests load `scripts/` and
 no test names, or no recorded database. A data fixture under `tests/fixtures/`
 adds the tests that name it or one of its directories, as tests read whole
 fixture directories. A non-Python file that a helper or conftest reads (a
-quoted name) runs the full suite, since nothing says which tests load it. Known blind spot: a test that only exercises
-code in a subprocess is selected when its own file changes, not when the code
-it spawns does; the push run is what catches that.
+quoted name) runs the full suite, since nothing says which tests load it. A test
+that runs package code in a subprocess (`sys.executable`, itself or through a
+`*_testing` helper) is invisible to testmon, so any change under a package's
+source, Python or data, adds every such test file; a spawning helper no test
+file connects to runs the full suite. The token ceilings of
+`test_static_prefix_size.py` went unrun on two pull requests that way and
+turned `develop` red on 2026-11-18. Named test files run in their suite's first
+shard; the core suite's include `packages/agent/tests/`, which they silently
+skipped from 2026-10-27 until the same fix.
 
 **The UI suite selects the same way, by import graph.** `vitest related`
 keeps the specs whose imports reach a changed file, split over the same eight
@@ -461,7 +548,7 @@ Checked against GitHub's feature set on 2026-10-09.
 | Actions pinned by commit SHA | Used | A tag can be moved after review (tj-actions/changed-files, March 2025). Dependabot bumps the SHA and its version comment, workflows and composite actions both. A test and Semgrep's `github-actions-mutable-action-tag` rule refuse a tag |
 | Job-scoped `GITHUB_TOKEN` permissions | Used | Read-only by default; only `image-push` and `publish` can write packages |
 | Caching | Used where measured | pre-commit envs, uv, npm, Astro assets, trivy layers. Not `bun install`: 8 seconds cold, so a cache restore would buy nothing |
-| Merge queue | **Not used: plan** | Would test each PR on top of the one merged before it. Needs the `merge_group` trigger and, for a private repository, GitHub Enterprise Cloud |
+| Merge queue | **Ready, off until an owner enables it** | Tests each PR on top of the ones queued before it, with the full suite. `ci.yml` answers `merge_group`; the switch is **Require merge queue** in the `protect-develop` ruleset |
 | Artifact attestations | **Not used: plan** | Signed provenance for the images. Private repositories need GitHub Enterprise Cloud |
 | OIDC to Pulumi Cloud | **Not used: your setting** | Would replace the stored `PULUMI_ACCESS_TOKEN` with a short-lived token per job. [cd.md](../deployment/cd.md#3-github-environments-settings--environments) has the steps |
 | Environment branch policies | **Your setting** | `staging` deploys only from `develop`, `production` only from `prod`, and the token is an environment secret, not a repository one. [cd.md](../deployment/cd.md#3-github-environments-settings--environments) |
@@ -472,6 +559,9 @@ Checked against GitHub's feature set on 2026-10-09.
 - Required status checks on `develop`: **`CI OK`** and **`Conventional PR
   title`**. Not `Security OK`: that job no longer exists, and a required check
   that never reports blocks every PR.
+- The label `ci:full` ([`.github/labels.yml`](../../.github/labels.yml)), synced
+  on the next push to `develop`. The variable `CI_LIGHT_RUNS` stays unset; `false`
+  is the off switch ([why](#how-a-ci-run-decides-what-to-run)).
 - The `staging` and `production` environments as in
   [cd.md](../deployment/cd.md).
 - Optional: the secret `POSTHOG_CLI_API_KEY` and the variable
@@ -501,7 +591,10 @@ that does not serve one of the jobs in the first table needs a reason.
 - Image inputs come from the Dockerfiles' `COPY` lines
   ([`ci/image_inputs.py`](../../ci/image_inputs.py)). Do not hand-list paths.
 - A finding the change did not cause (a new CVE in an untouched pin) belongs in
-  the weekly run, not in a check that blocks every pull request.
+  the weekly run, not in a check that blocks every pull request. `agent-engine`
+  is an exception on purpose: what its floating install catches is what the next
+  image would ship. It ends when the image's engine install is locked; the job
+  then installs from the same lock.
 - Make CI pass by fixing the cause. Widening the `.gitleaks.toml` allowlist,
   loosening auth gating or code-owner review is a design discussion first.
 - A `CODEOWNERS` change goes with the paths it routes, or reviews go to the

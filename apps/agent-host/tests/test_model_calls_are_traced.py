@@ -23,7 +23,7 @@ WRAPPER = "observed_generation"
 KNOWN = {
     "cleanup_proposal.py",
     "consistency_check.py",
-    "documents.py",
+    "document_revisions.py",
     "revision_compare.py",
     "feedback_digest.py",
     "filing_fit.py",

@@ -12,6 +12,7 @@ import { OIDC_CLIENT_SECRET_KEY, platformOidcSecurityPolicySpec } from "./platfo
 import { commonLabels } from "./namespaces";
 import { onNodeGroup } from "./scheduling";
 import { hardenedContainerSecurityContext } from "./security";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const CMS_INTERNAL_URL = `http://${CMS.app}.${CMS.namespace}.svc.cluster.local:${CMS.port}`;
 export const WEBSITE_REVALIDATE_PATH = "/api/cms/revalidate";
@@ -132,7 +133,7 @@ export function installCms(
                 ports: [{ containerPort: CMS.port, name: "http" }],
                 env: Object.entries(cmsEnv(cfg, appNamespace)).map(([name, value]) => ({ name, value })),
                 envFrom: [{ secretRef: { name: secret.metadata.name } }],
-                resources: cfg.cms.resources,
+                resources: scaledCpuRequest(cfg.cms.resources),
                 volumeMounts: [
                   { name: "pg-ca", mountPath: "/etc/cms-pg-ca", readOnly: true },
                   { name: "next-cache", mountPath: "/app/.next/cache" },

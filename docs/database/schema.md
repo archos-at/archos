@@ -10,6 +10,23 @@
 
 The `app` database stores application state managed by the Next.js BFF. It uses **Drizzle ORM** (PostgreSQL dialect) with schema definitions in `apps/workspace/bff/db/schema/`.
 
+## Which database holds a table
+
+One Postgres server holds three databases. A table you cannot find in `app` is
+probably in `jobs`: the Python backend's tables live there, and `\dt` in `app`
+does not list them. `tests/test_database_placement.py` checks this table
+against `deploy/compose/init-db.sql`, the backend's table names and the
+backfill manifests.
+
+| Database | Tables | Created by |
+|---|---|---|
+| `app` | every table in `apps/workspace/bff/db/schema/` | `apps/workspace/migrations/` |
+| `jobs` | `job_info`, `job_access`, `job_events`, `document_metadata`, `document_revision_retained`, `ingest_jobs`, `research_orchestrator_runs` | `init-db.sql`, then the Python stores at first use (`SUMMARY_DB`, `NAT_JOB_STORE_DB_URL`) |
+| `checkpoints` | `checkpoints`, `checkpoint_blobs`, `checkpoint_writes`, `checkpoint_migrations` | `init-db.sql`, then LangGraph |
+
+A registered backfill names its database in `backfill.json` (`"database": "jobs"`;
+the default is `app`, [backfills.md](../deployment/backfills.md)).
+
 ---
 
 ## Schema Files
@@ -393,7 +410,8 @@ threw the previous bytes away. That was versioning without the history. Now:
 |---|---|
 | a person uploads a file | version 1, `published`, `origin = 'upload'`, `published_by = created_by` and **no approver** (migration `0137`) — the person who uploaded it IS the assertion, and no review round is invented. Rows written before 0137 carried the uploader in `approved_by`; the migration cleared it |
 | a person re-uploads the same name | version N+1, `published`; version N becomes `superseded` and **keeps its object**, under the `v<n>/` storage prefix it was written to |
-| The agent files a document | version 1, `draft`, `origin = 'draft'`, which walks `draft → in_review → published` (approving publishes in one step, ADR-0104 rule 5) and can be sent back with `changes_requested` or `rejected`. A version still `approved` from before 0137 is published by `publish` |
+| a person files a file the agent made (its card, or `file_draft` at their request) | version 1, `published`, `origin = 'filing'`, `published_by` = the filer and **no approver** (migration `0249`, ADR-0054 update of 2026-11-18): the person who files it signs it off. Filing it again publishes the next Fassung the same way |
+| a background run files its result (a task's report, a deep-research report) | version 1, `draft`, `origin = 'draft'`, which walks `draft → in_review → published` (approving publishes in one step, ADR-0104 rule 5) and can be sent back with `changes_requested` or `rejected`. A version still `approved` from before 0137 is published by `publish` |
 
 `documents.published_version_id` points at the live version and the item's
 `storage_key` / `storage_bucket` / `file_size` / `content_type` / `content_hash`
@@ -434,8 +452,8 @@ reset stays NULL, and stays closed to members.
 
 - `document_versions_state_known` — `draft | in_review | changes_requested | approved | published | superseded | rejected`, generated from `DOCUMENT_VERSION_STATES` so the tuple and the CHECK cannot drift.
 - `document_versions_review_complete` — `(reviewed_by IS NULL) = (reviewed_at IS NULL)`. Copied from `tasks_review_complete` (migration `0075`): a decision is by somebody, at some time, or it is not a decision.
-- `document_versions_published_is_approved` — `state <> 'published' OR origin = 'upload' OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)` (migration `0137`). **The publish door.** Only a published version is ever dispatched to the retrieval index, so this makes "indexed ⟹ a person uploaded it or a person approved it" a row invariant rather than a predicate in a fail-open retrieval path.
-- `document_versions_origin_known` — `upload | draft` (migration `0137`, ADR-0104). How the version began: a person's upload, or a draft that is published only through an approval. Defaults to `draft`, the value that demands an approver, so a writer that names none is refused rather than publishing unreviewed bytes.
+- `document_versions_published_is_approved` — `state <> 'published' OR origin IN ('upload', 'filing') OR (approved_by IS NOT NULL AND approved_at IS NOT NULL)` (migration `0137`, widened by `0249`). **The publish door.** Only a published version is ever dispatched to the retrieval index, so this makes "indexed ⟹ a person uploaded it, filed it or approved it" a row invariant rather than a predicate in a fail-open retrieval path.
+- `document_versions_origin_known` — `upload | filing | draft` (migration `0137`, `filing` from `0249`, ADR-0104). How the version began: a person's upload, a person's filing of a file the agent made, or a draft that is published only through an approval. Defaults to `draft`, the value that demands an approver, so a writer that names none is refused rather than publishing unreviewed bytes.
 - `document_versions_refusal_has_comment` — `state NOT IN ('changes_requested', 'rejected') OR review_comment IS NOT NULL`. A refusal with nothing in it is a decision the next attempt cannot act on.
 - `document_versions_submitted_by_actor_known` — `human | agent` (migration `0085`).
 
@@ -1790,7 +1808,9 @@ LLM budgets and the usage ledger (ADR-0015).
   `apps/workspace/bff/db/schema/budgets.ts`.
 - `llm_usage_rollups` (migration 0015, ADR-0019): write-through daily spend
   aggregate — one row per (org, UTC day, user, project; empty string = none),
-  `cost_usd`, `events`. Incremented in the same transaction as every ledger
+  `cost_usd`, `events`, and since 0247 `ingest_credits`, `ingest_tokens`,
+  `ingest_events` (the share of the totals from `activity = 'ingest'`, which
+  the limits leave out). Incremented in the same transaction as every ledger
   insert; budget enforcement reads these rows instead of aggregating the
   ledger per WebSocket upgrade. Backfilled from the ledger by the migration.
   Rows of an unbilled activity (`dictation`) are never added to it, and

@@ -47,6 +47,9 @@ export const SEAWEED = {
 
 export const EDGE_TIMEOUT = "3600s";
 
+/** Seconds a Helm release may take to become ready: a node with an empty image cache pulled one image at a time for over 5 min on 2026-11-18. */
+export const HELM_RELEASE_TIMEOUT_SECONDS = 900;
+
 export const EDGE_RETRY = {
   numRetries: 3,
   baseInterval: "100ms",
@@ -100,14 +103,14 @@ export const AUTOSCALER_SAFE_TO_EVICT = "cluster-autoscaler.kubernetes.io/safe-t
 
 export const DATA_RESOURCES = {
   postgres: {
-    requests: { cpu: "500m", memory: "1Gi" },
+    requests: { cpu: "1750m", memory: "1Gi" },
     limits: { cpu: "2", memory: "4Gi" },
   },
   dragonflyRequests: { cpu: "50m", memory: "128Mi" },
   dragonflyCpuLimit: "500m", // memory limit is the `dragonflyMemoryLimit` knob
   seaweedfs: {
-    requests: { cpu: "100m", memory: "256Mi" },
-    limits: { cpu: "1", memory: "1Gi" },
+    requests: { cpu: "1500m", memory: "256Mi" },
+    limits: { cpu: "3", memory: "1Gi" },
   },
   seaweedfsMaster: {
     requests: { cpu: "50m", memory: "128Mi" },
@@ -122,7 +125,7 @@ export const DATA_RESOURCES = {
     limits: { cpu: "1", memory: "1Gi" },
   },
   clickhouse: {
-    requests: { cpu: "250m", memory: "1Gi" },
+    requests: { cpu: "2", memory: "1Gi" },
     limits: { cpu: "2", memory: "4Gi" },
   },
 } as const;
@@ -144,7 +147,7 @@ export const LANGFUSE = {
   listenerName: "https-langfuse",
   otlpTracesPath: "/api/public/otel/v1/traces",
   webResources: {
-    requests: { cpu: "200m", memory: "1Gi" },
+    requests: { cpu: "1", memory: "1Gi" },
     limits: { cpu: "1", memory: "2Gi" },
   },
   workerResources: {
@@ -159,6 +162,7 @@ export const EDGE_RATE_LIMIT = {
   paths: {
     auth: "/api/auth",
     ws: "/websocket",
+    enquiry: "/api/enquiry",
   },
 } as const;
 
@@ -183,6 +187,8 @@ export const GOTENBERG = {
 export const KEDA_SCALER_ROLE = "keda_scaler";
 
 export const KEDA_SCALER_CONNECTION_LIMIT = 8;
+export const BACKFILL_POD = "app-backfill";
+
 export const JOB_DEFAULTS = {
   backoffLimit: 10,
   ttlSecondsAfterFinished: 300,

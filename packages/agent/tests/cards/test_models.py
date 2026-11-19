@@ -342,7 +342,7 @@ class TestTheCalculationCardCannotStateItsOwnAnswer:
             assert validate_cards([raw]) == [], limit
 
     def test_the_worked_example_round_trips(self):
-        from agent.cards.catalog import CARD_EXAMPLES
+        from agent.cards.card_examples import CARD_EXAMPLES
 
         card = answer_card_adapter.validate_python(CARD_EXAMPLES["calculation"])
         assert card.type == "calculation"

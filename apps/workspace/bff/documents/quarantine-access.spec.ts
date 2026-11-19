@@ -304,6 +304,7 @@ describe('a verdict that lands during the listing', () => {
     contentType: 'application/pdf',
     status: 'pending' as const,
     authoredBy: 'user',
+    authoredByProducer: null,
     publishedVersionId: null,
     lifecycle: 'active',
     collectionName: 'proj_abc',
