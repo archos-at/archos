@@ -651,15 +651,32 @@ uuid5 of the mail). Skipped, with no model call, when `FILING_SUGGESTIONS`
 is off, the mail no longer waits, it is an impersonation or automatic mail,
 the project is closed, nothing is left to
 place, or the project's unasked budget says no (`unaskedSpendAllowed`, fail
-closed). Placed: waiting attachments with a name, not infected, not
+closed). An unconfirmed sender (`external_unverified`, `member_unverified`)
+is asked about like any other: the suggestion only pre-fills what a person
+still files. Placed: waiting attachments with a name, not infected, not
 name-stopped, of an accepted type, at most 60; the text only when the mail
-matched no thread. Input: those names, the subject masked by the content check,
-the sender's domain, the folders every project member may read, and the
-office's conventions kept by at least two of its other projects. Never the text
-or the bytes. The model call is `judgeMailFiling` → `POST /v1/filing-fit`
-(`basis: mail`). The suggestion is stored on the parts that still wait without
-touching `updated_at`, which is part of `ifMatch`: a suggestion arriving while
-a person reads must not make their decision stale.
+matched no thread. Input: those names and the subject, both masked by the
+office's content check, the sender's domain, the folders every project member
+may read, and the office's conventions kept by at least two of its other
+projects. A mail its sender's own filing files unseen (`verified_writer` with
+direct filing on) is asked about without conventions, so it lands in an
+existing folder or the correspondence fallback, never in a folder a convention
+would create. Never the text or the bytes. The model call is `judgeMailFiling`
+→ `POST /v1/filing-fit` (`basis: mail`, its own system prompt,
+`MAIL_SYSTEM_PROMPT`). The suggestion is stored on the parts that still wait
+without touching `updated_at`, which is part of `ifMatch`: a suggestion
+arriving while a person reads must not make their decision stale.
+
+A failure that another try may mend (`backend_unreachable`, `backend_5xx`,
+`llm_request_failed`, `llm_response_malformed`, `isTransientFailure`) throws
+`SuggestionRetryError` to the job queue, which runs it again with its backoff
+until the job's last attempt (`BFF_JOBS_MAX_ATTEMPTS`, 3 by default: about 30 s,
+then 60 s); any other failure ends the job. Every run's outcome, suggested,
+skipped with its reason or failed with its reason, is the PostHog event
+`inbound_mail_suggested` and, when the call made a trace, an
+`inbound-mail-suggestion` event on it (ERROR for a failure). A sender's filing
+waits for the suggestion while its job is open, so a retried suggestion still
+reaches it when it answers within that wait.
 
 ## Exposure
 
@@ -718,13 +735,17 @@ numbers from those constants, with a link to Dateien for anything larger.
 ## Observability
 
 - PostHog: `inbound_mail_received`, `_refused`, `_dropped`, `_decided`,
-  `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
+  `_suggested`, `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
   ([`posthog-events.md`](../observability/posthog-events.md)). Ids, codes and
   counts only.
-- Langfuse: the suggestion's `filing-fit` generation (`surface: inbound_mail`),
-  the decision score (`DECISION_SCORE_NAME`) (subject `inbound_mail_suggestion`) and `mail-thread-match`
-  ([`langfuse.md`](../observability/langfuse.md)). `/v1/mail/read` makes no
-  model call.
+- Langfuse: the suggestion's `filing-fit` generation (`surface: inbound_mail`)
+  with its `inbound-mail-suggestion` outcome event, the decision score
+  (`DECISION_SCORE_NAME`) (subject `inbound_mail_suggestion`; a part left
+  unfiled, a mail dismissed whole and a text appended to a Verlauf are no
+  verdict on the suggestion and write none) and `mail-thread-match`
+  ([`langfuse.md`](../observability/langfuse.md)). Every trace of one mail is
+  in the Langfuse session named by the mail's id, and carries it as
+  `mail_id`. `/v1/mail/read` makes no model call.
 - Audit (`lib/audit/schemas.mjs`): `inbound_mail.received`, `.expired`,
   `.part_read`, `.original_read`, `.decided`; `inbound_mail_address.created`,
   `.rotated`, `.deleted`; `mail_thread.follow_started`, `.follow_ended`,

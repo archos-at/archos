@@ -83,26 +83,26 @@ export function hasSomethingToPlace(mail: Pick<InboundMailRow, 'threadMatch'>, p
 }
 
 export interface SuggestionContext {
-  maskedSubject: string | null
+  mask: (written: string) => string
   folders: FilingFolderInput[]
   conventions: FilingConventionInput[]
   locale: string
 }
 
 export function mailFilingInput(
-  mail: Pick<InboundMailRow, 'id' | 'projectId' | 'threadMatch' | 'senderAddress' | 'signerDomain' | 'senderClass'>,
+  mail: Pick<InboundMailRow, 'id' | 'projectId' | 'threadMatch' | 'subject' | 'senderAddress' | 'signerDomain' | 'senderClass'>,
   parts: readonly PartFacts[],
   context: SuggestionContext,
 ): MailFilingInput | null {
   if (!hasSomethingToPlace(mail, parts)) return null
-  const attachments = attachmentsToPlace(parts).map((part) => ({ id: part.id, file: part.filename }))
+  const attachments = attachmentsToPlace(parts).map((part) => ({ id: part.id, file: context.mask(part.filename) }))
   const text = textToPlace(mail, parts)
   return {
     locale: context.locale,
     folders: context.folders,
     conventions: context.conventions,
     attachments,
-    mail: { subject: context.maskedSubject, senderDomain: senderDomainOf(mail), textId: text?.id ?? null },
+    mail: { subject: mail.subject ? context.mask(mail.subject) : null, senderDomain: senderDomainOf(mail), textId: text?.id ?? null },
     trace: { mailId: mail.id, projectId: mail.projectId, senderClass: mail.senderClass },
   }
 }

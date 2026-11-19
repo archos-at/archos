@@ -31,7 +31,7 @@ import {
 } from './suggest'
 
 const FOLDERS: FilingFolderInput[] = [{ path: 'Tragwerk', description: 'Statik und Tragwerksplanung', docTypes: ['Gutachten'] }]
-const CONTEXT = { maskedSubject: 'AW: Statik Einreichung', folders: FOLDERS, conventions: [], locale: 'de' }
+const CONTEXT = { mask: (written: string) => written, folders: FOLDERS, conventions: [], locale: 'de' }
 
 const OWN_TEXT = 'Sehr geehrte Frau Architektin, anbei die Statik. Das Honorar überweisen Sie bitte auf AT61 1904 3002 3457 3201.'
 
@@ -103,13 +103,14 @@ describe('what the model reads (D21): names and labels, never the text or the by
   const mail = heldMail({ threadMatch: [], senderName: 'DI Petra Weber' })
   const parts = [textPart({ sha256: 'd'.repeat(64) }), filePart()]
 
-  it('sends the attachment names, the masked subject, the sender’s domain and the folders, nothing else', () => {
-    const input = mailFilingInput(mail, parts, { ...CONTEXT, maskedSubject: 'AW: Statik ███' })
+  it('sends the attachment names and the subject masked, the sender’s domain and the folders, nothing else', () => {
+    const mask = (written: string) => written.replace('Einreichung', '███').replace('S-101', '███')
+    const input = mailFilingInput(mail, parts, { ...CONTEXT, mask })
     expect(input).toEqual({
       locale: 'de',
       folders: FOLDERS,
       conventions: [],
-      attachments: [{ id: FILE_PART_ID, file: 'S-101_C.pdf' }],
+      attachments: [{ id: FILE_PART_ID, file: '███_C.pdf' }],
       mail: { subject: 'AW: Statik ███', senderDomain: 'statik-weber.at', textId: TEXT_PART_ID },
       trace: { mailId: mail.id, projectId: mail.projectId, senderClass: mail.senderClass },
     })

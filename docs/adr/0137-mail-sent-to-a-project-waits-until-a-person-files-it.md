@@ -757,3 +757,17 @@ attachment's folder was picked by hand: the E-Mail-Eingang went unused.
   a folder of the allowlist.
 - **The budget rules stand**: queued `bulk`, `unaskedSpendAllowed` for the
   project before the call, at most 60 attachments.
+- **A direct filing never creates a folder from a convention.** A
+  `verified_writer`'s mail filed by its sender's own filing is filed unseen, so
+  its suggestion is asked without the office's conventions: it lands in an
+  existing folder or the correspondence fallback. A mail a person reviews keeps
+  them.
+- **The file names are masked** by the office's content check, as the subject
+  always was.
+- **A failed call is retried and recorded.** A transient failure (backend
+  unreachable or 5xx, the model's request failed or its answer was malformed)
+  is retried by the job's own attempts; every outcome is the PostHog event
+  `inbound_mail_suggested` and, where a trace exists, an event on it.
+- **Only a judged part scores the suggestion.** A part left unfiled, a mail
+  dismissed whole and a text appended to a Verlauf write no `piloti-decision`:
+  discarding junk or choosing a Verlauf says nothing about the suggested folder.
