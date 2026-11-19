@@ -253,6 +253,19 @@ updates:
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
 
+  - package-ecosystem: docker
+    directory: "/deploy/ci-runner"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Vienna
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 1
+    allow:
+      - dependency-name: "ghcr.io/actions/actions-runner"
+
   - package-ecosystem: bun
     directory: "/apps/browser-renderer"
     schedule:

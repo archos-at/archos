@@ -72,7 +72,7 @@ run_pg() { if [ -n "$RUNAS" ]; then su "$RUNAS" -c "$1"; else sh -c "$1"; fi; }
 
 echo "==> $("$PGBIN/postgres" --version)"
 echo "==> initialising a throwaway cluster on port $PORT"
-run_pg "'$PGBIN/initdb' -D '$PGDATA' -U postgres --auth=trust" >/dev/null
+run_pg "'$PGBIN/initdb' -D '$PGDATA' -U postgres --auth=trust --encoding=UTF8 --locale=C" >/dev/null
 run_pg "'$PGBIN/pg_ctl' -D '$PGDATA' -o '-p $PORT -k $WORKDIR' -l '$PGDATA/server.log' -w start" >/dev/null
 
 # NOTICEs from the idempotent DROP ... IF EXISTS guards are expected noise.

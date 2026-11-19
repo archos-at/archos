@@ -252,6 +252,7 @@ Consequences, where a reader looks for them.
 | [0180](0180-personal-memory-is-its-own-table-keyed-to-the-person.md) | A note has one home that says who reads it: personal memory is its own table, keyed to the person | Proposed |
 | [0181](0181-a-reviewed-dev-release-may-be-carried-to-production-once-by-the-promotion.md) | A reviewed dev release may be carried to production once by the promotion | Accepted |
 | [0182](0182-the-brand-is-swept-out-of-the-code-now.md) | The brand is swept out of the code now, not renamed on touch; the one agent is `agent/core/`; amends 0149 | Accepted |
+| [0184](0184-pull-request-ci-runs-on-runners-in-the-dev-cluster.md) | CI runs on runners in the dev cluster, with no Docker and no credentials | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

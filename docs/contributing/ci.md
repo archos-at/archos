@@ -15,6 +15,7 @@ Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 | Notice what turns red without a code change: new CVEs, a secret in history, external links, model drift, WorkOS drift | weekly | `security.yml`, `docs-links.yml`, `turn-shapes-live.yml`, `workos-drift.yml` | No. A red run is a finding to triage |
 | PR hygiene: Conventional title, closing keywords, labels | PR events | `pr.yml` | The title check |
 | Publish the changelog | merge touching `releasenotes/` | `release-notes.yml` | No |
+| Build the dev cluster's CI runner image ([ADR-0184](../adr/0184-pull-request-ci-runs-on-runners-in-the-dev-cluster.md)) | a pull request that changes `deploy/ci-runner/` builds it; dispatched on `develop`, it pushes it | `ci-runner-image.yml` | No |
 | Merge Dependabot's minor and patch updates once `CI OK` passes | Dependabot pull requests | `dependabot-auto-merge.yml` | `CI OK`, through auto-merge ([setup](testing-and-verification.md)) |
 | Close a pull request opened since 2026-11-18 after 10 days without activity (`stale` label at 7, closed at 10; any push, comment, review or label change resets it; reopening undoes it; `keep-open` and Dependabot exempt, since a closed Dependabot PR makes it skip that version; issues untouched) | daily | `stale-prs.yml` | No |
 

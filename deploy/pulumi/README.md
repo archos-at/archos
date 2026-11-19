@@ -458,6 +458,16 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `browserRendererMinReplicas` / `browserRendererMaxReplicas` | `1` / `3` | The ScaledObject's bounds |
 | `browserRendererSessionsPerPod` | `2` | Browsers one pod runs at once; the next run is answered `busy` |
 | `browserRendererCpuTargetPercent` / `browserRendererMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
+| **CI runners** (ADR-0184): actions-runner-controller and one runner scale set for CI jobs, in `arc-systems` and `arc-runners`. Dev stack only, and only once the repository is private. Off by default | | |
+| `ciRunnersEnabled` | `false` | Install the controller, the scale set, its NetworkPolicy and the `ci-runner` PriorityClass. On, it needs `networkPolicies`, the three GitHub App keys and a digest-pinned `ciRunnersImage`, or the plan fails naming the missing one |
+| `ciRunnersImage` | — | `ghcr.io/archos-at/ci-runner@sha256:…`, built from `deploy/ci-runner` by the `CI runner image` workflow; a tag is refused |
+| `ciRunnersGithubAppId` / `ciRunnersGithubAppInstallationId` / 🔒 `ciRunnersGithubAppPrivateKey` | — | The GitHub App the controller registers runners with: Actions and Administration read/write on this repository. The key goes into a Secret of its own, not the Helm release's values |
+| `ciRunnersGithubConfigUrl` | `https://github.com/archos-at/archos` | Where the scale set registers |
+| `ciRunnersScaleSetName` | `dev-cluster` | The `runs-on` label, and the value of the repository variable `CI_RUNNER` |
+| `ciRunnersMinRunners` / `ciRunnersMaxRunners` | `0` / `3` | Idle runners cost a pod each; at zero a job waits for one to start. Three is what staging had room for in the ci-shadow trial |
+| `ciRunnersRequestsCpu/Memory`, `ciRunnersLimitsCpu/Memory` | 250m / 4Gi / 3 / 7Gi | Per runner; the CPU request is scaled by `cpuRequestScale` like every other. The CPU limit is also pytest's worker count (`PYTEST_XDIST_AUTO_NUM_WORKERS`), since `-n logical` counts the node's CPUs |
+| `ciRunnersScratchStorageClass` / `ciRunnersScratchSize` | `storageClass` / `15Gi` | Each runner's ephemeral volume for the checkout, caches and `/tmp`, off the node's disk |
+| `ciRunnersNodeGroup` | (unset) | A worker group for the runners alone. Unset, they share staging's nodes at the lowest priority |
 | **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |
 | `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
 | `mcpGatewayDomain` | `platform-mcp.<baseDomain>` | Its public host. Must stay under the WorkOS resource indicator `https://<host>/*` |
