@@ -5,6 +5,7 @@ import codecs
 import logging
 import sys
 from collections.abc import Iterator
+from dataclasses import dataclass
 from email import policy
 from email.message import EmailMessage
 from email.parser import BytesParser
@@ -82,9 +83,10 @@ def _read(raw: bytes) -> MailRead:
     body = body_text(*_body_forms(message, reasons))
     split = split_replies(body.text)
     own = split.own[: limits.MAX_OWN_TEXT_CHARS]
-    quoted = [
+    forwarded = _forwarded(message)
+    quoted = [*forwarded.blocks] + [
         QuotedBlock(header=block.header[:_MAX_HEADER_CHARS], text=block.text[: limits.MAX_QUOTED_CHARS])
-        for block in split.quoted[: limits.MAX_QUOTED_BLOCKS]
+        for block in split.quoted[: limits.MAX_QUOTED_BLOCKS - len(forwarded.blocks)]
     ]
     events, calendar_truncated = _calendar(message, reasons)
     return MailRead(
@@ -94,13 +96,56 @@ def _read(raw: bytes) -> MailRead:
         split=split.split,
         signature_removed=split.signature_removed,
         quoted=quoted,
-        quoted_truncated=len(split.quoted) > len(quoted)
-        or any(len(block.text) > limits.MAX_QUOTED_CHARS for block in split.quoted),
+        quoted_truncated=len(forwarded.blocks) + len(split.quoted) > len(quoted)
+        or any(len(block.text) > limits.MAX_QUOTED_CHARS for block in split.quoted)
+        or forwarded.truncated,
         calendar=events,
         calendar_truncated=calendar_truncated,
         encrypted=_is_encrypted(message),
         unreadable_reasons=reasons,
     )
+
+
+@dataclass(frozen=True)
+class _Forwarded:
+    blocks: tuple[QuotedBlock, ...] = ()
+    truncated: bool = False
+
+
+_FORWARD_HEADERS = ("From", "Date", "Subject")
+
+
+def _forwarded(message: EmailMessage) -> _Forwarded:
+    forward = _first_forward(message)
+    if forward is None:
+        return _Forwarded()
+    try:
+        body = body_text(*_body_forms(forward, []))
+        header = "\n".join(
+            f"{name}: {' '.join(str(forward[name]).split())}" for name in _FORWARD_HEADERS if forward[name] is not None
+        )
+    except Exception as error:  # noqa: BLE001 - the forward is extra; the mail's own text is still read
+        logger.warning("mail read: the forwarded message could not be read: %s", type(error).__name__)
+        return _Forwarded()
+    text = body.text.strip()
+    if not text and not header:
+        return _Forwarded()
+    block = QuotedBlock(header=header[:_MAX_HEADER_CHARS], text=text[: limits.MAX_QUOTED_CHARS])
+    return _Forwarded(blocks=(block,), truncated=body.truncated or len(text) > limits.MAX_QUOTED_CHARS)
+
+
+def _first_forward(message: EmailMessage) -> EmailMessage | None:
+    stack = [message]
+    while stack:
+        part = stack.pop()
+        content_type = part.get_content_type()
+        if content_type.startswith("multipart/"):
+            stack.extend(reversed(_children(part)))
+            continue
+        if content_type == "message/rfc822" and part is not message:
+            inner = _children(part)
+            return inner[0] if inner and isinstance(inner[0], EmailMessage) else None
+    return None
 
 
 def _body_forms(message: EmailMessage, reasons: list[UnreadableReason]) -> tuple[str | None, str | None, bytes | None]:

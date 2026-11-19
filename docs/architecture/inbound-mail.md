@@ -249,7 +249,12 @@ as `unavailable` and neither side recorded why.
    without any outage;
 8. **the Python reader**, `POST /v1/mail/read` (no model): own text, quoted
    blocks, calendar invitations; then the content check on the own text after
-   the signature was removed (`content_findings`). The text is what a reader
+   the signature was removed (`content_findings`). A forward as attachment
+   (the first `message/rfc822` part) is read too: its text, read the same way,
+   is the first quoted block, with its `From`, `Date` and `Subject` as the
+   block's header, so the forwarded mail is in the held mail and the Verlauf
+   and not only its attachments (`_forwarded` in `read.py`). A forward the
+   reader cannot read leaves the mail's own text readable. The text is what a reader
    sees, nothing more (`agent_host/mail/body_text.py`, shared with the Outlook
    import): from HTML it drops `script`, `style`, `head`, `title`, `template`,
    comments, elements hidden by inline CSS (`display:none`,
