@@ -83,8 +83,11 @@ export async function replaceAddress(
         .update(inboundMailAddresses)
         .set({ revokedAt: now, revokedBy: next.createdBy, revokedReason: 'rotated' })
         .where(and(eq(inboundMailAddresses.projectId, next.projectId), isNull(inboundMailAddresses.revokedAt)))
-        .returning({ id: inboundMailAddresses.id })
-      const [row] = await tx.insert(inboundMailAddresses).values(next).returning()
+        .returning({ id: inboundMailAddresses.id, forwardedFrom: inboundMailAddresses.forwardedFrom })
+      const [row] = await tx
+        .insert(inboundMailAddresses)
+        .values({ ...next, forwardedFrom: revoked[0]?.forwardedFrom ?? [] })
+        .returning()
       if (!row) throw new Error('inserting an inbound mail address returned no row')
       const followsEnded = await endProjectFollows(tx, next.projectId, { endedBy: next.createdBy, reason: 'address_rotated' }, now)
       return { row, previousAddressId: revoked[0]?.id ?? null, followsEnded }
@@ -95,6 +98,24 @@ export async function replaceAddress(
     if (conflict) return { ok: false, conflict }
     throw error
   }
+}
+
+export async function setForwardedFrom(projectId: string, forwardedFrom: readonly string[]): Promise<InboundMailAddressRow | null> {
+  const [row] = await getDb()
+    .update(inboundMailAddresses)
+    .set({ forwardedFrom: [...forwardedFrom] })
+    .where(and(eq(inboundMailAddresses.projectId, projectId), isNull(inboundMailAddresses.revokedAt)))
+    .returning()
+  return row ?? null
+}
+
+export async function findForwardedFrom(addressId: string): Promise<string[]> {
+  const [row] = await getDb()
+    .select({ forwardedFrom: inboundMailAddresses.forwardedFrom })
+    .from(inboundMailAddresses)
+    .where(eq(inboundMailAddresses.id, addressId))
+    .limit(1)
+  return row?.forwardedFrom ?? []
 }
 
 export async function switchOffAddress(projectId: string, revokedBy: string): Promise<AddressChange | null> {

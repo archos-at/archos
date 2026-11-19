@@ -1130,6 +1130,16 @@
    "withheld": null,
    "reason": null
   },
+  "inbound-mail-address-forwards-set": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "inbound-mail-address-get": {
    "kind": "catalog",
    "domain": "mail",

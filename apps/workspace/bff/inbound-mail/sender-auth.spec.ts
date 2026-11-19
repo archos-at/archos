@@ -19,6 +19,7 @@ import {
   sign,
   testKey,
 } from './__fixtures__/hostile'
+import { exchangeRedirect, OFFICE_PROJECT_MAILBOX } from './__fixtures__/exchange-redirect'
 import {
   authenticateSender,
   BCC_WINDOW_MS,
@@ -31,11 +32,17 @@ import { senderNeedsAcknowledgement } from './sender-risk'
 
 const DAY = 24 * 60 * 60 * 1000
 
-async function authenticate(raw: string, txt: Record<string, string> = keyFor(MEMBER_DOMAIN), failing: string[] = []) {
+async function authenticate(
+  raw: string,
+  txt: Record<string, string> = keyFor(MEMBER_DOMAIN),
+  failing: string[] = [],
+  forwardedFrom: readonly string[] = [],
+) {
   const dns = fakeDns(txt, failing)
   const result = await authenticateSender(bytes(raw), {
     projectToken: PROJECT_TOKEN,
     inboundDomain: INBOUND_DOMAIN,
+    forwardedFrom,
     resolver: dns.resolver,
   })
   return { ...result, lookups: dns.lookups }
@@ -243,6 +250,26 @@ describe('authenticateSender: the raw header block', () => {
 })
 
 describe('authenticateSender: addressed to the project', () => {
+  it('is addressed when a signed To or Cc names an existing project address of the office that forwards here', async () => {
+    const to = await sign(message(undefined, { To: `Projekt Kienberg <${OFFICE_PROJECT_MAILBOX.toUpperCase()}>` }))
+    expect((await authenticate(to, undefined, [], [OFFICE_PROJECT_MAILBOX])).signedRecipientNamesProject).toBe(true)
+    const cc = await sign(message(undefined, { To: 'bauherr@extern.at', Cc: OFFICE_PROJECT_MAILBOX }))
+    expect((await authenticate(cc, undefined, [], [OFFICE_PROJECT_MAILBOX])).signedRecipientNamesProject).toBe(true)
+  })
+
+  it('is not addressed by an office project address nobody registered, nor by a look-alike of one', async () => {
+    const raw = await sign(message(undefined, { To: OFFICE_PROJECT_MAILBOX }))
+    expect((await authenticate(raw)).signedRecipientNamesProject).toBe(false)
+    const lookAlike = await sign(message(undefined, { To: `${OFFICE_PROJECT_MAILBOX}.evil.example` }))
+    expect((await authenticate(lookAlike, undefined, [], [OFFICE_PROJECT_MAILBOX])).signedRecipientNamesProject).toBe(false)
+  })
+
+  it('is addressed only by a registered address the signature covers: an unsigned To added later does not count', async () => {
+    const raw = await sign(message(undefined, { To: 'bauherr@extern.at' }), { headerList: 'From:Subject:Date:Message-ID' })
+    const rewritten = raw.replace('To: bauherr@extern.at', `To: ${OFFICE_PROJECT_MAILBOX}`)
+    expect((await authenticate(rewritten, undefined, [], [OFFICE_PROJECT_MAILBOX])).signedRecipientNamesProject).toBe(false)
+  })
+
   it('is addressed when a signed Cc names the token, bare or behind a quoted name, in any case', async () => {
     const cc = await sign(message(undefined, { To: 'lieferant@extern.at', Cc: PROJECT_ADDRESS }))
     expect((await authenticate(cc)).signedRecipientNamesProject).toBe(true)
@@ -410,5 +437,54 @@ describe('senderNeedsAcknowledgement', () => {
 
   it('never asks for a plain unsigned mail from outside, the ordinary case', () => {
     expect(senderNeedsAcknowledgement(judgeSender(unverifiedAuth('dkim_none'), { ...plain, memberUserId: null }))).toBe(false)
+  })
+})
+
+describe('a mail an Outlook rule redirects from the office’s project mailbox (Exchange Online)', () => {
+  const tenantKeyMissing = keyFor(MEMBER_DOMAIN)
+  const judge = (auth: SenderAuthentication, memberUserId: string | null = 'user_1') =>
+    judgeSender(auth, { memberUserId, receivedAt: RECEIVED, sentAtHeader: SENT })
+
+  it('is judged by its original sender’s signature, which the hop leaves intact beside Exchange’s own', async () => {
+    const redirected = await exchangeRedirect(await sign(message(undefined, { To: OFFICE_PROJECT_MAILBOX })))
+    const auth = await authenticate(redirected, tenantKeyMissing, [], [OFFICE_PROJECT_MAILBOX])
+    expect(auth).toMatchObject({
+      verified: true,
+      reason: 'dkim_pass',
+      fromAddress: MEMBER_ADDRESS,
+      signerDomain: MEMBER_DOMAIN,
+      signedRecipientNamesProject: true,
+    })
+    const verdict = judge(auth)
+    expect(verdict.flags).toEqual([])
+    const { trust, reason, senderUserId, flags } = verdict
+    expect(senderClassOf({ trust, reason, senderUserId, flags, automatic: false, writes: true })).toBe('verified_writer')
+  })
+
+  it('without the project mailbox registered, waits as a mail addressed to others (a Bcc copy, to time)', async () => {
+    const redirected = await exchangeRedirect(await sign(message(undefined, { To: OFFICE_PROJECT_MAILBOX })))
+    const verdict = judge(await authenticate(redirected, tenantKeyMissing))
+    expect(verdict.flags).toEqual(['not_addressed_to_project', 'bcc_own'])
+    const { trust, reason, senderUserId, flags } = verdict
+    expect(senderClassOf({ trust, reason, senderUserId, flags, automatic: false, writes: true })).toBe('unverified_writer')
+  })
+
+  it('keeps an outsider’s verdict: their own domain’s signature, an outsider’s class', async () => {
+    const statik = 'statik-weber.at'
+    const original = await sign(message(undefined, { From: `Statik Weber <office@${statik}>`, To: OFFICE_PROJECT_MAILBOX }), { domain: statik })
+    const verdict = judge(await authenticate(await exchangeRedirect(original), keyFor(statik), [], [OFFICE_PROJECT_MAILBOX]), null)
+    expect(verdict).toMatchObject({ trust: 'external_verified', signerDomain: statik, flags: [] })
+  })
+
+  it('does not admit Exchange’s own signature for the From: the tenant’s domain is not the sender’s', async () => {
+    const unsigned = await exchangeRedirect(message(undefined, { To: OFFICE_PROJECT_MAILBOX }))
+    const auth = await authenticate(unsigned, keyFor('buermuster.onmicrosoft.com', testKey(1024).record, 'selector1'), [], [OFFICE_PROJECT_MAILBOX])
+    expect(auth).toMatchObject({ verified: false, reason: 'dkim_unaligned' })
+  })
+
+  it('a body the hop rewrote (a disclaimer appended) fails the original signature: the sender’s domain rejected it', async () => {
+    const redirected = await exchangeRedirect(await sign(message(undefined, { To: OFFICE_PROJECT_MAILBOX })))
+    const auth = await authenticate(`${redirected}\r\n-- \r\nDiese E-Mail wurde weitergeleitet.\r\n`, tenantKeyMissing, [], [OFFICE_PROJECT_MAILBOX])
+    expect(auth).toMatchObject({ verified: false, reason: 'dkim_fail' })
   })
 })

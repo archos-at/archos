@@ -11,6 +11,7 @@ import {
   listInboundMails,
   restoreInboundMail,
   rotateInboundMailAddress,
+  setInboundMailForwardedFrom,
 } from '@/adapters/api/inbound-mail-client'
 import { followMailThread, listMailThreads, unfollowMailThread } from '@/adapters/api/mail-thread-client'
 import type {
@@ -44,6 +45,7 @@ export interface InboundMailAddressClient {
   create(projectId: string): Promise<InboundMailAddressView>
   rotate(projectId: string): Promise<InboundMailAddressView>
   remove(projectId: string): Promise<InboundMailAddressView>
+  setForwardedFrom(projectId: string, forwardedFrom: readonly string[]): Promise<InboundMailAddressView>
 }
 
 export const inboundMailClient: InboundMailClient = {
@@ -69,4 +71,5 @@ export const inboundMailAddressClient: InboundMailAddressClient = {
   create: createInboundMailAddress,
   rotate: rotateInboundMailAddress,
   remove: deleteInboundMailAddress,
+  setForwardedFrom: setInboundMailForwardedFrom,
 }

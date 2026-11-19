@@ -67,6 +67,7 @@ export interface InboundMailAddressView {
   lastReceivedAt: string | null
   droppedLast30Days: number
   ownDomainVerifiedShare: number | null
+  forwardedFrom: string[]
 }
 
 export const INBOUND_MAIL_INCOMPLETE_REASONS = [

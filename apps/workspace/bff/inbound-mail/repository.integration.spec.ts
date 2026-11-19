@@ -501,8 +501,11 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       await one(sql`
         INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, expires_at)
         VALUES (${ORG}, ${own}::uuid, ${thread}::uuid, ${OTHER_PERSON}, now() + interval '60 days') RETURNING id`)
+      expect((await inTenant(() => repo.setForwardedFrom(own, ['projekt-haus@buero.at'])))?.forwardedFrom).toEqual(['projekt-haus@buero.at'])
 
       const replaced = await inTenant(() => repo.replaceAddress({ organizationId: ORG, projectId: own, token: token('third'), slug: 'haus', createdBy: PERSON }))
+      expect(replaced.ok && replaced.value.row.forwardedFrom).toEqual(['projekt-haus@buero.at'])
+      expect(await inTenant(() => repo.findForwardedFrom(replaced.ok ? replaced.value.row.id : ''))).toEqual(['projekt-haus@buero.at'])
       expect(replaced.ok && replaced.value.previousAddressId).toBe(first.ok ? first.value.id : null)
       expect(replaced.ok && replaced.value.followsEnded).toEqual([expect.objectContaining({ threadId: thread, userId: OTHER_PERSON })])
       expect(await one(sql`SELECT revoked_reason, revoked_by FROM inbound_mail_addresses WHERE id = ${first.ok ? first.value.id : ''}::uuid`)).toEqual({

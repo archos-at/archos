@@ -38,11 +38,13 @@ const state = vi.hoisted(() => ({
   filedMessages: [] as unknown[],
   followContext: null as unknown,
   dns: null as unknown,
+  forwardedFrom: [] as string[],
 }))
 
 vi.mock('./repository', () => ({
   findMailForReceive: vi.fn(async () => (state.row ? { ...state.row } : null)),
   findAddressToken: vi.fn(async () => 'abcdefgh2345'),
+  findForwardedFrom: vi.fn(async () => state.forwardedFrom),
   recordRawScan: vi.fn(async (_id: string, scan: { status: string; engine: string | null; scannedAt: Date }) => {
     state.calls.push(`scan:${scan.status}`)
     if (state.row?.status === 'received') Object.assign(state.row, { rawScanStatus: scan.status, rawScanEngine: scan.engine, rawScannedAt: scan.scannedAt })
@@ -162,8 +164,10 @@ import {
   sign,
 } from './__fixtures__/hostile'
 import { userHoldsProjectPermissionStrict as userHoldsProjectPermission } from '@/lib/authz/project-membership'
+import { exchangeRedirect, OFFICE_PROJECT_MAILBOX, SRS_ENVELOPE } from './__fixtures__/exchange-redirect'
 import { announceHeld, announceWaiting } from './announce'
 import { readMail, type MailRead } from './read-client'
+import { authenticateSender } from './sender-auth'
 import { recordOriginal } from './receive-original'
 import { RECEIVE_FAULT_BUDGET, RECEIVE_FAULT_WAITS_MS } from './receive-faults'
 import { findAddressToken, findThreadCandidates } from './repository'
@@ -295,6 +299,7 @@ beforeEach(() => {
     threadCandidates: [],
     filedMessages: [],
     followContext: null,
+    forwardedFrom: [],
     dns: fakeDns({ ...keyFor(MEMBER_DOMAIN), ...keyFor('statik-weber.at') }),
   })
   vi.stubEnv('INBOUND_MAIL_DOMAIN', INBOUND_DOMAIN)
@@ -767,6 +772,30 @@ describe('the sender rule: the class the hold writes (ADR-0137, amendment of 202
     })
     expect(announceWaiting).not.toHaveBeenCalled()
     expect(announceHeld).not.toHaveBeenCalled()
+  })
+
+  it('a writer’s mail an Outlook rule redirects from the office’s registered project mailbox is filed directly, by its own signature', async () => {
+    writes()
+    state.forwardedFrom = [OFFICE_PROJECT_MAILBOX]
+    receive(await exchangeRedirect(await sign(message(BODY, { To: OFFICE_PROJECT_MAILBOX }))), { envelopeFrom: SRS_ENVELOPE })
+
+    await run()
+
+    expect(vi.mocked(authenticateSender).mock.calls[0][1]).toMatchObject({ forwardedFrom: [OFFICE_PROJECT_MAILBOX] })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'member_verified', signerDomain: MEMBER_DOMAIN, senderClass: 'verified_writer', automatic: false })
+    expect(heldRow().senderFlags).toEqual([])
+    expect(jobKinds()).toContain('inbound_mail_sender_file')
+  })
+
+  it('the same redirected mail, its project mailbox not registered, waits for its writer as addressed to others', async () => {
+    writes()
+    receive(await exchangeRedirect(await sign(message(BODY, { To: OFFICE_PROJECT_MAILBOX }))), { envelopeFrom: SRS_ENVELOPE })
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_verified', senderClass: 'unverified_writer' })
+    expect(heldRow().senderFlags).toEqual(['not_addressed_to_project', 'bcc_own'])
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
   })
 
   it('a writer’s mail whose signature fails waits for that writer, who is asked whether they sent it', async () => {

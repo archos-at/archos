@@ -26,11 +26,12 @@ vi.mock('@/lib/inbound-mail/address-service', async () => {
     }),
     createInboundMailAddress: vi.fn().mockResolvedValue(view),
     deleteInboundMailAddress: vi.fn().mockResolvedValue({ ...view, state: 'none', address: null }),
+    setInboundMailForwardedFrom: vi.fn().mockResolvedValue({ ...view, forwardedFrom: ['projekt@buero.at'] }),
   }
 })
 
-import { createInboundMailAddress, deleteInboundMailAddress, getInboundMailAddress } from '@/lib/inbound-mail/address-service'
-import { DELETE, GET, POST } from './route'
+import { createInboundMailAddress, deleteInboundMailAddress, getInboundMailAddress, setInboundMailForwardedFrom } from '@/lib/inbound-mail/address-service'
+import { DELETE, GET, PATCH, POST } from './route'
 
 const url = 'http://localhost/api/projects/3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d/inbound-mail-address'
 const ctx = (id = '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d') => ({ params: Promise.resolve({ id }) })
@@ -55,5 +56,17 @@ describe('/api/projects/[id]/inbound-mail-address', () => {
     expect(createInboundMailAddress).toHaveBeenCalledWith(session, '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d')
     expect((await DELETE(new Request(url, { method: 'DELETE' }), ctx())).status).toBe(200)
     expect(deleteInboundMailAddress).toHaveBeenCalledWith(session, '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d')
+  })
+
+  it('PATCH replaces the forwarding addresses as the caller, and refuses a body that is not the list', async () => {
+    const patch = (body: unknown) =>
+      PATCH(new Request(url, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }), ctx())
+    const res = await patch({ forwardedFrom: ['Projekt@buero.at'] })
+    expect(res.status).toBe(200)
+    expect((await res.json()).forwardedFrom).toEqual(['projekt@buero.at'])
+    expect(setInboundMailForwardedFrom).toHaveBeenCalledWith(session, '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', { forwardedFrom: ['Projekt@buero.at'] })
+    expect((await patch({ forwardedFrom: 'projekt@buero.at' })).status).toBe(400)
+    expect((await patch({ forwardedFrom: Array.from({ length: 11 }, (_, n) => `p${n}@buero.at`) })).status).toBe(400)
+    expect(setInboundMailForwardedFrom).toHaveBeenCalledTimes(1)
   })
 })

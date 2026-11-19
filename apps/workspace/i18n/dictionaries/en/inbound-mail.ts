@@ -507,7 +507,29 @@ export const inboundMail = {
     ownDomain: {
       share: '{percent} % of your office’s mail in the last {days} days was verified by your domain',
       missing: 'Your domain does not sign its mail – how to set it up',
-      explain: 'Mail your domain signs is labelled “Domain verified” and is filed directly when its sender may file in the project. A mail carrying a member’s address that their domain does not verify can only be filed by that member.',
+      explain: 'Mail your domain signs is labelled “Domain verified” and is filed directly when its sender may file in the project. A mail carrying a member’s address that their domain does not verify waits until that member, or someone who checked it is from them, files it.',
+    },
+    setup: {
+      title: 'How correspondence reaches the project',
+      cc: 'Cc: put {address} in Cc when you write to the authority, the engineer or the client.',
+      forward:
+        'Forward: redirect your existing email address for the project to {address} with an Outlook rule (“redirect”, not “forward”) and enter it below.',
+      copy: 'Copy instructions',
+      copied: 'Instructions copied',
+    },
+    forwards: {
+      title: 'Existing email addresses for the project',
+      explain: 'Forward your existing email address for the project to this address, for example with an Outlook rule.',
+      label: 'Existing email address for the project',
+      placeholder: 'project@your-office.com',
+      add: 'Add',
+      remove: 'Remove {address}',
+      none: 'None entered yet.',
+      invalid: 'Enter an email address, for example project@your-office.com.',
+      projectAddress: 'That is a {productName} address. Enter your office’s address.',
+      tooMany: 'At most {max} addresses.',
+      saved: 'Saved',
+      failed: 'The addresses could not be saved.',
     },
   },
 

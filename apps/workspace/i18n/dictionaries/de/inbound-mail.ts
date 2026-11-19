@@ -520,7 +520,29 @@ export const inboundMail: typeof en.inboundMail = {
       share: '{percent} % der E-Mails Ihres Büros der letzten {days} Tage waren von Ihrer Domain bestätigt',
       missing: 'Ihre Domain signiert ihre E-Mails nicht – so richten Sie es ein',
       explain:
-        'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“ und werden direkt abgelegt, wenn ihr Absender im Projekt ablegen darf. Eine E-Mail mit der Adresse eines Mitglieds, die dessen Domain nicht bestätigt, kann nur dieses Mitglied selbst ablegen.',
+        'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“ und werden direkt abgelegt, wenn ihr Absender im Projekt ablegen darf. Eine E-Mail mit der Adresse eines Mitglieds, die dessen Domain nicht bestätigt, wartet, bis das Mitglied oder jemand, der geprüft hat, dass sie von ihm ist, sie ablegt.',
+    },
+    setup: {
+      title: 'So kommt die Korrespondenz ins Projekt',
+      cc: 'In Cc: Setzen Sie {address} in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben.',
+      forward:
+        'Weiterleiten: Leiten Sie Ihre bestehende E-Mail-Adresse für das Projekt in Outlook mit einer Regel an {address} um („umleiten“, nicht „weiterleiten“) und tragen Sie sie unten ein.',
+      copy: 'Anleitung kopieren',
+      copied: 'Anleitung kopiert',
+    },
+    forwards: {
+      title: 'Bestehende E-Mail-Adressen für das Projekt',
+      explain: 'Leiten Sie Ihre bestehende E-Mail-Adresse für das Projekt an diese Adresse weiter, z. B. mit einer Outlook-Regel.',
+      label: 'Bestehende E-Mail-Adresse für das Projekt',
+      placeholder: 'projekt@ihr-buero.at',
+      add: 'Hinzufügen',
+      remove: '{address} entfernen',
+      none: 'Noch keine eingetragen.',
+      invalid: 'Bitte eine E-Mail-Adresse eingeben, z. B. projekt@ihr-buero.at.',
+      projectAddress: 'Das ist eine Adresse von {productName}. Tragen Sie die Adresse Ihres Büros ein.',
+      tooMany: 'Höchstens {max} Adressen.',
+      saved: 'Gespeichert',
+      failed: 'Die Adressen konnten nicht gespeichert werden.',
     },
   },
 
