@@ -22,9 +22,11 @@ import {
 import {
   deliveryKey,
   MAX_FORWARD_DEPTH,
+  MAX_HEADER_BLOCK_BYTES,
   MAX_STAGED_PARTS,
   parseDateHeader,
   rawHeaderFields,
+  readHeaderBlock,
   readMime,
   safeFilename,
   safeMediaType,
@@ -118,6 +120,17 @@ describe('header helpers', () => {
     expect(rawHeaderFields(bytes('Subject: a\r\nnot a field\r\n\r\n'))).toBeNull()
     expect(rawHeaderFields(bytes(' leading continuation\r\n\r\n'))).toBeNull()
   })
+
+  it('readHeaderBlock skips a line that is no field, and its continuations, and reads the fields around it', () => {
+    expect(readHeaderBlock(bytes('From: a@x.at\r\nnot a field\r\n still not\r\nAuto-Submitted: auto-replied\r\n\r\nbody'))).toEqual({
+      fields: [
+        { name: 'from', value: ' a@x.at' },
+        { name: 'auto-submitted', value: ' auto-replied' },
+      ],
+      malformedLines: 1,
+    })
+    expect(readHeaderBlock(bytes(' leading continuation\r\nTo: y@z.at\r\n\r\n'))).toEqual({ fields: [{ name: 'to', value: ' y@z.at' }], malformedLines: 1 })
+  })
 })
 
 describe('deliveryKey', () => {
@@ -145,12 +158,19 @@ describe('deliveryKey', () => {
     expect(deliveryKey(bytes(signed('c2lnbmVkLXZhbHVl').replace('bh=AAAA', 'bh=BBBB')), 'mail-2')).toBe(key)
   })
 
-  it('is never a duplicate when the header block cannot be read', () => {
-    const malformed = (from: string) => `${from}\r\nthis line is no field\r\n\r\nHallo.\r\n`
+  it('is a duplicate of a redelivery whose header block has a line that is no field: the line is skipped, not the block', () => {
+    const malformed = (from: string) => `${from}\r\nthis line is no field\r\n continued\r\nSubject: Plan\r\n\r\nHallo.\r\n`
     const key = deliveryKey(bytes(malformed('From: a@x.at')), 'mail-1')
     expect(key).toMatch(/^[0-9a-f]{64}$/)
+    expect(deliveryKey(bytes(malformed('From: a@x.at')), 'mail-2')).toBe(key)
     expect(deliveryKey(bytes(malformed('From: b@y.at')), 'mail-2')).not.toBe(key)
-    expect(deliveryKey(bytes(malformed('From: a@x.at')), 'mail-2')).not.toBe(key)
+  })
+
+  it('is never a duplicate when the header block is too large to read', () => {
+    const oversized = `X-Filler: ${'x'.repeat(MAX_HEADER_BLOCK_BYTES)}\r\nFrom: a@x.at\r\n\r\nHallo.\r\n`
+    const key = deliveryKey(bytes(oversized), 'mail-1')
+    expect(key).toMatch(/^[0-9a-f]{64}$/)
+    expect(deliveryKey(bytes(oversized), 'mail-2')).not.toBe(key)
   })
 })
 

@@ -490,6 +490,14 @@ describe('automatic mail', () => {
     expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped', properties: { reason: 'auto_reply' } }))
   })
 
+  it('drops an auto-reply whose header block holds a line that is no field: the line is skipped, not every header check', async () => {
+    receive(message(BODY, { 'Auto-Submitted': 'auto-replied', Subject: 'Abwesend' }).replace('\r\nSubject:', '\r\nX-Mailer broken line\r\nSubject:'))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'dropped', droppedReason: 'auto_reply' })
+  })
+
   it('keeps the raw message of a dropped mail under a legal hold, for the deferred erasure', async () => {
     vi.mocked(isCoveredByActiveHold).mockResolvedValue(true)
     receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))

@@ -1,3 +1,4 @@
+import { addressParser } from 'postal-mime'
 import { asciiLower } from './address'
 import type { DroppedReason } from './contract'
 import type { HeaderField } from './mime'
@@ -35,6 +36,13 @@ function bareAddress(value: string): string {
   return asciiLower((angle ? angle[1] : value).trim())
 }
 
+function fromAddresses(headers: readonly HeaderField[]): string[] {
+  return values(headers, 'from')
+    .flatMap((value) => addressParser(value, { flatten: true }))
+    .map((mailbox) => asciiLower((mailbox.address ?? '').trim()))
+    .filter((address) => address !== '')
+}
+
 function domainOf(address: string): string {
   const at = address.lastIndexOf('@')
   return at === -1 ? '' : address.slice(at + 1)
@@ -46,11 +54,10 @@ function isOurs(domain: string, inboundDomain: string): boolean {
 }
 
 function dropReason(headers: readonly HeaderField[], input: AutomaticMailInput): DroppedReason | null {
-  const from = values(headers, 'from').map(bareAddress)
+  const from = fromAddresses(headers)
   const envelope = bareAddress(input.envelopeFrom ?? '')
-  if ([...from, envelope].some((address) => address !== '' && isOurs(domainOf(address), input.inboundDomain))) {
-    return 'self_loop'
-  }
+  const ours = (address: string) => isOurs(domainOf(address), input.inboundDomain)
+  if ((from.length > 0 && from.every(ours)) || (envelope !== '' && ours(envelope))) return 'self_loop'
   const contentType = asciiLower(values(headers, 'content-type')[0] ?? '')
   const reportType = /^\s*multipart\/report\b.*?\breport-type\s*=\s*"?([a-z-]+)/.exec(contentType)?.[1]
   if (reportType && DELIVERY_REPORT_TYPES.has(reportType)) return 'delivery_report'

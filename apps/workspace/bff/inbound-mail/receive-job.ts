@@ -25,7 +25,7 @@ import {
   type SenderFlag,
 } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
-import { rawHeaderFields, readMime, type MailAttachment, type NotStagedPart } from './mime'
+import { readHeaderBlock, readMime, type MailAttachment, type NotStagedPart } from './mime'
 import { redactRead, unreadableRead, type MailRead } from './read-client'
 import { mailParticipants, participantDomainsOf, recipientCountOf } from './receive-participants'
 import {
@@ -130,7 +130,7 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
   const raw = await fromObjectStore(() => readStagedObject(mail.stagingBucket, rawKey))
   if (mail.rawScanStatus === 'pending') await recordRawScan(mail.id, await scanForStorage(raw))
 
-  const automatic = classifyAutomaticMail({ headers: rawHeaderFields(raw), envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
+  const automatic = classifyAutomaticMail({ headers: readHeaderBlock(raw)?.fields ?? null, envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
   if (automatic.outcome === 'drop') return dropAutomaticMail(mail, automatic.reason, attempt)
   await recordOriginal(mail, raw, domain)
 

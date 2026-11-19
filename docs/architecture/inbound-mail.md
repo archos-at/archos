@@ -159,8 +159,13 @@ then:
     DKIM-Signature's `b=` value and the body, so a relay's prepended lines do
     not make a redelivery new, and a copy whose signature a relay stripped or
     broke never shadows the signed one); a mail the address already holds
-    answers 200 and its second copy is erased. A header block that cannot be
-    read gets a key of its own delivery, so it is never a duplicate;
+    answers 200 and its second copy is erased. A header block too large to
+    read (over 2 MiB) gets a key of its own delivery, so it is never a
+    duplicate. A line in it that is no field is skipped with its continuations,
+    never the whole block (`readHeaderBlock`, `mime-header-block.ts`): one
+    broken line used to switch off this check, the automatic-mail check and the
+    loop guard. Only the sender's authentication still reads such a block as
+    `header_malformed`;
 12. `received` and the receive job (`inbound_mail_receive`, job id = mail id) in
     one transaction;
 13. 202.
@@ -193,7 +198,9 @@ as `unavailable` and neither side recorded why.
    (`message.rawScan` in the dictionaries: still being checked, check failed
    and repeated, or malware);
 3. drop auto-replies, delivery reports and loops (`dropped`, raw erased); mark
-   list and bulk mail `automatic`. Then **the original of a forward**
+   list and bulk mail `automatic`. A loop is a From whose every mailbox is on
+   our domain, read as addresses (postal-mime's `addressParser`), never as text,
+   or an envelope sender on it. Then **the original of a forward**
    (`receive-original.ts`, migration 0198): `original-message.ts` reads an
    attached original (`message/rfc822`, an `.eml`) or an inline forward's
    header block, and its author, date, subject, Message-ID and source go on

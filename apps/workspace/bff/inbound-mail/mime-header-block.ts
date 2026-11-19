@@ -20,27 +20,47 @@ export function asBuffer(raw: Uint8Array): Buffer {
   return Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength)
 }
 
-export function rawHeaderFields(raw: Uint8Array): HeaderField[] | null {
+export interface HeaderBlock {
+  fields: HeaderField[]
+  malformedLines: number
+}
+
+export function readHeaderBlock(raw: Uint8Array): HeaderBlock | null {
   const bytes = asBuffer(raw)
   const offset = bodyOffset(bytes, MAX_HEADER_BLOCK_BYTES)
   const end = offset === -1 ? (bytes.length <= MAX_HEADER_BLOCK_BYTES ? bytes.length : -1) : offset
   if (end === -1) return null
   const lines = bytes.toString('utf8', 0, end).split('\n')
   const fields: HeaderField[] = []
+  let malformedLines = 0
+  let inMalformed = false
   for (const rawLine of lines) {
     const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
     if (line === '') break
     if (line[0] === ' ' || line[0] === '\t') {
       const last = fields.at(-1)
-      if (!last) return null
+      if (inMalformed || !last) {
+        if (!inMalformed) malformedLines += 1
+        inMalformed = true
+        continue
+      }
       last.value += line
       continue
     }
     const colon = line.indexOf(':')
-    if (colon <= 0) return null
+    inMalformed = colon <= 0
+    if (inMalformed) {
+      malformedLines += 1
+      continue
+    }
     fields.push({ name: asciiLower(line.slice(0, colon).trim()), value: line.slice(colon + 1) })
   }
-  return fields
+  return { fields, malformedLines }
+}
+
+export function rawHeaderFields(raw: Uint8Array): HeaderField[] | null {
+  const block = readHeaderBlock(raw)
+  return block && block.malformedLines === 0 ? block.fields : null
 }
 
 export function headerValue(fields: readonly HeaderField[], name: string): string | null {
@@ -48,7 +68,7 @@ export function headerValue(fields: readonly HeaderField[], name: string): strin
 }
 
 export function deliveryKey(raw: Uint8Array, mailId: string): string {
-  const fields = rawHeaderFields(raw)
+  const fields = readHeaderBlock(raw)?.fields ?? null
   if (fields === null) return createHash('sha256').update(`unread-header-block:${mailId}`).digest('hex')
   const bytes = asBuffer(raw)
   const offset = bodyOffset(bytes, bytes.length)
