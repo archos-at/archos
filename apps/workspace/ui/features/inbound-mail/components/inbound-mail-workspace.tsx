@@ -112,7 +112,6 @@ export function InboundMailWorkspace({
   const [quietToggled, setQuietToggled] = useState<boolean | null>(null)
   const [query, setQuery] = useState('')
   const [focusTarget, setFocusTarget] = useState<string | null>(null)
-  const [confirmErase, setConfirmErase] = useState<string | null>(null)
   const [nowMs, setNowMs] = useState(() => now ?? Date.now())
   const lastReload = useRef(initialList ? Date.now() : 0)
   const { enabled: shortcutsOn } = useShortcutsPreference()
@@ -297,18 +296,6 @@ export function InboundMailWorkspace({
     }
   }
 
-  const eraseConfirmed = async (): Promise<void> => {
-    if (!confirmErase) return
-    try {
-      await client.dismiss(projectId, { mailIds: [confirmErase] })
-      toast.success(t('toast.dismissed'))
-      await changed()
-    } catch (error) {
-      toast.error(t(`refusals.${refusalOf(error)}`))
-      throw error
-    }
-  }
-
   const dismissConfirmed = async (): Promise<void> => {
     setBulkDismissing(true)
     try {
@@ -391,7 +378,6 @@ export function InboundMailWorkspace({
     file: () => detailActions.current?.file(),
     dismissOpen: () => detailActions.current?.dismiss(),
     askDismissSelection: () => setConfirmDismiss(true),
-    askErase: setConfirmErase,
   }
   useInboxKeys(shortcutsOn, firstMail.ref, keyTarget)
 
@@ -597,17 +583,6 @@ export function InboundMailWorkspace({
         cancelLabel={t('bulk.cancel')}
         onConfirm={fileConfirmed}
         confirmTestId="bulk-file-confirm"
-      />
-      <ConfirmDialog
-        open={confirmErase !== null}
-        onOpenChange={(open) => !open && setConfirmErase(null)}
-        title={t('dismissFinal.title')}
-        description={t('dismissFinal.text')}
-        confirmLabel={t('dismissFinal.confirm')}
-        cancelLabel={t('bulk.cancel')}
-        tone="warning"
-        onConfirm={eraseConfirmed}
-        confirmTestId="dismiss-final-confirm"
       />
       <ConfirmDialog
         open={confirmDismiss}

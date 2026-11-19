@@ -7,7 +7,6 @@ import type {
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import { CORRESPONDENCE_FOLDER, defaultThread, messageSelectable as partMessageSelectable } from '@/lib/inbound-mail/review-defaults'
 import { displaySubject } from '@/lib/inbound-mail/subject'
-import { dismissErases } from './inbox-triage'
 import { attachmentCase, type AttachmentCase } from './attachment-case'
 import { followOffered, senderDisplayName } from './sender'
 import { readSuggestion, type PartSuggestion } from './suggestion'
@@ -293,7 +292,6 @@ export interface DraftSummary {
   files: number
   text: boolean
   thread: { name: string; nextVersion: number } | null
-  dismissErases: boolean
   needsSenderAcknowledgement: boolean
   ownClaimedMail: boolean
   claimedWriter: string | null
@@ -326,7 +324,6 @@ export function draftSummary(view: InboundMailView, draft: MailDraft): DraftSumm
     files,
     text,
     thread: candidate ? { name: candidate.name, nextVersion: candidate.nextVersion } : null,
-    dismissErases: dismissErases({ senderTrust: view.sender?.trust ?? null, senderFlags: view.sender?.flags ?? [], onlySenderReleases: view.onlySenderReleases }),
     needsSenderAcknowledgement: needsSender,
     ownClaimedMail: view.ownClaimedMail,
     claimedWriter:

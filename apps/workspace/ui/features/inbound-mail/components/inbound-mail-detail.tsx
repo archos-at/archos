@@ -334,8 +334,7 @@ export function InboundMailDetail({
       const result = await client.dismiss(projectId, { mailIds: [view.id] })
       const next = result.mails.find((mail) => mail.id === view.id)
       if (next && alive.current) setState({ kind: 'ready', view: next })
-      const restorable = !view.onlySenderReleases && !summary?.dismissErases
-      toast.success(t('toast.dismissed'), mailToast(restorable ? { action: { label: t('toast.undo'), onClick: () => void restore() } } : {}))
+      toast.success(t('toast.dismissed'), mailToast(!view.onlySenderReleases ? { action: { label: t('toast.undo'), onClick: () => void restore() } } : {}))
       onChanged()
     } catch (error) {
       const code = refusalOf(error)
@@ -554,7 +553,6 @@ export function InboundMailDetail({
           offersFiling={offersFiling}
           questions={questions}
           impersonation={impersonation !== null}
-          dismissErases={summary.dismissErases}
           onOpenFiling={openFiling}
           onDismiss={() => void dismiss()}
           filing={filing}

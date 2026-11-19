@@ -98,13 +98,6 @@ describe('draftSummary', () => {
     })
   })
 
-  it('says a dismissal is erased at once only for an unconfirmed outsider', () => {
-    const outsider = mail({ sender: { ...mail().sender!, trust: 'external_unverified', reason: 'dkim_none', signerDomain: null }, threadCandidates: [] })
-    expect(draftSummary(outsider, initialDraft(outsider, FOLDERS, copy)).dismissErases).toBe(true)
-    const confirmed = mail()
-    expect(draftSummary(confirmed, initialDraft(confirmed, FOLDERS, copy)).dismissErases).toBe(false)
-  })
-
   it('blocks on a missing folder, an unreleased name, an unaccepted risk and an unconfirmed sender', () => {
     const view = mail({
       sender: { ...mail().sender!, trust: 'member_unverified', reason: 'dkim_none', signerDomain: null },

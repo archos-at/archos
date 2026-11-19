@@ -41,12 +41,6 @@ export const inboundMail: typeof en.inboundMail = {
     noneHint: 'Gesucht wird in Absender und Betreff der geladenen E-Mails.',
   },
 
-  dismissFinal: {
-    title: 'E-Mail verwerfen?',
-    text: 'Die Domain des Absenders ist nicht bestätigt. Verworfen wird die E-Mail gelöscht und lässt sich nicht wiederherstellen.',
-    confirm: 'Verwerfen',
-  },
-
   closed: {
     title: 'Projekt ist abgeschlossen – wieder öffnen, um abzulegen',
     text: 'E-Mails kommen weiterhin an und lassen sich verwerfen.',
@@ -423,7 +417,6 @@ export const inboundMail: typeof en.inboundMail = {
     dismiss: 'Verwerfen',
     dismissBusy: 'Wird verworfen …',
     dismissNote: 'Verwerfen wirkt nur in {productName}, nicht im Mailprogramm, und lässt sich {days} Tage lang wiederherstellen.',
-    dismissNoteErases: 'Verwerfen wirkt nur in {productName}, nicht im Mailprogramm. Weil sich der Absender nicht überprüfen lässt, ist Verworfenes danach nicht wiederherstellbar.',
     busy: 'Wird abgelegt …',
     acknowledgeImpersonation: 'Ich habe telefonisch geprüft, dass die E-Mail echt ist',
     acknowledgeSender: 'Ich kenne den Absender und vertraue dieser E-Mail',
@@ -533,7 +526,6 @@ export const inboundMail: typeof en.inboundMail = {
       changeText: 'E-Mail-Text ändern',
       changeAttachments: 'Anhänge ändern',
       leftNote: 'Was hier „bleibt weg“, verwirft {productName} beim Ablegen. Wiederherstellen lässt es sich {days} Tage lang.',
-      leftNoteErases: 'Was hier „bleibt weg“, verwirft {productName} beim Ablegen. Weil sich der Absender nicht überprüfen lässt, ist es danach nicht wiederherstellbar.',
       nothing: 'Es wird nichts abgelegt. „Verwerfen“ verwirft die ganze E-Mail.',
     },
     pane: {
@@ -630,7 +622,7 @@ export const inboundMail: typeof en.inboundMail = {
     cancel: 'Abbrechen',
     dismissTitle: '{count, plural, one {# E-Mail verwerfen?} other {# E-Mails verwerfen?}}',
     dismissText:
-      'Verworfene E-Mails lassen sich {days, plural, one {# Tag} other {# Tage}} lang wiederherstellen, außer E-Mails von außerhalb des Büros, deren Domain nicht bestätigt ist.',
+      'Verworfene E-Mails lassen sich {days, plural, one {# Tag} other {# Tage}} lang wiederherstellen.',
     dismissConfirm: 'Verwerfen',
   },
 

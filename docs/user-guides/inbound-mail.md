@@ -204,10 +204,11 @@ wählen“ where there is something to decide.
 
 At the foot stand two buttons. **Verwerfen** says no to the whole mail; the
 line beside it says it acts only in ARCHOS, never in your mail program, and
-can be undone for seven days, except for a sender that cannot be verified:
-then what you dismiss cannot be restored. **Einordnen …** opens the filing, filled in
-with ARCHOS's proposal. It asks only what needs you, one question per screen
-(„Schritt 2 von 3“ when there is more than one):
+can be undone for seven days, whoever sent it. **Einordnen …** opens the
+filing, filled in with ARCHOS's proposal. It asks only what needs you, one
+question per screen; above each question it names the mail, „Schritt 2 von 3
+· „Tiefgarage Lüftung“ von Ing. Karl Bauer“ (the step count when there is
+more than one):
 
 1. **Absender**, only when the sender needs your confirmation: „Ich kenne den
    Absender und vertraue dieser E-Mail“, „Ja, ich habe diese E-Mail gesendet“
@@ -314,8 +315,8 @@ filing has no undo; „Öffnen“ takes you to the document.
 ## Dismissing, expiring, restoring
 
 - „Verwerfen“ dismisses a mail. It can be restored for **7 days** under
-  „Bearbeitet“, then it is deleted. A dismissed mail from outside the office
-  whose domain is not confirmed is deleted at once.
+  „Bearbeitet“, then it is deleted. This holds for every sender, one whose
+  domain did not confirm the mail included; the toast offers „Rückgängig“.
 - A mail nobody decides **expires after 30 days**, a mail from outside the
   office after **14 days**. You are told five days before. An expired mail of a
   member can still be restored for 7 days; an expired mail from outside the

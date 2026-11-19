@@ -142,10 +142,10 @@ describe('the mail pane', () => {
     expect(screen.getByTestId('status-filed')).not.toHaveTextContent('Behörde')
   })
 
-  it('tells a writer an unconfirmed outsider’s dismissal is deleted at once, and offers no undo for it', async () => {
+  it('keeps an unconfirmed outsider’s dismissal restorable like any other, and offers the undo for it', async () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS['external-unverified'] })
     renderDetail('external-unverified', client)
-    expect(screen.getByTestId('decision-dismiss-note')).toHaveTextContent('As the sender cannot be verified, what you dismiss cannot be restored afterwards.')
+    expect(screen.getByTestId('decision-dismiss-note')).toHaveTextContent(`Dismissing acts only in ${PRODUCT_NAME}, not in the mail program, and can be restored for 7 days.`)
     await userEvent.click(screen.getByTestId('decision-dismiss'))
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
     expect(vi.mocked(toast.success).mock.calls[0]?.[1]).not.toHaveProperty('action')

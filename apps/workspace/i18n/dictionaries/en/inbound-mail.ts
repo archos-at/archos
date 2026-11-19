@@ -38,12 +38,6 @@ export const inboundMail = {
     noneHint: 'Searches the sender and subject of the mail loaded so far.',
   },
 
-  dismissFinal: {
-    title: 'Dismiss this mail?',
-    text: 'The sender’s domain is not verified. Dismissed, the mail is deleted and cannot be restored.',
-    confirm: 'Dismiss',
-  },
-
   closed: {
     title: 'The project is closed – reopen it to file',
     text: 'Mail keeps arriving and can still be dismissed.',
@@ -419,7 +413,6 @@ export const inboundMail = {
     dismiss: 'Dismiss',
     dismissBusy: 'Dismissing …',
     dismissNote: 'Dismissing acts only in {productName}, not in the mail program, and can be restored for {days} days.',
-    dismissNoteErases: 'Dismissing acts only in {productName}, not in the mail program. As the sender cannot be verified, what you dismiss cannot be restored afterwards.',
     busy: 'Filing …',
     acknowledgeImpersonation: 'I checked by phone that the mail is genuine',
     acknowledgeSender: 'I know the sender and trust this mail',
@@ -529,7 +522,6 @@ export const inboundMail = {
       changeText: 'Change mail text',
       changeAttachments: 'Change attachments',
       leftNote: 'What “stays out” here is dismissed by {productName} when you file. It can be restored for {days} days.',
-      leftNoteErases: 'What “stays out” here is dismissed by {productName} when you file. As the sender cannot be verified, it cannot be restored afterwards.',
       nothing: 'Nothing is filed. “Dismiss” dismisses the whole mail.',
     },
     pane: {
@@ -622,7 +614,7 @@ export const inboundMail = {
     cancel: 'Cancel',
     dismissTitle: '{count, plural, one {Dismiss # mail?} other {Dismiss # mails?}}',
     dismissText:
-      'Dismissed mail can be restored for {days, plural, one {# day} other {# days}}, except mail from outside the office whose domain is not verified.',
+      'Dismissed mail can be restored for {days, plural, one {# day} other {# days}}.',
     dismissConfirm: 'Dismiss',
   },
 

@@ -420,7 +420,7 @@ export function FilingDialog({
                   </ul>
                   {!nothing && (
                     <p className="text-foreground text-xs leading-snug" data-testid="filing-left-note">
-                      {summary.dismissErases ? t('filing.overview.leftNoteErases') : t('filing.overview.leftNote', { days: INBOUND_MAIL_RESTORE_DAYS })}
+                      {t('filing.overview.leftNote', { days: INBOUND_MAIL_RESTORE_DAYS })}
                     </p>
                   )}
                 </div>

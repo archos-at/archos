@@ -416,10 +416,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    Übersicht. …“ when „Einordnen“ asks some; under it, muted, what
    „Verwerfen“ does, which the reader asked about her Outlook: „Verwerfen
    wirkt nur in {productName}, nicht im Mailprogramm, und lässt sich 7 Tage
-   lang wiederherstellen.“, for an unconfirmed outsider „… Weil sich der
-   Absender nicht überprüfen lässt, ist Verworfenes danach nicht
-   wiederherstellbar.“ (`dismissErases`;
-   that dismissal's toast offers no „Rückgängig“). On a phone only that
+   lang wiederherstellen.“, for every sender, an outsider whose domain did
+   not confirm the mail included (the owner, round 5: the erasure at once
+   had been the one exception, and its own copy in three places), and every
+   dismissal's toast offers „Rückgängig“. An outsider's mail that nobody
+   files is still removed after 14 days without a restore. On a phone only that
    second line stands over the two presses. Where nothing can be filed (a
    closed project, an infected original with nothing else), „Verwerfen“ is
    the one press and the primary. While a batch is selected in the list,
@@ -541,15 +542,19 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       what pressing does to them, because the server dismisses every
       waiting part not in the decision (`writeMailDecisions`): „Was hier
       „bleibt weg“, verwirft {productName} beim Ablegen. Wiederherstellen
-      lässt es sich 7 Tage lang.“, for an unconfirmed outsider
-      (`dismissalIsFinal`) „… Weil sich der Absender nicht überprüfen lässt,
-      ist es danach nicht wiederherstellbar.“ When the text goes into an
-      E-Mail-Verlauf and its sender could be followed (`followOffered`), a
-      line in ink under it (`FollowLine`): „Weitere Antworten in diesem
-      E-Mail-Verlauf legt {productName} künftig ohne Klick ab.“ with
-      „Nicht automatisch“ beside it; pressed, it reads „Weitere Antworten
-      in diesem E-Mail-Verlauf warten wie diese hier, bis sie jemand
-      ablegt.“ with „Doch automatisch“, and the decision's text carries
+      lässt es sich 7 Tage lang.“, for every sender. When the text goes
+      into an E-Mail-Verlauf and its sender could be followed
+      (`followOffered`), the switch under it (`FollowLine`, the
+      `FollowSwitch` the Verlauf's „E-Mails“ tab shows): „Antworten in diesem
+      E-Mail-Verlauf ohne Klick ablegen“, its state „An“ / „Aus“ in words
+      under it, and what it means: „Antworten von Beteiligten mit
+      bestätigter Domain legt {productName} 60 Tage lang ab, als hätten Sie
+      es selbst getan: den Text in diesen E-Mail-Verlauf, Anhänge in den
+      vorgeschlagenen Ordner. Der Rest wartet im E-Mail-Eingang, und jede
+      solche Ablage steht dort unter „Bearbeitet“.“ (round 4: „legt künftig
+      ohne Klick ab · Nicht automatisch“ left open whether it was on, and
+      „in Ihrem Namen“ what it meant). It is on by default (the owner kept
+      follow by default); switched off, the decision's text carries
       `follow: false`, which the filing job honours (`noFollow`), so the
       follow the filing would start never starts. „E-Mail-Text ändern“ and
       „Anhänge ändern“ add that step when it was not asked. What blocks filing
@@ -672,10 +677,9 @@ flag): J/K, Enter, X, Space, E „Einordnen (in der Übersicht: Ablegen)“, ⌫
 them answers while the profile turned shortcuts off (`useShortcutsPreference`).
 ⌫ and Entf act only where the reader is in the list or the mail: from the page,
 the open row or the mail's text, never from a focused button, box, menu or
-another row (`dismissKeyAllowed`). For an outsider's mail whose domain did not
-confirm it, which the sweep erases at once when dismissed, ⌫ asks first
-(„E-Mail verwerfen? … Verworfen wird die E-Mail gelöscht und lässt sich nicht
-wiederherstellen.“) and its toast offers no „Rückgängig“ (`dismissErases`).
+another row (`dismissKeyAllowed`). ⌫ dismisses every mail the same way, with
+„Rückgängig“ in its toast: since every dismissal is restorable for 7 days,
+the confirmation an outsider's mail once asked first is gone.
 
 **Phone**: rows of at least 44px, the detail as a page, bottom sheets, a
 decision bar of one note („Verwerfen“'s) over its two presses side by side with
@@ -860,12 +864,6 @@ design system ([`design-language.md`](../design/design-language.md)).
 - Which mail each of a Verlauf's Fassungen added, under „Details“: the
   timeline lists them by uploader; `MailThreadEntryView.firstVersion` has the
   mapping.
-- The server's `restorableUntil` for a dismissed part of an unconfirmed
-  outsider's mail: it says seven days while the sweep erases the part at once
-  (`pastRestore`, `sweep-erasure-repository.ts`). The detail says so in its
-  bar and its toast offers no „Rückgängig“ (`dismissErases`); ⌫ asks first
-  (above).
-
 - „Wie vorgeschlagen ablegen“ on the Postfach row and on the push: the waiting
   row is collapsed per project, so the action needs a product call (only for a
   row of one mail, or „Alle vollständigen ablegen“), and a push action needs a

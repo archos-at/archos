@@ -3,7 +3,7 @@
 import { useEffect, type RefObject } from 'react'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { bulkSelectable } from './impersonation'
-import { dismissErases, dismissKeyAllowed } from './inbox-triage'
+import { dismissKeyAllowed } from './inbox-triage'
 
 export interface InboxKeyTarget {
   rows: readonly InboundMailSummaryView[]
@@ -19,7 +19,6 @@ export interface InboxKeyTarget {
   file: () => void
   dismissOpen: () => void
   askDismissSelection: () => void
-  askErase: (mailId: string) => void
 }
 
 const PRESSABLE = 'button, a, [role="radio"], [role="checkbox"]'
@@ -78,10 +77,7 @@ export function useInboxKeys(enabled: boolean, root: RefObject<HTMLElement | nul
       if (event.target instanceof Element && !dismissKeyAllowed(event.target, root.current, open)) return
       event.preventDefault()
       if (inbox.selectedIds.length > 0) return inbox.askDismissSelection()
-      if (!open) return
-      const summary = inbox.items.find((mail) => mail.id === open)
-      if (summary && dismissErases(summary)) inbox.askErase(open)
-      else inbox.dismissOpen()
+      if (open) inbox.dismissOpen()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)

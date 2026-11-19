@@ -438,18 +438,16 @@ describe('InboundMailWorkspace', () => {
     expect(dismiss).not.toHaveBeenCalled()
   })
 
-  it('asks first before ⌫ dismisses an outsider’s unconfirmed mail, which is erased, and offers no undo', async () => {
+  it('dismisses an outsider’s unconfirmed mail on ⌫ without asking, as any other, with the undo', async () => {
     const { client } = renderOpen('many', EXPIRING)
     const dismiss = vi.spyOn(client, 'dismiss')
     vi.spyOn(client, 'list').mockResolvedValue(listWithout('many', EXPIRING))
     await act(async () => {
       fireEvent.keyDown(window, { key: 'Backspace' })
     })
-    expect(await screen.findByText('Dismiss this mail?')).toBeInTheDocument()
-    expect(dismiss).not.toHaveBeenCalled()
-    await userEvent.click(screen.getByTestId('dismiss-final-confirm'))
     await waitFor(() => expect(dismiss).toHaveBeenCalledWith(PROJECT_ID, { mailIds: [EXPIRING] }))
-    expect(toast.success).toHaveBeenCalledWith('Mail dismissed')
+    expect(screen.queryByText('Dismiss this mail?')).toBeNull()
+    expect(toast.success).toHaveBeenCalledWith('Mail dismissed', expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
   })
 
   it('answers no single key while the profile turned the shortcuts off', () => {
