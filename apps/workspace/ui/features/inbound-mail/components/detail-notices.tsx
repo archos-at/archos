@@ -2,11 +2,15 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
-import { ChevronDown, X, type LucideIcon } from 'lucide-react'
+import { ArchiveRestore, ChevronDown, X, type LucideIcon } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
-import { useTranslations } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
+import type { InboundMailPartView } from '@/lib/inbound-mail/inbound-mail-wire'
+import { formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { QuietPanel } from './inbound-mail-atoms'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface Notice {
@@ -61,6 +65,39 @@ export function DetailNotices({ notices }: { notices: Notice[] }): JSX.Element |
         </span>
       </button>
     </div>
+  )
+}
+
+/** What became of a mail nothing of which waits any more, and the way back: „1 Teil verworfen · wiederherstellbar bis …“. */
+export function RestorablePanel({ parts, restoring, onRestore }: { parts: readonly InboundMailPartView[]; restoring: boolean; onRestore: () => void }): JSX.Element | null {
+  const t = useTranslations(inboundMailCopy)
+  const { locale } = useLocale()
+  const ended = parts.filter((part) => part.state === 'dismissed' || part.state === 'expired')
+  const until = parts.map((part) => part.restorableUntil).find((date): date is string => !!date)
+  if (ended.length === 0 || !until) return null
+  const expired = ended.some((part) => part.state === 'expired')
+  const date = formatCalendarDate(until, locale)
+  return (
+    <QuietPanel className="sm:flex-row sm:items-center sm:justify-between" data-testid="detail-restorable">
+      <p className="text-sm">
+        {/* A mail of which something was filed was not thrown away: say how many parts were, not „Verworfen“. */}
+        {parts.some((part) => part.state === 'filed')
+          ? t(expired ? 'state.partsExpired' : 'state.partsDismissed', { count: ended.length, date })
+          : t(expired ? 'state.expired' : 'state.dismissed', { date })}
+      </p>
+      <BusyButton
+        type="button"
+        size="sm"
+        variant="secondary"
+        busy={restoring}
+        busyLabel={t('state.restoreBusy')}
+        icon={<ArchiveRestore aria-hidden />}
+        onClick={onRestore}
+        data-testid="detail-restore"
+      >
+        {t('state.restore')}
+      </BusyButton>
+    </QuietPanel>
   )
 }
 

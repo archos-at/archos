@@ -4,34 +4,19 @@ import type { JSX, MutableRefObject, ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { AlertTriangle, ArchiveRestore, Hourglass, Loader2, Lock, Users } from 'lucide-react'
-import { BusyButton } from '@/components/ui/busy-button'
+import { AlertTriangle, Hourglass, Loader2, Lock, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ItemList } from '@/components/ui/item'
+import { SectionLabel } from '@/components/ui/section-label'
 import { LoadError } from '@/components/ui/load-error'
 import { documentFilesHref } from '@/features/documents'
-import { useLocale, useTranslations } from '@/i18n'
+import { useTranslations } from '@/i18n'
 import type { InboundMailPartView, InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { attachmentCase, notStagedSummary } from '../lib/attachment-case'
 import type { InboundMailClient } from '../lib/client'
-import {
-  checkAllAttachments,
-  checkedAttachmentIds,
-  decisionOf,
-  draftSummary,
-  fileCheckedInto,
-  initialDraft,
-  rebaseDraft,
-  selectableAttachmentIds,
-  updateAttachment,
-  updateMessage,
-  type DraftBlocker,
-  type DraftCopy,
-  type FolderOption,
-  type MailDraft,
-} from '../lib/draft'
+import { decisionOf, draftSummary, initialDraft, rebaseDraft, type DraftCopy, type FolderOption, type MailDraft } from '../lib/draft'
+import { attachmentOpenReason, FILING_STEPS, filingSteps, fileable, folderlessIds, openAttachmentIds, planLines, type FilingStep } from '../lib/filing-plan'
 import { filedLines } from '../lib/filed'
 import { substantiveText } from '../lib/mail-text'
 import { refusalNeedsReload, refusalOf, refusalTerms } from '../lib/refusal'
@@ -39,19 +24,20 @@ import { guardImpersonation, impersonationWarningOf } from '../lib/impersonation
 import { followOffered, mailClaimOf, senderDisplayName } from '../lib/sender'
 import { mailStillSettling, missingSuggestionReason } from '../lib/suggestion'
 import { AttachmentPreviewDialog, type PreviewItem } from './attachment-preview-dialog'
-import { AttachmentRow } from './attachment-row'
+import { AttachmentLine, NotStagedList } from './attachment-line'
 import { ClaimedMailBar } from './claimed-mail-bar'
-import { AttachmentsHeading } from './attachments-heading'
-import { blockerText, DecisionBar } from './decision-bar'
-import { DetailNotices, type Notice } from './detail-notices'
+import { DecisionBar } from './decision-bar'
+import { DetailNotices, RestorablePanel, type Notice } from './detail-notices'
 import { DETAIL_PANEL, DetailSkeleton } from './detail-skeleton'
 import { FiledLines } from './filed-to'
-import { FollowOffer } from './follow-offer'
+import { FiledFollow } from './filed-follow'
 import { ImpersonationWarning } from './impersonation-warning'
-import { FactLine, mailToast, QuietPanel, useMailToastLift } from './inbound-mail-atoms'
+import { FilingDialog } from './filing-dialog'
+import { FactLine, mailToast, useMailToastLift } from './inbound-mail-atoms'
 import { MailHeader } from './mail-header'
 import { MailText, type MailTextState } from './mail-text'
-import { MessageRow } from './message-row'
+import { MessageFacts, MessageRow } from './message-row'
+import { usePlanWords } from './plan-words'
 import { useSettlingReads } from './use-settling-reads'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -106,7 +92,6 @@ export function InboundMailDetail({
   yieldPrimary = false,
 }: InboundMailDetailProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
-  const { locale } = useLocale()
   const router = useRouter()
   const [state, setState] = useState<ViewState>(initial ? { kind: 'ready', view: initial } : { kind: 'loading' })
   const [text, setText] = useState<MailTextState>(initialText ? { kind: 'ready', text: initialText } : { kind: 'loading' })
@@ -120,14 +105,21 @@ export function InboundMailDetail({
   const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
   const [filingOpen, setFilingOpen] = useState(false)
   const [claimConfirmOpen, setClaimConfirmOpen] = useState(false)
-  const [announcement, setAnnouncement] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [steps, setSteps] = useState<FilingStep[]>(['overview'])
+  const [step, setStep] = useState<FilingStep>('overview')
+  const [openIds, setOpenIds] = useState<string[]>([])
+  const [pickIds, setPickIds] = useState<string[]>([])
+  const [reviewed, setReviewed] = useState(false)
+  const openButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     setFilingOpen(false)
     setClaimConfirmOpen(false)
+    setDialogOpen(false)
+    setReviewed(false)
   }, [mailId])
   const [preview, setPreview] = useState<string | null>(null)
   const previewTrigger = useRef<HTMLElement | null>(null)
-  const [followTarget, setFollowTarget] = useState<{ threadId: string; name: string; followed: boolean } | null>(null)
   const alive = useRef(true)
   useEffect(() => {
     alive.current = true
@@ -137,6 +129,7 @@ export function InboundMailDetail({
   openMail.current = mailId
   const article = useRef<HTMLElement>(null)
 
+  const words = usePlanWords()
   const copy: DraftCopy = useMemo(
     () => ({ unnamedAttachment: (position) => t('attachments.unnamed', { position }), untitledThread: t('row.noSubject') }),
     [t]
@@ -168,7 +161,6 @@ export function InboundMailDetail({
   useEffect(() => {
     setDecidedByOther(decidedByOtherInitially)
     setThreadNameStop(null)
-    setFollowTarget(null)
     setSlowFiling(false)
     if (!initial || initial.id !== mailId) {
       setState({ kind: 'loading' })
@@ -193,19 +185,6 @@ export function InboundMailDetail({
   const messagePart = view?.parts.find((part) => part.kind === 'message')
   const messageDocumentId = messagePart?.state === 'filed' ? messagePart.documentId : null
   const offerFollow = !!view && followOffered(view) && !view.followedBy
-  useEffect(() => {
-    if (!messageDocumentId || !offerFollow) return
-    let cancelled = false
-    client
-      .threadOfDocument(projectId, messageDocumentId)
-      .then((thread) => {
-        if (!cancelled && thread) setFollowTarget({ threadId: thread.id, name: thread.name, followed: thread.followed })
-      })
-      .catch(() => undefined)
-    return () => {
-      cancelled = true
-    }
-  }, [client, projectId, messageDocumentId, offerFollow])
 
   const anyFilingNow = !!view?.parts.some((part) => part.state === 'filing')
   const settling = !!view && !anyFilingNow && !filing && mailStillSettling(view, now)
@@ -257,31 +236,56 @@ export function InboundMailDetail({
     onChanged()
   }
 
-  const announceBlocker = (blocker: DraftBlocker): void => {
-    const words = blockerText(blocker, t, summary ?? undefined, view?.riskLevel === 'impersonation')
-    setAnnouncement('')
-    if (words) window.setTimeout(() => alive.current && setAnnouncement(words), 30)
+  const missing = view ? missingSuggestionReason(view, now) : 'none'
+
+  const openFiling = (): void => {
+    if (!view || !draft) return
+    if (!reviewed) {
+      const needed = filingSteps(view, draft, { missing })
+      setSteps(needed)
+      setOpenIds(openAttachmentIds(view, draft, missing))
+      setPickIds(folderlessIds(view, draft, missing))
+      setStep(needed[0])
+    } else {
+      setStep('overview')
+    }
+    setDialogOpen(true)
+  }
+
+  const goToStep = (next: FilingStep): void => {
+    setStep(next)
+    if (next === 'overview') setReviewed(true)
+  }
+
+  const addStep = (next: FilingStep): void => {
+    setSteps((current) => FILING_STEPS.filter((candidate) => candidate === next || current.includes(candidate)))
+    setStep(next)
   }
 
   const file = async (): Promise<void> => {
     if (!view || !draft || !summary || filing || dismissing || view.onlySenderReleases) return
     if (summary.files === 0 && !summary.text) return dismiss()
-    if (summary.blockers.length > 0) return announceBlocker(summary.blockers[0])
+    if (summary.blockers.length > 0) return
     setFiling(true)
     const decision = decisionOf(view, draft)
     try {
       const result = await client.file(projectId, { mails: [decision] })
       const sent = result.mails.find((mail) => mail.id === view.id)
       if (!sent || !alive.current) return
+      setDialogOpen(false)
       setState({ kind: 'ready', view: sent })
       await follow(sent, [...decision.parts.map((part) => part.partId), ...(decision.message ? [decision.message.partId] : [])])
     } catch (error) {
       const code = refusalOf(error)
-      if (code === 'name_stop' && decision.message?.thread.action === 'create') setThreadNameStop(refusalTerms(error))
       toast.error(t(`refusals.${code}`), mailToast())
+      if (code === 'name_stop' && decision.message?.thread.action === 'create') {
+        setThreadNameStop(refusalTerms(error))
+        addStep('text')
+      }
       if (refusalNeedsReload(code)) {
         const next = await load()
         if (next && !next.parts.some((part) => part.state === 'waiting')) {
+          setDialogOpen(false)
           setDecidedByOther(true)
           onChanged()
         }
@@ -308,6 +312,7 @@ export function InboundMailDetail({
   async function dismiss(): Promise<void> {
     if (!view || dismissing || filing) return
     setDismissing(true)
+    setDialogOpen(false)
     try {
       const result = await client.dismiss(projectId, { mailIds: [view.id] })
       const next = result.mails.find((mail) => mail.id === view.id)
@@ -346,9 +351,14 @@ export function InboundMailDetail({
 
   useMailToastLift(article, `${state.kind}:${view?.status}:${view?.parts.map((part) => part.state).join()}`)
 
+  const impersonationNow = view ? impersonationWarningOf(view) !== null : false
+  const offersFiling = !!view && !!draft && view.status === 'waiting' && fileable(view) && (!impersonationNow || filingOpen)
+
   if (actionsRef) {
     actionsRef.current = {
-      file: () => void file(),
+      file: () => {
+        if (offersFiling && !filing && !dismissing) openFiling()
+      },
       dismiss: () => (view?.onlySenderReleases ? setClaimConfirmOpen(true) : void dismiss()),
       preview: () => {
         if (previewItems.length === 0) return
@@ -368,13 +378,9 @@ export function InboundMailDetail({
     )
   }
 
-  const missing = missingSuggestionReason(view, now)
   const notStaged = notStagedSummary(view.notStaged)
   const waitingParts = view.parts.filter((part) => part.state === 'waiting')
   const anyFiling = anyFilingNow
-  const anyFiled = view.parts.some((part) => part.state === 'filed')
-  const dismissedOrExpired = view.parts.filter((part) => part.state === 'dismissed' || part.state === 'expired')
-  const restorableUntil = view.parts.map((part) => part.restorableUntil).find((until): until is string => !!until)
   const showBar = view.status === 'waiting' && waitingParts.length > 0 && !anyFiling && draft && summary
   const outcome = filingOutcome(view)
   const impersonation = impersonationWarningOf(view)
@@ -402,9 +408,15 @@ export function InboundMailDetail({
     })
   }
 
-  const selectableIds = selectableAttachmentIds(view)
-  const checkedIds = draft ? checkedAttachmentIds(draft, view) : []
-  const bulkTools = !readOnly && !stopped && view.status === 'waiting' && selectableIds.length >= 2 && !!draft
+  const lines = draft ? planLines(view, draft, copy) : []
+  const phraseOf = (partId: string): string | null => {
+    const entry = attachments.find((candidate) => candidate.part.id === partId)
+    const line = lines.find((candidate) => candidate.partId === partId)
+    const row = draft?.attachments.find((candidate) => candidate.partId === partId)
+    if (!entry || !line || !row || readOnly || entry.part.state !== 'waiting') return null
+    return words.phrase(line, reviewed ? null : attachmentOpenReason(entry, row, missing), entry.part)
+  }
+  const questions = draft ? filingSteps(view, draft, { missing }).length - 1 : 0
 
   return (
     <article ref={article} className="flex min-h-full flex-col" data-testid="inbound-mail-detail" data-mail-id={view.id}>
@@ -418,33 +430,7 @@ export function InboundMailDetail({
             {slowFiling ? t('state.filingSlow') : t('state.filing')}
           </FactLine>
         )}
-        {waitingParts.length === 0 && dismissedOrExpired.length > 0 && restorableUntil && (
-          <QuietPanel className="sm:flex-row sm:items-center sm:justify-between" data-testid="detail-restorable">
-            <p className="text-sm">
-              {/* A mail of which something was filed was not thrown away: say how many parts were, not „Verworfen“. */}
-              {anyFiled
-                ? t(dismissedOrExpired.some((part) => part.state === 'expired') ? 'state.partsExpired' : 'state.partsDismissed', {
-                    count: dismissedOrExpired.length,
-                    date: formatCalendarDate(restorableUntil, locale),
-                  })
-                : t(dismissedOrExpired.some((part) => part.state === 'expired') ? 'state.expired' : 'state.dismissed', {
-                    date: formatCalendarDate(restorableUntil, locale),
-                  })}
-            </p>
-            <BusyButton
-              type="button"
-              size="sm"
-              variant="secondary"
-              busy={restoring}
-              busyLabel={t('state.restoreBusy')}
-              icon={<ArchiveRestore aria-hidden />}
-              onClick={() => void restore()}
-              data-testid="detail-restore"
-            >
-              {t('state.restore')}
-            </BusyButton>
-          </QuietPanel>
-        )}
+        {waitingParts.length === 0 && <RestorablePanel parts={view.parts} restoring={restoring} onRestore={() => void restore()} />}
 
         {/* Above the header, before anything can be checked: the owner's rule for a mail posing as someone. */}
         {impersonation && <ImpersonationWarning warning={impersonation} own={claim === 'own'} />}
@@ -456,6 +442,7 @@ export function InboundMailDetail({
           now={now}
         />
         <MailText state={text} onRetry={() => void loadText()} />
+        {messagePart?.state === 'waiting' && <MessageFacts view={view} />}
 
         {/* The forged mail's way to filing is one deliberate press, never the page's default. */}
         {impersonation && !readOnly && view.status === 'waiting' && waitingParts.length > 0 && (
@@ -474,57 +461,29 @@ export function InboundMailDetail({
           </div>
         )}
 
-        {!stopped && !readOnly && messagePart && draft?.message && (
+        {messagePart && messagePart.state !== 'waiting' && draft?.message && (
           <section className="flex flex-col gap-2" aria-label={t('message.label')}>
             <ItemList data-surface="sunken" className={DETAIL_PANEL}>
-              <MessageRow
-                projectId={projectId}
-                view={view}
-                draft={draft.message}
-                folders={folders}
-                copy={copy}
-                threadNameStop={threadNameStop}
-                recommended={textSays}
-                onChange={(change) => setDraft((current) => (current ? updateMessage(current, change) : current))}
-              />
+              <MessageRow projectId={projectId} view={view} draft={draft.message} folders={folders} copy={copy} threadNameStop={null} onChange={() => undefined} />
             </ItemList>
           </section>
         )}
 
         {!stopped && (attachments.length > 0 || notStaged.listed.length > 0 || notStaged.layoutImages > 0) && draft && (
           <section className="flex flex-col gap-2" aria-label={t('attachments.label')}>
-            <AttachmentsHeading
-              bulk={bulkTools}
-              selectable={selectableIds.length}
-              checked={checkedIds.length}
-              folders={folders}
-              onCheckAll={(checked) => setDraft((current) => (current ? checkAllAttachments(current, view, checked) : current))}
-              onFileCheckedInto={(target) => {
-                if (!draft) return
-                const result = fileCheckedInto(draft, view, target)
-                setDraft(result.draft)
-                const place = target.path === '' ? t('suggestion.root') : target.path
-                const moved = t('attachments.movedInto', { count: result.moved, folder: place })
-                setAnnouncement(result.revisions > 0 ? `${moved} ${t('attachments.movedKeptRevisions', { count: result.revisions })}` : moved)
-              }}
-            />
+            <SectionLabel as="h3">{t('attachments.label')}</SectionLabel>
             {attachments.length > 0 && (
-              <ItemList as="ul" data-surface="sunken" className={DETAIL_PANEL}>
+              <ItemList as="ul" data-surface="sunken" className={DETAIL_PANEL} data-testid="attachments-list">
                 {attachments.map((entry) => {
-                  const attachmentDraft = draft.attachments.find((candidate) => candidate.partId === entry.part.id)
-                  if (!attachmentDraft) return null
                   const url = entry.previewable ? client.partContentUrl(projectId, view.id, entry.part.id) : null
                   return (
-                    <AttachmentRow
+                    <AttachmentLine
                       key={entry.part.id}
                       projectId={projectId}
                       entry={entry}
-                      draft={attachmentDraft}
-                      folders={folders}
+                      name={entry.part.filedAs?.name ?? entry.part.filename ?? copy.unnamedAttachment(entry.part.position)}
+                      phrase={phraseOf(entry.part.id)}
                       contentUrl={url}
-                      missingSuggestion={missing}
-                      readOnly={readOnly}
-                      onChange={(change) => setDraft((current) => (current ? updateAttachment(current, entry.part.id, change) : current))}
                       onPreview={
                         url
                           ? (trigger) => {
@@ -538,64 +497,11 @@ export function InboundMailDetail({
                 })}
               </ItemList>
             )}
-            {(notStaged.listed.length > 0 || notStaged.layoutImages > 0) && (
-              <ul className="text-muted-foreground flex flex-col gap-1 px-1 text-xs" data-testid="not-staged">
-                {notStaged.listed.map((entry, index) => (
-                  <li key={`${entry.filename}-${index}`} className="[overflow-wrap:anywhere]">
-                    {t(`attachments.notStaged.${entry.reason}`, { name: entry.filename })}
-                  </li>
-                ))}
-                {notStaged.layoutImages > 0 && <li>{t('attachments.notStaged.layoutImages', { count: notStaged.layoutImages })}</li>}
-                {(notStaged.layoutImages > 0 || notStaged.listed.some((entry) => entry.reason !== 'calendar')) && view.originalHeld && (
-                  <li className="text-foreground pt-1" data-testid="not-staged-original">
-                    {t('attachments.notStaged.original')}
-                  </li>
-                )}
-              </ul>
-            )}
+            <NotStagedList notStaged={notStaged} originalHeld={view.originalHeld} />
           </section>
         )}
 
-        {messagePart?.state === 'filed' && offerFollow && followTarget && (
-          <FollowOffer
-            key={followTarget.threadId}
-            threadName={followTarget.name}
-            following={followTarget.followed}
-            onFollow={async () => {
-              try {
-                await client.follow(projectId, followTarget.threadId)
-                if (alive.current) setFollowTarget((current) => (current ? { ...current, followed: true } : current))
-                toast.success(
-                  t('follow.following', { name: followTarget.name }),
-                  mailToast({
-                    action: {
-                      label: t('follow.undo'),
-                      onClick: () => {
-                        void client.unfollow(projectId, followTarget.threadId).then(() => setFollowTarget((current) => (current ? { ...current, followed: false } : current)))
-                      },
-                    },
-                  })
-                )
-              } catch (error) {
-                toast.error(t('follow.failed'), mailToast())
-                throw error
-              }
-            }}
-            onUnfollow={async () => {
-              try {
-                await client.unfollow(projectId, followTarget.threadId)
-                if (alive.current) setFollowTarget((current) => (current ? { ...current, followed: false } : current))
-              } catch (error) {
-                toast.error(t('follow.failed'), mailToast())
-                throw error
-              }
-            }}
-          />
-        )}
-        {/* What a press could not do, said once to a screen reader: „E“ with a blocker, a bulk folder choice. */}
-        <p role="status" aria-live="polite" className="sr-only" data-testid="detail-announcement">
-          {announcement}
-        </p>
+        {offerFollow && messageDocumentId && <FiledFollow key={messageDocumentId} projectId={projectId} client={client} documentId={messageDocumentId} />}
       </div>
 
       {showBar && readOnly && view.sender && (
@@ -610,18 +516,48 @@ export function InboundMailDetail({
       )}
       {showBar && !readOnly && (
         <DecisionBar
-          summary={summary}
-          acknowledgeSender={draft.acknowledgeSender}
+          offersFiling={offersFiling}
+          questions={questions}
           impersonation={impersonation !== null}
-          filingOpen={filingOpen}
-          onAcknowledgeSender={(value) => setDraft((current) => (current ? { ...current, acknowledgeSender: value } : current))}
-          onFile={() => void file()}
+          dismissErases={summary.dismissErases}
+          onOpenFiling={openFiling}
           onDismiss={() => void dismiss()}
           filing={filing}
           dismissing={dismissing}
           yieldPrimary={yieldPrimary}
-          saidAbove={closedShown ? ['project_closed'] : []}
-          substantiveText={textSays}
+          openRef={openButton}
+        />
+      )}
+      {offersFiling && draft && summary && (
+        <FilingDialog
+          open={dialogOpen && !!showBar}
+          onOpenChange={setDialogOpen}
+          steps={steps}
+          step={step}
+          onStep={goToStep}
+          onAddStep={addStep}
+          projectId={projectId}
+          view={view}
+          draft={draft}
+          onDraft={(update) => setDraft((current) => (current ? update(current) : current))}
+          summary={summary}
+          folders={folders}
+          copy={copy}
+          missing={missing}
+          openIds={openIds}
+          pickIds={pickIds}
+          threadNameStop={threadNameStop}
+          textSays={textSays}
+          impersonation={impersonation !== null}
+          contentUrlOf={(partId) => client.partContentUrl(projectId, view.id, partId) || null}
+          onPreview={(partId, trigger) => {
+            previewTrigger.current = trigger
+            setPreview(partId)
+          }}
+          filing={filing}
+          onFile={() => void file()}
+          onDismiss={() => void dismiss()}
+          returnFocusRef={openButton}
         />
       )}
       {previewItems.length > 0 && (

@@ -43,13 +43,46 @@ export interface MessageRowProps {
   onChange: (change: Partial<Omit<MessageDraft, 'partId'>>) => void
 }
 
+/** Why the text cannot be filed, or need not be: unreadable, the mail's own scan, already in its E-Mail-Verlauf. */
+export function MessageFacts({ view }: { view: InboundMailView }): JSX.Element | null {
+  const t = useTranslations(inboundMailCopy)
+  const part = view.parts.find((candidate) => candidate.kind === 'message')
+  const unreadable = part?.riskFlags.includes('unreadable') ?? false
+  const alreadyFiled = view.sender?.flags.includes('already_filed') ?? false
+  if (!unreadable && view.rawScan === 'clean' && !alreadyFiled) return null
+  return (
+    <div className="flex flex-col gap-1" data-testid="message-facts">
+      {unreadable && (
+        <FactLine icon={AlertTriangle} tone="warning">
+          {t('message.unreadable')}
+        </FactLine>
+      )}
+      {view.rawScan === 'infected' && (
+        <FactLine icon={ShieldAlert} tone="danger" testId="message-scan-infected">
+          {t('message.rawScan.infected')}
+        </FactLine>
+      )}
+      {view.rawScan === 'failed' && (
+        <FactLine icon={ShieldQuestion} tone="warning" testId="message-scan-failed">
+          {t('message.rawScan.failed')}
+        </FactLine>
+      )}
+      {view.rawScan === 'pending' && (
+        <FactLine icon={Timer} testId="message-scan-pending">
+          {t('message.rawScan.pending')}
+        </FactLine>
+      )}
+      {alreadyFiled && <FactLine icon={CheckCircle2}>{t('message.alreadyFiled')}</FactLine>}
+    </div>
+  )
+}
+
 export function MessageRow({ projectId, view, draft, folders, copy, threadNameStop, recommended = false, onChange }: MessageRowProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const id = useId()
   const [pickerOpen, setPickerOpen] = useState(false)
   const part = view.parts.find((candidate) => candidate.kind === 'message')
   const selectable = messageSelectable(view)
-  const alreadyFiled = view.sender?.flags.includes('already_filed') ?? false
   const target = draft.target
   const candidates = view.threadCandidates
   const chosen = target.kind === 'append' ? candidates.find((candidate) => candidate.threadId === target.threadId) : undefined
@@ -104,28 +137,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
           {t('message.file')}
           {recommended && selectable && <span className="text-muted-foreground text-xs font-normal" data-testid="message-recommended">{t('message.recommended')}</span>}
         </label>
-        {part?.riskFlags.includes('unreadable') && (
-          <FactLine icon={AlertTriangle} tone="warning">
-            {t('message.unreadable')}
-          </FactLine>
-        )}
-        {view.rawScan === 'infected' && (
-          <FactLine icon={ShieldAlert} tone="danger" testId="message-scan-infected">
-            {t('message.rawScan.infected')}
-          </FactLine>
-        )}
-        {view.rawScan === 'failed' && (
-          <FactLine icon={ShieldQuestion} tone="warning" testId="message-scan-failed">
-            {t('message.rawScan.failed')}
-          </FactLine>
-        )}
-        {view.rawScan === 'pending' && (
-          <FactLine icon={Timer} testId="message-scan-pending">
-            {t('message.rawScan.pending')}
-          </FactLine>
-        )}
-        {alreadyFiled && <FactLine icon={CheckCircle2}>{t('message.alreadyFiled')}</FactLine>}
-
+        <MessageFacts view={view} />
         {selectable && draft.checked && (
           <RadioGroup
             value={target.kind === 'append' ? target.threadId : NEW_THREAD}

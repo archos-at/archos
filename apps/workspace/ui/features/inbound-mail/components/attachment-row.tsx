@@ -53,7 +53,7 @@ export interface AttachmentRowProps {
   contentUrl: string | null
   missingSuggestion: 'pending' | 'skipped' | 'none'
   focused?: boolean
-  readOnly?: boolean
+  folderBelow?: boolean
   onChange: (change: Partial<Omit<AttachmentDraft, 'partId' | 'suggested'>>) => void
   /** Opens the larger viewer; the press that opened it takes the focus back when it closes. */
   onPreview?: (trigger: HTMLElement) => void
@@ -67,13 +67,12 @@ export function AttachmentRow({
   contentUrl,
   missingSuggestion,
   focused = false,
-  readOnly = false,
+  folderBelow = false,
   onChange,
   onPreview,
 }: AttachmentRowProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const tFiles = useTranslations(filesCopy)
-  const { locale } = useLocale()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const changeRef = useRef<HTMLButtonElement>(null)
@@ -87,125 +86,11 @@ export function AttachmentRow({
         .map((folder) => ({ folder: { id: folder.id, name: folder.name, parentId: folder.parentId }, label: folder.path.split('/').join(' / ') })),
     [folders]
   )
-  const extension = fileExtensionLabel(name) || part.contentType.split('/')[1]?.toUpperCase() || ''
-  const facts = t('attachments.facts', { type: extension, size: formatBytes(part.sizeBytes, locale) })
   const anySuggested = draft.suggested.folder || draft.suggested.documentType || draft.suggested.name
-
-  const noteLine = (note: AttachmentNote): JSX.Element | null => {
-    switch (note.kind) {
-      case 'duplicate':
-        return (
-          <FactLine key="duplicate" icon={Copy} testId="note-duplicate">
-            {t('attachments.notes.duplicate', { path: note.folderPath ? `${note.folderPath}/${note.name}` : note.name })}
-            {CLAUSE_JOIN}
-            <Button asChild variant="inline">
-              <Link href={documentFilesHref(projectId, note.documentId)}>{t('attachments.open')}</Link>
-            </Button>
-          </FactLine>
-        )
-      case 'revision':
-        return (
-          <FactLine key="revision" icon={FileStack} tone={note.verified ? 'default' : 'warning'} testId="note-revision">
-            {note.verified
-              ? t('attachments.notes.revision', { version: note.nextVersion, name: note.name })
-              : t('attachments.notes.revisionUnverified', { version: note.nextVersion, name: note.name })}
-          </FactLine>
-        )
-      case 'revision_hidden':
-        return (
-          <FactLine key="revision_hidden" icon={FileStack} testId="note-revision-hidden">
-            {t('attachments.notes.revisionHidden')}
-          </FactLine>
-        )
-      case 'name_stop':
-        return (
-          <FactLine key="name_stop" icon={AlertTriangle} tone="warning" testId="note-name-stop">
-            {t('attachments.notes.nameStop', { terms: note.terms.join('“, „') })}
-          </FactLine>
-        )
-      case 'risk':
-        return (
-          <FactLine key="risk" icon={ShieldAlert} tone="warning" testId={`note-${note.flag}`}>
-            {t(`attachments.notes.${note.flag}`)}
-          </FactLine>
-        )
-      case 'encrypted':
-        return (
-          <FactLine key="encrypted" icon={Lock} testId="note-encrypted">
-            {t('attachments.notes.encrypted')}
-          </FactLine>
-        )
-      case 'forwarded_inner':
-        return (
-          <FactLine key="forwarded_inner" icon={Forward} testId="note-forwarded">
-            {t('attachments.notes.forwarded_inner')}
-          </FactLine>
-        )
-      case 'image_in_mail':
-        return (
-          <FactLine key="image_in_mail" icon={ImageIcon} testId="note-image">
-            {t('attachments.notes.image_in_mail')}
-          </FactLine>
-        )
-      case 'last_failure':
-        return (
-          <FactLine key="last_failure" icon={AlertTriangle} tone="danger" testId="note-last-failure">
-            {t('attachments.notes.lastFailure', { reason: t(`failures.${note.failure}`) })}
-          </FactLine>
-        )
-    }
-  }
-
-  const statusLine = (): JSX.Element | null => {
-    switch (status) {
-      case 'scan_pending':
-        return (
-          <FactLine icon={Timer} testId="status-scan-pending">
-            {t('attachments.status.scan_pending')}
-          </FactLine>
-        )
-      case 'scan_failed':
-        return (
-          <FactLine icon={ShieldQuestion} tone="warning" testId="status-scan-failed">
-            {t('attachments.status.scan_failed')}
-          </FactLine>
-        )
-      case 'scan_infected':
-        return (
-          <FactLine icon={ShieldAlert} tone="danger" testId="status-scan-infected">
-            {t('attachments.status.scan_infected')}
-          </FactLine>
-        )
-      case 'not_offered':
-        return (
-          <FactLine icon={Ban} testId="status-not-offered">
-            {t('attachments.status.not_offered')}
-          </FactLine>
-        )
-      case 'filing':
-        return (
-          <FactLine icon={Timer} testId="status-filing">
-            {t('attachments.status.filing')}
-          </FactLine>
-        )
-      case 'filed':
-        return <FiledTo projectId={projectId} part={part} />
-      case 'dismissed':
-      case 'expired':
-        return (
-          <FactLine icon={Undo2} testId={`status-${status}`}>
-            {t(`attachments.status.${status}`)}
-            {part.restorableUntil && `${CLAUSE_JOIN}${t('row.restorableUntil', { date: formatCalendarDate(part.restorableUntil, locale) })}`}
-          </FactLine>
-        )
-      case 'waiting':
-        return null
-    }
-  }
 
   const folderTarget = draft.folder
   const showTarget = selectable && draft.checked
-  const undecided = !readOnly && !draft.checked && asksForDecision(entry)
+  const undecided = !draft.checked && asksForDecision(entry)
   const folderMissing = folderTarget === null && draft.revisionOf === null
 
   return (
@@ -217,53 +102,23 @@ export function AttachmentRow({
       data-status={status}
       data-checked={draft.checked || undefined}
     >
-      {!readOnly && (
-        <div className="flex h-10 items-center pointer-coarse:h-12">
-          <Checkbox
-            checked={selectable && draft.checked}
-            disabled={!selectable}
-            onCheckedChange={(value) => onChange({ checked: value === true })}
-            aria-label={t('attachments.file', { name })}
-            data-testid="attachment-checkbox"
-          />
-        </div>
-      )}
-      <button
-        type="button"
-        onClick={(event) => onPreview?.(event.currentTarget)}
-        disabled={!contentUrl || !onPreview}
-        aria-label={t('attachments.preview', { name })}
-        tabIndex={-1 /* the visible „Vorschau“ beside the facts is the keyboard's way in; one stop per row */}
-        className="shrink-0 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
-      >
-        <AttachmentThumbnail filename={name} contentType={part.contentType} url={contentUrl} />
-      </button>
+      <div className="flex h-10 items-center pointer-coarse:h-12">
+        <Checkbox
+          checked={selectable && draft.checked}
+          disabled={!selectable}
+          onCheckedChange={(value) => onChange({ checked: value === true })}
+          aria-label={t('attachments.file', { name })}
+          data-testid="attachment-checkbox"
+        />
+      </div>
+      <AttachmentPicture name={name} contentType={part.contentType} contentUrl={contentUrl} onPreview={onPreview} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-w-0 items-baseline gap-2">
-          <MiddleTruncate text={name} className={cn('min-w-0 text-sm font-medium', !selectable && !readOnly && status !== 'filed' && 'text-muted-foreground')} />
+          <MiddleTruncate text={name} className={cn('min-w-0 text-sm font-medium', !selectable && status !== 'filed' && 'text-muted-foreground')} />
         </div>
-        {/* A clean scan is the normal case and says nothing: only a running, failed or infected scan has a line (`statusLine`). */}
-        <p className="text-muted-foreground text-xs tabular-nums">
-          {facts}
-          {/* Visible words, not only the 40px picture: a phone has no hover to discover that the picture opens. */}
-          {contentUrl && onPreview && (
-            <>
-              {CLAUSE_JOIN}
-              <Button
-                type="button"
-                variant="inline"
-                className="touch-target h-auto p-0 text-xs font-medium"
-                onClick={(event) => onPreview(event.currentTarget)}
-                aria-label={t('attachments.preview', { name })}
-                data-testid="attachment-preview-open"
-              >
-                {t('attachments.previewShort')}
-              </Button>
-            </>
-          )}
-        </p>
-        {statusLine()}
-        {status === 'waiting' && entry.notes.map(noteLine)}
+        <AttachmentFacts name={name} part={part} contentUrl={contentUrl} onPreview={onPreview} />
+        <AttachmentStatusLine projectId={projectId} entry={entry} />
+        {status === 'waiting' && entry.notes.map((note) => <AttachmentNoteLine key={note.kind} projectId={projectId} note={note} />)}
         {undecided && (
           <FactLine icon={SquareCheck} tone="warning" testId="attachment-undecided">
             {t('attachments.notes.undecided')}
@@ -294,7 +149,7 @@ export function AttachmentRow({
                 </PlaceFact>
               )}
               {/* One control for where it goes: a missing folder is chosen right away, anything else is changed in one dialog. */}
-              {folderMissing ? (
+              {folderMissing && folderBelow ? null : folderMissing ? (
                 <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
                   <FolderInput className="size-3.5" aria-hidden />
                   {t('target.chooseFolder')}
@@ -305,7 +160,7 @@ export function AttachmentRow({
                 </Button>
               )}
             </div>
-            {folderTarget === null && draft.revisionOf === null && (
+            {folderTarget === null && draft.revisionOf === null && !folderBelow && (
               <p className="text-muted-foreground text-xs" data-testid="suggestion-missing">
                 {missingSuggestion === 'pending'
                   ? t('suggestion.pending')
@@ -359,4 +214,183 @@ export function AttachmentRow({
       />
     </Item>
   )
+}
+
+export function AttachmentPicture({
+  name,
+  contentType,
+  contentUrl,
+  onPreview,
+}: {
+  name: string
+  contentType: string
+  contentUrl: string | null
+  onPreview?: (trigger: HTMLElement) => void
+}): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  return (
+    <button
+      type="button"
+      onClick={(event) => onPreview?.(event.currentTarget)}
+      disabled={!contentUrl || !onPreview}
+      aria-label={t('attachments.preview', { name })}
+      tabIndex={-1}
+      className="shrink-0 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
+    >
+      <AttachmentThumbnail filename={name} contentType={contentType} url={contentUrl} />
+    </button>
+  )
+}
+
+export function AttachmentFacts({
+  name,
+  part,
+  contentUrl,
+  onPreview,
+}: {
+  name: string
+  part: AttachmentCase['part']
+  contentUrl: string | null
+  onPreview?: (trigger: HTMLElement) => void
+}): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const { locale } = useLocale()
+  const extension = fileExtensionLabel(name) || part.contentType.split('/')[1]?.toUpperCase() || ''
+  return (
+    <p className="text-muted-foreground text-xs tabular-nums">
+      {t('attachments.facts', { type: extension, size: formatBytes(part.sizeBytes, locale) })}
+      {/* Visible words, not only the 40px picture: a phone has no hover to discover that the picture opens. */}
+      {contentUrl && onPreview && (
+        <>
+          {CLAUSE_JOIN}
+          <Button
+            type="button"
+            variant="inline"
+            className="touch-target h-auto p-0 text-xs font-medium"
+            onClick={(event) => onPreview(event.currentTarget)}
+            aria-label={t('attachments.preview', { name })}
+            data-testid="attachment-preview-open"
+          >
+            {t('attachments.previewShort')}
+          </Button>
+        </>
+      )}
+    </p>
+  )
+}
+
+export function AttachmentNoteLine({ projectId, note }: { projectId: string; note: AttachmentNote }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  switch (note.kind) {
+    case 'duplicate':
+      return (
+        <FactLine icon={Copy} testId="note-duplicate">
+          {t('attachments.notes.duplicate', { path: note.folderPath ? `${note.folderPath}/${note.name}` : note.name })}
+          {CLAUSE_JOIN}
+          <Button asChild variant="inline">
+            <Link href={documentFilesHref(projectId, note.documentId)}>{t('attachments.open')}</Link>
+          </Button>
+        </FactLine>
+      )
+    case 'revision':
+      return (
+        <FactLine icon={FileStack} tone={note.verified ? 'default' : 'warning'} testId="note-revision">
+          {note.verified
+            ? t('attachments.notes.revision', { version: note.nextVersion, name: note.name })
+            : t('attachments.notes.revisionUnverified', { version: note.nextVersion, name: note.name })}
+        </FactLine>
+      )
+    case 'revision_hidden':
+      return (
+        <FactLine icon={FileStack} testId="note-revision-hidden">
+          {t('attachments.notes.revisionHidden')}
+        </FactLine>
+      )
+    case 'name_stop':
+      return (
+        <FactLine icon={AlertTriangle} tone="warning" testId="note-name-stop">
+          {t('attachments.notes.nameStop', { terms: note.terms.join('“, „') })}
+        </FactLine>
+      )
+    case 'risk':
+      return (
+        <FactLine icon={ShieldAlert} tone="warning" testId={`note-${note.flag}`}>
+          {t(`attachments.notes.${note.flag}`)}
+        </FactLine>
+      )
+    case 'encrypted':
+      return (
+        <FactLine icon={Lock} testId="note-encrypted">
+          {t('attachments.notes.encrypted')}
+        </FactLine>
+      )
+    case 'forwarded_inner':
+      return (
+        <FactLine icon={Forward} testId="note-forwarded">
+          {t('attachments.notes.forwarded_inner')}
+        </FactLine>
+      )
+    case 'image_in_mail':
+      return (
+        <FactLine icon={ImageIcon} testId="note-image">
+          {t('attachments.notes.image_in_mail')}
+        </FactLine>
+      )
+    case 'last_failure':
+      return (
+        <FactLine icon={AlertTriangle} tone="danger" testId="note-last-failure">
+          {t('attachments.notes.lastFailure', { reason: t(`failures.${note.failure}`) })}
+        </FactLine>
+      )
+  }
+}
+
+export function AttachmentStatusLine({ projectId, entry }: { projectId: string; entry: AttachmentCase }): JSX.Element | null {
+  const t = useTranslations(inboundMailCopy)
+  const { locale } = useLocale()
+  const { part, status } = entry
+  switch (status) {
+    case 'scan_pending':
+      return (
+        <FactLine icon={Timer} testId="status-scan-pending">
+          {t('attachments.status.scan_pending')}
+        </FactLine>
+      )
+    case 'scan_failed':
+      return (
+        <FactLine icon={ShieldQuestion} tone="warning" testId="status-scan-failed">
+          {t('attachments.status.scan_failed')}
+        </FactLine>
+      )
+    case 'scan_infected':
+      return (
+        <FactLine icon={ShieldAlert} tone="danger" testId="status-scan-infected">
+          {t('attachments.status.scan_infected')}
+        </FactLine>
+      )
+    case 'not_offered':
+      return (
+        <FactLine icon={Ban} testId="status-not-offered">
+          {t('attachments.status.not_offered')}
+        </FactLine>
+      )
+    case 'filing':
+      return (
+        <FactLine icon={Timer} testId="status-filing">
+          {t('attachments.status.filing')}
+        </FactLine>
+      )
+    case 'filed':
+      return <FiledTo projectId={projectId} part={part} />
+    case 'dismissed':
+    case 'expired':
+      return (
+        <FactLine icon={Undo2} testId={`status-${status}`}>
+          {t(`attachments.status.${status}`)}
+          {part.restorableUntil && `${CLAUSE_JOIN}${t('row.restorableUntil', { date: formatCalendarDate(part.restorableUntil, locale) })}`}
+        </FactLine>
+      )
+    case 'waiting':
+      return null
+  }
 }

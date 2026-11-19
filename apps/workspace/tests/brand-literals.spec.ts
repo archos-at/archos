@@ -843,7 +843,7 @@ describe('one ramp, one scale', () => {
 })
 
 describe('the agent’s disc', () => {
-  const CLAIMS_A_SUGGESTION = modulesOf('AttachmentRow')
+  const CLAIMS_A_SUGGESTION = modulesOf('AttachmentRow', 'FolderChoice')
   it('Dateien and the E-Mail-Eingang draw it only where it marks a suggestion', () => {
     const offenders = tsFiles()
       .filter(inDateien)
@@ -980,17 +980,43 @@ describe('colour is a verdict', () => {
 })
 
 describe('one primary per area', () => {
-  it('the reader’s primary yields while a batch is picked', () => {
+  it('the reader’s primary yields while a batch is picked, and to „Verwerfen“ for a forgery or a mail with nothing to file', () => {
     const bar = parseSource(moduleOf('DecisionBar', 'ui/features/inbound-mail/'))
-    expect(hasShape(bar, "impersonation || yieldPrimary ? 'secondary' : 'default'")).toBe(true)
-    expect(hasShape(bar, "impersonation && ! yieldPrimary ? 'default' : 'secondary'")).toBe(true)
+    expect(hasShape(bar, "dismissFirst || yieldPrimary ? 'secondary' : 'default'")).toBe(true)
+    expect(hasShape(bar, "dismissFirst && ! yieldPrimary ? 'default' : 'secondary'")).toBe(true)
+    expect(initializerOf(bar, 'dismissFirst') && shapeOf(initializerOf(bar, 'dismissFirst') as ts.Node)).toBe('impersonation || ! offersFiling')
     expect(attributeShape(parseSource(moduleOf('InboundMailWorkspace')), 'yieldPrimary', 'selectedIds . length > 0')).toBe(true)
   })
 
-  it('the reader’s primary is the verb, and the sentence beside it says what one press files', () => {
+  it('the mail’s one primary names the act it opens, and the dialog’s one primary names the act it does', () => {
     const bar = parseSource(moduleOf('DecisionBar', 'ui/features/inbound-mail/'))
-    expect(hasShape(bar, "onlyDismiss ? t ( 'bar.dismiss' ) : t ( 'bar.file' )")).toBe(true)
-    expect(attributeShape(bar, 'aria-describedby', 'onlyDismiss ? undefined : summaryId')).toBe(true)
+    const opens = elementsNamed(bar, ['Button']).filter((element) => stringAttribute(element, 'data-testid') === 'decision-open')
+    expect(opens).toHaveLength(1)
+    expect(childShapes(elementOf(opens[0]) as ts.JsxElement)).toContain("t ( 'filing.open' )")
+    const dialog = parseSource(moduleOf('FilingDialog'))
+    const files = elementsNamed(dialog, ['BusyButton']).filter((element) => stringAttribute(element, 'data-testid') === 'decision-file')
+    expect(files).toHaveLength(1)
+    expect(stringAttribute(files[0], 'variant')).toBeUndefined()
+    expect(hasShape(dialog, "nothing ? t ( 'bar.dismiss' ) : impersonation && ! summary . ownClaimedMail ? t ( 'bar.fileGenuine' ) : t ( 'bar.file' )")).toBe(true)
+    // Its other presses are the quiet way back: one raised „Zurück“/„Abbrechen“, never a second ink press.
+    expect(
+      elementsNamed(dialog, ['Button']).filter((element) => ['filing-back', 'filing-cancel'].includes(stringAttribute(element, 'data-testid') ?? '')).map((element) => stringAttribute(element, 'variant')),
+    ).toEqual(['secondary', 'secondary'])
+  })
+})
+
+describe('the mail is read, „Einordnen“ edits', () => {
+  const EDITING = ['Checkbox', 'CheckLine', 'RadioGroup', 'AttachmentRow', 'AttachmentsHeading', 'ContentFindingChoice', 'FolderPickerSheet', 'FolderChoice', 'PlaceFact']
+  it('the pane and its attachment line draw no box, choice or per-row press: those stand only in the dialog', () => {
+    for (const name of ['InboundMailDetail', 'AttachmentLine', 'DecisionBar']) {
+      expect(elementsNamed(parseSource(moduleOf(name, 'ui/features/inbound-mail/')), EDITING), name).toEqual([])
+    }
+    expect(elementsNamed(parseSource(moduleOf('FilingDialog')), ['AttachmentRow', 'MessageRow', 'CheckLine', 'FolderChoice']).length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('the pane keeps the text’s row only for a text that no longer waits', () => {
+    const detail = parseSource(moduleOf('InboundMailDetail'))
+    expect(hasShape(detail, "messagePart && messagePart . state !== 'waiting' && draft ?. message &&")).toBe(true)
   })
 })
 
@@ -1042,12 +1068,22 @@ describe('rows, weights and the phone', () => {
     expect(hasClassAttribute(parseSource(moduleOf('InboundMailList')), 'box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11')).toBe(true)
   })
 
-  it('the reader’s foot says what one press files only once the choice it repeats has scrolled away', () => {
+  it('the reader’s foot on a phone is one note over two presses: the hint for „Einordnen“ stands on a desk only', () => {
     const bar = parseSource(moduleOf('DecisionBar', 'ui/features/inbound-mail/'))
-    expect(hasShape(bar, "choiceInView && 'hidden'")).toBe(true)
-    expect(hasShape(bar, '! onlyDismiss && ! ( yieldPrimary && ! impersonation ) &&')).toBe(true)
-    expect(attributeShape(parseSource(moduleOf('InboundMailDetail')), 'ref', 'choiceRef')).toBe(true)
+    const lines = elementsNamed(bar, ['p'])
+    expect(lines.map((line) => stringAttribute(line, 'data-testid'))).toEqual(['decision-open-hint', 'decision-dismiss-note'])
+    expect(classesOfText(stringAttribute(lines[0], 'className') ?? '')).toContain('max-sm:hidden')
+    expect(classesOfText(stringAttribute(lines[1], 'className') ?? '').some((token) => token.startsWith('max-sm:') || token === 'hidden')).toBe(false)
+    expect(elementsNamed(bar, ['FactLine', 'CheckLine', 'Checkbox'])).toEqual([])
     expect(literalHasRun(moduleOf('SenderTrustLine'), ['min-w-0', 'max-w-[64ch]'])).toBe(true)
+  })
+
+  it('„Einordnen“ is a full-height sheet on a phone with its presses pinned at the foot', () => {
+    const dialog = parseSource(moduleOf('FilingDialog'))
+    const content = elementsNamed(dialog, ['DialogContent'])
+    expect(content).toHaveLength(1)
+    expect(attributeOf(content[0], 'fullScreenOnMobile')).toBeDefined()
+    expect(literalHasRun(moduleOf('FilingDialog'), ['min-h-0', 'flex-1', 'overflow-y-auto'])).toBe(true)
   })
 
   it('an empty state’s headline is the section step, and a string to copy is mono 13/20/440', () => {

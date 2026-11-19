@@ -250,21 +250,11 @@ export type DraftBlocker =
   | { kind: 'sender' }
   | { kind: 'sender_only' }
 
-export type TextPlan = ({ kind: 'append'; name: string } | { kind: 'create'; name: string; folder: string }) & { masked: boolean }
-
-export interface FilesPlan {
-  folders: string[]
-  single: { name: string; folder: string | null; revision: { version: number; of: string } | null } | null
-}
 
 export interface DraftSummary {
   files: number
   text: boolean
   thread: { name: string; nextVersion: number } | null
-  textPlan: TextPlan | null
-  filesPlan: FilesPlan
-  left: { text: boolean; files: string[] }
-  undecided: string[]
   dismissErases: boolean
   needsSenderAcknowledgement: boolean
   ownClaimedMail: boolean
@@ -294,34 +284,10 @@ export function draftSummary(view: InboundMailView, draft: MailDraft): DraftSumm
   if (needsSender && !draft.acknowledgeSender) blockers.push({ kind: 'sender' })
   if (view.onlySenderReleases && files + (text ? 1 : 0) > 0) blockers.push({ kind: 'sender_only' })
 
-  const textTarget = text ? draft.message?.target : undefined
-  const masked = draft.message?.findingChoice === 'masked'
-  const textPlan: TextPlan | null = !textTarget
-    ? null
-    : textTarget.kind === 'append'
-      ? candidate
-        ? { kind: 'append', name: candidate.name, masked }
-        : null
-      : { kind: 'create', name: textTarget.name.trim(), folder: textTarget.folder.path, masked }
-  const unticked = draft.attachments.filter((attachment) => !attachment.checked && cases.get(attachment.partId)?.selectable)
-  const first = checked[0]
-  const firstCase = first ? cases.get(first.partId) : undefined
-  const revision = first?.revisionOf && firstCase?.part.revisionCandidate?.documentId === first.revisionOf ? firstCase.part.revisionCandidate : null
-
   return {
     files,
     text,
     thread: candidate ? { name: candidate.name, nextVersion: candidate.nextVersion } : null,
-    textPlan,
-    filesPlan: {
-      folders: [...new Set(checked.map((attachment) => attachment.folder?.path).filter((path): path is string => path !== undefined))],
-      single:
-        files === 1 && first
-          ? { name: first.name, folder: first.folder?.path ?? null, revision: revision ? { version: revision.nextVersion, of: revision.name } : null }
-          : null,
-    },
-    left: { text: messageSelectable(view) && !!draft.message && !draft.message.checked, files: unticked.map((attachment) => attachment.name) },
-    undecided: unticked.filter((attachment) => asksForDecision(cases.get(attachment.partId))).map((attachment) => attachment.name),
     dismissErases: dismissErases({ senderTrust: view.sender?.trust ?? null, senderFlags: view.sender?.flags ?? [], onlySenderReleases: view.onlySenderReleases }),
     needsSenderAcknowledgement: needsSender,
     ownClaimedMail: view.ownClaimedMail,
