@@ -30,7 +30,7 @@ function norms(canManageOfficeShelf: boolean): ProjectNormsResponse {
     canWrite: true,
     offers: [
       { documentId: 'n1', fileName: 'OENORM_B_3691_2019.pdf', folderId: null, designation: 'ÖNORM B 3691', kind: 'technical_standard', editionLabel: '2019' },
-      { documentId: 'n2', fileName: 'OENORM_B_2320_2017.pdf', folderId: null, designation: 'ÖNORM B 2320', kind: 'technical_standard', editionLabel: null },
+      { documentId: 'n2', fileName: 'OENORM_B_2320.pdf', folderId: null, designation: 'ÖNORM B 2320', kind: 'technical_standard', editionLabel: null },
     ],
     references: [
       { ...reference, id: 'r1', fileName: 'OENORM_B_1600_2017.pdf', state: 'in_office_shelf', officeDocumentId: 'o1', entryId: 'edition_oenorm-b-1600' },

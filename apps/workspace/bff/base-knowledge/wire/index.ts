@@ -286,7 +286,7 @@ export const settleProposalsBodySchema = z
         z
           .object({
             entryId: z.string().min(1).max(120).describe('A proposal from base-knowledge-recognize.'),
-            notNorm: z.boolean().optional().describe('true: drop the proposal; the file goes back to the Ordner folder it came from, an ordinary file not offered as a norm again.'),
+            notNorm: z.boolean().optional().describe('true: drop the proposal; the file returns to its folder as an ordinary file, not offered again.'),
             kind: entryFields.kind.optional(),
             designation: entryFields.designation.optional(),
             editionLabel: z
