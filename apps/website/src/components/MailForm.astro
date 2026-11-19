@@ -48,7 +48,7 @@ const { id, to, subject, sent, delivered, checkbox, locale, class: className } =
     data-locale={locale}
   >
     <slot />
-    <div class="ui-visually-hidden" aria-hidden="true">
+    <div class="mail-form-trap" aria-hidden="true">
       <label for={`${id}-website`}>Website</label>
       <input id={`${id}-website`} name="website" type="text" tabindex="-1" autocomplete="off" />
     </div>
