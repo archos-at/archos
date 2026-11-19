@@ -344,15 +344,17 @@ _Code_: `mail thread` (`lib/mail-thread`, `mail_threads`, `mail_thread_entries`
 for its e-mails, verb `detach`).
 
 **Verlauf folgen** (follow a mail thread):
-A person's standing, revocable decision about one **E-Mail-Verlauf** („Diesem
-E-Mail-Verlauf folgen“, „Sie folgen diesem E-Mail-Verlauf bis …“, „nicht mehr
-folgen“): while it runs (60 days, renewable up to 180), the text of later
+A person's standing, revocable decision about one **E-Mail-Verlauf**, named in
+the app for what it does („Antworten ohne Klick ablegen“ · „Einschalten“,
+„Antworten werden bis … ohne Klick abgelegt“, „Beenden“; „folgen“ read as
+notifications, and only the Postfach's notices still say it): while it runs (60 days, renewable up to 180), the text of later
 replies from confirmed domains already in the conversation is added without a
 click, in that person's name; attachments still wait in the
 **E-Mail-Eingang**. It ends when the person or a manager ends it, when it runs
-out, when the person loses access, when the address is replaced, or when an
-e-mail is herausgelöst from that Verlauf.
-_Avoid_: abonnieren, automatisch ablegen.
+out, when the person loses access, when the address is replaced or switched
+off, or when an e-mail is herausgelöst from that Verlauf.
+_Avoid_: abonnieren, automatisch ablegen, „Folgen“ as the press (a
+notification's word).
 _Code_: `follow` / `unfollow` (`mail_thread_follows`, `mail-thread-follow`).
 
 **Original (.eml)** (original):
