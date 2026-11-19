@@ -625,6 +625,44 @@ jobs:
           echo "AGENTGATEWAY_SCHEMA_VERSION=${AGENTGATEWAY_VERSION}" >> "$GITHUB_ENV"
       - run: task infra:test
 
+  infra-preview:
+    name: Infra (pulumi preview against staging)
+    needs: changes
+    if: >-
+      needs.changes.outputs.infra == 'true' && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 20
+    concurrency:
+      group: infra-preview-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - name: Install program and policy-pack deps
+        working-directory: deploy/pulumi
+        run: bun install --frozen-lockfile && bun install --frozen-lockfile --cwd policy
+      - name: Install Pulumi
+        working-directory: deploy/pulumi
+        run: |
+          version="$(node -p "require('@pulumi/pulumi/package.json').version")"
+          curl -fsSL https://get.pulumi.com -o "$RUNNER_TEMP/install-pulumi.sh"
+          sh "$RUNNER_TEMP/install-pulumi.sh" --version "$version"
+      - name: Preview against staging
+        working-directory: deploy/pulumi
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          ALLOW_STATE_LOSS: ${{ contains(github.event.pull_request.labels.*.name, 'infra:destroys-state') && '1' || '' }}
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          scripts/preview-pull-request.sh
+
   packages:
     name: Standalone packages (packages/)
     needs: changes
@@ -899,7 +937,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, infra-preview, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
