@@ -596,6 +596,12 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
     it('files an attachment only on its own live claim, and a part waits again with its failure', async () => {
       const mail = await heldMail()
       const doc = await document('Claimed.pdf')
+      const claimOf = sql`SELECT claim_expires_at FROM inbound_mail_parts WHERE id = ${mail.filePart}::uuid`
+      const until = new Date(Date.now() + 10 * 60_000)
+      await inTenant(() => filing.renewClaims([mail.textDecision], until))
+      expect(new Date((await one<{ claim_expires_at: string }>(claimOf)).claim_expires_at).getTime()).toBeLessThan(until.getTime())
+      await inTenant(() => filing.renewClaims([mail.textDecision, mail.fileDecision], until))
+      expect(new Date((await one<{ claim_expires_at: string }>(claimOf)).claim_expires_at).getTime()).toBe(until.getTime())
       expect(
         await inTenant(() =>
           filing.renewClaim(mail.filePart, mail.textDecision, new Date(Date.now() + 60_000))
@@ -611,7 +617,6 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
           filing.markAttachmentFiled(mail.filePart, mail.textDecision, {
             documentId: doc.id,
             versionId: doc.versionId,
-            erasureDeferred: false,
           })
         )
       ).toBe(false)
@@ -620,20 +625,18 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
           filing.markAttachmentFiled(mail.filePart, mail.fileDecision, {
             documentId: doc.id,
             versionId: doc.versionId,
-            erasureDeferred: false,
           })
         )
       ).toBe(true)
-      expect(
-        await one(
-          sql`SELECT state, storage_key, filename, document_id FROM inbound_mail_parts WHERE id = ${mail.filePart}::uuid`
-        )
-      ).toEqual({
-        state: 'filed',
-        storage_key: null,
-        filename: null,
-        document_id: doc.id,
-      })
+      const filedPart = sql`SELECT state, storage_key IS NOT NULL AS held, filename IS NOT NULL AS named, erasure_deferred_at IS NOT NULL AS owed, document_id FROM inbound_mail_parts WHERE id = ${mail.filePart}::uuid`
+      expect(await one(filedPart)).toEqual({ state: 'filed', held: true, named: true, owed: true, document_id: doc.id })
+      const [part] = await inTenant(() => filing.findFilingWork(projectId, [mail.mailId])).then((work) =>
+        work[0]!.parts.filter((row) => row.id === mail.filePart)
+      )
+      await inTenant(() => filing.forgetFiledBytes(mail.filePart, 'another-key'))
+      expect(await one(filedPart)).toMatchObject({ held: true, owed: true })
+      await inTenant(() => filing.forgetFiledBytes(mail.filePart, part!.storageKey!))
+      expect(await one(filedPart)).toEqual({ state: 'filed', held: false, named: false, owed: false, document_id: doc.id })
       expect(
         await inTenant(() => filing.returnPartToWaiting(mail.textPart, mail.textDecision, 'quota'))
       ).toBe(true)
@@ -656,7 +659,6 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
         filing.markAttachmentFiled(mail.filePart, mail.fileDecision, {
           documentId: doc.id,
           versionId: doc.versionId,
-          erasureDeferred: false,
         })
       )
       const commit = newThreadCommit(

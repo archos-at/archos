@@ -408,19 +408,35 @@ one thread is filed in sent order with the Fassung each becomes.
 ## Filing
 
 `lib/inbound-mail/file-job.ts`, handler as the decider, interactive. A run acts
-only on decisions its own person made, and the follow job's run only on the
-decision it just wrote (`decisionIds` in the payload): a part another person
-decided on the same mail is left to that person's run, so nothing is ever
-uploaded in one person's session on another's choice of folder, name or
-release. Per mail:
+only on the decisions its payload names (`decisionIds`), each its own person's:
+the person's decision names its own, the sender's filing job its own and the
+follow job the one it just wrote, and a payload that names none files nothing.
+So two runs never work one part, not even a person's and their own sender
+filing on one mail, and a part another person decided is left to that person's
+run: nothing is ever uploaded in one person's session on another's choice of
+folder, name or release. The run renews the claims of every decision it names
+at its start and again, at most once a minute, as it reaches each mail and each
+attachment, so the last mails of a bulk run do not lapse to the sweep while the
+first upload. Per mail:
 finish a stopped original move; each attachment (claim renewed, bytes read and
 SHA-256 checked, re-scanned when the verdict is older than 24 h, folder resolved
-as the person, the upload path with the person's chosen type and `mail_origin`);
+as the person, the upload path with the person's chosen type and `mail_origin`,
+then the part marked filed, compare-and-set on its claim, with its bytes still
+owed an erasure, and only then the bytes erased and the key forgotten; a hold or
+a failed erasure leaves `erasure_deferred_at` for sweep 10);
 then the text (`lib/mail-thread/append.ts`); then any attachment filed after
 its text is linked to the entry's `pending` row; then settle once every part is
 filed (staged objects erased by key, the row scrubbed to ids) and tell. A
 failure a retry would repeat becomes the part's `last_failure` and the part
-waits again; `inbound_mail.filing_failed` tells the decider.
+waits again; `inbound_mail.filing_failed` tells the decider. Staged bytes that
+are gone are `unavailable` (an attachment) or `unreadable` (the text), not a
+failed run. An attachment whose claim was lost while it uploaded (the sweep gave
+it back, or another decision took it) is not marked filed and keeps its bytes,
+so it can be filed or dismissed again; the run logs the document it uploaded
+(`[inbound-mail] part … lost its claim while document … was uploaded`), and a
+second filing under the same name meets `name_taken`. When a thread is busy
+(its render lease held), the run's later mails to that thread wait for the
+retry with it, so no later message becomes an earlier Fassung.
 
 Each run opens one quiet upload batch per kind (`quiet-batch.ts`), with the
 effects of `batch-effects.ts`:

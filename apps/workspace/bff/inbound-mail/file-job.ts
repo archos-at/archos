@@ -35,10 +35,12 @@ import { announceDecided, announceFilingFailed, settleFilingFailed, settleHeld, 
 import { INBOUND_ATTACHMENT_EFFECTS, INBOUND_THREAD_APPEND_EFFECTS } from './batch-effects'
 import {
   findFilingWork,
+  forgetFiledBytes,
   markAttachmentFiled,
   projectIsHeld,
   recordFilingScan,
   renewClaim,
+  renewClaims,
   returnPartToWaiting,
   settleFiledMail,
   type FilingWork,
@@ -49,7 +51,7 @@ import { openQuietBatch, sealQuietBatch } from './quiet-batch'
 import { inboundMailDomain, redactProjectAddresses } from './address'
 import { mailReadSchema, redactRead, type MailRead } from './read-client'
 import { FILING_CLAIM_MS } from './service'
-import { eraseStagedObjects, readStagedObject } from './staging'
+import { eraseStagedObjects, readStagedObjectIfHeld } from './staging'
 
 export const RESCAN_AFTER_MS = 24 * 60 * 60 * 1000
 
@@ -62,18 +64,24 @@ interface FilingRun {
   session: AuthorizedSession
   projectId: string
   owns: (decision: InboundMailDecisionRow) => boolean
+  keepClaims: () => Promise<void>
   request: Request
   once: <T>(key: string, load: () => Promise<T>) => Promise<T>
 }
 
 function filingRun(session: AuthorizedSession, payload: InboundMailFilePayload): FilingRun {
   const cache = new Map<string, Promise<unknown>>()
-  const named = payload.decisionIds ? new Set(payload.decisionIds) : null
+  const named = new Set(payload.decisionIds ?? [])
+  let renewedAt = Number.NEGATIVE_INFINITY
   return {
     session,
     projectId: payload.projectId,
-    owns: (decision) =>
-      decision.decidedBy === session.userId && (named === null || named.has(decision.id)),
+    owns: (decision) => decision.decidedBy === session.userId && named.has(decision.id),
+    keepClaims: async () => {
+      if (Date.now() - renewedAt < FILING_CLAIM_MS / 5) return
+      renewedAt = Date.now()
+      await renewClaims([...named], new Date(renewedAt + FILING_CLAIM_MS))
+    },
     request: jobRequest(),
     once: <T>(key: string, load: () => Promise<T>) => {
       if (!cache.has(key)) cache.set(key, load())
@@ -113,8 +121,19 @@ export async function runInboundMailFiling(
   )
   if (work.length === 0) return { done: true, payload }
   let busy = false
+  const busyThreads = new Set<string>()
   try {
-    for (const mail of work) busy = (await fileMail(run, mail)) === 'busy' || busy
+    for (const mail of work) {
+      const thread = appendTarget(mail)
+      if (thread && busyThreads.has(thread)) {
+        busy = true
+        continue
+      }
+      await run.keepClaims()
+      if ((await fileMail(run, mail)) !== 'busy') continue
+      busy = true
+      if (thread) busyThreads.add(thread)
+    }
   } finally {
     for (const key of ['batch:attachments', 'batch:thread']) {
       const opened = await run.once<string | null>(key, async () => null).catch(() => null)
@@ -127,6 +146,12 @@ export async function runInboundMailFiling(
     : { done: true, payload }
 }
 
+function appendTarget(work: FilingWork): string | null {
+  const message = work.parts.find((part) => part.kind === 'message' && part.state === 'filing')
+  const decision = message ? work.decisions.get(message.id) : undefined
+  return decision?.threadAction === 'append' ? decision.mailThreadId : null
+}
+
 async function fileMail(run: FilingRun, work: FilingWork): Promise<'done' | 'busy'> {
   await finishInterruptedMove(run, work.mail)
   const filedNow: Array<{
@@ -137,6 +162,7 @@ async function fileMail(run: FilingRun, work: FilingWork): Promise<'done' | 'bus
   for (const part of work.parts) {
     const decision = work.decisions.get(part.id)
     if (part.kind !== 'attachment' || part.state !== 'filing' || !decision) continue
+    await run.keepClaims()
     const filed = await fileAttachment(run, work, part, decision)
     if (filed) filedNow.push({ part, ...filed })
   }
@@ -238,7 +264,8 @@ async function fileAttachment(
     return null
   }
   if (!part.storageKey) return fail('unavailable')
-  const bytes = await readStagedObject(mail.stagingBucket, part.storageKey)
+  const bytes = await readStagedObjectIfHeld(mail.stagingBucket, part.storageKey)
+  if (!bytes) return fail('unavailable')
   if (!part.scannedAt || Date.now() - new Date(part.scannedAt).getTime() > RESCAN_AFTER_MS) {
     const scan = await scanForStorage(bytes)
     if (scan.status !== 'clean') return fail('scan_not_clean', scan)
@@ -279,18 +306,22 @@ async function fileAttachment(
   if (!uploaded.ok) return fail(uploaded.failure)
 
   const documentId = uploaded.value.documentId
-  const version = (await findCurrentVersions([documentId], memberReader(run.session.userId))).get(
-    documentId
-  )
-  const deferred =
-    (await held(run)) ||
-    (await eraseStagedObjects(mail.stagingBucket, [part.storageKey])).length > 0
-  await markAttachmentFiled(part.id, decision.id, {
-    documentId,
-    versionId: version?.versionId ?? null,
-    erasureDeferred: deferred,
-  })
-  return { documentId, versionId: version?.versionId ?? null }
+  const versionId =
+    (await findCurrentVersions([documentId], memberReader(run.session.userId))).get(documentId)
+      ?.versionId ?? null
+  if (!(await markAttachmentFiled(part.id, decision.id, { documentId, versionId }))) {
+    console.warn(
+      `[inbound-mail] part ${part.id} of mail ${mail.id} lost its claim while document ${documentId} was uploaded; its bytes stay staged and it is not filed`
+    )
+    return null
+  }
+  if (
+    !(await held(run)) &&
+    (await eraseStagedObjects(mail.stagingBucket, [part.storageKey])).length === 0
+  ) {
+    await forgetFiledBytes(part.id, part.storageKey)
+  }
+  return { documentId, versionId }
 }
 
 async function fileText(
@@ -309,11 +340,12 @@ async function fileText(
     await returnPartToWaiting(part.id, decision.id, 'unreadable')
     return 'done'
   }
-  const staged = mailReadSchema.parse(
-    JSON.parse(
-      new TextDecoder().decode(await readStagedObject(mail.stagingBucket, mail.readStorageKey))
-    )
-  )
+  const read = await readStagedObjectIfHeld(mail.stagingBucket, mail.readStorageKey)
+  if (!read) {
+    await returnPartToWaiting(part.id, decision.id, 'unreadable')
+    return 'done'
+  }
+  const staged = mailReadSchema.parse(JSON.parse(new TextDecoder().decode(read)))
   const filed = filedForm(mail, staged)
   const folder =
     decision.threadAction === 'create'

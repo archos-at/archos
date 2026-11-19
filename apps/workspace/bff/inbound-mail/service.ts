@@ -285,6 +285,7 @@ export async function fileInboundMails(
         payload: {
           projectId,
           mailIds: plans.filter((plan) => plan.files.length > 0).map((plan) => plan.mailId),
+          decisionIds: files.flatMap((row) => (row.id ? [row.id] : [])),
           requester: requesterOf(session),
         },
       }

@@ -282,7 +282,7 @@ describe('a decision', () => {
     expect(actor).toEqual({ decidedBy: PERSON, via: 'app', proposalId: null })
     const firstId = writes[0]!.files[0]!.id
     expect(job.jobId).toBe(filingJobId(firstId))
-    expect(job.payload).toMatchObject({ projectId: PROJECT_ID, mailIds: [MAIL_ID], requester: { userId: PERSON } })
+    expect(job.payload).toMatchObject({ projectId: PROJECT_ID, mailIds: [MAIL_ID], decisionIds: [firstId], requester: { userId: PERSON } })
     expect(result.filingJobId).toBe(job.jobId)
     expect(auditDecisions).toHaveBeenCalledTimes(1)
   })
