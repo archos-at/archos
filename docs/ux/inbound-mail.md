@@ -1,9 +1,9 @@
 # Project mail: the E-Mail-Eingang, the E-Mails tab and provenance
 
-**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words, and the address, the list and the E-Mails tab again after a cold read, 2026-11-19 (round 2); the mail read in the pane and filed through „Einordnen“ 2026-11-19 (round 3); the list says where each ready mail goes and how mail gets here; filed mail in Dateien, the Verlauf's record, the tab's row and the Postfach's words after an end-to-end walk, 2026-11-19 (round 4)
+**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words, and the address, the list and the E-Mails tab again after a cold read, 2026-11-19 (round 2); the mail read in the pane and filed through „Einordnen“ 2026-11-19 (round 3); the list says where each ready mail goes and how mail gets here; filed mail in Dateien, the Verlauf's record, the tab's row and the Postfach's words after an end-to-end walk, 2026-11-19 (round 4); a plan's next index filed as its next Fassung by default, filing replies without a click as one switch in both places, the dialog naming its mail, and every dismissal restorable for 7 days, 2026-11-19 (round 5)
 **Status:** Implemented, the W1 rework included
 **Surfaces:** Dateien › E-Mail-Eingang (`/app/projects/[id]/files/mail`, `…/mail/[mailId]`), the address dialog and the settings card, a Verlauf in a folder's listing, the „E-Mails“ tab of a Verlauf's preview, the provenance row of a document that came by mail, the Postfach rows
-**Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…` (the rail beside its Verlauf on a wide screen, alone on a phone, as the preview draws it), `/dev/files-page?project=real&folder=r-korr[&view=list]` (two Verläufe and an attachment in a folder), `/dev/file-preview?variant=mail-thread|mail-attachment` (the preview on the server's own rendition, `renderMailThread`), `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip. The variant lists are in each page's header.
+**Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…` (the rail beside its Verlauf on a wide screen, alone on a phone, as the preview draws it), `/dev/files-page?project=real&folder=r-korr[&view=list]` (two Verläufe and an attachment in a folder), `/dev/file-preview?variant=mail-thread|mail-attachment` (the preview on the server's own rendition, `renderMailThread`), `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip and the framework's dev indicator (`HiddenDevChrome`; the files page too). The previews share one project („Bauplatz 12 – Wohnbau Seestadt“), one office (Huber Architektur ZT GmbH, the reader Anna Berger, her colleague Miriam Huber; the authority's officer is Mag. Karin Schober), and a clean PDF attachment's bytes are a sample drawn in the browser: a plan sheet for a name with a plan number, else a letter (`useSampleAttachmentUrls`). The variant lists are in each page's header.
 **Why:** [ADR-0137](../adr/0137-mail-sent-to-a-project-waits-until-a-person-files-it.md); the flow: [`inbound-mail.md`](../architecture/inbound-mail.md); the words: [`CONTEXT.md`](../../CONTEXT.md#project-mail).
 
 ## The rule
@@ -286,8 +286,10 @@ dass die E-Mail echt ist“, after which the primary reads „Als echt ablegen�
 the high-risk yes has its own words and its own verb, never the „Ablegen“ of
 every other mail. Once opened the fold's button reads „Ablage schließen“.
 
-**„Melden …“ warns the office** (`fraud-report.tsx`, inside the warning, under
-its text, with „Warnt Ihr Büro, damit niemand zahlt.“ beside it). Dismissing
+**„Melden und verwerfen …“ warns the office** (`fraud-report.tsx`, inside the
+warning, under its text, with „Warnt Ihr Büro, damit niemand zahlt, und
+verwirft die E-Mail.“ beside it; „Melden …“ alone hid that it also
+dismisses, round 4). Dismissing
 only ends the mail here, and the same mail may sit in accounting's mail
 program. The press opens a small confirmation, „Betrugsversuch melden?“, that
 says who is warned („{Produkt} warnt, wer dieses Projekt verwaltet, die
@@ -300,7 +302,7 @@ is one press: reported and dismissed together, the toast saying how many were
 warned („Gemeldet und verworfen. 3 Personen sind gewarnt.“), or, when nobody
 else manages the project, „Verworfen. Niemand sonst verwaltet dieses Projekt:
 Warnen Sie Ihr Büro selbst.“. No „Rückgängig“: the warning is already out.
-„Verwerfen“ stays the primary; „Melden …“ is the quiet press beside the reason
+„Verwerfen“ stays the primary; „Melden und verwerfen …“ is the quiet press beside the reason
 to use it, offered to every reader who may dismiss (the colleague under
 `ClaimedMailBar` too) while the mail waits.
 
@@ -384,9 +386,10 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    „Übersicht“ uses (`usePlanWords`, `plan-words.tsx`, from `planLines` in
    `lib/filing-plan.ts`): „Ordner Behörde/Bescheide · Dokumentart Bescheid“
    (each value with its label: „Kommt nach … · Bescheid“ left her asking what
-   the second „Bescheid“ was), „Neuer Ordner Fotos · Dokumentart Foto“, „Wird
-   Fassung 4 von S-101_C.pdf“, „bleibt weg – liegt schon im Projekt“, „Noch
-   kein Ordner“. Until the person has seen „Übersicht“ once, a part that asks
+   the second „Bescheid“ was), „Neuer Ordner Fotos · Dokumentart Foto“,
+   „Fassung 4 von S-101_C.pdf (ersetzt C) · Ordner Tragwerk“, „Neue Datei
+   neben S-101_C.pdf · Ordner Tragwerk“, „bleibt weg – liegt schon im
+   Projekt“, „Noch kein Ordner“. Until the person has seen „Übersicht“ once, a part that asks
    for a decision says so instead (`attachmentOpenReason`): „Offen: Ordner
    wählen“, „Offen: {productName} liest noch …“, „Offen: könnte Fassung 4 von
    S-101_C.pdf sein“, „Offen: ablegen oder nicht“, „Offen: Namensprüfung“,
@@ -416,10 +419,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    Übersicht. …“ when „Einordnen“ asks some; under it, muted, what
    „Verwerfen“ does, which the reader asked about her Outlook: „Verwerfen
    wirkt nur in {productName}, nicht im Mailprogramm, und lässt sich 7 Tage
-   lang wiederherstellen.“, for an unconfirmed outsider „… Weil sich der
-   Absender nicht überprüfen lässt, ist Verworfenes danach nicht
-   wiederherstellbar.“ (`dismissErases`;
-   that dismissal's toast offers no „Rückgängig“). On a phone only that
+   lang wiederherstellen.“, for every sender, an outsider whose domain did
+   not confirm the mail included (the owner, round 5: the erasure at once
+   had been the one exception, and its own copy in three places), and every
+   dismissal's toast offers „Rückgängig“. An outsider's mail that nobody
+   files is still removed after 14 days without a restore. On a phone only that
    second line stands over the two presses. Where nothing can be filed (a
    closed project, an infected original with nothing else), „Verwerfen“ is
    the one press and the primary. While a batch is selected in the list,
@@ -430,8 +434,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    the foot, opened on the agent's proposal (`initialDraft`: the server's
    defaults and the agent's suggestion). It asks **only the steps the draft
    needs** (`filingSteps`, `lib/filing-plan.ts`), in this order, one question
-   per screen, „Schritt 2 von 3“ above the question only when there are two
-   or more:
+   per screen. Above the question every step names the mail, as the page
+   behind it is blurred and which mail this was had been a guess (round 4):
+   „Schritt 2 von 3 · „Tiefgarage Lüftung“ von Ing. Karl Bauer“ (the
+   progress only when there are two or more steps; the subject without
+   „AW:“, cut at the line's end; `filing-mail`):
    1. „Absender“ when the server asks for `acknowledgeSender`
       (`senderNeedsDecision`): the sender's name, address and verdict, the
       flags, and the one confirmation, worded as before: „Ich kenne den
@@ -454,7 +461,19 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       point“): „An „{Name}“ anfügen“ per candidate with why it fits in a
       second line (`candidateWhy`: „gleicher Betreff“, „antwortet auf eine
       E-Mail darin“, or the doubt: „antwortet auf eine E-Mail darin, das
-      lässt sich aber nicht bestätigen“), „Als neuen E-Mail-Verlauf ablegen“
+      lässt sich aber nicht bestätigen“). **The E-Mail-Verlauf of the same
+      subject is the answer chosen** when it is the only candidate there is
+      (none other visible, none hidden from the reader, not full) and
+      appending to it needs no acknowledgement (`sameSubjectThread`,
+      `lib/draft.ts`): two near-identical Verläufe were what the old default
+      „Als neuen E-Mail-Verlauf ablegen“ made (round 4). It is the dialog's
+      default, never the server's: a subject match is never preselected
+      (`PRESELECTABLE_STRENGTHS`), so the mail stays under „Braucht Sie“ and
+      the step is asked, its hint saying why: „Vorgeschlagen ist „Tiefgarage
+      Lüftung“: gleicher Betreff, und kein anderer E-Mail-Verlauf passt.
+      Prüfen Sie, ob die E-Mail dazugehört.“ A candidate whose link the
+      server could not confirm (an outsider's unsigned reference) is never a
+      default, as choosing it is the acknowledgement. „Als neuen E-Mail-Verlauf ablegen“
       („im Ordner Korrespondenz“ until chosen; then its name field and
       „Ordner: …“ with „Ändern“ show under it, and only there), and „Text
       nicht ablegen“ („Der Text bleibt nur in der E-Mail und wird mit ihr
@@ -462,17 +481,23 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       confirm, its doubt in the label, carries the acknowledgement
       (`acknowledgeThread`); „Gehört trotzdem zu diesem E-Mail-Verlauf“ is
       left only for a preselected one that needs it. A hidden candidate
-      reads, in ink, „Ein weiterer E-Mail-Verlauf, den Sie nicht öffnen
-      können, passt vielleicht. Fragen Sie die Projektleitung.“ (the view
-      carries only a count, never who could see it). Under the target, the
-      content findings' one question (`ContentFindingChoice`): „Im Text
-      steht: IBAN, …“, „Wie soll das im E-Mail-Verlauf stehen?“,
-      „Unkenntlich machen“ („Im E-Mail-Verlauf steht an diesen Stellen
-      „••••“. {productName} kann ihn lesen und daraus antworten.“) selected
-      or „Lesbar ablegen“ („Der ganze E-Mail-Verlauf „{Name}“ ist dann
-      zurückgehalten, bis die Büro- oder Projektadministration über ihn
-      entscheidet. Bis dahin liest {productName} ihn nicht.“), and under
-      both: „Die E-Mail selbst bleibt unverändert: im Original (.eml) beim
+      reads, in ink, „Ein weiterer passender E-Mail-Verlauf liegt in einem
+      Ordner mit eigenen Zugriffsrechten. Gehört die E-Mail dorthin, lassen
+      Sie sie im E-Mail-Eingang: Wer dort eingetragen ist, kann sie
+      ablegen.“ (the view carries only a count, never who could see it;
+      „Fragen Sie die Projektleitung“ was read by the project lead). Under
+      the target, the content findings' one question
+      (`ContentFindingChoice`): „Im Text steht eine IBAN, ein Wort von der
+      Liste vertraulicher Begriffe Ihres Büros.“ (each finding with its
+      article: „IBAN, ein Begriff, …“ read as if the IBAN were the term),
+      „Wie soll das im E-Mail-Verlauf stehen?“, „Unkenntlich machen“ („Im
+      E-Mail-Verlauf steht an diesen Stellen „••••“. Den übrigen Text liest
+      {productName} wie gewohnt und kann Fragen dazu beantworten.“; „kann
+      ihn lesen“ left open what „ihn“ was) selected or „Lesbar ablegen“
+      („Dann hält {productName} den ganzen E-Mail-Verlauf „{Name}“ zurück,
+      bis eine Person, die das Projekt oder das Büro verwaltet, über ihn
+      entscheidet. Bis dahin liest {productName} ihn nicht.“: who decides,
+      in words the reader can check against herself), and under both: „Die E-Mail selbst bleibt unverändert: im Original (.eml) beim
       E-Mail-Verlauf und in den Postfächern, an die sie ging.“ No
       „Inhaltsprüfung“, no „jemand“, no „frei“.
    3. „Anhänge“ for the attachments that need a decision
@@ -492,11 +517,29 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       unselected part needs no acknowledgement of its own; an unconfirmed
       sender's acknowledgement stays in „Absender“. **An unsure next
       Fassung is three answers, never a tick** (`unsureRevision`,
-      `chooseRevision`): „Als neue Datei neben {Name} ablegen“ (the default,
-      in that document's folder: `revisionOf` null, that folder),
-      „Als Fassung {n} von {Name} ablegen“ (`revisionOf`, and the choice is
-      the `acknowledgeRisk` the server asks; a macro keeps its own „Ich
-      vertraue …“) and „Nicht ablegen“. Each row (`AttachmentRow`) has its
+      `chooseRevision`), each with what it does under it: „Als Fassung {n}
+      von {Name} ablegen“ („S-101_D.pdf wird der aktuelle Stand, S-101_C.pdf
+      bleibt als Fassung 3 erhalten.“; `revisionOf`, and the choice is the
+      `acknowledgeRisk` the server asks; a macro keeps its own „Ich vertraue
+      …“), „Als neue Datei neben {Name} ablegen“ („S-101_C.pdf bleibt der
+      aktuelle Stand.“; `revisionOf` null, in that document's folder) and
+      „Nicht ablegen“ („Die Datei wird mit der E-Mail verworfen.“). **A
+      plan's next index is the next Fassung by default** (round 4: with „neue
+      Datei“ as the default the team kept building from C): when the file
+      and the document carry the same plan number and format and the file's
+      letter index is the same or later (`revisionByDefault`,
+      `lib/plan-index.ts`: a name with a digit in its number, then `_`, `-`,
+      a space or „Index“, then one letter; pdf, dwg, dxf, ifc, plt, pln,
+      rvt), as „S-101_D.pdf“ over „S-101_C.pdf“. An older index, another
+      number, another format or a name without an index keeps „Als neue
+      Datei“ as the default. The step is asked either way, and its note
+      then says what the project holds: „Im Projekt liegt S-101_C.pdf als
+      Fassung 3 im Ordner Tragwerk. Die Plannummer stimmt überein, darum ist
+      die nächste Fassung vorgeschlagen.“ (else, as before, „könnte Fassung 4
+      von S-101_C.pdf sein, aber nur der Dateiname spricht dafür“). The
+      server's candidate is a document of the same name today
+      (`findScreenedNamesakes`), so the rule meets „S-101_D.pdf“ over a
+      document that took that name; nothing in the server changed. Each row (`AttachmentRow`) has its
       case notes, „Ordner: …“ with its own „Ordner wählen“ / „Ordner
       ändern“ (`FolderChoiceDialog`: the likely folders, „Neuer Ordner …“,
       the project's folders), „Dokumentart: …“, „Name, Dokumentart …“ with
@@ -514,7 +557,19 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       the project's folders (`FolderPickerList`, searchable). With two or
       more it reads „Alle 3 in diesen Ordner“ and one pick sends every
       ticked one there (`fileAllInto`; none ticked, it ticks and sends them
-      all), so a plan set from an unknown sender is one choice. The
+      all), so a plan set from an unknown sender is one choice. Once they
+      share a folder the list folds to that choice, „✓ Alle 3 kommen in
+      Pläne / Fassade · Anderer Ordner …“ (`foldAfterChoice`): the open list
+      had shown „Pläne“ under the pointer, not the chosen „Pläne / Fassade“
+      below the fold, and she feared she had moved them (round 4). Opened
+      again, the chosen folder is the one row marked „Gewählt“ (`PickerRow`
+      `current="chosen"`). A row puts „Name, Dokumentart …“ beside its folder
+      rather than on a line of its own, so three files fit 1440×900 without
+      scrolling. The pane and the dialog read one draft, so a folder the
+      dialog will preselect (the agent's, or the folder the sender's earlier
+      attachments went to, `sender_memory`) is the pane's phrase too, never
+      „Offen: Ordner wählen“; round 4's 04/05 disagreed only because the
+      capture had picked a folder between them. The
       attachments with a sure proposal are folded under „4 weitere wie
       vorgeschlagen · Ändern“; opened, and whenever every row shows, the
       heading's „Alle auswählen“ / „Alle abwählen“ and „Ausgewählte in einen
@@ -525,7 +580,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       unkenntlich)“ after a masked text), „E-Mail-Text → als neuen
       E-Mail-Verlauf „…“ in Korrespondenz ablegen“, „Bescheid_MA37.pdf →
       Ordner Behörde/Bescheide · Dokumentart Bescheid“, „S-101_D.pdf →
-      Fassung 4 von S-101_C.pdf“, „Foto_Baustelle.jpg → Neuer Ordner Fotos ·
+      Fassung 4 von S-101_C.pdf (ersetzt C) · Ordner Tragwerk“ (or „(ersetzt
+      Fassung 3)“ where the names carry no index to name), „S-101_D.pdf →
+      neue Datei neben S-101_C.pdf · Ordner Tragwerk“ (the decision on a
+      possible Fassung is named, `PlanLine.besides`; round 4's „→ Ordner
+      Tragwerk“ hid it), „Foto_Baustelle.jpg → Neuer Ordner Fotos ·
       Dokumentart Foto“, „Angebot_2026.pdf → noch kein Ordner“. **What stays
       out is loud** (round 3: „S-101_D.pdf bleibt weg“ in grey was the plan
       the mail was about): a framed box (`filing-left`) below the filed
@@ -541,15 +600,19 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       what pressing does to them, because the server dismisses every
       waiting part not in the decision (`writeMailDecisions`): „Was hier
       „bleibt weg“, verwirft {productName} beim Ablegen. Wiederherstellen
-      lässt es sich 7 Tage lang.“, for an unconfirmed outsider
-      (`dismissalIsFinal`) „… Weil sich der Absender nicht überprüfen lässt,
-      ist es danach nicht wiederherstellbar.“ When the text goes into an
-      E-Mail-Verlauf and its sender could be followed (`followOffered`), a
-      line in ink under it (`FollowLine`): „Weitere Antworten in diesem
-      E-Mail-Verlauf legt {productName} künftig ohne Klick ab.“ with
-      „Nicht automatisch“ beside it; pressed, it reads „Weitere Antworten
-      in diesem E-Mail-Verlauf warten wie diese hier, bis sie jemand
-      ablegt.“ with „Doch automatisch“, and the decision's text carries
+      lässt es sich 7 Tage lang.“, for every sender. When the text goes
+      into an E-Mail-Verlauf and its sender could be followed
+      (`followOffered`), the switch under it (`FollowLine`, the
+      `FollowSwitch` the Verlauf's „E-Mails“ tab shows): „Antworten in diesem
+      E-Mail-Verlauf ohne Klick ablegen“, its state „An“ / „Aus“ in words
+      under it, and what it means: „Antworten von Beteiligten mit
+      bestätigter Domain legt {productName} 60 Tage lang ab, als hätten Sie
+      es selbst getan: den Text in diesen E-Mail-Verlauf, Anhänge in den
+      vorgeschlagenen Ordner. Der Rest wartet im E-Mail-Eingang, und jede
+      solche Ablage steht dort unter „Bearbeitet“.“ (round 4: „legt künftig
+      ohne Klick ab · Nicht automatisch“ left open whether it was on, and
+      „in Ihrem Namen“ what it meant). It is on by default (the owner kept
+      follow by default); switched off, the decision's text carries
       `follow: false`, which the filing job honours (`noFollow`), so the
       follow the filing would start never starts. „E-Mail-Text ändern“ and
       „Anhänge ändern“ add that step when it was not asked. What blocks filing
@@ -573,25 +636,21 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    „Wird abgelegt …“.
 
    **An impersonation keeps its stop.** The warning stands above the header,
-   „Verwerfen“ is the primary, and „Einordnen …“ is offered (as the quiet
-   press) only after „Trotzdem ablegen …“ („Nur wenn Sie telefonisch
-   geprüft haben, dass die E-Mail echt ist.“; „Ablage schließen“ folds it
-   again). Its first step is the phone check, nothing is preselected, so
+   its report press says what it does, „Melden und verwerfen …“ („Warnt Ihr
+   Büro, damit niemand zahlt, und verwirft die E-Mail.“), „Verwerfen“ is
+   the primary, and „Einordnen …“ is offered (as the quiet press) only
+   after „Trotzdem ablegen …“ („Nur wenn Sie telefonisch geprüft haben,
+   dass die E-Mail echt ist.“; „Ablage schließen“ folds it again), which
+   itself stands behind the muted disclosure „Weitere Möglichkeiten ⌄“:
+   a raised „Trotzdem ablegen …“ under the fraud warning was the next press
+   in reach (round 4). Its first step is the phone check, nothing is preselected, so
    „E-Mail-Text“ and „Anhänge“ follow, and the yes is „Als echt ablegen“.
-6. After filing, the follow offer: „E-Mail-Verlauf „{Name}““ with one line
-   of what it does and the button „Folgen“, only when the sender would qualify.
-   Followed, the card says „Sie folgen „{Name}““, that replies are added from
-   now on, and offers „Nicht mehr folgen“.
-6. After filing, the follow offer (`follow-offer.tsx`), named for what it does,
-   since „Folgen“ read as notifications: „Antworten in „{Name}“ ohne Klick
-   ablegen“, one line („Weitere Antworten von Beteiligten mit bestätigter Domain
-   kommen 60 Tage lang in Ihrem Namen in diesen E-Mail-Verlauf, ihre Anhänge
-   hierher. Sie können das jederzeit beenden.“) and „Einschalten“, only when
-   the sender would qualify. Switched on, the card says „Antworten in „{Name}“
-   werden ohne Klick abgelegt“, „In Ihrem Namen, 60 Tage lang. Anhänge warten
-   weiter hier. „Beenden“ hört damit auf.“ and offers „Beenden“. The days are
-   `MAIL_THREAD_FOLLOW_DEFAULT_DAYS`. Code still says follow; the Postfach's
-   notices say „ohne Klick ablegen“ too (below).
+6. After filing, when the sender would qualify, the same switch
+   (`follow-offer.tsx`) under „E-Mail-Verlauf „{Name}““, in its state:
+   on where the filing started the follow, which is the default. The days
+   are `MAIL_THREAD_FOLLOW_DEFAULT_DAYS`. Code still says follow; the
+   Postfach's notices say „ohne Klick ablegen“ and „abgelegt, als hätten Sie
+   es selbst getan“ too (below).
 
 Above the header, what happened to the mail (the closed project, someone else
 deciding it, a partial failure, a full storage): one notice stands whole; two
@@ -672,10 +731,9 @@ flag): J/K, Enter, X, Space, E „Einordnen (in der Übersicht: Ablegen)“, ⌫
 them answers while the profile turned shortcuts off (`useShortcutsPreference`).
 ⌫ and Entf act only where the reader is in the list or the mail: from the page,
 the open row or the mail's text, never from a focused button, box, menu or
-another row (`dismissKeyAllowed`). For an outsider's mail whose domain did not
-confirm it, which the sweep erases at once when dismissed, ⌫ asks first
-(„E-Mail verwerfen? … Verworfen wird die E-Mail gelöscht und lässt sich nicht
-wiederherstellen.“) and its toast offers no „Rückgängig“ (`dismissErases`).
+another row (`dismissKeyAllowed`). ⌫ dismisses every mail the same way, with
+„Rückgängig“ in its toast: since every dismissal is restorable for 7 days,
+the confirmation an outsider's mail once asked first is gone.
 
 **Phone**: rows of at least 44px, the detail as a page, bottom sheets, a
 decision bar of one note („Verwerfen“'s) over its two presses side by side with
@@ -727,22 +785,21 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
 
 - **Top**: „{n} E-Mails dieses E-Mail-Verlaufs warten im E-Mail-Eingang ·
   Ansehen“ (only for whoever may file), then the follow control.
-- **Follow control** (`follow-control.tsx`), in the follow offer's words. A
-  person who filed a text into this Verlauf already follows it (follow by
-  default, ADR-0137's amendment of 2026-11-19), so for them it usually opens
-  switched on. Not switched on, a card titled „Antworten ohne Klick ablegen“,
-  the line „Weitere Antworten von Beteiligten mit bestätigter Domain kommen 60
-  Tage lang in Ihrem Namen hierher, ihre Anhänge in den bestehenden Ordner, den
-  {productName} vorschlägt, sonst in den E-Mail-Eingang. Sie können das jederzeit
-  beenden.“ and „Einschalten“; toast „Antworten in „X“ werden bis {Datum} ohne
-  Klick abgelegt“ with „Rückgängig“. Switched on: „Antworten werden bis {Datum}
-  ohne Klick abgelegt“, „In Ihrem Namen: der Text in diesen E-Mail-Verlauf,
-  jeder Anhang in den bestehenden Ordner, den {productName} vorschlägt. Der Rest
-  wartet im E-Mail-Eingang. „Beenden“ hört damit auf.“, „Verlängern“ (only while it can
-  grow at least a day within 180 days of its start; otherwise „Höchstens 180
-  Tage ab Beginn. Danach wieder einschalten.“) and „Beenden“. Others: „Auch für
-  2 weitere Personen eingeschaltet“; for a viewer with `managesFollows`, „Auch
-  eingeschaltet für“ by name with „Beenden“ each.
+- **Follow control** (`follow-control.tsx`): the switch of „Übersicht“
+  (`FollowSwitch`), one label, one explanation, its state in words („An bis
+  11.12.2026“ / „Aus“). A person who filed a text into this Verlauf already
+  follows it (follow by default, ADR-0137's amendment of 2026-11-19), so for
+  them it opens on, as „Übersicht“ said (round 4's preview showed it off
+  beside a flow that had said on; `three-messages` follows now,
+  `not-followed` does not). Switching on: toast „Antworten in „X“ werden bis
+  {Datum} ohne Klick abgelegt“ with „Rückgängig“; switching off ends it.
+  „Verlängern“ under it (only while it can grow at least a day within 180
+  days of its start; otherwise „Höchstens 180 Tage ab Beginn. Danach wieder
+  einschalten.“). Others: „Auch für 2 weitere Personen eingeschaltet“; a
+  member who may not file reads no switch but „Antworten in diesem
+  E-Mail-Verlauf legt {productName} für 2 Personen ohne Klick ab.“; for a
+  viewer with `managesFollows`, „Auch eingeschaltet für“ by name with
+  „Beenden“ each.
 - **One row per mail, newest first**, headed „Neueste zuerst“ (the document
   beside it reads oldest first; side by side the two orders read as one
   without the label) (`mail-thread-entry.tsx`): the heading
@@ -771,7 +828,9 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   own name, indented past the file's glyph, the files 8px apart (with 2px a
   note read as the next file's): „lag schon im Projekt“, „nicht abgelegt ·
   {Grund}“ (15 reasons); one in a folder the reader cannot see is „Anhang {n}“
-  with „abgelegt in einem Ordner, den Sie nicht sehen“ (never named).
+  with „liegt in einem Ordner mit eigenen Zugriffsrechten; öffnen kann ihn,
+  wer dort eingetragen ist“ (never named; „…, den Sie nicht sehen“ read as
+  watched).
 - **Row actions**: „Original (.eml)“ on the „eingegangen“ line (a 409
   `original_not_clean` replaces the press with „Das Original enthält
   Schadsoftware und kann nicht heruntergeladen werden“; an archive entry says
@@ -860,12 +919,6 @@ design system ([`design-language.md`](../design/design-language.md)).
 - Which mail each of a Verlauf's Fassungen added, under „Details“: the
   timeline lists them by uploader; `MailThreadEntryView.firstVersion` has the
   mapping.
-- The server's `restorableUntil` for a dismissed part of an unconfirmed
-  outsider's mail: it says seven days while the sweep erases the part at once
-  (`pastRestore`, `sweep-erasure-repository.ts`). The detail says so in its
-  bar and its toast offers no „Rückgängig“ (`dismissErases`); ⌫ asks first
-  (above).
-
 - „Wie vorgeschlagen ablegen“ on the Postfach row and on the push: the waiting
   row is collapsed per project, so the action needs a product call (only for a
   row of one mail, or „Alle vollständigen ablegen“), and a push action needs a

@@ -16,7 +16,6 @@ export interface DecisionBarProps {
   offersFiling: boolean
   questions: number
   impersonation?: boolean
-  dismissErases: boolean
   onOpenFiling: () => void
   onDismiss: () => void
   filing: boolean
@@ -45,7 +44,6 @@ export function DecisionBar({
   offersFiling,
   questions,
   impersonation = false,
-  dismissErases,
   onOpenFiling,
   onDismiss,
   filing,
@@ -59,7 +57,7 @@ export function DecisionBar({
   const t = useTranslations(inboundMailCopy)
   const dismissFirst = impersonation || !offersFiling
   const showsDismiss = dismissFirst || !yieldPrimary
-  const dismissNote = dismissErases ? t('bar.dismissNoteErases') : t('bar.dismissNote', { days: INBOUND_MAIL_RESTORE_DAYS })
+  const dismissNote = t('bar.dismissNote', { days: INBOUND_MAIL_RESTORE_DAYS })
   const hint = questions > 0 ? t('filing.openHintQuestions', { count: questions }) : t('filing.openHint')
 
   return (

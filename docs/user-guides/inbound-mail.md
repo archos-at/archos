@@ -198,16 +198,19 @@ whether you sent it yourself), or where it will be gone: a mail from outside
 the office says „Wird am {Datum} aus dem E-Mail-Eingang entfernt, wenn niemand
 sie ablegt. ARCHOS erinnert 5 Tage vorher.“ Then the text, and the
 attachments with one quiet line each saying what ARCHOS proposes for it:
-„Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Wird Fassung 4 von
-S-101_C.pdf“, „bleibt weg – liegt schon im Projekt“, or „Offen: Ordner
-wählen“ where there is something to decide.
+„Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Fassung 4 von
+S-101_C.pdf (ersetzt C) · Ordner Tragwerk“, „bleibt weg – liegt schon im
+Projekt“, or „Offen: Ordner wählen“ where there is something to decide. The
+pane and „Einordnen“ say the same: a folder the dialog fills in is never
+„Offen“ here.
 
 At the foot stand two buttons. **Verwerfen** says no to the whole mail; the
 line beside it says it acts only in ARCHOS, never in your mail program, and
-can be undone for seven days, except for a sender that cannot be verified:
-then what you dismiss cannot be restored. **Einordnen …** opens the filing, filled in
-with ARCHOS's proposal. It asks only what needs you, one question per screen
-(„Schritt 2 von 3“ when there is more than one):
+can be undone for seven days, whoever sent it. **Einordnen …** opens the
+filing, filled in with ARCHOS's proposal. It asks only what needs you, one
+question per screen; above each question it names the mail, „Schritt 2 von 3
+· „Tiefgarage Lüftung“ von Ing. Karl Bauer“ (the step count when there is
+more than one):
 
 1. **Absender**, only when the sender needs your confirmation: „Ich kenne den
    Absender und vertraue dieser E-Mail“, „Ja, ich habe diese E-Mail gesendet“
@@ -219,32 +222,49 @@ with ARCHOS's proposal. It asks only what needs you, one question per screen
    Lüftung“ anfügen“ with why it fits („gleicher Betreff“, „antwortet auf
    eine E-Mail darin, das lässt sich aber nicht bestätigen“), „Als neuen
    E-Mail-Verlauf ablegen“ (its name and folder show under it once chosen),
-   or „Text nicht ablegen“. Choosing a match ARCHOS could not confirm is your
-   yes to it. If a Verlauf you cannot open may fit, the step says so: ask the
-   project lead.
+   or „Text nicht ablegen“. When exactly one Verlauf has the same subject and
+   nothing else could fit, it is chosen for you and the step says why
+   („Vorgeschlagen ist „Tiefgarage Lüftung“: gleicher Betreff, und kein
+   anderer E-Mail-Verlauf passt.“); you still confirm it with „Weiter“, and
+   the mail stays under „Braucht Sie“ until you do. Choosing a match ARCHOS
+   could not confirm is your yes to it, so such a match is never chosen for
+   you. If a fitting Verlauf lies in a folder with its own access rights, the
+   step says so: leave the mail in the E-Mail-Eingang, and whoever is listed
+   on that folder can file it there.
 3. **Anhänge**, only for the attachments that need you. A tick means the file
    is filed; without one it stays out and is dismissed with the mail. Every
    file is kept by default, except one already in the project, a picture from
    the mail's text, and one the name check stopped or that holds macros:
    those you tick yourself. Each file has its own „Ordner wählen“ / „Ordner
    ändern“; with several without a folder, „Alle 3 in diesen Ordner“ sends
-   them all with one choice. The folder list starts with the likely folders
-   and „Neuer Ordner …“, which the filing creates. „Weiter“ waits until every
-   ticked file has a folder and says so. A plan whose name alone ties it to an
-   earlier one is asked as three answers: „Als neue Datei neben S-101_C.pdf
-   ablegen“ (the default, in that document's folder), „Als Fassung 4 von
-   S-101_C.pdf ablegen“, or „Nicht ablegen“. The attachments with a sure
-   proposal are folded into „4 weitere wie vorgeschlagen · Ändern“.
+   them all with one choice, after which the list folds to „✓ Alle 3 kommen
+   in Pläne / Fassade · Anderer Ordner …“. The folder list starts with the
+   likely folders and „Neuer Ordner …“, which the filing creates; the folder
+   you chose is marked „Gewählt“. „Weiter“ waits until every ticked file has
+   a folder and says so. A file whose name alone ties it to an earlier
+   document is asked as three answers, each saying what it does: „Als
+   Fassung 4 von S-101_C.pdf ablegen“ (S-101_D.pdf becomes the current
+   state), „Als neue Datei neben S-101_C.pdf ablegen“ (S-101_C.pdf stays the
+   current state), or „Nicht ablegen“. For a plan, the same plan number and
+   format with the same or a later letter index (S-101_D.pdf over
+   S-101_C.pdf), the Fassung is chosen for you and the step says what the
+   project holds („Im Projekt liegt S-101_C.pdf als Fassung 3 im Ordner
+   Tragwerk.“); for anything else „Als neue Datei“ is. Choosing the Fassung
+   is your confirmation of it; a file with macros still asks its own. The
+   attachments with a sure proposal are folded into „4 weitere wie
+   vorgeschlagen · Ändern“.
 4. **Übersicht**, always: one sentence per part. „E-Mail-Text → an
    E-Mail-Verlauf „Stellplatznachweis“ anfügen“, „Bescheid_MA37.pdf → Ordner
-   Behörde/Bescheide · Dokumentart Bescheid“. Whatever stays out stands in a
+   Behörde/Bescheide · Dokumentart Bescheid“, „S-101_D.pdf → Fassung 4 von
+   S-101_C.pdf (ersetzt C) · Ordner Tragwerk“ or „S-101_D.pdf → neue Datei
+   neben S-101_C.pdf · Ordner Tragwerk“. Whatever stays out stands in a
    box of its own with its reason („Bescheid_alt.pdf bleibt weg – liegt schon
    im Projekt“, „Honorarnote.pdf bleibt weg – Namensprüfung: „Honorar““), a
    „Doch ablegen“ where filing it is your call, and what „bleibt weg“ means:
    dismissed when you file, restorable for seven days. When the text goes
-   into an E-Mail-Verlauf: „Weitere Antworten in diesem E-Mail-Verlauf legt
-   ARCHOS künftig ohne Klick ab.“ with „Nicht automatisch“ right beside it,
-   which files this mail without starting that. Then **Ablegen**.
+   into an E-Mail-Verlauf, the switch „Antworten in diesem E-Mail-Verlauf
+   ohne Klick ablegen“ stands under it, „An“ unless you switch it off (see
+   below). Then **Ablegen**.
 
 A mail with nothing to decide opens straight on „Übersicht“: „Einordnen“, then
 „Ablegen“. „Zurück“ goes back a step, „E-Mail-Text ändern“ and „Anhänge
@@ -266,10 +286,11 @@ are filed one at a time, never in a group.
 
 **When the content check finds something in the text** (an IBAN, a social
 security number, one of your office's terms), the „E-Mail-Text“ step names it
-(„Im Text steht: IBAN“) and asks how it should read in the E-Mail-Verlauf:
-„Unkenntlich machen“ (the default: „••••“ in its place, and ARCHOS can still
-read the Verlauf) or „Lesbar ablegen“, which holds the whole Verlauf back
-until the office or project administration decides on it. Either way the
+(„Im Text steht eine IBAN.“) and asks how it should read in the
+E-Mail-Verlauf: „Unkenntlich machen“ (the default: „••••“ in its place, and
+ARCHOS reads the rest of the Verlauf as usual) or „Lesbar ablegen“, which
+holds the whole Verlauf back until a person who administers the project or
+the office decides on it. Either way the
 mail itself stays unchanged: in its original (.eml) with the Verlauf, and in
 the mailboxes it went to, so accounting still finds the IBAN there.
 
@@ -279,11 +300,12 @@ the mailboxes it went to, so accounting still finds the IBAN there.
 is recorded.
 
 **A mail that poses as someone** keeps „Verwerfen“ as its first button.
-„Einordnen …“ appears only after „Trotzdem ablegen …“, and its first step asks
+„Einordnen …“ appears only after „Trotzdem ablegen …“, which waits behind
+„Weitere Möglichkeiten“ under the mail's text, and its first step asks
 „Haben Sie telefonisch geprüft, dass die E-Mail echt ist?“; its last button
 reads „Als echt ablegen“.
 
-**To warn the office**, press „Melden …“ in the red warning. Dismissing only
+**To warn the office**, press „Melden und verwerfen …“ in the red warning. Dismissing only
 ends the mail in ARCHOS; the same mail may have reached accounting's mail
 program. The confirmation says who is warned: whoever manages the project, your
 office's administrators and the member the mail poses as. „Melden und
@@ -314,8 +336,8 @@ filing has no undo; „Öffnen“ takes you to the document.
 ## Dismissing, expiring, restoring
 
 - „Verwerfen“ dismisses a mail. It can be restored for **7 days** under
-  „Bearbeitet“, then it is deleted. A dismissed mail from outside the office
-  whose domain is not confirmed is deleted at once.
+  „Bearbeitet“, then it is deleted. This holds for every sender, one whose
+  domain did not confirm the mail included; the toast offers „Rückgängig“.
 - A mail nobody decides **expires after 30 days**, a mail from outside the
   office after **14 days**. You are told five days before. An expired mail of a
   member can still be restored for 7 days; an expired mail from outside the
@@ -409,11 +431,14 @@ as the E-Mail-Verlauf.
 ## Filing replies without a click (following a Verlauf)
 
 When you file a mail's text into an E-Mail-Verlauf, later replies in that
-conversation are filed without a click, in your name: „Weitere Antworten in
-diesem E-Mail-Verlauf legt ARCHOS künftig ohne Klick ab.“ „Nicht automatisch“
-beside that line in „Übersicht“ files the mail without it. In the E-Mails tab of a Verlauf you
-did not file into, „Antworten ohne Klick ablegen“ · **Einschalten** does the
-same. It is not a notification: nothing is sent to you per reply.
+conversation are filed without a click. One switch says so, in „Übersicht“
+and in the Verlauf's „E-Mails“ tab alike: „Antworten in diesem E-Mail-Verlauf
+ohne Klick ablegen“, with its state, „An“ (in the tab „An bis {Datum}“) or
+„Aus“. ARCHOS files such a reply as if you had done it yourself, and every
+one of them is listed in the E-Mail-Eingang under „Bearbeitet“ („Ohne Klick
+abgelegt → …“). It is on when you file; switch it off in „Übersicht“ to file
+the mail without it, or in the tab of any Verlauf to start or stop it there.
+It is not a notification: nothing is sent to you per reply.
 
 - It applies only to replies from confirmed domains that already write in the
   conversation, whose reference to it is signed, with nobody new in it, and
@@ -428,7 +453,7 @@ same. It is not a notification: nothing is sent to you per reply.
 
 - It runs 60 days; „Verlängern“ extends it, up to 180 days from its start.
   You are told five days before it ends.
-- **Beenden** ends it. Whoever manages the project can end it for anyone
+- Switching it off ends it. Whoever manages the project can end it for anyone
   („Beenden“ under „Auch eingeschaltet für“).
 - It also ends when you lose access to the project or the Verlauf's folder,
   when the project's address is replaced or switched off, when an e-mail is
@@ -443,8 +468,8 @@ same. It is not a notification: nothing is sent to you per reply.
   noch 5 Tage ohne Klick abgelegt“; when something else ended it: „… werden
   nicht mehr ohne Klick abgelegt, weil …“. The notices name the project, not
   the Verlauf: no subject or file name of a mail reaches a notice or a push.
-- If you pressed **Beenden** and later file another reply of the same Verlauf
-  yourself, the Verlauf is followed again.
+- If you switched it off and later file another reply of the same Verlauf
+  yourself with the switch on, replies are filed without a click again.
 
 ## Tips
 

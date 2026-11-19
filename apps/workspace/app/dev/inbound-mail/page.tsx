@@ -9,7 +9,8 @@ import { InboundMailWorkspace } from '@/features/inbound-mail/components/inbound
 import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import type { InboundMailPaths } from '@/lib/inbound-mail/paths'
 import { ADDRESS_VARIANTS, DETAIL_BY_ID, FIXTURE_NOW, FOLDERS, LIST_VARIANTS, PROJECT_ID, PROJECT_NAME, fixtureAddressClient, fixtureClient, listPage } from './fixtures'
-import { DevVariantStrip } from './dev-chrome'
+import { useSampleAttachmentUrls } from '../_fixtures/plan-sheet-pdf'
+import { DevVariantStrip, HiddenDevChrome } from './dev-chrome'
 
 type SearchParams = Record<string, string | string[] | undefined>
 
@@ -25,7 +26,17 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
   const outcome = outcomeParam === 'filed' || outcomeParam === 'dismissed' || outcomeParam === 'expired' ? outcomeParam : (fixture.outcome ?? null)
   const ownStatus = status === (fixture.status ?? 'waiting')
   const mailId = one(params.mail) ?? (ownStatus ? fixture.open : undefined) ?? null
-  const client = useMemo(() => fixtureClient({ list: fixture }), [fixture])
+  const pdfNames = useMemo(
+    () => [...DETAIL_BY_ID.values()].flatMap((detail) => detail.view.parts.filter((part) => part.contentType === 'application/pdf' && part.filename).map((part) => part.filename as string)),
+    []
+  )
+  const sheets = useSampleAttachmentUrls(pdfNames)
+  const client = useMemo(() => {
+    const base = fixtureClient({ list: fixture })
+    const sheetOf = (mailId: string, partId: string): string =>
+      sheets.get(DETAIL_BY_ID.get(mailId)?.view.parts.find((part) => part.id === partId)?.filename ?? '') ?? ''
+    return { ...base, partContentUrl: (_project: string, mailId: string, partId: string) => sheetOf(mailId, partId) }
+  }, [fixture, sheets])
   const addressClient = useMemo(
     () =>
       fixtureAddressClient(
@@ -79,7 +90,7 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
           initialChecked={fixture.checked}
         />
         </ProjectSectionFrame>
-        {one(params.chrome) !== '0' && !inShell && <DevVariantStrip base="/dev/inbound-mail" variants={Object.keys(LIST_VARIANTS)} current={variant} locale={locale} />}
+        {one(params.chrome) === '0' ? <HiddenDevChrome /> : !inShell && <DevVariantStrip base="/dev/inbound-mail" variants={Object.keys(LIST_VARIANTS)} current={variant} locale={locale} />}
       </main>
   )
 

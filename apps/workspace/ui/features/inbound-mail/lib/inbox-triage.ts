@@ -15,10 +15,6 @@ export function wasDecided(mailId: string, before: readonly Pick<InboundMailSumm
   return !after.some((mail) => mail.id === mailId && mail.status === 'waiting')
 }
 
-export function dismissErases(mail: Pick<InboundMailSummaryView, 'senderTrust' | 'senderFlags' | 'onlySenderReleases'>): boolean {
-  return !mail.onlySenderReleases && mail.senderTrust === 'external_unverified' && !mail.senderFlags.includes('sender_unchecked')
-}
-
 const CONTROL = [
   'button',
   'input',

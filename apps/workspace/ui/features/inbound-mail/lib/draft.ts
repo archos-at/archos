@@ -7,7 +7,6 @@ import type {
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import { CORRESPONDENCE_FOLDER, defaultThread, messageSelectable as partMessageSelectable } from '@/lib/inbound-mail/review-defaults'
 import { displaySubject } from '@/lib/inbound-mail/subject'
-import { dismissErases } from './inbox-triage'
 import { attachmentCase, type AttachmentCase } from './attachment-case'
 import { followOffered, senderDisplayName } from './sender'
 import { readSuggestion, type PartSuggestion } from './suggestion'
@@ -78,7 +77,8 @@ function attachmentDraft(entry: AttachmentCase, folders: readonly FolderOption[]
   const { part } = entry
   const suggestion: PartSuggestion | null = readSuggestion(part.suggestion)
   const revision = part.revisionCandidate
-  const revisionChosen = revision !== null && !entry.unsureRevision && entry.defaultChecked
+  const revisionChosen = revision !== null && (!entry.unsureRevision || entry.revisionDefault) && entry.defaultChecked
+  const ownRisk = part.riskFlags.includes('macro') || part.riskFlags.includes('type_mismatch')
   const folder =
     revision !== null && (revisionChosen || entry.unsureRevision)
       ? targetForPath(revision.folderPath ?? '', folders)
@@ -93,7 +93,7 @@ function attachmentDraft(entry: AttachmentCase, folders: readonly FolderOption[]
     documentType: suggestion?.documentType ?? null,
     revisionOf: revisionChosen ? revision.documentId : null,
     releaseName: false,
-    acknowledgeRisk: false,
+    acknowledgeRisk: revisionChosen && entry.unsureRevision && !ownRisk,
     suggested: {
       folder: folder !== null && revision === null,
       name: suggestion?.name != null,
@@ -119,6 +119,14 @@ export function messageSelectable(view: InboundMailView): boolean {
   return !!part && partMessageSelectable(part, view)
 }
 
+export function sameSubjectThread(
+  view: Pick<InboundMailView, 'threadCandidates' | 'hiddenThreadCandidates'>
+): InboundMailThreadCandidateView | null {
+  if (defaultThread(view) || view.hiddenThreadCandidates > 0 || view.threadCandidates.length !== 1) return null
+  const [only] = view.threadCandidates
+  return !only.full && only.strength === 'subject' && !appendNeedsAcknowledgement(only) ? only : null
+}
+
 export function initialDraft(view: InboundMailView, folders: readonly FolderOption[], copy: DraftCopy): MailDraft {
   const attachments = view.parts
     .filter((part) => part.kind === 'attachment')
@@ -126,7 +134,7 @@ export function initialDraft(view: InboundMailView, folders: readonly FolderOpti
   const messagePart = view.parts.find((part) => part.kind === 'message')
   let message: MessageDraft | null = null
   if (messagePart) {
-    const thread = defaultThread(view)
+    const thread = defaultThread(view) ?? sameSubjectThread(view)
     message = {
       partId: messagePart.id,
       checked: messageSelectable(view) && messagePart.preselected,
@@ -293,7 +301,6 @@ export interface DraftSummary {
   files: number
   text: boolean
   thread: { name: string; nextVersion: number } | null
-  dismissErases: boolean
   needsSenderAcknowledgement: boolean
   ownClaimedMail: boolean
   claimedWriter: string | null
@@ -326,7 +333,6 @@ export function draftSummary(view: InboundMailView, draft: MailDraft): DraftSumm
     files,
     text,
     thread: candidate ? { name: candidate.name, nextVersion: candidate.nextVersion } : null,
-    dismissErases: dismissErases({ senderTrust: view.sender?.trust ?? null, senderFlags: view.sender?.flags ?? [], onlySenderReleases: view.onlySenderReleases }),
     needsSenderAcknowledgement: needsSender,
     ownClaimedMail: view.ownClaimedMail,
     claimedWriter:

@@ -7,9 +7,11 @@ import { UserRound } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { useLocale, useTranslations } from '@/i18n'
 import { formatCalendarDate } from '@/lib/format'
-import { MAIL_THREAD_FOLLOW_DEFAULT_DAYS, type MailThreadFollowView, type MailThreadView } from '@/lib/mail-thread/mail-thread-wire'
+import { cn } from '@/lib/utils'
+import type { MailThreadFollowView, MailThreadView } from '@/lib/mail-thread/mail-thread-wire'
 import type { MailThreadClient } from './client'
-import { FollowCard, FollowCardHint } from './follow-card'
+import { FollowCardHint } from './follow-card'
+import { FollowSwitch } from './follow-switch'
 import { mayEndFollow, mayWrite, otherFollows, viewerFollow } from './mail-thread-model'
 import { refusalKey } from './refusal'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
@@ -93,62 +95,50 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
 
   const canFollow = own.kind === 'none' && mayWrite(view)
   if (own.kind === 'none' && !canFollow && others.length === 0) return null
+  const switchable = canFollow || own.kind === 'following'
 
   return (
-    <FollowCard
-      className={className}
+    <section
+      className={cn('bg-card rounded-surface flex flex-col gap-2.5 border p-3', className)}
       data-testid="mail-thread-follow"
       data-following={own.kind === 'following' || undefined}
-      titleTestId="mail-thread-follow-state"
-      title={
-        own.kind === 'following'
-          ? own.follow
-            ? t('follow.following', { date: date(own.follow.expiresAt) })
-            : t('follow.followingUndated')
-          : t('follow.offer')
-      }
-      hint={
-        own.kind === 'none' && canFollow ? (
-          <FollowCardHint testId="mail-thread-follow-explain">{t('follow.explain', { days: MAIL_THREAD_FOLLOW_DEFAULT_DAYS })}</FollowCardHint>
-        ) : own.kind === 'following' ? (
-          <>
-            {/* Switched on, the card still says what runs and how to stop it: the title alone read as a subscription. */}
-            <FollowCardHint testId="mail-thread-follow-explain">{t('follow.followingExplain')}</FollowCardHint>
-            {own.follow && !own.renewable && <FollowCardHint testId="mail-thread-follow-limit">{t('follow.renewLimit')}</FollowCardHint>}
-          </>
-        ) : undefined
-      }
-      actions={
-        canFollow || own.kind === 'following' ? (
-          <>
-          {canFollow && (
-            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'follow'} busyLabel={t('follow.start')} onClick={() => void follow()} data-testid="mail-thread-follow-start">
-              {t('follow.start')}
-            </BusyButton>
+    >
+      {switchable && (
+        <FollowSwitch
+          on={own.kind === 'following'}
+          until={own.kind === 'following' && own.follow ? date(own.follow.expiresAt) : null}
+          disabled={pending !== null}
+          onChange={(on) => void (on ? follow() : unfollow())}
+          testId="mail-thread-follow-switch"
+        >
+          {own.kind === 'following' && own.follow && !own.renewable && (
+            <FollowCardHint testId="mail-thread-follow-limit">{t('follow.renewLimit')}</FollowCardHint>
           )}
           {own.kind === 'following' && own.renewable && (
-            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'renew'} busyLabel={t('follow.renew')} onClick={() => void renew()} data-testid="mail-thread-follow-renew">
+            <BusyButton
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="mt-1 self-start"
+              busy={pending === 'renew'}
+              busyLabel={t('follow.renew')}
+              onClick={() => void renew()}
+              data-testid="mail-thread-follow-renew"
+            >
               {t('follow.renew')}
             </BusyButton>
           )}
-          {own.kind === 'following' && (
-            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'unfollow'} busyLabel={t('follow.unfollow')} onClick={() => void unfollow()} data-testid="mail-thread-follow-stop">
-              {t('follow.unfollow')}
-            </BusyButton>
-          )}
-          </>
-        ) : undefined
-      }
-    >
+        </FollowSwitch>
+      )}
 
       {others.length > 0 && !view.managesFollows && (
         <p className="text-muted-foreground text-xs" data-testid="mail-thread-follow-others">
-          {t('follow.others', { count: others.length })}
+          {switchable ? t('follow.others', { count: others.length }) : t('follow.othersOnly', { count: others.length })}
         </p>
       )}
 
       {manages && (
-        <div className="flex flex-col gap-1 border-t pt-2.5" data-testid="mail-thread-followers">
+        <div className={cn('flex flex-col gap-1', switchable && 'border-t pt-2.5')} data-testid="mail-thread-followers">
           <p className="text-muted-foreground text-xs font-medium">{t('follow.followers')}</p>
           <ul className="flex flex-col">
             {others.map((follow) => {
@@ -181,6 +171,6 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
           </ul>
         </div>
       )}
-    </FollowCard>
+    </section>
   )
 }

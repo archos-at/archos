@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { dismissErases, dismissKeyAllowed, matchesQuery, nextOpenAfter, wasDecided } from './inbox-triage'
+import { dismissKeyAllowed, matchesQuery, nextOpenAfter, wasDecided } from './inbox-triage'
 
 const ids = (...names: string[]) => names.map((id) => ({ id }))
 
@@ -24,15 +24,6 @@ describe('wasDecided', () => {
     expect(wasDecided('b', ids('a', 'b'), [{ id: 'a', status: 'waiting' }])).toBe(true)
     expect(wasDecided('b', ids('a', 'b'), [{ id: 'b', status: 'waiting' }])).toBe(false)
     expect(wasDecided('z', ids('a'), [])).toBe(false)
-  })
-})
-
-describe('dismissErases', () => {
-  it('is true for an outsider whose domain did not confirm it: the sweep erases it at once, so nothing restores it', () => {
-    expect(dismissErases({ senderTrust: 'external_unverified', senderFlags: [], onlySenderReleases: false })).toBe(true)
-    expect(dismissErases({ senderTrust: 'external_unverified', senderFlags: ['sender_unchecked'], onlySenderReleases: false })).toBe(false)
-    expect(dismissErases({ senderTrust: 'external_verified', senderFlags: [], onlySenderReleases: false })).toBe(false)
-    expect(dismissErases({ senderTrust: 'member_unverified', senderFlags: [], onlySenderReleases: true })).toBe(false)
   })
 })
 

@@ -7,7 +7,7 @@ export { FolderPickerList, FolderPickerSheet, PickerRow } from './components/fol
 export { NewFolderDialog } from './components/new-folder-dialog'
 export { FileExtChip } from './components/file-ext-chip'
 export { documentFilesHref } from './lib/document-question'
-export { FollowCard, FollowCardHint } from './components/mail-thread/follow-card'
+export { FollowSwitch } from './components/mail-thread/follow-switch'
 export { InboundMailWaitingLine } from './components/inbound-mail-waiting-line'
 export { FolderBreadcrumbRow, FolderCard, FolderCardSkeleton } from './components/folder-navigation'
 export { FileGrid } from './components/file-grid'

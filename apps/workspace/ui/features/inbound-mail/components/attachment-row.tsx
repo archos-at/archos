@@ -67,7 +67,8 @@ export interface AttachmentRowProps {
   onPreview?: (trigger: HTMLElement) => void
 }
 
-const REVISION_CHOICES: readonly RevisionChoice[] = ['new', 'revision', 'none']
+const REVISION_CHOICES: readonly RevisionChoice[] = ['revision', 'new', 'none']
+const REVISION_WHY: Readonly<Record<RevisionChoice, string>> = { revision: 'whyRevision', new: 'whyNew', none: 'whyNone' }
 
 export function AttachmentRow({
   projectId,
@@ -101,6 +102,11 @@ export function AttachmentRow({
   const showTarget = selectable && draft.checked
   const folderMissing = folderTarget === null && draft.revisionOf === null
   const folderName = folderTarget === null ? t('target.noFolder') : folderTarget.path === '' ? t('suggestion.root') : folderTarget.path
+  const changeDetails = (
+    <Button ref={changeRef} type="button" size="sm" variant="inline" className="touch-target h-auto p-0 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+      {t('attachments.changeDetails')}
+    </Button>
+  )
 
   return (
     <Item
@@ -139,10 +145,21 @@ export function AttachmentRow({
             <RadioGroup value={revisionChoiceOf(draft)} onValueChange={(value) => onRevisionChoice?.(value as RevisionChoice)} className="gap-2" data-testid="revision-choice">
               {REVISION_CHOICES.map((choice) => (
                 <div key={choice} className="flex items-start gap-2 pointer-coarse:min-h-11">
-                  <RadioGroupItem id={`${id}-${choice}`} value={choice} className="mt-0.5" data-testid={`revision-choice-${choice}`} />
-                  <Label htmlFor={`${id}-${choice}`} className="text-foreground text-sm font-normal leading-snug [overflow-wrap:anywhere]">
-                    {t(`attachments.revisionChoice.${choice}`, { name: revision.name, version: revision.nextVersion })}
-                  </Label>
+                  <RadioGroupItem
+                    id={`${id}-${choice}`}
+                    value={choice}
+                    className="mt-0.5"
+                    aria-describedby={`${id}-${choice}-why`}
+                    data-testid={`revision-choice-${choice}`}
+                  />
+                  <div className="flex min-w-0 flex-col">
+                    <Label htmlFor={`${id}-${choice}`} className="text-foreground text-sm font-normal leading-snug [overflow-wrap:anywhere]">
+                      {t(`attachments.revisionChoice.${choice}`, { name: revision.name, version: revision.nextVersion })}
+                    </Label>
+                    <span id={`${id}-${choice}-why`} className="text-muted-foreground text-xs leading-snug [overflow-wrap:anywhere]">
+                      {t(`attachments.revisionChoice.${REVISION_WHY[choice]}`, { name: revision.name, file: name, current: revision.nextVersion - 1 })}
+                    </span>
+                  </div>
                 </div>
               ))}
             </RadioGroup>
@@ -150,7 +167,7 @@ export function AttachmentRow({
         )}
 
         {showTarget && (
-          <div className="mt-1 flex flex-col gap-1.5" data-testid="attachment-target">
+          <div className="mt-0.5 flex flex-col gap-1" data-testid="attachment-target">
             {anySuggested && !threeWay && (
               <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                 {!suggestionLabel && <AgentGlyph size="xs" className="size-4" />}
@@ -168,8 +185,9 @@ export function AttachmentRow({
                   {folderMissing ? t('target.chooseFolder') : t('target.changeFolder')}
                 </Button>
               )}
+              {!folderMissing && !draft.documentType && draft.name === part.filename && changeDetails}
             </div>
-            {(draft.documentType || draft.name !== part.filename || !folderMissing) && (
+            {(draft.documentType || draft.name !== part.filename) && (
               <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
                 {draft.documentType && (
                   <PlaceFact icon={Tag} label={t('suggestion.documentType')} testId="attachment-type">
@@ -181,11 +199,7 @@ export function AttachmentRow({
                     {draft.name}
                   </PlaceFact>
                 )}
-                {!folderMissing && (
-                  <Button ref={changeRef} type="button" size="sm" variant="inline" className="touch-target h-auto p-0 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
-                    {t('attachments.changeDetails')}
-                  </Button>
-                )}
+                {!folderMissing && changeDetails}
               </div>
             )}
             {folderMissing && !folderBelow && (
@@ -317,10 +331,16 @@ export function AttachmentNoteLine({ projectId, note }: { projectId: string; not
       )
     case 'revision':
       return (
-        <FactLine icon={FileStack} tone={note.verified ? 'default' : 'warning'} testId="note-revision">
+        <FactLine icon={FileStack} tone={note.verified || note.likely ? 'default' : 'warning'} testId="note-revision">
           {note.verified
             ? t('attachments.notes.revision', { version: note.nextVersion, name: note.name })
-            : t('attachments.notes.revisionUnverified', { version: note.nextVersion, name: note.name })}
+            : note.likely
+              ? t('attachments.notes.revisionLikely', {
+                  name: note.name,
+                  current: note.nextVersion - 1,
+                  folder: note.folderPath ? note.folderPath : t('suggestion.root'),
+                })
+              : t('attachments.notes.revisionUnverified', { version: note.nextVersion, name: note.name })}
         </FactLine>
       )
     case 'revision_hidden':

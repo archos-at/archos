@@ -1,6 +1,7 @@
 import type { InboundMailPartView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { NotStagedReason, PartRiskFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { isImageInMail, revisionVouchedInThread, senderFactsOfView } from '@/lib/inbound-mail/review-defaults'
+import { revisionByDefault } from './plan-index'
 
 export type AttachmentStatus =
   | 'waiting'
@@ -17,7 +18,7 @@ export type AcknowledgedRisk = Extract<PartRiskFlag, 'macro' | 'type_mismatch' |
 
 export type AttachmentNote =
   | { kind: 'duplicate'; name: string; folderPath: string | null; documentId: string }
-  | { kind: 'revision'; name: string; folderPath: string | null; nextVersion: number; documentId: string; verified: boolean }
+  | { kind: 'revision'; name: string; folderPath: string | null; nextVersion: number; documentId: string; verified: boolean; likely: boolean }
   | { kind: 'revision_hidden' }
   | { kind: 'name_stop'; terms: string[] }
   | { kind: 'risk'; flag: 'macro' | 'type_mismatch' }
@@ -34,6 +35,8 @@ export interface AttachmentCase {
   defaultChecked: boolean
   /** Might be the next Fassung of a document, and nothing vouches for it: asked as three choices, never a tick. */
   unsureRevision: boolean
+  /** An unsure next Fassung of a plan with a later index of the same number: „Als Fassung …“ is its default answer (`revisionByDefault`). */
+  revisionDefault: boolean
   notes: AttachmentNote[]
   risk: AcknowledgedRisk | null
   previewable: boolean
@@ -63,6 +66,7 @@ export function attachmentCase(
     notes.push({ kind: 'duplicate', name: part.duplicateOf.name, folderPath: part.duplicateOf.folderPath, documentId: part.duplicateOf.documentId })
   }
   const revisionVerified = revisionVouchedInThread(part, senderFactsOfView(mail), mail.threadCandidates)
+  const revisionLikely = !revisionVerified && part.revisionCandidate !== null && revisionByDefault(part.filename, part.revisionCandidate.name)
   if (part.revisionCandidate) {
     notes.push({
       kind: 'revision',
@@ -71,6 +75,7 @@ export function attachmentCase(
       nextVersion: part.revisionCandidate.nextVersion,
       documentId: part.revisionCandidate.documentId,
       verified: revisionVerified,
+      likely: revisionLikely,
     })
   } else if (part.revisionCandidateHidden) {
     notes.push({ kind: 'revision_hidden' })
@@ -87,12 +92,14 @@ export function attachmentCase(
   if (isImageInMail(part)) notes.push({ kind: 'image_in_mail' })
 
   const selectable = status === 'waiting' && !mail.projectClosed && !mail.onlySenderReleases
+  const unsureRevision = selectable && part.revisionCandidate !== null && !revisionVerified
   return {
     part,
     status,
     selectable,
     defaultChecked: selectable && (part.preselected || (mail.riskLevel !== 'impersonation' && !keptOutForAReason(notes))),
-    unsureRevision: selectable && part.revisionCandidate !== null && !revisionVerified,
+    unsureRevision,
+    revisionDefault: unsureRevision && revisionLikely,
     notes,
     risk,
     previewable: part.scan === 'clean' && PREVIEW_TYPES.test(part.contentType) && part.sizeBytes <= PREVIEW_MAX_BYTES && status !== 'filed',

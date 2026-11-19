@@ -90,7 +90,7 @@ describe('what „Übersicht“ says, part by part', () => {
     const lines = planLines(view, initialDraft(view, FOLDERS, copy), copy)
     expect(lines.map((line) => line.kind)).toEqual(['text_append', 'revision', 'file', 'file', 'left', 'file', 'left'])
     expect(lines[0]).toMatchObject({ thread: 'Stellplatznachweis', masked: false })
-    expect(lines[1]).toMatchObject({ name: 'S-101_D.pdf', version: 4, of: 'S-101_C.pdf' })
+    expect(lines[1]).toMatchObject({ name: 'S-101_D.pdf', version: 4, of: 'S-101_C.pdf', replaces: 'C', folder: 'Tragwerk' })
     expect(lines[3]).toMatchObject({ name: 'Foto_Baustelle.jpg', folder: 'Fotos', newFolder: true, documentType: 'Foto' })
     expect(lines[4]).toMatchObject({ name: 'Bescheid_alt.pdf', why: 'duplicate' })
     expect(lines[6]).toMatchObject({ name: 'Attachment 6', why: 'image' })
@@ -116,6 +116,17 @@ describe('what „Übersicht“ says, part by part', () => {
     const { view } = DETAIL_VARIANTS['scan-pending']
     const lines = planLines(view, initialDraft(view, FOLDERS, copy), copy)
     expect(lines.filter((line) => line.kind === 'left').map((line) => line.kind === 'left' && line.why)).toEqual(['scan_pending', 'scan_failed'])
+  })
+
+  it('names the decision on a possible next Fassung: the Fassung and the index it replaces, or the document a new file stands beside', () => {
+    const { view } = DETAIL_VARIANTS['unverified-thread']
+    const draft = initialDraft(view, FOLDERS, copy)
+    const plan = view.parts.find((candidate) => candidate.kind === 'attachment')!
+    expect(planLines(view, draft, copy)[1]).toEqual({ kind: 'revision', partId: plan.id, name: 'S-101_D.pdf', version: 4, of: 'S-101_C.pdf', replaces: 'C', folder: 'Tragwerk' })
+    const besides = updateAttachment(draft, plan.id, { revisionOf: null, acknowledgeRisk: false })
+    expect(planLines(view, besides, copy)[1]).toMatchObject({ kind: 'file', name: 'S-101_D.pdf', folder: 'Tragwerk', besides: 'S-101_C.pdf' })
+    const unrelated = mail({ parts: [message, permitDecision] })
+    expect(planLines(unrelated, initialDraft(unrelated, FOLDERS, copy), copy)[1]).toMatchObject({ kind: 'file', besides: null })
   })
 
   it('names a renamed attachment by its name and the name it is filed under', () => {
@@ -163,6 +174,17 @@ describe('a folder remembered from the sender’s earlier mail', () => {
     const sender = { target: targetForPath('Pläne/Fassade', FOLDERS), why: 'sender' as const, of: 'Hierhin gingen 3 Anhänge von Martin Gruber' }
     expect(quickPicks(view, draft, [remembered.id], FOLDERS, copy).some((pick) => pick.why === 'suggestion')).toBe(false)
     expect(quickPicks(view, draft, [remembered.id], FOLDERS, copy, { extra: [sender] }).map((pick) => [pick.why, pick.target.path])).toEqual([['sender', 'Pläne/Fassade']])
+  })
+
+  it('is the folder the pane names and the dialog preselects, so neither asks for one', () => {
+    const remembered = part({ name: 'FA-202.pdf', suggestion: { folderId: null, folderPath: 'Pläne/Fassade', newFolder: false, documentType: null, reason: '', source: 'sender_memory' } })
+    const view = mail({ parts: [message, remembered] })
+    const draft = initialDraft(view, FOLDERS, copy)
+    const row = draft.attachments[0]
+    expect(row.folder).toMatchObject({ kind: 'existing', path: 'Pläne/Fassade' })
+    expect(attachmentOpenReason(attachmentCase(remembered, view), row, 'none')).toBeNull()
+    expect(planLines(view, draft, copy)[1]).toMatchObject({ kind: 'file', folder: 'Pläne/Fassade' })
+    expect(folderlessIds(view, draft, 'none')).toEqual([])
   })
 })
 

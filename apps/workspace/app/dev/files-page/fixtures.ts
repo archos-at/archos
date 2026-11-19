@@ -2,7 +2,7 @@ import type { FileItem, FolderItem } from '@/features/documents/components/proje
 import type { DocumentFindingsResponse } from '@/lib/documents/findings-wire'
 import { makeFile } from '../file-browser/fixtures'
 
-const LONG_FOLDER_NAME = 'Einreichplanung Bauteil A – Wohnhausanlage Holzbau Wien, Baufeld 3 (Index C, Stand November 2026)'
+const LONG_FOLDER_NAME = 'Einreichplanung Bauteil A – Wohnbau Seestadt, Baufeld 3 (Index C, Stand November 2026)'
 
 export const REAL_FOLDERS: FolderItem[] = [
   { id: 'r-abgabe', parentId: null, name: 'Abgabepläne', path: '/Abgabepläne' },
