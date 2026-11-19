@@ -28,7 +28,7 @@ export const nav = {
     jobs: 'Jobs',
     tasks: 'Tasks',
     officeShelf: 'Office filing',
-    baseKnowledge: 'Office standards',
+    baseKnowledge: 'Standards & guidelines',
     search: 'Search',
     settings: 'Overview',
     intake: 'Setup',

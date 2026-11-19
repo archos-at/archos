@@ -715,9 +715,9 @@ export const organization = {
     },
   },
   baseKnowledge: {
-    title: 'Office standards',
-    description: 'Your office’s standards, commentaries and directives have a place of their own beside Office filing. Upload them there, sort them into folders, confirm and check them. {productName} answers from them for your office only.',
-    open: 'Open office standards',
+    title: 'Standards & guidelines',
+    description: 'Your office’s standards, commentaries and directives live in Office filing under Standards & guidelines. Upload them there, sort them into topics, confirm and check them. {productName} answers from them for your office only.',
+    open: 'Open Standards & guidelines',
   },
   officeConventions: {
     title: 'What {productName} has learned about the office',

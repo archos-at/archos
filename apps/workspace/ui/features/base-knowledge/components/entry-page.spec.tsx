@@ -121,11 +121,11 @@ describe('EntryPage', () => {
   ])('closes after a %s removal and says only what is true of it', async (_, receipt, left) => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json(receipt)))
     const onChanged = renderSheet(CONFIRMED)
-    await userEvent.click(await screen.findByRole('button', { name: 'Grundlage entfernen' }))
-    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Grundlage entfernen' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Norm entfernen' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Norm entfernen' }))
     await waitFor(() => expect(onChanged).toHaveBeenCalledWith(null))
     if (left === null) {
-      expect(toast.success).toHaveBeenCalledWith('Grundlage entfernt.')
+      expect(toast.success).toHaveBeenCalledWith('Norm entfernt.')
       expect(toast.warning).not.toHaveBeenCalled()
     } else {
       expect(toast.success).not.toHaveBeenCalled()

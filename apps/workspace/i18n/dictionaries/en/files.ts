@@ -1,5 +1,5 @@
 export const files = {
-  baseKnowledge: { label: 'Office standard', open: 'Open as an office standard: edition, licence, last check' },
+  baseKnowledge: { label: 'Standard', open: 'Open as a standard: edition, licence, last check' },
   uploadZone: {
     clickToUpload: 'Click to upload',
     orDragAndDrop: ' or drag and drop',

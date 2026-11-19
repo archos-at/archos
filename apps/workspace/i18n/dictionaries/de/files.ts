@@ -1,7 +1,7 @@
 import type { en } from '../en'
 
 export const files: typeof en.files = {
-  baseKnowledge: { label: 'Grundlage', open: 'Als Grundlage des Büros öffnen: Ausgabe, Lizenz, letzte Prüfung' },
+  baseKnowledge: { label: 'Norm', open: 'Als Norm öffnen: Ausgabe, Lizenz, letzte Prüfung' },
   uploadZone: {
     clickToUpload: 'Zum Hochladen klicken',
     orDragAndDrop: ' oder per Drag-and-drop ablegen',

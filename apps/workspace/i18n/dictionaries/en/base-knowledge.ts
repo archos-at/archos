@@ -1,12 +1,12 @@
 export const baseKnowledge = {
-  title: 'Office standards',
+  title: 'Standards & guidelines',
   subtitle: 'Standards, commentaries and directives your office owns, which {productName} relies on in your answers.',
   adding: {
     step: 'New standard {position} of {count}',
     confirmNext: 'Confirm and continue',
   },
   fromShelf: 'Take from folders',
-  loadError: 'The office standards could not be loaded.',
+  loadError: 'The standards & guidelines could not be loaded.',
   entryLoadError: 'This standard could not be loaded. It may have been removed, or the connection dropped.',
   loadMoreError: 'More standards could not be loaded. Please try again.',
   saveError: 'That could not be saved. Please try again.',
@@ -33,16 +33,16 @@ export const baseKnowledge = {
     },
   },
   empty: {
-    title: 'No office standards yet',
+    title: 'No standards yet',
     body: 'This is where the standards, commentaries and directives your office relies on live, apart from project documents and templates. Upload the first ones, several at once if you like.',
-    readOnly: 'No office standards yet. Whoever may manage Office filing can upload them here.',
+    readOnly: 'No standards yet. Whoever may manage Office filing can upload them here.',
     folder: 'Nothing in this folder yet.',
     filtered: 'No standard matches this selection.',
     clearFilters: 'Reset filters',
   },
   folders: {
     newTopic: 'New topic',
-    all: 'Office standards',
+    all: 'Standards & guidelines',
     elsewhere: 'Filed in Office filing outside this place',
   },
 
@@ -53,7 +53,7 @@ export const baseKnowledge = {
     checkDue: 'Check due',
     kindAll: 'All kinds',
     search: 'Search designation, title or file',
-    searchLabel: 'Search office standards',
+    searchLabel: 'Search standards & guidelines',
     clear: 'Clear search',
   },
   column: {
@@ -113,10 +113,10 @@ export const baseKnowledge = {
     startsOn: 'in force from {date}',
     inForceToday: 'In force today',
     notInForce: 'Not in force today',
-    back: 'Back to office standards',
+    back: 'Back to Standards & guidelines',
     file: 'File',
     folder: 'Folder',
-    rootFolder: 'Office standards (top level)',
+    rootFolder: 'Standards & guidelines (top level)',
     proposedBy: {
       reading: 'Proposed from the file name',
       agent: 'Proposed by {productName}',

@@ -132,7 +132,7 @@ describe('BaseKnowledgeWorkspace', () => {
   it('opens on an explanation of what belongs here when the office has none', async () => {
     stubFetch(listOf([]), { rootId: null, folders: [], nextCursor: null })
     renderWorkspace()
-    expect(await screen.findByText('Noch keine Grundlagen hinterlegt')).toBeTruthy()
+    expect(await screen.findByText('Noch keine Normen hinterlegt')).toBeTruthy()
     expect(screen.getByText(/gehören hierher, nicht Projektunterlagen oder Vorlagen/)).toBeTruthy()
     expect(screen.getAllByRole('button', { name: /^Hochladen$/ }).length).toBeGreaterThan(0)
   })
@@ -366,7 +366,7 @@ describe('BaseKnowledgeWorkspace', () => {
       }),
     )
     renderWorkspace()
-    expect(await screen.findByText(/Diese Grundlage konnte nicht geladen werden/)).toBeTruthy()
+    expect(await screen.findByText(/Diese Norm konnte nicht geladen werden/)).toBeTruthy()
     expect(screen.getByRole('button', { name: /Erneut versuchen|Nochmal/ })).toBeTruthy()
     await userEvent.click(screen.getByTestId('base-knowledge-back'))
     expect(navigation.push).toHaveBeenCalledWith('/app/base-knowledge', { scroll: false })

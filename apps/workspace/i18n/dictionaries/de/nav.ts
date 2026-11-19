@@ -30,7 +30,7 @@ export const nav: typeof en.nav = {
     jobs: 'Jobs',
     tasks: 'Aufgaben',
     officeShelf: 'Büroablage',
-    baseKnowledge: 'Grundlagen',
+    baseKnowledge: 'Normen & Richtlinien',
     search: 'Suche',
     settings: 'Übersicht',
     intake: 'Einrichtung',
