@@ -111,11 +111,7 @@ function Preview(): JSX.Element {
     >
       <BaseKnowledgeWorkspace
         key={variant ?? 'default'}
-        place={
-          variant === 'in-office-shelf'
-            ? { title: 'Büroablage', crumb: 'Atelier Nord', places: <OfficeShelfPlaces pathname={OFFICE_SHELF_NORMS_HREF} /> }
-            : undefined
-        }
+        place={{ title: 'Büroablage', crumb: 'Atelier Nord', places: <OfficeShelfPlaces pathname={OFFICE_SHELF_NORMS_HREF} /> }}
       />
     </main>
   )
