@@ -1,6 +1,7 @@
 import type { InboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import type { InboundMailDecision, InboundMailPartDecision, InboundMailThreadTarget, InboundMailView } from './inbound-mail-wire'
 import { defaultThread, revisionVouched, senderFactsOfView } from './review-defaults'
+import { modelSuggestion } from './sender-memory'
 import { displaySubject } from './subject'
 import type { InboundMailSuggestion } from './suggest'
 
@@ -21,8 +22,8 @@ function textFolder(
   view: InboundMailView,
   correspondence: FolderChoice | null,
 ): { folderId: string | null; newFolderPath: string | null } {
-  const text = view.parts.find((part) => part.kind === 'message')
-  if (text?.suggestion) return suggestedTarget(text.suggestion)
+  const suggestion = modelSuggestion(view.parts.find((part) => part.kind === 'message')?.suggestion ?? null)
+  if (suggestion) return suggestedTarget(suggestion)
   return { folderId: correspondence?.folderId ?? null, newFolderPath: null }
 }
 
@@ -35,11 +36,12 @@ function attachmentDecisions(
   const decisions: InboundMailPartDecision[] = []
   for (const part of view.parts) {
     if (part.kind !== 'attachment' || !part.filename || !clean(part, rows.get(part.id))) continue
-    const documentType = part.suggestion?.documentType ?? undefined
+    const suggestion = modelSuggestion(part.suggestion)
+    const documentType = suggestion?.documentType ?? undefined
     if (part.revisionCandidate && revisionVouched(part, sender)) {
       decisions.push({ partId: part.id, folderId: null, newFolderPath: null, name: part.filename, revisionOf: part.revisionCandidate.documentId, documentType })
     } else {
-      const target = part.suggestion ? suggestedTarget(part.suggestion) : textFolder(view, correspondence)
+      const target = suggestion ? suggestedTarget(suggestion) : textFolder(view, correspondence)
       decisions.push({ partId: part.id, ...target, name: part.filename, documentType })
     }
   }

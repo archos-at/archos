@@ -1032,6 +1032,7 @@ Nine tables, one job each:
 | `revoked_at`, `revoked_by`, `revoked_reason` | | all three set together (`…_revocation_attributed`); reason `rotated`/`switched_off` | |
 | `cap_notice` | `text` | `nearly_full`/`full` (`inbound_mail_addresses_cap_notice_known`) | What the managers were last told about the staged-bytes caps (sweep 14) |
 | `cap_noticed_at` | `timestamptz` | set exactly with `cap_notice` (`inbound_mail_addresses_cap_noticed_at`) | |
+| `forwarded_from` | `text[]` | NOT NULL, default `{}`; at most 10, lowercase, none empty (`inbound_mail_addresses_forwarded_from_shape`, migration 0250) | The office's existing project addresses that forward here by a rule: a signed To or Cc naming one counts as addressed to the project. A rotation carries it to the new address |
 
 One active address per project (`uniq_inbound_mail_addresses_active_project`,
 partial on `revoked_at IS NULL`); two lazy mints race into a 23505 the service
@@ -1059,7 +1060,7 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `recipient_count` | `integer` | 0..1000 | To and Cc recipients, the project addresses not counted; more than the To/Cc `participants` kept means the 200 cap cut some, and a follow refuses the mail (condition 5, `recipients_unchecked`) |
 | `sender_trust` | `text` | `member_verified`/`member_unverified`/`external_verified`/`external_unverified`; required when `waiting` or `settled` | A label and a condition on defaults, never a gate |
 | `sender_user_id` | `text` | set exactly when the trust is `member_*` (`inbound_mails_member_has_user`); person-shaped | Read only under the notice rules |
-| `sender_class` | `text` | migration 0197: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed`/`relaxed_alignment`, never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
+| `sender_class` | `text` | migration 0197: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed` (`relaxed_alignment` too until 0250), never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
 | `sender_reason` | `text` | 20 known codes; set exactly with the trust; `dkim_pass` exactly when `*_verified` (`inbound_mails_reason_with_trust`) | |
 | `signer_domain` | `text` | ≤ 253 | |
 | `signed_headers` | `text[]` | ≤ 64, lowercase header names | mailauth's `signingHeaders.keys` of the aligned passing signature |
@@ -1157,7 +1158,10 @@ Nothing reaches a project unless its scan said clean
 
 Triggers:
 - `inbound_mail_parts_decision_guard` (`BEFORE INSERT OR UPDATE OF decision_id`):
-  the named decision must be a `file` (`inbound_mail_parts_decision_files`).
+  the named decision must be a `file` (`inbound_mail_parts_decision_files`);
+  a part flagged since a `sender` decision, or an attachment flagged since a
+  `follow` decision (0252), is not claimed on it
+  (`inbound_mail_parts_sender_files_clean`, `…_follow_files_clean`).
 - `inbound_mail_parts_document_guard` (`BEFORE UPDATE OF document_id`): when
   the document goes, `document_version_id` goes too. Deleting the document
   nulls `document_id` first, after which the composite key to the Fassung is
@@ -1191,22 +1195,32 @@ sent from here.
 | `audited_at` | `timestamptz` | | NULL while owed to the trail |
 
 CHECKs: `inbound_mail_decisions_agent_cards_file_clean` (an agent's card carries
-no release and no acknowledgement); `…_follow_appends_text_only` (a follow is
-`file` + `append` with no release or acknowledgement); `…_destination_when_filing`,
+no release and no acknowledgement); `…_follow_files_clean` (0252, before it
+`…_follow_appends_text_only`: a follow is a `file` with no release or
+acknowledgement, never a new thread, and an attachment it files goes into a
+folder by id, the root `''` or a Fassung of a document, never a folder to be
+made); `…_destination_when_filing`,
 `…_target_only_when_filing`, `…_thread_named`, `…_message_text`, `…_lengths`;
 `…_sender_files_clean` (0197: a `sender` decision files, and acknowledges or
 releases nothing).
 
 Trigger `inbound_mail_decisions_guard`:
-- INSERT: a follow files a text, never an attachment
-  (`inbound_mail_decisions_follow_files_text`); a thread is chosen for a filed
-  text and only for it (`…_thread_for_text`). From 0197: `via = 'sender'` only
+- INSERT: a thread is chosen for a filed text and only for it
+  (`…_thread_for_text`). From 0252 (before it a follow filed a text, never an
+  attachment, `…_follow_files_text`): a follow files an attachment only of a
+  mail whose text the same follow appended in the same name, the raw message
+  and the part scanned `clean`, the part without risk flags or content
+  findings (`…_follow_attachment_clean`; the attachment's decision names no
+  thread, so the follower key binds it only through its text's decision). From 0197: `via = 'sender'` only
   on a `verified_writer` mail, decided by its `sender_user_id`, its raw message
   `clean`, the part without risk flags or content findings
-  (`…_sender_files_own_verified_mail`); a `file` or `restore` on an
-  `unverified_writer` mail only by its `sender_user_id`, a `file` with
-  `acknowledged_sender` (`…_claimed_sender_releases`); no `restore` of an
-  `expired` part of an `external` mail (`…_external_expiry_final`). The part and
+  (`…_sender_files_own_verified_mail`); a `file` on an `unverified_writer` mail
+  only with `acknowledged_sender`, and a `file` or `restore` on one whose
+  `sender_reason` is `dkim_fail`, `dkim_policy`, `dkim_weak_algorithm` or
+  `dkim_short_key` (or NULL) only by its `sender_user_id`
+  (`…_claimed_sender_releases`; from 0250, before it every one was its
+  member's alone); 0197's refusal of a `restore` of an `expired` part of an
+  `external` mail (`…_external_expiry_final`) is gone since 0255. The part and
   the mail are read by their full composite keys, under the caller's row-level
   security; SECURITY INVOKER.
 - UPDATE: nothing changes but `audited_at`, once, NULL to a time (`…_immutable`).
@@ -1270,8 +1284,11 @@ Indexes: `uniq_mail_threads_document`, `mail_threads_thread_index_idx`,
 
 Indexes: `mail_thread_entries_message_id_idx` (project, message_id),
 `mail_thread_entries_author_message_id_idx` (project, author_message_id; set),
-`(thread_id, sent_at)`, `(inbound_mail_id)`, `(mail_import_id)`. Legal-hold
-trigger `mail_thread_entries_legal_hold_guard`.
+`(thread_id, sent_at)`, `(inbound_mail_id)`, `(mail_import_id)`,
+`mail_thread_entries_sender_idx` (project, `lower(sender_address)`,
+received_at DESC; `source = 'inbound'` only; 0253: the sender memory of the
+single-mail view, since the held mail forgets its sender when it settles).
+Legal-hold trigger `mail_thread_entries_legal_hold_guard`.
 
 ### mail_thread_entry_attachments (D36)
 
@@ -1317,10 +1334,10 @@ other. Index `(project_id, message_id)`. DELETE is not revoked here.
 | `id`, `organization_id`, `project_id` | | | |
 | `thread_id` | `uuid` | FK to `mail_threads` CASCADE | |
 | `user_id` | `text` | person-shaped | The follower: every append is filed as them |
-| `created_at`, `expires_at` | | `expires_at` after `created_at` and at most 180 days later (`mail_thread_follows_window`) | 60 days by default |
+| `created_at`, `expires_at` | | `expires_at` after `created_at` (`mail_thread_follows_window`; 0254 dropped its 180-day bound) | 60 days by default; each mail filed into the Verlauf moves it to 60 days after that filing |
 | `renewed_at` | `timestamptz` | not before `created_at` | |
 | `daily_cap` | `smallint` | 1..50, default 20 | |
-| `expiring_notified_at` | `timestamptz` | | Day 55, once |
+| `expiring_notified_at` | `timestamptz` | | Five days before `expires_at`, once per end; cleared when a filing or a renewal moves the end |
 | `ended_at`, `ended_by`, `ended_reason` | | reason exactly with `ended_at`; `unfollowed`/`expired`/`access_lost`/`address_rotated`/`detached`/`document_gone`/`revoked_by_manager`/`project_closed` (`mail_thread_follows_ended_reason_known`, the vocabulary `MAIL_THREAD_FOLLOW_END_REASONS`); `unfollowed` only by the follower, `revoked_by_manager` only by someone else (`…_person_reason_attributed`) | `ended_by` NULL when the system noticed; for `project_closed` the person who closed the project, or NULL when sweep 12 ended it |
 
 Unique `(id, thread_id, user_id, organization_id)` (what a follow decision's

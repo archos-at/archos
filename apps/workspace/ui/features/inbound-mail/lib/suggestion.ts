@@ -60,3 +60,19 @@ export function missingSuggestionReason(
   if (skip !== null && skip !== 'not_waiting') return 'skipped'
   return now - Date.parse(mail.receivedAt) < SUGGESTION_GRACE_MS ? 'pending' : 'none'
 }
+
+export function mailStillSettling(
+  mail: Pick<InboundMailView, 'status' | 'rawScan' | 'parts' | 'automatic' | 'sender' | 'receivedAt'>,
+  now: number = Date.now(),
+): boolean {
+  if (mail.status !== 'waiting') return false
+  const waiting = mail.parts.filter((part) => part.state === 'waiting')
+  if (waiting.length === 0) return false
+  if (mail.rawScan === 'pending' || mail.rawScan === 'failed') return true
+  const attachments = waiting.filter((part) => part.kind === 'attachment' && part.offered)
+  if (attachments.some((part) => part.scan === 'pending' || part.scan === 'failed')) return true
+  return (
+    missingSuggestionReason(mail, now) === 'pending' &&
+    attachments.some((part) => part.scan === 'clean' && part.revisionCandidate === null && readSuggestion(part.suggestion) === null)
+  )
+}

@@ -1751,6 +1751,48 @@
       "when": 1795600800000,
       "tag": "0249_document_version_filing_origin",
       "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1795600900000,
+      "tag": "0250_inbound_mail_release_and_forwards",
+      "breakpoints": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1795601000000,
+      "tag": "0251_mail_thread_reply_keeping",
+      "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1795601100000,
+      "tag": "0252_follow_files_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1795601200000,
+      "tag": "0253_mail_thread_entries_sender_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 254,
+      "version": "7",
+      "when": 1795601300000,
+      "tag": "0254_follow_runs_while_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1795601400000,
+      "tag": "0255_external_expiry_restorable",
+      "breakpoints": true
     }
   ]
 }

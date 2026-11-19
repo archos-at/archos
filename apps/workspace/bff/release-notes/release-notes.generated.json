@@ -73,6 +73,22 @@
         },
         {
           "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "In the E-Mail-Eingang, filing or dismissing a mail opens the next one that waits, so ten mails after a site visit are ten decisions in a row. On a phone the list comes back.",
+            "de": "Wenn Sie im E-Mail-Eingang eine Mail ablegen oder verwerfen, öffnet sich die nächste wartende Mail – nach einem Baustellenbesuch treffen Sie so zehn Entscheidungen hintereinander. Auf dem Smartphone kehren Sie zur Liste zurück."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A field over the list finds mail by sender or subject.",
+            "de": "Mit einem Feld oberhalb der Liste finden Sie E-Mails nach Absender oder Betreff."
+          }
+        },
+        {
+          "section": "features",
           "area": "administration",
           "text": {
             "en": "Reading uploaded documents in no longer uses up your daily and monthly limit: it has its own allowance per month, three times your monthly limit, and Verbrauch & Budgets shows it separately. A large upload at the start of a project now leaves the day's allowance for your questions.",
@@ -81,10 +97,130 @@
         },
         {
           "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A filed e-mail conversation now shows in Files as what it is: an envelope, its name without \".md\", how many e-mails it holds and when the last one came, and \"E-Mail-Verlauf\" where other files name their format. Its preview says the same at the top.",
+            "de": "Eine abgelegte E-Mail-Konversation wird in Dateien jetzt als das angezeigt, was sie ist: ein Umschlag, ihr Name ohne „.md“, die Anzahl der enthaltenen E-Mails und wann die letzte eingegangen ist sowie „E-Mail-Verlauf“ dort, wo bei anderen Dateien das Format steht. In der Vorschau steht oben dasselbe."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "In an e-mail conversation, an e-mail whose subject differs from the conversation's name now shows its own subject, so a search for the subject you remember from Outlook finds it. Where its attachments were filed reads as the folder's name.",
+            "de": "In einem E-Mail-Verlauf wird bei einer E-Mail, deren Betreff vom Namen des Verlaufs abweicht, jetzt ihr eigener Betreff angezeigt, sodass Sie sie anhand des Betreffs finden, an den Sie sich aus Outlook erinnern. Der Ablageort ihrer Anhänge zeigt jetzt den Ordnernamen an."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The \"E-Mails\" tab of a conversation lists the e-mails without a row of buttons under each: \"Original (.eml)\" sits beside when the e-mail came, and \"Was diese E-Mail hinzufügte\" is in the e-mail's \"...\" menu. The list says it shows the newest first.",
+            "de": "Der Tab „E-Mails“ einer Unterhaltung listet die E-Mails ohne Button-Leiste darunter auf: „Original (.eml)“ steht neben dem Eingangszeitpunkt, und „Was diese E-Mail hinzufügte“ finden Sie im „...“-Menü der E-Mail. Die Liste zeigt die neuesten E-Mails zuerst an."
+          }
+        },
+        {
+          "section": "features",
           "area": "answers",
           "text": {
             "en": "Several chats can now answer at the same time: while one is still working you can open another or start a new one, and the first answer is complete when you come back. The chat list and the sidebar show which chat is working, which one is waiting for your answer, and which answer is ready or has failed.",
             "de": "Mehrere Chats können jetzt gleichzeitig antworten: Während ein Chat noch verarbeitet wird, können Sie einen anderen öffnen oder einen neuen starten. Wenn Sie zurückkommen, ist die erste Antwort fertig. In der Chatliste und in der Seitenleiste sehen Sie, welcher Chat gerade verarbeitet wird, auf Ihre Antwort wartet oder dessen Antwort bereitsteht bzw. fehlgeschlagen ist."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "In Project mail, all attachments of a mail can be selected at once and the selected ones sent to one folder in a single step.",
+            "de": "In Project mail können Sie alle Anhänge einer Mail auf einmal auswählen und die ausgewählten in einem Schritt in einen Ordner verschieben."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Each PDF or picture attached to a mail has a \"Vorschau\" that opens it large, every page of a PDF included, and steps from one attachment to the next.",
+            "de": "Jeder PDF- oder Bildanhang einer Mail lässt sich in der „Vorschau“ vergrößert öffnen; bei PDFs werden alle Seiten angezeigt, und Sie können zwischen den Anhängen wechseln."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Your office's existing email address for a project can now feed its E-Mail-Eingang: redirect it with an Outlook rule and enter it under Einstellungen › Dokumente, where the card shows both setups, Cc and redirect, in a line each to copy. Mail to it then counts as sent to the project, so your own signed mail is filed directly.",
+            "de": "Die bestehende E-Mail-Adresse Ihres Büros für ein Projekt können Sie jetzt mit dessen E-Mail-Eingang verknüpfen: Richten Sie dazu eine Weiterleitung mit einer Outlook-Regel ein und tragen Sie die Adresse unter Einstellungen › Dokumente ein. Die Karte zeigt beide Varianten – Cc und Weiterleitung – jeweils in einer kopierbaren Zeile. E-Mails an diese Adresse gelten dann als ans Projekt gesendet, sodass Ihre eigenen E-Mails mit Signatur direkt abgelegt werden."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Mail signed by a subdomain of your office's domain, or by its main domain, is now filed directly like mail your own domain signed.",
+            "de": "E-Mails, die mit einer Subdomain Ihrer Bürodomain oder deren Hauptdomain signiert sind, werden jetzt direkt abgelegt – ebenso wie E-Mails, die mit Ihrer eigenen Domain signiert sind."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Anyone who may file in a project can now file a colleague's mail their domain did not confirm, after checking it is from them. A mail posing as a colleague, which their domain rejected, still only that colleague can file.",
+            "de": "Alle, die E-Mails in einem Projekt ablegen dürfen, können jetzt nach Prüfung auch die E-Mail eines Kollegen ablegen, deren Domain die Absenderadresse nicht bestätigt hat. Eine E-Mail, die sich als von einem Kollegen stammend ausgibt und von dessen Domain abgewiesen wurde, kann weiterhin nur dieser Kollege ablegen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "An e-mail from outside the office that nobody filed within its 14 days can now be restored for 7 days under „Bearbeitet“, as every other expired or dismissed e-mail can. Its row in the E-Mail-Eingang says until when it stays („Bleibt bis 03.12. im E-Mail-Eingang“) instead of that it will be removed.",
+            "de": "Eine E-Mail von außerhalb des Büros, die innerhalb von 14 Tagen niemand abgelegt hat, kann jetzt wie jede andere abgelaufene oder verworfene E-Mail unter „Bearbeitet“ für 7 Tage wiederhergestellt werden. In ihrer Zeile im E-Mail-Eingang wird angezeigt, bis wann sie dort bleibt („Bleibt bis 03.12. im E-Mail-Eingang“), statt dass dort steht, dass sie entfernt wird."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The E-Mail-Verlauf now names the folder each filed attachment lies in, under the file's name.",
+            "de": "Der E-Mail-Verlauf gibt jetzt unter dem Dateinamen den Ordner an, in dem der jeweilige Anhang abgelegt ist."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Before you file an e-mail whose sender cannot be verified, the last step of „Einordnen“ says that filing confirms the e-mail is genuine. An encrypted attachment there says that ARCHOS cannot read its content.",
+            "de": "Bevor Sie eine E-Mail ablegen, deren Absender nicht verifiziert werden kann, weist der letzte Schritt von „Einordnen“ darauf hin, dass Sie mit dem Ablegen bestätigen, dass die E-Mail echt ist. Bei einem verschlüsselten Anhang wird dort angezeigt, dass ARCHOS dessen Inhalt nicht lesen kann."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Filing replies of an E-Mail-Verlauf without a click now stays on while the conversation is active: every e-mail filed into the E-Mail-Verlauf, by you, a colleague or the switch itself, keeps it on for another 60 days. It ends only after 60 days with nothing filed there, and the 180-day limit is gone.",
+            "de": "Das Ablegen von Antworten in einem E-Mail-Verlauf ohne Klick bleibt jetzt aktiv, solange die Konversation läuft: Jede E-Mail, die Sie, ein Kollege oder die Automatik im E-Mail-Verlauf ablegt, hält die Funktion weitere 60 Tage aktiv. Sie endet erst, wenn 60 Tage lang nichts dort abgelegt wurde; die Begrenzung auf 180 Tage entfällt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A mail in the E-Mail-Eingang that poses as a member of your office now has \"Melden …\" in its red warning. One press dismisses it and warns the project's managers, your office's administrators and the member it poses as: who sent it and its subject, without any IBAN, with \"Bitte nicht zahlen und nicht antworten\" and the advice to look for the same mail in their mail program.",
+            "de": "Eine E-Mail im E-Mail-Eingang, die sich als Mitglied Ihres Büros ausgibt, enthält jetzt in der roten Warnung die Option „Melden …“. Ein Klick blendet sie aus und warnt die Projektmanager, die Administratoren Ihres Büros und das Mitglied, als das sie sich ausgibt: mit Absender und Betreff, ohne IBAN, mit „Bitte nicht zahlen und nicht antworten“ und dem Hinweis, dieselbe E-Mail im eigenen Mailprogramm zu suchen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Once you file a mail's text into an E-Mail-Verlauf, later signed replies in that conversation are filed into it without a click, each attachment into the existing folder ARCHOS suggests for it. Only what has no existing folder or needs a look waits in the E-Mail-Eingang, and \"Beenden\" in the E-Mails tab stops it.",
+            "de": "Sobald Sie den Text einer E-Mail einem E-Mail-Verlauf zuordnen, werden später signierte Antworten in dieser Unterhaltung ohne Klick darin abgelegt und Anhänge jeweils im bestehenden Ordner, den ARCHOS dafür vorschlägt. Nur E-Mails ohne bestehenden Ordner oder mit Prüfbedarf bleiben im E-Mail-Eingang; mit „Beenden“ im Tab „E-Mails“ stoppen Sie die Funktion."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Under \"Bearbeitet\", a mail filed this way says \"Ohne Klick abgelegt\" and names the E-Mail-Verlauf it went into.",
+            "de": "Unter „Bearbeitet“ zeigt eine so abgelegte Mail den Hinweis „Ohne Klick abgelegt“ sowie den E-Mail-Verlauf, in dem sie abgelegt wurde."
           }
         },
         {
@@ -129,6 +265,46 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Mail from outside the office whose domain is not confirmed is now a row like any other instead of hiding in a folded group; only automatic mail is folded, and that group opens by itself when nothing else waits.",
+            "de": "Mails von außerhalb des Büros mit nicht bestätigter Domain erscheinen jetzt als normale Zeilen statt in einer eingeklappten Gruppe; nur automatische Mails werden eingeklappt, und diese Gruppe öffnet sich automatisch, wenn keine anderen Nachrichten warten."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "A mail with fewer than five days left says so on its row and moves to the top of its section, before an outsider's mail is erased after 14 days.",
+            "de": "Eine E-Mail, die in weniger als fünf Tagen abläuft, wird in ihrer Zeile entsprechend gekennzeichnet und rückt an den Anfang ihres Abschnitts, bevor die E-Mail eines externen Absenders nach 14 Tagen gelöscht wird."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The count beside Dateien and on the start page matches the rows the list shows, and ends in \"+\" when more wait than it counted.",
+            "de": "Die Anzahl neben Dateien und auf der Startseite entspricht den Zeilen in der Liste. Wenn mehr Dateien warten, als gezählt werden, wird ein „+“ angefügt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "\"Wie vorgeschlagen ablegen\" on a row now reports when the mail has landed and where, or what failed. On a phone it appears only on the open mail.",
+            "de": "„Wie vorgeschlagen ablegen“ meldet jetzt in einer Zeile, ob und wo die Mail abgelegt wurde oder was fehlgeschlagen ist. Auf dem Smartphone erscheint die Meldung nur in der geöffneten Mail."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "The list refreshes on its own when mail arrives or a colleague files it.",
+            "de": "Die Liste aktualisiert sich automatisch, sobald eine E-Mail eingeht oder ein Kollege sie ablegt."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "answers",
           "text": {
             "en": "A file or draft {productName} made is now in the project as soon as you file it, signed off by you like your own upload, and {productName} can cite it in later answers, marked as made by {productName}.",
@@ -137,10 +313,82 @@
         },
         {
           "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When you file a mail in the E-Mail-Eingang, the folders where earlier attachments from the same sender went in this project are offered first, each with how many went there. This works for senders whose domain cannot be confirmed too.",
+            "de": "Wenn Sie eine E-Mail im E-Mail-Eingang ablegen, werden Ihnen zuerst die Ordner vorgeschlagen, in denen frühere Anhänge desselben Absenders in diesem Projekt abgelegt wurden, jeweils mit der Anzahl der Anhänge. Das funktioniert auch bei Absendern, deren Domain nicht bestätigt werden kann."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When ARCHOS has no folder to suggest for an attachment and most of this sender's earlier attachments went to one folder, that folder is filled in, marked \"Wie die letzten E-Mails von …\". Nothing is filed there without you: replies filed without a click still go only where ARCHOS suggests.",
+            "de": "Wenn ARCHOS für einen Anhang keinen Ordner vorschlagen kann und die meisten früheren Anhänge dieses Absenders in einem Ordner abgelegt wurden, wird dieser Ordner eingetragen und mit „Wie bei den letzten E-Mails von …“ gekennzeichnet. Ohne Ihr Zutun wird dort nichts abgelegt: Antworten, die ohne Klick abgelegt werden, landen weiterhin nur im von ARCHOS vorgeschlagenen Ordner."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "An opened mail says what an unverified sender means for you (\"name and address could be forged\"), and each confirmation names what you confirm instead of one \"File anyway\".",
+            "de": "Eine geöffnete E-Mail erklärt, was ein nicht verifizierter Absender für Sie bedeutet („Name und Adresse könnten gefälscht sein“), und jede Bestätigung gibt konkret an, was Sie bestätigen, statt einer allgemeinen Option „Trotzdem ablegen“."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "On a phone, \"Dismiss\" and \"File\" stand side by side, notices fold into one line, confirmations can be ticked anywhere on their row, and messages appear at the bottom instead of over the subject.",
+            "de": "Am Smartphone stehen „Schließen“ und „Ablegen“ nebeneinander, Hinweise werden auf eine Zeile eingeklappt, Bestätigungen lassen sich überall in ihrer Zeile abhaken und Nachrichten erscheinen unten statt über dem Betreff."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "A link in a mail shows the site it leads to and can be copied, and following a mail thread says what it now means, with the way to stop.",
+            "de": "Ein Link in einer Mail zeigt die Website, zu der er führt, und kann kopiert werden; beim Folgen eines Mail-Threads wird erklärt, was das jetzt bedeutet und wie Sie es beenden können."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "In the E-Mail-Eingang, ARCHOS now also suggests a folder and a Dokumentart for mail whose sender's domain did not confirm it, which is most mail from outside the office. You still file it yourself, with fewer folders to pick by hand.",
+            "de": "Im E-Mail-Eingang schlägt ARCHOS jetzt auch einen Ordner und eine Dokumentart für E-Mails vor, deren Absenderdomain nicht bestätigt wurde – das betrifft die meisten E-Mails von außerhalb des Büros. Sie legen sie weiterhin selbst ab und müssen dabei weniger Ordner manuell auswählen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "administration",
           "text": {
             "en": "The list of subprocessors now names Google Workspace and Attio. They handle enquiries sent through the contact and demo forms on our website, and they receive none of your office's project data.",
             "de": "Die Liste der Unterauftragsverarbeiter führt jetzt Google Workspace und Attio auf. Sie bearbeiten Anfragen über die Kontakt- und Demoformulare auf unserer Website und erhalten keine Projektdaten Ihres Büros."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Backspace and Delete no longer dismiss the open mail while a button or a checkbox has the focus, and they ask first for an outsider's mail that cannot be restored once dismissed. No shortcut answers while the profile has keyboard shortcuts turned off.",
+            "de": "Backspace und Delete schließen die geöffnete Mail nicht mehr, wenn eine Schaltfläche oder ein Kontrollkästchen fokussiert ist; bei nicht wiederherstellbaren Mails von externen Absendern fragen sie vorher nach. Tastenkombinationen funktionieren nicht, wenn sie im Profil deaktiviert sind."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Why \"Wie vorgeschlagen ablegen\" is unavailable for a selection is written out under the selection, instead of behind a small info icon.",
+            "de": "Der Grund, warum „Wie vorgeschlagen ablegen“ für eine Auswahl nicht verfügbar ist, wird unter der Auswahl ausgeschrieben statt hinter einem kleinen Info-Symbol angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Notices about replies filed without a click now use the same words as the conversation's \"E-Mails\" tab instead of \"folgen\".",
+            "de": "Hinweise zu Antworten, die ohne Klick abgelegt werden, verwenden jetzt dieselben Begriffe wie der Tab „E-Mails“ der Unterhaltung statt „folgen“."
           }
         },
         {
@@ -155,8 +403,88 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "An opened mail no longer stays on \"Being checked for malware\" or \"still reading\" until reloaded, and a mail reloaded after someone else's change keeps the folders you had chosen.",
+            "de": "Eine geöffnete E-Mail bleibt nicht mehr bis zum Neuladen bei „Wird auf Malware geprüft“ oder „Wird noch gelesen“ hängen, und eine nach einer Änderung durch eine andere Person neu geladene E-Mail behält die von Ihnen ausgewählten Ordner."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "In a mail thread's E-Mails tab, long names no longer break in the middle of a word, and moving a mail to another thread uses the usual dialog.",
+            "de": "Im Tab E-Mails eines Mail-Threads werden lange Namen nicht mehr mitten im Wort umgebrochen, und beim Verschieben einer Mail in einen anderen Thread erscheint der gewohnte Dialog."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "In the E-Mail-Eingang, the press that files every ready e-mail now says „Alle {n} ablagebereiten E-Mails ablegen“, so it no longer reads like the press beside a conversation. An attachment's „Details ändern“ replaces „Name, Dokumentart …“, which looked cut off.",
+            "de": "Im E-Mail-Eingang heißt die Schaltfläche, die alle ablagebereiten E-Mails ablegt, jetzt „Alle {n} ablagebereiten E-Mails ablegen“, damit sie nicht mehr wie die Schaltfläche neben einer Unterhaltung klingt. Bei einem Anhang ersetzt „Details ändern“ die abgeschnitten wirkende Beschriftung „Name, Dokumentart …“."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A mail forwarded as an attachment now shows the forwarded mail's text, with its sender, date and subject, in the E-Mail-Eingang and in the E-Mail-Verlauf, not only its attachments.",
+            "de": "Bei einer als Anhang weitergeleiteten E-Mail werden jetzt im E-Mail-Eingang und im E-Mail-Verlauf auch der Text sowie Absender, Datum und Betreff der weitergeleiteten E-Mail angezeigt und nicht mehr nur deren Anhänge."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A sender's small signature logo is no longer offered for filing with every mail; it is listed as embedded instead. Photos placed in the text, from an iPhone for example, are still offered.",
+            "de": "Das kleine Signaturlogo eines Absenders wird nicht mehr bei jeder E-Mail zur Ablage angeboten, sondern stattdessen als eingebettet aufgeführt. Fotos, die beispielsweise von einem iPhone aus in den Text eingefügt werden, werden weiterhin angeboten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "An automatic reply that carries an attachment now waits in the E-Mail-Eingang, marked as automatic, instead of being discarded unseen.",
+            "de": "Eine automatische Antwort mit Anhang bleibt nun im E-Mail-Eingang und wird als automatisch gekennzeichnet, statt unbemerkt verworfen zu werden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "A document the agent wrote and you published no longer drops out of search after the weekly cleanup. Until now it could only be found again once it was published anew.",
             "de": "Ein vom Agenten erstelltes und von Ihnen veröffentlichtes Dokument verschwindet nach der wöchentlichen Bereinigung nicht mehr aus der Suche. Bislang lässt es sich erst wieder finden, wenn es erneut veröffentlicht wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A reply that arrived before its first e-mail was filed is now offered the E-Mail-Verlauf that e-mail started, and is appended if you follow it.",
+            "de": "Eine Antwort, die eingegangen ist, bevor ihre ursprüngliche E-Mail abgelegt wurde, wird nun im E-Mail-Verlauf angezeigt, den diese E-Mail begonnen hat, und dort angehängt, wenn Sie dem Verlauf folgen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "After the correspondents change the subject, later replies are still offered their E-Mail-Verlauf first, and a reply is no longer missed because many other Verläufe share its subject.",
+            "de": "Wenn die Beteiligten den Betreff ändern, wird späteren Antworten weiterhin zuerst der passende E-Mail-Verlauf angeboten, und Antworten werden nicht mehr übersehen, nur weil viele andere Verläufe denselben Betreff haben."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "When your follow of an E-Mail-Verlauf ends without you ending it, a notice now tells you why, so you know replies wait in the E-Mail-Eingang again. If the first follower has lost access, the reply is appended for the next.",
+            "de": "Wenn Sie einem E-Mail-Verlauf nicht selbst entfolgen, sondern Ihre Verfolgung endet, erfahren Sie jetzt in einem Hinweis warum – und wissen, dass Antworten wieder in Ihrem E-Mail-Eingang landen. Hat der erste Follower keinen Zugriff mehr, wird die Antwort dem nächsten angehängt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Moving an e-mail into another E-Mail-Verlauf no longer shows the names and folders of its attachments to people who cannot open them.",
+            "de": "Beim Verschieben einer E-Mail in einen anderen E-Mail-Verlauf werden Personen, die die Anhänge nicht öffnen können, deren Namen und Ordner nicht mehr angezeigt."
           }
         },
         {

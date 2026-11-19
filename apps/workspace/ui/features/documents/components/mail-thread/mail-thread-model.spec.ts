@@ -3,14 +3,13 @@ import { FIXTURE_NOW, VIEWER_ID, attachment, entry, follow, thread, versions } f
 import {
   attachmentLines,
   comparedVersions,
-  currentVersionNumber,
-  detachKeeps,
   entriesNewestFirst,
   entriesSayingTrust,
   filedSenderTrust,
   focusedEntryId,
   followRenewable,
   headingParts,
+  receivedAtLabel,
   mayEndFollow,
   mayWrite,
   otherFollows,
@@ -23,7 +22,7 @@ const iso = (offsetDays: number) => new Date(FIXTURE_NOW + offsetDays * DAY).toI
 describe('the viewer’s follow', () => {
   it('is found by user id, with its renewal', () => {
     const own = follow({ userId: VIEWER_ID })
-    expect(viewerFollow(thread({ followed: true, follows: [follow({ userId: 'other' }), own] }), VIEWER_ID)).toEqual({ kind: 'following', follow: own, renewable: true })
+    expect(viewerFollow(thread({ followed: true, follows: [follow({ userId: 'other' }), own] }), VIEWER_ID, FIXTURE_NOW)).toEqual({ kind: 'following', follow: own, renewable: false })
   })
 
   it('is followed without a date where the surface does not know the viewer', () => {
@@ -34,11 +33,11 @@ describe('the viewer’s follow', () => {
     expect(viewerFollow(thread({ followed: false, follows: [follow({ userId: 'other' })] }), VIEWER_ID)).toEqual({ kind: 'none' })
   })
 
-  it('can grow only while 180 days from its start leave at least a day', () => {
-    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-10), expiresAt: iso(50) }))).toBe(true)
-    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-100), expiresAt: iso(79) }))).toBe(true)
-    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-100), expiresAt: iso(79.5) }))).toBe(false)
-    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-100), expiresAt: iso(80) }))).toBe(false)
+  it('offers „Verlängern“ only in the days the ending is announced, since every filing already extends it', () => {
+    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-10), expiresAt: iso(50) }), FIXTURE_NOW)).toBe(false)
+    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-400), expiresAt: iso(5) }), FIXTURE_NOW)).toBe(true)
+    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-10), expiresAt: iso(1) }), FIXTURE_NOW)).toBe(true)
+    expect(followRenewable(follow({ userId: 'u', createdAt: iso(-10), expiresAt: iso(5.5) }), FIXTURE_NOW)).toBe(false)
   })
 })
 
@@ -81,14 +80,8 @@ it('lists the newest mail first, keeping the document’s section order', () => 
   expect(entries[0].id).toBe(entry({ key: 'a', version: 1 }).id)
 })
 
-describe('Fassungen', () => {
-  it('the current one is the newest version, else the newest an entry names', () => {
-    expect(currentVersionNumber(versions(5), [entry({ key: 'a', version: 3 })])).toBe(5)
-    expect(currentVersionNumber(null, [entry({ key: 'a', version: 3 }), entry({ key: 'b', version: 4 })])).toBe(4)
-    expect(currentVersionNumber(null, [])).toBeNull()
-  })
-
-  it('„Vergleichen“ lays the mail’s Fassung beside the one before', () => {
+describe('what a mail added to the Verlauf', () => {
+  it('lays the Verlauf with the mail beside the Verlauf before it', () => {
     expect(comparedVersions(entry({ key: 'b', version: 3 }), versions(4))).toEqual({
       from: { id: versions(4)[1].id, number: 2 },
       to: { id: versions(4)[2].id, number: 3 },
@@ -101,24 +94,20 @@ describe('Fassungen', () => {
     const held = versions(3).map((version) => (version.versionNumber === 1 ? { ...version, bytesReadable: false } : version))
     expect(comparedVersions(entry({ key: 'b', version: 2 }), held)).toBeNull()
   })
-
-  it('a detach names the Fassungen that keep the mail and the one written without it', () => {
-    expect(detachKeeps(entry({ key: 'b', version: 4 }), 6)).toEqual({ first: 4, last: 6, next: 7 })
-    expect(detachKeeps(entry({ key: 'b', version: 6 }), 6)).toEqual({ first: 6, last: 6, next: 7 })
-    expect(detachKeeps({ firstVersion: null }, 6)).toBeNull()
-  })
 })
 
 it('lists what came with a mail by position, naming nothing the reader may not see', () => {
   const lines = attachmentLines([
     attachment({ position: 3, filename: 'secret.pdf', visible: false }),
-    attachment({ position: 1, filename: 'S-101_C.pdf' }),
+    attachment({ position: 1, filename: 'S-101_C.pdf', folderPath: 'Tragwerk/Statik' }),
     attachment({ position: 2, filename: 'x.zip', disposition: 'not_filed', notFiledReason: 'archive', documentId: undefined }),
     attachment({ position: 4, filename: 'Alt.pdf', disposition: 'already_present' }),
   ])
   expect(lines.map((line) => line.kind)).toEqual(['filed', 'not_filed', 'hidden', 'already_present'])
   expect(JSON.stringify(lines[2])).not.toContain('secret')
   expect(lines[1]).toMatchObject({ reason: 'archive' })
+  expect(lines[0]).toMatchObject({ kind: 'filed', folderPath: 'Tragwerk/Statik' })
+  expect(lines[3]).toMatchObject({ kind: 'already_present', folderPath: null })
 })
 
 it('says a filed sender in three words', () => {
@@ -159,5 +148,17 @@ describe('a heading split where it may wrap', () => {
   it('takes a heading of another shape whole', () => {
     expect(headingParts('Ohne Datum')).toEqual({ when: '', who: 'Ohne Datum', domain: '' })
     expect(headingParts('14.10.2026 · Miriam Huber')).toEqual({ when: '14.10.2026 · ', who: 'Miriam Huber', domain: '' })
+  })
+})
+
+describe('when a mail arrived', () => {
+  it('says it on the office’s clock, as the heading prints the sending, whatever the reader’s clock', () => {
+    const sentAt = '2026-10-14T07:12:00.000Z'
+    expect(receivedAtLabel({ sentAt, receivedAt: '2026-10-14T07:13:00.000Z' }, 'de-AT')).toBe('09:13')
+    expect(entry({ key: 'x', version: 1, sentAt }).heading).toMatch(/^14\.10\.2026 09:12 · /)
+  })
+
+  it('gives the date too when it arrived on another day than it was sent', () => {
+    expect(receivedAtLabel({ sentAt: '2026-10-14T21:50:00.000Z', receivedAt: '2026-10-15T06:02:00.000Z' }, 'de-AT')).toBe('15.10.2026, 08:02')
   })
 })

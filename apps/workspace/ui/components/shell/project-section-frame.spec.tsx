@@ -1,7 +1,8 @@
 import { describe, expect, test, vi, beforeEach } from 'vitest'
-import { cleanup, render, screen } from '@/test-utils'
+import { cleanup, render, screen, within } from '@/test-utils'
 import type { ReactNode } from 'react'
 import { ProjectSectionActions, ProjectSectionBack, ProjectSectionFrame, ProjectSectionTabs } from './project-section-frame'
+import { primeInboundMailWaiting, resetInboundMailWaitingForTests } from '@/hooks/use-inbound-mail-waiting'
 
 let pathname = '/app/projects/p1/files'
 
@@ -94,6 +95,28 @@ describe('ProjectSectionFrame', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Files' })).toBeInTheDocument()
     expect(screen.getByTestId('page-header-crumb')).toHaveTextContent(/^Stadthaus Wien$/)
     expect(screen.getByRole('link', { name: 'Folders' })).toHaveAttribute('href', '/app/projects/p1/files')
+  })
+
+  test('the E-Mail-Eingang tab writes its count as the list and the rail do, „50+“ when the read stopped at a page', () => {
+    pathname = '/app/projects/p1/files/mail'
+    primeInboundMailWaiting('p1', { count: 50, more: true })
+    const { unmount } = render(
+      <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien" inboundMail>
+        <p>mail body</p>
+      </ProjectSectionFrame>,
+    )
+    const tab = screen.getByRole('link', { name: /Project mail/ })
+    expect(tab).toHaveTextContent('Project mail50+')
+    expect(within(tab).getByTitle('More than 50 mails wait to be filed')).toBeInTheDocument()
+    unmount()
+    primeInboundMailWaiting('p1', { count: 9, more: false })
+    render(
+      <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien" inboundMail>
+        <p>mail body</p>
+      </ProjectSectionFrame>,
+    )
+    expect(screen.getByRole('link', { name: /Project mail/ })).toHaveTextContent(/^Project mail9$/)
+    resetInboundMailWaitingForTests()
   })
 
   test('Dateien’s tools are one row under the tabs, never on the title’s line', () => {

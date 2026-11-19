@@ -17,6 +17,8 @@ export interface SectionNavItem {
   label: string
   count?: number | null
   countLabel?: string
+  /** The count stopped at a page: it reads „50+“, as the rail and the list say it. */
+  countMore?: boolean
 }
 
 export interface SectionNavProps {
@@ -195,7 +197,13 @@ function SectionNavLink({
         </CountPill>
       )}
       {item.count != null && item.count > 0 && (
-        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active !== onTrack && 'bg-background')} />
+        <CountPill
+          tone="muted"
+          aria-label={item.countLabel}
+          title={item.countLabel}
+          className={cn(active !== onTrack && 'bg-background')}
+          {...(item.countMore ? { children: <span aria-hidden>{`${item.count}+`}</span> } : { count: item.count })}
+        />
       )}
     </Link>
   )

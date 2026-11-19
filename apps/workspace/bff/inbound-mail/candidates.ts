@@ -5,6 +5,7 @@ import { getHiddenFolderIds } from '@/lib/authz/folder-access'
 import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { MAIL_THREAD_MAX_ENTRIES, MAIL_THREAD_MAX_RENDERED_BYTES } from '@/lib/mail-thread/mail-thread-vocabulary'
 import {
+  domainOf,
   MAX_SHOWN_THREAD_CANDIDATES,
   threadPreselection,
   type SenderEvidence,
@@ -23,11 +24,14 @@ import {
   type ThreadDocument,
 } from './repository'
 
-export function senderEvidenceOf(mail: Pick<InboundMailRow, 'senderTrust' | 'senderFlags' | 'signedHeaders'>): SenderEvidence {
+export function senderEvidenceOf(
+  mail: Pick<InboundMailRow, 'senderTrust' | 'senderFlags' | 'signedHeaders' | 'senderAddress'>,
+): SenderEvidence {
   return {
     senderTrust: mail.senderTrust ?? 'external_unverified',
     senderFlags: mail.senderFlags,
     signedHeaders: mail.signedHeaders,
+    senderDomain: domainOf(mail.senderAddress),
   }
 }
 
@@ -54,7 +58,7 @@ export function threadCandidatesFor(
     }
     if (shown.length >= MAX_SHOWN_THREAD_CANDIDATES) continue
     const full = threadIsFull(thread)
-    const { preselected, blocks } = threadPreselection(match, sender)
+    const { preselected, blocks } = threadPreselection(match, sender, thread)
     shown.push({
       threadId: thread.threadId,
       documentId: thread.documentId,
@@ -113,7 +117,7 @@ export function filedAsFor(
 }
 
 export interface ViewerCandidates {
-  threads(mail: Pick<InboundMailRow, 'threadMatch' | 'senderTrust' | 'senderFlags' | 'signedHeaders'>): {
+  threads(mail: Pick<InboundMailRow, 'threadMatch' | 'senderTrust' | 'senderFlags' | 'signedHeaders' | 'senderAddress'>): {
     shown: InboundMailThreadCandidateView[]
     hidden: number
   }

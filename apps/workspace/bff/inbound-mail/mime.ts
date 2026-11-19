@@ -15,6 +15,7 @@ export {
   headerValue,
   MAX_HEADER_BLOCK_BYTES,
   rawHeaderFields,
+  readHeaderBlock,
 } from './mime-header-block'
 export { safeFilename, safeMediaType } from './mime-names'
 export { MAX_PART_BYTES } from './mime-part-kinds'

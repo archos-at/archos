@@ -48,14 +48,22 @@ beforeEach(() => {
 })
 
 describe('MailThreadTab', () => {
-  it('lists the mails newest first, each with the Fassung it first appeared in', async () => {
+  it('lists the mails newest first, each arrived after it was sent, on the office’s clock', async () => {
     renderTab('three-messages')
     const rows = await entries()
-    expect(rows.map((row) => within(row).getByTestId('mail-thread-entry-from').textContent)).toEqual(['from revision 3', 'from revision 2', 'from revision 1'])
-    expect(within(rows[0]).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026, 09:12 · Mag. Huber (ma37.wien.gv.at)')
+    expect(rows.map((row) => within(row).getByTestId('mail-thread-entry-received').textContent)).toEqual(['received 09:13', 'received 11:07', 'received 16:41'])
+    expect(rows.map((row) => within(row).queryByText(/revision/))).toEqual([null, null, null])
+    expect(within(rows[0]).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026 09:12 · Mag. Schober (ma37.wien.gv.at)')
     expect(within(rows[0]).getByTestId('mail-thread-entry-trust')).toHaveTextContent('Domain verified: ma37.wien.gv.at')
     expect(within(rows[0]).getByTestId('mail-thread-entry-via')).toHaveTextContent(`Filed on ${PRODUCT_NAME}’s suggestion`)
+    expect(screen.getByTestId('mail-thread-waiting')).toHaveTextContent('2 mails still wait in Project mail: sender not verifiable or no folder for an attachment')
+  })
+
+  it('says why mail still waits only while replies are filed without a click, else how many wait', async () => {
+    renderTab('not-followed')
+    await entries()
     expect(screen.getByTestId('mail-thread-waiting')).toHaveTextContent('2 mails of this mail thread wait in Project mail')
+    expect(screen.getByTestId('mail-thread-waiting')).not.toHaveTextContent(/still/)
   })
 
   it('lists what came with a mail: links, already there, not filed with why, and a hidden one unnamed', async () => {
@@ -63,18 +71,29 @@ describe('MailThreadTab', () => {
     const statik = (await entries())[1]
     const items = within(statik).getAllByTestId('mail-thread-attachment')
     expect(items.map((item) => item.dataset.disposition)).toEqual(['filed', 'already_present', 'not_filed', 'hidden'])
-    expect(within(items[0]).getByRole('link', { name: 'S-101_C.pdf' })).toHaveAttribute('href', expect.stringMatching(/\/files\?doc=/))
+    expect(within(items[0]).getByRole('link', { name: 'S-101_B.pdf' })).toHaveAttribute('href', expect.stringMatching(/\/files\?doc=/))
     expect(items[1]).toHaveTextContent('was already in the project')
-    expect(items[2]).toHaveTextContent('Rechnung_Okt.zip')
+    expect(items[2]).toHaveTextContent('Honorarnote_Okt.zip')
     expect(items[2]).toHaveTextContent('not filed · archive file, not unpacked')
     expect(within(items[2]).queryByRole('link')).toBeNull()
-    expect(items[3]).toHaveTextContent('An attachment in a folder you cannot see')
+    expect(items[3]).toHaveTextContent('Attachment not shownis in a folder with its own access rights; whoever is listed there can open it')
+  })
+
+  it('says under each filed attachment the folder it lies in, and none for one not filed or hidden', async () => {
+    renderTab('three-messages')
+    const [authority, statik] = await entries()
+    const items = within(statik!).getAllByTestId('mail-thread-attachment')
+    expect(within(items[0]!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Tragwerk\/Statik$/)
+    expect(within(items[1]!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Tragwerk\/Statik\/Berechnungen$/)
+    expect(within(items[2]!).queryByTestId('mail-thread-attachment-folder')).toBeNull()
+    expect(within(items[3]!).queryByTestId('mail-thread-attachment-folder')).toBeNull()
+    expect(within(authority!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Files \(top level\)$/)
   })
 
   it('says an unconfirmed sender with the warning glyph, in ink', async () => {
     renderTab('unverified-section')
     const trust = within((await entries())[0]).getByTestId('mail-thread-entry-trust')
-    expect(trust).toHaveTextContent('Domain not verified')
+    expect(trust).toHaveTextContent('Sender cannot be verified')
     expect(trust.dataset.trust).toBe('unverified')
     expect(trust.className).toContain('text-foreground')
   })
@@ -112,31 +131,37 @@ describe('MailThreadTab', () => {
   })
 
   describe('following', () => {
-    it('follows, and the toast offers the undo', async () => {
-      const { client } = renderTab('three-messages')
-      const follow = vi.spyOn(client, 'follow')
-      await userEvent.click(await screen.findByTestId('mail-thread-follow-start'))
-      expect(follow).toHaveBeenCalledWith(PROJECT_ID, MAIL_THREAD_VARIANTS['three-messages'].view.id)
-      await waitFor(() => expect(screen.getByTestId('mail-thread-follow-state')).toHaveTextContent(/^You follow this mail thread until /))
-      expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^You follow “Stellplatznachweis” until /), expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
+    it('shows the switch on for whoever filed into the Verlauf, in the words and state of „Übersicht“', async () => {
+      renderTab('three-messages')
+      const control = await screen.findByRole('switch', { name: 'File replies in this mail thread without a click' })
+      expect(control).toBeChecked()
+      expect(screen.getByTestId('mail-thread-follow-switch-state')).toHaveTextContent(/^On until /)
+      expect(screen.getByTestId('mail-thread-follow-switch')).toHaveTextContent('here and in the suggested folders')
+      expect(screen.getByTestId('mail-thread-follow-switch')).toHaveTextContent('listed under “Handled”')
     })
 
-    it('renews and stops a running follow', async () => {
+    it('switches on, and the toast offers the undo', async () => {
+      const { client } = renderTab('not-followed')
+      const follow = vi.spyOn(client, 'follow')
+      expect(screen.queryByText(/in your name/)).toBeNull()
+      const control = await screen.findByRole('switch', { name: 'File replies in this mail thread without a click' })
+      expect(control).not.toBeChecked()
+      expect(screen.getByTestId('mail-thread-follow-switch-state')).toHaveTextContent('Off')
+      await userEvent.click(control)
+      expect(follow).toHaveBeenCalledWith(PROJECT_ID, MAIL_THREAD_VARIANTS['not-followed'].view.id)
+      await waitFor(() => expect(screen.getByTestId('mail-thread-follow-switch-state')).toHaveTextContent(/^On until /))
+      expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Replies in “Stellplatznachweis” are filed without a click until /), expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
+    })
+
+    it('renews a follow in its last days and stops it', async () => {
       const { client } = renderTab('followed')
       const follow = vi.spyOn(client, 'follow')
       const unfollow = vi.spyOn(client, 'unfollow')
       await userEvent.click(await screen.findByTestId('mail-thread-follow-renew'))
       expect(follow).toHaveBeenCalledTimes(1)
-      await userEvent.click(screen.getByTestId('mail-thread-follow-stop'))
+      await userEvent.click(screen.getByRole('switch'))
       expect(unfollow).toHaveBeenCalledWith(PROJECT_ID, MAIL_THREAD_VARIANTS.followed.view.id)
-      await waitFor(() => expect(screen.getByTestId('mail-thread-follow-start')).toBeInTheDocument())
-    })
-
-    it('offers no renewal when 180 days from the start are nearly reached, and says why', async () => {
-      renderTab('renew-limit')
-      expect(await screen.findByTestId('mail-thread-follow-limit')).toHaveTextContent('A follow lasts at most 180 days')
-      expect(screen.queryByTestId('mail-thread-follow-renew')).toBeNull()
-      expect(screen.getByTestId('mail-thread-follow-stop')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByRole('switch')).not.toBeChecked())
     })
 
     it('lets a manager end someone else’s follow, by name', async () => {
@@ -145,49 +170,63 @@ describe('MailThreadTab', () => {
       const followers = await screen.findAllByTestId('mail-thread-follower')
       expect(followers).toHaveLength(2)
       await waitFor(() => expect(followers[0]).toHaveTextContent('Lukas Brandstätter'))
-      await userEvent.click(within(followers[0]).getByRole('button', { name: 'End the follow of Lukas Brandstätter' }))
+      await userEvent.click(within(followers[0]).getByRole('button', { name: 'End it for Lukas Brandstätter' }))
       expect(unfollow).toHaveBeenCalledWith(PROJECT_ID, MAIL_THREAD_VARIANTS['manager-follows'].view.id, { userId: 'user_01JLUKAS000000000000000000' })
       await waitFor(() => expect(screen.getAllByTestId('mail-thread-follower')).toHaveLength(1))
     })
 
     it('shows nobody else „End“: a member reads a count, and may not follow without filing rights', async () => {
       renderTab('member-sees-follows')
-      expect(await screen.findByTestId('mail-thread-follow-others')).toHaveTextContent('2 other people follow')
+      expect(await screen.findByTestId('mail-thread-follow-others')).toHaveTextContent(`${PRODUCT_NAME} files replies in this mail thread without a click for 2 people.`)
       expect(screen.queryByTestId('mail-thread-followers')).toBeNull()
       expect(screen.queryByTestId('mail-thread-follower-end')).toBeNull()
-      expect(screen.queryByTestId('mail-thread-follow-start')).toBeNull()
+      expect(screen.queryByRole('switch')).toBeNull()
     })
 
     it('words a refusal, never the server’s English', async () => {
-      const client = fixtureMailThreadClient(MAIL_THREAD_VARIANTS['three-messages'])
+      const client = fixtureMailThreadClient(MAIL_THREAD_VARIANTS['not-followed'])
       const { ApiRequestError } = await import('@/adapters/api/api-error')
       vi.spyOn(client, 'follow').mockRejectedValue(new ApiRequestError('Project is closed', 403, 'project-closed'))
-      renderTab('three-messages', { client })
-      await userEvent.click(await screen.findByTestId('mail-thread-follow-start'))
+      renderTab('not-followed', { client })
+      await userEvent.click(await screen.findByRole('switch'))
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('The project is closed. Reopen it first.'))
     })
   })
 
-  it('compares the mail’s Fassung with the one before', async () => {
+  it('shows what a mail added to the Verlauf, against the Verlauf before it', async () => {
     const { client } = renderTab('three-messages')
     const diff = vi.spyOn(client, 'diff')
     const newest = (await entries())[0]
-    await userEvent.click(await within(newest).findByRole('button', { name: 'Compare revision 2 with revision 3' }))
+    expect(within(newest).queryByRole('button', { name: 'What this mail added' })).toBeNull()
+    await userEvent.click(within(newest).getByTestId('mail-entry-menu'))
+    await userEvent.click(await screen.findByTestId('mail-thread-entry-compare'))
     expect(diff).toHaveBeenCalledWith(THREAD_DOCUMENT_ID, expect.any(String), expect.any(String))
     expect(await within(newest).findByTestId('mail-thread-entry-comparison')).toBeInTheDocument()
-    expect(within((await entries())[2]).queryByTestId('mail-thread-entry-compare')).toBeNull()
+    await userEvent.click(within(newest).getByRole('button', { name: 'Hide the comparison for the mail of 14.10.2026 09:12 · Mag. Schober (ma37.wien.gv.at)' }))
+    expect(within(newest).queryByTestId('mail-thread-entry-comparison')).toBeNull()
+    await userEvent.click(within((await entries())[2]).getByTestId('mail-entry-menu'))
+    expect(await screen.findByTestId('mail-entry-detach')).toBeInTheDocument()
+    expect(screen.queryByTestId('mail-thread-entry-compare')).toBeNull()
+  })
+
+  it('heads the mails with their order, and keeps the original on the line that says when each came', async () => {
+    renderTab('three-messages')
+    expect(await screen.findByTestId('mail-thread-order')).toHaveTextContent('Newest first')
+    const newest = (await entries())[0]
+    const original = within(newest).getByRole('button', { name: 'Original (.eml)' })
+    expect(original.closest('div')).toHaveTextContent(/^received \S+\s*Original \(\.eml\)/)
   })
 
   describe('detaching', () => {
-    it('names the Fassungen that keep the mail, and moves it into the chosen thread', async () => {
+    it('says the earlier revisions keep the mail, and moves it into the chosen thread', async () => {
       const { client } = renderTab('detach-confirm')
       const detach = vi.spyOn(client, 'detach')
       const statik = (await entries())[1]
       await userEvent.click(within(statik).getByTestId('mail-entry-menu'))
       await userEvent.click(await screen.findByTestId('mail-entry-detach'))
       const dialog = await screen.findByTestId('mail-thread-detach')
-      expect(within(dialog).getByTestId('mail-thread-detach-keeps')).toHaveTextContent('Revisions 2 to 3 keep this mail. This mail thread gets revision 4 without it.')
-      expect(dialog).toHaveTextContent('Whoever follows this mail thread stops following it.')
+      expect(within(dialog).getByTestId('mail-thread-detach-keeps')).toHaveTextContent('The mail thread no longer contains this mail afterwards. Its earlier revisions under “Details” keep it.')
+      expect(dialog).toHaveTextContent('Afterwards, replies in this mail thread are no longer filed without a click for anyone.')
       const confirm = screen.getByTestId('mail-thread-detach-confirm')
       expect(confirm).toBeDisabled()
       await userEvent.click(within(dialog).getByTestId('mail-thread-detach-target'))
@@ -196,7 +235,7 @@ describe('MailThreadTab', () => {
       await waitFor(() => expect(detach).toHaveBeenCalledTimes(1))
       expect(detach.mock.calls[0][3]).toEqual({ target: { action: 'append', mailThreadId: expect.any(String) } })
       await waitFor(() => expect(screen.getAllByTestId('mail-thread-entry')).toHaveLength(2))
-      expect(toast.success).toHaveBeenCalledWith('Mail moved into “Fassadenmuster Hofseite”', expect.objectContaining({ description: '1 follow ended' }))
+      expect(toast.success).toHaveBeenCalledWith('Mail moved into “Fassadenmuster Hofseite”', expect.objectContaining({ description: 'Replies are no longer filed without a click for 1 person' }))
     })
 
     it('says a refusal inside the dialog, which stays open', async () => {
@@ -252,7 +291,9 @@ describe('MailThreadTab', () => {
 
     it('is not offered to a reader who may not file mail', async () => {
       renderTab('member-sees-follows')
-      expect((await entries()).every((row) => within(row).queryByTestId('mail-entry-menu') === null)).toBe(true)
+      await userEvent.click(within((await entries())[0]).getByTestId('mail-entry-menu'))
+      expect(await screen.findByTestId('mail-thread-entry-compare')).toBeInTheDocument()
+      expect(screen.queryByTestId('mail-entry-detach')).toBeNull()
     })
   })
 
@@ -288,6 +329,38 @@ describe('MailThreadTab', () => {
   it('keeps the heading exactly as the document prints it, while it wraps between date, name and domain', async () => {
     renderTab('three-messages')
     const [newest] = await entries()
-    expect(within(newest).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026, 09:12 · Mag. Huber (ma37.wien.gv.at)')
+    expect(within(newest).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026 09:12 · Mag. Schober (ma37.wien.gv.at)')
+  })
+})
+
+describe('the E-Mails tab’s words and dialog', () => {
+  it('leaves a place to wrap after the date, so a long German name hyphenates rather than breaking anywhere', async () => {
+    renderTab('worst-case')
+    const heading = (await entries()).map((row) => within(row).getByTestId('mail-thread-entry-heading')).find((node) => node.textContent?.includes('Rechtsanwaltskanzlei')) as HTMLElement
+    expect(heading).toHaveAttribute('lang', 'de')
+    const [date, name] = Array.from(heading.children) as HTMLElement[]
+    expect(date.className).toContain('whitespace-nowrap')
+    expect(date.textContent?.endsWith(' ')).toBe(false)
+    expect(name.className).toContain('hyphens-auto')
+    expect(name.className).not.toContain('anywhere')
+  })
+
+  it('names a file on one line, cut in its middle, not over lines that each carry an underline', async () => {
+    renderTab('worst-case')
+    const link = (await screen.findAllByTestId('mail-thread-attachment-link'))[0]
+    expect(link.querySelector('[data-fitted], .truncate')).not.toBeNull()
+  })
+
+  it('asks where to as the app’s form dialog: the dialog takes the focus, no radio, and „Cancel“ is a raised press', async () => {
+    renderTab('detach-confirm')
+    const statik = (await entries())[1]
+    await userEvent.click(within(statik).getByTestId('mail-entry-menu'))
+    await userEvent.click(await screen.findByTestId('mail-entry-detach'))
+    await screen.findByTestId('mail-thread-detach')
+    expect(screen.getByRole('dialog')).toHaveFocus()
+    expect(screen.getAllByRole('radio').some((radio) => radio === document.activeElement)).toBe(false)
+    const cancel = screen.getByTestId('mail-thread-detach-cancel')
+    expect(cancel.className).toContain('shadow-press')
+    expect(screen.getByTestId('mail-thread-detach-confirm').className).not.toContain('bg-destructive')
   })
 })

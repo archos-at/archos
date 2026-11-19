@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
+import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
-import { useTranslations } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
 import type { DocumentVersionView } from '@/lib/documents/lifecycle-types'
 import type { MailThreadEntryDetachResultView, MailThreadEntryView, MailThreadView } from '@/lib/mail-thread/mail-thread-wire'
@@ -20,7 +21,7 @@ import { mailThreadClient, type MailThreadClient } from './client'
 import { DetachDialog } from './detach-dialog'
 import { FollowControl } from './follow-control'
 import { MailThreadEntryItem } from './mail-thread-entry'
-import { currentVersionNumber, entriesNewestFirst, entriesSayingTrust, focusedEntryId, mayWrite } from './mail-thread-model'
+import { entriesNewestFirst, entriesSayingTrust, focusedEntryId, mayWrite } from './mail-thread-model'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; view: MailThreadView }
@@ -49,6 +50,7 @@ export function MailThreadTab({
   className,
 }: MailThreadTabProps): JSX.Element {
   const t = useTranslations(mailThreadCopy)
+  const { locale } = useLocale()
   const [load, setLoad] = useState<Load>({ kind: 'loading' })
   const [versions, setVersions] = useState<DocumentVersionView[] | null>(null)
   const [detaching, setDetaching] = useState<MailThreadEntryView | null>(null)
@@ -106,7 +108,13 @@ export function MailThreadTab({
   }
 
   const writable = mayWrite(view)
-  const current = currentVersionNumber(versions, view.entries)
+  const waitingWords = (count: number): string =>
+    view.followed && view.waitingReasons.length > 0
+      ? t('tab.waitingAnyway', {
+          count,
+          reasons: new Intl.ListFormat(locale, { type: 'disjunction' }).format(view.waitingReasons.map((reason) => t(`tab.waitingReasons.${reason}`))),
+        })
+      : t('tab.waiting', { count })
   const entries = entriesNewestFirst(view.entries)
   const sayingTrust = entriesSayingTrust(entries)
 
@@ -125,7 +133,7 @@ export function MailThreadTab({
         <p className="text-foreground flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs" data-testid="mail-thread-waiting">
           <span className="inline-flex min-w-0 items-start gap-1.5">
             <Inbox className="text-muted-foreground mt-px size-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0">{t('tab.waiting', { count: view.waitingCount })}</span>
+            <span className="min-w-0">{waitingWords(view.waitingCount)}</span>
           </span>
           <Button asChild variant="inline" className="touch-target">
             <Link href={inboundMailPaths(projectId).list({ status: 'waiting', outcome: null })}>{t('tab.waitingOpen')}</Link>
@@ -138,22 +146,30 @@ export function MailThreadTab({
       {entries.length === 0 ? (
         <EmptyState icon={Inbox} title={t('tab.empty')} data-testid="mail-thread-empty" />
       ) : (
-        <ItemList as="ol" className="bg-card" aria-label={t('tab.timeline')} data-testid="mail-thread-entries">
-          {entries.map((entry) => (
-            <MailThreadEntryItem
-              key={entry.id}
-              projectId={projectId}
-              documentId={documentId}
-              threadId={view.id}
-              entry={entry}
-              versions={versions}
-              focused={entry.id === focused}
-              showTrust={sayingTrust.has(entry.id)}
-              onDetach={writable && view.entries.length > 1 ? setDetaching : undefined}
-              client={client}
-            />
-          ))}
-        </ItemList>
+        <div className="flex flex-col gap-2">
+          {/* The document beside it reads oldest first, as a record does; the list reads as an inbox does, and says so. */}
+          {entries.length > 1 && (
+            <SectionLabel as="p" data-testid="mail-thread-order">
+              {t('tab.order')}
+            </SectionLabel>
+          )}
+          <ItemList as="ol" className="bg-card" aria-label={t('tab.timeline')} data-testid="mail-thread-entries">
+            {entries.map((entry) => (
+              <MailThreadEntryItem
+                key={entry.id}
+                projectId={projectId}
+                documentId={documentId}
+                threadId={view.id}
+                entry={entry}
+                versions={versions}
+                focused={entry.id === focused}
+                showTrust={sayingTrust.has(entry.id)}
+                onDetach={writable && view.entries.length > 1 ? setDetaching : undefined}
+                client={client}
+              />
+            ))}
+          </ItemList>
+        </div>
       )}
 
       {detaching && (
@@ -163,7 +179,6 @@ export function MailThreadTab({
           projectId={projectId}
           thread={view}
           entry={detaching}
-          currentVersion={current}
           folderId={folderId}
           client={client}
           onDetached={detached}

@@ -66,6 +66,29 @@ vulnerabilities:
   # `go version -m` (which also clears CVE-2026-78661 against x/net v0.61.0). The
   # box is gone; this block is empty again.
 
+  - id: CVE-2026-97054
+    expired_at: 2026-12-03
+    statement: |
+      Go standard library 1.27.3 in otel/opentelemetry-collector-contrib 0.165.0
+      (`sha256:e40d61f1…`, the pin): an HTTP/1 server whose MaxBytesReader
+      limit is exceeded mishandles the connection. Fixed in Go 1.27.4 / 1.26.11.
+
+      No bump clears it yet: on 2026-11-19 Docker Hub's newest release tag is
+      0.165.0, our digest; 0.166.0 exists only as nightlies. Found by the
+      promotion of develop 173f809c to prod (release/promote-173f809c6), not by
+      a change to this image.
+
+      Not reachable from outside the cluster: the collector's OTLP HTTP
+      receiver (4318) sits behind the ClusterIP Service `otel-collector`
+      (`deploy/pulumi/src/platform/otel-collector.ts`), with no HTTPRoute,
+      Ingress or LoadBalancer; its clients are the in-cluster agents, the log
+      shipper and the MCP gateway. A pod in the cluster could at worst disturb
+      telemetry intake, never app data.
+
+      Boxed two weeks, the contrib release cadence: move the pin to the first
+      release whose amd64 binary reads go1.27.4 or later under
+      `go version -m`, scan it with this entry removed, and delete this box.
+
   # ── Langfuse web/worker images (ADR-0044) ─────────────────────────────────
   #
   # An npm dependency bundled INSIDE ghcr.io/langfuse/langfuse and

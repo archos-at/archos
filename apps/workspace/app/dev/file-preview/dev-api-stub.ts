@@ -7,6 +7,7 @@ import { FIRE_SAFETY_PAGES, ROOM_PROGRAMME_PAGES, searchHitPages } from './pdf-p
 import { REVIEW_VERSIONS } from './review-fixtures'
 import { SETTLING_FIXTURE, settlingReads, settlingStatus } from './settling-preview'
 import { CSV_BODY, MARKDOWN_BODY, TEXT_BODY } from './text-fixtures'
+import { MAIL_ATTACHMENT_FILE, MAIL_ATTACHMENT_VERSIONS, MAIL_PROJECT_ID, MAIL_THREAD_FILE, MAIL_THREAD_MARKDOWN, MAIL_THREAD_VERSIONS, MAIL_THREAD_VIEW } from './mail-fixtures'
 
 const PAGE_SVG =
   'data:image/svg+xml;utf8,' +
@@ -34,6 +35,8 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url =
         typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      const mail = mailThreadAnswer(url)
+      if (mail) return mail
       const officeMatch = /\/api\/documents\/dev-doc-(office-[a-z]+)\/preview$/.exec(url)
       if (officeMatch?.[1] === 'office-converting') {
         return new Promise<Response>(() => {})
@@ -131,4 +134,20 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       return real(input, init)
     }
   }
+}
+
+const mailThreads = `/api/projects/${encodeURIComponent(MAIL_PROJECT_ID)}/mail-threads`
+
+function mailThreadAnswer(url: string): Response | null {
+  const path = url.split('?')[0]
+  if (path.endsWith(mailThreads)) {
+    const summary = { id: MAIL_THREAD_VIEW.id, documentId: MAIL_THREAD_VIEW.documentId, name: MAIL_THREAD_VIEW.name, entryCount: MAIL_THREAD_VIEW.entryCount, lastEntryAt: MAIL_THREAD_VIEW.lastEntryAt, followed: false }
+    const asked = new URL(url, 'http://dev').searchParams.get('documentId')
+    return Response.json({ items: !asked || asked === MAIL_THREAD_VIEW.documentId ? [summary] : [], nextCursor: null })
+  }
+  if (path.endsWith(`${mailThreads}/${encodeURIComponent(MAIL_THREAD_VIEW.id)}`)) return Response.json(MAIL_THREAD_VIEW)
+  if (path.endsWith(`/api/documents/${MAIL_THREAD_FILE.id}/text`)) return Response.json({ text: MAIL_THREAD_MARKDOWN, truncated: false })
+  if (path.endsWith(`/api/documents/${MAIL_THREAD_FILE.id}/versions`)) return Response.json(MAIL_THREAD_VERSIONS)
+  if (path.endsWith(`/api/documents/${MAIL_ATTACHMENT_FILE.id}/versions`)) return Response.json(MAIL_ATTACHMENT_VERSIONS)
+  return null
 }

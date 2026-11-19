@@ -15,6 +15,7 @@ import {
   pdfFixture,
 } from './fixtures'
 import { TEXT_FIXTURES } from './text-fixtures'
+import { MAIL_ATTACHMENT_FILE, MAIL_PROJECT_ID, MAIL_THREAD_FILE } from './mail-fixtures'
 import { DRAWING_FIXTURE } from './drawing-fixtures'
 import { REVIEW_FIXTURE, REVIEW_PERMISSIONS } from './review-fixtures'
 import { ScrollRailIntoView } from './scroll-rail-into-view'
@@ -67,12 +68,16 @@ export default function FilePreviewDevPage({
         ? DRAWING_FIXTURE
         : variant === 'search-hit'
           ? SEARCH_HIT_FIXTURE
-          : null
+          : variant === 'mail-thread'
+            ? MAIL_THREAD_FILE
+            : variant === 'mail-attachment'
+              ? MAIL_ATTACHMENT_FILE
+              : null
 
   return (
     <FilePreviewDialog
       file={officeFile ?? textFixture ?? (authored === 'agent' ? GENERATED_FIXTURE : FIXTURE)}
-      projectId="proj-demo"
+      projectId={variant === 'mail-thread' || variant === 'mail-attachment' ? MAIL_PROJECT_ID : 'proj-demo'}
       projectName="Wohnbau Nord — Linz"
       canManage
       canCollaborate

@@ -89,6 +89,7 @@ export const MAIL_THREAD_FOLLOW_END_REASONS = [
   'document_gone',
   'revoked_by_manager',
   'project_closed',
+  'thread_full',
 ] as const
 export type MailThreadFollowEndReason = (typeof MAIL_THREAD_FOLLOW_END_REASONS)[number]
 
@@ -98,9 +99,11 @@ export const MAIL_THREAD_FOLLOW_PERSON_END_REASONS = [
 ] as const satisfies readonly MailThreadFollowEndReason[]
 
 export const MAIL_THREAD_FOLLOW_DEFAULT_DAYS = 60
-export const MAIL_THREAD_FOLLOW_MAX_DAYS = 180
 
 export const MAIL_THREAD_FOLLOW_DEFAULT_DAILY_CAP = 20
 export const MAIL_THREAD_FOLLOW_MAX_DAILY_CAP = 50
 
 export const MAIL_THREAD_FOLLOW_PROJECT_DAILY_CAP = 100
+
+export const MAIL_THREAD_WAITING_REASONS = ['sender_not_verified', 'attachment_left', 'before_follow', 'needs_check'] as const
+export type MailThreadWaitingReason = (typeof MAIL_THREAD_WAITING_REASONS)[number]

@@ -138,11 +138,17 @@ function inboundMailLink(projectId: string, context: InboxTargetLinkContext): st
       return inboundMailReadyPath(projectId)
     case 'inbound_mail.expiring':
     case 'inbound_mail.cap_reached':
+    case 'mail_thread.follow_ended':
       return paths.list(waiting)
     case 'inbound_mail.filing_failed':
     case 'inbound_mail.held': {
       const mailId = context.anchorId?.trim()
       return mailId ? paths.mail(mailId, waiting) : paths.list(waiting)
+    }
+    case 'inbound_mail.fraud_reported': {
+      const mailId = context.anchorId?.trim()
+      const handled = { status: 'handled', outcome: null } as const
+      return mailId ? paths.mail(mailId, handled) : paths.list(handled)
     }
     case 'inbound_mail.held_for_writers':
     case 'inbound_mail.rejected':

@@ -4,6 +4,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import type { NextRequest } from 'next/server'
 
+vi.mock('@/lib/mail-thread/document-threads', () => ({ mailThreadsOfDocuments: vi.fn(async () => new Map()) }))
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({
     userId: 'user-1',
@@ -26,6 +27,7 @@ vi.mock('@/lib/documents/lifecycle', () => ({
 import { deleteDocument, renameDocument } from '@/lib/documents/document-edits'
 import { getListedDocument } from '@/lib/documents/listed-document'
 import { documentMailOrigins } from '@/lib/mail-thread/mail-origins'
+import { mailThreadsOfDocuments } from '@/lib/mail-thread/document-threads'
 import { toDocumentWireRow } from '@/lib/documents/list-projection'
 import type { ListedDocument } from '@/lib/documents/shelf-listing'
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
@@ -68,9 +70,19 @@ describe('GET /api/documents/[id]', () => {
 
     expect(response.status).toBe(200)
     expect((await response.json()).document).toEqual(
-      JSON.parse(JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 3, state: 'published' }), baseKnowledgeEntryId: null, projectId: 'proj-1' })),
+      JSON.parse(JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 3, state: 'published' }), baseKnowledgeEntryId: null, mailThread: null, projectId: 'proj-1' })),
     )
     expect(getListedDocument).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }), 'doc-1')
+  })
+
+  it('says a Verlauf is one, with its mails and the last one’s date, so Dateien lists it as an E-Mail-Verlauf', async () => {
+    vi.mocked(getListedDocument).mockResolvedValue({ ...LISTED, projectId: 'proj-1' })
+    vi.mocked(mailThreadsOfDocuments).mockResolvedValueOnce(new Map([['doc-1', { entryCount: 3, lastEntryAt: '2026-10-14T07:12:00.000Z' }]]))
+
+    const document = (await (await read('doc-1')).json()).document
+
+    expect(document.mailThread).toEqual({ entryCount: 3, lastEntryAt: '2026-10-14T07:12:00.000Z' })
+    expect(mailThreadsOfDocuments).toHaveBeenCalledWith('org-1', ['doc-1'])
   })
 
   it('names the mails that brought its Fassungen, when the reader may read their thread (D36)', async () => {

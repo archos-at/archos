@@ -202,6 +202,8 @@ describe('the project target', () => {
       '/app/projects/proj_1/files?folder=folder%201',
     )
     expect(access!.deepLink({ itemType: 'inbound_mail.decided', anchorId: null })).toBe('/app/projects/proj_1/files')
+    expect(access!.deepLink({ itemType: 'inbound_mail.fraud_reported', anchorId: 'mail-9' })).toBe(`${list}/mail-9?status=handled`)
+    expect(access!.deepLink({ itemType: 'inbound_mail.fraud_reported', anchorId: null })).toBe(`${list}?status=handled`)
   })
 
   it('redacts the row, rather than throwing, for a project the reader can no longer open', async () => {
