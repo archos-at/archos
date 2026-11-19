@@ -493,7 +493,7 @@ describe('InboundMailWorkspace', () => {
     const options = vi.mocked(toast.success).mock.calls.at(-1)?.[1] as { description: React.ReactElement; action: { label: string; onClick: () => void } }
     render(options.description)
     expect(screen.getByTestId('bulk-landed').textContent).toBe(
-      '2 mail texts → “Stellplatznachweis”Mail text → “Verfahren MA 37”1 file → Behörde1 file → Behörde/Bescheide1 file → Tragwerk'
+      '2 mail texts →\u00A0“Stellplatznachweis”Mail text →\u00A0“Verfahren MA 37”1 file →\u00A0Behörde1 file →\u00A0Behörde/Bescheide1 file →\u00A0Tragwerk'
     )
     expect(options.action.label).toBe('View')
     act(() => options.action.onClick())

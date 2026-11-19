@@ -91,7 +91,7 @@ export function useBulkLandingReport({
         ...places.threads.map((thread) => t('toast.manyTexts', { count: thread.count, name: thread.name })),
         ...places.folders.map((folder) => t('toast.manyFiles', { count: folder.count, folder: folder.name })),
       ]
-      const description = lines.length > 0 ? createElement('span', { className: 'flex flex-col', 'data-testid': 'bulk-landed' }, ...lines.map((line) => createElement('span', { key: line }, line))) : undefined
+      const description = lines.length > 0 ? createElement('span', { className: 'flex min-w-0 flex-col', 'data-testid': 'bulk-landed' }, ...lines.map((line) => createElement('span', { key: line }, line))) : undefined
       const view = places.documentIds.length === 0
         ? undefined
         : {
