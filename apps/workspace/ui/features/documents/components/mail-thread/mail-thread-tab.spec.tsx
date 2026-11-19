@@ -83,11 +83,11 @@ describe('MailThreadTab', () => {
     renderTab('three-messages')
     const [authority, statik] = await entries()
     const items = within(statik!).getAllByTestId('mail-thread-attachment')
-    expect(within(items[0]!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent('Folder Tragwerk/Statik')
-    expect(within(items[1]!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent('Folder Tragwerk/Statik/Berechnungen')
+    expect(within(items[0]!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Tragwerk\/Statik$/)
+    expect(within(items[1]!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Tragwerk\/Statik\/Berechnungen$/)
     expect(within(items[2]!).queryByTestId('mail-thread-attachment-folder')).toBeNull()
     expect(within(items[3]!).queryByTestId('mail-thread-attachment-folder')).toBeNull()
-    expect(within(authority!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent('Files (top level)')
+    expect(within(authority!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Files \(top level\)$/)
   })
 
   it('says an unconfirmed sender with the warning glyph, in ink', async () => {

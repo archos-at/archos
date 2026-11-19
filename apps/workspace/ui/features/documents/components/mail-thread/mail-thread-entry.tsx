@@ -253,7 +253,7 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
         <span className="text-muted-foreground flex min-w-0 items-start gap-1 pl-[18px]" data-testid="mail-thread-attachment-folder">
           <Folder className="mt-px size-3.5 shrink-0" aria-hidden />
           <span className="min-w-0 [overflow-wrap:anywhere]">
-            {line.folderPath === '' ? t('attachments.root') : t('attachments.folder', { folder: line.folderPath })}
+            {line.folderPath === '' ? t('attachments.root') : line.folderPath}
           </span>
         </span>
       )}

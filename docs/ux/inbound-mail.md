@@ -874,8 +874,9 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   archive import); „Anhänge“: each a link to its document, its note under its
   own name, indented past the file's glyph, the files 8px apart (with 2px a
   note read as the next file's): the folder a filed one lies in now, under
-  its name with a folder glyph and quiet, as „Übersicht“ says it („Ordner
-  Tragwerk/Statik“, „Dateien (oberste Ebene)“; the view's `folderPath`),
+  its name with a folder glyph and quiet, as „Übersicht“ says it
+  („Tragwerk/Statik“, „Dateien (oberste Ebene)“; the view's `folderPath`;
+  round 7's „Ordner “ before it left the word alone on a line in the rail),
   „lag schon im Projekt“, „nicht abgelegt · {Grund}“ (15 reasons); one in a folder the reader cannot see is „Anhang {n}“
   with „liegt in einem Ordner mit eigenen Zugriffsrechten; öffnen kann ihn,
   wer dort eingetragen ist“ (never named; „…, den Sie nicht sehen“ read as

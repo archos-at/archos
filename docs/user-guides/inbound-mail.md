@@ -415,7 +415,7 @@ Open the Verlauf in Dateien and choose the **E-Mails** tab in its preview:
   another day) and beside it **Original (.eml)**, the mail exactly as it
   arrived (below), then the domain label and how it was filed;
 - its attachments, each linked to the document it became, with the folder it
-  lies in under its name („Ordner Tragwerk/Statik“); a note stands under
+  lies in under its name („Tragwerk/Statik“); a note stands under
   the file it is about („lag schon im Projekt“, „nicht abgelegt · {Grund}“),
   and an attachment filed in a folder you cannot see reads „Anhang 4 ·
   abgelegt in einem Ordner, den Sie nicht sehen“;
