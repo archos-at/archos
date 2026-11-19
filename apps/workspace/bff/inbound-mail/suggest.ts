@@ -133,10 +133,9 @@ export function suggestionsFrom(
   return stored
 }
 
-export interface DecidedPlacement {
-  folderPath: string | null
-  documentType: DocumentTypeTag | string | null
-}
+export type DecidedPlacement =
+  | { into: 'folder'; folderPath: string; documentType: DocumentTypeTag | string | null }
+  | { into: 'thread' }
 
 export function decidedPlacements(
   decision: Pick<InboundMailDecision, 'parts' | 'message'> | null,
@@ -147,38 +146,44 @@ export function decidedPlacements(
   const pathOf = (folderId: string | null, newFolderPath: string | null): string =>
     newFolderPath ?? (folderId ? (folderPathOf(folderId) ?? '') : '')
   for (const part of decision.parts) {
-    placed.set(part.partId, { folderPath: pathOf(part.folderId, part.newFolderPath), documentType: part.documentType ?? null })
+    placed.set(part.partId, { into: 'folder', folderPath: pathOf(part.folderId, part.newFolderPath), documentType: part.documentType ?? null })
   }
   const message = decision.message
   if (message) {
-    placed.set(message.partId, {
-      folderPath: message.thread.action === 'create' ? pathOf(message.thread.folderId, message.thread.newFolderPath) : null,
-      documentType: 'correspondence',
-    })
+    placed.set(
+      message.partId,
+      message.thread.action === 'create'
+        ? { into: 'folder', folderPath: pathOf(message.thread.folderId, message.thread.newFolderPath), documentType: 'correspondence' }
+        : { into: 'thread' },
+    )
   }
   return placed
 }
 
-export interface SuggestionOutcome {
-  decision: 'accepted' | 'dismissed'
-  folder: 'same' | 'other' | 'not_filed'
-  type: 'same' | 'other' | 'none'
-}
+export type SuggestionOutcome =
+  | { decision: 'accepted' | 'dismissed'; folder: 'same' | 'other'; type: 'same' | 'other' | 'none' }
+  | { decision: 'not_judged'; folder: 'not_filed' | 'thread'; type: 'none' }
+
+export type JudgedOutcome = Extract<SuggestionOutcome, { decision: 'accepted' | 'dismissed' }>
+
+export const isJudged = (outcome: SuggestionOutcome): outcome is JudgedOutcome => outcome.decision !== 'not_judged'
 
 export function suggestionOutcome(suggestion: InboundMailSuggestion, placed: DecidedPlacement | null): SuggestionOutcome {
-  if (!placed) return { decision: 'dismissed', folder: 'not_filed', type: suggestion.documentType ? 'other' : 'none' }
-  const folder =
-    placed.folderPath !== null && folderPathKey(placed.folderPath) === folderPathKey(suggestion.folderPath) ? 'same' : 'other'
+  if (!placed) return { decision: 'not_judged', folder: 'not_filed', type: 'none' }
+  if (placed.into === 'thread') return { decision: 'not_judged', folder: 'thread', type: 'none' }
+  const folder = folderPathKey(placed.folderPath) === folderPathKey(suggestion.folderPath) ? 'same' : 'other'
   const type = !suggestion.documentType ? 'none' : placed.documentType === suggestion.documentType ? 'same' : 'other'
   return { decision: folder === 'same' && type !== 'other' ? 'accepted' : 'dismissed', folder, type }
 }
 
-export type SuggestionFollowed = 'all' | 'partly' | 'none' | 'no_suggestion'
+export type SuggestionFollowed = 'all' | 'partly' | 'none' | 'not_judged' | 'no_suggestion'
 
 export function suggestionFollowed(outcomes: readonly SuggestionOutcome[]): SuggestionFollowed {
   if (outcomes.length === 0) return 'no_suggestion'
-  const accepted = outcomes.filter((outcome) => outcome.decision === 'accepted').length
-  if (accepted === outcomes.length) return 'all'
+  const judged = outcomes.filter(isJudged)
+  if (judged.length === 0) return 'not_judged'
+  const accepted = judged.filter((outcome) => outcome.decision === 'accepted').length
+  if (accepted === judged.length) return 'all'
   return accepted === 0 ? 'none' : 'partly'
 }
 
