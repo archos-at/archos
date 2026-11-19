@@ -6,7 +6,7 @@ export function isRejectedSignature(reason: SenderReason): boolean {
   return (REJECTED_SIGNATURE_REASONS as readonly SenderReason[]).includes(reason)
 }
 
-export function impersonationOf(sender: { reason: SenderReason; flags: readonly SenderFlag[] }): ImpersonationBasis | null {
+export function impersonationOf<Sender extends { reason: SenderReason; flags: readonly SenderFlag[] }>(sender: Sender): ImpersonationBasis | null {
   if (sender.flags.includes('claims_member_name')) return 'member_name'
   if (isRejectedSignature(sender.reason)) return 'rejected_signature'
   return null
