@@ -318,8 +318,9 @@ the mail is held with what was not learned, said, never guessed:
   0199 refuses the 14 days and a verified writer for it), and the E-Mail-Eingang
   says it could not be checked (`waitReason: 'sender_unchecked'`). Its expiry
   is a member's, not an outsider's: it keeps the seven days to restore, and a
-  dismissal is not erased at once either (`expiryIsFinal` in
-  `sender-class.ts`, the sweep's `pastRestore`, and 0197's
+  dismissal is not erased at once either (`expiryIsFinal` and `dismissalIsFinal` in
+  `sender-class.ts`, which the view's `restorableUntil` and the restore's
+  `isRestorable` read, the sweep's `pastRestore`, and 0197's
   `inbound_mail_decisions_external_expiry_final`, which exempts the flag);
 - DKIM: DNS has a budget of its own, two waits of 2 and 10 minutes
   (`DKIM_DNS_FAULT_WAITS_MS`, counted as `dkimFaults` in the payload), because

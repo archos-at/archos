@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { directFilingEnabled } from './direct-filing'
 import { judgeSender, type SenderAuthentication } from './sender-auth'
-import { expiryIsFinal, isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
+import { dismissalIsFinal, expiryIsFinal, isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
 
 const WRITER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
 
@@ -153,5 +153,14 @@ describe('when a mail’s expiry is final', () => {
     expect(expiryIsFinal({ senderClass: 'external', senderFlags: ['sender_unchecked'] })).toBe(false)
     expect(expiryIsFinal({ senderClass: 'office_member', senderFlags: [] })).toBe(false)
     expect(expiryIsFinal({ senderClass: null, senderFlags: [] })).toBe(false)
+  })
+})
+
+describe('when a dismissal is final', () => {
+  it('is final for an unconfirmed outsider, whose dismissed part the next sweep erases, unless the sender could not be checked', () => {
+    expect(dismissalIsFinal({ senderTrust: 'external_unverified', senderFlags: [] })).toBe(true)
+    expect(dismissalIsFinal({ senderTrust: 'external_unverified', senderFlags: ['sender_unchecked'] })).toBe(false)
+    expect(dismissalIsFinal({ senderTrust: 'external_verified', senderFlags: [] })).toBe(false)
+    expect(dismissalIsFinal({ senderTrust: 'member_unverified', senderFlags: [] })).toBe(false)
   })
 })

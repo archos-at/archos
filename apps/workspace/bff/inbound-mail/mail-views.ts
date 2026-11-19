@@ -10,7 +10,7 @@ import { INBOUND_MAIL_RESTORE_DAYS, type InboundSenderTrust } from './inbound-ma
 import type { InboundMailListStatus, InboundMailOutcome, InboundMailSummaryView, InboundMailView } from './inbound-mail-wire'
 import { findFollowDeciders, findMailParts } from './repository'
 import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
-import { expiryIsFinal, onlySenderReleases, senderWaitReason } from './sender-class'
+import { dismissalIsFinal, expiryIsFinal, onlySenderReleases, senderWaitReason } from './sender-class'
 import { readSuggestion, suggestionSkipReason } from './suggest'
 
 const DAY_MS = 86_400_000
@@ -33,6 +33,7 @@ function restorableUntil(mail: InboundMailRow, part: InboundMailPartRow, now: nu
   if (mail.status !== 'waiting' || (part.state !== 'dismissed' && part.state !== 'expired') || !part.endedAt) return null
   if (part.kind === 'attachment' && part.storageKey === null) return null
   if (part.state === 'expired' && expiryIsFinal(mail)) return null
+  if (part.state === 'dismissed' && dismissalIsFinal(mail)) return null
   const until = new Date(part.endedAt).getTime() + INBOUND_MAIL_RESTORE_DAYS * DAY_MS
   return until > now ? new Date(until).toISOString() : null
 }
