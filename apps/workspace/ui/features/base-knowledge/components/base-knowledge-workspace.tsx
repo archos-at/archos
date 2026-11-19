@@ -3,16 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type ReactNode } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { FolderInput, Library, Upload } from 'lucide-react'
+import { FolderInput, Library, Sparkles } from 'lucide-react'
 import {
   bulkBaseKnowledge,
   createBaseKnowledgeFolder,
   deleteBaseKnowledgeFolder,
   getBaseKnowledgeEntry,
+  listBaseKnowledge,
   renameBaseKnowledgeFolder,
-  uploadBaseKnowledge,
   type BaseKnowledgeEntry,
 } from '@/adapters/api/base-knowledge-client'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CountPill } from '@/components/ui/count-pill'
@@ -22,12 +23,26 @@ import { BackControl } from '@/components/shell/back-link'
 import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { SECTION_HEADER_CLASS } from '@/components/shell/project-section-frame'
-import { FileGrid, FolderBreadcrumbRow, FolderCard } from '@/features/documents'
+import {
+  FileDropOverlay,
+  FileGrid,
+  FolderBreadcrumbRow,
+  FolderCard,
+  OFFICE_SHELF_FILES_HREF,
+  ShelfUploadControl,
+  useFileDragDrop,
+  useOfficeShelfDocuments,
+  type StoredUpload,
+} from '@/features/documents'
 import type { FolderItem } from '@/features/documents/file-types'
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
-import { MAX_BULK_ENTRIES, type BulkEntriesBody } from '@/lib/base-knowledge/wire'
+import { filesCopy } from '@/i18n/namespaces/files'
+import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
+import { MAX_BULK_ENTRIES, MAX_RECOGNIZE_DOCUMENTS, type BulkEntriesBody, type PlainUpload } from '@/lib/base-knowledge/wire'
 import { useBaseKnowledge, type BaseKnowledgeFilters } from '../hooks/use-base-knowledge'
+import { onePlace, useNormRecognition } from '../hooks/use-norm-recognition'
+import { NormDialog } from './norm-dialog'
 import { EntryList } from './entry-list'
 import { EntryPage } from './entry-page'
 import { StandardFile } from './standard-file'
@@ -37,6 +52,7 @@ import { ShelfPickerDialog } from './shelf-picker-dialog'
 export interface BaseKnowledgeWorkspaceProps {
   trailingActions?: ReactNode
   place?: { title: string; crumb: ReactNode; places: ReactNode }
+  uploadCollection?: string
 }
 
 type Translate = ReturnType<typeof useTranslations>
@@ -101,7 +117,7 @@ function useOpenEntry(
   }
 }
 
-export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledgeWorkspaceProps): JSX.Element {
+export function BaseKnowledgeWorkspace({ trailingActions, place, uploadCollection }: BaseKnowledgeWorkspaceProps): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const location = useLocation()
   const state = useBaseKnowledge({ folderId: location.folderId })
@@ -109,8 +125,6 @@ export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledge
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [picking, setPicking] = useState(false)
   const [removing, setRemoving] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const fileInput = useRef<HTMLInputElement>(null)
   const canManage = list?.canManage ?? false
   const entries = useMemo(() => list?.entries ?? [], [list])
   const open = useOpenEntry(location.entryId, entries)
@@ -198,19 +212,38 @@ export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledge
   const addingStep = (entryId: string) =>
     adding.ids.includes(entryId) ? { position: adding.total - adding.ids.length + 1, count: adding.total } : undefined
 
-  const upload = async (files: File[]) => {
-    setUploading(true)
-    const added: string[] = []
-    for (const file of files) {
-      try {
-        added.push((await uploadBaseKnowledge(file, filters.folderId)).id)
-      } catch (error) {
-        toast.error(error instanceof Error && error.message ? `${file.name}: ${error.message}` : t('uploadFailed', { name: file.name }))
-      }
+  const router = useRouter()
+  const showPlain = useCallback(
+    (plain: readonly PlainUpload[]) => {
+      const folderId = onePlace(plain)?.folderId
+      router.push(folderId ? `${OFFICE_SHELF_FILES_HREF}?folder=${encodeURIComponent(folderId)}` : OFFICE_SHELF_FILES_HREF)
+    },
+    [router],
+  )
+  const norms = useNormRecognition({ showPlain })
+  const { recognize } = norms
+  const recognizeStored = useCallback(
+    (uploads: StoredUpload[]) => void recognize(uploads.map((upload) => upload.documentId), { announcePlain: true }).then(() => reload()),
+    [recognize, reload],
+  )
+  const shelfUpload = useOfficeShelfDocuments({ collectionName: canManage ? uploadCollection : undefined, onStored: recognizeStored })
+  const { error: uploadError, clearError: clearUploadError, uploadFiles: uploadToShelf } = shelfUpload
+  const uploadFiles = useCallback((files: File[]) => void uploadToShelf(files), [uploadToShelf])
+  const drop = useFileDragDrop({ onDrop: uploadFiles, disabled: !canManage })
+  const tShelf = useTranslations(officeShelfCopy)
+  const tFiles = useTranslations(filesCopy)
+  useEffect(() => {
+    if (!uploadError) return
+    toast.error(uploadError)
+    clearUploadError()
+  }, [uploadError, clearUploadError])
+  const reviewPending = async () => {
+    try {
+      const pending = await listBaseKnowledge({ attention: 'proposed', limit: MAX_RECOGNIZE_DOCUMENTS })
+      await recognize(pending.entries.map((entry) => entry.documentId))
+    } catch (error) {
+      toast.error(failure(t, error))
     }
-    setUploading(false)
-    await reload()
-    startAdding(added)
   }
 
   const folderAction = async (action: () => Promise<unknown>): Promise<boolean> => {
@@ -235,28 +268,11 @@ export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledge
 
   const headerActions = canManage && (
     <>
-      <input
-        ref={fileInput}
-        type="file"
-        multiple
-        className="sr-only"
-        tabIndex={-1}
-        aria-hidden
-        data-testid="base-knowledge-file-input"
-        onChange={(event) => {
-          const files = [...(event.target.files ?? [])]
-          event.target.value = ''
-          if (files.length > 0) void upload(files)
-        }}
-      />
       <Button variant="secondary" size="sm" onClick={() => setPicking(true)}>
         <FolderInput className="size-4" aria-hidden />
         {t('fromShelf')}
       </Button>
-      <Button size="sm" disabled={uploading} onClick={() => fileInput.current?.click()} data-testid="base-knowledge-upload">
-        <Upload className="size-4" aria-hidden />
-        {uploading ? t('uploading') : t('upload')}
-      </Button>
+      <ShelfUploadControl onUpload={uploadFiles} isUploading={shelfUpload.isUploading} />
     </>
   )
 
@@ -317,6 +333,7 @@ export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledge
           currentFolderId={filters.folderId}
           onNavigate={navigate}
           rootLabel={t('folders.all')}
+          newFolderLabel={t('folders.newTopic')}
           onCreateFolder={
             canManage
               ? (name, parentId) =>
@@ -359,7 +376,15 @@ export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledge
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="base-knowledge-workspace">
+    <div className="relative flex min-h-0 flex-1 flex-col" {...(canManage ? drop.dragHandlers : {})} data-testid="base-knowledge-workspace">
+      <FileDropOverlay
+        show={canManage && drop.isDragging}
+        isUnsupported={drop.isUnsupportedDrag}
+        uploadLabel={tShelf('workspace.dropToUpload')}
+        unsupportedLabel={tFiles('workspace.dropUnsupported')}
+        refusal={drop.refusal}
+        testId="base-knowledge-drop-overlay"
+      />
       {place ? (
         <div className={SECTION_HEADER_CLASS} data-testid="base-knowledge-header">
           <PageHeader title={place.title} crumb={place.crumb} action={trailingActions} actionInline />
@@ -387,6 +412,17 @@ export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledge
 
       <div className="flex flex-col gap-4 px-4 pb-8 sm:px-6 md:px-8">
         {list && !location.entryId && <Guide key={empty ? 'empty' : 'filled'} defaultOpen={empty} />}
+        {canManage && list && !location.entryId && list.counts.proposed > 0 && (
+          <Alert variant="info" role="status" data-testid="base-knowledge-pending">
+            <Sparkles aria-hidden />
+            <AlertDescription className="flex w-full flex-wrap items-center justify-between gap-2 text-foreground">
+              <span>{list.counts.proposed === 1 ? t('norms.pendingOne') : t('norms.pending', { count: list.counts.proposed })}</span>
+              <Button size="sm" variant="secondary" onClick={() => void reviewPending()} data-testid="base-knowledge-review-pending">
+                {t('norms.review')}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         {body()}
       </div>
 
@@ -412,6 +448,17 @@ export function BaseKnowledgeWorkspace({ trailingActions, place }: BaseKnowledge
         />
       )}
 
+      <NormDialog
+        recognition={norms.recognition}
+        onClose={() => {
+          norms.close()
+          void reload()
+        }}
+        onSettled={() => {
+          norms.close()
+          void reload()
+        }}
+      />
       <ShelfPickerDialog open={picking} onOpenChange={setPicking} recorded={new Set(entries.map((entry) => entry.documentId))} onProposed={(entry) => void reload().then(() => startAdding([entry.id]))} />
       <ConfirmDialog
         open={removing}

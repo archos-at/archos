@@ -9,6 +9,7 @@ import {
   confirmBaseKnowledge,
   recordBaseKnowledgeCheck,
   removeBaseKnowledge,
+  unlistBaseKnowledge,
   setBaseKnowledgeLicence,
   updateBaseKnowledge,
   type BaseKnowledgeRemovalReceipt,
@@ -354,6 +355,7 @@ function SheetBody({
   const [values, setValues] = useState<EntryValues>(entry.values)
   const [attest, setAttest] = useState({ licence: false, ai: false })
   const [removing, setRemoving] = useState(false)
+  const [unlisting, setUnlisting] = useState(false)
   const { busy, run } = useRun(onChanged)
   const proposed = entry.status === 'proposed'
   const needsAttest = proposed && values.licenceClass === 'licensed' && !attest.licence
@@ -435,7 +437,12 @@ function SheetBody({
       )}
       {!proposed && <CheckSection entry={entry} canManage={canManage} busy={busy} run={run} />}
       {canManage && (
-        <div className="border-t pt-4">
+        <div className="flex flex-wrap gap-2 border-t pt-4">
+          {!proposed && (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => setUnlisting(true)} data-testid="base-knowledge-unlist">
+              {t('detail.unlist')}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -445,6 +452,21 @@ function SheetBody({
           >
             {t('detail.remove')}
           </Button>
+          <ConfirmDialog
+            open={unlisting}
+            onOpenChange={setUnlisting}
+            title={t('detail.unlistTitle')}
+            description={t('detail.unlistBody')}
+            confirmLabel={t('detail.unlist')}
+            cancelLabel={t('detail.cancel')}
+            tone="default"
+            onConfirm={() =>
+              run(async () => {
+                await unlistBaseKnowledge(entry.id)
+                return null
+              }, t('detail.unlisted', { name: entry.values.designation ?? entry.fileName }))
+            }
+          />
           <ConfirmDialog
             open={removing}
             onOpenChange={setRemoving}

@@ -213,6 +213,15 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   its work's), a duplicate is deleted, `notNorm` drops the records and reads the file again where it lies, and
   one without an edition stays a proposal. `base-knowledge-unlist` takes a confirmed entry off the base
   knowledge but keeps its file, moved to the top of the Büroablage; `base-knowledge-remove` still deletes both.
+- **One upload, one norm dialog** (2026-11-19), in place of „Adding a standard is filling in its form“: both
+  tabs of the Büroablage upload through the office shelf's own upload (`useOfficeShelfDocuments`, the same
+  „Hochladen“ control and drop), and what it stored goes to `base-knowledge-recognize`. When any proposal comes
+  back, one dialog lists them all (`NormDialog`: Art with „Keine Norm“, Bezeichnung, Ausgabe, Thema), with a line
+  for the files that are not norms and where they lie; „Bestätigen“ is `base-knowledge-settle`, „Später“ leaves
+  them proposed, and the norms tab's „Jetzt prüfen“ opens them again. A plain file uploaded on the norms tab lands
+  in Ordner, said by a toast with the way there. „Als Norm führen“ on an Ordner file opens the dialog for it,
+  „Nicht mehr als Norm führen“ on an entry is `base-knowledge-unlist`, and the folders of the norms tab are its
+  topics („Thema anlegen“).
 
 Deferred, with the reason: a masthead reading for the proposal (the file name and a person's correction
 cover most cases; reading needs the licensed seam's zero-retention call), a measure of how well tables in

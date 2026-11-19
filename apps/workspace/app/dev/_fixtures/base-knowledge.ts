@@ -2,6 +2,7 @@ import type {
   BaseKnowledgeEntry,
   BaseKnowledgeFolders,
   EntryValues,
+  NormRecognition,
 } from '@/lib/base-knowledge/wire'
 
 const ROOT = '00000000-0000-4000-8000-000000000001'
@@ -272,3 +273,57 @@ export const BASE_KNOWLEDGE_ENTRIES: BaseKnowledgeEntry[] = ENTRIES.map((entry) 
     })),
   }
 })
+
+export const NORM_RECOGNITION: NormRecognition = {
+  proposals: [
+    {
+      entryId: 'recognised-b8110',
+      documentId: 'doc_recognised_b8110',
+      fileName: 'OENORM_B_8110-3_2020-03-15_de.pdf',
+      kind: 'technical_standard',
+      designation: 'ÖNORM B 8110-3:2020',
+      editionLabel: '2020-03-15',
+      topicId: FOLDER_IDS.sound,
+      editionOf: null,
+      duplicate: false,
+    },
+    {
+      entryId: 'recognised-en1991',
+      documentId: 'doc_recognised_en1991',
+      fileName: 'EN_1991-1-1.pdf',
+      kind: 'technical_standard',
+      designation: 'EN 1991-1-1',
+      editionLabel: null,
+      topicId: null,
+      editionOf: null,
+      duplicate: false,
+    },
+    {
+      entryId: 'recognised-b1600',
+      documentId: 'doc_recognised_b1600',
+      fileName: 'OENORM_B_1600_2023-02-01_de.pdf',
+      kind: 'technical_standard',
+      designation: 'ÖNORM B 1600',
+      editionLabel: '2023-02-01',
+      topicId: FOLDER_IDS.access,
+      editionOf: { entryId: 'edition_oenorm-b-1600', designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' },
+      duplicate: false,
+    },
+    {
+      entryId: 'recognised-ma37',
+      documentId: 'doc_recognised_ma37',
+      fileName: 'MA37_Weisung_Dachgeschoss_2024-09.pdf',
+      kind: 'authority_directive',
+      designation: null,
+      editionLabel: '2024-09',
+      topicId: FOLDER_IDS.vienna,
+      editionOf: null,
+      duplicate: false,
+    },
+  ],
+  plain: [
+    { documentId: 'doc_plain_1', fileName: 'Haus_A_2024_Einreichung.pdf', folderId: null, folderPath: null, platformHeld: false },
+    { documentId: 'doc_plain_2', fileName: 'Plankopf_Vorlage_A0.pdf', folderId: null, folderPath: null, platformHeld: false },
+  ],
+  topics: BASE_KNOWLEDGE_FOLDERS,
+}
