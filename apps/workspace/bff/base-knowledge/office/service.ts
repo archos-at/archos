@@ -334,7 +334,7 @@ export async function confirmBaseKnowledge(
   session: AuthorizedSession,
   entryId: string,
   body: ConfirmEntryBody,
-  { licenceStep = ASK_FOR_LICENCE }: ConfirmOptions = {}
+  { licenceStep = true }: ConfirmOptions = {}
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   const found = await findEntry(session, entryId)
