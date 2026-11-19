@@ -222,7 +222,7 @@ export const baseKnowledge = {
   norms: {
     titleOne: '1 Norm erkannt',
     title: '{count} Normen erkannt',
-    body: '{productName} hat Art, Bezeichnung und Ausgabe aus dem Dateinamen gelesen und ein Thema vorgeschlagen. Was keine Norm ist, stellen Sie auf „Keine Norm“. Bestätigte Normen kommen unter Normen & Richtlinien.',
+    body: '{productName} hat Art, Bezeichnung und Ausgabe aus dem Dateinamen gelesen und ein Thema vorgeschlagen. Was keine Norm ist, stellen Sie auf „Keine Norm“, dann kommt es zurück in seinen Ordner. Die Normen warten unter Normen & Richtlinien, bis Sie sie bestätigen.',
     column: { kind: 'Art', designation: 'Bezeichnung', edition: 'Ausgabe', topic: 'Thema' },
     notNorm: 'Keine Norm',
     editionMissing: 'Ausgabe fehlt',
@@ -243,6 +243,8 @@ export const baseKnowledge = {
     laterDone: 'Die Normen warten unter Normen & Richtlinien auf Bestätigung. Bis dahin nutzt {productName} sie nicht.',
     noNormsOne: '1 Datei unter {place} abgelegt. Sie ist keine Norm.',
     noNorms: '{count} Dateien unter Ordner abgelegt. Keine Norm dabei.',
+    knownOne: '1 Datei unter {place} abgelegt. Diese Richtlinie kennt {productName} schon, sie bleibt eine normale Datei.',
+    known: '{count} Richtlinien kennt {productName} schon, sie bleiben normale Dateien.',
     recognizeFailed: 'Ob Normen dabei sind, konnte nicht geprüft werden. Die Dateien liegen in der Büroablage; „Als Norm führen“ holt es nach.',
     result: {
       confirmedOne: '1 Norm bestätigt',

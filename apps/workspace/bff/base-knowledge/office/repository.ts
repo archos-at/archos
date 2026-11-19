@@ -86,25 +86,6 @@ export async function readShelfDocument(
   return { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename, folderId: row.folderId }
 }
 
-export async function shelfNameHasEntry(organizationId: string, filename: string, reader: DocumentReader): Promise<boolean> {
-  const rows = await withTenant({ organizationId }, () =>
-    getDb()
-      .select({ id: documents.id })
-      .from(documents)
-      .innerJoin(knowledgeRecords, and(eq(knowledgeRecords.documentId, documents.id), isNull(knowledgeRecords.unlistedAt)))
-      .where(
-        and(
-          eq(documents.organizationId, organizationId),
-          eq(documents.scope, 'office_shelf'),
-          eq(documents.filename, filename),
-          documentVisibleTo(reader)
-        )
-      )
-      .limit(1)
-  )
-  return rows.length > 0
-}
-
 export async function listOrganizationsWithOfficeEditions(limit: number): Promise<string[]> {
   const rows = await getDb()
     .selectDistinct({ organizationId: knowledgeRecords.organizationId })

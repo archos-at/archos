@@ -54,6 +54,21 @@ describe('what the reading proposes for a base-knowledge document', () => {
     expect(readDesignation('OENORM EN 1991-1-1:2011')?.designation).toBe('ÖNORM EN 1991-1-1:2011')
     expect(readDesignation('DIN 4109-1:2018-01')?.designation).toBe('DIN 4109-1:2018')
   })
+
+  it.each([
+    ['EN_1991-1-1.pdf', 'unbekannt', null],
+    ['OENORM_EN_1990.pdf', 'unbekannt', null],
+    ['DIN_1946-6.pdf', 'unbekannt', null],
+    ['DIN_4109-1_2018-01.pdf', '2018-01', null],
+    ['MA37_Weisung_Dachgeschoss_2024-09.pdf', '2024-09', null],
+    ['B2320_2017_08_01_de.pdf', '2017-08-01', '2017-08-01'],
+    ['B_1991-1-1_Nationaler_Anhang.pdf', 'unbekannt', null],
+    ['OENORM_B_8110-3_2020-03-15_de.pdf', '2020-03-15', '2020-03-15'],
+    ['2019_DIN_18040-1.pdf', 'unbekannt', null],
+    ['Moritz_BauO_Wien_Kommentar_2019.pdf', '2019', null],
+  ])('reads the edition of %s from after its number, never from the number itself', (fileName, editionLabel, issuedOn) => {
+    expect(proposeFromReading({ fileName }, AT_SUBDIVISIONS)).toMatchObject({ editionLabel, issuedOn })
+  })
 })
 
 describe('which uploaded file is a norm', () => {
@@ -81,6 +96,18 @@ describe('which uploaded file is a norm', () => {
     expect(norm('Bescheid_MA37_2024-05.pdf')).toEqual({ norm: false, platformHeld: false })
     expect(norm('Kommentar_Bauherr_Planbesprechung.pdf')).toEqual({ norm: false, platformHeld: false })
     expect(norm('Plankopf_Vorlage_A0.pdf')).toEqual({ norm: false, platformHeld: false })
+  })
+
+  it.each(['Grundriss_EG_DIN_A1.pdf', 'Plan_DIN_A0_quer.pdf', 'Deckblatt_DIN A4.pdf', 'Schnitt_ISO_2.pdf', 'Ansicht_ISO_3_Nord.pdf', 'Erlassung_Bescheid.pdf'])(
+    'takes %s for an ordinary file: a paper format, a view number or a word that only starts like a directive',
+    (fileName) => {
+      expect(norm(fileName)).toEqual({ norm: false, platformHeld: false })
+    },
+  )
+
+  it('recognises a commentary on a building code by its short name', () => {
+    expect(norm('Kommentar_BO_Wien_7Aufl.pdf')).toEqual({ norm: true, designation: null })
+    expect(proposeFromReading({ fileName: 'Kommentar_BO_Wien_7Aufl.pdf' }, AT_SUBDIVISIONS).kind).toBe('commentary')
   })
 
   it('says an OIB guideline is already held by the platform rather than taking it as the office’s', () => {

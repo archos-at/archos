@@ -43,8 +43,7 @@ import { projectTerritory } from './authority'
 import { directoryStanding, freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
-import { readShelfDocument, shelfNameHasEntry, visibleOfficeDocuments, type EntryDocument } from './repository'
-import { documentNameKey } from '@/lib/documents/name-match'
+import { readShelfDocument, visibleOfficeDocuments, type EntryDocument } from './repository'
 import { releaseText, withholdText } from './text-effects'
 import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock, type TurnDay } from './turn-block'
@@ -255,7 +254,8 @@ export async function recordProposal(
   body: ProposeEntryBody,
   fileName: string,
   proposedBy: KnowledgeProvenance['proposedBy'],
-  editionOf?: StoredEntry
+  editionOf?: StoredEntry,
+  { filedFrom }: Pick<KnowledgeProvenance, 'filedFrom'> = {}
 ): Promise<string> {
   if (await documentHasEntry(session.organizationId, body.documentId)) {
     throw new ConflictError('This document is already recorded as base knowledge; edit that entry instead.')
@@ -263,7 +263,8 @@ export async function recordProposal(
   const given = valuesOf(body)
   const values = merged(proposeFromReading({ fileName }, subdivisionTerritories(await readSetupRecords(session.organizationId))), given)
   const source = Object.values(given).some((value) => value !== undefined) ? proposedBy : 'reading'
-  const context = { organizationId: session.organizationId, createdBy: session.userId, provenance: { proposedBy: source }, terms: {} }
+  const provenance: KnowledgeProvenance = filedFrom ? { proposedBy: source, filedFrom } : { proposedBy: source }
+  const context = { organizationId: session.organizationId, createdBy: session.userId, provenance, terms: {} }
   const ids = editionOf
     ? await insertEditionOfWork(body.documentId, editionOf, { ...editionOf.values, ...editionValues(values), licenceClass: editionOf.values.licenceClass }, context)
     : await insertProposedEntry(body.documentId, values, context)
@@ -277,9 +278,6 @@ export async function uploadBaseKnowledge(
   { folderId = null, editionOf, ...given }: Omit<ProposeEntryBody, 'documentId'> & { folderId?: string | null; editionOf?: StoredEntry } = {}
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
-  if (await shelfNameHasEntry(session.organizationId, documentNameKey(file.name), await reader(session))) {
-    throw new ConflictError('A document with this name is already recorded as base knowledge; remove that entry first, or upload the new edition under its own name.')
-  }
   if (folderId && !(await isStandardsFolder(session, folderId))) {
     throw new UnprocessableError('folderId is not a base-knowledge folder; take one from base-knowledge-folder-list, or omit it.')
   }
@@ -351,10 +349,11 @@ export async function reviseProposal(session: AuthorizedSession, entryId: string
   if (stored.confirmed) throw new ConflictError('This entry is confirmed; edit it with base-knowledge-update instead.')
   const values = merged(stored.values, valuesOf(body))
   if (JSON.stringify(values) === JSON.stringify(stored.values)) return
+  const { filedFrom } = stored.provenance
   await writeProposedValues(stored, values, {
     organizationId: session.organizationId,
     createdBy: session.userId,
-    provenance: { proposedBy: 'person' },
+    provenance: filedFrom ? { proposedBy: 'person', filedFrom } : { proposedBy: 'person' },
     terms: stored.terms,
   })
 }

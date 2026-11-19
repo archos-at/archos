@@ -119,16 +119,6 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     await expect(propose()).resolves.toMatchObject({ ids: { workId: expect.any(String) } })
   })
 
-  it('names a shelf file that is already recorded, so an upload under its name is refused before it writes', async () => {
-    const office = await import('../office/repository')
-    const reader = { kind: 'member' as const, userId: 'user_bk' }
-    const { documentId } = await propose()
-    const [row] = await as(ORG, () => db.execute<{ filename: string }>(sql`SELECT filename FROM documents WHERE id = ${documentId}`))
-    expect(await office.shelfNameHasEntry(ORG, String(row.filename), reader)).toBe(true)
-    expect(await office.shelfNameHasEntry(ORG, 'not-recorded.pdf', reader)).toBe(false)
-    expect(await office.shelfNameHasEntry(OTHER_ORG, String(row.filename), reader)).toBe(false)
-  })
-
   it('states a proposed copy’s licence before any confirmation, so its text can be held back', async () => {
     const { documentId, ids } = await propose()
     expect(await repo.copyForDocument(ORG, documentId)).toEqual({
@@ -162,20 +152,17 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
 
   it('takes an entry off the norms and back with its heads, values and checks, and lets a new proposal replace it', async () => {
     const office = await import('../office/repository')
-    const reader = { kind: 'member' as const, userId: 'user_bk' }
     const { documentId, ids } = await propose()
     const confirmed = { ...VALUES, editionLabel: '2017-05-01' }
     await repo.writeConfirmedValues(ids, confirmed, { organizationId: ORG, createdBy: 'user_bk', provenance: { proposedBy: 'person' }, terms: {}, firstCheck: true })
     await repo.insertCopyCheck(ORG, ids.copyId, { checkedBy: 'user_bk', result: 'newer_known', note: 'Ausgabe 2023 bekannt' })
     const [before] = await repo.readOfficeEntries(ORG, [documentId])
-    const [row] = await as(ORG, () => db.execute<{ filename: string }>(sql`SELECT filename FROM documents WHERE id = ${documentId}`))
 
     await repo.unlistDocumentEntry(ORG, documentId)
     expect(await repo.readOfficeEntries(ORG, [documentId])).toEqual([])
     expect(await repo.documentHasEntry(ORG, documentId)).toBe(false)
     expect(await repo.documentsWithEntries(ORG, [documentId])).toEqual([])
     expect(await repo.copyForDocument(ORG, documentId)).toBeNull()
-    expect(await office.shelfNameHasEntry(ORG, String(row.filename), reader)).toBe(false)
     const heads = await as(ORG, () =>
       db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM knowledge_records WHERE document_id = ${documentId} AND head_revision_id IS NOT NULL`)
     )

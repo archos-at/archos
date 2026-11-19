@@ -42,7 +42,7 @@ import type { UploadFilesOptions, UseFileUploadOptions, UseFileUploadReturn } fr
 export type { UploadFilesOptions } from './file-upload-types'
 
 export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUploadReturn => {
-  const { collectionName, projectId, folderId, officeShelf, forStandards = false, conversationProjectId, onComplete, onError } =
+  const { collectionName, projectId, folderId, officeShelf, conversationProjectId, onComplete, onError } =
     options
   const shelf: 'project' | 'office_shelf' | 'session' = officeShelf ? 'office_shelf' : projectId ? 'project' : 'session'
 
@@ -252,7 +252,6 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
         const uploadUrl = shelf === 'session' ? '/api/session/documents/upload' : '/api/documents/upload'
         const uploadContext: UploadTrackedFileContext = {
           shelf,
-          forStandards,
           uploadUrl,
           targetCollection,
           projectId,
@@ -360,7 +359,6 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       projectId,
       folderId,
       shelf,
-      forStandards,
       conversationProjectId,
       validationContext,
       fileUploadConfig,

@@ -11,7 +11,7 @@ import { NormDialog } from './norm-dialog'
 
 const NO_ACTIONS: readonly ActionMenuEntry[] = []
 
-export function OfficeShelfWithNorms(props: Omit<OfficeShelfWorkspaceProps, 'onUploadsStored' | 'fileActions'>): JSX.Element {
+export function OfficeShelfWithNorms(props: Omit<OfficeShelfWorkspaceProps, 'onUploadsStored' | 'onNormsRecorded' | 'fileActions'>): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const { recognition, recognize, close } = useNormRecognition()
   const { canManage } = props
@@ -19,6 +19,7 @@ export function OfficeShelfWithNorms(props: Omit<OfficeShelfWorkspaceProps, 'onU
     (uploads: StoredUpload[]) => void recognize(uploads.map((upload) => upload.documentId)),
     [recognize],
   )
+  const onNormsRecorded = useCallback((documentIds: string[]) => void recognize(documentIds), [recognize])
   const fileActions = useCallback(
     (file: FileItem): readonly ActionMenuEntry[] =>
       canManage
@@ -37,7 +38,7 @@ export function OfficeShelfWithNorms(props: Omit<OfficeShelfWorkspaceProps, 'onU
   )
   return (
     <>
-      <OfficeShelfWorkspace {...props} onUploadsStored={onUploadsStored} fileActions={fileActions} />
+      <OfficeShelfWorkspace {...props} onUploadsStored={onUploadsStored} onNormsRecorded={onNormsRecorded} fileActions={fileActions} />
       <NormDialog recognition={recognition} onClose={close} onSettled={close} />
     </>
   )

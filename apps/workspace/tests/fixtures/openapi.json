@@ -24102,7 +24102,7 @@
                           "description": "A proposal from base-knowledge-recognize."
                         },
                         "notNorm": {
-                          "description": "true: drop the proposal; the file stays where it lies, an ordinary file.",
+                          "description": "true: drop the proposal; the file goes back to the Ordner folder it came from, an ordinary file not offered as a norm again.",
                           "type": "boolean"
                         },
                         "kind": {

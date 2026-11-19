@@ -11,7 +11,7 @@ import {
   updateShelfFolder,
   type ShelfFolderVisibility,
 } from '@/lib/documents/shelf-folders'
-import { isStandardsRoot, isUnderStandardsRoot, STANDARDS_ROOT_FIXED } from './standards-folder'
+import { isStandardsRoot, isUnderStandardsRoot, ORDNER_FOLDER_STAYS_OUT, STANDARDS_ROOT_FIXED } from './standards-folder'
 
 async function isFixedFolder(session: AuthorizedSession, folderId: string): Promise<boolean> {
   const folder = await findShelfFolder(OFFICE_SHELF, session.organizationId, folderId)
@@ -48,7 +48,15 @@ export async function updateOfficeShelfFolder(
 ) {
   const moves = input.name !== undefined || input.parentId !== undefined
   if (moves && (await isFixedFolder(session, input.folderId))) return { ok: false as const, error: STANDARDS_ROOT_FIXED }
+  if (input.parentId && (await movesIntoStandards(session, input.folderId, input.parentId))) {
+    return { ok: false as const, error: ORDNER_FOLDER_STAYS_OUT }
+  }
   return updateShelfFolder(session, OFFICE_SHELF, input)
+}
+
+async function movesIntoStandards(session: AuthorizedSession, folderId: string, parentId: string): Promise<boolean> {
+  const hidden = await officeShelfHiddenFolderIds(session)
+  return hidden.includes(parentId) && !hidden.includes(folderId)
 }
 
 export async function deleteOfficeShelfFolder(session: AuthorizedSession, folderId: string) {

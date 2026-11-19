@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { render, screen, waitFor } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }))
 vi.mock('@/lib/office-shelf/folder-norms-client', () => ({ fetchFolderNorms: vi.fn(), decideFolderNorms: vi.fn() }))
 
 import { decideFolderNorms, fetchFolderNorms } from '@/lib/office-shelf/folder-norms-client'
@@ -47,6 +47,16 @@ describe('OfficeShelfFolderNorms', () => {
     expect(toast.success).toHaveBeenCalledWith('1 moved to Standards & guidelines. They wait there under “To confirm”.')
     expect(onChanged).toHaveBeenCalled()
     await waitFor(() => expect(container).toBeEmptyDOMElement())
+  })
+
+  it('hands the moved norms to the norm dialog instead of only saying where they wait', async () => {
+    vi.mocked(fetchFolderNorms).mockResolvedValueOnce(found(1)).mockResolvedValueOnce(found(0))
+    vi.mocked(decideFolderNorms).mockResolvedValue({ action: 'record', done: [NORM], failed: [], remaining: 0 })
+    const onRecorded = vi.fn()
+    render(<OfficeShelfFolderNorms folderId="folder-1" onChanged={vi.fn()} onRecorded={onRecorded} />)
+    await userEvent.click(await screen.findByRole('button', { name: 'Move to Standards & guidelines' }))
+    expect(onRecorded).toHaveBeenCalledWith(['doc-1'])
+    expect(toast.success).not.toHaveBeenCalled()
   })
 
   it('keeps the norms in the folder and says it will not ask again', async () => {

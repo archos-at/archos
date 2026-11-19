@@ -31,6 +31,7 @@ vi.mock('@/lib/proposals/service', () => ({
 vi.mock('./repository', () => ({ listFiledDocuments: vi.fn(), listProjectsFolders: vi.fn() }))
 vi.mock('@/lib/documents/shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 vi.mock('./judge', () => ({ judgeFiling: vi.fn() }))
+vi.mock('@/lib/base-knowledge/store/repository', () => ({ documentsWithEntries: vi.fn(async () => []) }))
 
 import { listOfficeShelfFolders } from '@/lib/office-shelf/folder-service'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
@@ -41,6 +42,7 @@ import { projectsHolding } from '@/lib/projects/service'
 import { createProposal, listShelfFileProposals, withdrawProposal } from '@/lib/proposals/service'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { findUploadBatch, listBatchDocuments } from '@/lib/upload-batches/repository'
+import { documentsWithEntries } from '@/lib/base-knowledge/store/repository'
 import { judgeFiling } from './judge'
 import { listFiledDocuments, listProjectsFolders } from './repository'
 import { reviewUploadFiling } from './service'
@@ -280,6 +282,21 @@ describe('reviewUploadFiling', () => {
         error: null,
       })
       expect(await reviewUploadFiling(standardsOn, 'batch-1', 'name')).toMatchObject({ status: 'judged', proposed: 0 })
+      expect(createProposal).not.toHaveBeenCalled()
+    })
+
+    it('leaves a norm waiting for confirmation out of the judgement and proposes no move of it', async () => {
+      vi.mocked(documentsWithEntries).mockResolvedValueOnce(['d1'])
+      vi.mocked(listBatchDocuments).mockResolvedValue([doc('d1', 'MA37_Weisung_2024-09.pdf'), doc('d5', 'Bescheid.pdf')])
+      vi.mocked(judgeFiling).mockResolvedValue({
+        moves: [{ documentId: 'd1', folder: 'Bescheide', reason: 'Eine Weisung.', newFolder: null, confidence: null }],
+        traceId: 'trace-1',
+        error: null,
+      })
+
+      expect(await reviewUploadFiling(standardsOn, 'batch-1', 'name')).toMatchObject({ status: 'judged', proposed: 0 })
+      expect(documentsWithEntries).toHaveBeenCalledWith('org-1', ['d1', 'd5'])
+      expect(judgedInput().documents.map((entry) => entry.id)).toEqual(['d5'])
       expect(createProposal).not.toHaveBeenCalled()
     })
 

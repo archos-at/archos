@@ -16,7 +16,15 @@ vi.mock('./service', () => ({
   dropBaseKnowledgeRecords: vi.fn(),
   getBaseKnowledgeEntry: vi.fn(async () => ({ folderId: 'topic-barrierefrei' })),
   reviseProposal: vi.fn(),
-  unlistBaseKnowledge: vi.fn(),
+}))
+vi.mock('./folder-norms-repository', () => ({ keepAsOrdinaryFiles: vi.fn() }))
+vi.mock('@/lib/documents/move-to-folder', () => ({ moveDocumentToFolder: vi.fn(async () => ({ ok: true })) }))
+vi.mock('@/lib/office-shelf/folder-service', () => ({
+  listOfficeShelfFolders: vi.fn(async () => [
+    { id: 'folder-root', path: 'Grundlagen des Büros' },
+    { id: 'topic-barrierefrei', path: 'Grundlagen des Büros/Barrierefreiheit' },
+    { id: 'folder-plans', path: 'Pläne' },
+  ]),
 }))
 
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
@@ -25,7 +33,9 @@ import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import type { BaseKnowledgeEntry } from '../wire'
 import { readOfficeEntries, type StoredEntry } from '../store/repository'
 import { moveEntry, removeEntry } from './bulk'
-import { confirmBaseKnowledge, dropBaseKnowledgeRecords, reviseProposal, storedEntryOf, unlistBaseKnowledge } from './service'
+import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
+import { keepAsOrdinaryFiles } from './folder-norms-repository'
+import { confirmBaseKnowledge, dropBaseKnowledgeRecords, reviseProposal, storedEntryOf } from './service'
 import { settleProposals } from './settle'
 
 const MANAGER: AuthorizedSession = {
@@ -78,11 +88,18 @@ const PROPOSALS = new Map<string, StoredEntry>([
   ['edition_new', stored('new', { workId: 'work_b1600' }, { designation: 'ÖNORM B 1600', editionLabel: '2023-02-01', issuedOn: '2023-02-01' })],
   ['edition_dup', stored('dup', { workId: 'work_b1600' }, { designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' })],
   ['edition_noed', stored('noed', {}, { editionLabel: 'unbekannt', issuedOn: null })],
-  ['edition_plan', stored('plan')],
+  ['edition_plan', stored('plan', { provenance: { proposedBy: 'reading', filedFrom: { folderId: 'folder-plans' } } })],
+  ['edition_gonefolder', stored('gonefolder', { provenance: { proposedBy: 'reading', filedFrom: { folderId: 'folder-deleted' } } })],
+  ['edition_topfolder', stored('topfolder', { provenance: { proposedBy: 'reading', filedFrom: { folderId: null } } })],
   ['edition_b1600', HELD],
   ['edition_newnoed', stored('newnoed', { workId: 'work_b1600' }, { designation: 'ÖNORM B 1600', editionLabel: 'unbekannt', issuedOn: null })],
 ])
-const FOLDER_OF = new Map<string, string | null>([['edition_noed', null], ['edition_plan', 'folder-root']])
+const FOLDER_OF = new Map<string, string | null>([
+  ['edition_noed', null],
+  ['edition_plan', 'folder-root'],
+  ['edition_gonefolder', 'topic-barrierefrei'],
+  ['edition_topfolder', 'folder-root'],
+])
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -136,16 +153,43 @@ describe('settling the norm dialog', () => {
       ['edition_new', 'topic-barrierefrei'],
     ])
     expect(removeEntry).toHaveBeenCalledWith(MANAGER, 'edition_dup', request)
-    expect(unlistBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition_plan')
-    expect(dropBaseKnowledgeRecords).not.toHaveBeenCalled()
+    expect(dropBaseKnowledgeRecords).toHaveBeenCalledWith(MANAGER, PROPOSALS.get('edition_plan'))
   })
 
-  it('drops a plain file’s records where it lies when it lies outside the norms', async () => {
+  it('drops a plain file’s records where it lies when it lies outside the norms, and remembers it as an ordinary file', async () => {
     const { results } = await settleProposals(MANAGER, { rows: [{ entryId: 'edition_noed', notNorm: true }] }, request)
 
     expect(results[0].outcome).toBe('not_norm')
     expect(dropBaseKnowledgeRecords).toHaveBeenCalledWith(MANAGER, PROPOSALS.get('edition_noed'))
-    expect(unlistBaseKnowledge).not.toHaveBeenCalled()
+    expect(moveDocumentToFolder).not.toHaveBeenCalled()
+    expect(keepAsOrdinaryFiles).toHaveBeenCalledWith('org-1', ['noed'], 'user-1')
+  })
+
+  it('remembers “Keine Norm”, so neither the folder scan nor an upload offers the file again', async () => {
+    await settleProposals(MANAGER, { rows: [{ entryId: 'edition_plan', notNorm: true }] }, request)
+
+    expect(keepAsOrdinaryFiles).toHaveBeenCalledWith('org-1', ['plan'], 'user-1')
+  })
+
+  it('takes “Keine Norm” back to the Ordner folder the file came from, or to the top level when that folder is gone', async () => {
+    await settleProposals(
+      MANAGER,
+      {
+        rows: [
+          { entryId: 'edition_plan', notNorm: true },
+          { entryId: 'edition_gonefolder', notNorm: true },
+          { entryId: 'edition_topfolder', notNorm: true },
+        ],
+      },
+      request,
+    )
+
+    expect(vi.mocked(moveDocumentToFolder).mock.calls.map(([input]) => input)).toEqual([
+      { documentId: 'plan', folderId: 'folder-plans' },
+      { documentId: 'gonefolder', folderId: null },
+      { documentId: 'topfolder', folderId: null },
+    ])
+    expect(vi.mocked(moveDocumentToFolder).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(dropBaseKnowledgeRecords).mock.invocationCallOrder[0])
   })
 
   it('keeps the edits of a row without an edition on its proposal, so the dialog opens again with them', async () => {
@@ -166,10 +210,16 @@ describe('settling the norm dialog', () => {
     expect(confirmBaseKnowledge).not.toHaveBeenCalled()
   })
 
-  it('leaves a row without an edition and without a topic where it lies', async () => {
+  it('takes a row without an edition and without a topic out of the Ordner, to wait at the standards root', async () => {
     await settleProposals(MANAGER, { rows: [{ entryId: 'edition_noed', kind: 'guideline', topicId: null }] }, request)
 
     expect(reviseProposal).toHaveBeenCalledWith(MANAGER, 'edition_noed', { kind: 'guideline', designation: undefined })
+    expect(moveEntry).toHaveBeenCalledWith(MANAGER, 'edition_noed', 'folder-root')
+  })
+
+  it('leaves a row without an edition and without a topic where it lies when it already waits at the standards root', async () => {
+    await settleProposals(MANAGER, { rows: [{ entryId: 'edition_plan', kind: 'guideline', editionLabel: '', topicId: null }] }, request)
+
     expect(moveEntry).not.toHaveBeenCalled()
   })
 

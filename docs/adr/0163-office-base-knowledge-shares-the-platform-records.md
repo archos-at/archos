@@ -219,12 +219,11 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   designation matching a confirmed work is proposed as an edition of it (`editionOf`, `insertEditionOfWork`), and
   as a `duplicate` when that work already holds the edition. Other files, the OIB guidelines among them, stay
   where they were uploaded and come back as `plain` with their folder. A document already recorded answers its
-  proposal again. Unlike `base-knowledge-upload`, the file was dispatched before the proposal exists: its
-  ingest is stopped by the guards above (`isTextHeld` at dispatch, `document-exists` during the run) and what it
-  wrote is purged, so a norm's text may be read in the time between upload and recognition.
+  proposal again. Since the amendment „A recognised norm leaves the Ordner at once“ below, an upload is recognised
+  by the server before its dispatch, so this call mostly answers proposals that already exist.
   `base-knowledge-settle` answers the proposals: a confirmed one moves into its topic folder (a new edition into
   its work's), a duplicate is deleted, `notNorm` drops the records and reads the file again where it lies (a file
-  under the standards tree goes to the top of the Büroablage first, as with `base-knowledge-unlist`), and one
+  under the standards tree goes back to the Ordner folder it came from first; see the amendment below), and one
   without an edition stays a proposal that keeps the row's Art, Bezeichnung and a cleared Ausgabe
   (`reviseProposal`, proposed by the person), and moves into the row's topic, so „Jetzt prüfen“ shows them again.
   While the licence step is off (`ASK_FOR_LICENCE`), settle confirms without asking for the licence statement: a
@@ -237,9 +236,8 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   back, one dialog lists them all (`NormDialog`: Art with „Keine Norm“, Bezeichnung, Ausgabe, Thema), with a line
   for the files that are not norms and where they lie; „Bestätigen“ is `base-knowledge-settle`, „Später“ leaves
   them proposed, and the norms tab's „Jetzt prüfen“ opens them again. A plain file uploaded on the norms tab lands
-  in Ordner, said by a toast with the way there. An upload the norms tab marks `forStandards` whose name a norm
-  already holds is a new version of that norm, in its folder; an Ordner upload of that name is still refused as a
-  name taken. A file reaches the standards tree only through these flows: `PATCH /api/documents/{id}/folder` and
+  in Ordner, said by a toast with the way there. An upload whose name a document on the other side of the
+  standards tree already holds is stored under a numbered name (see the amendment below). A file reaches the standards tree only through these flows: `PATCH /api/documents/{id}/folder` and
   a proposed move refuse to take an Ordner file under it, and an upload's `revisionOf` may not cross it. „Als Norm führen“ on an Ordner file opens the dialog for it,
   „Nicht mehr als Norm führen“ on an entry is `base-knowledge-unlist`, and the folders of the norms tab are its
   topics („Thema anlegen“).
@@ -265,9 +263,9 @@ nobody is told about.
   stays so. When nothing is left, or the flag is off, open items are resolved; one held by a member who lost the
   permission is resolved too.
 - **The decision is in the folder.** The Ordner tab shows a notice in a folder holding such files, to those who
-  may manage the Büroablage. „Unter Normen & Richtlinien führen“ proposes each file (`proposeBaseKnowledge`) and
-  then moves it under the standards root, up to 50 a request, where it waits under „Zu bestätigen“; the folder
-  stays, even empty. „Im Ordner lassen“ writes one row per document to `office_shelf_norm_keeps`, the table a
+  may manage the Büroablage. „Unter Normen & Richtlinien führen“ proposes each file (`takeAsNorm`, which remembers
+  the folder) and then moves it under the standards root, up to 50 a request, where it waits under „Zu bestätigen“,
+  and opens the norm dialog for the files it moved; the folder stays, even empty. „Im Ordner lassen“ writes one row per document to `office_shelf_norm_keeps`, the table a
   project's „Hier lassen“ uses too (ADR-0185, migration 0250, without a project), and no scan offers that document again. Operations:
   `office-shelf-folder-norms-list` and `office-shelf-folder-norms-decide` (the person's own decision, not the
   agent's).
@@ -322,7 +320,7 @@ the only way back was a fresh proposal. Now:
   as before, and parks its records: `knowledge_records.unlisted_at` is set and the head moves to
   `unlisted_head_revision_id`, so every reader that reads heads sees nothing of the entry, as of an unconfirmed
   proposal. Every reader by document (`readOfficeEntries`, `documentHasEntry`, `documentsWithEntries`,
-  `entryIdsForDocuments`, `copyForDocument`, `shelfNameHasEntry`, the folder-norms scan) reads listed records
+  `entryIdsForDocuments`, `copyForDocument`, the folder-norms scan) reads listed records
   only. The file's text is read again as an ordinary file's.
 - **Rückgängig.** The entry page unlists at once, without a confirmation, and its toast offers „Rückgängig“:
   `POST /api/base-knowledge/{entryId}/relist` (the browser's undo, not an agent operation) moves the file back to
@@ -333,3 +331,40 @@ the only way back was a fresh proposal. Now:
   the parked records in the transaction that writes the new proposal (`dropUnlistedEntry`), with a standalone work
   no edition uses any more. Restoring the old record on „Als Norm führen“ would confirm a norm without the dialog,
   so it starts afresh. Deleting the file still deletes everything; „Norm entfernen“ is unchanged.
+
+## Amendment 2026-11-19: a recognised norm leaves the Ordner at once
+
+A behaviour review found the Ordner holding norms nobody had confirmed: an upload landed in the current folder,
+the browser asked for recognition afterwards, and „Später“ said the norms waited under Normen & Richtlinien while
+they stayed in the folder, read in full. Recognition depended on a second browser call that a closed tab, an error
+or the 50-file cut could skip, and the folder scan never looks at the top level.
+
+- **The server recognises an upload before it dispatches it** (`uploadToOfficeShelf`,
+  `bff/base-knowledge/office/norm-intake.ts`, the route `POST /api/documents/upload` for the office shelf). With
+  `office-standards` on, a file whose name `recognizeNorm` calls a norm, uploaded outside the standards tree and not
+  as a `revisionOf`, is stored under the standards root, and `uploadOfficeShelfDocument`'s `beforeDispatch` records
+  its proposal (a confirmed work's new edition when the designation matches), so the dispatch finds the text held.
+  The flag off, nothing is recognised, as before. A file the name screening holds is recognised when the released
+  upload arrives, since it is the same route. `base-knowledge-recognize` now mostly answers proposals that exist; a
+  document it still records (`asNorm`, or a file stored before this change) moves under the standards root as well
+  (`takeAsNorm`), and a file kept as an ordinary file is not offered again unless asked with `asNorm`. The browser
+  still sends at most 50 ids, which now only limits what the dialog shows: the rest wait under „Zu bestätigen“, and
+  the norms tab claims „Keine Norm dabei“ only when it asked about every upload.
+- **The proposal remembers where the file came from**: `provenance.filedFrom.folderId` on the edition revision, the
+  Ordner folder the upload was meant for, the folder the migration took it from, or null for the top level.
+  `reviseProposal` carries it over. **Keine Norm** moves the file back there (the top level when that folder is gone
+  or lies under the standards tree), drops the records, reads the text again, and writes an
+  `office_shelf_norm_keeps` row, so neither the folder scan nor `base-knowledge-recognize` offers it again.
+- **Duplicates and new editions are told by designation and edition, never by file name.** A name a document on
+  the other side of the standards tree holds, or any name already taken when the upload goes into the tree, is
+  stored under the next free numbered name (`Name (2).pdf`, `numberedFilename` as the mail import names its
+  attachments): a norm then comes to the dialog as `editionOf` or `duplicate`, a plain file stays in its Ordner
+  folder. The norms tab's `forStandards` upload, which made a same-named upload a new version of a norm with its
+  old Ausgabe, and `base-knowledge-upload`'s refusal of a name a recorded copy holds are gone. Ordner to Ordner, a
+  name still replaces as a new version.
+- **An Ordner folder stays out of the standards tree**: `PATCH /api/office-shelf/folders/{id}` refuses a parent
+  under it for a folder outside it (`updateOfficeShelfFolder`), as a document's move is refused.
+- **The filing judge leaves base knowledge alone**: a document recorded as base knowledge is neither judged nor
+  moved by an upload batch's filing proposals (`reviewUploadFiling`).
+- **Feedback for a guideline the platform holds**: a lone OIB guideline uploaded on the norms tab is announced as
+  one ARCHOS already knows, and on the Ordner tab, which says nothing about ordinary files, it is announced too.
