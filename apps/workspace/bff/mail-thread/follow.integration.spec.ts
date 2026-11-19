@@ -356,7 +356,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     const follow = async (userId: string, fields: { threadId?: string; projectId?: string; expiresIn: number; notified?: boolean; ended?: boolean }) => {
       const row = await one<{ id: string }>(sql`
         INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, created_at, expires_at, expiring_notified_at, ended_at, ended_by, ended_reason)
-        VALUES (${ORG}, ${(fields.projectId ?? projectId)}::uuid, ${(fields.threadId ?? threadId)}::uuid, ${userId}, now() - interval '50 days',
+        VALUES (${ORG}, ${(fields.projectId ?? projectId)}::uuid, ${(fields.threadId ?? threadId)}::uuid, ${userId}, now() - interval '170 days',
                 now() + make_interval(days => ${fields.expiresIn}), ${fields.notified ? sql`now() - interval '1 day'` : null},
                 ${fields.ended ? sql`now() - interval '1 day'` : null}, ${fields.ended ? userId : null}, ${fields.ended ? 'unfollowed' : null})
         RETURNING id`)
