@@ -161,6 +161,7 @@ export interface InboundMailSummaryView extends InboundMailSenderRiskView {
   thread: Pick<InboundMailThreadCandidateView, 'threadId' | 'name' | 'nextVersion' | 'preselected'> | null
   incompleteReason: IncompleteReason | null
   followedBy: string | null
+  filedWithoutClick: { to: InboundMailFiledAsView | null } | null
   updatedAt: string
 }
 

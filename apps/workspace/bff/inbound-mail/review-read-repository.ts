@@ -4,7 +4,14 @@ import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { documentVersions } from '@/lib/db/schema/document-versions'
 import { documents } from '@/lib/db/schema/documents'
-import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailPartRow, type InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import {
+  inboundMailDecisions,
+  inboundMailParts,
+  inboundMails,
+  type InboundMailDecisionRow,
+  type InboundMailPartRow,
+  type InboundMailRow,
+} from '@/lib/db/schema/inbound-mail'
 import { mailThreads } from '@/lib/db/schema/mail-thread'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 import { documentDisplayName } from '@/lib/documents/display-name'
@@ -88,6 +95,16 @@ export async function findFollowDeciders(mailIds: readonly string[]): Promise<Ma
     )
     .limit(mailIds.length)
   return new Map(rows.map((row) => [row.mailId, row.decidedBy]))
+}
+
+export async function findFiledVias(mailIds: readonly string[]): Promise<Map<string, InboundMailDecisionRow['via']>> {
+  if (mailIds.length === 0) return new Map()
+  const rows = await getDb()
+    .select({ partId: inboundMailParts.id, via: inboundMailDecisions.via })
+    .from(inboundMailParts)
+    .innerJoin(inboundMailDecisions, eq(inboundMailDecisions.id, inboundMailParts.decisionId))
+    .where(and(inArray(inboundMailParts.mailId, [...mailIds]), eq(inboundMailParts.state, 'filed')))
+  return new Map(rows.map((row) => [row.partId, row.via]))
 }
 
 export interface ThreadDocument {

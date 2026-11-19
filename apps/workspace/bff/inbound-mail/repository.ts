@@ -59,6 +59,7 @@ export {
   countWaitingMailsByProject,
   findCandidateDocuments,
   findDocumentIdByStoredName,
+  findFiledVias,
   findFollowDeciders,
   findLiveFolders,
   findMailParts,
