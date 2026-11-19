@@ -588,6 +588,34 @@ describe('mail is never lost to a parser bug', () => {
     expect(announceWaiting).toHaveBeenCalledTimes(1)
   })
 
+  it('logs and reports a bug on the last attempt by its class only, whether the mail was held or not', async () => {
+    const bug = new TypeError('a bug about anna@buero-muster.at')
+    vi.mocked(recordOriginal).mockRejectedValueOnce(bug).mockRejectedValueOnce(bug)
+    receive(await sign(message()))
+
+    await expect(run(NOT_LAST)).rejects.toThrow('a bug')
+    expect(captureServer).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_receive_failed' }))
+
+    expect(await run(LAST)).toMatchObject({ done: true })
+    expect(captureServer).toHaveBeenCalledWith({
+      event: 'inbound_mail_receive_failed',
+      distinctId: null,
+      organizationId: ORG,
+      properties: { error: 'TypeError', held: true },
+    })
+    expect(vi.mocked(console.error).mock.calls.flat().join('\n')).toContain(`mail ${MAIL} failed on its last attempt (TypeError); held as unreadable`)
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('anna@')
+  })
+
+  it('reports a bug in reading on the last attempt too, where the job holds the mail itself', async () => {
+    vi.mocked(findThreadCandidates).mockRejectedValueOnce(new RangeError('a bug'))
+    receive(await sign(message()))
+
+    await run(LAST)
+
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_receive_failed', properties: { error: 'RangeError', held: true } }))
+  })
+
   it('holds the mail unreadable on the last attempt when its raw message cannot be read at all, so no dead job leaves it received', async () => {
     receive(await sign(message()))
     state.objects.delete(RAW_KEY)

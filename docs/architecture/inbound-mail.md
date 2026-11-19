@@ -339,6 +339,9 @@ only when it is a well-formed RFC 6838 media type, else `application/octet-strea
 `ERR_INVALID_CHAR` on the store's header. On the last attempt
 the mail is held anyway, flagged `unreadable`, with a text part whose original
 can be downloaded once its scan is clean: mail is never lost to a parser bug.
+That attempt logs the error's class by the mail's id and sends PostHog
+`inbound_mail_receive_failed` (`error`, `held`): before, a bug that held a mail
+unreadable left no trace but the mail.
 Its sender keeps the verdict the run reached before it failed; a sender it never
 judged is `external_unverified` with `sender_unchecked`, 30 days, never an
 outsider's 14.
@@ -741,8 +744,8 @@ numbers from those constants, with a link to Dateien for anything larger.
 
 ## Observability
 
-- PostHog: `inbound_mail_received`, `_refused`, `_dropped`, `_decided`,
-  `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
+- PostHog: `inbound_mail_received`, `_refused`, `_dropped`,
+  `_receive_failed`, `_decided`, `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
   ([`posthog-events.md`](../observability/posthog-events.md)). Ids, codes and
   counts only.
 - Langfuse: the suggestion's `filing-fit` generation (`surface: inbound_mail`),
