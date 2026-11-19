@@ -409,7 +409,7 @@ describe('„Einordnen“', () => {
     renderDetail('external-unverified')
     await openFiling()
     expect(stepOf()).toBe('attachments')
-    expect(within(dialog()).getByText('A tick means the file is filed. Without a tick it stays out and is dismissed with the mail.')).toBeInTheDocument()
+    expect(within(dialog()).getByText('Without a tick the file is not filed.')).toBeInTheDocument()
     const nextPress = within(dialog()).getByTestId('filing-next')
     expect(nextPress).toBeDisabled()
     expect(nextPress).toHaveAccessibleDescription('First choose a folder for 1 file, or untick it.')

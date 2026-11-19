@@ -520,8 +520,9 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       is „Wohin kommt dieser Anhang?“ while each only lacks a folder, „Was
       geschieht mit diesem Anhang?“ / „… diesen 2 Anhängen?“ while one is a
       „whether“; under it, whenever a row has a tick, what the tick means:
-      „Ein Häkchen heißt: Die Datei wird abgelegt. Ohne Häkchen bleibt sie
-      weg und wird mit der E-Mail verworfen.“ **Every file is kept by
+      „Ohne Häkchen wird die Datei nicht abgelegt.“ (one line; the two
+      sentences before it said the tick twice, and „Übersicht“ says what is
+      dismissed and for how long). **Every file is kept by
       default** (`AttachmentCase.defaultChecked`), also one the server left
       unselected, except what it keeps out for a reason it names: a copy the
       project has, a picture from the mail's text (named „Bild aus dem

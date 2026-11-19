@@ -485,7 +485,7 @@ export const inboundMail: typeof en.inboundMail = {
       question: '{count, plural, one {Wohin kommt dieser Anhang?} other {Wohin kommen diese # Anhänge?}}',
       questionAll: 'Wohin kommen die Anhänge?',
       questionWhat: '{count, plural, one {Was geschieht mit diesem Anhang?} other {Was geschieht mit diesen # Anhängen?}}',
-      hint: 'Ein Häkchen heißt: Die Datei wird abgelegt. Ohne Häkchen bleibt sie weg und wird mit der E-Mail verworfen.',
+      hint: 'Ohne Häkchen wird die Datei nicht abgelegt.',
       waitsForFolder: '{count, plural, one {Wählen Sie zuerst für # Datei einen Ordner oder nehmen Sie ihr Häkchen weg.} other {Wählen Sie zuerst für # Dateien einen Ordner oder nehmen Sie ihr Häkchen weg.}}',
       newFolder: 'Neuer Ordner …',
       rest: '{count, plural, one {# weiterer wie vorgeschlagen} other {# weitere wie vorgeschlagen}}',

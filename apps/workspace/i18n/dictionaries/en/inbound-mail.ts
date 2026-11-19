@@ -481,7 +481,7 @@ export const inboundMail = {
       question: '{count, plural, one {Where does this attachment go?} other {Where do these # attachments go?}}',
       questionAll: 'Where do the attachments go?',
       questionWhat: '{count, plural, one {What happens to this attachment?} other {What happens to these # attachments?}}',
-      hint: 'A tick means the file is filed. Without a tick it stays out and is dismissed with the mail.',
+      hint: 'Without a tick the file is not filed.',
       waitsForFolder: '{count, plural, one {First choose a folder for # file, or untick it.} other {First choose a folder for # files, or untick them.}}',
       newFolder: 'New folder …',
       rest: '{count, plural, one {# more as proposed} other {# more as proposed}}',
