@@ -73,19 +73,19 @@ describe('a ready mail says where one press files it', () => {
 describe('a mail in its last days', () => {
   const day = (iso: string) => new Intl.DateTimeFormat('en', { day: '2-digit', month: '2-digit' }).format(new Date(iso))
 
-  it('says the day an outsider’s mail is removed, and offers „Einordnen“ at rest', async () => {
+  it('says until when an outsider’s mail stays, as a plain deadline, and offers „Einordnen“ at rest', async () => {
     const onFileNow = vi.fn()
     const expiresAt = new Date(NOW + 2 * 86_400_000).toISOString()
     row(ready({ senderClass: 'external', senderFlags: [], expiresAt, incompleteReason: 'no_thread' }), { now: NOW, onFileNow })
-    expect(screen.getByTestId('inbound-mail-row-expiry').textContent).toBe(`Will be removed on ${day(expiresAt)} unless someone files it`)
+    expect(screen.getByTestId('inbound-mail-row-expiry').textContent).toBe(`Stays in Project mail until ${day(expiresAt)}`)
     await userEvent.click(screen.getByTestId('inbound-mail-row-file-now'))
     expect(onFileNow).toHaveBeenCalledOnce()
   })
 
-  it('says a member’s mail expires, not that it is removed', () => {
+  it('says the same of a member’s mail: every expiry is restorable for seven days, whoever sent it', () => {
     const expiresAt = new Date(NOW + 86_400_000).toISOString()
     row(ready({ senderClass: 'office_member', expiresAt }), { now: NOW, onFileNow: () => {} })
-    expect(screen.getByTestId('inbound-mail-row-expiry').textContent).toBe(`Expires on ${day(expiresAt)} unless someone files it`)
+    expect(screen.getByTestId('inbound-mail-row-expiry').textContent).toBe(`Stays in Project mail until ${day(expiresAt)}`)
   })
 
   it('says nothing and offers nothing before its last five days', () => {

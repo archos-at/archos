@@ -1786,6 +1786,13 @@
       "when": 1795601300000,
       "tag": "0254_follow_runs_while_active",
       "breakpoints": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1795601400000,
+      "tag": "0255_external_expiry_restorable",
+      "breakpoints": true
     }
   ]
 }

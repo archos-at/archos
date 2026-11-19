@@ -72,7 +72,8 @@ export const mailThread = {
   attachments: {
     label: 'Attachments',
     hidden: 'is in a folder with its own access rights; whoever is listed there can open it',
-    unnamed: 'Attachment {position}',
+    unnamed: 'Unnamed attachment',
+    hiddenName: 'Attachment not shown',
     root: 'Files (top level)',
     alreadyPresent: 'was already in the project',
     notFiled: 'not filed · {reason}',

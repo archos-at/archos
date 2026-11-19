@@ -19,7 +19,7 @@ import { displaySubject, subjectWithinThread } from '@/lib/inbound-mail/subject'
 import { fileableReason } from '../lib/completeness'
 import { bulkSelectable } from '../lib/impersonation'
 import { daysUntilExpiry } from '../lib/list-sections'
-import { expiryErases, mailClaimOf } from '../lib/sender'
+import { mailClaimOf } from '../lib/sender'
 import { SenderTrustGlyph } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -82,7 +82,7 @@ export function InboundMailRow({
             : null
   const expiresSoon = now !== undefined && !filingNow && !impersonating && daysUntilExpiry(mail, now) !== null
   const expiryText = expiresSoon
-    ? t(expiryErases({ senderClass: mail.senderClass, sender: { flags: mail.senderFlags } }) ? 'row.removedOn' : 'row.expiresOn', { date: dayMonth(mail.expiresAt, locale) })
+    ? t('row.expiresOn', { date: dayMonth(mail.expiresAt, locale) })
     : null
   const ready = waiting && !filingNow && reason === null && !impersonating
   const offerFile = ready && !inGroup && onFileAsSuggested !== undefined

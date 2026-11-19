@@ -37,7 +37,7 @@ function renderDetail(name: string, client: InboundMailClient = fixtureClient({ 
   return { client, onChanged }
 }
 
-const copy: DraftCopy = { unnamedAttachment: (position) => `Attachment ${position}`, untitledThread: '(no subject)' }
+const copy: DraftCopy = { unnamedAttachment: (part) => `Attachment ${part.position}`, untitledThread: '(no subject)' }
 
 const dialog = (): HTMLElement => screen.getByTestId('filing-dialog')
 const stepOf = (): string | null => dialog().getAttribute('data-step')
@@ -96,7 +96,7 @@ describe('the mail pane', () => {
       'New folder Fotos\u00A0· Document type Photo',
       'stays out – already in the project',
       'Folder Tragwerk',
-      'stays out – a picture in the mail text',
+      'stays out',
     ])
     expect(screen.getByTestId('not-staged')).toHaveTextContent('winmail.dat · Outlook’s own attachment')
     expect(screen.getByTestId('not-staged')).toHaveTextContent('2 pictures from the signature')
@@ -276,7 +276,7 @@ describe('„Einordnen“', () => {
       'Foto_Baustelle.jpg → New folder Fotos\u00A0· Photo',
       'Statik_verschluesselt.pdf → Tragwerk',
       'Bescheid_alt.pdf stays out – already in the project',
-      'Attachment 6 stays out – a picture in the mail text',
+      'Picture from the mail text stays out',
     ])
     const left = within(dialog()).getByTestId('filing-left')
     expect(within(left).getByTestId('filing-left-note')).toHaveTextContent(`What “stays out” here is dismissed by ${PRODUCT_NAME} when you file. It can be restored for 7 days.`)
@@ -409,7 +409,7 @@ describe('„Einordnen“', () => {
     renderDetail('external-unverified')
     await openFiling()
     expect(stepOf()).toBe('attachments')
-    expect(within(dialog()).getByText('A tick means the file is filed. Without a tick it stays out and is dismissed with the mail.')).toBeInTheDocument()
+    expect(within(dialog()).getByText('Without a tick the file is not filed.')).toBeInTheDocument()
     const nextPress = within(dialog()).getByTestId('filing-next')
     expect(nextPress).toBeDisabled()
     expect(nextPress).toHaveAccessibleDescription('First choose a folder for 1 file, or untick it.')

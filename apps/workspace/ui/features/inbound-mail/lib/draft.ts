@@ -2,6 +2,7 @@ import type { DocumentTypeTag } from '@/lib/documents/tag-vocabulary'
 import type {
   InboundMailDecision,
   InboundMailPartDecision,
+  InboundMailPartView,
   InboundMailThreadCandidateView,
   InboundMailView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -60,8 +61,10 @@ export interface MailDraft {
   acknowledgeSender: boolean
 }
 
+export type UnnamedPart = Pick<InboundMailPartView, 'position' | 'filename' | 'contentType' | 'sizeBytes'>
+
 export interface DraftCopy {
-  unnamedAttachment: (position: number) => string
+  unnamedAttachment: (part: UnnamedPart) => string
   untitledThread: string
 }
 
@@ -89,7 +92,7 @@ function attachmentDraft(entry: AttachmentCase, folders: readonly FolderOption[]
   return {
     partId: part.id,
     checked: entry.defaultChecked,
-    name: suggestion?.name ?? part.filename ?? copy.unnamedAttachment(part.position),
+    name: suggestion?.name ?? part.filename ?? copy.unnamedAttachment(part),
     folder,
     documentType: suggestion?.documentType ?? null,
     revisionOf: revisionChosen ? revision.documentId : null,
@@ -138,10 +141,24 @@ export function sameSubjectThread(
   return !only.full && only.strength === 'subject' && !appendNeedsAcknowledgement(only) ? only : null
 }
 
+/** Two pictures of the mail's text are both „Bild aus dem E-Mail-Text“; filed under one name, the second is refused (`name_taken`). */
+function numberUnnamed(drafts: AttachmentDraft[], parts: readonly InboundMailPartView[]): AttachmentDraft[] {
+  const unnamed = (draft: AttachmentDraft) => !draft.suggested.name && parts.find((part) => part.id === draft.partId)?.filename === null
+  const count = (name: string) => drafts.filter((draft) => unnamed(draft) && draft.name === name).length
+  const seen = new Map<string, number>()
+  return drafts.map((draft) => {
+    if (!unnamed(draft) || count(draft.name) < 2) return draft
+    const nth = (seen.get(draft.name) ?? 0) + 1
+    seen.set(draft.name, nth)
+    return { ...draft, name: `${draft.name} ${nth}` }
+  })
+}
+
 export function initialDraft(view: InboundMailView, folders: readonly FolderOption[], copy: DraftCopy): MailDraft {
-  const attachments = view.parts
-    .filter((part) => part.kind === 'attachment')
-    .map((part) => attachmentDraft(attachmentCase(part, view), folders, copy))
+  const attachments = numberUnnamed(
+    view.parts.filter((part) => part.kind === 'attachment').map((part) => attachmentDraft(attachmentCase(part, view), folders, copy)),
+    view.parts,
+  )
   const messagePart = view.parts.find((part) => part.kind === 'message')
   let message: MessageDraft | null = null
   if (messagePart) {

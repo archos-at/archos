@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { directFilingEnabled } from './direct-filing'
 import { judgeSender, type SenderAuthentication } from './sender-auth'
 import {
-  expiryIsFinal,
   isVerifiedWriterEvidence,
   onlySenderReleases,
   ownClaimedMail,
@@ -204,14 +203,5 @@ describe('a sender the receive job could not check (R14)', () => {
     expect(senderWaitReason(directoryDown)).toBe('sender_unchecked')
     expect(senderWaitReason({ ...directoryDown, senderClass: 'office_member', senderTrust: 'member_verified' })).toBe('sender_unchecked')
     expect(senderWaitReason({ ...directoryDown, senderFlags: [] })).toBe('outside_office')
-  })
-})
-
-describe('when a mail’s expiry is final', () => {
-  it('is final for an outsider’s mail only, never for one whose sender could not be checked: that may be a member’s', () => {
-    expect(expiryIsFinal({ senderClass: 'external', senderFlags: [] })).toBe(true)
-    expect(expiryIsFinal({ senderClass: 'external', senderFlags: ['sender_unchecked'] })).toBe(false)
-    expect(expiryIsFinal({ senderClass: 'office_member', senderFlags: [] })).toBe(false)
-    expect(expiryIsFinal({ senderClass: null, senderFlags: [] })).toBe(false)
   })
 })

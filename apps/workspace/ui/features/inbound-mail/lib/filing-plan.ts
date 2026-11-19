@@ -125,7 +125,7 @@ const INCLUDABLE: ReadonlySet<LeftReason> = new Set(['unchecked', 'name_stop', '
 
 function attachmentLine(entry: AttachmentCase, row: AttachmentDraft | undefined, copy: DraftCopy): PlanLine {
   const { part } = entry
-  const name = part.filename ?? copy.unnamedAttachment(part.position)
+  const name = part.filename ?? copy.unnamedAttachment(part)
   if (!row || !entry.selectable || !row.checked) {
     const why = leftReason(entry)
     return { kind: 'left', partId: part.id, name, why, includable: INCLUDABLE.has(why), terms: part.nameStopTerms, risk: entry.risk }
@@ -223,7 +223,7 @@ export function quickPicks(
   for (const row of draft.attachments) {
     if (ids.includes(row.partId) || !row.checked || row.folder === null) continue
     const part = view.parts.find((candidate) => candidate.id === row.partId)
-    add({ target: row.folder, why: 'sibling', of: part?.filename ?? copy.unnamedAttachment(part?.position ?? 0) })
+    add({ target: row.folder, why: 'sibling', of: part ? (part.filename ?? copy.unnamedAttachment(part)) : '' })
   }
   for (const entry of waitingAttachments(view)) {
     const revision = entry.part.revisionCandidate

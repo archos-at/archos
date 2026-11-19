@@ -352,17 +352,17 @@ describe('sweep 3 in PostHog', () => {
     automatic: false,
   })
 
-  it('sends inbound_mail_expired per mail it expired, and says whether the expiry discarded it for good', async () => {
+  it('sends inbound_mail_expired per mail it expired, with its class: every expiry is restorable for seven days, so none is a discard', async () => {
     repository.findExpiredMails.mockResolvedValueOnce([held('external'), held('office_member'), held('external', ['sender_unchecked'])] as never)
 
     await sweepExpiredMails(new Date())
 
     expect(vi.mocked(captureServer).mock.calls.map(([capture]) => capture)).toEqual(
-      [true, false, false].map((discarded, index) => ({
+      ['external', 'office_member', 'external'].map((senderClass) => ({
         event: 'inbound_mail_expired',
         distinctId: null,
         organizationId: 'org_sweep',
-        properties: { parts: 2, sender_class: index === 1 ? 'office_member' : 'external', automatic: false, discarded },
+        properties: { parts: 2, sender_class: senderClass, automatic: false },
       })),
     )
   })

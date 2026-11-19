@@ -98,8 +98,3 @@ export function trustTechnical(sender: InboundMailSenderView, line: SenderTrustL
       return { kind: sender.reason === 'dkim_none' ? 'unsigned' : 'invalid', domain }
   }
 }
-
-/** An outsider's mail that runs out is erased, never restorable (`…_external_expiry_final`). */
-export function expiryErases(view: Pick<InboundMailView, 'senderClass'> & { sender: Pick<InboundMailSenderView, 'flags'> | null }): boolean {
-  return view.senderClass === 'external' && !(view.sender?.flags.includes('sender_unchecked') ?? false)
-}

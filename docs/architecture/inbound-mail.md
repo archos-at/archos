@@ -79,7 +79,7 @@ when it holds the mail (`inbound_mails.sender_class`, migration 0197, frozen by
 | `verified_writer` | a DKIM pass aligned with the From domain as DMARC aligns it, relaxed: `d=` is the From domain, its organizational domain or a subdomain of it, by the Public Suffix List (mailauth's `aligned`; any but the From domain itself is flagged `relaxed_alignment`, which files directly since migration 0250), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a check WorkOS does not answer is waited out within the fault budget, then the mail is held `sender_unchecked`, never classed on a "no"), a signed To or Cc naming the project or one of the office's own project addresses registered on it ([forwarding](#an-existing-project-address-forwards-here)) (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for any of the project's writers (`not_filed`); with direct filing switched off, the whole mail waits for them (`paused`) | 30 days |
 | `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; that member files or restores it with `acknowledgeSender` („Ja, ich habe diese E-Mail gesendet. Ablegen“), and so may any other of the project's writers, saying they checked it is from that member („Ich habe geprüft, dass diese E-Mail von {Name} ist. Ablegen“, the same `acknowledgeSender`; since migration 0250). An impersonation (`impersonationOf`: a signature the member's domain rejected, `dkim_fail`, `dkim_policy`, `dkim_weak_algorithm`, `dkim_short_key`) stays the member's alone: anyone else gets `sender_only` and may dismiss it, and the colleague's dismiss confirmation (`ClaimedMailBar`) and the help page tell them to download the original first and forward it themselves. `senderReleaseOf` in `sender-class.ts` says which (`own`, `checked_by_writer`, `sender_only`) | 30 days |
 | `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
-| `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
+| `external` | the From is nobody in the office | held for the project's writers; when it runs out, restorable for 7 days like any expiry (since the amendment of 2026-11-19) | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
 
 **The kill switch** of direct filing alone is `INBOUND_MAIL_DIRECT_FILING=false`
 (Pulumi `inboundMailDirectFiling`, `lib/inbound-mail/direct-filing.ts`): a
@@ -133,9 +133,10 @@ claimed on it (`inbound_mail_parts_sender_files_clean`); a file of an `unverifie
 mail only with `acknowledged_sender`, and a file or restore of one whose
 signature the domain rejected (or that has no verdict) only by its member
 (`…_claimed_sender_releases`, migration 0250; 0197 held every one to its
-member); an outsider's expired part is never restored
-(`…_external_expiry_final`). The triggers bind every role, the BYPASSRLS
-platform role included.
+member). 0197 also refused a restore of an outsider's expired part
+(`…_external_expiry_final`); migration 0255 dropped that refusal, since every
+expired part is restorable for seven days (ADR-0137, amendment of 2026-11-19).
+The triggers bind every role, the BYPASSRLS platform role included.
 
 ### An existing project address forwards here
 
@@ -381,11 +382,9 @@ the mail is held with what was not learned, said, never guessed:
   project's writers for the full 30 days even when no member could be named
   (the class is then `external`, which 0197 ties to a sender with no member;
   0199 refuses the 14 days and a verified writer for it), and the E-Mail-Eingang
-  says it could not be checked (`waitReason: 'sender_unchecked'`). Its expiry
-  is a member's, not an outsider's: it keeps the seven days to restore
-  (`expiryIsFinal` in `sender-class.ts`, which the view's `restorableUntil` and the
-  restore's `isRestorable` read, the sweep's `pastRestore`, and 0197's
-  `inbound_mail_decisions_external_expiry_final`, which exempts the flag);
+  says it could not be checked (`waitReason: 'sender_unchecked'`). It waits a
+  member's 30 days, not an outsider's 14; when it runs out it keeps the seven
+  days to restore, as every expired part does;
 - DKIM: DNS has a budget of its own, two waits of 2 and 10 minutes
   (`DKIM_DNS_FAULT_WAITS_MS`, counted as `dkimFaults` in the payload), because
   the sender's nameserver is the sender's: a domain whose DNS never answers made
@@ -670,9 +669,10 @@ and a row is decided once (the trigger `mail_thread_entry_attachments_decided_on
 Filed later, the job links it; dismissed or expired, it is decided only once that
 end is final, that is when it can no longer be restored
 (`decideEndedAttachments` in `apps/workspace/bff/inbound-mail/entry-attachments.ts`, which reads restorable as the
-restore does, `isRestorable`): at an expiry that is final (sweep 3) or when the
-mail settles (sweep 6). A part dismissed today stays `pending` through its seven
-days to restore, since a restored part may yet be filed.
+restore does, `isRestorable`): at an expiry of a part with no bytes to restore
+(sweep 3) or when the mail settles (sweep 6). A part dismissed or expired today
+stays `pending` through its seven days to restore, whoever sent the mail, since
+a restored part may yet be filed.
 
 A binned, deleted or archived Verlauf document is `last_failure:
 thread_document_gone`. A thread at 200 entries or 2 MiB refuses an append
@@ -888,9 +888,9 @@ In the order they run:
 | 5 | `lapsedClaims` | `filing` past its claim: waits again (`unavailable`), the decider told | the claim (5 min) | — |
 | 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: the raw key and the pending move taken first, still with no entry and no hold (`takeStalledMoveRaw`), then the raw erased; a key the store kept goes back with its pending move | 15 min | the move erases nothing unproven; the entry-gone branch skips a project or custodian hold |
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
-| 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`); a Verlauf row of a part whose end is now final decided | 30 days; an outsider's 14 | — (no erasure) |
+| 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days, an outsider's too, since the amendment of 2026-11-19), audited; the member it came from told (`inbound_mail.expired`); a Verlauf row of a part whose end is now final decided | 30 days; an outsider's 14 | — (no erasure) |
 | 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail; a restore, which moves the mail's end at least seven days out, clears it, so a restored mail is told again before it runs out | day 25; an outsider's day 9 | — |
-| 6 | `endedParts` | dismissed and expired parts past 7 days (an expired part of `external` mail at once; every dismissal keeps its 7 days, since the amendment of 2026-11-19): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed, its keys taken by the settle under the hold, and only then its staged objects erased; what the store kept goes back deferred, for sweep 10; the Verlauf rows of its ended attachments decided | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
+| 6 | `endedParts` | dismissed and expired parts past 7 days (every one keeps its 7 days whoever sent the mail, since the amendments of 2026-11-19): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed, its keys taken by the settle under the hold, and only then its staged objects erased; what the store kept goes back deferred, for sweep 10; the Verlauf rows of its ended attachments decided | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
 | 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0199), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it (a run past its execution timeout runs on, and Hatchet delivers at least once) never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |

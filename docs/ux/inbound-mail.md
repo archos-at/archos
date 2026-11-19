@@ -184,11 +184,13 @@ anything else waits and opens by itself when nothing does; a press on it holds
 until the next visit. J and K walk every row on show, the open group's
 included. Within each heading, mail with fewer than five days left comes
 first (soonest first, the rest in the server's order) and says so on a line
-of its own, with a muted hourglass and its day: „Wird am 03.12. entfernt, wenn
-niemand sie ablegt“ for an outsider's mail, which is erased 14 days after it
-came (`expiryErases`), „Läuft am 03.12. ab, wenn niemand sie ablegt“ for
-anyone else's, which stays restorable. „Läuft in 2 Tagen ab“ in ochre after
-the reason read as an alarm and said nothing of what happens. Such a row
+of its own, with a muted hourglass and its day: „Bleibt bis 03.12. im
+E-Mail-Eingang“, the same for every sender, since every expiry stays
+restorable for seven days (ADR-0137, amendment of 2026-11-19). It is a
+deadline, not a threat: „Wird am 03.12. entfernt, wenn niemand sie ablegt“,
+said of an outsider's mail while its expiry erased it, read as one, and „Läuft
+in 2 Tagen ab“ in ochre after the reason read as an alarm and said nothing of
+what happens. Such a row
 offers „Einordnen …“ at rest, which opens the mail and its filing dialog
 (rows differ in what they offer, so the press is shown, design principle 6);
 not for a mail only a colleague may file.
@@ -376,10 +378,10 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    (An, Cc, Antwort an), „Wartet bis {Datum}, danach läuft sie ab“ and
    „Original (.eml) herunterladen“ with „Öffnet sich im Mailprogramm; Bilder
    von außen werden dort geladen.“, or the original's infected or scanning
-   line. In its last week the expiry comes forward into the header: „Wartet nur
-   noch bis {Datum}“, for an outsider „Wird am {Datum} aus dem E-Mail-Eingang
-   entfernt, wenn niemand sie ablegt“ (`expiryErases`), and the outsider's
-   wait line stands down
+   line. In its last week the expiry comes forward into the header: „Bleibt
+   bis {Datum} im E-Mail-Eingang“, as on the row, for every sender, and the
+   outsider's wait line („… und lässt sich danach noch 7 Tage
+   wiederherstellen“) stands down
    (`lib/evidence.ts`, `EXPIRY_INLINE_DAYS = 7`).
 2. The text: first lines, „Ganze E-Mail anzeigen“, „Zitierten Text anzeigen“.
    Plain text only. A link stays inert text; after it stand its domain in ink
@@ -518,11 +520,15 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       is „Wohin kommt dieser Anhang?“ while each only lacks a folder, „Was
       geschieht mit diesem Anhang?“ / „… diesen 2 Anhängen?“ while one is a
       „whether“; under it, whenever a row has a tick, what the tick means:
-      „Ein Häkchen heißt: Die Datei wird abgelegt. Ohne Häkchen bleibt sie
-      weg und wird mit der E-Mail verworfen.“ **Every file is kept by
+      „Ohne Häkchen wird die Datei nicht abgelegt.“ (one line; the two
+      sentences before it said the tick twice, and „Übersicht“ says what is
+      dismissed and for how long). **Every file is kept by
       default** (`AttachmentCase.defaultChecked`), also one the server left
       unselected, except what it keeps out for a reason it names: a copy the
-      project has, a picture from the mail's text, a name stop, a macro or a
+      project has, a picture from the mail's text (named „Bild aus dem
+      E-Mail-Text“, so „Übersicht“ says only „bleibt weg“ after it, and any
+      other part without a filename „Unbenannter Anhang (PDF, 120 kB)“, never
+      „Anhang {n}“; `useDraftCopy`), a name stop, a macro or a
       mismatched type, and anything of a mail posing as a member (a stop,
       never a default; CONTEXT.md). Server-side nothing changes: an
       unselected part needs no acknowledgement of its own; an unconfirmed
@@ -877,7 +883,10 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   its name with a folder glyph and quiet, as „Übersicht“ says it
   („Tragwerk/Statik“, „Dateien (oberste Ebene)“; the view's `folderPath`;
   round 7's „Ordner “ before it left the word alone on a line in the rail),
-  „lag schon im Projekt“, „nicht abgelegt · {Grund}“ (15 reasons); one in a folder the reader cannot see is „Anhang {n}“
+  „lag schon im Projekt“, „nicht abgelegt · {Grund}“ (15 reasons); one with
+  no filename is „Unbenannter Anhang“ (the Verlauf's row carries neither type
+  nor size, nor whether it was a picture of the text); one in a folder the
+  reader cannot see is „Nicht sichtbarer Anhang“ („Anhang {n}“ said nothing)
   with „liegt in einem Ordner mit eigenen Zugriffsrechten; öffnen kann ihn,
   wer dort eingetragen ist“ (never named; „…, den Sie nicht sehen“ read as
   watched).

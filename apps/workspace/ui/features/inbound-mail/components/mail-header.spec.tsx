@@ -71,7 +71,7 @@ describe('MailHeader', () => {
 
   it('brings the expiry forward only in its last week', () => {
     renderDetail('expires-soon')
-    expect(screen.getByTestId('mail-expires-soon')).toHaveTextContent(/^Leaves the project mail on .+ unless someone files it$/)
+    expect(screen.getByTestId('mail-expires-soon')).toHaveTextContent(/^Stays in Project mail until [^,]+, \d{4}$/)
   })
 
   it('keeps a month-away expiry in „Details“', () => {
@@ -178,16 +178,16 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('outside the office')
   })
 
-  it('says calmly when an outsider’s mail leaves the project mail and that a reminder comes, and asks for no check of it', () => {
+  it('says calmly until when an outsider’s mail stays, that it can be restored after, and that a reminder comes, and asks for no check of it', () => {
     const { unmount } = renderDetail('external-unverified')
     const line = screen.getByTestId('sender-wait-reason')
-    expect(line).toHaveTextContent(/^Leaves the project mail on .+ unless someone files it\. \S+ reminds you 5 days before\.$/)
+    expect(line).toHaveTextContent(/^Stays in Project mail until .+, and can be restored for 7 days after that\. \S+ reminds you 5 days before\.$/)
     expect(line).not.toHaveAttribute('data-asks')
     expect(screen.getByTestId('sender-trust')).toHaveTextContent('Sender cannot be verified')
     expect(screen.getByTestId('sender-trust')).toHaveAttribute('data-tone', 'neutral')
     unmount()
     renderDetail('expires-soon')
-    expect(screen.getByTestId('mail-expires-soon')).toHaveTextContent(/Leaves the project mail on .+ unless someone files it/)
+    expect(screen.getByTestId('mail-expires-soon')).toHaveTextContent(/Stays in Project mail until \S+/)
     expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
   })
 

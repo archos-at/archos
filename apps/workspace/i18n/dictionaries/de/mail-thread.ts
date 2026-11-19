@@ -76,7 +76,8 @@ export const mailThread: typeof en.mailThread = {
   attachments: {
     label: 'Anhänge',
     hidden: 'liegt in einem Ordner mit eigenen Zugriffsrechten; öffnen kann ihn, wer dort eingetragen ist',
-    unnamed: 'Anhang {position}',
+    unnamed: 'Unbenannter Anhang',
+    hiddenName: 'Nicht sichtbarer Anhang',
     root: 'Dateien (oberste Ebene)',
     alreadyPresent: 'lag schon im Projekt',
     notFiled: 'nicht abgelegt · {reason}',

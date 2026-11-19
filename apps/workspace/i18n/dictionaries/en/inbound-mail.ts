@@ -86,8 +86,7 @@ export const inboundMail = {
     notFiled: 'Not filed directly\u00A0· {need}',
     filing: 'Filing …',
     notFiledReady: 'Not filed directly',
-    removedOn: 'Will be removed on {date} unless someone files it',
-    expiresOn: 'Expires on {date} unless someone files it',
+    expiresOn: 'Stays in Project mail until {date}',
   },
 
   readiness: {
@@ -156,7 +155,7 @@ export const inboundMail = {
     paused: 'Waiting to be filed: direct filing is switched off. Anyone who may file in this project can file it.',
     not_filed: 'Waiting to be filed: {name} sent it and it comes from this domain, but it was not filed directly. File or dismiss it.',
     no_write_rights: 'Waiting for you: {name} may not file in this project, you may.',
-    outside_office: 'Leaves the project mail on {date} unless someone files it. {productName} reminds you {reminderDays} days before.',
+    outside_office: 'Stays in Project mail until {date}, and can be restored for {restoreDays} days after that. {productName} reminds you {reminderDays} days before.',
     sender_unchecked: 'Waiting to be filed: when it arrived, whether the sender belongs to the office could not be checked. Check the address and the sender above before you file.',
   },
 
@@ -184,8 +183,7 @@ export const inboundMail = {
     receivedLabel: 'Received',
     waitsLabel: 'Waits',
     waitsUntil: 'until {date}, then it expires',
-    expiresSoon: 'Waits only until {date}',
-    expiresSoonErased: 'Leaves the project mail on {date} unless someone files it',
+    expiresSoon: 'Stays in Project mail until {date}',
     to: 'To',
     cc: 'Cc',
     replyTo: 'Reply to',
@@ -285,7 +283,9 @@ export const inboundMail = {
 
   attachments: {
     label: 'Attachments',
-    unnamed: 'Attachment {position}',
+    unnamed: 'Unnamed attachment ({type}, {size})',
+    unnamedSized: 'Unnamed attachment ({size})',
+    imageInText: 'Picture from the mail text',
     file: 'File {name}',
     facts: '{type}\u00A0· {size}',
     open: 'Open',
@@ -340,7 +340,6 @@ export const inboundMail = {
       acknowledgeRevision: 'I am sure it is the next revision',
       encrypted: 'Encrypted – {productName} cannot read its content',
       forwarded_inner: 'From a forwarded mail',
-      image_in_mail: 'Picture in the mail',
       lastFailure: 'Could not be filed: {reason}',
     },
     notStaged: {
@@ -482,7 +481,7 @@ export const inboundMail = {
       question: '{count, plural, one {Where does this attachment go?} other {Where do these # attachments go?}}',
       questionAll: 'Where do the attachments go?',
       questionWhat: '{count, plural, one {What happens to this attachment?} other {What happens to these # attachments?}}',
-      hint: 'A tick means the file is filed. Without a tick it stays out and is dismissed with the mail.',
+      hint: 'Without a tick the file is not filed.',
       waitsForFolder: '{count, plural, one {First choose a folder for # file, or untick it.} other {First choose a folder for # files, or untick them.}}',
       newFolder: 'New folder …',
       rest: '{count, plural, one {# more as proposed} other {# more as proposed}}',
@@ -521,7 +520,7 @@ export const inboundMail = {
         macro: 'stays out – contains macros',
         type_mismatch: 'stays out – file name and content do not match',
         duplicate: 'stays out – already in the project',
-        image: 'stays out – a picture in the mail text',
+        image: 'stays out',
         scan_pending: 'stays out – still being checked for malware',
         scan_failed: 'stays out – the malware check failed',
         infected: 'stays out – malware found',

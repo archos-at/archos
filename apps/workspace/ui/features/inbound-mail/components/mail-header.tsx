@@ -16,7 +16,7 @@ import type { ForwardedOrigin } from '@/lib/inbound-mail/forwarded'
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { cn } from '@/lib/utils'
 import { expiryShownInline } from '../lib/evidence'
-import { expiryErases, mailClaimOf, senderDisplayName } from '../lib/sender'
+import { mailClaimOf, senderDisplayName } from '../lib/sender'
 import { FactLine, QuietPanel } from './inbound-mail-atoms'
 import { SenderFlagLines, SenderTrustLine, SenderTrustTechnical, SenderWaitLine } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
@@ -123,7 +123,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
         )}
         {expirySoon && (
           <FactLine icon={Timer} tone="warning" testId="mail-expires-soon">
-            {t(expiryErases(view) ? 'header.expiresSoonErased' : 'header.expiresSoon', { date: expiry })}
+            {t('header.expiresSoon', { date: expiry })}
           </FactLine>
         )}
         <CollapsibleContent data-testid="mail-details">

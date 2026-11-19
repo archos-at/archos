@@ -250,11 +250,11 @@ describe('InboundMailWorkspace', () => {
     await waitFor(() => expect(row).toHaveAttribute('data-focused', 'true'))
   })
 
-  it('says, calmly and dated, when an outsider’s mail will be removed in its last days, and lifts it to the top of its section', () => {
+  it('says, calmly and dated, until when an outsider’s mail stays in its last days, and lifts it to the top of its section', () => {
     renderWorkspace('many')
     const row = screen.getByTestId(`inbound-mail-row-${EXPIRING}`)
     const day = new Intl.DateTimeFormat('en', { day: '2-digit', month: '2-digit' }).format(new Date(FIXTURE_NOW + 2 * 86_400_000))
-    expect(within(row).getByTestId('inbound-mail-row-expiry')).toHaveTextContent(`Will be removed on ${day} unless someone files it`)
+    expect(within(row).getByTestId('inbound-mail-row-expiry')).toHaveTextContent(`Stays in Project mail until ${day}`)
     const heading = screen.getByTestId('readiness-needs_you')
     const below = screen.getAllByTestId(/^inbound-mail-row-[0-9a-f]/).filter((candidate) => heading.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING)
     expect(below[0]).toBe(row)
