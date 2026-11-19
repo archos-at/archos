@@ -349,6 +349,15 @@ export const collaboration: typeof en.collaboration = {
         body: 'Zu „{subject}“ – in „Mein Feedback“ lesen und antworten.',
         bodyNoSubject: 'In „Mein Feedback“ lesen und antworten.',
       },
+      baseKnowledgeNewEdition: {
+        title: '{subject}: neue Ausgabe erschienen',
+        body: 'Laut Normenverzeichnis gilt heute die Ausgabe {related}, die Büroablage hat nur eine ältere. Laden Sie die neue Ausgabe zur bisherigen dazu.',
+        variants: {
+          projects: {
+            body: 'Laut Normenverzeichnis gilt heute die Ausgabe {related}, die Büroablage hat nur eine ältere. Projekte mit Stichtag danach:',
+          },
+        },
+      },
       storageQuotaWarning: {
         title: 'Der Speicherplatz Ihrer Organisation wird knapp',
         body: '{subject} des Speicherkontingents sind belegt. Sobald es voll ist, schlagen Uploads fehl – löschen Sie nicht mehr benötigte Dokumente oder bitten Sie den Betreiber Ihrer {productName}-Installation, das Kontingent zu erhöhen.',

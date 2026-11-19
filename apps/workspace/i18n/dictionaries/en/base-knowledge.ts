@@ -28,7 +28,7 @@ export const baseKnowledge = {
     },
     check: {
       title: '3 · Keep current',
-      body: 'Record when you checked that the edition is still in force. After a year (directives: six months) a check is due, and {productName} says in answers that the state has not been confirmed for a long time. When a new edition appears, upload it beside the earlier one.',
+      body: 'When the {productName} standards directory lists the standard, {productName} compares the edition itself and reports a newer one. Everything else you check: record when you checked that the edition is still in force. After a year (directives: six months) a check is due, and {productName} says in answers that the state has not been confirmed for a long time. When a new edition appears, upload it beside the earlier one.',
     },
     licence: {
       title: 'Licence and AI processing',
@@ -51,8 +51,8 @@ export const baseKnowledge = {
   filter: {
     all: 'All',
     proposed: 'To confirm',
+    newerEdition: 'Newer edition',
     checkDue: 'Check due',
-    metadataOnly: 'Title and edition only',
     kindAll: 'All kinds',
     search: 'Search designation, title or file',
     searchLabel: 'Search office standards',
@@ -66,13 +66,19 @@ export const baseKnowledge = {
     edition: 'Edition',
     status: 'Status',
     text: 'In answers',
-    checked: 'Last checked',
   },
   status: {
     superseded: 'Superseded',
     proposed: 'To confirm',
-    confirmed: 'Confirmed',
+    current: 'Current',
+    newerEdition: 'Newer edition',
+    checkedOn: 'Checked {date}',
     checkDue: 'Check due',
+    directoryHint: 'The standards directory says edition {label} applies today.',
+  },
+  currency: {
+    directory: 'Compared with the standards directory: edition {label} applies today, since {date}.',
+    manual: 'Not in the standards directory. Someone in your office checks it; {productName} reminds after {months} months.',
   },
   text: {
     used: 'Quoted',
@@ -81,11 +87,6 @@ export const baseKnowledge = {
     usedHint: '{productName} reads, searches and quotes the text.',
     metadataOnlyHint: '{productName} names title and edition but neither reads nor quotes the text until your office allows AI processing.',
     heldHint: '{productName} reads the text only once you confirm the standard.',
-  },
-  checked: {
-    never: 'Never',
-    on: '{date}',
-    dueOn: 'due {date}',
   },
   bulk: {
     selected: '{count} selected',

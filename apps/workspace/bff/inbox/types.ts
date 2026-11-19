@@ -131,6 +131,7 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'inbound_mail.rejected': { icon: 'mail-x', i18nKey: 'inboundMailRejected', tone: 'info' },
   'inbound_mail.expired': { icon: 'mail-clock', i18nKey: 'inboundMailExpired', tone: 'info' },
   'mail_thread.follow_expiring': { icon: 'clock', i18nKey: 'mailThreadFollowExpiring', tone: 'request' },
+  'base_knowledge.new_edition': { icon: 'layers', i18nKey: 'baseKnowledgeNewEdition', tone: 'warning' },
 }
 
 export const LEGACY_INBOX_TYPES: Readonly<Record<string, InboxItemType>> = {

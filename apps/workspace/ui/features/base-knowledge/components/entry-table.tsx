@@ -10,10 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useLocale, useTranslations } from '@/i18n'
+import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
-import { EntryName, LastChecked, StatusChip, TextUseChip } from './entry-atoms'
+import { EntryName, StatusChip, TextUseChip } from './entry-atoms'
 
 interface EntryTableProps {
   entries: readonly BaseKnowledgeEntry[]
@@ -33,7 +33,6 @@ export function EntryTable({
   onOpen,
 }: EntryTableProps): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
-  const { locale } = useLocale()
   const allOn = entries.length > 0 && entries.every((entry) => selected.has(entry.id))
   const someOn = !allOn && entries.some((entry) => selected.has(entry.id))
   return (
@@ -54,7 +53,6 @@ export function EntryTable({
           <TableHead className="max-lg:hidden">{t('column.edition')}</TableHead>
           <TableHead>{t('column.status')}</TableHead>
           <TableHead className="max-md:hidden">{t('column.text')}</TableHead>
-          <TableHead className="max-lg:hidden">{t('column.checked')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -98,9 +96,6 @@ export function EntryTable({
             </TableCell>
             <TableCell className="max-md:hidden">
               <TextUseChip entry={entry} />
-            </TableCell>
-            <TableCell className="whitespace-nowrap max-lg:hidden">
-              <LastChecked entry={entry} locale={locale} />
             </TableCell>
           </TableRow>
         ))}

@@ -32,7 +32,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import { ASK_FOR_LICENCE, type EntryValues } from '@/lib/base-knowledge/wire'
 import { Chip } from '@/components/ui/chip'
-import { day, StatusChip, TextUseChip } from './entry-atoms'
+import { CurrencyNote, day, StatusChip, TextUseChip } from './entry-atoms'
 import { EntryForm, type TerritoryChoice } from './entry-form'
 import { editionReplaced } from '@/lib/base-knowledge/office/listing'
 
@@ -288,25 +288,35 @@ function CheckSection({
   return (
     <section className="space-y-3" data-testid="base-knowledge-check">
       <SectionLabel as="h3">{t('detail.checkSection')}</SectionLabel>
-      <p className="text-muted-foreground text-sm">
-        {t('detail.checkWhy', { days: intervalDays })}
-      </p>
-      <p className="text-sm">
-        {lastCheck
-          ? t('detail.lastCheck', {
-              date: day(lastCheck.checkedAt, locale),
-              result: t(`detail.checkResult.${lastCheck.result}`),
-            })
-          : t('detail.neverChecked')}
-      </p>
+      {entry.directory ? (
+        <p className="text-sm">
+          <CurrencyNote entry={entry} />
+        </p>
+      ) : (
+        <>
+          <p className="text-muted-foreground text-sm">
+            {t('detail.checkWhy', { days: intervalDays })}
+          </p>
+          <p className="text-sm">
+            {lastCheck
+              ? t('detail.lastCheck', {
+                  date: day(lastCheck.checkedAt, locale),
+                  result: t(`detail.checkResult.${lastCheck.result}`),
+                })
+              : t('detail.neverChecked')}
+          </p>
+        </>
+      )}
       {canManage && (
         <>
-          <div className="flex flex-wrap gap-2">
-            {/* One answer is the common one; a newer edition is answered by uploading it, which records the check itself. */}
-            <Button size="sm" disabled={busy} onClick={() => void run(() => recordBaseKnowledgeCheck(entry.id, { result: 'current' }))}>
-              {t('detail.checkCurrent')}
-            </Button>
-          </div>
+          {!entry.directory && (
+            <div className="flex flex-wrap gap-2">
+              {/* One answer is the common one; a newer edition is answered by uploading it, which records the check itself. */}
+              <Button size="sm" disabled={busy} onClick={() => void run(() => recordBaseKnowledgeCheck(entry.id, { result: 'current' }))}>
+                {t('detail.checkCurrent')}
+              </Button>
+            </div>
+          )}
           <div className="space-y-1">
             <input
               ref={file}

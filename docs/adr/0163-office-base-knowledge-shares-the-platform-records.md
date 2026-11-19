@@ -207,3 +207,32 @@ cover most cases; reading needs the licensed seam's zero-retention call), a meas
 standards are read (needs licensed test documents and an evaluation of its own), a view of norms the
 platform lists and the office does not hold, and replacing a copy's file (a newer edition, or remove and
 upload, covers it).
+
+## Amendment 2026-11-19: the Stand comes from the platform's editions where it lists the work
+
+A manual „Ist noch aktuell“ every year is busywork for a work whose editions the platform already holds, and
+says nothing in between. So an entry's Stand is decided in one place (`standOf`, `office/listing.ts`):
+
+- **A work the platform lists** (its designation without the edition, `designationKey`, matches a platform work
+  with a dated edition in force today by the one rule, `newestInForce`) is **Aktuell** when the office holds that
+  edition (a confirmed edition starting on or after it, or one with the same label) and **Neuere Ausgabe** when it
+  holds only an older one (`directoryStanding`, `office/freshness.ts`; the platform read is
+  `PlatformKnowledge.directoryEditions`). It asks for no manual check. An office copy with no date and another
+  label cannot be compared and falls back to the check.
+- **Any other work** (most directives, RVS, commentaries, internal guidelines) keeps the manual check:
+  **Geprüft am <Datum>** while fresh, **Prüfung fällig** once overdue; confirming counts as the first check.
+- A proposal is **Zu bestätigen**; an edition the office's own newer one replaces is **Abgelöst**.
+- The norms tab filters by Alle, Zu bestätigen, Neuere Ausgabe and Prüfung fällig (`attention=newer_edition`
+  is new; `metadata_only` stays for agents). The table's last-checked column folds into the Stand.
+- **The Postfach.** A daily Hatchet sweep (`base-knowledge-new-editions`, `office/new-edition-notice.ts`) compares
+  every office holding a confirmed standard and gives whoever may manage its Büroablage
+  (`org:office-shelf:manage`) one `base_knowledge.new_edition` item per work and edition in force: „<Norm>: neue
+  Ausgabe erschienen“, with the active projects whose reference day (`referenceDayOfProfile`) falls on or after
+  that edition's start. The item is resolved by the next sweep once the office holds the edition.
+
+Not changed: the turn block and the answer label still read the manual check (`freshness`), so an answer does not
+yet say that the platform lists a newer edition; that changes what shapes an answer and needs its golden run.
+
+What the platform holds today: editions with dates for the OIB guidelines, their explanatory notes and guides
+(`issued_on`, rarely `in_force_from`), and no technical standard (no ÖNORM, EN or DIN work). Until the platform
+lists standards with dated editions, every office ÖNORM keeps the manual check.

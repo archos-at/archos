@@ -28,7 +28,7 @@ export const baseKnowledge = {
     },
     check: {
       title: '3 · Aktuell halten',
-      body: 'Halten Sie fest, wenn Sie nachgesehen haben, ob die Ausgabe noch gilt. Nach einem Jahr (Weisungen: sechs Monate) ist die Prüfung fällig, und {productName} sagt in Antworten dazu, dass der Stand lange nicht bestätigt wurde. Erscheint eine neue Ausgabe, laden Sie sie zur bisherigen dazu.',
+      body: 'Führt das Normenverzeichnis von {productName} die Norm, gleicht {productName} die Ausgabe selbst ab und meldet eine neuere. Alles andere prüfen Sie: Halten Sie fest, wenn Sie nachgesehen haben, ob die Ausgabe noch gilt. Nach einem Jahr (Weisungen: sechs Monate) ist die Prüfung fällig, und {productName} sagt in Antworten dazu, dass der Stand lange nicht bestätigt wurde. Erscheint eine neue Ausgabe, laden Sie sie zur bisherigen dazu.',
     },
     licence: {
       title: 'Lizenz und KI-Verarbeitung',
@@ -51,8 +51,8 @@ export const baseKnowledge = {
   filter: {
     all: 'Alle',
     proposed: 'Zu bestätigen',
+    newerEdition: 'Neuere Ausgabe',
     checkDue: 'Prüfung fällig',
-    metadataOnly: 'Nur Titel und Ausgabe',
     kindAll: 'Alle Arten',
     search: 'Bezeichnung, Titel oder Datei suchen',
     searchLabel: 'Grundlagen durchsuchen',
@@ -64,15 +64,21 @@ export const baseKnowledge = {
     entry: 'Grundlage',
     kind: 'Art',
     edition: 'Ausgabe',
-    status: 'Status',
+    status: 'Stand',
     text: 'In Antworten',
-    checked: 'Zuletzt geprüft',
   },
   status: {
     superseded: 'Abgelöst',
     proposed: 'Zu bestätigen',
-    confirmed: 'Bestätigt',
+    current: 'Aktuell',
+    newerEdition: 'Neuere Ausgabe',
+    checkedOn: 'Geprüft am {date}',
     checkDue: 'Prüfung fällig',
+    directoryHint: 'Laut Normenverzeichnis gilt heute die Ausgabe {label}.',
+  },
+  currency: {
+    directory: 'Mit dem Normenverzeichnis abgeglichen: Heute gilt die Ausgabe {label}, seit {date}.',
+    manual: 'Nicht im Normenverzeichnis. Ein Mensch aus Ihrem Büro prüft sie, {productName} erinnert nach {months} Monaten.',
   },
   text: {
     used: 'Wird zitiert',
@@ -81,11 +87,6 @@ export const baseKnowledge = {
     usedHint: '{productName} liest, durchsucht und zitiert den Text.',
     metadataOnlyHint: '{productName} nennt Titel und Ausgabe, liest und zitiert den Text aber nicht, bis Ihr Büro die KI-Verarbeitung erlaubt.',
     heldHint: 'Den Text liest {productName} erst, wenn Sie die Grundlage bestätigen.',
-  },
-  checked: {
-    never: 'Noch nie',
-    on: '{date}',
-    dueOn: 'fällig {date}',
   },
   bulk: {
     selected: '{count} ausgewählt',

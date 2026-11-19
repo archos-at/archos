@@ -160,6 +160,16 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     })
   })
 
+  it('lists for the daily comparison the offices holding a confirmed standard, not those with proposals only', async () => {
+    const office = await import('../office/repository')
+    await propose(OTHER_ORG)
+    const { ids } = await propose()
+    await repo.writeConfirmedValues(ids, VALUES, { organizationId: ORG, createdBy: 'user_bk', provenance: { proposedBy: 'person' }, terms: {}, firstCheck: true })
+    const listed = await withPlatformAccess('base knowledge spec offices', () => office.listOrganizationsWithOfficeEditions(100_000))
+    expect(listed).toContain(ORG)
+    expect(listed).not.toContain(OTHER_ORG)
+  })
+
   it('refuses to update or delete a revision, a body or a check on its own', async () => {
     const { ids } = await propose()
     await repo.insertCopyCheck(ORG, ids.copyId, { checkedBy: 'user_bk', result: 'current', note: null })

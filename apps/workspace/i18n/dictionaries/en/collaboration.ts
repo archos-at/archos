@@ -342,6 +342,15 @@ export const collaboration = {
         body: 'On “{subject}” — read and reply in My feedback.',
         bodyNoSubject: 'Read and reply in My feedback.',
       },
+      baseKnowledgeNewEdition: {
+        title: '{subject}: a new edition has appeared',
+        body: 'The standards directory says edition {related} applies today; Office filing holds only an older one. Upload the new edition beside the earlier one.',
+        variants: {
+          projects: {
+            body: 'The standards directory says edition {related} applies today; Office filing holds only an older one. Projects with a reference day after it:',
+          },
+        },
+      },
       storageQuotaWarning: {
         title: 'Your organization is running out of storage',
         body: '{subject} of the storage quota is in use. Once it is full, uploads will start failing — delete documents you no longer need, or ask whoever runs {productName} for you to raise the quota.',

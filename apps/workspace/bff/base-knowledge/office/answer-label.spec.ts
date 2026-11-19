@@ -17,6 +17,7 @@ const ENTRY: BaseKnowledgeEntry = {
   folderId: null,
   workId: 'work_1',
   editions: [],
+  directory: null,
   textUse: 'used',
   aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
   createdAt: '2026-11-01T00:00:00.000Z',

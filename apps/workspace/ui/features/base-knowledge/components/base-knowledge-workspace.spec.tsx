@@ -166,7 +166,7 @@ describe('BaseKnowledgeWorkspace', () => {
     const viewer = await screen.findByRole('dialog', { name: 'ÖNORM B 1600.pdf' })
     const facts = within(viewer).getByTestId('standard-facts')
     expect(within(facts).getByText('Ausgabe')).toBeTruthy()
-    expect(within(facts).getByText('Zuletzt geprüft')).toBeTruthy()
+    expect(within(facts).getByText('Aktualität')).toBeTruthy()
     await userEvent.click(within(facts).getByTestId('standard-facts-manage'))
     expect(navigation.replace).toHaveBeenCalledWith('/app/base-knowledge?entry=oenorm-b-1600', { scroll: false })
   })
