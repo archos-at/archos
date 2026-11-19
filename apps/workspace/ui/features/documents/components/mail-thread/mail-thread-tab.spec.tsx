@@ -69,7 +69,7 @@ describe('MailThreadTab', () => {
     expect(items[2]).toHaveTextContent('Honorarnote_Okt.zip')
     expect(items[2]).toHaveTextContent('not filed · archive file, not unpacked')
     expect(within(items[2]).queryByRole('link')).toBeNull()
-    expect(items[3]).toHaveTextContent('Attachment 4filed in a folder you cannot see')
+    expect(items[3]).toHaveTextContent('Attachment 4is in a folder with its own access rights; whoever is listed there can open it')
   })
 
   it('says an unconfirmed sender with the warning glyph, in ink', async () => {

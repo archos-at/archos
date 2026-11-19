@@ -298,7 +298,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
   'unverified-thread': {
     view: mail({
       key: 'unverified-thread',
-      subject: 'AW: Tiefgarage Lüftung – Statik S-101 Index D',
+      subject: 'AW: Tiefgarage Lüftung',
       sender: { name: 'Ing. Karl Bauer', address: 'k.bauer@bauer-bau.at', domain: 'bauer-bau.at', signerDomain: 'bauer-bau.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
       participants: [
         { role: 'from', name: 'Ing. Karl Bauer', address: 'k.bauer@bauer-bau.at' },
@@ -321,6 +321,20 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
         },
       ],
     }),
+  },
+  'unconfirmed-reference': {
+    view: mail({
+      key: 'unconfirmed-reference',
+      subject: 'AW: Stellplatznachweis – Statik S-101 Index D',
+      sender: { name: 'Ing. Karl Bauer', address: 'k.bauer@bauer-bau.at', domain: 'bauer-bau.at', signerDomain: 'bauer-bau.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
+      parts: [messagePart({ id: fixtureId('message:ur') }), statik({ filename: 'S-101_Bewehrung.pdf', riskFlags: ['unverified_thread'] })],
+      threadCandidates: [
+        thread({ preselected: false, blocks: ['header_not_signed'] }),
+        thread({ threadId: fixtureId('thread:tg'), documentId: fixtureId('doc:tg'), name: 'Tiefgarage Lüftung', nextVersion: 2, strength: 'subject', preselected: false, blocks: ['weak_match'] }),
+      ],
+      hiddenThreadCandidates: 1,
+    }),
+    text: text({ ownText: 'Sehr geehrte Frau Huber,\n\nanbei die Bewehrung zur Statik S-101.\n\nMit freundlichen Grüßen\nKarl Bauer', quoted: [] }),
   },
   'new-thread': {
     view: mail({ key: 'new-thread', subject: 'Baustellenbegehung 28.10.', parts: [messagePart({ id: fixtureId('message:nt') })], threadCandidates: [] }),
@@ -353,7 +367,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       ],
     }),
     text: text({
-      ownText: 'Sehr geehrte Frau Huber,\n\nanbei die Stellungnahme zum Brandschutzkonzept. Die Fluchtwege der Tiefgarage sind so genehmigungsfähig.\n\nMit freundlichen Grüßen\nKarin Huber\nMA 37 – Baupolizei',
+      ownText: 'Sehr geehrte Frau Huber,\n\nanbei die Stellungnahme zum Brandschutzkonzept. Die Fluchtwege der Tiefgarage sind so genehmigungsfähig.\n\nMit freundlichen Grüßen\nKarin Schober\nMA 37 – Baupolizei',
       quoted: [],
     }),
   },

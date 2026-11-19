@@ -641,6 +641,7 @@ export const files = {
     list: 'Folders',
     empty: 'No folder matches “{query}”.',
     here: 'Here',
+    chosen: 'Chosen',
     close: 'Close',
   },
   list: {

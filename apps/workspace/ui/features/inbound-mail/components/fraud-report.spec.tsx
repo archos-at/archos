@@ -42,13 +42,13 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('„Melden …“ in the fraud stop', () => {
+describe('„Melden und verwerfen …“ in the fraud stop', () => {
   it('says who is warned and that the mail is then dismissed, and reports nothing until the person confirms', async () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS['member-name'] })
     const report = vi.spyOn(client, 'report')
     renderDetail('member-name', client)
     const warning = screen.getByTestId('impersonation-warning')
-    expect(within(warning).getByTestId('fraud-report')).toHaveTextContent('Report …Warns your office so nobody pays.')
+    expect(within(warning).getByTestId('fraud-report')).toHaveTextContent('Report and dismiss …Warns your office so nobody pays, and dismisses the mail.')
 
     await userEvent.click(within(warning).getByTestId('fraud-report-open'))
     const dialog = await screen.findByRole('dialog')

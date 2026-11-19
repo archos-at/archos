@@ -102,6 +102,11 @@ export function AttachmentRow({
   const showTarget = selectable && draft.checked
   const folderMissing = folderTarget === null && draft.revisionOf === null
   const folderName = folderTarget === null ? t('target.noFolder') : folderTarget.path === '' ? t('suggestion.root') : folderTarget.path
+  const changeDetails = (
+    <Button ref={changeRef} type="button" size="sm" variant="inline" className="touch-target h-auto p-0 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+      {t('attachments.changeDetails')}
+    </Button>
+  )
 
   return (
     <Item
@@ -162,7 +167,7 @@ export function AttachmentRow({
         )}
 
         {showTarget && (
-          <div className="mt-1 flex flex-col gap-1.5" data-testid="attachment-target">
+          <div className="mt-0.5 flex flex-col gap-1" data-testid="attachment-target">
             {anySuggested && !threeWay && (
               <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                 {!suggestionLabel && <AgentGlyph size="xs" className="size-4" />}
@@ -180,8 +185,9 @@ export function AttachmentRow({
                   {folderMissing ? t('target.chooseFolder') : t('target.changeFolder')}
                 </Button>
               )}
+              {!folderMissing && !draft.documentType && draft.name === part.filename && changeDetails}
             </div>
-            {(draft.documentType || draft.name !== part.filename || !folderMissing) && (
+            {(draft.documentType || draft.name !== part.filename) && (
               <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
                 {draft.documentType && (
                   <PlaceFact icon={Tag} label={t('suggestion.documentType')} testId="attachment-type">
@@ -193,11 +199,7 @@ export function AttachmentRow({
                     {draft.name}
                   </PlaceFact>
                 )}
-                {!folderMissing && (
-                  <Button ref={changeRef} type="button" size="sm" variant="inline" className="touch-target h-auto p-0 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
-                    {t('attachments.changeDetails')}
-                  </Button>
-                )}
+                {!folderMissing && changeDetails}
               </div>
             )}
             {folderMissing && !folderBelow && (

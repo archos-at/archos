@@ -175,6 +175,17 @@ describe('a folder remembered from the sender’s earlier mail', () => {
     expect(quickPicks(view, draft, [remembered.id], FOLDERS, copy).some((pick) => pick.why === 'suggestion')).toBe(false)
     expect(quickPicks(view, draft, [remembered.id], FOLDERS, copy, { extra: [sender] }).map((pick) => [pick.why, pick.target.path])).toEqual([['sender', 'Pläne/Fassade']])
   })
+
+  it('is the folder the pane names and the dialog preselects, so neither asks for one', () => {
+    const remembered = part({ name: 'FA-202.pdf', suggestion: { folderId: null, folderPath: 'Pläne/Fassade', newFolder: false, documentType: null, reason: '', source: 'sender_memory' } })
+    const view = mail({ parts: [message, remembered] })
+    const draft = initialDraft(view, FOLDERS, copy)
+    const row = draft.attachments[0]
+    expect(row.folder).toMatchObject({ kind: 'existing', path: 'Pläne/Fassade' })
+    expect(attachmentOpenReason(attachmentCase(remembered, view), row, 'none')).toBeNull()
+    expect(planLines(view, draft, copy)[1]).toMatchObject({ kind: 'file', folder: 'Pläne/Fassade' })
+    expect(folderlessIds(view, draft, 'none')).toEqual([])
+  })
 })
 
 describe('one folder for the attachments without one', () => {

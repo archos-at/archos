@@ -7,6 +7,7 @@ import {
   decisionOf,
   fileCheckedInto,
   rebaseDraft,
+  sameSubjectThread,
   revisionChoiceOf,
   draftSummary,
   initialDraft,

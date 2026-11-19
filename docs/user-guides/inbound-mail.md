@@ -222,9 +222,15 @@ more than one):
    Lüftung“ anfügen“ with why it fits („gleicher Betreff“, „antwortet auf
    eine E-Mail darin, das lässt sich aber nicht bestätigen“), „Als neuen
    E-Mail-Verlauf ablegen“ (its name and folder show under it once chosen),
-   or „Text nicht ablegen“. Choosing a match ARCHOS could not confirm is your
-   yes to it. If a Verlauf you cannot open may fit, the step says so: ask the
-   project lead.
+   or „Text nicht ablegen“. When exactly one Verlauf has the same subject and
+   nothing else could fit, it is chosen for you and the step says why
+   („Vorgeschlagen ist „Tiefgarage Lüftung“: gleicher Betreff, und kein
+   anderer E-Mail-Verlauf passt.“); you still confirm it with „Weiter“, and
+   the mail stays under „Braucht Sie“ until you do. Choosing a match ARCHOS
+   could not confirm is your yes to it, so such a match is never chosen for
+   you. If a fitting Verlauf lies in a folder with its own access rights, the
+   step says so: leave the mail in the E-Mail-Eingang, and whoever is listed
+   on that folder can file it there.
 3. **Anhänge**, only for the attachments that need you. A tick means the file
    is filed; without one it stays out and is dismissed with the mail. Every
    file is kept by default, except one already in the project, a picture from
@@ -280,10 +286,11 @@ are filed one at a time, never in a group.
 
 **When the content check finds something in the text** (an IBAN, a social
 security number, one of your office's terms), the „E-Mail-Text“ step names it
-(„Im Text steht: IBAN“) and asks how it should read in the E-Mail-Verlauf:
-„Unkenntlich machen“ (the default: „••••“ in its place, and ARCHOS can still
-read the Verlauf) or „Lesbar ablegen“, which holds the whole Verlauf back
-until the office or project administration decides on it. Either way the
+(„Im Text steht eine IBAN.“) and asks how it should read in the
+E-Mail-Verlauf: „Unkenntlich machen“ (the default: „••••“ in its place, and
+ARCHOS reads the rest of the Verlauf as usual) or „Lesbar ablegen“, which
+holds the whole Verlauf back until a person who administers the project or
+the office decides on it. Either way the
 mail itself stays unchanged: in its original (.eml) with the Verlauf, and in
 the mailboxes it went to, so accounting still finds the IBAN there.
 
@@ -293,11 +300,12 @@ the mailboxes it went to, so accounting still finds the IBAN there.
 is recorded.
 
 **A mail that poses as someone** keeps „Verwerfen“ as its first button.
-„Einordnen …“ appears only after „Trotzdem ablegen …“, and its first step asks
+„Einordnen …“ appears only after „Trotzdem ablegen …“, which waits behind
+„Weitere Möglichkeiten“ under the mail's text, and its first step asks
 „Haben Sie telefonisch geprüft, dass die E-Mail echt ist?“; its last button
 reads „Als echt ablegen“.
 
-**To warn the office**, press „Melden …“ in the red warning. Dismissing only
+**To warn the office**, press „Melden und verwerfen …“ in the red warning. Dismissing only
 ends the mail in ARCHOS; the same mail may have reached accounting's mail
 program. The confirmation says who is warned: whoever manages the project, your
 office's administrators and the member the mail poses as. „Melden und

@@ -1,10 +1,10 @@
 'use client'
 
 import type { JSX, MutableRefObject, ReactNode } from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { AlertTriangle, Hourglass, Loader2, Lock, Users } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Hourglass, Loader2, Lock, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ItemList } from '@/components/ui/item'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -103,6 +103,8 @@ export function InboundMailDetail({
   const [threadNameStop, setThreadNameStop] = useState<string[] | null>(null)
   const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
   const [filingOpen, setFilingOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreId = useId()
   const [claimConfirmOpen, setClaimConfirmOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [steps, setSteps] = useState<FilingStep[]>(['overview'])
@@ -113,6 +115,7 @@ export function InboundMailDetail({
   const openButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     setFilingOpen(false)
+    setMoreOpen(false)
     setClaimConfirmOpen(false)
     setDialogOpen(false)
     setReviewed(false)
@@ -480,18 +483,35 @@ export function InboundMailDetail({
 
         {/* The forged mail's way to filing is one deliberate press, never the page's default. */}
         {impersonation && !readOnly && view.status === 'waiting' && waitingParts.length > 0 && (
-          <div className="flex flex-col items-start gap-1">
+          <div className="flex flex-col items-start gap-2" data-testid="impersonation-more">
             <Button
               type="button"
-              variant="secondary"
-              size="sm"
-              aria-expanded={filingOpen}
-              onClick={() => setFilingOpen((open) => !open)}
-              data-testid="impersonation-file-anyway"
+              variant="inline"
+              className="text-muted-foreground touch-target h-auto gap-1 p-0 text-xs"
+              aria-expanded={moreOpen || filingOpen}
+              aria-controls={moreId}
+              onClick={() => setMoreOpen((open) => !open)}
+              disabled={filingOpen}
+              data-testid="impersonation-more-toggle"
             >
-              {t(filingOpen ? 'impersonationWarning.fileAnywayClose' : 'impersonationWarning.fileAnyway')}
+              {t('impersonationWarning.more')}
+              <ChevronDown className={cn('size-3.5 transition-transform duration-quick motion-reduce:transition-none', (moreOpen || filingOpen) && 'rotate-180')} aria-hidden />
             </Button>
-            <p className="text-muted-foreground text-xs">{t(claim === 'own' ? 'impersonationWarning.fileAnywayHintOwn' : 'impersonationWarning.fileAnywayHint')}</p>
+            {(moreOpen || filingOpen) && (
+              <div id={moreId} className="flex flex-col items-start gap-1">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  aria-expanded={filingOpen}
+                  onClick={() => setFilingOpen((open) => !open)}
+                  data-testid="impersonation-file-anyway"
+                >
+                  {t(filingOpen ? 'impersonationWarning.fileAnywayClose' : 'impersonationWarning.fileAnyway')}
+                </Button>
+                <p className="text-muted-foreground text-xs">{t(claim === 'own' ? 'impersonationWarning.fileAnywayHintOwn' : 'impersonationWarning.fileAnywayHint')}</p>
+              </div>
+            )}
           </div>
         )}
 

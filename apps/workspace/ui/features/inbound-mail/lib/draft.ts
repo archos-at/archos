@@ -119,6 +119,14 @@ export function messageSelectable(view: InboundMailView): boolean {
   return !!part && partMessageSelectable(part, view)
 }
 
+export function sameSubjectThread(
+  view: Pick<InboundMailView, 'threadCandidates' | 'hiddenThreadCandidates'>
+): InboundMailThreadCandidateView | null {
+  if (defaultThread(view) || view.hiddenThreadCandidates > 0 || view.threadCandidates.length !== 1) return null
+  const [only] = view.threadCandidates
+  return !only.full && only.strength === 'subject' && !appendNeedsAcknowledgement(only) ? only : null
+}
+
 export function initialDraft(view: InboundMailView, folders: readonly FolderOption[], copy: DraftCopy): MailDraft {
   const attachments = view.parts
     .filter((part) => part.kind === 'attachment')
@@ -126,7 +134,7 @@ export function initialDraft(view: InboundMailView, folders: readonly FolderOpti
   const messagePart = view.parts.find((part) => part.kind === 'message')
   let message: MessageDraft | null = null
   if (messagePart) {
-    const thread = defaultThread(view)
+    const thread = defaultThread(view) ?? sameSubjectThread(view)
     message = {
       partId: messagePart.id,
       checked: messageSelectable(view) && messagePart.preselected,

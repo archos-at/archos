@@ -27,6 +27,8 @@ export interface FolderPickerListProps {
   onPick: (folderId: string | null, label: string) => void
   /** The scrolling list's own bound: a dialog of its own gives it most of the screen, a step inside another dialog less. */
   listClassName?: string
+  /** A choice still to be confirmed marks its current folder as chosen, not as where the item already lies. */
+  current?: 'here' | 'chosen'
 }
 
 export function matching(
@@ -45,6 +47,7 @@ export function FolderPickerList({
   pending = false,
   onPick,
   listClassName = 'max-h-[min(55dvh,26rem)]',
+  current = 'here',
 }: FolderPickerListProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const [query, setQuery] = useState('')
@@ -71,6 +74,7 @@ export function FolderPickerList({
         {showRoot && (
           <PickerRow
             label={allFiles}
+            current={current}
             here={currentFolderId === null}
             disabled={pending || currentFolderId === null || canPick?.(null) === false}
             onPick={() => onPick(null, allFiles)}
@@ -82,6 +86,7 @@ export function FolderPickerList({
           <PickerRow
             key={folder.id}
             label={label}
+            current={current}
             here={currentFolderId === folder.id}
             disabled={pending || currentFolderId === folder.id || canPick?.(folder.id) === false}
             onPick={() => onPick(folder.id, label)}
@@ -138,9 +143,11 @@ export function PickerRow({
   root = false,
   icon,
   hint,
+  current = 'here',
 }: {
   label: string
   here: boolean
+  current?: 'here' | 'chosen'
   disabled: boolean
   onPick: () => void
   testId: string
@@ -151,6 +158,7 @@ export function PickerRow({
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   const Icon = here ? Check : (icon ?? (root ? FolderOpen : Folder))
+  const chosen = here && current === 'chosen'
   return (
     <li>
       <button data-attr="files-pick"
@@ -159,17 +167,18 @@ export function PickerRow({
         onClick={onPick}
         aria-current={here ? 'true' : undefined}
         data-testid={testId}
+        data-chosen={chosen || undefined}
         className={cn(
           FOLDER_ROW,
-          here ? 'text-muted-foreground' : 'text-foreground disabled:opacity-50'
+          chosen ? 'bg-selected text-foreground font-medium' : here ? 'text-muted-foreground' : 'text-foreground disabled:opacity-50'
         )}
       >
-        <Icon className="text-muted-foreground size-4 shrink-0" aria-hidden />
+        <Icon className={cn('size-4 shrink-0', chosen ? 'text-foreground' : 'text-muted-foreground')} aria-hidden />
         <span className="flex min-w-0 flex-1 flex-col break-words">
           <span>{label}</span>
-          {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
+          {hint && <span className="text-muted-foreground text-xs font-normal">{hint}</span>}
         </span>
-        {here && <span className="text-muted-foreground shrink-0 text-xs">{t('picker.here')}</span>}
+        {here && <span className={cn('shrink-0 text-xs', chosen ? 'text-foreground' : 'text-muted-foreground')}>{t(chosen ? 'picker.chosen' : 'picker.here')}</span>}
       </button>
     </li>
   )

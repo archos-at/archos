@@ -67,7 +67,7 @@ export const mailThread: typeof en.mailThread = {
   },
   attachments: {
     label: 'Anhänge',
-    hidden: 'abgelegt in einem Ordner, den Sie nicht sehen',
+    hidden: 'liegt in einem Ordner mit eigenen Zugriffsrechten; öffnen kann ihn, wer dort eingetragen ist',
     unnamed: 'Anhang {position}',
     alreadyPresent: 'lag schon im Projekt',
     notFiled: 'nicht abgelegt · {reason}',

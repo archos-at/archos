@@ -12,6 +12,7 @@ import { useTranslations } from '@/i18n'
 import type { InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { INBOUND_MAIL_RESTORE_DAYS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { CLAUSE_JOIN } from '@/lib/format'
+import { displaySubject } from '@/lib/inbound-mail/subject'
 import { cn } from '@/lib/utils'
 import { attachmentCase } from '../lib/attachment-case'
 import {
@@ -19,6 +20,7 @@ import {
   checkedAttachmentIds,
   fileCheckedInto,
   selectableAttachmentIds,
+  sameSubjectThread,
   chooseRevision,
   targetForPath,
   updateAttachment,
@@ -186,7 +188,15 @@ export function FilingDialog({
       case 'text': {
         const part = view.parts.find((candidate) => candidate.kind === 'message')
         const unsure = view.threadCandidates.length > 0 && !view.threadCandidates.some((candidate) => candidate.preselected && candidate.blocks.length === 0)
-        const hint = part && part.contentFindings.length > 0 ? t('filing.text.hintFinding') : unsure ? t('filing.text.hintUnsure') : t('filing.text.hint')
+        const bySubject = sameSubjectThread(view)
+        const hint =
+          part && part.contentFindings.length > 0
+            ? t('filing.text.hintFinding')
+            : bySubject
+              ? t('filing.text.hintSubject', { name: bySubject.name })
+              : unsure
+                ? t('filing.text.hintUnsure')
+                : t('filing.text.hint')
         return { title: t('filing.text.question'), hint }
       }
       case 'attachments': {
@@ -266,11 +276,15 @@ export function FilingDialog({
         data-step={step}
       >
         <DialogHeader className="gap-1 px-6 pb-3 pt-6 pr-14">
-          {steps.length > 1 && (
-            <p className="text-muted-foreground text-xs tabular-nums" data-testid="filing-progress">
-              {t('filing.progress', { current: index + 1, total: steps.length })}
-            </p>
-          )}
+          <p className="text-muted-foreground flex min-w-0 items-baseline gap-1 text-xs" data-testid="filing-mail">
+            {steps.length > 1 && (
+              <span className="shrink-0 tabular-nums" data-testid="filing-progress">
+                {`${t('filing.progress', { current: index + 1, total: steps.length })}${CLAUSE_JOIN}`}
+              </span>
+            )}
+            <span className="text-foreground min-w-0 truncate font-medium">{t('filing.mailSubject', { subject: displaySubject(view.subject) ?? t('row.noSubject') })}</span>
+            {view.sender && <span className="shrink-0">{` ${t('filing.mailFrom', { sender: senderDisplayName(view.sender) })}`}</span>}
+          </p>
           <DialogTitle ref={titleRef} tabIndex={-1} className="text-pane-title leading-snug outline-none [overflow-wrap:anywhere]">
             {question.title}
           </DialogTitle>
@@ -336,6 +350,7 @@ export function FilingDialog({
               {shownRows.length > 0 && attachmentRows(shownRows)}
               {pickIds.length > 0 && (
                 <FolderChoice
+                  foldAfterChoice
                   count={pickIds.length}
                   current={sharedFolder}
                   picks={picks}
