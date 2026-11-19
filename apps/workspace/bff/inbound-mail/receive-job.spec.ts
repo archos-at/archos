@@ -1089,6 +1089,25 @@ describe('B3: a dependency that does not answer spends no attempt and freezes no
     expect(state.parts[0]).toMatchObject({ kind: 'message', riskFlags: ['unreadable'] })
   })
 
+  it.each(['timeout', 'failed'] as const)('a reader whose reading process answered %s holds the text with reader_fault_at, so sweep 15 reads it again', async (reason) => {
+    vi.mocked(readMail).mockResolvedValue(read({ bodySource: 'none', ownText: '', unreadableReasons: [reason], unreadable: true }))
+    receive(await sign(message()))
+
+    expect(await run()).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting' })
+    expect(heldRow().readerFaultAt).toBeInstanceOf(Date)
+    expect(state.parts[0].riskFlags).toEqual(['unreadable'])
+  })
+
+  it('a text the reader read and found too large is its answer, no re-read due', async () => {
+    vi.mocked(readMail).mockResolvedValue(read({ bodySource: 'none', ownText: '', unreadableReasons: ['message_too_large'], unreadable: true }))
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', readerFaultAt: null })
+  })
+
   it('a reader that refuses the request (422) is no fault: unreadable at once, no re-read due', async () => {
     const { MailReadRefusedError } = await import('./read-client')
     vi.mocked(readMail).mockRejectedValue(new MailReadRefusedError(422))

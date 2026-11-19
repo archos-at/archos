@@ -328,7 +328,12 @@ the mail is held with what was not learned, said, never guessed:
   same on every try;
 - the reader: the text is held `unreadable` with `reader_fault_at`, and sweep 15
   (`receive-reread.ts`) reads it again every 15 minutes while the mail waits,
-  then queues a verified writer's sender filing again, by name.
+  then queues a verified writer's sender filing again, by name. A reader that
+  answers, but whose reading process ran out of time or crashed (200 with
+  `unreadable_reasons` `timeout` or `failed`, `read.py`), is held the same way
+  at once (`READER_FAULT_REASONS`, `receive-faults.ts`): its answer says
+  nothing about the mail. Sweep 15 records whatever the next read answers, so
+  such a text is read once more, not every 15 minutes.
 
 Any other failure is a bug and retries through the queue: an object store that
 answers 4xx, or a request Node refuses to send, fails the same on every try, so
