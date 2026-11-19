@@ -76,7 +76,7 @@ describe('the mail pane', () => {
     expect(within(pane).queryByTestId('attachments-check-all')).toBeNull()
     const phrases = within(pane).getAllByTestId('attachment-plan').map((phrase) => phrase.textContent)
     expect(phrases).toEqual([
-      'Becomes revision 4 of S-101_C.pdf',
+      'Revision 4 of S-101_C.pdf (replaces C)\u00A0· Folder Tragwerk',
       'Folder Tragwerk\u00A0· Document type Floor plan',
       'New folder Fotos\u00A0· Document type Photo',
       'stays out – already in the project',
@@ -256,7 +256,7 @@ describe('„Einordnen“', () => {
     await openFiling()
     expect(overviewLines()).toEqual([
       expect.stringMatching(/^Mail text → added to mail thread “Stellplatznachweis”/),
-      'S-101_D.pdf → revision 4 of S-101_C.pdf',
+      'S-101_D.pdf → revision 4 of S-101_C.pdf (replaces C)\u00A0· Folder Tragwerk',
       'Grundriss_EG.dwg → Folder Tragwerk\u00A0· Document type Floor plan',
       'Foto_Baustelle.jpg → New folder Fotos\u00A0· Document type Photo',
       'Statik_verschluesselt.pdf → Folder Tragwerk',
@@ -301,7 +301,7 @@ describe('„Einordnen“', () => {
     renderDetail('unverified-thread')
     await openFiling()
     await toOverview()
-    expect(overviewLines()).toContain('S-101_D.pdf → Folder Tragwerk')
+    expect(overviewLines()).toContain('S-101_D.pdf → revision 4 of S-101_C.pdf (replaces C)\u00A0· Folder Tragwerk')
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-none'))
     await next()
@@ -510,7 +510,7 @@ describe('„Einordnen“', () => {
     expect(sent.acknowledgeRisk).toContain(sent.message!.partId)
   })
 
-  it('asks an unsure next Fassung as three answers, files it as a new file by default, and as the Fassung once chosen', async () => {
+  it('asks a plan’s next index as three answers, the next Fassung by default, and says the decision in „Übersicht“', async () => {
     const fixture = DETAIL_VARIANTS['unverified-thread']
     const plan = fixture.view.parts.find((part) => part.kind === 'attachment')!
     const client = fixtureClient({ detail: fixture })
@@ -519,12 +519,21 @@ describe('„Einordnen“', () => {
     await openFiling()
     await next()
     expect(stepOf()).toBe('attachments')
+    expect(within(dialog()).getByTestId('note-revision')).toHaveTextContent(
+      'The project holds S-101_C.pdf as revision 3 in the folder Tragwerk. The drawing number matches, so the next revision is proposed.'
+    )
     const choice = within(dialog()).getByTestId('revision-choice')
     expect(within(choice).getAllByRole('radio').map((radio) => radio.closest('div')?.textContent)).toEqual([
       'File as a new file next to S-101_C.pdf',
       'File as revision 4 of S-101_C.pdf',
       'Do not file',
     ])
+    expect(within(dialog()).getByTestId('revision-choice-revision')).toBeChecked()
+    expect(within(dialog()).queryByTestId('attachment-ack-revision')).toBeNull()
+    await next()
+    expect(overviewLines()).toContain('S-101_D.pdf → revision 4 of S-101_C.pdf (replaces C)\u00A0· Folder Tragwerk')
+    await userEvent.click(within(dialog()).getByTestId('filing-back'))
+    await userEvent.click(within(dialog()).getByTestId('revision-choice-new'))
     expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Tragwerk')
     await next()
     expect(overviewLines()).toContain('S-101_D.pdf → Folder Tragwerk')

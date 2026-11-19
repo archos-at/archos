@@ -198,9 +198,11 @@ whether you sent it yourself), or where it will be gone: a mail from outside
 the office says „Wird am {Datum} aus dem E-Mail-Eingang entfernt, wenn niemand
 sie ablegt. ARCHOS erinnert 5 Tage vorher.“ Then the text, and the
 attachments with one quiet line each saying what ARCHOS proposes for it:
-„Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Wird Fassung 4 von
-S-101_C.pdf“, „bleibt weg – liegt schon im Projekt“, or „Offen: Ordner
-wählen“ where there is something to decide.
+„Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Fassung 4 von
+S-101_C.pdf (ersetzt C) · Ordner Tragwerk“, „bleibt weg – liegt schon im
+Projekt“, or „Offen: Ordner wählen“ where there is something to decide. The
+pane and „Einordnen“ say the same: a folder the dialog fills in is never
+„Offen“ here.
 
 At the foot stand two buttons. **Verwerfen** says no to the whole mail; the
 line beside it says it acts only in ARCHOS, never in your mail program, and
@@ -229,16 +231,27 @@ more than one):
    the mail's text, and one the name check stopped or that holds macros:
    those you tick yourself. Each file has its own „Ordner wählen“ / „Ordner
    ändern“; with several without a folder, „Alle 3 in diesen Ordner“ sends
-   them all with one choice. The folder list starts with the likely folders
-   and „Neuer Ordner …“, which the filing creates. „Weiter“ waits until every
-   ticked file has a folder and says so. A plan whose name alone ties it to an
-   earlier one is asked as three answers: „Als neue Datei neben S-101_C.pdf
-   ablegen“ (the default, in that document's folder), „Als Fassung 4 von
-   S-101_C.pdf ablegen“, or „Nicht ablegen“. The attachments with a sure
-   proposal are folded into „4 weitere wie vorgeschlagen · Ändern“.
+   them all with one choice, after which the list folds to „✓ Alle 3 kommen
+   in Pläne / Fassade · Anderer Ordner …“. The folder list starts with the
+   likely folders and „Neuer Ordner …“, which the filing creates; the folder
+   you chose is marked „Gewählt“. „Weiter“ waits until every ticked file has
+   a folder and says so. A file whose name alone ties it to an earlier
+   document is asked as three answers, each saying what it does: „Als
+   Fassung 4 von S-101_C.pdf ablegen“ (S-101_D.pdf becomes the current
+   state), „Als neue Datei neben S-101_C.pdf ablegen“ (S-101_C.pdf stays the
+   current state), or „Nicht ablegen“. For a plan, the same plan number and
+   format with the same or a later letter index (S-101_D.pdf over
+   S-101_C.pdf), the Fassung is chosen for you and the step says what the
+   project holds („Im Projekt liegt S-101_C.pdf als Fassung 3 im Ordner
+   Tragwerk.“); for anything else „Als neue Datei“ is. Choosing the Fassung
+   is your confirmation of it; a file with macros still asks its own. The
+   attachments with a sure proposal are folded into „4 weitere wie
+   vorgeschlagen · Ändern“.
 4. **Übersicht**, always: one sentence per part. „E-Mail-Text → an
    E-Mail-Verlauf „Stellplatznachweis“ anfügen“, „Bescheid_MA37.pdf → Ordner
-   Behörde/Bescheide · Dokumentart Bescheid“. Whatever stays out stands in a
+   Behörde/Bescheide · Dokumentart Bescheid“, „S-101_D.pdf → Fassung 4 von
+   S-101_C.pdf (ersetzt C) · Ordner Tragwerk“ or „S-101_D.pdf → neue Datei
+   neben S-101_C.pdf · Ordner Tragwerk“. Whatever stays out stands in a
    box of its own with its reason („Bescheid_alt.pdf bleibt weg – liegt schon
    im Projekt“, „Honorarnote.pdf bleibt weg – Namensprüfung: „Honorar““), a
    „Doch ablegen“ where filing it is your call, and what „bleibt weg“ means:

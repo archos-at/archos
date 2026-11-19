@@ -384,9 +384,10 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    „Übersicht“ uses (`usePlanWords`, `plan-words.tsx`, from `planLines` in
    `lib/filing-plan.ts`): „Ordner Behörde/Bescheide · Dokumentart Bescheid“
    (each value with its label: „Kommt nach … · Bescheid“ left her asking what
-   the second „Bescheid“ was), „Neuer Ordner Fotos · Dokumentart Foto“, „Wird
-   Fassung 4 von S-101_C.pdf“, „bleibt weg – liegt schon im Projekt“, „Noch
-   kein Ordner“. Until the person has seen „Übersicht“ once, a part that asks
+   the second „Bescheid“ was), „Neuer Ordner Fotos · Dokumentart Foto“,
+   „Fassung 4 von S-101_C.pdf (ersetzt C) · Ordner Tragwerk“, „Neue Datei
+   neben S-101_C.pdf · Ordner Tragwerk“, „bleibt weg – liegt schon im
+   Projekt“, „Noch kein Ordner“. Until the person has seen „Übersicht“ once, a part that asks
    for a decision says so instead (`attachmentOpenReason`): „Offen: Ordner
    wählen“, „Offen: {productName} liest noch …“, „Offen: könnte Fassung 4 von
    S-101_C.pdf sein“, „Offen: ablegen oder nicht“, „Offen: Namensprüfung“,
@@ -493,11 +494,29 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       unselected part needs no acknowledgement of its own; an unconfirmed
       sender's acknowledgement stays in „Absender“. **An unsure next
       Fassung is three answers, never a tick** (`unsureRevision`,
-      `chooseRevision`): „Als neue Datei neben {Name} ablegen“ (the default,
-      in that document's folder: `revisionOf` null, that folder),
-      „Als Fassung {n} von {Name} ablegen“ (`revisionOf`, and the choice is
-      the `acknowledgeRisk` the server asks; a macro keeps its own „Ich
-      vertraue …“) and „Nicht ablegen“. Each row (`AttachmentRow`) has its
+      `chooseRevision`), each with what it does under it: „Als Fassung {n}
+      von {Name} ablegen“ („S-101_D.pdf wird der aktuelle Stand, S-101_C.pdf
+      bleibt als Fassung 3 erhalten.“; `revisionOf`, and the choice is the
+      `acknowledgeRisk` the server asks; a macro keeps its own „Ich vertraue
+      …“), „Als neue Datei neben {Name} ablegen“ („S-101_C.pdf bleibt der
+      aktuelle Stand.“; `revisionOf` null, in that document's folder) and
+      „Nicht ablegen“ („Die Datei wird mit der E-Mail verworfen.“). **A
+      plan's next index is the next Fassung by default** (round 4: with „neue
+      Datei“ as the default the team kept building from C): when the file
+      and the document carry the same plan number and format and the file's
+      letter index is the same or later (`revisionByDefault`,
+      `lib/plan-index.ts`: a name with a digit in its number, then `_`, `-`,
+      a space or „Index“, then one letter; pdf, dwg, dxf, ifc, plt, pln,
+      rvt), as „S-101_D.pdf“ over „S-101_C.pdf“. An older index, another
+      number, another format or a name without an index keeps „Als neue
+      Datei“ as the default. The step is asked either way, and its note
+      then says what the project holds: „Im Projekt liegt S-101_C.pdf als
+      Fassung 3 im Ordner Tragwerk. Die Plannummer stimmt überein, darum ist
+      die nächste Fassung vorgeschlagen.“ (else, as before, „könnte Fassung 4
+      von S-101_C.pdf sein, aber nur der Dateiname spricht dafür“). The
+      server's candidate is a document of the same name today
+      (`findScreenedNamesakes`), so the rule meets „S-101_D.pdf“ over a
+      document that took that name; nothing in the server changed. Each row (`AttachmentRow`) has its
       case notes, „Ordner: …“ with its own „Ordner wählen“ / „Ordner
       ändern“ (`FolderChoiceDialog`: the likely folders, „Neuer Ordner …“,
       the project's folders), „Dokumentart: …“, „Name, Dokumentart …“ with
@@ -526,7 +545,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       unkenntlich)“ after a masked text), „E-Mail-Text → als neuen
       E-Mail-Verlauf „…“ in Korrespondenz ablegen“, „Bescheid_MA37.pdf →
       Ordner Behörde/Bescheide · Dokumentart Bescheid“, „S-101_D.pdf →
-      Fassung 4 von S-101_C.pdf“, „Foto_Baustelle.jpg → Neuer Ordner Fotos ·
+      Fassung 4 von S-101_C.pdf (ersetzt C) · Ordner Tragwerk“ (or „(ersetzt
+      Fassung 3)“ where the names carry no index to name), „S-101_D.pdf →
+      neue Datei neben S-101_C.pdf · Ordner Tragwerk“ (the decision on a
+      possible Fassung is named, `PlanLine.besides`; round 4's „→ Ordner
+      Tragwerk“ hid it), „Foto_Baustelle.jpg → Neuer Ordner Fotos ·
       Dokumentart Foto“, „Angebot_2026.pdf → noch kein Ordner“. **What stays
       out is loud** (round 3: „S-101_D.pdf bleibt weg“ in grey was the plan
       the mail was about): a framed box (`filing-left`) below the filed

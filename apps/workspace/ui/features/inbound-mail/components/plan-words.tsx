@@ -24,13 +24,25 @@ export function usePlanWords(): PlanWords {
 
   const folder = useCallback((path: string): string => (path === '' ? t('suggestion.root') : path), [t])
   const place = useCallback(
-    (line: Extract<PlanLine, { kind: 'file' }>): string =>
+    (line: Extract<PlanLine, { kind: 'file' }>, besides: 'overview' | 'pane'): string =>
       [
+        ...(line.besides ? [t(`filing.${besides}.besides`, { of: line.besides })] : []),
         line.newFolder ? t('filing.overview.newFolderNamed', { folder: folder(line.folder) }) : t('filing.overview.folder', { folder: folder(line.folder) }),
         ...(line.documentType ? [t('filing.overview.documentType', { type: tagLabel(line.documentType, tFiles) })] : []),
         ...(line.rename ? [t('filing.overview.renamed', { name: line.rename })] : []),
       ].join(CLAUSE_JOIN),
     [folder, t, tFiles]
+  )
+
+  const revisionWords = useCallback(
+    (line: Extract<PlanLine, { kind: 'revision' }>): string =>
+      [
+        `${t('filing.overview.revision', { version: line.version, of: line.of })} ${
+          line.replaces ? t('filing.overview.replaces', { index: line.replaces }) : t('filing.overview.replacesVersion', { version: line.version - 1 })
+        }`,
+        ...(line.folder !== null ? [t('filing.overview.folder', { folder: folder(line.folder) })] : []),
+      ].join(CLAUSE_JOIN),
+    [folder, t]
   )
 
   const leftWords = useCallback(
@@ -57,16 +69,16 @@ export function usePlanWords(): PlanWords {
         case 'text_left':
           return t('filing.overview.textLeft')
         case 'file':
-          return ARROW + place(line)
+          return ARROW + place(line, 'overview')
         case 'revision':
-          return ARROW + t('filing.overview.revision', { version: line.version, of: line.of })
+          return ARROW + revisionWords(line)
         case 'no_folder':
           return ARROW + t('filing.overview.noFolder')
         case 'left':
           return leftWords(line)
       }
     },
-    [folder, leftWords, place, t]
+    [folder, leftWords, place, revisionWords, t]
   )
 
   const phrase = useCallback(
@@ -77,9 +89,11 @@ export function usePlanWords(): PlanWords {
       }
       switch (line.kind) {
         case 'file':
-          return t('filing.pane.to', { folder: place(line) })
-        case 'revision':
-          return t('filing.pane.revision', { version: line.version, of: line.of })
+          return place(line, 'pane')
+        case 'revision': {
+          const words = revisionWords(line)
+          return words.charAt(0).toLocaleUpperCase() + words.slice(1)
+        }
         case 'no_folder':
           return t('filing.pane.noFolder')
         case 'left':
@@ -88,7 +102,7 @@ export function usePlanWords(): PlanWords {
           return null
       }
     },
-    [leftWords, place, t]
+    [leftWords, place, revisionWords, t]
   )
 
   return { subject, outcome, phrase }

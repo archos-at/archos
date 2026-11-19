@@ -12,6 +12,7 @@ import {
   type FolderTarget,
   type MailDraft,
 } from './draft'
+import { replacedIndex } from './plan-index'
 import { readSuggestion } from './suggestion'
 
 export const FILING_STEPS = ['sender', 'text', 'attachments', 'overview'] as const
@@ -89,8 +90,17 @@ export type PlanLine =
   | { kind: 'text_append'; partId: string; thread: string; masked: boolean }
   | { kind: 'text_create'; partId: string; thread: string; folder: string; masked: boolean }
   | { kind: 'text_left'; partId: string; includable: boolean }
-  | { kind: 'file'; partId: string; name: string; rename: string | null; folder: string; newFolder: boolean; documentType: DocumentTypeTag | null }
-  | { kind: 'revision'; partId: string; name: string; version: number; of: string }
+  | {
+      kind: 'file'
+      partId: string
+      name: string
+      rename: string | null
+      folder: string
+      newFolder: boolean
+      documentType: DocumentTypeTag | null
+      besides: string | null
+    }
+  | { kind: 'revision'; partId: string; name: string; version: number; of: string; replaces: string | null; folder: string | null }
   | { kind: 'no_folder'; partId: string; name: string }
   | { kind: 'left'; partId: string; name: string; why: LeftReason; includable: boolean; terms: readonly string[]; risk: AttachmentCase['risk'] }
 
@@ -122,7 +132,15 @@ function attachmentLine(entry: AttachmentCase, row: AttachmentDraft | undefined,
   }
   const revision = part.revisionCandidate
   if (row.revisionOf !== null && revision?.documentId === row.revisionOf) {
-    return { kind: 'revision', partId: part.id, name, version: revision.nextVersion, of: revision.name }
+    return {
+      kind: 'revision',
+      partId: part.id,
+      name,
+      version: revision.nextVersion,
+      of: revision.name,
+      replaces: replacedIndex(part.filename, revision.name),
+      folder: revision.folderPath,
+    }
   }
   if (row.folder === null) return { kind: 'no_folder', partId: part.id, name }
   const renamed = row.name.trim()
@@ -134,6 +152,7 @@ function attachmentLine(entry: AttachmentCase, row: AttachmentDraft | undefined,
     folder: row.folder.path,
     newFolder: row.folder.kind === 'new',
     documentType: row.documentType,
+    besides: revision?.name ?? null,
   }
 }
 

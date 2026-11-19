@@ -77,7 +77,8 @@ function attachmentDraft(entry: AttachmentCase, folders: readonly FolderOption[]
   const { part } = entry
   const suggestion: PartSuggestion | null = readSuggestion(part.suggestion)
   const revision = part.revisionCandidate
-  const revisionChosen = revision !== null && !entry.unsureRevision && entry.defaultChecked
+  const revisionChosen = revision !== null && (!entry.unsureRevision || entry.revisionDefault) && entry.defaultChecked
+  const ownRisk = part.riskFlags.includes('macro') || part.riskFlags.includes('type_mismatch')
   const folder =
     revision !== null && (revisionChosen || entry.unsureRevision)
       ? targetForPath(revision.folderPath ?? '', folders)
@@ -92,7 +93,7 @@ function attachmentDraft(entry: AttachmentCase, folders: readonly FolderOption[]
     documentType: suggestion?.documentType ?? null,
     revisionOf: revisionChosen ? revision.documentId : null,
     releaseName: false,
-    acknowledgeRisk: false,
+    acknowledgeRisk: revisionChosen && entry.unsureRevision && !ownRisk,
     suggested: {
       folder: folder !== null && revision === null,
       name: suggestion?.name != null,
