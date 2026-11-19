@@ -17,7 +17,7 @@ import {
   type DraftCopy,
 } from './draft'
 
-const copy: DraftCopy = { unnamedAttachment: (position) => `Attachment ${position}`, untitledThread: '(no subject)' }
+const copy: DraftCopy = { unnamedAttachment: (part) => `Attachment ${part.position}`, untitledThread: '(no subject)' }
 const permitDecision = part({ name: 'Bescheid.pdf', suggestion: { folderId: null, folderPath: 'Behörde/Bescheide', newFolder: false, documentType: 'Bescheid', reason: 'MA 37' } })
 const message = messagePart({ id: '11111111-1111-4111-8111-111111111111' })
 
@@ -60,9 +60,22 @@ describe('initialDraft', () => {
     expect(draft.message).toMatchObject({ checked: false, findingChoice: 'masked' })
   })
 
-  it('names a nameless part by its position', () => {
+  it('names a nameless part as the copy says, from the part itself', () => {
     const view = mail({ parts: [message, part({ filename: null, position: 4, contentType: 'image/png' })] })
     expect(initialDraft(view, FOLDERS, copy).attachments[0].name).toBe('Attachment 4')
+  })
+
+  it('numbers nameless parts the copy names alike, so two pictures of the text are not filed under one name', () => {
+    const alike: DraftCopy = { ...copy, unnamedAttachment: () => 'Picture from the mail text' }
+    const view = mail({
+      parts: [
+        message,
+        part({ id: 'p1', filename: null, position: 1, contentType: 'image/png' }),
+        part({ id: 'p2', filename: 'S-101.pdf', position: 2 }),
+        part({ id: 'p3', filename: null, position: 3, contentType: 'image/jpeg' }),
+      ],
+    })
+    expect(initialDraft(view, FOLDERS, alike).attachments.map((row) => row.name)).toEqual(['Picture from the mail text 1', 'S-101.pdf', 'Picture from the mail text 2'])
   })
 })
 

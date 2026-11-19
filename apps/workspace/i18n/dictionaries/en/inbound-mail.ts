@@ -283,7 +283,9 @@ export const inboundMail = {
 
   attachments: {
     label: 'Attachments',
-    unnamed: 'Attachment {position}',
+    unnamed: 'Unnamed attachment ({type}, {size})',
+    unnamedSized: 'Unnamed attachment ({size})',
+    imageInText: 'Picture from the mail text',
     file: 'File {name}',
     facts: '{type}\u00A0· {size}',
     open: 'Open',
@@ -338,7 +340,6 @@ export const inboundMail = {
       acknowledgeRevision: 'I am sure it is the next revision',
       encrypted: 'Encrypted – {productName} cannot read its content',
       forwarded_inner: 'From a forwarded mail',
-      image_in_mail: 'Picture in the mail',
       lastFailure: 'Could not be filed: {reason}',
     },
     notStaged: {
@@ -519,7 +520,7 @@ export const inboundMail = {
         macro: 'stays out – contains macros',
         type_mismatch: 'stays out – file name and content do not match',
         duplicate: 'stays out – already in the project',
-        image: 'stays out – a picture in the mail text',
+        image: 'stays out',
         scan_pending: 'stays out – still being checked for malware',
         scan_failed: 'stays out – the malware check failed',
         infected: 'stays out – malware found',

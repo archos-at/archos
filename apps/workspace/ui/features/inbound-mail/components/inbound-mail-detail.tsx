@@ -15,7 +15,8 @@ import type { InboundMailPartView, InboundMailTextView, InboundMailView } from '
 import { cn } from '@/lib/utils'
 import { attachmentCase, notStagedSummary } from '../lib/attachment-case'
 import type { InboundMailClient } from '../lib/client'
-import { decisionOf, draftSummary, initialDraft, rebaseDraft, updateAttachment, updateMessage, type DraftCopy, type FolderOption, type MailDraft } from '../lib/draft'
+import { decisionOf, draftSummary, initialDraft, rebaseDraft, updateAttachment, updateMessage, type FolderOption, type MailDraft } from '../lib/draft'
+import { useDraftCopy } from '../hooks/use-draft-copy'
 import { attachmentOpenReason, FILING_STEPS, filingSteps, fileable, folderlessIds, openAttachmentIds, planLines, textNeedsDecision, type FilingStep } from '../lib/filing-plan'
 import { filedLines } from '../lib/filed'
 import { refusalNeedsReload, refusalOf, refusalTerms } from '../lib/refusal'
@@ -132,10 +133,7 @@ export function InboundMailDetail({
   const article = useRef<HTMLElement>(null)
 
   const words = usePlanWords()
-  const copy: DraftCopy = useMemo(
-    () => ({ unnamedAttachment: (position) => t('attachments.unnamed', { position }), untitledThread: t('row.noSubject') }),
-    [t]
-  )
+  const copy = useDraftCopy()
 
   const view = useMemo(() => (state.kind === 'ready' ? guardImpersonation(state.view) : null), [state])
 
@@ -359,7 +357,7 @@ export function InboundMailDetail({
             .filter((entry) => entry.previewable)
             .map((entry) => ({
               id: entry.part.id,
-              name: entry.part.filename ?? copy.unnamedAttachment(entry.part.position),
+              name: entry.part.filename ?? copy.unnamedAttachment(entry.part),
               contentType: entry.part.contentType,
               url: client.partContentUrl(projectId, view.id, entry.part.id) || null,
             }))
@@ -535,7 +533,7 @@ export function InboundMailDetail({
                       key={entry.part.id}
                       projectId={projectId}
                       entry={entry}
-                      name={entry.part.filedAs?.name ?? entry.part.filename ?? copy.unnamedAttachment(entry.part.position)}
+                      name={entry.part.filedAs?.name ?? entry.part.filename ?? copy.unnamedAttachment(entry.part)}
                       phrase={phraseOf(entry.part.id)}
                       contentUrl={url}
                       onPreview={

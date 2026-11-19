@@ -221,13 +221,13 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
       <li className="flex min-w-0 flex-col gap-0.5 text-xs leading-snug" data-testid="mail-thread-attachment" data-disposition="hidden">
         <span className="text-muted-foreground flex min-w-0 items-center gap-1">
           <FileText className="size-3.5 shrink-0" aria-hidden />
-          {t('attachments.unnamed', { position: line.position })}
+          {t('attachments.hiddenName')}
         </span>
         <span className={NOTE_UNDER_ITS_FILE}>{t('attachments.hidden')}</span>
       </li>
     )
   }
-  const name = line.name || t('attachments.unnamed', { position: line.position })
+  const name = line.name || t('attachments.unnamed')
   const named =
     line.kind !== 'not_filed' && line.documentId ? (
       <Link

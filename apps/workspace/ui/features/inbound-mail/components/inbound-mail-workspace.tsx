@@ -37,13 +37,14 @@ import { useInboxLive } from '../lib/inbox-live'
 import { matchesQuery, nextOpenAfter, wasDecided } from '../lib/inbox-triage'
 import { inboundMailAddressClient, inboundMailClient, type InboundMailAddressClient, type InboundMailClient } from '../lib/client'
 import { asSuggested, fileableReason, type BulkDestination, type BulkPlan } from '../lib/completeness'
-import type { DraftCopy, FolderOption } from '../lib/draft'
+import type { FolderOption } from '../lib/draft'
 import { hasLoudMail, listSections, visibleMails, waitingShownCount } from '../lib/list-sections'
 import { inboundMailPaths, type InboundMailPaths } from '@/lib/inbound-mail/paths'
 import { refusalOf } from '../lib/refusal'
 import { primeInboundMailWaiting, refreshInboundMailWaiting, useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { useInboundMailAddress } from '../hooks/use-inbound-mail-address'
 import { useOpenFirstMail } from '../hooks/use-open-first-mail'
+import { useDraftCopy } from '../hooks/use-draft-copy'
 import { InboundMailAddressBlock, InboundMailAddressDialog, InboundMailStartHint } from './inbound-mail-address'
 import { InboundMailHeaderActions } from './inbound-mail-header-actions'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
@@ -124,10 +125,7 @@ export function InboundMailWorkspace({
   const detailActions = useRef<DetailActions | null>(null)
   const waiting = useInboundMailWaiting(projectId, true, client)
 
-  const copy: DraftCopy = useMemo(
-    () => ({ unnamedAttachment: (position) => t('attachments.unnamed', { position }), untitledThread: t('row.noSubject') }),
-    [t]
-  )
+  const copy = useDraftCopy()
 
   useEffect(() => {
     if (initialList && status === 'waiting' && initialList.nextCursor === null) {

@@ -524,7 +524,10 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       weg und wird mit der E-Mail verworfen.“ **Every file is kept by
       default** (`AttachmentCase.defaultChecked`), also one the server left
       unselected, except what it keeps out for a reason it names: a copy the
-      project has, a picture from the mail's text, a name stop, a macro or a
+      project has, a picture from the mail's text (named „Bild aus dem
+      E-Mail-Text“, so „Übersicht“ says only „bleibt weg“ after it, and any
+      other part without a filename „Unbenannter Anhang (PDF, 120 kB)“, never
+      „Anhang {n}“; `useDraftCopy`), a name stop, a macro or a
       mismatched type, and anything of a mail posing as a member (a stop,
       never a default; CONTEXT.md). Server-side nothing changes: an
       unselected part needs no acknowledgement of its own; an unconfirmed
@@ -879,7 +882,10 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   its name with a folder glyph and quiet, as „Übersicht“ says it
   („Tragwerk/Statik“, „Dateien (oberste Ebene)“; the view's `folderPath`;
   round 7's „Ordner “ before it left the word alone on a line in the rail),
-  „lag schon im Projekt“, „nicht abgelegt · {Grund}“ (15 reasons); one in a folder the reader cannot see is „Anhang {n}“
+  „lag schon im Projekt“, „nicht abgelegt · {Grund}“ (15 reasons); one with
+  no filename is „Unbenannter Anhang“ (the Verlauf's row carries neither type
+  nor size, nor whether it was a picture of the text); one in a folder the
+  reader cannot see is „Nicht sichtbarer Anhang“ („Anhang {n}“ said nothing)
   with „liegt in einem Ordner mit eigenen Zugriffsrechten; öffnen kann ihn,
   wer dort eingetragen ist“ (never named; „…, den Sie nicht sehen“ read as
   watched).

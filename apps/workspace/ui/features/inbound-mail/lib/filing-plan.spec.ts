@@ -16,7 +16,7 @@ import {
 } from './filing-plan'
 import { attachmentCase } from './attachment-case'
 
-const copy: DraftCopy = { unnamedAttachment: (position) => `Attachment ${position}`, untitledThread: '(no subject)' }
+const copy: DraftCopy = { unnamedAttachment: (part) => `Attachment ${part.position}`, untitledThread: '(no subject)' }
 const message = messagePart({ id: '11111111-1111-4111-8111-111111111111' })
 const permitDecision = part({ name: 'Bescheid.pdf', suggestion: { folderId: null, folderPath: 'Behörde/Bescheide', newFolder: false, documentType: 'Bescheid', reason: 'MA 37' } })
 

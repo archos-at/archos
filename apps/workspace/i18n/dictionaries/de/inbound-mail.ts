@@ -287,7 +287,9 @@ export const inboundMail: typeof en.inboundMail = {
 
   attachments: {
     label: 'Anhänge',
-    unnamed: 'Anhang {position}',
+    unnamed: 'Unbenannter Anhang ({type}, {size})',
+    unnamedSized: 'Unbenannter Anhang ({size})',
+    imageInText: 'Bild aus dem E-Mail-Text',
     file: '{name} ablegen',
     facts: '{type}\u00A0· {size}',
     open: 'Öffnen',
@@ -342,7 +344,6 @@ export const inboundMail: typeof en.inboundMail = {
       acknowledgeRevision: 'Ich bin sicher, dass es die nächste Fassung ist',
       encrypted: 'Verschlüsselt – {productName} kann den Inhalt nicht lesen',
       forwarded_inner: 'Aus einer weitergeleiteten E-Mail',
-      image_in_mail: 'Bild in der E-Mail',
       lastFailure: 'Konnte nicht abgelegt werden: {reason}',
     },
     notStaged: {
@@ -523,7 +524,7 @@ export const inboundMail: typeof en.inboundMail = {
         macro: 'bleibt weg – enthält Makros',
         type_mismatch: 'bleibt weg – Dateiname und Inhalt passen nicht zusammen',
         duplicate: 'bleibt weg – liegt schon im Projekt',
-        image: 'bleibt weg – Bild aus dem E-Mail-Text',
+        image: 'bleibt weg',
         scan_pending: 'bleibt weg – wird noch auf Schadsoftware geprüft',
         scan_failed: 'bleibt weg – die Prüfung auf Schadsoftware ist fehlgeschlagen',
         infected: 'bleibt weg – Schadsoftware gefunden',

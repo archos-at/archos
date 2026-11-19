@@ -417,8 +417,11 @@ Open the Verlauf in Dateien and choose the **E-Mails** tab in its preview:
 - its attachments, each linked to the document it became, with the folder it
   lies in under its name („Tragwerk/Statik“); a note stands under
   the file it is about („lag schon im Projekt“, „nicht abgelegt · {Grund}“),
-  and an attachment filed in a folder you cannot see reads „Anhang 4 ·
-  abgelegt in einem Ordner, den Sie nicht sehen“;
+  an attachment filed in a folder you cannot see reads „Nicht sichtbarer
+  Anhang“ with the note that it lies in a folder with its own access rights,
+  and one that came without a filename „Unbenannter Anhang“; in the
+  E-Mail-Eingang a picture from the mail's text is called „Bild aus dem
+  E-Mail-Text“;
 - in the row's **⋯**: **Was diese E-Mail hinzufügte**, the Verlauf before
   this e-mail against the Verlauf with it, so you can see that nothing
   earlier changed („Ausblenden“ closes it), and **Herauslösen …** to move an e-mail filed into the wrong conversation into

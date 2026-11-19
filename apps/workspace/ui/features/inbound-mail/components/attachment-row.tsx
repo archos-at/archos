@@ -12,7 +12,6 @@ import {
   Folder,
   FolderInput,
   Forward,
-  Image as ImageIcon,
   Lock,
   ShieldAlert,
   ShieldQuestion,
@@ -322,7 +321,7 @@ export function AttachmentFacts({
   )
 }
 
-export function AttachmentNoteLine({ projectId, note }: { projectId: string; note: AttachmentNote }): JSX.Element {
+export function AttachmentNoteLine({ projectId, note }: { projectId: string; note: AttachmentNote }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   switch (note.kind) {
     case 'duplicate':
@@ -383,11 +382,7 @@ export function AttachmentNoteLine({ projectId, note }: { projectId: string; not
         </FactLine>
       )
     case 'image_in_mail':
-      return (
-        <FactLine icon={ImageIcon} testId="note-image">
-          {t('attachments.notes.image_in_mail')}
-        </FactLine>
-      )
+      return null /* its name, „Bild aus dem E-Mail-Text“, says it */
     case 'last_failure':
       return (
         <FactLine icon={AlertTriangle} tone="danger" testId="note-last-failure">
