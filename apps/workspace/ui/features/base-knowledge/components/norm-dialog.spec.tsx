@@ -63,6 +63,26 @@ describe('NormDialog', () => {
     )
   })
 
+  it('lays the norms out as a table: one row each, its designation a labelled field in its own column, the edition note spanning under it', () => {
+    renderDialog()
+    const table = within(screen.getByTestId('norm-dialog')).getByRole('table', { name: '2 Normen erkannt' })
+    expect(within(table).getAllByRole('columnheader').map((head) => head.textContent)).toEqual(['Art', 'Bezeichnung', 'Ausgabe', 'Thema'])
+    const rows = within(table).getAllByTestId('norm-dialog-row')
+    expect(rows).toHaveLength(RECOGNITION.proposals.length)
+    for (const [index, row] of rows.entries()) {
+      const { fileName } = RECOGNITION.proposals[index]
+      const cells = within(row).getAllByRole('cell')
+      const designation = within(cells[1]).getByRole('textbox', { name: `Bezeichnung: ${fileName}` })
+      expect(designation).toBeVisible()
+      expect(within(row).getByRole('textbox', { name: `Ausgabe: ${fileName}` }).closest('[role=cell]')).not.toBe(cells[1])
+    }
+    const note = within(rows[1]).getByTestId('norm-dialog-info')
+    expect(note.getAttribute('role')).toBe('cell')
+    expect(note.getAttribute('aria-colspan')).toBe('4')
+    expect(within(rows[1]).getByRole('textbox', { name: 'Bezeichnung: dup.pdf' })).toHaveAccessibleDescription(note.textContent!)
+    expect(screen.getByTestId('norm-dialog').className).toContain('sm:max-w-4xl')
+  })
+
   it('drops a row set to Keine Norm and sums up what happened', async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({

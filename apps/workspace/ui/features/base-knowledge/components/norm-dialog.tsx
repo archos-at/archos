@@ -18,6 +18,8 @@ type Translate = ReturnType<typeof useTranslations>
 
 const NOT_NORM = 'none'
 const NO_TOPIC = 'root'
+const NORM_COLUMNS = '@2xl:grid-cols-[9rem_minmax(0,1fr)_8rem_11rem]'
+const NORM_ROW = `grid grid-cols-1 gap-x-3 gap-y-2 border-b border-hairline py-3 last:border-b-0 ${NORM_COLUMNS} @2xl:items-start`
 
 interface Row {
   kind: OfficeWorkKind | typeof NOT_NORM
@@ -96,74 +98,79 @@ function ProposalRow({
     : proposal.editionOf
       ? t('norms.newEdition', { designation: proposal.editionOf.designation ?? '', edition: proposal.editionOf.editionLabel })
       : null
+  const infoId = `norm-dialog-info-${proposal.entryId}`
   return (
-    <li
-      className="grid grid-cols-1 gap-2 border-b py-3 last:border-b-0 sm:grid-cols-[9rem_minmax(0,1fr)_8rem_11rem] sm:items-start"
-      data-testid="norm-dialog-row"
-    >
-      <Select value={row.kind} disabled={disabled} onValueChange={(kind) => onChange({ ...row, kind: kind as Row['kind'] })}>
-        <SelectTrigger size="sm" className="w-full" aria-label={`${t('norms.column.kind')}: ${proposal.fileName}`}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {OFFICE_WORK_KINDS.map((kind) => (
-            <SelectItem key={kind} value={kind}>
-              {t(`kind.${kind}`)}
-            </SelectItem>
-          ))}
-          <SelectItem value={NOT_NORM}>{t('norms.notNorm')}</SelectItem>
-        </SelectContent>
-      </Select>
-      <div className={cn('flex min-w-0 flex-col gap-1', off && 'opacity-60')}>
+    <div role="row" className={NORM_ROW} data-testid="norm-dialog-row">
+      <div role="cell" className="min-w-0">
+        <Select value={row.kind} disabled={disabled} onValueChange={(kind) => onChange({ ...row, kind: kind as Row['kind'] })}>
+          <SelectTrigger size="sm" className="w-full" aria-label={`${t('norms.column.kind')}: ${proposal.fileName}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {OFFICE_WORK_KINDS.map((kind) => (
+              <SelectItem key={kind} value={kind}>
+                {t(`kind.${kind}`)}
+              </SelectItem>
+            ))}
+            <SelectItem value={NOT_NORM}>{t('norms.notNorm')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div role="cell" className={cn('flex min-w-0 flex-col gap-1', off && 'opacity-60')}>
         <Input
           value={row.designation}
           disabled={disabled || off || proposal.editionOf !== null}
           onChange={(event) => onChange({ ...row, designation: event.target.value })}
           aria-label={`${t('norms.column.designation')}: ${proposal.fileName}`}
-          className="h-8"
+          aria-describedby={info ? infoId : undefined}
+          className="h-8 w-full min-w-0"
         />
         <span className="truncate text-xs text-muted-foreground" title={proposal.fileName}>
           {proposal.fileName}
         </span>
-        {info && (
-          <span className="text-xs font-medium text-warning" data-testid="norm-dialog-info">
-            {info}
+      </div>
+      {info && (
+        <p id={infoId} role="cell" aria-colspan={4} className="col-span-full text-xs font-medium text-warning @2xl:order-last" data-testid="norm-dialog-info">
+          {info}
+        </p>
+      )}
+      <div role="cell" className="min-w-0">
+        <Input
+          value={row.editionLabel}
+          disabled={disabled || off}
+          placeholder={t('norms.editionMissing')}
+          aria-invalid={missing || undefined}
+          onChange={(event) => onChange({ ...row, editionLabel: event.target.value })}
+          aria-label={`${t('norms.column.edition')}: ${proposal.fileName}`}
+          className={cn('h-8 w-full min-w-0 tabular-nums', off && 'opacity-60')}
+        />
+      </div>
+      <div role="cell" className="min-w-0">
+        {proposal.editionOf ? (
+          <span className="block text-xs text-muted-foreground @2xl:pt-2">
+            {t('norms.topicOfWork')}: {workTopic ? topicLabel(workTopic.path) : t('norms.noTopic')}
           </span>
+        ) : (
+          <Select
+            value={row.topicId ?? NO_TOPIC}
+            disabled={disabled || off}
+            onValueChange={(topicId) => onChange({ ...row, topicId: topicId === NO_TOPIC ? null : topicId })}
+          >
+            <SelectTrigger size="sm" className={cn('w-full', off && 'opacity-60')} aria-label={`${t('norms.column.topic')}: ${proposal.fileName}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_TOPIC}>{t('norms.noTopic')}</SelectItem>
+              {topics.folders.map((folder) => (
+                <SelectItem key={folder.id} value={folder.id}>
+                  {topicLabel(folder.path)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
       </div>
-      <Input
-        value={row.editionLabel}
-        disabled={disabled || off}
-        placeholder={t('norms.editionMissing')}
-        aria-invalid={missing || undefined}
-        onChange={(event) => onChange({ ...row, editionLabel: event.target.value })}
-        aria-label={`${t('norms.column.edition')}: ${proposal.fileName}`}
-        className={cn('h-8', off && 'opacity-60')}
-      />
-      {proposal.editionOf ? (
-        <span className="text-xs text-muted-foreground sm:pt-2">
-          {t('norms.topicOfWork')}: {workTopic ? topicLabel(workTopic.path) : t('norms.noTopic')}
-        </span>
-      ) : (
-        <Select
-          value={row.topicId ?? NO_TOPIC}
-          disabled={disabled || off}
-          onValueChange={(topicId) => onChange({ ...row, topicId: topicId === NO_TOPIC ? null : topicId })}
-        >
-          <SelectTrigger size="sm" className={cn('w-full', off && 'opacity-60')} aria-label={`${t('norms.column.topic')}: ${proposal.fileName}`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NO_TOPIC}>{t('norms.noTopic')}</SelectItem>
-            {topics.folders.map((folder) => (
-              <SelectItem key={folder.id} value={folder.id}>
-                {topicLabel(folder.path)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-    </li>
+    </div>
   )
 }
 
@@ -225,7 +232,7 @@ function NormDialogBody({ recognition, onClose, onSettled }: NormDialogProps & {
 
   return (
     <DialogContent
-      className="max-w-4xl"
+      className="sm:max-w-4xl"
       showCloseButton={false}
       onEscapeKeyDown={(event) => {
         event.preventDefault()
@@ -241,14 +248,14 @@ function NormDialogBody({ recognition, onClose, onSettled }: NormDialogProps & {
         <DialogTitle>{counted(t, 'norms.title', proposals.length)}</DialogTitle>
         <DialogDescription>{t('norms.body')}</DialogDescription>
       </DialogHeader>
-      <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-        <div className="hidden gap-2 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[9rem_minmax(0,1fr)_8rem_11rem]" aria-hidden>
-          <span>{t('norms.column.kind')}</span>
-          <span>{t('norms.column.designation')}</span>
-          <span>{t('norms.column.edition')}</span>
-          <span>{t('norms.column.topic')}</span>
-        </div>
-        <ul className="flex flex-col">
+      <div className="@container flex min-h-0 flex-col gap-3 overflow-y-auto">
+        <div role="table" aria-label={counted(t, 'norms.title', proposals.length)} className="flex flex-col">
+          <div role="row" className={`hidden gap-x-3 pb-1 text-xs font-medium text-muted-foreground @2xl:grid ${NORM_COLUMNS}`}>
+            <span role="columnheader">{t('norms.column.kind')}</span>
+            <span role="columnheader">{t('norms.column.designation')}</span>
+            <span role="columnheader">{t('norms.column.edition')}</span>
+            <span role="columnheader">{t('norms.column.topic')}</span>
+          </div>
           {proposals.map((proposal) => (
             <ProposalRow
               key={proposal.entryId}
@@ -259,7 +266,7 @@ function NormDialogBody({ recognition, onClose, onSettled }: NormDialogProps & {
               onChange={(row) => setRows((current) => ({ ...current, [proposal.entryId]: row }))}
             />
           ))}
-        </ul>
+        </div>
         <PlainLine recognition={recognition} />
       </div>
       <DialogFooter>
