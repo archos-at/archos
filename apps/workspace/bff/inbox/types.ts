@@ -30,6 +30,7 @@ export interface InboxItemView {
   mentions: MarkMention[]
   variant: string | null
   dueOn?: string | null
+  since?: string | null
   openMarks?: number | null
   marksRevision?: number | null
   uploadReport?: UploadReport | null

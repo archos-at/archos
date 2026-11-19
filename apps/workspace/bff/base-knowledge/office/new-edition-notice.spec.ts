@@ -4,7 +4,12 @@ vi.mock('server-only', () => ({}))
 vi.mock('./service', () => ({ directoryStandingsOf: vi.fn() }))
 vi.mock('./repository', () => ({ listOrganizationsWithOfficeEditions: vi.fn() }))
 vi.mock('@/lib/organizations/members-holding', () => ({ activeMembersHolding: vi.fn() }))
-vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn(async () => 0), resolveInboxItemsAnchoredOn: vi.fn(async () => 0) }))
+vi.mock('@/lib/inbox/service', () => ({
+  emitInboxItems: vi.fn(async () => 0),
+  resolveInboxItemsAnchoredOn: vi.fn(async () => 0),
+  resolveInboxItemsOfType: vi.fn(async () => 0),
+}))
+vi.mock('./access', () => ({ officeStandardsEnabled: vi.fn(async () => true) }))
 vi.mock('@/lib/inbox/repository', () => ({ readGroupPayloads: vi.fn(async () => new Map()) }))
 vi.mock('@/lib/projects/repository', () => ({ listProjectsInOrg: vi.fn(async () => []) }))
 vi.mock('@/lib/project-profile/salvage', () => ({ salvageProjectProfile: (stored: unknown) => ({ profile: stored }) }))
@@ -14,19 +19,20 @@ import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { inboxItemCopy } from '@/lib/inbox/item-copy'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { readGroupPayloads } from '@/lib/inbox/repository'
-import { emitInboxItems, resolveInboxItemsAnchoredOn, type InboxEmission } from '@/lib/inbox/service'
+import { emitInboxItems, resolveInboxItemsAnchoredOn, resolveInboxItemsOfType, type InboxEmission } from '@/lib/inbox/service'
 import type { InboxItemView } from '@/lib/inbox/types'
 import { activeMembersHolding } from '@/lib/organizations/members-holding'
 import { listProjectsInOrg } from '@/lib/projects/repository'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { createTranslator } from '@/i18n/translate'
+import { officeStandardsEnabled } from './access'
 import { noticeNewEditions, sweepNewEditionNotices } from './new-edition-notice'
 import { listOrganizationsWithOfficeEditions } from './repository'
 import { directoryStandingsOf } from './service'
 
 const NOW = new Date('2026-11-19T05:13:00Z')
-const B1600 = { workId: 'work_b1600', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } }
-const B3806 = { workId: 'work_b3806', designation: 'ÖNORM B 3806', standing: { inForce: { editionLabel: '2023-03-01', startsOn: '2023-03-01' }, held: true } }
+const B1600 = { workId: 'work_b1600', entryId: 'edition_b1600_2017', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } }
+const B3806 = { workId: 'work_b3806', entryId: 'edition_b3806_2023', designation: 'ÖNORM B 3806', standing: { inForce: { editionLabel: '2023-03-01', startsOn: '2023-03-01' }, held: true } }
 const filed = (day: string) => ({ facts: { 'procedure_type@p1': { value: 'baubewilligung' }, 'filed_on@p1': { value: day } } })
 const project = (name: string, status: string, profile: object) => ({ name, status, profile }) as unknown as Awaited<ReturnType<typeof listProjectsInOrg>>[number]
 
@@ -34,6 +40,7 @@ const emitted = () => vi.mocked(emitInboxItems).mock.calls.flatMap(([emissions])
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(officeStandardsEnabled).mockResolvedValue(true)
   vi.mocked(directoryStandingsOf).mockResolvedValue([B1600, B3806])
   vi.mocked(activeMembersHolding).mockResolvedValue(['user_anna', 'user_ben'])
   vi.mocked(readGroupPayloads).mockResolvedValue(new Map())
@@ -62,6 +69,7 @@ describe('a newer edition the platform lists', () => {
         groupKey,
         payload: {
           subject: 'ÖNORM B 1600',
+          entryId: 'edition_b1600_2017',
           related: '2023-02-01',
           startsOn: '2023-02-01',
           variant: 'projects',
@@ -71,7 +79,7 @@ describe('a newer edition the platform lists', () => {
     )
   })
 
-  it('reads as a Postfach item naming the norm, the edition in force and the projects after it', () => {
+  it('reads as a Postfach item headed by the norm, with the edition in force, since when, and the projects after it in its body', () => {
     const dictionary = { collaboration: collaborationCopy.messages.de }
     const t = createTranslator(dictionary, 'collaboration')
     const item = {
@@ -80,16 +88,17 @@ describe('a newer edition the platform lists', () => {
       resourceType: 'organization',
       actorName: null,
       count: 1,
-      href: '/app/base-knowledge',
+      href: '/app/base-knowledge?entry=edition_b1600_2017',
       subject: 'ÖNORM B 1600',
       related: '2023-02-01',
-      excerpt: 'Wohnbau Seestadt Baufeld D12',
+      since: '2023-02-01',
+      excerpt: 'Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
       variant: 'projects',
       answerIn: null,
     } as unknown as InboxItemView
-    expect(inboxItemCopy(item, t, dictionary)).toEqual({
+    expect(inboxItemCopy(item, t, dictionary, 'de')).toEqual({
       title: 'ÖNORM B 1600: neue Ausgabe erschienen',
-      body: 'Laut Normenverzeichnis gilt heute die Ausgabe 2023-02-01, die Büroablage hat nur eine ältere. Projekte mit Stichtag danach:',
+      body: 'Seit 01.02.2023 gilt die Ausgabe 2023-02-01, die Büroablage hat nur eine ältere. Betrifft Projekte mit Stichtag danach: Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
     })
   })
 
@@ -118,6 +127,19 @@ describe('the daily sweep', () => {
     })
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     await expect(sweepNewEditionNotices(NOW)).rejects.toThrow('new editions: 1 of 2 organization(s) failed')
+    expect(emitted().map((emission) => emission.organizationId)).toEqual(['org_1', 'org_1'])
+  })
+
+  it('tells an office that lost its own standards nothing, and resolves what it was told', async () => {
+    vi.mocked(listOrganizationsWithOfficeEditions).mockResolvedValue(['org_off', 'org_1'])
+    vi.mocked(officeStandardsEnabled).mockImplementation(async (organizationId) => organizationId !== 'org_off')
+    vi.mocked(resolveInboxItemsOfType).mockResolvedValue(2)
+    vi.mocked(resolveInboxItemsAnchoredOn).mockResolvedValue(0)
+
+    expect(await sweepNewEditionNotices(NOW)).toEqual({ organizations: 2, notified: 2, resolved: 2, failed: 0 })
+    expect(directoryStandingsOf).not.toHaveBeenCalledWith('org_off', expect.anything())
+    expect(resolveInboxItemsOfType).toHaveBeenCalledWith({ organizationId: 'org_off', types: ['base_knowledge.new_edition'] })
+    expect(resolveInboxItemsOfType).toHaveBeenCalledTimes(1)
     expect(emitted().map((emission) => emission.organizationId)).toEqual(['org_1', 'org_1'])
   })
 })

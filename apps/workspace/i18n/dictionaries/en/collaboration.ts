@@ -344,10 +344,10 @@ export const collaboration = {
       },
       baseKnowledgeNewEdition: {
         title: '{subject}: a new edition has appeared',
-        body: 'The standards directory says edition {related} applies today; Office filing holds only an older one. Upload the new edition beside the earlier one.',
+        body: 'Edition {related} has applied since {since}; Office filing holds only an older one.',
         variants: {
           projects: {
-            body: 'The standards directory says edition {related} applies today; Office filing holds only an older one. Projects with a reference day after it:',
+            body: 'Edition {related} has applied since {since}; Office filing holds only an older one. Affects projects with a reference day after it: {excerpt}',
           },
         },
       },
@@ -799,18 +799,20 @@ export const collaboration = {
         },
       },
       officeShelfNormOffered: {
-        title: '{productName} suggests the office filing',
-        body: 'This norm is only in “{subject}” so far. In the office filing every project finds it.',
+        title: '{productName} suggests a norm for the office filing',
+        body: 'So far only in “{subject}”. In the office filing every project finds it.',
       },
       officeShelfNormSuggested: {
         title: '{actor} suggests a norm for the office filing',
         titleNoActor: 'A norm is suggested for the office filing',
         titleResolved: 'The suggestion for the office filing is decided',
-        body: 'Then every project finds it, and everyone in the office can see it.',
+        body: 'From “{subject}”. In the office filing every project finds it.',
       },
       officeShelfNormsFound: {
         title: '{productName} found standards in folders',
-        body: 'In the folder you decide whether they move to Standards & guidelines or stay as ordinary files.',
+        titleOne: '{productName} found a standard in a folder',
+        titleMany: '{productName} found {count} standards in folders',
+        body: 'In the folder you decide whether they are kept under Standards & guidelines or stay ordinary files.',
       },
       unknown: {
         title: 'Something happened',
@@ -837,6 +839,12 @@ export const collaboration = {
       failed: 'That did not go through. Nothing has changed.',
       stale: 'Someone decided first. The current revision is in the file.',
       reload: 'Open current revision',
+    },
+    normNotice: {
+      uploadEdition: 'Upload the new edition',
+      viewEdition: 'View',
+      viewEditionLabel: 'View {subject} in Standards & guidelines',
+      decideInFolder: 'Decide in the folder',
     },
     normSuggestion: {
       accept: 'Take into the office filing',

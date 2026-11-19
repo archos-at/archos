@@ -208,6 +208,24 @@ export async function writeConfirmedValues(
   )
 }
 
+export async function writeProposedValues(
+  entry: EntryRecordIds & { workStandsAlone: boolean },
+  values: EntryValues,
+  context: WriteContext
+): Promise<void> {
+  await withTenant({ organizationId: context.organizationId }, () =>
+    getDb().transaction(async (tx) => {
+      const workId = (await lockEditionWork(tx, entry.editionId)) ?? entry.workId
+      const bodies = bodiesOf(values, { ...entry, workId }, context.terms)
+      const common = { organizationId: context.organizationId, createdBy: context.createdBy, provenance: context.provenance }
+      if (!entry.workStandsAlone && workId === entry.workId) {
+        await appendRevision(tx, { ...common, recordId: workId, type: 'work' }, bodies.work)
+      }
+      await appendRevision(tx, { ...common, recordId: entry.editionId, type: 'edition' }, bodies.edition)
+    })
+  )
+}
+
 export async function insertCopyCheck(
   organizationId: string,
   copyId: string,

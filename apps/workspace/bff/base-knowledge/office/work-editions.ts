@@ -15,6 +15,10 @@ export function editionsByWork(entries: readonly StoredEntry[]): Map<string, Sto
   return works
 }
 
+export function newestOf(editions: readonly StoredEntry[]): StoredEntry {
+  return [...editions].sort((a, b) => (startOf(b) ?? '').localeCompare(startOf(a) ?? '') || b.createdAt.getTime() - a.createdAt.getTime())[0]
+}
+
 export function editionOnDay(editions: readonly StoredEntry[], day: string): StoredEntry | null {
   const confirmed = editions.filter((entry) => entry.confirmed)
   const found = newestInForce(

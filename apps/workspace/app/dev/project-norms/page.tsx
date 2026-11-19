@@ -30,8 +30,8 @@ function norms(canManageOfficeShelf: boolean): ProjectNormsResponse {
       { documentId: 'n2', fileName: 'OENORM_B_2320_2017.pdf', folderId: null, designation: 'ÖNORM B 2320' },
     ],
     references: [
-      { ...reference, id: 'r1', fileName: 'OENORM_B_1600_2017.pdf', state: 'in_office_shelf', officeDocumentId: 'o1' },
-      { ...reference, id: 'r2', fileName: 'Weisung_MA37_Stellplaetze.pdf', state: 'removed', officeDocumentId: null },
+      { ...reference, id: 'r1', fileName: 'OENORM_B_1600_2017.pdf', state: 'in_office_shelf', officeDocumentId: 'o1', entryId: 'edition_oenorm-b-1600' },
+      { ...reference, id: 'r2', fileName: 'Weisung_MA37_Stellplaetze.pdf', state: 'removed', officeDocumentId: null, entryId: null },
     ],
     nextCursor: null,
   }

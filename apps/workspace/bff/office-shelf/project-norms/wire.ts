@@ -99,6 +99,7 @@ export const officeShelfReferenceSchema = z.object({
   placedAs: z.enum(REFERENCE_PLACEMENTS),
   state: z.enum(REFERENCE_STATES),
   officeDocumentId: z.string().nullable(),
+  entryId: z.string().nullable(),
   createdAt: z.string(),
   createdBy: z.string(),
 })

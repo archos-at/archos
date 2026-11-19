@@ -68,6 +68,19 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
     })
   })
 
+  it('passes on that the upload comes from the norms tab', async () => {
+    await post({ forStandards: 'true' })
+
+    expect(uploadOfficeShelfDocument).toHaveBeenCalledWith(expect.anything(), expect.any(File), expect.any(Request), {
+      folderId: null,
+      originPath: null,
+      screeningRelease: false,
+      uploadBatchId: null,
+      revisionOf: null,
+      forStandards: true,
+    })
+  })
+
   it('passes on the document the reader filed it as the new Fassung of', async () => {
     const older = '0b8f3c1e-0d3a-4d2e-9a53-6d1f9d6c2b11'
     await post({ revisionOf: older })

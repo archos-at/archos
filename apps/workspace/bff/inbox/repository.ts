@@ -49,6 +49,7 @@ export {
   refreshOpenGroupItems,
   resolveInboxItemsForTargets,
   resolveOpenItemsAnchoredOn,
+  resolveOpenItemsOfType,
   retractOccurrenceAnchoredOn,
   rewriteItemPayloadsAnchoredOn,
 } from './inbox-item-lifecycle'

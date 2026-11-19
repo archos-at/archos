@@ -57,28 +57,49 @@ ARCHOS never uses it, and **Zurücknehmen** undoes either. Your organization's
 operator switches this on (the `office-conventions` flag)
 ([ADR-0129](../adr/0129-piloti-learns-the-office-conventions.md)).
 
-## Normen & Richtlinien
+## Normen & Richtlinien in der Büroablage
 
-Under **Büroablage → „Normen & Richtlinien“**, the second tab beside „Ordner“, you
-record the standards, commentaries and authority directives your office owns (an
-ÖNORM you bought, a commentary on the Bauordnung, an MA 37 Weisung). Its tool row
-is the Ordner tab's: search, „Alle Arten“, „Thema anlegen“, **Hochladen**, and ⋯
-with „Aus Ordnern übernehmen“ (a document already in the Büroablage) and „So
-funktioniert es“. Both tabs share one upload: ARCHOS recognises the norms among the
-files and opens one dialog for them; a file that is no norm lands in Ordner, and
-the toast's „In Ordnern zeigen“ goes there. The proposal comes from the file name: its kind, designation,
-edition, where it applies and, for a directive, the authority. Nothing reads the
-text (no search, no summary) until you correct and **Bestätigen** it. For a
-licensed copy you confirm that your licence covers everyone in the office, and,
-separately, whether it also covers processing by the hosted AI services
-(indexing, reading, quoting). Without that second confirmation the copy stays
-„Nur Metadaten“: answers name the standard and its edition and say its text is
-not used; **Lizenz deckt KI-Verarbeitung** gives the confirmation later. From
-then on answers in your office draw on it, name its edition and last check, treat
-a commentary as interpretation only and apply a directive only where its
-authority decides. **Als aktuell geprüft** records a check; after a year (half a
-year for a directive) the entry shows „Prüfung überfällig“ and answers say so.
-**Entfernen** deletes the document and the entry. Other offices see none of it.
-Your office has it once it is switched on for your organization; until then
-the tab, its card and the „Norm“ mark are not shown
-([ADR-0163](../adr/0163-office-base-knowledge-shares-the-platform-records.md), [ADR-0175](../adr/0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md)).
+The standards, guidelines, authority directives and commentaries your office
+owns (an ÖNORM you bought, an MA 37 Weisung, a commentary on the Bauordnung)
+live in the Büroablage, on the tab **Normen & Richtlinien** beside **Ordner**.
+Each is called a *Norm* for short; its *Art* says what it is. The tab's tool row is
+the Ordner tab's: search, „Alle Arten“, „Thema anlegen“, **Hochladen**, and ⋯ with
+„Aus Ordnern übernehmen“ (a document already in the Büroablage) and „So funktioniert es“.
+
+**Adding norms.** The Büroablage has one **Hochladen**, on either tab. ARCHOS
+reads the file names and opens one dialog for the norms among them: Art,
+Bezeichnung, Ausgabe and Thema, proposed from the name, which you correct and
+**Bestätigen**. **Keine Norm** turns a row back into an ordinary file, and
+**Später** leaves the rows waiting under „Zu bestätigen“. A file that is a newer
+Ausgabe of a norm you hold is added beside the earlier one; a second copy of an
+Ausgabe you hold is recognised as a duplicate. Ordinary files go to the folders
+(the toast's „In Ordnern zeigen“ goes there), and a file in a folder can still be filed with **Als Norm führen**. Nothing
+reads a norm's text (no search, no summary, no answer) until it is confirmed.
+**Nicht mehr als Norm führen** takes a norm off the tab and keeps its file in the
+Ordner. **Thema anlegen** adds a topic to sort norms into.
+
+**Norms in a project or in a folder.** A norm uploaded to a project is offered
+for the Büroablage, where every project finds it: **In die Büroablage
+verschieben** if you manage the Büroablage, **Für die Büroablage vorschlagen**
+otherwise (whoever manages it decides in the Postfach), or **Hier lassen**. A
+moved norm leaves a reference in the project folder. Norms you had filed in
+ordinary Büroablage folders are found; the folder offers **Unter Normen &
+Richtlinien führen** or **Im Ordner lassen**, and the Postfach tells whoever
+manages the Büroablage.
+
+**Stand.** Where the platform's norm directory lists a norm with dated editions,
+its Stand comes from there: „Aktuell“ when you hold the edition in force today,
+„Neuere Ausgabe“ when a newer one applies, and the Postfach tells you when one
+comes into force, with the projects whose reference day falls after it. Every
+other norm keeps a manual check: **Ist noch aktuell** records it, and after a
+year (half a year for a directive) it shows „Prüfung fällig“.
+
+**In answers.** Answers in your office draw on confirmed norms, name the
+Ausgabe they used and use the one in force on the project's reference day (today
+when the project has none, and they say so). When the directory shows that
+another Ausgabe was binding that day and your office does not hold it, the
+answer says which one and asks you to upload it instead of answering from your
+copy. A commentary is used as interpretation only, and a directive only where
+its authority decides. Other offices see none of it. The tab appears once
+office standards are switched on for your organization
+([ADR-0163](../adr/0163-office-base-knowledge-shares-the-platform-records.md), [ADR-0175](../adr/0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md), [ADR-0185](../adr/0185-a-project-norm-goes-to-the-office-shelf-as-a-copy-and-leaves-a-reference.md)).

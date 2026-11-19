@@ -6,3 +6,18 @@ features:
     commentaries now have their own tab in the Büroablage, "Normen &
     Richtlinien", beside your folders. Adding one no longer asks for licence
     statements.
+  - >
+    The Büroablage has one upload, and ARCHOS asks about the norms among your
+    files in one dialog: kind, designation, edition and topic, with "Keine
+    Norm" for anything it got wrong, and a newer edition or a second copy of a
+    norm you hold already recognised as such. Ordinary files go to your folders
+    as before.
+  - >
+    A norm uploaded to a project is offered for the Büroablage, where every
+    project finds it. You move it there, or suggest it to whoever manages the
+    Büroablage, or leave it in the project; a moved norm leaves a reference
+    behind in the project folder.
+  - >
+    Norms you had filed in ordinary Büroablage folders are found, and the
+    folder offers to move them under "Normen & Richtlinien" or to leave them
+    where they are.

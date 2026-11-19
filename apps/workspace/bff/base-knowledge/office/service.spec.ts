@@ -11,6 +11,7 @@ vi.mock('../store/repository', () => ({
   insertProposedEntry: vi.fn(async () => ({ workId: 'work_1', editionId: 'edition_1', copyId: 'manifestation_1' })),
   readOfficeEntries: vi.fn(async () => []),
   writeConfirmedValues: vi.fn(),
+  writeProposedValues: vi.fn(),
 }))
 vi.mock('./repository', () => ({
   readShelfDocument: vi.fn(),
@@ -48,13 +49,14 @@ import { deleteOfficeShelfDocument, uploadOfficeShelfDocument } from '@/lib/offi
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
-import { deleteWorkIfUnused } from '../store/office-editions'
+import { deleteWorkIfUnused, insertEditionOfWork } from '../store/office-editions'
 import {
   deleteDocumentEntry,
   documentHasEntry,
   insertProposedEntry,
   readOfficeEntries,
   writeConfirmedValues,
+  writeProposedValues,
   type StoredEntry,
 } from '../store/repository'
 import { markCopyPoints } from './mark'
@@ -69,6 +71,7 @@ import {
   listBaseKnowledge,
   proposeBaseKnowledge,
   removeBaseKnowledge,
+  reviseProposal,
   setBaseKnowledgeLicence,
   unlistBaseKnowledge,
   updateBaseKnowledge,
@@ -224,6 +227,26 @@ describe('uploading as base knowledge', () => {
   })
 })
 
+describe('a new edition of a held work', () => {
+  it('starts from its own file and none of the earlier edition’s dates', async () => {
+    const earlier = stored({ confirmed: true, values: { ...stored().values, inForceFrom: '2017-04-01', inForceTo: '2030-01-01' } })
+    vi.mocked(insertEditionOfWork).mockResolvedValue({ workId: 'work_1', editionId: 'edition_2', copyId: 'manifestation_2' })
+    vi.mocked(uploadOfficeShelfDocument).mockImplementation(async (_session, _file, _request, input) => {
+      await input?.beforeDispatch?.('doc-2')
+      return { documentId: 'doc-2', jobId: null, status: 'stored', filename: 'OENORM_B_1600_2023-02-01.pdf' }
+    })
+    vi.mocked(readOfficeEntries).mockResolvedValue([earlier, stored({ editionId: 'edition_2' })])
+    await uploadBaseKnowledge(MANAGER, new File(['%PDF'], 'OENORM_B_1600_2023-02-01.pdf'), new Request('http://localhost/x'), { editionOf: earlier })
+
+    expect(insertEditionOfWork).toHaveBeenCalledWith(
+      'doc-2',
+      earlier,
+      expect.objectContaining({ editionLabel: '2023-02-01', issuedOn: '2023-02-01', inForceFrom: null, inForceTo: null }),
+      expect.anything(),
+    )
+  })
+})
+
 describe('where an upload lands', () => {
   it('files into the base-knowledge root when no folder is given', async () => {
     vi.mocked(uploadOfficeShelfDocument).mockResolvedValue({ documentId: 'doc-1', jobId: null, status: 'stored', filename: 'a.pdf' })
@@ -325,19 +348,20 @@ describe('listing', () => {
 })
 
 describe('the works an office holds against the platform’s editions', () => {
-  it('compares each confirmed work the platform lists, by its designation without the edition, and not a proposal', async () => {
+  it('compares each confirmed work the platform lists, by its designation without the edition, and not a proposal, naming its newest held edition', async () => {
     const previous = usePlatformKnowledge({
       ...STUB_PLATFORM_KNOWLEDGE,
       editionsOf: async () => [{ designation: 'ÖNORM B 1600', title: 'Barrierefreies Bauen', editions: [{ label: '2023-02-01', issuedOn: null, inForceFrom: '2023-02-01', inForceTo: null }] }],
     })
     vi.mocked(readOfficeEntries).mockResolvedValue([
       stored({ editionId: 'edition_2023', values: { ...stored().values, editionLabel: '2023-02-01', issuedOn: '2023-02-01' } }),
+      stored({ editionId: 'edition_2015', confirmed: true, values: { ...stored().values, editionLabel: '2015-01-01', issuedOn: '2015-01-01' } }),
       stored({ confirmed: true, provenance: { proposedBy: 'person', confirmedBy: 'user-1' } }),
       stored({ workId: 'work_proposed', editionId: 'edition_proposed', documentId: 'doc-1' }),
     ])
     try {
       expect(await directoryStandingsOf('org-1', new Date('2026-11-19T05:00:00Z'))).toEqual([
-        { workId: 'work_1', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } },
+        { workId: 'work_1', entryId: 'edition_1', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } },
       ])
     } finally {
       usePlatformKnowledge(previous)
@@ -409,9 +433,44 @@ describe('confirming', () => {
     expect(withholdText).not.toHaveBeenCalled()
   })
 
+  it('confirms a licensed copy without the statement while the product asks for none, its text withheld', async () => {
+    await confirmBaseKnowledge(MANAGER, 'work_1', {}, { licenceStep: false })
+    expect(writeConfirmedValues).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ licenceClass: 'licensed' }),
+      expect.objectContaining({ terms: {} }),
+    )
+    expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+    expect(releaseText).not.toHaveBeenCalled()
+  })
+
   it('refuses to confirm twice', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
     await expect(confirmBaseKnowledge(MANAGER, 'work_1', { licenceAttested: true })).rejects.toBeInstanceOf(ConflictError)
+  })
+})
+
+describe('revising a proposal that stays a proposal', () => {
+  it('keeps the person’s values on the proposal and says they are the person’s', async () => {
+    await reviseProposal(MANAGER, 'edition_1', { kind: 'guideline', designation: 'ÖNORM B 1601' })
+    expect(writeProposedValues).toHaveBeenCalledWith(
+      expect.objectContaining({ editionId: 'edition_1', workId: 'work_1' }),
+      expect.objectContaining({ kind: 'guideline', designation: 'ÖNORM B 1601', editionLabel: '2017-04-01', licenceClass: 'licensed' }),
+      expect.objectContaining({ provenance: { proposedBy: 'person' }, terms: {} }),
+    )
+    expect(writeConfirmedValues).not.toHaveBeenCalled()
+  })
+
+  it('writes nothing when nothing changed', async () => {
+    await reviseProposal(MANAGER, 'edition_1', { kind: 'technical_standard' })
+    expect(writeProposedValues).not.toHaveBeenCalled()
+  })
+
+  it('leaves a confirmed entry to the edit, and a member out', async () => {
+    await expect(reviseProposal(MEMBER, 'edition_1', { kind: 'guideline' })).rejects.toBeInstanceOf(ForbiddenError)
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    await expect(reviseProposal(MANAGER, 'edition_1', { kind: 'guideline' })).rejects.toBeInstanceOf(ConflictError)
+    expect(writeProposedValues).not.toHaveBeenCalled()
   })
 })
 
