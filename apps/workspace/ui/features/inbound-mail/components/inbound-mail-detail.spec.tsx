@@ -295,6 +295,8 @@ describe('„Einordnen“', () => {
       expect(within(row).getByTestId('filing-overview-to').className).toContain('font-medium')
     }
     expect(within(rows[1]).getByTestId('filing-overview-change')).toHaveAccessibleName('Change where S-101_D.pdf goes')
+    expect(within(rows[4]).getByTestId('filing-overview-note')).toHaveTextContent(`Encrypted – ${PRODUCT_NAME} cannot read its content`)
+    expect(rows.slice(0, 4).flatMap((row) => within(row).queryAllByTestId('filing-overview-note'))).toEqual([])
     expect(within(overview).queryByTestId('filing-change-text')).toBeNull()
     expect(within(overview).queryByTestId('filing-change-attachments')).toBeNull()
     const order = Array.from(overview.children).map((child) => child.getAttribute('data-testid') ?? child.tagName.toLowerCase())
@@ -741,6 +743,7 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Behörde/Bescheide')
     expect(within(dialog()).getByTestId('attachment-type')).toHaveTextContent('Document type: Official decision')
     expect(within(dialog()).getAllByTestId('attachment-change')).toHaveLength(1)
+    expect(within(dialog()).getByTestId('attachment-change')).toHaveTextContent(/^Change details$/)
     expect(within(dialog()).getByTestId('attachment-folder-change')).toHaveTextContent('Change folder')
     expect(within(dialog()).queryByTestId('attachment-folder-choose')).toBeNull()
   })

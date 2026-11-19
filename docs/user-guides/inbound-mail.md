@@ -155,7 +155,7 @@ Behörde/Bescheide“, or „3 Anhänge in 2 Ordner“ when its files go to seve
 folders. „Wie vorgeschlagen ablegen“ on such a row files it in one press,
 without a confirmation; the mail is read again first, and if it changed
 meanwhile („Anhang wird noch geprüft …“) nothing is filed and you are told
-why. With two or more ready mails, „Alle {n} wie vorgeschlagen ablegen“ files
+why. With two or more ready mails, „Alle {n} ablagebereiten E-Mails ablegen“ files
 them after a confirmation grouped by destination (at most 20 at a time).
 Replies to one conversation stand indented under its name, and „Diese 3 wie
 vorgeschlagen ablegen“ beside the name files exactly the rows under it.

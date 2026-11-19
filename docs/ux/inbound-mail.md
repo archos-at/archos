@@ -212,9 +212,13 @@ finds nothing says „Keine E-Mail passt zu „…““ with „Suche leeren“
 rhythm is one: 32px between sections, 12px between a heading, a thread and a
 run of rows inside one. „Ablagebereit“ says on hover „Jede Zeile sagt,
 wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.“ and, with two or more
-ready mails, „Alle {n} wie vorgeschlagen ablegen“ (bulk, confirmed and grouped
-by destination; more than 20: „Die ersten 20 wie vorgeschlagen ablegen“, since
-one request decides at most 20). Every ready row says in one muted line, with
+ready mails, „Alle {n} ablagebereiten E-Mails ablegen“ (bulk, confirmed and
+grouped by destination; more than 20: „Die ersten 20 ablagebereiten E-Mails
+ablegen“, since one request decides at most 20). It names its scope, the
+section, so it never reads as the thread group's „Diese {n} wie vorgeschlagen
+ablegen“ beside it (round 7: „Alle 5 …“ and „Diese 3 …“ read as two answers to
+one question); where the section is one thread group, only the group's press
+stands. Every ready row says in one muted line, with
 a folder glyph, where that press files it, so the bulk press is never blind:
 „E-Mail-Text an „Verfahren MA 37“ · Anhang nach Behörde/Bescheide“, „3
 Anhänge in 2 Ordner“, „E-Mail-Text als neuer E-Mail-Verlauf“, the top level
@@ -555,9 +559,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       „Plannummer“ where the number is meant. Each row (`AttachmentRow`) has its
       case notes, „Ordner: …“ with its own „Ordner wählen“ / „Ordner
       ändern“ (`FolderChoiceDialog`: the likely folders, „Neuer Ordner …“,
-      the project's folders), „Dokumentart: …“, „Name, Dokumentart …“ with
-      the target dialog, and the confirmations „Ich vertraue dem Absender
-      dieser Datei“ and „Trotzdem ablegen“. **„Weiter“ waits until every
+      the project's folders), „Dokumentart: …“, „Details ändern“ with
+      the target dialog (name, folder, Dokumentart and Fassung; round 7:
+      „Name, Dokumentart …“ read as a label cut off), and the
+      confirmations „Ich vertraue dem Absender dieser Datei“ and „Trotzdem
+      ablegen“. **„Weiter“ waits until every
       ticked file has a folder** (`keptWithoutFolder`), and says so beside
       it, as its description: „Wählen Sie zuerst für 1 Datei einen Ordner
       oder nehmen Sie ihr Häkchen weg.“ **An attachment without any folder
@@ -576,7 +582,7 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       had shown „Pläne“ under the pointer, not the chosen „Pläne / Fassade“
       below the fold, and she feared she had moved them (round 4). Opened
       again, the chosen folder is the one row marked „Gewählt“ (`PickerRow`
-      `current="chosen"`). A row puts „Name, Dokumentart …“ beside its folder
+      `current="chosen"`). A row puts „Details ändern“ beside its folder
       rather than on a line of its own, so three files fit 1440×900 without
       scrolling. The pane and the dialog read one draft, so a folder the
       dialog will preselect (the agent's, or the folder the sender's earlier
@@ -601,7 +607,10 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       · Fassung 4 von Statik.pdf (Fassung 3 bleibt erhalten)“ where the
       names carry no index), „Tragwerk · neue Datei neben S-101_C.pdf“ (the
       decision on a possible Fassung is named, `PlanLine.besides`), „Neuer
-      Ordner Fotos · Foto“, „Noch kein Ordner“. A row's „Ändern“ goes to
+      Ordner Fotos · Foto“, „Noch kein Ordner“. An encrypted file keeps the
+      attachments step's note as a quiet third line with the lock glyph,
+      „Verschlüsselt – {productName} kann den Inhalt nicht lesen“ (round 7:
+      it was filed with no hint). A row's „Ändern“ goes to
       the step that decides that part, adding it when it was not asked: the
       text to „E-Mail-Text“, a file to „Anhänge“ with its row unfolded,
       scrolled to and focused. The owner, round 6: one sentence per part

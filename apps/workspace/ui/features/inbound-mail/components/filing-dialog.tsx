@@ -2,7 +2,7 @@
 
 import type { JSX, KeyboardEvent, RefObject } from 'react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ChevronDown, FileText, Folder, FolderPlus, Info, Mail, Mails, ShieldAlert, ShieldQuestion } from 'lucide-react'
+import { AlertTriangle, ChevronDown, FileText, Folder, FolderPlus, Info, Lock, Mail, Mails, ShieldAlert, ShieldQuestion } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -412,6 +412,7 @@ export function FilingDialog({
                       line={line}
                       part={words.subject(line)}
                       to={words.destination(line)}
+                      note={view.parts.find((part) => part.id === line.partId)?.riskFlags.includes('encrypted') ? t('attachments.notes.encrypted') : null}
                       changeLabel={t('filing.overview.change')}
                       changeName={t('filing.overview.changeOf', { name: words.subject(line) })}
                       onChange={() => (line.kind === 'text_append' || line.kind === 'text_create' ? onAddStep('text') : changeAttachment(line.partId))}
@@ -541,10 +542,11 @@ type KeptLine = Exclude<PlanLine, { kind: 'left' | 'text_left' }>
 type LeftLine = Extract<PlanLine, { kind: 'left' | 'text_left' }>
 
 /** One filed part: what it is, then where it goes, and the press back to the step that decides it. */
-function OverviewRow({ line, part, to, changeLabel, changeName, onChange, disabled }: {
+function OverviewRow({ line, part, to, note, changeLabel, changeName, onChange, disabled }: {
   line: KeptLine
   part: string
   to: string
+  note: string | null
   changeLabel: string
   changeName: string
   onChange: () => void
@@ -582,6 +584,11 @@ function OverviewRow({ line, part, to, changeLabel, changeName, onChange, disabl
           {to}
         </span>
       </div>
+      {note && (
+        <FactLine icon={Lock} className="pl-6" testId="filing-overview-note">
+          {note}
+        </FactLine>
+      )}
     </li>
   )
 }

@@ -99,8 +99,8 @@ export const inboundMail: typeof en.inboundMail = {
     others: 'Wartet auf andere',
     othersHint: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen. Sie können sie verwerfen.',
     readyHint: 'Jede Zeile sagt, wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.',
-    fileAll: 'Alle {count} wie vorgeschlagen ablegen',
-    fileFirst: 'Die ersten {count} wie vorgeschlagen ablegen',
+    fileAll: 'Alle {count} ablagebereiten E-Mails ablegen',
+    fileFirst: 'Die ersten {count} ablagebereiten E-Mails ablegen',
   },
 
   group: {
@@ -294,7 +294,7 @@ export const inboundMail: typeof en.inboundMail = {
     facts: '{type}\u00A0· {size}',
     open: 'Öffnen',
     change: 'Ändern',
-    changeDetails: 'Name, Dokumentart …',
+    changeDetails: 'Details ändern',
     revisionChoice: {
       label: 'Was mit {name} geschieht',
       new: 'Als neue Datei neben {name} ablegen',
