@@ -107,7 +107,7 @@ export function OfficeShelfWorkspace({
   )
 }
 
-function OfficeShelfHeader({
+export function OfficeShelfHeader({
   controls,
   count,
   phone,

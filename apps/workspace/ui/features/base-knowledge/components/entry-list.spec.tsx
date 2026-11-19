@@ -7,6 +7,9 @@ import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITOR
 import { countByFolder, countEntries } from '@/lib/base-knowledge/office/listing'
 import { EntryList } from './entry-list'
 
+const layout = vi.hoisted(() => ({ phone: false }))
+vi.mock('@/features/documents/hooks/use-phone-layout', () => ({ usePhoneLayout: () => layout.phone }))
+
 function renderList(onFilters = vi.fn()) {
   render(
     <I18nProvider initialLocale="de" fixedLocale>
@@ -61,5 +64,18 @@ describe('the norms list', () => {
     expect(standOfRow('ÖNORM B 1300:2018')).toBe('Zu bestätigen')
     expect(standOfRow('ÖNORM B 3806:2005')).toBe('Abgelöst')
     expect(screen.queryByText('Zuletzt geprüft')).toBeNull()
+  })
+
+  it('on a phone gives the name the row and says the Stand under it, not in a column that cut the name', () => {
+    layout.phone = true
+    try {
+      renderList()
+      expect(screen.getAllByRole('columnheader').map((head) => head.textContent)).not.toContain('Stand')
+      const row = screen.getAllByTestId('base-knowledge-row').find((candidate) => within(candidate).queryByText('ÖNORM B 1600:2017'))!
+      const nameCell = within(row).getByTestId('base-knowledge-entry-name').closest('td')!
+      expect(within(nameCell).getByTestId('base-knowledge-status').textContent).toBe('Geprüft am 02.10.2026')
+    } finally {
+      layout.phone = false
+    }
   })
 })

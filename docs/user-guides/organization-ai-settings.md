@@ -57,14 +57,16 @@ ARCHOS never uses it, and **Zurücknehmen** undoes either. Your organization's
 operator switches this on (the `office-conventions` flag)
 ([ADR-0129](../adr/0129-piloti-learns-the-office-conventions.md)).
 
-## Grundlagen des Büros
+## Normen & Richtlinien
 
-Under **Organisation → „Grundlagen des Büros“** you record the standards,
-commentaries and authority directives your office owns (an ÖNORM you bought, a
-commentary on the Bauordnung, an MA 37 Weisung). **Datei hochladen** stores a
-file and proposes it; for a bought standard use this rather than the Büroablage's
-own upload, which reads a file at once. You can also choose a document already in
-the Büroablage. The proposal comes from the file name: its kind, designation,
+Under **Büroablage → „Normen & Richtlinien“**, the second tab beside „Ordner“, you
+record the standards, commentaries and authority directives your office owns (an
+ÖNORM you bought, a commentary on the Bauordnung, an MA 37 Weisung). Its tool row
+is the Ordner tab's: search, „Alle Arten“, „Thema anlegen“, **Hochladen**, and ⋯
+with „Aus Ordnern übernehmen“ (a document already in the Büroablage) and „So
+funktioniert es“. Both tabs share one upload: ARCHOS recognises the norms among the
+files and opens one dialog for them; a file that is no norm lands in Ordner, and
+the toast's „In Ordnern zeigen“ goes there. The proposal comes from the file name: its kind, designation,
 edition, where it applies and, for a directive, the authority. Nothing reads the
 text (no search, no summary) until you correct and **Bestätigen** it. For a
 licensed copy you confirm that your licence covers everyone in the office, and,
@@ -78,5 +80,5 @@ authority decides. **Als aktuell geprüft** records a check; after a year (half 
 year for a directive) the entry shows „Prüfung überfällig“ and answers say so.
 **Entfernen** deletes the document and the entry. Other offices see none of it.
 Your office has it once it is switched on for your organization; until then
-the place, its card and the „Grundlage“ mark are not shown
+the tab, its card and the „Norm“ mark are not shown
 ([ADR-0163](../adr/0163-office-base-knowledge-shares-the-platform-records.md), [ADR-0175](../adr/0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md)).

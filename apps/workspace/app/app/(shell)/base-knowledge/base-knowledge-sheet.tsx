@@ -6,7 +6,6 @@ import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import { getTranslations } from '@/i18n/server'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
-import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { PageSheetClose } from '@/components/ui/page-sheet'
 import { RoutePageSheet } from '@/components/shell/route-page-sheet'
 import { BaseKnowledgeWorkspace } from '@/features/base-knowledge'
@@ -21,7 +20,6 @@ export async function BaseKnowledgeSheet({
     if (!isOfficeStandardsEnabled(session)) notFound()
     const t = await getTranslations(baseKnowledgeCopy)
     const tCommon = await getTranslations(commonCopy)
-    const tShelf = await getTranslations(officeShelfCopy)
     return (
       <RoutePageSheet
         title={t('title')}
@@ -32,7 +30,8 @@ export async function BaseKnowledgeSheet({
       >
         <BaseKnowledgeWorkspace
           trailingActions={<PageSheetClose label={tCommon('actions.close')} />}
-          place={{ title: tShelf('title'), crumb: session.organizationName, places: <OfficeShelfPlaces /> }}
+          organizationName={session.organizationName}
+          places={<OfficeShelfPlaces />}
           uploadCollection={officeShelfCollectionName(session.organizationId)}
         />
       </RoutePageSheet>

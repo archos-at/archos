@@ -53,12 +53,14 @@ export function InspectorRow({
   label,
   icon: Icon,
   children,
+  stacked = false,
   className,
   ...props
 }: {
   label: string
   icon: LucideIcon
   children: ReactNode
+  stacked?: boolean
   className?: string
 } & Omit<HTMLAttributes<HTMLDivElement>, 'children'>): JSX.Element {
   return (
@@ -75,12 +77,13 @@ export function InspectorRow({
       </span>
       <div
         data-slot="inspector-row-body"
-        className="border-hairline flex min-w-0 flex-1 items-start justify-between gap-3 border-t py-2.5 pr-3"
+        data-stacked={stacked || undefined}
+        className={cn('border-hairline flex min-w-0 flex-1 border-t py-2.5 pr-3', stacked ? 'flex-col gap-0.5' : 'items-start justify-between gap-3')}
       >
         {/* The LABEL never truncates: it is the key, and „Proj…" tells the
             reader nothing. A long value wraps in its own column instead. */}
         <span className="text-muted-foreground shrink-0">{label}</span>
-        <span className="text-foreground min-w-0 text-right font-medium">{children}</span>
+        <span className={cn('text-foreground min-w-0 font-medium', stacked ? 'text-left' : 'text-right')}>{children}</span>
       </div>
     </div>
   )

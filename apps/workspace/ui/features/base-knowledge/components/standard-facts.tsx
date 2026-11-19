@@ -52,7 +52,7 @@ export function StandardFacts({ entry, canManage, onManage, onOpenEdition, onCha
     >
       <InspectorGroup>
         {entry.values.designation && (
-          <InspectorRow label={t('facts.designation')} icon={Tag}>
+          <InspectorRow label={t('facts.designation')} icon={Tag} stacked>
             {entry.values.designation}
           </InspectorRow>
         )}
@@ -71,7 +71,7 @@ export function StandardFacts({ entry, canManage, onManage, onOpenEdition, onCha
           <TextUseChip entry={entry} />
         </InspectorRow>
         {entry.status === 'confirmed' && (
-          <InspectorRow label={t('detail.checkSection')} icon={History}>
+          <InspectorRow label={t('detail.checkSection')} icon={History} stacked>
             <CurrencyNote entry={entry} />
           </InspectorRow>
         )}

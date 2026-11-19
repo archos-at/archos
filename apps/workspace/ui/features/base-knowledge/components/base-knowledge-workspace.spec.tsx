@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { BaseKnowledgeList, NormRecognition } from '@/lib/base-knowledge/wire'
@@ -23,11 +23,12 @@ vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({ fileUpload: { acceptedTypes: '.pdf,.docx', acceptedMimeTypes: ['application/pdf'], maxFileSize: 100 * 1024 * 1024 } }),
 }))
 
-const shelfUpload = vi.hoisted(() => ({ stored: [] as { documentId: string; fileName: string }[], collections: [] as (string | undefined)[] }))
+const shelfUpload = vi.hoisted(() => ({ stored: [] as { documentId: string; fileName: string }[], collections: [] as (string | undefined)[], forStandards: [] as (boolean | undefined)[] }))
 vi.mock('@/features/documents', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/documents')>()),
-  useOfficeShelfDocuments: (options: { collectionName?: string; onStored?: (uploads: { documentId: string; fileName: string }[]) => void }) => {
+  useOfficeShelfDocuments: (options: { collectionName?: string; forStandards?: boolean; onStored?: (uploads: { documentId: string; fileName: string }[]) => void }) => {
     shelfUpload.collections.push(options.collectionName)
+    shelfUpload.forStandards.push(options.forStandards)
     return {
       uploadFiles: async (files: File[]) => {
         options.onStored?.(shelfUpload.stored)
@@ -120,7 +121,14 @@ const renderWorkspace = () =>
     </I18nProvider>,
   )
 
+function deskWidth(width: number): void {
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 32, top: 0, left: 0, right: width, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
+}
+
+beforeEach(() => deskWidth(1100))
+
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
   navigation.push.mockReset()
   navigation.replace.mockReset()
@@ -187,6 +195,7 @@ describe('BaseKnowledgeWorkspace', () => {
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
     expect(shelfUpload.collections.at(-1)).toBe('archiv_org-1')
+    expect(shelfUpload.forStandards.at(-1)).toBe(true)
     await userEvent.upload(screen.getByTestId('project-upload-input'), [new File(['a'], 'a.pdf', { type: 'application/pdf' })])
 
     const dialog = await screen.findByTestId('norm-dialog')
@@ -274,6 +283,50 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(await screen.findByTestId('norm-dialog')).toBeTruthy()
   })
 
+  it('reads like the Ordner tab: the shelf’s header, then one tool row of search, kind, Thema anlegen, Hochladen and ⋯', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    const header = screen.getByTestId('office-shelf-header')
+    const row = within(header).getByTestId('files-tool-row')
+    expect(row.getAttribute('data-tier')).toBe('wide')
+    const order = [
+      within(row).getByRole('textbox', { name: 'Normen & Richtlinien durchsuchen' }),
+      within(row).getByRole('combobox', { name: 'Art' }),
+      within(row).getByRole('button', { name: 'Thema anlegen' }),
+      within(row).getByRole('button', { name: 'Hochladen' }),
+      within(row).getByTestId('base-knowledge-more'),
+    ]
+    for (const [index, control] of order.slice(1).entries()) {
+      expect(order[index].compareDocumentPosition(control) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    }
+    expect(within(header).queryByTestId('base-knowledge-pending')).toBeNull()
+    expect(within(screen.getByTestId('base-knowledge-scroll')).getByTestId('base-knowledge-pending')).toBeTruthy()
+  })
+
+  it('keeps So funktioniert es in the ⋯, not in a row of its own above the list', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    expect(screen.queryByTestId('base-knowledge-guide')).toBeNull()
+    await userEvent.click(screen.getByTestId('base-knowledge-more'))
+    await userEvent.click(await screen.findByTestId('base-knowledge-guide-toggle'))
+    const guide = screen.getByTestId('base-knowledge-guide')
+    expect(within(guide).getByText('1 · Hinzufügen')).toBeTruthy()
+    await userEvent.click(within(guide).getByTestId('base-knowledge-guide-close'))
+    expect(screen.queryByTestId('base-knowledge-guide')).toBeNull()
+  })
+
+  it('shows its topics as the Ordner tab’s folder cards, each with its whole name', async () => {
+    stubFetch(listOf())
+    renderWorkspace()
+    const topics = await screen.findByTestId('base-knowledge-topics')
+    const cards = within(topics).getAllByTestId(/^folder-card-/)
+    const names = BASE_KNOWLEDGE_FOLDERS.folders.filter((folder) => folder.parentId === BASE_KNOWLEDGE_FOLDERS.rootId).map((folder) => folder.name)
+    expect(cards).toHaveLength(names.length)
+    for (const name of names) expect(within(topics).getAllByTitle(name).length).toBeGreaterThan(0)
+  })
+
   it('names the folder action of the norms tab a topic', async () => {
     stubFetch(listOf())
     renderWorkspace()
@@ -310,6 +363,10 @@ describe('BaseKnowledgeWorkspace', () => {
     const facts = within(viewer).getByTestId('standard-facts')
     expect(within(facts).getByText('Ausgabe')).toBeTruthy()
     expect(within(facts).getByText('Aktualität')).toBeTruthy()
+    expect(facts.getAttribute('aria-label')).toBe('Norm')
+    for (const label of ['Bezeichnung', 'Aktualität']) {
+      expect(within(facts).getByText(label).closest('[data-slot=inspector-row-body]')?.hasAttribute('data-stacked'), label).toBe(true)
+    }
     await userEvent.click(within(facts).getByTestId('standard-facts-manage'))
     expect(navigation.replace).toHaveBeenCalledWith('/app/base-knowledge?entry=oenorm-b-1600', { scroll: false })
   })

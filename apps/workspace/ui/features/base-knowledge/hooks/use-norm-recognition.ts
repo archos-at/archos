@@ -1,10 +1,12 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { recognizeNorms, type NormRecognition } from '@/adapters/api/base-knowledge-client'
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
+import { OFFICE_SHELF_FILES_HREF } from '@/features/documents'
 import { MAX_RECOGNIZE_DOCUMENTS, type PlainUpload } from '@/lib/base-knowledge/wire'
 
 type Translate = ReturnType<typeof useTranslations>
@@ -24,8 +26,14 @@ export interface NormRecognitionState {
   close: () => void
 }
 
-export function useNormRecognition({ showPlain }: { showPlain?: (plain: readonly PlainUpload[]) => void } = {}): NormRecognitionState {
+export function plainHref(plain: readonly PlainUpload[]): string {
+  const folderId = onePlace(plain)?.folderId
+  return folderId ? `${OFFICE_SHELF_FILES_HREF}?folder=${encodeURIComponent(folderId)}` : OFFICE_SHELF_FILES_HREF
+}
+
+export function useNormRecognition(): NormRecognitionState {
   const t = useTranslations(baseKnowledgeCopy)
+  const router = useRouter()
   const [recognition, setRecognition] = useState<NormRecognition | null>(null)
   const recognize = useCallback<NormRecognitionState['recognize']>(
     async (documentIds, { asNorm = false, announcePlain = false } = {}) => {
@@ -43,13 +51,13 @@ export function useNormRecognition({ showPlain }: { showPlain?: (plain: readonly
           answer.plain.length === 1 && place
             ? t('norms.noNormsOne', { place: placeOf(t, place) })
             : t('norms.noNorms', { count: answer.plain.length }),
-          showPlain ? { action: { label: t('norms.showInFolders'), onClick: () => showPlain(answer.plain) } } : undefined,
+          { action: { label: t('norms.showInFolders'), onClick: () => router.push(plainHref(answer.plain)) } },
         )
       } catch {
         toast.error(t('norms.recognizeFailed'))
       }
     },
-    [t, showPlain],
+    [t, router],
   )
   const close = useCallback(() => setRecognition(null), [])
   return { recognition, recognize, close }

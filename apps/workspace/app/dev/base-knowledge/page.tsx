@@ -1,11 +1,13 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { Suspense, type JSX } from 'react'
+import { Suspense, useEffect, type JSX } from 'react'
 import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { BaseKnowledgeWorkspace } from '@/features/base-knowledge'
-import { OfficeShelfPlaces, OFFICE_SHELF_NORMS_HREF } from '@/features/documents'
+import { BackLink } from '@/components/shell/back-link'
+import { BaseKnowledgeWorkspace, useNormRecognition } from '@/features/base-knowledge'
+import { OfficeShelfPlaces, OFFICE_SHELF_NORMS_HREF } from '@/features/documents/components/office-shelf-places'
+import { writeTrail } from '@/lib/navigation/return-trail'
 import {
   byAttention,
   countByFolder,
@@ -39,6 +41,10 @@ function list(url: URL, variant: string | null): BaseKnowledgeList {
 }
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  writeTrail([
+    { path: '/app/projects/p1/files', label: 'Stadthaus Wien' },
+    { path: window.location.pathname },
+  ])
   const w = window as unknown as { __baseKnowledgeShim?: boolean }
   if (!w.__baseKnowledgeShim) {
     w.__baseKnowledgeShim = true
@@ -58,7 +64,13 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
       if (url.pathname === '/api/base-knowledge' && (init?.method ?? 'GET') === 'GET')
         return Response.json(list(url, variant))
-      if (url.pathname === '/api/base-knowledge/recognize') return Response.json(NORM_RECOGNITION)
+      if (url.pathname === '/api/base-knowledge/recognize') {
+        return Response.json(
+          variant === 'plain-upload'
+            ? { ...NORM_RECOGNITION, proposals: [], plain: [{ documentId: 'doc_plain', fileName: 'Plankopf_Vorlage_A0.pdf', folderId: 'f-plan', folderPath: 'Planung', platformHeld: false }] }
+            : NORM_RECOGNITION,
+        )
+      }
       if (url.pathname === '/api/base-knowledge/settle') {
         const { rows } = JSON.parse(String(init?.body)) as { rows: { entryId: string; notNorm?: boolean; editionLabel?: string | null }[] }
         return Response.json({
@@ -113,18 +125,28 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   }
 }
 
+function PlainUploadToast(): null {
+  const { recognize } = useNormRecognition()
+  useEffect(() => {
+    void recognize(['doc_plain'], { announcePlain: true })
+  }, [recognize])
+  return null
+}
+
 function Preview(): JSX.Element {
   const variant = useSearchParams().get('variant')
   return (
-    <main
-      className="bg-background mx-auto flex min-h-screen max-w-6xl flex-col"
-      data-testid="base-knowledge-preview"
-    >
-      <BaseKnowledgeWorkspace
-        key={variant ?? 'default'}
-        uploadCollection="archiv_preview"
-        place={{ title: 'Büroablage', crumb: 'Atelier Nord', places: <OfficeShelfPlaces pathname={OFFICE_SHELF_NORMS_HREF} /> }}
-      />
+    <main className="mx-auto flex max-w-6xl flex-col p-6" data-testid="base-knowledge-preview">
+      <BackLink fallbackHref="/app/projects" fallbackLabel="Back to projects" />
+      <div className="shadow-xs mt-3 flex h-[820px] flex-col overflow-hidden rounded-xl border">
+        <BaseKnowledgeWorkspace
+          key={variant ?? 'default'}
+          uploadCollection="archiv_preview"
+          organizationName="Atelier Nord"
+          places={<OfficeShelfPlaces pathname={OFFICE_SHELF_NORMS_HREF} />}
+        />
+      </div>
+      {variant === 'plain-upload' && <PlainUploadToast />}
     </main>
   )
 }

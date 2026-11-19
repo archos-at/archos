@@ -42,10 +42,13 @@ export const baseKnowledge = {
   },
   folders: {
     newTopic: 'New topic',
+    topics: 'Topics',
     all: 'Standards & guidelines',
     elsewhere: 'Filed in Office filing outside this place',
   },
-
+  list: {
+    label: 'Standards',
+  },
   filter: {
     all: 'All',
     proposed: 'To confirm',
@@ -53,6 +56,7 @@ export const baseKnowledge = {
     checkDue: 'Check due',
     kindAll: 'All kinds',
     search: 'Search designation, title or file',
+    searchShort: 'Search standards …',
     searchLabel: 'Search standards & guidelines',
     clear: 'Clear search',
   },

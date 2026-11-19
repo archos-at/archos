@@ -1,20 +1,19 @@
 'use client'
 
-import type { JSX } from 'react'
+import type { JSX, ReactNode } from 'react'
+import { Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Chip, ChipCount } from '@/components/ui/chip'
-import { DataToolbar } from '@/components/ui/data-toolbar'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadMore } from '@/components/ui/load-more'
+import { SectionLabel } from '@/components/ui/section-label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Toggle } from '@/components/ui/toggle'
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry, BaseKnowledgeFolders, BaseKnowledgeList, BulkEntriesBody, EntryCounts } from '@/lib/base-knowledge/wire'
-import { OFFICE_WORK_KINDS } from '@/lib/base-knowledge/wire/vocab'
-import type { Attention, BaseKnowledgeFilters, Kind } from '../hooks/use-base-knowledge'
+import type { Attention, BaseKnowledgeFilters } from '../hooks/use-base-knowledge'
 import { EntryTable } from './entry-table'
 
-const ALL = 'all'
 const ATTENTION: { key: Attention | null; label: 'filter.all' | 'filter.proposed' | 'filter.newerEdition' | 'filter.checkDue'; count: keyof EntryCounts }[] = [
   { key: null, label: 'filter.all', count: 'all' },
   { key: 'proposed', label: 'filter.proposed', count: 'proposed' },
@@ -35,19 +34,19 @@ interface EntryListProps {
   onOpen: (entry: BaseKnowledgeEntry) => void
   loadingMore: boolean
   onLoadMore: () => void
+  labelled?: boolean
 }
 
 function AttentionFilters({ counts, value, onChange }: { counts: EntryCounts; value: Attention | null; onChange: (next: Attention | null) => void }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   return (
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('column.status')} data-testid="base-knowledge-attention">
+    <div className="flex flex-wrap gap-2" role="group" aria-label={t('column.status')} data-testid="base-knowledge-attention">
       {ATTENTION.map(({ key, label, count }) => (
-        <Chip key={label} asChild interactive variant={value === key ? 'default' : 'outline'}>
-          <button type="button" aria-pressed={value === key} onClick={() => onChange(key)}>
-            {t(label)}
-            <ChipCount count={counts[count]} />
-          </button>
-        </Chip>
+        <Toggle key={label} variant="chip" size="sm" className="text-name" pressed={value === key} onPressedChange={() => onChange(key)}>
+          <Check className="hidden size-3.5 in-data-[state=on]:block" aria-hidden />
+          {t(label)}
+          <span className="text-muted-foreground tabular-nums">{counts[count]}</span>
+        </Toggle>
       ))}
     </div>
   )
@@ -78,45 +77,27 @@ export function EntryList(props: EntryListProps): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const filtered = filters.attention !== null || filters.kind !== null || filters.search.trim() !== ''
   return (
-    <div className="flex min-w-0 flex-col gap-3" data-testid="base-knowledge-list">
-      <AttentionFilters counts={list.counts} value={filters.attention} onChange={(attention) => onFilters({ attention })} />
-      <DataToolbar
-        searchValue={filters.search}
-        onSearchChange={(search) => onFilters({ search })}
-        searchPlaceholder={t('filter.search')}
-        searchLabel={t('filter.searchLabel')}
-        clearLabel={t('filter.clear')}
-        filters={
-          <Select value={filters.kind ?? ALL} onValueChange={(kind) => onFilters({ kind: kind === ALL ? null : (kind as Kind) })}>
-            <SelectTrigger className="w-40" aria-label={t('column.kind')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>{t('filter.kindAll')}</SelectItem>
-              {OFFICE_WORK_KINDS.map((kind) => (
-                <SelectItem key={kind} value={kind}>
-                  {t(`kind.${kind}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
-        selectedCount={selected.size}
-        selectionLabel={(count) => t('bulk.selected', { count })}
-        clearSelectionLabel={t('bulk.clear')}
-        onClearSelection={props.onClearSelection}
-        selectionActions={
-          <>
-            <Button size="sm" variant="secondary" onClick={() => props.onBulk({ type: 'check', result: 'current' })}>
-              {t('bulk.check')}
-            </Button>
-            <MoveTo folders={folders} onMove={(folderId) => props.onBulk({ type: 'move', folderId })} />
-            <Button size="sm" variant="ghost" className="text-error" onClick={() => props.onBulk({ type: 'remove' })}>
-              {t('bulk.remove')}
-            </Button>
-          </>
-        }
-      />
+    <section aria-label={t('list.label')} className="flex min-w-0 flex-col gap-2" data-testid="base-knowledge-list">
+      {selected.size > 0 ? (
+        <SelectionBar count={selected.size} onClear={props.onClearSelection}>
+          <Button size="sm" variant="secondary" onClick={() => props.onBulk({ type: 'check', result: 'current' })}>
+            {t('bulk.check')}
+          </Button>
+          <MoveTo folders={folders} onMove={(folderId) => props.onBulk({ type: 'move', folderId })} />
+          <Button size="sm" variant="ghost" className="text-error" onClick={() => props.onBulk({ type: 'remove' })}>
+            {t('bulk.remove')}
+          </Button>
+        </SelectionBar>
+      ) : (
+        <div className="flex min-h-8 min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          {props.labelled && (
+            <SectionLabel as="h2" className="px-0">
+              {t('list.label')}
+            </SectionLabel>
+          )}
+          <AttentionFilters counts={list.counts} value={filters.attention} onChange={(attention) => onFilters({ attention })} />
+        </div>
+      )}
       {list.entries.length === 0 ? (
         <EmptyState
           variant="bare"
@@ -147,6 +128,22 @@ export function EntryList(props: EntryListProps): JSX.Element {
         loadingLabel={t('loadingMore')}
         failedLabel={t('loadError')}
       />
+    </section>
+  )
+}
+
+function SelectionBar({ count, onClear, children }: { count: number; onClear: () => void; children: ReactNode }): JSX.Element {
+  const t = useTranslations(baseKnowledgeCopy)
+  return (
+    <div className="bg-desk flex min-h-11 flex-wrap items-center gap-2 rounded-surface px-3 py-1.5" data-testid="data-toolbar-selection">
+      <p className="text-sm font-medium tabular-nums">{t('bulk.selected', { count })}</p>
+      <div className="ml-auto flex flex-wrap items-center gap-1.5">
+        {children}
+        <Button variant="ghost" size="sm" onClick={onClear}>
+          <X className="size-3.5" aria-hidden />
+          {t('bulk.clear')}
+        </Button>
+      </div>
     </div>
   )
 }

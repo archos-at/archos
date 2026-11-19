@@ -42,10 +42,13 @@ export const baseKnowledge = {
   },
   folders: {
     newTopic: 'Thema anlegen',
+    topics: 'Themen',
     all: 'Normen & Richtlinien',
     elsewhere: 'Liegt in der Büroablage außerhalb dieses Bereichs',
   },
-
+  list: {
+    label: 'Normen',
+  },
   filter: {
     all: 'Alle',
     proposed: 'Zu bestätigen',
@@ -53,6 +56,7 @@ export const baseKnowledge = {
     checkDue: 'Prüfung fällig',
     kindAll: 'Alle Arten',
     search: 'Bezeichnung, Titel oder Datei suchen',
+    searchShort: 'Normen suchen …',
     searchLabel: 'Normen & Richtlinien durchsuchen',
     clear: 'Suche leeren',
   },
