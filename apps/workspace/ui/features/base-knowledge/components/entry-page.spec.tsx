@@ -90,12 +90,22 @@ describe('EntryPage', () => {
     expect(await screen.findByTestId('base-knowledge-licence')).toBeTruthy()
   })
 
-  it('asks no check of a work the platform lists, and says which edition applies today', async () => {
-    renderSheet({ ...CONFIRMED, directory: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } })
+  it('asks no check of a norm the resolver names a newer edition binding for, and says which and under what', async () => {
+    const binding = { editionLabel: '2023-02-01', startsOn: '2023-02-01', via: { designation: 'OIB-RL 4', editionLabel: '2023' }, held: false, newer: true }
+    renderSheet({ ...CONFIRMED, binding })
     const section = await screen.findByTestId('base-knowledge-check')
-    expect(within(section).getByText('Mit dem Normenverzeichnis abgeglichen: Heute gilt die Ausgabe 2023-02-01, seit 01.02.2023.')).toBeTruthy()
+    expect(within(section).getByText('Verbindlich ist heute die Ausgabe 2023-02-01, laut OIB-RL 4 2023.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Ist noch aktuell' })).toBeNull()
     expect(within(section).getByRole('button', { name: /Neuere Ausgabe hochladen/ })).toBeTruthy()
+    expect(screen.getByTestId('base-knowledge-status')).toHaveAttribute('data-stand', 'newer_edition')
+    expect(screen.getByTestId('base-knowledge-status').className).not.toMatch(/warning|danger|error/)
+  })
+
+  it('keeps the office’s own check where nothing binds an edition, and says it was the office that checked', async () => {
+    renderSheet({ ...CONFIRMED, binding: null, freshness: { ...CONFIRMED.freshness, lastCheck: { checkedAt: '2026-10-02T09:00:00.000Z', checkedBy: 'user-1', result: 'current', note: null } } })
+    const section = await screen.findByTestId('base-knowledge-check')
+    expect(within(section).getByText('Vom Büro geprüft am 02.10.2026: aktuell.')).toBeTruthy()
+    expect(within(section).getByRole('button', { name: 'Ist noch aktuell' })).toBeTruthy()
   })
 
   it('offers no licence step for a freely available copy while the office is not asked about licences', async () => {

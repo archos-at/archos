@@ -2,12 +2,13 @@
 ---
 features:
   - >
-    Under Normen & Richtlinien a norm's Stand now comes from the standards
-    directory where it lists the norm: „Aktuell“ when your office holds the
-    edition in force today, „Neuere Ausgabe“ when a newer one applies, with no
-    yearly check to tick. Everything else keeps the check, shown as „Geprüft
-    am …“ or „Prüfung fällig“, and the list filters by these.
+    Under Normen & Richtlinien a norm's Stand now comes from the law or
+    guideline that makes an edition of it binding, where ARCHOS knows one:
+    „Aktuell“ when your office holds that edition, „Neuere Ausgabe“ when a
+    newer one binds, and the norm says under what. Everything else keeps a
+    quiet yearly check, and a norm your office never bought is never held
+    against it.
   - >
-    When a newer edition of a norm your office holds comes into force, whoever
-    manages the Büroablage finds it in the Postfach, with the projects whose
-    reference day falls after it.
+    When a norm your office holds is no longer the binding edition for one of
+    your active projects, whoever manages the Büroablage finds it once in the
+    Postfach, with the projects it affects.

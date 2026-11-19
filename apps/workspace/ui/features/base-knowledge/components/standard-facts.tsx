@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { InspectorGroup, InspectorRow, InspectorSection } from '@/components/ui/inspector-group'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
+import { standFromBinding } from '@/lib/base-knowledge/office/listing'
 import { CurrencyNote, day, StatusChip, superseded, TextUseChip } from './entry-atoms'
 
 interface StandardFactsProps {
@@ -98,7 +99,7 @@ export function StandardFacts({ entry, canManage, onManage, onOpenEdition, onCha
         </Button>
       )}
       {/* A superseded edition is not checked: the newer one is what a check would find. */}
-      {canManage && entry.status === 'confirmed' && !superseded(entry) && entry.directory === null && (
+      {canManage && entry.status === 'confirmed' && !superseded(entry) && !standFromBinding(entry) && (
         <Button size="sm" variant="secondary" className="mt-2 self-start" disabled={busy} onClick={() => void check()} data-testid="standard-facts-check">
           {t('detail.checkCurrent')}
         </Button>

@@ -350,11 +350,11 @@ export const collaboration: typeof en.collaboration = {
         bodyNoSubject: 'In „Mein Feedback“ lesen und antworten.',
       },
       baseKnowledgeNewEdition: {
-        title: '{subject}: neue Ausgabe erschienen',
-        body: 'Seit {since} gilt die Ausgabe {related}, die Büroablage hat nur eine ältere.',
+        title: '{subject} ist nicht mehr die verbindliche Ausgabe',
+        body: 'Verbindlich ist die Ausgabe {related}. Betrifft: {excerpt}',
         variants: {
-          projects: {
-            body: 'Seit {since} gilt die Ausgabe {related}, die Büroablage hat nur eine ältere. Betrifft Projekte mit Stichtag danach: {excerpt}',
+          via: {
+            body: 'Verbindlich ist die Ausgabe {related}, laut {via}. Betrifft: {excerpt}',
           },
         },
       },

@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
-import { isSuperseded, standOf, type EntryStand } from '@/lib/base-knowledge/office/listing'
+import { isSuperseded, standFromBinding, standOf, type EntryStand } from '@/lib/base-knowledge/office/listing'
 
 export const day = (iso: string, locale: string) =>
   new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso).toLocaleDateString(locale === 'de' ? 'de-AT' : 'en-GB', {
@@ -44,9 +44,9 @@ const STAND_VARIANT: Record<EntryStand, ChipProps['variant']> = {
   proposed: 'info',
   superseded: 'muted',
   current: 'success',
-  newer_edition: 'warning',
+  newer_edition: 'info',
   checked: 'outline',
-  check_due: 'warning',
+  check_due: 'muted',
 }
 
 const STAND_LABEL = {
@@ -62,14 +62,17 @@ export function StatusChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Elemen
   const t = useTranslations(baseKnowledgeCopy)
   const { locale } = useLocale()
   const stand = standOf(entry)
+  const hinted = standFromBinding(entry) && (stand === 'current' || stand === 'newer_edition')
   const checkedAt = entry.freshness.lastCheck?.checkedAt
   const chip = (
-    <Chip size="sm" variant={STAND_VARIANT[stand]} tabIndex={entry.directory ? 0 : undefined} data-testid="base-knowledge-status" data-stand={stand}>
+    <Chip size="sm" variant={STAND_VARIANT[stand]} tabIndex={hinted ? 0 : undefined} data-testid="base-knowledge-status" data-stand={stand}>
       {t(STAND_LABEL[stand], { date: checkedAt ? day(checkedAt, locale) : '' })}
     </Chip>
   )
-  if (!entry.directory || (stand !== 'current' && stand !== 'newer_edition')) return chip
-  return <Explained hint={t('status.directoryHint', { label: entry.directory.inForce.editionLabel })}>{chip}</Explained>
+  if (!hinted || !entry.binding) return chip
+  const via = viaOf(entry.binding)
+  const hint = via ? t('status.bindingHintVia', { label: entry.binding.editionLabel, via }) : t('status.bindingHint', { label: entry.binding.editionLabel })
+  return <Explained hint={hint}>{chip}</Explained>
 }
 
 export function TextUseChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Element {
@@ -94,20 +97,30 @@ export function TextUseChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Eleme
   )
 }
 
+export function viaOf(binding: NonNullable<BaseKnowledgeEntry['binding']>): string | null {
+  return [binding.via?.designation, binding.via?.editionLabel].filter(Boolean).join(' ') || null
+}
+
 export function CurrencyNote({ entry }: { entry: BaseKnowledgeEntry }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const { locale } = useLocale()
-  if (entry.directory) {
-    const { editionLabel, startsOn } = entry.directory.inForce
-    return (
-      <span className="text-muted-foreground text-xs" data-testid="base-knowledge-currency">
-        {t('currency.directory', { label: editionLabel, date: day(startsOn, locale) })}
-      </span>
-    )
-  }
+  const { binding } = entry
+  const lastCheck = entry.freshness.lastCheck
+  const via = binding ? viaOf(binding) : null
   return (
-    <span className="text-muted-foreground text-xs" data-testid="base-knowledge-currency">
-      {t('currency.manual', { months: Math.round(entry.freshness.intervalDays / 30.4) })}
+    <span className="text-muted-foreground flex flex-col text-xs" data-testid="base-knowledge-currency">
+      {binding && (
+        <span data-testid="base-knowledge-currency-binding">
+          {via ? t('currency.bindingVia', { label: binding.editionLabel, via }) : t('currency.binding', { label: binding.editionLabel })}
+        </span>
+      )}
+      {!standFromBinding(entry) && (
+        <span data-testid="base-knowledge-currency-check">
+          {lastCheck
+            ? t('currency.checked', { date: day(lastCheck.checkedAt, locale), result: t(`detail.checkResult.${lastCheck.result}`) })
+            : t('currency.unchecked', { months: Math.round(entry.freshness.intervalDays / 30.4) })}
+        </span>
+      )}
     </span>
   )
 }

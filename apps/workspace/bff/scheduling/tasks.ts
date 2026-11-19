@@ -164,8 +164,8 @@ const SWEEPS: SweepSpec[] = [
     name: 'base-knowledge-new-editions',
     cron: `CRON_TZ=${OFFICE_TIME_ZONE} 13 5 * * *`,
     reason:
-      'lists the organizations holding confirmed standards of their own; each compares them with the editions the platform ' +
-      'lists inside its own organization and tells whoever manages its office shelf of a newer one',
+      'lists the organizations holding confirmed standards of their own; each resolves inside its own organization which ' +
+      'edition binds for its active projects and tells whoever manages its office shelf when its copy no longer does',
     run: sweeps.sweepNewEditions,
     retries: 2,
   },

@@ -15,6 +15,7 @@ import {
   rewriteItemPayloadsAnchoredOn,
   type AnchoredRows,
   type InboxResolutionTarget,
+  type OpenItemsOfType,
   type OpenGroupRefresh,
 } from './repository'
 
@@ -43,7 +44,7 @@ export async function resolveInboxItemsAnchoredOn(input: {
   return nudge(await resolveOpenItemsAnchoredOn(input))
 }
 
-export async function resolveInboxItemsOfType(input: { organizationId: string; types: readonly InboxItemType[] }): Promise<number> {
+export async function resolveInboxItemsOfType(input: OpenItemsOfType): Promise<number> {
   return nudge(await resolveOpenItemsOfType(input))
 }
 

@@ -26,7 +26,7 @@ export function directiveVerdict(
   return { verdict: 'excluded' }
 }
 
-export const workKeyOf = (lowered: string) => lowered.replace(/\s+/g, ' ').trim().replace(/:\d{4}(-\d{2}(-\d{2})?)?$/, '')
+const workKeyOf = (lowered: string) => lowered.replace(/\s+/g, ' ').trim().replace(/:\d{4}(-\d{2}(-\d{2})?)?$/, '')
 
 export function designationKey(designation: string): string {
   return workKeyOf(designation.toLocaleLowerCase('de'))
@@ -36,20 +36,6 @@ export interface ListedEdition {
   designation: string
   title: string
   editionLabel: string
-  hasText: boolean
-}
-
-export interface DirectoryEdition {
-  label: string
-  issuedOn: string | null
-  inForceFrom: string | null
-  inForceTo: string | null
-}
-
-export interface DirectoryWork {
-  designation: string
-  title: string
-  editions: DirectoryEdition[]
 }
 
 export interface PlatformDirective {
@@ -62,14 +48,12 @@ export interface PlatformDirective {
 
 export interface PlatformKnowledge {
   listedNotHeld(organizationId: string, held: readonly string[]): Promise<ListedEdition[]>
-  editionsOf(organizationId: string, designations: readonly string[]): Promise<DirectoryWork[]>
   isReleased(organizationId: string, revisionId: string): Promise<boolean>
   directivesFor(organizationId: string, territoryId: string | null): Promise<PlatformDirective[]>
 }
 
 export const STUB_PLATFORM_KNOWLEDGE: PlatformKnowledge = {
   listedNotHeld: async () => [],
-  editionsOf: async () => [],
   isReleased: async () => false,
   directivesFor: async () => [],
 }
@@ -77,8 +61,6 @@ export const STUB_PLATFORM_KNOWLEDGE: PlatformKnowledge = {
 const RECORDS: PlatformKnowledge = {
   listedNotHeld: async (organizationId, held) =>
     (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(organizationId, held),
-  editionsOf: async (organizationId, designations) =>
-    (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.editionsOf(organizationId, designations),
   isReleased: async (organizationId, revisionId) =>
     (await import('./platform/office-read')).PLATFORM_RECORDS_KNOWLEDGE.isReleased(organizationId, revisionId),
   directivesFor: async (organizationId, territoryId) =>

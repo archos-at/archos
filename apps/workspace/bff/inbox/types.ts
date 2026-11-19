@@ -30,7 +30,7 @@ export interface InboxItemView {
   mentions: MarkMention[]
   variant: string | null
   dueOn?: string | null
-  since?: string | null
+  via?: string | null
   openMarks?: number | null
   marksRevision?: number | null
   uploadReport?: UploadReport | null
@@ -135,7 +135,7 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'inbound_mail.rejected': { icon: 'mail-x', i18nKey: 'inboundMailRejected', tone: 'info' },
   'inbound_mail.expired': { icon: 'mail-clock', i18nKey: 'inboundMailExpired', tone: 'info' },
   'mail_thread.follow_expiring': { icon: 'clock', i18nKey: 'mailThreadFollowExpiring', tone: 'request' },
-  'base_knowledge.new_edition': { icon: 'layers', i18nKey: 'baseKnowledgeNewEdition', tone: 'warning' },
+  'base_knowledge.new_edition': { icon: 'layers', i18nKey: 'baseKnowledgeNewEdition', tone: 'info' },
 }
 
 export const LEGACY_INBOX_TYPES: Readonly<Record<string, InboxItemType>> = {

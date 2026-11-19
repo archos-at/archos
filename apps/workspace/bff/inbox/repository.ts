@@ -53,4 +53,4 @@ export {
   retractOccurrenceAnchoredOn,
   rewriteItemPayloadsAnchoredOn,
 } from './inbox-item-lifecycle'
-export type { AnchoredRows, InboxResolutionTarget, OpenGroupRefresh } from './inbox-item-lifecycle'
+export type { AnchoredRows, InboxResolutionTarget, OpenGroupRefresh, OpenItemsOfType } from './inbox-item-lifecycle'

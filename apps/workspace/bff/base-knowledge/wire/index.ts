@@ -102,7 +102,7 @@ export const listEntriesQuerySchema = z
     attention: z
       .enum(ENTRY_ATTENTION)
       .optional()
-      .describe('proposed: to confirm; newer_edition: a newer one is in force; check_due: unlisted, unchecked, overdue or not current; metadata_only: text not used.'),
+      .describe('proposed: to confirm; newer_edition: a newer one binds; check_due: unchecked, overdue or not current; metadata_only: text not used.'),
     folderId: z
       .guid()
       .optional()
@@ -139,9 +139,12 @@ export interface EntryEdition {
   inForceToday: boolean
 }
 
-export interface DirectoryStanding {
-  inForce: { editionLabel: string; startsOn: string }
+export interface BindingStanding {
+  editionLabel: string
+  startsOn: string | null
+  via: { designation: string | null; editionLabel: string | null } | null
   held: boolean
+  newer: boolean
 }
 
 export interface BaseKnowledgeEntry {
@@ -157,7 +160,7 @@ export interface BaseKnowledgeEntry {
   proposedBy: 'reading' | 'agent' | 'person'
   confirmedBy: string | null
   freshness: Freshness
-  directory: DirectoryStanding | null
+  binding: BindingStanding | null
   workId: string
   editions: EntryEdition[]
   folderId: string | null

@@ -28,8 +28,8 @@ def overdue_count(labels: Sequence[dict[str, object]]) -> float:
     return float(sum(1 for label in labels if label.get("checkOverdue") is True))
 
 
-BINDING_EDITION_MISSING_MARKER = "BINDING EDITION NOT HELD"
+OTHER_EDITION_BINDING_MARKER = "OTHER EDITION BINDING"
 
 
 def missing_edition_count(block: str) -> int:
-    return sum(1 for line in block.splitlines() if line.startswith("- ") and BINDING_EDITION_MISSING_MARKER in line)
+    return sum(1 for line in block.splitlines() if line.startswith("- ") and OTHER_EDITION_BINDING_MARKER in line)

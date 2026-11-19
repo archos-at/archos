@@ -2,36 +2,27 @@ import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import type { DirectoryWork, ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
+import type { ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
 import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { competentAuthorities } from '@/lib/site-resolution/competence'
 import type { SiteAuthority } from '@/lib/site-resolution/wire'
-import { designationKey, directiveVerdict, workKeyOf, type PlatformAddressee } from '../platform'
+import { designationKey, directiveVerdict, type PlatformAddressee } from '../platform'
 import { recordReadable } from '../store/visibility'
-import { isoDateOf, readTerritoryChain } from '../time/repository'
+import { readTerritoryChain } from '../time/repository'
 
 const MAX_READ = 200
-const MAX_DIRECTORY_READ = 2000
-
-const asciiKey = (designation: string) => workKeyOf(designation.replace(/[A-Z]/g, (letter) => letter.toLowerCase()))
 
 interface ListingRow extends Record<string, unknown> {
   designation: string
   title: string
   edition_label: string
-  has_text: boolean
 }
 
 async function listedFor(organizationId: string): Promise<ListedEdition[]> {
   const rows = await withTenant({ organizationId }, () =>
     getDb().execute<ListingRow>(sql`
-      SELECT w.identifiers ->> 'designation' AS designation, w.title, e.label AS edition_label,
-        EXISTS (
-          SELECT 1 FROM knowledge_records mr
-          JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
-          WHERE mr.organization_id IS NULL AND m.edition_id = er.id AND m.corpus_file IS NOT NULL
-        ) AS has_text
+      SELECT w.identifiers ->> 'designation' AS designation, w.title, e.label AS edition_label
       FROM knowledge_records wr
       JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
       JOIN knowledge_edition_revisions e ON e.work_id = wr.id
@@ -39,6 +30,11 @@ async function listedFor(organizationId: string): Promise<ListedEdition[]> {
       WHERE wr.organization_id IS NULL AND wr.type = 'work' AND ${recordReadable('wr', organizationId)}
         AND er.organization_id IS NULL AND ${recordReadable('er', organizationId)}
         AND w.identifiers ->> 'designation' IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM knowledge_records mr
+          JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+          WHERE mr.organization_id IS NULL AND m.edition_id = er.id AND m.corpus_file IS NOT NULL
+        )
       ORDER BY designation
       LIMIT ${MAX_READ}`),
   )
@@ -46,52 +42,7 @@ async function listedFor(organizationId: string): Promise<ListedEdition[]> {
     designation: String(row.designation),
     title: String(row.title),
     editionLabel: String(row.edition_label),
-    hasText: row.has_text === true,
   }))
-}
-
-interface DirectoryRow extends Record<string, unknown> {
-  designation: string
-  title: string
-  label: string
-  issued_on: unknown
-  in_force_from: unknown
-  in_force_to: unknown
-}
-
-async function editionsOf(organizationId: string, designations: readonly string[]): Promise<DirectoryWork[]> {
-  const keys = [...new Set(designations.map((designation) => designationKey(designation)))]
-  if (keys.length === 0) return []
-  const spellings = [...new Set(designations.flatMap((designation) => [designationKey(designation), asciiKey(designation)]))]
-  const rows = await withTenant({ organizationId }, () =>
-    getDb().execute<DirectoryRow>(sql`
-      SELECT w.identifiers ->> 'designation' AS designation, w.title, e.label, e.issued_on, e.in_force_from, e.in_force_to
-      FROM knowledge_records wr
-      JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
-      JOIN knowledge_edition_revisions e ON e.work_id = wr.id
-      JOIN knowledge_records er ON er.id = e.record_id AND er.head_revision_id = e.revision_id
-      WHERE wr.organization_id IS NULL AND wr.type = 'work' AND ${recordReadable('wr', organizationId)}
-        AND er.organization_id IS NULL AND ${recordReadable('er', organizationId)}
-        AND lower(regexp_replace(btrim(regexp_replace(w.identifiers ->> 'designation', '[[:space:]]+', ' ', 'g')), ':[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$', ''))
-          IN (${sql.join(spellings.map((spelling) => sql`${spelling}`), sql`, `)})
-      ORDER BY designation, e.in_force_from NULLS FIRST
-      LIMIT ${MAX_DIRECTORY_READ}`),
-  )
-  const wanted = new Set(keys)
-  const works = new Map<string, DirectoryWork>()
-  for (const row of rows) {
-    const key = designationKey(String(row.designation))
-    if (!wanted.has(key)) continue
-    const work = works.get(key) ?? { designation: String(row.designation), title: String(row.title), editions: [] }
-    work.editions.push({
-      label: String(row.label),
-      issuedOn: isoDateOf(row.issued_on),
-      inForceFrom: isoDateOf(row.in_force_from),
-      inForceTo: isoDateOf(row.in_force_to),
-    })
-    works.set(key, work)
-  }
-  return [...works.values()]
 }
 
 interface DirectiveRow extends Record<string, unknown> {
@@ -158,9 +109,6 @@ export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
   async listedNotHeld(organizationId, held) {
     const holds = new Set(held.map(designationKey))
     return (await listedFor(organizationId)).filter((listed) => !holds.has(designationKey(listed.designation)))
-  },
-  async editionsOf(organizationId, designations) {
-    return editionsOf(organizationId, designations)
   },
   async isReleased(organizationId, revisionId) {
     const rows = await withTenant({ organizationId }, () =>

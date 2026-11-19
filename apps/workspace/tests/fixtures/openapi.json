@@ -23201,7 +23201,7 @@
       "get": {
         "operationId": "base-knowledge-get",
         "summary": "Read one base-knowledge entry",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `directory`. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `binding`. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -23584,7 +23584,7 @@
       "get": {
         "operationId": "base-knowledge-list",
         "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `directory`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. What needs a person comes first. Only confirmed entries reach answers. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `binding`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. What needs a person comes first. Only confirmed entries reach answers. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -23645,7 +23645,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "proposed: to confirm; newer_edition: a newer one is in force; check_due: unlisted, unchecked, overdue or not current; metadata_only: text not used.",
+              "description": "proposed: to confirm; newer_edition: a newer one binds; check_due: unchecked, overdue or not current; metadata_only: text not used.",
               "type": "string",
               "enum": [
                 "proposed",
@@ -23654,7 +23654,7 @@
                 "metadata_only"
               ]
             },
-            "description": "proposed: to confirm; newer_edition: a newer one is in force; check_due: unlisted, unchecked, overdue or not current; metadata_only: text not used."
+            "description": "proposed: to confirm; newer_edition: a newer one binds; check_due: unchecked, overdue or not current; metadata_only: text not used."
           },
           {
             "name": "folderId",

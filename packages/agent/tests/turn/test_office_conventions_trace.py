@@ -136,10 +136,10 @@ class TestTheTraceSaysWhichBindingEditionsTheOfficeLacked:
         [
             "The office's own base knowledge: …",
             "Editions are those in force on 2024-03-01, the project's reference day …",
-            "An entry marked BINDING EDITION NOT HELD names the edition the platform's norm directory lists …",
-            "- ÖNORM B 1600: BINDING EDITION NOT HELD; in force on 2024-03-01: edition 2023-02-01; "
-            "the office holds only 2017-04-15 (file „OENORM_B_1600_2017.pdf“), not in force that day; "
-            "title „Barrierefreies Bauen“",
+            "An entry marked OTHER EDITION BINDING is the office's copy of another edition than the one binding …",
+            "- ÖNORM B 1600:2017: technical standard, edition 2017-04-15; OTHER EDITION BINDING on 2024-03-01: "
+            "edition 2023-02-01, made binding by OIB-RL 4 2023; role: requirement source where a law makes it binding; "
+            "file „OENORM_B_1600_2017.pdf“; title „Barrierefreies Bauen“",
             "- ÖNORM B 3691 „Abdichtungen“: technical standard, edition 2019-11-01; role: requirement source",
         ]
     )

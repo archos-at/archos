@@ -12,10 +12,15 @@ export function isSuperseded(entry: BaseKnowledgeEntry): boolean {
 
 export type EntryStand = 'proposed' | 'superseded' | 'current' | 'newer_edition' | 'checked' | 'check_due'
 
+export function standFromBinding(entry: Pick<BaseKnowledgeEntry, 'binding'>): boolean {
+  return entry.binding !== null && (entry.binding.held || entry.binding.newer)
+}
+
 export function standOf(entry: BaseKnowledgeEntry): EntryStand {
   if (entry.status === 'proposed') return 'proposed'
   if (isSuperseded(entry)) return 'superseded'
-  if (entry.directory) return entry.directory.held ? 'current' : 'newer_edition'
+  if (entry.binding?.held) return 'current'
+  if (entry.binding?.newer) return 'newer_edition'
   return entry.freshness.overdue ? 'check_due' : 'checked'
 }
 

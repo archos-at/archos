@@ -87,49 +87,33 @@ describe('the edition in force on a day', () => {
   })
 })
 
-describe('the editions a turn carries, with the norm directory', () => {
-  const directory = [
-    {
-      designation: 'ÖNORM B 1600:2023',
-      title: 'Barrierefreies Bauen',
-      editions: [
-        { label: '2017-04-01', issuedOn: '2017-04-01', inForceFrom: '2017-04-01', inForceTo: '2023-02-01' },
-        { label: '2023-02-01', issuedOn: '2023-02-01', inForceFrom: '2023-02-01', inForceTo: null },
-      ],
-    },
-  ]
-  const files = new Map([
-    ['doc_e2017', { fileName: 'OENORM_B_1600_2017.pdf' }],
-    ['doc_e2023', { fileName: 'OENORM_B_1600_2023.pdf' }],
-  ])
+describe('the editions a turn carries, with what the resolver names as binding', () => {
+  const via = { designation: 'OIB-RL 4', editionLabel: '2023' }
+  const binds = (editionLabel: string) => new Map([['önorm b 1600', [{ editionLabel, startsOn: editionLabel, via }]]])
 
-  it('names the binding edition as missing and carries no other edition of that work', () => {
-    const { stored, missing } = editionsForDay([OLD], directory, '2024-03-01', files)
-    expect(stored).toEqual([])
-    expect(missing).toEqual([
-      { designation: 'ÖNORM B 1600', title: 'Barrierefreies Bauen', binding: '2023-02-01', held: [{ editionLabel: '2017-04-01', fileName: 'OENORM_B_1600_2017.pdf' }] },
-    ])
+  it('still carries the office’s own edition when another one binds, for the answer to name both', () => {
+    expect(editionsForDay([OLD], binds('2023-02-01'), '2024-03-01')).toEqual([OLD])
   })
 
-  it('carries the held edition the directory names, and nothing missing', () => {
-    expect(editionsForDay([OLD, NEW], directory, '2024-03-01', files)).toEqual({ stored: [NEW], missing: [] })
-    expect(editionsForDay([OLD, NEW], directory, '2020-06-01', files)).toEqual({ stored: [OLD], missing: [] })
+  it('carries the held edition the resolver names as binding, over the office’s own dates', () => {
+    expect(editionsForDay([OLD, NEW], binds('2023-02-01'), '2020-06-01')).toEqual([NEW])
+    expect(editionsForDay([OLD, NEW], binds('2017-04-01'), '2024-03-01')).toEqual([OLD])
   })
 
-  it('falls back to the office’s own dates where the directory knows no edition', () => {
-    expect(editionsForDay([OLD, NEW], [], '2020-06-01', files)).toEqual({ stored: [OLD], missing: [] })
+  it('falls back to the office’s own dates where the resolver names no edition', () => {
+    expect(editionsForDay([OLD, NEW], new Map(), '2020-06-01')).toEqual([OLD])
   })
 
   it('keeps a licensed proposal, which is listed and never read, while the office is asked about licences', () => {
     licenceStep.ask = true
     const proposal = edition('e-proposal', '2023-02-01', { workId: 'work_2', confirmed: false }, { licenceClass: 'licensed', designation: 'ÖNORM B 5371' })
-    expect(editionsForDay([proposal], directory, '2024-03-01', files).stored).toEqual([proposal])
+    expect(editionsForDay([proposal], binds('2023-02-01'), '2024-03-01')).toEqual([proposal])
   })
 
   it('keeps no proposal, licensed or not, while the office is not asked about licences', () => {
     const licensed = edition('e-proposal', '2023-02-01', { workId: 'work_2', confirmed: false }, { licenceClass: 'licensed', designation: 'ÖNORM B 5371' })
     const open = edition('e-open', '2023-02-01', { workId: 'work_3', confirmed: false }, { designation: 'ÖNORM B 5372' })
-    expect(editionsForDay([licensed, open], directory, '2024-03-01', files).stored).toEqual([])
+    expect(editionsForDay([licensed, open], binds('2023-02-01'), '2024-03-01')).toEqual([])
   })
 })
 

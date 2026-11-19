@@ -40,12 +40,12 @@ const edition: InboxItemView = {
   actorUserId: null,
   count: 1,
   href: '/app/base-knowledge?entry=edition_b1600',
-  subject: 'ÖNORM B 1600',
+  subject: 'ÖNORM B 1600:2017',
   related: '2023-02-01',
-  since: '2023-02-01',
+  via: 'OIB-RL 4 2023',
   excerpt: 'Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
   mentions: [],
-  variant: 'projects',
+  variant: 'via',
   answerIn: null,
   createdAt: '2026-11-19T09:00:00Z',
   updatedAt: '2026-11-19T09:00:00Z',
@@ -60,7 +60,7 @@ const found: InboxItemView = {
   href: '/app/office-shelf?folder=f-recht',
   subject: null,
   related: null,
-  since: null,
+  via: null,
   excerpt: 'OENORM_B_1600_2017.pdf, OIB-RL_4_2023.pdf',
   variant: null,
 }
@@ -75,7 +75,7 @@ const offered: InboxItemView = {
   href: '/app/projects/p1/files?folder=f-normen',
   subject: 'Wohnhaus Floridsdorf',
   related: null,
-  since: null,
+  via: null,
   excerpt: 'ÖNORM B 3691',
   variant: null,
 }
@@ -127,19 +127,19 @@ const entryOf = (id: string): HTMLElement =>
   screen.getAllByTestId('inbox-queue-entry').find((entry) => entry.getAttribute('data-item-id') === id)!
 
 describe('a new edition of a norm the office holds, in the Postfach', () => {
-  test('is headed by the norm, and says which edition applies since when and which projects it concerns', () => {
+  test('is headed by the norm the office holds, and says which edition binds, under what, and which projects it concerns', () => {
     queue([edition])
     const entry = entryOf('i-edition')
-    expect(entry.firstElementChild).toHaveTextContent('ÖNORM B 1600: neue Ausgabe erschienen')
+    expect(entry.firstElementChild).toHaveTextContent('ÖNORM B 1600:2017 ist nicht mehr die verbindliche Ausgabe')
     expect(entry).toHaveTextContent(
-      'Seit 01.02.2023 gilt die Ausgabe 2023-02-01, die Büroablage hat nur eine ältere. Betrifft Projekte mit Stichtag danach: Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
+      'Verbindlich ist die Ausgabe 2023-02-01, laut OIB-RL 4 2023. Betrifft: Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
     )
   })
 
   test('uploads the new edition from the norm’s entry, or opens the edition the office holds', () => {
     queue([edition])
     expect(screen.getByRole('link', { name: 'Neue Ausgabe hochladen' })).toHaveAttribute('href', '/app/base-knowledge?entry=edition_b1600')
-    expect(screen.getByRole('link', { name: 'ÖNORM B 1600 in Normen & Richtlinien ansehen' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'ÖNORM B 1600:2017 in Normen & Richtlinien ansehen' })).toHaveAttribute(
       'href',
       '/app/base-knowledge?file=edition_b1600',
     )
@@ -147,13 +147,13 @@ describe('a new edition of a norm the office holds, in the Postfach', () => {
 
   test('reads the same in the full list', () => {
     row(edition)
-    expect(screen.getByTestId('inbox-item-link')).toHaveTextContent('ÖNORM B 1600: neue Ausgabe erschienen')
-    expect(screen.getByTestId('inbox-norm-lines')).toHaveTextContent('Betrifft Projekte mit Stichtag danach: Wohnbau Seestadt Baufeld D12')
+    expect(screen.getByTestId('inbox-item-link')).toHaveTextContent('ÖNORM B 1600:2017 ist nicht mehr die verbindliche Ausgabe')
+    expect(screen.getByTestId('inbox-norm-lines')).toHaveTextContent('Betrifft: Wohnbau Seestadt Baufeld D12')
     expect(screen.queryByTestId('inbox-item-excerpt')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Neue Ausgabe hochladen' })).toHaveAttribute('href', '/app/base-knowledge?entry=edition_b1600')
   })
 
-  test('offers nothing more once the office holds the edition', () => {
+  test('offers nothing more once the office holds the edition or no project is affected', () => {
     row({ ...edition, state: 'resolved' })
     expect(screen.queryByTestId('inbox-norm-actions')).not.toBeInTheDocument()
   })

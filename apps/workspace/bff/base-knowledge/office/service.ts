@@ -28,7 +28,7 @@ import {
   type BaseKnowledgeList,
   type BaseKnowledgeUnlisting,
   type ConfirmEntryBody,
-  type DirectoryStanding,
+  type BindingStanding,
   type EntryValues,
   type LicenceEntryBody,
   type UpdateEntryBody,
@@ -40,7 +40,7 @@ import {
 import { readSetupRecords } from '@/lib/project-intake/setup-records'
 import { subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 import { projectTerritory } from './authority'
-import { directoryStanding, freshnessOf } from './freshness'
+import { freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
 import { readShelfDocument, visibleOfficeDocuments, type EntryDocument } from './repository'
@@ -48,11 +48,14 @@ import { releaseText, withholdText } from './text-effects'
 import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock, type TurnDay } from './turn-block'
 import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
-import { designationKey, platformKnowledge, type DirectoryEdition } from '../platform'
+import { designationKey, platformKnowledge } from '../platform'
+import { knowledgeContextForTurn } from '../context/service'
+import type { KnowledgeContext } from '../context/wire'
+import { bindingNormsOf, bindingStanding, NO_BINDING_NORMS, type BindingNorms } from './binding-edition'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { territoryChoices } from './territory-choices'
 import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
-import { editionsByWork, editionsForDay, editionsOf, heldEditionsOf, newestOf } from './work-editions'
+import { editionsByWork, editionsForDay, editionsOf } from './work-editions'
 import { workDesignation } from './work-designation'
 import { referenceDayOfProfile } from '../time/profile-procedure'
 import { insertEditionOfWork, deleteWorkIfUnused } from '../store/office-editions'
@@ -70,21 +73,17 @@ const NO_NAMES: Names = new Map()
 
 type Works = ReadonlyMap<string, StoredEntry[]>
 const NO_WORKS: Works = new Map()
-type Directory = ReadonlyMap<string, DirectoryEdition[]>
-const NO_DIRECTORY: Directory = new Map()
 const dayOf = (now: Date) => now.toISOString().slice(0, 10)
 
-async function directoryOf(organizationId: string, entries: readonly StoredEntry[]): Promise<Directory> {
-  const designations = entries.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
-  if (designations.length === 0) return NO_DIRECTORY
-  const works = await platformKnowledge().editionsOf(organizationId, designations)
-  return new Map(works.map((work) => [designationKey(work.designation), work.editions]))
+async function officeBindings(organizationId: string, entries: readonly StoredEntry[]): Promise<BindingNorms> {
+  if (!entries.some((entry) => entry.confirmed && entry.values.designation)) return NO_BINDING_NORMS
+  const context = await knowledgeContextForTurn(organizationId, null, undefined, null, 'operation')
+  return bindingNormsOf(context.uses)
 }
 
-function standingIn(stored: StoredEntry, works: Works, directory: Directory, day: string) {
+function standingIn(stored: StoredEntry, works: Works, bindings: BindingNorms): BindingStanding | null {
   if (!stored.confirmed || !stored.values.designation) return null
-  const listed = directory.get(designationKey(stored.values.designation))
-  return listed ? directoryStanding(heldEditionsOf(stored, works), listed, day) : null
+  return bindingStanding(works.get(stored.workId) ?? [stored], bindings.get(designationKey(stored.values.designation)))
 }
 
 function toEntry(
@@ -93,7 +92,7 @@ function toEntry(
   now: Date,
   names: Names = NO_NAMES,
   works: Works = NO_WORKS,
-  directory: Directory = NO_DIRECTORY
+  bindings: BindingNorms = NO_BINDING_NORMS
 ): BaseKnowledgeEntry {
   const confirmedBy = stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null
   return {
@@ -111,7 +110,7 @@ function toEntry(
     textUse: textUseOf(stored.values.licenceClass, stored.terms, ASK_FOR_LICENCE),
     aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
-    directory: standingIn(stored, works, directory, dayOf(now)),
+    binding: standingIn(stored, works, bindings),
     folderId: document.folderId,
     editions: editionsOf(stored, works, dayOf(now)),
     createdAt: stored.createdAt.toISOString(),
@@ -134,10 +133,10 @@ export async function listBaseKnowledge(
   const now = new Date()
   const readable = stored.filter((entry) => documents.has(entry.documentId))
   const works = editionsByWork(readable)
-  const directory = await directoryOf(session.organizationId, readable)
+  const bindings = await officeBindings(session.organizationId, readable)
   const visible = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
-    return document ? [toEntry(entry, document, now, names, works, directory)] : []
+    return document ? [toEntry(entry, document, now, names, works, bindings)] : []
   })
   const entries = inFolder ? visible.filter((entry) => entry.folderId !== null && inFolder.has(entry.folderId)) : visible
   const matching = entries.filter((entry) => matchesQuery(entry, query)).sort(byAttention)
@@ -170,29 +169,14 @@ async function findEntry(
   const now = new Date()
   const readable = editions.filter((entry) => documents.has(entry.documentId))
   const works = editionsByWork(readable)
-  const directory = await directoryOf(session.organizationId, readable)
-  return { stored, entry: toEntry(stored, document, now, names, works, directory), document }
+  const bindings = await officeBindings(session.organizationId, readable)
+  return { stored, entry: toEntry(stored, document, now, names, works, bindings), document }
 }
 
-export interface WorkStanding {
-  workId: string
-  entryId: string
-  designation: string
-  standing: DirectoryStanding
-}
-
-export async function directoryStandingsOf(organizationId: string, now: Date = new Date()): Promise<WorkStanding[]> {
+export async function heldWorksOf(organizationId: string): Promise<StoredEntry[][]> {
   const all = await readOfficeEntries(organizationId)
   const documents = await visibleOfficeDocuments(organizationId, all.map((entry) => entry.documentId), SCREENED_ONLY)
-  const readable = all.filter((entry) => entry.confirmed && documents.has(entry.documentId))
-  const works = editionsByWork(readable)
-  const directory = await directoryOf(organizationId, readable)
-  return [...works.values()].flatMap((editions) => {
-    const [edition] = editions
-    const standing = standingIn(edition, works, directory, dayOf(now))
-    const designation = workDesignation(edition.values.designation)
-    return standing && designation ? [{ workId: edition.workId, entryId: newestOf(editions).editionId, designation, standing }] : []
-  })
+  return [...editionsByWork(all.filter((entry) => entry.confirmed && entry.values.designation && documents.has(entry.documentId))).values()]
 }
 
 export async function storedEntryOf(session: AuthorizedSession, entryId: string): Promise<{ stored: StoredEntry; entry: BaseKnowledgeEntry }> {
@@ -458,7 +442,13 @@ export interface BaseKnowledgeTurn {
   labels: OfficeAnswerLabel[]
 }
 
-export async function baseKnowledgeForTurn(organizationId: string, projectId: string | null): Promise<BaseKnowledgeTurn | null> {
+export type TurnKnowledge = Pick<KnowledgeContext, 'uses' | 'date'>
+
+export async function baseKnowledgeForTurn(
+  organizationId: string,
+  projectId: string | null,
+  knowledge: Promise<TurnKnowledge> | null = null,
+): Promise<BaseKnowledgeTurn | null> {
   const [all, profile] = await Promise.all([
     readOfficeEntries(organizationId),
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
@@ -470,21 +460,23 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
   const documents = await visibleOfficeDocuments(organizationId, all.map((entry) => entry.documentId), SCREENED_ONLY)
   const readable = all.filter((entry) => documents.has(entry.documentId))
   const held = readable.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
-  const [listed, directory, setupRecords] = await Promise.all([
+  const [listed, setupRecords, context] = await Promise.all([
     platformKnowledge().listedNotHeld(organizationId, held),
-    platformKnowledge().editionsOf(organizationId, held),
     readSetupRecords(organizationId),
+    knowledge,
   ])
-  const { stored, missing } = editionsForDay(readable, directory, day.day, documents)
+  const bindings = context ? bindingNormsOf(context.uses) : NO_BINDING_NORMS
+  const stored = editionsForDay(readable, bindings, day.day)
   const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value }, subdivisionTerritories(setupRecords))
   const directives = await platformKnowledge().directivesFor(organizationId, territory.territoryId)
   const now = new Date()
+  const works = editionsByWork(readable)
   const entries = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
-    return document ? [toEntry(entry, document, now)] : []
+    return document ? [toEntry(entry, document, now, NO_NAMES, works, bindings)] : []
   })
   return {
-    block: renderBaseKnowledgeBlock(entries, territory, listed, directives, { day, missing }),
+    block: renderBaseKnowledgeBlock(entries, territory, listed, directives, { day, bindingOn: context?.date ?? day.day }),
     labels: entries.filter((entry) => entry.status === 'confirmed').map((entry) => officeAnswerLabel(entry, territory)),
   }
 }

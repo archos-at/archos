@@ -17,7 +17,7 @@ const ENTRY: BaseKnowledgeEntry = {
   folderId: null,
   workId: 'work_1',
   editions: [],
-  directory: null,
+  binding: null,
   textUse: 'used',
   aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z',
   createdAt: '2026-11-01T00:00:00.000Z',
@@ -72,6 +72,14 @@ describe('the data of an answer’s label on an office copy', () => {
     expect(officeAnswerLabel(checked('current', true), territory).freshness).toBe('check_due')
     expect(officeAnswerLabel(checked('newer_known', true), territory).freshness).toBe('newer_known')
     expect(officeAnswerLabel(checked('withdrawn', true), territory).freshness).toBe('superseded')
+  })
+
+  it('asks no check of the edition the resolver holds binding, however long ago the office checked it', () => {
+    const territory = projectTerritory({}, AT_SUBDIVISIONS)
+    const binding = { editionLabel: '2017', startsOn: null, via: null, held: true, newer: false }
+    const stale = { ...ENTRY, freshness: { ...ENTRY.freshness, overdue: true } }
+    expect(officeAnswerLabel({ ...stale, binding }, territory)).toMatchObject({ checkOverdue: false, freshness: 'current' })
+    expect(officeAnswerLabel({ ...stale, binding: { ...binding, held: false, newer: true } }, territory)).toMatchObject({ checkOverdue: true, freshness: 'check_due' })
   })
 
   it('makes a commentary interpretation and gives a directive its verdict for the project', () => {

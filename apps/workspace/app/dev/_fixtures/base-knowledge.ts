@@ -104,14 +104,15 @@ function entry(
       dueAt: '2027-10-02T09:00:00.000Z',
       overdue: false,
     },
-    directory: null,
+    binding: null,
     ...rest,
   }
 }
 
 const NEVER = { intervalDays: 365, lastCheck: null, dueAt: null, overdue: true }
 
-const listed = (editionLabel: string, held: boolean) => ({ inForce: { editionLabel, startsOn: editionLabel }, held })
+const VIA = { designation: 'OIB-RL 4', editionLabel: '2023' }
+const binds = (editionLabel: string, held: boolean) => ({ editionLabel, startsOn: editionLabel, via: VIA, held, newer: !held })
 
 const ENTRIES: BaseKnowledgeEntry[] = [
   entry(
@@ -192,12 +193,12 @@ const ENTRIES: BaseKnowledgeEntry[] = [
       title: 'Treppen, Geländer und Brüstungen',
       editionLabel: '2021-01-15',
     },
-    { textUse: 'metadata_only', aiProcessingAttestedAt: null, directory: listed('2021-01-15', true) }
+    { textUse: 'metadata_only', aiProcessingAttestedAt: null, binding: binds('2021-01-15', true) }
   ),
   entry(
     'oenorm-b-3806-2023',
     { designation: 'ÖNORM B 3806:2023', title: 'Anforderungen an das Brandverhalten von Bauprodukten', editionLabel: '2023-03-01', issuedOn: '2023-03-01' },
-    { workId: 'work_oenorm-b-3806', folderId: FOLDER_IDS.fire, directory: listed('2023-03-01', true) },
+    { workId: 'work_oenorm-b-3806', folderId: FOLDER_IDS.fire, binding: binds('2023-03-01', true) },
   ),
   entry(
     'oenorm-b-3806',
@@ -245,7 +246,7 @@ const ENTRIES: BaseKnowledgeEntry[] = [
       title: 'Schallschutz und Raumakustik im Hochbau – Teil 2',
       editionLabel: '2021-11-15',
     },
-    { folderId: FOLDER_IDS.sound, directory: listed('2025-03-01', false) }
+    { folderId: FOLDER_IDS.sound, binding: binds('2025-03-01', false) }
   ),
   entry(
     'oib-leitfaden',
