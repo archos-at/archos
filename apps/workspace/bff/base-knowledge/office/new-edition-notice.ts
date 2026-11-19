@@ -2,7 +2,7 @@ import 'server-only'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { withTenant } from '@/lib/db/tenant-context'
 import { inboxGroupKey } from '@/lib/inbox/registry'
-import { readGroupPayloads } from '@/lib/inbox/repository'
+import { openRecipientsOfGroup } from '@/lib/inbox/repository'
 import { emitInboxItems, resolveInboxItemsOfType, type InboxEmission } from '@/lib/inbox/service'
 import { activeMembersHolding } from '@/lib/organizations/members-holding'
 import { listProjectsInOrg } from '@/lib/projects/repository'
@@ -66,17 +66,32 @@ function viaOf({ via }: BindingStanding): string | null {
   return [via?.designation, via?.editionLabel].filter(Boolean).join(' ') || null
 }
 
-async function activeProjectBindings(organizationId: string): Promise<ProjectBindings[]> {
+interface ActiveProjectBindings {
+  projects: ProjectBindings[]
+  unread: number
+}
+
+async function activeProjectBindings(organizationId: string): Promise<ActiveProjectBindings> {
   const active = (await listProjectsInOrg(organizationId)).filter((project) => project.status === 'active')
   if (active.length > NEW_EDITION_MAX_PROJECTS) {
     console.warn(`[base-knowledge] ${organizationId}: only ${NEW_EDITION_MAX_PROJECTS} of ${active.length} active projects are compared`)
   }
   const projects: ProjectBindings[] = []
+  let unread = 0
   for (const project of active.slice(0, NEW_EDITION_MAX_PROJECTS)) {
     const context = await knowledgeContextForTurn(organizationId, project.id, undefined, null, 'run')
-    projects.push({ name: project.name, bindings: bindingNormsOf(context.uses) })
+    if (context.gate.state === 'knowledge_unavailable') unread += 1
+    else projects.push({ name: project.name, bindings: bindingNormsOf(context.uses) })
   }
-  return projects
+  return { projects, unread }
+}
+
+async function openNotices(organizationId: string, groupKeys: readonly string[], recipients: number): Promise<Set<string>> {
+  const open = new Set<string>()
+  for (const groupKey of groupKeys) {
+    for (const recipientUserId of await openRecipientsOfGroup(organizationId, groupKey, recipients)) open.add(`${recipientUserId}\n${groupKey}`)
+  }
+  return open
 }
 
 export interface NewEditionOutcome {
@@ -87,12 +102,18 @@ export interface NewEditionOutcome {
 
 export async function noticeNewEditions(organizationId: string): Promise<NewEditionOutcome> {
   const works = await heldWorksOf(organizationId)
-  const affected = works.length > 0 ? affectedNorms(works, await activeProjectBindings(organizationId)) : []
-  const resolved = await resolveInboxItemsOfType({
-    organizationId,
-    types: [NEW_EDITION_NOTICE],
-    keepAnchors: affected.map((norm) => norm.anchorId),
-  })
+  const read = works.length > 0 ? await activeProjectBindings(organizationId) : { projects: [], unread: 0 }
+  const affected = affectedNorms(works, read.projects)
+  if (read.unread > 0) {
+    console.warn(`[base-knowledge] ${organizationId}: the knowledge context of ${read.unread} active project(s) could not be read; open new-edition notices are kept`)
+  }
+  const resolved = read.unread > 0
+    ? 0
+    : await resolveInboxItemsOfType({
+        organizationId,
+        types: [NEW_EDITION_NOTICE],
+        keepAnchors: affected.map((norm) => norm.anchorId),
+      })
   if (affected.length === 0) return { newer: 0, notified: 0, resolved }
   const recipients = await activeMembersHolding(organizationId, ORG_PERMISSIONS.officeShelfManage)
   if (recipients.length === 0) {
@@ -103,9 +124,9 @@ export async function noticeNewEditions(organizationId: string): Promise<NewEdit
     const groupKey = inboxGroupKey(NEW_EDITION_NOTICE, 'organization', organizationId, norm.anchorId)
     return recipients.map((recipientUserId) => ({ norm, groupKey, recipientUserId }))
   })
-  const stamped = await readGroupPayloads(organizationId, candidates)
+  const open = await openNotices(organizationId, [...new Set(candidates.map((candidate) => candidate.groupKey))], recipients.length)
   const emissions: InboxEmission[] = candidates
-    .filter((candidate) => !stamped.has(`${candidate.recipientUserId}\n${candidate.groupKey}`))
+    .filter((candidate) => !open.has(`${candidate.recipientUserId}\n${candidate.groupKey}`))
     .map(({ norm, groupKey, recipientUserId }) => {
       const via = viaOf(norm.standing)
       return {

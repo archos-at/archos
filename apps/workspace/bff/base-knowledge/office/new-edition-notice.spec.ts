@@ -10,14 +10,14 @@ vi.mock('@/lib/inbox/service', () => ({
   resolveInboxItemsOfType: vi.fn(async () => 0),
 }))
 vi.mock('./access', () => ({ officeStandardsEnabled: vi.fn(async () => true) }))
-vi.mock('@/lib/inbox/repository', () => ({ readGroupPayloads: vi.fn(async () => new Map()) }))
+vi.mock('@/lib/inbox/repository', () => ({ openRecipientsOfGroup: vi.fn(async () => []) }))
 vi.mock('@/lib/projects/repository', () => ({ listProjectsInOrg: vi.fn(async () => []) }))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: (_context: unknown, run: () => unknown) => run() }))
 
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { inboxItemCopy } from '@/lib/inbox/item-copy'
 import { inboxGroupKey } from '@/lib/inbox/registry'
-import { readGroupPayloads } from '@/lib/inbox/repository'
+import { openRecipientsOfGroup } from '@/lib/inbox/repository'
 import { emitInboxItems, resolveInboxItemsOfType, type InboxEmission } from '@/lib/inbox/service'
 import type { InboxItemView } from '@/lib/inbox/types'
 import { activeMembersHolding } from '@/lib/organizations/members-holding'
@@ -63,6 +63,7 @@ function held(editionId: string, editionLabel: string, designation = 'ÖNORM B 1
 
 const binds = (editionLabel: string) =>
   ({
+    gate: { state: 'full', reason: null, leaves: [] },
     uses: [
       {
         role: 'binding',
@@ -76,7 +77,8 @@ const binds = (editionLabel: string) =>
     ],
   }) as unknown as KnowledgeContext
 
-const NOTHING = { uses: [] } as unknown as KnowledgeContext
+const NOTHING = { gate: { state: 'none', reason: null, leaves: [] }, uses: [] } as unknown as KnowledgeContext
+const UNREAD = { gate: { state: 'knowledge_unavailable', reason: null, leaves: [] }, uses: [] } as unknown as KnowledgeContext
 const OLD = held('edition_b1600_2017', '2017-04-15')
 const project = (id: string, name: string, status = 'active') => ({ id, name, status }) as unknown as Awaited<ReturnType<typeof listProjectsInOrg>>[number]
 const ANCHOR = 'önorm b 1600@2023-02-01'
@@ -88,7 +90,9 @@ beforeEach(() => {
   vi.mocked(officeStandardsEnabled).mockResolvedValue(true)
   vi.mocked(heldWorksOf).mockResolvedValue([[OLD]])
   vi.mocked(activeMembersHolding).mockResolvedValue(['user_anna', 'user_ben'])
-  vi.mocked(readGroupPayloads).mockResolvedValue(new Map())
+  vi.mocked(openRecipientsOfGroup).mockResolvedValue([])
+  vi.mocked(emitInboxItems).mockResolvedValue(0)
+  vi.mocked(resolveInboxItemsOfType).mockResolvedValue(0)
   vi.mocked(listProjectsInOrg).mockResolvedValue([
     project('p_seestadt', 'Wohnbau Seestadt Baufeld D12'),
     project('p_mollard', 'Dachausbau Mollardgasse'),
@@ -178,9 +182,46 @@ describe('the Postfach item', () => {
 
   it('tells each person once', async () => {
     const groupKey = inboxGroupKey('base_knowledge.new_edition', 'organization', 'org_1', ANCHOR)
-    vi.mocked(readGroupPayloads).mockResolvedValue(new Map([[`user_anna\n${groupKey}`, {}]]))
+    vi.mocked(openRecipientsOfGroup).mockImplementation(async (_organizationId, key) => (key === groupKey ? ['user_anna'] : []))
     expect(await noticeNewEditions('org_1')).toMatchObject({ notified: 1 })
     expect(emitted().map((emission) => emission.recipientUserId)).toEqual(['user_ben'])
+  })
+
+  it('keeps every open notice while one active project’s knowledge context cannot be read', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.mocked(knowledgeContextForTurn).mockImplementation(async (_organizationId, projectId) =>
+      projectId === 'p_mollard' ? UNREAD : binds('2017-04-15'),
+    )
+    expect(await noticeNewEditions('org_1')).toEqual({ newer: 0, notified: 0, resolved: 0 })
+    expect(resolveInboxItemsOfType).not.toHaveBeenCalled()
+  })
+
+  it('tells the office again when a notice it settled is owed again', async () => {
+    const rows: { recipientUserId: string; groupKey: string; anchorId: string; resolved: boolean }[] = []
+    vi.mocked(emitInboxItems).mockImplementation(async (emissions) => {
+      for (const emission of emissions) {
+        const row = rows.find((held) => held.recipientUserId === emission.recipientUserId && held.groupKey === emission.groupKey)
+        if (row) row.resolved = false
+        else rows.push({ recipientUserId: emission.recipientUserId, groupKey: emission.groupKey, anchorId: emission.anchorId ?? '', resolved: false })
+      }
+      return emissions.length
+    })
+    vi.mocked(resolveInboxItemsOfType).mockImplementation(async ({ keepAnchors = [] }) => {
+      const settled = rows.filter((row) => !row.resolved && !keepAnchors.includes(row.anchorId))
+      for (const row of settled) row.resolved = true
+      return settled.length
+    })
+    vi.mocked(openRecipientsOfGroup).mockImplementation(async (_organizationId, groupKey) =>
+      rows.filter((row) => row.groupKey === groupKey && !row.resolved).map((row) => row.recipientUserId),
+    )
+    const binding = vi.mocked(knowledgeContextForTurn).getMockImplementation()
+
+    expect(await noticeNewEditions('org_1')).toMatchObject({ notified: 2 })
+    vi.mocked(knowledgeContextForTurn).mockResolvedValue(binds('2017-04-15'))
+    expect(await noticeNewEditions('org_1')).toMatchObject({ notified: 0, resolved: 2 })
+    vi.mocked(knowledgeContextForTurn).mockImplementation(binding!)
+    expect(await noticeNewEditions('org_1')).toMatchObject({ notified: 2 })
+    expect(rows.map((row) => row.resolved)).toEqual([false, false])
   })
 
   it('says nothing, and settles what it said, once the office holds the binding edition or no active project is affected', async () => {
