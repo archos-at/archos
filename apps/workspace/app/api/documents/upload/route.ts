@@ -4,7 +4,7 @@ import { BadRequestError } from '@/lib/api/errors'
 import { readRevisionOf } from '@/lib/documents/revision-upload'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { SHELF_SCOPES, shelfOf } from '@/lib/documents/shelf-scope'
-import { uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
+import { uploadToOfficeShelf } from '@/lib/base-knowledge/office/norm-intake'
 import { readScreeningRelease } from '@/lib/upload-screening/service'
 import { readUploadBatchId } from '@/lib/upload-batches/service'
 
@@ -28,15 +28,14 @@ export const POST = apiRoute(
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
     }
-    const forStandards = formData.get('forStandards') === 'true' ? { forStandards: true } : {}
     return shelf.kind === 'project'
       ? uploadDocument(session, { projectId: shelf.projectId, file, ...input }, request)
-      : uploadOfficeShelfDocument(session, file, request, { ...input, ...forStandards })
+      : uploadToOfficeShelf(session, file, request, input)
   },
   {
     authz: {
       enforcedBy:
-        'uploadDocument (requireProjectAccess project:documents:write) | uploadOfficeShelfDocument (canManageOfficeShelf)',
+        'uploadDocument (requireProjectAccess project:documents:write) | uploadToOfficeShelf → uploadOfficeShelfDocument (canManageOfficeShelf)',
     },
     limits: { rule: DOCUMENT_UPLOAD_LIMIT },
   }

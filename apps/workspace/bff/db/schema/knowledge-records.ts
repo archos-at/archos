@@ -52,6 +52,7 @@ export interface KnowledgeProvenance {
   viaClient?: string
   text?: KnowledgeTextProvenance
   imported?: { bundle: string; sha256?: string }
+  filedFrom?: { folderId: string | null }
 }
 
 export type FetchSourceOrigin = 'built_in' | 'released' | 'draft'

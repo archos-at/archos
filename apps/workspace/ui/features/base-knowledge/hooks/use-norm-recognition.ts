@@ -31,13 +31,27 @@ export function plainHref(plain: readonly PlainUpload[]): string {
   return folderId ? `${OFFICE_SHELF_FILES_HREF}?folder=${encodeURIComponent(folderId)}` : OFFICE_SHELF_FILES_HREF
 }
 
+export function plainNotice(t: Translate, plain: readonly PlainUpload[]): string {
+  const place = onePlace(plain)
+  if (plain.length === 1 && place) return t(place.platformHeld ? 'norms.knownOne' : 'norms.noNormsOne', { place: placeOf(t, place) })
+  const none = t('norms.noNorms', { count: plain.length })
+  return plain.some((file) => file.platformHeld) ? `${none} ${t('norms.platformHeld')}` : none
+}
+
+export function knownNotice(t: Translate, plain: readonly PlainUpload[]): string | null {
+  const known = plain.filter((file) => file.platformHeld)
+  if (known.length === 0) return null
+  return known.length === 1 ? t('norms.knownOne', { place: placeOf(t, known[0]) }) : t('norms.known', { count: known.length })
+}
+
 export function useNormRecognition(): NormRecognitionState {
   const t = useTranslations(baseKnowledgeCopy)
   const router = useRouter()
   const [recognition, setRecognition] = useState<NormRecognition | null>(null)
   const recognize = useCallback<NormRecognitionState['recognize']>(
     async (documentIds, { asNorm = false, announcePlain = false } = {}) => {
-      const ids = [...new Set(documentIds)].slice(0, MAX_RECOGNIZE_DOCUMENTS)
+      const unique = [...new Set(documentIds)]
+      const ids = unique.slice(0, MAX_RECOGNIZE_DOCUMENTS)
       if (ids.length === 0) return
       try {
         const answer = await recognizeNorms(asNorm ? { documentIds: ids, asNorm } : { documentIds: ids })
@@ -45,14 +59,15 @@ export function useNormRecognition(): NormRecognitionState {
           setRecognition(answer)
           return
         }
-        if (!announcePlain || answer.plain.length === 0) return
-        const place = onePlace(answer.plain)
-        toast(
-          answer.plain.length === 1 && place
-            ? t('norms.noNormsOne', { place: placeOf(t, place) })
-            : t('norms.noNorms', { count: answer.plain.length }),
-          { action: { label: t('norms.showInFolders'), onClick: () => router.push(plainHref(answer.plain)) } },
-        )
+        if (answer.plain.length === 0) return
+        if (announcePlain && unique.length === ids.length) {
+          toast(plainNotice(t, answer.plain), {
+            action: { label: t('norms.showInFolders'), onClick: () => router.push(plainHref(answer.plain)) },
+          })
+          return
+        }
+        const known = knownNotice(t, answer.plain)
+        if (known) toast(known)
       } catch {
         toast.error(t('norms.recognizeFailed'))
       }

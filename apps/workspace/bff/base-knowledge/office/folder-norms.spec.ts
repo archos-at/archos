@@ -3,19 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 vi.mock('./folder-norms-repository', () => ({ listUndecidedFolderFiles: vi.fn(), keepAsOrdinaryFiles: vi.fn() }))
 vi.mock('./folder-norms-scan', () => ({ rescanNorms: vi.fn() }))
-vi.mock('./service', () => ({ proposeBaseKnowledge: vi.fn() }))
+vi.mock('./norm-intake', () => ({ takeAsNorm: vi.fn() }))
+vi.mock('../store/repository', () => ({ readOfficeEntries: vi.fn(async () => []) }))
 vi.mock('./folders', () => ({ standardsRoot: vi.fn(async () => ({ id: 'folder-standards' })) }))
-vi.mock('@/lib/documents/move-to-folder', () => ({ moveDocumentToFolder: vi.fn(async () => ({ ok: true })) }))
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'reviewer' })) }))
 
-import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
-import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import { keepAsOrdinaryFiles, listUndecidedFolderFiles, type FolderFile } from './folder-norms-repository'
 import { rescanNorms } from './folder-norms-scan'
 import { decideFolderNorms, listFolderNorms } from './folder-norms'
-import { proposeBaseKnowledge } from './service'
+import { takeAsNorm } from './norm-intake'
 
 const MANAGER = {
   userId: 'user-1',
@@ -71,14 +70,16 @@ describe('listFolderNorms', () => {
 })
 
 describe('decideFolderNorms', () => {
-  it('records each norm as a proposal, then moves it under the standards root, and scans again', async () => {
+  it('takes each norm out of the folder under the standards root, remembering the folder, and scans again', async () => {
     const decision = await decideFolderNorms(MANAGER, FOLDER, { action: 'record' })
-    expect(proposeBaseKnowledge).toHaveBeenCalledTimes(2)
-    expect(proposeBaseKnowledge).toHaveBeenCalledWith(MANAGER, { documentId: 'doc-1' })
-    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-3', folderId: 'folder-standards', expectedFolderId: FOLDER }, MANAGER)
-    expect(vi.mocked(proposeBaseKnowledge).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(moveDocumentToFolder).mock.invocationCallOrder[0],
+    expect(takeAsNorm).toHaveBeenCalledTimes(2)
+    const place = { rootId: 'folder-standards', entries: [], standards: new Set(['folder-standards']) }
+    expect(takeAsNorm).toHaveBeenCalledWith(
+      MANAGER,
+      { documentId: 'doc-1', fileName: 'OENORM_B_1600_2017-04-15.pdf', designation: 'ÖNORM B 1600', folderId: FOLDER },
+      place,
     )
+    expect(takeAsNorm).toHaveBeenCalledWith(MANAGER, expect.objectContaining({ documentId: 'doc-3', folderId: FOLDER }), place)
     expect(decision).toMatchObject({ action: 'record', failed: [], remaining: 0 })
     expect(decision.done.map((norm) => norm.documentId)).toEqual(['doc-1', 'doc-3'])
     expect(keepAsOrdinaryFiles).not.toHaveBeenCalled()
@@ -86,8 +87,9 @@ describe('decideFolderNorms', () => {
   })
 
   it('names a refused file and goes on with the others', async () => {
-    vi.mocked(proposeBaseKnowledge).mockRejectedValueOnce(new ConflictError('This document is already recorded as base knowledge.'))
-    vi.mocked(moveDocumentToFolder).mockResolvedValueOnce({ ok: false, error: 'The document was moved since; it was left where it is.' })
+    vi.mocked(takeAsNorm)
+      .mockRejectedValueOnce(new ConflictError('This document is already recorded as base knowledge.'))
+      .mockRejectedValueOnce(new UnprocessableError('The document was moved since; it was left where it is.'))
     const decision = await decideFolderNorms(MANAGER, FOLDER, { action: 'record' })
     expect(decision.done).toEqual([])
     expect(decision.failed).toEqual([
@@ -101,15 +103,14 @@ describe('decideFolderNorms', () => {
       Array.from({ length: 53 }, (_, index) => at(`doc-${index}`, `OENORM_B_${1000 + index}.pdf`)),
     )
     const decision = await decideFolderNorms(MANAGER, FOLDER, { action: 'record' })
-    expect(proposeBaseKnowledge).toHaveBeenCalledTimes(50)
+    expect(takeAsNorm).toHaveBeenCalledTimes(50)
     expect(decision.remaining).toBe(3)
   })
 
   it('keeps the folder’s norms as ordinary files without proposing them, and scans again', async () => {
     const decision = await decideFolderNorms(MANAGER, FOLDER, { action: 'keep' })
     expect(keepAsOrdinaryFiles).toHaveBeenCalledWith('org-1', ['doc-1', 'doc-3'], 'user-1')
-    expect(proposeBaseKnowledge).not.toHaveBeenCalled()
-    expect(moveDocumentToFolder).not.toHaveBeenCalled()
+    expect(takeAsNorm).not.toHaveBeenCalled()
     expect(decision).toMatchObject({ action: 'keep', remaining: 0 })
     expect(rescanNorms).toHaveBeenCalledWith('org-1')
   })

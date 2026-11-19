@@ -8,7 +8,6 @@ export interface UseFileUploadOptions {
   projectId?: string
   folderId?: string
   officeShelf?: boolean
-  forStandards?: boolean
   conversationProjectId?: string | null
   onComplete?: () => void
   onError?: (error: Error) => void

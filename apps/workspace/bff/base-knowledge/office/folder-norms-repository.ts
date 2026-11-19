@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, eq, gt, isNull, notExists, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, isNull, notExists, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { knowledgeRecords } from '@/lib/db/schema/knowledge-records'
@@ -58,4 +58,23 @@ export async function keepAsOrdinaryFiles(organizationId: string, documentIds: r
       .values(documentIds.map((documentId) => ({ documentId, organizationId, keptBy })))
       .onConflictDoNothing(),
   )
+}
+
+export async function keptAsOrdinaryFiles(organizationId: string, documentIds: readonly string[], reader: DocumentReader): Promise<Set<string>> {
+  if (documentIds.length === 0) return new Set()
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .select({ documentId: officeShelfNormKeeps.documentId })
+      .from(officeShelfNormKeeps)
+      .innerJoin(documents, eq(documents.id, officeShelfNormKeeps.documentId))
+      .where(
+        and(
+          eq(officeShelfNormKeeps.organizationId, organizationId),
+          eq(documents.organizationId, organizationId),
+          inArray(officeShelfNormKeeps.documentId, [...documentIds]),
+          documentVisibleTo(reader),
+        ),
+      ),
+  )
+  return new Set(rows.map((row) => row.documentId))
 }

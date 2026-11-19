@@ -222,7 +222,7 @@ export const baseKnowledge = {
   norms: {
     titleOne: '1 standard recognised',
     title: '{count} standards recognised',
-    body: '{productName} read the kind, designation and edition from the file name and suggested a topic. Set anything that is not a standard to “Not a standard”. Confirmed standards go under Standards & guidelines.',
+    body: '{productName} read the kind, designation and edition from the file name and suggested a topic. Set anything that is not a standard to “Not a standard” and it goes back to its folder. The standards wait under Standards & guidelines until you confirm them.',
     column: { kind: 'Kind', designation: 'Designation', edition: 'Edition', topic: 'Topic' },
     notNorm: 'Not a standard',
     editionMissing: 'Edition missing',
@@ -243,6 +243,8 @@ export const baseKnowledge = {
     laterDone: 'The standards wait under Standards & guidelines for confirmation. Until then {productName} does not use them.',
     noNormsOne: '1 file filed in {place}. It is not a standard.',
     noNorms: '{count} files filed in Folders. No standard among them.',
+    knownOne: '1 file filed in {place}. {productName} already knows this guideline, so it stays an ordinary file.',
+    known: '{productName} already knows {count} of these guidelines, so they stay ordinary files.',
     recognizeFailed: 'Whether there are standards among them could not be checked. The files are in Office filing; “Keep as a standard” does it later.',
     result: {
       confirmedOne: '1 standard confirmed',

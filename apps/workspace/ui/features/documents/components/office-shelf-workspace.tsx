@@ -26,6 +26,7 @@ export interface OfficeShelfWorkspaceProps {
   organizationName?: string | null
   places?: ReactNode
   onUploadsStored?: (uploads: StoredUpload[]) => void
+  onNormsRecorded?: (documentIds: string[]) => void
   fileActions?: FileShelf['fileActions']
   normsInFolders?: boolean
 }
@@ -37,6 +38,7 @@ export function OfficeShelfWorkspace({
   organizationName = null,
   places,
   onUploadsStored,
+  onNormsRecorded,
   fileActions,
   normsInFolders = false,
 }: OfficeShelfWorkspaceProps) {
@@ -95,7 +97,9 @@ export function OfficeShelfWorkspace({
           renderLevelNotice={
             normsInFolders && canManage
               ? ({ folderId, reload }) =>
-                  folderId === null ? null : <OfficeShelfFolderNorms key={folderId} folderId={folderId} onChanged={reload} />
+                  folderId === null ? null : (
+                    <OfficeShelfFolderNorms key={folderId} folderId={folderId} onChanged={reload} onRecorded={onNormsRecorded} />
+                  )
               : undefined
           }
           renderHeader={(controls, { count }) => (

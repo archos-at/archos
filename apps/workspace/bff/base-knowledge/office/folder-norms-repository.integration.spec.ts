@@ -138,6 +138,10 @@ describe.skipIf(!url)('norms in office shelf folders against Postgres', () => {
     expect(mine).toEqual([{ kept_by: 'user_norms' }])
     const theirs = await as(OTHER_ORG, () => db.execute(sql`SELECT 1 FROM office_shelf_norm_keeps WHERE document_id = ${kept}`))
     expect(theirs).toHaveLength(0)
+
+    const other = await file('DIN_18040-1_kept_spec.pdf', folders.normen)
+    expect(await repo.keptAsOrdinaryFiles(ORG, [kept, other], SCREENED_ONLY)).toEqual(new Set([kept]))
+    expect(await repo.keptAsOrdinaryFiles(OTHER_ORG, [kept], SCREENED_ONLY)).toEqual(new Set())
   })
 
   it('refreshes the open inbox item of the office and leaves a resolved one alone', async () => {

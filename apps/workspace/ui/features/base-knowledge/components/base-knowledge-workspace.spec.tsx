@@ -23,12 +23,11 @@ vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({ fileUpload: { acceptedTypes: '.pdf,.docx', acceptedMimeTypes: ['application/pdf'], maxFileSize: 100 * 1024 * 1024 } }),
 }))
 
-const shelfUpload = vi.hoisted(() => ({ stored: [] as { documentId: string; fileName: string }[], collections: [] as (string | undefined)[], forStandards: [] as (boolean | undefined)[] }))
+const shelfUpload = vi.hoisted(() => ({ stored: [] as { documentId: string; fileName: string }[], collections: [] as (string | undefined)[] }))
 vi.mock('@/features/documents', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/documents')>()),
-  useOfficeShelfDocuments: (options: { collectionName?: string; forStandards?: boolean; onStored?: (uploads: { documentId: string; fileName: string }[]) => void }) => {
+  useOfficeShelfDocuments: (options: { collectionName?: string; onStored?: (uploads: { documentId: string; fileName: string }[]) => void }) => {
     shelfUpload.collections.push(options.collectionName)
-    shelfUpload.forStandards.push(options.forStandards)
     return {
       uploadFiles: async (files: File[]) => {
         options.onStored?.(shelfUpload.stored)
@@ -195,7 +194,6 @@ describe('BaseKnowledgeWorkspace', () => {
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
     expect(shelfUpload.collections.at(-1)).toBe('archiv_org-1')
-    expect(shelfUpload.forStandards.at(-1)).toBe(true)
     await userEvent.upload(screen.getByTestId('project-upload-input'), [new File(['a'], 'a.pdf', { type: 'application/pdf' })])
 
     const dialog = await screen.findByTestId('norm-dialog')
@@ -268,6 +266,30 @@ describe('BaseKnowledgeWorkspace', () => {
     options.action.onClick()
     expect(navigation.push).toHaveBeenCalledWith('/app/office-shelf?folder=folder-plans')
     expect(screen.queryByTestId('norm-dialog')).toBeNull()
+  })
+
+  it('says of a lone guideline the platform already knows that it knows it, not merely that it is no norm', async () => {
+    shelfUpload.stored = [{ documentId: 'doc-oib', fileName: 'OIB-Richtlinie_2_2023.pdf' }]
+    stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input) === '/api/base-knowledge/recognize') {
+        return Response.json({
+          ...RECOGNITION,
+          proposals: [],
+          plain: [{ documentId: 'doc-oib', fileName: 'OIB-Richtlinie_2_2023.pdf', folderId: null, folderPath: null, platformHeld: true }],
+        })
+      }
+      return answer(input, init)
+    })
+    renderWorkspace()
+    await userEvent.upload(await screen.findByTestId('project-upload-input'), [new File(['a'], 'a.pdf', { type: 'application/pdf' })])
+
+    await waitFor(() => expect(toast).toHaveBeenCalled())
+    expect(toast.mock.calls.at(-1)?.[0]).toMatch(
+      /^1 Datei unter Ordner \(oberste Ebene\) abgelegt\. Diese Richtlinie kennt \S+ schon, sie bleibt eine normale Datei\.$/,
+    )
   })
 
   it('takes files dropped on the norms tab through the same upload', async () => {

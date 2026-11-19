@@ -1,9 +1,8 @@
 import 'server-only'
 import { ApiError } from '@/lib/api/api-error'
-import { ForbiddenError, UnprocessableError } from '@/lib/api/errors'
+import { ForbiddenError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
-import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import {
   FOLDER_NORMS_PAGE,
   FOLDER_NORMS_PER_REQUEST,
@@ -14,12 +13,13 @@ import {
   type ListFolderNormsQuery,
 } from '@/lib/office-shelf/folder-norms-wire'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
+import { readOfficeEntries } from '../store/repository'
 import { requireOfficeStandardsEnabled } from './access'
 import { standardsRoot } from './folders'
 import { keepAsOrdinaryFiles, listUndecidedFolderFiles } from './folder-norms-repository'
 import { rescanNorms } from './folder-norms-scan'
+import { takeAsNorm } from './norm-intake'
 import { recognizeNorm } from './reading'
-import { proposeBaseKnowledge } from './service'
 
 export const FOLDER_FILES_READ = 500
 
@@ -49,11 +49,6 @@ export async function listFolderNorms(
   return { folderId, total: norms.length, norms: norms.slice(start, end), nextCursor: end < norms.length ? String(end) : null }
 }
 
-async function recordNorm(session: AuthorizedSession, norm: FolderNorm, from: string, to: string): Promise<void> {
-  await proposeBaseKnowledge(session, { documentId: norm.documentId })
-  const moved = await moveDocumentToFolder({ documentId: norm.documentId, folderId: to, expectedFolderId: from }, session)
-  if (!moved.ok) throw new UnprocessableError(moved.error)
-}
 
 export async function decideFolderNorms(
   session: AuthorizedSession,
@@ -68,12 +63,13 @@ export async function decideFolderNorms(
     return { action, done: norms, failed: [], remaining: 0 }
   }
   const batch = norms.slice(0, FOLDER_NORMS_PER_REQUEST)
-  const root = await standardsRoot(session.organizationId)
+  const [root, entries] = await Promise.all([standardsRoot(session.organizationId), readOfficeEntries(session.organizationId)])
+  const place = { rootId: root.id, entries, standards: new Set([root.id]) }
   const done: FolderNorm[] = []
   const failed: FolderNormsDecision['failed'] = []
   for (const norm of batch) {
     try {
-      await recordNorm(session, norm, folderId, root.id)
+      await takeAsNorm(session, { ...norm, folderId }, place)
       done.push(norm)
     } catch (error) {
       if (!(error instanceof ApiError)) throw error

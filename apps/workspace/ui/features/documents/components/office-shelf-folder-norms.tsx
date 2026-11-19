@@ -15,10 +15,11 @@ type Action = DecideFolderNormsBody['action']
 export interface OfficeShelfFolderNormsProps {
   folderId: string
   onChanged: () => void
+  onRecorded?: (documentIds: string[]) => void
   className?: string
 }
 
-export function OfficeShelfFolderNorms({ folderId, onChanged, className }: OfficeShelfFolderNormsProps): JSX.Element | null {
+export function OfficeShelfFolderNorms({ folderId, onChanged, onRecorded, className }: OfficeShelfFolderNormsProps): JSX.Element | null {
   const t = useTranslations(officeShelfCopy)
   const [total, setTotal] = useState(0)
   const [busy, setBusy] = useState<Action | null>(null)
@@ -39,7 +40,10 @@ export function OfficeShelfFolderNorms({ folderId, onChanged, className }: Offic
 
   const announce = (decision: FolderNormsDecision): void => {
     if (decision.action === 'keep') toast.success(t('folderNorms.kept'))
-    else if (decision.done.length > 0) {
+    else if (decision.done.length > 0 && onRecorded) {
+      onRecorded(decision.done.map((norm) => norm.documentId))
+      if (decision.remaining > 0) toast(t('folderNorms.recordedMore', { count: decision.done.length, remaining: decision.remaining }))
+    } else if (decision.done.length > 0) {
       toast.success(
         decision.remaining > 0
           ? t('folderNorms.recordedMore', { count: decision.done.length, remaining: decision.remaining })

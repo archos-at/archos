@@ -12,6 +12,7 @@ import type { DocumentLevelQuery } from '@/lib/documents/list-query'
 import { findLiveDocumentByFilename, type DocumentNameMatchRow } from '@/lib/documents/repository'
 import { documentNameKey } from '@/lib/documents/name-match'
 import { NAME_TAKEN_DETAILS } from '@/lib/documents/name-taken'
+import { numberedFilename } from '@/lib/mail-import/naming'
 import { revisionCandidatesOnShelf } from '@/lib/documents/revision-candidates'
 import type { RevisionCandidateMatch } from '@/lib/documents/name-probe-types'
 import { eraseDocumentObjectsOrKeepRow } from '@/lib/documents/object-cleanup'
@@ -93,25 +94,30 @@ export type UploadOfficeShelfDocumentResult = UploadDocumentResult
 
 export interface OfficeShelfUploadInput extends Omit<ShelfUploadInput, 'file' | 'folderId'> {
   folderId?: string | null
-  forStandards?: boolean
 }
 
 const inTree = (hidden: readonly string[], folderId: string | null | undefined): boolean => !!folderId && hidden.includes(folderId)
 
-async function folderBesideNameHolder(
+const NUMBERED_NAMES = 100
+
+async function nameBesideStandards(
   session: AuthorizedSession,
   file: File,
   folderId: string | null,
   hidden: readonly string[],
-  forStandards: boolean,
-): Promise<string | null> {
-  if (inTree(hidden, folderId)) return folderId
+): Promise<File> {
+  const collection = officeShelfCollectionName(session.organizationId)
   const filename = documentNameKey(file.name)
-  const holder = await findLiveDocumentByFilename(session.organizationId, officeShelfCollectionName(session.organizationId), filename)
-  if (!holder || !inTree(hidden, holder.folderId)) return folderId
-  if (forStandards) return holder.folderId ?? null
+  const holder = await findLiveDocumentByFilename(session.organizationId, collection, filename)
+  if (!holder || (!inTree(hidden, holder.folderId) && !inTree(hidden, folderId))) return file
+  for (let n = 2; n <= NUMBERED_NAMES; n += 1) {
+    const name = numberedFilename(filename, n)
+    if (!(await findLiveDocumentByFilename(session.organizationId, collection, name))) {
+      return new File([file], name, { type: file.type, lastModified: file.lastModified })
+    }
+  }
   throw new ConflictError(
-    `A document named "${filename}" is already filed under ${STANDARDS_FOLDER_NAME}. Rename the file to upload it here.`,
+    `"${filename}" and its numbered names are all taken in the Büroablage. Rename the file to upload it.`,
     NAME_TAKEN_DETAILS,
   )
 }
@@ -130,16 +136,15 @@ async function assertRevisionOfOnSameSide(
   )
 }
 
-async function standardsAwareFolder(
+async function standardsAwareFile(
   session: AuthorizedSession,
   file: File,
-  { folderId, revisionOf, forStandards }: { folderId: string | null; revisionOf?: string | null; forStandards: boolean },
-): Promise<string | null> {
+  { folderId, revisionOf }: { folderId: string | null; revisionOf?: string | null },
+): Promise<File> {
   const hidden = await officeShelfHiddenFolderIds(session)
-  if (hidden.length === 0) return folderId
-  const target = await folderBesideNameHolder(session, file, folderId, hidden, forStandards)
-  await assertRevisionOfOnSameSide(session, revisionOf, target, hidden)
-  return target
+  if (hidden.length === 0) return file
+  await assertRevisionOfOnSameSide(session, revisionOf, folderId, hidden)
+  return nameBesideStandards(session, file, folderId, hidden)
 }
 
 export async function assertMoveKeepsOutOfStandards(
@@ -161,21 +166,13 @@ export async function uploadOfficeShelfDocument(
   session: AuthorizedSession,
   file: File,
   request: Request,
-  {
-    folderId: requested = null,
-    forStandards = false,
-    originPath = null,
-    screeningRelease,
-    uploadBatchId,
-    revisionOf,
-    beforeDispatch,
-  }: OfficeShelfUploadInput = {},
+  { folderId = null, originPath = null, screeningRelease, uploadBatchId, revisionOf, beforeDispatch }: OfficeShelfUploadInput = {},
 ): Promise<UploadOfficeShelfDocumentResult> {
-  const folderId = await standardsAwareFolder(session, file, { folderId: requested, revisionOf, forStandards })
+  const named = await standardsAwareFile(session, file, { folderId, revisionOf })
   const uploaded = await uploadToShelf(
     session,
     OFFICE_SHELF,
-    { file, folderId, originPath, screeningRelease, uploadBatchId, revisionOf, beforeDispatch },
+    { file: named, folderId, originPath, screeningRelease, uploadBatchId, revisionOf, beforeDispatch },
     request,
   )
   await scanAfterUpload(session, { folderId, filename: uploaded.filename })

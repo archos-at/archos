@@ -224,7 +224,7 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
     (uploads: StoredUpload[]) => void recognize(uploads.map((upload) => upload.documentId), { announcePlain: true }).then(() => reload()),
     [recognize, reload],
   )
-  const shelfUpload = useOfficeShelfDocuments({ collectionName: canManage ? uploadCollection : undefined, forStandards: true, onStored: recognizeStored })
+  const shelfUpload = useOfficeShelfDocuments({ collectionName: canManage ? uploadCollection : undefined, onStored: recognizeStored })
   const { error: uploadError, clearError: clearUploadError, uploadFiles: uploadToShelf } = shelfUpload
   const uploadFiles = useCallback((files: File[]) => void uploadToShelf(files), [uploadToShelf])
   const drop = useFileDragDrop({ onDrop: uploadFiles, disabled: !canManage })

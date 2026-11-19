@@ -8,12 +8,12 @@ import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import type { OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 import { readOfficeEntries, type StoredEntry } from '../store/repository'
 import type { NormProposal, NormRecognition, PlainUpload, RecognizeBody } from '../wire'
-import { listBaseKnowledgeFolders, standardsFolderRows } from './folders'
+import { keptAsOrdinaryFiles } from './folder-norms-repository'
+import { listBaseKnowledgeFolders, standardsFolderRows, standardsRoot } from './folders'
+import { takeAsNorm } from './norm-intake'
 import { recognizeNorm } from './reading'
 import { visibleOfficeDocuments, type EntryDocument } from './repository'
-import { recordProposal } from './service'
-import { withholdText } from './text-effects'
-import { confirmedWorkOf, editionKey, heldEditionsOf, isDuplicateEdition } from './proposal-match'
+import { editionKey, heldEditionsOf, isDuplicateEdition } from './proposal-match'
 
 export function proposeTopic(
   kind: OfficeWorkKind,
@@ -76,27 +76,30 @@ export async function recognizeUploads(session: AuthorizedSession, body: Recogni
   const organizationId = session.organizationId
   const reader = await shelfReaderFor(session, { scope: 'office_shelf', projectId: null })
   const ids = [...new Set(body.documentIds)]
-  const uploads = await visibleOfficeDocuments(organizationId, ids, reader)
-  const before = await readOfficeEntries(organizationId)
+  const [uploads, before, root, standards, kept] = await Promise.all([
+    visibleOfficeDocuments(organizationId, ids, reader),
+    readOfficeEntries(organizationId),
+    standardsRoot(organizationId),
+    standardsFolderRows(session),
+    body.asNorm ? Promise.resolve(new Set<string>()) : keptAsOrdinaryFiles(organizationId, ids, reader),
+  ])
   const recorded = new Set(before.map((entry) => entry.documentId))
+  const place = { rootId: root.id, entries: before, standards: new Set([root.id, ...standards.folders.map((folder) => folder.id)]) }
   const plain: { document: EntryDocument; platformHeld: boolean }[] = []
   for (const id of ids) {
     const document = uploads.get(id)
     if (!document || recorded.has(id)) continue
     const reading = recognizeNorm({ fileName: document.fileName })
-    if (!reading.norm && !body.asNorm) {
-      plain.push({ document, platformHeld: reading.platformHeld })
+    if ((!reading.norm || kept.has(id)) && !body.asNorm) {
+      plain.push({ document, platformHeld: !reading.norm && reading.platformHeld })
       continue
     }
     const designation = reading.norm ? reading.designation : null
-    const given = designation ? { documentId: id, designation } : { documentId: id }
-    await recordProposal(session, given, document.fileName, 'reading', confirmedWorkOf(before, designation))
-    await withholdText(session, id)
+    await takeAsNorm(session, { documentId: id, fileName: document.fileName, folderId: document.folderId, designation }, place)
   }
   const entries = await readOfficeEntries(organizationId)
-  const [documents, standards, topics, shelfFolders] = await Promise.all([
+  const [documents, topics, shelfFolders] = await Promise.all([
     visibleOfficeDocuments(organizationId, entries.map((entry) => entry.documentId), reader),
-    standardsFolderRows(session),
     listBaseKnowledgeFolders(session),
     plain.length > 0 ? listOfficeShelfFolders(session) : Promise.resolve([]),
   ])

@@ -3,9 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 vi.mock('../store/repository', () => ({ readOfficeEntries: vi.fn() }))
 vi.mock('./repository', () => ({ visibleOfficeDocuments: vi.fn() }))
-vi.mock('./service', () => ({ recordProposal: vi.fn(async () => 'edition_new') }))
-vi.mock('./text-effects', () => ({ withholdText: vi.fn(async () => true) }))
+vi.mock('./norm-intake', () => ({ takeAsNorm: vi.fn() }))
+vi.mock('./folder-norms-repository', () => ({ keptAsOrdinaryFiles: vi.fn(async () => new Set()) }))
 vi.mock('./folders', () => ({
+  standardsRoot: vi.fn(async () => ({ id: 'folder-root' })),
   standardsFolderRows: vi.fn(async () => ({
     root: { id: 'folder-root', parentId: null, name: 'Grundlagen des Büros', path: 'Grundlagen des Büros' },
     folders: [
@@ -25,8 +26,8 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { readOfficeEntries, type StoredEntry } from '../store/repository'
 import { visibleOfficeDocuments, type EntryDocument } from './repository'
-import { recordProposal } from './service'
-import { withholdText } from './text-effects'
+import { keptAsOrdinaryFiles } from './folder-norms-repository'
+import { takeAsNorm } from './norm-intake'
 import { proposeTopic, recognizeUploads } from './recognition'
 
 const MANAGER: AuthorizedSession = {
@@ -103,24 +104,22 @@ beforeEach(() => {
 describe('recognising an upload', () => {
   it('needs the right to manage the office shelf', async () => {
     await expect(recognizeUploads({ ...MANAGER, permissions: [] }, { documentIds: ['doc-norm'] })).rejects.toBeInstanceOf(ForbiddenError)
-    expect(recordProposal).not.toHaveBeenCalled()
+    expect(takeAsNorm).not.toHaveBeenCalled()
   })
 
-  it('proposes a norm and withholds its text, and leaves other files where they landed', async () => {
+  it('takes a norm out of the Ordner, and leaves other files where they landed', async () => {
     vi.mocked(readOfficeEntries)
       .mockResolvedValueOnce([B1600])
       .mockResolvedValueOnce([B1600, stored({ documentId: 'doc-norm' }, { designation: 'ÖNORM B 8110-3', editionLabel: '2020-03-15' })])
 
     const answer = await recognizeUploads(MANAGER, { documentIds: ['doc-norm', 'doc-plan', 'doc-oib'] })
 
-    expect(recordProposal).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(recordProposal).mock.calls[0].slice(1, 4)).toEqual([
-      { documentId: 'doc-norm', designation: 'ÖNORM B 8110-3' },
-      'OENORM_B_8110-3_2020-03-15_de.pdf',
-      'reading',
-    ])
-    expect(vi.mocked(recordProposal).mock.calls[0][4]).toBeUndefined()
-    expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-norm')
+    expect(takeAsNorm).toHaveBeenCalledTimes(1)
+    expect(takeAsNorm).toHaveBeenCalledWith(
+      MANAGER,
+      { documentId: 'doc-norm', fileName: 'OENORM_B_8110-3_2020-03-15_de.pdf', folderId: null, designation: 'ÖNORM B 8110-3' },
+      { rootId: 'folder-root', entries: [B1600], standards: new Set(['folder-root', 'topic-barrierefrei', 'topic-weisungen']) },
+    )
     expect(answer.proposals).toEqual([
       expect.objectContaining({ documentId: 'doc-norm', designation: 'ÖNORM B 8110-3', editionLabel: '2020-03-15', editionOf: null, duplicate: false }),
     ])
@@ -136,7 +135,7 @@ describe('recognising an upload', () => {
 
     const answer = await recognizeUploads(MANAGER, { documentIds: ['doc-edition'] })
 
-    expect(vi.mocked(recordProposal).mock.calls[0][4]).toBe(B1600)
+    expect(vi.mocked(takeAsNorm).mock.calls[0][2].entries).toEqual([B1600])
     expect(answer.proposals).toEqual([
       expect.objectContaining({
         documentId: 'doc-edition',
@@ -162,8 +161,7 @@ describe('recognising an upload', () => {
 
     const answer = await recognizeUploads(MANAGER, { documentIds: ['doc-norm', 'doc-norm'] })
 
-    expect(recordProposal).not.toHaveBeenCalled()
-    expect(withholdText).not.toHaveBeenCalled()
+    expect(takeAsNorm).not.toHaveBeenCalled()
     expect(answer.proposals).toEqual([expect.objectContaining({ documentId: 'doc-norm', editionLabel: null })])
   })
 
@@ -172,9 +170,25 @@ describe('recognising an upload', () => {
 
     const answer = await recognizeUploads(MANAGER, { documentIds: ['doc-plan'], asNorm: true })
 
-    expect(vi.mocked(recordProposal).mock.calls[0][1]).toEqual({ documentId: 'doc-plan' })
+    expect(vi.mocked(takeAsNorm).mock.calls[0][1]).toEqual({
+      documentId: 'doc-plan',
+      fileName: 'Haus_A_2024_Einreichung.pdf',
+      folderId: 'folder-plans',
+      designation: null,
+    })
+    expect(keptAsOrdinaryFiles).not.toHaveBeenCalled()
     expect(answer.plain).toEqual([])
     expect(answer.proposals.map((proposal) => proposal.documentId)).toEqual(['doc-plan'])
+  })
+
+  it('leaves a file somebody kept as an ordinary file alone, though its name reads as a norm', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([])
+    vi.mocked(keptAsOrdinaryFiles).mockResolvedValueOnce(new Set(['doc-norm']))
+
+    const answer = await recognizeUploads(MANAGER, { documentIds: ['doc-norm'] })
+
+    expect(takeAsNorm).not.toHaveBeenCalled()
+    expect(answer.plain).toEqual([expect.objectContaining({ documentId: 'doc-norm', platformHeld: false })])
   })
 })
 
