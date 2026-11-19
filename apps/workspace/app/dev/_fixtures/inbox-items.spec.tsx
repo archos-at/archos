@@ -6,7 +6,7 @@ import { proposalResponseSchema } from '@/lib/proposals/types'
 import { InboxQueueList } from '@/features/collaboration/components/InboxQueueList'
 import { waitingGroups } from '@/features/collaboration/lib/inbox-queue'
 import { NORM_NOTICE_TYPES } from '@/features/collaboration/lib/inbox-norm-notice'
-import { decidedNormProposal, ITEMS } from './inbox-items'
+import { ITEMS, normProposal } from './inbox-items'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
@@ -47,7 +47,8 @@ describe('/dev/inbox', () => {
   })
 
   test('answers a norm suggestion’s decision in the shape the client reads', () => {
-    expect(proposalResponseSchema.safeParse(decidedNormProposal('applied')).success).toBe(true)
-    expect(proposalResponseSchema.safeParse(decidedNormProposal('dismissed')).success).toBe(true)
+    expect(proposalResponseSchema.safeParse(normProposal('applied')).success).toBe(true)
+    expect(proposalResponseSchema.safeParse(normProposal('dismissed')).success).toBe(true)
+    expect(proposalResponseSchema.safeParse(normProposal('proposed')).success).toBe(true)
   })
 })

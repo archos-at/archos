@@ -9,7 +9,8 @@ const ago = (minutes: number): string => new Date(now - minutes * 60_000).toISOS
 
 const NORM_PROPOSAL_ID = '0b7c8f5e-1d1e-4c39-9d2c-3f0f6c1a2b3c'
 
-export function decidedNormProposal(status: 'applied' | 'dismissed'): ProposalResponse {
+export function normProposal(status: 'proposed' | 'applied' | 'dismissed'): ProposalResponse {
+  const decided = status !== 'proposed'
   return {
     proposal: {
       id: NORM_PROPOSAL_ID,
@@ -22,12 +23,16 @@ export function decidedNormProposal(status: 'applied' | 'dismissed'): ProposalRe
       originConversationId: null,
       originMessageId: null,
       createdAt: ago(110),
-      decidedBy: VIEWER_ID,
-      decidedByName: 'Miriam Hofer',
-      decidedAt: new Date().toISOString(),
+      decidedBy: decided ? VIEWER_ID : null,
+      decidedByName: decided ? 'Miriam Hofer' : null,
+      decidedAt: decided ? new Date().toISOString() : null,
       results: status === 'applied' ? [{ label: 'ÖNORM B 2320', ok: true }] : null,
-      canDecide: false,
-      payload: { documents: [{ id: '5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f', name: 'OENORM_B_2320_2017.pdf', designation: 'ÖNORM B 2320' }] },
+      canDecide: !decided,
+      payload: {
+        documents: [
+          { id: '5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f', name: 'OENORM_B_2320_2017.pdf', designation: 'ÖNORM B 2320', editionLabel: '2017-09-15' },
+        ],
+      },
     },
   }
 }
@@ -850,9 +855,10 @@ export function installInboxShim(): void {
         const hasMore = start + PAGE < rows.length
         return Response.json({ items, pending: PENDING.length, counts, hasMore, nextCursor: hasMore ? String(start + PAGE) : null })
       }
-      const decision = /^\/api\/proposals\/([^/]+)\/(apply|dismiss)$/.exec(url)
+      const decision = /^\/api\/proposals\/([^/]+)(?:\/(apply|dismiss))?$/.exec(url)
       if (decision && decodeURIComponent(decision[1]) === NORM_PROPOSAL_ID) {
-        return Response.json(decidedNormProposal(decision[2] === 'apply' ? 'applied' : 'dismissed'))
+        const status = { apply: 'applied', dismiss: 'dismissed' } as const
+        return Response.json(normProposal(decision[2] ? status[decision[2] as keyof typeof status] : 'proposed'))
       }
       if (/^\/api\/assignments\/document\/[^/]+\/candidates/.test(url)) {
         return Response.json({ candidates: MENTIONABLE })

@@ -10,6 +10,8 @@ import { InboxBadge, InboxList } from '@/features/collaboration/components'
 import { installInboxShim, isEmptyVariant } from '../_fixtures/inbox-items'
 import { VIEWER_ID } from '../_fixtures/inbox-rows'
 import { SectionLabel } from '@/components/ui/section-label'
+import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
+import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
 
 installInboxShim()
 
@@ -27,6 +29,7 @@ export default function InboxDevPage(): JSX.Element {
 
   return (
     <I18nProvider initialLocale="de" fixedLocale>
+      <NormDialogProvider dialog={NormDialog}>
       <main
         data-testid="inbox-preview"
         className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-8 text-foreground md:px-8"
@@ -61,6 +64,7 @@ export default function InboxDevPage(): JSX.Element {
           </section>
         )}
       </main>
+      </NormDialogProvider>
     </I18nProvider>
   )
 }
