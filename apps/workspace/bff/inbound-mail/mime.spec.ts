@@ -253,6 +253,23 @@ describe('readMime: what is not staged', () => {
     ])
   })
 
+  it('skips a named signature logo the text shows by its Content-ID, in every mail it comes with, and stages a photo the same way', async () => {
+    const raw = message(
+      multipart('mixed', [
+        multipart('related', [
+          textPart('text/html', '<p>Anbei der Plan.</p><img src="cid:logo@firma">'),
+          filePart('image/png', png(12 * 1024), ['Content-Disposition: inline; filename="Logo_Firma.png"', 'Content-ID: <logo@firma>']),
+        ]),
+        filePart('image/png', png(12 * 1024), ['Content-Disposition: inline; filename="Logo_Partner.png"', 'Content-ID: <partner@firma>']),
+        filePart('image/jpeg', jpeg(1024 * 1024), ['Content-Disposition: inline; filename=IMG_4712.jpeg', 'Content-Id: <photo@apple>']),
+        filePart('image/png', png(12 * 1024), ['Content-Disposition: inline; filename="Skizze.png"']),
+      ])
+    )
+    const mail = await read(raw, [...DEFAULT_ACCEPTED, '.jpeg', '.png'])
+    expect(skipped(mail)).toEqual(['Logo_Firma.png:embedded', 'Logo_Partner.png:embedded'])
+    expect(names(mail)).toEqual(['IMG_4712.jpeg', 'Skizze.png'])
+  })
+
   it('reports signatures, encryption, calendars, TNEF and empty parts by their codes', async () => {
     const signed = message(
       multipart(

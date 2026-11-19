@@ -223,7 +223,14 @@ as `unavailable` and neither side recorded why.
    aligned pass, logged by the mail's id;
 5. read the MIME tree (`mime.ts`, postal-mime 4 and `file-type`) against the
    office's accepted types; find the member by exact address, or an outsider's
-   display name that is a member's (`claims_member_name`);
+   display name that is a member's (`claims_member_name`). What the text
+   shows rather than sends is listed as not staged (`embedded`,
+   `mime-part-kinds.ts`): a nameless part of a `multipart/related`, an image
+   a mail client named for itself (`image001.png`, `Outlook-…`), a tracking
+   pixel under 2 KiB, and an image of at most 32 KiB with a Content-ID shown
+   inline, a signature logo (`Logo_Firma.png`, 12 KB, came with every mail of
+   one sender). A larger inline image with a Content-ID is a photo Apple Mail
+   or iOS placed in the text, and is staged;
 6. the **Namensprüfung** on each attachment's name and the base subject: a
    match is the part's flag `name_stop`, never a drop;
 7. **scan each attachment**, at most four at once (`ATTACHMENT_SCANS_IN_FLIGHT`):
