@@ -66,6 +66,11 @@ describe('the norms list', () => {
     expect(screen.queryByText('Zuletzt geprüft')).toBeNull()
   })
 
+  it('lays the table out fixed, so a filter that leaves one norm does not move the columns', () => {
+    renderList()
+    expect(screen.getByTestId('base-knowledge-table').className).toContain('table-fixed')
+  })
+
   it('on a phone gives the name the row and says the Stand under it, not in a column that cut the name', () => {
     layout.phone = true
     try {

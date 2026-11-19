@@ -38,7 +38,7 @@ export function EntryTable({
   const allOn = entries.length > 0 && entries.every((entry) => selected.has(entry.id))
   const someOn = !allOn && entries.some((entry) => selected.has(entry.id))
   return (
-    <Table data-testid="base-knowledge-table">
+    <Table className="table-fixed" data-testid="base-knowledge-table">
       <TableHeader>
         <TableRow>
           {canManage && (
@@ -51,10 +51,10 @@ export function EntryTable({
             </TableHead>
           )}
           <TableHead>{t('column.entry')}</TableHead>
-          <TableHead className="max-md:hidden">{t('column.kind')}</TableHead>
-          <TableHead className="max-lg:hidden">{t('column.edition')}</TableHead>
-          {!phone && <TableHead>{t('column.status')}</TableHead>}
-          <TableHead className="max-md:hidden">{t('column.text')}</TableHead>
+          <TableHead className="w-28 max-md:hidden">{t('column.kind')}</TableHead>
+          <TableHead className="w-32 max-lg:hidden">{t('column.edition')}</TableHead>
+          {!phone && <TableHead className="w-48">{t('column.status')}</TableHead>}
+          <TableHead className="w-48 max-md:hidden">{t('column.text')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
