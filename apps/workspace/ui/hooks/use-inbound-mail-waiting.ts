@@ -8,6 +8,7 @@ import {
   type InboundMailListQuery,
   type InboundMailListView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
+import { waitingShownCount } from '@/features/inbound-mail/lib/list-sections'
 
 export interface InboundMailListReader {
   list(projectId: string, query?: Partial<InboundMailListQuery>, signal?: AbortSignal): Promise<InboundMailListView>
@@ -18,9 +19,10 @@ const listReader: InboundMailListReader = { list: listInboundMails }
 export interface InboundMailWaiting {
   count: number | null
   more: boolean
+  stamp?: string | null
 }
 
-const UNKNOWN: InboundMailWaiting = { count: null, more: false }
+const UNKNOWN: InboundMailWaiting = { count: null, more: false, stamp: null }
 const FRESH_MS = 30_000
 export const WAITING_POLL_MS = 60_000
 
@@ -51,7 +53,8 @@ function read(projectId: string, client: InboundMailListReader, force = false): 
   entry.inflight = client
     .list(projectId, { status: 'waiting', limit: INBOUND_MAIL_LIST_MAX_LIMIT })
     .then((page) => {
-      entry.state = { count: page.items.filter((mail) => mail.status === 'waiting').length, more: page.nextCursor !== null }
+      const stamp = page.items.map((mail) => `${mail.id}@${mail.updatedAt}`).join(',')
+      entry.state = { count: waitingShownCount(page.items), more: page.nextCursor !== null, stamp }
     })
     .catch((error: unknown) => {
       if (error instanceof ApiRequestError && (error.status === 404 || error.status === 403)) {
@@ -71,9 +74,9 @@ export function refreshInboundMailWaiting(projectId: string, client: InboundMail
   return read(projectId, client, true)
 }
 
-export function primeInboundMailWaiting(projectId: string, state: InboundMailWaiting): void {
+export function primeInboundMailWaiting(projectId: string, state: Omit<InboundMailWaiting, 'stamp'>): void {
   const entry = entryFor(projectId)
-  entry.state = state
+  entry.state = { ...state, stamp: entry.state.stamp ?? null }
   entry.readAt = Date.now()
   for (const listener of entry.listeners) listener()
 }

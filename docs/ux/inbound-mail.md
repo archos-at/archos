@@ -31,6 +31,11 @@ English copy calls the place „Project mail“.
   count · Offene Punkte · Papierkorb. The E-Mail-Eingang tab only for whoever
   may decide the project's mail (`requireMailReviewer`, asked once by the
   project layout); its count is the rail's own (`useInboundMailWaitingShown`).
+  Every count (the rail, the phone tab bar, the greeting's line, the shelf's
+  line, the list's own pill) is what the list shows as rows: waiting mail
+  without the automatic group (`waitingShownCount`, `lib/list-sections.ts`).
+  A read that stopped at its page says so: „50+“ and „Mehr als 50 E-Mails
+  warten auf Ablage“; the list primes the count only from a page it read whole.
   On a phone the tabs are a scrolling strip, hidden on an opened mail.
 - The chat's start: under the greeting, the same quiet line as in Dateien,
   while something waits (the UI revision's „what happened since your last
@@ -94,9 +99,11 @@ The E-Mail-Eingang's header shows the address itself (a press copies it) and
 erzeugen“ there, a member nothing.
 
 Never used, the page is about the address: the list takes the whole width,
-says „Noch keine E-Mails an dieses Projekt“ and „Setzen Sie die Adresse in Cc,
-wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Die Antworten warten
-hier auf Ablage.“ (what is filed directly is the address dialog's), and holds one sheet with the address a size up, „Kopieren“
+says „Noch keine E-Mails an dieses Projekt“ and the two ways mail gets here,
+one line each: „Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder
+Bauherrschaft schreiben: Die Antworten landen hier.“ and „Hat das Projekt in
+Ihrem Büro schon eine eigene Adresse, leiten Sie sie hierher weiter.“ (what is
+filed directly is the address dialog's), and holds one sheet with the address a size up, „Kopieren“
 (primary) and „Als Kontakt sichern“; the header's address and the
 Wartet/Bearbeitet switch stand down. Without an address: „Dieses Projekt hat
 noch keine E-Mail-Adresse …“ with „Adresse erzeugen“ for a manager, or whom to
@@ -115,27 +122,48 @@ list and the detail while the component's own box is wider than 48rem
 „Wartet auf Ablage“ has up to three headings: „Bereit ({n})“ first, „Braucht Sie
 ({n})“ second, „Wartet auf andere ({n})“ third (mail only another member may
 file, `onlySenderReleases`, never an impersonation: dismissing a forgery is the
-reader's to do), then the collapsed quiet group „Domain nicht bestätigt oder
-automatisch ({n})“ (mail from an unconfirmed domain and automatic mail).
+reader's to do), then the group „Automatisch ({n})“ (absence notes,
+newsletters, notifications). Mail from an unconfirmed domain is a row like any
+other, with its trust glyph: for a small office it is most of the real mail,
+and folded away it was never seen. The automatic group is folded while
+anything else waits and opens by itself when nothing does; a press on it holds
+until the next visit. J and K walk every row on show, the open group's
+included. Within each heading, mail with fewer than five days left comes
+first (soonest first, the rest in the server's order) and says so on its row:
+„Läuft in 2 Tagen ab“, „Läuft in weniger als einem Tag ab“ (after its reason,
+or on a line of its own with an hourglass); an outsider's mail is erased 14
+days after it came.
 „Bereit“ means the server's `incompleteReason` is null and the mail does not
 read as an impersonation (the client refuses an impersonation on its own side
 too, `fileableReason`). „Bearbeitet“ is one list: each row says its outcome.
 
 A row: the sender's domain, the subject without `AW:`/`WG:`, the time, „· 3
-Anhänge“; suggestion chips; a trust or risk glyph. Under „Bereit“: „Domain
+Anhänge“; suggestion chips; a trust or risk glyph. Over the rows a field
+„Absender oder Betreff“ filters the loaded mail by sender and subject, every
+word, without case or accents (`matchesQuery`, `lib/inbox-triage.ts`); the
+count of matches is said once by a status, Escape clears it, and a search that
+finds nothing says „Keine E-Mail passt zu „…““ with „Suche leeren“. The list's
+rhythm is one: 32px between sections, 12px between a heading, a thread and a
+run of rows inside one. Under „Bereit“: „Domain
 bestätigt, für jeden Teil ein Ziel, nichts zu prüfen.“ and, with two or more
 ready mails, „Alle {n} wie vorgeschlagen ablegen“ (bulk, confirmed and grouped
 by destination; more than 20: „Die ersten 20 wie vorgeschlagen ablegen“, since
 one request decides at most 20). A ready row outside a thread group carries
 „Wie vorgeschlagen ablegen“, shown where the reader is (the open row, under the
 pointer or the keyboard, always under a finger): one press, no confirmation,
-the same request as bulk and never an acknowledgement. A row whose parts are
+the same request as bulk and never an acknowledgement. Under a finger it
+stands only on the open row: shown on every row, one stray tap filed a mail. A
+row whose parts are
 all on their way reads „Wird abgelegt …“ and offers no press. The open row is
 a fill, not a drawn box; a sender's disc is neutral (a sender is not a member,
 an identity hue would mean nothing). The mail is read again first; if it changed
 („Anhang wird noch geprüft …“), nothing is filed and a toast says why. After
 the press: „1 E-Mail wird wie vorgeschlagen abgelegt“ with the destinations
-(„In E-Mail-Verlauf „Verfahren MA 37“: 1 · In „Behörde“: 1“). A row under
+(„In E-Mail-Verlauf „Verfahren MA 37“: 1 · In „Behörde“: 1“), a toast that
+holds until the parts land (`awaitLanding`, `lib/inbox-landing.ts`) and then
+says what landed where („1 Datei und der E-Mail-Text abgelegt“, a line per
+part, „Ansehen“) or what failed (the detail's partial-failure and full-store
+words). A row under
 „Braucht Sie“ says what it needs: „Absender prüfen“, „Anhang prüfen“, „Anhang
 wird noch geprüft …“, „E-Mail-Verlauf wählen“, „Ordner wählen“, „Projekt ist
 abgeschlossen“. A mail that names a member whose domain did not confirm it is
@@ -253,8 +281,23 @@ stored suggestion; the rule's default folder for a new Verlauf is a plain chip.
 
 **Bulk** by selection: „{n} ausgewählt · Wie vorgeschlagen ablegen ·
 Verwerfen“, enabled only when every selected mail is complete
-(`incompleteReason === null`); it never carries an acknowledgement and confirms
-with a dialog grouped by destination.
+(`incompleteReason === null`); while it is not, the reason stands as a line
+under the count („Bei 1 E-Mail muss der Absender bestätigt werden. Öffnen Sie
+sie einzeln.“, the press's description), never behind an ⓘ. It never carries
+an acknowledgement and confirms with a dialog grouped by destination.
+
+**After a decision the next mail opens.** When the open mail no longer waits
+after the reader filed (once it landed) or dismissed it, the mail below it in
+the list opens, else the one above, and the focus goes to its row; with none
+left the list stands alone; on a phone the list comes back
+(`nextOpenAfter`, `wasDecided`; the detail's `onChanged`). A mail that still
+waits, a restore or a filing that failed, stays open.
+
+**Live.** The list reads itself again when the shared count's read (every 60 s
+and on focus) sees the waiting mail change, and on the project shelf's hint
+(`useShelfLive`: a colleague's filing lands as documents), not within five
+seconds of its own read. Mail arriving publishes no browser hint, so arrival
+shows within the minute.
 
 **States**, each with its own copy: empty (never received / nothing waits /
 nothing handled), loading, load error, suggestion pending („{productName} liest
@@ -264,7 +307,14 @@ dismiss possible), expired and dismissed („… · wiederherstellbar bis {Datum
 original not clean, feature off (`notFound()`).
 
 **Keyboard** (group `inboundMail`, documented in the cheatsheet only with the
-flag): J/K, Enter, X, Space, E „Wie gezeigt ablegen“, ⌫ „Verwerfen“.
+flag): J/K, Enter, X, Space, E „Wie gezeigt ablegen“, ⌫ „Verwerfen“. None of
+them answers while the profile turned shortcuts off (`useShortcutsPreference`).
+⌫ and Entf act only where the reader is in the list or the mail: from the page,
+the open row or the mail's text, never from a focused button, box, menu or
+another row (`dismissKeyAllowed`). For an outsider's mail whose domain did not
+confirm it, which the sweep erases at once when dismissed, ⌫ asks first
+(„E-Mail verwerfen? … Verworfen wird die E-Mail gelöscht und lässt sich nicht
+wiederherstellen.“) and its toast offers no „Rückgängig“ (`dismissErases`).
 
 **Phone**: rows of at least 44px, visible checkboxes, the detail as a page,
 bottom sheets, a stacked decision bar with `env(safe-area-inset-bottom)`,
@@ -351,6 +401,14 @@ abgelegt …“ line is the one spinner (one ambient loop per screen). The kit's
 design system ([`design-language.md`](../design/design-language.md)).
 
 ## Not built yet
+
+- Where a „Bearbeitet“ row went. The row says „1 Teil abgelegt“; the folder or
+  Verlauf needs the parts' `filedAs` on the list's summary view
+  (`summaryView`, `bff/inbound-mail/mail-views.ts`), which carries none.
+- The server's `restorableUntil` for a dismissed part of an unconfirmed
+  outsider's mail: it says seven days while the sweep erases the part at once
+  (`pastRestore`, `sweep-erasure-repository.ts`), so the detail's own
+  „Verwerfen“ still offers „Rückgängig“ for it. ⌫ asks first (above).
 
 - „Wie vorgeschlagen ablegen“ on the Postfach row and on the push: the waiting
   row is collapsed per project, so the action needs a product call (only for a

@@ -14,7 +14,8 @@ export const inboundMail = {
   empty: {
     neverTitle: 'No mail to this project yet',
     neverText:
-      'Put the address in Cc when you write to the authority, the structural engineer or the client.',
+      'Put the address in Cc when you write to the authority, the structural engineer or the client: the replies land here.',
+    neverForward: 'If the project already has its own address in your office, forward it here.',
     neverNoAddress:
       'This project has no mail address yet. With one, the correspondence with the authority, the structural engineer and the client lands in the project without anyone saving it by hand.',
     neverNoAddressMember: 'This project has no mail address yet. Ask someone who manages the project to create it.',
@@ -29,6 +30,22 @@ export const inboundMail = {
   detailLoadError: 'This mail could not be loaded.',
   retry: 'Try again',
   loadMore: 'Load more',
+
+  search: {
+    label: 'Filter mail by sender or subject',
+    placeholder: 'Sender or subject',
+    clear: 'Clear search',
+    results: '{count, plural, one {# match} other {# matches}}',
+    noResults: 'No matches',
+    noneTitle: 'No mail matches “{query}”',
+    noneHint: 'Searches the sender and subject of the mail loaded so far.',
+  },
+
+  dismissFinal: {
+    title: 'Dismiss this mail?',
+    text: 'The sender’s domain is not verified. Dismissed, the mail is deleted and cannot be restored.',
+    confirm: 'Dismiss',
+  },
 
   closed: {
     title: 'The project is closed – reopen it to file',
@@ -68,6 +85,8 @@ export const inboundMail = {
     notFiled: 'Not filed directly\u00A0· {need}',
     filing: 'Filing …',
     notFiledReady: 'Not filed directly',
+    expiresIn: '{days, plural, one {Expires in # day} other {Expires in # days}}',
+    expiresToday: 'Expires in less than a day',
   },
 
   readiness: {
@@ -86,8 +105,8 @@ export const inboundMail = {
     threadAction: '{count, plural, one {File as revision {first}} other {File as revisions {first}–{last}}}',
     threadActionFirst: 'File the first {count} as revisions {first}–{last}',
     reviewInOrder: 'Review',
-    quiet: 'Domain not verified or automatic ({count})',
-    quietHint: 'These are listed in full. {productName} makes no suggestions for them, and none of them is filed directly.',
+    quiet: 'Automatic ({count})',
+    quietHint: 'Out-of-office replies, newsletters and notifications. {productName} makes no suggestions for them, and none of them is filed directly.',
   },
 
   trust: {

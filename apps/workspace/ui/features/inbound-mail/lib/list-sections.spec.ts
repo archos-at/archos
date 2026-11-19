@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { listPage, mail, summaryOf, thread } from '@/app/dev/inbound-mail/fixtures'
-import { isQuietMail, listSections, visibleMails } from './list-sections'
+import { FIXTURE_NOW, listPage, mail, summaryOf, thread } from '@/app/dev/inbound-mail/fixtures'
+import { daysUntilExpiry, isQuietMail, listSections, visibleMails, waitingShownCount } from './list-sections'
 
 const a = summaryOf(mail({ key: 'a' }))
 const b = summaryOf(mail({ key: 'b', threadCandidates: [thread({ nextVersion: 4 })] }))
@@ -21,11 +21,11 @@ const sectionsOf = (items: typeof a[]) => listSections(items, { grouped: true, g
 describe('listSections', () => {
   it('puts „Bereit“ first and „Braucht Sie“ second, the server’s group where the first of its mails stands', () => {
     const sections = sectionsOf([unrelated, a, unconfirmed, b, stranger, robot])
-    expect(sections.map((section) => section.kind)).toEqual(['readiness', 'thread', 'readiness', 'mail', 'mail', 'quiet'])
+    expect(sections.map((section) => section.kind)).toEqual(['readiness', 'thread', 'readiness', 'mail', 'mail', 'mail', 'quiet'])
     expect(sections[0]).toMatchObject({ kind: 'readiness', readiness: 'ready' })
     expect(sections[0].kind === 'readiness' && sections[0].mails.map((mail) => mail.id).sort()).toEqual([a.id, b.id].sort())
     expect(sections[2]).toMatchObject({ kind: 'readiness', readiness: 'needs_you' })
-    expect(sections[2].kind === 'readiness' && sections[2].mails.map((mail) => mail.id)).toEqual([unrelated.id, unconfirmed.id])
+    expect(sections[2].kind === 'readiness' && sections[2].mails.map((mail) => mail.id)).toEqual([unrelated.id, unconfirmed.id, stranger.id])
     const group = sections[1]
     expect(group.kind === 'thread' && [group.firstVersion, group.lastVersion]).toEqual([4, 5])
     expect(group.kind === 'thread' && group.mails.map((member) => member.id).sort()).toEqual([a.id, b.id].sort())
@@ -62,21 +62,49 @@ describe('listSections', () => {
 })
 
 describe('visibleMails', () => {
-  it('walks the quiet group only while it is open', () => {
+  it('walks every row on show, an unconfirmed stranger included, and the automatic group only while it is open', () => {
     const sections = sectionsOf([a, stranger, robot])
-    expect(visibleMails(sections, false).map((mail) => mail.id)).toEqual([a.id])
+    expect(visibleMails(sections, false).map((mail) => mail.id)).toEqual([a.id, stranger.id])
     expect(visibleMails(sections, true).map((mail) => mail.id)).toEqual([a.id, stranger.id, robot.id])
   })
 })
 
 describe('isQuietMail', () => {
-  it('is quiet for an unconfirmed stranger and for a machine', () => {
-    expect(isQuietMail(stranger)).toBe(true)
+  it('folds only a machine’s mail: an unconfirmed stranger is most of a small office’s mail and stands as a row', () => {
+    expect(isQuietMail(stranger)).toBe(false)
     expect(isQuietMail(robot)).toBe(true)
     expect(isQuietMail(a)).toBe(false)
   })
 
   it('never hides an impersonation in the collapsed group', () => {
     expect(isQuietMail(forged)).toBe(false)
+  })
+})
+
+describe('waitingShownCount', () => {
+  it('counts what the list shows as rows: a stranger’s mail yes, a machine’s no', () => {
+    expect(waitingShownCount([a, stranger, robot, { ...b, status: 'handled' }])).toBe(2)
+  })
+})
+
+describe('expiry', () => {
+  const NOW = FIXTURE_NOW
+  const inDays = (days: number) => new Date(NOW + days * 86_400_000).toISOString()
+
+  it('says the days left only in the last five', () => {
+    expect(daysUntilExpiry({ status: 'waiting', expiresAt: inDays(5) }, NOW)).toBeNull()
+    expect(daysUntilExpiry({ status: 'waiting', expiresAt: inDays(4.9) }, NOW)).toBe(4)
+    expect(daysUntilExpiry({ status: 'waiting', expiresAt: inDays(0.5) }, NOW)).toBe(0)
+    expect(daysUntilExpiry({ status: 'handled', expiresAt: inDays(1) }, NOW)).toBeNull()
+  })
+
+  it('moves mail about to run out to the top of its section, the rest in the server’s order', () => {
+    const late = summaryOf(mail({ key: 'late', threadCandidates: [] }), { incompleteReason: 'sender', expiresAt: inDays(1) })
+    const later = summaryOf(mail({ key: 'later', threadCandidates: [] }), { incompleteReason: 'sender', expiresAt: inDays(3) })
+    const calm = summaryOf(mail({ key: 'calm', threadCandidates: [] }), { incompleteReason: 'sender', expiresAt: inDays(20) })
+    const sections = listSections([calm, later, unrelated, late], { grouped: true, now: NOW })
+    const needs = sections.find((section) => section.kind === 'readiness' && section.readiness === 'needs_you')
+    expect(needs?.kind === 'readiness' && needs.mails.map((mail) => mail.id)).toEqual([late.id, later.id, calm.id, unrelated.id])
+    expect(sections.filter((section) => section.kind === 'mail').map((section) => section.kind === 'mail' && section.mail.id)).toEqual([late.id, later.id, calm.id, unrelated.id])
   })
 })

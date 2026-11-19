@@ -2,7 +2,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Bot, CircleAlert, FileInput, LoaderCircle, Mails, Paperclip, ShieldAlert } from 'lucide-react'
+import { Bot, CircleAlert, FileInput, Hourglass, LoaderCircle, Mails, Paperclip, ShieldAlert } from 'lucide-react'
 import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { displaySubject, subjectWithinThread } from '@/lib/inbound-mail/subject'
 import { fileableReason } from '../lib/completeness'
 import { bulkSelectable } from '../lib/impersonation'
+import { daysUntilExpiry } from '../lib/list-sections'
 import { mailClaimOf } from '../lib/sender'
 import { SenderTrustGlyph } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
@@ -33,6 +34,7 @@ export interface InboundMailRowProps {
   inGroup?: boolean
   onFileAsSuggested?: () => void
   filingAsSuggested?: boolean
+  now?: number
 }
 
 export function InboundMailRow({
@@ -46,6 +48,7 @@ export function InboundMailRow({
   inGroup = false,
   onFileAsSuggested,
   filingAsSuggested = false,
+  now,
 }: InboundMailRowProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
@@ -70,13 +73,15 @@ export function InboundMailRow({
           : reason !== null
             ? { key: reason, text: t(`row.needs.${reason}`) }
             : null
+  const expiresInDays = now === undefined || filingNow || impersonating ? null : daysUntilExpiry(mail, now)
+  const expiryText = expiresInDays === null ? null : expiresInDays === 0 ? t('row.expiresToday') : t('row.expiresIn', { days: expiresInDays })
   const offerFile = waiting && !filingNow && reason === null && !inGroup && onFileAsSuggested !== undefined
   const needsReader = waiting && !filingNow && reason !== null && claim !== 'colleague'
 
   return (
     <Item
       as="li"
-      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hover pointer-coarse:min-h-11 data-current:bg-sheet data-current:shadow-sm data-current:inset-ring-0', ROW_HAIRLINE, waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1' /* 4px between the open row's sheet and a picked run: three fills fused into one block */)}
+      className={cn('group/row items-start rounded-control px-3 py-2.5 [--row-end:12px] hover:bg-hover pointer-coarse:min-h-11 data-current:bg-sheet data-current:shadow-sm data-current:inset-ring-0 dark:data-current:shadow-sheet-pointer' /* in dark the open sheet stood 1.3:1 off the desk with a 16% edge; the field's border (3.2:1) is its edge, as the thumb's */, ROW_HAIRLINE, waiting ? '[--row-text:80px]' : '[--row-text:52px]', checked && 'bg-selected hover:bg-hover [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none', open && !checked && '[&:has(+[data-checked])]:mb-1 [[data-checked]+&]:mt-1' /* 4px between the open row's sheet and a picked run: three fills fused into one block */)}
       data-checked={checked || undefined}
       data-filled={checked || open || undefined}
       data-mail-id={mail.id}
@@ -147,7 +152,16 @@ export function InboundMailRow({
                 ) : (
                   <CircleAlert className="text-warning size-3 shrink-0" aria-hidden />
                 )}
-                <span className="min-w-0 truncate">{reasonLine.text}</span>
+                <span className="min-w-0 truncate">
+                  {reasonLine.text}
+                  {expiryText && <span data-testid="inbound-mail-row-expiry">{CLAUSE_JOIN}{expiryText}</span>}
+                </span>
+              </p>
+            )}
+            {waiting && !reasonLine && !impersonating && expiryText && (
+              <p className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" data-testid="inbound-mail-row-expiry">
+                <Hourglass className="text-warning size-3 shrink-0" aria-hidden />
+                <span className="min-w-0 truncate">{expiryText}</span>
               </p>
             )}
             {waiting && mail.thread && !inGroup && !textFollowed && (
@@ -175,7 +189,7 @@ export function InboundMailRow({
           </div>
         </Link>
         {offerFile && (
-          <div className="relative z-10 hidden pl-10 group-hover/row:block group-focus-within/row:block group-data-[current]/row:block pointer-coarse:block">
+          <div className="relative z-10 hidden pl-10 group-data-[current]/row:block pointer-fine:group-hover/row:block pointer-fine:group-focus-within/row:block" /* under a finger only on the open row: one stray tap filed a mail */>
             <BusyButton
               type="button"
               size="sm"
