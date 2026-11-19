@@ -30,7 +30,7 @@ describe('MailOriginLine', () => {
   it('never lets an unconfirmed or archived sender read as confirmed', () => {
     const { unmount } = render(<MailOriginLine origins={PROVENANCE_ORIGINS.unverified} />)
     expect(screen.getByTestId('mail-origin').dataset.trust).toBe('unverified')
-    expect(screen.getByTestId('mail-origin-trust')).toHaveTextContent('Domain not verified')
+    expect(screen.getByTestId('mail-origin-trust')).toHaveTextContent('Sender cannot be verified')
     unmount()
     render(<MailOriginLine origins={PROVENANCE_ORIGINS.archive} />)
     expect(screen.getByTestId('mail-origin-trust')).toHaveTextContent('From the Outlook archive · not checked')

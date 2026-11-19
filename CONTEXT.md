@@ -245,8 +245,9 @@ after 30 days (mail from outside the office after 14, and then it is gone);
 both can otherwise be *wiederhergestellt* for seven days. Until a person
 files it, nothing of a mail is a document: nothing indexes it and no model of
 ARCHOS reads it. Anyone may write to the address; each mail says whether its
-sender's domain was confirmed („Domain bestätigt: …“, „Domain nicht
-bestätigt“), which shapes what is suggested; only a signed mail of a member
+sender's domain was confirmed („Domain bestätigt: …“; where it was not, the
+reader is told what that means, „Absender nicht überprüfbar“), which shapes
+what is suggested; only a signed mail of a member
 who may file is filed directly.
 A mail that poses as a member („Gibt sich als … aus“) is a stop, never a
 default. Attachments are checked for malware before anyone can file them. Who

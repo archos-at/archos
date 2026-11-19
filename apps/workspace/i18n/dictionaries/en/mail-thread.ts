@@ -1,9 +1,9 @@
 export const mailThread = {
   followIneligible: {
     no_active_follow: 'Nobody follows this mail thread',
-    sender_not_verified: 'The sender’s domain is not verified',
+    sender_not_verified: 'The sender cannot be verified',
     match_not_reference: 'The mail does not refer to a mail of this mail thread',
-    header_not_signed: 'The reference to the mail thread is not signed by the domain',
+    header_not_signed: 'The reference to the mail thread cannot be verified',
     flagged: 'The mail is addressed to others, or its date is not plausible',
     automatic: 'The mail was sent automatically',
     new_participant_domain: 'New participants: {domains}',
@@ -41,7 +41,7 @@ export const mailThread = {
     trust: {
       verified: 'Domain verified: {domain}',
       verifiedNoDomain: 'Domain verified',
-      unverified: 'Domain not verified',
+      unverified: 'Sender cannot be verified',
       notChecked: 'From the Outlook archive · not checked',
     },
     filedVia: {

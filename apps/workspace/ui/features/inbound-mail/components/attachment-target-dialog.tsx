@@ -1,6 +1,6 @@
 'use client'
 
-import type { JSX } from 'react'
+import type { JSX, RefObject } from 'react'
 import { useEffect, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { useUnsavedEditGuard } from '@/components/ui/unsaved-edit-confirm'
@@ -25,9 +25,11 @@ export interface AttachmentTargetDialogProps {
   part: InboundMailPartView
   draft: AttachmentDraft
   onApply: (change: Pick<AttachmentDraft, 'name' | 'documentType' | 'revisionOf'>) => void
+  /** Opened from a press, not a `DialogTrigger`: closing hands the focus back to that press, never to the page. */
+  returnFocusRef?: RefObject<HTMLElement | null>
 }
 
-export function AttachmentTargetDialog({ open, onOpenChange, part, draft, onApply }: AttachmentTargetDialogProps): JSX.Element {
+export function AttachmentTargetDialog({ open, onOpenChange, part, draft, onApply, returnFocusRef }: AttachmentTargetDialogProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const tFiles = useTranslations(filesCopy)
   const nameId = useId()
@@ -56,7 +58,16 @@ export function AttachmentTargetDialog({ open, onOpenChange, part, draft, onAppl
 
   return (
     <Dialog open={open} onOpenChange={guard.onOpenChange}>
-      <DialogContent className="sm:max-w-md" closeLabel={t('target.cancel')} data-testid="attachment-target-dialog">
+      <DialogContent
+        className="sm:max-w-md"
+        closeLabel={t('target.cancel')}
+        data-testid="attachment-target-dialog"
+        onCloseAutoFocus={(event) => {
+          if (!returnFocusRef?.current) return
+          event.preventDefault()
+          returnFocusRef.current.focus()
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="[overflow-wrap:anywhere]">{t('target.title', { name: part.filename ?? draft.name })}</DialogTitle>
           <DialogDescription className="sr-only">{t('target.title', { name: part.filename ?? draft.name })}</DialogDescription>
