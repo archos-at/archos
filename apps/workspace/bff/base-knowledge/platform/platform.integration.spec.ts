@@ -180,6 +180,24 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])).toEqual([])
   })
 
+  it('reads the editions of a work the office holds, with the days each was in force, by its designation however spelled', async () => {
+    const designation = `ÖNORM B 1600 ${RUN}`
+    await published('ÖNORM B 1600 and its editions', [
+      { type: 'work', key: key('oenorm-b-1600'), kind: 'technical_standard', title: 'Barrierefreies Bauen', designation, issuer: 'Austrian Standards' },
+      { type: 'edition', key: key('oenorm-b-1600-2017'), workKey: key('oenorm-b-1600'), label: '2017-04-15', issuedOn: '2017-04-15', inForceFrom: '2017-04-15', inForceTo: '2023-02-01' },
+      { type: 'edition', key: key('oenorm-b-1600-2023'), workKey: key('oenorm-b-1600'), label: '2023-02-01', issuedOn: '2023-02-01', inForceFrom: '2023-02-01' },
+    ])
+    const [work, ...others] = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.editionsOf(ORG, [`ÖNORM  B 1600 ${RUN}:2017-04-15`])
+    expect(others).toEqual([])
+    expect(work?.designation).toBe(designation)
+    expect(work?.editions).toEqual([
+      { label: '2017-04-15', issuedOn: '2017-04-15', inForceFrom: '2017-04-15', inForceTo: '2023-02-01' },
+      { label: '2023-02-01', issuedOn: '2023-02-01', inForceFrom: '2023-02-01', inForceTo: null },
+    ])
+    expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.editionsOf(ORG, ['ÖNORM B 5371'])).not.toContainEqual(expect.objectContaining({ designation }))
+    expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.editionsOf(SECOND_ORG, [designation])).toEqual([])
+  })
+
   it('excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets', async () => {
     await published('MA 37, its directive and Vienna’s competence', [
       {

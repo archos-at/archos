@@ -1,0 +1,8 @@
+# area: office-knowledge
+---
+improvements:
+  - >
+    When the norm directory shows that another edition of a standard applied on
+    your project's reference day than the one in the Büroablage, the answer now
+    names that edition and asks you to upload it, instead of answering from your
+    copy. Without a reference day it says that it used today's date.

@@ -38,13 +38,13 @@ import { readShelfDocument, shelfNameHasEntry, visibleOfficeDocuments, type Entr
 import { documentNameKey } from '@/lib/documents/name-match'
 import { releaseText, withholdText } from './text-effects'
 import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
-import { renderBaseKnowledgeBlock } from './turn-block'
+import { renderBaseKnowledgeBlock, type TurnDay } from './turn-block'
 import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
 import { platformKnowledge } from '../platform'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { territoryChoices } from './territory-choices'
 import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
-import { editionOnDay, editionsByWork, editionsOf } from './work-editions'
+import { editionsByWork, editionsForDay, editionsOf } from './work-editions'
 import { workDesignation } from './work-designation'
 import { referenceDayOfProfile } from '../time/profile-procedure'
 import { insertEditionOfWork, deleteWorkIfUnused } from '../store/office-editions'
@@ -351,18 +351,18 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
     projectId ? findProjectProfileInOrg(projectId, organizationId) : Promise.resolve(null),
   ])
   const facts = profile?.profile?.facts ?? {}
-  const day = referenceDayOfProfile(facts, dayOf(new Date()))
+  const today = dayOf(new Date())
+  const reference = referenceDayOfProfile(facts, today)
+  const day: TurnDay = { day: reference ?? today, basis: reference ? 'reference_day' : projectId ? 'no_reference_day' : 'no_project' }
   const documents = await visibleOfficeDocuments(organizationId, all.map((entry) => entry.documentId), SCREENED_ONLY)
   const readable = all.filter((entry) => documents.has(entry.documentId))
-  const works = editionsByWork(readable)
-  const stored = readable.filter((entry) =>
-    entry.confirmed ? editionOnDay(works.get(entry.workId) ?? [entry], day) === entry : entry.values.licenceClass === 'licensed'
-  )
   const held = readable.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
-  const [listed, setupRecords] = await Promise.all([
+  const [listed, directory, setupRecords] = await Promise.all([
     platformKnowledge().listedNotHeld(organizationId, held),
+    platformKnowledge().editionsOf(organizationId, held),
     readSetupRecords(organizationId),
   ])
+  const { stored, missing } = editionsForDay(readable, directory, day.day, documents)
   const territory = projectTerritory({ federalState: facts.federal_state?.value, country: facts.country?.value }, subdivisionTerritories(setupRecords))
   const directives = await platformKnowledge().directivesFor(organizationId, territory.territoryId)
   const now = new Date()
@@ -371,7 +371,7 @@ export async function baseKnowledgeForTurn(organizationId: string, projectId: st
     return document ? [toEntry(entry, document, now)] : []
   })
   return {
-    block: renderBaseKnowledgeBlock(entries, territory, listed, directives),
+    block: renderBaseKnowledgeBlock(entries, territory, listed, directives, { day, missing }),
     labels: entries.filter((entry) => entry.status === 'confirmed').map((entry) => officeAnswerLabel(entry, territory)),
   }
 }

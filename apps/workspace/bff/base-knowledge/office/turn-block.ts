@@ -6,6 +6,10 @@ export const MAX_TURN_ENTRIES = 40
 
 export const MAX_TURN_LINE_CHARS = 400
 
+export const MAX_TURN_BLOCK_CHARS = 17_000
+
+const MORE_LINE_RESERVE = 48
+
 export const BASE_KNOWLEDGE_HEADER =
   "The office's own base knowledge: copies it holds in its Archiv (the Büroablage), for this office only; find a passage " +
   'by searching the Archiv for the file. When an answer rests on one, name its designation or title, its edition and when it was last ' +
@@ -92,20 +96,85 @@ function directiveLine(directive: PlatformDirective): string {
   return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
 }
 
+export type DayBasis = 'reference_day' | 'no_reference_day' | 'no_project'
+
+export interface TurnDay {
+  day: string
+  basis: DayBasis
+}
+
+export interface MissingEdition {
+  designation: string
+  title: string
+  binding: string
+  held: { editionLabel: string; fileName: string }[]
+}
+
+export interface TurnEditions {
+  day: TurnDay
+  missing: readonly MissingEdition[]
+}
+
+export const MAX_HELD_NAMED = 3
+
+export const BINDING_EDITION_RULE =
+  "An entry marked BINDING EDITION NOT HELD names the edition the platform's norm directory lists as in force on that day, " +
+  "which the office does not hold. Do not answer from, quote or paraphrase the office's other edition of that work, even " +
+  'when a search finds its passages: say which edition was in force and that the office does not hold it, and offer that the ' +
+  'office uploads that edition to the Büroablage.'
+
+function dayLine({ day, basis }: TurnDay): string {
+  if (basis === 'reference_day') {
+    return `Editions are those in force on ${day}, the project's reference day (the day its application was filed); answer from the edition listed here and name it.`
+  }
+  const why = basis === 'no_project' ? 'this conversation belongs to no project' : 'the project records no reference day'
+  return `Editions are those in force today, ${day}, because ${why}; when an answer rests on one, say that you took today's date and why.`
+}
+
+function missingLine(missing: MissingEdition, day: string): string {
+  const shown = missing.held.slice(0, MAX_HELD_NAMED)
+  const more = missing.held.length - shown.length
+  const held = shown.map((edition) => `${edition.editionLabel} (file „${edition.fileName}“)`).join(', ') + (more > 0 ? ` and ${more} more` : '')
+  const text = `- ${missing.designation}: BINDING EDITION NOT HELD; in force on ${day}: edition ${missing.binding}; the office holds only ${held}, not in force that day; title „${missing.title}“`
+  return text.length > MAX_TURN_LINE_CHARS ? `${text.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : text
+}
+
 export function renderBaseKnowledgeBlock(
   entries: readonly BaseKnowledgeEntry[],
   project: ProjectTerritory,
   listed: readonly ListedEdition[] = [],
   directives: readonly PlatformDirective[] = [],
+  editions: TurnEditions | null = null,
 ): string | null {
   const confirmed = entries.filter((entry) => entry.status === 'confirmed')
   const unread = entries.filter((entry) => entry.status === 'proposed' && entry.values.licenceClass === 'licensed')
-  if (confirmed.length === 0 && unread.length === 0 && listed.length === 0 && directives.length === 0) return null
-  const shown = [...confirmed.map((entry) => line(entry, project)), ...unread.map(unreadLine)].slice(0, MAX_TURN_ENTRIES)
-  const rest = confirmed.length + unread.length - shown.length
+  const missing = editions?.missing ?? []
+  if (confirmed.length === 0 && unread.length === 0 && missing.length === 0 && listed.length === 0 && directives.length === 0) return null
+  const missingLines = editions ? missing.map((gap) => missingLine(gap, editions.day.day)) : []
+  const dated = editions && (confirmed.length > 0 || missing.length > 0) ? [dayLine(editions.day)] : []
+  const rule = missingLines.length > 0 ? [BINDING_EDITION_RULE] : []
+  const head = [BASE_KNOWLEDGE_HEADER, ...dated, ...rule]
+  let room = MAX_TURN_BLOCK_CHARS - charsOf(head) - MORE_LINE_RESERVE
+  const all = [...missingLines, ...confirmed.map((entry) => line(entry, project)), ...unread.map(unreadLine)]
+  const shown = within(all.slice(0, MAX_TURN_ENTRIES), room)
+  room -= charsOf(shown)
+  const rest = all.length - shown.length
   const more = rest > 0 ? [`- … and ${rest} more not listed here.`] : []
-  const listedLines = listed.slice(0, Math.max(0, MAX_TURN_ENTRIES - shown.length)).map(listedLine)
-  const room = Math.max(0, MAX_TURN_ENTRIES - shown.length - listedLines.length)
-  const directiveLines = directives.slice(0, room).map(directiveLine)
-  return [BASE_KNOWLEDGE_HEADER, ...shown, ...more, ...listedLines, ...directiveLines].join('\n')
+  const listedLines = within(listed.slice(0, Math.max(0, MAX_TURN_ENTRIES - shown.length)).map(listedLine), room)
+  room -= charsOf(listedLines)
+  const directiveLines = within(directives.slice(0, Math.max(0, MAX_TURN_ENTRIES - shown.length - listedLines.length)).map(directiveLine), room)
+  return [...head, ...shown, ...more, ...listedLines, ...directiveLines].join('\n')
+}
+
+const charsOf = (lines: readonly string[]) => lines.reduce((sum, text) => sum + text.length + 1, 0)
+
+function within(lines: readonly string[], room: number): string[] {
+  const kept: string[] = []
+  let used = 0
+  for (const text of lines) {
+    if (used + text.length + 1 > room) break
+    kept.push(text)
+    used += text.length + 1
+  }
+  return kept
 }

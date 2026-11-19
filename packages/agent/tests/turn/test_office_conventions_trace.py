@@ -129,3 +129,41 @@ class TestTheTraceSaysWhatPersonalMemoryTheTurnHad:
     async def test_the_stage_facts_carry_the_envelope_for_the_personal_write(self, quiet_setup, monkeypatch):
         context, _metadata = await self._load(monkeypatch)
         assert context.stage_facts.envelope == SignedEnvelope(header="hdr", signature="sig")
+
+
+class TestTheTraceSaysWhichBindingEditionsTheOfficeLacked:
+    BLOCK = "\n".join(
+        [
+            "The office's own base knowledge: …",
+            "Editions are those in force on 2024-03-01, the project's reference day …",
+            "An entry marked BINDING EDITION NOT HELD names the edition the platform's norm directory lists …",
+            "- ÖNORM B 1600: BINDING EDITION NOT HELD; in force on 2024-03-01: edition 2023-02-01; "
+            "the office holds only 2017-04-15 (file „OENORM_B_1600_2017.pdf“), not in force that day; "
+            "title „Barrierefreies Bauen“",
+            "- ÖNORM B 3691 „Abdichtungen“: technical standard, edition 2019-11-01; role: requirement source",
+        ]
+    )
+
+    async def _load(self, monkeypatch, block):
+        monkeypatch.setattr(
+            context_mod, "fetch_turn_context", lambda *_a, **_kw: ContextBlocks(None, None, None, base_knowledge=block)
+        )
+        reset_contributions()
+        await load_turn_context(
+            RequestContext(context_transport="bff", organization_id="org"),
+            conversation_id="c1",
+            query_text="Welche Rampenneigung gilt?",
+            resolve_stages=False,
+        )
+        metadata = (snapshot_contributions() or {}).get("metadata", {})
+        reset_contributions()
+        return metadata
+
+    async def test_the_missing_editions_are_counted_beside_the_entries(self, quiet_setup, monkeypatch):
+        metadata = await self._load(monkeypatch, self.BLOCK)
+        assert metadata["base_knowledge_entries"] == 2
+        assert metadata["base_knowledge_editions_missing"] == 1
+
+    async def test_a_block_with_every_binding_edition_held_records_zero(self, quiet_setup, monkeypatch):
+        metadata = await self._load(monkeypatch, self.BLOCK.splitlines()[-1])
+        assert metadata["base_knowledge_editions_missing"] == 0
