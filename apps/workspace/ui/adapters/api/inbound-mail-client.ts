@@ -5,6 +5,7 @@ import type {
   InboundMailDecisionResultView,
   InboundMailListQuery,
   InboundMailListView,
+  InboundMailReportResultView,
   InboundMailTextView,
   InboundMailView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -97,6 +98,10 @@ export function dismissInboundMails(projectId: string, body: DismissInboundMails
 
 export function restoreInboundMail(projectId: string, mailId: string): Promise<InboundMailView> {
   return request(`${projectBase(projectId)}/inbound-mails/${enc(mailId)}/restore`, 'Failed to restore the mail', { method: 'POST' })
+}
+
+export function reportInboundMail(projectId: string, mailId: string): Promise<InboundMailReportResultView> {
+  return request(`${projectBase(projectId)}/inbound-mails/${enc(mailId)}/report`, 'Failed to report the mail', { method: 'POST' })
 }
 
 export function inboundMailPartContentUrl(projectId: string, mailId: string, partId: string): string {

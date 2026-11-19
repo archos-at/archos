@@ -184,6 +184,16 @@ export function fixtureClient(options: { list?: ListFixture; detail?: DetailFixt
       ...view,
       parts: view.parts.map((candidate) => (candidate.state === 'filing' ? { ...candidate, state: 'filed', documentId: candidate.documentId ?? fixtureId(`doc:${candidate.id}`) } : candidate)),
     })
+  const dismissed = (id: string): InboundMailView => {
+    const view = views.get(id) as InboundMailView
+    const next = withReviewDefaults({
+      ...view,
+      status: 'handled',
+      parts: view.parts.map((candidate) => (candidate.state === 'waiting' ? { ...candidate, state: 'dismissed' as const, restorableUntil: daysAhead(7) } : candidate)),
+    })
+    views.set(id, next)
+    return next
+  }
   return {
     list: (_projectId, query = {}) => {
       if (options.list?.load === 'loading') return pending()
@@ -223,19 +233,8 @@ export function fixtureClient(options: { list?: ListFixture; detail?: DetailFixt
       })
       return Promise.resolve({ mails, filingJobId: 'job-fixture' })
     },
-    dismiss: (_projectId, body) =>
-      Promise.resolve({
-        mails: body.mailIds.map((id) => {
-          const view = views.get(id) as InboundMailView
-          const next = withReviewDefaults({
-            ...view,
-            status: 'handled',
-            parts: view.parts.map((candidate) => (candidate.state === 'waiting' ? { ...candidate, state: 'dismissed' as const, restorableUntil: daysAhead(7) } : candidate)),
-          })
-          views.set(id, next)
-          return next
-        }),
-      }),
+    dismiss: (_projectId, body) => Promise.resolve({ mails: body.mailIds.map(dismissed) }),
+    report: (_projectId, mailId) => Promise.resolve({ mail: dismissed(mailId), warned: 3 }),
     restore: (_projectId, mailId) => {
       const view = views.get(mailId) as InboundMailView
       const next = withReviewDefaults({
