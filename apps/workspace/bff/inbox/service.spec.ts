@@ -291,6 +291,33 @@ describe('listInbox — projection', () => {
     expect(byId.get('gone')).toMatchObject({ dueOn: null, openMarks: null, marksRevision: null })
   })
 
+  it('opens a new edition’s norm in Normen & Richtlinien and carries since when the edition is in force', async () => {
+    vi.mocked(repository.listInboxItems).mockResolvedValue([
+      row({
+        id: 'edition',
+        type: 'base_knowledge.new_edition',
+        resourceType: 'organization',
+        resourceId: 'org_1',
+        anchorId: 'önorm b 1600@2023-02-01',
+        payload: { subject: 'ÖNORM B 1600', entryId: 'edition_1', related: '2023-02-01', startsOn: '2023-02-01' },
+      }),
+      row({
+        id: 'older',
+        type: 'base_knowledge.new_edition',
+        resourceType: 'organization',
+        resourceId: 'org_1',
+        anchorId: 'önorm b 1600@2023-02-01',
+        payload: { subject: 'ÖNORM B 1600', related: '2023-02-01', startsOn: '1. Februar' },
+      }),
+    ])
+
+    const { items } = await listInbox(session)
+    const byId = new Map(items.map((item) => [item.id, item]))
+
+    expect(byId.get('edition')).toMatchObject({ href: '/app/base-knowledge?entry=edition_1', since: '2023-02-01' })
+    expect(byId.get('older')).toMatchObject({ href: '/app/base-knowledge', since: null })
+  })
+
   it('carries an upload report only in its shape, and withholds it when redacted', async () => {
     const report = {
       projectId: 'proj-1',

@@ -88,6 +88,7 @@ export async function noticeNewEditions(organizationId: string, now: Date = new 
       groupKey,
       payload: {
         subject: work.designation,
+        entryId: work.entryId,
         related: work.standing.inForce.editionLabel,
         startsOn: work.standing.inForce.startsOn,
         ...(excerpt ? { variant: 'projects', excerpt } : {}),

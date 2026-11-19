@@ -325,19 +325,20 @@ describe('listing', () => {
 })
 
 describe('the works an office holds against the platform’s editions', () => {
-  it('compares each confirmed work the platform lists, by its designation without the edition, and not a proposal', async () => {
+  it('compares each confirmed work the platform lists, by its designation without the edition, and not a proposal, naming its newest held edition', async () => {
     const previous = usePlatformKnowledge({
       ...STUB_PLATFORM_KNOWLEDGE,
       editionsOf: async () => [{ designation: 'ÖNORM B 1600', title: 'Barrierefreies Bauen', editions: [{ label: '2023-02-01', issuedOn: null, inForceFrom: '2023-02-01', inForceTo: null }] }],
     })
     vi.mocked(readOfficeEntries).mockResolvedValue([
       stored({ editionId: 'edition_2023', values: { ...stored().values, editionLabel: '2023-02-01', issuedOn: '2023-02-01' } }),
+      stored({ editionId: 'edition_2015', confirmed: true, values: { ...stored().values, editionLabel: '2015-01-01', issuedOn: '2015-01-01' } }),
       stored({ confirmed: true, provenance: { proposedBy: 'person', confirmedBy: 'user-1' } }),
       stored({ workId: 'work_proposed', editionId: 'edition_proposed', documentId: 'doc-1' }),
     ])
     try {
       expect(await directoryStandingsOf('org-1', new Date('2026-11-19T05:00:00Z'))).toEqual([
-        { workId: 'work_1', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } },
+        { workId: 'work_1', entryId: 'edition_1', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } },
       ])
     } finally {
       usePlatformKnowledge(previous)

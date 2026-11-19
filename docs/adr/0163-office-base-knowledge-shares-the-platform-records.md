@@ -292,7 +292,9 @@ says nothing in between. So an entry's Stand is decided in one place (`standOf`,
   every office holding a confirmed standard and gives whoever may manage its Büroablage
   (`org:office-shelf:manage`) one `base_knowledge.new_edition` item per work and edition in force: „<Norm>: neue
   Ausgabe erschienen“, with the active projects whose reference day (`referenceDayOfProfile`) falls on or after
-  that edition's start. The item is resolved by the next sweep once the office holds the edition.
+  that edition's start. The item is resolved by the next sweep once the office holds the edition. It opens the
+  work's newest held edition in Normen & Richtlinien (`?entry=`, where a new edition is uploaded) and offers
+  „Neue Ausgabe hochladen“ there and „Ansehen“ (`?file=`).
 
 Not changed: the turn block and the answer label still read the manual check (`freshness`), so an answer does not
 yet say that the platform lists a newer edition; that changes what shapes an answer and needs its golden run.

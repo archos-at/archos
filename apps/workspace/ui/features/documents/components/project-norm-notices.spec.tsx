@@ -75,13 +75,13 @@ describe('the project banner for norms that sit only in this project', () => {
     await waitFor(() => expect(posted).toEqual([{ destination: 'project', documents: [{ documentId: DOC }] }]))
   })
 
-  it('shows the references the folder keeps, and one whose copy was removed as removed', async () => {
-    const reference = { folderId: null, placedAs: 'moved' as const, officeDocumentId: null, createdAt: '2026-11-19T10:00:00Z', createdBy: 'user_1' }
+  it('shows the references the folder keeps, opening the moved copy’s entry, and one whose copy was removed as removed', async () => {
+    const reference = { folderId: null, placedAs: 'moved' as const, officeDocumentId: null, entryId: null, createdAt: '2026-11-19T10:00:00Z', createdBy: 'user_1' }
     const { run } = server([
       norms({
         offers: [],
         references: [
-          { ...reference, id: 'r1', fileName: 'OENORM_B_2320.pdf', state: 'in_office_shelf', officeDocumentId: DOC },
+          { ...reference, id: 'r1', fileName: 'OENORM_B_2320.pdf', state: 'in_office_shelf', officeDocumentId: DOC, entryId: 'edition_b2320' },
           { ...reference, id: 'r2', fileName: 'OENORM_B_3691.pdf', state: 'removed' },
         ],
       }),
@@ -92,7 +92,7 @@ describe('the project banner for norms that sit only in this project', () => {
       'OENORM_B_2320.pdfVerweis · liegt in der BüroablageÖffnen',
       'OENORM_B_3691.pdfVerweis · aus der Büroablage entfernt',
     ])
-    expect(screen.getByRole('link', { name: '„OENORM_B_2320.pdf“ in der Büroablage öffnen' })).toHaveAttribute('href', '/app/base-knowledge')
+    expect(screen.getByRole('link', { name: '„OENORM_B_2320.pdf“ in der Büroablage öffnen' })).toHaveAttribute('href', '/app/base-knowledge?entry=edition_b2320')
     expect(screen.queryByTestId('project-norm-offer')).not.toBeInTheDocument()
   })
 })

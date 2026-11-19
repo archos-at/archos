@@ -48,7 +48,7 @@ import { designationKey, platformKnowledge, type DirectoryEdition } from '../pla
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { territoryChoices } from './territory-choices'
 import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
-import { editionsByWork, editionsForDay, editionsOf, heldEditionsOf } from './work-editions'
+import { editionsByWork, editionsForDay, editionsOf, heldEditionsOf, newestOf } from './work-editions'
 import { workDesignation } from './work-designation'
 import { referenceDayOfProfile } from '../time/profile-procedure'
 import { insertEditionOfWork, deleteWorkIfUnused } from '../store/office-editions'
@@ -172,6 +172,7 @@ async function findEntry(
 
 export interface WorkStanding {
   workId: string
+  entryId: string
   designation: string
   standing: DirectoryStanding
 }
@@ -182,10 +183,11 @@ export async function directoryStandingsOf(organizationId: string, now: Date = n
   const readable = all.filter((entry) => entry.confirmed && documents.has(entry.documentId))
   const works = editionsByWork(readable)
   const directory = await directoryOf(organizationId, readable)
-  return [...works.values()].flatMap(([edition]) => {
+  return [...works.values()].flatMap((editions) => {
+    const [edition] = editions
     const standing = standingIn(edition, works, directory, dayOf(now))
     const designation = workDesignation(edition.values.designation)
-    return standing && designation ? [{ workId: edition.workId, designation, standing }] : []
+    return standing && designation ? [{ workId: edition.workId, entryId: newestOf(editions).editionId, designation, standing }] : []
   })
 }
 

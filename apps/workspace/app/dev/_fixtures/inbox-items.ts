@@ -1,10 +1,36 @@
 import type { InboxItemView } from '@/lib/inbox/types'
+import type { ProposalResponse } from '@/lib/proposals/types'
 import { MENTIONABLE, VIEWER_ID, replyToMark, withProjects } from './inbox-rows'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const now = Date.now()
 
 const ago = (minutes: number): string => new Date(now - minutes * 60_000).toISOString()
+
+const NORM_PROPOSAL_ID = '0b7c8f5e-1d1e-4c39-9d2c-3f0f6c1a2b3c'
+
+export function decidedNormProposal(status: 'applied' | 'dismissed'): ProposalResponse {
+  return {
+    proposal: {
+      id: NORM_PROPOSAL_ID,
+      kind: 'office_shelf_norm',
+      projectId: 'p1',
+      status,
+      proposedByKind: 'person',
+      onBehalfOf: 'u-anna',
+      onBehalfOfName: 'Anna Berger',
+      originConversationId: null,
+      originMessageId: null,
+      createdAt: ago(110),
+      decidedBy: VIEWER_ID,
+      decidedByName: 'Miriam Hofer',
+      decidedAt: new Date().toISOString(),
+      results: status === 'applied' ? [{ label: 'ÖNORM B 2320', ok: true }] : null,
+      canDecide: false,
+      payload: { documents: [{ id: '5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f', name: 'OENORM_B_2320_2017.pdf', designation: 'ÖNORM B 2320' }] },
+    },
+  }
+}
 
 export const ITEMS: InboxItemView[] = [
   {
@@ -159,15 +185,85 @@ export const ITEMS: InboxItemView[] = [
     actorName: null,
     actorUserId: null,
     count: 1,
-    href: '/app/base-knowledge',
+    href: '/app/base-knowledge?entry=edition_oenorm-b-1600',
     subject: 'ÖNORM B 1600',
     related: '2023-02-01',
+    since: '2023-02-01',
     excerpt: 'Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
     mentions: [],
     variant: 'projects',
     answerIn: null,
     createdAt: ago(90),
     updatedAt: ago(90),
+  },
+  {
+    id: 'i-norms-found',
+    type: 'office_shelf.norms_found',
+    state: 'unread',
+    archived: false,
+    read: false,
+    actionable: true,
+    resourceType: 'organization',
+    resourceId: 'org-1',
+    anchorId: 'f-recht',
+    actorName: null,
+    actorUserId: null,
+    count: 3,
+    href: '/app/office-shelf?folder=f-recht',
+    subject: null,
+    related: null,
+    excerpt: 'OENORM_B_1600_2017.pdf, OIB-RL_4_2023.pdf, MA37_Weisung_Dachgeschoss.pdf',
+    mentions: [],
+    variant: null,
+    answerIn: null,
+    createdAt: ago(100),
+    updatedAt: ago(100),
+  },
+  {
+    id: 'i-norm-suggested',
+    type: 'office_shelf.norm_suggested',
+    state: 'unread',
+    archived: false,
+    read: false,
+    actionable: true,
+    resourceType: 'project',
+    resourceId: 'p1',
+    anchorId: NORM_PROPOSAL_ID,
+    actorName: 'Anna Berger',
+    actorUserId: 'u-anna',
+    count: 1,
+    href: '/app/projects/p1/files?folder=f-normen',
+    subject: 'Wohnanlage Linzer Straße',
+    related: null,
+    excerpt: 'ÖNORM B 2320',
+    mentions: [],
+    variant: null,
+    answerIn: null,
+    createdAt: ago(110),
+    updatedAt: ago(110),
+  },
+  {
+    id: 'i-norm-offered',
+    type: 'office_shelf.norm_offered',
+    state: 'unread',
+    archived: false,
+    read: false,
+    actionable: true,
+    resourceType: 'project',
+    resourceId: 'p1',
+    anchorId: 'd-oenorm-b-3691',
+    actorName: null,
+    actorUserId: null,
+    count: 1,
+    href: '/app/projects/p1/files?folder=f-normen',
+    subject: 'Wohnanlage Linzer Straße',
+    related: null,
+    excerpt: 'ÖNORM B 3691',
+    mentions: [],
+    variant: null,
+    answerIn: null,
+    createdAt: ago(120),
+    updatedAt: ago(120),
   },
   {
     id: 'i5a',
@@ -799,6 +895,10 @@ export function installInboxShim(): void {
         const items = rows.slice(start, start + PAGE)
         const hasMore = start + PAGE < rows.length
         return Response.json({ items, pending: PENDING.length, counts, hasMore, nextCursor: hasMore ? String(start + PAGE) : null })
+      }
+      const decision = /^\/api\/proposals\/([^/]+)\/(apply|dismiss)$/.exec(url)
+      if (decision && decodeURIComponent(decision[1]) === NORM_PROPOSAL_ID) {
+        return Response.json(decidedNormProposal(decision[2] === 'apply' ? 'applied' : 'dismissed'))
       }
       if (/^\/api\/assignments\/document\/[^/]+\/candidates/.test(url)) {
         return Response.json({ candidates: MENTIONABLE })

@@ -351,10 +351,10 @@ export const collaboration: typeof en.collaboration = {
       },
       baseKnowledgeNewEdition: {
         title: '{subject}: neue Ausgabe erschienen',
-        body: 'Laut Normenverzeichnis gilt heute die Ausgabe {related}, die Büroablage hat nur eine ältere. Laden Sie die neue Ausgabe zur bisherigen dazu.',
+        body: 'Seit {since} gilt die Ausgabe {related}, die Büroablage hat nur eine ältere.',
         variants: {
           projects: {
-            body: 'Laut Normenverzeichnis gilt heute die Ausgabe {related}, die Büroablage hat nur eine ältere. Projekte mit Stichtag danach:',
+            body: 'Seit {since} gilt die Ausgabe {related}, die Büroablage hat nur eine ältere. Betrifft Projekte mit Stichtag danach: {excerpt}',
           },
         },
       },
@@ -806,18 +806,20 @@ export const collaboration: typeof en.collaboration = {
         },
       },
       officeShelfNormOffered: {
-        title: '{productName} schlägt die Büroablage vor',
-        body: 'Diese Norm gibt es bisher nur in „{subject}“. In der Büroablage finden alle Projekte sie.',
+        title: '{productName} schlägt eine Norm für die Büroablage vor',
+        body: 'Bisher nur in „{subject}“. In der Büroablage finden alle Projekte sie.',
       },
       officeShelfNormSuggested: {
         title: '{actor} schlägt eine Norm für die Büroablage vor',
         titleNoActor: 'Eine Norm wird für die Büroablage vorgeschlagen',
         titleResolved: 'Der Vorschlag für die Büroablage ist entschieden',
-        body: 'Danach finden alle Projekte sie, und sie ist für alle im Büro sichtbar.',
+        body: 'Aus „{subject}“. In der Büroablage finden alle Projekte sie.',
       },
       officeShelfNormsFound: {
         title: '{productName} hat Normen in Ordnern gefunden',
-        body: 'Im Ordner entscheiden Sie, ob sie unter Normen & Richtlinien geführt werden oder als normale Dateien bleiben.',
+        titleOne: '{productName} hat eine Norm in einem Ordner gefunden',
+        titleMany: '{productName} hat {count} Normen in Ordnern gefunden',
+        body: 'Im Ordner entscheiden Sie, ob sie unter Normen & Richtlinien geführt werden oder normale Dateien bleiben.',
       },
       unknown: {
         title: 'Es gab Aktivität',
@@ -845,6 +847,12 @@ export const collaboration: typeof en.collaboration = {
       failed: 'Das hat nicht geklappt. Es hat sich nichts geändert.',
       stale: 'Jemand hat zuerst entschieden – die aktuelle Fassung liegt in der Datei.',
       reload: 'Aktuelle Fassung öffnen',
+    },
+    normNotice: {
+      uploadEdition: 'Neue Ausgabe hochladen',
+      viewEdition: 'Ansehen',
+      viewEditionLabel: '{subject} in Normen & Richtlinien ansehen',
+      decideInFolder: 'Im Ordner entscheiden',
     },
     normSuggestion: {
       accept: 'In die Büroablage übernehmen',

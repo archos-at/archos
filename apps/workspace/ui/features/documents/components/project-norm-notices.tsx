@@ -17,7 +17,7 @@ import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { fetchProjectNorms, placeProjectNorms, type NormsFetch } from '@/lib/office-shelf/project-norms/client'
 import type { NormDestination, NormOffer, OfficeShelfReferenceView, ProjectNormsResponse } from '@/lib/office-shelf/project-norms/wire'
-import { OFFICE_SHELF_NORMS_HREF } from './office-shelf-places'
+import { baseKnowledgeHref } from '@/lib/base-knowledge/entry-link'
 
 export interface ProjectNormNoticesProps {
   projectId: string
@@ -137,7 +137,7 @@ function ShelfReferenceLines({ references }: { references: readonly OfficeShelfR
           </span>
           {reference.state === 'in_office_shelf' && (
             <Button asChild variant="inline" className="touch-target ml-auto shrink-0">
-              <Link href={OFFICE_SHELF_NORMS_HREF} aria-label={t('shelfReference.open', { name: reference.fileName })}>
+              <Link href={baseKnowledgeHref(reference.entryId)} aria-label={t('shelfReference.open', { name: reference.fileName })}>
                 {t('shelfReference.openShort')}
               </Link>
             </Button>

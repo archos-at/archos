@@ -35,6 +35,10 @@ vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn(async () => undefi
 vi.mock('@/lib/base-knowledge/office/access', () => ({ officeStandardsEnabled: vi.fn(async () => true) }))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
 vi.mock('@/lib/upload-batches/repository', () => ({ listBatchDocuments: vi.fn(async () => []) }))
+vi.mock('@/lib/base-knowledge/store/repository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/base-knowledge/store/repository')>()),
+  entryIdsForDocuments: vi.fn(async (_org: string, ids: string[]) => new Map(ids.map((id) => [id, `entry-of-${id}`]))),
+}))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
@@ -182,7 +186,7 @@ describe('the project’s view of its norms', () => {
     expect(vi.mocked(listShelfProposals).mock.calls[0][2]).toMatchObject({ statuses: ['proposed', 'dismissed'], kind: 'office_shelf_norm' })
   })
 
-  it('shows a reference whose office shelf copy was deleted as removed', async () => {
+  it('shows a reference whose office shelf copy was deleted as removed, and names the entry of a copy still there', async () => {
     const reference = (id: string, officeDocumentId: string | null): OfficeShelfReference => ({
       id,
       organizationId: 'org-1',
@@ -197,9 +201,9 @@ describe('the project’s view of its norms', () => {
     })
     vi.mocked(listReferences).mockResolvedValue([reference('kept', 'office-doc-1'), reference('gone', null)])
     const listed = await listProjectNorms(MEMBER, 'project-1', {})
-    expect(listed.references.map((row) => [row.id, row.state])).toEqual([
-      ['kept', 'in_office_shelf'],
-      ['gone', 'removed'],
+    expect(listed.references.map((row) => [row.id, row.state, row.entryId])).toEqual([
+      ['kept', 'in_office_shelf', 'entry-of-office-doc-1'],
+      ['gone', 'removed', null],
     ])
     expect(listed.nextCursor).toBeNull()
   })

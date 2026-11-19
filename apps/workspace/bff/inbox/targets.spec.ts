@@ -81,6 +81,15 @@ describe('the organization target', () => {
     expect(access!.deepLink({ itemType: 'office_shelf.norms_found', anchorId: null })).toBe('/app/office-shelf')
   })
 
+  it('opens the norm a new edition appeared for in Normen & Richtlinien, where its upload starts', async () => {
+    const access = await organizationTarget.resolve(makeSession(), 'org_1')
+
+    expect(
+      access!.deepLink({ itemType: 'base_knowledge.new_edition', anchorId: 'önorm b 1600@2023-02-01', entryId: 'edition_1' }),
+    ).toBe('/app/base-knowledge?entry=edition_1')
+    expect(access!.deepLink({ itemType: 'base_knowledge.new_edition', anchorId: 'önorm b 1600@2023-02-01' })).toBe('/app/base-knowledge')
+  })
+
   it('falls back to the organization overview for a type with no destination', async () => {
     const access = await organizationTarget.resolve(makeSession(), 'org_1')
 

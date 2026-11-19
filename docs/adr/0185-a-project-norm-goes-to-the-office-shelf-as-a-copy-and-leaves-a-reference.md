@@ -58,7 +58,8 @@ Chosen option 2.
   folder, the project file it replaced, the copy in the office shelf, the file name and how it
   was placed (`moved`, `edition`, `duplicate`). The copy's key is
   `ON DELETE SET NULL (office_document_id)`, so removing the copy from the Büroablage keeps
-  the row and the project shows it as removed.
+  the row and the project shows it as removed. While the copy is there, the project's line
+  opens its entry in Normen & Richtlinien.
 - **„Hier lassen“** is a row in `office_shelf_norm_keeps`, per document, deleted with it.
   Nothing offers that norm for the Büroablage again.
 - **Suggesting** is a proposal of the new kind `office_shelf_norm` in the project, proposed
