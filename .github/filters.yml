@@ -285,8 +285,9 @@ site:
   - 'apps/cms/src/hooks/revalidate-website.ts'
   # The brand package: the website's `bun run check` holds the token and name copies
   # (sync.mjs --check), the icon copies (build-brand-assets.mjs --check) and the
-  # email signatures to it, and art:check holds the app's riso art to its source.
+  # email signatures to it, and art:check holds the app's riso art to its source; packages/mail likewise.
   - 'packages/brand/**'
+  - 'packages/mail/**'
   # src/i18n/public-site.test.ts holds the route table to the pages text outside the site links to.
   - 'contracts/public-site.json'
   # The brand rules the website's `bun run check` and `task website:verify` run.
