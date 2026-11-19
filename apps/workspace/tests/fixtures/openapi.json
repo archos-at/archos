@@ -18175,7 +18175,8 @@
                 "inbound_mail.held",
                 "inbound_mail.held_for_writers",
                 "inbound_mail.rejected",
-                "inbound_mail.expired"
+                "inbound_mail.expired",
+                "base_knowledge.new_edition"
               ]
             },
             "description": "Only this item type."
@@ -23030,7 +23031,7 @@
       "get": {
         "operationId": "base-knowledge-get",
         "summary": "Read one base-knowledge entry",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `directory` (a listed work’s edition in force). Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `directory`. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -23413,7 +23414,7 @@
       "get": {
         "operationId": "base-knowledge-list",
         "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `directory` (a listed work’s edition in force). Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. What needs a person comes first. Only confirmed entries reach answers. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `directory`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. What needs a person comes first. Only confirmed entries reach answers. Any member may read.",
         "tags": [
           "knowledge"
         ],

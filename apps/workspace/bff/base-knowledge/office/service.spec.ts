@@ -59,6 +59,7 @@ import { forgetKeysFor } from '../http/idempotency'
 import {
   baseKnowledgeForTurn,
   confirmBaseKnowledge,
+  directoryStandingsOf,
   listBaseKnowledge,
   proposeBaseKnowledge,
   removeBaseKnowledge,
@@ -311,6 +312,27 @@ describe('listing', () => {
       expect(list.entries.map((entry) => entry.id)).toEqual(['b1600', 'rvs', 'b3806'])
       expect(list.counts).toMatchObject({ newerEdition: 1, checkDue: 1 })
       expect((await listBaseKnowledge(MEMBER, { attention: 'newer_edition' })).entries.map((entry) => entry.id)).toEqual(['b1600'])
+    } finally {
+      usePlatformKnowledge(previous)
+    }
+  })
+})
+
+describe('the works an office holds against the platform’s editions', () => {
+  it('compares each confirmed work the platform lists, by its designation without the edition, and not a proposal', async () => {
+    const previous = usePlatformKnowledge({
+      ...STUB_PLATFORM_KNOWLEDGE,
+      directoryEditions: async () => [{ designation: 'ÖNORM B 1600', editionLabel: '2023-02-01', startsOn: '2023-02-01', endsOn: null }],
+    })
+    vi.mocked(readOfficeEntries).mockResolvedValue([
+      stored({ editionId: 'edition_2023', values: { ...stored().values, editionLabel: '2023-02-01', issuedOn: '2023-02-01' } }),
+      stored({ confirmed: true, provenance: { proposedBy: 'person', confirmedBy: 'user-1' } }),
+      stored({ workId: 'work_proposed', editionId: 'edition_proposed', documentId: 'doc-1' }),
+    ])
+    try {
+      expect(await directoryStandingsOf('org-1', new Date('2026-11-19T05:00:00Z'))).toEqual([
+        { workId: 'work_1', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } },
+      ])
     } finally {
       usePlatformKnowledge(previous)
     }

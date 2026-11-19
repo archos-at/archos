@@ -63,6 +63,7 @@ export const ALL_TYPES = [
   'inbound_mail.held_for_writers',
   'inbound_mail.rejected',
   'inbound_mail.expired',
+  'base_knowledge.new_edition',
 ] as const satisfies readonly InboxItemType[]
 
 export const OPERATIONAL_TYPES = [
@@ -100,6 +101,7 @@ export const OPERATIONAL_TYPES = [
   'inbound_mail.held_for_writers',
   'inbound_mail.rejected',
   'inbound_mail.expired',
+  'base_knowledge.new_edition',
 ] as const satisfies readonly InboxItemType[]
 
 export const at = new Date('2026-07-29T10:00:00.000Z')

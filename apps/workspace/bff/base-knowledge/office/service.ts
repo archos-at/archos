@@ -21,6 +21,7 @@ import {
   type BaseKnowledgeEntry,
   type BaseKnowledgeList,
   type ConfirmEntryBody,
+  type DirectoryStanding,
   type EntryValues,
   type LicenceEntryBody,
   type UpdateEntryBody,
@@ -168,6 +169,25 @@ async function findEntry(
   const works = editionsByWork(readable)
   const directory = await directoryOf(session.organizationId, readable)
   return { stored, entry: toEntry(stored, document, now, names, works, directory), document }
+}
+
+export interface WorkStanding {
+  workId: string
+  designation: string
+  standing: DirectoryStanding
+}
+
+export async function directoryStandingsOf(organizationId: string, now: Date = new Date()): Promise<WorkStanding[]> {
+  const all = await readOfficeEntries(organizationId)
+  const documents = await visibleOfficeDocuments(organizationId, all.map((entry) => entry.documentId), SCREENED_ONLY)
+  const readable = all.filter((entry) => entry.confirmed && documents.has(entry.documentId))
+  const works = editionsByWork(readable)
+  const directory = await directoryOf(organizationId, readable)
+  return [...works.values()].flatMap(([edition]) => {
+    const standing = standingIn(edition, works, directory, dayOf(now))
+    const designation = workDesignation(edition.values.designation)
+    return standing && designation ? [{ workId: edition.workId, designation, standing }] : []
+  })
 }
 
 export async function storedEntryOf(session: AuthorizedSession, entryId: string): Promise<{ stored: StoredEntry; entry: BaseKnowledgeEntry }> {

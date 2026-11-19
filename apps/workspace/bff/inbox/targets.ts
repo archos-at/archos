@@ -47,6 +47,7 @@ const ORGANIZATION_DESTINATIONS: Partial<Record<InboxItemType, string>> = {
   'document.quarantined': '/app/organization/quarantine',
   'document.release_requested': '/app/organization/quarantine',
   'agent.proposal_waiting': '/app/office-shelf',
+  'base_knowledge.new_edition': '/app/base-knowledge',
 }
 
 function rootSortHref(shelfPath: string, runId: string | null | undefined): string {

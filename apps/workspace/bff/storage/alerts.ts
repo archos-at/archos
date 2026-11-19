@@ -1,11 +1,10 @@
 import 'server-only'
-import { rolesHoldPermission } from '@/lib/authz/org-role-permissions'
 import type { InboxEmission } from '@/lib/inbox/service'
 import { emitInboxItems } from '@/lib/inbox/service'
 import { archiveInboxItemsOfType, findLiveInboxGroupKeys } from '@/lib/inbox/repository'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { withTenant } from '@/lib/db/tenant-context'
-import { listOrganizationMembersWithRoles } from '@/lib/organizations/service'
+import { activeMembersHolding } from '@/lib/organizations/members-holding'
 import { aggregateStorageUsageByOrganization } from './repository'
 import { getStorageQuotaBytes } from './service'
 
@@ -41,14 +40,7 @@ export function crossedBucketPercent(
 }
 
 export async function findStorageAlertRecipients(organizationId: string): Promise<string[]> {
-  const members = await listOrganizationMembersWithRoles(organizationId)
-  const active = members.filter((member) => member.status === 'active' && member.roleSlug)
-  const verdicts = await Promise.all(
-    active.map(async (member) =>
-      (await rolesHoldPermission(organizationId, member.roleSlug ? [member.roleSlug] : [], STORAGE_ALERT_PERMISSION)) ? member.id : null
-    )
-  )
-  return verdicts.filter((id): id is string => id !== null)
+  return activeMembersHolding(organizationId, STORAGE_ALERT_PERMISSION)
 }
 
 export type StorageAlertStatus =

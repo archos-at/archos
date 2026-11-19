@@ -31,6 +31,7 @@ import {
 } from '../../workers/maintenance-sql.js'
 import { report } from './log'
 import { runSourceMonitor } from '@/lib/base-knowledge/platform/monitor'
+import { sweepNewEditionNotices } from '@/lib/base-knowledge/office/new-edition-notice'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const MAX_ROUNDS = 20
@@ -99,6 +100,11 @@ export async function sweepSourceMonitors(): Promise<void> {
     const { checked, changed, failed, opened } = outcome.run
     report(`source monitor: ${JSON.stringify({ checked, changed, failed, opened })}`)
   }
+}
+
+export async function sweepNewEditions(now: Date = new Date()): Promise<void> {
+  const counts = await sweepNewEditionNotices(now)
+  if (counts.notified > 0 || counts.resolved > 0) report(`new editions: ${JSON.stringify(counts)}`)
 }
 
 export async function sweepPlacement(): Promise<void> {

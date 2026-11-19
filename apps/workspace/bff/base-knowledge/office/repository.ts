@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -94,4 +94,14 @@ export async function shelfNameHasEntry(organizationId: string, filename: string
       .limit(1)
   )
   return rows.length > 0
+}
+
+export async function listOrganizationsWithOfficeEditions(limit: number): Promise<string[]> {
+  const rows = await getDb()
+    .selectDistinct({ organizationId: knowledgeRecords.organizationId })
+    .from(knowledgeRecords)
+    .where(and(isNotNull(knowledgeRecords.organizationId), eq(knowledgeRecords.type, 'edition'), isNotNull(knowledgeRecords.headRevisionId)))
+    .orderBy(asc(knowledgeRecords.organizationId))
+    .limit(limit)
+  return rows.flatMap((row) => (row.organizationId ? [row.organizationId] : []))
 }
