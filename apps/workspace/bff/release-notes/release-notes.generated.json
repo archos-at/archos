@@ -136,6 +136,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "administration",
+          "text": {
+            "en": "The list of subprocessors now names Google Workspace and Attio. They handle enquiries sent through the contact and demo forms on our website, and they receive none of your office's project data.",
+            "de": "Die Liste der Unterauftragsverarbeiter führt jetzt Google Workspace und Attio auf. Sie bearbeiten Anfragen über die Kontakt- und Demoformulare auf unserer Website und erhalten keine Projektdaten Ihres Büros."
+          }
+        },
+        {
           "section": "fixes",
           "area": "answers",
           "text": {
