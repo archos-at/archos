@@ -389,7 +389,7 @@ code, never a sender, subject or file name. A mail's notices go to its sender
 only when it is `member_verified`, addressed to the project or the member's own
 Bcc copy, and the member may read the project; otherwise to the project's
 managers, so whoever forged a member's address never reaches that member
-through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-twelve-notices).
+through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-thirteen-notices).
 
 *Amended by the [amendment of 2026-11-03](#amendment-2026-11-03-verified-project-mail-is-filed-directly-only-unverified-mail-waits):* the member a
 From address names now hears why their mail waits and what became of it, forged
@@ -982,3 +982,45 @@ Migration 0252 holds it in the database
   the real receive, follow and filing jobs; the caps count replies only; a
   person's filing starts a follow).
 - The architecture: [Following a Verlauf](../architecture/inbound-mail.md#following-a-verlauf).
+
+## Amendment, 2026-11-19: a reported fraud names the mail
+
+*Product owner, from a blind usability read of the fraud stop: "Nobody else is
+warned. Accounting might see the same mail in Outlook and pay."*
+
+A person who reads a mail that poses as a member („Vorsicht: … gibt sich als
+… aus“) can report it („Melden …“). One press dismisses it as „Verwerfen“
+does and warns the project's managers (each office admin among them) and the
+member it poses as in the Postfach: `inbound_mail.fraud_reported`, and the
+variant `reported` of `inbound_mail.rejected`.
+
+This narrows "a row carries the project's name, a count and a code, never a
+sender, subject or file name" above by one type. A warning that cannot say
+which mail it means asks the reader to guess, and the mail it warns about is
+in their own mail program, not here. So the warning names the sender
+(„{display name} ‹{address}›“) and, in the row only, the subject. Both pass
+the office's content check with the IBAN detector forced on: the forger's
+account number never reaches a row. The push carries no subject. Nothing is
+emailed: "we never send mail about mail" stands, and a mail from us saying
+"this mail is fraud" would be the next thing to forge.
+
+### Consequences
+
+- Text a stranger wrote now reaches a row: the display name and the subject,
+  masked and cut short, under a title that says it is a forgery. Every other
+  mail notice still carries none (`announce.spec.ts`, the canaries).
+- Only people the notice registry can name truthfully are warned: those who
+  manage the project. An accounting colleague without project rights hears it
+  from them; the reporter's toast says how many were warned, and when nobody
+  was, to warn the office themselves.
+- The agent never reports (`inbound-mail-report` is offered to no agent):
+  a fraud alarm in colleagues' inboxes rests on a person's reading.
+
+### Confirmation
+
+- `report.spec.ts` (who is warned, once; the payload with the IBAN taken out;
+  the refusal of a mail that poses as nobody; the right to dismiss),
+  `inbound-mail-copy.spec.ts` (the words), `fraud-report.spec.tsx` (the
+  confirm, one press, the count).
+- The architecture: [Sender trust](../architecture/inbound-mail.md#sender-trust)
+  and [the notices](../architecture/inbound-mail.md#the-thirteen-notices).

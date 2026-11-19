@@ -74,7 +74,7 @@ export async function listInboundMails(
   }
 }
 
-async function requireMail(projectId: string, mailId: string): Promise<InboundMailRow> {
+export async function requireMail(projectId: string, mailId: string): Promise<InboundMailRow> {
   const mail = await findProjectMail(projectId, mailId)
   if (!mail) throw new NotFoundError('Mail not found')
   return mail
@@ -353,18 +353,20 @@ export async function fileInboundMails(
   return { mails: await mailViews(session, projectId, fresh, closed), filingJobId: jobId }
 }
 
-export async function dismissInboundMails(
-  session: AuthorizedSession,
-  projectId: string,
-  body: DismissInboundMailsBody,
-): Promise<{ mails: InboundMailView[] }> {
+export interface MailsDismissed {
+  mails: InboundMailRow[]
+  written: DecisionsWritten
+  closed: boolean
+}
+
+export async function dismissAsDecided(session: AuthorizedSession, projectId: string, mailIds: readonly string[]): Promise<MailsDismissed> {
   const { closed } = await requireMailReviewer(session, projectId)
-  const mails = await Promise.all(body.mailIds.map((mailId) => requireMail(projectId, mailId)))
-  const before = groupParts(await findMailParts(body.mailIds))
+  const mails = await Promise.all(mailIds.map((mailId) => requireMail(projectId, mailId)))
+  const before = groupParts(await findMailParts(mailIds))
   const actor = decisionActor(session)
   let written: DecisionsWritten
   try {
-    written = await dismissMails(projectId, body.mailIds, actor)
+    written = await dismissMails(projectId, mailIds, actor)
   } catch (error) {
     if (error instanceof PartNotWaitingError) {
       throw refusal('part_not_waiting', 'A part is no longer waiting; read the mail again', { mailId: error.mailId })
@@ -398,7 +400,16 @@ export async function dismissInboundMails(
       },
     })
   }
-  await afterDecisions(session, projectId, written, body.mailIds)
+  await afterDecisions(session, projectId, written, mailIds)
+  return { mails, written, closed }
+}
+
+export async function dismissInboundMails(
+  session: AuthorizedSession,
+  projectId: string,
+  body: DismissInboundMailsBody,
+): Promise<{ mails: InboundMailView[] }> {
+  const { mails, written, closed } = await dismissAsDecided(session, projectId, body.mailIds)
   await tellDismissed(session, mails, written)
   const fresh = await Promise.all(body.mailIds.map((mailId) => requireMail(projectId, mailId)))
   return { mails: await mailViews(session, projectId, fresh, closed) }

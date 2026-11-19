@@ -112,6 +112,7 @@ const MAIL_NOTICE_PATHS = [
     'FilingFailed',
     'CapReached',
     'Appended',
+    'FraudReported',
   ].map((type) => `collaboration.inbox.types.inboundMail${type}`),
   'collaboration.inbox.types.mailThreadFollowExpiring',
   'collaboration.inbox.types.mailThreadFollowEnded',

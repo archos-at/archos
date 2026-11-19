@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SenderFlag, SenderReason, SenderTrust } from './inbound-mail-vocabulary'
-import { claimsMemberName, impersonationOf, senderNeedsAcknowledgement, senderRiskLevel, type SenderFacts } from './sender-risk'
+import { claimedMemberIds, claimsMemberName, impersonationOf, senderNeedsAcknowledgement, senderRiskLevel, type SenderFacts } from './sender-risk'
 
 const sender = (overrides: Partial<{ trust: SenderTrust; reason: SenderReason; flags: SenderFlag[] }> = {}): SenderFacts => ({
   trust: 'external_verified',
@@ -90,5 +90,20 @@ describe('claimsMemberName', () => {
     ['Petra Weber'],
   ])('claims nobody for %s', (name) => {
     expect(claimsMemberName(name, members)).toBe(false)
+  })
+})
+
+describe('claimedMemberIds', () => {
+  const members = [
+    { userId: 'u-miriam', name: 'Miriam Huber' },
+    { userId: 'u-martin', name: 'Martin Huber' },
+    { userId: 'u-juergen', name: 'Jürgen Maier' },
+  ]
+
+  it('names the members a display name claims, as claimsMemberName judges it', () => {
+    expect(claimedMemberIds('DI Miriam Huber', members)).toEqual(['u-miriam'])
+    expect(claimedMemberIds('M. Huber', members)).toEqual(['u-miriam', 'u-martin'])
+    expect(claimedMemberIds('Petra Weber', members)).toEqual([])
+    expect(claimedMemberIds(null, members)).toEqual([])
   })
 })

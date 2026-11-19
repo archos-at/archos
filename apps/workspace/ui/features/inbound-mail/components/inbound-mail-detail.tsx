@@ -433,7 +433,26 @@ export function InboundMailDetail({
         {waitingParts.length === 0 && <RestorablePanel parts={view.parts} restoring={restoring} onRestore={() => void restore()} />}
 
         {/* Above the header, before anything can be checked: the owner's rule for a mail posing as someone. */}
-        {impersonation && <ImpersonationWarning warning={impersonation} own={claim === 'own'} />}
+        {impersonation && (
+          <ImpersonationWarning
+            warning={impersonation}
+            own={claim === 'own'}
+            report={
+              showBar && !dismissing && !filing
+                ? {
+                    projectId,
+                    mailId: view.id,
+                    client,
+                    onReported: (next) => {
+                      if (alive.current) setState({ kind: 'ready', view: next })
+                      onChanged()
+                    },
+                    onRefused: (code) => void (refusalNeedsReload(code) && load()),
+                  }
+                : null
+            }
+          />
+        )}
 
         <MailHeader
           view={view}

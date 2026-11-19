@@ -381,6 +381,15 @@ export const inboundMail: typeof en.inboundMail = {
     fileAnywayHint: 'Nur wenn Sie telefonisch geprüft haben, dass die E-Mail echt ist.',
     fileAnywayHintOwn: 'Nur wenn Sie diese E-Mail selbst gesendet haben.',
     fileAnywayClose: 'Ablage schließen',
+    report: 'Melden …',
+    reportHint: 'Warnt Ihr Büro, damit niemand zahlt.',
+    reportTitle: 'Betrugsversuch melden?',
+    reportText: '{productName} warnt, wer dieses Projekt verwaltet, die Administratoren Ihres Büros und {name}.',
+    reportTextOwn: '{productName} warnt, wer dieses Projekt verwaltet, und die Administratoren Ihres Büros.',
+    reportWhat:
+      'Die Warnung nennt Absender und Betreff und sagt: „Bitte nicht zahlen und nicht antworten. Prüfen Sie Ihr Mailprogramm auf dieselbe E-Mail.“ Danach ist die E-Mail in {productName} verworfen; im Mailprogramm löschen Sie sie selbst.',
+    reportConfirm: 'Melden und verwerfen',
+    reportCancel: 'Abbrechen',
   },
   bar: {
     file: 'Ablegen',
@@ -535,6 +544,8 @@ export const inboundMail: typeof en.inboundMail = {
     dismissedMany: '{count, plural, one {# E-Mail verworfen} other {# E-Mails verworfen}}',
     undo: 'Rückgängig',
     restored: 'E-Mail wiederhergestellt',
+    reported: '{count, plural, one {Gemeldet und verworfen. # Person ist gewarnt.} other {Gemeldet und verworfen. # Personen sind gewarnt.}}',
+    reportedNobody: 'Verworfen. Niemand sonst verwaltet dieses Projekt: Warnen Sie Ihr Büro selbst.',
     filedAsSuggested: '{count, plural, one {# E-Mail wird wie vorgeschlagen abgelegt} other {# E-Mails werden wie vorgeschlagen abgelegt}}',
     failed: 'Das hat nicht geklappt. Bitte erneut versuchen.',
   },
@@ -602,6 +613,7 @@ export const inboundMail: typeof en.inboundMail = {
     original_not_clean: 'Das Original hat die Prüfung auf Schadsoftware nicht bestanden und lässt sich nicht herunterladen.',
     mail_not_received_here: 'Der E-Mail-Empfang ist hier nicht eingerichtet. Laden Sie Dateien direkt hoch.',
     legal_hold: 'Diese Datei wird wegen einer Aufbewahrungspflicht gehalten und nicht an einen Agenten gegeben.',
+    not_impersonation: 'Melden lässt sich nur eine E-Mail, die sich als Mitglied Ihres Büros ausgibt.',
     unknown: 'Das hat nicht geklappt. Bitte erneut versuchen.',
   },
 

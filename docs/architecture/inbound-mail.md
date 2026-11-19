@@ -477,7 +477,33 @@ server and carried on the views as `riskLevel`): `none`; `caution`
 (`acknowledgeSender` needed: a member address not signed, a failed or rejected
 signature, a verified mail not addressed to the project outside the Bcc case,
 a stale date); `impersonation` (a rejected signature, or `claims_member_name`):
-no suggestion, nothing pre-selected, never in a bulk decision.
+no suggestion, nothing pre-selected, never in a bulk decision, and the one
+risk that can be reported (below).
+
+**Reporting an impersonation** („Melden …“ in the fraud stop):
+`POST /api/projects/[id]/inbound-mails/[mailId]/report`
+(`apps/workspace/bff/inbound-mail/report.ts`), with the same right as dismissing
+(`requireMailReviewer`). A mail that is not an impersonation is refused
+`not_impersonation`. One press dismisses the mail exactly as „Verwerfen“ does
+(`dismissAsDecided` in `service.ts`: decisions, their audit, the settles, the
+`inbound_mail_decided` event), then warns the office in the Postfach, then
+records `inbound_mail.reported` (audit) and `inbound_mail_reported` (PostHog).
+A second press finds nothing waiting and is refused `part_not_waiting`, so
+nobody is warned twice. Who is warned: the project's managers
+(`projectManagers`: every holder of `project:manage`, which includes each office
+admin through `org:projects:administer`) get `inbound_mail.fraud_reported`;
+the member it poses as (the From's member for a rejected signature, the
+directory members whose name the display name claims for `claims_member_name`,
+`claimedMemberIds` in `sender-risk.ts`) gets `inbound_mail.rejected` with the
+variant `reported` instead of the dismissal's plain one, when they may open
+the project. The reporter is told nobody, a claimed member who also manages
+the project only the second row. The answer carries `warned`, the number of
+people told, so the toast never claims a warning that did not go out („Niemand
+sonst verwaltet dieses Projekt: Warnen Sie Ihr Büro selbst.“).
+Only managers and the claimed member, not every member: they are the people
+the notice registry can address truthfully for a project, and the row targets
+the project, which a member without `project:view` would see redacted. The
+agent never reports (exposure below).
 
 What a verified domain is trusted with. DKIM proves a domain, and anyone can
 own one, so `external_verified` alone pre-selects nothing that rests on the
@@ -844,12 +870,19 @@ erasure and deletion wait. The `BEFORE DELETE` triggers on `inbound_mails`,
 `mail_thread_entries` and `mail_thread_entry_attachments` (`GLH01`) are the
 backstop, never the filter.
 
-## The twelve notices
+## The thirteen notices
 
 `lib/inbound-mail/announce.ts`, in-app and push only (`email: never`). Payload
 `{ subject: <project name>, variant?, related? }`: no sender, subject or file
 name reaches a row or a push. Mail from an unconfirmed domain or automatic mail
-adds the variant `unconfirmed`.
+adds the variant `unconfirmed`. **The one exception is a reported fraud**
+(`announceFraudReported`): a warning that cannot name the mail cannot be acted
+on, since the reader has to find the same mail in their own mail program. Its
+`related` is the sender as „{display name} ‹{address}›“ and its `excerpt` the
+subject, both masked by the office's content check with the IBAN detector
+always on (the forger's new account number never reaches a row), cut to 120
+and 200 characters; the push carries the title and body, never the excerpt.
+The rejected row's `reported` variant carries the same `related`.
 
 **A title carries the whole notice.** The Postfach page lists rows with
 `InboxQueueList`, „one quiet line each“: it draws a row's title and caption,
@@ -864,7 +897,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, and holding a document write right, so able to file it), else the project's writers (any of `DOCUMENT_WRITE_PERMISSIONS`; a read-only member's signed mail included, whose member hears `held_for_writers`) | collapsed per project, actionable; its number is what waits now (`lib/inbox/live-counts.ts`), not the row's since-read tally | `/files/mail` | requests, normal | nothing waits |
 | `inbound_mail.expiring` | the same, once per mail (sweep 4) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing it told about waits |
 | `inbound_mail.decided` | the member the From names (verified or not), when the run filed the mail's last part; variant `direct` when it was filed as them without a click (told although they are its decider) | per mail | `/files?folder=…` when every file went to one folder the member may open, else `/files` | results, low | — |
-| `inbound_mail.rejected` | the member the From names, when a dismissal, or a decision that filed nothing of it, ended their mail | per mail | `/files` | results, low | — |
+| `inbound_mail.rejected` | the member the From names, when a dismissal, or a decision that filed nothing of it, ended their mail; variant `reported` (to the member an impersonation posed as, by name or by address) when it was reported as fraud: „Jemand hat sich in „…“ als Sie ausgegeben: {sender}“ | per mail | `/files` | results, low | — |
 | `inbound_mail.held` | the writer an `unverified_writer` mail claims: „Haben Sie diese E-Mail gesendet?“ | per mail, actionable | `/files/mail/<mailId>` | requests, normal | the mail is decided or expires (`settleHeld`) |
 | `inbound_mail.held_for_writers` | the member without write rights whose mail waits; variant `unchecked` when WorkOS never answered whether they may write (`sender_unchecked`), so the row never says they cannot | per mail | `/files` | results, low | the same |
 | `inbound_mail.expired` | the member the From names, when sweep 3 expired their mail | per mail | `/files` | results, low | — |
@@ -873,6 +906,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.appended` | the follower; variant `with_attachments` when the follow filed attachments with the text, else `text` (every emission names one, since a collapsed row merges payloads) | per Verlauf and day | the Verlauf document | results, low | — |
 | `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed or ended |
 | `mail_thread.follow_ended` | the follower, when the system, a manager, a detach or a full Verlauf ended their follow; variant the end reason | per follow | `/files/mail` | results, low | — |
+| `inbound_mail.fraud_reported` | the project's managers (office admins included), not the reporter nor the member it posed as, when a person reported an impersonation: „Gefälschte E-Mail als {sender} in „…“: nicht zahlen, nicht antworten“, body „Bitte nicht zahlen und nicht antworten. Prüfen Sie Ihr Mailprogramm auf dieselbe E-Mail.“, the subject as excerpt | per mail, warning tone, 90 days | the reported mail under „Bearbeitet“ | office, high | — |
 
 **A waiting row says what waits, not what arrived.** A collapsed row's `count`
 is occurrences since the reader last read it (`markReadValues`), right for
@@ -988,6 +1022,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 | `inbound-mail-text-get` (masked), `inbound-mail-part-content-get` (a waiting part only: a filed part's staged copy, kept under a legal hold, is refused `gone`, its document is what is read) | yes | no |
 | `inbound-mail-file` (also the member's filing of mail that claims them: `acknowledgeSender`), `inbound-mail-dismiss` | yes, `requiresPersonConfirmation` | as a card; clean, unflagged parts only (a card carries no `acknowledgeSender`, so it never files a claimed mail) |
 | `inbound-mail-restore` | yes | yes |
+| `inbound-mail-report` | no | no: warning colleagues that a mail is fraud is a judgement only the person who read it makes, never one a mail's text could steer an agent into |
 | `inbound-mail-original-get`, `mail-thread-entry-original-get` | withheld (`evidence`) | withheld |
 | `mail-thread-list`, `-get`, `mail-thread-entry-detach` | yes | yes (detach as a card) |
 | `mail-thread-follow` | `control`-sensitive: only under the office's opt-in and the step-up scope | no |
@@ -1033,7 +1068,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 ## Observability
 
 - PostHog: `inbound_mail_received`, `_refused`, `_dropped`,
-  `_receive_failed`, `_expired`, `_decided`, `_suggested`, `_address_created`,
+  `_receive_failed`, `_expired`, `_decided`, `_reported`, `_suggested`, `_address_created`,
   `_address_rotated`, `_address_forwards_changed` (a count, never an address),
   `mail_thread_followed`, `mail_thread_original_downloaded`
   ([`posthog-events.md`](../observability/posthog-events.md)). Ids, codes and
@@ -1047,7 +1082,7 @@ numbers from those constants, with a link to Dateien for anything larger.
   in the Langfuse session named by the mail's id, and carries it as
   `mail_id`. `/v1/mail/read` makes no model call.
 - Audit (`lib/audit/schemas.mjs`): `inbound_mail.received`, `.expired`,
-  `.part_read`, `.original_read`, `.decided`; `inbound_mail_address.created`,
+  `.part_read`, `.original_read`, `.decided`, `.reported`; `inbound_mail_address.created`,
   `.rotated`, `.deleted`, `.forwards_changed` (a count); `mail_thread.follow_started`, `.follow_ended`,
   `.entry_detached`, `.original_read`.
 - Operator alerts: the `[Projekt-E-Mail]` rules of the Product incidents
@@ -1069,7 +1104,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 |---|---|
 | Transport (address, sender authentication, MIME, automatic mail, the Worker contract) | `apps/workspace/bff/inbound-mail/{address,sender-auth,mime,automatic-mail,contract}.ts`; hostile corpus `__fixtures__/hostile.ts` |
 | Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts`; a forward's original `lib/inbound-mail/{original-message,receive-original,receive-original-repository}.ts` |
-| Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
+| Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts`; reporting a fraud `apps/workspace/bff/inbound-mail/report.ts` |
 | Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects,entry-attachments}.ts` |
 | The sender rule | `lib/inbound-mail/{sender-class,receive-sender,sender-filing,sender-file-job}.ts` |
 | Threads | `lib/mail-thread/{mail-threading,rematch,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |

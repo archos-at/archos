@@ -38,6 +38,7 @@ export const INBOUND_MAIL_HELD = 'inbound_mail.held' as const
 export const INBOUND_MAIL_HELD_FOR_WRITERS = 'inbound_mail.held_for_writers' as const
 export const INBOUND_MAIL_REJECTED = 'inbound_mail.rejected' as const
 export const INBOUND_MAIL_EXPIRED = 'inbound_mail.expired' as const
+export const INBOUND_MAIL_FRAUD_REPORTED = 'inbound_mail.fraud_reported' as const
 
 export interface WaitingMail {
   organizationId: string
@@ -410,6 +411,66 @@ export async function announceFollowsEnded(
   for (const follow of follows) {
     await announceFollowEnded({ organizationId, projectId, followId: follow.id, followerUserId: follow.userId, reason, endedBy })
   }
+}
+
+export interface FraudReport {
+  organizationId: string
+  projectId: string
+  mailId: string
+  reportedBy: string
+  claimedUserIds: readonly string[]
+  sender: string
+  subject: string | null
+}
+
+export interface FraudReportTold {
+  managers: string[]
+  claimed: string[]
+}
+
+async function claimedToTell(report: FraudReport): Promise<string[]> {
+  const told = await Promise.all(
+    [...new Set(report.claimedUserIds)]
+      .filter((userId) => userId !== report.reportedBy)
+      .map(async (userId) => ((await holds(report.organizationId, report.projectId, userId, 'project:view')) ? userId : null)),
+  )
+  return told.filter((userId): userId is string => userId !== null)
+}
+
+export async function announceFraudReported(report: FraudReport): Promise<FraudReportTold> {
+  const told: FraudReportTold = { managers: [], claimed: [] }
+  await bestEffortInbox(`${INBOUND_MAIL_FRAUD_REPORTED} for mail ${report.mailId}`, report.organizationId, async () => {
+    const [project, managers, claimed] = await Promise.all([
+      findProjectInOrg(report.projectId, report.organizationId),
+      projectManagers(report.organizationId, report.projectId, `the reported mail ${report.mailId}`),
+      claimedToTell(report),
+    ])
+    if (!project) return
+    const warned = managers.filter((userId) => userId !== report.reportedBy && !report.claimedUserIds.includes(userId))
+    const row = { organizationId: report.organizationId, resourceType: 'project' as const, resourceId: report.projectId, actorUserId: report.reportedBy }
+    const emissions: InboxEmission[] = [
+      ...warned.map((recipientUserId) => ({
+        ...row,
+        recipientUserId,
+        type: INBOUND_MAIL_FRAUD_REPORTED,
+        anchorId: report.mailId,
+        groupKey: inboxGroupKey(INBOUND_MAIL_FRAUD_REPORTED, 'project', report.projectId, report.mailId),
+        payload: { subject: project.name, related: report.sender, ...(report.subject ? { excerpt: report.subject } : {}) },
+      })),
+      ...claimed.map((recipientUserId) => ({
+        ...row,
+        recipientUserId,
+        type: INBOUND_MAIL_REJECTED,
+        anchorId: null,
+        groupKey: inboxGroupKey(INBOUND_MAIL_REJECTED, 'project', report.projectId, report.mailId),
+        payload: { subject: project.name, variant: 'reported', related: report.sender },
+      })),
+    ]
+    if (emissions.length === 0 || (await emitInboxItems(emissions)) === 0) return
+    told.managers = warned
+    told.claimed = claimed
+  })
+  return told
 }
 
 export const INBOUND_MAIL_INBOX_TYPES: readonly InboxItemType[] = [

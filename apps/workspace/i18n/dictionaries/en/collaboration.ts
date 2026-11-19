@@ -749,6 +749,19 @@ export const collaboration = {
       inboundMailRejected: {
         title: 'Your mail to “{subject}” was dismissed',
         body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
+        variants: {
+          reported: {
+            titleRelated: 'Someone posed as you in “{subject}”: {related}',
+            title: 'Someone posed as you in “{subject}”',
+            body: '{actor} reported the forged mail and dismissed it. Whoever gets such a mail in your name should know: it did not come from you.',
+          },
+        },
+      },
+      inboundMailFraudReported: {
+        titleRedacted: 'A forged mail was reported in a project',
+        titleRelated: 'Forged mail as {related} in “{subject}”: do not pay, do not reply',
+        title: 'Forged mail in “{subject}”: do not pay, do not reply',
+        body: '{actor} reported it and dismissed it in Project mail. Please do not pay and do not reply. Check your mail program for the same mail.',
       },
       inboundMailExpired: {
         title: 'Your mail to “{subject}” was not filed in time',

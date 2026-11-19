@@ -60,16 +60,29 @@ function claimsWord(claimed: ReadonlySet<string>, word: string, initialSuffices:
   return claimed.has(word) || (initialSuffices && claimed.has(word[0]))
 }
 
-export function claimsMemberName(displayName: string | null, memberNames: Iterable<string>): boolean {
-  if (!displayName) return false
+function claimsName(claimed: ReadonlySet<string>, name: string): boolean {
+  if (name.includes('@')) return false
+  const words = nameWords(name).filter((word) => word.length >= MIN_WORD_LENGTH)
+  if (words.length < MIN_NAME_WORDS) return false
+  const surname = words.length - 1
+  return words.every((word, index) => claimsWord(claimed, word, index !== surname))
+}
+
+function claimedWords(displayName: string | null): ReadonlySet<string> | null {
+  if (!displayName) return null
   const claimed = new Set(nameWords(displayName))
-  if (claimed.size < MIN_NAME_WORDS) return false
-  for (const name of memberNames) {
-    if (name.includes('@')) continue
-    const words = nameWords(name).filter((word) => word.length >= MIN_WORD_LENGTH)
-    if (words.length < MIN_NAME_WORDS) continue
-    const surname = words.length - 1
-    if (words.every((word, index) => claimsWord(claimed, word, index !== surname))) return true
-  }
+  return claimed.size < MIN_NAME_WORDS ? null : claimed
+}
+
+export function claimsMemberName(displayName: string | null, memberNames: Iterable<string>): boolean {
+  const claimed = claimedWords(displayName)
+  if (!claimed) return false
+  for (const name of memberNames) if (claimsName(claimed, name)) return true
   return false
+}
+
+export function claimedMemberIds(displayName: string | null, members: Iterable<{ userId: string; name: string }>): string[] {
+  const claimed = claimedWords(displayName)
+  if (!claimed) return []
+  return [...members].filter((member) => claimsName(claimed, member.name)).map((member) => member.userId)
 }

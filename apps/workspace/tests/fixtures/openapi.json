@@ -10854,6 +10854,70 @@
         }
       }
     },
+    "/api/projects/{id}/inbound-mails/{mailId}/report": {
+      "post": {
+        "operationId": "inbound-mail-report",
+        "summary": "Report held email that poses as a member as fraud",
+        "description": "Only for a mail that poses as a member (`riskLevel: impersonation`), else 409 `not_impersonation`. Dismisses it and warns the project’s managers and the member it poses as in their inbox, naming its sender and subject.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          },
+          {
+            "name": "mailId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "From inbound-mail-list."
+            },
+            "description": "From inbound-mail-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Report held email that poses as a member as fraud",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/projects/{id}/inbound-mails/{mailId}/restore": {
       "post": {
         "operationId": "inbound-mail-restore",
@@ -18253,7 +18317,8 @@
                 "inbound_mail.held_for_writers",
                 "inbound_mail.rejected",
                 "inbound_mail.expired",
-                "mail_thread.follow_ended"
+                "mail_thread.follow_ended",
+                "inbound_mail.fraud_reported"
               ]
             },
             "description": "Only this item type."
