@@ -126,7 +126,7 @@ export async function unfollowMailThread(
 
 export async function endFollowBySystem(
   follow: Pick<MailThreadFollowRow, 'id'>,
-  reason: Extract<FollowEnd['reason'], 'access_lost' | 'document_gone' | 'expired' | 'project_closed'>,
+  reason: Extract<FollowEnd['reason'], 'access_lost' | 'document_gone' | 'expired' | 'project_closed' | 'thread_full'>,
   now: Date = new Date(),
 ): Promise<boolean> {
   const ended = await endFollow(follow.id, { reason, endedBy: null }, now)

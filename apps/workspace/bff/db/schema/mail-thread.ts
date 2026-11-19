@@ -134,6 +134,8 @@ export const mailThreadEntries = pgTable(
     authorName: text('author_name'),
     authorSentAt: timestamp('author_sent_at', { withTimezone: true }),
     authorMessageId: text('author_message_id'),
+    baseSubject: text('base_subject'),
+    threadIndexGuid: uuid('thread_index_guid'),
     participants: jsonb('participants').$type<MailThreadParticipant[]>().notNull().default([]),
     ownText: text('own_text').notNull().default(''),
     maskedSpans: jsonb('masked_spans').$type<MailThreadMaskedSpan[]>(),

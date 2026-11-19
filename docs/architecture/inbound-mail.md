@@ -518,12 +518,17 @@ sequenceDiagram
 
 The nine conditions are listed in ADR-0137. The follower is the earliest running
 follow made before the mail arrived, whichever follow the receive job named.
+When that follower lost the project or the folder, their follow ends
+(`access_lost`) and the job judges the next running follow, until one may
+append or none is left, so a second follower still gets the reply.
 Condition 8 counts the follow's own appends against its `daily_cap` (default
 20) and the project's `via = 'follow'` decisions against 100, over the last 24
 hours, under a project advisory lock. A failing condition writes nothing: the
 mail waits as without a follow. A follower who lost the project or the folder
 ends the follow (`access_lost`); a deleted, archived or binned document ends it
-(`document_gone`); a held document only makes the mail wait. Closing a
+(`document_gone`); a held document only makes the mail wait. A Verlauf at
+200 entries or 2 MiB ends every follow on it (`thread_full`, migration 0250):
+no reply can be appended there, so none waits on the follow. Closing a
 project ends every follow on it (`project_closed`), so a run that still meets
 a closed project (closed between its find and its check) leaves the mail
 waiting. One log line per run: `[inbound-mail] follow of mail <id>: <kind>[:<reason>]`.
@@ -533,7 +538,8 @@ Ending: `DELETE …/follow` (own: `unfollowed`; `?userId` with `project:manage`:
 `endFollowsOnProjectClose` in the close itself, as the person who closed it,
 each audited), sweep 12 (`expired`,
 `document_gone`, and `project_closed` for a follow the close missed), address
-rotation or switch-off (`address_rotated`), detach (`detached`). Every system end goes
+rotation or switch-off (`address_rotated`), detach (`detached`), a full Verlauf
+(`thread_full`, the follow job). Every system end goes
 through `endFollowBySystem` (`lib/mail-thread/follows.ts`), which audits
 `mail_thread.follow_ended`, sends a personless `mail_thread_followed`, settles
 the renewal notice and publishes the change.

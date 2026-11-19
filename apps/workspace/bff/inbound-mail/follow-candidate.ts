@@ -23,10 +23,12 @@ export async function judgeFollow(
   ownDomain: string,
   raw: Uint8Array | null,
   now: Date = new Date(),
+  passedOver: ReadonlySet<string> = new Set(),
 ): Promise<FollowJudgement | null> {
   const match = mail.threadMatch.find((candidate) => candidate.strength === 'reference')
   if (!match || !mail.senderTrust) return null
-  const thread = await findThreadFollowContext(mail.projectId, match.threadId)
+  const found = await findThreadFollowContext(mail.projectId, match.threadId)
+  const thread = found && { ...found, follows: found.follows.filter((follow) => !passedOver.has(follow.id)) }
   if (!thread || thread.follows.length === 0) return null
   const screening = await mailScreeningFor(mail.organizationId, mail.projectId)
   const candidate: FollowCandidateMail = {

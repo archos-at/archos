@@ -22,6 +22,7 @@ export const mailThread: typeof en.mailThread = {
     document_gone: 'Der E-Mail-Verlauf wurde gelöscht',
     revoked_by_manager: 'Von der Projektverwaltung beendet',
     project_closed: 'Das Projekt wurde abgeschlossen',
+    thread_full: 'Der E-Mail-Verlauf ist voll',
   },
 
   tab: {
