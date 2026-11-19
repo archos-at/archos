@@ -544,6 +544,7 @@ export const inboundMail: typeof en.inboundMail = {
       changeOf: 'Ändern, wohin {name} kommt',
       leftNote: 'Was hier „bleibt weg“, verwirft {productName} beim Ablegen. Wiederherstellen lässt es sich {days} Tage lang.',
       nothing: 'Es wird nichts abgelegt. „Verwerfen“ verwirft die ganze E-Mail.',
+      unverifiedConfirm: 'Absender nicht überprüfbar – mit „{action}“ bestätigen Sie, dass die E-Mail echt ist.',
     },
     pane: {
       besides: 'Neue Datei neben {of}',

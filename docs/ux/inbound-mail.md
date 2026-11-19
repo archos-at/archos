@@ -629,8 +629,9 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       Ausschalten“, the inline press toggling it to „… warten im
       E-Mail-Eingang · Einschalten“, and an ⓘ toggletip holding the
       explanation of the Verlauf's switch („Antworten von Beteiligten mit
-      bestätigter Domain legt {productName} 60 Tage lang ab, als hätten Sie
-      es selbst getan: …“). The owner, round 6: it is a default one turns
+      bestätigter Domain legt {productName} ab, als hätten Sie es selbst
+      getan: … Es endet erst, wenn 60 Tage lang nichts in diesen
+      E-Mail-Verlauf abgelegt wurde.“). The owner, round 6: it is a default one turns
       off, not a question, and round 5's framed switch with its paragraph
       weighed as much as the filing; the „E-Mails“ tab keeps the
       `FollowSwitch` with its state and explanation. Where replies could
@@ -642,7 +643,12 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       follow the filing would start never starts. What blocks filing
       stands above the primary with the warning glyph (`blockerText`), and the
       primary is disabled. The primary names the act: „Ablegen“; a forgery's
-      „Als echt ablegen“; with nothing left to file „Verwerfen“.
+      „Als echt ablegen“; with nothing left to file „Verwerfen“. Where the
+      sender cannot be verified (an outsider's or a colleague's unsigned
+      mail, `filingConfirmsUnverifiedSender`) the last line of „Übersicht“,
+      quiet, with the sender-check glyph, says what pressing means:
+      „Absender nicht überprüfbar – mit „Ablegen“ bestätigen Sie, dass die
+      E-Mail echt ist.“ A forgery gets none: its verb says it.
 
    A mail with nothing to decide opens straight on „Übersicht“: „Einordnen“,
    then „Ablegen“. „Zurück“ and „Weiter“ walk the steps; the first step's

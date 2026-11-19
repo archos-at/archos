@@ -35,6 +35,12 @@ export function senderTrustLine(sender: InboundMailSenderView, impersonation: In
     : { kind: 'unverified' }
 }
 
+export function filingConfirmsUnverifiedSender(view: Pick<InboundMailView, 'sender' | 'impersonation'>, claim: MailClaim): boolean {
+  if (!view.sender) return false
+  const line = senderTrustLine(view.sender, view.impersonation, claim)
+  return line.kind === 'unverified' || line.kind === 'member_unverified'
+}
+
 export function senderTone(line: SenderTrustLine): SenderTone {
   switch (line.kind) {
     case 'verified':

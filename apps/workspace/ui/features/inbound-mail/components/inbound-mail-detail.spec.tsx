@@ -301,6 +301,23 @@ describe('„Einordnen“', () => {
     expect(order).toEqual(['filing-overview', 'hr', 'filing-left', 'filing-follow'])
   })
 
+  it('says above „File“ that filing confirms a mail whose sender cannot be verified is genuine, last in „Übersicht“', async () => {
+    renderDetail('own-unverified')
+    await openFiling()
+    await toOverview()
+    const overview = within(dialog()).getByTestId('filing-step-overview')
+    const line = within(overview).getByTestId('filing-unverified-confirm')
+    expect(line).toHaveTextContent('The sender cannot be verified – by pressing “File” you confirm the mail is genuine.')
+    expect(line.dataset.tone).toBe('muted')
+    expect(Array.from(overview.children).at(-1)).toBe(line)
+  })
+
+  it('says no such line for a verified sender, nor for a forgery, whose „File as genuine“ already says it', async () => {
+    renderDetail('member-verified')
+    await openFiling()
+    expect(within(dialog()).queryByTestId('filing-unverified-confirm')).toBeNull()
+  })
+
   it('goes from a part’s „Change“ to the step that decides it: the text to its step, a file to its row in the attachments step', async () => {
     renderDetail('mixed-attachments')
     await openFiling()
@@ -1113,7 +1130,7 @@ describe('the mail’s text and its follow', () => {
     const control = await screen.findByRole('switch', { name: 'File replies in this mail thread without a click' })
     await userEvent.click(control)
     await waitFor(() => expect(control).toBeChecked())
-    expect(screen.getByTestId('follow-offer-switch')).toHaveTextContent('For 60 days')
+    expect(screen.getByTestId('follow-offer-switch')).toHaveTextContent('It ends only once nothing has been filed into this mail thread for 60 days.')
     await userEvent.click(control)
     await waitFor(() => expect(unfollow).toHaveBeenCalled())
     await waitFor(() => expect(control).not.toBeChecked())

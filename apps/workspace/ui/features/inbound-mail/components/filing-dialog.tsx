@@ -2,7 +2,7 @@
 
 import type { JSX, KeyboardEvent, RefObject } from 'react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ChevronDown, FileText, Folder, FolderPlus, Info, Mail, Mails, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, ChevronDown, FileText, Folder, FolderPlus, Info, Mail, Mails, ShieldAlert, ShieldQuestion } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -33,7 +33,7 @@ import {
 } from '../lib/draft'
 import { fileAllInto, filesAnything, keptWithoutFolder, planLines, quickPicks, type FilingStep, type MissingSuggestion, type PlanLine, type QuickPick } from '../lib/filing-plan'
 import { senderFolderPicks, senderMemoryReason } from '../lib/sender-folders'
-import { followOffered, mailClaimOf, senderDisplayName } from '../lib/sender'
+import { filingConfirmsUnverifiedSender, followOffered, mailClaimOf, senderDisplayName } from '../lib/sender'
 import { AttachmentRow } from './attachment-row'
 import { AttachmentsHeading } from './attachments-heading'
 import { blockerText } from './decision-bar'
@@ -477,6 +477,11 @@ export function FilingDialog({
                     say(follow ? t('filing.overview.followOn') : t('filing.overview.followOff'))
                   }}
                 />
+              )}
+              {!nothing && filingConfirmsUnverifiedSender(view, claim) && (
+                <FactLine icon={ShieldQuestion} testId="filing-unverified-confirm">
+                  {t('filing.overview.unverifiedConfirm', { action: t('bar.file') })}
+                </FactLine>
               )}
             </section>
           )}

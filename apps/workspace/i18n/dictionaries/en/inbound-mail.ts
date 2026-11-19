@@ -540,6 +540,7 @@ export const inboundMail = {
       changeOf: 'Change where {name} goes',
       leftNote: 'What “stays out” here is dismissed by {productName} when you file. It can be restored for {days} days.',
       nothing: 'Nothing is filed. “Dismiss” dismisses the whole mail.',
+      unverifiedConfirm: 'The sender cannot be verified – by pressing “{action}” you confirm the mail is genuine.',
     },
     pane: {
       besides: 'New file next to {of}',

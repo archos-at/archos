@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InboundMailSenderView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { expiryErases, followOffered, senderDisplayName, senderFlagLines, senderTone, senderTrustLine, trustTechnical } from './sender'
+import { expiryErases, filingConfirmsUnverifiedSender, followOffered, senderDisplayName, senderFlagLines, senderTone, senderTrustLine, trustTechnical } from './sender'
 
 const sender = (overrides: Partial<InboundMailSenderView> = {}): InboundMailSenderView => ({
   name: 'DI Petra Weber',
@@ -93,5 +93,18 @@ describe('expiryErases', () => {
     expect(expiryErases({ senderClass: 'external', sender: { flags: [] } })).toBe(true)
     expect(expiryErases({ senderClass: 'external', sender: { flags: ['sender_unchecked'] } })).toBe(false)
     expect(expiryErases({ senderClass: 'unverified_writer', sender: { flags: [] } })).toBe(false)
+  })
+})
+
+describe('filingConfirmsUnverifiedSender', () => {
+  it('asks it for a sender nobody can vouch for, an outsider or an unsigned colleague', () => {
+    expect(filingConfirmsUnverifiedSender({ sender: sender({ trust: 'external_unverified', reason: 'dkim_none', signerDomain: null }), impersonation: null }, null)).toBe(true)
+    expect(filingConfirmsUnverifiedSender({ sender: sender({ trust: 'member_unverified', reason: 'dkim_none', signerDomain: null }), impersonation: null }, 'own')).toBe(true)
+  })
+
+  it('asks it neither for a confirmed domain nor for a forgery, which asks with its own verb, nor without a sender', () => {
+    expect(filingConfirmsUnverifiedSender({ sender: sender(), impersonation: null }, null)).toBe(false)
+    expect(filingConfirmsUnverifiedSender({ sender: sender({ flags: ['claims_member_name'] }), impersonation: 'member_name' }, null)).toBe(false)
+    expect(filingConfirmsUnverifiedSender({ sender: null, impersonation: null }, null)).toBe(false)
   })
 })
