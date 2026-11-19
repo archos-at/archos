@@ -248,6 +248,12 @@ describe('OfficeShelfWorkspace — what another feature adds', () => {
     await screen.findByText('brandschutz-gutachten.pdf')
     expect(vi.mocked(useOfficeShelfDocuments).mock.calls.at(-1)?.[0]?.onStored).toBe(onUploadsStored)
   })
+
+  it('uploads as Ordner, never as an upload for the standards', async () => {
+    render(<OfficeShelfWorkspace canManage />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+    expect(vi.mocked(useOfficeShelfDocuments).mock.calls.every(([options]) => !options?.forStandards)).toBe(true)
+  })
 })
 
 describe('OfficeShelfWorkspace — a settling document settles on screen', () => {

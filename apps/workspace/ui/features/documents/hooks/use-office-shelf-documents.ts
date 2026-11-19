@@ -13,6 +13,7 @@ export interface StoredUpload {
 interface UseOfficeShelfDocumentsOptions {
   collectionName?: string
   folderId?: string
+  forStandards?: boolean
   onComplete?: () => void
   onError?: (error: Error) => void
   onStored?: (uploads: StoredUpload[]) => void
@@ -42,8 +43,8 @@ export function storedSince(before: ReadonlySet<string>, tracked: readonly Track
 }
 
 export function useOfficeShelfDocuments(options: UseOfficeShelfDocumentsOptions = {}): UseOfficeShelfDocumentsReturn {
-  const { collectionName, folderId, onComplete, onError, onStored } = options
-  const upload = useFileUpload({ collectionName, officeShelf: true, folderId, onComplete, onError })
+  const { collectionName, folderId, forStandards, onComplete, onError, onStored } = options
+  const upload = useFileUpload({ collectionName, officeShelf: true, forStandards, folderId, onComplete, onError })
   const { uploadFiles: uploadTracked } = upload
   const uploadFiles = useCallback(
     async (files: File[], uploadOptions?: UploadFilesOptions): Promise<number> => {

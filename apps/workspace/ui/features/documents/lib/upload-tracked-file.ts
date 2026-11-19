@@ -33,6 +33,7 @@ export interface UploadTrackedFileContext
     'updateTrackedFile' | 'setUploadProgress' | 'removeRecentlyDeletedIds' | 'dismissTrackedFiles'
   > {
   shelf: 'project' | 'office_shelf' | 'session'
+  forStandards?: boolean
   uploadUrl: string
   targetCollection: string
   projectId: string | undefined
@@ -52,6 +53,7 @@ export async function uploadTrackedFile(
   { file, tracked }: UploadEntry,
   {
     shelf,
+    forStandards = false,
     uploadUrl,
     targetCollection,
     projectId,
@@ -80,6 +82,7 @@ export async function uploadTrackedFile(
   }
   if (projectId) formData.append('projectId', projectId)
   if (shelf === 'office_shelf') formData.append('scope', 'office_shelf')
+  if (shelf === 'office_shelf' && forStandards) formData.append('forStandards', 'true')
   if (shelf !== 'session') {
     const resolved = resolvedFolderId(file)
     if (resolved) formData.append('folderId', resolved)

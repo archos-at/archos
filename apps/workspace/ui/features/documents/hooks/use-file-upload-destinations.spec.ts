@@ -216,6 +216,25 @@ describe('useFileUpload — durable document uploads', () => {
     expect((xhr.last().body as FormData).get('projectId')).toBeNull()
   })
 
+  test('only an upload for the standards asks the Archiv to file a norm as a new version, never a project upload', async () => {
+    const send = async (options: Parameters<typeof useFileUpload>[0]): Promise<FormData> => {
+      const { result } = renderHook(() => useFileUpload(options))
+      let pending!: Promise<unknown>
+      await act(async () => {
+        pending = result.current.uploadFiles(makeFiles(1))
+        await Promise.resolve()
+      })
+      await act(async () => {
+        xhr.last().respond(200, uploadOk('doc-0'))
+        await pending
+      })
+      return xhr.last().body as FormData
+    }
+    expect((await send({ collectionName: 'archiv_org-1', officeShelf: true, forStandards: true })).get('forStandards')).toBe('true')
+    expect((await send({ collectionName: 'archiv_org-1', officeShelf: true })).get('forStandards')).toBeNull()
+    expect((await send({ collectionName: 'proj-collection', projectId: 'p-1', forStandards: true })).get('forStandards')).toBeNull()
+  })
+
   test('the Archiv files into the folder the reader stands in, and records where a tree came from', async () => {
     const { result } = renderHook(() =>
       useFileUpload({ collectionName: 'archiv_org-1', officeShelf: true, folderId: 'folder-3' })
