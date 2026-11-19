@@ -20,7 +20,7 @@ import { mailThreadClient, type MailThreadClient } from './client'
 import { DetachDialog } from './detach-dialog'
 import { FollowControl } from './follow-control'
 import { MailThreadEntryItem } from './mail-thread-entry'
-import { currentVersionNumber, entriesNewestFirst, entriesSayingTrust, focusedEntryId, mayWrite } from './mail-thread-model'
+import { entriesNewestFirst, entriesSayingTrust, focusedEntryId, mayWrite } from './mail-thread-model'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; view: MailThreadView }
@@ -106,7 +106,6 @@ export function MailThreadTab({
   }
 
   const writable = mayWrite(view)
-  const current = currentVersionNumber(versions, view.entries)
   const entries = entriesNewestFirst(view.entries)
   const sayingTrust = entriesSayingTrust(entries)
 
@@ -163,7 +162,6 @@ export function MailThreadTab({
           projectId={projectId}
           thread={view}
           entry={detaching}
-          currentVersion={current}
           folderId={folderId}
           client={client}
           onDetached={detached}

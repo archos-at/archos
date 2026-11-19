@@ -1,4 +1,5 @@
 import type { DocumentVersionView } from '@/lib/documents/lifecycle-types'
+import { OFFICE_TIME_ZONE, formatAbsoluteTime } from '@/lib/format'
 import type { SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import {
   MAIL_THREAD_FOLLOW_MAX_DAYS,
@@ -70,17 +71,6 @@ export function entriesNewestFirst(entries: readonly MailThreadEntryView[]): Mai
   return [...entries].reverse()
 }
 
-export function currentVersionNumber(
-  versions: readonly Pick<DocumentVersionView, 'versionNumber'>[] | null,
-  entries: readonly Pick<MailThreadEntryView, 'firstVersion'>[],
-): number | null {
-  const numbers = [
-    ...(versions ?? []).map((version) => version.versionNumber),
-    ...entries.flatMap((entry) => (entry.firstVersion ? [entry.firstVersion.number] : [])),
-  ]
-  return numbers.length > 0 ? Math.max(...numbers) : null
-}
-
 export function comparedVersions(
   entry: Pick<MailThreadEntryView, 'firstVersion'>,
   versions: readonly Pick<DocumentVersionView, 'id' | 'versionNumber' | 'bytesReadable'>[],
@@ -91,15 +81,6 @@ export function comparedVersions(
   const from = versions.find((version) => version.versionNumber === first.number - 1)
   if (!to || !from || to.bytesReadable === false || from.bytesReadable === false) return null
   return { from: { id: from.id, number: from.versionNumber }, to: { id: to.id, number: to.versionNumber } }
-}
-
-export function detachKeeps(
-  entry: Pick<MailThreadEntryView, 'firstVersion'>,
-  current: number | null,
-): { first: number; last: number; next: number } | null {
-  if (!entry.firstVersion || current === null) return null
-  const last = Math.max(current, entry.firstVersion.number)
-  return { first: entry.firstVersion.number, last, next: last + 1 }
 }
 
 export type AttachmentLine =
@@ -138,6 +119,18 @@ export function entriesSayingTrust(entries: readonly Pick<MailThreadEntryView, '
     run = key
   }
   return saying
+}
+
+const officeDay = (iso: string): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: OFFICE_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+
+export function receivedAtLabel(entry: Pick<MailThreadEntryView, 'sentAt' | 'receivedAt'>, locale: string): string {
+  const at = new Date(entry.receivedAt)
+  if (Number.isNaN(at.getTime())) return entry.receivedAt
+  if (officeDay(entry.sentAt) === officeDay(entry.receivedAt)) {
+    return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: OFFICE_TIME_ZONE }).format(at)
+  }
+  return formatAbsoluteTime(entry.receivedAt, locale, OFFICE_TIME_ZONE)
 }
 
 export function headingParts(heading: string): { when: string; who: string; domain: string } {

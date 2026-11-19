@@ -21,7 +21,6 @@ import type {
   MailThreadView,
 } from '@/lib/mail-thread/mail-thread-wire'
 import type { MailThreadClient } from './client'
-import { detachKeeps } from './mail-thread-model'
 import { refusalKey, type MailThreadRefusalKey } from './refusal'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 
@@ -35,13 +34,12 @@ export interface DetachDialogProps {
   projectId: string
   thread: MailThreadView
   entry: MailThreadEntryView
-  currentVersion: number | null
   folderId: string | null
   client: MailThreadClient
   onDetached: (result: MailThreadEntryDetachResultView, targetName: string | null) => void
 }
 
-export function DetachDialog({ open, onOpenChange, projectId, thread, entry, currentVersion, folderId, client, onDetached }: DetachDialogProps): JSX.Element {
+export function DetachDialog({ open, onOpenChange, projectId, thread, entry, folderId, client, onDetached }: DetachDialogProps): JSX.Element {
   const t = useTranslations(mailThreadCopy)
   const id = useId()
   const [targets, setTargets] = useState<Targets>({ kind: 'loading' })
@@ -83,7 +81,6 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
     }
   }, [client, open, projectId, thread.id])
 
-  const keeps = detachKeeps(entry, currentVersion)
   const threads = targets.kind === 'ready' ? targets.threads : []
   const noOther = targets.kind !== 'loading' && threads.length === 0
   const trimmed = name.trim()
@@ -150,11 +147,9 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
             }}
           >
             <div className="text-muted-foreground flex flex-col gap-1.5">
-              {keeps && (
+              {entry.firstVersion && (
                 <p className="text-foreground" data-testid="mail-thread-detach-keeps">
-                  {keeps.first === keeps.last
-                    ? t('detach.keepsOne', { first: keeps.first, next: keeps.next })
-                    : t('detach.keeps', { first: keeps.first, last: keeps.last, next: keeps.next })}
+                  {t('detach.keeps')}
                 </p>
               )}
               {thread.follows.length > 0 && <p>{t('detach.followsEnd')}</p>}

@@ -28,25 +28,45 @@ export function attachment(overrides: Partial<MailThreadAttachmentView> & { posi
   return { filename: 'Unterlage.pdf', disposition: 'filed', documentId: fixtureId(`doc:att:${overrides.position}`), documentVersionId: fixtureId(`ver:att:${overrides.position}`), visible: true, ...overrides }
 }
 
+const MINUTE = 60_000
+
+export function printedHeading(sentAt: string, name: string, domain: string): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Vienna',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(sentAt))
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '00'
+  return `${part('day')}.${part('month')}.${part('year')} ${part('hour')}:${part('minute')} · ${name} (${domain})`
+}
+
 export function entry(overrides: Partial<MailThreadEntryView> & { key: string; version: number }): MailThreadEntryView {
   const { key, version, ...rest } = overrides
+  const sentAt = rest.sentAt ?? '2026-10-14T07:12:00.000Z'
+  const senderName = rest.senderName ?? 'Mag. Huber'
+  const senderDomain = rest.senderDomain ?? 'ma37.wien.gv.at'
+  const receivedAt = rest.receivedAt ?? new Date(Date.parse(sentAt) + MINUTE).toISOString()
   return {
     id: fixtureId(`entry:${key}`),
-    heading: '14.10.2026, 09:12 · Mag. Huber (ma37.wien.gv.at)',
+    heading: printedHeading(sentAt, senderName, senderDomain),
     source: 'inbound',
-    senderName: 'Mag. Huber',
-    senderDomain: 'ma37.wien.gv.at',
-    signerDomain: 'ma37.wien.gv.at',
+    senderName,
+    senderDomain,
+    signerDomain: senderDomain,
     senderTrust: 'external_verified',
     forwardedBy: null,
-    sentAt: daysAgo(8),
-    receivedAt: daysAgo(8),
+    sentAt,
+    receivedAt,
     firstVersion: { id: fixtureId(`ver:thread:${version}`), number: version },
     original: { scanStatus: 'clean' },
     attachments: [],
     filedBy: VIEWER_ID,
     filedVia: 'app',
-    filedAt: daysAgo(8),
+    filedAt: new Date(Date.parse(receivedAt) + 40 * MINUTE).toISOString(),
     ...rest,
   }
 }
@@ -113,37 +133,39 @@ function threeMessages(): MailThreadEntryView[] {
     entry({
       key: 'first',
       version: 1,
-      heading: '02.10.2026, 16:40 · Miriam Huber (huber-architektur.at)',
       senderName: 'Miriam Huber',
       senderDomain: 'huber-architektur.at',
-      signerDomain: 'huber-architektur.at',
       senderTrust: 'member_verified',
-      sentAt: daysAgo(20),
-      receivedAt: daysAgo(20),
+      sentAt: '2026-10-02T14:40:00.000Z',
     }),
     entry({
       key: 'statik',
       version: 2,
-      heading: '09.10.2026, 11:05 · DI Petra Weber (statik-weber.at)',
       senderName: 'DI Petra Weber',
       senderDomain: 'statik-weber.at',
-      signerDomain: 'statik-weber.at',
-      sentAt: daysAgo(13),
-      receivedAt: daysAgo(13),
+      sentAt: '2026-10-09T09:05:00.000Z',
+      receivedAt: '2026-10-09T09:07:00.000Z',
       attachments: [
-        attachment({ position: 1, filename: 'S-101_C.pdf', disposition: 'filed' }),
+        attachment({ position: 1, filename: 'S-101_B.pdf', disposition: 'filed' }),
         attachment({ position: 2, filename: 'Lastannahmen.xlsx', disposition: 'already_present' }),
-        attachment({ position: 3, filename: 'Rechnung_Okt.zip', disposition: 'not_filed', notFiledReason: 'archive', documentId: undefined, documentVersionId: undefined }),
+        attachment({ position: 3, filename: 'Honorarnote_Okt.zip', disposition: 'not_filed', notFiledReason: 'archive', documentId: undefined, documentVersionId: undefined }),
         attachment({ position: 4, filename: null, disposition: 'filed', visible: false, documentId: undefined, documentVersionId: undefined }),
       ],
     }),
     entry({
       key: 'authority',
       version: 3,
-      attachments: [attachment({ position: 1, filename: 'Bescheid_Kopie.pdf' })],
+      sentAt: '2026-10-14T07:12:00.000Z',
+      attachments: [attachment({ position: 1, filename: 'Stellungnahme_MA37_Stellplatznachweis.pdf' })],
       filedVia: 'agent_proposal',
     }),
   ]
+}
+
+export const ENTRY_TEXTS: Readonly<Record<string, string>> = {
+  [fixtureId('entry:first')]: 'Liebe Frau Weber, können Sie uns die Statik zum Stellplatznachweis bis Ende nächster Woche schicken? Lg Miriam Huber',
+  [fixtureId('entry:statik')]: 'Anbei S-101 Index B und die Lastannahmen, die Honorarnote für Oktober liegt bei. Schöne Grüße, Petra Weber',
+  [fixtureId('entry:authority')]: 'Der Stellplatznachweis ist vollständig. Die Stellungnahme der MA 37 liegt bei. Mit freundlichen Grüßen, Mag. Huber',
 }
 
 export interface MailThreadFixture {
@@ -179,7 +201,7 @@ function worstCase(): MailThreadView {
     entry({
       key: `worst-${index}`,
       version: index + 1,
-      heading: `${String((index % 28) + 1).padStart(2, '0')}.09.2026, 08:0${index % 10} · ${index % 3 === 0 ? long : index % 3 === 1 ? '李小龍 🏗️' : 'X'} (${index % 2 ? 'sub.domain.with.a.very.long.name.example' : 'a.at'})`,
+      heading: `${String((index % 28) + 1).padStart(2, '0')}.09.2026 08:0${index % 10} · ${index % 3 === 0 ? long : index % 3 === 1 ? '李小龍 🏗️' : 'X'} (${index % 2 ? 'sub.domain.with.a.very.long.name.example' : 'a.at'})`,
       senderName: index % 3 === 0 ? long : 'X',
       signerDomain: index % 4 === 0 ? null : 'sub.domain.with.a.very.long.name.example',
       senderTrust: (['external_verified', 'external_unverified', 'member_unverified', 'not_checked'] as const)[index % 4],
@@ -222,12 +244,9 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
           entry({
             key: `statik-${version}`,
             version,
-            heading: `${version === 3 ? '10' : '12'}.10.2026, 08:${version}5 · DI Petra Weber (statik-weber.at)`,
             senderName: 'DI Petra Weber',
             senderDomain: 'statik-weber.at',
-            signerDomain: 'statik-weber.at',
-            sentAt: daysAgo(15 - version * 2),
-            receivedAt: daysAgo(15 - version * 2),
+            sentAt: version === 3 ? '2026-10-10T06:35:00.000Z' : '2026-10-12T06:45:00.000Z',
           })
         ),
       ],
@@ -256,7 +275,8 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
         entry({
           key: 'unverified',
           version: 3,
-          heading: '15.10.2026, 07:58 · Mag. Huber (ma37-wien.example)',
+          sentAt: '2026-10-15T05:58:00.000Z',
+          heading: '15.10.2026 07:58 · Mag. Huber (ma37-wien.example, Domain nicht bestätigt)',
           senderDomain: 'ma37-wien.example',
           signerDomain: null,
           senderTrust: 'external_unverified',
@@ -271,7 +291,7 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
         entry({
           key: 'direct',
           version: 2,
-          heading: '16.10.2026, 10:02 · Miriam Huber (huber-architektur.at)',
+          sentAt: '2026-10-16T08:02:00.000Z',
           senderName: 'Miriam Huber',
           senderDomain: 'huber-architektur.at',
           signerDomain: 'huber-architektur.at',
@@ -281,7 +301,8 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
         entry({
           key: 'forwarded',
           version: 3,
-          heading: '20.10.2026, 14:02 · MA 37 – Baupolizei (ma37.wien.gv.at, Domain nicht bestätigt)',
+          sentAt: '2026-10-20T12:02:00.000Z',
+          heading: '20.10.2026 14:02 · MA 37 – Baupolizei (ma37.wien.gv.at, Domain nicht bestätigt)',
           senderName: 'Miriam Huber',
           senderDomain: 'huber-architektur.at',
           signerDomain: 'huber-architektur.at',
@@ -313,8 +334,8 @@ export function origin(overrides: Partial<MailOriginView> = {}): MailOriginView 
   return {
     threadId: fixtureId('thread:stellplatz'),
     entryId: fixtureId('entry:statik'),
-    sentAt: daysAgo(13),
-    receivedAt: daysAgo(13),
+    sentAt: '2026-10-09T09:05:00.000Z',
+    receivedAt: '2026-10-09T09:07:00.000Z',
     fromName: 'DI Petra Weber',
     forwardedByName: null,
     forwarded: false,
@@ -389,11 +410,11 @@ export function fixtureMailThreadClient(fixture: MailThreadFixture): MailThreadC
     diff: async (_documentId, from, to) => {
       const version = (id: string): DocumentVersionView => fixture.versions.find((item) => item.id === id) ?? fixture.versions[0]
       return {
-        from: { version: version(from), content: '## 02.10.2026, 16:40 · Miriam Huber\n\nKönnen Sie uns die Statik schicken?\n\n## 09.10.2026, 11:05 · DI Petra Weber\n\nAnbei S-101 Index C.' },
+        from: { version: version(from), content: '## 02.10.2026 16:40 · Miriam Huber (huber-architektur.at)\n\nKönnen Sie uns die Statik zum Stellplatznachweis schicken?\n\n## 09.10.2026 11:05 · DI Petra Weber (statik-weber.at)\n\nAnbei S-101 Index B und die Lastannahmen.' },
         to: {
           version: version(to),
           content:
-            '## 02.10.2026, 16:40 · Miriam Huber\n\nKönnen Sie uns die Statik schicken?\n\n## 09.10.2026, 11:05 · DI Petra Weber\n\nAnbei S-101 Index C.\n\n## 14.10.2026, 09:12 · Mag. Huber\n\nDer Stellplatznachweis ist vollständig.',
+            '## 02.10.2026 16:40 · Miriam Huber (huber-architektur.at)\n\nKönnen Sie uns die Statik zum Stellplatznachweis schicken?\n\n## 09.10.2026 11:05 · DI Petra Weber (statik-weber.at)\n\nAnbei S-101 Index B und die Lastannahmen.\n\n## 14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)\n\nDer Stellplatznachweis ist vollständig.',
         },
       }
     },

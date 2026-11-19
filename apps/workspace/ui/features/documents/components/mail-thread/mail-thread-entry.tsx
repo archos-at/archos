@@ -11,14 +11,13 @@ import { FittedName } from '@/components/ui/fitted-name'
 import { Item } from '@/components/ui/item'
 import { usePrefersReducedMotion } from '@/components/motion'
 import { useLocale, useTranslations } from '@/i18n'
-import { formatAbsoluteTime } from '@/lib/format'
 import type { DocumentVersionView } from '@/lib/documents/lifecycle-types'
 import type { MailThreadEntryView, MailThreadFiledVia } from '@/lib/mail-thread/mail-thread-wire'
 import { documentFilesHref } from '../../lib/document-question'
 import { TextComparisonView, type TextComparison } from '../revision-text-comparison'
 import type { MailThreadClient } from './client'
 import { EntryOriginal } from './entry-original'
-import { attachmentLines, comparedVersions, filedSenderTrust, headingParts, type AttachmentLine } from './mail-thread-model'
+import { attachmentLines, comparedVersions, filedSenderTrust, headingParts, receivedAtLabel, type AttachmentLine } from './mail-thread-model'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 
 const FILED_VIA_ICON: Partial<Record<MailThreadFiledVia, typeof Bot>> = {
@@ -124,14 +123,8 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
               </>
             )}
           </h4>
-          {/* Two facts that wrap as units: a separator dot left dangling at the rail's edge read as a fault. */}
-          <p className="text-muted-foreground flex flex-wrap gap-x-2.5 text-xs tabular-nums leading-snug">
-            {entry.firstVersion && (
-              <span className="text-foreground whitespace-nowrap font-medium" data-testid="mail-thread-entry-from">
-                {t('entry.fromRevision', { number: entry.firstVersion.number })}
-              </span>
-            )}
-            <span className="whitespace-nowrap">{t('entry.received', { time: formatAbsoluteTime(entry.receivedAt, locale) })}</span>
+          <p className="text-muted-foreground text-xs tabular-nums leading-snug" data-testid="mail-thread-entry-received">
+            {t('entry.received', { time: receivedAtLabel(entry, locale) })}
           </p>
         </div>
         {menu.length > 0 && (
@@ -179,7 +172,7 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
             <Paperclip className="size-3.5 shrink-0" aria-hidden />
             {t('attachments.label')}
           </p>
-          <ul className="flex flex-col gap-0.5 pl-5" data-testid="mail-thread-entry-attachments">
+          <ul className="flex flex-col gap-2 pl-5" data-testid="mail-thread-entry-attachments">
             {attachments.map((line) => (
               <AttachmentItem key={line.position} projectId={projectId} line={line} />
             ))}
@@ -195,7 +188,7 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
             variant="secondary"
             size="sm"
             aria-expanded={comparison !== null}
-            aria-label={t('entry.compareLabel', { from: compared.from.number, to: compared.to.number })}
+            aria-label={t('entry.compareLabel', { heading: entry.heading })}
             onClick={() => void compare()}
             data-testid="mail-thread-entry-compare"
           >
@@ -213,12 +206,18 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
   )
 }
 
+const NOTE_UNDER_ITS_FILE = 'text-muted-foreground pl-[18px]'
+
 function AttachmentItem({ projectId, line }: { projectId: string; line: AttachmentLine }): JSX.Element {
   const t = useTranslations(mailThreadCopy)
   if (line.kind === 'hidden') {
     return (
-      <li className="text-muted-foreground text-xs leading-snug" data-testid="mail-thread-attachment" data-disposition="hidden">
-        {t('attachments.hidden')}
+      <li className="flex min-w-0 flex-col gap-0.5 text-xs leading-snug" data-testid="mail-thread-attachment" data-disposition="hidden">
+        <span className="text-muted-foreground flex min-w-0 items-center gap-1">
+          <FileText className="size-3.5 shrink-0" aria-hidden />
+          {t('attachments.unnamed', { position: line.position })}
+        </span>
+        <span className={NOTE_UNDER_ITS_FILE}>{t('attachments.hidden')}</span>
       </li>
     )
   }
@@ -244,9 +243,9 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
     // over three lines it carried three underlines, and the only words broken anywhere are a file's.
     <li className="flex min-w-0 flex-col gap-0.5 text-xs leading-snug" data-testid="mail-thread-attachment" data-disposition={line.kind}>
       {named}
-      {line.kind === 'already_present' && <span className="text-muted-foreground">{t('attachments.alreadyPresent')}</span>}
+      {line.kind === 'already_present' && <span className={NOTE_UNDER_ITS_FILE}>{t('attachments.alreadyPresent')}</span>}
       {line.kind === 'not_filed' && (
-        <span className="text-muted-foreground">
+        <span className={NOTE_UNDER_ITS_FILE}>
           {t('attachments.notFiled', { reason: line.reason ? t(`attachments.reasons.${line.reason}`) : t('attachments.inOriginal') })}
         </span>
       )}
