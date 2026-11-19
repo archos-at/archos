@@ -8,7 +8,7 @@ import { requireConversationKeepsMemory } from '@/lib/conversations/temporary'
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { patchProjectProfile } from '@/lib/project-profile/profile-service'
 import { addProjectMemoryItem, createOrganizationMemoryItem } from '@/lib/projects/service'
-import type { MemoryPayload, ProjectProfilePayload, ProposedChangeResult } from './types'
+import type { ConfirmedNorm, MemoryPayload, ProjectProfilePayload, ProposedChangeResult } from './types'
 
 export interface ApplyContext {
   session: AuthorizedSession
@@ -18,6 +18,7 @@ export interface ApplyContext {
   locale: Locale
   memoryScope?: 'project'
   proposalId?: string
+  norms?: readonly ConfirmedNorm[]
 }
 
 const NOTE_LABEL_WORDS = 12

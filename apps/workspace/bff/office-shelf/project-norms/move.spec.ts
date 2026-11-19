@@ -193,5 +193,28 @@ describe('a project norm moves into the office shelf', () => {
     )
     expect(getAccessibleDocument).toHaveBeenCalledWith(MANAGER, 'doc-1', 'write')
     expect(results).toEqual([{ label: 'ÖNORM B 1600:2023', ok: true, itemId: 'office-doc-1' }])
+    expect(confirmBaseKnowledge).not.toHaveBeenCalled()
+  })
+
+  it('files an accepted suggestion confirmed, with the values the person who accepts it confirmed', async () => {
+    vi.mocked(confirmBaseKnowledge).mockResolvedValue(entry({ status: 'confirmed' }))
+    const values = { kind: 'technical_standard' as const, designation: 'ÖNORM B 1600:2023', editionLabel: '2023-02-01' }
+    const results = await applyOfficeShelfNorm(
+      { documents: [{ id: 'doc-1', name: 'OENORM_B_1600_2023-02-01.pdf', designation: 'ÖNORM B 1600' }] },
+      { session: MANAGER, projectId: 'project-1', request: REQUEST, norms: [{ documentId: 'doc-1', values }] }
+    )
+    expect(uploadBaseKnowledge).toHaveBeenCalledWith(MANAGER, expect.any(File), REQUEST, values)
+    expect(confirmBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition-new', values)
+    expect(results).toEqual([{ label: 'ÖNORM B 1600', ok: true, itemId: 'office-doc-1' }])
+  })
+
+  it('says so when the accepted copy could not be confirmed', async () => {
+    vi.mocked(confirmBaseKnowledge).mockRejectedValue(new ConflictError('Already confirmed elsewhere.'))
+    const values = { kind: 'technical_standard' as const, designation: 'ÖNORM B 1600:2023', editionLabel: '2023-02-01' }
+    const results = await applyOfficeShelfNorm(
+      { documents: [{ id: 'doc-1', name: 'OENORM_B_1600_2023-02-01.pdf', designation: 'ÖNORM B 1600' }] },
+      { session: MANAGER, projectId: 'project-1', request: REQUEST, norms: [{ documentId: 'doc-1', values }] }
+    )
+    expect(results).toEqual([{ label: 'ÖNORM B 1600', ok: true, itemId: 'office-doc-1', reason: 'Already confirmed elsewhere.' }])
   })
 })

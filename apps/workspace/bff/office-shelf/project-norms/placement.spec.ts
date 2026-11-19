@@ -95,6 +95,13 @@ describe('which project norms the agent offers for the office shelf', () => {
     expect(recognizedNorms(rows).map((norm) => norm.fileName)).toEqual(['OENORM_B_1600_2017.pdf', 'Weisung_MA37_Stellplaetze.pdf'])
   })
 
+  it('offers each norm with the type, designation and edition read from its name, for the norm dialog', () => {
+    expect(recognizedNorms(rows).map(({ documentId, designation, kind, editionLabel }) => ({ documentId, designation, kind, editionLabel }))).toEqual([
+      { documentId: 'OENORM_B_1600_2017.pdf', designation: 'ÖNORM B 1600', kind: 'technical_standard', editionLabel: '2017' },
+      { documentId: 'Weisung_MA37_Stellplaetze.pdf', designation: null, kind: 'authority_directive', editionLabel: null },
+    ])
+  })
+
   it('leaves out a norm kept here, one already suggested, and one whose work the office shelf holds', () => {
     const norms = recognizedNorms(rows)
     const none = { kept: new Set<string>(), suggested: new Set<string>(), works: new Map() }

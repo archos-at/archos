@@ -1818,6 +1818,27 @@
                             "type": "null"
                           }
                         ]
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "technical_standard",
+                          "guideline",
+                          "commentary",
+                          "authority_directive",
+                          "statute"
+                        ]
+                      },
+                      "editionLabel": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 120
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -2934,6 +2955,27 @@
                             "maxLength": 512
                           },
                           "designation": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "technical_standard",
+                              "guideline",
+                              "commentary",
+                              "authority_directive",
+                              "statute"
+                            ]
+                          },
+                          "editionLabel": {
                             "anyOf": [
                               {
                                 "type": "string",

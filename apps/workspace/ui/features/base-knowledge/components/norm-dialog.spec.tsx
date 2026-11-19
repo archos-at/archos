@@ -126,3 +126,63 @@ describe('NormDialog', () => {
     expect(toast).toHaveBeenCalledWith(expect.stringContaining('warten unter Normen & Richtlinien auf Bestätigung'))
   })
 })
+
+describe('NormDialog with a destination', () => {
+  const recognition: NormRecognition = {
+    proposals: [proposal('doc-1', { fileName: 'OENORM_B_8110-3_2020.pdf' })],
+    plain: [],
+    topics: { rootId: null, folders: [], nextCursor: null },
+  }
+
+  function renderWithDestination(confirm = vi.fn(async () => undefined)) {
+    const onSettled = vi.fn()
+    render(
+      <I18nProvider initialLocale="de" fixedLocale>
+        <NormDialog
+          recognition={recognition}
+          onClose={vi.fn()}
+          onSettled={onSettled}
+          destination={{ description: 'Wohin damit?', laterNotice: 'Bleibt hier.', notNorm: false, choice: <p>Ziel wählen</p>, confirm }}
+        />
+      </I18nProvider>,
+    )
+    return { confirm, onSettled }
+  }
+
+  it('shows the values without a topic, its own description and choice, and hands the confirmed rows to the destination', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    const { confirm, onSettled } = renderWithDestination()
+    const table = screen.getByRole('table', { name: '1 Norm erkannt' })
+    expect(within(table).getAllByRole('columnheader').map((head) => head.textContent)).toEqual(['Art', 'Bezeichnung', 'Ausgabe'])
+    expect(screen.getByText('Wohin damit?')).toBeInTheDocument()
+    expect(screen.getByText('Ziel wählen')).toBeInTheDocument()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Art: OENORM_B_8110-3_2020.pdf' }))
+    expect(await screen.findByRole('option', { name: 'Richtlinie' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Keine Norm' })).not.toBeInTheDocument()
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Bestätigen' }))
+
+    await waitFor(() => expect(onSettled).toHaveBeenCalled())
+    expect(confirm).toHaveBeenCalledWith([
+      { entryId: 'doc-1', kind: 'technical_standard', designation: 'ÖNORM B 8110-3', editionLabel: '2020-03-15', topicId: null },
+    ])
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('stays open and says why when the destination refuses', async () => {
+    const { onSettled } = renderWithDestination(vi.fn(async () => Promise.reject(new Error('Ausgabe fehlt noch.'))))
+    await userEvent.click(screen.getByRole('button', { name: 'Bestätigen' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Ausgabe fehlt noch.'))
+    expect(onSettled).not.toHaveBeenCalled()
+    expect(screen.getByTestId('norm-dialog')).toBeInTheDocument()
+  })
+
+  it('tells its own later notice', async () => {
+    renderWithDestination()
+    await userEvent.click(screen.getByRole('button', { name: 'Später' }))
+    expect(toast).toHaveBeenCalledWith('Bleibt hier.')
+  })
+})

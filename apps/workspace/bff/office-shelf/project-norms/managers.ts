@@ -18,23 +18,30 @@ async function writesProject(organizationId: string, projectId: string, userId: 
   return false
 }
 
+export interface NormDeciders {
+  deciders: string[]
+  managers: string[]
+}
+
 export async function normDecidersOf(
   organizationId: string,
   projectId: string,
   folderIds: readonly (string | null)[],
   except: string
-): Promise<string[]> {
+): Promise<NormDeciders> {
   const directory = await loadOrganizationDirectory(organizationId)
-  const verdicts = await Promise.all(
+  const managing = await Promise.all(
     [...directory.keys()]
       .filter((userId) => userId !== except)
-      .map(async (userId) =>
-        (await managesOfficeShelf(organizationId, userId)) && (await writesProject(organizationId, projectId, userId)) ? userId : null
-      )
+      .map(async (userId) => ((await managesOfficeShelf(organizationId, userId)) ? userId : null))
   )
-  let deciders = verdicts.filter((userId): userId is string => userId !== null)
+  const managers = managing.filter((userId): userId is string => userId !== null)
+  const writing = await Promise.all(
+    managers.map(async (userId) => ((await writesProject(organizationId, projectId, userId)) ? userId : null))
+  )
+  let deciders = writing.filter((userId): userId is string => userId !== null)
   for (const folderId of new Set(folderIds)) {
     deciders = [...(await filterUsersWhoMayWriteFolder(organizationId, projectId, folderId, deciders))]
   }
-  return deciders
+  return { deciders, managers: managers.flatMap((userId) => directory.get(userId)?.name ?? []) }
 }

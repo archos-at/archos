@@ -1,5 +1,5 @@
 import type { StoredEntry } from '@/lib/base-knowledge/store/repository'
-import { recognizeNorm } from '@/lib/base-knowledge/office/reading'
+import { proposeFromReading, recognizeNorm } from '@/lib/base-knowledge/office/reading'
 import { workDesignation } from '@/lib/base-knowledge/office/work-designation'
 import { hasPassedScreening, type ScreeningFacts } from '@/lib/documents/document-reader'
 import { surfaceStateOf } from '@/lib/documents/surface-state'
@@ -74,7 +74,9 @@ export function recognizedNorms(rows: readonly NormCandidateRow[]): NormOffer[] 
     const fileName = row.displayName ?? row.filename
     const recognized = recognizeNorm({ fileName })
     if (!recognized.norm) return []
-    return [{ documentId: row.id, fileName, folderId: row.folderId, designation: recognized.designation }]
+    const read = proposeFromReading({ fileName }, {})
+    const editionLabel = read.editionLabel === UNKNOWN_EDITION ? null : read.editionLabel
+    return [{ documentId: row.id, fileName, folderId: row.folderId, designation: recognized.designation, kind: read.kind, editionLabel }]
   })
 }
 

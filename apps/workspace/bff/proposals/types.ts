@@ -3,6 +3,7 @@ import { ProjectProfilePatchOperationSchema } from '@/lib/project-profile/types'
 import { PROJECT_MEMORY_CONFIDENCES, PROJECT_MEMORY_KINDS } from '@/lib/projects/memory-vocabulary'
 import { memoryTopicField } from '@/lib/memory-topics/wire'
 import { AGENT_KINDS } from '@/lib/agent-kind'
+import { OFFICE_WORK_KINDS } from '@/lib/base-knowledge/wire/vocab'
 
 export const PROPOSED_CHANGE_KINDS = ['file_operation', 'memory', 'project_profile', 'operation', 'office_shelf_norm'] as const
 export type ProposedChangeKind = (typeof PROPOSED_CHANGE_KINDS)[number]
@@ -121,6 +122,8 @@ export const officeShelfNormPayloadSchema = z
             id: z.guid(),
             name: text(512),
             designation: z.string().trim().max(120).nullable(),
+            kind: z.enum(OFFICE_WORK_KINDS).optional(),
+            editionLabel: z.string().trim().max(120).nullable().optional(),
           })
           .strict()
       )
@@ -257,7 +260,26 @@ export const proposalListQuerySchema = proposalListQueryShape.refine(
 export type ProposalListQuery = z.input<typeof proposalListQuerySchema>
 export type ParsedProposalListQuery = z.infer<typeof proposalListQuerySchema>
 
+const confirmedNormSchema = z
+  .object({
+    documentId: z.guid(),
+    values: z
+      .object({
+        kind: z.enum(OFFICE_WORK_KINDS),
+        designation: z.string().trim().min(1).max(120).nullable(),
+        editionLabel: z.string().trim().min(1).max(120),
+      })
+      .strict(),
+  })
+  .strict()
+export type ConfirmedNorm = z.infer<typeof confirmedNormSchema>
+
 export const applyProposalRequestSchema = z
   .object({ memoryScope: z.literal('project').optional() })
   .strict()
 export type ApplyProposalRequest = z.infer<typeof applyProposalRequestSchema>
+
+export const applyProposalBodySchema = applyProposalRequestSchema
+  .extend({ norms: z.array(confirmedNormSchema).min(1).max(MAX_SUGGESTED_NORMS).optional() })
+  .strict()
+export type ApplyProposalBody = z.infer<typeof applyProposalBodySchema>

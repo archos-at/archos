@@ -1,0 +1,18 @@
+---
+# area: office-knowledge
+improvements:
+  - >
+    When you upload a norm to a project, the norm dialog opens in Dateien with
+    its kind, designation and edition and asks where it belongs: the
+    Büroablage, a suggestion for it, only this project, or later.
+fixes:
+  - >
+    A norm moved or taken over into the Büroablage is now confirmed with the
+    values you saw, so answers keep using it instead of waiting unread for a
+    confirmation.
+  - >
+    A suggestion nobody in the project may decide is no longer reported as
+    sent: ARCHOS says so and names who could decide it, and the offer stays.
+  - >
+    A project's reference to a norm taken off Normen & Richtlinien now says it
+    still lies in the Büroablage and opens the file.

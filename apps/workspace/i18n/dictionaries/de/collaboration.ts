@@ -858,10 +858,15 @@ export const collaboration: typeof en.collaboration = {
       accept: 'In die Büroablage übernehmen',
       decline: 'Ablehnen',
       visibility: 'Danach ist sie für alle im Büro sichtbar.',
-      accepted: 'Liegt jetzt in der Büroablage. Das Projekt behält einen Verweis.',
+      accepted: 'Bestätigt und in der Büroablage. Das Projekt behält einen Verweis.',
+      unconfirmed: 'Liegt in der Büroablage, wartet aber unter Normen & Richtlinien auf Bestätigung: {reason}',
       declined: 'Abgelehnt. Die Norm bleibt im Projekt.',
       failed: 'Das hat nicht geklappt: {reason}',
       stale: 'Jemand hat schon entschieden.',
+      confirmBody:
+        'Prüfen Sie Art, Bezeichnung und Ausgabe. Bestätigt kommt die Norm unter Normen & Richtlinien, für alle im Büro sichtbar, und das Projekt behält einen Verweis.',
+      later: 'Der Vorschlag wartet weiter im Postfach.',
+      editionNeeded: 'Tragen Sie die Ausgabe ein. Ohne Ausgabe lässt sich die Norm nicht bestätigen.',
     },
   },
 

@@ -88,10 +88,18 @@ into. ARCHOS does not ask about a norm's licence: a confirmed norm is read,
 whether you bought it or it is freely available.
 
 **Norms in a project or in a folder.** A norm uploaded to a project is offered
-for the Büroablage, where every project finds it: **In die Büroablage
-verschieben** if you manage the Büroablage, **Für die Büroablage vorschlagen**
-otherwise (whoever manages it decides in the Postfach), or **Hier lassen**. A
-moved norm leaves a reference in the project folder. Norms you had filed in
+for the Büroablage, where every project finds it. Once ARCHOS has read the
+upload, the same dialog opens in Dateien with Art, Bezeichnung and Ausgabe and
+asks where the norm belongs: **Büroablage (empfohlen)** if you manage the
+Büroablage, **Für die Büroablage vorschlagen** otherwise (whoever manages it
+decides in the Postfach, checking the same values), **Nur dieses Projekt**, or
+**Später**, which leaves the offer above the files. A norm moved or taken over
+this way is confirmed with the values you saw, so answers keep using it, and it
+needs its Ausgabe. When nobody who manages the Büroablage may write in the
+project, ARCHOS says so and names who could decide once given access; nothing is
+sent. A moved norm leaves a reference in the project folder; if it is later
+taken off the norms, the reference says it still lies in the Büroablage and opens
+the file. Norms you had filed in
 ordinary Büroablage folders are found; the folder offers **Unter Normen &
 Richtlinien führen**, which moves them and opens the norm dialog for them, or
 **Im Ordner lassen**, and the Postfach tells whoever manages the Büroablage. An

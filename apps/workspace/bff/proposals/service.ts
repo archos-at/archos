@@ -38,7 +38,7 @@ import {
   type ProposedChangeRow,
 } from './repository'
 import {
-  type ApplyProposalRequest,
+  type ApplyProposalBody,
   type ListedProposal,
   type ParsedProposalListQuery,
   type ProposalListResponse,
@@ -305,7 +305,7 @@ const outcomeOf = (results: readonly ProposedChangeResult[]) => {
   return applied === 0 ? ('failed' as const) : ('partially_applied' as const)
 }
 
-export interface ApplyProposalOptions extends ApplyProposalRequest {
+export interface ApplyProposalOptions extends ApplyProposalBody {
   locale?: Locale
 }
 
@@ -333,6 +333,7 @@ export async function applyProposal(
       originConversationId: claim.originConversationId,
       locale: options.locale ?? defaultLocale,
       memoryScope: options.memoryScope,
+      norms: options.norms,
       proposalId: claim.id,
     })
   } catch (error) {
