@@ -3,11 +3,12 @@ import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { withTenant } from '@/lib/db/tenant-context'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { readGroupPayloads } from '@/lib/inbox/repository'
-import { emitInboxItems, resolveInboxItemsAnchoredOn, type InboxEmission } from '@/lib/inbox/service'
+import { emitInboxItems, resolveInboxItemsAnchoredOn, resolveInboxItemsOfType, type InboxEmission } from '@/lib/inbox/service'
 import { activeMembersHolding } from '@/lib/organizations/members-holding'
 import { salvageProjectProfile } from '@/lib/project-profile/salvage'
 import { listProjectsInOrg } from '@/lib/projects/repository'
 import { referenceDayOfProfile } from '../time/profile-procedure'
+import { officeStandardsEnabled } from './access'
 import { listOrganizationsWithOfficeEditions } from './repository'
 import { directoryStandingsOf, type WorkStanding } from './service'
 import { designationKey } from '../platform'
@@ -113,6 +114,10 @@ export async function sweepNewEditionNotices(now: Date = new Date()): Promise<Ne
   const sweep: NewEditionSweep = { organizations: organizations.length, notified: 0, resolved: 0, failed: 0 }
   for (const organizationId of organizations) {
     try {
+      if (!(await officeStandardsEnabled(organizationId))) {
+        sweep.resolved += await withTenant({ organizationId }, () => resolveInboxItemsOfType({ organizationId, types: [NEW_EDITION_NOTICE] }))
+        continue
+      }
       const outcome = await withTenant({ organizationId }, () => noticeNewEditions(organizationId, now))
       sweep.notified += outcome.notified
       sweep.resolved += outcome.resolved

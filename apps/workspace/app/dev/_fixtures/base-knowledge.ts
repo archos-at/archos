@@ -67,6 +67,7 @@ function entry(
   values: Partial<EntryValues>,
   rest: Partial<BaseKnowledgeEntry> = {}
 ): BaseKnowledgeEntry {
+  const editionLabel = values.editionLabel ?? '2017-04-01'
   return {
     id,
     editionId: `edition_${id}`,
@@ -87,8 +88,8 @@ function entry(
       kind: 'technical_standard',
       title: 'Barrierefreies Bauen',
       designation: 'ÖNORM B 1600:2017',
-      editionLabel: '2017-04-01',
-      issuedOn: '2017-04-01',
+      editionLabel,
+      issuedOn: /^\d{4}-\d{2}-\d{2}$/.test(editionLabel) ? editionLabel : null,
       inForceFrom: null,
       inForceTo: null,
       territoryIds: [],

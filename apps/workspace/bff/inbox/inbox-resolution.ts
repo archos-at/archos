@@ -10,6 +10,7 @@ import {
   refreshOpenGroupItems,
   resolveInboxItemsForTargets,
   resolveOpenItemsAnchoredOn,
+  resolveOpenItemsOfType,
   retractOccurrenceAnchoredOn,
   rewriteItemPayloadsAnchoredOn,
   type AnchoredRows,
@@ -40,6 +41,10 @@ export async function resolveInboxItemsAnchoredOn(input: {
   recipientUserId?: string
 }): Promise<number> {
   return nudge(await resolveOpenItemsAnchoredOn(input))
+}
+
+export async function resolveInboxItemsOfType(input: { organizationId: string; types: readonly InboxItemType[] }): Promise<number> {
+  return nudge(await resolveOpenItemsOfType(input))
 }
 
 async function nudge(recipients: readonly string[]): Promise<number> {

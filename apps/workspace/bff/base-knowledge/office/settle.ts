@@ -3,11 +3,18 @@ import { ApiError, ConflictError, ForbiddenError, UnprocessableError } from '@/l
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { readOfficeEntries, type StoredEntry } from '../store/repository'
-import type { SettledProposal, SettleOutcome, SettleProposalsBody, SettleProposalsResult } from '../wire'
+import { ASK_FOR_LICENCE, UNKNOWN_EDITION, type SettledProposal, type SettleOutcome, type SettleProposalsBody, type SettleProposalsResult } from '../wire'
 import { moveEntry, removeEntry } from './bulk'
 import { standardsFolderRows, standardsRoot } from './folders'
 import { editionKey, heldEditionsOf, isDuplicateEdition } from './proposal-match'
-import { confirmBaseKnowledge, dropBaseKnowledgeRecords, getBaseKnowledgeEntry, storedEntryOf } from './service'
+import {
+  confirmBaseKnowledge,
+  dropBaseKnowledgeRecords,
+  getBaseKnowledgeEntry,
+  reviseProposal,
+  storedEntryOf,
+  unlistBaseKnowledge,
+} from './service'
 
 type Row = SettleProposalsBody['rows'][number]
 
@@ -28,6 +35,27 @@ async function folderOfWork(session: AuthorizedSession, held: StoredEntry, topic
   return folderId && topics.has(folderId) ? folderId : rootId
 }
 
+interface Place {
+  topics: ReadonlySet<string>
+  rootId: string
+}
+
+async function keepProposed(
+  session: AuthorizedSession,
+  row: Row,
+  stored: StoredEntry,
+  folderId: string | null,
+  held: readonly StoredEntry[],
+  { topics, rootId }: Place,
+): Promise<void> {
+  const edited = held.length > 0 ? {} : { kind: row.kind, designation: row.designation }
+  const cleared = row.editionLabel === undefined ? {} : { editionLabel: UNKNOWN_EDITION, issuedOn: null }
+  await reviseProposal(session, stored.editionId, { ...edited, ...cleared })
+  if (held.length > 0 || row.topicId === undefined) return
+  const target = row.topicId ?? (folderId && topics.has(folderId) ? rootId : null)
+  if (target && target !== folderId) await moveEntry(session, stored.editionId, target)
+}
+
 async function settleOne(
   session: AuthorizedSession,
   row: Row,
@@ -35,28 +63,33 @@ async function settleOne(
   topics: ReadonlySet<string>,
   rootId: string,
 ): Promise<SettleOutcome> {
-  const { stored } = await storedEntryOf(session, row.entryId)
+  const { stored, entry } = await storedEntryOf(session, row.entryId)
   if (stored.confirmed) {
     if (row.notNorm) throw new ConflictError('This entry is confirmed; take it off the norms with base-knowledge-unlist.')
     return 'confirmed'
   }
+  const lies = entry.folderId ?? null
   if (row.notNorm) {
-    await dropBaseKnowledgeRecords(session, stored)
+    if (lies && topics.has(lies)) await unlistBaseKnowledge(session, stored.editionId)
+    else await dropBaseKnowledgeRecords(session, stored)
     return 'not_norm'
   }
   if (row.topicId && !topics.has(row.topicId)) {
     throw new UnprocessableError('topicId is not a base-knowledge folder; take one from base-knowledge-folder-list.')
   }
   const label = editionOf(row, stored)
-  if (!label) return 'edition_missing'
   const held = heldEditionsOf(stored, await readOfficeEntries(session.organizationId))
+  if (!label) {
+    await keepProposed(session, row, stored, lies, held, { topics, rootId })
+    return 'edition_missing'
+  }
   if (isDuplicateEdition(label, held)) {
     await removeEntry(session, stored.editionId, request)
     return 'duplicate_removed'
   }
   const edition = { editionLabel: label, issuedOn: issuedOnOf(label, stored) }
   const values = held.length > 0 ? edition : { ...edition, kind: row.kind, designation: row.designation }
-  await confirmBaseKnowledge(session, stored.editionId, values)
+  await confirmBaseKnowledge(session, stored.editionId, values, { licenceStep: ASK_FOR_LICENCE })
   const folderId = held.length > 0 ? await folderOfWork(session, held[0], topics, rootId) : (row.topicId ?? rootId)
   await moveEntry(session, stored.editionId, folderId)
   return held.length > 0 ? 'edition_added' : 'confirmed'

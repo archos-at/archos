@@ -223,8 +223,13 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   ingest is stopped by the guards above (`isTextHeld` at dispatch, `document-exists` during the run) and what it
   wrote is purged, so a norm's text may be read in the time between upload and recognition.
   `base-knowledge-settle` answers the proposals: a confirmed one moves into its topic folder (a new edition into
-  its work's), a duplicate is deleted, `notNorm` drops the records and reads the file again where it lies, and
-  one without an edition stays a proposal. `base-knowledge-unlist` takes a confirmed entry off the base
+  its work's), a duplicate is deleted, `notNorm` drops the records and reads the file again where it lies (a file
+  under the standards tree goes to the top of the Büroablage first, as with `base-knowledge-unlist`), and one
+  without an edition stays a proposal that keeps the row's Art, Bezeichnung and a cleared Ausgabe
+  (`reviseProposal`, proposed by the person), and moves into the row's topic, so „Jetzt prüfen“ shows them again.
+  While the licence step is off (`ASK_FOR_LICENCE`), settle confirms without asking for the licence statement: a
+  new edition of a work stored as licensed lands licensed and metadata-only, its text withheld until the AI
+  statement, instead of failing on the attestation. `base-knowledge-unlist` takes a confirmed entry off the base
   knowledge but keeps its file, moved to the top of the Büroablage; `base-knowledge-remove` still deletes both.
 - **One upload, one norm dialog** (2026-11-19), in place of „Adding a standard is filling in its form“: both
   tabs of the Büroablage upload through the office shelf's own upload (`useOfficeShelfDocuments`, the same
@@ -232,7 +237,10 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   back, one dialog lists them all (`NormDialog`: Art with „Keine Norm“, Bezeichnung, Ausgabe, Thema), with a line
   for the files that are not norms and where they lie; „Bestätigen“ is `base-knowledge-settle`, „Später“ leaves
   them proposed, and the norms tab's „Jetzt prüfen“ opens them again. A plain file uploaded on the norms tab lands
-  in Ordner, said by a toast with the way there. „Als Norm führen“ on an Ordner file opens the dialog for it,
+  in Ordner, said by a toast with the way there. An upload the norms tab marks `forStandards` whose name a norm
+  already holds is a new version of that norm, in its folder; an Ordner upload of that name is still refused as a
+  name taken. A file reaches the standards tree only through these flows: `PATCH /api/documents/{id}/folder` and
+  a proposed move refuse to take an Ordner file under it, and an upload's `revisionOf` may not cross it. „Als Norm führen“ on an Ordner file opens the dialog for it,
   „Nicht mehr als Norm führen“ on an entry is `base-knowledge-unlist`, and the folders of the norms tab are its
   topics („Thema anlegen“).
 
@@ -292,7 +300,9 @@ says nothing in between. So an entry's Stand is decided in one place (`standOf`,
   every office holding a confirmed standard and gives whoever may manage its Büroablage
   (`org:office-shelf:manage`) one `base_knowledge.new_edition` item per work and edition in force: „<Norm>: neue
   Ausgabe erschienen“, with the active projects whose reference day (`referenceDayOfProfile`) falls on or after
-  that edition's start. The item is resolved by the next sweep once the office holds the edition.
+  that edition's start. The item is resolved by the next sweep once the office holds the edition. An office
+  whose `office-standards` flag is off is told nothing, and its open items are resolved (`officeStandardsEnabled`,
+  as the folder-norms sweep asks).
 
 Not changed: the turn block and the answer label still read the manual check (`freshness`), so an answer does not
 yet say that the platform lists a newer edition; that changes what shapes an answer and needs its golden run.

@@ -4,7 +4,12 @@ vi.mock('server-only', () => ({}))
 vi.mock('./service', () => ({ directoryStandingsOf: vi.fn() }))
 vi.mock('./repository', () => ({ listOrganizationsWithOfficeEditions: vi.fn() }))
 vi.mock('@/lib/organizations/members-holding', () => ({ activeMembersHolding: vi.fn() }))
-vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn(async () => 0), resolveInboxItemsAnchoredOn: vi.fn(async () => 0) }))
+vi.mock('@/lib/inbox/service', () => ({
+  emitInboxItems: vi.fn(async () => 0),
+  resolveInboxItemsAnchoredOn: vi.fn(async () => 0),
+  resolveInboxItemsOfType: vi.fn(async () => 0),
+}))
+vi.mock('./access', () => ({ officeStandardsEnabled: vi.fn(async () => true) }))
 vi.mock('@/lib/inbox/repository', () => ({ readGroupPayloads: vi.fn(async () => new Map()) }))
 vi.mock('@/lib/projects/repository', () => ({ listProjectsInOrg: vi.fn(async () => []) }))
 vi.mock('@/lib/project-profile/salvage', () => ({ salvageProjectProfile: (stored: unknown) => ({ profile: stored }) }))
@@ -14,12 +19,13 @@ import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { inboxItemCopy } from '@/lib/inbox/item-copy'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { readGroupPayloads } from '@/lib/inbox/repository'
-import { emitInboxItems, resolveInboxItemsAnchoredOn, type InboxEmission } from '@/lib/inbox/service'
+import { emitInboxItems, resolveInboxItemsAnchoredOn, resolveInboxItemsOfType, type InboxEmission } from '@/lib/inbox/service'
 import type { InboxItemView } from '@/lib/inbox/types'
 import { activeMembersHolding } from '@/lib/organizations/members-holding'
 import { listProjectsInOrg } from '@/lib/projects/repository'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { createTranslator } from '@/i18n/translate'
+import { officeStandardsEnabled } from './access'
 import { noticeNewEditions, sweepNewEditionNotices } from './new-edition-notice'
 import { listOrganizationsWithOfficeEditions } from './repository'
 import { directoryStandingsOf } from './service'
@@ -34,6 +40,7 @@ const emitted = () => vi.mocked(emitInboxItems).mock.calls.flatMap(([emissions])
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(officeStandardsEnabled).mockResolvedValue(true)
   vi.mocked(directoryStandingsOf).mockResolvedValue([B1600, B3806])
   vi.mocked(activeMembersHolding).mockResolvedValue(['user_anna', 'user_ben'])
   vi.mocked(readGroupPayloads).mockResolvedValue(new Map())
@@ -118,6 +125,19 @@ describe('the daily sweep', () => {
     })
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     await expect(sweepNewEditionNotices(NOW)).rejects.toThrow('new editions: 1 of 2 organization(s) failed')
+    expect(emitted().map((emission) => emission.organizationId)).toEqual(['org_1', 'org_1'])
+  })
+
+  it('tells an office that lost its own standards nothing, and resolves what it was told', async () => {
+    vi.mocked(listOrganizationsWithOfficeEditions).mockResolvedValue(['org_off', 'org_1'])
+    vi.mocked(officeStandardsEnabled).mockImplementation(async (organizationId) => organizationId !== 'org_off')
+    vi.mocked(resolveInboxItemsOfType).mockResolvedValue(2)
+    vi.mocked(resolveInboxItemsAnchoredOn).mockResolvedValue(0)
+
+    expect(await sweepNewEditionNotices(NOW)).toEqual({ organizations: 2, notified: 2, resolved: 2, failed: 0 })
+    expect(directoryStandingsOf).not.toHaveBeenCalledWith('org_off', expect.anything())
+    expect(resolveInboxItemsOfType).toHaveBeenCalledWith({ organizationId: 'org_off', types: ['base_knowledge.new_edition'] })
+    expect(resolveInboxItemsOfType).toHaveBeenCalledTimes(1)
     expect(emitted().map((emission) => emission.organizationId)).toEqual(['org_1', 'org_1'])
   })
 })

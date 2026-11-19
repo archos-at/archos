@@ -2,7 +2,7 @@ import 'server-only'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { recordAuditEvent } from '@/lib/audit/service'
 import { getBackendUrl } from '@/lib/backend-proxy'
-import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import { collectionFileRef, purgeIngestedChunks } from '@/lib/documents/collection-file-ref'
 import { OFFICE_SHELF } from '@/lib/documents/shelf'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
@@ -91,17 +91,70 @@ export async function probeOfficeShelfRevisionCandidates(
 
 export type UploadOfficeShelfDocumentResult = UploadDocumentResult
 
-async function assertNameFreeOfStandards(session: AuthorizedSession, file: File, folderId: string | null): Promise<void> {
-  const hidden = await officeShelfHiddenFolderIds(session)
-  if (hidden.length === 0 || (folderId !== null && hidden.includes(folderId))) return
+export interface OfficeShelfUploadInput extends Omit<ShelfUploadInput, 'file' | 'folderId'> {
+  folderId?: string | null
+  forStandards?: boolean
+}
+
+const inTree = (hidden: readonly string[], folderId: string | null | undefined): boolean => !!folderId && hidden.includes(folderId)
+
+async function folderBesideNameHolder(
+  session: AuthorizedSession,
+  file: File,
+  folderId: string | null,
+  hidden: readonly string[],
+  forStandards: boolean,
+): Promise<string | null> {
+  if (inTree(hidden, folderId)) return folderId
   const filename = documentNameKey(file.name)
   const holder = await findLiveDocumentByFilename(session.organizationId, officeShelfCollectionName(session.organizationId), filename)
-  if (holder?.folderId && hidden.includes(holder.folderId)) {
-    throw new ConflictError(
-      `A document named "${filename}" is already filed under ${STANDARDS_FOLDER_NAME}. Rename the file to upload it here.`,
-      NAME_TAKEN_DETAILS,
-    )
-  }
+  if (!holder || !inTree(hidden, holder.folderId)) return folderId
+  if (forStandards) return holder.folderId ?? null
+  throw new ConflictError(
+    `A document named "${filename}" is already filed under ${STANDARDS_FOLDER_NAME}. Rename the file to upload it here.`,
+    NAME_TAKEN_DETAILS,
+  )
+}
+
+async function assertRevisionOfOnSameSide(
+  session: AuthorizedSession,
+  revisionOf: string | null | undefined,
+  folderId: string | null,
+  hidden: readonly string[],
+): Promise<void> {
+  if (!revisionOf) return
+  const older = await findOfficeShelfDocument(revisionOf, session.organizationId, await officeShelfReader(session))
+  if (!older || inTree(hidden, older.folderId) === inTree(hidden, folderId)) return
+  throw new UnprocessableError(
+    `revisionOf names a document on the other side of ${STANDARDS_FOLDER_NAME}; a new version of a norm goes through the norms, and a norm is no version of an Ordner file.`,
+  )
+}
+
+async function standardsAwareFolder(
+  session: AuthorizedSession,
+  file: File,
+  { folderId, revisionOf, forStandards }: { folderId: string | null; revisionOf?: string | null; forStandards: boolean },
+): Promise<string | null> {
+  const hidden = await officeShelfHiddenFolderIds(session)
+  if (hidden.length === 0) return folderId
+  const target = await folderBesideNameHolder(session, file, folderId, hidden, forStandards)
+  await assertRevisionOfOnSameSide(session, revisionOf, target, hidden)
+  return target
+}
+
+export async function assertMoveKeepsOutOfStandards(
+  session: AuthorizedSession,
+  documentId: string,
+  folderId: string | null,
+): Promise<void> {
+  if (!folderId) return
+  const hidden = await officeShelfHiddenFolderIds(session)
+  if (!inTree(hidden, folderId)) return
+  const document = await findOfficeShelfDocument(documentId, session.organizationId, await officeShelfReader(session))
+  if (!document || inTree(hidden, document.folderId)) return
+  throw new UnprocessableError(
+    `A file comes under ${STANDARDS_FOLDER_NAME} only as a norm: take it with base-knowledge-propose or the norm dialog, which files it there.`,
+  )
 }
 
 export async function uploadOfficeShelfDocument(
@@ -109,15 +162,16 @@ export async function uploadOfficeShelfDocument(
   file: File,
   request: Request,
   {
-    folderId = null,
+    folderId: requested = null,
+    forStandards = false,
     originPath = null,
     screeningRelease,
     uploadBatchId,
     revisionOf,
     beforeDispatch,
-  }: Omit<ShelfUploadInput, 'file' | 'folderId'> & { folderId?: string | null } = {},
+  }: OfficeShelfUploadInput = {},
 ): Promise<UploadOfficeShelfDocumentResult> {
-  await assertNameFreeOfStandards(session, file, folderId)
+  const folderId = await standardsAwareFolder(session, file, { folderId: requested, revisionOf, forStandards })
   const uploaded = await uploadToShelf(
     session,
     OFFICE_SHELF,

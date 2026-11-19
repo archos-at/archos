@@ -10,6 +10,7 @@ export {
   refreshOpenInboxGroup,
   resolveInboxItemsAnchoredOn,
   resolveInboxItemsFor,
+  resolveInboxItemsOfType,
   retractInboxOccurrenceAnchoredOn,
   rewriteInboxPayloadsAnchoredOn,
 } from './inbox-resolution'

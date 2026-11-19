@@ -28,9 +28,10 @@ export const POST = apiRoute(
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
     }
+    const forStandards = formData.get('forStandards') === 'true' ? { forStandards: true } : {}
     return shelf.kind === 'project'
       ? uploadDocument(session, { projectId: shelf.projectId, file, ...input }, request)
-      : uploadOfficeShelfDocument(session, file, request, input)
+      : uploadOfficeShelfDocument(session, file, request, { ...input, ...forStandards })
   },
   {
     authz: {

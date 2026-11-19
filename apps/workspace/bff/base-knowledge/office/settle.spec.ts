@@ -15,6 +15,8 @@ vi.mock('./service', () => ({
   confirmBaseKnowledge: vi.fn(),
   dropBaseKnowledgeRecords: vi.fn(),
   getBaseKnowledgeEntry: vi.fn(async () => ({ folderId: 'topic-barrierefrei' })),
+  reviseProposal: vi.fn(),
+  unlistBaseKnowledge: vi.fn(),
 }))
 
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
@@ -23,7 +25,7 @@ import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import type { BaseKnowledgeEntry } from '../wire'
 import { readOfficeEntries, type StoredEntry } from '../store/repository'
 import { moveEntry, removeEntry } from './bulk'
-import { confirmBaseKnowledge, dropBaseKnowledgeRecords, storedEntryOf } from './service'
+import { confirmBaseKnowledge, dropBaseKnowledgeRecords, reviseProposal, storedEntryOf, unlistBaseKnowledge } from './service'
 import { settleProposals } from './settle'
 
 const MANAGER: AuthorizedSession = {
@@ -78,7 +80,9 @@ const PROPOSALS = new Map<string, StoredEntry>([
   ['edition_noed', stored('noed', {}, { editionLabel: 'unbekannt', issuedOn: null })],
   ['edition_plan', stored('plan')],
   ['edition_b1600', HELD],
+  ['edition_newnoed', stored('newnoed', { workId: 'work_b1600' }, { designation: 'ÖNORM B 1600', editionLabel: 'unbekannt', issuedOn: null })],
 ])
+const FOLDER_OF = new Map<string, string | null>([['edition_noed', null], ['edition_plan', 'folder-root']])
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -86,7 +90,7 @@ beforeEach(() => {
   vi.mocked(storedEntryOf).mockImplementation(async (_session, entryId) => {
     const found = PROPOSALS.get(entryId)
     if (!found) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
-    return { stored: found, entry: {} as BaseKnowledgeEntry }
+    return { stored: found, entry: { folderId: FOLDER_OF.get(entryId) ?? null } as BaseKnowledgeEntry }
   })
 })
 
@@ -119,27 +123,79 @@ describe('settling the norm dialog', () => {
       ['edition_plan', 'not_norm'],
       ['edition_gone', 'failed'],
     ])
-    expect(confirmBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition_norm', {
-      editionLabel: '2020-03-15',
-      issuedOn: '2020-03-15',
-      kind: 'guideline',
-      designation: 'ÖNORM B 8110-3',
-    })
-    expect(confirmBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition_new', { editionLabel: '2023-02-01', issuedOn: '2023-02-01' })
+    expect(confirmBaseKnowledge).toHaveBeenCalledWith(
+      MANAGER,
+      'edition_norm',
+      { editionLabel: '2020-03-15', issuedOn: '2020-03-15', kind: 'guideline', designation: 'ÖNORM B 8110-3' },
+      { licenceStep: false },
+    )
+    expect(confirmBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition_new', { editionLabel: '2023-02-01', issuedOn: '2023-02-01' }, { licenceStep: false })
     expect(confirmBaseKnowledge).toHaveBeenCalledTimes(2)
     expect(vi.mocked(moveEntry).mock.calls.map(([, entryId, folderId]) => [entryId, folderId])).toEqual([
       ['edition_norm', 'topic-waerme'],
       ['edition_new', 'topic-barrierefrei'],
     ])
     expect(removeEntry).toHaveBeenCalledWith(MANAGER, 'edition_dup', request)
-    expect(dropBaseKnowledgeRecords).toHaveBeenCalledWith(MANAGER, PROPOSALS.get('edition_plan'))
-    expect(dropBaseKnowledgeRecords).toHaveBeenCalledTimes(1)
+    expect(unlistBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition_plan')
+    expect(dropBaseKnowledgeRecords).not.toHaveBeenCalled()
+  })
+
+  it('drops a plain file’s records where it lies when it lies outside the norms', async () => {
+    const { results } = await settleProposals(MANAGER, { rows: [{ entryId: 'edition_noed', notNorm: true }] }, request)
+
+    expect(results[0].outcome).toBe('not_norm')
+    expect(dropBaseKnowledgeRecords).toHaveBeenCalledWith(MANAGER, PROPOSALS.get('edition_noed'))
+    expect(unlistBaseKnowledge).not.toHaveBeenCalled()
+  })
+
+  it('keeps the edits of a row without an edition on its proposal, so the dialog opens again with them', async () => {
+    const { results } = await settleProposals(
+      MANAGER,
+      { rows: [{ entryId: 'edition_noed', kind: 'guideline', designation: 'ÖNORM B 8110-5', editionLabel: '', topicId: 'topic-waerme' }] },
+      request,
+    )
+
+    expect(results[0].outcome).toBe('edition_missing')
+    expect(reviseProposal).toHaveBeenCalledWith(MANAGER, 'edition_noed', {
+      kind: 'guideline',
+      designation: 'ÖNORM B 8110-5',
+      editionLabel: 'unbekannt',
+      issuedOn: null,
+    })
+    expect(moveEntry).toHaveBeenCalledWith(MANAGER, 'edition_noed', 'topic-waerme')
+    expect(confirmBaseKnowledge).not.toHaveBeenCalled()
+  })
+
+  it('leaves a row without an edition and without a topic where it lies', async () => {
+    await settleProposals(MANAGER, { rows: [{ entryId: 'edition_noed', kind: 'guideline', topicId: null }] }, request)
+
+    expect(reviseProposal).toHaveBeenCalledWith(MANAGER, 'edition_noed', { kind: 'guideline', designation: undefined })
+    expect(moveEntry).not.toHaveBeenCalled()
+  })
+
+  it('keeps a new edition without an edition label in its work: no kind, designation or topic of its own', async () => {
+    await settleProposals(MANAGER, { rows: [{ entryId: 'edition_newnoed', kind: 'guideline', designation: 'X', topicId: 'topic-waerme' }] }, request)
+
+    expect(reviseProposal).toHaveBeenCalledWith(MANAGER, 'edition_newnoed', {})
+    expect(moveEntry).not.toHaveBeenCalled()
+  })
+
+  it('records a new edition of a licensed work without asking for the licence statement while the step is off', async () => {
+    PROPOSALS.set('edition_licensed', stored('licensed', { workId: 'work_b1600' }, { designation: 'ÖNORM B 1600', editionLabel: '2023-02-01', licenceClass: 'licensed' }))
+    try {
+      const { results } = await settleProposals(MANAGER, { rows: [{ entryId: 'edition_licensed', editionLabel: '2023-02-01' }] }, request)
+
+      expect(results[0]).toEqual({ entryId: 'edition_licensed', outcome: 'edition_added', error: null })
+      expect(confirmBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition_licensed', expect.anything(), { licenceStep: false })
+    } finally {
+      PROPOSALS.delete('edition_licensed')
+    }
   })
 
   it('files a row without a topic at the base-knowledge root, and keeps the read edition when none is sent', async () => {
     await settleProposals(MANAGER, { rows: [{ entryId: 'edition_norm' }] }, request)
 
-    expect(confirmBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition_norm', expect.objectContaining({ editionLabel: '2020-03-15' }))
+    expect(confirmBaseKnowledge).toHaveBeenCalledWith(MANAGER, 'edition_norm', expect.objectContaining({ editionLabel: '2020-03-15' }), { licenceStep: false })
     expect(moveEntry).toHaveBeenCalledWith(MANAGER, 'edition_norm', 'folder-root')
   })
 

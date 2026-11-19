@@ -33,6 +33,7 @@ import {
   markInboxItemsRead,
   markResourceItemsRead,
   resolveOpenItemsAnchoredOn,
+  resolveOpenItemsOfType,
   markItemsInertAnchoredOn,
   upsertInboxItem,
   upsertInboxItems,
@@ -414,5 +415,28 @@ describe('listTouchedOfType — the rows a burst is made of', () => {
     expect(sql).toContain('"inbox_items"."updated_at" <= $')
     expect(sql).toMatch(/order by "inbox_items"."updated_at" desc limit \$\d+/)
     expect(params).toEqual(expect.arrayContaining(['org_1', 'user_me', 'annotation.assigned_to_you', 51]))
+  })
+})
+
+describe('resolveOpenItemsOfType', () => {
+  beforeEach(() => {
+    captured.length = 0
+  })
+
+  it('resolves every open item of the named types in one organization, whatever its anchor', async () => {
+    await resolveOpenItemsOfType({ organizationId: 'org_1', types: ['base_knowledge.new_edition'] })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toMatch(/^update "inbox_items" set "resolved_at" = /)
+    expect(sql).toContain('"organization_id" = $')
+    expect(sql).toContain('"type" in ($')
+    expect(sql).toContain('"resolved_at" is null')
+    expect(sql).not.toContain('"anchor_id"')
+    expect(params).toEqual(expect.arrayContaining(['org_1', 'base_knowledge.new_edition']))
+  })
+
+  it('touches nothing for an empty type list', async () => {
+    expect(await resolveOpenItemsOfType({ organizationId: 'org_1', types: [] })).toEqual([])
+    expect(captured).toHaveLength(0)
   })
 })
