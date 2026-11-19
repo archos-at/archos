@@ -2,7 +2,7 @@ import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { folderTree, isUnderOwnList, type FolderTree } from '@/lib/authz/folder-access-rule'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
-import { listOfficeShelfFolders } from '@/lib/office-shelf/folder-service'
+import { hiddenOfficeShelfFolderIds, listOfficeShelfFolders } from '@/lib/office-shelf/folder-service'
 import type { Document } from '@/lib/db/schema/documents'
 import type { UploadBatch } from '@/lib/db/schema/upload-batches'
 import { hasPassedScreening, memberReader, SCREENED_ONLY } from '@/lib/documents/document-reader'
@@ -60,10 +60,12 @@ export async function shelfFolders(session: AuthorizedSession, shelf: DocumentSh
       : Promise.resolve<FolderTree>(new Map()),
   ])
   const paths = new Map(rows.map((row) => [row.id, row.path]))
+  const hiddenIds = new Set(shelf.kind === 'project' ? [] : hiddenOfficeShelfFolderIds(session, rows))
   return {
     rows,
     pathOf: (folderId) => (folderId ? (paths.get(folderId) ?? '') : ''),
-    isRestricted: (folderId) => folderId !== null && (!paths.has(folderId) || isUnderOwnList(tree, folderId)),
+    isRestricted: (folderId) =>
+      folderId !== null && (!paths.has(folderId) || isUnderOwnList(tree, folderId) || hiddenIds.has(folderId)),
   }
 }
 

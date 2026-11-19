@@ -2,14 +2,16 @@ import 'server-only'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { recordAuditEvent } from '@/lib/audit/service'
 import { getBackendUrl } from '@/lib/backend-proxy'
-import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { collectionFileRef, purgeIngestedChunks } from '@/lib/documents/collection-file-ref'
 import { OFFICE_SHELF } from '@/lib/documents/shelf'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { toListedDocuments, toListedLevelPage, type ListedDocument } from '@/lib/documents/shelf-listing'
 import { uploadToShelf, type ShelfUploadInput, type UploadDocumentResult } from '@/lib/documents/shelf-upload'
 import type { DocumentLevelQuery } from '@/lib/documents/list-query'
-import type { DocumentNameMatchRow } from '@/lib/documents/repository'
+import { findLiveDocumentByFilename, type DocumentNameMatchRow } from '@/lib/documents/repository'
+import { documentNameKey } from '@/lib/documents/name-match'
+import { NAME_TAKEN_DETAILS } from '@/lib/documents/name-taken'
 import { revisionCandidatesOnShelf } from '@/lib/documents/revision-candidates'
 import type { RevisionCandidateMatch } from '@/lib/documents/name-probe-types'
 import { eraseDocumentObjectsOrKeepRow } from '@/lib/documents/object-cleanup'
@@ -19,6 +21,8 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import type { ShelfReader } from '@/lib/documents/document-reader'
 import { officeShelfCollectionName } from './collection'
+import { officeShelfHiddenFolderIds } from './folder-service'
+import { STANDARDS_FOLDER_NAME } from './standards-folder'
 import {
   deleteOfficeShelfDocument as deleteOfficeShelfDocumentRow,
   findOfficeShelfDocument,
@@ -42,10 +46,16 @@ function officeShelfReader(session: AuthorizedSession): Promise<ShelfReader> {
 
 export async function listOfficeShelf(
   session: AuthorizedSession,
-  options: { authoredBy?: DocumentAuthor; includeArchived?: boolean; level: DocumentLevelQuery },
+  {
+    includeStandards = false,
+    ...options
+  }: { authoredBy?: DocumentAuthor; includeArchived?: boolean; includeStandards?: boolean; level: DocumentLevelQuery },
 ): Promise<OfficeShelfListResult> {
-  const reader = await officeShelfReader(session)
-  const page = await listOfficeShelfDocumentLevel(session.organizationId, { ...options, reader })
+  const [reader, hiddenFolderIds] = await Promise.all([
+    officeShelfReader(session),
+    includeStandards ? [] : officeShelfHiddenFolderIds(session),
+  ])
+  const page = await listOfficeShelfDocumentLevel(session.organizationId, { ...options, hiddenFolderIds, reader })
   return {
     ...(await toListedLevelPage(session, page, reader)),
     collectionName: officeShelfCollectionName(session.organizationId),
@@ -66,19 +76,34 @@ export async function probeOfficeShelfDocumentNames(
   session: AuthorizedSession,
   names: readonly string[],
 ): Promise<DocumentNameMatchRow[]> {
-  return findOfficeShelfDocumentsByNames(session.organizationId, names, { reader: await officeShelfReader(session) })
+  const [reader, hiddenFolderIds] = await Promise.all([officeShelfReader(session), officeShelfHiddenFolderIds(session)])
+  return findOfficeShelfDocumentsByNames(session.organizationId, names, { hiddenFolderIds, reader })
 }
 
 export async function probeOfficeShelfRevisionCandidates(
   session: AuthorizedSession,
   names: readonly string[],
 ): Promise<RevisionCandidateMatch[]> {
-  return revisionCandidatesOnShelf(OFFICE_SHELF, session.organizationId, names, { reader: await officeShelfReader(session) })
+  const [reader, hiddenFolderIds] = await Promise.all([officeShelfReader(session), officeShelfHiddenFolderIds(session)])
+  return revisionCandidatesOnShelf(OFFICE_SHELF, session.organizationId, names, { hiddenFolderIds, reader })
 }
 
 export type UploadOfficeShelfDocumentResult = UploadDocumentResult
 
-export function uploadOfficeShelfDocument(
+async function assertNameFreeOfStandards(session: AuthorizedSession, file: File, folderId: string | null): Promise<void> {
+  const hidden = await officeShelfHiddenFolderIds(session)
+  if (hidden.length === 0 || (folderId !== null && hidden.includes(folderId))) return
+  const filename = documentNameKey(file.name)
+  const holder = await findLiveDocumentByFilename(session.organizationId, officeShelfCollectionName(session.organizationId), filename)
+  if (holder?.folderId && hidden.includes(holder.folderId)) {
+    throw new ConflictError(
+      `A document named "${filename}" is already filed under ${STANDARDS_FOLDER_NAME}. Rename the file to upload it here.`,
+      NAME_TAKEN_DETAILS,
+    )
+  }
+}
+
+export async function uploadOfficeShelfDocument(
   session: AuthorizedSession,
   file: File,
   request: Request,
@@ -91,6 +116,7 @@ export function uploadOfficeShelfDocument(
     beforeDispatch,
   }: Omit<ShelfUploadInput, 'file' | 'folderId'> & { folderId?: string | null } = {},
 ): Promise<UploadOfficeShelfDocumentResult> {
+  await assertNameFreeOfStandards(session, file, folderId)
   return uploadToShelf(
     session,
     OFFICE_SHELF,

@@ -177,6 +177,44 @@ describe.skipIf(!url)('document listing pages against Postgres', () => {
     expect(rows.map((row) => row.filename)).toEqual([oldest])
   })
 
+  it('leaves a hidden office shelf folder out of every read of the Ordner: the listing, a folder asked for by id, a search, the tally and the name probe', async () => {
+    const filed = 'norm-2.pdf'
+    const [standards] = Array.from(
+      await inTenant(() =>
+        db.execute<{ id: string }>(sql`
+          INSERT INTO project_folders (organization_id, project_id, scope, name, path)
+          VALUES (${ORG}, NULL, 'office_shelf', 'Grundlagen des Büros', 'Grundlagen des Büros')
+          RETURNING id
+        `),
+      ),
+    )
+    const hidden = String(standards.id)
+    const fileIn = (folderId: string | null): Promise<unknown> =>
+      inTenant(() => db.execute(sql`UPDATE documents SET folder_id = ${folderId}::uuid WHERE organization_id = ${ORG} AND filename = ${filed}`))
+    await fileIn(hidden)
+    try {
+      const filters = { hiddenFolderIds: [hidden], reader: REVIEWER_READER }
+      const level = { sort: 'added', dir: 'desc', limit: 100 } as const
+      const names = (rows: Array<{ filename: string }>) => rows.map((row) => row.filename)
+      const read = (query: Partial<import('./list-query').DocumentLevelQuery>) =>
+        inTenant(() => officeShelf.listOfficeShelfDocumentLevel(ORG, { ...filters, level: { ...level, ...query } }))
+
+      expect(names((await read({})).rows)).toHaveLength(CREATED_AT.length - 1)
+      expect(names((await read({})).rows)).not.toContain(filed)
+      expect((await read({ folderId: hidden })).rows).toEqual([])
+      expect((await read({ q: 'norm-2' })).rows).toEqual([])
+      expect(names((await inTenant(() => officeShelf.listOfficeShelfDocumentLevel(ORG, { reader: REVIEWER_READER, level: { ...level, folderId: hidden } }))).rows)).toEqual([filed])
+
+      const tally = await inTenant(() => repo.summarizeShelfFolders({ kind: 'office_shelf' }, ORG, filters))
+      expect(tally.find((row) => row.folderId === hidden)).toBeUndefined()
+      expect(tally.reduce((sum, row) => sum + row.total, 0)).toBe(CREATED_AT.length - 1)
+      expect(await inTenant(() => officeShelf.findOfficeShelfDocumentsByNames(ORG, [filed], filters))).toEqual([])
+    } finally {
+      await fileIn(null)
+      await inTenant(() => db.execute(sql`DELETE FROM project_folders WHERE id = ${hidden}::uuid`))
+    }
+  })
+
   it('probes names the way the upload matches them', async () => {
     const decomposed = 'Übersicht.pdf'.normalize('NFD')
     await inTenant(async () => {

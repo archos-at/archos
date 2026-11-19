@@ -15,6 +15,8 @@ vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn() }))
 vi.mock('@/lib/office-shelf/collection', () => ({ officeShelfCollectionName: () => 'office_org_1' }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/conversations/restricted-use-repository', () => ({ readConversationAudience: vi.fn() }))
+vi.mock('@/lib/organizations/time-zone', () => ({ officeTimeZone: vi.fn().mockResolvedValue('Europe/Vienna') }))
+vi.mock('@/lib/office-shelf/folder-service', () => ({ officeShelfHiddenFolderIds: vi.fn().mockResolvedValue(['f-standards', 'f-fire']) }))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { audienceReach } from '@/lib/cross-project/audience-reach'
@@ -22,8 +24,9 @@ import { readConversationAudience } from '@/lib/conversations/restricted-use-rep
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import type { Project } from '@/lib/db/schema/projects'
-import { BadRequestError } from '@/lib/api/errors'
-import { reachForAudience, reachReader, resolveScope } from './reach'
+import { BadRequestError, NotFoundError } from '@/lib/api/errors'
+import { listProjects } from '@/lib/projects/service'
+import { reachFor, reachForAudience, reachHiddenFolderIds, reachReader, resolveScope } from './reach'
 
 const session = { organizationId: 'org_1', userId: 'user_1' } as AuthorizedSession
 const project = { id: 'p1', name: 'Hubergasse', collectionName: 'proj_a' } as Project
@@ -84,5 +87,26 @@ describe('resolveScope', () => {
   it('refuses a folder without its shelf, and a project scope without a project', () => {
     expect(() => resolveScope({ folderId: 'f1' })).toThrow(BadRequestError)
     expect(() => resolveScope({ scope: 'project' })).toThrow(BadRequestError)
+  })
+})
+
+describe('reachFor the office shelf, as the Ordner searches all its folders', () => {
+  it('leaves out the folders the Ordner hides, the standards tree once the office keeps its own standards', async () => {
+    const reach = await reachFor(session, { kind: 'office_shelf' })
+
+    expect(reach.officeShelf).toMatchObject({ collection: 'office_org_1', hiddenFolderIds: ['f-standards', 'f-fire'] })
+    expect(reachHiddenFolderIds(reach)).toEqual(['f-standards', 'f-fire'])
+  })
+
+  it('finds no folder of the standards tree to search inside', async () => {
+    await expect(reachFor(session, { kind: 'office_shelf', folderId: 'f-fire' })).rejects.toBeInstanceOf(NotFoundError)
+  })
+
+  it('keeps the standards in a search of the whole office', async () => {
+    vi.mocked(listProjects).mockResolvedValue([])
+
+    const reach = await reachFor(session, { kind: 'office' })
+
+    expect(reachHiddenFolderIds(reach)).toEqual([])
   })
 })

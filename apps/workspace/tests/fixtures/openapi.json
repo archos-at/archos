@@ -5328,6 +5328,16 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          {
+            "name": "includeStandards",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Office shelf: also list the standards folder’s documents, else left to base-knowledge-list.",
+              "const": "true"
+            },
+            "description": "Office shelf: also list the standards folder’s documents, else left to base-knowledge-list."
           }
         ],
         "responses": {

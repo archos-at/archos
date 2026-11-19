@@ -13,7 +13,7 @@ import { nameContains, readFamilyWhere } from '@/lib/documents/repository'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 import { likeContains } from '@/lib/text/like-pattern'
 import { factToken } from './facets'
-import { reachReader, type SearchReach } from './reach'
+import { reachHiddenFolderIds, reachReader, type SearchReach } from './reach'
 import type { DocumentFilters, SearchSort } from './search-wire'
 
 const f = documentSearchFacets
@@ -50,7 +50,7 @@ const contentKeyOf = sql`(${documents.collectionName} || chr(31) || ${documents.
 
 export function reachWhere(reach: SearchReach, includeArchived: boolean): SQL | undefined {
   const projectIds = reach.projects.map((reached) => reached.project.id)
-  const hidden = reach.projects.flatMap((reached) => reached.hiddenFolderIds)
+  const hidden = reachHiddenFolderIds(reach)
   const shelves = or(
     projectIds.length > 0 ? and(eq(documents.scope, 'project'), inArray(documents.projectId, projectIds)) : undefined,
     reach.officeShelf ? eq(documents.scope, 'office_shelf') : undefined

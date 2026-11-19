@@ -1,5 +1,6 @@
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
+import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 import { OFFICE_SHELF } from '@/lib/documents/shelf'
 import {
   createShelfFolder,
@@ -8,8 +9,9 @@ import {
   findShelfFolder,
   listShelfFolders,
   updateShelfFolder,
+  type ShelfFolderVisibility,
 } from '@/lib/documents/shelf-folders'
-import { isStandardsRoot, STANDARDS_ROOT_FIXED } from './standards-folder'
+import { isStandardsRoot, isUnderStandardsRoot, STANDARDS_ROOT_FIXED } from './standards-folder'
 
 async function isFixedFolder(session: AuthorizedSession, folderId: string): Promise<boolean> {
   const folder = await findShelfFolder(OFFICE_SHELF, session.organizationId, folderId)
@@ -18,6 +20,19 @@ async function isFixedFolder(session: AuthorizedSession, folderId: string): Prom
 
 export function listOfficeShelfFolders(session: AuthorizedSession) {
   return listShelfFolders(session, OFFICE_SHELF)
+}
+
+export function hiddenOfficeShelfFolderIds(
+  session: AuthorizedSession,
+  folders: ReadonlyArray<{ id: string; path: string }>,
+): string[] {
+  if (!isOfficeStandardsEnabled(session)) return []
+  return folders.filter((folder) => isUnderStandardsRoot(folder.path)).map((folder) => folder.id)
+}
+
+export async function officeShelfHiddenFolderIds(session: AuthorizedSession): Promise<string[]> {
+  if (!isOfficeStandardsEnabled(session)) return []
+  return hiddenOfficeShelfFolderIds(session, await listOfficeShelfFolders(session))
 }
 
 export function createOfficeShelfFolder(
@@ -41,9 +56,15 @@ export async function deleteOfficeShelfFolder(session: AuthorizedSession, folder
   return deleteShelfFolder(session, OFFICE_SHELF, folderId)
 }
 
-export function ensureOfficeShelfFolderPaths(
+export async function ensureOfficeShelfFolderPaths(
   session: AuthorizedSession,
   input: { parentId: string | null; paths: readonly string[] },
 ) {
-  return ensureShelfFolderPaths(session, OFFICE_SHELF, input)
+  const hidden = new Set(await officeShelfHiddenFolderIds(session))
+  const outsideStandards: ShelfFolderVisibility = {
+    isVisible: (folderId) => !hidden.has(folderId),
+    assertMayCreateIn: () => undefined,
+    recheckVisible: async (folderId) => !hidden.has(folderId),
+  }
+  return ensureShelfFolderPaths(session, OFFICE_SHELF, input, hidden.size === 0 ? undefined : outsideStandards)
 }

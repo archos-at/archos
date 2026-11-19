@@ -5,7 +5,7 @@
  * the model, and what becomes a proposal. The rules over the moves themselves
  * are `./plan.spec.ts`; the model's answer, `./judge.spec.ts`.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Document } from '@/lib/db/schema/documents'
 import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatch } from '@/lib/db/schema/upload-batches'
@@ -17,7 +17,10 @@ vi.mock('@/lib/upload-batches/repository', () => ({ findUploadBatch: vi.fn(), li
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn(), listProjectsInOrg: vi.fn() }))
 vi.mock('@/lib/projects/service', () => ({ projectsHolding: vi.fn() }))
 vi.mock('@/lib/projects/folder-service', () => ({ listProjectFolders: vi.fn() }))
-vi.mock('@/lib/office-shelf/folder-service', () => ({ listOfficeShelfFolders: vi.fn() }))
+vi.mock('@/lib/office-shelf/folder-service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/office-shelf/folder-service')>()),
+  listOfficeShelfFolders: vi.fn(),
+}))
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn() }))
 vi.mock('@/lib/documents/reconcile-status', () => ({ reconcileDocumentStatuses: vi.fn() }))
 vi.mock('@/lib/proposals/service', () => ({
@@ -249,6 +252,45 @@ describe('reviewUploadFiling', () => {
         }),
       })
     )
+  })
+
+  describe('on the office shelf once the office keeps its own standards (office-standards on)', () => {
+    const standardsOn: AuthorizedSession = { ...SESSION, featureFlags: ['office-standards'] }
+
+    beforeEach(() => {
+      vi.stubEnv('REQUIRE_AUTH', 'true')
+      vi.mocked(findUploadBatch).mockResolvedValue(batch({ scope: 'office_shelf', projectId: null }))
+      vi.mocked(listOfficeShelfFolders).mockResolvedValue([
+        { ...FOLDERS[0], projectId: null },
+        { ...folder('f-standards', 'Grundlagen des Büros'), projectId: null },
+        { ...folder('f-fire', 'Grundlagen des Büros/Brandschutz'), projectId: null },
+      ])
+    })
+    afterEach(() => vi.unstubAllEnvs())
+
+    it('never offers a folder of the standards tree to the judge', async () => {
+      await reviewUploadFiling(standardsOn, 'batch-1', 'name')
+      expect(judgedInput().folders.map((entry) => entry.path)).toEqual(['Bescheide'])
+    })
+
+    it('proposes no move of an Ordner upload into the standards tree', async () => {
+      vi.mocked(judgeFiling).mockResolvedValue({
+        moves: [{ documentId: 'd1', folder: 'Grundlagen des Büros/Brandschutz', reason: 'Eine Richtlinie.', newFolder: null, confidence: null }],
+        traceId: 'trace-1',
+        error: null,
+      })
+      expect(await reviewUploadFiling(standardsOn, 'batch-1', 'name')).toMatchObject({ status: 'judged', proposed: 0 })
+      expect(createProposal).not.toHaveBeenCalled()
+    })
+
+    it('offers the standards tree like any folder while the office has no standards of its own', async () => {
+      await reviewUploadFiling(SESSION, 'batch-1', 'name')
+      expect(judgedInput().folders.map((entry) => entry.path)).toEqual([
+        'Bescheide',
+        'Grundlagen des Büros',
+        'Grundlagen des Büros/Brandschutz',
+      ])
+    })
   })
 
   it('learns the Austrian default when the office has no other project, minus what the project has', async () => {

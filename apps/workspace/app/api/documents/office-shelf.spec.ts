@@ -109,6 +109,7 @@ describe('GET /api/documents?scope=office_shelf', () => {
     expect(listOfficeShelf).toHaveBeenCalledWith(expect.anything(), {
       authoredBy: undefined,
       includeArchived: false,
+      includeStandards: false,
       level: { folderId: undefined, sort: 'added', dir: 'desc', limit: 100 },
     })
   })
@@ -127,6 +128,13 @@ describe('GET /api/documents?scope=office_shelf', () => {
 
     expect(response.status).toBe(400)
     expect(listOfficeShelf).not.toHaveBeenCalled()
+  })
+
+  it('lists the standards tree too only for a reader that asks for it with ?includeStandards=true', async () => {
+    await get('?includeStandards=true')
+
+    expect(listOfficeShelf).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ includeStandards: true }))
+    expect((await get('?includeStandards=1')).status).toBe(400)
   })
 
   it('refuses includeArchived with any value but true', async () => {
