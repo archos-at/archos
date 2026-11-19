@@ -17,14 +17,14 @@ async function runOne(entryId: string, action: () => Promise<unknown>): Promise<
   }
 }
 
-async function moveEntry(session: AuthorizedSession, entryId: string, folderId: string): Promise<void> {
+export async function moveEntry(session: AuthorizedSession, entryId: string, folderId: string): Promise<void> {
   const entry = await getBaseKnowledgeEntry(session, entryId)
   if (entry.folderId === folderId) return
   const moved = await moveDocumentToFolder({ documentId: entry.documentId, folderId }, session)
   if (!moved.ok) throw new UnprocessableError(moved.error)
 }
 
-async function removeEntry(session: AuthorizedSession, entryId: string, request: Request): Promise<void> {
+export async function removeEntry(session: AuthorizedSession, entryId: string, request: Request): Promise<void> {
   const removal = await removeBaseKnowledge(session, entryId, request)
   if (removal.removed) return
   const left = Object.entries(removal.stores).flatMap(([store, state]) => (state === 'removed' || state === 'none' ? [] : [store]))

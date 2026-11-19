@@ -407,6 +407,14 @@ export async function documentHasEntry(organizationId: string, documentId: strin
   return rows.length > 0
 }
 
+export async function deleteDocumentEntry(organizationId: string, documentId: string): Promise<void> {
+  await withTenant({ organizationId }, () =>
+    getDb()
+      .delete(knowledgeRecords)
+      .where(and(eq(knowledgeRecords.organizationId, organizationId), eq(knowledgeRecords.documentId, documentId)))
+  )
+}
+
 export async function documentsWithEntries(organizationId: string, documentIds: readonly string[]): Promise<string[]> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()

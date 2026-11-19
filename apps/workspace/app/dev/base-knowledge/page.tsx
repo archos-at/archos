@@ -14,7 +14,7 @@ import {
   subtreeOf,
 } from '@/lib/base-knowledge/office/listing'
 import type { BaseKnowledgeEntry, BaseKnowledgeList, ListEntriesQuery } from '@/lib/base-knowledge/wire'
-import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '../_fixtures/base-knowledge'
+import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES, NORM_RECOGNITION } from '../_fixtures/base-knowledge'
 import { buildPdf, type PdfLine } from '../_fixtures/sample-pdf'
 
 function list(url: URL, variant: string | null): BaseKnowledgeList {
@@ -58,6 +58,17 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
       if (url.pathname === '/api/base-knowledge' && (init?.method ?? 'GET') === 'GET')
         return Response.json(list(url, variant))
+      if (url.pathname === '/api/base-knowledge/recognize') return Response.json(NORM_RECOGNITION)
+      if (url.pathname === '/api/base-knowledge/settle') {
+        const { rows } = JSON.parse(String(init?.body)) as { rows: { entryId: string; notNorm?: boolean; editionLabel?: string | null }[] }
+        return Response.json({
+          results: rows.map((row) => ({
+            entryId: row.entryId,
+            outcome: row.notNorm ? 'not_norm' : row.editionLabel ? 'confirmed' : 'edition_missing',
+            error: null,
+          })),
+        })
+      }
       if (url.pathname === '/api/base-knowledge/upload' || (url.pathname === '/api/base-knowledge' && init?.method === 'POST')) {
         const proposals = BASE_KNOWLEDGE_ENTRIES.filter((candidate) => candidate.status === 'proposed')
         const proposal = { ...proposals[added.length % proposals.length], id: `added-${added.length + 1}` }
@@ -111,6 +122,7 @@ function Preview(): JSX.Element {
     >
       <BaseKnowledgeWorkspace
         key={variant ?? 'default'}
+        uploadCollection="archiv_preview"
         place={{ title: 'Büroablage', crumb: 'Atelier Nord', places: <OfficeShelfPlaces pathname={OFFICE_SHELF_NORMS_HREF} /> }}
       />
     </main>

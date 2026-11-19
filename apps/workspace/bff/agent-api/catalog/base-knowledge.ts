@@ -8,7 +8,9 @@ import {
   entryParamsSchema,
   listEntriesQuerySchema,
   proposeEntryBodySchema,
+  recognizeBodySchema,
   recordCheckBodySchema,
+  settleProposalsBodySchema,
   updateEntryBodySchema,
 } from '@/lib/base-knowledge/wire'
 import { classificationEvaluateRequestSchema } from '@/lib/project-intake/classification-wire'
@@ -87,6 +89,48 @@ export const baseKnowledgeOperations = [
     body: uploadBodySchemaWith({}),
     bodyEncoding: 'multipart',
     load: () => import('@/app/api/base-knowledge/[entryId]/editions/route'),
+  },
+  {
+    name: 'base-knowledge-recognize',
+    domain: 'knowledge',
+    summary: 'Recognise which office shelf documents are norms',
+    description:
+      'Reads each document’s name: a norm becomes a proposal, its text withheld until settled; a match of a ' +
+      'confirmed work is a new edition (`editionOf`), or `duplicate` when held. ' +
+      'Others stay where they lie (`plain`); `asNorm` proposes them anyway. ' +
+      'Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/recognize',
+    body: recognizeBodySchema,
+    idempotent: true,
+    load: () => import('@/app/api/base-knowledge/recognize/route'),
+  },
+  {
+    name: 'base-knowledge-settle',
+    domain: 'knowledge',
+    summary: 'Confirm or drop the proposals of base-knowledge-recognize',
+    description:
+      'Per proposal: confirm into its topic folder (`topicId`; a new edition goes to its work’s folder), delete a ' +
+      'duplicate, or `notNorm` to leave an ordinary file where it lies; without an edition it stays proposed. ' +
+      'Answers one outcome per row. Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/settle',
+    body: settleProposalsBodySchema,
+    personDecides: true,
+    destructive: true,
+    load: () => import('@/app/api/base-knowledge/settle/route'),
+  },
+  {
+    name: 'base-knowledge-unlist',
+    domain: 'knowledge',
+    summary: 'Take a document off the base knowledge and keep its file',
+    description:
+      'Removes the entry; the document stays as an ordinary file at the top of the office shelf. ' +
+      'Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/[entryId]/unlist',
+    params: entryParamsSchema,
+    load: () => import('@/app/api/base-knowledge/[entryId]/unlist/route'),
   },
   {
     name: 'base-knowledge-folder-list',

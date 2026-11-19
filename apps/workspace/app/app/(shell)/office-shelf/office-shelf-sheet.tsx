@@ -9,6 +9,7 @@ import { PageSheetClose } from '@/components/ui/page-sheet'
 import { RoutePageSheet } from '@/components/shell/route-page-sheet'
 import { OfficeShelfWorkspace } from '@/features/documents/components/office-shelf-workspace'
 import { OfficeShelfPlaces } from '@/features/documents'
+import { OfficeShelfWithNorms } from '@/features/base-knowledge'
 
 export async function OfficeShelfSheet({ standalone }: { standalone: boolean }): Promise<JSX.Element> {
   return withPageSession(async (session) => {
@@ -25,13 +26,22 @@ export async function OfficeShelfSheet({ standalone }: { standalone: boolean }):
         headerless
         standalone={standalone}
       >
-        <OfficeShelfWorkspace
-          canManage={canManage}
-          showModels={showModels}
-          organizationName={session.organizationName}
-          places={isOfficeStandardsEnabled(session) ? <OfficeShelfPlaces /> : undefined}
-          trailingActions={<PageSheetClose label={tCommon('actions.close')} />}
-        />
+        {isOfficeStandardsEnabled(session) ? (
+          <OfficeShelfWithNorms
+            canManage={canManage}
+            showModels={showModels}
+            organizationName={session.organizationName}
+            places={<OfficeShelfPlaces />}
+            trailingActions={<PageSheetClose label={tCommon('actions.close')} />}
+          />
+        ) : (
+          <OfficeShelfWorkspace
+            canManage={canManage}
+            showModels={showModels}
+            organizationName={session.organizationName}
+            trailingActions={<PageSheetClose label={tCommon('actions.close')} />}
+          />
+        )}
       </RoutePageSheet>
     )
   })

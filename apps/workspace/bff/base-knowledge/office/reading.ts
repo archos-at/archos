@@ -1,6 +1,6 @@
 import type { LicenceClass } from '@/lib/db/schema/knowledge-records'
 import type { OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
-import { ASK_FOR_LICENCE, type Addressee, type EntryValues } from '../wire'
+import { ASK_FOR_LICENCE, UNKNOWN_EDITION, type Addressee, type EntryValues } from '../wire'
 
 export interface DocumentReading {
   fileName: string
@@ -139,7 +139,7 @@ export function proposeFromReading(reading: DocumentReading, subdivisions: Subdi
     kind,
     title,
     designation: designation?.designation ?? null,
-    editionLabel: edition.label ?? 'unbekannt',
+    editionLabel: edition.label ?? UNKNOWN_EDITION,
     issuedOn: edition.issuedOn,
     inForceFrom: null,
     inForceTo: null,

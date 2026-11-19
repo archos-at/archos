@@ -17,6 +17,11 @@ export const BASE_KNOWLEDGE_EXPOSURE = {
   ),
   'base-knowledge-list': OFFERED,
   'base-knowledge-propose': OFFERED,
+  'base-knowledge-recognize': OFFERED,
+  'base-knowledge-settle': externalOnly(
+    'which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms',
+  ),
+  'base-knowledge-unlist': OFFERED,
   'base-knowledge-remove': OFFERED,
   'base-knowledge-update': OFFERED,
   'base-knowledge-upload': OFFERED,

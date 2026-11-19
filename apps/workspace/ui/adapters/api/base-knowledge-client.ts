@@ -9,12 +9,16 @@ import type {
   CreateFolderBody,
   LicenceEntryBody,
   ListEntriesQuery,
+  NormRecognition,
+  RecognizeBody,
   RecordCheckBody,
+  SettleProposalsBody,
+  SettleProposalsResult,
   UpdateEntryBody,
 } from '@/lib/base-knowledge/wire'
 import { ApiRequestError } from './api-error'
 
-export type { BaseKnowledgeEntry, BaseKnowledgeFolder, BaseKnowledgeFolders, BaseKnowledgeList, BulkEntriesResult }
+export type { BaseKnowledgeEntry, BaseKnowledgeFolder, BaseKnowledgeFolders, BaseKnowledgeList, BulkEntriesResult, NormRecognition, SettleProposalsResult }
 
 const ENDPOINT = '/api/base-knowledge'
 const jsonHeaders: HeadersInit = { 'Content-Type': 'application/json' }
@@ -92,13 +96,6 @@ export const proposeBaseKnowledge = async (documentId: string): Promise<BaseKnow
     'propose base knowledge',
   )
 
-export const uploadBaseKnowledge = async (file: File, folderId: string | null = null): Promise<BaseKnowledgeEntry> => {
-  const form = new FormData()
-  form.append('file', file)
-  if (folderId) form.append('folderId', folderId)
-  return json(await fetch(`${ENDPOINT}/upload`, { method: 'POST', body: form }), 'upload base knowledge')
-}
-
 export const confirmBaseKnowledge = async (entryId: string, body: ConfirmEntryBody): Promise<BaseKnowledgeEntry> =>
   json(
     await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/confirm`, {
@@ -136,6 +133,16 @@ export interface BaseKnowledgeRemovalReceipt {
 
 export const removeBaseKnowledge = async (entryId: string): Promise<BaseKnowledgeRemovalReceipt> =>
   json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`, { method: 'DELETE' }), 'remove base knowledge')
+
+export const recognizeNorms = async (body: RecognizeBody): Promise<NormRecognition> =>
+  json(await fetch(`${ENDPOINT}/recognize`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'recognise norms')
+
+export const settleNorms = async (body: SettleProposalsBody): Promise<SettleProposalsResult> =>
+  json(await fetch(`${ENDPOINT}/settle`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'settle norms')
+
+export const unlistBaseKnowledge = async (entryId: string): Promise<void> => {
+  await json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/unlist`, { method: 'POST' }), 'take it off the norms')
+}
 
 export interface ShelfCandidate {
   id: string

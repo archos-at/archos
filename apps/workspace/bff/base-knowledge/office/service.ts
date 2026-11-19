@@ -3,12 +3,14 @@ import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
 import { deleteOfficeShelfDocument, uploadOfficeShelfDocument, type OfficeShelfRemoval } from '@/lib/office-shelf/service'
+import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import { forgetKeysFor } from '../http/idempotency'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { SCREENED_ONLY } from '@/lib/documents/document-reader'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import type { KnowledgeProvenance } from '@/lib/db/schema/knowledge-records'
 import {
+  deleteDocumentEntry,
   documentHasEntry,
   insertCopyCheck,
   insertProposedEntry,
@@ -20,6 +22,7 @@ import {
   ENTRY_PAGE,
   type BaseKnowledgeEntry,
   type BaseKnowledgeList,
+  type BaseKnowledgeUnlisting,
   type ConfirmEntryBody,
   type DirectoryStanding,
   type EntryValues,
@@ -238,7 +241,7 @@ async function proposeDocument(
   return (await findEntry(session, entryId)).entry
 }
 
-async function recordProposal(
+export async function recordProposal(
   session: AuthorizedSession,
   body: ProposeEntryBody,
   fileName: string,
@@ -380,6 +383,23 @@ export async function removeBaseKnowledge(session: AuthorizedSession, entryId: s
     removed: stores.search !== 'failed' && stores.objects === 'removed' && caches === 'removed',
     stores: { ...stores, records: 'removed', caches },
   }
+}
+
+export async function dropBaseKnowledgeRecords(session: AuthorizedSession, stored: StoredEntry): Promise<void> {
+  requireManage(session)
+  await deleteDocumentEntry(session.organizationId, stored.documentId)
+  if (stored.workStandsAlone) await deleteWorkIfUnused(session.organizationId, stored.workId)
+  await releaseText(session, stored.documentId)
+  await forgetKeysFor(session.organizationId, [stored.editionId, stored.documentId])
+}
+
+export async function unlistBaseKnowledge(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeUnlisting> {
+  requireManage(session)
+  const { stored } = await findEntry(session, entryId)
+  const moved = await moveDocumentToFolder({ documentId: stored.documentId, folderId: null }, session)
+  if (!moved.ok) throw new UnprocessableError(moved.error)
+  await dropBaseKnowledgeRecords(session, stored)
+  return { documentId: stored.documentId, folderId: null }
 }
 
 export interface BaseKnowledgeRemoval {

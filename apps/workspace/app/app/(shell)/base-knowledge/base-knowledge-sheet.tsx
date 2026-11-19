@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
+import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import { getTranslations } from '@/i18n/server'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
@@ -32,6 +33,7 @@ export async function BaseKnowledgeSheet({
         <BaseKnowledgeWorkspace
           trailingActions={<PageSheetClose label={tCommon('actions.close')} />}
           place={{ title: tShelf('title'), crumb: session.organizationName, places: <OfficeShelfPlaces /> }}
+          uploadCollection={officeShelfCollectionName(session.organizationId)}
         />
       </RoutePageSheet>
     )

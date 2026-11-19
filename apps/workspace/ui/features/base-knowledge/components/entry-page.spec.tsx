@@ -132,4 +132,22 @@ describe('EntryPage', () => {
       expect(toast.warning).toHaveBeenCalledWith(expect.stringContaining(left))
     }
   })
+
+  it('takes a confirmed entry off the norms and keeps its file, with no such offer on a proposal', async () => {
+    const fetchMock = vi.fn(async () => Response.json({ documentId: CONFIRMED.documentId, folderId: null }))
+    vi.stubGlobal('fetch', fetchMock)
+    const onChanged = renderSheet(CONFIRMED)
+    await userEvent.click(await screen.findByRole('button', { name: 'Nicht mehr als Norm führen' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Nicht mehr als Norm führen' }))
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(null))
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect([url, init.method]).toEqual(['/api/base-knowledge/oenorm-b-1600/unlist', 'POST'])
+    expect(toast.success).toHaveBeenCalledWith('„ÖNORM B 1600:2017“ ist jetzt eine normale Datei unter Ordner (oberste Ebene).')
+  })
+
+  it('offers a proposal no way off the norms but removal', async () => {
+    renderSheet(PROPOSAL)
+    await screen.findByTestId('base-knowledge-save')
+    expect(screen.queryByTestId('base-knowledge-unlist')).toBeNull()
+  })
 })

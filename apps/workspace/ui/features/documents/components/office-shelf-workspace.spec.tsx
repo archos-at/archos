@@ -228,6 +228,28 @@ describe('OfficeShelfWorkspace — permissions', () => {
   })
 })
 
+describe('OfficeShelfWorkspace — what another feature adds', () => {
+  it('puts a surface’s own file action in each file’s menu, for that file', async () => {
+    const onSelect = vi.fn()
+    const fileActions = vi.fn((file: { id: string }) => [{ type: 'item' as const, id: 'as-norm', label: 'Als Norm führen', onSelect: () => onSelect(file.id) }])
+    render(<OfficeShelfWorkspace canManage fileActions={fileActions} />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+
+    const user = userEvent.setup()
+    await user.click(screen.getAllByTestId('document-actions-trigger')[0])
+    await user.click(await screen.findByRole('menuitem', { name: 'Als Norm führen' }))
+    expect(onSelect).toHaveBeenCalledWith('doc-2')
+    expect(new Set(fileActions.mock.calls.map(([file]) => file.id))).toEqual(new Set(['doc-1', 'doc-2']))
+  })
+
+  it('hands its upload the callback for the documents it stored', async () => {
+    const onUploadsStored = vi.fn()
+    render(<OfficeShelfWorkspace canManage onUploadsStored={onUploadsStored} />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+    expect(vi.mocked(useOfficeShelfDocuments).mock.calls.at(-1)?.[0]?.onStored).toBe(onUploadsStored)
+  })
+})
+
 describe('OfficeShelfWorkspace — a settling document settles on screen', () => {
   let documentCalls = 0
   let statusCalls = 0

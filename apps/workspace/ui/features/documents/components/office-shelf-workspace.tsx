@@ -12,18 +12,20 @@ import { useTranslations } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { createDocumentNameProbeClient } from '@/lib/documents/name-probe-client'
-import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
+import { useOfficeShelfDocuments, type StoredUpload } from '../hooks/use-office-shelf-documents'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
-interface OfficeShelfWorkspaceProps {
+export interface OfficeShelfWorkspaceProps {
   canManage: boolean
   showModels?: boolean
   trailingActions?: ReactNode
   organizationName?: string | null
   places?: ReactNode
+  onUploadsStored?: (uploads: StoredUpload[]) => void
+  fileActions?: FileShelf['fileActions']
 }
 
 export function OfficeShelfWorkspace({
@@ -32,6 +34,8 @@ export function OfficeShelfWorkspace({
   trailingActions,
   organizationName = null,
   places,
+  onUploadsStored,
+  fileActions,
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
@@ -50,6 +54,7 @@ export function OfficeShelfWorkspace({
         collectionName: canManage ? collectionName : undefined,
         folderId,
         onComplete,
+        onStored: onUploadsStored,
       }),
     probeNames: probe.officeShelf,
     probeRevisions: probe.officeShelfRevisions,
@@ -59,6 +64,7 @@ export function OfficeShelfWorkspace({
       ingestionComplete: (name) => t('toast.ingestionComplete', { name }),
     },
     showModels,
+    fileActions,
   }
 
   if (search.active) {

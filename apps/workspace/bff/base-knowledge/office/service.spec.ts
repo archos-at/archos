@@ -5,6 +5,7 @@ vi.mock('@/lib/project-intake/setup-records', async () => ({
   readSetupRecords: async () => (await import('@/lib/project-intake/at-setup.fixtures')).AT_SETUP_RECORDS,
 }))
 vi.mock('../store/repository', () => ({
+  deleteDocumentEntry: vi.fn(),
   documentHasEntry: vi.fn(async () => false),
   insertCopyCheck: vi.fn(),
   insertProposedEntry: vi.fn(async () => ({ workId: 'work_1', editionId: 'edition_1', copyId: 'manifestation_1' })),
@@ -29,6 +30,8 @@ vi.mock('./folders', () => ({
 }))
 vi.mock('../http/idempotency', () => ({ forgetKeysFor: vi.fn(async () => true) }))
 vi.mock('./text-effects', () => ({ withholdText: vi.fn(async () => true), releaseText: vi.fn() }))
+vi.mock('@/lib/documents/move-to-folder', () => ({ moveDocumentToFolder: vi.fn(async () => ({ ok: true, document: { id: 'doc-1', folderId: null } })) }))
+vi.mock('../store/office-editions', () => ({ insertEditionOfWork: vi.fn(), deleteWorkIfUnused: vi.fn(async () => true) }))
 vi.mock('@/lib/office-shelf/service', () => ({ deleteOfficeShelfDocument: vi.fn(), uploadOfficeShelfDocument: vi.fn() }))
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })) }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn(async () => true) }))
@@ -44,7 +47,10 @@ import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { deleteOfficeShelfDocument, uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
+import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
+import { deleteWorkIfUnused } from '../store/office-editions'
 import {
+  deleteDocumentEntry,
   documentHasEntry,
   insertProposedEntry,
   readOfficeEntries,
@@ -64,6 +70,7 @@ import {
   proposeBaseKnowledge,
   removeBaseKnowledge,
   setBaseKnowledgeLicence,
+  unlistBaseKnowledge,
   updateBaseKnowledge,
   uploadBaseKnowledge,
 } from './service'
@@ -470,6 +477,30 @@ describe('removing', () => {
     const receipt = await removeBaseKnowledge(MANAGER, 'work_1', request)
     expect(receipt.removed).toBe(false)
     expect(receipt.stores.search).toBe('failed')
+  })
+})
+
+describe('taking a document off the norms', () => {
+  it('keeps the file: moves it to the top of the office shelf, drops its records and reads its text again', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true, workStandsAlone: true })])
+    expect(await unlistBaseKnowledge(MANAGER, 'edition_1')).toEqual({ documentId: 'doc-1', folderId: null })
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: null }, MANAGER)
+    expect(deleteDocumentEntry).toHaveBeenCalledWith('org-1', 'doc-1')
+    expect(deleteWorkIfUnused).toHaveBeenCalledWith('org-1', 'work_1')
+    expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+    expect(forgetKeysFor).toHaveBeenCalledWith('org-1', ['edition_1', 'doc-1'])
+    expect(deleteOfficeShelfDocument).not.toHaveBeenCalled()
+  })
+
+  it('keeps the records when the file could not be moved, so the norm stays in view', async () => {
+    vi.mocked(moveDocumentToFolder).mockResolvedValueOnce({ ok: false, error: 'Folder not found in the office shelf.' })
+    await expect(unlistBaseKnowledge(MANAGER, 'edition_1')).rejects.toBeInstanceOf(UnprocessableError)
+    expect(deleteDocumentEntry).not.toHaveBeenCalled()
+  })
+
+  it('is only for a shelf manager', async () => {
+    await expect(unlistBaseKnowledge(MEMBER, 'edition_1')).rejects.toBeInstanceOf(ForbiddenError)
+    expect(moveDocumentToFolder).not.toHaveBeenCalled()
   })
 })
 
