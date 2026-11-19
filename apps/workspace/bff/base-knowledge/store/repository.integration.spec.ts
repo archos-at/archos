@@ -151,7 +151,6 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
   })
 
   it('takes an entry off the norms and back with its heads, values and checks, and lets a new proposal replace it', async () => {
-    const office = await import('../office/repository')
     const { documentId, ids } = await propose()
     const confirmed = { ...VALUES, editionLabel: '2017-05-01' }
     await repo.writeConfirmedValues(ids, confirmed, { organizationId: ORG, createdBy: 'user_bk', provenance: { proposedBy: 'person' }, terms: {}, firstCheck: true })
