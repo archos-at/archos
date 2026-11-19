@@ -25,7 +25,7 @@ import {
   type SenderFlag,
 } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
-import { readHeaderBlock, readMime, type MailAttachment, type NotStagedPart } from './mime'
+import { readHeaderBlock, readMime, type MailAttachment, type MimeRead, type NotStagedPart } from './mime'
 import { redactRead, unreadableRead, type MailRead } from './read-client'
 import { mailParticipants, participantDomainsOf, recipientCountOf } from './receive-participants'
 import {
@@ -130,14 +130,20 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
   const raw = await fromObjectStore(() => readStagedObject(mail.stagingBucket, rawKey))
   if (mail.rawScanStatus === 'pending') await recordRawScan(mail.id, await scanForStorage(raw))
 
-  const automatic = classifyAutomaticMail({ headers: readHeaderBlock(raw)?.fields ?? null, envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
+  const mime = await readMime(raw, { acceptedTypes: await acceptedTypesForOrganization(mail.organizationId) })
+  const automatic = classifyAutomaticMail({
+    headers: readHeaderBlock(raw)?.fields ?? null,
+    envelopeFrom: mail.envelopeFrom,
+    inboundDomain: domain,
+    attachments: mime.kind === 'read' ? mime.attachments.length : 0,
+  })
   if (automatic.outcome === 'drop') return dropAutomaticMail(mail, automatic.reason, attempt)
   await recordOriginal(mail, raw, domain)
 
   const evidence: SenderEvidence = { progress: progressOf(mail.receiveProgress) }
   let held: boolean
   try {
-    held = await readAndHold(mail, raw, domain, automatic.automatic, budget, evidence)
+    held = await readAndHold(mail, raw, mime, domain, automatic.automatic, budget, evidence)
   } catch (error) {
     const fault = dependencyOf(error) !== null
     if (fault && !degraded) await keepProgress(mail.id, evidence.progress)
@@ -161,6 +167,7 @@ async function keepProgress(mailId: string, progress: ReceiveProgress): Promise<
 async function readAndHold(
   mail: InboundMailRow,
   raw: Uint8Array,
+  mime: MimeRead,
   domain: string,
   automatic: boolean,
   { degraded, dkimSpent }: ReceiveBudget,
@@ -176,7 +183,6 @@ async function readAndHold(
     throw new DependencyFaultError('dkim_dns', new Error(`sender authentication was inconclusive (${authentication.reason})`))
   }
   if (authentication.reason === 'verifier_error') console.error(`[inbound-mail] mail ${mail.id}: the verifier threw; its sender is held unverified`)
-  const mime = await readMime(raw, { acceptedTypes: await acceptedTypesForOrganization(mail.organizationId) })
   const fromName = mime.kind === 'read' ? (mime.headers.from?.name ?? null) : null
   const identity = await senderIdentityFor(mail.organizationId, authentication.fromAddress, fromName, degraded)
   const sentAtHeader = mime.kind === 'read' ? mime.headers.sentAtHeader : dateHeaderOf(raw)

@@ -200,7 +200,11 @@ as `unavailable` and neither side recorded why.
 3. drop auto-replies, delivery reports and loops (`dropped`, raw erased); mark
    list and bulk mail `automatic`. A loop is a From whose every mailbox is on
    our domain, read as addresses (postal-mime's `addressParser`), never as text,
-   or an envelope sender on it. Then **the original of a forward**
+   or an envelope sender on it. An auto-reply that carries an attachment the
+   job would stage is held, `automatic`, instead of dropped: `Auto-Submitted`,
+   `X-Autoreply` and `Precedence` are the sender's to set, and what they would
+   erase unseen may be the plans. The MIME tree is read once, before this
+   check, for that count. Then **the original of a forward**
    (`receive-original.ts`, migration 0198): `original-message.ts` reads an
    attached original (`message/rfc822`, an `.eml`) or an inline forward's
    header block, and its author, date, subject, Message-ID and source go on

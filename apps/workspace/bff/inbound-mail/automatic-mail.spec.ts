@@ -43,6 +43,36 @@ describe('classifyAutomaticMail: dropped (RFC 3834, RFC 3464, RFC 8098)', () => 
   })
 })
 
+describe('classifyAutomaticMail: an auto-reply that carries attachments', () => {
+  it('is held for review, flagged automatic: its headers are the sender’s to set, its attachments may be the plans', () => {
+    const input = (attachments: number): AutomaticMailInput => ({
+      headers: rawHeaderFields(bytes(message(undefined, { 'Auto-Submitted': 'auto-replied' }))),
+      envelopeFrom: 'anna@buero-muster.at',
+      inboundDomain: INBOUND_DOMAIN,
+      attachments,
+    })
+    expect(classifyAutomaticMail(input(1))).toEqual({ outcome: 'keep', automatic: true, signals: ['auto_reply_with_attachments', 'auto_generated'] })
+    expect(classifyAutomaticMail(input(0))).toEqual({ outcome: 'drop', reason: 'auto_reply' })
+  })
+
+  it('never holds a loop or a delivery report for its attachments', () => {
+    const loop: AutomaticMailInput = {
+      headers: rawHeaderFields(bytes(message(undefined, { From: `x@${INBOUND_DOMAIN}`, 'Auto-Submitted': 'auto-replied' }))),
+      envelopeFrom: null,
+      inboundDomain: INBOUND_DOMAIN,
+      attachments: 2,
+    }
+    expect(classifyAutomaticMail(loop)).toEqual({ outcome: 'drop', reason: 'self_loop' })
+    const report: AutomaticMailInput = {
+      headers: rawHeaderFields(bytes(message(multipart('report', [textPart('text/plain', 'Undeliverable')], '; report-type=delivery-status')))),
+      envelopeFrom: '',
+      inboundDomain: INBOUND_DOMAIN,
+      attachments: 1,
+    }
+    expect(classifyAutomaticMail(report)).toEqual({ outcome: 'drop', reason: 'delivery_report' })
+  })
+})
+
 describe('classifyAutomaticMail: kept and flagged automatic', () => {
   it("keeps a scanner's auto-generated mail: that is how a drawing arrives from the plotter room", () => {
     expect(classify({ 'Auto-Submitted': 'auto-generated' })).toEqual({ outcome: 'keep', automatic: true, signals: ['auto_generated'] })

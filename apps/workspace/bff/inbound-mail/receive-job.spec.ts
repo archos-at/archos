@@ -498,6 +498,17 @@ describe('automatic mail', () => {
     expect(heldRow()).toMatchObject({ status: 'dropped', droppedReason: 'auto_reply' })
   })
 
+  it('holds an auto-reply that carries an attachment, flagged automatic, instead of erasing it unseen', async () => {
+    receive(message(multipart('mixed', [BODY, attachment('Plan_S-101.pdf', 'application/pdf', pdf('S-101'))]), { 'Auto-Submitted': 'auto-replied' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', automatic: true })
+    expect(state.parts.map((part) => part.filename)).toEqual([null, 'Plan_S-101.pdf'])
+    expect(state.erased).toEqual([])
+    expect(jobKinds()).not.toContain('inbound_mail_suggest')
+  })
+
   it('keeps the raw message of a dropped mail under a legal hold, for the deferred erasure', async () => {
     vi.mocked(isCoveredByActiveHold).mockResolvedValue(true)
     receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))

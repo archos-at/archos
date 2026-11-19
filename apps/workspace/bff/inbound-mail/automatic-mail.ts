@@ -9,6 +9,7 @@ export type AutomaticSignal =
   | 'list_headers'
   | 'auto_response_suppress'
   | 'null_sender'
+  | 'auto_reply_with_attachments'
 
 export type AutomaticMailVerdict =
   | { outcome: 'drop'; reason: DroppedReason }
@@ -18,6 +19,7 @@ export interface AutomaticMailInput {
   headers: readonly HeaderField[] | null
   envelopeFrom: string | null
   inboundDomain: string
+  attachments?: number
 }
 
 const AUTO_REPLY_HEADERS = ['x-autoreply', 'x-autorespond', 'x-autoresponder', 'x-auto-reply', 'x-vacation']
@@ -89,7 +91,8 @@ function automaticSignals(headers: readonly HeaderField[], input: AutomaticMailI
 export function classifyAutomaticMail(input: AutomaticMailInput): AutomaticMailVerdict {
   if (!input.headers) return { outcome: 'keep', automatic: false, signals: [] }
   const reason = dropReason(input.headers, input)
-  if (reason) return { outcome: 'drop', reason }
-  const signals = automaticSignals(input.headers, input)
+  const heldForReview = reason === 'auto_reply' && (input.attachments ?? 0) > 0
+  if (reason && !heldForReview) return { outcome: 'drop', reason }
+  const signals = [...(heldForReview ? (['auto_reply_with_attachments'] as const) : []), ...automaticSignals(input.headers, input)]
   return { outcome: 'keep', automatic: signals.length > 0, signals }
 }
