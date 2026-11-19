@@ -51,6 +51,23 @@ export const OTHER_TENANT_ADDRESS = `project+nachbar.zzzzzzzzzzzz@${INBOUND_DOMA
 export const MEMBER = 'Anna Muster <anna@buero-muster.at>'
 export const MEMBER_ADDRESS = 'anna@buero-muster.at'
 export const MEMBER_DOMAIN = 'buero-muster.at'
+export const MEMBER_NAME = 'Anna Muster'
+export const ATTACKER_DOMAIN = 'evil.example'
+export const ATTACKER_ADDRESS = `bauleitung@${ATTACKER_DOMAIN}`
+export const KNOWN_PARTNER_DOMAIN = 'statik-weber.at'
+
+export const MEMBER_NAME_EVASIONS: ReadonlyArray<readonly [string, string]> = [
+  ['a soft hyphen', 'An\u00ADna Muster'],
+  ['a zero-width space', 'Anna\u200B Muster'],
+  ['a right-to-left override', '\u202EAnna Muster'],
+  ['a Cyrillic A', '\u0410nna Muster'],
+  ['a Cyrillic a and e', 'Ann\u0430 Must\u0435r'],
+  ['a Greek M', 'Anna \u039Custer'],
+  ['initials', 'A. Muster'],
+  ['initials, surname first', 'Muster, A.'],
+]
+
+export const encodedWord = (text: string) => `=?utf-8?B?${Buffer.from(text, 'utf8').toString('base64')}?=`
 
 export const SENT = new Date('2026-09-28T10:15:00+02:00')
 export const RECEIVED = new Date(SENT.getTime() + 15 * 60 * 1000)
