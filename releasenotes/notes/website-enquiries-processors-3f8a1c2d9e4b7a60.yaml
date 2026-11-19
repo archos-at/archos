@@ -1,0 +1,13 @@
+---
+# area: administration
+improvements:
+  - >
+    The list of subprocessors now names Google Workspace and Attio. They handle
+    enquiries sent through the contact and demo forms on our website, and they
+    receive none of your office's project data.
+operators:
+  - >
+    The website's contact and demo forms send through a Google Workspace user
+    once grid-oib:websiteSmtpUser and grid-oib:websiteSmtpPassword are set; with
+    grid-oib:attioApiKey they also record each enquiry in Attio. Unset, the
+    forms keep handing off to the visitor's mail program.

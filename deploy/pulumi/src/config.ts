@@ -30,6 +30,7 @@ import { bool, nodeGroup, num } from "./config/readers";
 import { cpuRequestScale } from "./config/cpu-requests";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
+import { type WebsiteMailConfig, loadWebsiteMail } from "./config/website-mail";
 import { malwareScanConfig } from "./config/malware-scan";
 import { publicSourceFetcherConfig } from "./config/public-source-fetcher";
 import { type InboundMailConfig, inboundMailConfig } from "./config/inbound-mail";
@@ -112,6 +113,7 @@ export interface DeployConfig {
   frontend: FrontendConfig;
 
   web: WebConfig;
+  websiteMail: WebsiteMailConfig;
 
   conversationBus: boolean;
   agentWorker: AgentWorkerConfig;
@@ -324,6 +326,7 @@ export function loadConfig(): DeployConfig {
     ...chatTier,
 
     ...webTier,
+    websiteMail: loadWebsiteMail(cfg),
 
     ...appServices,
 

@@ -11,6 +11,7 @@ export interface RateLimitConfig {
     appWsUpgrade: number;
     s3: number;
     web: number;
+    webEnquiryPerHour: number;
   };
   storeMaxmemory: string;
   storeMemoryLimit: string;
@@ -80,6 +81,7 @@ export function loadDragonfly(cfg: pulumi.Config): { dragonfly: DragonflyConfig;
         appWsUpgrade: num(cfg, "rateLimitAppWsUpgrade", 30),
         s3: num(cfg, "rateLimitS3", 300),
         web: num(cfg, "rateLimitWeb", 120),
+        webEnquiryPerHour: num(cfg, "rateLimitWebEnquiryPerHour", 5),
       },
       storeMaxmemory: cfg.get("rateLimitStoreMaxmemory") ?? "256mb",
       storeMemoryLimit: cfg.get("rateLimitStoreMemoryLimit") ?? "384Mi",

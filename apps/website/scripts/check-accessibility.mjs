@@ -158,7 +158,7 @@ try {
       if (width >= 768 && (await form.count())) {
         await form.evaluate((el) => {
           el.hidden = true
-          el.parentElement.querySelector('.mail-form-sent').hidden = false
+          for (const sent of el.parentElement.querySelectorAll('.mail-form-sent')) sent.hidden = false
         })
         findings.push(...(await audit(page, `${route} @${width} form sent`)))
       }

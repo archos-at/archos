@@ -43,6 +43,16 @@ function perClientIpRule(
   };
 }
 
+export function enquiryRules(cfg: DeployConfig): IRateLimitRule[] {
+  return ["0.0.0.0/0", "::/0"].map((cidr) => ({
+    clientSelectors: [
+      { sourceCIDR: { value: cidr, type: "Distinct" }, path: { type: "PathPrefix", value: EDGE_RATE_LIMIT.paths.enquiry } },
+    ],
+    limit: { requests: cfg.rateLimit.limits.webEnquiryPerHour, unit: "Hour" },
+    shadowMode: false,
+  }));
+}
+
 export function edgeRateLimit(cfg: DeployConfig, rules: IRateLimitRule[]): { rateLimit?: IRateLimitSpec } {
   if (!cfg.rateLimit.enabled) return {};
   return { rateLimit: { type: "Global", global: { rules } } };
@@ -261,7 +271,7 @@ export function installHttpRoutes(
     targetRefs: [{ group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: objectName("webRoute") }],
     retry: edgeRetry,
     compressor: WEB_COMPRESSOR,
-    ...edgeRateLimit(cfg, perClientRules(cfg, cfg.rateLimit.limits.web)),
+    ...edgeRateLimit(cfg, [...perClientRules(cfg, cfg.rateLimit.limits.web), ...enquiryRules(cfg)]),
   };
   new k8s.apiextensions.CustomResource(
     logicalName("grid-web-backend-traffic-policy"),

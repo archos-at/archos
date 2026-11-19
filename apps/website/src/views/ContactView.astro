@@ -49,7 +49,7 @@ const privacyHref = localePath('privacy', locale);
           {c.info.demoLead} <TextLink href={nav.demo.href} cta="contact_info" ctaLabel="demo">{nav.demo.label}</TextLink>
         </p>
       </div>
-      <MailForm id="contact" class="ui-contact-form" to={identity.email} subject={c.form.subject} sent={c.form.sent}>
+      <MailForm id="contact" class="ui-contact-form" to={identity.email} subject={c.form.subject} sent={c.form.sent} delivered={c.form.delivered} locale={locale}>
         <Input id="contact-name" name="name" label={c.form.name} autocomplete="name" required class="ui-form-full" />
         <Input
           id="contact-email"
