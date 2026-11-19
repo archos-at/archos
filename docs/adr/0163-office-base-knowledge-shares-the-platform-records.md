@@ -201,6 +201,18 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   one short request, each entry through the single-entry service) and `-edition-add`. `base-knowledge-list`
   narrows by folder (with subfolders), attention, kind and a search, and answers counts, folder counts and
   the territories the form offers by name.
+- **Recognising norms in an ordinary upload** (2026-11-19): `base-knowledge-recognize` takes office shelf
+  documents already stored and proposes each one `recognizeNorm` calls a norm, withholding its text; a
+  designation matching a confirmed work is proposed as an edition of it (`editionOf`, `insertEditionOfWork`), and
+  as a `duplicate` when that work already holds the edition. Other files, the OIB guidelines among them, stay
+  where they were uploaded and come back as `plain` with their folder. A document already recorded answers its
+  proposal again. Unlike `base-knowledge-upload`, the file was dispatched before the proposal exists: its
+  ingest is stopped by the guards above (`isTextHeld` at dispatch, `document-exists` during the run) and what it
+  wrote is purged, so a norm's text may be read in the time between upload and recognition.
+  `base-knowledge-settle` answers the proposals: a confirmed one moves into its topic folder (a new edition into
+  its work's), a duplicate is deleted, `notNorm` drops the records and reads the file again where it lies, and
+  one without an edition stays a proposal. `base-knowledge-unlist` takes a confirmed entry off the base
+  knowledge but keeps its file, moved to the top of the Büroablage; `base-knowledge-remove` still deletes both.
 
 Deferred, with the reason: a masthead reading for the proposal (the file name and a person's correction
 cover most cases; reading needs the licensed seam's zero-retention call), a measure of how well tables in

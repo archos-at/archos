@@ -23744,6 +23744,78 @@
         }
       }
     },
+    "/api/base-knowledge/recognize": {
+      "post": {
+        "operationId": "base-knowledge-recognize",
+        "summary": "Recognise which office shelf documents are norms",
+        "description": "Reads each document’s name: a norm, directive, guideline or commentary becomes a proposal, its text withheld until a person settles it; a match of a confirmed work is a new edition (`editionOf`), or `duplicate` when held. Others stay where they lie (`plain`); `asNorm` proposes them anyway. Repeating it changes nothing. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "description": "Office shelf documents, from document-list; at most 50."
+                  },
+                  "asNorm": {
+                    "description": "true: propose each document even when its reading finds no norm.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "documentIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Recognise which office shelf documents are norms",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/base-knowledge/reports": {
       "post": {
         "operationId": "base-knowledge-report",
@@ -23822,6 +23894,192 @@
         },
         "x-mcp-annotations": {
           "title": "Report wrong law in the base knowledge to the platform",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/settle": {
+      "post": {
+        "operationId": "base-knowledge-settle",
+        "summary": "Confirm or drop the proposals of base-knowledge-recognize",
+        "description": "Per proposal: confirm into its topic folder (`topicId`; a new edition goes to its work’s folder), delete a duplicate, or `notNorm` to leave an ordinary file where it lies; without an edition it stays proposed. Answers one outcome per row. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rows": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "entryId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "description": "A proposal from base-knowledge-recognize."
+                        },
+                        "notNorm": {
+                          "description": "true: drop the proposal; the file stays where it lies, an ordinary file.",
+                          "type": "boolean"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "technical_standard",
+                            "guideline",
+                            "commentary",
+                            "authority_directive",
+                            "statute"
+                          ],
+                          "description": "A commentary only interprets."
+                        },
+                        "designation": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "e.g. \"ÖNORM B 1600:2017\"."
+                        },
+                        "editionLabel": {
+                          "description": "Empty or null: the edition is missing and the row stays a proposal; omit to keep the read one.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 120
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "topicId": {
+                          "description": "A folder from base-knowledge-folder-list; null for the base-knowledge root. A new edition goes to its work’s folder.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "entryId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "rows"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Confirm or drop the proposals of base-knowledge-recognize",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/{entryId}/unlist": {
+      "post": {
+        "operationId": "base-knowledge-unlist",
+        "summary": "Take a document off the base knowledge and keep its file",
+        "description": "Removes the entry but keeps its document, now an ordinary file at the top of the office shelf. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Take a document off the base knowledge and keep its file",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
