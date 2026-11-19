@@ -198,9 +198,9 @@ whether you sent it yourself), or where it will be gone: a mail from outside
 the office says „Wird am {Datum} aus dem E-Mail-Eingang entfernt, wenn niemand
 sie ablegt. ARCHOS erinnert 5 Tage vorher.“ Then the text, and the
 attachments with one quiet line each saying what ARCHOS proposes for it:
-„Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Fassung 4 von
-S-101_C.pdf (ersetzt C) · Ordner Tragwerk“, „bleibt weg – liegt schon im
-Projekt“, or „Offen: Ordner wählen“ where there is something to decide. The
+„Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Index D wird der aktuelle
+Stand, Index C bleibt erhalten · Ordner Tragwerk“, „bleibt weg – liegt schon
+im Projekt“, or „Offen: Ordner wählen“ where there is something to decide. The
 pane and „Einordnen“ say the same: a folder the dialog fills in is never
 „Offen“ here.
 
@@ -243,27 +243,36 @@ more than one):
    you chose is marked „Gewählt“. „Weiter“ waits until every ticked file has
    a folder and says so. A file whose name alone ties it to an earlier
    document is asked as three answers, each saying what it does: „Als
-   Fassung 4 von S-101_C.pdf ablegen“ (S-101_D.pdf becomes the current
-   state), „Als neue Datei neben S-101_C.pdf ablegen“ (S-101_C.pdf stays the
-   current state), or „Nicht ablegen“. For a plan, the same plan number and
-   format with the same or a later letter index (S-101_D.pdf over
-   S-101_C.pdf), the Fassung is chosen for you and the step says what the
-   project holds („Im Projekt liegt S-101_C.pdf als Fassung 3 im Ordner
-   Tragwerk.“); for anything else „Als neue Datei“ is. Choosing the Fassung
+   Fassung 4 von Statik.pdf ablegen“ (the new file becomes the current
+   state, Statik.pdf stays as Fassung 3), „Als neue Datei neben Statik.pdf
+   ablegen“ (Statik.pdf stays the current state), or „Nicht ablegen“. ARCHOS
+   finds such a document by the same file name, and for a name with a plan
+   number and a letter index also by the same number with an earlier index:
+   S-101_D.pdf finds S-101_C.pdf. It reads an index only where the name is
+   unmistakable (a number, then `_` or `-`, then one letter, as in
+   „S-101_D.pdf“ or „S-101-D.dwg“); „S-101 Index D.pdf“ finds nothing, so a
+   wrong document is never proposed. Where both names carry an index, the
+   step speaks of the index: „Als nächste Fassung von S-101_C.pdf ablegen“
+   („Index D wird der aktuelle Stand, Index C bleibt erhalten.“), and this
+   answer is chosen for you, the step saying what the project holds („Im
+   Projekt liegt S-101_C.pdf im Ordner Tragwerk, dieselbe Plannummer in
+   Index C.“); for anything else „Als neue Datei“ is. Choosing the Fassung
    is your confirmation of it; a file with macros still asks its own. The
    attachments with a sure proposal are folded into „4 weitere wie
    vorgeschlagen · Ändern“.
 4. **Übersicht**, always: one sentence per part. „E-Mail-Text → an
    E-Mail-Verlauf „Stellplatznachweis“ anfügen“, „Bescheid_MA37.pdf → Ordner
-   Behörde/Bescheide · Dokumentart Bescheid“, „S-101_D.pdf → Fassung 4 von
-   S-101_C.pdf (ersetzt C) · Ordner Tragwerk“ or „S-101_D.pdf → neue Datei
-   neben S-101_C.pdf · Ordner Tragwerk“. Whatever stays out stands in a
+   Behörde/Bescheide · Dokumentart Bescheid“, „S-101_D.pdf → Index D wird
+   der aktuelle Stand, Index C bleibt erhalten · Ordner Tragwerk“ (without an
+   index: „Fassung 4 von Statik.pdf, Fassung 3 bleibt erhalten“) or
+   „S-101_D.pdf → neue Datei neben S-101_C.pdf · Ordner Tragwerk“. Whatever stays out stands in a
    box of its own with its reason („Bescheid_alt.pdf bleibt weg – liegt schon
    im Projekt“, „Honorarnote.pdf bleibt weg – Namensprüfung: „Honorar““), a
    „Doch ablegen“ where filing it is your call, and what „bleibt weg“ means:
    dismissed when you file, restorable for seven days. When the text goes
-   into an E-Mail-Verlauf, the switch „Antworten in diesem E-Mail-Verlauf
-   ohne Klick ablegen“ stands under it, „An“ unless you switch it off (see
+   into an E-Mail-Verlauf, one quiet line under it says what happens to
+   later replies: „Weitere Antworten in diesem E-Mail-Verlauf legt ARCHOS
+   ohne Klick ab · Ausschalten“, the ⓘ beside it explaining it in full (see
    below). Then **Ablegen**.
 
 A mail with nothing to decide opens straight on „Übersicht“: „Einordnen“, then
@@ -299,7 +308,8 @@ the mailboxes it went to, so accounting still finds the IBAN there.
 „bleibt weg“ box; you may file it anyway with „Trotzdem ablegen“. The override
 is recorded.
 
-**A mail that poses as someone** keeps „Verwerfen“ as its first button.
+**A mail that poses as someone** offers „Melden und verwerfen …“ as its
+first button, in the red warning, and „Verwerfen“ beside the mail.
 „Einordnen …“ appears only after „Trotzdem ablegen …“, which waits behind
 „Weitere Möglichkeiten“ under the mail's text, and its first step asks
 „Haben Sie telefonisch geprüft, dass die E-Mail echt ist?“; its last button
@@ -431,14 +441,19 @@ as the E-Mail-Verlauf.
 ## Filing replies without a click (following a Verlauf)
 
 When you file a mail's text into an E-Mail-Verlauf, later replies in that
-conversation are filed without a click. One switch says so, in „Übersicht“
-and in the Verlauf's „E-Mails“ tab alike: „Antworten in diesem E-Mail-Verlauf
-ohne Klick ablegen“, with its state, „An“ (in the tab „An bis {Datum}“) or
-„Aus“. ARCHOS files such a reply as if you had done it yourself, and every
-one of them is listed in the E-Mail-Eingang under „Bearbeitet“ („Ohne Klick
-abgelegt → …“). It is on when you file; switch it off in „Übersicht“ to file
-the mail without it, or in the tab of any Verlauf to start or stop it there.
-It is not a notification: nothing is sent to you per reply.
+conversation are filed without a click. It is on when you file. „Übersicht“
+says so in one quiet line, „Weitere Antworten in diesem E-Mail-Verlauf legt
+ARCHOS ohne Klick ab · Ausschalten“; press „Ausschalten“ to file the mail
+without it (the line then reads „… warten im E-Mail-Eingang · Einschalten“).
+The Verlauf's „E-Mails“ tab has the switch, „Antworten in diesem
+E-Mail-Verlauf ohne Klick ablegen“, with its state, „An bis {Datum}“ or
+„Aus“, to start or stop it there. ARCHOS files such a reply as if you had
+done it yourself, and every one of them is listed in the E-Mail-Eingang under
+„Bearbeitet“ („Ohne Klick abgelegt → …“). It is not a notification: nothing
+is sent to you per reply. Where mail of the Verlauf still waits while it is
+on, the tab says why: „2 E-Mails warten trotzdem im E-Mail-Eingang: Absender
+nicht überprüfbar oder kein Ordner für einen Anhang“ (or „vor dem Einschalten
+eingegangen“, „eine Prüfung nötig“).
 
 - It applies only to replies from confirmed domains that already write in the
   conversation, whose reference to it is signed, with nobody new in it, and

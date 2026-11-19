@@ -517,10 +517,23 @@ project's own history:
   gmail.com, gmx.at, outlook.com and the like) the domain says nothing about the
   person, so an outsider's append there is never pre-selected
   (`public_mail_domain`).
-- **A new Fassung** of an existing document (`revisionCandidate`, found by the
-  attachment's file name alone) is pre-selected only for a `member_verified`
-  sender, or for an outsider with a thread candidate whose blocks are empty
-  (`revisionVouchedInThread` in `review-defaults.ts`).
+- **A new Fassung** of an existing document (`revisionCandidate`) is
+  pre-selected only for a `member_verified` sender, or for an outsider with a
+  thread candidate whose blocks are empty (`revisionVouchedInThread` in
+  `review-defaults.ts`). The receive job finds the candidate in one read of
+  the project's screened documents (`findScreenedRevisionCandidates` in
+  `receive-repository.ts`, on `documents_project_idx`, newest Fassung first):
+  a document of the attachment's name, else, for a name the plan rule reads
+  (`planName` in `bff/inbound-mail/plan-index.ts`: a number with a digit, `_`
+  or `-`, one letter, a plan format), the same number and format with the
+  latest earlier index, S-101_C.pdf for S-101_D.pdf (`revisionCandidateOf`;
+  the SQL filter is a LIKE on the lower-cased name, the rule decides). The
+  rule is narrow on purpose: a looser name („S-101 Index D.pdf“) has no
+  candidate, as a wrong one costs more than a missing one. How a candidate is
+  found changes nothing above: it is a suggestion the person confirms unless
+  vouched, and a follow files only a pre-selected part. The UI imports the
+  same module for its default answer and its words (`revisionByDefault`,
+  `indexChange`).
 - What the defaults would not pre-select stays unchecked, and filing it needs
   the part in `acknowledgeRisk` (`unverified_thread`): `decision.ts` asks the
   same two functions (`appendNeedsAcknowledgement`, `revisionVouchedInThread`
@@ -758,6 +771,17 @@ mail thread …`); the text stays filed either way. An outside agent's filing
 filing start none: following stays a person's act in the app. The follow is
 the same row an explicit „Einschalten“ makes, so the E-Mails tab shows it and
 „Beenden“ ends it, with every notice below.
+
+**Why a followed Verlauf's mail still waits.** The thread view carries
+`waitingReasons` beside `waitingCount` (`findWaitingForThread` in
+`bff/mail-thread/repository.ts`, one grouped read over the project's waiting
+mail matched to the Verlauf): `sender_not_verified` (no follow appends it),
+`attachment_left` (a follow appended the text and left an attachment without
+a folder), `before_follow` (it arrived before the first running follow) and
+`needs_check` for anything else a follow refuses. The „E-Mails“ tab says them
+while the reader's own switch is on: „2 E-Mails warten trotzdem im
+E-Mail-Eingang: Absender nicht überprüfbar oder kein Ordner für einen
+Anhang“.
 
 **What a follow files.** Before it decides, the job waits while the mail's
 suggestion is still queued (`suggestionPending`, `apps/workspace/bff/inbound-mail/suggestion-wait.ts`: 30 s, at
