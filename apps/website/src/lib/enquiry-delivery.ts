@@ -1,34 +1,21 @@
-import nodemailer from 'nodemailer';
 import copy from '../i18n/pages/enquiry-mail';
 import identity, { withName } from './identity';
-import { confirmationHtml, notificationHtml, type MailLook } from './enquiry-html';
+import { button, infoList, mailPage, note, panel, paragraph, smtpLoginFrom, type Mail, type MailLook, type SendMail, type SmtpLogin } from './mail';
 import { enquiryText, splitNameLastWordAsSurname, type Enquiry } from './enquiry';
 
-const SMTP_HOST = 'smtp.gmail.com';
 const ATTIO_API = 'https://api.attio.com/v2';
 
-type Env = Record<string, string | undefined>;
-
 export interface Delivery {
-  smtp: { user: string; password: string };
+  smtp: SmtpLogin;
   attioApiKey?: string;
 }
 
-export function deliveryFrom(env: Env): Delivery | undefined {
-  const user = env.SMTP_USER?.trim();
-  const password = env.SMTP_PASSWORD?.trim();
-  if (!user || !password) return undefined;
-  return { smtp: { user, password }, attioApiKey: env.ATTIO_API_KEY?.trim() || undefined };
+export function deliveryFrom(env: Record<string, string | undefined>): Delivery | undefined {
+  const smtp = smtpLoginFrom(env);
+  return smtp ? { smtp, attioApiKey: env.ATTIO_API_KEY?.trim() || undefined } : undefined;
 }
 
-export interface Mail {
-  from: { name: string; address: string };
-  to: string;
-  replyTo: string;
-  subject: string;
-  text: string;
-  html: string;
-}
+export type { Mail, SendMail };
 
 /** The mail to the contact inbox, always German: from the sending user, since Gmail hides a group's own posts from its sender. */
 export function notification(enquiry: Enquiry, sender: string, look: MailLook): Mail {
@@ -39,12 +26,16 @@ export function notification(enquiry: Enquiry, sender: string, look: MailLook): 
     replyTo: enquiry.email,
     subject: enquiry.subject,
     text: `${c.notification.title}\n\n${enquiryText(enquiry)}\n\n--\n${c.notification.replyHint}`,
-    html: notificationHtml(look, 'de', {
+    html: mailPage(look, identity, {
+      lang: 'de',
       title: c.notification.title,
-      lines: enquiry.lines,
-      message: enquiry.message,
-      reply: { label: c.notification.reply, to: enquiry.email, subject: enquiry.subject },
-      hint: c.notification.replyHint,
+      inboxPreview: enquiry.lines.map((line) => line.value).join(' · '),
+      blocks: [
+        infoList(enquiry.lines),
+        panel(enquiry.message),
+        button(c.notification.reply, `mailto:${enquiry.email}?subject=${encodeURIComponent(`Re: ${enquiry.subject}`)}`),
+        note(c.notification.replyHint),
+      ],
     }),
   };
 }
@@ -57,16 +48,12 @@ export function confirmation(enquiry: Enquiry, look: MailLook): Mail {
     replyTo: identity.email,
     subject: c.confirmation.subject,
     text: [c.confirmation.title, ...c.confirmation.body].join('\n\n'),
-    html: confirmationHtml(look, enquiry.locale, c.confirmation.title, c.confirmation.body),
-  };
-}
-
-export type SendMail = (mail: Mail) => Promise<void>;
-
-export function smtpSender(smtp: Delivery['smtp']): SendMail {
-  const transport = nodemailer.createTransport({ host: SMTP_HOST, port: 465, secure: true, auth: smtp });
-  return async (mail) => {
-    await transport.sendMail(mail);
+    html: mailPage(look, identity, {
+      lang: enquiry.locale,
+      title: c.confirmation.title,
+      inboxPreview: c.confirmation.body[0] ?? '',
+      blocks: c.confirmation.body.map((part, i) => paragraph(part, i === 0 ? 'ink' : 'muted')),
+    }),
   };
 }
 

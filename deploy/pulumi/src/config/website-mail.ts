@@ -12,7 +12,7 @@ export function loadWebsiteMail(cfg: pulumi.Config): WebsiteMailConfig {
   if ((user === "") !== (password === undefined)) {
     throw new Error(
       "grid-oib:websiteSmtpUser and grid-oib:websiteSmtpPassword go together: the Workspace user the " +
-        "website's forms send as, and that user's app password (`pulumi config set --secret`). Set both or neither.",
+        "website's forms send as, and that user's app password (on dev and prod both in the stack's ESC environment, `pulumi env set`). Set both or neither.",
     );
   }
   return {

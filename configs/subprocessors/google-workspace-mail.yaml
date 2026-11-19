@@ -23,6 +23,7 @@ env: [SMTP_USER, SMTP_PASSWORD]
 sdks:
   - 'js:nodemailer'
 evidence:
+  - packages/mail/src/smtp.ts
   - apps/website/src/lib/enquiry-delivery.ts
   - deploy/pulumi/src/app/web-mail.ts
 agreement:

@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { deliver, deliveryFrom, smtpSender } from '../../lib/enquiry-delivery';
-import { mailLook } from '../../lib/enquiry-html';
+import { deliver, deliveryFrom } from '../../lib/enquiry-delivery';
+import { mailLook, smtpSender } from '../../lib/mail';
 import tokensCss from '../../styles/brand/tokens.css?raw';
 import sansFont from '../../styles/brand/fonts/GeneralSans-Variable.woff2?url';
 import logoFont from '../../styles/brand/fonts/Switzer-Semibold.woff2?url';

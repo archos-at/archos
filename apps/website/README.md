@@ -108,7 +108,7 @@ The confirmation repeats nothing the visitor typed, because anyone can enter any
 `ATTIO_API_KEY` set, the endpoint also upserts the person in Attio by email and attaches the enquiry as
 a note (`src/lib/enquiry-delivery.ts`). Only the notification must succeed: a failed confirmation or
 Attio call is logged and the visitor still sees "sent". Both mails go out as plain text and as HTML
-in the design system's look (`src/lib/enquiry-html.ts`): table layout with inline styles, colours read
+in the design system's look, built with the shared `packages/mail` (copied to `src/lib/mail/`): table layout with inline styles, colours read
 from `tokens.css` at build time, the light page with the dark footer, General Sans and Switzer where the
 mail client loads web fonts, Helvetica elsewhere.
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { confirmation, deliver, deliveryFrom, notification, recordInAttio, type Mail } from './enquiry-delivery';
 import { parseEnquiry, SendBudget, splitNameLastWordAsSurname, TRAP_FIELD, type Enquiry } from './enquiry';
-import { mailLook } from './enquiry-html';
+import { mailLook } from './mail';
 import identity from './identity';
 
 const TOKENS = `:root {
