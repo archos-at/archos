@@ -67,13 +67,18 @@ the Ordner tab's: search, „Alle Arten“, „Thema anlegen“, **Hochladen**, 
 „Aus Ordnern übernehmen“ (a document already in the Büroablage) and „So funktioniert es“.
 
 **Adding norms.** The Büroablage has one **Hochladen**, on either tab. ARCHOS
-reads the file names and opens one dialog for the norms among them: Art,
-Bezeichnung, Ausgabe and Thema, proposed from the name, which you correct and
-**Bestätigen**. **Keine Norm** turns a row back into an ordinary file, and
-**Später** leaves the rows waiting under „Zu bestätigen“. A file that is a newer
-Ausgabe of a norm you hold is added beside the earlier one; a second copy of an
-Ausgabe you hold is recognised as a duplicate. Ordinary files go to the folders
-(the toast's „In Ordnern zeigen“ goes there), and a file in a folder can still be filed with **Als Norm führen**. Nothing
+reads the file names as they arrive: a norm goes straight under Normen &
+Richtlinien, never into the folder you uploaded to, and one dialog opens for the
+norms: Art, Bezeichnung, Ausgabe and Thema, proposed from the name, which you
+correct and **Bestätigen**. **Keine Norm** turns a row back into an ordinary file
+in the folder it was uploaded to (the top level if that folder is gone), and ARCHOS
+does not offer it as a norm again. **Später** leaves the rows waiting under „Zu
+bestätigen“. A file that is a newer Ausgabe of a norm you hold is added beside the
+earlier one; a second copy of an Ausgabe you hold is recognised as a duplicate,
+whatever the file is called (a file whose name is already taken is kept as
+„Name (2)“). Ordinary files go to the folders (the toast's „In Ordnern zeigen“
+goes there); an OIB-Richtlinie stays an ordinary file, and ARCHOS says it already
+knows it. A file in a folder can still be filed with **Als Norm führen**. Nothing
 reads a norm's text (no search, no summary, no answer) until it is confirmed.
 **Nicht mehr als Norm führen** takes a norm off the tab and keeps its file in the
 Ordner. **Thema anlegen** adds a topic to sort norms into.
@@ -84,8 +89,9 @@ verschieben** if you manage the Büroablage, **Für die Büroablage vorschlagen*
 otherwise (whoever manages it decides in the Postfach), or **Hier lassen**. A
 moved norm leaves a reference in the project folder. Norms you had filed in
 ordinary Büroablage folders are found; the folder offers **Unter Normen &
-Richtlinien führen** or **Im Ordner lassen**, and the Postfach tells whoever
-manages the Büroablage.
+Richtlinien führen**, which moves them and opens the norm dialog for them, or
+**Im Ordner lassen**, and the Postfach tells whoever manages the Büroablage. An
+ordinary folder cannot be moved under Normen & Richtlinien.
 
 **Stand.** Where the platform's norm directory lists a norm with dated editions,
 its Stand comes from there: „Aktuell“ when you hold the edition in force today,

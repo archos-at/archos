@@ -336,11 +336,14 @@ copy and no backend retrieval change are needed. Audited as
 audited on either shelf, as a project's never were.
 
 Re-filing an Archiv document is `PATCH /api/documents/{id}/folder` (above): the
-row says which shelf it is on. With `office-standards` on, an Archiv upload outside
-„Grundlagen des Büros“ named like a document in that tree is `409` (`name_taken`),
-unless the form carries `forStandards=true` (the norms tab): then it is a new version
-of that document, where it lies. An upload whose `revisionOf` lies on the other side
-of that tree is `422`. A re-ingest of an Archiv document re-supplies its
+row says which shelf it is on. With `office-standards` on, an Archiv upload whose
+name a norm reads from (`recognizeNorm`) is stored under „Grundlagen des Büros“ and
+recorded as a proposal before its dispatch, remembering the folder it was meant for
+(`uploadToOfficeShelf`). An upload named like a document on the other side of that
+tree, or into the tree under a name already taken, is stored under the next free
+numbered name (`Name (2).pdf`), never as a new version of that document. An upload
+whose `revisionOf` lies on the other side of that tree is `422`, and
+`PATCH /api/office-shelf/folders/{id}` refuses to move an ordinary folder into it. A re-ingest of an Archiv document re-supplies its
 folder path to the backend, so it does not drop its filing.
 
 Source: `apps/workspace/app/api/documents/route.ts` and its siblings (the office shelf is their `scope`), `apps/workspace/app/api/office-shelf/folders/route.ts`, `.../folders/[folderId]/route.ts`, `.../folders/ensure/route.ts`; `apps/workspace/bff/office-shelf/*`, `apps/workspace/bff/documents/shelf-*.ts`.
