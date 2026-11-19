@@ -31,9 +31,9 @@ describe('how fresh an entry’s last check is', () => {
 describe('the Stand the platform’s editions give a work it lists', () => {
   const TODAY = '2026-11-19'
   const listed = [
-    { designation: 'ÖNORM B 1600', editionLabel: '2017-04-15', startsOn: '2017-04-15', endsOn: null },
-    { designation: 'ÖNORM B 1600', editionLabel: '2023-02-01', startsOn: '2023-02-01', endsOn: null },
-    { designation: 'ÖNORM B 1600', editionLabel: '2027-01-01', startsOn: '2027-01-01', endsOn: null },
+    { label: '2017-04-15', issuedOn: null, inForceFrom: '2017-04-15', inForceTo: null },
+    { label: '2023-02-01', issuedOn: null, inForceFrom: '2023-02-01', inForceTo: null },
+    { label: '2027-01-01', issuedOn: null, inForceFrom: '2027-01-01', inForceTo: null },
   ]
   const inForce = { editionLabel: '2023-02-01', startsOn: '2023-02-01' }
 
@@ -52,8 +52,13 @@ describe('the Stand the platform’s editions give a work it lists', () => {
 
   it('says nothing when the platform dates none of its editions, or none is in force today', () => {
     const own = [{ editionLabel: '2017-04-15', startsOn: '2017-04-15' }]
-    expect(directoryStanding(own, listed.map((edition) => ({ ...edition, startsOn: null })), TODAY)).toBeNull()
-    expect(directoryStanding(own, [{ ...listed[1], endsOn: '2024-01-01' }], TODAY)).toBeNull()
+    expect(directoryStanding(own, listed.map((edition) => ({ ...edition, inForceFrom: null })), TODAY)).toBeNull()
+    expect(directoryStanding(own, [{ ...listed[1], inForceTo: '2024-01-01' }], TODAY)).toBeNull()
     expect(directoryStanding(own, [], TODAY)).toBeNull()
+  })
+
+  it('counts an edition the platform dates only by its issue as out since that day', () => {
+    const issued = listed.map((edition) => ({ ...edition, issuedOn: edition.inForceFrom, inForceFrom: null }))
+    expect(directoryStanding([{ editionLabel: '2017-04-15', startsOn: '2017-04-15' }], issued, TODAY)).toEqual({ inForce, held: false })
   })
 })

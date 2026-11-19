@@ -32,11 +32,11 @@ export function profileHasProcedure(facts: ProfileFacts, procedureId: string): b
 
 export const PROFILE_PROCEDURE_IDS = ['p1'] as const
 
-export function referenceDayOfProfile(facts: ProfileFacts, today: string): string {
+export function referenceDayOfProfile(facts: ProfileFacts, today: string): string | null {
   for (const id of PROFILE_PROCEDURE_IDS) {
     if (!profileHasProcedure(facts, id)) continue
     const { filedOn } = procedureFromProfile(facts, id)
     if (filedOn && filedOn <= today) return filedOn
   }
-  return today
+  return null
 }

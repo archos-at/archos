@@ -10,7 +10,7 @@ import { listProjectsInOrg } from '@/lib/projects/repository'
 import { referenceDayOfProfile } from '../time/profile-procedure'
 import { listOrganizationsWithOfficeEditions } from './repository'
 import { directoryStandingsOf, type WorkStanding } from './service'
-import { designationKey } from './work-designation'
+import { designationKey } from '../platform'
 
 export const NEW_EDITION_NOTICE = 'base_knowledge.new_edition' as const
 
@@ -32,7 +32,7 @@ export function newEditionAnchor(work: WorkStanding): string {
 
 export function projectsAfter(projects: readonly ProjectDay[], startsOn: string, today: string): string[] {
   return projects
-    .filter((project) => project.status === 'active' && referenceDayOfProfile(project.facts, today) >= startsOn)
+    .filter((project) => project.status === 'active' && (referenceDayOfProfile(project.facts, today) ?? today) >= startsOn)
     .map((project) => project.name)
 }
 

@@ -193,6 +193,19 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   (`time/editions.ts` `newestInForce`; an edition starts on its in-force date, else its issue date) at the
   project's reference day: the filing day once it has come, else today (`referenceDayOfProfile`, which the
   knowledge context's `referenceDateOf` shares). Replaces "every confirmed entry" in the turn block.
+- **The norm directory decides which edition bound** (2026-11-19): where the platform records list the
+  work (matched by designation, `designationKey`) with in-force dates on its editions
+  (`PlatformKnowledge.editionsOf`, `platform/office-read.ts`), the edition in force on the reference day is
+  theirs (`office/binding-edition.ts`, `newestInForce` over the platform's editions), not the office's own
+  dates. When the office holds it (same label, or a day the two share), the turn carries that edition. When
+  it does not, the turn carries none of that work's editions and labels none; it carries a line marked
+  BINDING EDITION NOT HELD that names the edition and the copies the office has, and the block tells the
+  agent not to answer from them, to say which edition bound, and to offer that the office uploads it. Where
+  the records do not list the work or date its editions, the office's own dates decide as before. The block
+  names the day it used, and when it is today, why (no reference day, or no project), so the answer can say
+  so. Trace metadata `base_knowledge_editions_missing` counts the missing lines (`docs/observability/langfuse.md`).
+  The live path needs platform records it does not have yet: no `technical_standard` work with in-force dates
+  is released on dev (2026-11-19), so until they are, every work falls back to the office's dates.
 - **The citation line** of a passage of an office copy carries the same fields a platform edition's does
   (designation, edition label, ids, role, last check, freshness in the platform's tokens), found by the
   passage's `knowledge_edition_id` (`packages/agent/src/agent/citations/office_lines.py`). Wording the line

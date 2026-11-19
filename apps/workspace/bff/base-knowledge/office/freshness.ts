@@ -35,9 +35,9 @@ export function directoryStanding(held: readonly HeldEdition[], listed: readonly
   const found = newestInForce(
     listed.map((edition, index) => ({
       id: String(index),
-      label: edition.editionLabel,
-      inForceFrom: edition.startsOn,
-      inForceTo: edition.endsOn,
+      label: edition.label,
+      inForceFrom: edition.inForceFrom ?? edition.issuedOn,
+      inForceTo: edition.inForceTo,
       transition: null,
     })),
     day,

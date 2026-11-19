@@ -2,18 +2,19 @@ import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import type { DirectoryEdition, ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
-import { designationKey } from '../office/work-designation'
+import type { DirectoryWork, ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
 import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { competentAuthorities } from '@/lib/site-resolution/competence'
 import type { SiteAuthority } from '@/lib/site-resolution/wire'
-import { directiveVerdict, type PlatformAddressee } from '../platform'
+import { designationKey, directiveVerdict, workKeyOf, type PlatformAddressee } from '../platform'
 import { recordReadable } from '../store/visibility'
-import { readTerritoryChain } from '../time/repository'
+import { isoDateOf, readTerritoryChain } from '../time/repository'
 
 const MAX_READ = 200
 const MAX_DIRECTORY_READ = 2000
+
+const asciiKey = (designation: string) => workKeyOf(designation.replace(/[A-Z]/g, (letter) => letter.toLowerCase()))
 
 interface ListingRow extends Record<string, unknown> {
   designation: string
@@ -51,39 +52,46 @@ async function listedFor(organizationId: string): Promise<ListedEdition[]> {
 
 interface DirectoryRow extends Record<string, unknown> {
   designation: string
-  edition_label: string
-  starts_on: string | null
-  ends_on: string | null
+  title: string
+  label: string
+  issued_on: unknown
+  in_force_from: unknown
+  in_force_to: unknown
 }
 
-const calendarDay = (value: string | null): string | null => (value === null ? null : String(value).slice(0, 10))
-
-async function directoryEditions(organizationId: string, designations: readonly string[]): Promise<DirectoryEdition[]> {
-  const keys = [...new Set(designations.map(designationKey))]
+async function editionsOf(organizationId: string, designations: readonly string[]): Promise<DirectoryWork[]> {
+  const keys = [...new Set(designations.map((designation) => designationKey(designation)))]
   if (keys.length === 0) return []
+  const spellings = [...new Set(designations.flatMap((designation) => [designationKey(designation), asciiKey(designation)]))]
   const rows = await withTenant({ organizationId }, () =>
     getDb().execute<DirectoryRow>(sql`
-      SELECT w.identifiers ->> 'designation' AS designation, e.label AS edition_label,
-        COALESCE(e.in_force_from, e.issued_on)::text AS starts_on, e.in_force_to::text AS ends_on
+      SELECT w.identifiers ->> 'designation' AS designation, w.title, e.label, e.issued_on, e.in_force_from, e.in_force_to
       FROM knowledge_records wr
       JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
       JOIN knowledge_edition_revisions e ON e.work_id = wr.id
       JOIN knowledge_records er ON er.id = e.record_id AND er.head_revision_id = e.revision_id
       WHERE wr.organization_id IS NULL AND wr.type = 'work' AND ${recordReadable('wr', organizationId)}
         AND er.organization_id IS NULL AND ${recordReadable('er', organizationId)}
-        AND w.identifiers ->> 'designation' IS NOT NULL
-      ORDER BY designation, starts_on
+        AND lower(regexp_replace(btrim(regexp_replace(w.identifiers ->> 'designation', '[[:space:]]+', ' ', 'g')), ':[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$', ''))
+          IN (${sql.join(spellings.map((spelling) => sql`${spelling}`), sql`, `)})
+      ORDER BY designation, e.in_force_from NULLS FIRST
       LIMIT ${MAX_DIRECTORY_READ}`),
   )
   const wanted = new Set(keys)
-  return rows
-    .map((row) => ({
-      designation: String(row.designation),
-      editionLabel: String(row.edition_label),
-      startsOn: calendarDay(row.starts_on),
-      endsOn: calendarDay(row.ends_on),
-    }))
-    .filter((edition) => wanted.has(designationKey(edition.designation)))
+  const works = new Map<string, DirectoryWork>()
+  for (const row of rows) {
+    const key = designationKey(String(row.designation))
+    if (!wanted.has(key)) continue
+    const work = works.get(key) ?? { designation: String(row.designation), title: String(row.title), editions: [] }
+    work.editions.push({
+      label: String(row.label),
+      issuedOn: isoDateOf(row.issued_on),
+      inForceFrom: isoDateOf(row.in_force_from),
+      inForceTo: isoDateOf(row.in_force_to),
+    })
+    works.set(key, work)
+  }
+  return [...works.values()]
 }
 
 interface DirectiveRow extends Record<string, unknown> {
@@ -151,8 +159,8 @@ export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
     const holds = new Set(held.map(designationKey))
     return (await listedFor(organizationId)).filter((listed) => !holds.has(designationKey(listed.designation)))
   },
-  async directoryEditions(organizationId, designations) {
-    return directoryEditions(organizationId, designations)
+  async editionsOf(organizationId, designations) {
+    return editionsOf(organizationId, designations)
   },
   async isReleased(organizationId, revisionId) {
     const rows = await withTenant({ organizationId }, () =>
