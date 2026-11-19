@@ -61,6 +61,14 @@ production. It also posted every report a second time, to `#posthog-inbox`.
 Archived on 2026-10-27, after the per-deployment destination was seen posting
 the same reports to `#support-tickets`.
 
+## `website/`: enquiries from the website's forms
+
+| File | Destination in PostHog | Trigger | What it does |
+|---|---|---|---|
+| [`enquiry-slack.hog`](website/enquiry-slack.hog) | „Website enquiry → Slack" `01a1f320-80b7-0000-21fc-d17970947d39` | `website_enquiry` with `outcome` `sent` or `send_failed` (the website's server event, `apps/website/src/lib/enquiry-analytics.ts`) | Posts to `#website-anfragen` that the contact or demo form brought an enquiry and to check `kontakt@`, or that one could not be mailed. Marks a non-prod deployment with 🧪. Never a name, address or message: the event carries none |
+
+Inputs: `slack_workspace` (integration 91399), `channel` (`C0CKACPEL84`), `inbox` (`kontakt@archos.tech`) and `copy`, from [`website/copy.de.json`](website/copy.de.json).
+
 ## Slack channels
 
 One channel per question someone acts on. The PostHog Slack app (integration
@@ -73,6 +81,7 @@ fails with `not_in_channel`.
 | `#support-tickets` | `C0CBG0ZC0TB` | Does a member wait for us? | New reports and replies (`support/`), the 24-hour reminder |
 | `#answer-quality` | `C0CCKAS3TRC` | Where did Piloti answer badly? | Thumbs-down votes with a reason |
 | `#archos-metrics` (`#piloti-metrics` until 2026-10-30) | `C0CDFLKKYRE` | What does it cost, and how is the week going? | The „Costs and budgets (prod)" alert, the Monday report |
+| `#website-anfragen` | `C0CKACPEL84` | Did someone write to us through the website? | New enquiries and failed sends (`website/`) |
 | `#posthog-inbox` | `C0CAHK8EYAF` | | Nothing any more: every destination moved to the channels above on 2026-10-27 |
 
 ## Alerts

@@ -74,7 +74,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "Slack Technologies, LLC",
-          "Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Fehler und Betriebswarnungen",
+          "Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Anfragen über die Website, Fehler und Betriebswarnungen",
           "Ticketnummer, Art der Rückmeldung, Grund einer negativen Bewertung, Name der Organisation, Links; Titel von Fehlermeldungen, die den Namen eines Dokuments oder Projekts enthalten können; Kennzahlen zu Betrieb und Kosten. Kein Text Ihrer Rückmeldungen oder Chats",
           "USA",
           "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
@@ -276,7 +276,7 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
         ],
         [
           "Slack Technologies, LLC",
-          "Notifying our team internally about new reports, answer ratings, errors and operational alerts",
+          "Notifying our team internally about new reports, answer ratings, enquiries through the website, errors and operational alerts",
           "Ticket number, kind of report, reason of a negative rating, organization name, links; titles of error messages, which can contain the name of a document or project; operational and cost figures. No text of your reports or chats",
           "USA",
           "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",

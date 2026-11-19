@@ -1,0 +1,33 @@
+// Tells #website-anfragen that the website's contact or demo form brought an enquiry.
+// Fed by website_enquiry (apps/website/src/lib/enquiry-analytics.ts), filtered in the
+// destination to outcome sent or send_failed. The event carries no name, address or
+// message, so neither does the post: the team reads the enquiry in the kontakt@ inbox.
+let props := event.properties
+let copy := inputs.copy
+let isProd := props.deployment == 'prod'
+let forms := {'contact': copy.form_contact, 'demo': copy.form_demo}
+let form := forms[props.form] ?? copy.form_other
+let where := isProd ? '' : f' · 🧪 {props.deployment ?? copy.unknown_deployment}'
+
+let text := ''
+if (props.outcome == 'sent') {
+  text := f'📬 {copy.new_enquiry} ({form}) · {copy.check_inbox} {inputs.inbox}{where}'
+} else if (props.outcome == 'send_failed') {
+  text := f'⚠️ {copy.send_failed} ({form}) · {copy.visitor_mailed_us}{where}'
+} else {
+  print(f'Outcome {props.outcome} posts nothing')
+  return
+}
+
+let response := fetch('https://slack.com/api/chat.postMessage', {
+  'method': 'POST',
+  'headers': {
+    'Authorization': f'Bearer {inputs.slack_workspace.access_token}',
+    'Content-Type': 'application/json; charset=utf-8'
+  },
+  'body': {'channel': inputs.channel, 'username': 'Website', 'text': text}
+})
+if (response.status != 200 or response.body.ok == false) {
+  throw Error(f'Slack refused the message: {response.status}: {response.body}')
+}
+print(f'Posted {props.outcome} for a {props.form} enquiry ({props.deployment})')
