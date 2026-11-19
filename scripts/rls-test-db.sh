@@ -73,7 +73,9 @@ run_pg() { if [ -n "$RUNAS" ]; then su "$RUNAS" -c "$1"; else sh -c "$1"; fi; }
 echo "==> $("$PGBIN/postgres" --version)"
 echo "==> initialising a throwaway cluster on port $PORT"
 run_pg "'$PGBIN/initdb' -D '$PGDATA' -U postgres --auth=trust --encoding=UTF8 --locale=C" >/dev/null
-run_pg "'$PGBIN/pg_ctl' -D '$PGDATA' -o '-p $PORT -k $WORKDIR' -l '$PGDATA/server.log' -w start" >/dev/null
+# max_connections: the batch's parallel files each pool up to DB_POOL_MAX (10);
+# past the default 100 a late file dies with 53300 "remaining connection slots".
+run_pg "'$PGBIN/pg_ctl' -D '$PGDATA' -o '-p $PORT -k $WORKDIR -c max_connections=400' -l '$PGDATA/server.log' -w start" >/dev/null
 
 # NOTICEs from the idempotent DROP ... IF EXISTS guards are expected noise.
 export PGOPTIONS="-c client_min_messages=warning"

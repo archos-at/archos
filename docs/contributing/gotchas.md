@@ -658,3 +658,11 @@ What happens to a row once its cause is fixed depends on whose defect it was:
 - **Product behaviour**: keep the row and say what closed it. The symptom can
   come back as a regression, and this page is where somebody meeting it again
   searches first.
+
+## `remaining connection slots are reserved for roles with the SUPERUSER attribute` in `db:test:rls`
+
+Searched: `remaining connection slots are reserved`, `53300`. The batch step of
+`scripts/rls-test-db.sh` runs its files in parallel workers, each opening a pool of up
+to `DB_POOL_MAX` (10). With the default `max_connections` of 100 a late file in the
+batch failed to connect once the mail suites joined (2026-11-19, a suite unrelated to
+the change failed). The throwaway cluster now starts with `max_connections=400`.
