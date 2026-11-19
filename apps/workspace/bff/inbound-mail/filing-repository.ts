@@ -133,10 +133,23 @@ export async function returnPartToWaiting(
   return returned.length === 1
 }
 
+export async function renewClaims(decisionIds: readonly string[], until: Date): Promise<void> {
+  if (decisionIds.length === 0) return
+  await getDb()
+    .update(inboundMailParts)
+    .set({ claimExpiresAt: until })
+    .where(
+      and(
+        eq(inboundMailParts.state, 'filing'),
+        inArray(inboundMailParts.decisionId, [...decisionIds])
+      )
+    )
+}
+
 export async function markAttachmentFiled(
   partId: string,
   decisionId: string,
-  filed: { documentId: string; versionId: string | null; erasureDeferred: boolean }
+  filed: { documentId: string; versionId: string | null }
 ): Promise<boolean> {
   const now = new Date()
   const done = await getDb()
@@ -148,14 +161,31 @@ export async function markAttachmentFiled(
       lastFailure: null,
       documentId: filed.documentId,
       documentVersionId: filed.versionId,
-      ...(filed.erasureDeferred
-        ? { erasureDeferredAt: now }
-        : { storageKey: null, filename: null, suggestion: null }),
+      erasureDeferredAt: now,
       updatedAt: now,
     })
     .where(claimed(partId, decisionId))
     .returning({ id: inboundMailParts.id })
   return done.length === 1
+}
+
+export async function forgetFiledBytes(partId: string, storageKey: string): Promise<void> {
+  await getDb()
+    .update(inboundMailParts)
+    .set({
+      storageKey: null,
+      filename: null,
+      suggestion: null,
+      erasureDeferredAt: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(inboundMailParts.id, partId),
+        eq(inboundMailParts.state, 'filed'),
+        eq(inboundMailParts.storageKey, storageKey)
+      )
+    )
 }
 
 export async function projectIsHeld(projectId: string, organizationId: string): Promise<boolean> {

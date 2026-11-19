@@ -58,6 +58,7 @@ vi.mock('./staging', () => ({
     if (!bytes) throw new Error(`no object ${key}`)
     return bytes
   }),
+  readStagedObjectIfHeld: vi.fn(async (_bucket: string, key: string) => store.objects.get(key) ?? null),
   putStagedObject: vi.fn(async (_bucket: string, key: string, body: Uint8Array) => {
     store.writes.push(key)
     store.objects.set(key, body)
@@ -411,7 +412,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
       role: 'member',
       permissions: [],
     }
-    await inTenant(() => runInboundMailFiling(session, { projectId, mailIds: [mailId], requester }))
+    await inTenant(() => runInboundMailFiling(session, { projectId, mailIds: [mailId], decisionIds: [decisionId], requester }))
 
     expect(uploadDocument).toHaveBeenCalledOnce()
     const [asWho, input] = vi.mocked(uploadDocument).mock.calls[0]!

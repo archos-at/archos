@@ -15,11 +15,11 @@ import { maskText } from '@/lib/upload-screening/content-screen'
 import { screenUploadName } from '@/lib/upload-screening/name-screen'
 import { gatePolicy } from '@/lib/upload-screening/service'
 import { requireMailReviewer } from './access'
-import { announceDecided, settleFilingFailed, settleHeld, settleProjectNotices } from './announce'
+import { announceDecided, announceWaiting, settleFilingFailed, settleHeld, settleProjectNotices } from './announce'
 import { auditDecisions } from './audit'
 import { partStatesOf } from './notice-repository'
 import { candidatesFor } from './candidates'
-import { mailIfMatch, planMailDecision, refusal, requireDecisionRights, type DecisionContext } from './decision'
+import { mailIfMatch, planMailDecision, refusal, requireDecisionRights, requireThreadsHoldBatch, type DecisionContext } from './decision'
 import { forwardedOrigin } from './forwarded'
 import { INBOUND_MAIL_RESTORE_DAYS } from './inbound-mail-vocabulary'
 import type { DismissInboundMailsBody, FileInboundMailsBody, InboundMailDecisionResultView, InboundMailListQuery, InboundMailListView, InboundMailTextView, InboundMailView } from './inbound-mail-wire'
@@ -141,6 +141,7 @@ export async function readInboundMailPart(
   const mail = await requireMail(projectId, mailId)
   const part = (await findMailParts([mail.id])).find((candidate) => candidate.id === partId && candidate.kind === 'attachment')
   if (!part) throw new NotFoundError('Part not found')
+  if (part.state === 'filed') throw refusal('gone', 'This attachment is filed; open its document instead', { partId })
   if (part.scanStatus !== 'clean') throw refusal('scan_not_clean', 'This attachment has no clean scan', { partId })
   if (!part.storageKey) throw refusal('gone', 'The bytes of this attachment are no longer held', { partId })
   if (actingReaderIsAgent() && (part.erasureDeferredAt || mail.erasureDeferredAt)) {
@@ -276,6 +277,7 @@ export async function fileInboundMails(
   const plans = body.mails.map((decision, index) =>
     planMailDecision(mails[index] as InboundMailRow, byMail.get(decision.mailId) ?? [], decision, context),
   )
+  requireThreadsHoldBatch(plans, context.threads)
   await requireDecisionRights(session, projectId, plans)
 
   const files = plans.flatMap((plan) => plan.files)
@@ -288,6 +290,7 @@ export async function fileInboundMails(
         payload: {
           projectId,
           mailIds: plans.filter((plan) => plan.files.length > 0).map((plan) => plan.mailId),
+          decisionIds: files.flatMap((row) => (row.id ? [row.id] : [])),
           requester: requesterOf(session),
         },
       }
@@ -344,6 +347,8 @@ export async function fileInboundMails(
     })
   }
   await afterDecisions(session, projectId, written, body.mails.map((mail) => mail.mailId))
+  const nothingFiled = new Set(plans.filter((plan) => plan.files.length === 0).map((plan) => plan.mailId))
+  await tellDismissed(session, mails.filter((mail) => nothingFiled.has(mail.id)), written)
   const fresh = await Promise.all(body.mails.map((decision) => requireMail(projectId, decision.mailId)))
   return { mails: await mailViews(session, projectId, fresh, closed), filingJobId: jobId }
 }
@@ -357,7 +362,15 @@ export async function dismissInboundMails(
   const mails = await Promise.all(body.mailIds.map((mailId) => requireMail(projectId, mailId)))
   const before = groupParts(await findMailParts(body.mailIds))
   const actor = decisionActor(session)
-  const written = await dismissMails(projectId, body.mailIds, actor)
+  let written: DecisionsWritten
+  try {
+    written = await dismissMails(projectId, body.mailIds, actor)
+  } catch (error) {
+    if (error instanceof PartNotWaitingError) {
+      throw refusal('part_not_waiting', 'A part is no longer waiting; read the mail again', { mailId: error.mailId })
+    }
+    throw error
+  }
   for (const mail of mails) {
     const dismissed = written.decisions.filter((row) => row.mailId === mail.id).length
     if (dismissed === 0) continue
@@ -408,10 +421,23 @@ export async function restoreInboundMail(session: AuthorizedSession, projectId: 
   if (written.decisions.length === 0 && !(await hasOpenParts(mailId))) {
     throw refusal('not_restorable', 'Nothing of this mail can be restored any more', { mailId })
   }
+  const restored = await requireMail(projectId, mailId)
   if (written.decisions.length > 0) {
     publishProjectChanged(session.organizationId, projectId)
     await auditDecisions(written.decisions)
+    await settleProjectNotices(session.organizationId, projectId)
+    if (restored.senderTrust) {
+      await announceWaiting({
+        organizationId: session.organizationId,
+        projectId,
+        mailId,
+        senderTrust: restored.senderTrust,
+        senderUserId: restored.senderUserId,
+        senderFlags: restored.senderFlags,
+        automatic: restored.automatic,
+      })
+    }
   }
-  const [view] = await mailViews(session, projectId, [await requireMail(projectId, mailId)], closed)
+  const [view] = await mailViews(session, projectId, [restored], closed)
   return view as InboundMailView
 }

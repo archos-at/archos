@@ -1,20 +1,22 @@
 /**
  * @vitest-environment node
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('./filing-repository', () => ({
   findFilingWork: vi.fn(),
+  forgetFiledBytes: vi.fn(async () => undefined),
   markAttachmentFiled: vi.fn(async () => true),
   projectIsHeld: vi.fn(async () => false),
   recordFilingScan: vi.fn(async () => undefined),
   renewClaim: vi.fn(async () => true),
+  renewClaims: vi.fn(async () => undefined),
   returnPartToWaiting: vi.fn(async () => true),
   settleFiledMail: vi.fn(async () => true),
 }))
 vi.mock('./staging', () => ({
-  readStagedObject: vi.fn(),
+  readStagedObjectIfHeld: vi.fn(),
   eraseStagedObjects: vi.fn(async () => []),
 }))
 vi.mock('./malware-scan', () => ({ scanForStorage: vi.fn() }))
@@ -109,9 +111,11 @@ import { filedForm, runInboundMailFiling } from './file-job'
 import { unreadableRead } from './read-client'
 import {
   findFilingWork,
+  forgetFiledBytes,
   markAttachmentFiled,
   projectIsHeld,
   recordFilingScan,
+  renewClaims,
   returnPartToWaiting,
   settleFiledMail,
   type FilingWork,
@@ -119,7 +123,7 @@ import {
 import { scanForStorage } from './malware-scan'
 import { partOutcomesOf } from './notice-repository'
 import { openQuietBatch, sealQuietBatch } from './quiet-batch'
-import { eraseStagedObjects, readStagedObject } from './staging'
+import { eraseStagedObjects, readStagedObjectIfHeld } from './staging'
 
 const session = {
   userId: PERSON,
@@ -146,6 +150,7 @@ const READ = JSON.stringify({
 const payload: InboundMailFilePayload = {
   projectId: PROJECT_ID,
   mailIds: [MAIL_ID],
+  decisionIds: ['decision-0', 'decision-1'],
   requester: {
     userId: PERSON,
     email: 'petra@example.test',
@@ -223,7 +228,7 @@ const filed = (part: InboundMailPartRow) => ({
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(readStagedObject).mockImplementation(async (_bucket, key) =>
+  vi.mocked(readStagedObjectIfHeld).mockImplementation(async (_bucket, key) =>
     key.endsWith('read.json') ? new TextEncoder().encode(READ) : BYTES
   )
   vi.mocked(uploadDocument).mockResolvedValue({
@@ -249,7 +254,7 @@ describe('an attachment', () => {
     return runInboundMailFiling(session, payload)
   }
 
-  it('is uploaded as the person, quietly, with its type and the mail it came with, then filed and its bytes erased', async () => {
+  it('is uploaded as the person, quietly, with its type and the mail it came with, then filed and only then its bytes erased', async () => {
     expect(
       await run(attachment(), { documentType: 'Bescheid', targetDocumentId: 'earlier-doc' })
     ).toEqual({ done: true, payload })
@@ -270,14 +275,17 @@ describe('an attachment', () => {
       },
     })
     expect(input.file.name).toBe('S-101_C.pdf')
-    expect(eraseStagedObjects).toHaveBeenCalledWith(heldMail().stagingBucket, [
-      attachment().storageKey,
-    ])
     expect(markAttachmentFiled).toHaveBeenCalledWith(attachment().id, 'decision-1', {
       documentId: 'doc-1',
       versionId: 'doc-1-v',
-      erasureDeferred: false,
     })
+    expect(eraseStagedObjects).toHaveBeenCalledWith(heldMail().stagingBucket, [
+      attachment().storageKey,
+    ])
+    expect(vi.mocked(markAttachmentFiled).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(eraseStagedObjects).mock.invocationCallOrder[0]!
+    )
+    expect(forgetFiledBytes).toHaveBeenCalledWith(attachment().id, attachment().storageKey)
     expect(openQuietBatch).toHaveBeenCalledOnce()
     expect(sealQuietBatch).toHaveBeenCalledWith(session, 'batch-attachments')
   })
@@ -293,11 +301,38 @@ describe('an attachment', () => {
     expect(eraseStagedObjects).not.toHaveBeenCalledWith(heldMail().stagingBucket, [
       attachment().storageKey,
     ])
-    expect(markAttachmentFiled).toHaveBeenCalledWith(
-      attachment().id,
-      'decision-1',
-      expect.objectContaining({ erasureDeferred: true })
-    )
+    expect(markAttachmentFiled).toHaveBeenCalledWith(attachment().id, 'decision-1', expect.anything())
+    expect(forgetFiledBytes).not.toHaveBeenCalled()
+  })
+
+  it('keeps the key it could not erase, for the sweep to erase', async () => {
+    vi.mocked(eraseStagedObjects).mockResolvedValueOnce([attachment().storageKey!])
+    await run()
+    expect(markAttachmentFiled).toHaveBeenCalled()
+    expect(forgetFiledBytes).not.toHaveBeenCalled()
+  })
+
+  it('erases nothing and files nothing when its claim was lost during the upload', async () => {
+    vi.mocked(markAttachmentFiled).mockResolvedValueOnce(false)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    try {
+      await run()
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('doc-1'))
+    } finally {
+      warn.mockRestore()
+    }
+    expect(uploadDocument).toHaveBeenCalled()
+    expect(eraseStagedObjects).not.toHaveBeenCalledWith(heldMail().stagingBucket, [
+      attachment().storageKey,
+    ])
+    expect(forgetFiledBytes).not.toHaveBeenCalled()
+  })
+
+  it('waits again `unavailable` when its staged bytes are gone', async () => {
+    vi.mocked(readStagedObjectIfHeld).mockResolvedValueOnce(null)
+    await run()
+    expect(returnPartToWaiting).toHaveBeenCalledWith(attachment().id, 'decision-1', 'unavailable', undefined)
+    expect(uploadDocument).not.toHaveBeenCalled()
   })
 
   it('is scanned again when its verdict is older than a day, and waits again unless it is still clean', async () => {
@@ -317,7 +352,7 @@ describe('an attachment', () => {
     )
     expect(uploadDocument).not.toHaveBeenCalled()
     vi.clearAllMocks()
-    vi.mocked(readStagedObject).mockResolvedValue(BYTES)
+    vi.mocked(readStagedObjectIfHeld).mockResolvedValue(BYTES)
     vi.mocked(uploadDocument).mockResolvedValue({
       documentId: 'doc-1',
       jobId: 'job',
@@ -395,11 +430,48 @@ describe('whose decisions a run files (review D, finding 1)', () => {
     expect(announceFilingFailed).not.toHaveBeenCalled()
   })
 
-  it('files only the decisions its payload names, when it names some', async () => {
+  it('files only the decisions its payload names', async () => {
     const part = attachment()
     vi.mocked(findFilingWork).mockResolvedValue([work([part], [[part, {}]])])
     await runInboundMailFiling(session, { ...payload, decisionIds: ['decision-of-another-run'] })
     expect(uploadDocument).not.toHaveBeenCalled()
+  })
+
+  it('files nothing on a payload naming no decisions, even its own person’s in-flight sender filing', async () => {
+    const part = attachment()
+    vi.mocked(findFilingWork).mockResolvedValue([work([part], [[part, { via: 'sender' }]])])
+    const { decisionIds: _named, ...unnamed } = payload
+    await runInboundMailFiling(session, unnamed)
+    expect(uploadDocument).not.toHaveBeenCalled()
+    expect(renewClaims).not.toHaveBeenCalledWith(expect.arrayContaining(['decision-1']), expect.anything())
+  })
+})
+
+describe('the run’s claims', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('are renewed at its start and again as the loop reaches later mails', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const first = attachment()
+    const second = attachment({ id: 'part-second', mailId: 'mail-second', decisionId: 'decision-2' })
+    vi.mocked(findFilingWork).mockResolvedValue([
+      work([first], [[first, {}]]),
+      { ...work([second], [[second, { id: 'decision-2', mailId: 'mail-second' }]]), mail: heldMail({ id: 'mail-second' }) },
+    ])
+    vi.mocked(uploadDocument).mockImplementation(async () => {
+      vi.setSystemTime(Date.now() + 2 * 60_000)
+      return { documentId: 'doc-1', jobId: 'job', status: 'pending', filename: 'S-101_C.pdf' }
+    })
+    const startedAt = Date.now()
+    await runInboundMailFiling(session, {
+      ...payload,
+      mailIds: [MAIL_ID, 'mail-second'],
+      decisionIds: ['decision-1', 'decision-2'],
+    })
+    const renewals = vi.mocked(renewClaims).mock.calls
+    expect(renewals.length).toBeGreaterThanOrEqual(2)
+    expect(renewals[0]).toEqual([['decision-1', 'decision-2'], new Date(startedAt + 300_000)])
+    expect(renewals.at(-1)![1].getTime()).toBeGreaterThan(startedAt + 300_000)
   })
 
   it('renders no other person’s text decision into its append', async () => {
@@ -501,6 +573,46 @@ describe('the text', () => {
       'thread_document_gone'
     )
     expect(finishOriginalMove).not.toHaveBeenCalled()
+  })
+
+  it('skips the run’s later mails to the same thread once the thread was busy, so no Fassung is inverted', async () => {
+    const messageOf = (mailId: string, id: string, decisionId: string, threadId: string) => {
+      const part = text({ id, mailId, decisionId })
+      return {
+        ...work([part], [[part, { ...messageDecision, id: decisionId, mailId, mailThreadId: threadId }]]),
+        mail: heldMail({ id: mailId }),
+      }
+    }
+    vi.mocked(findFilingWork).mockImplementation(async (_project, ids) =>
+      [
+        messageOf(MAIL_ID, 'text-a', 'decision-a', THREAD_ID),
+        messageOf('mail-b', 'text-b', 'decision-b', THREAD_ID),
+        messageOf('mail-c', 'text-c', 'decision-c', 'thread-other'),
+      ].filter((entry) => ids.includes(entry.mail.id))
+    )
+    vi.mocked(appendInboundMessage).mockResolvedValueOnce({ kind: 'busy' }).mockResolvedValue({
+      kind: 'filed',
+      entryId: 'entry-c',
+      threadId: 'thread-other',
+      documentId: 'thread-doc',
+      versionId: 'v1',
+    })
+    const result = await runInboundMailFiling(session, {
+      ...payload,
+      mailIds: [MAIL_ID, 'mail-b', 'mail-c'],
+      decisionIds: ['decision-a', 'decision-b', 'decision-c'],
+    })
+    expect(result.done).toBe(false)
+    expect(vi.mocked(appendInboundMessage).mock.calls.map(([request]) => request.part.id)).toEqual(['text-a', 'text-c'])
+  })
+
+  it('waits again `unreadable` when its staged text is gone', async () => {
+    const message = text()
+    vi.mocked(findFilingWork).mockResolvedValue([work([message], [[message, messageDecision]])])
+    vi.mocked(readStagedObjectIfHeld).mockResolvedValue(null)
+    await runInboundMailFiling(session, payload)
+    expect(returnPartToWaiting).toHaveBeenCalledWith(message.id, 'decision-0', 'unreadable')
+    expect(appendInboundMessage).not.toHaveBeenCalled()
   })
 
   it('waits again `unreadable` when the reader left nothing to file', async () => {

@@ -24,6 +24,9 @@ const repository = vi.hoisted(() => {
     findExpiringMails: empty(),
     findEndedPartBytes: empty(),
     findMailsToSettle: empty(),
+    expireMail: vi.fn(async () => 1),
+    findMailRow: vi.fn(),
+    settleEndedMail: vi.fn(async () => true),
     findFailedScans: empty(),
     recordPartRescan: vi.fn(async () => true),
     recordRawRescan: vi.fn(async () => true),
@@ -43,7 +46,12 @@ vi.mock('@/lib/db/tenant-context', () => ({
   withPlatformAccess: async <T>(_reason: string, fn: () => T) => fn(),
   withTenant: async <T>(_scope: unknown, fn: () => T) => fn(),
 }))
-vi.mock('./announce', () => ({}))
+vi.mock('./announce', () => ({
+  announceExpired: vi.fn(async () => true),
+  settleHeld: vi.fn(async () => undefined),
+  settleProjectNotices: vi.fn(async () => undefined),
+}))
+vi.mock('./entry-attachments', () => ({ decideEndedAttachments: vi.fn(async () => undefined) }))
 vi.mock('./audit', () => ({ auditDecisions: vi.fn() }))
 vi.mock('./filing-repository', () => ({ projectIsHeld: vi.fn() }))
 vi.mock('./malware-scan', () => ({ scanForStorage: vi.fn() }))
@@ -62,10 +70,11 @@ vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() })
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn(), SYSTEM_ACTORS: { inboundMail: 'system:inbound_mail' } }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 
+import { decideEndedAttachments } from './entry-attachments'
 import { scanForStorage } from './malware-scan'
 import { rereadHeldText } from './receive-reread'
 import { queueSenderFiling } from './receive-sender'
-import { capNoticeFor, REREAD_BATCH, REREAD_BUDGET_MS, SWEEP_ORDER, sweepFailedScans, sweepInboundMail, sweepUnreadTexts } from './sweep'
+import { capNoticeFor, REREAD_BATCH, REREAD_BUDGET_MS, SWEEP_ORDER, sweepEndedParts, sweepExpiredMails, sweepFailedScans, sweepInboundMail, sweepUnreadTexts } from './sweep'
 
 const GIB = 1024 * 1024 * 1024
 
@@ -204,5 +213,22 @@ describe('sweep 15: a lease, a small batch and a time budget (R3 of the second 2
     expect(vi.mocked(rereadHeldText).mock.calls.map(([mail]) => mail.id)).toEqual(['m2'])
     expect(vi.mocked(rereadHeldText).mock.calls[0][0].readerFaultAt.getTime()).toBeGreaterThan(unread('m2').readerFaultAt.getTime())
     expect(result).toMatchObject({ read: 1, gone: 1 })
+  })
+})
+
+describe('what the Verlauf says of an attachment whose end is final (review E, finding 6)', () => {
+  const row = { id: 'm1', organizationId: 'org_1', projectId: 'proj_1', senderTrust: 'external_verified', senderUserId: null, senderFlags: [], automatic: false }
+
+  it('is decided when a mail expires and when an ended mail settles', async () => {
+    const now = new Date()
+    repository.findExpiredMails.mockResolvedValueOnce([row] as never)
+    await sweepExpiredMails(now)
+    expect(decideEndedAttachments).toHaveBeenCalledWith('proj_1', ['m1'], now)
+
+    vi.mocked(decideEndedAttachments).mockClear()
+    repository.findMailsToSettle.mockResolvedValueOnce([{ id: 'm1', organizationId: 'org_1', projectId: 'proj_1', held: true }] as never)
+    repository.findMailRow.mockResolvedValueOnce({ id: 'm1', status: 'waiting' } as never)
+    await sweepEndedParts(now)
+    expect(decideEndedAttachments).toHaveBeenCalledWith('proj_1', ['m1'], now)
   })
 })

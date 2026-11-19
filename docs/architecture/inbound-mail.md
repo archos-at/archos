@@ -325,7 +325,7 @@ outsider's 14.
 |---|---|---|
 | The address | `inbound_mail_addresses` | active; revoked (`rotated`, `switched_off`) |
 | A delivery | `inbound_mails` | `receiving` → `received` → `waiting` → `settled`, or `dropped` |
-| A part | `inbound_mail_parts` (`message` or `attachment`) | `waiting` → `filing` → `filed`; `waiting` again with `last_failure`; `dismissed` / `expired` → `waiting` (restore, 7 days) |
+| A part | `inbound_mail_parts` (`message` or `attachment`) | `waiting` → `filing` → `filed`; `waiting` again with `last_failure`; `dismissed` / `expired` → `waiting` (restore, 7 days; the mail's end moved at least seven days out, `inbound_mail.waiting` told again and its expiry notice owed again) |
 | A decision | `inbound_mail_decisions` (append-only) | `file`, `dismiss`, `restore`; `via` `app`, `agent`, `agent_proposal`, `follow`, `sender` |
 
 Staged objects: `org/<org>/project/<project>/_inbound-mail/<mailId>/raw.eml`,
@@ -405,11 +405,20 @@ project's own history:
 `requireFolderWrite` on each target, the accepted type, a clean scan (of each
 attachment, and for the text of the whole raw message), the
 acknowledgements (only with one mail), the name check of a new Verlauf's name
-and folder path, the name free or `revisionOf`, `ifMatch`. Then, in one
-transaction, it appends the decision rows, claims the listed parts (`waiting →
-filing`, compare-and-set, 5-minute claim), dismisses every other waiting part of
-those mails, and queues `inbound_mail_file`. It answers 202. Refusals are 409s
-with `details.reason` from `INBOUND_MAIL_REFUSALS` (`inbound-mail-wire.ts`).
+and folder path, the name free or `revisionOf`, `ifMatch`. A bulk decision is
+judged whole: a thread's entries are counted across every mail that appends to
+it (`requireThreadsHoldBatch`, `thread_full`), and no two parts may be filed
+under one new name (`name_taken`), so the person is refused before anything is
+written, not by the job after it. Then, in one transaction, taking the mails'
+rows in id order whatever order the request named them in, it appends the
+decision rows, claims the listed parts (`waiting → filing`, compare-and-set,
+5-minute claim), dismisses every other waiting part of those mails, and queues
+`inbound_mail_file` naming its decisions (`decisionIds`). It answers 202.
+Refusals are 409s with `details.reason` from `INBOUND_MAIL_REFUSALS`
+(`inbound-mail-wire.ts`); a dismissal that meets a part no longer waiting is
+`part_not_waiting`, as a decision is. A decision that files nothing of a mail
+tells its member as a dismissal does (`inbound_mail.rejected`); one that files
+something leaves the telling to its job.
 
 `via` is read from the call, never the body (`decisionActor`): an agent's card the
 person accepted (`actingProposalId`, set by the proposal applier), an outside
@@ -435,19 +444,35 @@ one thread is filed in sent order with the Fassung each becomes.
 ## Filing
 
 `lib/inbound-mail/file-job.ts`, handler as the decider, interactive. A run acts
-only on decisions its own person made, and the follow job's run only on the
-decision it just wrote (`decisionIds` in the payload): a part another person
-decided on the same mail is left to that person's run, so nothing is ever
-uploaded in one person's session on another's choice of folder, name or
-release. Per mail:
+only on the decisions its payload names (`decisionIds`), each its own person's:
+the person's decision names its own, the sender's filing job its own and the
+follow job the one it just wrote, and a payload that names none files nothing.
+So two runs never work one part, not even a person's and their own sender
+filing on one mail, and a part another person decided is left to that person's
+run: nothing is ever uploaded in one person's session on another's choice of
+folder, name or release. The run renews the claims of every decision it names
+at its start and again, at most once a minute, as it reaches each mail and each
+attachment, so the last mails of a bulk run do not lapse to the sweep while the
+first upload. Per mail:
 finish a stopped original move; each attachment (claim renewed, bytes read and
 SHA-256 checked, re-scanned when the verdict is older than 24 h, folder resolved
-as the person, the upload path with the person's chosen type and `mail_origin`);
+as the person, the upload path with the person's chosen type and `mail_origin`,
+then the part marked filed, compare-and-set on its claim, with its bytes still
+owed an erasure, and only then the bytes erased and the key forgotten; a hold or
+a failed erasure leaves `erasure_deferred_at` for sweep 10);
 then the text (`lib/mail-thread/append.ts`); then any attachment filed after
 its text is linked to the entry's `pending` row; then settle once every part is
 filed (staged objects erased by key, the row scrubbed to ids) and tell. A
 failure a retry would repeat becomes the part's `last_failure` and the part
-waits again; `inbound_mail.filing_failed` tells the decider.
+waits again; `inbound_mail.filing_failed` tells the decider. Staged bytes that
+are gone are `unavailable` (an attachment) or `unreadable` (the text), not a
+failed run. An attachment whose claim was lost while it uploaded (the sweep gave
+it back, or another decision took it) is not marked filed and keeps its bytes,
+so it can be filed or dismissed again; the run logs the document it uploaded
+(`[inbound-mail] part … lost its claim while document … was uploaded`), and a
+second filing under the same name meets `name_taken`. When a thread is busy
+(its render lease held), the run's later mails to that thread wait for the
+retry with it, so no later message becomes an earlier Fassung.
 
 Each run opens one quiet upload batch per kind (`quiet-batch.ts`), with the
 effects of `batch-effects.ts`:
@@ -481,6 +506,15 @@ without spending an attempt):
 its name when the reader may open its document, and one that was not filed
 (waiting, dismissed, infected, name-stopped, never staged) by its reason only,
 never its name, since that name became no document (RT-S13).
+
+An attachment that still waited when its text was filed has a `pending` row,
+and a row is decided once (the trigger `mail_thread_entry_attachments_decided_once`).
+Filed later, the job links it; dismissed or expired, it is decided only once that
+end is final, that is when it can no longer be restored
+(`decideEndedAttachments` in `apps/workspace/bff/inbound-mail/entry-attachments.ts`, which reads restorable as the
+restore does, `isRestorable`): at an expiry that is final (sweep 3) or when the
+mail settles (sweep 6). A part dismissed today stays `pending` through its seven
+days to restore, since a restored part may yet be filed.
 
 A binned, deleted or archived Verlauf document is `last_failure:
 thread_document_gone`. A thread at 200 entries or 2 MiB refuses an append
@@ -593,9 +627,9 @@ In the order they run:
 | 5 | `lapsedClaims` | `filing` past its claim: waits again (`unavailable`), the decider told | the claim (5 min) | — |
 | 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: raw erased | 15 min | the move erases nothing unproven; the entry-gone branch skips a held project |
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
-| 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`) | 30 days; an outsider's 14 | — (no erasure) |
-| 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25; an outsider's day 9 | — |
-| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
+| 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`); a Verlauf row of a part whose end is now final decided | 30 days; an outsider's 14 | — (no erasure) |
+| 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail; a restore, which moves the mail's end at least seven days out, clears it, so a restored mail is told again before it runs out | day 25; an outsider's day 9 | — |
+| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed, and the Verlauf rows of its ended attachments decided | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
 | 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0199), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it (a run past its execution timeout runs on, and Hatchet delivers at least once) never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
@@ -638,7 +672,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, and holding a document write right, so able to file it), else the project's writers (any of `DOCUMENT_WRITE_PERMISSIONS`; a read-only member's signed mail included, whose member hears `held_for_writers`) | collapsed per project, actionable; its number is what waits now (`lib/inbox/live-counts.ts`), not the row's since-read tally | `/files/mail` | requests, normal | nothing waits |
 | `inbound_mail.expiring` | the same, once per mail (sweep 4) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing it told about waits |
 | `inbound_mail.decided` | the member the From names (verified or not), when the run filed the mail's last part; variant `direct` when it was filed as them without a click (told although they are its decider) | per mail | `/files?folder=…` when every file went to one folder the member may open, else `/files` | results, low | — |
-| `inbound_mail.rejected` | the member the From names, when a dismissal ended their mail | per mail | `/files` | results, low | — |
+| `inbound_mail.rejected` | the member the From names, when a dismissal, or a decision that filed nothing of it, ended their mail | per mail | `/files` | results, low | — |
 | `inbound_mail.held` | the writer an `unverified_writer` mail claims: „Haben Sie diese E-Mail gesendet?“ | per mail, actionable | `/files/mail/<mailId>` | requests, normal | the mail is decided or expires (`settleHeld`) |
 | `inbound_mail.held_for_writers` | the member without write rights whose mail waits; variant `unchecked` when WorkOS never answered whether they may write (`sender_unchecked`), so the row never says they cannot | per mail | `/files` | results, low | the same |
 | `inbound_mail.expired` | the member the From names, when sweep 3 expired their mail | per mail | `/files` | results, low | — |
@@ -655,7 +689,9 @@ holding two, because reading it set the count to 0 and the next mail added one,
 and a mail whose filing failed (`filing_failed`, its own row) was never added.
 So the read path (`listInbox`, and the push's `viewInboxItemAs`) replaces the
 count of an `inbound_mail.waiting` row with the project's waiting mails, by
-`projectNoticeState`'s rule (`waitingMailCounts`), once the view is built and
+the waiting list's rule (a mail with a part waiting or being filed,
+`countWaitingMailsByProject`, which `waitingMailCounts` is), the same number the
+Postfach row and the E-Mail-Eingang show, once the view is built and
 only when its target is reachable: a redacted row (access revoked) keeps its
 stored tally and reads nothing. Only the words follow it;
 the badge counts rows, and read and unread are as stored. `titleNone` covers a
@@ -722,7 +758,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 |---|---|---|
 | `inbound-mail-address-get`, `-create`, `-delete`, `-rotate` | yes | yes |
 | `inbound-mail-list`, `-get` (metadata only) | yes | yes |
-| `inbound-mail-text-get` (masked), `inbound-mail-part-content-get` | yes | no |
+| `inbound-mail-text-get` (masked), `inbound-mail-part-content-get` (a waiting part only: a filed part's staged copy, kept under a legal hold, is refused `gone`, its document is what is read) | yes | no |
 | `inbound-mail-file` (also the member's filing of mail that claims them: `acknowledgeSender`), `inbound-mail-dismiss` | yes, `requiresPersonConfirmation` | as a card; clean, unflagged parts only (a card carries no `acknowledgeSender`, so it never files a claimed mail) |
 | `inbound-mail-restore` | yes | yes |
 | `inbound-mail-original-get`, `mail-thread-entry-original-get` | withheld (`evidence`) | withheld |
@@ -795,7 +831,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | Transport (address, sender authentication, MIME, automatic mail, the Worker contract) | `apps/workspace/bff/inbound-mail/{address,sender-auth,mime,automatic-mail,contract}.ts`; hostile corpus `__fixtures__/hostile.ts` |
 | Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts`; a forward's original `lib/inbound-mail/{original-message,receive-original,receive-original-repository}.ts` |
 | Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
-| Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects}.ts` |
+| Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects,entry-attachments}.ts` |
 | The sender rule | `lib/inbound-mail/{sender-class,receive-sender,sender-filing,sender-file-job}.ts` |
 | Threads | `lib/mail-thread/{mail-threading,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
 | Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job}.ts` |

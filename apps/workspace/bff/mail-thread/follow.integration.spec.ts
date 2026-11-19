@@ -51,6 +51,7 @@ vi.mock('@/lib/inbound-mail/staging', () => ({
     if (!bytes) throw new Error(`no object ${key}`)
     return bytes
   }),
+  readStagedObjectIfHeld: vi.fn(async (_bucket: string, key: string) => store.objects.get(key) ?? null),
   putStagedObject: vi.fn(async (_bucket: string, key: string, body: Uint8Array) => {
     store.objects.set(key, body)
   }),

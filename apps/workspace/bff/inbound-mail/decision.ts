@@ -8,6 +8,7 @@ import type { InboundMailPartRow, InboundMailRow, NewInboundMailDecisionRow } fr
 import { isAcceptedType } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
 import { appendNeedsAcknowledgement } from '@/lib/mail-thread/mail-threading'
+import { MAIL_THREAD_MAX_ENTRIES } from '@/lib/mail-thread/mail-thread-vocabulary'
 import { normalizeFolderPath } from '@/lib/projects/folders'
 import { senderEvidenceOf, threadIsFull, type ViewerCandidates } from './candidates'
 import type { InboundMailRefusal } from './inbound-mail-wire'
@@ -296,6 +297,24 @@ export function planMailDecision(
   }
 }
 
+export function requireThreadsHoldBatch(
+  plans: readonly PlannedMailDecision[],
+  threads: ReadonlyMap<string, Pick<ThreadDocument, 'entryCount'>>,
+): void {
+  const entries = new Map<string, number>()
+  for (const row of plans.flatMap((plan) => plan.files)) {
+    if (row.threadAction !== 'append' || !row.mailThreadId) continue
+    const count = (entries.get(row.mailThreadId) ?? threads.get(row.mailThreadId)?.entryCount ?? 0) + 1
+    entries.set(row.mailThreadId, count)
+    if (count > MAIL_THREAD_MAX_ENTRIES) {
+      throw refusal('thread_full', 'The mail thread cannot hold every message of this decision; file the rest as a new thread that continues it', {
+        partId: row.partId,
+        mailThreadId: row.mailThreadId,
+      })
+    }
+  }
+}
+
 export async function requireDecisionRights(
   session: AuthorizedSession,
   projectId: string,
@@ -303,6 +322,15 @@ export async function requireDecisionRights(
 ): Promise<void> {
   const folders = plans.flatMap((plan) => plan.writeFolders)
   if (folders.length > 0) await requireFolderWrite(session, projectId, folders)
+  const named = new Set<string>()
+  for (const fresh of plans.flatMap((plan) => plan.freshNames)) {
+    if (named.has(fresh.storedName)) {
+      throw refusal('name_taken', 'Two parts of this decision would be filed under one name; rename one of them', {
+        partId: fresh.partId,
+      })
+    }
+    named.add(fresh.storedName)
+  }
   for (const plan of plans) {
     for (const fresh of plan.freshNames) {
       const taken = await findDocumentIdByStoredName(projectId, fresh.storedName)
