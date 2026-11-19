@@ -5,6 +5,8 @@ on:
     branches: [develop, "release/**"]
   pull_request:
     branches: [develop, "release/**", "claude/**"]
+  merge_group:
+    types: [checks_requested]
 
 permissions:
   contents: read
@@ -88,16 +90,16 @@ jobs:
         with:
           filters: .github/filters.yml
           token: ''
-          base: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
+          base: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
 
       - name: Images this run must build
         id: images
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: |
           . ci/git_auth.sh
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+          if [ "$GITHUB_EVENT_NAME" != push ]; then
             python3 ci/image_inputs.py plan --base "$BASE"
           else
             python3 ci/image_inputs.py plan --registry "$GITHUB_REPOSITORY_OWNER"
@@ -118,7 +120,7 @@ jobs:
         if: steps.reuse.outputs.hit != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          BASE: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
         run: |
           . ci/git_auth.sh
           python3 ci/pinned_images.py new "$BASE"
@@ -131,7 +133,7 @@ jobs:
           DEPTH: ${{ steps.depth.outputs.depth }}
           DEPTH_REASON: ${{ steps.depth.outputs.reason }}
           PY_MODE: ${{ steps.pysel.outputs.py_mode }}
-          BASE: ${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}
           BASE_REASON: ${{ steps.green.outputs.reason }}
           REUSED: ${{ steps.reuse.outputs.hit }}
           TIERS: ${{ toJSON(steps.filter.outputs) }}
@@ -842,7 +844,7 @@ jobs:
   image:
     name: Image build (${{ matrix.name }})
     needs: changes
-    if: needs.changes.outputs.depth == 'full' && github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
+    if: needs.changes.outputs.depth == 'full' && github.event_name != 'push' && needs.changes.outputs.build != '[]'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     permissions:
@@ -955,7 +957,7 @@ jobs:
           PY
       - name: Name the tree this run tested
         id: tree
-        if: github.event_name == 'pull_request' && needs.changes.outputs.depth == 'full'
+        if: github.event_name != 'push' && needs.changes.outputs.depth == 'full'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -965,7 +967,7 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > "$RUNNER_TEMP/green-run.txt"
           echo "tree=$tree" >> "$GITHUB_OUTPUT"
       - name: Record this tree as green
-        if: github.event_name == 'pull_request' && steps.tree.outputs.tree != ''
+        if: github.event_name != 'push' && steps.tree.outputs.tree != ''
         continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

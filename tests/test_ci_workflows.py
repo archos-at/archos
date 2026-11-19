@@ -138,11 +138,26 @@ def test_only_a_full_run_leaves_the_green_marker_a_push_reuses():
     assert "needs.changes.outputs.depth == 'full'" in steps["Name the tree this run tested"]["if"]
 
 
-def test_a_pull_request_diffs_its_whole_base_and_a_push_its_last_green_commit():
+def test_a_pull_request_or_queue_diffs_its_whole_base_and_a_push_its_last_green_commit():
     base = STEPS["filter"]["with"]["base"]
     pins = STEPS["pins"]["env"]["BASE"]
 
-    assert base == pins == "${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}"
+    assert (
+        base
+        == pins
+        == ("${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}")
+    )
+
+
+def test_a_merge_queue_run_is_full_and_builds_what_a_pull_request_would():
+    outputs = plan(event="merge_group", depth="full")
+
+    assert "checks_requested" in CI["on"]["merge_group"]["types"]
+    assert all(runs(job, event="merge_group", outputs=outputs) for job in FULL_ONLY)
+    assert not runs("backend-affected", event="merge_group", outputs=outputs)
+    assert not runs("infra-preview", event="merge_group", outputs=outputs)
+    assert not runs("image-push", event="merge_group", outputs=outputs)
+    assert not runs("publish", event="merge_group", outputs=outputs)
 
 
 def test_no_workflow_diffs_against_the_previous_push():
@@ -298,7 +313,7 @@ def test_the_reuse_lookup_cannot_fail_the_run():
     }
 
 
-def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
+def test_the_marker_is_uploaded_only_by_a_passing_pull_request_or_queue_gate():
     steps = JOBS["ci-ok"]["steps"]
     check = next(i for i, step in enumerate(steps) if "Require needed jobs" in step.get("name", ""))
     uploads = [i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/upload-artifact")]
@@ -308,7 +323,7 @@ def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
     assert len(uploads) == 1 and uploads[0] > check
     upload = steps[uploads[0]]
     assert not re.search(r"always\(\)|failure\(\)|cancelled\(\)", upload["if"])
-    assert "github.event_name == 'pull_request'" in upload["if"]
+    assert "github.event_name != 'push'" in upload["if"]
     assert upload["with"]["name"] == "ci-green-${{ steps.tree.outputs.tree }}"
     assert int(upload["with"]["retention-days"]) <= 7
     for other in WORKFLOWS.glob("*.yml"):

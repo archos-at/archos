@@ -13,6 +13,8 @@ FULL_LABEL = "ci:full"
 
 
 def decide(event: str, light_runs: str, base: str, author: str, labels: Callable[[], set[str]]) -> tuple[str, str]:
+    if event == "merge_group":
+        return "full", "a merge queue run is always full: it is the last check before develop"
     if event != "pull_request":
         return "full", f"a {event} run is always full: the deploy waits for it"
     if light_runs == "false":
