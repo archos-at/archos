@@ -252,6 +252,24 @@ dass die E-Mail echt ist“, after which the primary reads „Als echt ablegen�
 the high-risk yes has its own words and its own verb, never the „Ablegen“ of
 every other mail. Once opened the fold's button reads „Ablage schließen“.
 
+**„Melden …“ warns the office** (`fraud-report.tsx`, inside the warning, under
+its text, with „Warnt Ihr Büro, damit niemand zahlt.“ beside it). Dismissing
+only ends the mail here, and the same mail may sit in accounting's mail
+program. The press opens a small confirmation, „Betrugsversuch melden?“, that
+says who is warned („{Produkt} warnt, wer dieses Projekt verwaltet, die
+Administratoren Ihres Büros und {Name}.“; the member reading their own forged
+address is not named to themself) and what then happens („Die Warnung nennt
+Absender und Betreff und sagt: „Bitte nicht zahlen und nicht antworten. Prüfen
+Sie Ihr Mailprogramm auf dieselbe E-Mail.“ Danach ist die E-Mail in {Produkt}
+verworfen; im Mailprogramm löschen Sie sie selbst.“). „Melden und verwerfen“
+is one press: reported and dismissed together, the toast saying how many were
+warned („Gemeldet und verworfen. 3 Personen sind gewarnt.“), or, when nobody
+else manages the project, „Verworfen. Niemand sonst verwaltet dieses Projekt:
+Warnen Sie Ihr Büro selbst.“. No „Rückgängig“: the warning is already out.
+„Verwerfen“ stays the primary; „Melden …“ is the quiet press beside the reason
+to use it, offered to every reader who may dismiss (the colleague under
+`ClaimedMailBar` too) while the mail waits.
+
 One voice per reader. The member a rejected mail claims (`mailClaimOf` is
 `own`) never reads a fraud warning about themself: the warning says „Diese
 E-Mail trägt Ihre Adresse, aber Ihre Domain hat sie abgelehnt.“ and to dismiss

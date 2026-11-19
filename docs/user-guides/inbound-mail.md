@@ -241,6 +241,18 @@ existing Verlauf free, file the full text „Als neuen E-Mail-Verlauf“.
 „Haben Sie telefonisch geprüft, dass die E-Mail echt ist?“; its last button
 reads „Als echt ablegen“.
 
+**To warn the office**, press „Melden …“ in the red warning. Dismissing only
+ends the mail in ARCHOS; the same mail may have reached accounting's mail
+program. The confirmation says who is warned: whoever manages the project, your
+office's administrators and the member the mail poses as. „Melden und
+verwerfen“ dismisses the mail and puts a warning in their Postfach and on
+their devices: „Gefälschte E-Mail als {Name} ‹{Adresse}› in „{Projekt}“:
+nicht zahlen, nicht antworten“, with the subject and „Bitte nicht zahlen und
+nicht antworten. Prüfen Sie Ihr Mailprogramm auf dieselbe E-Mail.“ Any IBAN
+in the subject is removed. The toast says how many people were warned; if
+nobody else manages the project, it says so, and you warn your office yourself.
+Delete the mail in your own mail program too: ARCHOS does not reach it.
+
 **Keyboard:** E opens „Einordnen“, and in „Übersicht“ E files.
 
 **Several mails at once.** Select mails (or press X) and use „Wie vorgeschlagen
