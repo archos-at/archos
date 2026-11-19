@@ -66,13 +66,14 @@ vi.mock('@/lib/inbound-mail/read-client', async (importOriginal) => {
   }
 })
 
-const race = vi.hoisted(() => ({ afterFind: null as null | (() => Promise<unknown>) }))
+const race = vi.hoisted(() => ({ afterFind: null as null | (() => Promise<unknown>), only: null as null | string }))
 vi.mock('@/lib/inbound-mail/sweep-repository', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/inbound-mail/sweep-repository')>()
   const thenRace =
     <A extends unknown[], R>(find: (...args: A) => Promise<R>) =>
     async (...args: A): Promise<R> => {
       const found = await find(...args)
+      if (race.only !== null && race.only !== find.name) return found
       const step = race.afterFind
       race.afterFind = null
       if (step) await step()
@@ -80,6 +81,9 @@ vi.mock('@/lib/inbound-mail/sweep-repository', async (importOriginal) => {
     }
   return {
     ...actual,
+    findStaleReceptions: thenRace(actual.findStaleReceptions),
+    findMailsToSettle: thenRace(actual.findMailsToSettle),
+    findStalledMoves: thenRace(actual.findStalledMoves),
     findEndedPartBytes: thenRace(actual.findEndedPartBytes),
     findOrphanedThreads: thenRace(actual.findOrphanedThreads),
     findReleasedErasures: thenRace(actual.findReleasedErasures),
@@ -315,6 +319,12 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     return id
   }
   const release = (holdId: string) => rows(sql`UPDATE legal_holds SET released_at = now() WHERE id = ${holdId}::uuid`)
+  async function holdCustodian(userId: string): Promise<string> {
+    const { id } = await one<{ id: string }>(sql`
+      INSERT INTO legal_holds (entity_type, entity_id, organization_id, reason, created_by)
+      VALUES ('user', ${userId}, ${ORG}, 'sweep spec', ${MANAGER}) RETURNING id`)
+    return id
+  }
 
   async function newProject(name: string): Promise<{ projectId: string; addressId: string }> {
     const { id: projectId } = await one<{ id: string }>(sql`
@@ -343,6 +353,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     staging.erased.length = 0
     staging.failing.clear()
     race.afterFind = null
+    race.only = null
     audit.events.length = 0
     posthog.events.length = 0
     scan.status = 'clean'
@@ -387,6 +398,93 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
 
       expect(await mailRow(stale)).toBeDefined()
       expect(result.errors).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  describe('sweeps 1, 6 and 13 and a hold placed after their find', () => {
+    it('sweep 1 erases no stale reception a hold now covers: its key is taken first, under the hold', async () => {
+      const { projectId: racing, addressId } = await newProject(`Reception race ${STAMP}`)
+      const stale = await seedMail({ projectId: racing, addressId, status: 'receiving', updatedAgo: '20 minutes' })
+      let holdId: string | null = null
+      race.afterFind = async () => {
+        holdId = await hold(racing)
+      }
+      try {
+        await sweep.sweepStaleReceptions(now())
+
+        expect(staging.erased).not.toContain(stagingKey(racing, stale, 'raw.eml'))
+        expect(await mailRow(stale)).toMatchObject({ raw_storage_key: stagingKey(racing, stale, 'raw.eml') })
+      } finally {
+        if (holdId) await release(holdId)
+      }
+    })
+
+    it('sweep 1 puts the key back when the store kept the object, and keeps the row', async () => {
+      const stale = await seedMail({ status: 'receiving', updatedAgo: '20 minutes' })
+      staging.failing.add(stagingKey(project, stale, 'raw.eml'))
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      await sweep.sweepStaleReceptions(now())
+
+      expect(await mailRow(stale)).toMatchObject({ status: 'receiving', raw_storage_key: stagingKey(project, stale, 'raw.eml') })
+    })
+
+    it('sweep 6 erases nothing of a mail to settle that a hold now covers: the settle takes its keys under the hold', async () => {
+      const { projectId: racing, addressId } = await newProject(`Settle race ${STAMP}`)
+      const mail = await seedMail({ projectId: racing, addressId })
+      await seedPart(mail, { kind: 'message', state: 'expired', endedAgo: '8 days' })
+      let holdId: string | null = null
+      race.only = 'findMailsToSettle'
+      race.afterFind = async () => {
+        holdId = await hold(racing)
+      }
+      try {
+        await sweep.sweepEndedParts(now())
+
+        expect(staging.erased.filter((key) => key.includes(`/project/${racing}/`))).toEqual([])
+        expect(await mailRow(mail)).toMatchObject({ status: 'waiting', raw_storage_key: stagingKey(racing, mail, 'raw.eml') })
+
+        await sweep.sweepEndedParts(now())
+
+        const row = await mailRow(mail)
+        expect(row).toMatchObject({ status: 'settled', raw_storage_key: stagingKey(racing, mail, 'raw.eml') })
+        expect(row?.erasure_deferred_at).not.toBeNull()
+      } finally {
+        if (holdId) await release(holdId)
+      }
+    })
+
+    it('sweep 6 hands the keys the store kept to sweep 10, deferred, once the mail is settled', async () => {
+      const mail = await seedMail()
+      await seedPart(mail, { kind: 'message', state: 'expired', endedAgo: '8 days' })
+      staging.failing.add(stagingKey(project, mail, 'raw.eml'))
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      await sweep.sweepEndedParts(now())
+
+      const row = await mailRow(mail)
+      expect(row).toMatchObject({ status: 'settled', raw_storage_key: stagingKey(project, mail, 'raw.eml'), read_storage_key: null })
+      expect(row?.erasure_deferred_at).not.toBeNull()
+      expect(staging.erased).toContain(stagingKey(project, mail, 'read.json'))
+    })
+
+    it('sweep 13 keeps the raw message of a gone entry while a custodian hold covers its sender, and erases it without one', async () => {
+      const held = await seedMail({ status: 'settled', trust: 'member_verified', raw: true, read: false, movePendingAgo: '20 minutes' })
+      const holdId = await holdCustodian(MANAGER)
+      try {
+        const result = await sweep.sweepStalledMoves(now())
+
+        expect(result.held).toBeGreaterThanOrEqual(1)
+        expect(staging.erased).not.toContain(stagingKey(project, held, 'raw.eml'))
+        expect((await mailRow(held))?.original_move_pending_at).not.toBeNull()
+      } finally {
+        await release(holdId)
+      }
+
+      await sweep.sweepStalledMoves(now())
+
+      expect(await mailRow(held)).toMatchObject({ raw_storage_key: null, original_move_pending_at: null })
+      expect(staging.erased).toContain(stagingKey(project, held, 'raw.eml'))
     })
   })
 

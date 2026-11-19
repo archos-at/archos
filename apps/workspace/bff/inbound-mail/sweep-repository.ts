@@ -29,10 +29,15 @@ export {
   RESTORE_WINDOW_MS,
   returnEndedPartKey,
   returnReleasedErasure,
+  returnStaleReceptionKey,
+  returnStalledMoveRaw,
   SETTLED_KEEP_MS,
   settleEndedMail,
+  type StalledRaw,
   takeEndedPartBytes,
   takeReleasedErasure,
+  takeStaleReceptionKey,
+  takeStalledMoveRaw,
 } from './sweep-erasure-repository'
 export {
   ABANDONED_RENDER_AFTER_MS,
