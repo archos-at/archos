@@ -215,6 +215,7 @@ export function renderEntryOf(
     sentAt: new Date(row.sentAt),
     receivedAt: new Date(row.receivedAt),
     filedAt: new Date(row.filedAt ?? 0),
+    subject: row.baseSubject ?? null,
     senderName: row.senderName ?? null,
     senderAddress: row.senderAddress ?? null,
     senderDomain: row.senderDomain ?? null,

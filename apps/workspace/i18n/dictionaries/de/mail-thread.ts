@@ -37,6 +37,11 @@ export const mailThread: typeof en.mailThread = {
     waiting:
       '{count, plural, one {# E-Mail dieses E-Mail-Verlaufs wartet} other {# E-Mails dieses E-Mail-Verlaufs warten}} im E-Mail-Eingang',
     waitingOpen: 'Ansehen',
+    order: 'Neueste zuerst',
+  },
+  file: {
+    kind: 'E-Mail-Verlauf',
+    facts: '{count} · zuletzt {date}',
   },
   entry: {
     received: 'eingegangen {time}',
@@ -55,7 +60,7 @@ export const mailThread: typeof en.mailThread = {
     },
     forwardedBy: 'Weitergeleitet von {name}',
     compare: 'Was diese E-Mail hinzufügte',
-    compareLabel: 'Den E-Mail-Verlauf vor und nach der E-Mail vom {heading} vergleichen',
+    compareCloseLabel: 'Den Vergleich zur E-Mail vom {heading} ausblenden',
     compareClose: 'Ausblenden',
     menu: 'Mehr zur E-Mail vom {heading}',
     detach: 'Herauslösen …',

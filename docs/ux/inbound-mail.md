@@ -1,9 +1,9 @@
 # Project mail: the E-Mail-Eingang, the E-Mails tab and provenance
 
-**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words, and the address, the list and the E-Mails tab again after a cold read, 2026-11-19 (round 2); the mail read in the pane and filed through „Einordnen“ 2026-11-19 (round 3); the list says where each ready mail goes and how mail gets here, 2026-11-19 (round 4)
+**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words, and the address, the list and the E-Mails tab again after a cold read, 2026-11-19 (round 2); the mail read in the pane and filed through „Einordnen“ 2026-11-19 (round 3); the list says where each ready mail goes and how mail gets here; filed mail in Dateien, the Verlauf's record, the tab's row and the Postfach's words after an end-to-end walk, 2026-11-19 (round 4)
 **Status:** Implemented, the W1 rework included
-**Surfaces:** Dateien › E-Mail-Eingang (`/app/projects/[id]/files/mail`, `…/mail/[mailId]`), the address dialog and the settings card, the „E-Mails“ tab of a Verlauf's preview, the provenance row of a document that came by mail, the Postfach rows
-**Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…` (the rail beside its Verlauf on a wide screen, alone on a phone, as the preview draws it), `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip. The variant lists are in each page's header.
+**Surfaces:** Dateien › E-Mail-Eingang (`/app/projects/[id]/files/mail`, `…/mail/[mailId]`), the address dialog and the settings card, a Verlauf in a folder's listing, the „E-Mails“ tab of a Verlauf's preview, the provenance row of a document that came by mail, the Postfach rows
+**Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…` (the rail beside its Verlauf on a wide screen, alone on a phone, as the preview draws it), `/dev/files-page?project=real&folder=r-korr[&view=list]` (two Verläufe and an attachment in a folder), `/dev/file-preview?variant=mail-thread|mail-attachment` (the preview on the server's own rendition, `renderMailThread`), `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip. The variant lists are in each page's header.
 **Why:** [ADR-0137](../adr/0137-mail-sent-to-a-project-waits-until-a-person-files-it.md); the flow: [`inbound-mail.md`](../architecture/inbound-mail.md); the words: [`CONTEXT.md`](../../CONTEXT.md#project-mail).
 
 ## The rule
@@ -536,8 +536,8 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    the sender would qualify. Switched on, the card says „Antworten in „{Name}“
    werden ohne Klick abgelegt“, „In Ihrem Namen, 60 Tage lang. Anhänge warten
    weiter hier. „Beenden“ hört damit auf.“ and offers „Beenden“. The days are
-   `MAIL_THREAD_FOLLOW_DEFAULT_DAYS`. Code and the Postfach's notices still say
-   follow / „folgen“.
+   `MAIL_THREAD_FOLLOW_DEFAULT_DAYS`. Code still says follow; the Postfach's
+   notices say „ohne Klick ablegen“ too (below).
 
 Above the header, what happened to the mail (the closed project, someone else
 deciding it, a partial failure, a full storage): one notice stands whole; two
@@ -628,6 +628,40 @@ decision bar of one note („Verwerfen“'s) over its two presses side by side w
 `env(safe-area-inset-bottom)`, „Einordnen“ full screen with its presses pinned
 at the foot, `text-base`, `dvh`.
 
+## A Verlauf in Dateien
+
+A Verlauf is a `.md` file of Dokumentart *Korrespondenz*, and the listing
+showed exactly that: „Stellplatznachweis.md“, a text page's sketch, „MD · 6
+kB“ and „Veröffentlicht“, as if someone had released it (the end-to-end walk of
+round 4: the person who filed it read „E-Mail-Verlauf „Stellplatznachweis““ in
+the E-Mail-Eingang and met a file format in the folder). The listing now says
+what it is, from the server, never guessed from the name: the documents
+listing carries `mailThread: { entryCount, lastEntryAt }` for a document that
+is a Verlauf (`mailThreadsOfDocuments`, `bff/mail-thread/document-threads.ts`,
+in `toDocumentWireRows`; one read of `mail_threads` per page, not on the
+Büroablage). A tile shows a short stack of envelopes instead of a page, the name
+without „.md“ (`listedFileName`), „3 E-Mails · zuletzt 14.10.2026“ where a file's
+Fassungen and Freigabe stand, and „E-Mail-Verlauf · vor 1 Monat“ as its meta
+line; a list row has the envelope in the format column, the same facts after
+the name (on a phone on its second line) and „—“ for Freigabe
+(`mail-thread-file.tsx`). The preview's header reads „E-Mail-Verlauf · 3
+E-Mails“ and shows no Freigabe chip (`useMailThreadHeaderFacts`). A Verlauf's
+Fassungen are its mails, which nobody releases.
+
+## The rendition
+
+`bff/mail-thread/render.ts`, one `##` section per mail, oldest first, as a
+printed Akt reads; the headings never change, so a citation holds across
+Fassungen. Under each heading „eingegangen …“, then the facts: **„Betreff“**
+where the mail's own subject (`base_subject`, stored per entry since migration
+0251) differs from the Verlauf's name, case and spaces aside („Betreff:
+Stellplatznachweis – Nachreichung Statik“; a reply that changed the subject had
+left no trace in the record, the search or the agent's passages), „Antwort
+auf“, An, Cc, Termin, and „Anhänge“ with where each went, a folder as every
+surface names one („abgelegt in Behörde/Bescheide“, never „/Behörde/…“).
+Render version 4; the goldens are `bff/mail-thread/__golden__/`. A Verlauf
+shows the new lines from its next Fassung on.
+
 ## The „E-Mails“ tab of a Verlauf
 
 `features/documents/components/mail-thread/`. A Verlauf's preview rail (the
@@ -655,10 +689,15 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   Tage ab Beginn. Danach wieder einschalten.“) and „Beenden“. Others: „Auch für
   2 weitere Personen eingeschaltet“; for a viewer with `managesFollows`, „Auch
   eingeschaltet für“ by name with „Beenden“ each.
-- **One row per mail, newest first** (`mail-thread-entry.tsx`): the heading
+- **One row per mail, newest first**, headed „Neueste zuerst“ (the document
+  beside it reads oldest first; side by side the two orders read as one
+  without the label) (`mail-thread-entry.tsx`): the heading
   exactly as the document cites it, which prints the sending on the office's
   clock; „eingegangen {Zeit}“ on that clock too (`receivedAtLabel`,
   `OFFICE_TIME_ZONE`): the time alone on the heading's day, else date and time.
+  „Original (.eml)“ stands on that line as a quiet press, the evidence one
+  press away (a raised press on every mail made the rail a column of identical
+  buttons, design principle 6).
   On the reader's clock a heading at 09:12 once stood over „eingegangen 07:13“,
   and the preview's hand-written headings over one fixed arrival made every
   mail „eingegangen 09:30“ (`printedHeading` in the fixture now prints them as
@@ -679,13 +718,15 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   note read as the next file's): „lag schon im Projekt“, „nicht abgelegt ·
   {Grund}“ (15 reasons); one in a folder the reader cannot see is „Anhang {n}“
   with „abgelegt in einem Ordner, den Sie nicht sehen“ (never named).
-- **Row actions**: „Original (.eml)“ (a 409 `original_not_clean` replaces the
-  button with „Das Original enthält Schadsoftware und kann nicht
-  heruntergeladen werden“; an archive entry says „Kein Original: aus dem
-  Outlook-Archiv übernommen“; a running scan says so), „Was diese E-Mail
-  hinzufügte“ (the Verlauf before this mail against the Verlauf with it, inline;
-  closed by „Ausblenden“), ⋯ „Herauslösen …“ (only for whoever
-  may file, never on the thread's only mail).
+- **Row actions**: „Original (.eml)“ on the „eingegangen“ line (a 409
+  `original_not_clean` replaces the press with „Das Original enthält
+  Schadsoftware und kann nicht heruntergeladen werden“; an archive entry says
+  „Kein Original: aus dem Outlook-Archiv übernommen“; a running scan says so;
+  each as a fact line under the row). The row's ⋯ holds „Was diese E-Mail
+  hinzufügte“ (the Verlauf before this mail against the Verlauf with it,
+  inline under its own label, closed by „Ausblenden“; not on the mail that
+  started the Verlauf) and „Herauslösen …“ (only for whoever may file, never on
+  the thread's only mail); a row with neither has no ⋯.
 - **Herauslösen** (`detach-dialog.tsx`): „Der E-Mail-Verlauf enthält diese
   E-Mail danach nicht mehr. Seine früheren Fassungen unter „Details“ behalten
   sie.“ (the Verlauf is a document, its Fassungen are listed there; the tab
@@ -713,8 +754,26 @@ Under the preview header (the header keeps its one shape), a row for a document
 whose newest Fassung came with a mail: „Kam mit der E-Mail von {Name} am
 {Datum} · Domain bestätigt: {domain} · Im E-Mail-Verlauf ansehen“
 (`mail-provenance-row.tsx`, from `document-version-list`'s `mailOrigins`);
-several mails add „+{n} weitere“. Each Fassung row of „Fassungen und Freigabe“
-that a mail brought carries the same line (`document-revisions.tsx`).
+several mails add „+{n} weitere“. „Im E-Mail-Verlauf ansehen“ opens the Verlauf
+with „E-Mails“ up and that mail marked (`?mailEntry=`). Each Fassung row of
+„Fassungen und Freigabe“ that a mail brought carries the same line
+(`document-revisions.tsx`). It does not yet name the Verlauf („Im
+E-Mail-Verlauf „Stellplatznachweis“ ansehen“): `MailOriginView` carries no
+thread name (below).
+
+## The Postfach's words for filing without a click
+
+The notices of a follow say what the app says, never „folgen“, which read as
+notifications (`collaboration` dictionary; `inbound-mail-copy.spec.ts` holds
+it): `inbound_mail.appended` „Eine Antwort wurde ohne Klick einem
+E-Mail-Verlauf in „{Projekt}“ angefügt“ (with attachments „… samt Anhängen
+wurde in „{Projekt}“ ohne Klick abgelegt“), `mail_thread.follow_expiring`
+„Antworten in einem E-Mail-Verlauf in „{Projekt}“ werden nur noch 5 Tage ohne
+Klick abgelegt“, `mail_thread.follow_ended` „… werden nicht mehr ohne Klick
+abgelegt, weil …“ with the reason, and a body that says where to switch it on
+again („im E-Mail-Verlauf unter „E-Mails““). They name the project, not the
+Verlauf: no subject or file name of a mail reaches a row or a push
+([`inbound-mail.md`](../architecture/inbound-mail.md#the-twelve-notices)).
 
 ## Contrast, measured
 
@@ -734,6 +793,19 @@ design system ([`design-language.md`](../design/design-language.md)).
 
 ## Not built yet
 
+- The Verlauf's name on a notice (`inbound_mail.appended`, the follow notices):
+  the payload rule keeps every mail-derived name off rows and pushes; the in-app
+  row could resolve the document's name at read time, as `listInbox` resolves
+  the waiting count, the push never.
+- `mail_thread.follow_ended` lands on the E-Mail-Eingang even where its body
+  says to switch it on again (`detached`, `address_rotated`): the row is
+  anchored on the project and the follow, not the Verlauf
+  (`announceFollowEnded`), so `inboundMailLink` cannot open the Verlauf.
+- The Verlauf's name on the provenance row: `findMailOrigins` joins the
+  Verlauf's document already; `MailOriginView` and its schema would carry it.
+- Which mail each of a Verlauf's Fassungen added, under „Details“: the
+  timeline lists them by uploader; `MailThreadEntryView.firstVersion` has the
+  mapping.
 - The server's `restorableUntil` for a dismissed part of an unconfirmed
   outsider's mail: it says seven days while the sweep erases the part at once
   (`pastRestore`, `sweep-erasure-repository.ts`). The detail says so in its

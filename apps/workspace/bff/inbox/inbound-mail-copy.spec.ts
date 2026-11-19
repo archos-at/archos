@@ -73,6 +73,22 @@ describe.each(['de', 'en'] as const)('the E-Mail-Eingang’s notices in %s', (lo
     expect(full.title).not.toBe(nearly.title)
   })
 
+  it('names filing without a click in the app’s words, never as following', () => {
+    const notices: ReadonlyArray<[InboxItemType, ReadonlyArray<string | null>]> = [
+      ['inbound_mail.appended', [null, 'with_attachments']],
+      ['mail_thread.follow_expiring', [null]],
+      ['mail_thread.follow_ended', [null, ...FOLLOW_ENDS_TOLD]],
+    ]
+    const withoutClick = locale === 'de' ? 'ohne Klick' : 'without a click'
+    for (const [type, variants] of notices) {
+      for (const variant of variants) {
+        const { title, body } = inboxItemCopy(view(type, variant, { actorName: null }), t, dictionary)
+        expect(title, `${type} ${variant}`).toContain(withoutClick)
+        expect(`${title} ${body ?? ''}`, `${type} ${variant}`).not.toMatch(/\bfolg|\bfollow/i)
+      }
+    }
+  })
+
   it('says no number and no name on a waiting row the reader can no longer reach', () => {
     const { title } = inboxItemCopy(view('inbound_mail.waiting', null, { href: null, subject: null, count: 3 }), t, dictionary)
     expect(title).not.toMatch(/\d|[{}]/)

@@ -5,6 +5,7 @@ import type { ProjectFolderRow } from '@/lib/projects/folder-service'
 import type { ListedDocument } from './shelf-listing'
 import { summarizeDocumentVersions } from './lifecycle'
 import { entryIdsForDocuments } from '@/lib/base-knowledge/store/repository'
+import { mailThreadsOfDocuments, type DocumentMailThread } from '@/lib/mail-thread/document-threads'
 import type { DocumentVersionState } from './lifecycle-types'
 
 export function toDocumentWireRow(
@@ -57,14 +58,19 @@ export async function toDocumentWireRows(
   organizationId: string,
   rows: ListedDocument[],
   { officeShelf = false }: { officeShelf?: boolean } = {},
-): Promise<Array<ReturnType<typeof toDocumentWireRow> & { baseKnowledgeEntryId: string | null }>> {
+): Promise<Array<ReturnType<typeof toDocumentWireRow> & { baseKnowledgeEntryId: string | null; mailThread: DocumentMailThread | null }>> {
   const ids = rows.map((row) => row.id)
   const shelfIds = officeShelf ? ids : []
-  const [versions, entries] = await Promise.all([
+  const [versions, entries, threads] = await Promise.all([
     summarizeDocumentVersions(organizationId, ids),
     entryIdsForDocuments(organizationId, shelfIds),
+    officeShelf ? new Map() : mailThreadsOfDocuments(organizationId, ids),
   ])
-  return rows.map((row) => ({ ...toDocumentWireRow(row, versions.get(row.id)), baseKnowledgeEntryId: entries.get(row.id) ?? null }))
+  return rows.map((row) => ({
+    ...toDocumentWireRow(row, versions.get(row.id)),
+    baseKnowledgeEntryId: entries.get(row.id) ?? null,
+    mailThread: threads.get(row.id) ?? null,
+  }))
 }
 
 export function toFolderWireRow(row: ProjectFolderRow): FolderItem {

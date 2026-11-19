@@ -351,7 +351,7 @@ for its e-mails, verb `detach`).
 A person's standing, revocable decision about one **E-Mail-Verlauf**, named in
 the app for what it does („Antworten ohne Klick ablegen“ · „Einschalten“,
 „Antworten werden bis … ohne Klick abgelegt“, „Beenden“; „folgen“ read as
-notifications, and only the Postfach's notices still say it): while it runs (60 days, renewable up to 180), the text of later
+notifications, and the Postfach's notices say „ohne Klick“ too): while it runs (60 days, renewable up to 180), the text of later
 replies from confirmed domains already in the conversation is added without a
 click, in that person's name; attachments still wait in the
 **E-Mail-Eingang**. It ends when the person or a manager ends it, when it runs
