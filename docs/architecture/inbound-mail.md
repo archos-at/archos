@@ -738,7 +738,8 @@ no risk flag, no duplicate, no image in the text, a revision only where
 `revisionVouchedInThread` vouches for it) and whose row carries no risk flag
 or content finding since, when it is a vouched revision (as the next Fassung)
 or its stored suggestion names a folder that exists (`folderId`, not
-`newFolder`), never one a convention would create, and never under a name a
+`newFolder`), never one a convention would create nor one only the sender
+memory names ([sender memory](#sender-memory)), and never under a name a
 document the follower cannot see already holds (`revisionCandidateHidden`):
 `followAttachmentDecisions` in `apps/workspace/bff/inbound-mail/follow-filing.ts`. The person's checks run as
 the follower (`planMailDecision`, `requireDecisionRights`); a part they refuse
@@ -941,6 +942,40 @@ skipped with its reason or failed with its reason, is the PostHog event
 waits for the suggestion while its job is open, so a retried suggestion still
 reaches it when it answers within that wait.
 
+### Sender memory
+
+A weekly partner whose domain does not sign mail gets the same question every
+week, and the agent, judging names and a subject, often has no folder for it.
+The office already answered it: where this sender's earlier attachments went.
+The single-mail view (`getInboundMail`, `inbound-mail-get`) carries that answer
+as `senderFolders: { folderId, path, count }[]`: the folders where this
+project's attachments from earlier mails of the same sender address landed,
+newest first, at most four, each with how many (`findSenderFolders` in
+`apps/workspace/bff/inbound-mail/sender-memory-repository.ts`). The address is
+the Verlauf entry's (`mail_thread_entries.sender_address`, case folded), since
+the held mail forgets its sender when it settles; the folder is the document's
+today, so a file a person moved since counts where it lives now. Only what the
+reader may see counts: the document passes `documentVisibleTo(SCREENED_ONLY)`
+and is active, its folder is live and not hidden from the reader
+(`getHiddenFolderIds`). Not counted: the mail's own filed parts, archive
+entries (the Outlook import files each mail into a folder of its own), and an
+attachment filed while its text was dismissed (no entry names its sender). One
+query over the newest 200 entries of that sender, on the index of migration
+0253; an impersonation or automatic mail and a handled mail ask nothing and
+carry `[]`, and the list never asks.
+
+The same view uses it as the suggestion's fallback, for a person's review
+only. An attachment the suggestion would place (`attachmentsToPlace`) that has
+no stored suggestion, once the suggest job is no longer queued
+(`suggestionPending`), gets the sender's dominant folder: at least two earlier
+files there and at least twice the next folder's (`dominantSenderFolder` in
+`sender-memory.ts`). It is marked `source: 'sender_memory'` with no reason of
+its own; the UI says „Wie die letzten E-Mails von {Name}“ (the agent's own
+carries `source: 'model'`). It is never stored, so the suggestion's decision
+score (`suggest-scores.ts`) judges the model's suggestions alone, and nothing
+files unseen into it: the follow and the sender's own filing read their views
+without the memory and take a suggestion only through `modelSuggestion`.
+
 ## Exposure
 
 All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
@@ -1040,7 +1075,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | Threads | `lib/mail-thread/{mail-threading,rematch,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
 | Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job,follow-filing,suggestion-wait}.ts` |
 | Sweeps and notices | `lib/inbound-mail/{sweep,sweep-repository,announce,notice-repository}.ts` |
-| Suggestion | `lib/inbound-mail/{suggest,suggest-job,suggest-scores}.ts`; `lib/filing/judge.ts`; `apps/agent-host/src/agent_host/routes/filing_fit.py` |
+| Suggestion | `lib/inbound-mail/{suggest,suggest-job,suggest-scores,sender-memory,sender-memory-repository}.ts`; `lib/filing/judge.ts`; `apps/agent-host/src/agent_host/routes/filing_fit.py` |
 | The Python reader | `apps/agent-host/src/agent_host/mail/`, route `routes/mail.py` |
 | The UI | `apps/workspace/ui/features/inbound-mail/`; the E-Mails tab `features/documents/components/mail-thread/` ([`docs/ux/inbound-mail.md`](../ux/inbound-mail.md)) |
 | The edge | `deploy/pulumi/src/platform/{inbound-mail,inbound-mail-worker,email-routing}.*`; `shared/inbound-*.json` |
