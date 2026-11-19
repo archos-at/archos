@@ -159,6 +159,7 @@ export const EDGE_RATE_LIMIT = {
   paths: {
     auth: "/api/auth",
     ws: "/websocket",
+    enquiry: "/api/enquiry",
   },
 } as const;
 

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { confirmation, deliver, deliveryFrom, notification, recordInAttio, type Mail } from './enquiry-delivery';
 import { parseEnquiry, SendBudget, splitNameLastWordAsSurname, TRAP_FIELD, type Enquiry } from './enquiry';
+import { enquiryEvent } from './enquiry-analytics';
 import { mailLook, smtpTransportOptions } from './mail';
 import identity from './identity';
 
@@ -98,7 +99,7 @@ describe('delivering an enquiry', () => {
     const send = async () => {
       throw new Error('smtp down');
     };
-    expect(await deliver(enquiry(), delivery, look, send, undefined, quiet)).toBe('failed');
+    expect(await deliver(enquiry(), delivery, look, send, undefined, quiet)).toEqual({ sent: false, confirmed: false, attio: 'off' });
   });
 
   test('a failed confirmation or Attio record does not lose an enquiry the notification carried', async () => {
@@ -110,7 +111,7 @@ describe('delivering an enquiry', () => {
     const record = async () => {
       throw new Error('attio down');
     };
-    expect(await deliver(enquiry(), { ...delivery, attioApiKey: 'k' }, look, send, record, quiet)).toBe('sent');
+    expect(await deliver(enquiry(), { ...delivery, attioApiKey: 'k' }, look, send, record, quiet)).toEqual({ sent: true, confirmed: false, attio: 'failed' });
     expect(sent.map((m) => m.to)).toEqual([identity.email]);
   });
 
@@ -118,7 +119,7 @@ describe('delivering an enquiry', () => {
     const send = (mail: Mail) => (mail.to === identity.email ? Promise.resolve() : new Promise<void>(() => {}));
     const started = Date.now();
     const outcome = await deliver(enquiry(), delivery, look, send, undefined, quiet, 50);
-    expect(outcome).toBe('sent');
+    expect(outcome).toEqual({ sent: true, confirmed: false, attio: 'off' });
     expect(Date.now() - started).toBeLessThan(2000);
   });
 
@@ -169,5 +170,25 @@ describe('the send budget', () => {
     expect([budget.take('ip', 0), budget.take('ip', 10), budget.take('ip', 20)]).toEqual([true, true, false]);
     expect(budget.take('other', 20)).toBe(true);
     expect(budget.take('ip', 1001)).toBe(true);
+  });
+});
+
+describe('the enquiry event for PostHog', () => {
+  const env = { PUBLIC_POSTHOG_HOST: 'https://eu.i.posthog.com', PUBLIC_POSTHOG_PROJECT_TOKEN: 'phc_test', POSTHOG_DEPLOYMENT: 'dev' };
+
+  test('is personless, tagged with the deployment, and carries nothing the visitor typed', () => {
+    const event = enquiryEvent({ outcome: 'sent', form: 'contact', locale: 'de', confirmed: true, attio: 'off' }, env);
+    expect(event?.url).toBe('https://eu.i.posthog.com/i/v0/e/');
+    expect(event?.body).toMatchObject({
+      event: 'website_enquiry',
+      distinct_id: 'website',
+      properties: { outcome: 'sent', form: 'contact', deployment: 'dev', $process_person_profile: false },
+    });
+    const sent = JSON.stringify(event);
+    for (const typed of ['Anna', 'buero.example', 'Büro Nord']) expect(sent).not.toContain(typed);
+  });
+
+  test('is not sent when analytics is off', () => {
+    expect(enquiryEvent({ outcome: 'sent' }, {})).toBeUndefined();
   });
 });

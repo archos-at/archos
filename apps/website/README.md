@@ -91,7 +91,9 @@ What is measured, all by the SDK unless named:
 | Where a call to action sits | `data-ph-capture-attribute-cta-area` and `-cta-label` on `Button`, `TextLink`, `CTABand` (areas: `header`, `mobile_menu`, `founders`, `security_cta`, `contact_info`, `not_found`, `server_error`; labels: `demo`, `login`, `open_app`, `contact`, `home`, `blog`, `retry`) |
 | Language switch | `data-ph-capture-attribute-language-switch` (`de-en`, `en-de`) on the header link |
 | Which form | `data-ph-capture-attribute-form` (`contact`, `demo`) on the form |
-| `form_submitted` `{ form, method: 'site' \| 'mailto', locale, newsletter? }` | `MailForm.astro`, the one thing autocapture cannot see: whether the site sent the enquiry or handed it to the mail program. No field values |
+| `form_submitted` `{ form, method: 'site' \| 'mailto', fallback_reason?, locale, newsletter? }` | `MailForm.astro`, the one thing autocapture cannot see: whether the site sent the enquiry or handed it to the mail program, and why (`not_configured`, `budget_spent`, `send_failed`, `rate_limited`: the edge's 429, `network`, `http_<status>`). No field values |
+| `website_enquiry` `{ outcome, form?, locale?, confirmed?, attio? }` | Server-side, `src/lib/enquiry-analytics.ts` from `/api/enquiry`: personless (`distinct_id` `website`), one per request. `outcome`: `sent`, `not_configured`, `budget_spent`, `send_failed`, `invalid`, `trap` (a bot); `attio`: `off`, `recorded`, `failed`. The browser cannot see whether Gmail took the mail; this can |
+| `site`, `deployment` on every event | `site: 'website'` and the Pulumi stack (`POSTHOG_DEPLOYMENT`), registered at init and set on `website_enquiry`, so the website's events filter apart from the app's and dev's from prod's |
 | `video_played` `{ video, locale }` | `Video.astro`, first play |
 | Heatmaps | `enable_heatmaps` |
 

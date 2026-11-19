@@ -94,7 +94,11 @@ export async function recordInAttio(enquiry: Enquiry, apiKey: string, fetchFn: t
   if (!note.ok) throw new Error(`Attio note answered ${note.status}`);
 }
 
-export type Outcome = 'sent' | 'failed';
+export interface DeliveryResult {
+  sent: boolean;
+  confirmed: boolean;
+  attio: 'off' | 'recorded' | 'failed';
+}
 
 /** Only the notification must arrive: it already holds the enquiry if the rest fails. */
 export async function deliver(
@@ -105,30 +109,26 @@ export async function deliver(
   record: (enquiry: Enquiry, apiKey: string) => Promise<void> = recordInAttio,
   log: (event: Record<string, unknown>) => void = (event) => console.log(JSON.stringify(event)),
   deadlineMs = OPTIONAL_STEP_DEADLINE_MS,
-): Promise<Outcome> {
+): Promise<DeliveryResult> {
   try {
     await send(notification(enquiry, delivery.smtp.user, look));
   } catch (error) {
     log({ level: 'error', event: 'enquiry_notification_failed', form: enquiry.form, error: String(error) });
-    return 'failed';
+    return { sent: false, confirmed: false, attio: delivery.attioApiKey ? 'failed' : 'off' };
   }
-  const rest = await Promise.allSettled([
+  const [confirmed, recorded] = await Promise.allSettled([
     withinDeadline(send(confirmation(enquiry, look)), deadlineMs),
     delivery.attioApiKey ? withinDeadline(record(enquiry, delivery.attioApiKey), deadlineMs) : Promise.resolve(),
   ]);
-  const [confirmed, recorded] = rest;
   if (confirmed.status === 'rejected') {
     log({ level: 'warn', event: 'enquiry_confirmation_failed', form: enquiry.form, error: String(confirmed.reason) });
   }
   if (recorded.status === 'rejected') {
     log({ level: 'warn', event: 'enquiry_attio_failed', form: enquiry.form, error: String(recorded.reason) });
   }
-  log({
-    level: 'info',
-    event: 'enquiry_sent',
-    form: enquiry.form,
+  return {
+    sent: true,
     confirmed: confirmed.status === 'fulfilled',
-    attio: delivery.attioApiKey ? recorded.status === 'fulfilled' : 'off',
-  });
-  return 'sent';
+    attio: !delivery.attioApiKey ? 'off' : recorded.status === 'fulfilled' ? 'recorded' : 'failed',
+  };
 }

@@ -79,17 +79,19 @@ const { id, to, subject, sent, delivered, checkbox, locale, class: className } =
     return (label?.textContent ?? field.name).replace(/\s*\*\s*$/, '').trim();
   }
 
-  /** Posts the enquiry; true when the site sent it, false when the mail program has to. */
-  async function sendFromSite(body: Record<string, unknown>): Promise<boolean> {
+  /** Posts the enquiry: `sent`, or why the mail program has to take over. */
+  async function sendFromSite(body: Record<string, unknown>): Promise<{ sent: boolean; reason?: string }> {
     try {
       const response = await fetch('/api/enquiry', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
-      return response.ok && ((await response.json()) as { sent?: boolean }).sent === true;
+      if (response.status === 429) return { sent: false, reason: 'rate_limited' };
+      const answer = (await response.json().catch(() => ({}))) as { sent?: boolean; reason?: string };
+      return answer.sent === true ? { sent: true } : { sent: false, reason: answer.reason ?? `http_${response.status}` };
     } catch {
-      return false;
+      return { sent: false, reason: 'network' };
     }
   }
 
@@ -124,7 +126,7 @@ const { id, to, subject, sent, delivered, checkbox, locale, class: className } =
       const name = values.name ?? [values['first-name'], values['last-name']].filter(Boolean).join(' ');
 
       if (submit) submit.disabled = true;
-      const sentBySite = await sendFromSite({
+      const { sent: sentBySite, reason } = await sendFromSite({
         form: root.dataset.mailForm,
         locale,
         subject: filledSubject,
@@ -142,6 +144,7 @@ const { id, to, subject, sent, delivered, checkbox, locale, class: className } =
       analytics?.capture('form_submitted', {
         form: root.dataset.mailForm,
         method: sentBySite ? 'site' : 'mailto',
+        ...(reason ? { fallback_reason: reason } : {}),
         locale: document.documentElement.lang,
         ...(newsletter === undefined ? {} : { newsletter }),
       });
