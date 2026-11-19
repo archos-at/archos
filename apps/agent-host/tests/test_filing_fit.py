@@ -354,6 +354,7 @@ def test_the_mail_generation_names_its_surface_and_ids_only():
     assert metadata["surface"] == "inbound_mail"
     assert metadata["basis"] == "mail"
     assert metadata["batch_id"] == "mail-1"
+    assert metadata["mail_id"] == "mail-1"
     assert metadata["text_placed"] is True
     assert metadata["sender_class"] == "verified_writer"
     assert "subject" not in metadata and "sender_domain" not in metadata
@@ -420,6 +421,26 @@ def test_a_mail_attachment_is_not_shown_in_the_shelf_root():
     content = build_user_content(_mail_request())
     assert '"folder"' not in content.split("DOCUMENTS", 1)[1]
     assert '{"id": "a2", "file": "Lageplan.dwg"}' in content
+
+
+@pytest.mark.asyncio
+async def test_a_mail_generation_is_in_the_mails_session_and_an_upload_in_none(app, monkeypatch):
+    from contextlib import asynccontextmanager
+
+    from agent_host.routes import filing_fit
+
+    sessions = []
+
+    @asynccontextmanager
+    async def recording(feature, *, model, messages, session_id=None, metadata=None):
+        sessions.append((session_id, (metadata or {}).get("mail_id")))
+        yield MagicMock(trace_id="t" * 32)
+
+    monkeypatch.setattr(filing_fit, "observed_generation", recording)
+    fake, _post = _client_returning(json.dumps({"moves": []}))
+    await _judge(app, fake, MAIL_BODY)
+    await _judge(app, fake, BODY)
+    assert sessions == [("mail-1", "mail-1"), (None, None)]
 
 
 @pytest.mark.asyncio

@@ -111,6 +111,11 @@ describe('the batch', () => {
     expect(trace?.body).toMatchObject({ tags: expect.arrayContaining(['feature:inbound-mail', 'app_host:app.example.test']) })
   })
 
+  it('puts the trace in the mail’s session, beside the mail’s filing-fit generations', () => {
+    const [trace] = mailThreadMatchBatch(record(), ['e1', 'e2'])?.batch ?? []
+    expect(trace?.body).toMatchObject({ sessionId: 'mail-1', metadata: { mail_id: 'mail-1' } })
+  })
+
   it('derives both ids from the text part, so a second decision overwrites', () => {
     expect(mailThreadMatchIds('part-1')).toEqual(mailThreadMatchIds('part-1'))
     expect(mailThreadMatchIds('part-1').traceId).not.toBe(mailThreadMatchIds('part-2').traceId)

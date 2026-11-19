@@ -366,6 +366,7 @@ def _trace_metadata(request: FilingFitRequest) -> dict[str, Any]:
     mail = (
         {
             "surface": "inbound_mail",
+            "mail_id": request.trace.batch_id,
             "text_placed": bool(request.mail.text_id),
             "sender_class": request.trace.sender_class or "",
         }
@@ -383,6 +384,10 @@ def _trace_metadata(request: FilingFitRequest) -> dict[str, Any]:
         "folders": len(request.folders),
         "conventions": len(request.conventions),
     }
+
+
+def _session_id(request: FilingFitRequest) -> str | None:
+    return request.trace.batch_id if request.mail is not None else None
 
 
 def add_filing_fit_routes(router: APIRouter) -> None:
@@ -414,7 +419,11 @@ def add_filing_fit_routes(router: APIRouter) -> None:
         try:
             async with (
                 observed_generation(
-                    TRACE_NAME, model=cred.model, messages=payload.get("messages"), metadata=metadata
+                    TRACE_NAME,
+                    model=cred.model,
+                    messages=payload.get("messages"),
+                    session_id=_session_id(request),
+                    metadata=metadata,
                 ) as generation,
                 limited_async_http_client(cls=limiter, timeout=_REQUEST_TIMEOUT_SECONDS) as client,
             ):
