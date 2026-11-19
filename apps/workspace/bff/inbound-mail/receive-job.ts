@@ -46,7 +46,7 @@ import {
   findMailForReceive,
   findPartSummaries,
   findScreenedDuplicates,
-  findScreenedNamesakes,
+  findScreenedRevisionCandidates,
   holdMail,
   keepReceiveProgress,
   markNotified,
@@ -273,9 +273,9 @@ async function attachmentPartsOf(
 ): Promise<Array<NewInboundMailPartRow & { storageKey: string; contentType: string }>> {
   const owner = { organizationId: mail.organizationId, projectId: mail.projectId }
   const names = attachments.map((attachment) => (attachment.filename ? documentNameKey(attachment.filename) : null))
-  const [duplicates, namesakes] = await Promise.all([
+  const [duplicates, revisions] = await Promise.all([
     findScreenedDuplicates(mail.projectId, attachments.map((attachment) => attachment.sha256)),
-    findScreenedNamesakes(mail.projectId, names.filter((name): name is string => !!name)),
+    findScreenedRevisionCandidates(mail.projectId, names.filter((name): name is string => !!name)),
   ])
   return attachments.map((attachment, index) => {
     const scan = scans[index]
@@ -306,7 +306,7 @@ async function attachmentPartsOf(
       riskFlags: [...new Set(riskFlags)],
       nameStopTerms: nameStops,
       duplicateOfDocumentId: duplicateOf,
-      revisionCandidateDocumentId: duplicateOf ? null : (name ? namesakes.get(name) ?? null : null),
+      revisionCandidateDocumentId: duplicateOf ? null : (name ? revisions.get(name) ?? null : null),
     }
   })
 }

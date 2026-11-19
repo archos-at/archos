@@ -56,7 +56,14 @@ describe('MailThreadTab', () => {
     expect(within(rows[0]).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026 09:12 · Mag. Schober (ma37.wien.gv.at)')
     expect(within(rows[0]).getByTestId('mail-thread-entry-trust')).toHaveTextContent('Domain verified: ma37.wien.gv.at')
     expect(within(rows[0]).getByTestId('mail-thread-entry-via')).toHaveTextContent(`Filed on ${PRODUCT_NAME}’s suggestion`)
+    expect(screen.getByTestId('mail-thread-waiting')).toHaveTextContent('2 mails still wait in Project mail: sender not verifiable or no folder for an attachment')
+  })
+
+  it('says why mail still waits only while replies are filed without a click, else how many wait', async () => {
+    renderTab('not-followed')
+    await entries()
     expect(screen.getByTestId('mail-thread-waiting')).toHaveTextContent('2 mails of this mail thread wait in Project mail')
+    expect(screen.getByTestId('mail-thread-waiting')).not.toHaveTextContent(/still/)
   })
 
   it('lists what came with a mail: links, already there, not filed with why, and a hidden one unnamed', async () => {

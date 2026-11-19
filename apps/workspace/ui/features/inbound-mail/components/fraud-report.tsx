@@ -41,7 +41,7 @@ export function FraudReport({ projectId, mailId, client, name, own, onReported, 
 
   return (
     <div className="col-start-2 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="fraud-report">
-      <Button type="button" variant="secondary" size="sm" aria-haspopup="dialog" aria-describedby={hintId} onClick={() => setOpen(true)} data-testid="fraud-report-open">
+      <Button type="button" size="sm" aria-haspopup="dialog" aria-describedby={hintId} onClick={() => setOpen(true)} data-testid="fraud-report-open">
         {t('impersonationWarning.report')}
       </Button>
       <span id={hintId} className="text-muted-foreground text-xs">

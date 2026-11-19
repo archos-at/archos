@@ -235,7 +235,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     return { projectId, addressId, threadId, documentId, ...address }
   }
 
-  async function waitingMail(projectId: string, addressId: string, receivedAt: Date): Promise<{ mailId: string; textPart: string }> {
+  async function waitingMail(projectId: string, addressId: string, receivedAt: Date, trust = 'external_verified'): Promise<{ mailId: string; textPart: string }> {
     const mailId = crypto.randomUUID()
     await rows(sql`
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket,
@@ -243,7 +243,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
         sender_trust, sender_class, sender_reason, signer_domain, message_id, participants, participant_domains, sent_at, received_at, expires_at)
       VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'a')}, 2048, 'org-test-bucket',
         ${`org/${ORG}/project/${projectId}/_inbound-mail/${mailId}/read.json`}, 'clean', now(), 'anna@buero-muster.at', 'Anna Muster', 'AW: Einreichplan', 'einreichplan',
-        'external_verified', 'external', 'dkim_pass', 'buero-muster.at', ${`${mailId}@buero-muster.at`}, '[]'::jsonb, '{buero-muster.at}',
+        ${trust}, 'external', ${trust === 'external_verified' ? 'dkim_pass' : 'dkim_none'}, 'buero-muster.at', ${`${mailId}@buero-muster.at`}, '[]'::jsonb, '{buero-muster.at}',
         ${receivedAt.toISOString()}::timestamptz, ${receivedAt.toISOString()}::timestamptz, now() + interval '30 days')`)
     const text = await one<{ id: string }>(sql`
       INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, content_type, size_bytes, sha256, scan_status)
@@ -280,6 +280,44 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     vi.unstubAllEnvs()
     await withPlatformAccess('test cleanup', () => db.execute(sql`DELETE FROM projects WHERE organization_id = ${ORG}`))
     await withPlatformAccess('test cleanup', () => db.execute(sql`DELETE FROM bff_job_queue WHERE lane = ${ORG}`))
+  })
+
+  it('says why the Verlauf’s mail still waits: an unverifiable sender, an attachment the follow left, before the follow, or a check', async () => {
+    const { projectId, addressId, threadId } = await followedProject('why')
+    const threadRepo = await import('./repository')
+    const now = Date.now()
+    const follow = await inTenant(() =>
+      repo.startFollow({ organizationId: ORG, projectId, threadId, userId: MEMBER_ID, createdAt: new Date(now - DAY), expiresAt: new Date(now + 59 * DAY) }),
+    )
+    const inThread = async (receivedAt: Date, trust?: string): Promise<{ mailId: string; textPart: string }> => {
+      const mail = await waitingMail(projectId, addressId, receivedAt, trust)
+      await rows(sql`UPDATE inbound_mails SET thread_match = ${JSON.stringify([{ threadId, strength: 'reference' }])}::jsonb WHERE id = ${mail.mailId}::uuid`)
+      return mail
+    }
+    expect(await inTenant(() => threadRepo.findWaitingForThread(projectId, threadId))).toEqual({ count: 0, reasons: [] })
+
+    await inThread(new Date(now - DAY / 2), 'external_unverified')
+    const leftAt = new Date(now - DAY / 2)
+    const left = await inThread(leftAt)
+    const written = await inTenant(() => repo.writeFollowDecision(decisionInput({ id: follow!.id, userId: MEMBER_ID, threadId }, projectId, left, leftAt)))
+    expect(written.kind).toBe('written')
+    expect(await rows(sql`UPDATE inbound_mail_parts SET state = 'filed', filed_at = now(), claim_expires_at = NULL WHERE id = ${left.textPart}::uuid RETURNING state`)).toEqual([{ state: 'filed' }])
+    await rows(sql`
+      INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, scan_status, storage_key)
+      VALUES (${ORG}, ${projectId}::uuid, ${left.mailId}::uuid, 1, 'attachment', 'Foto.jpg', 'image/jpeg', 12, ${'b'.repeat(64)}, 'pending',
+              ${`org/${ORG}/project/${projectId}/_inbound-mail/${left.mailId}/1`})`)
+    await inThread(new Date(now - 3 * DAY))
+    await waitingMail(projectId, addressId, new Date(now - DAY / 2))
+
+    expect(await inTenant(() => threadRepo.findWaitingForThread(projectId, threadId))).toEqual({
+      count: 3,
+      reasons: ['sender_not_verified', 'attachment_left', 'before_follow'],
+    })
+    await inThread(new Date(now - DAY / 2))
+    expect(await inTenant(() => threadRepo.findWaitingForThread(projectId, threadId))).toEqual({
+      count: 4,
+      reasons: ['sender_not_verified', 'attachment_left', 'before_follow', 'needs_check'],
+    })
   })
 
   it('keeps one running follow per person and thread, renews within 180 days of its start, and ends it once', async () => {

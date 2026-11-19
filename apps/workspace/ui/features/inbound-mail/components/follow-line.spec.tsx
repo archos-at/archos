@@ -7,13 +7,15 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }))
 
+import userEvent from '@testing-library/user-event'
 import { render, screen, within } from '@/test-utils'
 import { MAIL_THREAD_VARIANTS, PROJECT_ID, THREAD_DOCUMENT_ID, THREAD_FOLDER_ID, VIEWER_ID, fixtureMailThreadClient } from '@/app/dev/mail-thread/fixtures'
 import { MailThreadTab } from '@/features/documents/components/mail-thread'
+import { PRODUCT_NAME } from '@/lib/brand'
 import { FollowLine } from './follow-line'
 
 describe('filing replies without a click, in „Übersicht“ and in the Verlauf’s „E-Mails“ tab', () => {
-  it('is one switch with one label, one explanation and its state, the same in both places', async () => {
+  it('is a quiet line in „Übersicht“ with one press, the switch in the tab, and one explanation in both', async () => {
     const fixture = MAIL_THREAD_VARIANTS['three-messages']
     render(
       <>
@@ -32,17 +34,25 @@ describe('filing replies without a click, in „Übersicht“ and in the Verlauf
         </section>
       </>
     )
-    const inDialog = within(screen.getByTestId('dialog')).getByRole('switch')
+    const dialog = screen.getByTestId('dialog')
+    expect(within(dialog).queryByRole('switch')).toBeNull()
+    expect(within(dialog).getByTestId('filing-follow')).toHaveTextContent(`${PRODUCT_NAME} files further replies in this mail thread without a click · Switch off`)
+    expect(within(dialog).getByRole('button', { name: 'Switch off' })).toHaveAccessibleDescription(`${PRODUCT_NAME} files further replies in this mail thread without a click`)
+
     const inTab = await within(screen.getByTestId('tab')).findByRole('switch')
-    expect(inDialog).toHaveAccessibleName('File replies in this mail thread without a click')
     expect(inTab).toHaveAccessibleName('File replies in this mail thread without a click')
-    expect(inDialog).toBeChecked()
     expect(inTab).toBeChecked()
-    const explanation = (section: string): string | null | undefined => screen.getByTestId(section).querySelector('[id$="-explain"]')?.textContent
-    expect(explanation('dialog')).toBeTruthy()
-    expect(explanation('dialog')).toBe(explanation('tab'))
-    expect(inDialog).toHaveAccessibleDescription(`On ${explanation('dialog')}`)
-    expect(screen.getByTestId('filing-follow-state')).toHaveTextContent(/^On$/)
+    const explanation = screen.getByTestId('tab').querySelector('[id$="-explain"]')?.textContent
+    expect(explanation).toBeTruthy()
+    expect(within(dialog).getByTestId('filing-follow-explain')).toHaveAccessibleName(explanation ?? '')
     expect(screen.getByTestId('mail-thread-follow-switch-state')).toHaveTextContent(/^On until /)
+  })
+
+  it('says the other state and offers to switch it on again', async () => {
+    const onFollow = vi.fn()
+    render(<FollowLine follow={false} onFollow={onFollow} />)
+    expect(screen.getByTestId('filing-follow-state')).toHaveTextContent('Further replies in this mail thread wait in Project mail')
+    await userEvent.click(screen.getByRole('button', { name: 'Switch on' }))
+    expect(onFollow).toHaveBeenCalledWith(true)
   })
 })

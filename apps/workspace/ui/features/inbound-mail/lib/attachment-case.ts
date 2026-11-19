@@ -1,7 +1,7 @@
 import type { InboundMailPartView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { NotStagedReason, PartRiskFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { isImageInMail, revisionVouchedInThread, senderFactsOfView } from '@/lib/inbound-mail/review-defaults'
-import { revisionByDefault } from './plan-index'
+import { indexChange, revisionByDefault, type IndexChange } from './plan-index'
 
 export type AttachmentStatus =
   | 'waiting'
@@ -18,7 +18,16 @@ export type AcknowledgedRisk = Extract<PartRiskFlag, 'macro' | 'type_mismatch' |
 
 export type AttachmentNote =
   | { kind: 'duplicate'; name: string; folderPath: string | null; documentId: string }
-  | { kind: 'revision'; name: string; folderPath: string | null; nextVersion: number; documentId: string; verified: boolean; likely: boolean }
+  | {
+      kind: 'revision'
+      name: string
+      folderPath: string | null
+      nextVersion: number
+      documentId: string
+      verified: boolean
+      likely: boolean
+      index: IndexChange | null
+    }
   | { kind: 'revision_hidden' }
   | { kind: 'name_stop'; terms: string[] }
   | { kind: 'risk'; flag: 'macro' | 'type_mismatch' }
@@ -76,6 +85,7 @@ export function attachmentCase(
       documentId: part.revisionCandidate.documentId,
       verified: revisionVerified,
       likely: revisionLikely,
+      index: indexChange(part.filename, part.revisionCandidate.name),
     })
   } else if (part.revisionCandidateHidden) {
     notes.push({ kind: 'revision_hidden' })

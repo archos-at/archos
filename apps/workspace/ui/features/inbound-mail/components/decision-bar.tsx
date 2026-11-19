@@ -16,6 +16,7 @@ export interface DecisionBarProps {
   offersFiling: boolean
   questions: number
   impersonation?: boolean
+  reportOffered?: boolean
   onOpenFiling: () => void
   onDismiss: () => void
   filing: boolean
@@ -44,6 +45,7 @@ export function DecisionBar({
   offersFiling,
   questions,
   impersonation = false,
+  reportOffered = false,
   onOpenFiling,
   onDismiss,
   filing,
@@ -82,7 +84,7 @@ export function DecisionBar({
             <BusyButton
               type="button"
               size="sm"
-              variant={dismissFirst && !yieldPrimary ? 'default' : 'secondary'}
+              variant={dismissFirst && !yieldPrimary && !reportOffered ? 'default' : 'secondary'}
               busy={dismissing}
               busyLabel={t('bar.dismissBusy')}
               onClick={onDismiss}

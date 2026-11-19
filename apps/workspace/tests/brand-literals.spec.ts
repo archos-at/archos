@@ -980,10 +980,12 @@ describe('colour is a verdict', () => {
 })
 
 describe('one primary per area', () => {
-  it('the reader’s primary yields while a batch is picked, and to „Verwerfen“ for a forgery or a mail with nothing to file', () => {
+  it('the reader’s primary yields while a batch is picked, to „Melden und verwerfen …“ for a forgery, and to „Verwerfen“ for a mail with nothing to file', () => {
     const bar = parseSource(moduleOf('DecisionBar', 'ui/features/inbound-mail/'))
     expect(hasShape(bar, "dismissFirst || yieldPrimary ? 'secondary' : 'default'")).toBe(true)
-    expect(hasShape(bar, "dismissFirst && ! yieldPrimary ? 'default' : 'secondary'")).toBe(true)
+    expect(hasShape(bar, "dismissFirst && ! yieldPrimary && ! reportOffered ? 'default' : 'secondary'")).toBe(true)
+    const report = elementsNamed(parseSource(moduleOf('FraudReport')), ['Button']).filter((element) => stringAttribute(element, 'data-testid') === 'fraud-report-open')
+    expect(report.map((element) => stringAttribute(element, 'variant'))).toEqual([undefined])
     expect(initializerOf(bar, 'dismissFirst') && shapeOf(initializerOf(bar, 'dismissFirst') as ts.Node)).toBe('impersonation || ! offersFiling')
     expect(attributeShape(parseSource(moduleOf('InboundMailWorkspace')), 'yieldPrimary', 'selectedIds . length > 0')).toBe(true)
   })

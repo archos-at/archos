@@ -36,6 +36,14 @@ export const mailThread: typeof en.mailThread = {
     empty: 'Dieser E-Mail-Verlauf enthält keine E-Mail, die Sie sehen dürfen.',
     waiting:
       '{count, plural, one {# E-Mail dieses E-Mail-Verlaufs wartet} other {# E-Mails dieses E-Mail-Verlaufs warten}} im E-Mail-Eingang',
+    waitingAnyway:
+      '{count, plural, one {# E-Mail wartet trotzdem im E-Mail-Eingang} other {# E-Mails warten trotzdem im E-Mail-Eingang}}: {reasons}',
+    waitingReasons: {
+      sender_not_verified: 'Absender nicht überprüfbar',
+      attachment_left: 'kein Ordner für einen Anhang',
+      before_follow: 'vor dem Einschalten eingegangen',
+      needs_check: 'eine Prüfung nötig',
+    },
     waitingOpen: 'Ansehen',
     order: 'Neueste zuerst',
   },

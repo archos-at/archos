@@ -2,11 +2,12 @@
 
 import type { JSX, KeyboardEvent, RefObject } from 'react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ChevronDown, Info, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, ChevronDown, FileText, Folder, FolderPlus, Info, Mail, Mails, ShieldAlert } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ItemList } from '@/components/ui/item'
+import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { useShortcutsPreference } from '@/hooks/use-shortcuts-preference'
 import { useTranslations } from '@/i18n'
 import type { InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -122,9 +123,8 @@ export function FilingDialog({
   const nothing = !filesAnything(lines)
   const blocked = !nothing && summary.blockers.length > 0
   const senderUnconfirmed = step === 'sender' && summary.needsSenderAcknowledgement && !draft.acknowledgeSender
-  const isLeft = (line: PlanLine): boolean => line.kind === 'left' || line.kind === 'text_left'
-  const kept = lines.filter((line) => !isLeft(line))
-  const left = lines.filter(isLeft)
+  const left = lines.filter((line): line is LeftLine => line.kind === 'left' || line.kind === 'text_left')
+  const kept = lines.filter((line): line is KeptLine => line.kind !== 'left' && line.kind !== 'text_left')
   const unplaced = step === 'attachments' ? keptWithoutFolder(view, draft) : 0
   const nameMissing = step === 'text' && summary.blockers.some((blocker) => blocker.kind === 'thread_name_missing')
   const stepHold = senderUnconfirmed ? null : unplaced > 0 ? t('filing.attachments.waitsForFolder', { count: unplaced }) : nameMissing ? t('bar.blockers.thread_name_missing') : null
@@ -150,6 +150,23 @@ export function FilingDialog({
     bodyRef.current?.scrollTo?.({ top: 0 })
     if (!first) titleRef.current?.focus({ preventScroll: true })
   }, [open, step])
+
+  const [changing, setChanging] = useState<string | null>(null)
+  const changeAttachment = (partId: string): void => {
+    if (!openIds.includes(partId)) setRestOpen(true)
+    setChanging(partId)
+    onAddStep('attachments')
+  }
+  useEffect(() => {
+    if (step !== 'attachments' || changing === null) return
+    const frame = window.requestAnimationFrame(() => {
+      const row = bodyRef.current?.querySelector<HTMLElement>(`[data-testid="attachment-${changing}"]`)
+      row?.scrollIntoView?.({ block: 'center' })
+      row?.querySelector<HTMLElement>('button, input, [tabindex]:not([tabindex="-1"])')?.focus({ preventScroll: true })
+      setChanging(null)
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [step, changing])
 
   const say = (text: string): void => {
     setAnnouncement('')
@@ -390,22 +407,20 @@ export function FilingDialog({
               {kept.length > 0 && (
                 <ul className="flex flex-col gap-3" data-testid="filing-overview">
                   {kept.map((line) => (
-                    <li key={line.partId} className="text-sm leading-snug [overflow-wrap:anywhere]" data-testid="filing-overview-line" data-kind={line.kind}>
-                      <span className="text-foreground font-medium">{words.subject(line)}</span>{' '}
-                      <span className={cn('text-foreground', line.kind === 'no_folder' && 'font-medium')}>{words.outcome(line)}</span>
-                      {(line.kind === 'text_append' || line.kind === 'text_create') && follows && draft.message && (
-                        <FollowLine
-                          follow={draft.message.follow}
-                          onFollow={(follow) => {
-                            onDraft((current) => updateMessage(current, { follow }))
-                            say(follow ? t('filing.overview.followOn') : t('filing.overview.followOff'))
-                          }}
-                        />
-                      )}
-                    </li>
+                    <OverviewRow
+                      key={line.partId}
+                      line={line}
+                      part={words.subject(line)}
+                      to={words.destination(line)}
+                      changeLabel={t('filing.overview.change')}
+                      changeName={t('filing.overview.changeOf', { name: words.subject(line) })}
+                      onChange={() => (line.kind === 'text_append' || line.kind === 'text_create' ? onAddStep('text') : changeAttachment(line.partId))}
+                      disabled={filing}
+                    />
                   ))}
                 </ul>
               )}
+              {kept.length > 0 && left.length > 0 && <hr className="border-edge" />}
               {left.length > 0 && (
                 <div className="border-edge flex flex-col gap-2.5 rounded-control border px-3 py-3" data-testid="filing-left">
                   <ul className="flex flex-col gap-2.5">
@@ -440,18 +455,6 @@ export function FilingDialog({
                   )}
                 </div>
               )}
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {lines.some((line) => line.kind.startsWith('text')) && view.parts.some((part) => part.kind === 'message' && part.state === 'waiting') && draft.message && (
-                  <Button type="button" variant="inline" className="touch-target h-auto p-0 text-sm" onClick={() => onAddStep('text')} data-testid="filing-change-text">
-                    {t('filing.overview.changeText')}
-                  </Button>
-                )}
-                {selectableIds.length > 0 && (
-                  <Button type="button" variant="inline" className="touch-target h-auto p-0 text-sm" onClick={() => onAddStep('attachments')} data-testid="filing-change-attachments">
-                    {t('filing.overview.changeAttachments')}
-                  </Button>
-                )}
-              </div>
               {nothing && (
                 <FactLine icon={Info} testId="filing-nothing">
                   {t('filing.overview.nothing')}
@@ -465,6 +468,15 @@ export function FilingDialog({
                     </FactLine>
                   ))}
                 </div>
+              )}
+              {follows && draft.message && kept.some((line) => line.kind === 'text_append' || line.kind === 'text_create') && (
+                <FollowLine
+                  follow={draft.message.follow}
+                  onFollow={(follow) => {
+                    onDraft((current) => updateMessage(current, { follow }))
+                    say(follow ? t('filing.overview.followOn') : t('filing.overview.followOff'))
+                  }}
+                />
               )}
             </section>
           )}
@@ -517,5 +529,54 @@ export function FilingDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+type KeptLine = Exclude<PlanLine, { kind: 'left' | 'text_left' }>
+type LeftLine = Extract<PlanLine, { kind: 'left' | 'text_left' }>
+
+/** One filed part: what it is, then where it goes, and the press back to the step that decides it. */
+function OverviewRow({ line, part, to, changeLabel, changeName, onChange, disabled }: {
+  line: KeptLine
+  part: string
+  to: string
+  changeLabel: string
+  changeName: string
+  onChange: () => void
+  disabled: boolean
+}): JSX.Element {
+  const text = line.kind === 'text_append' || line.kind === 'text_create'
+  const PartIcon = text ? Mail : FileText
+  const ToIcon = text ? Mails : line.kind === 'file' && line.newFolder ? FolderPlus : Folder
+  return (
+    <li className="flex flex-col gap-0.5 text-sm leading-snug" data-testid="filing-overview-line" data-kind={line.kind} data-part={part}>
+      <div className="flex min-w-0 items-start gap-2">
+        <PartIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
+        {text ? (
+          <span className="text-foreground min-w-0 flex-1" data-testid="filing-overview-part">{part}</span>
+        ) : (
+          <span className="min-w-0 flex-1" data-testid="filing-overview-part">
+            <MiddleTruncate text={part} className="text-foreground block min-w-0" />
+          </span>
+        )}
+        <Button
+          type="button"
+          variant="inline"
+          className="text-muted-foreground hover:text-foreground touch-target h-auto shrink-0 p-0 text-xs"
+          aria-label={changeName}
+          onClick={onChange}
+          disabled={disabled}
+          data-testid="filing-overview-change"
+        >
+          {changeLabel}
+        </Button>
+      </div>
+      <div className="flex min-w-0 items-start gap-2 pl-6">
+        <ToIcon className="text-muted-foreground mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span className="text-foreground min-w-0 font-medium [overflow-wrap:anywhere]" data-testid="filing-overview-to">
+          {to}
+        </span>
+      </div>
+    </li>
   )
 }

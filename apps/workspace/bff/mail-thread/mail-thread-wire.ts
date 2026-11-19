@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { SCREENING_DETECTORS } from '@/lib/upload-screening/policy'
 import type { SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import type { MailOriginView } from '@/lib/inbound-mail/inbound-mail-wire'
+import type { MailThreadWaitingReason } from './mail-thread-vocabulary'
 import {
   THREAD_MATCH_HEADERS,
   THREAD_MATCH_STRENGTHS,
@@ -221,6 +222,7 @@ export interface MailThreadView extends MailThreadSummaryView {
   follows: MailThreadFollowView[]
   managesFollows: boolean
   waitingCount: number | null
+  waitingReasons: MailThreadWaitingReason[]
 }
 
 export interface MailThreadListView {

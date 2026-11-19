@@ -65,7 +65,7 @@ vi.mock('./repository', () => ({
   findThreadCandidates: vi.fn(async () => state.threadCandidates),
   findFiledMessages: vi.fn(async () => state.filedMessages),
   findScreenedDuplicates: vi.fn(async () => new Map()),
-  findScreenedNamesakes: vi.fn(async () => new Map()),
+  findScreenedRevisionCandidates: vi.fn(async () => new Map()),
   findThreadFollowContext: vi.fn(async () => state.followContext),
   holdMail: vi.fn(async (_id: string, fields: Record<string, unknown>, parts: NewInboundMailPartRow[]) => {
     state.calls.push('hold')

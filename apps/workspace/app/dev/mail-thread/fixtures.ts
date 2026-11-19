@@ -96,6 +96,7 @@ export function thread(overrides: Partial<MailThreadView> = {}): MailThreadView 
     follows: [],
     managesFollows: false,
     waitingCount: 0,
+    waitingReasons: [],
     ...overrides,
     entries,
   }
@@ -231,11 +232,12 @@ function worstCase(): MailThreadView {
     ],
     managesFollows: true,
     waitingCount: 1_284,
+    waitingReasons: ['sender_not_verified', 'attachment_left', 'before_follow', 'needs_check'],
   })
 }
 
 export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
-  'three-messages': fixture({ view: thread({ waitingCount: 2, followed: true, follows: [follow({ userId: VIEWER_ID })] }) }),
+  'three-messages': fixture({ view: thread({ waitingCount: 2, waitingReasons: ['sender_not_verified', 'attachment_left'], followed: true, follows: [follow({ userId: VIEWER_ID })] }) }),
   'not-followed': fixture({ view: thread({ waitingCount: 2 }) }),
   'same-sender': fixture({
     view: thread({

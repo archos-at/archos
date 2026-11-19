@@ -304,18 +304,27 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
         { role: 'from', name: 'Ing. Karl Bauer', address: 'k.bauer@bauer-bau.at' },
         { role: 'to', name: 'Miriam Huber', address: 'm.huber@huber-architektur.at' },
       ],
-      parts: [messagePart({ id: fixtureId('message:ut') }), statik({ riskFlags: ['unverified_thread'] })],
+      parts: [
+        messagePart({ id: fixtureId('message:ut') }),
+        part({
+          name: 'TG-L01_C.pdf',
+          sizeBytes: 1_960_000,
+          riskFlags: ['unverified_thread'],
+          revisionCandidate: { documentId: fixtureId('doc:tgl01'), name: 'TG-L01_B.pdf', folderPath: 'Pläne', nextVersion: 3 },
+          suggestion: suggestion('Pläne', null, 'Gleiche Plannummer wie TG-L01_B.pdf in Pläne.'),
+        }),
+      ],
       threadCandidates: [
         thread({ threadId: fixtureId('thread:tg'), documentId: fixtureId('doc:tg'), name: 'Tiefgarage Lüftung', nextVersion: 2, strength: 'subject', preselected: false, blocks: ['weak_match'] }),
       ],
     }),
     text: text({
       ownText:
-        'Sehr geehrte Frau Huber,\n\nvon DI Weber haben wir die Statik S-101 in Index D bekommen. Für die Lüftungsöffnungen in der Tiefgarage bauen wir danach, bitte bestätigen Sie uns, dass das der gültige Stand ist.\n\nMit freundlichen Grüßen\nKarl Bauer\nBauer Bau GmbH',
+        'Sehr geehrte Frau Huber,\n\nanbei unser Plan der Lüftungsöffnungen in der Tiefgarage in Index C, angepasst an die Statik S-101 in Index D. Bitte bestätigen Sie uns, dass wir danach bauen können.\n\nMit freundlichen Grüßen\nKarl Bauer\nBauer Bau GmbH',
       quoted: [
         {
           header: 'Am 12.11.2026 um 16:40 schrieb Miriam Huber <m.huber@huber-architektur.at>:',
-          text: 'Lieber Herr Bauer,\n\nfür die Lüftung der Tiefgarage gilt die Statik in Index D, sobald sie da ist.\n\nlg Miriam Huber',
+          text: 'Lieber Herr Bauer,\n\nfür die Lüftung der Tiefgarage gilt die Statik in Index D. Bitte passen Sie Ihren Plan daran an.\n\nlg Miriam Huber',
         },
       ],
     }),
