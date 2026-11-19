@@ -674,6 +674,7 @@ describe('following: the follow job is queued only when D31’s conditions 1–6
     state.followContext = {
       threadId: THREAD,
       participantDomains: [MEMBER_DOMAIN],
+      participantAddresses: [],
       follows: [
         { id: 'f0000000-0000-4000-8000-000000000001', userId: FOLLOWER_ID, createdAt: new Date(RECEIVED.getTime() - 86_400_000), expiresAt: new Date(Date.now() + 86_400_000), endedAt: null },
       ],
@@ -716,7 +717,7 @@ describe('following: the follow job is queued only when D31’s conditions 1–6
     expect(jobKinds()).not.toContain('inbound_mail_follow')
 
     state.dns = fakeDns(keyFor(MEMBER_DOMAIN))
-    state.followContext = { threadId: THREAD, participantDomains: [MEMBER_DOMAIN], follows: [] }
+    state.followContext = { threadId: THREAD, participantDomains: [MEMBER_DOMAIN], participantAddresses: [], follows: [] }
     receive(await sign(message(BODY, REFERENCE_HEADERS)))
     await run()
     expect(jobKinds()).not.toContain('inbound_mail_follow')

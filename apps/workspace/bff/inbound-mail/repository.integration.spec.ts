@@ -390,11 +390,13 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
     })
 
     it('reads a thread’s follows for the follow check, and nothing of another project', async () => {
-      const context = await inTenant(() => repo.findThreadFollowContext(projectId, threadId))
+      const asked = ['Huber@Statik.example', 'planung@buero.example', 'fremd@statik.example']
+      const context = await inTenant(() => repo.findThreadFollowContext(projectId, threadId, asked))
       expect(context).toMatchObject({ threadId, participantDomains: ['statik.example'] })
+      expect([...(context?.participantAddresses ?? [])].sort()).toEqual(['huber@statik.example', 'planung@buero.example'])
       expect(context?.follows).toHaveLength(1)
       expect(context?.follows[0]).toMatchObject({ userId: USER, endedAt: null })
-      expect(await inTenant(() => repo.findThreadFollowContext(otherProjectId, threadId))).toBeNull()
+      expect(await inTenant(() => repo.findThreadFollowContext(otherProjectId, threadId, asked))).toBeNull()
     })
   })
 

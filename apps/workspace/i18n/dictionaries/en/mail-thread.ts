@@ -7,6 +7,7 @@ export const mailThread = {
     flagged: 'The mail is addressed to others, or its date is not plausible',
     automatic: 'The mail was sent automatically',
     new_participant_domain: 'New participants: {domains}',
+    new_participant_address: 'New participants at a public mail provider: {addresses}',
     recipients_unchecked: 'The mail has more recipients than can be checked',
     name_stop: 'The name check stopped the subject',
     content_finding: 'The content check found something in the text',

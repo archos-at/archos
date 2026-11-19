@@ -55,7 +55,7 @@ import { auditDecisions } from './audit'
 import { runInboundMailFiling } from './file-job'
 import { findFilingWork } from './filing-repository'
 import { followMail, runInboundMailFollow } from './follow-job'
-import { findFiledMessages, findMailParts } from './repository'
+import { findFiledMessages, findMailParts, findThreadFollowContext } from './repository'
 import { readStagedObject } from './staging'
 import { scoreMailDecision } from './suggest-scores'
 
@@ -113,7 +113,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
   state.nameStops = []
-  state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], follows: [follow()] }
+  state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], participantAddresses: [], follows: [follow()] }
   given()
   vi.mocked(readStagedObject).mockResolvedValue(RAW)
   vi.mocked(resolvePinnedRequesterSessionStrict).mockResolvedValue(follower)
@@ -189,6 +189,7 @@ describe('a reply every condition of D31 holds for', () => {
     state.followContext = {
       threadId: THREAD_ID,
       participantDomains: ['statik-weber.at'],
+      participantAddresses: [],
       follows: [follow({ id: 'f-early', userId: OTHER_FOLLOWER, createdAt: new Date(RECEIVED.getTime() - 2 * DAY) }), follow()],
     }
     await followMail('org_1', payload)
@@ -197,13 +198,22 @@ describe('a reply every condition of D31 holds for', () => {
   })
 })
 
+describe('a reply from a public mail domain', () => {
+  it('asks the repository which of its public-domain addresses took part, and joins when the sender did', async () => {
+    state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at', 'gmx.at'], participantAddresses: ['bauherr@gmx.at'], follows: [follow()] }
+    given({ senderAddress: 'Bauherr@GMX.at', signerDomain: 'gmx.at' })
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'appended' })
+    expect(findThreadFollowContext).toHaveBeenCalledWith(PROJECT_ID, THREAD_ID, ['bauherr@gmx.at'])
+  })
+})
+
 describe('each of D31’s nine conditions, failing alone, leaves the mail waiting', () => {
   const cases: Array<[string, () => void]> = [
     ['1. the follow was made after the mail arrived', () => {
-      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], follows: [follow({ createdAt: new Date(RECEIVED.getTime() + 1) })] }
+      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], participantAddresses: [], follows: [follow({ createdAt: new Date(RECEIVED.getTime() + 1) })] }
     }],
     ['1. the follow ran out', () => {
-      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], follows: [follow({ expiresAt: new Date(Date.now() - 1) })] }
+      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], participantAddresses: [], follows: [follow({ expiresAt: new Date(Date.now() - 1) })] }
     }],
     ['2. the sender’s domain is not verified', () => given({ senderTrust: 'external_unverified' })],
     ['3. the match is only by subject', () => given({ threadMatch: [{ threadId: THREAD_ID, strength: 'subject', headers: [] }] })],
@@ -215,6 +225,10 @@ describe('each of D31’s nine conditions, failing alone, leaves the mail waitin
     ['4. automatic mail', () => given({ automatic: true })],
     ['5. a new participant domain', () =>
       given({ participants: [{ role: 'cc', name: null, address: 'neu@fremd-planer.at' }] })],
+    ['5. a stranger on a public mail domain the thread has seen', () => {
+      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at', 'gmx.at'], participantAddresses: [], follows: [follow()] }
+      given({ senderAddress: 'irgendwer@gmx.at', signerDomain: 'gmx.at' })
+    }],
     ['6. the name check stopped the subject', () => {
       state.nameStops = ['Gehalt']
     }],
