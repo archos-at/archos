@@ -15,10 +15,9 @@ import type { InboundMailPartView, InboundMailTextView, InboundMailView } from '
 import { cn } from '@/lib/utils'
 import { attachmentCase, notStagedSummary } from '../lib/attachment-case'
 import type { InboundMailClient } from '../lib/client'
-import { decisionOf, draftSummary, initialDraft, rebaseDraft, type DraftCopy, type FolderOption, type MailDraft } from '../lib/draft'
-import { attachmentOpenReason, FILING_STEPS, filingSteps, fileable, folderlessIds, openAttachmentIds, planLines, type FilingStep } from '../lib/filing-plan'
+import { decisionOf, draftSummary, initialDraft, rebaseDraft, updateAttachment, updateMessage, type DraftCopy, type FolderOption, type MailDraft } from '../lib/draft'
+import { attachmentOpenReason, FILING_STEPS, filingSteps, fileable, folderlessIds, openAttachmentIds, planLines, textNeedsDecision, type FilingStep } from '../lib/filing-plan'
 import { filedLines } from '../lib/filed'
-import { substantiveText } from '../lib/mail-text'
 import { refusalNeedsReload, refusalOf, refusalTerms } from '../lib/refusal'
 import { guardImpersonation, impersonationWarningOf } from '../lib/impersonation'
 import { followOffered, mailClaimOf, senderDisplayName } from '../lib/sender'
@@ -262,6 +261,24 @@ export function InboundMailDetail({
     setStep(next)
   }
 
+  const include = (partId: string): void => {
+    if (!view || !draft) return
+    if (draft.message?.partId === partId) {
+      const next = updateMessage(draft, { checked: true })
+      setDraft(next)
+      if (textNeedsDecision(view, next)) addStep('text')
+      return
+    }
+    const part = view.parts.find((candidate) => candidate.id === partId)
+    const next = updateAttachment(draft, partId, { checked: true })
+    const row = next.attachments.find((candidate) => candidate.partId === partId)
+    setDraft(next)
+    if (!part || !row || attachmentOpenReason(attachmentCase(part, view), row, missing) === null) return
+    setOpenIds((ids) => (ids.includes(partId) ? ids : [...ids, partId]))
+    if (row.folder === null && row.revisionOf === null) setPickIds((ids) => (ids.includes(partId) ? ids : [...ids, partId]))
+    addStep('attachments')
+  }
+
   const file = async (): Promise<void> => {
     if (!view || !draft || !summary || filing || dismissing || view.onlySenderReleases) return
     if (summary.files === 0 && !summary.text) return dismiss()
@@ -387,7 +404,6 @@ export function InboundMailDetail({
   const claim = mailClaimOf(view)
   const readOnly = claim === 'colleague'
   const stopped = impersonation !== null && !filingOpen
-  const textSays = text.kind === 'ready' && !text.text.unreadable && substantiveText(text.text.ownText)
   const closedShown = view.projectClosed && !closedNoticeHidden
 
   const notices: Notice[] = []
@@ -547,7 +563,7 @@ export function InboundMailDetail({
           openIds={openIds}
           pickIds={pickIds}
           threadNameStop={threadNameStop}
-          textSays={textSays}
+          onInclude={include}
           impersonation={impersonation !== null}
           contentUrlOf={(partId) => client.partContentUrl(projectId, view.id, partId) || null}
           onPreview={(partId, trigger) => {

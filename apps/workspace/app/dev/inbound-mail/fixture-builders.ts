@@ -79,11 +79,14 @@ export function thread(overrides: Partial<InboundMailThreadCandidateView> = {}):
   }
 }
 
-const MEMBER_ID = 'user_01JMIRIAMHUBER00000000000'
-const COLLEAGUE_ID = 'user_01JPETRAHUBER000000000000'
+/** Every preview is read by one person, Anna Berger; Miriam Huber is her colleague in the project. */
+const VIEWER_ID = 'user_01JANNABERGER0000000000000'
+const MEMBERS: Record<string, string> = {
+  'a.berger@huber-architektur.at': VIEWER_ID,
+  'm.huber@huber-architektur.at': 'user_01JMIRIAMHUBER00000000000',
+}
 
 export interface FixtureReading {
-  viewer?: 'sender' | 'colleague'
   writes?: boolean
   directFiling?: boolean
 }
@@ -93,14 +96,14 @@ function judged(
   automatic: boolean,
   reading: FixtureReading,
 ): Pick<InboundMailView, 'senderClass' | 'waitReason' | 'onlySenderReleases' | 'ownClaimedMail'> {
-  const member = sender?.trust.startsWith('member_') ? MEMBER_ID : null
+  const member = sender?.trust.startsWith('member_') ? (MEMBERS[sender.address] ?? null) : null
   const directFiling = reading.directFiling ?? true
   const senderClass = sender
     ? senderClassOf({ trust: sender.trust, reason: sender.reason, senderUserId: member, flags: sender.flags, automatic, writes: reading.writes ?? true })
     : 'external'
   const facts = { senderClass, senderTrust: sender?.trust ?? null, senderFlags: sender?.flags ?? [], automatic, directFiling }
   const claimed = { senderClass, senderUserId: member, senderTrust: sender?.trust ?? null, senderReason: sender?.reason ?? null, senderFlags: sender?.flags ?? [] }
-  const viewer = reading.viewer === 'colleague' ? COLLEAGUE_ID : MEMBER_ID
+  const viewer = VIEWER_ID
   return {
     senderClass,
     waitReason: senderWaitReason(facts),

@@ -21,23 +21,25 @@ export type MissingSuggestion = 'pending' | 'skipped' | 'none'
 
 export type OpenReason = 'no_folder' | 'pending' | 'revision_unsure' | 'not_preselected' | 'name_stop' | 'risk'
 
-function unsureRevision(entry: AttachmentCase): boolean {
-  return entry.notes.some((note) => note.kind === 'revision' && !note.verified)
-}
-
 export function attachmentOpenReason(entry: AttachmentCase, draft: AttachmentDraft, missing: MissingSuggestion): OpenReason | null {
   if (!entry.selectable) return null
+  if (entry.unsureRevision) return 'revision_unsure'
   if (!draft.checked) {
     if (!asksForDecision(entry)) return null
-    if (unsureRevision(entry)) return 'revision_unsure'
     if (entry.part.riskFlags.includes('name_stop')) return 'name_stop'
     return entry.risk ? 'risk' : 'not_preselected'
   }
   if (entry.part.riskFlags.includes('name_stop') && !draft.releaseName) return 'name_stop'
   if (entry.risk && !draft.acknowledgeRisk) return 'risk'
-  if (draft.revisionOf !== null && unsureRevision(entry) && !draft.acknowledgeRisk) return 'revision_unsure'
   if (draft.folder === null && draft.revisionOf === null) return missing === 'pending' ? 'pending' : 'no_folder'
   return null
+}
+
+export function keptWithoutFolder(view: InboundMailView, draft: MailDraft): number {
+  return waitingAttachments(view).filter((entry) => {
+    const row = draft.attachments.find((candidate) => candidate.partId === entry.part.id)
+    return !!row && entry.selectable && row.checked && row.folder === null && row.revisionOf === null
+  }).length
 }
 
 function waitingAttachments(view: InboundMailView): AttachmentCase[] {
@@ -80,17 +82,17 @@ export function filingSteps(view: InboundMailView, draft: MailDraft, { missing, 
   return FILING_STEPS.filter((step) => needed.has(step))
 }
 
-export type LeftReason = 'unchecked' | 'duplicate' | 'image' | 'scan_pending' | 'scan_failed' | 'infected' | 'not_offered' | 'closed'
+export type LeftReason = 'unchecked' | 'name_stop' | 'risk' | 'duplicate' | 'image' | 'scan_pending' | 'scan_failed' | 'infected' | 'not_offered' | 'closed'
 
 /** One part of the mail and what pressing „Ablegen“ does with it: the sentence of „Übersicht“ and the pane's phrase. */
 export type PlanLine =
   | { kind: 'text_append'; partId: string; thread: string; masked: boolean }
   | { kind: 'text_create'; partId: string; thread: string; folder: string; masked: boolean }
-  | { kind: 'text_left'; partId: string }
+  | { kind: 'text_left'; partId: string; includable: boolean }
   | { kind: 'file'; partId: string; name: string; rename: string | null; folder: string; newFolder: boolean; documentType: DocumentTypeTag | null }
   | { kind: 'revision'; partId: string; name: string; version: number; of: string }
   | { kind: 'no_folder'; partId: string; name: string }
-  | { kind: 'left'; partId: string; name: string; why: LeftReason }
+  | { kind: 'left'; partId: string; name: string; why: LeftReason; includable: boolean; terms: readonly string[]; risk: AttachmentCase['risk'] }
 
 function leftReason(entry: AttachmentCase): LeftReason {
   switch (entry.status) {
@@ -104,14 +106,20 @@ function leftReason(entry: AttachmentCase): LeftReason {
       if (!entry.selectable) return 'closed'
       if (entry.notes.some((note) => note.kind === 'duplicate')) return 'duplicate'
       if (entry.notes.some((note) => note.kind === 'image_in_mail')) return 'image'
-      return 'unchecked'
+      if (entry.part.riskFlags.includes('name_stop')) return 'name_stop'
+      return entry.risk ? 'risk' : 'unchecked'
   }
 }
+
+const INCLUDABLE: ReadonlySet<LeftReason> = new Set(['unchecked', 'name_stop', 'risk'])
 
 function attachmentLine(entry: AttachmentCase, row: AttachmentDraft | undefined, copy: DraftCopy): PlanLine {
   const { part } = entry
   const name = part.filename ?? copy.unnamedAttachment(part.position)
-  if (!row || !entry.selectable || !row.checked) return { kind: 'left', partId: part.id, name, why: leftReason(entry) }
+  if (!row || !entry.selectable || !row.checked) {
+    const why = leftReason(entry)
+    return { kind: 'left', partId: part.id, name, why, includable: INCLUDABLE.has(why), terms: part.nameStopTerms, risk: entry.risk }
+  }
   const revision = part.revisionCandidate
   if (row.revisionOf !== null && revision?.documentId === row.revisionOf) {
     return { kind: 'revision', partId: part.id, name, version: revision.nextVersion, of: revision.name }
@@ -131,13 +139,13 @@ function attachmentLine(entry: AttachmentCase, row: AttachmentDraft | undefined,
 
 function textLine(view: InboundMailView, draft: MailDraft, part: InboundMailPartView): PlanLine {
   const message = draft.message
-  if (!message?.checked || !messageSelectable(view)) return { kind: 'text_left', partId: part.id }
+  if (!message?.checked || !messageSelectable(view)) return { kind: 'text_left', partId: part.id, includable: !!message && messageSelectable(view) }
   const masked = message.findingChoice === 'masked' && part.contentFindings.length > 0
   if (message.target.kind === 'create') {
     return { kind: 'text_create', partId: part.id, thread: message.target.name.trim(), folder: message.target.folder.path, masked }
   }
   const candidate = appendCandidate(view, draft)
-  return candidate ? { kind: 'text_append', partId: part.id, thread: candidate.name, masked } : { kind: 'text_left', partId: part.id }
+  return candidate ? { kind: 'text_append', partId: part.id, thread: candidate.name, masked } : { kind: 'text_left', partId: part.id, includable: true }
 }
 
 export function planLines(view: InboundMailView, draft: MailDraft, copy: DraftCopy): PlanLine[] {
@@ -170,7 +178,18 @@ export interface QuickPick {
 
 const QUICK_PICKS_MAX = 4
 
-export function quickPicks(view: InboundMailView, draft: MailDraft, ids: readonly string[], folders: readonly FolderOption[], copy: DraftCopy): QuickPick[] {
+export interface QuickPickSources {
+  extra?: readonly QuickPick[]
+}
+
+export function quickPicks(
+  view: InboundMailView,
+  draft: MailDraft,
+  ids: readonly string[],
+  folders: readonly FolderOption[],
+  copy: DraftCopy,
+  { extra = [] }: QuickPickSources = {},
+): QuickPick[] {
   const picks: QuickPick[] = []
   const add = (pick: QuickPick): void => {
     if (!picks.some((known) => known.target.path === pick.target.path)) picks.push(pick)
@@ -179,6 +198,7 @@ export function quickPicks(view: InboundMailView, draft: MailDraft, ids: readonl
     const suggested = readSuggestion(view.parts.find((part) => part.id === id)?.suggestion)
     if (suggested?.folder != null) add({ target: targetForPath(suggested.folder, folders, suggested.folderId), why: 'suggestion', of: null })
   }
+  for (const pick of extra) add(pick)
   for (const row of draft.attachments) {
     if (ids.includes(row.partId) || !row.checked || row.folder === null) continue
     const part = view.parts.find((candidate) => candidate.id === row.partId)

@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useMemo, useRef, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   AlertTriangle,
@@ -16,7 +16,6 @@ import {
   Lock,
   ShieldAlert,
   ShieldQuestion,
-  SquareCheck,
   Tag,
   Timer,
   Undo2,
@@ -25,10 +24,12 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { NewMark } from '@/components/ui/filing-chip'
 import { Item } from '@/components/ui/item'
+import { Label } from '@/components/ui/label'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { AgentGlyph } from '@/components/ui/agent-glyph'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { SuggestionReason } from '@/components/ui/suggestion-panel'
-import { documentFilesHref, FolderPickerSheet } from '@/features/documents'
+import { documentFilesHref } from '@/features/documents'
 import { fileExtensionLabel } from '@/features/documents/document-kind'
 import { useLocale, useTranslations } from '@/i18n'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
@@ -36,11 +37,13 @@ import { CLAUSE_JOIN, formatBytes, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import type { AttachmentCase, AttachmentNote } from '../lib/attachment-case'
-import { asksForDecision, targetForPath, type AttachmentDraft, type FolderOption } from '../lib/draft'
+import { revisionChoiceOf, type AttachmentDraft, type FolderOption, type RevisionChoice } from '../lib/draft'
+import type { QuickPick } from '../lib/filing-plan'
 import { readSuggestion } from '../lib/suggestion'
 import { AttachmentTargetDialog } from './attachment-target-dialog'
 import { AttachmentThumbnail } from './attachment-thumbnail'
 import { FiledTo } from './filed-to'
+import { FolderChoiceDialog } from './folder-choice'
 import { CheckLine, FactLine, PlaceFact } from './inbound-mail-atoms'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
@@ -53,11 +56,16 @@ export interface AttachmentRowProps {
   contentUrl: string | null
   missingSuggestion: 'pending' | 'skipped' | 'none'
   focused?: boolean
-  folderBelow?: boolean
+  /** The step asks the folder below the rows: for this file alone ('only'), or for it and others ('shared', each row still offering its own). */
+  folderBelow?: false | 'only' | 'shared'
+  folderPicks?: readonly QuickPick[]
   onChange: (change: Partial<Omit<AttachmentDraft, 'partId' | 'suggested'>>) => void
+  onRevisionChoice?: (choice: RevisionChoice) => void
   /** Opens the larger viewer; the press that opened it takes the focus back when it closes. */
   onPreview?: (trigger: HTMLElement) => void
 }
+
+const REVISION_CHOICES: readonly RevisionChoice[] = ['new', 'revision', 'none']
 
 export function AttachmentRow({
   projectId,
@@ -68,30 +76,28 @@ export function AttachmentRow({
   missingSuggestion,
   focused = false,
   folderBelow = false,
+  folderPicks = [],
   onChange,
+  onRevisionChoice,
   onPreview,
 }: AttachmentRowProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const tFiles = useTranslations(filesCopy)
+  const id = useId()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const changeRef = useRef<HTMLButtonElement>(null)
   const { part, status, selectable } = entry
   const name = part.filedAs?.name ?? part.filename ?? draft.name
   const suggestion = useMemo(() => readSuggestion(part.suggestion), [part.suggestion])
-  const destinations = useMemo(
-    () =>
-      folders
-        .filter((folder) => folder.writable)
-        .map((folder) => ({ folder: { id: folder.id, name: folder.name, parentId: folder.parentId }, label: folder.path.split('/').join(' / ') })),
-    [folders]
-  )
   const anySuggested = draft.suggested.folder || draft.suggested.documentType || draft.suggested.name
+  const revision = part.revisionCandidate
+  const threeWay = entry.unsureRevision && revision !== null && !!onRevisionChoice
 
   const folderTarget = draft.folder
   const showTarget = selectable && draft.checked
-  const undecided = !draft.checked && asksForDecision(entry)
   const folderMissing = folderTarget === null && draft.revisionOf === null
+  const folderName = folderTarget === null ? t('target.noFolder') : folderTarget.path === '' ? t('suggestion.root') : folderTarget.path
 
   return (
     <Item
@@ -103,13 +109,17 @@ export function AttachmentRow({
       data-checked={draft.checked || undefined}
     >
       <div className="flex h-10 items-center pointer-coarse:h-12">
-        <Checkbox
-          checked={selectable && draft.checked}
-          disabled={!selectable}
-          onCheckedChange={(value) => onChange({ checked: value === true })}
-          aria-label={t('attachments.file', { name })}
-          data-testid="attachment-checkbox"
-        />
+        {threeWay ? (
+          <span className="block size-4" aria-hidden />
+        ) : (
+          <Checkbox
+            checked={selectable && draft.checked}
+            disabled={!selectable}
+            onCheckedChange={(value) => onChange({ checked: value === true })}
+            aria-label={t('attachments.file', { name })}
+            data-testid="attachment-checkbox"
+          />
+        )}
       </div>
       <AttachmentPicture name={name} contentType={part.contentType} contentUrl={contentUrl} onPreview={onPreview} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -119,15 +129,26 @@ export function AttachmentRow({
         <AttachmentFacts name={name} part={part} contentUrl={contentUrl} onPreview={onPreview} />
         <AttachmentStatusLine projectId={projectId} entry={entry} />
         {status === 'waiting' && entry.notes.map((note) => <AttachmentNoteLine key={note.kind} projectId={projectId} note={note} />)}
-        {undecided && (
-          <FactLine icon={SquareCheck} tone="warning" testId="attachment-undecided">
-            {t('attachments.notes.undecided')}
-          </FactLine>
+
+        {threeWay && revision && (
+          <fieldset className="mt-1 flex min-w-0 flex-col gap-2">
+            <legend className="sr-only">{t('attachments.revisionChoice.label', { name })}</legend>
+            <RadioGroup value={revisionChoiceOf(draft)} onValueChange={(value) => onRevisionChoice?.(value as RevisionChoice)} className="gap-2" data-testid="revision-choice">
+              {REVISION_CHOICES.map((choice) => (
+                <div key={choice} className="flex items-start gap-2 pointer-coarse:min-h-11">
+                  <RadioGroupItem id={`${id}-${choice}`} value={choice} className="mt-0.5" data-testid={`revision-choice-${choice}`} />
+                  <Label htmlFor={`${id}-${choice}`} className="text-foreground text-sm font-normal leading-snug [overflow-wrap:anywhere]">
+                    {t(`attachments.revisionChoice.${choice}`, { name: revision.name, version: revision.nextVersion })}
+                  </Label>
+                </div>
+              ))}
+            </RadioGroup>
+          </fieldset>
         )}
 
         {showTarget && (
           <div className="mt-1 flex flex-col gap-1.5" data-testid="attachment-target">
-            {anySuggested && (
+            {anySuggested && !threeWay && (
               <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                 <AgentGlyph size="xs" className="size-4" />
                 {t('suggestion.label')}
@@ -135,32 +156,36 @@ export function AttachmentRow({
             )}
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
               <PlaceFact icon={Folder} label={t('target.folder')} testId="attachment-folder">
-                {folderTarget === null ? t('target.noFolder') : folderTarget.path === '' ? t('suggestion.root') : folderTarget.path}
+                {folderName}
                 {folderTarget?.kind === 'new' && <NewMark className="ml-1.5 align-[1px]">{t('suggestion.newFolder')}</NewMark>}
               </PlaceFact>
-              {draft.documentType && (
-                <PlaceFact icon={Tag} label={t('suggestion.documentType')} testId="attachment-type">
-                  {tagLabel(draft.documentType, tFiles)}
-                </PlaceFact>
-              )}
-              {draft.name !== part.filename && (
-                <PlaceFact icon={FileText} label={t('target.name')} testId="attachment-name">
-                  {draft.name}
-                </PlaceFact>
-              )}
-              {/* One control for where it goes: a missing folder is chosen right away, anything else is changed in one dialog. */}
-              {folderMissing && folderBelow ? null : folderMissing ? (
-                <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
+              {draft.revisionOf === null && !(folderMissing && folderBelow === 'only') && (
+                <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid={folderMissing ? 'attachment-folder-choose' : 'attachment-folder-change'}>
                   <FolderInput className="size-3.5" aria-hidden />
-                  {t('target.chooseFolder')}
-                </Button>
-              ) : (
-                <Button ref={changeRef} type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
-                  {t('attachments.change')}
+                  {folderMissing ? t('target.chooseFolder') : t('target.changeFolder')}
                 </Button>
               )}
             </div>
-            {folderTarget === null && draft.revisionOf === null && !folderBelow && (
+            {(draft.documentType || draft.name !== part.filename || !folderMissing) && (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+                {draft.documentType && (
+                  <PlaceFact icon={Tag} label={t('suggestion.documentType')} testId="attachment-type">
+                    {tagLabel(draft.documentType, tFiles)}
+                  </PlaceFact>
+                )}
+                {draft.name !== part.filename && (
+                  <PlaceFact icon={FileText} label={t('target.name')} testId="attachment-name">
+                    {draft.name}
+                  </PlaceFact>
+                )}
+                {!folderMissing && (
+                  <Button ref={changeRef} type="button" size="sm" variant="inline" className="touch-target h-auto p-0 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+                    {t('attachments.changeDetails')}
+                  </Button>
+                )}
+              </div>
+            )}
+            {folderMissing && !folderBelow && (
               <p className="text-muted-foreground text-xs" data-testid="suggestion-missing">
                 {missingSuggestion === 'pending'
                   ? t('suggestion.pending')
@@ -180,28 +205,23 @@ export function AttachmentRow({
                 {t('attachments.notes.acknowledgeRisk')}
               </CheckLine>
             )}
-            {!entry.risk &&
-              draft.revisionOf !== null &&
-              entry.notes.some((note) => note.kind === 'revision' && !note.verified) && (
-                <CheckLine checked={draft.acknowledgeRisk} onCheckedChange={(acknowledgeRisk) => onChange({ acknowledgeRisk })} testId="attachment-ack-revision">
-                  {t('attachments.notes.acknowledgeRevision')}
-                </CheckLine>
-              )}
+            {!entry.risk && !threeWay && draft.revisionOf !== null && entry.unsureRevision && (
+              <CheckLine checked={draft.acknowledgeRisk} onCheckedChange={(acknowledgeRisk) => onChange({ acknowledgeRisk })} testId="attachment-ack-revision">
+                {t('attachments.notes.acknowledgeRevision')}
+              </CheckLine>
+            )}
           </div>
         )}
       </div>
 
-      <FolderPickerSheet
+      <FolderChoiceDialog
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        title={t('target.folderPickerTitle')}
-        destinations={destinations}
-        currentFolderId={folderTarget?.kind === 'existing' ? folderTarget.folderId : undefined}
-        onPick={(folderId) => {
-          setPickerOpen(false)
-          const folder = folderId ? folders.find((option) => option.id === folderId) : null
-          onChange({ folder: folder ? targetForPath(folder.path, folders, folder.id) : targetForPath('', folders), revisionOf: null })
-        }}
+        title={t('target.folderFor', { name })}
+        current={folderTarget}
+        picks={folderPicks}
+        folders={folders}
+        onPick={(folder) => onChange({ folder, revisionOf: null })}
       />
       <AttachmentTargetDialog
         open={editOpen}

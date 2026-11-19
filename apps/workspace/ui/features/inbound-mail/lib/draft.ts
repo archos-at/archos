@@ -9,7 +9,7 @@ import { CORRESPONDENCE_FOLDER, defaultThread, messageSelectable as partMessageS
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { dismissErases } from './inbox-triage'
 import { attachmentCase, type AttachmentCase } from './attachment-case'
-import { senderDisplayName } from './sender'
+import { followOffered, senderDisplayName } from './sender'
 import { readSuggestion, type PartSuggestion } from './suggestion'
 
 export interface FolderOption {
@@ -48,6 +48,8 @@ export interface MessageDraft {
   target: MessageTarget
   findingChoice: ContentFindingChoice | null
   acknowledgeThread: boolean
+  /** Filing the text into its E-Mail-Verlauf files further replies there without a click, unless the person says „Nicht automatisch“. */
+  follow: boolean
 }
 
 export interface MailDraft {
@@ -76,12 +78,13 @@ function attachmentDraft(entry: AttachmentCase, folders: readonly FolderOption[]
   const { part } = entry
   const suggestion: PartSuggestion | null = readSuggestion(part.suggestion)
   const revision = part.revisionCandidate
-  const revisionChosen = revision !== null && entry.defaultChecked
-  const folder = revisionChosen
-    ? targetForPath(revision.folderPath ?? '', folders)
-    : suggestion?.folder !== undefined && suggestion?.folder !== null
-      ? targetForPath(suggestion.folder, folders, suggestion.folderId)
-      : null
+  const revisionChosen = revision !== null && !entry.unsureRevision && entry.defaultChecked
+  const folder =
+    revision !== null && (revisionChosen || entry.unsureRevision)
+      ? targetForPath(revision.folderPath ?? '', folders)
+      : suggestion?.folder !== undefined && suggestion?.folder !== null
+        ? targetForPath(suggestion.folder, folders, suggestion.folderId)
+        : null
   return {
     partId: part.id,
     checked: entry.defaultChecked,
@@ -92,7 +95,7 @@ function attachmentDraft(entry: AttachmentCase, folders: readonly FolderOption[]
     releaseName: false,
     acknowledgeRisk: false,
     suggested: {
-      folder: folder !== null && !revisionChosen,
+      folder: folder !== null && revision === null,
       name: suggestion?.name != null,
       documentType: suggestion?.documentType != null,
     },
@@ -130,6 +133,7 @@ export function initialDraft(view: InboundMailView, folders: readonly FolderOpti
       target: thread ? { kind: 'append', threadId: thread.threadId } : newThreadTarget(view, folders, copy),
       findingChoice: messagePart.contentFindings.length > 0 ? 'masked' : null,
       acknowledgeThread: false,
+      follow: true,
     }
   }
   return { mailId: view.id, ifMatch: view.ifMatch, attachments, message, acknowledgeSender: false }
@@ -195,6 +199,40 @@ export function fileCheckedInto(draft: MailDraft, view: InboundMailView, folder:
     moved += 1
   }
   return { draft: next, moved, revisions }
+}
+
+export type RevisionChoice = 'new' | 'revision' | 'none'
+
+export function revisionChoiceOf(attachment: Pick<AttachmentDraft, 'checked' | 'revisionOf'>): RevisionChoice {
+  if (!attachment.checked) return 'none'
+  return attachment.revisionOf === null ? 'new' : 'revision'
+}
+
+/** The unsure next Fassung's three answers. Choosing „Als Fassung …“ is the person's yes to it, so it carries the acknowledgement. */
+export function chooseRevision(draft: MailDraft, view: InboundMailView, partId: string, choice: RevisionChoice, folders: readonly FolderOption[]): MailDraft {
+  const part = view.parts.find((candidate) => candidate.id === partId)
+  const revision = part?.revisionCandidate
+  const row = draft.attachments.find((attachment) => attachment.partId === partId)
+  if (!part || !revision || !row) return draft
+  const ownRisk = part.riskFlags.includes('macro') || part.riskFlags.includes('type_mismatch')
+  switch (choice) {
+    case 'none':
+      return updateAttachment(draft, partId, { checked: false })
+    case 'revision':
+      return updateAttachment(draft, partId, {
+        checked: true,
+        revisionOf: revision.documentId,
+        folder: targetForPath(revision.folderPath ?? '', folders),
+        ...(ownRisk ? {} : { acknowledgeRisk: true }),
+      })
+    case 'new':
+      return updateAttachment(draft, partId, {
+        checked: true,
+        revisionOf: null,
+        ...(ownRisk ? {} : { acknowledgeRisk: false }),
+        folder: row.revisionOf === null && row.folder !== null ? row.folder : targetForPath(revision.folderPath ?? '', folders),
+      })
+  }
 }
 
 function sameAttachment(a: AttachmentDraft, b: AttachmentDraft): boolean {
@@ -350,7 +388,12 @@ export function decisionOf(view: InboundMailView, draft: MailDraft, options: { b
             name: target.name.trim(),
             ...(target.releaseName ? { screeningRelease: 'name' as const } : {}),
           }
-    message = { partId: draftMessage.partId, text: draftMessage.findingChoice === 'masked' ? 'masked' : 'full', thread }
+    message = {
+      partId: draftMessage.partId,
+      text: draftMessage.findingChoice === 'masked' ? 'masked' : 'full',
+      thread,
+      ...(!draftMessage.follow && followOffered(view) ? { follow: false as const } : {}),
+    }
     const candidate = appendCandidate(view, draft)
     if (candidate && appendNeedsAcknowledgement(candidate) && draftMessage.acknowledgeThread) acknowledged.push(draftMessage.partId)
   }

@@ -23,7 +23,7 @@ const memberVerified = mail({
   },
   parts: [messagePart({ id: fixtureId('message:member') }), permitDecision()],
   threadCandidates: [thread()],
-  reading: { writes: false, viewer: 'colleague' },
+  reading: { writes: false },
 })
 
 const miriam = (overrides: Partial<NonNullable<InboundMailView['sender']>> = {}): NonNullable<InboundMailView['sender']> => ({
@@ -37,8 +37,14 @@ const miriam = (overrides: Partial<NonNullable<InboundMailView['sender']>> = {})
   ...overrides,
 })
 
+/** The reader of every preview: her own mail is the „own“ case, Miriam's is a colleague's. */
+const anna = (overrides: Partial<NonNullable<InboundMailView['sender']>> = {}): NonNullable<InboundMailView['sender']> =>
+  miriam({ name: 'Anna Berger', address: 'a.berger@huber-architektur.at', ...overrides })
+
 const unsigned = miriam({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_none' })
 const rejected = miriam({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_fail' })
+const ownUnsigned = anna({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_none' })
+const ownRejected = anna({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_fail' })
 
 const hearingAt = (utcHour: number): string => {
   const day = new Date(FIXTURE_NOW + 12 * 86_400_000)
@@ -83,7 +89,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'impersonation',
       subject: 'Dringend: Kontoänderung Honorarnote',
-      sender: rejected,
+      sender: ownRejected,
       parts: [messagePart({ id: fixtureId('message:imp') }), part({ name: 'Honorarnote_neu.pdf', riskFlags: ['name_stop'], nameStopTerms: ['Honorar'] })],
       threadCandidates: [],
     }),
@@ -94,7 +100,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'impersonation-colleague',
       subject: 'Dringend: Kontoänderung Honorarnote',
       sender: rejected,
-      reading: { viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:imp-col') }), part({ name: 'Honorarnote_neu.pdf', riskFlags: ['name_stop'], nameStopTerms: ['Honorar'] })],
       threadCandidates: [],
     }),
@@ -104,7 +109,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'own-unverified',
       subject: 'Plan Tiefgarage Index G',
-      sender: unsigned,
+      sender: ownUnsigned,
       parts: [messagePart({ id: fixtureId('message:own-unv') }), part({ name: 'TG_Index_G.pdf', suggestion: suggestion('Einreichung', 'Grundriss', 'Index G der Tiefgarage.') })],
       threadCandidates: [],
     }),
@@ -114,7 +119,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'automatic-own',
       subject: 'Scan vom Kopierer 3. OG',
-      sender: miriam(),
+      sender: anna(),
       automatic: true,
       parts: [messagePart({ id: fixtureId('message:auto') }), part({ name: 'Scan_2026-11-03_0912.pdf' })],
       threadCandidates: [],
@@ -126,7 +131,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'paused',
       subject: 'Protokoll Jour fixe 12',
       sender: miriam(),
-      reading: { directFiling: false, viewer: 'colleague' },
+      reading: { directFiling: false },
       parts: [messagePart({ id: fixtureId('message:paused') }), part({ name: 'Protokoll_JF_12.pdf', suggestion: suggestion('Protokolle', 'Sonstiges', 'Protokolle liegen in Protokolle.') })],
       threadCandidates: [],
     }),
@@ -137,7 +142,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'not-filed',
       subject: 'Fotos Baustelle KW 45',
       sender: miriam(),
-      reading: { viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:not-filed') }), part({ name: 'Baustelle_KW45.pdf', suggestion: null })],
       threadCandidates: [thread()],
     }),
@@ -168,7 +172,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'claimed-by-colleague',
       subject: 'Plan Tiefgarage Index G',
       sender: unsigned,
-      reading: { viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:claimed') }), part({ name: 'TG_Index_G.pdf' })],
       threadCandidates: [],
     }),
@@ -178,10 +181,10 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'bcc-own',
       subject: 'AW: Stellplatznachweis',
-      sender: { name: 'Miriam Huber', address: 'm.huber@huber-architektur.at', domain: 'huber-architektur.at', signerDomain: 'huber-architektur.at', trust: 'member_verified', reason: 'dkim_pass', flags: ['not_addressed_to_project', 'bcc_own'] },
+      sender: anna({ flags: ['not_addressed_to_project', 'bcc_own'] }),
       parts: [messagePart({ id: fixtureId('message:bcc') })],
     }),
-    text: text({ ownText: 'Liebe Frau Weber,\n\ndanke, das passt so. Wir reichen am Montag ein.\n\nlg Miriam', quoted: [] }),
+    text: text({ ownText: 'Liebe Frau Weber,\n\ndanke, das passt so. Wir reichen am Montag ein.\n\nlg Anna Berger', quoted: [] }),
   },
   'not-addressed': {
     view: mail({
@@ -197,7 +200,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'forwarded',
       subject: 'WG: Verhandlungsschrift Bauverhandlung 04.11.',
       sender: miriam(),
-      reading: { writes: false, viewer: 'colleague' },
+      reading: { writes: false },
       parts: [messagePart({ id: fixtureId('message:fwd') }), permitDecision({ filename: 'Verhandlungsschrift_2026-11-04.pdf' })],
       threadCandidates: [],
     }),

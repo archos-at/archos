@@ -6,6 +6,7 @@ import {
   fileAllInto,
   filingSteps,
   folderlessIds,
+  keptWithoutFolder,
   leavesParts,
   openAttachmentIds,
   planLines,
@@ -99,7 +100,7 @@ describe('what „Übersicht“ says, part by part', () => {
   it('says the text stays out once unticked, and a masked text as masked', () => {
     const view = mail({ parts: [message, permitDecision] })
     const draft = initialDraft(view, FOLDERS, copy)
-    expect(planLines(view, updateMessage(draft, { checked: false }), copy)[0]).toEqual({ kind: 'text_left', partId: message.id })
+    expect(planLines(view, updateMessage(draft, { checked: false }), copy)[0]).toEqual({ kind: 'text_left', partId: message.id, includable: true })
     const finding = DETAIL_VARIANTS['content-finding'].view
     expect(planLines(finding, initialDraft(finding, FOLDERS, copy), copy)[0]).toMatchObject({ kind: 'text_append', masked: true })
   })
@@ -122,6 +123,35 @@ describe('what „Übersicht“ says, part by part', () => {
     const draft = initialDraft(view, FOLDERS, copy)
     const renamed = updateAttachment(draft, draft.attachments[0].partId, { name: 'Bescheid MA 37.pdf' })
     expect(planLines(view, renamed, copy)[1]).toMatchObject({ kind: 'file', name: 'Bescheid.pdf', rename: 'Bescheid MA 37.pdf' })
+  })
+})
+
+describe('what keeps „Weiter“ and what „Übersicht“ leaves out', () => {
+  it('counts the kept attachments without a folder, and none once each has one or is unticked', () => {
+    const { view } = DETAIL_VARIANTS['unknown-plan-set']
+    const draft = initialDraft(view, FOLDERS, copy)
+    expect(keptWithoutFolder(view, draft)).toBe(3)
+    const [first, second, third] = draft.attachments.map((row) => row.partId)
+    const placed = fileAllInto(draft, [first!, second!], targetForPath('Pläne/Fassade', FOLDERS)).draft
+    expect(keptWithoutFolder(view, placed)).toBe(1)
+    expect(keptWithoutFolder(view, updateAttachment(placed, third!, { checked: false }))).toBe(0)
+  })
+
+  it('says why a file stays out, and offers „Doch ablegen“ only where filing it is the person’s call', () => {
+    const named = part({ name: 'Honorarnote.pdf', riskFlags: ['name_stop'], nameStopTerms: ['Honorar'] })
+    const copyOf = part({ name: 'Bescheid_alt.pdf', duplicateOf: { documentId: 'd', name: 'Bescheid_alt.pdf', folderPath: 'Behörde' } })
+    const view = mail({ parts: [message, named, copyOf] })
+    const lines = planLines(view, initialDraft(view, FOLDERS, copy), copy)
+    expect(lines.find((line) => line.partId === named.id)).toMatchObject({ kind: 'left', why: 'name_stop', terms: ['Honorar'], includable: true })
+    expect(lines.find((line) => line.partId === copyOf.id)).toMatchObject({ kind: 'left', why: 'duplicate', includable: false })
+  })
+
+  it('takes extra quick picks right after the agent’s suggestion, once each', () => {
+    const { view } = DETAIL_VARIANTS['external-unverified']
+    const draft = initialDraft(view, FOLDERS, copy)
+    const ids = folderlessIds(view, draft, 'none')
+    const earlier = { target: targetForPath('Pläne/Fassade', FOLDERS), why: 'sibling' as const, of: 'Angebot_2025.pdf' }
+    expect(quickPicks(view, draft, ids, FOLDERS, copy, { extra: [earlier, earlier] }).map((pick) => pick.target.path)).toEqual(['Pläne/Fassade'])
   })
 })
 

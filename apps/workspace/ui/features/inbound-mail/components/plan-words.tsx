@@ -26,11 +26,19 @@ export function usePlanWords(): PlanWords {
   const place = useCallback(
     (line: Extract<PlanLine, { kind: 'file' }>): string =>
       [
-        folder(line.folder) + (line.newFolder ? ` ${t('filing.overview.newFolder')}` : ''),
-        ...(line.documentType ? [tagLabel(line.documentType, tFiles)] : []),
+        line.newFolder ? t('filing.overview.newFolderNamed', { folder: folder(line.folder) }) : t('filing.overview.folder', { folder: folder(line.folder) }),
+        ...(line.documentType ? [t('filing.overview.documentType', { type: tagLabel(line.documentType, tFiles) })] : []),
         ...(line.rename ? [t('filing.overview.renamed', { name: line.rename })] : []),
       ].join(CLAUSE_JOIN),
     [folder, t, tFiles]
+  )
+
+  const leftWords = useCallback(
+    (line: Extract<PlanLine, { kind: 'left' }>): string =>
+      line.why === 'risk' && line.risk
+        ? t(`filing.overview.left.${line.risk}`)
+        : t(`filing.overview.left.${line.why}`, { terms: line.terms.join('“, „') }),
+    [t]
   )
 
   const subject = useCallback(
@@ -55,10 +63,10 @@ export function usePlanWords(): PlanWords {
         case 'no_folder':
           return ARROW + t('filing.overview.noFolder')
         case 'left':
-          return t(`filing.overview.left.${line.why}`)
+          return leftWords(line)
       }
     },
-    [folder, place, t]
+    [folder, leftWords, place, t]
   )
 
   const phrase = useCallback(
@@ -75,12 +83,12 @@ export function usePlanWords(): PlanWords {
         case 'no_folder':
           return t('filing.pane.noFolder')
         case 'left':
-          return t(`filing.overview.left.${line.why}`)
+          return leftWords(line)
         default:
           return null
       }
     },
-    [place, t]
+    [leftWords, place, t]
   )
 
   return { subject, outcome, phrase }

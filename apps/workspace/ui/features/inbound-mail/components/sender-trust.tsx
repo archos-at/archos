@@ -158,6 +158,8 @@ export function SenderTrustTechnical({ sender, impersonation, claim = null }: { 
 
 const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic'])
 const ASKS_A_CHECK: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic', 'sender_unchecked'])
+/** The pane says why a mail waits only where the reader has something to do, or the mail will be gone: everything else waits for a filing anyway. */
+const SAID_IN_THE_PANE: ReadonlySet<string> = new Set([...ASKS_A_CHECK, 'outside_office'])
 
 export function SenderWaitLine({
   view,
@@ -168,7 +170,7 @@ export function SenderWaitLine({
 }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
-  if (view.status !== 'waiting' || !view.waitReason || view.riskLevel === 'impersonation') return null
+  if (view.status !== 'waiting' || !view.waitReason || view.riskLevel === 'impersonation' || !SAID_IN_THE_PANE.has(view.waitReason)) return null
   if (view.parts && !view.parts.some((part) => part.state === 'waiting')) return null
   if (view.waitReason === 'outside_office' && (expirySoon || !view.expiresAt)) return null
   const key = ASKED_OF_THE_WRITER.has(view.waitReason) && view.ownClaimedMail ? `${view.waitReason}Own` : view.waitReason

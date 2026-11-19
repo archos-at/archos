@@ -37,7 +37,7 @@ export function ContentFindingChoice({
           <ShieldAlert aria-hidden className="text-warning mt-0.5 size-4 shrink-0" />
           <span className="min-w-0 [overflow-wrap:anywhere]">{t('findings.title', { kinds })}</span>
         </p>
-        <p className="text-muted-foreground pl-5.5 text-xs">{t('findings.explain')}</p>
+        <p className="text-foreground pl-5.5 text-xs">{t('findings.explain')}</p>
       </div>
       <RadioGroup
         value={value}
@@ -56,6 +56,9 @@ export function ContentFindingChoice({
           </div>
         ))}
       </RadioGroup>
+      <p className="text-muted-foreground pl-5.5 text-xs leading-snug" data-testid="content-finding-original">
+        {t('findings.original')}
+      </p>
     </div>
   )
 }

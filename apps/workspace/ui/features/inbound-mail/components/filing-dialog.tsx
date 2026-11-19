@@ -15,11 +15,11 @@ import { CLAUSE_JOIN } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { attachmentCase } from '../lib/attachment-case'
 import {
-  appendCandidate,
   checkAllAttachments,
   checkedAttachmentIds,
   fileCheckedInto,
   selectableAttachmentIds,
+  chooseRevision,
   updateAttachment,
   updateMessage,
   type DraftCopy,
@@ -27,13 +27,14 @@ import {
   type FolderOption,
   type MailDraft,
 } from '../lib/draft'
-import { fileAllInto, filesAnything, leavesParts, planLines, quickPicks, type FilingStep, type MissingSuggestion } from '../lib/filing-plan'
+import { fileAllInto, filesAnything, keptWithoutFolder, planLines, quickPicks, type FilingStep, type MissingSuggestion, type PlanLine } from '../lib/filing-plan'
 import { followOffered, mailClaimOf, senderDisplayName } from '../lib/sender'
 import { AttachmentRow } from './attachment-row'
 import { AttachmentsHeading } from './attachments-heading'
 import { blockerText } from './decision-bar'
 import { DETAIL_PANEL } from './detail-skeleton'
 import { FolderChoice } from './folder-choice'
+import { FollowLine } from './follow-line'
 import { CheckLine, FactLine } from './inbound-mail-atoms'
 import { MessageRow } from './message-row'
 import { usePlanWords } from './plan-words'
@@ -58,7 +59,8 @@ export interface FilingDialogProps {
   openIds: readonly string[]
   pickIds: readonly string[]
   threadNameStop: string[] | null
-  textSays: boolean
+  /** „Doch ablegen“ on a part „Übersicht“ leaves out: it is filed after all, and asked about where it still needs an answer. */
+  onInclude: (partId: string) => void
   impersonation: boolean
   contentUrlOf: (partId: string) => string | null
   onPreview: (partId: string, trigger: HTMLElement) => void
@@ -88,7 +90,7 @@ export function FilingDialog({
   openIds,
   pickIds,
   threadNameStop,
-  textSays,
+  onInclude,
   impersonation,
   contentUrlOf,
   onPreview,
@@ -116,6 +118,13 @@ export function FilingDialog({
   const nothing = !filesAnything(lines)
   const blocked = !nothing && summary.blockers.length > 0
   const senderUnconfirmed = step === 'sender' && summary.needsSenderAcknowledgement && !draft.acknowledgeSender
+  const isLeft = (line: PlanLine): boolean => line.kind === 'left' || line.kind === 'text_left'
+  const kept = lines.filter((line) => !isLeft(line))
+  const left = lines.filter(isLeft)
+  const unplaced = step === 'attachments' ? keptWithoutFolder(view, draft) : 0
+  const nameMissing = step === 'text' && summary.blockers.some((blocker) => blocker.kind === 'thread_name_missing')
+  const stepHold = senderUnconfirmed ? null : unplaced > 0 ? t('filing.attachments.waitsForFolder', { count: unplaced }) : nameMissing ? t('bar.blockers.thread_name_missing') : null
+  const holdId = useId()
 
   const [whereOnly, setWhereOnly] = useState(true)
   useEffect(() => {
@@ -159,6 +168,9 @@ export function FilingDialog({
     file()
   }
 
+  const attachments = view.parts.filter((part) => part.kind === 'attachment' && part.state === 'waiting').map((part) => attachmentCase(part, view))
+  const rest = attachments.filter((entry) => !openIds.includes(entry.part.id))
+  const shownRows = restOpen ? attachments : attachments.filter((entry) => openIds.includes(entry.part.id))
   const question = ((): { title: string; hint: string | null } => {
     switch (step) {
       case 'sender': {
@@ -171,29 +183,23 @@ export function FilingDialog({
       }
       case 'text': {
         const part = view.parts.find((candidate) => candidate.kind === 'message')
-        const chosen = appendCandidate(view, draft)
-        const hint =
-          part && part.contentFindings.length > 0
-            ? t('filing.text.hintFinding')
-            : chosen && chosen.blocks.length > 0
-              ? t('filing.text.hintUnsure')
-              : t('filing.text.hint')
+        const unsure = view.threadCandidates.length > 0 && !view.threadCandidates.some((candidate) => candidate.preselected && candidate.blocks.length === 0)
+        const hint = part && part.contentFindings.length > 0 ? t('filing.text.hintFinding') : unsure ? t('filing.text.hintUnsure') : t('filing.text.hint')
         return { title: t('filing.text.question'), hint }
       }
-      case 'attachments':
+      case 'attachments': {
+        const ticks = shownRows.some((entry) => !entry.unsureRevision) ? t('filing.attachments.hint') : null
         return openIds.length === 0
-          ? { title: t('filing.attachments.questionAll'), hint: t('filing.attachments.hint') }
+          ? { title: t('filing.attachments.questionAll'), hint: ticks }
           : whereOnly
-            ? { title: t('filing.attachments.question', { count: openIds.length }), hint: null }
-            : { title: t('filing.attachments.questionWhat', { count: openIds.length }), hint: t('filing.attachments.hint') }
+            ? { title: t('filing.attachments.question', { count: openIds.length }), hint: ticks }
+            : { title: t('filing.attachments.questionWhat', { count: openIds.length }), hint: ticks }
+      }
       case 'overview':
         return { title: t('filing.overview.question'), hint: null }
     }
   })()
 
-  const attachments = view.parts.filter((part) => part.kind === 'attachment' && part.state === 'waiting').map((part) => attachmentCase(part, view))
-  const rest = attachments.filter((entry) => !openIds.includes(entry.part.id))
-  const shownRows = restOpen ? attachments : attachments.filter((entry) => openIds.includes(entry.part.id))
   const selectableIds = selectableAttachmentIds(view)
   const checkedIds = checkedAttachmentIds(draft, view)
   const picks = useMemo(() => quickPicks(view, draft, pickIds, folders, copy), [view, draft, pickIds, folders, copy])
@@ -216,8 +222,10 @@ export function FilingDialog({
             folders={folders}
             contentUrl={url}
             missingSuggestion={missing}
-            folderBelow={pickIds.includes(entry.part.id)}
+            folderBelow={pickIds.includes(entry.part.id) ? (pickIds.length > 1 ? 'shared' : 'only') : false}
+            folderPicks={quickPicks(view, draft, [entry.part.id], folders, copy)}
             onChange={(change) => onDraft((current) => updateAttachment(current, entry.part.id, change))}
+            onRevisionChoice={(choice) => onDraft((current) => chooseRevision(current, view, entry.part.id, choice, folders))}
             onPreview={url ? (trigger) => onPreview(entry.part.id, trigger) : undefined}
           />
         )
@@ -289,7 +297,6 @@ export function FilingDialog({
                   folders={folders}
                   copy={copy}
                   threadNameStop={threadNameStop}
-                  recommended={textSays}
                   onChange={(change) => onDraft((current) => updateMessage(current, change))}
                 />
               </ItemList>
@@ -353,28 +360,59 @@ export function FilingDialog({
 
           {step === 'overview' && (
             <section className="flex flex-col gap-4" data-testid="filing-step-overview">
-              <ul className="flex flex-col gap-3" data-testid="filing-overview">
-                {lines.map((line) => {
-                  const left = line.kind === 'left' || line.kind === 'text_left'
-                  return (
-                    <li
-                      key={line.partId}
-                      className="text-sm leading-snug [overflow-wrap:anywhere]"
-                      data-testid="filing-overview-line"
-                      data-kind={line.kind}
-                    >
-                      <span className={cn('font-medium', left ? 'text-muted-foreground' : 'text-foreground')}>{words.subject(line)}</span>{' '}
-                      <span className={cn(left ? 'text-muted-foreground' : line.kind === 'no_folder' ? 'text-foreground font-medium' : 'text-foreground')}>{words.outcome(line)}</span>
-                      {/* Filing a text into its E-Mail-Verlauf follows it for this person; stopping is the E-Mails tab's. */}
-                      {(line.kind === 'text_append' || line.kind === 'text_create') && follows && (
-                        <span className="text-muted-foreground mt-0.5 block text-xs" data-testid="filing-follow-note">
-                          {t('filing.overview.follow')}
-                        </span>
+              {kept.length > 0 && (
+                <ul className="flex flex-col gap-3" data-testid="filing-overview">
+                  {kept.map((line) => (
+                    <li key={line.partId} className="text-sm leading-snug [overflow-wrap:anywhere]" data-testid="filing-overview-line" data-kind={line.kind}>
+                      <span className="text-foreground font-medium">{words.subject(line)}</span>{' '}
+                      <span className={cn('text-foreground', line.kind === 'no_folder' && 'font-medium')}>{words.outcome(line)}</span>
+                      {(line.kind === 'text_append' || line.kind === 'text_create') && follows && draft.message && (
+                        <FollowLine
+                          follow={draft.message.follow}
+                          onFollow={(follow) => {
+                            onDraft((current) => updateMessage(current, { follow }))
+                            say(follow ? t('filing.overview.followOn') : t('filing.overview.followOff'))
+                          }}
+                        />
                       )}
                     </li>
-                  )
-                })}
-              </ul>
+                  ))}
+                </ul>
+              )}
+              {left.length > 0 && (
+                <div className="border-edge flex flex-col gap-2.5 rounded-control border px-3 py-3" data-testid="filing-left">
+                  <ul className="flex flex-col gap-2.5">
+                    {left.map((line) => (
+                      <li key={line.partId} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm leading-snug" data-testid="filing-overview-line" data-kind={line.kind}>
+                        <span className="min-w-0 [overflow-wrap:anywhere]">
+                          <span className="text-foreground font-medium">{words.subject(line)}</span> <span className="text-foreground">{words.outcome(line)}</span>
+                        </span>
+                        {(line.kind === 'left' || line.kind === 'text_left') && line.includable && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="shrink-0 px-2.5 text-xs"
+                            onClick={() => {
+                              onInclude(line.partId)
+                              say(t('filing.overview.included', { name: words.subject(line) }))
+                            }}
+                            disabled={filing}
+                            data-testid="filing-include"
+                          >
+                            {t('filing.overview.include')}
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {!nothing && (
+                    <p className="text-foreground text-xs leading-snug" data-testid="filing-left-note">
+                      {summary.dismissErases ? t('filing.overview.leftNoteErases') : t('filing.overview.leftNote', { days: INBOUND_MAIL_RESTORE_DAYS })}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap gap-x-4 gap-y-1">
                 {lines.some((line) => line.kind.startsWith('text')) && view.parts.some((part) => part.kind === 'message' && part.state === 'waiting') && draft.message && (
                   <Button type="button" variant="inline" className="touch-target h-auto p-0 text-sm" onClick={() => onAddStep('text')} data-testid="filing-change-text">
@@ -387,16 +425,10 @@ export function FilingDialog({
                   </Button>
                 )}
               </div>
-              {nothing ? (
+              {nothing && (
                 <FactLine icon={Info} testId="filing-nothing">
                   {t('filing.overview.nothing')}
                 </FactLine>
-              ) : (
-                leavesParts(lines) && (
-                  <FactLine icon={Info} tone="muted" testId="filing-left-note">
-                    {summary.dismissErases ? t('filing.overview.leftNoteErases') : t('filing.overview.leftNote', { days: INBOUND_MAIL_RESTORE_DAYS })}
-                  </FactLine>
-                )
               )}
               {blocked && (
                 <div id={blockersId} className="flex flex-col gap-1" data-testid="filing-blockers">
@@ -424,6 +456,12 @@ export function FilingDialog({
               {t('filing.back')}
             </Button>
           )}
+          {stepHold && !last && (
+            <p id={holdId} className="text-foreground order-first flex items-start gap-1.5 text-xs sm:order-none sm:ml-auto sm:self-center" data-testid="filing-step-hold">
+              <Info className="text-muted-foreground mt-px size-3.5 shrink-0" aria-hidden />
+              {stepHold}
+            </p>
+          )}
           {last ? (
             <BusyButton
               ref={primaryRef}
@@ -439,7 +477,13 @@ export function FilingDialog({
               {nothing ? t('bar.dismiss') : impersonation && !summary.ownClaimedMail ? t('bar.fileGenuine') : t('bar.file')}
             </BusyButton>
           ) : (
-            <Button type="button" onClick={() => onStep(steps[index + 1])} disabled={senderUnconfirmed} data-testid="filing-next">
+            <Button
+              type="button"
+              onClick={() => onStep(steps[index + 1])}
+              disabled={senderUnconfirmed || stepHold !== null}
+              aria-describedby={stepHold ? holdId : undefined}
+              data-testid="filing-next"
+            >
               {t('filing.next')}
             </Button>
           )}
