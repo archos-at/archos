@@ -184,11 +184,13 @@ anything else waits and opens by itself when nothing does; a press on it holds
 until the next visit. J and K walk every row on show, the open group's
 included. Within each heading, mail with fewer than five days left comes
 first (soonest first, the rest in the server's order) and says so on a line
-of its own, with a muted hourglass and its day: „Wird am 03.12. entfernt, wenn
-niemand sie ablegt“ for an outsider's mail, which is erased 14 days after it
-came (`expiryErases`), „Läuft am 03.12. ab, wenn niemand sie ablegt“ for
-anyone else's, which stays restorable. „Läuft in 2 Tagen ab“ in ochre after
-the reason read as an alarm and said nothing of what happens. Such a row
+of its own, with a muted hourglass and its day: „Bleibt bis 03.12. im
+E-Mail-Eingang“, the same for every sender, since every expiry stays
+restorable for seven days (ADR-0137, amendment of 2026-11-19). It is a
+deadline, not a threat: „Wird am 03.12. entfernt, wenn niemand sie ablegt“,
+said of an outsider's mail while its expiry erased it, read as one, and „Läuft
+in 2 Tagen ab“ in ochre after the reason read as an alarm and said nothing of
+what happens. Such a row
 offers „Einordnen …“ at rest, which opens the mail and its filing dialog
 (rows differ in what they offer, so the press is shown, design principle 6);
 not for a mail only a colleague may file.
@@ -376,10 +378,10 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    (An, Cc, Antwort an), „Wartet bis {Datum}, danach läuft sie ab“ and
    „Original (.eml) herunterladen“ with „Öffnet sich im Mailprogramm; Bilder
    von außen werden dort geladen.“, or the original's infected or scanning
-   line. In its last week the expiry comes forward into the header: „Wartet nur
-   noch bis {Datum}“, for an outsider „Wird am {Datum} aus dem E-Mail-Eingang
-   entfernt, wenn niemand sie ablegt“ (`expiryErases`), and the outsider's
-   wait line stands down
+   line. In its last week the expiry comes forward into the header: „Bleibt
+   bis {Datum} im E-Mail-Eingang“, as on the row, for every sender, and the
+   outsider's wait line („… und lässt sich danach noch 7 Tage
+   wiederherstellen“) stands down
    (`lib/evidence.ts`, `EXPIRY_INLINE_DAYS = 7`).
 2. The text: first lines, „Ganze E-Mail anzeigen“, „Zitierten Text anzeigen“.
    Plain text only. A link stays inert text; after it stand its domain in ink

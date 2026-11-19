@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InboundMailSenderView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { expiryErases, filingConfirmsUnverifiedSender, followOffered, senderDisplayName, senderFlagLines, senderTone, senderTrustLine, trustTechnical } from './sender'
+import { filingConfirmsUnverifiedSender, followOffered, senderDisplayName, senderFlagLines, senderTone, senderTrustLine, trustTechnical } from './sender'
 
 const sender = (overrides: Partial<InboundMailSenderView> = {}): InboundMailSenderView => ({
   name: 'DI Petra Weber',
@@ -85,14 +85,6 @@ describe('senderDisplayName', () => {
   it('falls back to the local part of the address', () => {
     expect(senderDisplayName({ name: '  ', address: 'office@clean-shine.example' })).toBe('office')
     expect(senderDisplayName({ name: 'Jo', address: 'jo@example.com' })).toBe('Jo')
-  })
-})
-
-describe('expiryErases', () => {
-  it('erases an outsider’s mail when it runs out, unless the office could not be asked who sent it', () => {
-    expect(expiryErases({ senderClass: 'external', sender: { flags: [] } })).toBe(true)
-    expect(expiryErases({ senderClass: 'external', sender: { flags: ['sender_unchecked'] } })).toBe(false)
-    expect(expiryErases({ senderClass: 'unverified_writer', sender: { flags: [] } })).toBe(false)
   })
 })
 

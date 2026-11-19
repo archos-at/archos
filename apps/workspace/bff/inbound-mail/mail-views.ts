@@ -19,7 +19,7 @@ import type {
 } from './inbound-mail-wire'
 import { findFiledVias, findFollowDeciders, findMailParts } from './repository'
 import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
-import { expiryIsFinal, onlySenderReleases, ownClaimedMail, senderWaitReason } from './sender-class'
+import { onlySenderReleases, ownClaimedMail, senderWaitReason } from './sender-class'
 import { NO_FALLBACK, senderMemoryAddress, senderMemoryFallback, type SenderMemoryFallback } from './sender-memory'
 import { findSenderFolders } from './sender-memory-repository'
 import { readSuggestion, suggestionSkipReason } from './suggest'
@@ -45,7 +45,6 @@ function listStatusOf(mail: InboundMailRow, parts: readonly InboundMailPartRow[]
 function restorableUntil(mail: InboundMailRow, part: InboundMailPartRow, now: number): string | null {
   if (mail.status !== 'waiting' || (part.state !== 'dismissed' && part.state !== 'expired') || !part.endedAt) return null
   if (part.kind === 'attachment' && part.storageKey === null) return null
-  if (part.state === 'expired' && expiryIsFinal(mail)) return null
   const until = new Date(part.endedAt).getTime() + INBOUND_MAIL_RESTORE_DAYS * DAY_MS
   return until > now ? new Date(until).toISOString() : null
 }

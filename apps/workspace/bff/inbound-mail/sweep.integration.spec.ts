@@ -552,7 +552,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
         expect(row?.state === 'expired' && (part === text || row.storage_key !== null)).toBe(true)
       }
       expect(audit.events).toContainEqual({ action: 'inbound_mail.expired', metadata: { projectId: project, parts: 2 } })
-      expect(posthog.events).toContainEqual({ event: 'inbound_mail_expired', properties: { parts: 2, sender_class: 'external', automatic: false, discarded: true } })
+      expect(posthog.events).toContainEqual({ event: 'inbound_mail_expired', properties: { parts: 2, sender_class: 'external', automatic: false } })
       expect((await inboxRows('inbound_mail.waiting')).every((row) => row.resolved_at !== null)).toBe(true)
     })
 
@@ -604,8 +604,8 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     })
   })
 
-  describe('the sender rule: an outsider’s mail is discarded when it runs out (ADR-0137, amendment of 2026-11-03)', () => {
-    it('expires an outsider’s mail with no restore window: the next sweep 6 erases its bytes and settles it, and nobody is told', async () => {
+  describe('the sender rule: an outsider’s mail runs out after 14 days, and keeps its seven days to restore (ADR-0137, amendments of 2026-11-03 and 2026-11-19)', () => {
+    it('expires an outsider’s mail with the seven days every expiry keeps: the next sweep 6 leaves its bytes, and nobody is told', async () => {
       const mail = await seedMail({ receivedAgo: '15 days', expiresIn: '14 days' })
       await seedPart(mail, { kind: 'message' })
       const file = await seedPart(mail)
@@ -615,9 +615,41 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       expect(await inboxRows('inbound_mail.expired')).toHaveLength(0)
 
       await sweep.sweepEndedParts(now())
-      expect(await partRow(file)).toMatchObject({ state: 'expired', storage_key: null, filename: null })
-      expect(staging.erased).toContain(stagingKey(project, mail, '1'))
-      expect((await mailRow(mail))?.status).toBe('settled')
+      expect(await partRow(file)).toMatchObject({ state: 'expired', filename: 'S-101.pdf' })
+      expect((await partRow(file))?.storage_key).not.toBeNull()
+      expect(staging.erased).not.toContain(stagingKey(project, mail, '1'))
+      expect((await mailRow(mail))?.status).toBe('waiting')
+    })
+
+    it('keeps an outsider’s expired part on its sixth day and erases it once seven have passed', async () => {
+      const sixDays = await seedMail({ receivedAgo: '20 days', expiresIn: '14 days' })
+      await seedPart(sixDays, { kind: 'message', state: 'expired', endedAgo: '6 days' })
+      const kept = await seedPart(sixDays, { state: 'expired', endedAgo: '6 days' })
+      const eightDays = await seedMail({ receivedAgo: '22 days', expiresIn: '14 days' })
+      await seedPart(eightDays, { kind: 'message', state: 'expired', endedAgo: '8 days' })
+      const erased = await seedPart(eightDays, { state: 'expired', endedAgo: '8 days' })
+
+      await sweep.sweepEndedParts(now())
+
+      expect((await partRow(kept))?.storage_key).not.toBeNull()
+      expect((await mailRow(sixDays))?.status).toBe('waiting')
+      expect(await partRow(erased)).toMatchObject({ state: 'expired', storage_key: null, filename: null })
+      expect(staging.erased).toContain(stagingKey(project, eightDays, '1'))
+      expect((await mailRow(eightDays))?.status).toBe('settled')
+    })
+
+    it('restores an outsider’s expired part within its seven days, which the decision guard no longer refuses', async () => {
+      const mail = await seedMail({ receivedAgo: '20 days', expiresIn: '14 days' })
+      await seedPart(mail, { kind: 'message', state: 'expired', endedAgo: '6 days' })
+      const file = await seedPart(mail, { state: 'expired', endedAgo: '6 days' })
+      const { restoreMailParts } = await import('./decision-repository')
+      const actor = { decidedBy: MANAGER, via: 'app', proposalId: null } as const
+
+      const restored = await inTenant(() => restoreMailParts(project, mail, actor, new Date(Date.now() - 7 * 86_400_000), new Date(Date.now() + 7 * 86_400_000)))
+
+      expect(restored.decisions.map((row) => row.action)).toEqual(['restore', 'restore'])
+      expect(await partRow(file)).toMatchObject({ state: 'waiting', ended_at: null })
+      expect((await partRow(file))?.storage_key).not.toBeNull()
     })
 
     it('keeps a mail whose sender could not be checked restorable for seven days, though it is classed an outsider’s (R7)', async () => {

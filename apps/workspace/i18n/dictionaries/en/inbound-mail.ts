@@ -86,8 +86,7 @@ export const inboundMail = {
     notFiled: 'Not filed directly\u00A0· {need}',
     filing: 'Filing …',
     notFiledReady: 'Not filed directly',
-    removedOn: 'Will be removed on {date} unless someone files it',
-    expiresOn: 'Expires on {date} unless someone files it',
+    expiresOn: 'Stays in Project mail until {date}',
   },
 
   readiness: {
@@ -156,7 +155,7 @@ export const inboundMail = {
     paused: 'Waiting to be filed: direct filing is switched off. Anyone who may file in this project can file it.',
     not_filed: 'Waiting to be filed: {name} sent it and it comes from this domain, but it was not filed directly. File or dismiss it.',
     no_write_rights: 'Waiting for you: {name} may not file in this project, you may.',
-    outside_office: 'Leaves the project mail on {date} unless someone files it. {productName} reminds you {reminderDays} days before.',
+    outside_office: 'Stays in Project mail until {date}, and can be restored for {restoreDays} days after that. {productName} reminds you {reminderDays} days before.',
     sender_unchecked: 'Waiting to be filed: when it arrived, whether the sender belongs to the office could not be checked. Check the address and the sender above before you file.',
   },
 
@@ -184,8 +183,7 @@ export const inboundMail = {
     receivedLabel: 'Received',
     waitsLabel: 'Waits',
     waitsUntil: 'until {date}, then it expires',
-    expiresSoon: 'Waits only until {date}',
-    expiresSoonErased: 'Leaves the project mail on {date} unless someone files it',
+    expiresSoon: 'Stays in Project mail until {date}',
     to: 'To',
     cc: 'Cc',
     replyTo: 'Reply to',

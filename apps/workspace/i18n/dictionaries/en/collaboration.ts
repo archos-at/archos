@@ -708,7 +708,7 @@ export const collaboration = {
         titleMany: '{count} mails to “{subject}” expire in {noticeDays} days',
         title: 'Mails to “{subject}” expire in {noticeDays} days',
         titleResolved: 'No mail to “{subject}” is about to expire',
-        body: 'What nobody files by then expires. A member’s mail can be restored for {restoreDays} days after, one from outside the office cannot.',
+        body: 'What nobody files by then expires, and can be restored for {restoreDays} days after.',
         variants: {
           unconfirmed: {
             body: 'Some of them come from a domain that is not verified, or were sent automatically. What nobody files expires.',

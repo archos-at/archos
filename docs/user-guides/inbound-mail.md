@@ -166,10 +166,9 @@ where, a line per E-Mail-Verlauf and folder („2 E-Mail-Texte →
 document when everything went into one, and „Bearbeitet“ otherwise, where each
 row names where its mail went.
 
-A mail in its last five days says so on its row, with the day: „Wird am 03.12.
-entfernt, wenn niemand sie ablegt“ for mail from outside the office, „Läuft am
-03.12. ab, wenn niemand sie ablegt“ for everyone else's, and offers
-**Einordnen …** right there.
+A mail in its last five days says so on its row, with the day: „Bleibt bis
+03.12. im E-Mail-Eingang“, whoever sent it, and offers **Einordnen …** right
+there.
 
 Under **Braucht Sie** each mail says what it needs: „Haben Sie sie gesendet?
 Bestätigen Sie es“ (your own mail your domain did not confirm), „Absender
@@ -194,9 +193,10 @@ line names the sender („{Name} ‹{Adresse}›“), the verdict on the sender,
 when it arrived; „Details“ shows the domain and its signature, the recipients,
 the dates, how long it still waits, and the original. Why a mail waits is said
 only where you have something to do (check that a colleague sent it, say
-whether you sent it yourself), or where it will be gone: a mail from outside
-the office says „Wird am {Datum} aus dem E-Mail-Eingang entfernt, wenn niemand
-sie ablegt. ARCHOS erinnert 5 Tage vorher.“ Then the text, and the
+whether you sent it yourself), or where its window is shorter: a mail from
+outside the office says „Bleibt bis {Datum} im E-Mail-Eingang und lässt sich
+danach noch 7 Tage wiederherstellen. ARCHOS erinnert 5 Tage vorher.“ Then the
+text, and the
 attachments with one quiet line each saying what ARCHOS proposes for it:
 „Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Index D ersetzt Index C
 (C bleibt erhalten) · Ordner Tragwerk“, „bleibt weg – liegt schon
@@ -351,9 +351,9 @@ filing has no undo; „Öffnen“ takes you to the document.
   „Bearbeitet“, then it is deleted. This holds for every sender, one whose
   domain did not confirm the mail included; the toast offers „Rückgängig“.
 - A mail nobody decides **expires after 30 days**, a mail from outside the
-  office after **14 days**. You are told five days before. An expired mail of a
-  member can still be restored for 7 days; an expired mail from outside the
-  office is gone.
+  office after **14 days**. You are told five days before. An expired mail can
+  still be restored for 7 days under „Bearbeitet“, whoever sent it; then it is
+  deleted.
 - A closed project still receives mail and shows „Projekt ist abgeschlossen –
   wieder öffnen, um abzulegen“. Dismissing is possible; reopen the project to
   file.

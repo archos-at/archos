@@ -56,10 +56,6 @@ export function senderWaitReason(mail: WaitReasonInput): InboundMailWaitReason |
   }
 }
 
-export function expiryIsFinal(mail: { senderClass: InboundMailSenderClass | null; senderFlags: readonly SenderFlag[] }): boolean {
-  return mail.senderClass === 'external' && !mail.senderFlags.includes('sender_unchecked')
-}
-
 export interface ClaimedMail {
   senderClass: InboundMailSenderClass | null
   senderUserId: string | null

@@ -715,7 +715,7 @@ export const collaboration: typeof en.collaboration = {
         titleMany: '{count} E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
         title: 'E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
         titleResolved: 'Keine E-Mail an „{subject}“ läuft mehr ab',
-        body: 'Was bis dahin niemand ablegt, läuft ab. Die E-Mail eines Mitglieds lässt sich danach noch {restoreDays} Tage wiederherstellen, eine von außerhalb des Büros nicht.',
+        body: 'Was bis dahin niemand ablegt, läuft ab und lässt sich danach noch {restoreDays} Tage wiederherstellen.',
         variants: {
           unconfirmed: {
             body: 'Darunter E-Mails, deren Domain nicht bestätigt ist oder die automatisch versandt wurden. Was niemand ablegt, läuft ab.',

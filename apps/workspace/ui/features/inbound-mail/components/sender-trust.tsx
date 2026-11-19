@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailSenderView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import {
   INBOUND_MAIL_EXPIRING_NOTICE_DAYS,
+  INBOUND_MAIL_RESTORE_DAYS,
   INBOUND_MAIL_STALE_DATE_DAYS,
   type ImpersonationBasis,
   type InboundSenderTrust,
@@ -158,7 +159,7 @@ export function SenderTrustTechnical({ sender, impersonation, claim = null }: { 
 
 const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic'])
 const ASKS_A_CHECK: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic', 'sender_unchecked'])
-/** The pane says why a mail waits only where the reader has something to do, or the mail will be gone: everything else waits for a filing anyway. */
+/** The pane says why a mail waits only where the reader has something to do, or its window is shorter: everything else waits for a filing anyway. */
 const SAID_IN_THE_PANE: ReadonlySet<string> = new Set([...ASKS_A_CHECK, 'outside_office'])
 
 export function SenderWaitLine({
@@ -190,6 +191,7 @@ export function SenderWaitLine({
           name,
           date: view.expiresAt ? formatCalendarDate(view.expiresAt, locale) : '',
           reminderDays: INBOUND_MAIL_EXPIRING_NOTICE_DAYS,
+          restoreDays: INBOUND_MAIL_RESTORE_DAYS,
         })}
       </span>
     </p>

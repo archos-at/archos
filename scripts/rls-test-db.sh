@@ -4701,6 +4701,41 @@ apply_in fol_0252 0252_follow_files_attachments.sql
 check_in fol_0252 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0252" "0252 applies again after its down"
 echo "==> migration 0252 verified"
 
+# Migration 0255 (ADR-0137, amendment of 2026-11-19): an outsider's mail that
+# ran out is restored like anyone's, within the seven days the sweep keeps it.
+echo "==> verifying an outsider's expired part is restored, and the down migration, on exp_0255"
+migrate_before exp_0255 0255_external_expiry_restorable
+U255="user_01J0MA1LUSERU00000000000U5"
+P255="a0000000-0000-4000-8000-000000000255"
+A255="aa000000-0000-4000-8000-000000000255"
+M255="1a000000-0000-4000-8000-000000000255"
+T255="2a000000-0000-4000-8000-000000000255"
+sql_in exp_0255 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES ('$P255', 'org_0255', 'Ablauf', '$U255', 'proj_0255');
+INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES ('$A255', 'org_0255', '$P255', 'aaaaaaaaaa55', 'ablauf', '$U255');
+INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_reason, sender_class, expires_at)
+VALUES ('$M255', 'org_0255', '$P255', '$A255', 'waiting', md5('$M255') || md5('$M255'), 100, 'b', 'clean', now(), 'huber@statik.at', 'external_verified', 'dkim_pass', 'external', now() + interval '14 days');
+INSERT INTO inbound_mail_parts (id, organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, storage_key, scan_status, scanned_at, risk_flags)
+VALUES ('$T255', 'org_0255', '$P255', '$M255', 0, 'message', NULL, 'text/plain', 10, repeat('a', 64), NULL, 'not_applicable', NULL, '{}'::text[]);
+UPDATE inbound_mail_parts SET state = 'expired', ended_at = now() WHERE id = '$T255';
+SQL
+RESTORE255="INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via) VALUES ('org_0255', '$P255', '$M255', '$T255', 'restore', '$U255', 'app')"
+V255=$'\\set VERBOSITY verbose\n'
+refused_in exp_0255 "${V255}${RESTORE255}" "inbound_mail_decisions_external_expiry_final" "before 0255: an outsider's expired part restored"
+
+apply_in exp_0255 0255_external_expiry_restorable.sql
+apply_in exp_0255 0255_external_expiry_restorable.sql
+sql_in exp_0255 <<<"${RESTORE255};"
+check_in exp_0255 "SELECT count(*) FROM inbound_mail_decisions WHERE part_id = '$T255' AND action = 'restore'" "1" "0255: an outsider's expired part is restored"
+
+# Down: the restore made stays, and the guard refuses the next one again.
+apply_in exp_0255 0255_external_expiry_restorable.down.sql
+check_in exp_0255 "SELECT count(*) FROM inbound_mail_decisions WHERE part_id = '$T255' AND action = 'restore'" "1" "0255 down keeps the restore made"
+refused_in exp_0255 "${V255}${RESTORE255}" "inbound_mail_decisions_external_expiry_final" "0255 down: an outsider's expired part restored is refused again"
+apply_in exp_0255 0255_external_expiry_restorable.sql
+sql_in exp_0255 <<<"${RESTORE255};"
+echo "==> migration 0255 verified"
+
 # ---------------------------------------------------------------------------
 # Every registered SQL backfill (apps/workspace/backfills/), run twice through
 # the deploy Job's runner against the full schema with every suite's rows in

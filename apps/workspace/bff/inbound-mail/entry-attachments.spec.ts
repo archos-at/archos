@@ -55,12 +55,14 @@ describe('what the Verlauf says of an attachment its text was filed before (revi
     expect(decidePendingAttachment).not.toHaveBeenCalled()
   })
 
-  it('decides an expiry that is final at once, and every ended part of a settled mail', async () => {
-    vi.mocked(findProjectMail).mockResolvedValueOnce(heldMail({ senderClass: 'external', senderFlags: [] }))
+  it('leaves an outsider’s expiry pending too: every expired part is restorable for seven days', async () => {
+    vi.mocked(findProjectMail).mockResolvedValueOnce(heldMail({ senderClass: 'external', senderTrust: 'external_verified', senderFlags: [] }))
     vi.mocked(findMailParts).mockResolvedValueOnce([filePart({ position: 1, state: 'expired', endedAt: NOW })])
     await decideEndedAttachments(PROJECT_ID, [MAIL_ID], NOW)
-    expect(decidePendingAttachment).toHaveBeenCalledWith('entry-1', 1, { disposition: 'not_filed', reason: 'expired' })
+    expect(decidePendingAttachment).not.toHaveBeenCalled()
+  })
 
+  it('decides every ended part of a settled mail at once', async () => {
     vi.mocked(findProjectMail).mockResolvedValueOnce(heldMail({ status: 'settled' }))
     vi.mocked(findMailParts).mockResolvedValueOnce([filePart({ position: 1, state: 'dismissed', endedAt: NOW })])
     await decideEndedAttachments(PROJECT_ID, [MAIL_ID], NOW)

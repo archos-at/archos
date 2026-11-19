@@ -23,7 +23,6 @@ import { auditDecisions } from './audit'
 import { decideEndedAttachments } from './entry-attachments'
 import type { InboundMailCapNotice } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
-import { expiryIsFinal } from './sender-class'
 import { INBOUND_MAIL_ADDRESS_STAGED_BYTES, INBOUND_MAIL_ORGANIZATION_STAGED_BYTES } from './receive'
 import { rereadHeldText } from './receive-reread'
 import { queueSenderFiling } from './receive-sender'
@@ -197,7 +196,7 @@ export async function sweepExpiredMails(now: Date): Promise<SweepCounts> {
       event: 'inbound_mail_expired',
       distinctId: null,
       organizationId: row.organizationId,
-      properties: { parts, sender_class: row.senderClass, automatic: row.automatic, discarded: expiryIsFinal(row) },
+      properties: { parts, sender_class: row.senderClass, automatic: row.automatic },
     })
     publishProjectChanged(row.organizationId, row.projectId)
     await decideEndedAttachments(row.projectId, [row.id], now)

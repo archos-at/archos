@@ -1219,8 +1219,8 @@ Trigger `inbound_mail_decisions_guard`:
   `sender_reason` is `dkim_fail`, `dkim_policy`, `dkim_weak_algorithm` or
   `dkim_short_key` (or NULL) only by its `sender_user_id`
   (`…_claimed_sender_releases`; from 0250, before it every one was its
-  member's alone); no `restore` of an
-  `expired` part of an `external` mail (`…_external_expiry_final`). The part and
+  member's alone); 0197's refusal of a `restore` of an `expired` part of an
+  `external` mail (`…_external_expiry_final`) is gone since 0255. The part and
   the mail are read by their full composite keys, under the caller's row-level
   security; SECURITY INVOKER.
 - UPDATE: nothing changes but `audited_at`, once, NULL to a time (`…_immutable`).
