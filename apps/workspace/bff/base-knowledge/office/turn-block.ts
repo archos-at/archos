@@ -12,8 +12,8 @@ const MORE_LINE_RESERVE = 48
 
 export const BASE_KNOWLEDGE_HEADER =
   "The office's own base knowledge: copies it holds in its Archiv (the Büroablage), for this office only; find a passage " +
-  'by searching the Archiv for the file. When an answer rests on one, name its designation or title, its edition and when it was last ' +
-  'checked; when the check is overdue, say so in the answer. The role decides what a passage can carry: ' +
+  'by searching the Archiv for the file. When an answer rests on one, name its designation or title and its edition. ' +
+  'The role decides what a passage can carry: ' +
   '"requirement source" may ground a requirement; "interpretation only" may explain a provision but never be cited ' +
   'as the source of a requirement; "authority practice" counts only where it says it applies, and when the authority ' +
   'is unknown, say that you could not tell whether the directive applies.'
@@ -45,14 +45,11 @@ function role(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
   return `authority practice of ${names}; authority unknown for this project (its Land is not recorded), so do not apply it as settled`
 }
 
-function checkWords(entry: BaseKnowledgeEntry): string {
-  const { lastCheck, overdue, intervalDays } = entry.freshness
-  if (!lastCheck) return `never checked; overdue`
-  const day = lastCheck.checkedAt.slice(0, 10)
+function checkWords(entry: BaseKnowledgeEntry): string | null {
+  const { lastCheck } = entry.freshness
+  if (!lastCheck) return null
   const found = lastCheck.result === 'current' ? 'current' : lastCheck.result.replace('_', ' ')
-  return overdue
-    ? `last checked ${day} (${found}); check OVERDUE (due every ${intervalDays} days), say so`
-    : `last checked ${day} (${found})`
+  return `last checked ${lastCheck.checkedAt.slice(0, 10)} (${found})`
 }
 
 function bindingWords(binding: NonNullable<BaseKnowledgeEntry['binding']>, on: string): string {

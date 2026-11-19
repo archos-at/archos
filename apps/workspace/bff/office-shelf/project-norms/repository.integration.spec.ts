@@ -97,6 +97,14 @@ describe.skipIf(!url)('references and kept norms against Postgres', () => {
     expect(after.find((row) => row.sourceDocumentId === source)).toMatchObject({ officeDocumentId: null, fileName: 'OENORM_B_1600.pdf' })
   })
 
+  it('lists a project norm with what its cover page is read from', async () => {
+    const norm = await newDocument('project')
+    await asOffice(ORG, () => db.execute(sql`UPDATE documents SET content_type = 'application/pdf', file_size = 2048 WHERE id = ${norm}`))
+    const { memberReader } = await import('@/lib/documents/document-reader')
+    const rows = await repo.listProjectNormRows(ORG, projectId, { folderId: null }, memberReader('user_osr'))
+    expect(rows.find((row) => row.id === norm)).toMatchObject({ contentType: 'application/pdf', fileSize: 2048, storageBucket: null, storageKey: expect.stringMatching(/^k\//) })
+  })
+
   it('forgets „Hier lassen“ with its document, and keeps it once however often it is said', async () => {
     const kept = await newDocument('project')
     await repo.keepInProject(ORG, projectId, [kept], 'user_osr')

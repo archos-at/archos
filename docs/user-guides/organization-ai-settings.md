@@ -80,12 +80,15 @@ shows „Abgelöst“ once you confirm the new one. **Keine Norm** turns a row b
 in the folder it was uploaded to (the top level if that folder is gone), and ARCHOS
 does not offer it as a norm again. **Später** leaves the rows waiting under „Zu
 bestätigen“. A file that is a newer Ausgabe of a norm you hold is added beside the
-earlier one; a second copy of an Ausgabe you hold is recognised as a duplicate,
-whatever the file is called (a file whose name is already taken is kept as
-„Name (2)“). Ordinary files go to the folders (the toast's „In Ordnern zeigen“
+earlier one. A second copy is recognised as a duplicate when its Ausgabe (from the
+title page, else from the name) is one you hold; ARCHOS compares the Bezeichnung and
+Ausgabe, not the files' content, so a copy whose Ausgabe it cannot read waits for
+you to enter it (a file whose name is already taken is kept as „Name (2)“). Ordinary files go to the folders (the toast's „In Ordnern zeigen“
 goes there); an OIB-Richtlinie stays an ordinary file, and ARCHOS says it already
 knows it. A file in a folder can still be filed with **Als Norm führen**. Nothing
 reads a norm's text (no search, no summary, no answer) until it is confirmed.
+A norm waiting under „Zu bestätigen“ has **Keine Norm** on its page too: the file goes
+back to the folder it came from, and ARCHOS does not propose it again.
 **Nicht mehr als Norm führen** takes a norm off the tab at once and keeps its file
 in the Ordner; **Rückgängig** in the message that follows brings it back as it
 was, confirmed, with its Ausgaben, checks and Thema. **Als Norm führen** on that
@@ -95,11 +98,14 @@ whether you bought it or it is freely available.
 
 **Norms in a project or in a folder.** A norm uploaded to a project is offered
 for the Büroablage, where every project finds it. Once ARCHOS has read the
-upload, the same dialog opens in Dateien with Art, Bezeichnung and Ausgabe and
+upload, the same dialog opens in Dateien with Art, Bezeichnung and Ausgabe, read
+from the title page of a PDF where it can and from the name otherwise, and
 asks where the norm belongs: **Büroablage (empfohlen)** if you manage the
 Büroablage, **Für die Büroablage vorschlagen** otherwise (whoever manages it
 decides in the Postfach, checking the same values), **Nur dieses Projekt**, or
-**Später**, which leaves the offer above the files. A norm moved or taken over
+**Später**, which leaves the offer above the files. A norm whose Ausgabe you
+already hold is not offered; a later Ausgabe of a norm you hold is, and joins it as a
+new Ausgabe. A norm moved or taken over
 this way is confirmed with the values you saw, so answers keep using it, and it
 needs its Ausgabe. When nobody who manages the Büroablage may write in the
 project, ARCHOS says so and names who could decide once given access; nothing is
@@ -128,7 +134,8 @@ hold that edition or no active project is affected. A norm your office never
 bought is never held against you: no badge, no Postfach item, nothing in answers.
 Every other norm keeps a manual check: **Ist noch aktuell** records it, the entry
 page says „Vom Büro geprüft am …“, and after a year (half a year for a directive)
-the quiet pill „Prüfung fällig“ appears; nothing arrives in the Postfach for it.
+the quiet pill „Prüfung fällig“ appears; nothing arrives in the Postfach for it,
+and answers do not mention it.
 
 **In answers.** Answers in your office draw on confirmed norms, name the
 Ausgabe they used and use the one in force on the project's reference day (today

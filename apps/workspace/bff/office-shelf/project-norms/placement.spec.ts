@@ -2,10 +2,10 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest'
-import { offerable, placementFor, recognizedNorms, workKey, type HeldEdition, type HeldWorks, type NormCandidateRow } from './placement'
+import { isNewToOffice, offerable, offerOf, placementFor, recognizedNorms, workKey, type HeldEdition, type HeldWorks, type NormCandidateRow, type RecognizedNorm } from './placement'
 import { placeProjectNormsBodySchema } from './wire'
 
-function held(designation: string, editionLabel: string, contentHash: string | null, editionId = `edition_${editionLabel}`, at = '2026-01-01'): HeldEdition {
+function held(designation: string, editionLabel: string, contentHash: string | null, editionId = `edition_${editionLabel}`, at = '2026-01-01', issuedOn: string | null = null): HeldEdition {
   return {
     entry: {
       editionId,
@@ -16,7 +16,7 @@ function held(designation: string, editionLabel: string, contentHash: string | n
         title: designation,
         designation,
         editionLabel,
-        issuedOn: null,
+        issuedOn,
         inForceFrom: null,
         inForceTo: null,
         territoryIds: [],
@@ -96,19 +96,61 @@ describe('which project norms the agent offers for the office shelf', () => {
   })
 
   it('offers each norm with the type, designation and edition read from its name, for the norm dialog', () => {
+    expect(recognizedNorms(rows).map(offerOf)).toEqual([
+      { documentId: 'OENORM_B_1600_2017.pdf', fileName: 'OENORM_B_1600_2017.pdf', folderId: 'folder_normen', designation: 'ÖNORM B 1600', kind: 'technical_standard', editionLabel: '2017' },
+      { documentId: 'Weisung_MA37_Stellplaetze.pdf', fileName: 'Weisung_MA37_Stellplaetze.pdf', folderId: 'folder_normen', designation: null, kind: 'authority_directive', editionLabel: null },
+    ])
     expect(recognizedNorms(rows).map(({ documentId, designation, kind, editionLabel }) => ({ documentId, designation, kind, editionLabel }))).toEqual([
       { documentId: 'OENORM_B_1600_2017.pdf', designation: 'ÖNORM B 1600', kind: 'technical_standard', editionLabel: '2017' },
       { documentId: 'Weisung_MA37_Stellplaetze.pdf', designation: null, kind: 'authority_directive', editionLabel: null },
     ])
   })
 
-  it('leaves out a norm kept here, one already suggested, and one whose work the office shelf holds', () => {
+  it('leaves out a norm kept here, one already suggested, and one whose edition the office shelf holds', () => {
     const norms = recognizedNorms(rows)
     const none = { kept: new Set<string>(), suggested: new Set<string>(), works: new Map() }
     expect(offerable(norms, none)).toHaveLength(2)
     expect(offerable(norms, { ...none, kept: new Set(['OENORM_B_1600_2017.pdf']) }).map((norm) => norm.documentId)).toEqual(['Weisung_MA37_Stellplaetze.pdf'])
     expect(offerable(norms, { ...none, suggested: new Set(['Weisung_MA37_Stellplaetze.pdf']) }).map((norm) => norm.documentId)).toEqual(['OENORM_B_1600_2017.pdf'])
-    expect(offerable(norms, { ...none, works: works(held('ÖNORM B 1600:2012', '2012', 'z')) }).map((norm) => norm.documentId)).toEqual(['Weisung_MA37_Stellplaetze.pdf'])
+    expect(offerable(norms, { ...none, works: works(held('ÖNORM B 1600:2017', '2017', 'z')) }).map((norm) => norm.documentId)).toEqual(['Weisung_MA37_Stellplaetze.pdf'])
+  })
+})
+
+describe('a project norm whose work the office shelf already holds', () => {
+  const norm = (editionLabel: string | null, issuedOn: string | null = null, contentHash: string | null = 'new'): RecognizedNorm => ({
+    documentId: 'doc',
+    fileName: 'OENORM_B_1600.pdf',
+    folderId: null,
+    designation: 'ÖNORM B 1600',
+    kind: 'technical_standard',
+    editionLabel,
+    issuedOn,
+    contentHash,
+  })
+  const office = works(held('ÖNORM B 1600:2012', '2012-01-01', 'old', 'e2012', '2025-01-01', '2012-01-01'), held('ÖNORM B 1600:2017', '2017-04-15', 'held', 'e2017', '2026-01-01', '2017-04-15'))
+
+  it('is offered as a newer edition when it is later than every edition held', () => {
+    expect(isNewToOffice(norm('2023-02-01', '2023-02-01'), office)).toBe(true)
+    expect(isNewToOffice(norm('2023'), office)).toBe(true)
+  })
+
+  it('is offered when its edition is not a date and differs from every edition held', () => {
+    expect(isNewToOffice(norm('Fassung B'), office)).toBe(true)
+  })
+
+  it('stays hidden as the same edition, by its label, a coarser date of it, or its bytes', () => {
+    expect(isNewToOffice(norm('2017-04-15'), office)).toBe(false)
+    expect(isNewToOffice(norm('2017'), office)).toBe(false)
+    expect(isNewToOffice(norm('2023-02-01', '2023-02-01', 'held'), office)).toBe(false)
+  })
+
+  it('stays hidden when it is older than the newest edition held, or its edition is unknown', () => {
+    expect(isNewToOffice(norm('2015-01-01', '2015-01-01'), office)).toBe(false)
+    expect(isNewToOffice(norm(null), office)).toBe(false)
+  })
+
+  it('moves as a new edition of the newest one held', () => {
+    expect(placementFor(norm('2023-02-01', '2023-02-01'), office)).toMatchObject({ kind: 'edition', of: { entry: { editionId: 'e2017' } } })
   })
 })
 

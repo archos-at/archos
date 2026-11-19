@@ -9,10 +9,11 @@ import { memberReader } from '@/lib/documents/document-reader'
 import { projectShelf } from '@/lib/documents/shelf'
 import { requireShelfRead } from '@/lib/documents/shelf-authz'
 import { findProjectInOrg } from '@/lib/projects/repository'
+import { withCovers } from './cover'
 import { heldWorks } from './held-works'
 import { moveNormsToOfficeShelf, writableProjectNorm } from './move'
-import { offerable, recognizedNorms, type NormCandidateRow } from './placement'
-import { keepInProject, keptAmong, listProjectNormRows, listReferences } from './repository'
+import { offerable, offerOf, recognizedNorms, undecided } from './placement'
+import { keepInProject, keptAmong, listProjectNormRows, listReferences, type ProjectNormRow } from './repository'
 import { suggestedNormDocuments, suggestNormsForOfficeShelf } from './suggest'
 import type {
   ListProjectNormsQuery,
@@ -28,7 +29,7 @@ import { NORM_REFERENCE_PAGE } from './wire'
 async function offersAmong(
   session: AuthorizedSession,
   projectId: string,
-  rows: readonly NormCandidateRow[]
+  rows: readonly ProjectNormRow[]
 ): Promise<NormOffer[]> {
   const norms = recognizedNorms(rows)
   if (norms.length === 0) return []
@@ -38,7 +39,9 @@ async function offersAmong(
     suggestedNormDocuments(session.organizationId, projectId, ['proposed', 'dismissed']),
     heldWorks(session),
   ])
-  return offerable(norms, { kept, suggested: new Set(suggested.keys()), works })
+  const decisions = { kept, suggested: new Set(suggested.keys()) }
+  const read = await withCovers(session.organizationId, undecided(norms, decisions), new Map(rows.map((row) => [row.id, row])))
+  return offerable(read, { ...decisions, works }).map(offerOf)
 }
 
 function referenceState(row: OfficeShelfReference, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView['state'] {

@@ -17,7 +17,7 @@ export const baseKnowledge = {
     toggle: 'So funktioniert es',
     upload: {
       title: '1 · Hinzufügen',
-      body: 'Gekaufte Normen, Kommentare zum Baurecht, Weisungen der Baubehörden und Richtlinien gehören hierher, nicht Projektunterlagen oder Vorlagen. {productName} schlägt aus dem Dateinamen vor, was es ist und welche Ausgabe. Den Text liest {productName} noch nicht.',
+      body: 'Gekaufte Normen, Kommentare zum Baurecht, Weisungen der Baubehörden und Richtlinien gehören hierher, nicht Projektunterlagen oder Vorlagen. {productName} schlägt aus der Titelseite und dem Dateinamen vor, was es ist und welche Ausgabe. Von der Titelseite behält {productName} nur diese Angaben; den Text liest {productName} erst, wenn Sie bestätigen.',
     },
     confirm: {
       title: '2 · Bestätigen',
@@ -25,7 +25,7 @@ export const baseKnowledge = {
     },
     check: {
       title: '3 · Aktuell halten',
-      body: 'Macht ein Gesetz oder eine Richtlinie, die {productName} kennt, eine Ausgabe der Norm verbindlich, zeigt {productName} das an: „Aktuell“, wenn Ihr Büro diese Ausgabe hat, „Neuere Ausgabe“, wenn eine neuere verbindlich ist. Alles andere prüfen Sie: Halten Sie fest, wenn Sie nachgesehen haben, ob die Ausgabe noch gilt. Nach einem Jahr (Weisungen: sechs Monate) ist die Prüfung fällig, und {productName} sagt in Antworten dazu, dass der Stand lange nicht bestätigt wurde. Erscheint eine neue Ausgabe, laden Sie sie zur bisherigen dazu.',
+      body: 'Macht ein Gesetz oder eine Richtlinie, die {productName} kennt, eine Ausgabe der Norm verbindlich, zeigt {productName} das an: „Aktuell“, wenn Ihr Büro diese Ausgabe hat, „Neuere Ausgabe“, wenn eine neuere verbindlich ist. Alles andere prüfen Sie: Halten Sie fest, wenn Sie nachgesehen haben, ob die Ausgabe noch gilt. Nach einem Jahr (Weisungen: sechs Monate) zeigt der Stand „Prüfung fällig“, als Hinweis für Sie. Erscheint eine neue Ausgabe, laden Sie sie zur bisherigen dazu.',
     },
     licence: {
       title: 'Lizenz und KI-Verarbeitung',
@@ -83,7 +83,7 @@ export const baseKnowledge = {
     binding: 'Verbindlich ist heute die Ausgabe {label}.',
     bindingVia: 'Verbindlich ist heute die Ausgabe {label}, laut {via}.',
     checked: 'Vom Büro geprüft am {date}: {result}.',
-    unchecked: 'Vom Büro noch nicht geprüft. {productName} erinnert nach {months} Monaten.',
+    unchecked: 'Vom Büro noch nicht geprüft, darum zeigt der Stand „Prüfung fällig“. Nach einer Prüfung erscheint das wieder nach {months} Monaten.',
   },
   text: {
     used: 'Wird zitiert',
@@ -125,7 +125,7 @@ export const baseKnowledge = {
     folder: 'Ordner',
     rootFolder: 'Normen & Richtlinien (oberste Ebene)',
     proposedBy: {
-      reading: 'Aus dem Dateinamen vorgeschlagen',
+      reading: 'Aus der Datei vorgeschlagen',
       agent: 'Von {productName} vorgeschlagen',
       person: 'Von Hand erfasst',
     },
@@ -163,6 +163,7 @@ export const baseKnowledge = {
     unlisted: '„{name}“ ist jetzt eine normale Datei unter Ordner (oberste Ebene).',
     undo: 'Rückgängig',
     relisted: '„{name}“ ist wieder als Norm geführt.',
+    notNormDone: '„{name}“ ist keine Norm: Die Datei liegt wieder in ihrem Ordner, und {productName} schlägt sie nicht noch einmal als Norm vor.',
     removeTitle: 'Norm entfernen?',
     removeBody: 'Die Norm und ihre Datei werden aus der Büroablage entfernt. {productName} zitiert sie danach nicht mehr. Wollen Sie nur eine neuere Ausgabe hinterlegen, laden Sie diese stattdessen dazu.',
     removed: 'Norm entfernt.',
@@ -248,7 +249,8 @@ export const baseKnowledge = {
     noNorms: '{count} Dateien unter Ordner abgelegt. Keine Norm dabei.',
     knownOne: '1 Datei unter {place} abgelegt. Diese Richtlinie kennt {productName} schon, sie bleibt eine normale Datei.',
     known: '{count} Richtlinien kennt {productName} schon, sie bleiben normale Dateien.',
-    recognizeFailed: 'Ob Normen dabei sind, konnte nicht geprüft werden. Die Dateien liegen in der Büroablage; „Als Norm führen“ holt es nach.',
+    recognizeFailed: 'Die erkannten Normen konnten nicht angezeigt werden. Sie warten unter „Zu bestätigen“ in Normen & Richtlinien; alle anderen Dateien liegen in ihrem Ordner.',
+    asNormFailed: 'Die Datei konnte nicht als Norm übernommen werden und bleibt in ihrem Ordner. Versuchen Sie es noch einmal.',
     result: {
       confirmedOne: '1 Norm bestätigt',
       confirmed: '{count} Normen bestätigt',

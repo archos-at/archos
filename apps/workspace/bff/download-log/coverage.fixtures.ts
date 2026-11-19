@@ -39,7 +39,7 @@ export const OBJECT_READERS: Record<string, Disposition> = {
   'lib/bim/service.ts::fetchObject': { exempt: 'server-side IFC extraction reads the file to build the model; nothing is handed to a person.' },
   'lib/documents/stored-copy.ts::storedFileOf': {
     exempt:
-      'reads a project norm’s own bytes to file them into the office shelf, whose upload screens and stores them again; nobody receives them.',
+      'reads a project norm’s own bytes to file them into the office shelf, whose upload screens and stores them again, and to read its cover page for the values the offer shows (only those values are kept); nobody receives them.',
   },
   'lib/documents/rendition.ts::readOriginal': { exempt: 'server-side conversion of an office file to its PDF rendition.' },
   'lib/documents/ingest-dispatch.ts::dispatchIngest': { exempt: 'presigns the file for the ingest backend, a machine.' },

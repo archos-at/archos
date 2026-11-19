@@ -86,7 +86,7 @@ export function useNormRecognition(): NormRecognitionState {
         const known = knownNotice(t, answer.plain)
         if (known) toast(known)
       } catch {
-        toast.error(t('norms.recognizeFailed'))
+        toast.error(t(asNorm ? 'norms.asNormFailed' : 'norms.recognizeFailed'))
       }
     },
     [t, router],
