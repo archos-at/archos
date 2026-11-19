@@ -76,7 +76,7 @@ describe('the mail pane', () => {
     expect(within(pane).queryByTestId('attachments-check-all')).toBeNull()
     const phrases = within(pane).getAllByTestId('attachment-plan').map((phrase) => phrase.textContent)
     expect(phrases).toEqual([
-      'Drawing S-101: revision D becomes the current state, revision C is kept\u00A0· Folder Tragwerk',
+      'Revision D becomes the current state, revision C is kept\u00A0· Folder Tragwerk',
       'Folder Tragwerk\u00A0· Document type Floor plan',
       'New folder Fotos\u00A0· Document type Photo',
       'stays out – already in the project',
@@ -101,7 +101,7 @@ describe('the mail pane', () => {
 
   it('says an open question in the attachment’s phrase, and how many questions „Einordnen“ asks', () => {
     renderDetail('unverified-thread')
-    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Open: file revision C as the new state of drawing TG-L01?')
+    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Open: file revision C as the next revision of TG-L01_B.pdf?')
     expect(screen.getByTestId('decision-open-hint')).toHaveTextContent('2 questions, then the overview. Nothing is filed until you confirm.')
   })
 
@@ -223,7 +223,7 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).queryByTestId('filing-progress')).toBeNull()
     expect(within(dialog()).getByRole('heading', { name: 'This is how the mail is filed' })).toBeInTheDocument()
     expect(overviewLines()).toEqual([
-      expect.stringMatching(/^Mail text → added to mail thread “Stellplatznachweis”File replies in this mail thread without a clickOn/),
+      expect.stringMatching(/^Mail text → added to mail thread “Stellplatznachweis”\S+ files further replies in this mail thread without a click\u00A0· Switch off/),
       'Bescheid_MA37_2026-10-14.pdf → Folder Behörde/Bescheide\u00A0· Document type Official decision',
     ])
     expect(within(dialog()).queryByTestId('filing-left-note')).toBeNull()
@@ -256,7 +256,7 @@ describe('„Einordnen“', () => {
     await openFiling()
     expect(overviewLines()).toEqual([
       expect.stringMatching(/^Mail text → added to mail thread “Stellplatznachweis”/),
-      'S-101_D.pdf → drawing S-101: revision D becomes the current state, revision C is kept\u00A0· Folder Tragwerk',
+      'S-101_D.pdf → revision D becomes the current state, revision C is kept\u00A0· Folder Tragwerk',
       'Grundriss_EG.dwg → Folder Tragwerk\u00A0· Document type Floor plan',
       'Foto_Baustelle.jpg → New folder Fotos\u00A0· Document type Photo',
       'Statik_verschluesselt.pdf → Folder Tragwerk',
@@ -304,7 +304,7 @@ describe('„Einordnen“', () => {
     renderDetail('unverified-thread')
     await openFiling()
     await toOverview()
-    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → drawing TG-L01: revision C becomes the current state, revision B is kept\u00A0· Folder Pläne/))
+    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → revision C becomes the current state, revision B is kept\u00A0· Folder Pläne/))
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-none'))
     await next()
@@ -596,18 +596,18 @@ describe('„Einordnen“', () => {
     await next()
     expect(stepOf()).toBe('attachments')
     expect(within(dialog()).getByTestId('note-revision')).toHaveTextContent(
-      'The project holds TG-L01_B.pdf in the folder Pläne: drawing TG-L01 at revision B. So revision C is proposed as the new state.'
+      'The project holds TG-L01_B.pdf in the folder Pläne, the same drawing number at revision B. So revision C is proposed as the next revision.'
     )
     const choice = within(dialog()).getByTestId('revision-choice')
     expect(within(choice).getAllByRole('radio').map((radio) => radio.parentElement?.textContent)).toEqual([
-      'File as the new state of drawing TG-L01Revision C becomes the current state, revision B is kept.',
+      'File as the next revision of TG-L01_B.pdfRevision C becomes the current state, revision B is kept.',
       'File as a new file next to TG-L01_B.pdfTG-L01_B.pdf stays the current state.',
       'Do not fileThe file is dismissed with the mail.',
     ])
     expect(within(dialog()).getByTestId('revision-choice-revision')).toBeChecked()
     expect(within(dialog()).queryByTestId('attachment-ack-revision')).toBeNull()
     await next()
-    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → drawing TG-L01: revision C becomes the current state, revision B is kept\u00A0· Folder Pläne/))
+    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → revision C becomes the current state, revision B is kept\u00A0· Folder Pläne/))
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-new'))
     expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Pläne')
@@ -1022,21 +1022,20 @@ describe('the mail’s text and its follow', () => {
     expect(within(dialog()).queryByTestId('filing-follow')).toBeNull()
   })
 
-  it('shows filing replies without a click as a switch that is on, says what it means, and switched off files without that follow', async () => {
+  it('says filing replies without a click in one quiet line that is on, explains it behind ⓘ, and switched off files without that follow', async () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS['member-verified'] })
     const file = vi.spyOn(client, 'file')
     renderDetail('member-verified', client)
     await openFiling()
-    const control = within(dialog()).getByRole('switch', { name: 'File replies in this mail thread without a click' })
-    expect(control).toBeChecked()
-    expect(within(dialog()).getByTestId('filing-follow-state')).toHaveTextContent('On')
-    const explain = within(dialog()).getByTestId('filing-follow')
-    expect(explain).toHaveTextContent(`${PRODUCT_NAME} files replies from people whose domain is verified as if you had done it yourself`)
-    expect(explain).toHaveTextContent('each such filing is listed there under “Handled”.')
+    expect(within(dialog()).queryByRole('switch')).toBeNull()
+    expect(within(dialog()).getByTestId('filing-follow-state')).toHaveTextContent(`${PRODUCT_NAME} files further replies in this mail thread without a click`)
+    const explain = within(dialog()).getByTestId('filing-follow-explain')
+    expect(explain).toHaveAccessibleName(expect.stringContaining(`${PRODUCT_NAME} files replies from people whose domain is verified as if you had done it yourself`))
+    expect(within(dialog()).getByTestId('filing-follow')).not.toHaveTextContent('listed there under')
     expect(dialog()).not.toHaveTextContent(/in your name|on your behalf/)
-    await userEvent.click(control)
-    expect(control).not.toBeChecked()
-    expect(within(dialog()).getByTestId('filing-follow-state')).toHaveTextContent('Off')
+    await userEvent.click(within(dialog()).getByRole('button', { name: 'Switch off' }))
+    expect(within(dialog()).getByTestId('filing-follow-state')).toHaveTextContent('Further replies in this mail thread wait in Project mail')
+    expect(within(dialog()).getByRole('button', { name: 'Switch on' })).toBeInTheDocument()
     await userEvent.click(within(dialog()).getByTestId('decision-file'))
     await waitFor(() => expect(file).toHaveBeenCalled())
     expect(file.mock.calls[0][1].mails[0].message).toMatchObject({ follow: false })

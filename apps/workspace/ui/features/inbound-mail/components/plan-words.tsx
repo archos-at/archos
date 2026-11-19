@@ -87,7 +87,7 @@ export function usePlanWords(): PlanWords {
       if (open) {
         const revision = part.revisionCandidate
         const index = revision ? indexChange(part.filename, revision.name) : null
-        if (open === 'revision_unsure' && index) return t('filing.pane.open.revision_unsure_index', { ...index })
+        if (open === 'revision_unsure' && revision && index) return t('filing.pane.open.revision_unsure_index', { ...index, of: revision.name })
         return t(`filing.pane.open.${open}`, revision ? { version: revision.nextVersion, of: revision.name } : {})
       }
       switch (line.kind) {

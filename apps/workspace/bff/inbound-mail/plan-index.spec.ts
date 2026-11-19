@@ -39,7 +39,7 @@ describe('revisionByDefault', () => {
 
 describe('indexChange', () => {
   it('names the plan and both indexes when one plan arrives in another index', () => {
-    expect(indexChange('S-101_D.pdf', 'S-101_C.pdf')).toEqual({ plan: 'S-101', from: 'C', to: 'D' })
+    expect(indexChange('S-101_D.pdf', 'S-101_C.pdf')).toEqual({ from: 'C', to: 'D' })
   })
 
   it('names nothing for the same index, another plan, or a name without an index on either side', () => {

@@ -157,7 +157,7 @@ export function AttachmentRow({
                   <div className="flex min-w-0 flex-col">
                     <Label htmlFor={`${id}-${choice}`} className="text-foreground text-sm font-normal leading-snug [overflow-wrap:anywhere]">
                       {choice === 'revision' && index
-                        ? t('attachments.revisionChoice.revisionIndex', { ...index })
+                        ? t('attachments.revisionChoice.revisionIndex', { name: revision.name })
                         : t(`attachments.revisionChoice.${choice}`, { name: revision.name, version: revision.nextVersion })}
                     </Label>
                     <span id={`${id}-${choice}-why`} className="text-muted-foreground text-xs leading-snug [overflow-wrap:anywhere]">
@@ -340,7 +340,7 @@ export function AttachmentNoteLine({ projectId, note }: { projectId: string; not
         <FactLine icon={FileStack} tone={note.verified || note.likely ? 'default' : 'warning'} testId="note-revision">
           {note.verified
             ? note.index
-              ? t('attachments.notes.revisionIndex', { ...note.index })
+              ? t('attachments.notes.revisionIndex', { ...note.index, name: note.name })
               : t('attachments.notes.revision', { version: note.nextVersion, name: note.name })
             : note.likely
               ? t(note.index ? 'attachments.notes.revisionLikelyIndex' : 'attachments.notes.revisionLikely', {

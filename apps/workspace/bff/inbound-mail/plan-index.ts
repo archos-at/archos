@@ -34,7 +34,6 @@ export function revisionByDefault(filename: string | null | undefined, candidate
 }
 
 export interface IndexChange {
-  plan: string
   from: string
   to: string
 }
@@ -43,7 +42,7 @@ export function indexChange(filename: string | null | undefined, candidateName: 
   const file = planName(filename)
   const current = planName(candidateName)
   if (!file || !current || !samePlan(file, current) || file.index === current.index) return null
-  return { plan: file.stem, from: current.index, to: file.index }
+  return { from: current.index, to: file.index }
 }
 
 /** `documents` newest first: one of the same name, else the latest earlier index of the same plan. */
