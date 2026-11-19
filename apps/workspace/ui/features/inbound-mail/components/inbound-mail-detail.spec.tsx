@@ -325,7 +325,7 @@ describe('InboundMailDetail', () => {
     renderDetail('follow-offer', client)
     await userEvent.click(await screen.findByTestId('follow-offer-button'))
     await waitFor(() => expect(follow).toHaveBeenCalledWith(PROJECT_ID, expect.any(String)))
-    expect(await screen.findByText('You follow “Stellplatznachweis”')).toBeInTheDocument()
+    expect(await screen.findByText('Replies in “Stellplatznachweis” are filed without a click')).toBeInTheDocument()
   })
 
   it('offers no follow where a reply could never qualify', async () => {
@@ -512,9 +512,9 @@ describe('deciding on one mail', () => {
     const unfollow = vi.spyOn(client, 'unfollow')
     renderDetail('follow-offer', client)
     await userEvent.click(await screen.findByTestId('follow-offer-button'))
-    expect(await screen.findByTestId('follow-offer-unfollow')).toHaveTextContent('Stop following')
-    expect(screen.getByTestId('follow-offer-title')).toHaveTextContent('You follow “Stellplatznachweis”')
-    expect(screen.getByTestId('follow-offer-hint')).toHaveTextContent('From now on, replies')
+    expect(await screen.findByTestId('follow-offer-unfollow')).toHaveTextContent('End')
+    expect(screen.getByTestId('follow-offer-title')).toHaveTextContent('Replies in “Stellplatznachweis” are filed without a click')
+    expect(screen.getByTestId('follow-offer-hint')).toHaveTextContent('In your name, for 60 days. Attachments keep waiting here. “End” stops it.')
     await userEvent.click(screen.getByTestId('follow-offer-unfollow'))
     await waitFor(() => expect(unfollow).toHaveBeenCalled())
     expect(await screen.findByTestId('follow-offer-button')).toBeInTheDocument()

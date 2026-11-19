@@ -8,7 +8,7 @@ vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
 import { toast } from 'sonner'
 import { capturePosthog } from '@/lib/analytics/posthog'
-import { render, screen, waitFor } from '@/test-utils'
+import { render, screen, waitFor, within } from '@/test-utils'
 import { ADDRESS_VARIANTS, PROJECT_ID, PROJECT_NAME, fixtureAddressClient } from '@/app/dev/inbound-mail/fixtures'
 import {
   INBOUND_MAIL_ADDRESS_STATS_DAYS,
@@ -20,6 +20,7 @@ import { AppConfigProvider, type AppConfig } from '@/shared/context'
 import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
 
 const MIB = 1024 * 1024
+const ADDRESS = 'project+bauplatz-12-wohnbau-seestadt.k3x7q2m5p4ab@inbox.example.org'
 
 const APP_CONFIG: AppConfig = { authRequired: false, fileUpload: getFileUploadConfigFromEnv({}) }
 
@@ -29,58 +30,101 @@ beforeEach(() => {
   URL.revokeObjectURL = vi.fn()
 })
 
+async function openSetup(): Promise<HTMLElement> {
+  await userEvent.click(await screen.findByTestId('address-setup-toggle'))
+  return screen.getByTestId('address-setup')
+}
+
 describe('InboundMailAddressCard', () => {
-  it('shows the address whole and saves it as a contact', async () => {
+  it('leads with the one sentence and the address with „Copy“, and folds the setup away', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    expect(await screen.findByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')).toBeInTheDocument()
+    expect(await screen.findByTestId('address-lead')).toHaveTextContent('Put this address in Cc when you write about the project.')
+    expect(screen.getByTestId('address-value')).toHaveTextContent(ADDRESS)
+    expect(screen.getByTestId('address-copy')).toHaveTextContent('Copy')
+    expect(screen.getByTestId('address-setup-toggle')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('own-domain-dkim')).toBeNull()
+    expect(screen.queryByTestId('address-forwards')).toBeNull()
+    expect(screen.queryByTestId('address-rotate')).toBeNull()
+  })
+
+  it('saves it as a contact, and says the card is for Outlook or a phone', async () => {
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
+    expect(await screen.findByTestId('address-hand-on-contact')).toHaveTextContent('contact card (.vcf) for Outlook or your phone')
     await userEvent.click(screen.getByTestId('address-save-contact'))
     expect(download.start).toHaveBeenCalledWith('blob:card', expect.stringMatching(/-bauplatz-12-wohnbau-seestadt\.vcf$/))
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_contact_saved', { surface: 'settings' })
+  })
+
+  it('hands the address on by a new email that carries it and says what it is for', async () => {
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
+    const share = await screen.findByTestId('address-share')
+    expect(within(screen.getByTestId('address-hand-on-share')).getByText(/Opens a new email with the address/)).toBeInTheDocument()
+    const href = decodeURIComponent(share.getAttribute('href') ?? '')
+    expect(href).toMatch(/^mailto:\?subject=Project mail address of Bauplatz 12/)
+    expect(href).toContain(ADDRESS)
+    expect(href).toContain('Put this address in Cc when you write about the project')
   })
 
   it('counts a copy of the address, by the door it was copied from', async () => {
     const writeText = vi.fn(() => Promise.resolve())
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    await userEvent.click(await screen.findByRole('button', { name: /project\+bauplatz-12\.k3x7q2m9p4ab@inbox\.example\.org/ }))
+    await userEvent.click(await screen.findByTestId('address-copy'))
     await waitFor(() => expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_copied', { surface: 'settings' }))
-    expect(writeText).toHaveBeenCalledWith('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    expect(writeText).toHaveBeenCalledWith(ADDRESS)
+    expect(screen.getByTestId('address-copy')).toHaveTextContent('Copied')
   })
 
   it('wraps the address only after the +, before the token and before the @, never inside the domain', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    const shown = await screen.findByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    const shown = await screen.findByText(ADDRESS)
     const lines = Array.from(shown.childNodes).reduce<string[]>(
       (pieces, node) => (node.nodeName === 'WBR' ? [...pieces, ''] : [...pieces.slice(0, -1), `${pieces.at(-1)}${node.textContent}`]),
       ['']
     )
-    expect(lines).toEqual(['project+', 'bauplatz-12', '.k3x7q2m9p4ab', '@inbox.example.org'])
-    expect(screen.getByRole('button', { name: /project\+bauplatz-12/ }).className).not.toContain('break-all')
+    expect(lines).toEqual(['project+', 'bauplatz-12-wohnbau-seestadt', '.k3x7q2m5p4ab', '@inbox.example.org'])
+    expect(screen.getByTestId('address-value').className).not.toContain('break-all')
   })
 
   it('tells a member nothing about the office’s own signing: that is a manager’s to fix', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
-    await screen.findByTestId('inbound-mail-address')
+    await openSetup()
     expect(screen.queryByTestId('own-domain-dkim')).not.toBeInTheDocument()
   })
 
-  it('replaces the address behind a warning that says every follow ends', async () => {
+  it('replaces the address from the ⋯ menu, behind a warning that says what happens to the old one and to waiting mail', async () => {
     const client = fixtureAddressClient(ADDRESS_VARIANTS.manager)
     const rotate = vi.spyOn(client, 'rotate')
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={client} />)
-    await userEvent.click(await screen.findByTestId('address-rotate'))
-    expect(screen.getByText(/stops following it/)).toBeInTheDocument()
+    await userEvent.click(await screen.findByTestId('address-manage'))
+    expect(await screen.findByTestId('address-rotate')).toHaveTextContent('The current one stops working at once.')
+    expect(screen.getByTestId('address-switch-off')).toHaveTextContent('New mail to the project no longer arrives.')
+    await userEvent.click(screen.getByTestId('address-rotate'))
+    expect(screen.getByText(/The current address stops working at once. Mail sent to it goes back to its sender as undeliverable/)).toBeInTheDocument()
+    expect(screen.getByText(/Mail already waiting in Project mail stays there and can still be filed/)).toBeInTheDocument()
+    expect(screen.getByText(/no longer filed without a click in any mail thread/)).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('address-rotate-confirm'))
     await waitFor(() => expect(rotate).toHaveBeenCalledWith(PROJECT_ID))
     expect(toast.success).toHaveBeenCalledWith('New address created')
-    expect(await screen.findByText('project+bauplatz-12.w8n2c4r7t1qz@inbox.example.org')).toBeInTheDocument()
+    expect(await screen.findByText('project+bauplatz-12-wohnbau-seestadt.w6n2c4r7t3qz@inbox.example.org')).toBeInTheDocument()
+  })
+
+  it('says, before switching off, that the address does not come back and waiting mail stays', async () => {
+    const client = fixtureAddressClient(ADDRESS_VARIANTS.manager)
+    const remove = vi.spyOn(client, 'remove')
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={client} />)
+    await userEvent.click(await screen.findByTestId('address-manage'))
+    await userEvent.click(await screen.findByTestId('address-switch-off'))
+    expect(screen.getByText(/This address does not come back/)).toBeInTheDocument()
+    expect(screen.getByText(/Mail already waiting in Project mail stays there/)).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('address-switch-off-confirm'))
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(PROJECT_ID))
   })
 
   it('offers a member no way to change it', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
     await screen.findByTestId('inbound-mail-address')
-    expect(screen.queryByTestId('address-rotate')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('address-switch-off')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('address-manage')).not.toBeInTheDocument()
   })
 
   it('lets a manager create a missing address, and tells a member whom to ask', async () => {
@@ -102,12 +146,14 @@ describe('InboundMailAddressCard', () => {
     expect(await screen.findByText('The project mail address could not be loaded.')).toBeInTheDocument()
   })
 
-  it('says how often the office’s own mail arrives confirmed, or that its domain signs nothing', async () => {
+  it('says under the setup how often the office’s own mail arrives confirmed, or that its domain signs nothing', async () => {
     const { unmount } = render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    expect(await screen.findByTestId('own-domain-dkim')).toHaveTextContent('94 % of your office’s mail')
+    expect(await openSetup()).toContainElement(screen.getByTestId('own-domain-dkim'))
+    expect(screen.getByTestId('own-domain-dkim')).toHaveTextContent('94 % of your office’s mail')
     unmount()
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS['own-dkim-missing'])} />)
-    expect(await screen.findByTestId('own-domain-dkim')).toHaveAttribute('data-state', 'missing')
+    await openSetup()
+    expect(screen.getByTestId('own-domain-dkim')).toHaveAttribute('data-state', 'missing')
   })
 
   it('links the guide and the signing help into the website the server names, in the reader’s language', async () => {
@@ -118,12 +164,14 @@ describe('InboundMailAddressCard', () => {
       </AppConfigProvider>
     )
     expect(await screen.findByRole('link', { name: /Guide/ })).toHaveAttribute('href', 'https://site.example.test/en/project-mail/')
+    await openSetup()
     expect(screen.getByRole('link', { name: /does not sign/ })).toHaveAttribute('href', 'https://site.example.test/en/project-mail/#dkim')
   })
 
   it('shows no link into the website when the server names none, rather than a wrong one', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS['own-dkim-missing'])} />)
-    expect(await screen.findByTestId('own-domain-dkim')).toHaveTextContent('does not sign')
+    await openSetup()
+    expect(screen.getByTestId('own-domain-dkim')).toHaveTextContent('does not sign')
     expect(screen.queryByRole('link', { name: /Guide/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /does not sign/ })).not.toBeInTheDocument()
   })
@@ -132,35 +180,34 @@ describe('InboundMailAddressCard', () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.refusals)} />)
     const address = await screen.findByTestId('inbound-mail-address')
     expect(address).toHaveTextContent(`17 automatic replies or delivery reports in the last ${INBOUND_MAIL_ADDRESS_STATS_DAYS} days, not shown`)
+    await openSetup()
     expect(screen.getByTestId('own-domain-dkim')).toHaveTextContent(`in the last ${INBOUND_MAIL_ADDRESS_STATS_DAYS} days`)
   })
 })
 
-describe('InboundMailAddressCard: getting mail in, in the two ways offices work', () => {
-  const ADDRESS = 'project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org'
-
-  it('gives copyable instructions for Cc and for redirecting an existing project address, with the address filled in', async () => {
+describe('InboundMailAddressCard: the setup for whoever runs the office’s mail', () => {
+  it('says how to redirect an existing project address, with the address filled in, copyable', async () => {
     const writeText = vi.fn(() => Promise.resolve())
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
-    expect(await screen.findByTestId('address-setup-cc')).toHaveTextContent(`Cc: put ${ADDRESS} in Cc when you write`)
-    expect(screen.getByTestId('address-setup-forward')).toHaveTextContent(`redirect your existing email address for the project to ${ADDRESS}`)
-    await userEvent.click(screen.getByTestId('address-setup-forward-copy'))
+    expect(await screen.findByTestId('address-setup-toggle')).toHaveTextContent('For IT: setup')
+    await openSetup()
+    expect(screen.getByTestId('address-setup-redirect')).toHaveTextContent(`redirect it to ${ADDRESS} with an Outlook rule. Choose “redirect”, not “forward”`)
+    await userEvent.click(screen.getByTestId('address-setup-redirect-copy'))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining(`to ${ADDRESS} with an Outlook rule`)))
-    expect(screen.getByTestId('address-setup-forward-copy')).toHaveTextContent('Instructions copied')
+    expect(screen.getByTestId('address-setup-redirect-copy')).toHaveTextContent('Instructions copied')
   })
 
-  it('lets a manager register an existing project address, explains the forwarding, and saves it lowercase', async () => {
+  it('lets a manager register an existing project address, explains what it does, and saves it lowercase', async () => {
     const client = fixtureAddressClient(ADDRESS_VARIANTS.manager)
     const save = vi.spyOn(client, 'setForwardedFrom')
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={client} />)
-    expect(await screen.findByTestId('address-forwards')).toHaveTextContent(
-      'Forward your existing email address for the project to this address, for example with an Outlook rule.',
-    )
+    await openSetup()
+    expect(screen.getByTestId('address-forwards')).toHaveTextContent('A mail to one of these addresses that your office redirects here counts as sent to the project.')
     expect(screen.getByTestId('address-forwards-none')).toBeInTheDocument()
-    await userEvent.type(screen.getByTestId('address-forward-input'), 'Projekt-Bauplatz-12@Buero-Muster.at{Enter}')
-    await waitFor(() => expect(save).toHaveBeenCalledWith(PROJECT_ID, ['projekt-bauplatz-12@buero-muster.at']))
-    expect(await screen.findByTestId('address-forward')).toHaveTextContent('projekt-bauplatz-12@buero-muster.at')
+    await userEvent.type(screen.getByTestId('address-forward-input'), 'Bauplatz12@Huber-Architektur.at{Enter}')
+    await waitFor(() => expect(save).toHaveBeenCalledWith(PROJECT_ID, ['bauplatz12@huber-architektur.at']))
+    expect(await screen.findByTestId('address-forward')).toHaveTextContent('bauplatz12@huber-architektur.at')
     expect(screen.getByTestId('address-forward-input')).toHaveValue('')
     expect(toast.success).toHaveBeenCalledWith('Saved')
   })
@@ -169,7 +216,8 @@ describe('InboundMailAddressCard: getting mail in, in the two ways offices work'
     const client = fixtureAddressClient(ADDRESS_VARIANTS.manager)
     const save = vi.spyOn(client, 'setForwardedFrom')
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={client} />)
-    await userEvent.type(await screen.findByTestId('address-forward-input'), 'kienberg{Enter}')
+    await openSetup()
+    await userEvent.type(screen.getByTestId('address-forward-input'), 'kienberg{Enter}')
     expect(screen.getByTestId('address-forward-problem')).toHaveTextContent('Enter an email address')
     await userEvent.clear(screen.getByTestId('address-forward-input'))
     await userEvent.type(screen.getByTestId('address-forward-input'), `${ADDRESS}{Enter}`)
@@ -181,23 +229,25 @@ describe('InboundMailAddressCard: getting mail in, in the two ways offices work'
     const client = fixtureAddressClient(ADDRESS_VARIANTS.forwards)
     const save = vi.spyOn(client, 'setForwardedFrom')
     const { unmount } = render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={client} />)
-    await userEvent.click((await screen.findAllByTestId('address-forward-remove'))[0])
-    await waitFor(() => expect(save).toHaveBeenCalledWith(PROJECT_ID, ['bauplatz12@feld72.at']))
+    await openSetup()
+    await userEvent.click(screen.getAllByTestId('address-forward-remove')[0])
+    await waitFor(() => expect(save).toHaveBeenCalledWith(PROJECT_ID, ['seestadt-wohnbau@huber-architektur.at']))
     unmount()
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS['forwards-member'])} />)
-    expect(await screen.findByTestId('address-forward')).toHaveTextContent('projekt-bauplatz-12@buero-muster.at')
+    await openSetup()
+    expect(screen.getByTestId('address-forward')).toHaveTextContent('bauplatz12@huber-architektur.at')
     expect(screen.queryByTestId('address-forward-input')).toBeNull()
     expect(screen.queryByTestId('address-forward-remove')).toBeNull()
   })
 })
 
 describe('the size a mail may have', () => {
-  it('states the limit beside the address, from the server’s constant, with the upload for anything larger', async () => {
+  it('states the limit beside the address, from the server’s constant, what a larger mail meets, and the upload for it', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
     const line = await screen.findByTestId('address-size-limit')
     expect(INBOUND_MAIL_MAX_MESSAGE_BYTES).toBe(25 * MIB)
     expect(line).toHaveTextContent(
-      `Attachments up to about ${Math.floor(INBOUND_MAIL_MAX_ATTACHMENT_BYTES / MIB)} MB per mail. Upload larger files directly`
+      `Up to 25 MB per mail, attachments together about ${Math.floor(INBOUND_MAIL_MAX_ATTACHMENT_BYTES / MIB)} MB. A larger mail goes back to its sender as undeliverable. Upload larger files directly`
     )
     expect(line).toHaveTextContent('about 18 MB')
     expect(screen.getByTestId('address-upload-instead')).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files`)
@@ -212,28 +262,34 @@ describe('the size a mail may have', () => {
 
   it('states it on the overview’s tile too', async () => {
     render(<InboundMailAddressTile projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
-    expect(await screen.findByTestId('address-size-limit')).toHaveTextContent('Attachments up to about 18 MB per mail')
+    expect(await screen.findByTestId('address-size-limit')).toHaveTextContent('Up to 25 MB per mail, attachments together about 18 MB')
   })
 })
 
 describe('InboundMailAddressDialog', () => {
-  it('reads the address only while open, and leads with what it is for', async () => {
+  it('reads the address only while open, and leads with the one sentence before the address', async () => {
     const client = fixtureAddressClient(ADDRESS_VARIANTS.manager)
     const get = vi.spyOn(client, 'get')
     const { rerender } = render(<InboundMailAddressDialog projectId={PROJECT_ID} projectName={PROJECT_NAME} open={false} onOpenChange={vi.fn()} client={client} />)
     expect(get).not.toHaveBeenCalled()
     rerender(<InboundMailAddressDialog projectId={PROJECT_ID} projectName={PROJECT_NAME} open onOpenChange={vi.fn()} client={client} />)
-    const uses = await screen.findByTestId('address-uses')
-    expect(uses).toHaveTextContent('Put it in Cc when you write to the authority, the structural engineer or the client')
-    expect(uses.compareDocumentPosition(screen.getByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(uses.lastElementChild).toHaveTextContent('Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits until someone files it; mail from outside the office for 14 days.')
+    const lead = await screen.findByTestId('address-lead')
+    expect(lead).toHaveTextContent('Put this address in Cc when you write about the project. The replies then land in Project mail under Files.')
+    expect(lead.compareDocumentPosition(await screen.findByText(ADDRESS)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByTestId('address-held')).toHaveTextContent('Everything else waits in Project mail until someone files it; mail from outside the office for 14 days.')
     expect(get).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells Project mail from the Inbox in one line', async () => {
+    render(<InboundMailAddressDialog projectId={PROJECT_ID} projectName={PROJECT_NAME} open onOpenChange={vi.fn()} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
+    expect(await screen.findByTestId('address-not-postfach')).toHaveTextContent('Project mail collects mail sent to the project. The Inbox shows notices for you.')
   })
 
   it('shows no signing statistics, not even to a manager: the dialog is where everyone learns the address', async () => {
     render(<InboundMailAddressDialog projectId={PROJECT_ID} projectName={PROJECT_NAME} open onOpenChange={vi.fn()} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    await screen.findByTestId('inbound-mail-address')
+    await openSetup()
     expect(screen.queryByTestId('own-domain-dkim')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('address-forwards')).not.toBeInTheDocument()
   })
 })
 
@@ -242,7 +298,7 @@ describe('InboundMailAddressTile', () => {
     render(<InboundMailAddressTile projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
     const tile = await screen.findByTestId('inbound-mail-address-tile')
     expect(tile).toHaveTextContent('Put in Cc, it brings the replies')
-    expect(tile).toHaveTextContent('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    expect(tile).toHaveTextContent(ADDRESS)
     expect(screen.getByRole('link', { name: /Open Project mail/ })).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files/mail`)
     await userEvent.click(screen.getByTestId('address-save-contact'))
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_contact_saved', { surface: 'overview' })

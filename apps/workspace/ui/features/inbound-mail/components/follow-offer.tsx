@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { FollowCard, FollowCardHint } from '@/features/documents'
 import { useTranslations } from '@/i18n'
+import { MAIL_THREAD_FOLLOW_DEFAULT_DAYS } from '@/lib/mail-thread/mail-thread-wire'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface FollowOfferProps {
@@ -15,7 +16,7 @@ export interface FollowOfferProps {
   className?: string
 }
 
-/** The offer to follow a filed reply's Verlauf; once taken, what it now means and the way out of it. */
+/** After a reply is filed, the offer to file the Verlauf's further replies without a click; once on, what runs and how to end it. */
 export function FollowOffer({ threadName, onFollow, onUnfollow, following = false, className }: FollowOfferProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const [busy, setBusy] = useState(false)
@@ -39,7 +40,7 @@ export function FollowOffer({ threadName, onFollow, onUnfollow, following = fals
       titleRole="status"
       titleTestId="follow-offer-title"
       title={following ? t('follow.following', { name: threadName }) : t('follow.thread', { name: threadName })}
-      hint={<FollowCardHint testId="follow-offer-hint">{following ? t('follow.followingExplain') : t('follow.explain')}</FollowCardHint>}
+      hint={<FollowCardHint testId="follow-offer-hint">{t(following ? 'follow.followingExplain' : 'follow.explain', { days: MAIL_THREAD_FOLLOW_DEFAULT_DAYS })}</FollowCardHint>}
       actions={
         following ? (
           onUnfollow && (

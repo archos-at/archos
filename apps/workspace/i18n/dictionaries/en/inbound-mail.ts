@@ -13,9 +13,6 @@ export const inboundMail = {
 
   empty: {
     neverTitle: 'No mail to this project yet',
-    neverText:
-      'Put the address in Cc when you write to the authority, the structural engineer or the client: the replies land here.',
-    neverForward: 'If the project already has its own address in your office, forward it here.',
     neverNoAddress:
       'This project has no mail address yet. With one, the correspondence with the authority, the structural engineer and the client lands in the project without anyone saving it by hand.',
     neverNoAddressMember: 'This project has no mail address yet. Ask someone who manages the project to create it.',
@@ -90,11 +87,11 @@ export const inboundMail = {
   },
 
   readiness: {
-    ready: 'Ready',
+    ready: 'Ready to file',
     needs_you: 'Needs you',
     others: 'Waiting for others',
     othersHint: 'Only the member whose address the mail carries can file it. You can dismiss it.',
-    readyHint: 'Sender verified, a place suggested for every part, nothing to check.',
+    readyHint: 'Domain verified and a place suggested for every part: one click files it.',
     fileAll: 'File all {count} as suggested',
     fileFirst: 'File the first {count} as suggested',
   },
@@ -102,10 +99,10 @@ export const inboundMail = {
   group: {
     thread: 'Mail thread “{name}”\u00A0· {count, plural, one {# new mail} other {# new mails}}',
     threadLine: '“{name}”',
-    threadAction: '{count, plural, one {File as revision {first}} other {File as revisions {first}–{last}}}',
-    threadActionFirst: 'File the first {count} as revisions {first}–{last}',
+    threadAction: '{count, plural, one {File into the mail thread} other {File all # into the mail thread}}',
+    threadActionFirst: 'File the first {count} into the mail thread',
     reviewInOrder: 'Review',
-    quiet: 'Automatic ({count})',
+    quiet: 'Automatic',
     quietHint: 'Out-of-office replies, newsletters and notifications. {productName} makes no suggestions for them, and none of them is filed directly.',
   },
 
@@ -155,6 +152,13 @@ export const inboundMail = {
     stale_date: 'Dated more than {days, plural, one {# day} other {# days}} before it arrived',
     date_out_of_range: 'The date is outside the expected range; the arrival time is used',
     already_filed: 'Already in a mail thread',
+  },
+
+  stepper: {
+    label: 'Move between mails',
+    position: '{index} of {count}',
+    previous: 'Previous mail',
+    next: 'Next mail',
   },
 
   header: {
@@ -513,19 +517,22 @@ export const inboundMail = {
 
   address: {
     dialogTitle: 'Project mail address',
-    dialogDescription: 'So correspondence lands in the project without anyone downloading it from a mail program and uploading it again.',
+    lead: 'Put this address in Cc when you write about the project. The replies then land in Project mail under Files.',
     label: 'Project mail address',
     copy: 'Copy',
+    copied: 'Copied',
     saveContact: 'Save as contact',
-    contactName: '{productName}\u00A0· {project}',
-    contactNote:
-      '{productName} files your own mail to this address that your domain verifies directly, when you may file in the project; other mail waits until someone files it.',
-    usesLabel: 'What the address is for',
-    uses: {
-      cc: 'Put it in Cc when you write to the authority, the structural engineer or the client: the replies land in Project mail.',
-      forward: 'Forward documents to it from your mail program.',
-      held: 'Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits until someone files it; mail from outside the office for {days} days.',
+    contactHint: 'Downloads a contact card (.vcf) for Outlook or your phone',
+    contactName: '{productName} · {project}',
+    contactNote: 'Put this address in Cc when you write about the project. The replies then land in the project’s Project mail in {productName}.',
+    share: {
+      label: 'Send by email …',
+      hint: 'Opens a new email with the address, for example to your team',
+      subject: 'Project mail address of {project}',
+      body: 'Put this address in Cc when you write about the project:\n\n{address}\n\nThe replies then land in the project’s Project mail in {productName}.',
     },
+    held: '{productName} files your own mail to this address directly when your domain verifies it and you may file in the project. Everything else waits in Project mail until someone files it; mail from outside the office for {days} days.',
+    notPostfach: 'Project mail collects mail sent to the project. The Inbox shows notices for you.',
     tileLead: 'Put in Cc, it brings the replies of the authority, the structural engineer and the client into Project mail, ready to file.',
     openInbox: 'Open Project mail',
     guide: 'Guide',
@@ -538,17 +545,21 @@ export const inboundMail = {
     loadError: 'The project mail address could not be loaded.',
     lastReceived: 'Last mail received {time}',
     nothingReceived: 'No mail received yet',
-    sizeLimit: 'Attachments up to about {attachments} MB per mail.',
+    sizeLimit: 'Up to {limit} MB per mail, attachments together about {attachments} MB. A larger mail goes back to its sender as undeliverable.',
     uploadInstead: 'Upload larger files directly',
     dropped: '{count, plural, one {# automatic reply or delivery report in the last {days} days, not shown} other {# automatic replies or delivery reports in the last {days} days, not shown}}',
+    manage: 'Manage the address',
     rotate: 'Create a new address …',
+    rotateHint: 'The current one stops working at once.',
     rotateTitle: 'Create a new address?',
     rotateText:
-      'The current address stops working at once; mail sent to it is refused. Everyone following a mail thread of this project stops following it. Give the new address to everyone who sends documents to this project.',
+      'The current address stops working at once. Mail sent to it goes back to its sender as undeliverable. Mail already waiting in Project mail stays there and can still be filed. Replies are no longer filed without a click in any mail thread of the project until someone switches it on again. Put the new address in your Outlook rules and give it to everyone who writes to the project.',
     rotateConfirm: 'Create new address',
     switchOff: 'Switch off …',
+    switchOffHint: 'New mail to the project no longer arrives.',
     switchOffTitle: 'Switch off the project mail address?',
-    switchOffText: 'Mail to this address is refused from now on. Mail already waiting in Project mail stays there.',
+    switchOffText:
+      'From now on mail to this address goes back to its sender as undeliverable. Mail already waiting in Project mail stays there and can still be filed. Replies are no longer filed without a click in any mail thread of the project. This address does not come back: to receive mail again later, create a new one.',
     switchOffConfirm: 'Switch off',
     cancel: 'Cancel',
     rotated: 'New address created',
@@ -560,16 +571,19 @@ export const inboundMail = {
       explain: 'Mail your domain signs is labelled “Domain verified” and is filed directly when its sender may file in the project. A mail carrying a member’s address that their domain does not verify waits until that member, or someone who checked it is from them, files it.',
     },
     setup: {
-      title: 'How correspondence reaches the project',
-      cc: 'Cc: put {address} in Cc when you write to the authority, the engineer or the client.',
-      forward:
-        'Forward: redirect your existing email address for the project to {address} with an Outlook rule (“redirect”, not “forward”) and enter it below.',
+      title: 'For IT: setup',
+      summary: 'Redirecting from Outlook',
+      summarySettings: 'Redirecting from Outlook, existing addresses, your domain’s signature',
+      redirect:
+        'If the project already has its own address in your office, such as project@your-office.com, redirect it to {address} with an Outlook rule. Choose “redirect”, not “forward”: otherwise every mail arrives with the existing address as its sender, and who wrote it can no longer be checked. Then enter the existing address in the project settings under Documents.',
+      redirectSettings:
+        'If the project already has its own address in your office, such as project@your-office.com, redirect it to {address} with an Outlook rule. Choose “redirect”, not “forward”: otherwise every mail arrives with the existing address as its sender, and who wrote it can no longer be checked. Then enter the existing address below.',
       copy: 'Copy instructions',
       copied: 'Instructions copied',
     },
     forwards: {
       title: 'Existing email addresses for the project',
-      explain: 'Forward your existing email address for the project to this address, for example with an Outlook rule.',
+      explain: 'A mail to one of these addresses that your office redirects here counts as sent to the project.',
       label: 'Existing email address for the project',
       placeholder: 'project@your-office.com',
       add: 'Add',
@@ -584,16 +598,16 @@ export const inboundMail = {
   },
 
   follow: {
-    offer: 'Follow',
-    thread: 'Mail thread “{name}”',
+    offer: 'Switch on',
+    thread: 'File replies in “{name}” without a click',
     explain:
-      'Replies from verified domains already writing in the mail thread are added without a click. Attachments keep waiting here.',
-    busy: 'Following …',
-    following: 'You follow “{name}”',
-    followingExplain: 'From now on, replies from verified domains already writing in the mail thread are added without a click. Attachments keep waiting here.',
-    unfollow: 'Stop following',
-    unfollowBusy: 'Stopping …',
+      'For {days} days, further replies from people whose domain is verified go into this mail thread in your name, their attachments here. You can end it at any time.',
+    busy: 'Switching on …',
+    following: 'Replies in “{name}” are filed without a click',
+    followingExplain: 'In your name, for {days} days. Attachments keep waiting here. “End” stops it.',
+    unfollow: 'End',
+    unfollowBusy: 'Ending …',
     undo: 'Undo',
-    failed: 'Following did not work. Try again.',
+    failed: 'That did not work. Try again.',
   },
 }
