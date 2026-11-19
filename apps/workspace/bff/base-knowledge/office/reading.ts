@@ -20,7 +20,7 @@ const KNOWN_AUTHORITIES: readonly { pattern: RegExp; addressee: Addressee }[] = 
 ]
 
 const DESIGNATION =
-  /(?<![\p{L}\d])(ÖNORM|ONORM|OENORM|DIN|EN|ISO|SIA|OIB[- ](?:Richtlinie|RL))\s*((?:EN\s+|ISO\s+)*[A-Z]?\s?(\d+)(?:[-.]\d+)*)(?:\s*[:]\s*(\d{4}(?:-\d{2}(?:-\d{2})?)?))?/giu
+  /(?<![\p{L}\d])(ÖNORM|ONORM|OENORM|DIN|EN|ISO|SIA|OIB[- ](?:Richtlinie|RL))(?:\s+|(?=\d))((?:EN\s+|ISO\s+)*[A-Z]?\s?(\d+)(?:[-.]\d+)*)(?:\s*[:]\s*(\d{4}(?:-\d{2}(?:-\d{2})?)?))?/giu
 const SHORTEST_STANDARD_NUMBER = 3
 
 const DAY = /(?<!\d)((?:19|20)\d{2})[-_ ](0[1-9]|1[0-2])[-_ ](0[1-9]|[12]\d|3[01])(?!\d)/
@@ -49,10 +49,11 @@ function prefixOf(raw: string): string {
   return upper
 }
 
-interface Designation {
+export interface Designation {
   designation: string
   prefix: string
   edition: string | null
+  start: number
   end: number
 }
 
@@ -60,16 +61,19 @@ function isStandardNumber(prefix: string, leadingDigits: string): boolean {
   return prefix === 'OIB-Richtlinie' || leadingDigits.length >= SHORTEST_STANDARD_NUMBER
 }
 
-export function readDesignation(text: string): Designation | null {
-  for (const match of text.matchAll(DESIGNATION)) {
+export function readDesignations(text: string): Designation[] {
+  return [...text.matchAll(DESIGNATION)].flatMap((match) => {
     const prefix = prefixOf(match[1])
-    if (!isStandardNumber(prefix, match[3])) continue
+    if (!isStandardNumber(prefix, match[3])) return []
     const number = match[2].replace(/\s+/g, ' ').trim()
     const edition = match[4] ?? null
     const base = `${prefix} ${number}`
-    return { designation: edition ? `${base}:${edition.slice(0, 4)}` : base, prefix, edition, end: match.index + match[0].length }
-  }
-  return null
+    return [{ designation: edition ? `${base}:${edition.slice(0, 4)}` : base, prefix, edition, start: match.index, end: match.index + match[0].length }]
+  })
+}
+
+export function readDesignation(text: string): Designation | null {
+  return readDesignations(text)[0] ?? null
 }
 
 const BARE_STANDARD_NUMBER = /^([AB])[ _-]?(\d{4}(?:-\d+)*)(?=[ _.-]|$)/i

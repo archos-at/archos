@@ -222,7 +222,7 @@ export const baseKnowledge = {
   norms: {
     titleOne: '1 Norm erkannt',
     title: '{count} Normen erkannt',
-    body: '{productName} hat Art, Bezeichnung und Ausgabe aus dem Dateinamen gelesen und ein Thema vorgeschlagen. Was keine Norm ist, stellen Sie auf „Keine Norm“, dann kommt es zurück in seinen Ordner. Die Normen warten unter Normen & Richtlinien, bis Sie sie bestätigen.',
+    body: '{productName} hat Art, Bezeichnung und Ausgabe aus Titelseite oder Dateiname gelesen und ein Thema vorgeschlagen. Was keine Norm ist, stellen Sie auf „Keine Norm“, dann kommt es zurück in seinen Ordner. Die Normen warten unter Normen & Richtlinien, bis Sie sie bestätigen.',
     column: { kind: 'Art', designation: 'Bezeichnung', edition: 'Ausgabe', topic: 'Thema' },
     notNorm: 'Keine Norm',
     editionMissing: 'Ausgabe fehlt',
@@ -230,6 +230,8 @@ export const baseKnowledge = {
     noTopic: 'Ohne Thema',
     newEdition: 'neue Ausgabe von {designation} (bisher {edition})',
     duplicate: 'diese Ausgabe liegt schon in der Büroablage und wird nicht doppelt abgelegt',
+    coverEdition: 'Ausgabe laut Titelseite (Dateiname: {fileName})',
+    coverDesignation: 'Bezeichnung laut Titelseite (Dateiname: {fileName})',
     topicOfWork: 'Thema wie bisher',
     plainOne: '1 weitere Datei ist keine Norm und liegt unter {place}.',
     plain: '{count} weitere Dateien sind keine Normen und liegen unter {place}.',

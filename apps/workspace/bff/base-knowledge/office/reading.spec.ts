@@ -55,6 +55,11 @@ describe('what the reading proposes for a base-knowledge document', () => {
     expect(readDesignation('DIN 4109-1:2018-01')?.designation).toBe('DIN 4109-1:2018')
   })
 
+  it('reads a prefix only as a word of its own, so a prestandard is not taken for its standard', () => {
+    expect(readDesignation('Supersedes ENV 1991-1:1994')).toBeNull()
+    expect(readDesignation('DIN4109-1')?.designation).toBe('DIN 4109-1')
+  })
+
   it.each([
     ['EN_1991-1-1.pdf', 'unbekannt', null],
     ['OENORM_EN_1990.pdf', 'unbekannt', null],

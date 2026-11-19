@@ -146,6 +146,20 @@ describe('recognising an upload', () => {
     ])
   })
 
+  it('names where the cover page disagreed with the file name, and nothing for a proposal read from its name', async () => {
+    const overrode = [{ field: 'editionLabel' as const, fileName: '2017-04-01' }]
+    const covered = stored(
+      { documentId: 'doc-edition', provenance: { proposedBy: 'reading', cover: { read: { designation: 'cover', editionLabel: 'cover', title: 'cover' }, overrode, replaces: [] } } },
+      { editionLabel: '2023-02-01' },
+    )
+    const named = stored({ documentId: 'doc-norm' }, { designation: 'ÖNORM B 8110-3', editionLabel: '2020-03-15' })
+    vi.mocked(readOfficeEntries).mockResolvedValue([covered, named])
+
+    const answer = await recognizeUploads(MANAGER, { documentIds: ['doc-edition', 'doc-norm'] })
+
+    expect(answer.proposals.map((proposal) => proposal.coverOverrode)).toEqual([overrode, []])
+  })
+
   it('flags an edition the office already holds as a duplicate', async () => {
     const same = stored({ documentId: 'doc-same', workId: B1600.workId }, { editionLabel: '2017-04-01' })
     vi.mocked(readOfficeEntries).mockResolvedValueOnce([B1600]).mockResolvedValueOnce([B1600, same])

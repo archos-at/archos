@@ -228,6 +228,28 @@ describe('uploading as base knowledge', () => {
     )
   })
 
+  it('keeps on the proposal what the cover page said, its values over the file name’s', async () => {
+    vi.mocked(insertProposedEntry).mockResolvedValue({ workId: 'work_1', editionId: 'edition_1', copyId: 'manifestation_1' })
+    const cover = {
+      read: { designation: 'cover', editionLabel: 'cover', title: 'cover' },
+      overrode: [{ field: 'editionLabel', fileName: '2017-04-01' }],
+      replaces: [{ designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' }],
+    } as const
+    await recordProposal(
+      MANAGER,
+      { documentId: 'doc-1', designation: 'ÖNORM B 1600', editionLabel: '2023-02-01', issuedOn: '2023-02-01', title: 'Barrierefreies Bauen' },
+      'OENORM_B_1600_2017-04-01.pdf',
+      'reading',
+      undefined,
+      { filedFrom: { folderId: null }, cover: { ...cover, overrode: [...cover.overrode], replaces: [...cover.replaces] } },
+    )
+    expect(insertProposedEntry).toHaveBeenCalledWith(
+      'doc-1',
+      expect.objectContaining({ editionLabel: '2023-02-01', issuedOn: '2023-02-01', title: 'Barrierefreies Bauen' }),
+      expect.objectContaining({ provenance: { proposedBy: 'reading', filedFrom: { folderId: null }, cover } }),
+    )
+  })
+
   it('proposes the stored document when the shelf already held these bytes', async () => {
     vi.mocked(uploadOfficeShelfDocument).mockResolvedValue({
       documentId: 'doc-1',

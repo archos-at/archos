@@ -26,3 +26,8 @@ features:
     in your folders; "Rückgängig" brings it back as it was, with its editions,
     checks and topic. A norm you bought is read like any other once you
     confirm it.
+  - >
+    For an uploaded norm, ARCHOS reads the edition and designation from its
+    title page and says in the dialog where they differ from the file name.
+    When the title page names an edition you hold as replaced, that copy shows
+    "Abgelöst" once you confirm the new one.

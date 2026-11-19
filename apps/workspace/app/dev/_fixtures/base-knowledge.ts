@@ -305,13 +305,14 @@ export const NORM_RECOGNITION: NormRecognition = {
     {
       entryId: 'recognised-b1600',
       documentId: 'doc_recognised_b1600',
-      fileName: 'OENORM_B_1600_2023-02-01_de.pdf',
+      fileName: 'OENORM_B1600_2017-04-01_neu.pdf',
       kind: 'technical_standard',
       designation: 'ÖNORM B 1600',
       editionLabel: '2023-02-01',
       topicId: FOLDER_IDS.access,
       editionOf: { entryId: 'edition_oenorm-b-1600', designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' },
       duplicate: false,
+      coverOverrode: [{ field: 'editionLabel', fileName: '2017-04-01' }],
     },
     {
       entryId: 'recognised-ma37',

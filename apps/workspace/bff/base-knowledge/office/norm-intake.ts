@@ -9,7 +9,10 @@ import {
   type OfficeShelfUploadInput,
   type UploadOfficeShelfDocumentResult,
 } from '@/lib/office-shelf/service'
+import { readCoverText } from '@/lib/pdf/cover-text'
 import { readOfficeEntries, type StoredEntry } from '../store/repository'
+import type { ProposeEntryBody } from '../wire'
+import { proposalReading, readCover, type CoverReading } from './cover-page'
 import { isStandardsFolder, standardsRoot } from './folders'
 import { confirmedWorkOf } from './proposal-match'
 import { recognizeNorm } from './reading'
@@ -17,6 +20,11 @@ import { recordProposal } from './service'
 import { withholdText } from './text-effects'
 
 const proposalBody = (documentId: string, designation: string | null) => (designation ? { documentId, designation } : { documentId })
+
+async function coverOf(file: File): Promise<CoverReading | null> {
+  const text = await readCoverText(file)
+  return text ? readCover(text) : null
+}
 
 export async function uploadToOfficeShelf(
   session: AuthorizedSession,
@@ -27,14 +35,17 @@ export async function uploadToOfficeShelf(
   const from = input.folderId ?? null
   const reading = isOfficeStandardsEnabled(session) && canManageOfficeShelf(session) && !input.revisionOf ? recognizeNorm({ fileName: file.name }) : null
   if (!reading?.norm || (from && (await isStandardsFolder(session, from)))) return uploadOfficeShelfDocument(session, file, request, input)
-  const [root, entries] = await Promise.all([standardsRoot(session.organizationId), readOfficeEntries(session.organizationId)])
-  const { designation } = reading
+  const [root, entries, cover] = await Promise.all([standardsRoot(session.organizationId), readOfficeEntries(session.organizationId), coverOf(file)])
+  const read = proposalReading(file.name, reading.designation, cover)
+  const designation = read.values.designation ?? null
   return uploadOfficeShelfDocument(session, file, request, {
     ...input,
     folderId: root.id,
     beforeDispatch: async (documentId) => {
-      await recordProposal(session, proposalBody(documentId, designation), file.name, 'reading', confirmedWorkOf(entries, designation), {
+      const body: ProposeEntryBody = { documentId, ...read.values }
+      await recordProposal(session, body, file.name, 'reading', confirmedWorkOf(entries, designation), {
         filedFrom: { folderId: from },
+        ...(read.cover ? { cover: read.cover } : {}),
       })
     },
   })

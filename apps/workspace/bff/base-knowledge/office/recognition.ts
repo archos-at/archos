@@ -57,6 +57,7 @@ function proposalOf(
       ? { entryId: latest.editionId, designation: latest.values.designation, editionLabel: latest.values.editionLabel }
       : null,
     duplicate: isDuplicateEdition(entry.values.editionLabel, held),
+    coverOverrode: entry.provenance.cover?.overrode ?? [],
   }
 }
 

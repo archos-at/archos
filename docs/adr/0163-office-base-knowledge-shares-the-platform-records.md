@@ -368,3 +368,35 @@ or the 50-file cut could skip, and the folder scan never looks at the top level.
   moved by an upload batch's filing proposals (`reviewUploadFiling`).
 - **Feedback for a guideline the platform holds**: a lone OIB guideline uploaded on the norms tab is announced as
   one ARCHOS already knows, and on the Ordner tab, which says nothing about ordinary files, it is announced too.
+
+## Amendment 2026-11-19: the cover page tells the edition
+
+File names often lack the edition or carry a wrong one, while every ÖNORM's first page states its designation,
+its edition („Ausgabe: 2023-02-01“) and what it replaces („Ersatz für ÖNORM B 1600:2017-04-01“); EN and DIN
+covers and a directive's date line do the same.
+
+- **The upload reads the cover before it records the proposal** (`uploadToOfficeShelf`): for a file `recognizeNorm`
+  calls a norm, `readCoverText` (`bff/pdf/cover-text.ts`) reads page 1's text from the bytes the upload holds, or
+  page 2's when page 1 has no text (a cover image), through pdf.js's legacy build in the BFF. `pdfjs-dist` is already
+  a production dependency for the viewer; it is a `serverExternalPackages` entry so it loads from `node_modules` with
+  its own worker module. The read is bounded by `COVER_READ_MS` (1.5 s, about 120 ms to load pdf.js once per process
+  and tens of milliseconds a cover); a scan without text, a file that is not a PDF, a password, an error or the
+  timeout leave the file name's reading, silently. No backend call: the Python tier has no first-page endpoint, and
+  sending the bytes there would cost more than reading one page here.
+- **Only values are kept.** `readCover` (`bff/base-knowledge/office/cover-page.ts`) extracts the designation, title,
+  edition and every replaced edition; `proposalReading` prefers the cover over the file name (keeping the file
+  name's day when the cover gives only its month) and writes the result as the proposal's values, and
+  `provenance.cover` records where each came from (`read`), where the cover disagreed with the file name
+  (`overrode`) and what it replaces (`replaces`). The page text is never stored or indexed, and the text stays held
+  until the proposal is confirmed. A proposal a person revised drops `provenance.cover`. An Ordner file taken as a
+  norm later (`takeAsNorm`) is read by its name, as before: its bytes are not at hand.
+- **The norm dialog** prefills from these values and says „Ausgabe laut Titelseite“ or „Bezeichnung laut
+  Titelseite“ with the file name's value while the field is unchanged (`NormProposal.coverOverrode`).
+- **„Abgelöst“ follows without a new rule.** The new edition joins the held work by the cover's designation
+  (`confirmedWorkOf`), so a file name spelled otherwise („OENORM_B1600_neu.pdf“) still finds it, and it carries the
+  cover's day as `issuedOn`, so once confirmed `editionsOf` makes it the edition in force and `editionReplaced` marks
+  the held one. `listing.ts`, `freshness.ts` and the inbox are unchanged. A replaced edition under another number (a
+  renumbered norm) is recorded in `replaces` but not linked: joining it to the old work would show the new edition
+  under the old designation.
+- `readDesignation` reads a prefix only as a word of its own (followed by a space or a digit), so „ENV 1991-1“ on
+  a cover is not taken for EN 1991-1.

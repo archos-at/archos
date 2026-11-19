@@ -222,7 +222,7 @@ export const baseKnowledge = {
   norms: {
     titleOne: '1 standard recognised',
     title: '{count} standards recognised',
-    body: '{productName} read the kind, designation and edition from the file name and suggested a topic. Set anything that is not a standard to “Not a standard” and it goes back to its folder. The standards wait under Standards & guidelines until you confirm them.',
+    body: '{productName} read the kind, designation and edition from the title page or the file name and suggested a topic. Set anything that is not a standard to “Not a standard” and it goes back to its folder. The standards wait under Standards & guidelines until you confirm them.',
     column: { kind: 'Kind', designation: 'Designation', edition: 'Edition', topic: 'Topic' },
     notNorm: 'Not a standard',
     editionMissing: 'Edition missing',
@@ -230,6 +230,8 @@ export const baseKnowledge = {
     noTopic: 'No topic',
     newEdition: 'new edition of {designation} (so far {edition})',
     duplicate: 'this edition is already in Office filing and is not filed twice',
+    coverEdition: 'Edition from the title page (file name: {fileName})',
+    coverDesignation: 'Designation from the title page (file name: {fileName})',
     topicOfWork: 'Topic as before',
     plainOne: '1 more file is not a standard and lies in {place}.',
     plain: '{count} more files are not standards and lie in {place}.',

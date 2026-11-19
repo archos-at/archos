@@ -53,6 +53,20 @@ export interface KnowledgeProvenance {
   text?: KnowledgeTextProvenance
   imported?: { bundle: string; sha256?: string }
   filedFrom?: { folderId: string | null }
+  cover?: KnowledgeCoverReading
+}
+
+export type KnowledgeReadSource = 'cover' | 'file_name'
+
+export interface KnowledgeCoverOverride {
+  field: 'designation' | 'editionLabel'
+  fileName: string
+}
+
+export interface KnowledgeCoverReading {
+  read: { designation: KnowledgeReadSource | null; editionLabel: KnowledgeReadSource | null; title: KnowledgeReadSource }
+  overrode: KnowledgeCoverOverride[]
+  replaces: { designation: string; editionLabel: string | null }[]
 }
 
 export type FetchSourceOrigin = 'built_in' | 'released' | 'draft'

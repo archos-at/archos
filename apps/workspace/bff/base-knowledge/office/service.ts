@@ -255,7 +255,7 @@ export async function recordProposal(
   fileName: string,
   proposedBy: KnowledgeProvenance['proposedBy'],
   editionOf?: StoredEntry,
-  { filedFrom }: Pick<KnowledgeProvenance, 'filedFrom'> = {}
+  { filedFrom, cover }: Pick<KnowledgeProvenance, 'filedFrom' | 'cover'> = {}
 ): Promise<string> {
   if (await documentHasEntry(session.organizationId, body.documentId)) {
     throw new ConflictError('This document is already recorded as base knowledge; edit that entry instead.')
@@ -263,7 +263,7 @@ export async function recordProposal(
   const given = valuesOf(body)
   const values = merged(proposeFromReading({ fileName }, subdivisionTerritories(await readSetupRecords(session.organizationId))), given)
   const source = Object.values(given).some((value) => value !== undefined) ? proposedBy : 'reading'
-  const provenance: KnowledgeProvenance = filedFrom ? { proposedBy: source, filedFrom } : { proposedBy: source }
+  const provenance: KnowledgeProvenance = { proposedBy: source, ...(filedFrom ? { filedFrom } : {}), ...(cover ? { cover } : {}) }
   const context = { organizationId: session.organizationId, createdBy: session.userId, provenance, terms: {} }
   const ids = editionOf
     ? await insertEditionOfWork(body.documentId, editionOf, { ...editionOf.values, ...editionValues(values), licenceClass: editionOf.values.licenceClass }, context)

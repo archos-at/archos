@@ -70,7 +70,13 @@ the Ordner tab's: search, „Alle Arten“, „Thema anlegen“, **Hochladen**, 
 reads the file names as they arrive: a norm goes straight under Normen &
 Richtlinien, never into the folder you uploaded to, and one dialog opens for the
 norms: Art, Bezeichnung, Ausgabe and Thema, proposed from the name, which you
-correct and **Bestätigen**. **Keine Norm** turns a row back into an ordinary file
+correct and **Bestätigen**. For a PDF, ARCHOS also reads the norm's title page
+(the first page with text) for its Bezeichnung, title and Ausgabe and prefers
+them to the file name; where they disagree, the dialog says „Ausgabe laut
+Titelseite“ and what the file name said. A scan without text is read by its name
+alone. Only these values are kept, never the page's text. When the title page
+names the Ausgabe it replaces („Ersatz für …“) and you hold it, the earlier copy
+shows „Abgelöst“ once you confirm the new one. **Keine Norm** turns a row back into an ordinary file
 in the folder it was uploaded to (the top level if that folder is gone), and ARCHOS
 does not offer it as a norm again. **Später** leaves the rows waiting under „Zu
 bestätigen“. A file that is a newer Ausgabe of a norm you hold is added beside the

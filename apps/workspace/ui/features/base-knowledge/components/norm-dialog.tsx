@@ -75,6 +75,16 @@ export function settledSummary(t: Translate, { results }: SettleProposalsResult,
   return parts.length > 0 ? parts.join(', ') : t('norms.result.saved')
 }
 
+type CoverField = NonNullable<NormProposal['coverOverrode']>[number]['field']
+
+function coverOverride(proposal: NormProposal, field: CoverField, current: string): string | null {
+  const proposed = (field === 'designation' ? proposal.designation : proposal.editionLabel) ?? ''
+  const override = proposal.coverOverrode?.find((candidate) => candidate.field === field)
+  return override && current === proposed ? override.fileName : null
+}
+
+const describedBy = (...ids: (string | null)[]) => ids.filter(Boolean).join(' ') || undefined
+
 function topicLabel(path: string): string {
   return path.split('/').slice(1).join(' › ') || path
 }
@@ -104,6 +114,10 @@ function ProposalRow({
       ? t('norms.newEdition', { designation: proposal.editionOf.designation ?? '', edition: proposal.editionOf.editionLabel })
       : null
   const infoId = `norm-dialog-info-${proposal.entryId}`
+  const coverDesignation = off ? null : coverOverride(proposal, 'designation', row.designation)
+  const coverEdition = off ? null : coverOverride(proposal, 'editionLabel', row.editionLabel)
+  const coverDesignationId = `norm-dialog-cover-designation-${proposal.entryId}`
+  const coverEditionId = `norm-dialog-cover-edition-${proposal.entryId}`
   return (
     <div role="row" className={normRow(topics ? NORM_COLUMNS : NORM_COLUMNS_WITHOUT_TOPIC)} data-testid="norm-dialog-row">
       <div role="cell" className="min-w-0">
@@ -128,9 +142,14 @@ function ProposalRow({
           onChange={(event) => onChange({ ...row, designation: event.target.value })}
           placeholder={t('norms.designationMissing')}
           aria-label={`${t('norms.column.designation')}: ${proposal.fileName}`}
-          aria-describedby={info ? infoId : undefined}
+          aria-describedby={describedBy(info ? infoId : null, coverDesignation !== null ? coverDesignationId : null)}
           className="h-8 w-full min-w-0"
         />
+        {coverDesignation !== null && (
+          <span id={coverDesignationId} className="text-xs text-muted-foreground" data-testid="norm-dialog-cover-designation">
+            {t('norms.coverDesignation', { fileName: coverDesignation })}
+          </span>
+        )}
         <span className="truncate text-xs text-muted-foreground" title={proposal.fileName}>
           {proposal.fileName}
         </span>
@@ -140,16 +159,22 @@ function ProposalRow({
           {info}
         </p>
       )}
-      <div role="cell" className="min-w-0">
+      <div role="cell" className="flex min-w-0 flex-col gap-1">
         <Input
           value={row.editionLabel}
           disabled={disabled || off}
           placeholder={t('norms.editionMissing')}
           aria-invalid={missing || undefined}
+          aria-describedby={describedBy(coverEdition !== null ? coverEditionId : null)}
           onChange={(event) => onChange({ ...row, editionLabel: event.target.value })}
           aria-label={`${t('norms.column.edition')}: ${proposal.fileName}`}
           className={cn('h-8 w-full min-w-0 tabular-nums', off && 'opacity-60')}
         />
+        {coverEdition !== null && (
+          <span id={coverEditionId} className="text-xs text-muted-foreground" data-testid="norm-dialog-cover-edition">
+            {t('norms.coverEdition', { fileName: coverEdition })}
+          </span>
+        )}
       </div>
       {topics && (
         <div role="cell" className="min-w-0">

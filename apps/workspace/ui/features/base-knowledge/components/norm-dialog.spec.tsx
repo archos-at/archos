@@ -83,6 +83,40 @@ describe('NormDialog', () => {
     expect(screen.getByTestId('norm-dialog').className).toContain('sm:max-w-4xl')
   })
 
+  it('prefills the cover’s edition and designation, says where they disagreed with the file name, and stops saying so once edited', async () => {
+    const recognition: NormRecognition = {
+      ...RECOGNITION,
+      proposals: [
+        proposal('cover', {
+          fileName: 'OENORM_B_1601_2017-04-01.pdf',
+          designation: 'ÖNORM B 1600',
+          editionLabel: '2023-02-01',
+          coverOverrode: [
+            { field: 'designation', fileName: 'ÖNORM B 1601' },
+            { field: 'editionLabel', fileName: '2017-04-01' },
+          ],
+        }),
+        proposal('named', { coverOverrode: [] }),
+      ],
+    }
+    render(
+      <I18nProvider initialLocale="de" fixedLocale>
+        <NormDialog recognition={recognition} onClose={vi.fn()} onSettled={vi.fn()} />
+      </I18nProvider>,
+    )
+    const edition = screen.getByRole('textbox', { name: 'Ausgabe: OENORM_B_1601_2017-04-01.pdf' })
+    const designation = screen.getByRole('textbox', { name: 'Bezeichnung: OENORM_B_1601_2017-04-01.pdf' })
+    expect(edition).toHaveValue('2023-02-01')
+    expect(edition).toHaveAccessibleDescription('Ausgabe laut Titelseite (Dateiname: 2017-04-01)')
+    expect(designation).toHaveValue('ÖNORM B 1600')
+    expect(designation).toHaveAccessibleDescription('Bezeichnung laut Titelseite (Dateiname: ÖNORM B 1601)')
+    expect(screen.getAllByTestId('norm-dialog-cover-edition')).toHaveLength(1)
+
+    await userEvent.type(edition, '5')
+    expect(screen.queryByTestId('norm-dialog-cover-edition')).not.toBeInTheDocument()
+    expect(screen.getByTestId('norm-dialog-cover-designation')).toBeInTheDocument()
+  })
+
   it('asks for a designation where the file name gave none', () => {
     renderDialog()
     expect(screen.getByRole('textbox', { name: 'Bezeichnung: Haus_A_Weisung_Entwurf.pdf' })).toHaveAttribute('placeholder', 'Bezeichnung eintragen')

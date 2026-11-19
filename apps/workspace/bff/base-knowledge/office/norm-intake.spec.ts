@@ -11,6 +11,7 @@ vi.mock('./folders', () => ({
 vi.mock('./service', () => ({ recordProposal: vi.fn(async () => 'edition_new') }))
 vi.mock('./text-effects', () => ({ withholdText: vi.fn(async () => true) }))
 
+import { NORM_COVERS, normCoverFile } from '@/app/dev/_fixtures/norm-covers'
 import { UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
@@ -83,6 +84,53 @@ describe('an upload to the Büroablage', () => {
     await uploadToOfficeShelf(MANAGER, pdf('OENORM_B_1600_2023-02-01_de.pdf'), request)
 
     expect(vi.mocked(recordProposal).mock.calls[0][4]).toBe(B1600)
+  })
+
+  it('takes designation, edition and title from the cover page, and finds the held work under a file name spelled otherwise', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValueOnce([B1600])
+
+    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.onorm, 'OENORM_B1600_neu.pdf'), request)
+
+    const [, body, , , editionOf, provenance] = vi.mocked(recordProposal).mock.calls[0]
+    expect(body).toEqual({
+      documentId: 'doc-new',
+      designation: 'ÖNORM B 1600',
+      editionLabel: '2023-02-01',
+      issuedOn: '2023-02-01',
+      title: 'Barrierefreies Bauen - Planungsgrundlagen',
+    })
+    expect(editionOf).toBe(B1600)
+    expect(provenance?.cover).toMatchObject({ read: { designation: 'cover', editionLabel: 'cover' }, overrode: [] })
+  })
+
+  it('records the edition of the cover over a wrong one in the file name, and that they disagreed', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValueOnce([B1600])
+
+    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.disagrees), request, { folderId: 'folder-plans' })
+
+    const [, body, , , editionOf, provenance] = vi.mocked(recordProposal).mock.calls[0]
+    expect(body).toMatchObject({ editionLabel: '2023-02-01', issuedOn: '2023-02-01' })
+    expect(editionOf).toBe(B1600)
+    expect(provenance).toEqual({
+      filedFrom: { folderId: 'folder-plans' },
+      cover: expect.objectContaining({
+        overrode: [{ field: 'editionLabel', fileName: '2017-04-01' }],
+        replaces: expect.arrayContaining([{ designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' }]),
+      }),
+    })
+  })
+
+  it('reads a scan without text from its file name alone', async () => {
+    await uploadToOfficeShelf(MANAGER, normCoverFile(NORM_COVERS.scan), request, { folderId: 'folder-plans' })
+
+    expect(recordProposal).toHaveBeenCalledWith(
+      MANAGER,
+      { documentId: 'doc-new', designation: 'ÖNORM B 1300' },
+      'OENORM_B_1300_2012.pdf',
+      'reading',
+      undefined,
+      { filedFrom: { folderId: 'folder-plans' } },
+    )
   })
 
   it.each([

@@ -263,6 +263,7 @@ export interface NormProposal {
   topicId: string | null
   editionOf: { entryId: string; designation: string | null; editionLabel: string } | null
   duplicate: boolean
+  coverOverrode?: { field: 'designation' | 'editionLabel'; fileName: string }[]
 }
 
 export interface PlainUpload {
