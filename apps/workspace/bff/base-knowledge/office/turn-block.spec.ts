@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BaseKnowledgeEntry } from '../wire'
 import { projectTerritory } from './authority'
 import {
@@ -9,8 +9,20 @@ import {
   MAX_TURN_ENTRIES,
   MAX_TURN_LINE_CHARS,
   renderBaseKnowledgeBlock,
+  UNATTESTED_RULE,
 } from './turn-block'
 import { AT_SUBDIVISIONS } from '@/lib/project-intake/at-setup.fixtures'
+
+const licenceStep = vi.hoisted(() => ({ ask: true }))
+vi.mock('@/lib/base-knowledge/wire/licence-step', () => ({
+  get ASK_FOR_LICENCE() {
+    return licenceStep.ask
+  },
+}))
+
+beforeEach(() => {
+  licenceStep.ask = true
+})
 
 function entry(overrides: Partial<BaseKnowledgeEntry['values']> = {}, rest: Partial<BaseKnowledgeEntry> = {}): BaseKnowledgeEntry {
   return {
@@ -58,10 +70,28 @@ const VIENNA = projectTerritory({ federalState: 'vienna' }, AT_SUBDIVISIONS)
 const GRAZ = projectTerritory({ federalState: 'styria' }, AT_SUBDIVISIONS)
 const UNKNOWN = projectTerritory({}, AT_SUBDIVISIONS)
 
+describe('the base knowledge a turn carries while the office is not asked about licences', () => {
+  beforeEach(() => {
+    licenceStep.ask = false
+  })
+
+  it('says nothing about a licence, of the header or of a licensed copy', () => {
+    const block = renderBaseKnowledgeBlock([entry()], VIENNA) ?? ''
+    expect(block.split('\n')[0]).toBe(BASE_KNOWLEDGE_HEADER)
+    expect(block).toContain('ÖNORM B 1600:2017 „Barrierefreies Bauen“: technical standard, edition 2017-04-01')
+    expect(block).not.toMatch(/licen[cs]e|LISTED ONLY|attest/i)
+  })
+
+  it('carries no proposal, licensed or not', () => {
+    expect(renderBaseKnowledgeBlock([entry({}, { status: 'proposed', textUse: 'metadata_only', aiProcessingAttestedAt: null })], VIENNA)).toBeNull()
+    expect(renderBaseKnowledgeBlock([entry({ licenceClass: 'public_open' }, { status: 'proposed' })], VIENNA)).toBeNull()
+  })
+})
+
 describe('the base knowledge a turn carries', () => {
   it('names the standard, its edition, its file and its last check', () => {
     const block = renderBaseKnowledgeBlock([entry()], VIENNA)
-    expect(block?.split('\n')[0]).toBe(BASE_KNOWLEDGE_HEADER)
+    expect(block?.split('\n')[0]).toBe(`${BASE_KNOWLEDGE_HEADER} ${UNATTESTED_RULE}`)
     expect(block).toContain('ÖNORM B 1600:2017 „Barrierefreies Bauen“: technical standard, edition 2017-04-01')
     expect(block).toContain('file „ÖNORM B 1600.pdf“')
     expect(block).toContain('licensed copy')

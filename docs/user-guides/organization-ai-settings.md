@@ -75,8 +75,12 @@ Ausgabe of a norm you hold is added beside the earlier one; a second copy of an
 Ausgabe you hold is recognised as a duplicate. Ordinary files go to the folders
 (the toast's „In Ordnern zeigen“ goes there), and a file in a folder can still be filed with **Als Norm führen**. Nothing
 reads a norm's text (no search, no summary, no answer) until it is confirmed.
-**Nicht mehr als Norm führen** takes a norm off the tab and keeps its file in the
-Ordner. **Thema anlegen** adds a topic to sort norms into.
+**Nicht mehr als Norm führen** takes a norm off the tab at once and keeps its file
+in the Ordner; **Rückgängig** in the message that follows brings it back as it
+was, confirmed, with its Ausgaben, checks and Thema. **Als Norm führen** on that
+file later starts a fresh proposal. **Thema anlegen** adds a topic to sort norms
+into. ARCHOS does not ask about a norm's licence: a confirmed norm is read,
+whether you bought it or it is freely available.
 
 **Norms in a project or in a folder.** A norm uploaded to a project is offered
 for the Büroablage, where every project finds it: **In die Büroablage

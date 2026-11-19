@@ -21,3 +21,8 @@ features:
     Norms you had filed in ordinary Büroablage folders are found, and the
     folder offers to move them under "Normen & Richtlinien" or to leave them
     where they are.
+  - >
+    "Nicht mehr als Norm führen" takes a norm off at once and keeps its file
+    in your folders; "Rückgängig" brings it back as it was, with its editions,
+    checks and topic. A norm you bought is read like any other once you
+    confirm it.

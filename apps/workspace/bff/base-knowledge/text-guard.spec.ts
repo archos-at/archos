@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('./store/repository', () => ({ copyForDocument: vi.fn(), documentsWithEntries: vi.fn() }))
+const licenceStep = vi.hoisted(() => ({ ask: true }))
+vi.mock('@/lib/base-knowledge/wire/licence-step', () => ({
+  get ASK_FOR_LICENCE() {
+    return licenceStep.ask
+  },
+}))
 
 import { copyForDocument, documentsWithEntries } from './store/repository'
 import { copyMarkForIngest, heldAmong, isTextHeld, licenceOfDocument } from './text-guard'
@@ -9,6 +15,7 @@ import { copyMarkForIngest, heldAmong, isTextHeld, licenceOfDocument } from './t
 const ATTESTED = { aiProcessingAttestedBy: 'u', aiProcessingAttestedAt: '2026-11-01T00:00:00.000Z' }
 
 beforeEach(() => {
+  licenceStep.ask = true
   vi.mocked(copyForDocument).mockReset()
 })
 
@@ -63,6 +70,14 @@ describe('whose text is held', () => {
     vi.mocked(copyForDocument).mockResolvedValueOnce({ licenceClass: 'licensed', editionId: 'ed-1', terms: ATTESTED, confirmed: true })
     expect(await isTextHeld('org_1', 'doc-1')).toBe(false)
     vi.mocked(copyForDocument).mockResolvedValueOnce({ licenceClass: 'licensed', editionId: 'ed-1', terms: {}, confirmed: true })
+    expect(await isTextHeld('org_1', 'doc-1')).toBe(true)
+  })
+
+  it('releases a confirmed licensed copy without the AI statement while the office is not asked about licences, and still holds a proposal', async () => {
+    licenceStep.ask = false
+    vi.mocked(copyForDocument).mockResolvedValueOnce({ licenceClass: 'licensed', editionId: 'ed-1', terms: {}, confirmed: true })
+    expect(await isTextHeld('org_1', 'doc-1')).toBe(false)
+    vi.mocked(copyForDocument).mockResolvedValueOnce({ licenceClass: 'licensed', editionId: 'ed-1', terms: {}, confirmed: false })
     expect(await isTextHeld('org_1', 'doc-1')).toBe(true)
   })
 

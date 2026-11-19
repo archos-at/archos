@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -13,6 +13,7 @@ export interface EntryDocument {
   collectionName: string
   storedName: string
   folderId: string | null
+  textWithheld?: boolean
 }
 
 export async function visibleOfficeDocuments(
@@ -29,6 +30,7 @@ export async function visibleOfficeDocuments(
         displayName: documents.displayName,
         collectionName: documents.collectionName,
         folderId: documents.folderId,
+        status: documents.status,
       })
       .from(documents)
       .where(
@@ -43,7 +45,14 @@ export async function visibleOfficeDocuments(
   return new Map(
     rows.map((row) => [
       row.id,
-      { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename, folderId: row.folderId },
+      {
+        id: row.id,
+        fileName: row.displayName ?? row.filename,
+        collectionName: row.collectionName,
+        storedName: row.filename,
+        folderId: row.folderId,
+        textWithheld: row.status === 'stored',
+      },
     ])
   )
 }
@@ -82,7 +91,7 @@ export async function shelfNameHasEntry(organizationId: string, filename: string
     getDb()
       .select({ id: documents.id })
       .from(documents)
-      .innerJoin(knowledgeRecords, eq(knowledgeRecords.documentId, documents.id))
+      .innerJoin(knowledgeRecords, and(eq(knowledgeRecords.documentId, documents.id), isNull(knowledgeRecords.unlistedAt)))
       .where(
         and(
           eq(documents.organizationId, organizationId),

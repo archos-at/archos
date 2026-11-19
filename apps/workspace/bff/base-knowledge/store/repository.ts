@@ -1,6 +1,6 @@
 import 'server-only'
 import { randomUUID } from 'node:crypto'
-import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { isUniqueViolation } from '@/lib/db/errors'
@@ -157,6 +157,7 @@ export async function insertProposedEntry(
   }
   await withTenant({ organizationId: context.organizationId }, () =>
     getDb().transaction(async (tx) => {
+      await dropUnlistedEntry(tx, context.organizationId, documentId)
       const header = { organizationId: context.organizationId, documentId, createdBy: context.createdBy }
       await tx.insert(knowledgeRecords).values([
         { ...header, id: ids.workId, type: 'work' },
@@ -170,6 +171,34 @@ export async function insertProposedEntry(
     throw error
   })
   return ids
+}
+
+export async function dropUnlistedEntry(tx: Tx, organizationId: string, documentId: string): Promise<void> {
+  const works = await tx.execute<{ work_id: string }>(sql`
+    SELECT DISTINCT e.work_id FROM knowledge_edition_revisions e JOIN knowledge_records r ON r.id = e.record_id
+    WHERE r.organization_id = ${organizationId} AND r.document_id = ${documentId} AND r.type = 'edition' AND r.unlisted_at IS NOT NULL`)
+  const dropped = await tx
+    .delete(knowledgeRecords)
+    .where(
+      and(
+        eq(knowledgeRecords.organizationId, organizationId),
+        eq(knowledgeRecords.documentId, documentId),
+        isNotNull(knowledgeRecords.unlistedAt)
+      )
+    )
+    .returning({ id: knowledgeRecords.id })
+  const workIds = Array.from(works, (row) => row.work_id)
+  if (dropped.length === 0 || workIds.length === 0) return
+  await tx.delete(knowledgeRecords).where(
+    and(
+      eq(knowledgeRecords.organizationId, organizationId),
+      inArray(knowledgeRecords.id, workIds),
+      eq(knowledgeRecords.type, 'work'),
+      isNull(knowledgeRecords.documentId),
+      sql`NOT EXISTS (SELECT 1 FROM knowledge_edition_revisions e JOIN knowledge_records r ON r.id = e.record_id
+            WHERE e.work_id = ${knowledgeRecords.id} AND r.type = 'edition')`
+    )
+  )
 }
 
 export async function lockEditionWork(tx: Tx, editionId: string): Promise<string | null> {
@@ -246,6 +275,16 @@ interface RecordRow {
   createdAt: Date
 }
 
+const recordColumns = {
+  id: knowledgeRecords.id,
+  type: knowledgeRecords.type,
+  documentId: knowledgeRecords.documentId,
+  headRevisionId: sql<string | null>`coalesce(${knowledgeRecords.headRevisionId}, ${knowledgeRecords.unlistedHeadRevisionId})`,
+  createdAt: knowledgeRecords.createdAt,
+}
+
+const listed = isNull(knowledgeRecords.unlistedAt)
+
 async function revisionInForce(tx: Tx, records: readonly RecordRow[]): Promise<Map<string, string>> {
   const result = new Map<string, string>()
   const headless = records.filter((record) => !record.headRevisionId).map((record) => record.id)
@@ -304,23 +343,22 @@ function groupByDocument(records: readonly RecordRow[]): Map<string, Partial<Rec
   return groups
 }
 
-export async function readOfficeEntries(organizationId: string, documentIds?: readonly string[]): Promise<StoredEntry[]> {
+export async function readOfficeEntries(
+  organizationId: string,
+  documentIds?: readonly string[],
+  { unlisted = false }: { unlisted?: boolean } = {}
+): Promise<StoredEntry[]> {
   if (documentIds && documentIds.length === 0) return []
   return withTenant({ organizationId }, () =>
     getDb().transaction(async (tx) => {
       const records: RecordRow[] = await tx
-        .select({
-          id: knowledgeRecords.id,
-          type: knowledgeRecords.type,
-          documentId: knowledgeRecords.documentId,
-          headRevisionId: knowledgeRecords.headRevisionId,
-          createdAt: knowledgeRecords.createdAt,
-        })
+        .select(recordColumns)
         .from(knowledgeRecords)
         .where(
           and(
             eq(knowledgeRecords.organizationId, organizationId),
-            documentIds ? inArray(knowledgeRecords.documentId, [...documentIds]) : isNotNull(knowledgeRecords.documentId)
+            documentIds ? inArray(knowledgeRecords.documentId, [...documentIds]) : isNotNull(knowledgeRecords.documentId),
+            unlisted ? isNotNull(knowledgeRecords.unlistedAt) : listed
           )
         )
         .orderBy(desc(knowledgeRecords.createdAt))
@@ -401,13 +439,7 @@ async function standaloneWorksOf(
   const wanted = [...new Set(editions.map((edition) => edition.workId))].filter((id) => !have.has(id))
   if (wanted.length === 0) return []
   const rows: RecordRow[] = await tx
-    .select({
-      id: knowledgeRecords.id,
-      type: knowledgeRecords.type,
-      documentId: knowledgeRecords.documentId,
-      headRevisionId: knowledgeRecords.headRevisionId,
-      createdAt: knowledgeRecords.createdAt,
-    })
+    .select(recordColumns)
     .from(knowledgeRecords)
     .where(and(eq(knowledgeRecords.organizationId, organizationId), inArray(knowledgeRecords.id, wanted)))
   const inForce = await revisionInForce(tx, rows)
@@ -419,8 +451,34 @@ export async function documentHasEntry(organizationId: string, documentId: strin
     getDb()
       .select({ one: sql<number>`1` })
       .from(knowledgeRecords)
-      .where(and(eq(knowledgeRecords.organizationId, organizationId), eq(knowledgeRecords.documentId, documentId)))
+      .where(and(eq(knowledgeRecords.organizationId, organizationId), eq(knowledgeRecords.documentId, documentId), listed))
       .limit(1)
+  )
+  return rows.length > 0
+}
+
+export async function unlistDocumentEntry(organizationId: string, documentId: string): Promise<void> {
+  await withTenant({ organizationId }, () =>
+    getDb()
+      .update(knowledgeRecords)
+      .set({ unlistedAt: sql`now()`, unlistedHeadRevisionId: sql`${knowledgeRecords.headRevisionId}`, headRevisionId: null })
+      .where(and(eq(knowledgeRecords.organizationId, organizationId), eq(knowledgeRecords.documentId, documentId), listed))
+  )
+}
+
+export async function relistDocumentEntry(organizationId: string, documentId: string): Promise<boolean> {
+  const rows = await withTenant({ organizationId }, () =>
+    getDb()
+      .update(knowledgeRecords)
+      .set({ headRevisionId: sql`${knowledgeRecords.unlistedHeadRevisionId}`, unlistedAt: null, unlistedHeadRevisionId: null })
+      .where(
+        and(
+          eq(knowledgeRecords.organizationId, organizationId),
+          eq(knowledgeRecords.documentId, documentId),
+          isNotNull(knowledgeRecords.unlistedAt)
+        )
+      )
+      .returning({ id: knowledgeRecords.id })
   )
   return rows.length > 0
 }
@@ -438,7 +496,7 @@ export async function documentsWithEntries(organizationId: string, documentIds: 
     getDb()
       .selectDistinct({ documentId: knowledgeRecords.documentId })
       .from(knowledgeRecords)
-      .where(and(eq(knowledgeRecords.organizationId, organizationId), inArray(knowledgeRecords.documentId, [...documentIds])))
+      .where(and(eq(knowledgeRecords.organizationId, organizationId), inArray(knowledgeRecords.documentId, [...documentIds]), listed))
   )
   return rows.flatMap((row) => (row.documentId ? [row.documentId] : []))
 }
@@ -453,7 +511,8 @@ export async function entryIdsForDocuments(organizationId: string, documentIds: 
         and(
           eq(knowledgeRecords.organizationId, organizationId),
           eq(knowledgeRecords.type, 'edition'),
-          inArray(knowledgeRecords.documentId, [...documentIds])
+          inArray(knowledgeRecords.documentId, [...documentIds]),
+          listed
         )
       )
   )
@@ -483,7 +542,8 @@ export async function copyForDocument(organizationId: string, documentId: string
         and(
           eq(knowledgeRecords.organizationId, organizationId),
           eq(knowledgeRecords.documentId, documentId),
-          eq(knowledgeRecords.type, 'manifestation')
+          eq(knowledgeRecords.type, 'manifestation'),
+          listed
         )
       )
       .orderBy(desc(knowledgeRevisions.createdAt))

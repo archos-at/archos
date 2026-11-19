@@ -79,6 +79,8 @@ export const knowledgeRecords = pgTable('knowledge_records', {
   countryId: text('country_id'),
   createdBy: text('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  unlistedAt: timestamp('unlisted_at', { withTimezone: true }),
+  unlistedHeadRevisionId: uuid('unlisted_head_revision_id'),
 })
 
 export const knowledgeRevisions = pgTable('knowledge_revisions', {

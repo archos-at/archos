@@ -1,6 +1,6 @@
 import { newestInForce } from '../time/editions'
 import type { StoredEntry } from '../store/repository'
-import type { EntryEdition } from '../wire'
+import { ASK_FOR_LICENCE, type EntryEdition } from '../wire'
 import { designationKey, type DirectoryWork } from '../platform'
 import { bindingOnDay } from './binding-edition'
 import type { HeldEdition } from './freshness'
@@ -84,6 +84,6 @@ export function editionsForDay(
     const current = verdict.status === 'held' ? verdict.entry : verdict.status === 'unknown' ? editionOnDay(editions, day) : null
     if (current) chosen.add(current)
   }
-  const stored = readable.filter((entry) => (entry.confirmed ? chosen.has(entry) : entry.values.licenceClass === 'licensed'))
+  const stored = readable.filter((entry) => (entry.confirmed ? chosen.has(entry) : ASK_FOR_LICENCE && entry.values.licenceClass === 'licensed'))
   return { stored, missing }
 }

@@ -160,6 +160,40 @@ describe.skipIf(!url)('base knowledge records against Postgres', () => {
     })
   })
 
+  it('takes an entry off the norms and back with its heads, values and checks, and lets a new proposal replace it', async () => {
+    const office = await import('../office/repository')
+    const reader = { kind: 'member' as const, userId: 'user_bk' }
+    const { documentId, ids } = await propose()
+    const confirmed = { ...VALUES, editionLabel: '2017-05-01' }
+    await repo.writeConfirmedValues(ids, confirmed, { organizationId: ORG, createdBy: 'user_bk', provenance: { proposedBy: 'person' }, terms: {}, firstCheck: true })
+    await repo.insertCopyCheck(ORG, ids.copyId, { checkedBy: 'user_bk', result: 'newer_known', note: 'Ausgabe 2023 bekannt' })
+    const [before] = await repo.readOfficeEntries(ORG, [documentId])
+    const [row] = await as(ORG, () => db.execute<{ filename: string }>(sql`SELECT filename FROM documents WHERE id = ${documentId}`))
+
+    await repo.unlistDocumentEntry(ORG, documentId)
+    expect(await repo.readOfficeEntries(ORG, [documentId])).toEqual([])
+    expect(await repo.documentHasEntry(ORG, documentId)).toBe(false)
+    expect(await repo.documentsWithEntries(ORG, [documentId])).toEqual([])
+    expect(await repo.copyForDocument(ORG, documentId)).toBeNull()
+    expect(await office.shelfNameHasEntry(ORG, String(row.filename), reader)).toBe(false)
+    const heads = await as(ORG, () =>
+      db.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM knowledge_records WHERE document_id = ${documentId} AND head_revision_id IS NOT NULL`)
+    )
+    expect(Number(heads[0].n)).toBe(0)
+    expect(await repo.readOfficeEntries(ORG, [documentId], { unlisted: true })).toEqual([before])
+
+    expect(await repo.relistDocumentEntry(ORG, documentId)).toBe(true)
+    expect(await repo.readOfficeEntries(ORG, [documentId])).toEqual([before])
+    expect(before).toMatchObject({ confirmed: true, values: confirmed, lastCheck: { result: 'newer_known', note: 'Ausgabe 2023 bekannt' } })
+    expect(await repo.relistDocumentEntry(ORG, documentId)).toBe(false)
+
+    await repo.unlistDocumentEntry(ORG, documentId)
+    const again = await repo.insertProposedEntry(documentId, VALUES, { organizationId: ORG, createdBy: 'user_bk', provenance: { proposedBy: 'reading' }, terms: {} })
+    expect(await repo.readOfficeEntries(ORG, [documentId], { unlisted: true })).toEqual([])
+    expect(await repo.readOfficeEntries(ORG, [documentId])).toMatchObject([{ editionId: again.editionId, confirmed: false }])
+    expect(await count('knowledge_records', 'id', ids.editionId)).toBe(0)
+  })
+
   it('lists for the daily comparison the offices holding a confirmed standard, not those with proposals only', async () => {
     const office = await import('../office/repository')
     await propose(OTHER_ORG)

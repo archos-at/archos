@@ -1,7 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { StoredEntry } from '../store/repository'
 import { editionOnDay, editionsByWork, editionsForDay, editionsOf } from './work-editions'
 import { workDesignation } from './work-designation'
+
+const licenceStep = vi.hoisted(() => ({ ask: false }))
+vi.mock('@/lib/base-knowledge/wire/licence-step', () => ({
+  get ASK_FOR_LICENCE() {
+    return licenceStep.ask
+  },
+}))
+
+afterEach(() => {
+  licenceStep.ask = false
+})
 
 function edition(editionId: string, issuedOn: string | null, rest: Partial<StoredEntry> = {}, values: Partial<StoredEntry['values']> = {}): StoredEntry {
   return {
@@ -109,9 +120,16 @@ describe('the editions a turn carries, with the norm directory', () => {
     expect(editionsForDay([OLD, NEW], [], '2020-06-01', files)).toEqual({ stored: [OLD], missing: [] })
   })
 
-  it('keeps a licensed proposal, which is listed and never read', () => {
+  it('keeps a licensed proposal, which is listed and never read, while the office is asked about licences', () => {
+    licenceStep.ask = true
     const proposal = edition('e-proposal', '2023-02-01', { workId: 'work_2', confirmed: false }, { licenceClass: 'licensed', designation: 'ÖNORM B 5371' })
     expect(editionsForDay([proposal], directory, '2024-03-01', files).stored).toEqual([proposal])
+  })
+
+  it('keeps no proposal, licensed or not, while the office is not asked about licences', () => {
+    const licensed = edition('e-proposal', '2023-02-01', { workId: 'work_2', confirmed: false }, { licenceClass: 'licensed', designation: 'ÖNORM B 5371' })
+    const open = edition('e-open', '2023-02-01', { workId: 'work_3', confirmed: false }, { designation: 'ÖNORM B 5372' })
+    expect(editionsForDay([licensed, open], directory, '2024-03-01', files).stored).toEqual([])
   })
 })
 

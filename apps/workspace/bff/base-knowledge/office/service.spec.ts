@@ -10,8 +10,16 @@ vi.mock('../store/repository', () => ({
   insertCopyCheck: vi.fn(),
   insertProposedEntry: vi.fn(async () => ({ workId: 'work_1', editionId: 'edition_1', copyId: 'manifestation_1' })),
   readOfficeEntries: vi.fn(async () => []),
+  relistDocumentEntry: vi.fn(async () => true),
+  unlistDocumentEntry: vi.fn(),
   writeConfirmedValues: vi.fn(),
   writeProposedValues: vi.fn(),
+}))
+const licenceStep = vi.hoisted(() => ({ ask: false }))
+vi.mock('@/lib/base-knowledge/wire/licence-step', () => ({
+  get ASK_FOR_LICENCE() {
+    return licenceStep.ask
+  },
 }))
 vi.mock('./repository', () => ({
   readShelfDocument: vi.fn(),
@@ -42,7 +50,7 @@ vi.mock('@/lib/authz/feature-flags', async (original) => ({
   isFeatureEnabled: vi.fn((session: { featureFlags: string[] | null }, flag: string) => session.featureFlags?.includes(flag) ?? false),
 }))
 
-import { ConflictError, ForbiddenError, UnprocessableError } from '@/lib/api/errors'
+import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { deleteOfficeShelfDocument, uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
@@ -55,6 +63,8 @@ import {
   documentHasEntry,
   insertProposedEntry,
   readOfficeEntries,
+  relistDocumentEntry,
+  unlistDocumentEntry,
   writeConfirmedValues,
   writeProposedValues,
   type StoredEntry,
@@ -68,9 +78,11 @@ import {
   baseKnowledgeForTurn,
   confirmBaseKnowledge,
   directoryStandingsOf,
+  getBaseKnowledgeEntry,
   listBaseKnowledge,
   proposeBaseKnowledge,
   removeBaseKnowledge,
+  relistBaseKnowledge,
   reviseProposal,
   setBaseKnowledgeLicence,
   unlistBaseKnowledge,
@@ -127,6 +139,7 @@ function stored(overrides: Partial<StoredEntry> = {}): StoredEntry {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  licenceStep.ask = false
   vi.mocked(visibleOfficeDocuments).mockResolvedValue(new Map([['doc-1', DOCUMENT]]))
   vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
   vi.mocked(documentHasEntry).mockResolvedValue(false)
@@ -285,7 +298,7 @@ describe('listing', () => {
   it('puts what needs a person first and counts what needs what', async () => {
     const list = await listBaseKnowledge(MEMBER)
     expect(list.entries.map((entry) => entry.id)).toEqual(['work_proposed', 'work_due', 'work_fresh'])
-    expect(list.counts).toEqual({ all: 3, proposed: 1, newerEdition: 0, checkDue: 1, metadataOnly: 2 })
+    expect(list.counts).toEqual({ all: 3, proposed: 1, newerEdition: 0, checkDue: 1, metadataOnly: 0 })
     expect(list.entries[2]).toMatchObject({ folderId: 'folder-brandschutz', confirmedByName: 'Anna Berger' })
   })
 
@@ -370,6 +383,10 @@ describe('the works an office holds against the platform’s editions', () => {
 })
 
 describe('confirming', () => {
+  beforeEach(() => {
+    licenceStep.ask = true
+  })
+
   it('needs the licence attestation for a licensed copy', async () => {
     await expect(confirmBaseKnowledge(MANAGER, 'work_1', {})).rejects.toBeInstanceOf(UnprocessableError)
     expect(writeConfirmedValues).not.toHaveBeenCalled()
@@ -474,7 +491,71 @@ describe('revising a proposal that stays a proposal', () => {
   })
 })
 
+describe('the licence while the office is not asked about it (ASK_FOR_LICENCE off)', () => {
+  it('confirms a licensed copy without any statement and reads its text', async () => {
+    await confirmBaseKnowledge(MANAGER, 'work_1', {})
+    expect(writeConfirmedValues).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ licenceClass: 'licensed' }),
+      expect.objectContaining({ terms: {} }),
+    )
+    expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+    expect(withholdText).not.toHaveBeenCalled()
+  })
+
+  it('reports a confirmed licensed copy’s text as used', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    expect(await getBaseKnowledgeEntry(MEMBER, 'edition_1')).toMatchObject({ status: 'confirmed', textUse: 'used' })
+  })
+
+  it('reads again the text a confirmed licensed copy had withheld, once the entry is opened', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    vi.mocked(visibleOfficeDocuments).mockResolvedValue(new Map([['doc-1', { ...DOCUMENT, textWithheld: true }]]))
+    await getBaseKnowledgeEntry(MEMBER, 'edition_1')
+    expect(releaseText).toHaveBeenCalledWith(MEMBER, 'doc-1')
+  })
+
+  it('reads nothing again when the text is in the index, or for a proposal', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    await getBaseKnowledgeEntry(MEMBER, 'edition_1')
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
+    vi.mocked(visibleOfficeDocuments).mockResolvedValue(new Map([['doc-1', { ...DOCUMENT, textWithheld: true }]]))
+    await getBaseKnowledgeEntry(MEMBER, 'edition_1')
+    expect(releaseText).not.toHaveBeenCalled()
+  })
+
+  it('reads the withheld text again when a confirmed licensed copy is saved', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    vi.mocked(visibleOfficeDocuments).mockResolvedValue(new Map([['doc-1', { ...DOCUMENT, textWithheld: true }]]))
+    await updateBaseKnowledge(MANAGER, 'edition_1', { editionLabel: '2017-05-01' })
+    expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+    expect(markCopyPoints).not.toHaveBeenCalled()
+  })
+
+  it('marks a copy bought without the statements', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true, values: { ...stored().values, licenceClass: 'public_open' } })])
+    await setBaseKnowledgeLicence(MANAGER, 'edition_1', { licenceClass: 'licensed' })
+    expect(writeConfirmedValues).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ licenceClass: 'licensed' }), expect.anything())
+  })
+
+  it('carries a confirmed licensed copy into the turn with no word of a licence, and no proposal', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([
+      stored({ confirmed: true }),
+      stored({ workId: 'work_2', editionId: 'edition_2', confirmed: false }),
+    ])
+    const turn = await baseKnowledgeForTurn('org-1', null)
+    const lines = turn?.block?.split('\n') ?? []
+    expect(lines).toHaveLength(3)
+    expect(lines[2]).toContain('ÖNORM B 1600:2017')
+    expect(turn?.block).not.toMatch(/licen[cs]e|LISTED ONLY|attest/i)
+  })
+})
+
 describe('the licence, the person’s call alone', () => {
+  beforeEach(() => {
+    licenceStep.ask = true
+  })
+
   it('takes no licence and no statement through an edit', () => {
     expect(updateEntryBodySchema.safeParse({ aiProcessingAttested: true }).success).toBe(false)
     expect(updateEntryBodySchema.safeParse({ licenceClass: 'public_open' }).success).toBe(false)
@@ -540,12 +621,19 @@ describe('removing', () => {
 })
 
 describe('taking a document off the norms', () => {
-  it('keeps the file: moves it to the top of the office shelf, drops its records and reads its text again', async () => {
+  it('keeps the file and the records: moves it to the top of the office shelf, parks its records and reads its text again', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true, workStandsAlone: true })])
-    expect(await unlistBaseKnowledge(MANAGER, 'edition_1')).toEqual({ documentId: 'doc-1', folderId: null })
+    vi.mocked(visibleOfficeDocuments).mockResolvedValue(new Map([['doc-1', { ...DOCUMENT, folderId: 'folder-brandschutz' }]]))
+    expect(await unlistBaseKnowledge(MANAGER, 'edition_1')).toEqual({
+      documentId: 'doc-1',
+      folderId: null,
+      entryId: 'edition_1',
+      formerFolderId: 'folder-brandschutz',
+    })
     expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: null }, MANAGER)
-    expect(deleteDocumentEntry).toHaveBeenCalledWith('org-1', 'doc-1')
-    expect(deleteWorkIfUnused).toHaveBeenCalledWith('org-1', 'work_1')
+    expect(unlistDocumentEntry).toHaveBeenCalledWith('org-1', 'doc-1')
+    expect(deleteDocumentEntry).not.toHaveBeenCalled()
+    expect(deleteWorkIfUnused).not.toHaveBeenCalled()
     expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
     expect(forgetKeysFor).toHaveBeenCalledWith('org-1', ['edition_1', 'doc-1'])
     expect(deleteOfficeShelfDocument).not.toHaveBeenCalled()
@@ -554,16 +642,58 @@ describe('taking a document off the norms', () => {
   it('keeps the records when the file could not be moved, so the norm stays in view', async () => {
     vi.mocked(moveDocumentToFolder).mockResolvedValueOnce({ ok: false, error: 'Folder not found in the office shelf.' })
     await expect(unlistBaseKnowledge(MANAGER, 'edition_1')).rejects.toBeInstanceOf(UnprocessableError)
-    expect(deleteDocumentEntry).not.toHaveBeenCalled()
+    expect(unlistDocumentEntry).not.toHaveBeenCalled()
   })
 
   it('is only for a shelf manager', async () => {
     await expect(unlistBaseKnowledge(MEMBER, 'edition_1')).rejects.toBeInstanceOf(ForbiddenError)
     expect(moveDocumentToFolder).not.toHaveBeenCalled()
+    await expect(relistBaseKnowledge(MEMBER, 'edition_1', {})).rejects.toBeInstanceOf(ForbiddenError)
+  })
+})
+
+describe('bringing it back (Rückgängig)', () => {
+  const parked = () => stored({ confirmed: true, workStandsAlone: true })
+
+  beforeEach(() => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([parked()])
+  })
+
+  it('moves the file back to its topic and moves the parked heads back, so it is confirmed with its values again', async () => {
+    const entry = await relistBaseKnowledge(MANAGER, 'edition_1', { folderId: 'folder-brandschutz' })
+    expect(readOfficeEntries).toHaveBeenCalledWith('org-1', undefined, { unlisted: true })
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-brandschutz' }, MANAGER)
+    expect(relistDocumentEntry).toHaveBeenCalledWith('org-1', 'doc-1')
+    expect(entry).toMatchObject({ status: 'confirmed', values: parked().values })
+    expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+    expect(insertProposedEntry).not.toHaveBeenCalled()
+    expect(forgetKeysFor).toHaveBeenCalledWith('org-1', ['edition_1', 'doc-1'])
+  })
+
+  it('lands in the base-knowledge root when its topic is gone', async () => {
+    await relistBaseKnowledge(MANAGER, 'edition_1', { folderId: '00000000-0000-4000-8000-000000000000' })
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'doc-1', folderId: 'folder-root' }, MANAGER)
+  })
+
+  it('withholds the text again of an entry that was a proposal', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
+    await relistBaseKnowledge(MANAGER, 'edition_1', {})
+    expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+    expect(releaseText).not.toHaveBeenCalled()
+  })
+
+  it('finds nothing to bring back once the file was proposed again or removed', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([])
+    await expect(relistBaseKnowledge(MANAGER, 'edition_1', {})).rejects.toBeInstanceOf(NotFoundError)
+    expect(moveDocumentToFolder).not.toHaveBeenCalled()
   })
 })
 
 describe('the turn', () => {
+  beforeEach(() => {
+    licenceStep.ask = true
+  })
+
   it('reads the office’s entries for every organization, with no switch to ask (ADR-0175)', async () => {
     vi.mocked(isOrgFeatureEnabled).mockResolvedValue(false)
     await baseKnowledgeForTurn('org-1', 'proj-1')

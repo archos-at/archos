@@ -1,4 +1,4 @@
-import type { BaseKnowledgeEntry } from '../wire'
+import { ASK_FOR_LICENCE, type BaseKnowledgeEntry } from '../wire'
 import type { ListedEdition, PlatformDirective } from '../platform'
 import { directiveApplicability, type ProjectTerritory } from './authority'
 
@@ -16,9 +16,11 @@ export const BASE_KNOWLEDGE_HEADER =
   'checked; when the check is overdue, say so in the answer. The role decides what a passage can carry: ' +
   '"requirement source" may ground a requirement; "interpretation only" may explain a provision but never be cited ' +
   'as the source of a requirement; "authority practice" counts only where it says it applies, and when the authority ' +
-  'is unknown, say that you could not tell whether the directive applies. An entry marked LISTED ONLY, NOT READ has no ' +
-  'passages to find: say the office holds that file, and that you may not read it until the office attests its licence ' +
-  'for AI processing; answer the rest from other sources.'
+  'is unknown, say that you could not tell whether the directive applies.'
+
+export const UNATTESTED_RULE =
+  'An entry marked LISTED ONLY, NOT READ has no passages to find: say the office holds that file, and that you may not ' +
+  'read it until the office attests its licence for AI processing; answer the rest from other sources.'
 
 const KIND_WORDS: Record<BaseKnowledgeEntry['values']['kind'], string> = {
   technical_standard: 'technical standard',
@@ -60,8 +62,8 @@ function line(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
     `${name}: ${KIND_WORDS[values.kind]}, edition ${values.editionLabel}`,
     `role: ${role(entry, project)}`,
     `file „${entry.fileName}“`,
-    entry.textUse === 'metadata_only' ? UNATTESTED : null,
-    entry.textUse === 'used' && values.licenceClass === 'licensed' ? 'licensed copy' : null,
+    ASK_FOR_LICENCE && entry.textUse === 'metadata_only' ? UNATTESTED : null,
+    ASK_FOR_LICENCE && entry.textUse === 'used' && values.licenceClass === 'licensed' ? 'licensed copy' : null,
     checkWords(entry),
   ].filter(Boolean)
   const text = `- ${parts.join('; ')}`
@@ -147,13 +149,13 @@ export function renderBaseKnowledgeBlock(
   editions: TurnEditions | null = null,
 ): string | null {
   const confirmed = entries.filter((entry) => entry.status === 'confirmed')
-  const unread = entries.filter((entry) => entry.status === 'proposed' && entry.values.licenceClass === 'licensed')
+  const unread = ASK_FOR_LICENCE ? entries.filter((entry) => entry.status === 'proposed' && entry.values.licenceClass === 'licensed') : []
   const missing = editions?.missing ?? []
   if (confirmed.length === 0 && unread.length === 0 && missing.length === 0 && listed.length === 0 && directives.length === 0) return null
   const missingLines = editions ? missing.map((gap) => missingLine(gap, editions.day.day)) : []
   const dated = editions && (confirmed.length > 0 || missing.length > 0) ? [dayLine(editions.day)] : []
   const rule = missingLines.length > 0 ? [BINDING_EDITION_RULE] : []
-  const head = [BASE_KNOWLEDGE_HEADER, ...dated, ...rule]
+  const head = [ASK_FOR_LICENCE ? `${BASE_KNOWLEDGE_HEADER} ${UNATTESTED_RULE}` : BASE_KNOWLEDGE_HEADER, ...dated, ...rule]
   let room = MAX_TURN_BLOCK_CHARS - charsOf(head) - MORE_LINE_RESERVE
   const all = [...missingLines, ...confirmed.map((entry) => line(entry, project)), ...unread.map(unreadLine)]
   const shown = within(all.slice(0, MAX_TURN_ENTRIES), room)

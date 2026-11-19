@@ -8,6 +8,7 @@ import {
   bulkBaseKnowledge,
   confirmBaseKnowledge,
   recordBaseKnowledgeCheck,
+  relistBaseKnowledge,
   removeBaseKnowledge,
   unlistBaseKnowledge,
   setBaseKnowledgeLicence,
@@ -156,8 +157,9 @@ function LicenceSection({
   run: Run
 }): JSX.Element | null {
   const t = useTranslations(baseKnowledgeCopy)
+  if (!ASK_FOR_LICENCE) return null
   if (values.licenceClass !== 'licensed') {
-    return ASK_FOR_LICENCE && entry.status === 'confirmed' && canManage ? <BoughtAfterAll entry={entry} busy={busy} run={run} /> : null
+    return entry.status === 'confirmed' && canManage ? <BoughtAfterAll entry={entry} busy={busy} run={run} /> : null
   }
   const aiAllowed = entry.textUse === 'used'
   return (
@@ -365,10 +367,24 @@ function SheetBody({
   const [values, setValues] = useState<EntryValues>(entry.values)
   const [attest, setAttest] = useState({ licence: false, ai: false })
   const [removing, setRemoving] = useState(false)
-  const [unlisting, setUnlisting] = useState(false)
   const { busy, run } = useRun(onChanged)
   const proposed = entry.status === 'proposed'
-  const needsAttest = proposed && values.licenceClass === 'licensed' && !attest.licence
+  const needsAttest = ASK_FOR_LICENCE && proposed && values.licenceClass === 'licensed' && !attest.licence
+  const name = entry.values.designation ?? entry.fileName
+  const undo = async ({ entryId, formerFolderId }: { entryId: string; formerFolderId: string | null }) => {
+    try {
+      onChanged(await relistBaseKnowledge(entryId, formerFolderId))
+      toast.success(t('detail.relisted', { name }))
+    } catch (error) {
+      toast.error(error instanceof Error && error.message ? error.message : t('saveError'))
+    }
+  }
+  const unlist = () =>
+    run(async () => {
+      const unlisting = await unlistBaseKnowledge(entry.id)
+      toast.success(t('detail.unlisted', { name }), { action: { label: t('detail.undo'), onClick: () => void undo(unlisting) } })
+      return null
+    }, null)
   const save = () =>
     proposed
       ? run(() =>
@@ -407,7 +423,7 @@ function SheetBody({
           values={values}
           onChange={setValues}
           disabled={!canManage || busy}
-          showLicence={proposed && (ASK_FOR_LICENCE || entry.values.licenceClass === 'licensed')}
+          showLicence={proposed && ASK_FOR_LICENCE}
           territories={territories}
         />
       </section>
@@ -449,7 +465,7 @@ function SheetBody({
       {canManage && (
         <div className="flex flex-wrap gap-2 border-t pt-4">
           {!proposed && (
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => setUnlisting(true)} data-testid="base-knowledge-unlist">
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void unlist()} data-testid="base-knowledge-unlist">
               {t('detail.unlist')}
             </Button>
           )}
@@ -462,21 +478,6 @@ function SheetBody({
           >
             {t('detail.remove')}
           </Button>
-          <ConfirmDialog
-            open={unlisting}
-            onOpenChange={setUnlisting}
-            title={t('detail.unlistTitle')}
-            description={t('detail.unlistBody')}
-            confirmLabel={t('detail.unlist')}
-            cancelLabel={t('detail.cancel')}
-            tone="default"
-            onConfirm={() =>
-              run(async () => {
-                await unlistBaseKnowledge(entry.id)
-                return null
-              }, t('detail.unlisted', { name: entry.values.designation ?? entry.fileName }))
-            }
-          />
           <ConfirmDialog
             open={removing}
             onOpenChange={setRemoving}

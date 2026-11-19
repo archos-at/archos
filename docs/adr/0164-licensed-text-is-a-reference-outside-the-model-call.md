@@ -208,3 +208,24 @@ hold that a licensed page sends no image and an unattested one is refused.
 
 Design: `docs/design/international/design.md` on the `claude/intl-design` branch, sections 4.7 and
 6.4. The office layer that writes the mark is a sibling change (ticket 32).
+
+## Amendment 2026-11-19: the licence is no gate while `ASK_FOR_LICENCE` is off
+
+The product owner decided to stop asking offices about licences altogether, and to keep the code for it:
+zero retention is enforced on the model side, which stays on. The switch is `ASK_FOR_LICENCE`
+(`apps/workspace/bff/base-knowledge/wire/licence-step.ts`, re-exported by the wire), `false` today. While it is
+off:
+
+- A confirmed copy's text is used whatever its licence class (`textUseOf`, `office/text-use.ts`), and its points
+  are marked `ai_processing_attested: true` (`licenceMarkOf`), so the seam above never reads a confirmed office
+  copy as unattested. The seam itself is unchanged: a licensed copy is still a reference, capped and sent only to
+  zero-retention endpoints.
+- Confirming never waits for a statement (`confirmBaseKnowledge` asks for one only with the switch on), the entry
+  page shows no „Lizenz und KI-Verarbeitung“, and new copies are `public_open` (`defaultLicence`).
+- The turn block says nothing about licences, and carries no proposal, licensed or not (`renderBaseKnowledgeBlock`,
+  `editionsForDay`).
+- A confirmed copy whose text an earlier attestation gate withheld (its document stays `stored`) is read again when
+  its entry is opened or saved (`getBaseKnowledgeEntry`, `writeValues`), through `releaseText`.
+
+`ASK_FOR_LICENCE = true` restores the behaviour this record describes; the specs of `text-use`, `text-guard`,
+`turn-block`, `work-editions`, the office service and the entry page hold both settings.

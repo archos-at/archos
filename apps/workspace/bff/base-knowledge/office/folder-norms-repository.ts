@@ -39,7 +39,7 @@ export async function listUndecidedFolderFiles(
           sql`${projectFolders.path} NOT LIKE ${`${STANDARDS_FOLDER_NAME}/%`}`,
           folderId ? eq(documents.folderId, folderId) : undefined,
           afterId ? gt(documents.id, afterId) : undefined,
-          notExists(db.select({ one: sql`1` }).from(knowledgeRecords).where(eq(knowledgeRecords.documentId, documents.id))),
+          notExists(db.select({ one: sql`1` }).from(knowledgeRecords).where(and(eq(knowledgeRecords.documentId, documents.id), isNull(knowledgeRecords.unlistedAt)))),
           notExists(db.select({ one: sql`1` }).from(officeShelfNormKeeps).where(eq(officeShelfNormKeeps.documentId, documents.id))),
           documentVisibleTo(reader),
         ),

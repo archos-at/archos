@@ -15,11 +15,14 @@ import {
   insertCopyCheck,
   insertProposedEntry,
   readOfficeEntries,
+  relistDocumentEntry,
+  unlistDocumentEntry,
   writeConfirmedValues,
   writeProposedValues,
   type StoredEntry,
 } from '../store/repository'
 import {
+  ASK_FOR_LICENCE,
   ENTRY_PAGE,
   type BaseKnowledgeEntry,
   type BaseKnowledgeList,
@@ -32,6 +35,7 @@ import {
   type ListEntriesQuery,
   type ProposeEntryBody,
   type RecordCheckBody,
+  type RelistEntryBody,
 } from '../wire'
 import { readSetupRecords } from '@/lib/project-intake/setup-records'
 import { subdivisionTerritories } from '@/lib/project-intake/setup-scope'
@@ -105,7 +109,7 @@ function toEntry(
     proposedBy: stored.provenance.proposedBy ?? 'reading',
     confirmedBy,
     confirmedByName: confirmedBy ? (names.get(confirmedBy)?.name ?? null) : null,
-    textUse: textUseOf(stored.values.licenceClass, stored.terms),
+    textUse: textUseOf(stored.values.licenceClass, stored.terms, ASK_FOR_LICENCE),
     aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
     directory: standingIn(stored, works, directory, dayOf(now)),
@@ -198,7 +202,9 @@ export async function storedEntryOf(session: AuthorizedSession, entryId: string)
 }
 
 export async function getBaseKnowledgeEntry(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeEntry> {
-  return (await findEntry(session, entryId)).entry
+  const { entry, document } = await findEntry(session, entryId)
+  if (entry.status === 'confirmed' && entry.textUse === 'used' && document.textWithheld) await releaseText(session, entry.documentId)
+  return entry
 }
 
 function merged(base: EntryValues, given: Partial<EntryValues>): EntryValues {
@@ -290,7 +296,7 @@ export async function uploadBaseKnowledge(
 }
 
 function requireAttestation(values: EntryValues, body: ConfirmEntryBody): void {
-  if (values.licenceClass === 'licensed' && body.licenceAttested !== true) {
+  if (ASK_FOR_LICENCE && values.licenceClass === 'licensed' && body.licenceAttested !== true) {
     throw new UnprocessableError(
       'A licensed copy needs licenceAttested: true, the office’s statement that its licence covers use by everyone in the office.'
     )
@@ -313,11 +319,11 @@ async function writeValues(
     terms,
     firstCheck,
   })
-  const before = stored.confirmed ? textUseOf(stored.values.licenceClass, stored.terms) : 'metadata_only'
-  const after = textUseOf(values.licenceClass, terms)
+  const before = stored.confirmed && !document.textWithheld ? textUseOf(stored.values.licenceClass, stored.terms, ASK_FOR_LICENCE) : 'metadata_only'
+  const after = textUseOf(values.licenceClass, terms, ASK_FOR_LICENCE)
   if (after === 'metadata_only') await withholdText(session, stored.documentId)
   else if (before === 'metadata_only') await releaseText(session, stored.documentId)
-  else await markCopyPoints(document, stored.editionId, licenceMarkOf(values.licenceClass, terms))
+  else await markCopyPoints(document, stored.editionId, licenceMarkOf(values.licenceClass, terms, ASK_FOR_LICENCE))
 }
 
 export interface ConfirmOptions {
@@ -328,7 +334,7 @@ export async function confirmBaseKnowledge(
   session: AuthorizedSession,
   entryId: string,
   body: ConfirmEntryBody,
-  { licenceStep = true }: ConfirmOptions = {}
+  { licenceStep = ASK_FOR_LICENCE }: ConfirmOptions = {}
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   const found = await findEntry(session, entryId)
@@ -417,11 +423,30 @@ export async function dropBaseKnowledgeRecords(session: AuthorizedSession, store
 
 export async function unlistBaseKnowledge(session: AuthorizedSession, entryId: string): Promise<BaseKnowledgeUnlisting> {
   requireManage(session)
-  const { stored } = await findEntry(session, entryId)
+  const { stored, entry } = await findEntry(session, entryId)
   const moved = await moveDocumentToFolder({ documentId: stored.documentId, folderId: null }, session)
   if (!moved.ok) throw new UnprocessableError(moved.error)
-  await dropBaseKnowledgeRecords(session, stored)
-  return { documentId: stored.documentId, folderId: null }
+  await unlistDocumentEntry(session.organizationId, stored.documentId)
+  await releaseText(session, stored.documentId)
+  await forgetKeysFor(session.organizationId, [stored.editionId, stored.documentId])
+  return { documentId: stored.documentId, folderId: null, entryId: stored.editionId, formerFolderId: entry.folderId }
+}
+
+export async function relistBaseKnowledge(session: AuthorizedSession, entryId: string, { folderId }: RelistEntryBody): Promise<BaseKnowledgeEntry> {
+  requireManage(session)
+  const parked = (await readOfficeEntries(session.organizationId, undefined, { unlisted: true })).find((entry) => entry.editionId === entryId)
+  if (!parked) throw new NotFoundError('No entry taken off the norms with this id: its file was proposed again or removed.')
+  const target = folderId && (await isStandardsFolder(session, folderId)) ? folderId : (await standardsRoot(session.organizationId)).id
+  const moved = await moveDocumentToFolder({ documentId: parked.documentId, folderId: target }, session)
+  if (!moved.ok) throw new UnprocessableError(moved.error)
+  if (!(await relistDocumentEntry(session.organizationId, parked.documentId))) {
+    throw new NotFoundError('No entry taken off the norms with this id: its file was proposed again or removed.')
+  }
+  const { entry } = await findEntry(session, entryId)
+  if (entry.status === 'confirmed' && entry.textUse === 'used') await releaseText(session, parked.documentId)
+  else await withholdText(session, parked.documentId)
+  await forgetKeysFor(session.organizationId, [entryId, parked.documentId])
+  return entry
 }
 
 export interface BaseKnowledgeRemoval {

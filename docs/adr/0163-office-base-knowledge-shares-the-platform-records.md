@@ -228,8 +228,8 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   without an edition stays a proposal that keeps the row's Art, Bezeichnung and a cleared Ausgabe
   (`reviseProposal`, proposed by the person), and moves into the row's topic, so „Jetzt prüfen“ shows them again.
   While the licence step is off (`ASK_FOR_LICENCE`), settle confirms without asking for the licence statement: a
-  new edition of a work stored as licensed lands licensed and metadata-only, its text withheld until the AI
-  statement, instead of failing on the attestation. `base-knowledge-unlist` takes a confirmed entry off the base
+  new edition of a work stored as licensed lands licensed, and its text is read like any confirmed copy's (ADR-0164,
+  amendment of 2026-11-19), instead of failing on the attestation. `base-knowledge-unlist` takes a confirmed entry off the base
   knowledge but keeps its file, moved to the top of the Büroablage; `base-knowledge-remove` still deletes both.
 - **One upload, one norm dialog** (2026-11-19), in place of „Adding a standard is filling in its form“: both
   tabs of the Büroablage upload through the office shelf's own upload (`useOfficeShelfDocuments`, the same
@@ -312,3 +312,24 @@ yet say that the platform lists a newer edition; that changes what shapes an ans
 What the platform holds today: editions with dates for the OIB guidelines, their explanatory notes and guides
 (`issued_on`, rarely `in_force_from`), and no technical standard (no ÖNORM, EN or DIN work). Until the platform
 lists standards with dated editions, every office ÖNORM keeps the manual check.
+
+## Amendment 2026-11-19: taking a norm off keeps its records, and „Rückgängig“ brings it back
+
+„Nicht mehr als Norm führen“ deleted the document's records, so every Ausgabe, check and the topic were gone and
+the only way back was a fresh proposal. Now:
+
+- **Parked, not deleted** (migration 0251). `base-knowledge-unlist` moves the file to the top of the Büroablage,
+  as before, and parks its records: `knowledge_records.unlisted_at` is set and the head moves to
+  `unlisted_head_revision_id`, so every reader that reads heads sees nothing of the entry, as of an unconfirmed
+  proposal. Every reader by document (`readOfficeEntries`, `documentHasEntry`, `documentsWithEntries`,
+  `entryIdsForDocuments`, `copyForDocument`, `shelfNameHasEntry`, the folder-norms scan) reads listed records
+  only. The file's text is read again as an ordinary file's.
+- **Rückgängig.** The entry page unlists at once, without a confirmation, and its toast offers „Rückgängig“:
+  `POST /api/base-knowledge/{entryId}/relist` (the browser's undo, not an agent operation) moves the file back to
+  the topic it lay in (the root when that topic is gone), moves the parked heads back, and reads or withholds the
+  text as the entry's confirmation and text use say. The norm is back as it was: confirmed, the same values, its
+  checks and its topic.
+- **A new proposal replaces a parked entry.** „Als Norm führen“, an upload or a proposal of the same file deletes
+  the parked records in the transaction that writes the new proposal (`dropUnlistedEntry`), with a standalone work
+  no edition uses any more. Restoring the old record on „Als Norm führen“ would confirm a norm without the dialog,
+  so it starts afresh. Deleting the file still deletes everything; „Norm entfernen“ is unchanged.

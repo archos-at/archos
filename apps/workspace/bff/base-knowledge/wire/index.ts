@@ -15,7 +15,7 @@ const territoryId = z
 
 const isoDate = z.iso.date()
 
-export const ASK_FOR_LICENCE = false
+export { ASK_FOR_LICENCE } from './licence-step'
 
 export const UNKNOWN_EDITION = 'unbekannt'
 
@@ -325,4 +325,13 @@ export interface SettleProposalsResult {
 export interface BaseKnowledgeUnlisting {
   documentId: string
   folderId: null
+  entryId: string
+  formerFolderId: string | null
 }
+
+export const relistEntryBodySchema = z
+  .object({
+    folderId: z.guid().nullable().optional().describe('The topic folder it lay in; the base-knowledge root when absent or no longer one.'),
+  })
+  .strict()
+export type RelistEntryBody = z.infer<typeof relistEntryBodySchema>

@@ -23,6 +23,7 @@ const HEADS = { file: STORE_SPEC, name: 'moves the heads on confirmation, record
 const APPEND_ONLY = { file: STORE_SPEC, name: 'refuses to update or delete a revision, a body or a check on its own' }
 const CROSS_OWNER = { file: STORE_SPEC, name: 'refuses a copy on another office’s edition, and a tenant write of a platform row' }
 const RESIDUE = { file: STORE_SPEC, name: 'leaves nothing behind once the document is deleted' }
+const UNLISTED = { file: STORE_SPEC, name: 'takes an entry off the norms and back with its heads, values and checks, and lets a new proposal replace it' }
 const PROPOSAL = { file: SERVICE_SPEC, name: 'takes what the caller read over what the reading guessed, and says whose values they are' }
 const NAMED = { file: TURN_SPEC, name: 'names the standard, its edition, its file and its last check' }
 const DIRECTIVE = { file: TURN_SPEC, name: 'applies an MA 37 directive in Vienna, not in Graz, and says when the authority is unknown' }
@@ -140,6 +141,8 @@ export const KNOWLEDGE_CONSUMERS: readonly KnowledgeConsumer[] = [
   { element: 'knowledge_records.document_id', consumer: STORE, test: RESIDUE },
   { element: 'knowledge_records.created_by', consumer: STORE, test: ISOLATION },
   { element: 'knowledge_records.created_at', consumer: STORE, test: ISOLATION },
+  { element: 'knowledge_records.unlisted_at', consumer: STORE, test: UNLISTED },
+  { element: 'knowledge_records.unlisted_head_revision_id', consumer: STORE, test: UNLISTED },
   { element: 'knowledge_revisions.revision_id', consumer: STORE, test: HEADS },
   { element: 'knowledge_revisions.record_id', consumer: STORE, test: HEADS },
   { element: 'knowledge_revisions.record_type', consumer: STORE, test: HEADS },

@@ -3,6 +3,7 @@ import type {
   BaseKnowledgeFolder,
   BaseKnowledgeFolders,
   BaseKnowledgeList,
+  BaseKnowledgeUnlisting,
   BulkEntriesBody,
   BulkEntriesResult,
   ConfirmEntryBody,
@@ -140,9 +141,14 @@ export const recognizeNorms = async (body: RecognizeBody): Promise<NormRecogniti
 export const settleNorms = async (body: SettleProposalsBody): Promise<SettleProposalsResult> =>
   json(await fetch(`${ENDPOINT}/settle`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'settle norms')
 
-export const unlistBaseKnowledge = async (entryId: string): Promise<void> => {
-  await json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/unlist`, { method: 'POST' }), 'take it off the norms')
-}
+export const unlistBaseKnowledge = async (entryId: string): Promise<BaseKnowledgeUnlisting> =>
+  json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/unlist`, { method: 'POST' }), 'take it off the norms')
+
+export const relistBaseKnowledge = async (entryId: string, folderId: string | null): Promise<BaseKnowledgeEntry> =>
+  json(
+    await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/relist`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ folderId }) }),
+    'keep it as a standard again',
+  )
 
 export interface ShelfCandidate {
   id: string

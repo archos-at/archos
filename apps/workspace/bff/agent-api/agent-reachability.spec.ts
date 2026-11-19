@@ -110,6 +110,10 @@ const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
     category: 'model-compute',
     reason: 'speech-to-text for the person’s microphone; an agent sends text',
   },
+  'POST /api/base-knowledge/[entryId]/relist': {
+    category: 'ui-state',
+    reason: 'the „Rückgängig“ of the toast after „Nicht mehr als Norm führen“, seconds after the person took the norm off; an agent proposes the file again (base-knowledge-propose) and the person confirms it',
+  },
   '* /api/openapi': {
     category: 'other',
     reason: 'the machine-readable description of these operations; an agent reads it through describe-operation instead',
