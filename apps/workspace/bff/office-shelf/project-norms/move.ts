@@ -18,7 +18,7 @@ import { OFFICE_SHELF, projectShelf } from '@/lib/documents/shelf'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { storedFileOf } from '@/lib/documents/stored-copy'
 import { moveDocumentToBin } from '@/lib/projects/document-bin'
-import type { OfficeShelfNormPayload, ProposedChangeResult } from '@/lib/proposals/types'
+import type { ConfirmedNorm, OfficeShelfNormPayload, ProposedChangeResult } from '@/lib/proposals/types'
 import { settleNormOffers } from './attention'
 import { heldWorks } from './held-works'
 import { isSettled, placementFor, type ShelfPlacement } from './placement'
@@ -187,12 +187,16 @@ export async function moveNormsToOfficeShelf(
 
 export async function applyOfficeShelfNorm(
   payload: OfficeShelfNormPayload,
-  context: { session: AuthorizedSession; projectId: string; request: Request }
+  context: { session: AuthorizedSession; projectId: string; request: Request; norms?: readonly ConfirmedNorm[] }
 ): Promise<ProposedChangeResult[]> {
+  const confirmedValues = new Map((context.norms ?? []).map((norm) => [norm.documentId, norm.values]))
   const placements = await moveNormsToOfficeShelf(
     context.session,
     context.projectId,
-    payload.documents.map((document) => ({ documentId: document.id })),
+    payload.documents.map((document) => {
+      const values = confirmedValues.get(document.id)
+      return values ? { documentId: document.id, values, confirm: true } : { documentId: document.id }
+    }),
     context.request
   )
   return payload.documents.map((document, index) => {
@@ -200,6 +204,6 @@ export async function applyOfficeShelfNorm(
     const label = document.designation ?? document.name
     return outcome.outcome === 'refused'
       ? { label, ok: false, reason: outcome.reason ?? 'Not moved.' }
-      : { label, ok: true, itemId: outcome.officeDocumentId ?? undefined }
+      : { label, ok: true, itemId: outcome.officeDocumentId ?? undefined, ...(outcome.reason ? { reason: outcome.reason } : {}) }
   })
 }

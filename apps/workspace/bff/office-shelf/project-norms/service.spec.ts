@@ -17,7 +17,7 @@ vi.mock('@/lib/proposals/repository', () => ({
   listShelfProposals: vi.fn(async () => []),
 }))
 vi.mock('@/lib/proposals/audit', () => ({ auditProposalCreated: vi.fn() }))
-vi.mock('./managers', () => ({ normDecidersOf: vi.fn(async () => ['user-manager']) }))
+vi.mock('./managers', () => ({ normDecidersOf: vi.fn(async () => ({ deciders: ['user-manager'], managers: ['Bernd Huber'] })) }))
 vi.mock('./held-works', () => ({ heldWorks: vi.fn(async () => new Map()) }))
 vi.mock('./repository', () => ({
   keepInProject: vi.fn(async () => undefined),
@@ -37,7 +37,9 @@ vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.
 vi.mock('@/lib/upload-batches/repository', () => ({ listBatchDocuments: vi.fn(async () => []) }))
 vi.mock('@/lib/base-knowledge/store/repository', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/base-knowledge/store/repository')>()),
-  entryIdsForDocuments: vi.fn(async (_org: string, ids: string[]) => new Map(ids.map((id) => [id, `entry-of-${id}`]))),
+  entryIdsForDocuments: vi.fn(
+    async (_org: string, ids: string[]) => new Map(ids.filter((id) => id !== 'office-doc-unlisted').map((id) => [id, `entry-of-${id}`]))
+  ),
 }))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -91,6 +93,7 @@ function normRow(id: string, filename: string): ProjectNormRow {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(normDecidersOf).mockResolvedValue({ deciders: ['user-manager'], managers: ['Bernd Huber'] })
   vi.mocked(listShelfProposals).mockResolvedValue([])
   vi.mocked(keptAmong).mockResolvedValue(new Set())
   vi.mocked(listProjectNormRows).mockResolvedValue([])
@@ -132,11 +135,48 @@ describe('without the right to manage the office shelf, a norm is suggested', ()
       '11111111-1111-4111-8111-111111111111',
       '22222222-2222-4222-8222-222222222222',
     ])
-    expect(placed).toMatchObject({ destination: 'suggest', visibility: 'office', notified: 1 })
+    expect(placed).toMatchObject({ destination: 'suggest', visibility: 'office', notified: 1, noDecider: null })
     expect(placed.placements.map((placement) => [placement.outcome, placement.proposalId])).toEqual([
       ['suggested', 'proposal-1'],
       ['suggested', 'proposal-1'],
     ])
+  })
+
+  it('records nothing when nobody may decide it, and says who manages the office shelf', async () => {
+    vi.mocked(normDecidersOf).mockResolvedValue({ deciders: [], managers: ['Bernd Huber'] })
+    const placed = await placeProjectNorms(
+      MEMBER,
+      'project-1',
+      { destination: 'suggest', visibility: 'office', documents: [{ documentId: '11111111-1111-4111-8111-111111111111' }] },
+      REQUEST
+    )
+    expect(insertProposedChange).not.toHaveBeenCalled()
+    expect(emitInboxItems).not.toHaveBeenCalled()
+    expect(resolveInboxItemsAnchoredOn).not.toHaveBeenCalled()
+    expect(placed).toMatchObject({ notified: 0, noDecider: { managers: ['Bernd Huber'] } })
+    expect(placed.placements).toMatchObject([{ documentId: '11111111-1111-4111-8111-111111111111', outcome: 'refused', proposalId: null }])
+  })
+
+  it('keeps the values the person saw in the suggestion, for whoever decides it', async () => {
+    await placeProjectNorms(
+      MEMBER,
+      'project-1',
+      {
+        destination: 'suggest',
+        visibility: 'office',
+        documents: [
+          { documentId: '11111111-1111-4111-8111-111111111111', values: { kind: 'guideline', designation: 'RVS 03.01', editionLabel: '2024-05' } },
+          { documentId: '22222222-2222-4222-8222-222222222222' },
+        ],
+      },
+      REQUEST
+    )
+    expect(vi.mocked(insertProposedChange).mock.calls[0][0].payload).toEqual({
+      documents: [
+        { id: '11111111-1111-4111-8111-111111111111', name: 'OENORM_B_X1.pdf', designation: 'RVS 03.01', kind: 'guideline', editionLabel: '2024-05' },
+        { id: '22222222-2222-4222-8222-222222222222', name: 'OENORM_B_X2.pdf', designation: null, kind: 'technical_standard', editionLabel: null },
+      ],
+    })
   })
 
   it('does not suggest a norm twice while its suggestion is open', async () => {
@@ -199,11 +239,12 @@ describe('the project’s view of its norms', () => {
       createdBy: 'user-1',
       createdAt: new Date('2026-11-19T10:00:00Z'),
     })
-    vi.mocked(listReferences).mockResolvedValue([reference('kept', 'office-doc-1'), reference('gone', null)])
+    vi.mocked(listReferences).mockResolvedValue([reference('kept', 'office-doc-1'), reference('unlisted', 'office-doc-unlisted'), reference('gone', null)])
     const listed = await listProjectNorms(MEMBER, 'project-1', {})
-    expect(listed.references.map((row) => [row.id, row.state, row.entryId])).toEqual([
-      ['kept', 'in_office_shelf', 'entry-of-office-doc-1'],
-      ['gone', 'removed', null],
+    expect(listed.references.map((row) => [row.id, row.state, row.officeDocumentId, row.entryId])).toEqual([
+      ['kept', 'in_office_shelf', 'office-doc-1', 'entry-of-office-doc-1'],
+      ['unlisted', 'unlisted', 'office-doc-unlisted', null],
+      ['gone', 'removed', null, null],
     ])
     expect(listed.nextCursor).toBeNull()
   })

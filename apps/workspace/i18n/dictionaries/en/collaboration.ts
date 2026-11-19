@@ -850,10 +850,15 @@ export const collaboration = {
       accept: 'Take into the office filing',
       decline: 'Decline',
       visibility: 'Everyone in the office can see it then.',
-      accepted: 'Now in the office filing. The project keeps a reference.',
+      accepted: 'Confirmed and in the office filing. The project keeps a reference.',
+      unconfirmed: 'In the office filing, but waiting for confirmation under Standards & guidelines: {reason}',
       declined: 'Declined. The norm stays in the project.',
       failed: 'That did not go through: {reason}',
       stale: 'Someone has already decided.',
+      confirmBody:
+        'Check the type, designation and edition. Once confirmed the norm goes under Standards & guidelines, visible to everyone in the office, and the project keeps a reference.',
+      later: 'The suggestion keeps waiting in the inbox.',
+      editionNeeded: 'Enter the edition. Without one the norm cannot be confirmed.',
     },
   },
 

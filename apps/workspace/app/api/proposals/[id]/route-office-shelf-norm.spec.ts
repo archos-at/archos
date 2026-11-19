@@ -176,6 +176,30 @@ describe('a project norm suggested for the office shelf', () => {
     expect(proposal).toMatchObject({ status: 'applied', results: [{ label: 'ÖNORM B 1600:2023', ok: true }] })
   })
 
+  it('hands the values the person confirmed in the norm dialog to the move', async () => {
+    SESSION.permissions = [ORG_PERMISSIONS.officeShelfManage]
+    store.set(ID, suggestion())
+    vi.mocked(applyOfficeShelfNorm).mockResolvedValue([{ label: 'ÖNORM B 1600:2023', ok: true }])
+    const norms = [
+      {
+        documentId: NORMS.documents[0].id,
+        values: { kind: 'technical_standard' as const, designation: 'ÖNORM B 1600:2023', editionLabel: '2023-02-01' },
+      },
+    ]
+
+    await applyProposal(ID, { norms }, run)
+
+    expect(applyOfficeShelfNorm).toHaveBeenCalledWith(NORMS, expect.objectContaining({ norms }))
+  })
+
+  it('refuses confirmed values without an edition', async () => {
+    SESSION.permissions = [ORG_PERMISSIONS.officeShelfManage]
+    store.set(ID, suggestion())
+    const norms = [{ documentId: NORMS.documents[0].id, values: { kind: 'technical_standard' as const, designation: null, editionLabel: '' } }]
+    await expect(applyProposal(ID, { norms }, run)).rejects.toMatchObject({ status: 400 })
+    expect(applyOfficeShelfNorm).not.toHaveBeenCalled()
+  })
+
   it('is declined by a manager, and nothing moves', async () => {
     SESSION.permissions = [ORG_PERMISSIONS.officeShelfManage]
     store.set(ID, suggestion())

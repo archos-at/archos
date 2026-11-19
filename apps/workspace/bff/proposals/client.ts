@@ -2,7 +2,7 @@ import type { ZodType } from 'zod'
 import {
   proposalListResponseSchema,
   proposalResponseSchema,
-  type ApplyProposalRequest,
+  type ApplyProposalBody,
   type ProposalListQuery,
   type ProposalListResponse,
   type ProposalResponse,
@@ -80,10 +80,10 @@ export function getProposal(id: string, run: ProposalFetch = defaultFetch): Prom
 }
 
 export function applyProposal(id: string, run?: ProposalFetch): Promise<ProposalResponse>
-export function applyProposal(id: string, body: ApplyProposalRequest, run?: ProposalFetch): Promise<ProposalResponse>
+export function applyProposal(id: string, body: ApplyProposalBody, run?: ProposalFetch): Promise<ProposalResponse>
 export function applyProposal(
   id: string,
-  bodyOrRun?: ApplyProposalRequest | ProposalFetch,
+  bodyOrRun?: ApplyProposalBody | ProposalFetch,
   maybeRun?: ProposalFetch
 ): Promise<ProposalResponse> {
   const body = typeof bodyOrRun === 'function' ? undefined : bodyOrRun

@@ -2,11 +2,11 @@ import { getLocale } from '@/i18n/server'
 import { BadRequestError } from '@/lib/api/errors'
 import { apiRoute } from '@/lib/api/handler'
 import { applyProposal } from '@/lib/proposals/service'
-import { applyProposalRequestSchema, type ApplyProposalRequest } from '@/lib/proposals/types'
+import { applyProposalBodySchema, type ApplyProposalBody } from '@/lib/proposals/types'
 
 type Params = { id: string }
 
-async function applyBody(request: Request): Promise<ApplyProposalRequest> {
+async function applyBody(request: Request): Promise<ApplyProposalBody> {
   const text = await request.text()
   if (!text.trim()) return {}
   let raw: unknown
@@ -15,7 +15,7 @@ async function applyBody(request: Request): Promise<ApplyProposalRequest> {
   } catch {
     throw new BadRequestError('Invalid JSON body')
   }
-  const parsed = applyProposalRequestSchema.safeParse(raw)
+  const parsed = applyProposalBodySchema.safeParse(raw)
   if (!parsed.success) throw new BadRequestError('Invalid request body', parsed.error.issues)
   return parsed.data
 }

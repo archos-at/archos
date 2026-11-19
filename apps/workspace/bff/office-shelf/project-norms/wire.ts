@@ -23,7 +23,7 @@ export const listProjectNormsQuerySchema = z.object({
 })
 export type ListProjectNormsQuery = z.infer<typeof listProjectNormsQuerySchema>
 
-const entryValuesSchema = z
+const normValuesSchema = z
   .object({
     kind: z.enum(OFFICE_WORK_KINDS),
     designation: z.string().trim().min(1).max(120).nullable(),
@@ -40,7 +40,7 @@ export const placeProjectNormsBodySchema = z
         z
           .object({
             documentId: z.guid(),
-            values: entryValuesSchema.optional(),
+            values: normValuesSchema.optional(),
           })
           .strict()
       )
@@ -78,6 +78,7 @@ export const placeProjectNormsResponseSchema = z.object({
   visibility: z.enum(['office', 'project']),
   placements: z.array(normPlacementSchema),
   notified: z.number().int(),
+  noDecider: z.object({ managers: z.array(z.string()) }).nullable(),
 })
 export type PlaceProjectNormsResponse = z.infer<typeof placeProjectNormsResponseSchema>
 
@@ -86,10 +87,12 @@ export const normOfferSchema = z.object({
   fileName: z.string(),
   folderId: z.string().nullable(),
   designation: z.string().nullable(),
+  kind: z.enum(OFFICE_WORK_KINDS),
+  editionLabel: z.string().nullable(),
 })
 export type NormOffer = z.infer<typeof normOfferSchema>
 
-export const REFERENCE_STATES = ['in_office_shelf', 'removed'] as const
+export const REFERENCE_STATES = ['in_office_shelf', 'unlisted', 'removed'] as const
 export type ReferenceState = (typeof REFERENCE_STATES)[number]
 
 export const officeShelfReferenceSchema = z.object({

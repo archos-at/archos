@@ -8,6 +8,7 @@ import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
 import { resolveShellChrome } from '@/lib/shell/chrome'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
+import { ShellNormDialog } from './shell-norm-dialog'
 
 export default async function AppShellLayout({
   children,
@@ -20,6 +21,7 @@ export default async function AppShellLayout({
 
   return (
     <RailChatsProvider>
+    <ShellNormDialog>
     <AppShellChrome
       projects={chrome.projects}
       user={chrome.user}
@@ -57,6 +59,7 @@ export default async function AppShellLayout({
       {/* The newest weekly summary, once (ADR-0156): inside the chrome, so it can wait out a tour. */}
       <WhatsNewNoticeInShell state={chrome.whatsNew} />
     </AppShellChrome>
+    </ShellNormDialog>
     </RailChatsProvider>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Mail } from 'lucide-react'
 import { ProjectSectionActions } from '@/components/shell/project-section-frame'
@@ -15,6 +15,7 @@ import { projectEndpoints } from '../lib/file-shelf'
 import type { DocumentWireRow } from '../lib/file-item'
 import { useProjectDocuments } from '../hooks/use-project-documents'
 import type { FolderItem } from '../file-types'
+import type { StoredUpload } from '../hooks/use-office-shelf-documents'
 import { FileWorkspace } from './file-workspace'
 import { MailImportAction } from './mail-import-action'
 import { MailImportDialog } from './mail-import-dialog'
@@ -67,6 +68,16 @@ export function ProjectFileWorkspace({
   const [mailOpen, setMailOpen] = useState(false)
   const mailOffered = mailImportEnabled && initialRootAccess === 'write'
   const search = useShelfSearchMode()
+  const [awaitingNorms, setAwaitingNorms] = useState<ReadonlySet<string>>(() => new Set())
+  const onStored = useCallback(
+    (uploads: StoredUpload[]) => setAwaitingNorms((current) => new Set([...current, ...uploads.map((upload) => upload.documentId)])),
+    []
+  )
+  const onAwaited = useCallback(
+    (documentIds: readonly string[]) =>
+      setAwaitingNorms((current) => new Set([...current].filter((documentId) => !documentIds.includes(documentId)))),
+    []
+  )
 
   const shelf: FileShelf = {
     source: 'project',
@@ -83,7 +94,7 @@ export function ProjectFileWorkspace({
     currentUserId,
     askAbout: (file) => askAboutFile({ projectId, file, navigate: (href) => router.push(href) }),
     useUpload: ({ collectionName: collection, folderId, onComplete }) =>
-      useProjectDocuments({ projectId, collectionName: collection, folderId, onComplete }),
+      useProjectDocuments({ projectId, collectionName: collection, folderId, onComplete, onStored: officeStandards ? onStored : undefined }),
     probeNames: (names) => probe.project(projectId, names),
     probeRevisions: (names, landsIn) => probe.projectRevisions(projectId, names, landsIn),
     handoverKey: projectId,
@@ -138,7 +149,15 @@ export function ProjectFileWorkspace({
         initialFolderId={initialFolderId}
         renderLevelNotice={
           officeStandards
-            ? ({ folderId, revision }) => <ProjectNormNotices projectId={projectId} folderId={folderId} revision={revision} />
+            ? ({ folderId, revision }) => (
+                <ProjectNormNotices
+                  projectId={projectId}
+                  folderId={folderId}
+                  revision={revision}
+                  awaiting={awaitingNorms}
+                  onAwaited={onAwaited}
+                />
+              )
             : undefined
         }
       />

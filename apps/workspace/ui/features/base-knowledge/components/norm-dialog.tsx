@@ -3,6 +3,7 @@
 import { useState, type JSX } from 'react'
 import { toast } from 'sonner'
 import { settleNorms, type NormRecognition, type SettleProposalsResult } from '@/adapters/api/base-knowledge-client'
+import type { NormDialogDestination } from '@/components/norms/norm-dialog-slot'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -19,7 +20,9 @@ type Translate = ReturnType<typeof useTranslations>
 const NOT_NORM = 'none'
 const NO_TOPIC = 'root'
 const NORM_COLUMNS = '@2xl:grid-cols-[9rem_minmax(0,1fr)_8rem_11rem]'
-const NORM_ROW = `grid grid-cols-1 gap-x-3 gap-y-2 border-b border-hairline py-3 last:border-b-0 ${NORM_COLUMNS} @2xl:items-start`
+const NORM_COLUMNS_WITHOUT_TOPIC = '@2xl:grid-cols-[9rem_minmax(0,1fr)_8rem]'
+const normRow = (columns: string) =>
+  `grid grid-cols-1 gap-x-3 gap-y-2 border-b border-hairline py-3 last:border-b-0 ${columns} @2xl:items-start`
 
 interface Row {
   kind: OfficeWorkKind | typeof NOT_NORM
@@ -80,19 +83,21 @@ function ProposalRow({
   proposal,
   row,
   topics,
+  notNorm,
   disabled,
   onChange,
 }: {
   proposal: NormProposal
   row: Row
-  topics: NormRecognition['topics']
+  topics: NormRecognition['topics'] | null
+  notNorm: boolean
   disabled: boolean
   onChange: (row: Row) => void
 }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const off = row.kind === NOT_NORM
   const missing = !off && row.editionLabel.trim() === '' && !proposal.duplicate
-  const workTopic = proposal.editionOf ? topics.folders.find((folder) => folder.id === proposal.topicId) : undefined
+  const workTopic = proposal.editionOf ? topics?.folders.find((folder) => folder.id === proposal.topicId) : undefined
   const info = proposal.duplicate
     ? t('norms.duplicate')
     : proposal.editionOf
@@ -100,7 +105,7 @@ function ProposalRow({
       : null
   const infoId = `norm-dialog-info-${proposal.entryId}`
   return (
-    <div role="row" className={NORM_ROW} data-testid="norm-dialog-row">
+    <div role="row" className={normRow(topics ? NORM_COLUMNS : NORM_COLUMNS_WITHOUT_TOPIC)} data-testid="norm-dialog-row">
       <div role="cell" className="min-w-0">
         <Select value={row.kind} disabled={disabled} onValueChange={(kind) => onChange({ ...row, kind: kind as Row['kind'] })}>
           <SelectTrigger size="sm" className="w-full" aria-label={`${t('norms.column.kind')}: ${proposal.fileName}`}>
@@ -112,7 +117,7 @@ function ProposalRow({
                 {t(`kind.${kind}`)}
               </SelectItem>
             ))}
-            <SelectItem value={NOT_NORM}>{t('norms.notNorm')}</SelectItem>
+            {notNorm && <SelectItem value={NOT_NORM}>{t('norms.notNorm')}</SelectItem>}
           </SelectContent>
         </Select>
       </div>
@@ -146,31 +151,33 @@ function ProposalRow({
           className={cn('h-8 w-full min-w-0 tabular-nums', off && 'opacity-60')}
         />
       </div>
-      <div role="cell" className="min-w-0">
-        {proposal.editionOf ? (
-          <span className="block text-xs text-muted-foreground @2xl:pt-2">
-            {t('norms.topicOfWork')}: {workTopic ? topicLabel(workTopic.path) : t('norms.noTopic')}
-          </span>
-        ) : (
-          <Select
-            value={row.topicId ?? NO_TOPIC}
-            disabled={disabled || off}
-            onValueChange={(topicId) => onChange({ ...row, topicId: topicId === NO_TOPIC ? null : topicId })}
-          >
-            <SelectTrigger size="sm" className={cn('w-full', off && 'opacity-60')} aria-label={`${t('norms.column.topic')}: ${proposal.fileName}`}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NO_TOPIC}>{t('norms.noTopic')}</SelectItem>
-              {topics.folders.map((folder) => (
-                <SelectItem key={folder.id} value={folder.id}>
-                  {topicLabel(folder.path)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+      {topics && (
+        <div role="cell" className="min-w-0">
+          {proposal.editionOf ? (
+            <span className="block text-xs text-muted-foreground @2xl:pt-2">
+              {t('norms.topicOfWork')}: {workTopic ? topicLabel(workTopic.path) : t('norms.noTopic')}
+            </span>
+          ) : (
+            <Select
+              value={row.topicId ?? NO_TOPIC}
+              disabled={disabled || off}
+              onValueChange={(topicId) => onChange({ ...row, topicId: topicId === NO_TOPIC ? null : topicId })}
+            >
+              <SelectTrigger size="sm" className={cn('w-full', off && 'opacity-60')} aria-label={`${t('norms.column.topic')}: ${proposal.fileName}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_TOPIC}>{t('norms.noTopic')}</SelectItem>
+                {topics.folders.map((folder) => (
+                  <SelectItem key={folder.id} value={folder.id}>
+                    {topicLabel(folder.path)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -195,17 +202,26 @@ export interface NormDialogProps {
   recognition: NormRecognition | null
   onClose: () => void
   onSettled: () => void
+  destination?: NormDialogDestination
 }
 
-export function NormDialog({ recognition, onClose, onSettled }: NormDialogProps): JSX.Element {
+export function NormDialog({ recognition, onClose, onSettled, destination }: NormDialogProps): JSX.Element {
   return (
     <Dialog open={recognition !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
-      {recognition && <NormDialogBody key={recognition.proposals.map((proposal) => proposal.entryId).join()} recognition={recognition} onClose={onClose} onSettled={onSettled} />}
+      {recognition && (
+        <NormDialogBody
+          key={recognition.proposals.map((proposal) => proposal.entryId).join()}
+          recognition={recognition}
+          onClose={onClose}
+          onSettled={onSettled}
+          destination={destination}
+        />
+      )}
     </Dialog>
   )
 }
 
-function NormDialogBody({ recognition, onClose, onSettled }: NormDialogProps & { recognition: NormRecognition }): JSX.Element {
+function NormDialogBody({ recognition, onClose, onSettled, destination }: NormDialogProps & { recognition: NormRecognition }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const { proposals } = recognition
   const [rows, setRows] = useState<Record<string, Row>>(() => Object.fromEntries(proposals.map((proposal) => [proposal.entryId, rowOf(proposal)])))
@@ -213,12 +229,17 @@ function NormDialogBody({ recognition, onClose, onSettled }: NormDialogProps & {
 
   const later = () => {
     if (busy) return
-    toast(t('norms.laterDone'))
+    toast(destination?.laterNotice ?? t('norms.laterDone'))
     onClose()
   }
   const confirm = async () => {
     setBusy(true)
     try {
+      if (destination) {
+        await destination.confirm(settleRows(proposals, rows))
+        onSettled()
+        return
+      }
       const result = await settleNorms({ rows: settleRows(proposals, rows) })
       const summary = settledSummary(t, result, proposals)
       if (result.results.some((row) => row.outcome === 'failed')) toast.warning(summary)
@@ -247,28 +268,33 @@ function NormDialogBody({ recognition, onClose, onSettled }: NormDialogProps & {
     >
       <DialogHeader>
         <DialogTitle>{counted(t, 'norms.title', proposals.length)}</DialogTitle>
-        <DialogDescription>{t('norms.body')}</DialogDescription>
+        <DialogDescription>{destination?.description ?? t('norms.body')}</DialogDescription>
       </DialogHeader>
       <div className="@container flex min-h-0 flex-col gap-3 overflow-y-auto">
         <div role="table" aria-label={counted(t, 'norms.title', proposals.length)} className="flex flex-col">
-          <div role="row" className={`hidden gap-x-3 pb-1 text-xs font-medium text-muted-foreground @2xl:grid ${NORM_COLUMNS}`}>
+          <div
+            role="row"
+            className={`hidden gap-x-3 pb-1 text-xs font-medium text-muted-foreground @2xl:grid ${destination ? NORM_COLUMNS_WITHOUT_TOPIC : NORM_COLUMNS}`}
+          >
             <span role="columnheader">{t('norms.column.kind')}</span>
             <span role="columnheader">{t('norms.column.designation')}</span>
             <span role="columnheader">{t('norms.column.edition')}</span>
-            <span role="columnheader">{t('norms.column.topic')}</span>
+            {!destination && <span role="columnheader">{t('norms.column.topic')}</span>}
           </div>
           {proposals.map((proposal) => (
             <ProposalRow
               key={proposal.entryId}
               proposal={proposal}
               row={rows[proposal.entryId] ?? rowOf(proposal)}
-              topics={recognition.topics}
+              topics={destination ? null : recognition.topics}
+              notNorm={destination?.notNorm ?? true}
               disabled={busy}
               onChange={(row) => setRows((current) => ({ ...current, [proposal.entryId]: row }))}
             />
           ))}
         </div>
         <PlainLine recognition={recognition} />
+        {destination?.choice}
       </div>
       <DialogFooter>
         <Button type="button" variant="ghost" disabled={busy} onClick={later} data-testid="norm-dialog-later">

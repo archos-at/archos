@@ -46,13 +46,18 @@ async function offersAmong(
   return offerable(norms, { kept, suggested: new Set(suggested.keys()), works })
 }
 
+function referenceState(row: OfficeShelfReference, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView['state'] {
+  if (!row.officeDocumentId) return 'removed'
+  return entries.has(row.officeDocumentId) ? 'in_office_shelf' : 'unlisted'
+}
+
 function referenceView(row: OfficeShelfReference, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView {
   return {
     id: row.id,
     fileName: row.fileName,
     folderId: row.folderId,
     placedAs: row.placedAs,
-    state: row.officeDocumentId ? 'in_office_shelf' : 'removed',
+    state: referenceState(row, entries),
     officeDocumentId: row.officeDocumentId,
     entryId: row.officeDocumentId ? (entries.get(row.officeDocumentId) ?? null) : null,
     createdAt: row.createdAt.toISOString(),
@@ -120,11 +125,9 @@ export async function placeProjectNorms(
   const ids = body.documents.map((document) => document.documentId)
   switch (body.destination) {
     case 'project':
-      return { destination: 'project', visibility: 'project', placements: await keepNorms(session, projectId, ids), notified: 0 }
-    case 'suggest': {
-      const { placements, notified } = await suggestNormsForOfficeShelf(session, projectId, ids)
-      return { destination: 'suggest', visibility: 'office', placements, notified }
-    }
+      return { destination: 'project', visibility: 'project', placements: await keepNorms(session, projectId, ids), notified: 0, noDecider: null }
+    case 'suggest':
+      return { destination: 'suggest', visibility: 'office', ...(await suggestNormsForOfficeShelf(session, projectId, body.documents)) }
     case 'office_shelf': {
       const placements = await moveNormsToOfficeShelf(
         session,
@@ -132,7 +135,7 @@ export async function placeProjectNorms(
         body.documents.map((document) => ({ documentId: document.documentId, values: document.values, confirm: body.confirm })),
         request
       )
-      return { destination: 'office_shelf', visibility: 'office', placements, notified: 0 }
+      return { destination: 'office_shelf', visibility: 'office', placements, notified: 0, noDecider: null }
     }
   }
 }

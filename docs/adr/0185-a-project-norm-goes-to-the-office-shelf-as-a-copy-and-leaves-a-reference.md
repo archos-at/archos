@@ -50,7 +50,11 @@ Chosen option 2.
   (`documents/stored-copy.ts`, exempt in the download log: nobody receives them) and files
   them with `uploadBaseKnowledge`, or with `addBaseKnowledgeEdition` when the office shelf
   holds the work in another edition. When it holds that edition already (same edition label,
-  or the same bytes), nothing is copied. The project file goes to the project's bin
+  or the same bytes), nothing is copied. The person who moves it sees Art, Bezeichnung and
+  Ausgabe in the norm dialog and confirms them in the same step (`confirm: true` with the
+  values), so the copy lands confirmed and stays readable; without an Ausgabe the dialog moves
+  nothing. A move without values (an agent's) files the copy as a proposal, unread until
+  someone confirms it: nothing confirms values nobody saw. The project file goes to the project's bin
   (`moveDocumentToBin`), so the move can be undone from there; if that fails, the copy is
   removed again. The search index follows the two existing doors: the copy is not read until
   its entry is confirmed, and the bin takes the project file out of retrieval.
@@ -59,17 +63,31 @@ Chosen option 2.
   was placed (`moved`, `edition`, `duplicate`). The copy's key is
   `ON DELETE SET NULL (office_document_id)`, so removing the copy from the Büroablage keeps
   the row and the project shows it as removed. While the copy is there, the project's line
-  opens its entry in Normen & Richtlinien.
+  opens its entry in Normen & Richtlinien; once it is taken off the norms but still lies in
+  the Büroablage (`state: unlisted`), the line says so and opens the file there.
 - **„Hier lassen“** is a row in `office_shelf_norm_keeps`, per document, deleted with it.
   Nothing offers that norm for the Büroablage again.
 - **Suggesting** is a proposal of the new kind `office_shelf_norm` in the project, proposed
   by the person. Its inbox item `office_shelf.norm_suggested` goes to everyone who may decide
   it: org:office_shelf:manage, write access to the project and to the file's folder. Deciding
-  needs the same (`requireDecider`); accepting runs the move as the person who accepts. A
-  declined suggestion keeps the norm out of the offers, as „Hier lassen“ does.
+  needs the same (`requireDecider`); accepting runs the move as the person who accepts, who
+  confirms the values in the norm dialog first, starting from those the suggester saw, which
+  the payload keeps. The dialog sends them as `norms` with the apply request; the
+  `proposal-apply` operation keeps its shape (the agent's tool budget is spent), so an
+  agent's apply files the copy unconfirmed. A declined suggestion keeps
+  the norm out of the offers, as „Hier lassen“ does. When nobody may decide it, nothing is
+  recorded and nobody is notified: the answer carries `noDecider` with the names of those who
+  manage the Büroablage (they would need write access here), the person is told so, and the
+  offer stays. The deciders were not widened to managers without project write: the move
+  reads the project file and bins it, which needs that write, and granting it through the
+  proposal would bypass the project's own access.
 - **The offer**: a settled project file that `recognizeNorm` reads as a norm, whose work the
   office shelf does not hold, not kept and not suggested. The project's files show it as a
   banner per folder; after an upload settles, the uploader gets `office_shelf.norm_offered`.
+  When the person uploaded it in Dateien, the norm dialog opens there once it is offered,
+  with the destination: Büroablage (or „Für die Büroablage vorschlagen“), „Nur dieses
+  Projekt“ (the keep row), or „Später“, which leaves the banner. Until then the file is an
+  ordinary project file. The offer carries the Art and Ausgabe read from the name.
 - **The API** is one route, `/api/projects/[id]/norms`, with the operations
   `project-norm-list` and `project-norm-place`. Both office destinations require
   `visibility: "office"` in the body.
@@ -90,9 +108,10 @@ project.
 - Bad: the bytes are stored twice until the project bin is purged.
 - Bad: the move is not one transaction. A failure between the copy and the bin is
   compensated by removing the copy; a failure of that removal is logged and leaves both.
-- Neutral: a project-side norm confirmation does not exist yet; the offers rest on the file
-  name read by `recognizeNorm`. `confirm: true` confirms the entry with the values the person
-  saw in a norm dialog.
+- Neutral: the offers rest on the file name read by `recognizeNorm`; the project-side norm
+  dialog (`ui/features/documents/components/project-norm-dialog.tsx`, the Büroablage's
+  `NormDialog` with a destination) asks no Thema, so a moved norm lands at the root of
+  Normen & Richtlinien.
 
 ### Confirmation
 

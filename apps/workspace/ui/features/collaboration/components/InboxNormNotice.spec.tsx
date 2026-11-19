@@ -7,6 +7,8 @@ import type { InboxItemView } from '@/lib/inbox/types'
 import type { ProposalResponse } from '@/lib/proposals/types'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { waitingGroups } from '../lib/inbox-queue'
+import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
+import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
 import { InboxItemRow } from './InboxItemRow'
 import { InboxQueueList } from './InboxQueueList'
 import type { InboxNormDecisionClient } from './InboxNormSuggestionDecision'
@@ -88,6 +90,7 @@ const suggested: InboxItemView = {
 }
 
 const decisions = (): InboxNormDecisionClient => ({
+  read: vi.fn(async () => ({ proposal: { status: 'proposed', results: [] } }) as unknown as ProposalResponse),
   apply: vi.fn(async () => ({ proposal: { status: 'applied', results: [] } }) as unknown as ProposalResponse),
   dismiss: vi.fn(async () => ({ proposal: { status: 'dismissed', results: [] } }) as unknown as ProposalResponse),
 })
@@ -95,24 +98,28 @@ const decisions = (): InboxNormDecisionClient => ({
 const row = (item: InboxItemView) =>
   render(
     <I18nProvider initialLocale="de" fixedLocale>
-      <ul>
-        <InboxItemRow item={item} normDecisionClient={decisions()} />
-      </ul>
+      <NormDialogProvider dialog={NormDialog}>
+        <ul>
+          <InboxItemRow item={item} normDecisionClient={decisions()} />
+        </ul>
+      </NormDialogProvider>
     </I18nProvider>,
   )
 
 const queue = (items: InboxItemView[]) =>
   render(
     <I18nProvider initialLocale="de" fixedLocale>
-      <InboxQueueList
-        groups={waitingGroups(items, '2026-11-19')}
-        news={[]}
-        waitingCount={items.length}
-        lateCount={0}
-        currentId={null}
-        hrefOf={(item) => item.href}
-        onFollow={vi.fn()}
-      />
+      <NormDialogProvider dialog={NormDialog}>
+        <InboxQueueList
+          groups={waitingGroups(items, '2026-11-19')}
+          news={[]}
+          waitingCount={items.length}
+          lateCount={0}
+          currentId={null}
+          hrefOf={(item) => item.href}
+          onFollow={vi.fn()}
+        />
+      </NormDialogProvider>
     </I18nProvider>,
   )
 
