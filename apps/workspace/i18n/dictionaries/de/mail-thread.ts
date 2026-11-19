@@ -3,9 +3,9 @@ import type { en } from '../en'
 export const mailThread: typeof en.mailThread = {
   followIneligible: {
     no_active_follow: 'Niemand folgt diesem E-Mail-Verlauf',
-    sender_not_verified: 'Die Domain des Absenders ist nicht bestätigt',
+    sender_not_verified: 'Der Absender ist nicht überprüfbar',
     match_not_reference: 'Die E-Mail verweist auf keine E-Mail dieses E-Mail-Verlaufs',
-    header_not_signed: 'Der Verweis auf den E-Mail-Verlauf ist nicht von der Domain signiert',
+    header_not_signed: 'Der Verweis auf den E-Mail-Verlauf ist nicht überprüfbar',
     flagged: 'Die E-Mail ist an andere adressiert, oder ihr Datum ist nicht plausibel',
     automatic: 'Die E-Mail wurde automatisch versandt',
     new_participant_domain: 'Neue Beteiligte: {domains}',
@@ -42,7 +42,7 @@ export const mailThread: typeof en.mailThread = {
     trust: {
       verified: 'Domain bestätigt: {domain}',
       verifiedNoDomain: 'Domain bestätigt',
-      unverified: 'Domain nicht bestätigt',
+      unverified: 'Absender nicht überprüfbar',
       notChecked: 'Aus dem Outlook-Archiv · nicht geprüft',
     },
     filedVia: {

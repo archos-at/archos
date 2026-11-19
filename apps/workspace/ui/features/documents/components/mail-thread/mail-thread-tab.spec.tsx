@@ -74,7 +74,7 @@ describe('MailThreadTab', () => {
   it('says an unconfirmed sender with the warning glyph, in ink', async () => {
     renderTab('unverified-section')
     const trust = within((await entries())[0]).getByTestId('mail-thread-entry-trust')
-    expect(trust).toHaveTextContent('Domain not verified')
+    expect(trust).toHaveTextContent('Sender cannot be verified')
     expect(trust.dataset.trust).toBe('unverified')
     expect(trust.className).toContain('text-foreground')
   })
@@ -289,5 +289,37 @@ describe('MailThreadTab', () => {
     renderTab('three-messages')
     const [newest] = await entries()
     expect(within(newest).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026, 09:12 · Mag. Huber (ma37.wien.gv.at)')
+  })
+})
+
+describe('the E-Mails tab’s words and dialog', () => {
+  it('leaves a place to wrap after the date, so a long German name hyphenates rather than breaking anywhere', async () => {
+    renderTab('worst-case')
+    const heading = (await entries()).map((row) => within(row).getByTestId('mail-thread-entry-heading')).find((node) => node.textContent?.includes('Rechtsanwaltskanzlei')) as HTMLElement
+    expect(heading).toHaveAttribute('lang', 'de')
+    const [date, name] = Array.from(heading.children) as HTMLElement[]
+    expect(date.className).toContain('whitespace-nowrap')
+    expect(date.textContent?.endsWith(' ')).toBe(false)
+    expect(name.className).toContain('hyphens-auto')
+    expect(name.className).not.toContain('anywhere')
+  })
+
+  it('names a file on one line, cut in its middle, not over lines that each carry an underline', async () => {
+    renderTab('worst-case')
+    const link = (await screen.findAllByTestId('mail-thread-attachment-link'))[0]
+    expect(link.querySelector('[data-fitted], .truncate')).not.toBeNull()
+  })
+
+  it('asks where to as the app’s form dialog: the dialog takes the focus, no radio, and „Cancel“ is a raised press', async () => {
+    renderTab('detach-confirm')
+    const statik = (await entries())[1]
+    await userEvent.click(within(statik).getByTestId('mail-entry-menu'))
+    await userEvent.click(await screen.findByTestId('mail-entry-detach'))
+    await screen.findByTestId('mail-thread-detach')
+    expect(screen.getByRole('dialog')).toHaveFocus()
+    expect(screen.getAllByRole('radio').some((radio) => radio === document.activeElement)).toBe(false)
+    const cancel = screen.getByTestId('mail-thread-detach-cancel')
+    expect(cancel.className).toContain('shadow-press')
+    expect(screen.getByTestId('mail-thread-detach-confirm').className).not.toContain('bg-destructive')
   })
 })

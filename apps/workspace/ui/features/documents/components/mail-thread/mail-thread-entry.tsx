@@ -7,6 +7,7 @@ import { Archive, Bot, FileText, Forward, MailCheck, MoreHorizontal, Paperclip, 
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { FactLine } from '@/components/ui/fact-line'
+import { FittedName } from '@/components/ui/fitted-name'
 import { Item } from '@/components/ui/item'
 import { usePrefersReducedMotion } from '@/components/motion'
 import { useLocale, useTranslations } from '@/i18n'
@@ -105,10 +106,16 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
     >
       <div className="flex min-w-0 items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          {/* The heading as the document prints it, wrapping between its date, name and domain, never inside the date. */}
-          <h4 className="text-foreground text-sm font-medium leading-snug" data-testid="mail-thread-entry-heading">
-            {heading.when && <span className="whitespace-nowrap tabular-nums">{heading.when}</span>}
-            <span className="[overflow-wrap:anywhere]">{heading.who}</span>
+          {/* The heading as the document prints it. It wraps between its date, name and domain (the space after the
+              date stays outside the unbroken date, or there is no place to wrap and the name broke inside a word), never
+              inside the date; a long German name hyphenates at a syllable instead of splitting anywhere. */}
+          <h4 className="text-foreground text-sm font-medium leading-snug" lang="de" data-testid="mail-thread-entry-heading">
+            {heading.when && (
+              <>
+                <span className="whitespace-nowrap tabular-nums">{heading.when.trimEnd()}</span>{' '}
+              </>
+            )}
+            <span className="hyphens-auto [overflow-wrap:break-word]">{heading.who}</span>
             {/* The space stays outside the block, where a line may break; the parenthesis keeps its domain. */}
             {heading.domain && (
               <>
@@ -220,20 +227,22 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
     line.kind !== 'not_filed' && line.documentId ? (
       <Link
         href={documentFilesHref(projectId, line.documentId)}
-        className="text-foreground decoration-foreground/40 hover:decoration-foreground rounded-inline inline-flex min-h-6 min-w-0 items-center gap-1 underline underline-offset-[3px] outline-none transition-colors duration-quick ease-out focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none"
+        className="text-foreground decoration-foreground/40 hover:decoration-foreground rounded-inline flex min-h-6 min-w-0 max-w-full items-center gap-1 underline underline-offset-[3px] outline-none transition-colors duration-quick ease-out focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none"
         data-testid="mail-thread-attachment-link"
       >
-        <FileText className="mt-px size-3.5 shrink-0" aria-hidden />
-        <span className="min-w-0 [overflow-wrap:anywhere]">{name}</span>
+        <FileText className="size-3.5 shrink-0" aria-hidden />
+        <FittedName text={name} className="flex-1" />
       </Link>
     ) : (
-      <span className="inline-flex min-w-0 items-start gap-1">
-        <FileText className="mt-px size-3.5 shrink-0" aria-hidden />
-        <span className="min-w-0 [overflow-wrap:anywhere]">{name}</span>
+      <span className="flex min-w-0 max-w-full items-center gap-1">
+        <FileText className="size-3.5 shrink-0" aria-hidden />
+        <FittedName text={name} className="flex-1" />
       </span>
     )
   return (
-    <li className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-xs leading-snug" data-testid="mail-thread-attachment" data-disposition={line.kind}>
+    // A file's name is one line in a row, cut in its middle with the whole of it as its title (`FittedName`): broken
+    // over three lines it carried three underlines, and the only words broken anywhere are a file's.
+    <li className="flex min-w-0 flex-col gap-0.5 text-xs leading-snug" data-testid="mail-thread-attachment" data-disposition={line.kind}>
       {named}
       {line.kind === 'already_present' && <span className="text-muted-foreground">{t('attachments.alreadyPresent')}</span>}
       {line.kind === 'not_filed' && (
