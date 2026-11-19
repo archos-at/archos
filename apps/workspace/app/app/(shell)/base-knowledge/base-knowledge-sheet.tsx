@@ -10,7 +10,7 @@ import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { PageSheetClose } from '@/components/ui/page-sheet'
 import { RoutePageSheet } from '@/components/shell/route-page-sheet'
 import { BaseKnowledgeWorkspace } from '@/features/base-knowledge'
-import { OfficeShelfPlaces } from '@/features/documents'
+import { OfficeShelfPlaces } from '@/features/documents/components/office-shelf-places'
 
 export async function BaseKnowledgeSheet({
   standalone,

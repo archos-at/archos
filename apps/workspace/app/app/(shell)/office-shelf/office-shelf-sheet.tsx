@@ -8,7 +8,7 @@ import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { PageSheetClose } from '@/components/ui/page-sheet'
 import { RoutePageSheet } from '@/components/shell/route-page-sheet'
 import { OfficeShelfWorkspace } from '@/features/documents/components/office-shelf-workspace'
-import { OfficeShelfPlaces } from '@/features/documents'
+import { OfficeShelfPlaces } from '@/features/documents/components/office-shelf-places'
 import { OfficeShelfWithNorms } from '@/features/base-knowledge'
 
 export async function OfficeShelfSheet({ standalone }: { standalone: boolean }): Promise<JSX.Element> {
