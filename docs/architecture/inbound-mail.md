@@ -8,11 +8,15 @@ them**; every other mail waits in the project's **E-Mail-Eingang** until a
 person files each part of it, its text and each attachment (who may, depends on
 who the mail claims to be from: [the sender rule](#the-sender-rule)). A filed text becomes a
 section of the conversation's one document, the **E-Mail-Verlauf**, and the
-message's original `.eml` is kept beside it as evidence. A person may follow a
-Verlauf, so that later replies' text is appended without a click.
+message's original `.eml` is kept beside it as evidence. A person who files a
+text into a Verlauf follows it from then on, so that later signed replies from
+its participants are filed without a click: the text into the Verlauf, each
+attachment into the existing folder the agent suggests; only what is left
+waits ([following a Verlauf](#following-a-verlauf)).
 
 Why it is built this way: [ADR-0137](../adr/0137-mail-sent-to-a-project-waits-until-a-person-files-it.md)
-(review, threads, originals, following, and its amendment of 2026-11-03: the sender rule) and
+(review, threads, originals, following, its amendment of 2026-11-03: the sender rule, and of
+2026-11-19: replies from known correspondents filed without a click) and
 [ADR-0138](../adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md)
 (transport). The scanner: [ADR-0157](../adr/0157-attachments-from-outside-are-scanned-in-cluster-by-clamav.md).
 The Outlook archive renders into the same Verläufe: [`mail-import.md`](mail-import.md).
@@ -39,7 +43,8 @@ flowchart LR
     Q5 -->|via sender| D
     P((person)) -->|inbound-mail-file| D[decision rows<br/>+ claim]
     D --> Q3[[inbound_mail_file<br/>as the decider]]
-    Q4 -->|conditions 1-9| D2[follow decision] --> Q3
+    Q4 -->|conditions 1-9| D2[follow decision<br/>text + attachments<br/>with an existing folder] --> Q3
+    Q3 -.->|a person's text filed| F[(follow started<br/>by default)]
     Q3 --> U[upload path<br/>quiet batch]
     U --> V[E-Mail-Verlauf<br/>Fassung N+1]
     U --> A[attachment documents]
@@ -112,7 +117,10 @@ the review refuses by id waits and the rest goes. The decisions are written
 (`keepOthers`), with `inbound_mail_file` in the same transaction, which uploads
 in the sender's session. Whatever still waits is announced as any held mail
 (`inbound_mail.waiting`); so is the whole mail on the job's last failed attempt.
-A verified writer's mail queues no follow job: its sender files the text.
+A verified writer's mail queues no follow job: its sender files the text. Nor
+does its sender's filing start a follow (only a person's filing in the app
+does, [following a Verlauf](#following-a-verlauf)), so replies to a writer's
+own mail wait until a person files one of them.
 
 **What the database holds** (migration 0197; `scripts/rls-test-db.sh`, the 0197
 section): the class needs its evidence (`inbound_mails_verified_writer_evidence`),
@@ -544,7 +552,8 @@ one thread is filed in sent order with the Fassung each becomes.
 `lib/inbound-mail/file-job.ts`, handler as the decider, interactive. A run acts
 only on the decisions its payload names (`decisionIds`), each its own person's:
 the person's decision names its own, the sender's filing job its own and the
-follow job the one it just wrote, and a payload that names none files nothing.
+follow job the ones it just wrote (the text and its attachments), and a payload
+that names none files nothing.
 So two runs never work one part, not even a person's and their own sender
 filing on one mail, and a part another person decided is left to that person's
 run: nothing is ever uploaded in one person's session on another's choice of
@@ -670,20 +679,26 @@ thread it left ends (`detached`).
 ```mermaid
 sequenceDiagram
   participant P as Person
+  participant FI as filing job
   participant F as follows.ts
   participant RJ as receive job
   participant FJ as follow job
   participant DB as Postgres
-  P->>F: POST …/mail-threads/[threadId]/follow { days? }
-  F->>DB: mail_thread_follows (60 days, at most 180)
+  P->>FI: files a mail's text into a Verlauf (via app)
+  FI->>F: followByDefault, after the text is filed
+  F->>DB: mail_thread_follows (60 days), unless one runs or a right refuses
+  Note over P,F: or POST …/mail-threads/[threadId]/follow { days? }
   Note over RJ: a reply arrives
+  RJ->>DB: queue inbound_mail_suggest, then
   RJ->>RJ: judgeFollow: conditions 1–6
   RJ->>DB: queue inbound_mail_follow (only when they hold)
   Note over RJ: or later, when a written Verlauf<br/>re-matches the waiting reply (rematch.ts)
   FJ->>FJ: judgeFollow again (same function)
   FJ->>FJ: as the follower: entitlement, document live and screened,<br/>project:documents:write, folder write (7, 9)
-  FJ->>DB: writeFollowDecision: caps of the last 24 h (8),<br/>decision via=follow, text claimed
-  FJ->>FJ: runInboundMailFiling (the filing job's step)
+  FJ->>DB: the suggestion still queued? wait 30 s (at most ten times)
+  FJ->>FJ: followAttachmentDecisions over the follower's view,<br/>planMailDecision + requireDecisionRights as the follower
+  FJ->>DB: writeFollowDecision: caps of the last 24 h (8),<br/>decisions via=follow, text and attachments claimed
+  FJ->>FI: runInboundMailFiling (the filing job's step)
   FJ-->>P: inbound_mail.appended (collapsed per Verlauf and day)
 ```
 
@@ -694,8 +709,52 @@ already have taken part in the thread (`new_participant_address`; the receive
 and follow jobs ask `findThreadFollowContext` which of those addresses did).
 And `relaxed_alignment` refuses no follow, on purpose: DMARC's relaxed
 alignment proves the organizational domain, condition 5 already holds the From
-domain itself to the thread's participants, and a follow appends text only,
-never a file (`follow-eligibility.spec.ts` pins it). The follower is the earliest running
+domain itself to the thread's participants, and since migration 0250 a
+relaxed-aligned writer's own mail is filed directly too
+(`follow-eligibility.spec.ts` pins it).
+
+**Follow by default** (ADR-0137's amendment of 2026-11-19). When a person's
+filing of a text into a Verlauf lands (`via = 'app'`, a new Verlauf or an
+existing one), the filing job calls `followByDefault` as that person: no
+running follow of theirs on that Verlauf, and the rights `followMailThread`
+asks (`requireMailReviewer`, the Verlauf's document readable, write in its
+folder, an open project), then a 60-day follow, audited
+(`mail_thread.follow_started`) and counted (`mail_thread_followed`,
+`by_default: true`). A running follow is left as it is, not renewed. A refusal
+starts nothing and a fault is logged (`[inbound-mail] no follow was started on
+mail thread …`); the text stays filed either way. An outside agent's filing
+(`agent`), an agent's card (`agent_proposal`), a follow and a sender's own
+filing start none: following stays a person's act in the app. The follow is
+the same row an explicit „Einschalten“ makes, so the E-Mails tab shows it and
+„Beenden“ ends it, with every notice below.
+
+**What a follow files.** Before it decides, the job waits while the mail's
+suggestion is still queued (`suggestionPending`, `apps/workspace/bff/inbound-mail/suggestion-wait.ts`: 30 s, at
+most ten times, the payload's `waits`), as the sender's filing does; the
+receive job queues the suggestion before the follow so the follow finds it.
+Then it reads the mail as the follower (`mailViews`) and files with the text
+each attachment that view pre-selects (`preselected`: offered, a clean scan,
+no risk flag, no duplicate, no image in the text, a revision only where
+`revisionVouchedInThread` vouches for it) and whose row carries no risk flag
+or content finding since, when it is a vouched revision (as the next Fassung)
+or its stored suggestion names a folder that exists (`folderId`, not
+`newFolder`), never one a convention would create, and never under a name a
+document the follower cannot see already holds (`revisionCandidateHidden`):
+`followAttachmentDecisions` in `apps/workspace/bff/inbound-mail/follow-filing.ts`. The person's checks run as
+the follower (`planMailDecision`, `requireDecisionRights`); a part they refuse
+by id (`name_taken`, a folder now gone) waits, a refusal of the whole mail
+files the text alone. `writeFollowDecision` writes the text's decision and the
+attachments' in one transaction under the follow's row lock, claims each
+attachment still waiting, and counts only text decisions (`thread_action`
+set) against the caps. The filing job uploads the attachments first and the
+text after, so the Verlauf's section names where they went. Whatever is left
+waits in the E-Mail-Eingang as a mail with only those parts; the waiting
+notice the hold sent stands until it is filed. The list's summary carries
+`filedWithoutClick` when every filed part of a mail was filed by a follow or
+by its sender's own filing (`findFiledVias`, `summaryView` in
+`mail-views.ts`): where its text went, else its first file, as the reader may
+see it (`filedAs`), so a handled row reads „Ohne Klick abgelegt → {Name}“
+(`inbound-mail-row.tsx`). The follower is the earliest running
 follow made before the mail arrived, whichever follow the receive job named.
 When that follower lost the project or the folder, their follow ends
 (`access_lost`) and the job judges the next running follow, until one may
@@ -703,7 +762,8 @@ append or none is left, so a second follower still gets the reply.
 Condition 8 counts the follow's own appends against its `daily_cap` (default
 20) and the project's `via = 'follow'` decisions against 100, over the last 24
 hours, under a project advisory lock. A failing condition writes nothing: the
-mail waits as without a follow. A follower who lost the project or the folder
+mail waits as without a follow, and so does an unsigned reply, however
+familiar its sender's name (condition 2). A follower who lost the project or the folder
 ends the follow (`access_lost`); a deleted, archived or binned document ends it
 (`document_gone`); a held document only makes the mail wait. A Verlauf at
 200 entries or 2 MiB ends every follow on it (`thread_full`, migration 0251):
@@ -809,7 +869,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.expired` | the member the From names, when sweep 3 expired their mail | per mail | `/files` | results, low | — |
 | `inbound_mail.filing_failed` | the decider; variant the `last_failure` | per mail, actionable | `/files/mail/<mailId>` | requests, normal | filed again or dismissed |
 | `inbound_mail.cap_reached` | the project's managers; variant `nearly_full` or `full` | per address, actionable | `/files/mail` | requests, normal | below 80%, or a new address |
-| `inbound_mail.appended` | the follower | per Verlauf and day | the Verlauf document | results, low | — |
+| `inbound_mail.appended` | the follower; variant `with_attachments` when the follow filed attachments with the text, else `text` (every emission names one, since a collapsed row merges payloads) | per Verlauf and day | the Verlauf document | results, low | — |
 | `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed or ended |
 | `mail_thread.follow_ended` | the follower, when the system, a manager, a detach or a full Verlauf ended their follow; variant the end reason | per follow | `/files/mail` | results, low | — |
 
@@ -913,7 +973,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 | Redaction of other projects' addresses | receive job | — | another tenant's token learned (the original stays unredacted and gated) |
 | `project:documents:write`, candidates for the viewer | service | 404 | a non-writer reads held mail, or a writer learns restricted names |
 | Per-target folder write, type, scan, acknowledgements, `ifMatch` | `decision.ts` | 409 / 403 | a filing the decider was not entitled to |
-| `decision_id` FK to a `file`, person-shaped decider, clean card, follower FK, `filed_is_clean`, `waiting_is_scanned`, and 0197's sender rule (frozen class, `via = 'sender'` only for the verified sender's own clean mail, a claimed mail filed only by its member) | Postgres | statement refused | a part filed without a `file` decision, a decision by a `system:*` actor, a card carrying an acknowledgement, a follow decision without its follower, or a part filed or waiting without a clean scan. The database cannot tell a code path that writes a real person's id from that person: that is the static ratchet's and the filing job's (it runs in the decider's session) |
+| `decision_id` FK to a `file`, person-shaped decider, clean card, follower FK, `filed_is_clean`, `waiting_is_scanned`, and 0197's sender rule (frozen class, `via = 'sender'` only for the verified sender's own clean mail, a claimed mail filed only by its member) | Postgres | statement refused | a part filed without a `file` decision, a decision by a `system:*` actor, a card carrying an acknowledgement, a follow decision without its follower, a follow's attachment without the text it appended, unclean or flagged, or into a folder to be made (0252), or a part filed or waiting without a clean scan. The database cannot tell a code path that writes a real person's id from that person: that is the static ratchet's and the filing job's (it runs in the decider's session) |
 | `requiresPersonConfirmation` | door | refused with a link | an injected outside agent cannot file |
 | Filing as the decider (or follower) | job | `last_failure` | nothing past an ordinary upload by that person |
 | Static ratchet | `review-first.spec.ts` | CI | — |
@@ -978,7 +1038,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects,entry-attachments}.ts` |
 | The sender rule | `lib/inbound-mail/{sender-class,receive-sender,sender-filing,sender-file-job}.ts` |
 | Threads | `lib/mail-thread/{mail-threading,rematch,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
-| Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job}.ts` |
+| Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job,follow-filing,suggestion-wait}.ts` |
 | Sweeps and notices | `lib/inbound-mail/{sweep,sweep-repository,announce,notice-repository}.ts` |
 | Suggestion | `lib/inbound-mail/{suggest,suggest-job,suggest-scores}.ts`; `lib/filing/judge.ts`; `apps/agent-host/src/agent_host/routes/filing_fit.py` |
 | The Python reader | `apps/agent-host/src/agent_host/mail/`, route `routes/mail.py` |

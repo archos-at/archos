@@ -877,3 +877,108 @@ migration.
   `forwarding-addresses.spec.ts`, the route and the address card's specs.
 - The architecture: [`inbound-mail.md`](../architecture/inbound-mail.md#the-sender-rule)
   and [its forwarding section](../architecture/inbound-mail.md#an-existing-project-address-forwards-here).
+
+## Amendment, 2026-11-19: replies from known correspondents are filed without a click
+
+*Product owner.* A person should not have to think about mail from known
+correspondents. Before this amendment only a writer's own signed mail was filed
+directly; a follow appended a reply's text only, and only once a person had
+switched it on, which nobody did, so every reply in a running conversation
+waited with all its attachments. The decision: **mail that is provably from
+someone the project already corresponds with is filed without a click; only
+the exceptions reach a person.** It is built on "Verlauf folgen" above, not on
+a new path, and it amends that section; the rest of this record stands.
+
+### The rule
+
+A reply is filed without a click when it is a signed reply in one of the
+project's E-Mail-Verläufe from someone who already took part in it: the nine
+conditions of "Verlauf folgen", unchanged (a signed `reference` match, every
+participant domain already in the Verlauf, per address on a public mail
+domain, no impersonation or risk flag, not automatic, a clean scan). What
+cannot be filed waits for a person, part by part: the text and the confident
+attachments are filed, the rest waits in the E-Mail-Eingang. Unsigned mail is
+never filed this way, however familiar the name.
+
+### What changes
+
+- **Follow by default.** When a person files a mail's text into a Verlauf in
+  the app (`via = 'app'`, a new Verlauf or an existing one) and has no running
+  follow on it, the filing job starts one for them, 60 days, as
+  `followMailThread` would (`followByDefault` in `lib/mail-thread/follows.ts`).
+  The rights a follow asks are asked again; when one refuses, or anything
+  fails, the text is filed all the same and no follow starts. A filing by an
+  outside agent, an agent's card, a follow or a sender's own filing starts
+  none: following stays a person's act in the app, `control`-sensitive for
+  outside agents (ADR-0122). The single-mail dialog says it in one line,
+  „Weitere Antworten in diesem Verlauf legt ARCHOS ohne Klick ab.“ The
+  follow stays visible and stoppable as before („Beenden“ in the E-Mails tab),
+  and ends with a notice for every reason it ended before.
+- **A follow files attachments.** After it decides the text, the follow job
+  files each attachment the follower's review defaults pre-select
+  (`preselected`: a clean scan, no risk flag, no duplicate, a revision only
+  where `revisionVouchedInThread` vouches for it for this sender) that has a
+  stored suggestion naming a folder that exists, or a vouched revision as the
+  next Fassung of its document (`followAttachmentDecisions` in
+  `lib/inbound-mail/follow-filing.ts`). It never creates a folder from a
+  convention, and never files an attachment whose name another document the
+  follower cannot see already holds. Every check of a person's decision runs
+  as the follower (`planMailDecision`, `requireDecisionRights`); a part it
+  refuses waits. The text and the attachments are one decision, one
+  transaction, one filing run; only the text counts against the follow's 20 a
+  day and the project's 100.
+- **It waits for the suggestion.** The receive job now queues the suggestion
+  before the follow, and the follow job waits while that suggestion is still
+  queued (30 s, at most ten times), as the sender's filing does, so a reply is
+  not filed with every attachment left behind because its suggestion was a few
+  seconds late.
+- **It says what it filed.** `inbound_mail.appended` names whether the
+  attachments went too (variant `with_attachments`, else `text`); a handled
+  mail in „Bearbeitet“ says „Ohne Klick abgelegt → {Verlauf}“
+  (`filedWithoutClick` on the list's summary); `inbound_mail_decided` with
+  `via: follow` counts the attachments in `files` and what still waits in
+  `left`; `mail_thread_followed` says `by_default`.
+
+Migration 0252 holds it in the database
+(`inbound_mail_decisions_follow_files_clean`,
+`inbound_mail_decisions_follow_attachment_clean`,
+`inbound_mail_parts_follow_files_clean`), with a down migration.
+
+### What this gives up, stated plainly
+
+- A reply's attachments land in the project unseen, as a writer's own mail's
+  already do. The trust is the follow's: the domain signed it and already
+  took part in the conversation. Whoever controls a correspondent's domain can
+  now put a clean, accepted file into an existing folder of a project they
+  already write to, in the follower's name. The name check, the scan, the
+  accepted types and the folder rights still apply, and the file is audited
+  as the follower's decision.
+- A follow starts without a separate yes. A person who pressed „Beenden“ and
+  later files another reply of the same Verlauf by hand follows it again; the
+  dialog says so.
+- A filing by an outside agent or an agent's card does not follow, so the same
+  filing made through them leaves later replies waiting.
+- A verified writer's own mail filed directly (`via = 'sender'`) starts no
+  follow, so the replies to a writer's own mail sent with the project in Cc
+  still wait until a person files one of them. Whether the sender's filing
+  should follow too is the product owner's next call.
+
+### Confirmation, in addition to the above
+
+- `scripts/rls-test-db.sh`, the 0252 section: a follow's clean attachment
+  into an existing folder refused before 0252 and accepted after, and one as a
+  Fassung; refused after 0252: a flagged or unscanned attachment, one of a
+  reply whose text the follow did not append (or another follower's follow),
+  one of a reply whose raw message did not scan clean, one into a folder to be
+  created, one with an acknowledgement, a new Verlauf; an attachment flagged
+  after its decision not claimed; the down.
+- `follow-filing.spec.ts` (which attachments go), `follow-job.spec.ts` (filed
+  with the text, each kind left waiting, the suggestion waited for, an
+  unsigned reply from a known name never filed), `file-job.spec.ts` and
+  `follows.spec.ts` (follow by default, and not on a refusal),
+  `receive-job.spec.ts` (the suggestion queued first), `service.spec.ts` and
+  `inbound-mail-row.spec.tsx` („Ohne Klick abgelegt“), `announce.spec.ts`;
+  against Postgres `follow.integration.spec.ts` (an attachment filed through
+  the real receive, follow and filing jobs; the caps count replies only; a
+  person's filing starts a follow).
+- The architecture: [Following a Verlauf](../architecture/inbound-mail.md#following-a-verlauf).
