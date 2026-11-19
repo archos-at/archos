@@ -18,6 +18,7 @@ import type { FolderItem } from '../file-types'
 import { FileWorkspace } from './file-workspace'
 import { MailImportAction } from './mail-import-action'
 import { MailImportDialog } from './mail-import-dialog'
+import { ProjectNormNotices } from './project-norm-notices'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 export type { FileAssignee, FileItem, FolderItem } from '../file-types'
@@ -38,6 +39,7 @@ interface ProjectFileWorkspaceProps {
   initialRootAccess?: 'read' | 'write'
   mailImportEnabled?: boolean
   inboundMail?: FileShelf['inboundMail']
+  officeStandards?: boolean
 }
 
 export function ProjectFileWorkspace({
@@ -56,6 +58,7 @@ export function ProjectFileWorkspace({
   initialRootAccess = 'write',
   mailImportEnabled = false,
   inboundMail,
+  officeStandards = false,
 }: ProjectFileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const router = useRouter()
@@ -133,6 +136,11 @@ export function ProjectFileWorkspace({
         initialFiles={initialFiles}
         initialNextCursor={initialNextCursor}
         initialFolderId={initialFolderId}
+        renderLevelNotice={
+          officeStandards
+            ? (folderId, revision) => <ProjectNormNotices projectId={projectId} folderId={folderId} revision={revision} />
+            : undefined
+        }
       />
       {mailOffered && phone && <MailImportDialog projectId={projectId} open={mailOpen} onOpenChange={setMailOpen} />}
     </>

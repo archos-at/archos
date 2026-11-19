@@ -60,6 +60,7 @@ export interface FileWorkspaceProps {
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
   initialFolderId?: string | null
+  renderLevelNotice?: (folderId: string | null, revision: string) => ReactNode
 }
 
 const renderDocumentActions = (): ReactNode => <DocumentActionsTrigger />
@@ -73,6 +74,7 @@ export function FileWorkspace({
   initialFiles,
   initialNextCursor = null,
   initialFolderId = null,
+  renderLevelNotice,
 }: FileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const { canManage, canCollaborate } = shelf
@@ -160,6 +162,8 @@ export function FileWorkspace({
   }, [selectedFolderId, searchingNow, sliceOpen, exitSelection])
   const mayPick = canManage && writableHere
   const pickable = useMemo(() => levelFiles.map((file) => file.id), [levelFiles])
+  const levelRevision = useMemo(() => levelFiles.map((file) => `${file.id}:${file.status ?? ''}`).join('|'), [levelFiles])
+  const levelNotice = searchingNow || sliceOpen ? null : renderLevelNotice?.(selectedFolderId, levelRevision)
   const moveSelection = async (folderId: string | null, folderName: string): Promise<void> => {
     setMoveSheetOpen(false)
     const ids = [...selection.selectedIds]
@@ -359,6 +363,7 @@ export function FileWorkspace({
             uploadFab && (inSheet ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-24')
           )}
         >
+          {levelNotice && <div className={cn(NOTICE_STRIP, 'pb-1')}>{levelNotice}</div>}
           {listingError ? (
             <PaneLoadError message={t('workspace.documentsLoadError')} onRetry={retryListing} />
           ) : (

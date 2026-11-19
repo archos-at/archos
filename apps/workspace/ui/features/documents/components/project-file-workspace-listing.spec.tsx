@@ -513,3 +513,48 @@ describe('ProjectFileWorkspace — a folder larger than one page', () => {
     expect(requests).toBe(20)
   })
 })
+
+describe('ProjectFileWorkspace — norms that could go to the Büroablage', () => {
+  const norms = {
+    canManageOfficeShelf: true,
+    canWrite: true,
+    offers: [{ documentId: 'doc-norm', fileName: 'OENORM_B_1600.pdf', folderId: null, designation: 'ÖNORM B 1600' }],
+    references: [],
+    nextCursor: null,
+  }
+
+  beforeEach(() => {
+    searchParams = new URLSearchParams()
+    resetPreviewStore()
+  })
+
+  it('asks for the level’s norms with the office standards on, and offers them above the files', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('/api/documents', () => HttpResponse.json({ documents: [] })),
+      http.get('/api/projects/:projectId/norms', ({ request }) => {
+        asked.push(request.url)
+        return HttpResponse.json(norms)
+      }),
+    )
+    renderWorkspace(<ProjectFileWorkspace projectId="proj-1" projectName="Test" collectionName="test-coll" officeStandards />)
+
+    expect(await screen.findByTestId('project-norm-offer')).toHaveTextContent('ÖNORM B 1600')
+    expect(new URL(asked[0]).pathname).toBe('/api/projects/proj-1/norms')
+  })
+
+  it('asks nothing without them', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('/api/documents', () => HttpResponse.json({ documents: [] })),
+      http.get('/api/projects/:projectId/norms', ({ request }) => {
+        asked.push(request.url)
+        return HttpResponse.json(norms)
+      }),
+    )
+    renderWorkspace(<ProjectFileWorkspace projectId="proj-1" projectName="Test" collectionName="test-coll" />)
+    await waitFor(() => expect(screen.queryByTestId('file-browser-skeleton')).not.toBeInTheDocument())
+    expect(asked).toEqual([])
+    expect(screen.queryByTestId('project-norm-offer')).not.toBeInTheDocument()
+  })
+})
