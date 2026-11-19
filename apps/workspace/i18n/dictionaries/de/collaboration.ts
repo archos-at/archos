@@ -778,51 +778,51 @@ export const collaboration: typeof en.collaboration = {
         },
       },
       inboundMailAppended: {
-        titleOne: 'Eine Antwort wurde einem E-Mail-Verlauf in „{subject}“ angefügt',
-        titleMany: '{count} Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
-        title: 'Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
-        body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen. Anhänge ohne bestehenden Ordner warten im E-Mail-Eingang.',
+        titleOne: 'Eine Antwort wurde ohne Klick einem E-Mail-Verlauf in „{subject}“ angefügt',
+        titleMany: '{count} Antworten wurden ohne Klick einem E-Mail-Verlauf in „{subject}“ angefügt',
+        title: 'Antworten wurden ohne Klick einem E-Mail-Verlauf in „{subject}“ angefügt',
+        body: 'In Ihrem Namen, weil Sie Antworten in diesem E-Mail-Verlauf ohne Klick ablegen lassen. Anhänge ohne bestehenden Ordner warten im E-Mail-Eingang.',
         variants: {
           with_attachments: {
             titleOne: 'Eine Antwort samt Anhängen wurde in „{subject}“ ohne Klick abgelegt',
             titleMany: '{count} Antworten samt Anhängen wurden in „{subject}“ ohne Klick abgelegt',
             title: 'Antworten samt Anhängen wurden in „{subject}“ ohne Klick abgelegt',
-            body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen: der Text in den E-Mail-Verlauf, die Anhänge in die Ordner, die {productName} vorgeschlagen hat. Was keinen bestehenden Ordner hat, wartet im E-Mail-Eingang.',
+            body: 'In Ihrem Namen, weil Sie Antworten in diesem E-Mail-Verlauf ohne Klick ablegen lassen: der Text in den E-Mail-Verlauf, die Anhänge in die Ordner, die {productName} vorgeschlagen hat. Was keinen bestehenden Ordner hat, wartet im E-Mail-Eingang.',
           },
         },
       },
       mailThreadFollowExpiring: {
-        title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ noch {followNoticeDays} Tage',
-        titleResolved: 'Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ ist verlängert oder beendet',
-        body: 'Verlängern Sie, damit spätere Antworten weiter angefügt werden.',
+        title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nur noch {followNoticeDays} Tage ohne Klick abgelegt',
+        titleResolved: 'Das Ablegen ohne Klick in einem E-Mail-Verlauf in „{subject}“ ist verlängert oder beendet',
+        body: 'Verlängern Sie es im E-Mail-Verlauf unter „E-Mails“, damit spätere Antworten weiter ohne Klick angefügt werden.',
       },
       mailThreadFollowEnded: {
-        title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr',
-        body: 'Spätere Antworten werden nicht mehr in Ihrem Namen angefügt, sie warten im E-Mail-Eingang.',
+        title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt',
+        body: 'Spätere Antworten warten im E-Mail-Eingang, bis jemand sie ablegt.',
         variants: {
           access_lost: {
-            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil Ihr Zugriff auf ihn weggefallen ist',
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil Ihr Zugriff auf ihn weggefallen ist',
           },
           document_gone: {
-            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil er gelöscht wurde',
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil er gelöscht wurde',
           },
           project_closed: {
-            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil das Projekt abgeschlossen wurde',
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil das Projekt abgeschlossen wurde',
           },
           detached: {
-            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil eine E-Mail aus ihm herausgelöst wurde',
-            body: 'Folgen Sie ihm erneut, damit spätere Antworten wieder in Ihrem Namen angefügt werden.',
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil eine E-Mail aus ihm herausgelöst wurde',
+            body: 'Schalten Sie es im E-Mail-Verlauf unter „E-Mails“ wieder ein, damit spätere Antworten wieder in Ihrem Namen angefügt werden.',
           },
           revoked_by_manager: {
-            title: '{actor} hat Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ beendet',
-            titleNoActor: 'Die Projektverwaltung hat Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ beendet',
+            title: '{actor} hat das Ablegen ohne Klick für Sie in einem E-Mail-Verlauf in „{subject}“ beendet',
+            titleNoActor: 'Die Projektverwaltung hat das Ablegen ohne Klick für Sie in einem E-Mail-Verlauf in „{subject}“ beendet',
           },
           address_rotated: {
-            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil die E-Mail-Adresse des Projekts ersetzt wurde',
-            body: 'Antworten an die alte Adresse kommen nicht mehr an. Folgen Sie erneut, sobald die neue Adresse verwendet wird.',
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil die E-Mail-Adresse des Projekts ersetzt wurde',
+            body: 'Antworten an die alte Adresse kommen nicht mehr an. Schalten Sie es im E-Mail-Verlauf wieder ein, sobald die neue Adresse verwendet wird.',
           },
           thread_full: {
-            title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ nicht mehr, weil er voll ist',
+            title: 'Antworten in einem E-Mail-Verlauf in „{subject}“ werden nicht mehr ohne Klick abgelegt, weil er voll ist',
             body: 'Spätere Antworten warten im E-Mail-Eingang. Legen Sie sie als neuen E-Mail-Verlauf ab, der diesen fortsetzt.',
           },
         },
