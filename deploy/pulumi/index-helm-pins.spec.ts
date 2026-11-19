@@ -78,6 +78,13 @@ describe("every Helm chart the program installs is pinned", () => {
     }
   });
 
+  it("waits long enough for a release to come up on a node whose image cache is empty", async () => {
+    const { HELM_RELEASE_TIMEOUT_SECONDS } = await import("./src/constants");
+    for (const release of releases()) {
+      expect(release.inputs.timeout, release.name).toBeGreaterThanOrEqual(HELM_RELEASE_TIMEOUT_SECONDS);
+    }
+  });
+
   it("installs each chart at its exported constant", async () => {
     const { CNPG_CHART_VERSION } = await import("./src/data/postgres");
     const { CERT_MANAGER_CHART_VERSION } = await import("./src/platform/cert-manager");

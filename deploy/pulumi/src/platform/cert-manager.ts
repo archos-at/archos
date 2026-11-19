@@ -2,7 +2,7 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { GATEWAY_NAME } from "./gateway";
-import { PLATFORM_RESOURCES } from "../constants";
+import { PLATFORM_RESOURCES, HELM_RELEASE_TIMEOUT_SECONDS } from "../constants";
 import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const CERT_MANAGER_CHART_VERSION = "v1.21.3";
@@ -30,6 +30,7 @@ export function installCertManager(
     {
       chart: "cert-manager",
       version: CERT_MANAGER_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: ns.metadata.name,
       repositoryOpts: { repo: "https://charts.jetstack.io" },
       values: {

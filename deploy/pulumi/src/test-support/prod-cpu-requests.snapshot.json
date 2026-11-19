@@ -190,16 +190,6 @@
         "memory": "32Mi"
       }
     },
-    "1a1621e691d63f29": {
-      "limits": {
-        "cpu": "1",
-        "memory": "512Mi"
-      },
-      "requests": {
-        "cpu": "100m",
-        "memory": "128Mi"
-      }
-    },
     "763293b31aa4316c": {
       "limits": {
         "cpu": "3",
@@ -218,6 +208,16 @@
       "requests": {
         "cpu": "4",
         "memory": "16Gi"
+      }
+    },
+    "1a1621e691d63f29": {
+      "limits": {
+        "cpu": "1",
+        "memory": "512Mi"
+      },
+      "requests": {
+        "cpu": "100m",
+        "memory": "128Mi"
       }
     },
     "80d71faf1c40c1d4": {
