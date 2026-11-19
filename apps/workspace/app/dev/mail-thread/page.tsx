@@ -5,7 +5,7 @@ import { use, useMemo, useState } from 'react'
 import { I18nProvider } from '@/i18n'
 import { MailOriginLine, MailProvenanceRow, MailThreadTab, ThreadRailViews, type RailView } from '@/features/documents/components/mail-thread'
 import type { MailOriginView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { DevVariantStrip } from '../inbound-mail/dev-chrome'
+import { DevVariantStrip, HiddenDevChrome } from '../inbound-mail/dev-chrome'
 import {
   ENTRY_TEXTS,
   MAIL_THREAD_VARIANTS,
@@ -34,7 +34,7 @@ export default function MailThreadDevPage({ searchParams }: { searchParams: Prom
     <I18nProvider initialLocale={locale} fixedLocale>
       <main className="bg-background min-h-dvh pb-16" data-testid="mail-thread-preview">
         {variant === 'provenance' || variant === 'provenance-worst' ? <Provenance worst={variant === 'provenance-worst'} /> : <Tab key={variant} variant={variant} />}
-        {params.chrome !== '0' && <DevVariantStrip base="/dev/mail-thread" variants={VARIANTS} current={variant} locale={locale} />}
+        {params.chrome !== '0' ? <DevVariantStrip base="/dev/mail-thread" variants={VARIANTS} current={variant} locale={locale} /> : <HiddenDevChrome />}
       </main>
     </I18nProvider>
   )

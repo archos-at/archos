@@ -53,7 +53,7 @@ describe('MailThreadTab', () => {
     const rows = await entries()
     expect(rows.map((row) => within(row).getByTestId('mail-thread-entry-received').textContent)).toEqual(['received 09:13', 'received 11:07', 'received 16:41'])
     expect(rows.map((row) => within(row).queryByText(/revision/))).toEqual([null, null, null])
-    expect(within(rows[0]).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)')
+    expect(within(rows[0]).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026 09:12 · Mag. Schober (ma37.wien.gv.at)')
     expect(within(rows[0]).getByTestId('mail-thread-entry-trust')).toHaveTextContent('Domain verified: ma37.wien.gv.at')
     expect(within(rows[0]).getByTestId('mail-thread-entry-via')).toHaveTextContent(`Filed on ${PRODUCT_NAME}’s suggestion`)
     expect(screen.getByTestId('mail-thread-waiting')).toHaveTextContent('2 mails of this mail thread wait in Project mail')
@@ -191,7 +191,7 @@ describe('MailThreadTab', () => {
     await userEvent.click(await screen.findByTestId('mail-thread-entry-compare'))
     expect(diff).toHaveBeenCalledWith(THREAD_DOCUMENT_ID, expect.any(String), expect.any(String))
     expect(await within(newest).findByTestId('mail-thread-entry-comparison')).toBeInTheDocument()
-    await userEvent.click(within(newest).getByRole('button', { name: 'Hide the comparison for the mail of 14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)' }))
+    await userEvent.click(within(newest).getByRole('button', { name: 'Hide the comparison for the mail of 14.10.2026 09:12 · Mag. Schober (ma37.wien.gv.at)' }))
     expect(within(newest).queryByTestId('mail-thread-entry-comparison')).toBeNull()
     await userEvent.click(within((await entries())[2]).getByTestId('mail-entry-menu'))
     expect(await screen.findByTestId('mail-entry-detach')).toBeInTheDocument()
@@ -318,7 +318,7 @@ describe('MailThreadTab', () => {
   it('keeps the heading exactly as the document prints it, while it wraps between date, name and domain', async () => {
     renderTab('three-messages')
     const [newest] = await entries()
-    expect(within(newest).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)')
+    expect(within(newest).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026 09:12 · Mag. Schober (ma37.wien.gv.at)')
   })
 })
 

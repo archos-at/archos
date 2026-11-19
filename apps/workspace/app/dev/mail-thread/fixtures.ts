@@ -47,7 +47,7 @@ export function printedHeading(sentAt: string, name: string, domain: string): st
 export function entry(overrides: Partial<MailThreadEntryView> & { key: string; version: number }): MailThreadEntryView {
   const { key, version, ...rest } = overrides
   const sentAt = rest.sentAt ?? '2026-10-14T07:12:00.000Z'
-  const senderName = rest.senderName ?? 'Mag. Huber'
+  const senderName = rest.senderName ?? 'Mag. Schober'
   const senderDomain = rest.senderDomain ?? 'ma37.wien.gv.at'
   const receivedAt = rest.receivedAt ?? new Date(Date.parse(sentAt) + MINUTE).toISOString()
   return {
@@ -165,7 +165,7 @@ function threeMessages(): MailThreadEntryView[] {
 export const ENTRY_TEXTS: Readonly<Record<string, string>> = {
   [fixtureId('entry:first')]: 'Liebe Frau Weber, können Sie uns die Statik zum Stellplatznachweis bis Ende nächster Woche schicken? Lg Miriam Huber',
   [fixtureId('entry:statik')]: 'Anbei S-101 Index B und die Lastannahmen, die Honorarnote für Oktober liegt bei. Schöne Grüße, Petra Weber',
-  [fixtureId('entry:authority')]: 'Der Stellplatznachweis ist vollständig. Die Stellungnahme der MA 37 liegt bei. Mit freundlichen Grüßen, Mag. Huber',
+  [fixtureId('entry:authority')]: 'Der Stellplatznachweis ist vollständig. Die Stellungnahme der MA 37 liegt bei. Mit freundlichen Grüßen, Mag. Schober',
 }
 
 export interface MailThreadFixture {
@@ -186,9 +186,9 @@ const OTHERS: MailThreadSummaryView[] = [
 ]
 
 const PEOPLE: ProjectPerson[] = [
-  { userId: VIEWER_ID, name: 'Miriam Huber', email: 'm.huber@huber-architektur.at' },
+  { userId: VIEWER_ID, name: 'Anna Berger', email: 'a.berger@huber-architektur.at' },
   { userId: 'user_01JLUKAS000000000000000000', name: 'Lukas Brandstätter', email: 'l.brandstaetter@huber-architektur.at' },
-  { userId: 'user_01JSABINE00000000000000000', name: 'Sabine Gruber', email: 's.gruber@huber-architektur.at' },
+  { userId: 'user_01JSABINE00000000000000000', name: 'Sabine Leitner', email: 's.leitner@huber-architektur.at' },
 ]
 
 function fixture(overrides: Partial<MailThreadFixture> & { view: MailThreadView }): MailThreadFixture {
@@ -277,7 +277,7 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
           key: 'unverified',
           version: 3,
           sentAt: '2026-10-15T05:58:00.000Z',
-          heading: '15.10.2026 07:58 · Mag. Huber (ma37-wien.example, Domain nicht bestätigt)',
+          heading: '15.10.2026 07:58 · Mag. Schober (ma37-wien.example, Domain nicht bestätigt)',
           senderDomain: 'ma37-wien.example',
           signerDomain: null,
           senderTrust: 'external_unverified',
@@ -348,11 +348,11 @@ export function origin(overrides: Partial<MailOriginView> = {}): MailOriginView 
 
 export const PROVENANCE_ORIGINS: Record<string, MailOriginView[]> = {
   verified: [origin()],
-  unverified: [origin({ fromName: 'Mag. Huber', signerDomain: null, senderTrust: 'external_unverified' })],
+  unverified: [origin({ fromName: 'Mag. Schober', signerDomain: null, senderTrust: 'external_unverified' })],
   archive: [origin({ fromName: 'Statik Weber Büro', signerDomain: null, senderTrust: 'not_checked' })],
   anonymous: [origin({ fromName: null })],
   forwarded: [origin({ fromName: 'MA 37 – Baupolizei', forwardedByName: 'Miriam Huber', forwarded: true, signerDomain: 'huber-architektur.at', senderTrust: 'member_verified' })],
-  several: [origin(), origin({ entryId: fixtureId('entry:authority'), fromName: 'Mag. Huber', signerDomain: 'ma37.wien.gv.at' })],
+  several: [origin(), origin({ entryId: fixtureId('entry:authority'), fromName: 'Mag. Schober', signerDomain: 'ma37.wien.gv.at' })],
   worst: [
     origin({
       fromName: 'Rechtsanwaltskanzlei Dr. Maximiliane Österreicher-Habsburg-Lothringen und Partner:innen 🏛️',
@@ -415,7 +415,7 @@ export function fixtureMailThreadClient(fixture: MailThreadFixture): MailThreadC
         to: {
           version: version(to),
           content:
-            '## 02.10.2026 16:40 · Miriam Huber (huber-architektur.at)\n\nKönnen Sie uns die Statik zum Stellplatznachweis schicken?\n\n## 09.10.2026 11:05 · DI Petra Weber (statik-weber.at)\n\nAnbei S-101 Index B und die Lastannahmen.\n\n## 14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)\n\nDer Stellplatznachweis ist vollständig.',
+            '## 02.10.2026 16:40 · Miriam Huber (huber-architektur.at)\n\nKönnen Sie uns die Statik zum Stellplatznachweis schicken?\n\n## 09.10.2026 11:05 · DI Petra Weber (statik-weber.at)\n\nAnbei S-101 Index B und die Lastannahmen.\n\n## 14.10.2026 09:12 · Mag. Schober (ma37.wien.gv.at)\n\nDer Stellplatznachweis ist vollständig.',
         },
       }
     },

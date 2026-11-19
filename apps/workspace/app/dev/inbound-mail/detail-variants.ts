@@ -306,10 +306,8 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       ],
       parts: [messagePart({ id: fixtureId('message:ut') }), statik({ riskFlags: ['unverified_thread'] })],
       threadCandidates: [
-        thread({ preselected: false, blocks: ['header_not_signed'] }),
         thread({ threadId: fixtureId('thread:tg'), documentId: fixtureId('doc:tg'), name: 'Tiefgarage Lüftung', nextVersion: 2, strength: 'subject', preselected: false, blocks: ['weak_match'] }),
       ],
-      hiddenThreadCandidates: 1,
     }),
     text: text({
       ownText:
@@ -352,7 +350,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'authority-statement',
       subject: 'Stellungnahme Brandschutz – Bauplatz 12',
-      sender: { name: 'Mag. Karin Huber', address: 'k.huber@ma37.wien.gv.at', domain: 'ma37.wien.gv.at', signerDomain: 'wien.gv.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
+      sender: { name: 'Mag. Karin Schober', address: 'k.schober@ma37.wien.gv.at', domain: 'ma37.wien.gv.at', signerDomain: 'wien.gv.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
       receivedAt: minutesAgo(45),
       parts: [
         messagePart({ id: fixtureId('message:authority') }),
@@ -426,7 +424,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'filed-outcome',
       status: 'handled',
-      sender: { name: 'Mag. Huber', address: 'k.huber@ma37.wien.gv.at', domain: 'ma37.wien.gv.at', signerDomain: 'wien.gv.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
+      sender: { name: 'Mag. Schober', address: 'k.schober@ma37.wien.gv.at', domain: 'ma37.wien.gv.at', signerDomain: 'wien.gv.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
       originalHeld: false,
       parts: [
         messagePart({

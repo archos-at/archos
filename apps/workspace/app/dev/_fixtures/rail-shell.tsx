@@ -19,8 +19,8 @@ const OTHER_PROJECTS = [
   { id: 'p-5', name: 'Kindergarten Stammersdorf' },
 ]
 
-const USER = { name: 'Anna Berger', email: 'anna.berger@example.at' }
-const ORGANIZATION = 'Musterarchitektur ZT GmbH'
+const USER = { name: 'Anna Berger', email: 'a.berger@huber-architektur.at' }
+const ORGANIZATION = 'Huber Architektur ZT GmbH'
 
 export function DevRailShell({
   projectId,
