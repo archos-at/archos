@@ -173,10 +173,24 @@ describe('MailThreadTab', () => {
     const { client } = renderTab('three-messages')
     const diff = vi.spyOn(client, 'diff')
     const newest = (await entries())[0]
-    await userEvent.click(await within(newest).findByRole('button', { name: 'Compare the mail thread before and after the mail of 14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)' }))
+    expect(within(newest).queryByRole('button', { name: 'What this mail added' })).toBeNull()
+    await userEvent.click(within(newest).getByTestId('mail-entry-menu'))
+    await userEvent.click(await screen.findByTestId('mail-thread-entry-compare'))
     expect(diff).toHaveBeenCalledWith(THREAD_DOCUMENT_ID, expect.any(String), expect.any(String))
     expect(await within(newest).findByTestId('mail-thread-entry-comparison')).toBeInTheDocument()
-    expect(within((await entries())[2]).queryByTestId('mail-thread-entry-compare')).toBeNull()
+    await userEvent.click(within(newest).getByRole('button', { name: 'Hide the comparison for the mail of 14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)' }))
+    expect(within(newest).queryByTestId('mail-thread-entry-comparison')).toBeNull()
+    await userEvent.click(within((await entries())[2]).getByTestId('mail-entry-menu'))
+    expect(await screen.findByTestId('mail-entry-detach')).toBeInTheDocument()
+    expect(screen.queryByTestId('mail-thread-entry-compare')).toBeNull()
+  })
+
+  it('heads the mails with their order, and keeps the original on the line that says when each came', async () => {
+    renderTab('three-messages')
+    expect(await screen.findByTestId('mail-thread-order')).toHaveTextContent('Newest first')
+    const newest = (await entries())[0]
+    const original = within(newest).getByRole('button', { name: 'Original (.eml)' })
+    expect(original.closest('div')).toHaveTextContent(/^received \S+\s*Original \(\.eml\)/)
   })
 
   describe('detaching', () => {
@@ -253,7 +267,9 @@ describe('MailThreadTab', () => {
 
     it('is not offered to a reader who may not file mail', async () => {
       renderTab('member-sees-follows')
-      expect((await entries()).every((row) => within(row).queryByTestId('mail-entry-menu') === null)).toBe(true)
+      await userEvent.click(within((await entries())[0]).getByTestId('mail-entry-menu'))
+      expect(await screen.findByTestId('mail-thread-entry-compare')).toBeInTheDocument()
+      expect(screen.queryByTestId('mail-entry-detach')).toBeNull()
     })
   })
 

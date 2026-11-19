@@ -34,6 +34,7 @@ export const mailThread = {
     empty: 'This mail thread holds no mail you may see.',
     waiting: '{count, plural, one {# mail of this mail thread waits} other {# mails of this mail thread wait}} in Project mail',
     waitingOpen: 'View',
+    order: 'Newest first',
   },
   file: {
     kind: 'Mail thread',
@@ -56,7 +57,7 @@ export const mailThread = {
     },
     forwardedBy: 'Forwarded by {name}',
     compare: 'What this mail added',
-    compareLabel: 'Compare the mail thread before and after the mail of {heading}',
+    compareCloseLabel: 'Hide the comparison for the mail of {heading}',
     compareClose: 'Hide',
     menu: 'More for the mail of {heading}',
     detach: 'Detach …',

@@ -16,7 +16,7 @@ import type { MailThreadEntryView, MailThreadFiledVia } from '@/lib/mail-thread/
 import { documentFilesHref } from '../../lib/document-question'
 import { TextComparisonView, type TextComparison } from '../revision-text-comparison'
 import type { MailThreadClient } from './client'
-import { EntryOriginal } from './entry-original'
+import { EntryOriginal, originalState } from './entry-original'
 import { attachmentLines, comparedVersions, filedSenderTrust, headingParts, receivedAtLabel, type AttachmentLine } from './mail-thread-model'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 
@@ -78,9 +78,14 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
     }
   }
 
-  const menu: ActionMenuEntry[] = onDetach
-    ? [{ type: 'item', id: 'detach', label: t('entry.detach'), onSelect: () => onDetach(entry), testId: 'mail-entry-detach' }]
-    : []
+  const menu: ActionMenuEntry[] = [
+    ...(compared
+      ? [{ type: 'item' as const, id: 'compare', label: comparison ? t('entry.compareClose') : t('entry.compare'), onSelect: () => void compare(), testId: 'mail-thread-entry-compare' }]
+      : []),
+    ...(onDetach ? [{ type: 'item' as const, id: 'detach', label: t('entry.detach'), onSelect: () => onDetach(entry), testId: 'mail-entry-detach' }] : []),
+  ]
+  const original = <EntryOriginal entry={entry} inline download={() => client.downloadOriginal(projectId, threadId, entry.id)} />
+  const originalOnLine = originalState(entry) === 'available'
 
   const trustLine = (() => {
     if (trust === 'verified') {
@@ -123,9 +128,12 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
               </>
             )}
           </h4>
-          <p className="text-muted-foreground text-xs tabular-nums leading-snug" data-testid="mail-thread-entry-received">
-            {t('entry.received', { time: receivedAtLabel(entry, locale) })}
-          </p>
+          <div className="text-muted-foreground flex flex-wrap items-baseline gap-x-2.5 text-xs leading-snug">
+            <span className="tabular-nums" data-testid="mail-thread-entry-received">
+              {t('entry.received', { time: receivedAtLabel(entry, locale) })}
+            </span>
+            {originalOnLine && original}
+          </div>
         </div>
         {menu.length > 0 && (
           <ActionMenu
@@ -180,25 +188,23 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3" /* tonal presses 12px apart, the first on the entry's edge */>
-        <EntryOriginal entry={entry} download={() => client.downloadOriginal(projectId, threadId, entry.id)} />
-        {compared && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            aria-expanded={comparison !== null}
-            aria-label={t('entry.compareLabel', { heading: entry.heading })}
-            onClick={() => void compare()}
-            data-testid="mail-thread-entry-compare"
-          >
-            {comparison ? t('entry.compareClose') : t('entry.compare')}
-          </Button>
-        )}
-      </div>
+      {!originalOnLine && original}
 
       {comparison && (
-        <div data-testid="mail-thread-entry-comparison" data-state={comparison.status}>
+        <div className="flex flex-col gap-2" data-testid="mail-thread-entry-comparison" data-state={comparison.status}>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-muted-foreground text-xs font-medium">{t('entry.compare')}</p>
+            <Button
+              type="button"
+              variant="inline"
+              className="touch-target h-auto p-0 text-xs"
+              aria-label={t('entry.compareCloseLabel', { heading: entry.heading })}
+              onClick={() => setComparison(null)}
+              data-testid="mail-thread-entry-compare-close"
+            >
+              {t('entry.compareClose')}
+            </Button>
+          </div>
           <TextComparisonView comparison={comparison} />
         </div>
       )}

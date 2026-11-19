@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
+import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
 import { useTranslations } from '@/i18n'
@@ -137,22 +138,30 @@ export function MailThreadTab({
       {entries.length === 0 ? (
         <EmptyState icon={Inbox} title={t('tab.empty')} data-testid="mail-thread-empty" />
       ) : (
-        <ItemList as="ol" className="bg-card" aria-label={t('tab.timeline')} data-testid="mail-thread-entries">
-          {entries.map((entry) => (
-            <MailThreadEntryItem
-              key={entry.id}
-              projectId={projectId}
-              documentId={documentId}
-              threadId={view.id}
-              entry={entry}
-              versions={versions}
-              focused={entry.id === focused}
-              showTrust={sayingTrust.has(entry.id)}
-              onDetach={writable && view.entries.length > 1 ? setDetaching : undefined}
-              client={client}
-            />
-          ))}
-        </ItemList>
+        <div className="flex flex-col gap-2">
+          {/* The document beside it reads oldest first, as a record does; the list reads as an inbox does, and says so. */}
+          {entries.length > 1 && (
+            <SectionLabel as="p" data-testid="mail-thread-order">
+              {t('tab.order')}
+            </SectionLabel>
+          )}
+          <ItemList as="ol" className="bg-card" aria-label={t('tab.timeline')} data-testid="mail-thread-entries">
+            {entries.map((entry) => (
+              <MailThreadEntryItem
+                key={entry.id}
+                projectId={projectId}
+                documentId={documentId}
+                threadId={view.id}
+                entry={entry}
+                versions={versions}
+                focused={entry.id === focused}
+                showTrust={sayingTrust.has(entry.id)}
+                onDetach={writable && view.entries.length > 1 ? setDetaching : undefined}
+                client={client}
+              />
+            ))}
+          </ItemList>
+        </div>
       )}
 
       {detaching && (
