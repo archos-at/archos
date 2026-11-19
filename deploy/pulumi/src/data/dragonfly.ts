@@ -16,7 +16,7 @@ import { DATA_RESOURCES, EDGE_RATE_LIMIT, LANGFUSE, PORT } from "../constants";
 import { scrapeAnnotations } from "../platform/scrape";
 import { scaledCpuRequest } from "../config/cpu-requests";
 
-const DRAGONFLY_IMAGE = "docker.dragonflydb.io/dragonflydb/dragonfly:latest";
+const DRAGONFLY_IMAGE = "docker.dragonflydb.io/dragonflydb/dragonfly:v2.1.0";
 
 const REQUIREPASS_ENV = "DFLY_requirepass";
 

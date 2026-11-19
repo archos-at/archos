@@ -239,10 +239,10 @@ export default new PolicyPack("grid-oib-guardrails", {
     {
       name: "prefer-immutable-image-tags",
       description:
-        "Advisory: prefer a digest or a version tag over `latest`. A moving tag means the " +
+        "Pin every image to a digest or a version tag, never `latest`. A moving tag means the " +
         "running version changes at unpredictable times — every node replacement the " +
         "provider performs is an unreviewed upgrade.",
-      enforcementLevel: "advisory",
+      enforcementLevel: "mandatory",
       validateResource: forEachWorkload((workload, report) => {
         const name = workload.metadata?.name ?? "<unnamed>";
         for (const container of containersOf(workload.spec?.template?.spec)) {

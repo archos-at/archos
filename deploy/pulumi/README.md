@@ -316,7 +316,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `malwareScanEnabled` | `false` | clamd and freshclam in a `clamav` Deployment of one (`src/app/clamav.ts`), and `MALWARE_SCAN_URL=tcp://clamav:3310` on the frontend and the `bff-jobs` pool. Off, every scan fails closed (`not-configured`) and nothing that needs a clean scan is filed. Requests 2 GiB of memory; freshclam needs HTTPS egress to `database.clamav.net`. The pod is ready only while its signatures are under 48 hours old. With `networkPolicies` on it admits the frontend and the `bff-jobs` pool alone (`clamav-bff-only`). Its config is `deploy/compose/clamav/{clamd,freshclam}.conf`, shared with Compose |
 | `malwareScanImage` | `clamav/clamav:1.5.4@sha256:…` | The official image with its signatures baked in. Refused unless pinned by digest; keep it equal to the Compose pin. `malwareScanUrl` is refused on every stack: the URL is always the stack's own clamd |
 | **SeaweedFS (S3)** | | |
-| `seaweedfsImage` | `chrislusf/seaweedfs:latest` | Prod template pins 3.80 (storage engine) |
+| `seaweedfsImage` | `chrislusf/seaweedfs:4.54` | Prod pins 3.80 (storage engine): change it only with a SeaweedFS upgrade plan |
 | `seaweedfsStorageSize` | `20Gi` | Object-store volume (grow via PVC patch) |
 | `seaweedfsBucket` | `grid-documents` | Documents bucket (auto-created + verified) |
 | `seaweedfsAccessKey` / 🔒 **`seaweedfsSecretKey`** | `grid` / — | S3 identity |
