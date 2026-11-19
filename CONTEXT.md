@@ -284,13 +284,15 @@ _Code_: the sender class `verified_writer`; the decision's `via = 'sender'`;
 
 **Haben Sie diese E-Mail gesendet?** (did you send this mail?):
 The question a mail that carries a member's address, but does not prove the
-member sent it, puts to that member alone: their domain did not confirm it,
-it is their Bcc copy, it reads as re-sent or misdated, or it was sent
-automatically. Only that member files it („Ja, ich habe diese E-Mail
-gesendet. Ablegen“) or restores it; the project's other members see it under
-„Wartet auf andere“ („Wartet auf {Name}“) and may only dismiss it. A mail whose
+member sent it, puts to that member: their domain did not confirm it, it is
+their Bcc copy, it reads as re-sent or misdated, or it was sent automatically.
+The member files it („Ja, ich habe diese E-Mail gesendet. Ablegen“); any other
+of the project's writers may too, once they checked it is from that member
+(„Ich habe geprüft, dass diese E-Mail von {Name} ist. Ablegen“). A mail whose
 domain *rejected* it is not asked about but shown as an impersonation
-(„Gibt sich als … aus“), to the member it names in their own words.
+(„Gibt sich als … aus“), to the member it names in their own words; only that
+member files or restores it, the others see „Wartet auf {Name}“ and may only
+dismiss it.
 _Avoid_: „Haben Sie das gesendet?“; „freigeben“, “release”.
 _Code_: the sender class `unverified_writer`; `acknowledgeSender`,
 `onlySenderReleases`, the refusal `sender_only`, `mailClaimOf`
@@ -315,6 +317,15 @@ once, and every *Folgen* on the project ends.
 _Avoid_: Projektadresse, which is where the building stands.
 _Code_: `inbound mail address` (`inbound_mail_addresses`,
 `inbound-mail-address-*`, verb `rotate`).
+
+**bestehende E-Mail-Adresse für das Projekt** (an existing email address for
+the project): An address the office already runs for a project in its own mail
+system (projekt-x@buero.at), redirected to the E-Mail-Adresse des Projekts by a
+rule. A signed To or Cc naming one counts as sent to the project.
+_Avoid_: Projektadresse (the building's), „weiterleiten“ for the Outlook rule
+(a forward comes from the mailbox; say „umleiten“).
+_Code_: `forwarded_from` (`inbound_mail_addresses`), `forwardedFrom`,
+`inbound-mail-address-forwards-set`.
 
 **E-Mail-Verlauf** (mail thread):
 One e-mail conversation filed as one document of Dokumentart *Korrespondenz*:

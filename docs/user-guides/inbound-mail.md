@@ -41,6 +41,14 @@ sichern** (a contact card for your mail program).
   an E-Mail-Verlauf of the project stops following it. Give the new address to
   everyone who sends documents to the project.
 - **Ausschalten …** switches the address off. Mail already waiting stays.
+- **Your office already has a project address** (projekt-x@ihr-buero.at, used
+  for all project mail or put in Cc)? Keep it. Redirect it to the project's
+  address with an Outlook rule („an eine Person oder öffentliche Gruppe
+  umleiten“, not „weiterleiten“: a forwarded mail comes from the mailbox, not
+  from its sender), and enter it under **Einstellungen › Dokumente ›
+  Bestehende E-Mail-Adressen für das Projekt** (whoever manages the project; at most ten). Mail
+  to it then counts as sent to the project, so your own mail is filed directly.
+  The card shows both setups, Cc and redirect, in a line each to copy.
 
 Do not send fee, contract or personnel mail to the project's address: everyone
 who may add documents to the project sees what waits there.
@@ -91,7 +99,9 @@ sender quoted.
 
 A mail is **filed directly**, as you and without a click, when all of this
 holds: it comes from your own address, you may file in the project, your
-domain signed it (DKIM, below), the project's address is in To or Cc, and it is
+domain signed it (DKIM, below; a subdomain's or the organizational domain's
+signature counts, as DMARC counts it), the project's address or one of your
+office's registered project addresses is in To or Cc, and it is
 neither sent automatically nor oddly dated nor already known. Its text and
 attachments go where they would be suggested, and the Postfach tells you („Ihre
 E-Mail an „…“ wurde direkt abgelegt“). A part that needs a look, or has no
@@ -121,9 +131,11 @@ Bestätigen Sie es“ (your own mail your domain did not confirm), „Absender
 prüfen“, „Anhang prüfen“, „Anhang wird noch geprüft …“, „E-Mail-Verlauf
 wählen“, „Ordner wählen“ or „Projekt ist abgeschlossen“. „Nicht direkt
 abgelegt“ marks a member's confirmed mail that direct filing left for a
-person. Under **Wartet auf andere** stand mails with another member's address
-that only that member can file („Wartet auf {Name}“): you can dismiss them,
-and then only they can restore them. A mail that poses as someone never gets
+person. A colleague's mail their domain did not confirm says „Absender
+prüfen“: check it is from them, then file it („Ich habe geprüft, dass diese
+E-Mail von {Name} ist“). Under **Wartet auf andere** stand mails posing as
+another member that only that member can file („Wartet auf {Name}“): you can
+dismiss them, and then only they can restore them. A mail that poses as someone never gets
 the button. Mail from an unconfirmed domain and automatic mail sit below, in a
 folded group. „Bearbeitet“ lists what was filed, dismissed or expired, each row
 saying which. The Postfach's „E-Mails warten“ opens the list at „Bereit“.

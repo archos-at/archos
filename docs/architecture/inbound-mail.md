@@ -63,15 +63,16 @@ kind's name only.
 
 ## The sender rule
 
-ADR-0137's amendment of 2026-11-03. The receive job classifies the sender once,
+ADR-0137's amendments of 2026-11-03 and 2026-11-19 (automatic by default,
+review only the exceptions). The receive job classifies the sender once,
 when it holds the mail (`inbound_mails.sender_class`, migration 0197, frozen by
 `inbound_mails_sender_verdict_guard` after the `received → waiting` write;
 `lib/inbound-mail/sender-class.ts`, `receive-sender.ts`):
 
 | Class | When | What happens | Window |
 |---|---|---|---|
-| `verified_writer` | a DKIM pass by the From domain itself (strict alignment: `d=` equals the From domain; a parent's or a subdomain's pass is `relaxed_alignment` and waits as `unverified_writer`), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a check WorkOS does not answer is waited out within the fault budget, then the mail is held `sender_unchecked`, never classed on a "no"), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for any of the project's writers (`not_filed`); with direct filing switched off, the whole mail waits for them (`paused`) | 30 days |
-| `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe diese E-Mail gesendet. Ablegen“); anyone else gets `sender_only` and may dismiss it. Nobody else can file it, the member gone from the office included (the database cannot see WorkOS): the colleague's dismiss confirmation (`ClaimedMailBar`) and the help page tell the others to download the original first and forward it themselves; nothing on the screen says the member has left, since no view carries that | 30 days |
+| `verified_writer` | a DKIM pass aligned with the From domain as DMARC aligns it, relaxed: `d=` is the From domain, its organizational domain or a subdomain of it, by the Public Suffix List (mailauth's `aligned`; any but the From domain itself is flagged `relaxed_alignment`, which files directly since migration 0250), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a check WorkOS does not answer is waited out within the fault budget, then the mail is held `sender_unchecked`, never classed on a "no"), a signed To or Cc naming the project or one of the office's own project addresses registered on it ([forwarding](#an-existing-project-address-forwards-here)) (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for any of the project's writers (`not_filed`); with direct filing switched off, the whole mail waits for them (`paused`) | 30 days |
+| `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; that member files or restores it with `acknowledgeSender` („Ja, ich habe diese E-Mail gesendet. Ablegen“), and so may any other of the project's writers, saying they checked it is from that member („Ich habe geprüft, dass diese E-Mail von {Name} ist. Ablegen“, the same `acknowledgeSender`; since migration 0250). An impersonation (`impersonationOf`: a signature the member's domain rejected, `dkim_fail`, `dkim_policy`, `dkim_weak_algorithm`, `dkim_short_key`) stays the member's alone: anyone else gets `sender_only` and may dismiss it, and the colleague's dismiss confirmation (`ClaimedMailBar`) and the help page tell them to download the original first and forward it themselves. `senderReleaseOf` in `sender-class.ts` says which (`own`, `checked_by_writer`, `sender_only`) | 30 days |
 | `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
 | `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
 
@@ -120,11 +121,54 @@ is written only by the hold and never changes (`…_sender_verdict_frozen`,
 by its sender, with a clean raw message and an unflagged part
 (`inbound_mail_decisions_sender_files_own_verified_mail`), filing only, no
 acknowledgement (`…_sender_files_clean`), and a part flagged since is not
-claimed on it (`inbound_mail_parts_sender_files_clean`); a file or restore of an
-`unverified_writer` mail only by its member, a file saying they sent it
-(`…_claimed_sender_releases`); an outsider's expired part is never restored
+claimed on it (`inbound_mail_parts_sender_files_clean`); a file of an `unverified_writer`
+mail only with `acknowledged_sender`, and a file or restore of one whose
+signature the domain rejected (or that has no verdict) only by its member
+(`…_claimed_sender_releases`, migration 0250; 0197 held every one to its
+member); an outsider's expired part is never restored
 (`…_external_expiry_final`). The triggers bind every role, the BYPASSRLS
 platform role included.
+
+### An existing project address forwards here
+
+Offices that already run a project address in Outlook (projekt-x@buero.at,
+written to or put in Cc for all project correspondence) do not take a second
+one; they redirect it to ours. A redirected mail names their address in To or
+Cc, not ours, so it would read as addressed to others (and a member's own mail
+as their Bcc copy). A project manager therefore registers those addresses on
+the project address (`inbound_mail_addresses.forwarded_from`, migration 0250;
+`PATCH /api/projects/[id]/inbound-mail-address`, operation
+`inbound-mail-address-forwards-set`, `project:manage`): at most ten, lowercase,
+real addresses (`forwarding-addresses.ts`), never one on the inbound domain. Any
+address is accepted, not only the office's own domains: the office's domains
+are known only where it set up domain verification in WorkOS, so the rule
+would refuse most offices; an address outside the office registered here lets
+whoever reads it re-send a member's signed mail to it to the project and have
+it filed as that member, so the card asks for the office's own address. A rotation carries the list to the new
+address. The receive job passes it to `authenticateSender` (`forwardedFrom`),
+and a signed To or Cc naming one exactly counts as addressed to the project
+(`namesProject` in `sender-auth.ts`).
+
+What a redirect does to the verdict, measured on the fixture
+(`__fixtures__/exchange-redirect.ts`, `sender-auth.spec.ts`,
+`receive-job.spec.ts`): an Exchange Online inbox rule that redirects
+(„umleiten“) keeps From, To and the body, rewrites the envelope sender (SRS),
+and adds `Received`, `X-MS-Exchange-Inbox-Rules-Loop`, the ARC set and the
+tenant's own DKIM signature (`d=<tenant>.onmicrosoft.com`). The original
+signature still verifies and admits the mail, the tenant's is unaligned and
+ignored, ARC is not read: the mail is judged by its original sender. Two cases
+do not survive, and the card tells offices to redirect rather than forward:
+a rule that forwards („weiterleiten“) sends a new message whose From is the
+project mailbox, nobody in the office, so it is held as an outsider's; and a
+hop that rewrites the body (a disclaimer appended, Microsoft's MIME-to-MAPI
+conversion of mailbox-level forwarding, per its 2017 post) breaks the body
+hash, which reads as `dkim_fail`, an impersonation that only its member may
+file. Whether Exchange's current inbox-rule redirect converts the body has not
+been observed on a real tenant here; the first pilot mail settles it. Trusting
+Microsoft's ARC seal for the original verdict would cover that case and is not
+built. The address card says both setups in a line each, copyable
+(`address.setup` in the dictionaries). Cc and a redirect for the same mail
+deliver it twice; the second is `message_id_reused`.
 
 ## Receiving: the webhook
 
@@ -354,10 +398,11 @@ signature as `neutral`; `sender-auth.ts` names them `dkim_fail` and
 DMARC only; a CHECK refuses one containing `spf=`.
 
 Flags: `not_addressed_to_project` (no signed To or Cc names the token on the
-inbound domain; a look-alike domain such as `example.org.evil.example` does not
-count), `relaxed_alignment` (verified, but the admitting signature's `d=` is a
-parent or a subdomain of the From domain, not the domain itself: the label stays,
-a direct filing needs strict alignment), `bcc_own` (a `member_verified` mail with a signed Date within 24 h of
+inbound domain, nor exactly one of the address's `forwarded_from`; a look-alike
+domain such as `example.org.evil.example` does not count), `relaxed_alignment`
+(verified, but the admitting signature's `d=` is the organizational domain or
+another subdomain of it, not the From domain itself: evidence only, it files
+directly since migration 0250, as DMARC accepts it), `bcc_own` (a `member_verified` mail with a signed Date within 24 h of
 receipt: the member's own Bcc copy, or a recipient re-sending it, which is why it never files directly), `stale_date` (signed Date more than 7 days
 before receipt), `date_out_of_range` (the Date outside `[received − 30 days,
 received + 15 minutes]`; the receipt time is used), `message_id_reused`,
@@ -387,10 +432,12 @@ with `details.reason` from `INBOUND_MAIL_REFUSALS` (`inbound-mail-wire.ts`).
 `via` is read from the call, never the body (`decisionActor`): an agent's card the
 person accepted (`actingProposalId`, set by the proposal applier), an outside
 agent acting as the person, or the app; `sender` only from the sender's filing
-job. A mail that claims another member (`unverified_writer`) is refused with
-`sender_only` for anyone but that member (`onlySenderReleases` on the views);
-its member files it with `acknowledgeSender`, which every `unverified_writer`
-mail needs (`senderNeedsAcknowledgement`). The E-Mail-Eingang says why a mail
+job. Every `unverified_writer` mail needs `acknowledgeSender`
+(`senderNeedsAcknowledgement`): its member says they sent it, any other writer
+that they checked it is from them. One whose signature the member's domain
+rejected is refused with `sender_only` for anyone but that member
+(`onlySenderReleases` on the views; `ownClaimedMail` tells the member their own
+claimed mail, so the screen asks them, and a colleague, the right question). The E-Mail-Eingang says why a mail
 waits under its sender (`waitReason`: `signature`, `replay`, `automatic`,
 `paused`, `not_filed`, `no_write_rights`, `outside_office`,
 `sender_unchecked`; `SenderWaitLine`), phrased for its reader: the claimed
@@ -718,7 +765,8 @@ numbers from those constants, with a link to Dateien for anything larger.
 ## Observability
 
 - PostHog: `inbound_mail_received`, `_refused`, `_dropped`, `_decided`,
-  `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
+  `_address_rotated`, `_address_forwards_changed` (a count, never an address),
+  `mail_thread_followed`, `mail_thread_original_downloaded`
   ([`posthog-events.md`](../observability/posthog-events.md)). Ids, codes and
   counts only.
 - Langfuse: the suggestion's `filing-fit` generation (`surface: inbound_mail`),
@@ -727,7 +775,7 @@ numbers from those constants, with a link to Dateien for anything larger.
   model call.
 - Audit (`lib/audit/schemas.mjs`): `inbound_mail.received`, `.expired`,
   `.part_read`, `.original_read`, `.decided`; `inbound_mail_address.created`,
-  `.rotated`, `.deleted`; `mail_thread.follow_started`, `.follow_ended`,
+  `.rotated`, `.deleted`, `.forwards_changed` (a count); `mail_thread.follow_started`, `.follow_ended`,
   `.entry_detached`, `.original_read`.
 - Operator alerts: `bad-signature`, `body-truncated`, `unavailable`,
   `cap_reached`, and no `received` for 24 h (`kubernetes.md` §3c).

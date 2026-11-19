@@ -650,8 +650,10 @@ Domain hat sie bestätigt, und Sie dürfen in diesem Projekt ablegen.“
 
 **Held for a person** in the project's E-Mail-Eingang (Dateien → E-Mail-Eingang):
 - a member's mail that is not signed by their own domain, is their Bcc copy,
-  reads as re-sent or misdated, or is automatic: only that member may file it
-  („Haben Sie diese E-Mail gesendet?“), anyone may dismiss it, for 30 days;
+  reads as re-sent or misdated, or is automatic: that member files it („Haben
+  Sie diese E-Mail gesendet?“), or any writer who checked it is from them
+  (migration 0250); one whose signature the domain rejected only that member;
+  anyone may dismiss it, for 30 days;
 - a member's mail who may not write in the project: for the project's writers, 30 days;
 - everyone else's: for the project's writers, 14 days, then discarded.
 Five days before a mail runs out, the people it waits for are reminded.

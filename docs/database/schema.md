@@ -1032,6 +1032,7 @@ Nine tables, one job each:
 | `revoked_at`, `revoked_by`, `revoked_reason` | | all three set together (`…_revocation_attributed`); reason `rotated`/`switched_off` | |
 | `cap_notice` | `text` | `nearly_full`/`full` (`inbound_mail_addresses_cap_notice_known`) | What the managers were last told about the staged-bytes caps (sweep 14) |
 | `cap_noticed_at` | `timestamptz` | set exactly with `cap_notice` (`inbound_mail_addresses_cap_noticed_at`) | |
+| `forwarded_from` | `text[]` | NOT NULL, default `{}`; at most 10, lowercase, none empty (`inbound_mail_addresses_forwarded_from_shape`, migration 0250) | The office's existing project addresses that forward here by a rule: a signed To or Cc naming one counts as addressed to the project. A rotation carries it to the new address |
 
 One active address per project (`uniq_inbound_mail_addresses_active_project`,
 partial on `revoked_at IS NULL`); two lazy mints race into a 23505 the service
@@ -1059,7 +1060,7 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `recipient_count` | `integer` | 0..1000 | To and Cc recipients, the project addresses not counted; more than the To/Cc `participants` kept means the 200 cap cut some, and a follow refuses the mail (condition 5, `recipients_unchecked`) |
 | `sender_trust` | `text` | `member_verified`/`member_unverified`/`external_verified`/`external_unverified`; required when `waiting` or `settled` | A label and a condition on defaults, never a gate |
 | `sender_user_id` | `text` | set exactly when the trust is `member_*` (`inbound_mails_member_has_user`); person-shaped | Read only under the notice rules |
-| `sender_class` | `text` | migration 0197: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed`/`relaxed_alignment`, never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
+| `sender_class` | `text` | migration 0197: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed` (`relaxed_alignment` too until 0250), never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
 | `sender_reason` | `text` | 20 known codes; set exactly with the trust; `dkim_pass` exactly when `*_verified` (`inbound_mails_reason_with_trust`) | |
 | `signer_domain` | `text` | ≤ 253 | |
 | `signed_headers` | `text[]` | ≤ 64, lowercase header names | mailauth's `signingHeaders.keys` of the aligned passing signature |
@@ -1203,9 +1204,12 @@ Trigger `inbound_mail_decisions_guard`:
   text and only for it (`…_thread_for_text`). From 0197: `via = 'sender'` only
   on a `verified_writer` mail, decided by its `sender_user_id`, its raw message
   `clean`, the part without risk flags or content findings
-  (`…_sender_files_own_verified_mail`); a `file` or `restore` on an
-  `unverified_writer` mail only by its `sender_user_id`, a `file` with
-  `acknowledged_sender` (`…_claimed_sender_releases`); no `restore` of an
+  (`…_sender_files_own_verified_mail`); a `file` on an `unverified_writer` mail
+  only with `acknowledged_sender`, and a `file` or `restore` on one whose
+  `sender_reason` is `dkim_fail`, `dkim_policy`, `dkim_weak_algorithm` or
+  `dkim_short_key` (or NULL) only by its `sender_user_id`
+  (`…_claimed_sender_releases`; from 0250, before it every one was its
+  member's alone); no `restore` of an
   `expired` part of an `external` mail (`…_external_expiry_final`). The part and
   the mail are read by their full composite keys, under the caller's row-level
   security; SECURITY INVOKER.
