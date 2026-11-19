@@ -38,10 +38,12 @@ export interface MessageRowProps {
   folders: readonly FolderOption[]
   copy: DraftCopy
   threadNameStop: string[] | null
+  /** The mail's text says something of its own: filing it is the stated default, leaving it out loses it. */
+  recommended?: boolean
   onChange: (change: Partial<Omit<MessageDraft, 'partId'>>) => void
 }
 
-export function MessageRow({ projectId, view, draft, folders, copy, threadNameStop, onChange }: MessageRowProps): JSX.Element {
+export function MessageRow({ projectId, view, draft, folders, copy, threadNameStop, recommended = false, onChange }: MessageRowProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const id = useId()
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -87,6 +89,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
     <Item className="items-start px-4" data-testid="message-row" data-checked={draft.checked || undefined}>
       <div className="flex h-5 items-center pointer-coarse:h-11">
         <Checkbox
+          id={`${id}-check`}
           checked={selectable && draft.checked}
           disabled={!selectable}
           onCheckedChange={(value) => onChange({ checked: value === true })}
@@ -96,10 +99,11 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         {/* What the checkbox does, not a second „E-Mail-Text“ under the text's own label. */}
-        <p className="flex items-center gap-1.5 text-sm font-medium">
+        <label htmlFor={`${id}-check`} className="flex cursor-pointer flex-wrap items-center gap-x-1.5 text-sm font-medium pointer-coarse:min-h-11">
           <MailCheck className="text-muted-foreground size-4" aria-hidden />
           {t('message.file')}
-        </p>
+          {recommended && selectable && <span className="text-muted-foreground text-xs font-normal" data-testid="message-recommended">{t('message.recommended')}</span>}
+        </label>
         {part?.riskFlags.includes('unreadable') && (
           <FactLine icon={AlertTriangle} tone="warning">
             {t('message.unreadable')}

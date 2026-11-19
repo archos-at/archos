@@ -107,26 +107,29 @@ export function SenderTrustLine({
   return (
     <span
       className={cn(
-        'inline-flex min-w-0 items-center gap-1.5 text-xs',
+        'inline-flex min-w-0 items-start gap-1.5 text-xs [&>svg:first-child]:mt-px',
         tone === 'warning' ? 'text-foreground font-medium [&>svg:first-child]:text-warning' : tone === 'confirmed' ? 'text-foreground' : 'text-muted-foreground'
       )}
       data-testid="sender-trust"
       data-tone={tone}
     >
       <TrustGlyph line={line} />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{label(line)}</span>
-      <Toggletip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-inline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
-            aria-label={explain}
-          >
-            <Info className="size-3.5" aria-hidden />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-72">{explain}</TooltipContent>
-      </Toggletip>
+      {/* The ⓘ follows the last word: as a flex item of its own it stood at the far edge once the words wrapped. */}
+      <span className="min-w-0 [overflow-wrap:break-word]">
+        {label(line)}{' '}
+        <Toggletip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-inline align-[-3px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
+              aria-label={explain}
+            >
+              <Info className="size-3.5" aria-hidden />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-72">{explain}</TooltipContent>
+        </Toggletip>
+      </span>
     </span>
   )
 }

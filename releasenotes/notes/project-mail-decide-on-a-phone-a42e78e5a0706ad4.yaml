@@ -1,0 +1,29 @@
+---
+# area: documents
+features:
+  - >
+    In Project mail, all attachments of a mail can be selected at once and the
+    selected ones sent to one folder in a single step.
+  - >
+    Each PDF or picture attached to a mail has a "Vorschau" that opens it large,
+    every page of a PDF included, and steps from one attachment to the next.
+improvements:
+  - >
+    An opened mail says what an unverified sender means for you ("name and address
+    could be forged"), and each confirmation names what you confirm instead of one
+    "File anyway".
+  - >
+    On a phone, "Dismiss" and "File" stand side by side, notices fold into one line,
+    confirmations can be ticked anywhere on their row, and messages appear at the
+    bottom instead of over the subject.
+  - >
+    A link in a mail shows the site it leads to and can be copied, and following a
+    mail thread says what it now means, with the way to stop.
+fixes:
+  - >
+    An opened mail no longer stays on "Being checked for malware" or "still reading"
+    until reloaded, and a mail reloaded after someone else's change keeps the folders
+    you had chosen.
+  - >
+    In a mail thread's E-Mails tab, long names no longer break in the middle of a
+    word, and moving a mail to another thread uses the usual dialog.

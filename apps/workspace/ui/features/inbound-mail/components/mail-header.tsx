@@ -14,6 +14,7 @@ import type { InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { formatAbsoluteTime, formatCalendarDate } from '@/lib/format'
 import type { ForwardedOrigin } from '@/lib/inbound-mail/forwarded'
 import { displaySubject } from '@/lib/inbound-mail/subject'
+import { cn } from '@/lib/utils'
 import { expiryShownInline } from '../lib/evidence'
 import { mailClaimOf, senderDisplayName } from '../lib/sender'
 import { FactLine, QuietPanel } from './inbound-mail-atoms'
@@ -76,9 +77,10 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
           <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
             {/* Trust is never folded away. */}
             {view.sender && <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />}
-            {view.sender && <MetaDot />}
+            {/* On a phone the time starts its own line: a dot left at the end of the trust's line read as a fault. */}
+            {view.sender && <MetaDot className="max-sm:hidden" />}
             {/* The time and „Details“ keep together, so on a phone „Details“ never stands on a line of its own. */}
-            <span className="inline-flex items-center gap-x-1 whitespace-nowrap">
+            <span className="inline-flex items-center gap-x-1 whitespace-nowrap max-sm:basis-full">
               <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
                 {formatAbsoluteTime(view.receivedAt, locale)}
               </time>
@@ -182,9 +184,9 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
   )
 }
 
-function MetaDot(): JSX.Element {
+function MetaDot({ className }: { className?: string }): JSX.Element {
   return (
-    <span aria-hidden className="text-muted-foreground/40">
+    <span aria-hidden className={cn('text-muted-foreground/40', className)}>
       ·
     </span>
   )

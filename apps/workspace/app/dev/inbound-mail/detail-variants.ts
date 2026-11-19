@@ -410,6 +410,19 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     text: text(),
   },
   closed: { view: mail({ key: 'closed', projectClosed: true, parts: [messagePart({ id: fixtureId('message:cl') }), permitDecision()] }), text: text() },
+  'stacked-notices': {
+    view: mail({
+      key: 'stacked-notices',
+      projectClosed: true,
+      parts: [
+        messagePart({ id: fixtureId('message:sn'), state: 'filed', documentId: fixtureId('doc:stellplatz') }),
+        statik({ state: 'filed', documentId: fixtureId('doc:s101') }),
+        permitDecision({ lastFailure: 'name_taken' }),
+      ],
+    }),
+    text: text(),
+    decidedByOther: true,
+  },
   expired: {
     view: mail({ key: 'expired', status: 'handled', parts: [messagePart({ id: fixtureId('message:exp'), state: 'expired', restorableUntil: daysAhead(5) }), permitDecision({ state: 'expired', restorableUntil: daysAhead(5) })] }),
     text: text(),

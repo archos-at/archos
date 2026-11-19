@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   AlertTriangle,
@@ -53,7 +53,8 @@ export interface AttachmentRowProps {
   focused?: boolean
   readOnly?: boolean
   onChange: (change: Partial<Omit<AttachmentDraft, 'partId' | 'suggested'>>) => void
-  onPreview?: () => void
+  /** Opens the larger viewer; the press that opened it takes the focus back when it closes. */
+  onPreview?: (trigger: HTMLElement) => void
 }
 
 function folderLabel(target: FolderTarget, rootLabel: string): string {
@@ -77,6 +78,7 @@ export function AttachmentRow({
   const { locale } = useLocale()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const changeRef = useRef<HTMLButtonElement>(null)
   const { part, status, selectable } = entry
   const name = part.filedAs?.name ?? part.filename ?? draft.name
   const suggestion = useMemo(() => readSuggestion(part.suggestion), [part.suggestion])
@@ -228,9 +230,10 @@ export function AttachmentRow({
       )}
       <button
         type="button"
-        onClick={onPreview}
+        onClick={(event) => onPreview?.(event.currentTarget)}
         disabled={!contentUrl || !onPreview}
         aria-label={t('attachments.preview', { name })}
+        tabIndex={-1 /* the visible „Vorschau“ beside the facts is the keyboard's way in; one stop per row */}
         className="shrink-0 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
       >
         <AttachmentThumbnail filename={name} contentType={part.contentType} url={contentUrl} />
@@ -240,7 +243,25 @@ export function AttachmentRow({
           <MiddleTruncate text={name} className={cn('min-w-0 text-sm font-medium', !selectable && !readOnly && status !== 'filed' && 'text-muted-foreground')} />
         </div>
         {/* A clean scan is the normal case and says nothing: only a running, failed or infected scan has a line (`statusLine`). */}
-        <p className="text-muted-foreground text-xs tabular-nums">{facts}</p>
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {facts}
+          {/* Visible words, not only the 40px picture: a phone has no hover to discover that the picture opens. */}
+          {contentUrl && onPreview && (
+            <>
+              {CLAUSE_JOIN}
+              <Button
+                type="button"
+                variant="inline"
+                className="touch-target h-auto p-0 text-xs font-medium"
+                onClick={(event) => onPreview(event.currentTarget)}
+                aria-label={t('attachments.preview', { name })}
+                data-testid="attachment-preview-open"
+              >
+                {t('attachments.previewShort')}
+              </Button>
+            </>
+          )}
+        </p>
         {statusLine()}
         {status === 'waiting' && entry.notes.map(noteLine)}
 
@@ -282,7 +303,7 @@ export function AttachmentRow({
                   → {draft.name}
                 </span>
               )}
-              <Button type="button" size="sm" variant="secondary" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+              <Button ref={changeRef} type="button" size="sm" variant="secondary" onClick={() => setEditOpen(true)} data-testid="attachment-change">
                 {t('attachments.change')}
               </Button>
             </div>
@@ -335,6 +356,7 @@ export function AttachmentRow({
         part={part}
         draft={draft}
         onApply={(change) => onChange(change)}
+        returnFocusRef={changeRef}
       />
     </Item>
   )

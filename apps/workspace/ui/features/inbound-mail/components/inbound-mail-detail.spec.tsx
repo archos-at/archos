@@ -10,11 +10,11 @@ vi.mock('next/navigation', () => ({
 }))
 
 import { toast } from 'sonner'
-import { render, screen, waitFor, within } from '@/test-utils'
+import { act, render, screen, waitFor, within } from '@/test-utils'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import { DETAIL_VARIANTS, FIXTURE_NOW, FOLDERS, PROJECT_ID, fixtureClient, mail, messagePart, text } from '@/app/dev/inbound-mail/fixtures'
 import type { InboundMailClient } from '../lib/client'
-import { InboundMailDetail } from './inbound-mail-detail'
+import { FILING_QUICK_ROUNDS, InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 
 function renderDetail(name: string, client: InboundMailClient = fixtureClient({ detail: DETAIL_VARIANTS[name] }), onChanged = vi.fn()) {
   const fixture = DETAIL_VARIANTS[name]
@@ -140,7 +140,7 @@ describe('InboundMailDetail', () => {
     expect(warning.className).not.toMatch(/border-l/)
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
     await userEvent.click(screen.getByTestId('message-checkbox'))
-    expect(screen.getByTestId('acknowledge-sender').closest('div')).toHaveTextContent('I checked that the mail is genuine. File it anyway')
+    expect(screen.getByTestId('acknowledge-sender').closest('div')).toHaveTextContent('I checked by phone that the mail is genuine')
   })
 
   it('makes an impersonation a stop: „Verwerfen“ is the primary press, filing is folded behind „File anyway …“', async () => {
@@ -244,7 +244,7 @@ describe('InboundMailDetail', () => {
     renderDetail('member-verified', client)
     await userEvent.click(screen.getByTestId('decision-file'))
     expect(await screen.findByTestId('detail-decided-by-other')).toBeInTheDocument()
-    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('changed in the meantime'))
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('changed in the meantime'), expect.anything())
     expect(screen.queryByTestId('decision-bar')).not.toBeInTheDocument()
   })
 
@@ -395,5 +395,153 @@ describe('InboundMailDetail', () => {
     const client = fixtureClient({ detail: fixture })
     render(<InboundMailDetail projectId={PROJECT_ID} mailId={fixture.view.id} initial={null} folders={FOLDERS} client={client} onChanged={vi.fn()} />)
     expect(await screen.findByText('This mail could not be loaded.')).toBeInTheDocument()
+  })
+})
+
+describe('deciding on one mail', () => {
+  it('ticks a whole plan set at once and sends the ticked ones to one folder', async () => {
+    renderDetail('mixed-attachments')
+    const boxes = () => screen.getAllByTestId('attachment-checkbox').filter((box) => !box.hasAttribute('disabled'))
+    await userEvent.click(screen.getByTestId('attachments-check-all'))
+    boxes().forEach((box) => expect(box).toBeChecked())
+    expect(screen.getByTestId('attachments-check-all')).toHaveTextContent('Deselect all')
+    await userEvent.click(screen.getByTestId('attachments-file-checked-into'))
+    await userEvent.click(within(await screen.findByTestId('folder-picker')).getByTestId(`folder-picker-${FOLDERS[2].id}`))
+    screen.getAllByTestId('attachment-folder').forEach((chip) => expect(chip).toHaveTextContent('Tragwerk'))
+    expect(screen.getByTestId('detail-announcement')).toHaveTextContent(`${boxes().length - 1} attachments go to “Tragwerk”. 1 stays the next revision of its document.`)
+    await userEvent.click(screen.getByTestId('attachments-check-all'))
+    boxes().forEach((box) => expect(box).not.toBeChecked())
+  })
+
+  it('says why „E“ files nothing, in a live region, instead of doing nothing', async () => {
+    const actionsRef = { current: null as DetailActions | null }
+    const fixture = DETAIL_VARIANTS['no-suggestion']
+    const client = fixtureClient({ detail: fixture })
+    const file = vi.spyOn(client, 'file')
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={fixture.view.id} initial={fixture.view} initialText={fixture.text} folders={FOLDERS} client={client} onChanged={vi.fn()} now={FIXTURE_NOW} actionsRef={actionsRef} />)
+    act(() => actionsRef.current?.file())
+    const status = screen.getByTestId('detail-announcement')
+    expect(status).toHaveAttribute('role', 'status')
+    await waitFor(() => expect(status).toHaveTextContent('Choose a folder for 1 attachment.'))
+    expect(file).not.toHaveBeenCalled()
+  })
+
+  it('reads a mail under scan again until its attachments are clean, keeping what the person chose', async () => {
+    const fixture = DETAIL_VARIANTS['scan-pending']
+    const client = fixtureClient({ detail: fixture })
+    const clean = { ...fixture.view, ifMatch: `${fixture.view.ifMatch}-scanned`, parts: fixture.view.parts.map((part) => ({ ...part, scan: part.kind === 'message' ? part.scan : ('clean' as const) })) }
+    const get = vi.spyOn(client, 'get').mockResolvedValueOnce(fixture.view).mockResolvedValue(clean)
+    renderDetail('scan-pending', client)
+    expect(screen.getByTestId('status-scan-pending')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('message-checkbox'))
+    await waitFor(() => expect(screen.queryByTestId('status-scan-pending')).not.toBeInTheDocument())
+    expect(get.mock.calls.length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByTestId('message-checkbox')).not.toBeChecked()
+  })
+
+  it('says a filing takes longer than usual after the quick rounds, and keeps asking', async () => {
+    const fixture = DETAIL_VARIANTS['member-verified']
+    const client = fixtureClient({ detail: fixture })
+    const filing = { ...fixture.view, parts: fixture.view.parts.map((part) => ({ ...part, state: 'filing' as const })) }
+    vi.spyOn(client, 'file').mockResolvedValue({ mails: [filing], filingJobId: 'job' })
+    const get = vi.spyOn(client, 'get').mockResolvedValue(filing)
+    renderDetail('member-verified', client)
+    await userEvent.click(screen.getByTestId('decision-file'))
+    expect(await screen.findByText('This takes longer than usual. Filing goes on; you can leave the mail.', {}, { timeout: 4000 })).toBeInTheDocument()
+    const asked = get.mock.calls.length
+    expect(asked).toBeGreaterThanOrEqual(FILING_QUICK_ROUNDS - 1)
+    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(asked))
+  })
+
+  it('keeps the person’s choices through a refusal’s reload when the mail kept its parts', async () => {
+    const fixture = DETAIL_VARIANTS['member-verified']
+    const client = fixtureClient({ detail: fixture })
+    const file = vi.spyOn(client, 'file').mockRejectedValueOnce(new ApiRequestError('stale', 409, 'stale'))
+    vi.spyOn(client, 'get').mockResolvedValue({ ...fixture.view, ifMatch: 'after-the-refusal' })
+    renderDetail('member-verified', client)
+    await userEvent.click(screen.getByTestId('message-checkbox'))
+    await userEvent.click(screen.getByTestId('decision-file'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(screen.getByTestId('message-checkbox')).not.toBeChecked()
+    expect(screen.queryByTestId('detail-decided-by-other')).toBeNull()
+    await userEvent.click(screen.getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalledTimes(2))
+    expect(file.mock.calls[1][1].mails[0]).toMatchObject({ ifMatch: 'after-the-refusal', message: null })
+  })
+
+  it('folds two or more notices into one line that opens on a tap, and says the closed project once', async () => {
+    renderDetail('stacked-notices')
+    expect(screen.getByTestId('detail-notices')).toHaveAttribute('data-folded', 'true')
+    expect(screen.getByTestId('detail-closed-line')).toHaveTextContent('The project is closed')
+    expect(screen.getByTestId('detail-notices-unfold')).toHaveTextContent('+2 notices')
+    expect(screen.queryByTestId('detail-decided-by-other')).toBeNull()
+    expect(screen.queryAllByTestId('decision-blocker').map((line) => line.textContent)).not.toContain('The project is closed – reopen it to file')
+    await userEvent.click(screen.getByTestId('detail-notices-unfold'))
+    expect(screen.getByTestId('detail-closed')).toBeInTheDocument()
+    expect(screen.getByTestId('detail-decided-by-other')).not.toHaveClass('bg-info-subtle')
+    expect(screen.getByTestId('detail-partial-failure')).toBeInTheDocument()
+  })
+
+  it('recommends filing a mail’s own words, and warns in ink above the press when they are left out', async () => {
+    renderDetail('mixed-attachments')
+    expect(screen.getByTestId('message-recommended')).toHaveTextContent('(recommended)')
+    expect(screen.queryByTestId('original-erased')).toBeNull()
+    await userEvent.click(screen.getByText('Include the mail text'))
+    expect(screen.getByTestId('message-checkbox')).not.toBeChecked()
+    const erased = screen.getByTestId('original-erased')
+    expect(erased).toHaveTextContent('The mail text is not filed and is gone after filing')
+    expect(erased.compareDocumentPosition(screen.getByTestId('decision-file')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows where a link goes and copies it, never opening it', async () => {
+    const user = userEvent.setup()
+    const fixture = DETAIL_VARIANTS['member-verified']
+    const url = 'https://www.dropbox.com/s/abc/Plan.pdf?dl=0'
+    render(
+      <InboundMailDetail projectId={PROJECT_ID} mailId={fixture.view.id} initial={fixture.view} initialText={text({ ownText: `Die Pläne: ${url} danke`, quoted: [] })} folders={FOLDERS} client={fixtureClient({ detail: fixture })} onChanged={vi.fn()} now={FIXTURE_NOW} />
+    )
+    const link = screen.getByTestId('mail-text-link')
+    expect(link.querySelector('a')).toBeNull()
+    expect(within(link).getByTestId('mail-text-link-domain')).toHaveTextContent('→ dropbox.com')
+    await user.click(within(link).getByRole('button', { name: `Copy: ${url}` }))
+    expect(await navigator.clipboard.readText()).toBe(url)
+  })
+
+  it('confirms a follow in words, with the way out of it', async () => {
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['follow-offer'] })
+    const unfollow = vi.spyOn(client, 'unfollow')
+    renderDetail('follow-offer', client)
+    await userEvent.click(await screen.findByTestId('follow-offer-button'))
+    expect(await screen.findByTestId('follow-offer-unfollow')).toHaveTextContent('Stop following')
+    expect(screen.getByTestId('follow-offer-title')).toHaveTextContent('You follow “Stellplatznachweis”')
+    expect(screen.getByTestId('follow-offer-hint')).toHaveTextContent('From now on, replies')
+    await userEvent.click(screen.getByTestId('follow-offer-unfollow'))
+    await waitFor(() => expect(unfollow).toHaveBeenCalled())
+    expect(await screen.findByTestId('follow-offer-button')).toBeInTheDocument()
+  })
+
+  it('gives the forged mail’s yes its own words and verb', async () => {
+    renderDetail('member-name')
+    await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
+    await userEvent.click(screen.getByTestId('message-checkbox'))
+    expect(screen.getByTestId('acknowledge-sender-row')).toHaveTextContent('I checked by phone that the mail is genuine')
+    expect(screen.getByTestId('decision-file')).toHaveTextContent('File as genuine')
+  })
+
+  it('ticks a confirmation from anywhere on its row', async () => {
+    renderDetail('own-unverified')
+    await userEvent.click(screen.getByText('Yes, I sent this mail. File it'))
+    expect(screen.getByTestId('acknowledge-sender')).toBeChecked()
+    expect(screen.getByTestId('acknowledge-sender-row').tagName).toBe('LABEL')
+  })
+
+  it('hands the focus back to „Change“ when its dialog closes', async () => {
+    renderDetail('mixed-attachments')
+    const change = screen.getAllByTestId('attachment-change')[0]
+    await userEvent.click(change)
+    expect(await screen.findByTestId('attachment-target-dialog')).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByTestId('attachment-target-dialog')).toBeNull())
+    expect(change).toHaveFocus()
   })
 })

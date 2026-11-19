@@ -1,13 +1,15 @@
 'use client'
 
 import { useId, type JSX } from 'react'
-import { Info, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, Info, ShieldAlert } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { useTranslations } from '@/i18n'
 import { cn } from '@/lib/utils'
 import type { DraftBlocker, DraftSummary } from '../lib/draft'
 import { CheckLine, FactLine, PinnedBar } from './inbound-mail-atoms'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
+
+type Translate = (key: string, vars?: Record<string, string | number>) => string
 
 export interface DecisionBarProps {
   summary: DraftSummary
@@ -21,13 +23,17 @@ export interface DecisionBarProps {
   dismissing: boolean
   yieldPrimary?: boolean
   choiceInView?: boolean
+  /** Blockers a notice above the mail already says; the bar does not say them twice. */
+  saidAbove?: ReadonlyArray<DraftBlocker['kind']>
+  /** The mail's own text says something: leaving it out is a loss, and the bar says so in ink. */
+  substantiveText?: boolean
   className?: string
 }
 
-function blockerText(blocker: DraftBlocker, t: (key: string, vars?: Record<string, string | number>) => string): string | null {
+export function blockerText(blocker: DraftBlocker, t: Translate, summary?: Pick<DraftSummary, 'ownClaimedMail'>, impersonation = false): string | null {
   switch (blocker.kind) {
     case 'sender':
-      return null
+      return t(summary?.ownClaimedMail ? 'bar.blockers.senderOwn' : impersonation ? 'bar.blockers.senderImpersonation' : 'bar.blockers.sender')
     case 'project_closed':
     case 'thread_name_missing':
     case 'sender_only':
@@ -39,7 +45,7 @@ function blockerText(blocker: DraftBlocker, t: (key: string, vars?: Record<strin
   }
 }
 
-export function primaryLabel(summary: DraftSummary, t: (key: string, vars?: Record<string, string | number>) => string): string {
+export function primaryLabel(summary: DraftSummary, t: Translate): string {
   if (summary.files > 0 && summary.text) return t('bar.fileBoth', { count: summary.files })
   if (summary.files > 0) return t('bar.fileFiles', { count: summary.files })
   if (summary.text && summary.thread) return t('bar.fileThread', { name: summary.thread.name, version: summary.thread.nextVersion })
@@ -59,90 +65,100 @@ export function DecisionBar({
   dismissing,
   yieldPrimary = false,
   choiceInView = false,
+  saidAbove = [],
+  substantiveText = false,
   className,
 }: DecisionBarProps): JSX.Element {
   const summaryId = useId()
   const t = useTranslations(inboundMailCopy)
   const nothing = summary.files === 0 && !summary.text
   const onlyDismiss = nothing && !impersonation
-  const blockers = summary.blockers.filter((blocker) => blocker.kind !== 'sender')
+  const blockers = summary.blockers.filter((blocker) => blocker.kind !== 'sender' && !saidAbove.includes(blocker.kind))
   const blocked = !nothing && summary.blockers.length > 0
   const busy = filing || dismissing
   const offersFiling = !impersonation || filingOpen
   const messages = blockers.map((blocker) => blockerText(blocker, t)).filter((text): text is string => text !== null)
+  const erased = summary.originalErased && !nothing
+  const showsDismiss = !onlyDismiss && !(yieldPrimary && !impersonation)
 
   return (
     <PinnedBar data-testid="decision-bar" className={className}>
-      {offersFiling && (summary.needsSenderAcknowledgement || messages.length > 0 || (summary.originalErased && !nothing)) && (
-        <div className="flex flex-col gap-1.5">
+      {offersFiling && (summary.needsSenderAcknowledgement || messages.length > 0) && (
+        <div className="flex flex-col gap-1">
           {summary.needsSenderAcknowledgement && (
             <CheckLine checked={acknowledgeSender} onCheckedChange={onAcknowledgeSender} disabled={busy} testId="acknowledge-sender">
-              <span className="text-foreground inline-flex items-center gap-1.5 font-medium">
-                <ShieldAlert className="text-warning size-3.5 shrink-0" aria-hidden />
+              <span className="text-foreground inline-flex items-start gap-1.5 font-medium">
+                <ShieldAlert className="text-warning mt-px size-3.5 shrink-0 pointer-coarse:mt-0.5 pointer-coarse:size-4" aria-hidden />
                 {/* The member it claims answers for themself, under an impersonation too: „Ja, ich habe sie gesendet“. */}
                 {t(summary.ownClaimedMail ? 'bar.acknowledgeOwnMail' : impersonation ? 'bar.acknowledgeImpersonation' : 'bar.acknowledgeSender')}
               </span>
             </CheckLine>
           )}
           {messages.map((text) => (
-            <p key={text} className="text-muted-foreground text-xs" role="status" data-testid="decision-blocker">
+            <p key={text} className="text-muted-foreground text-xs" data-testid="decision-blocker">
               {text}
             </p>
           ))}
-          {summary.originalErased && !nothing && (
-            <FactLine icon={Info} testId="original-erased">
-              {t('bar.originalErased')}
-            </FactLine>
-          )}
         </div>
       )}
-      {/* DOM order is the phone's stacking order: „Verwerfen“ first, the primary last, nearest the thumb.
-          For an impersonation „Verwerfen“ IS the primary: it moves last, and filing (once opened) is the quiet one. */}
-      {/* Paired at the end of the bar, „Verwerfen“ the tonal secondary beside the primary (D4), as in the selection bar:
-          a bare word beside the primary floated on the phone's full-width stack. */}
-      {/* What one press files, said once beside the presses: the primary itself is the verb („Ablegen“). The label that
-          said it all („In E-Mail-Verlauf „Stellplatznachweis“ ablegen (wird Fassung 4)“) ran 380px wide and out-shouted
-          the mail; the sentence keeps it legible, and the press's description reads it to a screen reader. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+      {/* Right above the press it qualifies: a muted line among the others was read past. With the mail saying
+          something, it is a warning in ink; a mail of no words of its own loses little and keeps the quiet line. */}
+      {offersFiling && erased && (
+        <FactLine icon={substantiveText ? AlertTriangle : Info} tone={substantiveText ? 'warning' : 'default'} testId="original-erased">
+          {t(substantiveText ? 'bar.originalErasedText' : 'bar.originalErased')}
+        </FactLine>
+      )}
+      {/* The phone's foot is one summary line over the two presses side by side; on a desk the summary stands on the
+          left and the presses on the right. DOM order is the reading order: „Verwerfen“, then the primary nearest the
+          thumb. For an impersonation „Verwerfen“ IS the primary: it moves last, and filing (once opened) is the quiet one. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
         {offersFiling && !onlyDismiss && (
-          <p id={summaryId} className={cn('text-muted-foreground text-meta min-w-0 sm:mr-auto sm:truncate', choiceInView && 'hidden')} data-testid="decision-summary" title={primaryLabel(summary, t)}>
+          <p
+            id={summaryId}
+            className={cn('text-muted-foreground text-meta min-w-0 truncate sm:mr-auto', choiceInView && 'hidden')}
+            data-testid="decision-summary"
+            title={primaryLabel(summary, t)}
+          >
             {primaryLabel(summary, t)}
           </p>
         )}
-        {/* While a batch bar is up its „Verwerfen“ is the one on screen: two raised „Verwerfen“ for two scopes, and a
-            reader foot of two identical white presses, was round 3. This mail is dismissed from the bar once ticked. */}
-        {!onlyDismiss && !(yieldPrimary && !impersonation) && (
-          <BusyButton
-            type="button"
-            size="sm"
-            variant={impersonation && !yieldPrimary ? 'default' : 'secondary'}
-            busy={dismissing}
-            busyLabel={t('bar.dismissBusy')}
-            onClick={onDismiss}
-            blocked={filing}
-            className={cn('w-full sm:w-auto', impersonation && 'order-last')}
-            data-testid="decision-dismiss"
-          >
-            {t('bar.dismiss')}
-          </BusyButton>
-        )}
-        {offersFiling && (
-          <BusyButton
-            type="button"
-            size="sm"
-            variant={impersonation || yieldPrimary ? 'secondary' : 'default'}
-            busy={onlyDismiss ? dismissing : filing}
-            busyLabel={onlyDismiss ? t('bar.dismissBusy') : t('bar.busy')}
-            onClick={nothing ? onDismiss : onFile}
-            blocked={onlyDismiss ? filing : dismissing}
-            disabled={blocked}
-            className="w-full min-w-0 shrink-0 sm:w-auto"
-            aria-describedby={onlyDismiss ? undefined : summaryId}
-            data-testid="decision-file"
-          >
-            {onlyDismiss ? t('bar.dismiss') : t('bar.file')}
-          </BusyButton>
-        )}
+        <div className="flex gap-2 sm:gap-3">
+          {/* While a batch bar is up its „Verwerfen“ is the one on screen: two raised „Verwerfen“ for two scopes, and a
+              reader foot of two identical white presses, was round 3. This mail is dismissed from the bar once ticked. */}
+          {!onlyDismiss && !(yieldPrimary && !impersonation) && (
+            <BusyButton
+              type="button"
+              size="sm"
+              variant={impersonation && !yieldPrimary ? 'default' : 'secondary'}
+              busy={dismissing}
+              busyLabel={t('bar.dismissBusy')}
+              onClick={onDismiss}
+              blocked={filing}
+              className={cn('min-w-0 flex-1 sm:flex-none', impersonation && 'order-last')}
+              data-testid="decision-dismiss"
+            >
+              {t('bar.dismiss')}
+            </BusyButton>
+          )}
+          {offersFiling && (
+            <BusyButton
+              type="button"
+              size="sm"
+              variant={impersonation || yieldPrimary ? 'secondary' : 'default'}
+              busy={onlyDismiss ? dismissing : filing}
+              busyLabel={onlyDismiss ? t('bar.dismissBusy') : t('bar.busy')}
+              onClick={nothing ? onDismiss : onFile}
+              blocked={onlyDismiss ? filing : dismissing}
+              disabled={blocked}
+              className={cn('min-w-0 sm:flex-none', showsDismiss ? 'flex-[2]' : 'flex-1')}
+              aria-describedby={onlyDismiss ? undefined : summaryId}
+              data-testid="decision-file"
+            >
+              {/* The forged mail's yes has its own verb: „Ablegen“ beside a checked box read as every other filing. */}
+              {impersonation && !summary.ownClaimedMail ? t('bar.fileGenuine') : onlyDismiss ? t('bar.dismiss') : t('bar.file')}
+            </BusyButton>
+          )}
+        </div>
       </div>
     </PinnedBar>
   )

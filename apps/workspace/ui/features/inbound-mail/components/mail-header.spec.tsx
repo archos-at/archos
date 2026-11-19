@@ -104,8 +104,8 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
   it('asks the member a mail with their address whether they sent it, and lets them file it saying so', () => {
     renderDetail('own-unverified')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signatureOwn')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Did you send this mail? Your domain did not verify it')
-    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Member · domain not verified')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for you: did you send this mail? Whether it comes from you cannot be verified')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('A member’s address · cannot be verified, could be forged')
   })
 
   it('tells the member their own rejected mail in their own voice, once: no fraud warning about themself, no second question (B4)', () => {
@@ -120,7 +120,7 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
   it('says a verified writer’s mail direct filing left waits for any writer, with the next step (not_filed)', () => {
     renderDetail('not-filed')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'not_filed')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Miriam Huber sent it and the domain verified it, but it was not filed directly. Check it, then file or dismiss it.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting to be filed: Miriam Huber sent it and it comes from this domain, but it was not filed directly. File or dismiss it.')
     expect(screen.queryByTestId('claimed-mail-bar')).toBeNull()
     expect(screen.getAllByTestId('attachment-checkbox').length).toBeGreaterThan(0)
   })
@@ -146,7 +146,7 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
   it('tells another writer whom it waits for, once, and offers them only „Dismiss …“ (B2)', () => {
     renderDetail('claimed-by-colleague')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for Miriam Huber: the domain did not verify this mail.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for Miriam Huber: whether the mail comes from Miriam Huber cannot be verified.')
     expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent('has left the office')
     expect(screen.getByTestId('claimed-mail-bar')).toHaveTextContent('Only Miriam Huber can file or restore this mail. You can dismiss it.')
     expect(screen.queryByTestId('decision-bar')).toBeNull()
@@ -160,7 +160,7 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
   it('says a sender the directory could not check could not be checked, never an outsider’s 14 days (R14)', () => {
     render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'sender_unchecked', onlySenderReleases: false }} />)
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'sender_unchecked')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('could not be checked. Check the address and the domain above before you file.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('could not be checked. Check the address and the sender above before you file.')
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('outside the office')
   })
 
@@ -169,6 +169,6 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('it expires after 14 days and cannot be restored')
     unmount()
     renderDetail('member-verified')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for you to file it, because the sender may not file in this project.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting to be filed: the sender may not file in this project.')
   })
 })

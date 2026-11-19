@@ -2,7 +2,6 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
-import { Check } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { FollowCard, FollowCardHint } from '@/features/documents'
 import { useTranslations } from '@/i18n'
@@ -11,22 +10,22 @@ import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 export interface FollowOfferProps {
   threadName: string
   onFollow: () => Promise<void>
+  onUnfollow?: () => Promise<void>
   following?: boolean
   className?: string
 }
 
-export function FollowOffer({ threadName, onFollow, following = false, className }: FollowOfferProps): JSX.Element {
+/** The offer to follow a filed reply's Verlauf; once taken, what it now means and the way out of it. */
+export function FollowOffer({ threadName, onFollow, onUnfollow, following = false, className }: FollowOfferProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState(following)
 
-  const follow = async (): Promise<void> => {
+  const run = async (action: () => Promise<void>): Promise<void> => {
     setBusy(true)
     try {
-      await onFollow()
-      setDone(true)
+      await action()
     } catch {
-      // The caller says what failed; the offer stands.
+      // The caller says what failed; the card stands as it was.
     } finally {
       setBusy(false)
     }
@@ -36,25 +35,40 @@ export function FollowOffer({ threadName, onFollow, following = false, className
     <FollowCard
       className={className}
       data-testid="follow-offer"
-      titleRole={done ? 'status' : undefined}
-      title={done ? t('follow.following', { name: threadName }) : t('follow.thread', { name: threadName })}
-      hint={<FollowCardHint>{t('follow.explain')}</FollowCardHint>}
+      data-following={following || undefined}
+      titleRole="status"
+      titleTestId="follow-offer-title"
+      title={following ? t('follow.following', { name: threadName }) : t('follow.thread', { name: threadName })}
+      hint={<FollowCardHint testId="follow-offer-hint">{following ? t('follow.followingExplain') : t('follow.explain')}</FollowCardHint>}
       actions={
-        done ? (
-          <Check className="text-muted-foreground size-4 shrink-0" aria-hidden data-testid="follow-offer-done" />
+        following ? (
+          onUnfollow && (
+            <BusyButton
+              type="button"
+              size="sm"
+              variant="secondary"
+              busy={busy}
+              busyLabel={t('follow.unfollowBusy')}
+              onClick={() => void run(onUnfollow)}
+              className="w-full @md:w-auto"
+              data-testid="follow-offer-unfollow"
+            >
+              {t('follow.unfollow')}
+            </BusyButton>
+          )
         ) : (
-        <BusyButton
-          type="button"
-          size="sm"
-          variant="secondary"
-          busy={busy}
-          busyLabel={t('follow.busy')}
-          onClick={() => void follow()}
-          className="w-full @md:w-auto"
-          data-testid="follow-offer-button"
-        >
-          {t('follow.offer')}
-        </BusyButton>
+          <BusyButton
+            type="button"
+            size="sm"
+            variant="secondary"
+            busy={busy}
+            busyLabel={t('follow.busy')}
+            onClick={() => void run(onFollow)}
+            className="w-full @md:w-auto"
+            data-testid="follow-offer-button"
+          >
+            {t('follow.offer')}
+          </BusyButton>
         )
       }
     />
