@@ -59,6 +59,9 @@ async function toOverview(): Promise<void> {
   }
 }
 
+const TRAGWERK = FOLDERS.find((folder) => folder.path === 'Tragwerk')!
+const FASSADE = FOLDERS.find((folder) => folder.path === 'Pläne/Fassade')!
+
 const overviewLines = (): string[] => within(dialog()).getAllByTestId('filing-overview-line').map((line) => line.textContent ?? '')
 
 beforeEach(() => vi.clearAllMocks())
@@ -74,10 +77,10 @@ describe('the mail pane', () => {
     const phrases = within(pane).getAllByTestId('attachment-plan').map((phrase) => phrase.textContent)
     expect(phrases).toEqual([
       'Becomes revision 4 of S-101_C.pdf',
-      'Goes to Tragwerk\u00A0· Floor plan',
-      'Goes to Fotos (new folder)\u00A0· Photo',
+      'Folder Tragwerk\u00A0· Document type Floor plan',
+      'New folder Fotos\u00A0· Document type Photo',
       'stays out – already in the project',
-      'Goes to Tragwerk',
+      'Folder Tragwerk',
       'stays out – a picture in the mail text',
     ])
     expect(screen.getByTestId('not-staged')).toHaveTextContent('winmail.dat · Outlook’s own attachment')
@@ -142,7 +145,7 @@ describe('the mail pane', () => {
   it('tells a writer an unconfirmed outsider’s dismissal is deleted at once, and offers no undo for it', async () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS['external-unverified'] })
     renderDetail('external-unverified', client)
-    expect(screen.getByTestId('decision-dismiss-note')).toHaveTextContent('With a sender that cannot be verified, what you dismiss is deleted right away.')
+    expect(screen.getByTestId('decision-dismiss-note')).toHaveTextContent('As the sender cannot be verified, what you dismiss cannot be restored afterwards.')
     await userEvent.click(screen.getByTestId('decision-dismiss'))
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
     expect(vi.mocked(toast.success).mock.calls[0]?.[1]).not.toHaveProperty('action')
@@ -220,10 +223,11 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).queryByTestId('filing-progress')).toBeNull()
     expect(within(dialog()).getByRole('heading', { name: 'This is how the mail is filed' })).toBeInTheDocument()
     expect(overviewLines()).toEqual([
-      `Mail text → added to mail thread “Stellplatznachweis”Further replies in this mail thread are filed by ${PRODUCT_NAME} without a click.`,
-      'Bescheid_MA37_2026-10-14.pdf → Behörde/Bescheide\u00A0· Official decision',
+      `Mail text → added to mail thread “Stellplatznachweis”From now on ${PRODUCT_NAME} files further replies in this mail thread without a click.Not automatically`,
+      'Bescheid_MA37_2026-10-14.pdf → Folder Behörde/Bescheide\u00A0· Document type Official decision',
     ])
     expect(within(dialog()).queryByTestId('filing-left-note')).toBeNull()
+    expect(within(dialog()).queryByTestId('filing-left')).toBeNull()
     const primary = within(dialog()).getByTestId('decision-file')
     expect(primary).toHaveTextContent('File')
     expect(primary).toHaveFocus()
@@ -253,13 +257,16 @@ describe('„Einordnen“', () => {
     expect(overviewLines()).toEqual([
       expect.stringMatching(/^Mail text → added to mail thread “Stellplatznachweis”/),
       'S-101_D.pdf → revision 4 of S-101_C.pdf',
-      'Grundriss_EG.dwg → Tragwerk\u00A0· Floor plan',
-      'Foto_Baustelle.jpg → Fotos (new folder)\u00A0· Photo',
+      'Grundriss_EG.dwg → Folder Tragwerk\u00A0· Document type Floor plan',
+      'Foto_Baustelle.jpg → New folder Fotos\u00A0· Document type Photo',
+      'Statik_verschluesselt.pdf → Folder Tragwerk',
       'Bescheid_alt.pdf stays out – already in the project',
-      'Statik_verschluesselt.pdf → Tragwerk',
       'Attachment 6 stays out – a picture in the mail text',
     ])
-    expect(within(dialog()).getByTestId('filing-left-note')).toHaveTextContent(`What “stays out” is dismissed by ${PRODUCT_NAME} when you file. It can be restored for 7 days.`)
+    const left = within(dialog()).getByTestId('filing-left')
+    expect(within(left).getByTestId('filing-left-note')).toHaveTextContent(`What “stays out” here is dismissed by ${PRODUCT_NAME} when you file. It can be restored for 7 days.`)
+    expect(within(left).getByTestId('filing-left-note').className).toContain('text-foreground')
+    expect(within(left).queryByTestId('filing-include')).toBeNull()
   })
 
   it('says a text is added to its thread, never that it becomes a revision', async () => {
@@ -274,13 +281,14 @@ describe('„Einordnen“', () => {
     await openFiling()
     expect(stepOf()).toBe('text')
     expect(within(dialog()).getByTestId('filing-progress')).toHaveTextContent('Step 1 of 3')
-    expect(within(dialog()).getByTestId('message-row')).toHaveTextContent('leave it for someone who can see it')
+    expect(within(dialog()).getByTestId('thread-hidden')).toHaveTextContent('Another mail thread you cannot open may fit. Ask the project lead.')
     await userEvent.click(within(dialog()).getAllByRole('radio')[0])
     await next()
     expect(stepOf()).toBe('attachments')
     expect(within(dialog()).getByTestId('filing-progress')).toHaveTextContent('Step 2 of 3')
     expect(within(dialog()).getByTestId('note-revision')).toHaveTextContent('could be revision 4 of S-101_C.pdf, but only the file name says so')
-    expect(within(dialog()).getByTestId('attachment-undecided')).toHaveTextContent('without a tick the file is dismissed when you file')
+    expect(within(dialog()).queryByTestId('attachment-checkbox')).toBeNull()
+    expect(within(dialog()).getByTestId('revision-choice-new')).toBeChecked()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByTestId('filing-dialog')).toBeNull())
     expect(screen.getByTestId('decision-open')).toHaveFocus()
@@ -293,16 +301,16 @@ describe('„Einordnen“', () => {
     renderDetail('unverified-thread')
     await openFiling()
     await toOverview()
-    expect(overviewLines()).toContain('S-101_D.pdf stays out')
+    expect(overviewLines()).toContain('S-101_D.pdf → Folder Tragwerk')
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
-    await userEvent.click(within(dialog()).getByTestId('attachment-checkbox'))
+    await userEvent.click(within(dialog()).getByTestId('revision-choice-none'))
     await next()
-    expect(overviewLines()).toContain('S-101_D.pdf → Tragwerk')
+    expect(overviewLines()).toContain('S-101_D.pdf stays out – not selectedFile after all')
     await userEvent.keyboard('{Escape}')
     await openFiling()
     expect(stepOf()).toBe('overview')
-    expect(overviewLines()).toContain('S-101_D.pdf → Tragwerk')
-    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Goes to Tragwerk')
+    expect(overviewLines()).toContain('S-101_D.pdf stays out – not selectedFile after all')
+    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('stays out – not selected')
   })
 
   it('files with „E“ in „Übersicht“, and opens with „E“ from the mail', async () => {
@@ -317,19 +325,35 @@ describe('„Einordnen“', () => {
   })
 
   it('says why „E“ files nothing in „Übersicht“, in a live region, and files nothing', async () => {
-    const client = fixtureClient({ detail: DETAIL_VARIANTS['external-unverified'] })
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['name-stop'] })
     const file = vi.spyOn(client, 'file')
-    renderDetail('external-unverified', client)
+    renderDetail('name-stop', client)
     await openFiling()
-    expect(stepOf()).toBe('attachments')
+    await userEvent.click(within(dialog()).getByTestId('attachment-checkbox'))
     await next()
-    expect(overviewLines()[1]).toBe('Angebot_2026.pdf → no folder yet')
     expect(within(dialog()).getByTestId('decision-file')).toBeDisabled()
-    expect(within(dialog()).getByTestId('decision-blocker')).toHaveTextContent('Choose a folder for 1 attachment.')
+    expect(within(dialog()).getByTestId('decision-blocker')).toHaveTextContent('Confirm the name check for 1 attachment.')
     within(dialog()).getByTestId('filing-back').focus()
     await userEvent.keyboard('e')
-    await waitFor(() => expect(within(dialog()).getByTestId('filing-announcement')).toHaveTextContent('Choose a folder for 1 attachment.'))
+    await waitFor(() => expect(within(dialog()).getByTestId('filing-announcement')).toHaveTextContent('Confirm the name check for 1 attachment.'))
     expect(file).not.toHaveBeenCalled()
+  })
+
+  it('says what a tick means, and holds „Weiter“ until every kept file has a folder, saying why', async () => {
+    renderDetail('external-unverified')
+    await openFiling()
+    expect(stepOf()).toBe('attachments')
+    expect(within(dialog()).getByText('A tick means the file is filed. Without a tick it stays out and is dismissed with the mail.')).toBeInTheDocument()
+    const nextPress = within(dialog()).getByTestId('filing-next')
+    expect(nextPress).toBeDisabled()
+    expect(nextPress).toHaveAccessibleDescription('First choose a folder for 1 file, or untick it.')
+    expect(within(dialog()).getByTestId('filing-step-hold')).toHaveTextContent('First choose a folder for 1 file, or untick it.')
+    await userEvent.click(within(dialog()).getByTestId('attachment-checkbox'))
+    expect(within(dialog()).getByTestId('filing-next')).toBeEnabled()
+    await userEvent.click(within(dialog()).getByTestId('attachment-checkbox'))
+    await userEvent.click(within(within(dialog()).getByTestId('filing-folder-choice')).getByTestId(`folder-picker-${TRAGWERK.id}`))
+    expect(within(dialog()).getByTestId('filing-next')).toBeEnabled()
+    expect(within(dialog()).queryByTestId('filing-step-hold')).toBeNull()
   })
 
   it('answers an attachment without folder with the project’s folders in the step, no second dialog', async () => {
@@ -339,12 +363,12 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: none yet')
     expect(within(dialog()).queryByTestId('attachment-folder-choose')).toBeNull()
     const choice = within(dialog()).getByTestId('filing-folder-choice')
-    await userEvent.click(within(choice).getByTestId(`folder-picker-${FOLDERS[2].id}`))
+    await userEvent.click(within(choice).getByTestId(`folder-picker-${TRAGWERK.id}`))
     expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Tragwerk')
-    expect(within(dialog()).getByTestId('attachment-change')).toBeInTheDocument()
+    expect(within(dialog()).getByTestId('attachment-folder-change')).toHaveTextContent('Change folder')
     expect(screen.queryByTestId('folder-picker')).toBeNull()
     await next()
-    expect(overviewLines()[1]).toBe('Angebot_2026.pdf → Tragwerk')
+    expect(overviewLines()[1]).toBe('Angebot_2026.pdf → Folder Tragwerk')
     expect(within(dialog()).getByTestId('decision-file')).toBeEnabled()
   })
 
@@ -356,15 +380,43 @@ describe('„Einordnen“', () => {
     expect(stepOf()).toBe('attachments')
     const choice = within(dialog()).getByTestId('filing-folder-choice')
     expect(choice).toHaveTextContent('All 3 into this folder')
-    await userEvent.click(within(choice).getByTestId(`folder-picker-${FOLDERS[2].id}`))
+    await userEvent.click(within(choice).getByTestId(`folder-picker-${FASSADE.id}`))
     within(dialog())
       .getAllByTestId('attachment-folder')
-      .forEach((folder) => expect(folder).toHaveTextContent('Folder: Tragwerk'))
+      .forEach((folder) => expect(folder).toHaveTextContent('Folder: Pläne/Fassade'))
     expect(within(dialog()).getByTestId('filing-announcement')).toBeInTheDocument()
     await next()
     await userEvent.click(within(dialog()).getByTestId('decision-file'))
     await waitFor(() => expect(file).toHaveBeenCalled())
-    expect(file.mock.calls[0][1].mails[0].parts.map((part) => part.folderId)).toEqual([FOLDERS[2].id, FOLDERS[2].id, FOLDERS[2].id])
+    expect(file.mock.calls[0][1].mails[0].parts.map((part) => part.folderId)).toEqual([FASSADE.id, FASSADE.id, FASSADE.id])
+  })
+
+  it('sends one file of a set to its own folder, or to a new one, and the others with one pick', async () => {
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['unknown-plan-set'] })
+    const file = vi.spyOn(client, 'file')
+    renderDetail('unknown-plan-set', client)
+    await openFiling()
+    const rows = within(dialog()).getAllByRole('listitem').filter((item) => item.dataset.testid?.startsWith('attachment-'))
+    await userEvent.click(within(rows[0]!).getByTestId('attachment-folder-choose'))
+    const first = await screen.findByTestId('folder-choice-dialog')
+    await userEvent.click(within(first).getByTestId(`folder-picker-${FASSADE.id}`))
+    await waitFor(() => expect(screen.queryByTestId('folder-choice-dialog')).toBeNull())
+    expect(within(dialog()).getByTestId('filing-next')).toHaveAccessibleDescription('First choose a folder for 2 files, or untick them.')
+    await userEvent.click(within(within(dialog()).getByTestId('filing-folder-choice')).getByTestId(`folder-picker-${FASSADE.id}`))
+    await userEvent.click(within(rows[2]!).getByTestId('attachment-folder-change'))
+    const own = await screen.findByTestId('folder-choice-dialog')
+    await userEvent.click(within(own).getByTestId('filing-new-folder'))
+    await userEvent.type(await screen.findByTestId('listing-new-folder-input'), 'Pläne/Fassade/Details{Enter}')
+    await waitFor(() => expect(screen.queryByTestId('folder-choice-dialog')).toBeNull())
+    expect(within(rows[2]!).getByTestId('attachment-folder')).toHaveTextContent('Folder: Pläne/Fassade/Detailsnew folder')
+    await next()
+    await userEvent.click(within(dialog()).getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalled())
+    expect(file.mock.calls[0][1].mails[0].parts.map((part) => [part.folderId, part.newFolderPath])).toEqual([
+      [FASSADE.id, null],
+      [FASSADE.id, null],
+      [null, 'Pläne/Fassade/Details'],
+    ])
   })
 
   it('offers the folders the mail’s other attachments go to above the tree', async () => {
@@ -375,6 +427,7 @@ describe('„Einordnen“', () => {
     await openFiling()
     const picks = within(dialog()).getByTestId('filing-quick-picks')
     expect(within(picks).getByTestId('filing-quick-pick-sibling')).toHaveTextContent('TragwerkFA-201_Ansicht_Ost_B.pdf goes there too')
+    expect(within(picks).getByTestId('filing-new-folder')).toHaveTextContent('New folder …')
     expect(within(dialog()).getByTestId('filing-folder-choice')).toHaveTextContent('All 2 into this folder')
   })
 
@@ -402,7 +455,9 @@ describe('„Einordnen“', () => {
     expect(within(within(dialog()).getByTestId('message-row')).getByTestId('content-finding-choice')).toBe(choice)
     expect(choice).toHaveTextContent('The text contains: IBAN, a term your office keeps confidential')
     expect(within(choice).getAllByRole('radio')).toHaveLength(2)
-    expect(choice).toHaveTextContent('holds the whole mail thread “Honorarvereinbarung Statik” back')
+    expect(choice).toHaveTextContent('The whole mail thread “Honorarvereinbarung Statik” is then held back')
+    expect(within(choice).getByTestId('content-finding-original')).toHaveTextContent('The mail itself stays unchanged')
+    expect(choice).not.toHaveTextContent(/content check|someone/)
     await next()
     expect(overviewLines()[0]).toMatch(/^Mail text → added to mail thread “Honorarvereinbarung Statik” \(findings redacted\)/)
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
@@ -413,20 +468,101 @@ describe('„Einordnen“', () => {
     expect(file.mock.calls[0][1].mails[0].message?.text).toBe('full')
   })
 
-  it('recommends filing a mail’s own words, and says when they stay out', async () => {
-    renderDetail('mixed-attachments')
+  it('asks the text as one question, „Do not file the text“ among its answers, and offers it back in „Übersicht“', async () => {
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['mixed-attachments'] })
+    const file = vi.spyOn(client, 'file')
+    renderDetail('mixed-attachments', client)
     await openFiling()
     await userEvent.click(within(dialog()).getByTestId('filing-change-text'))
     expect(stepOf()).toBe('text')
-    expect(within(dialog()).getByTestId('message-recommended')).toHaveTextContent('(recommended)')
-    await userEvent.click(within(dialog()).getByText('Include the mail text'))
+    expect(within(dialog()).queryAllByRole('checkbox')).toEqual([])
+    expect(within(dialog()).getAllByRole('radiogroup')).toHaveLength(1)
+    expect(within(dialog()).getByTestId('thread-candidate-why')).toHaveTextContent('replies to a mail in it')
+    await userEvent.click(within(dialog()).getByTestId('thread-leave'))
     await next()
-    expect(overviewLines()[0]).toBe('Mail text stays out, with the original')
+    expect(overviewLines()).toContain('Mail text stays out, with the originalFile after all')
+    await userEvent.click(within(within(dialog()).getByTestId('filing-left')).getByTestId('filing-include'))
+    expect(overviewLines()[0]).toMatch(/^Mail text → added to mail thread “Stellplatznachweis”/)
+    await userEvent.click(within(dialog()).getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalled())
+    expect(file.mock.calls[0][1].mails[0].message).toMatchObject({ thread: { action: 'append' } })
+  })
+
+  it('shows the name and folder of a new E-Mail-Verlauf only under that answer, and takes an unconfirmed match as the person’s yes', async () => {
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['unverified-thread'] })
+    const file = vi.spyOn(client, 'file')
+    renderDetail('unverified-thread', client)
+    await openFiling()
+    expect(within(dialog()).getByTestId('thread-new')).toBeChecked()
+    expect(within(dialog()).getByTestId('thread-create')).toBeInTheDocument()
+    const [reference, subject] = within(dialog()).getAllByTestId('thread-candidate-why')
+    expect(reference).toHaveTextContent('replies to a mail in it, but that cannot be confirmed')
+    expect(subject).toHaveTextContent('same subject')
+    await userEvent.click(within(dialog()).getAllByRole('radio')[0]!)
+    expect(within(dialog()).queryByTestId('thread-create')).toBeNull()
+    expect(within(dialog()).queryByTestId('thread-acknowledge')).toBeNull()
+    await next()
+    await next()
+    await userEvent.click(within(dialog()).getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalled())
+    const sent = file.mock.calls[0][1].mails[0]
+    expect(sent.message).toMatchObject({ thread: { action: 'append', mailThreadId: DETAIL_VARIANTS['unverified-thread'].view.threadCandidates[0]!.threadId } })
+    expect(sent.acknowledgeRisk).toContain(sent.message!.partId)
+  })
+
+  it('asks an unsure next Fassung as three answers, files it as a new file by default, and as the Fassung once chosen', async () => {
+    const fixture = DETAIL_VARIANTS['unverified-thread']
+    const plan = fixture.view.parts.find((part) => part.kind === 'attachment')!
+    const client = fixtureClient({ detail: fixture })
+    const file = vi.spyOn(client, 'file')
+    renderDetail('unverified-thread', client)
+    await openFiling()
+    await next()
+    expect(stepOf()).toBe('attachments')
+    const choice = within(dialog()).getByTestId('revision-choice')
+    expect(within(choice).getAllByRole('radio').map((radio) => radio.closest('div')?.textContent)).toEqual([
+      'File as a new file next to S-101_C.pdf',
+      'File as revision 4 of S-101_C.pdf',
+      'Do not file',
+    ])
+    expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Tragwerk')
+    await next()
+    expect(overviewLines()).toContain('S-101_D.pdf → Folder Tragwerk')
+    await userEvent.click(within(dialog()).getByTestId('filing-back'))
+    await userEvent.click(within(dialog()).getByTestId('revision-choice-revision'))
+    expect(within(dialog()).queryByTestId('attachment-ack-revision')).toBeNull()
+    await next()
+    expect(overviewLines()).toContain('S-101_D.pdf → revision 4 of S-101_C.pdf')
+    await userEvent.click(within(dialog()).getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalled())
+    const sent = file.mock.calls[0][1].mails[0]
+    expect(sent.parts).toEqual([expect.objectContaining({ partId: plan.id, revisionOf: plan.revisionCandidate!.documentId })])
+    expect(sent.acknowledgeRisk).toEqual([plan.id])
+  })
+
+  it('says loudly what stays out and why, and files it after all with one press', async () => {
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['name-stop'] })
+    const file = vi.spyOn(client, 'file')
+    renderDetail('name-stop', client)
+    await openFiling()
+    await toOverview()
+    const left = within(dialog()).getByTestId('filing-left')
+    expect(left).toHaveTextContent('Honorarnote_Statik_10-2026.pdf stays out – name check: “Honorar”')
+    expect(within(left).getByTestId('filing-left-note')).toHaveTextContent('What “stays out” here is dismissed')
+    await userEvent.click(within(left).getByTestId('filing-include'))
+    expect(stepOf()).toBe('attachments')
+    await userEvent.click(within(dialog()).getByTestId('attachment-release-name'))
+    await next()
+    expect(within(dialog()).queryByTestId('filing-left')).toBeNull()
+    await userEvent.click(within(dialog()).getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalled())
+    expect(file.mock.calls[0][1].mails[0].parts).toEqual([expect.objectContaining({ screeningRelease: 'name' })])
   })
 
   it('reaches a new thread’s name and folder from „Übersicht“', async () => {
     renderDetail('external-unverified')
     await openFiling()
+    await userEvent.click(within(within(dialog()).getByTestId('filing-folder-choice')).getByTestId(`folder-picker-${TRAGWERK.id}`))
     await next()
     await userEvent.click(within(dialog()).getByTestId('filing-change-text'))
     expect(within(dialog()).getByTestId('detail-new-thread-folder')).toHaveTextContent('Folder: Korrespondenz')
@@ -442,6 +578,7 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Behörde/Bescheide')
     expect(within(dialog()).getByTestId('attachment-type')).toHaveTextContent('Document type: Official decision')
     expect(within(dialog()).getAllByTestId('attachment-change')).toHaveLength(1)
+    expect(within(dialog()).getByTestId('attachment-folder-change')).toHaveTextContent('Change folder')
     expect(within(dialog()).queryByTestId('attachment-folder-choose')).toBeNull()
   })
 
@@ -457,7 +594,7 @@ describe('„Einordnen“', () => {
     boxes().forEach((box) => expect(box).toBeChecked())
     expect(within(dialog()).getByTestId('attachments-check-all')).toHaveTextContent('Deselect all')
     await userEvent.click(within(dialog()).getByTestId('attachments-file-checked-into'))
-    await userEvent.click(within(await screen.findByTestId('folder-picker')).getByTestId(`folder-picker-${FOLDERS[2].id}`))
+    await userEvent.click(within(await screen.findByTestId('folder-picker')).getByTestId(`folder-picker-${TRAGWERK.id}`))
     within(dialog()).getAllByTestId('attachment-folder').forEach((chip) => expect(chip).toHaveTextContent('Tragwerk'))
     await waitFor(() =>
       expect(within(dialog()).getByTestId('filing-announcement')).toHaveTextContent(`${boxes().length - 1} attachments go to “Tragwerk”. 1 stays the next revision of its document.`)
@@ -525,12 +662,12 @@ describe('„Einordnen“', () => {
     renderDetail('member-verified', client)
     await openFiling()
     await userEvent.click(within(dialog()).getByTestId('filing-change-text'))
-    await userEvent.click(within(dialog()).getByTestId('message-checkbox'))
+    await userEvent.click(within(dialog()).getByTestId('thread-leave'))
     await next()
     await userEvent.click(within(dialog()).getByTestId('decision-file'))
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
     expect(screen.queryByTestId('detail-decided-by-other')).toBeNull()
-    expect(overviewLines()[0]).toBe('Mail text stays out, with the original')
+    expect(overviewLines()).toContain('Mail text stays out, with the originalFile after all')
     await userEvent.click(within(dialog()).getByTestId('decision-file'))
     await waitFor(() => expect(file).toHaveBeenCalledTimes(2))
     expect(file.mock.calls[1][1].mails[0]).toMatchObject({ ifMatch: 'after-the-refusal', message: null })
@@ -545,10 +682,10 @@ describe('„Einordnen“', () => {
     expect(screen.getByTestId('status-scan-pending')).toBeInTheDocument()
     await openFiling()
     await userEvent.click(within(dialog()).getByTestId('filing-change-text'))
-    await userEvent.click(within(dialog()).getByTestId('message-checkbox'))
+    await userEvent.click(within(dialog()).getByTestId('thread-leave'))
     await waitFor(() => expect(screen.queryByTestId('status-scan-pending')).not.toBeInTheDocument())
     expect(get.mock.calls.length).toBeGreaterThanOrEqual(2)
-    expect(within(dialog()).getByTestId('message-checkbox')).not.toBeChecked()
+    expect(within(dialog()).getByTestId('thread-leave')).toBeChecked()
   })
 
   it('says a filing takes longer than usual after the quick rounds, and keeps asking', async () => {
@@ -627,8 +764,8 @@ describe('an impersonation', () => {
     await userEvent.click(within(dialog()).getByTestId('acknowledge-sender'))
     await next()
     expect(stepOf()).toBe('text')
-    expect(within(dialog()).getByTestId('message-checkbox')).not.toBeChecked()
-    await userEvent.click(within(dialog()).getByTestId('message-checkbox'))
+    expect(within(dialog()).getByTestId('thread-leave')).toBeChecked()
+    await userEvent.click(within(dialog()).getByTestId('thread-new'))
     await next()
     expect(within(dialog()).getByTestId('attachment-checkbox')).not.toBeChecked()
     await next()
@@ -643,7 +780,7 @@ describe('an impersonation', () => {
     renderDetail('member-name')
     const warning = screen.getByTestId('impersonation-warning')
     expect(warning).toHaveTextContent('Careful: the name Miriam Huber belongs to a member, the address miriam.huber@mail.example does not.')
-    expect(warning).toHaveTextContent(`${PRODUCT_NAME} suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.`)
+    expect(warning).toHaveTextContent(`${PRODUCT_NAME} has therefore prepared nothing for filing. Check payment or bank detail changes by phone, never by replying.`)
     expect(warning.compareDocumentPosition(screen.getByTestId('mail-header')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(warning.className).toMatch(/\bborder-danger\b/)
     expect(warning.className).not.toMatch(/border-l/)
@@ -654,7 +791,7 @@ describe('an impersonation', () => {
     expect(within(dialog()).getByTestId('acknowledge-sender-row')).toHaveTextContent('I checked by phone that the mail is genuine')
     await userEvent.click(within(dialog()).getByTestId('acknowledge-sender'))
     await next()
-    await userEvent.click(within(dialog()).getByTestId('message-checkbox'))
+    await userEvent.click(within(dialog()).getByTestId('thread-new'))
     await toOverview()
     expect(within(dialog()).getByTestId('decision-file')).toHaveTextContent('File as genuine')
   })
@@ -671,7 +808,7 @@ describe('an impersonation', () => {
     await openFiling()
     await userEvent.click(within(dialog()).getByTestId('acknowledge-sender'))
     await next()
-    expect(within(dialog()).getByTestId('message-checkbox')).not.toBeChecked()
+    expect(within(dialog()).getByTestId('thread-leave')).toBeChecked()
     await next()
     expect(within(dialog()).getByTestId('attachment-checkbox')).not.toBeChecked()
     await userEvent.click(within(dialog()).getByTestId('attachment-checkbox'))
@@ -767,8 +904,25 @@ describe('the mail’s text and its follow', () => {
   it('says no follow in „Übersicht“ where a reply could never be filed without a click', async () => {
     renderDetail('external-unverified')
     await openFiling()
+    await userEvent.click(within(dialog()).getByTestId('attachment-checkbox'))
     await next()
     expect(within(dialog()).queryByTestId('filing-follow-note')).toBeNull()
+  })
+
+  it('says in ink that further replies are filed without a click, and „Nicht automatisch“ files this one without that follow', async () => {
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['member-verified'] })
+    const file = vi.spyOn(client, 'file')
+    renderDetail('member-verified', client)
+    await openFiling()
+    const note = within(dialog()).getByTestId('filing-follow-note')
+    expect(note).toHaveTextContent(`From now on ${PRODUCT_NAME} files further replies in this mail thread without a click.`)
+    expect(note.querySelector('.text-foreground')).not.toBeNull()
+    await userEvent.click(within(note).getByTestId('filing-follow-toggle'))
+    expect(within(dialog()).getByTestId('filing-follow-note')).toHaveTextContent('Further replies in this mail thread wait here like this one until someone files them.')
+    expect(within(dialog()).getByTestId('filing-follow-toggle')).toHaveTextContent('Automatically after all')
+    await userEvent.click(within(dialog()).getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalled())
+    expect(file.mock.calls[0][1].mails[0].message).toMatchObject({ follow: false })
   })
 
   it('offers the follow after the text was filed, for a sender who could qualify', async () => {

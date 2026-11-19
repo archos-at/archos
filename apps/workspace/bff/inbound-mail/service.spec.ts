@@ -98,7 +98,8 @@ import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { announceDecided, announceWaiting, settleFilingFailed, settleProjectNotices } from './announce'
 import { partStatesOf } from './notice-repository'
-import { FILE_PART_ID, FOLDER_ID, MAIL_ID, PERSON, PROJECT_ID, filePart, heldMail, textPart } from './__fixtures__/review'
+import { fileInboundMailsBodySchema } from './inbound-mail-wire'
+import { FILE_PART_ID, FOLDER_ID, MAIL_ID, PERSON, PROJECT_ID, TEXT_PART_ID, filePart, heldMail, textPart } from './__fixtures__/review'
 import { auditDecisions } from './audit'
 import { mailIfMatch } from './decision'
 import { MailChangedError, PartNotWaitingError } from './repository'
@@ -109,6 +110,7 @@ import {
   decisionActor,
   dismissInboundMails,
   fileInboundMails,
+  unfollowedTexts,
   filingJobId,
   getInboundMail,
   getInboundMailText,
@@ -348,6 +350,28 @@ describe('a decision', () => {
     expect(job.payload).toMatchObject({ projectId: PROJECT_ID, mailIds: [MAIL_ID], decisionIds: [firstId], requester: { userId: PERSON } })
     expect(result.filingJobId).toBe(job.jobId)
     expect(auditDecisions).toHaveBeenCalledTimes(1)
+  })
+
+  it('names the texts filed without a follow („Nicht automatisch“) for the filing job, and nothing when every text follows', () => {
+    const decided = (follow?: false) => ({
+      mails: [
+        {
+          mailId: MAIL_ID,
+          ifMatch: 'if',
+          parts: [],
+          message: { partId: TEXT_PART_ID, text: 'full' as const, thread: { action: 'append' as const, mailThreadId: FOLDER_ID }, ...(follow === false ? { follow } : {}) },
+        },
+      ],
+    })
+    const rows = [
+      { id: 'decision-text', partId: TEXT_PART_ID },
+      { id: 'decision-file', partId: FILE_PART_ID },
+    ]
+    expect(unfollowedTexts(decided(false), rows)).toEqual({ noFollow: ['decision-text'] })
+    expect(unfollowedTexts(decided(), rows)).toEqual({})
+    expect(fileInboundMailsBodySchema.safeParse(decided(false)).success).toBe(true)
+    const followTrue = decided()
+    expect(fileInboundMailsBodySchema.safeParse({ mails: [{ ...followTrue.mails[0], message: { ...followTrue.mails[0]!.message, follow: true } }] }).success).toBe(false)
   })
 
   it('scores the agent’s suggestion against the parts as they were, and tells PostHog whether it was followed', async () => {

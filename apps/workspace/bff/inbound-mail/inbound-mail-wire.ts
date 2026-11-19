@@ -349,6 +349,10 @@ const messageDecisionSchema = z
       .enum(INBOUND_MAIL_MESSAGE_TEXTS)
       .describe('"masked" only with `contentFindings`.'),
     thread: threadTargetSchema,
+    follow: z
+      .literal(false)
+      .optional()
+      .describe('false: filing the text starts no follow of its E-Mail-Verlauf for the person; omitted, it does.'),
   })
   .strict()
   .refine((message) => message.thread.action === 'append' || message.thread.folderId === null || message.thread.newFolderPath === null, {

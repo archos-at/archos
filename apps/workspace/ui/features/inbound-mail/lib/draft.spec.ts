@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { FOLDERS, mail, messagePart, part, thread } from '@/app/dev/inbound-mail/fixtures'
 import {
+  chooseRevision,
   checkAllAttachments,
   checkedAttachmentIds,
   decisionOf,
   fileCheckedInto,
   rebaseDraft,
+  revisionChoiceOf,
   draftSummary,
   initialDraft,
   targetForPath,
@@ -45,7 +47,7 @@ describe('initialDraft', () => {
     expect(initialDraft(view, FOLDERS, copy).message?.target).toEqual({
       kind: 'create',
       name: 'Baustellenbegehung',
-      folder: { kind: 'existing', folderId: FOLDERS[3].id, path: 'Korrespondenz' },
+      folder: { kind: 'existing', folderId: FOLDERS.find((folder) => folder.path === 'Korrespondenz')!.id, path: 'Korrespondenz' },
       folderSuggested: false,
       releaseName: false,
     })
@@ -165,6 +167,51 @@ describe('decisionOf', () => {
     const draft = initialDraft(view, FOLDERS, copy)
     const released = updateMessage(draft, { target: { ...(draft.message!.target as Extract<typeof draft.message, object>['target'] & { kind: 'create' }), releaseName: true } })
     expect(decisionOf(view, released).message?.thread).toMatchObject({ action: 'create', screeningRelease: 'name' })
+  })
+})
+
+describe('an unsure next Fassung, asked as three choices', () => {
+  const revisionCandidate = { documentId: '22222222-2222-4222-8222-222222222222', name: 'S-101_C.pdf', folderPath: 'Tragwerk', nextVersion: 4 }
+  const plan = part({ name: 'S-101_D.pdf', revisionCandidate, riskFlags: ['unverified_thread'] })
+  const view = mail({ parts: [message, plan] })
+  const tragwerk = FOLDERS.find((folder) => folder.path === 'Tragwerk')!
+
+  it('files it as a new file next to its document by default: its folder, no Fassung, nothing to acknowledge', () => {
+    const draft = initialDraft(view, FOLDERS, copy)
+    expect(revisionChoiceOf(draft.attachments[0])).toBe('new')
+    const decision = decisionOf(view, draft)
+    expect(decision.parts).toEqual([{ partId: plan.id, folderId: tragwerk.id, newFolderPath: null, name: 'S-101_D.pdf' }])
+    expect(decision).not.toHaveProperty('acknowledgeRisk')
+    expect(draftSummary(view, draft).blockers).toEqual([])
+  })
+
+  it('files it as the next Fassung of that document once chosen, the choice carrying the acknowledgement the server asks', () => {
+    const draft = chooseRevision(initialDraft(view, FOLDERS, copy), view, plan.id, 'revision', FOLDERS)
+    expect(revisionChoiceOf(draft.attachments[0])).toBe('revision')
+    const decision = decisionOf(view, draft)
+    expect(decision.parts[0]).toMatchObject({ partId: plan.id, revisionOf: revisionCandidate.documentId })
+    expect(decision.acknowledgeRisk).toEqual([plan.id])
+    expect(draftSummary(view, draft).blockers).toEqual([])
+  })
+
+  it('leaves it out on „Nicht ablegen“, and goes back to the new file with its folder', () => {
+    const none = chooseRevision(initialDraft(view, FOLDERS, copy), view, plan.id, 'none', FOLDERS)
+    expect(decisionOf(view, none).parts).toEqual([])
+    const again = chooseRevision(chooseRevision(none, view, plan.id, 'revision', FOLDERS), view, plan.id, 'new', FOLDERS)
+    expect(decisionOf(view, again)).not.toHaveProperty('acknowledgeRisk')
+    expect(decisionOf(view, again).parts[0]).toMatchObject({ folderId: tragwerk.id, newFolderPath: null })
+    expect(decisionOf(view, again).parts[0]).not.toHaveProperty('revisionOf')
+  })
+})
+
+describe('the follow a filing starts', () => {
+  it('sends follow: false only when the person said „Nicht automatisch“ for a Verlauf that would be followed', () => {
+    const view = mail({ parts: [message] })
+    const draft = initialDraft(view, FOLDERS, copy)
+    expect(decisionOf(view, draft).message).not.toHaveProperty('follow')
+    expect(decisionOf(view, updateMessage(draft, { follow: false })).message).toMatchObject({ follow: false })
+    const unverified = mail({ parts: [message], sender: { ...mail().sender!, trust: 'external_unverified', reason: 'dkim_none', signerDomain: null } })
+    expect(decisionOf(unverified, updateMessage(initialDraft(unverified, FOLDERS, copy), { follow: false })).message).not.toHaveProperty('follow')
   })
 })
 

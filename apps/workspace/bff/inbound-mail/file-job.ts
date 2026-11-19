@@ -65,6 +65,7 @@ interface FilingRun {
   session: AuthorizedSession
   projectId: string
   owns: (decision: InboundMailDecisionRow) => boolean
+  follows: (decision: InboundMailDecisionRow) => boolean
   keepClaims: () => Promise<void>
   request: Request
   once: <T>(key: string, load: () => Promise<T>) => Promise<T>
@@ -73,11 +74,13 @@ interface FilingRun {
 function filingRun(session: AuthorizedSession, payload: InboundMailFilePayload): FilingRun {
   const cache = new Map<string, Promise<unknown>>()
   const named = new Set(payload.decisionIds ?? [])
+  const unfollowed = new Set(payload.noFollow ?? [])
   let renewedAt = Number.NEGATIVE_INFINITY
   return {
     session,
     projectId: payload.projectId,
     owns: (decision) => decision.decidedBy === session.userId && named.has(decision.id),
+    follows: (decision) => decision.via === 'app' && !unfollowed.has(decision.id),
     keepClaims: async () => {
       if (Date.now() - renewedAt < FILING_CLAIM_MS / 5) return
       renewedAt = Date.now()
@@ -393,7 +396,7 @@ async function fileText(
     return 'done'
   }
   await finishOriginalMove(mail, { id: outcome.entryId, originalStorageKey: null })
-  if (decision.via === 'app') await followFiledThread(run, outcome.threadId)
+  if (run.follows(decision)) await followFiledThread(run, outcome.threadId)
   return 'done'
 }
 

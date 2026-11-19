@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mail, part } from '@/app/dev/inbound-mail/fixtures'
+import { DETAIL_VARIANTS, mail, part } from '@/app/dev/inbound-mail/fixtures'
 import { attachmentCase, notStagedSummary } from './attachment-case'
 
 const view = mail()
@@ -26,7 +26,7 @@ describe('attachmentCase', () => {
     expect(attachmentCase(part(overrides), view)).toMatchObject(expected)
   })
 
-  it('says whether the sender vouches for a Fassung (D11), and follows the server on whether it is checked', () => {
+  it('says whether the sender vouches for a Fassung (D11), and keeps an unsure one as a question, never discarded by default', () => {
     const revisionCandidate = { documentId: 'd', name: 'S-101_B.pdf', folderPath: 'Tragwerk', nextVersion: 3 }
     expect(attachmentCase(part({ revisionCandidate }), view).notes).toContainEqual(expect.objectContaining({ kind: 'revision', verified: true }))
     const unverified = mail({
@@ -34,16 +34,31 @@ describe('attachmentCase', () => {
       parts: [part({ name: 'S-101_C.pdf', revisionCandidate })],
     })
     const entry = attachmentCase(unverified.parts[0], unverified)
-    expect(entry.defaultChecked).toBe(false)
+    expect(unverified.parts[0].preselected).toBe(false)
+    expect(entry).toMatchObject({ defaultChecked: true, unsureRevision: true })
     expect(entry.notes).toContainEqual(expect.objectContaining({ kind: 'revision', verified: false }))
+    expect(attachmentCase(part({ revisionCandidate }), view).unsureRevision).toBe(false)
     expect(attachmentCase(part({ revisionCandidate, riskFlags: ['unverified_thread'] }), view).notes).toContainEqual(
       expect.objectContaining({ kind: 'revision', verified: false })
     )
   })
 
-  it('checks exactly what the server pre-selected, and never what cannot be chosen', () => {
-    expect(attachmentCase(part({ preselected: false }), view).defaultChecked).toBe(false)
+  it('keeps every file it can by default, and leaves out only what the server keeps out for a reason it names', () => {
+    expect(attachmentCase(part({ preselected: false }), view).defaultChecked).toBe(true)
     expect(attachmentCase(part({ preselected: true, scan: 'pending' }), view).defaultChecked).toBe(false)
+    const kept = (overrides: Parameters<typeof part>[0]) => attachmentCase(part(overrides), view).defaultChecked
+    expect(kept({ duplicateOf: { documentId: 'd', name: 'Bescheid.pdf', folderPath: 'Behörde' } })).toBe(false)
+    expect(kept({ filename: null, contentType: 'image/png' })).toBe(false)
+    expect(kept({ riskFlags: ['name_stop'], nameStopTerms: ['Honorar'] })).toBe(false)
+    expect(kept({ riskFlags: ['macro'] })).toBe(false)
+    expect(kept({ scan: 'infected' })).toBe(false)
+    expect(kept({ offered: false, riskFlags: ['type_not_accepted'] })).toBe(false)
+  })
+
+  it('keeps nothing of a mail that poses as a member: a stop, never a default', () => {
+    const forged = DETAIL_VARIANTS.impersonation.view
+    const plain = mail({ ...forged, parts: [part({ name: 'Rechnung.pdf' })] })
+    expect(attachmentCase(plain.parts[0], plain).defaultChecked).toBe(false)
   })
 
   it('offers nothing in a closed project', () => {

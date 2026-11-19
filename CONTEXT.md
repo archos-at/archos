@@ -245,7 +245,7 @@ after 30 days (mail from outside the office after 14, and then it is gone);
 both can otherwise be *wiederhergestellt* for seven days. Until a person
 files it, nothing of a mail is a document: nothing indexes it and no model of
 ARCHOS reads it. Anyone may write to the address; each mail opens with one
-verdict on its sender in three levels, „Echte Adresse“ (the domain confirmed
+verdict on its sender in three levels, „Adresse überprüft“ (the domain confirmed
 it; „Domain bestätigt: …“ under „Details“), „Absender nicht überprüfbar“, and
 „Vorsicht: mögliche Fälschung“, the only one in the danger colour, which shapes
 what is suggested; only a signed mail of a member
@@ -260,7 +260,7 @@ Intake; „annehmen“, „ablehnen“, „freigeben“, „zulassen“, „prü
 and **Zurückgehalten** own those); „übernehmen“ for a mail; „anhängen“ (collides
 with Anhänge); „Abgelegt“ as a mail's state; Quarantäne; „Nachricht“ for an
 e-mail („3 neue E-Mails“); „Absender bestätigt“ (DKIM proves a domain, not a
-person); „Kollege“ for the member a mail names (say *Mitglied*); „mit
+person); „Echte Adresse“ (read as odd); „Kollege“ for the member a mail names (say *Mitglied*); „mit
 Schreibrecht“ (say *wer im Projekt ablegen darf*); “release” for filing a
 held mail (**Zurückgehalten** owns it).
 _Code_: `inbound mail` (`lib/inbound-mail`, `inbound_mails`, operations

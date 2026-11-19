@@ -1,11 +1,12 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { FileStack, FolderPlus, Paperclip } from 'lucide-react'
 import { AgentGlyph } from '@/components/ui/agent-glyph'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SectionLabel } from '@/components/ui/section-label'
-import { FolderPickerList, PickerRow } from '@/features/documents'
+import { FolderPickerList, NewFolderDialog, PickerRow } from '@/features/documents'
 import { useTranslations } from '@/i18n'
 import { CLAUSE_JOIN } from '@/lib/format'
 import { targetForPath, type FolderOption, type FolderTarget } from '../lib/draft'
@@ -14,14 +15,7 @@ import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 const AgentIcon = (props: { className?: string }): JSX.Element => <AgentGlyph size="xs" className={props.className} />
 
-/** The folder question answered in place: a few likely folders first, then the project's folders to search. */
-export function FolderChoice({
-  count,
-  current,
-  picks,
-  folders,
-  onPick,
-}: {
+export interface FolderChoiceProps {
   /** How many attachments one pick sends: two or more read „Alle {n} in diesen Ordner“. */
   count: number
   /** The folder every one of them already goes to, if they share one. */
@@ -29,8 +23,14 @@ export function FolderChoice({
   picks: readonly QuickPick[]
   folders: readonly FolderOption[]
   onPick: (target: FolderTarget) => void
-}): JSX.Element {
+  label?: string | null
+  listClassName?: string
+}
+
+/** The folder question answered in place: a few likely folders first, a new one, then the project's folders to search. */
+export function FolderChoice({ count, current, picks, folders, onPick, label, listClassName = 'max-h-[min(40dvh,18rem)]' }: FolderChoiceProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
+  const [creating, setCreating] = useState(false)
   const destinations = useMemo(
     () =>
       folders
@@ -44,34 +44,85 @@ export function FolderChoice({
     const base = pick.why === 'suggestion' ? t('suggestion.label') : t(`filing.attachments.quick.${pick.why}`, { name: pick.of ?? '' })
     return pick.target.kind === 'new' ? `${base}${CLAUSE_JOIN}${t('suggestion.newFolder')}` : base
   }
+  const heading = label === undefined ? (count > 1 ? t('filing.attachments.pickAll', { count }) : t('filing.attachments.pickOne')) : label
   return (
-    <section className="flex flex-col gap-2" data-testid="filing-folder-choice" aria-label={count > 1 ? t('filing.attachments.pickAll', { count }) : t('filing.attachments.pickOne')}>
-      <SectionLabel as="h3">{count > 1 ? t('filing.attachments.pickAll', { count }) : t('filing.attachments.pickOne')}</SectionLabel>
-      {picks.length > 0 && (
-        <ul className="-mx-2" aria-label={t('filing.attachments.quick.label')} data-testid="filing-quick-picks">
-          {picks.map((pick) => (
-            <PickerRow
-              key={pick.target.path}
-              label={place(pick.target)}
-              hint={hint(pick)}
-              icon={pick.why === 'suggestion' ? AgentIcon : pick.target.kind === 'new' ? FolderPlus : pick.why === 'revision' ? FileStack : Paperclip}
-              here={here(pick.target)}
-              disabled={here(pick.target)}
-              onPick={() => onPick(pick.target)}
-              testId={`filing-quick-pick-${pick.why}`}
-            />
-          ))}
-        </ul>
-      )}
+    <section className="flex flex-col gap-2" data-testid="filing-folder-choice" aria-label={heading ?? t('filing.attachments.pickOne')}>
+      {heading && <SectionLabel as="h3">{heading}</SectionLabel>}
+      <ul className="-mx-2" aria-label={t('filing.attachments.quick.label')} data-testid="filing-quick-picks">
+        {picks.map((pick) => (
+          <PickerRow
+            key={pick.target.path}
+            label={place(pick.target)}
+            hint={hint(pick)}
+            icon={pick.why === 'suggestion' ? AgentIcon : pick.target.kind === 'new' ? FolderPlus : pick.why === 'revision' ? FileStack : Paperclip}
+            here={here(pick.target)}
+            disabled={here(pick.target)}
+            onPick={() => onPick(pick.target)}
+            testId={`filing-quick-pick-${pick.why}`}
+          />
+        ))}
+        <PickerRow label={t('filing.attachments.newFolder')} icon={FolderPlus} here={false} disabled={false} onPick={() => setCreating(true)} testId="filing-new-folder" />
+      </ul>
       <FolderPickerList
         destinations={destinations}
         currentFolderId={current?.kind === 'existing' ? current.folderId : undefined}
-        listClassName="max-h-[min(40dvh,18rem)]"
+        listClassName={listClassName}
         onPick={(folderId) => {
           const folder = folderId ? folders.find((option) => option.id === folderId) : null
           onPick(folder ? targetForPath(folder.path, folders, folder.id) : targetForPath('', folders))
         }}
       />
+      <NewFolderDialog
+        open={creating}
+        onOpenChange={setCreating}
+        onCreate={(name) => {
+          onPick(targetForPath(name, folders))
+          return Promise.resolve(true)
+        }}
+      />
     </section>
+  )
+}
+
+export function FolderChoiceDialog({
+  open,
+  onOpenChange,
+  title,
+  current,
+  picks,
+  folders,
+  onPick,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  current: FolderTarget | null
+  picks: readonly QuickPick[]
+  folders: readonly FolderOption[]
+  onPick: (target: FolderTarget) => void
+}): JSX.Element {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="gap-3 sm:max-w-md" data-testid="folder-choice-dialog">
+        <DialogHeader>
+          <DialogTitle className="pr-10 text-base leading-snug [overflow-wrap:anywhere]">{title}</DialogTitle>
+          <DialogDescription className="sr-only">{title}</DialogDescription>
+        </DialogHeader>
+        {open && (
+          <FolderChoice
+            count={1}
+            current={current}
+            picks={picks}
+            folders={folders}
+            label={null}
+            listClassName="max-h-[min(45dvh,20rem)]"
+            onPick={(target) => {
+              onOpenChange(false)
+              onPick(target)
+            }}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
   )
 }

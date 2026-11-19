@@ -133,7 +133,7 @@ describe('incompleteReason (RT-X10)', () => {
 
   it('counts a member’s own Bcc copy with nothing attached as complete once its sender is no question, and asks its writer first', () => {
     expect(reason('bcc-own')).toBe('sender')
-    const readOnly = mail({ key: 'bcc-read-only', sender: DETAIL_VARIANTS['bcc-own'].view.sender, reading: { writes: false, viewer: 'colleague' }, threadCandidates: [] })
+    const readOnly = mail({ key: 'bcc-read-only', sender: DETAIL_VARIANTS['bcc-own'].view.sender, reading: { writes: false }, threadCandidates: [] })
     expect(readOnly.senderClass).toBe('office_member')
     expect(incompleteReason(readOnly)).toBeNull()
   })

@@ -30,7 +30,10 @@ export interface AttachmentCase {
   part: InboundMailPartView
   status: AttachmentStatus
   selectable: boolean
+  /** Filed unless the person says otherwise: everything but what the server keeps out for a reason it names. */
   defaultChecked: boolean
+  /** Might be the next Fassung of a document, and nothing vouches for it: asked as three choices, never a tick. */
+  unsureRevision: boolean
   notes: AttachmentNote[]
   risk: AcknowledgedRisk | null
   previewable: boolean
@@ -50,7 +53,7 @@ function statusOf(part: InboundMailPartView): AttachmentStatus {
 
 export function attachmentCase(
   part: InboundMailPartView,
-  mail: Pick<InboundMailView, 'projectClosed' | 'sender' | 'threadCandidates'> & Partial<Pick<InboundMailView, 'onlySenderReleases'>>,
+  mail: Pick<InboundMailView, 'projectClosed' | 'sender' | 'threadCandidates'> & Partial<Pick<InboundMailView, 'onlySenderReleases' | 'riskLevel'>>,
 ): AttachmentCase {
   const status = statusOf(part)
   const notes: AttachmentNote[] = []
@@ -88,11 +91,18 @@ export function attachmentCase(
     part,
     status,
     selectable,
-    defaultChecked: selectable && part.preselected,
+    defaultChecked: selectable && (part.preselected || (mail.riskLevel !== 'impersonation' && !keptOutForAReason(notes))),
+    unsureRevision: selectable && part.revisionCandidate !== null && !revisionVerified,
     notes,
     risk,
     previewable: part.scan === 'clean' && PREVIEW_TYPES.test(part.contentType) && part.sizeBytes <= PREVIEW_MAX_BYTES && status !== 'filed',
   }
+}
+
+const KEPT_OUT: ReadonlySet<AttachmentNote['kind']> = new Set(['duplicate', 'image_in_mail', 'name_stop', 'risk'])
+
+function keptOutForAReason(notes: readonly AttachmentNote[]): boolean {
+  return notes.some((note) => KEPT_OUT.has(note.kind))
 }
 
 export interface NotStagedSummary {
