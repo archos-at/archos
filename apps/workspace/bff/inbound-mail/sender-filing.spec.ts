@@ -70,6 +70,7 @@ function view(parts: InboundMailPartView[], overrides: Partial<InboundMailView> 
     threadCandidates: [],
     hiddenThreadCandidates: 0,
     followedBy: null,
+    senderFolders: [],
     needsSenderAcknowledgement: false,
     incompleteReason: null,
     updatedAt: '2026-11-03T08:00:00.000Z',
@@ -121,6 +122,15 @@ describe('senderDecision', () => {
     ])
     expect(senderDecision(view([unsuggested]), [textPart(), filePart({ riskFlags: ['encrypted'] })], null)).toBeNull()
     expect(senderDecision(view([partView({ suggestion: null, filename: null })]), rows, null)).toBeNull()
+  })
+
+  it('never files unseen into a folder only the sender’s earlier mails point to: the text’s place takes it', () => {
+    const memory = partView({ suggestion: { folderId: DOCUMENT_ID, folderPath: 'Planung/Fassade', newFolder: false, documentType: null, reason: '', source: 'sender_memory' } })
+    expect(senderDecision(view([textView(), memory]), rows, { folderId: FOLDER_ID })?.parts).toEqual([
+      { partId: FILE_PART_ID, folderId: FOLDER_ID, newFolderPath: null, name: 'S-101_C.pdf', documentType: undefined },
+    ])
+    const textMemory = textView({ suggestion: { folderId: DOCUMENT_ID, folderPath: 'Planung/Fassade', newFolder: false, documentType: null, reason: '', source: 'sender_memory' } })
+    expect(senderDecision(view([textMemory]), [textPart()], { folderId: FOLDER_ID })?.message?.thread).toMatchObject({ folderId: FOLDER_ID, newFolderPath: null })
   })
 
   it('leaves for the member what has a flag, a finding, no name, or was not offered checked', () => {

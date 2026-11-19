@@ -711,4 +711,9 @@ export const inboundMail = {
     row: 'Filed without a click → {place}',
     rowNoPlace: 'Filed without a click',
   },
+
+  senderMemory: {
+    pick: '{count, plural, one {# attachment} other {# attachments}} from {name} went here',
+    suggestion: 'Like the last emails from {name}',
+  },
 }

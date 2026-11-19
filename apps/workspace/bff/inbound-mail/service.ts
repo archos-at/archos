@@ -82,7 +82,7 @@ async function requireMail(projectId: string, mailId: string): Promise<InboundMa
 
 export async function getInboundMail(session: AuthorizedSession, projectId: string, mailId: string): Promise<InboundMailView> {
   const { closed } = await requireMailReviewer(session, projectId)
-  const [view] = await mailViews(session, projectId, [await requireMail(projectId, mailId)], closed)
+  const [view] = await mailViews(session, projectId, [await requireMail(projectId, mailId)], closed, { senderMemory: true })
   return view as InboundMailView
 }
 

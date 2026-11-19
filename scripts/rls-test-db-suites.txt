@@ -75,6 +75,7 @@ batch              bff/search/providers.integration.spec.ts
 batch              bff/search/document-repository.integration.spec.ts
 batch              bff/inbound-mail/repository.integration.spec.ts
 batch              bff/inbound-mail/sweep.integration.spec.ts
+batch              bff/inbound-mail/sender-memory.integration.spec.ts
 batch              bff/inbound-mail/review-first.e2e.spec.ts
 batch              bff/mail-thread/append.integration.spec.ts
 batch              bff/mail-thread/follow.integration.spec.ts

@@ -1,17 +1,29 @@
 import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
+import { getHiddenFolderIds } from '@/lib/authz/folder-access'
 import type { InboundMailDecisionRow, InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { domainOf } from '@/lib/mail-thread/mail-threading'
 import { chatScreeningRules, maskText, type ContentScreenRules } from '@/lib/upload-screening/content-screen'
+import { SCREENED_ONLY } from '@/lib/documents/visibility'
 import { gatePolicy } from '@/lib/upload-screening/service'
 import { candidatesFor, type ViewerCandidates } from './candidates'
 import { mailIfMatch } from './decision'
 import { INBOUND_MAIL_RESTORE_DAYS, type InboundSenderTrust } from './inbound-mail-vocabulary'
-import type { InboundMailListStatus, InboundMailOutcome, InboundMailSummaryView, InboundMailView } from './inbound-mail-wire'
+import type {
+  InboundMailListStatus,
+  InboundMailOutcome,
+  InboundMailPartSuggestionView,
+  InboundMailSenderFolderView,
+  InboundMailSummaryView,
+  InboundMailView,
+} from './inbound-mail-wire'
 import { findFiledVias, findFollowDeciders, findMailParts } from './repository'
 import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
 import { dismissalIsFinal, expiryIsFinal, onlySenderReleases, ownClaimedMail, senderWaitReason } from './sender-class'
+import { NO_FALLBACK, senderMemoryAddress, senderMemoryFallback, type SenderMemoryFallback } from './sender-memory'
+import { findSenderFolders } from './sender-memory-repository'
 import { readSuggestion, suggestionSkipReason } from './suggest'
+import { suggestionPending } from './suggestion-wait'
 
 const DAY_MS = 86_400_000
 
@@ -38,7 +50,18 @@ function restorableUntil(mail: InboundMailRow, part: InboundMailPartRow, now: nu
   return until > now ? new Date(until).toISOString() : null
 }
 
-function partView(mail: InboundMailRow, part: InboundMailPartRow, candidates: ViewerCandidates, now: number): InboundMailPartBase {
+function suggestionOf(mail: InboundMailRow, part: InboundMailPartRow, fallback: SenderMemoryFallback): InboundMailPartSuggestionView | null {
+  if (suggestionSkipReason(mail) !== null) return null
+  const model = readSuggestion(part.suggestion)
+  return model ? { ...model, source: 'model' } : fallback(part)
+}
+
+function partView(
+  mail: InboundMailRow,
+  part: InboundMailPartRow,
+  candidates: ViewerCandidates,
+  context: { now: number; fallback: SenderMemoryFallback },
+): InboundMailPartBase {
   const matched = candidates.part(part)
   return {
     id: part.id,
@@ -60,8 +83,8 @@ function partView(mail: InboundMailRow, part: InboundMailPartRow, candidates: Vi
     duplicateOf: matched.duplicateOf,
     revisionCandidate: matched.revisionCandidate,
     revisionCandidateHidden: matched.revisionCandidateHidden,
-    suggestion: suggestionSkipReason(mail) === null ? readSuggestion(part.suggestion) : null,
-    restorableUntil: restorableUntil(mail, part, now),
+    suggestion: suggestionOf(mail, part, context.fallback),
+    restorableUntil: restorableUntil(mail, part, context.now),
   }
 }
 
@@ -69,8 +92,16 @@ function mailView(
   mail: InboundMailRow,
   parts: readonly InboundMailPartRow[],
   candidates: ViewerCandidates,
-  context: { closed: boolean; rules: ContentScreenRules | null; followedBy: string | null; now: number; viewerUserId: string },
+  context: {
+    closed: boolean
+    rules: ContentScreenRules | null
+    followedBy: string | null
+    now: number
+    viewerUserId: string
+    memory: SenderMemory
+  },
 ): InboundMailView {
+  const fallback = context.memory.fallback ? senderMemoryFallback(parts, context.memory.folders) : NO_FALLBACK
   const threads = candidates.threads(mail)
   return withReviewDefaults({
     id: mail.id,
@@ -103,12 +134,39 @@ function mailView(
     rawScan: mail.rawScanStatus,
     originalHeld: mail.rawStorageKey !== null,
     notStaged: mail.notStaged,
-    parts: parts.map((part) => partView(mail, part, candidates, context.now)),
+    parts: parts.map((part) => partView(mail, part, candidates, { now: context.now, fallback })),
     threadCandidates: threads.shown,
     hiddenThreadCandidates: threads.hidden,
     followedBy: context.followedBy,
+    senderFolders: context.memory.folders,
     updatedAt: new Date(mail.updatedAt).toISOString(),
   })
+}
+
+interface SenderMemory {
+  folders: InboundMailSenderFolderView[]
+  fallback: boolean
+}
+
+const NO_MEMORY: SenderMemory = { folders: [], fallback: false }
+
+async function senderMemoryOf(session: AuthorizedSession, projectId: string, mail: InboundMailRow): Promise<SenderMemory> {
+  const senderAddress = senderMemoryAddress(mail)
+  if (!senderAddress) return NO_MEMORY
+  const [folders, pending] = await Promise.all([
+    getHiddenFolderIds(session, projectId).then((hiddenFolderIds) =>
+      findSenderFolders({
+        organizationId: session.organizationId,
+        projectId,
+        senderAddress,
+        exceptMailId: mail.id,
+        reader: SCREENED_ONLY,
+        hiddenFolderIds,
+      }),
+    ),
+    suggestionPending(session.organizationId, mail.id),
+  ])
+  return { folders, fallback: !pending }
 }
 
 export type FiledVias = ReadonlyMap<string, InboundMailDecisionRow['via']>
@@ -183,19 +241,22 @@ export async function loadMailViews(
   projectId: string,
   mails: readonly InboundMailRow[],
   closed: boolean,
+  options: { senderMemory?: boolean } = {},
 ): Promise<Array<{ mail: InboundMailRow; parts: InboundMailPartRow[]; view: InboundMailView; vias: FiledVias }>> {
   const parts = await findMailParts(mails.map((mail) => mail.id))
-  const [candidates, rules, followers, vias] = await Promise.all([
+  const [candidates, rules, followers, vias, memories] = await Promise.all([
     candidatesFor(session, projectId, mails, parts),
     maskRulesFor(session.organizationId, projectId),
     findFollowDeciders(mails.map((mail) => mail.id)),
     findFiledVias(mails.map((mail) => mail.id)),
+    Promise.all(mails.map((mail) => (options.senderMemory ? senderMemoryOf(session, projectId, mail) : NO_MEMORY))),
   ])
   const byMail = groupParts(parts)
   const now = Date.now()
-  return mails.map((mail) => {
+  return mails.map((mail, index) => {
     const own = byMail.get(mail.id) ?? []
-    const context = { closed, rules, followedBy: followers.get(mail.id) ?? null, now, viewerUserId: session.userId }
+    const memory = memories[index] ?? NO_MEMORY
+    const context = { closed, rules, followedBy: followers.get(mail.id) ?? null, now, viewerUserId: session.userId, memory }
     return { mail, parts: own, view: mailView(mail, own, candidates, context), vias }
   })
 }
@@ -205,6 +266,7 @@ export async function mailViews(
   projectId: string,
   mails: readonly InboundMailRow[],
   closed: boolean,
+  options: { senderMemory?: boolean } = {},
 ): Promise<InboundMailView[]> {
-  return (await loadMailViews(session, projectId, mails, closed)).map((entry) => entry.view)
+  return (await loadMailViews(session, projectId, mails, closed, options)).map((entry) => entry.view)
 }

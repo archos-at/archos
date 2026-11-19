@@ -725,4 +725,9 @@ export const inboundMail: typeof en.inboundMail = {
     row: 'Ohne Klick abgelegt → {place}',
     rowNoPlace: 'Ohne Klick abgelegt',
   },
+
+  senderMemory: {
+    pick: 'Hierhin {count, plural, one {ging # Anhang} other {gingen # Anhänge}} von {name}',
+    suggestion: 'Wie die letzten E-Mails von {name}',
+  },
 }

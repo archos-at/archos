@@ -1772,6 +1772,13 @@
       "when": 1795601100000,
       "tag": "0252_follow_files_attachments",
       "breakpoints": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1795601200000,
+      "tag": "0253_mail_thread_entries_sender_idx",
+      "breakpoints": true
     }
   ]
 }
