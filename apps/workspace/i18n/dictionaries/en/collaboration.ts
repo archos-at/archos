@@ -787,13 +787,13 @@ export const collaboration = {
         titleOne: 'A reply was appended to a mail thread in “{subject}” without a click',
         titleMany: '{count} replies were appended to a mail thread in “{subject}” without a click',
         title: 'Replies were appended to a mail thread in “{subject}” without a click',
-        body: 'As you, because you have replies in this mail thread filed without a click. Attachments without an existing folder wait in Project mail.',
+        body: 'Filed as if you had done it yourself, because you have replies in this mail thread filed without a click. Attachments without an existing folder wait in Project mail.',
         variants: {
           with_attachments: {
             titleOne: 'A reply and its attachments were filed in “{subject}” without a click',
             titleMany: '{count} replies and their attachments were filed in “{subject}” without a click',
             title: 'Replies and their attachments were filed in “{subject}” without a click',
-            body: 'As you, because you have replies in this mail thread filed without a click: the text into the mail thread, the attachments into the folders {productName} suggested. Whatever had no existing folder waits in Project mail.',
+            body: 'Filed as if you had done it yourself, because you have replies in this mail thread filed without a click: the text into the mail thread, the attachments into the folders {productName} suggested. Whatever had no existing folder waits in Project mail.',
           },
         },
       },
@@ -811,7 +811,7 @@ export const collaboration = {
           project_closed: { title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: the project was closed' },
           detached: {
             title: 'Replies in a mail thread in “{subject}” are no longer filed without a click: a mail was detached from it',
-            body: 'Switch it on again in the mail thread under “Mails” so later replies are appended as you again.',
+            body: 'Switch it on again in the mail thread under “Mails” so later replies are appended without a click again.',
           },
           revoked_by_manager: {
             title: '{actor} ended filing without a click for you in a mail thread in “{subject}”',

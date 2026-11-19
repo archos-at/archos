@@ -583,20 +583,12 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    geprüft haben, dass die E-Mail echt ist.“; „Ablage schließen“ folds it
    again). Its first step is the phone check, nothing is preselected, so
    „E-Mail-Text“ and „Anhänge“ follow, and the yes is „Als echt ablegen“.
-6. After filing, the follow offer: „E-Mail-Verlauf „{Name}““ with one line
-   of what it does and the button „Folgen“, only when the sender would qualify.
-   Followed, the card says „Sie folgen „{Name}““, that replies are added from
-   now on, and offers „Nicht mehr folgen“.
-6. After filing, the follow offer (`follow-offer.tsx`), named for what it does,
-   since „Folgen“ read as notifications: „Antworten in „{Name}“ ohne Klick
-   ablegen“, one line („Weitere Antworten von Beteiligten mit bestätigter Domain
-   kommen 60 Tage lang in Ihrem Namen in diesen E-Mail-Verlauf, ihre Anhänge
-   hierher. Sie können das jederzeit beenden.“) and „Einschalten“, only when
-   the sender would qualify. Switched on, the card says „Antworten in „{Name}“
-   werden ohne Klick abgelegt“, „In Ihrem Namen, 60 Tage lang. Anhänge warten
-   weiter hier. „Beenden“ hört damit auf.“ and offers „Beenden“. The days are
-   `MAIL_THREAD_FOLLOW_DEFAULT_DAYS`. Code still says follow; the Postfach's
-   notices say „ohne Klick ablegen“ too (below).
+6. After filing, when the sender would qualify, the same switch
+   (`follow-offer.tsx`) under „E-Mail-Verlauf „{Name}““, in its state:
+   on where the filing started the follow, which is the default. The days
+   are `MAIL_THREAD_FOLLOW_DEFAULT_DAYS`. Code still says follow; the
+   Postfach's notices say „ohne Klick ablegen“ and „abgelegt, als hätten Sie
+   es selbst getan“ too (below).
 
 Above the header, what happened to the mail (the closed project, someone else
 deciding it, a partial failure, a full storage): one notice stands whole; two
@@ -731,22 +723,21 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
 
 - **Top**: „{n} E-Mails dieses E-Mail-Verlaufs warten im E-Mail-Eingang ·
   Ansehen“ (only for whoever may file), then the follow control.
-- **Follow control** (`follow-control.tsx`), in the follow offer's words. A
-  person who filed a text into this Verlauf already follows it (follow by
-  default, ADR-0137's amendment of 2026-11-19), so for them it usually opens
-  switched on. Not switched on, a card titled „Antworten ohne Klick ablegen“,
-  the line „Weitere Antworten von Beteiligten mit bestätigter Domain kommen 60
-  Tage lang in Ihrem Namen hierher, ihre Anhänge in den bestehenden Ordner, den
-  {productName} vorschlägt, sonst in den E-Mail-Eingang. Sie können das jederzeit
-  beenden.“ and „Einschalten“; toast „Antworten in „X“ werden bis {Datum} ohne
-  Klick abgelegt“ with „Rückgängig“. Switched on: „Antworten werden bis {Datum}
-  ohne Klick abgelegt“, „In Ihrem Namen: der Text in diesen E-Mail-Verlauf,
-  jeder Anhang in den bestehenden Ordner, den {productName} vorschlägt. Der Rest
-  wartet im E-Mail-Eingang. „Beenden“ hört damit auf.“, „Verlängern“ (only while it can
-  grow at least a day within 180 days of its start; otherwise „Höchstens 180
-  Tage ab Beginn. Danach wieder einschalten.“) and „Beenden“. Others: „Auch für
-  2 weitere Personen eingeschaltet“; for a viewer with `managesFollows`, „Auch
-  eingeschaltet für“ by name with „Beenden“ each.
+- **Follow control** (`follow-control.tsx`): the switch of „Übersicht“
+  (`FollowSwitch`), one label, one explanation, its state in words („An bis
+  11.12.2026“ / „Aus“). A person who filed a text into this Verlauf already
+  follows it (follow by default, ADR-0137's amendment of 2026-11-19), so for
+  them it opens on, as „Übersicht“ said (round 4's preview showed it off
+  beside a flow that had said on; `three-messages` follows now,
+  `not-followed` does not). Switching on: toast „Antworten in „X“ werden bis
+  {Datum} ohne Klick abgelegt“ with „Rückgängig“; switching off ends it.
+  „Verlängern“ under it (only while it can grow at least a day within 180
+  days of its start; otherwise „Höchstens 180 Tage ab Beginn. Danach wieder
+  einschalten.“). Others: „Auch für 2 weitere Personen eingeschaltet“; a
+  member who may not file reads no switch but „Antworten in diesem
+  E-Mail-Verlauf legt {productName} für 2 Personen ohne Klick ab.“; for a
+  viewer with `managesFollows`, „Auch eingeschaltet für“ by name with
+  „Beenden“ each.
 - **One row per mail, newest first**, headed „Neueste zuerst“ (the document
   beside it reads oldest first; side by side the two orders read as one
   without the label) (`mail-thread-entry.tsx`): the heading

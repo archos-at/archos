@@ -235,7 +235,8 @@ function worstCase(): MailThreadView {
 }
 
 export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
-  'three-messages': fixture({ view: thread({ waitingCount: 2 }) }),
+  'three-messages': fixture({ view: thread({ waitingCount: 2, followed: true, follows: [follow({ userId: VIEWER_ID })] }) }),
+  'not-followed': fixture({ view: thread({ waitingCount: 2 }) }),
   'same-sender': fixture({
     view: thread({
       entries: [

@@ -243,9 +243,9 @@ more than one):
    im Projekt“, „Honorarnote.pdf bleibt weg – Namensprüfung: „Honorar““), a
    „Doch ablegen“ where filing it is your call, and what „bleibt weg“ means:
    dismissed when you file, restorable for seven days. When the text goes
-   into an E-Mail-Verlauf: „Weitere Antworten in diesem E-Mail-Verlauf legt
-   ARCHOS künftig ohne Klick ab.“ with „Nicht automatisch“ right beside it,
-   which files this mail without starting that. Then **Ablegen**.
+   into an E-Mail-Verlauf, the switch „Antworten in diesem E-Mail-Verlauf
+   ohne Klick ablegen“ stands under it, „An“ unless you switch it off (see
+   below). Then **Ablegen**.
 
 A mail with nothing to decide opens straight on „Übersicht“: „Einordnen“, then
 „Ablegen“. „Zurück“ goes back a step, „E-Mail-Text ändern“ and „Anhänge
@@ -410,11 +410,14 @@ as the E-Mail-Verlauf.
 ## Filing replies without a click (following a Verlauf)
 
 When you file a mail's text into an E-Mail-Verlauf, later replies in that
-conversation are filed without a click, in your name: „Weitere Antworten in
-diesem E-Mail-Verlauf legt ARCHOS künftig ohne Klick ab.“ „Nicht automatisch“
-beside that line in „Übersicht“ files the mail without it. In the E-Mails tab of a Verlauf you
-did not file into, „Antworten ohne Klick ablegen“ · **Einschalten** does the
-same. It is not a notification: nothing is sent to you per reply.
+conversation are filed without a click. One switch says so, in „Übersicht“
+and in the Verlauf's „E-Mails“ tab alike: „Antworten in diesem E-Mail-Verlauf
+ohne Klick ablegen“, with its state, „An“ (in the tab „An bis {Datum}“) or
+„Aus“. ARCHOS files such a reply as if you had done it yourself, and every
+one of them is listed in the E-Mail-Eingang under „Bearbeitet“ („Ohne Klick
+abgelegt → …“). It is on when you file; switch it off in „Übersicht“ to file
+the mail without it, or in the tab of any Verlauf to start or stop it there.
+It is not a notification: nothing is sent to you per reply.
 
 - It applies only to replies from confirmed domains that already write in the
   conversation, whose reference to it is signed, with nobody new in it, and
@@ -429,7 +432,7 @@ same. It is not a notification: nothing is sent to you per reply.
 
 - It runs 60 days; „Verlängern“ extends it, up to 180 days from its start.
   You are told five days before it ends.
-- **Beenden** ends it. Whoever manages the project can end it for anyone
+- Switching it off ends it. Whoever manages the project can end it for anyone
   („Beenden“ under „Auch eingeschaltet für“).
 - It also ends when you lose access to the project or the Verlauf's folder,
   when the project's address is replaced or switched off, when an e-mail is
@@ -444,8 +447,8 @@ same. It is not a notification: nothing is sent to you per reply.
   noch 5 Tage ohne Klick abgelegt“; when something else ended it: „… werden
   nicht mehr ohne Klick abgelegt, weil …“. The notices name the project, not
   the Verlauf: no subject or file name of a mail reaches a notice or a push.
-- If you pressed **Beenden** and later file another reply of the same Verlauf
-  yourself, the Verlauf is followed again.
+- If you switched it off and later file another reply of the same Verlauf
+  yourself with the switch on, replies are filed without a click again.
 
 ## Tips
 

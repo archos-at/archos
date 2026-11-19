@@ -511,10 +511,6 @@ export const inboundMail = {
         not_offered: 'stays out – cannot be filed',
         closed: 'stays out',
       },
-      follow: 'From now on {productName} files further replies in this mail thread without a click.',
-      noFollow: 'Further replies in this mail thread wait here like this one until someone files them.',
-      followStop: 'Not automatically',
-      followStart: 'Automatically after all',
       followOn: '{productName} files further replies without a click.',
       followOff: 'Further replies wait here.',
       include: 'File after all',
@@ -746,15 +742,8 @@ export const inboundMail = {
   },
 
   follow: {
-    offer: 'Switch on',
-    thread: 'File replies in “{name}” without a click',
-    explain:
-      'For {days} days, further replies from people whose domain is verified go into this mail thread in your name, their attachments into the folder {productName} suggests. What has no folder waits here. You can end it at any time.',
-    busy: 'Switching on …',
+    thread: 'Mail thread “{name}”',
     following: 'Replies in “{name}” are filed without a click',
-    followingExplain: 'In your name, for {days} days. Attachments without a known folder wait here. “End” stops it.',
-    unfollow: 'End',
-    unfollowBusy: 'Ending …',
     undo: 'Undo',
     failed: 'That did not work. Try again.',
   },

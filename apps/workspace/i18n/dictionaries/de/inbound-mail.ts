@@ -515,10 +515,6 @@ export const inboundMail: typeof en.inboundMail = {
         not_offered: 'bleibt weg – lässt sich nicht ablegen',
         closed: 'bleibt weg',
       },
-      follow: 'Weitere Antworten in diesem E-Mail-Verlauf legt {productName} künftig ohne Klick ab.',
-      noFollow: 'Weitere Antworten in diesem E-Mail-Verlauf warten wie diese hier, bis sie jemand ablegt.',
-      followStop: 'Nicht automatisch',
-      followStart: 'Doch automatisch',
       followOn: 'Weitere Antworten legt {productName} ohne Klick ab.',
       followOff: 'Weitere Antworten warten hier.',
       include: 'Doch ablegen',
@@ -760,15 +756,8 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   follow: {
-    offer: 'Einschalten',
-    thread: 'Antworten in „{name}“ ohne Klick ablegen',
-    explain:
-      'Weitere Antworten von Beteiligten mit bestätigter Domain kommen {days} Tage lang in Ihrem Namen in diesen E-Mail-Verlauf, ihre Anhänge in den Ordner, den {productName} vorschlägt. Was keinen Ordner hat, wartet hier. Sie können das jederzeit beenden.',
-    busy: 'Wird eingeschaltet …',
+    thread: 'E-Mail-Verlauf „{name}“',
     following: 'Antworten in „{name}“ werden ohne Klick abgelegt',
-    followingExplain: 'In Ihrem Namen, {days} Tage lang. Anhänge ohne bekannten Ordner warten hier. „Beenden“ hört damit auf.',
-    unfollow: 'Beenden',
-    unfollowBusy: 'Wird beendet …',
     undo: 'Rückgängig',
     failed: 'Das hat nicht geklappt. Bitte erneut versuchen.',
   },

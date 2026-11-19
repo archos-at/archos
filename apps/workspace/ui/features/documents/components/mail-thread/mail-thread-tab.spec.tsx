@@ -113,12 +113,25 @@ describe('MailThreadTab', () => {
   })
 
   describe('following', () => {
-    it('follows, and the toast offers the undo', async () => {
-      const { client } = renderTab('three-messages')
+    it('shows the switch on for whoever filed into the Verlauf, in the words and state of „Übersicht“', async () => {
+      renderTab('three-messages')
+      const control = await screen.findByRole('switch', { name: 'File replies in this mail thread without a click' })
+      expect(control).toBeChecked()
+      expect(screen.getByTestId('mail-thread-follow-switch-state')).toHaveTextContent(/^On until /)
+      expect(screen.getByTestId('mail-thread-follow-switch')).toHaveTextContent('as if you had done it yourself')
+      expect(screen.getByTestId('mail-thread-follow-switch')).toHaveTextContent('listed there under “Handled”')
+    })
+
+    it('switches on, and the toast offers the undo', async () => {
+      const { client } = renderTab('not-followed')
       const follow = vi.spyOn(client, 'follow')
-      await userEvent.click(await screen.findByTestId('mail-thread-follow-start'))
-      expect(follow).toHaveBeenCalledWith(PROJECT_ID, MAIL_THREAD_VARIANTS['three-messages'].view.id)
-      await waitFor(() => expect(screen.getByTestId('mail-thread-follow-state')).toHaveTextContent(/^Replies are filed without a click until /))
+      expect(screen.queryByText(/in your name/)).toBeNull()
+      const control = await screen.findByRole('switch', { name: 'File replies in this mail thread without a click' })
+      expect(control).not.toBeChecked()
+      expect(screen.getByTestId('mail-thread-follow-switch-state')).toHaveTextContent('Off')
+      await userEvent.click(control)
+      expect(follow).toHaveBeenCalledWith(PROJECT_ID, MAIL_THREAD_VARIANTS['not-followed'].view.id)
+      await waitFor(() => expect(screen.getByTestId('mail-thread-follow-switch-state')).toHaveTextContent(/^On until /))
       expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Replies in “Stellplatznachweis” are filed without a click until /), expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
     })
 
@@ -128,16 +141,16 @@ describe('MailThreadTab', () => {
       const unfollow = vi.spyOn(client, 'unfollow')
       await userEvent.click(await screen.findByTestId('mail-thread-follow-renew'))
       expect(follow).toHaveBeenCalledTimes(1)
-      await userEvent.click(screen.getByTestId('mail-thread-follow-stop'))
+      await userEvent.click(screen.getByRole('switch'))
       expect(unfollow).toHaveBeenCalledWith(PROJECT_ID, MAIL_THREAD_VARIANTS.followed.view.id)
-      await waitFor(() => expect(screen.getByTestId('mail-thread-follow-start')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByRole('switch')).not.toBeChecked())
     })
 
     it('offers no renewal when 180 days from the start are nearly reached, and says why', async () => {
       renderTab('renew-limit')
       expect(await screen.findByTestId('mail-thread-follow-limit')).toHaveTextContent('At most 180 days from the start')
       expect(screen.queryByTestId('mail-thread-follow-renew')).toBeNull()
-      expect(screen.getByTestId('mail-thread-follow-stop')).toBeInTheDocument()
+      expect(screen.getByRole('switch')).toBeChecked()
     })
 
     it('lets a manager end someone else’s follow, by name', async () => {
@@ -153,18 +166,18 @@ describe('MailThreadTab', () => {
 
     it('shows nobody else „End“: a member reads a count, and may not follow without filing rights', async () => {
       renderTab('member-sees-follows')
-      expect(await screen.findByTestId('mail-thread-follow-others')).toHaveTextContent('Also on for 2 other people')
+      expect(await screen.findByTestId('mail-thread-follow-others')).toHaveTextContent(`${PRODUCT_NAME} files replies in this mail thread without a click for 2 people.`)
       expect(screen.queryByTestId('mail-thread-followers')).toBeNull()
       expect(screen.queryByTestId('mail-thread-follower-end')).toBeNull()
-      expect(screen.queryByTestId('mail-thread-follow-start')).toBeNull()
+      expect(screen.queryByRole('switch')).toBeNull()
     })
 
     it('words a refusal, never the server’s English', async () => {
-      const client = fixtureMailThreadClient(MAIL_THREAD_VARIANTS['three-messages'])
+      const client = fixtureMailThreadClient(MAIL_THREAD_VARIANTS['not-followed'])
       const { ApiRequestError } = await import('@/adapters/api/api-error')
       vi.spyOn(client, 'follow').mockRejectedValue(new ApiRequestError('Project is closed', 403, 'project-closed'))
-      renderTab('three-messages', { client })
-      await userEvent.click(await screen.findByTestId('mail-thread-follow-start'))
+      renderTab('not-followed', { client })
+      await userEvent.click(await screen.findByRole('switch'))
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith('The project is closed. Reopen it first.'))
     })
   })
