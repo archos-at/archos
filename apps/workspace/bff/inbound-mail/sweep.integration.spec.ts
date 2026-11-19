@@ -137,6 +137,13 @@ vi.mock('@/lib/db/tenant-context', async (importOriginal) => {
   }
 })
 
+describe('the suite is not silently skipped in CI', () => {
+  it('has a database to run against', () => {
+    if (!process.env.RLS_SUITE_REQUIRED) return
+    expect(url, 'TEST_DATABASE_URL is unset while RLS_SUITE_REQUIRED is set').toBeTruthy()
+  })
+})
+
 describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant

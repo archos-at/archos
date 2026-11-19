@@ -29,6 +29,13 @@ const OTHER_ORG = `org_inbound_repo_other_${STAMP}`
 const USER = 'user_01J0REPOSPEC0000000000000A'
 const token = (seed: string) => (STAMP + seed).replace(/[^a-z2-7]/g, 'a').padEnd(12, 'q').slice(-12)
 
+describe('the suite is not silently skipped in CI', () => {
+  it('has a database to run against', () => {
+    if (!process.env.RLS_SUITE_REQUIRED) return
+    expect(url, 'TEST_DATABASE_URL is unset while RLS_SUITE_REQUIRED is set').toBeTruthy()
+  })
+})
+
 describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
