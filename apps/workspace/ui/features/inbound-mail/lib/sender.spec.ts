@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InboundMailSenderView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { followOffered, senderDisplayName, senderFlagLines, senderTone, senderTrustLine } from './sender'
+import { expiryErases, followOffered, senderDisplayName, senderFlagLines, senderTone, senderTrustLine, trustTechnical } from './sender'
 
 const sender = (overrides: Partial<InboundMailSenderView> = {}): InboundMailSenderView => ({
   name: 'DI Petra Weber',
@@ -33,11 +33,26 @@ describe('senderTrustLine', () => {
     expect(senderTrustLine(sender({ trust: 'external_unverified', reason: 'dkim_none', signerDomain: null }), null).kind).toBe('unverified')
   })
 
-  it('draws only the two cases a person must not miss as warnings', () => {
+  it('keeps the danger colour for a forgery: an address nobody can vouch for is the normal case', () => {
     expect(senderTone({ kind: 'verified', domain: 'x' })).toBe('confirmed')
     expect(senderTone({ kind: 'unverified' })).toBe('neutral')
-    expect(senderTone({ kind: 'member_unverified' })).toBe('warning')
-    expect(senderTone({ kind: 'impersonation', name: 'x', basis: 'member_name' })).toBe('warning')
+    expect(senderTone({ kind: 'member_unverified', name: 'x', own: false })).toBe('neutral')
+    expect(senderTone({ kind: 'impersonation', name: 'x', basis: 'member_name' })).toBe('danger')
+    expect(senderTone({ kind: 'own_rejected' })).toBe('danger')
+  })
+
+  it('names the member an unverified address belongs to, and the reader when it is theirs', () => {
+    const unsigned = sender({ name: 'Miriam Huber', trust: 'member_unverified', reason: 'dkim_none', signerDomain: null })
+    expect(senderTrustLine(unsigned, null)).toEqual({ kind: 'member_unverified', name: 'Miriam Huber', own: false })
+    expect(senderTrustLine(unsigned, null, 'own')).toEqual({ kind: 'member_unverified', name: 'Miriam Huber', own: true })
+  })
+
+  it('puts the domain and its signature behind „Details“', () => {
+    expect(trustTechnical(sender(), senderTrustLine(sender(), null))).toEqual({ kind: 'signed', domain: 'statik-weber.at' })
+    const unsigned = sender({ trust: 'external_unverified', reason: 'dkim_none', signerDomain: null })
+    expect(trustTechnical(unsigned, senderTrustLine(unsigned, null))).toEqual({ kind: 'unsigned', domain: 'statik-weber.at' })
+    const broken = sender({ trust: 'external_unverified', reason: 'dkim_unaligned', signerDomain: null })
+    expect(trustTechnical(broken, senderTrustLine(broken, null)).kind).toBe('invalid')
   })
 })
 
@@ -70,5 +85,13 @@ describe('senderDisplayName', () => {
   it('falls back to the local part of the address', () => {
     expect(senderDisplayName({ name: '  ', address: 'office@clean-shine.example' })).toBe('office')
     expect(senderDisplayName({ name: 'Jo', address: 'jo@example.com' })).toBe('Jo')
+  })
+})
+
+describe('expiryErases', () => {
+  it('erases an outsider’s mail when it runs out, unless the office could not be asked who sent it', () => {
+    expect(expiryErases({ senderClass: 'external', sender: { flags: [] } })).toBe(true)
+    expect(expiryErases({ senderClass: 'external', sender: { flags: ['sender_unchecked'] } })).toBe(false)
+    expect(expiryErases({ senderClass: 'unverified_writer', sender: { flags: [] } })).toBe(false)
   })
 })

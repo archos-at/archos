@@ -44,8 +44,12 @@ describe('InboundMailDetail', () => {
     const { onChanged } = renderDetail('member-verified', client)
     const button = screen.getByTestId('decision-file')
     expect(button).toHaveTextContent('File')
-    expect(screen.getByTestId('decision-summary')).toHaveTextContent('File 1 file and the mail text')
-    expect(button).toHaveAccessibleDescription('File 1 file and the mail text')
+    const plan = 'Add the mail text to mail thread “Stellplatznachweis” · File Bescheid_MA37_2026-10-14.pdf in Behörde/Bescheide'
+    expect(screen.getByTestId('decision-summary')).toHaveTextContent(plan)
+    expect(button).toHaveAccessibleDescription(screen.getByTestId('decision-summary').textContent ?? '')
+    expect(screen.queryByTestId('decision-left')).toBeNull()
+    expect(screen.getByTestId('decision-dismiss-note')).toHaveTextContent(/^Dismissing acts only in \S+, not in the mail program, and can be restored for 7 days\.$/)
+    expect(screen.getByTestId('decision-dismiss')).toHaveAccessibleDescription(screen.getByTestId('decision-dismiss-note').textContent ?? '')
     await userEvent.click(button)
     await waitFor(() => expect(file).toHaveBeenCalledTimes(1))
     const body = file.mock.calls[0][1]
@@ -65,14 +69,15 @@ describe('InboundMailDetail', () => {
     render(<>{typeof description === 'function' ? description() : description}</>)
     const lines = screen.getAllByTestId('filed-lines').at(-1) as HTMLElement
     expect(within(lines).getAllByRole('listitem').map((line) => line.textContent)).toEqual([
-      'Mail text → “Stellplatznachweis”\u00A0· revision 4',
+      'Mail text → “Stellplatznachweis”',
       'Bescheid_MA37_2026-10-14.pdf → Behörde/Bescheide\u00A0· revision 1',
     ])
   })
 
   it('says where each filed part went and which Fassung it became, with the way to it', async () => {
     renderDetail('filed-outcome')
-    expect(screen.getByTestId('message-filed')).toHaveTextContent('Filed in mail thread “Stellplatznachweis” · revision 7 · Open')
+    expect(screen.getByTestId('message-filed')).toHaveTextContent('Filed in mail thread “Stellplatznachweis” · Open')
+    expect(screen.getByTestId('message-filed')).not.toHaveTextContent('revision')
     expect(screen.getByTestId('status-filed')).toHaveTextContent('Filed in Behörde/Bescheide · revision 1 · Open')
     expect(screen.getByTestId('detail-restorable')).toHaveTextContent('1 part dismissed · can be restored until')
     expect(screen.getByTestId('detail-restorable')).not.toHaveTextContent(/^Dismissed/)
@@ -88,16 +93,37 @@ describe('InboundMailDetail', () => {
     expect(screen.getByTestId('status-filed')).not.toHaveTextContent('Behörde')
   })
 
-  it('names the thread and its revision when only the text goes', () => {
+  it('says a text is added to its thread, never that it becomes a revision', () => {
     renderDetail('thread-append')
-    expect(screen.getByTestId('decision-summary')).toHaveTextContent('File in mail thread “Stellplatznachweis” (becomes revision 4)')
+    expect(screen.getByTestId('decision-summary')).toHaveTextContent('Add the mail text to mail thread “Stellplatznachweis”')
+    expect(screen.getByTestId('message-row')).toHaveTextContent('Add to mail thread “Stellplatznachweis”')
+    expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent(/revision/)
+  })
+
+  it('says which plan the defaults left out, and that „File“ dismisses it', () => {
+    renderDetail('unverified-thread')
+    expect(screen.getByTestId('note-revision')).toHaveTextContent('could be revision 4 of S-101_C.pdf, but only the file name says so')
+    expect(screen.getByTestId('attachment-undecided')).toHaveTextContent('without a tick the file is dismissed when you file')
+    const left = screen.getByTestId('decision-left')
+    expect(left).toHaveTextContent('Not selected, dismissed when you file: S-101_D.pdf')
+    expect(left).toHaveAttribute('data-tone', 'warning')
+    expect(screen.getByTestId('message-row')).toHaveTextContent('leave it for someone who can see it')
+  })
+
+  it('tells a writer an unconfirmed outsider’s dismissal is deleted at once, and offers no undo for it', async () => {
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['external-unverified'] })
+    renderDetail('external-unverified', client)
+    expect(screen.getByTestId('decision-dismiss-note')).toHaveTextContent('With a sender that cannot be verified, what you dismiss is deleted right away.')
+    await userEvent.click(screen.getByTestId('decision-dismiss'))
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    expect(vi.mocked(toast.success).mock.calls[0]?.[1]).not.toHaveProperty('action')
   })
 
   it('offers nothing of an impersonation checked, asks for the unverified domain before filing, and sends the yes', async () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS.impersonation })
     const file = vi.spyOn(client, 'file')
     renderDetail('impersonation', client)
-    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address · rejected by your domain')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address, rejected by your domain')
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
     expect(screen.getByTestId('message-checkbox')).not.toBeChecked()
     expect(screen.getByTestId('attachment-checkbox')).not.toBeChecked()
@@ -106,7 +132,7 @@ describe('InboundMailDetail', () => {
     expect(button).toBeDisabled()
     await userEvent.click(screen.getByTestId('acknowledge-sender'))
     expect(button).toBeEnabled()
-    expect(screen.getByTestId('acknowledge-sender').closest('div')).toHaveTextContent('Yes, I sent this mail. File it')
+    expect(screen.getByTestId('acknowledge-sender-row')).toHaveTextContent(/^Yes, I sent this mail$/)
     expect(screen.getByTestId('inbound-mail-detail')).toHaveTextContent('Only if you sent this mail yourself.')
     expect(screen.getByTestId('impersonation-file-anyway')).toHaveTextContent('Close filing')
     await userEvent.click(button)
@@ -173,11 +199,25 @@ describe('InboundMailDetail', () => {
     expect(screen.getByTestId('decision-file')).toBeInTheDocument()
   })
 
-  it('wears the agent’s mark only on a folder the agent suggested, never on the rule’s correspondence folder', () => {
+  it('labels a new thread’s folder as a folder, with one press to change it', () => {
     renderDetail('external-unverified')
-    const chip = screen.getByTestId('detail-new-thread-folder')
-    expect(chip.querySelector('[data-testid="filing-chip-folder"]')).not.toBeNull()
-    expect(chip).not.toHaveAttribute('data-suggested')
+    expect(screen.getByTestId('detail-new-thread-folder')).toHaveTextContent('Folder: Korrespondenz')
+    expect(screen.getByTestId('detail-new-thread-folder-change')).toHaveTextContent('Change')
+  })
+
+  it('labels folder and Dokumentart apart, names the folder by its whole path, and offers one press', () => {
+    renderDetail('member-verified')
+    expect(screen.getByTestId('attachment-folder')).toHaveTextContent('Folder: Behörde/Bescheide')
+    expect(screen.getByTestId('attachment-type')).toHaveTextContent('Document type: Official decision')
+    expect(screen.getAllByTestId('attachment-change')).toHaveLength(1)
+    expect(screen.queryByTestId('attachment-folder-choose')).toBeNull()
+  })
+
+  it('offers „Choose folder“ instead of „Change“ while an attachment has no folder', () => {
+    renderDetail('external-unverified')
+    expect(screen.getByTestId('attachment-folder')).toHaveTextContent('Folder: none yet')
+    expect(screen.getByTestId('attachment-folder-choose')).toBeInTheDocument()
+    expect(screen.queryByTestId('attachment-change')).toBeNull()
   })
 
   it('names the member and the address that is not theirs', () => {
@@ -200,7 +240,7 @@ describe('InboundMailDetail', () => {
     expect(screen.getByTestId('attachment-checkbox')).not.toBeChecked()
     await userEvent.click(screen.getByTestId('attachment-checkbox'))
     expect(screen.queryByText('The agent’s suggestion')).toBeNull()
-    expect(screen.queryByTestId('attachment-folder')).toBeNull()
+    expect(screen.getByTestId('attachment-folder')).toHaveTextContent('Folder: none yet')
   })
 
   it('says why the mail text cannot be filed while the mail’s own malware check is not clean', () => {
@@ -347,6 +387,10 @@ describe('InboundMailDetail', () => {
     expect(screen.getByTestId('note-image')).toBeInTheDocument()
     expect(screen.getByTestId('not-staged')).toHaveTextContent('winmail.dat · Outlook’s own attachment')
     expect(screen.getByTestId('not-staged')).toHaveTextContent('2 pictures from the signature')
+    expect(screen.getByTestId('not-staged-original')).toHaveTextContent('download it above under “Details”')
+    expect(screen.getByTestId('attachments-selected-count')).toHaveTextContent('4 of 6 selected')
+    expect(screen.getByTestId('attachments-check-all')).toHaveTextContent(/^Select all$/)
+    expect(screen.getByText('new folder')).toBeInTheDocument()
   })
 
   it('offers no checkbox it could not honour', () => {
@@ -485,12 +529,25 @@ describe('deciding on one mail', () => {
   it('recommends filing a mail’s own words, and warns in ink above the press when they are left out', async () => {
     renderDetail('mixed-attachments')
     expect(screen.getByTestId('message-recommended')).toHaveTextContent('(recommended)')
-    expect(screen.queryByTestId('original-erased')).toBeNull()
+    expect(screen.getByTestId('decision-left')).toHaveAttribute('data-tone', 'muted')
     await userEvent.click(screen.getByText('Include the mail text'))
     expect(screen.getByTestId('message-checkbox')).not.toBeChecked()
-    const erased = screen.getByTestId('original-erased')
-    expect(erased).toHaveTextContent('The mail text is not filed and is gone after filing')
-    expect(erased.compareDocumentPosition(screen.getByTestId('decision-file')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const left = screen.getByTestId('decision-left')
+    expect(left).toHaveTextContent('Not selected, dismissed when you file: the mail text with its original')
+    expect(left).toHaveAttribute('data-tone', 'warning')
+    expect(left.compareDocumentPosition(screen.getByTestId('decision-file')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('makes a text with findings one decision, its hint naming the thread it would hold back', async () => {
+    renderDetail('content-finding')
+    const choice = screen.getByTestId('content-finding-choice')
+    expect(within(screen.getByTestId('message-row')).getByTestId('content-finding-choice')).toBe(choice)
+    expect(choice).toHaveTextContent('The text contains: IBAN, a term your office keeps confidential')
+    expect(within(choice).getAllByRole('radio')).toHaveLength(2)
+    expect(choice).toHaveTextContent('holds the whole mail thread “Honorarvereinbarung Statik” back')
+    expect(screen.getByTestId('decision-summary')).toHaveTextContent('Add the mail text to mail thread “Honorarvereinbarung Statik” (findings redacted)')
+    await userEvent.click(screen.getByTestId('thread-new'))
+    expect(choice).toHaveTextContent('holds the new mail thread back')
   })
 
   it('shows where a link goes and copies it, never opening it', async () => {
@@ -530,7 +587,7 @@ describe('deciding on one mail', () => {
 
   it('ticks a confirmation from anywhere on its row', async () => {
     renderDetail('own-unverified')
-    await userEvent.click(screen.getByText('Yes, I sent this mail. File it'))
+    await userEvent.click(screen.getByText('Yes, I sent this mail'))
     expect(screen.getByTestId('acknowledge-sender')).toBeChecked()
     expect(screen.getByTestId('acknowledge-sender-row').tagName).toBe('LABEL')
   })

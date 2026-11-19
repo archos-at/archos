@@ -3,7 +3,6 @@ import { FOLDERS, mail, messagePart, part, thread } from '@/app/dev/inbound-mail
 import {
   checkAllAttachments,
   checkedAttachmentIds,
-  chooseFinding,
   decisionOf,
   fileCheckedInto,
   rebaseDraft,
@@ -74,11 +73,14 @@ describe('edits', () => {
     expect(edited.attachments[0].suggested.documentType).toBe(false)
   })
 
-  it('„Getrennt ablegen (eigener E-Mail-Verlauf)“ makes a new thread (D13)', () => {
+  it('a text with findings filed unabridged as a new thread is the old „Getrennt ablegen“: full text, a thread of its own', () => {
     const view = mail({ parts: [messagePart({ id: message.id, contentFindings: ['term'] })] })
-    const draft = chooseFinding(initialDraft(view, FOLDERS, copy), 'own_thread', view, FOLDERS, copy)
-    expect(draft.message).toMatchObject({ findingChoice: 'own_thread', target: { kind: 'create' } })
+    const draft = updateMessage(initialDraft(view, FOLDERS, copy), {
+      findingChoice: 'full',
+      target: { kind: 'create', name: 'Kontodaten', folder: targetForPath('Korrespondenz', FOLDERS), folderSuggested: false, releaseName: false },
+    })
     expect(decisionOf(view, draft).message).toMatchObject({ text: 'full', thread: { action: 'create' } })
+    expect(decisionOf(view, updateMessage(draft, { findingChoice: 'masked' })).message).toMatchObject({ text: 'masked' })
   })
 })
 
@@ -86,13 +88,58 @@ describe('draftSummary', () => {
   it('counts what will be filed and names the thread', () => {
     const view = mail({ parts: [message, permitDecision] })
     const summary = draftSummary(view, initialDraft(view, FOLDERS, copy))
-    expect(summary).toMatchObject({ files: 1, text: true, thread: { name: 'Stellplatznachweis', nextVersion: 4 }, originalErased: false, blockers: [] })
+    expect(summary).toMatchObject({
+      files: 1,
+      text: true,
+      thread: { name: 'Stellplatznachweis', nextVersion: 4 },
+      textPlan: { kind: 'append', name: 'Stellplatznachweis', masked: false },
+      filesPlan: { folders: ['Behörde/Bescheide'], single: { name: 'Bescheid.pdf', folder: 'Behörde/Bescheide', revision: null } },
+      left: { text: false, files: [] },
+      blockers: [],
+    })
   })
 
-  it('says the original is erased when the text stays out (D6)', () => {
-    const view = mail({ parts: [message, permitDecision] })
-    const draft = updateMessage(initialDraft(view, FOLDERS, copy), { checked: false })
-    expect(draftSummary(view, draft)).toMatchObject({ text: false, originalErased: true })
+  it('names what „Ablegen“ dismisses with it, the text included (D6)', () => {
+    const view = mail({ parts: [message, permitDecision, part({ name: 'Beilage.pdf' })] })
+    let draft = updateMessage(initialDraft(view, FOLDERS, copy), { checked: false })
+    draft = updateAttachment(draft, draft.attachments[1].partId, { checked: false })
+    expect(draftSummary(view, draft)).toMatchObject({ text: false, textPlan: null, left: { text: true, files: ['Beilage.pdf'] } })
+  })
+
+  it('counts the folders of several files and names a single revision by its document', () => {
+    const plans = mail({
+      parts: [
+        message,
+        permitDecision,
+        part({ name: 'S-101_D.pdf', revisionCandidate: { documentId: '22222222-2222-4222-8222-222222222222', name: 'S-101_C.pdf', folderPath: 'Tragwerk', nextVersion: 4 } }),
+      ],
+      sender: { ...mail().sender!, trust: 'member_verified' },
+    })
+    const draft = initialDraft(plans, FOLDERS, copy)
+    expect(draftSummary(plans, draft).filesPlan).toEqual({ folders: ['Behörde/Bescheide', 'Tragwerk'], single: null })
+    const onlyRevision = updateAttachment(draft, draft.attachments[0].partId, { checked: false })
+    expect(draftSummary(plans, onlyRevision).filesPlan.single).toEqual({ name: 'S-101_D.pdf', folder: 'Tragwerk', revision: { version: 4, of: 'S-101_C.pdf' } })
+  })
+
+  it('asks for a decision on a plan the thread does not vouch for, never on a copy the project has', () => {
+    const view = mail({
+      parts: [
+        message,
+        part({ name: 'S-101_D.pdf', riskFlags: ['unverified_thread'], revisionCandidate: { documentId: '22222222-2222-4222-8222-222222222222', name: 'S-101_C.pdf', folderPath: 'Tragwerk', nextVersion: 4 } }),
+        part({ name: 'Alt.pdf', duplicateOf: { documentId: '33333333-3333-4333-8333-333333333333', name: 'Alt.pdf', folderPath: 'Tragwerk' } }),
+      ],
+      threadCandidates: [thread({ preselected: false, blocks: ['header_not_signed'] })],
+    })
+    const summary = draftSummary(view, initialDraft(view, FOLDERS, copy))
+    expect(summary.undecided).toEqual(['S-101_D.pdf'])
+    expect(summary.left.files).toEqual(['S-101_D.pdf', 'Alt.pdf'])
+  })
+
+  it('says a dismissal is erased at once only for an unconfirmed outsider', () => {
+    const outsider = mail({ sender: { ...mail().sender!, trust: 'external_unverified', reason: 'dkim_none', signerDomain: null }, threadCandidates: [] })
+    expect(draftSummary(outsider, initialDraft(outsider, FOLDERS, copy)).dismissErases).toBe(true)
+    const confirmed = mail()
+    expect(draftSummary(confirmed, initialDraft(confirmed, FOLDERS, copy)).dismissErases).toBe(false)
   })
 
   it('blocks on a missing folder, an unreleased name, an unaccepted risk and an unconfirmed sender', () => {

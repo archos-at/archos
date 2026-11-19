@@ -28,10 +28,10 @@ describe('CheckLine', () => {
     const change = vi.fn()
     render(
       <CheckLine checked={false} onCheckedChange={change} testId="yes">
-        Ja, ich habe diese E-Mail gesendet. Ablegen
+        Ja, ich habe diese E-Mail gesendet
       </CheckLine>
     )
-    await userEvent.click(screen.getByText('Ja, ich habe diese E-Mail gesendet. Ablegen'))
+    await userEvent.click(screen.getByText('Ja, ich habe diese E-Mail gesendet'))
     expect(change).toHaveBeenCalledWith(true)
     expect(screen.getByTestId('yes-row').className).toContain('pointer-coarse:min-h-11')
   })

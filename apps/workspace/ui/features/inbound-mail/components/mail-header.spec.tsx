@@ -40,7 +40,9 @@ describe('MailHeader', () => {
     renderDetail('member-verified')
     const line = screen.getByTestId('mail-header-line')
     expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber m.huber@huber-architektur.at')
-    expect(within(line).getByTestId('sender-trust')).toHaveTextContent('Domain verified: huber-architektur.at')
+    expect(within(line).getByTestId('sender-trust')).toHaveTextContent('Genuine address')
+    expect(within(line).getByTestId('sender-trust')).toHaveAttribute('data-tone', 'confirmed')
+    expect(screen.queryByTestId('mail-trust-technical')).toBeNull()
     expect(within(line).getByTestId('mail-header-received')).toBeInTheDocument()
     expect(screen.queryByTestId('mail-original')).toBeNull()
     expect(screen.queryByText('Opens in your mail program; images from outside are loaded there.')).toBeNull()
@@ -54,6 +56,7 @@ describe('MailHeader', () => {
     expect(details).toHaveTextContent('Sent')
     expect(details).toHaveTextContent('post@ma37.wien.gv.at')
     expect(within(details).getByTestId('mail-expires')).toHaveTextContent('then it expires')
+    expect(within(details).getByTestId('mail-trust-technical')).toHaveTextContent('Domain verified: huber-architektur.at signed the mail (DKIM).')
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_details_opened', { status: 'waiting', risk_level: 'none' })
   })
 
@@ -105,7 +108,8 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     renderDetail('own-unverified')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signatureOwn')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for you: did you send this mail? Whether it comes from you cannot be verified')
-    expect(screen.getByTestId('sender-trust')).toHaveTextContent('A member’s address · cannot be verified, could be forged')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address, cannot be verified')
+    expect(screen.getByTestId('sender-trust')).toHaveAttribute('data-tone', 'neutral')
   })
 
   it('tells the member their own rejected mail in their own voice, once: no fraud warning about themself, no second question (B4)', () => {
@@ -113,7 +117,7 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('impersonation-warning')).toHaveAttribute('data-own', 'true')
     expect(screen.getByTestId('impersonation-warning')).toHaveTextContent('This mail carries your address, but your domain rejected it.')
     expect(screen.getByTestId('impersonation-warning')).not.toHaveTextContent('poses as')
-    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address · rejected by your domain')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address, rejected by your domain')
     expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
   })
 
@@ -152,8 +156,9 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent('has left the office')
     expect(screen.queryByTestId('claimed-mail-bar')).toBeNull()
     expect(screen.getByTestId('decision-bar')).toBeInTheDocument()
-    expect(screen.getByTestId('acknowledge-sender').closest('div')).toHaveTextContent('I checked this mail is from Miriam Huber. File it')
-    expect(screen.getByTestId('acknowledge-sender').closest('div')).not.toHaveTextContent('I sent this mail')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Miriam Huber’s address, cannot be verified')
+    expect(screen.getByTestId('acknowledge-sender-row')).toHaveTextContent(/^I checked this mail is from Miriam Huber$/)
+    expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent('did you send this mail')
   })
 
   it('still offers another writer only „Dismiss …“ for an impersonation of a writer (B2)', () => {
@@ -171,11 +176,27 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('outside the office')
   })
 
-  it('says an outsider’s mail expires after 14 days for good, and a member without write rights waits for the writers', () => {
+  it('says calmly until when an outsider’s mail waits and that a reminder comes, and asks for no check of it', () => {
     const { unmount } = renderDetail('external-unverified')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('it expires after 14 days and cannot be restored')
+    const line = screen.getByTestId('sender-wait-reason')
+    expect(line).toHaveTextContent(/^From outside the office\. Waits until .+ for a decision, then it is deleted\. \S+ reminds you 5 days before\.$/)
+    expect(line).not.toHaveAttribute('data-asks')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Sender cannot be verified')
+    expect(screen.getByTestId('sender-trust')).toHaveAttribute('data-tone', 'neutral')
     unmount()
+    renderDetail('expires-soon')
+    expect(screen.getByTestId('mail-expires-soon')).toHaveTextContent(/Waits only until .+, then it is deleted/)
+    expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
+  })
+
+  it('tells a writer a colleague without the right to file sent it, so they file it', () => {
     renderDetail('member-verified')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting to be filed: the sender may not file in this project.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for you: Miriam Huber may not file in this project, you may.')
+  })
+
+  it('draws a forgery’s verdict in the danger colour', () => {
+    renderDetail('member-name')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Caution: possible forgery')
+    expect(screen.getByTestId('sender-trust')).toHaveAttribute('data-tone', 'danger')
   })
 })
