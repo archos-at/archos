@@ -1,7 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { directFilingEnabled } from './direct-filing'
 import { judgeSender, type SenderAuthentication } from './sender-auth'
-import { dismissalIsFinal, expiryIsFinal, isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
+import {
+  dismissalIsFinal,
+  expiryIsFinal,
+  isVerifiedWriterEvidence,
+  onlySenderReleases,
+  ownClaimedMail,
+  senderClassOf,
+  senderReleaseOf,
+  senderWaitReason,
+  type ClaimedMail,
+  type SenderClassInput,
+  type WaitReasonInput,
+} from './sender-class'
 
 const WRITER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
 
@@ -60,8 +72,15 @@ describe('senderClassOf', () => {
     expect(senderClassOf(input({ automatic: true }))).toBe('unverified_writer')
   })
 
-  it('a writer’s mail signed by a parent or subdomain only (relaxed alignment) waits for that writer', () => {
-    expect(senderClassOf(input({ flags: ['relaxed_alignment'] }))).toBe('unverified_writer')
+  it('a writer’s mail signed by the organizational domain or a subdomain (DMARC relaxed alignment) is a verified writer’s', () => {
+    expect(senderClassOf(input({ flags: ['relaxed_alignment'] }))).toBe('verified_writer')
+    expect(isVerifiedWriterEvidence(input({ flags: ['relaxed_alignment'] }))).toBe(true)
+  })
+
+  it('relaxed alignment keeps every other rule: a replay flag, a Bcc copy or automatic sending still waits', () => {
+    expect(senderClassOf(input({ flags: ['relaxed_alignment', 'stale_date'] }))).toBe('unverified_writer')
+    expect(senderClassOf(input({ flags: ['relaxed_alignment', 'not_addressed_to_project', 'bcc_own'] }))).toBe('unverified_writer')
+    expect(senderClassOf(input({ flags: ['relaxed_alignment'], automatic: true }))).toBe('unverified_writer')
   })
 
   it('an office member without write rights is an office member, signed or not', () => {
@@ -86,7 +105,7 @@ describe('senderClassOf', () => {
     it('off, a verified writer’s mail keeps its class, so any writer files it, and says why it waits', () => {
       vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'false')
       expect(senderClassOf(input())).toBe('verified_writer')
-      expect(onlySenderReleases({ senderClass: 'verified_writer', senderUserId: 'user_writer' }, 'user_colleague')).toBe(false)
+      expect(onlySenderReleases({ ...claimedBy('user_writer'), senderClass: 'verified_writer' }, 'user_colleague')).toBe(false)
       const held = { senderClass: 'verified_writer', senderTrust: 'member_verified', senderFlags: [], automatic: false } as const
       expect(senderWaitReason(held)).toBe('paused')
       expect(senderWaitReason({ ...held, directFiling: false })).toBe('paused')
@@ -127,14 +146,56 @@ describe('what the class means to a reader', () => {
     }
     expect(senderWaitReason(held({ senderFlags: ['not_addressed_to_project', 'bcc_own'] }))).toBe('replay')
     expect(senderWaitReason(held({ automatic: true }))).toBe('automatic')
-    expect(senderWaitReason(held({ senderFlags: ['relaxed_alignment'] }))).toBe('signature')
+    expect(senderWaitReason(held({ senderFlags: ['relaxed_alignment'], automatic: true }))).toBe('automatic')
+  })
+})
+
+const COLLEAGUE = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1'
+
+function claimedBy(senderUserId: string, overrides: Partial<ClaimedMail> = {}): ClaimedMail {
+  return { senderClass: 'unverified_writer', senderUserId, senderTrust: 'member_unverified', senderReason: 'dkim_none', senderFlags: [], ...overrides }
+}
+
+describe('who releases a mail that claims a writer (amendment of 2026-11-19)', () => {
+  it('the claimed writer releases their own mail, saying they sent it', () => {
+    expect(senderReleaseOf(claimedBy(WRITER), WRITER)).toBe('own')
+    expect(ownClaimedMail(claimedBy(WRITER), WRITER)).toBe(true)
+    expect(onlySenderReleases(claimedBy(WRITER), WRITER)).toBe(false)
   })
 
-  it('lets only the claimed writer release a mail that claims them', () => {
-    const claimed = { senderClass: 'unverified_writer' as const, senderUserId: WRITER }
-    expect(onlySenderReleases(claimed, WRITER)).toBe(false)
-    expect(onlySenderReleases(claimed, 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1')).toBe(true)
-    expect(onlySenderReleases({ senderClass: 'office_member', senderUserId: WRITER }, 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1')).toBe(false)
+  it('any other writer releases an unsigned, unaligned or replayed mail of a writer once they checked it is from them', () => {
+    const cases: ClaimedMail[] = [
+      claimedBy(WRITER),
+      claimedBy(WRITER, { senderReason: 'dkim_unaligned' }),
+      claimedBy(WRITER, { senderReason: 'dkim_expired' }),
+      claimedBy(WRITER, { senderTrust: 'member_verified', senderReason: 'dkim_pass', senderFlags: ['not_addressed_to_project', 'bcc_own'] }),
+      claimedBy(WRITER, { senderTrust: 'member_verified', senderReason: 'dkim_pass', senderFlags: ['stale_date'] }),
+    ]
+    for (const mail of cases) {
+      expect(senderReleaseOf(mail, COLLEAGUE), mail.senderReason ?? '').toBe('checked_by_writer')
+      expect(onlySenderReleases(mail, COLLEAGUE)).toBe(false)
+      expect(ownClaimedMail(mail, COLLEAGUE)).toBe(false)
+    }
+  })
+
+  it('keeps an impersonation for the member it names: a signature their domain rejected stays sender_only for everyone else', () => {
+    for (const senderReason of ['dkim_fail', 'dkim_policy', 'dkim_weak_algorithm', 'dkim_short_key'] as const) {
+      const rejected = claimedBy(WRITER, { senderReason })
+      expect(senderReleaseOf(rejected, COLLEAGUE), senderReason).toBe('sender_only')
+      expect(onlySenderReleases(rejected, COLLEAGUE)).toBe(true)
+      expect(senderReleaseOf(rejected, WRITER)).toBe('own')
+    }
+  })
+
+  it('keeps a mail no verdict was written for to its member: nothing to check it against', () => {
+    expect(onlySenderReleases(claimedBy(WRITER, { senderTrust: null, senderReason: null }), COLLEAGUE)).toBe(true)
+  })
+
+  it('asks nothing of any other class', () => {
+    for (const senderClass of ['verified_writer', 'office_member', 'external', null] as const) {
+      expect(senderReleaseOf(claimedBy(WRITER, { senderClass }), COLLEAGUE)).toBeNull()
+      expect(senderReleaseOf(claimedBy(WRITER, { senderClass }), WRITER)).toBeNull()
+    }
   })
 })
 

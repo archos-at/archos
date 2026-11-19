@@ -131,6 +131,7 @@ const activeAddress: InboundMailAddressView = {
   lastReceivedAt: minutesAgo(12),
   droppedLast30Days: 0,
   ownDomainVerifiedShare: 0.94,
+  forwardedFrom: [],
 }
 
 export const ADDRESS_VARIANTS: Record<string, AddressFixture> = {
@@ -147,6 +148,8 @@ export const ADDRESS_VARIANTS: Record<string, AddressFixture> = {
   error: 'error',
   refusals: { ...activeAddress, droppedLast30Days: 17, lastReceivedAt: minutesAgo(60 * 24 * 3) },
   'own-dkim-missing': { ...activeAddress, ownDomainVerifiedShare: 0 },
+  forwards: { ...activeAddress, forwardedFrom: ['projekt-bauplatz-12@buero-muster.at', 'bauplatz12@feld72.at'] },
+  'forwards-member': { ...activeAddress, canManage: false, forwardedFrom: ['projekt-bauplatz-12@buero-muster.at'] },
 }
 
 const pending = <T,>(): Promise<T> => new Promise<T>(() => {})
@@ -268,6 +271,10 @@ export function fixtureAddressClient(fixture: AddressFixture): InboundMailAddres
     },
     remove: () => {
       if (typeof current === 'object') current = { ...current, state: 'none', address: null }
+      return answer()
+    },
+    setForwardedFrom: (_projectId, forwardedFrom) => {
+      if (typeof current === 'object') current = { ...current, forwardedFrom: [...forwardedFrom] }
       return answer()
     },
   }

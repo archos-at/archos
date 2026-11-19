@@ -799,3 +799,81 @@ stands.
 Where it lives: [Sender trust](../architecture/inbound-mail.md#sender-trust) and
 [Following a Verlauf](../architecture/inbound-mail.md#following-a-verlauf) in the
 architecture.
+
+## Amendment, 2026-11-19: automatic by default, review only the exceptions; dock onto existing project addresses
+
+*Product owner.* Offices asked for „höchstens ein Schritt“ to get mail into a
+project (tickets #25 and #46: „ohne weiteren Schritt“), and the one real tester's
+own mails from his own domain waited: one with a subdomain's signature, which
+only he could release, one flagged as an impersonation. The two pilot offices
+(feld72, GernerGernerPlus) already run project addresses in Outlook, for all
+project mail or in Cc, and will not add a second; they would redirect theirs to
+ours. The decision: **automatic by default, review only the exceptions, and
+dock onto the project addresses the office already has.** It amends the
+amendment of 2026-11-03; the rest of this record stands.
+
+### What changes
+
+- **Relaxed alignment files directly.** A writer's mail signed by the
+  organizational domain or a subdomain of the From domain (DMARC relaxed
+  alignment, the Public Suffix List's organizational domain) is a
+  `verified_writer`'s. The flag `relaxed_alignment` stays as evidence. Every
+  other rule of the evidence stands: a replay or date flag, a Bcc copy,
+  automatic sending, no write right. The premise of the old rule was that a
+  delegated key (a newsletter service's for `news.<domain>`) must not file as
+  a member; DMARC treats that key as the domain's, and its bulk mail is held as
+  automatic anyway.
+- **Any writer releases a mail that claims a writer.** An `unverified_writer`
+  mail is filed by its member („Ja, ich habe diese E-Mail gesendet“) or by any
+  other of the project's writers who says they checked it is from that member
+  („Ich habe geprüft, dass diese E-Mail von {Name} ist“), the same
+  `acknowledged_sender`. A mail whose signature the member's domain rejected
+  (an impersonation, `impersonationOf`) stays the member's alone (`sender_only`).
+  This retires "can be filed by nobody" for a member who left, for every mail
+  but an impersonation.
+- **An existing project address forwards here.** A project manager registers
+  up to ten of the office's addresses on the project address
+  (`forwarded_from`); a signed To or Cc naming one counts as addressed to the
+  project. Any real address is accepted, because the office's own domains are
+  known only where WorkOS domain verification is set up; the card asks for the
+  office's own.
+
+Migration 0250 holds all three in the database
+(`inbound_mails_verified_writer_evidence` without `relaxed_alignment`,
+`inbound_mail_decisions_claimed_sender_releases` for a colleague with the
+acknowledgement, `inbound_mail_addresses.forwarded_from`), with a down
+migration.
+
+### What this gives up, stated plainly
+
+- Whoever holds a key for a subdomain of the member's domain can now file as
+  the member, as DMARC already lets them send as the member.
+- A colleague's acknowledgement is a person's judgement, not a signature: the
+  row records who made it (`decided_by` is not the sender). It is the same
+  judgement the colleague already made for an outsider's mail.
+- An address outside the office, registered as forwarding, would let whoever
+  reads it re-send a member's signed mail to the project and have it filed as
+  the member.
+- A redirect that rewrites the body breaks the original signature, and the
+  mail reads as an impersonation (`dkim_fail`). Exchange Online's inbox-rule
+  redirect keeps the body in our fixture; a real tenant has not been observed.
+  Trusting Microsoft's ARC seal for the original verdict would cover it and is
+  not built.
+
+### Confirmation, in addition to the above
+
+- `scripts/rls-test-db.sh`, the 0250 section: a relaxed-aligned hold refused
+  before 0250 and accepted after, with a stale date, a Bcc copy or automatic
+  sending still refused; a colleague's acknowledged filing refused before and
+  accepted after, without the acknowledgement or as a follow refused; each
+  rejected-signature reason refused to a colleague and accepted from the
+  member; the forwarding list's shape; the down.
+- `sender-class.spec.ts` (`senderReleaseOf`), `sender-auth.spec.ts` (relaxed
+  alignment, the forwarding addresses, the Exchange redirect fixture
+  `__fixtures__/exchange-redirect.ts`), `decision.spec.ts` and `service.spec.ts`
+  (the colleague's release, `sender_only` for an impersonation on file and
+  restore), `receive-job.spec.ts` (a redirected writer's mail filed directly
+  once its project mailbox is registered), `address-service.spec.ts`,
+  `forwarding-addresses.spec.ts`, the route and the address card's specs.
+- The architecture: [`inbound-mail.md`](../architecture/inbound-mail.md#the-sender-rule)
+  and [its forwarding section](../architecture/inbound-mail.md#an-existing-project-address-forwards-here).

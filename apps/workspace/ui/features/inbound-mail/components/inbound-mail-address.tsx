@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { AtSign, BookOpen, Check, CircleSlash, ContactRound, Copy, ExternalLink, Forward, MailPlus, RefreshCw, UserCheck } from 'lucide-react'
+import { AtSign, BookOpen, Check, CircleSlash, ContactRound, Copy, ExternalLink, Forward, MailPlus, Plus, RefreshCw, UserCheck, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -15,12 +15,20 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { BentoTile } from '@/components/ui/bento'
 import { CopyableValue } from '@/components/ui/copyable-value'
 import { EmailAddress } from '@/components/ui/email-address'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import { useLocale, useTranslations } from '@/i18n'
 import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { startBrowserDownload } from '@/lib/browser-download'
 import type { InboundMailAddressView } from '@/lib/inbound-mail/inbound-mail-wire'
+import {
+  forwardingAddressesOf,
+  forwardingListProblem,
+  INBOUND_MAIL_FORWARDED_FROM_MAX,
+  normalizeForwardingAddress,
+} from '@/lib/inbound-mail/forwarding-addresses'
 import {
   INBOUND_MAIL_ADDRESS_STATS_DAYS,
   INBOUND_MAIL_EXTERNAL_WAIT_DAYS,
@@ -313,6 +321,15 @@ function useAddressActions(address: ReturnType<typeof useInboundMailAddress>) {
     remove: async () => {
       await address.remove().then(() => toast.success(t('address.switchedOff')), fail)
     },
+    setForwardedFrom: async (forwardedFrom: readonly string[]) => {
+      await address.setForwardedFrom(forwardedFrom).then(
+        () => toast.success(t('address.forwards.saved')),
+        (error: unknown) => {
+          toast.error(t('address.forwards.failed'))
+          throw error
+        },
+      )
+    },
   }
 }
 
@@ -351,6 +368,151 @@ export function InboundMailAddressDialog({ projectId, projectName, open, onOpenC
   )
 }
 
+function CopyLineButton({ text, testId }: { text: string; testId: string }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const [copied, raise] = useTransientFlag()
+  return (
+    <Button
+      type="button"
+      variant="inline"
+      className="touch-target w-fit gap-1.5 text-xs"
+      onClick={() => void navigator.clipboard?.writeText(text).then(raise, () => {})}
+      data-testid={testId}
+    >
+      {copied ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+      {copied ? t('address.setup.copied') : t('address.setup.copy')}
+    </Button>
+  )
+}
+
+function AddressSetup({ address }: { address: string }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const lines = [
+    { key: 'cc', icon: AtSign, text: t('address.setup.cc', { address }) },
+    { key: 'forward', icon: Forward, text: t('address.setup.forward', { address }) },
+  ] as const
+  return (
+    <div className="flex flex-col gap-2" data-testid="address-setup">
+      <SectionLabel as="p">{t('address.setup.title')}</SectionLabel>
+      <ul className="flex flex-col gap-2">
+        {lines.map((line) => (
+          <li key={line.key} className="flex flex-col gap-0.5" data-testid={`address-setup-${line.key}`}>
+            <FactLine icon={line.icon} tone="default">
+              <span className="[overflow-wrap:anywhere]">{line.text}</span>
+            </FactLine>
+            <CopyLineButton text={line.text} testId={`address-setup-${line.key}-copy`} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function domainOf(address: string): string | null {
+  const at = address.lastIndexOf('@')
+  return at === -1 ? null : address.slice(at + 1)
+}
+
+function ForwardingAddresses({
+  address,
+  onSave,
+}: {
+  address: InboundMailAddressView & { address: string }
+  onSave: (forwardedFrom: readonly string[]) => Promise<void>
+}): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const [draft, setDraft] = useState('')
+  const [problem, setProblem] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const inputId = `forwarded-from-${address.address}`
+  const save = async (next: readonly string[]): Promise<boolean> => {
+    const found = forwardingListProblem(next, domainOf(address.address))
+    if (found) {
+      setProblem(found === 'too_many' ? t('address.forwards.tooMany', { max: INBOUND_MAIL_FORWARDED_FROM_MAX }) : t(`address.forwards.${found === 'malformed' ? 'invalid' : 'projectAddress'}`))
+      return false
+    }
+    setProblem(null)
+    setSaving(true)
+    try {
+      await onSave(forwardingAddressesOf(next))
+      return true
+    } catch {
+      return false
+    } finally {
+      setSaving(false)
+    }
+  }
+  const add = async () => {
+    if (normalizeForwardingAddress(draft) === '') return
+    if (await save([...address.forwardedFrom, draft])) setDraft('')
+  }
+  return (
+    <div className="flex flex-col gap-2" data-testid="address-forwards">
+      <SectionLabel as="p">{t('address.forwards.title')}</SectionLabel>
+      <p className="text-muted-foreground text-xs">{t('address.forwards.explain')}</p>
+      {address.forwardedFrom.length > 0 ? (
+        <ul className="flex flex-col gap-1" aria-label={t('address.forwards.title')}>
+          {address.forwardedFrom.map((forward) => (
+            <li key={forward} className="flex items-center justify-between gap-2 font-mono text-[13px] leading-5" data-testid="address-forward">
+              <EmailAddress address={forward} />
+              {address.canManage && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 shrink-0"
+                  aria-label={t('address.forwards.remove', { address: forward })}
+                  disabled={saving}
+                  onClick={() => void save(address.forwardedFrom.filter((kept) => kept !== forward))}
+                  data-testid="address-forward-remove"
+                >
+                  <X className="size-4" aria-hidden />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground text-xs" data-testid="address-forwards-none">{t('address.forwards.none')}</p>
+      )}
+      {address.canManage && (
+        <Field>
+          <FieldLabel htmlFor={inputId} className="sr-only">{t('address.forwards.label')}</FieldLabel>
+          <div className="flex gap-2">
+            <Input
+              id={inputId}
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              spellCheck={false}
+              value={draft}
+              placeholder={t('address.forwards.placeholder')}
+              aria-invalid={problem !== null}
+              onChange={(event) => {
+                setDraft(event.target.value)
+                setProblem(null)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  void add()
+                }
+              }}
+              className="h-9"
+              data-testid="address-forward-input"
+            />
+            <Button type="button" variant="secondary" size="sm" disabled={saving || draft.trim() === ''} onClick={() => void add()} data-testid="address-forward-add">
+              <Plus className="size-4" aria-hidden />
+              {t('address.forwards.add')}
+            </Button>
+          </div>
+          {problem ? <FieldError data-testid="address-forward-problem">{problem}</FieldError> : <FieldDescription className="sr-only">{t('address.forwards.explain')}</FieldDescription>}
+        </Field>
+      )}
+    </div>
+  )
+}
+
 export interface InboundMailAddressCardProps {
   projectId: string
   projectName: string
@@ -378,6 +540,8 @@ export function InboundMailAddressCard({ projectId, projectName, client }: Inbou
             <InboundMailAddressBlock address={ready} projectId={projectId} projectName={projectName} surface="settings" showUses={false} />
             {/* The office's own signing (RT-X6) is a manager's to fix, so only a manager reads it. */}
             {ready.canManage && <OwnDomainDkimLine share={ready.ownDomainVerifiedShare} />}
+            {ready.address && <AddressSetup address={ready.address} />}
+            {ready.address && <ForwardingAddresses address={{ ...ready, address: ready.address }} onSave={actions.setForwardedFrom} />}
           </>
         ) : (
           <AddressStatus state={address.state} onRetry={() => void address.reload()} onCreate={actions.create} />

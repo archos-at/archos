@@ -53,7 +53,10 @@ English copy calls the place „Project mail“.
   Dokumente.
 - The upload menu „Per E-Mail senden …“ opens the address dialog.
 - Settings › Dokumente: the address card (create, „Neue Adresse erzeugen …“,
-  „Ausschalten …“; managers only).
+  „Ausschalten …“; managers only), „So kommt die Korrespondenz ins Projekt“
+  (Cc and redirect, a line each with „Anleitung kopieren“) and „Bestehende E-Mail-Adressen
+  für das Projekt“ (managers add and remove, members read;
+  `/dev/inbound-mail-address?variant=forwards`).
 - The Postfach rows of the seven notices (`/dev/inbox?variant=mail`).
   „E-Mails warten“ opens the list at „Bereit“ (`/files/mail#ready`,
   `lib/inbox/targets.ts`).
@@ -206,8 +209,13 @@ the fold's hint „Nur wenn Sie diese E-Mail selbst gesendet haben.“ and the y
 „Ja, ich habe diese E-Mail gesendet. Ablegen“. No wait line stands under an
 impersonation's warning: the warning says why and what to do.
 
-**A mail only another member may file** (`onlySenderReleases`, the reader is a
-colleague) is shown, never decided: its parts carry no checkbox, no target and
+**A mail only another member may file** (`onlySenderReleases`: it poses as a
+colleague, whose domain rejected its signature; the reader is someone else) is
+shown, never decided. A colleague's mail their domain merely did not confirm is
+decided like any held mail, its acknowledgement reading „Ich habe geprüft, dass
+diese E-Mail von {Name} ist. Ablegen“ (`claimedWriter` in `draft.ts`), its
+wait line „Legen Sie sie ab, wenn Sie geprüft haben, dass sie von {Name} ist“.
+The impersonation: its parts carry no checkbox, no target and
 no „Ändern“, the text has no filing row, and „Trotzdem ablegen …“ is not
 offered. The bar is `ClaimedMailBar`: „Nur {Name} kann diese E-Mail ablegen
 oder wiederherstellen. Sie können sie verwerfen.“ and „Verwerfen …“, whose

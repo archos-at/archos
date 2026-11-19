@@ -1,6 +1,7 @@
 import type { InboundMailSenderClass, InboundSenderTrust, SenderFlag, SenderReason } from './inbound-mail-vocabulary'
 import type { InboundMailWaitReason } from './inbound-mail-wire'
 import { directFilingEnabled } from './direct-filing'
+import { impersonationOf } from './impersonation'
 
 export const REPLAY_FLAGS: readonly SenderFlag[] = ['stale_date', 'date_out_of_range', 'message_id_reused', 'already_filed']
 
@@ -16,7 +17,6 @@ export interface SenderClassInput {
 export function isVerifiedWriterEvidence(input: Omit<SenderClassInput, 'writes'>): boolean {
   if (input.trust !== 'member_verified' || input.reason !== 'dkim_pass' || !input.senderUserId || input.automatic) return false
   if (input.flags.some((flag) => REPLAY_FLAGS.includes(flag))) return false
-  if (input.flags.includes('relaxed_alignment')) return false
   return !input.flags.includes('not_addressed_to_project')
 }
 
@@ -35,7 +35,7 @@ export interface WaitReasonInput {
 }
 
 function unverifiedWriterReason(mail: WaitReasonInput): InboundMailWaitReason {
-  if (mail.senderTrust !== 'member_verified' || mail.senderFlags.includes('relaxed_alignment')) return 'signature'
+  if (mail.senderTrust !== 'member_verified') return 'signature'
   if (mail.senderFlags.includes('not_addressed_to_project') || mail.senderFlags.some((flag) => REPLAY_FLAGS.includes(flag))) return 'replay'
   return mail.automatic ? 'automatic' : 'signature'
 }
@@ -64,9 +64,27 @@ export function dismissalIsFinal(mail: { senderTrust: InboundSenderTrust | null;
   return mail.senderTrust === 'external_unverified' && !mail.senderFlags.includes('sender_unchecked')
 }
 
-export function onlySenderReleases(
-  mail: { senderClass: InboundMailSenderClass | null; senderUserId: string | null },
-  viewerUserId: string,
-): boolean {
-  return mail.senderClass === 'unverified_writer' && mail.senderUserId !== viewerUserId
+export interface ClaimedMail {
+  senderClass: InboundMailSenderClass | null
+  senderUserId: string | null
+  senderTrust: InboundSenderTrust | null
+  senderReason: SenderReason | null
+  senderFlags: readonly SenderFlag[]
+}
+
+export type SenderRelease = 'own' | 'checked_by_writer' | 'sender_only'
+
+export function senderReleaseOf(mail: ClaimedMail, viewerUserId: string): SenderRelease | null {
+  if (mail.senderClass !== 'unverified_writer') return null
+  if (mail.senderUserId === viewerUserId) return 'own'
+  if (mail.senderReason === null) return 'sender_only'
+  return impersonationOf({ reason: mail.senderReason, flags: mail.senderFlags }) !== null ? 'sender_only' : 'checked_by_writer'
+}
+
+export function onlySenderReleases(mail: ClaimedMail, viewerUserId: string): boolean {
+  return senderReleaseOf(mail, viewerUserId) === 'sender_only'
+}
+
+export function ownClaimedMail(mail: ClaimedMail, viewerUserId: string): boolean {
+  return senderReleaseOf(mail, viewerUserId) === 'own'
 }

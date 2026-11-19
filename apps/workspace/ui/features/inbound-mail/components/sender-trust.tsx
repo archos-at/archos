@@ -136,12 +136,12 @@ const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay',
 export function SenderWaitLine({
   view,
 }: {
-  view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> & Partial<Pick<InboundMailView, 'riskLevel' | 'sender' | 'parts'>>
+  view: Pick<InboundMailView, 'status' | 'waitReason' | 'ownClaimedMail'> & Partial<Pick<InboundMailView, 'riskLevel' | 'sender' | 'parts'>>
 }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   if (view.status !== 'waiting' || !view.waitReason || view.riskLevel === 'impersonation') return null
   if (view.parts && !view.parts.some((part) => part.state === 'waiting')) return null
-  const key = ASKED_OF_THE_WRITER.has(view.waitReason) && !view.onlySenderReleases ? `${view.waitReason}Own` : view.waitReason
+  const key = ASKED_OF_THE_WRITER.has(view.waitReason) && view.ownClaimedMail ? `${view.waitReason}Own` : view.waitReason
   const name = view.sender ? senderDisplayName(view.sender) : ''
   return (
     <p className="text-foreground flex items-start gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>

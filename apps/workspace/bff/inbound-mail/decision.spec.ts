@@ -352,6 +352,51 @@ describe('C2: each rule, failing alone', () => {
   })
 })
 
+describe('a mail that claims a writer (`unverified_writer`): who releases it', () => {
+  const WRITER = 'user_01JCX0R4D8M2W6YB3N5Q7T9V1W'
+  const fileOnly = (mail: InboundMailRow) => decision(mail, { message: null })
+  const claimed = (overrides: Partial<InboundMailRow> = {}) =>
+    heldMail({ senderClass: 'unverified_writer', senderTrust: 'member_unverified', senderReason: 'dkim_none', senderUserId: WRITER, senderFlags: [], ...overrides })
+
+  it('a colleague files it once they acknowledge they checked it is from the writer; the row says so', () => {
+    const mail = claimed()
+    expect(codeOf(() => plan(mail, fileOnly(mail)))).toBe('sender_not_acknowledged')
+    const planned = plan(mail, { ...fileOnly(mail), acknowledgeSender: true })
+    expect(planned.files).toHaveLength(1)
+    expect(planned.files.every((row) => row.acknowledgedSender && row.decidedBy === PERSON)).toBe(true)
+  })
+
+  it('a colleague files a writer’s signed mail held as addressed to others, or replayed, the same way', () => {
+    for (const senderFlags of [['not_addressed_to_project', 'bcc_own'], ['stale_date']] as const) {
+      const mail = claimed({ senderTrust: 'member_verified', senderReason: 'dkim_pass', senderFlags: [...senderFlags] })
+      expect(codeOf(() => plan(mail, { ...fileOnly(mail), acknowledgeSender: true })), senderFlags.join()).toBe('passes')
+    }
+  })
+
+  it.each(['dkim_fail', 'dkim_policy', 'dkim_weak_algorithm', 'dkim_short_key'] as const)(
+    'refuses a colleague `sender_only` for an impersonation (%s), acknowledged or not; the writer files it',
+    (senderReason) => {
+      const mail = claimed({ senderReason })
+      expect(codeOf(() => plan(mail, { ...fileOnly(mail), acknowledgeSender: true }))).toBe('sender_only')
+      expect(codeOf(() => plan(mail, fileOnly(mail)))).toBe('sender_only')
+      const own = context({ actor: { decidedBy: WRITER, via: 'app', proposalId: null } })
+      expect(codeOf(() => plan(mail, { ...fileOnly(mail), acknowledgeSender: true }, own))).toBe('passes')
+    },
+  )
+
+  it('lets a colleague dismiss an impersonation: the refusal is about filing only', () => {
+    const mail = claimed({ senderReason: 'dkim_fail' })
+    expect(codeOf(() => plan(mail, decision(mail, { parts: [], message: null })))).toBe('passes')
+  })
+
+  it('refuses a follow and an agent’s card for any claimed mail: neither can acknowledge it', () => {
+    const mail = claimed()
+    const card = context({ actor: { decidedBy: PERSON, via: 'agent_proposal', proposalId: '6f1c2b8e-3d4a-4b6c-8d7e-9f0a1b2c3d4e' } })
+    expect(codeOf(() => plan(mail, fileOnly(mail), card))).toBe('sender_not_acknowledged')
+    expect(codeOf(() => plan(mail, { ...fileOnly(mail), acknowledgeSender: true }, card))).toBe('card_carries_acknowledgement')
+  })
+})
+
 describe('the rights asked last, as the person', () => {
   const session = { userId: PERSON, organizationId: 'org_1' } as AuthorizedSession
   beforeEach(() => vi.clearAllMocks())

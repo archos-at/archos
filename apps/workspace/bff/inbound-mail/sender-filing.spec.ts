@@ -78,6 +78,7 @@ function view(parts: InboundMailPartView[], overrides: Partial<InboundMailView> 
     senderClass: 'verified_writer',
     waitReason: null,
     onlySenderReleases: false,
+    ownClaimedMail: false,
     ...overrides,
   }
 }

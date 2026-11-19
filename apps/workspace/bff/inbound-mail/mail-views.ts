@@ -10,7 +10,7 @@ import { INBOUND_MAIL_RESTORE_DAYS, type InboundSenderTrust } from './inbound-ma
 import type { InboundMailListStatus, InboundMailOutcome, InboundMailSummaryView, InboundMailView } from './inbound-mail-wire'
 import { findFollowDeciders, findMailParts } from './repository'
 import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
-import { dismissalIsFinal, expiryIsFinal, onlySenderReleases, senderWaitReason } from './sender-class'
+import { dismissalIsFinal, expiryIsFinal, onlySenderReleases, ownClaimedMail, senderWaitReason } from './sender-class'
 import { readSuggestion, suggestionSkipReason } from './suggest'
 
 const DAY_MS = 86_400_000
@@ -77,6 +77,7 @@ function mailView(
     senderClass: mail.senderClass,
     waitReason: senderWaitReason(mail),
     onlySenderReleases: onlySenderReleases(mail, context.viewerUserId),
+    ownClaimedMail: ownClaimedMail(mail, context.viewerUserId),
     projectId: mail.projectId,
     status: listStatusOf(mail, parts),
     projectClosed: context.closed,
@@ -141,6 +142,7 @@ export function summaryView(mail: InboundMailRow, parts: readonly InboundMailPar
     senderClass: view.senderClass,
     waitReason: view.waitReason,
     onlySenderReleases: view.onlySenderReleases,
+    ownClaimedMail: view.ownClaimedMail,
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
     updatedAt: view.updatedAt,

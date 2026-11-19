@@ -135,14 +135,14 @@ export const inboundMail = {
   },
 
   waitReason: {
-    signature: 'Waiting for {name}: the domain did not verify this mail.',
-    signatureOwn: 'Did you send this mail? Your domain did not verify it, so it was not filed directly. Only you can file it.',
+    signature: 'Waiting: the domain did not verify this mail from {name}. File it once you have checked it is from {name}.',
+    signatureOwn: 'Did you send this mail? Your domain did not verify it, so it was not filed directly.',
     replay:
-      'Waiting for {name}: the domain verified it, but it is addressed to others, oddly dated or already known. A mail sent again by someone else looks like this.',
+      'Waiting: the domain of {name} verified it, but it is addressed to others, oddly dated or already known. A mail sent again by someone else looks like this. File it once you have checked it is from {name}.',
     replayOwn:
-      'Did you send this mail to the project? Your domain verified it, but it is addressed to others, oddly dated or already known, so it was not filed directly. Only you can file it.',
-    automatic: 'Waiting for {name}: the mail was sent automatically.',
-    automaticOwn: 'Did you send this mail? It was sent automatically, so it was not filed directly. Only you can file it.',
+      'Did you send this mail to the project? Your domain verified it, but it is addressed to others, oddly dated or already known, so it was not filed directly.',
+    automatic: 'Waiting: the mail from {name} was sent automatically. File it once you have checked it is from {name}.',
+    automaticOwn: 'Did you send this mail? It was sent automatically, so it was not filed directly.',
     paused: 'Waiting: direct filing is switched off, so it was not filed directly. Anyone who may file in this project can file it.',
     not_filed: 'Waiting: {name} sent it and the domain verified it, but it was not filed directly. Check it, then file or dismiss it.',
     no_write_rights: 'Waiting for you to file it, because the sender may not file in this project.',
@@ -352,6 +352,7 @@ export const inboundMail = {
     acknowledgeImpersonation: 'I checked that the mail is genuine. File it anyway',
     acknowledgeSender: 'Domain not verified. File anyway',
     acknowledgeOwnMail: 'Yes, I sent this mail. File it',
+    acknowledgeClaimedMail: 'I checked this mail is from {name}. File it',
     originalErased: 'The original of the mail is deleted after filing',
     claimed: {
       line: 'Only {name} can file or restore this mail. You can dismiss it.',
@@ -527,7 +528,29 @@ export const inboundMail = {
     ownDomain: {
       share: '{percent} % of your office’s mail in the last {days} days was verified by your domain',
       missing: 'Your domain does not sign its mail – how to set it up',
-      explain: 'Mail your domain signs is labelled “Domain verified” and is filed directly when its sender may file in the project. A mail carrying a member’s address that their domain does not verify can only be filed by that member.',
+      explain: 'Mail your domain signs is labelled “Domain verified” and is filed directly when its sender may file in the project. A mail carrying a member’s address that their domain does not verify waits until that member, or someone who checked it is from them, files it.',
+    },
+    setup: {
+      title: 'How correspondence reaches the project',
+      cc: 'Cc: put {address} in Cc when you write to the authority, the engineer or the client.',
+      forward:
+        'Forward: redirect your existing email address for the project to {address} with an Outlook rule (“redirect”, not “forward”) and enter it below.',
+      copy: 'Copy instructions',
+      copied: 'Instructions copied',
+    },
+    forwards: {
+      title: 'Existing email addresses for the project',
+      explain: 'Forward your existing email address for the project to this address, for example with an Outlook rule.',
+      label: 'Existing email address for the project',
+      placeholder: 'project@your-office.com',
+      add: 'Add',
+      remove: 'Remove {address}',
+      none: 'None entered yet.',
+      invalid: 'Enter an email address, for example project@your-office.com.',
+      projectAddress: 'That is a {productName} address. Enter your office’s address.',
+      tooMany: 'At most {max} addresses.',
+      saved: 'Saved',
+      failed: 'The addresses could not be saved.',
     },
   },
 

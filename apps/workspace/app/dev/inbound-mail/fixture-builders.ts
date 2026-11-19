@@ -7,7 +7,7 @@ import type {
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { DocumentTypeTag } from '@/lib/documents/tag-vocabulary'
 import { partPreselected, withReviewDefaults, type InboundMailPartBase } from '@/lib/inbound-mail/review-defaults'
-import { onlySenderReleases, senderClassOf, senderWaitReason } from '@/lib/inbound-mail/sender-class'
+import { onlySenderReleases, ownClaimedMail, senderClassOf, senderWaitReason } from '@/lib/inbound-mail/sender-class'
 import type { InboundMailSuggestion } from '@/lib/inbound-mail/suggest'
 import { daysAhead, fixtureId, minutesAgo, PROJECT_ID } from './fixture-base'
 
@@ -92,17 +92,20 @@ function judged(
   sender: InboundMailView['sender'],
   automatic: boolean,
   reading: FixtureReading,
-): Pick<InboundMailView, 'senderClass' | 'waitReason' | 'onlySenderReleases'> {
+): Pick<InboundMailView, 'senderClass' | 'waitReason' | 'onlySenderReleases' | 'ownClaimedMail'> {
   const member = sender?.trust.startsWith('member_') ? MEMBER_ID : null
   const directFiling = reading.directFiling ?? true
   const senderClass = sender
     ? senderClassOf({ trust: sender.trust, reason: sender.reason, senderUserId: member, flags: sender.flags, automatic, writes: reading.writes ?? true })
     : 'external'
   const facts = { senderClass, senderTrust: sender?.trust ?? null, senderFlags: sender?.flags ?? [], automatic, directFiling }
+  const claimed = { senderClass, senderUserId: member, senderTrust: sender?.trust ?? null, senderReason: sender?.reason ?? null, senderFlags: sender?.flags ?? [] }
+  const viewer = reading.viewer === 'colleague' ? COLLEAGUE_ID : MEMBER_ID
   return {
     senderClass,
     waitReason: senderWaitReason(facts),
-    onlySenderReleases: onlySenderReleases({ senderClass, senderUserId: member }, reading.viewer === 'colleague' ? COLLEAGUE_ID : MEMBER_ID),
+    onlySenderReleases: onlySenderReleases(claimed, viewer),
+    ownClaimedMail: ownClaimedMail(claimed, viewer),
   }
 }
 
@@ -187,6 +190,7 @@ export function summaryOf(view: InboundMailView, overrides: Partial<InboundMailS
     senderClass: view.senderClass,
     waitReason: view.waitReason,
     onlySenderReleases: view.onlySenderReleases,
+    ownClaimedMail: view.ownClaimedMail,
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
     updatedAt: view.updatedAt,

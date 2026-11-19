@@ -70,6 +70,10 @@ export const INBOUND_MAIL_AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'inbound_mail_address' }, { type: 'project' }],
     metadata: { projectId: 'string' },
   },
+  'inbound_mail_address.forwards_changed': {
+    targets: [{ type: 'inbound_mail_address' }, { type: 'project' }],
+    metadata: { projectId: 'string', forwards: 'number' },
+  },
   'mail_thread.follow_started': {
     targets: [{ type: 'mail_thread' }, { type: 'project' }],
     metadata: { projectId: 'string', followId: 'string', days: 'number', renewed: 'boolean' },

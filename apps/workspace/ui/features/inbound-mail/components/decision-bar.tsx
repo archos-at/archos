@@ -80,7 +80,9 @@ export function DecisionBar({
               <span className="text-foreground inline-flex items-center gap-1.5 font-medium">
                 <ShieldAlert className="text-warning size-3.5 shrink-0" aria-hidden />
                 {/* The member it claims answers for themself, under an impersonation too: „Ja, ich habe sie gesendet“. */}
-                {t(summary.ownClaimedMail ? 'bar.acknowledgeOwnMail' : impersonation ? 'bar.acknowledgeImpersonation' : 'bar.acknowledgeSender')}
+                {summary.claimedWriter
+                  ? t('bar.acknowledgeClaimedMail', { name: summary.claimedWriter })
+                  : t(summary.ownClaimedMail ? 'bar.acknowledgeOwnMail' : impersonation ? 'bar.acknowledgeImpersonation' : 'bar.acknowledgeSender')}
               </span>
             </CheckLine>
           )}

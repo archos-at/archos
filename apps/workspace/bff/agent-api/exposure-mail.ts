@@ -4,6 +4,7 @@ import { ARCHIVE_BYTES, HELD_MAIL, OFFERED, SENSITIVE, externalOnly, withheldAs 
 export const MAIL_EXPOSURE = {
   'inbound-mail-address-create': OFFERED,
   'inbound-mail-address-delete': OFFERED,
+  'inbound-mail-address-forwards-set': OFFERED,
   'inbound-mail-address-get': OFFERED,
   'inbound-mail-address-rotate': OFFERED,
   'inbound-mail-dismiss': OFFERED,

@@ -43,6 +43,7 @@ import { progressOf, rememberAuthentication, reusableAuthentication, scanAttachm
 import {
   findAddressToken,
   findFiledMessages,
+  findForwardedFrom,
   findMailForReceive,
   findPartSummaries,
   findScreenedDuplicates,
@@ -185,7 +186,12 @@ async function readAndHold(
   if (!token) throw new Error(`the address of mail ${mail.id} is gone`)
   const authentication =
     reusableAuthentication(evidence.progress) ??
-    (await authenticateSender(raw, { projectToken: token, inboundDomain: domain, envelopeFrom: mail.envelopeFrom }))
+    (await authenticateSender(raw, {
+      projectToken: token,
+      forwardedFrom: await findForwardedFrom(mail.addressId),
+      inboundDomain: domain,
+      envelopeFrom: mail.envelopeFrom,
+    }))
   rememberAuthentication(evidence.progress, authentication)
   if (isTransientReason(authentication.reason) && !dkimSpent) {
     throw new DependencyFaultError('dkim_dns', new Error(`sender authentication was inconclusive (${authentication.reason})`))

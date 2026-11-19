@@ -136,6 +136,61 @@ describe('InboundMailAddressCard', () => {
   })
 })
 
+describe('InboundMailAddressCard: getting mail in, in the two ways offices work', () => {
+  const ADDRESS = 'project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org'
+
+  it('gives copyable instructions for Cc and for redirecting an existing project address, with the address filled in', async () => {
+    const writeText = vi.fn(() => Promise.resolve())
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
+    expect(await screen.findByTestId('address-setup-cc')).toHaveTextContent(`Cc: put ${ADDRESS} in Cc when you write`)
+    expect(screen.getByTestId('address-setup-forward')).toHaveTextContent(`redirect your existing email address for the project to ${ADDRESS}`)
+    await userEvent.click(screen.getByTestId('address-setup-forward-copy'))
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringContaining(`to ${ADDRESS} with an Outlook rule`)))
+    expect(screen.getByTestId('address-setup-forward-copy')).toHaveTextContent('Instructions copied')
+  })
+
+  it('lets a manager register an existing project address, explains the forwarding, and saves it lowercase', async () => {
+    const client = fixtureAddressClient(ADDRESS_VARIANTS.manager)
+    const save = vi.spyOn(client, 'setForwardedFrom')
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={client} />)
+    expect(await screen.findByTestId('address-forwards')).toHaveTextContent(
+      'Forward your existing email address for the project to this address, for example with an Outlook rule.',
+    )
+    expect(screen.getByTestId('address-forwards-none')).toBeInTheDocument()
+    await userEvent.type(screen.getByTestId('address-forward-input'), 'Projekt-Bauplatz-12@Buero-Muster.at{Enter}')
+    await waitFor(() => expect(save).toHaveBeenCalledWith(PROJECT_ID, ['projekt-bauplatz-12@buero-muster.at']))
+    expect(await screen.findByTestId('address-forward')).toHaveTextContent('projekt-bauplatz-12@buero-muster.at')
+    expect(screen.getByTestId('address-forward-input')).toHaveValue('')
+    expect(toast.success).toHaveBeenCalledWith('Saved')
+  })
+
+  it('says why it refuses what is not an address, or the project address itself, before saving anything', async () => {
+    const client = fixtureAddressClient(ADDRESS_VARIANTS.manager)
+    const save = vi.spyOn(client, 'setForwardedFrom')
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={client} />)
+    await userEvent.type(await screen.findByTestId('address-forward-input'), 'kienberg{Enter}')
+    expect(screen.getByTestId('address-forward-problem')).toHaveTextContent('Enter an email address')
+    await userEvent.clear(screen.getByTestId('address-forward-input'))
+    await userEvent.type(screen.getByTestId('address-forward-input'), `${ADDRESS}{Enter}`)
+    expect(screen.getByTestId('address-forward-problem')).toHaveTextContent('Enter your office’s address')
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('removes one, and shows a member the list without a way to change it', async () => {
+    const client = fixtureAddressClient(ADDRESS_VARIANTS.forwards)
+    const save = vi.spyOn(client, 'setForwardedFrom')
+    const { unmount } = render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={client} />)
+    await userEvent.click((await screen.findAllByTestId('address-forward-remove'))[0])
+    await waitFor(() => expect(save).toHaveBeenCalledWith(PROJECT_ID, ['bauplatz12@feld72.at']))
+    unmount()
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS['forwards-member'])} />)
+    expect(await screen.findByTestId('address-forward')).toHaveTextContent('projekt-bauplatz-12@buero-muster.at')
+    expect(screen.queryByTestId('address-forward-input')).toBeNull()
+    expect(screen.queryByTestId('address-forward-remove')).toBeNull()
+  })
+})
+
 describe('the size a mail may have', () => {
   it('states the limit beside the address, from the server’s constant, with the upload for anything larger', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)

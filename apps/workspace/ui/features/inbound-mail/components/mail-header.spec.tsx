@@ -126,39 +126,46 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
   })
 
   it('says a signed writer’s mail held as re-sent or misdated, or as sent automatically, waits for that, not for a bad signature', () => {
-    const { unmount } = render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'replay', onlySenderReleases: false }} />)
+    const { unmount } = render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'replay', ownClaimedMail: true }} />)
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'replayOwn')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('addressed to others, oddly dated or already known')
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('signature does not match')
     unmount()
-    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'automatic', onlySenderReleases: true }} />)
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'automatic', ownClaimedMail: false }} />)
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'automatic')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('sent automatically')
   })
 
   it('says a verified writer’s mail waits because direct filing is off, for any writer: never asked of its member alone', () => {
-    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'paused', onlySenderReleases: false }} />)
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'paused', ownClaimedMail: false }} />)
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'paused')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Anyone who may file in this project can file it')
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('Did you send this mail?')
   })
 
-  it('tells another writer whom it waits for, once, and offers them only „Dismiss …“ (B2)', () => {
+  it('lets another writer file a writer’s unsigned mail once they say they checked it is from them (amendment of 2026-11-19)', () => {
     renderDetail('claimed-by-colleague')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for Miriam Huber: the domain did not verify this mail.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent(
+      'Waiting: the domain did not verify this mail from Miriam Huber. File it once you have checked it is from Miriam Huber.',
+    )
     expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent('has left the office')
-    expect(screen.getByTestId('claimed-mail-bar')).toHaveTextContent('Only Miriam Huber can file or restore this mail. You can dismiss it.')
-    expect(screen.queryByTestId('decision-bar')).toBeNull()
+    expect(screen.queryByTestId('claimed-mail-bar')).toBeNull()
+    expect(screen.getByTestId('decision-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('acknowledge-sender').closest('div')).toHaveTextContent('I checked this mail is from Miriam Huber. File it')
+    expect(screen.getByTestId('acknowledge-sender').closest('div')).not.toHaveTextContent('I sent this mail')
+  })
+
+  it('still offers another writer only „Dismiss …“ for an impersonation of a writer (B2)', () => {
+    renderDetail('impersonation-colleague')
+    expect(screen.getByTestId('claimed-mail-bar')).toBeInTheDocument()
     expect(screen.queryByTestId('decision-file')).toBeNull()
     expect(screen.queryByTestId('acknowledge-sender')).toBeNull()
     expect(screen.queryByTestId('attachment-checkbox')).toBeNull()
-    expect(screen.queryByTestId('attachment-change')).toBeNull()
-    expect(screen.getByTestId('decision-dismiss')).toHaveTextContent('Dismiss …')
   })
 
   it('says a sender the directory could not check could not be checked, never an outsider’s 14 days (R14)', () => {
-    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'sender_unchecked', onlySenderReleases: false }} />)
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'sender_unchecked', ownClaimedMail: false }} />)
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'sender_unchecked')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('could not be checked. Check the address and the domain above before you file.')
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('outside the office')

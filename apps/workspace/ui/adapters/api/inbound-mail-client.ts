@@ -58,6 +58,14 @@ export function rotateInboundMailAddress(projectId: string): Promise<InboundMail
   return request(`${projectBase(projectId)}/inbound-mail-address/rotate`, 'Failed to replace the project mail address', { method: 'POST' })
 }
 
+export function setInboundMailForwardedFrom(projectId: string, forwardedFrom: readonly string[]): Promise<InboundMailAddressView> {
+  return request(`${projectBase(projectId)}/inbound-mail-address`, 'Failed to save the forwarding addresses', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ forwardedFrom }),
+  })
+}
+
 export function deleteInboundMailAddress(projectId: string): Promise<InboundMailAddressView> {
   return request(`${projectBase(projectId)}/inbound-mail-address`, 'Failed to switch off the project mail address', { method: 'DELETE' })
 }

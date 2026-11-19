@@ -44,11 +44,13 @@ export {
   type EndedFollow,
   endProjectFollows,
   findActiveAddress,
+  findForwardedFrom,
   insertAddress,
   type NewAddress,
   ownDomainVerifiedShare,
   type ProjectFollowEnd,
   replaceAddress,
+  setForwardedFrom,
   switchOffAddress,
 } from './address-repository'
 

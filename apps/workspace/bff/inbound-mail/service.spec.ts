@@ -429,3 +429,52 @@ describe('a restore', () => {
     expect(announceWaiting).not.toHaveBeenCalled()
   })
 })
+
+describe('a mail that claims a writer, through the service (ADR-0137, amendment of 2026-11-19)', () => {
+  const WRITER = 'user_01JCX0R4D8M2W6YB3N5Q7T9V1W'
+  const claimed = (senderReason: 'dkim_none' | 'dkim_fail') =>
+    heldMail({ senderClass: 'unverified_writer', senderTrust: 'member_unverified', senderReason, senderUserId: WRITER })
+
+  it('shows a colleague what they may do: an unsigned one is theirs to check, an impersonation the writer’s alone', async () => {
+    store.mail = claimed('dkim_none')
+    expect(await getInboundMail(session, PROJECT_ID, MAIL_ID)).toMatchObject({ onlySenderReleases: false, ownClaimedMail: false, needsSenderAcknowledgement: true })
+    store.mail = claimed('dkim_fail')
+    expect(await getInboundMail(session, PROJECT_ID, MAIL_ID)).toMatchObject({ onlySenderReleases: true, ownClaimedMail: false })
+    expect(await getInboundMail({ ...session, userId: WRITER } as AuthorizedSession, PROJECT_ID, MAIL_ID)).toMatchObject({
+      onlySenderReleases: false,
+      ownClaimedMail: true,
+    })
+  })
+
+  it('files an unsigned one for a colleague who acknowledges it, and refuses an impersonation with `sender_only`', async () => {
+    const decide = async (senderReason: 'dkim_none' | 'dkim_fail') => {
+      store.mail = claimed(senderReason)
+      const mail = store.mail as ReturnType<typeof heldMail>
+      return fileInboundMails(session, PROJECT_ID, {
+        mails: [
+          {
+            mailId: MAIL_ID,
+            ifMatch: mailIfMatch(mail, store.parts as never),
+            parts: [{ partId: FILE_PART_ID, folderId: FOLDER_ID, newFolderPath: null, name: 'S-101_C.pdf' }],
+            message: null,
+            acknowledgeSender: true,
+          },
+        ],
+      })
+    }
+    await decide('dkim_none')
+    expect(store.write).toHaveBeenCalledOnce()
+    expect(store.write.mock.calls[0][0][0].files[0]).toMatchObject({ decidedBy: PERSON, acknowledgedSender: true })
+    await expect(decide('dkim_fail')).rejects.toMatchObject({ details: { reason: 'sender_only' } })
+    expect(store.write).toHaveBeenCalledOnce()
+  })
+
+  it('restores an unsigned one for a colleague, and refuses to restore an impersonation with `sender_only`', async () => {
+    store.mail = claimed('dkim_fail')
+    await expect(restoreInboundMail(session, PROJECT_ID, MAIL_ID)).rejects.toMatchObject({ details: { reason: 'sender_only' } })
+    expect(restoreMailParts).not.toHaveBeenCalled()
+    store.mail = claimed('dkim_none')
+    await expect(restoreInboundMail(session, PROJECT_ID, MAIL_ID)).rejects.toMatchObject({ details: { reason: 'not_restorable' } })
+    expect(restoreMailParts).toHaveBeenCalledOnce()
+  })
+})

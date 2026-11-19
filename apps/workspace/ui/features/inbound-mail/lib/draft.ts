@@ -8,6 +8,7 @@ import type {
 import { CORRESPONDENCE_FOLDER, defaultThread, messageSelectable as partMessageSelectable } from '@/lib/inbound-mail/review-defaults'
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { attachmentCase, type AttachmentCase } from './attachment-case'
+import { senderDisplayName } from './sender'
 import { readSuggestion, type PartSuggestion } from './suggestion'
 
 export interface FolderOption {
@@ -200,6 +201,7 @@ export interface DraftSummary {
   originalErased: boolean
   needsSenderAcknowledgement: boolean
   ownClaimedMail: boolean
+  claimedWriter: string | null
   blockers: DraftBlocker[]
 }
 
@@ -231,7 +233,9 @@ export function draftSummary(view: InboundMailView, draft: MailDraft): DraftSumm
     thread: candidate ? { name: candidate.name, nextVersion: candidate.nextVersion } : null,
     originalErased: !text,
     needsSenderAcknowledgement: needsSender,
-    ownClaimedMail: view.senderClass === 'unverified_writer' && !view.onlySenderReleases,
+    ownClaimedMail: view.ownClaimedMail,
+    claimedWriter:
+      view.senderClass === 'unverified_writer' && !view.ownClaimedMail && !view.onlySenderReleases && view.sender ? senderDisplayName(view.sender) : null,
     blockers,
   }
 }

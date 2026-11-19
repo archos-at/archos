@@ -4513,6 +4513,102 @@ check_in bf_jobs "SELECT string_agg(filename || '>' || coalesce(superseded_by, '
 check_in bf_jobs "SELECT filename || '>' || superseded_by FROM document_revision_retained" "generated/d1/a.md>generated/d2/b.md" "backfill: a retained revision row moves with it"
 echo "==> migration 0246 and the step-3 renames verified"
 
+# Migration 0250 (ADR-0137, amendment of 2026-11-19): a relaxed-aligned
+# writer's mail files directly, a colleague releases a mail that claims a writer
+# once they acknowledge it (an impersonation stays the member's), and an address
+# keeps the office's existing project addresses that forward to it.
+echo "==> verifying the 0250 release rule, the forwarding addresses and the down migration on rel_0250"
+migrate_before rel_0250 0250_inbound_mail_release_and_forwards
+W250="user_01J0MA1LUSERW00000000000W2"
+X250="user_01J0MA1LUSERX00000000000X2"
+P250="a0000000-0000-4000-8000-000000000250"
+A250="aa000000-0000-4000-8000-000000000250"
+sql_in rel_0250 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES ('$P250', 'org_0250', 'Release', '$W250', 'proj_0250');
+INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES ('$A250', 'org_0250', '$P250', 'aaaaaaaaaa25', 'release', '$W250');
+SQL
+V250=$'\\set VERBOSITY verbose\n'
+received250() {
+  sql_in rel_0250 <<<"INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_storage_key, raw_scan_status, raw_scanned_at, expires_at) VALUES ('$1', 'org_0250', '$P250', '$A250', 'received', md5('$1') || md5('$1'), 100, 'b', 'org/org_0250/project/$P250/_inbound-mail/$1/raw.eml', 'clean', now(), now() + interval '30 days');"
+}
+HOLD250="UPDATE inbound_mails SET status = 'waiting', sender_address = 'w@buero.at', (sender_trust, sender_reason, sender_user_id, sender_flags, automatic, sender_class) = "
+# A mail that claims W, held with <reason>, and its text part.
+claimed250() {  # <mail id> <trust> <reason>
+  sql_in rel_0250 <<SQL
+INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_reason, sender_user_id, sender_class, expires_at)
+VALUES ('$1', 'org_0250', '$P250', '$A250', 'waiting', md5('$1') || md5('$1'), 100, 'b', 'clean', now(), 'w@buero.at', '$2', '$3', '$W250', 'unverified_writer', now() + interval '30 days');
+INSERT INTO inbound_mail_parts (id, organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, storage_key, scan_status, scanned_at, risk_flags)
+VALUES (md5('part' || '$1')::uuid, 'org_0250', '$P250', '$1', 0, 'message', NULL, 'text/plain', 10, repeat('a', 64), NULL, 'not_applicable', NULL, '{}'::text[]);
+SQL
+}
+text250() {  # <mail id> <decider> <via> <acknowledged_sender>
+  echo "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name, thread_action, message_text, screening_release, acknowledged_sender, acknowledged_risk) VALUES ('org_0250', '$P250', '$1', md5('part' || '$1')::uuid, 'file', '$2', '$3', '', 'Verlauf', 'create', 'full', false, $4, false)"
+}
+act250() {  # <mail id> <action> <decider>
+  echo "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via) VALUES ('org_0250', '$P250', '$1', md5('part' || '$1')::uuid, '$2', '$3', 'app')"
+}
+CLAIMED250="inbound_mail_decisions_claimed_sender_releases"
+EVIDENCE250="inbound_mails_verified_writer_evidence"
+MRL="31000000-0000-4000-8000-000000000250"   # received, signed by a subdomain of the From domain
+MU1="32000000-0000-4000-8000-000000000250"   # claims W, unsigned
+MU2="33000000-0000-4000-8000-000000000250"   # claims W, unsigned: dismissed and restored by X
+MU3="34000000-0000-4000-8000-000000000250"   # claims W, unsigned: for the down
+received250 "$MRL"
+claimed250 "$MU1" member_unverified dkim_none
+claimed250 "$MU2" member_unverified dkim_none
+claimed250 "$MU3" member_unverified dkim_none
+refused_in rel_0250 "${V250}$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment}', false, 'verified_writer') WHERE id = '$MRL'" "$EVIDENCE250" "before 0250: a relaxed-aligned writer's mail as a verified writer's"
+refused_in rel_0250 "${V250}$(text250 "$MU1" "$X250" app true)" "$CLAIMED250" "before 0250: a colleague releasing a writer's unsigned mail"
+
+apply_in rel_0250 0250_inbound_mail_release_and_forwards.sql
+AFTER_0250=$($PSQL -d rel_0250 -tAc "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'")
+apply_in rel_0250 0250_inbound_mail_release_and_forwards.sql
+check_in rel_0250 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0250" "0250 re-applied changes nothing"
+
+# Relaxed alignment files directly; every other rule of the evidence stands.
+refused_in rel_0250 "${V250}$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment,stale_date}', false, 'verified_writer') WHERE id = '$MRL'" "$EVIDENCE250" "0250: a relaxed-aligned writer's mail with a stale date as a verified writer's"
+refused_in rel_0250 "${V250}$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment,not_addressed_to_project,bcc_own}', false, 'verified_writer') WHERE id = '$MRL'" "$EVIDENCE250" "0250: a relaxed-aligned Bcc copy as a verified writer's"
+refused_in rel_0250 "${V250}$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment}', true, 'verified_writer') WHERE id = '$MRL'" "$EVIDENCE250" "0250: a relaxed-aligned automatic mail as a verified writer's"
+sql_in rel_0250 <<<"$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment}', false, 'verified_writer') WHERE id = '$MRL';"
+check_in rel_0250 "SELECT sender_class FROM inbound_mails WHERE id = '$MRL'" "verified_writer" "0250: a writer's mail signed by a subdomain of their domain is a verified writer's"
+
+# A colleague releases a writer's unsigned mail once they acknowledge it; never without.
+refused_in rel_0250 "${V250}$(text250 "$MU1" "$X250" app false)" "$CLAIMED250" "0250: a colleague filing a writer's unsigned mail without acknowledging it"
+refused_in rel_0250 "${V250}$(text250 "$MU1" "$X250" follow false)" "$CLAIMED250" "0250: a follower appending a writer's unsigned mail"
+sql_in rel_0250 <<<"$(text250 "$MU1" "$X250" app true);"
+sql_in rel_0250 <<<"$(act250 "$MU2" dismiss "$X250"); UPDATE inbound_mail_parts SET state = 'dismissed', ended_at = now() WHERE mail_id = '$MU2';"
+sql_in rel_0250 <<<"$(act250 "$MU2" restore "$X250");"
+check_in rel_0250 "SELECT string_agg(action || ':' || acknowledged_sender, ',' ORDER BY action) FROM inbound_mail_decisions WHERE decided_by = '$X250'" \
+  "dismiss:false,file:true,restore:false" "0250: a colleague files a writer's unsigned mail acknowledging it, and dismisses and restores one"
+
+# An impersonation stays the member's: a colleague is refused even acknowledging it, the member is not.
+i=0
+for reason in dkim_fail dkim_policy dkim_weak_algorithm dkim_short_key; do
+  i=$((i + 1))
+  MI="4${i}000000-0000-4000-8000-000000000250"
+  claimed250 "$MI" member_unverified "$reason"
+  refused_in rel_0250 "${V250}$(text250 "$MI" "$X250" app true)" "$CLAIMED250" "0250: a colleague releasing a writer's mail their domain rejected ($reason)"
+  refused_in rel_0250 "${V250}$(act250 "$MI" restore "$X250")" "$CLAIMED250" "0250: a colleague restoring a writer's mail their domain rejected ($reason)"
+done
+sql_in rel_0250 <<<"$(text250 "41000000-0000-4000-8000-000000000250" "$W250" app true);"
+
+# The office's existing project addresses: at most ten, lowercase, none empty.
+check_in rel_0250 "SELECT forwarded_from::text FROM inbound_mail_addresses WHERE id = '$A250'" "{}" "0250: an existing address forwards from nothing"
+sql_in rel_0250 <<<"UPDATE inbound_mail_addresses SET forwarded_from = '{projekt-kienberg@buero.at}' WHERE id = '$A250';"
+refused_in rel_0250 "UPDATE inbound_mail_addresses SET forwarded_from = '{Projekt@Buero.at}' WHERE id = '$A250'" "inbound_mail_addresses_forwarded_from_shape" "0250: a forwarding address not lowercased"
+refused_in rel_0250 "UPDATE inbound_mail_addresses SET forwarded_from = '{\"\"}' WHERE id = '$A250'" "inbound_mail_addresses_forwarded_from_shape" "0250: an empty forwarding address"
+refused_in rel_0250 "UPDATE inbound_mail_addresses SET forwarded_from = ARRAY(SELECT 'p' || n || '@buero.at' FROM generate_series(1, 11) AS n) WHERE id = '$A250'" "inbound_mail_addresses_forwarded_from_shape" "0250: eleven forwarding addresses"
+
+# Down: the list goes, the 0197 rules come back for new rows, what was decided stays.
+apply_in rel_0250 0250_inbound_mail_release_and_forwards.down.sql
+check_in rel_0250 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'inbound_mail_addresses' AND column_name = 'forwarded_from'" "0" "0250 down drops the forwarding addresses"
+check_in rel_0250 "SELECT count(*) FROM inbound_mail_decisions WHERE decided_by = '$X250'" "3" "0250 down keeps the colleague's decisions"
+check_in rel_0250 "SELECT sender_class FROM inbound_mails WHERE id = '$MRL'" "verified_writer" "0250 down keeps a relaxed-aligned verified writer's class"
+refused_in rel_0250 "${V250}$(text250 "$MU3" "$X250" app true)" "$CLAIMED250" "0250 down: a colleague releasing a writer's unsigned mail is refused again"
+apply_in rel_0250 0250_inbound_mail_release_and_forwards.sql
+check_in rel_0250 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0250" "0250 applies again after its down"
+echo "==> migration 0250 verified"
+
 # ---------------------------------------------------------------------------
 # Every registered SQL backfill (apps/workspace/backfills/), run twice through
 # the deploy Job's runner against the full schema with every suite's rows in

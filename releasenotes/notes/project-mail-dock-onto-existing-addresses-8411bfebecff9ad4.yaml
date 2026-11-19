@@ -1,0 +1,15 @@
+---
+features:
+  - >
+    Your office's existing email address for a project can now feed its
+    E-Mail-Eingang: redirect it with an Outlook rule and enter it under
+    Einstellungen › Dokumente, where the card shows both setups, Cc and
+    redirect, in a line each to copy. Mail to it then counts as sent to the
+    project, so your own signed mail is filed directly.
+  - >
+    Mail signed by a subdomain of your office's domain, or by its main domain,
+    is now filed directly like mail your own domain signed.
+  - >
+    Anyone who may file in a project can now file a colleague's mail their
+    domain did not confirm, after checking it is from them. A mail posing as a
+    colleague, which their domain rejected, still only that colleague can file.
