@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-27
 decision-makers: product owner, Grid engineering
 consulted: the security, shippability and product red teams of the project-mail design
@@ -497,8 +497,9 @@ placement review and no document check.
   filing action yet.
 * Bad, because a project's mail is kept: originals of filed mail live as long as
   their Verlauf, which is a retention decision about third parties' data. The
-  Datenschutzberater's sign-off (owner question Q1) is open, and the
-  `inbound-mail` entitlement stays off for every office until it is given.
+  owner gave the data-protection go-ahead (owner question Q1) for every office
+  on 2026-11-14, and the `inbound-mail` entitlement is on for all
+  organizations in production since that day.
 * Bad, because files the office does not accept (DWG, ZIP) cannot be filed;
   they survive only inside the original. Fetching cloud links is a follow-up.
 * Bad, because one held document of a project pauses that project's mail

@@ -159,8 +159,13 @@ then:
     DKIM-Signature's `b=` value and the body, so a relay's prepended lines do
     not make a redelivery new, and a copy whose signature a relay stripped or
     broke never shadows the signed one); a mail the address already holds
-    answers 200 and its second copy is erased. A header block that cannot be
-    read gets a key of its own delivery, so it is never a duplicate;
+    answers 200 and its second copy is erased. A header block too large to
+    read (over 2 MiB) gets a key of its own delivery, so it is never a
+    duplicate. A line in it that is no field is skipped with its continuations,
+    never the whole block (`readHeaderBlock`, `mime-header-block.ts`): one
+    broken line used to switch off this check, the automatic-mail check and the
+    loop guard. Only the sender's authentication still reads such a block as
+    `header_malformed`;
 12. `received` and the receive job (`inbound_mail_receive`, job id = mail id) in
     one transaction;
 13. 202.
@@ -193,7 +198,19 @@ as `unavailable` and neither side recorded why.
    (`message.rawScan` in the dictionaries: still being checked, check failed
    and repeated, or malware);
 3. drop auto-replies, delivery reports and loops (`dropped`, raw erased); mark
-   list and bulk mail `automatic`. Then **the original of a forward**
+   list and bulk mail `automatic`. A drop is audited and sent to PostHog
+   first, marked `dropped` with its raw key kept as a deferred erasure, and
+   only then is the key taken and the object erased (`receive-drop.ts`, the
+   same take as sweep 10): a run that dies in between leaves a dropped mail
+   for sweep 10, never a `received` one with nothing left to read, which the
+   last attempt used to hold as an empty unreadable mail. A legal hold, or a
+   store that kept the object, leaves it to sweep 10 too. A loop is a From whose every mailbox is on
+   our domain, read as addresses (postal-mime's `addressParser`), never as text,
+   or an envelope sender on it. An auto-reply that carries an attachment the
+   job would stage is held, `automatic`, instead of dropped: `Auto-Submitted`,
+   `X-Autoreply` and `Precedence` are the sender's to set, and what they would
+   erase unseen may be the plans. The MIME tree is read once, before this
+   check, for that count. Then **the original of a forward**
    (`receive-original.ts`, migration 0198): `original-message.ts` reads an
    attached original (`message/rfc822`, an `.eml`) or an inline forward's
    header block, and its author, date, subject, Message-ID and source go on
@@ -216,7 +233,14 @@ as `unavailable` and neither side recorded why.
    aligned pass, logged by the mail's id;
 5. read the MIME tree (`mime.ts`, postal-mime 4 and `file-type`) against the
    office's accepted types; find the member by exact address, or an outsider's
-   display name that is a member's (`claims_member_name`);
+   display name that is a member's (`claims_member_name`). What the text
+   shows rather than sends is listed as not staged (`embedded`,
+   `mime-part-kinds.ts`): a nameless part of a `multipart/related`, an image
+   a mail client named for itself (`image001.png`, `Outlook-…`), a tracking
+   pixel under 2 KiB, and an image of at most 32 KiB with a Content-ID shown
+   inline, a signature logo (`Logo_Firma.png`, 12 KB, came with every mail of
+   one sender). A larger inline image with a Content-ID is a photo Apple Mail
+   or iOS placed in the text, and is staged;
 6. the **Namensprüfung** on each attachment's name and the base subject: a
    match is the part's flag `name_stop`, never a drop;
 7. **scan each attachment**, at most four at once (`ATTACHMENT_SCANS_IN_FLIGHT`):
@@ -225,7 +249,12 @@ as `unavailable` and neither side recorded why.
    without any outage;
 8. **the Python reader**, `POST /v1/mail/read` (no model): own text, quoted
    blocks, calendar invitations; then the content check on the own text after
-   the signature was removed (`content_findings`). The text is what a reader
+   the signature was removed (`content_findings`). A forward as attachment
+   (the first `message/rfc822` part) is read too: its text, read the same way,
+   is the first quoted block, with its `From`, `Date` and `Subject` as the
+   block's header, so the forwarded mail is in the held mail and the Verlauf
+   and not only its attachments (`_forwarded` in `read.py`). A forward the
+   reader cannot read leaves the mail's own text readable. The text is what a reader
    sees, nothing more (`agent_host/mail/body_text.py`, shared with the Outlook
    import): from HTML it drops `script`, `style`, `head`, `title`, `template`,
    comments, elements hidden by inline CSS (`display:none`,
@@ -304,7 +333,12 @@ the mail is held with what was not learned, said, never guessed:
   same on every try;
 - the reader: the text is held `unreadable` with `reader_fault_at`, and sweep 15
   (`receive-reread.ts`) reads it again every 15 minutes while the mail waits,
-  then queues a verified writer's sender filing again, by name.
+  then queues a verified writer's sender filing again, by name. A reader that
+  answers, but whose reading process ran out of time or crashed (200 with
+  `unreadable_reasons` `timeout` or `failed`, `read.py`), is held the same way
+  at once (`READER_FAULT_REASONS`, `receive-faults.ts`): its answer says
+  nothing about the mail. Sweep 15 records whatever the next read answers, so
+  such a text is read once more, not every 15 minutes.
 
 Any other failure is a bug and retries through the queue: an object store that
 answers 4xx, or a request Node refuses to send, fails the same on every try, so
@@ -315,6 +349,9 @@ only when it is a well-formed RFC 6838 media type, else `application/octet-strea
 `ERR_INVALID_CHAR` on the store's header. On the last attempt
 the mail is held anyway, flagged `unreadable`, with a text part whose original
 can be downloaded once its scan is clean: mail is never lost to a parser bug.
+That attempt logs the error's class by the mail's id and sends PostHog
+`inbound_mail_receive_failed` (`error`, `held`): before, a bug that held a mail
+unreadable left no trace but the mail.
 Its sender keeps the verdict the run reached before it failed; a sender it never
 judged is `external_unverified` with `sender_unchecked`, 30 days, never an
 outsider's 14.
@@ -622,14 +659,14 @@ In the order they run:
 
 | # | Name | What | Window | Legal hold |
 |---|---|---|---|---|
-| 1 | `staleReceptions` | `receiving` untouched: object erased by key, row deleted | 15 min | project hold: skipped |
+| 1 | `staleReceptions` | `receiving` untouched: its raw key taken first, under the find's whole condition with the hold (`takeStaleReceptionKey`), then the object erased by key and the row deleted; a key the store kept goes back and the row stays | 15 min | project hold: skipped |
 | 2 | `orphanedReceptions` | `received` with no job row: queued again (its run started at once). One whose job is dead is not listed: the row went `dead` after `BFF_JOBS_MAX_ATTEMPTS` failed attempts, or when its worker was lost on the last one (`bff/jobs-queue/task-run.ts`), the pod logged it once (`[bff-jobs] … now dead`), and the mail is queued again once `purgeDeadJobs` deletes the row after `BFF_JOBS_DEAD_RETENTION_DAYS` (14). A job that fails on its last attempt does not normally die with the mail `received`: `runInboundMailReceive` first holds it unreadable (`holdAfterFailure`, also when its raw message cannot be read), so the mail is `waiting`, visible to a person, and ends by its window; only a failure to hold it at all (the database down) leaves it `received`, and then the re-queue after the purge is the retry. A Hatchet run that ends without touching the row (out of its retries, its worker gone) leaves it `queued` or held, and the dispatch sweep starts a run for it (`dispatchStrandedJobs`), so that mail has a job and is no orphan. Throughout, the mail keeps its staged message. Listing dead ones first let fifty fill every batch and logged an error for each every run (R11 of the second review) | 5 min | — |
 | 5 | `lapsedClaims` | `filing` past its claim: waits again (`unavailable`), the decider told | the claim (5 min) | — |
-| 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: raw erased | 15 min | the move erases nothing unproven; the entry-gone branch skips a held project |
+| 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: the raw key and the pending move taken first, still with no entry and no hold (`takeStalledMoveRaw`), then the raw erased; a key the store kept goes back with its pending move | 15 min | the move erases nothing unproven; the entry-gone branch skips a project or custodian hold |
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
 | 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`); a Verlauf row of a part whose end is now final decided | 30 days; an outsider's 14 | — (no erasure) |
 | 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail; a restore, which moves the mail's end at least seven days out, clears it, so a restored mail is told again before it runs out | day 25; an outsider's day 9 | — |
-| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed, and the Verlauf rows of its ended attachments decided | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
+| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed, its keys taken by the settle under the hold, and only then its staged objects erased; what the store kept goes back deferred, for sweep 10; the Verlauf rows of its ended attachments decided | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
 | 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0199), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it (a run past its execution timeout runs on, and Hatchet delivers at least once) never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
@@ -805,8 +842,9 @@ numbers from those constants, with a link to Dateien for anything larger.
 
 ## Observability
 
-- PostHog: `inbound_mail_received`, `_refused`, `_dropped`, `_decided`,
-  `_suggested`, `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
+- PostHog: `inbound_mail_received`, `_refused`, `_dropped`,
+  `_receive_failed`, `_expired`, `_decided`, `_suggested`, `_address_created`,
+  `_address_rotated`, `mail_thread_followed`, `mail_thread_original_downloaded`
   ([`posthog-events.md`](../observability/posthog-events.md)). Ids, codes and
   counts only.
 - Langfuse: the suggestion's `filing-fit` generation (`surface: inbound_mail`)
@@ -821,8 +859,18 @@ numbers from those constants, with a link to Dateien for anything larger.
   `.part_read`, `.original_read`, `.decided`; `inbound_mail_address.created`,
   `.rotated`, `.deleted`; `mail_thread.follow_started`, `.follow_ended`,
   `.entry_detached`, `.original_read`.
-- Operator alerts: `bad-signature`, `body-truncated`, `unavailable`,
-  `cap_reached`, and no `received` for 24 h (`kubernetes.md` §3c).
+- Operator alerts: the `[Projekt-E-Mail]` rules of the Product incidents
+  alert (`deploy/posthog/alerts/product-incidents.sql`, every stack, hourly):
+  three or more refusals of ours on one host in an hour (any reason but an
+  unknown address, a switched-off office or an oversized mail, `unavailable`
+  included); a host that has only refused for six hours; a single refusal for
+  `misconfigured`, `body_truncated`, `body_overlong`, `bad_digest` or
+  `cap_reached`; and a host that took mail on three of the last seven days and
+  none for 24 h. A bad signature has no rule: it is refused before the handler
+  and sends no PostHog event. An address near its byte cap is told to the
+  project's managers in the app (sweep 14), not to the operator. The last two
+  rules are in the file; the live insight runs them only once they are pasted
+  into it ([`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts)).
 
 ## Where it lives
 

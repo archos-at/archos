@@ -93,6 +93,7 @@ export async function createInboundMailAddress(session: AuthorizedSession, proje
     const written = await insertAddress(await newAddress(session, projectId))
     if (written.ok) {
       auditAddress(session, 'inbound_mail_address.created', written.value.id, projectId)
+      captureServer({ event: 'inbound_mail_address_created', distinctId: session.userId, organizationId: session.organizationId, properties: {} })
       publishProjectChanged(session.organizationId, projectId)
       return addressView(session, projectId)
     }

@@ -90,6 +90,7 @@ const sentBody = () => JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.stubEnv('FILING_SUGGESTIONS', 'on')
   state.mail = heldMail(REVIEWED)
   state.parts = [textPart(), filePart()]
   state.stored = new Map()
@@ -157,7 +158,7 @@ describe('who is asked about', () => {
   it('asks nothing when switched off for the deployment, or in a closed project', async () => {
     vi.stubEnv('FILING_SUGGESTIONS', 'off')
     expect(await suggestForMail(ORG, PAYLOAD)).toEqual({ status: 'skipped', reason: 'switched_off' })
-    vi.unstubAllEnvs()
+    vi.stubEnv('FILING_SUGGESTIONS', 'on')
     vi.mocked(findProjectInOrg).mockResolvedValueOnce({ id: PROJECT_ID, status: 'closed' } as never)
     expect(await suggestForMail(ORG, PAYLOAD)).toMatchObject({ status: 'skipped', reason: 'project_closed' })
     expect(fetchMock).not.toHaveBeenCalled()

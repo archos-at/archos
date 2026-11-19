@@ -24,9 +24,6 @@ const repository = vi.hoisted(() => {
     findExpiringMails: empty(),
     findEndedPartBytes: empty(),
     findMailsToSettle: empty(),
-    expireMail: vi.fn(async () => 1),
-    findMailRow: vi.fn(),
-    settleEndedMail: vi.fn(async () => true),
     findFailedScans: empty(),
     recordPartRescan: vi.fn(async () => true),
     recordRawRescan: vi.fn(async () => true),
@@ -39,6 +36,15 @@ const repository = vi.hoisted(() => {
     findExpiringFollows: empty(),
     findOrphanedThreads: empty(),
     findAddressCapStates: empty(),
+    expireMail: vi.fn(async () => 2),
+    takeStaleReceptionKey: vi.fn(async () => true),
+    returnStaleReceptionKey: vi.fn(async () => undefined),
+    deleteStaleReception: vi.fn(async () => true),
+    findMailRow: vi.fn(),
+    settleEndedMail: vi.fn(async () => true),
+    returnReleasedErasure: vi.fn(async () => undefined),
+    takeStalledMoveRaw: vi.fn(async () => true),
+    returnStalledMoveRaw: vi.fn(async () => undefined),
   }
 })
 vi.mock('./sweep-repository', () => repository)
@@ -70,11 +76,26 @@ vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() })
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn(), SYSTEM_ACTORS: { inboundMail: 'system:inbound_mail' } }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 
+import { captureServer } from '@/lib/analytics/posthog-server'
+import { findEntryOfMail } from '@/lib/mail-thread/write-repository'
 import { decideEndedAttachments } from './entry-attachments'
 import { scanForStorage } from './malware-scan'
 import { rereadHeldText } from './receive-reread'
 import { queueSenderFiling } from './receive-sender'
-import { capNoticeFor, REREAD_BATCH, REREAD_BUDGET_MS, SWEEP_ORDER, sweepEndedParts, sweepExpiredMails, sweepFailedScans, sweepInboundMail, sweepUnreadTexts } from './sweep'
+import { eraseStagedObjects } from './staging'
+import {
+  capNoticeFor,
+  REREAD_BATCH,
+  REREAD_BUDGET_MS,
+  SWEEP_ORDER,
+  sweepEndedParts,
+  sweepExpiredMails,
+  sweepFailedScans,
+  sweepInboundMail,
+  sweepStaleReceptions,
+  sweepStalledMoves,
+  sweepUnreadTexts,
+} from './sweep'
 
 const GIB = 1024 * 1024 * 1024
 
@@ -230,5 +251,128 @@ describe('what the Verlauf says of an attachment whose end is final (review E, f
     repository.findMailRow.mockResolvedValueOnce({ id: 'm1', status: 'waiting' } as never)
     await sweepEndedParts(now)
     expect(decideEndedAttachments).toHaveBeenCalledWith('proj_1', ['m1'], now)
+  })
+})
+
+describe('a sweep that erases takes the row first, under its hold, and erases only then', () => {
+  const ORG = 'org_sweep'
+  const RAW = 'org/org_sweep/project/p1/_inbound-mail/m1/raw.eml'
+  const READ = 'org/org_sweep/project/p1/_inbound-mail/m1/read.json'
+  const order: string[] = []
+  const track = <T>(name: string, value: T) => async () => {
+    order.push(name)
+    return value
+  }
+
+  const startTracking = (eraseKeeps: readonly string[] = []) => {
+    order.length = 0
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(eraseStagedObjects).mockImplementation(async () => {
+      order.push('erase')
+      return [...eraseKeeps]
+    })
+  }
+
+  it('sweep 1: a stale reception erases nothing a hold took back, and puts its key back when the store kept it', async () => {
+    startTracking()
+    repository.findStaleReceptions.mockResolvedValue([{ id: 'm1', organizationId: ORG, stagingBucket: 'b', rawStorageKey: RAW }] as never)
+    repository.takeStaleReceptionKey.mockImplementationOnce(track('take', false))
+    expect(await sweepStaleReceptions(new Date())).toMatchObject({ deleted: 0, errors: 0 })
+    expect(order).toEqual(['take'])
+
+    repository.takeStaleReceptionKey.mockImplementationOnce(track('take', true))
+    repository.deleteStaleReception.mockImplementationOnce(track('delete', true))
+    expect(await sweepStaleReceptions(new Date())).toMatchObject({ deleted: 1 })
+    expect(order).toEqual(['take', 'take', 'erase', 'delete'])
+
+    startTracking([RAW])
+    repository.takeStaleReceptionKey.mockImplementationOnce(track('take', true))
+    repository.deleteStaleReception.mockImplementationOnce(track('delete', true))
+    expect(await sweepStaleReceptions(new Date())).toMatchObject({ deleted: 0, errors: 1 })
+    expect(order).toEqual(['take', 'erase'])
+    expect(repository.returnStaleReceptionKey).toHaveBeenCalledWith({ id: 'm1', rawStorageKey: RAW })
+  })
+
+  it('sweep 6: settles the mail (its keys taken under the hold) before it erases them, and a kept object goes back deferred', async () => {
+    startTracking()
+    const mail = { id: 'm1', organizationId: ORG, projectId: 'p1', status: 'waiting', stagingBucket: 'b', readStorageKey: READ, rawStorageKey: RAW, originalMovePendingAt: null }
+    repository.findMailsToSettle.mockResolvedValue([{ id: 'm1', organizationId: ORG, projectId: 'p1', held: false }] as never)
+    repository.findMailRow.mockResolvedValue(mail)
+    repository.settleEndedMail.mockImplementationOnce(track('settle', false))
+    expect(await sweepEndedParts(new Date())).toMatchObject({ settled: 0, errors: 0 })
+    expect(order).toEqual(['settle'])
+
+    repository.settleEndedMail.mockImplementationOnce(track('settle', true))
+    expect(await sweepEndedParts(new Date())).toMatchObject({ settled: 1, errors: 0 })
+    expect(order).toEqual(['settle', 'settle', 'erase'])
+
+    startTracking([RAW])
+    repository.settleEndedMail.mockImplementationOnce(track('settle', true))
+    expect(await sweepEndedParts(new Date())).toMatchObject({ settled: 1, errors: 1 })
+    expect(repository.returnReleasedErasure).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1', kind: 'mail', readKey: READ, rawKey: RAW }), [RAW], expect.any(Date))
+  })
+
+  it('sweep 6: a held mail settles and erases nothing', async () => {
+    startTracking()
+    repository.findMailsToSettle.mockResolvedValue([{ id: 'm1', organizationId: ORG, projectId: 'p1', held: true }] as never)
+    repository.findMailRow.mockResolvedValue({ id: 'm1', status: 'waiting', stagingBucket: 'b', readStorageKey: READ, rawStorageKey: RAW, originalMovePendingAt: null })
+    expect(await sweepEndedParts(new Date())).toMatchObject({ settled: 1 })
+    expect(eraseStagedObjects).not.toHaveBeenCalled()
+  })
+
+  it('sweep 13: an original whose entry is gone is taken under the project and custodian hold before its bytes go', async () => {
+    startTracking()
+    const pending = new Date('2026-11-18T10:00:00Z')
+    repository.findStalledMoves.mockResolvedValue([{ id: 'm1', organizationId: ORG, projectId: 'p1' }] as never)
+    repository.findMailRow.mockResolvedValue({ id: 'm1', stagingBucket: 'b', rawStorageKey: RAW, originalMovePendingAt: pending })
+    vi.mocked(findEntryOfMail).mockResolvedValue(null)
+    repository.takeStalledMoveRaw.mockImplementationOnce(track('take', false))
+    expect(await sweepStalledMoves(new Date())).toMatchObject({ held: 1, forgotten: 0 })
+    expect(order).toEqual(['take'])
+
+    repository.takeStalledMoveRaw.mockImplementationOnce(track('take', true))
+    expect(await sweepStalledMoves(new Date())).toMatchObject({ forgotten: 1 })
+    expect(order).toEqual(['take', 'take', 'erase'])
+
+    startTracking([RAW])
+    expect(await sweepStalledMoves(new Date())).toMatchObject({ forgotten: 0, errors: 1 })
+    expect(repository.returnStalledMoveRaw).toHaveBeenCalledWith({ id: 'm1', rawStorageKey: RAW, originalMovePendingAt: pending }, expect.any(Date))
+  })
+})
+
+describe('sweep 3 in PostHog', () => {
+  const held = (senderClass: 'external' | 'office_member', senderFlags: string[] = []) => ({
+    id: 'm1',
+    organizationId: 'org_sweep',
+    projectId: 'p1',
+    senderTrust: 'external_verified',
+    senderUserId: null,
+    senderFlags,
+    senderClass,
+    automatic: false,
+  })
+
+  it('sends inbound_mail_expired per mail it expired, and says whether the expiry discarded it for good', async () => {
+    repository.findExpiredMails.mockResolvedValueOnce([held('external'), held('office_member'), held('external', ['sender_unchecked'])] as never)
+
+    await sweepExpiredMails(new Date())
+
+    expect(vi.mocked(captureServer).mock.calls.map(([capture]) => capture)).toEqual(
+      [true, false, false].map((discarded, index) => ({
+        event: 'inbound_mail_expired',
+        distinctId: null,
+        organizationId: 'org_sweep',
+        properties: { parts: 2, sender_class: index === 1 ? 'office_member' : 'external', automatic: false, discarded },
+      })),
+    )
+  })
+
+  it('sends nothing for a mail another run expired first', async () => {
+    repository.findExpiredMails.mockResolvedValueOnce([held('external')] as never)
+    repository.expireMail.mockResolvedValueOnce(0)
+
+    await sweepExpiredMails(new Date())
+
+    expect(captureServer).not.toHaveBeenCalled()
   })
 })

@@ -4,8 +4,7 @@
  * The receive side's SQL against a REAL Postgres with migration 0196, through
  * the restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run src/lib/inbound-mail/repository.integration.spec.ts
+ *   bash scripts/rls-test-db.sh --only bff/inbound-mail/repository.integration.spec.ts
  *
  * The unit specs stand the repository in; these prove the statements keep the
  * migration's rules rather than meet a refusal in production: a token resolves
@@ -29,6 +28,13 @@ const ORG = `org_inbound_repo_${STAMP}`
 const OTHER_ORG = `org_inbound_repo_other_${STAMP}`
 const USER = 'user_01J0REPOSPEC0000000000000A'
 const token = (seed: string) => (STAMP + seed).replace(/[^a-z2-7]/g, 'a').padEnd(12, 'q').slice(-12)
+
+describe('the suite is not silently skipped in CI', () => {
+  it('has a database to run against', () => {
+    if (!process.env.RLS_SUITE_REQUIRED) return
+    expect(url, 'TEST_DATABASE_URL is unset while RLS_SUITE_REQUIRED is set').toBeTruthy()
+  })
+})
 
 describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>

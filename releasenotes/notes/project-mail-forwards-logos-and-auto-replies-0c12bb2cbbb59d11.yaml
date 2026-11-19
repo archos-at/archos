@@ -1,0 +1,13 @@
+---
+fixes:
+  - >
+    A mail forwarded as an attachment now shows the forwarded mail's text, with
+    its sender, date and subject, in the E-Mail-Eingang and in the
+    E-Mail-Verlauf, not only its attachments.
+  - >
+    A sender's small signature logo is no longer offered for filing with every
+    mail; it is listed as embedded instead. Photos placed in the text, from an
+    iPhone for example, are still offered.
+  - >
+    An automatic reply that carries an attachment now waits in the
+    E-Mail-Eingang, marked as automatic, instead of being discarded unseen.

@@ -25,7 +25,7 @@ import {
   type SenderFlag,
 } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
-import { rawHeaderFields, readMime, type MailAttachment, type NotStagedPart } from './mime'
+import { readHeaderBlock, readMime, type MailAttachment, type MimeRead, type NotStagedPart } from './mime'
 import { redactRead, unreadableRead, type MailRead } from './read-client'
 import { mailParticipants, participantDomainsOf, recipientCountOf } from './receive-participants'
 import {
@@ -81,7 +81,10 @@ export async function runInboundMailReceive(
     const dependency = dependencyOf(error)
     const next = dependency ? nextFaultTry(dependency, payload, new Date()) : null
     if (!dependency || !next) {
-      if (attempt.last && (await holdAfterFailure(payload.mailId))) return { done: true, payload }
+      if (!attempt.last) throw error
+      const held = await holdAfterFailure(payload.mailId)
+      reportLastAttemptFailure(organizationId, payload.mailId, error, held)
+      if (held) return { done: true, payload }
       throw error
     }
     const tries = dependency === 'dkim_dns' ? next.payload.dkimFaults : next.payload.faults
@@ -98,7 +101,6 @@ async function holdAfterFailure(mailId: string): Promise<boolean> {
     if (!mail || mail.status !== 'received' || !mail.rawStorageKey) return false
     const key = mail.rawStorageKey
     const raw = await readStagedObject(mail.stagingBucket, key).catch(() => null)
-    console.error(`[inbound-mail] mail ${mail.id} could not be received; holding it as unreadable`)
     const held = await holdUnreadable(mail, raw ?? new Uint8Array(), false, { progress: progressOf(mail.receiveProgress) })
     const domain = inboundMailDomain()
     if (held && domain) await afterHold(mail.id, domain, raw)
@@ -107,6 +109,12 @@ async function holdAfterFailure(mailId: string): Promise<boolean> {
     console.error(`[inbound-mail] mail ${mailId} could not be held after its last attempt (${errorName(error)})`)
     return false
   }
+}
+
+function reportLastAttemptFailure(organizationId: string, mailId: string, error: unknown, held: boolean): void {
+  const name = errorName(error)
+  console.error(`[inbound-mail] mail ${mailId} failed on its last attempt (${name}); ${held ? 'held as unreadable' : 'not held'}`)
+  captureServer({ event: 'inbound_mail_receive_failed', distinctId: null, organizationId, properties: { error: name, held } })
 }
 
 interface ReceiveBudget {
@@ -130,20 +138,26 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
   const raw = await fromObjectStore(() => readStagedObject(mail.stagingBucket, rawKey))
   if (mail.rawScanStatus === 'pending') await recordRawScan(mail.id, await scanForStorage(raw))
 
-  const automatic = classifyAutomaticMail({ headers: rawHeaderFields(raw), envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
-  if (automatic.outcome === 'drop') return dropAutomaticMail(mail, automatic.reason, attempt)
+  const mime = await readMime(raw, { acceptedTypes: await acceptedTypesForOrganization(mail.organizationId) })
+  const automatic = classifyAutomaticMail({
+    headers: readHeaderBlock(raw)?.fields ?? null,
+    envelopeFrom: mail.envelopeFrom,
+    inboundDomain: domain,
+    attachments: mime.kind === 'read' ? mime.attachments.length : 0,
+  })
+  if (automatic.outcome === 'drop') return dropAutomaticMail(mail, automatic.reason)
   await recordOriginal(mail, raw, domain)
 
   const evidence: SenderEvidence = { progress: progressOf(mail.receiveProgress) }
   let held: boolean
   try {
-    held = await readAndHold(mail, raw, domain, automatic.automatic, budget, evidence)
+    held = await readAndHold(mail, raw, mime, domain, automatic.automatic, budget, evidence)
   } catch (error) {
     const fault = dependencyOf(error) !== null
     if (fault && !degraded) await keepProgress(mail.id, evidence.progress)
     if (fault ? !degraded : !attempt.last) throw error
-    console.error(`[inbound-mail] mail ${mail.id} could not be read (${errorName(error)}); holding it as unreadable`)
     held = await holdUnreadable(mail, raw, automatic.automatic, evidence)
+    reportLastAttemptFailure(mail.organizationId, mail.id, error, held)
   }
   if (held) await afterHold(mail.id, domain, raw)
 }
@@ -161,6 +175,7 @@ async function keepProgress(mailId: string, progress: ReceiveProgress): Promise<
 async function readAndHold(
   mail: InboundMailRow,
   raw: Uint8Array,
+  mime: MimeRead,
   domain: string,
   automatic: boolean,
   { degraded, dkimSpent }: ReceiveBudget,
@@ -176,7 +191,6 @@ async function readAndHold(
     throw new DependencyFaultError('dkim_dns', new Error(`sender authentication was inconclusive (${authentication.reason})`))
   }
   if (authentication.reason === 'verifier_error') console.error(`[inbound-mail] mail ${mail.id}: the verifier threw; its sender is held unverified`)
-  const mime = await readMime(raw, { acceptedTypes: await acceptedTypesForOrganization(mail.organizationId) })
   const fromName = mime.kind === 'read' ? (mime.headers.from?.name ?? null) : null
   const identity = await senderIdentityFor(mail.organizationId, authentication.fromAddress, fromName, degraded)
   const sentAtHeader = mime.kind === 'read' ? mime.headers.sentAtHeader : dateHeaderOf(raw)
