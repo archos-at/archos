@@ -71,6 +71,12 @@ and **Kopieren**, then:
   project, so your own mail is filed directly. The redirect instruction is
   there to copy for whoever runs your mail.
 
+Until the project has received five mails, the E-Mail-Eingang says at the top
+of its list how mail gets there: „Setzen Sie die Adresse des Projekts in Cc
+oder leiten Sie E-Mails an sie weiter – sie landen hier.“, with **Adresse
+kopieren**. The × hides the line in your browser; it goes by itself once mail
+flows.
+
 Do not send fee, contract or personnel mail to the project's address: everyone
 who may add documents to the project sees what waits there.
 
@@ -143,11 +149,27 @@ address.
 
 The waiting mails stand under up to three headings. **Ablagebereit** (ready to file in one press, not yet filed) means the sender's
 domain is confirmed, every part has a suggested place, and nothing needs
-checking. „Wie vorgeschlagen ablegen“ on such a row files it in one press,
+checking. Each such row says in one quiet line where it goes if you file it
+as suggested: „E-Mail-Text an „Verfahren MA 37“ · Anhang nach
+Behörde/Bescheide“, or „3 Anhänge in 2 Ordner“ when its files go to several
+folders. „Wie vorgeschlagen ablegen“ on such a row files it in one press,
 without a confirmation; the mail is read again first, and if it changed
 meanwhile („Anhang wird noch geprüft …“) nothing is filed and you are told
 why. With two or more ready mails, „Alle {n} wie vorgeschlagen ablegen“ files
 them after a confirmation grouped by destination (at most 20 at a time).
+Replies to one conversation stand indented under its name, and „Diese 3 wie
+vorgeschlagen ablegen“ beside the name files exactly the rows under it.
+
+Once the parts have landed, a message says how many mails were filed and
+where, a line per E-Mail-Verlauf and folder („2 E-Mail-Texte →
+„Stellplatznachweis““, „1 Datei → Behörde/Bescheide“). **Ansehen** opens the
+document when everything went into one, and „Bearbeitet“ otherwise, where each
+row names where its mail went.
+
+A mail in its last five days says so on its row, with the day: „Wird am 03.12.
+entfernt, wenn niemand sie ablegt“ for mail from outside the office, „Läuft am
+03.12. ab, wenn niemand sie ablegt“ for everyone else's, and offers
+**Einordnen …** right there.
 
 Under **Braucht Sie** each mail says what it needs: „Haben Sie sie gesendet?
 Bestätigen Sie es“ (your own mail your domain did not confirm), „Absender
@@ -159,9 +181,10 @@ prüfen“: check it is from them, then file it („Ich habe geprüft, dass dies
 E-Mail von {Name} ist“). Under **Wartet auf andere** stand mails posing as
 another member that only that member can file („Wartet auf {Name}“): you can
 dismiss them, and then only they can restore them. A mail that poses as someone never gets
-the button. Mail from an unconfirmed domain and automatic mail sit below, in a
-folded group. „Bearbeitet“ lists what was filed, dismissed or expired, each row
-saying which; a mail filed without a click says „Ohne Klick abgelegt →“ and the
+the button. Automatic mail (absence notes, newsletters, notifications) sits
+below, in a folded group. „Bearbeitet“ lists what was filed, dismissed or expired, each row
+saying which and where a filed mail went („Abgelegt → „Stellplatznachweis““);
+a mail filed without a click says „Ohne Klick abgelegt →“ and the
 E-Mail-Verlauf it went into. The Postfach's „E-Mails warten“ opens the list at „Ablagebereit“. The count on the E-Mail-Eingang tab, the pill on „Wartet auf Ablage“ and the headings' counts agree: all count the rows on show, without the folded automatic mail.
 
 ## Filing a mail
