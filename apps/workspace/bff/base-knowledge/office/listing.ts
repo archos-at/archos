@@ -10,16 +10,25 @@ export function isSuperseded(entry: BaseKnowledgeEntry): boolean {
   return entry.status === 'confirmed' && editionReplaced(entry.editions, entry.id)
 }
 
+export type EntryStand = 'proposed' | 'superseded' | 'current' | 'newer_edition' | 'checked' | 'check_due'
+
+export function standOf(entry: BaseKnowledgeEntry): EntryStand {
+  if (entry.status === 'proposed') return 'proposed'
+  if (isSuperseded(entry)) return 'superseded'
+  if (entry.directory) return entry.directory.held ? 'current' : 'newer_edition'
+  return entry.freshness.overdue ? 'check_due' : 'checked'
+}
+
 export function needs(entry: BaseKnowledgeEntry, attention: EntryAttention): boolean {
-  if (attention === 'proposed') return entry.status === 'proposed'
   if (attention === 'metadata_only') return entry.status === 'confirmed' && entry.textUse === 'metadata_only'
-  return entry.status === 'confirmed' && entry.freshness.overdue && !isSuperseded(entry)
+  return standOf(entry) === attention
 }
 
 export function countEntries(entries: readonly BaseKnowledgeEntry[]): EntryCounts {
   return {
     all: entries.length,
     proposed: entries.filter((entry) => needs(entry, 'proposed')).length,
+    newerEdition: entries.filter((entry) => needs(entry, 'newer_edition')).length,
     checkDue: entries.filter((entry) => needs(entry, 'check_due')).length,
     metadataOnly: entries.filter((entry) => needs(entry, 'metadata_only')).length,
   }
@@ -56,7 +65,8 @@ export function matchesQuery(entry: BaseKnowledgeEntry, query: Partial<ListEntri
 }
 
 export function byAttention(a: BaseKnowledgeEntry, b: BaseKnowledgeEntry): number {
-  const rank = (entry: BaseKnowledgeEntry) => (needs(entry, 'proposed') ? 0 : needs(entry, 'check_due') ? 1 : 2)
+  const ranks: Partial<Record<EntryStand, number>> = { proposed: 0, newer_edition: 1, check_due: 2 }
+  const rank = (entry: BaseKnowledgeEntry) => ranks[standOf(entry)] ?? 3
   const label = (entry: BaseKnowledgeEntry) => entry.values.designation ?? entry.values.title
   return rank(a) - rank(b) || label(a).localeCompare(label(b), 'de', { numeric: true })
 }

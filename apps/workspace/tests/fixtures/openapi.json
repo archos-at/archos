@@ -23030,7 +23030,7 @@
       "get": {
         "operationId": "base-knowledge-get",
         "summary": "Read one base-knowledge entry",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `directory` (a listed work’s edition in force). Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -23413,7 +23413,7 @@
       "get": {
         "operationId": "base-knowledge-list",
         "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `directory` (a listed work’s edition in force). Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. What needs a person comes first. Only confirmed entries reach answers. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -23474,15 +23474,16 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.",
+              "description": "proposed: to confirm; newer_edition: a newer one is in force; check_due: unlisted, unchecked, overdue or not current; metadata_only: text not used.",
               "type": "string",
               "enum": [
                 "proposed",
+                "newer_edition",
                 "check_due",
                 "metadata_only"
               ]
             },
-            "description": "proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used."
+            "description": "proposed: to confirm; newer_edition: a newer one is in force; check_due: unlisted, unchecked, overdue or not current; metadata_only: text not used."
           },
           {
             "name": "folderId",

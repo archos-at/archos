@@ -2,7 +2,8 @@ import 'server-only'
 import { sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
-import type { ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
+import type { DirectoryEdition, ListedEdition, PlatformDirective, PlatformKnowledge } from '../platform'
+import { designationKey } from '../office/work-designation'
 import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { competentAuthorities } from '@/lib/site-resolution/competence'
@@ -12,10 +13,7 @@ import { recordReadable } from '../store/visibility'
 import { readTerritoryChain } from '../time/repository'
 
 const MAX_READ = 200
-
-export function designationKey(designation: string): string {
-  return designation.toLocaleLowerCase('de').replace(/\s+/g, ' ').trim().replace(/:\d{4}(-\d{2}(-\d{2})?)?$/, '')
-}
+const MAX_DIRECTORY_READ = 2000
 
 interface ListingRow extends Record<string, unknown> {
   designation: string
@@ -49,6 +47,43 @@ async function listedFor(organizationId: string): Promise<ListedEdition[]> {
     editionLabel: String(row.edition_label),
     hasText: row.has_text === true,
   }))
+}
+
+interface DirectoryRow extends Record<string, unknown> {
+  designation: string
+  edition_label: string
+  starts_on: string | null
+  ends_on: string | null
+}
+
+const calendarDay = (value: string | null): string | null => (value === null ? null : String(value).slice(0, 10))
+
+async function directoryEditions(organizationId: string, designations: readonly string[]): Promise<DirectoryEdition[]> {
+  const keys = [...new Set(designations.map(designationKey))]
+  if (keys.length === 0) return []
+  const rows = await withTenant({ organizationId }, () =>
+    getDb().execute<DirectoryRow>(sql`
+      SELECT w.identifiers ->> 'designation' AS designation, e.label AS edition_label,
+        COALESCE(e.in_force_from, e.issued_on)::text AS starts_on, e.in_force_to::text AS ends_on
+      FROM knowledge_records wr
+      JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
+      JOIN knowledge_edition_revisions e ON e.work_id = wr.id
+      JOIN knowledge_records er ON er.id = e.record_id AND er.head_revision_id = e.revision_id
+      WHERE wr.organization_id IS NULL AND wr.type = 'work' AND ${recordReadable('wr', organizationId)}
+        AND er.organization_id IS NULL AND ${recordReadable('er', organizationId)}
+        AND w.identifiers ->> 'designation' IS NOT NULL
+      ORDER BY designation, starts_on
+      LIMIT ${MAX_DIRECTORY_READ}`),
+  )
+  const wanted = new Set(keys)
+  return rows
+    .map((row) => ({
+      designation: String(row.designation),
+      editionLabel: String(row.edition_label),
+      startsOn: calendarDay(row.starts_on),
+      endsOn: calendarDay(row.ends_on),
+    }))
+    .filter((edition) => wanted.has(designationKey(edition.designation)))
 }
 
 interface DirectiveRow extends Record<string, unknown> {
@@ -115,6 +150,9 @@ export const PLATFORM_RECORDS_KNOWLEDGE: PlatformKnowledge = {
   async listedNotHeld(organizationId, held) {
     const holds = new Set(held.map(designationKey))
     return (await listedFor(organizationId)).filter((listed) => !holds.has(designationKey(listed.designation)))
+  },
+  async directoryEditions(organizationId, designations) {
+    return directoryEditions(organizationId, designations)
   },
   async isReleased(organizationId, revisionId) {
     const rows = await withTenant({ organizationId }, () =>

@@ -17,7 +17,7 @@ import { uploadBodySchemaWith } from '../upload-wire'
 
 const ENTRY =
   'An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), ' +
-  '`textUse` and `freshness`.'
+  '`textUse`, `freshness` and `directory` (a listed work’s edition in force).'
 
 export const baseKnowledgeOperations = [
   {
@@ -27,7 +27,7 @@ export const baseKnowledgeOperations = [
     description:
       ENTRY +
       ' Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before ' +
-      'those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.',
+      'those narrow it. What needs a person comes first. Only confirmed entries reach answers. Any member may read.',
     method: 'GET',
     path: '/api/base-knowledge',
     query: listEntriesQuerySchema,

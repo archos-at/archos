@@ -15,11 +15,11 @@ import type { Attention, BaseKnowledgeFilters, Kind } from '../hooks/use-base-kn
 import { EntryTable } from './entry-table'
 
 const ALL = 'all'
-const ATTENTION: { key: Attention | null; label: 'filter.all' | 'filter.proposed' | 'filter.checkDue' | 'filter.metadataOnly'; count: keyof EntryCounts }[] = [
+const ATTENTION: { key: Attention | null; label: 'filter.all' | 'filter.proposed' | 'filter.newerEdition' | 'filter.checkDue'; count: keyof EntryCounts }[] = [
   { key: null, label: 'filter.all', count: 'all' },
   { key: 'proposed', label: 'filter.proposed', count: 'proposed' },
+  { key: 'newer_edition', label: 'filter.newerEdition', count: 'newerEdition' },
   { key: 'check_due', label: 'filter.checkDue', count: 'checkDue' },
-  { key: 'metadata_only', label: 'filter.metadataOnly', count: 'metadataOnly' },
 ]
 
 interface EntryListProps {

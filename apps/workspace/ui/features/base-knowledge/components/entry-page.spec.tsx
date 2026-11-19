@@ -66,6 +66,14 @@ describe('EntryPage', () => {
     expect(JSON.parse(String(init.body))).toEqual({ result: 'current' })
   })
 
+  it('asks no check of a work the platform lists, and says which edition applies today', async () => {
+    renderSheet({ ...CONFIRMED, directory: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } })
+    const section = await screen.findByTestId('base-knowledge-check')
+    expect(within(section).getByText('Mit dem Normenverzeichnis abgeglichen: Heute gilt die Ausgabe 2023-02-01, seit 01.02.2023.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Ist noch aktuell' })).toBeNull()
+    expect(within(section).getByRole('button', { name: /Neuere Ausgabe hochladen/ })).toBeTruthy()
+  })
+
   it('offers no licence step for a freely available copy while the office is not asked about licences', async () => {
     renderSheet({ ...CONFIRMED, textUse: 'used', values: { ...CONFIRMED.values, licenceClass: 'public_open' } })
     await screen.findByTestId('base-knowledge-save')

@@ -31,7 +31,7 @@ import {
 import { readSetupRecords } from '@/lib/project-intake/setup-records'
 import { subdivisionTerritories } from '@/lib/project-intake/setup-scope'
 import { projectTerritory } from './authority'
-import { freshnessOf } from './freshness'
+import { directoryStanding, freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
 import { readShelfDocument, shelfNameHasEntry, visibleOfficeDocuments, type EntryDocument } from './repository'
@@ -40,12 +40,12 @@ import { releaseText, withholdText } from './text-effects'
 import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock } from './turn-block'
 import { officeAnswerLabel, type OfficeAnswerLabel } from './answer-label'
-import { platformKnowledge } from '../platform'
+import { platformKnowledge, type DirectoryEdition } from '../platform'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { territoryChoices } from './territory-choices'
 import { isStandardsFolder, standardsFolderRows, standardsRoot } from './folders'
-import { editionOnDay, editionsByWork, editionsOf } from './work-editions'
-import { workDesignation } from './work-designation'
+import { editionOnDay, editionsByWork, editionsOf, heldEditionsOf } from './work-editions'
+import { designationKey, workDesignation } from './work-designation'
 import { referenceDayOfProfile } from '../time/profile-procedure'
 import { insertEditionOfWork, deleteWorkIfUnused } from '../store/office-editions'
 import { byAttention, countByFolder, countEntries, matchesQuery, subtreeOf } from './listing'
@@ -62,9 +62,35 @@ const NO_NAMES: Names = new Map()
 
 type Works = ReadonlyMap<string, StoredEntry[]>
 const NO_WORKS: Works = new Map()
+type Directory = ReadonlyMap<string, DirectoryEdition[]>
+const NO_DIRECTORY: Directory = new Map()
 const dayOf = (now: Date) => now.toISOString().slice(0, 10)
 
-function toEntry(stored: StoredEntry, document: EntryDocument, now: Date, names: Names = NO_NAMES, works: Works = NO_WORKS): BaseKnowledgeEntry {
+async function directoryOf(organizationId: string, entries: readonly StoredEntry[]): Promise<Directory> {
+  const designations = entries.flatMap((entry) => (entry.confirmed && entry.values.designation ? [entry.values.designation] : []))
+  if (designations.length === 0) return NO_DIRECTORY
+  const directory = new Map<string, DirectoryEdition[]>()
+  for (const edition of await platformKnowledge().directoryEditions(organizationId, designations)) {
+    const key = designationKey(edition.designation)
+    directory.set(key, [...(directory.get(key) ?? []), edition])
+  }
+  return directory
+}
+
+function standingIn(stored: StoredEntry, works: Works, directory: Directory, day: string) {
+  if (!stored.confirmed || !stored.values.designation) return null
+  const listed = directory.get(designationKey(stored.values.designation))
+  return listed ? directoryStanding(heldEditionsOf(stored, works), listed, day) : null
+}
+
+function toEntry(
+  stored: StoredEntry,
+  document: EntryDocument,
+  now: Date,
+  names: Names = NO_NAMES,
+  works: Works = NO_WORKS,
+  directory: Directory = NO_DIRECTORY
+): BaseKnowledgeEntry {
   const confirmedBy = stored.confirmed ? (stored.provenance.confirmedBy ?? null) : null
   return {
     id: stored.editionId,
@@ -81,6 +107,7 @@ function toEntry(stored: StoredEntry, document: EntryDocument, now: Date, names:
     textUse: textUseOf(stored.values.licenceClass, stored.terms),
     aiProcessingAttestedAt: stored.terms.aiProcessingAttestedAt ?? null,
     freshness: freshnessOf(stored.values.kind, stored.confirmed ? stored.lastCheck : null, now),
+    directory: standingIn(stored, works, directory, dayOf(now)),
     folderId: document.folderId,
     editions: editionsOf(stored, works, dayOf(now)),
     createdAt: stored.createdAt.toISOString(),
@@ -101,10 +128,12 @@ export async function listBaseKnowledge(
   ])
   const inFolder = folders && query.folderId ? subtreeOf(query.folderId, [...(folders.root ? [folders.root] : []), ...folders.folders]) : null
   const now = new Date()
-  const works = editionsByWork(stored.filter((entry) => documents.has(entry.documentId)))
+  const readable = stored.filter((entry) => documents.has(entry.documentId))
+  const works = editionsByWork(readable)
+  const directory = await directoryOf(session.organizationId, readable)
   const visible = stored.flatMap((entry) => {
     const document = documents.get(entry.documentId)
-    return document ? [toEntry(entry, document, now, names, works)] : []
+    return document ? [toEntry(entry, document, now, names, works, directory)] : []
   })
   const entries = inFolder ? visible.filter((entry) => entry.folderId !== null && inFolder.has(entry.folderId)) : visible
   const matching = entries.filter((entry) => matchesQuery(entry, query)).sort(byAttention)
@@ -135,8 +164,10 @@ async function findEntry(
   const document = documents.get(stored.documentId)
   if (!document) throw new NotFoundError('No base-knowledge entry with this id; list the entries first.')
   const now = new Date()
-  const works = editionsByWork(editions.filter((entry) => documents.has(entry.documentId)))
-  return { stored, entry: toEntry(stored, document, now, names, works), document }
+  const readable = editions.filter((entry) => documents.has(entry.documentId))
+  const works = editionsByWork(readable)
+  const directory = await directoryOf(session.organizationId, readable)
+  return { stored, entry: toEntry(stored, document, now, names, works, directory), document }
 }
 
 export async function storedEntryOf(session: AuthorizedSession, entryId: string): Promise<{ stored: StoredEntry; entry: BaseKnowledgeEntry }> {

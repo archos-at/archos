@@ -1,12 +1,12 @@
 'use client'
 
 import type { JSX } from 'react'
-import { Chip } from '@/components/ui/chip'
+import { Chip, type ChipProps } from '@/components/ui/chip'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useTranslations } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
-import { isSuperseded, needs } from '@/lib/base-knowledge/office/listing'
+import { isSuperseded, standOf, type EntryStand } from '@/lib/base-knowledge/office/listing'
 
 export const day = (iso: string, locale: string) =>
   new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00:00` : iso).toLocaleDateString(locale === 'de' ? 'de-AT' : 'en-GB', {
@@ -14,8 +14,6 @@ export const day = (iso: string, locale: string) =>
     month: '2-digit',
     year: 'numeric',
   })
-
-export const checkDue = (entry: BaseKnowledgeEntry) => needs(entry, 'check_due')
 
 export const superseded = isSuperseded
 
@@ -42,34 +40,36 @@ function Explained({ hint, children }: { hint: string; children: JSX.Element }):
   )
 }
 
+const STAND_VARIANT: Record<EntryStand, ChipProps['variant']> = {
+  proposed: 'info',
+  superseded: 'muted',
+  current: 'success',
+  newer_edition: 'warning',
+  checked: 'outline',
+  check_due: 'warning',
+}
+
+const STAND_LABEL = {
+  proposed: 'status.proposed',
+  superseded: 'status.superseded',
+  current: 'status.current',
+  newer_edition: 'status.newerEdition',
+  checked: 'status.checkedOn',
+  check_due: 'status.checkDue',
+} as const satisfies Record<EntryStand, string>
+
 export function StatusChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
-  if (entry.status === 'proposed') {
-    return (
-      <Chip size="sm" variant="info" data-testid="base-knowledge-status">
-        {t('status.proposed')}
-      </Chip>
-    )
-  }
-  if (superseded(entry)) {
-    return (
-      <Chip size="sm" variant="muted" data-testid="base-knowledge-status">
-        {t('status.superseded')}
-      </Chip>
-    )
-  }
-  if (checkDue(entry)) {
-    return (
-      <Chip size="sm" variant="warning" data-testid="base-knowledge-status">
-        {t('status.checkDue')}
-      </Chip>
-    )
-  }
-  return (
-    <Chip size="sm" variant="success" data-testid="base-knowledge-status">
-      {t('status.confirmed')}
+  const { locale } = useLocale()
+  const stand = standOf(entry)
+  const checkedAt = entry.freshness.lastCheck?.checkedAt
+  const chip = (
+    <Chip size="sm" variant={STAND_VARIANT[stand]} tabIndex={entry.directory ? 0 : undefined} data-testid="base-knowledge-status" data-stand={stand}>
+      {t(STAND_LABEL[stand], { date: checkedAt ? day(checkedAt, locale) : '' })}
     </Chip>
   )
+  if (!entry.directory || (stand !== 'current' && stand !== 'newer_edition')) return chip
+  return <Explained hint={t('status.directoryHint', { label: entry.directory.inForce.editionLabel })}>{chip}</Explained>
 }
 
 export function TextUseChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Element {
@@ -94,22 +94,20 @@ export function TextUseChip({ entry }: { entry: BaseKnowledgeEntry }): JSX.Eleme
   )
 }
 
-export function LastChecked({
-  entry,
-  locale,
-}: {
-  entry: BaseKnowledgeEntry
-  locale: string
-}): JSX.Element {
+export function CurrencyNote({ entry }: { entry: BaseKnowledgeEntry }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
-  const { lastCheck, dueAt } = entry.freshness
-  if (entry.status === 'proposed') return <span className="text-muted-foreground text-xs">–</span>
+  const { locale } = useLocale()
+  if (entry.directory) {
+    const { editionLabel, startsOn } = entry.directory.inForce
+    return (
+      <span className="text-muted-foreground text-xs" data-testid="base-knowledge-currency">
+        {t('currency.directory', { label: editionLabel, date: day(startsOn, locale) })}
+      </span>
+    )
+  }
   return (
-    <span className={checkDue(entry) ? 'text-warning text-xs' : 'text-muted-foreground text-xs'}>
-      {lastCheck ? t('checked.on', { date: day(lastCheck.checkedAt, locale) }) : t('checked.never')}
-      {dueAt && !checkDue(entry) && (
-        <span className="block">{t('checked.dueOn', { date: day(dueAt, locale) })}</span>
-      )}
+    <span className="text-muted-foreground text-xs" data-testid="base-knowledge-currency">
+      {t('currency.manual', { months: Math.round(entry.freshness.intervalDays / 30.4) })}
     </span>
   )
 }

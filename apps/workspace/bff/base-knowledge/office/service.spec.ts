@@ -254,7 +254,7 @@ describe('listing', () => {
   it('puts what needs a person first and counts what needs what', async () => {
     const list = await listBaseKnowledge(MEMBER)
     expect(list.entries.map((entry) => entry.id)).toEqual(['work_proposed', 'work_due', 'work_fresh'])
-    expect(list.counts).toEqual({ all: 3, proposed: 1, checkDue: 1, metadataOnly: 2 })
+    expect(list.counts).toEqual({ all: 3, proposed: 1, newerEdition: 0, checkDue: 1, metadataOnly: 2 })
     expect(list.entries[2]).toMatchObject({ folderId: 'folder-brandschutz', confirmedByName: 'Anna Berger' })
   })
 
@@ -268,6 +268,52 @@ describe('listing', () => {
     const list = await listBaseKnowledge(MEMBER, { attention: 'check_due' })
     expect(list.entries.map((entry) => entry.id)).toEqual(['work_due'])
     expect(list.counts.all).toBe(3)
+  })
+
+  it('takes the Stand of a work the platform lists from its editions, and asks no check for it', async () => {
+    const asked: string[][] = []
+    const previous = usePlatformKnowledge({
+      ...STUB_PLATFORM_KNOWLEDGE,
+      directoryEditions: async (_organizationId, designations) => {
+        asked.push([...designations])
+        return [
+          { designation: 'ÖNORM B 1600', editionLabel: '2017-04-01', startsOn: '2017-04-01', endsOn: null },
+          { designation: 'ÖNORM B 1600', editionLabel: '2023-02-01', startsOn: '2023-02-01', endsOn: null },
+          { designation: 'ÖNORM B 3806', editionLabel: '2023-03-01', startsOn: '2023-03-01', endsOn: null },
+        ]
+      },
+    })
+    const listed = (id: string, designation: string, editionLabel: string) =>
+      stored({
+        workId: id,
+        editionId: id,
+        documentId: `doc-${id}`,
+        confirmed: true,
+        provenance: { proposedBy: 'person', confirmedBy: 'user-1' },
+        values: { ...stored().values, designation, editionLabel, issuedOn: editionLabel },
+      })
+    vi.mocked(readOfficeEntries).mockResolvedValue([
+      listed('b1600', 'ÖNORM B 1600:2017', '2017-04-01'),
+      listed('b3806', 'ÖNORM B 3806:2023', '2023-03-01'),
+      listed('rvs', 'RVS Garagen', '2023-01-01'),
+    ])
+    vi.mocked(visibleOfficeDocuments).mockResolvedValue(
+      new Map(['b1600', 'b3806', 'rvs'].map((id) => [`doc-${id}`, { ...DOCUMENT, id: `doc-${id}` }])),
+    )
+    try {
+      const list = await listBaseKnowledge(MEMBER)
+      expect(asked).toEqual([['ÖNORM B 1600:2017', 'ÖNORM B 3806:2023', 'RVS Garagen']])
+      expect(Object.fromEntries(list.entries.map((entry) => [entry.id, entry.directory]))).toEqual({
+        b1600: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false },
+        b3806: { inForce: { editionLabel: '2023-03-01', startsOn: '2023-03-01' }, held: true },
+        rvs: null,
+      })
+      expect(list.entries.map((entry) => entry.id)).toEqual(['b1600', 'rvs', 'b3806'])
+      expect(list.counts).toMatchObject({ newerEdition: 1, checkDue: 1 })
+      expect((await listBaseKnowledge(MEMBER, { attention: 'newer_edition' })).entries.map((entry) => entry.id)).toEqual(['b1600'])
+    } finally {
+      usePlatformKnowledge(previous)
+    }
   })
 })
 

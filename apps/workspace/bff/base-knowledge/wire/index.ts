@@ -87,7 +87,7 @@ export const recordCheckBodySchema = z
   .strict()
 export type RecordCheckBody = z.infer<typeof recordCheckBodySchema>
 
-export const ENTRY_ATTENTION = ['proposed', 'check_due', 'metadata_only'] as const
+export const ENTRY_ATTENTION = ['proposed', 'newer_edition', 'check_due', 'metadata_only'] as const
 export type EntryAttention = (typeof ENTRY_ATTENTION)[number]
 
 export const listEntriesQuerySchema = z
@@ -99,7 +99,7 @@ export const listEntriesQuerySchema = z
     attention: z
       .enum(ENTRY_ATTENTION)
       .optional()
-      .describe('proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.'),
+      .describe('proposed: to confirm; newer_edition: a newer one is in force; check_due: unlisted, unchecked, overdue or not current; metadata_only: text not used.'),
     folderId: z
       .guid()
       .optional()
@@ -136,6 +136,11 @@ export interface EntryEdition {
   inForceToday: boolean
 }
 
+export interface DirectoryStanding {
+  inForce: { editionLabel: string; startsOn: string }
+  held: boolean
+}
+
 export interface BaseKnowledgeEntry {
   id: string
   editionId: string
@@ -149,6 +154,7 @@ export interface BaseKnowledgeEntry {
   proposedBy: 'reading' | 'agent' | 'person'
   confirmedBy: string | null
   freshness: Freshness
+  directory: DirectoryStanding | null
   workId: string
   editions: EntryEdition[]
   folderId: string | null
@@ -159,6 +165,7 @@ export interface BaseKnowledgeEntry {
 export interface EntryCounts {
   all: number
   proposed: number
+  newerEdition: number
   checkDue: number
   metadataOnly: number
 }

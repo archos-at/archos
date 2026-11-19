@@ -1,6 +1,7 @@
 import { newestInForce } from '../time/editions'
 import type { StoredEntry } from '../store/repository'
 import type { EntryEdition } from '../wire'
+import type { HeldEdition } from './freshness'
 
 const startOf = (entry: StoredEntry) => entry.values.inForceFrom ?? entry.values.issuedOn
 
@@ -19,6 +20,12 @@ export function editionOnDay(editions: readonly StoredEntry[], day: string): Sto
   if (found.status === 'determined') return confirmed.find((entry) => entry.editionId === found.edition.id) ?? null
   const undated = confirmed.filter((entry) => startOf(entry) === null && (entry.values.inForceTo === null || entry.values.inForceTo > day))
   return undated.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null
+}
+
+export function heldEditionsOf(entry: StoredEntry, works: ReadonlyMap<string, StoredEntry[]>): HeldEdition[] {
+  return (works.get(entry.workId) ?? [entry])
+    .filter((edition) => edition.confirmed)
+    .map((edition) => ({ editionLabel: edition.values.editionLabel, startsOn: startOf(edition) }))
 }
 
 export function editionsOf(entry: StoredEntry, works: ReadonlyMap<string, StoredEntry[]>, day: string): EntryEdition[] {
