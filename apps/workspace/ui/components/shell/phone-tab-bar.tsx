@@ -84,6 +84,7 @@ export function PhoneTabBar({
               badgeCount={tab.key === 'inbox' ? pending : 0}
               newsLabel={tab.key === 'more' && feedbackNews ? tFeedback('threads.newsDot') : null}
               waitingCount={tab.key === 'files' ? inboundMail.count : null}
+              waitingMore={tab.key === 'files' && inboundMail.more}
               expanded={tab.key === 'more' ? moreOpen : undefined}
               onOpenMore={() => setMoreOpen(true)}
             />
@@ -101,6 +102,7 @@ function PhoneTabItem({
   badgeCount,
   newsLabel,
   waitingCount = null,
+  waitingMore = false,
   expanded,
   onOpenMore,
 }: {
@@ -110,6 +112,7 @@ function PhoneTabItem({
   badgeCount: number
   newsLabel: string | null
   waitingCount?: number | null
+  waitingMore?: boolean
   expanded?: boolean
   onOpenMore: () => void
 }): JSX.Element {
@@ -137,7 +140,7 @@ function PhoneTabItem({
         {/* Beside the glyph's top-right corner rather than over it. */}
         <InboxBadge pending={badgeCount} tone="muted" className="absolute -top-1 left-[calc(50%+5px)]" />
         <AttentionDot show={newsLabel !== null} label={newsLabel ?? undefined} className="absolute top-0 right-2.5" />
-        {badgeCount <= 0 && <InboundMailWaitingBadge count={waitingCount} className="absolute -top-1 left-[calc(50%+5px)]" />}
+        {badgeCount <= 0 && <InboundMailWaitingBadge count={waitingCount} more={waitingMore} className="absolute -top-1 left-[calc(50%+5px)]" />}
       </span>
       <span
         data-slot="phone-tab-label"
