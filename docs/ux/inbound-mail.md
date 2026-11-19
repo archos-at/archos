@@ -390,12 +390,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    `lib/filing-plan.ts`): „Ordner Behörde/Bescheide · Dokumentart Bescheid“
    (each value with its label: „Kommt nach … · Bescheid“ left her asking what
    the second „Bescheid“ was), „Neuer Ordner Fotos · Dokumentart Foto“,
-   „Index D wird der aktuelle Stand, Index C bleibt erhalten · Ordner
-   Tragwerk“ where both names carry an index (`indexChange`), „Fassung 4 von
-   Statik.pdf, Fassung 3 bleibt erhalten · Ordner Tragwerk“ where they do not
+   „Index D ersetzt Index C (C bleibt erhalten) · Ordner Tragwerk“ where
+   both names carry an index (`indexChange`), „Fassung 4 von Statik.pdf
+   (Fassung 3 bleibt erhalten) · Ordner Tragwerk“ where they do not
    (round 6: „Fassung 4 von S-101_C.pdf (ersetzt C)“ was not how an office
-   speaks of a plan, and „ersetzt“ beside „bleibt erhalten“ contradicted
-   itself), „Neue Datei neben S-101_C.pdf · Ordner Tragwerk“, „bleibt weg –
+   speaks of a plan; the bracket says what „ersetzt“ leaves), „Neue Datei neben S-101_C.pdf · Ordner Tragwerk“, „bleibt weg –
    liegt schon im Projekt“, „Noch kein Ordner“. Until the person has seen „Übersicht“ once, a part that asks
    for a decision says so instead (`attachmentOpenReason`): „Offen: Ordner
    wählen“, „Offen: {productName} liest noch …“, „Offen: Index D als nächste
@@ -588,22 +587,29 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       vorgeschlagen · Ändern“; opened, and whenever every row shows, the
       heading's „Alle auswählen“ / „Alle abwählen“ and „Ausgewählte in einen
       Ordner …“ (with „{n} von {m} ausgewählt“) apply to all.
-   4. „Übersicht“, always: „So wird die E-Mail abgelegt“ and one sentence per
-      part that is filed (`planLines`), the part first: „E-Mail-Text → an
-      E-Mail-Verlauf „Stellplatznachweis“ anfügen“ (with „ (Fundstellen
-      unkenntlich)“ after a masked text), „E-Mail-Text → als neuen
-      E-Mail-Verlauf „…“ in Korrespondenz ablegen“, „Bescheid_MA37.pdf →
-      Ordner Behörde/Bescheide · Dokumentart Bescheid“, „S-101_D.pdf →
-      Index D wird der aktuelle Stand, Index C bleibt erhalten · Ordner
-      Tragwerk“ (or „Fassung 4 von Statik.pdf, Fassung 3 bleibt erhalten“
-      where the names carry no index to name), „S-101_D.pdf →
-      neue Datei neben S-101_C.pdf · Ordner Tragwerk“ (the decision on a
-      possible Fassung is named, `PlanLine.besides`; round 4's „→ Ordner
-      Tragwerk“ hid it), „Foto_Baustelle.jpg → Neuer Ordner Fotos ·
-      Dokumentart Foto“, „Angebot_2026.pdf → noch kein Ordner“. **What stays
+   4. „Übersicht“, always: „So wird die E-Mail abgelegt“ and a list of what
+      goes where (`OverviewRow` in `filing-dialog.tsx`, from `planLines`),
+      one row per part that is filed: its first line the part with its
+      glyph (the mail glyph and „E-Mail-Text“, or the file glyph and the
+      name cut in its middle) and a quiet „Ändern“ on the right, also on a
+      phone; its second line, indented under the destination's glyph (the
+      Verlauf's or a folder's), where it goes, in ink and medium weight
+      (`usePlanWords().destination`): „E-Mail-Verlauf „Stellplatznachweis““
+      (with „ (Fundstellen unkenntlich)“ after a masked text), „Neuer
+      E-Mail-Verlauf „…“ in Korrespondenz“, „Behörde/Bescheide · Bescheid“,
+      „Tragwerk · Index D ersetzt Index C (C bleibt erhalten)“ (or „Tragwerk
+      · Fassung 4 von Statik.pdf (Fassung 3 bleibt erhalten)“ where the
+      names carry no index), „Tragwerk · neue Datei neben S-101_C.pdf“ (the
+      decision on a possible Fassung is named, `PlanLine.besides`), „Neuer
+      Ordner Fotos · Foto“, „Noch kein Ordner“. A row's „Ändern“ goes to
+      the step that decides that part, adding it when it was not asked: the
+      text to „E-Mail-Text“, a file to „Anhänge“ with its row unfolded,
+      scrolled to and focused. The owner, round 6: one sentence per part
+      with two loose links under them („E-Mail-Text ändern“, „Anhänge
+      ändern“) read as if they edited the text and the files. **What stays
       out is loud** (round 3: „S-101_D.pdf bleibt weg“ in grey was the plan
-      the mail was about): a framed box (`filing-left`) below the filed
-      lines, each part in ink with its reason („Bescheid_alt.pdf bleibt weg
+      the mail was about): after a hairline, a framed box (`filing-left`)
+      below the filed rows, each part in ink with its reason („Bescheid_alt.pdf bleibt weg
       – liegt schon im Projekt“, „– Namensprüfung: „Honorar““, „– enthält
       Makros“, „– nicht ausgewählt“, „E-Mail-Text bleibt weg, samt
       Original“, and for a part filing cannot take „– wird noch auf
@@ -617,7 +623,8 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       „bleibt weg“, verwirft {productName} beim Ablegen. Wiederherstellen
       lässt es sich 7 Tage lang.“, for every sender. When the text goes
       into an E-Mail-Verlauf and its sender could be followed
-      (`followOffered`), one muted line under it (`FollowLine`): „Weitere
+      (`followOffered`), a footnote under everything, never between the rows
+      (`FollowLine`): „Weitere
       Antworten in diesem E-Mail-Verlauf legt {productName} ohne Klick ab ·
       Ausschalten“, the inline press toggling it to „… warten im
       E-Mail-Eingang · Einschalten“, and an ⓘ toggletip holding the
@@ -632,8 +639,7 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       on by default (the owner kept follow by default); switched off, the
       decision's text carries
       `follow: false`, which the filing job honours (`noFollow`), so the
-      follow the filing would start never starts. „E-Mail-Text ändern“ and
-      „Anhänge ändern“ add that step when it was not asked. What blocks filing
+      follow the filing would start never starts. What blocks filing
       stands above the primary with the warning glyph (`blockerText`), and the
       primary is disabled. The primary names the act: „Ablegen“; a forgery's
       „Als echt ablegen“; with nothing left to file „Verwerfen“.

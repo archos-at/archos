@@ -62,7 +62,22 @@ async function toOverview(): Promise<void> {
 const TRAGWERK = FOLDERS.find((folder) => folder.path === 'Tragwerk')!
 const FASSADE = FOLDERS.find((folder) => folder.path === 'Pläne/Fassade')!
 
-const overviewLines = (): string[] => within(dialog()).getAllByTestId('filing-overview-line').map((line) => line.textContent ?? '')
+const overviewLines = (): string[] =>
+  within(dialog())
+    .getAllByTestId('filing-overview-line')
+    .map((line) => {
+      const to = line.querySelector('[data-testid="filing-overview-to"]')
+      return line.dataset.part && to ? `${line.dataset.part} → ${to.textContent}` : (line.textContent ?? '')
+    })
+
+/** The „Ändern“ of one filed part in „Übersicht“, which goes to the step that decides it. */
+const changeOf = (part: string): HTMLElement => {
+  const row = within(dialog())
+    .getAllByTestId('filing-overview-line')
+    .find((line) => line.dataset.part === part)
+  if (!row) throw new Error(`„Übersicht“ has no row for ${part}`)
+  return within(row).getByTestId('filing-overview-change')
+}
 
 beforeEach(() => vi.clearAllMocks())
 
@@ -76,7 +91,7 @@ describe('the mail pane', () => {
     expect(within(pane).queryByTestId('attachments-check-all')).toBeNull()
     const phrases = within(pane).getAllByTestId('attachment-plan').map((phrase) => phrase.textContent)
     expect(phrases).toEqual([
-      'Revision D becomes the current state, revision C is kept\u00A0· Folder Tragwerk',
+      'Revision D replaces revision C (C is kept)\u00A0· Folder Tragwerk',
       'Folder Tragwerk\u00A0· Document type Floor plan',
       'New folder Fotos\u00A0· Document type Photo',
       'stays out – already in the project',
@@ -223,8 +238,8 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).queryByTestId('filing-progress')).toBeNull()
     expect(within(dialog()).getByRole('heading', { name: 'This is how the mail is filed' })).toBeInTheDocument()
     expect(overviewLines()).toEqual([
-      expect.stringMatching(/^Mail text → added to mail thread “Stellplatznachweis”\S+ files further replies in this mail thread without a click\u00A0· Switch off/),
-      'Bescheid_MA37_2026-10-14.pdf → Folder Behörde/Bescheide\u00A0· Document type Official decision',
+      'Mail text → Mail thread “Stellplatznachweis”',
+      'Bescheid_MA37_2026-10-14.pdf → Behörde/Bescheide\u00A0· Official decision',
     ])
     expect(within(dialog()).queryByTestId('filing-left-note')).toBeNull()
     expect(within(dialog()).queryByTestId('filing-left')).toBeNull()
@@ -255,11 +270,11 @@ describe('„Einordnen“', () => {
     renderDetail('mixed-attachments')
     await openFiling()
     expect(overviewLines()).toEqual([
-      expect.stringMatching(/^Mail text → added to mail thread “Stellplatznachweis”/),
-      'S-101_D.pdf → revision D becomes the current state, revision C is kept\u00A0· Folder Tragwerk',
-      'Grundriss_EG.dwg → Folder Tragwerk\u00A0· Document type Floor plan',
-      'Foto_Baustelle.jpg → New folder Fotos\u00A0· Document type Photo',
-      'Statik_verschluesselt.pdf → Folder Tragwerk',
+      'Mail text → Mail thread “Stellplatznachweis”',
+      'S-101_D.pdf → Tragwerk\u00A0· revision D replaces revision C (C is kept)',
+      'Grundriss_EG.dwg → Tragwerk\u00A0· Floor plan',
+      'Foto_Baustelle.jpg → New folder Fotos\u00A0· Photo',
+      'Statik_verschluesselt.pdf → Tragwerk',
       'Bescheid_alt.pdf stays out – already in the project',
       'Attachment 6 stays out – a picture in the mail text',
     ])
@@ -269,10 +284,39 @@ describe('„Einordnen“', () => {
     expect(within(left).queryByTestId('filing-include')).toBeNull()
   })
 
+  it('lists „Übersicht“ as one row per filed part, what then where, each with its own „Change“, the rest after a hairline and the follow last', async () => {
+    renderDetail('mixed-attachments')
+    await openFiling()
+    const overview = within(dialog()).getByTestId('filing-step-overview')
+    const rows = within(overview).getAllByTestId('filing-overview-line').filter((row) => row.closest('[data-testid="filing-left"]') === null)
+    expect(rows.map((row) => row.dataset.part)).toEqual(['Mail text', 'S-101_D.pdf', 'Grundriss_EG.dwg', 'Foto_Baustelle.jpg', 'Statik_verschluesselt.pdf'])
+    for (const row of rows) {
+      expect(within(row).getAllByTestId('filing-overview-change')).toHaveLength(1)
+      expect(within(row).getByTestId('filing-overview-to').className).toContain('font-medium')
+    }
+    expect(within(rows[1]).getByTestId('filing-overview-change')).toHaveAccessibleName('Change where S-101_D.pdf goes')
+    expect(within(overview).queryByTestId('filing-change-text')).toBeNull()
+    expect(within(overview).queryByTestId('filing-change-attachments')).toBeNull()
+    const order = Array.from(overview.children).map((child) => child.getAttribute('data-testid') ?? child.tagName.toLowerCase())
+    expect(order).toEqual(['filing-overview', 'hr', 'filing-left', 'filing-follow'])
+  })
+
+  it('goes from a part’s „Change“ to the step that decides it: the text to its step, a file to its row in the attachments step', async () => {
+    renderDetail('mixed-attachments')
+    await openFiling()
+    await userEvent.click(changeOf('Mail text'))
+    expect(stepOf()).toBe('text')
+    await next()
+    await userEvent.click(changeOf('Foto_Baustelle.jpg'))
+    expect(stepOf()).toBe('attachments')
+    const row = within(dialog()).getByTestId(`attachment-${DETAIL_VARIANTS['mixed-attachments'].view.parts.find((part) => part.filename === 'Foto_Baustelle.jpg')!.id}`)
+    await waitFor(() => expect(row).toContainElement(document.activeElement as HTMLElement))
+  })
+
   it('says a text is added to its thread, never that it becomes a revision', async () => {
     renderDetail('thread-append')
     await openFiling()
-    expect(overviewLines()[0]).toMatch(/^Mail text → added to mail thread “Stellplatznachweis”/)
+    expect(overviewLines()[0]).toBe('Mail text → Mail thread “Stellplatznachweis”')
     expect(dialog()).not.toHaveTextContent(/revision/)
   })
 
@@ -304,7 +348,7 @@ describe('„Einordnen“', () => {
     renderDetail('unverified-thread')
     await openFiling()
     await toOverview()
-    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → revision C becomes the current state, revision B is kept\u00A0· Folder Pläne/))
+    expect(overviewLines()).toContain('TG-L01_C.pdf → Pläne\u00A0· revision C replaces revision B (B is kept)')
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-none'))
     await next()
@@ -371,7 +415,7 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).getByTestId('attachment-folder-change')).toHaveTextContent('Change folder')
     expect(screen.queryByTestId('folder-picker')).toBeNull()
     await next()
-    expect(overviewLines()[1]).toBe('Angebot_2026.pdf → Folder Tragwerk')
+    expect(overviewLines()[1]).toBe('Angebot_2026.pdf → Tragwerk')
     expect(within(dialog()).getByTestId('decision-file')).toBeEnabled()
   })
 
@@ -418,9 +462,9 @@ describe('„Einordnen“', () => {
     }
     expect(stepOf()).toBe('overview')
     expect(overviewLines().slice(1)).toEqual([
-      'FA-201_Ansicht_Ost_B.pdf → Folder Pläne/Fassade',
-      'FA-202_Schnitt_B.pdf → Folder Pläne/Fassade',
-      'FA-210_Details_B.pdf → Folder Pläne/Fassade',
+      'FA-201_Ansicht_Ost_B.pdf → Pläne/Fassade',
+      'FA-202_Schnitt_B.pdf → Pläne/Fassade',
+      'FA-210_Details_B.pdf → Pläne/Fassade',
     ])
   })
 
@@ -457,7 +501,7 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).getByTestId('thread-candidate-why')).toHaveTextContent('same subject')
     expect(within(dialog()).getByText('“Tiefgarage Lüftung” is proposed: the same subject, and no other mail thread fits. Check that the mail belongs to it.')).toBeInTheDocument()
     await toOverview()
-    expect(overviewLines()[0]).toMatch(/^Mail text → added to mail thread “Tiefgarage Lüftung”/)
+    expect(overviewLines()[0]).toBe('Mail text → Mail thread “Tiefgarage Lüftung”')
     await userEvent.click(within(dialog()).getByTestId('decision-file'))
     await waitFor(() => expect(file).toHaveBeenCalled())
     const sent = file.mock.calls[0][1].mails[0]
@@ -535,7 +579,7 @@ describe('„Einordnen“', () => {
     expect(within(choice).getByTestId('content-finding-original')).toHaveTextContent('The mail itself stays unchanged')
     expect(choice).not.toHaveTextContent(/content check|someone/)
     await next()
-    expect(overviewLines()[0]).toMatch(/^Mail text → added to mail thread “Honorarvereinbarung Statik” \(findings redacted\)/)
+    expect(overviewLines()[0]).toBe('Mail text → Mail thread “Honorarvereinbarung Statik” (findings redacted)')
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('finding-full'))
     await next()
@@ -549,7 +593,7 @@ describe('„Einordnen“', () => {
     const file = vi.spyOn(client, 'file')
     renderDetail('mixed-attachments', client)
     await openFiling()
-    await userEvent.click(within(dialog()).getByTestId('filing-change-text'))
+    await userEvent.click(changeOf('Mail text'))
     expect(stepOf()).toBe('text')
     expect(within(dialog()).queryAllByRole('checkbox')).toEqual([])
     expect(within(dialog()).getAllByRole('radiogroup')).toHaveLength(1)
@@ -558,7 +602,7 @@ describe('„Einordnen“', () => {
     await next()
     expect(overviewLines()).toContain('Mail text stays out, with the originalFile after all')
     await userEvent.click(within(within(dialog()).getByTestId('filing-left')).getByTestId('filing-include'))
-    expect(overviewLines()[0]).toMatch(/^Mail text → added to mail thread “Stellplatznachweis”/)
+    expect(overviewLines()[0]).toBe('Mail text → Mail thread “Stellplatznachweis”')
     await userEvent.click(within(dialog()).getByTestId('decision-file'))
     await waitFor(() => expect(file).toHaveBeenCalled())
     expect(file.mock.calls[0][1].mails[0].message).toMatchObject({ thread: { action: 'append' } })
@@ -607,12 +651,12 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).getByTestId('revision-choice-revision')).toBeChecked()
     expect(within(dialog()).queryByTestId('attachment-ack-revision')).toBeNull()
     await next()
-    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → revision C becomes the current state, revision B is kept\u00A0· Folder Pläne/))
+    expect(overviewLines()).toContain('TG-L01_C.pdf → Pläne\u00A0· revision C replaces revision B (B is kept)')
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-new'))
     expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Pläne')
     await next()
-    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → new file next to TG-L01_B\.pdf\u00A0· Folder Pläne/))
+    expect(overviewLines()).toContain('TG-L01_C.pdf → Pläne\u00A0· new file next to TG-L01_B.pdf')
     expect(screen.getByTestId('attachment-plan')).toHaveTextContent('New file next to TG-L01_B.pdf · Folder Pläne')
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-revision'))
@@ -638,7 +682,7 @@ describe('„Einordnen“', () => {
     render(
       <InboundMailDetail projectId={PROJECT_ID} mailId={plain.view.id} initial={plain.view} initialText={plain.text} folders={FOLDERS} client={fixtureClient({ detail: plain })} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
     )
-    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Revision 4 of Statik_Tiefgarage.pdf, revision 3 is kept · Folder Tragwerk')
+    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Revision 4 of Statik_Tiefgarage.pdf (revision 3 is kept) · Folder Tragwerk')
     expect(screen.getByTestId('attachment-plan')).not.toHaveTextContent(/replaces/)
   })
 
@@ -666,7 +710,7 @@ describe('„Einordnen“', () => {
     await openFiling()
     await userEvent.click(within(within(dialog()).getByTestId('filing-folder-choice')).getByTestId(`folder-picker-${TRAGWERK.id}`))
     await next()
-    await userEvent.click(within(dialog()).getByTestId('filing-change-text'))
+    await userEvent.click(changeOf('Mail text'))
     expect(within(dialog()).getByTestId('detail-new-thread-folder')).toHaveTextContent('Folder: Korrespondenz')
     expect(within(dialog()).getByTestId('detail-new-thread-folder-change')).toHaveTextContent('Change')
     expect(within(dialog()).getByTestId('filing-progress')).toHaveTextContent('Step 1 of 3')
@@ -675,7 +719,7 @@ describe('„Einordnen“', () => {
   it('labels folder and Dokumentart apart, names the folder by its whole path, and offers one press', async () => {
     renderDetail('member-verified')
     await openFiling()
-    await userEvent.click(within(dialog()).getByTestId('filing-change-attachments'))
+    await userEvent.click(changeOf('Bescheid_MA37_2026-10-14.pdf'))
     expect(stepOf()).toBe('attachments')
     expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Behörde/Bescheide')
     expect(within(dialog()).getByTestId('attachment-type')).toHaveTextContent('Document type: Official decision')
@@ -687,7 +731,7 @@ describe('„Einordnen“', () => {
   it('lists the attachments with a proposal folded, and ticks a whole plan set and sends it to one folder', async () => {
     renderDetail('mixed-attachments')
     await openFiling()
-    await userEvent.click(within(dialog()).getByTestId('filing-change-attachments'))
+    await userEvent.click(changeOf('Grundriss_EG.dwg'))
     expect(within(dialog()).getByTestId('note-duplicate')).toHaveTextContent('Already in the project: Behörde/Bescheide/Bescheid_alt.pdf')
     expect(within(dialog()).getByTestId('note-encrypted')).toBeInTheDocument()
     expect(within(dialog()).getByTestId('attachments-selected-count')).toHaveTextContent('4 of 6 selected')
@@ -720,7 +764,7 @@ describe('„Einordnen“', () => {
   it('hands the focus back to „Change“ when its dialog closes, and keeps „Einordnen“ open', async () => {
     renderDetail('member-verified')
     await openFiling()
-    await userEvent.click(within(dialog()).getByTestId('filing-change-attachments'))
+    await userEvent.click(changeOf('Bescheid_MA37_2026-10-14.pdf'))
     const change = within(dialog()).getByTestId('attachment-change')
     await userEvent.click(change)
     expect(await screen.findByTestId('attachment-target-dialog')).toBeInTheDocument()
@@ -763,7 +807,7 @@ describe('„Einordnen“', () => {
     vi.spyOn(client, 'get').mockResolvedValue({ ...fixture.view, ifMatch: 'after-the-refusal' })
     renderDetail('member-verified', client)
     await openFiling()
-    await userEvent.click(within(dialog()).getByTestId('filing-change-text'))
+    await userEvent.click(changeOf('Mail text'))
     await userEvent.click(within(dialog()).getByTestId('thread-leave'))
     await next()
     await userEvent.click(within(dialog()).getByTestId('decision-file'))
@@ -783,7 +827,7 @@ describe('„Einordnen“', () => {
     renderDetail('scan-pending', client)
     expect(screen.getByTestId('status-scan-pending')).toBeInTheDocument()
     await openFiling()
-    await userEvent.click(within(dialog()).getByTestId('filing-change-text'))
+    await userEvent.click(changeOf('Mail text'))
     await userEvent.click(within(dialog()).getByTestId('thread-leave'))
     await waitFor(() => expect(screen.queryByTestId('status-scan-pending')).not.toBeInTheDocument())
     expect(get.mock.calls.length).toBeGreaterThanOrEqual(2)

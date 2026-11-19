@@ -198,8 +198,8 @@ whether you sent it yourself), or where it will be gone: a mail from outside
 the office says „Wird am {Datum} aus dem E-Mail-Eingang entfernt, wenn niemand
 sie ablegt. ARCHOS erinnert 5 Tage vorher.“ Then the text, and the
 attachments with one quiet line each saying what ARCHOS proposes for it:
-„Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Index D wird der aktuelle
-Stand, Index C bleibt erhalten · Ordner Tragwerk“, „bleibt weg – liegt schon
+„Ordner Behörde/Bescheide · Dokumentart Bescheid“, „Index D ersetzt Index C
+(C bleibt erhalten) · Ordner Tragwerk“, „bleibt weg – liegt schon
 im Projekt“, or „Offen: Ordner wählen“ where there is something to decide. The
 pane and „Einordnen“ say the same: a folder the dialog fills in is never
 „Offen“ here.
@@ -260,24 +260,26 @@ more than one):
    is your confirmation of it; a file with macros still asks its own. The
    attachments with a sure proposal are folded into „4 weitere wie
    vorgeschlagen · Ändern“.
-4. **Übersicht**, always: one sentence per part. „E-Mail-Text → an
-   E-Mail-Verlauf „Stellplatznachweis“ anfügen“, „Bescheid_MA37.pdf → Ordner
-   Behörde/Bescheide · Dokumentart Bescheid“, „S-101_D.pdf → Index D wird
-   der aktuelle Stand, Index C bleibt erhalten · Ordner Tragwerk“ (without an
-   index: „Fassung 4 von Statik.pdf, Fassung 3 bleibt erhalten“) or
-   „S-101_D.pdf → neue Datei neben S-101_C.pdf · Ordner Tragwerk“. Whatever stays out stands in a
-   box of its own with its reason („Bescheid_alt.pdf bleibt weg – liegt schon
-   im Projekt“, „Honorarnote.pdf bleibt weg – Namensprüfung: „Honorar““), a
+4. **Übersicht**, always: what goes where, one row per part. The first line
+   names the part („E-Mail-Text“ or the file's name), the second, indented,
+   where it goes: „E-Mail-Verlauf „Stellplatznachweis““, „Behörde/Bescheide ·
+   Bescheid“, „Tragwerk · Index D ersetzt Index C (C bleibt erhalten)“ (without
+   an index „Tragwerk · Fassung 4 von Statik.pdf (Fassung 3 bleibt
+   erhalten)“) or „Tragwerk · neue Datei neben S-101_C.pdf“. „Ändern“ on a
+   row takes you to the step for that part: the text's E-Mail-Verlauf, or
+   that file in „Anhänge“. Whatever stays out stands below a line, in a box
+   of its own with its reason („Bescheid_alt.pdf bleibt weg – liegt schon im
+   Projekt“, „Honorarnote.pdf bleibt weg – Namensprüfung: „Honorar““), a
    „Doch ablegen“ where filing it is your call, and what „bleibt weg“ means:
    dismissed when you file, restorable for seven days. When the text goes
-   into an E-Mail-Verlauf, one quiet line under it says what happens to
-   later replies: „Weitere Antworten in diesem E-Mail-Verlauf legt ARCHOS
+   into an E-Mail-Verlauf, one quiet line at the very end says what happens
+   to later replies: „Weitere Antworten in diesem E-Mail-Verlauf legt ARCHOS
    ohne Klick ab · Ausschalten“, the ⓘ beside it explaining it in full (see
    below). Then **Ablegen**.
 
 A mail with nothing to decide opens straight on „Übersicht“: „Einordnen“, then
-„Ablegen“. „Zurück“ goes back a step, „E-Mail-Text ändern“ and „Anhänge
-ändern“ in „Übersicht“ reach a step that was not asked, and Escape closes the
+„Ablegen“. „Zurück“ goes back a step, a row's „Ändern“ in „Übersicht“ reaches a
+step that was not asked, and Escape closes the
 dialog without filing anything: what you chose stays while the mail is open.
 On a phone the dialog takes the whole screen.
 
