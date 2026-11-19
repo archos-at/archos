@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { namespaceRoot, translatorFor } from '@/i18n/namespace'
+import { FOLLOW_ENDS_TOLD } from '@/lib/inbound-mail/announce'
 import { INBOUND_MAIL_FILING_FAILURES } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { inboxItemCopy } from './item-copy'
 import { INBOX_TYPE_DEFINITIONS } from './registry'
@@ -14,6 +15,7 @@ const EMITTED: ReadonlyArray<[InboxItemType, ReadonlyArray<string | null>]> = [
   ['inbound_mail.cap_reached', ['nearly_full', 'full']],
   ['inbound_mail.appended', [null]],
   ['mail_thread.follow_expiring', [null]],
+  ['mail_thread.follow_ended', FOLLOW_ENDS_TOLD],
 ]
 
 function view(type: InboxItemType, variant: string | null, overrides: Partial<InboxItemView> = {}): InboxItemView {
@@ -83,7 +85,7 @@ describe.each(['de', 'en'] as const)('the E-Mail-Eingang’s notices in %s', (lo
   })
 })
 
-describe('the seven types’ registration', () => {
+describe('the eight types’ registration', () => {
   const types = EMITTED.map(([type]) => type)
 
   it('are operational, never mailed, and pushed as DECISION §9 says', () => {
@@ -96,6 +98,7 @@ describe('the seven types’ registration', () => {
       'inbound_mail.cap_reached': { category: 'requests', urgency: 'normal' },
       'inbound_mail.appended': { category: 'results', urgency: 'low' },
       'mail_thread.follow_expiring': { category: 'requests', urgency: 'low' },
+      'mail_thread.follow_ended': { category: 'results', urgency: 'low' },
     })
     for (const type of types) {
       expect(INBOX_TYPE_DEFINITIONS[type], type).toMatchObject({ gate: 'operational', email: { send: 'never' } })
@@ -112,6 +115,7 @@ describe('the seven types’ registration', () => {
       'inbound_mail.cap_reached': 'per-anchor',
       'inbound_mail.appended': 'per-anchor',
       'mail_thread.follow_expiring': 'per-anchor',
+      'mail_thread.follow_ended': 'per-anchor',
     })
   })
 
@@ -124,6 +128,7 @@ describe('the seven types’ registration', () => {
       'mail-warning',
       'mail-plus',
       'clock',
+      'mail-x',
     ])
     expect(types.filter((type) => INBOX_TYPE_DEFINITIONS[type].actionable)).toEqual([
       'inbound_mail.waiting',

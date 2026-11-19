@@ -37,7 +37,7 @@ vi.mock('./repository', () => ({
   }),
 }))
 vi.mock('./audit', () => ({ auditFollowsEnded: vi.fn() }))
-vi.mock('./announce', () => ({ settleFollowExpiring: vi.fn(async () => undefined) }))
+vi.mock('./announce', () => ({ announceFollowsEnded: vi.fn(async () => undefined), settleFollowExpiring: vi.fn(async () => undefined) }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn(async () => ({ name: 'Wohnhaus Mödling' })) }))
 vi.mock('@/lib/audit/after-commit', () => ({ recordAuditEventAfterCommit: vi.fn() }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
@@ -51,7 +51,7 @@ import {
   getInboundMailAddress,
   rotateInboundMailAddress,
 } from './address-service'
-import { settleFollowExpiring } from './announce'
+import { announceFollowsEnded, settleFollowExpiring } from './announce'
 import { auditFollowsEnded } from './audit'
 import { insertAddress } from './repository'
 
@@ -100,6 +100,7 @@ describe('the project address', () => {
     )
     expect(auditFollowsEnded).toHaveBeenCalledWith('org_1', PROJECT, session.userId, [expect.objectContaining({ id: 'f-1' })])
     expect(settleFollowExpiring).toHaveBeenCalledWith('org_1', ['f-1'])
+    expect(announceFollowsEnded).toHaveBeenCalledWith('org_1', PROJECT, [expect.objectContaining({ id: 'f-1' })], 'address_rotated', session.userId)
   })
 
   it('is switched off, and switching off nothing changes nothing', async () => {

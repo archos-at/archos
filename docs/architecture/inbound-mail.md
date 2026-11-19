@@ -544,6 +544,15 @@ through `endFollowBySystem` (`lib/mail-thread/follows.ts`), which audits
 `mail_thread.follow_ended`, sends a personless `mail_thread_followed`, settles
 the renewal notice and publishes the change.
 
+**The follower is told** (`mail_thread.follow_ended`, `announceFollowEnded`)
+whenever the follow ends for a reason other than their own: `access_lost`,
+`document_gone`, `project_closed`, `detached`, `revoked_by_manager`,
+`address_rotated` and `thread_full`, the reason as the row's variant, so its
+title says why later replies now wait in the E-Mail-Eingang. Never for
+`expired`, which `mail_thread.follow_expiring` announced five days before, nor
+for `unfollowed`, nor when the follower ended it themselves (closing the
+project or replacing its address).
+
 ## Retention: the sweeps
 
 `lib/inbound-mail/sweep.ts`, run every minute by the `inbound-mail-sweep`
@@ -595,7 +604,7 @@ erasure and deletion wait. The `BEFORE DELETE` triggers on `inbound_mails`,
 `mail_thread_entries` and `mail_thread_entry_attachments` (`GLH01`) are the
 backstop, never the filter.
 
-## The eleven notices
+## The twelve notices
 
 `lib/inbound-mail/announce.ts`, in-app and push only (`email: never`). Payload
 `{ subject: <project name>, variant?, related? }`: no sender, subject or file
@@ -623,6 +632,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.cap_reached` | the project's managers; variant `nearly_full` or `full` | per address, actionable | `/files/mail` | requests, normal | below 80%, or a new address |
 | `inbound_mail.appended` | the follower | per Verlauf and day | the Verlauf document | results, low | — |
 | `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed or ended |
+| `mail_thread.follow_ended` | the follower, when the system, a manager, a detach or a full Verlauf ended their follow; variant the end reason | per follow | `/files/mail` | results, low | — |
 
 **A waiting row says what waits, not what arrived.** A collapsed row's `count`
 is occurrences since the reader last read it (`markReadValues`), right for

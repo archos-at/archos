@@ -114,6 +114,7 @@ const MAIL_NOTICE_PATHS = [
     'Appended',
   ].map((type) => `collaboration.inbox.types.inboundMail${type}`),
   'collaboration.inbox.types.mailThreadFollowExpiring',
+  'collaboration.inbox.types.mailThreadFollowEnded',
   'settings.project.documents.inboundMailTitle',
   'settings.project.documents.inboundMailDescription',
 ] as const
