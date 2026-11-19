@@ -89,7 +89,7 @@ export function comparedVersions(
 
 export type AttachmentLine =
   | { kind: 'hidden'; position: number }
-  | { kind: 'filed' | 'already_present'; position: number; name: string; documentId: string | null }
+  | { kind: 'filed' | 'already_present'; position: number; name: string; documentId: string | null; folderPath: string | null }
   | { kind: 'not_filed'; position: number; name: string; reason: MailThreadAttachmentNotFiledReason | null }
 
 export function attachmentLines(attachments: readonly MailThreadAttachmentView[]): AttachmentLine[] {
@@ -101,7 +101,13 @@ export function attachmentLines(attachments: readonly MailThreadAttachmentView[]
       if (attachment.disposition === 'not_filed') {
         return { kind: 'not_filed', position: attachment.position, name, reason: attachment.notFiledReason ?? null }
       }
-      return { kind: attachment.disposition, position: attachment.position, name, documentId: attachment.documentId ?? null }
+      return {
+        kind: attachment.disposition,
+        position: attachment.position,
+        name,
+        documentId: attachment.documentId ?? null,
+        folderPath: attachment.folderPath ?? null,
+      }
     })
 }
 

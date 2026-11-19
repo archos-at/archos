@@ -176,6 +176,8 @@ export interface MailThreadAttachmentView {
   notFiledReason?: MailThreadAttachmentNotFiledReason
   documentId?: string
   documentVersionId?: string
+  /** Where the filed document lies now, '' for the top of Dateien. */
+  folderPath?: string
   visible: boolean
 }
 

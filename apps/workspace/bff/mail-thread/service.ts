@@ -60,6 +60,7 @@ export function attachmentViews(attachments: readonly EntryAttachment[], hiddenF
       ...(attachment.notFiledReason ? { notFiledReason: attachment.notFiledReason } : {}),
       ...(attachment.documentId ? { documentId: attachment.documentId } : {}),
       ...(attachment.documentVersionId ? { documentVersionId: attachment.documentVersionId } : {}),
+      ...(filed && attachment.document ? { folderPath: attachment.document.folderPath } : {}),
       visible: true,
     }
   })

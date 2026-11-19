@@ -3,7 +3,7 @@
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Archive, Bot, FileText, Forward, MailCheck, MoreHorizontal, Paperclip, Repeat2, ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles } from 'lucide-react'
+import { Archive, Bot, FileText, Folder, Forward, MailCheck, MoreHorizontal, Paperclip, Repeat2, ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { FactLine } from '@/components/ui/fact-line'
@@ -249,6 +249,14 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
     // over three lines it carried three underlines, and the only words broken anywhere are a file's.
     <li className="flex min-w-0 flex-col gap-0.5 text-xs leading-snug" data-testid="mail-thread-attachment" data-disposition={line.kind}>
       {named}
+      {line.kind !== 'not_filed' && line.folderPath !== null && (
+        <span className="text-muted-foreground flex min-w-0 items-start gap-1 pl-[18px]" data-testid="mail-thread-attachment-folder">
+          <Folder className="mt-px size-3.5 shrink-0" aria-hidden />
+          <span className="min-w-0 [overflow-wrap:anywhere]">
+            {line.folderPath === '' ? t('attachments.root') : t('attachments.folder', { folder: line.folderPath })}
+          </span>
+        </span>
+      )}
       {line.kind === 'already_present' && <span className={NOTE_UNDER_ITS_FILE}>{t('attachments.alreadyPresent')}</span>}
       {line.kind === 'not_filed' && (
         <span className={NOTE_UNDER_ITS_FILE}>

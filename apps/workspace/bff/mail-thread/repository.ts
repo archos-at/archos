@@ -149,7 +149,7 @@ export interface EntryAttachment {
   notFiledReason: MailThreadAttachmentNotFiledReason | null
   documentId: string | null
   documentVersionId: string | null
-  document: { folderId: string | null } | null
+  document: { folderId: string | null; folderPath: string } | null
 }
 
 export async function entryAttachments(entries: readonly MailThreadEntryRow[]): Promise<EntryAttachment[]> {
@@ -165,6 +165,7 @@ export async function entryAttachments(entries: readonly MailThreadEntryRow[]): 
       documentVersionId: mailThreadEntryAttachments.documentVersionId,
       liveDocumentId: documents.id,
       folderId: documents.folderId,
+      folderPath: projectFolders.path,
     })
     .from(mailThreadEntryAttachments)
     .leftJoin(
@@ -176,6 +177,7 @@ export async function entryAttachments(entries: readonly MailThreadEntryRow[]): 
               SELECT 1 FROM ${projectFolders} f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL))`,
       ),
     )
+    .leftJoin(projectFolders, eq(projectFolders.id, documents.folderId))
     .where(inArray(mailThreadEntryAttachments.entryId, entries.map((entry) => entry.id)))
     .orderBy(mailThreadEntryAttachments.entryId, mailThreadEntryAttachments.position)
     .limit(entries.length * 200)
@@ -187,7 +189,7 @@ export async function entryAttachments(entries: readonly MailThreadEntryRow[]): 
     notFiledReason: row.notFiledReason,
     documentId: row.documentId,
     documentVersionId: row.documentVersionId,
-    document: row.liveDocumentId ? { folderId: row.folderId } : null,
+    document: row.liveDocumentId ? { folderId: row.folderId, folderPath: row.folderPath ?? '' } : null,
   }))
 }
 

@@ -99,13 +99,15 @@ describe('what a mail added to the Verlauf', () => {
 it('lists what came with a mail by position, naming nothing the reader may not see', () => {
   const lines = attachmentLines([
     attachment({ position: 3, filename: 'secret.pdf', visible: false }),
-    attachment({ position: 1, filename: 'S-101_C.pdf' }),
+    attachment({ position: 1, filename: 'S-101_C.pdf', folderPath: 'Tragwerk/Statik' }),
     attachment({ position: 2, filename: 'x.zip', disposition: 'not_filed', notFiledReason: 'archive', documentId: undefined }),
     attachment({ position: 4, filename: 'Alt.pdf', disposition: 'already_present' }),
   ])
   expect(lines.map((line) => line.kind)).toEqual(['filed', 'not_filed', 'hidden', 'already_present'])
   expect(JSON.stringify(lines[2])).not.toContain('secret')
   expect(lines[1]).toMatchObject({ reason: 'archive' })
+  expect(lines[0]).toMatchObject({ kind: 'filed', folderPath: 'Tragwerk/Statik' })
+  expect(lines[3]).toMatchObject({ kind: 'already_present', folderPath: null })
 })
 
 it('says a filed sender in three words', () => {
