@@ -64,8 +64,10 @@ export function FolderBreadcrumbRow({
   emptyLevel = false,
   searching = false,
   rootLabel,
+  newFolderLabel,
 }: Pick<FolderNavProps, 'folders' | 'currentFolderId' | 'onNavigate'> & {
   rootLabel?: string
+  newFolderLabel?: string
   searching?: boolean
   itemCount?: number
   emptyLevel?: boolean
@@ -113,7 +115,7 @@ export function FolderBreadcrumbRow({
       {readOnly ? (
         <FolderReadOnlyBadge testId="folder-level-read-only" />
       ) : (
-        onCreateFolder && !folderInMenu && <NewFolderControl currentFolderId={currentFolderId} onCreateFolder={onCreateFolder} />
+        onCreateFolder && !folderInMenu && <NewFolderControl currentFolderId={currentFolderId} onCreateFolder={onCreateFolder} label={newFolderLabel} />
       )}
     </>
   )
@@ -123,7 +125,7 @@ export function FolderBreadcrumbRow({
         {tools}
       </ProjectSectionTabActions>
       {folderInMenu && (
-        <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} onCreate={(name) => onCreateFolder(name, currentFolderId ?? undefined)} />
+        <NewFolderDialog open={newFolderOpen} onOpenChange={setNewFolderOpen} onCreate={(name) => onCreateFolder(name, currentFolderId ?? undefined)} label={newFolderLabel} />
       )}
     </>
   )

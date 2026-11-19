@@ -248,7 +248,7 @@ export function FileWorkspace({
 
   const folderDestinations = useMemo(() => sortedFolderDestinations(folders), [folders])
   const { documentActionsAt } = access
-  const { askAbout, documentScope } = shelf
+  const { askAbout, documentScope, fileActions } = shelf
   const objectMenu = useCallback(
     (file: FileItem, node: ReactNode, asChild: boolean) => (
       <DocumentObjectMenu
@@ -260,6 +260,7 @@ export function FileWorkspace({
         destinations={folderDestinations}
         onOpen={() => selectFile(file.id)}
         onAsk={askAbout ? () => askAbout(file) : undefined}
+        extraEntries={fileActions?.(file)}
         onRenamed={handlers.onRenamed}
         onDeleted={handlers.onDeleted}
         onMoved={moved}
@@ -277,6 +278,7 @@ export function FileWorkspace({
       folderDestinations,
       selectFile,
       askAbout,
+      fileActions,
       handlers,
       moved,
       mayPick,

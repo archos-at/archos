@@ -58,6 +58,7 @@ export interface DocumentActionsMenuProps {
   onOpen?: () => void
   onAsk?: () => void
   onSelectMode?: () => void
+  extraEntries?: readonly ActionMenuEntry[]
   moveInSheet?: boolean
   trigger?: ReactNode
   surface?: 'floating' | 'toolbar'
@@ -80,6 +81,7 @@ export function useDocumentActionMenu({
   onOpen,
   onAsk,
   onSelectMode,
+  extraEntries = NO_ENTRIES,
   moveInSheet = false,
   live = true,
 }: Omit<DocumentActionsMenuProps, 'trigger' | 'align' | 'side'> & {
@@ -112,7 +114,7 @@ export function useDocumentActionMenu({
       .catch(() => toast.error(filesT('preview.originPathCopyFailed')))
   }
 
-  const entries = documentActionEntries({
+  const ownEntries = documentActionEntries({
     document,
     labels: {
       open: t('actions.open'),
@@ -154,6 +156,8 @@ export function useDocumentActionMenu({
     onMove: (folderId, folderName) => void documentActions.move(folderId, folderName),
     onCopyOriginPath: document.originPath ? copyOriginPath : undefined,
   })
+  const entries: readonly ActionMenuEntry[] =
+    extraEntries.length > 0 && ownEntries.length > 0 ? [...ownEntries, { type: 'separator' }, ...extraEntries] : [...ownEntries, ...extraEntries]
 
   const dialogs = (
     <>
