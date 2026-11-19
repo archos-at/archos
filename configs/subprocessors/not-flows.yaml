@@ -38,6 +38,44 @@ hosts:
   vilmapflaum.com: the photographer's site, linked in the photo credit on the website's home page; the page loads nothing from it
   www.instagram.com: the photographer's Instagram, linked in the photo credit on the website's home page; the page loads nothing from it
   eur-lex.europa.eu: a citation in the EU knowledge pack (configs/knowledge-packs/eu.json), a source a reviewer opens; nothing fetches it
+  a1.net: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  aon.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  arcor.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  bluewin.ch: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  chello.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  email.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  freenet.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.ch: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.net: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  googlemail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  hispeed.ch: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  icloud.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  inode.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  kabsi.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  mac.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  mail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  mail.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  mailbox.org: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  me.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  msn.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  online.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  posteo.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  posteo.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  protonmail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  sunrise.ch: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  t-online.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  tele2.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  tuta.io: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  tutanota.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  utanet.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  web.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  yandex.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  ymail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  zoho.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
 model_vendors:
   qdrant: Qdrant's built-in BM25 (qdrant/bm25), computed inside our own Qdrant
 posthog_destinations:

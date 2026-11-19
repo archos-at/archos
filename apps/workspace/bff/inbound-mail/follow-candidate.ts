@@ -3,6 +3,7 @@ import 'server-only'
 import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import {
   followEligibility,
+  publicDomainAddresses,
   type FollowCandidateMail,
   type FollowEligibility,
 } from '@/lib/mail-thread/follow-eligibility'
@@ -26,7 +27,11 @@ export async function judgeFollow(
 ): Promise<FollowJudgement | null> {
   const match = mail.threadMatch.find((candidate) => candidate.strength === 'reference')
   if (!match || !mail.senderTrust) return null
-  const thread = await findThreadFollowContext(mail.projectId, match.threadId)
+  const participantAddresses = [
+    ...(mail.senderAddress ? [mail.senderAddress] : []),
+    ...mail.participants.filter((participant) => participant.role !== 'reply_to').map((participant) => participant.address),
+  ]
+  const thread = await findThreadFollowContext(mail.projectId, match.threadId, publicDomainAddresses({ participantAddresses }))
   if (!thread || thread.follows.length === 0) return null
   const screening = await mailScreeningFor(mail.organizationId, mail.projectId)
   const candidate: FollowCandidateMail = {
@@ -36,12 +41,7 @@ export async function judgeFollow(
     signedHeaders: mail.signedHeaders,
     automatic: mail.automatic,
     recipientHeaders: await recipientHeadersOf(mail, raw),
-    participantAddresses: [
-      ...(mail.senderAddress ? [mail.senderAddress] : []),
-      ...mail.participants
-        .filter((participant) => participant.role !== 'reply_to')
-        .map((participant) => participant.address),
-    ],
+    participantAddresses,
     recipientCount: mail.recipientCount,
     checkedRecipientCount: mail.participants.filter((participant) => participant.role === 'to' || participant.role === 'cc').length,
     match: match as ThreadMatch,
@@ -50,7 +50,7 @@ export async function judgeFollow(
   }
   const eligibility = followEligibility(
     candidate,
-    { id: thread.threadId, participantDomains: thread.participantDomains },
+    { id: thread.threadId, participantDomains: thread.participantDomains, participantAddresses: thread.participantAddresses },
     thread.follows,
     { now, ownDomains: [ownDomain] },
   )

@@ -23,7 +23,12 @@ const DEFAULT_SENDER: NonNullable<InboundMailView['sender']> = {
   flags: [],
 }
 
-const PART_DEFAULT_CONTEXT = { projectClosed: false, rawScan: 'clean', sender: { trust: 'external_verified', reason: 'dkim_pass', flags: [] } } as const
+const PART_DEFAULT_CONTEXT = {
+  projectClosed: false,
+  rawScan: 'clean',
+  sender: { trust: 'external_verified', reason: 'dkim_pass', flags: [] },
+  threadCandidates: [{ blocks: [] }],
+} as const
 
 export function part(overrides: Partial<InboundMailPartView> & { name?: string } = {}): InboundMailPartView {
   sequence += 1

@@ -27,7 +27,7 @@ import { THREAD_DOCUMENT_TYPE } from './decision'
 import { runInboundMailFiling } from './file-job'
 import { findFilingWork, type FilingWork } from './filing-repository'
 import { judgeFollow } from './follow-candidate'
-import { findFiledMessages, findMailParts } from './repository'
+import { findFiledMessages, findMailParts, type ThreadFollowContext } from './repository'
 import { FILING_CLAIM_MS, hoursWaitingBucket } from './service'
 import { scoreMailDecision } from './suggest-scores'
 
@@ -109,7 +109,7 @@ export async function followMail(organizationId: string, payload: InboundMailFol
   })
   if (written.kind !== 'written') return waits(written.kind)
   await auditDecisions([written.decision])
-  recordFollowDecision(session, work, text, threadId, now)
+  recordFollowDecision(session, work, text, judged.thread, now)
   return fileDecided(session, payload, written.decision.id, threadId)
 }
 
@@ -194,10 +194,11 @@ function recordFollowDecision(
   session: AuthorizedSession,
   work: FilingWork,
   text: InboundMailPartRow,
-  threadId: string,
+  thread: ThreadFollowContext,
   now: Date,
 ): void {
   const mail: InboundMailRow = work.mail
+  const { threadId } = thread
   const suggestionFollowed = scoreMailDecision({
     organizationId: session.organizationId,
     decidedBy: session.userId,
@@ -206,6 +207,7 @@ function recordFollowDecision(
     decision: { parts: [], message: { partId: text.id, text: 'full', thread: { action: 'append', mailThreadId: threadId } } },
     via: 'follow',
     folderPathOf: () => null,
+    threadOf: (id) => (id === threadId ? thread : null),
     decidedAt: now,
   })
   captureServer({

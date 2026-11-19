@@ -113,6 +113,7 @@ export interface ThreadDocument {
   nextVersion: number
   entryCount: number
   renderedBytes: number
+  participantDomains: string[]
 }
 
 export async function findThreadDocuments(projectId: string, threadIds: readonly string[]): Promise<ThreadDocument[]> {
@@ -129,6 +130,7 @@ export async function findThreadDocuments(projectId: string, threadIds: readonly
       nextVersion: sql<string>`(SELECT coalesce(max(v.version_number), 0) + 1 FROM document_versions v WHERE v.document_id = ${documents.id})`,
       entryCount: mailThreads.entryCount,
       renderedBytes: mailThreads.renderedBytes,
+      participantDomains: mailThreads.participantDomains,
     })
     .from(mailThreads)
     .innerJoin(documents, and(eq(documents.id, mailThreads.documentId), eq(documents.projectId, mailThreads.projectId)))
@@ -151,6 +153,7 @@ export async function findThreadDocuments(projectId: string, threadIds: readonly
     nextVersion: Number(row.nextVersion),
     entryCount: row.entryCount,
     renderedBytes: row.renderedBytes,
+    participantDomains: row.participantDomains,
   }))
 }
 

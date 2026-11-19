@@ -226,10 +226,15 @@ function firstByKey(entries: ReadonlyArray<readonly [string, string]>): Map<stri
 export interface ThreadFollowContext {
   threadId: string
   participantDomains: string[]
+  participantAddresses: string[]
   follows: FollowRow[]
 }
 
-export async function findThreadFollowContext(projectId: string, threadId: string): Promise<ThreadFollowContext | null> {
+export async function findThreadFollowContext(
+  projectId: string,
+  threadId: string,
+  addresses: readonly string[],
+): Promise<ThreadFollowContext | null> {
   const db = getDb()
   const [thread] = await db
     .select({ id: mailThreads.id, participantDomains: mailThreads.participantDomains })
@@ -249,9 +254,11 @@ export async function findThreadFollowContext(projectId: string, threadId: strin
     .where(and(eq(mailThreadFollows.threadId, threadId), isNull(mailThreadFollows.endedAt)))
     .orderBy(mailThreadFollows.createdAt)
     .limit(50)
+  const known = await sharedParticipants([thread.id], addresses)
   return {
     threadId: thread.id,
     participantDomains: thread.participantDomains,
+    participantAddresses: known.get(thread.id) ?? [],
     follows: follows.map((follow) => ({
       ...follow,
       createdAt: new Date(follow.createdAt),

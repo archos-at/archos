@@ -7,13 +7,14 @@ import { requireFolderWrite } from '@/lib/authz/folder-access'
 import type { InboundMailPartRow, InboundMailRow, NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
 import { isAcceptedType } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
-import { appendNeedsAcknowledgement, senderPreselectionBlocks } from '@/lib/mail-thread/mail-threading'
+import { appendNeedsAcknowledgement } from '@/lib/mail-thread/mail-threading'
 import { normalizeFolderPath } from '@/lib/projects/folders'
 import { senderEvidenceOf, threadIsFull, type ViewerCandidates } from './candidates'
 import type { InboundMailRefusal } from './inbound-mail-wire'
 import type { InboundMailDecision, InboundMailPartDecision } from './inbound-mail-wire'
 import type { DecisionActor } from './repository'
 import { findDocumentIdByStoredName, type CandidateDocument, type ThreadDocument } from './repository'
+import { revisionVouchedInThread } from './review-defaults'
 import { onlySenderReleases } from './sender-class'
 import { senderFactsOf, senderNeedsAcknowledgement as needsAcknowledgement } from './sender-risk'
 
@@ -128,9 +129,8 @@ function planAttachment(
     if (!earlier || !context.candidates.readsFolder(earlier.folderId)) {
       throw refusal('target_unknown', 'The document to file a new Fassung of was not found', { partId: part.id })
     }
-    if (senderPreselectionBlocks(senderEvidenceOf(mail)).length > 0 && !acknowledgedRisk.has(part.id)) {
-      throw refuseRisk(part.id, 'unverified_thread')
-    }
+    const vouched = revisionVouchedInThread(part, senderFactsOf(mail), context.candidates.threads(mail).shown)
+    if (!vouched && !acknowledgedRisk.has(part.id)) throw refuseRisk(part.id, 'unverified_thread')
     target = { folderId: earlier.folderId, folderPath: earlier.folderPath ?? '' }
   } else {
     target = folderTarget(decision, context)
@@ -184,7 +184,7 @@ function planMessage(
       })
     }
     const match = mail.threadMatch.find((candidate) => candidate.threadId === threadId)
-    if (appendNeedsAcknowledgement(senderEvidenceOf(mail), match) && !acknowledgedRisk.has(part.id)) {
+    if (appendNeedsAcknowledgement(senderEvidenceOf(mail), match, thread) && !acknowledgedRisk.has(part.id)) {
       throw refuseRisk(part.id, 'unverified_thread')
     }
     return {

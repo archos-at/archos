@@ -225,6 +225,8 @@ export const inboundMail = {
       weak_match: 'Probably belongs to it: only the subject matches',
       sender_not_verified: 'Refers to the mail thread, but the sender’s domain is not verified',
       header_not_signed: 'The reference to the mail thread is not signed by the domain',
+      sender_domain_new: 'The sender’s domain has not taken part in this mail thread yet',
+      public_mail_domain: 'The address is at a public mail provider, so its domain says nothing about the sender',
       not_addressed_to_project: 'The mail is addressed to other recipients',
       stale_date: 'The mail is dated more than {days, plural, one {# day} other {# days}} back',
       date_out_of_range: 'The date of the mail is not plausible',

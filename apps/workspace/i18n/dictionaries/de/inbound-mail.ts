@@ -230,6 +230,8 @@ export const inboundMail: typeof en.inboundMail = {
       weak_match: 'Gehört vermutlich dazu: nur der Betreff stimmt überein',
       sender_not_verified: 'Verweist auf den E-Mail-Verlauf, aber die Domain des Absenders ist nicht bestätigt',
       header_not_signed: 'Der Verweis auf den E-Mail-Verlauf ist nicht von der Domain signiert',
+      sender_domain_new: 'Die Domain des Absenders hat an diesem E-Mail-Verlauf noch nicht teilgenommen',
+      public_mail_domain: 'Die Adresse liegt bei einem öffentlichen E-Mail-Anbieter, die Domain sagt nichts über den Absender',
       not_addressed_to_project: 'Die E-Mail ist an andere Empfänger adressiert',
       stale_date: 'Das Datum der E-Mail liegt mehr als {days, plural, one {# Tag} other {# Tage}} zurück',
       date_out_of_range: 'Das Datum der E-Mail ist nicht plausibel',

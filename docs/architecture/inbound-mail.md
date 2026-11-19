@@ -362,7 +362,11 @@ receipt: the member's own Bcc copy, or a recipient re-sending it, which is why i
 before receipt), `date_out_of_range` (the Date outside `[received − 30 days,
 received + 15 minutes]`; the receipt time is used), `message_id_reused`,
 `already_filed` (the same Message-ID and own text already an entry, an archive
-entry included), `claims_member_name`.
+entry included), `claims_member_name` (an outsider's display name that is a
+member's, compared after Unicode format characters such as a soft hyphen or a
+zero-width space are stripped and Cyrillic and Greek look-alikes are folded to
+Latin; an initial stands for any name but the surname, so `A. Muster` claims
+Anna Muster: `claimsMemberName` in `sender-risk.ts`).
 
 What the person is asked (`lib/inbound-mail/sender-risk.ts`, computed on the
 server and carried on the views as `riskLevel`): `none`; `caution`
@@ -370,6 +374,29 @@ server and carried on the views as `riskLevel`): `none`; `caution`
 signature, a verified mail not addressed to the project outside the Bcc case,
 a stale date); `impersonation` (a rejected signature, or `claims_member_name`):
 no suggestion, nothing pre-selected, never in a bulk decision.
+
+What a verified domain is trusted with. DKIM proves a domain, and anyone can
+own one, so `external_verified` alone pre-selects nothing that rests on the
+project's own history:
+
+- **A thread append** (`threadPreselection` in `bff/mail-thread/mail-threading.ts`)
+  is pre-selected only on a `reference` or `thread_index` match. For an
+  outsider, the matching header must be signed and the sender's domain must
+  already be one of the thread's `participantDomains` (`sender_domain_new`
+  otherwise): a Message-ID that leaked in a quote is no ticket into the
+  thread. On a public mail domain (`bff/mail-thread/public-mail-domains.ts`:
+  gmail.com, gmx.at, outlook.com and the like) the domain says nothing about the
+  person, so an outsider's append there is never pre-selected
+  (`public_mail_domain`).
+- **A new Fassung** of an existing document (`revisionCandidate`, found by the
+  attachment's file name alone) is pre-selected only for a `member_verified`
+  sender, or for an outsider with a thread candidate whose blocks are empty
+  (`revisionVouchedInThread` in `review-defaults.ts`).
+- What the defaults would not pre-select stays unchecked, and filing it needs
+  the part in `acknowledgeRisk` (`unverified_thread`): `decision.ts` asks the
+  same two functions (`appendNeedsAcknowledgement`, `revisionVouchedInThread`
+  over the viewer's thread candidates), and the review's warning comes from
+  them too (`attachment-case.ts`).
 
 ## Deciding
 
@@ -510,7 +537,15 @@ sequenceDiagram
   FJ-->>P: inbound_mail.appended (collapsed per Verlauf and day)
 ```
 
-The nine conditions are listed in ADR-0137. The follower is the earliest running
+The nine conditions are listed in ADR-0137, with two readings fixed in
+`bff/mail-thread/follow-eligibility.ts`. On a public mail domain condition 5
+holds per address, not per domain: every From, To or Cc address there must
+already have taken part in the thread (`new_participant_address`; the receive
+and follow jobs ask `findThreadFollowContext` which of those addresses did).
+And `relaxed_alignment` refuses no follow, on purpose: DMARC's relaxed
+alignment proves the organizational domain, condition 5 already holds the From
+domain itself to the thread's participants, and a follow appends text only,
+never a file (`follow-eligibility.spec.ts` pins it). The follower is the earliest running
 follow made before the mail arrived, whichever follow the receive job named.
 Condition 8 counts the follow's own appends against its `daily_cap` (default
 20) and the project's `via = 'follow'` decisions against 100, over the last 24
