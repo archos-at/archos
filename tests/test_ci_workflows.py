@@ -89,7 +89,8 @@ def runs(job: str, *, event: str, outputs: dict) -> bool:
     return bool(evaluate(condition, github={"event_name": event}, needs=needs))
 
 
-CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push")]
+PULL_REQUEST_ONLY = ("infra-preview",)
+CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push", *PULL_REQUEST_ONLY)]
 FULL_PY = ["backend", "backend-coverage", "backend-suites"]
 FULL_ONLY = [*FULL_PY, "workspace-test", "hatchet", "image"]
 
@@ -776,3 +777,11 @@ def test_the_named_test_files_reach_every_path_their_suite_runs():
         for path in value.split():
             if (WORKFLOWS.parents[1] / path).is_dir():
                 assert re.match(roots[suite], path.rstrip("/") + "/"), (suite, path)
+
+
+def test_the_staging_preview_runs_on_a_pull_request_from_this_repository_only():
+    condition = CI["jobs"]["infra-preview"]["if"]
+
+    assert "github.event_name == 'pull_request'" in condition
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in condition
+    assert "infra-preview" in CI["jobs"]["ci-ok"]["needs"]
