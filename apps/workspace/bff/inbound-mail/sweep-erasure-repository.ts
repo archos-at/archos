@@ -8,7 +8,6 @@ import { DAY_MS, mailErasable, select } from './sweep-sql'
 export const RESTORE_WINDOW_MS = 7 * DAY_MS
 
 const pastRestore = (cutoff: Date) => sql`(p.ended_at < ${cutoff.toISOString()}::timestamptz
-  OR (p.state = 'dismissed' AND m.sender_trust = 'external_unverified' AND NOT ('sender_unchecked' = ANY (m.sender_flags)))
   OR (p.state = 'expired' AND m.sender_class = 'external' AND NOT ('sender_unchecked' = ANY (m.sender_flags))))`
 
 export interface EndedPartBytes {

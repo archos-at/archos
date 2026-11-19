@@ -435,7 +435,7 @@ hears `held_for_writers`.
 | Item | Kept |
 |---|---|
 | A held mail | 30 days (`INBOUND_MAIL_WAIT_DAYS`); mail from outside the office 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`, set at the hold, by the [amendment of 2026-11-03](#amendment-2026-11-03-verified-project-mail-is-filed-directly-only-unverified-mail-waits)); a notice five days before the end |
-| Dismissed or expired parts | restorable 7 days, then erased; a dismissed part of an `external_unverified` mail, and an expired part of an `external` mail (the amendment), are erased by the next sweep |
+| Dismissed or expired parts | restorable 7 days, then erased; an expired part of an `external` mail (the amendment) is erased by the next sweep; a dismissed part keeps its 7 days whoever sent it (amendment of 2026-11-19, „Every dismissal can be undone“) |
 | A settled mail (ids, counts, trust) | while any filed part's document lives, else 30 days |
 | A dropped mail (auto-reply, report, loop) | 30 days, its bytes erased at once |
 | The original of a filed message | its entry's life: until the Verlauf's document is deleted |
@@ -1024,3 +1024,15 @@ emailed: "we never send mail about mail" stands, and a mail from us saying
   confirm, one press, the count).
 - The architecture: [Sender trust](../architecture/inbound-mail.md#sender-trust)
   and [the notices](../architecture/inbound-mail.md#the-thirteen-notices).
+
+## Amendment, 2026-11-19: every dismissal can be undone for seven days
+
+*Product owner, after a blind usability read.* A dismissed part of an
+`external_unverified` mail was erased by the next sweep, while a dismissed
+forgery stayed restorable for seven days. Readers found that backwards: the
+weekly partner whose domain does not sign lost their plans to one wrong press,
+the fraud mail did not. Every dismissal is now restorable for seven days,
+whoever sent the mail; the sweep erases it after that, as it does every other
+dismissal. What this gives up: an unconfirmed outsider's dismissed mail is kept
+up to seven days longer than before. Expiry is unchanged: an outsider's mail
+nobody files is still removed after 14 days, with no restore window.

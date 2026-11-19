@@ -382,10 +382,9 @@ the mail is held with what was not learned, said, never guessed:
   (the class is then `external`, which 0197 ties to a sender with no member;
   0199 refuses the 14 days and a verified writer for it), and the E-Mail-Eingang
   says it could not be checked (`waitReason: 'sender_unchecked'`). Its expiry
-  is a member's, not an outsider's: it keeps the seven days to restore, and a
-  dismissal is not erased at once either (`expiryIsFinal` and `dismissalIsFinal` in
-  `sender-class.ts`, which the view's `restorableUntil` and the restore's
-  `isRestorable` read, the sweep's `pastRestore`, and 0197's
+  is a member's, not an outsider's: it keeps the seven days to restore
+  (`expiryIsFinal` in `sender-class.ts`, which the view's `restorableUntil` and the
+  restore's `isRestorable` read, the sweep's `pastRestore`, and 0197's
   `inbound_mail_decisions_external_expiry_final`, which exempts the flag);
 - DKIM: DNS has a budget of its own, two waits of 2 and 10 minutes
   (`DKIM_DNS_FAULT_WAITS_MS`, counted as `dkimFaults` in the payload), because
@@ -853,7 +852,7 @@ In the order they run:
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
 | 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`); a Verlauf row of a part whose end is now final decided | 30 days; an outsider's 14 | — (no erasure) |
 | 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail; a restore, which moves the mail's end at least seven days out, clears it, so a restored mail is told again before it runs out | day 25; an outsider's day 9 | — |
-| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed, its keys taken by the settle under the hold, and only then its staged objects erased; what the store kept goes back deferred, for sweep 10; the Verlauf rows of its ended attachments decided | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
+| 6 | `endedParts` | dismissed and expired parts past 7 days (an expired part of `external` mail at once; every dismissal keeps its 7 days, since the amendment of 2026-11-19): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed, its keys taken by the settle under the hold, and only then its staged objects erased; what the store kept goes back deferred, for sweep 10; the Verlauf rows of its ended attachments decided | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
 | 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0199), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it (a run past its execution timeout runs on, and Hatchet delivers at least once) never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |

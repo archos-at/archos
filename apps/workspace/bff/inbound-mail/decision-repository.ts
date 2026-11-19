@@ -6,7 +6,7 @@ import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailD
 import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
 import { findMailParts, OPEN_PART_STATES } from './review-read-repository'
-import { dismissalIsFinal, expiryIsFinal } from './sender-class'
+import { expiryIsFinal } from './sender-class'
 
 export class MailChangedError extends Error {
   constructor(readonly mailId: string) {
@@ -149,7 +149,7 @@ export async function dismissMails(projectId: string, mailIds: readonly string[]
 }
 
 export function isRestorable(
-  mail: Pick<InboundMailRow, 'status' | 'senderClass' | 'senderFlags' | 'senderTrust'>,
+  mail: Pick<InboundMailRow, 'status' | 'senderClass' | 'senderFlags'>,
   part: Pick<InboundMailPartRow, 'state' | 'kind' | 'endedAt' | 'storageKey'>,
   restorableAfter: Date,
 ): boolean {
@@ -157,7 +157,6 @@ export function isRestorable(
     mail.status === 'waiting' &&
     (part.state === 'dismissed' || part.state === 'expired') &&
     !(part.state === 'expired' && expiryIsFinal(mail)) &&
-    !(part.state === 'dismissed' && dismissalIsFinal(mail)) &&
     part.endedAt !== null &&
     new Date(part.endedAt) > restorableAfter &&
     (part.kind === 'message' || part.storageKey !== null)

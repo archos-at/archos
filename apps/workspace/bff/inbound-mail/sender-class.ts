@@ -60,10 +60,6 @@ export function expiryIsFinal(mail: { senderClass: InboundMailSenderClass | null
   return mail.senderClass === 'external' && !mail.senderFlags.includes('sender_unchecked')
 }
 
-export function dismissalIsFinal(mail: { senderTrust: InboundSenderTrust | null; senderFlags: readonly SenderFlag[] }): boolean {
-  return mail.senderTrust === 'external_unverified' && !mail.senderFlags.includes('sender_unchecked')
-}
-
 export interface ClaimedMail {
   senderClass: InboundMailSenderClass | null
   senderUserId: string | null

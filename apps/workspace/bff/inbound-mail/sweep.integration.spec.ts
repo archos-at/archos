@@ -683,15 +683,15 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       expect(staging.erased).toEqual(expect.arrayContaining([stagingKey(project, mail, 'read.json'), stagingKey(project, mail, 'raw.eml')]))
     })
 
-    it('erases a dismissed part of mail from an unconfirmed outside domain at once (D8)', async () => {
+    it('keeps a dismissed part of mail from an unconfirmed outside domain for its seven days, as every dismissal', async () => {
       const mail = await seedMail({ trust: 'external_unverified' })
       await seedPart(mail, { kind: 'message', state: 'dismissed' })
       const file = await seedPart(mail, { state: 'dismissed' })
 
       await sweep.sweepEndedParts(now())
 
-      expect((await partRow(file))?.storage_key).toBeNull()
-      expect((await mailRow(mail))?.status).toBe('settled')
+      expect((await partRow(file))?.storage_key).not.toBeNull()
+      expect((await mailRow(mail))?.status).toBe('waiting')
     })
 
     it('settles a held project’s mail but keeps its keys, deferred, for sweep 10', async () => {
@@ -714,7 +714,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     it('erases nothing of a part restored between its find and its erasure: the row is taken first', async () => {
       const mail = await seedMail({ trust: 'external_unverified' })
       await seedPart(mail, { kind: 'message', state: 'waiting' })
-      const file = await seedPart(mail, { state: 'dismissed' })
+      const file = await seedPart(mail, { state: 'dismissed', endedAgo: '8 days' })
       race.afterFind = () =>
         rows(sql`UPDATE inbound_mail_parts SET state = 'waiting', ended_at = NULL WHERE id = ${file}::uuid`)
 

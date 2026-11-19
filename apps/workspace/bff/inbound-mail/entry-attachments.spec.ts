@@ -48,11 +48,11 @@ describe('what the Verlauf says of an attachment its text was filed before (revi
     expect(decidePendingAttachment).not.toHaveBeenCalled()
   })
 
-  it('decides at once a dismissal of an unconfirmed outsider, whose bytes the next sweep erases', async () => {
+  it('leaves a dismissal of an unconfirmed outsider pending too: every dismissal is restorable for seven days', async () => {
     vi.mocked(findProjectMail).mockResolvedValueOnce(heldMail({ senderClass: 'external', senderTrust: 'external_unverified', senderFlags: [] }))
     vi.mocked(findMailParts).mockResolvedValueOnce([filePart({ position: 1, state: 'dismissed', endedAt: NOW })])
     await decideEndedAttachments(PROJECT_ID, [MAIL_ID], NOW)
-    expect(decidePendingAttachment).toHaveBeenCalledWith('entry-1', 1, { disposition: 'not_filed', reason: 'dismissed' })
+    expect(decidePendingAttachment).not.toHaveBeenCalled()
   })
 
   it('decides an expiry that is final at once, and every ended part of a settled mail', async () => {
