@@ -47,6 +47,9 @@ export const SEAWEED = {
 
 export const EDGE_TIMEOUT = "3600s";
 
+/** Seconds a Helm release may take to become ready: a node with an empty image cache pulled one image at a time for over 5 min on 2026-11-18. */
+export const HELM_RELEASE_TIMEOUT_SECONDS = 900;
+
 export const EDGE_RETRY = {
   numRetries: 3,
   baseInterval: "100ms",

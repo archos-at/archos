@@ -1,7 +1,7 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import type { CiRunnersConfig } from "../config/ci-runners";
-import { NODE_GROUP_LABEL } from "../constants";
+import { NODE_GROUP_LABEL, HELM_RELEASE_TIMEOUT_SECONDS } from "../constants";
 import { scaledCpuRequest } from "../config/cpu-requests";
 import { cpuMillicores } from "../config/resources";
 
@@ -47,6 +47,7 @@ export function installCiRunners(runners: CiRunnersConfig, provider: k8s.Provide
       name: CONTROLLER_RELEASE,
       chart: `${ARC_CHARTS}/gha-runner-scale-set-controller`,
       version: ARC_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: ARC_SYSTEM_NAMESPACE,
       values: {
         resources: scaledCpuRequest({ requests: { cpu: "50m", memory: "128Mi" }, limits: { cpu: "500m", memory: "512Mi" } }),
@@ -74,6 +75,7 @@ export function installCiRunners(runners: CiRunnersConfig, provider: k8s.Provide
       name: runners.scaleSetName,
       chart: `${ARC_CHARTS}/gha-runner-scale-set`,
       version: ARC_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: ARC_RUNNERS_NAMESPACE,
       values: scaleSetValues(runners, githubApp.metadata.name),
     },
