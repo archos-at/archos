@@ -595,6 +595,23 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect((await inTenant(() => repo.countWaitingMailsByProject([projectId]))).get(projectId)).toBe(listed.length)
     })
 
+    it('locks the mails of one decision in id order, whatever order the request named them in', async () => {
+      const [low, high] = [await heldMail(), await heldMail()].sort((a, b) => (a.mailId < b.mailId ? -1 : 1))
+      const written = await inTenant(() =>
+        repo.writeMailDecisions(
+          [high!, low!].map((mail) => ({ mailId: mail.mailId, ifMatch: 'x', files: [fileRow(mail.mailId, mail.fileId)] })),
+          actor,
+          () => 'x',
+          new Date(Date.now() + 300_000),
+          null,
+        ),
+      )
+      expect([...new Set(written.decisions.map((row) => row.mailId))]).toEqual([low!.mailId, high!.mailId])
+      const [first, second] = [await heldMail(), await heldMail()].sort((a, b) => (a.mailId < b.mailId ? -1 : 1))
+      const dismissed = await inTenant(() => repo.dismissMails(projectId, [second!.mailId, first!.mailId], actor))
+      expect([...new Set(dismissed.decisions.map((row) => row.mailId))]).toEqual([first!.mailId, second!.mailId])
+    })
+
     it('hands the filing job its mails in the order they were written, whatever order the request named them in', async () => {
       const newer = await heldMail()
       const older = await heldMail()
@@ -606,6 +623,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
 
     it('dismisses and restores within the window, each act a decision, and a second restore finds nothing', async () => {
       const { mailId } = await heldMail()
+      await one(sql`UPDATE inbound_mails SET expiring_notified_at = now() WHERE id = ${mailId}::uuid RETURNING id`)
       const dismissed = await inTenant(() => repo.dismissMails(projectId, [mailId], actor))
       expect(dismissed.decisions.map((row) => row.action)).toEqual(['dismiss', 'dismiss'])
       expect(await inTenant(() => repo.hasOpenParts(mailId))).toBe(false)
@@ -617,6 +635,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       const restored = await inTenant(() => repo.restoreMailParts(projectId, mailId, actor, new Date(Date.now() - 7 * 86_400_000), later))
       expect(restored.decisions.map((row) => row.action)).toEqual(['restore', 'restore'])
       expect((await inTenant(() => repo.findMailParts([mailId]))).map((part) => part.state)).toEqual(['waiting', 'waiting'])
+      expect(await one(sql`SELECT expiring_notified_at FROM inbound_mails WHERE id = ${mailId}::uuid`)).toEqual({ expiring_notified_at: null })
       expect(await inTenant(() => repo.restoreMailParts(projectId, mailId, actor, new Date(0), later))).toEqual({ decisions: [] })
 
       await inTenant(() => repo.markDecisionsAudited(restored.decisions.map((row) => row.id)))

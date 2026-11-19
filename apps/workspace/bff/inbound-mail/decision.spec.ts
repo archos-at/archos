@@ -31,6 +31,7 @@ import {
   mailIfMatch,
   planMailDecision,
   requireDecisionRights,
+  requireThreadsHoldBatch,
   senderNeedsAcknowledgement,
   type DecisionContext,
 } from './decision'
@@ -324,5 +325,29 @@ describe('the rights asked last, as the person', () => {
     await expect(requireDecisionRights(session, PROJECT_ID, [plan(mail, decision(mail))])).rejects.toMatchObject({
       details: { reason: 'name_taken', partId: FILE_PART_ID },
     })
+  })
+})
+
+describe('a bulk decision, judged whole (review E, finding 10)', () => {
+  const session = { userId: PERSON, organizationId: 'org_1' } as AuthorizedSession
+  beforeEach(() => vi.clearAllMocks())
+  const two = () => {
+    const first = heldMail()
+    const second = heldMail({ id: 'mail-second' })
+    return [plan(first, decision(first)), plan(second, decision(second))]
+  }
+  const withEntries = (entryCount: number) =>
+    new Map([...context().threads].map(([id, thread]) => [id, { ...thread, entryCount }]))
+
+  it('refuses up front the append that would overfill a thread another mail of the batch fills first', () => {
+    expect(codeOf(() => requireThreadsHoldBatch(two(), withEntries(198)))).toBe('passes')
+    expect(codeOf(() => requireThreadsHoldBatch(two(), withEntries(199)))).toBe('thread_full')
+  })
+
+  it('refuses two parts of one decision filed under one name before asking the project', async () => {
+    await expect(requireDecisionRights(session, PROJECT_ID, two())).rejects.toMatchObject({
+      details: { reason: 'name_taken', partId: FILE_PART_ID },
+    })
+    expect(findDocumentIdByStoredName).not.toHaveBeenCalled()
   })
 })

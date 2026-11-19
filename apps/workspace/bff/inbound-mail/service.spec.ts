@@ -15,7 +15,8 @@ const store = vi.hoisted(() => ({
 }))
 
 vi.mock('./access', () => ({ requireMailReviewer: vi.fn(async () => ({ closed: false })) }))
-vi.mock('./candidates', () => ({
+vi.mock('./candidates', async () => ({
+  ...(await vi.importActual<typeof import('./candidates')>('./candidates')),
   candidatesFor: vi.fn(async () => ({
     threads: () => ({ shown: [], hidden: 0 }),
     part: () => ({ duplicateOf: null, revisionCandidate: null, revisionCandidateHidden: false }),
@@ -81,6 +82,7 @@ vi.mock('./suggest-scores', () => ({ scoreMailDecision: vi.fn(() => 'all') }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
 vi.mock('./announce', () => ({
   announceDecided: vi.fn(async () => true),
+  announceWaiting: vi.fn(async () => true),
   settleFilingFailed: vi.fn(async () => undefined),
   settleHeld: vi.fn(async () => undefined),
   settleProjectNotices: vi.fn(async () => undefined),
@@ -90,15 +92,15 @@ vi.mock('./notice-repository', () => ({ partStatesOf: vi.fn(async () => new Map(
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { announceDecided, settleFilingFailed, settleProjectNotices } from './announce'
+import { announceDecided, announceWaiting, settleFilingFailed, settleProjectNotices } from './announce'
 import { partStatesOf } from './notice-repository'
 import { FILE_PART_ID, FOLDER_ID, MAIL_ID, PERSON, PROJECT_ID, filePart, heldMail, textPart } from './__fixtures__/review'
 import { auditDecisions } from './audit'
 import { mailIfMatch } from './decision'
-import { MailChangedError } from './repository'
+import { MailChangedError, PartNotWaitingError } from './repository'
 import { scoreMailDecision } from './suggest-scores'
 import { candidatesFor } from './candidates'
-import { findFollowDeciders, listProjectMails } from './repository'
+import { findFollowDeciders, findThreadDocuments, listProjectMails, restoreMailParts } from './repository'
 import {
   decisionActor,
   dismissInboundMails,
@@ -109,6 +111,7 @@ import {
   listInboundMails,
   readInboundMailOriginal,
   readInboundMailPart,
+  restoreInboundMail,
 } from './service'
 import { readStagedObject } from './staging'
 
@@ -172,6 +175,12 @@ describe('what a reader is shown', () => {
       store.agent = false
     }
     expect((await readInboundMailPart(session, PROJECT_ID, MAIL_ID, FILE_PART_ID)).status).toBe(200)
+  })
+
+  it('refuses a filed part’s staged copy, kept only for a legal hold: its document is what is read', async () => {
+    store.parts = [textPart(), filePart({ state: 'filed', documentId: 'doc-1', erasureDeferredAt: new Date() })]
+    await expect(readInboundMailPart(session, PROJECT_ID, MAIL_ID, FILE_PART_ID)).rejects.toMatchObject({ details: { reason: 'gone' } })
+    expect(readStagedObject).not.toHaveBeenCalled()
   })
 
   it('scans the original whole on the request and refuses it unless clean, recording the read', async () => {
@@ -344,6 +353,53 @@ describe('a decision', () => {
     vi.mocked(dismissMails).mockResolvedValue({ decisions: [] })
   })
 
+  it('tells a member sender their mail was dismissed when a file call dismisses all of it', async () => {
+    store.write.mockResolvedValueOnce({ decisions: [{ mailId: MAIL_ID, partId: FILE_PART_ID, action: 'dismiss' }] })
+    vi.mocked(partStatesOf).mockResolvedValueOnce(new Map([[MAIL_ID, ['dismissed', 'dismissed']]]))
+    const dismissAll = body()
+    dismissAll.mails[0]!.parts = []
+    await fileInboundMails(session, PROJECT_ID, dismissAll)
+    expect(announceDecided).toHaveBeenCalledWith(expect.objectContaining({ mailId: MAIL_ID, outcome: 'dismissed' }))
+  })
+
+  it('leaves telling a filed mail to its filing job', async () => {
+    vi.mocked(partStatesOf).mockResolvedValue(new Map([[MAIL_ID, ['dismissed', 'filed']]]))
+    await fileInboundMails(session, PROJECT_ID, body())
+    expect(announceDecided).not.toHaveBeenCalled()
+    vi.mocked(partStatesOf).mockResolvedValue(new Map())
+  })
+
+  it('refuses a bulk decision whose appends would overfill a thread, before any write', async () => {
+    const thread = { threadId: 'thread-1', documentId: 'doc-t', name: 'Statik', folderId: null, folderPath: null, nextVersion: 200, entryCount: 199, renderedBytes: 10 }
+    vi.mocked(findThreadDocuments).mockResolvedValueOnce([thread])
+    const second = heldMail({ id: 'mail-second' })
+    const secondParts = [textPart({ id: 'text-second', mailId: 'mail-second' })]
+    vi.mocked((await import('./repository')).findProjectMail).mockImplementation(async (_p, id) => (id === 'mail-second' ? second : store.mail) as never)
+    store.parts = [textPart(), filePart(), ...secondParts]
+    const append = { thread: { action: 'append' as const, mailThreadId: 'thread-1' }, text: 'full' as const }
+    try {
+      await expect(
+        fileInboundMails(session, PROJECT_ID, {
+          mails: [
+            { mailId: MAIL_ID, ifMatch: mailIfMatch(heldMail(), [textPart(), filePart()]), parts: [], message: { partId: textPart().id, ...append } },
+            { mailId: 'mail-second', ifMatch: mailIfMatch(second, secondParts), parts: [], message: { partId: 'text-second', ...append } },
+          ],
+        }),
+      ).rejects.toMatchObject({ details: { reason: 'thread_full', partId: 'text-second' } })
+    } finally {
+      vi.mocked((await import('./repository')).findProjectMail).mockImplementation(async () => store.mail as never)
+    }
+    expect(store.write).not.toHaveBeenCalled()
+  })
+
+  it('answers a dismissal that met a part no longer waiting as a refusal, not a failure', async () => {
+    const { dismissMails } = await import('./repository')
+    vi.mocked(dismissMails).mockRejectedValueOnce(new PartNotWaitingError(MAIL_ID))
+    await expect(dismissInboundMails(session, PROJECT_ID, { mailIds: [MAIL_ID] })).rejects.toMatchObject({
+      details: { reason: 'part_not_waiting', mailId: MAIL_ID },
+    })
+  })
+
   it('answers a lost compare-and-set as `stale`, and writes nothing else', async () => {
     store.write.mockRejectedValueOnce(new MailChangedError(MAIL_ID))
     await expect(fileInboundMails(session, PROJECT_ID, body())).rejects.toMatchObject({ details: { reason: 'stale', mailId: MAIL_ID } })
@@ -356,5 +412,20 @@ describe('a decision', () => {
     changed.mails[0]!.ifMatch = mailIfMatch(heldMail(), store.parts as never)
     await expect(fileInboundMails(session, PROJECT_ID, changed)).rejects.toMatchObject({ details: { reason: 'risk_not_acknowledged' } })
     expect(store.write).not.toHaveBeenCalled()
+  })
+})
+
+describe('a restore', () => {
+  it('tells the mail waits again and settles a stale expiry notice', async () => {
+    vi.mocked(restoreMailParts).mockResolvedValueOnce({ decisions: [{ mailId: MAIL_ID, action: 'restore' }] } as never)
+    await restoreInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(announceWaiting).toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org_1', projectId: PROJECT_ID, mailId: MAIL_ID }))
+    expect(settleProjectNotices).toHaveBeenCalledWith('org_1', PROJECT_ID)
+  })
+
+  it('tells nothing when nothing was restored', async () => {
+    vi.mocked((await import('./repository')).hasOpenParts).mockResolvedValueOnce(true)
+    await restoreInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(announceWaiting).not.toHaveBeenCalled()
   })
 })

@@ -325,7 +325,7 @@ outsider's 14.
 |---|---|---|
 | The address | `inbound_mail_addresses` | active; revoked (`rotated`, `switched_off`) |
 | A delivery | `inbound_mails` | `receiving` → `received` → `waiting` → `settled`, or `dropped` |
-| A part | `inbound_mail_parts` (`message` or `attachment`) | `waiting` → `filing` → `filed`; `waiting` again with `last_failure`; `dismissed` / `expired` → `waiting` (restore, 7 days) |
+| A part | `inbound_mail_parts` (`message` or `attachment`) | `waiting` → `filing` → `filed`; `waiting` again with `last_failure`; `dismissed` / `expired` → `waiting` (restore, 7 days; the mail's end moved at least seven days out, `inbound_mail.waiting` told again and its expiry notice owed again) |
 | A decision | `inbound_mail_decisions` (append-only) | `file`, `dismiss`, `restore`; `via` `app`, `agent`, `agent_proposal`, `follow`, `sender` |
 
 Staged objects: `org/<org>/project/<project>/_inbound-mail/<mailId>/raw.eml`,
@@ -378,11 +378,20 @@ no suggestion, nothing pre-selected, never in a bulk decision.
 `requireFolderWrite` on each target, the accepted type, a clean scan (of each
 attachment, and for the text of the whole raw message), the
 acknowledgements (only with one mail), the name check of a new Verlauf's name
-and folder path, the name free or `revisionOf`, `ifMatch`. Then, in one
-transaction, it appends the decision rows, claims the listed parts (`waiting →
-filing`, compare-and-set, 5-minute claim), dismisses every other waiting part of
-those mails, and queues `inbound_mail_file`. It answers 202. Refusals are 409s
-with `details.reason` from `INBOUND_MAIL_REFUSALS` (`inbound-mail-wire.ts`).
+and folder path, the name free or `revisionOf`, `ifMatch`. A bulk decision is
+judged whole: a thread's entries are counted across every mail that appends to
+it (`requireThreadsHoldBatch`, `thread_full`), and no two parts may be filed
+under one new name (`name_taken`), so the person is refused before anything is
+written, not by the job after it. Then, in one transaction, taking the mails'
+rows in id order whatever order the request named them in, it appends the
+decision rows, claims the listed parts (`waiting → filing`, compare-and-set,
+5-minute claim), dismisses every other waiting part of those mails, and queues
+`inbound_mail_file` naming its decisions (`decisionIds`). It answers 202.
+Refusals are 409s with `details.reason` from `INBOUND_MAIL_REFUSALS`
+(`inbound-mail-wire.ts`); a dismissal that meets a part no longer waiting is
+`part_not_waiting`, as a decision is. A decision that files nothing of a mail
+tells its member as a dismissal does (`inbound_mail.rejected`); one that files
+something leaves the telling to its job.
 
 `via` is read from the call, never the body (`decisionActor`): an agent's card the
 person accepted (`actingProposalId`, set by the proposal applier), an outside
@@ -619,7 +628,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, and holding a document write right, so able to file it), else the project's writers (any of `DOCUMENT_WRITE_PERMISSIONS`; a read-only member's signed mail included, whose member hears `held_for_writers`) | collapsed per project, actionable; its number is what waits now (`lib/inbox/live-counts.ts`), not the row's since-read tally | `/files/mail` | requests, normal | nothing waits |
 | `inbound_mail.expiring` | the same, once per mail (sweep 4) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing it told about waits |
 | `inbound_mail.decided` | the member the From names (verified or not), when the run filed the mail's last part; variant `direct` when it was filed as them without a click (told although they are its decider) | per mail | `/files?folder=…` when every file went to one folder the member may open, else `/files` | results, low | — |
-| `inbound_mail.rejected` | the member the From names, when a dismissal ended their mail | per mail | `/files` | results, low | — |
+| `inbound_mail.rejected` | the member the From names, when a dismissal, or a decision that filed nothing of it, ended their mail | per mail | `/files` | results, low | — |
 | `inbound_mail.held` | the writer an `unverified_writer` mail claims: „Haben Sie diese E-Mail gesendet?“ | per mail, actionable | `/files/mail/<mailId>` | requests, normal | the mail is decided or expires (`settleHeld`) |
 | `inbound_mail.held_for_writers` | the member without write rights whose mail waits; variant `unchecked` when WorkOS never answered whether they may write (`sender_unchecked`), so the row never says they cannot | per mail | `/files` | results, low | the same |
 | `inbound_mail.expired` | the member the From names, when sweep 3 expired their mail | per mail | `/files` | results, low | — |
@@ -688,7 +697,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 |---|---|---|
 | `inbound-mail-address-get`, `-create`, `-delete`, `-rotate` | yes | yes |
 | `inbound-mail-list`, `-get` (metadata only) | yes | yes |
-| `inbound-mail-text-get` (masked), `inbound-mail-part-content-get` | yes | no |
+| `inbound-mail-text-get` (masked), `inbound-mail-part-content-get` (a waiting part only: a filed part's staged copy, kept under a legal hold, is refused `gone`, its document is what is read) | yes | no |
 | `inbound-mail-file` (also the member's filing of mail that claims them: `acknowledgeSender`), `inbound-mail-dismiss` | yes, `requiresPersonConfirmation` | as a card; clean, unflagged parts only (a card carries no `acknowledgeSender`, so it never files a claimed mail) |
 | `inbound-mail-restore` | yes | yes |
 | `inbound-mail-original-get`, `mail-thread-entry-original-get` | withheld (`evidence`) | withheld |
