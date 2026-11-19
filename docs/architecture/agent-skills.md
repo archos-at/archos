@@ -1103,6 +1103,7 @@ run tries again (the daily ones also retry a few times with backoff).
 | `inbound-mail-sweep` | every minute | `sweepInboundMail` (ADR-0137, [`inbound-mail.md`](inbound-mail.md)) |
 | `source-monitor` | `*/15 * * * *` | `runSourceMonitor` (ADR-0174), off unless the platform has source monitors on |
 | `frist-reminder` | `CRON_TZ=Europe/Vienna 45 6 * * *` | `enqueueDueReminders`, at 06:45 on the office's clock |
+| `office-norms-scan` | `CRON_TZ=Europe/Vienna 13 4 * * *` | `sweepNormsInFolders`: queues the `office_norms_scan` job of every office with `office-standards` on (ADR-0163, amendment of 2026-11-19) |
 
 The sweeps that ticked every 30 s now run every minute: Hatchet crons have no
 seconds. The cross-tenant SQL of the prune, the trace erasure and the download

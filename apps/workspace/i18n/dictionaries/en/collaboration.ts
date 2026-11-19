@@ -788,6 +788,10 @@ export const collaboration = {
           office: { title: 'The sort of the office filing stopped' },
         },
       },
+      officeShelfNormsFound: {
+        title: '{productName} found standards in folders',
+        body: 'In the folder you decide whether they move to Standards & guidelines or stay as ordinary files.',
+      },
       unknown: {
         title: 'Something happened',
         body: 'in {subject}',

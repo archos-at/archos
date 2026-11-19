@@ -29,6 +29,7 @@ export const BFF_JOB_KINDS = [
   'search_facets_sync',
   'platform_text_index',
   'platform_text_deindex',
+  'office_norms_scan',
 ] as const
 export type BffJobKind = (typeof BFF_JOB_KINDS)[number]
 

@@ -54,6 +54,11 @@ function rootSortHref(shelfPath: string, runId: string | null | undefined): stri
   return run ? `${shelfPath}?rootSort=${encodeURIComponent(run)}` : shelfPath
 }
 
+function officeShelfFolderHref(folderId: string | null | undefined): string {
+  const folder = folderId?.trim()
+  return folder ? `/app/office-shelf?folder=${encodeURIComponent(folder)}` : '/app/office-shelf'
+}
+
 function shareableTarget(type: ShareableResourceType): InboxTargetDescriptor {
   return {
     type,
@@ -84,10 +89,11 @@ const organizationTarget: InboxTargetDescriptor = {
     if (resourceId !== session.organizationId) return null
     return {
       projectId: null,
-      deepLink: (context) =>
-        context.itemType.startsWith('root_sort.')
-          ? rootSortHref('/app/office-shelf', context.anchorId)
-          : (ORGANIZATION_DESTINATIONS[context.itemType] ?? '/app/organization'),
+      deepLink: (context) => {
+        if (context.itemType.startsWith('root_sort.')) return rootSortHref('/app/office-shelf', context.anchorId)
+        if (context.itemType === 'office_shelf.norms_found') return officeShelfFolderHref(context.anchorId)
+        return ORGANIZATION_DESTINATIONS[context.itemType] ?? '/app/organization'
+      },
     }
   },
 }

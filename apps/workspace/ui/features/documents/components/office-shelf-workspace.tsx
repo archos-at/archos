@@ -16,6 +16,7 @@ import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
+import { OfficeShelfFolderNorms } from './office-shelf-folder-norms'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
 interface OfficeShelfWorkspaceProps {
@@ -24,6 +25,7 @@ interface OfficeShelfWorkspaceProps {
   trailingActions?: ReactNode
   organizationName?: string | null
   places?: ReactNode
+  normsInFolders?: boolean
 }
 
 export function OfficeShelfWorkspace({
@@ -32,6 +34,7 @@ export function OfficeShelfWorkspace({
   trailingActions,
   organizationName = null,
   places,
+  normsInFolders = false,
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
@@ -83,6 +86,13 @@ export function OfficeShelfWorkspace({
         <FileWorkspace
           shelf={shelf}
           onOpenSearch={search.open}
+          renderFolderNotice={
+            normsInFolders && canManage
+              ? ({ folderId, className, reload }) => (
+                  <OfficeShelfFolderNorms key={folderId} folderId={folderId} className={className} onChanged={reload} />
+                )
+              : undefined
+          }
           renderHeader={(controls, { count }) => (
             <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} places={places} />
           )}

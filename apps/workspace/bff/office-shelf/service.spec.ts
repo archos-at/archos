@@ -84,6 +84,8 @@ vi.mock('@/lib/compliance/repository', () => ({
   isCoveredByActiveHold: vi.fn().mockResolvedValue(false),
 }))
 
+vi.mock('@/lib/base-knowledge/office/folder-norms-scan', () => ({ scanAfterUpload: vi.fn() }))
+
 vi.mock('./repository', () => ({
   listOfficeShelfDocumentLevel: vi.fn(),
   findOfficeShelfDocumentsByFilenames: vi.fn(),
@@ -112,6 +114,7 @@ import {
   deleteOfficeShelfDocument as deleteOfficeShelfDocumentRow,
 } from './repository'
 import { encodeDocumentLevelCursor } from '@/lib/documents/list-cursor'
+import { scanAfterUpload } from '@/lib/base-knowledge/office/folder-norms-scan'
 
 const LEVEL = { folderId: undefined, sort: 'added', dir: 'desc', limit: 100 } as const
 import {
@@ -356,6 +359,17 @@ describe('uploadOfficeShelfDocument', () => {
       )
       expect(dispatchDocument).toHaveBeenCalledWith(
         expect.objectContaining({ folderPath: 'Normen/Brandschutz', collectionName: 'archiv_org-1' }),
+      )
+    })
+
+    it('asks for a scan of the office’s folders for norms once the file is filed', async () => {
+      vi.mocked(findFolderPathInOfficeShelf).mockResolvedValueOnce('Normen')
+
+      await uploadOfficeShelfDocument(session, makeFile(), request, { folderId: 'folder-1' })
+
+      expect(scanAfterUpload).toHaveBeenCalledWith(session, { folderId: 'folder-1', filename: 'plan.pdf' })
+      expect(vi.mocked(scanAfterUpload).mock.invocationCallOrder[0]).toBeGreaterThan(
+        vi.mocked(dispatchDocument).mock.invocationCallOrder[0],
       )
     })
 

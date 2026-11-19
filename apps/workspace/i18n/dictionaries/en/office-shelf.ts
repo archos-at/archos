@@ -15,6 +15,20 @@ export const officeShelf = {
   workspace: {
     dropToUpload: 'Drop files to add them to Office filing',
   },
+  folderNorms: {
+    foundOne: '1 file here is a standard.',
+    foundMany: '{count} files here are standards.',
+    explanation: 'Under Standards & guidelines they get their edition, status and notices of new editions. The folder stays.',
+    record: 'Move to Standards & guidelines',
+    recording: 'Moving …',
+    keep: 'Keep in folder',
+    keeping: 'Saving …',
+    recorded: '{count} moved to Standards & guidelines. They wait there under “To confirm”.',
+    recordedMore: '{count} moved to Standards & guidelines, {remaining} more still wait here.',
+    recordFailed: '{count} could not be moved and stay in the folder.',
+    kept: 'They stay in the folder as ordinary files. {productName} will not ask about them again.',
+    failed: 'That did not work. Please try again.',
+  },
   actions: {
     label: 'File actions for “{name}”',
     reingest: 'Read again',

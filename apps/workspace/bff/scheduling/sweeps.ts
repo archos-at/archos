@@ -31,6 +31,7 @@ import {
 } from '../../workers/maintenance-sql.js'
 import { report } from './log'
 import { runSourceMonitor } from '@/lib/base-knowledge/platform/monitor'
+import { sweepNormsInFolders as queueNormsScans } from '@/lib/base-knowledge/office/folder-norms-scan'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const MAX_ROUNDS = 20
@@ -172,6 +173,11 @@ export async function sweepCollaborationRetention(): Promise<void> {
 export async function sweepPlatformLessons(): Promise<void> {
   const result = await runScheduledLessonSweep()
   if (result.processed > 0) report(`platform lessons: ${JSON.stringify(result)}`)
+}
+
+export async function sweepNormsInFolders(): Promise<void> {
+  const counts = await queueNormsScans()
+  if (counts.queued > 0) report(`norms in office shelf folders: ${JSON.stringify(counts)}`)
 }
 
 export async function sweepFristReminder(now: Date = new Date()): Promise<void> {

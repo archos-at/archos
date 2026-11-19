@@ -44,6 +44,7 @@ describe('the scheduling tasks', () => {
       'collaboration-retention': '23 * * * *',
       'platform-lessons-sweep': '53 * * * *',
       'frist-reminder': 'CRON_TZ=Europe/Vienna 45 6 * * *',
+      'office-norms-scan': 'CRON_TZ=Europe/Vienna 13 4 * * *',
     })
     for (const sweep of sweeps) {
       expect(sweep.concurrency).toEqual({

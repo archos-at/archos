@@ -60,6 +60,7 @@ export interface FileWorkspaceProps {
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
   initialFolderId?: string | null
+  renderFolderNotice?: (folder: { folderId: string; className: string; reload: () => void }) => ReactNode
 }
 
 const renderDocumentActions = (): ReactNode => <DocumentActionsTrigger />
@@ -73,6 +74,7 @@ export function FileWorkspace({
   initialFiles,
   initialNextCursor = null,
   initialFolderId = null,
+  renderFolderNotice,
 }: FileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const { canManage, canCollaborate } = shelf
@@ -348,6 +350,9 @@ export function FileWorkspace({
             <InboundMailWaitingLine href={shelf.inboundMail.href} count={shelf.inboundMail.waiting ?? 0} more={shelf.inboundMail.more} />
           </div>
         )}
+
+        {renderFolderNotice && selectedFolderId !== null && !searchingNow &&
+          renderFolderNotice({ folderId: selectedFolderId, className: NOTICE_STRIP, reload: () => void reloadAll() })}
 
         {/* On a phone the Hochladen button floats over the foot of the list, so
             the list ends the button's height plus its 1rem offset and a 1rem gap (6rem) above the screen's edge: the last

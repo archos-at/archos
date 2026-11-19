@@ -160,6 +160,15 @@ const SWEEPS: SweepSpec[] = [
     run: sweeps.sweepFristReminder,
     retries: 3,
   },
+  {
+    name: 'office-norms-scan',
+    cron: `CRON_TZ=${OFFICE_TIME_ZONE} 13 4 * * *`,
+    reason:
+      'lists the organizations and, for each with office-standards on, queues inside it the scan of its office shelf ' +
+      'folders for norms not yet under Normen & Richtlinien; the flag is switched in WorkOS, which tells us nothing',
+    run: sweeps.sweepNormsInFolders,
+    retries: 2,
+  },
 ]
 
 export function fireTask(hatchet: TaskDeclarer) {

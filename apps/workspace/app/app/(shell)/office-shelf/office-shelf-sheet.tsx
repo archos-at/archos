@@ -30,6 +30,7 @@ export async function OfficeShelfSheet({ standalone }: { standalone: boolean }):
           showModels={showModels}
           organizationName={session.organizationName}
           places={isOfficeStandardsEnabled(session) ? <OfficeShelfPlaces /> : undefined}
+          normsInFolders={isOfficeStandardsEnabled(session)}
           trailingActions={<PageSheetClose label={tCommon('actions.close')} />}
         />
       </RoutePageSheet>

@@ -795,6 +795,10 @@ export const collaboration: typeof en.collaboration = {
           office: { title: 'Die Sortierung der Büroablage wurde abgebrochen' },
         },
       },
+      officeShelfNormsFound: {
+        title: '{productName} hat Normen in Ordnern gefunden',
+        body: 'Im Ordner entscheiden Sie, ob sie unter Normen & Richtlinien geführt werden oder als normale Dateien bleiben.',
+      },
       unknown: {
         title: 'Es gab Aktivität',
         body: 'in {subject}',

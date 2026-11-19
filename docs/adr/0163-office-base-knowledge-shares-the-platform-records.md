@@ -202,6 +202,36 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   narrows by folder (with subfolders), attention, kind and a search, and answers counts, folder counts and
   the territories the form offers by name.
 
+## Amendment 2026-11-19: norms already in ordinary folders
+
+Offices kept norms in ordinary Büroablage folders long before Normen & Richtlinien existed (one office has a
+folder „Normen“). With the standards tree hidden from the Ordner tab, those files would stay ordinary files
+nobody is told about.
+
+- **Found by a BFF job, not the browser.** `office_norms_scan` (`bff/base-knowledge/office/folder-norms-scan.ts`)
+  pages through the office shelf's documents in ordinary folders (never the standards tree, never the top level),
+  500 a slice, and keeps those `recognizeNorm` calls a norm from their name that are neither recorded as base
+  knowledge nor kept as ordinary files. Its trigger: a daily cron sweep, `office-norms-scan` at 04:13 Vienna, queues
+  it for every office with `office-standards` on, because the flag is switched in WorkOS and nothing in the code
+  hears it come on, so the first scan after enabling runs the next night at the latest; and an upload of a file
+  whose name reads as a norm into an ordinary folder queues it a minute later, one queued scan per office
+  (`enqueueJobIfAbsent` on an id derived from the office), so a folder upload of 200 files is one scan. A
+  decision in a folder queues a fresh scan so the inbox item follows.
+- **One Postfach item per office**, `office_shelf.norms_found` („ARCHOS hat Normen in Ordnern gefunden“), to the
+  members whose role holds `org:office_shelf:manage`, listing up to twelve file names and linking to the first
+  folder. A member who already holds it is never told again: an open item is refreshed, a resolved or archived one
+  stays so. When nothing is left, or the flag is off, open items are resolved; one held by a member who lost the
+  permission is resolved too.
+- **The decision is in the folder.** The Ordner tab shows a notice in a folder holding such files, to those who
+  may manage the Büroablage. „Unter Normen & Richtlinien führen“ proposes each file (`proposeBaseKnowledge`) and
+  then moves it under the standards root, up to 50 a request, where it waits under „Zu bestätigen“; the folder
+  stays, even empty. „Im Ordner lassen“ writes one row per document to `office_norm_kept_files` (migration 0250,
+  `secure_table` on the organization), and no scan offers that document again. Operations:
+  `office-shelf-folder-norms-list` and `office-shelf-folder-norms-decide` (the person's own decision, not the
+  agent's).
+- **What is read is the file name**, as at upload: the title and summary the backend reads later are not in
+  the scan, because reading them for every document of a shelf is a backend call per collection.
+
 Deferred, with the reason: a masthead reading for the proposal (the file name and a person's correction
 cover most cases; reading needs the licensed seam's zero-retention call), a measure of how well tables in
 standards are read (needs licensed test documents and an evaluation of its own), a view of norms the

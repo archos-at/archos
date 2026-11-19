@@ -750,6 +750,15 @@
    "describe": "{\"name\":\"office-shelf-folder-list\",\"domain\":\"folders\",\"summary\":\"List the office shelf folders\",\"description\":\"Every folder of the office shelf, in the same shape as project-folder-list. Any member may read. Folder ids feed office-shelf-folder-update, office-shelf-folder-delete and the `folderId` filter of document-list.\",\"annotations\":{\"title\":\"List the office shelf folders\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
   },
   {
+   "name": "office-shelf-folder-norms-list",
+   "domain": "folders",
+   "summary": "List the files in an office shelf folder that read as norms",
+   "description": "Files in the folder whose name reads as a norm and that are neither base knowledge nor kept as ordinary files. A person decides whether they move. Needs org:office_shelf:manage.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"office-shelf-folder-norms-list\",\"domain\":\"folders\",\"summary\":\"List the files in an office shelf folder that read as norms\",\"description\":\"Files in the folder whose name reads as a norm and that are neither base knowledge nor kept as ordinary files. A person decides whether they move. Needs org:office_shelf:manage.\",\"annotations\":{\"title\":\"List the files in an office shelf folder that read as norms\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"folderId\":{\"type\":\"string\",\"format\":\"uuid\",\"description\":\"An office shelf folder id, from office-shelf-folder-list.\"}},\"required\":[\"folderId\"]},\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"default\":100,\"description\":\"Default and max 100.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":100},\"cursor\":{\"description\":\"The previous page’s `nextCursor`.\",\"type\":\"string\",\"pattern\":\"^\\\\d{1,4}$\"}},\"additionalProperties\":false}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+  },
+  {
    "name": "office-shelf-folder-update",
    "domain": "folders",
    "summary": "Rename, move or describe an office shelf folder",
@@ -1566,7 +1575,7 @@
    "description": "The person’s own inbox, newest first. `filter`: `requests` (waits on them), `unread`, `pending` (unread OR open request), `archived`, `all` (default); `type` and `projectId` narrow it. Page with `nextCursor`. An `upload.completed` item of a project upload carries `uploadReport`: documents read by document type, new findings (read them with project-document-findings), references the project cannot resolve and pages not read in full.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"inbox-list\",\"domain\":\"collaboration\",\"summary\":\"List the person’s inbox\",\"description\":\"The person’s own inbox, newest first. `filter`: `requests` (waits on them), `unread`, `pending` (unread OR open request), `archived`, `all` (default); `type` and `projectId` narrow it. Page with `nextCursor`. An `upload.completed` item of a project upload carries `uploadReport`: documents read by document type, new findings (read them with project-document-findings), references the project cannot resolve and pages not read in full.\",\"annotations\":{\"title\":\"List the person’s inbox\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"filter\":{\"description\":\"The slice; `all` (unarchived) is the default.\",\"type\":\"string\",\"enum\":[\"pending\",\"requests\",\"unread\",\"all\",\"archived\"]},\"type\":{\"description\":\"Only this item type.\",\"type\":\"string\",\"enum\":[\"mention.requested\",\"mention.answered\",\"conversation.shared_with_you\",\"conversation.activity\",\"storage.quota_warning\",\"document.assigned_to_you\",\"resource.ownership_taken\",\"task_run.completed\",\"task_run.failed\",\"task_run.waiting\",\"document.review_requested\",\"feedback.submitted\",\"feedback.replied\",\"upload.completed\",\"document.quarantined\",\"document.release_requested\",\"mail_import.completed\",\"mail_import.failed\",\"document.new_revision\",\"agent.work_done\",\"agent.work_failed\",\"agent.asks_you\",\"agent.proposal_waiting\",\"agent.intake_ready\",\"agent.revision_checked\",\"annotation.assigned_to_you\",\"annotation.activity\",\"annotation.mentioned\",\"root_sort.ready\",\"root_sort.failed\",\"inbound_mail.waiting\",\"inbound_mail.expiring\",\"inbound_mail.decided\",\"inbound_mail.filing_failed\",\"inbound_mail.cap_reached\",\"inbound_mail.appended\",\"mail_thread.follow_expiring\",\"inbound_mail.held\",\"inbound_mail.held_for_writers\",\"inbound_mail.rejected\",\"inbound_mail.expired\"]},\"projectId\":{\"description\":\"Only items about this project or its conversations and documents.\",\"type\":\"string\",\"format\":\"uuid\"},\"limit\":{\"default\":50,\"description\":\"Page size (default and most 50).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"cursor\":{\"description\":\"The previous `nextCursor`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":200}}}},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"inbox-list\",\"domain\":\"collaboration\",\"summary\":\"List the person’s inbox\",\"description\":\"The person’s own inbox, newest first. `filter`: `requests` (waits on them), `unread`, `pending` (unread OR open request), `archived`, `all` (default); `type` and `projectId` narrow it. Page with `nextCursor`. An `upload.completed` item of a project upload carries `uploadReport`: documents read by document type, new findings (read them with project-document-findings), references the project cannot resolve and pages not read in full.\",\"annotations\":{\"title\":\"List the person’s inbox\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"filter\":{\"description\":\"The slice; `all` (unarchived) is the default.\",\"type\":\"string\",\"enum\":[\"pending\",\"requests\",\"unread\",\"all\",\"archived\"]},\"type\":{\"description\":\"Only this item type.\",\"type\":\"string\",\"enum\":[\"mention.requested\",\"mention.answered\",\"conversation.shared_with_you\",\"conversation.activity\",\"storage.quota_warning\",\"document.assigned_to_you\",\"resource.ownership_taken\",\"task_run.completed\",\"task_run.failed\",\"task_run.waiting\",\"document.review_requested\",\"feedback.submitted\",\"feedback.replied\",\"upload.completed\",\"document.quarantined\",\"document.release_requested\",\"mail_import.completed\",\"mail_import.failed\",\"document.new_revision\",\"agent.work_done\",\"agent.work_failed\",\"agent.asks_you\",\"agent.proposal_waiting\",\"agent.intake_ready\",\"agent.revision_checked\",\"annotation.assigned_to_you\",\"annotation.activity\",\"annotation.mentioned\",\"root_sort.ready\",\"root_sort.failed\",\"office_shelf.norms_found\",\"inbound_mail.waiting\",\"inbound_mail.expiring\",\"inbound_mail.decided\",\"inbound_mail.filing_failed\",\"inbound_mail.cap_reached\",\"inbound_mail.appended\",\"mail_thread.follow_expiring\",\"inbound_mail.held\",\"inbound_mail.held_for_writers\",\"inbound_mail.rejected\",\"inbound_mail.expired\"]},\"projectId\":{\"description\":\"Only items about this project or its conversations and documents.\",\"type\":\"string\",\"format\":\"uuid\"},\"limit\":{\"default\":50,\"description\":\"Page size (default and most 50).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"cursor\":{\"description\":\"The previous `nextCursor`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":200}}}},\"additionalProperties\":false}}"
   },
   {
    "name": "inbox-summary-get",
@@ -2367,21 +2376,21 @@
    "base-knowledge-bulk",
    "document-bin",
    "project-folder-bin-list",
+   "office-shelf-folder-norms-list",
    "document-summary-get",
-   "office-shelf-folder-delete",
-   "office-shelf-folder-list"
+   "office-shelf-folder-delete"
   ],
   "Datei in Ordner verschieben": [
    "document-move",
    "project-folder-delete",
+   "office-shelf-folder-norms-list",
    "office-shelf-root-sort-start",
    "project-root-sort-start",
    "project-folder-update",
    "root-sort-run-undo",
    "base-knowledge-bulk",
    "office-shelf-folder-update",
-   "document-bin",
-   "project-folder-bin-list"
+   "document-bin"
   ],
   "create folder": [
    "office-shelf-folder-create",
@@ -2393,7 +2402,7 @@
    "skill-category-create",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "office-shelf-folder-update"
+   "office-shelf-folder-norms-list"
   ],
   "Ordner anlegen": [
    "office-shelf-folder-create",
@@ -2405,7 +2414,7 @@
    "skill-category-create",
    "office-shelf-folder-delete",
    "office-shelf-folder-list",
-   "office-shelf-folder-update"
+   "office-shelf-folder-norms-list"
   ],
   "document versions": [
    "document-version-list",

@@ -15,6 +15,20 @@ export const officeShelf = {
   workspace: {
     dropToUpload: 'Dateien hier ablegen, um sie in die Büroablage aufzunehmen',
   },
+  folderNorms: {
+    foundOne: '1 Datei hier ist eine Norm.',
+    foundMany: '{count} Dateien hier sind Normen.',
+    explanation: 'Unter Normen & Richtlinien bekommen sie Ausgabe, Stand und Meldungen zu neuen Ausgaben. Der Ordner bleibt.',
+    record: 'Unter Normen & Richtlinien führen',
+    recording: 'Wird übernommen …',
+    keep: 'Im Ordner lassen',
+    keeping: 'Wird gemerkt …',
+    recorded: '{count} unter Normen & Richtlinien. Sie warten dort unter „Zu bestätigen“.',
+    recordedMore: '{count} unter Normen & Richtlinien, {remaining} weitere warten hier noch.',
+    recordFailed: '{count} konnten nicht übernommen werden und bleiben im Ordner.',
+    kept: 'Bleiben im Ordner als normale Dateien. {productName} fragt dafür nicht mehr.',
+    failed: 'Das hat nicht geklappt. Bitte versuchen Sie es erneut.',
+  },
   actions: {
     label: 'Dateiaktionen für „{name}“',
     reingest: 'Erneut lesen',
