@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { FOLDERS, mail, messagePart, part, thread } from '@/app/dev/inbound-mail/fixtures'
 import {
+  checkAllAttachments,
+  checkedAttachmentIds,
   chooseFinding,
   decisionOf,
+  fileCheckedInto,
+  rebaseDraft,
   draftSummary,
   initialDraft,
   targetForPath,
@@ -160,5 +164,56 @@ describe('newThreadTarget', () => {
   it('takes the folder the agent suggested for the text (D14)', () => {
     const view = mail({ parts: [messagePart({ id: message.id, suggestion: { folderId: null, folderPath: 'Behörde', newFolder: false, documentType: null, reason: 'x' } })], threadCandidates: [] })
     expect(initialDraft(view, FOLDERS, copy).message?.target).toMatchObject({ kind: 'create', folder: { kind: 'existing', path: 'Behörde' }, folderSuggested: true })
+  })
+})
+
+describe('a plan set at once', () => {
+  const plans = [1, 2, 3].map((index) => part({ name: `Plan_${index}.pdf` }))
+  const infected = part({ name: 'Virus.pdf', scan: 'infected' })
+  const view = mail({ parts: [message, ...plans, infected] })
+
+  it('ticks and unticks every attachment it can file, and none it cannot', () => {
+    const all = checkAllAttachments(initialDraft(view, FOLDERS, copy), view, true)
+    expect(checkedAttachmentIds(all, view)).toEqual(plans.map((plan) => plan.id))
+    expect(all.attachments.find((attachment) => attachment.partId === infected.id)?.checked).toBe(false)
+    expect(checkedAttachmentIds(checkAllAttachments(all, view, false), view)).toEqual([])
+  })
+
+  it('sends the ticked ones to one folder, and leaves a chosen next Fassung where its document is', () => {
+    let draft = checkAllAttachments(initialDraft(view, FOLDERS, copy), view, true)
+    draft = updateAttachment(draft, plans[2].id, { revisionOf: 'doc-1' })
+    const target = targetForPath('Tragwerk', FOLDERS)
+    const result = fileCheckedInto(draft, view, target)
+    expect(result).toMatchObject({ moved: 2, revisions: 1 })
+    expect(result.draft.attachments.filter((attachment) => attachment.folder?.path === 'Tragwerk').map((attachment) => attachment.partId)).toEqual([plans[0].id, plans[1].id])
+    expect(draftSummary(view, result.draft).blockers).not.toContainEqual(expect.objectContaining({ kind: 'folder_missing' }))
+  })
+})
+
+describe('rebaseDraft', () => {
+  const first = part({ name: 'A.pdf' })
+  const second = part({ name: 'B.pdf', scan: 'pending' })
+  const before = mail({ parts: [message, first, second] })
+
+  it('keeps every choice the person made when the re-read mail has the same parts', () => {
+    const base = initialDraft(before, FOLDERS, copy)
+    const edited = updateAttachment(updateAttachment(base, first.id, { checked: true, folder: targetForPath('Tragwerk', FOLDERS) }), first.id, { name: 'A_Index_C.pdf' })
+    const after = mail({ parts: [message, first, { ...second, scan: 'clean', preselected: true, suggestion: { folderId: null, folderPath: 'Behörde', newFolder: false, documentType: null, reason: 'x' } }] })
+    const fresh = initialDraft(after, FOLDERS, copy)
+    const rebased = rebaseDraft({ ...edited, acknowledgeSender: true }, base, fresh)
+    expect(rebased.attachments.find((attachment) => attachment.partId === first.id)).toMatchObject({ checked: true, name: 'A_Index_C.pdf', folder: { path: 'Tragwerk' } })
+    // The part nobody touched takes what the re-read brought: its scan passed and a suggestion arrived.
+    expect(rebased.attachments.find((attachment) => attachment.partId === second.id)).toMatchObject({ checked: true, folder: { path: 'Behörde' } })
+    expect(rebased.ifMatch).toBe(fresh.ifMatch)
+    expect(rebased.acknowledgeSender).toBe(true)
+  })
+
+  it('starts over when the parts changed, or the mail is another', () => {
+    const base = initialDraft(before, FOLDERS, copy)
+    const edited = updateAttachment(base, first.id, { name: 'X.pdf' })
+    const fewer = initialDraft(mail({ parts: [message, first] }), FOLDERS, copy)
+    expect(rebaseDraft(edited, base, fewer)).toBe(fewer)
+    const other = initialDraft(mail({ key: 'other', parts: [message, first, second] }), FOLDERS, copy)
+    expect(rebaseDraft(edited, base, other)).toBe(other)
   })
 })

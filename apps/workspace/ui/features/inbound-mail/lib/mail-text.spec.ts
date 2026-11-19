@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { linkDomain, PREVIEW_LINES, textPreview, textRuns, tidyText } from './mail-text'
+import { linkDomain, PREVIEW_LINES, substantiveText, textPreview, textRuns, tidyText } from './mail-text'
 
 describe('tidyText', () => {
   it('collapses blank runs and trailing spaces', () => {
@@ -46,5 +46,14 @@ describe('linkDomain', () => {
     expect(linkDomain('ftp://x.at')).toBeNull()
     expect(linkDomain('nonsense')).toBeNull()
     expect(linkDomain('https://ma37.wien.gv.at/x')).toBe('ma37.wien.gv.at')
+  })
+})
+
+describe('substantiveText', () => {
+  it('counts the words of a mail that says something, not a greeting, a signature or a bare link', () => {
+    expect(substantiveText('anbei die überarbeitete Statik S-101 in Index C. Die Stellplätze im Hof sind jetzt mit der neuen Lastannahme gerechnet.')).toBe(true)
+    expect(substantiveText('lg Miriam')).toBe(false)
+    expect(substantiveText('https://example.org/a/very/long/link/with/many/segments?and=params&more=1')).toBe(false)
+    expect(substantiveText('')).toBe(false)
   })
 })

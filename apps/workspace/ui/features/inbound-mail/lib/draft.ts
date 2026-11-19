@@ -158,6 +158,74 @@ export function updateAttachment(draft: MailDraft, partId: string, change: Parti
   }
 }
 
+export function selectableAttachmentIds(view: InboundMailView): string[] {
+  return view.parts
+    .filter((part) => part.kind === 'attachment')
+    .map((part) => attachmentCase(part, view))
+    .filter((entry) => entry.selectable)
+    .map((entry) => entry.part.id)
+}
+
+export function checkAllAttachments(draft: MailDraft, view: InboundMailView, checked: boolean): MailDraft {
+  const selectable = new Set(selectableAttachmentIds(view))
+  return {
+    ...draft,
+    attachments: draft.attachments.map((attachment) => (selectable.has(attachment.partId) ? { ...attachment, checked } : attachment)),
+  }
+}
+
+export function checkedAttachmentIds(draft: MailDraft, view: InboundMailView): string[] {
+  const selectable = new Set(selectableAttachmentIds(view))
+  return draft.attachments.filter((attachment) => attachment.checked && selectable.has(attachment.partId)).map((attachment) => attachment.partId)
+}
+
+export function fileCheckedInto(draft: MailDraft, view: InboundMailView, folder: FolderTarget): { draft: MailDraft; moved: number; revisions: number } {
+  let next = draft
+  let moved = 0
+  let revisions = 0
+  for (const partId of checkedAttachmentIds(draft, view)) {
+    const attachment = draft.attachments.find((candidate) => candidate.partId === partId)
+    if (attachment?.revisionOf) {
+      revisions += 1
+      continue
+    }
+    next = updateAttachment(next, partId, { folder })
+    moved += 1
+  }
+  return { draft: next, moved, revisions }
+}
+
+function sameAttachment(a: AttachmentDraft, b: AttachmentDraft): boolean {
+  return (
+    a.checked === b.checked &&
+    a.name === b.name &&
+    sameTarget(a.folder, b.folder) &&
+    a.documentType === b.documentType &&
+    a.revisionOf === b.revisionOf &&
+    a.releaseName === b.releaseName &&
+    a.acknowledgeRisk === b.acknowledgeRisk
+  )
+}
+
+function sameMessage(a: MessageDraft | null, b: MessageDraft | null): boolean {
+  if (a === null || b === null) return a === b
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+export function rebaseDraft(edited: MailDraft, base: MailDraft, fresh: MailDraft): MailDraft {
+  if (edited.mailId !== fresh.mailId || base.mailId !== fresh.mailId) return fresh
+  const ids = (draft: MailDraft): string =>
+    [...draft.attachments.map((attachment) => attachment.partId), draft.message?.partId ?? ''].sort().join(',')
+  if (ids(edited) !== ids(fresh) || ids(base) !== ids(fresh)) return fresh
+  const attachments = fresh.attachments.map((next) => {
+    const mine = edited.attachments.find((candidate) => candidate.partId === next.partId)
+    const before = base.attachments.find((candidate) => candidate.partId === next.partId)
+    return mine && before && !sameAttachment(mine, before) ? mine : next
+  })
+  const message = sameMessage(edited.message, base.message) ? fresh.message : edited.message
+  return { ...fresh, attachments, message, acknowledgeSender: edited.acknowledgeSender }
+}
+
 export function updateMessage(draft: MailDraft, change: Partial<Omit<MessageDraft, 'partId'>>): MailDraft {
   return draft.message ? { ...draft, message: { ...draft.message, ...change } } : draft
 }
