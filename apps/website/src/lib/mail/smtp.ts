@@ -25,8 +25,20 @@ export function smtpLoginFrom(env: Record<string, string | undefined>): SmtpLogi
   return user && password ? { user, password } : undefined;
 }
 
+export function smtpTransportOptions(login: SmtpLogin, server: { host: string; port: number } = GOOGLE_WORKSPACE_SMTP) {
+  return {
+    host: server.host,
+    port: server.port,
+    secure: server.port === 465,
+    auth: { user: login.user, pass: login.password },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
+  };
+}
+
 export function smtpSender(login: SmtpLogin, server: { host: string; port: number } = GOOGLE_WORKSPACE_SMTP): SendMail {
-  const transport = nodemailer.createTransport({ host: server.host, port: server.port, secure: server.port === 465, auth: login });
+  const transport = nodemailer.createTransport(smtpTransportOptions(login, server));
   return async (mail) => {
     await transport.sendMail(mail);
   };

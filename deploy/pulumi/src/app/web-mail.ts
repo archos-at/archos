@@ -1,6 +1,7 @@
 import * as k8s from "@pulumi/kubernetes";
 import type * as pulumi from "@pulumi/pulumi";
 import type { DeployConfig } from "../config";
+import { secretChecksum, secretChecksumAnnotations } from "../platform/rollout";
 
 export const WEB_MAIL_SECRET = "web-mail"; // pragma: allowlist secret
 
@@ -27,4 +28,16 @@ export function webMailEnv(cfg: DeployConfig): k8s.types.input.core.v1.EnvVar[] 
     ...(smtp ? [{ name: "SMTP_USER", value: smtp.user }, fromSecret("SMTP_PASSWORD")] : []),
     ...(attioApiKey ? [fromSecret("ATTIO_API_KEY")] : []),
   ];
+}
+
+export function webMailPodAnnotations(cfg: DeployConfig): Record<string, pulumi.Input<string>> {
+  const { smtp, attioApiKey } = cfg.websiteMail;
+  if (!smtp && !attioApiKey) return {};
+  return secretChecksumAnnotations(
+    secretChecksum({
+      SMTP_USER: smtp?.user ?? "",
+      SMTP_PASSWORD: smtp?.password ?? "",
+      ATTIO_API_KEY: attioApiKey ?? "",
+    }),
+  );
 }

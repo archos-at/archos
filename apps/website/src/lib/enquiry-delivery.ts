@@ -4,6 +4,15 @@ import { button, infoList, mailPage, note, panel, paragraph, smtpLoginFrom, type
 import { enquiryText, splitNameLastWordAsSurname, type Enquiry } from './enquiry';
 
 const ATTIO_API = 'https://api.attio.com/v2';
+const OPTIONAL_STEP_DEADLINE_MS = 10_000;
+
+function withinDeadline<T>(step: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`no answer within ${ms} ms`)), ms);
+  });
+  return Promise.race([step, late]).finally(() => clearTimeout(timer));
+}
 
 export interface Delivery {
   smtp: SmtpLogin;
@@ -62,6 +71,7 @@ export async function recordInAttio(enquiry: Enquiry, apiKey: string, fetchFn: t
   const person = await fetchFn(`${ATTIO_API}/objects/people/records?matching_attribute=email_addresses`, {
     method: 'PUT',
     headers,
+    signal: AbortSignal.timeout(OPTIONAL_STEP_DEADLINE_MS),
     body: JSON.stringify({ data: { values: { email_addresses: [enquiry.email], name: [splitNameLastWordAsSurname(enquiry.name)] } } }),
   });
   if (!person.ok) throw new Error(`Attio person upsert answered ${person.status}`);
@@ -70,6 +80,7 @@ export async function recordInAttio(enquiry: Enquiry, apiKey: string, fetchFn: t
   const note = await fetchFn(`${ATTIO_API}/notes`, {
     method: 'POST',
     headers,
+    signal: AbortSignal.timeout(OPTIONAL_STEP_DEADLINE_MS),
     body: JSON.stringify({
       data: {
         parent_object: 'people',
@@ -93,6 +104,7 @@ export async function deliver(
   send: SendMail,
   record: (enquiry: Enquiry, apiKey: string) => Promise<void> = recordInAttio,
   log: (event: Record<string, unknown>) => void = (event) => console.log(JSON.stringify(event)),
+  deadlineMs = OPTIONAL_STEP_DEADLINE_MS,
 ): Promise<Outcome> {
   try {
     await send(notification(enquiry, delivery.smtp.user, look));
@@ -101,8 +113,8 @@ export async function deliver(
     return 'failed';
   }
   const rest = await Promise.allSettled([
-    send(confirmation(enquiry, look)),
-    delivery.attioApiKey ? record(enquiry, delivery.attioApiKey) : Promise.resolve(),
+    withinDeadline(send(confirmation(enquiry, look)), deadlineMs),
+    delivery.attioApiKey ? withinDeadline(record(enquiry, delivery.attioApiKey), deadlineMs) : Promise.resolve(),
   ]);
   const [confirmed, recorded] = rest;
   if (confirmed.status === 'rejected') {

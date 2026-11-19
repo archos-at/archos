@@ -25,7 +25,7 @@ const de = {
     newsletterMail: { label: 'Newsletter', yes: 'ja', no: 'nein' },
     delivered: {
       title: 'Danke, Ihre Anfrage ist bei uns angekommen.',
-      text: 'Wir haben Ihnen eine Bestätigung per E-Mail geschickt und melden uns in der Regel innerhalb eines Werktags für einen Termin.',
+      text: 'Wir melden uns in der Regel innerhalb eines Werktags an die angegebene E-Mail-Adresse, um einen Termin zu vereinbaren.',
     },
     sent: {
       title: 'Ihre Anfrage liegt in Ihrem E-Mail-Programm bereit.',
@@ -35,7 +35,7 @@ const de = {
     },
   },
   privacyNote: {
-    before: 'Beim Absenden erhalten Sie eine Bestätigung an die angegebene E-Mail-Adresse. Wie wir Ihre Angaben verarbeiten, steht in der ',
+    before: 'Wie wir Ihre Angaben verarbeiten, steht in der ',
     link: 'Datenschutzerklärung',
     after: '.',
   },
@@ -69,7 +69,7 @@ const en: typeof de = {
     newsletterMail: { label: 'Newsletter', yes: 'yes', no: 'no' },
     delivered: {
       title: 'Thank you, your request has reached us.',
-      text: 'We have sent you a confirmation by email and usually get back to you within one working day to arrange a date.',
+      text: 'We usually get back to you within one working day, at the email address you gave, to arrange a date.',
     },
     sent: {
       title: 'Your request is ready in your email program.',
@@ -79,7 +79,7 @@ const en: typeof de = {
     },
   },
   privacyNote: {
-    before: 'After sending, you receive a confirmation at the email address you give. How we process your details is set out in our ',
+    before: 'How we process your details is set out in our ',
     link: 'privacy policy',
     after: '.',
   },

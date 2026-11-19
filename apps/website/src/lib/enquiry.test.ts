@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { confirmation, deliver, deliveryFrom, notification, recordInAttio, type Mail } from './enquiry-delivery';
 import { parseEnquiry, SendBudget, splitNameLastWordAsSurname, TRAP_FIELD, type Enquiry } from './enquiry';
-import { mailLook } from './mail';
+import { mailLook, smtpTransportOptions } from './mail';
 import identity from './identity';
 
 const TOKENS = `:root {
@@ -114,9 +114,26 @@ describe('delivering an enquiry', () => {
     expect(sent.map((m) => m.to)).toEqual([identity.email]);
   });
 
+  test('a confirmation that never answers does not hold the visitor past the deadline', async () => {
+    const send = (mail: Mail) => (mail.to === identity.email ? Promise.resolve() : new Promise<void>(() => {}));
+    const started = Date.now();
+    const outcome = await deliver(enquiry(), delivery, look, send, undefined, quiet, 50);
+    expect(outcome).toBe('sent');
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
   test('without an SMTP login there is no delivery', () => {
     expect(deliveryFrom({ SMTP_USER: 'a@b.example' })).toBeUndefined();
     expect(deliveryFrom({ SMTP_USER: 'a@b.example', SMTP_PASSWORD: 'pw', ATTIO_API_KEY: '' })?.attioApiKey).toBeUndefined(); // pragma: allowlist secret
+  });
+});
+
+describe('the SMTP login', () => {
+  test('hands the password to nodemailer as auth.pass, with timeouts', () => {
+    const options = smtpTransportOptions({ user: 'sender@office.example', password: 'pw' }); // pragma: allowlist secret
+    expect(options.auth).toEqual({ user: 'sender@office.example', pass: 'pw' }); // pragma: allowlist secret
+    expect(options).toMatchObject({ host: 'smtp.gmail.com', port: 465, secure: true });
+    expect(options.socketTimeout).toBeGreaterThan(0);
   });
 });
 
