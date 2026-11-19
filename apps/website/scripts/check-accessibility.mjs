@@ -155,6 +155,13 @@ try {
         findings.push(...(await audit(page, `${route} @${width} consent note`)))
       }
       const form = page.locator('[data-mail-form] form')
+      for (const trap of await page.locator('[data-mail-form] input[name="website"]').all()) {
+        const shown = await trap.evaluate((el) => {
+          const box = el.parentElement.getBoundingClientRect()
+          return getComputedStyle(el.parentElement).clipPath === 'none' && box.width > 1 ? `${box.width}x${box.height}` : ''
+        })
+        if (shown) findings.push(`${route} @${width}: the trap field is visible (${shown})`)
+      }
       if (width >= 768 && (await form.count())) {
         await form.evaluate((el) => {
           el.hidden = true
