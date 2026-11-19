@@ -136,8 +136,8 @@ describe('MailThreadTab', () => {
       const control = await screen.findByRole('switch', { name: 'File replies in this mail thread without a click' })
       expect(control).toBeChecked()
       expect(screen.getByTestId('mail-thread-follow-switch-state')).toHaveTextContent(/^On until /)
-      expect(screen.getByTestId('mail-thread-follow-switch')).toHaveTextContent('as if you had done it yourself')
-      expect(screen.getByTestId('mail-thread-follow-switch')).toHaveTextContent('listed there under “Handled”')
+      expect(screen.getByTestId('mail-thread-follow-switch')).toHaveTextContent('here and in the suggested folders')
+      expect(screen.getByTestId('mail-thread-follow-switch')).toHaveTextContent('listed under “Handled”')
     })
 
     it('switches on, and the toast offers the undo', async () => {
@@ -153,7 +153,7 @@ describe('MailThreadTab', () => {
       expect(toast.success).toHaveBeenCalledWith(expect.stringMatching(/^Replies in “Stellplatznachweis” are filed without a click until /), expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
     })
 
-    it('renews and stops a running follow', async () => {
+    it('renews a follow in its last days and stops it', async () => {
       const { client } = renderTab('followed')
       const follow = vi.spyOn(client, 'follow')
       const unfollow = vi.spyOn(client, 'unfollow')

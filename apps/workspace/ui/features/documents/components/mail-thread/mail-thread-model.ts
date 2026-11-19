@@ -1,6 +1,6 @@
 import type { DocumentVersionView } from '@/lib/documents/lifecycle-types'
 import { OFFICE_TIME_ZONE, formatAbsoluteTime } from '@/lib/format'
-import type { SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
+import { MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS, type SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import {
   MAIL_THREAD_FOLLOW_DEFAULT_DAYS,
   type MailThreadAttachmentNotFiledReason,
@@ -19,8 +19,9 @@ export type ViewerFollow =
   | { kind: 'following'; follow: MailThreadFollowView | null; renewable: boolean }
 
 export function followRenewable(follow: MailThreadFollowView, now: number = Date.now()): boolean {
+  const left = Date.parse(follow.expiresAt) - now
   const renewedTo = now + MAIL_THREAD_FOLLOW_DEFAULT_DAYS * DAY_MS
-  return renewedTo - Date.parse(follow.expiresAt) >= DAY_MS
+  return left <= MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS * DAY_MS && renewedTo - Date.parse(follow.expiresAt) >= DAY_MS
 }
 
 export function viewerFollow(

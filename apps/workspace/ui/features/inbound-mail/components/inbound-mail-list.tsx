@@ -72,6 +72,8 @@ export interface InboundMailListProps {
 }
 
 const GROUP_ACTION = 'shrink-0 gap-1.5'
+// A thread's press is the quiet text of the dialog's „Ändern“: under the section's button it read as a second, competing one.
+const GROUP_LINK = 'text-muted-foreground hover:text-foreground touch-target h-auto shrink-0 p-0 text-xs'
 
 type Block = { key: string; head: Extract<ListSection, { kind: 'readiness' | 'quiet' }> | null; entries: Array<Extract<ListSection, { kind: 'mail' | 'thread' }>> }
 
@@ -355,9 +357,8 @@ function ListBody({
           {picking ? null : section.mails.every(isReady) ? (
             <BusyButton
               type="button"
-              size="sm"
-              variant="secondary"
-              className={GROUP_ACTION}
+              variant="inline"
+              className={GROUP_LINK}
               busy={fileGroupBusy === groupKey}
               busyLabel={t('bulk.fileSuggestedBusy')}
               onClick={() => onFileGroup(groupKey, batch.map((mail) => mail.id))}
@@ -366,7 +367,7 @@ function ListBody({
               {t(batch.length < section.mails.length ? 'group.threadActionFirst' : 'group.threadAction', { count: batch.length })}
             </BusyButton>
           ) : (
-            <Button asChild size="sm" variant="secondary" className={GROUP_ACTION}>
+            <Button asChild variant="inline" className={GROUP_LINK}>
               <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
                 {t('group.reviewInOrder')}
               </Link>

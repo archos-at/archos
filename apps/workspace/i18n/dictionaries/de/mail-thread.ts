@@ -114,7 +114,7 @@ export const mailThread: typeof en.mailThread = {
     onUntil: 'An bis {date}',
     off: 'Aus',
     explain:
-      'Antworten von Beteiligten mit bestätigter Domain legt {productName} ab, als hätten Sie es selbst getan: den Text in diesen E-Mail-Verlauf, Anhänge in den vorgeschlagenen Ordner. Der Rest wartet im E-Mail-Eingang, und jede solche Ablage steht dort unter „Bearbeitet“. Es endet erst, wenn {days} Tage lang nichts in diesen E-Mail-Verlauf abgelegt wurde.',
+      'Antworten von Beteiligten mit bestätigter Domain legt {productName} hier und in den vorgeschlagenen Ordnern ab; zu sehen unter „Bearbeitet“. Endet, wenn {days} Tage lang nichts abgelegt wurde.',
     renew: 'Verlängern',
     renewLabel: 'Bis {date} verlängern',
     followed: 'Antworten in „{name}“ werden bis {date} ohne Klick abgelegt',
