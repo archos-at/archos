@@ -127,6 +127,22 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "Von Ihrer Organisation bestimmt",
           "Keine Vereinbarung mit uns; Ihre Organisation wählt den Empfänger und schließt den Vertrag mit ihm",
           "Optional (nur falls konfiguriert)"
+        ],
+        [
+          "Google Cloud EMEA Limited (Google Workspace)",
+          "Zustellung von Kontakt- und Demoanfragen der Website an uns und der Bestätigung an die anfragende Person",
+          "Name, E-Mail-Adresse, Büro, Funktion, Bürogröße, Land und Nachricht aus dem Formular",
+          "Weltweit (Google-Rechenzentren)",
+          "Standardvertragsklauseln (Art. 46 DSGVO); EU-US Data Privacy Framework, soweit der Anbieter zertifiziert ist",
+          "Nein, nur für Anfragen über die Website"
+        ],
+        [
+          "Attio Ltd",
+          "Kundenverwaltung (CRM) für Kontakt- und Demoanfragen über die Website",
+          "Name, E-Mail-Adresse und der Inhalt der Anfrage aus dem Formular",
+          "Zu bestätigen (laut Attio Google Cloud)",
+          "Vereinbarung mit Attio wird geprüft",
+          "Nein, nur für Anfragen über die Website"
         ]
       ]
     },
@@ -313,6 +329,22 @@ export const SUBPROCESSOR_PAGE: Record<'de' | 'en', SubprocessorPageParts> = {
           "Chosen by your organization",
           "No agreement with us; your organization chooses the recipient and holds the contract with it",
           "Optional (only if configured)"
+        ],
+        [
+          "Google Cloud EMEA Limited (Google Workspace)",
+          "Delivering contact and demo enquiries from the website to us, and the confirmation to the person who asked",
+          "Name, email address, office, function, office size, country and message from the form",
+          "Worldwide (Google data centres)",
+          "Standard contractual clauses (Art. 46 GDPR); EU-US Data Privacy Framework where the provider is certified",
+          "No, only for enquiries through the website"
+        ],
+        [
+          "Attio Ltd",
+          "Customer relationship management (CRM) for contact and demo enquiries through the website",
+          "Name, email address and the content of the enquiry from the form",
+          "To be confirmed (Google Cloud, according to Attio)",
+          "Agreement with Attio under review",
+          "No, only for enquiries through the website"
         ]
       ]
     },

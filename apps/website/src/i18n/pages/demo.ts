@@ -23,6 +23,10 @@ const de = {
     submit: 'Demo anfragen',
     subject: 'Demo-Anfrage: {office}',
     newsletterMail: { label: 'Newsletter', yes: 'ja', no: 'nein' },
+    delivered: {
+      title: 'Danke, Ihre Anfrage ist bei uns angekommen.',
+      text: 'Wir haben Ihnen eine Bestätigung per E-Mail geschickt und melden uns in der Regel innerhalb eines Werktags für einen Termin.',
+    },
     sent: {
       title: 'Ihre Anfrage liegt in Ihrem E-Mail-Programm bereit.',
       text: 'Wir haben Ihre Angaben in eine E-Mail an uns übernommen. Senden Sie sie dort ab, dann melden wir uns für einen Termin.',
@@ -31,7 +35,7 @@ const de = {
     },
   },
   privacyNote: {
-    before: 'Beim Absenden öffnet sich Ihr E-Mail-Programm mit einer vorbereiteten Nachricht an uns. Wie wir Ihre Angaben verarbeiten, steht in der ',
+    before: 'Beim Absenden erhalten Sie eine Bestätigung an die angegebene E-Mail-Adresse. Wie wir Ihre Angaben verarbeiten, steht in der ',
     link: 'Datenschutzerklärung',
     after: '.',
   },
@@ -63,6 +67,10 @@ const en: typeof de = {
     submit: 'Request a demo',
     subject: 'Demo request: {office}',
     newsletterMail: { label: 'Newsletter', yes: 'yes', no: 'no' },
+    delivered: {
+      title: 'Thank you, your request has reached us.',
+      text: 'We have sent you a confirmation by email and usually get back to you within one working day to arrange a date.',
+    },
     sent: {
       title: 'Your request is ready in your email program.',
       text: 'We have put your details into an email to us. Send it from there, and we will get back to you to arrange a date.',
@@ -71,7 +79,7 @@ const en: typeof de = {
     },
   },
   privacyNote: {
-    before: 'Sending opens your email program with a prepared message to us. How we process your details is set out in our ',
+    before: 'After sending, you receive a confirmation at the email address you give. How we process your details is set out in our ',
     link: 'privacy policy',
     after: '.',
   },

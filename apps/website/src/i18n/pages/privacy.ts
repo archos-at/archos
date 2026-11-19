@@ -47,7 +47,7 @@ const de = {
       {
         key: 'Kontakt- und Demoanfragen',
         value:
-          'Die Formulare senden nichts an uns: Beim Absenden öffnet sich Ihr E-Mail-Programm mit einer vorbereiteten Nachricht, die Sie selbst abschicken. Was Sie uns so schreiben (Name, E-Mail-Adresse, Büro, Funktion, Bürogröße, Land, Nachricht), verwenden wir, um Ihre Anfrage zu beantworten. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen) bzw. lit. f. Kommt kein Vertrag zustande, löschen wir die Angaben, wenn die Anfrage erledigt ist und keine Aufbewahrungspflicht besteht.',
+          'Beim Absenden übermittelt die Website Ihre Angaben (Name, E-Mail-Adresse, Büro, Funktion, Bürogröße, Land, Nachricht) per E-Mail an uns und schickt Ihnen eine Bestätigung an die angegebene Adresse. Wir legen Ihre Anfrage zudem in unserem Kundenverwaltungssystem (CRM) an. Kann die Website gerade nicht senden, öffnet sich stattdessen Ihr E-Mail-Programm mit einer vorbereiteten Nachricht, die Sie selbst abschicken. Wir verwenden Ihre Angaben, um Ihre Anfrage zu beantworten. Damit niemand die Formulare missbraucht, begrenzen wir anhand Ihrer IP-Adresse, wie oft gesendet werden kann; die IP-Adresse speichern wir dabei nicht dauerhaft. Rechtsgrundlage: Art. 6 Abs. 1 lit. b DSGVO (vorvertragliche Maßnahmen) bzw. lit. f. Kommt kein Vertrag zustande, löschen wir die Angaben, wenn die Anfrage erledigt ist und keine Aufbewahrungspflicht besteht.',
       },
       {
         key: 'Newsletter',
@@ -88,7 +88,7 @@ const de = {
       {
         key: 'Auftragsverarbeiter',
         value:
-          'Für Website, Anfragen und Konten setzen wir Dienstleister ein: Hosting-Anbieter, Anmeldedienst, Produktanalyse und E-Mail-Dienst. Alle sind vertraglich nach Art. 28 DSGVO gebunden.',
+          'Für Website, Anfragen und Konten setzen wir Dienstleister ein: Hosting-Anbieter, Anmeldedienst, Produktanalyse, E-Mail-Dienst und Kundenverwaltung (CRM). Alle sind vertraglich nach Art. 28 DSGVO gebunden.',
       },
       {
         key: 'Drittländer',
@@ -175,7 +175,7 @@ const en: typeof de = {
       {
         key: 'Contact and demo requests',
         value:
-          'The forms send nothing to us: sending opens your email program with a prepared message that you send yourself. We use what you write to us this way (name, email address, office, function, office size, country, message) to answer your enquiry. Legal basis: Art. 6(1)(b) GDPR (pre-contractual measures) or Art. 6(1)(f) GDPR. If no contract comes into being, we delete the details once the enquiry has been dealt with and no retention obligation applies.',
+          'When you send a form, the website passes your details (name, email address, office, function, office size, country, message) to us by email and sends you a confirmation at the address you give. We also record your enquiry in our customer relationship management system (CRM). If the website cannot send at that moment, your email program opens instead with a prepared message that you send yourself. We use your details to answer your enquiry. To stop the forms being misused, we limit how often they can be sent, based on your IP address; we do not store the IP address permanently for this. Legal basis: Art. 6(1)(b) GDPR (pre-contractual measures) or Art. 6(1)(f) GDPR. If no contract comes into being, we delete the details once the enquiry has been dealt with and no retention obligation applies.',
       },
       {
         key: 'Newsletter',
@@ -216,7 +216,7 @@ const en: typeof de = {
       {
         key: 'Processors',
         value:
-          'For the website, enquiries and accounts we use service providers: a hosting provider, an authentication service, a product analytics service and an email service. All of them are bound by contract under Art. 28 GDPR.',
+          'For the website, enquiries and accounts we use service providers: a hosting provider, an authentication service, a product analytics service, an email service and a customer relationship management (CRM) service. All of them are bound by contract under Art. 28 GDPR.',
       },
       {
         key: 'Third countries',

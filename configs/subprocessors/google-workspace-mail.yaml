@@ -1,0 +1,52 @@
+id: google-workspace-mail
+kind: processor
+status: conditional
+order: 185
+name: Google Cloud EMEA Limited
+entity_country: IE
+processing_countries: [global]
+transfer: third_country
+contract: terms
+data_classes: [support_text, mail_transit]
+purposes: [customer_support]
+holds_tenant_text: false
+deletion:
+  status: no_tenant_text
+  de: >-
+    Über Google Workspace laufen nur Anfragen aus den Kontakt- und Demoformularen der Website und unsere Antworten
+    darauf; Inhalte eines Büros liegen dort nicht. Die Nachrichten bleiben in unserem Postfach, bis wir sie löschen.
+  en: >-
+    Only enquiries from the website's contact and demo forms and our replies pass through Google Workspace; no office's
+    content rests there. The messages stay in our mailbox until we delete them.
+hosts: [smtp.gmail.com]
+env: [SMTP_USER, SMTP_PASSWORD]
+sdks:
+  - 'js:nodemailer'
+evidence:
+  - apps/website/src/lib/enquiry-delivery.ts
+  - deploy/pulumi/src/app/web-mail.ts
+agreement:
+  entity: Google Cloud EMEA Limited, 70 Sir John Rogerson's Quay, Dublin 2, Ireland (to confirm against our Workspace order)
+  dpa: The Cloud Data Processing Addendum is incorporated into the Google Workspace agreement
+  dpa_url: https://workspace.google.com/terms/dpa_terms.html
+  subprocessors: https://workspace.google.com/intl/en/terms/subprocessors.html
+  note: Conditional on websiteSmtpUser and websiteSmtpPassword being set; unset, the forms hand off to the visitor's mail program and nothing reaches Google from the site.
+  checked: '2026-11-19'
+  sources:
+    - https://workspace.google.com/terms/dpa_terms.html
+copy:
+  name:
+    de: Google Cloud EMEA Limited (Google Workspace)
+    en: Google Cloud EMEA Limited (Google Workspace)
+  purpose:
+    de: Zustellung von Kontakt- und Demoanfragen der Website an uns und der Bestätigung an die anfragende Person
+    en: Delivering contact and demo enquiries from the website to us, and the confirmation to the person who asked
+  data:
+    de: Name, E-Mail-Adresse, Büro, Funktion, Bürogröße, Land und Nachricht aus dem Formular
+    en: Name, email address, office, function, office size, country and message from the form
+  location:
+    de: Weltweit (Google-Rechenzentren)
+    en: Worldwide (Google data centres)
+  required:
+    de: Nein, nur für Anfragen über die Website
+    en: No, only for enquiries through the website

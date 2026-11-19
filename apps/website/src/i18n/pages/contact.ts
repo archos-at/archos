@@ -23,11 +23,15 @@ const de = {
     officePlaceholder: 'Name des Planungsbüros',
     message: 'Nachricht *',
     noteBefore:
-      'Pflichtfelder sind mit * markiert. Beim Absenden öffnet sich Ihr E-Mail-Programm mit einer vorbereiteten Nachricht an uns. Wir verwenden Ihre Angaben nur, um Ihre Anfrage zu beantworten. Mehr dazu in der',
+      'Pflichtfelder sind mit * markiert. Wir senden Ihnen eine Bestätigung an die angegebene E-Mail-Adresse und verwenden Ihre Angaben nur, um Ihre Anfrage zu beantworten. Mehr dazu in der',
     noteLink: 'Datenschutzerklärung',
     noteAfter: '.',
     submit: 'Nachricht senden',
     subject: 'Kontaktanfrage über die Website: {office}',
+    delivered: {
+      title: 'Danke, Ihre Nachricht ist bei uns angekommen.',
+      text: 'Wir haben Ihnen eine Bestätigung per E-Mail geschickt und antworten Ihnen in der Regel innerhalb eines Werktags.',
+    },
     sent: {
       title: 'Ihre Nachricht liegt in Ihrem E-Mail-Programm bereit.',
       text: 'Wir haben Ihre Angaben in eine E-Mail an uns übernommen. Senden Sie sie dort ab, dann antworten wir Ihnen.',
@@ -62,11 +66,15 @@ const en: typeof de = {
     officePlaceholder: 'Name of the planning firm',
     message: 'Message *',
     noteBefore:
-      'Required fields are marked with *. Sending opens your email program with a prepared message to us. We use your details only to answer your enquiry. More on this in the',
+      'Required fields are marked with *. We send a confirmation to the email address you give and use your details only to answer your enquiry. More on this in the',
     noteLink: 'privacy policy',
     noteAfter: '.',
     submit: 'Send message',
     subject: 'Enquiry via the website: {office}',
+    delivered: {
+      title: 'Thank you, your message has reached us.',
+      text: 'We have sent you a confirmation by email and usually reply within one working day.',
+    },
     sent: {
       title: 'Your message is ready in your email program.',
       text: 'We have put your details into an email to us. Send it from there, and we will reply.',

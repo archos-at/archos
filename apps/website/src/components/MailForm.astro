@@ -1,15 +1,16 @@
 ---
 /**
- * A form that hands its content to the visitor's mail program (contact, demo).
+ * A form that sends its content to the site's inbox (contact, demo).
  *
- * The owner chose mailto for now (README, "Forms"): nothing is sent to a server
- * of ours. With JavaScript the script below builds the mail itself, with a
- * subject and a readable `Label: value` body, opens it, and shows what happens
- * next. Without JavaScript the browser's own `mailto:` form post is the
- * fallback. The fields are the default slot; every field needs a `<label for>`,
- * whose text (without the `*`) becomes its line in the mail.
+ * With JavaScript the script below posts the fields as JSON to `/api/enquiry`, which mails the
+ * inbox and confirms to the visitor (README, "Forms"). When the site cannot send (no sender
+ * configured, the send budget spent, the mail server down), it falls back to the visitor's mail
+ * program: a `mailto:` with a subject and a readable `Label: value` body. Without JavaScript the
+ * browser's own `mailto:` form post is that fallback. The fields are the default slot; every field
+ * needs a `<label for>`, whose text (without the `*`) becomes its line in the mail.
  */
 import Button from './Button.astro';
+import type { Locale } from '../i18n/paths';
 
 interface Props {
   /** The form's name in analytics (`form_submitted`, `form` property) */
@@ -18,14 +19,18 @@ interface Props {
   to: string;
   /** Subject; `{field}` tokens take a field's value by its `name` (empty ones are dropped) */
   subject: string;
-  /** Shown after the hand-off */
+  /** Shown after the hand-off to the mail program */
   sent: { title: string; text: string; fallback: string; edit: string };
+  /** Shown after the site sent the enquiry itself */
+  delivered: { title: string; text: string };
   /** How the form's checkbox reads in the mail: a short label, and its ticked and unticked value */
   checkbox?: { label: string; yes: string; no: string };
+  /** The language of the visitor's confirmation mail */
+  locale: Locale;
   class?: string;
 }
 
-const { id, to, subject, sent, checkbox, class: className } = Astro.props;
+const { id, to, subject, sent, delivered, checkbox, locale, class: className } = Astro.props;
 ---
 
 <div class:list={['mail-form', className]} data-mail-form={id}>
@@ -40,10 +45,19 @@ const { id, to, subject, sent, checkbox, class: className } = Astro.props;
     data-checkbox-label={checkbox?.label}
     data-yes={checkbox?.yes}
     data-no={checkbox?.no}
+    data-locale={locale}
   >
     <slot />
+    <div class="ui-visually-hidden" aria-hidden="true">
+      <label for={`${id}-website`}>Website</label>
+      <input id={`${id}-website`} name="website" type="text" tabindex="-1" autocomplete="off" />
+    </div>
   </form>
-  <div class="mail-form-sent" role="status" tabindex="-1" hidden>
+  <div class="mail-form-sent" data-via="server" role="status" tabindex="-1" hidden>
+    <h2 class="heading-3">{delivered.title}</h2>
+    <p class="body">{delivered.text}</p>
+  </div>
+  <div class="mail-form-sent" data-via="mailto" role="status" tabindex="-1" hidden>
     <h2 class="heading-3">{sent.title}</h2>
     <p class="body">{sent.text}</p>
     <p class="small">
@@ -65,16 +79,32 @@ const { id, to, subject, sent, checkbox, class: className } = Astro.props;
     return (label?.textContent ?? field.name).replace(/\s*\*\s*$/, '').trim();
   }
 
+  /** Posts the enquiry; true when the site sent it, false when the mail program has to. */
+  async function sendFromSite(body: Record<string, unknown>): Promise<boolean> {
+    try {
+      const response = await fetch('/api/enquiry', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      return response.ok && ((await response.json()) as { sent?: boolean }).sent === true;
+    } catch {
+      return false;
+    }
+  }
+
   function setup(root: HTMLElement) {
     const form = root.querySelector('form');
-    const sent = root.querySelector<HTMLElement>('.mail-form-sent');
-    if (!form || !sent) return;
-    const { to = '', subject = '', checkboxLabel = '', yes = '', no = '' } = form.dataset;
+    const delivered = root.querySelector<HTMLElement>('.mail-form-sent[data-via="server"]');
+    const handedOff = root.querySelector<HTMLElement>('.mail-form-sent[data-via="mailto"]');
+    const submit = root.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (!form || !delivered || !handedOff) return;
+    const { to = '', subject = '', checkboxLabel = '', yes = '', no = '', locale = 'de' } = form.dataset;
 
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const fields = [...form.elements].filter(
-        (el): el is Field => (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) && el.name !== '',
+        (el): el is Field => (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) && el.name !== '' && el.name !== 'website',
       );
       const values: Record<string, string> = {};
       const lines: MailLine[] = [];
@@ -90,24 +120,40 @@ const { id, to, subject, sent, checkbox, class: className } = Astro.props;
         if (field instanceof HTMLTextAreaElement) message = field.value;
         else lines.push({ label: labelOf(form, field), value: field.value });
       }
-      location.href = mailtoHref(to, fillSubject(subject, values), mailBody(lines, message));
+      const filledSubject = fillSubject(subject, values);
+      const name = values.name ?? [values['first-name'], values['last-name']].filter(Boolean).join(' ');
+
+      if (submit) submit.disabled = true;
+      const sentBySite = await sendFromSite({
+        form: root.dataset.mailForm,
+        locale,
+        subject: filledSubject,
+        email: values.email ?? '',
+        name,
+        lines: lines.filter((line) => line.value.trim() !== ''),
+        message,
+        website: (form.elements.namedItem('website') as HTMLInputElement | null)?.value ?? '',
+      });
+      if (submit) submit.disabled = false;
+      if (!sentBySite) location.href = mailtoHref(to, filledSubject, mailBody(lines, message));
 
       // The one event autocapture cannot see: the hand-off itself. No field values.
       const analytics = (window as { posthog?: Analytics }).posthog;
       analytics?.capture('form_submitted', {
         form: root.dataset.mailForm,
-        method: 'mailto',
+        method: sentBySite ? 'site' : 'mailto',
         locale: document.documentElement.lang,
         ...(newsletter === undefined ? {} : { newsletter }),
       });
 
+      const shown = sentBySite ? delivered : handedOff;
       form.hidden = true;
-      sent.hidden = false;
-      sent.focus();
+      shown.hidden = false;
+      shown.focus();
     });
 
-    sent.querySelector('.mail-form-edit')?.addEventListener('click', () => {
-      sent.hidden = true;
+    handedOff.querySelector('.mail-form-edit')?.addEventListener('click', () => {
+      handedOff.hidden = true;
       form.hidden = false;
       form.querySelector<HTMLElement>('input, select, textarea')?.focus();
     });

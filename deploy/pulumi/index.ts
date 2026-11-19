@@ -29,6 +29,7 @@ import { installApi } from "./src/app/api";
 import { LEGACY_API_TIER, LEGACY_CHAT_TIER } from "./src/app/tier-names";
 import { installFrontend } from "./src/app/frontend";
 import { installWeb } from "./src/app/web";
+import { installWebMailSecret } from "./src/app/web-mail";
 import { installGotenberg } from "./src/app/gotenberg";
 import { installBrowserRenderer, installBrowserRendererScaling } from "./src/app/browser-renderer";
 import { installCodeRunner, installCodeRunnerScaling } from "./src/app/code-runner";
@@ -244,10 +245,12 @@ const legacyBackend = installBackend(
 );
 
 const webCmsSecret = installWebCmsSecret(cfg, provider, cfg.namespace, [ns]);
+const webMailSecret = installWebMailSecret(cfg, provider, cfg.namespace, [ns]);
 const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
   ns,
   ...(pullSecret ? [pullSecret] : []),
   ...(webCmsSecret ? [webCmsSecret] : []),
+  ...(webMailSecret ? [webMailSecret] : []),
 ]);
 
 const keda = cfg.keda.install ? installKeda(provider) : undefined;
