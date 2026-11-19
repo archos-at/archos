@@ -1,6 +1,6 @@
 # Project mail: the E-Mail-Eingang, the E-Mails tab and provenance
 
-**Date:** 2026-10-27
+**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19
 **Status:** Implemented, the W1 rework included
 **Surfaces:** Dateien › E-Mail-Eingang (`/app/projects/[id]/files/mail`, `…/mail/[mailId]`), the address dialog and the settings card, the „E-Mails“ tab of a Verlauf's preview, the provenance row of a document that came by mail, the Postfach rows
 **Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…`, `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip. The variant lists are in each page's header.
@@ -165,9 +165,10 @@ E-Mail gibt sich als {Name} aus. …“ or „Vorsicht: Der Name {Name} gehört 
 Mitglied, die Adresse {Adresse} nicht.“, then „So beginnen Betrugsversuche mit
 Kontoänderungen. …“). „Verwerfen“ is the primary button; the filing controls
 fold behind „Trotzdem ablegen …“ („Nur wenn Sie telefonisch geprüft haben, dass
-die E-Mail echt ist.“), and filing still needs „Ich habe geprüft, dass die
-E-Mail echt ist. Trotzdem ablegen“. Once opened the button reads „Ablage
-schließen“.
+die E-Mail echt ist.“), and filing still needs „Ich habe telefonisch geprüft,
+dass die E-Mail echt ist“, after which the primary reads „Als echt ablegen“:
+the high-risk yes has its own words and its own verb, never the „Ablegen“ of
+every other mail. Once opened the fold's button reads „Ablage schließen“.
 
 One voice per reader. The member a rejected mail claims (`mailClaimOf` is
 `own`) never reads a fraud warning about themself: the warning says „Diese
@@ -191,14 +192,22 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
 1. The header: the subject, then „{Name} ‹{Adresse}›“ (name and address
    always together), then one muted line: the trust („Domain bestätigt:
    {domain}“ with its ⓘ toggletip; trust is never folded), the received time
-   and „Details ▾“. One line of all six was the densest on the page. The
+   and „Details ▾“ (on a phone the time starts its own line, no dot left at the
+   end of the trust's). One line of all six was the densest on the page. Trust
+   is said as what it means for the reader, never as the protocol: a mail its
+   domain did not sign reads „Absender nicht überprüfbar – Name und Adresse
+   könnten gefälscht sein“, a member's address without that proof „Adresse eines
+   Mitglieds · nicht überprüfbar, könnte gefälscht sein“; DKIM and DMARC are
+   named only at the end of the ⓘ's help text („Technisch: …“). The
    sender's flags („An andere Empfänger adressiert“, …), why it waits
-   (`SenderWaitLine`, one sentence ending on the reader's next step; for a
+   (`SenderWaitLine`, one pattern, „Wartet auf {wen}: {warum}“: „Wartet auf
+   Ablage: …“, „Wartet auf Sie: …“ for the member's own, „Wartet auf {Name}: …“;
+   for a
    colleague of a claimed mail, `waitReason.signature`, `replay` and
    `automatic` name only whom it waits for and why, because `ClaimedMailBar`
    right below already says „Sie können sie verwerfen.“, design principle 9)
    and, for a
-   forward, „Von {Autor} · Domain nicht bestätigt · weitergeleitet von {Name}“
+   forward, „Von {Autor} · nicht überprüfbar · weitergeleitet von {Name}“
    (the Verlauf's and the provenance line's words) stay visible under it. „Details“ opens Gesendet,
    Eingegangen, every recipient (An, Cc, Antwort an), „Wartet bis {Datum},
    danach läuft sie ab“ and „Original (.eml) herunterladen“ with „Öffnet sich
@@ -207,31 +216,80 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    the header: „Wartet nur noch bis {Datum}“ (`lib/evidence.ts`,
    `EXPIRY_INLINE_DAYS = 7`).
 2. The text: first lines, „Ganze E-Mail anzeigen“, „Zitierten Text anzeigen“.
-   Plain text only; links are inert text with a title naming their domain.
+   Plain text only. A link stays inert text; after it stand its domain in ink
+   („→ dropbox.com“, so a look-alike host shows itself on a phone, which has no
+   hover) and „Kopieren“ (`CopyableValue`), which copies the whole address.
 3. The „E-Mail-Text“ row: a checkbox and the target („In E-Mail-Verlauf „…“
    ablegen (wird Fassung N)“, „Als neuen E-Mail-Verlauf ablegen“ with a name
-   field). Unchecked: „Das Original der E-Mail wird nach der Ablage gelöscht“.
+   field). When the mail's own text says something (six words or more,
+   `substantiveText`), the row reads „Den E-Mail-Text mit ablegen (empfohlen)“;
+   unchecked, the bar says right above its presses, in ink with the warning
+   glyph, „Der E-Mail-Text wird nicht abgelegt und ist nach der Ablage weg: Das
+   Original wird gelöscht.“ (a mail of no words of its own keeps the quiet
+   „Das Original der E-Mail wird nach der Ablage gelöscht“). Which part is
+   preselected stays the server's (`preselected`).
    When the text has content findings, the choice stands here, after the text
    and beside its filing: „Unkenntlich ablegen“ (selected), „Getrennt ablegen
    (eigener E-Mail-Verlauf)“, „Ungekürzt in den E-Mail-Verlauf“.
-4. „Anhänge“: checkbox, thumbnail (clean images and PDFs only, drawn
-   client-side in the sandboxed viewer; Office files show their tile), the
-   name, the agent's suggestion, and the case notes (duplicate, revision, name
-   stop, macro, type mismatch, not accepted, not staged). A clean attachment
+4. „Anhänge“: on its heading, with two or more attachments to file, „Alle {n}
+   auswählen“ / „Alle abwählen“ and „Alle {n} ausgewählten in Ordner …“ (the
+   folder picker; one choice sets the folder of every ticked attachment, a
+   ticked next Fassung stays with its document, and a live region says „{n}
+   Anhänge kommen nach „{Ordner}“.“). Per row: checkbox, thumbnail (clean
+   images and PDFs only, drawn client-side in the sandboxed viewer; Office
+   files show their tile), the name, „{Typ} · {Größe} · Vorschau“ on a clean
+   PDF or picture, the agent's suggestion, and the case notes (duplicate,
+   revision, name stop, macro, type mismatch, not accepted, not staged).
+   „Vorschau“ (and Space, from the list) opens the attachment large: a PDF in
+   the app's own viewer (`PdfDocumentView`: every page, the page steps, zoom,
+   search; pdf.js draws it, nothing of it runs), a picture whole; full screen
+   on a phone; with more than one, „Anhang 2 von 5“, „Voriger“ / „Nächster“
+   and ← →. Closing it, and closing „Ändern“, hands the focus back to the
+   press that opened it. A clean attachment
    says nothing about its scan; „Wird auf Schadsoftware geprüft …“, „Prüfung
    fehlgeschlagen, wird wiederholt“ and „Schadsoftware gefunden · lässt sich
    nicht ablegen“ still show.
-5. The decision bar, pinned and safe-area padded: „Verwerfen“ left; right
-   „{n} Dateien und den E-Mail-Text ablegen“ / „E-Mail-Text ablegen“ /
-   „Nichts ablegen“; „Domain nicht bestätigt. Trotzdem ablegen“ (the member's
-   own: „Ja, ich habe diese E-Mail gesendet. Ablegen“) only where the server
-   asks for `acknowledgeSender`. A colleague of a claimed mail gets
-   `ClaimedMailBar` instead (above).
-6. After filing, the follow offer: „Diesem E-Mail-Verlauf folgen“ with one line
+5. The decision bar, pinned and safe-area padded: the one-line summary of
+   what the press files („{n} Dateien und den E-Mail-Text ablegen“ / „E-Mail-Text
+   ablegen“ / „Nichts ablegen“, cut at its end), then „Verwerfen“ and „Ablegen“
+   side by side, on a phone too (the primary the wider, nearest the thumb).
+   „Ich kenne den Absender und vertraue dieser E-Mail“ (the member's own: „Ja,
+   ich habe diese E-Mail gesendet. Ablegen“; a forgery's: „Ich habe telefonisch
+   geprüft, dass die E-Mail echt ist“) only where the server asks for
+   `acknowledgeSender`. Every confirmation says what the person affirms, never
+   one „Trotzdem ablegen“ for six things: „Ich vertraue dem Absender dieser
+   Datei“ (macro, type mismatch), „Ich bin sicher, dass es die nächste Fassung
+   ist“; „Trotzdem ablegen“ is left to the Namensprüfung, whose word it is. A
+   confirmation's whole row is its label, 44px tall under a coarse pointer. „E“
+   with a blocker files nothing and says the first blocker in a `role="status"`
+   region. A colleague of a claimed mail gets `ClaimedMailBar` instead (above).
+6. After filing, the follow offer: „E-Mail-Verlauf „{Name}““ with one line
    of what it does and the button „Folgen“, only when the sender would qualify.
+   Followed, the card says „Sie folgen „{Name}““, that replies are added from
+   now on, and offers „Nicht mehr folgen“.
+
+Above the header, what happened to the mail (the closed project, someone else
+deciding it, a partial failure, a full storage): one notice stands whole; two
+or more fold into one line, the first's words and „+{n} Hinweise“, opened on a
+tap. A notice says a thing once: the bar does not repeat the closed project
+while its notice stands. „Jemand anderes hat diese E-Mail inzwischen
+bearbeitet.“ wears the default notice, not a blue of its own; who it was is not
+on the wire (`InboundMailView` carries no decider), so it does not say.
+
+The open mail stays current: while a part is scanned, the original is, or the
+agent is still reading a part with no place (`mailStillSettling`), it is read
+again at a growing pause (twice the poll, then ×1.5, at most 30 s). A re-read,
+a refusal's reload included, keeps every choice the person made while the mail
+has the same parts (`rebaseDraft`): only parts nobody touched take the new
+defaults. After a filing it is read until every part has landed; past 40 quick
+rounds it says „Das dauert länger als üblich. Die Ablage läuft weiter; Sie
+können die E-Mail verlassen.“ and keeps asking, slowly.
 
 On a phone (390×844) the header, the text and the first attachment fit the
-first screen with the decision bar.
+first screen with the decision bar, and a mail's toasts („E-Mail verworfen ·
+Rückgängig“, the filing's) stand at the foot over the bar, not over the subject
+at the top (`mailToast`: on the phone layout the global toaster's
+`bottom-center`, lifted by the bar's height).
 
 **Filing confirms itself** (`filed-to.tsx`, `lib/filed.ts`; the part views'
 `filedAs`, per viewer like `documentId`). A filed attachment: „Abgelegt in
@@ -267,7 +325,8 @@ original not clean, feature off (`notFound()`).
 flag): J/K, Enter, X, Space, E „Wie gezeigt ablegen“, ⌫ „Verwerfen“.
 
 **Phone**: rows of at least 44px, visible checkboxes, the detail as a page,
-bottom sheets, a stacked decision bar with `env(safe-area-inset-bottom)`,
+bottom sheets, a decision bar of one summary line over its two presses side
+by side with `env(safe-area-inset-bottom)`,
 `text-base`, `dvh`.
 
 ## The „E-Mails“ tab of a Verlauf
@@ -294,10 +353,13 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   exactly as the document cites it; „ab Fassung N · eingegangen {Zeit}“; trust
   in three words: „Domain bestätigt: {domain}“ once per run of consecutive
   mails from the same confirmed domain, on the newest (`entriesSayingTrust`);
-  „Domain nicht bestätigt“ with the warning glyph and „Aus dem Outlook-Archiv ·
-  nicht geprüft“ on every mail. The heading wraps between date, name and
-  domain, never inside the date, and is still exactly what the document
-  prints; „ab Fassung N“ and „eingegangen …“ wrap as two units. Preview:
+  „Absender nicht überprüfbar“ with the warning glyph and „Aus dem
+  Outlook-Archiv · nicht geprüft“ on every mail. The heading wraps between
+  date, name and domain, never inside the date (the space after it stands
+  outside the unbroken date, or a name had no place to wrap but inside a
+  word), a long German name hyphenates (`lang="de"`, `hyphens: auto`), and
+  it is still exactly what the document prints; an attachment's name is one
+  line cut in its middle (`FittedName`), one underline; „ab Fassung N“ and „eingegangen …“ wrap as two units. Preview:
   `/dev/mail-thread?variant=same-sender`; how it was
   filed only where no person decided in the app (agent, the agent card, follow,
   archive import); „Anhänge“: each a link to its document, „lag schon im
@@ -312,7 +374,10 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
 - **Herauslösen** (`detach-dialog.tsx`): „Fassung {a} bis {b} behalten diese
   E-Mail. Dieser E-Mail-Verlauf bekommt Fassung {b+1} ohne sie.“ and „Wer
   diesem E-Mail-Verlauf folgt, folgt ihm danach nicht mehr.“; the target is
-  another thread or „Als neuen E-Mail-Verlauf“ (name, same folder). Refusals are
+  another thread or „Als neuen E-Mail-Verlauf“ (name, same folder). It is the
+  kit's form dialog, not the confirm dialog: „Abbrechen“ a raised press beside
+  the ink primary „Herauslösen“, the focus on the dialog on opening, never on a
+  radio. Refusals are
   said in the dialog (`MAIL_THREAD_REFUSALS` and a closed project). A typed
   name is an edit: Escape, the X, a scrim click and „Abbrechen“ ask „Änderungen
   nicht übernehmen?“ first (`useUnsavedEditGuard`), as the attachment's
