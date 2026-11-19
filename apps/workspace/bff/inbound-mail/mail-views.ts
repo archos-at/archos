@@ -23,6 +23,7 @@ import { dismissalIsFinal, expiryIsFinal, onlySenderReleases, ownClaimedMail, se
 import { NO_FALLBACK, senderMemoryAddress, senderMemoryFallback, type SenderMemoryFallback } from './sender-memory'
 import { findSenderFolders } from './sender-memory-repository'
 import { readSuggestion, suggestionSkipReason } from './suggest'
+import { filedTo, suggestedPlaces } from './suggested-places'
 import { suggestionPending } from './suggestion-wait'
 
 const DAY_MS = 86_400_000
@@ -226,6 +227,8 @@ export function summaryView(
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
     filedWithoutClick: filedWithoutClick(parts, view, vias),
+    filedTo: filedTo(view),
+    suggestedPlaces: suggestedPlaces(view),
     updatedAt: view.updatedAt,
   }
 }

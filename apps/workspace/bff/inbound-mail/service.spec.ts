@@ -242,6 +242,7 @@ describe('what a mail asks of the person, on the wire', () => {
       ['mail-later', null, 'none', null],
       ['mail-earlier', null, 'none', 'user_01JFOLLOWER0000000000000000'],
     ])
+    expect(page.items[0].suggestedPlaces).toEqual({ text: { kind: 'thread', name: 'Stellplatznachweis' }, files: 0, folders: [] })
     expect(page.threadGroups).toEqual([
       {
         threadId: 'thread-1',
@@ -295,6 +296,11 @@ describe('what a mail asks of the person, on the wire', () => {
       ['mail-followed', { to: verlauf }],
       ['mail-person', null],
       ['mail-hidden', { to: null }],
+    ])
+    expect(page.items.map((item) => [item.id, item.filedTo, item.suggestedPlaces])).toEqual([
+      ['mail-followed', verlauf, null],
+      ['mail-person', verlauf, null],
+      ['mail-hidden', null, null],
     ])
   })
 

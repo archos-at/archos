@@ -47,6 +47,7 @@ async function addressView(session: AuthorizedSession, projectId: string): Promi
     address: domain && active ? formatInboundAddress(active.slug, active.token, domain) : null,
     canManage,
     lastReceivedAt: activity.lastReceivedAt?.toISOString() ?? null,
+    receivedCount: activity.received,
     droppedLast30Days: activity.droppedLast30Days,
     ownDomainVerifiedShare: share,
     forwardedFrom: domain && active ? active.forwardedFrom : [],

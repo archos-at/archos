@@ -28,6 +28,7 @@ export interface ListFixture {
   outcome?: 'filed' | 'dismissed' | 'expired' | null
   load?: 'loading' | 'error'
   everReceived?: boolean
+  received?: number
 }
 
 const v = (name: string): InboundMailView => DETAIL_VARIANTS[name].view
@@ -95,7 +96,7 @@ export const LIST_VARIANTS: Record<string, ListFixture> = {
   done: { items: [], everReceived: true },
   loading: { items: [], load: 'loading' },
   error: { items: [], load: 'error' },
-  one: { items: [summaryOf(v('member-verified'))] },
+  one: { items: [summaryOf(v('member-verified'))], received: 1 },
   many: { items: allMails.map((view) => summaryOf(view)), open: v('member-verified').id },
   'thread-group': { items: [...groupMails.map((view) => summaryOf(view)), summaryOf(v('mixed-attachments')), summaryOf(v('name-stop'))] },
   'unverified-group': { items: [summaryOf(v('member-verified')), summaryOf(expiringMail), ...quietMails.map((view) => summaryOf(view))] },
@@ -129,6 +130,7 @@ const activeAddress: InboundMailAddressView = {
   address: 'project+bauplatz-12-wohnbau-seestadt.k3x7q2m5p4ab@inbox.example.org',
   canManage: true,
   lastReceivedAt: minutesAgo(12),
+  receivedCount: 40,
   droppedLast30Days: 0,
   ownDomainVerifiedShare: 0.94,
   forwardedFrom: [],
@@ -178,6 +180,7 @@ export function fixtureClient(options: { list?: ListFixture; detail?: DetailFixt
   const views = new Map<string, InboundMailView>()
   for (const [id, fixture] of DETAIL_BY_ID) views.set(id, fixture.view)
   if (options.detail) views.set(options.detail.view.id, options.detail.view)
+  const touched = new Set<string>()
   const texts = (id: string): InboundMailTextView => DETAIL_BY_ID.get(id)?.text ?? options.detail?.text ?? text()
   const settle = (view: InboundMailView): InboundMailView =>
     withReviewDefaults({
@@ -192,6 +195,7 @@ export function fixtureClient(options: { list?: ListFixture; detail?: DetailFixt
       parts: view.parts.map((candidate) => (candidate.state === 'waiting' ? { ...candidate, state: 'dismissed' as const, restorableUntil: daysAhead(7) } : candidate)),
     })
     views.set(id, next)
+    touched.add(id)
     return next
   }
   return {
@@ -199,7 +203,13 @@ export function fixtureClient(options: { list?: ListFixture; detail?: DetailFixt
       if (options.list?.load === 'loading') return pending()
       if (options.list?.load === 'error') return failing()
       const status = query.status ?? 'waiting'
-      const items = (options.list?.items ?? []).filter((item) => status === item.status)
+      const current = (item: InboundMailSummaryView): InboundMailSummaryView => {
+        const view = touched.has(item.id) ? views.get(item.id) : undefined
+        if (!view) return item
+        const open = view.parts.some((candidate) => candidate.state === 'waiting' || candidate.state === 'filing')
+        return summaryOf({ ...view, status: open ? 'waiting' : 'handled' })
+      }
+      const items = (options.list?.items ?? []).map(current).filter((item) => status === item.status)
       const page = listPage(items, query.cursor ? null : (options.list?.nextCursor ?? null))
       return Promise.resolve(status === 'waiting' ? page : { ...page, threadGroups: [] })
     },
@@ -229,6 +239,7 @@ export function fixtureClient(options: { list?: ListFixture; detail?: DetailFixt
           ),
         })
         views.set(view.id, next)
+        touched.add(view.id)
         return next
       })
       return Promise.resolve({ mails, filingJobId: 'job-fixture' })

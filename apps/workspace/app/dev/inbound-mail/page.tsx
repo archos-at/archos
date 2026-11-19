@@ -23,14 +23,17 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
   const status = one(params.status) === 'handled' ? 'handled' : (fixture.status ?? 'waiting')
   const outcomeParam = one(params.outcome)
   const outcome = outcomeParam === 'filed' || outcomeParam === 'dismissed' || outcomeParam === 'expired' ? outcomeParam : (fixture.outcome ?? null)
-  const mailId = one(params.mail) ?? fixture.open ?? null
+  const ownStatus = status === (fixture.status ?? 'waiting')
+  const mailId = one(params.mail) ?? (ownStatus ? fixture.open : undefined) ?? null
   const client = useMemo(() => fixtureClient({ list: fixture }), [fixture])
   const addressClient = useMemo(
     () =>
       fixtureAddressClient(
         fixture.everReceived === false
-          ? { ...(ADDRESS_VARIANTS.manager as Exclude<(typeof ADDRESS_VARIANTS)['manager'], string>), lastReceivedAt: null }
-          : ADDRESS_VARIANTS.manager
+          ? { ...(ADDRESS_VARIANTS.manager as Exclude<(typeof ADDRESS_VARIANTS)['manager'], string>), lastReceivedAt: null, receivedCount: 0 }
+          : fixture.received !== undefined
+            ? { ...(ADDRESS_VARIANTS.manager as Exclude<(typeof ADDRESS_VARIANTS)['manager'], string>), receivedCount: fixture.received }
+            : ADDRESS_VARIANTS.manager
       ),
     [fixture]
   )
@@ -43,7 +46,11 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
       files: '/dev/files-header',
     }
   }, [variant, locale, params.chrome])
-  const initial = mailId ? (DETAIL_BY_ID.get(mailId) ?? null) : null
+  const initial = mailId && ownStatus ? (DETAIL_BY_ID.get(mailId) ?? null) : null
+  const initialList = useMemo(
+    () => (fixture.load || !ownStatus ? null : listPage(fixture.items.filter((item) => item.status === status), fixture.nextCursor ?? null)),
+    [fixture, status, ownStatus]
+  )
 
   const inShell = one(params.rail) === '1'
   const filesPath = `/app/projects/${PROJECT_ID}/files/mail${mailId ? `/${mailId}` : ''}`
@@ -52,14 +59,14 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
         {/* The real section frame, as the project's Dateien › E-Mail-Eingang heads it. */}
         <ProjectSectionFrame projectId={PROJECT_ID} projectName={PROJECT_NAME} pathname={filesPath} inboundMail>
         <InboundMailWorkspace
-          key={`${variant}:${status}:${outcome ?? ''}:${mailId ?? ''}`}
+          key={`${variant}:${status}:${outcome ?? ''}`}
           projectId={PROJECT_ID}
           projectName={PROJECT_NAME}
           projectClosed={fixture.closed ?? false}
           folders={FOLDERS}
           status={status}
           outcome={outcome}
-          initialList={fixture.load ? null : listPage(fixture.items.filter((item) => item.status === status), fixture.nextCursor ?? null)}
+          initialList={initialList}
           initialListFailed={fixture.load === 'error'}
           listLoading={fixture.load === 'loading'}
           mailId={mailId}

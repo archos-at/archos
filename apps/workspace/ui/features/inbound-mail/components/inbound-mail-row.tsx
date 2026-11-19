@@ -2,7 +2,8 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Bot, CircleAlert, FileInput, Hourglass, LoaderCircle, Mails, Paperclip, ShieldAlert } from 'lucide-react'
+import { Bot, CircleAlert, FileInput, FolderInput, Hourglass, LoaderCircle, Mails, Paperclip, ShieldAlert } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -10,7 +11,7 @@ import { FactLine } from '@/components/ui/fact-line'
 import { Item } from '@/components/ui/item'
 import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import { TimeAgo } from '@/components/ui/time-ago'
-import { useLocale, useTranslations } from '@/i18n'
+import { useLocale, useTranslations, type Translator } from '@/i18n'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { CLAUSE_JOIN, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -18,7 +19,7 @@ import { displaySubject, subjectWithinThread } from '@/lib/inbound-mail/subject'
 import { fileableReason } from '../lib/completeness'
 import { bulkSelectable } from '../lib/impersonation'
 import { daysUntilExpiry } from '../lib/list-sections'
-import { mailClaimOf } from '../lib/sender'
+import { expiryErases, mailClaimOf } from '../lib/sender'
 import { SenderTrustGlyph } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -32,10 +33,14 @@ export interface InboundMailRowProps {
   selecting: boolean
   onFocusRow?: () => void
   inGroup?: boolean
+  groupThread?: string
   onFileAsSuggested?: () => void
   filingAsSuggested?: boolean
+  onFileNow?: () => void
   now?: number
 }
+
+const dayMonth = (iso: string, locale: string): string => new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit' }).format(new Date(iso))
 
 export function InboundMailRow({
   mail,
@@ -46,8 +51,10 @@ export function InboundMailRow({
   onCheckedChange,
   onFocusRow,
   inGroup = false,
+  groupThread,
   onFileAsSuggested,
   filingAsSuggested = false,
+  onFileNow,
   now,
 }: InboundMailRowProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
@@ -73,10 +80,15 @@ export function InboundMailRow({
           : reason !== null
             ? { key: reason, text: t(`row.needs.${reason}`) }
             : null
-  const expiresInDays = now === undefined || filingNow || impersonating ? null : daysUntilExpiry(mail, now)
-  const expiryText = expiresInDays === null ? null : expiresInDays === 0 ? t('row.expiresToday') : t('row.expiresIn', { days: expiresInDays })
-  const offerFile = waiting && !filingNow && reason === null && !inGroup && onFileAsSuggested !== undefined
+  const expiresSoon = now !== undefined && !filingNow && !impersonating && daysUntilExpiry(mail, now) !== null
+  const expiryText = expiresSoon
+    ? t(expiryErases({ senderClass: mail.senderClass, sender: { flags: mail.senderFlags } }) ? 'row.removedOn' : 'row.expiresOn', { date: dayMonth(mail.expiresAt, locale) })
+    : null
+  const ready = waiting && !filingNow && reason === null && !impersonating
+  const offerFile = ready && !inGroup && onFileAsSuggested !== undefined
+  const offerFileNow = expiresSoon && waiting && claim !== 'colleague' && onFileNow !== undefined
   const needsReader = waiting && !filingNow && reason !== null && claim !== 'colleague'
+  const places = ready ? placesLine(mail.suggestedPlaces, groupThread, t) : null
 
   return (
     <Item
@@ -152,19 +164,22 @@ export function InboundMailRow({
                 ) : (
                   <CircleAlert className="text-warning size-3 shrink-0" aria-hidden />
                 )}
-                <span className="min-w-0 truncate">
-                  {reasonLine.text}
-                  {expiryText && <span data-testid="inbound-mail-row-expiry">{CLAUSE_JOIN}{expiryText}</span>}
-                </span>
+                <span className="min-w-0 truncate">{reasonLine.text}</span>
               </p>
             )}
-            {waiting && !reasonLine && !impersonating && expiryText && (
-              <p className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" data-testid="inbound-mail-row-expiry">
-                <Hourglass className="text-warning size-3 shrink-0" aria-hidden />
-                <span className="min-w-0 truncate">{expiryText}</span>
+            {places && (
+              <p className="text-muted-foreground flex min-w-0 items-start gap-1 text-xs" data-testid="inbound-mail-row-places" title={t('row.places.label', { places })}>
+                <FolderInput className="mt-0.5 size-3 shrink-0" aria-hidden />
+                <span className="min-w-0 line-clamp-2 text-pretty [overflow-wrap:anywhere]">{places}</span>
               </p>
             )}
-            {waiting && mail.thread && !inGroup && !textFollowed && (
+            {waiting && expiryText && (
+              <p className="text-muted-foreground flex min-w-0 items-start gap-1 text-xs" data-testid="inbound-mail-row-expiry">
+                <Hourglass className="mt-0.5 size-3 shrink-0" aria-hidden />
+                <span className="min-w-0 text-pretty">{expiryText}</span>
+              </p>
+            )}
+            {waiting && mail.thread && !inGroup && !textFollowed && !places && (
               <p
                 className="text-muted-foreground min-w-0 text-xs text-pretty [overflow-wrap:anywhere]"
                 data-testid="inbound-mail-row-thread"
@@ -190,14 +205,25 @@ export function InboundMailRow({
               </p>
             )}
             {!waiting && outcomes.length > 0 && (
-              <p className="text-muted-foreground text-xs text-pretty" data-testid="inbound-mail-row-outcome" /* no date stranded on a line of its own */>
-                {outcomes.map((outcome) => t(`row.outcome.${outcome}`, { count: mail.outcomes[outcome] })).join(CLAUSE_JOIN)}
+              <p className="text-muted-foreground text-xs text-pretty [overflow-wrap:anywhere]" data-testid="inbound-mail-row-outcome" /* no date stranded on a line of its own */>
+                {outcomes
+                  .map((outcome) =>
+                    outcome === 'filed' && mail.filedTo && !mail.filedWithoutClick ? t('row.filedTo', { name: mail.filedTo.name }) : t(`row.outcome.${outcome}`, { count: mail.outcomes[outcome] })
+                  )
+                  .join(CLAUSE_JOIN)}
                 {mail.restorableUntil && `${CLAUSE_JOIN}${t('row.restorableUntil', { date: formatCalendarDate(mail.restorableUntil, locale) })}`}
               </p>
             )}
           </div>
         </Link>
-        {offerFile && (
+        {offerFileNow && (
+          <div className="relative z-10 pl-10">
+            <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={onFileNow} aria-label={t('row.fileNowLabel', { subject })} data-testid="inbound-mail-row-file-now">
+              {t('row.fileNow')}
+            </Button>
+          </div>
+        )}
+        {offerFile && !offerFileNow && (
           <div className="relative z-10 hidden pl-10 group-data-[current]/row:block pointer-fine:group-hover/row:block pointer-fine:group-focus-within/row:block" /* under a finger only on the open row: one stray tap filed a mail */>
             <BusyButton
               type="button"
@@ -218,4 +244,16 @@ export function InboundMailRow({
       </div>
     </Item>
   )
+}
+
+function placesLine(places: InboundMailSummaryView['suggestedPlaces'], groupThread: string | undefined, t: Translator): string | null {
+  if (!places) return null
+  const clauses: string[] = []
+  if (places.text?.kind === 'thread' && places.text.name !== groupThread) clauses.push(t('row.places.text', { name: places.text.name }))
+  if (places.text?.kind === 'new_thread') clauses.push(t('row.places.textNew'))
+  if (places.files > 0 && places.folders.length === 1) {
+    clauses.push(t('row.places.files', { count: places.files, folder: places.folders[0] === '' ? t('suggestion.root') : places.folders[0] }))
+  }
+  if (places.files > 0 && places.folders.length > 1) clauses.push(t('row.places.filesMany', { count: places.files, folders: places.folders.length }))
+  return clauses.length > 0 ? clauses.join(CLAUSE_JOIN) : null
 }

@@ -1,6 +1,6 @@
 # Project mail: the E-Mail-Eingang, the E-Mails tab and provenance
 
-**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words, and the address, the list and the E-Mails tab again after a cold read, 2026-11-19 (round 2); the mail read in the pane and filed through „Einordnen“ 2026-11-19 (round 3)
+**Date:** 2026-10-27, the detail and the E-Mails tab reworked 2026-11-19; the decision on one mail said in plain words, and the address, the list and the E-Mails tab again after a cold read, 2026-11-19 (round 2); the mail read in the pane and filed through „Einordnen“ 2026-11-19 (round 3); the list says where each ready mail goes and how mail gets here, 2026-11-19 (round 4)
 **Status:** Implemented, the W1 rework included
 **Surfaces:** Dateien › E-Mail-Eingang (`/app/projects/[id]/files/mail`, `…/mail/[mailId]`), the address dialog and the settings card, the „E-Mails“ tab of a Verlauf's preview, the provenance row of a document that came by mail, the Postfach rows
 **Preview:** `/dev/inbound-mail?variant=…`, `/dev/inbound-mail-detail?variant=…`, `/dev/inbound-mail-address?variant=…[&dialog=1]`, `/dev/mail-thread?variant=…` (the rail beside its Verlauf on a wide screen, alone on a phone, as the preview draws it), `/dev/inbox?variant=mail`; each with `&locale=en`, and `&chrome=0` hides the variant strip. The variant lists are in each page's header.
@@ -50,8 +50,7 @@ English copy calls the place „Project mail“.
 - `ProjectMailWaiting` on the project card (`waitingMailCounts`).
 - The project overview (Einstellungen › Übersicht): a full-width tile
   „E-Mail-Adresse des Projekts“, „In Cc gesetzt, bringt sie die Antworten von
-  Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum
-  Ablegen.“, the address (a press copies it), „Als Kontakt sichern“ and the footer
+  Behörde, Statik und Bauherrschaft in den E-Mail-Eingang des Projekts.“, the address (a press copies it), „Als Kontakt sichern“ and the footer
   link „Zum E-Mail-Eingang“. Only for whoever may decide the project's mail and
   only while an address is active; creating one stays in Einstellungen ›
   Dokumente.
@@ -149,7 +148,15 @@ says „Noch keine E-Mails an dieses Projekt“ with the sentence under it, and
 holds one sheet with the eyebrow, the address a size up, „Kopieren“ and the
 two hand-on presses; the size, the Postfach line and the folded setup follow
 under the sheet. The header's address and the Wartet/Bearbeitet switch stand
-down. Without an address: „Dieses Projekt hat noch keine E-Mail-Adresse …“
+down. Once mail has come, the list says how it gets there at its top, under
+the search, until the project received five mails (`receivedCount` on the
+address view, `START_HINT_UNTIL_RECEIVED` in `lib/inbox-start.ts`) or the
+reader hides it (×, kept per project in the browser's storage): one muted line
+„Setzen Sie die Adresse des Projekts in Cc oder leiten Sie E-Mails an sie
+weiter – sie landen hier.“ with the inline press „Adresse kopieren“
+(`InboundMailStartHint`). It names the address rather than printing it: the
+68-character address in a 26rem column was three lines of monospace, the
+loudest thing in the list. Without an address: „Dieses Projekt hat noch keine E-Mail-Adresse …“
 with „Adresse erzeugen“ for a manager, or whom to ask for a member. An empty
 list never shows the „Wählen Sie …“ pane. Previews:
 `/dev/inbound-mail?variant=empty&rail=1`,
@@ -176,14 +183,21 @@ and folded away it was never seen. The automatic group is folded while
 anything else waits and opens by itself when nothing does; a press on it holds
 until the next visit. J and K walk every row on show, the open group's
 included. Within each heading, mail with fewer than five days left comes
-first (soonest first, the rest in the server's order) and says so on its row:
-„Läuft in 2 Tagen ab“, „Läuft in weniger als einem Tag ab“ (after its reason,
-or on a line of its own with an hourglass); an outsider's mail is erased 14
-days after it came.
+first (soonest first, the rest in the server's order) and says so on a line
+of its own, with a muted hourglass and its day: „Wird am 03.12. entfernt, wenn
+niemand sie ablegt“ for an outsider's mail, which is erased 14 days after it
+came (`expiryErases`), „Läuft am 03.12. ab, wenn niemand sie ablegt“ for
+anyone else's, which stays restorable. „Läuft in 2 Tagen ab“ in ochre after
+the reason read as an alarm and said nothing of what happens. Such a row
+offers „Einordnen …“ at rest, which opens the mail and its filing dialog
+(rows differ in what they offer, so the press is shown, design principle 6);
+not for a mail only a colleague may file.
 „Ablagebereit“ means the server's `incompleteReason` is null and the mail does not
 read as an impersonation (the client refuses an impersonation on its own side
-too, `fileableReason`). „Bearbeitet“ is one list: each row says its outcome. A
-mail filed without a click (by a follow, or its sender's own filing) adds a
+too, `fileableReason`). „Bearbeitet“ is one list: each row says its outcome,
+and a mail a person filed says where it went, „Abgelegt → „Stellplatznachweis““
+(`filedTo` on the summary: the Verlauf its text joined, else its first filed
+file, as the reader may see it). A mail filed without a click (by a follow, or its sender's own filing) adds a
 line with the mail glyph, „Ohne Klick abgelegt → {Name}“ naming the
 E-Mail-Verlauf its text went into (else its first file), or „Ohne Klick
 abgelegt“ where the reader may not open it (`filedWithoutClick` on the
@@ -196,16 +210,32 @@ word, without case or accents (`matchesQuery`, `lib/inbox-triage.ts`); the
 count of matches is said once by a status, Escape clears it, and a search that
 finds nothing says „Keine E-Mail passt zu „…““ with „Suche leeren“. The list's
 rhythm is one: 32px between sections, 12px between a heading, a thread and a
-run of rows inside one. „Ablagebereit“ says on hover „Domain bestätigt und
-für jeden Teil ein Ziel vorgeschlagen: Ein Klick legt sie ab.“ and, with two or more
+run of rows inside one. „Ablagebereit“ says on hover „Jede Zeile sagt,
+wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.“ and, with two or more
 ready mails, „Alle {n} wie vorgeschlagen ablegen“ (bulk, confirmed and grouped
 by destination; more than 20: „Die ersten 20 wie vorgeschlagen ablegen“, since
-one request decides at most 20). A ready row outside a thread group carries
+one request decides at most 20). Every ready row says in one muted line, with
+a folder glyph, where that press files it, so the bulk press is never blind:
+„E-Mail-Text an „Verfahren MA 37“ · Anhang nach Behörde/Bescheide“, „3
+Anhänge in 2 Ordner“, „E-Mail-Text als neuer E-Mail-Verlauf“, the top level
+„Dateien (oberste Ebene)“. The server says it (`suggestedPlaces` on the
+summary, `bff/inbound-mail/suggested-places.ts`: the preselected text's
+Verlauf and the distinct folders of the preselected attachments, a revision's
+folder for a next Fassung), the row only words it; inside a thread group the
+text's clause is left out, since the group's line names the Verlauf. The line
+replaces the row's „An E-Mail-Verlauf …“ and wraps to two lines at most. A
+ready row outside a thread group carries
 „Wie vorgeschlagen ablegen“, shown where the reader is (the open row, under the
 pointer or the keyboard, always under a finger): one press, no confirmation,
 the same request as bulk and never an acknowledgement. Under a finger it
-stands only on the open row: shown on every row, one stray tap filed a mail. A
-row whose parts are
+stands only on the open row: shown on every row, one stray tap filed a mail.
+After „Alle …“ or a group's press the toast waits until every part landed
+(`useBulkLandingReport`, `landedPlaces` in `lib/inbox-landing.ts`) and says
+„3 E-Mails abgelegt“ with a line per destination („2 E-Mail-Texte →
+„Stellplatznachweis““, „1 Datei → Behörde/Bescheide“) and „Ansehen“: the one
+document they went into, else „Bearbeitet“, whose rows name where each mail
+went; a mail with a failed part makes it „1 E-Mail ließ sich nicht ganz
+ablegen und wartet wieder hier.“ A row whose parts are
 all on their way reads „Wird abgelegt …“ and offers no press. The open row is
 a fill, not a drawn box; a sender's disc is neutral (a sender is not a member,
 an identity hue would mean nothing). The mail is read again first; if it changed
@@ -233,8 +263,12 @@ on what is filed first). The group line (the thread's glyph and „{name}“; �
 count in its title and the section's label) and its press share one row. The rows do
 not repeat the thread: each subject drops the thread's name in front
 (`subjectWithinThread`), so three replies read „Nachreichung Statik“, „Index C“
-rather than three cut-off „Stellplatznachweis – …“. A row whose text a follow already appended shows no
-thread line; what still waits are the attachments the follow could not place
+rather than three cut-off „Stellplatznachweis – …“. The group's rows hang
+from its line: indented 22px, under the thread glyph, on a hairline down their
+left edge (`thread-group-rows`), so the press's count is the rows inside the
+line and the next loose row stands back on the column's edge. Round 3's
+reader saw „Diese 2 …“ over three flush rows and could not tell which two. A
+row whose text a follow already appended shows no thread line; what still waits are the attachments the follow could not place
 in an existing folder.
 
 **Impersonation is a stop** (`riskLevel === 'impersonation'`). In the list the
@@ -700,9 +734,6 @@ design system ([`design-language.md`](../design/design-language.md)).
 
 ## Not built yet
 
-- Where a „Bearbeitet“ row a person filed went. The row says „1 Teil
-  abgelegt“; only a mail filed without a click names its place
-  (`filedWithoutClick`).
 - The server's `restorableUntil` for a dismissed part of an unconfirmed
   outsider's mail: it says seven days while the sweep erases the part at once
   (`pastRestore`, `sweep-erasure-repository.ts`). The detail says so in its

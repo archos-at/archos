@@ -31,7 +31,8 @@ import { capturePosthog } from '@/lib/analytics/posthog'
 import { cn } from '@/lib/utils'
 import { useShortcutsPreference } from '@/hooks/use-shortcuts-preference'
 import { useInboxKeys, type InboxKeyTarget } from '../lib/inbox-keys'
-import { useLandingReport } from '../lib/inbox-landing-report'
+import { useBulkLandingReport, useLandingReport } from '../lib/inbox-landing-report'
+import { useStartHint } from '../lib/inbox-start'
 import { useInboxLive } from '../lib/inbox-live'
 import { matchesQuery, nextOpenAfter, wasDecided } from '../lib/inbox-triage'
 import { inboundMailAddressClient, inboundMailClient, type InboundMailAddressClient, type InboundMailClient } from '../lib/client'
@@ -43,7 +44,7 @@ import { refusalOf } from '../lib/refusal'
 import { primeInboundMailWaiting, refreshInboundMailWaiting, useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { useInboundMailAddress } from '../hooks/use-inbound-mail-address'
 import { useOpenFirstMail } from '../hooks/use-open-first-mail'
-import { InboundMailAddressBlock, InboundMailAddressDialog } from './inbound-mail-address'
+import { InboundMailAddressBlock, InboundMailAddressDialog, InboundMailStartHint } from './inbound-mail-address'
 import { InboundMailHeaderActions } from './inbound-mail-header-actions'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
@@ -120,6 +121,7 @@ export function InboundMailWorkspace({
   const address = useInboundMailAddress(projectId, true, addressClient)
   const addressView = address.state.kind === 'ready' ? address.state.address : null
   const everReceived = addressView ? addressView.lastReceivedAt !== null : address.state.kind === 'error' ? true : null
+  const startHint = useStartHint(projectId, addressView)
   const detailActions = useRef<DetailActions | null>(null)
   const waiting = useInboundMailWaiting(projectId, true, client)
 
@@ -179,6 +181,7 @@ export function InboundMailWorkspace({
   const [confirmFile, setConfirmFile] = useState<{ decisions: InboundMailDecision[]; plan: BulkPlan; surface: AsSuggestedSurface } | null>(null)
   const [rowFiling, setRowFiling] = useState<string | null>(null)
   const [confirmDismiss, setConfirmDismiss] = useState(false)
+  const [filingRequest, setFilingRequest] = useState<string | null>(null)
 
   const readViews = useCallback(
     async (ids: string[]): Promise<Map<string, InboundMailView>> => {
@@ -253,15 +256,16 @@ export function InboundMailWorkspace({
     const result = await client.file(projectId, { mails: decisions })
     const description = plan.destinations.map(destinationLine).join(CLAUSE_JOIN)
     capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
-    const sent = decisions.length === 1 ? result.mails.find((mail) => mail.id === decisions[0].mailId) : undefined
-    if (sent) {
-      const toastId = toast.loading(t('toast.filedAsSuggested', { count: 1 }), { description })
-      void changed()
-      void reportLanding(sent, decisions[0], toastId)
-      return
-    }
-    toast.success(t('toast.filedAsSuggested', { count: decisions.length }), { description })
+    const toastId = toast.loading(t('toast.filedAsSuggested', { count: decisions.length }), { description })
     void changed()
+    const sent = decisions.length === 1 ? result.mails.find((mail) => mail.id === decisions[0].mailId) : undefined
+    if (sent) void reportLanding(sent, decisions[0], toastId)
+    else void reportBulk(result.mails, decisions, toastId)
+  }
+
+  const fileNow = (id: string): void => {
+    if (mailId !== id) router.push(paths.mail(id, filter))
+    setFilingRequest(id)
   }
 
   const fileOne = async (mailId: string): Promise<void> => {
@@ -354,6 +358,23 @@ export function InboundMailWorkspace({
   useInboxLive({ projectId, enabled: status === 'waiting', stamp: waiting.stamp, lastRead: lastReload, reload })
 
   const reportLanding = useLandingReport({ client, projectId, pollMs, onSettled: () => void changed() })
+  const showHandled = useCallback(() => router.replace(paths.list({ status: 'handled', outcome: null })), [router, paths])
+  const reportBulk = useBulkLandingReport({ client, projectId, pollMs, onSettled: () => void changed(), onShowHandled: showHandled })
+
+  useEffect(() => {
+    if (!filingRequest || mailId !== filingRequest) return
+    let tries = 0
+    const timer = window.setInterval(() => {
+      tries += 1
+      if (document.querySelector('[data-testid="filing-dialog"]') || tries > 50) {
+        window.clearInterval(timer)
+        setFilingRequest(null)
+        return
+      }
+      detailActions.current?.file()
+    }, 100)
+    return () => window.clearInterval(timer)
+  }, [filingRequest, mailId])
 
   const keyTarget = useRef<InboxKeyTarget | null>(null)
   keyTarget.current = {
@@ -466,6 +487,7 @@ export function InboundMailWorkspace({
             fileGroupBusy={bulkFiling}
             onFileOne={(id) => void fileOne(id)}
             fileOneBusy={rowFiling}
+            onFileNow={fileNow}
             onFileReady={(ids) => void askFile(ids, null, 'ready_section')}
             onRetry={() => reload()}
             onLoadMore={async () => {
@@ -507,6 +529,11 @@ export function InboundMailWorkspace({
             neverCase={!addressView || addressView.address ? 'address' : addressView.canManage ? 'create' : 'ask'}
             selectionBar={selectionBar}
             notice={notice}
+            startHint={
+              status === 'waiting' && !never && startHint.shown && addressView?.address ? (
+                <InboundMailStartHint address={addressView.address} onDismiss={startHint.dismiss} />
+              ) : null
+            }
           />
         </div>
         <div

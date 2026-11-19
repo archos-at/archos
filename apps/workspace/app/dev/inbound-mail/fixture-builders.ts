@@ -9,6 +9,7 @@ import type { DocumentTypeTag } from '@/lib/documents/tag-vocabulary'
 import { partPreselected, withReviewDefaults, type InboundMailPartBase } from '@/lib/inbound-mail/review-defaults'
 import { onlySenderReleases, ownClaimedMail, senderClassOf, senderWaitReason } from '@/lib/inbound-mail/sender-class'
 import type { InboundMailSuggestion } from '@/lib/inbound-mail/suggest'
+import { filedTo, suggestedPlaces } from '@/lib/inbound-mail/suggested-places'
 import { daysAhead, fixtureId, minutesAgo, PROJECT_ID } from './fixture-base'
 
 let sequence = 0
@@ -196,6 +197,8 @@ export function summaryOf(view: InboundMailView, overrides: Partial<InboundMailS
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
     filedWithoutClick: null,
+    filedTo: filedTo(view),
+    suggestedPlaces: suggestedPlaces(view),
     updatedAt: view.updatedAt,
     ...overrides,
   }
