@@ -215,6 +215,7 @@ export async function findVersionTimes(
 export interface AppendCommit {
   newThread: NewMailThreadRow | null
   threadId: string
+  leaseHolder: string | null
   threadUpdate: Pick<
     MailThreadRow,
     'documentId' | 'entryCount' | 'renderedBytes' | 'lastEntryAt' | 'participantDomains'
@@ -227,55 +228,73 @@ export interface AppendCommit {
   movesOriginal: boolean
 }
 
-export async function commitAppend(commit: AppendCommit): Promise<'committed' | 'already'> {
-  return getDb().transaction(async (tx) => {
-    const [existing] = await tx
-      .select({ id: mailThreadEntries.id })
-      .from(mailThreadEntries)
-      .where(eq(mailThreadEntries.id, commit.entry.id!))
-      .limit(1)
-    if (existing) return 'already'
-    if (commit.newThread) await tx.insert(mailThreads).values(commit.newThread)
+class AppendLost extends Error {}
+
+export async function commitAppend(commit: AppendCommit): Promise<'committed' | 'already' | 'lost'> {
+  try {
+    return await getDb().transaction((tx) => writeAppend(tx, commit))
+  } catch (error) {
+    if (error instanceof AppendLost) return 'lost'
+    throw error
+  }
+}
+
+async function writeAppend(tx: DbTransaction, commit: AppendCommit): Promise<'committed' | 'already'> {
+  const [existing] = await tx
+    .select({ id: mailThreadEntries.id })
+    .from(mailThreadEntries)
+    .where(eq(mailThreadEntries.id, commit.entry.id!))
+    .limit(1)
+  if (existing) return 'already'
+  if (commit.newThread) await tx.insert(mailThreads).values(commit.newThread)
+  const updated = await tx
+    .update(mailThreads)
+    .set({ ...commit.threadUpdate, renderPendingAt: null })
+    .where(
+      and(
+        eq(mailThreads.id, commit.threadId),
+        commit.leaseHolder === null ? undefined : eq(mailThreads.renderLeaseHolder, commit.leaseHolder)
+      )
+    )
+    .returning({ id: mailThreads.id })
+  if (updated.length !== 1) throw new AppendLost()
+  await tx.insert(mailThreadEntries).values(commit.entry)
+  if (commit.entry.firstVersionId) {
     await tx
-      .update(mailThreads)
-      .set({ ...commit.threadUpdate, renderPendingAt: null })
-      .where(eq(mailThreads.id, commit.threadId))
-    await tx.insert(mailThreadEntries).values(commit.entry)
-    if (commit.entry.firstVersionId) {
-      await tx
-        .update(mailThreadEntries)
-        .set({ firstVersionId: commit.entry.firstVersionId })
-        .where(
-          and(eq(mailThreadEntries.threadId, commit.threadId), isNull(mailThreadEntries.firstVersionId))
-        )
-    }
-    await insertMessageIds(tx, commit.entry, commit.messageIds)
-    if (commit.attachments.length > 0)
-      await tx.insert(mailThreadEntryAttachments).values([...commit.attachments])
+      .update(mailThreadEntries)
+      .set({ firstVersionId: commit.entry.firstVersionId })
+      .where(
+        and(eq(mailThreadEntries.threadId, commit.threadId), isNull(mailThreadEntries.firstVersionId))
+      )
+  }
+  await insertMessageIds(tx, commit.entry, commit.messageIds)
+  if (commit.attachments.length > 0)
+    await tx.insert(mailThreadEntryAttachments).values([...commit.attachments])
+  const filed = await tx
+    .update(inboundMailParts)
+    .set({
+      state: 'filed',
+      claimExpiresAt: null,
+      filedAt: new Date(),
+      documentId: commit.part.documentId,
+      documentVersionId: commit.part.versionId,
+      mailThreadEntryId: commit.entry.id,
+      lastFailure: null,
+      suggestion: null,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(inboundMailParts.id, commit.part.id), eq(inboundMailParts.state, 'filing')))
+    .returning({ id: inboundMailParts.id })
+  if (filed.length !== 1) throw new AppendLost()
+  if (commit.movesOriginal) {
     await tx
-      .update(inboundMailParts)
-      .set({
-        state: 'filed',
-        claimExpiresAt: null,
-        filedAt: new Date(),
-        documentId: commit.part.documentId,
-        documentVersionId: commit.part.versionId,
-        mailThreadEntryId: commit.entry.id,
-        lastFailure: null,
-        suggestion: null,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(inboundMailParts.id, commit.part.id), eq(inboundMailParts.state, 'filing')))
-    if (commit.movesOriginal) {
-      await tx
-        .update(inboundMails)
-        .set({ originalMovePendingAt: new Date(), updatedAt: new Date() })
-        .where(
-          and(eq(inboundMails.id, commit.mailId), sql`${inboundMails.rawStorageKey} IS NOT NULL`)
-        )
-    }
-    return 'committed'
-  })
+      .update(inboundMails)
+      .set({ originalMovePendingAt: new Date(), updatedAt: new Date() })
+      .where(
+        and(eq(inboundMails.id, commit.mailId), sql`${inboundMails.rawStorageKey} IS NOT NULL`)
+      )
+  }
+  return 'committed'
 }
 
 export async function insertMessageIds(

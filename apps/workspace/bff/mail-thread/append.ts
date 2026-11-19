@@ -500,8 +500,9 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
   const participantDomains = [
     ...new Set([...(thread?.participantDomains ?? []), ...mail.participantDomains]),
   ].slice(0, 200)
-  await commitAppend({
+  const committed = await commitAppend({
     threadId,
+    leaseHolder: target.kind === 'existing' ? decision.id : null,
     newThread:
       target.kind === 'new'
         ? {
@@ -530,6 +531,7 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
     mailId: mail.id,
     movesOriginal: mail.rawStorageKey !== null,
   })
+  if (committed === 'lost') return { kind: 'busy' }
   return {
     kind: 'filed',
     entryId,

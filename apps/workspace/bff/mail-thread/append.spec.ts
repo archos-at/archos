@@ -592,6 +592,13 @@ describe('appending to a thread', () => {
     )
   })
 
+  it('commits only while it still holds the thread, and waits to try again when another writer took it', async () => {
+    vi.mocked(commitAppend).mockResolvedValueOnce('lost')
+    expect(await appendInboundMessage(request())).toEqual({ kind: 'busy' })
+    expect(vi.mocked(commitAppend).mock.calls[0]![0].leaseHolder).toBe(DECISION_ID)
+    expect(releaseRenderLease).toHaveBeenCalledWith(THREAD_ID, DECISION_ID)
+  })
+
   describe('a forward whose original the project already filed (B2, migration 0198)', () => {
     const forward = (ownText: string) =>
       request({
@@ -773,6 +780,7 @@ describe('starting a thread', () => {
       createdBy: PERSON,
       baseSubject: 'statik einreichung',
     })
+    expect(commit.leaseHolder).toBeNull()
   })
 
   it('never files into another document of the name: `name_taken`, unless it is this filing’s own (a retry)', async () => {

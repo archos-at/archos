@@ -128,6 +128,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
     const sentAt = new Date(Date.now() - 3_600_000)
     return {
       threadId: thread.id,
+      leaseHolder: null,
       newThread: {
         id: thread.id,
         organizationId: ORG,
@@ -255,6 +256,50 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
         )
       )
       expect(won.filter(Boolean)).toHaveLength(1)
+    })
+  })
+
+  describe('committing under the lease', () => {
+    it('writes nothing once another writer holds the thread, and commits for the holder', async () => {
+      const mail = await heldMail()
+      const thread = await document('Leased.md')
+      const first = newThreadCommit(
+        mail,
+        { id: crypto.randomUUID(), documentId: thread.id, versionId: thread.versionId },
+        { documentId: null, versionId: null }
+      )
+      await rows(sql`INSERT INTO mail_threads (id, organization_id, project_id, document_id, base_subject, locale, created_by)
+                     VALUES (${first.threadId}::uuid, ${ORG}, ${projectId}::uuid, ${thread.id}::uuid, 'statik', 'de', ${USER})`)
+      const [mine, theirs] = [crypto.randomUUID(), crypto.randomUUID()]
+      const commit = { ...first, newThread: null, leaseHolder: mine }
+      await inTenant(() => write.acquireRenderLease(commit.threadId, theirs, new Date(Date.now() + 60_000)))
+
+      expect(await inTenant(() => write.commitAppend(commit))).toBe('lost')
+      expect(await rows(sql`SELECT id FROM mail_thread_entries WHERE id = ${commit.entry.id!}::uuid`)).toEqual([])
+      expect(
+        await one<{ state: string }>(sql`SELECT state FROM inbound_mail_parts WHERE id = ${mail.textPart}::uuid`)
+      ).toEqual({ state: 'filing' })
+
+      await inTenant(() => write.releaseRenderLease(commit.threadId, theirs))
+      await inTenant(() => write.acquireRenderLease(commit.threadId, mine, new Date(Date.now() + 60_000)))
+      expect(await inTenant(() => write.commitAppend(commit))).toBe('committed')
+    })
+
+    it('writes nothing when its text no longer waits on this filing (a lapsed claim)', async () => {
+      const mail = await heldMail()
+      const thread = await document('Lapsed.md')
+      const commit = newThreadCommit(
+        mail,
+        { id: crypto.randomUUID(), documentId: thread.id, versionId: thread.versionId },
+        { documentId: null, versionId: null }
+      )
+      await rows(
+        sql`UPDATE inbound_mail_parts SET state = 'waiting', decision_id = NULL, claim_expires_at = NULL, last_failure = 'unavailable' WHERE id = ${mail.textPart}::uuid`
+      )
+
+      expect(await inTenant(() => write.commitAppend(commit))).toBe('lost')
+      expect(await rows(sql`SELECT id FROM mail_threads WHERE id = ${commit.threadId}::uuid`)).toEqual([])
+      expect(await rows(sql`SELECT id FROM mail_thread_entries WHERE id = ${commit.entry.id!}::uuid`)).toEqual([])
     })
   })
 

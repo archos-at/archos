@@ -438,7 +438,10 @@ effects of `batch-effects.ts`:
 
 `lib/mail-thread/append.ts` under the thread's render lease
 (`acquireRenderLease`, 5 minutes; a busy thread answers "not yet" in 15 s
-without spending an attempt):
+without spending an attempt). The commit (`commitAppend`) writes only while
+the run still holds the lease and its text is still `filing`, exactly one
+part; a lease another writer took meanwhile, or a claim that lapsed, writes
+nothing, and the run tries again in 15 s:
 
 1. a new `mail_threads` row, or the existing one;
 2. the entry (`mail_thread_entries`, `source = 'inbound'`, `received_at`,
