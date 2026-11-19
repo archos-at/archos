@@ -5,7 +5,7 @@ config:
 
   grid-oib:imageRegistry: ghcr.io/archos-at
 
-  grid-oib:imageTag: sha-f9067fceb93b90efe3739265c654c74c2ca66867
+  grid-oib:imageTag: sha-66da7505a092d927aa54bb979e23ccbb745b7ff7
   grid-oib:knowledgeCarry: "true"
 
   grid-oib:storageClass: premium
