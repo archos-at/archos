@@ -756,6 +756,19 @@ export const collaboration: typeof en.collaboration = {
       inboundMailRejected: {
         title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
         body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
+        variants: {
+          reported: {
+            titleRelated: 'Jemand hat sich in „{subject}“ als Sie ausgegeben: {related}',
+            title: 'Jemand hat sich in „{subject}“ als Sie ausgegeben',
+            body: '{actor} hat die gefälschte E-Mail gemeldet und verworfen. Wer so eine E-Mail in Ihrem Namen bekommt, sollte wissen: Sie kam nicht von Ihnen.',
+          },
+        },
+      },
+      inboundMailFraudReported: {
+        titleRedacted: 'In einem Projekt wurde eine gefälschte E-Mail gemeldet',
+        titleRelated: 'Gefälschte E-Mail als {related} in „{subject}“: nicht zahlen, nicht antworten',
+        title: 'Gefälschte E-Mail in „{subject}“: nicht zahlen, nicht antworten',
+        body: '{actor} hat sie gemeldet und im E-Mail-Eingang verworfen. Bitte nicht zahlen und nicht antworten. Prüfen Sie Ihr Mailprogramm auf dieselbe E-Mail.',
       },
       inboundMailExpired: {
         title: 'Ihre E-Mail an „{subject}“ wurde nicht rechtzeitig abgelegt',

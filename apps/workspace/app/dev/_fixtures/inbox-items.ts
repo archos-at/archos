@@ -710,6 +710,23 @@ const MAIL_ITEMS: InboxItemView[] = [
     href: '/app/projects/p1/files',
     updatedAt: ago(170),
   }),
+  mailRow('m-fraud', 'inbound_mail.fraud_reported', {
+    actorName: 'Petra Huber',
+    actorUserId: 'u-petra',
+    anchorId: 'mail-6',
+    related: 'Miriam Huber ‹miriam.huber@mail.example›',
+    excerpt: 'Dringend: Kontoänderung Honorarnote',
+    href: '/app/projects/p1/files/mail/mail-6?status=handled',
+    updatedAt: ago(1),
+  }),
+  mailRow('m-fraud-you', 'inbound_mail.rejected', {
+    actorName: 'Petra Huber',
+    actorUserId: 'u-petra',
+    variant: 'reported',
+    related: 'Miriam Huber ‹miriam.huber@mail.example›',
+    href: '/app/projects/p1/files',
+    updatedAt: ago(1),
+  }),
   mailRow('m-expired', 'inbound_mail.expired', { state: 'read', href: '/app/projects/p1/files/mail?status=handled', updatedAt: ago(180) }),
   mailRow('m-appended', 'inbound_mail.appended', {
     resourceType: 'document',

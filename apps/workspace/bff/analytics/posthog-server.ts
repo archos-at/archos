@@ -46,6 +46,7 @@ export type ServerEvent =
   | 'inbound_mail_receive_failed'
   | 'inbound_mail_expired'
   | 'inbound_mail_decided'
+  | 'inbound_mail_reported'
   | 'inbound_mail_sender_filed'
   | 'inbound_mail_suggested'
   | 'inbound_mail_address_created'

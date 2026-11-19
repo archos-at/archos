@@ -377,6 +377,15 @@ export const inboundMail = {
     fileAnywayHint: 'Only once you checked by phone that the mail is genuine.',
     fileAnywayHintOwn: 'Only if you sent this mail yourself.',
     fileAnywayClose: 'Close filing',
+    report: 'Report …',
+    reportHint: 'Warns your office so nobody pays.',
+    reportTitle: 'Report this fraud attempt?',
+    reportText: '{productName} warns whoever manages this project, your office’s administrators and {name}.',
+    reportTextOwn: '{productName} warns whoever manages this project and your office’s administrators.',
+    reportWhat:
+      'The warning names the sender and the subject and says: “Please do not pay and do not reply. Check your mail program for the same mail.” Then the mail is dismissed in {productName}; delete it in your mail program yourself.',
+    reportConfirm: 'Report and dismiss',
+    reportCancel: 'Cancel',
   },
   bar: {
     file: 'File',
@@ -531,6 +540,8 @@ export const inboundMail = {
     dismissedMany: '{count, plural, one {# mail dismissed} other {# mails dismissed}}',
     undo: 'Undo',
     restored: 'Mail restored',
+    reported: '{count, plural, one {Reported and dismissed. # person is warned.} other {Reported and dismissed. # people are warned.}}',
+    reportedNobody: 'Dismissed. Nobody else manages this project: warn your office yourself.',
     filedAsSuggested: '{count, plural, one {# mail is being filed as suggested} other {# mails are being filed as suggested}}',
     failed: 'That did not work. Try again.',
   },
@@ -592,6 +603,7 @@ export const inboundMail = {
     original_not_clean: 'The original did not pass the malware check and cannot be downloaded.',
     mail_not_received_here: 'Receiving mail is not set up here. Upload files directly.',
     legal_hold: 'This file is kept under a legal hold and is not given to an agent.',
+    not_impersonation: 'Only a mail that poses as a member of your office can be reported.',
     unknown: 'That did not work. Try again.',
   },
 

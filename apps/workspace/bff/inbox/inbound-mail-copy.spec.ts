@@ -16,6 +16,7 @@ const EMITTED: ReadonlyArray<[InboxItemType, ReadonlyArray<string | null>]> = [
   ['inbound_mail.appended', [null]],
   ['mail_thread.follow_expiring', [null]],
   ['mail_thread.follow_ended', FOLLOW_ENDS_TOLD],
+  ['inbound_mail.fraud_reported', [null]],
 ]
 
 function view(type: InboxItemType, variant: string | null, overrides: Partial<InboxItemView> = {}): InboxItemView {
@@ -78,6 +79,27 @@ describe.each(['de', 'en'] as const)('the E-Mail-Eingang’s notices in %s', (lo
     expect(title).not.toContain('Wohnbau Hietzing')
   })
 
+  it('names the forged mail in a fraud warning, says what to do in the title, and nothing on a row the reader can no longer reach', () => {
+    const sender = 'Miriam Huber ‹miriam.huber@mail.example›'
+    const warning = inboxItemCopy(view('inbound_mail.fraud_reported', null, { related: sender, excerpt: 'Kontoänderung Honorarnote' }), t, dictionary)
+    expect(warning.title).toContain(sender)
+    expect(warning.title).toMatch(locale === 'de' ? /nicht zahlen, nicht antworten/ : /do not pay, do not reply/)
+    expect(warning.body).toContain('Petra Huber')
+    expect(warning.body).toContain(locale === 'de' ? 'Prüfen Sie Ihr Mailprogramm auf dieselbe E-Mail.' : 'Check your mail program for the same mail.')
+    const gone = inboxItemCopy(view('inbound_mail.fraud_reported', null, { href: null, subject: null, related: null }), t, dictionary)
+    expect(gone.title).not.toMatch(/Hietzing|[{}]/)
+  })
+
+  it('tells the member a reported mail posed as that someone used their name, not that their mail was dismissed', () => {
+    const sender = 'Miriam Huber ‹miriam.huber@mail.example›'
+    const reported = inboxItemCopy(view('inbound_mail.rejected', 'reported', { related: sender }), t, dictionary)
+    const dismissed = inboxItemCopy(view('inbound_mail.rejected', null), t, dictionary)
+    expect(reported.title).toContain('Wohnbau Hietzing')
+    expect(reported.title).toContain(sender)
+    expect(reported.title).not.toBe(dismissed.title)
+    expect(reported.body).toContain('Petra Huber')
+  })
+
   it('names a decided mail’s folder only when the row carries it', () => {
     const named = inboxItemCopy(view('inbound_mail.decided', null, { related: 'Behörde/Bescheide' }), t, dictionary)
     expect(named.title).toContain('Behörde/Bescheide')
@@ -85,7 +107,7 @@ describe.each(['de', 'en'] as const)('the E-Mail-Eingang’s notices in %s', (lo
   })
 })
 
-describe('the eight types’ registration', () => {
+describe('the nine types’ registration', () => {
   const types = EMITTED.map(([type]) => type)
 
   it('are operational, never mailed, and pushed as DECISION §9 says', () => {
@@ -99,6 +121,7 @@ describe('the eight types’ registration', () => {
       'inbound_mail.appended': { category: 'results', urgency: 'low' },
       'mail_thread.follow_expiring': { category: 'requests', urgency: 'low' },
       'mail_thread.follow_ended': { category: 'results', urgency: 'low' },
+      'inbound_mail.fraud_reported': { category: 'office', urgency: 'high' },
     })
     for (const type of types) {
       expect(INBOX_TYPE_DEFINITIONS[type], type).toMatchObject({ gate: 'operational', email: { send: 'never' } })
@@ -116,6 +139,7 @@ describe('the eight types’ registration', () => {
       'inbound_mail.appended': 'per-anchor',
       'mail_thread.follow_expiring': 'per-anchor',
       'mail_thread.follow_ended': 'per-anchor',
+      'inbound_mail.fraud_reported': 'per-anchor',
     })
   })
 
@@ -129,6 +153,7 @@ describe('the eight types’ registration', () => {
       'mail-plus',
       'clock',
       'mail-x',
+      'shield-alert',
     ])
     expect(types.filter((type) => INBOX_TYPE_DEFINITIONS[type].actionable)).toEqual([
       'inbound_mail.waiting',

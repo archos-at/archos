@@ -145,6 +145,11 @@ function inboundMailLink(projectId: string, context: InboxTargetLinkContext): st
       const mailId = context.anchorId?.trim()
       return mailId ? paths.mail(mailId, waiting) : paths.list(waiting)
     }
+    case 'inbound_mail.fraud_reported': {
+      const mailId = context.anchorId?.trim()
+      const handled = { status: 'handled', outcome: null } as const
+      return mailId ? paths.mail(mailId, handled) : paths.list(handled)
+    }
     case 'inbound_mail.held_for_writers':
     case 'inbound_mail.rejected':
     case 'inbound_mail.expired':

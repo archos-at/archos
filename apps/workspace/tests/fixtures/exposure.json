@@ -1223,6 +1223,16 @@
    "withheld": null,
    "reason": "held mail is unconfirmed third-party content nobody has filed yet; the agent reads it once a person filed it into the project"
   },
+  "inbound-mail-report": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "warns colleagues in their inbox that a mail is fraud; only a person who read the mail makes that call, never an agent or an outside one a mail could steer"
+  },
   "inbound-mail-restore": {
    "kind": "catalog",
    "domain": "mail",

@@ -54,6 +54,7 @@ export const INBOUND_MAIL_REFUSALS = [
   'original_not_clean',
   'mail_not_received_here',
   'legal_hold', // kept past erasure for a legal hold: a person may read the bytes, an agent may not
+  'not_impersonation',
 ] as const
 export type InboundMailRefusal = (typeof INBOUND_MAIL_REFUSALS)[number]
 
@@ -392,6 +393,11 @@ export const dismissInboundMailsBodySchema = z
   .strict()
   .refine((body) => new Set(body.mailIds).size === body.mailIds.length, { message: 'A mail is named twice', path: ['mailIds'] })
 export type DismissInboundMailsBody = z.infer<typeof dismissInboundMailsBodySchema>
+
+export interface InboundMailReportResultView {
+  mail: InboundMailView
+  warned: number
+}
 
 export interface InboundMailDecisionResultView {
   mails: InboundMailView[]

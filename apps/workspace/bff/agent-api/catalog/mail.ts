@@ -230,6 +230,18 @@ export const mailOperations = [
     load: () => import('@/app/api/projects/[id]/inbound-mails/[mailId]/restore/route'),
   },
   {
+    name: 'inbound-mail-report',
+    domain: 'mail',
+    summary: 'Report held email that poses as a member as fraud',
+    description:
+      'Only for a mail that poses as a member (`riskLevel: impersonation`), else 409 `not_impersonation`. Dismisses it and warns the project’s managers and the member it poses as in their inbox, naming its sender and subject.',
+    method: 'POST',
+    path: '/api/projects/[id]/inbound-mails/[mailId]/report',
+    params: mailParams,
+    destructive: true,
+    load: () => import('@/app/api/projects/[id]/inbound-mails/[mailId]/report/route'),
+  },
+  {
     name: 'mail-thread-list',
     domain: 'mail',
     summary: 'List a project’s email threads',
