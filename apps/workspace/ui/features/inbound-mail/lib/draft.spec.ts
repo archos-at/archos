@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { fileInboundMailsBodySchema } from '@/lib/inbound-mail/inbound-mail-wire'
+import { validateDocumentName } from '@/lib/documents/display-name'
 import { FOLDERS, mail, messagePart, part, thread } from '@/app/dev/inbound-mail/fixtures'
 import {
   chooseRevision,
@@ -324,5 +326,29 @@ describe('rebaseDraft', () => {
     expect(rebaseDraft(edited, base, fewer)).toBe(fewer)
     const other = initialDraft(mail({ key: 'other', parts: [message, first, second] }), FOLDERS, copy)
     expect(rebaseDraft(edited, base, other)).toBe(other)
+  })
+})
+
+describe('the name of a new Verlauf', () => {
+  const nameOf = (subject: string | null): string => {
+    const view = mail({ subject, parts: [message], threadCandidates: [] })
+    const decision = decisionOf(view, initialDraft(view, FOLDERS, copy))
+    expect(fileInboundMailsBodySchema.safeParse({ mails: [decision] }).success).toBe(true)
+    const thread = decision.message?.thread
+    return thread?.action === 'create' ? thread.name : ''
+  }
+
+  it('is a name a document may carry when the subject is longer than one', () => {
+    expect(validateDocumentName(`${nameOf('Statik '.repeat(40))}.md`)).toMatchObject({ ok: true })
+  })
+
+  it('carries no path separator from the subject', () => {
+    const name = nameOf('Haus A/B Statik')
+    expect(name).toBe('Haus A B Statik')
+    expect(validateDocumentName(`${name}.md`)).toMatchObject({ ok: true })
+  })
+
+  it('falls back to the untitled name when the subject is empty, only a leader, or blank', () => {
+    for (const subject of [null, '', '   ', 'AW:', 'Re: Fwd:']) expect(nameOf(subject)).toBe('(no subject)')
   })
 })
