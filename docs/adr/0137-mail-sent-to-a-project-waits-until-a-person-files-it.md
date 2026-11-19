@@ -737,3 +737,30 @@ scanner (ADR-0157) and the upload path like any other file.
 - `review-first.spec.ts`: the receive side still imports no filing code; it
   queues `inbound_mail_sender_file` by name, and `sender-file-job.ts` is among
   the filing modules.
+
+## Amendment, 2026-11-19: what a verified outsider's domain is trusted with
+
+*Grid engineering, after a security review of our own code.* DKIM proves a
+domain, and anyone can own one. "The label decides" above is narrowed; the rest
+stands.
+
+- **Pre-selection.** An `external_verified` mail's thread append is
+  pre-selected only when, besides a signed `reference` or `thread_index`
+  match, its From domain already took part in the thread
+  (`participantDomains`), and never on a public mail domain (gmail.com,
+  gmx.at, outlook.com and the like, one list in
+  `lib/mail-thread/public-mail-domains.ts`). A new Fassung found by file name
+  is pre-selected for a `member_verified` sender, as before, and for an
+  outsider only with a thread candidate the defaults would pre-select. All else
+  is offered unchecked and needs `acknowledgeRisk` (`unverified_thread`), as
+  "what needs an acknowledgement" says.
+- **Following.** Condition 5 holds per address on a public mail domain: every
+  From, To and Cc address there must already have taken part in the thread.
+  `relaxed_alignment` refuses no follow.
+- **Impersonation.** `claims_member_name` is judged after Unicode format
+  characters are stripped and Cyrillic and Greek look-alikes folded to Latin,
+  and an initial stands for any name but the surname.
+
+Where it lives: [Sender trust](../architecture/inbound-mail.md#sender-trust) and
+[Following a Verlauf](../architecture/inbound-mail.md#following-a-verlauf) in the
+architecture.
