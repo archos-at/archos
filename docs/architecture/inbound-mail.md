@@ -198,7 +198,13 @@ as `unavailable` and neither side recorded why.
    (`message.rawScan` in the dictionaries: still being checked, check failed
    and repeated, or malware);
 3. drop auto-replies, delivery reports and loops (`dropped`, raw erased); mark
-   list and bulk mail `automatic`. A loop is a From whose every mailbox is on
+   list and bulk mail `automatic`. A drop is audited and sent to PostHog
+   first, marked `dropped` with its raw key kept as a deferred erasure, and
+   only then is the key taken and the object erased (`receive-drop.ts`, the
+   same take as sweep 10): a run that dies in between leaves a dropped mail
+   for sweep 10, never a `received` one with nothing left to read, which the
+   last attempt used to hold as an empty unreadable mail. A legal hold, or a
+   store that kept the object, leaves it to sweep 10 too. A loop is a From whose every mailbox is on
    our domain, read as addresses (postal-mime's `addressParser`), never as text,
    or an envelope sender on it. An auto-reply that carries an attachment the
    job would stage is held, `automatic`, instead of dropped: `Auto-Submitted`,

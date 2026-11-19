@@ -137,7 +137,7 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
     inboundDomain: domain,
     attachments: mime.kind === 'read' ? mime.attachments.length : 0,
   })
-  if (automatic.outcome === 'drop') return dropAutomaticMail(mail, automatic.reason, attempt)
+  if (automatic.outcome === 'drop') return dropAutomaticMail(mail, automatic.reason)
   await recordOriginal(mail, raw, domain)
 
   const evidence: SenderEvidence = { progress: progressOf(mail.receiveProgress) }

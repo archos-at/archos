@@ -38,6 +38,7 @@ const state = vi.hoisted(() => ({
   filedMessages: [] as unknown[],
   followContext: null as unknown,
   dns: null as unknown,
+  held: false,
 }))
 
 vi.mock('./repository', () => ({
@@ -120,7 +121,19 @@ vi.mock('@/lib/upload-screening/service', async () => {
   const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
   return { gatePolicy: vi.fn(async () => SUGGESTED_SCREENING_POLICY) }
 })
-vi.mock('@/lib/compliance/repository', () => ({ isCoveredByActiveHold: vi.fn(async () => false) }))
+vi.mock('./sweep-erasure-repository', () => ({
+  takeReleasedErasure: vi.fn(async (erasure: { id: string; rawKey: string | null }) => {
+    state.calls.push('take')
+    const row = state.row
+    if (state.held || !row || row.status !== 'dropped' || !row.erasureDeferredAt || row.rawStorageKey !== erasure.rawKey) return false
+    Object.assign(row, { rawStorageKey: null, erasureDeferredAt: null })
+    return true
+  }),
+  returnReleasedErasure: vi.fn(async (erasure: { rawKey: string | null }, kept: string[]) => {
+    if (!state.row) return
+    Object.assign(state.row, { rawStorageKey: erasure.rawKey && kept.includes(erasure.rawKey) ? erasure.rawKey : null, erasureDeferredAt: new Date() })
+  }),
+}))
 vi.mock('@/lib/audit/after-commit', () => ({ recordAuditEventAfterCommit: vi.fn() }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
@@ -140,7 +153,6 @@ import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { scanForMalware } from '@/lib/malware-scan/client'
 import { loadOrganizationDirectory, loadOrganizationDirectoryStrict } from '@/lib/sharing/directory'
@@ -166,7 +178,8 @@ import { announceHeld, announceWaiting } from './announce'
 import { readMail, type MailRead } from './read-client'
 import { recordOriginal } from './receive-original'
 import { RECEIVE_FAULT_BUDGET, RECEIVE_FAULT_WAITS_MS } from './receive-faults'
-import { findAddressToken, findThreadCandidates } from './repository'
+import { dropMail, findAddressToken, findThreadCandidates } from './repository'
+import { eraseStagedObjects } from './staging'
 import { ATTACHMENT_SCANS_IN_FLIGHT, inboundMailJobId, runInboundMailReceive } from './receive-job'
 
 const ORG = 'org_01RECEIVEJOB'
@@ -296,6 +309,7 @@ beforeEach(() => {
     filedMessages: [],
     followContext: null,
     dns: fakeDns({ ...keyFor(MEMBER_DOMAIN), ...keyFor('statik-weber.at') }),
+    held: false,
   })
   vi.stubEnv('INBOUND_MAIL_DOMAIN', INBOUND_DOMAIN)
   vi.mocked(scanForMalware).mockResolvedValue(CLEAN)
@@ -510,7 +524,7 @@ describe('automatic mail', () => {
   })
 
   it('keeps the raw message of a dropped mail under a legal hold, for the deferred erasure', async () => {
-    vi.mocked(isCoveredByActiveHold).mockResolvedValue(true)
+    state.held = true
     receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))
 
     await run()
@@ -518,6 +532,32 @@ describe('automatic mail', () => {
     expect(heldRow()).toMatchObject({ status: 'dropped', rawStorageKey: RAW_KEY })
     expect(heldRow().erasureDeferredAt).not.toBeNull()
     expect(state.erased).toEqual([])
+  })
+
+  it('marks the mail dropped before it erases anything, so a failure in between never leaves an empty held mail', async () => {
+    vi.mocked(dropMail).mockRejectedValueOnce(new TypeError('a bug'))
+    receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))
+
+    await expect(run(NOT_LAST)).rejects.toThrow('a bug')
+    expect(state.erased).toEqual([])
+    expect(state.objects.has(RAW_KEY)).toBe(true)
+
+    await run(LAST)
+    expect(heldRow()).toMatchObject({ status: 'dropped', rawStorageKey: null })
+    expect(state.calls.filter((call) => call !== 'scan:clean')).toEqual(['drop:auto_reply', 'take'])
+    expect(state.erased).toEqual([RAW_KEY])
+  })
+
+  it('records a drop whose erasure the store refused, and leaves the raw key to the released-erasure sweep', async () => {
+    vi.mocked(eraseStagedObjects).mockImplementationOnce(async (_bucket: string, keys: string[]) => keys)
+    receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))
+
+    await run(LAST)
+
+    expect(heldRow()).toMatchObject({ status: 'dropped', rawStorageKey: RAW_KEY })
+    expect(heldRow().erasureDeferredAt).not.toBeNull()
+    expect(recordAuditEventAfterCommit).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ dropped: 'auto_reply' }) }))
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped' }))
   })
 
   it('holds list mail, marked automatic and announced, with no model spent on it', async () => {

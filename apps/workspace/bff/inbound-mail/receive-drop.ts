@@ -2,20 +2,13 @@ import 'server-only'
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { SYSTEM_ACTORS } from '@/lib/audit/service'
-import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
-import type { JobAttempt } from '@/lib/jobs-queue/types'
 import { dropMail } from './repository'
 import { eraseStagedObjects } from './staging'
+import { returnReleasedErasure, takeReleasedErasure, type DeferredErasure } from './sweep-erasure-repository'
 
-export async function dropAutomaticMail(mail: InboundMailRow, reason: NonNullable<InboundMailRow['droppedReason']>, attempt: JobAttempt): Promise<void> {
-  const deferred = await isCoveredByActiveHold(mail.organizationId, 'project', mail.projectId)
-  if (!deferred && mail.rawStorageKey) {
-    const left = await eraseStagedObjects(mail.stagingBucket, [mail.rawStorageKey])
-    if (left.length > 0 && !attempt.last) throw new Error(`the raw message of mail ${mail.id} could not be erased`)
-    if (left.length > 0) return void (await dropMail(mail.id, { reason, erasureDeferred: true }))
-  }
-  if (!(await dropMail(mail.id, { reason, erasureDeferred: deferred }))) return
+export async function dropAutomaticMail(mail: InboundMailRow, reason: NonNullable<InboundMailRow['droppedReason']>): Promise<void> {
+  if (!(await dropMail(mail.id, { reason, erasureDeferred: true }))) return
   recordAuditEventAfterCommit({
     organizationId: mail.organizationId,
     actor: { userId: SYSTEM_ACTORS.inboundMail, email: null },
@@ -27,4 +20,25 @@ export async function dropAutomaticMail(mail: InboundMailRow, reason: NonNullabl
     idempotencyKey: `inbound_mail.received:${mail.id}`,
   })
   captureServer({ event: 'inbound_mail_dropped', distinctId: null, organizationId: mail.organizationId, properties: { reason } })
+  await eraseDroppedMail(mail)
+}
+
+async function eraseDroppedMail(mail: InboundMailRow): Promise<void> {
+  const erasure: DeferredErasure = {
+    id: mail.id,
+    kind: 'mail',
+    organizationId: mail.organizationId,
+    stagingBucket: mail.stagingBucket,
+    storageKey: null,
+    readKey: mail.readStorageKey,
+    rawKey: mail.rawStorageKey,
+    keys: [mail.readStorageKey, mail.rawStorageKey].filter((key): key is string => key !== null),
+  }
+  if (erasure.keys.length === 0) return
+  const now = new Date()
+  if (!(await takeReleasedErasure(erasure, now))) return
+  const kept = await eraseStagedObjects(mail.stagingBucket, erasure.keys).catch(() => erasure.keys)
+  if (kept.length === 0) return
+  await returnReleasedErasure(erasure, kept, now)
+  console.warn(`[inbound-mail] the dropped mail ${mail.id} kept ${kept.length} staged object(s); the released-erasure sweep tries again`)
 }
