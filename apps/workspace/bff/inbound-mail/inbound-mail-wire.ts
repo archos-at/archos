@@ -86,6 +86,7 @@ export interface InboundMailSenderRiskView {
   senderClass: InboundMailSenderClass | null
   waitReason: InboundMailWaitReason | null
   onlySenderReleases: boolean
+  ownClaimedMail: boolean
 }
 
 export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'replay', 'automatic', 'paused', 'not_filed', 'no_write_rights', 'outside_office', 'sender_unchecked'] as const

@@ -5,9 +5,9 @@ import { isOwnBccCopy } from '@/lib/mail-thread/mail-threading'
 
 export type MailClaim = 'own' | 'colleague' | null
 
-export function mailClaimOf(view: Pick<InboundMailSenderRiskView, 'senderClass' | 'onlySenderReleases'>): MailClaim {
+export function mailClaimOf(view: Pick<InboundMailSenderRiskView, 'onlySenderReleases' | 'ownClaimedMail'>): MailClaim {
   if (view.onlySenderReleases) return 'colleague'
-  return view.senderClass === 'unverified_writer' ? 'own' : null
+  return view.ownClaimedMail ? 'own' : null
 }
 
 export type SenderTrustLine =

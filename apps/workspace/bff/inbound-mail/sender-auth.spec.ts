@@ -8,6 +8,7 @@ import {
   INBOUND_DOMAIN,
   keyFor,
   keyName,
+  MEMBER,
   MEMBER_ADDRESS,
   MEMBER_DOMAIN,
   message,
@@ -63,18 +64,30 @@ describe('authenticateSender: what verifies', () => {
     expect(await verify(raw, keyFor(`mail.${MEMBER_DOMAIN}`))).toBe('dkim_pass')
   })
 
-  it('labels a subdomain’s signature verified, but files nothing directly with it: strict alignment only', async () => {
-    const raw = await sign(message(), { domain: `news.${MEMBER_DOMAIN}` })
-    const auth = await authenticate(raw, keyFor(`news.${MEMBER_DOMAIN}`))
-    const verdict = judgeSender(auth, { memberUserId: 'user_1', receivedAt: RECEIVED, sentAtHeader: SENT })
-    expect(verdict).toMatchObject({ trust: 'member_verified', reason: 'dkim_pass', signerDomain: `news.${MEMBER_DOMAIN}` })
-    expect(verdict.flags).toEqual(['relaxed_alignment'])
-    const { trust, reason, senderUserId, flags } = verdict
-    expect(senderClassOf({ trust, reason, senderUserId, flags, automatic: false, writes: true })).toBe('unverified_writer')
+  it('files directly with a subdomain’s or the organizational domain’s signature, as DMARC’s relaxed alignment admits it', async () => {
+    for (const [signer, from] of [
+      [`news.${MEMBER_DOMAIN}`, MEMBER],
+      [MEMBER_DOMAIN, `Anna Muster <anna@mail.${MEMBER_DOMAIN}>`],
+    ] as const) {
+      const raw = await sign(message(undefined, { From: from }), { domain: signer })
+      const auth = await authenticate(raw, keyFor(signer))
+      const verdict = judgeSender(auth, { memberUserId: 'user_1', receivedAt: RECEIVED, sentAtHeader: SENT })
+      expect(verdict, signer).toMatchObject({ trust: 'member_verified', reason: 'dkim_pass', signerDomain: signer })
+      expect(verdict.flags).toEqual(['relaxed_alignment'])
+      const { trust, reason, senderUserId, flags } = verdict
+      expect(senderClassOf({ trust, reason, senderUserId, flags, automatic: false, writes: true })).toBe('verified_writer')
+    }
 
     const own = judgeSender(await authenticate(await sign(message())), { memberUserId: 'user_1', receivedAt: RECEIVED, sentAtHeader: SENT })
     expect(own.flags).toEqual([])
     expect(senderClassOf({ ...own, automatic: false, writes: true })).toBe('verified_writer')
+  })
+
+  it('never aligns a key of another organizational domain, a look-alike or a public suffix', async () => {
+    for (const signer of ['buero-muster.example', `${MEMBER_DOMAIN}.evil.example`, 'at']) {
+      const raw = await sign(message(), { domain: signer })
+      expect(await verify(raw, keyFor(signer)), signer).toBe('dkim_unaligned')
+    }
   })
 
   it('verifies without any DMARC record, and a failing _dmarc lookup changes nothing', async () => {

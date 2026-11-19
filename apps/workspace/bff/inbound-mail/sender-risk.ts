@@ -1,6 +1,7 @@
 import { latinize } from '@/lib/text/latinize'
 import { isOwnBccCopy } from '@/lib/mail-thread/mail-threading'
-import type { ImpersonationBasis, SenderFlag, SenderReason, SenderRiskLevel, SenderTrust } from './inbound-mail-vocabulary'
+import { impersonationOf } from './impersonation'
+import type { SenderFlag, SenderReason, SenderRiskLevel, SenderTrust } from './inbound-mail-vocabulary'
 
 export interface SenderFacts {
   trust: SenderTrust
@@ -16,15 +17,7 @@ export function senderFactsOf(mail: {
   return mail.senderTrust && mail.senderReason ? { trust: mail.senderTrust, reason: mail.senderReason, flags: mail.senderFlags } : null
 }
 
-export function isRejectedSignature(reason: SenderReason): boolean {
-  return reason === 'dkim_fail' || reason === 'dkim_policy' || reason === 'dkim_weak_algorithm' || reason === 'dkim_short_key'
-}
-
-export function impersonationOf(sender: SenderFacts): ImpersonationBasis | null {
-  if (sender.flags.includes('claims_member_name')) return 'member_name'
-  if (isRejectedSignature(sender.reason)) return 'rejected_signature'
-  return null
-}
+export { impersonationOf, isRejectedSignature } from './impersonation'
 
 export function senderNeedsAcknowledgement(sender: SenderFacts): boolean {
   if (sender.trust === 'member_unverified') return true

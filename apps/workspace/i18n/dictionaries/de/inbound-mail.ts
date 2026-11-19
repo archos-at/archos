@@ -120,14 +120,14 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   waitReason: {
-    signature: 'Wartet auf {name}: Die Domain hat diese E-Mail nicht bestätigt.',
-    signatureOwn: 'Haben Sie diese E-Mail gesendet? Ihre Domain hat sie nicht bestätigt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    signature: 'Wartet: Die Domain hat diese E-Mail von {name} nicht bestätigt. Legen Sie sie ab, wenn Sie geprüft haben, dass sie von {name} ist.',
+    signatureOwn: 'Haben Sie diese E-Mail gesendet? Ihre Domain hat sie nicht bestätigt, deshalb wurde sie nicht direkt abgelegt.',
     replay:
-      'Wartet auf {name}: Die Domain hat sie bestätigt, aber sie ist an andere adressiert, ungewöhnlich datiert oder schon bekannt. So sieht auch eine erneut gesendete E-Mail aus.',
+      'Wartet: Die Domain von {name} hat sie bestätigt, aber sie ist an andere adressiert, ungewöhnlich datiert oder schon bekannt. So sieht auch eine erneut gesendete E-Mail aus. Legen Sie sie ab, wenn Sie geprüft haben, dass sie von {name} ist.',
     replayOwn:
-      'Haben Sie diese E-Mail an das Projekt gesendet? Ihre Domain hat sie bestätigt, aber sie ist an andere adressiert, ungewöhnlich datiert oder schon bekannt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
-    automatic: 'Wartet auf {name}: Die E-Mail wurde automatisch versandt.',
-    automaticOwn: 'Haben Sie diese E-Mail gesendet? Sie wurde automatisch versandt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+      'Haben Sie diese E-Mail an das Projekt gesendet? Ihre Domain hat sie bestätigt, aber sie ist an andere adressiert, ungewöhnlich datiert oder schon bekannt, deshalb wurde sie nicht direkt abgelegt.',
+    automatic: 'Wartet: Die E-Mail von {name} wurde automatisch versandt. Legen Sie sie ab, wenn Sie geprüft haben, dass sie von {name} ist.',
+    automaticOwn: 'Haben Sie diese E-Mail gesendet? Sie wurde automatisch versandt, deshalb wurde sie nicht direkt abgelegt.',
     paused: 'Wartet: Die direkte Ablage ist ausgeschaltet, deshalb wurde sie nicht direkt abgelegt. Alle, die in diesem Projekt ablegen dürfen, können sie ablegen.',
     not_filed: 'Wartet: {name} hat sie gesendet und die Domain hat sie bestätigt, aber sie wurde nicht direkt abgelegt. Prüfen Sie sie und legen Sie sie ab oder verwerfen Sie sie.',
     no_write_rights: 'Wartet auf Ihre Ablage, weil der Absender in diesem Projekt nicht ablegen darf.',
@@ -336,6 +336,7 @@ export const inboundMail: typeof en.inboundMail = {
     acknowledgeImpersonation: 'Ich habe geprüft, dass die E-Mail echt ist. Trotzdem ablegen',
     acknowledgeSender: 'Domain nicht bestätigt. Trotzdem ablegen',
     acknowledgeOwnMail: 'Ja, ich habe diese E-Mail gesendet. Ablegen',
+    acknowledgeClaimedMail: 'Ich habe geprüft, dass diese E-Mail von {name} ist. Ablegen',
     originalErased: 'Das Original der E-Mail wird nach der Ablage gelöscht',
     claimed: {
       line: 'Nur {name} kann diese E-Mail ablegen oder wiederherstellen. Sie können sie verwerfen.',

@@ -129,14 +129,14 @@ describe('InboundMailWorkspace', () => {
     expect(within(nameStop).queryByTestId('inbound-mail-row-file')).toBeNull()
   })
 
-  it('phrases a held writer’s row for its reader, and keeps a colleague’s claimed mail out of „Braucht Sie“ (B3)', () => {
+  it('phrases a held writer’s row for its reader: a colleague checks the sender of a writer’s unsigned mail under „Braucht Sie“ (amendment of 2026-11-19)', () => {
     const { unmount } = renderWorkspace('claimed')
     const row = (variant: string) => screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS[variant].view.id}`)
     const claimed = within(row('claimed-by-colleague')).getByTestId('inbound-mail-row-reason')
-    expect(claimed).toHaveAttribute('data-reason', 'claimed')
-    expect(claimed).toHaveTextContent('Waiting for Miriam Huber')
-    expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others')).toBeInTheDocument()
+    expect(claimed).toHaveAttribute('data-reason', 'sender')
+    expect(claimed).toHaveTextContent('Check the sender')
     expect(screen.getByTestId('readiness-needs_you')).toBeInTheDocument()
+    expect(screen.queryByTestId('readiness-others')).toBeNull()
     expect(within(row('not-filed')).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Not filed directly · Choose a folder')
     unmount()
     renderWorkspace('own')
