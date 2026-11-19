@@ -244,9 +244,10 @@ not; a mail nobody wants is *verworfen*, and one nobody decides *läuft ab*
 after 30 days (mail from outside the office after 14, and then it is gone);
 both can otherwise be *wiederhergestellt* for seven days. Until a person
 files it, nothing of a mail is a document: nothing indexes it and no model of
-ARCHOS reads it. Anyone may write to the address; each mail says whether its
-sender's domain was confirmed („Domain bestätigt: …“; where it was not, the
-reader is told what that means, „Absender nicht überprüfbar“), which shapes
+ARCHOS reads it. Anyone may write to the address; each mail opens with one
+verdict on its sender in three levels, „Echte Adresse“ (the domain confirmed
+it; „Domain bestätigt: …“ under „Details“), „Absender nicht überprüfbar“, and
+„Vorsicht: mögliche Fälschung“, the only one in the danger colour, which shapes
 what is suggested; only a signed mail of a member
 who may file is filed directly.
 A mail that poses as a member („Gibt sich als … aus“) is a stop, never a
@@ -287,9 +288,10 @@ _Code_: the sender class `verified_writer`; the decision's `via = 'sender'`;
 The question a mail that carries a member's address, but does not prove the
 member sent it, puts to that member: their domain did not confirm it, it is
 their Bcc copy, it reads as re-sent or misdated, or it was sent automatically.
-The member files it („Ja, ich habe diese E-Mail gesendet. Ablegen“); any other
-of the project's writers may too, once they checked it is from that member
-(„Ich habe geprüft, dass diese E-Mail von {Name} ist. Ablegen“). A mail whose
+The member files it („Ja, ich habe diese E-Mail gesendet“, then „Ablegen“); any
+other of the project's writers may too, once they checked it is from that
+member („Ich habe geprüft, dass diese E-Mail von {Name} ist“); a confirmation
+never ends in „Ablegen“, which read as if ticking filed. A mail whose
 domain *rejected* it is not asked about but shown as an impersonation
 („Gibt sich als … aus“), to the member it names in their own words; only that
 member files or restores it, the others see „Wartet auf {Name}“ and may only
@@ -330,7 +332,7 @@ _Code_: `forwarded_from` (`inbound_mail_addresses`), `forwardedFrom`,
 
 **E-Mail-Verlauf** (mail thread):
 One e-mail conversation filed as one document of Dokumentart *Korrespondenz*:
-each filed e-mail is a section, and each one filed later adds a Fassung, so
+each filed e-mail is a section, *angefügt* (added) to it, and each one filed later adds a Fassung, so
 the newest Fassung holds the whole conversation and ARCHOS cites one e-mail of
 it. E-mails from the project's address and from an imported Outlook archive
 end up in the same E-Mail-Verlauf, each once. Each section keeps its *Original
@@ -339,7 +341,9 @@ a model. An e-mail filed into the wrong Verlauf is *herausgelöst* (moved to
 another or a new one; the earlier Fassungen keep it). Its tab in the preview is
 „E-Mails“.
 _Avoid_: bare „Verlauf“ (the chat's), Thread, Unterhaltung, Version,
-„Nachrichten“ for its tab.
+„Nachrichten“ for its tab; „Fassung“ for what a mail's text becomes when it is
+filed („An E-Mail-Verlauf „…“ anfügen“, never „wird Fassung 4“: a Fassung is a
+document's state, and the reader took it for a plan's).
 _Code_: `mail thread` (`lib/mail-thread`, `mail_threads`, `mail_thread_entries`
 for its e-mails, verb `detach`).
 

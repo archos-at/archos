@@ -8,20 +8,22 @@ import {
   Ban,
   Copy,
   FileStack,
+  FileText,
+  Folder,
   FolderInput,
   Forward,
   Image as ImageIcon,
   Lock,
   ShieldAlert,
   ShieldQuestion,
+  SquareCheck,
   Tag,
   Timer,
   Undo2,
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FilingChip } from '@/components/ui/filing-chip'
+import { NewMark } from '@/components/ui/filing-chip'
 import { Item } from '@/components/ui/item'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { AgentGlyph } from '@/components/ui/agent-glyph'
@@ -34,12 +36,12 @@ import { CLAUSE_JOIN, formatBytes, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import type { AttachmentCase, AttachmentNote } from '../lib/attachment-case'
-import { targetForPath, type AttachmentDraft, type FolderOption, type FolderTarget } from '../lib/draft'
-import { folderLeaf, readSuggestion } from '../lib/suggestion'
+import { asksForDecision, targetForPath, type AttachmentDraft, type FolderOption } from '../lib/draft'
+import { readSuggestion } from '../lib/suggestion'
 import { AttachmentTargetDialog } from './attachment-target-dialog'
 import { AttachmentThumbnail } from './attachment-thumbnail'
 import { FiledTo } from './filed-to'
-import { CheckLine, FactLine } from './inbound-mail-atoms'
+import { CheckLine, FactLine, PlaceFact } from './inbound-mail-atoms'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -55,10 +57,6 @@ export interface AttachmentRowProps {
   onChange: (change: Partial<Omit<AttachmentDraft, 'partId' | 'suggested'>>) => void
   /** Opens the larger viewer; the press that opened it takes the focus back when it closes. */
   onPreview?: (trigger: HTMLElement) => void
-}
-
-function folderLabel(target: FolderTarget, rootLabel: string): string {
-  return target.path === '' ? rootLabel : target.path
 }
 
 export function AttachmentRow({
@@ -207,6 +205,8 @@ export function AttachmentRow({
 
   const folderTarget = draft.folder
   const showTarget = selectable && draft.checked
+  const undecided = !readOnly && !draft.checked && asksForDecision(entry)
+  const folderMissing = folderTarget === null && draft.revisionOf === null
 
   return (
     <Item
@@ -264,6 +264,11 @@ export function AttachmentRow({
         </p>
         {statusLine()}
         {status === 'waiting' && entry.notes.map(noteLine)}
+        {undecided && (
+          <FactLine icon={SquareCheck} tone="warning" testId="attachment-undecided">
+            {t('attachments.notes.undecided')}
+          </FactLine>
+        )}
 
         {showTarget && (
           <div className="mt-1 flex flex-col gap-1.5" data-testid="attachment-target">
@@ -273,39 +278,32 @@ export function AttachmentRow({
                 {t('suggestion.label')}
               </p>
             )}
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
-              {draft.revisionOf === null &&
-                (folderTarget ? (
-                  <FilingChip
-                    suggested={draft.suggested.folder}
-                    target={folderTarget.path === '' ? t('suggestion.root') : folderLeaf(folderTarget.path)}
-                    newLabel={folderTarget.kind === 'new' ? t('suggestion.newFolder') : undefined}
-                    title={folderLabel(folderTarget, t('suggestion.root'))}
-                    onClick={() => setPickerOpen(true)}
-                    mark={false}
-                    className="bg-background hover:bg-desk"
-                    data-testid="attachment-folder"
-                  />
-                ) : (
-                  <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
-                    <FolderInput className="size-3.5" aria-hidden />
-                    {t('target.chooseFolder')}
-                  </Button>
-                ))}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
+              <PlaceFact icon={Folder} label={t('target.folder')} testId="attachment-folder">
+                {folderTarget === null ? t('target.noFolder') : folderTarget.path === '' ? t('suggestion.root') : folderTarget.path}
+                {folderTarget?.kind === 'new' && <NewMark className="ml-1.5 align-[1px]">{t('suggestion.newFolder')}</NewMark>}
+              </PlaceFact>
               {draft.documentType && (
-                <Badge variant="secondary" className="bg-background gap-1" data-testid="attachment-type">
-                  <Tag className="text-muted-foreground size-3" aria-hidden />
+                <PlaceFact icon={Tag} label={t('suggestion.documentType')} testId="attachment-type">
                   {tagLabel(draft.documentType, tFiles)}
-                </Badge>
+                </PlaceFact>
               )}
               {draft.name !== part.filename && (
-                <span className="text-muted-foreground min-w-0 text-xs [overflow-wrap:anywhere]" data-testid="attachment-name">
-                  → {draft.name}
-                </span>
+                <PlaceFact icon={FileText} label={t('target.name')} testId="attachment-name">
+                  {draft.name}
+                </PlaceFact>
               )}
-              <Button ref={changeRef} type="button" size="sm" variant="secondary" onClick={() => setEditOpen(true)} data-testid="attachment-change">
-                {t('attachments.change')}
-              </Button>
+              {/* One control for where it goes: a missing folder is chosen right away, anything else is changed in one dialog. */}
+              {folderMissing ? (
+                <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
+                  <FolderInput className="size-3.5" aria-hidden />
+                  {t('target.chooseFolder')}
+                </Button>
+              ) : (
+                <Button ref={changeRef} type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+                  {t('attachments.change')}
+                </Button>
+              )}
             </div>
             {folderTarget === null && draft.revisionOf === null && (
               <p className="text-muted-foreground text-xs" data-testid="suggestion-missing">
@@ -355,6 +353,7 @@ export function AttachmentRow({
         onOpenChange={setEditOpen}
         part={part}
         draft={draft}
+        folders={folders}
         onApply={(change) => onChange(change)}
         returnFocusRef={changeRef}
       />

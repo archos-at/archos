@@ -7,6 +7,7 @@ import type {
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import { CORRESPONDENCE_FOLDER, defaultThread, messageSelectable as partMessageSelectable } from '@/lib/inbound-mail/review-defaults'
 import { displaySubject } from '@/lib/inbound-mail/subject'
+import { dismissErases } from './inbox-triage'
 import { attachmentCase, type AttachmentCase } from './attachment-case'
 import { senderDisplayName } from './sender'
 import { readSuggestion, type PartSuggestion } from './suggestion'
@@ -39,7 +40,7 @@ export type MessageTarget =
   | { kind: 'append'; threadId: string }
   | { kind: 'create'; name: string; folder: FolderTarget; folderSuggested: boolean; releaseName: boolean }
 
-export type ContentFindingChoice = 'masked' | 'own_thread' | 'full'
+export type ContentFindingChoice = 'masked' | 'full'
 
 export interface MessageDraft {
   partId: string
@@ -231,19 +232,6 @@ export function updateMessage(draft: MailDraft, change: Partial<Omit<MessageDraf
   return draft.message ? { ...draft, message: { ...draft.message, ...change } } : draft
 }
 
-export function chooseFinding(
-  draft: MailDraft,
-  choice: ContentFindingChoice,
-  view: InboundMailView,
-  folders: readonly FolderOption[],
-  copy: DraftCopy,
-): MailDraft {
-  if (!draft.message) return draft
-  const target =
-    choice === 'own_thread' && draft.message.target.kind !== 'create' ? newThreadTarget(view, folders, copy) : draft.message.target
-  return updateMessage(draft, { findingChoice: choice, target })
-}
-
 export function appendCandidate(view: Pick<InboundMailView, 'threadCandidates'>, draft: MailDraft): InboundMailThreadCandidateView | null {
   const target = draft.message?.target
   return target?.kind === 'append' ? (view.threadCandidates.find((candidate) => candidate.threadId === target.threadId) ?? null) : null
@@ -262,11 +250,22 @@ export type DraftBlocker =
   | { kind: 'sender' }
   | { kind: 'sender_only' }
 
+export type TextPlan = ({ kind: 'append'; name: string } | { kind: 'create'; name: string; folder: string }) & { masked: boolean }
+
+export interface FilesPlan {
+  folders: string[]
+  single: { name: string; folder: string | null; revision: { version: number; of: string } | null } | null
+}
+
 export interface DraftSummary {
   files: number
   text: boolean
   thread: { name: string; nextVersion: number } | null
-  originalErased: boolean
+  textPlan: TextPlan | null
+  filesPlan: FilesPlan
+  left: { text: boolean; files: string[] }
+  undecided: string[]
+  dismissErases: boolean
   needsSenderAcknowledgement: boolean
   ownClaimedMail: boolean
   claimedWriter: string | null
@@ -295,17 +294,46 @@ export function draftSummary(view: InboundMailView, draft: MailDraft): DraftSumm
   if (needsSender && !draft.acknowledgeSender) blockers.push({ kind: 'sender' })
   if (view.onlySenderReleases && files + (text ? 1 : 0) > 0) blockers.push({ kind: 'sender_only' })
 
+  const textTarget = text ? draft.message?.target : undefined
+  const masked = draft.message?.findingChoice === 'masked'
+  const textPlan: TextPlan | null = !textTarget
+    ? null
+    : textTarget.kind === 'append'
+      ? candidate
+        ? { kind: 'append', name: candidate.name, masked }
+        : null
+      : { kind: 'create', name: textTarget.name.trim(), folder: textTarget.folder.path, masked }
+  const unticked = draft.attachments.filter((attachment) => !attachment.checked && cases.get(attachment.partId)?.selectable)
+  const first = checked[0]
+  const firstCase = first ? cases.get(first.partId) : undefined
+  const revision = first?.revisionOf && firstCase?.part.revisionCandidate?.documentId === first.revisionOf ? firstCase.part.revisionCandidate : null
+
   return {
     files,
     text,
     thread: candidate ? { name: candidate.name, nextVersion: candidate.nextVersion } : null,
-    originalErased: !text,
+    textPlan,
+    filesPlan: {
+      folders: [...new Set(checked.map((attachment) => attachment.folder?.path).filter((path): path is string => path !== undefined))],
+      single:
+        files === 1 && first
+          ? { name: first.name, folder: first.folder?.path ?? null, revision: revision ? { version: revision.nextVersion, of: revision.name } : null }
+          : null,
+    },
+    left: { text: messageSelectable(view) && !!draft.message && !draft.message.checked, files: unticked.map((attachment) => attachment.name) },
+    undecided: unticked.filter((attachment) => asksForDecision(cases.get(attachment.partId))).map((attachment) => attachment.name),
+    dismissErases: dismissErases({ senderTrust: view.sender?.trust ?? null, senderFlags: view.sender?.flags ?? [], onlySenderReleases: view.onlySenderReleases }),
     needsSenderAcknowledgement: needsSender,
     ownClaimedMail: view.ownClaimedMail,
     claimedWriter:
       view.senderClass === 'unverified_writer' && !view.ownClaimedMail && !view.onlySenderReleases && view.sender ? senderDisplayName(view.sender) : null,
     blockers,
   }
+}
+
+export function asksForDecision(entry: AttachmentCase | undefined): boolean {
+  if (!entry || !entry.selectable || entry.defaultChecked) return false
+  return !entry.notes.some((note) => note.kind === 'duplicate' || note.kind === 'image_in_mail')
 }
 
 export function attachmentNeedsAcknowledgement(

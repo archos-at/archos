@@ -43,8 +43,11 @@ export function AttachmentsHeading({
       </SectionLabel>
       {bulk && (
         <>
+          <span className="text-muted-foreground text-xs tabular-nums" aria-live="polite" data-testid="attachments-selected-count">
+            {t('attachments.selectedCount', { checked, count: selectable })}
+          </span>
           <Button type="button" variant="secondary" size="sm" className="px-2.5 text-xs pointer-coarse:h-11" onClick={() => onCheckAll(!allChecked)} data-testid="attachments-check-all">
-            {allChecked ? t('attachments.uncheckAll') : t('attachments.checkAll', { count: selectable })}
+            {allChecked ? t('attachments.uncheckAll') : t('attachments.checkAll')}
           </Button>
           <Button
             type="button"
@@ -56,7 +59,7 @@ export function AttachmentsHeading({
             data-testid="attachments-file-checked-into"
           >
             <FolderInput className="size-3.5" aria-hidden />
-            {t('attachments.fileCheckedInto', { count: checked })}
+            {t('attachments.fileCheckedInto')}
           </Button>
           <FolderPickerSheet
             open={pickerOpen}

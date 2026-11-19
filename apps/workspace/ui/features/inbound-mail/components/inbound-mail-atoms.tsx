@@ -3,6 +3,7 @@
 import type { HTMLAttributes, JSX, ReactNode, RefObject } from 'react'
 import { useEffect } from 'react'
 import type { ExternalToast } from 'sonner'
+import type { LucideIcon } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { MOBILE_LAYOUT_QUERY } from '@/hooks/use-is-mobile'
 import { cn } from '@/lib/utils'
@@ -58,6 +59,18 @@ export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement
       )}
       {...props}
     />
+  )
+}
+
+export function PlaceFact({ icon: Icon, label, children, testId }: { icon: LucideIcon; label: string; children: ReactNode; testId?: string }): JSX.Element {
+  return (
+    <span className="inline-flex min-w-0 items-start gap-1 text-xs" data-testid={testId}>
+      <Icon className="text-muted-foreground mt-px size-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 [overflow-wrap:anywhere]">
+        <span className="text-muted-foreground">{label}: </span>
+        <span className="text-foreground font-medium">{children}</span>
+      </span>
+    </span>
   )
 }
 

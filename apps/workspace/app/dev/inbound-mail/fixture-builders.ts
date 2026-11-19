@@ -112,6 +112,7 @@ function judged(
 export function mail(overrides: Partial<InboundMailView> & { key?: string; reading?: FixtureReading } = {}): InboundMailView {
   const { key, reading = {}, ...rest } = overrides
   const sender = rest.sender === undefined ? DEFAULT_SENDER : rest.sender
+  const verdict = judged(sender, rest.automatic ?? false, reading)
   return withReviewDefaults({
     id: fixtureId(`mail:${key ?? 'default'}`),
     projectId: PROJECT_ID,
@@ -127,7 +128,7 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string; readi
     ],
     sentAt: minutesAgo(14),
     receivedAt: minutesAgo(12),
-    expiresAt: daysAhead(30),
+    expiresAt: daysAhead(verdict.senderClass === 'external' ? 14 : 30),
     automatic: false,
     rawScan: 'clean',
     originalHeld: true,
@@ -137,7 +138,7 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string; readi
     hiddenThreadCandidates: 0,
     followedBy: null,
     updatedAt: minutesAgo(9),
-    ...judged(sender, rest.automatic ?? false, reading),
+    ...verdict,
     ...rest,
   })
 }
@@ -145,11 +146,11 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string; readi
 export function text(overrides: Partial<InboundMailTextView> = {}): InboundMailTextView {
   return {
     ownText:
-      'Sehr geehrte Frau Huber,\n\nanbei die überarbeitete Statik S-101 in Index C. Die Stellplätze im Hof sind jetzt mit der neuen Lastannahme gerechnet.\n\nBitte um kurze Rückmeldung bis Freitag, ob die Fassung so an die MA 37 gehen kann.\n\nDie Unterlagen liegen auch unter https://cloud.statik-weber.at/s/9fK2 bereit.\n\nMit freundlichen Grüßen\nPetra Weber',
+      'Sehr geehrte Frau Huber,\n\nanbei die überarbeitete Statik S-101 in Index D. Die Stellplätze im Hof sind jetzt mit der neuen Lastannahme gerechnet.\n\nBitte um kurze Rückmeldung bis Freitag, ob die Fassung so an die MA 37 gehen kann.\n\nDie Unterlagen liegen auch unter https://cloud.statik-weber.at/s/9fK2 bereit.\n\nMit freundlichen Grüßen\nPetra Weber',
     ownTextTruncated: false,
     quoted: [
       {
-        header: 'Am 14.10.2026 um 09:12 schrieb Miriam Huber <m.huber@huber-architektur.at>:',
+        header: 'Am 12.11.2026 um 16:40 schrieb Miriam Huber <m.huber@huber-architektur.at>:',
         text: 'Liebe Frau Weber,\n\nkönnen Sie uns die Statik mit den geänderten Stellplätzen bis Ende der Woche schicken?\n\nDanke und lg\nMiriam Huber',
       },
     ],
@@ -207,10 +208,10 @@ export const suggestion = (
 
 export const statik = (overrides: Partial<InboundMailPartView> = {}) =>
   part({
-    name: 'S-101_C.pdf',
+    name: 'S-101_D.pdf',
     sizeBytes: 2_480_000,
-    revisionCandidate: { documentId: fixtureId('doc:s101'), name: 'S-101_B.pdf', folderPath: 'Tragwerk', nextVersion: 3 },
-    suggestion: suggestion('Tragwerk', 'Gutachten', 'Gleiche Bezeichnung wie S-101_B.pdf in Tragwerk.'),
+    revisionCandidate: { documentId: fixtureId('doc:s101'), name: 'S-101_C.pdf', folderPath: 'Tragwerk', nextVersion: 4 },
+    suggestion: suggestion('Tragwerk', null, 'Gleiche Plannummer wie S-101_C.pdf in Tragwerk.'),
     ...overrides,
   })
 

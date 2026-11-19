@@ -126,7 +126,7 @@ export function InboundMailRow({
               <TimeAgo date={mail.receivedAt} locale={locale} className="text-muted-foreground shrink-0 text-xs tabular-nums" />
             </div>
             <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
-              {mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} />}
+              {mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} name={mail.senderName} />}
               <span className="min-w-0 truncate">
                 {who}
                 {mail.senderDomain && mail.senderName && <span>{CLAUSE_JOIN}{mail.senderDomain}</span>}
@@ -168,10 +168,9 @@ export function InboundMailRow({
               <p
                 className="text-muted-foreground min-w-0 text-xs text-pretty [overflow-wrap:anywhere]"
                 data-testid="inbound-mail-row-thread"
-                title={t('row.thread', { name: mail.thread.name, version: mail.thread.nextVersion })}
+                title={t('row.thread', { name: mail.thread.name })}
               >
-                <span aria-hidden>→ </span>
-                {t('row.thread', { name: mail.thread.name, version: mail.thread.nextVersion })}
+                {t('row.thread', { name: mail.thread.name })}
               </p>
             )}
             {textFollowed && (

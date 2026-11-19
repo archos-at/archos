@@ -16,9 +16,9 @@ import type { ForwardedOrigin } from '@/lib/inbound-mail/forwarded'
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { cn } from '@/lib/utils'
 import { expiryShownInline } from '../lib/evidence'
-import { mailClaimOf, senderDisplayName } from '../lib/sender'
+import { expiryErases, mailClaimOf, senderDisplayName } from '../lib/sender'
 import { FactLine, QuietPanel } from './inbound-mail-atoms'
-import { SenderFlagLines, SenderTrustLine, SenderWaitLine } from './sender-trust'
+import { SenderFlagLines, SenderTrustLine, SenderTrustTechnical, SenderWaitLine } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface MailHeaderProps {
@@ -96,7 +96,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
           </div>
         </div>
         {view.sender && <SenderFlagLines sender={view.sender} />}
-        <SenderWaitLine view={view} />
+        <SenderWaitLine view={view} expirySoon={expirySoon} />
         {forwarded && (
           <p className="text-muted-foreground flex items-start gap-1.5 text-xs" data-testid="mail-forwarded">
             <Forward className="mt-px size-3.5 shrink-0" aria-hidden />
@@ -123,12 +123,20 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
         )}
         {expirySoon && (
           <FactLine icon={Timer} tone="warning" testId="mail-expires-soon">
-            {t('header.expiresSoon', { date: expiry })}
+            {t(expiryErases(view) ? 'header.expiresSoonErased' : 'header.expiresSoon', { date: expiry })}
           </FactLine>
         )}
         <CollapsibleContent data-testid="mail-details">
           <QuietPanel className="mt-1 gap-3 text-xs">
             <dl className="text-muted-foreground grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
+              {view.sender && (
+                <>
+                  <dt>{t('trust.technical.label')}</dt>
+                  <dd className="[overflow-wrap:anywhere]" data-testid="mail-trust-technical">
+                    <SenderTrustTechnical sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />
+                  </dd>
+                </>
+              )}
               {view.sentAt && (
                 <>
                   <dt>{t('header.sentLabel')}</dt>

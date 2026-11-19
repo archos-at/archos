@@ -2,10 +2,10 @@
 
 import type { JSX } from 'react'
 import { useId, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FolderInput, Mail, MailCheck, ShieldAlert, ShieldQuestion, Timer } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Folder, Mail, MailCheck, ShieldAlert, ShieldQuestion, Timer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FilingChip } from '@/components/ui/filing-chip'
+import { NewMark } from '@/components/ui/filing-chip'
 import { Input } from '@/components/ui/input'
 import { Item } from '@/components/ui/item'
 import { Label } from '@/components/ui/label'
@@ -24,9 +24,9 @@ import {
   type FolderOption,
   type MessageDraft,
 } from '../lib/draft'
-import { folderLeaf } from '../lib/suggestion'
 import { FiledTo } from './filed-to'
-import { CheckLine, FactLine } from './inbound-mail-atoms'
+import { ContentFindingChoice } from './content-finding-choice'
+import { CheckLine, FactLine, PlaceFact } from './inbound-mail-atoms'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 const NEW_THREAD = 'new'
@@ -132,7 +132,6 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
             onValueChange={choose}
             aria-label={t('message.label')}
             className="gap-2"
-            disabled={draft.findingChoice === 'own_thread'}
           >
             {candidates.map((candidate) => (
               <div key={candidate.threadId} className="flex items-start gap-2 pointer-coarse:min-h-11" data-testid={`thread-candidate-${candidate.threadId}`}>
@@ -144,7 +143,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
                 />
                 <Label htmlFor={`${id}-${candidate.threadId}`} className={cn('flex flex-col items-start gap-0.5 font-normal', candidate.full && 'opacity-60')}>
                   <span className="text-foreground text-sm [overflow-wrap:anywhere]">
-                    {t('message.append', { name: candidate.name, version: candidate.nextVersion })}
+                    {t('message.append', { name: candidate.name })}
                   </span>
                   {candidate.full ? (
                     <span className="text-muted-foreground text-xs">{t('message.full')}</span>
@@ -194,24 +193,14 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
               aria-invalid={target.name.trim() === '' || undefined}
               data-testid="thread-name"
             />
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-xs">{t('message.folderLabel')}</span>
-              {target.folder.path === '' ? (
-                <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)}>
-                  <FolderInput className="size-3.5" aria-hidden />
-                  {t('suggestion.root')}
-                </Button>
-              ) : (
-                <FilingChip
-                  suggested={target.folderSuggested}
-                  target={folderLeaf(target.folder.path)}
-                  title={target.folder.path}
-                  newLabel={target.folder.kind === 'new' ? t('suggestion.newFolder') : undefined}
-                  onClick={() => setPickerOpen(true)}
-                  className="border-solid"
-                  data-testid="detail-new-thread-folder"
-                />
-              )}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <PlaceFact icon={Folder} label={t('message.folderLabel')} testId="detail-new-thread-folder">
+                {target.folder.path === '' ? t('suggestion.root') : target.folder.path}
+                {target.folder.kind === 'new' && <NewMark className="ml-1.5 align-[1px]">{t('suggestion.newFolder')}</NewMark>}
+              </PlaceFact>
+              <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="detail-new-thread-folder-change">
+                {t('message.folderChange')}
+              </Button>
             </div>
             {threadNameStop && (
               <>
@@ -228,6 +217,14 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
               </>
             )}
           </div>
+        )}
+        {selectable && draft.checked && part && part.contentFindings.length > 0 && draft.findingChoice && (
+          <ContentFindingChoice
+            findings={part.contentFindings}
+            value={draft.findingChoice}
+            onChange={(findingChoice) => onChange({ findingChoice })}
+            appendTo={chosen?.name ?? null}
+          />
         )}
       </div>
       <FolderPickerSheet

@@ -9,7 +9,6 @@ import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
 import { ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
-import { useInView } from '@/hooks/use-in-view'
 import { documentFilesHref } from '@/features/documents'
 import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailPartView, InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -20,7 +19,6 @@ import type { InboundMailClient } from '../lib/client'
 import {
   checkAllAttachments,
   checkedAttachmentIds,
-  chooseFinding,
   decisionOf,
   draftSummary,
   fileCheckedInto,
@@ -43,7 +41,6 @@ import { mailStillSettling, missingSuggestionReason } from '../lib/suggestion'
 import { AttachmentPreviewDialog, type PreviewItem } from './attachment-preview-dialog'
 import { AttachmentRow } from './attachment-row'
 import { ClaimedMailBar } from './claimed-mail-bar'
-import { ContentFindingChoice } from './content-finding-choice'
 import { AttachmentsHeading } from './attachments-heading'
 import { blockerText, DecisionBar } from './decision-bar'
 import { DetailNotices, type Notice } from './detail-notices'
@@ -315,7 +312,8 @@ export function InboundMailDetail({
       const result = await client.dismiss(projectId, { mailIds: [view.id] })
       const next = result.mails.find((mail) => mail.id === view.id)
       if (next && alive.current) setState({ kind: 'ready', view: next })
-      toast.success(t('toast.dismissed'), mailToast(view.onlySenderReleases ? {} : { action: { label: t('toast.undo'), onClick: () => void restore() } }))
+      const restorable = !view.onlySenderReleases && !summary?.dismissErases
+      toast.success(t('toast.dismissed'), mailToast(restorable ? { action: { label: t('toast.undo'), onClick: () => void restore() } } : {}))
       onChanged()
     } catch (error) {
       const code = refusalOf(error)
@@ -326,7 +324,6 @@ export function InboundMailDetail({
     }
   }
 
-  const [choiceRef, choiceInView] = useInView<HTMLElement>({ rootMargin: '0px 0px -96px 0px' })
   const attachments = useMemo(
     () => (view ? view.parts.filter((part) => part.kind === 'attachment').map((part) => attachmentCase(part, view)) : []),
     [view]
@@ -460,16 +457,6 @@ export function InboundMailDetail({
         />
         <MailText state={text} onRetry={() => void loadText()} />
 
-        {/* After the text, beside the choice it shapes: on a phone the mail itself is the first screen. */}
-        {!stopped && !readOnly && messagePart?.state === 'waiting' && messagePart.contentFindings.length > 0 && draft?.message?.findingChoice && (
-          <ContentFindingChoice
-            findings={messagePart.contentFindings}
-            value={draft.message.findingChoice}
-            onChange={(choice) => setDraft((current) => (current ? chooseFinding(current, choice, view, folders, copy) : current))}
-            disabled={filing}
-          />
-        )}
-
         {/* The forged mail's way to filing is one deliberate press, never the page's default. */}
         {impersonation && !readOnly && view.status === 'waiting' && waitingParts.length > 0 && (
           <div className="flex flex-col items-start gap-1">
@@ -488,7 +475,7 @@ export function InboundMailDetail({
         )}
 
         {!stopped && !readOnly && messagePart && draft?.message && (
-          <section ref={choiceRef} className="flex flex-col gap-2" aria-label={t('message.label')}>
+          <section className="flex flex-col gap-2" aria-label={t('message.label')}>
             <ItemList data-surface="sunken" className={DETAIL_PANEL}>
               <MessageRow
                 projectId={projectId}
@@ -559,6 +546,11 @@ export function InboundMailDetail({
                   </li>
                 ))}
                 {notStaged.layoutImages > 0 && <li>{t('attachments.notStaged.layoutImages', { count: notStaged.layoutImages })}</li>}
+                {(notStaged.layoutImages > 0 || notStaged.listed.some((entry) => entry.reason !== 'calendar')) && view.originalHeld && (
+                  <li className="text-foreground pt-1" data-testid="not-staged-original">
+                    {t('attachments.notStaged.original')}
+                  </li>
+                )}
               </ul>
             )}
           </section>
@@ -628,7 +620,6 @@ export function InboundMailDetail({
           filing={filing}
           dismissing={dismissing}
           yieldPrimary={yieldPrimary}
-          choiceInView={choiceInView}
           saidAbove={closedShown ? ['project_closed'] : []}
           substantiveText={textSays}
         />

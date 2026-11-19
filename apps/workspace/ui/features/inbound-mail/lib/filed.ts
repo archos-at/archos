@@ -6,10 +6,10 @@ export interface FiledPlace {
   version: number | null
 }
 
-export function filedPlace(part: Pick<InboundMailPartView, 'filedAs'>, rootLabel: string): FiledPlace | null {
+export function filedPlace(part: Pick<InboundMailPartView, 'filedAs'> & Partial<Pick<InboundMailPartView, 'kind'>>, rootLabel: string): FiledPlace | null {
   if (!part.filedAs) return null
   const { name, folderPath, version } = part.filedAs
-  return { name, folder: folderPath && folderPath !== '' ? folderPath : rootLabel, version }
+  return { name, folder: folderPath && folderPath !== '' ? folderPath : rootLabel, version: part.kind === 'message' ? null : version }
 }
 
 export type FiledLine = { kind: 'attachment' | 'message'; place: FiledPlace }

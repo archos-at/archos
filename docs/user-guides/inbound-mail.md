@@ -69,15 +69,17 @@ waits.
 
 ## What a mail shows
 
-Each mail says whether its sender's domain confirmed it:
+Each mail opens with one verdict on its sender, in three levels; „Details“
+names the domain and what its signature said („Domain bestätigt:
+statik-weber.at hat die E-Mail signiert (DKIM)“):
 
-| Label | Meaning |
+| Verdict | Meaning |
 |---|---|
-| **Domain bestätigt: statik-weber.at** | The sender's domain signed the mail (DKIM). This proves the domain, not the person who wrote it |
-| **Domain nicht bestätigt** | The domain did not sign it. ARCHOS still suggests a folder, but no E-Mail-Verlauf is pre-selected |
-| **Mitglied · Domain nicht bestätigt** | The address is a member's, but their domain did not sign it. If that member may file in the project, only they can file it; otherwise you confirm before filing |
+| **Echte Adresse** | The sender's domain signed the mail (DKIM). This proves the domain, not the person who wrote it |
+| **Absender nicht überprüfbar** | The domain did not sign it. Common for small offices and no alarm: ARCHOS suggests nothing and pre-selects no E-Mail-Verlauf |
+| **Adresse von {Name}, nicht überprüfbar** / **Ihre Adresse, nicht überprüfbar** | The address is a member's (or yours), but the domain did not sign it. You file it once you checked it is from them, or, if it is yours, once you confirm you sent it |
 | **Ihre eigene E-Mail (Bcc)** | A copy of a mail you sent to others, with the project in Bcc |
-| **Gibt sich als … aus** | The domain rejected the mail, or a member's name appears on an address that is not theirs |
+| **Vorsicht: mögliche Fälschung** | The domain rejected the mail, or a member's name appears on an address that is not theirs. Only this level is red |
 
 **A mail that poses as someone is a stop.** It opens behind a warning, „Verwerfen“
 is the first button, nothing is pre-selected, ARCHOS suggests nothing, and it
@@ -111,8 +113,8 @@ A Bcc copy is not filed directly: whoever received your mail could send it on
 to the project unchanged, and that looks the same. Such a mail, and one your
 domain did not confirm, waits for you alone, and the Postfach asks you
 whether you sent it („Haben Sie eine E-Mail an das Projekt „…“ gesendet?
-Sonst verwerfen“). Only you can file it („Ja, ich habe diese E-Mail gesendet.
-Ablegen“) or restore it; the others in the project see whom it waits for and
+Sonst verwerfen“). Only you can file it (tick „Ja, ich habe diese E-Mail
+gesendet“, then „Ablegen“) or restore it; the others in the project see whom it waits for and
 can only dismiss it. If you did not send it, dismiss it: someone is using your
 address.
 
@@ -143,23 +145,31 @@ saying which. The Postfach's „E-Mails warten“ opens the list at „Bereit“
 ## Filing a mail
 
 Open a mail: it starts with the text. Under the subject one line names the
-sender („{Name} ‹{Adresse}›“), whether the domain is confirmed, and when it
-arrived; „Details“ shows the recipients, the dates, how long it still waits,
-and the original. In its last week the expiry date moves up into that line.
-Decide each part:
+sender („{Name} ‹{Adresse}›“), the verdict on the sender, and when it arrived;
+„Details“ shows the domain and its signature, the recipients, the dates, how
+long it still waits, and the original. A mail from outside the office says
+until when it waits and that ARCHOS reminds you five days before; in its last
+week the date moves up into the header. Decide each part:
 
-- **The mail's text** („E-Mail-Text“) goes into an E-Mail-Verlauf: „In
-  E-Mail-Verlauf „Stellplatznachweis“ ablegen (wird Fassung 4)“ when the mail
-  answers a conversation the project already has, or „Als neuen E-Mail-Verlauf
-  ablegen“ with a name you confirm. Leave the text unchecked to file only the
-  attachments; the original of the mail is then deleted after filing, and the
-  decision bar says so.
+- **The mail's text** („E-Mail-Text“) is added to an E-Mail-Verlauf: „An
+  E-Mail-Verlauf „Stellplatznachweis“ anfügen“ when the mail answers a
+  conversation the project already has, or „Als neuen E-Mail-Verlauf ablegen“
+  with a name you confirm. Leave the text unchecked to file only the
+  attachments.
 - **Each attachment** goes into a folder, under a name and a Dokumentart, or as
-  the next Fassung of a document the project already has („wird Fassung 3 von
-  S-101_B.pdf“). „Liegt schon im Projekt: …“ means the same file is already
-  there; it is unchecked.
-- The button says what happens: „2 Dateien und den E-Mail-Text ablegen“.
-  „Verwerfen“ dismisses the whole mail.
+  the next Fassung of a document the project already has („wird Fassung 4 von
+  S-101_C.pdf“). The row says „Ordner: Behörde/Bescheide“ and „Dokumentart:
+  Bescheid“, and one press changes them: „Ändern“, or „Ordner wählen“ while
+  there is none. „Liegt schon im Projekt: …“ means the same file is already
+  there; it is unchecked. An attachment the defaults left unchecked for a
+  reason (a plan only its name ties to an earlier one) says „Nicht
+  vorausgewählt: Ohne Häkchen wird die Datei beim Ablegen verworfen.“
+- Beside „Ablegen“, one line says what it does: „E-Mail-Text an E-Mail-Verlauf
+  „Stellplatznachweis“ anfügen · 4 Anhänge in 2 Ordner ablegen“. Under it,
+  what is not ticked and goes with the filing („Nicht ausgewählt, beim Ablegen
+  verworfen: …“), and what „Verwerfen“ does: it acts only in ARCHOS, never in
+  your mail program, and can be undone for seven days, except for a sender
+  that cannot be verified, whose mail is deleted at once.
 
 Filing is an ordinary upload in your name: the office's name check, content
 check, accepted file types, storage quota and folder rights apply. It is
@@ -174,11 +184,11 @@ sender's signature does not cover each need a tick before filing. These mails
 are filed one at a time, never in a group.
 
 **When the content check finds something in the text** (an IBAN, a social
-security number, one of your office's terms), you choose how the text is filed:
-„Unkenntlich ablegen“ (the default: the findings are masked in the
-E-Mail-Verlauf, the original stays unchanged), „Getrennt ablegen (eigener
-E-Mail-Verlauf)“, or „Ungekürzt in den E-Mail-Verlauf“, which holds the whole Verlauf
-until someone checks it.
+security number, one of your office's terms), the text's row asks one more
+thing: „Unkenntlich machen“ (the default: the findings are masked in the
+E-Mail-Verlauf, the original stays unchanged) or „Ungekürzt ablegen“, which
+holds the E-Mail-Verlauf it goes into until someone checks it. To keep an
+existing Verlauf free, file the full text „Als neuen E-Mail-Verlauf“.
 
 **When the name check stops a file name**, the attachment is unchecked with
 „Namensprüfung: „…““ and you may file it anyway with „Trotzdem ablegen“. The
@@ -188,13 +198,13 @@ override is recorded.
 ablegen“: it files every selected mail as its defaults and ARCHOS's suggestions
 say, after a confirmation grouped by destination. It is offered only when every
 selected mail is complete: nothing to confirm, a folder for every attachment.
-Ready replies of one conversation are one group under „Bereit“: „Alle 4
-ablegen (wird Fassung 4–7)“. Its replies that need a look are a group under
+Ready replies of one conversation are one group under „Bereit“: „Diese 4 wie
+vorgeschlagen ablegen“. Its replies that need a look are a group under
 „Braucht Sie“ with „Der Reihe nach ansehen“.
 
-**After filing** each part says where it went and which Fassung it became:
-„Abgelegt in Behörde/Bescheide · Fassung 1 · Öffnen“, „In E-Mail-Verlauf
-„Stellplatznachweis“ abgelegt · Fassung 4 · Öffnen“. Where you may not read
+**After filing** each part says where it went: „Abgelegt in
+Behörde/Bescheide · Fassung 1 · Öffnen“, „In E-Mail-Verlauf
+„Stellplatznachweis“ abgelegt · Öffnen“. Where you may not read
 the folder it says only „In Dateien abgelegt“. A toast lists every part. A
 filing has no undo; „Öffnen“ takes you to the document.
 
