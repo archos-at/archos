@@ -64,6 +64,15 @@ describe('claimsMemberName', () => {
     ['MIRIAM HUBER (Huber Architektur)'],
     ['Juergen Maier'],
     ['Jürgen  Maier'],
+    ['Mi\u00ADriam Huber'],
+    ['Miriam\u200B Hu\u200Dber'],
+    ['\u202EMiriam Huber'],
+    ['Mіriam Huber'],
+    ['Мiriam Нuber'],
+    ['Μiriam Ηuber'],
+    ['M. Huber'],
+    ['Huber, M.'],
+    ['J. Maier'],
   ])('claims a member for „%s“', (name) => {
     expect(claimsMemberName(name, members)).toBe(true)
   })
@@ -75,7 +84,9 @@ describe('claimsMemberName', () => {
     ['Lena'],
     ['Lena Bauer'],
     ['jo@example.com'],
-    ['M. Huber'],
+    ['Miriam H.'],
+    ['M. H.'],
+    ['K. Huber'],
     ['Petra Weber'],
   ])('claims nobody for %s', (name) => {
     expect(claimsMemberName(name, members)).toBe(false)

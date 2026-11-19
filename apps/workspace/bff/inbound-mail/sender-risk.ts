@@ -41,8 +41,20 @@ export function senderRiskLevel(sender: SenderFacts | null): SenderRiskLevel {
   return senderNeedsAcknowledgement(sender) ? 'caution' : 'none'
 }
 
+const LOOK_ALIKES: Readonly<Record<string, string>> = {
+  А: 'A', а: 'a', В: 'B', Е: 'E', е: 'e', Ё: 'E', ё: 'e', І: 'I', і: 'i', Ї: 'I', ї: 'i', Ј: 'J', ј: 'j',
+  К: 'K', к: 'k', М: 'M', м: 'm', Н: 'H', н: 'h', О: 'O', о: 'o', Р: 'P', р: 'p', С: 'C', с: 'c', Т: 'T', т: 't',
+  У: 'Y', у: 'y', Х: 'X', х: 'x', Ѕ: 'S', ѕ: 's', Ь: 'b', ь: 'b', Ԁ: 'D', ԁ: 'd', Һ: 'H', һ: 'h', Ү: 'Y', ү: 'y',
+  Ԛ: 'Q', ԛ: 'q', Ԝ: 'W', ԝ: 'w', Ӏ: 'I', ӏ: 'l',
+  Α: 'A', α: 'a', Β: 'B', β: 'b', Ε: 'E', ε: 'e', Ζ: 'Z', Η: 'H', Ι: 'I', ι: 'i', Κ: 'K', κ: 'k', Μ: 'M', Ν: 'N',
+  ν: 'v', Ο: 'O', ο: 'o', Ρ: 'P', ρ: 'p', Τ: 'T', τ: 't', Υ: 'Y', υ: 'u', Χ: 'X', χ: 'x',
+}
+
+const LOOK_ALIKE = new RegExp(`[${Object.keys(LOOK_ALIKES).join('')}]`, 'gu')
+
 function nameWords(name: string): string[] {
-  return latinize(name.normalize('NFKC'))
+  const visible = name.normalize('NFKC').replace(/\p{Cf}/gu, '')
+  return latinize(visible.replace(LOOK_ALIKE, (letter) => LOOK_ALIKES[letter] ?? letter))
     .toLowerCase()
     .split(/[^a-z]+/u)
     .filter((word) => word.length > 0)
@@ -51,6 +63,10 @@ function nameWords(name: string): string[] {
 const MIN_NAME_WORDS = 2
 const MIN_WORD_LENGTH = 2
 
+function claimsWord(claimed: ReadonlySet<string>, word: string, initialSuffices: boolean): boolean {
+  return claimed.has(word) || (initialSuffices && claimed.has(word[0]))
+}
+
 export function claimsMemberName(displayName: string | null, memberNames: Iterable<string>): boolean {
   if (!displayName) return false
   const claimed = new Set(nameWords(displayName))
@@ -58,7 +74,9 @@ export function claimsMemberName(displayName: string | null, memberNames: Iterab
   for (const name of memberNames) {
     if (name.includes('@')) continue
     const words = nameWords(name).filter((word) => word.length >= MIN_WORD_LENGTH)
-    if (words.length >= MIN_NAME_WORDS && words.every((word) => claimed.has(word))) return true
+    if (words.length < MIN_NAME_WORDS) continue
+    const surname = words.length - 1
+    if (words.every((word, index) => claimsWord(claimed, word, index !== surname))) return true
   }
   return false
 }
