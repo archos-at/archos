@@ -832,7 +832,7 @@ describe('the sender’s confirmation', () => {
 })
 
 describe('an impersonation', () => {
-  it('is a stop: „Dismiss“ is the primary, „Review and file“ only behind „File anyway …“ and never primary', async () => {
+  it('is a stop: „Report and dismiss …“ is the primary, „Dismiss“ beside it, „Review and file“ only behind „File anyway …“ and never primary', async () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS.impersonation })
     const dismiss = vi.spyOn(client, 'dismiss')
     renderDetail('impersonation', client)
@@ -840,7 +840,8 @@ describe('an impersonation', () => {
     expect(screen.queryByTestId('attachment-plan')).toBeNull()
     const discard = screen.getByTestId('decision-dismiss')
     expect(discard.className).toContain('order-last')
-    expect(discard.className).toContain('bg-primary')
+    expect(discard.className).not.toContain('bg-primary')
+    expect(screen.getByTestId('fraud-report-open').className).toContain('bg-primary')
     expect(screen.queryByTestId('impersonation-file-anyway')).toBeNull()
     const more = screen.getByTestId('impersonation-more-toggle')
     expect(more).toHaveTextContent('More options')
@@ -853,7 +854,8 @@ describe('an impersonation', () => {
     expect(anyway).toHaveTextContent('Close filing')
     const open = screen.getByTestId('decision-open')
     expect(open.className).not.toContain('bg-primary')
-    expect(screen.getByTestId('decision-dismiss').className).toContain('bg-primary')
+    expect(screen.getByTestId('decision-dismiss').className).not.toContain('bg-primary')
+    expect(screen.getByTestId('fraud-report-open').className).toContain('bg-primary')
     await userEvent.click(screen.getByTestId('decision-dismiss'))
     await waitFor(() => expect(dismiss).toHaveBeenCalled())
   })
@@ -934,7 +936,8 @@ describe('an impersonation', () => {
     expect(screen.queryByTestId('impersonation-more-toggle')).toBeNull()
     expect(screen.queryByTestId('decision-open')).toBeNull()
     const discard = screen.getByTestId('decision-dismiss')
-    expect(discard.className).toContain('bg-primary')
+    expect(discard.className).not.toContain('bg-primary')
+    expect(screen.getByTestId('fraud-report-open').className).toContain('bg-primary')
     await userEvent.click(discard)
     expect(await screen.findByRole('dialog')).toHaveTextContent('Afterwards only Miriam Huber ‹m.huber@huber-architektur.at› can restore it, for 7 days.')
     expect(dismiss).not.toHaveBeenCalled()

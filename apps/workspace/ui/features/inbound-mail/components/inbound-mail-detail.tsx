@@ -561,7 +561,6 @@ export function InboundMailDetail({
       {showBar && readOnly && view.sender && (
         <ClaimedMailBar
           member={{ name: senderDisplayName(view.sender), address: view.sender.address }}
-          impersonation={impersonation !== null}
           confirmOpen={claimConfirmOpen}
           onConfirmOpenChange={setClaimConfirmOpen}
           onDismiss={() => void dismiss()}
@@ -573,6 +572,7 @@ export function InboundMailDetail({
           offersFiling={offersFiling}
           questions={questions}
           impersonation={impersonation !== null}
+          reportOffered={impersonation !== null && !dismissing && !filing}
           onOpenFiling={openFiling}
           onDismiss={() => void dismiss()}
           filing={filing}
