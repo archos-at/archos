@@ -96,7 +96,7 @@ in front of it. Locally, a key made under Settings > API Keys works directly:
    uses its parser) and its line in `apps/website/src/components/PostBlock.astro`.
 
 No migration: the body is one JSON column. `apps/website/src/lib/rich-text.test.ts`
-fails a block one side has and the other does not, and `tests/choices.test.ts`
+fails a block one side has and the other does not, and `apps/website/src/lib/cms-choices.test.ts`
 fails a contracted block that is not registered.
 
 ## Locally

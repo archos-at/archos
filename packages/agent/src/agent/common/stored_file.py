@@ -11,9 +11,10 @@ Reason = Literal["refused", "unreachable", "missing", "no_store", "too_large", "
 
 
 class StoredFileUnavailable(Exception):
-    def __init__(self, reason: Reason) -> None:
+    def __init__(self, reason: Reason, *, size: int | None = None) -> None:
         super().__init__(reason)
         self.reason: Reason = reason
+        self.size = size
 
 
 def locate_stored_file(collection: str, file_name: str, headers: dict[str, str]) -> tuple[str, str]:
@@ -38,13 +39,14 @@ def read_stored_file(bucket: str, key: str, max_bytes: int) -> bytes:
         raise StoredFileUnavailable("no_store")
     try:
         head = client.head_object(Bucket=bucket, Key=key)
-        if int(head.get("ContentLength") or 0) > max_bytes:
-            raise StoredFileUnavailable("too_large")
+        size = int(head.get("ContentLength") or 0)
+        if size > max_bytes:
+            raise StoredFileUnavailable("too_large", size=size)
         data = client.get_object(Bucket=bucket, Key=key)["Body"].read(max_bytes + 1)
     except StoredFileUnavailable:
         raise
     except Exception as exc:  # noqa: BLE001 - any store fault is one reason for the caller to word
         raise StoredFileUnavailable("read_failed") from exc
     if len(data) > max_bytes:
-        raise StoredFileUnavailable("too_large")
+        raise StoredFileUnavailable("too_large", size=len(data))
     return data

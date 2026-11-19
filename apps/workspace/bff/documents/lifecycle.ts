@@ -119,6 +119,7 @@ export interface ReplaceVersionOptions {
   request?: Request
   actingHuman?: boolean
   origin?: ConversationOrigin
+  versionFields?: { changeNote: string | null }
 }
 
 type VersionBytesRenderer = (document: Document, version: DocumentVersion) => Promise<RenderedVersionBytes>
@@ -172,7 +173,11 @@ export async function replaceVersionFile(
     document,
     version,
     rendered,
-    stamp: stampFor(transition, session, {}, new Date()),
+    stamp: {
+      ...stampFor(transition, session, {}, new Date()),
+      ...(options.versionFields ?? {}),
+      ...(options.origin?.conversationId ? { originConversationId: options.origin.conversationId } : {}),
+    },
   })
 
   await runEffects({

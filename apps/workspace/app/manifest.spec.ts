@@ -4,6 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import postcss, { type Root } from 'postcss'
 import { describe, expect, test, vi } from 'vitest'
 
 import manifest from './manifest'
@@ -21,6 +22,16 @@ vi.mock('@/lib/db/tenant-context', () => ({ runWithTenantSlot: vi.fn() }))
 vi.mock('@/lib/documents/vlm-capability', () => ({ isVlmConfigured: vi.fn() }))
 vi.mock('@/i18n/server', () => ({ getLocale: vi.fn() }))
 
+const parseCss = (path: string): Root => postcss.parse(readFileSync(path, 'utf8'))
+
+const declaredValues = (root: Root, prop: string): string[] => {
+  const values: string[] = []
+  root.walkDecls(prop, (declaration) => {
+    values.push(declaration.value)
+  })
+  return values
+}
+
 describe('installed app chrome', () => {
   test('the manifest paints the paper the app opens on', () => {
     const { theme_color, background_color } = manifest()
@@ -30,17 +41,17 @@ describe('installed app chrome', () => {
   })
 
   test('THEME_COLOR is still the --background token of each theme', () => {
-    const tokens = readFileSync(join(__dirname, '..', 'ui', 'styles', 'tokens.css'), 'utf8')
-    const backgrounds = [...tokens.matchAll(/^\s*--background:\s*([^;]+);/gm)].map((m) => m[1].trim())
-    const papers = [...tokens.matchAll(/^\s*--paper:\s*(#[0-9a-f]{6});/gim)].map((m) => m[1])
+    const tokens = parseCss(join(__dirname, '..', 'ui', 'styles', 'tokens.css'))
+    const backgrounds = declaredValues(tokens, '--background')
+    const papers = declaredValues(tokens, '--paper')
 
     expect(backgrounds.at(-1)).toBe('var(--paper)')
     expect(papers).toEqual([THEME_COLOR.light, THEME_COLOR.dark])
   })
 
-  test('the light paper is the brand\u2019s surface (the corporate design), so the installed app opens on the brand ground', () => {
-    const brand = readFileSync(join(__dirname, '..', 'shared', 'brand', 'tokens.vars.css'), 'utf8')
-    expect(THEME_COLOR.light).toBe(/--ds-surface:\s*(#[0-9a-f]{6});/.exec(brand)?.[1])
+  test('the light paper is the brand’s surface (the corporate design), so the installed app opens on the brand ground', () => {
+    const brand = parseCss(join(__dirname, '..', 'shared', 'brand', 'tokens.vars.css'))
+    expect(THEME_COLOR.light).toBe(declaredValues(brand, '--ds-surface')[0])
   })
 
   test('iOS gets standalone metadata, under the product name', async () => {

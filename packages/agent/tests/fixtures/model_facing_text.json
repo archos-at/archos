@@ -2532,6 +2532,32 @@
           "title": "Bytes",
           "type": "integer"
         },
+        "derived_from_document_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The project document the run read this file from, when it is a changed copy of one",
+          "title": "Derived From Document Id"
+        },
+        "derived_from_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "That document's name, as the person knows it",
+          "title": "Derived From Name"
+        },
         "document_id": {
           "anyOf": [
             {
@@ -2544,6 +2570,20 @@
           "default": null,
           "description": "The project document this draft was filed as; absent while it is unfiled",
           "title": "Document Id"
+        },
+        "filed_draft_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing",
+          "title": "Filed Draft Version"
         },
         "media_type": {
           "anyOf": [
@@ -2563,6 +2603,19 @@
           "minLength": 1,
           "title": "Path",
           "type": "string"
+        },
+        "removed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True once the draft was deleted from the conversation",
+          "title": "Removed"
         },
         "title": {
           "description": "The document's first heading, or its file name when it has none",
@@ -8602,6 +8655,36 @@
               "name": "version_state",
               "required": false,
               "type": "\"draft\" | \"in_review\" | \"changes_requested\" | \"approved\" | \"published\" | \"superseded\" | \"rejected\""
+            },
+            {
+              "constraints": [
+                ">= 1"
+              ],
+              "description": "The draft version that was filed; a card whose `version` is higher shows the draft changed since filing",
+              "name": "filed_draft_version",
+              "required": false,
+              "type": "integer"
+            },
+            {
+              "constraints": [],
+              "description": "The project document the run read this file from, when it is a changed copy of one",
+              "name": "derived_from_document_id",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "constraints": [],
+              "description": "That document's name, as the person knows it",
+              "name": "derived_from_name",
+              "required": false,
+              "type": "string"
+            },
+            {
+              "constraints": [],
+              "description": "True once the draft was deleted from the conversation",
+              "name": "removed",
+              "required": false,
+              "type": "boolean"
             }
           ],
           "interaction": "interactive",
@@ -13561,13 +13644,10 @@
     }
   },
   "tool:chat:file_draft": {
-    "description": "Files a draft from the working directory into the project AS A DRAFT, so that others can see and review it. `path` is the path in the working directory (`/drafts/<name>.md`), `title` is optionally the title in the project — by default the document's first heading. Call it when the user asks for it („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after every write. A second call for the same path replaces the content of the same draft; no second document is created. What is filed is a DRAFT: nobody has approved it, it is not published and is not searched. `submit=true` then submits the draft FOR APPROVAL: it goes into review and appears in the reviewers' inbox. If it is already filed and unchanged since, it is only submitted. Call with `submit=true` only when the user asks for approval, review or hand-over — „ablegen“ alone is not such a request. Submitting costs a person attention, and the draft cannot be changed afterwards. `reviewer` applies only together with `submit=true` and is optional: the person who is to review, named exactly as the user named them (name or email) — THIS execution does not know the project members and does not check the name; it is resolved on submission against the project's members. So fill it only when the user named the person themselves, and take the name over unchanged. Without `reviewer` the draft goes to the project's editors. Even after submission the document is NOT approved: it waits for approval by a person.",
+    "description": "Files a draft from the working directory into the project. `path`: `/drafts/<name>.md`; `title` optional. Call it only when the user asks („leg das ins Projekt“, „abspeichern“, „ablegen“), not on your own after every write: the user who files it signs it off, and it becomes a project document like their own upload, marked as made by you. Again for the same path puts the current draft into the same document. `folder`: a folder the user named. A file made from a project document files as its own file, unless the user asks for its new version: `file_as=\"new_revision\"` and `change_note`. `file_as=\"separate_file\"` only when the user asks for one after a refusal.",
     "schema": {
       "properties": {
-        "path": {
-          "type": "string"
-        },
-        "reviewer": {
+        "change_note": {
           "anyOf": [
             {
               "type": "string"
@@ -13578,9 +13658,34 @@
           ],
           "default": null
         },
-        "submit": {
-          "default": false,
-          "type": "boolean"
+        "file_as": {
+          "anyOf": [
+            {
+              "enum": [
+                "new_revision",
+                "separate_file"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "folder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "type": "string"
         },
         "title": {
           "anyOf": [

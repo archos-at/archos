@@ -100,7 +100,7 @@ server's `dryRun` is ([servers][mcp-fs]).
 - Exact search is `knowledge_search(match="exact")`, not a `find_in_files` tool:
   same verb, same scope, same narrowing arguments, and the same base-corpus store
   filter (`_base_collection_filters`: no excluded edition, no cover page), so both
-  modes cite the same passages (`packages/knowledge-layer/src/knowledge_layer/browse/tool.py`). A store
+  modes cite the same passages (`packages/knowledge-layer/src/knowledge_layer/browse/exact.py`). A store
   outage is reported as "the search did not run", never as "no match".
   `match="regex"` is the same search over a person's pattern: Python syntax via the
   `regex` package (it has the match timeout `re` lacks; 0.2 s per chunk, the first

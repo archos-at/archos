@@ -3,9 +3,9 @@
  * @vitest-environment node
  */
 
-import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
@@ -76,10 +76,15 @@ async function serve(path: string, init?: RequestInit): Promise<Response> {
   return route.handler(new Request(url, init), { params: Promise.resolve({ id: decodeURIComponent(matched[1] ?? '') }) })
 }
 
+const worker = createRequire(import.meta.url)(join(process.cwd(), 'public', 'sw.js')) as {
+  register: (scope: object) => void
+}
+
 const client = createInboxClient(serve)
 const ITEM = '00000000-0000-4000-8000-000000000001'
 
 beforeEach(() => vi.clearAllMocks())
+afterEach(() => vi.unstubAllGlobals())
 
 describe('GET /api/inbox', () => {
   it('reads the slice and the page the client names, and hands back the next cursor', async () => {
@@ -123,9 +128,31 @@ describe('POST /api/inbox/read', () => {
     expect(markAllRead).not.toHaveBeenCalled()
   })
 
-  it('is the path the service worker posts a tapped notification to', () => {
-    const worker = readFileSync(join(process.cwd(), 'public', 'sw.js'), 'utf8')
-    expect(worker).toContain(`var READ_PATH = '${INBOX_READ_PATH}'`)
+  it('is where a tapped notification marks its item read, before the item opens', async () => {
+    const listeners: Record<string, (event: Record<string, unknown>) => void> = {}
+    const openWindow = vi.fn(async () => undefined)
+    const fetchCalls: string[] = []
+    vi.stubGlobal('fetch', (path: string, init?: RequestInit) => {
+      fetchCalls.push(path)
+      return serve(path, init)
+    })
+    worker.register({
+      location: { origin: 'https://grid.test' },
+      addEventListener: (type: string, listener: (event: Record<string, unknown>) => void) => {
+        listeners[type] = listener
+      },
+      clients: { matchAll: vi.fn(async () => []), openWindow },
+      registration: {},
+    })
+    let pending: Promise<unknown> = Promise.resolve()
+    listeners.notificationclick?.({
+      notification: { close: vi.fn(), data: { url: '/app/inbox', itemId: ITEM } },
+      waitUntil: (promise: Promise<unknown>) => (pending = promise),
+    })
+    await pending
+    expect(fetchCalls).toEqual([INBOX_READ_PATH])
+    expect(markRead).toHaveBeenCalledWith(SESSION, [ITEM])
+    expect(openWindow).toHaveBeenCalledWith('https://grid.test/app/inbox')
   })
 })
 

@@ -215,7 +215,7 @@ export async function startServer({
     async close() {
       clearInterval(sweeper);
       await new Promise((resolve) => server.close(resolve));
-      for (const slot of slots) slot.stop();
+      await Promise.all(slots.map((slot) => slot.stop()));
     },
   };
 }

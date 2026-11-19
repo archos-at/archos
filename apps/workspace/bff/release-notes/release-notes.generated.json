@@ -112,6 +112,30 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "A file {productName} changed after you filed it now updates the project document in one click, and the card warns you first when someone else has changed that document.",
+            "de": "Wenn sich eine Datei {productName} nach dem Ablegen geändert hat, können Sie jetzt das Projektdokument mit einem Klick aktualisieren. Die Karte warnt Sie vorher, wenn jemand anderes das Dokument geändert hat."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "A file made from a project document can be filed as its next Fassung with a short note of what changed, and a draft you no longer need can be deleted from the chat.",
+            "de": "Eine aus einem Projektdokument erstellte Datei kann mit einer kurzen Notiz zu den Änderungen als nächste Fassung abgelegt werden. Einen Entwurf, den Sie nicht mehr benötigen, können Sie aus dem Chat löschen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "A file or draft {productName} made is now in the project as soon as you file it, signed off by you like your own upload, and {productName} can cite it in later answers, marked as made by {productName}.",
+            "de": "Sobald Sie eine von {productName} erstellte Datei oder einen Entwurf ablegen, ist die Datei bzw. der Entwurf im Projekt und von Ihnen wie Ihr eigener Upload freigegeben; {productName} kann sich in späteren Antworten darauf beziehen, gekennzeichnet als von {productName} erstellt."
+          }
+        },
+        {
           "section": "fixes",
           "area": "answers",
           "text": {

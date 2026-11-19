@@ -169,6 +169,20 @@ if [ "${1:-}" = "--only" ]; then
   exit 0
 fi
 
+SUITES="$REPO_ROOT/scripts/rls-test-db-suites.txt"
+run_step() {
+  local step="$1" name path specs=()
+  shift
+  while read -r name path; do
+    if [ "$name" = "$step" ]; then specs+=("$path"); fi
+  done < "$SUITES"
+  if [ "${#specs[@]}" -eq 0 ]; then
+    echo "error: $SUITES names no suite for the step '$step'" >&2
+    exit 1
+  fi
+  "$@" "${specs[@]}"
+}
+
 # Every suite here needs the same cluster and the same restricted role. The BIM
 # and memory ones are here rather than in the unit shards because every claim
 # they make is a claim about SQL — jsonb property filters, grouped aggregates,
@@ -176,7 +190,8 @@ fi
 # cosine query — and a mocked drizzle handle cannot disagree with the fixture
 # that mocked it. (The memory suite is the one that found the semantic gate
 # reading `.rows` off a postgres-js array, which every mock had agreed with.)
-# The inbound mail and mail thread suites (ADR-0137) are named here before
+# Each step's suites are the lines of `rls-test-db-suites.txt` that name it, in
+# order. The inbound mail and mail thread suites (ADR-0137) are named there before
 # their files exist, one per package that writes one: the repository (D7, D8),
 # the sweeps (D12), the review-first ratchet (D9), append (D9), follow (D10)
 # and the archive (D11). A name vitest finds no file for filters nothing, and
@@ -191,98 +206,10 @@ release_databases
 # 2026-11-10 once the batch's timing moved).
 echo "==> running the site-resolution suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
+  run_step site-resolution npx vitest run
 echo "==> running the isolation, tenant keys, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run \
-    bff/db/tenant-isolation.integration.spec.ts \
-    bff/db/rls-coverage-tenant-keys.integration.spec.ts \
-    bff/bim/query.integration.spec.ts \
-    bff/bim/query.search-keys.integration.spec.ts \
-    bff/bim/query.catalog.integration.spec.ts \
-    bff/bim/query.aggregate.integration.spec.ts \
-    bff/bim/query.compliance.integration.spec.ts \
-    bff/bim/query.confirmations.integration.spec.ts \
-    bff/bim/extraction-repository.integration.spec.ts \
-    bff/bim/model-shelf.integration.spec.ts \
-    bff/bim/model-kinds-repository.integration.spec.ts \
-    bff/projects/memory-service.integration.spec.ts \
-    bff/projects/memory-restricted.integration.spec.ts \
-    bff/personal-memory/personal-memory.integration.spec.ts \
-    bff/personal-memory/personal-memory-topics.integration.spec.ts \
-    bff/projects/memory-topics.integration.spec.ts \
-    bff/documents/document-versions.integration.spec.ts \
-    bff/documents/list-page.integration.spec.ts \
-    bff/documents/quarantine-listing.integration.spec.ts \
-    bff/documents/visibility.integration.spec.ts \
-    bff/documents/local-work-ownership.integration.spec.ts \
-    bff/documents/dispatch-failure-race.integration.spec.ts \
-    bff/upload-batches/upload-batches.integration.spec.ts \
-    bff/authz/folder-access.integration.spec.ts \
-    bff/projects/collection-placement.integration.spec.ts \
-    bff/projects/folder-visibility.integration.spec.ts \
-    bff/documents/shelf-folders.integration.spec.ts \
-    bff/documents/stuck-processing.integration.spec.ts \
-    bff/documents/retry-policy.integration.spec.ts \
-    bff/project-profile/profile-bindings.integration.spec.ts \
-    bff/compliance/legal-hold.integration.spec.ts \
-    bff/conversations/erasure-queue.integration.spec.ts \
-    bff/scheduling/conversation-trace-erasure.integration.spec.ts \
-    bff/conversations/restricted-use.integration.spec.ts \
-    bff/feedback/restricted-feedback.integration.spec.ts \
-    bff/tasks/subject-access.integration.spec.ts \
-    bff/tasks/active-runs.integration.spec.ts \
-    bff/conversations/cross-project-use.integration.spec.ts \
-    bff/cross-project/decisions-repository.integration.spec.ts \
-    bff/similar-passages/service.integration.spec.ts \
-    bff/permits/repository.integration.spec.ts \
-    bff/annotations/repository.integration.spec.ts \
-    bff/annotations/project-repository.integration.spec.ts \
-    bff/proposals/repository.integration.spec.ts \
-    bff/agent-api/operation-proposals.integration.spec.ts \
-    bff/agent-api/read-gate.integration.spec.ts \
-    bff/project-intake/repository.integration.spec.ts \
-    bff/project-intake/setup-records.integration.spec.ts \
-    bff/changes/repository.integration.spec.ts \
-    bff/push/repository.integration.spec.ts \
-    bff/agent-asks/repository.integration.spec.ts \
-    bff/turns/turn-steps.integration.spec.ts \
-    bff/residency/processing-policy.integration.spec.ts \
-    bff/inbox/repository.integration.spec.ts \
-    bff/project-experience/readable-files.integration.spec.ts \
-    bff/projects/memory-evidence.integration.spec.ts \
-    bff/download-log/download-log.integration.spec.ts \
-    bff/runs/reconcile.integration.spec.ts \
-    bff/budgets/service.integration.spec.ts \
-    bff/analytics/usage-export-repository.integration.spec.ts \
-    bff/feedback/repository.integration.spec.ts \
-    bff/citations/repository.integration.spec.ts \
-    bff/org-instructions/repository.integration.spec.ts \
-    bff/profiler/repository.integration.spec.ts \
-    bff/projects/project-status.integration.spec.ts \
-    bff/projects/project-record.integration.spec.ts \
-    bff/projects/cleanup.integration.spec.ts \
-    bff/feedback/repository.integration.spec.ts \
-    bff/filing/root-sort-run-repository.integration.spec.ts \
-    bff/folder-cards/repository.integration.spec.ts \
-    bff/estate-tree/repository.integration.spec.ts \
-    bff/mail-import/repository.integration.spec.ts \
-    bff/search/providers.integration.spec.ts \
-    bff/search/document-repository.integration.spec.ts \
-    bff/inbound-mail/repository.integration.spec.ts \
-    bff/inbound-mail/sweep.integration.spec.ts \
-    bff/inbound-mail/review-first.e2e.spec.ts \
-    bff/mail-thread/append.integration.spec.ts \
-    bff/mail-thread/follow.integration.spec.ts \
-    bff/mail-thread/archive.integration.spec.ts \
-    bff/base-knowledge/store/repository.integration.spec.ts \
-    bff/base-knowledge/store/office-editions.integration.spec.ts \
-    bff/base-knowledge/store/rulesets.integration.spec.ts \
-    bff/base-knowledge/platform/platform.integration.spec.ts \
-    bff/base-knowledge/platform/approve-alone.integration.spec.ts \
-    bff/base-knowledge/platform/single-operator.integration.spec.ts \
-    bff/base-knowledge/platform/texts.integration.spec.ts \
-    bff/base-knowledge/platform/organization-countries.integration.spec.ts
+  run_step batch npx vitest run
 
 # Editions in time: alone, after the platform suite, since both release
 # Austria's territory and a release over one moved since a request was opened
@@ -290,7 +217,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # request first lost (seen 2026-11-10 once a file joined the batch).
 echo "==> running the editions-in-time suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/base-knowledge/time/time.integration.spec.ts
+  run_step editions-in-time npx vitest run
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
 # platform door to a stable release. Alone and after the platform suite, since
@@ -298,30 +225,30 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # request was opened is a 409 by design.
 echo "==> running the onboarding door suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/agent-api/onboarding-door.integration.spec.ts
+  run_step onboarding-door npx vitest run
 
 # The onboarding tooling (ADR-0174): a scripted client onboards the synthetic
 # country XA (a source record, its testing hosts, an advice policy, counsel's
 # approval) and the source monitor opens a change request when the source changes.
 echo "==> running the synthetic country suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/agent-api/synthetic-country-door.integration.spec.ts
+  run_step synthetic-country npx vitest run
 
 # A source whose documents are PDFs (ADR-0174 amendment): a pdf_document source
 # record, a real public PDF captured through it, and a quote from its page 2
 # that passes KC-6. Its own synthetic country (XP), so it shares no territory.
 echo "==> running the PDF source suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/agent-api/pdf-source-door.integration.spec.ts
+  run_step pdf-source npx vitest run
 
 # A country's release, exported from one deployment's database and imported as a
 # draft into another's (rollover-to-prod, step 2). Its own two databases.
 echo "==> running the release transfer suite as app_rw"
-env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/release-transfer.integration.spec.ts
+run_step release-transfer env $RELEASE_URLS npx vitest run
 
 # Reviewed releases carried to a deployment by the promotion (ADR-0181): its own database.
 echo "==> running the knowledge carry suite as app_rw"
-env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/carry.integration.spec.ts
+run_step carry env $RELEASE_URLS npx vitest run
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
@@ -343,20 +270,7 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
 TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
-  npx vitest run --no-file-parallelism \
-    bff/jobs-queue/repository.integration.spec.ts \
-    bff/jobs-queue/task-run.integration.spec.ts \
-    bff/jobs-queue/orchestrator.integration.spec.ts \
-    bff/scheduling/repository.integration.spec.ts \
-    bff/base-knowledge/chain/chain.integration.spec.ts \
-    bff/base-knowledge/store/visibility.integration.spec.ts \
-    bff/base-knowledge/golden/golden-run.integration.spec.ts \
-    bff/projects/folder-bin.integration.spec.ts \
-    bff/projects/folder-bin-restore.integration.spec.ts \
-    bff/projects/folder-bin-purge.integration.spec.ts \
-    bff/projects/folder-bin-queue.integration.spec.ts \
-    bff/projects/folder-service.bin.integration.spec.ts \
-    bff/organizations/deleted-folder-content-service.integration.spec.ts
+  run_step one-at-a-time npx vitest run --no-file-parallelism
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on

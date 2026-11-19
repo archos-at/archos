@@ -1,4 +1,4 @@
-// @disk-inputs: bff/jobs/background-run.ts, bff/jobs/service.ts
+// @disk-inputs: bff/jobs/background-run.ts, bff/jobs/service.ts, bff/jobs/run-context.ts, bff/jobs/backend-client.ts, bff/request-context.ts
 /**
  * @vitest-environment node
  *
@@ -23,18 +23,71 @@
  * capturing the real request — rather than against a second list of header
  * names, which would just be a third thing that agrees with itself.
  */
-import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 
 import fixture from '../../fixtures/job_fire_headers.json'
 
 import { submitJob, type JobSubmitPayload } from '@/lib/jobs/backend-client'
+import { submitBackgroundRun, type BackgroundRunSubmission } from '@/lib/jobs/background-run'
+import type { RunContext } from '@/lib/jobs/run-context'
+import { submitAgentRun } from '@/lib/jobs/service'
 import {
   buildRequestContextWireHeaders,
   type RequestContextInput,
 } from '@/lib/request-context'
 
+vi.mock('@/lib/jobs/backend-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/jobs/backend-client')>()
+  return { ...actual, submitJob: vi.fn(actual.submitJob) }
+})
+
+vi.mock('@/lib/jobs/background-run', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/jobs/background-run')>()
+  return { ...actual, submitBackgroundRun: vi.fn(actual.submitBackgroundRun) }
+})
+
+vi.mock('@/lib/jobs/run-context', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/jobs/run-context')>()
+  return { ...actual, resolveRunContext: vi.fn(async () => runContext) }
+})
+
+vi.mock('@/lib/base-knowledge/context/service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/base-knowledge/context/service')>()
+  return {
+    ...actual,
+    knowledgeContextForTurn: vi.fn(async () => ({
+      gate: { state: 'knowledge_unavailable', reason: null, leaves: [] },
+      packs: [],
+      chains: {},
+      date: '2026-11-10',
+      procedures: [],
+      uses: [],
+      text: null,
+      retrieval: { countries: [] },
+    })),
+  }
+})
+
+vi.mock('@/lib/conversations/temporary', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/conversations/temporary')>()
+  return { ...actual, isTemporaryConversation: vi.fn(async () => false) }
+})
+
 const INTERNAL_TOKEN = 'test-internal-token'
+
+const { runContext } = vi.hoisted(() => ({
+  runContext: {
+    budget: { remainingOrgUsd: 42.5, remainingUserUsd: 10, remainingProjectUsd: 5.25 },
+    modelOverrides: { deep_research: 'openrouter/anthropic/claude-3.7-sonnet' },
+    collectionScope: ['oib_knowledge', 'proj_proj_789'],
+    projectContext: 'Projekt: Wohnbau Simmering',
+    projectMemory: '- Bevorzugt knappe Zitate',
+    orgInstructions: null,
+    federalState: 'vienna',
+    memoryReflectionEnabled: true,
+    requester: null,
+  },
+}))
 
 const CONTEXT_INPUT: RequestContextInput = {
   organizationId: 'org_123',
@@ -76,23 +129,41 @@ const PAYLOAD: JobSubmitPayload = {
   },
 }
 
+const RUN: BackgroundRunSubmission = {
+  subject: { organizationId: 'org_123', projectId: 'proj_789', userId: 'user_456' },
+  ownerEmail: 'ziviltechniker@example.at',
+  prompt: PAYLOAD.input,
+  skills: [],
+  output: 'deep-research',
+  conversationId: null,
+  dataSources: ['knowledge_layer'],
+  priority: 'interactive',
+  context: runContext as unknown as RunContext,
+}
+
 const lower = (names: string[]): string[] => names.map((name) => name.toLowerCase())
+
+function stubFetch() {
+  const captured: { headers: Record<string, string>; body: { input?: string } } = { headers: {}, body: {} }
+  const fetchSpy = vi.fn(async (_url: unknown, init: RequestInit) => {
+    captured.headers = Object.fromEntries(new Headers(init.headers as HeadersInit).entries())
+    captured.body = JSON.parse(String(init.body))
+    return new Response(JSON.stringify({ jobId: 'job_abc' }), { status: 200 })
+  })
+  vi.stubGlobal('fetch', fetchSpy)
+  return { fetchSpy, captured }
+}
 
 async function capturedFireHeaders(
   input: RequestContextInput = CONTEXT_INPUT
 ): Promise<Record<string, string>> {
-  let sent: Record<string, string> = {}
-  const fetchSpy = vi.fn(async (_url: unknown, init: RequestInit) => {
-    sent = Object.fromEntries(new Headers(init.headers as HeadersInit).entries())
-    return new Response(JSON.stringify({ jobId: 'job_abc' }), { status: 200 })
-  })
-  vi.stubGlobal('fetch', fetchSpy)
+  const { fetchSpy, captured } = stubFetch()
 
   const headers = buildRequestContextWireHeaders(input, process.env.INTERNAL_API_TOKEN)
   await submitJob(PAYLOAD, headers)
 
   expect(fetchSpy).toHaveBeenCalledTimes(1)
-  return sent
+  return captured.headers
 }
 
 describe('the headers the BFF puts on a job fire', () => {
@@ -162,21 +233,59 @@ describe('the headers the BFF puts on a job fire', () => {
 })
 
 describe('the fire path in lib/jobs/background-run.ts', () => {
-  const read = (path: string) => readFileSync(new URL(`../../../bff/jobs/${path}`, import.meta.url), 'utf8')
-  const fire = read('background-run.ts')
-
-  it('builds its headers with the shared wire builder', () => {
-    expect(fire).toContain('buildRequestContextWireHeaders(')
-    expect(fire).toContain('process.env.INTERNAL_API_TOKEN')
+  beforeEach(() => {
+    vi.stubEnv('INTERNAL_API_TOKEN', INTERNAL_TOKEN)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
   })
 
-  it('hands those headers, and not a second object, to submitJob', () => {
-    expect(fire).toContain('return submitJob(payload, contextHeaders)')
+  it('builds its headers with the shared wire builder, and the fire carries them', async () => {
+    const { captured } = stubFetch()
+
+    await submitBackgroundRun(RUN)
+
+    expect(captured.headers['x-internal-token']).toBe(INTERNAL_TOKEN)
+    expect(captured.headers['x-organization-id']).toBe('org_123')
+    for (const name of lower(fixture.contextEnvelope)) {
+      expect(captured.headers[name], `missing ${name}`).toBeTruthy()
+    }
   })
 
-  it('is the one way submitAgentRun reaches submitJob', () => {
-    const service = read('service.ts')
-    expect(service).toContain('await submitBackgroundRun(')
-    expect(service).not.toMatch(/\bsubmitJob\(/)
+  it('hands those headers, and not a second object, to submitJob', async () => {
+    const { captured } = stubFetch()
+
+    await submitBackgroundRun(RUN)
+
+    const passed = vi.mocked(submitJob).mock.lastCall?.[1] ?? {}
+    expect(Object.keys(passed).length).toBeGreaterThan(0)
+    for (const [name, value] of Object.entries(passed)) {
+      expect(captured.headers[name.toLowerCase()], name).toBe(value)
+    }
+  })
+
+  it('is the one way submitAgentRun reaches submitJob', async () => {
+    const { fetchSpy, captured } = stubFetch()
+
+    await submitAgentRun({
+      organizationId: 'org_123',
+      projectId: 'proj_789',
+      userId: 'user_456',
+      ownerEmail: 'ziviltechniker@example.at',
+      title: null,
+      prompt: PAYLOAD.input,
+      skillSnapshot: null,
+      output: 'deep-research',
+      dataSources: ['knowledge_layer'],
+      runId: 'run_1',
+      conversationId: null,
+    })
+
+    expect(vi.mocked(submitBackgroundRun)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(submitJob)).toHaveBeenCalledTimes(1)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(captured.body.input).toBe(PAYLOAD.input)
+    expect(captured.headers['x-internal-token']).toBe(INTERNAL_TOKEN)
   })
 })

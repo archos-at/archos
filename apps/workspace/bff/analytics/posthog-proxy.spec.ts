@@ -1,12 +1,28 @@
-// @disk-inputs: app/ingest/[...path]/route.ts, proxy.ts
 /**
  * @vitest-environment node
  */
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 import { buildUpstreamUrl, forwardToPosthog } from './posthog-proxy'
 import type { PostHogConfig } from './posthog-config'
+import { GET, POST } from '@/app/ingest/[...path]/route'
+import { config as proxyConfig } from '../../proxy'
+
+const declared = vi.hoisted(() => [] as Array<{ why: string }>)
+
+vi.mock('@workos-inc/authkit-nextjs', () => ({
+  authkitMiddleware: vi.fn(() => vi.fn()),
+}))
+
+vi.mock('@/lib/api/handler', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/handler')>()
+  return {
+    ...actual,
+    publicApiRoute: ((handler, options) => {
+      declared.push(options)
+      return actual.publicApiRoute(handler, options)
+    }) as typeof actual.publicApiRoute,
+  }
+})
 
 const config: PostHogConfig = {
   host: 'https://eu.i.posthog.com',
@@ -151,17 +167,65 @@ describe('forwardToPosthog', () => {
   })
 })
 
-describe('the /ingest route file', () => {
-  const source = readFileSync(join(process.cwd(), 'app/ingest/[...path]/route.ts'), 'utf8')
-
-  test('declares every handler through publicApiRoute with a why', () => {
-    expect(source).toMatch(/export const GET = publicApiRoute\(/)
-    expect(source).toMatch(/export const POST = publicApiRoute\(/)
-    expect(source).toMatch(/\bwhy:/)
-    expect(source).not.toMatch(/export (async )?function (GET|POST|PUT|PATCH|DELETE)/)
+describe('the /ingest route', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
   })
 
-  test('is left out of the auth proxy matcher', () => {
-    expect(readFileSync(join(process.cwd(), 'proxy.ts'), 'utf8')).toContain('|ingest/')
+  const configuredEnv = () => {
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://eu.i.posthog.com')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'phc_test')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROXY', 'true')
+  }
+
+  test('relays an unsigned beacon to the configured host and returns its answer', async () => {
+    configuredEnv()
+    const fetchImpl = vi.fn(async () => upstreamReply('{"status":1}'))
+    vi.stubGlobal('fetch', fetchImpl)
+
+    const response = await POST(new Request('https://app.example/ingest/e/?ip=0', { method: 'POST', body: 'data=1' }))
+
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('{"status":1}')
+    const [url] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://eu.i.posthog.com/e/?ip=0')
+  })
+
+  test('GET relays a static asset from the asset host', async () => {
+    configuredEnv()
+    const fetchImpl = vi.fn(async () => upstreamReply('x'))
+    vi.stubGlobal('fetch', fetchImpl)
+
+    const response = await GET(new Request('https://app.example/ingest/static/recorder.js'))
+
+    expect(response.status).toBe(200)
+    const [url] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://eu-assets.i.posthog.com/static/recorder.js')
+  })
+
+  test('answers 404 and calls nothing when the proxy is switched off in the environment', async () => {
+    configuredEnv()
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROXY', 'false')
+    const fetchImpl = vi.fn(async () => upstreamReply())
+    vi.stubGlobal('fetch', fetchImpl)
+
+    const response = await POST(new Request('https://app.example/ingest/e/', { method: 'POST', body: 'x' }))
+
+    expect(response.status).toBe(404)
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
+  test('GET and POST are each declared through publicApiRoute with a why', () => {
+    expect(declared).toHaveLength(2)
+    for (const options of declared) expect(options.why.trim()).not.toBe('')
+  })
+
+  test('the auth proxy matcher skips /ingest and still runs for pages', () => {
+    const [matcher] = proxyConfig.matcher
+    const runsProxy = new RegExp(`^${matcher}$`)
+    expect(runsProxy.test('/ingest/e/')).toBe(false)
+    expect(runsProxy.test('/ingest/static/recorder.js')).toBe(false)
+    expect(runsProxy.test('/projects/123')).toBe(true)
   })
 })

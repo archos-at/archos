@@ -1,32 +1,25 @@
 // @disk-inputs: app/**, ui/**
-import { readdirSync, readFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { importsOf, nodesOf, parseSource, productionSources, ts } from '@/test-utils/source-ast'
 
 const ROOT = join(__dirname, '..')
-const STYLESHEET = /import\s+['"]@xyflow\/react\/dist\/(style|base)\.css['"]/
+const STYLESHEET = /^@xyflow\/react\/dist\/(style|base)\.css$/
 
-function tsxFiles(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : tsxFiles(path)
-    return entry.name.endsWith('.tsx') && !entry.name.includes('.spec.') ? [path] : []
-  })
-}
+const isReactFlowElement = (node: ts.Node): node is ts.JsxOpeningElement | ts.JsxSelfClosingElement =>
+  (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText() === 'ReactFlow'
+
+const renderSites: [string, ts.SourceFile][] = productionSources(ROOT)
+  .filter((file) => file.endsWith('.tsx') && (file.startsWith('app/') || file.startsWith('ui/')))
+  .map((file): [string, ts.SourceFile] => [file, parseSource(file, ROOT)])
+  .filter(([, source]) => nodesOf(source, isReactFlowElement).length > 0)
 
 describe('React Flow stylesheet', () => {
-  const renderSites = ['app', 'ui']
-    .flatMap((dir) => tsxFiles(join(ROOT, dir)))
-    .filter((file) => /<ReactFlow\b/.test(readFileSync(file, 'utf8')))
-
   it('finds the render sites', () => {
     expect(renderSites.length).toBeGreaterThan(0)
   })
 
-  it.each(renderSites.map((file) => [relative(ROOT, file), file]))(
-    '%s imports the stylesheet',
-    (_name, file) => {
-      expect(readFileSync(file, 'utf8')).toMatch(STYLESHEET)
-    }
-  )
+  it.each(renderSites)('%s imports the stylesheet', (_file, source) => {
+    expect(importsOf(source).some((edge) => STYLESHEET.test(edge.specifier))).toBe(true)
+  })
 })

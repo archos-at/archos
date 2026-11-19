@@ -2,43 +2,47 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { AUDIT_ACTIONS, AUDIT_SCHEMAS, AWAITING_EMITTER_AUDIT_ACTIONS, RETIRED_AUDIT_ACTIONS } from './schemas.mjs'
 import { AUTHORED_REF_KINDS } from '@/lib/documents/document-authors'
 import { DOCUMENT_VERSION_TRANSITIONS } from '@/lib/documents/lifecycle-types'
-import { SOURCE_DIRS } from '@/test-utils/source-tree'
+import { nodesOf, parseSource, productionSources, ts } from '@/test-utils/source-ast'
 
 const SOURCE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
-function sourceFiles(directory: string): string[] {
-  const found: string[] = []
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name)
-    if (entry.isDirectory()) {
-      found.push(...sourceFiles(path))
-      continue
-    }
-    if (!/\.tsx?$/.test(entry.name)) continue
-    if (/\.(spec|test)\.tsx?$/.test(entry.name)) continue
-    found.push(path)
-  }
-  return found
+type ActionCarrier =
+  | ts.PropertyAssignment
+  | ts.PropertySignature
+  | ts.ParameterDeclaration
+  | ts.VariableDeclaration
+  | ts.TypeAliasDeclaration
+
+function carriesAction(node: ts.Node): node is ActionCarrier {
+  if (ts.isTypeAliasDeclaration(node)) return /AuditAction$/.test(node.name.text)
+  const named =
+    ts.isPropertyAssignment(node) ||
+    ts.isPropertySignature(node) ||
+    ts.isParameter(node) ||
+    ts.isVariableDeclaration(node)
+  return named && ts.isIdentifier(node.name) && node.name.text === 'action'
+}
+
+function emittedAuditActions(): string[] {
+  return productionSources(SOURCE_ROOT).flatMap((file) => {
+    const source = parseSource(file, SOURCE_ROOT)
+    const writesAudit = nodesOf(source, ts.isIdentifier).some((id) => id.text.startsWith('recordAuditEvent'))
+    if (!writesAudit) return []
+    return nodesOf(source, carriesAction).flatMap((carrier) =>
+      nodesOf(carrier, ts.isStringLiteralLike).map((literal) => literal.text),
+    )
+  })
 }
 
 const EMITTED_ACTIONS: ReadonlySet<string> = new Set([
   ...DOCUMENT_VERSION_TRANSITIONS.map((row) => row.auditAction),
-  ...SOURCE_DIRS.flatMap((dir) => sourceFiles(join(SOURCE_ROOT, dir)))
-    .map((path) => readFileSync(path, 'utf8'))
-    .filter((text) => text.includes('recordAuditEvent'))
-    .flatMap((text) =>
-      [...text.matchAll(/\baction:\s*([\s\S]*?)(?=\n\s*[a-zA-Z_$][\w$]*\s*:|\n\s*\})/g)].flatMap(
-        ([, expression]) => [...expression.matchAll(/'([a-z_.]+)'/g)].map(([, action]) => action),
-      ),
-    ),
+  ...emittedAuditActions(),
 ])
 
 type AuditAction = keyof typeof AUDIT_SCHEMAS

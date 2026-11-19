@@ -9,6 +9,8 @@ import pytest
 from oib_retrieval.qdrant_parity import baseline
 from oib_retrieval.qdrant_parity import channels
 from oib_retrieval.qdrant_parity import evaluation
+from oib_retrieval.qdrant_parity import measures
+from oib_retrieval.qdrant_parity import report_markdown
 from oib_retrieval.qdrant_parity import runner
 from oib_retrieval.qdrant_parity import sample
 from oib_retrieval.qdrant_parity.vectors import truncate_renormalise
@@ -153,7 +155,7 @@ def test_the_reference_is_the_gate_reports_chroma_path_and_names_its_source():
 
 def test_the_regex_scan_finds_the_phrase_with_either_spelling_and_honours_the_base_filter():
     inputs = sample.inputs(HARD_CASES)
-    view = runner.Corpus(inputs.chunks, inputs.excluded)
+    view = measures.Corpus(inputs.chunks, inputs.excluded)
     allowed = [chunk for chunk in inputs.chunks if view.allowed(chunk)]
     by_text = {chunk.chunk_id: chunk.text for chunk in allowed}
 
@@ -201,7 +203,7 @@ def test_the_markdown_report_renders_every_section_from_plain_results():
             "verdicts": [{"gate": "G2 latency", "status": "pass", "detail": "ok"}],
         }
     )
-    markdown = runner.render_markdown(report)
+    markdown = report_markdown.render_markdown(report)
     for heading in ("G1b lexical", "Exact mode", "Hybrid", "G2 latency", "Verdicts", "full retrieval"):
         assert heading in markdown
     assert "reference (Postgres `german` FTS)" in markdown and "reference (Chroma)" in markdown

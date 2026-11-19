@@ -773,6 +773,16 @@ def test_dependabot_auto_merge_waits_for_ci_ok_and_starts_the_push_run():
     assert "gh pr merge --disable-auto" in disable["run"]
 
 
+def test_the_named_test_files_reach_every_path_their_suite_runs():
+    paths = yaml.safe_load((WORKFLOWS.parents[1] / "taskfiles/backend.yml").read_text(encoding="utf-8"))
+    step = next(s for s in JOBS["backend-affected"]["steps"] if s.get("id") == "affected")
+    roots = dict(re.findall(r"(\w+)\) root='([^']+)'", step["run"]))
+    for suite, value in paths["vars"]["TESTMON_PATHS"]["map"].items():
+        for path in value.split():
+            if (WORKFLOWS.parents[1] / path).is_dir():
+                assert re.match(roots[suite], path.rstrip("/") + "/"), (suite, path)
+
+
 # --- Where a job runs: GitHub's runners, or the dev cluster's (ADR-0184) ---
 
 CLUSTER = {"CI_RUNNER": "dev-cluster"}

@@ -43,6 +43,34 @@ const skill = (name: string): StoredThinkingStep => ({
 const making = { writes: ['Raumbuch.xlsx'], attempt: 1 }
 
 describe('fileWork', () => {
+  test('a file the run wrote but that was not kept is a failure with its reason, never „Erstellt“', () => {
+    const [work] = fileWork(
+      [run('a', { ...making, status: 'ok', made: [], failed: ['Raumbuch.xlsx'], failed_reasons: ['too_large'] })],
+      false
+    )
+    expect(work).toMatchObject({ file: 'Raumbuch.xlsx', outcome: 'failed', failedKind: 'make', failedReason: 'too_large' })
+    expect(work.phases.map((phase) => [phase.kind, phase.state])).toEqual([['make', 'failed']])
+  })
+
+  test('the final row names the files the run kept and the ones it did not', () => {
+    const works = fileWork(
+      [
+        run('a', {
+          writes: ['….xlsx'],
+          status: 'ok',
+          made: ['Raumbuch.xlsx'],
+          failed: ['Plan.pdf'],
+          failed_reasons: ['not_written'],
+        }),
+      ],
+      false
+    )
+    expect(works.map((work) => [work.file, work.outcome, work.failedReason])).toEqual([
+      ['Raumbuch.xlsx', 'made', undefined],
+      ['Plan.pdf', 'failed', 'not_written'],
+    ])
+  })
+
   test('a file made on the first try is one row: prepared, made', () => {
     const [work] = fileWork(
       [skill('office-excel'), run('a', { ...making, status: 'ok', made: ['Raumbuch.xlsx'], elapsed_ms: 900 })],

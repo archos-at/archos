@@ -7,6 +7,10 @@ export const draftFileResponseSchema = z.object({
   alreadyFiled: z.boolean(),
   folderId: z.string().nullable().optional(),
   folderName: z.string().nullable().optional(),
+  outcome: z.enum(['filed', 'unchanged', 'updated', 'revised']).optional(),
+  versionNumber: z.number().int().nullable().optional(),
+  draftVersion: z.number().int().optional(),
+  revisionOf: z.object({ documentId: z.string(), name: z.string() }).nullable().optional(),
 })
 
 export type DraftFileResponse = z.infer<typeof draftFileResponseSchema>
@@ -28,8 +32,11 @@ export class DraftFileError extends Error {
 }
 
 export interface DraftDestination {
-  folderId: string | null
-  name: string
+  folderId?: string | null
+  name?: string
+  as?: 'own' | 'revision'
+  changeNote?: string
+  overChanges?: boolean
 }
 
 export interface FileDraftInput {
@@ -37,6 +44,18 @@ export interface FileDraftInput {
   title: string
   force?: boolean
   destination?: DraftDestination
+}
+
+function destinationBody(destination: DraftDestination | undefined): Record<string, unknown> {
+  if (!destination) return {}
+  const { folderId, name, as, changeNote, overChanges } = destination
+  return {
+    ...(folderId !== undefined ? { folderId } : {}),
+    ...(name !== undefined ? { name } : {}),
+    ...(as ? { as } : {}),
+    ...(changeNote ? { changeNote } : {}),
+    ...(overChanges ? { overChanges } : {}),
+  }
 }
 
 export async function fileConversationDraft(
@@ -52,7 +71,7 @@ export async function fileConversationDraft(
       path: input.path,
       title: input.title,
       force: input.force ?? false,
-      ...(input.destination ? { folderId: input.destination.folderId, name: input.destination.name } : {}),
+      ...destinationBody(input.destination),
     }),
   })
   const body: unknown = await response.json().catch(() => null)

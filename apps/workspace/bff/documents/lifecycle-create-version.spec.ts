@@ -46,6 +46,7 @@ vi.mock('./version-content', () => ({
 }))
 vi.mock('@/lib/storage/discard', () => ({ discardObject: vi.fn() }))
 vi.mock('./revision-notify', () => ({ announceNewRevision: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn(), resolveInboxItemsFor: vi.fn() }))
 
 import { getAccessibleDocument } from './access'
 import { findDocumentInOrg } from './repository'
@@ -55,7 +56,10 @@ import { announceNewRevision } from './revision-notify'
 import { resolvePeople } from '@/lib/sharing/directory'
 import { recordAuditEvent } from '@/lib/audit/service'
 import { listReviewCandidates, resolveReviewers } from './reviewers'
+import { emitInboxItems } from '@/lib/inbox/service'
+import { makeDocument } from '@/test-utils/db-fixtures'
 import {
+  findDocumentVersion,
   findOpenVersion,
   findPublishedVersion,
   insertDocumentVersion,
@@ -69,6 +73,7 @@ import {
   forkDraftVersion,
   recordUploadedVersion,
   recordUploadedVersionOrDiscard,
+  transitionDocumentVersion,
 } from './lifecycle'
 import { session, document, version } from './lifecycle.fixtures'
 
@@ -182,6 +187,82 @@ describe('createDocumentVersion — a human upload', () => {
         actingHuman: false,
       }),
     ).rejects.toMatchObject({ status: 403 })
+  })
+})
+
+describe('createDocumentVersion — a person files a draft the agent made', () => {
+  const agentFile = makeDocument({
+    id: 'doc_1',
+    projectId: 'proj_1',
+    authoredBy: 'agent',
+    authoredByProducer: 'agent_file',
+    filename: 'generated/doc_1/Raumbuch.xlsx',
+  })
+  const filer = { ...session, userId: 'user_approver' }
+  const file = (actingHuman?: boolean) =>
+    createDocumentVersion(filer, {
+      document: agentFile,
+      op: 'file',
+      storageKey: 'k',
+      storageBucket: 'b',
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      fileSize: 10,
+      contentHash: 'sha256:x',
+      actingHuman,
+    })
+
+  beforeEach(() => {
+    vi.mocked(insertPublishedVersion).mockImplementation(async (values) => ({
+      version: version({ ...(values as Partial<DocumentVersion>), id: 'ver_filed', submittedBy: null }),
+      superseded: [],
+    }))
+    vi.mocked(findDocumentInOrg).mockResolvedValue(agentFile)
+  })
+
+  it('is born published, signed off by the person who filed it, with no review step', async () => {
+    await file()
+
+    const values = vi.mocked(insertPublishedVersion).mock.calls[0][0]
+    expect(values).toMatchObject({ state: 'published', origin: 'filing', publishedBy: 'user_approver' })
+    expect(values).not.toHaveProperty('approvedBy')
+    expect(values).not.toHaveProperty('submittedBy')
+    expect(insertDocumentVersion).not.toHaveBeenCalled()
+  })
+
+  it('is indexed at once, and its provenance names the filer as the person who signed it off', async () => {
+    await file()
+
+    expect(dispatchDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc_1',
+        versionId: 'ver_filed',
+        provenance: expect.objectContaining({ authored_by: 'agent', approved_by: 'Maria Huber', producer: 'agent_file' }),
+      }),
+    )
+  })
+
+  it('publishes a Fassung filed again the same way, as the filer’s and with no approval nobody gave', async () => {
+    vi.mocked(getAccessibleDocument).mockResolvedValue(agentFile)
+    vi.mocked(findDocumentVersion).mockResolvedValue(version({ id: 'ver_2', state: 'draft', submittedBy: null }))
+    vi.mocked(promoteVersionToPublished).mockImplementation(async (id, _doc, _org, _expected, stamp) => ({
+      version: version({ ...(stamp as Partial<DocumentVersion>), id }),
+      superseded: [version({ id: 'ver_1', state: 'superseded' })],
+    }))
+
+    await transitionDocumentVersion(filer, 'doc_1', 'ver_2', 'file', { actingHuman: false })
+
+    const stamp = vi.mocked(promoteVersionToPublished).mock.calls[0][4]
+    expect(stamp).toMatchObject({ state: 'published', origin: 'filing', publishedBy: 'user_approver' })
+    expect(stamp).not.toHaveProperty('approvedBy')
+    expect(dispatchDocument).toHaveBeenCalledWith(expect.objectContaining({ versionId: 'ver_2' }))
+    expect(emitInboxItems).not.toHaveBeenCalled()
+  })
+
+  it('asks nobody to review it', async () => {
+    await file(false)
+
+    expect(emitInboxItems).not.toHaveBeenCalled()
+    expect(resolveReviewers).not.toHaveBeenCalled()
   })
 })
 

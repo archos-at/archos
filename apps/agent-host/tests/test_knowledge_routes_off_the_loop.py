@@ -16,6 +16,7 @@ from agent.knowledge.schema import FileInfo
 from agent.knowledge.schema import FileStatus
 from agent.knowledge.schema import IngestionJobStatus
 from agent.knowledge.schema import JobState
+from agent_host.routes import document_edits as edits_module
 from agent_host.routes import documents as documents_module
 from agent_host.routes.collections import add_collection_routes
 from agent_host.routes.documents import add_document_routes
@@ -100,10 +101,10 @@ def store_threads(monkeypatch):
 
         return call
 
-    monkeypatch.setattr(documents_module, "set_document_tags_by_person", recorder("set_document_tags_by_person", True))
-    monkeypatch.setattr(documents_module, "set_document_display_title", recorder("set_document_display_title", True))
-    monkeypatch.setattr(documents_module, "set_document_folder_path", recorder("set_document_folder_path", True))
-    monkeypatch.setattr(documents_module, "rewrite_document_folder_paths", recorder("rewrite", 3))
+    monkeypatch.setattr(edits_module, "set_document_tags_by_person", recorder("set_document_tags_by_person", True))
+    monkeypatch.setattr(edits_module, "set_document_display_title", recorder("set_document_display_title", True))
+    monkeypatch.setattr(edits_module, "set_document_folder_path", recorder("set_document_folder_path", True))
+    monkeypatch.setattr(edits_module, "rewrite_document_folder_paths", recorder("rewrite", 3))
 
     async def no_summaries(_collection):
         return []

@@ -2840,16 +2840,14 @@ class TestTheDraftingRulesLiveInTheTools:
         for phrase in ("leg das ins Projekt", "ablegen", "abspeichern"):
             assert phrase in _FILE_DRAFT_DESCRIPTION
         assert "not on your own after every write" in _FILE_DRAFT_DESCRIPTION
-        assert "DRAFT" in _FILE_DRAFT_DESCRIPTION
-        assert "nobody has approved it" in _FILE_DRAFT_DESCRIPTION
 
-    def test_submitting_needs_an_explicit_request(self):
+    def test_filing_is_the_users_sign_off_and_asks_for_no_approval(self):
         from agent.tools.documents.register import _FILE_DRAFT_DESCRIPTION
 
-        assert "Call with `submit=true` only when the user asks for approval" in _FILE_DRAFT_DESCRIPTION
-        assert "„ablegen“ alone is not such a request" in _FILE_DRAFT_DESCRIPTION
-        assert "unchanged" in _FILE_DRAFT_DESCRIPTION
-        assert "project's editors" in _FILE_DRAFT_DESCRIPTION
+        assert "the user who files it signs it off" in _FILE_DRAFT_DESCRIPTION
+        assert "marked as made by you" in _FILE_DRAFT_DESCRIPTION
+        assert "submit" not in _FILE_DRAFT_DESCRIPTION
+        assert "DRAFT" not in _FILE_DRAFT_DESCRIPTION
 
 
 class TestTheDelegationRulesLiveInTheTool:

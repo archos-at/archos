@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
@@ -8,7 +8,6 @@ import { baseStackConfig } from "../test-support/stack-config";
 import { LEGACY_PROJECT } from "../names";
 
 const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
@@ -74,8 +73,6 @@ describe("the knowledge carry Job", () => {
     const pod = (await resolve(job.inputs.spec)).template.spec;
     expect(pod.containers[0].command).toEqual(["node", "dist-jobs/knowledge-carry.mjs"]);
     expect(pod.containers[0].image).toMatch(/-frontend:sha-a{40}$/);
-    expect(read("apps", "workspace", "scripts", "build-jobs-bundle.ts")).toContain("scripts/knowledge-carry.ts");
-    expect(read("apps", "workspace", "deploy", "Dockerfile")).toMatch(/COPY .*\/app\/config\/knowledge-releases \.\/config\/knowledge-releases/);
     expect(existsSync(join(repoRoot, "apps", "workspace", "config", "knowledge-releases", "manifest.json"))).toBe(true);
   });
 

@@ -88,10 +88,8 @@ let findings
 
 beforeAll(() => {
   workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-canary-'))
-  const config = fs
-    .readFileSync(path.join(UI, '.oxlintrc.json'), 'utf8')
-    .replace('"./eslint-rules/index.mjs"', JSON.stringify(path.join(UI, 'eslint-rules', 'index.mjs')))
-  fs.writeFileSync(path.join(workdir, '.oxlintrc.json'), config)
+  fs.copyFileSync(path.join(UI, '.oxlintrc.json'), path.join(workdir, '.oxlintrc.json'))
+  fs.symlinkSync(path.join(UI, 'eslint-rules'), path.join(workdir, 'eslint-rules'))
   for (const [file, source] of Object.entries(FIXTURES)) {
     fs.mkdirSync(path.dirname(path.join(workdir, file)), { recursive: true })
     fs.writeFileSync(path.join(workdir, file), `${source}\n`)
@@ -132,16 +130,13 @@ describe('.oxlintrc.json', () => {
   })
 
   it('exempts exactly the files PRE_EXISTING_DB_IMPORTERS lists', () => {
-    const json = fs
-      .readFileSync(path.join(UI, '.oxlintrc.json'), 'utf8')
-      .split('\n')
-      .filter((line) => !line.trim().startsWith('//'))
-      .join('\n')
-    const exempt = JSON.parse(json).overrides.find(
-      (o) => o.rules['typescript/no-restricted-imports'] === 'off' && !o.files.some((f) => f.includes('spec')),
+    const { overrides } = JSON.parse(
+      execFileSync(process.execPath, [OXLINT, '-c', path.join(UI, '.oxlintrc.json'), '--print-config'], { encoding: 'utf8' }),
     )
-    const unescaped = exempt.files.map((f) => f.replace(/\\([[\]])/g, '$1'))
-    expect(unescaped).toEqual(PRE_EXISTING_DB_IMPORTERS.map((file) => file))
+    const exempt = overrides.filter(
+      (o) => o.rules?.['typescript/no-restricted-imports'] === 'allow' && !o.files.some((f) => f.includes('spec')),
+    )
+    expect(exempt.flatMap((o) => o.files)).toEqual(PRE_EXISTING_DB_IMPORTERS)
   })
 
   it('leaves specs out of the tenant-boundary and restricted-syntax rules', () => {

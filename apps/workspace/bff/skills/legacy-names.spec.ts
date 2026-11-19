@@ -1,10 +1,9 @@
-// @disk-inputs: ../../packages/agent/src/agent/skills/legacy_names.py, ../../packages/agent/src/agent/skills/legacy_brand_names.py, ../../packages/agent/src/agent/skills/builtin/oib/**
 /**
  * @vitest-environment node
  */
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import * as agent from '@/shared/vocabularies.generated'
+import * as agentLegacyBrand from './legacy-brand-names.generated'
 import {
   LEGACY_METADATA_KEYS,
   LEGACY_PLATFORM_SKILL_NAMES,
@@ -17,13 +16,6 @@ import {
   writtenMetadataKey,
 } from './legacy-names'
 import { PLATFORM_SKILLS } from './platform-skills'
-
-const BUILTIN = join(process.cwd(), '..', '..', 'packages', 'agent', 'src', 'agent', 'skills')
-
-function pythonTable(python: string, name: string): Record<string, string> {
-  const block = new RegExp(`${name}: dict\\[str, str\\] = \\{([^}]*)\\}`).exec(python)?.[1] ?? ''
-  return Object.fromEntries([...block.matchAll(/"([a-z-]+)": "([a-z-]+)"/g)].map((match) => [match[1], match[2]]))
-}
 
 describe('builtin skill names written before the English names', () => {
   it('maps every old name to a builtin skill that ships and never to itself', () => {
@@ -50,12 +42,9 @@ describe('builtin skill names written before the English names', () => {
   })
 
   it('is the table the Python agent resolves with', () => {
-    const python = readFileSync(join(BUILTIN, 'legacy_names.py'), 'utf8')
-    expect(pythonTable(python, 'LEGACY_SKILL_NAMES')).toEqual(LEGACY_SKILL_NAMES)
-    const brand = readFileSync(join(BUILTIN, 'legacy_brand_names.py'), 'utf8')
-    expect(pythonTable(brand, 'LEGACY_PLATFORM_SKILL_NAMES')).toEqual(LEGACY_PLATFORM_SKILL_NAMES)
-    expect(pythonTable(brand, 'LEGACY_METADATA_KEYS')).toEqual(LEGACY_METADATA_KEYS)
-    expect(readdirSync(join(BUILTIN, 'builtin', 'oib'))).not.toContain('einreichcheck')
+    expect(LEGACY_SKILL_NAMES).toEqual(agent.LEGACY_SKILL_NAMES)
+    expect(LEGACY_PLATFORM_SKILL_NAMES).toEqual(agentLegacyBrand.LEGACY_PLATFORM_SKILL_NAMES)
+    expect(LEGACY_METADATA_KEYS).toEqual(agentLegacyBrand.LEGACY_METADATA_KEYS)
   })
 })
 

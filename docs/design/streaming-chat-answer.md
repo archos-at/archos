@@ -14,7 +14,8 @@ no runtime flag beyond the platform switch below.
 `note_settled_replaced`), the chat socket (`apps/agent-host/src/agent_host/chat_socket.py`),
 the turn fold (`apps/workspace/bff/turns/turn-fold.ts`) and the chat
 store. Live prose: `common/answer_prose_stream.py` and
-`core/answer_pipeline.py` (`LiveAnswer`, `settle_streamed_citations`).
+`core/live_answer.py` (`LiveAnswer`) and `core/answer_pipeline.py`
+(`settle_streamed_citations`).
 The events themselves: [`websocket-protocol.md`](../api/websocket-protocol.md).
 What the reader sees at every phase and edge of a turn, with the fixture and
 check for each: [`lifecycles/chat-turn.md`](lifecycles/chat-turn.md).

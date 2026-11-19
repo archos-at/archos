@@ -85,8 +85,8 @@ neither a privileged pod nor a Kubernetes credential where a pull request's code
 * **What stays on GitHub's runners:** every job that holds a secret or can write the registry
   (`image-push`, `publish`, the source-map upload, `deploy.yml`, the runner image's own push),
   and every job that needs a Docker daemon or root: the image builds, the Hatchet engine
-  tests (`hatchet-lite` in a container) and the standalone packages (the browser renderer's
-  hardened-container suite and its `sysctl`). `tests/test_ci_workflows.py` fails when one of
+  tests (`hatchet-lite` in a container) and the standalone packages (`browser:test` and
+  `runner:test` build the browser renderer's image). `tests/test_ci_workflows.py` fails when one of
   them could land on the cluster.
 
 ### Consequences

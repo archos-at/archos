@@ -24,33 +24,22 @@ export function encodedDraftPath(path: string): string {
   return segments.map((segment) => encodeURIComponent(segment)).join('/')
 }
 
-export async function fetchDraftFromBackend(
-  conversationId: string,
-  path: string,
-  options: { raw: boolean },
-): Promise<Response> {
-  const encodedPath = encodedDraftPath(path)
-
-  let tokenHeaders: Record<string, string>
+function backendHeaders(): Record<string, string> {
   try {
-    tokenHeaders = internalServiceHeaders(getBackendUrl())
+    return internalServiceHeaders(getBackendUrl())
   } catch (error) {
     if (error instanceof InternalServiceUnavailableError) throw new ServiceUnavailableError('Draft preview is unavailable')
     throw error
   }
+}
 
-  const url = `${getBackendUrl()}/v1/drafts/${encodeURIComponent(conversationId)}/${encodedPath}${options.raw ? '?raw=true' : ''}`
+async function callBackend(url: string, init: RequestInit): Promise<Response> {
   let response: Response
   try {
-    response = await fetch(url, {
-      method: 'GET',
-      headers: tokenHeaders,
-      signal: AbortSignal.timeout(DRAFT_READ_TIMEOUT_MS),
-    })
+    response = await fetch(url, { ...init, signal: AbortSignal.timeout(DRAFT_READ_TIMEOUT_MS) })
   } catch {
     throw new UpstreamError('Draft preview is unavailable')
   }
-
   if (!response.ok) {
     if (response.status === 404) throw new NotFoundError()
     if (response.status === 400) throw new BadRequestError('Invalid draft path')
@@ -58,4 +47,42 @@ export async function fetchDraftFromBackend(
     throw new UpstreamError(`Draft preview failed with ${response.status}`)
   }
   return response
+}
+
+const draftsUrl = (conversationId: string): string => `${getBackendUrl()}/v1/drafts/${encodeURIComponent(conversationId)}`
+
+export async function fetchDraftFromBackend(
+  conversationId: string,
+  path: string,
+  options: { raw: boolean },
+): Promise<Response> {
+  const encodedPath = encodedDraftPath(path)
+  const query = options.raw ? '?raw=true' : ''
+  return callBackend(`${draftsUrl(conversationId)}/${encodedPath}${query}`, { method: 'GET', headers: backendHeaders() })
+}
+
+export interface DraftFilingRecord {
+  documentId: string
+  versionId: string
+  contentHash: string
+  state: string
+  draftVersion: number
+  kind: '' | 'revision'
+}
+
+export async function recordDraftFilingInBackend(
+  conversationId: string,
+  path: string,
+  record: DraftFilingRecord,
+): Promise<void> {
+  const absolute = `/${encodedDraftPath(path)}`
+  await callBackend(`${draftsUrl(conversationId)}/filing?path=${encodeURIComponent(decodeURIComponent(absolute))}`, {
+    method: 'PUT',
+    headers: { ...backendHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(record),
+  })
+}
+
+export async function deleteDraftInBackend(conversationId: string, path: string): Promise<void> {
+  await callBackend(`${draftsUrl(conversationId)}/${encodedDraftPath(path)}`, { method: 'DELETE', headers: backendHeaders() })
 }

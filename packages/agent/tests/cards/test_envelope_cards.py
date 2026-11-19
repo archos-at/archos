@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from agent.cards.catalog import CARD_EXAMPLES
+from agent.cards.card_examples import CARD_EXAMPLES
 from agent.cards.envelope import ENVELOPE_SHAPE_TYPES
 from agent.cards.envelope import REFUSED_NOT_AN_OBJECT
 from agent.cards.envelope import REFUSED_RETIRED_TYPE

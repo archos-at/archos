@@ -458,24 +458,24 @@ class TestSpanEnrichment:
 
 class TestCardSuppression:
     def test_short_overview_without_verdict_is_suppressed(self):
-        from agent.core.answer_pipeline import _should_suppress_meta_cards
+        from agent.core.card_suppression import _should_suppress_meta_cards
 
         assert _should_suppress_meta_cards("Kurzer Überblick. " * 10, {"takeaways": [{"text": "x"}]}) is True
 
     def test_long_prose_keeps_its_cards(self):
-        from agent.core.answer_pipeline import _should_suppress_meta_cards
+        from agent.core.card_suppression import _should_suppress_meta_cards
 
         assert _should_suppress_meta_cards("x" * 2000, {"takeaways": [{"text": "x"}]}) is False
 
     def test_a_copyable_verdict_keeps_its_cards(self):
-        from agent.core.answer_pipeline import _should_suppress_meta_cards
+        from agent.core.card_suppression import _should_suppress_meta_cards
 
         meta = {"verdict": {"value": "40 m", "subject": "Fluchtweglänge"}}
         assert _should_suppress_meta_cards("kurz", meta) is False
         assert _should_suppress_meta_cards("kurz", {"kind": "ruling", "summary": "s"}) is False
 
     def test_nothing_to_drop_is_not_suppression(self):
-        from agent.core.answer_pipeline import _should_suppress_meta_cards
+        from agent.core.card_suppression import _should_suppress_meta_cards
 
         assert _should_suppress_meta_cards("kurz", None) is False
         assert _should_suppress_meta_cards("kurz", {}) is False
@@ -484,7 +484,7 @@ class TestCardSuppression:
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import get_card_registry
         from agent.cards.registry import set_card_registry
-        from agent.core.answer_pipeline import _suppress_cards
+        from agent.core.card_suppression import _suppress_cards
 
         registry = CardRegistry()
         registry.add({"type": "summary", "text": "x"})
@@ -505,7 +505,7 @@ class TestCardSuppression:
             reset_card_registry(token)
 
     def test_no_suppression_leaves_content_and_meta_untouched(self):
-        from agent.core.answer_pipeline import _suppress_cards
+        from agent.core.card_suppression import _suppress_cards
 
         content, meta, suppressed = _suppress_cards("x" * 2000, {"takeaways": [{"text": "x"}]})
         assert (suppressed, meta) == (False, {"takeaways": [{"text": "x"}]})
@@ -515,7 +515,7 @@ class TestCardSuppression:
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import get_card_registry
         from agent.cards.registry import set_card_registry
-        from agent.core.answer_pipeline import _suppress_cards
+        from agent.core.card_suppression import _suppress_cards
 
         registry = CardRegistry()
         registry.add({"type": "document_draft", "title": "t", "path": "/drafts/x.md", "bytes": 3, "version": 1})

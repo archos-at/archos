@@ -18,7 +18,7 @@ export const OPEN_DOCUMENT_VERSION_STATES = [
 export const DOCUMENT_SUBMIT_ACTORS = ['human', 'agent'] as const
 export type DocumentSubmitActor = (typeof DOCUMENT_SUBMIT_ACTORS)[number]
 
-export const DOCUMENT_VERSION_ORIGINS = ['upload', 'draft'] as const
+export const DOCUMENT_VERSION_ORIGINS = ['upload', 'filing', 'draft'] as const
 export type DocumentVersionOrigin = (typeof DOCUMENT_VERSION_ORIGINS)[number]
 
 export const DOCUMENT_LIFECYCLES = ['active', 'archived'] as const

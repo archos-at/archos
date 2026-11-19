@@ -1,12 +1,18 @@
-// @disk-inputs: shared/brand/tokens.vars.css
+// @disk-inputs: ../../packages/brand/tokens.json
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PDF_THEME } from './theme'
 
-const vars = readFileSync(join(__dirname, '../../shared/brand/tokens.vars.css'), 'utf8')
-const light = /:root \{([^}]*)\}/.exec(vars)?.[1] ?? ''
-const token = (name: string): string => new RegExp(`--ds-${name}: (#[0-9a-f]{6});`).exec(light)?.[1] ?? 'missing'
+type BrandToken = { name: string; value: { light: string; dark?: string } }
+
+const BRAND: BrandToken[] = JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'packages', 'brand', 'tokens.json'), 'utf8')).color.tokens
+
+function token(name: string): string {
+  const found = BRAND.find((candidate) => candidate.name === name)
+  if (!found) throw new Error(`${name} is not a brand token`)
+  return found.value.light
+}
 
 function mix(a: string, b: string, amount: number): string {
   const channel = (hex: string, i: number): number => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)

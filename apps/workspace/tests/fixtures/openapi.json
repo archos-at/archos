@@ -15575,6 +15575,132 @@
         }
       }
     },
+    "/api/conversations/{id}/draft": {
+      "delete": {
+        "operationId": "conversation-draft-delete",
+        "summary": "Delete a draft from a conversation",
+        "description": "Removes one draft (path from the answer’s card); what was filed from it stays. Only after the person confirmed.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Delete a draft from a conversation",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "conversation-draft-get",
+        "summary": "Read an unfiled draft ARCHOS wrote",
+        "description": "One draft in the conversation’s working directory, to read before filing; `path` is the one the answer’s card names. To keep it: conversation-draft-file.",
+        "tags": [
+          "conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+            },
+            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read an unfiled draft ARCHOS wrote",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/conversations/{id}/draft/download": {
       "get": {
         "operationId": "conversation-draft-download",
@@ -15699,8 +15825,8 @@
     "/api/conversations/{id}/draft/file": {
       "post": {
         "operationId": "conversation-draft-file",
-        "summary": "File an unfiled draft into the project",
-        "description": "Files a draft (path from the answer’s card or conversation-draft-get) as a document in the conversation’s project, into `folderId` under `name` when given, else into the default folder under the title. A same-name collision answers 409 with the existing document; repeat with `force: true` only after the person confirmed. Returns the document.",
+        "summary": "File a draft into the project, or update what was filed from it",
+        "description": "Files a draft (path from its card) into the project, into `folderId` under `name`; again after a change, it updates the filed document. 409 `same-name`: `force` after the person confirmed. 409 `changed-in-project`: only the person decides `overChanges`.",
         "tags": [
           "conversations"
         ],
@@ -15753,6 +15879,23 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
+                  },
+                  "as": {
+                    "description": "`revision`: the next revision of the document the draft was made from; `own` (default): a separate file.",
+                    "type": "string",
+                    "enum": [
+                      "own",
+                      "revision"
+                    ]
+                  },
+                  "overChanges": {
+                    "description": "Write over a revision a person changed since filing.",
+                    "type": "boolean"
+                  },
+                  "changeNote": {
+                    "description": "With `revision`: what changed, one sentence.",
+                    "type": "string",
+                    "maxLength": 500
                   }
                 },
                 "required": [
@@ -15789,74 +15932,10 @@
           }
         },
         "x-mcp-annotations": {
-          "title": "File an unfiled draft into the project",
+          "title": "File a draft into the project, or update what was filed from it",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
-          "openWorldHint": false
-        }
-      }
-    },
-    "/api/conversations/{id}/draft": {
-      "get": {
-        "operationId": "conversation-draft-get",
-        "summary": "Read an unfiled draft ARCHOS wrote",
-        "description": "One draft in the conversation’s working directory, to read before filing; `path` is the one the answer’s card names. To keep it: conversation-draft-file.",
-        "tags": [
-          "conversations"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
-            },
-            "description": "The conversation id (`s_` plus a UUID with underscores), from conversation-list."
-          },
-          {
-            "name": "path",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 500
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/Error400"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "429": {
-            "$ref": "#/components/responses/Error429"
-          }
-        },
-        "x-mcp-annotations": {
-          "title": "Read an unfiled draft ARCHOS wrote",
-          "readOnlyHint": true,
-          "destructiveHint": false,
-          "idempotentHint": true,
           "openWorldHint": false
         }
       }
