@@ -20,7 +20,7 @@ const KNOWN_AUTHORITIES: readonly { pattern: RegExp; addressee: Addressee }[] = 
 ]
 
 const DESIGNATION =
-  /(?<![\p{L}\d])(ÖNORM|ONORM|OENORM|DIN|EN|ISO|SIA|OIB[- ]Richtlinie)\s*((?:EN\s+|ISO\s+)*[A-Z]?\s?\d+(?:[-.]\d+)*)(?:\s*[:]\s*(\d{4}(?:-\d{2}(?:-\d{2})?)?))?/iu
+  /(?<![\p{L}\d])(ÖNORM|ONORM|OENORM|DIN|EN|ISO|SIA|OIB[- ](?:Richtlinie|RL))\s*((?:EN\s+|ISO\s+)*[A-Z]?\s?\d+(?:[-.]\d+)*)(?:\s*[:]\s*(\d{4}(?:-\d{2}(?:-\d{2})?)?))?/iu
 
 const ISO_DATE = /\b(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/
 const YEAR = /\b(19|20)\d{2}\b/
@@ -63,14 +63,37 @@ export function readDesignation(text: string): Designation | null {
   return { designation: edition ? `${base}:${edition.slice(0, 4)}` : base, prefix, edition }
 }
 
+const BARE_STANDARD_NUMBER = /^([AB])[ _-]?(\d{4}(?:-\d+)?)(?=[ _.-]|$)/i
+const DIRECTIVE = /\bWeisung|Erlass|Rundschreiben|Dienstanweisung/i
+const COMMENTARY = /\bKommentar|Kommentierung|Erläuterungen\s+zu|commentary/i
+const GUIDELINE = /\bLeitfaden|Richtlinie|Merkblatt|guideline|\bRVS\b/i
+const LAW = /\b(Bauordnung|Gesetz|Verordnung|Bautechnikverordnung|BauO|LGBl|BGBl)\b/i
+
+function heldByPlatform(designation: Designation | null): boolean {
+  return designation?.prefix === 'OIB-Richtlinie'
+}
+
+export type NormRecognition = { norm: false; platformHeld: boolean } | { norm: true; designation: string | null }
+
+export function recognizeNorm(reading: DocumentReading): NormRecognition {
+  const text = haystack(reading)
+  const designation = readDesignation(text)
+  if (heldByPlatform(designation)) return { norm: false, platformHeld: true }
+  if (designation) return { norm: true, designation: designation.designation }
+  const bare = BARE_STANDARD_NUMBER.exec(reading.fileName)
+  if (bare && !/^(19|20)\d{2}$/.test(bare[2])) return { norm: true, designation: `ÖNORM ${bare[1].toUpperCase()} ${bare[2]}` }
+  if (DIRECTIVE.test(text) || GUIDELINE.test(text) || (COMMENTARY.test(text) && LAW.test(text))) return { norm: true, designation: null }
+  return { norm: false, platformHeld: false }
+}
+
 export function readKind(text: string, designation: Designation | null): OfficeWorkKind {
-  if (/\bWeisung|Erlass|Rundschreiben|Dienstanweisung/i.test(text)) return 'authority_directive'
-  if (/\bKommentar|Kommentierung|Erläuterungen\s+zu|commentary/i.test(text)) return 'commentary'
-  if (designation?.prefix === 'OIB-Richtlinie' || /\bLeitfaden|Richtlinie|Merkblatt|guideline/i.test(text)) {
-    return designation && designation.prefix !== 'OIB-Richtlinie' ? 'technical_standard' : 'guideline'
+  if (DIRECTIVE.test(text)) return 'authority_directive'
+  if (COMMENTARY.test(text)) return 'commentary'
+  if (heldByPlatform(designation) || GUIDELINE.test(text)) {
+    return designation && !heldByPlatform(designation) ? 'technical_standard' : 'guideline'
   }
   if (designation) return 'technical_standard'
-  if (/\b(Bauordnung|Gesetz|Verordnung|Bautechnikverordnung|BauO|LGBl|BGBl)\b/i.test(text)) return 'statute'
+  if (LAW.test(text)) return 'statute'
   return 'technical_standard'
 }
 
