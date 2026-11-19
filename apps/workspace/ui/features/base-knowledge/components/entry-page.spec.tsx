@@ -11,6 +11,8 @@ import { EntryPage } from './entry-page'
 const toast = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
 vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
+const push = vi.hoisted(() => vi.fn())
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
 const licenceStep = vi.hoisted(() => ({ ask: false }))
 vi.mock('@/lib/base-knowledge/wire', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/base-knowledge/wire')>()
@@ -191,9 +193,31 @@ describe('EntryPage', () => {
     expect(toast.success).toHaveBeenLastCalledWith('„ÖNORM B 1600:2017“ ist wieder als Norm geführt.')
   })
 
-  it('offers a proposal no way off the norms but removal', async () => {
-    renderSheet(PROPOSAL)
-    await screen.findByTestId('base-knowledge-save')
+  it('returns a proposal that is no norm to its folder, remembered, and shows it there from the toast', async () => {
+    const fetchMock = vi.fn(async () => Response.json({ results: [{ entryId: PROPOSAL.id, outcome: 'not_norm', error: null }] }))
+    vi.stubGlobal('fetch', fetchMock)
+    const onChanged = renderSheet(PROPOSAL)
     expect(screen.queryByTestId('base-knowledge-unlist')).toBeNull()
+    await userEvent.click(await screen.findByRole('button', { name: 'Keine Norm' }))
+    await waitFor(() => expect(onChanged).toHaveBeenCalledWith(null))
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect([url, init.method, JSON.parse(String(init.body))]).toEqual([
+      '/api/base-knowledge/settle',
+      'POST',
+      { rows: [{ entryId: PROPOSAL.id, notNorm: true }] },
+    ])
+    const [message, options] = toast.success.mock.calls.at(-1) as unknown as [string, { action: { label: string; onClick: () => void } }]
+    expect(message).toMatch(/^„ÖNORM B 1300:2018“ ist keine Norm: Die Datei liegt wieder in ihrem Ordner, und .+ schlägt sie nicht noch einmal als Norm vor\.$/)
+    expect(options.action.label).toBe('In Ordnern zeigen')
+    options.action.onClick()
+    expect(push).toHaveBeenCalledWith(`/app/office-shelf?doc=${encodeURIComponent(PROPOSAL.documentId)}`)
+  })
+
+  it('keeps a proposal on the page when settling it fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ results: [{ entryId: PROPOSAL.id, outcome: 'failed', error: 'Gesperrt' }] })))
+    const onChanged = renderSheet(PROPOSAL)
+    await userEvent.click(await screen.findByRole('button', { name: 'Keine Norm' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Gesperrt'))
+    expect(onChanged).not.toHaveBeenCalled()
   })
 })

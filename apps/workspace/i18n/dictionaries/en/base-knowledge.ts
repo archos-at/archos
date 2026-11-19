@@ -17,7 +17,7 @@ export const baseKnowledge = {
     toggle: 'How it works',
     upload: {
       title: '1 · Add',
-      body: 'Purchased standards, commentaries on building law, building authority directives and guidelines belong here, not project documents or templates. {productName} proposes from the file name what it is and which edition. {productName} does not read the text yet.',
+      body: 'Purchased standards, commentaries on building law, building authority directives and guidelines belong here, not project documents or templates. {productName} proposes what it is and which edition from the title page and the file name. Of the title page, {productName} keeps only those values; it reads the text once you confirm.',
     },
     confirm: {
       title: '2 · Confirm',
@@ -25,7 +25,7 @@ export const baseKnowledge = {
     },
     check: {
       title: '3 · Keep current',
-      body: 'When a law or guideline {productName} knows makes an edition of the standard binding, {productName} shows it: “Current” when your office holds that edition, “Newer edition” when a newer one is binding. Everything else you check: record when you checked that the edition is still in force. After a year (directives: six months) a check is due, and {productName} says in answers that the state has not been confirmed for a long time. When a new edition appears, upload it beside the earlier one.',
+      body: 'When a law or guideline {productName} knows makes an edition of the standard binding, {productName} shows it: “Current” when your office holds that edition, “Newer edition” when a newer one is binding. Everything else you check: record when you checked that the edition is still in force. After a year (directives: six months) the status shows “Check due”, as a note for you. When a new edition appears, upload it beside the earlier one.',
     },
     licence: {
       title: 'Licence and AI processing',
@@ -83,7 +83,7 @@ export const baseKnowledge = {
     binding: 'Edition {label} is binding today.',
     bindingVia: 'Edition {label} is binding today, under {via}.',
     checked: 'Checked by your office on {date}: {result}.',
-    unchecked: 'Not yet checked by your office. {productName} reminds after {months} months.',
+    unchecked: 'Not yet checked by your office, so the status shows “Check due”. After a check, it shows again after {months} months.',
   },
   text: {
     used: 'Quoted',
@@ -125,7 +125,7 @@ export const baseKnowledge = {
     folder: 'Folder',
     rootFolder: 'Standards & guidelines (top level)',
     proposedBy: {
-      reading: 'Proposed from the file name',
+      reading: 'Proposed from the file',
       agent: 'Proposed by {productName}',
       person: 'Entered by hand',
     },
@@ -163,6 +163,7 @@ export const baseKnowledge = {
     unlisted: '“{name}” is now an ordinary file at the top level of Folders.',
     undo: 'Undo',
     relisted: '“{name}” is kept as a standard again.',
+    notNormDone: '“{name}” is not a standard: the file is back in its folder, and {productName} will not propose it as a standard again.',
     removeTitle: 'Remove this standard?',
     removeBody: 'The standard and its file are removed from Office filing. {productName} no longer quotes it. To add a newer edition, upload that instead.',
     removed: 'Standard removed.',
@@ -249,7 +250,8 @@ export const baseKnowledge = {
     noNorms: '{count} files filed in Folders. No standard among them.',
     knownOne: '1 file filed in {place}. {productName} already knows this guideline, so it stays an ordinary file.',
     known: '{productName} already knows {count} of these guidelines, so they stay ordinary files.',
-    recognizeFailed: 'Whether there are standards among them could not be checked. The files are in Office filing; “Keep as a standard” does it later.',
+    recognizeFailed: 'The recognised standards could not be shown. They wait under “To confirm” in Standards & guidelines; all other files are in their folder.',
+    asNormFailed: 'The file could not be taken as a standard and stays in its folder. Please try again.',
     result: {
       confirmedOne: '1 standard confirmed',
       confirmed: '{count} standards confirmed',

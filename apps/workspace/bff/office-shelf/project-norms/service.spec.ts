@@ -19,6 +19,10 @@ vi.mock('@/lib/proposals/repository', () => ({
 vi.mock('@/lib/proposals/audit', () => ({ auditProposalCreated: vi.fn() }))
 vi.mock('./managers', () => ({ normDecidersOf: vi.fn(async () => ({ deciders: ['user-manager'], managers: ['Bernd Huber'] })) }))
 vi.mock('./held-works', () => ({ heldWorks: vi.fn(async () => new Map()) }))
+vi.mock('@/lib/documents/stored-copy', () => ({
+  storedFileOf: vi.fn(async (_file: unknown, name: string) => new File([new Uint8Array([1])], name, { type: 'application/pdf' })),
+}))
+vi.mock('@/lib/pdf/cover-text', () => ({ readCoverText: vi.fn(async () => null) }))
 vi.mock('./repository', () => ({
   keepInProject: vi.fn(async () => undefined),
   keptAmong: vi.fn(async () => new Set()),
@@ -47,7 +51,10 @@ import { getAccessibleDocument } from '@/lib/documents/access'
 import { insertProposedChange, listShelfProposals } from '@/lib/proposals/repository'
 import type { ProposedChangeRow } from '@/lib/proposals/repository'
 import { emitInboxItems, resolveInboxItemsAnchoredOn } from '@/lib/inbox/service'
+import { readCoverText } from '@/lib/pdf/cover-text'
+import { heldWorks } from './held-works'
 import { normDecidersOf } from './managers'
+import { workKey, type HeldEdition } from './placement'
 import { keepInProject, keptAmong, listProjectNormRows, listReferences, type ProjectNormRow } from './repository'
 import { listProjectNorms, placeProjectNorms } from './service'
 
@@ -82,12 +89,53 @@ function document(id: string, filename: string): Document {
   } as unknown as Document
 }
 
-function normRow(id: string, filename: string): ProjectNormRow {
-  return { id, filename, displayName: null, folderId: null, status: 'completed', authoredBy: 'user', screeningOutcome: 'clean', contentHash: 'h', screenedHash: 'h', createdBy: 'user-1' }
+function normRow(id: string, filename: string, contentHash = 'h'): ProjectNormRow {
+  return {
+    id,
+    filename,
+    displayName: null,
+    folderId: null,
+    status: 'completed',
+    authoredBy: 'user',
+    screeningOutcome: 'clean',
+    contentHash,
+    screenedHash: contentHash,
+    createdBy: 'user-1',
+    storageBucket: null,
+    storageKey: `org-1/${id}`,
+    contentType: 'application/pdf',
+    fileSize: 1000,
+  }
+}
+
+function heldEdition(editionLabel: string): HeldEdition {
+  return {
+    entry: {
+      editionId: `edition-${editionLabel}`,
+      documentId: `office-${editionLabel}`,
+      createdAt: new Date('2026-01-01'),
+      values: {
+        kind: 'technical_standard',
+        title: 'Barrierefreies Bauen',
+        designation: 'ÖNORM B 1600',
+        editionLabel,
+        issuedOn: editionLabel,
+        inForceFrom: null,
+        inForceTo: null,
+        territoryIds: [],
+        issuer: null,
+        addressees: [],
+        licenceClass: 'public_open',
+      },
+    },
+    contentHash: `office-${editionLabel}`,
+  }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(heldWorks).mockResolvedValue(new Map())
+  vi.mocked(readCoverText).mockResolvedValue(null)
   vi.mocked(normDecidersOf).mockResolvedValue({ deciders: ['user-manager'], managers: ['Bernd Huber'] })
   vi.mocked(listShelfProposals).mockResolvedValue([])
   vi.mocked(keptAmong).mockResolvedValue(new Set())
@@ -203,6 +251,35 @@ describe('the project’s view of its norms', () => {
     const listed = await listProjectNorms(MANAGER, 'project-1', {})
     expect(listed.offers.map((offer) => offer.documentId)).toEqual(['11111111-1111-4111-8111-111111111111'])
     expect(listed.canManageOfficeShelf).toBe(true)
+  })
+
+  it('prefills the edition its cover page gives where the file name gives none', async () => {
+    vi.mocked(listProjectNormRows).mockResolvedValue([normRow('11111111-1111-4111-8111-111111111111', 'OENORM_B_1600.pdf', 'cover-only')])
+    vi.mocked(readCoverText).mockResolvedValue('ÖNORM B 1600\nBarrierefreies Bauen\nAusgabe: 2023-02-01')
+    const [offer] = (await listProjectNorms(MANAGER, 'project-1', {})).offers
+    expect(offer).toMatchObject({ designation: 'ÖNORM B 1600', editionLabel: '2023-02-01' })
+  })
+
+  it('offers a newer edition of a norm the office holds, with the designation and edition its cover page gives', async () => {
+    vi.mocked(heldWorks).mockResolvedValue(new Map([[workKey('ÖNORM B 1600')!, [heldEdition('2017-04-15')]]]))
+    vi.mocked(listProjectNormRows).mockResolvedValue([
+      normRow('11111111-1111-4111-8111-111111111111', 'B1600_neu.pdf', 'cover-newer'),
+      normRow('22222222-2222-4222-8222-222222222222', 'OENORM_B_1600_2017-04-15.pdf', 'cover-same'),
+    ])
+    vi.mocked(readCoverText).mockImplementation(async (file) =>
+      (file as File).name === 'B1600_neu.pdf' ? 'ÖNORM B 1600\nBarrierefreies Bauen\nAusgabe: 2023-02-01' : null
+    )
+    const listed = await listProjectNorms(MANAGER, 'project-1', {})
+    expect(listed.offers).toEqual([
+      {
+        documentId: '11111111-1111-4111-8111-111111111111',
+        fileName: 'B1600_neu.pdf',
+        folderId: null,
+        designation: 'ÖNORM B 1600',
+        kind: 'technical_standard',
+        editionLabel: '2023-02-01',
+      },
+    ])
   })
 
   it('does not offer again a norm whose suggestion was declined', async () => {

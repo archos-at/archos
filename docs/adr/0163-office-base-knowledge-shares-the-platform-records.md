@@ -479,3 +479,27 @@ put it, stayed where the person did not expect it, or was deleted without a word
   an ordinary file, announced as one ARCHOS knows. The Ordner tab keeps name-based recognition.
 - **Taking a norm off remembers it as an ordinary file.** `base-knowledge-unlist` writes the keep row, so the folder
   notice does not offer the file again; „Rückgängig“ (`relist`) deletes it, and „Als Norm führen“ still works.
+
+## Amendment 2026-11-19: answers say nothing about a due check, and a proposal can be „Keine Norm“ on its page
+
+An independent review found the office still punished in answers: the turn block told the agent to name an
+overdue check in the answer („check OVERDUE …, say so“, „never checked; overdue“), and the answer label marked
+the copy `check_due`. The user decided that the manual check is only the muted pill „Prüfung fällig“ on the norms
+tab and the entry page.
+
+- **The turn block** (`office/turn-block.ts`) asks an answer to name a copy's designation or title and its edition,
+  not when it was checked. A line still carries „last checked <day> (<result>)“ when the office checked it, as
+  information; a copy never checked carries nothing about checks. `checkWords` reads no `overdue`.
+- **The answer label** (`office/answer-label.ts`) says only what a check found: `newer_known`, `superseded`
+  (withdrawn) or `current`, never `check_due`. `checkOverdue` stays on the label for the Langfuse score
+  `base-knowledge-overdue`, which measures the shelf, not the answer; nothing in the agent renders it.
+- **„Keine Norm“ on the entry page.** A proposal offered only „Bestätigen“ and „Norm entfernen“, which deletes the
+  file. It now offers „Keine Norm“ beside them: `POST /api/base-knowledge/settle` with `notNorm`, the dialog's own
+  path, so the file returns to the folder it came from and is remembered. The toast's „In Ordnern zeigen“ opens
+  the file in the Ordner tab (`?doc=`), because the settle result does not name the folder.
+- **The copy says what happens**: the proposal comes from the title page and the file name; a copy never checked
+  shows „Prüfung fällig“; a failed recognition after an upload says the recognised norms wait under „Zu
+  bestätigen“, since the server recorded them at upload, and a failed „Als Norm führen“ says the file stays in its
+  folder (`i18n/norm-copy-promises.spec.ts`).
+
+The answer-shaping change owes its golden run on dev.

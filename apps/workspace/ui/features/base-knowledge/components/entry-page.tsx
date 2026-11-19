@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, type JSX } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { FileText, Upload } from 'lucide-react'
 import {
@@ -12,6 +13,7 @@ import {
   removeBaseKnowledge,
   unlistBaseKnowledge,
   setBaseKnowledgeLicence,
+  settleNorms,
   updateBaseKnowledge,
   type BaseKnowledgeRemovalReceipt,
   type BaseKnowledgeEntry,
@@ -31,6 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { BackControl } from '@/components/shell/back-link'
+import { OFFICE_SHELF_FILES_HREF } from '@/features/documents'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import { ASK_FOR_LICENCE, type EntryValues } from '@/lib/base-knowledge/wire'
@@ -349,6 +352,7 @@ function SheetBody({
   adding,
 }: Omit<EntryPageProps, 'entry' | 'onClose'> & { entry: BaseKnowledgeEntry }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
+  const router = useRouter()
   const [values, setValues] = useState<EntryValues>(entry.values)
   const [attest, setAttest] = useState({ licence: false, ai: false })
   const [removing, setRemoving] = useState(false)
@@ -370,6 +374,14 @@ function SheetBody({
       const unlisting = await unlistBaseKnowledge(entry.id)
       capturePosthog('norm_unlisted')
       toast.success(t('detail.unlisted', { name }), { action: { label: t('detail.undo'), onClick: () => void undo(unlisting) } })
+      return null
+    }, null)
+  const notNorm = () =>
+    run(async () => {
+      const [result] = (await settleNorms({ rows: [{ entryId: entry.id, notNorm: true }] })).results
+      if (result?.outcome !== 'not_norm') throw new Error(result?.error ?? '')
+      const file = `${OFFICE_SHELF_FILES_HREF}?doc=${encodeURIComponent(entry.documentId)}`
+      toast.success(t('detail.notNormDone', { name }), { action: { label: t('norms.showInFolders'), onClick: () => router.push(file) } })
       return null
     }, null)
   const save = () =>
@@ -451,7 +463,11 @@ function SheetBody({
       {!proposed && <CheckSection entry={entry} canManage={canManage} busy={busy} run={run} />}
       {canManage && (
         <div className="flex flex-wrap gap-2 border-t pt-4">
-          {!proposed && (
+          {proposed ? (
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => void notNorm()} data-testid="base-knowledge-not-norm">
+              {t('norms.notNorm')}
+            </Button>
+          ) : (
             <Button variant="ghost" size="sm" disabled={busy} onClick={() => void unlist()} data-testid="base-knowledge-unlist">
               {t('detail.unlist')}
             </Button>

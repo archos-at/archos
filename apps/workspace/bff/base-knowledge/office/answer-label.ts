@@ -3,7 +3,7 @@ import { directiveApplicability, type DirectiveApplicability, type ProjectTerrit
 
 export type AnswerRole = 'requirement_source' | 'interpretation' | 'authority_practice'
 
-export type OfficeFreshness = 'current' | 'check_due' | 'newer_known' | 'superseded'
+export type OfficeFreshness = 'current' | 'newer_known' | 'superseded'
 
 export interface OfficeAnswerLabel {
   editionId: string
@@ -30,7 +30,7 @@ function freshnessOf(entry: BaseKnowledgeEntry): OfficeFreshness {
   const result = entry.freshness.lastCheck?.result
   if (result === 'newer_known') return 'newer_known'
   if (result === 'withdrawn') return 'superseded'
-  return checkDue(entry) ? 'check_due' : 'current'
+  return 'current'
 }
 
 function roleOf(kind: BaseKnowledgeEntry['values']['kind']): AnswerRole {

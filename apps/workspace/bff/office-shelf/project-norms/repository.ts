@@ -6,13 +6,14 @@ import { officeShelfNormKeeps, officeShelfReferences, type OfficeShelfReference 
 import { withTenant } from '@/lib/db/tenant-context'
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
+import type { CoverFile } from './cover'
 import type { NormCandidateRow } from './placement'
 import type { ReferencePlacement } from './wire'
 
 export const MAX_LEVEL_NORM_ROWS = 500
 export const MAX_LISTED_REFERENCES = 201
 
-export type ProjectNormRow = NormCandidateRow & { createdBy: string }
+export type ProjectNormRow = NormCandidateRow & CoverFile & { createdBy: string }
 
 const normRowColumns = {
   id: documents.id,
@@ -25,6 +26,10 @@ const normRowColumns = {
   contentHash: documents.contentHash,
   screeningOutcome: documents.screeningOutcome,
   createdBy: documents.createdBy,
+  storageBucket: documents.storageBucket,
+  storageKey: documents.storageKey,
+  contentType: documents.contentType,
+  fileSize: documents.fileSize,
 }
 
 export type NormRowsWhere = { folderId: string | null }

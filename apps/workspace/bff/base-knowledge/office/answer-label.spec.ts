@@ -63,13 +63,14 @@ describe('the data of an answer’s label on an office copy', () => {
     })
   })
 
-  it('says how current the check leaves it, in the platform’s words', () => {
+  it('says what the last check found, and never marks a copy as due for a check', () => {
     const territory = projectTerritory({}, AT_SUBDIVISIONS)
     const checked = (result: 'current' | 'newer_known' | 'withdrawn', overdue: boolean) => ({
       ...ENTRY,
       freshness: { ...ENTRY.freshness, overdue, lastCheck: { ...ENTRY.freshness.lastCheck!, result } },
     })
-    expect(officeAnswerLabel(checked('current', true), territory).freshness).toBe('check_due')
+    expect(officeAnswerLabel(checked('current', true), territory).freshness).toBe('current')
+    expect(officeAnswerLabel({ ...ENTRY, freshness: { ...ENTRY.freshness, overdue: true, lastCheck: null } }, territory).freshness).toBe('current')
     expect(officeAnswerLabel(checked('newer_known', true), territory).freshness).toBe('newer_known')
     expect(officeAnswerLabel(checked('withdrawn', true), territory).freshness).toBe('superseded')
   })
@@ -79,7 +80,7 @@ describe('the data of an answer’s label on an office copy', () => {
     const binding = { editionLabel: '2017', startsOn: null, via: null, held: true, newer: false }
     const stale = { ...ENTRY, freshness: { ...ENTRY.freshness, overdue: true } }
     expect(officeAnswerLabel({ ...stale, binding }, territory)).toMatchObject({ checkOverdue: false, freshness: 'current' })
-    expect(officeAnswerLabel({ ...stale, binding: { ...binding, held: false, newer: true } }, territory)).toMatchObject({ checkOverdue: true, freshness: 'check_due' })
+    expect(officeAnswerLabel({ ...stale, binding: { ...binding, held: false, newer: true } }, territory)).toMatchObject({ checkOverdue: true, freshness: 'current' })
   })
 
   it('makes a commentary interpretation and gives a directive its verdict for the project', () => {

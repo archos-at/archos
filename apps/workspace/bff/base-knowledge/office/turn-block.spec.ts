@@ -99,11 +99,12 @@ describe('the base knowledge a turn carries', () => {
     expect(block).not.toContain('OVERDUE')
   })
 
-  it('says an overdue check must be named in the answer', () => {
+  it('never asks an answer to warn about a manual check, however long ago or never', () => {
     const stale = entry({}, { freshness: { ...entry().freshness, overdue: true } })
-    expect(renderBaseKnowledgeBlock([stale], VIENNA)).toContain('check OVERDUE (due every 365 days), say so')
     const never = entry({}, { freshness: { intervalDays: 365, lastCheck: null, dueAt: null, overdue: true } })
-    expect(renderBaseKnowledgeBlock([never], VIENNA)).toContain('never checked; overdue')
+    const block = renderBaseKnowledgeBlock([stale, never], VIENNA) ?? ''
+    expect(block).toContain('last checked 2026-10-02 (current)')
+    expect(block).not.toMatch(/overdue|never checked|say so in the answer|when it was last checked/i)
   })
 
   it('marks a commentary as interpretation only', () => {

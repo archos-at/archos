@@ -81,12 +81,14 @@ Chosen option 2.
   offer stays. The deciders were not widened to managers without project write: the move
   reads the project file and bins it, which needs that write, and granting it through the
   proposal would bypass the project's own access.
-- **The offer**: a settled project file that `recognizeNorm` reads as a norm, whose work the
-  office shelf does not hold, not kept and not suggested. The project's files show it as a
+- **The offer**: a settled project file that `recognizeNorm` reads as a norm, not kept and not
+  suggested, whose work the office shelf does not hold, or holds only in other editions
+  (amendment below). The project's files show it as a
   banner per folder, and nothing goes to the Postfach (ADR-0186). When the person uploaded it in Dateien, the norm dialog opens there once it is offered,
   with the destination: Büroablage (or „Für die Büroablage vorschlagen“), „Nur dieses
   Projekt“ (the keep row), or „Später“, which leaves the banner. Until then the file is an
-  ordinary project file. The offer carries the Art and Ausgabe read from the name.
+  ordinary project file. The offer carries the Art, Bezeichnung and Ausgabe read from the cover page
+  where it can, else from the name (amendment below).
 - **The API** is one route, `/api/projects/[id]/norms`, with the operations
   `project-norm-list` and `project-norm-place`. Both office destinations require
   `visibility: "office"` in the body.
@@ -107,7 +109,7 @@ project.
 - Bad: the bytes are stored twice until the project bin is purged.
 - Bad: the move is not one transaction. A failure between the copy and the bin is
   compensated by removing the copy; a failure of that removal is logged and leaves both.
-- Neutral: the offers rest on the file name read by `recognizeNorm`; the project-side norm
+- Neutral: whether a file is offered rests on the file name read by `recognizeNorm`; the project-side norm
   dialog (`ui/features/documents/components/project-norm-dialog.tsx`, the Büroablage's
   `NormDialog` with a destination) asks no Thema, so a moved norm lands at the root of
   Normen & Richtlinien.
@@ -118,3 +120,23 @@ project.
 reference outlives the copy and reads as removed, a kept norm goes with its document, and
 another office reads and writes neither table. The move, suggestion, offer and decider specs
 beside the code.
+
+## Amendment 2026-11-19: the offer reads the cover page, and a newer edition is offered
+
+A review found the offers resting on file names alone, so the Ausgabe was often empty and „Büroablage“
+refused it, and a newer edition uploaded to a project was never offered because the office held its work.
+
+- **The cover page.** When `listProjectNorms` builds the offers, `withCovers`
+  (`bff/office-shelf/project-norms/cover.ts`) reads the cover of each undecided offer with the upload's reader
+  (`readCoverText`, `readCover`, bounded by `COVER_READ_MS`, 1.5 s) from the stored bytes (`storedFileOf`, whose
+  download-log exemption now names this read). `proposalReading` merges it as the upload does: the cover's
+  designation and edition win over the name's. Only PDFs up to 25 MB are read, at most `MAX_COVER_READS` (4) per
+  request; the reading (values only, never the page text) is cached per organization, document and content hash
+  in the shared cache for 30 days (a page without text for a day), so a file is read once. No migration. A project
+  file is the project's own and already read, so reading its cover raises no question of text before
+  confirmation.
+- **A newer edition.** `isNewToOffice` (`placement.ts`) offers a norm whose work the office holds when its
+  edition is known, differs from every held edition (label, a coarser date of it, or the same bytes) and, where
+  both carry dates, is later than the newest held one. The move then files it with `addBaseKnowledgeEdition`, as
+  before. A copy of a held edition, an older one and one whose edition is unknown stay hidden.
+- The offer's wire shape (`normOfferSchema`) is unchanged.
