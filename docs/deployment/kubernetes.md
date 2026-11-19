@@ -804,10 +804,17 @@ Record of runs: none yet.
   and `.error`; the `[Projekt-E-Mail]` rules of the Product incidents alert and
   `[Objektspeicher]` of the Infrastructure incidents alert,
   [`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts), on every stack):
-  `bad-signature` (a key or `BFF_URL` mismatch), `body-truncated`,
-  `unavailable` (storage or database), `cap_reached`, and no `received` for
-  24 hours on a deployment that usually receives mail. The receive log line per
-  delivery carries ids, sizes and the outcome code only.
+  three or more refusals of ours on a host in an hour (`unavailable`, storage
+  or database, among them); a host that has only refused for six hours; one
+  refusal for `misconfigured`, `body_truncated`, `body_overlong`, `bad_digest`
+  or `cap_reached`; and no mail taken for 24 hours by a host that took mail on
+  three of the last seven days. The last two are in
+  `deploy/posthog/alerts/product-incidents.sql` but run only once the file is
+  pasted into the live insight. `bad-signature` (a key or `BFF_URL` mismatch)
+  has no alert: it is refused before the handler and sends no PostHog event,
+  and shows as the BFF's 401 in the Worker's line in Cloudflare's Workers
+  Logs. The receive log line per delivery carries ids, sizes and the outcome
+  code only.
 - **A dependency that does not answer delays mail, it does not degrade it.**
   The receive job gives a WorkOS, DNS, reader, object-store or database fault
   (for the object store: no answer, a timeout or a 5xx; a 4xx is a bug and spends

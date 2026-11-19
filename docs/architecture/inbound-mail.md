@@ -767,8 +767,18 @@ numbers from those constants, with a link to Dateien for anything larger.
   `.part_read`, `.original_read`, `.decided`; `inbound_mail_address.created`,
   `.rotated`, `.deleted`; `mail_thread.follow_started`, `.follow_ended`,
   `.entry_detached`, `.original_read`.
-- Operator alerts: `bad-signature`, `body-truncated`, `unavailable`,
-  `cap_reached`, and no `received` for 24 h (`kubernetes.md` §3c).
+- Operator alerts: the `[Projekt-E-Mail]` rules of the Product incidents
+  alert (`deploy/posthog/alerts/product-incidents.sql`, every stack, hourly):
+  three or more refusals of ours on one host in an hour (any reason but an
+  unknown address, a switched-off office or an oversized mail, `unavailable`
+  included); a host that has only refused for six hours; a single refusal for
+  `misconfigured`, `body_truncated`, `body_overlong`, `bad_digest` or
+  `cap_reached`; and a host that took mail on three of the last seven days and
+  none for 24 h. A bad signature has no rule: it is refused before the handler
+  and sends no PostHog event. An address near its byte cap is told to the
+  project's managers in the app (sweep 14), not to the operator. The last two
+  rules are in the file; the live insight runs them only once they are pasted
+  into it ([`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts)).
 
 ## Where it lives
 
