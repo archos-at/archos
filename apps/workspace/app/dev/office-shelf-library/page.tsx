@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { BackLink } from '@/components/shell/back-link'
 import { writeTrail } from '@/lib/navigation/return-trail'
 import { OfficeShelfWorkspace } from '@/features/documents/components/office-shelf-workspace'
+import { OfficeShelfPlaces, OFFICE_SHELF_FILES_HREF } from '@/features/documents/components/office-shelf-places'
 import type { FileItem, FolderItem } from '@/features/documents/file-types'
 
 function makeFile(
@@ -120,7 +121,11 @@ export default function OfficeShelfLibraryDevPage(): JSX.Element {
     <main className="mx-auto flex max-w-6xl flex-col p-6">
       <BackLink fallbackHref="/app/projects" fallbackLabel="Back to projects" />
       <div className="shadow-xs mt-3 flex h-[820px] flex-col overflow-hidden rounded-xl border">
-        <OfficeShelfWorkspace canManage={!readOnly} organizationName="Atelier Nord" />
+        <OfficeShelfWorkspace
+          canManage={!readOnly}
+          organizationName="Atelier Nord"
+          places={<OfficeShelfPlaces pathname={OFFICE_SHELF_FILES_HREF} />}
+        />
       </div>
     </main>
   )

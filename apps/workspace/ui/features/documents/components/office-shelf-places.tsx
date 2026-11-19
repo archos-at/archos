@@ -24,7 +24,6 @@ export function OfficeShelfPlaces({ pathname }: { pathname?: string }): JSX.Elem
       orientation="tabs"
       pathname={pathname}
       track
-      compactOnPhone
       data-testid="office-shelf-tabs"
     />
   )
