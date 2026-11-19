@@ -558,6 +558,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
             participantDomains: ['statik-weber.at'],
           },
           firstVersionId: target.versionId,
+          unnamedPositions: [],
           movedAt,
         })
       )
@@ -589,6 +590,45 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
         sql`DELETE FROM mail_thread_entries WHERE id = ${commit.entry.id!}::uuid`
       ).catch((error: unknown) => error)
       expect(String((refused as { cause?: unknown }).cause)).toMatch(/permission denied/)
+    })
+  })
+
+  describe('a detached section (migration 0250)', () => {
+    it('stops naming an attachment its new thread’s readers may not open, and never names it again', async () => {
+      const mail = await heldMail()
+      const source = await document('Named source.md', restrictedFolder)
+      const target = await document('Named target.md')
+      const attachmentDoc = await document('Honorar.pdf', restrictedFolder)
+      const commit = newThreadCommit(
+        mail,
+        { id: crypto.randomUUID(), documentId: source.id, versionId: source.versionId },
+        { documentId: attachmentDoc.id, versionId: attachmentDoc.versionId }
+      )
+      await inTenant(() => write.commitAppend(commit))
+      const toThreadId = crypto.randomUUID()
+      const section = sql`SELECT section_name, section_folder_path FROM mail_thread_entry_attachments WHERE entry_id = ${commit.entry.id!}::uuid`
+      expect(await one(section)).toEqual({ section_name: 'S-101_C.pdf', section_folder_path: null })
+
+      await inTenant(() =>
+        write.commitDetach({
+          entryId: commit.entry.id!,
+          fromThreadId: commit.threadId,
+          toThreadId,
+          newThread: { id: toThreadId, organizationId: ORG, projectId, documentId: target.id, baseSubject: 'statik', locale: 'de', createdBy: USER },
+          heading: commit.entry.heading,
+          fromThreadUpdate: { entryCount: 0, renderedBytes: 10, lastEntryAt: null },
+          toThreadUpdate: { documentId: target.id, entryCount: 1, renderedBytes: 420, lastEntryAt: new Date(), participantDomains: [] },
+          firstVersionId: target.versionId,
+          unnamedPositions: [1],
+          movedAt: new Date(),
+        })
+      )
+      expect(await one(section)).toEqual({ section_name: null, section_folder_path: null })
+
+      const renamed = await rows(
+        sql`UPDATE mail_thread_entry_attachments SET section_name = 'S-101_C.pdf' WHERE entry_id = ${commit.entry.id!}::uuid`
+      ).catch((error: unknown) => error)
+      expect(String((renamed as { cause?: unknown }).cause)).toMatch(/never rewritten/)
     })
   })
 

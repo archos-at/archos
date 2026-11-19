@@ -398,6 +398,7 @@ export interface DetachCommit {
     'documentId' | 'entryCount' | 'renderedBytes' | 'lastEntryAt' | 'participantDomains'
   >
   firstVersionId: string | null
+  unnamedPositions: readonly number[]
   movedAt: Date
 }
 
@@ -430,6 +431,17 @@ export async function commitDetach(
           eq(mailThreadEntries.inReplyToEntryId, commit.entryId)
         )
       )
+    if (commit.unnamedPositions.length > 0) {
+      await tx
+        .update(mailThreadEntryAttachments)
+        .set({ sectionName: null, sectionFolderPath: null })
+        .where(
+          and(
+            eq(mailThreadEntryAttachments.entryId, commit.entryId),
+            inArray(mailThreadEntryAttachments.position, [...commit.unnamedPositions])
+          )
+        )
+    }
     await tx
       .update(mailThreads)
       .set(commit.fromThreadUpdate)

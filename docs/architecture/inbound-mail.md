@@ -500,7 +500,14 @@ then does the entry's row move (its Message-IDs by `ON UPDATE CASCADE`).
 A new Verlauf takes the moved message's own base subject and Thread-Index
 GUID from its entry, so replies to it match the Verlauf it now starts; an
 entry filed before migration 0250 has neither, and the new Verlauf keeps the
-left one's subject. Every follow of the thread it left ends (`detached`).
+left one's subject. What the moved section names of its attachments was
+decided for the Verlauf it was filed into; the detach names no more than the
+joined Verlauf's readers may open (RT-S13): a file whose folder is closer than
+the joined Verlauf's, one the mover cannot read, or any named file when the
+new Verlauf's folder is only being made, is counted, not named, from the
+joined Verlauf's Fassung on (`section_name` and `section_folder_path` become
+NULL; the 0250 guard lets them only go, never come back). Every follow of the
+thread it left ends (`detached`).
 
 ## Following a Verlauf
 

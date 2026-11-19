@@ -14,6 +14,12 @@ vi.mock('./write-repository', () => ({
   findWritableThread: vi.fn(async () => null),
 }))
 vi.mock('./repository', () => ({ findVisibleThread: vi.fn(async () => ({ id: 'visible' })) }))
+vi.mock('@/lib/authz/folder-access-repository', () => ({
+  listProjectFolderTree: vi.fn(async () => [
+    { id: 'board', parentId: null, accessMode: 'custom', everyoneReads: false },
+    { id: 'board-sub', parentId: 'board', accessMode: 'inherit', everyoneReads: false },
+  ]),
+}))
 vi.mock('@/lib/inbound-mail/access', () => ({
   requireMailReviewer: vi.fn(async () => ({ closed: false })),
 }))
@@ -52,11 +58,12 @@ vi.mock('@/lib/upload-screening/service', async (importOriginal) => ({
 import { InsufficientStorageError } from '@/lib/api/errors'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { MailThreadEntryRow, MailThreadRow } from '@/lib/db/schema/mail-thread'
+import type { MailThreadEntryAttachmentRow, MailThreadEntryRow, MailThreadRow } from '@/lib/db/schema/mail-thread'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { announceFollowsEnded, settleFollowExpiring } from '@/lib/inbound-mail/announce'
 import { heldMail, PERSON, PROJECT_ID } from '@/lib/inbound-mail/__fixtures__/review'
 import { findDocumentIdByStoredName } from '@/lib/inbound-mail/repository'
+import { ensureProjectFolderPaths } from '@/lib/projects/folder-service'
 import { inboundEntryOf } from './append'
 import { detachMailThreadEntry } from './detach'
 import type { MailThreadEntryDetachBody } from './mail-thread-wire'
@@ -65,6 +72,7 @@ import {
   acquireRenderLease,
   commitDetach,
   findCurrentVersions,
+  findEntryAttachmentRows,
   findThreadEntryRows,
   findWritableThread,
   releaseRenderLease,
@@ -318,6 +326,83 @@ describe('moving a message into another thread', () => {
       details: { reason: 'upload_refused', failure: 'quota' },
     })
     expect(commitDetach).not.toHaveBeenCalled()
+  })
+})
+
+describe('what the moved section names of its attachments (RT-S13)', () => {
+  const attachment = (overrides: Partial<MailThreadEntryAttachmentRow> = {}): MailThreadEntryAttachmentRow => ({
+    id: 'att-1',
+    organizationId: 'org_1',
+    projectId: PROJECT_ID,
+    entryId: MOVE.id,
+    position: 1,
+    filename: 'Honorarvereinbarung.pdf',
+    disposition: 'filed',
+    notFiledReason: null,
+    documentId: 'doc-fee',
+    documentVersionId: 'ver-fee',
+    sectionName: 'Honorarvereinbarung.pdf',
+    sectionFolderPath: 'Vorstand/Verträge',
+    createdAt: AT,
+    ...overrides,
+  })
+  const filedIn = (folderId: string | null) => {
+    vi.mocked(findEntryAttachmentRows).mockImplementation(
+      async (ids) => new Map(ids.includes(MOVE.id) ? [[MOVE.id, [attachment()]]] : [])
+    )
+    vi.mocked(findCurrentVersions).mockImplementation(
+      async (ids) =>
+        new Map(
+          ids.map((id) => [
+            id,
+            { documentId: id, versionId: `${id}-next`, versionCreatedAt: AT, contentHash: 'x', folderId: id === 'doc-fee' ? folderId : null },
+          ])
+        )
+    )
+  }
+
+  it('stops naming a file and its folder the joined thread’s readers may not open', async () => {
+    filedIn('board')
+    await detach({ action: 'append', mailThreadId: TARGET })
+    const joined = await vi.mocked(uploadDocument).mock.calls[1]![1].file.text()
+    expect(joined).not.toContain('Honorarvereinbarung')
+    expect(joined).not.toContain('Vorstand')
+    expect(joined).toContain('1 Anhang nur im Original')
+    expect(vi.mocked(commitDetach).mock.calls[0]![0].unnamedPositions).toEqual([1])
+  })
+
+  it('keeps naming it where the joined thread is as closed as the file', async () => {
+    filedIn('board')
+    vi.mocked(findWritableThread).mockImplementation(async (_project, id) =>
+      id === SOURCE
+        ? writable(SOURCE, 'Statik.md')
+        : { ...writable(TARGET, 'Einreichung.md'), document: { ...writable(TARGET, 'Einreichung.md').document, folderId: 'board-sub' } }
+    )
+    await detach({ action: 'append', mailThreadId: TARGET })
+    expect(await vi.mocked(uploadDocument).mock.calls[1]![1].file.text()).toContain('Honorarvereinbarung.pdf')
+    expect(vi.mocked(commitDetach).mock.calls[0]![0].unnamedPositions).toEqual([])
+  })
+
+  it('names nothing in a new thread whose folder is not made yet: who reads it is not known', async () => {
+    filedIn('board')
+    vi.mocked(ensureProjectFolderPaths).mockResolvedValue({ ok: true, folderIdByPath: { 'Vorstand/Neu': 'folder-new' } } as Awaited<
+      ReturnType<typeof ensureProjectFolderPaths>
+    >)
+    await detach({ action: 'create', name: 'Honorar', newFolderPath: 'Vorstand/Neu' })
+    expect(vi.mocked(commitDetach).mock.calls[0]![0].unnamedPositions).toEqual([1])
+  })
+
+  it('names nothing the person moving it cannot read', async () => {
+    filedIn(null)
+    const versions = vi.mocked(findCurrentVersions).getMockImplementation()!
+    vi.mocked(findCurrentVersions).mockImplementation(async (ids, reader) =>
+      versions(
+        ids.filter((id) => id !== 'doc-fee'),
+        reader
+      )
+    )
+    await detach({ action: 'append', mailThreadId: TARGET })
+    expect(vi.mocked(commitDetach).mock.calls[0]![0].unnamedPositions).toEqual([1])
   })
 })
 
