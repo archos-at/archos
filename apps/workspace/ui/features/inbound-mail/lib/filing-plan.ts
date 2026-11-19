@@ -12,7 +12,7 @@ import {
   type FolderTarget,
   type MailDraft,
 } from './draft'
-import { replacedIndex } from './plan-index'
+import { indexChange, type IndexChange } from './plan-index'
 import { readSuggestion } from './suggestion'
 
 export const FILING_STEPS = ['sender', 'text', 'attachments', 'overview'] as const
@@ -100,7 +100,7 @@ export type PlanLine =
       documentType: DocumentTypeTag | null
       besides: string | null
     }
-  | { kind: 'revision'; partId: string; name: string; version: number; of: string; replaces: string | null; folder: string | null }
+  | { kind: 'revision'; partId: string; name: string; version: number; of: string; index: IndexChange | null; folder: string | null }
   | { kind: 'no_folder'; partId: string; name: string }
   | { kind: 'left'; partId: string; name: string; why: LeftReason; includable: boolean; terms: readonly string[]; risk: AttachmentCase['risk'] }
 
@@ -138,7 +138,7 @@ function attachmentLine(entry: AttachmentCase, row: AttachmentDraft | undefined,
       name,
       version: revision.nextVersion,
       of: revision.name,
-      replaces: replacedIndex(part.filename, revision.name),
+      index: indexChange(part.filename, revision.name),
       folder: revision.folderPath,
     }
   }

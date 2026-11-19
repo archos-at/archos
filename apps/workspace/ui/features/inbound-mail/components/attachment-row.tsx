@@ -37,6 +37,7 @@ import { CLAUSE_JOIN, formatBytes, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { ROW_HAIRLINE } from '@/components/ui/row-hairline'
 import type { AttachmentCase, AttachmentNote } from '../lib/attachment-case'
+import { indexChange } from '../lib/plan-index'
 import { revisionChoiceOf, type AttachmentDraft, type FolderOption, type RevisionChoice } from '../lib/draft'
 import type { QuickPick } from '../lib/filing-plan'
 import { readSuggestion } from '../lib/suggestion'
@@ -97,6 +98,7 @@ export function AttachmentRow({
   const anySuggested = draft.suggested.folder || draft.suggested.documentType || draft.suggested.name
   const revision = part.revisionCandidate
   const threeWay = entry.unsureRevision && revision !== null && !!onRevisionChoice
+  const index = revision ? indexChange(part.filename, revision.name) : null
 
   const folderTarget = draft.folder
   const showTarget = selectable && draft.checked
@@ -154,10 +156,14 @@ export function AttachmentRow({
                   />
                   <div className="flex min-w-0 flex-col">
                     <Label htmlFor={`${id}-${choice}`} className="text-foreground text-sm font-normal leading-snug [overflow-wrap:anywhere]">
-                      {t(`attachments.revisionChoice.${choice}`, { name: revision.name, version: revision.nextVersion })}
+                      {choice === 'revision' && index
+                        ? t('attachments.revisionChoice.revisionIndex', { ...index })
+                        : t(`attachments.revisionChoice.${choice}`, { name: revision.name, version: revision.nextVersion })}
                     </Label>
                     <span id={`${id}-${choice}-why`} className="text-muted-foreground text-xs leading-snug [overflow-wrap:anywhere]">
-                      {t(`attachments.revisionChoice.${REVISION_WHY[choice]}`, { name: revision.name, file: name, current: revision.nextVersion - 1 })}
+                      {choice === 'revision' && index
+                        ? t('attachments.revisionChoice.whyRevisionIndex', { ...index })
+                        : t(`attachments.revisionChoice.${REVISION_WHY[choice]}`, { name: revision.name, file: name, current: revision.nextVersion - 1 })}
                     </span>
                   </div>
                 </div>
@@ -333,12 +339,15 @@ export function AttachmentNoteLine({ projectId, note }: { projectId: string; not
       return (
         <FactLine icon={FileStack} tone={note.verified || note.likely ? 'default' : 'warning'} testId="note-revision">
           {note.verified
-            ? t('attachments.notes.revision', { version: note.nextVersion, name: note.name })
+            ? note.index
+              ? t('attachments.notes.revisionIndex', { ...note.index })
+              : t('attachments.notes.revision', { version: note.nextVersion, name: note.name })
             : note.likely
-              ? t('attachments.notes.revisionLikely', {
+              ? t(note.index ? 'attachments.notes.revisionLikelyIndex' : 'attachments.notes.revisionLikely', {
                   name: note.name,
                   current: note.nextVersion - 1,
                   folder: note.folderPath ? note.folderPath : t('suggestion.root'),
+                  ...note.index,
                 })
               : t('attachments.notes.revisionUnverified', { version: note.nextVersion, name: note.name })}
         </FactLine>

@@ -76,7 +76,7 @@ describe('the mail pane', () => {
     expect(within(pane).queryByTestId('attachments-check-all')).toBeNull()
     const phrases = within(pane).getAllByTestId('attachment-plan').map((phrase) => phrase.textContent)
     expect(phrases).toEqual([
-      'Revision 4 of S-101_C.pdf (replaces C)\u00A0· Folder Tragwerk',
+      'Drawing S-101: revision D becomes the current state, revision C is kept\u00A0· Folder Tragwerk',
       'Folder Tragwerk\u00A0· Document type Floor plan',
       'New folder Fotos\u00A0· Document type Photo',
       'stays out – already in the project',
@@ -101,7 +101,7 @@ describe('the mail pane', () => {
 
   it('says an open question in the attachment’s phrase, and how many questions „Einordnen“ asks', () => {
     renderDetail('unverified-thread')
-    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Open: could be revision 4 of S-101_C.pdf')
+    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Open: file revision C as the new state of drawing TG-L01?')
     expect(screen.getByTestId('decision-open-hint')).toHaveTextContent('2 questions, then the overview. Nothing is filed until you confirm.')
   })
 
@@ -256,7 +256,7 @@ describe('„Einordnen“', () => {
     await openFiling()
     expect(overviewLines()).toEqual([
       expect.stringMatching(/^Mail text → added to mail thread “Stellplatznachweis”/),
-      'S-101_D.pdf → revision 4 of S-101_C.pdf (replaces C)\u00A0· Folder Tragwerk',
+      'S-101_D.pdf → drawing S-101: revision D becomes the current state, revision C is kept\u00A0· Folder Tragwerk',
       'Grundriss_EG.dwg → Folder Tragwerk\u00A0· Document type Floor plan',
       'Foto_Baustelle.jpg → New folder Fotos\u00A0· Document type Photo',
       'Statik_verschluesselt.pdf → Folder Tragwerk',
@@ -304,15 +304,15 @@ describe('„Einordnen“', () => {
     renderDetail('unverified-thread')
     await openFiling()
     await toOverview()
-    expect(overviewLines()).toContain('S-101_D.pdf → revision 4 of S-101_C.pdf (replaces C)\u00A0· Folder Tragwerk')
+    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → drawing TG-L01: revision C becomes the current state, revision B is kept\u00A0· Folder Pläne/))
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-none'))
     await next()
-    expect(overviewLines()).toContain('S-101_D.pdf stays out – not selectedFile after all')
+    expect(overviewLines()).toContain('TG-L01_C.pdf stays out – not selectedFile after all')
     await userEvent.keyboard('{Escape}')
     await openFiling()
     expect(stepOf()).toBe('overview')
-    expect(overviewLines()).toContain('S-101_D.pdf stays out – not selectedFile after all')
+    expect(overviewLines()).toContain('TG-L01_C.pdf stays out – not selectedFile after all')
     expect(screen.getByTestId('attachment-plan')).toHaveTextContent('stays out – not selected')
   })
 
@@ -596,24 +596,24 @@ describe('„Einordnen“', () => {
     await next()
     expect(stepOf()).toBe('attachments')
     expect(within(dialog()).getByTestId('note-revision')).toHaveTextContent(
-      'The project holds S-101_C.pdf as revision 3 in the folder Tragwerk. The drawing number matches, so the next revision is proposed.'
+      'The project holds TG-L01_B.pdf in the folder Pläne: drawing TG-L01 at revision B. So revision C is proposed as the new state.'
     )
     const choice = within(dialog()).getByTestId('revision-choice')
     expect(within(choice).getAllByRole('radio').map((radio) => radio.parentElement?.textContent)).toEqual([
-      'File as revision 4 of S-101_C.pdfS-101_D.pdf becomes the current state, S-101_C.pdf stays as revision 3.',
-      'File as a new file next to S-101_C.pdfS-101_C.pdf stays the current state.',
+      'File as the new state of drawing TG-L01Revision C becomes the current state, revision B is kept.',
+      'File as a new file next to TG-L01_B.pdfTG-L01_B.pdf stays the current state.',
       'Do not fileThe file is dismissed with the mail.',
     ])
     expect(within(dialog()).getByTestId('revision-choice-revision')).toBeChecked()
     expect(within(dialog()).queryByTestId('attachment-ack-revision')).toBeNull()
     await next()
-    expect(overviewLines()).toContain('S-101_D.pdf → revision 4 of S-101_C.pdf (replaces C)\u00A0· Folder Tragwerk')
+    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → drawing TG-L01: revision C becomes the current state, revision B is kept\u00A0· Folder Pläne/))
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-new'))
-    expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Tragwerk')
+    expect(within(dialog()).getByTestId('attachment-folder')).toHaveTextContent('Folder: Pläne')
     await next()
-    expect(overviewLines()).toContain('S-101_D.pdf → new file next to S-101_C.pdf\u00A0· Folder Tragwerk')
-    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('New file next to S-101_C.pdf · Folder Tragwerk')
+    expect(overviewLines()).toContainEqual(expect.stringMatching(/^TG-L01_C\.pdf → new file next to TG-L01_B\.pdf\u00A0· Folder Pläne/))
+    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('New file next to TG-L01_B.pdf · Folder Pläne')
     await userEvent.click(within(dialog()).getByTestId('filing-back'))
     await userEvent.click(within(dialog()).getByTestId('revision-choice-revision'))
     await next()
@@ -622,6 +622,24 @@ describe('„Einordnen“', () => {
     const sent = file.mock.calls[0][1].mails[0]
     expect(sent.parts).toEqual([expect.objectContaining({ partId: plan.id, revisionOf: plan.revisionCandidate!.documentId })])
     expect(sent.acknowledgeRisk).toEqual([plan.id])
+  })
+
+  it('says a Fassung’s number where the names carry no index, and that the earlier one is kept', async () => {
+    const base = DETAIL_VARIANTS['revision']
+    const plain = {
+      ...base,
+      view: {
+        ...base.view,
+        parts: base.view.parts.map((part) =>
+          part.revisionCandidate ? { ...part, filename: 'Statik_Tiefgarage.pdf', revisionCandidate: { ...part.revisionCandidate, name: 'Statik_Tiefgarage.pdf' } } : part
+        ),
+      },
+    }
+    render(
+      <InboundMailDetail projectId={PROJECT_ID} mailId={plain.view.id} initial={plain.view} initialText={plain.text} folders={FOLDERS} client={fixtureClient({ detail: plain })} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
+    )
+    expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Revision 4 of Statik_Tiefgarage.pdf, revision 3 is kept · Folder Tragwerk')
+    expect(screen.getByTestId('attachment-plan')).not.toHaveTextContent(/replaces/)
   })
 
   it('says loudly what stays out and why, and files it after all with one press', async () => {

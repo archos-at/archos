@@ -423,8 +423,47 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect(await inTenant(() => repo.findScreenedDuplicates(projectId, ['b'.repeat(64), 'c'.repeat(64)]))).toEqual(
         new Map([['b'.repeat(64), documentId]]),
       )
-      expect(await inTenant(() => repo.findScreenedNamesakes(projectId, ['S-101_B.pdf', 'Gehalten.pdf']))).toEqual(
+      expect(await inTenant(() => repo.findScreenedRevisionCandidates(projectId, ['S-101_B.pdf', 'Gehalten.pdf']))).toEqual(
         new Map([['S-101_B.pdf', documentId]]),
+      )
+    })
+
+    it('names the same plan number’s latest earlier index as a revision candidate, newest version first, screened and unmistakable only', async () => {
+      const screened = async (filename: string, created: string, versionAt: string | null, seed: string): Promise<string> => {
+        const { id } = await one<{ id: string }>(sql`
+          INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
+                                 content_hash, screened_hash, screening_outcome, created_at)
+          VALUES (${ORG}, ${USER}, ${filename}, ${`k/inbound/${STAMP}/plan-${seed}`}, ${`coll_inbound_${STAMP}`}, 'completed', 'project',
+                  ${projectId}::uuid, ${seed.padEnd(64, '0')}, ${seed.padEnd(64, '0')}, 'clean', now() - ${created}::interval) RETURNING id`)
+        if (versionAt) {
+          await one(sql`
+            INSERT INTO document_versions (organization_id, document_id, project_id, version_number, state, storage_key, created_by, created_at)
+            VALUES (${ORG}, ${id}::uuid, ${projectId}::uuid, 1, 'superseded', ${`k/inbound/${STAMP}/plan-${seed}/v1`}, ${USER}, now() - ${versionAt}::interval)
+            RETURNING id`)
+        }
+        return id
+      }
+      const b = await screened('TW-7_B.pdf', '5 days', '5 days', 'd1')
+      const newestC = await screened('TW-7_C.pdf', '3 days', '1 hour', 'd2')
+      await screened('TW-7-C.pdf', '1 day', '1 day', 'd3')
+      await screened('TW-7 Index C.pdf', '1 day', '10 minutes', 'd8')
+      const e = await screened('TW-7_E.pdf', '4 days', '4 days', 'd4')
+      await screened('TW-7_D.dwg', '1 day', '1 day', 'd5')
+      await screened('TW-70_C.pdf', '1 day', '1 day', 'd6')
+      await one(sql`
+        INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, content_hash)
+        VALUES (${ORG}, ${USER}, 'tw-7_c.pdf', ${`k/inbound/${STAMP}/plan-held`}, ${`coll_inbound_${STAMP}`}, 'quarantined', 'project',
+                ${projectId}::uuid, ${'d7'.padEnd(64, '0')}) RETURNING id`)
+
+      const found = await inTenant(() =>
+        repo.findScreenedRevisionCandidates(projectId, ['TW-7_D.pdf', 'TW-7_B.pdf', 'TW-7_A.pdf', 'TW-7_F.pdf', 'Brief.pdf']),
+      )
+      expect(found).toEqual(
+        new Map([
+          ['TW-7_D.pdf', newestC],
+          ['TW-7_B.pdf', b],
+          ['TW-7_F.pdf', e],
+        ]),
       )
     })
 

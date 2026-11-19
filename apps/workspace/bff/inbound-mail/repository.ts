@@ -22,7 +22,7 @@ export {
   findMailForReceive,
   findPartSummaries,
   findScreenedDuplicates,
-  findScreenedNamesakes,
+  findScreenedRevisionCandidates,
   findThreadCandidates,
   findThreadFollowContext,
   type HeldMailFields,

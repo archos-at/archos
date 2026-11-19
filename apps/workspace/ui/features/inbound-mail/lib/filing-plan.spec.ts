@@ -90,7 +90,7 @@ describe('what „Übersicht“ says, part by part', () => {
     const lines = planLines(view, initialDraft(view, FOLDERS, copy), copy)
     expect(lines.map((line) => line.kind)).toEqual(['text_append', 'revision', 'file', 'file', 'left', 'file', 'left'])
     expect(lines[0]).toMatchObject({ thread: 'Stellplatznachweis', masked: false })
-    expect(lines[1]).toMatchObject({ name: 'S-101_D.pdf', version: 4, of: 'S-101_C.pdf', replaces: 'C', folder: 'Tragwerk' })
+    expect(lines[1]).toMatchObject({ name: 'S-101_D.pdf', version: 4, of: 'S-101_C.pdf', index: { plan: 'S-101', from: 'C', to: 'D' }, folder: 'Tragwerk' })
     expect(lines[3]).toMatchObject({ name: 'Foto_Baustelle.jpg', folder: 'Fotos', newFolder: true, documentType: 'Foto' })
     expect(lines[4]).toMatchObject({ name: 'Bescheid_alt.pdf', why: 'duplicate' })
     expect(lines[6]).toMatchObject({ name: 'Attachment 6', why: 'image' })
@@ -118,13 +118,13 @@ describe('what „Übersicht“ says, part by part', () => {
     expect(lines.filter((line) => line.kind === 'left').map((line) => line.kind === 'left' && line.why)).toEqual(['scan_pending', 'scan_failed'])
   })
 
-  it('names the decision on a possible next Fassung: the Fassung and the index it replaces, or the document a new file stands beside', () => {
+  it('names the decision on a possible next Fassung: the plan and its two indexes, or the document a new file stands beside', () => {
     const { view } = DETAIL_VARIANTS['unverified-thread']
     const draft = initialDraft(view, FOLDERS, copy)
     const plan = view.parts.find((candidate) => candidate.kind === 'attachment')!
-    expect(planLines(view, draft, copy)[1]).toEqual({ kind: 'revision', partId: plan.id, name: 'S-101_D.pdf', version: 4, of: 'S-101_C.pdf', replaces: 'C', folder: 'Tragwerk' })
+    expect(planLines(view, draft, copy)[1]).toEqual({ kind: 'revision', partId: plan.id, name: 'TG-L01_C.pdf', version: 3, of: 'TG-L01_B.pdf', index: { plan: 'TG-L01', from: 'B', to: 'C' }, folder: 'Pläne' })
     const besides = updateAttachment(draft, plan.id, { revisionOf: null, acknowledgeRisk: false })
-    expect(planLines(view, besides, copy)[1]).toMatchObject({ kind: 'file', name: 'S-101_D.pdf', folder: 'Tragwerk', besides: 'S-101_C.pdf' })
+    expect(planLines(view, besides, copy)[1]).toMatchObject({ kind: 'file', name: 'TG-L01_C.pdf', folder: 'Pläne', besides: 'TG-L01_B.pdf' })
     const unrelated = mail({ parts: [message, permitDecision] })
     expect(planLines(unrelated, initialDraft(unrelated, FOLDERS, copy), copy)[1]).toMatchObject({ kind: 'file', besides: null })
   })

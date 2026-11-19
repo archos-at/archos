@@ -6,6 +6,7 @@ import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import type { InboundMailPartView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { CLAUSE_JOIN } from '@/lib/format'
 import type { OpenReason, PlanLine } from '../lib/filing-plan'
+import { indexChange } from '../lib/plan-index'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -37,9 +38,9 @@ export function usePlanWords(): PlanWords {
   const revisionWords = useCallback(
     (line: Extract<PlanLine, { kind: 'revision' }>): string =>
       [
-        `${t('filing.overview.revision', { version: line.version, of: line.of })} ${
-          line.replaces ? t('filing.overview.replaces', { index: line.replaces }) : t('filing.overview.replacesVersion', { version: line.version - 1 })
-        }`,
+        line.index
+          ? t('filing.overview.revisionIndex', { ...line.index })
+          : t('filing.overview.revision', { version: line.version, of: line.of, previous: line.version - 1 }),
         ...(line.folder !== null ? [t('filing.overview.folder', { folder: folder(line.folder) })] : []),
       ].join(CLAUSE_JOIN),
     [folder, t]
@@ -85,6 +86,8 @@ export function usePlanWords(): PlanWords {
     (line: PlanLine, open: OpenReason | null, part: InboundMailPartView): string | null => {
       if (open) {
         const revision = part.revisionCandidate
+        const index = revision ? indexChange(part.filename, revision.name) : null
+        if (open === 'revision_unsure' && index) return t('filing.pane.open.revision_unsure_index', { ...index })
         return t(`filing.pane.open.${open}`, revision ? { version: revision.nextVersion, of: revision.name } : {})
       }
       switch (line.kind) {
