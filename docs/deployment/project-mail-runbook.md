@@ -615,9 +615,11 @@ without a successor.
    `[inbound-mail] delivery outcome=` line for the same minute.
 4. **In the project**: it may be filed already (the sender's own signed mail is
    filed directly into an E-Mail-Verlauf, with a notice to them), waiting in the
-   E-Mail-Eingang, or folded under „Domain nicht bestätigt oder automatisch“.
-   Waiting mail from outside the office expires after 14 days; dismissed and
-   expired parts can be restored for 7 days (an outsider's expired mail cannot).
+   E-Mail-Eingang (an outsider's unconfirmed mail is a row like any other), or
+   folded under „Automatisch“. Waiting mail from outside the office expires
+   after 14 days; dismissed and expired parts can be restored for 7 days (an
+   outsider's expired mail cannot, nor a dismissed part of an outsider's mail
+   whose domain did not confirm it).
 5. An auto-reply or a delivery report is dropped on purpose (`inbound_mail_dropped`).
 
 ## 11. What the customer sees (for support)

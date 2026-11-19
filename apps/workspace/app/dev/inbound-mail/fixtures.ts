@@ -12,7 +12,7 @@ import { threadGroupsOf } from '@/lib/inbound-mail/thread-groups'
 import type { InboundMailAddressClient, InboundMailClient } from '@/features/inbound-mail/lib/client'
 import { daysAhead, fixtureId, FOLDERS, minutesAgo } from './fixture-base'
 import { DETAIL_VARIANTS, type DetailFixture } from './detail-variants'
-import { mail, messagePart, summaryOf, text } from './fixture-builders'
+import { mail, messagePart, part, summaryOf, text } from './fixture-builders'
 
 export { FIXTURE_NOW, fixtureId, FOLDERS, PROJECT_ID, PROJECT_NAME } from './fixture-base'
 export { mail, messagePart, part, summaryOf, text, thread } from './fixture-builders'
@@ -46,6 +46,17 @@ const quietMails = [
   DETAIL_VARIANTS['external-unverified'].view,
 ]
 
+const expiringMail = mail({
+  key: 'outsider-expiring',
+  subject: 'Rückfrage Gerüststellung Hofseite',
+  sender: { name: 'Gerüstbau Novak', address: 'office@geruestbau-novak.example', domain: 'geruestbau-novak.example', signerDomain: null, trust: 'external_unverified', reason: 'dkim_none', flags: [] },
+  receivedAt: minutesAgo(60 * 24 * 12),
+  sentAt: minutesAgo(60 * 24 * 12 + 3),
+  expiresAt: daysAhead(2),
+  parts: [messagePart({ id: fixtureId('message:outsider-expiring') }), part({ name: 'Geruestplan_Hof.pdf' })],
+  threadCandidates: [],
+})
+
 const allMails = [
   v('member-verified'),
   v('revision'),
@@ -54,6 +65,7 @@ const allMails = [
   v('unverified-thread'),
   v('impersonation-colleague'),
   v('name-stop'),
+  expiringMail,
   ...quietMails,
 ]
 
@@ -64,7 +76,7 @@ const bulkMails = Array.from({ length: 24 }, (_, index) =>
 export const DETAIL_BY_ID = new Map<string, DetailFixture>()
 for (const fixture of [
   ...Object.values(DETAIL_VARIANTS),
-  ...[...groupMails, ...quietMails, ...bulkMails].map((view) => ({ view, text: text() })),
+  ...[...groupMails, ...quietMails, expiringMail, ...bulkMails].map((view) => ({ view, text: text() })),
 ]) {
   if (!DETAIL_BY_ID.has(fixture.view.id)) DETAIL_BY_ID.set(fixture.view.id, fixture)
 }
@@ -86,7 +98,8 @@ export const LIST_VARIANTS: Record<string, ListFixture> = {
   one: { items: [summaryOf(v('member-verified'))] },
   many: { items: allMails.map((view) => summaryOf(view)), nextCursor: 'more', open: v('member-verified').id },
   'thread-group': { items: [...groupMails.map((view) => summaryOf(view)), summaryOf(v('mixed-attachments')), summaryOf(v('name-stop'))] },
-  'unverified-group': { items: [summaryOf(v('member-verified')), ...quietMails.map((view) => summaryOf(view))] },
+  'unverified-group': { items: [summaryOf(v('member-verified')), summaryOf(expiringMail), ...quietMails.map((view) => summaryOf(view))] },
+  'only-automatic': { items: [summaryOf(quietMails[0])] },
   selected: { items: [...groupMails.map((view) => summaryOf(view)), summaryOf(v('revision'))], checked: [groupMails[0].id, groupMails[1].id] },
   'bulk-blocked': { items: [...allMails, v('not-addressed')].map((view) => summaryOf(view)), checked: [v('member-verified').id, v('not-addressed').id] },
   settled: { status: 'handled', items: [summaryOf(v('filed-outcome')), summaryOf(v('decided-by-other')), summaryOf(v('expired')), summaryOf(v('dismissed'))] },

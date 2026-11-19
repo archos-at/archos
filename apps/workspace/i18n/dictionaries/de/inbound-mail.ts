@@ -16,7 +16,8 @@ export const inboundMail: typeof en.inboundMail = {
   empty: {
     neverTitle: 'Noch keine E-Mails an dieses Projekt',
     neverText:
-      'Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben.',
+      'Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben: Die Antworten landen hier.',
+    neverForward: 'Hat das Projekt in Ihrem Büro schon eine eigene Adresse, leiten Sie sie hierher weiter.',
     neverNoAddress:
       'Dieses Projekt hat noch keine E-Mail-Adresse. Mit ihr landet die Korrespondenz mit Behörde, Statik und Bauherrschaft im Projekt, ohne dass jemand sie von Hand abspeichert.',
     neverNoAddressMember:
@@ -32,6 +33,22 @@ export const inboundMail: typeof en.inboundMail = {
   detailLoadError: 'Diese E-Mail konnte nicht geladen werden.',
   retry: 'Erneut versuchen',
   loadMore: 'Weitere laden',
+
+  search: {
+    label: 'E-Mails nach Absender oder Betreff filtern',
+    placeholder: 'Absender oder Betreff',
+    clear: 'Suche leeren',
+    results: '{count, plural, one {# Treffer} other {# Treffer}}',
+    noResults: 'Keine Treffer',
+    noneTitle: 'Keine E-Mail passt zu „{query}“',
+    noneHint: 'Gesucht wird in Absender und Betreff der geladenen E-Mails.',
+  },
+
+  dismissFinal: {
+    title: 'E-Mail verwerfen?',
+    text: 'Die Domain des Absenders ist nicht bestätigt. Verworfen wird die E-Mail gelöscht und lässt sich nicht wiederherstellen.',
+    confirm: 'Verwerfen',
+  },
 
   closed: {
     title: 'Projekt ist abgeschlossen – wieder öffnen, um abzulegen',
@@ -61,6 +78,8 @@ export const inboundMail: typeof en.inboundMail = {
     notFiled: 'Nicht direkt abgelegt\u00A0· {need}',
     filing: 'Wird abgelegt …',
     notFiledReady: 'Nicht direkt abgelegt',
+    expiresIn: '{days, plural, one {Läuft in # Tag ab} other {Läuft in # Tagen ab}}',
+    expiresToday: 'Läuft in weniger als einem Tag ab',
     fileAsSuggested: '„{subject}“ wie vorgeschlagen ablegen',
     needs: {
       not_waiting: 'Schon bearbeitet',
@@ -89,8 +108,8 @@ export const inboundMail: typeof en.inboundMail = {
     threadAction: '{count, plural, one {Als Fassung {first} ablegen} other {Als Fassung {first}–{last} ablegen}}',
     threadActionFirst: 'Die ersten {count} als Fassung {first}–{last} ablegen',
     reviewInOrder: 'Ansehen',
-    quiet: 'Domain nicht bestätigt oder automatisch ({count})',
-    quietHint: 'Sie stehen vollständig hier. {productName} macht für sie keine Vorschläge, und keine davon wird direkt abgelegt.',
+    quiet: 'Automatisch ({count})',
+    quietHint: 'Abwesenheitsnotizen, Newsletter und Benachrichtigungen. {productName} macht für sie keine Vorschläge, und keine davon wird direkt abgelegt.',
   },
 
   trust: {
