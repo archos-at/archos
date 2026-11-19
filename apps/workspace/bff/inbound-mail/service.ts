@@ -228,7 +228,10 @@ export async function decisionContext(
     ...mail.parts.map((part) => part.folderId),
     mail.message?.thread.action === 'create' ? mail.message.thread.folderId : null,
   ])
-  const threadIds = body.mails.flatMap((mail) => (mail.message?.thread.action === 'append' ? [mail.message.thread.mailThreadId] : []))
+  const threadIds = [
+    ...body.mails.flatMap((mail) => (mail.message?.thread.action === 'append' ? [mail.message.thread.mailThreadId] : [])),
+    ...mails.flatMap((mail) => mail.threadMatch.slice(0, 1).map((match) => match.threadId)),
+  ]
   const revisionIds = body.mails.flatMap((mail) => mail.parts.flatMap((part) => (part.revisionOf ? [part.revisionOf] : [])))
   const [acceptedTypes, policy, candidates, folders, threads, documents] = await Promise.all([
     acceptedTypesForOrganization(session.organizationId),
@@ -322,6 +325,7 @@ export async function fileInboundMails(
           decision: body.mails.find((decision) => decision.mailId === plan.mailId) ?? null,
           via: context.actor.via,
           folderPathOf,
+          threadOf: (threadId) => context.threads.get(threadId) ?? null,
         })
       : 'no_suggestion'
     captureServer({
@@ -365,6 +369,7 @@ export async function dismissInboundMails(
       decision: null,
       via: actor.via,
       folderPathOf: () => null,
+      threadOf: () => null,
     })
     captureServer({
       event: 'inbound_mail_decided',

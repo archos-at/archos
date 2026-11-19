@@ -34,7 +34,7 @@ import {
   senderNeedsAcknowledgement,
   type DecisionContext,
 } from './decision'
-import type { InboundMailDecision } from './inbound-mail-wire'
+import type { InboundMailDecision, InboundMailThreadCandidateView } from './inbound-mail-wire'
 import { findDocumentIdByStoredName } from './repository'
 
 const HIDDEN_FOLDER = '5f6a7b8c-9d0e-4f1a-8b2c-3d4e5f6a7b8c'
@@ -69,6 +69,7 @@ function context(overrides: Partial<DecisionContext> = {}): DecisionContext {
           nextVersion: 4,
           entryCount: 3,
           renderedBytes: 9000,
+          participantDomains: ['statik-weber.at'],
         },
       ],
     ]),
@@ -78,6 +79,18 @@ function context(overrides: Partial<DecisionContext> = {}): DecisionContext {
 }
 
 const parts = (): InboundMailPartRow[] => [textPart(), filePart()]
+
+const candidateView = (blocks: InboundMailThreadCandidateView['blocks']): InboundMailThreadCandidateView => ({
+  threadId: THREAD_ID,
+  documentId: DOCUMENT_ID,
+  name: 'Statik Einreichung',
+  folderPath: null,
+  nextVersion: 4,
+  strength: 'reference',
+  preselected: blocks.length === 0,
+  blocks,
+  full: false,
+})
 
 function decision(mail: InboundMailRow, overrides: Partial<InboundMailDecision> = {}): InboundMailDecision {
   return {
@@ -236,6 +249,36 @@ describe('C2: each rule, failing alone', () => {
       message: null,
     })
     expect(codeOf(() => plan(mail, d))).toBe('risk_not_acknowledged')
+  })
+
+  it('needs it for a confirmed outsider’s Fassung unless a signed thread their domain took part in vouches for them', () => {
+    const mail = heldMail({ senderTrust: 'external_verified', senderUserId: null, senderClass: 'external' })
+    const d = decision(mail, {
+      parts: [{ partId: FILE_PART_ID, folderId: null, newFolderPath: null, name: 'S-101_C.pdf', revisionOf: DOCUMENT_ID }],
+      message: null,
+    })
+    expect(codeOf(() => plan(mail, d))).toBe('risk_not_acknowledged')
+    expect(plan(mail, { ...d, acknowledgeRisk: [FILE_PART_ID] }).files[0]).toMatchObject({ acknowledgedRisk: true, targetDocumentId: DOCUMENT_ID })
+    const vouching = context({ candidates: { ...context().candidates, threads: () => ({ shown: [candidateView([])], hidden: 0 }) } })
+    expect(codeOf(() => plan(mail, d, vouching))).toBe('passes')
+    const newDomain = context({ candidates: { ...context().candidates, threads: () => ({ shown: [candidateView(['sender_domain_new'])], hidden: 0 }) } })
+    expect(codeOf(() => plan(mail, d, newDomain))).toBe('risk_not_acknowledged')
+  })
+
+  it('files a verified member’s Fassung without an acknowledgement, thread or not', () => {
+    const mail = heldMail()
+    const d = decision(mail, {
+      parts: [{ partId: FILE_PART_ID, folderId: null, newFolderPath: null, name: 'S-101_C.pdf', revisionOf: DOCUMENT_ID }],
+      message: null,
+    })
+    expect(codeOf(() => plan(mail, d))).toBe('passes')
+  })
+
+  it('needs it for an append on a signed reference from a domain the thread never saw (a reused Message-ID)', () => {
+    const mail = heldMail({ senderTrust: 'external_verified', senderUserId: null, senderClass: 'external', senderAddress: 'x@evil.example' })
+    expect(codeOf(() => plan(mail, decision(mail, { parts: [] })))).toBe('risk_not_acknowledged')
+    const known = heldMail({ senderTrust: 'external_verified', senderUserId: null, senderClass: 'external' })
+    expect(codeOf(() => plan(known, decision(known, { parts: [] })))).toBe('passes')
   })
 
   it.each([

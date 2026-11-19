@@ -1,6 +1,6 @@
 import type { InboundMailPartView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { NotStagedReason, PartRiskFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
-import { isImageInMail, revisionVouched, senderFactsOfView } from '@/lib/inbound-mail/review-defaults'
+import { isImageInMail, revisionVouchedInThread, senderFactsOfView } from '@/lib/inbound-mail/review-defaults'
 
 export type AttachmentStatus =
   | 'waiting'
@@ -50,7 +50,7 @@ function statusOf(part: InboundMailPartView): AttachmentStatus {
 
 export function attachmentCase(
   part: InboundMailPartView,
-  mail: Pick<InboundMailView, 'projectClosed' | 'sender'> & Partial<Pick<InboundMailView, 'onlySenderReleases'>>,
+  mail: Pick<InboundMailView, 'projectClosed' | 'sender' | 'threadCandidates'> & Partial<Pick<InboundMailView, 'onlySenderReleases'>>,
 ): AttachmentCase {
   const status = statusOf(part)
   const notes: AttachmentNote[] = []
@@ -59,7 +59,7 @@ export function attachmentCase(
   if (part.duplicateOf) {
     notes.push({ kind: 'duplicate', name: part.duplicateOf.name, folderPath: part.duplicateOf.folderPath, documentId: part.duplicateOf.documentId })
   }
-  const revisionVerified = revisionVouched(part, senderFactsOfView(mail))
+  const revisionVerified = revisionVouchedInThread(part, senderFactsOfView(mail), mail.threadCandidates)
   if (part.revisionCandidate) {
     notes.push({
       kind: 'revision',

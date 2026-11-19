@@ -33,6 +33,7 @@ const SENDER: SenderEvidence = {
   senderTrust: 'member_verified',
   senderFlags: [],
   signedHeaders: ['from', 'subject', 'in-reply-to', 'references'],
+  senderDomain: 'buero-muster.at',
 }
 
 const record = (patch: Partial<MailThreadMatchRecord> = {}): MailThreadMatchRecord => ({
@@ -42,6 +43,7 @@ const record = (patch: Partial<MailThreadMatchRecord> = {}): MailThreadMatchReco
   partId: 'part-1',
   matches: MATCHES,
   sender: SENDER,
+  strongestThread: { participantDomains: ['buero-muster.at'] },
   choice: { action: 'append', mailThreadId: STRONG },
   via: 'app',
   decidedAt: new Date('2026-10-22T09:00:00.000Z'),
@@ -117,7 +119,7 @@ describe('the batch', () => {
   })
 
   it('says a stranger’s match was not pre-selected', () => {
-    const stranger: SenderEvidence = { senderTrust: 'external_unverified', senderFlags: [], signedHeaders: [] }
+    const stranger: SenderEvidence = { senderTrust: 'external_unverified', senderFlags: [], signedHeaders: [], senderDomain: 'stranger.example' }
     const [, score] = mailThreadMatchBatch(record({ sender: stranger, via: 'follow' }), ['e1', 'e2'])?.batch ?? []
     expect(score).toMatchObject({ body: { value: 'followed', metadata: { preselected: false, via: 'follow' } } })
   })

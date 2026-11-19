@@ -39,6 +39,7 @@ const input = (patch: Partial<MailDecisionToScore> = {}): MailDecisionToScore =>
   },
   via: 'app',
   folderPathOf: (folderId) => (folderId === FOLDER_ID ? 'Tragwerk' : null),
+  threadOf: (threadId) => (threadId === THREAD_ID ? { participantDomains: ['statik-weber.at'] } : null),
   ...patch,
 })
 
@@ -63,7 +64,8 @@ describe('scoreMailDecision', () => {
         partId: TEXT_PART_ID,
         choice: { action: 'append', mailThreadId: THREAD_ID },
         via: 'app',
-        sender: { senderTrust: 'member_verified', senderFlags: [], signedHeaders: heldMail().signedHeaders },
+        sender: { senderTrust: 'member_verified', senderFlags: [], signedHeaders: heldMail().signedHeaders, senderDomain: 'statik-weber.at' },
+        strongestThread: { participantDomains: ['statik-weber.at'] },
       }),
     )
   })
