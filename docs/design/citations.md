@@ -362,6 +362,15 @@ no use reaches a passage the file name and lane stay the fallback: a gate of `no
 the session cache (`edition_id` has no line). Austria's style prints a publisher only with its place (one
 segment, `" ({publisher}, {place})"`), so an issuer the style names no place for is left out, never guessed.
 
+*Where an office norm came from (2026-11-19).* A source on a user's shelf names that shelf whatever document
+class it carries: a copy in the Büroablage is lane `office` ("Büroablage"), a norm only in a project's files is
+lane `project` ("Projektwissen"), a session's file "Private Sitzung" (`norm_registry.lane_for_hit`). Before, any
+class other than `other` won over the shelf, so a project's own ÖNORM with the class `external_standard` read
+"Externe Norm" under Baurecht & Richtlinien, and one with `law` "Rechtsquelle (RIS)": the line hid that the text
+was the project's file, not the platform's. Ingest sets no class on a user's upload today, so this was latent;
+it guards the step where recognising a norm in the project's files sets one. The class still narrows a search;
+only the lane, and with it the kind and the building-law checks that read the kind, follow the shelf.
+
 *Not yet, and why.* The Word export (`bff/answer-export/citations.ts`), the copy-answer Markdown
 (`lib/answer-markdown.ts`) and the peek still label a source from i18n ("S. {page}") rather than the line:
 moving them changes what they print today, so each is its own change against this fixture. The style chosen
