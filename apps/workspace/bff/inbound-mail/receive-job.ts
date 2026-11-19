@@ -418,8 +418,8 @@ async function afterHold(mailId: string, domain: string, raw: Uint8Array | null)
   if (!mail || mail.status !== 'waiting' || mail.notifiedAt || !mail.senderTrust) return
   const parts = await findPartSummaries(mail.id)
   const direct = mail.senderClass === 'verified_writer'
-  const followQueued = direct ? false : await queueFollowIfEligible(mail, parts, domain, raw)
   if (suggestionSkipReason(mail) === null) await queueSuggestion(mail)
+  const followQueued = direct ? false : await queueFollowIfEligible(mail, parts, domain, raw)
   if (direct) await queueSenderFiling(mail)
   else await announceHeldMail({ ...mail, senderTrust: mail.senderTrust })
   publishProjectChanged(mail.organizationId, mail.projectId)

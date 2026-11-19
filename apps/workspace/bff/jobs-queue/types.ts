@@ -267,6 +267,7 @@ export const inboundMailFollowPayloadSchema = z.object({
   mailId: z.string().uuid(),
   followId: z.string().uuid(),
   requester: requesterSchema,
+  waits: z.number().int().nonnegative().default(0),
 })
 export type InboundMailFollowPayload = z.infer<typeof inboundMailFollowPayloadSchema>
 

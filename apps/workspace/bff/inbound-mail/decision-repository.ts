@@ -31,7 +31,7 @@ export interface MailDecisionWrite {
 
 export interface DecisionActor {
   decidedBy: string
-  via: 'app' | 'agent' | 'agent_proposal' | 'sender'
+  via: 'app' | 'agent' | 'agent_proposal' | 'sender' | 'follow'
   proposalId: string | null
 }
 

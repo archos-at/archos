@@ -95,10 +95,10 @@ export const mailThread = {
     offer: 'File replies without a click',
     start: 'Switch on',
     explain:
-      'For {days} days, further replies from people whose domain is verified come here in your name, their attachments to Project mail. You can end it at any time.',
+      'For {days} days, further replies from people whose domain is verified come here in your name, their attachments into the existing folder {productName} suggests, else to Project mail. You can end it at any time.',
     following: 'Replies are filed without a click until {date}',
     followingUndated: 'Replies are filed without a click',
-    followingExplain: 'In your name; attachments keep waiting in Project mail. “End” stops it.',
+    followingExplain: 'In your name: the text into this mail thread, each attachment into the existing folder {productName} suggests. The rest waits in Project mail. “End” stops it.',
     renew: 'Renew',
     renewLabel: 'Renew until {date}',
     renewLimit: 'At most 180 days from the start. Switch it on again after that.',

@@ -31,6 +31,12 @@ export function refusal(
   return new ConflictError(message, { reason, ...details })
 }
 
+export function refusedPartOf(error: unknown): string | null {
+  if (!(error instanceof ConflictError)) return null
+  const details = (error as { details?: { partId?: unknown } }).details
+  return typeof details?.partId === 'string' ? details.partId : null
+}
+
 export function mailIfMatch(
   mail: Pick<InboundMailRow, 'id' | 'status' | 'updatedAt'>,
   parts: ReadonlyArray<Pick<InboundMailPartRow, 'id' | 'state' | 'scanStatus' | 'lastFailure' | 'updatedAt'>>,

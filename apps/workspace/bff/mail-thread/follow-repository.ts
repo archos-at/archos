@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, count, eq, gt, isNull, sql } from 'drizzle-orm'
+import { and, count, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow, type NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
@@ -101,12 +101,18 @@ export interface FollowDecisionInput {
   mail: { id: string; organizationId: string; projectId: string; receivedAt: Date }
   partId: string
   decision: Pick<NewInboundMailDecisionRow, 'id' | 'messageText' | 'documentType'>
+  attachments?: readonly FollowAttachmentDecision[]
   claimExpiresAt: Date
   now: Date
 }
 
+export type FollowAttachmentDecision = Pick<
+  NewInboundMailDecisionRow,
+  'id' | 'partId' | 'folderId' | 'folderPath' | 'fileName' | 'targetDocumentId' | 'documentType'
+>
+
 export type FollowDecisionWrite =
-  | { kind: 'written'; decision: InboundMailDecisionRow }
+  | { kind: 'written'; decision: InboundMailDecisionRow; attachments: InboundMailDecisionRow[] }
   | { kind: 'follow_not_running' }
   | { kind: 'follow_cap' }
   | { kind: 'project_cap' }
@@ -153,7 +159,13 @@ export async function writeFollowDecision(input: FollowDecisionInput): Promise<F
       const [own] = await tx
         .select({ appended: count() })
         .from(inboundMailDecisions)
-        .where(and(eq(inboundMailDecisions.followId, follow.id), gt(inboundMailDecisions.decidedAt, since)))
+        .where(
+          and(
+            eq(inboundMailDecisions.followId, follow.id),
+            isNotNull(inboundMailDecisions.threadAction),
+            gt(inboundMailDecisions.decidedAt, since),
+          ),
+        )
       if (Number(own?.appended ?? 0) >= running.dailyCap) throw new FollowDecisionRefused({ kind: 'follow_cap' })
       const [project] = await tx
         .select({ appended: count() })
@@ -162,6 +174,7 @@ export async function writeFollowDecision(input: FollowDecisionInput): Promise<F
           and(
             eq(inboundMailDecisions.projectId, mail.projectId),
             eq(inboundMailDecisions.via, 'follow'),
+            isNotNull(inboundMailDecisions.threadAction),
             gt(inboundMailDecisions.decidedAt, since),
           ),
         )
@@ -205,8 +218,46 @@ export async function writeFollowDecision(input: FollowDecisionInput): Promise<F
         )
         .returning({ id: inboundMailParts.id })
       if (claimed.length !== 1) throw new FollowDecisionRefused({ kind: 'not_waiting' })
+
+      const planned = input.attachments ?? []
+      const waiting = planned.length === 0 ? [] : await tx
+        .select({ id: inboundMailParts.id })
+        .from(inboundMailParts)
+        .where(
+          and(
+            eq(inboundMailParts.mailId, mail.id),
+            eq(inboundMailParts.kind, 'attachment'),
+            eq(inboundMailParts.state, 'waiting'),
+            inArray(inboundMailParts.id, planned.map((attachment) => attachment.partId)),
+          ),
+        )
+        .for('update')
+      const stillWaiting = new Set(waiting.map((part) => part.id))
+      const attachments: InboundMailDecisionRow[] = []
+      for (const attachment of planned.filter((candidate) => stillWaiting.has(candidate.partId))) {
+        const [filed] = await tx
+          .insert(inboundMailDecisions)
+          .values({
+            ...attachment,
+            organizationId: mail.organizationId,
+            projectId: mail.projectId,
+            mailId: mail.id,
+            action: 'file',
+            decidedBy: follow.userId,
+            via: 'follow',
+            followId: follow.id,
+            decidedAt: now,
+          })
+          .returning()
+        if (!filed) throw new Error(`the follow decision about attachment ${attachment.partId} was not written`)
+        await tx
+          .update(inboundMailParts)
+          .set({ state: 'filing', decisionId: filed.id, claimExpiresAt: input.claimExpiresAt, lastFailure: null, updatedAt: now })
+          .where(and(eq(inboundMailParts.id, attachment.partId), eq(inboundMailParts.state, 'waiting')))
+        attachments.push(filed)
+      }
       await tx.update(inboundMails).set({ updatedAt: now }).where(eq(inboundMails.id, mail.id))
-      return { kind: 'written' as const, decision }
+      return { kind: 'written' as const, decision, attachments }
     })
   } catch (error) {
     if (error instanceof FollowDecisionRefused) return error.outcome

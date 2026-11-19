@@ -417,13 +417,22 @@ describe('inbound_mail.cap_reached', () => {
 
 describe('inbound_mail.appended and mail_thread.follow_expiring', () => {
   it('tells the follower on the Verlauf document, one row per Verlauf and day, anchored on the newest mail', async () => {
-    await announceAppended({ organizationId: ORG, projectId: PROJECT, mailId: MAIL, threadId: THREAD, followerUserId: MEMBER, at: new Date('2026-10-22T18:00:00Z') })
-    await announceAppended({ organizationId: ORG, projectId: PROJECT, mailId: 'mail-2', threadId: THREAD, followerUserId: MEMBER, at: new Date('2026-10-22T23:00:00Z') })
+    await announceAppended({ organizationId: ORG, projectId: PROJECT, mailId: MAIL, threadId: THREAD, followerUserId: MEMBER, attachments: 0, at: new Date('2026-10-22T18:00:00Z') })
+    await announceAppended({ organizationId: ORG, projectId: PROJECT, mailId: 'mail-2', threadId: THREAD, followerUserId: MEMBER, attachments: 0, at: new Date('2026-10-22T23:00:00Z') })
 
     const [first, second] = vi.mocked(emitInboxItems).mock.calls.map(([rows]) => rows[0])
     expect(first).toMatchObject({ recipientUserId: MEMBER, resourceType: 'document', resourceId: DOCUMENT, anchorId: MAIL, actorUserId: null })
     expect(second?.groupKey).toBe(first?.groupKey)
     expect(first?.groupKey).toBe(`inbound_mail.appended:document:${DOCUMENT}:day:2026-10-22`)
+  })
+
+  it('says what the follow filed: the text alone, or the text with attachments (every emission names one, so a merged row never keeps a stale one)', async () => {
+    await announceAppended({ organizationId: ORG, projectId: PROJECT, mailId: MAIL, threadId: THREAD, followerUserId: MEMBER, attachments: 0 })
+    await announceAppended({ organizationId: ORG, projectId: PROJECT, mailId: 'mail-2', threadId: THREAD, followerUserId: MEMBER, attachments: 2 })
+
+    const [textOnly, withAttachments] = vi.mocked(emitInboxItems).mock.calls.map(([rows]) => rows[0])
+    expect(textOnly?.payload).toEqual({ subject: 'Wohnbau Hietzing', variant: 'text' })
+    expect(withAttachments?.payload).toEqual({ subject: 'Wohnbau Hietzing', variant: 'with_attachments' })
   })
 
   it('asks the follower to renew, per follow; renewing or ending settles it', async () => {
@@ -505,7 +514,7 @@ describe('redacted by construction (RT-X1)', () => {
     await announceExpired(base)
     await announceFilingFailed({ ...leaky, organizationId: ORG, projectId: PROJECT, mailId: MAIL, decidedBy: DECIDER, failure: 'screened' })
     await announceCapReached({ ...leaky, organizationId: ORG, projectId: PROJECT, addressId: 'address-1', notice: 'nearly_full' })
-    await announceAppended({ ...leaky, organizationId: ORG, projectId: PROJECT, mailId: MAIL, threadId: THREAD, followerUserId: MEMBER })
+    await announceAppended({ ...leaky, organizationId: ORG, projectId: PROJECT, mailId: MAIL, threadId: THREAD, followerUserId: MEMBER, attachments: 1 })
     await announceFollowExpiring({ ...leaky, organizationId: ORG, projectId: PROJECT, followId: 'follow-1', threadDocumentId: DOCUMENT, followerUserId: MEMBER })
     await announceFollowEnded({ ...leaky, organizationId: ORG, projectId: PROJECT, followId: 'follow-1', followerUserId: MEMBER, reason: 'thread_full', endedBy: null })
     vi.mocked(filedFolderIds).mockResolvedValue([])

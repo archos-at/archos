@@ -94,6 +94,6 @@ export async function queueFollowIfEligible(
     organizationId: mail.organizationId,
     priority: BFF_JOB_PRIORITY.interactive,
     jobId: inboundMailJobId('follow', mail.id),
-    payload: { projectId: mail.projectId, mailId: mail.id, followId: follow.id, requester: requesterOf(session) },
+    payload: { projectId: mail.projectId, mailId: mail.id, followId: follow.id, requester: requesterOf(session), waits: 0 },
   })
 }

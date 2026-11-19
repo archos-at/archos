@@ -781,7 +781,15 @@ export const collaboration: typeof en.collaboration = {
         titleOne: 'Eine Antwort wurde einem E-Mail-Verlauf in „{subject}“ angefügt',
         titleMany: '{count} Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
         title: 'Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
-        body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen. Anhänge warten im E-Mail-Eingang.',
+        body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen. Anhänge ohne bestehenden Ordner warten im E-Mail-Eingang.',
+        variants: {
+          with_attachments: {
+            titleOne: 'Eine Antwort samt Anhängen wurde in „{subject}“ ohne Klick abgelegt',
+            titleMany: '{count} Antworten samt Anhängen wurden in „{subject}“ ohne Klick abgelegt',
+            title: 'Antworten samt Anhängen wurden in „{subject}“ ohne Klick abgelegt',
+            body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen: der Text in den E-Mail-Verlauf, die Anhänge in die Ordner, die {productName} vorgeschlagen hat. Was keinen bestehenden Ordner hat, wartet im E-Mail-Eingang.',
+          },
+        },
       },
       mailThreadFollowExpiring: {
         title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ noch {followNoticeDays} Tage',
