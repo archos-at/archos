@@ -4,8 +4,7 @@
  * The SQL that writes an E-Mail-Verlauf, against a REAL Postgres with migration
  * 0196, through the restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run src/lib/mail-thread/append.integration.spec.ts
+ *   bash scripts/rls-test-db.sh --only bff/mail-thread/append.integration.spec.ts
  *
  * The unit specs stand the repository in; these prove its statements keep the
  * migration's rules rather than meet a refusal in production: one writer per

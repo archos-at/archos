@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-27
 amended: 2026-11-03 (the address moves to a subdomain, one literal rule and subaddressing; the default local part becomes `project`); 2026-11-05 (the RFC 2142 forwards and the DMARC record move into Pulumi; subaddressing is an API call)
 decision-makers: product owner, Grid engineering
@@ -335,7 +335,8 @@ inside it.
 2. `inboundMailPaused`: the Worker answers a temporary failure before reading,
    and the BFF answers 503 (`INBOUND_MAIL_PAUSED`). The first promote is
    paused.
-3. The WorkOS entitlement `inbound-mail`, per office, off for all.
+3. The WorkOS entitlement `inbound-mail`, per office; on for all
+   organizations in production since 2026-11-14 (gate O7).
 4. Per project: the address switched off or rotated.
 
 `loadConfig` refuses an inbound domain without `malwareScanEnabled`: every

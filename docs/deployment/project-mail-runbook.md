@@ -71,7 +71,7 @@ the pull request.
 1. The owner switches `inbound-mail` on in WorkOS Production for all
    organizations (§9). Not before: until then the frontend shows no address,
    so no address exists that could bounce while subaddressing is still being
-   switched on.
+   switched on. **Done 2026-11-14.**
 2. `kubectl -n grid rollout status deploy/clamav --timeout=30m` (§6's checks).
    Not ready after that: freshclam's log, §6.
 3. A test-office address into the `production` environment's secret
@@ -493,14 +493,18 @@ Only the test office has the entitlement, so unpausing exposes no customer.
 Afterwards: dismiss every `[smoke]` mail in the test project, and check that
 `cloudflare` passes again (no G2 rule left).
 
-## 9. Launch, per office (owner gate O7)
+## 9. Launch (owner gate O7)
 
-Per office, only after the Datenschutzberater's sign-off and the customer
-notice (Cloudflare as a transit processor: [`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)),
-and only once the Worker's `LANDING_URL` binding names the website (B1):
+**Done for every office on 2026-11-14.** The owner decided that day that
+project mail goes live for all offices and gave the data-protection go-ahead
+for every one of them (Cloudflare as a transit processor:
+[`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)).
+The `inbound-mail` flag is ON for all organizations in WorkOS Production since
+2026-11-14, so a new organization has it too; there is no per-office step left.
 
-- [ ] WorkOS → Feature Flags → `inbound-mail` → add the office's organization.
-- [ ] Tell the office: section 11 below is what they get.
+To take one office out (the rollback of §10, narrowed): WorkOS → Feature
+Flags → `inbound-mail` → target that organization off. Section 11 is what an
+office gets; tell a new office about it when it starts.
 
 ## 10. Operating it
 

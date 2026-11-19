@@ -759,8 +759,9 @@ lock times out at Envoy after its route timeout.
    and G7 (below), then set `inboundMailPaused: false` and promote: that exposes
    no customer. Then run the gates that need mail to arrive (G1–G6). The smoke
    tool's `signed --run` expects 202s, so it cannot pass while paused.
-5. Switch `inbound-mail` on for an office only after the Datenschutzberater's
-   sign-off and the customer notice (gate O7).
+5. Switch `inbound-mail` on (gate O7). Production: on for all
+   organizations since 2026-11-14, by the owner's decision with the
+   data-protection go-ahead for every office.
 
 ### The gates, in order
 
@@ -770,13 +771,13 @@ below.
 
 | # | Gate | When |
 |---|---|---|
-| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists, OFF for all organizations in both environments; staging switched ON for all organizations on 2026-11-05 (owner). `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
+| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists; staging switched ON for all organizations on 2026-11-05 (owner), production ON for all organizations on 2026-11-14 (O7). `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
 | O2 | Cloudflare Workers Paid | before O4 |
 | O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
 | O4 | `npm run up` with `malwareScanEnabled` (the scanner), then with `inboundMailDomain`, the keys and `inboundMailPaused: true` | after the merge |
 | O5 | DNS: Email Routing on the subdomain writes its MX and TXT records, Pulumi the zone's DMARC record (`inboundMailDmarc`); then subaddressing switched on with one API call and the operator's destination address verified with one click (the runbook's §7) | with O4 |
 | O6 | Launch gates G0–G9, then unpause | after O4 and O5, with a named pilot office for G9 |
-| O7 | The `inbound-mail` entitlement on, per office, only after the Datenschutzberater's sign-off and the customer notice | per office |
+| O7 | The `inbound-mail` entitlement on | **Done 2026-11-14**: ON for all organizations in Production, by the owner's decision with the data-protection go-ahead for every office (the runbook's §9) |
 
 Launch gates, run with `deploy/pulumi/scripts/inbound-mail-smoke.ts` (usage in
 [`deploy/pulumi/README.md`](../../deploy/pulumi/README.md#project-mails-launch-gates);

@@ -5,8 +5,7 @@
  * REAL Postgres with migration 0196, through the restricted runtime role
  * (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run src/lib/inbound-mail/sweep.integration.spec.ts
+ *   bash scripts/rls-test-db.sh --only bff/inbound-mail/sweep.integration.spec.ts
  *
  * Every sweep of the table, each against rows the migration's CHECKs accept,
  * so a statement that would meet a refusal in production fails here: the

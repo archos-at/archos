@@ -4,8 +4,7 @@
  * The receive side's SQL against a REAL Postgres with migration 0196, through
  * the restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run src/lib/inbound-mail/repository.integration.spec.ts
+ *   bash scripts/rls-test-db.sh --only bff/inbound-mail/repository.integration.spec.ts
  *
  * The unit specs stand the repository in; these prove the statements keep the
  * migration's rules rather than meet a refusal in production: a token resolves

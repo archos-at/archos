@@ -4,8 +4,7 @@
  * „Verlauf folgen“ against a REAL Postgres with migration 0196, through the
  * restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run src/lib/mail-thread/follow.integration.spec.ts
+ *   bash scripts/rls-test-db.sh --only bff/mail-thread/follow.integration.spec.ts
  *
  * Two halves. The first proves the follow SQL keeps the migration's rules
  * rather than meet a refusal in production: one running follow per person and
