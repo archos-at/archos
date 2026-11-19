@@ -219,6 +219,7 @@ describe('InboundMailWorkspace', () => {
   it('files every ready mail from the „Bereit“ heading after the bulk confirmation', async () => {
     const { client } = renderWorkspace('many')
     const file = vi.spyOn(client, 'file')
+    expect(screen.getByTestId('readiness-file-all')).toHaveTextContent(/^File all 3 mails ready to file$/)
     await userEvent.click(screen.getByTestId('readiness-file-all'))
     const destinations = await screen.findByTestId('bulk-destinations')
     expect(destinations).toHaveTextContent('In mail thread “Stellplatznachweis”: 2')

@@ -2,7 +2,7 @@ import type { DocumentVersionView } from '@/lib/documents/lifecycle-types'
 import { OFFICE_TIME_ZONE, formatAbsoluteTime } from '@/lib/format'
 import type { SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import {
-  MAIL_THREAD_FOLLOW_MAX_DAYS,
+  MAIL_THREAD_FOLLOW_DEFAULT_DAYS,
   type MailThreadAttachmentNotFiledReason,
   type MailThreadAttachmentView,
   type MailThreadEntryView,
@@ -18,14 +18,18 @@ export type ViewerFollow =
   | { kind: 'none' }
   | { kind: 'following'; follow: MailThreadFollowView | null; renewable: boolean }
 
-export function followRenewable(follow: MailThreadFollowView): boolean {
-  const ceiling = Date.parse(follow.createdAt) + MAIL_THREAD_FOLLOW_MAX_DAYS * DAY_MS
-  return ceiling - Date.parse(follow.expiresAt) >= DAY_MS
+export function followRenewable(follow: MailThreadFollowView, now: number = Date.now()): boolean {
+  const renewedTo = now + MAIL_THREAD_FOLLOW_DEFAULT_DAYS * DAY_MS
+  return renewedTo - Date.parse(follow.expiresAt) >= DAY_MS
 }
 
-export function viewerFollow(view: Pick<MailThreadView, 'followed' | 'follows'>, viewerUserId: string | null | undefined): ViewerFollow {
+export function viewerFollow(
+  view: Pick<MailThreadView, 'followed' | 'follows'>,
+  viewerUserId: string | null | undefined,
+  now: number = Date.now(),
+): ViewerFollow {
   const own = viewerUserId ? (view.follows.find((follow) => follow.userId === viewerUserId) ?? null) : null
-  if (own) return { kind: 'following', follow: own, renewable: followRenewable(own) }
+  if (own) return { kind: 'following', follow: own, renewable: followRenewable(own, now) }
   if (view.followed) return { kind: 'following', follow: null, renewable: false }
   return { kind: 'none' }
 }
@@ -85,7 +89,7 @@ export function comparedVersions(
 
 export type AttachmentLine =
   | { kind: 'hidden'; position: number }
-  | { kind: 'filed' | 'already_present'; position: number; name: string; documentId: string | null }
+  | { kind: 'filed' | 'already_present'; position: number; name: string; documentId: string | null; folderPath: string | null }
   | { kind: 'not_filed'; position: number; name: string; reason: MailThreadAttachmentNotFiledReason | null }
 
 export function attachmentLines(attachments: readonly MailThreadAttachmentView[]): AttachmentLine[] {
@@ -97,7 +101,13 @@ export function attachmentLines(attachments: readonly MailThreadAttachmentView[]
       if (attachment.disposition === 'not_filed') {
         return { kind: 'not_filed', position: attachment.position, name, reason: attachment.notFiledReason ?? null }
       }
-      return { kind: attachment.disposition, position: attachment.position, name, documentId: attachment.documentId ?? null }
+      return {
+        kind: attachment.disposition,
+        position: attachment.position,
+        name,
+        documentId: attachment.documentId ?? null,
+        folderPath: attachment.folderPath ?? null,
+      }
     })
 }
 

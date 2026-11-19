@@ -39,7 +39,10 @@ vi.mock('@/lib/mail-thread/append', async (importOriginal) => ({
   ),
 }))
 vi.mock('@/lib/mail-thread/originals', () => ({ finishOriginalMove: vi.fn(async () => 'moved') }))
-vi.mock('@/lib/mail-thread/follows', () => ({ followByDefault: vi.fn(async () => 'started') }))
+vi.mock('@/lib/mail-thread/follows', () => ({
+  extendFollowsOnFiling: vi.fn(async () => 1),
+  followByDefault: vi.fn(async () => 'started'),
+}))
 vi.mock('@/lib/mail-thread/write-repository', () => ({
   decidePendingAttachment: vi.fn(async () => undefined),
   findCurrentVersions: vi.fn(
@@ -95,7 +98,7 @@ import type { InboundMailDecisionRow, InboundMailPartRow } from '@/lib/db/schema
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import type { InboundMailFilePayload } from '@/lib/jobs-queue/types'
 import { appendInboundMessage } from '@/lib/mail-thread/append'
-import { followByDefault } from '@/lib/mail-thread/follows'
+import { extendFollowsOnFiling, followByDefault } from '@/lib/mail-thread/follows'
 import { finishOriginalMove } from '@/lib/mail-thread/originals'
 import { decidePendingAttachment, findEntryOfMail } from '@/lib/mail-thread/write-repository'
 import type { MailThreadEntryRow } from '@/lib/db/schema/mail-thread'
@@ -608,6 +611,37 @@ describe('the text', () => {
       vi.mocked(appendInboundMessage).mockResolvedValueOnce({ kind: 'failed', failure: 'quota' })
       await runInboundMailFiling(session, payload)
       expect(followByDefault).not.toHaveBeenCalled()
+      expect(extendFollowsOnFiling).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('keeps the Verlauf’s running follows on while the conversation is active (owner decision 2026-11-19)', () => {
+    const filedVia = (via: InboundMailDecisionRow['via']) => {
+      const message = text()
+      vi.mocked(findFilingWork).mockResolvedValue([work([message], [[message, { ...messageDecision, via }]])])
+      vi.mocked(appendInboundMessage).mockResolvedValueOnce({
+        kind: 'filed',
+        entryId: 'entry-1',
+        threadId: THREAD_ID,
+        documentId: 'thread-doc',
+        versionId: 'v4',
+      })
+    }
+
+    it.each(['app', 'follow', 'sender', 'agent'] as const)('extends them for a text filed `via: %s`, whoever filed it', async (via) => {
+      filedVia(via)
+      expect(await runInboundMailFiling(session, payload)).toEqual({ done: true, payload })
+      expect(extendFollowsOnFiling).toHaveBeenCalledExactlyOnceWith(session.organizationId, THREAD_ID)
+    })
+
+    it('files the text all the same when the extension fails', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      filedVia('follow')
+      vi.mocked(extendFollowsOnFiling).mockRejectedValueOnce(new Error('connection reset'))
+      expect(await runInboundMailFiling(session, payload)).toEqual({ done: true, payload })
+      expect(returnPartToWaiting).not.toHaveBeenCalled()
+      expect(warn).toHaveBeenCalledOnce()
+      warn.mockRestore()
     })
   })
 

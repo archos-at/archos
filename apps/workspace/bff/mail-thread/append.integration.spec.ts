@@ -737,7 +737,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
           position: 1,
           disposition: 'filed',
           documentId: attachmentDoc.id,
-          document: { folderId: null },
+          document: { folderId: null, folderPath: '' },
         }),
       ])
 

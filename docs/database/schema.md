@@ -1334,10 +1334,10 @@ other. Index `(project_id, message_id)`. DELETE is not revoked here.
 | `id`, `organization_id`, `project_id` | | | |
 | `thread_id` | `uuid` | FK to `mail_threads` CASCADE | |
 | `user_id` | `text` | person-shaped | The follower: every append is filed as them |
-| `created_at`, `expires_at` | | `expires_at` after `created_at` and at most 180 days later (`mail_thread_follows_window`) | 60 days by default |
+| `created_at`, `expires_at` | | `expires_at` after `created_at` (`mail_thread_follows_window`; 0254 dropped its 180-day bound) | 60 days by default; each mail filed into the Verlauf moves it to 60 days after that filing |
 | `renewed_at` | `timestamptz` | not before `created_at` | |
 | `daily_cap` | `smallint` | 1..50, default 20 | |
-| `expiring_notified_at` | `timestamptz` | | Day 55, once |
+| `expiring_notified_at` | `timestamptz` | | Five days before `expires_at`, once per end; cleared when a filing or a renewal moves the end |
 | `ended_at`, `ended_by`, `ended_reason` | | reason exactly with `ended_at`; `unfollowed`/`expired`/`access_lost`/`address_rotated`/`detached`/`document_gone`/`revoked_by_manager`/`project_closed` (`mail_thread_follows_ended_reason_known`, the vocabulary `MAIL_THREAD_FOLLOW_END_REASONS`); `unfollowed` only by the follower, `revoked_by_manager` only by someone else (`…_person_reason_attributed`) | `ended_by` NULL when the system noticed; for `project_closed` the person who closed the project, or NULL when sweep 12 ended it |
 
 Unique `(id, thread_id, user_id, organization_id)` (what a follow decision's

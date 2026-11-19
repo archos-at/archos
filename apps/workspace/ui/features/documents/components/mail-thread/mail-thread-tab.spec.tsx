@@ -79,6 +79,17 @@ describe('MailThreadTab', () => {
     expect(items[3]).toHaveTextContent('Attachment 4is in a folder with its own access rights; whoever is listed there can open it')
   })
 
+  it('says under each filed attachment the folder it lies in, and none for one not filed or hidden', async () => {
+    renderTab('three-messages')
+    const [authority, statik] = await entries()
+    const items = within(statik!).getAllByTestId('mail-thread-attachment')
+    expect(within(items[0]!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Tragwerk\/Statik$/)
+    expect(within(items[1]!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Tragwerk\/Statik\/Berechnungen$/)
+    expect(within(items[2]!).queryByTestId('mail-thread-attachment-folder')).toBeNull()
+    expect(within(items[3]!).queryByTestId('mail-thread-attachment-folder')).toBeNull()
+    expect(within(authority!).getByTestId('mail-thread-attachment-folder')).toHaveTextContent(/^Files \(top level\)$/)
+  })
+
   it('says an unconfirmed sender with the warning glyph, in ink', async () => {
     renderTab('unverified-section')
     const trust = within((await entries())[0]).getByTestId('mail-thread-entry-trust')
@@ -151,13 +162,6 @@ describe('MailThreadTab', () => {
       await userEvent.click(screen.getByRole('switch'))
       expect(unfollow).toHaveBeenCalledWith(PROJECT_ID, MAIL_THREAD_VARIANTS.followed.view.id)
       await waitFor(() => expect(screen.getByRole('switch')).not.toBeChecked())
-    })
-
-    it('offers no renewal when 180 days from the start are nearly reached, and says why', async () => {
-      renderTab('renew-limit')
-      expect(await screen.findByTestId('mail-thread-follow-limit')).toHaveTextContent('At most 180 days from the start')
-      expect(screen.queryByTestId('mail-thread-follow-renew')).toBeNull()
-      expect(screen.getByRole('switch')).toBeChecked()
     })
 
     it('lets a manager end someone else’s follow, by name', async () => {

@@ -10,7 +10,6 @@ import { formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { MailThreadFollowView, MailThreadView } from '@/lib/mail-thread/mail-thread-wire'
 import type { MailThreadClient } from './client'
-import { FollowCardHint } from './follow-card'
 import { FollowSwitch } from './follow-switch'
 import { mayEndFollow, mayWrite, otherFollows, viewerFollow } from './mail-thread-model'
 import { refusalKey } from './refusal'
@@ -111,9 +110,6 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
           onChange={(on) => void (on ? follow() : unfollow())}
           testId="mail-thread-follow-switch"
         >
-          {own.kind === 'following' && own.follow && !own.renewable && (
-            <FollowCardHint testId="mail-thread-follow-limit">{t('follow.renewLimit')}</FollowCardHint>
-          )}
           {own.kind === 'following' && own.renewable && (
             <BusyButton
               type="button"

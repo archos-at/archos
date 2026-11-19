@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { and, count, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
+import { and, count, eq, gt, inArray, isNotNull, isNull, lt, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow, type NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
@@ -8,11 +8,7 @@ import { mailThreadFollows, mailThreads, type MailThreadFollowRow, type NewMailT
 import { projectFolders } from '@/lib/db/schema/project-folders'
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
-import {
-  MAIL_THREAD_FOLLOW_MAX_DAYS,
-  MAIL_THREAD_FOLLOW_PROJECT_DAILY_CAP,
-  type MailThreadFollowEndReason,
-} from './mail-thread-vocabulary'
+import { MAIL_THREAD_FOLLOW_PROJECT_DAILY_CAP, type MailThreadFollowEndReason } from './mail-thread-vocabulary'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -49,13 +45,28 @@ export async function renewFollow(followId: string, until: Date, now: Date): Pro
   const [renewed] = await getDb()
     .update(mailThreadFollows)
     .set({
-      expiresAt: sql`LEAST(${until.toISOString()}::timestamptz, ${mailThreadFollows.createdAt} + make_interval(days => ${MAIL_THREAD_FOLLOW_MAX_DAYS}))`,
+      expiresAt: sql`GREATEST(${until.toISOString()}::timestamptz, ${mailThreadFollows.expiresAt})`,
       renewedAt: now,
       expiringNotifiedAt: null,
     })
     .where(and(eq(mailThreadFollows.id, followId), isNull(mailThreadFollows.endedAt)))
     .returning()
   return renewed ?? null
+}
+
+export async function extendRunningFollows(threadId: string, until: Date, now: Date): Promise<MailThreadFollowRow[]> {
+  return getDb()
+    .update(mailThreadFollows)
+    .set({ expiresAt: until, expiringNotifiedAt: null })
+    .where(
+      and(
+        eq(mailThreadFollows.threadId, threadId),
+        isNull(mailThreadFollows.endedAt),
+        gt(mailThreadFollows.expiresAt, now),
+        lt(mailThreadFollows.expiresAt, until),
+      ),
+    )
+    .returning()
 }
 
 export interface FollowEnd {

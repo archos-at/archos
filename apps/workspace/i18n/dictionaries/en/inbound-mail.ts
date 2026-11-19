@@ -96,8 +96,8 @@ export const inboundMail = {
     others: 'Waiting for others',
     othersHint: 'Only the member whose address the mail carries can file it. You can dismiss it.',
     readyHint: 'Each row says where its text and attachments go. One click files them there.',
-    fileAll: 'File all {count} as suggested',
-    fileFirst: 'File the first {count} as suggested',
+    fileAll: 'File all {count} mails ready to file',
+    fileFirst: 'File the first {count} mails ready to file',
   },
 
   group: {
@@ -290,7 +290,7 @@ export const inboundMail = {
     facts: '{type}\u00A0· {size}',
     open: 'Open',
     change: 'Change',
-    changeDetails: 'Name, document type …',
+    changeDetails: 'Change details',
     revisionChoice: {
       label: 'What happens to {name}',
       new: 'File as a new file next to {name}',
@@ -540,6 +540,7 @@ export const inboundMail = {
       changeOf: 'Change where {name} goes',
       leftNote: 'What “stays out” here is dismissed by {productName} when you file. It can be restored for {days} days.',
       nothing: 'Nothing is filed. “Dismiss” dismisses the whole mail.',
+      unverifiedConfirm: 'The sender cannot be verified – by pressing “{action}” you confirm the mail is genuine.',
     },
     pane: {
       besides: 'New file next to {of}',

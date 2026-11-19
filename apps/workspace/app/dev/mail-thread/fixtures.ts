@@ -147,8 +147,8 @@ function threeMessages(): MailThreadEntryView[] {
       sentAt: '2026-10-09T09:05:00.000Z',
       receivedAt: '2026-10-09T09:07:00.000Z',
       attachments: [
-        attachment({ position: 1, filename: 'S-101_B.pdf', disposition: 'filed' }),
-        attachment({ position: 2, filename: 'Lastannahmen.xlsx', disposition: 'already_present' }),
+        attachment({ position: 1, filename: 'S-101_B.pdf', disposition: 'filed', folderPath: 'Tragwerk/Statik' }),
+        attachment({ position: 2, filename: 'Lastannahmen.xlsx', disposition: 'already_present', folderPath: 'Tragwerk/Statik/Berechnungen' }),
         attachment({ position: 3, filename: 'Honorarnote_Okt.zip', disposition: 'not_filed', notFiledReason: 'archive', documentId: undefined, documentVersionId: undefined }),
         attachment({ position: 4, filename: null, disposition: 'filed', visible: false, documentId: undefined, documentVersionId: undefined }),
       ],
@@ -157,7 +157,7 @@ function threeMessages(): MailThreadEntryView[] {
       key: 'authority',
       version: 3,
       sentAt: '2026-10-14T07:12:00.000Z',
-      attachments: [attachment({ position: 1, filename: 'Stellungnahme_MA37_Stellplatznachweis.pdf' })],
+      attachments: [attachment({ position: 1, filename: 'Stellungnahme_MA37_Stellplatznachweis.pdf', folderPath: '' })],
       filedVia: 'agent_proposal',
     }),
   ]
@@ -216,6 +216,7 @@ function worstCase(): MailThreadView {
               filename: position === 0 ? 'Einreichplan_Hofseite_Stellplätze_Variante_3_final_final_wirklich_final_INDEX_C_2026-10-14.pdf' : `Anhang_${position}_ohne_Leerzeichen_sehr_lang_${'x'.repeat(40)}.pdf`,
               disposition: (['filed', 'already_present', 'not_filed'] as const)[position % 3],
               notFiledReason: position % 3 === 2 ? 'type_not_accepted' : undefined,
+              folderPath: position % 3 === 2 ? undefined : `Einreichung/Behörde/MA 37 Baupolizei/Stellplatznachweis_${'y'.repeat(30)}`,
               visible: position !== 5,
             }),
           )
@@ -257,9 +258,6 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
   }),
   followed: fixture({
     view: thread({ followed: true, follows: [follow({ userId: VIEWER_ID })], waitingCount: 0 }),
-  }),
-  'renew-limit': fixture({
-    view: thread({ followed: true, follows: [follow({ userId: VIEWER_ID, createdAt: daysAgo(170), expiresAt: daysAhead(10) })] }),
   }),
   'manager-follows': fixture({
     view: thread({

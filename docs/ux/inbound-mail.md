@@ -212,9 +212,13 @@ finds nothing says „Keine E-Mail passt zu „…““ with „Suche leeren“
 rhythm is one: 32px between sections, 12px between a heading, a thread and a
 run of rows inside one. „Ablagebereit“ says on hover „Jede Zeile sagt,
 wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.“ and, with two or more
-ready mails, „Alle {n} wie vorgeschlagen ablegen“ (bulk, confirmed and grouped
-by destination; more than 20: „Die ersten 20 wie vorgeschlagen ablegen“, since
-one request decides at most 20). Every ready row says in one muted line, with
+ready mails, „Alle {n} ablagebereiten E-Mails ablegen“ (bulk, confirmed and
+grouped by destination; more than 20: „Die ersten 20 ablagebereiten E-Mails
+ablegen“, since one request decides at most 20). It names its scope, the
+section, so it never reads as the thread group's „Diese {n} wie vorgeschlagen
+ablegen“ beside it (round 7: „Alle 5 …“ and „Diese 3 …“ read as two answers to
+one question); where the section is one thread group, only the group's press
+stands. Every ready row says in one muted line, with
 a folder glyph, where that press files it, so the bulk press is never blind:
 „E-Mail-Text an „Verfahren MA 37“ · Anhang nach Behörde/Bescheide“, „3
 Anhänge in 2 Ordner“, „E-Mail-Text als neuer E-Mail-Verlauf“, the top level
@@ -555,9 +559,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       „Plannummer“ where the number is meant. Each row (`AttachmentRow`) has its
       case notes, „Ordner: …“ with its own „Ordner wählen“ / „Ordner
       ändern“ (`FolderChoiceDialog`: the likely folders, „Neuer Ordner …“,
-      the project's folders), „Dokumentart: …“, „Name, Dokumentart …“ with
-      the target dialog, and the confirmations „Ich vertraue dem Absender
-      dieser Datei“ and „Trotzdem ablegen“. **„Weiter“ waits until every
+      the project's folders), „Dokumentart: …“, „Details ändern“ with
+      the target dialog (name, folder, Dokumentart and Fassung; round 7:
+      „Name, Dokumentart …“ read as a label cut off), and the
+      confirmations „Ich vertraue dem Absender dieser Datei“ and „Trotzdem
+      ablegen“. **„Weiter“ waits until every
       ticked file has a folder** (`keptWithoutFolder`), and says so beside
       it, as its description: „Wählen Sie zuerst für 1 Datei einen Ordner
       oder nehmen Sie ihr Häkchen weg.“ **An attachment without any folder
@@ -576,7 +582,7 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       had shown „Pläne“ under the pointer, not the chosen „Pläne / Fassade“
       below the fold, and she feared she had moved them (round 4). Opened
       again, the chosen folder is the one row marked „Gewählt“ (`PickerRow`
-      `current="chosen"`). A row puts „Name, Dokumentart …“ beside its folder
+      `current="chosen"`). A row puts „Details ändern“ beside its folder
       rather than on a line of its own, so three files fit 1440×900 without
       scrolling. The pane and the dialog read one draft, so a folder the
       dialog will preselect (the agent's, or the folder the sender's earlier
@@ -601,7 +607,10 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       · Fassung 4 von Statik.pdf (Fassung 3 bleibt erhalten)“ where the
       names carry no index), „Tragwerk · neue Datei neben S-101_C.pdf“ (the
       decision on a possible Fassung is named, `PlanLine.besides`), „Neuer
-      Ordner Fotos · Foto“, „Noch kein Ordner“. A row's „Ändern“ goes to
+      Ordner Fotos · Foto“, „Noch kein Ordner“. An encrypted file keeps the
+      attachments step's note as a quiet third line with the lock glyph,
+      „Verschlüsselt – {productName} kann den Inhalt nicht lesen“ (round 7:
+      it was filed with no hint). A row's „Ändern“ goes to
       the step that decides that part, adding it when it was not asked: the
       text to „E-Mail-Text“, a file to „Anhänge“ with its row unfolded,
       scrolled to and focused. The owner, round 6: one sentence per part
@@ -629,8 +638,9 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       Ausschalten“, the inline press toggling it to „… warten im
       E-Mail-Eingang · Einschalten“, and an ⓘ toggletip holding the
       explanation of the Verlauf's switch („Antworten von Beteiligten mit
-      bestätigter Domain legt {productName} 60 Tage lang ab, als hätten Sie
-      es selbst getan: …“). The owner, round 6: it is a default one turns
+      bestätigter Domain legt {productName} ab, als hätten Sie es selbst
+      getan: … Es endet erst, wenn 60 Tage lang nichts in diesen
+      E-Mail-Verlauf abgelegt wurde.“). The owner, round 6: it is a default one turns
       off, not a question, and round 5's framed switch with its paragraph
       weighed as much as the filing; the „E-Mails“ tab keeps the
       `FollowSwitch` with its state and explanation. Where replies could
@@ -642,7 +652,12 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
       follow the filing would start never starts. What blocks filing
       stands above the primary with the warning glyph (`blockerText`), and the
       primary is disabled. The primary names the act: „Ablegen“; a forgery's
-      „Als echt ablegen“; with nothing left to file „Verwerfen“.
+      „Als echt ablegen“; with nothing left to file „Verwerfen“. Where the
+      sender cannot be verified (an outsider's or a colleague's unsigned
+      mail, `filingConfirmsUnverifiedSender`) the last line of „Übersicht“,
+      quiet, with the sender-check glyph, says what pressing means:
+      „Absender nicht überprüfbar – mit „Ablegen“ bestätigen Sie, dass die
+      E-Mail echt ist.“ A forgery gets none: its verb says it.
 
    A mail with nothing to decide opens straight on „Übersicht“: „Einordnen“,
    then „Ablegen“. „Zurück“ and „Weiter“ walk the steps; the first step's
@@ -823,9 +838,11 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   beside a flow that had said on; `three-messages` follows now,
   `not-followed` does not). Switching on: toast „Antworten in „X“ werden bis
   {Datum} ohne Klick abgelegt“ with „Rückgängig“; switching off ends it.
-  „Verlängern“ under it (only while it can grow at least a day within 180
-  days of its start; otherwise „Höchstens 180 Tage ab Beginn. Danach wieder
-  einschalten.“). Others: „Auch für 2 weitere Personen eingeschaltet“; a
+  „Verlängern“ under it (only while 60 days from now reach at least a day
+  past its end; every mail filed into the Verlauf already moves it to 60 days
+  after that filing, so right after one there is nothing to renew, and the
+  explanation says „Es endet erst, wenn 60 Tage lang nichts in diesen
+  E-Mail-Verlauf abgelegt wurde.“). Others: „Auch für 2 weitere Personen eingeschaltet“; a
   member who may not file reads no switch but „Antworten in diesem
   E-Mail-Verlauf legt {productName} für 2 Personen ohne Klick ab.“; for a
   viewer with `managesFollows`, „Auch eingeschaltet für“ by name with
@@ -856,8 +873,11 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   filed only where no person decided in the app (agent, the agent card, follow,
   archive import); „Anhänge“: each a link to its document, its note under its
   own name, indented past the file's glyph, the files 8px apart (with 2px a
-  note read as the next file's): „lag schon im Projekt“, „nicht abgelegt ·
-  {Grund}“ (15 reasons); one in a folder the reader cannot see is „Anhang {n}“
+  note read as the next file's): the folder a filed one lies in now, under
+  its name with a folder glyph and quiet, as „Übersicht“ says it
+  („Tragwerk/Statik“, „Dateien (oberste Ebene)“; the view's `folderPath`;
+  round 7's „Ordner “ before it left the word alone on a line in the rail),
+  „lag schon im Projekt“, „nicht abgelegt · {Grund}“ (15 reasons); one in a folder the reader cannot see is „Anhang {n}“
   with „liegt in einem Ordner mit eigenen Zugriffsrechten; öffnen kann ihn,
   wer dort eingetragen ist“ (never named; „…, den Sie nicht sehen“ read as
   watched).

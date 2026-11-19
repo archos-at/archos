@@ -99,7 +99,6 @@ export const MAIL_THREAD_FOLLOW_PERSON_END_REASONS = [
 ] as const satisfies readonly MailThreadFollowEndReason[]
 
 export const MAIL_THREAD_FOLLOW_DEFAULT_DAYS = 60
-export const MAIL_THREAD_FOLLOW_MAX_DAYS = 180
 
 export const MAIL_THREAD_FOLLOW_DEFAULT_DAILY_CAP = 20
 export const MAIL_THREAD_FOLLOW_MAX_DAILY_CAP = 50

@@ -19,7 +19,7 @@ import {
 import { mailOriginIngestFacts } from '@/lib/mail-thread/ingest-facts'
 import { domainOf } from '@/lib/mail-thread/mail-threading'
 import type { MailThreadLocale } from '@/lib/mail-thread/mail-thread-vocabulary'
-import { followByDefault } from '@/lib/mail-thread/follows'
+import { extendFollowsOnFiling, followByDefault } from '@/lib/mail-thread/follows'
 import { finishOriginalMove } from '@/lib/mail-thread/originals'
 import { newThreadLocaleFor } from '@/lib/mail-thread/thread-locale'
 import {
@@ -396,8 +396,17 @@ async function fileText(
     return 'done'
   }
   await finishOriginalMove(mail, { id: outcome.entryId, originalStorageKey: null })
+  await extendFiledThreadFollows(run, outcome.threadId)
   if (run.follows(decision)) await followFiledThread(run, outcome.threadId)
   return 'done'
+}
+
+async function extendFiledThreadFollows(run: FilingRun, threadId: string): Promise<void> {
+  try {
+    await extendFollowsOnFiling(run.session.organizationId, threadId)
+  } catch (error) {
+    console.warn(`[inbound-mail] the follows of mail thread ${threadId} were not extended; the text is filed`, error)
+  }
 }
 
 async function followFiledThread(run: FilingRun, threadId: string): Promise<void> {

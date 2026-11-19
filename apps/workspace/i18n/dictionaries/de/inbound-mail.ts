@@ -99,8 +99,8 @@ export const inboundMail: typeof en.inboundMail = {
     others: 'Wartet auf andere',
     othersHint: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen. Sie können sie verwerfen.',
     readyHint: 'Jede Zeile sagt, wohin ihr Text und ihre Anhänge kommen. Ein Klick legt sie so ab.',
-    fileAll: 'Alle {count} wie vorgeschlagen ablegen',
-    fileFirst: 'Die ersten {count} wie vorgeschlagen ablegen',
+    fileAll: 'Alle {count} ablagebereiten E-Mails ablegen',
+    fileFirst: 'Die ersten {count} ablagebereiten E-Mails ablegen',
   },
 
   group: {
@@ -294,7 +294,7 @@ export const inboundMail: typeof en.inboundMail = {
     facts: '{type}\u00A0· {size}',
     open: 'Öffnen',
     change: 'Ändern',
-    changeDetails: 'Name, Dokumentart …',
+    changeDetails: 'Details ändern',
     revisionChoice: {
       label: 'Was mit {name} geschieht',
       new: 'Als neue Datei neben {name} ablegen',
@@ -544,6 +544,7 @@ export const inboundMail: typeof en.inboundMail = {
       changeOf: 'Ändern, wohin {name} kommt',
       leftNote: 'Was hier „bleibt weg“, verwirft {productName} beim Ablegen. Wiederherstellen lässt es sich {days} Tage lang.',
       nothing: 'Es wird nichts abgelegt. „Verwerfen“ verwirft die ganze E-Mail.',
+      unverifiedConfirm: 'Absender nicht überprüfbar – mit „{action}“ bestätigen Sie, dass die E-Mail echt ist.',
     },
     pane: {
       besides: 'Neue Datei neben {of}',

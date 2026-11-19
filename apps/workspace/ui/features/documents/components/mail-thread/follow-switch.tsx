@@ -14,7 +14,7 @@ export interface FollowSwitchProps {
   /** The follow's end, said beside „An“ once it runs. */
   until?: string | null
   disabled?: boolean
-  /** What stands under the explanation, such as the limit of a renewal. */
+  /** What stands under the explanation, such as „Verlängern“. */
   children?: ReactNode
   className?: string
   testId?: string

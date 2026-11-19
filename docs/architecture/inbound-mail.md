@@ -731,6 +731,8 @@ sequenceDiagram
   P->>FI: files a mail's text into a Verlauf (via app)
   FI->>F: followByDefault, after the text is filed
   F->>DB: mail_thread_follows (60 days), unless one runs or a right refuses
+  FI->>F: extendFollowsOnFiling, after any text is filed (app or follow)
+  F->>DB: each running follow of the Verlauf to 60 days after the filing, its renewal notice settled
   Note over P,F: or POST …/mail-threads/[threadId]/follow { days? }
   Note over RJ: a reply arrives
   RJ->>DB: queue inbound_mail_suggest, then
@@ -828,6 +830,18 @@ project ends every follow on it (`project_closed`), so a run that still meets
 a closed project (closed between its find and its check) leaves the mail
 waiting. One log line per run: `[inbound-mail] follow of mail <id>: <kind>[:<reason>]`.
 
+**A follow runs while the conversation is active** (owner decision of
+2026-11-19, migration 0254): every text filed into a Verlauf, by a person in
+the app or by a follow, moves each running follow of that Verlauf to 60 days
+after the filing (`extendFollowsOnFiling` in `lib/mail-thread/follows.ts`,
+called by the filing step after the text is filed). A follow therefore ends
+only after 60 quiet days; there is no cap from its start. The extension never
+shortens a follow, never touches one that ended or ran out unswept, and starts
+none, so a follow someone switched off stays off. It clears
+`expiring_notified_at` and settles an open `mail_thread.follow_expiring`, so
+sweep 12 announces the new end again five days before it. „Verlängern“ still
+moves a follow to 60 days from now, never shorter than it already runs.
+
 Ending: `DELETE …/follow` (own: `unfollowed`; `?userId` with `project:manage`:
 `revoked_by_manager`), closing the project (`project_closed`,
 `endFollowsOnProjectClose` in the close itself, as the person who closed it,
@@ -881,7 +895,7 @@ In the order they run:
 | 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0199), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it (a run past its execution timeout runs on, and Hatchet delivers at least once) never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
 | 8 | `keptMails` | settled mails 30 days after settling with no filed part's document alive, dropped mails 30 days after receipt; nothing left to erase, nothing unaudited: deleted | 30 days | project or custodian hold: skipped; trigger `GLH01` backstop |
-| 12 | `follows` | running follows past `expires_at` end `expired`, those whose document is gone end `document_gone`, those in a closed project end `project_closed`; five days before the end `mail_thread.follow_expiring`, once | 60 days, day 55 | — |
+| 12 | `follows` | running follows past `expires_at` end `expired`, those whose document is gone end `document_gone`, those in a closed project end `project_closed`; five days before the end `mail_thread.follow_expiring`, once per end: a filing that extends the follow re-arms it | 60 days after the last mail filed into the Verlauf (or the start or renewal), five days before that | — |
 | 9 | `threads` | threads whose document is deleted (a binned one keeps its row), over an hour old, no lease, no running follow, nothing unaudited, not waiting for a first archive render: the thread's render lease taken under that whole condition (the hold included), then every original erased by key, then the thread deleted (cascade: entries, attachment rows, Message-IDs, ended follows, their audited decisions and the parts those filed) | 1 h | project hold: skipped; triggers backstop |
 | 14 | `caps` | addresses at 80% or 100% of their own or their organization's staged-bytes cap: `inbound_mail.cap_reached` to the managers once per rise; settled below 80% or when revoked | — | — |
 
@@ -933,7 +947,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.filing_failed` | the decider; variant the `last_failure` | per mail, actionable | `/files/mail/<mailId>` | requests, normal | filed again or dismissed |
 | `inbound_mail.cap_reached` | the project's managers; variant `nearly_full` or `full` | per address, actionable | `/files/mail` | requests, normal | below 80%, or a new address |
 | `inbound_mail.appended` | the follower; variant `with_attachments` when the follow filed attachments with the text, else `text` (every emission names one, since a collapsed row merges payloads) | per Verlauf and day | the Verlauf document | results, low | — |
-| `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed or ended |
+| `mail_thread.follow_expiring` | the follower, once per end (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed, extended by a filing, or ended |
 | `mail_thread.follow_ended` | the follower, when the system, a manager, a detach or a full Verlauf ended their follow; variant the end reason | per follow | `/files/mail` | results, low | — |
 | `inbound_mail.fraud_reported` | the project's managers (office admins included), not the reporter nor the member it posed as, when a person reported an impersonation: „Gefälschte E-Mail als {sender} in „…“: nicht zahlen, nicht antworten“, body „Bitte nicht zahlen und nicht antworten. Prüfen Sie Ihr Mailprogramm auf dieselbe E-Mail.“, the subject as excerpt | per mail, warning tone, 90 days | the reported mail under „Bearbeitet“ | office, high | — |
 

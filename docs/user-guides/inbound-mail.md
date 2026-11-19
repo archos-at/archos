@@ -155,7 +155,7 @@ Behörde/Bescheide“, or „3 Anhänge in 2 Ordner“ when its files go to seve
 folders. „Wie vorgeschlagen ablegen“ on such a row files it in one press,
 without a confirmation; the mail is read again first, and if it changed
 meanwhile („Anhang wird noch geprüft …“) nothing is filed and you are told
-why. With two or more ready mails, „Alle {n} wie vorgeschlagen ablegen“ files
+why. With two or more ready mails, „Alle {n} ablagebereiten E-Mails ablegen“ files
 them after a confirmation grouped by destination (at most 20 at a time).
 Replies to one conversation stand indented under its name, and „Diese 3 wie
 vorgeschlagen ablegen“ beside the name files exactly the rows under it.
@@ -414,7 +414,8 @@ Open the Verlauf in Dateien and choose the **E-Mails** tab in its preview:
   clock), when it arrived („eingegangen 09:13“, with the date when that was
   another day) and beside it **Original (.eml)**, the mail exactly as it
   arrived (below), then the domain label and how it was filed;
-- its attachments, each linked to the document it became; a note stands under
+- its attachments, each linked to the document it became, with the folder it
+  lies in under its name („Tragwerk/Statik“); a note stands under
   the file it is about („lag schon im Projekt“, „nicht abgelegt · {Grund}“),
   and an attachment filed in a folder you cannot see reads „Anhang 4 ·
   abgelegt in einem Ordner, den Sie nicht sehen“;
@@ -468,8 +469,10 @@ eingegangen“, „eine Prüfung nötig“).
   file not scanned clean), waits in the E-Mail-Eingang, and the mail shows
   there with only what is left.
 
-- It runs 60 days; „Verlängern“ extends it, up to 180 days from its start.
-  You are told five days before it ends.
+- It runs as long as the conversation does: every mail filed into the
+  E-Mail-Verlauf, by you, a colleague or the switch itself, keeps it on for
+  another 60 days. It ends after 60 days with nothing filed there; „Verlängern“
+  moves the end to 60 days from today. You are told five days before it ends.
 - Switching it off ends it. Whoever manages the project can end it for anyone
   („Beenden“ under „Auch eingeschaltet für“).
 - It also ends when you lose access to the project or the Verlauf's folder,
