@@ -26,6 +26,7 @@ vi.mock('./repository', () => ({
   visibleOfficeDocuments: vi.fn(),
 }))
 vi.mock('./mark', () => ({ markCopyPoints: vi.fn(async () => true) }))
+vi.mock('./folder-norms-repository', () => ({ keepAsOrdinaryFiles: vi.fn(), forgetOrdinaryKeeps: vi.fn() }))
 vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn(async () => new Map([['user-1', { name: 'Anna Berger' }]])) }))
 vi.mock('./territory-choices', () => ({ territoryChoices: vi.fn(async () => [{ id: 'AT', label: null }, { id: 'AT-9', label: 'Wien' }]) }))
 vi.mock('./folders', () => ({
@@ -74,6 +75,7 @@ import {
   type StoredEntry,
 } from '../store/repository'
 import { markCopyPoints } from './mark'
+import { forgetOrdinaryKeeps, keepAsOrdinaryFiles } from './folder-norms-repository'
 import { readShelfDocument, visibleOfficeDocuments } from './repository'
 import { STUB_PLATFORM_KNOWLEDGE, usePlatformKnowledge } from '../platform'
 import { releaseText, withholdText } from './text-effects'
@@ -84,7 +86,6 @@ import {
   heldWorksOf,
   getBaseKnowledgeEntry,
   listBaseKnowledge,
-  proposeBaseKnowledge,
   recordProposal,
   removeBaseKnowledge,
   relistBaseKnowledge,
@@ -184,8 +185,7 @@ describe('who may do what', () => {
 
 describe('proposing', () => {
   it('takes what the caller read over what the reading guessed, and says whose values they are', async () => {
-    vi.mocked(readShelfDocument).mockResolvedValue({ ...DOCUMENT, fileName: 'scan.pdf' })
-    await proposeBaseKnowledge(MANAGER, { documentId: 'doc-1', designation: 'ÖNORM B 1600:2017', editionLabel: '2017-04-01' }, 'agent')
+    await recordProposal(MANAGER, { documentId: 'doc-1', designation: 'ÖNORM B 1600:2017', editionLabel: '2017-04-01' }, 'scan.pdf', 'agent')
     expect(insertProposedEntry).toHaveBeenCalledWith(
       'doc-1',
       expect.objectContaining({ designation: 'ÖNORM B 1600:2017', editionLabel: '2017-04-01', title: 'scan' }),
@@ -193,16 +193,8 @@ describe('proposing', () => {
     )
   })
 
-  it('takes a licensed copy’s passages out of the index at once: metadata-only until the AI statement', async () => {
-    vi.mocked(readShelfDocument).mockResolvedValue({ ...DOCUMENT, fileName: 'ÖNORM B 1600.pdf' })
-    await proposeBaseKnowledge(MANAGER, { documentId: 'doc-1', licenceClass: 'licensed' })
-    expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
-  })
-
-  it('holds even a public copy’s text until a person confirms it, and proposes from the file name alone', async () => {
-    vi.mocked(readShelfDocument).mockResolvedValue({ ...DOCUMENT, fileName: 'MA37_Weisung.pdf' })
-    await proposeBaseKnowledge(MANAGER, { documentId: 'doc-1' })
-    expect(withholdText).toHaveBeenCalledWith(MANAGER, 'doc-1')
+  it('proposes from the file name alone', async () => {
+    await recordProposal(MANAGER, { documentId: 'doc-1' }, 'MA37_Weisung.pdf', 'reading')
     expect(insertProposedEntry).toHaveBeenCalledWith(
       'doc-1',
       expect.objectContaining({ designation: null, kind: 'authority_directive' }),
@@ -211,9 +203,8 @@ describe('proposing', () => {
   })
 
   it('refuses a second entry for one document', async () => {
-    vi.mocked(readShelfDocument).mockResolvedValue({ ...DOCUMENT, fileName: 'scan.pdf' })
     vi.mocked(documentHasEntry).mockResolvedValue(true)
-    await expect(proposeBaseKnowledge(MANAGER, { documentId: 'doc-1' })).rejects.toBeInstanceOf(ConflictError)
+    await expect(recordProposal(MANAGER, { documentId: 'doc-1' }, 'scan.pdf', 'reading')).rejects.toBeInstanceOf(ConflictError)
   })
 })
 
@@ -235,7 +226,7 @@ describe('uploading as base knowledge', () => {
     expect(insertProposedEntry).toHaveBeenCalledWith(
       'doc-1',
       expect.objectContaining({ designation: 'ÖNORM B 1600', kind: 'technical_standard' }),
-      expect.objectContaining({ provenance: { proposedBy: 'reading' } }),
+      expect.objectContaining({ provenance: { proposedBy: 'reading', filedFrom: { folderId: null, upload: true } } }),
     )
   })
 
@@ -682,10 +673,17 @@ describe('taking a document off the norms', () => {
     expect(deleteOfficeShelfDocument).not.toHaveBeenCalled()
   })
 
+  it('remembers the file as an ordinary one, so the folder notice does not offer it again', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    await unlistBaseKnowledge(MANAGER, 'edition_1')
+    expect(keepAsOrdinaryFiles).toHaveBeenCalledWith('org-1', ['doc-1'], 'user-1')
+  })
+
   it('keeps the records when the file could not be moved, so the norm stays in view', async () => {
     vi.mocked(moveDocumentToFolder).mockResolvedValueOnce({ ok: false, error: 'Folder not found in the office shelf.' })
     await expect(unlistBaseKnowledge(MANAGER, 'edition_1')).rejects.toBeInstanceOf(UnprocessableError)
     expect(unlistDocumentEntry).not.toHaveBeenCalled()
+    expect(keepAsOrdinaryFiles).not.toHaveBeenCalled()
   })
 
   it('is only for a shelf manager', async () => {
@@ -711,6 +709,7 @@ describe('bringing it back (Rückgängig)', () => {
     expect(releaseText).toHaveBeenCalledWith(MANAGER, 'doc-1')
     expect(insertProposedEntry).not.toHaveBeenCalled()
     expect(forgetKeysFor).toHaveBeenCalledWith('org-1', ['edition_1', 'doc-1'])
+    expect(forgetOrdinaryKeeps).toHaveBeenCalledWith('org-1', ['doc-1'])
   })
 
   it('lands in the base-knowledge root when its topic is gone', async () => {
@@ -729,6 +728,7 @@ describe('bringing it back (Rückgängig)', () => {
     vi.mocked(readOfficeEntries).mockResolvedValue([])
     await expect(relistBaseKnowledge(MANAGER, 'edition_1', {})).rejects.toBeInstanceOf(NotFoundError)
     expect(moveDocumentToFolder).not.toHaveBeenCalled()
+    expect(forgetOrdinaryKeeps).not.toHaveBeenCalled()
   })
 })
 

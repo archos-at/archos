@@ -1,14 +1,11 @@
 import type { StoredEntry } from '../store/repository'
-import { UNKNOWN_EDITION } from '../wire'
+import { editionKey, isHeldEdition } from '../wire/edition-key'
 import { workDesignation } from './work-designation'
+
+export { editionKey }
 
 const workKey = (designation: string | null): string | null =>
   workDesignation(designation)?.replace(/\s+/g, ' ').trim().toUpperCase() || null
-
-export const editionKey = (label: string | null): string | null => {
-  const key = label?.trim().toLowerCase() ?? ''
-  return key && key !== UNKNOWN_EDITION ? key : null
-}
 
 const startOf = (entry: StoredEntry): string => entry.values.inForceFrom ?? entry.values.issuedOn ?? entry.values.editionLabel
 
@@ -27,6 +24,7 @@ export function heldEditionsOf(entry: StoredEntry, entries: readonly StoredEntry
 }
 
 export function isDuplicateEdition(editionLabel: string | null, held: readonly StoredEntry[]): boolean {
-  const key = editionKey(editionLabel)
-  return key !== null && held.some((other) => editionKey(other.values.editionLabel) === key)
+  return isHeldEdition(editionLabel, held.map((other) => other.values.editionLabel))
 }
+
+export const arrivedAsUpload = (entry: StoredEntry): boolean => entry.provenance.filedFrom?.upload === true

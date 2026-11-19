@@ -32,7 +32,7 @@ export const POST = apiRoute(
     const uploaded =
       shelf.kind === 'project'
         ? await uploadDocument(session, { projectId: shelf.projectId, file, ...input }, request)
-        : await uploadToOfficeShelf(session, file, request, input)
+        : await uploadToOfficeShelf(session, file, request, { ...input, asNorm: text(formData.get('asNorm')) === 'true' })
     announceNormReadingAtUpload(session, {
       shelf: shelf.kind === 'project' ? 'project' : 'office_shelf',
       fileName: file.name,

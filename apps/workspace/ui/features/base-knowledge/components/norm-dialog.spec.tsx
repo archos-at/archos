@@ -29,6 +29,8 @@ const RECOGNITION: NormRecognition = {
       editionLabel: '2017-04-01',
       editionOf: { entryId: 'edition_b1600', designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' },
       duplicate: true,
+      heldEditions: ['2017-04-01'],
+      upload: true,
     }),
   ],
   plain: [
@@ -54,12 +56,42 @@ afterEach(() => {
 })
 
 describe('NormDialog', () => {
-  it('says a duplicate will not be filed twice, and where the other files lie', () => {
+  it('says plainly that an uploaded duplicate is deleted, and where the other files lie', () => {
     renderDialog()
     const dialog = screen.getByTestId('norm-dialog')
-    expect(within(dialog).getByTestId('norm-dialog-info').textContent).toBe('diese Ausgabe liegt schon in der Büroablage und wird nicht doppelt abgelegt')
+    expect(within(dialog).getByTestId('norm-dialog-info').textContent).toBe(
+      'diese Ausgabe liegt schon unter Normen & Richtlinien; beim Bestätigen wird diese hochgeladene Datei gelöscht',
+    )
     expect(within(dialog).getByTestId('norm-dialog-plain').textContent).toMatch(
       /^2 weitere Dateien sind keine Normen und liegen, wo sie hochgeladen wurden\. Darunter eine Richtlinie, die \S+ schon kennt\.$/,
+    )
+  })
+
+  it('checks the edition as the person types it, as the server will, and says a duplicate from an Ordner folder goes back there', async () => {
+    const recognition: NormRecognition = {
+      ...RECOGNITION,
+      proposals: [
+        proposal('newer', {
+          designation: 'ÖNORM B 1600',
+          editionLabel: '2023-02-01',
+          editionOf: { entryId: 'edition_b1600', designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' },
+          heldEditions: ['2017-04-01'],
+          upload: false,
+        }),
+      ],
+    }
+    render(
+      <I18nProvider initialLocale="de" fixedLocale>
+        <NormDialog recognition={recognition} onClose={vi.fn()} onSettled={vi.fn()} />
+      </I18nProvider>,
+    )
+    const user = userEvent.setup()
+    expect(screen.getByTestId('norm-dialog-info').textContent).toBe('neue Ausgabe von ÖNORM B 1600 (bisher 2017-04-01)')
+    const edition = screen.getByRole('textbox', { name: 'Ausgabe: newer.pdf' })
+    await user.clear(edition)
+    await user.type(edition, ' 2017-04-01')
+    expect(screen.getByTestId('norm-dialog-info').textContent).toBe(
+      'diese Ausgabe liegt schon unter Normen & Richtlinien; beim Bestätigen geht die Datei als normale Datei zurück in ihren Ordner',
     )
   })
 

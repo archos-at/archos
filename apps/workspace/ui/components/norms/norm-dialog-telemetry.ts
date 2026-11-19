@@ -18,6 +18,7 @@ const OUTCOME_COUNT: Record<SettleProposalsResult['results'][number]['outcome'],
   not_norm: 'not_norm',
   edition_added: 'edition_added',
   duplicate_removed: 'duplicate_removed',
+  duplicate_returned: 'not_norm',
   edition_missing: 'later',
   failed: null,
 }

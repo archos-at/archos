@@ -17,7 +17,7 @@ const isoDate = z.iso.date()
 
 export { ASK_FOR_LICENCE } from './licence-step'
 
-export const UNKNOWN_EDITION = 'unbekannt'
+export { UNKNOWN_EDITION } from './edition-key'
 
 export const ENTRY_PAGE = 50
 export const MAX_ENTRY_PAGE = 200
@@ -266,6 +266,8 @@ export interface NormProposal {
   topicId: string | null
   editionOf: { entryId: string; designation: string | null; editionLabel: string } | null
   duplicate: boolean
+  heldEditions?: string[]
+  upload?: boolean
   coverOverrode?: { field: 'designation' | 'editionLabel'; fileName: string }[]
 }
 
@@ -314,7 +316,7 @@ export const settleProposalsBodySchema = z
   .strict()
 export type SettleProposalsBody = z.infer<typeof settleProposalsBodySchema>
 
-export type SettleOutcome = 'confirmed' | 'edition_added' | 'duplicate_removed' | 'not_norm' | 'edition_missing' | 'failed'
+export type SettleOutcome = 'confirmed' | 'edition_added' | 'duplicate_removed' | 'duplicate_returned' | 'not_norm' | 'edition_missing' | 'failed'
 
 export interface SettledProposal {
   entryId: string

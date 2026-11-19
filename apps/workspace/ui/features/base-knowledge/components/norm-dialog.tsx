@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { NormProposal, SettleProposalsBody } from '@/lib/base-knowledge/wire'
+import { isHeldEdition } from '@/lib/base-knowledge/wire/edition-key'
 import { OFFICE_WORK_KINDS, type OfficeWorkKind } from '@/lib/base-knowledge/wire/vocab'
 import { cn } from '@/lib/utils'
 import { onePlace, placeOf } from '../hooks/use-norm-recognition'
@@ -54,6 +55,12 @@ export function settleRows(proposals: readonly NormProposal[], rows: Readonly<Re
   })
 }
 
+export function duplicateNote(proposal: NormProposal, editionLabel: string): 'norms.duplicateDiscarded' | 'norms.duplicateReturned' | null {
+  const duplicate = proposal.heldEditions ? isHeldEdition(editionLabel.trim() || null, proposal.heldEditions) : proposal.duplicate
+  if (!duplicate) return null
+  return proposal.upload ? 'norms.duplicateDiscarded' : 'norms.duplicateReturned'
+}
+
 const counted = (t: Translate, key: string, count: number, values: Record<string, string | number> = {}) =>
   t(count === 1 ? `${key}One` : key, { count, ...values })
 
@@ -70,6 +77,7 @@ export function settledSummary(t: Translate, { results }: SettleProposalsResult,
     of('edition_missing').length > 0 ? counted(t, 'norms.result.missing', of('edition_missing').length) : null,
     of('not_norm').length > 0 ? counted(t, 'norms.result.notNorm', of('not_norm').length) : null,
     of('duplicate_removed').length > 0 ? counted(t, 'norms.result.duplicate', of('duplicate_removed').length) : null,
+    of('duplicate_returned').length > 0 ? counted(t, 'norms.result.returned', of('duplicate_returned').length) : null,
     failed.length > 0 ? t('norms.result.failed', { count: failed.length, reason: failed[0].error ?? '' }) : null,
   ].filter((part): part is string => part !== null)
   return parts.length > 0 ? parts.join(', ') : t('norms.result.saved')
@@ -106,10 +114,11 @@ function ProposalRow({
 }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const off = row.kind === NOT_NORM
-  const missing = !off && row.editionLabel.trim() === '' && !proposal.duplicate
+  const duplicate = off ? null : duplicateNote(proposal, row.editionLabel)
+  const missing = !off && row.editionLabel.trim() === '' && !duplicate
   const workTopic = proposal.editionOf ? topics?.folders.find((folder) => folder.id === proposal.topicId) : undefined
-  const info = proposal.duplicate
-    ? t('norms.duplicate')
+  const info = duplicate
+    ? t(duplicate)
     : proposal.editionOf
       ? t('norms.newEdition', { designation: proposal.editionOf.designation ?? '', edition: proposal.editionOf.editionLabel })
       : null

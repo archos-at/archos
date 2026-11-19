@@ -59,6 +59,15 @@ export async function keepAsOrdinaryFiles(organizationId: string, documentIds: r
   )
 }
 
+export async function forgetOrdinaryKeeps(organizationId: string, documentIds: readonly string[]): Promise<void> {
+  if (documentIds.length === 0) return
+  await withTenant({ organizationId }, () =>
+    getDb()
+      .delete(officeShelfNormKeeps)
+      .where(and(eq(officeShelfNormKeeps.organizationId, organizationId), inArray(officeShelfNormKeeps.documentId, [...documentIds]))),
+  )
+}
+
 export async function keptAsOrdinaryFiles(organizationId: string, documentIds: readonly string[], reader: DocumentReader): Promise<Set<string>> {
   if (documentIds.length === 0) return new Set()
   const rows = await withTenant({ organizationId }, () =>

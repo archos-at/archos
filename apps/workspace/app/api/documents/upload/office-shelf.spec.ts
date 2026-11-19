@@ -53,6 +53,7 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
       screeningRelease: false,
       uploadBatchId: null,
       revisionOf: null,
+      asNorm: false,
     })
   })
 
@@ -65,12 +66,14 @@ describe('POST /api/documents/upload, scope=office_shelf', () => {
       screeningRelease: false,
       uploadBatchId: null,
       revisionOf: null,
+      asNorm: false,
     })
   })
 
-  it('reads no flag that sends an upload to the norms: the server recognises a norm by its name', async () => {
-    await post({ forStandards: 'true' })
+  it('passes on that the file was put under the norms, and reads no other flag for it', async () => {
+    await post({ asNorm: 'true', forStandards: 'true' })
 
+    expect(vi.mocked(uploadToOfficeShelf).mock.calls[0]?.[3]).toMatchObject({ asNorm: true })
     expect(vi.mocked(uploadToOfficeShelf).mock.calls[0]?.[3]).not.toHaveProperty('forStandards')
   })
 

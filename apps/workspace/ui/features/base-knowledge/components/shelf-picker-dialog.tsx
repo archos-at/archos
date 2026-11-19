@@ -1,13 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type JSX } from 'react'
-import { toast } from 'sonner'
-import {
-  listShelfCandidates,
-  proposeBaseKnowledge,
-  type BaseKnowledgeEntry,
-  type ShelfCandidate,
-} from '@/adapters/api/base-knowledge-client'
+import { listShelfCandidates, type ShelfCandidate } from '@/adapters/api/base-knowledge-client'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -27,14 +21,14 @@ interface ShelfPickerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   recorded: ReadonlySet<string>
-  onProposed: (entry: BaseKnowledgeEntry) => void
+  onPick: (documentId: string) => Promise<void>
 }
 
 export function ShelfPickerDialog({
   open,
   onOpenChange,
   recorded,
-  onProposed,
+  onPick,
 }: ShelfPickerDialogProps): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const [candidates, setCandidates] = useState<ShelfCandidate[] | null>(null)
@@ -64,10 +58,8 @@ export function ShelfPickerDialog({
   const take = async (candidate: ShelfCandidate) => {
     setBusy(candidate.id)
     try {
-      onProposed(await proposeBaseKnowledge(candidate.id))
+      await onPick(candidate.id)
       onOpenChange(false)
-    } catch (error) {
-      toast.error(error instanceof Error && error.message ? error.message : t('saveError'))
     } finally {
       setBusy(null)
     }

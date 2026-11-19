@@ -25,11 +25,12 @@ vi.mock('@/shared/context', () => ({
   useAppConfig: () => ({ fileUpload: { acceptedTypes: '.pdf,.docx', acceptedMimeTypes: ['application/pdf'], maxFileSize: 100 * 1024 * 1024 } }),
 }))
 
-const shelfUpload = vi.hoisted(() => ({ stored: [] as { documentId: string; fileName: string }[], collections: [] as (string | undefined)[] }))
+const shelfUpload = vi.hoisted(() => ({ stored: [] as { documentId: string; fileName: string }[], collections: [] as (string | undefined)[], asNorm: [] as (boolean | undefined)[] }))
 vi.mock('@/features/documents', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/documents')>()),
-  useOfficeShelfDocuments: (options: { collectionName?: string; onStored?: (uploads: { documentId: string; fileName: string }[]) => void }) => {
+  useOfficeShelfDocuments: (options: { collectionName?: string; asNorm?: boolean; onStored?: (uploads: { documentId: string; fileName: string }[]) => void }) => {
     shelfUpload.collections.push(options.collectionName)
+    shelfUpload.asNorm.push(options.asNorm)
     return {
       uploadFiles: async (files: File[]) => {
         options.onStored?.(shelfUpload.stored)
@@ -197,6 +198,7 @@ describe('BaseKnowledgeWorkspace', () => {
     renderWorkspace()
     await screen.findAllByTestId('base-knowledge-row')
     expect(shelfUpload.collections.at(-1)).toBe('archiv_org-1')
+    expect(shelfUpload.asNorm.at(-1)).toBe(true)
     await userEvent.upload(screen.getByTestId('project-upload-input'), [new File(['a'], 'a.pdf', { type: 'application/pdf' })])
 
     const dialog = await screen.findByTestId('norm-dialog')
@@ -309,6 +311,30 @@ describe('BaseKnowledgeWorkspace', () => {
     const file = new File(['a'], 'OENORM_B_5371.pdf', { type: 'application/pdf' })
     fireEvent.drop(workspace, { dataTransfer: { files: [file], items: [{ kind: 'file', type: 'application/pdf', getAsFile: () => file }], types: ['Files'] } })
     expect(await screen.findByTestId('norm-dialog')).toBeTruthy()
+  })
+
+  it('takes a file from Ordner the way „Als Norm führen“ does and opens the norm dialog for it', async () => {
+    stubFetch(listOf())
+    const fetchMock = vi.mocked(fetch)
+    const answer = fetchMock.getMockImplementation()!
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/api/base-knowledge/recognize') return Response.json({ ...RECOGNITION, proposals: RECOGNITION.proposals.slice(0, 1), plain: [] })
+      if (url.startsWith('/api/documents?')) return Response.json({ documents: [{ id: 'doc-norm', filename: 'OENORM_B_5371.pdf' }] })
+      return answer(input, init)
+    })
+    renderWorkspace()
+    await screen.findAllByTestId('base-knowledge-row')
+    await userEvent.click(screen.getByTestId('base-knowledge-more'))
+    await userEvent.click(await screen.findByTestId('base-knowledge-from-shelf'))
+    const candidates = await screen.findByTestId('base-knowledge-shelf-candidates')
+    await userEvent.click(within(candidates).getByRole('button', { name: 'Übernehmen' }))
+
+    const dialog = await screen.findByTestId('norm-dialog')
+    expect(within(dialog).getAllByTestId('norm-dialog-row')).toHaveLength(1)
+    const recognize = fetchMock.mock.calls.find(([url]) => url === '/api/base-knowledge/recognize')
+    expect(JSON.parse(String(recognize?.[1]?.body))).toEqual({ documentIds: ['doc-norm'], asNorm: true })
+    expect(fetchMock.mock.calls.some(([url, init]) => url === '/api/base-knowledge' && init?.method === 'POST')).toBe(false)
   })
 
   it('reads like the Ordner tab: the shelf’s header, then one tool row of search, kind, Thema anlegen, Hochladen and ⋯', async () => {

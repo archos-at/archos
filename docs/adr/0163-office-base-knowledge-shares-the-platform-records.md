@@ -446,3 +446,36 @@ later add those binding stuff in there but we don't punish if the orgs don't hav
 What the platform holds today (2026-11-19): no ÖNORM work and no route to one, so no office norm has binding
 information, the Stand and the turn read as before, and the sweep tells nobody. The answer-shaping change owes its
 golden run on dev.
+
+## Amendment 2026-11-19: no file is lost or taken by a side door
+
+An independent review found six places where the rules above did not hold: a norm went somewhere the person did not
+put it, stayed where the person did not expect it, or was deleted without a word.
+
+- **A new-edition notice is settled only on real resolver data.** `knowledgeContextForTurn` answers
+  `knowledge_unavailable` instead of throwing, which read as "no project binds anything" and resolved every open
+  notice. `noticeNewEditions` now resolves nothing for an office while any active project's context is unavailable,
+  and tells a person again about a notice that is owed again: it skips only recipients holding an unresolved row
+  (`openRecipientsOfGroup`), not every row ever written. `readGroupPayloads` keeps counting resolved rows, which the
+  annotation due reminders rely on.
+- **A new Fassung of an Ordner file stays an ordinary file.** The server never read it as a norm, but the browser
+  sends every stored upload to `base-knowledge-recognize`, which took it by its name. An upload with `revisionOf`
+  outside the standards tree now writes the `office_shelf_norm_keeps` row before dispatch, so recognition and the
+  folder scan leave it alone; „Als Norm führen“ (`asNorm`) still overrides the keep. The rule of
+  `assertRevisionOfOnSameSide` is unchanged.
+- **„Aus Ordnern übernehmen“ and `base-knowledge-propose` take a file as „Als Norm führen“ does**: `proposeBaseKnowledge`
+  moved to `norm-intake.ts` and goes through `takeAsNorm`, so the file moves under the standards root, remembers
+  `filedFrom`, joins a held work as a new edition, and „Keine Norm“ takes it back. The picker on the Normen tab asks
+  `recognize` with `asNorm` and opens the norm dialog for the file.
+- **A duplicate is deleted only when it was uploaded as one.** An upload records `filedFrom.upload: true`
+  (`uploadToOfficeShelf`, `uploadBaseKnowledge`). On „Bestätigen“ a duplicate edition without it (a file taken from
+  an Ordner folder or found under the standards tree) goes back to its folder as an ordinary file and is kept
+  (`duplicate_returned`); an uploaded one is still deleted (`duplicate_removed`). The dialog checks the edition as the
+  person types it with the server's function (`isHeldEdition`, `wire/edition-key.ts`, against
+  `NormProposal.heldEditions`) and says which of the two happens.
+- **An upload on the Normen tab is a norm candidate whatever its name.** The browser sends `asNorm=true` with the
+  upload; the server records the proposal and holds the text before dispatch, under the standards root (or the topic
+  it was uploaded into), with `filedFrom` the Ordner top level for „Keine Norm“. A guideline the platform holds stays
+  an ordinary file, announced as one ARCHOS knows. The Ordner tab keeps name-based recognition.
+- **Taking a norm off remembers it as an ordinary file.** `base-knowledge-unlist` writes the keep row, so the folder
+  notice does not offer the file again; „Rückgängig“ (`relist`) deletes it, and „Als Norm führen“ still works.

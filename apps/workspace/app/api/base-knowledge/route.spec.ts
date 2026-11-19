@@ -19,6 +19,9 @@ vi.mock('@/lib/auth/require-auth', () => ({
 
 vi.mock('@/lib/base-knowledge/office/service', () => ({
   listBaseKnowledge: vi.fn().mockResolvedValue({ entries: [] }),
+}))
+
+vi.mock('@/lib/base-knowledge/office/norm-intake', () => ({
   proposeBaseKnowledge: vi.fn().mockResolvedValue({ id: 'entry-1' }),
 }))
 
@@ -26,7 +29,8 @@ vi.mock('@/lib/base-knowledge/http/idempotency', () => ({
   onceForKey: vi.fn(async (_key: unknown, run: () => Promise<unknown>) => run()),
 }))
 
-import { listBaseKnowledge, proposeBaseKnowledge } from '@/lib/base-knowledge/office/service'
+import { proposeBaseKnowledge } from '@/lib/base-knowledge/office/norm-intake'
+import { listBaseKnowledge } from '@/lib/base-knowledge/office/service'
 import { GET, POST } from './route'
 
 const ctx = { params: Promise.resolve({}) }

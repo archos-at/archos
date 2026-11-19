@@ -139,4 +139,15 @@ describe.skipIf(!url)('norms in office shelf folders against Postgres', () => {
     expect(await repo.keptAsOrdinaryFiles(ORG, [kept, other], SCREENED_ONLY)).toEqual(new Set([kept]))
     expect(await repo.keptAsOrdinaryFiles(OTHER_ORG, [kept], SCREENED_ONLY)).toEqual(new Set())
   })
+
+  it('offers a kept file again once the keep is forgotten („Rückgängig“), and another office cannot forget it', async () => {
+    const parked = await file('OENORM_B_1300_parked.pdf', folders.normen)
+    await repo.keepAsOrdinaryFiles(ORG, [parked], 'user_norms')
+    await repo.forgetOrdinaryKeeps(OTHER_ORG, [parked])
+    expect(await repo.keptAsOrdinaryFiles(ORG, [parked], SCREENED_ONLY)).toEqual(new Set([parked]))
+
+    await repo.forgetOrdinaryKeeps(ORG, [parked])
+    expect(await repo.keptAsOrdinaryFiles(ORG, [parked], SCREENED_ONLY)).toEqual(new Set())
+    expect((await read({ folderId: folders.normen })).map((row) => row.id)).toContain(parked)
+  })
 })

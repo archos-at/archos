@@ -52,7 +52,7 @@ export interface KnowledgeProvenance {
   viaClient?: string
   text?: KnowledgeTextProvenance
   imported?: { bundle: string; sha256?: string }
-  filedFrom?: { folderId: string | null }
+  filedFrom?: { folderId: string | null; upload?: true }
   cover?: KnowledgeCoverReading
 }
 

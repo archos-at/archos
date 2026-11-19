@@ -3,7 +3,8 @@ import { apiRoute, parseJsonBody, parseQuery } from '@/lib/api/handler'
 import { asProblem } from '@/lib/base-knowledge/http/problem'
 import { requireOfficeStandardsEnabled } from '@/lib/base-knowledge/office/access'
 import { onceForKey } from '@/lib/base-knowledge/http/idempotency'
-import { listBaseKnowledge, proposeBaseKnowledge } from '@/lib/base-knowledge/office/service'
+import { proposeBaseKnowledge } from '@/lib/base-knowledge/office/norm-intake'
+import { listBaseKnowledge } from '@/lib/base-knowledge/office/service'
 import { listEntriesQuerySchema, proposeEntryBodySchema } from '@/lib/base-knowledge/wire'
 
 export const GET = apiRoute(async ({ session, request }) => asProblem(async () => {

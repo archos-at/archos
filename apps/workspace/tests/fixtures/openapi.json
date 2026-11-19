@@ -23726,7 +23726,7 @@
       "post": {
         "operationId": "base-knowledge-propose",
         "summary": "Propose an office shelf document as base knowledge",
-        "description": "Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.",
+        "description": "Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law) and moves it under the norms: give the values from its masthead; the rest come from its reading. No answer uses it until a person confirms. 409 when it already has one. Needs org:office_shelf:manage.",
         "tags": [
           "knowledge"
         ],

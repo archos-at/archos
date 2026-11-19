@@ -210,13 +210,6 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
     await reload()
   }
 
-  const [adding, setAdding] = useState<{ ids: string[]; total: number }>({ ids: [], total: 0 })
-  const startAdding = (ids: string[]) => {
-    setAdding({ ids, total: ids.length })
-    if (ids.length > 0) go({ entryId: ids[0], fileId: null })
-  }
-  const addingStep = (entryId: string) =>
-    adding.ids.includes(entryId) ? { position: adding.total - adding.ids.length + 1, count: adding.total } : undefined
 
   const norms = useNormRecognition()
   const { recognize } = norms
@@ -225,7 +218,7 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
       void recognize(uploads.map((upload) => upload.documentId), { source: 'office_shelf_upload', announcePlain: true }).then(() => reload()),
     [recognize, reload],
   )
-  const shelfUpload = useOfficeShelfDocuments({ collectionName: canManage ? uploadCollection : undefined, onStored: recognizeStored })
+  const shelfUpload = useOfficeShelfDocuments({ collectionName: canManage ? uploadCollection : undefined, asNorm: true, onStored: recognizeStored })
   const { error: uploadError, clearError: clearUploadError, uploadFiles: uploadToShelf } = shelfUpload
   const uploadFiles = useCallback((files: File[]) => void uploadToShelf(files), [uploadToShelf])
   const drop = useFileDragDrop({ onDrop: uploadFiles, disabled: !canManage })
@@ -311,14 +304,9 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
           rootId={folders.rootId}
           folders={folders.folders}
           territories={list.territories}
-          adding={addingStep(openEntry.id)}
           onChanged={(entry) => {
             open.set(entry)
-            if (adding.ids.includes(openEntry.id) && (!entry || entry.status === 'confirmed')) {
-              const rest = adding.ids.filter((id) => id !== openEntry.id)
-              setAdding({ ids: rest, total: adding.total })
-              location.go({ entryId: rest[0] ?? null }, { replace: true })
-            } else if (!entry) location.go({ entryId: null })
+            if (!entry) location.go({ entryId: null })
             else if (entry.id !== location.entryId) location.go({ entryId: entry.id })
             void reload()
           }}
@@ -450,7 +438,7 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
           void reload()
         }}
       />
-      <ShelfPickerDialog open={picking} onOpenChange={setPicking} recorded={new Set(entries.map((entry) => entry.documentId))} onProposed={(entry) => void reload().then(() => startAdding([entry.id]))} />
+      <ShelfPickerDialog open={picking} onOpenChange={setPicking} recorded={new Set(entries.map((entry) => entry.documentId))} onPick={(documentId) => recognize([documentId], { source: 'folder_migration', asNorm: true }).then(() => reload())} />
       <ConfirmDialog
         open={removing}
         onOpenChange={setRemoving}

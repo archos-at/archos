@@ -91,12 +91,6 @@ export const addBaseKnowledgeEdition = async (entryId: string, file: File): Prom
   return json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/editions`, { method: 'POST', body: form }), 'add an edition')
 }
 
-export const proposeBaseKnowledge = async (documentId: string): Promise<BaseKnowledgeEntry> =>
-  json(
-    await fetch(ENDPOINT, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ documentId }) }),
-    'propose base knowledge',
-  )
-
 export const confirmBaseKnowledge = async (entryId: string, body: ConfirmEntryBody): Promise<BaseKnowledgeEntry> =>
   json(
     await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/confirm`, {

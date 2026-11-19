@@ -10,7 +10,7 @@ import { isUnderStandardsRoot } from '@/lib/office-shelf/standards-folder'
 import { moveEntry, removeEntry } from './bulk'
 import { keepAsOrdinaryFiles } from './folder-norms-repository'
 import { standardsFolderRows, standardsRoot } from './folders'
-import { editionKey, heldEditionsOf, isDuplicateEdition } from './proposal-match'
+import { arrivedAsUpload, editionKey, heldEditionsOf, isDuplicateEdition } from './proposal-match'
 import {
   confirmBaseKnowledge,
   dropBaseKnowledgeRecords,
@@ -92,6 +92,10 @@ async function settleOne(session: AuthorizedSession, row: Row, request: Request,
     return 'edition_missing'
   }
   if (isDuplicateEdition(label, held)) {
+    if (!arrivedAsUpload(stored)) {
+      await keepAsOrdinaryFile(session, stored, lies, place)
+      return 'duplicate_returned'
+    }
     await removeEntry(session, stored.editionId, request)
     return 'duplicate_removed'
   }

@@ -86,7 +86,8 @@ const HELD = stored('b1600', { confirmed: true, workId: 'work_b1600' }, { design
 const PROPOSALS = new Map<string, StoredEntry>([
   ['edition_norm', stored('norm')],
   ['edition_new', stored('new', { workId: 'work_b1600' }, { designation: 'ÖNORM B 1600', editionLabel: '2023-02-01', issuedOn: '2023-02-01' })],
-  ['edition_dup', stored('dup', { workId: 'work_b1600' }, { designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' })],
+  ['edition_dup', stored('dup', { workId: 'work_b1600', provenance: { proposedBy: 'reading', filedFrom: { folderId: null, upload: true } } }, { designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' })],
+  ['edition_dupfolder', stored('dupfolder', { workId: 'work_b1600', provenance: { proposedBy: 'reading', filedFrom: { folderId: 'folder-plans' } } }, { designation: 'ÖNORM B 1600', editionLabel: '2017-04-01' })],
   ['edition_noed', stored('noed', {}, { editionLabel: 'unbekannt', issuedOn: null })],
   ['edition_plan', stored('plan', { provenance: { proposedBy: 'reading', filedFrom: { folderId: 'folder-plans' } } })],
   ['edition_gonefolder', stored('gonefolder', { provenance: { proposedBy: 'reading', filedFrom: { folderId: 'folder-deleted' } } })],
@@ -99,6 +100,7 @@ const FOLDER_OF = new Map<string, string | null>([
   ['edition_plan', 'folder-root'],
   ['edition_gonefolder', 'topic-barrierefrei'],
   ['edition_topfolder', 'folder-root'],
+  ['edition_dupfolder', 'folder-root'],
 ])
 
 beforeEach(() => {
@@ -154,6 +156,17 @@ describe('settling the norm dialog', () => {
     ])
     expect(removeEntry).toHaveBeenCalledWith(MANAGER, 'edition_dup', request)
     expect(dropBaseKnowledgeRecords).toHaveBeenCalledWith(MANAGER, PROPOSALS.get('edition_plan'))
+  })
+
+  it('never deletes a duplicate that came out of an Ordner folder: it goes back there as an ordinary file and is remembered', async () => {
+    const { results } = await settleProposals(MANAGER, { rows: [{ entryId: 'edition_dupfolder', editionLabel: '2017-04-01 ' }] }, request)
+
+    expect(results[0].outcome).toBe('duplicate_returned')
+    expect(removeEntry).not.toHaveBeenCalled()
+    expect(confirmBaseKnowledge).not.toHaveBeenCalled()
+    expect(moveDocumentToFolder).toHaveBeenCalledWith({ documentId: 'dupfolder', folderId: 'folder-plans' }, MANAGER)
+    expect(dropBaseKnowledgeRecords).toHaveBeenCalledWith(MANAGER, PROPOSALS.get('edition_dupfolder'))
+    expect(keepAsOrdinaryFiles).toHaveBeenCalledWith('org-1', ['dupfolder'], 'user-1')
   })
 
   it('drops a plain file’s records where it lies when it lies outside the norms, and remembers it as an ordinary file', async () => {

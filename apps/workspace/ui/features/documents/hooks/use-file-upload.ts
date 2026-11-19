@@ -42,7 +42,7 @@ import type { UploadFilesOptions, UseFileUploadOptions, UseFileUploadReturn } fr
 export type { UploadFilesOptions } from './file-upload-types'
 
 export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUploadReturn => {
-  const { collectionName, projectId, folderId, officeShelf, conversationProjectId, onComplete, onError } =
+  const { collectionName, projectId, folderId, officeShelf, asNorm = false, conversationProjectId, onComplete, onError } =
     options
   const shelf: 'project' | 'office_shelf' | 'session' = officeShelf ? 'office_shelf' : projectId ? 'project' : 'session'
 
@@ -259,6 +259,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           batchId,
           resolvedFolderId,
           revisionOfFile,
+          asNorm,
           screeningReleased: (file) => options?.screeningReleased?.(file),
           abortControllers: abortControllersRef.current,
           failureCopy,
@@ -359,6 +360,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       projectId,
       folderId,
       shelf,
+      asNorm,
       conversationProjectId,
       validationContext,
       fileUploadConfig,

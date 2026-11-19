@@ -13,7 +13,7 @@ import { listBaseKnowledgeFolders, standardsFolderRows, standardsRoot } from './
 import { takeAsNorm } from './norm-intake'
 import { recognizeNorm } from './reading'
 import { visibleOfficeDocuments, type EntryDocument } from './repository'
-import { editionKey, heldEditionsOf, isDuplicateEdition } from './proposal-match'
+import { arrivedAsUpload, editionKey, heldEditionsOf, isDuplicateEdition } from './proposal-match'
 
 export function proposeTopic(
   kind: OfficeWorkKind,
@@ -57,6 +57,8 @@ function proposalOf(
       ? { entryId: latest.editionId, designation: latest.values.designation, editionLabel: latest.values.editionLabel }
       : null,
     duplicate: isDuplicateEdition(entry.values.editionLabel, held),
+    heldEditions: held.map((other) => other.values.editionLabel),
+    upload: arrivedAsUpload(entry),
     coverOverrode: entry.provenance.cover?.overrode ?? [],
   }
 }

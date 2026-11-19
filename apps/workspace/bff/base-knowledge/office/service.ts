@@ -44,7 +44,7 @@ import { projectTerritory } from './authority'
 import { freshnessOf } from './freshness'
 import { markCopyPoints } from './mark'
 import { proposeFromReading } from './reading'
-import { readShelfDocument, visibleOfficeDocuments, type EntryDocument } from './repository'
+import { visibleOfficeDocuments, type EntryDocument } from './repository'
 import { releaseText, withholdText } from './text-effects'
 import { licenceMarkOf, termsAfter, textUseOf } from './text-use'
 import { renderBaseKnowledgeBlock, type TurnDay } from './turn-block'
@@ -61,6 +61,7 @@ import { workDesignation } from './work-designation'
 import { referenceDayOfProfile } from '../time/profile-procedure'
 import { insertEditionOfWork, deleteWorkIfUnused } from '../store/office-editions'
 import { byAttention, countByFolder, countEntries, matchesQuery, subtreeOf } from './listing'
+import { forgetOrdinaryKeeps, keepAsOrdinaryFiles } from './folder-norms-repository'
 
 
 function requireManage(session: AuthorizedSession): void {
@@ -211,16 +212,7 @@ function editionValues(values: EntryValues): Pick<EntryValues, 'editionLabel' | 
   return { editionLabel, issuedOn, inForceFrom, inForceTo, designation }
 }
 
-export async function proposeBaseKnowledge(
-  session: AuthorizedSession,
-  body: ProposeEntryBody,
-  proposedBy: KnowledgeProvenance['proposedBy'] = 'reading'
-): Promise<BaseKnowledgeEntry> {
-  requireManage(session)
-  const document = await readShelfDocument(session.organizationId, body.documentId, await reader(session))
-  if (!document) throw new NotFoundError('No Archiv document with this id; list the Archiv first.')
-  return proposeDocument(session, body, document.fileName, proposedBy)
-}
+const FRESH_UPLOAD = { folderId: null, upload: true } as const
 
 async function proposeDocument(
   session: AuthorizedSession,
@@ -229,7 +221,7 @@ async function proposeDocument(
   proposedBy: KnowledgeProvenance['proposedBy'],
   editionOf?: StoredEntry
 ): Promise<BaseKnowledgeEntry> {
-  const entryId = await recordProposal(session, body, fileName, proposedBy, editionOf)
+  const entryId = await recordProposal(session, body, fileName, proposedBy, editionOf, { filedFrom: FRESH_UPLOAD })
   await withholdText(session, body.documentId)
   return (await findEntry(session, entryId)).entry
 }
@@ -271,7 +263,7 @@ export async function uploadBaseKnowledge(
   const uploaded = await uploadOfficeShelfDocument(session, file, request, {
     folderId: target,
     beforeDispatch: async (documentId) => {
-      entryId = await recordProposal(session, { ...given, documentId }, file.name, 'person', editionOf)
+      entryId = await recordProposal(session, { ...given, documentId }, file.name, 'person', editionOf, { filedFrom: FRESH_UPLOAD })
     },
   })
   if (entryId) return (await findEntry(session, entryId)).entry
@@ -411,6 +403,7 @@ export async function unlistBaseKnowledge(session: AuthorizedSession, entryId: s
   const moved = await moveDocumentToFolder({ documentId: stored.documentId, folderId: null }, session)
   if (!moved.ok) throw new UnprocessableError(moved.error)
   await unlistDocumentEntry(session.organizationId, stored.documentId)
+  await keepAsOrdinaryFiles(session.organizationId, [stored.documentId], session.userId)
   await releaseText(session, stored.documentId)
   await forgetKeysFor(session.organizationId, [stored.editionId, stored.documentId])
   return { documentId: stored.documentId, folderId: null, entryId: stored.editionId, formerFolderId: entry.folderId }
@@ -426,6 +419,7 @@ export async function relistBaseKnowledge(session: AuthorizedSession, entryId: s
   if (!(await relistDocumentEntry(session.organizationId, parked.documentId))) {
     throw new NotFoundError('No entry taken off the norms with this id: its file was proposed again or removed.')
   }
+  await forgetOrdinaryKeeps(session.organizationId, [parked.documentId])
   const { entry } = await findEntry(session, entryId)
   if (entry.status === 'confirmed' && entry.textUse === 'used') await releaseText(session, parked.documentId)
   else await withholdText(session, parked.documentId)

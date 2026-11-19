@@ -66,9 +66,11 @@ Each is called a *Norm* for short; its *Art* says what it is. The tab's tool row
 the Ordner tab's: search, „Alle Arten“, „Thema anlegen“, **Hochladen**, and ⋯ with
 „Aus Ordnern übernehmen“ (a document already in the Büroablage) and „So funktioniert es“.
 
-**Adding norms.** The Büroablage has one **Hochladen**, on either tab. ARCHOS
-reads the file names as they arrive: a norm goes straight under Normen &
-Richtlinien, never into the folder you uploaded to, and one dialog opens for the
+**Adding norms.** The Büroablage has one **Hochladen**, on either tab. A file
+uploaded on **Normen & Richtlinien** is taken as a norm whatever it is called. On
+**Ordner**, ARCHOS reads the file names as they arrive: a norm goes straight under
+Normen & Richtlinien, never into the folder you uploaded to, while a new Fassung of
+a file in a folder stays there as an ordinary file. Either way one dialog opens for the
 norms: Art, Bezeichnung, Ausgabe and Thema, proposed from the name, which you
 correct and **Bestätigen**. For a PDF, ARCHOS also reads the norm's title page
 (the first page with text) for its Bezeichnung, title and Ausgabe and prefers
@@ -77,19 +79,25 @@ Titelseite“ and what the file name said. A scan without text is read by its na
 alone. Only these values are kept, never the page's text. When the title page
 names the Ausgabe it replaces („Ersatz für …“) and you hold it, the earlier copy
 shows „Abgelöst“ once you confirm the new one. **Keine Norm** turns a row back into an ordinary file
-in the folder it was uploaded to (the top level if that folder is gone), and ARCHOS
-does not offer it as a norm again. **Später** leaves the rows waiting under „Zu
+in the folder it was uploaded to or taken from (the top level for an upload on
+Normen & Richtlinien, or if that folder is gone), and ARCHOS does not offer it as a
+norm again. **Später** leaves the rows waiting under „Zu
 bestätigen“. A file that is a newer Ausgabe of a norm you hold is added beside the
 earlier one; a second copy of an Ausgabe you hold is recognised as a duplicate,
-whatever the file is called (a file whose name is already taken is kept as
-„Name (2)“). Ordinary files go to the folders (the toast's „In Ordnern zeigen“
+whatever the file is called, checked again as you type the Ausgabe. A duplicate
+you uploaded is deleted on **Bestätigen**, and its row says so; one taken from a
+folder goes back there as an ordinary file and is never deleted. (A file whose
+name is already taken is kept as „Name (2)“.) Ordinary files go to the folders (the toast's „In Ordnern zeigen“
 goes there); an OIB-Richtlinie stays an ordinary file, and ARCHOS says it already
-knows it. A file in a folder can still be filed with **Als Norm führen**. Nothing
+knows it. A file in a folder can still be filed with **Als Norm führen**, and
+„Aus Ordnern übernehmen“ does the same: the file moves under Normen & Richtlinien,
+waits under „Zu bestätigen“ with the dialog open, and **Keine Norm** returns it. Nothing
 reads a norm's text (no search, no summary, no answer) until it is confirmed.
 **Nicht mehr als Norm führen** takes a norm off the tab at once and keeps its file
-in the Ordner; **Rückgängig** in the message that follows brings it back as it
-was, confirmed, with its Ausgaben, checks and Thema. **Als Norm führen** on that
-file later starts a fresh proposal. **Thema anlegen** adds a topic to sort norms
+in the Ordner, where its folder does not offer it as a norm again; **Rückgängig**
+in the message that follows brings it back as it was, confirmed, with its
+Ausgaben, checks and Thema. **Als Norm führen** on that file later starts a fresh
+proposal. **Thema anlegen** adds a topic to sort norms
 into. ARCHOS does not ask about a norm's licence: a confirmed norm is read,
 whether you bought it or it is freely available.
 
@@ -113,7 +121,9 @@ Normen & Richtlinien.
 
 **The Postfach** shows only what needs your decision: a norm someone suggests
 for the Büroablage, and a norm you hold that is no longer the binding edition for
-an active project. Everything else stays where the norm is: in the folder, above
+an active project. That notice stays until the binding edition is in hand, even
+while a project's law cannot be read, and comes back if it is owed again after it
+was settled. Everything else stays where the norm is: in the folder, above
 a project's files, or under Normen & Richtlinien.
 
 **Stand.** Where a law or guideline ARCHOS knows makes an edition of a norm
