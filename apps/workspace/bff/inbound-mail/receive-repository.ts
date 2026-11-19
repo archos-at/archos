@@ -86,6 +86,10 @@ export async function findThreadCandidates(
           .from(mailThreadMessageIds)
           .where(and(eq(mailThreadMessageIds.projectId, projectId), inArray(mailThreadMessageIds.messageId, ids)))
       : null
+  const cited = or(
+    byIds ? inArray(mailThreads.id, byIds) : undefined,
+    keys.threadIndexGuid ? eq(mailThreads.threadIndexGuid, keys.threadIndexGuid) : undefined,
+  )
   const threads = await db
     .select({
       threadId: mailThreads.id,
@@ -98,15 +102,10 @@ export async function findThreadCandidates(
       and(
         eq(mailThreads.projectId, projectId),
         or(isNotNull(mailThreads.documentId), pendingOfImport(options.pendingOfImport)),
-        or(
-          byIds ? inArray(mailThreads.id, byIds) : undefined,
-          keys.threadIndexGuid ? eq(mailThreads.threadIndexGuid, keys.threadIndexGuid) : undefined,
-          keys.baseSubject ? eq(mailThreads.baseSubject, keys.baseSubject) : undefined,
-          sql`false`,
-        ),
+        or(cited, keys.baseSubject ? eq(mailThreads.baseSubject, keys.baseSubject) : undefined, sql`false`),
       ),
     )
-    .orderBy(desc(mailThreads.lastEntryAt))
+    .orderBy(...(cited ? [sql`CASE WHEN ${cited} THEN 0 ELSE 1 END`] : []), desc(mailThreads.lastEntryAt))
     .limit(MAX_THREAD_CANDIDATES)
   if (threads.length === 0) return []
   const threadIds = threads.map((thread) => thread.threadId)

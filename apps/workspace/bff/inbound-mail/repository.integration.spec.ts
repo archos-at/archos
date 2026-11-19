@@ -368,6 +368,39 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect(none).toEqual([])
     })
 
+    it('keeps the thread a reply cites among its candidates, however many newer threads share its subject', async () => {
+      await one(sql`
+        WITH docs AS (
+          INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+          SELECT ${ORG}, ${USER}, 'Crowd ' || n || '.md', ${`k/inbound/${STAMP}/crowd/`} || n, ${`coll_inbound_${STAMP}`}, 'completed', 'project', ${projectId}::uuid
+            FROM generate_series(1, 60) AS n
+          RETURNING id)
+        INSERT INTO mail_threads (organization_id, project_id, document_id, base_subject, locale, created_by, last_entry_at)
+        SELECT ${ORG}, ${projectId}::uuid, id, 'statik dach', 'de', ${USER}, now() + interval '1 day' FROM docs
+        RETURNING id`)
+      const guided = (
+        await one<{ id: string }>(sql`
+          WITH doc AS (
+            INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+            VALUES (${ORG}, ${USER}, 'Guided.md', ${`k/inbound/${STAMP}/guided`}, ${`coll_inbound_${STAMP}`}, 'completed', 'project', ${projectId}::uuid)
+            RETURNING id)
+          INSERT INTO mail_threads (organization_id, project_id, document_id, base_subject, thread_index_guid, locale, created_by, last_entry_at)
+          SELECT ${ORG}, ${projectId}::uuid, id, 'statik dach', '6f1d2c3b-4a5e-4f60-8172-839405a6b7c8', 'de', ${USER}, now() - interval '30 days' FROM doc
+          RETURNING id`)
+      ).id
+
+      const byReply = await inTenant(() =>
+        repo.findThreadCandidates(projectId, {
+          messageIds: ['m1@statik.example'],
+          threadIndexGuid: '6f1d2c3b-4a5e-4f60-8172-839405a6b7c8',
+          baseSubject: 'statik dach',
+          participants: [],
+        }),
+      )
+      expect(byReply).toHaveLength(50)
+      expect(byReply.slice(0, 2).map((candidate) => candidate.threadId).sort()).toEqual([threadId, guided].sort())
+    })
+
     it('finds the filed messages of a Message-ID with the hash of their own text', async () => {
       const [filed] = await inTenant(() => repo.findFiledMessages(projectId, 'm1@statik.example'))
       const { createHash } = await import('node:crypto')

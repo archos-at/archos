@@ -247,7 +247,10 @@ as `unavailable` and neither side recorded why.
    as well;
 10. **match the project's threads** and look the Message-ID up
     (`message_id_reused`, `already_filed`); ids and strengths only
-    (`thread_match`);
+    (`thread_match`). At most 50 threads are weighed
+    (`findThreadCandidates`): those a cited Message-ID or the Thread-Index
+    names first, then those of the same base subject, newest first, so many
+    threads of one subject never crowd out the one a reply cites;
 11. **classify the sender** ([the sender rule](#the-sender-rule)): whether the
     From's member may write in the project, asked of WorkOS; stage the
     attachments and `read.json`, insert the parts, `waiting`, with the class
