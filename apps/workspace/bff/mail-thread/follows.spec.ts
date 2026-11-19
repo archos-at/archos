@@ -45,7 +45,7 @@ import { announceFollowEnded, announceFollowsEnded, settleFollowExpiring } from 
 import { endProjectFollows } from '@/lib/inbound-mail/repository'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { endFollow, findRunningFollow, renewFollow, startFollow } from './follow-repository'
-import { endFollowBySystem, endFollowsOnProjectClose, followMailThread, unfollowMailThread } from './follows'
+import { endFollowBySystem, endFollowsOnProjectClose, followByDefault, followMailThread, unfollowMailThread } from './follows'
 import type { ThreadRow } from './repository'
 import { findVisibleThread } from './repository'
 import { findWritableThread, type WritableThread } from './write-repository'
@@ -93,6 +93,56 @@ beforeEach(() => {
     followRow({ id, endedAt: now ?? new Date(), endedBy: end.endedBy, endedReason: end.reason }),
   )
   vi.mocked(managesProject).mockResolvedValue(false)
+  vi.mocked(requireMailReviewer).mockResolvedValue({ closed: false })
+  vi.mocked(requireFolderWrite).mockResolvedValue(undefined)
+})
+
+describe('followByDefault: a person who files a text into a Verlauf follows it', () => {
+  it('starts a follow of 60 days as the filer, audited and counted as one started by default', async () => {
+    const before = Date.now()
+    expect(await followByDefault(session, PROJECT, THREAD)).toBe('started')
+    const row = vi.mocked(startFollow).mock.calls[0]![0]
+    expect(row).toMatchObject({ organizationId: 'org_1', projectId: PROJECT, threadId: THREAD, userId: ME })
+    const days = ((row.expiresAt as Date).getTime() - before) / DAY
+    expect(days).toBeGreaterThan(59.99)
+    expect(days).toBeLessThan(60.01)
+    expect(requireFolderWrite).toHaveBeenCalledWith(session, PROJECT, ['folder-statik'])
+    expect(recordAuditEventAfterCommit).toHaveBeenCalledWith(expect.objectContaining({ action: 'mail_thread.follow_started' }))
+    expect(captureServer).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'mail_thread_followed', properties: { action: 'start', days: 60, by_default: true } }),
+    )
+    expect(publishProjectChanged).toHaveBeenCalledWith('org_1', PROJECT)
+  })
+
+  it('leaves a running follow as it is: no second follow, no renewal', async () => {
+    vi.mocked(findRunningFollow).mockResolvedValue(followRow())
+    expect(await followByDefault(session, PROJECT, THREAD)).toBe('running')
+    expect(startFollow).not.toHaveBeenCalled()
+    expect(renewFollow).not.toHaveBeenCalled()
+  })
+
+  it('takes a concurrent start as running (the one running follow per person and Verlauf)', async () => {
+    vi.mocked(startFollow).mockResolvedValue(null)
+    expect(await followByDefault(session, PROJECT, THREAD)).toBe('running')
+    expect(recordAuditEventAfterCommit).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['may not write the Verlauf’s folder', () => vi.mocked(requireFolderWrite).mockRejectedValue(new ForbiddenError('no'))],
+    ['lost the project', () => vi.mocked(requireMailReviewer).mockRejectedValue(new NotFoundError())],
+    ['works in a closed project', () => vi.mocked(requireMailReviewer).mockResolvedValue({ closed: true })],
+    ['cannot see the Verlauf’s document', () => vi.mocked(findWritableThread).mockResolvedValue(null)],
+  ])('starts nothing for a filer who %s, and does not throw', async (_name, arrange) => {
+    arrange()
+    expect(await followByDefault(session, PROJECT, THREAD)).toBe('refused')
+    expect(startFollow).not.toHaveBeenCalled()
+  })
+
+  it('lets a fault it cannot read as a refusal through, for the caller to log', async () => {
+    vi.mocked(requireFolderWrite).mockRejectedValue(new Error('FGA timed out'))
+    await expect(followByDefault(session, PROJECT, THREAD)).rejects.toThrow('FGA timed out')
+    expect(startFollow).not.toHaveBeenCalled()
+  })
 })
 
 describe('followMailThread', () => {
@@ -114,7 +164,7 @@ describe('followMailThread', () => {
       }),
     )
     expect(captureServer).toHaveBeenCalledWith(
-      expect.objectContaining({ event: 'mail_thread_followed', distinctId: ME, properties: { action: 'start', days: 60 } }),
+      expect.objectContaining({ event: 'mail_thread_followed', distinctId: ME, properties: { action: 'start', days: 60, by_default: false } }),
     )
   })
 
@@ -145,7 +195,7 @@ describe('followMailThread', () => {
     expect(result.renewed).toBe(true)
     expect(startFollow).not.toHaveBeenCalled()
     expect(renewFollow).toHaveBeenCalledWith('f-1', expect.any(Date), expect.any(Date))
-    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ properties: { action: 'renew', days: 90 } }))
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ properties: { action: 'renew', days: 90, by_default: false } }))
     expect(settleFollowExpiring).toHaveBeenCalledWith('org_1', ['f-1'])
   })
 

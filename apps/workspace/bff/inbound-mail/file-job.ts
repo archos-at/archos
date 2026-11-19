@@ -19,6 +19,7 @@ import {
 import { mailOriginIngestFacts } from '@/lib/mail-thread/ingest-facts'
 import { domainOf } from '@/lib/mail-thread/mail-threading'
 import type { MailThreadLocale } from '@/lib/mail-thread/mail-thread-vocabulary'
+import { followByDefault } from '@/lib/mail-thread/follows'
 import { finishOriginalMove } from '@/lib/mail-thread/originals'
 import { newThreadLocaleFor } from '@/lib/mail-thread/thread-locale'
 import {
@@ -392,7 +393,17 @@ async function fileText(
     return 'done'
   }
   await finishOriginalMove(mail, { id: outcome.entryId, originalStorageKey: null })
+  if (decision.via === 'app') await followFiledThread(run, outcome.threadId)
   return 'done'
+}
+
+async function followFiledThread(run: FilingRun, threadId: string): Promise<void> {
+  try {
+    const followed = await followByDefault(run.session, run.projectId, threadId)
+    if (followed === 'refused') console.warn(`[inbound-mail] no follow was started on mail thread ${threadId}: the filer may not follow it`)
+  } catch (error) {
+    console.warn(`[inbound-mail] no follow was started on mail thread ${threadId}; the text is filed`, error)
+  }
 }
 
 async function attachmentFacts(run: FilingRun, work: FilingWork): Promise<AttachmentFact[]> {
