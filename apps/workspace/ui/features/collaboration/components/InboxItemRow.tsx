@@ -56,6 +56,7 @@ import { MARK_CLIENT, useMarkAnswer, type InboxMarkClient } from '../hooks/use-m
 import { InboxItemCaption } from './InboxItemCaption'
 import { inboxDue } from '../lib/inbox-due'
 import { InboxReviewDecision, type InboxReviewClient } from './InboxReviewDecision'
+import { InboxNormSuggestionDecision, type InboxNormDecisionClient } from './InboxNormSuggestionDecision'
 import { isPlainClick } from '../lib/plain-click'
 import { UploadReportLines } from '@/features/uploads/components/upload-report'
 
@@ -72,6 +73,7 @@ export interface InboxItemRowProps {
   viewerId?: string | null
   markClient?: InboxMarkClient
   reviewClient?: InboxReviewClient
+  normDecisionClient?: InboxNormDecisionClient
 }
 
 export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(function InboxItemRow(
@@ -86,6 +88,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
     viewerId = null,
     reviewClient = documentLifecycleClient,
     markClient = MARK_CLIENT,
+    normDecisionClient,
   },
   ref,
 ): JSX.Element {
@@ -182,6 +185,8 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
     item.resourceType === 'document' &&
     item.anchorId !== null &&
     item.subject !== null
+  const canDecideNorm =
+    item.type === 'office_shelf.norm_suggested' && item.actionable && !resolved && !inert && !redacted && item.anchorId !== null
   const showBody =
     body !== null && !answerHere && !answerInReview && !canDecideReview && (!item.excerpt || isWarning || redacted)
   const chatName = item.subject ?? t('inbox.untitledConversation')
@@ -342,6 +347,10 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
               diff needs the previous version, which the payload does not name
               — so triage opens the file, it does not pretend to compare. */}
           {canDecideReview && <InboxReviewDecision item={item} reviewClient={reviewClient} onOpen={onOpen} />}
+
+          {canDecideNorm && item.anchorId && (
+            <InboxNormSuggestionDecision proposalId={item.anchorId} client={normDecisionClient} />
+          )}
 
           {answerHere && replying && item.anchorId && (
             <div className="relative z-10 mt-2 space-y-1.5" data-testid="inbox-mark-reply-form">

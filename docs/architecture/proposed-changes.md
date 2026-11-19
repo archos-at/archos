@@ -2,7 +2,7 @@
 
 A **proposed change** is a change to the office's workspace that the agent
 proposes and a person applies. It is a server object with its own lifecycle,
-not a card that executes itself (ADR-0105). Four kinds exist:
+not a card that executes itself (ADR-0105). Five kinds exist:
 
 | Kind | What it proposes | The card |
 |---|---|---|
@@ -10,8 +10,9 @@ not a card that executes itself (ADR-0105). Four kinds exist:
 | `memory` | a note for the office's memory, or for the project's | `memory_proposal` |
 | `project_profile` | a change to the project's facts, goals, unknowns or assumptions, as a JSON patch on the profile | `project_profile_patch` |
 | `operation` | any write operation of the agent catalog that the agent called through the MCP surface (ADR-0122) | `operation_proposal` |
+| `office_shelf_norm` | a person's suggestion that norms of a project go to the Büroablage (ADR-0185) | none: the decision is in the Postfach |
 
-All four share one lifecycle, one table, one set of routes and one receipt
+All five share one lifecycle, one table, one set of routes and one receipt
 card. A file operation may also be on the Büroablage, which has no project
 (0146), and the agent files one of its own whenever an upload lands in the wrong
 folder ([Filing suggestions](#filing-suggestions)). An `operation` may be the
@@ -92,7 +93,8 @@ The CHECKs hold the lifecycle, so no code path can break it:
   `failed`), and `results` is an array.
 - The claim has both columns or neither, and exists only while the proposal is
   `proposed`.
-- `kind` is `file_operation`, `memory`, `project_profile` or `operation` (0175);
+- `kind` is `file_operation`, `memory`, `project_profile`, `operation` (0175) or
+  `office_shelf_norm` (0250);
   `status` and
   `proposed_by_kind` are known values; `payload` is an object.
 - `origin_card_index` is null or not negative, and needs an `origin_message_id`
@@ -224,6 +226,20 @@ or conversation the person whose turn it is may not read
 member's agent could put a change to a project the member cannot see in front
 of an admin who can, and the admin's click would apply it. The kind has no create in
 `internalProposalRequestSchema`: nothing but `proposeOperation` makes one.
+
+### `office_shelf_norm`
+
+Payload (`officeShelfNormPayloadSchema`): `documents`, one to eight
+`{ id, name, designation }` of one project. A person without
+`org:office_shelf:manage` makes it through `project-norm-place` with
+`destination: suggest` (`bff/office-shelf/project-norms/suggest.ts`, which writes
+the row itself with `proposed_by_kind: person`; `createProposal` files the
+agent's). Its inbox item is `office_shelf.norm_suggested`, anchored on the
+proposal, for everyone who may decide it: `org:office_shelf:manage`, write access
+to the project and to each document's folder. Deciding needs the same
+(`requireDecider`); applying moves the norms as the decider
+(`applyOfficeShelfNorm`, ADR-0185). A dismissed one keeps its norms out of the
+project's offers.
 
 **No project, the organization's.** A turn in no project still proposes: the
 proposal is `scope: organization` (0176) with no `project_id`, for the writes

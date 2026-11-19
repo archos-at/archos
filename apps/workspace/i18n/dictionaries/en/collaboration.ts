@@ -520,6 +520,7 @@ export const collaboration = {
           memory: { title: '{productName} would like to remember a note' },
           project_profile: { title: '{productName} suggests a change to the project context' },
           operation: { title: '{productName} suggests an action' },
+          office_shelf_norm: { title: '{productName} suggests a norm for the office filing' },
         },
       },
       agentIntakeReady: {
@@ -797,6 +798,16 @@ export const collaboration = {
           office: { title: 'The sort of the office filing stopped' },
         },
       },
+      officeShelfNormOffered: {
+        title: '{productName} suggests the office filing',
+        body: 'This norm is only in “{subject}” so far. In the office filing every project finds it.',
+      },
+      officeShelfNormSuggested: {
+        title: '{actor} suggests a norm for the office filing',
+        titleNoActor: 'A norm is suggested for the office filing',
+        titleResolved: 'The suggestion for the office filing is decided',
+        body: 'Then every project finds it, and everyone in the office can see it.',
+      },
       unknown: {
         title: 'Something happened',
         body: 'in {subject}',
@@ -822,6 +833,15 @@ export const collaboration = {
       failed: 'That did not go through. Nothing has changed.',
       stale: 'Someone decided first. The current revision is in the file.',
       reload: 'Open current revision',
+    },
+    normSuggestion: {
+      accept: 'Take into the office filing',
+      decline: 'Decline',
+      visibility: 'Everyone in the office can see it then.',
+      accepted: 'Now in the office filing. The project keeps a reference.',
+      declined: 'Declined. The norm stays in the project.',
+      failed: 'That did not go through: {reason}',
+      stale: 'Someone has already decided.',
     },
   },
 

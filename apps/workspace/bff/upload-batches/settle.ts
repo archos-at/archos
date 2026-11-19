@@ -61,6 +61,8 @@ export async function settleUploadBatches(organizationId: string, batchIds: read
   }
   await startIntakeReadings(organizationId, completed)
   await queueFilingReviewsAfterSettle(organizationId, completed)
+  const { offerNormsAfterSettle } = await import('@/lib/office-shelf/project-norms/service')
+  await offerNormsAfterSettle(organizationId, completed)
   return completed
 }
 

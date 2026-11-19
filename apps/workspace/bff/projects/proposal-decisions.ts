@@ -185,6 +185,12 @@ function describePayload(kind: string, payload: unknown): { kind: string; conten
     const content = asString(payload.summary)
     return content ? { kind: 'action', content } : null
   }
+  if (kind === 'office_shelf_norm' && Array.isArray(payload.documents)) {
+    const names = payload.documents.flatMap((document) =>
+      isRecord(document) ? [asString(document.designation) ?? asString(document.name)].filter((name) => name !== undefined) : []
+    )
+    return names.length > 0 ? { kind: 'files', content: `Into the office shelf: ${names.slice(0, 3).join('; ')}` } : null
+  }
   return null
 }
 

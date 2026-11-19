@@ -91,6 +91,10 @@ export function proposalSummaryOf(kind: ProposedChangeKind, payload: unknown): s
   if (kind === 'operation' && typeof record.summary === 'string') return record.summary
   if (kind === 'memory' && typeof record.content === 'string') return `remember: ${record.content}`
   if (kind === 'project_profile') return 'change the project profile'
+  if (kind === 'office_shelf_norm') {
+    const count = Array.isArray(record.documents) ? record.documents.length : 1
+    return `move ${count} norm(s) into the office shelf`
+  }
   if (kind === 'file_operation') {
     const operation = typeof record.operation === 'string' ? record.operation : 'change'
     const count = Array.isArray(record.operations) ? record.operations.length : 1

@@ -37,6 +37,10 @@ export const OBJECT_READERS: Record<string, Disposition> = {
     exempt: 'presigns the IFC for the agent’s model tool inside a turn; no person receives the bytes.',
   },
   'lib/bim/service.ts::fetchObject': { exempt: 'server-side IFC extraction reads the file to build the model; nothing is handed to a person.' },
+  'lib/documents/stored-copy.ts::storedFileOf': {
+    exempt:
+      'reads a project norm’s own bytes to file them into the office shelf, whose upload screens and stores them again; nobody receives them.',
+  },
   'lib/documents/rendition.ts::readOriginal': { exempt: 'server-side conversion of an office file to its PDF rendition.' },
   'lib/documents/ingest-dispatch.ts::dispatchIngest': { exempt: 'presigns the file for the ingest backend, a machine.' },
   'lib/documents/extraction-jobs.ts::signedRenditionRef': { exempt: 'presigns the rendition for the ingest backend, a machine.' },

@@ -190,7 +190,7 @@ describe('the agent types', () => {
       'annotation.assigned_to_you',
       'annotation.mentioned',
     ])
-    expect(PROPOSAL_ANCHORED_INBOX_TYPES).toEqual(['agent.proposal_waiting'])
+    expect(PROPOSAL_ANCHORED_INBOX_TYPES).toEqual(['agent.proposal_waiting', 'office_shelf.norm_suggested'])
   })
 })
 

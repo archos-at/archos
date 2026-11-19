@@ -29,6 +29,8 @@ export const BASE_KNOWLEDGE_EXPOSURE = {
   'organization-countries-get': OFFERED,
   'coverage-get': OFFERED,
   'project-base-get': OFFERED,
+  'project-norm-list': OFFERED,
+  'project-norm-place': OFFERED,
   'base-knowledge-report': OFFERED,
   'project-base-confirm': externalOnly(
     'which base a project’s answers rest on is the person’s confirmation; the agent shows the base, the person confirms it',

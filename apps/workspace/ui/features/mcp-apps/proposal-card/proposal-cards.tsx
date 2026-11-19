@@ -50,6 +50,7 @@ function rawCardOf(proposal: ProposedChangeView, titles: ProposalTitles): Record
         supersedes: proposal.payload.supersedes ?? null,
       }
     case 'project_profile':
+    case 'office_shelf_norm':
       return null
   }
 }

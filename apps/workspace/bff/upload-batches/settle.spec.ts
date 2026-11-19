@@ -23,6 +23,7 @@ vi.mock('@/lib/upload-screening/quarantine-audit', () => ({
 }))
 vi.mock('./upload-report-service', () => ({ uploadReportFor: vi.fn().mockResolvedValue(null) }))
 vi.mock('@/lib/project-intake/trigger', () => ({ queueIntakeReadsAfterUpload: vi.fn().mockResolvedValue([]) }))
+vi.mock('@/lib/office-shelf/project-norms/service', () => ({ offerNormsAfterSettle: vi.fn().mockResolvedValue(undefined) }))
 
 import { auditOwedQuarantines } from '@/lib/upload-screening/quarantine-audit'
 import { rolesHoldPermission } from '@/lib/authz/org-role-permissions'
@@ -34,6 +35,7 @@ import { emitInboxItems } from '@/lib/inbox/service'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { queueIntakeReadsAfterUpload } from '@/lib/project-intake/trigger'
+import { offerNormsAfterSettle } from '@/lib/office-shelf/project-norms/service'
 import { makeDocument, makeProject } from '@/test-utils/db-fixtures'
 import { batchIdsOfDocuments, completeSettledBatches, reopenCompletedBatches } from './repository'
 import { onDocumentsSettled, settleUploadBatches } from './settle'
@@ -212,6 +214,15 @@ describe('settleUploadBatches — the intake reads what arrived (ADR-0111)', () 
     await expect(settleUploadBatches('org-1', ['batch-1'])).rejects.toThrow('inbox down')
 
     expect(queueIntakeReadsAfterUpload).not.toHaveBeenCalled()
+  })
+})
+
+describe('settleUploadBatches — the norms that arrived', () => {
+  it('offers the completed batches’ norms for the Büroablage', async () => {
+    const completed = [batch(), batch({ id: 'batch-2' })]
+    vi.mocked(completeSettledBatches).mockResolvedValue(completed)
+    await settleUploadBatches('org-1', ['batch-1', 'batch-2'])
+    expect(offerNormsAfterSettle).toHaveBeenCalledWith('org-1', completed)
   })
 })
 

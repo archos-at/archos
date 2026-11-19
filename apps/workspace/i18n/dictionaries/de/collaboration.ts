@@ -527,6 +527,7 @@ export const collaboration: typeof en.collaboration = {
           memory: { title: '{productName} möchte sich eine Notiz merken' },
           project_profile: { title: '{productName} schlägt eine Änderung am Projektkontext vor' },
           operation: { title: '{productName} schlägt eine Aktion vor' },
+          office_shelf_norm: { title: '{productName} schlägt eine Norm für die Büroablage vor' },
         },
       },
       agentIntakeReady: {
@@ -804,6 +805,16 @@ export const collaboration: typeof en.collaboration = {
           office: { title: 'Die Sortierung der Büroablage wurde abgebrochen' },
         },
       },
+      officeShelfNormOffered: {
+        title: '{productName} schlägt die Büroablage vor',
+        body: 'Diese Norm gibt es bisher nur in „{subject}“. In der Büroablage finden alle Projekte sie.',
+      },
+      officeShelfNormSuggested: {
+        title: '{actor} schlägt eine Norm für die Büroablage vor',
+        titleNoActor: 'Eine Norm wird für die Büroablage vorgeschlagen',
+        titleResolved: 'Der Vorschlag für die Büroablage ist entschieden',
+        body: 'Danach finden alle Projekte sie, und sie ist für alle im Büro sichtbar.',
+      },
       unknown: {
         title: 'Es gab Aktivität',
         body: 'in {subject}',
@@ -830,6 +841,15 @@ export const collaboration: typeof en.collaboration = {
       failed: 'Das hat nicht geklappt. Es hat sich nichts geändert.',
       stale: 'Jemand hat zuerst entschieden – die aktuelle Fassung liegt in der Datei.',
       reload: 'Aktuelle Fassung öffnen',
+    },
+    normSuggestion: {
+      accept: 'In die Büroablage übernehmen',
+      decline: 'Ablehnen',
+      visibility: 'Danach ist sie für alle im Büro sichtbar.',
+      accepted: 'Liegt jetzt in der Büroablage. Das Projekt behält einen Verweis.',
+      declined: 'Abgelehnt. Die Norm bleibt im Projekt.',
+      failed: 'Das hat nicht geklappt: {reason}',
+      stale: 'Jemand hat schon entschieden.',
     },
   },
 
