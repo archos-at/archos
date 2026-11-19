@@ -1676,6 +1676,183 @@
             "kind",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "projectId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "proposed",
+                "applied",
+                "partially_applied",
+                "failed",
+                "dismissed"
+              ]
+            },
+            "proposedByKind": {
+              "const": "person"
+            },
+            "onBehalfOf": {
+              "type": "string"
+            },
+            "onBehalfOfName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "originConversationId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "originMessageId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "decidedBy": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "decidedByName": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "decidedAt": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "results": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "ok": {
+                        "type": "boolean"
+                      },
+                      "reason": {
+                        "type": "string"
+                      },
+                      "itemId": {
+                        "type": "string"
+                      },
+                      "scope": {
+                        "type": "string",
+                        "enum": [
+                          "project",
+                          "organization"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "label",
+                      "ok"
+                    ]
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "canDecide": {
+              "type": "boolean"
+            },
+            "kind": {
+              "const": "office_shelf_norm"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "documents": {
+                  "minItems": 1,
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512
+                      },
+                      "designation": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 120
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "name",
+                      "designation"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "documents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "id",
+            "projectId",
+            "status",
+            "proposedByKind",
+            "onBehalfOf",
+            "onBehalfOfName",
+            "originConversationId",
+            "originMessageId",
+            "createdAt",
+            "decidedBy",
+            "decidedByName",
+            "decidedAt",
+            "results",
+            "canDecide",
+            "kind",
+            "payload"
+          ]
         }
       ],
       "discriminator": {
@@ -2604,6 +2781,183 @@
                       "name"
                     ]
                   }
+                }
+              },
+              "required": [
+                "id",
+                "projectId",
+                "status",
+                "proposedByKind",
+                "onBehalfOf",
+                "onBehalfOfName",
+                "originConversationId",
+                "originMessageId",
+                "createdAt",
+                "decidedBy",
+                "decidedByName",
+                "decidedAt",
+                "results",
+                "canDecide",
+                "kind",
+                "payload"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "projectId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "proposed",
+                    "applied",
+                    "partially_applied",
+                    "failed",
+                    "dismissed"
+                  ]
+                },
+                "proposedByKind": {
+                  "const": "person"
+                },
+                "onBehalfOf": {
+                  "type": "string"
+                },
+                "onBehalfOfName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "originConversationId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "originMessageId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "decidedBy": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "decidedByName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "decidedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "results": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "itemId": {
+                            "type": "string"
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "project",
+                              "organization"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "label",
+                          "ok"
+                        ]
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "canDecide": {
+                  "type": "boolean"
+                },
+                "kind": {
+                  "const": "office_shelf_norm"
+                },
+                "payload": {
+                  "type": "object",
+                  "properties": {
+                    "documents": {
+                      "minItems": 1,
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 512
+                          },
+                          "designation": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 120
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "designation"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "documents"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [

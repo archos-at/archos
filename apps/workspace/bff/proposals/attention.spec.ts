@@ -135,7 +135,7 @@ describe('onProposalDecided', () => {
 
     expect(resolveInboxItemsAnchoredOn).toHaveBeenCalledWith({
       organizationId: 'org_1',
-      types: ['agent.proposal_waiting'],
+      types: ['agent.proposal_waiting', 'office_shelf.norm_suggested'],
       anchorId: 'prop_1',
     })
   })

@@ -29,6 +29,8 @@ export const INBOX_ITEM_TYPES = [
   'annotation.mentioned',
   'root_sort.ready',
   'root_sort.failed',
+  'office_shelf.norm_offered',
+  'office_shelf.norm_suggested',
   'inbound_mail.waiting',
   'inbound_mail.expiring',
   'inbound_mail.decided',

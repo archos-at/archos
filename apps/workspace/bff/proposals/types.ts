@@ -4,7 +4,7 @@ import { PROJECT_MEMORY_CONFIDENCES, PROJECT_MEMORY_KINDS } from '@/lib/projects
 import { memoryTopicField } from '@/lib/memory-topics/wire'
 import { AGENT_KINDS } from '@/lib/agent-kind'
 
-export const PROPOSED_CHANGE_KINDS = ['file_operation', 'memory', 'project_profile', 'operation'] as const
+export const PROPOSED_CHANGE_KINDS = ['file_operation', 'memory', 'project_profile', 'operation', 'office_shelf_norm'] as const
 export type ProposedChangeKind = (typeof PROPOSED_CHANGE_KINDS)[number]
 
 export const PROPOSED_CHANGE_STATUSES = ['proposed', 'applied', 'partially_applied', 'failed', 'dismissed'] as const
@@ -16,7 +16,7 @@ export type ProposalScope = (typeof PROPOSAL_SCOPES)[number]
 export const FILE_OPERATIONS = ['move', 'rename', 'create_folder', 'assign'] as const
 export type FileOperation = (typeof FILE_OPERATIONS)[number]
 
-export const PROPOSAL_NOTICE_VARIANTS = [...FILE_OPERATIONS, 'memory', 'project_profile', 'operation'] as const
+export const PROPOSAL_NOTICE_VARIANTS = [...FILE_OPERATIONS, 'memory', 'project_profile', 'operation', 'office_shelf_norm'] as const
 export type ProposalNoticeVariant = (typeof PROPOSAL_NOTICE_VARIANTS)[number]
 
 export const MAX_FILE_OPERATION_ITEMS = 8
@@ -110,6 +110,26 @@ export const operationPayloadSchema = z
   .strict()
 export type OperationPayload = z.infer<typeof operationPayloadSchema>
 
+export const MAX_SUGGESTED_NORMS = 8
+
+export const officeShelfNormPayloadSchema = z
+  .object({
+    documents: z
+      .array(
+        z
+          .object({
+            id: z.guid(),
+            name: text(512),
+            designation: z.string().trim().max(120).nullable(),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(MAX_SUGGESTED_NORMS),
+  })
+  .strict()
+export type OfficeShelfNormPayload = z.infer<typeof officeShelfNormPayloadSchema>
+
 export const OPERATION_TARGET_TYPES = [
   'project',
   'document',
@@ -167,6 +187,11 @@ export const proposedChangeViewSchema = z.discriminatedUnion('kind', [
     kind: z.literal('operation'),
     payload: operationPayloadSchema,
     targets: z.array(operationTargetViewSchema).optional(),
+  }),
+  proposedChangeBaseSchema.extend({
+    kind: z.literal('office_shelf_norm'),
+    proposedByKind: z.literal('person'),
+    payload: officeShelfNormPayloadSchema,
   }),
 ])
 export type ProposedChangeView = z.infer<typeof proposedChangeViewSchema>

@@ -518,6 +518,7 @@ export const collaboration: typeof en.collaboration = {
           memory: { title: '{productName} möchte sich eine Notiz merken' },
           project_profile: { title: '{productName} schlägt eine Änderung am Projektkontext vor' },
           operation: { title: '{productName} schlägt eine Aktion vor' },
+          office_shelf_norm: { title: '{productName} schlägt eine Norm für die Büroablage vor' },
         },
       },
       agentIntakeReady: {
@@ -794,6 +795,16 @@ export const collaboration: typeof en.collaboration = {
         variants: {
           office: { title: 'Die Sortierung der Büroablage wurde abgebrochen' },
         },
+      },
+      officeShelfNormOffered: {
+        title: '{productName} schlägt die Büroablage vor',
+        body: 'Diese Norm gibt es bisher nur in „{subject}“. In der Büroablage finden alle Projekte sie.',
+      },
+      officeShelfNormSuggested: {
+        title: '{actor} schlägt eine Norm für die Büroablage vor',
+        titleNoActor: 'Eine Norm wird für die Büroablage vorgeschlagen',
+        titleResolved: 'Der Vorschlag für die Büroablage ist entschieden',
+        body: 'Danach finden alle Projekte sie, und sie ist für alle im Büro sichtbar.',
       },
       unknown: {
         title: 'Es gab Aktivität',

@@ -206,6 +206,7 @@ async function requireDecider(session: AuthorizedSession, row: ProposedChangeRow
     if (!canManageOfficeShelf(session)) throw deciderNeedsWrite(row.kind)
     return
   }
+  if (row.kind === 'office_shelf_norm' && !canManageOfficeShelf(session)) throw deciderNeedsWrite(row.kind)
   try {
     await requireProjectAccess(session, row.projectId, DECIDE_PERMISSIONS[row.kind])
   } catch (error) {
@@ -287,6 +288,7 @@ async function toView(
   }
   const projectId = row.scope === 'project' ? projectOf(row) : row.projectId
   const typed = parseKindPayload(row.kind, row.payload)
+  if (typed.kind === 'office_shelf_norm') return { ...base, ...typed, projectId, proposedByKind: 'person' }
   if (typed.kind !== 'operation') return { ...base, ...typed, projectId }
   const op = findOperation(typed.payload.operation)
   const targets = op ? await describeTargets(session, op, typed.payload.input, directory) : []

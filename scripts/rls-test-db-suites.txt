@@ -81,6 +81,7 @@ batch              bff/mail-thread/follow.integration.spec.ts
 batch              bff/mail-thread/archive.integration.spec.ts
 batch              bff/base-knowledge/store/repository.integration.spec.ts
 batch              bff/base-knowledge/store/office-editions.integration.spec.ts
+batch              bff/office-shelf/project-norms/repository.integration.spec.ts
 batch              bff/base-knowledge/store/rulesets.integration.spec.ts
 batch              bff/base-knowledge/platform/platform.integration.spec.ts
 batch              bff/base-knowledge/platform/approve-alone.integration.spec.ts

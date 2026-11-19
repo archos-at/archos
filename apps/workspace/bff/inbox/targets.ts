@@ -21,6 +21,7 @@ export interface InboxTargetLinkContext {
   anchorId?: string | null
   taskId?: string | null
   run?: RunMessageRef | null
+  folderId?: string | null
 }
 
 export interface RunMessageRef {
@@ -113,6 +114,10 @@ const projectTarget: InboxTargetDescriptor = {
           return `/app/projects/${resourceId}/files${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
         }
         if (context.itemType === 'agent.proposal_waiting') return `/app/projects/${resourceId}/files`
+        if (context.itemType.startsWith('office_shelf.')) {
+          const folder = context.folderId?.trim()
+          return `/app/projects/${resourceId}/files${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
+        }
         if (context.itemType === 'agent.intake_ready') return `/app/projects/${resourceId}/setup`
         const mailLink = inboundMailLink(resourceId, context)
         if (mailLink) return mailLink

@@ -2910,6 +2910,26 @@
    "withheld": null,
    "reason": null
   },
+  "project-norm-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "project-norm-place": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "site-resolve": {
    "kind": "catalog",
    "domain": "knowledge",

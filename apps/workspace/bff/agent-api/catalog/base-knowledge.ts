@@ -11,6 +11,11 @@ import {
   recordCheckBodySchema,
   updateEntryBodySchema,
 } from '@/lib/base-knowledge/wire'
+import {
+  listProjectNormsQuerySchema,
+  placeProjectNormsBodySchema,
+  projectNormsParamsSchema,
+} from '@/lib/office-shelf/project-norms/wire'
 import { classificationEvaluateRequestSchema } from '@/lib/project-intake/classification-wire'
 import type { AgentOperation } from '../operation'
 import { uploadBodySchemaWith } from '../upload-wire'
@@ -20,6 +25,32 @@ const ENTRY =
   '`textUse` and `freshness`.'
 
 export const baseKnowledgeOperations = [
+  {
+    name: 'project-norm-list',
+    domain: 'knowledge',
+    summary: 'A project folder’s norms for the office shelf, and their references',
+    description:
+      '`offers`: norms here whose work the office shelf lacks, not kept or suggested. `references`: norms moved to ' +
+      'the office shelf; `state` removed once its copy is deleted.',
+    method: 'GET',
+    path: '/api/projects/[id]/norms',
+    params: projectNormsParamsSchema,
+    query: listProjectNormsQuerySchema,
+    load: () => import('@/app/api/projects/[id]/norms/route'),
+  },
+  {
+    name: 'project-norm-place',
+    domain: 'knowledge',
+    summary: 'Move project norms into the office shelf, suggest them, or keep them here',
+    description:
+      'office_shelf files each as an entry or edition, bins the project file, leaves a reference; suggest asks the ' +
+      'managers; project keeps it.',
+    method: 'POST',
+    path: '/api/projects/[id]/norms',
+    params: projectNormsParamsSchema,
+    body: placeProjectNormsBodySchema,
+    load: () => import('@/app/api/projects/[id]/norms/route'),
+  },
   {
     name: 'base-knowledge-list',
     domain: 'knowledge',
