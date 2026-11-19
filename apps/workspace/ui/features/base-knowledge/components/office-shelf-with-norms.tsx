@@ -13,13 +13,13 @@ const NO_ACTIONS: readonly ActionMenuEntry[] = []
 
 export function OfficeShelfWithNorms(props: Omit<OfficeShelfWorkspaceProps, 'onUploadsStored' | 'onNormsRecorded' | 'fileActions'>): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
-  const { recognition, recognize, close } = useNormRecognition()
+  const { recognition, recognize, later, settled } = useNormRecognition()
   const { canManage } = props
   const onUploadsStored = useCallback(
-    (uploads: StoredUpload[]) => void recognize(uploads.map((upload) => upload.documentId)),
+    (uploads: StoredUpload[]) => void recognize(uploads.map((upload) => upload.documentId), { source: 'office_shelf_upload' }),
     [recognize],
   )
-  const onNormsRecorded = useCallback((documentIds: string[]) => void recognize(documentIds), [recognize])
+  const onNormsRecorded = useCallback((documentIds: string[]) => void recognize(documentIds, { source: 'folder_migration' }), [recognize])
   const fileActions = useCallback(
     (file: FileItem): readonly ActionMenuEntry[] =>
       canManage
@@ -29,7 +29,7 @@ export function OfficeShelfWithNorms(props: Omit<OfficeShelfWorkspaceProps, 'onU
               id: 'as-norm',
               label: t('norms.asNorm'),
               icon: Library,
-              onSelect: () => void recognize([file.id], { asNorm: true }),
+              onSelect: () => void recognize([file.id], { source: 'folder_migration', asNorm: true }),
               testId: 'document-action-as-norm',
             },
           ]
@@ -39,7 +39,7 @@ export function OfficeShelfWithNorms(props: Omit<OfficeShelfWorkspaceProps, 'onU
   return (
     <>
       <OfficeShelfWorkspace {...props} onUploadsStored={onUploadsStored} onNormsRecorded={onNormsRecorded} fileActions={fileActions} />
-      <NormDialog recognition={recognition} onClose={close} onSettled={close} />
+      <NormDialog recognition={recognition} onClose={later} onSettled={settled} />
     </>
   )
 }

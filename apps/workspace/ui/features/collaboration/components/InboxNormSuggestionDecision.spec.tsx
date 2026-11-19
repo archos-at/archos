@@ -6,14 +6,15 @@ import { I18nProvider } from '@/i18n'
 import type { InboxItemView } from '@/lib/inbox/types'
 import { ProposalRequestError } from '@/lib/proposals/client'
 import type { ProposalResponse } from '@/lib/proposals/types'
-import { PRODUCT_NAME } from '@/lib/brand'
 import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
 import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { InboxItemRow } from './InboxItemRow'
 import type { InboxNormDecisionClient } from './InboxNormSuggestionDecision'
 
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
+vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => '/app/inbox',
@@ -51,15 +52,6 @@ const suggestion: InboxItemView = {
   answerIn: null,
   createdAt: '2026-11-19T09:00:00Z',
   updatedAt: '2026-11-19T09:00:00Z',
-}
-
-const offer: InboxItemView = {
-  ...suggestion,
-  id: 'i-offer',
-  type: 'office_shelf.norm_offered',
-  anchorId: 'doc-1',
-  actorName: null,
-  actorUserId: null,
 }
 
 const decided = (status: 'applied' | 'dismissed', results: ProposalResponse['proposal']['results'] = null) =>
@@ -125,6 +117,25 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
       })
     )
     expect(await screen.findByRole('status')).toHaveTextContent('Bestätigt und in der Büroablage. Das Projekt behält einen Verweis.')
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_shown', { rows: 1, source: 'postfach_suggestion' })
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', {
+      confirmed: 1,
+      not_norm: 0,
+      later: 0,
+      edition_added: 0,
+      duplicate_removed: 0,
+      source: 'postfach_suggestion',
+    })
+  })
+
+  test('counts a „Später“ in the norm dialog, and decides nothing', async () => {
+    vi.mocked(capturePosthog).mockClear()
+    const decisions = client()
+    german(suggestion, decisions)
+    await userEvent.click(screen.getByRole('button', { name: 'In die Büroablage übernehmen' }))
+    await userEvent.click(within(await screen.findByTestId('norm-dialog')).getByRole('button', { name: 'Später' }))
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', expect.objectContaining({ later: 1, confirmed: 0, source: 'postfach_suggestion' }))
+    expect(decisions.apply).not.toHaveBeenCalled()
   })
 
   test('takes nothing over while an edition is missing', async () => {
@@ -169,14 +180,6 @@ describe('a norm suggested for the Büroablage, in the Postfach', () => {
 
   test('offers no decision once it is resolved', () => {
     german({ ...suggestion, state: 'resolved' })
-    expect(screen.queryByTestId('inbox-norm-decision')).not.toBeInTheDocument()
-  })
-})
-
-describe('the offer of a project norm, in the Postfach', () => {
-  test('is the agent suggesting the Büroablage, leading to the project folder', () => {
-    german(offer)
-    expect(screen.getByText(`${PRODUCT_NAME} schlägt eine Norm für die Büroablage vor`)).toHaveAttribute('href', '/app/projects/p1/files?folder=f-normen')
     expect(screen.queryByTestId('inbox-norm-decision')).not.toBeInTheDocument()
   })
 })

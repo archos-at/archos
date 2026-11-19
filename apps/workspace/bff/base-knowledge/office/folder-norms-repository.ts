@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, eq, gt, inArray, isNull, notExists, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, notExists, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { knowledgeRecords } from '@/lib/db/schema/knowledge-records'
@@ -19,7 +19,7 @@ export interface FolderFile {
 export async function listUndecidedFolderFiles(
   organizationId: string,
   reader: DocumentReader,
-  { folderId = null, afterId = null, limit }: { folderId?: string | null; afterId?: string | null; limit: number },
+  { folderId, limit }: { folderId: string; limit: number },
 ): Promise<FolderFile[]> {
   const db = getDb()
   const rows = await withTenant({ organizationId }, () =>
@@ -37,8 +37,7 @@ export async function listUndecidedFolderFiles(
           isNull(projectFolders.deletedAt),
           sql`${projectFolders.path} <> ${STANDARDS_FOLDER_NAME}`,
           sql`${projectFolders.path} NOT LIKE ${`${STANDARDS_FOLDER_NAME}/%`}`,
-          folderId ? eq(documents.folderId, folderId) : undefined,
-          afterId ? gt(documents.id, afterId) : undefined,
+          eq(documents.folderId, folderId),
           notExists(db.select({ one: sql`1` }).from(knowledgeRecords).where(and(eq(knowledgeRecords.documentId, documents.id), isNull(knowledgeRecords.unlistedAt)))),
           notExists(db.select({ one: sql`1` }).from(officeShelfNormKeeps).where(eq(officeShelfNormKeeps.documentId, documents.id))),
           documentVisibleTo(reader),

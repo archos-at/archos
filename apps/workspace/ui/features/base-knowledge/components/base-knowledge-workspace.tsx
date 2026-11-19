@@ -221,7 +221,8 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
   const norms = useNormRecognition()
   const { recognize } = norms
   const recognizeStored = useCallback(
-    (uploads: StoredUpload[]) => void recognize(uploads.map((upload) => upload.documentId), { announcePlain: true }).then(() => reload()),
+    (uploads: StoredUpload[]) =>
+      void recognize(uploads.map((upload) => upload.documentId), { source: 'office_shelf_upload', announcePlain: true }).then(() => reload()),
     [recognize, reload],
   )
   const shelfUpload = useOfficeShelfDocuments({ collectionName: canManage ? uploadCollection : undefined, onStored: recognizeStored })
@@ -238,7 +239,7 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
   const reviewPending = async () => {
     try {
       const pending = await listBaseKnowledge({ attention: 'proposed', limit: MAX_RECOGNIZE_DOCUMENTS })
-      await recognize(pending.entries.map((entry) => entry.documentId))
+      await recognize(pending.entries.map((entry) => entry.documentId), { source: 'review_pending' })
     } catch (error) {
       toast.error(failure(t, error))
     }
@@ -441,11 +442,11 @@ export function BaseKnowledgeWorkspace({ trailingActions, organizationName = nul
       <NormDialog
         recognition={norms.recognition}
         onClose={() => {
-          norms.close()
+          norms.later()
           void reload()
         }}
         onSettled={() => {
-          norms.close()
+          norms.settled()
           void reload()
         }}
       />

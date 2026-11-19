@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('./folder-norms-repository', () => ({ listUndecidedFolderFiles: vi.fn(), keepAsOrdinaryFiles: vi.fn() }))
-vi.mock('./folder-norms-scan', () => ({ rescanNorms: vi.fn() }))
 vi.mock('./norm-intake', () => ({ takeAsNorm: vi.fn() }))
 vi.mock('../store/repository', () => ({ readOfficeEntries: vi.fn(async () => []) }))
 vi.mock('./folders', () => ({ standardsRoot: vi.fn(async () => ({ id: 'folder-standards' })) }))
@@ -12,7 +11,6 @@ import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { keepAsOrdinaryFiles, listUndecidedFolderFiles, type FolderFile } from './folder-norms-repository'
-import { rescanNorms } from './folder-norms-scan'
 import { decideFolderNorms, listFolderNorms } from './folder-norms'
 import { takeAsNorm } from './norm-intake'
 
@@ -83,7 +81,6 @@ describe('decideFolderNorms', () => {
     expect(decision).toMatchObject({ action: 'record', failed: [], remaining: 0 })
     expect(decision.done.map((norm) => norm.documentId)).toEqual(['doc-1', 'doc-3'])
     expect(keepAsOrdinaryFiles).not.toHaveBeenCalled()
-    expect(rescanNorms).toHaveBeenCalledWith('org-1')
   })
 
   it('names a refused file and goes on with the others', async () => {
@@ -112,14 +109,12 @@ describe('decideFolderNorms', () => {
     expect(keepAsOrdinaryFiles).toHaveBeenCalledWith('org-1', ['doc-1', 'doc-3'], 'user-1')
     expect(takeAsNorm).not.toHaveBeenCalled()
     expect(decision).toMatchObject({ action: 'keep', remaining: 0 })
-    expect(rescanNorms).toHaveBeenCalledWith('org-1')
   })
 
   it('does nothing in a folder without norms', async () => {
     vi.mocked(listUndecidedFolderFiles).mockResolvedValue([at('doc-2', 'Grundriss_EG.pdf')])
     expect(await decideFolderNorms(MANAGER, FOLDER, { action: 'keep' })).toEqual({ action: 'keep', done: [], failed: [], remaining: 0 })
     expect(keepAsOrdinaryFiles).not.toHaveBeenCalled()
-    expect(rescanNorms).not.toHaveBeenCalled()
   })
 
   it('refuses a member who may not manage the office shelf', async () => {

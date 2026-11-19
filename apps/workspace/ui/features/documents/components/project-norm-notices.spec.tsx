@@ -7,10 +7,12 @@ import { PRODUCT_NAME } from '@/lib/brand'
 import { I18nProvider } from '@/i18n'
 import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
 import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { ProjectNormNotices } from './project-norm-notices'
 
 const toast = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
+vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
 const PROJECT = '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f'
 const DOC = '5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f'
@@ -227,6 +229,15 @@ describe('the norm dialog after a project upload', () => {
     await waitFor(() => expect(posted).toHaveLength(2))
     expect(posted[0]).toEqual({ destination: 'project', documents: [{ documentId: second.documentId }] })
     expect(posted[1]).toMatchObject({ destination: 'office_shelf', confirm: true, documents: [{ documentId: DOC }] })
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_shown', { rows: 2, source: 'project_upload' })
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', {
+      confirmed: 1,
+      not_norm: 1,
+      later: 0,
+      edition_added: 0,
+      duplicate_removed: 0,
+      source: 'project_upload',
+    })
   })
 
   it('leaves the offer on the banner on „Später“', async () => {
@@ -235,6 +246,7 @@ describe('the norm dialog after a project upload', () => {
     await userEvent.click(within(await screen.findByTestId('norm-dialog')).getByRole('button', { name: 'Später' }))
     expect(toast).toHaveBeenCalledWith('Die Normen bleiben vorerst nur in diesem Projekt. Der Hinweis über den Dateien bietet die Büroablage weiter an.')
     expect(posted).toEqual([])
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', expect.objectContaining({ later: 1, confirmed: 0, source: 'project_upload' }))
     await waitFor(() => expect(screen.queryByTestId('norm-dialog')).not.toBeInTheDocument())
     expect(screen.getByTestId('project-norm-offer')).toBeInTheDocument()
   })

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * The office shelf files a norm scan reads, and the „Im Ordner lassen“ rows
+ * The files of an office shelf folder the folder's norm notice reads, and the „Im Ordner lassen“ rows
  * (migration 0250), against a REAL Postgres through the restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -9,8 +9,7 @@
  *
  * What the SQL must hold: a file in an ordinary folder is read, one in the
  * standards tree, at the top level, already recorded or kept is not; a kept row
- * is the office's own and no other office reads it; and refreshing the office's
- * inbox item rewrites an open item and leaves a resolved one alone.
+ * is the office's own and no other office reads it.
  */
 
 import { randomUUID } from 'node:crypto'
@@ -26,7 +25,6 @@ const OTHER_ORG = `${ORG}_other`
 describe.skipIf(!url)('norms in office shelf folders against Postgres', () => {
   let repo: typeof import('./folder-norms-repository')
   let store: typeof import('../store/repository')
-  let inbox: typeof import('@/lib/inbox/repository')
   let SCREENED_ONLY: typeof import('@/lib/documents/document-reader').SCREENED_ONLY
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
@@ -57,8 +55,7 @@ describe.skipIf(!url)('norms in office shelf folders against Postgres', () => {
     return String(row.id)
   }
 
-  const read = (options: { folderId?: string | null; afterId?: string | null; limit?: number } = {}) =>
-    repo.listUndecidedFolderFiles(ORG, SCREENED_ONLY, { limit: 100, ...options })
+  const read = (options: { folderId: string; limit?: number }) => repo.listUndecidedFolderFiles(ORG, SCREENED_ONLY, { limit: 100, ...options })
 
   beforeAll(async () => {
     vi.stubEnv('APP_DATABASE_URL', url)
@@ -68,7 +65,6 @@ describe.skipIf(!url)('norms in office shelf folders against Postgres', () => {
     db = (await import('@/lib/db')).getDb()
     repo = await import('./folder-norms-repository')
     store = await import('../store/repository')
-    inbox = await import('@/lib/inbox/repository')
     SCREENED_ONLY = (await import('@/lib/documents/document-reader')).SCREENED_ONLY
     folders.normen = await folder('Normen', 'Normen')
     folders.planung = await folder('Planung', 'Planung')
@@ -78,7 +74,6 @@ describe.skipIf(!url)('norms in office shelf folders against Postgres', () => {
 
   afterAll(async () => {
     await withPlatformAccess('folder norms spec cleanup', async () => {
-      await db.execute(sql`DELETE FROM inbox_items WHERE organization_id IN (${ORG}, ${OTHER_ORG})`)
       await db.execute(sql`DELETE FROM documents WHERE organization_id IN (${ORG}, ${OTHER_ORG})`)
       await db.execute(sql`DELETE FROM project_folders WHERE organization_id IN (${ORG}, ${OTHER_ORG})`)
     })
@@ -91,18 +86,19 @@ describe.skipIf(!url)('norms in office shelf folders against Postgres', () => {
     await file('OENORM_B_3806.pdf', folders.topic)
     await file('DIN_4109-1.pdf', null)
 
-    expect((await read()).map((row) => row.id).sort()).toEqual([inNormen, inPlanung].sort())
+    expect((await read({ folderId: folders.planung })).map((row) => row.id)).toEqual([inPlanung])
     expect(await read({ folderId: folders.normen })).toEqual([
       { id: inNormen, fileName: 'OENORM_B_1600_2017-04-15.pdf', folderId: folders.normen },
     ])
     expect(await read({ folderId: folders.topic })).toEqual([])
+    expect(await read({ folderId: folders.standards })).toEqual([])
   })
 
-  it('pages by id', async () => {
-    const all = await read()
-    const first = await read({ limit: 1 })
-    expect(first).toEqual([all[0]])
-    expect(await read({ afterId: first[0].id })).toEqual(all.slice(1))
+  it('reads at most the limit, in id order', async () => {
+    await file('DIN_4109-2.pdf', folders.normen)
+    const all = await read({ folderId: folders.normen })
+    expect(all.length).toBeGreaterThan(1)
+    expect(await read({ folderId: folders.normen, limit: 1 })).toEqual([all[0]])
   })
 
   it('leaves out a file already recorded as base knowledge', async () => {
@@ -142,47 +138,5 @@ describe.skipIf(!url)('norms in office shelf folders against Postgres', () => {
     const other = await file('DIN_18040-1_kept_spec.pdf', folders.normen)
     expect(await repo.keptAsOrdinaryFiles(ORG, [kept, other], SCREENED_ONLY)).toEqual(new Set([kept]))
     expect(await repo.keptAsOrdinaryFiles(OTHER_ORG, [kept], SCREENED_ONLY)).toEqual(new Set())
-  })
-
-  it('refreshes the open inbox item of the office and leaves a resolved one alone', async () => {
-    const groupKey = `office_shelf.norms_found:organization:${ORG}`
-    await as(ORG, () =>
-      inbox.upsertInboxItems(
-        ['user_open', 'user_done'].map((recipientUserId) => ({
-          organizationId: ORG,
-          recipientUserId,
-          type: 'office_shelf.norms_found' as const,
-          resourceType: 'organization' as const,
-          resourceId: ORG,
-          anchorId: folders.normen,
-          groupKey,
-          actionable: true,
-          count: 3,
-          payload: { excerpt: 'a.pdf, b.pdf, c.pdf' },
-        })),
-      ),
-    )
-    await as(ORG, () => db.execute(sql`UPDATE inbox_items SET resolved_at = now() WHERE recipient_user_id = 'user_done' AND group_key = ${groupKey}`))
-
-    const refreshed = await as(ORG, () =>
-      inbox.refreshOpenGroupItems({
-        organizationId: ORG,
-        groupKey,
-        recipientUserIds: ['user_open', 'user_done'],
-        anchorId: folders.planung,
-        count: 1,
-        payload: { excerpt: 'c.pdf' },
-      }),
-    )
-    expect(refreshed).toEqual(['user_open'])
-    const rows = await as(ORG, () =>
-      db.execute<{ recipient_user_id: string; anchor_id: string; count: number; payload: { excerpt: string } }>(
-        sql`SELECT recipient_user_id, anchor_id, count, payload FROM inbox_items WHERE group_key = ${groupKey} ORDER BY recipient_user_id`,
-      ),
-    )
-    expect(rows.map((row) => [row.recipient_user_id, row.anchor_id, row.count, row.payload.excerpt])).toEqual([
-      ['user_done', folders.normen, 3, 'a.pdf, b.pdf, c.pdf'],
-      ['user_open', folders.planung, 1, 'c.pdf'],
-    ])
   })
 })

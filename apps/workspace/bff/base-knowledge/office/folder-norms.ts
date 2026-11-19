@@ -17,7 +17,6 @@ import { readOfficeEntries } from '../store/repository'
 import { requireOfficeStandardsEnabled } from './access'
 import { standardsRoot } from './folders'
 import { keepAsOrdinaryFiles, listUndecidedFolderFiles } from './folder-norms-repository'
-import { rescanNorms } from './folder-norms-scan'
 import { takeAsNorm } from './norm-intake'
 import { recognizeNorm } from './reading'
 
@@ -49,7 +48,6 @@ export async function listFolderNorms(
   return { folderId, total: norms.length, norms: norms.slice(start, end), nextCursor: end < norms.length ? String(end) : null }
 }
 
-
 export async function decideFolderNorms(
   session: AuthorizedSession,
   folderId: string,
@@ -59,7 +57,6 @@ export async function decideFolderNorms(
   if (norms.length === 0) return { action, done: [], failed: [], remaining: 0 }
   if (action === 'keep') {
     await keepAsOrdinaryFiles(session.organizationId, norms.map((norm) => norm.documentId), session.userId)
-    await rescanNorms(session.organizationId)
     return { action, done: norms, failed: [], remaining: 0 }
   }
   const batch = norms.slice(0, FOLDER_NORMS_PER_REQUEST)
@@ -76,6 +73,5 @@ export async function decideFolderNorms(
       failed.push({ ...norm, error: error.message })
     }
   }
-  await rescanNorms(session.organizationId)
   return { action, done, failed, remaining: norms.length - batch.length }
 }

@@ -24,7 +24,6 @@ vi.mock('@/lib/base-knowledge/office/folder-norms-repository', () => ({
   ]),
   keepAsOrdinaryFiles: vi.fn(),
 }))
-vi.mock('@/lib/base-knowledge/office/folder-norms-scan', () => ({ rescanNorms: vi.fn() }))
 vi.mock('@/lib/base-knowledge/office/service', () => ({ proposeBaseKnowledge: vi.fn() }))
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'reviewer' })) }))
 

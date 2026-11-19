@@ -5,10 +5,12 @@ import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
 import { BASE_KNOWLEDGE_ENTRIES, BASE_KNOWLEDGE_FOLDERS, BASE_KNOWLEDGE_TERRITORIES } from '@/app/dev/_fixtures/base-knowledge'
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { EntryPage } from './entry-page'
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() }))
 vi.mock('sonner', () => ({ toast }))
+vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 const licenceStep = vi.hoisted(() => ({ ask: false }))
 vi.mock('@/lib/base-knowledge/wire', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/base-knowledge/wire')>()
@@ -38,6 +40,7 @@ afterEach(() => {
   licenceStep.ask = false
   vi.unstubAllGlobals()
   for (const fn of Object.values(toast)) fn.mockReset()
+  vi.mocked(capturePosthog).mockClear()
 })
 
 describe('EntryPage', () => {
@@ -164,8 +167,11 @@ describe('EntryPage', () => {
     const [message, options] = toast.success.mock.calls.at(-1) as unknown as [string, { action: { label: string; onClick: () => void } }]
     expect(message).toBe('„ÖNORM B 1600:2017“ ist jetzt eine normale Datei unter Ordner (oberste Ebene).')
     expect(options.action.label).toBe('Rückgängig')
+    expect(capturePosthog).toHaveBeenCalledWith('norm_unlisted')
+    expect(capturePosthog).not.toHaveBeenCalledWith('norm_relisted')
     options.action.onClick()
     await waitFor(() => expect(onChanged).toHaveBeenLastCalledWith(CONFIRMED))
+    expect(capturePosthog).toHaveBeenLastCalledWith('norm_relisted')
     const [undoUrl, undoInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
     expect([undoUrl, undoInit.method, JSON.parse(String(undoInit.body))]).toEqual([
       '/api/base-knowledge/oenorm-b-1600/relist',

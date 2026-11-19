@@ -1,19 +1,14 @@
 import 'server-only'
 import { ApiError, NotFoundError } from '@/lib/api/errors'
-import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { canWriteFolder, getProjectFolderAccess } from '@/lib/authz/folder-access'
 import { canManageOfficeShelf } from '@/lib/authz/organizations'
-import { officeStandardsEnabled } from '@/lib/base-knowledge/office/access'
 import { entryIdsForDocuments } from '@/lib/base-knowledge/store/repository'
 import type { OfficeShelfReference } from '@/lib/db/schema/office-shelf-references'
-import type { UploadBatch } from '@/lib/db/schema/upload-batches'
 import { memberReader } from '@/lib/documents/document-reader'
 import { projectShelf } from '@/lib/documents/shelf'
 import { requireShelfRead } from '@/lib/documents/shelf-authz'
 import { findProjectInOrg } from '@/lib/projects/repository'
-import { listBatchDocuments } from '@/lib/upload-batches/repository'
-import { announceNorms, normOfferEmissions, settleNormOffers } from './attention'
 import { heldWorks } from './held-works'
 import { moveNormsToOfficeShelf, writableProjectNorm } from './move'
 import { offerable, recognizedNorms, type NormCandidateRow } from './placement'
@@ -112,7 +107,6 @@ async function keepNorms(session: AuthorizedSession, projectId: string, document
     }
   }
   await keepInProject(session.organizationId, projectId, kept, session.userId)
-  await settleNormOffers(session.organizationId, kept)
   return placements
 }
 
@@ -138,39 +132,4 @@ export async function placeProjectNorms(
       return { destination: 'office_shelf', visibility: 'office', placements, notified: 0, noDecider: null }
     }
   }
-}
-
-type OfferedBatch = Pick<UploadBatch, 'id' | 'scope' | 'projectId' | 'createdBy'>
-
-export async function offerNormsAfterSettle(organizationId: string, completed: readonly OfferedBatch[]): Promise<void> {
-  const batches = completed.filter((batch) => batch.scope === 'project' && batch.projectId)
-  if (batches.length === 0) return
-  try {
-    if (!(await officeStandardsEnabled(organizationId))) return
-    for (const batch of batches) await offerBatch(organizationId, batch)
-  } catch (error) {
-    console.warn('[office-shelf] offering the norms of an upload failed; the project banner still offers them:', error)
-  }
-}
-
-async function offerBatch(organizationId: string, batch: OfferedBatch): Promise<void> {
-  const projectId = batch.projectId
-  if (!projectId) return
-  const session = await resolvePinnedRequesterSession({ userId: batch.createdBy, email: null, organizationId })
-  const project = await findProjectInOrg(projectId, organizationId)
-  if (!session || !project) return
-  const uploaded = await listBatchDocuments(organizationId, batch.id, memberReader(batch.createdBy))
-  const rows = await listProjectNormRows(
-    organizationId,
-    projectId,
-    { documentIds: uploaded.map((document) => document.id) },
-    memberReader(batch.createdBy)
-  )
-  const writable: NormCandidateRow[] = []
-  for (const row of rows) if (await canWriteFolder(session, projectId, row.folderId)) writable.push(row)
-  const offers = await offersAmong(session, projectId, writable)
-  await announceNorms(
-    organizationId,
-    normOfferEmissions({ organizationId, projectId, projectName: project.name, recipientUserId: batch.createdBy, offers })
-  )
 }

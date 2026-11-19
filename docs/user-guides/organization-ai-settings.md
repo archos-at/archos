@@ -100,10 +100,15 @@ project, ARCHOS says so and names who could decide once given access; nothing is
 sent. A moved norm leaves a reference in the project folder; if it is later
 taken off the norms, the reference says it still lies in the Büroablage and opens
 the file. Norms you had filed in
-ordinary Büroablage folders are found; the folder offers **Unter Normen &
-Richtlinien führen**, which moves them and opens the norm dialog for them, or
-**Im Ordner lassen**, and the Postfach tells whoever manages the Büroablage. An
-ordinary folder cannot be moved under Normen & Richtlinien.
+ordinary Büroablage folders are found when you open the folder, which offers
+**Unter Normen & Richtlinien führen**, which moves them and opens the norm dialog
+for them, or **Im Ordner lassen**. An ordinary folder cannot be moved under
+Normen & Richtlinien.
+
+**The Postfach** shows only what needs your decision: a norm someone suggests
+for the Büroablage, and a norm you hold that is no longer the binding edition for
+an active project. Everything else stays where the norm is: in the folder, above
+a project's files, or under Normen & Richtlinien.
 
 **Stand.** Where the platform's norm directory lists a norm with dated editions,
 its Stand comes from there: „Aktuell“ when you hold the edition in force today,

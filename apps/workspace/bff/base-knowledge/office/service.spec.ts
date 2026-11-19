@@ -44,12 +44,14 @@ vi.mock('@/lib/office-shelf/service', () => ({ deleteOfficeShelfDocument: vi.fn(
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })) }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn(async () => true) }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg: vi.fn(async () => null) }))
+vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/authz/feature-flags', async (original) => ({
   ...(await original<typeof import('@/lib/authz/feature-flags')>()),
   isFeatureEnabled: vi.fn((session: { featureFlags: string[] | null }, flag: string) => session.featureFlags?.includes(flag) ?? false),
 }))
 
 import { ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
+import { captureServer } from '@/lib/analytics/posthog-server'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { deleteOfficeShelfDocument, uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
@@ -725,6 +727,22 @@ describe('the turn', () => {
     expect(turn?.labels).toEqual([
       expect.objectContaining({ documentId: 'doc-1', holder: 'office', role: 'requirement_source', editionLabel: '2017-04-01' }),
     ])
+  })
+
+  it('counts a turn that carries confirmed office norms, by the office, never a turn without', async () => {
+    vi.mocked(captureServer).mockClear()
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: false })])
+    await baseKnowledgeForTurn('org-1', null)
+    expect(captureServer).not.toHaveBeenCalled()
+
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    await baseKnowledgeForTurn('org-1', 'proj-1')
+    expect(captureServer).toHaveBeenCalledWith({
+      event: 'office_norm_cited',
+      distinctId: null,
+      organizationId: 'org-1',
+      properties: { office_norms: 1, has_project: true },
+    })
   })
 
   it('carries, of a standard’s editions, the one in force on the project’s filing day: the platform’s rule', async () => {

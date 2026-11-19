@@ -27,7 +27,7 @@ const normRowColumns = {
   createdBy: documents.createdBy,
 }
 
-export type NormRowsWhere = { folderId: string | null } | { documentIds: readonly string[] }
+export type NormRowsWhere = { folderId: string | null }
 
 export async function listProjectNormRows(
   organizationId: string,
@@ -35,13 +35,7 @@ export async function listProjectNormRows(
   where: NormRowsWhere,
   reader: DocumentReader
 ): Promise<ProjectNormRow[]> {
-  if ('documentIds' in where && where.documentIds.length === 0) return []
-  const place =
-    'documentIds' in where
-      ? inArray(documents.id, [...where.documentIds])
-      : where.folderId === null
-        ? isNull(documents.folderId)
-        : eq(documents.folderId, where.folderId)
+  const place = where.folderId === null ? isNull(documents.folderId) : eq(documents.folderId, where.folderId)
   return withTenant({ organizationId }, () =>
     getDb()
       .select(normRowColumns)

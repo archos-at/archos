@@ -10,6 +10,7 @@ import { applyProposal, dismissProposal, getProposal, ProposalRequestError } fro
 import type { ApplyProposalBody, OfficeShelfNormPayload, ProposalResponse } from '@/lib/proposals/types'
 import { Button } from '@/components/ui/button'
 import { useNormDialog } from '@/components/norms/norm-dialog-slot'
+import { countsOfRows, normDialogSettled, normDialogShown } from '@/components/norms/norm-dialog-telemetry'
 
 export interface InboxNormDecisionClient {
   read: (proposalId: string) => Promise<ProposalResponse>
@@ -87,7 +88,11 @@ export function InboxNormSuggestionDecision({
     try {
       const { proposal } = await client.read(proposalId)
       if (proposal.status !== 'proposed' || proposal.kind !== 'office_shelf_norm') setOutcome({ kind: 'stale' })
-      else setRecognition(suggestionRecognition(proposal.payload))
+      else {
+        const shown = suggestionRecognition(proposal.payload)
+        normDialogShown('postfach_suggestion', shown.proposals.length)
+        setRecognition(shown)
+      }
     } catch (error) {
       setOutcome(outcomeOfError(error))
     } finally {
@@ -99,7 +104,9 @@ export function InboxNormSuggestionDecision({
     const norms = confirmedNorms(rows)
     if (!norms) throw new Error(t('inbox.normSuggestion.editionNeeded'))
     try {
-      setOutcome(outcomeOf(await client.apply(proposalId, { norms })))
+      const response = await client.apply(proposalId, { norms })
+      normDialogSettled('postfach_suggestion', countsOfRows(rows))
+      setOutcome(outcomeOf(response))
     } catch (error) {
       setOutcome(outcomeOfError(error))
     }
@@ -120,7 +127,10 @@ export function InboxNormSuggestionDecision({
   const dialog = NormDialog && (
     <NormDialog
       recognition={recognition}
-      onClose={() => setRecognition(null)}
+      onClose={() => {
+        normDialogSettled('postfach_suggestion', { later: recognition?.proposals.length ?? 0 })
+        setRecognition(null)
+      }}
       onSettled={() => setRecognition(null)}
       destination={{
         description: t('inbox.normSuggestion.confirmBody'),

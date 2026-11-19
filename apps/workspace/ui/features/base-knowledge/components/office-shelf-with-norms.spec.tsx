@@ -1,12 +1,15 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import type { FileItem, OfficeShelfWorkspaceProps } from '@/features/documents'
 import type { NormRecognition } from '@/lib/base-knowledge/wire'
 import { toast } from 'sonner'
+import { capturePosthog } from '@/lib/analytics/posthog'
 import { OfficeShelfWithNorms } from './office-shelf-with-norms'
 
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), warning: vi.fn() }) }))
+vi.mock('@/lib/analytics/posthog', () => ({ capturePosthog: vi.fn() }))
 
 const shelf = vi.hoisted(() => ({ props: null as OfficeShelfWorkspaceProps | null }))
 vi.mock('@/features/documents', () => ({
@@ -56,6 +59,7 @@ const file = (id: string) => ({ id, filename: `${id}.pdf` }) as FileItem
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.mocked(capturePosthog).mockClear()
   shelf.props = null
 })
 
@@ -109,5 +113,42 @@ describe('the Büroablage with its norms', () => {
   it('offers a reader no way to keep a file as a norm', () => {
     renderShelf(false)
     expect(shelf.props?.fileActions?.(file('doc-plan'))).toEqual([])
+  })
+
+  it('counts the dialog an upload opened, and a „Später“ for all its rows', async () => {
+    stubRecognition(ONE)
+    renderShelf()
+    await act(async () => shelf.props?.onUploadsStored?.([{ documentId: 'doc-norm', fileName: 'a.pdf' }]))
+    await userEvent.click(await screen.findByTestId('norm-dialog-later'))
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_shown', { rows: 1, source: 'office_shelf_upload' })
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', {
+      confirmed: 0,
+      not_norm: 0,
+      later: 1,
+      edition_added: 0,
+      duplicate_removed: 0,
+      source: 'office_shelf_upload',
+    })
+  })
+
+  it('counts what the settle of a folder’s norms did, by the server’s outcome', async () => {
+    const fetchMock = vi.fn(async (url: string) =>
+      Response.json(url.endsWith('/settle') ? { results: [{ entryId: 'edition_norm', outcome: 'confirmed', error: null }] } : ONE),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    renderShelf()
+    await act(async () => shelf.props?.onNormsRecorded?.(['doc-norm']))
+    await userEvent.click(await screen.findByTestId('norm-dialog-confirm'))
+    await waitFor(() =>
+      expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_settled', {
+        confirmed: 1,
+        not_norm: 0,
+        later: 0,
+        edition_added: 0,
+        duplicate_removed: 0,
+        source: 'folder_migration',
+      }),
+    )
+    expect(capturePosthog).toHaveBeenCalledWith('norm_dialog_shown', { rows: 1, source: 'folder_migration' })
   })
 })

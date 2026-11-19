@@ -1,10 +1,11 @@
 'use client'
 
-import { useId, useState, type JSX } from 'react'
+import { useEffect, useId, useState, type JSX } from 'react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useNormDialog, type NormDialogDestination } from '@/components/norms/norm-dialog-slot'
+import { countsOfRows, normDialogSettled, normDialogShown } from '@/components/norms/norm-dialog-telemetry'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import type { NormRecognition } from '@/lib/base-knowledge/wire'
@@ -66,9 +67,17 @@ export function ProjectNormDialog({ projectId, offers, canManageOfficeShelf, run
   const toOffice: NormDestination = canManageOfficeShelf ? 'office_shelf' : 'suggest'
   const [chosen, setChosen] = useState<NormDestination | null>(null)
   const destination = chosen ?? toOffice
+  const offered = offers?.length ?? 0
+  useEffect(() => {
+    if (offers && offers.length > 0) normDialogShown('project_upload', offers.length)
+  }, [offers])
   const close = () => {
     setChosen(null)
     onClose()
+  }
+  const later = () => {
+    normDialogSettled('project_upload', { later: offered })
+    close()
   }
 
   const place = async (rows: Parameters<NormDialogDestination['confirm']>[0]) => {
@@ -78,6 +87,7 @@ export function ProjectNormDialog({ projectId, offers, canManageOfficeShelf, run
     } catch (error) {
       throw new Error(t(error instanceof EditionMissingError ? 'normOffer.dialog.editionNeeded' : 'normOffer.failed'))
     }
+    normDialogSettled('project_upload', countsOfRows(rows))
     const notice = placingNotice(t, placing)
     if (notice.tone === 'warning') toast.warning(notice.text)
     else toast.success(notice.text)
@@ -108,7 +118,7 @@ export function ProjectNormDialog({ projectId, offers, canManageOfficeShelf, run
   return (
     <NormDialog
       recognition={offers && offers.length > 0 ? offerRecognition(offers) : null}
-      onClose={close}
+      onClose={later}
       onSettled={close}
       destination={{
         description: t('normOffer.dialog.body'),
