@@ -157,13 +157,8 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     await published('ÖNORM B 5371 listed again', listing())
   })
 
-  it('a second office sees the std-asi listing as "gelistet, kein Text" once entitled to Austria, and not before', async () => {
-    expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, [])).toEqual(
-      expect.arrayContaining([expect.objectContaining({ designation: 'ÖNORM B 5371', hasText: false })]),
-    )
-    const held = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, ['ÖNORM B 5371:2021'])
-    expect(held.map((listed) => listed.designation)).not.toContain('ÖNORM B 5371')
-
+  it('a second office reads the platform’s records once entitled to Austria, and is told of no norm listed without text', async () => {
+    expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, [])).not.toContainEqual(expect.objectContaining({ designation: 'ÖNORM B 5371' }))
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])).toEqual([])
     const raw = await withTenant({ organizationId: SECOND_ORG }, () =>
       db.execute(sql`SELECT 1 FROM knowledge_records WHERE organization_id IS NULL AND country_id = 'AT'`),
@@ -171,31 +166,17 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     expect(raw).toHaveLength(0)
 
     await entitlements.setEntitlement(SECOND_ORG, 'AT', true, ACTOR)
+    const entitled = await withTenant({ organizationId: SECOND_ORG }, () =>
+      db.execute(sql`SELECT 1 FROM knowledge_records WHERE organization_id IS NULL AND country_id = 'AT'`),
+    )
+    expect(entitled.length).toBeGreaterThan(0)
     const listed = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])
-    expect(listed).toEqual(expect.arrayContaining([expect.objectContaining({ designation: 'ÖNORM B 5371', hasText: false })]))
+    expect(listed).not.toContainEqual(expect.objectContaining({ designation: 'ÖNORM B 5371' }))
     const { renderBaseKnowledgeBlock } = await import('../office/turn-block')
-    expect(renderBaseKnowledgeBlock([], { territoryId: null, label: null }, listed)).toContain('gelistet, kein Text')
+    expect(renderBaseKnowledgeBlock([], { territoryId: null, label: null }, listed) ?? '').not.toContain('ÖNORM B 5371')
 
     await entitlements.setEntitlement(SECOND_ORG, 'AT', false, ACTOR)
     expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(SECOND_ORG, [])).toEqual([])
-  })
-
-  it('reads the editions of a work the office holds, with the days each was in force, by its designation however spelled', async () => {
-    const designation = `ÖNORM B 1600 ${RUN}`
-    await published('ÖNORM B 1600 and its editions', [
-      { type: 'work', key: key('oenorm-b-1600'), kind: 'technical_standard', title: 'Barrierefreies Bauen', designation, issuer: 'Austrian Standards' },
-      { type: 'edition', key: key('oenorm-b-1600-2017'), workKey: key('oenorm-b-1600'), label: '2017-04-15', issuedOn: '2017-04-15', inForceFrom: '2017-04-15', inForceTo: '2023-02-01' },
-      { type: 'edition', key: key('oenorm-b-1600-2023'), workKey: key('oenorm-b-1600'), label: '2023-02-01', issuedOn: '2023-02-01', inForceFrom: '2023-02-01' },
-    ])
-    const [work, ...others] = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.editionsOf(ORG, [`ÖNORM  B 1600 ${RUN}:2017-04-15`])
-    expect(others).toEqual([])
-    expect(work?.designation).toBe(designation)
-    expect(work?.editions).toEqual([
-      { label: '2017-04-15', issuedOn: '2017-04-15', inForceFrom: '2017-04-15', inForceTo: '2023-02-01' },
-      { label: '2023-02-01', issuedOn: '2023-02-01', inForceFrom: '2023-02-01', inForceTo: null },
-    ])
-    expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.editionsOf(ORG, ['ÖNORM B 5371'])).not.toContainEqual(expect.objectContaining({ designation }))
-    expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.editionsOf(SECOND_ORG, [designation])).toEqual([])
   })
 
   it('excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets', async () => {
@@ -276,7 +257,8 @@ describe.skipIf(!url)('platform base knowledge against Postgres', () => {
     corpus.ingested = [file]
     expect((await indexing.readIndexStatus(id)).texts[0].state).toBe('indexed')
     const listed = await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, [])
-    expect(listed).toContainEqual(expect.objectContaining({ designation: 'OIB-RL 4', hasText: true }))
+    expect(listed).toContainEqual(expect.objectContaining({ designation: 'OIB-RL 4', editionLabel: expect.any(String) }))
+    expect(await officeRead.PLATFORM_RECORDS_KNOWLEDGE.listedNotHeld(ORG, ['OIB-RL 4:2023'])).not.toContainEqual(expect.objectContaining({ designation: 'OIB-RL 4' }))
     expect(await release.rollbackChangeRequest(id, 'spec: the text goes', ACTOR)).toMatchObject({ unreleasedFiles: [file] })
   })
 

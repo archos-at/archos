@@ -36,7 +36,7 @@ import { ASK_FOR_LICENCE, type EntryValues } from '@/lib/base-knowledge/wire'
 import { Chip } from '@/components/ui/chip'
 import { CurrencyNote, day, StatusChip, TextUseChip } from './entry-atoms'
 import { EntryForm, type TerritoryChoice } from './entry-form'
-import { editionReplaced } from '@/lib/base-knowledge/office/listing'
+import { editionReplaced, standFromBinding } from '@/lib/base-knowledge/office/listing'
 
 interface EntryPageProps {
   entry: BaseKnowledgeEntry | null
@@ -285,34 +285,18 @@ function CheckSection({
   run: Run
 }): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
-  const { locale } = useLocale()
   const file = useRef<HTMLInputElement>(null)
-  const { lastCheck, intervalDays } = entry.freshness
+  const { intervalDays } = entry.freshness
   return (
     <section className="space-y-3" data-testid="base-knowledge-check">
       <SectionLabel as="h3">{t('detail.checkSection')}</SectionLabel>
-      {entry.directory ? (
-        <p className="text-sm">
-          <CurrencyNote entry={entry} />
-        </p>
-      ) : (
-        <>
-          <p className="text-muted-foreground text-sm">
-            {t('detail.checkWhy', { days: intervalDays })}
-          </p>
-          <p className="text-sm">
-            {lastCheck
-              ? t('detail.lastCheck', {
-                  date: day(lastCheck.checkedAt, locale),
-                  result: t(`detail.checkResult.${lastCheck.result}`),
-                })
-              : t('detail.neverChecked')}
-          </p>
-        </>
-      )}
+      <p className="text-sm">
+        <CurrencyNote entry={entry} />
+      </p>
+      {!standFromBinding(entry) && <p className="text-muted-foreground text-sm">{t('detail.checkWhy', { days: intervalDays })}</p>}
       {canManage && (
         <>
-          {!entry.directory && (
+          {!standFromBinding(entry) && (
             <div className="flex flex-wrap gap-2">
               {/* One answer is the common one; a newer edition is answered by uploading it, which records the check itself. */}
               <Button size="sm" disabled={busy} onClick={() => void run(() => recordBaseKnowledgeCheck(entry.id, { result: 'current' }))}>

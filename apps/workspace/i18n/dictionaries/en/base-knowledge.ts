@@ -25,7 +25,7 @@ export const baseKnowledge = {
     },
     check: {
       title: '3 · Keep current',
-      body: 'When the {productName} standards directory lists the standard, {productName} compares the edition itself and reports a newer one. Everything else you check: record when you checked that the edition is still in force. After a year (directives: six months) a check is due, and {productName} says in answers that the state has not been confirmed for a long time. When a new edition appears, upload it beside the earlier one.',
+      body: 'When a law or guideline {productName} knows makes an edition of the standard binding, {productName} shows it: “Current” when your office holds that edition, “Newer edition” when a newer one is binding. Everything else you check: record when you checked that the edition is still in force. After a year (directives: six months) a check is due, and {productName} says in answers that the state has not been confirmed for a long time. When a new edition appears, upload it beside the earlier one.',
     },
     licence: {
       title: 'Licence and AI processing',
@@ -76,11 +76,14 @@ export const baseKnowledge = {
     newerEdition: 'Newer edition',
     checkedOn: 'Checked {date}',
     checkDue: 'Check due',
-    directoryHint: 'The standards directory says edition {label} applies today.',
+    bindingHint: 'Edition {label} is binding today.',
+    bindingHintVia: 'Edition {label} is binding today, under {via}.',
   },
   currency: {
-    directory: 'Compared with the standards directory: edition {label} applies today, since {date}.',
-    manual: 'Not in the standards directory. Someone in your office checks it; {productName} reminds after {months} months.',
+    binding: 'Edition {label} is binding today.',
+    bindingVia: 'Edition {label} is binding today, under {via}.',
+    checked: 'Checked by your office on {date}: {result}.',
+    unchecked: 'Not yet checked by your office. {productName} reminds after {months} months.',
   },
   text: {
     used: 'Quoted',
@@ -145,8 +148,6 @@ export const baseKnowledge = {
     saveLicensed: 'Save as bought',
     checkSection: 'Currency',
     checkWhy: 'Checking means: looking up whether this edition is still the one in force. Due every {days} days.',
-    lastCheck: 'Last checked on {date}: {result}',
-    neverChecked: 'Never checked.',
     checkCurrent: 'Still current',
     newEdition: 'Upload a newer edition',
     newEditionHint: 'The new edition is added; the earlier one stays usable for projects with an earlier reference date.',

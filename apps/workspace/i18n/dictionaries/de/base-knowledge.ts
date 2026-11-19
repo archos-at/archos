@@ -25,7 +25,7 @@ export const baseKnowledge = {
     },
     check: {
       title: '3 · Aktuell halten',
-      body: 'Führt das Normenverzeichnis von {productName} die Norm, gleicht {productName} die Ausgabe selbst ab und meldet eine neuere. Alles andere prüfen Sie: Halten Sie fest, wenn Sie nachgesehen haben, ob die Ausgabe noch gilt. Nach einem Jahr (Weisungen: sechs Monate) ist die Prüfung fällig, und {productName} sagt in Antworten dazu, dass der Stand lange nicht bestätigt wurde. Erscheint eine neue Ausgabe, laden Sie sie zur bisherigen dazu.',
+      body: 'Macht ein Gesetz oder eine Richtlinie, die {productName} kennt, eine Ausgabe der Norm verbindlich, zeigt {productName} das an: „Aktuell“, wenn Ihr Büro diese Ausgabe hat, „Neuere Ausgabe“, wenn eine neuere verbindlich ist. Alles andere prüfen Sie: Halten Sie fest, wenn Sie nachgesehen haben, ob die Ausgabe noch gilt. Nach einem Jahr (Weisungen: sechs Monate) ist die Prüfung fällig, und {productName} sagt in Antworten dazu, dass der Stand lange nicht bestätigt wurde. Erscheint eine neue Ausgabe, laden Sie sie zur bisherigen dazu.',
     },
     licence: {
       title: 'Lizenz und KI-Verarbeitung',
@@ -76,11 +76,14 @@ export const baseKnowledge = {
     newerEdition: 'Neuere Ausgabe',
     checkedOn: 'Geprüft am {date}',
     checkDue: 'Prüfung fällig',
-    directoryHint: 'Laut Normenverzeichnis gilt heute die Ausgabe {label}.',
+    bindingHint: 'Verbindlich ist heute die Ausgabe {label}.',
+    bindingHintVia: 'Verbindlich ist heute die Ausgabe {label}, laut {via}.',
   },
   currency: {
-    directory: 'Mit dem Normenverzeichnis abgeglichen: Heute gilt die Ausgabe {label}, seit {date}.',
-    manual: 'Nicht im Normenverzeichnis. Ein Mensch aus Ihrem Büro prüft sie, {productName} erinnert nach {months} Monaten.',
+    binding: 'Verbindlich ist heute die Ausgabe {label}.',
+    bindingVia: 'Verbindlich ist heute die Ausgabe {label}, laut {via}.',
+    checked: 'Vom Büro geprüft am {date}: {result}.',
+    unchecked: 'Vom Büro noch nicht geprüft. {productName} erinnert nach {months} Monaten.',
   },
   text: {
     used: 'Wird zitiert',
@@ -145,8 +148,6 @@ export const baseKnowledge = {
     saveLicensed: 'Als gekauft speichern',
     checkSection: 'Aktualität',
     checkWhy: 'Prüfen heißt: nachsehen, ob diese Ausgabe noch die gültige ist. Fällig alle {days} Tage.',
-    lastCheck: 'Zuletzt geprüft am {date}: {result}',
-    neverChecked: 'Noch nie geprüft.',
     checkCurrent: 'Ist noch aktuell',
     newEdition: 'Neuere Ausgabe hochladen',
     newEditionHint: 'Die neue Ausgabe kommt als weitere Ausgabe derselben Norm dazu. Projekte, die vor ihrem Inkrafttreten eingereicht wurden, nutzen weiter die bisherige.',

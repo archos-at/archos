@@ -65,7 +65,7 @@ export function toItemView(
     mentions: access ? coerceMentions(payload.mentions) : [],
     variant: access ? coerceVariant(payload.variant) : null,
     dueOn: access ? coerceDay(payload.dueOn) : null,
-    since: access ? coerceDay(payload.startsOn) : null,
+    via: access ? coerceText(payload.via, SUBJECT_MAX_LENGTH) : null,
     openMarks: access ? coerceCount(payload.openMarks) : null,
     marksRevision: access ? coerceCount(payload.marksRevision ?? payload.marksFassung) : null,
     uploadReport: access ? parseUploadReport(payload.report) : null,

@@ -193,7 +193,7 @@ The office's standards became a place beside the Büroablage (`/app/base-knowled
   (`time/editions.ts` `newestInForce`; an edition starts on its in-force date, else its issue date) at the
   project's reference day: the filing day once it has come, else today (`referenceDayOfProfile`, which the
   knowledge context's `referenceDateOf` shares). Replaces "every confirmed entry" in the turn block.
-- **The norm directory decides which edition bound** (2026-11-19): where the platform records list the
+- **The norm directory decides which edition bound** (2026-11-19; replaced by the amendment „the binding edition comes from the chain resolver“ below): where the platform records list the
   work (matched by designation, `designationKey`) with in-force dates on its editions
   (`PlatformKnowledge.editionsOf`, `platform/office-read.ts`), the edition in force on the reference day is
   theirs (`office/binding-edition.ts`, `newestInForce` over the platform's editions), not the office's own
@@ -279,6 +279,9 @@ platform lists and the office does not hold, and replacing a copy's file (a newe
 upload, covers it).
 
 ## Amendment 2026-11-19: the Stand comes from the platform's editions where it lists the work
+
+Replaced by the amendment „the binding edition comes from the chain resolver“ below: the Stand, the Postfach item and the
+turn now read the resolver, not a lookup of the platform's editions by designation.
 
 A manual „Ist noch aktuell“ every year is busywork for a work whose editions the platform already holds, and
 says nothing in between. So an entry's Stand is decided in one place (`standOf`, `office/listing.ts`):
@@ -368,3 +371,56 @@ or the 50-file cut could skip, and the folder scan never looks at the top level.
   moved by an upload batch's filing proposals (`reviewUploadFiling`).
 - **Feedback for a guideline the platform holds**: a lone OIB guideline uploaded on the norms tab is announced as
   one ARCHOS already knows, and on the Ordner tab, which says nothing about ordinary files, it is announced too.
+
+## Amendment 2026-11-19: the binding edition comes from the chain resolver, and nothing punishes the office
+
+Two earlier slices answered "which edition binds" with a check of their own: the Stand, the new-edition sweep and the
+turn read the in-force dates of a platform work matched by designation (`PlatformKnowledge.editionsOf`,
+`directoryStanding`, `editionsForDay`), beside the chain resolver that already follows `makes_binding` routes
+(`static_reference`, `dynamic_reference`, `supersedes`, validity windows) for a Land and a day. The office's norm
+feature is an add-on for what the platform cannot carry (paywalled ÖNORM, EN and DIN norms an office bought), and the
+platform will later carry which norm editions an OIB guideline cites. The user's decision: "Let's do the code side we
+later add those binding stuff in there but we don't punish if the orgs don't have them".
+
+- **One answer to "which edition binds"**: the knowledge context's uses (`context/resolve.ts`), filtered to what a
+  route makes binding (`role: binding`, `via: relation`), keyed by the work's designation without its edition
+  (`designationKey`): `bindingNormsOf`, `office/binding-edition.ts`. An office copy is the binding edition when its
+  label or a day it carries matches (`isSameEdition`); it is an older one when every confirmed copy starts before the
+  binding edition's day (`bindingStanding`, `newer`). `PlatformKnowledge.editionsOf`, its SQL, `directoryStanding`
+  and the entry's `directory` are gone; the entry carries `binding` (`editionLabel`, `startsOn`, `via` = the
+  instrument the route names, `held`, `newer`).
+  - In a project: the turn's own knowledge context, for the project's Land and reference day
+    (`loadTurnContext` hands it to `baseKnowledgeForTurn`).
+  - On the Normen tab and the entry page: the office's home Land today, the knowledge context of a turn without a
+    project (`knowledgeContextForTurn(org, null)`, whose site is the office's assumed subdivision); without one there
+    is no binding information.
+- **Nothing punishes the office.**
+  - A norm the office never bought gets no badge, no Postfach item and no line in the turn. `listedNotHeld` named
+    every platform work with a designation the office did not hold, and told the agent to say „gelistet, kein Text“
+    for one without text; once the platform carries the norms the OIB cites as metadata, that is a negative line per
+    norm in every turn. It now names only works whose text the platform holds (`listedFor`, `platform/office-read.ts`).
+  - An office copy older than the binding edition: the Stand shows „Neuere Ausgabe“ in the informative colour, with
+    „Verbindlich ist heute die Ausgabe …, laut <instrument>“. The turn keeps the office's copy and marks its line
+    OTHER EDITION BINDING with the binding edition, the day and the instrument; `BINDING_EDITION_RULE` lets the answer
+    use the copy but makes it say which edition binds that day. The refusal (do not answer from, quote or paraphrase
+    the other edition) is gone. The day line stays. Trace metadata `base_knowledge_editions_missing` counts the marked
+    lines.
+  - The binding edition held: the Stand is „Aktuell“, the turn says „the edition binding on <day>“ instead of the
+    check, and the answer label carries no overdue check.
+  - No binding information: the office's own dates and the manual check, as before.
+- **The manual check is quieter**: „Prüfung fällig“ is a muted pill, not a warning; the entry page and the viewer's
+  facts say where the Stand comes from („Verbindlich ist heute die Ausgabe …“ from the resolver, or „Vom Büro geprüft
+  am …“). There is no Postfach item for a due check and no roundup.
+- **The Postfach item `base_knowledge.new_edition` is rebased on the resolver.** The daily sweep
+  (`base-knowledge-new-editions`, `office/new-edition-notice.ts`), gated per office on `office-standards`, resolves the
+  binding editions for each active project (at most 200 per office) and tells whoever manages the Büroablage, once
+  per norm and binding edition (`<designation>@<day or label>`), when a confirmed office norm is no longer the binding
+  edition for at least one active project: „ÖNORM B 1600:2017 ist nicht mehr die verbindliche Ausgabe“, „Verbindlich
+  ist die Ausgabe …, laut <instrument>. Betrifft: <projects>“, with „Neue Ausgabe hochladen“ and „Ansehen“. Every
+  open item whose anchor is no longer owed is resolved (`resolveOpenItemsOfType` with `keepAnchors`): the office holds
+  the binding edition, or no active project is affected. An office edition that itself supersedes another („Ersatz
+  für …“ on a cover) does not count yet: nothing on this branch records it.
+
+What the platform holds today (2026-11-19): no ÖNORM work and no route to one, so no office norm has binding
+information, the Stand and the turn read as before, and the sweep tells nobody. The answer-shaping change owes its
+golden run on dev.

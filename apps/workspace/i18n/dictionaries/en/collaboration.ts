@@ -343,11 +343,11 @@ export const collaboration = {
         bodyNoSubject: 'Read and reply in My feedback.',
       },
       baseKnowledgeNewEdition: {
-        title: '{subject}: a new edition has appeared',
-        body: 'Edition {related} has applied since {since}; Office filing holds only an older one.',
+        title: '{subject} is no longer the binding edition',
+        body: 'Edition {related} is binding. Affects: {excerpt}',
         variants: {
-          projects: {
-            body: 'Edition {related} has applied since {since}; Office filing holds only an older one. Affects projects with a reference day after it: {excerpt}',
+          via: {
+            body: 'Edition {related} is binding, under {via}. Affects: {excerpt}',
           },
         },
       },

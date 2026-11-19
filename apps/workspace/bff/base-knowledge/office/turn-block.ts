@@ -55,16 +55,25 @@ function checkWords(entry: BaseKnowledgeEntry): string {
     : `last checked ${day} (${found})`
 }
 
-function line(entry: BaseKnowledgeEntry, project: ProjectTerritory): string {
-  const { values } = entry
-  const name = values.designation ? `${values.designation} „${values.title}“` : `„${values.title}“`
+function bindingWords(binding: NonNullable<BaseKnowledgeEntry['binding']>, on: string): string {
+  const by = [binding.via?.designation, binding.via?.editionLabel].filter(Boolean).join(' ')
+  return `${OTHER_EDITION_BINDING} on ${on}: edition ${binding.editionLabel}${by ? `, made binding by ${by}` : ''}`
+}
+
+function line(entry: BaseKnowledgeEntry, project: ProjectTerritory, on: string): string {
+  const { values, binding } = entry
+  const other = binding && !binding.held ? binding : null
+  const titled = `„${values.title}“`
+  const name = values.designation ? (other ? values.designation : `${values.designation} ${titled}`) : titled
   const parts = [
     `${name}: ${KIND_WORDS[values.kind]}, edition ${values.editionLabel}`,
+    other ? bindingWords(other, on) : null,
     `role: ${role(entry, project)}`,
     `file „${entry.fileName}“`,
     ASK_FOR_LICENCE && entry.textUse === 'metadata_only' ? UNATTESTED : null,
     ASK_FOR_LICENCE && entry.textUse === 'used' && values.licenceClass === 'licensed' ? 'licensed copy' : null,
-    checkWords(entry),
+    binding?.held ? `the edition binding on ${on}` : checkWords(entry),
+    other && values.designation ? `title ${titled}` : null,
   ].filter(Boolean)
   const text = `- ${parts.join('; ')}`
   return text.length > MAX_TURN_LINE_CHARS ? `${text.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : text
@@ -80,9 +89,8 @@ function unreadLine(entry: BaseKnowledgeEntry): string {
 }
 
 function listedLine(listed: ListedEdition): string {
-  const text = listed.hasText ? 'the platform holds its text' : 'NO TEXT held: say it is listed but its text is not available („gelistet, kein Text“)'
   const name = `${listed.designation} „${listed.title}“`
-  const result = `- ${name}: listed by the platform, edition ${listed.editionLabel}; ${text}`
+  const result = `- ${name}: listed by the platform, edition ${listed.editionLabel}; the platform holds its text`
   return result.length > MAX_TURN_LINE_CHARS ? `${result.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : result
 }
 
@@ -105,25 +113,17 @@ export interface TurnDay {
   basis: DayBasis
 }
 
-export interface MissingEdition {
-  designation: string
-  title: string
-  binding: string
-  held: { editionLabel: string; fileName: string }[]
-}
-
 export interface TurnEditions {
   day: TurnDay
-  missing: readonly MissingEdition[]
+  bindingOn: string
 }
 
-export const MAX_HELD_NAMED = 3
+export const OTHER_EDITION_BINDING = 'OTHER EDITION BINDING'
 
 export const BINDING_EDITION_RULE =
-  "An entry marked BINDING EDITION NOT HELD names the edition the platform's norm directory lists as in force on that day, " +
-  "which the office does not hold. Do not answer from, quote or paraphrase the office's other edition of that work, even " +
-  'when a search finds its passages: say which edition was in force and that the office does not hold it, and offer that the ' +
-  'office uploads that edition to the Büroablage.'
+  `An entry marked ${OTHER_EDITION_BINDING} is the office's copy of another edition than the one binding on that day, which ` +
+  "the line names with the instrument that makes it binding. You may answer from the office's copy, but say which edition " +
+  "binds on that day and that the office's copy is another edition."
 
 function dayLine({ day, basis }: TurnDay): string {
   if (basis === 'reference_day') {
@@ -131,14 +131,6 @@ function dayLine({ day, basis }: TurnDay): string {
   }
   const why = basis === 'no_project' ? 'this conversation belongs to no project' : 'the project records no reference day'
   return `Editions are those in force today, ${day}, because ${why}; when an answer rests on one, say that you took today's date and why.`
-}
-
-function missingLine(missing: MissingEdition, day: string): string {
-  const shown = missing.held.slice(0, MAX_HELD_NAMED)
-  const more = missing.held.length - shown.length
-  const held = shown.map((edition) => `${edition.editionLabel} (file „${edition.fileName}“)`).join(', ') + (more > 0 ? ` and ${more} more` : '')
-  const text = `- ${missing.designation}: BINDING EDITION NOT HELD; in force on ${day}: edition ${missing.binding}; the office holds only ${held}, not in force that day; title „${missing.title}“`
-  return text.length > MAX_TURN_LINE_CHARS ? `${text.slice(0, MAX_TURN_LINE_CHARS - 1)}…` : text
 }
 
 export function renderBaseKnowledgeBlock(
@@ -150,14 +142,13 @@ export function renderBaseKnowledgeBlock(
 ): string | null {
   const confirmed = entries.filter((entry) => entry.status === 'confirmed')
   const unread = ASK_FOR_LICENCE ? entries.filter((entry) => entry.status === 'proposed' && entry.values.licenceClass === 'licensed') : []
-  const missing = editions?.missing ?? []
-  if (confirmed.length === 0 && unread.length === 0 && missing.length === 0 && listed.length === 0 && directives.length === 0) return null
-  const missingLines = editions ? missing.map((gap) => missingLine(gap, editions.day.day)) : []
-  const dated = editions && (confirmed.length > 0 || missing.length > 0) ? [dayLine(editions.day)] : []
-  const rule = missingLines.length > 0 ? [BINDING_EDITION_RULE] : []
+  if (confirmed.length === 0 && unread.length === 0 && listed.length === 0 && directives.length === 0) return null
+  const on = editions?.bindingOn ?? 'today'
+  const dated = editions && confirmed.length > 0 ? [dayLine(editions.day)] : []
+  const rule = confirmed.some((entry) => entry.binding && !entry.binding.held) ? [BINDING_EDITION_RULE] : []
   const head = [ASK_FOR_LICENCE ? `${BASE_KNOWLEDGE_HEADER} ${UNATTESTED_RULE}` : BASE_KNOWLEDGE_HEADER, ...dated, ...rule]
   let room = MAX_TURN_BLOCK_CHARS - charsOf(head) - MORE_LINE_RESERVE
-  const all = [...missingLines, ...confirmed.map((entry) => line(entry, project)), ...unread.map(unreadLine)]
+  const all = [...confirmed.map((entry) => line(entry, project, on)), ...unread.map(unreadLine)]
   const shown = within(all.slice(0, MAX_TURN_ENTRIES), room)
   room -= charsOf(shown)
   const rest = all.length - shown.length

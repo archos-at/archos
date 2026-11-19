@@ -105,19 +105,25 @@ Richtlinien führen**, which moves them and opens the norm dialog for them, or
 **Im Ordner lassen**, and the Postfach tells whoever manages the Büroablage. An
 ordinary folder cannot be moved under Normen & Richtlinien.
 
-**Stand.** Where the platform's norm directory lists a norm with dated editions,
-its Stand comes from there: „Aktuell“ when you hold the edition in force today,
-„Neuere Ausgabe“ when a newer one applies, and the Postfach tells you when one
-comes into force, with the projects whose reference day falls after it. Every
-other norm keeps a manual check: **Ist noch aktuell** records it, and after a
-year (half a year for a directive) it shows „Prüfung fällig“.
+**Stand.** Where a law or guideline ARCHOS knows makes an edition of a norm
+binding (an OIB-Richtlinie that cites an ÖNORM in a dated edition, say), the Stand
+comes from there, for your office's Bundesland today: „Aktuell“ when you hold that
+edition, „Neuere Ausgabe“ when a newer one is binding, and the entry page says
+which edition binds and under what („Verbindlich ist heute die Ausgabe …, laut
+…“). When a norm you hold is no longer the binding edition for one of your active
+projects, whoever manages the Büroablage finds it in the Postfach once, with the
+projects it affects, „Neue Ausgabe hochladen“ and „Ansehen“; it goes away once you
+hold that edition or no active project is affected. A norm your office never
+bought is never held against you: no badge, no Postfach item, nothing in answers.
+Every other norm keeps a manual check: **Ist noch aktuell** records it, the entry
+page says „Vom Büro geprüft am …“, and after a year (half a year for a directive)
+the quiet pill „Prüfung fällig“ appears; nothing arrives in the Postfach for it.
 
 **In answers.** Answers in your office draw on confirmed norms, name the
 Ausgabe they used and use the one in force on the project's reference day (today
-when the project has none, and they say so). When the directory shows that
-another Ausgabe was binding that day and your office does not hold it, the
-answer says which one and asks you to upload it instead of answering from your
-copy. A commentary is used as interpretation only, and a directive only where
-its authority decides. Other offices see none of it. The tab appears once
+when the project has none, and they say so). When another Ausgabe binds that day
+for the project's Bundesland than the one in your Büroablage, the answer may still
+use your copy, and says which Ausgabe binds and under what. A commentary is used
+as interpretation only, and a directive only where its authority decides. Other offices see none of it. The tab appears once
 office standards are switched on for your organization
 ([ADR-0163](../adr/0163-office-base-knowledge-shares-the-platform-records.md), [ADR-0175](../adr/0175-the-cut-over-removes-the-austria-only-paths-and-their-switches.md), [ADR-0185](../adr/0185-a-project-norm-goes-to-the-office-shelf-as-a-copy-and-leaves-a-reference.md)).

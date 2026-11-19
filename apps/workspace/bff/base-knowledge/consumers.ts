@@ -81,7 +81,7 @@ const REVIEW_FOUR_EYES = {
 const ROUND_TRIP = { file: PLATFORM_SPEC, name: 'a rollback round trip: each head returns to where it was, and every move is kept' }
 const LISTING = {
   file: PLATFORM_SPEC,
-  name: 'a second office sees the std-asi listing as "gelistet, kein Text" once entitled to Austria, and not before',
+  name: 'a second office reads the platform’s records once entitled to Austria, and is told of no norm listed without text',
 }
 const MA37 = { file: PLATFORM_SPEC, name: 'excludes an MA 37 directive for a project in Graz, and applies it in Vienna, by the competence rulesets' }
 const INDEXED = { file: PLATFORM_SPEC, name: 'gives a published text its indexing run, and reads it indexed once the corpus has its chunks' }

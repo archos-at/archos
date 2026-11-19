@@ -254,6 +254,14 @@ describe('markItemsInertAnchoredOn', () => {
     expect(params).toEqual(expect.arrayContaining(['org_1', 'annotation.mentioned', 'ann_1', 'user_anna']))
   })
 
+  it('keeps the open items anchored on what still holds', async () => {
+    await resolveOpenItemsOfType({ organizationId: 'org_1', types: ['base_knowledge.new_edition'], keepAnchors: ['önorm b 1600@2025-01-01'] })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toContain('"anchor_id" is null or "inbox_items"."anchor_id" not in ($')
+    expect(params).toEqual(expect.arrayContaining(['önorm b 1600@2025-01-01']))
+  })
+
   it('touches nothing for an empty type list', async () => {
     expect(await markItemsInertAnchoredOn({ organizationId: 'org_1', types: [], anchorId: 'ann_1' })).toEqual([])
     expect(captured).toHaveLength(0)
@@ -293,6 +301,14 @@ describe('resolveOpenItemsAnchoredOn', () => {
     const { sql, params } = onlyQuery()
     expect(sql).toContain('"recipient_user_id" = $')
     expect(params).toContain('user_me')
+  })
+
+  it('keeps the open items anchored on what still holds', async () => {
+    await resolveOpenItemsOfType({ organizationId: 'org_1', types: ['base_knowledge.new_edition'], keepAnchors: ['önorm b 1600@2025-01-01'] })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toContain('"anchor_id" is null or "inbox_items"."anchor_id" not in ($')
+    expect(params).toEqual(expect.arrayContaining(['önorm b 1600@2025-01-01']))
   })
 
   it('touches nothing for an empty type list', async () => {
@@ -433,6 +449,14 @@ describe('resolveOpenItemsOfType', () => {
     expect(sql).toContain('"resolved_at" is null')
     expect(sql).not.toContain('"anchor_id"')
     expect(params).toEqual(expect.arrayContaining(['org_1', 'base_knowledge.new_edition']))
+  })
+
+  it('keeps the open items anchored on what still holds', async () => {
+    await resolveOpenItemsOfType({ organizationId: 'org_1', types: ['base_knowledge.new_edition'], keepAnchors: ['önorm b 1600@2025-01-01'] })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toContain('"anchor_id" is null or "inbox_items"."anchor_id" not in ($')
+    expect(params).toEqual(expect.arrayContaining(['önorm b 1600@2025-01-01']))
   })
 
   it('touches nothing for an empty type list', async () => {

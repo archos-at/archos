@@ -44,6 +44,7 @@ vi.mock('@/lib/office-shelf/service', () => ({ deleteOfficeShelfDocument: vi.fn(
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({ shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })) }))
 vi.mock('@/lib/workos/feature-flags', () => ({ isOrgFeatureEnabled: vi.fn(async () => true) }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectProfileInOrg: vi.fn(async () => null) }))
+vi.mock('../context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => ({ uses: [], date: '2026-11-19' })) }))
 vi.mock('@/lib/authz/feature-flags', async (original) => ({
   ...(await original<typeof import('@/lib/authz/feature-flags')>()),
   isFeatureEnabled: vi.fn((session: { featureFlags: string[] | null }, flag: string) => session.featureFlags?.includes(flag) ?? false),
@@ -54,6 +55,8 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { deleteOfficeShelfDocument, uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
 import { findProjectProfileInOrg } from '@/lib/projects/repository'
+import { knowledgeContextForTurn } from '../context/service'
+import type { KnowledgeContext } from '../context/wire'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import { deleteWorkIfUnused, insertEditionOfWork } from '../store/office-editions'
@@ -76,7 +79,7 @@ import { forgetKeysFor } from '../http/idempotency'
 import {
   baseKnowledgeForTurn,
   confirmBaseKnowledge,
-  directoryStandingsOf,
+  heldWorksOf,
   getBaseKnowledgeEntry,
   listBaseKnowledge,
   proposeBaseKnowledge,
@@ -105,6 +108,21 @@ const MANAGER: AuthorizedSession = {
   featureFlags: [],
 }
 const MEMBER: AuthorizedSession = { ...MANAGER, permissions: [] }
+
+const VIA = { workId: 'work:oib-rl-4', designation: 'OIB-RL 4', editionLabel: '2023', provision: null }
+const bindsOn = (date: string, ...norms: [string, string][]) =>
+  ({
+    date,
+    uses: norms.map(([designation, editionLabel]) => ({
+      role: 'binding',
+      via: 'relation',
+      workId: `work:${designation}`,
+      editionId: `edition:${designation}:${editionLabel}`,
+      designation,
+      editionLabel,
+      route: VIA,
+    })),
+  }) as unknown as KnowledgeContext
 
 const DOCUMENT = { id: 'doc-1', fileName: 'ÖNORM B 1600.pdf', collectionName: 'archiv_org-1', storedName: 'ÖNORM B 1600.pdf', folderId: null }
 
@@ -145,6 +163,7 @@ beforeEach(() => {
   vi.mocked(documentHasEntry).mockResolvedValue(false)
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
   usePlatformKnowledge(STUB_PLATFORM_KNOWLEDGE)
+  vi.mocked(knowledgeContextForTurn).mockResolvedValue(bindsOn('2026-11-19'))
 })
 
 describe('who may do what', () => {
@@ -317,18 +336,8 @@ describe('listing', () => {
     expect(list.counts.all).toBe(3)
   })
 
-  it('takes the Stand of a work the platform lists from its editions, and asks no check for it', async () => {
-    const asked: string[][] = []
-    const previous = usePlatformKnowledge({
-      ...STUB_PLATFORM_KNOWLEDGE,
-      editionsOf: async (_organizationId, designations) => {
-        asked.push([...designations])
-        return [
-          { designation: 'ÖNORM B 1600', title: 'Barrierefreies Bauen', editions: [{ label: '2017-04-01', issuedOn: null, inForceFrom: '2017-04-01', inForceTo: null }, { label: '2023-02-01', issuedOn: null, inForceFrom: '2023-02-01', inForceTo: null }] },
-          { designation: 'ÖNORM B 3806', title: 'Brandverhalten', editions: [{ label: '2023-03-01', issuedOn: null, inForceFrom: '2023-03-01', inForceTo: null }] },
-        ]
-      },
-    })
+  it('takes the Stand of a work from the edition the resolver names as binding at the office’s home, and asks no check for it', async () => {
+    vi.mocked(knowledgeContextForTurn).mockResolvedValue(bindsOn('2026-11-19', ['ÖNORM B 1600', '2023-02-01'], ['ÖNORM B 3806', '2023-03-01']))
     const listed = (id: string, designation: string, editionLabel: string) =>
       stored({
         workId: id,
@@ -346,42 +355,43 @@ describe('listing', () => {
     vi.mocked(visibleOfficeDocuments).mockResolvedValue(
       new Map(['b1600', 'b3806', 'rvs'].map((id) => [`doc-${id}`, { ...DOCUMENT, id: `doc-${id}` }])),
     )
-    try {
-      const list = await listBaseKnowledge(MEMBER)
-      expect(asked).toEqual([['ÖNORM B 1600:2017', 'ÖNORM B 3806:2023', 'RVS Garagen']])
-      expect(Object.fromEntries(list.entries.map((entry) => [entry.id, entry.directory]))).toEqual({
-        b1600: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false },
-        b3806: { inForce: { editionLabel: '2023-03-01', startsOn: '2023-03-01' }, held: true },
-        rvs: null,
-      })
-      expect(list.entries.map((entry) => entry.id)).toEqual(['b1600', 'rvs', 'b3806'])
-      expect(list.counts).toMatchObject({ newerEdition: 1, checkDue: 1 })
-      expect((await listBaseKnowledge(MEMBER, { attention: 'newer_edition' })).entries.map((entry) => entry.id)).toEqual(['b1600'])
-    } finally {
-      usePlatformKnowledge(previous)
-    }
+    const list = await listBaseKnowledge(MEMBER)
+    expect(knowledgeContextForTurn).toHaveBeenCalledWith('org-1', null, undefined, null, 'operation')
+    const via = { designation: 'OIB-RL 4', editionLabel: '2023' }
+    expect(Object.fromEntries(list.entries.map((entry) => [entry.id, entry.binding]))).toEqual({
+      b1600: { editionLabel: '2023-02-01', startsOn: '2023-02-01', via, held: false, newer: true },
+      b3806: { editionLabel: '2023-03-01', startsOn: '2023-03-01', via, held: true, newer: false },
+      rvs: null,
+    })
+    expect(list.entries.map((entry) => entry.id)).toEqual(['b1600', 'rvs', 'b3806'])
+    expect(list.counts).toMatchObject({ newerEdition: 1, checkDue: 1 })
+    expect((await listBaseKnowledge(MEMBER, { attention: 'newer_edition' })).entries.map((entry) => entry.id)).toEqual(['b1600'])
+  })
+
+  it('shows no binding information, and changes nothing, where the resolver names none', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    vi.mocked(visibleOfficeDocuments).mockResolvedValue(new Map([['doc-1', DOCUMENT]]))
+    const list = await listBaseKnowledge(MEMBER)
+    expect(list.entries.map((entry) => entry.binding)).toEqual([null])
+    expect(list.counts).toMatchObject({ newerEdition: 0, checkDue: 1 })
+  })
+
+  it('reads no knowledge context for an office without a confirmed norm', async () => {
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored()])
+    await listBaseKnowledge(MEMBER)
+    expect(knowledgeContextForTurn).not.toHaveBeenCalled()
   })
 })
 
-describe('the works an office holds against the platform’s editions', () => {
-  it('compares each confirmed work the platform lists, by its designation without the edition, and not a proposal, naming its newest held edition', async () => {
-    const previous = usePlatformKnowledge({
-      ...STUB_PLATFORM_KNOWLEDGE,
-      editionsOf: async () => [{ designation: 'ÖNORM B 1600', title: 'Barrierefreies Bauen', editions: [{ label: '2023-02-01', issuedOn: null, inForceFrom: '2023-02-01', inForceTo: null }] }],
-    })
+describe('the works an office holds, for the Postfach', () => {
+  it('groups the confirmed editions it may read by work, and leaves out a proposal and a norm without a designation', async () => {
     vi.mocked(readOfficeEntries).mockResolvedValue([
-      stored({ editionId: 'edition_2023', values: { ...stored().values, editionLabel: '2023-02-01', issuedOn: '2023-02-01' } }),
+      stored({ editionId: 'edition_2023', confirmed: true, values: { ...stored().values, editionLabel: '2023-02-01', issuedOn: '2023-02-01' } }),
       stored({ editionId: 'edition_2015', confirmed: true, values: { ...stored().values, editionLabel: '2015-01-01', issuedOn: '2015-01-01' } }),
-      stored({ confirmed: true, provenance: { proposedBy: 'person', confirmedBy: 'user-1' } }),
-      stored({ workId: 'work_proposed', editionId: 'edition_proposed', documentId: 'doc-1' }),
+      stored({ workId: 'work_proposed', editionId: 'edition_proposed' }),
+      stored({ workId: 'work_plain', editionId: 'edition_plain', confirmed: true, values: { ...stored().values, designation: null } }),
     ])
-    try {
-      expect(await directoryStandingsOf('org-1', new Date('2026-11-19T05:00:00Z'))).toEqual([
-        { workId: 'work_1', entryId: 'edition_1', designation: 'ÖNORM B 1600', standing: { inForce: { editionLabel: '2023-02-01', startsOn: '2023-02-01' }, held: false } },
-      ])
-    } finally {
-      usePlatformKnowledge(previous)
-    }
+    expect((await heldWorksOf('org-1')).map((editions) => editions.map((entry) => entry.editionId))).toEqual([['edition_2023', 'edition_2015']])
   })
 })
 
@@ -743,48 +753,28 @@ describe('the turn', () => {
     expect((await baseKnowledgeForTurn('org-1', 'proj-1'))?.labels.map((label) => label.editionLabel)).toEqual(['2023-02-01'])
   })
 
-  it('answers only from the edition the norm directory lists as binding on the project’s reference day', async () => {
-    const asked: (readonly string[])[] = []
-    const previous = usePlatformKnowledge({
-      ...STUB_PLATFORM_KNOWLEDGE,
-      editionsOf: async (_organizationId, designations) => {
-        asked.push(designations)
-        return [
-          {
-            designation: 'ÖNORM B 1600',
-            title: 'Barrierefreies Bauen',
-            editions: [
-              { label: '2017-04-01', issuedOn: '2017-04-01', inForceFrom: '2017-04-01', inForceTo: '2023-02-01' },
-              { label: '2023-02-01', issuedOn: '2023-02-01', inForceFrom: '2023-02-01', inForceTo: null },
-            ],
-          },
-        ]
-      },
-    })
+  it('answers from the office’s copy and names the edition the resolver binds on the project’s day', async () => {
     const filed = (day: string) =>
       vi.mocked(findProjectProfileInOrg).mockResolvedValue({
         profile: { facts: { 'filed_on@p1': { value: day } } },
       } as unknown as Awaited<ReturnType<typeof findProjectProfileInOrg>>)
-    try {
-      vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
+    vi.mocked(readOfficeEntries).mockResolvedValue([stored({ confirmed: true })])
 
-      filed('2024-03-01')
-      const missing = await baseKnowledgeForTurn('org-1', 'proj-1')
-      expect(asked).toEqual([['ÖNORM B 1600:2017']])
-      expect(missing?.block).toContain("Editions are those in force on 2024-03-01, the project's reference day")
-      expect(missing?.block).toContain(
-        '- ÖNORM B 1600: BINDING EDITION NOT HELD; in force on 2024-03-01: edition 2023-02-01; the office holds only 2017-04-01 (file „ÖNORM B 1600.pdf“)'
-      )
-      expect(missing?.block).not.toContain('technical standard, edition 2017-04-01')
-      expect(missing?.labels).toEqual([])
+    filed('2024-03-01')
+    const other = await baseKnowledgeForTurn('org-1', 'proj-1', Promise.resolve(bindsOn('2024-03-01', ['ÖNORM B 1600', '2023-02-01'])))
+    expect(other?.block).toContain("Editions are those in force on 2024-03-01, the project's reference day")
+    expect(other?.block).toContain(
+      '- ÖNORM B 1600:2017: technical standard, edition 2017-04-01; OTHER EDITION BINDING on 2024-03-01: edition 2023-02-01, made binding by OIB-RL 4 2023;'
+    )
+    expect(other?.labels.map((label) => label.editionLabel)).toEqual(['2017-04-01'])
 
-      filed('2020-06-01')
-      const held = await baseKnowledgeForTurn('org-1', 'proj-1')
-      expect(held?.block).not.toContain('BINDING EDITION NOT HELD')
-      expect(held?.labels.map((label) => label.editionLabel)).toEqual(['2017-04-01'])
-    } finally {
-      usePlatformKnowledge(previous)
-    }
+    const held = await baseKnowledgeForTurn('org-1', 'proj-1', Promise.resolve(bindsOn('2024-03-01', ['ÖNORM B 1600', '2017-04-01'])))
+    expect(held?.block).not.toContain('OTHER EDITION BINDING')
+    expect(held?.block).toContain('the edition binding on 2024-03-01')
+
+    const none = await baseKnowledgeForTurn('org-1', 'proj-1', Promise.resolve(bindsOn('2024-03-01')))
+    expect(none?.block).not.toContain('OTHER EDITION BINDING')
+    expect(none?.block).not.toContain('the edition binding on')
   })
 
   it('takes today, and says so, for a turn without a project', async () => {
@@ -799,13 +789,13 @@ describe('the turn', () => {
       listedNotHeld: async (_organizationId, held) =>
         held.includes('ÖNORM B 5371:2021')
           ? []
-          : [{ designation: 'ÖNORM B 5371:2021', title: 'Treppen', editionLabel: '2021-01-15', hasText: false }],
+          : [{ designation: 'ÖNORM B 5371:2021', title: 'Treppen', editionLabel: '2021-01-15' }],
     })
     try {
       vi.mocked(readOfficeEntries).mockResolvedValue([])
       const turn = await baseKnowledgeForTurn('org-2', null)
       expect(turn?.block).toContain('ÖNORM B 5371:2021 „Treppen“: listed by the platform')
-      expect(turn?.block).toContain('gelistet, kein Text')
+      expect(turn?.block).toContain('the platform holds its text')
       expect(turn?.labels).toEqual([])
     } finally {
       usePlatformKnowledge(previous)

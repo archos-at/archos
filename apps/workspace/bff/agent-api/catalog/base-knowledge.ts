@@ -24,7 +24,7 @@ import { uploadBodySchemaWith } from '../upload-wire'
 
 const ENTRY =
   'An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), ' +
-  '`textUse`, `freshness` and `directory`.'
+  '`textUse`, `freshness` and `binding`.'
 
 export const baseKnowledgeOperations = [
   {

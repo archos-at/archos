@@ -3,44 +3,80 @@ import { ORG_PERMISSIONS } from '@/lib/authz/permissions'
 import { withTenant } from '@/lib/db/tenant-context'
 import { inboxGroupKey } from '@/lib/inbox/registry'
 import { readGroupPayloads } from '@/lib/inbox/repository'
-import { emitInboxItems, resolveInboxItemsAnchoredOn, resolveInboxItemsOfType, type InboxEmission } from '@/lib/inbox/service'
+import { emitInboxItems, resolveInboxItemsOfType, type InboxEmission } from '@/lib/inbox/service'
 import { activeMembersHolding } from '@/lib/organizations/members-holding'
-import { salvageProjectProfile } from '@/lib/project-profile/salvage'
 import { listProjectsInOrg } from '@/lib/projects/repository'
-import { referenceDayOfProfile } from '../time/profile-procedure'
-import { officeStandardsEnabled } from './access'
-import { listOrganizationsWithOfficeEditions } from './repository'
-import { directoryStandingsOf, type WorkStanding } from './service'
+import { knowledgeContextForTurn } from '../context/service'
 import { designationKey } from '../platform'
+import type { StoredEntry } from '../store/repository'
+import type { BindingStanding } from '../wire'
+import { officeStandardsEnabled } from './access'
+import { bindingNormsOf, bindingStanding, type BindingNorms } from './binding-edition'
+import { listOrganizationsWithOfficeEditions } from './repository'
+import { heldWorksOf } from './service'
+import { newestOf } from './work-editions'
+import { workDesignation } from './work-designation'
 
 export const NEW_EDITION_NOTICE = 'base_knowledge.new_edition' as const
 
 export const NEW_EDITION_MAX_ORGANIZATIONS = 1000
 
+export const NEW_EDITION_MAX_PROJECTS = 200
+
 const NAMED_PROJECTS = 5
 
-type ProfileFacts = Parameters<typeof referenceDayOfProfile>[0]
-
-export interface ProjectDay {
+export interface ProjectBindings {
   name: string
-  status: string
-  facts: ProfileFacts
+  bindings: BindingNorms
 }
 
-export function newEditionAnchor(work: WorkStanding): string {
-  return `${designationKey(work.designation)}@${work.standing.inForce.startsOn}`
+export interface AffectedNorm {
+  anchorId: string
+  subject: string
+  entryId: string
+  standing: BindingStanding
+  projects: string[]
 }
 
-export function projectsAfter(projects: readonly ProjectDay[], startsOn: string, today: string): string[] {
-  return projects
-    .filter((project) => project.status === 'active' && (referenceDayOfProfile(project.facts, today) ?? today) >= startsOn)
-    .map((project) => project.name)
+export function affectedNorms(works: readonly (readonly StoredEntry[])[], projects: readonly ProjectBindings[]): AffectedNorm[] {
+  const affected = new Map<string, AffectedNorm>()
+  for (const editions of works) {
+    const newest = newestOf(editions.filter((entry) => entry.confirmed))
+    const designation = workDesignation(newest?.values.designation ?? null)
+    if (!newest || !designation) continue
+    const key = designationKey(designation)
+    for (const project of projects) {
+      const standing = bindingStanding(editions, project.bindings.get(key))
+      if (!standing?.newer) continue
+      const anchorId = `${key}@${standing.startsOn ?? standing.editionLabel}`
+      const norm = affected.get(anchorId) ?? { anchorId, subject: newest.values.designation ?? designation, entryId: newest.editionId, standing, projects: [] }
+      norm.projects.push(project.name)
+      affected.set(anchorId, norm)
+    }
+  }
+  return [...affected.values()]
 }
 
-function excerptOf(names: readonly string[]): string | undefined {
-  if (names.length === 0) return undefined
+function excerptOf(names: readonly string[]): string {
   const shown = names.slice(0, NAMED_PROJECTS).join(', ')
   return names.length > NAMED_PROJECTS ? `${shown} …` : shown
+}
+
+function viaOf({ via }: BindingStanding): string | null {
+  return [via?.designation, via?.editionLabel].filter(Boolean).join(' ') || null
+}
+
+async function activeProjectBindings(organizationId: string): Promise<ProjectBindings[]> {
+  const active = (await listProjectsInOrg(organizationId)).filter((project) => project.status === 'active')
+  if (active.length > NEW_EDITION_MAX_PROJECTS) {
+    console.warn(`[base-knowledge] ${organizationId}: only ${NEW_EDITION_MAX_PROJECTS} of ${active.length} active projects are compared`)
+  }
+  const projects: ProjectBindings[] = []
+  for (const project of active.slice(0, NEW_EDITION_MAX_PROJECTS)) {
+    const context = await knowledgeContextForTurn(organizationId, project.id, undefined, null, 'run')
+    projects.push({ name: project.name, bindings: bindingNormsOf(context.uses) })
+  }
+  return projects
 }
 
 export interface NewEditionOutcome {
@@ -49,55 +85,49 @@ export interface NewEditionOutcome {
   resolved: number
 }
 
-export async function noticeNewEditions(organizationId: string, now: Date = new Date()): Promise<NewEditionOutcome> {
-  const standings = await directoryStandingsOf(organizationId, now)
-  let resolved = 0
-  for (const work of standings.filter((candidate) => candidate.standing.held)) {
-    resolved += await resolveInboxItemsAnchoredOn({ organizationId, types: [NEW_EDITION_NOTICE], anchorId: newEditionAnchor(work) })
-  }
-  const newer = standings.filter((candidate) => !candidate.standing.held)
-  if (newer.length === 0) return { newer: 0, notified: 0, resolved }
+export async function noticeNewEditions(organizationId: string): Promise<NewEditionOutcome> {
+  const works = await heldWorksOf(organizationId)
+  const affected = works.length > 0 ? affectedNorms(works, await activeProjectBindings(organizationId)) : []
+  const resolved = await resolveInboxItemsOfType({
+    organizationId,
+    types: [NEW_EDITION_NOTICE],
+    keepAnchors: affected.map((norm) => norm.anchorId),
+  })
+  if (affected.length === 0) return { newer: 0, notified: 0, resolved }
   const recipients = await activeMembersHolding(organizationId, ORG_PERMISSIONS.officeShelfManage)
   if (recipients.length === 0) {
-    console.warn(`[base-knowledge] ${organizationId} holds ${newer.length} work(s) with a newer edition in force, and nobody manages its Büroablage`)
-    return { newer: newer.length, notified: 0, resolved }
+    console.warn(`[base-knowledge] ${organizationId} holds ${affected.length} norm(s) no longer binding for its projects, and nobody manages its Büroablage`)
+    return { newer: affected.length, notified: 0, resolved }
   }
-  const candidates = newer.flatMap((work) => {
-    const anchorId = newEditionAnchor(work)
-    const groupKey = inboxGroupKey(NEW_EDITION_NOTICE, 'organization', organizationId, anchorId)
-    return recipients.map((recipientUserId) => ({ work, anchorId, groupKey, recipientUserId }))
+  const candidates = affected.flatMap((norm) => {
+    const groupKey = inboxGroupKey(NEW_EDITION_NOTICE, 'organization', organizationId, norm.anchorId)
+    return recipients.map((recipientUserId) => ({ norm, groupKey, recipientUserId }))
   })
   const stamped = await readGroupPayloads(organizationId, candidates)
-  const owed = candidates.filter((candidate) => !stamped.has(`${candidate.recipientUserId}\n${candidate.groupKey}`))
-  if (owed.length === 0) return { newer: newer.length, notified: 0, resolved }
-  const today = now.toISOString().slice(0, 10)
-  const projects = (await listProjectsInOrg(organizationId)).map((project) => ({
-    name: project.name,
-    status: project.status,
-    facts: salvageProjectProfile(project.profile).profile?.facts ?? {},
-  }))
-  const emissions: InboxEmission[] = owed.map(({ work, anchorId, groupKey, recipientUserId }) => {
-    const excerpt = excerptOf(projectsAfter(projects, work.standing.inForce.startsOn, today))
-    return {
-      organizationId,
-      recipientUserId,
-      type: NEW_EDITION_NOTICE,
-      resourceType: 'organization',
-      resourceId: organizationId,
-      anchorId,
-      actorUserId: null,
-      groupKey,
-      payload: {
-        subject: work.designation,
-        entryId: work.entryId,
-        related: work.standing.inForce.editionLabel,
-        startsOn: work.standing.inForce.startsOn,
-        ...(excerpt ? { variant: 'projects', excerpt } : {}),
-      },
-    }
-  })
-  await emitInboxItems(emissions)
-  return { newer: newer.length, notified: emissions.length, resolved }
+  const emissions: InboxEmission[] = candidates
+    .filter((candidate) => !stamped.has(`${candidate.recipientUserId}\n${candidate.groupKey}`))
+    .map(({ norm, groupKey, recipientUserId }) => {
+      const via = viaOf(norm.standing)
+      return {
+        organizationId,
+        recipientUserId,
+        type: NEW_EDITION_NOTICE,
+        resourceType: 'organization',
+        resourceId: organizationId,
+        anchorId: norm.anchorId,
+        actorUserId: null,
+        groupKey,
+        payload: {
+          subject: norm.subject,
+          entryId: norm.entryId,
+          related: norm.standing.editionLabel,
+          excerpt: excerptOf(norm.projects),
+          ...(via ? { variant: 'via', via } : {}),
+        },
+      }
+    })
+  if (emissions.length > 0) await emitInboxItems(emissions)
+  return { newer: affected.length, notified: emissions.length, resolved }
 }
 
 export interface NewEditionSweep {
@@ -107,7 +137,7 @@ export interface NewEditionSweep {
   failed: number
 }
 
-export async function sweepNewEditionNotices(now: Date = new Date()): Promise<NewEditionSweep> {
+export async function sweepNewEditionNotices(): Promise<NewEditionSweep> {
   const organizations = await listOrganizationsWithOfficeEditions(NEW_EDITION_MAX_ORGANIZATIONS)
   if (organizations.length >= NEW_EDITION_MAX_ORGANIZATIONS) {
     console.warn(`[base-knowledge] new editions: the cap of ${NEW_EDITION_MAX_ORGANIZATIONS} organizations was reached; the rest are not compared`)
@@ -119,7 +149,7 @@ export async function sweepNewEditionNotices(now: Date = new Date()): Promise<Ne
         sweep.resolved += await withTenant({ organizationId }, () => resolveInboxItemsOfType({ organizationId, types: [NEW_EDITION_NOTICE] }))
         continue
       }
-      const outcome = await withTenant({ organizationId }, () => noticeNewEditions(organizationId, now))
+      const outcome = await withTenant({ organizationId }, () => noticeNewEditions(organizationId))
       sweep.notified += outcome.notified
       sweep.resolved += outcome.resolved
     } catch (error) {

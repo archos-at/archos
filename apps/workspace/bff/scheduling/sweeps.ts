@@ -103,8 +103,8 @@ export async function sweepSourceMonitors(): Promise<void> {
   }
 }
 
-export async function sweepNewEditions(now: Date = new Date()): Promise<void> {
-  const counts = await sweepNewEditionNotices(now)
+export async function sweepNewEditions(): Promise<void> {
+  const counts = await sweepNewEditionNotices()
   if (counts.notified > 0 || counts.resolved > 0) report(`new editions: ${JSON.stringify(counts)}`)
 }
 

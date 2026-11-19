@@ -23,11 +23,14 @@ export interface OfficeAnswerLabel {
   directive: DirectiveApplicability | null
 }
 
+const checkDue = (entry: BaseKnowledgeEntry) => entry.freshness.overdue && !entry.binding?.held
+
 function freshnessOf(entry: BaseKnowledgeEntry): OfficeFreshness {
+  if (entry.binding?.held) return 'current'
   const result = entry.freshness.lastCheck?.result
   if (result === 'newer_known') return 'newer_known'
   if (result === 'withdrawn') return 'superseded'
-  return entry.freshness.overdue ? 'check_due' : 'current'
+  return checkDue(entry) ? 'check_due' : 'current'
 }
 
 function roleOf(kind: BaseKnowledgeEntry['values']['kind']): AnswerRole {
@@ -50,7 +53,7 @@ export function officeAnswerLabel(entry: BaseKnowledgeEntry, project: ProjectTer
     holder: 'office',
     role: roleOf(values.kind),
     lastCheckedOn: entry.freshness.lastCheck?.checkedAt.slice(0, 10) ?? null,
-    checkOverdue: entry.freshness.overdue,
+    checkOverdue: checkDue(entry),
     freshness: freshnessOf(entry),
     textUse: entry.textUse,
     directive: values.kind === 'authority_directive' ? directiveApplicability(values.addressees, project) : null,
