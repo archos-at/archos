@@ -131,16 +131,18 @@ export async function switchOffAddress(projectId: string, revokedBy: string): Pr
   })
 }
 
-export async function addressActivity(projectId: string): Promise<{ lastReceivedAt: Date | null; droppedLast30Days: number }> {
+export async function addressActivity(projectId: string): Promise<{ lastReceivedAt: Date | null; received: number; droppedLast30Days: number }> {
   const [row] = await getDb()
     .select({
       lastReceivedAt: sql<string | null>`max(${inboundMails.receivedAt})`,
+      received: sql<string>`count(*) filter (where ${inboundMails.status} <> 'dropped')`,
       dropped: sql<string>`count(*) filter (where ${inboundMails.status} = 'dropped' and ${inboundMails.receivedAt} > now() - make_interval(days => ${INBOUND_MAIL_ADDRESS_STATS_DAYS}))`,
     })
     .from(inboundMails)
     .where(and(eq(inboundMails.projectId, projectId), sql`${inboundMails.status} <> 'receiving'`))
   return {
     lastReceivedAt: row?.lastReceivedAt ? new Date(row.lastReceivedAt) : null,
+    received: Number(row?.received ?? 0),
     droppedLast30Days: Number(row?.dropped ?? 0),
   }
 }

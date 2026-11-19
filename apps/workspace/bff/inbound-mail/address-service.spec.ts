@@ -18,7 +18,7 @@ vi.mock('./address', async () => {
 })
 vi.mock('./repository', () => ({
   findActiveAddress: vi.fn(async () => store.active),
-  addressActivity: vi.fn(async () => ({ lastReceivedAt: null, droppedLast30Days: 2 })),
+  addressActivity: vi.fn(async () => ({ lastReceivedAt: null, received: 3, droppedLast30Days: 2 })),
   ownDomainVerifiedShare: vi.fn(async () => 0.75),
   insertAddress: vi.fn(async (input: { token: string; slug: string }) => {
     store.active = { id: 'addr-1', forwardedFrom: [], ...input }
@@ -73,12 +73,13 @@ beforeEach(() => {
 })
 
 describe('the project address', () => {
-  it('is read without minting one: "none" until a manager creates it', async () => {
+  it('is read without minting one: "none" until a manager creates it, with how many mails the project received', async () => {
     expect(await getInboundMailAddress(session, PROJECT)).toEqual({
       state: 'none',
       address: null,
       canManage: true,
       lastReceivedAt: null,
+      receivedCount: 3,
       droppedLast30Days: 2,
       ownDomainVerifiedShare: 0.75,
       forwardedFrom: [],

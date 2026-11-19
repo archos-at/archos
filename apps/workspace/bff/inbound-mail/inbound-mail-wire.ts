@@ -65,6 +65,7 @@ export interface InboundMailAddressView {
   address: string | null
   canManage: boolean
   lastReceivedAt: string | null
+  receivedCount: number
   droppedLast30Days: number
   ownDomainVerifiedShare: number | null
   forwardedFrom: string[]
@@ -162,7 +163,15 @@ export interface InboundMailSummaryView extends InboundMailSenderRiskView {
   incompleteReason: IncompleteReason | null
   followedBy: string | null
   filedWithoutClick: { to: InboundMailFiledAsView | null } | null
+  filedTo: InboundMailFiledAsView | null
+  suggestedPlaces: InboundMailSuggestedPlacesView | null
   updatedAt: string
+}
+
+export interface InboundMailSuggestedPlacesView {
+  text: { kind: 'thread'; name: string } | { kind: 'new_thread' } | null
+  files: number
+  folders: string[]
 }
 
 export interface InboundMailThreadGroupView {

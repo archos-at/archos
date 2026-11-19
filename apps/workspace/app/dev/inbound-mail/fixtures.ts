@@ -129,6 +129,7 @@ const activeAddress: InboundMailAddressView = {
   address: 'project+bauplatz-12-wohnbau-seestadt.k3x7q2m5p4ab@inbox.example.org',
   canManage: true,
   lastReceivedAt: minutesAgo(12),
+  receivedCount: 40,
   droppedLast30Days: 0,
   ownDomainVerifiedShare: 0.94,
   forwardedFrom: [],

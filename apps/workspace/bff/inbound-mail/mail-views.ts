@@ -12,6 +12,7 @@ import { findFiledVias, findFollowDeciders, findMailParts } from './repository'
 import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
 import { dismissalIsFinal, expiryIsFinal, onlySenderReleases, ownClaimedMail, senderWaitReason } from './sender-class'
 import { readSuggestion, suggestionSkipReason } from './suggest'
+import { filedTo, suggestedPlaces } from './suggested-places'
 
 const DAY_MS = 86_400_000
 
@@ -168,6 +169,8 @@ export function summaryView(
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
     filedWithoutClick: filedWithoutClick(parts, view, vias),
+    filedTo: filedTo(view),
+    suggestedPlaces: suggestedPlaces(view),
     updatedAt: view.updatedAt,
   }
 }
