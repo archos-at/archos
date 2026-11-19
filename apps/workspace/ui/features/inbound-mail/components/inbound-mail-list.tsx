@@ -53,6 +53,7 @@ export interface InboundMailListProps {
   fileGroupBusy: string | null
   onFileOne: (mailId: string) => void
   fileOneBusy: string | null
+  onFileNow: (mailId: string) => void
   onFileReady: (mailIds: string[]) => void
   onRetry: () => void
   onLoadMore: () => void
@@ -63,6 +64,7 @@ export interface InboundMailListProps {
   showFilter?: boolean
   selectionBar: ReactNode
   notice: ReactNode
+  startHint?: ReactNode
   query?: string
   onQueryChange?: (query: string) => void
   matchCount?: number
@@ -146,6 +148,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         <p role="status" className="sr-only" data-testid="inbound-mail-search-status">
           {query === '' || matchCount === undefined ? '' : matchCount === 0 ? t('search.noResults') : t('search.results', { count: matchCount })}
         </p>
+        {props.startHint && <div className="pt-1">{props.startHint}</div>}
       </div>
       {props.notice}
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -175,6 +178,7 @@ function ListBody({
   fileGroupBusy,
   onFileOne,
   fileOneBusy,
+  onFileNow,
   onFileReady,
   onRetry,
   onLoadMore,
@@ -289,12 +293,14 @@ function ListBody({
   }
 
   const picking = checked.size > 0
-  const row = (mail: InboundMailSummaryView, inGroup = false): JSX.Element => (
+  const row = (mail: InboundMailSummaryView, group?: string): JSX.Element => (
     <InboundMailRow
       key={mail.id}
-      inGroup={inGroup}
+      inGroup={group !== undefined}
+      groupThread={group}
       onFileAsSuggested={status === 'waiting' ? () => onFileOne(mail.id) : undefined}
       filingAsSuggested={fileOneBusy === mail.id}
+      onFileNow={status === 'waiting' ? () => onFileNow(mail.id) : undefined}
       mail={mail}
       href={hrefFor(mail.id)}
       open={mail.id === openId}
@@ -336,7 +342,7 @@ function ListBody({
     const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
     return (
       <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
-        {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
+        {/* One line: what the group is on the left, the one press on the right, in the section heading's quiet voice. */}
         {/* A 40px line (44px under touch) with the 32px press centred in it, and 8px under it before the first row:
             round 2 and 3 drew the line as tall as the press, and the press sat on the open row's sheet edge. */}
         <div className="box-content flex h-10 items-center justify-between gap-2 px-4 pb-2 pointer-coarse:h-11" /* fixed: one height with its press or without, so ticking a box moves nothing */>
@@ -367,7 +373,8 @@ function ListBody({
             </Button>
           )}
         </div>
-        <ul className="flex flex-col px-1" /* rows touch: two picked rows are one region, not two boxes */>{section.mails.map((mail) => row(mail, true))}</ul>
+        {/* Its rows hang from the group's glyph, so the press's count is the rows inside the line and no others. */}
+        <ul className="border-hairline ml-[22px] flex flex-col border-l pl-1" data-testid="thread-group-rows">{section.mails.map((mail) => row(mail, section.name))}</ul>
       </section>
     )
   }
@@ -412,7 +419,7 @@ function ListBody({
               data-testid={`readiness-${head.readiness}`}
             >
               <div className="flex min-h-8 items-center justify-between gap-2" /* one height with its press or without */>
-                {/* What „Bereit“ means is the label's hover, not a second line over every list. */}
+                {/* What „Ablagebereit“ means is the label's hover, not a second line over every list. */}
                 {/* The count is the tabs' muted pill, not brackets: one way to write a count on the page. */}
                 {/* A section outranks a thread: 13px in ink here, the thread's line 12px muted. */}
                 <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="text-foreground flex items-center gap-1.5 !text-[length:var(--text-section)] !leading-6 !font-semibold">

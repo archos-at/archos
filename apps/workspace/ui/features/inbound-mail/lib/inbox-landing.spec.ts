@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mail, messagePart, part } from '@/app/dev/inbound-mail/fixtures'
-import { awaitLanding } from './inbox-landing'
+import { awaitLanding, landedPlaces, type Landing } from './inbox-landing'
 
 const message = messagePart({ id: 'm' })
 const file = part({ name: 'Plan.pdf', id: 'f' })
@@ -25,5 +25,30 @@ describe('awaitLanding', () => {
   it('gives up after its rounds and says it is still on its way', async () => {
     const result = await awaitLanding(sent, ['m'], () => Promise.reject(new Error('down')), { wait, rounds: 3 })
     expect(result.pending).toBe(true)
+  })
+})
+
+describe('landedPlaces', () => {
+  const landing = (key: string, verlauf: string, folder: string | null, extra: Partial<Landing> = {}): Landing => {
+    const text = messagePart({ id: `${key}-m`, state: 'filed', documentId: `doc-${verlauf}`, filedAs: { name: verlauf, folderPath: 'Korrespondenz', version: 4 } })
+    const file = part({ name: `${key}.pdf`, id: `${key}-f`, state: 'filed', documentId: `doc-${key}`, filedAs: { name: `${key}.pdf`, folderPath: folder, version: 1 } })
+    return { view: mail({ key, parts: [text, file] }), filed: [text.id, file.id], failed: [], quota: false, pending: false, ...extra }
+  }
+
+  it('counts the texts per E-Mail-Verlauf and the files per folder, the top level by its name, and every document', () => {
+    const places = landedPlaces([landing('a', 'Stellplatznachweis', 'Tragwerk'), landing('b', 'Stellplatznachweis', null), landing('c', 'Verfahren MA 37', 'Tragwerk')], 'Files (top level)')
+    expect(places).toMatchObject({
+      mails: 3,
+      failed: 0,
+      pending: 0,
+      threads: [{ name: 'Stellplatznachweis', count: 2 }, { name: 'Verfahren MA 37', count: 1 }],
+      folders: [{ name: 'Tragwerk', count: 2 }, { name: 'Files (top level)', count: 1 }],
+    })
+    expect(places.documentIds).toHaveLength(5)
+  })
+
+  it('counts a mail with a failed part, and one still on its way', () => {
+    const places = landedPlaces([landing('a', 'X', 'Y', { failed: ['a-f'], filed: ['a-m'] }), landing('b', 'X', 'Y', { pending: true, filed: [] })], 'root')
+    expect(places).toMatchObject({ mails: 1, failed: 1, pending: 1, folders: [] })
   })
 })

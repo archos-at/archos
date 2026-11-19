@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Send,
   Settings2,
+  X,
 } from 'lucide-react'
 import { ActionMenu } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
@@ -62,7 +63,7 @@ function saveContact(address: string, projectName: string, name: string, note: s
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
-export type AddressSurface = 'dialog' | 'never_used' | 'overview' | 'settings'
+export type AddressSurface = 'dialog' | 'never_used' | 'overview' | 'settings' | 'start_hint'
 
 function AddressValue({ value, surface, className }: { value: string; surface: AddressSurface; className?: string }): JSX.Element {
   return (
@@ -201,6 +202,39 @@ function LastReceived({ address }: { address: InboundMailAddressView }): JSX.Ele
         </>
       )}
     </p>
+  )
+}
+
+export function InboundMailStartHint({ address, onDismiss }: { address: string; onDismiss: () => void }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const [copied, raise] = useTransientFlag()
+  return (
+    <div className="text-muted-foreground flex items-start gap-2 text-xs" data-testid="inbound-mail-start-hint">
+      <AtSign className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <p className="min-w-0 flex-1 text-pretty">
+        {t('address.start')}{' '}
+        <Button
+          type="button"
+          variant="inline"
+          className="text-xs"
+          onClick={() =>
+            void navigator.clipboard?.writeText(address).then(() => {
+              raise()
+              capturePosthog('inbound_mail_address_copied', { surface: 'start_hint' })
+            }, () => {})
+          }
+          data-testid="inbound-mail-start-copy"
+        >
+          {t(copied ? 'header.addressCopied' : 'header.addressCopy')}
+        </Button>
+        <span className="sr-only" role="status" aria-live="polite">
+          {copied ? t('header.addressCopied') : ''}
+        </span>
+      </p>
+      <Button type="button" variant="ghost" size="icon" className="-my-1.5 -mr-1.5 size-7 shrink-0" aria-label={t('address.startDismiss')} onClick={onDismiss} data-testid="inbound-mail-start-dismiss">
+        <X className="size-3.5" aria-hidden />
+      </Button>
+    </div>
   )
 }
 

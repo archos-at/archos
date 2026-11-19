@@ -134,7 +134,7 @@ describe('InboundMailWorkspace', () => {
     expect(file.mock.calls[0][1].mails).toHaveLength(20)
   })
 
-  it('heads the list with „Bereit“ and „Braucht Sie“, and says on each waiting row what it needs', () => {
+  it('heads the list with „Ablagebereit“ and „Braucht Sie“, and says on each waiting row what it needs', () => {
     renderWorkspace('many')
     expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready to file3')
     expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you6')
@@ -249,10 +249,11 @@ describe('InboundMailWorkspace', () => {
     await waitFor(() => expect(row).toHaveAttribute('data-focused', 'true'))
   })
 
-  it('says how long a mail has left in its last days, and lifts it to the top of its section', () => {
+  it('says, calmly and dated, when an outsider’s mail will be removed in its last days, and lifts it to the top of its section', () => {
     renderWorkspace('many')
     const row = screen.getByTestId(`inbound-mail-row-${EXPIRING}`)
-    expect(within(row).getByTestId('inbound-mail-row-expiry')).toHaveTextContent('Expires in 2 days')
+    const day = new Intl.DateTimeFormat('en', { day: '2-digit', month: '2-digit' }).format(new Date(FIXTURE_NOW + 2 * 86_400_000))
+    expect(within(row).getByTestId('inbound-mail-row-expiry')).toHaveTextContent(`Will be removed on ${day} unless someone files it`)
     const heading = screen.getByTestId('readiness-needs_you')
     const below = screen.getAllByTestId(/^inbound-mail-row-[0-9a-f]/).filter((candidate) => heading.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING)
     expect(below[0]).toBe(row)
@@ -393,7 +394,8 @@ describe('InboundMailWorkspace', () => {
 
   it('leaves a mail that still waits (a restore, a filing that failed) where it is', async () => {
     const id = DETAIL_VARIANTS['member-verified'].view.id
-    renderOpen('many', id)
+    const { client } = renderOpen('many', id)
+    vi.spyOn(client, 'list').mockResolvedValue(listWithout('many'))
     await act(async () => {
       fireEvent.keyDown(window, { key: 'Backspace' })
     })
@@ -470,5 +472,65 @@ describe('InboundMailWorkspace', () => {
     })
     expect(await screen.findByTestId(`inbound-mail-row-${EXPIRING}`)).toBeInTheDocument()
     clock.mockRestore()
+  })
+
+  it('hangs a group’s rows from its line, exactly as many as its press files', () => {
+    renderWorkspace('thread-group')
+    const ready = screen.getByRole('region', { name: /3 new mails/ })
+    expect(within(ready).getByTestId('thread-group-file')).toHaveTextContent('File these 3 as suggested')
+    expect(within(within(ready).getByTestId('thread-group-rows')).getAllByTestId('inbound-mail-row-link')).toHaveLength(3)
+    const loose = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['mixed-attachments'].view.id}`)
+    expect(within(ready).queryByTestId(`inbound-mail-row-${DETAIL_VARIANTS['mixed-attachments'].view.id}`)).toBeNull()
+    expect(loose).toBeInTheDocument()
+  })
+
+  it('says after „Alle … ablegen“ how many mails went where, once they landed, with a way to look', async () => {
+    renderWorkspace('many', { pollMs: 1 })
+    await userEvent.click(screen.getByTestId('readiness-file-all'))
+    await userEvent.click(await screen.findByTestId('bulk-file-confirm'))
+    await waitFor(() => expect(toast.loading).toHaveBeenCalledWith('3 mails are being filed as suggested', expect.anything()))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('3 mails filed', expect.objectContaining({ id: 'toast-1' })))
+    const options = vi.mocked(toast.success).mock.calls.at(-1)?.[1] as { description: React.ReactElement; action: { label: string; onClick: () => void } }
+    render(options.description)
+    expect(screen.getByTestId('bulk-landed').textContent).toBe(
+      '2 mail texts → “Stellplatznachweis”Mail text → “Verfahren MA 37”1 file → Behörde1 file → Behörde/Bescheide1 file → Tragwerk'
+    )
+    expect(options.action.label).toBe('View')
+    act(() => options.action.onClick())
+    expect(nav.replace).toHaveBeenLastCalledWith(expect.stringContaining('status=handled'))
+  })
+
+  it('says at the top how mail gets here until the project received five, with the address to copy, until dismissed', async () => {
+    const fresh = { ...(ADDRESS_VARIANTS.manager as Exclude<(typeof ADDRESS_VARIANTS)['manager'], string>), receivedCount: 1 }
+    const { unmount } = renderWorkspace('one', { addressClient: fixtureAddressClient(fresh) })
+    const hint = await screen.findByTestId('inbound-mail-start-hint')
+    expect(hint).toHaveTextContent('Put the project’s address in Cc or forward mail to it, and it lands here.')
+    expect(within(hint).getByTestId('inbound-mail-start-copy')).toHaveTextContent('Copy address')
+    await userEvent.click(within(hint).getByTestId('inbound-mail-start-dismiss'))
+    expect(screen.queryByTestId('inbound-mail-start-hint')).toBeNull()
+    expect(window.localStorage.getItem(`inbound-mail.start-hint-dismissed:${PROJECT_ID}`)).toBe('1')
+    unmount()
+    const again = fixtureAddressClient(fresh)
+    const read = vi.spyOn(again, 'get')
+    renderWorkspace('one', { addressClient: again })
+    await waitFor(() => expect(read).toHaveBeenCalled())
+    await act(async () => {})
+    expect(screen.queryByTestId('inbound-mail-start-hint')).toBeNull()
+    window.localStorage.clear()
+  })
+
+  it('says nothing of how mail gets here once it flows', async () => {
+    const flowing = fixtureAddressClient(ADDRESS_VARIANTS.manager)
+    const read = vi.spyOn(flowing, 'get')
+    renderWorkspace('many', { addressClient: flowing })
+    await waitFor(() => expect(read).toHaveBeenCalled())
+    await act(async () => {})
+    expect(screen.queryByTestId('inbound-mail-start-hint')).toBeNull()
+  })
+
+  it('opens „Einordnen“ straight from the row of a mail about to be removed', async () => {
+    renderOpen('many', EXPIRING)
+    await userEvent.click(within(screen.getByTestId(`inbound-mail-row-${EXPIRING}`)).getByTestId('inbound-mail-row-file-now'))
+    expect(await screen.findByTestId('filing-dialog')).toBeInTheDocument()
   })
 })
