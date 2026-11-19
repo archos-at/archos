@@ -148,6 +148,21 @@ export async function dismissMails(projectId: string, mailIds: readonly string[]
   })
 }
 
+export function isRestorable(
+  mail: Pick<InboundMailRow, 'status' | 'senderClass' | 'senderFlags'>,
+  part: Pick<InboundMailPartRow, 'state' | 'kind' | 'endedAt' | 'storageKey'>,
+  restorableAfter: Date,
+): boolean {
+  return (
+    mail.status === 'waiting' &&
+    (part.state === 'dismissed' || part.state === 'expired') &&
+    !(part.state === 'expired' && expiryIsFinal(mail)) &&
+    part.endedAt !== null &&
+    new Date(part.endedAt) > restorableAfter &&
+    (part.kind === 'message' || part.storageKey !== null)
+  )
+}
+
 export async function restoreMailParts(
   projectId: string,
   mailId: string,
@@ -164,14 +179,7 @@ export async function restoreMailParts(
       .for('update')
       .limit(1)
     if (!mail || mail.status !== 'waiting') return { decisions: [] }
-    const restorable = (await findMailParts([mailId], tx)).filter(
-      (part) =>
-        (part.state === 'dismissed' || part.state === 'expired') &&
-        !(part.state === 'expired' && expiryIsFinal(mail)) &&
-        part.endedAt !== null &&
-        new Date(part.endedAt) > restorableAfter &&
-        (part.kind === 'message' || part.storageKey !== null),
-    )
+    const restorable = (await findMailParts([mailId], tx)).filter((part) => isRestorable(mail, part, restorableAfter))
     if (restorable.length === 0) return { decisions: [] }
     const decisions = await tx
       .insert(inboundMailDecisions)

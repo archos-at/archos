@@ -18,6 +18,7 @@ import {
   settleProjectNotices,
 } from './announce'
 import { auditDecisions } from './audit'
+import { decideEndedAttachments } from './entry-attachments'
 import { projectIsHeld } from './filing-repository'
 import type { InboundMailCapNotice } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
@@ -180,6 +181,7 @@ export async function sweepExpiredMails(now: Date): Promise<SweepCounts> {
       idempotencyKey: `inbound_mail.expired:${row.id}:${now.toISOString()}`,
     })
     publishProjectChanged(row.organizationId, row.projectId)
+    await decideEndedAttachments(row.projectId, [row.id], now)
     await settleProjectNotices(row.organizationId, row.projectId)
     await settleHeld(row.organizationId, [row.id])
     await announceExpired({ ...row, mailId: row.id })
@@ -225,6 +227,7 @@ export async function sweepEndedParts(now: Date): Promise<SweepCounts> {
     }
     if (!(await sweeps.settleEndedMail(mail, row.held, now))) return
     result.settled += 1
+    await decideEndedAttachments(row.projectId, [row.id], now)
     publishProjectChanged(row.organizationId, row.projectId)
     await settleProjectNotices(row.organizationId, row.projectId)
   })

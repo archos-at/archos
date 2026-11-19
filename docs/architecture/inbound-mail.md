@@ -480,6 +480,15 @@ its name when the reader may open its document, and one that was not filed
 (waiting, dismissed, infected, name-stopped, never staged) by its reason only,
 never its name, since that name became no document (RT-S13).
 
+An attachment that still waited when its text was filed has a `pending` row,
+and a row is decided once (the trigger `mail_thread_entry_attachments_decided_once`).
+Filed later, the job links it; dismissed or expired, it is decided only once that
+end is final, that is when it can no longer be restored
+(`decideEndedAttachments` in `apps/workspace/bff/inbound-mail/entry-attachments.ts`, which reads restorable as the
+restore does, `isRestorable`): at an expiry that is final (sweep 3) or when the
+mail settles (sweep 6). A part dismissed today stays `pending` through its seven
+days to restore, since a restored part may yet be filed.
+
 A binned, deleted or archived Verlauf document is `last_failure:
 thread_document_gone`. A thread at 200 entries or 2 MiB refuses an append
 (`thread_full`).
@@ -583,9 +592,9 @@ In the order they run:
 | 5 | `lapsedClaims` | `filing` past its claim: waits again (`unavailable`), the decider told | the claim (5 min) | — |
 | 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: raw erased | 15 min | the move erases nothing unproven; the entry-gone branch skips a held project |
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
-| 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`) | 30 days; an outsider's 14 | — (no erasure) |
-| 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25; an outsider's day 9 | — |
-| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
+| 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`); a Verlauf row of a part whose end is now final decided | 30 days; an outsider's 14 | — (no erasure) |
+| 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail; a restore, which moves the mail's end at least seven days out, clears it, so a restored mail is told again before it runs out | day 25; an outsider's day 9 | — |
+| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed, and the Verlauf rows of its ended attachments decided | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
 | 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0199), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it (a run past its execution timeout runs on, and Hatchet delivers at least once) never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
@@ -766,7 +775,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | Transport (address, sender authentication, MIME, automatic mail, the Worker contract) | `apps/workspace/bff/inbound-mail/{address,sender-auth,mime,automatic-mail,contract}.ts`; hostile corpus `__fixtures__/hostile.ts` |
 | Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts`; a forward's original `lib/inbound-mail/{original-message,receive-original,receive-original-repository}.ts` |
 | Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
-| Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects}.ts` |
+| Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects,entry-attachments}.ts` |
 | The sender rule | `lib/inbound-mail/{sender-class,receive-sender,sender-filing,sender-file-job}.ts` |
 | Threads | `lib/mail-thread/{mail-threading,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
 | Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job}.ts` |
