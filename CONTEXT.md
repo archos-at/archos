@@ -111,11 +111,15 @@ verdict.
 **Grundlagen des Büros** (office standards):
 The standards, commentaries, authority directives, guidelines and laws an office holds itself, each a
 Büroablage file recorded as base knowledge with its kind, Ausgabe, where it applies, licence and last
-check (ADR-0163). A place of its own beside the Büroablage, with folders under one root folder of that name.
+check (ADR-0163). Shown as the Büroablage's tab „Normen & Richtlinien“ beside „Ordner“, with topic folders under
+one root folder of that name that the Ordner tab never lists; in the UI a single entry is a *Norm* for short and
+its *Art* says whether it is a standard, guideline, directive, commentary or law. One upload serves both tabs:
+a file whose name reads as a norm is proposed in the norm dialog, everything else stays an ordinary file.
 An *Ausgabe* (edition) is the standard's state, a *Fassung* the state of the uploaded file: a newer Ausgabe
 is added beside the earlier one, and an answer uses the one in force on the project's reference day.
 _Code_: `baseKnowledge` (`/app/base-knowledge`, `/api/base-knowledge`, `base-knowledge-*` operations).
-_Avoid_: „Normen" for the whole place (commentaries and directives are not standards); „Version" for an Ausgabe.
+_Avoid_: „Normen" alone for the whole place (commentaries and directives are not standards: it is „Normen &
+Richtlinien“); „Grundlage" in the UI; „Version" for an Ausgabe.
 
 **Shelf**:
 Where a document lives, which decides who may read it and what a search reaches:
