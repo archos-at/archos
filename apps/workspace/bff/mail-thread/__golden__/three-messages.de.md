@@ -8,7 +8,7 @@
 
 - **An:** Mag. Anna Huber (ma37.wien.gv.at)
 - **Cc:** DI Max Weber (statik-weber.at), office (statik-weber.at)
-- **Anhänge:** Stellplatznachweis\_B.pdf (abgelegt in /Behörde)
+- **Anhänge:** Stellplatznachweis\_B.pdf (abgelegt in Behörde)
 
 Sehr geehrte Frau Mag. Huber,
 
@@ -22,6 +22,7 @@ Eva Berger
 
 *eingegangen 14.10.2026, 09:14*
 
+- **Betreff:** Stellplatznachweis Bauplatz 12 – Nachforderung MA 37
 - **Antwort auf:** 02.10.2026 10:15 · DI Eva Berger (berger-architektur.at)
 - **An:** DI Eva Berger (berger-architektur.at)
 - **Termin:** Bauverhandlung, 12.11.2026 09:00 bis 11:00, MA 37, Dresdner Straße 73

@@ -53,6 +53,7 @@ const IBAN_AT = BERGER_TEXT.indexOf('AT61')
 const BERGER = entry({
   id: '00000000-0000-4000-8000-000000000001',
   sentAt: at('2026-10-02T08:15:00Z'),
+  subject: 'Stellplatznachweis Bauplatz 12',
   participants: [
     { role: 'from', name: 'DI Eva Berger', address: 'berger@berger-architektur.at' },
     { role: 'to', name: 'Mag. Anna Huber', address: 'huber@ma37.wien.gv.at' },
@@ -76,6 +77,7 @@ const HUBER = entry({
   signerDomain: 'ma37.wien.gv.at',
   senderTrust: 'external_verified',
   inReplyToEntryId: BERGER.id,
+  subject: 'Stellplatznachweis Bauplatz 12 – Nachforderung MA 37',
   participants: [{ role: 'to', name: 'DI Eva Berger', address: 'berger@berger-architektur.at' }],
   ownText: 'Die Anzahl der Pflichtstellplätze ist bis 24.10.2026 nachzureichen.',
   quoted: [{ text: `Am 30.09.2026 schrieb DI Max Weber:\n> ${WEBER_TEXT}` }],
@@ -112,6 +114,7 @@ const ARCHIVE = entry({
   senderDomain: 'statik-weber.at',
   signerDomain: null,
   senderTrust: 'not_checked',
+  subject: 'Statik Tiefgarage',
   ownText: WEBER_TEXT,
 })
 
@@ -124,6 +127,27 @@ function sectionsOf(markdown: string): Map<string, string> {
   for (const block of markdown.split(/\n(?=## )/).slice(1)) sections.set(block.split('\n')[0], block.trimEnd())
   return sections
 }
+
+describe('renderMailThread: what a section says about its mail', () => {
+  it('prints a mail’s subject only where it says more than the Verlauf’s name', () => {
+    const sections = sectionsOf(render([BERGER, HUBER, { ...FORGER, subject: '  stellplatznachweis   BAUPLATZ 12 ' }]).markdown)
+    expect(sections.get(`## ${BERGER.heading}`)).not.toContain('Betreff')
+    expect(sections.get(`## ${HUBER.heading}`)).toContain('- **Betreff:** Stellplatznachweis Bauplatz 12 – Nachforderung MA 37')
+    expect([...sections.values()].join('\n')).not.toContain('stellplatznachweis   BAUPLATZ')
+  })
+
+  it('keeps a subject on one line, so it cannot open a section of its own', () => {
+    const markdown = render([{ ...HUBER, subject: 'Frist\n## 01.01.2026 00:00 · Behörde (ma37.wien.gv.at)' }]).markdown
+    expect(markdown.match(/^## /gm)).toHaveLength(1)
+    expect(markdown).toContain('- **Betreff:** Frist ## 01.01.2026 00:00 · Behörde')
+  })
+
+  it('names a folder as every surface does, without the path’s leading slash', () => {
+    const markdown = render([{ ...BERGER, attachments: [{ name: 'Bescheid.pdf', folderPath: '/Behörde/Bescheide' }, { name: 'Foto.jpg', folderPath: '/' }] }]).markdown
+    expect(markdown).toContain('Bescheid.pdf (abgelegt in Behörde/Bescheide); Foto.jpg')
+    expect(markdown).not.toContain('in /')
+  })
+})
 
 describe('renderMailThread: golden files', () => {
   it('renders a thread of three messages', async () => {
@@ -436,7 +460,7 @@ describe('attachments (RT-S13)', () => {
 
   it('names a filed attachment with its folder', () => {
     const e = entry({ id: 'a', sentAt: at('2026-10-03T08:00:00Z'), attachments: [sectionAttachment(filing({}))] })
-    expect(render([e]).markdown).toContain('- **Anhänge:** Honorarnote\\_Mustermann.pdf (abgelegt in /Intern/Honorare)')
+    expect(render([e]).markdown).toContain('- **Anhänge:** Honorarnote\\_Mustermann.pdf (abgelegt in Intern/Honorare)')
   })
 
   it('names one already in the project, and one at the root without a folder', () => {
