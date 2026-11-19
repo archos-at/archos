@@ -35,6 +35,10 @@ export const mailThread = {
     waiting: '{count, plural, one {# mail of this mail thread waits} other {# mails of this mail thread wait}} in Project mail',
     waitingOpen: 'View',
   },
+  file: {
+    kind: 'Mail thread',
+    facts: '{count} · last {date}',
+  },
   entry: {
     received: 'received {time}',
     trust: {

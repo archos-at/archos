@@ -38,6 +38,10 @@ export const mailThread: typeof en.mailThread = {
       '{count, plural, one {# E-Mail dieses E-Mail-Verlaufs wartet} other {# E-Mails dieses E-Mail-Verlaufs warten}} im E-Mail-Eingang',
     waitingOpen: 'Ansehen',
   },
+  file: {
+    kind: 'E-Mail-Verlauf',
+    facts: '{count} · zuletzt {date}',
+  },
   entry: {
     received: 'eingegangen {time}',
     trust: {

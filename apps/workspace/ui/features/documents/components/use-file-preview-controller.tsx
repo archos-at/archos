@@ -47,6 +47,7 @@ import { useCurrentProject } from '@/features/projects/lib/current-project'
 
 import { usePeekState } from './file-preview-peek-state'
 import { useMailThreadRail } from './mail-thread/use-mail-thread-rail'
+import { useMailThreadHeaderFacts } from './mail-thread/mail-thread-file'
 import { type ReaderAnnotate } from './file-preview-reader'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -256,6 +257,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
 
   const { peekView, setPeekView } = usePeekState(peeking, file.id, reviewEnabled ? openReview : null)
   const mailRail = useMailThreadRail({ projectId, file, peeking, reader, setPeekView, setDetailsOpen })
+  const threadFacts = useMailThreadHeaderFacts(mailRail.mailThread)
   const openMarks = useMemo((): OpenMarksAtApproval | null => {
     if (!reviewEnabled) return null
     const onOpen = () => openReview()
@@ -376,7 +378,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     detailsOpen,
     discussHint,
     file,
-    fileFacts,
+    fileFacts: threadFacts ?? fileFacts,
     findSimilar,
     handleDeleted,
     handlePdfFailed,
