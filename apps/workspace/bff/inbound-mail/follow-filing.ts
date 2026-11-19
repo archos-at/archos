@@ -1,5 +1,6 @@
 import type { InboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import type { InboundMailPartDecision, InboundMailPartView, InboundMailView } from './inbound-mail-wire'
+import { modelSuggestion } from './sender-memory'
 
 function filesUnseen(part: InboundMailPartView, row: InboundMailPartRow | undefined): row is InboundMailPartRow {
   return (
@@ -20,7 +21,8 @@ export function followAttachmentDecisions(
   const decisions: InboundMailPartDecision[] = []
   for (const part of view.parts) {
     if (!filesUnseen(part, byId.get(part.id)) || !part.filename) continue
-    const documentType = part.suggestion?.documentType ?? undefined
+    const suggestion = modelSuggestion(part.suggestion)
+    const documentType = suggestion?.documentType ?? undefined
     if (part.revisionCandidate) {
       decisions.push({
         partId: part.id,
@@ -33,7 +35,6 @@ export function followAttachmentDecisions(
       continue
     }
     if (part.revisionCandidateHidden) continue
-    const suggestion = part.suggestion
     if (!suggestion?.folderId || suggestion.newFolder) continue
     decisions.push({ partId: part.id, folderId: suggestion.folderId, newFolderPath: null, name: part.filename, documentType })
   }

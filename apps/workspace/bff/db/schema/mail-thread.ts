@@ -179,6 +179,9 @@ export const mailThreadEntries = pgTable(
     mailImportIdx: index('mail_thread_entries_mail_import_idx')
       .on(table.mailImportId)
       .where(sql`${table.mailImportId} IS NOT NULL`),
+    senderIdx: index('mail_thread_entries_sender_idx')
+      .on(table.projectId, sql`lower(${table.senderAddress})`, table.receivedAt.desc())
+      .where(sql`${table.source} = 'inbound'`),
   }),
 )
 

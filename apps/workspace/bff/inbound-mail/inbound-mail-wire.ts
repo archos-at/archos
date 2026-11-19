@@ -191,6 +191,17 @@ export interface InboundMailFiledAsView {
   version: number | null
 }
 
+/** `model`, or absent: the agent's suggestion (`inbound_mail_suggest`); `sender_memory`: where this sender's earlier attachments went, offered to a person's review only. */
+export type InboundMailSuggestionSource = 'model' | 'sender_memory'
+
+export type InboundMailPartSuggestionView = InboundMailSuggestion & { source?: InboundMailSuggestionSource }
+
+export interface InboundMailSenderFolderView {
+  folderId: string
+  path: string
+  count: number
+}
+
 export interface InboundMailPartView {
   id: string
   kind: InboundMailPartKind
@@ -211,7 +222,7 @@ export interface InboundMailPartView {
   duplicateOf: InboundMailDocumentRefView | null
   revisionCandidate: (InboundMailDocumentRefView & { nextVersion: number }) | null
   revisionCandidateHidden: boolean
-  suggestion: InboundMailSuggestion | null
+  suggestion: InboundMailPartSuggestionView | null
   preselected: boolean
   restorableUntil: string | null
 }
@@ -236,6 +247,7 @@ export interface InboundMailView extends InboundMailSenderRiskView {
   threadCandidates: InboundMailThreadCandidateView[]
   hiddenThreadCandidates: number
   followedBy: string | null
+  senderFolders: InboundMailSenderFolderView[]
   needsSenderAcknowledgement: boolean
   incompleteReason: IncompleteReason | null
   updatedAt: string

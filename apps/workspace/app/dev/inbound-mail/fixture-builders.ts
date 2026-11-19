@@ -137,6 +137,7 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string; readi
     threadCandidates: [thread()],
     hiddenThreadCandidates: 0,
     followedBy: null,
+    senderFolders: [],
     updatedAt: minutesAgo(9),
     ...verdict,
     ...rest,

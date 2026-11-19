@@ -89,6 +89,9 @@ vi.mock('./announce', () => ({
   settleProjectNotices: vi.fn(async () => undefined),
 }))
 vi.mock('./notice-repository', () => ({ partStatesOf: vi.fn(async () => new Map()) }))
+vi.mock('./sender-memory-repository', () => ({ findSenderFolders: vi.fn(async () => []) }))
+vi.mock('./suggestion-wait', () => ({ suggestionPending: vi.fn(async () => false) }))
+vi.mock('@/lib/authz/folder-access', () => ({ getHiddenFolderIds: vi.fn(async () => ['hidden-folder']) }))
 
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
@@ -115,6 +118,8 @@ import {
   restoreInboundMail,
 } from './service'
 import { readStagedObject } from './staging'
+import { findSenderFolders } from './sender-memory-repository'
+import { suggestionPending } from './suggestion-wait'
 
 const session = {
   userId: PERSON,
@@ -200,7 +205,7 @@ describe('what a mail asks of the person, on the wire', () => {
   it('offers a confirmed member’s mail with its suggestion, its attachment checked', async () => {
     store.parts = [textPart(), filePart({ suggestion: stored })]
     const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
-    expect(view.parts[1]?.suggestion).toEqual(stored)
+    expect(view.parts[1]?.suggestion).toEqual({ ...stored, source: 'model' })
     expect(view.parts.map((part) => part.preselected)).toEqual([true, true])
     expect(view).toMatchObject({ riskLevel: 'none', impersonation: null, needsSenderAcknowledgement: false })
   })
@@ -519,5 +524,79 @@ describe('a mail that claims a writer, through the service (ADR-0137, amendment 
     store.mail = claimed('dkim_none')
     await expect(restoreInboundMail(session, PROJECT_ID, MAIL_ID)).rejects.toMatchObject({ details: { reason: 'not_restorable' } })
     expect(restoreMailParts).toHaveBeenCalledOnce()
+  })
+})
+
+describe('where this sender’s earlier attachments went (sender memory)', () => {
+  const FACADE = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d'
+  const facade = { folderId: FACADE, path: 'Planung/Fassade', count: 3 }
+  const structure = { folderId: FOLDER_ID, path: 'Tragwerk', count: 1 }
+  const unsigned = () =>
+    heldMail({ senderTrust: 'external_unverified', senderReason: 'dkim_none', senderAddress: 'P.Weber@Fassade-Weber.at', threadMatch: [] })
+
+  it('carries the folders on the single mail, asked as the reader with their hidden folders, for this sender and not this mail', async () => {
+    store.mail = unsigned()
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade, structure])
+    const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(view.senderFolders).toEqual([facade, structure])
+    expect(findSenderFolders).toHaveBeenCalledWith({
+      organizationId: 'org_1',
+      projectId: PROJECT_ID,
+      senderAddress: 'p.weber@fassade-weber.at',
+      exceptMailId: MAIL_ID,
+      reader: { kind: 'screened-only' },
+      hiddenFolderIds: ['hidden-folder'],
+    })
+  })
+
+  it('pre-fills a dominant earlier folder for an attachment the agent placed nowhere, marked as the sender’s memory', async () => {
+    store.mail = unsigned()
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade, structure])
+    const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(view.parts[1]?.suggestion).toEqual({
+      folderId: FACADE,
+      folderPath: 'Planung/Fassade',
+      newFolder: false,
+      documentType: null,
+      reason: '',
+      source: 'sender_memory',
+    })
+    expect(view.parts[0]?.suggestion).toBeNull()
+  })
+
+  it('keeps the agent’s own suggestion where it gave one', async () => {
+    store.mail = unsigned()
+    const model = { folderId: FOLDER_ID, folderPath: 'Tragwerk', newFolder: false, documentType: null, reason: 'Die Statik.' }
+    store.parts = [textPart(), filePart({ suggestion: model })]
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade, structure])
+    const view = await getInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(view.parts[1]?.suggestion).toEqual({ ...model, source: 'model' })
+  })
+
+  it('pre-fills nothing while the agent is still asked, nor when no folder leads', async () => {
+    store.mail = unsigned()
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade])
+    vi.mocked(suggestionPending).mockResolvedValueOnce(true)
+    const pending = await getInboundMail(session, PROJECT_ID, MAIL_ID)
+    expect(pending.senderFolders).toEqual([facade])
+    expect(pending.parts[1]?.suggestion).toBeNull()
+
+    vi.mocked(findSenderFolders).mockResolvedValueOnce([facade, { ...structure, count: 2 }])
+    expect((await getInboundMail(session, PROJECT_ID, MAIL_ID)).parts[1]?.suggestion).toBeNull()
+  })
+
+  it('asks nothing for an impersonation or an automatic mail, and carries no folders', async () => {
+    store.mail = heldMail({ senderTrust: 'member_unverified', senderReason: 'dkim_fail' })
+    expect((await getInboundMail(session, PROJECT_ID, MAIL_ID)).senderFolders).toEqual([])
+    store.mail = heldMail({ ...unsigned(), automatic: true })
+    expect((await getInboundMail(session, PROJECT_ID, MAIL_ID)).senderFolders).toEqual([])
+    expect(findSenderFolders).not.toHaveBeenCalled()
+  })
+
+  it('is not asked for the list: the memory is the single mail’s', async () => {
+    vi.mocked(listProjectMails).mockResolvedValueOnce([{ mail: unsigned(), position: { receivedAt: '2026-10-14T09:01:00.000Z', id: MAIL_ID } }] as never)
+    await listInboundMails(session, PROJECT_ID, { status: 'waiting', limit: 25 } as never)
+    expect(findSenderFolders).not.toHaveBeenCalled()
+    expect(suggestionPending).not.toHaveBeenCalled()
   })
 })

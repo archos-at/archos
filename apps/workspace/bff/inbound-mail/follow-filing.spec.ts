@@ -43,6 +43,12 @@ describe('which attachments a follow files with the reply', () => {
     expect(decided(reply([part({ name: 'S-102.pdf', suggestion: suggestion('Tragwerk/Index D', 'Grundriss', 'Konvention', { newFolder: true }) })]))).toEqual([])
   })
 
+  it('leaves an attachment waiting whose folder is only where this sender’s earlier attachments went: that is for a person’s review', () => {
+    const memory = { ...existing(), documentType: null, reason: '', source: 'sender_memory' as const }
+    expect(decided(reply([part({ name: 'S-102.pdf', suggestion: memory })]))).toEqual([])
+    expect(decided(reply([part({ name: 'S-102.pdf', suggestion: { ...existing(), source: 'model' } })]))).toEqual(['S-102.pdf'])
+  })
+
   it('leaves an attachment waiting whose suggestion names a folder by path alone', () => {
     expect(decided(reply([part({ name: 'S-102.pdf', suggestion: suggestion('Tragwerk', 'Grundriss', 'Pfad') })]))).toEqual([])
   })

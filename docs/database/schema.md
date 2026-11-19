@@ -1284,8 +1284,11 @@ Indexes: `uniq_mail_threads_document`, `mail_threads_thread_index_idx`,
 
 Indexes: `mail_thread_entries_message_id_idx` (project, message_id),
 `mail_thread_entries_author_message_id_idx` (project, author_message_id; set),
-`(thread_id, sent_at)`, `(inbound_mail_id)`, `(mail_import_id)`. Legal-hold
-trigger `mail_thread_entries_legal_hold_guard`.
+`(thread_id, sent_at)`, `(inbound_mail_id)`, `(mail_import_id)`,
+`mail_thread_entries_sender_idx` (project, `lower(sender_address)`,
+received_at DESC; `source = 'inbound'` only; 0253: the sender memory of the
+single-mail view, since the held mail forgets its sender when it settles).
+Legal-hold trigger `mail_thread_entries_legal_hold_guard`.
 
 ### mail_thread_entry_attachments (D36)
 
