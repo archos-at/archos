@@ -63,6 +63,22 @@ export async function resolveOpenItemsAnchoredOn(input: {
   return [...new Set(rows.map((row) => row.recipientUserId))]
 }
 
+export async function resolveOpenItemsOfType(input: { organizationId: string; types: readonly InboxItemType[] }): Promise<string[]> {
+  if (input.types.length === 0) return []
+  const rows = await getDb()
+    .update(inboxItems)
+    .set({ resolvedAt: new Date() })
+    .where(
+      and(
+        eq(inboxItems.organizationId, input.organizationId),
+        inArray(inboxItems.type, storedInboxTypesOf(input.types)),
+        isNull(inboxItems.resolvedAt),
+      ),
+    )
+    .returning({ recipientUserId: inboxItems.recipientUserId })
+  return [...new Set(rows.map((row) => row.recipientUserId))]
+}
+
 export interface AnchoredRows {
   organizationId: string
   types: readonly InboxItemType[]

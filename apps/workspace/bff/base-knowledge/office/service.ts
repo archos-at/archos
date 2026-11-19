@@ -16,6 +16,7 @@ import {
   insertProposedEntry,
   readOfficeEntries,
   writeConfirmedValues,
+  writeProposedValues,
   type StoredEntry,
 } from '../store/repository'
 import {
@@ -319,18 +320,37 @@ async function writeValues(
   else await markCopyPoints(document, stored.editionId, licenceMarkOf(values.licenceClass, terms))
 }
 
+export interface ConfirmOptions {
+  licenceStep?: boolean
+}
+
 export async function confirmBaseKnowledge(
   session: AuthorizedSession,
   entryId: string,
-  body: ConfirmEntryBody
+  body: ConfirmEntryBody,
+  { licenceStep = true }: ConfirmOptions = {}
 ): Promise<BaseKnowledgeEntry> {
   requireManage(session)
   const found = await findEntry(session, entryId)
   if (found.stored.confirmed) throw new ConflictError('This entry is already confirmed; edit it instead.')
   const values = merged(found.stored.values, valuesOf(body))
-  requireAttestation(values, body)
+  if (licenceStep) requireAttestation(values, body)
   await writeValues(session, found, values, body, true)
   return (await findEntry(session, entryId)).entry
+}
+
+export async function reviseProposal(session: AuthorizedSession, entryId: string, body: Partial<EntryValues>): Promise<void> {
+  requireManage(session)
+  const { stored } = await findEntry(session, entryId)
+  if (stored.confirmed) throw new ConflictError('This entry is confirmed; edit it with base-knowledge-update instead.')
+  const values = merged(stored.values, valuesOf(body))
+  if (JSON.stringify(values) === JSON.stringify(stored.values)) return
+  await writeProposedValues(stored, values, {
+    organizationId: session.organizationId,
+    createdBy: session.userId,
+    provenance: { proposedBy: 'person' },
+    terms: stored.terms,
+  })
 }
 
 export async function updateBaseKnowledge(
