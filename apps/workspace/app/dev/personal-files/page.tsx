@@ -29,6 +29,7 @@ import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
 import { AcrossTrigger, PersonalLine, ProjectMenu, ProjectOverview, SpaceToggle, useFirstRoom } from './project-menu'
 import { ChatFiles } from './chat-files'
+import { AllChats, MixedList, OriginLine } from './chat-origin'
 import { NormsPlace } from './office-norms'
 import { BrandRow, FoldedRail, SearchWindow } from './rail-extras'
 import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, UnreadHint } from './shelf-header'
@@ -113,7 +114,8 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             Letzte Chats
             <ChevronDown className="size-3.5 shrink-0" aria-hidden />
           </div>
-          <ul className="flex flex-col gap-0.5">
+          {query?.get('mix') === '1' ? <MixedList /> : null}
+          <ul className={query?.get('mix') === '1' ? 'hidden' : 'flex flex-col gap-0.5'}>
             {ALL_CHATS.map((chat, index) => (
               <ChatRow key={chat.title} chat={chat} current={index === openChat} showProject indent={false} hovered={index === rowMenu} menuOpen={index === rowMenu} />
             ))}
@@ -494,23 +496,6 @@ function FromChat(): JSX.Element {
   )
 }
 
-function InOfficeShelf(): JSX.Element {
-  return (
-    <>
-      <Rail own={false} officeShelfOpen />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex flex-col gap-1 px-8 pb-2 pt-6">
-          <h1 className="text-page-title">Büroablage</h1>
-          <p className="text-muted-foreground text-sm">Gemeinsame Dokumente, die jedem Projekt Ihrer Organisation zur Verfügung stehen</p>
-        </header>
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          <Browser files={OFFICE_FILES} folders={OFFICE_FOLDERS} />
-        </div>
-      </div>
-    </>
-  )
-}
-
 function folderTrail(folderId: string): string[] {
   const steps: string[] = []
   let parent = REAL_FOLDERS.find((item) => item.id === folderId)?.parentId ?? null
@@ -584,12 +569,21 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{params?.get('find') && <SearchWindow query={params.get('find') ?? '1'} />}{variant === 'cf' ? (
+      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{params?.get('find') && <SearchWindow query={params.get('find') ?? '1'} />}{variant === 'origin' ? (
+          <>
+            <Rail own={false} openChat={params?.get('filter') ? 1 : null} gear="none" />
+            {params?.get('filter') ? <AllChats filter={params.get('filter') ?? 'mine'} /> : null}
+            <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <ChatHeader title={params?.get('filter') ? 'Fluchtweglänge im Erdgeschoss' : 'Wöchentlicher Brandschutz-Abgleich'} />
+              {!params?.get('filter') && <OriginLine answered={params?.get('answered') === '1'} />}
+            </main>
+          </>
+        ) : variant === 'cf' ? (
           <>
             <Rail own={params?.get('me') === '1'} openChat={params?.get('me') === '1' ? 0 : params?.get('step') === 'shared' ? 2 : 1} gear="none" />
             <ChatFiles step={params?.get('step') ?? 'menu'} personal={params?.get('me') === '1'} scope={params?.get('scope') ?? 'auto'} />
           </>
-        ) : variant === 'headnow' ? <div className="min-w-0 flex-1"><HeadToday /></div> : variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1' && params?.get('in') !== '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+        ) : variant === 'headnow' ? <div className="min-w-0 flex-1"><HeadToday /></div> : variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1' && params?.get('in') !== '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
