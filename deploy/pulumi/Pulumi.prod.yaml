@@ -5,7 +5,7 @@ config:
 
   grid-oib:imageRegistry: ghcr.io/archos-at
 
-  grid-oib:imageTag: sha-34a04f7482f467b354fe0b0b2da4feb0129287b9
+  grid-oib:imageTag: sha-bd306bf812af8f44a2581841136b23575d828478
   grid-oib:knowledgeCarry: "true"
 
   grid-oib:storageClass: premium
@@ -119,5 +119,7 @@ config:
   grid-oib:cmsEnabled: "false"
   grid-oib:cmsAdminEmail: biglmatthias@gmail.com
   grid-oib:mcpGatewayEnabled: "true"
+  grid-oib:codeRunnerEnabled: "true"
+  grid-oib:browserRendererEnabled: "true"
   grid-oib:mcpGatewayPlatformOrgId: org_01KYVEVMY9X582SSN872SBTR03
   grid-oib:mcpGatewayLangfuseTraceOrgs: org_01KYVEVMY9X582SSN872SBTR03,org_01M2TTD7J0N620NQ545ZDKSNGR,org_01M34HRAZTEQPTD33H6WM3KY5K

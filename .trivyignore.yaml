@@ -171,6 +171,26 @@ vulnerabilities:
       Drop as soon as a Langfuse image ships `@prisma/config` >= 8 (deepmerge-ts
       >= 8.0.0).
 
+  - id: CVE-2026-121707
+    expired_at: 2026-11-27
+    statement: |
+      effect 3.21.0 (fixed in 3.22.1): a ReDoS in Schema.TemplateLiteral's
+      compiled regex. Found in the langfuse web image only
+      (`ghcr.io/langfuse/langfuse@sha256:0814758d…`, `app/node_modules/.pnpm`),
+      by the prod promotion's scan of 2026-11-20 (#1859), which re-scans every
+      pin because a release branch has no green push run to diff against. No
+      pin moved: prod already runs this digest.
+
+      Not reachable by a customer: the Langfuse UI sits behind the Envoy
+      Gateway's OIDC flow for platform staff, and its in-cluster API only
+      admits the pods its NetworkPolicy names (shared context above). The
+      worst case is one Langfuse web pod busy on a crafted input, which only an
+      authenticated platform user or one of our own services could send.
+
+      Boxed seven days on the owner's decision (2026-11-20). Bump the Langfuse
+      pin to a release that bundles effect >= 3.22.1 and delete this entry;
+      do not extend it.
+
   # ── Base-image packages, the 2026-11-14 advisory wave ────────────────────
   #
   # On 2026-11-14 the trivy DB took a wave of Ubuntu and Debian advisories in the
