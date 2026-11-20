@@ -49,7 +49,7 @@ export function NormsPlace(): JSX.Element {
     <>
       <p className="mx-8 mt-4 flex items-center gap-2 rounded-control bg-[#f6ecd6] px-3 py-2 text-[13px] text-[#8a5a00]">
         <Sparkles className="size-3.5 shrink-0" aria-hidden />
-        2 Normen warten auf Bestätigung. Bis dahin nutzt {identity.productName} sie nicht.
+        2 Normen warten auf Bestätigung. Bis dahin nutzt {identity.name} sie nicht.
         <span className="font-medium underline underline-offset-2">Jetzt prüfen</span>
       </p>
       <div className="px-8 pt-5">
