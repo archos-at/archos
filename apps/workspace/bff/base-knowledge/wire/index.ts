@@ -292,7 +292,7 @@ export const settleProposalsBodySchema = z
         z
           .object({
             entryId: z.string().min(1).max(120).describe('A proposal from base-knowledge-recognize.'),
-            notNorm: z.boolean().optional().describe('true: drop the proposal; the file returns to its folder as an ordinary file, not offered again.'),
+            notNorm: z.boolean().optional().describe('true: not a norm; the file returns to its folder, not offered again.'),
             kind: entryFields.kind.optional(),
             designation: entryFields.designation.optional(),
             editionLabel: z
@@ -301,12 +301,12 @@ export const settleProposalsBodySchema = z
               .max(120)
               .nullable()
               .optional()
-              .describe('Empty or null: the edition is missing and the row stays a proposal; omit to keep the read one.'),
+              .describe('Empty or null: no edition, so it stays proposed; omit to keep the read one.'),
             topicId: z
               .guid()
               .nullable()
               .optional()
-              .describe('A folder from base-knowledge-folder-list; null for the base-knowledge root. A new edition goes to its work’s folder.'),
+              .describe('From base-knowledge-folder-list; null: the root.'),
           })
           .strict(),
       )

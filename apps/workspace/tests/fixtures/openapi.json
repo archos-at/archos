@@ -24222,7 +24222,7 @@
       "post": {
         "operationId": "base-knowledge-settle",
         "summary": "Confirm or drop the proposals of base-knowledge-recognize",
-        "description": "Per proposal: confirm into its topic folder (`topicId`; a new edition goes to its work’s folder), delete a duplicate, or `notNorm` to leave an ordinary file where it lies; without an edition it stays proposed. Answers one outcome per row. Needs org:office_shelf:manage.",
+        "description": "Per proposal: confirm into its topic folder (`topicId`; a new edition goes to its work’s folder), delete a duplicate, or `notNorm` to leave an ordinary file where it lies. Answers one outcome per row. Needs org:office_shelf:manage.",
         "tags": [
           "knowledge"
         ],
@@ -24247,7 +24247,7 @@
                           "description": "A proposal from base-knowledge-recognize."
                         },
                         "notNorm": {
-                          "description": "true: drop the proposal; the file returns to its folder as an ordinary file, not offered again.",
+                          "description": "true: not a norm; the file returns to its folder, not offered again.",
                           "type": "boolean"
                         },
                         "kind": {
@@ -24275,7 +24275,7 @@
                           "description": "e.g. \"ÖNORM B 1600:2017\"."
                         },
                         "editionLabel": {
-                          "description": "Empty or null: the edition is missing and the row stays a proposal; omit to keep the read one.",
+                          "description": "Empty or null: no edition, so it stays proposed; omit to keep the read one.",
                           "anyOf": [
                             {
                               "type": "string",
@@ -24287,7 +24287,7 @@
                           ]
                         },
                         "topicId": {
-                          "description": "A folder from base-knowledge-folder-list; null for the base-knowledge root. A new edition goes to its work’s folder.",
+                          "description": "From base-knowledge-folder-list; null: the root.",
                           "anyOf": [
                             {
                               "type": "string",

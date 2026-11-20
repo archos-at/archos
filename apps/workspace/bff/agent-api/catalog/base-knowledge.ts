@@ -142,7 +142,7 @@ export const baseKnowledgeOperations = [
     summary: 'Confirm or drop the proposals of base-knowledge-recognize',
     description:
       'Per proposal: confirm into its topic folder (`topicId`; a new edition goes to its work’s folder), delete a ' +
-      'duplicate, or `notNorm` to leave an ordinary file where it lies; without an edition it stays proposed. ' +
+      'duplicate, or `notNorm` to leave an ordinary file where it lies. ' +
       'Answers one outcome per row. Needs org:office_shelf:manage.',
     method: 'POST',
     path: '/api/base-knowledge/settle',
