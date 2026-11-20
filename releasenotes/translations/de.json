@@ -56,6 +56,10 @@
     "de": "Ein PDF wird jetzt überall auf dieselbe Weise geöffnet: als zitierte Quelle, als Datei in Files, in der vergrößerten Ansicht und neben dem Chat. Die Seiten liegen auf einer gemeinsamen Fläche, die Bedienelemente befinden sich in einer Leiste am unteren Rand."
   },
   {
+    "en": "A PDF page no longer stays white when you open a plan in the preview, in the review view or to add an annotation. You no longer have to resize the window or fit the page again to make it appear.",
+    "de": "Eine PDF-Seite bleibt nicht mehr weiß, wenn Sie einen Plan in der Vorschau oder in der Prüfansicht öffnen oder eine Anmerkung hinzufügen. Sie müssen das Fenster nicht mehr skalieren oder die Seite erneut einpassen, damit sie angezeigt wird."
+  },
+  {
     "en": "A PDF with a few damaged pages is now read up to its last page instead of stopping at the first damaged one. A PDF with too many damaged pages fails with a retry instead of being read with gaps.",
     "de": "Ein PDF mit einigen beschädigten Seiten wird jetzt bis zur letzten Seite gelesen, statt bei der ersten beschädigten Seite abzubrechen. Ein PDF mit zu vielen beschädigten Seiten schlägt mit der Möglichkeit zum erneuten Versuch fehl, statt lückenhaft gelesen zu werden."
   },
@@ -1150,6 +1154,10 @@
   {
     "en": "After you work through annotations in the review, the count beside the document in Files shows what is still open, and closing a review you opened from the inbox or from open points takes you back there with your filter, in a single Back step.",
     "de": "Wenn Sie die Anmerkungen im Review bearbeiten, zeigt die Zahl neben dem Dokument unter „Dateien“ an, was noch offen ist. Schließen Sie ein Review, das Sie über den Posteingang oder die offenen Punkte geöffnet haben, gelangen Sie mit Ihrem Filter in einem einzigen Schritt zurück."
+  },
+  {
+    "en": "After zooming in on selected text, the bar to copy it as a citation now stays next to the selection.",
+    "de": "Nach dem Heranzoomen bleibt die Leiste zum Kopieren des ausgewählten Textes als Zitat jetzt neben der Auswahl."
   },
   {
     "en": "Agents connected to Piloti now get the purpose of a field quoted back when their input is refused, and large operation inputs are described in layers they can open one part at a time. They can also report a confusing description or error message, not only a missing operation.",
@@ -3100,6 +3108,10 @@
     "de": "Ein geteilter Link zu einer Projektdatei lässt sich wieder öffnen, auch wenn der Link den Namen der Datei enthält. Der Chat findet die Datei jetzt und zeigt ihren Status an, statt zu scheitern."
   },
   {
+    "en": "Opening an annotation from the file preview or a link now scrolls the review view to that annotation, not to a page a few pages earlier.",
+    "de": "Wenn Sie eine Anmerkung aus der Dateivorschau oder über einen Link öffnen, scrollt die Review-Ansicht jetzt direkt zu dieser Anmerkung statt zu einer Seite ein paar Seiten davor."
+  },
+  {
     "en": "Opening the inbox from the bell puts the keyboard in it, so j and k work right away; Escape closes it and returns you to the bell.",
     "de": "Wenn Sie den Posteingang über die Glocke öffnen, erhält er sofort den Tastaturfokus, sodass j und k gleich funktionieren; mit Escape schließen Sie ihn und der Fokus kehrt zur Glocke zurück."
   },
@@ -3138,6 +3150,10 @@
   {
     "en": "Pages are easier to use with a keyboard, a screen reader or low vision: larger touch targets, readable text on photos, and a menu that closes with Escape.",
     "de": "Seiten lassen sich mit Tastatur, Screenreader oder bei Sehschwäche leichter bedienen: mit größeren Touch-Zielen, gut lesbarem Text auf Fotos und einem Menü, das sich mit Escape schließen lässt."
+  },
+  {
+    "en": "Pages further down a PDF are drawn before you scroll to them, and stay drawn when you scroll back, instead of flashing white.",
+    "de": "Seiten weiter unten in einem PDF werden bereits gerendert, bevor Sie zu ihnen scrollen, und bleiben auch beim Zurückscrollen sichtbar, statt weiß aufzublitzen."
   },
   {
     "en": "Pausing, closing and reopening are offered from the project's overview menu and from the notice at the top of a paused or closed project, and the project switcher no longer lists every closed project of the office.",
