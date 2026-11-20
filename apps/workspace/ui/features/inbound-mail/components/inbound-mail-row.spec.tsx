@@ -22,6 +22,17 @@ function row(summary: InboundMailSummaryView, props: Partial<Parameters<typeof I
 const NOW = Date.parse('2026-11-19T12:00:00Z')
 const ready = (overrides: Partial<InboundMailSummaryView> = {}) => summaryOf(mail({ key: 'ready' }), overrides)
 
+describe('a settled mail, whose subject and sender were erased when it was filed', () => {
+  it('is named by the Verlauf it went into, with no empty sender line', () => {
+    row(handled({ subject: null, senderName: null, senderDomain: null, filedTo: { name: 'Das ist ein Test', folderPath: 'Korrespondenz', version: null } }))
+    expect(screen.getByRole('listitem').textContent).toContain('Das ist ein Test')
+    expect(screen.queryByText('(no subject)')).toBeNull()
+    expect(screen.queryByText('—')).toBeNull()
+    expect(screen.queryByText('?')).toBeNull()
+    expect(screen.getByTestId('inbound-mail-row-settled-avatar')).toBeTruthy()
+  })
+})
+
 describe('a handled mail filed without a click', () => {
   it('says so, and names the Verlauf it went into', () => {
     row(handled({ filedWithoutClick: { to: { name: 'Statik Einreichung', folderPath: 'Korrespondenz', version: null } } }))

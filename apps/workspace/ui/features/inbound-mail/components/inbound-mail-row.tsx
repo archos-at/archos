@@ -60,9 +60,10 @@ export function InboundMailRow({
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
   const shown = displaySubject(mail.subject)
-  const subject = (inGroup && mail.thread ? subjectWithinThread(shown, mail.thread.name) : shown) ?? t('row.noSubject')
-  const who = mail.senderName?.trim() || mail.senderDomain || '—'
   const waiting = mail.status === 'waiting'
+  // A filed mail is settled: its subject and sender are erased, and the Verlauf it went to names it instead.
+  const subject = (inGroup && mail.thread ? subjectWithinThread(shown, mail.thread.name) : shown) ?? (!waiting ? mail.filedTo?.name : undefined) ?? t('row.noSubject')
+  const who = mail.senderName?.trim() || mail.senderDomain || (waiting ? '—' : null)
   const outcomes = (['filed', 'dismissed', 'expired'] as const).filter((outcome) => mail.outcomes[outcome] > 0)
   const textFollowed = waiting && mail.followedBy !== null
   const impersonating = mail.riskLevel === 'impersonation'
@@ -72,7 +73,7 @@ export function InboundMailRow({
   const reasonLine = filingNow
     ? { key: 'filing', text: t('row.filing') }
     : claim === 'colleague'
-      ? { key: 'claimed', text: t('row.claim.colleague', { name: who }) }
+      ? { key: 'claimed', text: t('row.claim.colleague', { name: who ?? '—' }) }
       : claim === 'own' && reason === 'sender'
         ? { key: 'own', text: t('row.claim.own') }
         : mail.waitReason === 'not_filed'
@@ -125,11 +126,18 @@ export function InboundMailRow({
         >
           {/* A sender is not a member: one neutral disc, no identity hue (colour here would mean nothing). The one
               grey on the page; white on the row's hover and open fill, as anything on a grey surface is. */}
-          <PersonAvatar
-            person={{ userId: mail.senderDomain ?? who, name: who }}
-            size="sm"
-            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-sheet [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-background"
-          />
+          {who === null ? (
+            // A settled mail has no sender left to draw initials from: the same disc, carrying the Verlauf's glyph.
+            <span className="bg-sheet text-muted-foreground group-hover/row:bg-background group-data-current/row:bg-background group-data-checked/row:bg-background mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full" data-testid="inbound-mail-row-settled-avatar" aria-hidden>
+              <Mails className="size-3.5" />
+            </span>
+          ) : (
+            <PersonAvatar
+              person={{ userId: mail.senderDomain ?? who, name: who }}
+              size="sm"
+              className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-sheet [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-background"
+            />
+          )}
           <div className="flex min-w-0 flex-1 flex-col" /* a name and one meta line: 56px with the row's 10px */>
             <div className="flex min-w-0 items-baseline gap-2">
               <p className={cn('min-w-0 flex-1 line-clamp-2 text-name text-pretty [overflow-wrap:anywhere]', needsReader ? 'text-foreground font-semibold' : waiting ? 'text-foreground font-medium' : 'text-foreground font-normal')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
@@ -138,11 +146,15 @@ export function InboundMailRow({
               <TimeAgo date={mail.receivedAt} locale={locale} className="text-muted-foreground shrink-0 text-xs tabular-nums" />
             </div>
             <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
-              {mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} name={mail.senderName} />}
-              <span className="min-w-0 truncate">
-                {who}
-                {mail.senderDomain && mail.senderName && <span>{CLAUSE_JOIN}{mail.senderDomain}</span>}
-              </span>
+              {who !== null && (
+                <>
+                  {mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} name={mail.senderName} />}
+                  <span className="min-w-0 truncate">
+                    {who}
+                    {mail.senderDomain && mail.senderName && <span>{CLAUSE_JOIN}{mail.senderDomain}</span>}
+                  </span>
+                </>
+              )}
               {mail.attachments > 0 && (
                 <span className="inline-flex shrink-0 items-center gap-1">
                   <span aria-hidden>·</span>
@@ -154,7 +166,7 @@ export function InboundMailRow({
             {/* A stop: the signal red on the glyph, the words in ink (`FactLine`), and never cut off. */}
             {waiting && impersonating && (
               <FactLine icon={ShieldAlert} tone="danger" testId="inbound-mail-row-impersonation">
-                {claim === 'own' ? t('row.impersonationOwn') : t('row.impersonation', { name: who })}
+                {claim === 'own' ? t('row.impersonationOwn') : t('row.impersonation', { name: who ?? '—' })}
               </FactLine>
             )}
             {waiting && reasonLine && !impersonating && (

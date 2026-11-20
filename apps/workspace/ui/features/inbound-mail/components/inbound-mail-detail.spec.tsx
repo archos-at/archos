@@ -806,6 +806,17 @@ describe('„Einordnen“', () => {
     expect(within(dialog()).getByTestId('thread-release-name')).toBeInTheDocument()
   })
 
+  it('asks for no text of a filed mail, whose text lies in its Verlauf, and shows no load error', async () => {
+    const fixture = DETAIL_VARIANTS['member-verified']
+    const client = fixtureClient({ detail: fixture })
+    const text = vi.spyOn(client, 'text')
+    const handled = { ...mail({ key: 'member-verified', status: 'handled', parts: [messagePart({ id: 'x', state: 'filed' })] }), id: fixture.view.id }
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={handled.id} initial={handled} folders={FOLDERS} client={client} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />)
+    await screen.findByTestId('inbound-mail-detail')
+    expect(text).not.toHaveBeenCalled()
+    expect(screen.queryByText('The text could not be loaded.')).toBeNull()
+  })
+
   it('reads the mail again when a colleague decided first, says so, and closes', async () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS['member-verified'] })
     vi.spyOn(client, 'file').mockRejectedValue(new ApiRequestError('stale', 409, 'stale'))

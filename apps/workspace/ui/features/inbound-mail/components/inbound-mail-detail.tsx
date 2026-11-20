@@ -168,10 +168,17 @@ export function InboundMailDetail({
     } else {
       setState({ kind: 'ready', view: initial })
     }
-    if (!initialText) void loadText()
-    else setText({ kind: 'ready', text: initialText })
+    setText(initialText ? { kind: 'ready', text: initialText } : { kind: 'loading' })
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- keyed on the mail, see above
-  }, [mailId, load, loadText])
+  }, [mailId, load])
+
+  // Only a waiting mail has its text here: a handled one's lies in its Verlauf, and the route refuses it.
+  const viewStatus = view?.id === mailId ? view.status : null
+  useEffect(() => {
+    if (initialText || viewStatus !== 'waiting') return
+    void loadText()
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- once per mail and status, see above
+  }, [mailId, viewStatus, loadText])
 
   const draftBase = useRef<MailDraft | null>(null)
   useEffect(() => {
@@ -476,7 +483,7 @@ export function InboundMailDetail({
           originalUrl={client.originalUrl(projectId, view.id)}
           now={now}
         />
-        <MailText state={text} onRetry={() => void loadText()} />
+        {view.status === 'waiting' && <MailText state={text} onRetry={() => void loadText()} />}
         {messagePart?.state === 'waiting' && <MessageFacts view={view} />}
 
         {/* The forged mail's way to filing is one deliberate press, never the page's default. */}

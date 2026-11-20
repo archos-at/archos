@@ -102,7 +102,7 @@ export function partCandidatesFor(
 }
 
 export function filedAsFor(
-  part: Pick<InboundMailPartRow, 'documentId' | 'documentVersionId'>,
+  part: Pick<InboundMailPartRow, 'kind' | 'documentId' | 'documentVersionId'>,
   documents: ReadonlyMap<string, CandidateDocument>,
   versions: ReadonlyMap<string, number>,
   hiddenFolders: ReadonlySet<string>,
@@ -110,7 +110,7 @@ export function filedAsFor(
   const document = part.documentId ? documents.get(part.documentId) : undefined
   if (!document || !readable(document.folderId, hiddenFolders)) return null
   return {
-    name: document.name,
+    name: part.kind === 'message' ? document.name.replace(/\.md$/i, '') : document.name,
     folderPath: document.folderPath,
     version: part.documentVersionId ? (versions.get(part.documentVersionId) ?? null) : null,
   }
@@ -124,7 +124,7 @@ export interface ViewerCandidates {
   part(part: Pick<InboundMailPartRow, 'duplicateOfDocumentId' | 'revisionCandidateDocumentId'>): PartCandidates
   readsFolder(folderId: string | null): boolean
   readsDocument(documentId: string): boolean
-  filedAs(part: Pick<InboundMailPartRow, 'documentId' | 'documentVersionId'>): InboundMailFiledAsView | null
+  filedAs(part: Pick<InboundMailPartRow, 'kind' | 'documentId' | 'documentVersionId'>): InboundMailFiledAsView | null
 }
 
 export async function candidatesFor(
