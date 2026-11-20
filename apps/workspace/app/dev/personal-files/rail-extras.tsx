@@ -20,9 +20,9 @@ export function SearchIcon({ hint = false }: { hint?: boolean }): JSX.Element {
         <Search className="size-4" aria-label="Suche" />
       </span>
       {hint && (
-        <span className="bg-primary text-primary-foreground text-name absolute left-1/2 top-full z-50 mt-1.5 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 font-medium">
+        <span className="bg-sheet shadow-md text-meta absolute left-1/2 top-full z-50 mt-1.5 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-control px-2 py-1">
           Suche
-          <span className="text-meta rounded-full bg-white/20 px-1.5">Strg K</span>
+          <span className="text-muted-foreground">Strg K</span>
         </span>
       )}
     </span>
@@ -77,11 +77,10 @@ export function SearchWindow({ query }: { query: string }): JSX.Element {
           <span className={KEY}>Esc</span>
         </div>
         <div className="border-hairline flex items-center gap-1 border-b px-4 pb-3 pt-3">
-          <span className={`${chip} bg-primary text-primary-foreground font-medium`}>Alles</span>
+          <span className={`${chip} bg-desk font-medium`}>Alles</span>
           <span className={`${chip} text-muted-foreground`}>Dateien</span>
           <span className={`${chip} text-muted-foreground`}>Chats</span>
           <span className={`${chip} text-muted-foreground`}>Projekte</span>
-          <span className={`${chip} text-muted-foreground`}>Normen</span>
           <span className="text-muted-foreground text-meta ml-auto">im ganzen Büro</span>
         </div>
         {typed ? (
@@ -109,14 +108,6 @@ export function SearchWindow({ query }: { query: string }): JSX.Element {
             <div className="h-3" />
           </>
         )}
-        <div className="bg-desk flex items-center gap-3 px-5 py-3">
-          <p className="text-muted-foreground text-meta flex-1">Die Suche findet, was schon abgelegt ist. Sie beantwortet keine Fragen.</p>
-          <span className="text-name inline-flex items-center gap-2 font-medium">
-            <SquarePen className="size-3.5" aria-hidden />
-            {typed ? `${identity.name} dazu im Chat fragen` : `Frage an ${identity.name}: neuer Chat`}
-            <span className={KEY}>Tab</span>
-          </span>
-        </div>
         <div className="border-hairline text-muted-foreground text-meta flex items-center gap-4 border-t px-5 py-2">
           <span>↑ ↓ wählen</span>
           <span className="inline-flex items-center gap-1">
