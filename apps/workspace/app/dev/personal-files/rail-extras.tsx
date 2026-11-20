@@ -183,7 +183,7 @@ export function FoldedRail({ personal, show }: { personal: boolean; show: string
   const ProjectIcon = useProjectIcon()
   return (
     <div className="relative z-40 flex h-full shrink-0">
-      <div className="bg-desk border-hairline flex h-full w-14 flex-col border-r pl-[14px]">
+      <div className="bg-desk border-hairline flex h-full w-14 flex-col border-r pl-[10px]">
         <div className="flex min-h-14 items-center">
           <span title="Leiste ausklappen" className="text-muted-foreground flex size-9 items-center justify-center">
             <PanelLeft className="size-4" aria-label="Leiste ausklappen" />

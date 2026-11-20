@@ -77,7 +77,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
-          {find || folded || query?.get('si') ? <BrandRow hint={query?.get('si') === 'hint'} /> : <SidebarBrand iconRail={false} />}
+          {space || find || folded || query?.get('si') ? <BrandRow hint={query?.get('si') === 'hint'} /> : <SidebarBrand iconRail={false} />}
           {space && <SpaceToggle personal={own} />}
           <div className="relative mt-1 flex items-center gap-1.5">
             {space && own ? <PersonalLine /> : own && menuForm === 'gear' ? <AcrossTrigger /> : <ProjectSwitcher projects={[menuForm === 'top' ? OWN : OWN_ACROSS, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />}
@@ -118,7 +118,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             <MoreRow label="Alle Chats" indent={false} />
           </ul>
         </SidebarContent>
-        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} person={person} personOpen={personOpen} hideSearch={Boolean(find || folded || query?.get('si'))} />
+        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} person={person} personOpen={personOpen} hideSearch={Boolean(space || find || folded || query?.get('si'))} />
         <SidebarRail aria-label="Breite ändern" />
       </Sidebar>
     </SidebarProvider>
