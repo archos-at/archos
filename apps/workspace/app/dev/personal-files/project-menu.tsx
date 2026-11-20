@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: the project menu and the project overview for the personal-area concept (ticket 81).
 
 import type { JSX } from 'react'
-import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, Folders, LockKeyhole, Search, Settings, UserRound, X } from 'lucide-react'
+import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, BriefcaseBusiness, Building2, Folders, LockKeyhole, Search, Settings, UserRound, UsersRound, X } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 
 import { PROJECTS } from '../personal-area-rail/prototype'
@@ -24,7 +24,13 @@ export function useFirstRoom(): { Icon: typeof Layers; name: string; line: strin
   return room ? { Icon: UserRound, name: 'Persönlich', line: 'Nur für Sie, ohne Bindung an ein Projekt', room, space } : { Icon: Layers, name: 'Projektübergreifend', line: 'Fragen ohne Bindung an ein Projekt', room, space }
 }
 
+export function useProjectIcon(): typeof Layers {
+  const pick = useSearchParams()?.get('pi')
+  return pick === 'a' ? UsersRound : pick === 'b' ? Building2 : pick === 'c' ? BriefcaseBusiness : Folders
+}
+
 export function SpaceToggle({ personal }: { personal: boolean }): JSX.Element {
+  const ProjectIcon = useProjectIcon()
   const half = 'flex h-8 items-center justify-center gap-1.5 rounded-[6px] text-[13px]'
   return (
     <div className="bg-selected mb-1.5 grid grid-cols-2 rounded-control p-0.5">
@@ -33,7 +39,7 @@ export function SpaceToggle({ personal }: { personal: boolean }): JSX.Element {
         Persönlich
       </span>
       <span className={`${half} ${personal ? 'text-muted-foreground' : 'bg-sheet shadow-xs font-medium'}`}>
-        <Folders className="size-3.5" aria-hidden />
+        <ProjectIcon className="size-3.5" aria-hidden />
         Projekt
       </span>
     </div>

@@ -148,9 +148,10 @@ export function InboxAll(): JSX.Element {
   )
 }
 
-export function InboxPopover(): JSX.Element {
+export function InboxPopover({ beside = false }: { beside?: boolean }): JSX.Element {
   return (
-    <div className="bg-background shadow-lg absolute bottom-[68px] left-3 z-50 flex max-h-[640px] w-[400px] flex-col overflow-hidden rounded-[16px]">
+    <div className={`absolute z-50 ${beside ? 'bottom-3 left-[64px]' : 'bottom-[68px] left-3'}`}>
+    <div className="bg-background border-hairline shadow-lg flex max-h-[640px] w-[400px] flex-col overflow-hidden rounded-[16px]">
       <header className="flex items-baseline gap-2 px-4 pb-2 pt-4">
         <h2 className="text-section">Wartet auf Sie</h2>
         <span className="text-muted-foreground text-meta">{waiting.length}</span>
@@ -166,6 +167,7 @@ export function InboxPopover(): JSX.Element {
           <ArrowRight className="size-3.5" aria-hidden />
         </span>
       </footer>
+    </div>
     </div>
   )
 }

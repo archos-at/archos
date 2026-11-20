@@ -3,14 +3,15 @@
 // PROTOTYPE, not for merge: the search window and the folded rail with its fly-out (concept for ticket 81).
 
 import type { JSX, ReactNode } from 'react'
-import { Archive, ArrowRight, Bell, CornerDownLeft, FileText, Folder, Folders, LockKeyhole, MessageSquare, MessagesSquare, PanelLeft, Search, SquarePen, Zap, type LucideIcon } from 'lucide-react'
+import { Archive, ArrowRight, Bell, CornerDownLeft, FileText, Folder, BookMarked, Building2, LockKeyhole, LogOut, MessageSquare, Moon, PanelLeft, UserRound, Search, SquarePen, Zap, type LucideIcon } from 'lucide-react'
 
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
 import { SidebarMenu, SidebarProvider } from '@/components/ui/sidebar'
 import { Logo } from '@/components/brand/logo'
 import identity from '@/shared/brand/identity.json'
 import { ALL_CHATS, ChatRow, MoreRow, NavRow, PROJECTS } from '../personal-area-rail/prototype'
-import { SpaceToggle } from './project-menu'
+import { InboxPopover } from './inbox-panel'
+import { SpaceToggle, useProjectIcon } from './project-menu'
 
 const KEY = 'bg-sheet shadow-xs text-meta rounded-[4px] px-1.5 py-0.5 font-medium'
 
@@ -138,7 +139,48 @@ function IconSpot({ icon: Icon, active = false, dark = false, badge }: { icon: L
   )
 }
 
-export function FoldedRail({ personal, flyout }: { personal: boolean; flyout: boolean }): JSX.Element {
+function Label({ text, at }: { text: string; at: string }): JSX.Element {
+  return <span className={`bg-sheet shadow-md text-meta absolute left-[60px] z-50 whitespace-nowrap rounded-control px-2 py-1 ${at}`}>{text}</span>
+}
+
+function ProfileMenu(): JSX.Element {
+  const row = 'text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal'
+  const icon = 'text-muted-foreground size-4 shrink-0'
+  return (
+    <div className="bg-sheet border-hairline shadow-lg absolute bottom-3 left-[64px] z-50 w-[260px] rounded-[16px] border p-1.5">
+      <div className="px-2.5 pb-2 pt-1.5">
+        <p className="text-name font-medium">Anna Berger</p>
+        <p className="text-muted-foreground text-meta">Musterarchitektur ZT GmbH</p>
+      </div>
+      <div className="bg-desk mx-1 mb-1.5 h-px" />
+      <div className={row}>
+        <UserRound className={icon} aria-hidden />
+        Profil
+      </div>
+      <div className={row}>
+        <BookMarked className={icon} aria-hidden />
+        Mein Gedächtnis
+      </div>
+      <div className={row}>
+        <Building2 className={icon} aria-hidden />
+        Organisation
+      </div>
+      <div className={row}>
+        <Moon className={icon} aria-hidden />
+        Design umschalten
+      </div>
+      <div className="bg-desk mx-1 my-1.5 h-px" />
+      <div className={row}>
+        <LogOut className={icon} aria-hidden />
+        Abmelden
+      </div>
+    </div>
+  )
+}
+
+export function FoldedRail({ personal, show }: { personal: boolean; show: string }): JSX.Element {
+  const flyout = show === 'fly'
+  const ProjectIcon = useProjectIcon()
   return (
     <div className="relative z-40 flex h-full shrink-0">
       <div className="bg-desk border-hairline flex h-full w-14 flex-col items-center gap-1 border-r py-3">
@@ -146,17 +188,19 @@ export function FoldedRail({ personal, flyout }: { personal: boolean; flyout: bo
           <PanelLeft className="size-4" aria-label="Leiste ausklappen" />
         </span>
         <div className="h-2" />
-        <IconSpot icon={personal ? LockKeyhole : Folders} dark={personal} active={!personal} />
+        <IconSpot icon={personal ? LockKeyhole : ProjectIcon} dark={personal} active={!personal} />
         <div className="bg-selected my-1 h-px w-6" />
         <IconSpot icon={SquarePen} />
         <IconSpot icon={Folder} />
         <IconSpot icon={Zap} />
-        <IconSpot icon={MessagesSquare} active />
         <div className="flex-1" />
-        <IconSpot icon={Archive} />
-        <IconSpot icon={Bell} badge={8} />
-        <span className="bg-sheet shadow-xs text-meta mt-1 flex size-7 items-center justify-center rounded-full font-medium">AB</span>
+        <IconSpot icon={Archive} active={show === 'office'} />
+        <IconSpot icon={Bell} badge={8} active={show === 'bell'} />
+        <span className={`text-meta mt-1 flex size-7 items-center justify-center rounded-full font-medium ${show === 'me' ? 'bg-primary text-primary-foreground' : 'bg-sheet shadow-xs'}`}>AB</span>
       </div>
+      {show === 'office' && <Label text="Bürobibliothek" at="bottom-[92px]" />}
+      {show === 'bell' && <InboxPopover beside />}
+      {show === 'me' && <ProfileMenu />}
       {flyout && (
         <SidebarProvider className="absolute bottom-2 left-[60px] top-2 min-h-0 w-[288px]">
           <div className="bg-desk border-hairline shadow-lg flex h-full w-full flex-col overflow-hidden rounded-[16px] border p-3">

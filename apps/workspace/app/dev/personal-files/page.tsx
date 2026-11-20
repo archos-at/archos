@@ -71,7 +71,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
   const space = query?.get('space') === '1'
   const folded = query?.get('rail')
   const find = query?.get('find')
-  if (folded) return <FoldedRail personal={own} flyout={folded === 'fly'} />
+  if (folded) return <FoldedRail personal={own} show={folded} />
   const plain = query?.get('my') !== '1' && (Boolean(person) || space || query?.get('room') === '1')
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
