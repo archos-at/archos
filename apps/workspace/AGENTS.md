@@ -24,7 +24,7 @@ For how the UI looks, [`design-language.md`](../../docs/design/design-language.m
 - Translate through the namespace's module (`@/i18n/namespaces/<ns>`), never the whole
   dictionary. `aggregate-imports.spec.ts`.
 - Work over many items is a BFF job on Hatchet, never a browser loop. `browser-work-loops.spec.ts`.
-- Run scripts without `--bun`: it kills Turbopack's PostCSS step (ADR-0103).
+- Run scripts without `--bun` (ADR-0103); serve `/dev/*` with `task local:previews`, never a bare `next dev`.
 
 Before you add a card type, a status column, a lint rule, a canvas or chat capability, or a
 spec that reads the tree from disk, read its row in

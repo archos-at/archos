@@ -59,6 +59,23 @@ def _split(dotted: str) -> tuple[str, str] | None:
 STRING = re.compile(r"(?<![\w.])(" + "|".join(re.escape(p) for p in PACKAGES) + r")\.(\w+)")
 
 
+def missing(source: str, path: str, surfaces: dict[str, tuple[set[str], set[str]]]) -> list[str]:
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module in PACKAGES:
+            if path.startswith(PACKAGES[node.module] + "/"):
+                continue
+            exported, submodules = surfaces[node.module]
+            found += [
+                f"{path}:{node.lineno}: imports `{alias.name}` from {node.module}, which does not export it "
+                f"and raises ImportError at run time. Add it to `_LAZY` and `__all__` in "
+                f"{PACKAGES[node.module]}/__init__.py."
+                for alias in node.names
+                if alias.name != "*" and alias.name not in exported and alias.name not in submodules
+            ]
+    return found
+
+
 def references(source: str, path: str, submodules: dict[str, set[str]]) -> list[tuple[str, str, int, list[str]]]:
     owner = _owner(path)
     found = []
@@ -109,20 +126,22 @@ def main(argv: list[str] | None = None) -> int:
     surfaces = {package: surface(root, package) for package in PACKAGES}
     submodules = {package: subs for package, (_names, subs) in surfaces.items()}
     refs = []
+    unexported = []
     for path in tracked_python(root):
         try:
             source = (root / path).read_text(encoding="utf-8")
             refs += [(path, *ref) for ref in references(source, path, submodules)]
+            unexported += missing(source, path, surfaces)
         except (SyntaxError, UnicodeDecodeError):
             continue
-    found = findings(refs, {package: names for package, (names, _subs) in surfaces.items()})
+    found = findings(refs, {package: names for package, (names, _subs) in surfaces.items()}) + unexported
     if found:
         print(f"Package surface check FAILED ({len(found)} finding(s)):", file=sys.stderr)
         for finding in found:
             print(f"  - {finding}", file=sys.stderr)
         print("Why: docs/contributing/code-conventions.md#a-package-is-imported-by-its-surface", file=sys.stderr)
         return 1
-    print("Package surface check passed: nothing outside a package names its submodules.")
+    print("Package surface check passed: nothing outside a package names its submodules or a name it does not export.")
     return 0
 
 

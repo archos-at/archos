@@ -36,6 +36,7 @@ export async function findRevisionSeriesRows(
         createdAt: documents.createdAt,
         collectionName: documents.collectionName,
         authoredBy: documents.authoredBy,
+        authoredByProducer: documents.authoredByProducer,
         publishedVersionId: documents.publishedVersionId,
       })
       .from(documents)

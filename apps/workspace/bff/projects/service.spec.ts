@@ -67,7 +67,7 @@ describe('listProjects', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     listProjectsInOrg.mockResolvedValue([ALPHA, BETA, GAMMA])
-    process.env.AUTHZ_CACHE_TTL_MS = '0'
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', '0')
   })
 
   it('returns ONLY the projects the member holds project:view on', async () => {

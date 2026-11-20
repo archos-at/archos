@@ -2,9 +2,11 @@ import { z } from 'zod'
 
 export const conversationDraftPreviewSchema = z.object({
   path: z.string(),
-  content: z.string(),
+  content: z.string().optional(),
+  encoding: z.enum(['utf-8', 'base64']).optional(),
   version: z.number().int().nonnegative(),
   bytes: z.number().int().nonnegative(),
+  mediaType: z.string().optional(),
 })
 
 export type ConversationDraftPreview = z.infer<typeof conversationDraftPreviewSchema>
@@ -24,12 +26,29 @@ export class DocumentDraftPreviewError extends Error {
   }
 }
 
+function draftQuery(conversationId: string, route: '' | '/download' | '/rendition', path: string): string {
+  return `/api/conversations/${encodeURIComponent(conversationId)}/draft${route}?path=${encodeURIComponent(path)}`
+}
+
+export interface DraftFileUrls {
+  download: string
+  rendition: string
+}
+
+export function draftFileUrls(conversationId: string, path: string, version: number): DraftFileUrls {
+  const stamp = `&v=${version}`
+  return {
+    download: `${draftQuery(conversationId, '/download', path)}${stamp}`,
+    rendition: `${draftQuery(conversationId, '/rendition', path)}${stamp}`,
+  }
+}
+
 export async function fetchConversationDraft(
   conversationId: string,
   path: string,
   run: DraftPreviewFetch = defaultFetch,
 ): Promise<ConversationDraftPreview> {
-  const url = `/api/conversations/${encodeURIComponent(conversationId)}/draft?path=${encodeURIComponent(path)}`
+  const url = draftQuery(conversationId, '', path)
   const response = await run(url, { method: 'GET' })
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {

@@ -126,8 +126,8 @@ const turnRequest = (): HeadlessTurnRequest => vi.mocked(runHeadlessTurn).mock.c
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
-  process.env.REQUIRE_AUTH = 'true'
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
+  vi.stubEnv('REQUIRE_AUTH', 'true')
   row = askRow()
   vi.mocked(insertAsk).mockImplementation(async (values) => {
     row = askRow({ ...values })
@@ -162,8 +162,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
-  delete process.env.REQUIRE_AUTH
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
+  vi.stubEnv('REQUIRE_AUTH', undefined)
 })
 
 describe('askAnswerMessageId', () => {

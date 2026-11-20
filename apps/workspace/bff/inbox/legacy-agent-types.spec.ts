@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { INBOX_ITEM_TYPES, type InboxItemType } from '@/lib/db/schema/inbox'
-import { LEGACY_AGENT_INBOX_TYPES, storedInboxType, type LegacyAgentInboxType } from './legacy-agent-types'
+import { LEGACY_AGENT_INBOX_TYPES, type LegacyAgentInboxType } from './legacy-agent-types'
 import { canonicalInboxType, storedInboxTypesOf } from './types'
+import { storedItem } from './canonical-rows'
 import { inboxGroupKey } from './registry'
 import { pushPolicyFor } from './push-policy'
 
@@ -24,11 +25,12 @@ describe('agent inbox types under their new names', () => {
     }
   })
 
-  it('writes each new type under the spelling its rows already carry, and groups it under that spelling', () => {
+  it('writes and groups each type under its new spelling, whichever spelling it is handed', () => {
     for (const [legacy, current] of RENAMED) {
-      expect(storedInboxType(current)).toBe(legacy)
-      expect(storedInboxType(legacy)).toBe(legacy)
-      expect(inboxGroupKey(current, 'document', 'doc_1', 'ann_1')).toBe(`${legacy}:document:doc_1:ann_1`)
+      const row = { organizationId: 'org_1', recipientUserId: 'user_1', resourceType: 'document', resourceId: 'doc_1', groupKey: 'k', actionable: true } as const
+      expect(storedItem({ ...row, type: current }).type).toBe(current)
+      expect(storedItem({ ...row, type: legacy }).type).toBe(current)
+      expect(inboxGroupKey(current, 'document', 'doc_1', 'ann_1')).toBe(`${current}:document:doc_1:ann_1`)
     }
   })
 })

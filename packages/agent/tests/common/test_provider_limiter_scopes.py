@@ -7,6 +7,7 @@ from openai import OpenAI
 from openai import RateLimitError
 
 from agent.common import provider_limiter as pl
+from agent.common import rate_limit_errors
 from agent.common.openrouter import pinned_async_http_client
 from agent.common.openrouter import pinned_http_client
 
@@ -87,7 +88,7 @@ async def test_the_async_transport_cuts_one_model_for_an_upstream_429(store):
 
 @pytest.mark.parametrize(
     ("body", "scope"),
-    [(UPSTREAM_429, pl.MODEL_SCOPE), (OPENROUTER_429, pl.KEY_SCOPE)],
+    [(UPSTREAM_429, rate_limit_errors.MODEL_SCOPE), (OPENROUTER_429, rate_limit_errors.KEY_SCOPE)],
     ids=["upstream", "openrouter"],
 )
 def test_the_sdk_error_carries_the_object_the_classifier_reads(store, body, scope):
@@ -99,4 +100,4 @@ def test_the_sdk_error_carries_the_object_the_classifier_reads(store, body, scop
     )
     with pytest.raises(RateLimitError) as raised:
         client.embeddings.create(model="vendor/a", input=["x"])
-    assert pl.rate_limit_scope(raised.value) == scope
+    assert rate_limit_errors.rate_limit_scope(raised.value) == scope

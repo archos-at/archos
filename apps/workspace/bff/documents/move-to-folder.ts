@@ -146,9 +146,11 @@ export async function moveDocumentToFolder(
   }
 
   const backendRef = collectionFileRef({
+    id: document.id,
     collectionName: document.collectionName,
     filename: document.filename,
     authoredBy: document.authoredBy,
+    authoredByProducer: document.authoredByProducer,
     publishedVersionId: document.publishedVersionId,
   })
   if (backendRef) {

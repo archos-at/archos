@@ -3,7 +3,7 @@ import 'server-only'
 import type { LangfuseClient } from '@langfuse/client'
 import { v5 as uuidv5 } from 'uuid'
 import type { InboundMailDecisionVia } from '@/lib/inbound-mail/inbound-mail-vocabulary'
-import { threadPreselection, type SenderEvidence, type ThreadMatch } from '@/lib/mail-thread/mail-threading'
+import { threadPreselection, type SenderEvidence, type ThreadMatch, type ThreadParticipation } from '@/lib/mail-thread/mail-threading'
 import { langfuseApiConfig } from './config'
 import { clientFor, deploymentTags, environment, release } from './tool-call-trace'
 
@@ -27,6 +27,7 @@ export interface MailThreadMatchRecord {
   partId: string
   matches: readonly ThreadMatch[]
   sender: SenderEvidence
+  strongestThread: ThreadParticipation | null
   choice: ThreadChoice
   via: InboundMailDecisionVia
   decidedAt: Date
@@ -55,7 +56,7 @@ export function mailThreadMatchBatch(record: MailThreadMatchRecord, eventIds: [s
     project_id: record.projectId,
     part_id: record.partId,
     strength: strongest.strength,
-    preselected: threadPreselection(strongest, record.sender).preselected,
+    preselected: threadPreselection(strongest, record.sender, record.strongestThread).preselected,
     candidates: record.matches.length,
     chosen_rank: chosenRank,
     sender_trust: record.sender.senderTrust,
@@ -74,6 +75,7 @@ export function mailThreadMatchBatch(record: MailThreadMatchRecord, eventIds: [s
           id: traceId,
           timestamp,
           name: MAIL_THREAD_MATCH_SCORE_NAME,
+          sessionId: record.mailId,
           metadata,
           tags: ['feature:inbound-mail', `strength:${strongest.strength}`, `via:${record.via}`, ...deploymentTags()],
           ...(env ? { environment: env } : {}),

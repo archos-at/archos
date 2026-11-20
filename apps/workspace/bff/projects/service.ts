@@ -30,8 +30,7 @@ import {
   type ProjectOutcome,
 } from './project-status'
 import { dateToMonth, isMonth, monthToDate, type Month } from './month'
-import { isAgentSetup, type ProjectSetup } from './create-project-schema'
-import { LEGACY_AGENT_SETUP } from './legacy-project-setup'
+import { AGENT_SETUP, isAgentSetup, type ProjectSetup } from './create-project-schema'
 import { seedProjectSite, startProjectIntake } from './intake-seed'
 import { undoHalfCreatedProject } from './project-creation-undo'
 import type { GeocodeResult } from '@/lib/geocoding/types'
@@ -245,7 +244,7 @@ export async function createProject(
     action: 'project.created',
     targetType: 'project',
     targetId: project.id,
-    metadata: agentSetup ? { name: input.name, setup: LEGACY_AGENT_SETUP } : { name: input.name },
+    metadata: agentSetup ? { name: input.name, setup: AGENT_SETUP } : { name: input.name },
     request,
   })
   if (closeNow) {

@@ -4,11 +4,11 @@ from unittest.mock import patch
 
 from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
-from agent.common import answer_envelope
+from agent.common import envelope_gates
 from agent.common.answer_envelope import SUMMARY_MAX_CHARS
 from agent.common.answer_envelope import AnswerMeta
 from agent.core import answer_pipeline
-from agent.core.answer_pipeline import LiveAnswer
+from agent.core.live_answer import LiveAnswer
 
 PROSE = "In GK 4 darf der Fluchtweg höchstens 40 m lang sein [1]."
 SOURCES = "**Quellen:**\n- [1] oib-rl_2.pdf, p.12"
@@ -30,7 +30,7 @@ def _registry() -> SourceRegistry:
 def test_the_live_masthead_and_settle_record_no_drop_and_the_finished_answer_records_one():
     registry = _registry()
     live = LiveAnswer(registry)
-    with patch.object(answer_envelope, "emit_anatomy_dropped") as emitted:
+    with patch.object(envelope_gates, "emit_anatomy_dropped") as emitted:
         live.masthead(FIELDS)
         settled = live.settle(PROSE, SOURCES, FIELDS)
         assert settled is not None  # the settle did gate the masthead again

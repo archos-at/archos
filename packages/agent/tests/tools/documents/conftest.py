@@ -137,8 +137,3 @@ def _stored(store: InMemoryStore) -> dict:
 async def _file(monkeypatch: pytest.MonkeyPatch, responses: list[dict], calls: list, title: str = "") -> str:
     monkeypatch.setattr(filing_tools, "post_document_version", _responder(responses, calls))
     return await filing_tools.run_file_draft(DRAFT, title)
-
-
-async def _submit(monkeypatch: pytest.MonkeyPatch, responses: list[dict], calls: list, reviewer: str = "") -> str:
-    monkeypatch.setattr(filing_tools, "post_document_version", _responder(responses, calls))
-    return await filing_tools.run_file_draft(DRAFT, submit=True, reviewer=reviewer)

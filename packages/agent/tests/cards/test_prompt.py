@@ -1,9 +1,9 @@
 import pytest
 
+from agent.cards.card_doctrine import render_card_doctrine
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import MODEL_BACKED_CARD_TYPES
 from agent.cards.catalog import render_card_catalog
-from agent.cards.catalog import render_card_doctrine
 from agent.cards.catalog import render_card_index
 from agent.cards.prompt import build_card_generation_prompt
 from agent.cards.register import _build_tool_description

@@ -103,7 +103,7 @@ const CREATE = { op: 'create', projectId: PROJECT, kind: 'submission_check', goa
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(isDeepResearchEnabledForOrg).mockResolvedValue(true)
   vi.mocked(isTaskAutomationEnabledForOrg).mockResolvedValue(true)

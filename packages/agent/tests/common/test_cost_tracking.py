@@ -127,6 +127,12 @@ class TestExtractUsageEvent:
 
 
 class TestBudgetSnapshot:
+    def test_a_header_marked_as_ingestion_names_its_activity(self):
+        marked = BudgetSnapshot.from_header(_budget_header({"remainingOrgUsd": 1.0, "activity": "ingest"}))
+        assert marked.activity == "ingest"
+        assert BudgetSnapshot.from_header(_budget_header({"remainingOrgUsd": 1.0})).activity is None
+        assert BudgetSnapshot.from_header(_budget_header({"activity": "dictation"})).activity is None
+
     def test_from_header_round_trip(self):
         snapshot = BudgetSnapshot.from_header(
             _budget_header({"remainingOrgUsd": 1.5, "remainingUserUsd": 0.2, "remainingProjectUsd": None})

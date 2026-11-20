@@ -27,9 +27,9 @@ from agent.common.openrouter import PLATFORM_FIXED
 from agent.common.openrouter import limited_async_http_client
 from agent.common.openrouter import targets_openrouter
 
-from ..models.requests import MAX_DICTATION_AUDIO_BYTES
-from ..models.requests import DictationRequest
-from ..models.requests import DictationResponse
+from ..models.writing_requests import MAX_DICTATION_AUDIO_BYTES
+from ..models.writing_requests import DictationRequest
+from ..models.writing_requests import DictationResponse
 from ._dictation_text import clean_transcript
 from .internal_auth import _require_internal_token
 

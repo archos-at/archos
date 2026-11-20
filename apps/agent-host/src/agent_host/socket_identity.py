@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from typing import Any
 
 if TYPE_CHECKING:
-    from agent_host.chat_socket import RunningTurn
+    from agent_host.chat_turn import RunningTurn
 
 
 def verified_subject(user: Mapping[str, Any]) -> str | None:

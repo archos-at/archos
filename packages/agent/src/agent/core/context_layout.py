@@ -19,6 +19,7 @@ TURN_VALUES = frozenset(
         "focus_file_path",
         "focus_region_block",
         "trigger_block",
+        "answer_excerpt_block",
         "already_read_block",
         "workspace_block",
         "reference_projects",

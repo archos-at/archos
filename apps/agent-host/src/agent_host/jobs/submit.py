@@ -17,6 +17,7 @@ from .access import create_job_access
 from .access import derive_project_collection
 from .access import job_exists
 from .access import rollback_job_submission
+from .legacy_agent_class_paths import CLASS_PATH_OF
 
 
 def _build_run_agent_payload(
@@ -27,7 +28,7 @@ def _build_run_agent_payload(
     config_path,
     job_id,
     input_text,
-    agent_config,
+    agent_type,
     parent_trace_context,
     available_documents,
     data_sources,
@@ -63,8 +64,8 @@ def _build_run_agent_payload(
         "config_file_path": config_path,
         "job_id": job_id,
         "input_text": input_text,
-        "agent_class_path": agent_config.class_path,
-        "agent_config_name": agent_config.config_name,
+        "agent_config_name": get_agent_config(agent_type).config_name,
+        "agent_class_path": CLASS_PATH_OF[agent_type],  # drop after release 2026-W50
         "parent_span_id": parent_span_id,
         "parent_function_id": parent_function_id,
         "parent_function_name": parent_function_name,
@@ -324,7 +325,7 @@ async def submit_agent_job(
 
     research_workflow.check_submittable(priority)
 
-    agent_config = get_agent_config(agent_type)
+    get_agent_config(agent_type)
     db_url, config_path, log_level = _job_store_settings()
     auth_token, collection_scope, project_context, model_overrides = _captured_request_context(
         auth_token, collection_scope, project_context, model_overrides
@@ -358,7 +359,7 @@ async def submit_agent_job(
             config_path=config_path,
             job_id=resolved_job_id,
             input_text=input_text,
-            agent_config=agent_config,
+            agent_type=agent_type,
             parent_trace_context=parent_trace_context,
             available_documents=available_documents,
             data_sources=data_sources,

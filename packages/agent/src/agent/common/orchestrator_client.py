@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
+from typing import Any
 
+from .boot_retry import retry_connection
 from .task_failures import TaskFailure
 from .task_failures import TransientTaskError
 from .task_failures import classify
@@ -37,6 +40,15 @@ def reset_for_tests(fake: Hatchet | None = None) -> None:
     global _client
     with _lock:
         _client = fake
+
+
+def register_workflows(workflows: Sequence[Any]) -> None:
+    admin = client()._client.admin
+    for workflow in workflows:
+        retry_connection(
+            lambda workflow=workflow: admin.put_workflow(workflow.to_proto()),
+            what=f"Hatchet registration of {workflow.name}",
+        )
 
 
 def within_rest_timeout[T](call: Callable[[], T], timeout: float = REST_TIMEOUT_SECONDS) -> T:

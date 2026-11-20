@@ -23,7 +23,9 @@ list, the time, and which of the above it was. Names and email addresses are
 not copied into the log; the page looks them up when an admin reads it.
 
 Not recorded: thumbnails (they are not the file), what ARCHOS's agent reads
-while answering (that is use of a folder, which has its own record), the
+while answering (that is use of a folder, which has its own record; this
+includes a document the agent copies into a script it runs, an open decision in
+[`agent-code-execution.md`](../design/agent-code-execution.md#decisions)), the
 platform's shared knowledge base, exports of a chat answer, and the opening of
 documents in ordinary folders. That last one is a decision, not an oversight:
 the preview link of an ordinary folder is a link to the whole file, so a person

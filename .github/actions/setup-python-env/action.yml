@@ -21,14 +21,6 @@ runs:
       with:
         enable-cache: true
 
-    # The synced venv itself, not only uv's download cache: `uv sync` in copy
-    # mode (below) writes ~900 MB on every job even when every wheel is cached,
-    # ~20s of a job that has a minute. Keyed on everything a sync reads, and
-    # the exact interpreter, because a venv names the interpreter it was built
-    # on, and the checkout path, because a venv's scripts and `activate` name the
-    # directory it was built in (a venv cached before the repository was renamed
-    # left `pre-commit: command not found`). `uv sync` still runs after a hit,
-    # as a no-op that proves the venv matches the lock (and repairs it if not).
     - name: Restore the synced venv
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
@@ -37,18 +29,8 @@ runs:
 
     - name: Create venv and sync dev deps
       shell: bash
-      # Pass the input through env rather than interpolating ${{ }} straight into
-      # the run script — avoids the shell-injection pattern Semgrep flags
-      # (run-shell-injection), even though this input is CI-controlled today.
       env:
         PYTHON_VERSION: ${{ inputs.python-version }}
-        # uv's default hard-link install leaves nltk's bundled corpora with
-        # st_nlink>=2. nltk pathsec then refuses to open them (CWE-59), which
-        # is how llama-index's SentenceSplitter dies on any path that actually
-        # splits — the retrieval harness (`task be:eval:retrieval`, now a local
-        # tool) is where it was first hit, and production splits too. Copy mode
-        # is the install that matches how those files have to be read.
-        # A venv built before copy mode: `UV_LINK_MODE=copy uv sync --group dev --reinstall`.
         UV_LINK_MODE: copy
       run: |
         [ -x .venv/bin/python ] || uv venv --python "$PYTHON_VERSION" .venv

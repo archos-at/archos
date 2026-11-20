@@ -31,6 +31,7 @@ class ConversationState(BaseModel):
     focus_region: FocusRegion | None = None
     reply_in_thread: bool = False
     trigger: TurnTrigger | None = None
+    answer_excerpt: str | None = None
     skip_clarifier: bool = False
     deep_research_declined: bool | None = None
     deep_research_allowed: bool = True

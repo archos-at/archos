@@ -122,7 +122,7 @@ Paths are relative to `/home/user/archos`.
 | C12 | Permit extraction: `FederalStateToken` Literal of 9 AT values, prompt "a building project in Austria", tag `Bescheid` | `knowledge/permit_extraction.py:59, 200, 269` [V] | S2 |
 | C13 | Closed-project fingerprint prompts say "in Austria" three times; `oibEdition` fact | `knowledge/project_experience.py:225, 235, 246` [V]; `bff/references/types.ts:78` [S] | S2 |
 | C14 | RIS adapter: hosts, document-number grammar, ~40 OGD silos, nine `_FEDERAL_STATE_PARAMS`, `FassungVom` **only for `BrKons`** (federal), not `LrKons` (Land law) | `packages/ris-adapter/src/ris_adapter/client.py:38-51`, `register.py:81-90, 129-166` [V for 129-166] | S2 (one adapter per source, by design) |
-| C15 | Gebäudeklasse validator GK 1-5 or 0 on the BIM tool | `tools/bim/register.py:222-230` [S] | S2 |
+| C15 | Gebäudeklasse validator GK 1-5 or 0 on the BIM tool | `tools/bim/query_build.py` `_valid_building_class` [S] | S2 |
 | C16 | DXF cadastre: BEV layers, MGI EPSG 31254-31256, Grenzkataster vs Grundsteuerkataster | `drawings/dxf_source.py:57-68`, `site_ops.py` [S] | S2 per country |
 | C16a | German BM25 analyser and Snowball German stemmer on all points; German umlaut folding for retrieval | `knowledge-layer/src/knowledge_layer/vector_store/schema.py:49, 166-176` [V]; `common/german_text.py` [S] | S3 (multilingual) |
 
@@ -154,7 +154,7 @@ Paths are relative to `/home/user/archos`.
 | P4 | Intake agent: Bundesland, Geschoße, Fluchtniveau, Gebäudeklasse; summary "in German" | `agents/intake/prompts/system.j2` [V] | S1 |
 | P5 | `system.j2` turn context: `oib_applicability` and "Bundesland/OIB edition" in reference projects | `core/prompts/system.j2:60-91` [S] | S1 | <!-- brand-history -->
 | P6 | Tool descriptions with OIB, GK and "Austria runs UTC+1/+2" | `tools/bim/measure_input.py:176`, `tools/cross_project/register.py:332, 776`, `tools/bim/register.py:222`, `tools/documents/tools.py:142-172` (`/law/oib/` mount) [S] | S1 each |
-| P7 | MCP door copy: `knowledge-base-get`, `norm-list` ("Austrian laws", `federalState` "Wien"), `project-standards-get` (OIB), `bim-check-*` ("OIB rule catalogue"), `door/prompts/building-law-check.md`, `door/guide.md`, `discovery.ts:627-631` | `apps/workspace/bff/agent-api/...` [S] | S2 |
+| P7 | MCP door copy: `knowledge-base-get`, `norm-list` ("Austrian laws", `federalState` "Wien"), `project-standards-get` (OIB), `bim-check-*` ("OIB rule catalogue"), `door/prompts/building-law-check.md`, `door/guide.md`, `discovery-meta-tools.ts:31-35` | `apps/workspace/bff/agent-api/...` [S] | S2 |
 | P8 | German canned replies and German HyDE / query expansion tie answers to the German corpus | `common/canned_replies.py:14-36`, `common/hyde.py`, `common/query_expansion.py` [S] | S2 |
 
 ### 2.4 UI and i18n

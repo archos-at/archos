@@ -8,18 +8,51 @@ import {
   entryParamsSchema,
   listEntriesQuerySchema,
   proposeEntryBodySchema,
+  recognizeBodySchema,
   recordCheckBodySchema,
+  settleProposalsBodySchema,
   updateEntryBodySchema,
 } from '@/lib/base-knowledge/wire'
+import {
+  listProjectNormsQuerySchema,
+  placeProjectNormsBodySchema,
+  projectNormsParamsSchema,
+} from '@/lib/office-shelf/project-norms/wire'
 import { classificationEvaluateRequestSchema } from '@/lib/project-intake/classification-wire'
 import type { AgentOperation } from '../operation'
 import { uploadBodySchemaWith } from '../upload-wire'
 
 const ENTRY =
   'An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), ' +
-  '`textUse` and `freshness`.'
+  '`textUse`, `freshness` and `binding`.'
 
 export const baseKnowledgeOperations = [
+  {
+    name: 'project-norm-list',
+    domain: 'knowledge',
+    summary: 'A project folder’s norms for the office shelf, and their references',
+    description:
+      '`offers`: norms here whose work the office shelf lacks, not kept or suggested. `references`: norms moved to ' +
+      'the office shelf; `state` removed once its copy is deleted.',
+    method: 'GET',
+    path: '/api/projects/[id]/norms',
+    params: projectNormsParamsSchema,
+    query: listProjectNormsQuerySchema,
+    load: () => import('@/app/api/projects/[id]/norms/route'),
+  },
+  {
+    name: 'project-norm-place',
+    domain: 'knowledge',
+    summary: 'Move project norms into the office shelf, suggest them, or keep them here',
+    description:
+      'office_shelf files each as an entry or edition, bins the project file, leaves a reference; suggest asks the ' +
+      'managers; project keeps it.',
+    method: 'POST',
+    path: '/api/projects/[id]/norms',
+    params: projectNormsParamsSchema,
+    body: placeProjectNormsBodySchema,
+    load: () => import('@/app/api/projects/[id]/norms/route'),
+  },
   {
     name: 'base-knowledge-list',
     domain: 'knowledge',
@@ -27,7 +60,7 @@ export const baseKnowledgeOperations = [
     description:
       ENTRY +
       ' Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before ' +
-      'those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.',
+      'those narrow it. What needs a person comes first. Only confirmed entries reach answers. Any member may read.',
     method: 'GET',
     path: '/api/base-knowledge',
     query: listEntriesQuerySchema,
@@ -49,8 +82,8 @@ export const baseKnowledgeOperations = [
     summary: 'Propose an office shelf document as base knowledge',
     description:
       'Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, ' +
-      'a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a ' +
-      'person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.',
+      'a law) and moves it under the norms: give the values from its masthead; the rest come from its reading. No answer ' +
+      'uses it until a person confirms. 409 when it already has one. Needs org:office_shelf:manage.',
     method: 'POST',
     path: '/api/base-knowledge',
     body: proposeEntryBodySchema,
@@ -87,6 +120,48 @@ export const baseKnowledgeOperations = [
     body: uploadBodySchemaWith({}),
     bodyEncoding: 'multipart',
     load: () => import('@/app/api/base-knowledge/[entryId]/editions/route'),
+  },
+  {
+    name: 'base-knowledge-recognize',
+    domain: 'knowledge',
+    summary: 'Recognise which office shelf documents are norms',
+    description:
+      'Reads each document’s name: a norm becomes a proposal, its text withheld until settled; a match of a ' +
+      'confirmed work is a new edition (`editionOf`), or `duplicate` when held. ' +
+      'Others stay where they lie (`plain`); `asNorm` proposes them anyway. ' +
+      'Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/recognize',
+    body: recognizeBodySchema,
+    idempotent: true,
+    load: () => import('@/app/api/base-knowledge/recognize/route'),
+  },
+  {
+    name: 'base-knowledge-settle',
+    domain: 'knowledge',
+    summary: 'Confirm or drop the proposals of base-knowledge-recognize',
+    description:
+      'Per proposal: confirm into its topic folder (`topicId`; a new edition goes to its work’s folder), delete a ' +
+      'duplicate, or `notNorm` to leave an ordinary file where it lies. ' +
+      'Answers one outcome per row. Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/settle',
+    body: settleProposalsBodySchema,
+    personDecides: true,
+    destructive: true,
+    load: () => import('@/app/api/base-knowledge/settle/route'),
+  },
+  {
+    name: 'base-knowledge-unlist',
+    domain: 'knowledge',
+    summary: 'Take a document off the base knowledge and keep its file',
+    description:
+      'Removes the entry; the document stays as an ordinary file at the top of the office shelf. ' +
+      'Needs org:office_shelf:manage.',
+    method: 'POST',
+    path: '/api/base-knowledge/[entryId]/unlist',
+    params: entryParamsSchema,
+    load: () => import('@/app/api/base-knowledge/[entryId]/unlist/route'),
   },
   {
     name: 'base-knowledge-folder-list',

@@ -96,6 +96,19 @@ def test_a_finding_names_the_package_when_the_name_is_not_exported(checker, repo
     )
 
 
+@pytest.mark.parametrize("path", ["scripts/backfill.py", "packages/knowledge-layer/tests/test_search.py"])
+def test_importing_a_name_the_surface_does_not_export_is_a_finding(checker, repo, capsys, path):
+    add(repo, path, "from knowledge_layer.search import RankedSearch, fusion, NotThere\n")
+
+    assert checker.main([]) == 1
+
+    assert (
+        f"{path}:1: imports `NotThere` from knowledge_layer.search, which does not export it "
+        "and raises ImportError at run time. Add it to `_LAZY` and `__all__` in "
+        f"{SEARCH}/__init__.py."
+    ) in capsys.readouterr().err
+
+
 @pytest.mark.parametrize(
     "path",
     [

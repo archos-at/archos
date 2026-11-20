@@ -14,6 +14,7 @@ import { DATA_RESOURCES, PORT, SEAWEED } from "../constants";
 import { scrapeAnnotations } from "../platform/scrape";
 import { growPvcToConfigured } from "./pvc-grow";
 import type { SeaweedTopology } from "./seaweedfs-types";
+import { cpuRequest } from "../config/cpu-requests";
 
 export function installSingleNodeSeaweedFS(
   cfg: DeployConfig,
@@ -93,7 +94,7 @@ export function installSingleNodeSeaweedFS(
                   periodSeconds: 15,
                 },
                 resources: {
-                  requests: { ...DATA_RESOURCES.seaweedfs.requests, memory: cfg.seaweedfs.singleMemory.request },
+                  requests: { ...DATA_RESOURCES.seaweedfs.requests, cpu: cpuRequest(DATA_RESOURCES.seaweedfs.requests.cpu), memory: cfg.seaweedfs.singleMemory.request },
                   limits: { ...DATA_RESOURCES.seaweedfs.limits, memory: cfg.seaweedfs.singleMemory.limit },
                 },
               },

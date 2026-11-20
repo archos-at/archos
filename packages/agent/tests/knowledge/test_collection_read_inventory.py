@@ -47,6 +47,10 @@ TOOLS: dict[str, tuple[str, str]] = {
     "emit_card": ("no_collection_content", "pushes a card the model composed from what it already read"),
     "describe_card": ("no_collection_content", "returns a card type's schema"),
     "file_draft": ("no_collection_content", "files the conversation's own draft; returns the filing outcome"),
+    "execute": (
+        "reports",
+        "packages/agent/tests/tools/execute/test_execute.py::test_a_named_document_reports_its_collection",
+    ),
     "create_task": ("no_collection_content", "queues work; returns the task it created"),
     "show_in_viewer": (
         "no_collection_content",

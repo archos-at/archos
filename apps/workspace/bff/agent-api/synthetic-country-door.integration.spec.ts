@@ -190,7 +190,7 @@ describe.skipIf(!url)('an operator’s agent onboards a synthetic country throug
 
   beforeAll(async () => {
     Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     vi.stubEnv('INTERNAL_API_TOKEN', 'a-real-internal-token-for-the-synthetic-spec')
     vi.stubEnv('BACKEND_URL', BACKEND)
     vi.stubEnv('BYOK_SECRET_BACKEND', 'local-aes-gcm')

@@ -2,7 +2,7 @@ import type { FileItem, FolderItem } from '@/features/documents/components/proje
 import type { DocumentFindingsResponse } from '@/lib/documents/findings-wire'
 import { makeFile } from '../file-browser/fixtures'
 
-const LONG_FOLDER_NAME = 'Einreichplanung Bauteil A – Wohnhausanlage Holzbau Wien, Baufeld 3 (Index C, Stand November 2026)'
+const LONG_FOLDER_NAME = 'Einreichplanung Bauteil A – Wohnbau Seestadt, Baufeld 3 (Index C, Stand November 2026)'
 
 export const REAL_FOLDERS: FolderItem[] = [
   { id: 'r-abgabe', parentId: null, name: 'Abgabepläne', path: '/Abgabepläne' },
@@ -24,6 +24,7 @@ export const REAL_FOLDERS: FolderItem[] = [
   { id: 'r-deep-3', parentId: 'r-deep-2', name: 'Nachreichungen 2026', path: '/…' },
   { id: 'r-deep-4', parentId: 'r-deep-3', name: 'Fluchtwegnachweise Tiefgarage', path: '/…' },
   { id: 'r-deep-5', parentId: 'r-deep-4', name: 'Rauchabschnittsbildung_Bauteil_C_Index-D', path: '/…' },
+  { id: 'r-korr', parentId: null, name: 'Korrespondenz', path: '/Korrespondenz' },
   { id: 'r-archiv', parentId: null, name: 'Planarchiv 2019–2024 (Altbestand, nicht mehr gültig)', path: '/Planarchiv' },
 ]
 
@@ -38,6 +39,27 @@ export const MANY_FOLDERS: FolderItem[] = [
 
 const pdf = (id: string, filename: string, folderId: string | null, extra: Record<string, unknown> = {}): FileItem =>
   makeFile(id, filename, '', { folderId, fileSize: 240_000 + id.length * 37_000, createdAt: '2026-11-03T11:39:00Z', tags: ['Grundriss'], ...extra })
+
+// What filed mail leaves in a folder (`?project=real&folder=r-korr`): two E-Mail-Verläufe, as the filing writes them
+// (a `.md` of Dokumentart correspondence, a Fassung per mail), and an attachment that came with one of their mails.
+const verlauf = (id: string, name: string, mails: number, lastMail: string): FileItem =>
+  makeFile(id, `${name}.md`, '', {
+    folderId: 'r-korr',
+    contentType: 'text/markdown',
+    fileSize: 1_900 * mails,
+    pageCount: null,
+    createdAt: '2026-10-02T14:41:00Z',
+    tags: ['correspondence'],
+    versionCount: mails,
+    versionState: 'published',
+    mailThread: { entryCount: mails, lastEntryAt: lastMail },
+  })
+
+const MAIL_FILES: FileItem[] = [
+  verlauf('r-v1', 'Stellplatznachweis', 3, '2026-10-14T07:12:00Z'),
+  verlauf('r-v2', 'Brandschutzkonzept – Rückfragen MA 37 zur Fluchtwegbreite im 2. OG', 12, '2026-11-17T15:03:00Z'),
+  pdf('r-v3', 'Stellungnahme_MA37_Stellplatznachweis.pdf', 'r-korr', { tags: ['Bescheid'], createdAt: '2026-10-14T08:00:00Z' }),
+]
 
 const REPORTS = Array.from({ length: 21 }, (_, index) =>
   pdf(`r-b${index + 1}`, `Bericht_${String(index + 1).padStart(2, '0')}_Baustellenbesprechung.pdf`, 'r-berichte')
@@ -68,6 +90,7 @@ export const REAL_FILES: FileItem[] = [
   pdf('r-gg1', 'Bodengutachten.pdf', 'r-grund-gutachten'),
   pdf('r-gg2', 'Schallschutzgutachten.pdf', 'r-grund-gutachten'),
   pdf('r-gg3', 'Holzschutzgutachten.pdf', 'r-grund-gutachten'),
+  ...MAIL_FILES,
   ...['Notiz Bauherr', 'Kostenschätzung', 'Terminplan', 'Protokoll Vorbesprechung', 'Visitenkarte'].map((name, index) =>
     pdf(`r-s${index}`, `${name}.pdf`, 'r-sonst')
   ),

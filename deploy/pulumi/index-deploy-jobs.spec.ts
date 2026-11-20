@@ -1,15 +1,12 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
-import { resolve } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, forProject } from "./src/test-support/stack-config";
 import { DependencyGraph } from "./src/test-support/dependency-graph";
-import { ONLINE_INDEXES } from "./src/app/online-indexes-job";
+import { onlineIndexScript } from "./src/app/online-indexes-job";
 
 const JOB = "kubernetes:batch/v1:Job";
 const CRONJOB = "kubernetes:batch/v1:CronJob";
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
-const MIGRATIONS = resolve(__dirname, "../../apps/workspace/migrations");
 
 type Container = { image: string; command: string[]; env?: Array<{ name: string; value?: string }> };
 type JobInputs = {
@@ -75,14 +72,13 @@ describe("deploy Jobs around the migrations and the rollout", () => {
       expect(job("app-online-indexes").spec.backoffLimit).toBeGreaterThan(0);
     });
 
-    it("names an index the migration it serves adopts by that name", () => {
-      for (const ix of ONLINE_INDEXES) {
-        const [file] = readdirSync(MIGRATIONS)
-          .filter((f) => f.startsWith(`${ix.migration}_`) && f.endsWith(".sql") && !f.endsWith(".down.sql"));
-        expect(file, `migration ${ix.migration}`).toBeDefined();
-        const sql = readFileSync(resolve(MIGRATIONS, file), "utf8");
-        expect(sql).toContain(`USING INDEX "${ix.name}"`);
-      }
+    it("builds a plain index without UNIQUE, and refuses a name it would have to quote", () => {
+      const plain = { migration: "0001", table: "notes", name: "notes_project_idx", columns: ["project_id"], unique: false };
+      const script = onlineIndexScript([plain]);
+      expect(script).toContain('CREATE INDEX CONCURRENTLY IF NOT EXISTS "notes_project_idx" ON "public"."notes" ("project_id")');
+      expect(script).toContain("indisunique = false");
+      expect(() => onlineIndexScript([{ ...plain, name: 'x"; DROP TABLE notes; --' }])).toThrow(/plain lower-case SQL identifier/);
+      expect(() => onlineIndexScript([{ ...plain, columns: ["Project"] }])).toThrow(/plain lower-case SQL identifier/);
     });
   });
 

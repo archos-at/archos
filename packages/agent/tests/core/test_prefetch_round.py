@@ -15,10 +15,10 @@ from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 from agent.common import LLMProvider
 from agent.common import turn_status
-from agent.core.agent import _REPEAT_FETCH_PREFIX
 from agent.core.agent import ChatAgent
-from agent.core.agent import TurnConfig
 from agent.core.models import ResearchAgentState
+from agent.core.round_split import _REPEAT_FETCH_PREFIX
+from agent.core.turn_binding import TurnConfig
 
 _PROMPT = "Du bist der Agent."
 RAN: list[str] = []
@@ -168,7 +168,7 @@ class TestNothingRunsThatShouldNot:
         assert RAN == [] and result.retrieval_rounds == []
 
     async def test_a_switched_off_source_is_not_prefetched(self):
-        with patch("agent.core.agent.disabled_source_notice", return_value="Quelle ist aus."):
+        with patch("agent.core.round_split.disabled_source_notice", return_value="Quelle ist aus."):
             result = await _run(_agent(ANSWER, llm_calls=[]), disabled_sources=frozenset({"knowledge"}))
         assert RAN == [] and result.retrieval_rounds == []
 

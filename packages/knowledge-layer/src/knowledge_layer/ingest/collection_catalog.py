@@ -223,17 +223,52 @@ class CollectionCatalog:
     def delete_file(self, file_id: str, collection_name: str, *, permanent: bool = False) -> bool:
         file_name = self._file_name_of(file_id, collection_name)
         forgotten = ingest_status_store.forget_file(collection_name, file_name)
+        chunks = self._chunk_ids_of(collection_name, self._spellings_in(collection_name, file_name))
+        return self._purge(collection_name, [file_name], chunks, forgotten, permanent=permanent)
 
-        spellings = [
+    def delete_document(
+        self, document_id: str, file_name: str, collection_name: str, *, permanent: bool = False
+    ) -> bool:
+        from knowledge_layer.vector_store import CHUNK_ID_FIELD
+        from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
+
+        forgotten = ingest_status_store.forget_file(collection_name, file_name)
+        by_id: dict[str, Any] = {DOCUMENT_ID_FIELD: {"$eq": document_id}}
+        spellings = self._spellings_in(collection_name, file_name)
+        unclaimed = {"$and": [{"file_name": {"$in": spellings}}, {DOCUMENT_ID_FIELD: {"$exists": False}}]}
+        records = self._store().scroll(
+            collection_name,
+            {"$or": [by_id, unclaimed]} if spellings else by_id,
+            fields=[CHUNK_ID_FIELD, "file_name"],
+            page_size=_LISTING_PAGE,
+        )
+        chunks = [
+            (str((record.payload or {}).get(CHUNK_ID_FIELD) or record.id), str((record.payload or {}).get("file_name")))
+            for record in records
+        ]
+        names = [file_name, *sorted({stored for _, stored in chunks} - {file_name})]
+        return self._purge(collection_name, names, chunks, forgotten, permanent=permanent)
+
+    def _spellings_in(self, collection_name: str, file_name: str) -> list[str]:
+        return sorted(
             stored
             for stored in self._store().file_counts(collection_name)
             if stored == file_name or _stored_name_matches(file_name, stored)
-        ]
-        chunk_ids = [chunk_id for chunk_id, _ in self._chunk_ids_of(collection_name, spellings)]
+        )
 
+    def _purge(
+        self,
+        collection_name: str,
+        names: list[str],
+        chunks: list[tuple[str, str]],
+        forgotten: int,
+        *,
+        permanent: bool,
+    ) -> bool:
         from agent.knowledge import unregister_summary
 
-        if not chunk_ids:
+        file_name = names[0]
+        if not chunks:
             if forgotten:
                 logger.info(f"Removed {forgotten} job record(s) of file {file_name}")
             else:
@@ -241,10 +276,11 @@ class CollectionCatalog:
             unregister_summary(collection_name, file_name, permanent=permanent)
             return forgotten > 0
 
-        self._store().delete_chunks(collection_name, chunk_ids)
+        self._store().delete_chunks(collection_name, [chunk_id for chunk_id, _ in chunks])
         bump_collection_version(collection_name)
-        logger.info(f"Deleted {len(chunk_ids)} chunks for file {file_name}")
-        unregister_summary(collection_name, file_name, permanent=permanent)
+        logger.info(f"Deleted {len(chunks)} chunks for file {file_name}")
+        for name in names:
+            unregister_summary(collection_name, name, permanent=permanent)
         return True
 
     def _indexed_files(self, collection_name: str) -> dict[str, FileInfo]:

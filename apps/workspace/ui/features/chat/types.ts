@@ -22,7 +22,9 @@ import type { Shelf, SourceKind } from '@/lib/source-kinds'
 import type { CitationLineWire } from '@/shared/citation-line'
 import type { ChatEffort } from '@/lib/reasoning-settings/catalog'
 
-export type { ComposerPrefill, ComposerSubject } from './composer-types'
+import type { AnswerExcerpt } from './composer-types'
+
+export type { AnswerExcerpt, ComposerExcerpt, ComposerPrefill, ComposerSubject } from './composer-types'
 
 export type MessageRole = 'user' | 'assistant' | 'system'
 
@@ -107,6 +109,7 @@ export interface ChatMessage {
   deepResearchJobId?: string
   enabledDataSources?: string[]
   messageFiles?: Array<{ id: string; fileName: string }>
+  answerExcerpt?: AnswerExcerpt
   cards?: (AnswerCard | undefined)[]
   cardInteractions?: CardInteractions
   authorUserId?: string | null

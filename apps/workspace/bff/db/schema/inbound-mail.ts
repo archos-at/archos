@@ -57,6 +57,7 @@ export const inboundMailAddresses = pgTable(
     revokedReason: text('revoked_reason').$type<InboundMailAddressRevokedReason>(),
     capNotice: text('cap_notice').$type<InboundMailCapNotice>(),
     capNoticedAt: timestamp('cap_noticed_at', { withTimezone: true }),
+    forwardedFrom: text('forwarded_from').array().notNull().default(sql`'{}'::text[]`),
   },
   (table) => ({
     projectFk: foreignKey({

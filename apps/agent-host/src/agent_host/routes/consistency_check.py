@@ -11,9 +11,9 @@ from agent.common.credential_resolution import ResolvedCredential
 from agent.common.openrouter import limited_async_http_client
 from agent.observability.direct_trace import observed_generation
 
-from ..models.requests import ConsistencyCheckRequest
-from ..models.requests import ConsistencyCheckResponse
-from ..models.requests import ConsistencyFinding
+from ..models.review_requests import ConsistencyCheckRequest
+from ..models.review_requests import ConsistencyCheckResponse
+from ..models.review_requests import ConsistencyFinding
 from ._llm_json import extract_json_object
 from ._llm_json import message_content
 

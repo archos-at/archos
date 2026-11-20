@@ -76,7 +76,7 @@ describe.skipIf(!url)('read/write folder access against Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     access = await import('./folder-access')
@@ -321,7 +321,7 @@ describe.skipIf(!url)('IFC models and restricted folders against Postgres', () =
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     accessRepo = await import('./folder-access-repository')

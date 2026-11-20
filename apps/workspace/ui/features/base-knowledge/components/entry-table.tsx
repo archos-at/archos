@@ -10,10 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { useLocale, useTranslations } from '@/i18n'
+import { useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
 import type { BaseKnowledgeEntry } from '@/lib/base-knowledge/wire'
-import { EntryName, LastChecked, StatusChip, TextUseChip } from './entry-atoms'
+import { usePhoneLayout } from '@/features/documents'
+import { EntryName, StatusChip, TextUseChip } from './entry-atoms'
 
 interface EntryTableProps {
   entries: readonly BaseKnowledgeEntry[]
@@ -33,11 +34,11 @@ export function EntryTable({
   onOpen,
 }: EntryTableProps): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
-  const { locale } = useLocale()
+  const phone = usePhoneLayout()
   const allOn = entries.length > 0 && entries.every((entry) => selected.has(entry.id))
   const someOn = !allOn && entries.some((entry) => selected.has(entry.id))
   return (
-    <Table data-testid="base-knowledge-table">
+    <Table className="table-fixed" data-testid="base-knowledge-table">
       <TableHeader>
         <TableRow>
           {canManage && (
@@ -50,11 +51,10 @@ export function EntryTable({
             </TableHead>
           )}
           <TableHead>{t('column.entry')}</TableHead>
-          <TableHead className="max-md:hidden">{t('column.kind')}</TableHead>
-          <TableHead className="max-lg:hidden">{t('column.edition')}</TableHead>
-          <TableHead>{t('column.status')}</TableHead>
-          <TableHead className="max-md:hidden">{t('column.text')}</TableHead>
-          <TableHead className="max-lg:hidden">{t('column.checked')}</TableHead>
+          <TableHead className="w-28 max-md:hidden">{t('column.kind')}</TableHead>
+          <TableHead className="w-32 max-lg:hidden">{t('column.edition')}</TableHead>
+          {!phone && <TableHead className="w-48">{t('column.status')}</TableHead>}
+          <TableHead className="w-48 max-md:hidden">{t('column.text')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -86,6 +86,11 @@ export function EntryTable({
               >
                 <EntryName entry={entry} />
               </button>
+              {phone && (
+                <span className="mt-1 flex">
+                  <StatusChip entry={entry} />
+                </span>
+              )}
             </TableCell>
             <TableCell className="text-sm whitespace-nowrap max-md:hidden">
               {t(`kind.${entry.values.kind}`)}
@@ -93,14 +98,13 @@ export function EntryTable({
             <TableCell className="text-sm whitespace-nowrap tabular-nums max-lg:hidden">
               {entry.values.editionLabel}
             </TableCell>
-            <TableCell>
-              <StatusChip entry={entry} />
-            </TableCell>
+            {!phone && (
+              <TableCell>
+                <StatusChip entry={entry} />
+              </TableCell>
+            )}
             <TableCell className="max-md:hidden">
               <TextUseChip entry={entry} />
-            </TableCell>
-            <TableCell className="whitespace-nowrap max-lg:hidden">
-              <LastChecked entry={entry} locale={locale} />
             </TableCell>
           </TableRow>
         ))}

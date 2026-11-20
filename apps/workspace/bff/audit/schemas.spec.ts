@@ -2,44 +2,47 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { AUDIT_ACTIONS, AUDIT_SCHEMAS, AWAITING_EMITTER_AUDIT_ACTIONS, RETIRED_AUDIT_ACTIONS } from './schemas.mjs'
-import { writtenAuditAction } from './legacy-agent-actions'
 import { AUTHORED_REF_KINDS } from '@/lib/documents/document-authors'
 import { DOCUMENT_VERSION_TRANSITIONS } from '@/lib/documents/lifecycle-types'
-import { SOURCE_DIRS } from '@/test-utils/source-tree'
+import { nodesOf, parseSource, productionSources, ts } from '@/test-utils/source-ast'
 
 const SOURCE_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
-function sourceFiles(directory: string): string[] {
-  const found: string[] = []
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name)
-    if (entry.isDirectory()) {
-      found.push(...sourceFiles(path))
-      continue
-    }
-    if (!/\.tsx?$/.test(entry.name)) continue
-    if (/\.(spec|test)\.tsx?$/.test(entry.name)) continue
-    found.push(path)
-  }
-  return found
+type ActionCarrier =
+  | ts.PropertyAssignment
+  | ts.PropertySignature
+  | ts.ParameterDeclaration
+  | ts.VariableDeclaration
+  | ts.TypeAliasDeclaration
+
+function carriesAction(node: ts.Node): node is ActionCarrier {
+  if (ts.isTypeAliasDeclaration(node)) return /AuditAction$/.test(node.name.text)
+  const named =
+    ts.isPropertyAssignment(node) ||
+    ts.isPropertySignature(node) ||
+    ts.isParameter(node) ||
+    ts.isVariableDeclaration(node)
+  return named && ts.isIdentifier(node.name) && node.name.text === 'action'
+}
+
+function emittedAuditActions(): string[] {
+  return productionSources(SOURCE_ROOT).flatMap((file) => {
+    const source = parseSource(file, SOURCE_ROOT)
+    const writesAudit = nodesOf(source, ts.isIdentifier).some((id) => id.text.startsWith('recordAuditEvent'))
+    if (!writesAudit) return []
+    return nodesOf(source, carriesAction).flatMap((carrier) =>
+      nodesOf(carrier, ts.isStringLiteralLike).map((literal) => literal.text),
+    )
+  })
 }
 
 const EMITTED_ACTIONS: ReadonlySet<string> = new Set([
   ...DOCUMENT_VERSION_TRANSITIONS.map((row) => row.auditAction),
-  ...SOURCE_DIRS.flatMap((dir) => sourceFiles(join(SOURCE_ROOT, dir)))
-    .map((path) => readFileSync(path, 'utf8'))
-    .filter((text) => text.includes('recordAuditEvent'))
-    .flatMap((text) =>
-      [...text.matchAll(/\baction:\s*([\s\S]*?)(?=\n\s*[a-zA-Z_$][\w$]*\s*:|\n\s*\})/g)].flatMap(
-        ([, expression]) => [...expression.matchAll(/'([a-z_.]+)'/g)].map(([, action]) => action),
-      ),
-    ),
+  ...emittedAuditActions(),
 ])
 
 type AuditAction = keyof typeof AUDIT_SCHEMAS
@@ -60,15 +63,10 @@ describe('audit schema coverage', () => {
     expect(withoutSchema).toEqual([])
   })
 
-  it('registers the name WorkOS receives for every agent action', () => {
-    const onTheWire = AUDIT_ACTIONS.filter((action) => action.startsWith('agent.')).map((action) => writtenAuditAction(action))
-    expect(onTheWire.filter((action) => !REGISTRY[action as AuditAction])).toEqual([])
-  })
-
   it('emits every action it registers a schema for — no orphan schemas', () => {
     const retired = new Set<string>(RETIRED_AUDIT_ACTIONS)
     const awaiting = new Set<string>(AWAITING_EMITTER_AUDIT_ACTIONS)
-    const onTheWire = new Set<string>([...EMITTED_ACTIONS, ...[...EMITTED_ACTIONS].map((action) => writtenAuditAction(action))])
+    const onTheWire = new Set<string>(EMITTED_ACTIONS)
     const orphans = Object.keys(REGISTRY).filter(
       (action) => !onTheWire.has(action) && !retired.has(action) && !awaiting.has(action),
     )
@@ -140,8 +138,10 @@ describe('audit schema coverage', () => {
         'inbound_mail.original_read',
         'inbound_mail.part_read',
         'inbound_mail.received',
+        'inbound_mail.reported',
         'inbound_mail_address.created',
         'inbound_mail_address.deleted',
+        'inbound_mail_address.forwards_changed',
         'inbound_mail_address.rotated',
         'mail_thread.entry_detached',
         'mail_thread.follow_ended',

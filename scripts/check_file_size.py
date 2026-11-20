@@ -19,7 +19,8 @@ from pathlib import Path
 FILE_LIMIT = 600
 FUNCTION_LIMIT = 60
 BASELINE = Path("ci/size_baseline.json")
-SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+SCRIPT_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+SUFFIXES = (".py", *SCRIPT_SUFFIXES)
 
 EXCLUDED = re.compile(
     "|".join(
@@ -43,6 +44,10 @@ EXCLUDED = re.compile(
 class Sizes:
     files: dict[str, int] = field(default_factory=dict)
     functions: dict[str, int] = field(default_factory=dict)
+
+
+def is_script(path: str) -> bool:
+    return path.split("::", 1)[0].endswith(SCRIPT_SUFFIXES)
 
 
 def is_checked(path: str) -> bool:
@@ -213,14 +218,21 @@ def write_baseline(path: Path, sizes: Sizes) -> None:
 
 
 def compare(current: dict[str, int], baseline: dict[str, int], limit: int, what: str) -> list[str]:
-    findings = []
+    findings = [
+        f"{key}: TypeScript and JavaScript have no size baseline. Split the file under {limit} lines "
+        "into modules named for what each does, and delete the entry."
+        for key in sorted(baseline)
+        if is_script(key)
+    ]
     for key, size in sorted(current.items()):
-        allowed = baseline.get(key)
+        allowed = None if is_script(key) else baseline.get(key)
         if allowed is None:
             findings.append(f"{key}: {size} lines, over the {limit}-line {what} limit. Split it.")
         elif size > allowed:
             findings.append(f"{key}: grew from {allowed} to {size} lines. Split it, do not grow it.")
     for key, allowed in sorted(baseline.items()):
+        if is_script(key):
+            continue
         size = current.get(key)
         if size is None:
             findings.append(f"{key}: under the limit or gone, so remove its baseline entry (run --update).")
@@ -243,6 +255,33 @@ def tightened(current: Sizes, baseline: Sizes) -> Sizes:
     return Sizes(files=lower(current.files, baseline.files), functions=lower(current.functions, baseline.functions))
 
 
+def _name(key: str) -> str:
+    path, _, function = key.partition("::")
+    return f"{Path(path).name}::{function}"
+
+
+def refused(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
+    vanished: dict[str, list[int]] = {}
+    for key, size in baseline.items():
+        if key not in current:
+            vanished.setdefault(_name(key), []).append(size)
+    findings = []
+    for key, size in sorted(current.items()):
+        if is_script(key):
+            findings.append(f"{key}: {size} lines. TypeScript and JavaScript take no baseline entry: split it.")
+            continue
+        if key in baseline:
+            if size > baseline[key]:
+                findings.append(f"{key}: grew from {baseline[key]} to {size} lines. Split it, do not grow it.")
+            continue
+        moved_from = sorted(s for s in vanished.get(_name(key), []) if s >= size)
+        if not moved_from:
+            findings.append(f"{key}: {size} lines, and no moved entry accounts for it. Split it.")
+            continue
+        vanished[_name(key)].remove(moved_from[0])
+    return findings
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Keep giant source files and giant Python functions from being added or growing.",
@@ -250,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
-    mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, growth included.")
+    mode.add_argument("--rebaseline", action="store_true", help="Re-key moved entries; never add or raise one.")
     args = parser.parse_args(argv)
     if sys.version_info < (3, 14):
         print("check_file_size.py needs Python 3.14: run .venv/bin/python scripts/check_file_size.py", file=sys.stderr)
@@ -260,6 +299,19 @@ def main(argv: list[str] | None = None) -> int:
     current = measure(root, tracked_sources(root))
     baseline = load_baseline(root / BASELINE)
     if args.rebaseline:
+        refusals = refused(current.files, baseline.files) + refused(current.functions, baseline.functions)
+        if refusals:
+            print(
+                f"Rebaseline REFUSED ({len(refusals)} entries it would add or raise):",
+                file=sys.stderr,
+            )
+            for refusal in refusals:
+                print(f"  - {refusal}", file=sys.stderr)
+            print(
+                "--rebaseline only re-keys moved entries. Why: docs/contributing/code-conventions.md#size-limits",
+                file=sys.stderr,
+            )
+            return 1
         write_baseline(root / BASELINE, current)
         print(f"Size baseline rewritten: {len(current.files)} file(s), {len(current.functions)} function(s).")
         return 0

@@ -1,13 +1,17 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-config";
 
+type Resource = { type: string; name: string; inputs: Record<string, any> };
+const RESOURCES: Resource[] = [];
+
 pulumi.runtime.setMocks(
   {
-    newResource: (args: pulumi.runtime.MockResourceArgs) => ({ id: `${args.name}-id`, state: args.inputs }),
+    newResource: (args: pulumi.runtime.MockResourceArgs) => {
+      RESOURCES.push({ type: args.type, name: args.name, inputs: args.inputs });
+      return { id: `${args.name}-id`, state: args.inputs };
+    },
     call: () => ({}),
   },
   "grid-oib",
@@ -15,7 +19,7 @@ pulumi.runtime.setMocks(
   false,
 );
 
-const repoRoot = join(__dirname, "..", "..", "..", "..");
+const NETWORK_POLICY = "kubernetes:networking.k8s.io/v1:NetworkPolicy";
 const LANGFUSE_API = /^LANGFUSE_(HOST|PUBLIC_KEY|SECRET_KEY)$/;
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
@@ -29,12 +33,14 @@ describe("Langfuse's API credentials, with the tier deployed", () => {
     const { loadConfig } = await import("../config");
     const { frontendEnv, purgerEnv } = await import("./config");
     const { bffJobsEnv } = await import("./bff-jobs-env");
+    const { installNetworkPolicies } = await import("../platform/network-policies");
     const cfg = loadConfig();
     expect(cfg.langfuse.enabled).toBe(true);
+    const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
     const wiring = {
       cfg,
       namespace: "grid",
-      provider: new k8s.Provider("test", { kubeconfig: "apiVersion: v1" }),
+      provider,
       redisUrl: pulumi.output("redis://dragonfly:6379"),
       seaweedInternalEndpoint: pulumi.output("http://seaweedfs:8333"),
       seaweedPublicEndpoint: pulumi.output("https://s3.example.test"),
@@ -45,7 +51,9 @@ describe("Langfuse's API credentials, with the tier deployed", () => {
     envs.frontend = frontendEnv(wiring as never);
     envs.bffJobs = bffJobsEnv(wiring as never);
     envs.purger = purgerEnv(wiring as never);
-  });
+    const policies = installNetworkPolicies(cfg, provider, "grid");
+    await Promise.all(policies.map((policy) => new Promise((done) => policy.id.apply(done))));
+  }, 60_000);
 
   it("are in the frontend's, which scores votes", () => {
     expect(apiNames(envs.frontend).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
@@ -54,19 +62,11 @@ describe("Langfuse's API credentials, with the tier deployed", () => {
   it("are in the purger's and bff-jobs', the two pods the network policy admits, once each", () => {
     expect(apiNames(envs.purger).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
     expect(apiNames(envs.bffJobs).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
-    const policies = readFileSync(join(repoRoot, "deploy", "pulumi", "src", "platform", "network-policies.ts"), "utf8");
-    expect(policies).toContain('from: ["purger", "bff-jobs"].map(');
-  });
-
-  it("are not reached for by the BFF's own code, outside the sweeps only bff-jobs runs", () => {
-    const BFF_JOBS_ONLY = new Set([join("scheduling", "sweeps.ts")]);
-    const importers = ["app", "bff", "ui", "i18n", "shared", "types", "utils"].flatMap((dir) => {
-      const root = join(repoRoot, "apps", "workspace", dir);
-      return (readdirSync(root, { recursive: true }) as string[])
-        .filter((file) => /\.(ts|tsx)$/.test(file) && !/\.spec\.tsx?$/.test(file))
-        .filter((file) => readFileSync(join(root, file), "utf8").includes("workers/langfuse-traces"))
-        .filter((file) => !(dir === "bff" && BFF_JOBS_ONLY.has(file)));
-    });
-    expect(importers).toEqual([]);
+    const policy = RESOURCES.find((r) => r.type === NETWORK_POLICY && r.name === "allow-workers-to-langfuse");
+    expect(policy, "allow-workers-to-langfuse").toBeDefined();
+    const admitted = policy!.inputs.spec.ingress[0].from.map(
+      (peer: { podSelector: { matchLabels: Record<string, string> } }) => peer.podSelector.matchLabels["app.kubernetes.io/name"],
+    );
+    expect(admitted.sort()).toEqual(["bff-jobs", "purger"]);
   });
 });

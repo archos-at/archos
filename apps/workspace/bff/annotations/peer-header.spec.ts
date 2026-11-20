@@ -32,6 +32,10 @@ describe('the room peer header', () => {
     expect(roomPeerOf(requestWith({}))).toBeNull()
   })
 
+  it('refuses the agent’s peer id, so a person’s change is never announced as the agent’s', () => {
+    expect(roomPeerOf(requestWith({ 'x-room-peer': 'agent-conv_42' }))).toBeNull()
+  })
+
   it('is sent by the annotation client under the new name', async () => {
     let sent: RequestInit | undefined
     const run: AnnotationFetch = async (_path, init) => {

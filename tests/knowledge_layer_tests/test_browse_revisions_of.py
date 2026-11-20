@@ -429,15 +429,15 @@ class TestComparing:
         await self._call(revisions_of="Plan_Index_B.pdf", compare_to="vorige", shelf="project")
         assert stored == [{"proj_1"}]
 
-    async def test_a_file_outside_the_chain_is_refused_with_the_chain(self, scope, stored):
+    async def test_a_name_that_is_no_file_is_refused_with_the_chain(self, scope, stored):
         text = await self._call(revisions_of="Plan_Index_B.pdf", compare_to="Schnitt.pdf", shelf="project")
-        assert "is not a Fassung of this document" in text
+        assert "is neither a Fassung of this document nor another file on Projektwissen" in text
         assert "Plan_Index_A.pdf" in text
         assert stored == []
 
     async def test_a_document_with_one_revision_has_nothing_to_compare(self, scope, stored):
         text = await self._call(revisions_of="Plan_Index_A.pdf", compare_to="vorige", shelf="office_shelf")
-        assert "nothing to compare" in text
+        assert "no previous Fassung" in text
 
     async def test_identical_revisions_with_several_chunks_on_a_page_compare_as_unchanged(
         self,
@@ -478,3 +478,81 @@ class TestComparing:
     async def test_a_file_the_index_does_not_hold_is_said_not_compared(self, scope, qdrant_store):  # noqa: ARG002
         text = await self._call(revisions_of="Plan_Index_B.pdf", compare_to="vorige", shelf="project")
         assert "is not in the index" in text
+
+
+def _table(file_name: str, rows: list[list[str]]):
+    from knowledge_layer_testing.vector_store import record
+
+    body = "\n".join("| " + " | ".join(row) + " |" for row in rows)
+    locator = f"Raumliste: Zeilen 2-{len(rows) + 1}"
+    text = f"Tabellenblatt „Raumliste“, {locator}\n\n| Nr. | Raum | Fläche |\n|---|---|---|\n{body}"
+    return record(text, file_name, page_label="Raumliste", content_type="table", clause_id=locator, chunking="table")
+
+
+@pytest.fixture
+def two_documents(monkeypatch, qdrant_store):  # noqa: ARG001 - the store the compare reads
+    from knowledge_layer_testing.vector_store import record
+    from knowledge_layer_testing.vector_store import write
+
+    monkeypatch.setattr(
+        "agent.knowledge.scoping.get_scoped_collections_from_context",
+        lambda: [ScopedCollection("proj_1", Shelf.PROJECT)],
+    )
+    monkeypatch.setattr("agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
+    set_turn_documents(
+        [
+            _doc("Raumliste Entwurf.xlsx"),
+            _doc("Raumprogramm Bauherr.xlsx"),
+            _doc("Raumprogramm Nutzer.xlsx"),
+            _doc("Baubeschreibung.pdf"),
+            _doc("OENORM B 1600.pdf"),
+        ]
+    )
+    write(
+        "proj_1",
+        [
+            _table("Raumliste Entwurf.xlsx", [["1.01", "Wohnen", "23,40"], ["1.02", "Küche", "9,80"]]),
+            _table("Raumprogramm Bauherr.xlsx", [["1.01", "Wohnen", "25,00"], ["1.03", "Bad", "5,00"]]),
+            _page("Baubeschreibung.pdf", 1, "Wohnen 23,40 m²"),
+            record("Türbreite 90 cm", "OENORM B 1600.pdf", content_type="text", licence_class="licensed"),
+        ],
+    )
+    noted: list[set[str]] = []
+    monkeypatch.setattr(
+        "agent.knowledge.restricted_use.note_collections_read", lambda collections: noted.append(set(collections))
+    )
+    yield noted
+    set_turn_documents(None)
+
+
+class TestComparingTwoDifferentDocuments:
+    async def _call(self, **kwargs) -> str:
+        async with list_files(ListFilesConfig(), _builder()) as info:
+            return await info.single_fn(info.input_schema(**kwargs))
+
+    async def test_two_lists_are_compared_row_by_row_in_the_order_asked(self, two_documents):
+        text = await self._call(revisions_of="Raumliste Entwurf.xlsx", compare_to="Raumprogramm Bauherr.xlsx")
+
+        assert "two different documents, first „Raumliste Entwurf.xlsx“ → second „Raumprogramm Bauherr.xlsx“" in text
+        assert "- Row „1.01“: Fläche 23,40 → 25,00." in text
+        assert "- Only in „Raumliste Entwurf.xlsx“: row „1.02“" in text
+        assert "- Only in „Raumprogramm Bauherr.xlsx“: row „1.03“" in text
+        assert "(older)" not in text and "„Vergleichen“" not in text
+        assert two_documents == [{"proj_1"}]
+
+    async def test_a_name_that_fits_several_files_is_asked_for_exactly(self, two_documents):
+        text = await self._call(revisions_of="Raumliste Entwurf.xlsx", compare_to="Raumprogramm")
+
+        assert "matches several files on" in text
+        assert "Raumprogramm Bauherr.xlsx" in text and "Raumprogramm Nutzer.xlsx" in text
+        assert two_documents == []
+
+    async def test_a_licensed_copy_is_not_printed_line_by_line(self, two_documents):
+        text = await self._call(revisions_of="Baubeschreibung.pdf", compare_to="OENORM B 1600.pdf")
+
+        assert "is a licensed copy" in text
+        assert "Türbreite" not in text
+        assert two_documents == []
+
+    def test_the_description_says_that_any_two_files_compare(self):
+        assert "any other file" in _LIST_FILES_DESCRIPTION

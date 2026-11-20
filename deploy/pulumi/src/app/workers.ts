@@ -14,6 +14,7 @@ import {
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, PORT, UID } from "../constants";
 import { AppSecrets, AppWiring, BACKEND_URL, purgerEnv, sref } from "./config";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 const FRONTEND_URL = `http://frontend:${PORT.frontend}`;
 
@@ -100,7 +101,7 @@ function internalSweepJobSpec(
             image: frontendImage(cfg),
             imagePullPolicy: appPullPolicy(cfg, frontendImage(cfg)),
             securityContext: hardenedContainerSecurityContext(),
-            resources: BOOTSTRAP_JOB_RESOURCES,
+            resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
             command: ["node", "-e", internalSweepScript(sweep.name, sweep.timeoutMs)],
             env: [
               { name: "SWEEP_URL", value: sweep.url },
@@ -182,7 +183,7 @@ export function installWorkers(
                 securityContext: hardenedContainerSecurityContext(),
                 command: ["node", "purger/index.js"],
                 env: purgerEnv(w),
-                resources: workerResources,
+                resources: scaledCpuRequest(workerResources),
               },
             ],
           },

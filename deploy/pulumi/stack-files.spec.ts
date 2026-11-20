@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { load } from "js-yaml";
+import ts from "typescript";
 import { RETIRED_VECTOR_KEYS } from './src/config/qdrant'
 import { dmarcRecordProblem } from "./src/config/dmarc";
 import { LEGACY_PROJECT } from "./src/names";
@@ -32,6 +33,39 @@ function stacksByZone(): Map<string, Array<{ file: string; config: StackConfig }
     zones.set(zoneId, [...(zones.get(zoneId) ?? []), stack]);
   }
   return zones;
+}
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(join(DIR, dir), { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(path);
+    return entry.name.endsWith(".ts") && !entry.name.endsWith(".spec.ts") ? [path] : [];
+  });
+}
+
+function stringProperty(node: ts.ObjectLiteralExpression, key: string): string | undefined {
+  for (const property of node.properties) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      ts.isIdentifier(property.name) &&
+      property.name.text === key &&
+      ts.isStringLiteral(property.initializer)
+    ) {
+      return property.initializer.text;
+    }
+  }
+  return undefined;
+}
+
+function setsKnowledgeFlag(node: ts.Node): boolean {
+  if (
+    ts.isObjectLiteralExpression(node) &&
+    stringProperty(node, "name") === "KNOWLEDGE_SINGLE_OPERATOR" &&
+    stringProperty(node, "value") === "true"
+  ) {
+    return true;
+  }
+  return ts.forEachChild(node, setsKnowledgeFlag) ?? false;
 }
 
 describe("committed stack files", () => {
@@ -175,12 +209,12 @@ describe("four-eyes review of platform knowledge", () => {
     expect(value === undefined || value === false || value === "false").toBe(true);
   });
   it("is turned on in source only by the knowledge carry Job", () => {
-    const sources = (dir: string): string[] =>
-      readdirSync(join(DIR, dir), { withFileTypes: true }).flatMap((entry) =>
-        entry.isDirectory() ? sources(join(dir, entry.name)) : entry.name.endsWith(".ts") && !entry.name.endsWith(".spec.ts") ? [join(dir, entry.name)] : [],
-      );
-    const setsIt = sources("src").filter((file) => /name: "KNOWLEDGE_SINGLE_OPERATOR", value: "true"/.test(readFileSync(join(DIR, file), "utf8")));
-    expect(setsIt).toEqual([join("src", "app", "knowledge-carry-job.ts")]);
+    const setsIt = sourceFiles("src").filter((file) =>
+      setsKnowledgeFlag(ts.createSourceFile(file, readFileSync(join(DIR, file), "utf8"), ts.ScriptTarget.Latest)),
+    );
+    expect(setsIt, `only the knowledge carry Job turns KNOWLEDGE_SINGLE_OPERATOR on; found: ${setsIt.join(", ") || "none"}`).toEqual([
+      join("src", "app", "knowledge-carry-job.ts"),
+    ]);
   });
 
   it("carries the reviewed releases on prod and on dev", () => {

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -9,18 +12,29 @@ from agent_host.routes import jobs as jobs_routes
 TOKEN = "real-secret"  # pragma: allowlist secret
 AUTH = {"x-grid-internal-token": TOKEN}
 DB_URL = "postgresql://grid@db/grid"
+CONTRACT = json.loads((Path(__file__).resolve().parents[3] / "contracts" / "housekeeping-routes.json").read_text())
+
+
+def housekeeping_app() -> FastAPI:
+    app = FastAPI()
+    jobs_routes._add_housekeeping_routes(app, job_store=object(), db_url=DB_URL, expiry_seconds=86400)
+    return app
 
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("INTERNAL_API_TOKEN", TOKEN)
     monkeypatch.setenv("APP_ENV", "production")
-    app = FastAPI()
-    jobs_routes._add_housekeeping_routes(app, job_store=object(), db_url=DB_URL, expiry_seconds=86400)
-    return TestClient(app)
+    return TestClient(housekeeping_app())
 
 
-@pytest.mark.parametrize("path", ["ghost-jobs", "job-events", "chat-checkpoints", "base-corpus"])
+def test_the_backend_registers_exactly_the_housekeeping_routes_of_the_contract():
+    prefix = CONTRACT["prefix"]
+    paths = [getattr(route, "path", "") for route in housekeeping_app().routes]
+    assert sorted(path.removeprefix(prefix) for path in paths if path.startswith(prefix)) == sorted(CONTRACT["routes"])
+
+
+@pytest.mark.parametrize("path", CONTRACT["routes"])
 def test_every_housekeeping_route_refuses_a_caller_without_the_internal_token(client: TestClient, path: str):
     assert client.post(f"/v1/maintenance/housekeeping/{path}").status_code == 403
     assert (

@@ -3,35 +3,28 @@
  * @vitest-environment node
  */
 
-import { readdirSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { actingDoor, actingProposalId, actingReaderIsAgent, currentActingSession, runAsActingSession } from './acting-session'
-import { SOURCE_DIRS, srcKey } from '@/test-utils/source-tree'
+import { callsTo, nodesOf, parseSource, productionSources, ts } from '@/test-utils/source-ast'
 
+const ALLOWED = new Set(['bff/agent-api/acting-session.ts', 'bff/agent-api/dispatch.ts'])
+const ENTRY = 'runAsActingSession'
 
-const ALLOWED = new Set(['lib/agent-api/acting-session.ts', 'lib/agent-api/dispatch.ts'])
-
-function sourceFiles(dir: string): string[] {
-  const found: string[] = []
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) found.push(...sourceFiles(path))
-    else if (/\.tsx?$/.test(entry.name) && !/\.spec\.tsx?$/.test(entry.name)) found.push(path)
-  }
-  return found
+function mentionsEntry(source: ts.SourceFile): boolean {
+  return nodesOf(source, ts.isIdentifier).some((identifier) => identifier.text === ENTRY)
 }
 
 describe('the acting session', () => {
   it('is entered only by the dispatcher', () => {
-    const callers = SOURCE_DIRS.flatMap((dir) => sourceFiles(join(process.cwd(), dir)))
-      .filter((file) => readFileSync(file, 'utf8').includes('runAsActingSession'))
-      .map((file) => srcKey(file))
-      .filter((file) => !ALLOWED.has(file))
+    const dispatcher = parseSource('bff/agent-api/dispatch.ts')
+    expect(callsTo(dispatcher, ENTRY)).not.toHaveLength(0)
+    expect(productionSources()).toContain('bff/agent-api/dispatch.ts')
+
+    const callers = productionSources().filter((file) => !ALLOWED.has(file) && mentionsEntry(parseSource(file)))
     expect(callers).toEqual([])
   })
 

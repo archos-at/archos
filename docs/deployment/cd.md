@@ -8,9 +8,9 @@ prod    ──(promotion PR, reviewers)──▶ deploy.yml ──▶ pulumi up 
 ```
 
 CI builds each image only when GHCR has no image with the same inputs, and tags
-all three images `sha-<commit>` once every check on the commit has passed
+every image (backend, frontend, web, cms, code-runner, browser-renderer) `sha-<commit>` once every check on the commit has passed
 ([ci.md](../contributing/ci.md#images-and-deploys)). So every commit CI passed
-has all three images, every deploy pins all three to the commit it deploys, and
+has every image, every deploy pins every service to the commit it deploys, and
 a commit CI failed cannot be deployed by accident.
 
 - **State + secrets**: [Pulumi Cloud](https://app.pulumi.com). Stack state lives
@@ -168,18 +168,20 @@ accepted residual (see
 
 ## Image pinning
 
-**The prod job has no downgrade guard.** It deploys whatever
-`imageTag` the merged `Pulumi.prod.yaml` names; the vector-store floor
-only warns when it cannot find the commit. develop's copy of that line is not
+The prod job deploys whatever `imageTag` the merged `Pulumi.prod.yaml` names,
+after its downgrade guard (below); the vector-store floor only warns when it
+cannot find the commit. develop's copy of that line is not
 maintained (it pinned 2026-09-18 while prod ran 2026-10-28), so a promotion PR
 sets it and checks `git diff origin/prod -- deploy/pulumi/Pulumi.prod.yaml`.
 
 `deploy.yml` pins one ref per service
 ([`resolve-image-refs.sh`](../../deploy/pulumi/scripts/resolve-image-refs.sh)):
 
-- after a green CI run, all three are the commit's `sha-<40-hex>` tag, which
-  the workflow verifies GHCR has before it pins anything;
-- an operator rollback (dispatch with `imageTag`) pins all three to that tag,
+- after a green CI run, every service (the CMS's `cmsImage`, the code runner's
+  `grid-oib:codeRunnerImage` and the browser renderer's
+  `grid-oib:browserRendererImage` included) is the commit's `sha-<40-hex>` tag,
+  which the workflow verifies GHCR has before it pins anything;
+- an operator rollback (dispatch with `imageTag`) pins every service to that tag,
   verified the same way;
 - a bare dispatch (no `imageTag`) pins each service to the newest commit on
   develop's first-parent line whose `sha-<commit>` tag GHCR has (a manifest
@@ -233,7 +235,8 @@ Without `sha` it takes the newest commit on develop's first-parent line (of the
 last 60) with a green `CI OK` check run and the commit status `deploy/staging`,
 which the staging job sets on a CI-triggered deploy once the smoke check
 passed. The status exists from the first staging deploy after it was added; for
-older commits pass `sha`. Then it checks GHCR has the commit's images, branches
+older commits pass `sha`. It refuses a commit that carries a switch whose expand
+prod does not run yet ([expand-and-switch.md](expand-and-switch.md)). Then it checks GHCR has the commit's images, branches
 `release/promote-<short>`, merges `origin/prod` with `-s ours`, writes
 `Pulumi.prod.yaml`, pushes and opens `chore(release): promote develop <short> to
 prod` with the migrations and release notes the commit brings over prod. A
@@ -380,6 +383,30 @@ avoids them looks odd without the reason, so don't "simplify" it back.
   (`repository name must be lowercase`). Anything composing an image ref from
   the owner must fold the case first — an uppercase ref reaches the cluster as
   an unpullable image, not as a workflow error.
+
+- **A deploy of exactly what staging runs is skipped.** A re-run CI run fires
+  `workflow_run` again: 19 of 78 commits were deployed twice in two weeks, each
+  holding `deploy-dev` three to four minutes. "Exactly" is the three image refs
+  and the program: the stack tag `deployed-commit`, written by a green apply, must
+  name the commit, because refs alone match after an operator rollback to this
+  commit's tag from a newer develop. A dispatch always applies, and the smoke
+  check runs on a skip too.
+- **The staging job checks the event and the repository, not only the branch.**
+  `workflow_run`'s `branches` filter matches a head branch by name, and a fork's
+  pull request from a branch called `develop` has that name too.
+- **The prod job checks out prod, never the dispatching ref.** A push applies
+  the pushed commit rather than the tip when the job starts, so a later push
+  cannot ride on this run's reviewer approval; a dispatch used to check out its
+  own ref, so `target=both` from develop applied develop's program to production.
+- **The Pulumi CLI is the release of the SDK `bun.lock` pins, not `latest`.**
+  Pulumi releases the two in lockstep; `latest` changed the CLI under a deploy
+  nobody changed.
+- **The timeout is generous on purpose.** Killing `pulumi up` mid-apply leaves
+  pending operations someone clears by hand, and the policy pack's progress
+  deadlines fail a stuck rollout long before it (a green deploy took 6 minutes
+  on 2026-10-09). Both jobs clone blobless with full history (the resolver and
+  the downgrade guards read ancestry): the full clone with every blob took 25 s
+  at the median and up to 414 s on staging, 158 s on prod.
 
 ## Day-to-day
 - Merge to `develop` → staging deploys automatically once green.

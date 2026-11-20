@@ -1,366 +1,335 @@
 # The agent's `execute` tool: code in an isolate, nothing more
 
-**Status:** proposed, 2026-11-12. Nothing here is built. It runs in our cluster; the
-numbers marked *measured* were taken on a development machine to size that
-deployment.
+**Status:** implemented. A stack turns it on with `grid-oib:codeRunnerEnabled: "true"` and the
+browser with `grid-oib:browserRendererEnabled: "true"`; `deploy/pulumi/Pulumi.<stack>.yaml` is
+where each stack's switch lives (dev has the runner and no browser, prod neither). Without the
+runner the tool stays bound and answers that code execution is not available; without the browser a
+run's `puppeteer.launch` fails and the agent makes the PDF with Typst.
 
-## Summary
+## The result
 
-| | |
-|---|---|
-| **What** | The agent gets one tool, `execute`. It runs a short JavaScript program the agent wrote, with the documents it needs, and returns the files the program made. |
-| **Why** | Today the agent reads and writes about the work. With `execute` it does the work: totals and ratios from code instead of the model's head, documents checked against each other, Word and Excel files the office opens without explanation. Large documents are processed in code, so less of an office's text reaches the model provider. |
-| **How** | Each run gets a fresh isolate with no network, thrown away afterwards, inside a pod that holds nothing worth taking. Files in, files out, nothing kept in the runtime. The shape of Anthropic's code execution tool, on our own cluster. |
-| **Effort and cost** | A handful of small pieces, most beside things that exist. A run takes a fraction of a second; the runner is stateless and scales with KEDA. No new vendor, no new processor of office data, nothing to ask IPAX. |
-| **What it can make** | Whatever the approved libraries can build: Word, Excel, PowerPoint, PDF and charts to start. A new file type is a library and a skill, never a new tool. |
-| **Needs a decision** | Where `/workspace/` files are stored, and the limits per run. The isolate engine is decided: workerd. |
+The chat agent has one tool, `execute`. It runs a short JavaScript (or TypeScript) module the agent
+wrote, in a fresh V8 isolate with no network, and keeps the files the module wrote in the
+conversation's working directory. From there `file_draft`, or the person with the card's
+„Ins Projekt ablegen“, files a Word, Excel, PowerPoint, PDF, SVG or PNG file into the project as a
+draft, checked and marked as made by AI.
 
-## What this is
+So the agent computes instead of writing about computing: totals, ratios and comparisons come from
+code that ran, and the office gets files it opens without explanation. Documents handed to a run are
+processed in code, so only the findings reach the model, and so are the results of the agent's other
+tools: a Raumbuch of 300 rooms is built from the model's own figures, not from figures the model
+typed into the code.
 
-The agent gets one new tool, `execute`. It runs a short JavaScript module the agent
-wrote, with the files it needs handed in, and returns the files the module wrote.
-The module runs in a fresh V8 isolate with no network, which is thrown away
-afterwards. Nothing lives in the runtime between runs.
+## The parts
 
-That is the shape of Anthropic's code execution tool and of Cloudflare's Code Mode:
-one verb, files in, files out, the sandbox someone else's concern. State stays in the
-stores the product already has; the runtime only computes.
+Start here; each row names the code and the page that owns its detail.
 
-## What this enables
-
-Office files instead of Markdown is the first use, not the reason. The reason is that
-the agent can now *compute* instead of *write about computing*: arithmetic, tables,
-comparisons and files come out of code that ran, so they are exact, repeatable and
-inspectable. Each example below names the part of the product it builds on. They
-are examples to justify the capability, not a roadmap.
-
-### Files the office already uses
-
-| Example | What happens | Builds on |
+| Part | Code | Written down in |
 |---|---|---|
-| The Aktenvermerk on the office's Briefpapier | The agent writes the text, the script lays it into the office's Word template from the Büroablage, the person files it | Writing (VISION.md), the Büroablage, filing (ADR-0054) |
-| The Flächenaufstellung as Excel | The script reads the model's published quantities and writes one sheet per storey with real `SUM` formulas, rooms without an area listed and counted | `bff/bim/schedule.ts`, which already computes it and offers only CSV |
-| The Bauherrenbesprechung deck | Five slides: status, open points, cost development as a chart, next dates | Project memory, tasks, the inbox |
-| The Planliste in the office's own layout | Every drawing in the project with index, date and status, in the office's Excel template | Documents and Fassungen |
-
-### Numbers that have to be right
-
-| Example | What happens | Builds on |
-|---|---|---|
-| Ratios and totals for an Einreichung | BGF, NGF, GFZ, the share of usable area, computed from the model's quantities with each input shown | The model's Raumbuch; the OIB checks already name thresholds |
-| A requirement that is a calculation | Parking spaces, bicycle spaces or playground area from the uses and areas the project records, with the rule's clause cited | The Einrichtung's facts, the legal corpus |
-| Checking the agent's own arithmetic | Before an answer states a total, the script recomputes it from the cited figures; a mismatch is reported, not smoothed over | The Herleitung: the run becomes a row of the derivation, so the work is visible and repeatable |
-
-A model adding up forty room areas in its head is a guess. A script doing it is a
-result, and the script is the proof.
-
-### Checking and reconciling many documents
-
-| Example | What happens | Builds on |
-|---|---|---|
-| Planliste against the files | Compare the drawing register with the documents actually filed: missing drawings, stale indices, dates that disagree | Documents, versions |
-| Areas across sources | The areas in the Baubeschreibung against the model and the drawings' area tables, with every difference listed | Grounding with citation keys (ADR-0061) |
-| Consultants' figures | Merge the cost estimates of three consultants, each in its own Excel layout, into one table by ÖNORM B 1801-1 cost group | Uploads, the Büroablage |
-
-In a run the documents are processed by code, and only the findings reach the model.
-That is faster, cheaper, and sends less of an office's text to the model provider
-(ADR-0167).
-
-### Work in the background
-
-| Example | What happens | Builds on |
-|---|---|---|
-| The Raumbuch for every project, tonight | A Hatchet parent task fans out into one agent run per project | Aufgaben, Zeitpläne, Hatchet (ADR-0150) |
-| A monthly status for the office | Open points, deadlines and recent filings per project, as one Excel and one PDF | Tasks, inbox, project memory |
-| After a model revision | Regenerate the Flächenaufstellung and the Planliste, file them as new Fassungen for review | Model revisions, versions |
-
-### The agent's own work
-
-- **An office's own procedures as code.** A skill can carry a script: the office's
-  way of laying out a Raumbuch, its fee calculation sheet, its export for the
-  authority's form.
-- **Interactive outputs.** A run can write an HTML page: a table to filter, a chart
-  to hover, a checklist to tick. Showing it beside the chat is a later step (MCP
-  Apps, ADR-0142); producing it is this one. Until that step, the output check
-  accepts an HTML file only as a file to download, never rendered inside the app.
-  When it is shown, it is served from an origin separate from the application, in a
-  frame sandboxed with `allow-scripts` alone (no `allow-same-origin`, popups, forms or
-  top navigation), under `default-src 'none'; script-src 'unsafe-inline';
-  style-src 'unsafe-inline'; img-src data: blob:; font-src data:; form-action 'none';
-  base-uri 'none'`. Its scripts run but cannot read the app, and no fetch, image,
-  font, style or form can reach another host. One channel stays open, because CSP
-  has no directive for it since `navigate-to` was dropped: the frame can navigate
-  itself to a URL that carries data. What it could leak is the file's own content,
-  which the viewer can already see, and what the viewer does in the page (checklist
-  ticks, filter text), which is not in the file. So the risk is a page that a prompt
-  injection filled with something the person did not mean to send, or that records
-  what the viewer did. Accepted when the display
-  step is designed, or HTML is shown without scripts.
-- **The builtin research skills** that call Deep Agents' shell `execute` and are
-  switched off in production (`configs/config_oib_openrouter.yml`: "it needs a
-  sandbox this config does not run") are written for Python. They would need a
-  JavaScript version to run here; see "Two `execute` tools" below.
-
-### What it does not enable
-
-- **Python and LibreOffice inside a run.** The runtime is JavaScript and
-  WebAssembly. JavaScript counterparts of the office libraries (ExcelJS, docx, a PDF
-  and a chart library) are preloaded; Word and Excel files were produced in the test.
-  Conversion to PDF stays with Gotenberg.
-- **Reading IFC inside a run.** The schedule the BFF already computes is handed in.
-- **Large scans and models.** A run's memory is limited; files above the size limits
-  below stay with the services built for them.
-
-## The tool
-
-| Tool | One-line description for the model | Change |
-|---|---|---|
-| `ls`, `glob`, `grep`, `read_file` | Read any mount: `/project/`, `/office/`, `/chat/`, `/law/oib/`, `/skills/`, and `/workspace/`, your own files. On a document mount the result is cited; a `/workspace/` file is your own work, never evidence | `/workspace/` added as a mount |
-| `write_file`, `edit_file` | Create or change a file under `/workspace/`, the only writable folder | Reach `/workspace/` instead of `/drafts/` |
-| `execute` | Run a JavaScript module (not a shell command) with no network. It sees `/workspace/`, and each document named in `inputs` read-only at its own path. Files it writes under `/workspace/` are kept | New |
-| `file_to_project` | File a `/workspace/` file into the project after the person's yes; `submit` sends it for review | Replaces `file_draft`, which files only `/drafts/<name>.md` |
-
-- **`/workspace/` replaces `/drafts/`.** One writable folder per conversation. A draft
-  is an `.md` file in it. Existing draft paths are mapped the way `/entwuerfe/` was
-  mapped to `/drafts/` (`modernize_draft_path` in
-  `packages/agent/src/agent/tools/documents/draft_store.py`).
-- **One document, one path.** A document named in `inputs` appears inside the run at
-  the path `read_file` uses, `/project/…/Plan.pdf`, read-only, and its text at
-  `/project/…/Plan.pdf.md`. The model never maps between two names for one file.
-- **What a run's figures cite.** Each run is one row of the Herleitung: the script,
-  its inputs with their citation keys, its outputs. A file the office kit writes
-  carries a sources sheet listing those keys. The script's own arithmetic is shown,
-  not cited.
-- **Two `execute` tools.** Deep Agents' own `execute` runs a shell command over
-  `/shared/` in deep research, when a sandbox is configured; production configures
-  none. Ours runs JavaScript. The rule: the two are never bound in the same agent, and
-  our description says "JavaScript module, not a shell command" in its first line,
-  because models are trained on `execute` and `Bash` taking shell commands. Deep
-  Agents' composite backend sends its `execute` only to the default backend
-  (`deepagents/backends/composite.py`), which for chat is the read-only estate, so
-  ours is a tool of our own either way.
-
-## Libraries and skills
-
-**A new file type is a library and a skill, never a new tool.** The libraries are
-what the agent can build with; the skills teach it how.
-
-**The approved set.** The runner image carries a fixed set of libraries, pinned in one
-manifest beside the runner. Each is bundled ahead of time into one module and handed
-to every isolate as a preloaded module, which the script imports by name. A run has no
-network and no package manager, so nothing outside the manifest exists inside a run:
-the allowlist is enforced by construction, not by a check that could be skipped. Only
-the modules a script imports are loaded, which keeps a run fast.
-
-**What a library must pass to be admitted,** each checked in CI by the PR that adds it:
-
-| Check | Why |
-|---|---|
-| A permissive licence: MIT, Apache-2.0, BSD or ISC (a dual MIT-or-GPL package taken under MIT) | The runner ships it |
-| Pure JavaScript or WebAssembly, no native add-on | An isolate has no Node native modules |
-| Runs without generating code from strings | The isolate forbids `eval` and `new Function`. Vega fails without its interpreter mode; found in the test |
-| A smoke script that produces its file type in a fresh isolate | The only proof that it works where it runs |
-| A size budget and the repository's vulnerability scan | Load time per run, and known holes |
-
-**The starting set** (npm, read on 2026-11-12):
-
-| File type | Library | Licence | Status |
-|---|---|---|---|
-| Word | `docx` 9.15.3 | MIT | Tested: a Word file in 72 ms |
-| Word, the office's own templates | `docxtemplater` 3.71.1 with `pizzip` 3.3.0 | MIT (pizzip MIT or GPL) | Candidate |
-| Excel | `exceljs` 4.4.0 | MIT | Tested: a sheet with a `SUM` formula in 188 ms. Last release 2023; already a dependency of the workspace app |
-| PowerPoint | `pptxgenjs` 4.0.1 | MIT | Candidate |
-| PDF | `pdf-lib` 1.17.1 | MIT | Candidate; last release 2021. Word to PDF can instead go through Gotenberg after the run |
-| Charts | `vega` 6.4.0, `vega-lite` 6.5.0, `vega-interpreter` 2.3.2 | BSD-3-Clause | Tested: a bar chart as SVG in 102 ms, with the interpreter |
-| Numbers and data | `decimal.js` 10.6.0 (exact decimals for areas and money), `papaparse` 5.7.1 (CSV), `date-fns` 4.4.0 | MIT | Candidates |
-| Office kit | Ours: the office's branding, area schedules, the sources sheet | | To build |
-
-**Skills per file type.** A builtin skill collection, `office`, with one skill each
-for Word, Excel, PowerPoint, PDF and charts, loaded through the skills middleware the
-agent already runs (ADR-0135), so the model reads only the one it needs. Each says
-when to use it, which library and kit functions to call, a worked example, and the
-pitfalls of its type: Excel saves formulas without computed values, German number
-formats, A4, ÖNORM B 1801-1 cost groups for costs, and what the output check refuses.
-Anthropic's Apache-2.0 document skills are source material; they assume Python, a
-shell and LibreOffice, so they are rewritten for this runtime.
-
-The `execute` description stays short: JavaScript, no network, the list of libraries,
-and "read `/skills/office/<type>/` before writing a file of that type".
+| Tool: description, one run, status steps, trace | `packages/agent/src/agent/tools/execute/` (`register.py`, `run.py`, `runner_client.py`, `progress.py`, `trace.py`), bound to the chat agent in `configs/config_oib_openrouter.yml` | [One run](#one-run) below |
+| Runner: workerd and `CodemodeBackend`, slots, limits, libraries | `apps/code-runner` | [its README](../../apps/code-runner/README.md), [the runner](#the-runner) below |
+| Browser: Chromium for Puppeteer in a run | `apps/browser-renderer`, `apps/code-runner/src/browser/` | [its README](../../apps/browser-renderer/README.md), [the browser](#the-browser) below |
+| Working directory: `/drafts/` to the model, `/workspace/` in a run | `packages/agent/src/agent/tools/documents/draft_store.py` | [Storage](#storage) below |
+| Filing by the agent: `file_draft`, the output check, the AI marking | `apps/workspace/bff/documents/agent-file.ts`, `agent-file-check.ts`, `agent-file-marking.ts` | [Filing](#filing) below |
+| The file in the chat: card, preview, download, the person's filing with folder and name, links in the answer | `apps/workspace/ui/features/cards/components/FileDraftCard.tsx`, `apps/workspace/app/api/conversations/[id]/draft/`, `apps/workspace/bff/conversations/draft-filing.ts`, `apps/workspace/ui/features/documents/save-to-project.ts`, `apps/workspace/ui/features/chat/lib/draft-links.ts` | [agent-made-files-ux.md](agent-made-files-ux.md) |
+| The Herleitung: one row per file, in the office's words | `progress.py`, `apps/workspace/ui/features/chat/lib/file-work.ts`, `apps/workspace/ui/features/chat/components/reasoning/FileWorkList.tsx` | [In der Herleitung](agent-made-files-ux.md#in-der-herleitung) |
+| How to write a file: the builtin skill collection `office`, offered, never required | `packages/agent/src/agent/skills/builtin/office/` | [The office skills](#the-office-skills) below |
+| Deployment: Deployments, NetworkPolicies, KEDA, the stack switches | `deploy/pulumi/src/app/code-runner.ts`, `deploy/pulumi/src/app/browser-renderer.ts`, CI's images `code-runner` and `browser-renderer` | [code-runner-runbook.md](../deployment/code-runner-runbook.md): turning it on, checks, known failures |
+| Observability: the `execute.run` step and four scores per run | `packages/agent/src/agent/tools/execute/trace.py` | [langfuse.md](../observability/langfuse.md) |
+| Tests | `task runner:test`, `task browser:test`, `task runner:e2e` (CI's `packages` and `runner-e2e` jobs) | [the runner's README](../../apps/code-runner/README.md#running-and-testing), [ci.md](../contributing/ci.md#the-jobs) |
 
 ## One run
 
-1. The model calls `execute(code, inputs)`.
-2. The workspace backend fetches each input's original bytes and text through the
-   workspace API, as the person, so folder rights and licensed-copy refusals apply
-   and the download log records each one.
-3. It sends the module, the conversation's `/workspace/` files and the inputs to the
-   runner.
-4. The runner loads a fresh isolate with no network, runs the module with a time and
-   memory limit, collects what it wrote under `/workspace/`, and discards the
-   isolate.
-5. Each new or changed file passes the output check (allowed types, no macros, no
-   external links or embedded objects, size limits). The backend stores the files
-   that pass and records the run in the Herleitung.
-6. The model gets the module's return value, its log, and the list of files written.
+1. The model calls `execute(code, documents, data)`. The description says JavaScript module, no network,
+   and "read the `execute` skill first".
+2. The tool takes the conversation's lock: one run at a time per conversation, so two calls in one
+   response never write back from the same snapshot. Runs of different conversations run side by side.
+3. It sends every file of the working directory (`/drafts/x` becomes `/workspace/x`) and the bytes of
+   each named document (at most 10) under `/workspace/in/<file name>`. A document is resolved against
+   the turn's inventory and read as the person, through the signed envelope; a base-corpus document is
+   refused (read it with `read_file`). Together at most 50 MB. The file name is one path segment: a
+   folder part is cut, an empty, `.` or `..` name becomes `document`, and a name already taken (by
+   another document, or a working file under `/drafts/in/`) gets ` (2)`, ` (3)` before its extension
+   (`unique_input_path` in `run.py`). A document named twice is sent once. The report's
+   `documents read:` line names each document's path. Each tool result named in `data` (at most 10)
+   goes in beside them, read-only, as JSON ([Tool results as data](#tool-results-as-data)).
+   A document past the tenth is named as not loaded; a document over 32 MiB, or one the remaining
+   budget cannot take, is refused by name and size before anything runs.
+4. The runner gives the run a free slot, a fresh Durable Object and a fresh isolate, runs the module
+   with a 60 s limit (180 s maximum), and returns the module's value, stdout, stderr and only the files
+   it created or changed under `/workspace/`.
+5. The runner also lists the files sent in that the run removed (`deleted`); the tool drops them from
+   the working directory (only at the version the run saw), and their card says the draft was deleted.
+   A file written under the file name of a document the run read records it, with the hash of the
+   bytes it read (`derived_from`), so the card can offer it as that document's next Fassung. When the
+   conversation was erased while the run ran, nothing is kept.
+6. The tool keeps those files in the working directory, except files under `/workspace/in/` and any
+   that would take the conversation's files past 25 MB, and answers with the status, value, output and
+   the files kept. An input the script changed, or a file it wrote under `/workspace/in/`, is dropped,
+   and the report says so on a `not kept:` line. The agent may fix and run again, at most three times
+   per file.
 
-**One run at a time per conversation.** The backend runs a conversation's `execute`
-calls one after another, so two calls in one model response never write back from
-the same snapshot of `/workspace/`. The second starts from the files the first kept.
-Runs of different conversations still run side by side.
+**What a document read leaves behind.** A named document is located through
+`GET /api/internal/document-file` (`common/stored_file.py`), which checks the envelope's collection
+scope and restricted-use clearance and answers only where the object is; the agent reads the bytes
+from the object store itself. That read is **not** in the download log: the route is exempt in
+`download-log/coverage-routes.spec.ts`, as every read the agent makes while answering is
+([`download-log.md`](../user-guides/download-log.md), "Not recorded"). What it leaves is the
+restricted-use record (`note_collections_read`, the collection only) and the `execute.run` step
+(`documents_named`, `input_bytes`, never a name). A run differs from other agent reads in one way:
+the script can copy an input's bytes into a working file, and that copy leaves through
+`/draft/download` or `file_draft` without a row naming the original. The follow-up is in
+[Decisions](#decisions).
 
-Nothing persists in the runner. A second run sees the files the first one kept,
-because they are in `/workspace/`, not because the isolate survived.
+A `503 busy` is retried three times with backoff; a runner that cannot be reached answers "nothing
+was run", and the agent may try once more.
 
-## Isolation
+## Tool results as data
 
-Two layers. Each stops the ordinary failure; what they leave open is stated below:
+A tool whose answer is rows worth computing on keeps that answer whole and names it on the last line of
+its text: `Data for execute: r3 (312 rooms, 41.2 KB). execute(data=["r3"]) reads every row of it
+exactly, as JSON at /workspace/in/ifc_query-r3.json`. The model passes `data: ["r3"]`, and the run
+reads `/workspace/in/ifc_query-r3.json` with `readFile`. The figures go from the tool to the script
+without passing through the model, so a long list costs no tokens and cannot be mistyped, and the
+text result can stay clipped (30 rooms per storey) while the file holds every row.
 
-| Layer | What it stops |
+| Tool | Kept | Named in the Herleitung as |
+|---|---|---|
+| `ifc_query` | `schedule`, `elements`, `takeoff`, `aggregate`, `properties`, `compare`, `compliance`, `compliance-diff`, `profile`: the engine's whole result | „Raumdaten aus dem Modell“, „Bauteilliste …“, „Mengen …“, … (`tools/bim/handover.py`) |
+| `ifc_measure` | every answer but `view` and `draw`: the engine's payload, and beside it `measurements`, the evidence values with provenance, method, unit, tolerance and the elements they were read from, as `measurement_sources.py` builds them | „Messwerte aus dem Modell“, „Raumdaten …“, „Bauteilliste …“ |
+| `workspace__call` | `project-profile-get`, `project-get`, `project-overview-get`: the operation's structured answer | „Projektprofil“, „Projektdaten“, „Projektübersicht“ (`WORKSPACE_ABOUT`) |
+
+A table in a document has no tool of its own: the document goes in through `documents` and the run
+reads it (`unpdf`, `exceljs`, `papaparse`).
+
+The file is `{reference, tool, operation, about, model, provenance, rows, result}`: `provenance` says
+in a sentence what the values are (declared by the model's property sets, measured with a tolerance,
+or as the workspace answered), so a script, and the file it writes, can state it. A measurement in
+it is still not a source: it travels to the answer through `measurement_sources.py` as before.
+
+**Kept for the conversation, not the turn.** Earlier turns' tool messages are in the next turn's
+history, so the model can see `r3` there when the person says „mach daraus das Raumbuch“. A
+`ContextVar` per turn would answer that with "unknown"; so a result is a row of the draft store's
+LangGraph store under `("conversation", <id>, "tool-data")` (`tools/execute/tool_data.py`), beside
+the working directory but not in it: it is not a file the person sees, files or downloads, and it
+does not count against the 25 MB. References count up per conversation (`r1`, `r2`, …) under a
+per-conversation lock, and only the latest 20 are kept; the agent host's drafts route deletes them
+with the conversation. Erasure first writes an `erased` marker into the namespace and keeps it; a
+tool still running then keeps nothing, because a write checks the marker before and after and removes
+what it wrote when the conversation was erased meanwhile, whichever process it runs in. Deep research binds no `execute`, so a tool there keeps nothing and names
+nothing (`current_step_scope() != "chat"`).
+
+**Limits, said out loud.** A result over 8 MB is not kept, and the tool's text says so and asks
+for a narrower query. A run takes at most 10 results; more is refused before anything runs. The
+results count against the run's 50 MB of inputs. An unknown or dropped reference is refused with the
+references the conversation holds and what to do: run the tool again and pass the reference it
+names. The script's report has a `data read:` line; the Herleitung names each input in words under
+„Grundlage:“ (the step's `documents`, with no document id), never the reference or the JSON.
+
+**Files, not `input`.** The runner's contract has an `input` the default export receives. Files were
+chosen instead: a run already reads its inputs from `/workspace/in/`, the read-only check and the
+report's paths cover them unchanged, and a script reads several results by name rather than by
+position in one argument.
+
+## The runner
+
+- **One workerd process per slot, 4 slots per pod** (`CODE_RUNNER_SLOTS`). Self-hosted workerd
+  enforces no CPU limit on a loader isolate, and a synchronous loop stops its whole process (measured).
+  So each slot holds one run, and a watchdog kills the slot's workerd at `timeoutMs` + 10 s, answers
+  `timeout`, deletes the slot's storage and starts a new process. A looping run never delays another.
+- **A fresh Durable Object per run** (`newUniqueId()`); `ctx.storage.deleteAll()` runs before the
+  response leaves, and `bin/sweep.mjs` removes the emptied files every minute. The storage directory is
+  a memory-backed `emptyDir`.
+- **No network**: `globalOutbound: null` for the run, and the front worker's outbound allows nothing.
+  The pod has no egress, no secrets and no service-account token; a NetworkPolicy admits only the chat
+  tiers and `agent-worker`, and no other policy selects it (`code-runner.spec.ts` evaluates every
+  selector against its labels).
+- **The libraries** are a fixed manifest (`libraries.json`): docx, exceljs, pdf-lib, unpdf, pptxgenjs,
+  vega with vega-lite and vega-interpreter, mathjs, decimal.js, papaparse, date-fns, jszip, marked,
+  Forme, and Typst 0.14.2 as WebAssembly with its fonts and diagram packages (fletcher, timeliney,
+  chronos, cetz under LGPL-3.0, shipped unmodified as source).
+  Each is bundled ahead of time and handed only to runs whose source names it; nothing else can be
+  imported. Admission rules: the README.
+- **Deployment**: a plain Deployment, KEDA on CPU and memory, at least 2 replicas (dev 1 to 3), 250m CPU
+  and 1 GiB requested (an idle pod uses a few millicores; dev's nodes had no full CPU free), 2 CPU and
+  4 GiB limit: 4 slots at their 768 MiB memory cap and the front ([the budget](../../apps/code-runner/README.md#memory-per-run)).
+
+## The browser
+
+A run can drive headless Chromium with ordinary Puppeteer, written as Cloudflare documents it for
+Workers: `import puppeteer from "@cloudflare/puppeteer"; puppeteer.launch(env.BROWSER)`. It turns HTML
+and CSS into a designed PDF, renders Mermaid diagrams (which need a real DOM) and takes PNG
+screenshots. The model writes Puppeteer fluently, which is why it is Puppeteer.
+
+- **Where Chromium runs.** In its own Deployment `browser-renderer`, never in the code runner: one
+  fresh `chrome-headless-shell` process per run, reached over a pipe, its profile in a memory volume
+  deleted with it. A separate pod rather than a sidecar, so the browser's network namespace has nothing
+  to reach (a sidecar shares the runner's loopback, where its HTTP front and workerd sockets listen),
+  its NetworkPolicy can deny all egress and admit only the code runner, and Chromium's memory has its
+  own limit and its own scaling (1 to 3 pods, 2 browsers each, then `busy`).
+- **How the isolate reaches it.** The isolate stays `globalOutbound: null`. The library's entry builds
+  `env.BROWSER` inside the isolate; its WebSocket is pumped through the host module `codemode:browser`,
+  which runs in the run's Durable Object and holds the one real WebSocket to the renderer, through a
+  service binding to the address Pulumi sets (`BROWSER_RENDERER_ADDR`, the Service's cluster IP). A
+  `@cloudflare/puppeteer` that talked to a real Workers binding was not possible: `CodemodeBackend`
+  hands a loader isolate no bindings, and a host module call carries values, not sockets.
+- **What it may do.** The renderer's front checks every CDP command against an allowlist, allows
+  navigation only to `about:blank` and `data:`, refuses anything naming `file://`, and intercepts
+  every request at browser level: `data:` and `blob:` load, Mermaid comes from the image, everything
+  else fails. Downloads are denied and windows a page opens are closed. Details: the renderer's README.
+
+### Threat model
+
+The page runs code the model wrote, on HTML that may carry text from an office's documents, so we
+treat it as hostile. What it must not do: send anything out of the cluster, read another run's page
+or files, or keep anything for the next run. Layers, each enough on its own for egress: the CDP guard
+(allowlist, navigation, `file://`), Chromium's request interception (`BlockedByClient` for every
+non-`data:` request), a loopback proxy that refuses everything and names that resolve to nothing, and
+a NetworkPolicy that admits only the code runner and allows no egress at all. Against leaks between
+runs: a process and a fresh profile per run, one run per Chromium, deleted at its end.
+
+**The container is the sandbox.** Chromium runs with `--no-sandbox`. Its own sandbox needs
+unprivileged user namespaces, and dev has none to give: the nodes (Ubuntu 24.04, kernel 6.8,
+containerd 1.7) set `kernel.apparmor_restrict_unprivileged_userns=1`, so under `RuntimeDefault`
+`unshare -Ur` fails and Chromium aborts with `No usable sandbox!` (probe, 2026-11-18); and the
+namespace `grid` enforces Pod Security `baseline`, which refuses `seccompProfile: Unconfined`, the
+earlier way around the runtime's filter. So the boundary is the pod: uid 10042, no capabilities,
+`NoNewPrivs`, the runtime's default seccomp filter on every Chromium process, a read-only root, no
+service-account token, no secret and no environment from one, no network but the code runner's
+ingress, and a session that dies with its process group at 190 s. What Chromium's sandbox gave on top,
+and is now gone: a renderer exploit no longer has to escape a second, stricter seccomp filter and its
+own user, PID and network namespaces; it holds the browser process's rights in the pod, which reach
+the other session's browser (two per pod) and nothing else. What would bring it back: a node AppArmor
+profile that allows user namespaces for the Chrome binary plus a `Localhost` seccomp profile (the
+runtime default plus the namespace calls), both files on every node, which the provider does not let
+us place today; or gVisor as the pod's runtime class. Residual risks: the image's Chrome is only as
+current as its pinned digest, which Dependabot proposes weekly. The allowlist is the 42 CDP methods
+Puppeteer sends for the documented uses (input without drag and drop, which can carry a file into the
+page); everything a run receives from the browser counts against 50 MiB, and the runner's host module
+holds at most 56 MiB unread. Known follow-up: the 1.5 GiB memory limit for two browsers is set from
+four measured documents, to be revisited with production peaks.
+
+## Storage
+
+The working directory is the draft store the Markdown drafts already used: a LangGraph store on the
+agent's checkpoint database, namespaced by conversation. A file a run writes is kept as text when it
+has a text suffix and is at most 64 KB, otherwise as base64; together a conversation's files take at
+most 25 MB (Markdown drafts keep their own 256 KB cap, which a run's small text files do not count against). A binary file cannot be edited with
+`edit_file`. The directory is deleted with its conversation (the agent host's drafts route).
+
+**A run's file is kept unchecked.** The output check (`agent-file-check.ts`) runs at filing only, so
+the working directory may hold an HTML page, an SVG with a script, or an Office file with a macro. The
+file card reaches those bytes through two routes, and neither serves them as active content:
+`/draft/download` answers an attachment with the type from the extension (HTML and XML as
+`text/plain`, anything unknown as `application/octet-stream`), `nosniff` and
+`default-src 'none'; …; sandbox` (`bff/conversations/draft-file.ts`); `/draft/rendition` answers only
+a PDF draft or an Office draft converted to PDF, as `application/pdf` with `nosniff`, and refuses
+every other type with 422 (`draft-rendition.ts`). Both specs pin it per type. A check at keep time
+would add a BFF round trip per kept file and refuse what the agent may still be building toward
+(an HTML report it renders to PDF next); the delivery headers are the boundary instead.
+
+`/drafts/` stays the model's name for it; inside a run it is `/workspace/`, and the tool maps the two.
+The rename to `/workspace/` everywhere is not done.
+
+## Filing
+
+`file_draft` with a path that is not `.md` sends `create_file` (or `update_file` for a draft it filed
+before) with the bytes. The BFF:
+
+- **checks the file** (`agent-file-check.ts`): Word, Excel, PowerPoint, PDF, SVG and PNG only, the
+  bytes must be the declared type, at most 25 MB; refused are macros, embedded objects, external
+  relationships, and content that runs when opened (scripts, DDE, PDF actions). CSV is refused with a
+  pointer to Excel, because it has no place for the AI marking;
+- **marks it as made by AI** in its own bytes (`agent-file-marking.ts`: OOXML custom properties, XMP
+  in PDF, PNG and SVG), and files it (producer `agent_file`) under the person's session as version 1
+  `published`, like the person's own upload: the person who files it signs it off, and it is indexed
+  and citable at once (ADR-0054, update of 2026-11-18);
+- **writes the next version** of a document the agent filed (`update_file`) as the next `published`
+  Fassung, always with the same type (`bff/documents/agent-file-revision.ts`). When a person changed the document since the
+  draft was filed (`ifMatch`), or opened a draft of their own, it answers 409 `changed-in-project`
+  with the Fassung's number. The agent tells the person, who decides on the card; writing over a
+  person's change (`overChanges`) is only ever a person's request, never the agent's;
+- **makes the next Fassung of a project document** the run read (`revise_file`), only when the person
+  asked for it and only for a file (never a Markdown draft), with its Änderungsvermerk
+  (`document_versions.change_note`, migration 0248, written with the bytes), under the person's write
+  access to a document of the same project, with the AI marking in the bytes, published like any
+  filing. It refuses with
+  `changed-in-project` when the document changed since the run read it or a person has a draft open;
+  filed again, the draft stays on this path;
+- **resolves a folder** the agent names (`folder`, by name or path; an unknown one is refused with the
+  folders that exist, `agent-folder.ts`); without one, a file made from a project document goes where
+  that document lies, any other into `Berichte`.
+
+One filing truth: the draft keeps the document, version, hash and state it was filed as, and the draft
+version it was filed at. The agent's `file_draft` writes them, and a filing from the card writes them
+back through the agent host (`PUT /v1/drafts/{id}/filing`), so the card and the agent see the same
+document. A card whose draft changed since says „Seit dem Ablegen geändert“. A run that works on a filed
+draft a person changed in the project says so in its report (the internal `status` op).
+
+A filed file keeps its name as the office wrote it (umlauts, ß and spaces; only `/\:*?"<>|` and control
+characters go); its storage key is an ASCII slug on its own, and a download names the plain file name,
+without its `generated/<id>/` namespace, in `filename*`.
+
+The agent's `file_draft` files into the default folder `Berichte` unless it names one. The person files the same draft
+from its card („Ins Projekt ablegen“), choosing folder and name; that path goes through
+`bff/conversations/draft-filing.ts` into the same `fileAgentFileDraft`, with the same check and
+marking ([Filing, in the chat](agent-made-files-ux.md#what-this-change-ships)).
+
+## The office skills
+
+The builtin collection `office` holds `execute` (the entry point: the run contract, libraries,
+the office's number and date formats, exact calculation, reading the file back, filing) and
+`office-word`, `office-excel`, `office-powerpoint`, `office-pdf` (typeset PDFs with diagrams, Typst),
+`office-pdf-charts` and `office-html-pdf` (HTML and CSS to PDF, Mermaid, screenshots, through the
+browser), one per file type with its
+pitfalls and worked examples. They are offered to the chat agent by default. Each `js` fence is also a
+file under the skill's `examples/` (`test_office_skills.py` holds the two equal), and
+`apps/code-runner/test/skill-examples.test.mjs` runs every example in the isolate. Anthropic's
+Apache-2.0 document skills were source material, rewritten for this runtime (`NOTICE`).
+
+Deep research does not bind this `execute`; Deep Agents' own shell `execute` is hidden there while no
+sandbox is configured, which production never does.
+
+## What is measured
+
+Times and memory per file type, per library and through the browser are measured in the runner's
+[Measured](../../apps/code-runner/README.md#measured) and
+[Memory per run](../../apps/code-runner/README.md#memory-per-run) and the renderer's
+[Measured](../../apps/browser-renderer/README.md#measured). In order of size: a plain module about
+15 ms warm, a Word or Excel file a few hundred ms, a Typst PDF 1 to 6 s, a Forme PDF with table and chart 1.2 to 1.6 s (measured
+only here), a browser PDF under 1 s, an
+endless loop `timeout` at its limit plus 10 s with the other slots serving. In production each run is
+an `execute.run` step and four scores ([langfuse.md](../observability/langfuse.md)).
+
+## Decisions
+
+| Decision | State |
 |---|---|
-| **A fresh V8 isolate per run**, no network (`globalOutbound: null` or no network binding at all), a time limit and a memory limit | The script reaching anything beyond its inputs, looping forever, or exhausting memory |
-| **A runner pod with nothing in it**: no egress, no secrets, no service account token, no stored files, no other tenant's data at rest | A script that escaped its isolate finds no data at rest and no route out |
-
-**What the two layers do not stop.** Runner pods are shared, so runs of different
-offices can be in flight on the same pod at once. A script that escaped its isolate
-could read another run's inputs in that pod's memory and copy them into its own
-output files, which go back to its own office; the missing network does not stop
-that path. Accepted for now, because an escape needs a bug in the isolate engine.
-The window is not small: the office files measured take well under a second, but the
-limit lets a run hold a pod for 60 s by default and 180 s at most, so an escaped
-script can wait for other runs to arrive. The output check sees only file types,
-not contents, so it does not catch the copy. The way to close it is one runner deployment per organization: each office's
-runs on pods of its own, at the cost of a minimum of pods per office instead of a
-shared pool. This is decision 5 below.
-
-The isolate engine is workerd (decided 2026-11-13). The two candidates were:
-
-| Engine | For | Against |
-|---|---|---|
-| workerd with its dynamic Worker loader | Cloudflare's own runtime and the base of Code Mode. Tested on 2026-11-12: Word in 72 ms, Excel with a formula in 188 ms, `fetch` refused | Self-hosted workerd refuses to start this without `--experimental`, an "experimental feature which may change or go away"; its README says an isolate alone is not hardened against untrusted code; Check Point published an escape in 2026, since fixed |
-| isolated-vm in a Node service | V8 isolates in our own Node process, ISC, 7.0.2 of 2026-10-30, no experimental flag | Not tested with the office libraries; no Node APIs inside, so `fs` is ours to provide |
-
-workerd was chosen because it is the one tested with the office libraries and the base of Code Mode. The premise to re-check: workerd's dynamic loader still needs `--experimental`; if that flag is removed or the loader changes shape, isolated-vm is the fallback, and only the runner changes.
-
-## State and lifecycle
-
-**Executions** have one short lifecycle and are not stored:
-
-```mermaid
-stateDiagram-v2
-  [*] --> running: execute
-  running --> completed
-  running --> failed: script error or runner stopped
-  running --> timed_out: past the time limit
-  running --> cancelled: turn stopped
-  completed --> [*]
-  failed --> [*]
-  timed_out --> [*]
-  cancelled --> [*]
-```
-
-A stopped turn cancels its run. A runner stopped mid-run fails the run, and the agent
-may try once more; it never retries silently twice.
-
-**Files** live in the conversation's `/workspace/`, in the store the drafts use today:
-a LangGraph store on the Python service's checkpoint database, namespaced by
-conversation, capped at 256 KB per conversation for Markdown
-(`draft_store.py`, `MAX_DRAFT_BYTES`). Office files are larger and binary, so
-`/workspace/` needs either a higher cap there or its bytes in the object store the
-documents already use, keyed by conversation. That is the one storage decision this
-design leaves open. Either way, `/workspace/` is deleted with its conversation, and a
-filed file is a project document with the project's own versions, backups and
-deletion.
-
-## Running it in the cluster
-
-- **A plain Deployment.** The runner holds no state, so pods are interchangeable: no
-  volume, no handoff, no bucket.
-- **Scaling with KEDA** on CPU and memory (the cluster serves `metrics.k8s.io`
-  through metrics-server and has no Prometheus adapter, see
-  [`kubernetes.md`](../deployment/kubernetes.md)), plus a trigger on Hatchet's
-  backlog for file-producing background runs through the existing
-  `hatchetBacklogQuery` (`deploy/pulumi/src/app/keda-scaling.ts`). At least 2
-  replicas so a restart never stops all runs.
-- **A NetworkPolicy** with no egress at all, and ingress only from the agent tiers.
-- **Hatchet runs whole agent runs, not each `execute`.** A run inside a turn takes a
-  fraction of a second; a queue hop would make the person wait. Background work
-  ("the Raumbuch for every project tonight") is a Hatchet parent task fanning out into
-  agent runs, with per-organization round-robin concurrency and retries (ADR-0150).
-
-## Limits (proposed)
-
-| Limit | Proposed | Why |
-|---|---|---|
-| Run time | 60 s default, 180 s maximum | Office files take well under a second (*measured*); this is a ceiling against loops |
-| Memory per run | 128 MB | Cloudflare Workers' own per-isolate limit; enough for the tested files |
-| Concurrent runs per pod | 8 | Worst case: 70 MB for workerd + 8 × (128 MB per isolate + 50 MB of inputs and `/workspace/` files held for it) ≈ 1.5 GB, inside a 2 GiB limit. The measured peak (925 MB for 20 runs) is typical use, not the budget |
-| Concurrent runs per organization | 4 | One office cannot starve the others |
-| Inputs per run | 50 MB in total, `/workspace/` files included | Drawings and scans stay with the services built for them. Inside the isolate the same bytes count toward its 128 MB |
-| Output files | all checked before the card | The output check is not optional |
-
-## Resources
-
-*Measured* on a development machine, 2026-11-12:
-
-| Measure | Value | Setup |
-|---|---|---|
-| One run writing a Word file | 72 ms | workerd isolate, no workspace |
-| One run writing an Excel file with a formula | 188 ms | same |
-| 20 runs at once | 2.7 s for all twenty, 925 MB peak | workerd with Cloudflare Computer's workspace, an upper bound for a stateless runner |
-| Idle workerd | 67 to 70 MB | same |
-
-So a pod requests 1 vCPU and 1 GiB, with a 2 GiB limit sized from the worst case above;
-KEDA adds pods for bursts. Next to the model tokens of the turn that writes the script, a run
-costs little, and it lowers those tokens: documents are processed in the run and only
-a summary reaches the model.
-
-## Observability
-
-- **Langfuse:** one span per `execute` (module size, inputs, duration, files written
-  and their sizes, outcome) under the turn's trace
-  ([`langfuse.md`](../observability/langfuse.md)).
-- **Metrics:** runs per minute, duration p50 and p95, failures by kind (script,
-  timeout, memory, output refused), replicas.
-- **Alerts:** failure rate above its baseline, replicas at the maximum.
+| Isolate engine: workerd with its dynamic loader | Taken 2026-11-13. It needs `--experimental`; if the loader goes away, isolated-vm is the fallback and only the runner changes |
+| Where working files live: the draft store, 25 MB per conversation, base64 | Taken |
+| Limits: 60 s / 180 s, 4 runs per pod, 50 MB in, 50 MB out | Taken |
+| CSV not fileable; HTML kept in the working directory but not fileable | Taken |
+| Run files are checked at filing, not when kept; until then they are served only as a sandboxed attachment or a PDF rendition ([Storage](#storage)) | Taken |
+| Shared runner pods across offices. An escaped script could read another run in the same pod (the other run's inputs) and copy it into its own files; it needs a bug in the isolate engine, and the output check sees types, not contents | Accepted for now; open: one runner deployment per organization |
+| Memory per run: self-hosted workerd enforces none, so the runner's front watches each slot's anonymous resident memory and stops a run above 768 MiB (`status: error`), restarting the slot; set by the largest run the 50 MB in / 50 MB out limits allow (up to 628 MiB measured). A smaller cap needs smaller input and output limits first | Taken 2026-11-18 |
+| A cap on concurrent runs per organization | Open, not built |
+| Whether runs count toward an office's credits (ADR-0053) | Open |
+| An `execute` input read as a download-log row. Today no row is written (see [One run](#one-run)). The change: a kind `agent_run` in `download-log/kinds.ts`, recorded always like `download`; a migration widening `document_access_log_kind_check` and `document_access_log_open_needs_own_list` (the table is append-only, so its down migration refuses once a row exists); `GET /api/internal/document-file?handOver=execute` calling `recordDocumentAccess` as the envelope's person, refusing with 503 under an own access list when the row cannot be written; `stored_file.locate_stored_file` passing it for `execute` only; the kind's label in the download-log view and the user guide. `dxf_measure` and the canvas keep no row: their bytes stay in the agent and only a measurement or a rendering leaves | Open, not built |
+| A run as a row of the Herleitung | Built for the person's view: one row per file or calculation, named by what the run made, never by its script ([In der Herleitung](agent-made-files-ux.md#in-der-herleitung)). Open: the script and its inputs with citation keys, for the developer view |
+| A dedicated Langfuse step per run (`execute.run`: status, timings, input and kept files, never contents) and the scores `execute-status`, `execute-runs-to-file`, `execute-files-made`, `execute-files-filed` ([`langfuse.md`](../observability/langfuse.md)) | Taken. Alerts (failure rate, replicas at maximum) are open |
+| Tool results reach a run as data: `ifc_query`, `ifc_measure` and the project-profile reads keep their structured answer per conversation (latest 20, 8 MB each) and `execute(data=[…])` puts it read-only at `/workspace/in/<tool>-<ref>.json` ([Tool results as data](#tool-results-as-data)) | Taken 2026-11-18 |
+| Renaming `/drafts/` to `/workspace/` | Open |
+| Background runs (Hatchet fan-out, a KEDA trigger on its backlog) | Open, not built |
+| Showing an HTML output beside the chat (MCP Apps, ADR-0142), sandboxed on its own origin | Open |
+| A browser for runs: self-hosted `chrome-headless-shell` on the Puppeteer team's image, one process per run, its own Deployment, reached through `@cloudflare/puppeteer` and a host-module binding. Not Cloudflare's hosted Browser Rendering (documents would leave the cluster), not Gotenberg, not browserless (SSPL) | Taken 2026-11-18 |
+| The container is the browser's sandbox: Chromium runs `--no-sandbox` under `RuntimeDefault` seccomp, because dev's nodes forbid unprivileged user namespaces and `grid`'s Pod Security `baseline` refuses `Unconfined` ([Threat model](#threat-model)) | Taken 2026-11-18; revisit when the provider lets us place node AppArmor and seccomp profiles, or offers gVisor |
 
 ## Considered and dropped
 
-Each rejection names the premise it rests on, so a later reader re-checks the premise.
-
-- **Cloudflare Computer's durable workspace** (`@cloudflare/computer` 0.11.2, tested
-  on self-hosted workerd: a workspace survived a restart). Its workspace lives in the
-  runtime, which brought a bucket, workerd's experimental cluster mode, a retention
-  sweep with its own states, and a backup question for IPAX, and left bucket
-  credentials in every runner pod. *Premise:* runs need state that lives in the
-  runtime between calls. Our state already has stores.
-- **A container per conversation with gVisor** (kubernetes-sigs/agent-sandbox).
-  *Premise:* runs need Python, LibreOffice or a shell. If they do, this comes back as a
-  second backend behind the same `execute`.
-- **Hosted sandboxes** (Anthropic's code execution, OpenRouter's shell tool, E2B,
-  Modal, Cloudflare Containers). *Premise:* no new processor receives an office's
-  documents.
-
-## Decisions for the owner
-
-1. ~~The isolate engine~~: decided, workerd (2026-11-13).
-2. Where `/workspace/` bytes live: a higher cap in the draft store, or the object
-   store. Whichever it is, its backups and its deletion with the conversation are
-   checked before real documents go in.
-3. The limits above.
-4. Whether runs count toward an office's credits (ADR-0053).
-5. Shared runner pods (the cross-office exposure under Isolation, accepted for now)
-   or one runner deployment per organization.
-
-## Verified and assumed
-
-| Claim | Basis |
-|---|---|
-| A workerd isolate with no network writes Word and Excel files with unmodified libraries | Run on 2026-11-12: `docx` and ExcelJS, 72 ms and 188 ms; `fetch` refused |
-| Dynamic loading on self-hosted workerd needs `--experimental` | workerd refused to start without it |
-| A chart library runs in an isolate only without string code generation | Vega 6.4.0 failed with "Code generation from strings disallowed"; with `vega-interpreter` it rendered an SVG bar chart in 102 ms |
-| The candidate libraries are pure JavaScript with permissive licences | npm registry metadata, 2026-11-12; only `docx`, `exceljs` and Vega were run in an isolate |
-| Deep research's sandbox is Modal only, and production runs none | `deepagents_runtime.py` (`provider: Literal["modal"]`); `configs/config_oib_openrouter.yml` |
-| Deep Agents' sandbox base runs its file commands as `python3` inside the sandbox | Installed `deepagents/backends/sandbox.py` |
-| The drafts store is a LangGraph store on the checkpoint database, 256 KB per conversation | `draft_store.py` |
-| isolated-vm runs the office libraries | Not tested; not needed while workerd is the engine |
-| Models write good JavaScript against the office kit | Not measured; step 1 measures it |
+- **Cloudflare Computer's durable workspace.** Its state lives in the runtime and brought a bucket,
+  experimental cluster mode and a retention sweep. *Premise:* runs need state between calls; ours
+  lives in the draft store.
+- **A container per conversation with gVisor.** *Premise:* runs need Python, LibreOffice or a shell.
+  If they do, it comes back as a second backend behind the same `execute`.
+- **Hosted sandboxes** (Anthropic's code execution, E2B, Modal, Cloudflare Containers). *Premise:* no
+  new processor receives an office's documents.

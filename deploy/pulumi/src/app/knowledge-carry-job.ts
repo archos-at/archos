@@ -10,6 +10,7 @@ import { onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { UID } from "../constants";
 import { AppSecrets, AppWiring, frontendEnv } from "./config";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -81,7 +82,7 @@ export function runKnowledgeCarry(
                 securityContext: hardenedContainerSecurityContext(),
                 command: ["node", "dist-jobs/knowledge-carry.mjs"],
                 env: knowledgeCarryEnv(w, cfg),
-                resources: { requests: { cpu: "100m", memory: "256Mi" }, limits: { cpu: "1", memory: "1Gi" } },
+                resources: scaledCpuRequest({ requests: { cpu: "100m", memory: "256Mi" }, limits: { cpu: "1", memory: "1Gi" } }),
               },
             ],
           },

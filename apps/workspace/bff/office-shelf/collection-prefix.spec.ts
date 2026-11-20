@@ -1,10 +1,8 @@
-// @disk-inputs: ../../packages/agent/src/agent/common/source_kinds.py
 /**
  * @vitest-environment node
  */
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import * as agent from '@/shared/vocabularies.generated'
 import {
   OFFICE_SHELF_COLLECTION_PREFIX,
   OFFICE_SHELF_COLLECTION_PREFIXES,
@@ -13,17 +11,9 @@ import {
   officeShelfOrganizationId,
 } from './collection-prefix'
 
-const python = readFileSync(join(process.cwd(), '../../packages/agent/src/agent/common/source_kinds.py'), 'utf8')
-const pythonConstant = (name: string): string => {
-  const match = python.match(new RegExp(`^${name} = "([^"]+)"`, 'm'))
-  if (!match) throw new Error(`${name} not found in source_kinds.py`)
-  return match[1]
-}
-
 describe('the office-shelf collection prefix', () => {
   it('is the same constant in TypeScript and Python', () => {
-    expect(pythonConstant('OFFICE_SHELF_COLLECTION_PREFIX')).toBe(OFFICE_SHELF_COLLECTION_PREFIX)
-    expect(pythonConstant('OFFICE_SHELF_TARGET_COLLECTION_PREFIX')).toBe(OFFICE_SHELF_TARGET_COLLECTION_PREFIX)
+    expect([OFFICE_SHELF_TARGET_COLLECTION_PREFIX, OFFICE_SHELF_COLLECTION_PREFIX]).toEqual(agent.OFFICE_SHELF_COLLECTION_PREFIXES)
   })
 
   it('accepts the old and the new prefix, and nothing else', () => {

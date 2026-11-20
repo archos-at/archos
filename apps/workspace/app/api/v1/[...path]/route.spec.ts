@@ -27,15 +27,15 @@ const originalRequireAuth = process.env.REQUIRE_AUTH
 
 describe('/api/v1/[...path] proxy — control-plane path blocking', () => {
   beforeEach(() => {
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
     vi.restoreAllMocks()
   })
 
   afterEach(() => {
     if (originalRequireAuth === undefined) {
-      delete process.env.REQUIRE_AUTH
+      vi.stubEnv('REQUIRE_AUTH', undefined)
     } else {
-      process.env.REQUIRE_AUTH = originalRequireAuth
+      vi.stubEnv('REQUIRE_AUTH', originalRequireAuth)
     }
   })
 

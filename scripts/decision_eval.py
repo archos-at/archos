@@ -122,7 +122,7 @@ async def _evaluate(questions_path: Path, follow_ups_path: Path | None = None) -
     from agent.core.decisions import decide_turn
     from agent.skills.builtin import discover_builtin_skills
     from agent.skills.resolver import _skill_applies_to_agent
-    from scripts.loop_eval import load_questions
+    from scripts.loop_eval_rows import load_questions
 
     families = oib_families(CORPUS_FILES)
     cards = [entry for entry in card_index_entries() if entry[0] not in ENVELOPE_SHAPE_TYPES]

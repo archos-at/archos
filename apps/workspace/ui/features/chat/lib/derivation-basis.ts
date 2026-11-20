@@ -58,16 +58,34 @@ export const addressOf = (clause: string | undefined): string | undefined => {
 const addressLabel = (t: Translator, address: string): string =>
   new RegExp(`^${POINT}$`, 'i').test(address) ? t('thinking.node.basis.clause', { clause: address.replace(/\.$/, '') }) : address
 
-export const pageRanges = (pages: readonly number[]): string => {
+const pageRuns = (pages: readonly number[]): number[][] => {
   const sorted = [...new Set(pages)].sort((a, b) => a - b)
-  const runs: string[] = []
-  for (let i = 0; i < sorted.length; ) {
-    let j = i
-    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j]! + 1) j += 1
-    runs.push(j === i ? String(sorted[i]) : `${sorted[i]}\u2013${sorted[j]}`)
-    i = j + 1
+  const runs: number[][] = []
+  for (const page of sorted) {
+    const last = runs.at(-1)
+    if (last && page === last.at(-1)! + 1) last.push(page)
+    else runs.push([page])
   }
-  return runs.join(', ')
+  return runs
+}
+
+const runLabel = (run: readonly number[]): string =>
+  run.length === 1 ? String(run[0]) : `${run[0]}\u2013${run.at(-1)}`
+
+export const pageRanges = (pages: readonly number[]): string => pageRuns(pages).map(runLabel).join(', ')
+
+const MAX_PAGE_RUNS = 3
+
+const pageLabel = (t: Translator, pages: readonly number[]): string => {
+  const runs = pageRuns(pages)
+  if (runs.length === 0) return ''
+  if (runs.length === 1 && runs[0]!.length === 1) return t('thinking.node.basis.page', { page: runs[0]![0]! })
+  const shown = runs.slice(0, MAX_PAGE_RUNS)
+  const hidden = runs.slice(MAX_PAGE_RUNS).reduce((count, run) => count + run.length, 0)
+  const ranges = shown.map(runLabel).join(', ')
+  return hidden > 0
+    ? `${t('thinking.node.basis.pages', { pages: ranges })} ${t('thinking.node.basis.more', { count: hidden })}`
+    : t('thinking.node.basis.pages', { pages: ranges })
 }
 
 const MAX_ADDRESSES = 2
@@ -81,10 +99,7 @@ export const documentLocation = (t: Translator, doc: CitedDocument): string | un
   const pages = loci.flatMap((locus) => (typeof locus.page === 'number' ? [locus.page] : []))
   const named = addresses.slice(0, MAX_ADDRESSES)
   if (addresses.length > MAX_ADDRESSES) named.push(t('thinking.node.basis.more', { count: addresses.length - MAX_ADDRESSES }))
-  const distinct = new Set(pages)
-  const pageLabel =
-    distinct.size === 0 ? '' : distinct.size === 1 ? t('thinking.node.basis.page', { page: pages[0]! }) : t('thinking.node.basis.pages', { pages: pageRanges(pages) })
-  const parts = [named.join(', '), pageLabel]
+  const parts = [named.join(', '), pageLabel(t, pages)]
   const label = parts.filter(Boolean).join(' · ')
   return label || undefined
 }

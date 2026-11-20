@@ -14,7 +14,8 @@ no runtime flag beyond the platform switch below.
 `note_settled_replaced`), the chat socket (`apps/agent-host/src/agent_host/chat_socket.py`),
 the turn fold (`apps/workspace/bff/turns/turn-fold.ts`) and the chat
 store. Live prose: `common/answer_prose_stream.py` and
-`core/answer_pipeline.py` (`LiveAnswer`, `settle_streamed_citations`).
+`core/live_answer.py` (`LiveAnswer`) and `core/answer_pipeline.py`
+(`settle_streamed_citations`).
 The events themselves: [`websocket-protocol.md`](../api/websocket-protocol.md).
 What the reader sees at every phase and edge of a turn, with the fixture and
 check for each: [`lifecycles/chat-turn.md`](lifecycles/chat-turn.md).
@@ -24,7 +25,7 @@ check for each: [`lifecycles/chat-turn.md`](lifecycles/chat-turn.md).
 The transport can already carry many chunks, but two layers assume **one content
 frame per turn**:
 
-1. **Rendering** — `apps/workspace/.../messages-store.ts` appends a *brand-new*
+1. **Rendering** — `apps/workspace/.../turn-actions.ts` appends a *brand-new*
    assistant bubble for every content frame; it never merges deltas. N streamed
    frames ⇒ N bubbles.
 2. **Persistence** — on a client disconnect, the terminal message is persisted
@@ -147,7 +148,7 @@ prose streams.
   their stored shape (`StoredThinkingStep`). At `RUN_FINISHED` it calls the
   store's `settleTurn`.
 - Diagrams: only the fence the text still ends inside is streaming
-  (`isOpenFence` in `MarkdownRenderer.tsx`), and it holds its place with a
+  (`isOpenFence` in `MarkdownRenderer/streaming-markdown.ts`), and it holds its place with a
   skeleton (`DrawingSkeleton`) in the frame the drawing will be drawn in,
   guessed from the fence's first keyword until the parse says. Every closed
   fence is drawn while the answer streams. The skeleton grows into the drawing
@@ -442,7 +443,7 @@ socket sends `attach{turn_id, after_seq: 0}` once it is up: the whole turn is
 folded again from its first event. `rejected{turn_not_found}`
 (the stream no longer holds the turn) ends it by asking for the persisted
 answer, and shows the banner only if there is none. A turn that has drawn
-words keeps them on screen while it asks (`endInterruptedTurn`): the stored
+words keeps them on screen while it asks (`endInterruptedTurn` in `turn-endings.ts`): the stored
 answer, under the same id, replaces them in their row in one frame; a server
 with no finished answer gets the wait below, and only once it confirms there
 is none are the words put back, dimmed (`failed`), above the banner.

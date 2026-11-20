@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { bytes, INBOUND_DOMAIN, message, multipart, textPart, type Part } from './__fixtures__/hostile'
 import { classifyAutomaticMail, type AutomaticMailInput } from './automatic-mail'
-import { rawHeaderFields } from './mime'
+import { rawHeaderFields, readHeaderBlock } from './mime'
 
 function classify(headers: Record<string, string | null>, envelopeFrom: string | null = 'anna@buero-muster.at', root?: Part) {
   const input: AutomaticMailInput = {
@@ -43,6 +43,36 @@ describe('classifyAutomaticMail: dropped (RFC 3834, RFC 3464, RFC 8098)', () => 
   })
 })
 
+describe('classifyAutomaticMail: an auto-reply that carries attachments', () => {
+  it('is held for review, flagged automatic: its headers are the sender’s to set, its attachments may be the plans', () => {
+    const input = (attachments: number): AutomaticMailInput => ({
+      headers: rawHeaderFields(bytes(message(undefined, { 'Auto-Submitted': 'auto-replied' }))),
+      envelopeFrom: 'anna@buero-muster.at',
+      inboundDomain: INBOUND_DOMAIN,
+      attachments,
+    })
+    expect(classifyAutomaticMail(input(1))).toEqual({ outcome: 'keep', automatic: true, signals: ['auto_reply_with_attachments', 'auto_generated'] })
+    expect(classifyAutomaticMail(input(0))).toEqual({ outcome: 'drop', reason: 'auto_reply' })
+  })
+
+  it('never holds a loop or a delivery report for its attachments', () => {
+    const loop: AutomaticMailInput = {
+      headers: rawHeaderFields(bytes(message(undefined, { From: `x@${INBOUND_DOMAIN}`, 'Auto-Submitted': 'auto-replied' }))),
+      envelopeFrom: null,
+      inboundDomain: INBOUND_DOMAIN,
+      attachments: 2,
+    }
+    expect(classifyAutomaticMail(loop)).toEqual({ outcome: 'drop', reason: 'self_loop' })
+    const report: AutomaticMailInput = {
+      headers: rawHeaderFields(bytes(message(multipart('report', [textPart('text/plain', 'Undeliverable')], '; report-type=delivery-status')))),
+      envelopeFrom: '',
+      inboundDomain: INBOUND_DOMAIN,
+      attachments: 1,
+    }
+    expect(classifyAutomaticMail(report)).toEqual({ outcome: 'drop', reason: 'delivery_report' })
+  })
+})
+
 describe('classifyAutomaticMail: kept and flagged automatic', () => {
   it("keeps a scanner's auto-generated mail: that is how a drawing arrives from the plotter room", () => {
     expect(classify({ 'Auto-Submitted': 'auto-generated' })).toEqual({ outcome: 'keep', automatic: true, signals: ['auto_generated'] })
@@ -67,6 +97,15 @@ describe('classifyAutomaticMail: kept and flagged automatic', () => {
     expect(classify({ 'X-Autoreply': 'no' })).toEqual({ outcome: 'keep', automatic: false, signals: [] })
   })
 
+  it('keeps a mail whose From names an outsider beside one of our addresses: a loop is mail only we wrote', () => {
+    expect(classify({ From: `real@statik-weber.at, wohnbau.zzzzzzzzzzzz@${INBOUND_DOMAIN}` })).toMatchObject({ outcome: 'keep' })
+  })
+
+  it('reads the address, not the display name, so a name that quotes one of our addresses is no loop', () => {
+    expect(classify({ From: `"Projekt <wohnbau.zzzzzzzzzzzz@${INBOUND_DOMAIN}>" <real@statik-weber.at>` })).toMatchObject({ outcome: 'keep' })
+    expect(classify({ From: `"real@statik-weber.at" <wohnbau.zzzzzzzzzzzz@${INBOUND_DOMAIN}>` })).toEqual({ outcome: 'drop', reason: 'self_loop' })
+  })
+
   it('does not take a lookalike of our domain for ours', () => {
     expect(classify({ From: `x@not${INBOUND_DOMAIN}` })).toMatchObject({ outcome: 'keep' })
   })
@@ -76,6 +115,21 @@ describe('classifyAutomaticMail: kept and flagged automatic', () => {
       outcome: 'keep',
       automatic: false,
       signals: [],
+    })
+  })
+})
+
+describe('classifyAutomaticMail: a header line that is no field', () => {
+  const withBadLine = (headers: string) => readHeaderBlock(bytes(`${headers}\r\nthis line is no field\r\n\r\nHallo.\r\n`))?.fields ?? null
+
+  it('still drops the auto-reply and the loop around it: the line is skipped, not every header', () => {
+    expect(classifyAutomaticMail({ headers: withBadLine('From: anna@buero-muster.at\r\nAuto-Submitted: auto-replied'), envelopeFrom: 'anna@buero-muster.at', inboundDomain: INBOUND_DOMAIN })).toEqual({
+      outcome: 'drop',
+      reason: 'auto_reply',
+    })
+    expect(classifyAutomaticMail({ headers: withBadLine(`From: wohnbau.zzzzzzzzzzzz@${INBOUND_DOMAIN}`), envelopeFrom: 'anna@buero-muster.at', inboundDomain: INBOUND_DOMAIN })).toEqual({
+      outcome: 'drop',
+      reason: 'self_loop',
     })
   })
 })

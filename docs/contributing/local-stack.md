@@ -51,6 +51,13 @@ land in the repository root), `logs/` (one file per process, and
 `migrate.log`), `run/` (pid files) and the test double's signing key. Delete
 the directory after `task local:down` to start from an empty database.
 
+`task local:previews` starts only `next dev`, on 3311
+(`LOCAL_STACK_PREVIEW_PORT`), for the `/dev/*` previews and screenshots: no
+database, no backend, placeholder AuthKit settings. Before it starts it checks
+`node_modules`, free disk (`LOCAL_STACK_MIN_FREE_MB`, 2048) and
+`experimental.agentUpgrade: false` in `next.config.ts`, and stops with the fix
+for each; `up` runs the same checks. `task local:down` stops it with the rest.
+
 The UI runs from `LOCAL_STACK_UI_DIR` (default `apps/workspace`). `next dev`
 writes its build output to `.next/` there and stages the pdf.js, Excalidraw
 and MCP app assets as `bun run dev` does; all of it is gitignored.

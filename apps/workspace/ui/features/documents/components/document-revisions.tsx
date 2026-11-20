@@ -9,8 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SectionLabel } from '@/components/ui/section-label'
 import { InspectorGroup } from '@/components/ui/inspector-group'
 import { Skeleton } from '@/components/ui/skeleton'
-import { StageTrack } from '@/components/ui/stage-track'
-import { useLocale, useTranslations, type Translator } from '@/i18n'
+import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { formatDate } from '@/lib/format'
 import { distinguishingTailLength } from '@/lib/text/middle-truncate'
@@ -28,17 +27,15 @@ import {
   type DocumentLifecycleSummary,
 } from '../hooks/use-document-lifecycle'
 import {
-  LIFECYCLE_STAGES,
   availableLifecycleGestures,
   canArchiveDocument,
   lifecycleNeedsReader,
   type DocumentLifecycleViewer,
 } from '../lib/document-lifecycle'
-import { revisionStanding, resolvePerson, type RevisionStanding, type NextStep } from '../lib/revision-standing'
+import { resolvePerson, revisionStanding } from '../lib/revision-standing'
 import {
   buildRevisionTimeline,
   revisionTag,
-  isPendingVersion,
   latestAct,
   numberOfVersion,
   showsRevisionsSection,
@@ -53,6 +50,8 @@ import {
   type VersionRow,
 } from '@/lib/documents/revision-timeline'
 import { requestRevisionLink } from '../lib/revision-request'
+import { changeCaptionFor, keepTogether } from '../lib/revision-rail-copy'
+import { rowChange, rowHasContent } from '../lib/revision-row-content'
 import { DocumentArchiveAction } from './document-archive-action'
 import { DocumentReviewControls, type DocumentReviewControlsProps } from './document-review-controls'
 import { TextComparisonView, type TextComparison } from './revision-text-comparison'
@@ -60,6 +59,7 @@ import { DocumentVersionStateBadge } from './document-version-badge'
 import { useRevisionCompare, type SourceLoader } from './revision-compare'
 import type { CompareFile } from './revision-compare/types'
 import { SuggestionNotice } from './revision-notices'
+import { RevisionHeader } from './revision-header'
 import { RevisionTimelineRow, RowAction } from './revision-timeline-row'
 import { MailOriginLine, useOpenMailOrigin } from './mail-thread/mail-origin-line'
 import { mailThreadClient } from './mail-thread/client'
@@ -86,13 +86,6 @@ const NOTABLE_ROW_STATES: ReadonlySet<DocumentVersionView['state']> = new Set([
   'approved',
   'rejected',
 ])
-
-const STAGE_LABEL_KEYS = [
-  'lifecycle.states.draft',
-  'lifecycle.states.inReview',
-  'lifecycle.states.approved',
-  'lifecycle.states.published',
-] as const
 
 export function DocumentRevisions({
   file,
@@ -600,145 +593,4 @@ export function DocumentRevisions({
       </section>
     </Collapsible>
   )
-}
-
-function RevisionHeader({
-  standing,
-  person,
-  headerAct,
-}: {
-  standing: RevisionStanding
-  person: (userId: string | null) => ReturnType<typeof resolvePerson>
-  headerAct: string | null
-}): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const { locale } = useLocale()
-  const stageLabels = STAGE_LABEL_KEYS.map((key) => t(key))
-  const { progress, stage } = standing
-  return (
-    <div className="space-y-1.5" data-testid="revision-header">
-      <p className="text-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-snug">
-        {standing.number !== null && (
-          <span className="font-medium" data-testid="revision-header-label">
-            {t('preview.revision.rail.number', { number: standing.number })}
-          </span>
-        )}
-        {standing.state && (
-          <DocumentVersionStateBadge
-            versionState={standing.state === 'archived' ? null : standing.state}
-            lifecycle={standing.state === 'archived' ? 'archived' : 'active'}
-            always
-            className="bg-background"
-            testId="document-lifecycle-state"
-          />
-        )}
-      </p>
-      {progress && stage !== null && (
-        <div data-testid="document-lifecycle-position">
-          <StageTrack
-            stages={LIFECYCLE_STAGES}
-            reached={progress.reached}
-            halted={progress.halted}
-            tone={progress.tone}
-            labels={stageLabels}
-            current={stage}
-            data-testid="document-lifecycle-track"
-          />
-          <span className="sr-only">
-            {t('preview.revision.rail.stepOf', { step: stage + 1, total: LIFECYCLE_STAGES.length, stage: stageLabels[stage] })}
-          </span>
-        </div>
-      )}
-      {standing.nextStep && (
-        <p className="text-foreground text-xs leading-snug" data-testid="revision-next-step" data-step={standing.nextStep.kind}>
-          {nextStepText(standing.nextStep, person, t, locale)}
-        </p>
-      )}
-      <p className="text-muted-foreground text-xs leading-snug" data-testid="revision-answer" data-answer={standing.answer.kind}>
-        {answerText(standing, t)}
-      </p>
-      {headerAct && (
-        <p className="text-muted-foreground text-xs leading-snug" data-testid="revision-header-act">
-          {headerAct}
-        </p>
-      )}
-    </div>
-  )
-}
-
-const NEXT_STEP_KEYS: Record<NextStep['kind'], { who: string; you: string }> = {
-  approve: { who: 'next.approve', you: 'next.approveYou' },
-  revise: { who: 'next.revise', you: 'next.reviseYou' },
-  submit: { who: 'next.submit', you: 'next.submitYou' },
-  publish: { who: 'next.publish', you: 'next.publishYou' },
-}
-
-function nextStepText(
-  step: NextStep,
-  person: (userId: string | null) => ReturnType<typeof resolvePerson>,
-  t: Translator,
-  locale: string,
-): string {
-  const keys = NEXT_STEP_KEYS[step.kind]
-  const rail = (key: string, params?: Record<string, string | number>) => t(`preview.revision.rail.${key}`, params)
-  if (step.you) return rail(keys.you)
-  if (step.kind === 'publish') return rail(keys.who)
-  if (step.people.length === 0) return step.kind === 'approve' ? rail('next.approveOpen') : rail(keys.who, { who: rail('someone') })
-  const named = [
-    ...new Set(
-      step.people.map((userId) => {
-        const who = person(userId)
-        return keepTogether(who.kind === 'name' ? who.name : rail('someone'))
-      }),
-    ),
-  ]
-  const who =
-    named.length > 2
-      ? rail('whoMore', { names: named[0] ?? '', count: named.length - 1 })
-      : new Intl.ListFormat(locale, { type: 'disjunction' }).format(named)
-  return rail(keys.who, { who })
-}
-
-function answerText(standing: RevisionStanding, t: Translator): string {
-  const { answer } = standing
-  switch (answer.kind) {
-    case 'older':
-    case 'newer':
-      return t(`preview.revision.rail.answer.${answer.kind}`, { number: answer.number })
-    case 'retired':
-      return t('lifecycle.meaning.archived')
-    default:
-      return t(`preview.revision.rail.answer.${answer.kind}`)
-  }
-}
-
-function keepTogether(text: string): string {
-  return text.replace(/ /g, '\u00a0')
-}
-
-function rowChange(row: TimelineRow, summary: RevisionLinks['changeSummary']): string | null {
-  if (row.kind === 'linked') return row.entry.changeSummary
-  if (row.kind === 'head' || (row.kind === 'version' && row.newest)) return summary?.text ?? null
-  return null
-}
-
-function changeCaptionFor(summary: RevisionLinks['changeSummary'], rows: readonly TimelineRow[], t: Translator): string | null {
-  if (summary === null) return null
-  const basis = summary.basis
-  const against =
-    basis === 'previous'
-      ? rows.find((row) => row.kind === 'linked' && row.direct)
-      : rows.find((row) => row.kind === 'linked' && row.entry.id === basis.id)
-  if (against) return t('preview.revision.rail.changedSince', { number: against.number })
-  return basis === 'previous'
-    ? t('preview.revision.changedSincePrevious')
-    : t('preview.revision.changedSince', { name: basis.filename })
-}
-
-function rowHasContent(row: TimelineRow, hasChange: boolean): boolean {
-  if (row.kind === 'version') {
-    return isPendingVersion(row.version) || Boolean(row.version.reviewComment) || (row.newest && hasChange)
-  }
-  if (row.kind === 'head') return hasChange
-  return true
 }

@@ -45,6 +45,15 @@ export async function readStagedObject(bucket: string, key: string): Promise<Uin
   return bytes
 }
 
+export async function readStagedObjectIfHeld(bucket: string, key: string): Promise<Uint8Array | null> {
+  try {
+    return await readStagedObject(bucket, key)
+  } catch (error) {
+    if (isAlreadyGone(error)) return null
+    throw error
+  }
+}
+
 export async function streamStagedObject(bucket: string, key: string): Promise<AsyncIterable<Uint8Array>> {
   const object = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
   const body = object.Body

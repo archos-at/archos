@@ -99,7 +99,7 @@ const post = (body: unknown, token = SECRET) =>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(requireVerifiedContext).mockReturnValue(CONTEXT)
   vi.mocked(requirePinnedSession).mockResolvedValue(SESSION)
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-viewer', closed: false, readsBecauseClosed: false })
@@ -111,7 +111,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  delete process.env.INTERNAL_API_TOKEN
+  vi.stubEnv('INTERNAL_API_TOKEN', undefined)
 })
 
 describe('POST /api/internal/proposals', () => {
@@ -127,7 +127,7 @@ describe('POST /api/internal/proposals', () => {
       scope: 'project',
       kind: 'file_operation',
       payload: MOVE.payload,
-      proposedByKind: 'piloti',
+      proposedByKind: 'agent',
       onBehalfOf: 'user_1',
       originConversationId: 'conv_1',
       originMessageId: ANSWER,

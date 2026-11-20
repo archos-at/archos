@@ -15,11 +15,11 @@ from agent.citations.registry import SourceRegistry
 from agent.common import LLMProvider
 from agent.core import prompt as prompt_module
 from agent.core.agent import ChatAgent
-from agent.core.agent import TurnConfig
-from agent.core.agent import _recursion_limit
 from agent.core.models import ResearchAgentState
 from agent.core.register import ResearchAgentConfig
 from agent.core.register import research_agent
+from agent.core.turn_binding import TurnConfig
+from agent.core.turn_binding import _recursion_limit
 from tests.provider_doubles import NAT_LLM_CONFIG
 from tests.provider_doubles import nat_langchain_client
 

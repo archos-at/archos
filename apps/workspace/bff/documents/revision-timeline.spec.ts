@@ -242,6 +242,12 @@ describe('versionActs / latestAct', () => {
     expect(latestAct(version(1, 'published'))).toEqual({ key: 'uploaded', actor: 'user_author', when: '2026-09-01T08:00:00.000Z' })
   })
 
+  it('names a filing a filing, never an upload', () => {
+    const filing = { ...version(1, 'published'), origin: 'filing' as const }
+    expect(versionActs(filing)).toEqual([])
+    expect(latestAct(filing)).toEqual({ key: 'filed', actor: 'user_author', when: '2026-09-01T08:00:00.000Z' })
+  })
+
   it('names the latest act otherwise', () => {
     expect(latestAct(version(2, 'changes_requested', stamped))).toMatchObject({ key: 'changesRequested', actor: 'user_r' })
   })

@@ -489,6 +489,36 @@ describe('optional fields, by what the hello accepts', () => {
     })
   })
 
+  describe('the part of an answer a question is about (answer_excerpt)', () => {
+    const question = {
+      type: 'user_message' as const,
+      conversation_id: 'conv_1',
+      message_id: 'q1',
+      text: 'Woher kommt das?',
+      answer_excerpt: 'höchstens 40 m\nje Geschoß',
+    }
+
+    it('goes to a server whose hello names it', async () => {
+      const { socket } = setup()
+      await socket.connect()
+      latest().open()
+      latest().receive({ ...HELLO, value: { build: 'new', accepts: ['user_message.answer_excerpt'] } })
+      socket.send(question)
+      expect(latest().sent).toEqual([question])
+    })
+
+    it('is quoted above the question for an older server, so the question keeps what it refers to', async () => {
+      const { socket } = setup()
+      await socket.connect()
+      latest().greet()
+      socket.send(question)
+      const { answer_excerpt: _excerpt, ...bareQuestion } = question
+      expect(latest().sent).toEqual([
+        { ...bareQuestion, text: '> höchstens 40 m\n> je Geschoß\n\nWoher kommt das?' },
+      ])
+    })
+  })
+
   it('takes a hello naming fields this page has never heard of', async () => {
     const { socket, statuses } = setup()
     await socket.connect()

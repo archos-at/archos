@@ -282,7 +282,7 @@ def chunk_own_payload(scope: str, record: ChunkRecord) -> dict[str, Any]:
 
 STORE_ONLY_FIELDS = frozenset(
     {TEXT_FIELD, TEXT_STEM_FIELD, SCOPE_FIELD, CHUNK_ID_FIELD, READING_ORDER_FIELD}
-    | {"office_id", "project_id", DOCUMENT_ID_FIELD}
+    | {"office_id", "project_id", LEGACY_DOCUMENT_ID_FIELD}
     | {
         CHUNK_ORDINAL_FIELD,
         "folder_path",

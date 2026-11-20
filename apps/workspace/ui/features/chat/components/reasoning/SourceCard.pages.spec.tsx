@@ -37,6 +37,13 @@ describe('SourceCard — pages', () => {
     expect(screen.getByText('p. 9')).toBeInTheDocument()
     expect(screen.queryByText('retrieved, not cited')).not.toBeInTheDocument()
   })
+
+  test('a document read across many pages names ranges and counts the rest', () => {
+    const read = [2, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 26, 27, 28, 30, 31, 32, 34, 35, 36]
+    renderCard(read.map((page) => ({ key: `p:${page}`, page, isCited: false })))
+
+    expect(screen.getByText('pp. 2, 4–7, 10–24 +9 more')).toBeInTheDocument()
+  })
 })
 
 describe('SourceCard — a ledger round speaks for its own slot', () => {

@@ -12,20 +12,34 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { constraintClauses, listedValues, parseSql, readSql, type SqlStatement } from '@/test-utils/sql-statements'
 import { DECISION_TABLE_PURPOSES, KNOWLEDGE_VOCABULARIES } from './vocab'
 
 const MIGRATION_FILES = readdirSync(join(process.cwd(), 'migrations'))
   .filter((name) => /^\d{4}_.+\.sql$/.test(name) && !name.endsWith('.down.sql'))
   .sort()
-const MIGRATIONS = MIGRATION_FILES.map((name) => readFileSync(join(process.cwd(), 'migrations', name), 'utf8'))
+const MIGRATIONS: SqlStatement[][] = MIGRATION_FILES.map((name) => readSql(join(process.cwd(), 'migrations', name)))
+const NEWEST_FIRST = [...MIGRATIONS].reverse()
 const FIXTURE = join(process.cwd(), 'tests/fixtures/base-knowledge.schema.json')
 
-function checkedValues(table: string, column: string, source?: string): string[] {
-  const owner = source ? '' : `CONSTRAINT ${table}_\\w+\\s+CHECK \\([^)]*?`
-  const pattern = new RegExp(`${owner}"${column}"\\s+IN\\s*\\(([^)]*)\\)`)
-  const match = (source ? [source] : [...MIGRATIONS].reverse()).map((text) => pattern.exec(text)).find(Boolean)
-  if (!match) return []
-  return [...match[1].matchAll(/'([^']+)'/g)].map((value) => value[1])
+function checkedValues(table: string, column: string): string[] {
+  for (const statements of NEWEST_FIRST) {
+    for (const clause of constraintClauses(statements)) {
+      if (!clause.name.startsWith(`${table}_`) || !clause.check) continue
+      const values = listedValues(clause.check, column)
+      if (values.length > 0) return values
+    }
+  }
+  return []
+}
+
+function latest(constraint: string, newestFirst: SqlStatement[][] = NEWEST_FIRST): 'added' | 'dropped' | undefined {
+  for (const statements of newestFirst) {
+    const clauses = constraintClauses(statements).filter((clause) => clause.name === constraint)
+    const last = clauses.findLast((clause) => clause.action === 'DROP' || clause.check)
+    if (last) return last.action === 'DROP' ? 'dropped' : 'added'
+  }
+  return undefined
 }
 
 function vocabularySchema() {
@@ -47,24 +61,22 @@ describe('the base knowledge vocabularies', () => {
   })
 
   it('holds no CHECK on a source\'s protocol or format: the Python registry is their one list', () => {
-    const latest = (constraint: string): 'added' | 'dropped' | undefined =>
-      [...MIGRATIONS]
-        .reverse()
-        .map((text) =>
-          new RegExp(`DROP CONSTRAINT IF EXISTS ${constraint}\\b`).test(text) ? ('dropped' as const)
-          : new RegExp(`CONSTRAINT ${constraint}\\s+CHECK`).test(text) ? ('added' as const)
-          : undefined,
-        )
-        .find(Boolean)
     expect(latest('knowledge_source_revisions_protocol_known')).toBe('dropped')
     expect(latest('knowledge_source_revisions_format_known')).toBe('dropped')
     expect(Object.keys(KNOWLEDGE_VOCABULARIES)).not.toContain('knowledge_source_revisions.format')
   })
 
+  it('reads a constraint by its last action within a migration', () => {
+    const only = (sql: string) => latest('t_known', [parseSql(sql)])
+    expect(only('ALTER TABLE t DROP CONSTRAINT t_known;')).toBe('dropped')
+    expect(only('ALTER TABLE t DROP CONSTRAINT t_known; ALTER TABLE t ADD CONSTRAINT t_known CHECK ("c" IN (\'a\'));')).toBe('added')
+    expect(only('ALTER TABLE t ADD CONSTRAINT t_known CHECK ("c" IN (\'a\')); ALTER TABLE t DROP CONSTRAINT t_known;')).toBe('dropped')
+  })
+
   it('allows a decision table only for the purposes the wire gives one', () => {
-    const rulesets = MIGRATIONS[MIGRATION_FILES.indexOf('0204_rulesets.sql')] ?? ''
-    const constraint = /knowledge_ruleset_revisions_table_purpose CHECK \(([^;]*?)\),\n/.exec(rulesets)?.[1] ?? ''
-    expect(checkedValues('knowledge_ruleset_revisions', 'purpose', constraint).sort()).toEqual([...DECISION_TABLE_PURPOSES].sort())
+    const rulesets = MIGRATIONS[MIGRATION_FILES.indexOf('0204_rulesets.sql')] ?? []
+    const purpose = constraintClauses(rulesets).find((clause) => clause.name === 'knowledge_ruleset_revisions_table_purpose')?.check ?? []
+    expect(listedValues(purpose, 'purpose').sort()).toEqual([...DECISION_TABLE_PURPOSES].sort())
   })
 
   it('matches the committed fixture the Python tier reads', () => {

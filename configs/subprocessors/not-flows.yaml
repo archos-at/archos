@@ -1,5 +1,3 @@
-# Hosts and variables the scan finds that carry no data out of the cluster,
-# each with the reason. An entry that no longer occurs fails the check.
 hosts:
   gesetzefinden.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
   jusline.at: a site that republishes a legal source's texts (a source record's copy_hosts), never fetched
@@ -40,6 +38,44 @@ hosts:
   vilmapflaum.com: the photographer's site, linked in the photo credit on the website's home page; the page loads nothing from it
   www.instagram.com: the photographer's Instagram, linked in the photo credit on the website's home page; the page loads nothing from it
   eur-lex.europa.eu: a citation in the EU knowledge pack (configs/knowledge-packs/eu.json), a source a reviewer opens; nothing fetches it
+  a1.net: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  aon.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  arcor.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  bluewin.ch: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  chello.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  email.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  freenet.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.ch: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  gmx.net: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  googlemail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  hispeed.ch: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  icloud.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  inode.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  kabsi.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  mac.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  mail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  mail.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  mailbox.org: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  me.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  msn.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  online.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  posteo.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  posteo.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  protonmail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  sunrise.ch: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  t-online.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  tele2.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  tuta.io: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  tutanota.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  utanet.at: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  web.de: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  yandex.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  ymail.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
+  zoho.com: a public mail provider's domain (apps/workspace/bff/mail-thread/public-mail-domains.ts), compared against a sender's address, never contacted
 model_vendors:
   qdrant: Qdrant's built-in BM25 (qdrant/bm25), computed inside our own Qdrant
 posthog_destinations:
@@ -117,9 +153,6 @@ env:
   WEB_PUSH_VAPID_PRIVATE_KEY: signs our push messages (web-push.yaml); never sent
   WEB_PUSH_VAPID_PUBLIC_KEY: identifies our push messages to the browser's push service (web-push.yaml)
   NVIDIA_API_KEY: credential_resolution maps the removed NIM host to it; config_validation refuses an llm entry on NIM at boot
-# Every direct runtime dependency of an image says where it talks to. A vendor
-# SDK is in its row's `sdks` (it reaches the vendor's default host with no URL in
-# our code); everything else is here, under the reason it opens no flow of its own.
 packages:
   'no network of its own: UI, parsing, rendering, formatting, validation, crypto':
     - 'js:d3-array'

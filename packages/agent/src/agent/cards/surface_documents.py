@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Literal
 
-from agent.common.source_kinds import is_office_shelf_collection
+from agent.cards.surface_briefing import _briefing_for_agent
+from agent.cards.surface_browse import _browse_workspace_search
+from agent.cards.surface_browse import _search_line
+from agent.cards.surface_ranking import MAX_SURFACED_FILES
+from agent.cards.surface_ranking import SurfaceMode
+from agent.cards.surface_retrieval import _surface_named
+from agent.cards.surface_retrieval import _surface_search
+from agent.cards.surface_targets import _filename_mentioned_in_query
+from agent.cards.surface_targets import _match_known_filename
+from agent.cards.surface_targets import _target_collections
+from agent.cards.surface_targets import _target_shelves
 from nat.plugin_api import Builder
 from nat.plugin_api import FunctionBaseConfig
 from nat.plugin_api import FunctionInfo
@@ -13,202 +22,8 @@ from nat.plugin_api import register_function
 logger = logging.getLogger(__name__)
 
 _CHUNK_TOP_K = 40
-MAX_SURFACED_FILES = 3
 
 _SHELF_OF_SOURCE: dict[str, str] = {"project": "project", "office": "office_shelf"}
-
-
-MIN_SURFACE_SCORE = 0.455
-
-MANY_RELATIVE_DROP = 0.128
-
-CLEAR_WINNER_GAP = 0.15
-
-_IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".tif", ".tiff")
-_MODEL_EXT = (".ifc", ".ifczip")
-_QUERY_KIND_HINTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("image", ("screenshot", "bildschirm", "png", "jpg", "jpeg", "foto", "photo", "zitation", "citation", "zitier")),
-    ("model", ("ifc", "bim", "modell")),
-)
-
-SurfaceMode = Literal["one", "many"]
-
-
-def _source_for_collection(collection: str) -> Literal["project", "office"] | None:
-    if collection.startswith("proj_"):
-        return "project"
-    if is_office_shelf_collection(collection):
-        return "office"
-    return None
-
-
-def _source_for_target(
-    collection: str,
-    source_by_collection: dict[str, str],
-) -> Literal["project", "office"] | None:
-    if source_by_collection:
-        raw = source_by_collection.get(collection)
-        return raw if raw in ("project", "office") else None
-    return _source_for_collection(collection)
-
-
-def _target_collections(
-    scope: list[str] | None,
-    *,
-    shelf: str | None = None,
-    scoped: list | None = None,
-) -> list[str]:
-    from agent.common.source_kinds import Shelf
-    from agent.common.source_kinds import parse_shelf
-    from agent.knowledge.restricted_collections import is_restricted_collection
-
-    wanted = parse_shelf(shelf)
-    seen: set[str] = set()
-    targets: list[str] = []
-    if scoped:
-        for entry in scoped:
-            entry_shelf = getattr(entry, "shelf", None)
-            collection = getattr(entry, "collection", None)
-            if not collection or collection in seen or is_restricted_collection(collection):
-                continue
-            if entry_shelf is Shelf.BASE:
-                continue
-            if wanted is not None and entry_shelf != wanted:
-                continue
-            if wanted is None and entry_shelf not in (Shelf.PROJECT, Shelf.OFFICE_SHELF):
-                continue
-            seen.add(collection)
-            targets.append(collection)
-        return targets
-    for collection in scope or []:
-        source = _source_for_collection(collection)
-        if source is None or is_restricted_collection(collection):
-            continue
-        if wanted is Shelf.OFFICE_SHELF and source != "office":
-            continue
-        if wanted is Shelf.PROJECT and source != "project":
-            continue
-        if collection not in seen:
-            seen.add(collection)
-            targets.append(collection)
-    return targets
-
-
-def _match_known_filename(requested: str, known: list[str]) -> str | None:
-    needle = (requested or "").strip()
-    if not needle or not known:
-        return None
-    if needle in known:
-        return needle
-    lowered = {name.lower(): name for name in known}
-    if needle.lower() in lowered:
-        return lowered[needle.lower()]
-    for name in sorted(known, key=len, reverse=True):
-        if name.lower() in needle.lower() or needle.lower() in name.lower():
-            return name
-    return None
-
-
-def _filename_mentioned_in_query(query: str, known: list[str]) -> str | None:
-    text = (query or "").strip().lower()
-    if not text or not known:
-        return None
-    for name in sorted(known, key=len, reverse=True):
-        if name.lower() in text:
-            return name
-    return None
-
-
-def _file_kind(file_name: str) -> str:
-    lower = (file_name or "").lower()
-    if lower.endswith(_MODEL_EXT):
-        return "model"
-    if lower.endswith(_IMAGE_EXT):
-        return "image"
-    if any(token in lower for token in ("grundriss", "schnitt", "ansicht", "lageplan")):
-        return "drawing"
-    return "document"
-
-
-def _query_kind(query: str) -> str | None:
-    text = (query or "").strip().lower()
-    if not text:
-        return None
-    for kind, tokens in _QUERY_KIND_HINTS:
-        if any(token in text for token in tokens):
-            return kind
-    return None
-
-
-def _aggregate_hits(hits: list[tuple[object, str]]) -> list[dict]:
-    best: dict[str, dict] = {}
-    for chunk, source in hits:
-        file_name = getattr(chunk, "file_name", None)
-        if not file_name:
-            continue
-        score = float(getattr(chunk, "score", 0.0) or 0.0)
-        if score < MIN_SURFACE_SCORE:
-            continue
-        existing = best.get(file_name)
-        if existing is not None and existing["score"] >= score:
-            continue
-        snippet = (getattr(chunk, "content", "") or "").strip()
-        if len(snippet) > 300:
-            snippet = snippet[:300].rstrip() + "…"
-        best[file_name] = {
-            "file_name": file_name,
-            "snippet": snippet or None,
-            "page": getattr(chunk, "page_number", None),
-            "score": round(score, 4),
-            "source": source,
-        }
-    return sorted(best.values(), key=lambda row: row["score"], reverse=True)
-
-
-def _pick_one(ordered: list[dict]) -> list[dict]:
-    return ordered[:1]
-
-
-def _pick_many(ordered: list[dict], max_files: int) -> list[dict]:
-    if not ordered:
-        return []
-    winner = ordered[0]
-    if len(ordered) == 1:
-        return [winner]
-    best = float(winner["score"] or 0.0)
-    second = float(ordered[1]["score"] or 0.0)
-    if best - second >= CLEAR_WINNER_GAP:
-        return [winner]
-    winner_kind = _file_kind(str(winner["file_name"]))
-    cap = max(1, min(max_files, MAX_SURFACED_FILES))
-    floor = max(MIN_SURFACE_SCORE, best - MANY_RELATIVE_DROP)
-    kept = [winner]
-    for row in ordered[1:]:
-        if len(kept) >= cap:
-            break
-        if _file_kind(str(row["file_name"])) != winner_kind:
-            continue
-        if float(row["score"] or 0.0) < floor:
-            continue
-        kept.append(row)
-    return kept
-
-
-def _aggregate_surfaced(
-    hits: list[tuple[object, str]],
-    max_files: int,
-    mode: SurfaceMode = "one",
-    query: str = "",
-) -> list[dict]:
-    ordered = _aggregate_hits(hits)
-    hint = _query_kind(query)
-    if hint:
-        hinted = [row for row in ordered if _file_kind(str(row["file_name"])) == hint]
-        if hinted:
-            ordered = hinted
-    if mode == "many":
-        return _pick_many(ordered, max_files)
-    return _pick_one(ordered)
 
 
 class SurfaceDocumentsConfig(FunctionBaseConfig, name="surface_documents"): ...
@@ -264,332 +79,167 @@ async def surface_documents(tool_config: SurfaceDocumentsConfig, builder: Builde
             return "Error: `shelf` must be `office_shelf` (Büroablage) or `project` (this project)."
         if not query and not filename:
             return "Provide `filename=` (open this named file) or `query=` (search). Use `mode=many` only to browse."
-
-        from agent.knowledge.inventory import shelf_hint_from_query
-        from agent.knowledge.scoping import get_collection_scope_from_context
-        from agent.knowledge.scoping import get_scoped_collections_from_context
-
-        try:
-            scoped_entries = get_scoped_collections_from_context()
-        except Exception:
-            logger.debug("surface_documents: could not read scoped collections", exc_info=True)
-            scoped_entries = None
-        try:
-            scope = get_collection_scope_from_context()
-        except Exception:
-            logger.debug("surface_documents: could not read collection scope", exc_info=True)
-            scope = None
-
-        hinted = shelf_hint_from_query(query)
-        hinted_value = hinted.value if hinted is not None else None
-        resolved_shelf = shelf or (hinted_value if hinted_value in ("office_shelf", "project") else None)
-        targets = _target_collections(scope, shelf=resolved_shelf, scoped=scoped_entries)
-        if not targets:
-            if resolved_shelf == "office_shelf":
-                return (
-                    "No Büroablage documents are in scope to search. The OIB corpus is "
-                    "Basiswissen, not the Büroablage — answer from the inventory's "
-                    "Büroablage group (empty means empty)."
-                )
-            return (
-                "No project or Büroablage documents are in scope to search, so there is "
-                "nothing to surface. Answer from the other available sources instead."
-            )
-
-        meta = await _fetch_document_metadata(targets)
-        known_names = list(meta.keys())
-
-        named = filename
-        if named:
-            named = _match_known_filename(named, known_names)
-        if filename and not named and not query:
-            return (
-                f"No indexed file matches filename={filename!r}. "
-                "Check the spelling against the knowledge-base inventory, "
-                "or pass a short topic `query` with `mode=many` to browse."
-            )
-        if not named and query:
-            named = _filename_mentioned_in_query(query, known_names)
-
-        effective: SurfaceMode = "many" if mode == "many" and not named else "one"
-
-        from agent.common.retrieval_settings import get_retrieval_setting
-
-        chunk_top_k = get_retrieval_setting("surface.chunk_top_k", _CHUNK_TOP_K)
-        max_files = get_retrieval_setting("surface.max_files", MAX_SURFACED_FILES)
-
-        documents: list[dict]
-        search: dict | None = None
-        if named:
-            documents = await _surface_named(named, targets, meta, query or named, chunk_top_k)
-        else:
-            browsed = None
-            if effective == "many":
-                browsed = await _browse_workspace_search(query, _target_shelves(targets, scoped_entries), max_files)
-            if browsed is not None:
-                documents, search = browsed
-            else:
-                documents = await _surface_search(query, targets, effective, chunk_top_k, max_files)
-
-        if not documents:
-            subject = filename or query
-            return (
-                f"No project or Büroablage file matched {subject!r}. "
-                "Try a narrower `query` (a filename fragment, a Dokumentart, a project name) "
-                "or check the knowledge-base inventory for the exact `filename` spelling."
-            )
-
-        for doc in documents:
-            info = meta.get(doc["file_name"])
-            if info:
-                if info.get("summary"):
-                    doc["summary"] = info["summary"]
-                doc["_tags"] = info.get("tags") or []
-                doc["_folder_path"] = info.get("folder_path") or None
-
-        from agent.cards.models import answer_card_adapter
-        from agent.cards.registry import get_card_registry
-
-        heading = (title or "").strip()
-        if not heading:
-            heading = documents[0]["file_name"] if effective == "one" else f"Passende Unterlagen – {query}"
-
-        card = {
-            "type": "document_grid",
-            "title": heading,
-            "query": query or filename,
-            "documents": [{k: v for k, v in doc.items() if not k.startswith("_")} for doc in documents],
-        }
-        if search is not None:
-            card["search"] = {"text": search["text"], "scope": search["scope"]}
-        try:
-            validated = answer_card_adapter.validate_python(card).model_dump(exclude_none=True)
-        except Exception as exc:
-            logger.exception("surface_documents: failed to build document_grid card")
-            return f"Error: could not build the document card ({exc})."
-
-        registry = get_card_registry()
-        if registry is None:
-            logger.info("surface_documents: no card registry; %d file(s) dropped", len(documents))
-            return "Noted, but no card channel is available in this context; continue with your written answer."
-
-        registry.add(validated)
-        from agent.common.turn_status import record_lane_hit
-
-        for doc in documents:
-            record_lane_hit(str(doc["file_name"]), shelf=_SHELF_OF_SOURCE.get(str(doc.get("source") or "")))
-        logger.info(
-            "surface_documents: mode=%s surfaced %d file(s) query=%r filename=%r",
-            effective,
-            len(documents),
-            query,
-            filename,
-        )
-        briefing = _briefing_for_agent(query or filename or "", documents, effective)
-        if search is not None:
-            briefing = f"{briefing}\n{_search_line(search)}"
-        return briefing
+        return await _surface_for(query, filename, title, mode, shelf)
 
     yield FunctionInfo.from_fn(_surface, description=_TOOL_DESCRIPTION)
 
 
-async def _surface_named(
-    file_name: str,
+async def _surface_for(query: str, filename: str | None, title: str | None, mode: str | None, shelf: str | None) -> str:
+    from agent.knowledge.inventory import shelf_hint_from_query
+
+    scoped_entries, scope = _scope_from_context()
+
+    hinted = shelf_hint_from_query(query)
+    hinted_value = hinted.value if hinted is not None else None
+    resolved_shelf = shelf or (hinted_value if hinted_value in ("office_shelf", "project") else None)
+    targets = _target_collections(scope, shelf=resolved_shelf, scoped=scoped_entries)
+    if not targets:
+        return _nothing_in_scope(resolved_shelf)
+
+    meta = await _fetch_document_metadata(targets)
+    known_names = list(meta.keys())
+
+    named = filename
+    if named:
+        named = _match_known_filename(named, known_names)
+    if filename and not named and not query:
+        return (
+            f"No indexed file matches filename={filename!r}. "
+            "Check the spelling against the knowledge-base inventory, "
+            "or pass a short topic `query` with `mode=many` to browse."
+        )
+    if not named and query:
+        named = _filename_mentioned_in_query(query, known_names)
+
+    effective: SurfaceMode = "many" if mode == "many" and not named else "one"
+    documents, search = await _found_documents(named, query, targets, meta, effective, scoped_entries)
+    if not documents:
+        subject = filename or query
+        return (
+            f"No project or Büroablage file matched {subject!r}. "
+            "Try a narrower `query` (a filename fragment, a Dokumentart, a project name) "
+            "or check the knowledge-base inventory for the exact `filename` spelling."
+        )
+    _add_metadata(documents, meta)
+    return _offer_card(documents, search, title, query, filename, effective)
+
+
+def _scope_from_context() -> tuple[list | None, list[str] | None]:
+    from agent.knowledge.scoping import get_collection_scope_from_context
+    from agent.knowledge.scoping import get_scoped_collections_from_context
+
+    try:
+        scoped_entries = get_scoped_collections_from_context()
+    except Exception:
+        logger.debug("surface_documents: could not read scoped collections", exc_info=True)
+        scoped_entries = None
+    try:
+        scope = get_collection_scope_from_context()
+    except Exception:
+        logger.debug("surface_documents: could not read collection scope", exc_info=True)
+        scope = None
+    return scoped_entries, scope
+
+
+def _nothing_in_scope(resolved_shelf: str | None) -> str:
+    if resolved_shelf == "office_shelf":
+        return (
+            "No Büroablage documents are in scope to search. The OIB corpus is "
+            "Basiswissen, not the Büroablage — answer from the inventory's "
+            "Büroablage group (empty means empty)."
+        )
+    return (
+        "No project or Büroablage documents are in scope to search, so there is "
+        "nothing to surface. Answer from the other available sources instead."
+    )
+
+
+async def _found_documents(
+    named: str | None,
+    query: str,
     targets: list[str],
     meta: dict[str, dict],
-    retrieve_query: str,
-    chunk_top_k: int,
-) -> list[dict]:
-    info = meta.get(file_name) or {}
-    source = "project"
-    hits = await _retrieve_all(targets, retrieve_query, chunk_top_k)
-    for chunk, src in hits:
-        if getattr(chunk, "file_name", None) == file_name:
-            source = src
-            break
-    snippet = None
-    page = None
-    score = 1.0
-    for chunk, src in hits:
-        if getattr(chunk, "file_name", None) != file_name:
-            continue
-        snippet = (getattr(chunk, "content", "") or "").strip() or None
-        if snippet and len(snippet) > 300:
-            snippet = snippet[:300].rstrip() + "…"
-        page = getattr(chunk, "page_number", None)
-        score = round(float(getattr(chunk, "score", 0.0) or 0.0), 4)
-        source = src
-        break
-    return [
-        {
-            "file_name": file_name,
-            "snippet": snippet,
-            "page": page,
-            "score": score if score else 1.0,
-            "source": source,
-            "summary": info.get("summary"),
-            "_folder_path": info.get("folder_path") or None,
-        }
-    ]
+    effective: SurfaceMode,
+    scoped_entries: list | None,
+) -> tuple[list[dict], dict | None]:
+    from agent.common.retrieval_settings import get_retrieval_setting
+
+    chunk_top_k = get_retrieval_setting("surface.chunk_top_k", _CHUNK_TOP_K)
+    max_files = get_retrieval_setting("surface.max_files", MAX_SURFACED_FILES)
+    if named:
+        return await _surface_named(named, targets, meta, query or named, chunk_top_k), None
+    browsed = None
+    if effective == "many":
+        browsed = await _browse_workspace_search(query, _target_shelves(targets, scoped_entries), max_files)
+    if browsed is not None:
+        return browsed
+    return await _surface_search(query, targets, effective, chunk_top_k, max_files), None
 
 
-WORKSPACE_SEARCH_OPERATION = "workspace-search"
-_WORKSPACE_SEARCH_LIMIT = 10
-_SOURCE_OF_HIT_SHELF: dict[str, Literal["project", "office"]] = {"project": "project", "office_shelf": "office"}
+def _add_metadata(documents: list[dict], meta: dict[str, dict]) -> None:
+    for doc in documents:
+        info = meta.get(doc["file_name"])
+        if info:
+            _copy_metadata(doc, info)
 
 
-def _target_shelves(targets: list[str], scoped: list | None) -> set[str]:
-    from agent.common.source_kinds import Shelf
-
-    by_collection = {}
-    for entry in scoped or []:
-        entry_shelf = getattr(entry, "shelf", None)
-        if entry_shelf is Shelf.PROJECT:
-            by_collection[getattr(entry, "collection", None)] = "project"
-        elif entry_shelf is Shelf.OFFICE_SHELF:
-            by_collection[getattr(entry, "collection", None)] = "office"
-    shelves: set[str] = set()
-    for collection in targets:
-        source = _source_for_target(collection, by_collection)
-        if source == "project":
-            shelves.add("project")
-        elif source == "office":
-            shelves.add("office_shelf")
-    return shelves
+def _copy_metadata(doc: dict, info: dict) -> None:
+    if info.get("summary"):
+        doc["summary"] = info["summary"]
+    doc["_tags"] = info.get("tags") or []
+    doc["_folder_path"] = info.get("folder_path") or None
 
 
-def _search_scopes(shelves: set[str], project_id: str | None) -> list[dict[str, str]]:
-    scopes: list[dict[str, str]] = []
-    if "project" in shelves and project_id:
-        scopes.append({"scope": "project", "projectId": project_id})
-    if "office_shelf" in shelves:
-        scopes.append({"scope": "office_shelf"})
-    return scopes
-
-
-def _rows_from_search(structured: dict) -> list[dict]:
-    section = (structured.get("sections") or {}).get("document") or {}
-    rows: list[dict] = []
-    for hit in section.get("hits") or []:
-        if not isinstance(hit, dict):
-            continue
-        file_name = str(hit.get("filename") or "").strip()
-        source = _SOURCE_OF_HIT_SHELF.get(str(hit.get("shelf") or ""))
-        if not file_name or source is None:
-            continue
-        passage = hit.get("passage") if isinstance(hit.get("passage"), dict) else {}
-        snippet = _clip(passage.get("text"), 300)
-        page = passage.get("page")
-        rows.append(
-            {
-                "file_name": file_name,
-                "snippet": snippet,
-                "page": page if isinstance(page, int) and page > 0 else None,
-                "source": source,
-                "_folder_path": hit.get("folderName") or None,
-            }
-        )
-    return rows
-
-
-def _interleave(groups: list[list[dict]]) -> list[dict]:
-    merged: list[dict] = []
-    seen: set[str] = set()
-    for rank in range(max((len(group) for group in groups), default=0)):
-        for group in groups:
-            if rank < len(group) and group[rank]["file_name"] not in seen:
-                seen.add(group[rank]["file_name"])
-                merged.append(group[rank])
-    return merged
-
-
-def _pick_browse(rows: list[dict], query: str, max_files: int) -> list[dict]:
-    hint = _query_kind(query)
-    if hint:
-        hinted = [row for row in rows if _file_kind(row["file_name"]) == hint]
-        rows = hinted or rows
-    if not rows:
-        return []
-    kind = _file_kind(rows[0]["file_name"])
-    cap = max(1, min(max_files, MAX_SURFACED_FILES))
-    return [row for row in rows if _file_kind(row["file_name"]) == kind][:cap]
-
-
-async def _browse_workspace_search(query: str, shelves: set[str], max_files: int) -> tuple[list[dict], dict] | None:
-    from agent.project_context import get_project_id_from_context
-    from agent.tools.workspace.register import read_operation
-
-    text = query.strip()[:500]
-    scopes = _search_scopes(shelves, get_project_id_from_context())
-    if not text or not scopes:
-        return None
-    body = {"text": text, "kinds": ["document"], "limit": _WORKSPACE_SEARCH_LIMIT, "facets": False}
-    answers = await asyncio.gather(
-        *(read_operation(WORKSPACE_SEARCH_OPERATION, {"query": scope, "body": body}) for scope in scopes)
-    )
-    if any(answer is None for answer in answers):
-        logger.info("surface_documents: workspace-search did not answer; browsing the corpora")
-        return None
-    total = sum(int(((answer.get("sections") or {}).get("document") or {}).get("total") or 0) for answer in answers)
-    documents = _pick_browse(_interleave([_rows_from_search(answer) for answer in answers]), text, max_files)
-    scope = scopes[0]["scope"] if len(scopes) == 1 else "office"
-    return documents, {"text": text, "scope": scope, "total": total}
-
-
-def _search_line(search: dict) -> str:
-    return (
-        f"The workspace search finds {search['total']} document(s) for {search['text']!r}; the card links to the "
-        "search page with this query for the rest."
-    )
-
-
-async def _surface_search(
+def _offer_card(
+    documents: list[dict],
+    search: dict | None,
+    title: str | None,
     query: str,
-    targets: list[str],
-    mode: SurfaceMode,
-    chunk_top_k: int,
-    max_files: int,
-) -> list[dict]:
-    hits = await _retrieve_all(targets, query, chunk_top_k)
-    return _aggregate_surfaced(hits, max_files, mode, query)
+    filename: str | None,
+    effective: SurfaceMode,
+) -> str:
+    from agent.cards.models import answer_card_adapter
+    from agent.cards.registry import get_card_registry
 
+    heading = (title or "").strip()
+    if not heading:
+        heading = documents[0]["file_name"] if effective == "one" else f"Passende Unterlagen – {query}"
 
-async def _retrieve_all(
-    targets: list[str],
-    query: str,
-    chunk_top_k: int,
-) -> list[tuple[object, str]]:
-    from agent.knowledge.factory import get_active_retriever
-
-    retriever = get_active_retriever()
-
-    source_by_collection: dict[str, str] = {}
+    card = {
+        "type": "document_grid",
+        "title": heading,
+        "query": query or filename,
+        "documents": [{k: v for k, v in doc.items() if not k.startswith("_")} for doc in documents],
+    }
+    if search is not None:
+        card["search"] = {"text": search["text"], "scope": search["scope"]}
     try:
-        from agent.common.source_kinds import Shelf
-        from agent.knowledge.scoping import get_scoped_collections_from_context
+        validated = answer_card_adapter.validate_python(card).model_dump(exclude_none=True)
+    except Exception as exc:
+        logger.exception("surface_documents: failed to build document_grid card")
+        return f"Error: could not build the document card ({exc})."
 
-        for entry in get_scoped_collections_from_context() or []:
-            if entry.shelf is Shelf.OFFICE_SHELF:
-                source_by_collection[entry.collection] = "office"
-            elif entry.shelf is Shelf.PROJECT:
-                source_by_collection[entry.collection] = "project"
-    except Exception:
-        logger.debug("surface_documents: no scoped shelves for retrieve", exc_info=True)
+    registry = get_card_registry()
+    if registry is None:
+        logger.info("surface_documents: no card registry; %d file(s) dropped", len(documents))
+        return "Noted, but no card channel is available in this context; continue with your written answer."
 
-    async def _retrieve(collection: str) -> list[tuple[object, str]]:
-        source = _source_for_target(collection, source_by_collection)
-        if source is None:
-            return []
-        try:
-            result = await retriever.retrieve(query=query, collection_name=collection, top_k=chunk_top_k, filters=None)
-        except Exception:
-            logger.warning("surface_documents: retrieval failed for %s", collection, exc_info=True)
-            return []
-        chunks = getattr(result, "chunks", None) or []
-        return [(chunk, source) for chunk in chunks]
+    registry.add(validated)
+    from agent.common.turn_status import record_lane_hit
 
-    gathered = await asyncio.gather(*(_retrieve(collection) for collection in targets))
-    return [hit for group in gathered for hit in group]
+    for doc in documents:
+        record_lane_hit(str(doc["file_name"]), shelf=_SHELF_OF_SOURCE.get(str(doc.get("source") or "")))
+    logger.info(
+        "surface_documents: mode=%s surfaced %d file(s) query=%r filename=%r",
+        effective,
+        len(documents),
+        query,
+        filename,
+    )
+    briefing = _briefing_for_agent(query or filename or "", documents, effective)
+    if search is not None:
+        briefing = f"{briefing}\n{_search_line(search)}"
+    return briefing
 
 
 async def _fetch_document_metadata(collections: list[str]) -> dict[str, dict]:
@@ -604,75 +254,16 @@ async def _fetch_document_metadata(collections: list[str]) -> dict[str, dict]:
 
     out: dict[str, dict] = {}
     for docs in await asyncio.gather(*(_for(c) for c in collections)):
-        for doc in docs:
-            name = getattr(doc, "file_name", None)
-            if name and name not in out:
-                out[name] = {
-                    "summary": getattr(doc, "summary", None),
-                    "tags": getattr(doc, "tags", None),
-                    "folder_path": getattr(doc, "folder_path", None),
-                }
+        _add_documents(out, docs)
     return out
 
 
-_SOURCE_LABEL = {"project": "Projekt", "office": "Büroablage"}
-_BRIEF_SNIPPET_MAX = 120
-_BRIEF_SUMMARY_MAX = 160
-
-
-def _clip(text: str | None, limit: int) -> str | None:
-    value = (text or "").strip()
-    if not value:
-        return None
-    if len(value) <= limit:
-        return value
-    return value[:limit].rstrip() + "…"
-
-
-def _file_label(doc: dict) -> str:
-    return _SOURCE_LABEL.get(doc.get("source") or "", "Dokument")
-
-
-def _folder_of(doc: dict) -> str:
-    return str(doc.get("_folder_path") or "").strip()
-
-
-def _briefing_for_agent(query: str, documents: list[dict], mode: SurfaceMode) -> str:
-    if mode == "one" or len(documents) == 1:
-        return _brief_one(documents[0])
-    return _brief_many(query, documents)
-
-
-def _brief_one(doc: dict) -> str:
-    name = doc["file_name"]
-    label = _file_label(doc)
-    folder = _folder_of(doc)
-    where = f"{label}, Ordner {folder}" if folder else label
-    lines = [f'Opened "{name}" ({where}) beside the chat.']
-    summary = _clip(doc.get("summary"), _BRIEF_SUMMARY_MAX)
-    if summary:
-        lines.append(f"Worum es geht: {summary}")
-    snippet = _clip(doc.get("snippet"), _BRIEF_SNIPPET_MAX)
-    if snippet:
-        page = doc.get("page")
-        where = f"S. {page}: " if page else ""
-        lines.append(f'{where}"{snippet}"')
-    lines.append("The UI shows the file. Talk about it; do not re-open it or dump filenames.")
-    return "\n".join(lines)
-
-
-def _brief_many(query: str, documents: list[dict]) -> str:
-    lines = [
-        f"Offered {len(documents)} close matches for {query!r}. "
-        "Short choice — the user picks. Do not enumerate the filenames."
-    ]
-    for doc in documents:
-        label = _file_label(doc)
-        folder = _folder_of(doc)
-        where = f"{label}, Ordner {folder}" if folder else label
-        summary = _clip(doc.get("summary"), _BRIEF_SUMMARY_MAX)
-        row = f'- "{doc["file_name"]}" ({where})'
-        if summary:
-            row = f"{row} — {summary}"
-        lines.append(row)
-    return "\n".join(lines)
+def _add_documents(out: dict[str, dict], docs: list) -> None:
+    for doc in docs:
+        name = getattr(doc, "file_name", None)
+        if name and name not in out:
+            out[name] = {
+                "summary": getattr(doc, "summary", None),
+                "tags": getattr(doc, "tags", None),
+                "folder_path": getattr(doc, "folder_path", None),
+            }

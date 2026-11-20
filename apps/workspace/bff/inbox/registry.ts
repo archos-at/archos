@@ -3,7 +3,6 @@ import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import type { PushCategory, PushUrgency } from './push-categories'
 import { IN_APP_ONLY, INBOUND_MAIL_TYPE_DEFINITIONS } from './inbound-mail-types'
 import { canonicalInboxType, isMarkAnchored } from './types'
-import { storedInboxType } from './legacy-agent-types'
 
 export { appendedGroupAnchor } from './inbound-mail-types'
 
@@ -226,6 +225,14 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: IN_APP_ONLY,
     push: { category: 'requests', urgency: 'normal' },
   },
+  'base_knowledge.new_edition': {
+    actionable: true,
+    grouping: 'per-anchor',
+    retentionDays: 365,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'office', urgency: 'low' },
+  },
   'agent.intake_ready': {
     actionable: true,
     grouping: 'per-anchor',
@@ -303,12 +310,20 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: { send: 'if-unread', afterMinutes: 30 },
     push: { category: 'results', urgency: 'normal' },
   },
+  'office_shelf.norm_suggested': {
+    actionable: true,
+    grouping: 'per-anchor',
+    retentionDays: 60,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'requests', urgency: 'normal' },
+  },
   ...INBOUND_MAIL_TYPE_DEFINITIONS,
 }
 
 export const MARK_ANCHORED_INBOX_TYPES: readonly InboxItemType[] = INBOX_ITEM_TYPES.filter(isMarkAnchored)
 
-export const PROPOSAL_ANCHORED_INBOX_TYPES: readonly InboxItemType[] = ['agent.proposal_waiting']
+export const PROPOSAL_ANCHORED_INBOX_TYPES: readonly InboxItemType[] = ['agent.proposal_waiting', 'office_shelf.norm_suggested']
 
 export const PLATFORM_INBOX_PERMISSION = PLATFORM_PERMISSIONS.settingsView
 
@@ -345,7 +360,7 @@ export function inboxGroupKey(
   anchorId?: string | null,
 ): string {
   const definition = inboxTypeDefinition(type)
-  const base = `${storedInboxType(type)}:${resourceType}:${resourceId}`
+  const base = `${type}:${resourceType}:${resourceId}`
   if (definition.grouping === 'collapse') return base
   if (!anchorId) {
     throw new Error(`[inbox] type "${type}" groups per anchor but no anchorId was supplied`)

@@ -408,7 +408,7 @@ describe('a reply of the agent’s on a delegated mark', () => {
 
     const [input] = vi.mocked(insertAnnotationReply).mock.calls[0]
     expect(input).not.toHaveProperty('handBack')
-    expect(input).toMatchObject({ authorKind: 'piloti', annotationId: MARK_ID })
+    expect(input).toMatchObject({ authorKind: 'agent', annotationId: MARK_ID })
     expect(enqueueJob).not.toHaveBeenCalled()
   })
 })
@@ -842,7 +842,7 @@ describe('the audit trail of a wake taken back', () => {
   it('says the agent took it back when the agent closed the mark, and records no stop of the turn it does not stop', async () => {
     vi.mocked(findLiveDelegationWake).mockResolvedValue(liveWake('queued'))
     await updateAs(session as unknown as AuthorizedSession, DOC_ID, MARK_ID, { status: 'resolved' }, AGENT)
-    expect(stopped().map((input) => input.metadata?.by)).toEqual(['piloti'])
+    expect(stopped().map((input) => input.metadata?.by)).toEqual(['agent'])
 
     vi.mocked(recordAuditEvent).mockClear()
     vi.mocked(findLiveDelegationWake).mockResolvedValue(liveWake('started'))

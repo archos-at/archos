@@ -153,6 +153,7 @@ def _analyze_drawing_page_with_vlm(
 ) -> tuple[str, dict[str, Any]]:
     from knowledge_layer.ingest import visual_analysis
     from knowledge_layer.ingest import visual_domains
+    from knowledge_layer.ingest import visual_prompt
 
     registry = visual_domains.resolve_registry()
 
@@ -167,7 +168,7 @@ def _analyze_drawing_page_with_vlm(
         return ("[Drawing - VLM API key not set]", {})
 
     try:
-        messages = _image_message(visual_analysis.build_prompt(registry, context=context), image_bytes)
+        messages = _image_message(visual_prompt.build_prompt(registry, context=context), image_bytes)
         client = _vlm_client(vlm_base_url, api_key)
         reply = _vlm_chat_create(
             client,
@@ -187,13 +188,14 @@ def _analyze_drawing_page_with_vlm(
 
 def _drawing_reading(reply: str, registry: Any) -> tuple[str, dict[str, Any]]:
     from knowledge_layer.ingest import visual_analysis
+    from knowledge_layer.ingest import visual_rendering
 
     analysis = visual_analysis.parse_visual_analysis(reply, registry)
     if analysis is None:
         return (reply, _parse_drawing_fields(reply))
-    fields: dict[str, Any] = visual_analysis.legacy_fields(analysis)
+    fields: dict[str, Any] = visual_rendering.legacy_fields(analysis)
     fields["analysis"] = analysis
-    return (visual_analysis.render_analysis_text(analysis), fields)
+    return (visual_rendering.render_analysis_text(analysis), fields)
 
 
 def analyze_visual(

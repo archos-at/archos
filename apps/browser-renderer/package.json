@@ -1,0 +1,20 @@
+{
+  "name": "browser-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless Chromium for the code runner: one fresh browser per run, reached over the DevTools protocol, with no network.",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test --test-concurrency=1 'test/*.test.mjs'"
+  },
+  "dependencies": {
+    "mermaid": "12.3.0",
+    "source-code-pro": "2.42.0",
+    "source-sans": "3.52.0",
+    "ws": "8.22.2"
+  },
+  "devDependencies": {
+    "devtools-protocol": "0.0.1740066"
+  }
+}

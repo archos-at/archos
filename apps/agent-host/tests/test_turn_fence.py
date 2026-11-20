@@ -104,10 +104,10 @@ def test_a_ttl_the_margin_does_not_fit_in_is_refused():
 
 
 def test_the_default_ttl_leaves_a_window_longer_than_a_renewal_interval():
-    from agent_host import chat_socket
+    from agent_host import chat_fencing
     from agent_host import conversation_bus
 
     ttl = conversation_bus.RUNNING_TTL_SECONDS
     window = ttl - fence_margin()
     assert window >= 2 * (ttl / 4)  # at least two renewal rounds fit before the deadline
-    assert ttl < chat_socket.SUPERSEDE_WAIT_SECONDS < 15  # a dead owner never costs a refusal, and the client hears it
+    assert ttl < chat_fencing.SUPERSEDE_WAIT_SECONDS < 15  # a dead owner never costs a refusal, and the client hears it

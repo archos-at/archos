@@ -274,7 +274,7 @@ Three states:
 - **streaming** — only the fence still being written is streaming, and it
   holds a skeleton (`DrawingSkeleton`), not its source. Which one that is comes
   from the parsed code block, not from counting backticks (`isOpenFence` in
-  `MarkdownRenderer.tsx`): a block that ends on the text's last line without a
+  `MarkdownRenderer/streaming-markdown.ts`): a block that ends on the text's last line without a
   closing fence. That covers `~~~` fences and fences indented in a list item.
   CommonMark runs an unclosed fence to the end of its container, so a
   half-arrived diagram *looks* complete on every token; drawing it would flash
@@ -369,7 +369,7 @@ arguments above was re-checked against the fence:
   PARSER: `_ANSWER_JSON_FENCE_RE` ended the ```` ```answer_json ```` block at the
   first ```` ``` ```` after it, which is the drawing's own fence inside the
   `answer` string, so the reader got raw JSON. That is fixed
-  (`answer_envelope._envelope_blocks`), and a fence that mermaid cannot parse
+  (`envelope_parsing._envelope_blocks`), and a fence that mermaid cannot parse
   degrades to its source with one quiet line, exactly as before.
 - **Filing across a reload** is idempotent on (answer, source hash, producer)
   — `use-diagram-filing.ts` — so a fence filed twice finds the same document.

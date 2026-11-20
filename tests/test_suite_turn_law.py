@@ -32,9 +32,9 @@ def test_a_question_with_no_land_sits_in_vienna() -> None:
 
 
 def test_the_norm_set_runs_behind_a_fixture_bff_that_sends_the_law(tmp_path: Path) -> None:
-    import suite
+    import suite_fixtures
 
-    bff, env_for = fixture_law.start_law_bff(tmp_path, suite.precedent_envelope)
+    bff, env_for = fixture_law.start_law_bff(tmp_path, suite_fixtures.precedent_envelope)
     try:
         env = env_for("conv-1", {"id": "q"})
         status, answer = bff._answer("/api/internal/turn-context", {}, bff.office, "conv-1")

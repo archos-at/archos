@@ -6,11 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from agent.cards.catalog import RETIRED_CARD_REPLACEMENTS
-from agent.cards.catalog import RETIRED_CARD_TYPES
+from agent.cards.card_doctrine import render_card_doctrine
 from agent.cards.catalog import model_facing_card_types
 from agent.cards.catalog import render_card_details
-from agent.cards.catalog import render_card_doctrine
 from agent.cards.catalog import render_card_index
 from agent.cards.envelope import REFUSED_RETIRED_TYPE
 from agent.cards.envelope import render_envelope_cards_contract
@@ -22,6 +20,8 @@ from agent.cards.prompt import build_card_generation_prompt
 from agent.cards.registry import get_or_create_card_registry
 from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
+from agent.cards.retired_cards import RETIRED_CARD_REPLACEMENTS
+from agent.cards.retired_cards import RETIRED_CARD_TYPES
 
 RETIRED = sorted(RETIRED_CARD_TYPES)
 GOOD = {"type": "ifc_model_picker", "title": "Welches Modell öffnen?"}
@@ -144,7 +144,7 @@ class TestEveryChannelRefusesIt:
 
 class TestRetiredContentIsKept:
     def test_a_legal_basis_becomes_its_title_and_a_quote_line(self):
-        from agent.cards.catalog import retired_card_markdown
+        from agent.cards.retired_cards import retired_card_markdown
 
         markdown = retired_card_markdown(
             {
@@ -157,13 +157,13 @@ class TestRetiredContentIsKept:
         assert markdown == "**OIB-RL 2** · 3.1\n\n> „Fluchtwege führen ins Freie.“"
 
     def test_a_list_of_records_becomes_a_table_with_pipes_escaped(self):
-        from agent.cards.catalog import retired_card_markdown
+        from agent.cards.retired_cards import retired_card_markdown
 
         markdown = retired_card_markdown({"type": "process_map", "steps": [{"name": "A|B"}, {"name": "C"}]})
         assert markdown == "| name |\n|---|\n| A\\|B |\n| C |"
 
     def test_a_live_type_or_an_empty_card_yields_nothing(self):
-        from agent.cards.catalog import retired_card_markdown
+        from agent.cards.retired_cards import retired_card_markdown
 
         assert retired_card_markdown({"type": "stair_diagram", "title": "x"}) is None
         assert retired_card_markdown({"type": "typed_table"}) is None

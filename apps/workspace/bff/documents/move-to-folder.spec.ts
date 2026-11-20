@@ -390,6 +390,7 @@ describe('moveDocumentToFolder across a restriction: purge first, placement chec
     expect(vi.mocked(purgeIngestedChunks).mock.calls[0][1]).toEqual({
       collectionName: 'proj_1',
       filename: 'Fluchtwegplan.pdf',
+      documentId: 'doc-1',
     })
     expect(vi.mocked(purgeIngestedChunks).mock.calls[0][3]).toEqual({ permanent: true })
     expect(result).toEqual({

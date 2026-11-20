@@ -38,9 +38,10 @@ export const nextConfig: NextConfig = {
     minimumCacheTTL: 300,
   },
 
-  serverExternalPackages: ['exceljs', 'ws', '@hatchet-dev/typescript-sdk'],
+  serverExternalPackages: ['exceljs', 'ws', '@hatchet-dev/typescript-sdk', 'pdfjs-dist'],
 
   experimental: {
+    agentUpgrade: false,
     serverActions: {
       bodySizeLimit: `${requestBodyLimitMB}mb`,
     },

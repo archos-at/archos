@@ -19,6 +19,7 @@ from agent.knowledge.restricted_collections import restricted_collections_in
 from agent.knowledge.restricted_use import current_cross_project_turn
 from agent.knowledge.restricted_use import current_restricted_use
 from agent.knowledge.restricted_use import drew_on_other_projects
+from agent.observability.base_knowledge_scores import missing_edition_count
 from agent.observability.base_knowledge_scores import overdue_count
 from agent.observability.langfuse_scores import RuntimeScore
 from agent.observability.langfuse_scores import emit_scores
@@ -203,7 +204,10 @@ def _record_base_knowledge(blocks: ContextBlocks) -> None:
     if blocks.base_knowledge is None:
         return
     lines = blocks.base_knowledge.splitlines()
-    record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
+    record_trace_metadata(
+        base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")),
+        base_knowledge_editions_missing=missing_edition_count(blocks.base_knowledge),
+    )
     overdue = overdue_count(blocks.base_knowledge_labels)
     emit_scores([RuntimeScore("base-knowledge-overdue", overdue)], writer="turn-context")
 

@@ -110,7 +110,7 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
   const stale = () => new Date(Date.now() - 5 * 60 * 1000)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess

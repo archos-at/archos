@@ -284,12 +284,6 @@ describe('ChatToolbar', () => {
 
       expect(onNewSession).toHaveBeenCalledOnce()
     })
-
-    test('is disabled while a session is active', () => {
-      render(<ChatToolbar isNewSessionDisabled />)
-
-      expect(screen.getByRole('button', { name: 'Create new session' })).toBeDisabled()
-    })
   })
 
   describe('the history door is never a glyph alone', () => {

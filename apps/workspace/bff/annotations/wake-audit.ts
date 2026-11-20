@@ -5,7 +5,7 @@ import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import type { AgentWakeTrigger } from './types'
 import { wakeEndReasonKind } from './wake-end-reason'
 import { documentThreadConversationId } from './wake-ids'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 interface AuditPerson {
   userId: string
@@ -113,7 +113,7 @@ export function auditWakeStopped(
       wakeId: wake.wakeId,
       wakeStatus,
       wokenBy: wake.wokenBy.userId,
-      by: by.piloti ? LEGACY_AGENT_KIND : 'person',
+      by: by.piloti ? AGENT_KIND : 'person',
     },
   })
 }

@@ -11,8 +11,8 @@ from agent.knowledge.leader_lock import require_direct_dsns
 from . import payload_crypto
 from . import run_ownership
 from .agent_job import run_agent_job
+from .job_status import _update_status_if_not_terminal
 from .outcome_notify import notify_job_outcome_from_access
-from .runner import _update_status_if_not_terminal
 
 logger = logging.getLogger(__name__)
 

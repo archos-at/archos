@@ -11,7 +11,6 @@ import { TimeAgo } from '@/components/ui/time-ago'
 import { cn } from '@/lib/utils'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { documentDisplayName } from '@/lib/documents/display-name'
 import { documentDragProps } from '../hooks/use-document-drag'
 import { sourceTint } from '@/lib/ui/source-tint'
 import { fileExtensionLabel, inferDocumentKind } from '../document-kind'
@@ -33,6 +32,7 @@ import { Check } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FileName } from './file-name'
 import { OpenMarksChip } from './open-marks-chip'
+import { MailThreadFileFacts, MailThreadThumbnail, listedFileName, useMailThreadKindLabel } from './mail-thread/mail-thread-file'
 
 const SOURCE_TINT: Record<'project' | 'office', CSSProperties> = {
   project: sourceTint('project'),
@@ -84,6 +84,7 @@ export function ThumbnailWithFallback({ file, visible = true }: { file: FileItem
   const t = useTranslations(filesCopy)
   const kind = inferDocumentKind(file)
   const canHaveThumbnail =
+    !file.mailThread &&
     file.contentType === 'application/pdf' ||
     (file.contentType ?? '').startsWith('image/') ||
     isRenditionSource(file)
@@ -132,6 +133,8 @@ export function ThumbnailWithFallback({ file, visible = true }: { file: FileItem
       />
     )
   }
+
+  if (file.mailThread) return <MailThreadThumbnail />
 
   if (state === 'loading') {
     return <Skeleton className="absolute inset-0 h-full w-full rounded-none" data-testid="thumbnail-skeleton" />
@@ -203,9 +206,11 @@ export const FileCard = memo(function FileCard({
   where,
 }: FileCardProps) {
   const t = useTranslations(filesCopy)
-  const name = documentDisplayName(file)
-  const ext = fileExtensionLabel(file.filename)
-  const hasSize = typeof file.fileSize === 'number'
+  const name = listedFileName(file)
+  const thread = Boolean(file.mailThread)
+  const threadLabel = useMailThreadKindLabel()
+  const ext = thread ? '' : fileExtensionLabel(file.filename)
+  const hasSize = !thread && typeof file.fileSize === 'number'
   const isFailed = file.status === 'failed'
   const failureText = useIngestFailureText(isFailed ? file.errorMessage : null)
   const failureReason = isFailed ? (failureText?.sentence ?? t('ingestFailure.unknown')) : undefined
@@ -319,7 +324,13 @@ export const FileCard = memo(function FileCard({
                 than a second badge, „3 Fassungen": the history is not a state.
                 On a 220px card the count beside the name cut the name in half,
                 so here it rides on this line; the list puts it by the name. */}
-            {isOlderRevisionEntry(file) ? (
+            {/* A Verlauf's Fassungen are its mails: it says how many and when the last came, never a Freigabe state
+                nobody gave it. */}
+            {thread ? (
+              <div className="mt-1 flex min-h-5 min-w-0 items-center">
+                <MailThreadFileFacts file={file} className="truncate" />
+              </div>
+            ) : isOlderRevisionEntry(file) ? (
               <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1.5">
                 <OlderRevisionBadge file={file} />
               </div>
@@ -394,6 +405,7 @@ export const FileCard = memo(function FileCard({
               gap: the age used to run into the edge the title keeps clear. */}
           <span className="flex shrink-0 items-center gap-1" /* the dot's 4px each side: the width of the bound text join (`CLAUSE_JOIN`) */>
             {/* The format in words, with the facts: a type is not a signal, so it is ink like them, never a tinted chip. */}
+            {thread && <span className="font-medium" data-testid="file-card-kind">{threadLabel}</span>}
             {ext !== '' && <span className="font-medium uppercase tracking-wide">{ext}</span>}
             {hasSize && (
               <>
@@ -402,7 +414,7 @@ export const FileCard = memo(function FileCard({
               </>
             )}
             <span className="flex items-center gap-1 group-has-[[data-slot=filing-chip]]/foot:@max-[14rem]/foot:hidden">
-              {(ext !== '' || hasSize) && <FactDot />}
+              {(ext !== '' || hasSize || thread) && <FactDot />}
               <TimeAgo date={file.createdAt} locale={locale} className="tabular-nums" />
             </span>
           </span>

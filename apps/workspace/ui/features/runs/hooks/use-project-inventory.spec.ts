@@ -37,6 +37,26 @@ describe('useProjectInventory', () => {
     ])
   })
 
+  it('offers the office’s standards too, which the Büroablage lists only when asked', async () => {
+    server.use(
+      shelfGet('project', '/api/documents', () => HttpResponse.json({ documents: [], nextCursor: null })),
+      shelfGet('office_shelf', '/api/documents', ({ request }) =>
+        HttpResponse.json({
+          documents:
+            new URL(request.url).searchParams.get('includeStandards') === 'true'
+              ? [row('a1', 'Detail.pdf'), row('n1', 'Brandschutz-Richtlinie.pdf')]
+              : [row('a1', 'Detail.pdf')],
+          nextCursor: null,
+        })
+      )
+    )
+
+    const { result } = renderHook(() => useProjectInventory('proj-1', true))
+
+    await waitFor(() => expect(result.current.documents).not.toBeNull())
+    expect(result.current.documents?.map((doc) => doc.name)).toEqual(['Detail.pdf', 'Brandschutz-Richtlinie.pdf'])
+  })
+
   it('lists no Archiv rows when the Archiv is gated off', async () => {
     server.use(
       shelfGet('project', '/api/documents', () => HttpResponse.json({ documents: [row('p1', 'Plan.pdf')] })),

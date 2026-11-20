@@ -251,6 +251,7 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
 
     set_active_builder(builder)
 
+    from agent.common.boot_retry import retry_connection
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
     from ..jobs import orchestrator_runs
@@ -278,13 +279,16 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     front_end_config = getattr(worker, "_front_end_config", None)
     default_expiry_seconds = getattr(front_end_config, "expiry_seconds", 86400) if front_end_config else 86400
     logger.info("Registering async job routes: db=%s, expiry=%ds", redact_db_url(db_url), default_expiry_seconds)
-    await asyncio.get_running_loop().run_in_executor(None, ensure_job_access_table, db_url)
-    await asyncio.get_running_loop().run_in_executor(None, orchestrator_runs.ensure_table, db_url)
+
+    def ensure_job_tables() -> None:
+        ensure_job_access_table(db_url)
+        orchestrator_runs.ensure_table(db_url)
+        EventStore._ensure_table_exists(db_url)
+
+    await asyncio.to_thread(retry_connection, ensure_job_tables, what="job tables")
     handlers = job_handlers.JobRouteHandlers(builder, job_store, db_url, default_expiry_seconds)
     _add_routes(app, handlers, _JOB_ROUTES)
     logger.info("Registered async job routes at /v1/jobs/async")
-
-    EventStore._ensure_table_exists(db_url)
 
     _add_housekeeping_routes(app, job_store, db_url, default_expiry_seconds)
 

@@ -5,9 +5,9 @@ import logging
 import os
 from typing import Any
 
+from ..jobs.job_status import _update_status_if_not_terminal
 from ..jobs.outcome_notify import notify_job_outcome_from_access
 from ..jobs.run_ownership import STALE_SECONDS
-from ..jobs.runner import _update_status_if_not_terminal
 
 logger = logging.getLogger(__name__)
 

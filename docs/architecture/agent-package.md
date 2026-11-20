@@ -98,7 +98,7 @@ v2 §b). The docs of record are [`chat-wire-v2.md`](../design/chat-wire-v2.md) a
   (`asyncio.to_thread`, as `_settle_prose` does). The stream awaits the callback,
   so body order holds.
 - The verifier and the gates stay on the agent side, behind the `Live` protocol
-  (`answer_pipeline.LiveAnswer`). `turn/` does not import them.
+  (`live_answer.LiveAnswer`). `turn/` does not import them.
 - Every generator in the turn is closed with `contextlib.aclosing`. `async for`
   never closes what it iterates, so a consumer that walks away would leave the
   graph suspended mid-run past the ledger flush.

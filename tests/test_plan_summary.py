@@ -64,3 +64,26 @@ def test_a_reused_run_says_why_nothing_runs_instead_of_a_table_of_noes(mod):
     text = mod.render({"EVENT": "push", "BASE": "d" * 40, "BASE_REASON": "x", "REUSED": "true"})
 
     assert "**Reused.**" in text and "| Tier |" not in text
+
+
+@pytest.mark.parametrize(("py_mode", "warned"), [("full", True), ("select", False)])
+def test_a_light_run_says_how_to_get_the_full_suite_and_when_it_has_no_python_tests(mod, py_mode, warned):
+    text = mod.render(
+        {
+            "EVENT": "pull_request",
+            "DEPTH": "light",
+            "DEPTH_REASON": "a pull request into develop",
+            "PY_MODE": py_mode,
+            "TIERS": json.dumps({"backend": "true"}),
+        }
+    )
+
+    assert "**Light run** (a pull request into develop)" in text
+    assert "`ci:full`" in text
+    assert ("No Python tests in this run" in text) is warned
+
+
+def test_a_full_run_says_nothing_about_depth(mod):
+    text = mod.render({"EVENT": "push", "DEPTH": "full", "PY_MODE": "full", "TIERS": json.dumps({"backend": "true"})})
+
+    assert "Light run" not in text and "No Python tests" not in text

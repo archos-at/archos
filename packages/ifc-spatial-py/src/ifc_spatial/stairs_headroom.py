@@ -16,8 +16,8 @@ from ifc_spatial.stairs_reading import _sources
 from ifc_spatial.stairs_records import _Rake
 
 from .clearance import CLEARANCE_BUDGET_SECONDS
-from .clearance import _soup_distance
-from .clearance import _usable_triangles
+from .clearance_triangles import _soup_distance
+from .clearance_triangles import _usable_triangles
 from .envelope import Answer
 from .envelope import MissingFact
 from .envelope import computed

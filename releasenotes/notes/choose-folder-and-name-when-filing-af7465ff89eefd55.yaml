@@ -1,0 +1,8 @@
+---
+# area: answers
+improvements:
+  - >
+    When you file a draft or a file {productName} made into the project, a small
+    dialog now lets you pick the folder, or start a new one, and change the name
+    while the file keeps its extension. The card then says which folder the
+    draft is in, so you find it again without searching.

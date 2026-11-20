@@ -10,12 +10,12 @@ from agent.cards.registry import set_card_registry
 from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
 from agent.common.answer_envelope import AnswerMeta
-from agent.common.answer_envelope import gate_answer_meta
+from agent.common.envelope_gates import gate_answer_meta
 from agent.core.answer_pipeline import _Extracted
 from agent.core.answer_pipeline import _gated_meta
-from agent.core.answer_pipeline import _should_suppress_meta_cards
-from agent.core.answer_pipeline import _suppress_cards
 from agent.core.answer_pipeline import finalize_answer
+from agent.core.card_suppression import _should_suppress_meta_cards
+from agent.core.card_suppression import _suppress_cards
 
 WINDOW_PROSE = "x" * 500
 SHORT_PROSE = "x" * 300

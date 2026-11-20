@@ -1,0 +1,3 @@
+{"expires": "drop after release 2026-W50",
+  "what": "The research worker runs a job named by agent_type or by agent_class_path; the submitter still writes agent_class_path"
+}

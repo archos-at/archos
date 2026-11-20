@@ -39,7 +39,7 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     context = await import('@/lib/db/tenant-context')
     db = (await import('@/lib/db')).getDb()
     repo = await import('./repository')

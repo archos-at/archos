@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
 import pytest
+from agent_testing.ifc_engine import TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9
 from langchain_core.messages import AIMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
@@ -91,25 +92,26 @@ class TestMeasurementDetectionAgainstTheRealRenderer:
 
 
 class TestMeasurementDetectionAgainstTheRealEngine:
+    @TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9
     def test_a_survey_that_measured_something_is_grounding(self, run):
         result = run(HOUSE, "survey", measure="clearHeight", roomKind="alle")
-        assert "an 4 von 4 Bauteilen" in result
+        assert "on 4 of 4 elements" in result
         assert tool_result_is_measurement("ifc_measure", result) is True
 
     def test_a_survey_that_measured_nothing_is_not_grounding(self, run):
         result = run(NO_GEOMETRY, "survey", measure="clearHeight", roomKind="alle")
-        assert result.startswith("gemessen: clearHeight an 0 von 2 Bauteilen")
+        assert result.startswith("gemessen: clearHeight on 0 of 2 elements")
         assert tool_result_is_measurement("ifc_measure", result) is False
 
     def test_an_all_undecidable_element_profile_is_not_grounding(self, run):
         result = run(NO_GEOMETRY, "element_profile", globalId="2Haus0Raeume00Wall0001")
-        assert result.startswith("gemessen an Aussenwand Sued")
-        assert "NICHT ENTSCHEIDBAR" in result
+        assert result.startswith("gemessen on Aussenwand Sued")
+        assert "UNDECIDABLE" in result
         assert tool_result_is_measurement("ifc_measure", result) is False
 
     def test_an_undecidable_escape_level_is_not_grounding(self, run):
         result = run(NO_STOREYS, "fire", kind="escape_level")
-        assert result.startswith("NICHT ENTSCHEIDBAR")
+        assert result.startswith("UNDECIDABLE")
         assert "gemessen werden könnte" in result
         assert tool_result_is_measurement("ifc_measure", result) is False
 

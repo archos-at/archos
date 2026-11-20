@@ -5,12 +5,12 @@ from unittest.mock import patch
 
 import pytest
 
-from agent_host.jobs.callbacks import ArtifactType
 from agent_host.jobs.callbacks import DeepResearchEventCallback
-from agent_host.jobs.callbacks import EventCategory
-from agent_host.jobs.callbacks import EventData
-from agent_host.jobs.callbacks import EventState
-from agent_host.jobs.callbacks import IntermediateStepEvent
+from agent_host.jobs.step_events import ArtifactType
+from agent_host.jobs.step_events import EventCategory
+from agent_host.jobs.step_events import EventData
+from agent_host.jobs.step_events import EventState
+from agent_host.jobs.step_events import IntermediateStepEvent
 from tests.provider_doubles import NAT_LLM_CONFIG
 from tests.provider_doubles import nat_langchain_client
 
@@ -264,7 +264,7 @@ class TestRunAgentStateFields:
     @pytest.mark.asyncio
     async def test_run_agent_sets_deep_research_state_fields(self):
         from agent.agents.deep_researcher.models import DeepResearchAgentState
-        from agent_host.jobs.runner import _run_agent
+        from agent_host.jobs.agent_run import _run_agent
 
         captured: dict = {}
 
@@ -273,8 +273,7 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeDeepAgent.__module__ = "agent.agents.deep_researcher.agent"
-        FakeDeepAgent.__name__ = "DeepResearcherAgent"
+        FakeDeepAgent.state_model = DeepResearchAgentState
 
         monitor = MagicMock()
         monitor.is_cancelled = False
@@ -299,7 +298,7 @@ class TestRunAgentStateFields:
     @pytest.mark.asyncio
     async def test_run_agent_carries_the_organization_onto_the_deep_state(self):
         from agent.agents.deep_researcher.models import DeepResearchAgentState
-        from agent_host.jobs.runner import _run_agent
+        from agent_host.jobs.agent_run import _run_agent
 
         captured: dict = {}
 
@@ -308,8 +307,7 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeDeepAgent.__module__ = "agent.agents.deep_researcher.agent"
-        FakeDeepAgent.__name__ = "DeepResearcherAgent"
+        FakeDeepAgent.state_model = DeepResearchAgentState
 
         monitor = MagicMock()
         monitor.is_cancelled = False
@@ -330,7 +328,7 @@ class TestRunAgentStateFields:
     @pytest.mark.asyncio
     async def test_run_agent_skips_unsupported_state_fields(self):
         from agent.core.models import ResearchAgentState
-        from agent_host.jobs.runner import _run_agent
+        from agent_host.jobs.agent_run import _run_agent
 
         captured: dict = {}
 
@@ -339,8 +337,6 @@ class TestRunAgentStateFields:
                 captured["state"] = state
                 return state
 
-        FakeChatAgent.__module__ = "agent.core.agent"
-        FakeChatAgent.__name__ = "ChatAgent"
         FakeChatAgent.state_model = ResearchAgentState
 
         monitor = MagicMock()
@@ -364,24 +360,20 @@ class TestRunAgentStateFields:
         assert not hasattr(state, "clarifier_result")
 
     def test_every_registered_agent_declares_its_state_model(self):
-        import importlib
-
-        from agent_host.jobs.runner import _get_agent_state_class
         from agent_host.registry import AGENT_REGISTRY
 
         assert AGENT_REGISTRY, "no agents registered"
         for agent_type, config in AGENT_REGISTRY.items():
-            module_path, _, class_name = config.class_path.rpartition(".")
-            agent_cls = getattr(importlib.import_module(module_path), class_name)
+            agent_cls = config.load()
+            class_name = agent_cls.__name__
             declared = getattr(agent_cls, "state_model", None)
             assert isinstance(declared, type), f"{agent_type} ({class_name}) declares no state_model"
             assert "messages" in declared.model_fields, f"{agent_type} state model has no messages field"
-            assert _get_agent_state_class(agent_cls.__new__(agent_cls)) is declared
 
 
 class TestResolveWorkerToolRefs:
     def test_empty_tools_inherits_registry(self):
-        from agent_host.jobs.runner import _resolve_worker_tool_refs
+        from agent_host.jobs.agent_construction import _resolve_worker_tool_refs
 
         class FakeConfig:
             tools = []
@@ -390,7 +382,7 @@ class TestResolveWorkerToolRefs:
             assert _resolve_worker_tool_refs(FakeConfig()) == ["ris_search_tool", "knowledge_search"]
 
     def test_none_tools_inherits_registry(self):
-        from agent_host.jobs.runner import _resolve_worker_tool_refs
+        from agent_host.jobs.agent_construction import _resolve_worker_tool_refs
 
         class FakeConfig:
             pass
@@ -399,7 +391,7 @@ class TestResolveWorkerToolRefs:
             assert _resolve_worker_tool_refs(FakeConfig()) == ["web_search_tool"]
 
     def test_explicit_tools_are_used_verbatim_without_inheriting(self):
-        from agent_host.jobs.runner import _resolve_worker_tool_refs
+        from agent_host.jobs.agent_construction import _resolve_worker_tool_refs
 
         class FakeConfig:
             tools = ["web_search_tool"]
@@ -617,7 +609,7 @@ class TestEventStore:
 
 class TestToolArtifactMapping:
     def test_default_mappings(self):
-        from agent_host.jobs.callbacks import ToolArtifactMapping
+        from agent_host.jobs.step_events import ToolArtifactMapping
 
         mapping = ToolArtifactMapping()
 
@@ -626,8 +618,8 @@ class TestToolArtifactMapping:
         assert not mapping.is_artifact_tool("unknown_tool")
 
     def test_get_mapping(self):
-        from agent_host.jobs.callbacks import ArtifactType
-        from agent_host.jobs.callbacks import ToolArtifactMapping
+        from agent_host.jobs.step_events import ArtifactType
+        from agent_host.jobs.step_events import ToolArtifactMapping
 
         mapping = ToolArtifactMapping()
         todo_mapping = mapping.get_mapping("write_todos")
@@ -636,8 +628,8 @@ class TestToolArtifactMapping:
         assert todo_mapping["artifact_type"] == ArtifactType.TODO
 
     def test_register_custom_mapping(self):
-        from agent_host.jobs.callbacks import ArtifactType
-        from agent_host.jobs.callbacks import ToolArtifactMapping
+        from agent_host.jobs.step_events import ArtifactType
+        from agent_host.jobs.step_events import ToolArtifactMapping
 
         mapping = ToolArtifactMapping()
         mapping.register(
@@ -750,7 +742,7 @@ class TestDeepResearchEventCallbackAdvanced:
 
 class TestCancellationMonitor:
     def test_init(self):
-        from agent_host.jobs.runner import CancellationMonitor
+        from agent_host.jobs.job_cancellation import CancellationMonitor
 
         monitor = CancellationMonitor(
             db_url="sqlite:///test.db",
@@ -761,7 +753,7 @@ class TestCancellationMonitor:
         assert not monitor.is_cancelled
 
     def test_is_cancelled_initially_false(self):
-        from agent_host.jobs.runner import CancellationMonitor
+        from agent_host.jobs.job_cancellation import CancellationMonitor
 
         monitor = CancellationMonitor(
             db_url="sqlite:///test.db",
@@ -773,7 +765,7 @@ class TestCancellationMonitor:
     def test_check_raises_when_cancelled(self):
         import asyncio
 
-        from agent_host.jobs.runner import CancellationMonitor
+        from agent_host.jobs.job_cancellation import CancellationMonitor
 
         monitor = CancellationMonitor(
             db_url="sqlite:///test.db",
@@ -785,7 +777,7 @@ class TestCancellationMonitor:
             monitor.check()
 
     def test_stop_cancels_monitor_task(self):
-        from agent_host.jobs.runner import CancellationMonitor
+        from agent_host.jobs.job_cancellation import CancellationMonitor
 
         monitor = CancellationMonitor(
             db_url="sqlite:///test.db",
@@ -1087,7 +1079,7 @@ class TestAsyncJobRunnerAgentFactory:
     async def test_create_llm_provider_configures_deep_research_roles(self):
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
         from agent.common import LLMRole
-        from agent_host.jobs.runner import _create_llm_provider
+        from agent_host.jobs.agent_construction import _create_llm_provider
 
         llms = {
             "orchestrator": MagicMock(name="orchestrator_llm"),
@@ -1125,7 +1117,7 @@ class TestAsyncJobRunnerAgentFactory:
         from types import SimpleNamespace
 
         from agent.common import LLMRole
-        from agent_host.jobs.runner import _create_llm_provider
+        from agent_host.jobs.agent_construction import _create_llm_provider
 
         shared_llm = MagicMock(name="shared_llm")
 
@@ -1156,7 +1148,7 @@ class TestAsyncJobRunnerAgentFactory:
         from agent.agents.deep_researcher.deepagents_runtime import DeepResearchSandboxConfig
         from agent.agents.deep_researcher.deepagents_runtime import DeepResearchSkillsConfig
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
-        from agent_host.jobs.runner import _create_agent_instance
+        from agent_host.jobs.agent_construction import _create_agent_instance
 
         class FakeDeepResearcherAgent:
             def __init__(
@@ -1236,7 +1228,7 @@ class TestAsyncJobRunnerAgentFactory:
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
         from agent.common import LLMProvider
         from agent.common import LLMRole
-        from agent_host.jobs.runner import _create_agent_instance
+        from agent_host.jobs.agent_construction import _create_agent_instance
 
         mock_llm = MagicMock()
         provider = LLMProvider()
@@ -1279,7 +1271,7 @@ class TestAsyncJobRunnerAgentFactory:
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
         from agent.common import LLMProvider
         from agent.common import LLMRole
-        from agent_host.jobs.runner import _create_agent_instance
+        from agent_host.jobs.agent_construction import _create_agent_instance
 
         @tool(description="Search test tool.")
         def async_test_search(query: str) -> str:
@@ -1363,7 +1355,7 @@ class TestAsyncJobRunnerAgentFactory:
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
         from agent.common import LLMProvider
         from agent.common import LLMRole
-        from agent_host.jobs.runner import _create_agent_instance
+        from agent_host.jobs.agent_construction import _create_agent_instance
 
         mock_llm = MagicMock()
         provider = LLMProvider()
@@ -1413,7 +1405,7 @@ class TestAsyncJobRunnerAgentFactory:
         from agent.agents.deep_researcher.deepagents_runtime import DeepResearchSandboxConfig
         from agent.agents.deep_researcher.deepagents_runtime import DeepResearchSkillsConfig
         from agent.agents.deep_researcher.register import DeepResearchAgentConfig
-        from agent_host.jobs.runner import _create_agent_instance
+        from agent_host.jobs.agent_construction import _create_agent_instance
 
         class BrokenDeepResearcherAgent:
             def __init__(
@@ -1471,7 +1463,7 @@ class TestDeepResearchReflection:
     async def test_reflects_on_successful_report(self):
         from contextlib import nullcontext
 
-        from agent_host.jobs.runner import _run_deep_research_reflection
+        from agent_host.jobs.report_passes import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
         builder.get_llm = AsyncMock(return_value=MagicMock())
@@ -1512,7 +1504,7 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_skips_when_disabled(self):
-        from agent_host.jobs.runner import _run_deep_research_reflection
+        from agent_host.jobs.report_passes import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
         builder.get_llm = AsyncMock()
@@ -1539,7 +1531,7 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_skips_without_llm_ref(self):
-        from agent_host.jobs.runner import _run_deep_research_reflection
+        from agent_host.jobs.report_passes import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
         builder.get_llm = AsyncMock()
@@ -1566,7 +1558,7 @@ class TestDeepResearchReflection:
 
     @pytest.mark.asyncio
     async def test_skips_without_project_scope(self):
-        from agent_host.jobs.runner import _run_deep_research_reflection
+        from agent_host.jobs.report_passes import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
         builder.get_llm = AsyncMock()
@@ -1595,7 +1587,7 @@ class TestDeepResearchReflection:
     async def test_never_raises_on_reflection_failure(self):
         from contextlib import nullcontext
 
-        from agent_host.jobs.runner import _run_deep_research_reflection
+        from agent_host.jobs.report_passes import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
         builder.get_llm = AsyncMock(return_value=MagicMock())
@@ -1628,7 +1620,7 @@ class TestDeepResearchReflection:
         import asyncio
         from contextlib import nullcontext
 
-        from agent_host.jobs.runner import _run_deep_research_reflection
+        from agent_host.jobs.report_passes import _run_deep_research_reflection
 
         builder = MagicMock(get_llm_config=MagicMock(return_value=NAT_LLM_CONFIG))
         builder.get_llm = AsyncMock(return_value=MagicMock())
@@ -2037,7 +2029,7 @@ class TestWorkerHeaderInjection:
 
 class TestWorkflowReflectionLlmRef:
     def test_reads_the_workflow_ref_as_a_plain_string(self):
-        from agent_host.jobs.runner import _workflow_reflection_llm_ref
+        from agent_host.jobs.agent_construction import _workflow_reflection_llm_ref
 
         class _Ref(str):
             pass
@@ -2048,7 +2040,7 @@ class TestWorkflowReflectionLlmRef:
         assert type(ref) is str
 
     def test_none_when_the_workflow_declares_no_ref(self):
-        from agent_host.jobs.runner import _workflow_reflection_llm_ref
+        from agent_host.jobs.agent_construction import _workflow_reflection_llm_ref
 
         assert _workflow_reflection_llm_ref(SimpleNamespace(workflow=SimpleNamespace())) is None
         assert _workflow_reflection_llm_ref(SimpleNamespace()) is None

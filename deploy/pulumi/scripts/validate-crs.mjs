@@ -37,9 +37,16 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 
-/** Pinned CNPG release (tag ref, immutable) whose CRDs the plan is validated against. */
+/** The CNPG operator the pinned chart installs (`CNPG_OPERATOR_VERSION`, `src/data/postgres.ts`). */
+function cnpgOperatorVersion() {
+  const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../src/data/postgres.ts"), "utf8");
+  const version = /CNPG_OPERATOR_VERSION = "(\d+\.\d+\.\d+)"/.exec(source)?.[1];
+  if (!version) throw new Error("CNPG_OPERATOR_VERSION not found in src/data/postgres.ts");
+  return version;
+}
+const CNPG_OPERATOR_VERSION = cnpgOperatorVersion();
 const CNPG_RELEASE_URL =
-  "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v1.28.0/releases/cnpg-1.28.0.yaml";
+  `https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v${CNPG_OPERATOR_VERSION}/releases/cnpg-${CNPG_OPERATOR_VERSION}.yaml`;
 const CNPG_GROUP = "postgresql.cnpg.io/v1";
 const CNPG_KINDS = new Set(["Cluster", "ScheduledBackup", "Backup", "Pooler", "Database"]);
 /**

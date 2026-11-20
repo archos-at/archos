@@ -1,0 +1,138 @@
+import 'server-only'
+import { ApiError, NotFoundError } from '@/lib/api/errors'
+import type { AuthorizedSession } from '@/lib/auth/types'
+import { canWriteFolder, getProjectFolderAccess } from '@/lib/authz/folder-access'
+import { canManageOfficeShelf } from '@/lib/authz/organizations'
+import { entryIdsForDocuments } from '@/lib/base-knowledge/store/repository'
+import type { OfficeShelfReference } from '@/lib/db/schema/office-shelf-references'
+import { memberReader } from '@/lib/documents/document-reader'
+import { projectShelf } from '@/lib/documents/shelf'
+import { requireShelfRead } from '@/lib/documents/shelf-authz'
+import { findProjectInOrg } from '@/lib/projects/repository'
+import { withCovers } from './cover'
+import { heldWorks } from './held-works'
+import { moveNormsToOfficeShelf, writableProjectNorm } from './move'
+import { offerable, offerOf, recognizedNorms, undecided } from './placement'
+import { keepInProject, keptAmong, listProjectNormRows, listReferences, type ProjectNormRow } from './repository'
+import { suggestedNormDocuments, suggestNormsForOfficeShelf } from './suggest'
+import type {
+  ListProjectNormsQuery,
+  NormOffer,
+  NormPlacement,
+  OfficeShelfReferenceView,
+  PlaceProjectNormsBody,
+  PlaceProjectNormsResponse,
+  ProjectNormsResponse,
+} from './wire'
+import { NORM_REFERENCE_PAGE } from './wire'
+
+async function offersAmong(
+  session: AuthorizedSession,
+  projectId: string,
+  rows: readonly ProjectNormRow[]
+): Promise<NormOffer[]> {
+  const norms = recognizedNorms(rows)
+  if (norms.length === 0) return []
+  const ids = norms.map((norm) => norm.documentId)
+  const [kept, suggested, works] = await Promise.all([
+    keptAmong(session.organizationId, ids),
+    suggestedNormDocuments(session.organizationId, projectId, ['proposed', 'dismissed']),
+    heldWorks(session),
+  ])
+  const decisions = { kept, suggested: new Set(suggested.keys()) }
+  const read = await withCovers(session.organizationId, undecided(norms, decisions), new Map(rows.map((row) => [row.id, row])))
+  return offerable(read, { ...decisions, works }).map(offerOf)
+}
+
+function referenceState(row: OfficeShelfReference, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView['state'] {
+  if (!row.officeDocumentId) return 'removed'
+  return entries.has(row.officeDocumentId) ? 'in_office_shelf' : 'unlisted'
+}
+
+function referenceView(row: OfficeShelfReference, entries: ReadonlyMap<string, string>): OfficeShelfReferenceView {
+  return {
+    id: row.id,
+    fileName: row.fileName,
+    folderId: row.folderId,
+    placedAs: row.placedAs,
+    state: referenceState(row, entries),
+    officeDocumentId: row.officeDocumentId,
+    entryId: row.officeDocumentId ? (entries.get(row.officeDocumentId) ?? null) : null,
+    createdAt: row.createdAt.toISOString(),
+    createdBy: row.createdBy,
+  }
+}
+
+export async function listProjectNorms(
+  session: AuthorizedSession,
+  projectId: string,
+  query: ListProjectNormsQuery
+): Promise<ProjectNormsResponse> {
+  await requireShelfRead(session, projectShelf(projectId))
+  const project = await findProjectInOrg(projectId, session.organizationId)
+  if (!project) throw new NotFoundError('Project not found')
+  const folderId = query.folderId ?? null
+  const access = await getProjectFolderAccess(session, projectId, project.collectionName)
+  if (!access.isVisible(folderId)) throw new NotFoundError('Folder not found')
+  const start = query.cursor ? Number(query.cursor) : 0
+  const limit = query.limit ?? NORM_REFERENCE_PAGE
+  const [rows, references, canWrite] = await Promise.all([
+    start === 0 ? listProjectNormRows(session.organizationId, projectId, { folderId }, memberReader(session.userId)) : [],
+    listReferences(session.organizationId, projectId, folderId, { offset: start, limit: limit + 1 }),
+    canWriteFolder(session, projectId, folderId),
+  ])
+  const listed = references.slice(0, limit)
+  const entries = await entryIdsForDocuments(
+    session.organizationId,
+    listed.flatMap((row) => (row.officeDocumentId ? [row.officeDocumentId] : [])),
+  )
+  return {
+    canManageOfficeShelf: canManageOfficeShelf(session),
+    canWrite,
+    offers: canWrite ? await offersAmong(session, projectId, rows) : [],
+    references: listed.map((row) => referenceView(row, entries)),
+    nextCursor: references.length > limit ? String(start + limit) : null,
+  }
+}
+
+async function keepNorms(session: AuthorizedSession, projectId: string, documentIds: readonly string[]): Promise<NormPlacement[]> {
+  const placements: NormPlacement[] = []
+  const kept: string[] = []
+  for (const documentId of new Set(documentIds)) {
+    const base = { documentId, officeDocumentId: null, entryId: null, referenceId: null, proposalId: null }
+    try {
+      await writableProjectNorm(session, projectId, documentId)
+      kept.push(documentId)
+      placements.push({ ...base, outcome: 'kept', reason: null })
+    } catch (error) {
+      if (!(error instanceof ApiError)) throw error
+      placements.push({ ...base, outcome: 'refused', reason: error.message })
+    }
+  }
+  await keepInProject(session.organizationId, projectId, kept, session.userId)
+  return placements
+}
+
+export async function placeProjectNorms(
+  session: AuthorizedSession,
+  projectId: string,
+  body: PlaceProjectNormsBody,
+  request: Request
+): Promise<PlaceProjectNormsResponse> {
+  const ids = body.documents.map((document) => document.documentId)
+  switch (body.destination) {
+    case 'project':
+      return { destination: 'project', visibility: 'project', placements: await keepNorms(session, projectId, ids), notified: 0, noDecider: null }
+    case 'suggest':
+      return { destination: 'suggest', visibility: 'office', ...(await suggestNormsForOfficeShelf(session, projectId, body.documents)) }
+    case 'office_shelf': {
+      const placements = await moveNormsToOfficeShelf(
+        session,
+        projectId,
+        body.documents.map((document) => ({ documentId: document.documentId, values: document.values, confirm: body.confirm })),
+        request
+      )
+      return { destination: 'office_shelf', visibility: 'office', placements, notified: 0, noDecider: null }
+    }
+  }
+}

@@ -120,6 +120,7 @@ const DOC = {
   organizationId: 'org_1',
   scope: 'project',
   projectId: 'proj_1',
+  filename: 'Grundriss_EG.pdf',
   publishedVersionId: 'ver_2',
 } as Partial<Document> as Document
 

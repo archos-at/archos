@@ -360,7 +360,7 @@ translations — no new component (spec IB-6).
 "since the row was created."** Every mark-read path resets it to zero alongside
 `readAt` — `POST /api/inbox/read` in both its shapes, and the ambient clear
 performed by `POST /api/conversations/{id}/read` (`markReadValues()` in
-`lib/inbox/repository.ts` is the single mutation all three share). So:
+`lib/inbox/inbox-item-state-changes.ts` is the single mutation all three share). So:
 
 - `count: 0` is the **ordinary** state of a read row, not a missing value.
   Anything treating the field as `≥ 1` is wrong for every read row.

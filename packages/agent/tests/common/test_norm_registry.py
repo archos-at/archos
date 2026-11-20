@@ -392,11 +392,17 @@ class TestLaneForHit:
             "OIB-Richtlinie",
         )
 
-    def test_explicit_doc_class_overrides_collection(self):
-        assert nr.lane_for_hit(collection="proj_123", doc_class="law") == (
+    def test_explicit_doc_class_overrides_the_base_collection(self):
+        assert nr.lane_for_hit(collection="oib_knowledge", doc_class="law") == (
             "building_law_ris",
             "Rechtsquelle (RIS)",
         )
+
+    def test_a_norm_on_a_users_shelf_says_which_shelf_it_came_from(self):
+        assert nr.lane_for_hit(collection="proj_123", doc_class="external_standard") == ("project", "Projektwissen")
+        assert nr.lane_for_hit(shelf="project", doc_class="law") == ("project", "Projektwissen")
+        assert nr.lane_for_hit(shelf="office_shelf", doc_class="external_standard") == ("office", "Büroablage")
+        assert nr.lane_for_hit(collection="s_chat", doc_class="oib_guideline") == ("project", "Private Sitzung")
 
     def test_explicit_doc_class_base_lane(self):
         assert nr.lane_for_hit(doc_class="other") == ("building_law_base", "Basisdokument")
@@ -413,7 +419,7 @@ class TestLaneForHit:
 
 class TestLaneForAgentAuthoredHit:
     def test_provenance_gives_the_document_its_own_lane(self):
-        assert nr.lane_for_hit(authored_by="agent") == (LEGACY_AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
+        assert nr.lane_for_hit(authored_by="agent") == (AGENT_AUTHORED_LANE, AGENT_AUTHORED_LANE_LABEL)
 
     def test_both_spellings_of_the_lane_carry_its_label(self):
         labels = {nr._LANE_LABELS[AGENT_AUTHORED_LANE], nr._LANE_LABELS[LEGACY_AGENT_AUTHORED_LANE]}
@@ -421,14 +427,14 @@ class TestLaneForAgentAuthoredHit:
 
     def test_it_beats_the_project_shelf(self):
         assert nr.lane_for_hit(shelf="project", collection="proj_abc", authored_by="agent") == (
-            LEGACY_AGENT_AUTHORED_LANE,
+            AGENT_AUTHORED_LANE,
             AGENT_AUTHORED_LANE_LABEL,
         )
         assert nr.lane_for_hit(shelf="project", collection="proj_abc") == ("project", "Projektwissen")
 
     def test_it_beats_an_explicit_doc_class(self):
         assert nr.lane_for_hit(doc_class="law", shelf="office_shelf", authored_by="agent") == (
-            LEGACY_AGENT_AUTHORED_LANE,
+            AGENT_AUTHORED_LANE,
             AGENT_AUTHORED_LANE_LABEL,
         )
 
@@ -440,7 +446,7 @@ class TestLaneForAgentAuthoredHit:
 
     def test_the_knowledge_hit_classifier_agrees(self):
         assert nr.lane_for_knowledge_hit(shelf="project", authored_by="agent") == (
-            LEGACY_AGENT_AUTHORED_LANE,
+            AGENT_AUTHORED_LANE,
             AGENT_AUTHORED_LANE_LABEL,
         )
 
@@ -468,7 +474,7 @@ class TestLaneForMailHit:
 
     def test_the_stated_author_still_outranks_it(self):
         lane_key, _label = nr.lane_for_hit(shelf="project", authored_by="agent", source_format="mail")
-        assert lane_key == LEGACY_AGENT_AUTHORED_LANE
+        assert lane_key == AGENT_AUTHORED_LANE
 
     def test_any_other_format_changes_nothing(self):
         for source_format in (None, "", "pdf", "MAIL "):

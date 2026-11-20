@@ -8,7 +8,6 @@ import { motion, springPress } from '@/components/motion'
 import { HoverPeekPanel } from '@/components/ui/hover-peek-panel'
 import { useHoverPopover } from '@/hooks/use-hover-popover'
 import { fileTypeIcon, isCitable } from '@/features/documents/components/document-status'
-import type { FileItem } from '@/features/documents/components/project-file-workspace'
 import type { StoredFile } from '@/features/documents/hooks/use-surfaced-documents'
 import { fileNameFromHref } from '../lib/file-references'
 import { useOpenStoredFile } from '../hooks/use-open-stored-file'
@@ -42,6 +41,25 @@ export const FileReferenceLink: FC<{
   )
 }
 
+const FILE_REFERENCE_CLASS = cn(
+  'inline rounded-control [box-decoration-break:clone]',
+  'text-start',
+  'px-[3px] -mx-[3px] py-px',
+  'underline decoration-dotted decoration-foreground/30 underline-offset-[3px]',
+  'hover:decoration-solid hover:decoration-foreground/50 hover:bg-hover',
+  'focus-visible:bg-muted',
+  'pointer-coarse:py-1',
+  'cursor-pointer transition-colors duration-quick ease-out',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
+)
+
+export const DraftFileReference: FC<{ href: string; fileName: string; children: ReactNode }> = ({ href, fileName, children }) => (
+  <a href={href} download data-testid="draft-file-reference" className={FILE_REFERENCE_CLASS}>
+    <FileGlyph contentType={null} fileName={fileName} />
+    {children}
+  </a>
+)
+
 const FileReferenceChip: FC<{
   stored: StoredFile
   fileName: string
@@ -69,19 +87,9 @@ const FileReferenceChip: FC<{
           openFile(stored)
         }}
         aria-label={t(askable ? 'fileReference.openAskAria' : 'fileReference.openAria', { name: stored.file.filename })}
-        className={cn(
-          'inline rounded-control [box-decoration-break:clone]',
-          'text-start',
-          'px-[3px] -mx-[3px] py-px',
-          'underline decoration-dotted decoration-foreground/30 underline-offset-[3px]',
-          'hover:decoration-solid hover:decoration-foreground/50 hover:bg-hover',
-          'focus-visible:bg-muted',
-          'pointer-coarse:py-1',
-          'cursor-pointer transition-colors duration-quick ease-out',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50'
-        )}
+        className={FILE_REFERENCE_CLASS}
       >
-        <FileGlyph file={stored.file} />
+        <FileGlyph contentType={stored.file.contentType} fileName={stored.file.filename} />
         {label}
       </motion.button>
       {/* Mounted only once engaged, and beside the chip rather than around it
@@ -97,8 +105,8 @@ const FileReferenceChip: FC<{
   )
 }
 
-const FileGlyph: FC<{ file: FileItem }> = ({ file }) => {
-  const Icon = fileTypeIcon(file.contentType, file.filename)
+const FileGlyph: FC<{ contentType: string | null | undefined; fileName: string }> = ({ contentType, fileName }) => {
+  const Icon = fileTypeIcon(contentType, fileName)
   return (
     <Icon
       aria-hidden

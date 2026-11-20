@@ -26,9 +26,9 @@ from ..registry import get_agent_config
 if TYPE_CHECKING:
     from nat.builder.workflow_builder import WorkflowBuilder
 
-from ..jobs.runner import DOCUMENT_ADDED_EVENT_TYPE
-from ..jobs.runner import WRITE_NOW_EVENT_TYPE
-from ..jobs.runner import _update_status_if_not_terminal
+from ..jobs.job_cancellation import DOCUMENT_ADDED_EVENT_TYPE
+from ..jobs.job_cancellation import WRITE_NOW_EVENT_TYPE
+from ..jobs.job_status import _update_status_if_not_terminal
 from .internal_auth import _require_internal_token
 from .job_artifacts import get_job_artifacts
 from .job_data_sources import validate_data_sources_for_agent

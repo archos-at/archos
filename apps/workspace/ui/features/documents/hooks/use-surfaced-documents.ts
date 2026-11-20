@@ -134,7 +134,7 @@ function loadSurfacedIndex(
       projectId
         ? fetchCorpus(`/api/documents?projectId=${encodeURIComponent(projectId)}`, [])
         : Promise.resolve({ rows: null, failed: false }),
-      fetchCorpus('/api/documents?scope=office_shelf', [403, 404]),
+      fetchCorpus('/api/documents?scope=office_shelf&includeStandards=true', [403, 404]),
       conversationId
         ? fetchCorpus(
             `/api/session/documents?conversationId=${encodeURIComponent(conversationId)}`,

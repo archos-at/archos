@@ -1,6 +1,7 @@
 import { z } from 'zod'
-import { DOCUMENT_LIFECYCLES, DOCUMENT_VERSION_STATES, type DocumentVersionState } from './lifecycle-vocabulary'
+import { DOCUMENT_LIFECYCLES, DOCUMENT_VERSION_ORIGINS, DOCUMENT_VERSION_STATES, type DocumentVersionState } from './lifecycle-vocabulary'
 import { mailOriginViewSchema } from './mail-origin-schema'
+import { AGENT_FILE_CONTENT_TYPES, AGENT_FILE_MAX_BASE64_LENGTH, AGENT_FILE_MAX_BYTES } from './agent-file-types'
 
 export { mailOriginViewSchema } from './mail-origin-schema'
 export {
@@ -24,6 +25,7 @@ export {
 
 export const DOCUMENT_VERSION_OPS = [
   'upload',
+  'file',
   'create',
   'update',
   'submit',
@@ -89,6 +91,30 @@ export const DOCUMENT_VERSION_TRANSITIONS = [
     auditAction: 'document.version.published',
     promotes: true,
     effects: ['audit', 'eventHint', 'announceNewRevision'],
+  },
+  {
+    from: null,
+    to: 'published',
+    op: 'file',
+    actor: 'either',
+    permission: ['project:documents:write', 'project:edit'],
+    alsoRequires: 'project:documents:generate',
+    requires: {},
+    auditAction: 'document.version.published',
+    promotes: true,
+    effects: ['ingestPublished', 'audit', 'eventHint', 'announceNewRevision'],
+  },
+  {
+    from: 'draft',
+    to: 'published',
+    op: 'file',
+    actor: 'either',
+    permission: ['project:documents:write', 'project:edit'],
+    alsoRequires: 'project:documents:generate',
+    requires: {},
+    auditAction: 'document.version.published',
+    promotes: true,
+    effects: ['ingestPublished', 'audit', 'eventHint', 'announceNewRevision'],
   },
   {
     from: null,
@@ -272,6 +298,18 @@ export const archiveRequestSchema = z.object({}).strict()
 
 export const internalDocumentVersionOpSchema = z.enum(['create', 'update', 'submit'])
 
+const agentFileContentTypeSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .describe(`One of: ${AGENT_FILE_CONTENT_TYPES.join(', ')}. text/csv is refused: file tables as .xlsx.`)
+
+const agentFileBase64Schema = z
+  .base64()
+  .min(1)
+  .max(AGENT_FILE_MAX_BASE64_LENGTH, { message: `The file exceeds ${AGENT_FILE_MAX_BYTES / 1_000_000} MB` })
+
 export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
   z
     .object({
@@ -280,6 +318,7 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
       ref: z.string().min(1).max(200),
       title: z.string().trim().min(1).max(200),
       content: z.string().max(2_000_000),
+      folder: z.string().trim().min(1).max(500).optional(),
     })
     .strict(),
   z
@@ -289,6 +328,46 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
       versionId: z.guid(),
       content: z.string().max(2_000_000),
       ifMatch: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      op: z.literal('create_file'),
+      projectId: z.guid(),
+      ref: z.string().min(1).max(200),
+      title: z.string().trim().min(1).max(200),
+      filename: z.string().trim().min(1).max(255).optional(),
+      folder: z.string().trim().min(1).max(500).optional(),
+      sourceDocumentId: z.guid().optional(),
+      contentType: agentFileContentTypeSchema,
+      contentBase64: agentFileBase64Schema,
+    })
+    .strict(),
+  z
+    .object({
+      op: z.literal('update_file'),
+      documentId: z.guid(),
+      versionId: z.guid(),
+      contentType: agentFileContentTypeSchema,
+      contentBase64: agentFileBase64Schema,
+      ifMatch: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      op: z.literal('status'),
+      documentId: z.guid(),
+    })
+    .strict(),
+  z
+    .object({
+      op: z.literal('revise_file'),
+      documentId: z.guid(),
+      versionId: z.guid().optional(),
+      ifMatch: z.string().min(1).max(128).optional(),
+      contentType: agentFileContentTypeSchema,
+      contentBase64: agentFileBase64Schema,
+      changeNote: z.string().trim().max(500).optional(),
     })
     .strict(),
   z
@@ -321,6 +400,8 @@ export const documentVersionViewSchema = z.object({
   publishedBy: z.string().nullable(),
   publishedAt: z.string().nullable(),
   reviewComment: z.string().nullable(),
+  changeNote: z.string().nullable().optional(),
+  origin: z.enum(DOCUMENT_VERSION_ORIGINS).optional(),
   createdBy: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),

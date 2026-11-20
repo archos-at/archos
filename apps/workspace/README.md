@@ -334,7 +334,7 @@ connects, `adapters/api/wire-v2.ts` parses every event and `bff/turns/turn-fold.
 serves no HTTP route that runs a turn. Protocol: [`docs/api/websocket-protocol.md`](../../docs/api/websocket-protocol.md).
 
 Deep-research runs stream their own events over Server-Sent Events, through the same-origin job proxy
-(`ui/adapters/api/deep-research-client.ts`).
+(`ui/adapters/api/deep-research-stream.ts`).
 
 ## Authentication
 

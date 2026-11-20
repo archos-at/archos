@@ -215,12 +215,17 @@ async def get_checkpointer(checkpoint_db: str) -> BaseCheckpointSaver:
             return checkpointer
 
         if is_postgres_dsn(checkpoint_db):
+            from agent.common.boot_retry import retry_connection_async
             from agent.knowledge.leader_lock import keyed_lock_async
 
             saver = _lazy("AsyncPostgresSaver")
             checkpointer = saver(get_checkpoint_pool(checkpoint_db), serde=_build_checkpointer_serde())
-            async with keyed_lock_async("langgraph-setup:checkpointer"):
-                await checkpointer.setup()
+
+            async def _setup() -> None:
+                async with keyed_lock_async("langgraph-setup:checkpointer"):
+                    await checkpointer.setup()
+
+            await retry_connection_async(_setup, what="checkpointer setup")
             logger.info("Postgres checkpointer initialized via async pool.")
         else:
             conn = await _lazy("aiosqlite").connect(checkpoint_db)

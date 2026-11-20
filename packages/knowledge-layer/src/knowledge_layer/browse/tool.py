@@ -3,8 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-import time
-from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import Any
 from typing import Literal
@@ -22,7 +20,7 @@ from nat.plugin_api import register_function
 from .compare import _PREVIOUS_WORDS  # noqa: F401
 from .compare import _change_line_between  # noqa: F401
 from .compare import _stored_chunks  # noqa: F401
-from .compare import compare_revisions  # noqa: F401
+from .compare import compare_files  # noqa: F401
 from .compare import resolve_compare  # noqa: F401
 from .matches import MAX_DISTINCT_CHARS  # noqa: F401
 from .matches import MAX_DISTINCT_FILES  # noqa: F401
@@ -233,6 +231,7 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
         )
         try:
             result = await _list_body(
+                search_config,
                 outcome,
                 folder,
                 name_contains,
@@ -254,368 +253,133 @@ async def list_files(config: ListFilesConfig, _builder: Builder):
         outcome.settle(row, default="ok" if outcome.completed else "error", target=outcome.target)
         return result
 
-    async def _list_body(
-        outcome: ActionOutcome,
-        folder: str | None,
-        name_contains: str | None,
-        doc_class: str | None,
-        added_since: str | None,
-        shelf: str | None,
-        sort: str | None,
-        offset: int | str | None,
-        limit: int | str | None,
-        topic: str | None,
-        revisions_of: str | None,
-        compare_to: str | None,
-        view: Literal["files", "tree"] | None,
-        depth: int | str | None,
-    ) -> str:
-        shelf, refusal = _check_shelf(shelf)
-        if refusal:
-            return refusal
-        if (revisions_of or "").strip():
-            turn = restrict_rows_to_turn(await _turn_rows(search_config))
-            if shelf and turn.allowed is not None and shelf not in turn.allowed:
-                return shelf_restricted_message(shelf, turn.allowed)
-            if compare_to is not None:
-                older, newer, refusal = resolve_compare(
-                    turn.rows, revisions_of or "", compare_to, shelf=shelf, default_shelves=turn.own_shelves
-                )
-                if refusal or older is None or newer is None:
-                    return refusal
-                return await compare_revisions(older, newer)
-            outcome.completed = True
-            return render_revisions(turn.rows, revisions_of or "", shelf=shelf, default_shelves=turn.own_shelves)
-        sort = (sort or "folder").strip().lower()
-        if sort not in ("folder", "name", "newest"):
-            return "`sort` must be folder, name or newest."
-        added_since = (added_since or "").strip() or None
-        if added_since and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", added_since):
-            return "`added_since` must be a date written YYYY-MM-DD."
-        doc_class = (doc_class or "").strip() or None
-        if doc_class is not None:
-            from agent.knowledge.document_classification import DOCUMENT_CLASSES
-            from agent.knowledge.document_classification import canonical_doc_class
-
-            current_doc_class = canonical_doc_class(doc_class)
-            if current_doc_class is None:
-                return f"Invalid doc_class {doc_class!r}. Valid values: {', '.join(DOCUMENT_CLASSES)}."
-            doc_class = current_doc_class
-
-        view = (view or "files").strip().lower()
-        if view not in ("files", "tree"):
-            return "`view` must be files or tree."
-        turn = restrict_rows_to_turn(await _turn_rows(search_config))
-        if shelf and turn.allowed is not None and shelf not in turn.allowed:
-            return shelf_restricted_message(shelf, turn.allowed)
-        rows = turn.rows
-        tree = view == "tree"
-        listing = select_files(
-            rows,
-            default_shelves=turn.own_shelves,
-            shelf=shelf,
-            folder=(folder or "").strip().strip("/") or None,
-            name_contains=(name_contains or "").strip() or None,
-            doc_class=doc_class,
-            added_since=added_since,
-            topic=(topic or "").strip() or None,
-            sort=sort,
-            offset=0 if tree else _coerce_int(offset, 0, low=0, high=100_000),
-            limit=len(rows) + 1 if tree else _coerce_int(limit, DEFAULT_PAGE_SIZE, low=1, high=MAX_PAGE_SIZE),
-        )
-        collections = sorted({row.collection for row in rows if row.shelf in listing.shelves and row.collection})
-        in_flight = await asyncio.to_thread(_in_flight, collections) if collections else []
-        logger.info("list_files: %d of %d row(s) selected, view=%s", listing.total, len(rows), view)
-        outcome.completed = True
-        outcome.target = listing.folder
-        outcome.files = len(listing.rows)
-        if not tree:
-            outcome.folders = len(listing.subfolders)
-            return render_listing(listing, in_flight=in_flight)
-        cards = folder_cards(
-            listing.rows,
-            root=listing.folder,
-            depth=_coerce_int(depth, DEFAULT_TREE_DEPTH, low=1, high=MAX_TREE_DEPTH),
-            series_rows=on_shelves(rows, shelf=shelf, default_shelves=turn.own_shelves),
-        )
-        from agent.knowledge.folder_cards import listing_abstracts
-
-        outcome.folders = len(cards)
-        return render_tree(
-            cards,
-            total_rows=listing.total,
-            notes=listing.notes,
-            scope=_scope_of(listing),
-            in_flight=in_flight,
-            abstracts=abstract_lines(await listing_abstracts(collections)),
-        )
-
     yield FunctionInfo.from_fn(_list, description=_LIST_FILES_DESCRIPTION)
 
 
-async def _files_by_collection(
+async def _list_body(
     search_config: Any,
-    *,
-    file_name: str | None,
+    outcome: ActionOutcome,
     folder: str | None,
+    name_contains: str | None,
     doc_class: str | None,
-    title_contains: str | None,
-) -> dict[str, list[str]] | None:
-    if not (file_name or folder or doc_class or title_contains):
-        return None
-    from knowledge_layer.search import _file_name_matches
+    added_since: str | None,
+    shelf: str | None,
+    sort: str | None,
+    offset: int | str | None,
+    limit: int | str | None,
+    topic: str | None,
+    revisions_of: str | None,
+    compare_to: str | None,
+    view: Literal["files", "tree"] | None,
+    depth: int | str | None,
+) -> str:
+    shelf, refusal = _check_shelf(shelf)
+    if refusal:
+        return refusal
+    if (revisions_of or "").strip():
+        return await _revisions_answer(search_config, outcome, shelf, revisions_of, compare_to)
+    sort = (sort or "folder").strip().lower()
+    if sort not in ("folder", "name", "newest"):
+        return "`sort` must be folder, name or newest."
+    added_since = (added_since or "").strip() or None
+    if added_since and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", added_since):
+        return "`added_since` must be a date written YYYY-MM-DD."
+    doc_class, refusal = _canonical_doc_class(doc_class)
+    if refusal:
+        return refusal
 
-    rows = await _turn_rows(search_config)
-    if folder:
-        resolved = _folder_matches(rows, folder)
-        rows = [row for row in rows if resolved is not None and _in_folder(row, resolved)]
-    if file_name:
-        wanted = fold(file_name)
-        rows = [
-            row
-            for row in rows
-            if _file_name_matches(row.file_name, file_name) or wanted == fold(row.display_title or "")
-        ]
-    if doc_class:
-        rows = [row for row in rows if row.doc_class == doc_class]
-    if title_contains:
-        needle = fold(title_contains)
-        rows = [row for row in rows if needle in fold(f"{row.file_name} {row.display_title or ''}")]
-    names: dict[str, list[str]] = {}
-    for row in rows:
-        names.setdefault(row.collection, []).append(row.file_name)
-    return names
+    view = (view or "files").strip().lower()
+    if view not in ("files", "tree"):
+        return "`view` must be files or tree."
+    turn = restrict_rows_to_turn(await _turn_rows(search_config))
+    if shelf and turn.allowed is not None and shelf not in turn.allowed:
+        return shelf_restricted_message(shelf, turn.allowed)
+    rows = turn.rows
+    tree = view == "tree"
+    listing = select_files(
+        rows,
+        default_shelves=turn.own_shelves,
+        shelf=shelf,
+        folder=(folder or "").strip().strip("/") or None,
+        name_contains=(name_contains or "").strip() or None,
+        doc_class=doc_class,
+        added_since=added_since,
+        topic=(topic or "").strip() or None,
+        sort=sort,
+        offset=0 if tree else _coerce_int(offset, 0, low=0, high=100_000),
+        limit=len(rows) + 1 if tree else _coerce_int(limit, DEFAULT_PAGE_SIZE, low=1, high=MAX_PAGE_SIZE),
+    )
+    return await _listing_answer(outcome, turn, listing, shelf=shelf, view=view, depth=depth)
 
 
-async def _folder_scope(search_config: Any, folder: str) -> tuple[set[str], str | None]:
-    from knowledge_layer.vector_store import folder_key
-
-    rows = await _turn_rows(search_config)
-    resolved = _folder_matches(rows, folder)
-    if resolved is None:
-        return set(), None
-    return {row.collection for row in rows if _in_folder(row, resolved)}, folder_key(resolved)
-
-
-async def exact_search(
-    entries: Sequence[Any],
-    text: str,
-    *,
+async def _revisions_answer(
     search_config: Any,
-    retriever: Any,
-    file_name: str | None = None,
-    folder: str | None = None,
-    doc_class: str | None = None,
-    title_contains: str | None = None,
-    filters: dict[str, Any] | None = None,
-    regex_mode: bool = False,
-    context: int | str | None = None,
-    stemmed: bool = False,
-    shelf: str | None = None,
-    outcome: ActionOutcome | None = None,
+    outcome: ActionOutcome,
+    shelf: str | None,
+    revisions_of: str | None,
+    compare_to: str | None,
 ) -> str:
-    entries, refusal = entries_on_shelf(entries, shelf)
-    if refusal:
-        return refusal
-    context_lines, refusal = _context_lines(context)
-    if refusal:
-        return refusal
-    if regex_mode:
-        pattern = text.strip()
-        phrases = [pattern]
-        compiled, refusal = user_pattern(text)
-        if compiled is None:
+    turn = restrict_rows_to_turn(await _turn_rows(search_config))
+    if shelf and turn.allowed is not None and shelf not in turn.allowed:
+        return shelf_restricted_message(shelf, turn.allowed)
+    if compare_to is not None:
+        pair, refusal = resolve_compare(
+            turn.rows, revisions_of or "", compare_to, shelf=shelf, default_shelves=turn.own_shelves
+        )
+        if pair is None:
             return refusal
-    else:
-        phrases = split_alternatives(text)
-        if not phrases:
-            return f"Provide a `query` of at least {MIN_PHRASE_CHARS} characters: the literal word or phrase to find."
-        pattern = stemmed_pattern(phrases) if stemmed else phrase_pattern(phrases)
-        if pattern is None:
-            return (
-                "`query` is too long for the exact search: it finds a word or a short phrase, not a sentence. "
-                "Shorten it to the words that must appear literally."
-            )
-        compiled = re.compile(pattern)
-    narrowed = await _files_by_collection(
-        search_config, file_name=file_name, folder=None, doc_class=doc_class, title_contains=title_contains
-    )
-    folder_key: str | None = None
-    if folder:
-        in_folder, folder_key = await _folder_scope(search_config, folder)
-        entries = [entry for entry in entries if entry.collection in in_folder]
-    if narrowed is not None:
-        entries = [entry for entry in entries if entry.collection in narrowed]
-    if (narrowed is not None or folder) and not entries:
-        return (
-            "No file in scope matches that narrowing (`file_name`, `folder`, `doc_class`, "
-            "`title_contains`). `list_files` shows what exists."
-        )
-    if regex_mode and not (narrowed is not None or folder_key) and not _has_literal_word(pattern):
-        return _NEEDS_A_ANCHOR
-    from knowledge_layer.search import resolve_base_collection
-
-    base = resolve_base_collection(search_config)
-    scopes = shelf_scopes(entries, await _searched_documents(search_config, narrowed, folder))
-    outcome = outcome if outcome is not None else ActionOutcome()
-    counted = [scope.documents for scope in scopes if scope.documents is not None]
-    outcome.searched = sum(counted) if counted else None
-    filters_by_collection = {
-        entry.collection: _collection_filter(
-            entry.collection,
-            base=base,
-            search_config=search_config,
-            caller_filters=filters,
-            files=None if narrowed is None else narrowed[entry.collection],
-            folder_key=folder_key,
-        )
-        for entry in entries
-    }
-    return await _search(
-        retriever,
-        entries,
-        phrases,
-        pattern,
-        filters_by_collection,
-        compiled=compiled,
-        regex_mode=regex_mode,
-        context=context_lines,
-        stemmed=stemmed and not regex_mode,
-        scopes=scopes,
-        outcome=outcome,
-    )
+        return await compare_files(pair)
+    outcome.completed = True
+    return render_revisions(turn.rows, revisions_of or "", shelf=shelf, default_shelves=turn.own_shelves)
 
 
-async def _searched_documents(search_config: Any, narrowed: Mapping[str, Sequence[str]] | None, folder: str | None):
-    rows = await _turn_rows(search_config)
-    resolved = _folder_matches(rows, folder) if folder else None
-    counts: dict[str, int] = {}
-    for row in rows:
-        if resolved is not None and not _in_folder(row, resolved):
-            continue
-        if narrowed is not None and row.file_name not in narrowed.get(row.collection, ()):
-            continue
-        counts[row.collection] = counts.get(row.collection, 0) + 1
-    return counts
+def _canonical_doc_class(doc_class: str | None) -> tuple[str | None, str | None]:
+    doc_class = (doc_class or "").strip() or None
+    if doc_class is None:
+        return None, None
+    from agent.knowledge.document_classification import DOCUMENT_CLASSES
+    from agent.knowledge.document_classification import canonical_doc_class
+
+    current_doc_class = canonical_doc_class(doc_class)
+    if current_doc_class is None:
+        return None, f"Invalid doc_class {doc_class!r}. Valid values: {', '.join(DOCUMENT_CLASSES)}."
+    return current_doc_class, None
 
 
-async def _read_collection(
-    retriever: Any,
-    entry: Any,
-    pattern: str,
-    filters_by_collection: dict[str, dict[str, Any] | None],
-    read_options: dict[str, Any],
-) -> tuple[list[Any] | None, bool]:
-    chunks = await retriever.find_text(
-        entry.collection,
-        pattern,
-        filters=filters_by_collection.get(entry.collection),
-        limit=MAX_MATCH_CHUNKS,
-        **read_options,
-    )
-    if chunks is None:
-        return None, False
-    for chunk in chunks:
-        chunk.metadata.setdefault("collection", entry.collection)
-        if (shelf := _entry_shelf(entry)) is not None:
-            chunk.metadata.setdefault("shelf", shelf)
-    return chunks, len(chunks) >= MAX_MATCH_CHUNKS
-
-
-async def _search(
-    retriever: Any,
-    entries: Sequence[Any],
-    phrases: Sequence[str],
-    pattern: str,
-    filters_by_collection: dict[str, dict[str, Any] | None],
+async def _listing_answer(
+    outcome: ActionOutcome,
+    turn: TurnRows,
+    listing: Listing,
     *,
-    compiled: Any = None,
-    regex_mode: bool = False,
-    context: int | None = None,
-    stemmed: bool = False,
-    scopes: Sequence[ShelfScope] = (),
-    outcome: ActionOutcome | None = None,
+    shelf: str | None,
+    view: str,
+    depth: int | str | None,
 ) -> str:
-    from knowledge_layer.read_passage import _passage_result
-    from knowledge_layer.search import format_results
-    from knowledge_layer.vector_store import USER_REGEX_SCAN_SECONDS
-    from knowledge_layer.vector_store import USER_REGEX_TIMEOUT
-    from knowledge_layer.vector_store import PatternTooCostly
-
-    read_options: dict[str, Any] = {"user_regex": True} if regex_mode else {}
-    if stemmed:
-        read_options["stem_phrases"] = list(phrases)
-
-    results = await asyncio.gather(
-        *(_read_collection(retriever, entry, pattern, filters_by_collection, read_options) for entry in entries),
-        return_exceptions=True,
+    rows = turn.rows
+    tree = view == "tree"
+    collections = sorted({row.collection for row in rows if row.shelf in listing.shelves and row.collection})
+    in_flight = await asyncio.to_thread(_in_flight, collections) if collections else []
+    logger.info("list_files: %d of %d row(s) selected, view=%s", listing.total, len(rows), view)
+    outcome.completed = True
+    outcome.target = listing.folder
+    outcome.files = len(listing.rows)
+    if not tree:
+        outcome.folders = len(listing.subfolders)
+        return render_listing(listing, in_flight=in_flight)
+    cards = folder_cards(
+        listing.rows,
+        root=listing.folder,
+        depth=_coerce_int(depth, DEFAULT_TREE_DEPTH, low=1, high=MAX_TREE_DEPTH),
+        series_rows=on_shelves(rows, shelf=shelf, default_shelves=turn.own_shelves),
     )
-    chunks: list[Any] = []
-    truncated = False
-    capped: list[Any] = []
-    answered = 0
-    failed: list[str] = []
-    for entry, result in zip(entries, results, strict=True):
-        if isinstance(result, PatternTooCostly):
-            return _TOO_COSTLY_SCAN if result.scan else _TOO_COSTLY
-        if isinstance(result, BaseException):
-            logger.warning("exact search: %s failed: %s", entry.collection, result)
-            failed.append(entry.collection)
-            continue
-        found, hit_cap = result
-        if found is None:
-            continue
-        answered += 1
-        chunks.extend(found)
-        truncated = truncated or hit_cap
-        if hit_cap:
-            capped.append(entry)
-    if not answered:
-        if failed:
-            return search_failed_message(phrases, failed, regex_mode=regex_mode)
-        return "Full-text search is not available in this environment. Use `knowledge_search`."
+    from agent.knowledge.folder_cards import listing_abstracts
 
-    timeout = USER_REGEX_TIMEOUT if regex_mode else None
-    deadline = time.monotonic() + USER_REGEX_SCAN_SECONDS if regex_mode else None
-    try:
-        groups = group_matches(
-            chunks,
-            compiled if regex_mode else pattern,
-            timeout=timeout,
-            store_decides=stemmed,
-            deadline=deadline,
-            collect_strings=regex_mode,
-        )
-    except TimeoutError:
-        return _TOO_COSTLY_SCAN if deadline is not None and time.monotonic() >= deadline else _TOO_COSTLY
-    if not groups and truncated:
-        return _CAPPED_WITHOUT_OWN_MATCH
-    if outcome is not None:
-        outcome.record(
-            sum(group.occurrences for group in groups),
-            documents=len(groups),
-            collections=[group.collection for group in groups],
-        )
-        outcome.failed = bool(failed) and not groups
-    if not groups:
-        return no_match_message(phrases, answered, failed, regex_mode=regex_mode, scopes=scopes)
-    from agent.knowledge.restricted_use import note_collections_read
-
-    note_collections_read(group.collection for group in groups)
-    passages = pick_passages(groups)
-    query = " | ".join(phrases)
-    candidates = await _candidate_counts(retriever, capped, pattern, filters_by_collection, regex_mode=regex_mode)
-    trailer = match_table(
-        groups, phrases, truncated=truncated, failed=failed, regex_mode=regex_mode, candidates=candidates, scopes=scopes
+    outcome.folders = len(cards)
+    return render_tree(
+        cards,
+        total_rows=listing.total,
+        notes=listing.notes,
+        scope=_scope_of(listing),
+        in_flight=in_flight,
+        abstracts=abstract_lines(await listing_abstracts(collections)),
     )
-    if stemmed:
-        trailer = f"{_STEMMED_NOTE}\n{trailer}"
-    if context is not None:
-        try:
-            snippets = match_snippets(groups, compiled if regex_mode else re.compile(pattern), context, timeout=timeout)
-        except TimeoutError:
-            return _TOO_COSTLY
-        trailer = f"{trailer}\n\n{snippets}" if snippets else trailer
-    formatted = await asyncio.to_thread(format_results, _passage_result(passages, query), query, trailer=trailer)
-    logger.info("exact search: %r matched %d file(s)", query, len(groups))
-    return formatted

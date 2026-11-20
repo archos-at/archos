@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 
 from . import view_image as _view
+from . import view_rendering as _rendering
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ async def load_page_jpeg(
     standalone = _view._is_standalone_image(file_name)
     if standalone and page != 1:
         raise PageImageUnavailable("page_not_found")
-    render = _view._normalize_image_to_jpeg if standalone else _view._render_page_from_bytes
+    render = _rendering._normalize_image_to_jpeg if standalone else _rendering._render_page_from_bytes
     arguments = (data, limit) if standalone else (data, page, limit)
     try:
         jpeg, width, height = await asyncio.wait_for(asyncio.to_thread(render, *arguments), timeout=timeout)

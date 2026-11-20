@@ -12,6 +12,7 @@ export interface UseInboundMailAddress {
   create: () => Promise<InboundMailAddressView>
   rotate: () => Promise<InboundMailAddressView>
   remove: () => Promise<InboundMailAddressView>
+  setForwardedFrom: (forwardedFrom: readonly string[]) => Promise<InboundMailAddressView>
 }
 
 export function useInboundMailAddress(
@@ -49,5 +50,6 @@ export function useInboundMailAddress(
     create: () => act(client.create),
     rotate: () => act(client.rotate),
     remove: () => act(client.remove),
+    setForwardedFrom: (forwardedFrom) => act((id) => client.setForwardedFrom(id, forwardedFrom)),
   }
 }

@@ -10,10 +10,10 @@ from agent.common import provider_limiter
 from agent.common.openrouter import limited_async_http_client
 from agent.observability.direct_trace import observed_generation
 
-from ..models.requests import CleanupCandidate
-from ..models.requests import CleanupDocumentFacts
-from ..models.requests import CleanupProposalRequest
-from ..models.requests import CleanupProposalResponse
+from ..models.writing_requests import CleanupCandidate
+from ..models.writing_requests import CleanupDocumentFacts
+from ..models.writing_requests import CleanupProposalRequest
+from ..models.writing_requests import CleanupProposalResponse
 from .generate_summary import _llm_settings
 
 logger = logging.getLogger(__name__)

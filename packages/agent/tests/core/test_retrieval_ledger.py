@@ -4,11 +4,11 @@ from types import SimpleNamespace
 
 from langchain_core.messages import HumanMessage
 
-from agent.core.agent import _charge_tool_calls
 from agent.core.answer_pipeline import FinalAnswer
 from agent.core.ledger import assemble_result
 from agent.core.ledger import build_retrieval_ledger
 from agent.core.models.state import ResearchAgentState
+from agent.core.round_charge import _charge_tool_calls
 
 
 def _announcement(index, tools, corpora, query=None, reason=None, key="status.retrieval.withQuery"):

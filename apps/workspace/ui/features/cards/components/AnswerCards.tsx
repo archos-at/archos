@@ -20,6 +20,8 @@ import { GuardrailCheckCard } from '../schematics/GuardrailCheckCard'
 import { FireAccessPlanCard } from '../schematics/FireAccessPlanCard'
 import { DocumentAnswerCard } from './DocumentAnswerCard'
 import { DocumentDraftCard } from './DocumentDraftCard'
+import { FileDraftCard } from './FileDraftCard'
+import { isMarkdownDraft } from '@/lib/conversations/draft-media'
 import { TaskCreatedCard } from './TaskCreatedCard'
 import { IfcViewerCard } from './IfcViewerCard'
 import { IfcModelPickerCard } from './IfcModelPickerCard'
@@ -253,6 +255,29 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
     )
   }
 
+  if (card.type === 'document_draft' && !isMarkdownDraft(card.path, card.media_type)) {
+    return (
+      <FadeIn distance={6}>
+        <FileDraftCard
+          title={card.title}
+          path={card.path}
+          bytes={card.bytes}
+          version={card.version}
+          documentId={card.document_id}
+          versionId={card.version_id}
+          versionState={card.version_state}
+          filedDraftVersion={card.filed_draft_version}
+          derivedFromDocumentId={card.derived_from_document_id}
+          derivedFromName={card.derived_from_name}
+          removed={card.removed}
+          messageId={messageId}
+          cardKey={key}
+          decisionsMustPersist={decisionsMustPersist}
+        />
+      </FadeIn>
+    )
+  }
+
   if (card.type === 'document_draft') {
     return (
       <FadeIn distance={6}>
@@ -264,6 +289,8 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
           documentId={card.document_id}
           versionId={card.version_id}
           versionState={card.version_state}
+          filedDraftVersion={card.filed_draft_version}
+          removed={card.removed}
           messageId={messageId}
           cardKey={key}
           decisionsMustPersist={decisionsMustPersist}

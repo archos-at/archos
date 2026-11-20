@@ -60,7 +60,7 @@ Browser WebSocket
     neutrally as "Assistant" (getDisplayName in intermediate-step-parser.ts),
     not "Research Agent" — a greeting is not a research run.
   → the turn's wire bodies, stamped and sent by the chat socket (wire v2, ADR-0068)
-      apps/agent-host/src/agent_host/chat_socket.py
+      apps/agent-host/src/agent_host/chat_wire.py, apps/agent-host/src/agent_host/chat_socket.py
   → the UI's turn socket and fold (docs/api/websocket-protocol.md, "The client")
   → apps/workspace/ui/features/layout/components/ChatArea.tsx → AgentResponse.tsx
 ```
@@ -79,7 +79,7 @@ The turn ends with `RUN_FINISHED`, whose `result` is a typed `TurnResult`
 confidence and its reason, and the run hand-off `run: {run_id, run_message_id}`
 (ADR-0062; the text is then empty, because the run's block is the narration).
 It is authoritative, and it is what the socket persists
-(`chat_socket.persist_turn_result`). No field is lifted by name any more.
+(`chat_turn.persist_turn_result`). No field is lifted by name any more.
 
 **Transparency extras (WP-A).** A family of optional, additive "why did the turn
 behave this way?" signals are fields of the same `TurnResult`, which
@@ -312,7 +312,7 @@ Key pieces:
 
 A turn can outlive its socket: the browser tab sleeps, the network blips, or a
 token rotation forces a reconnect while a long answer is still generating. The
-backend pieces live in `chat_socket.py` and `conversation_bus.py`; the design is
+backend pieces live in `chat_socket.py` and its `chat_*` siblings, and in `conversation_bus.py`; the design is
 `docs/design/chat-wire-v2.md` §c/§d.
 
 - **One socket, one conversation.** Every client message names its
@@ -394,7 +394,7 @@ backend pieces live in `chat_socket.py` and `conversation_bus.py`; the design is
   no row.
 - **Rehydrate.** A reload knows its turn and sends `attach{after_seq: 0}`; a turn
   the stream no longer holds is read from the persisted row
-  (`sessions-store.restoreSessionState`).
+  (`session-navigation.restoreSessionState`).
 
 ## 3. The card pipeline
 
@@ -1128,7 +1128,7 @@ The text parsers in `citations/text_parsers.py`
 (`_parse_knowledge_layer` and the eleven `_KL_*` regexes) stay for the callers
 that hold the bytes without the records: a registry hydrated from the shared
 cache, a turn replayed out of Postgres, and the job runner's callback in
-`apps/agent-host/src/agent_host/jobs/callbacks.py`. A text those parsers find no
+`apps/agent-host/src/agent_host/jobs/citation_events.py`. A text those parsers find no
 `Citation:` line in carries no sources at all. A web search is read by its
 result records (`citations/web_results.py`: one `<Document href>` header per
 hit, never an address inside a page's text, and no address `common/url_safety.py`
@@ -1588,7 +1588,7 @@ same thing.
 | Question | Mechanism |
 |---|---|
 | "What is this model of?" | Retrieval over the ingested digest — a document-shaped question. |
-| "How many external walls on the ground floor?" | `lib/bim/query.ts` → SQL over `bim_elements`. A `COUNT(*)` with a `WHERE`; an LLM summing forty thousand elements from retrieved prose is a fact turned into a guess. |
+| "How many external walls on the ground floor?" | `lib/bim/element-filter-sql.ts` and `lib/bim/aggregate-sql.ts` → SQL over `bim_elements`. A `COUNT(*)` with a `WHERE`; an LLM summing forty thousand elements from retrieved prose is a fact turned into a guess. |
 
 The agent reaches the second through the `ifc_query` tool
 (`packages/agent/src/agent/tools/bim/register.py`), which posts to
@@ -1899,7 +1899,7 @@ is what that framework costs.
   (the skill resolver was one) fails healthy jobs with a timeout that names
   nothing, so it is wrapped in `asyncio.to_thread`, as `agent.py` does for
   `_resolve_skills_blocking`. The runner heartbeats only once
-  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/runner.py`) is
+  `run_with_cancellation` (`apps/agent-host/src/agent_host/jobs/job_cancellation.py`) is
   entered, so slow pre-run work belongs inside it. The symptom is in
   [`gotchas.md`](../contributing/gotchas.md) ("no heartbeat received from worker").
 - **Nothing request-scoped is read from context.** There is no request in a
@@ -2071,7 +2071,7 @@ The agent can now persist curated findings across turns. Full design:
   `project` (requires `projectId`) or `organization` (org-wide, requires
   `organizationId`, `projectId` null).
 - **Read path**: `buildProjectMemoryDigest()`
-  (`apps/workspace/bff/projects/memory-service.ts`) merges org-wide +
+  (`apps/workspace/bff/projects/memory-recall-digest.ts`) merges org-wide +
   project items (active only; the pinned ones, then the ones recalled for
   this turn's question, bounded) and tags each line with
   scope/kind/confidence/verification. A signed-in chat turn does not get the

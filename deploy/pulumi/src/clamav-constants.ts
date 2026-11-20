@@ -7,7 +7,7 @@ export const CLAMAV = {
   configPath: "/etc/clamav",
   databasePath: "/var/lib/clamav",
   resources: {
-    requests: { cpu: "250m", memory: "2Gi" },
+    requests: { cpu: "850m", memory: "2Gi" },
     limits: { cpu: "2", memory: "4Gi" },
   },
     // freshclam's signature check loads the whole database: at 512Mi the first start on dev was OOMKilled 22 s in, on ClamAV 1.5.4 (2026-11-05).

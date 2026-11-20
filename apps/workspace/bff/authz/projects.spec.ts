@@ -76,7 +76,7 @@ describe('requireProjectAccess', () => {
     vi.clearAllMocks()
     store = new TestStore()
     setCacheStore(store)
-    delete process.env.AUTHZ_CACHE_TTL_MS
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', undefined)
     holds(...ALL_PROJECT.filter((slug) => slug !== 'project:manage'))
     findProjectTenancy.mockResolvedValue({ organizationId: 'org_1', deletedAt: null })
   })
@@ -159,7 +159,7 @@ describe('requireProjectAccess', () => {
 
   describe('cache disabled (AUTHZ_CACHE_TTL_MS=0)', () => {
     beforeEach(() => {
-      process.env.AUTHZ_CACHE_TTL_MS = '0'
+      vi.stubEnv('AUTHZ_CACHE_TTL_MS', '0')
     })
 
     it('never consults the cache and asks on every request', async () => {

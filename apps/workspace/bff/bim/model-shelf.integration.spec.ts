@@ -59,7 +59,7 @@ describe.skipIf(!url)('listBimModels shelf scoping', () => {
   let OTHER_PROJECT: string
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const { getDb, closeDb: close } = await import('@/lib/db')
     const { withPlatformAccess } = await import('@/lib/db/tenant-context')
     const repository = await import('./repository')

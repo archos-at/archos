@@ -7,7 +7,7 @@ from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
 from agent.citations.entries import SourceEntry
 from agent.citations.registry import SourceRegistry
-from agent.core.answer_pipeline import LiveAnswer
+from agent.core.live_answer import LiveAnswer
 
 _BASIS = {"id": "a", "component": "ifc_model_picker", "title": "Haus A", "note": "GK 4."}
 
@@ -93,7 +93,7 @@ def test_the_tool_cards_are_read_once_per_call():
 
 async def test_the_live_positions_are_the_terminals():
     from agent.common.answer_envelope import AnswerMeta
-    from agent.core.answer_pipeline import _register_envelope_cards
+    from agent.core.envelope_cards import _register_envelope_cards
 
     prose = "Die Tabelle:\n\n[[card:1]]\n\nDie Karte:\n\n[[card:2]]"
     envelope = [

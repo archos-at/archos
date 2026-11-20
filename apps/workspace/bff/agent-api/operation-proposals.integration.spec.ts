@@ -111,7 +111,7 @@ describe.skipIf(!url)('the in-product agent’s proposed operations against Post
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     proposeOperation = (await import('./operation-proposals')).proposeOperation

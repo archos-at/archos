@@ -113,7 +113,7 @@ describe('onWakeEnded', () => {
       resourceType: 'document',
       resourceId: 'doc_1',
       anchorId: 'ann_1',
-      groupKey: 'piloti.work_done:document:doc_1:ann_1',
+      groupKey: 'agent.work_done:document:doc_1:ann_1',
       payload: { subject: 'Grundriss EG.pdf', related: '4' },
     })
   })
@@ -182,7 +182,7 @@ describe('onWakeEnded', () => {
         recipientUserId: 'user_me',
         anchorId: 'ann_1',
         actorUserId: null,
-        groupKey: 'piloti.work_failed:document:doc_1:ann_1',
+        groupKey: 'agent.work_failed:document:doc_1:ann_1',
         payload: { subject: 'Grundriss EG.pdf', related: '4', variant: 'error' },
       })
     },
@@ -234,7 +234,7 @@ describe('onAgentWrote', () => {
       resourceId: 'doc_1',
       anchorId: 'ann_1',
       actorUserId: null,
-      groupKey: 'piloti.asks_you:document:doc_1:ann_1',
+      groupKey: 'agent.asks_you:document:doc_1:ann_1',
       payload: { subject: 'Grundriss EG.pdf', related: '4', excerpt: 'Ist die Brüstungshöhe hier 1,00 m?' },
     })
   })

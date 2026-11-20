@@ -479,16 +479,16 @@ describe("single-node topology", () => {
     const t = await installSingle();
     const c = container(await statefulSetSpec(t.workloads[0]), "seaweedfs");
     const r = c.resources as { requests?: Record<string, string>; limits?: Record<string, string> };
-    expect(r.requests).toEqual({ cpu: "100m", memory: "256Mi" });
-    expect(r.limits).toEqual({ cpu: "1", memory: "1Gi" });
+    expect(r.requests).toEqual({ cpu: "1500m", memory: "256Mi" });
+    expect(r.limits).toEqual({ cpu: "3", memory: "1Gi" });
   });
 
   it("takes its memory from the stack, leaving CPU alone", async () => {
     const t = await installSingle({ singleMemory: { request: "1Gi", limit: "4Gi" } });
     const c = container(await statefulSetSpec(t.workloads[0]), "seaweedfs");
     const r = c.resources as { requests?: Record<string, string>; limits?: Record<string, string> };
-    expect(r.requests).toEqual({ cpu: "100m", memory: "1Gi" });
-    expect(r.limits).toEqual({ cpu: "1", memory: "4Gi" });
+    expect(r.requests).toEqual({ cpu: "1500m", memory: "1Gi" });
+    expect(r.limits).toEqual({ cpu: "3", memory: "4Gi" });
   });
 
   it("still does not re-size the volumes a running stack already holds", async () => {

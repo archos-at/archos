@@ -19,6 +19,7 @@ __pycache__/
 # hides a source directory of that name (the `coverage/` route did, see gotchas).
 /build/
 apps/*/build/
+!apps/code-runner/build/
 packages/*/build/
 develop-eggs/
 /dist/

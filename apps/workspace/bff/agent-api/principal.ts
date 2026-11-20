@@ -32,8 +32,7 @@ import { SENSITIVITIES, type Sensitivity } from './operation'
 import type { AgentDoor } from './exposure'
 import { hasHeader, readHeader } from '@/lib/http/legacy-header-names'
 import { PRODUCT_NAME } from '@/lib/brand'
-import type { AgentKind } from '@/lib/agent-kind'
-import { LEGACY_AGENT_KIND } from '@/lib/legacy-agent-kind'
+import { AGENT_KIND, type AgentKind } from '@/lib/agent-kind'
 
 export type AgentActor = 'external_agent' | AgentKind
 
@@ -225,7 +224,7 @@ async function agentPrincipal(request: Request): Promise<AgentPrincipal | AuthCh
     const context = requireVerifiedContext(request)
     const session = await requirePinnedSession(context)
     return {
-      actor: LEGACY_AGENT_KIND,
+      actor: AGENT_KIND,
       session,
       clientId: null,
       scopes: [],

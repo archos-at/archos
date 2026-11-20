@@ -103,8 +103,8 @@ beforeAll(() => {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(askAgent).mockReset()
-  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.example.test'
-  process.env.MCP_RESOURCE_URL = 'https://app.example.test/api/mcp'
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', 'auth.example.test')
+  vi.stubEnv('MCP_RESOURCE_URL', 'https://app.example.test/api/mcp')
   vi.mocked(resolvePrincipal).mockResolvedValue(PERSON)
   vi.mocked(askAgent).mockResolvedValue(view())
   vi.mocked(getAsk).mockResolvedValue(view())
@@ -139,7 +139,7 @@ describe('who is turned away', () => {
   })
 
   it('answers 503 while the agent door is not configured', async () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     const response = await POST(rpc('SendMessage', { message: userMessage('Hallo?') }, V1))
     expect(response.status).toBe(503)
   })

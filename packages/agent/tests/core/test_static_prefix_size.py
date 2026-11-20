@@ -14,8 +14,8 @@ from agent.core import prompt as prompt_module
 from agent.core import turn_tools
 
 SYSTEM_CEILING = 8_300
-TOOLS_CEILING = 20_300
-TOOLS_WITHOUT_A_MODEL_CEILING = 11_200
+TOOLS_CEILING = 20_500
+TOOLS_WITHOUT_A_MODEL_CEILING = 11_400
 
 _ENCODING = tiktoken.get_encoding("o200k_base")
 

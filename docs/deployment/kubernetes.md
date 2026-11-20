@@ -29,6 +29,8 @@ their own namespaces.
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
 | `dragonfly` (Redis-proto cache) | Deployment | 1 | — (cache) | — |
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
+| `code-runner` (the agent's `execute` tool: one fresh isolate per run, no network, nothing kept; [`agent-code-execution.md`](../design/agent-code-execution.md); `codeRunnerEnabled`, default off, set per stack in its `Pulumi.<stack>.yaml` by [`code-runner-runbook.md`](code-runner-runbook.md); CI publishes its image `code-runner` with the others) | Deployment + KEDA ScaledObject + PDB | `codeRunnerMinReplicas`→`codeRunnerMaxReplicas` (default 2→10; dev 1→3) | memory-backed emptyDir `/run/code-runner/do` (1 Gi, a run's files while it runs) and an emptyDir `/tmp`; nothing durable | Horizontally, on CPU utilisation through metrics-server (`codeRunnerCpuTargetPercent` 70); not on memory, which workerd does not hand back after a run. A rollout waits up to 200 s, so a run of the 180 s maximum finishes |
+| `browser-renderer` (headless Chromium for Puppeteer in a code-runner run: one sandboxed process per run, no egress, only the code runner may reach it; [`apps/browser-renderer/README.md`](../../apps/browser-renderer/README.md); `browserRendererEnabled`, default off, needs `codeRunnerEnabled` and nodes that allow unprivileged user namespaces, [the runbook](code-runner-runbook.md#the-browser-puppeteer-in-a-run)) | Deployment + KEDA ScaledObject, no PDB | `browserRendererMinReplicas`→`browserRendererMaxReplicas` (default 1→3), 2 browsers per pod (`browserRendererSessionsPerPod`) | memory-backed emptyDir `/tmp` (512 Mi, a run's profile); nothing durable | Horizontally, on CPU and memory utilisation (`browserRendererCpuTargetPercent` 70, `browserRendererMemoryTargetPercent` 80); 500m CPU and 512 Mi requested, 2 CPU and 1.5 Gi limit |
 | `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0157; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
 | `seaweedfs` (filer + S3 gateway) | StatefulSet | 1 (`single`) / N (`split`) | RWO PVC `/data` (unused under the Postgres filer store) | See §4 |
@@ -85,10 +87,12 @@ That password comes from Pulumi config `pgRuntimePassword`, which is **required
 and has no fallback**. It used to default to `pgAppPassword`; that was wrong,
 because Postgres authenticates by (role, password), so a shared password let
 anyone holding the runtime DSN log in as the schema owner instead — and the
-owner is exempt from every policy. Set it per stack:
+owner is exempt from every policy. Set it per stack, in the stack's ESC
+environment (a scratch stack without one takes `pulumi config set --secret`
+instead, as in [the Pulumi README](../../deploy/pulumi/README.md#a-scratch-stack-without-esc)):
 
 ```bash
-pulumi config set --secret pgRuntimePassword "$(openssl rand -base64 32)"
+pulumi env set matthiasbigl/grid-oib/<stack> pulumiConfig.grid-oib:pgRuntimePassword "$(openssl rand -base64 32)" --secret
 ```
 
 A fourth login, `keda_scaler`, is declared the same way and is not an
@@ -110,8 +114,8 @@ Runbook: [row-level security](../database/row-level-security.md).
 - The provider's **StorageClass** name for block volumes — this is your
   **Lightbits** (NVMe/TCP) class. Find it: `kubectl get storageclass`.
 - Container images in a registry. CI ([`ci.yml`](../../.github/workflows/ci.yml))
-  builds `grid-oib-backend`, `grid-oib-frontend` and `grid-oib-web`, pushes
-  them to GHCR, and tags all three `sha-<commit>` for every `develop` commit
+  builds `grid-oib-backend`, `grid-oib-frontend`, `grid-oib-web`, `cms` and
+  `code-runner`, pushes them to GHCR, and tags each `sha-<commit>` for every `develop` commit
   whose checks passed; an image whose inputs did not change is re-tagged, not
   rebuilt. Deploys pin all three to that tag
   ([cd.md](cd.md#image-pinning)). The kubelet pulls **anonymously**: if the GHCR packages are *private*, set
@@ -148,7 +152,9 @@ an object store. So:
   (dev and prod) the deploy reads `data-seaweedfs-0` and patches it to the
   larger of its current size and `seaweedfsStorageSize`, so raising the value
   grows the volume and a smaller value is a no-op, never a shrink
-  (`src/data/pvc-grow.ts`). **On a new cluster, leave `seaweedfsGrowVolume`
+  (`src/data/pvc-grow.ts`). Prod sets 200Gi: grown by hand to about 100Gi, it
+  was 91 % full on 2026-11-14, 74 GB of it Qdrant snapshots retaken by failed
+  retries of the snapshot Job (since fixed in its script). **On a new cluster, leave `seaweedfsGrowVolume`
   unset for the first `pulumi up`**: the read fails while `data-seaweedfs-0`
   does not exist yet, and the template creates it at the configured size. Set it
   once the PVC exists. Qdrant and the
@@ -258,23 +264,35 @@ pods it builds, and a selector on the template's own labels matched no pod
 (both PgBouncers ran on one node until 2026-10).
 
 The operators (CloudNativePG, KEDA, cert-manager, Envoy Gateway,
-metrics-server) are Helm releases in their own namespaces and are not pinned.
+metrics-server) and Hatchet are Helm releases in their own namespaces, each
+pinned to an exact chart version by an exported `*_CHART_VERSION` constant.
+A release without a version re-resolves the repository's latest on every `up`:
+on 2026-11-18 that upgraded the CloudNativePG operator during a prod promotion,
+every Postgres instance restarted, and the app tiers crash-looped for about
+five minutes. `index-helm-pins.spec.ts` fails on a release without one. Move a
+pin on dev first, as a change of its own.
 
 **Cluster-autoscaler scales on *unschedulable pods*, not utilisation.** Its
 documented prerequisites — an HPA as the first scaling tier, `requests`/`limits`
 on every container, and `topologySpreadConstraints` — are all met: HPAs on
 `frontend` and `web` (CPU), the KEDA-driven queue tiers (`agent-worker`,
-`ingest-worker`, `bff-jobs`, and the chat tier when it autoscales), requests
+`ingest-worker`, `bff-jobs`, `code-runner`, and the chat tier when it autoscales), requests
 **and** limits on every workload, and the spread constraints above. So a burst first scales pods, and only if pods go Pending does
 a node get added.
 
 **Node loss wipes ephemeral storage; only PVCs survive.** On node replacement,
 `emptyDir` / `hostPath` / container-fs are gone. This stack uses **none** of
-those for durable data — no `emptyDir`, no `hostPath`, and the one DaemonSet,
-`otel-agent` (`deploy/pulumi/src/platform/otel-agent.ts`), mounts only its
-ConfigMap — so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
+those for durable data — no `emptyDir`, no durable `hostPath`; of the two
+DaemonSets, `otel-agent` (`deploy/pulumi/src/platform/otel-agent.ts`) mounts only
+its ConfigMap and `otel-logs` (`log-shipper.ts`) reads `/var/log/pods`
+read-only — so the k0s kubelet-path quirk (`/var/lib/k0s/kubelet` instead of
 `/var/lib/kubelet`) is a non-issue here; the only ephemeral file is the
-agent-worker's `/tmp` liveness marker, which is meant to be transient. All state
+agent-worker's `/tmp` liveness marker, which is meant to be transient. The
+`emptyDir` volumes that do exist hold nothing durable: `clamav`'s signatures
+(fetched again), the scratch `/tmp` of read-only-root pods, and `code-runner`'s
+`/run/code-runner/do`, a `medium: Memory` (tmpfs) directory holding one run's
+files only while that run lasts, counted against the pod's memory limit and
+gone with the pod by design. All state
 lives on PVCs (which survive) or in Postgres.
 
 **Networking is Cilium, no kube-proxy.** All Service types work normally;
@@ -317,8 +335,8 @@ does **not** expire on its own.
 
 One interaction to plan for: the Control Center can restrict **API access**
 (blocked / country-allowlist / IP-allowlist). CI deploys need the runner to
-reach the cluster API — GitHub-hosted and Blacksmith runners have changing
-egress IPs, so a strict IP-allowlist will break `pulumi up` from CI. Either
+reach the cluster API — GitHub-hosted runners have changing egress IPs, so a
+strict IP-allowlist will break `pulumi up` from CI. Either
 keep the API open and rely on the ServiceAccount token as the credential, use a
 country allowlist that covers the runners, or run deploys from a self-hosted
 runner with a fixed egress IP.
@@ -728,7 +746,7 @@ lock times out at Envoy after its route timeout.
 2. Generate a key: `openssl rand -base64 32`. Set, in **one** promote:
    `inboundMailDomain` (`inbox.<zone>`), `inboundMailPaused: true`, the secret
    `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`; on dev and prod in the
-   stack's ESC environment with `esc env set … --secret --string`, never
+   stack's ESC environment with `pulumi env set … --secret --string`, never
    `pulumi config set --secret`, the runbook's §5), `inboundMailLocalPart`
    only to change the default `project`, `inboundMailZoneId` only for a domain on
    a zone of its own, `inboundMailOperatorAddress`, and `inboundMailDmarc` for a
@@ -741,8 +759,9 @@ lock times out at Envoy after its route timeout.
    and G7 (below), then set `inboundMailPaused: false` and promote: that exposes
    no customer. Then run the gates that need mail to arrive (G1–G6). The smoke
    tool's `signed --run` expects 202s, so it cannot pass while paused.
-5. Switch `inbound-mail` on for an office only after the Datenschutzberater's
-   sign-off and the customer notice (gate O7).
+5. Switch `inbound-mail` on (gate O7). Production: on for all
+   organizations since 2026-11-14, by the owner's decision with the
+   data-protection go-ahead for every office.
 
 ### The gates, in order
 
@@ -752,13 +771,13 @@ below.
 
 | # | Gate | When |
 |---|---|---|
-| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists, OFF for all organizations in both environments; staging switched ON for all organizations on 2026-11-05 (owner). `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
+| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists; staging switched ON for all organizations on 2026-11-05 (owner), production ON for all organizations on 2026-11-14 (O7). `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
 | O2 | Cloudflare Workers Paid | before O4 |
 | O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
 | O4 | `npm run up` with `malwareScanEnabled` (the scanner), then with `inboundMailDomain`, the keys and `inboundMailPaused: true` | after the merge |
 | O5 | DNS: Email Routing on the subdomain writes its MX and TXT records, Pulumi the zone's DMARC record (`inboundMailDmarc`); then subaddressing switched on with one API call and the operator's destination address verified with one click (the runbook's §7) | with O4 |
 | O6 | Launch gates G0–G9, then unpause | after O4 and O5, with a named pilot office for G9 |
-| O7 | The `inbound-mail` entitlement on, per office, only after the Datenschutzberater's sign-off and the customer notice | per office |
+| O7 | The `inbound-mail` entitlement on | **Done 2026-11-14**: ON for all organizations in Production, by the owner's decision with the data-protection go-ahead for every office (the runbook's §9) |
 
 Launch gates, run with `deploy/pulumi/scripts/inbound-mail-smoke.ts` (usage in
 [`deploy/pulumi/README.md`](../../deploy/pulumi/README.md#project-mails-launch-gates);
@@ -786,10 +805,17 @@ Record of runs: none yet.
   and `.error`; the `[Projekt-E-Mail]` rules of the Product incidents alert and
   `[Objektspeicher]` of the Infrastructure incidents alert,
   [`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts), on every stack):
-  `bad-signature` (a key or `BFF_URL` mismatch), `body-truncated`,
-  `unavailable` (storage or database), `cap_reached`, and no `received` for
-  24 hours on a deployment that usually receives mail. The receive log line per
-  delivery carries ids, sizes and the outcome code only.
+  three or more refusals of ours on a host in an hour (`unavailable`, storage
+  or database, among them); a host that has only refused for six hours; one
+  refusal for `misconfigured`, `body_truncated`, `body_overlong`, `bad_digest`
+  or `cap_reached`; and no mail taken for 24 hours by a host that took mail on
+  three of the last seven days. The last two are in
+  `deploy/posthog/alerts/product-incidents.sql` but run only once the file is
+  pasted into the live insight. `bad-signature` (a key or `BFF_URL` mismatch)
+  has no alert: it is refused before the handler and sends no PostHog event,
+  and shows as the BFF's 401 in the Worker's line in Cloudflare's Workers
+  Logs. The receive log line per delivery carries ids, sizes and the outcome
+  code only.
 - **A dependency that does not answer delays mail, it does not degrade it.**
   The receive job gives a WorkOS, DNS, reader, object-store or database fault
   (for the object store: no answer, a timeout or a 5xx; a 4xx is a bug and spends
@@ -1188,8 +1214,15 @@ schema.
 
 - **HA:** `grid-oib:pgInstances: 3` (the prod default) runs one primary + two
   streaming replicas with automatic failover; `primaryUpdateStrategy:
-  unsupervised` lets CNPG switch over + roll on its own when the provider drains
-  a node. Replicas use `preferred` pod anti-affinity on `kubernetes.io/hostname`
+  unsupervised` with `primaryUpdateMethod: switchover` lets CNPG roll on its
+  own: replicas first, then the primary hands over to the most aligned replica
+  instead of restarting in place. A 1-instance cluster (dev) has no replica to
+  hand to, so its primary is recreated and clients see a restart. An operator
+  upgrade rolls nothing: the operator runs with
+  `ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES`, which swaps the instance manager
+  inside the running pods and leaves the postmaster up. With `switchover`,
+  CNPG refuses a change to `imageName` and PostgreSQL parameters in one
+  update; make them in two deploys. Replicas use `preferred` pod anti-affinity on `kubernetes.io/hostname`
   so they spread across worker nodes. Both routes below follow the current
   primary through a failover.
 - **Two routes to the primary (ADR-0083).** `grid-pg-pooler-rw` is a CloudNativePG
@@ -1468,7 +1501,7 @@ Two refusals hold the move in place:
    # The secret, in the ESC environment Pulumi.prod.yaml imports:
    NS=$(awk '/^name:/ {print $2}' Pulumi.yaml)
    ESC_ENV=<the environment named under `environment:` in Pulumi.prod.yaml, with its org>
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:pgBackupSecretKey" "<secret>" --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:pgBackupSecretKey" "<secret>" --secret
    ```
 
    The commented block under `pgBackupSchedule` in `Pulumi.prod.yaml` is the same
@@ -1669,7 +1702,10 @@ up to 7 pods of 2 files, 1 CPU / 6Gi requested and 2 CPU / 6Gi limits, beside on
 `ingest-worker-heavy` pod (12Gi, one file of 40 MiB or more at a time, scaled from
 zero on `ingest-document-heavy`'s backlog; [`hatchet.md`](hatchet.md#ingestion-on-two-pools)). Memory
 request equals limit, so the scheduler never places more than a node holds,
-and both pools at their ceilings (7 × 6 + 12 = 54 GB) fit one batch node. Two files a pod because pdfplumber parses on
+and both pools at their ceilings (7 × 6 + 12 = 54 GB) fit one batch node. Staging sets
+`ingestWorkerHeavyEnabled: "false"`: its 16 GB app nodes never had 12Gi free, so
+from 2026-11-03 every deploy waited 37 minutes on an unschedulable heavy pod and
+failed; without the pool every file goes to the standard one. Two files a pod because pdfplumber parses on
 one core (the GIL): another pod adds parse speed where a third thread does
 not, and an OOM kill costs two jobs an attempt rather than three. Raise the
 memory before the ceiling if `[ingest-mem]` shows a pod near 6Gi. The ceiling
@@ -1856,7 +1892,8 @@ parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
   KEDA **operator** pod (the metrics server and the webhooks in `keda` poll
   nothing): Postgres on 5432 when any queue tier runs, and the backend on 8000
   when the chat tier autoscales. Nothing else in `grid` is open to the `keda`
-  namespace.
+  namespace. `code-runner` scales on CPU and memory, which KEDA reads from
+  metrics-server, so it needs no route to the runner's pods.
 
 - **The scaler login is a direct connection.** KEDA's DSN names
   `background-work-pg-rw.background-work.svc.cluster.local`, with no pooler in
@@ -1906,9 +1943,9 @@ backoff (`common/credit_retry.py`) runs on whichever key the call carries.
    cd deploy/pulumi
    NS=$(awk '/^name:/ {print $2}' Pulumi.yaml)
    ESC_ENV=<the environment named under `environment:` in Pulumi.prod.yaml, with its org>
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterChatKey"     "sk-or-..." --secret
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterResearchKey" "sk-or-..." --secret
-   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterIngestKey"   "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterChatKey"     "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterResearchKey" "sk-or-..." --secret
+   pulumi env set "$ESC_ENV" "pulumiConfig.$NS:openrouterIngestKey"   "sk-or-..." --secret
    ```
 
    On a stack without ESC: `pulumi config set --secret openrouterChatKey "sk-or-..."`,
@@ -2069,10 +2106,18 @@ same number also told the scheduler each pod was tiny, so all six could land on
 one node — and `topologySpreadConstraints` is `ScheduleAnyway` (soft), so it
 would not have stopped that, defeating what the PDB and spread policy assume.
 
-Requests are now `500m` (trigger ≈ 350m, ~35% of the limit).
+Requests are now `925m` at a 38% target: the same 350m trigger (~35% of the
+limit), with the request at 1.5× the measured peak. `index-cpu-requests.spec.ts`
+pins each tier's trigger in millicores, so a request changes with its target.
 `assertHpaTargetIsProportional` in `deploy/pulumi/src/config/resources.ts` fails the
 preview if this ratio regresses. Tune from `kubectl top pods` — the invariant is
 `requests ≈ steady state`, `limits ≈ 2× requests`.
+
+`grid-oib:cpuRequestScale` (dev: `0.25`) shrinks every CPU request for
+scheduling only. To keep this divisor honest, the same helper
+(`src/config/cpu-requests.ts`) divides each CPU HPA and KEDA target by the
+scale, so 70% of 500m becomes 280% of 125m: the tier scales out at the same
+350m it would at scale 1. Limits and memory do not change.
 
 **2. A rolling update is a self-inflicted reconnect herd.** Every WebSocket on a
 draining pod is severed, and each re-upgrade resolves the session, runs FGA
@@ -2109,7 +2154,14 @@ emitted somewhere it can read; see §10.
   own contexts (Qdrant runs as uid 1000 on a read-only root, `data/qdrant.ts`), which is why the namespace stays at `baseline` not `restricted`.
 - **NetworkPolicies** (`grid-oib:networkPolicies`, default **on**): a
   default-deny for ingress plus least-privilege allows — intra-namespace, the
-  edge (Envoy) to `frontend`/`seaweedfs`, and the CNPG operator to its pods.
+  edge (Envoy) to `frontend`/`seaweedfs`, and the CNPG operator to its pods:
+  `allow-cnpg-operator` selects pods carrying `cnpg.io/cluster` (instances and
+  a cluster's jobs), `allow-cnpg-operator-to-pooler` those carrying
+  `cnpg.io/poolerName` (the PgBouncers). Until 2026-11-18 it selected every pod
+  in the namespace, so `cnpg-system` could reach `code-runner`, `gotenberg` and
+  `clamav`; `src/app/code-runner.spec.ts` now evaluates every policy's selector
+  against the runner's labels and fails when any but `code-runner-agent-only`
+  admits ingress to it.
   Egress is deliberately open (the agent calls many external LLM/search APIs);
   tightening it is the one item that needs a live-cluster validation pass first.
   The exception is `gotenberg` (`gotenberg-frontend-only`): it parses untrusted
@@ -2125,6 +2177,13 @@ emitted somewhere it can read; see §10.
   for a living, so it admits the frontend and the `bff-jobs` pool alone. Its
   egress stays open, because freshclam fetches signatures from
   `database.clamav.net`, a CDN no NetworkPolicy can name (ADR-0157).
+  `code-runner` (`code-runner-agent-only`, when `codeRunnerEnabled`) runs code
+  the agent wrote, so it is withheld from the intra-namespace allow, admits the
+  pods that run the agent's tools alone (the chat tier, `chat` and `aiq-agent`,
+  and `agent-worker`) on 8080, and has no egress at all, DNS included. The api
+  tier is not admitted: it runs only the agent's read tools. The pod also has no
+  service account token, no Secret, no environment from the platform and a
+  read-only root.
 - **Dragonfly authentication** (`grid-oib:dragonflyPassword` and
   `grid-oib:rateLimitStorePassword`, both **required**): `requirepass` on both
   instances, delivered as `DFLY_requirepass` from a Kubernetes Secret rather
@@ -2436,6 +2495,7 @@ Three things are true of this whole table and are easy to miss:
 | Frontend → backend (WebSocket chat) | **No** | `ws://` to the `chat` role (`BACKEND_CHAT_URL`), per-replica via the headless service (ADR-0028 conversation affinity). This is the full chat transport, including prompts and answers. |
 | Producers → OTel Collector, Collector → Langfuse | **No** | Plain OTLP on `http://otel-collector:4318`, and the collector's export to `http://langfuse-web:3000`. This traffic carries **prompts, retrieved snippets, LLM output and live presigned S3 URLs**, so it is the most sensitive plaintext channel in the namespace; Langfuse's store is likewise kept off-limits only by NetworkPolicy, which is why `langfuseEnabled` refuses to deploy with `networkPolicies=false`. |
 | Frontend and `bff-jobs` → Gotenberg | **No, and unauthenticated** | `http://gotenberg:3000`. It carries the bytes of every office file converted, and anyone who can reach it can have LibreOffice parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only. |
+| Chat tier and `agent-worker` → code runner | **No, and unauthenticated** | `http://code-runner:8080`, when `codeRunnerEnabled`. It carries the module the agent wrote and the files handed to the run, and anyone who can reach it can run code of their choosing in an isolate with no network. NetworkPolicy admits the chat tier and `agent-worker` only (`code-runner-agent-only`). |
 | Frontend and `bff-jobs` → ClamAV | **No, and unauthenticated** | `tcp://clamav:3310`, when `malwareScanEnabled`. It carries every attachment and raw message scanned, and anyone who can reach it can have clamd parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only (ADR-0157). |
 | App → Qdrant | **No, but authenticated** | `http://qdrant.grid.svc.cluster.local:6333` (and gRPC 6334) with the read-write API key, which an observer of the pod network could read off the wire. NetworkPolicy admits the named callers only (`allow-app-to-qdrant`); the peers' p2p traffic (6335) is plaintext too, between the peers alone (`qdrant-peers`). The keyless metrics port (6336) admits the collector alone. |
 | Cluster egress (OpenRouter, Tavily, WorkOS, GitHub, from the frontend komoot's public Photon at `photon.komoot.io`, ADR-0151, and with the malware scanner `database.clamav.net`) | **Yes** | All HTTPS. The geocoder call carries every address typed into the project dialog. |
@@ -2492,10 +2552,32 @@ or an `environment:` import of `grid-oib/dev` — so an unconfigured or
 uncommitted `Pulumi.dev.yaml` fails there, with instructions. The
 **`PULUMI_ACCESS_TOKEN`** is Pulumi Cloud state that the
 preflight cannot see; a missing one fails later, when the gates and the apply
-call Pulumi Cloud. Two more infrastructure
-prerequisites: the `blacksmith-*` runner integration, and the `staging` GitHub
+call Pulumi Cloud. One more infrastructure prerequisite: the `staging` GitHub
 environment (created on first run; note that adding required reviewers to it
 turns the "automatic" deploy into an approval-gated one).
+
+### CI runners in the dev cluster (`ciRunnersEnabled`, ADR-0184)
+
+Off by default, and meant for the dev stack only. When on, the program installs
+GitHub's actions-runner-controller (`arc-systems`) and one runner scale set
+(`arc-runners`) that CI jobs reach with
+`runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}`: set the repository variable
+`CI_RUNNER` to the scale set's name to move them, unset it to move them back.
+The code is `deploy/pulumi/src/platform/ci-runners.ts`; the keys are in
+[the program's README](../../deploy/pulumi/README.md#configuration-reference).
+
+Every runner runs a pull request's code, so it runs in ARC's plain mode (no
+Docker daemon, no container hooks, no privileged pod), as a non-root user with
+no service-account token and every capability dropped, behind a NetworkPolicy
+that allows the internet and cluster DNS and nothing else: no address in 10/8,
+172.16/12, 192.168/16, 100.64/10, 169.254/16 or 127/8, so none of staging's
+services and not the metadata endpoint. The program refuses to plan the runners
+without `networkPolicies`. Their PriorityClass, `ci-runner`, is below every
+other pod's and never preempts: staging evicts a runner, never the reverse.
+
+Turn it on only once the repository is private: on a public one a fork's pull
+request can name the scale set in its own workflow. The rollout order is in
+ADR-0184.
 
 ### What has been validated without the provider cluster
 
@@ -2574,6 +2656,11 @@ call gateway and agent:
   every node, deployed only with PostHog metrics on. It reads its node's
   kubelet (`kubelet_stats`) and scrapes the annotated pods scheduled on its node
   (`prometheus/pods`), and sends both to the gateway. It holds no credential.
+- **`otel-logs`** (`deploy/pulumi/src/platform/log-shipper.ts`), a DaemonSet on
+  every node in its own namespace `observability`, deployed with PostHog logs
+  on (`grid-oib:namespace` may not be `observability`; `loadConfig` refuses it). It tails the container logs of the app namespaces and sends them to the
+  gateway (below, "Container logs and Kubernetes events"). It holds no PostHog
+  token; it mounts a Kubernetes service-account token, to read pod metadata.
 
 The config each one runs is composed from one fragment per consumer or source
 (`collector-config.ts`), which also holds the invariants every collector
@@ -2637,6 +2724,8 @@ grid-ui / backend-chat / grid-agent-worker / grid-bff-jobs / grid-purger
      │  └───── scrape every 30 s: qdrant-0 / qdrant-1 / qdrant-2 (port 6336)
      │ OTLP
   otel-agent (one per node) ◀── its kubelet (:10250) and its annotated pods
+     │ OTLP
+  otel-logs (one per node, ns observability) ◀── /var/log/pods of grid, background-work, cms
 ```
 
 A signal no consumer takes ends in the collector's own `nop` exporter, because
@@ -2650,6 +2739,29 @@ filter:
 | Pipeline | Exporter | Filter | Switch |
 |---|---|---|---|
 | `logs/posthog` | `otlp_http/posthog` | below WARN dropped (`severity_number < 13`, records without a severity too); then `transform/posthog_redact` withholds the text: the body keeps only a leading `[area]` tag, attributes only code location, exception and error type and HTTP status (`POSTHOG_LOG_ATTRIBUTES`; positive control `posthog-log-redaction.spec.ts`); `resource/logs_environment` names the stack in `deployment.environment.name`, as on metrics and traces, so a query reads `resource_attributes['deployment.environment.name'] = 'prod'` (logs before 2026-11-17 have none) | `posthogLogsEnabled` (default `true`) plus `posthogHost` and `posthogProjectToken` (both default to the platform's project; an empty `posthogHost` opts the stack out) |
+
+**Container logs and Kubernetes events** reach the same exporter on two more
+pipelines, so a failed rollout can be read in PostHog
+([`observability/debug-a-failed-rollout.md`](../observability/debug-a-failed-rollout.md)):
+
+| Pipeline | Source | What it keeps |
+|---|---|---|
+| `logs/containers` | OTLP from `otel-logs` on a port of its own, 4319 (`otlp/shipper`), which marks every row `collector.log.source=container`; the SDK pipeline reads only 4318, so an SDK row goes through the redaction whatever it claims to be | the line as written. The shipper's `filelog/pods` reads `/var/log/pods/<ns>_*` for `appNamespaces(cfg)` only, skips the OTLP-instrumented containers (`LOG_SHIPPER.otlpInstrumentedContainers`; `log-shipper.spec.ts` fails if a container with `OTEL_EXPORTER_OTLP_ENDPOINT` is missing from it), the collectors and the noisy stores; the `container` parser and `k8sattributes` stamp `k8s.namespace.name`, `k8s.pod.name`, `k8s.container.name`, `k8s.deployment.name`, and `service.name` is the container name. Debug dropped, warn and above kept, info sampled at 10%, lines cut at 16 KiB after CRI recombination. `k8s.deployment.name` is best effort: a new pod's first lines can come before `k8sattributes` has seen the pod, and carry the path's pod name only |
+| `logs/k8s_events` | `k8sobjects/events` on the gateway: a watch on `events.k8s.io` events in the app namespaces | one row per watch notification, so an event that repeats comes again with its count raised (`k8s.event.count`, from `series.count`) (Warning as warn, Normal as info), body the note, attributes `k8s.event.reason`, `k8s.event.type`, `k8s.object.kind`, `k8s.object.name`; `service.name` `k8s-events`, `k8s.pod.name` on the resource for a pod's events. Deletions dropped |
+
+Excluding the instrumented containers rather than filtering their stdout keeps
+the redaction whole (their stdout carries office text) and costs only their
+pre-SDK crash output, which the events cover (`BackOff`, `Unhealthy`). The
+shipper lives in its own namespace because a `hostPath` volume is refused by the
+app namespace's `baseline` admission: `observability` enforces `privileged` and
+warns at `baseline`, and the pod itself runs as UID 10001 with no capabilities,
+a read-only root, and group 0 only to read the kubelet's `0640 root:root` files.
+It reads pod metadata through a ClusterRole of get/list/watch on pods,
+namespaces and replicasets; `allow-log-shipper-to-collector` lets it through the
+app namespace's default-deny to port 4319. The events are read by the gateway
+alone, which is one replica (a second would ship every event twice; a surge
+rollout overlaps for seconds), through a Role of get/list/watch on events in
+each app namespace, bound to `otel-collector`.
 
 PostHog Logs takes `{posthogHost}/i/v1/logs` with `Authorization: Bearer
 <project token>`. The token is PostHog's public `phc_` key, the same one the

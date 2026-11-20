@@ -13,6 +13,7 @@ NOT_SOURCES = {
     "surface_documents": "shows documents as a card; the documents are read through knowledge_search",
     "propose_file_change": "proposes an edit for a person to accept",
     "file_draft": "files a draft from the working directory",
+    "execute": "runs code the answer wrote; its values and files are the answer's own work, never evidence",
     "create_task": "hands work over; the confirmation is not evidence",
     "canvas": (
         "the review canvas (a function group): reads and proposes marks, points; a mark is a person's note, "
@@ -71,7 +72,7 @@ def test_nothing_is_both():
 
 
 def test_every_record_tool_is_a_chat_data_source():
-    from agent.core.answer_pipeline import RECORD_TOOLS
+    from agent.core.retrieval_attempts import RECORD_TOOLS
 
     config = _config()
     stale = RECORD_TOOLS - (_source_tools(config) & set(_chat_tools(config)))

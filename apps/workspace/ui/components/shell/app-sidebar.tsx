@@ -36,6 +36,7 @@ import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import {
   PROJECT_SETTINGS_SECTION,
   railGroups,
+  isSectionPathActive,
   sectionHref,
   sectionLinkHref,
   type ProjectNavGroup,
@@ -83,6 +84,7 @@ interface RailItemModel {
   badgeCount: number
   door?: StartDockDoor
   waitingCount: number | null
+  waitingMore?: boolean
   shortcutKey?: string
 }
 
@@ -159,11 +161,12 @@ function AppSidebarFrame({
         href: sectionLinkHref(item, base),
         icon: item.icon,
         label: sectionLabel(item, t, tCollaboration),
-        active: pathname.startsWith(sectionHref(item, base)) && !(item.key === 'chat' && chatOpen),
+        active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
         within: item.key === 'chat' && chatOpen,
         badgeCount: item.key === 'inbox' ? inboxPending : 0,
         door: item.key === 'inbox' ? inboxDoor : undefined,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
+        waitingMore: item.key === 'files' && inboundMail.more,
         shortcutKey: item.shortcutKey,
       })),
     })
@@ -198,6 +201,7 @@ function AppSidebarFrame({
       label={item.label}
       badgeCount={item.badgeCount}
       waitingCount={item.waitingCount}
+      waitingMore={item.waitingMore}
       tooltip={iconRail}
       shortcutKey={item.shortcutKey}
       pillId={activePillId}
@@ -352,6 +356,7 @@ function RailNavItem({
   label,
   badgeCount,
   waitingCount = null,
+  waitingMore = false,
   tooltip,
   shortcutKey,
   pillId,
@@ -365,6 +370,7 @@ function RailNavItem({
   label: string
   badgeCount: number
   waitingCount?: number | null
+  waitingMore?: boolean
   tooltip: boolean
   shortcutKey?: string
   pillId: string
@@ -422,6 +428,7 @@ function RailNavItem({
           {badgeCount <= 0 && (
             <InboundMailWaitingBadge
               count={waitingCount}
+              more={waitingMore}
               className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
             />
           )}

@@ -230,7 +230,7 @@ def diff(base: dict[str, Any], other: dict[str, Any]) -> dict[str, dict[str, lis
 
 
 def run(inputs: Any, retriever: Any, relevant_counts: dict[str, int], names: str, rounds: int, depth: int) -> dict:
-    from oib_retrieval.qdrant_parity.runner import Corpus
+    from oib_retrieval.qdrant_parity.measures import Corpus
 
     chosen = select(names)
     ordinary = {name: setting for name, setting in chosen.items() if not isinstance(setting, decompound.Variant)}

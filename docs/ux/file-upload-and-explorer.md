@@ -327,7 +327,7 @@ already carried), with the MIME type in its tooltip; the date is on the Fassung.
   glancing at it sees "a document" and moves on. Skeleton bars now appear only
   while a preview is genuinely loading.
 - **What is shown belongs to one file.** Every load (`loadPreview` in
-  `use-file-preview-controller.tsx`) starts by dropping the last one's URLs, and
+  `hooks/use-preview-loader.ts`) starts by dropping the last one's URLs, and
   an answer for a file that is no longer selected is ignored. The pane's failure
   states draw only without a URL, so a kept one hid them: a next file whose
   preview request failed showed the previous file's picture under its own name.
@@ -889,10 +889,10 @@ handler asks it first. What holds at each stage:
 | Stage | Rule | Where |
 |---|---|---|
 | Start | A document or folder lifts only where the reader may write (ADR-0088): moving it out of a read-only level is a write the server refuses. Not while a search is in force: the folders and the path are hidden then, so a card that lifted had nowhere to go. The drag records what it carries and where from (`internalDragSource`) | `file-browser-pane.tsx` (`liftable`), `documentDragProps`, `folderDragProps` |
-| While in the air | The live shelf holds its re-reads (`isInternalDragActive`, a file drag over the workspace): a re-read re-renders the card under the pointer and the browser cancels the drag | `file-workspace.tsx` (`holdWhile`) |
+| While in the air | The live shelf holds its re-reads (`isInternalDragActive`, a file drag over the workspace): a re-read re-renders the card under the pointer and the browser cancels the drag | `use-file-workspace-changes.ts` (`holdWhile`) |
 | Over a target | A folder tile, row, „Alle Dateien“, the back control and every ancestor crumb take desktop files as well as moves; the overlay names the folder the files will land in (`FileDropAim`) | `useFolderDropTarget`, `CrumbDropTarget` |
 | Held over a folder | After `SPRING_OPEN_MS` the folder opens, as in Finder, so a document, a folder or a desktop file can be carried down into a folder that is not on screen, or up through a crumb. Not for a folder over its own subtree | `useFolderDropTarget` (`onSpringOpen`) |
-| Over the level's background | The level on screen takes a document or folder that is not already in it (`onlyFromElsewhere`): where a held drag opened a folder, the release lands there. On its own level a release between two tiles is still no move | `file-workspace.tsx` (`levelDrop`) |
+| Over the level's background | The level on screen takes a document or folder that is not already in it (`onlyFromElsewhere`): where a held drag opened a folder, the release lands there. On its own level a release between two tiles is still no move | `use-file-workspace-drop.ts` (`levelDrop`) |
 | Refused | A zone that is there but cannot take files says why (`refusal`): the overlay turns red with the reason, the cursor says „no drop", the drop is not delivered. A read-only folder or crumb refuses a moved document or folder the same way, with a red ring, instead of letting the drop fall through. A zone that is off (`disabled`) touches no event, so the drop falls through | `useFileDragDrop`, `FileDropOverlay`, `useFolderDropTarget` (`refusal`) |
 | Nobody took it | The window guard gives a file drag „no drop" and stops the browser opening the file; it leaves every in-page drag alone, so text still drops into a field | `useWindowDragGuard` |
 | Drop | The files are read synchronously from the event (`readDrop`): folders through the entries API, loose items an entry cannot describe (an Outlook attachment), and a root file the entries API cannot open from the plain list. NAS and VCS metadata directories (`@eaDir`, `.git`, `#recycle`, …) are skipped; what could not be read, and a bound reached, are said | `lib/dropped-entries.ts` |
@@ -946,7 +946,7 @@ the cost of getting there and of drawing it:
   the rename and confirm dialogs and the dropdown (opened by that same press),
   and the row stays live. The move targets are labelled and sorted once per
   tree in the workspace (`sortedFolderDestinations`), not once per row.
-- **Unchanged rows do not re-render.** Grid cells (`FileTile`), cards and list
+- **Unchanged rows do not re-render.** Grid cells (`FileTile` in `file-browser-tile.tsx`), cards and list
   rows (`FileListRowItem`) are memoised and handed stable callbacks; the
   type-ahead filter over the corpus runs on a deferred query, so the field
   answers every keystroke.

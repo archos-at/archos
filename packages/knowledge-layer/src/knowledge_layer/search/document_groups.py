@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from knowledge_layer.vector_store import LEGACY_DOCUMENT_ID_FIELD
+from knowledge_layer.vector_store import DOCUMENT_ID_FIELD
 
 GROUP_BY_DOCUMENT = "document"
 
@@ -21,7 +21,7 @@ class DocumentGroup:
 
 def document_key(chunk: Any) -> tuple[str, ...]:
     metadata = getattr(chunk, "metadata", None) or {}
-    document_id = metadata.get(LEGACY_DOCUMENT_ID_FIELD)
+    document_id = metadata.get(DOCUMENT_ID_FIELD)
     if document_id:
         return ("id", str(document_id))
     return ("file", str(metadata.get("collection") or ""), str(getattr(chunk, "file_name", None) or ""))

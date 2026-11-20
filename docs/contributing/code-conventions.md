@@ -33,8 +33,14 @@ on 2026-11-11 three doc blocks were squeezed to one line each to make room for
 a five-line fix: the ratchet was being satisfied by deleting explanation. It is
 a ratchet on code. A line of code with a trailing comment counts, as code.
 
-It is a ratchet. `ci/size_baseline.json` records every file and function that
-was over when the check arrived, at its size then:
+**TypeScript and JavaScript have no baseline: the limit is absolute.** Wave B1
+(2026-11) split every TS/JS source file that was over, so `ci/size_baseline.json`
+holds none, and an entry for one fails the check. Specs and test helpers are
+exempt, like the rest of the list below.
+
+**Python keeps a ratchet** while Wave B2 splits it. `ci/size_baseline.json`
+records every Python file and function that was over when the check arrived,
+at its size then:
 
 - A file or function **not in the baseline** may not pass the limit. Split it.
 - One **in the baseline** may not grow past its recorded count. Adding to a
@@ -47,21 +53,75 @@ was over when the check arrived, at its size then:
   good change.
 - A **move or rename** re-keys entries, so the baseline conflicts or reports
   the old path as gone and the new one as new. Regenerate it with
-  `--rebaseline` and check its diff shows only the move.
+  `--rebaseline`, which re-keys an entry to the moved file or function of the
+  same name and no larger size, and refuses to add, raise or hold a TS/JS entry.
+
+**Where the pieces go** matters as much as their size. A piece lands where the
+layout already puts its kind: in `ui/features/<feature>/`, a hook in `hooks/`,
+logic without React in `lib/`, a store slice in `stores/`; three or more pieces
+of one component in a folder named for it inside `components/`, with the
+original file kept as the entry point; in `bff/<domain>/`, flat modules named
+`<noun>-<job>.ts`; a dev page's data in `fixtures.ts` beside its `page.tsx`.
+Each module is named for its one job ([`naming.md`](naming.md)), never
+`helpers`, `utils2` or `part-2`, and the module seams hold
+([`module-seams.md`](module-seams.md)).
 
 Why these numbers: sixty lines is the function bar this file already sets
 below. Six hundred lines is about ten such functions, a module a reader can
-hold, and it puts the line where the tree already bends: 56 of the 977
-components in `features/` and `components/` are over it, 27 of them over a
-thousand, while the rest sit well under. TypeScript functions have no limit yet:
-measuring them needs the TypeScript parser, which lives in the UI's
-`node_modules` that the Repo checks job does not install.
+hold, and it puts the line where the tree already bends. TypeScript functions
+have no limit yet: measuring them needs the TypeScript parser, which lives in
+the UI's `node_modules` that the Repo checks job does not install.
 
 Not checked, because their length follows their input rather than a design
 choice: generated files (the card schemas' `src/shared/cards/generated.ts`,
-`*.generated.*`, `*.d.ts`), tests,
-specs, fixtures and test helpers, migrations, and copy (the i18n dictionaries,
-the site's `src/data/` and `src/i18n/`). The list is `EXCLUDED` in the script.
+`*.generated.*`, `*.d.ts`), tests, specs, fixtures and test helpers,
+migrations, and copy (the i18n dictionaries, the site's `src/data/` and
+`src/i18n/`). The list is `EXCLUDED` in the script.
+
+## Specs test behaviour
+
+A spec imports the code, calls it and asserts on what it returns, renders or
+sends. It never reads a source file as text to assert on what the code says:
+by 2026-11 about 220 specs opened a source file with `readFileSync` and checked
+that a string appeared in it, so they passed while the behaviour was broken
+and failed on a rename that changed nothing. Wave B1 rewrote them to test
+behaviour, or deleted the ones that only pinned wording.
+
+The one exception is a **structural guard across the tree**: an invariant that
+must hold for every file of a kind, including files nobody has written yet
+(every `app/api` route declares `authz`, every table runs `secure_table`, only
+`dispatch.ts` calls `runAsActingSession`). Such a guard parses the code and
+asserts on the syntax tree, never on text, comments or prose:
+
+- TypeScript: `@/test-utils/source-ast` (`parseSource`, `productionSources`,
+  `importsOf`, `callsTo`, `exportedNames`), the compiler API from
+  `typescript-api`; in `deploy/pulumi` and the site, `typescript` itself.
+- SQL migrations: `@/test-utils/sql-statements` (`readSql`, `createdTables`,
+  `functionCalls`), which skips comments, strings and dollar-quoted bodies.
+- A stylesheet: `postcss`.
+- A Dockerfile: `dockerfile-ast`. An Astro component: `@astrojs/compiler-rs`.
+
+Every guard is listed in `ci/ast_guard_specs.txt`. The `spec-source-reads`
+hook (`scripts/check_spec_source_reads.py`, in `task lint:repo` and CI's
+**Repo checks** job) fails any other spec or test helper that reads files and
+names a source file (`.ts`, `.tsx`, `.js`, `.py`, `.css`, `.sql`, a
+`Dockerfile`, a `?raw` import), and a listed spec that imports no parser or no
+longer reads. Data is not source: a JSON contract, a PDF or IFC fixture, a
+stack's YAML, and a generated file a spec compares with its generator all pass.
+A spec that checks what a Python file says belongs on the Python side, or
+asserts against the shared contract in `contracts/`, or against a module a
+generator writes from the Python values (`scripts/generate_vocabularies.py`,
+`generate_agent_host_contract.py`, `generate_provider_limits.py`, each kept in
+sync by its pre-commit hook).
+
+**A spec sets the environment through `vi.stubEnv`**, never by assigning to
+`process.env`: `vi.stubEnv(name, value)`, and `vi.stubEnv(name, undefined)` to
+unset. Under the `vmForks` pool every spec file of a worker shares one
+`process.env`, so a direct assignment leaked into whichever file ran next (the
+red `internal-auth.spec.ts` of #1763). The vitest setup calls
+`vi.unstubAllEnvs()` after each file. The `spec-env-writes` hook
+(`scripts/check_spec_env_writes.py`) fails a spec or test helper that assigns,
+deletes or `Object.assign`s `process.env`.
 
 ## Comments
 
@@ -94,7 +154,7 @@ The check is `scripts/check_comments.py` against `ci/comment_baseline.json`,
 run by the `comments` pre-commit hook on the files you commit and by CI's
 **Repo checks** job on all of them. It counts what
 `scripts/check_file_size.py`'s `comment_lines` counts: lines that hold only a
-comment, and Python docstrings. On 2026-11-16, when it arrived, the tree held
+comment, and Python docstrings. It reads YAML and TOML too: a line that starts with `#` outside a string counts. A tool directive does not, in the syntax the tool reads at the start of the comment (`# yaml-language-server: $schema=`, `# yamllint disable`, `# zizmor: ignore[...]`, `# checkov:skip=`), and neither does a release note's `# area:` line, which `scripts/release_notes_areas.py` reads; a comment that only mentions a tool by name counts. Strings are found with PyYAML's scanner, so lines break where PyYAML breaks them (U+2028 included); a file it rejects for a tab is scanned again with the tabs as spaces, and one it still rejects counts every `#` line outside an indented block scalar. On 2026-11-16, when it arrived, the tree held
 323,379 such lines in 7,452 files over the allowance; the audit that removes
 them is planned in the brand-free sweep.
 
@@ -110,6 +170,11 @@ naming rule.
 
 Ruff, line length 120, Python 3.14. New tools use `@register_function` with a
 `FunctionBaseConfig` subclass.
+
+What runs on the runner's own `python3` (3.12 on ubuntu-24.04) or through
+`uv run --no-project`, CI's scripts, the hook checkers and the release-note tool,
+is formatted for py312 (`[tool.ruff.per-file-target-version]`): on py314 Ruff
+writes `except A, B:` (PEP 758), a SyntaxError on 3.12.
 
 ### Shape of a function
 
@@ -180,6 +245,9 @@ finding:
 - a string holding a submodule's path: a patch target, an
   `importlib.import_module` path, a logger name. A docstring is prose and is
   not counted.
+- `from knowledge_layer.vector_store import name` where `_LAZY` lacks `name`:
+  it passes a local run that never reaches the import, then raises
+  `ImportError` in the pod. Add the name to `_LAZY` and `__all__`.
 
 When the surface exports the name, the finding names the import to write, as
 in `from knowledge_layer.search import RankedSearch`; when it does not, the
@@ -254,15 +322,15 @@ profiler's `toISOString is not a function` crash; that fix and its
 Before writing a text transform, a formatter, a date or number helper, or any
 other utility that is not *about* your feature's domain, search for an existing
 one. If you write a new one, put it where the next caller will look:
-`lib/text/`, `lib/utils/`, `lib/format.ts`. `features/<x>/lib/` is for logic
+`lib/text/`, `lib/utils/`, `apps/workspace/bff/format.ts`. `features/<x>/lib/` is for logic
 that really is domain logic.
 
 A private copy inside a feature file is a fork. The copies drift, and the drift
 is invisible because each one looks locally correct. German transliteration
 (`ä`→`ae`, `ß`→`ss`) existed in `MarkdownRenderer.tsx` and in
-`norm-entry-editor.tsx`, and a third was being written into `lib/bim/bcf.ts`,
+`norm-entry-editor.tsx`, and a third was being written into `apps/workspace/bff/bim/bcf.ts`,
 where its absence had been shipping `Beispielstraße` as the filename
-`Beispielstra-e`. All three now call `lib/text/latinize.ts`.
+`Beispielstra-e`. All three now call `apps/workspace/bff/text/latinize.ts`.
 
 A split moves a module's side-effect imports (a stylesheet, a polyfill) with
 the code that needs them. When `ReasoningFlow` was split into modules, no new
@@ -301,7 +369,7 @@ Python tier through the BFF (`GET /api/internal/stages`), which has no WorkOS
 client of its own. `FOLDER_CARDS` and `OFFICE_CONVENTIONS` were built
 as variables and replaced by the `folder-cards` and `office-conventions` flags;
 their tuning (`FOLDER_CARDS_MONTHLY_TOKENS`) stayed. One exception remains:
-`FILING_SUGGESTIONS=off` (`lib/filing/trigger.ts`) switches filing
+`FILING_SUGGESTIONS=off` (`apps/workspace/bff/filing/trigger.ts`) switches filing
 suggestions off for a whole deployment. It is still a variable, documented in
 [`environment-variables.md`](../deployment/environment-variables.md), and
 becomes a flag the next time filing suggestions are touched. Registering a flag:

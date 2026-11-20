@@ -7,9 +7,9 @@ import pytest
 from sqlalchemy import text
 
 from agent_host.jobs.event_store import EventStore
-from agent_host.jobs.runner import _current_job_status
-from agent_host.jobs.runner import _should_write_notice
-from agent_host.jobs.runner import _update_status_if_not_terminal
+from agent_host.jobs.job_status import _current_job_status
+from agent_host.jobs.job_status import _should_write_notice
+from agent_host.jobs.job_status import _update_status_if_not_terminal
 
 
 @pytest.fixture

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 
 from agent.common.answer_envelope import AnswerMeta
-from agent.common.answer_envelope import gate_answer_meta
+from agent.common.envelope_gates import gate_answer_meta
 from agent.common.findings import sanitize_findings
 
 logger = logging.getLogger(__name__)

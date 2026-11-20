@@ -7,88 +7,42 @@ import {
   deleteAnnotation,
   deleteReply,
   editReply as editReplyRequest,
-  getAnnotation,
-  listAnnotations,
   replyToAnnotation,
   updateAnnotation,
 } from '@/lib/annotations/client'
 import {
-  compareAnnotations,
   isForReader,
   isGhostMark,
   isLive,
   REPLY_TAKEN_UP_REASON,
   type AnnotationKind,
-  type AnnotationShape,
-  type AnnotationStatus,
   type AnnotationView,
   type MarkMention,
   type UpdateAnnotationRequest,
 } from '@/lib/annotations/types'
-import type { RevisionRef } from '@/lib/documents/revision-links'
 import { inPool } from '@/lib/utils/in-pool'
 import { useChatStore } from '@/features/chat/store'
 import { inboxClient, type InboxClient } from '@/lib/inbox/client'
 import { ARCHIVE_UNDO_MS, useUndoableArchive } from '@/features/collaboration/hooks/use-undoable-archive'
-import { useLiveEvents } from '@/features/collaboration/hooks/use-live-events'
 import { registerCanvasFocusProvider } from '@/features/chat/lib/canvas-bridge'
 import { reviewFocusOf } from '../lib/review-focus'
+import { rebased, type HeldDecision } from '../lib/held-decision'
+import type { CarriedGroup, ReviewDraft, ReviewFilter, ReviewRevision, ReviewTool } from '../lib/review-types'
 import { useCanvasAsk, type UseCanvasAskOptions } from './use-canvas-ask'
 import { useDocumentRoom, type RoomTransport } from './use-document-room'
+import { useAnnotationList } from './use-annotation-list'
+import { useCarriedAnnotations } from './use-carried-annotations'
+import { useUnreadReviewMarks } from './use-unread-review-marks'
 
-export type ReviewTool = 'select' | 'point' | 'region' | 'ask'
-export type ReviewFilter = 'open' | 'closed'
-
-export const HINT_READ_ONE_BY_ONE = 8
-
-export const MARK_NEWS_SETTLE_MS = 400
-
-export function readMarkNews(documentId: string, annotationId: string, client: InboxClient = inboxClient): void {
-  void client.markMarkRead({ documentId, annotationId }).catch(() => undefined)
-}
-
-export const UNREAD_READ_DELAY_MS = 250
-
-const NO_MARKS: ReadonlySet<string> = new Set()
+export type { CarriedGroup, ReviewDraft, ReviewFilter, ReviewRevision, ReviewTool }
+export { CARRY_GROUPS_MAX } from './use-carried-annotations'
+export { HINT_READ_ONE_BY_ONE } from './use-annotation-list'
+export { MARK_NEWS_SETTLE_MS, UNREAD_READ_DELAY_MS } from './use-unread-review-marks'
+export { readMarkNews } from '../lib/mark-news'
 
 export const DECISION_UNDO_MS = ARCHIVE_UNDO_MS
 
-interface HeldDecision {
-  documentId: string
-  status: 'open' | 'resolved' | 'dismissed'
-  expectedStatus: AnnotationStatus
-  onFailed?: () => void
-}
-
-function rebased(input: UpdateAnnotationRequest, held: HeldDecision): UpdateAnnotationRequest {
-  const { status, expectedStatus, ...rest } = input
-  if (status === undefined || status === held.expectedStatus) return rest
-  return { ...rest, status, expectedStatus: expectedStatus === held.status ? held.expectedStatus : expectedStatus }
-}
-
-export interface ReviewRevision {
-  replacedBy: RevisionRef | null
-  replaces: readonly RevisionRef[]
-}
-
-export interface CarriedGroup {
-  from: RevisionRef
-  annotations: AnnotationView[]
-  load: 'ready' | 'error'
-}
-
-export const CARRY_GROUPS_MAX = 3
-
 export const CARRY_AT_ONCE = 4
-
-export interface ReviewDraft {
-  page: number
-  shape: AnnotationShape
-  x: number
-  y: number
-  w: number | null
-  h: number | null
-}
 
 export function useDocumentReview(
   documentId: string,
@@ -112,230 +66,21 @@ export function useDocumentReview(
   const canvas = useCanvasAsk({ ...agentOptions, documentId, enabled })
   const sessionUserId = useChatStore((state) => state.currentUserId)
   const me = room.self?.userId ?? viewerUserId ?? sessionUserId ?? null
-  const [readLoad, setLoad] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [listedFor, setListedFor] = useState<string | null>(null)
-  const load = readLoad === 'ready' && listedFor !== documentId ? 'loading' : readLoad
-  const [stored, setAnnotations] = useState<AnnotationView[]>([])
-  const [canAnnotate, setCanAnnotate] = useState(false)
-  const [pilotiWakes, setAgentWakes] = useState(false)
-  const [attempt, setAttempt] = useState(0)
   const [tool, setToolState] = useState<ReviewTool>('select')
   const [draft, setDraft] = useState<ReviewDraft | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const { sendSelection } = room
   useEffect(() => sendSelection(selectedId), [selectedId, sendSelection])
 
-  const [unread, setUnread] = useState<ReadonlySet<string>>(NO_MARKS)
-  const unreadRead = useRef({ documentId, ticket: 0 })
-  unreadRead.current.documentId = documentId
-  const fetchUnread = useCallback(async () => {
-    const ticket = ++unreadRead.current.ticket
-    const ids = await inbox.unreadMarks(documentId).catch(() => null)
-    if (!ids || unreadRead.current.ticket !== ticket || unreadRead.current.documentId !== documentId) return
-    setUnread(new Set(ids))
-  }, [documentId, inbox])
-  useEffect(() => {
-    if (!enabled) return
-    const asked = unreadRead.current
-    setUnread(NO_MARKS)
-    void fetchUnread()
-    return () => {
-      asked.ticket += 1
-    }
-  }, [enabled, fetchUnread])
-  const unreadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(
-    () => () => {
-      if (unreadTimer.current) clearTimeout(unreadTimer.current)
-    },
-    []
-  )
-  const marksSetWatched = useRef(false)
-  const readMarksSetNews = useCallback(() => {
-    void inbox.markMarksSetRead(documentId).catch(() => undefined)
-  }, [documentId, inbox])
-  const readInbox = useCallback(() => {
-    void fetchUnread()
-    if (marksSetWatched.current) readMarksSetNews()
-  }, [fetchUnread, readMarksSetNews])
-  useLiveEvents({
-    enabled,
-    onEvent: (event) => {
-      if (event.kind !== 'inbox.changed') return
-      if (unreadTimer.current) clearTimeout(unreadTimer.current)
-      unreadTimer.current = setTimeout(readInbox, UNREAD_READ_DELAY_MS)
-    },
-    onRefresh: readInbox,
-  })
-
-  const selectedHasNews = selectedId !== null && unread.has(selectedId)
-  useEffect(() => {
-    if (!enabled || !selectedId || !selectedHasNews) return
-    const timer = setTimeout(() => {
-      setUnread((current) => {
-        const next = new Set(current)
-        next.delete(selectedId)
-        return next
-      })
-      readMarkNews(documentId, selectedId, inbox)
-    }, MARK_NEWS_SETTLE_MS)
-    return () => clearTimeout(timer)
-  }, [enabled, documentId, selectedId, selectedHasNews, inbox])
-  const watchMarksSetNews = useCallback(() => {
-    marksSetWatched.current = true
-    readMarksSetNews()
-    return () => {
-      marksSetWatched.current = false
-    }
-  }, [readMarksSetNews])
+  const { unread, watchMarksSetNews } = useUnreadReviewMarks({ enabled, documentId, inbox, selectedId })
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [filter, setFilter] = useState<ReviewFilter>('open')
   const [mine, setMine] = useState(false)
   const [notice, setNotice] = useState<'conflict' | null>(null)
-  const [carried, setCarried] = useState<CarriedGroup[]>([])
-  const sourcesKey = JSON.stringify(
-    revision?.replacedBy
-      ? []
-      : (revision?.replaces ?? []).slice(0, CARRY_GROUPS_MAX).map(({ id, filename }) => ({ id, filename }))
-  )
-  const sources = useMemo(() => JSON.parse(sourcesKey) as RevisionRef[], [sourcesKey])
-  const carriedRead = useRef(0)
-  const fetchCarried = useCallback(async () => {
-    const ticket = ++carriedRead.current
-    const groups = await Promise.all(
-      sources.map(async (from): Promise<CarriedGroup> => {
-        const listed = await listAnnotations(from.id).catch((error: unknown) =>
-          error instanceof AnnotationRequestError && error.status === 404 ? { annotations: [] } : null
-        )
-        if (!listed) return { from, annotations: [], load: 'error' }
-        const open = listed.annotations.filter((annotation) => annotation.status === 'open')
-        return { from, annotations: open, load: 'ready' }
-      })
-    )
-    if (carriedRead.current === ticket) {
-      setCarried(groups.filter((group) => group.load === 'error' || group.annotations.length > 0))
-    }
-  }, [sources])
-  const retryCarried = useCallback(() => void fetchCarried(), [fetchCarried])
-  const checking = useRef(new Set<string>())
-  useEffect(() => {
-    let ended = false
-    for (const ask of canvas.asks) {
-      if (!ask.checkFixed || ask.checkFixed.documentId === documentId) continue
-      if (ask.status === 'thinking') checking.current.add(ask.id)
-      else if (checking.current.delete(ask.id)) ended = true
-    }
-    if (ended) void fetchCarried()
-  }, [canvas.asks, documentId, fetchCarried])
-  useEffect(() => {
-    if (!enabled) return
-    setCarried([])
-    void fetchCarried()
-    return () => {
-      carriedRead.current += 1
-    }
-  }, [enabled, documentId, fetchCarried])
+  const { carried, fetchCarried, retryCarried } = useCarriedAnnotations({ enabled, documentId, revision, canvas })
 
-  const reads = useRef({ documentId, list: 0, mark: new Map<string, number>() })
-  reads.current.documentId = documentId
-  const bumpMark = useCallback((annotationId: string) => {
-    const next = (reads.current.mark.get(annotationId) ?? 0) + 1
-    reads.current.mark.set(annotationId, next)
-    return next
-  }, [])
-
-  const fetchList = useCallback(async () => {
-    const ticket = ++reads.current.list
-    const result = await listAnnotations(documentId)
-    if (reads.current.documentId !== documentId || reads.current.list !== ticket) return result.annotations
-    setAnnotations(result.annotations)
-    setCanAnnotate(result.canAnnotate)
-    setAgentWakes(result.pilotiWakes)
-    setListedFor(documentId)
-    setLoad('ready')
-    return result.annotations
-  }, [documentId])
-
-  useEffect(() => {
-    if (!enabled) return
-    setLoad('loading')
-    setDraft(null)
-    setSelectedId(null)
-    fetchList().catch(() => setLoad('error'))
-  }, [enabled, fetchList, attempt])
-
-  const replace = useCallback((next: AnnotationView) => {
-    setAnnotations((current) =>
-      [...current.filter((annotation) => annotation.id !== next.id), next].sort(compareAnnotations)
-    )
-  }, [])
-  const drop = useCallback(
-    (annotationId: string) => {
-      bumpMark(annotationId)
-      setAnnotations((current) => current.filter((annotation) => annotation.id !== annotationId))
-      setSelectedId((current) => (current === annotationId ? null : current))
-    },
-    [bumpMark]
-  )
-
-  const { onAnnotationsChanged, peerId } = room
-  useEffect(() => {
-    if (!enabled) return
-    let timer: ReturnType<typeof setTimeout> | null = null
-    let named = new Set<string>()
-    let live = true
-    const readNamed = () => {
-      timer = null
-      const ids = [...named]
-      named = new Set()
-      if (ids.length > HINT_READ_ONE_BY_ONE) {
-        void fetchList().catch(() => {})
-        return
-      }
-      for (const id of ids) {
-        const ticket = bumpMark(id)
-        const list = reads.current.list
-        const current = () => live && reads.current.mark.get(id) === ticket && reads.current.list === list
-        getAnnotation(documentId, id)
-          .then((fresh) => {
-            if (current()) replace(fresh)
-          })
-          .catch((error: unknown) => {
-            if (current() && error instanceof AnnotationRequestError && error.status === 404) drop(id)
-          })
-      }
-    }
-    const unsubscribe = onAnnotationsChanged((event) => {
-      if (event.actor.peerId && event.actor.peerId === peerId) return
-      for (const id of event.annotationIds) named.add(id)
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(readNamed, 120)
-    })
-    return () => {
-      live = false
-      unsubscribe()
-      if (timer) clearTimeout(timer)
-    }
-  }, [enabled, onAnnotationsChanged, peerId, fetchList, documentId, replace, drop, bumpMark])
-
-  const { status: roomStatus } = room
-  const wasLive = useRef(roomStatus === 'live')
-  const everLive = useRef(roomStatus === 'live')
-  useEffect(() => {
-    const live = roomStatus === 'live'
-    const back = live && !wasLive.current && everLive.current
-    wasLive.current = live
-    everLive.current ||= live
-    if (enabled && back) void fetchList().catch(() => {})
-  }, [enabled, roomStatus, fetchList])
-  useEffect(() => {
-    if (!enabled || typeof document === 'undefined') return
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void fetchList().catch(() => {})
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [enabled, fetchList])
+  const { load, stored, setAnnotations, canAnnotate, pilotiWakes, setAttempt, reads, replace, drop, fetchList } =
+    useAnnotationList({ enabled, documentId, room, setDraft, setSelectedId })
 
   const guard = useCallback(
     async <T,>(act: () => Promise<T>): Promise<T> => {

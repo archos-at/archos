@@ -26,11 +26,16 @@ export function directiveVerdict(
   return { verdict: 'excluded' }
 }
 
+const workKeyOf = (lowered: string) => lowered.replace(/\s+/g, ' ').trim().replace(/:\d{4}(-\d{2}(-\d{2})?)?$/, '')
+
+export function designationKey(designation: string): string {
+  return workKeyOf(designation.toLocaleLowerCase('de'))
+}
+
 export interface ListedEdition {
   designation: string
   title: string
   editionLabel: string
-  hasText: boolean
 }
 
 export interface PlatformDirective {

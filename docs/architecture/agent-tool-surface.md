@@ -3,7 +3,7 @@
 > Which tools the agent is given, what each costs on every call, why
 > the set looks the way it does, and what to change next. Code comments in
 > `packages/knowledge-layer/src/knowledge_layer/browse/tool.py`, `packages/agent/src/agent/tools/files/register.py`
-> and `configs/config_oib_openrouter.yml` point here for the reasons behind a
+> point here for the reasons behind a
 > merge or a split. Written 2026-09-30. Token counts are the tool serialized as
 > OpenAI tool JSON, divided by four, on a project turn.
 
@@ -70,6 +70,8 @@ research call's input ([turns audit](../audit/turns-per-answer-audit-2026-09.md)
 
 The `ifc_*` pair is 8.65k of the 17.3k (the turns audit measured ~8.2k).
 
+Both web search instances exclude `ris.bka.gv.at`, because the RIS adapter answers that corpus structured and traceable. `include_domains` is a hard filter that drops every other result, so an allow-list is set on both instances or neither.
+
 ```mermaid
 flowchart LR
   L[ls / glob<br/>what is there] --> S[knowledge_search / grep<br/>where is it written]
@@ -98,7 +100,7 @@ server's `dryRun` is ([servers][mcp-fs]).
 - Exact search is `knowledge_search(match="exact")`, not a `find_in_files` tool:
   same verb, same scope, same narrowing arguments, and the same base-corpus store
   filter (`_base_collection_filters`: no excluded edition, no cover page), so both
-  modes cite the same passages (`packages/knowledge-layer/src/knowledge_layer/browse/tool.py`). A store
+  modes cite the same passages (`packages/knowledge-layer/src/knowledge_layer/browse/exact.py`). A store
   outage is reported as "the search did not run", never as "no match".
   `match="regex"` is the same search over a person's pattern: Python syntax via the
   `regex` package (it has the match timeout `re` lacks; 0.2 s per chunk, the first
@@ -421,6 +423,15 @@ been uploaded and read).
   only when it was written against exactly that older file. Reading both files is
   reported to the restricted-use admission (ADR-0088). Same-name uploads are not in
   the index yet, so they compare once every Fassung stays indexed.
+- **`compare_to=` also compares two files that are not Fassungen of one document,
+  and tables row by row.** A name that is not in the chain is looked up among the
+  turn's other rows on the same shelves; the report then calls the files first and
+  second instead of older and newer. Tables and lists are compared by
+  `knowledge/table_diff.py`: rows matched by the column that identifies a row in
+  both files, each deviation with its column, both values and the place in both
+  files, so the answer can read that place and cite it. A licensed copy is refused,
+  because its text leaves only as a cited passage (ADR-0164). Two files, not a
+  folder or a Richtlinie: [`revisions.md`](revisions.md#two-different-documents).
 - **`read_passage` reads an older Fassung on request and says it is one.** The read
   is not refused (a question about Index B needs B); the first line of the result,
   in the grounding block's notice slot like the search's „Ältere Fassungen

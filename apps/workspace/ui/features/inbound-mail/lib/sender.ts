@@ -5,20 +5,21 @@ import { isOwnBccCopy } from '@/lib/mail-thread/mail-threading'
 
 export type MailClaim = 'own' | 'colleague' | null
 
-export function mailClaimOf(view: Pick<InboundMailSenderRiskView, 'senderClass' | 'onlySenderReleases'>): MailClaim {
+export function mailClaimOf(view: Pick<InboundMailSenderRiskView, 'onlySenderReleases' | 'ownClaimedMail'>): MailClaim {
   if (view.onlySenderReleases) return 'colleague'
-  return view.senderClass === 'unverified_writer' ? 'own' : null
+  return view.ownClaimedMail ? 'own' : null
 }
 
 export type SenderTrustLine =
   | { kind: 'verified'; domain: string }
   | { kind: 'bcc_own'; domain: string | null }
-  | { kind: 'member_unverified' }
+  | { kind: 'member_unverified'; name: string; own: boolean }
   | { kind: 'impersonation'; name: string; basis: ImpersonationBasis }
   | { kind: 'own_rejected' }
   | { kind: 'unverified' }
 
-export type SenderTone = 'confirmed' | 'neutral' | 'warning'
+/** The verdict's three levels: a confirmed domain, an address nobody can vouch for, and a forgery. */
+export type SenderTone = 'confirmed' | 'neutral' | 'danger'
 
 export function senderTrustLine(sender: InboundMailSenderView, impersonation: InboundMailView['impersonation'], claim: MailClaim = null): SenderTrustLine {
   if (impersonation === 'rejected_signature' && claim === 'own') return { kind: 'own_rejected' }
@@ -29,7 +30,15 @@ export function senderTrustLine(sender: InboundMailSenderView, impersonation: In
   if (sender.trust === 'member_verified' || sender.trust === 'external_verified') {
     return { kind: 'verified', domain: sender.signerDomain ?? sender.domain ?? sender.address }
   }
-  return sender.trust === 'member_unverified' ? { kind: 'member_unverified' } : { kind: 'unverified' }
+  return sender.trust === 'member_unverified'
+    ? { kind: 'member_unverified', name: senderDisplayName(sender), own: claim === 'own' }
+    : { kind: 'unverified' }
+}
+
+export function filingConfirmsUnverifiedSender(view: Pick<InboundMailView, 'sender' | 'impersonation'>, claim: MailClaim): boolean {
+  if (!view.sender) return false
+  const line = senderTrustLine(view.sender, view.impersonation, claim)
+  return line.kind === 'unverified' || line.kind === 'member_unverified'
 }
 
 export function senderTone(line: SenderTrustLine): SenderTone {
@@ -39,8 +48,8 @@ export function senderTone(line: SenderTrustLine): SenderTone {
       return 'confirmed'
     case 'impersonation':
     case 'own_rejected':
+      return 'danger'
     case 'member_unverified':
-      return 'warning'
     case 'unverified':
       return 'neutral'
   }
@@ -67,4 +76,25 @@ export function followOffered(view: { sender: Pick<InboundMailSenderView, 'trust
   if (!view.sender || view.automatic) return false
   if (view.sender.trust !== 'member_verified' && view.sender.trust !== 'external_verified') return false
   return !view.sender.flags.some((flag) => (FOLLOW_REFUSING_FLAGS as readonly string[]).includes(flag))
+}
+
+/** What „Details“ says about the check behind the verdict: the domain and its signature, in the protocol's words. */
+export type TrustTechnical =
+  | { kind: 'signed' | 'unsigned' | 'invalid' | 'rejected'; domain: string }
+  | { kind: 'memberName'; address: string }
+
+export function trustTechnical(sender: InboundMailSenderView, line: SenderTrustLine): TrustTechnical {
+  const domain = sender.domain ?? sender.address.slice(sender.address.indexOf('@') + 1)
+  switch (line.kind) {
+    case 'verified':
+    case 'bcc_own':
+      return { kind: 'signed', domain: sender.signerDomain ?? domain }
+    case 'impersonation':
+      return line.basis === 'member_name' ? { kind: 'memberName', address: sender.address } : { kind: 'rejected', domain }
+    case 'own_rejected':
+      return { kind: 'rejected', domain }
+    case 'member_unverified':
+    case 'unverified':
+      return { kind: sender.reason === 'dkim_none' ? 'unsigned' : 'invalid', domain }
+  }
 }

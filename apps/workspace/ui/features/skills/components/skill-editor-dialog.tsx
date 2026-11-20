@@ -3,37 +3,13 @@
 import type { JSX } from 'react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useStore } from '@tanstack/react-form'
-import { X } from 'lucide-react'
 import { toast } from 'sonner'
-import { z } from 'zod'
 import { FieldShell, useAppForm } from '@/components/form'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Chip } from '@/components/ui/chip'
-import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { EmptyState } from '@/components/ui/empty-state'
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
-import { Item, ItemContent, ItemDescription, ItemList, ItemTitle } from '@/components/ui/item'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { SearchField } from '@/components/ui/search-field'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
-import { Switch } from '@/components/ui/switch'
+import { Stepper } from '@/components/ui/stepper'
+import { Advanced, StepHeading } from '@/components/ui/step-form'
 import { useTranslations } from '@/i18n'
 import { skillsCopy } from '@/i18n/namespaces/skills'
 import { cn } from '@/lib/utils'
@@ -61,48 +37,34 @@ import { renderSkillDocument, type ParsedSkillDocument } from '../lib/skill-docu
 import { MarkdownEditor, type MarkdownEditorLabels } from './MarkdownEditor'
 import { SkillRawDocumentSection } from './SkillRawDocumentSection'
 import { SkillDocumentPreview } from './SkillDocumentPreview'
-import { Stepper } from '@/components/ui/stepper'
-import { Advanced, StepHeading } from '@/components/ui/step-form'
 import { SkillFindingList } from './SkillFindingList'
 import { SkillReviewPanel } from './SkillReviewPanel'
 import { useSkillReview, type SkillReviewField } from '../hooks/use-skill-review'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { readMetadata, writtenMetadataKey } from '@/lib/skills/legacy-names'
+import {
+  METADATA_AGENTS,
+  METADATA_CARDS,
+  METADATA_HIDDEN,
+  readHidden,
+  withoutReservedKeys,
+} from '../lib/skill-editor-metadata'
+import {
+  buildSkillEditorSchema,
+  DESCRIPTION_MAX,
+  type EditorValues,
+} from '../lib/skill-editor-schema'
+import { CONTROL_ID, STEP_FOR_FIELD, STEP_KEYS, type StepKey } from '../lib/skill-editor-steps'
+import { buildMarkdownLabels } from '../lib/markdown-editor-labels'
+import type { SkillPersistence } from '../lib/skill-persistence'
+import { SkillAvailabilitySection } from './skill-editor-dialog/availability-section'
+import { SkillCategorySection } from './skill-editor-dialog/category-section'
+import { SkillPreferredCardsSection } from './skill-editor-dialog/preferred-cards-section'
+import { SkillEditorFooter } from './skill-editor-dialog/footer'
+import { SkillEditorConfirmDialogs } from './skill-editor-dialog/confirm-dialogs'
+import { SkillEditorHeader } from './skill-editor-dialog/header'
 
-const SKILL_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
-
-const DESCRIPTION_MAX = 1024
-
-function withoutReservedKeys(metadata: Record<string, string>): Record<string, string> {
-  const owned = new Set(
-    ([METADATA_CARDS, METADATA_AGENTS, METADATA_HIDDEN] as const).flatMap((key) => [key, writtenMetadataKey(key)]),
-  )
-  const rest: Record<string, string> = {}
-  for (const key of Object.keys(metadata)) {
-    if (owned.has(key)) continue
-    rest[key] = metadata[key]
-  }
-  return rest
-}
-
-const METADATA_CARDS = 'cards'
-const METADATA_AGENTS = 'agents'
-const METADATA_HIDDEN = 'hidden'
-
-const HIDDEN_TRUE = new Set(['true', '1', 'yes'])
-
-function readHidden(metadata?: Record<string, string>): boolean {
-  return HIDDEN_TRUE.has((metadata ? (readMetadata(metadata, METADATA_HIDDEN) ?? '') : '').trim().toLowerCase())
-}
-
-export interface SkillPersistence {
-  save: (input: CreateSkillInput & { categoryId?: string | null }, enabled: boolean) => Promise<void>
-  remove?: () => Promise<void>
-  switchLabels?: { label: string; hint: string }
-  titles?: { create: string; edit: string; createSubtitle: string; editSubtitle: string }
-  successMessage?: { create: string; edit: string }
-  deleteCopy?: { title: string; description: string; confirm: string }
-}
+export type { SkillPersistence } from '../lib/skill-persistence'
 
 interface SkillEditorDialogProps {
   open: boolean
@@ -111,27 +73,6 @@ interface SkillEditorDialogProps {
   persistence?: SkillPersistence
   categories?: SkillCategoryListItem[]
   onSaved: () => void
-}
-
-interface EditorValues {
-  name: string
-  description: string
-  body: string
-}
-
-const STEP_KEYS = ['what', 'instructions', 'check'] as const
-type StepKey = (typeof STEP_KEYS)[number]
-
-const STEP_FOR_FIELD: Record<SkillReviewField, StepKey> = {
-  name: 'what',
-  description: 'what',
-  body: 'instructions',
-}
-
-const CONTROL_ID: Record<SkillReviewField, string> = {
-  name: 'name',
-  description: 'description',
-  body: 'skill-body',
 }
 
 export function SkillEditorDialog({
@@ -214,28 +155,7 @@ export function SkillEditorDialog({
     setPreferredCards((current) => current.filter((entry) => entry !== type))
   }, [])
 
-  const schema = useMemo(
-    () =>
-      z.object({
-        name: z
-          .string()
-          .trim()
-          .min(1, t('editor.nameRequired'))
-          .max(64, t('editor.nameTooLong'))
-          .regex(SKILL_NAME_PATTERN, t('editor.nameInvalid')),
-        description: z
-          .string()
-          .trim()
-          .min(1, t('editor.descriptionRequired'))
-          .max(1024, t('editor.descriptionTooLong')),
-        body: z
-          .string()
-          .trim()
-          .min(1, t('editor.bodyRequired'))
-          .max(32000, t('editor.bodyTooLong')),
-      }),
-    [t],
-  )
+  const schema = useMemo(() => buildSkillEditorSchema(t), [t])
 
   const form = useAppForm({
     defaultValues: {
@@ -350,28 +270,7 @@ export function SkillEditorDialog({
     [form, t],
   )
 
-  const markdownLabels = useMemo<MarkdownEditorLabels>(
-    () => ({
-      h1: t('editor.markdown.h1'),
-      h2: t('editor.markdown.h2'),
-      h3: t('editor.markdown.h3'),
-      bold: t('editor.markdown.bold'),
-      italic: t('editor.markdown.italic'),
-      code: t('editor.markdown.code'),
-      codeBlock: t('editor.markdown.codeBlock'),
-      bulletList: t('editor.markdown.bulletList'),
-      numberedList: t('editor.markdown.numberedList'),
-      taskList: t('editor.markdown.taskList'),
-      link: t('editor.markdown.link'),
-      quote: t('editor.markdown.quote'),
-      table: t('editor.markdown.table'),
-      edit: t('editor.markdown.edit'),
-      split: t('editor.markdown.split'),
-      preview: t('editor.markdown.preview'),
-      fullscreen: t('editor.markdown.fullscreen'),
-    }),
-    [t],
-  )
+  const markdownLabels = useMemo<MarkdownEditorLabels>(() => buildMarkdownLabels(t), [t])
 
   const canDelete = isEdit && (persistence ? Boolean(persistence.remove) : true)
 
@@ -390,6 +289,43 @@ export function SkillEditorDialog({
       setDeleting(false)
     }
   }
+
+  const saveButton = (
+    <form.Subscribe
+      selector={(state) => [state.canSubmit, state.isSubmitting] as const}
+    >
+      {([canSubmit, isSubmitting]) => (
+        <Button
+          type="submit"
+          disabled={!canSubmit || isSubmitting || !review.gate.checked}
+          aria-busy={isSubmitting}
+          aria-describedby={review.gate.checked ? undefined : 'skill-review-required'}
+        >
+          <span className="inline-grid justify-items-start">
+            <span
+              className={cn(
+                'col-start-1 row-start-1 inline-flex items-center gap-2',
+                isSubmitting && 'invisible',
+              )}
+              aria-hidden={isSubmitting}
+            >
+              {t('editor.save')}
+            </span>
+            <span
+              className={cn(
+                'col-start-1 row-start-1 inline-flex items-center gap-2',
+                !isSubmitting && 'invisible',
+              )}
+              aria-hidden={!isSubmitting}
+            >
+              <Spinner size="sm" aria-hidden />
+              {t('editor.saving')}
+            </span>
+          </span>
+        </Button>
+      )}
+    </form.Subscribe>
+  )
 
   return (
     <>
@@ -419,18 +355,7 @@ export function SkillEditorDialog({
           fullScreenOnMobile
           className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 phone:pt-[env(safe-area-inset-top)] phone:pb-[env(safe-area-inset-bottom)] sm:max-w-2xl"
         >
-          <DialogHeader className="border-border shrink-0 border-b px-6 py-5 pr-14">
-            <DialogTitle>
-              {isEdit
-                ? (persistence?.titles?.edit ?? t('editor.editTitle'))
-                : (persistence?.titles?.create ?? t('editor.createTitle'))}
-            </DialogTitle>
-            <DialogDescription>
-              {isEdit
-                ? (persistence?.titles?.editSubtitle ?? t('editor.editSubtitle'))
-                : (persistence?.titles?.createSubtitle ?? t('editor.createSubtitle'))}
-            </DialogDescription>
-          </DialogHeader>
+          <SkillEditorHeader isEdit={isEdit} persistence={persistence} />
 
           <form
             onSubmit={(event) => {
@@ -616,165 +541,29 @@ export function SkillEditorDialog({
                               summary={advancedSummary || null}
                               data-testid="skill-advanced"
                             >
-                            <section className="border-border flex flex-col gap-4 rounded-xl border p-4">
-                              <div className="flex flex-col gap-0.5">
-                                <h3 className="text-sm font-medium">{t('editor.agents.heading')}</h3>
-                                <p className="text-muted-foreground text-xs">{t('editor.agents.hint')}</p>
-                              </div>
-
-                              <div className="flex flex-col gap-2.5">
-                                {SKILL_AGENTS.map((agent) => {
-                                  const checked = agents.selected.includes(agent)
-                                  const last = checked && agents.selected.length === 1
-                                  const key = agent === 'researcher' ? 'chat' : 'deep'
-                                  return (
-                                    <Field
-                                      key={agent}
-                                      orientation="horizontal"
-                                      className="justify-start gap-2.5"
-                                    >
-                                      <Checkbox
-                                        id={`skill-agent-${agent}`}
-                                        checked={checked}
-                                        disabled={last}
-                                        onCheckedChange={(next) =>
-                                          setAgents((current) => ({
-                                            ...current,
-                                            selected:
-                                              next === true
-                                                ? SKILL_AGENTS.filter(
-                                                    (name) =>
-                                                      name === agent || current.selected.includes(name),
-                                                  )
-                                                : current.selected.filter((name) => name !== agent),
-                                          }))
-                                        }
-                                        className="mt-0.5"
-                                      />
-                                      <div className="flex min-w-0 flex-col gap-0.5">
-                                        <FieldLabel
-                                          htmlFor={`skill-agent-${agent}`}
-                                          className="font-medium"
-                                        >
-                                          {t(`editor.agents.${key}.label`)}
-                                        </FieldLabel>
-                                        <FieldDescription className="leading-snug">
-                                          {t(`editor.agents.${key}.hint`)}
-                                        </FieldDescription>
-                                      </div>
-                                    </Field>
-                                  )
-                                })}
-                              </div>
-                              <Field orientation="horizontal">
-                                <div className="flex min-w-0 flex-col gap-0.5">
-                                  <FieldLabel htmlFor="skill-hidden">{t('editor.hiddenLabel')}</FieldLabel>
-                                  <FieldDescription>{t('editor.hiddenHint')}</FieldDescription>
-                                </div>
-                                <Switch id="skill-hidden" checked={hidden} onCheckedChange={setHidden} />
-                              </Field>
-
-                              <Field orientation="horizontal">
-                                <div className="flex min-w-0 flex-col gap-0.5">
-                                  <FieldLabel htmlFor="skill-enabled">
-                                    {persistence?.switchLabels?.label ?? t('editor.enabledLabel')}
-                                  </FieldLabel>
-                                  <FieldDescription>
-                                    {persistence?.switchLabels?.hint ?? t('editor.enabledHint')}
-                                  </FieldDescription>
-                                </div>
-                                <Switch id="skill-enabled" checked={enabled} onCheckedChange={setEnabled} />
-                              </Field>
-                              </section>
-                            <section className="border-border flex flex-col gap-2 rounded-xl border p-4">
-                              <div className="flex flex-col gap-0.5">
-                                <h3 className="text-sm font-medium">{t('editor.category.heading')}</h3>
-                                <p className="text-muted-foreground text-xs">{t('editor.category.hint')}</p>
-                              </div>
-                              <Field>
-                                <FieldLabel htmlFor="skill-category">{t('editor.category.label')}</FieldLabel>
-                                <Select
-                                  value={categoryId ?? '__unsorted__'}
-                                  onValueChange={(next) => setCategoryId(next === '__unsorted__' ? null : next)}
-                                >
-                                  <SelectTrigger id="skill-category">
-                                    <SelectValue placeholder={t('editor.category.unsorted')} />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="__unsorted__">{t('editor.category.unsorted')}</SelectItem>
-                                    {categories.map((category) => (
-                                      <SelectItem key={category.id} value={category.id}>
-                                        {category.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </Field>
-                            </section>
-                            <section className="border-border flex flex-col gap-2 rounded-xl border p-4">
-                              <div className="flex flex-col gap-0.5">
-                                <h3 className="text-sm font-medium">{t('editor.cards.heading')}</h3>
-                                <p className="text-muted-foreground text-xs">{t('editor.cards.hint')}</p>
-                              </div>
-
-                              {preferredCards.length === 0 ? (
-                                <EmptyState variant="bare" title={t('editor.cards.empty')} className="py-3" />
-                              ) : (
-                                <ul className="flex flex-col gap-1.5">
-                                  {preferredCards.map((type) => (
-                                    <li key={type} className="flex flex-col items-start gap-0.5">
-                                      <Chip variant="secondary" size="sm">
-                                        <span className="font-mono">{type}</span>
-                                        <button
-                                          type="button"
-                                          aria-label={t('editor.cards.removeAria', { type })}
-                                          onClick={() => removeCard(type)}
-                                          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -mr-0.5 rounded-sm leading-none transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2"
-                                        >
-                                          <X className="size-3" aria-hidden />
-                                        </button>
-                                      </Chip>
-                                      <span className="text-muted-foreground text-xs">
-                                        {catalogByType.get(type)?.description}
-                                      </span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-
-                              <SearchField
-                                type="text"
-                                value={cardQuery}
-                                onChange={setCardQuery}
-                                placeholder={t('editor.cards.searchPlaceholder')}
-                                label={t('editor.cards.searchPlaceholder')}
+                              <SkillAvailabilitySection
+                                agents={agents}
+                                setAgents={setAgents}
+                                hidden={hidden}
+                                setHidden={setHidden}
+                                enabled={enabled}
+                                setEnabled={setEnabled}
+                                persistence={persistence}
                               />
-
-                              <div className="h-44">
-                                {cardResults.length === 0 ? (
-                                  <EmptyState
-                                    variant="bare"
-                                    title={t('editor.cards.noMatches')}
-                                    className="flex h-full items-center py-3"
-                                  />
-                                ) : (
-                                  <ScrollArea className="h-full">
-                                    <ItemList>
-                                      {cardResults.map((entry) => (
-                                        <Item key={entry.type} asChild>
-                                          <button type="button" onClick={() => addCard(entry.type)}>
-                                            <ItemContent>
-                                              <ItemTitle className="font-mono">{entry.type}</ItemTitle>
-                                              <ItemDescription>{entry.description}</ItemDescription>
-                                            </ItemContent>
-                                          </button>
-                                        </Item>
-                                      ))}
-                                    </ItemList>
-                                  </ScrollArea>
-                                )}
-                              </div>
-                            </section>
+                              <SkillCategorySection
+                                categoryId={categoryId}
+                                setCategoryId={setCategoryId}
+                                categories={categories}
+                              />
+                              <SkillPreferredCardsSection
+                                preferredCards={preferredCards}
+                                cardQuery={cardQuery}
+                                setCardQuery={setCardQuery}
+                                cardResults={cardResults}
+                                catalogByType={catalogByType}
+                                addCard={addCard}
+                                removeCard={removeCard}
+                              />
                             </Advanced>
                           </div>
                         )}
@@ -785,126 +574,34 @@ export function SkillEditorDialog({
               </div>
             </div>
 
-            <div className="border-border bg-popover shrink-0 border-t px-6 py-4">
-              {formError && (
-                <Alert variant="destructive" className="mb-3">
-                  <AlertDescription>{formError}</AlertDescription>
-                </Alert>
-              )}
-              {/* Back / Weiter, and Speichern only on the last step — the task
-                  builder's nav, because this is the same kind of form.
-                  „Weiter" never validates: a stepped form that refuses to move
-                  on is one people answer defensively, and every field is
-                  validated on the save anyway. */}
-              <DialogFooter className="sm:justify-between">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => (stepIndex === 0 ? requestClose() : goTo(stepIndex - 1))}
-                  data-testid="skill-back"
-                >
-                  {stepIndex === 0 ? t('editor.cancel') : t('editor.steps.back')}
-                </Button>
-                {step !== 'check' ? (
-                  <Button type="button" onClick={() => goTo(stepIndex + 1)} data-testid="skill-next">
-                    {t('editor.steps.next')}
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-              {canDelete && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setConfirmOpen(true)}
-                >
-                  {t('actions.delete')}
-                </Button>
-              )}
-              <form.Subscribe
-                selector={(state) => [state.canSubmit, state.isSubmitting] as const}
-              >
-                {([canSubmit, isSubmitting]) => (
-                  <Button
-                    type="submit"
-                    disabled={!canSubmit || isSubmitting || !review.gate.checked}
-                    aria-busy={isSubmitting}
-                    aria-describedby={review.gate.checked ? undefined : 'skill-review-required'}
-                  >
-                    <span className="inline-grid justify-items-start">
-                      <span
-                        className={cn(
-                          'col-start-1 row-start-1 inline-flex items-center gap-2',
-                          isSubmitting && 'invisible',
-                        )}
-                        aria-hidden={isSubmitting}
-                      >
-                        {t('editor.save')}
-                      </span>
-                      <span
-                        className={cn(
-                          'col-start-1 row-start-1 inline-flex items-center gap-2',
-                          !isSubmitting && 'invisible',
-                        )}
-                        aria-hidden={!isSubmitting}
-                      >
-                        <Spinner size="sm" aria-hidden />
-                        {t('editor.saving')}
-                      </span>
-                    </span>
-                  </Button>
-                )}
-              </form.Subscribe>
-                  </div>
-                )}
-              </DialogFooter>
-              {step === 'check' && !review.gate.checked && (
-                <p
-                  id="skill-review-required"
-                  className="text-muted-foreground mt-2 text-right text-xs"
-                  data-testid="skill-review-required"
-                >
-                  {t('editor.review.required')}
-                </p>
-              )}
-            </div>
-
+            <SkillEditorFooter
+              formError={formError}
+              step={step}
+              stepIndex={stepIndex}
+              canDelete={canDelete}
+              reviewChecked={review.gate.checked}
+              saveButton={saveButton}
+              onBack={() => (stepIndex === 0 ? requestClose() : goTo(stepIndex - 1))}
+              onNext={() => goTo(stepIndex + 1)}
+              onDelete={() => setConfirmOpen(true)}
+            />
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Closing with unsaved work. Stacked over the editor on purpose: the
-          editor stays mounted and keeps every field while the question is open,
-          so "Weiter bearbeiten" costs nothing. */}
-      <ConfirmDialog
-        open={discardOpen}
-        onOpenChange={setDiscardOpen}
-        tone="warning"
-        title={t('editor.discardTitle')}
-        description={t('editor.discardBody')}
-        confirmLabel={t('editor.discardConfirm')}
-        cancelLabel={t('editor.discardKeep')}
-        onConfirm={() => {
+      <SkillEditorConfirmDialogs
+        discardOpen={discardOpen}
+        setDiscardOpen={setDiscardOpen}
+        onDiscard={() => {
           setDiscardOpen(false)
           onOpenChange(false)
         }}
-      />
-
-      {/* Edit-mode delete: removes the skill from the toolbox; schedules keep
-          their saved snapshot, so they keep running unchanged. */}
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        tone="destructive"
-        title={persistence?.deleteCopy?.title ?? t('editor.deleteTitle')}
-        description={
-          persistence?.deleteCopy?.description ??
-          t('editor.deleteDescription', { name: skill?.name ?? '' })
-        }
-        confirmLabel={persistence?.deleteCopy?.confirm ?? t('editor.deleteConfirm')}
-        cancelLabel={t('editor.cancel')}
-        pending={deleting}
-        onConfirm={() => void confirmDelete()}
+        confirmOpen={confirmOpen}
+        setConfirmOpen={setConfirmOpen}
+        deleting={deleting}
+        skillName={skill?.name ?? ''}
+        persistence={persistence}
+        onConfirmDelete={() => void confirmDelete()}
       />
     </>
   )

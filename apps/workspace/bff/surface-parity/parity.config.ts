@@ -140,6 +140,11 @@ export const SURFACE_CAPABILITIES = {
     canvas: { component: 'features/documents/hooks/use-canvas-ask.ts' },
     chat: { component: 'features/chat/lib/canvas-bridge.ts' },
   },
+  askAboutAnswerPart: {
+    summary: 'Select part of an answer and ask about it; the next answer is about exactly that part',
+    canvas: { exempt: 'The canvas shows a document, not an answer; its form of this is the box drawn on a page (askAboutBox)' },
+    chat: { component: 'features/chat/components/AnswerExcerptAsk.tsx' },
+  },
   readSelectedRegion: {
     summary: PRODUCT_NAME + ' reads what the person selected or points at when the question says "here"',
     tool: 'canvas__room',

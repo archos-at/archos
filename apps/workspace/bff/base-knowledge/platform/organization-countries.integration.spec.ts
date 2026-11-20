@@ -66,7 +66,7 @@ describe.skipIf(!url)('where every office is placed (platform-org-countries-list
   let service: typeof import('./service')
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     service = await import('./service')
     const entitlements = await import('./entitlements')
     const repository = await import('@/lib/organizations/repository')

@@ -30,7 +30,7 @@ vi.mock('@/lib/documents/document-edits', () => ({
 vi.mock('@/lib/documents/document-listing', () => ({
   resolveProjectDocumentsByName: vi.fn(),
 }))
-vi.mock('@/lib/office-shelf/service', () => ({ resolveOfficeShelfDocumentsByName: vi.fn() }))
+vi.mock('@/lib/office-shelf/service', () => ({ resolveOfficeShelfDocumentsByName: vi.fn(), assertMoveKeepsOutOfStandards: vi.fn(async () => undefined) }))
 vi.mock('@/lib/office-shelf/folder-service', () => ({
   listOfficeShelfFolders: vi.fn(),
   ensureOfficeShelfFolderPaths: vi.fn(),

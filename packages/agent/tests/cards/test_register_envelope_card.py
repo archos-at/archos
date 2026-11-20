@@ -23,7 +23,7 @@ from agent.cards.registry import reset_card_registry
 from agent.cards.registry import set_card_registry
 from agent.common import bff_http
 from agent.common.answer_envelope import AnswerMeta
-from agent.core.answer_pipeline import _register_envelope_cards
+from agent.core.envelope_cards import _register_envelope_cards
 from agent.knowledge import scoping
 from agent.turn.response import answer_message_id
 

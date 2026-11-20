@@ -4,6 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import postcss, { type Container, type Root, type Rule } from 'postcss'
 import { describe, expect, test } from 'vitest'
 
 import {
@@ -44,15 +45,32 @@ const contrast = (a: string, b: string): number => {
 }
 const whiteOn = (oklch: string): number => contrast('oklch(1 0 0)', oklch)
 
-const read = (path: string): string => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8')
-const themeBlock = (css: string, theme: 'light' | 'dark'): string =>
-  theme === 'dark' ? css.slice(css.indexOf('.dark')) : css
+const read = (path: string): Root => postcss.parse(readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8'))
+
+const valuesOf = (scope: Container, prop: string): string[] => {
+  const values: string[] = []
+  scope.walkDecls(prop, (declaration) => {
+    values.push(declaration.value)
+  })
+  return values
+}
+
+const rulesSelecting = (css: Root, selector: string): Rule[] => {
+  const rules: Rule[] = []
+  css.walkRules((rule) => {
+    if (rule.selectors.includes(selector)) rules.push(rule)
+  })
+  return rules
+}
+
+const themeScope = (css: Root, theme: 'light' | 'dark'): Container =>
+  theme === 'dark' ? rulesSelecting(css, '.dark')[0] : css
 
 function backgroundToken(theme: 'light' | 'dark'): string {
-  const value = /--background:\s*([^;]+);/.exec(themeBlock(read('../../styles/tokens.css'), theme))?.[1].trim()
+  const value = valuesOf(themeScope(read('../../styles/tokens.css'), theme), '--background')[0]
   const brand = value && /^var\(--(ds-[a-z-]+)\)$/.exec(value)?.[1]
   const resolved = brand
-    ? new RegExp(`--${brand}:\\s*(#[0-9a-f]{6});`).exec(themeBlock(read('../../../../../packages/brand/dist/tokens.vars.css'), theme))?.[1]
+    ? valuesOf(themeScope(read('../../../../../packages/brand/dist/tokens.vars.css'), theme), `--${brand}`)[0]
     : value
   if (!resolved) throw new Error(`no --background for ${theme} in tokens.css`)
   return resolved

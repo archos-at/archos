@@ -20,8 +20,8 @@ from agent.common.data_sources import disabled_source_notice
 from agent.common.data_sources import unavailable_source_ids
 from agent.common.prompt_caching import prompt_cache_key
 from agent.core.agent import ChatAgent
-from agent.core.agent import TurnConfig
 from agent.core.models import ResearchAgentState
+from agent.core.turn_binding import TurnConfig
 
 _PROMPT = "Du bist der Agent."
 

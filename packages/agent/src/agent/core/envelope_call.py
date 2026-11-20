@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from agent.common.answer_envelope import render_envelope_response_format
+from agent.common.envelope_schema import render_envelope_response_format
 
 logger = logging.getLogger(__name__)
 

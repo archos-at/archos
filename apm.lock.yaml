@@ -1,5 +1,5 @@
 lockfile_version: '1'
-generated_at: '2026-11-17T14:13:29.656757+00:00'
+generated_at: '2026-11-18T14:35:58.147809+00:00'
 apm_version: 0.28.0
 dependencies:
 - repo_url: _local/querying-product-analytics
@@ -16,6 +16,20 @@ dependencies:
     .claude/skills/querying-product-analytics/SKILL.md: sha256:d52ca1da5c4dda4e9cb8de584d05272ef7f16d52d9f3f637004c5988b2b11dbc
   source: local
   local_path: ./skills/querying-product-analytics
+- repo_url: _local/updating-tickets
+  name: updating-tickets
+  version: 0.0.0
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/updating-tickets
+  - .agents/skills/updating-tickets/SKILL.md
+  - .claude/skills/updating-tickets
+  - .claude/skills/updating-tickets/SKILL.md
+  deployed_file_hashes:
+    .agents/skills/updating-tickets/SKILL.md: sha256:cf0e988402c1af7067ca9755707f86da29e77498514695a373e8a78a07d5ecaa
+    .claude/skills/updating-tickets/SKILL.md: sha256:cf0e988402c1af7067ca9755707f86da29e77498514695a373e8a78a07d5ecaa
+  source: local
+  local_path: ./skills/updating-tickets
 - repo_url: _local/verify-on-dev
   name: verify-on-dev
   version: 0.0.0
@@ -3478,6 +3492,24 @@ deployments:
   content_hash: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
 - kind: project-relative
   target: agent-skills
+  value: .agents/skills/updating-tickets
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/updating-tickets
+  active_owner: ./skills/updating-tickets
+  content_hash: null
+- kind: project-relative
+  target: agent-skills
+  value: .agents/skills/updating-tickets/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/updating-tickets
+  active_owner: ./skills/updating-tickets
+  content_hash: sha256:cf0e988402c1af7067ca9755707f86da29e77498514695a373e8a78a07d5ecaa
+- kind: project-relative
+  target: agent-skills
   value: .agents/skills/verify-on-dev
   runtime: null
   scope: project
@@ -5798,6 +5830,24 @@ deployments:
   - cursor/plugins/pstack/skills/unslop
   active_owner: cursor/plugins/pstack/skills/unslop
   content_hash: sha256:ccab208e315ce05e2fab8eeee2f7879f1289b5c6844840b2d307adf31c79144f
+- kind: project-relative
+  target: claude
+  value: .claude/skills/updating-tickets
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/updating-tickets
+  active_owner: ./skills/updating-tickets
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/updating-tickets/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - ./skills/updating-tickets
+  active_owner: ./skills/updating-tickets
+  content_hash: sha256:cf0e988402c1af7067ca9755707f86da29e77498514695a373e8a78a07d5ecaa
 - kind: project-relative
   target: claude
   value: .claude/skills/verify-on-dev

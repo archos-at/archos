@@ -96,7 +96,7 @@ describe('the restricted-feedback suite is not silently skipped in CI', () => {
 
 describe.skipIf(!url)('answer feedback from a restricted conversation, against Postgres', () => {
   async function db() {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const { getDb } = await import('@/lib/db')
     return getDb()
   }

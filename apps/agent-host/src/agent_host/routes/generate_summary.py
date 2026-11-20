@@ -12,8 +12,8 @@ from agent.common.openrouter import DataPolicy
 from agent.common.openrouter import limited_async_http_client
 from agent.observability.direct_trace import observed_generation
 
-from ..models.requests import GenerateSummaryRequest
-from ..models.requests import GenerateSummaryResponse
+from ..models.writing_requests import GenerateSummaryRequest
+from ..models.writing_requests import GenerateSummaryResponse
 
 logger = logging.getLogger(__name__)
 

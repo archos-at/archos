@@ -118,7 +118,7 @@ def _stored(**overrides: Any) -> str:
         "config_file_path": "configs/config.yml",
         "job_id": "job-1",
         "input_text": SECRET_QUESTION,
-        "agent_class_path": "agent.agents.deep_researcher.agent.DeepResearcherAgent",
+        "agent_type": "deep_researcher",
         "agent_config_name": "deep_research_agent",
         **overrides,
     }

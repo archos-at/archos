@@ -102,8 +102,8 @@ describe('CreateProjectForm', () => {
     await user.click(submit())
 
     await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
-    expect(sent()).toEqual({ name: 'Wohnhaus Hauptstraße 12', state: 'active', setup: 'piloti' })
-    expect(capturePosthog).toHaveBeenCalledWith('project_created', { state: 'active', setup: 'piloti' })
+    expect(sent()).toEqual({ name: 'Wohnhaus Hauptstraße 12', state: 'active', setup: 'agent' })
+    expect(capturePosthog).toHaveBeenCalledWith('project_created', { state: 'active', setup: 'agent' })
   })
 
   test('a closed project needs its outcome, then sends outcome, start and closing', async () => {
@@ -127,12 +127,12 @@ describe('CreateProjectForm', () => {
     expect(sent()).toEqual({
       name: 'Schule Nord',
       state: 'closed',
-      setup: 'piloti',
+      setup: 'agent',
       outcome: 'cancelled',
       startedOn: '',
       endedOn: '2026-03',
     })
-    expect(capturePosthog).toHaveBeenCalledWith('project_created', { state: 'closed', setup: 'piloti' })
+    expect(capturePosthog).toHaveBeenCalledWith('project_created', { state: 'closed', setup: 'agent' })
   })
 
   test('sends a chosen start', async () => {
@@ -260,7 +260,7 @@ describe('CreateProjectForm', () => {
       expect(sent()).toEqual({
         name: 'Aufstockung',
         state: 'active',
-        setup: 'piloti',
+        setup: 'agent',
         description: 'Zwei Geschoße mehr',
         location: JSON.stringify(hauptstrasse),
       })
@@ -339,7 +339,7 @@ describe('CreateProjectForm', () => {
       await user.click(submit())
 
       await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
-      expect(sent()).toEqual({ name: 'Wettbewerb', state: 'active', setup: 'piloti', address: 'Am Bahnhof 4, Gänserndorf' })
+      expect(sent()).toEqual({ name: 'Wettbewerb', state: 'active', setup: 'agent', address: 'Am Bahnhof 4, Gänserndorf' })
     })
 
     test('editing a chosen address lets go of the hit: the line is sent as typed', async () => {
@@ -375,7 +375,7 @@ describe('CreateProjectForm', () => {
       await user.click(submit())
 
       await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
-      expect(sent()).toEqual({ name: 'Haus am See', state: 'active', setup: 'piloti', address: 'Seestraße 5, 9220 Velden' })
+      expect(sent()).toEqual({ name: 'Haus am See', state: 'active', setup: 'agent', address: 'Seestraße 5, 9220 Velden' })
       expect(search).toHaveBeenCalledTimes(1)
     })
 
@@ -561,7 +561,7 @@ describe('CreateProjectForm', () => {
       await user.type(screen.getByLabelText('Project name'), 'Villa K')
       await user.click(submit())
       await waitFor(() => expect(action).toHaveBeenCalledTimes(1))
-      expect(sent()).toEqual({ name: 'Villa K', state: 'active', setup: 'piloti' })
+      expect(sent()).toEqual({ name: 'Villa K', state: 'active', setup: 'agent' })
     })
   })
 })

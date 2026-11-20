@@ -45,6 +45,8 @@ exports inside the company.
 | How often does the system have to correct itself? | Scores `citation-health`, `citations-removed`, `quotes-patched`, `dialect-repairs`, `card-validity` |
 | How often are answers shown with low confidence, and why? | Score `answer-confidence`; `confidence-capped` says which guard lowered it |
 | Does the answer use what retrieval found? | Score `retrieval-precision` |
+| How often does a script (`execute`) fail, and how many tries until it makes a file? | Score `execute-status` broken down by value (share `error`, `timeout`); the mean of `execute-runs-to-file`; tag `feature:execute` for the turns that ran one. The step `execute.run` holds the first error line |
+| How many of the files the agent makes reach the project? | Sum of `execute-files-filed` over sum of `execute-files-made`, over the same period |
 | What does an answer cost, and which model? | Trace metadata `usage_cost_usd`; observations of type generation, grouped by model |
 | How long do answers take? | Trace latency, filtered by trace name and route tag |
 | How many research runs, and how long do they take? | Tracing → filter trace name `research-job`; count and latency, by day |

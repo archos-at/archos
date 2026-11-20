@@ -1,0 +1,14 @@
+---
+# area: answers
+features:
+  - >
+    {productName} can now make real Word, Excel, PowerPoint and PDF files and
+    calculate exactly, so totals and ratios are worked out rather than estimated.
+    When you ask, it files them into the project as drafts, marked as made by
+    AI, for you to check and send for review.
+operators:
+  - >
+    The agent's execute tool needs the code runner, which is off until a stack
+    sets grid-oib:codeRunnerEnabled to "true". Without it the agent says code
+    execution is unavailable and answers without files. The steps to turn it on
+    and off are in docs/deployment/code-runner-runbook.md.

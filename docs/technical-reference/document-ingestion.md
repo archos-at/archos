@@ -734,7 +734,7 @@ not finished were not indexed, the bytes stay, and a re-ingest reads them
 again. `cancelled` is neutral in the UI („Abgebrochen“), never a failure.
 Because a stop can land between the worker's last ownership check and its
 write, a `cancelled` row is re-checked for thirty minutes like an `interrupted`
-one (`resolveCancelledRow`, `reconcile-status.ts`): a job that did finalize
+one (`resolveCancelledRow`, `reconcile-status/ingest-resolution.ts`): a job that did finalize
 heals the row to `completed`.
 
 What stays open is narrow: a status write that lands after the cancel settled

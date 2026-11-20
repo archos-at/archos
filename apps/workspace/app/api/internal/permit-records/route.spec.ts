@@ -43,8 +43,8 @@ const request = (payload: unknown, token: string | null = 'test-token') =>
 describe('POST /api/internal/permit-records', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
     vi.mocked(storePermitRecord).mockResolvedValue({ stored: true, requirements: 1 })
   })
 
@@ -55,7 +55,7 @@ describe('POST /api/internal/permit-records', () => {
   })
 
   it('fails closed when the token is unconfigured', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await POST(request(body()))).status).toBe(503)
     expect(storePermitRecord).not.toHaveBeenCalled()
   })

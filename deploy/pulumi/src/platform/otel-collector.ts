@@ -15,7 +15,13 @@ import {
   langfuseOtlpBasicAuth,
   langfuseOtlpTracesEndpoint,
 } from "./langfuse";
-import { CLUSTER_STATE_RULES, installCollectorIdentity } from "./collector-identity";
+import {
+  CLUSTER_STATE_RULES,
+  EVENT_RULES,
+  grantInNamespaces,
+  installCollectorIdentity,
+} from "./collector-identity";
+import { LOG_SOURCE, LOG_SOURCE_ATTRIBUTE } from "../config/observability";
 import { BFF_SERVICE_NAME } from "../app/config";
 import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
 import {
@@ -24,10 +30,12 @@ import {
   OTLP_GRPC_PORT,
   OTLP_HTTP_PORT,
   OTLP_RECEIVER,
+  SHIPPER_OTLP_PORT,
   boundedDelivery,
   composeCollectorConfig,
   renderCollectorConfig,
 } from "./collector-config";
+import { cpuRequest } from "../config/cpu-requests";
 
 const COMPONENT = "otel-collector";
 export const METRICS_EXPORT_PORT = 8889;
@@ -43,6 +51,8 @@ export interface OtelCollector {
 export interface OtelCollectorSources {
   langfuseSecretName?: pulumi.Input<string>;
   qdrantMetricsTargets?: pulumi.Input<string[]>;
+  eventNamespaces?: string[];
+  eventNamespaceResources?: pulumi.Resource[];
 }
 
 export function installOtelCollector(
@@ -54,7 +64,8 @@ export function installOtelCollector(
 ): OtelCollector {
   const labels = commonLabels(COMPONENT);
   const name = COMPONENT;
-  const { langfuseSecretName, qdrantMetricsTargets } = sources;
+  const { langfuseSecretName, qdrantMetricsTargets, eventNamespaces = [], eventNamespaceResources = [] } = sources;
+  const events = cfg.posthog.logsEnabled && eventNamespaces.length > 0;
 
   const metrics = cfg.posthog.metricsEnabled;
   const configFor = (qdrant: string[] | undefined): string =>
@@ -64,7 +75,10 @@ export function installOtelCollector(
         ...(cfg.posthog.tracesEnabled
           ? [posthogTraces(cfg.posthog.host, cfg.posthog.projectToken, pulumi.getStack())]
           : []),
-        ...(cfg.posthog.logsEnabled ? [posthogLogs(cfg.posthog.host, cfg.posthog.projectToken, pulumi.getStack())] : []),
+        ...(cfg.posthog.logsEnabled
+          ? [posthogLogs(cfg.posthog.host, cfg.posthog.projectToken, pulumi.getStack()), containerLogs()]
+          : []),
+        ...(events ? [kubernetesEvents(eventNamespaces)] : []),
         ...(qdrant ? [qdrantScrape(qdrant)] : []),
         ...(metrics
           ? [
@@ -78,7 +92,14 @@ export function installOtelCollector(
           : []),
       ]),
     );
-  const identity = metrics ? installCollectorIdentity(COMPONENT, CLUSTER_STATE_RULES, provider, namespace) : undefined;
+  const identity =
+    metrics || events
+      ? installCollectorIdentity(COMPONENT, metrics ? CLUSTER_STATE_RULES : [], provider, namespace)
+      : undefined;
+  const eventBindings =
+    identity && events
+      ? grantInNamespaces(`${COMPONENT}-events`, EVENT_RULES, identity, eventNamespaces, provider, eventNamespaceResources)
+      : [];
   const config: pulumi.Input<string> = qdrantMetricsTargets
     ? pulumi.output(qdrantMetricsTargets).apply((targets) => configFor(targets))
     : configFor(undefined);
@@ -128,6 +149,7 @@ export function installOtelCollector(
                 ports: [
                   { containerPort: OTLP_GRPC_PORT, name: "otlp-grpc" },
                   { containerPort: OTLP_HTTP_PORT, name: "otlp-http" },
+                  ...(cfg.posthog.logsEnabled ? [{ containerPort: SHIPPER_OTLP_PORT, name: "otlp-shipper" }] : []),
                   { containerPort: HEALTH_PORT, name: "health" },
                   ...(qdrantMetricsTargets ? [{ containerPort: METRICS_EXPORT_PORT, name: "metrics" }] : []),
                 ],
@@ -145,7 +167,7 @@ export function installOtelCollector(
                   { name: "config", mountPath: "/etc/otelcol", readOnly: true },
                 ],
                 resources: {
-                  requests: { cpu: "100m", memory: "128Mi" },
+                  requests: { cpu: cpuRequest("100m"), memory: "128Mi" },
                   limits: { cpu: "500m", memory: "512Mi" },
                 },
                 readinessProbe: {
@@ -168,7 +190,7 @@ export function installOtelCollector(
         },
       },
     },
-    { provider, dependsOn: [...dependsOn, configMap, ...(identity ? [identity.binding] : [])] },
+    { provider, dependsOn: [...dependsOn, configMap, ...(identity?.bindings ?? []), ...eventBindings] },
   );
 
   const service = new k8s.core.v1.Service(
@@ -180,6 +202,9 @@ export function installOtelCollector(
         ports: [
           { port: OTLP_GRPC_PORT, targetPort: OTLP_GRPC_PORT, name: "otlp-grpc" },
           { port: OTLP_HTTP_PORT, targetPort: OTLP_HTTP_PORT, name: "otlp-http" },
+          ...(cfg.posthog.logsEnabled
+            ? [{ port: SHIPPER_OTLP_PORT, targetPort: SHIPPER_OTLP_PORT, name: "otlp-shipper" }]
+            : []),
           ...(qdrantMetricsTargets
             ? [{ port: METRICS_EXPORT_PORT, targetPort: METRICS_EXPORT_PORT, name: "metrics" }]
             : []),
@@ -313,6 +338,89 @@ export function posthogLogs(host: string, projectToken: string, environment: str
       "logs/posthog": {
         receivers: [OTLP_RECEIVER],
         processors: ["filter/warn_and_above", "transform/posthog_redact", "resource/logs_environment"],
+        exporters: ["otlp_http/posthog"],
+      },
+    },
+  };
+}
+
+export const SHIPPER_RECEIVER = "otlp/shipper";
+
+export function containerLogs(): CollectorFragment {
+  return {
+    receivers: {
+      [SHIPPER_RECEIVER]: { protocols: { http: { endpoint: `0.0.0.0:${SHIPPER_OTLP_PORT}` } } },
+    },
+    processors: {
+      "resource/container_source": {
+        attributes: [{ key: LOG_SOURCE_ATTRIBUTE, value: LOG_SOURCE.container, action: "upsert" }],
+      },
+    },
+    pipelines: {
+      "logs/containers": {
+        receivers: [SHIPPER_RECEIVER],
+        processors: ["resource/container_source", "resource/logs_environment"],
+        exporters: ["otlp_http/posthog"],
+      },
+    },
+  };
+}
+
+export const EVENTS_RECEIVER = "k8sobjects/events";
+
+const EVENT = 'log.body["object"]';
+
+export function kubernetesEvents(namespaces: string[]): CollectorFragment {
+  return {
+    receivers: {
+      [EVENTS_RECEIVER]: {
+        auth_type: "serviceAccount",
+        objects: [{ name: "events", group: "events.k8s.io", mode: "watch", namespaces }],
+      },
+    },
+    processors: {
+      "filter/event_deletions": { error_mode: "ignore", log_conditions: ['log.body["type"] == "DELETED"'] },
+      "transform/k8s_events": {
+        error_mode: "ignore",
+        log_statements: [
+          {
+            context: "log",
+            statements: [
+              `set(log.attributes["service.name"], "k8s-events")`,
+              `set(log.attributes["${LOG_SOURCE_ATTRIBUTE}"], "${LOG_SOURCE.event}")`,
+              `set(log.attributes["k8s.namespace.name"], ${EVENT}["regarding"]["namespace"])`,
+              `set(log.attributes["k8s.event.reason"], ${EVENT}["reason"])`,
+              `set(log.attributes["k8s.event.type"], ${EVENT}["type"])`,
+              `set(log.attributes["k8s.event.count"], 1)`,
+              `set(log.attributes["k8s.event.count"], ${EVENT}["deprecatedCount"]) where ${EVENT}["deprecatedCount"] != nil`,
+              `set(log.attributes["k8s.event.count"], ${EVENT}["series"]["count"]) where ${EVENT}["series"] != nil`,
+              `set(log.attributes["k8s.event.reporter"], ${EVENT}["reportingController"])`,
+              `set(log.attributes["k8s.object.kind"], ${EVENT}["regarding"]["kind"])`,
+              `set(log.attributes["k8s.object.name"], ${EVENT}["regarding"]["name"])`,
+              `set(log.attributes["k8s.object.field_path"], ${EVENT}["regarding"]["fieldPath"])`,
+              `set(log.attributes["k8s.pod.name"], ${EVENT}["regarding"]["name"]) where ${EVENT}["regarding"]["kind"] == "Pod"`,
+              `set(log.severity_number, SEVERITY_NUMBER_WARN) where ${EVENT}["type"] == "Warning"`,
+              `set(log.severity_number, SEVERITY_NUMBER_INFO) where ${EVENT}["type"] != "Warning"`,
+              `set(log.severity_text, "warn") where log.severity_number == SEVERITY_NUMBER_WARN`,
+              `set(log.severity_text, "info") where log.severity_number == SEVERITY_NUMBER_INFO`,
+              `set(log.body, ${EVENT}["note"])`,
+            ],
+          },
+        ],
+      },
+      "groupbyattrs/k8s_events": {
+        keys: ["service.name", LOG_SOURCE_ATTRIBUTE, "k8s.namespace.name", "k8s.pod.name"],
+      },
+    },
+    pipelines: {
+      "logs/k8s_events": {
+        receivers: [EVENTS_RECEIVER],
+        processors: [
+          "filter/event_deletions",
+          "transform/k8s_events",
+          "groupbyattrs/k8s_events",
+          "resource/logs_environment",
+        ],
         exporters: ["otlp_http/posthog"],
       },
     },

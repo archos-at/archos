@@ -1,36 +1,47 @@
-// @disk-inputs: ui/features/cards/**
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+// @disk-inputs: app/**, bff/**, i18n/**, shared/**, types/**, ui/**, utils/**
 import { describe, expect, it } from 'vitest'
-import { blankComments } from '../../../scripts/check-static-utility-modifiers.mjs'
+import { createElement } from 'react'
+import { render, screen } from '@/test-utils'
+import { exportedNames, nodesOf, parseSource, productionSources, ts } from '@/test-utils/source-ast'
+import { VerdictHeaderCard } from './components/VerdictHeaderCard'
 
-const ROOT = __dirname
+const CARDS_DIR = 'ui/features/cards/'
 
-const KEPT: Record<string, string> = {
-  'components/VerdictHeaderCard.tsx': 'the gavel marks a ruling; the label is its subject',
-}
-
-const sources = (dir: string, out: string[] = []): string[] => {
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry)
-    if (statSync(path).isDirectory()) sources(path, out)
-    else if (/\.tsx$/.test(entry) && !/\.(spec|test)\.tsx$/.test(entry)) out.push(path)
-  }
-  return out
+const hasIconSectionLabel = (file: string): boolean => {
+  const source = parseSource(file)
+  const tags = [...nodesOf(source, ts.isJsxOpeningElement), ...nodesOf(source, ts.isJsxSelfClosingElement)]
+  return tags.some(
+    (tag) =>
+      ts.isIdentifier(tag.tagName) &&
+      tag.tagName.text === 'SectionLabel' &&
+      tag.attributes.properties.some(
+        (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === 'icon'
+      )
+  )
 }
 
 describe('section marks in the answer are text only', () => {
-  it('no card hands SectionLabel an icon', () => {
-    const offenders = sources(ROOT)
-      .map((file) => file.slice(ROOT.length + 1))
-      .filter((file) => !(file in KEPT))
-      .filter((file) => /<SectionLabel\b[^>]*\bicon=/.test(blankComments(readFileSync(join(ROOT, file), 'utf8')) as string))
+  it('no card hands SectionLabel an icon, except the verdict whose gavel marks a ruling', () => {
+    const cards = productionSources().filter((file) => file.startsWith(CARDS_DIR))
+    expect(cards.length).toBeGreaterThan(0)
+    const offenders = cards
+      .filter((file) => !exportedNames(parseSource(file)).includes('VerdictHeaderCard'))
+      .filter(hasIconSectionLabel)
     expect(offenders).toEqual([])
   })
 
-  it('a kept icon is still there, or its entry goes', () => {
-    for (const file of Object.keys(KEPT)) {
-      expect(readFileSync(join(ROOT, file), 'utf8')).toMatch(/<SectionLabel\b[^>]*\bicon=/)
-    }
+  it('the verdict keeps its gavel on the subject, the label beside it', () => {
+    render(
+      createElement(VerdictHeaderCard, {
+        verdict: '1,10 m',
+        subject: 'Erforderliche Geländerhöhe',
+        confidence: 'high',
+        confidence_reason: null,
+      })
+    )
+
+    const label = screen.getByText('Erforderliche Geländerhöhe')
+    expect(label.classList).toContain('flex')
+    expect(label.querySelector('svg')).toHaveClass('lucide-gavel')
   })
 })

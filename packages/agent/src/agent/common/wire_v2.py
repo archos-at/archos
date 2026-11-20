@@ -589,6 +589,7 @@ ACCEPTED_CLIENT_FIELDS: tuple[str, ...] = (
     "user_message.trigger",
     "user_message.if_idle",
     "user_message.client_tools",
+    "user_message.answer_excerpt",
     "steer",
 )
 
@@ -843,6 +844,9 @@ class TurnTrigger(_Model):
     annotation_id: str | None = Field(default=None, min_length=1, max_length=128)
 
 
+MAX_ANSWER_EXCERPT_CHARS = 2000
+
+
 class UserMessage(_ClientBase):
     type: Literal["user_message"] = "user_message"
     message_id: str = Field(min_length=1, max_length=128, description="Becomes the turn_id.")
@@ -920,6 +924,16 @@ class UserMessage(_ClientBase):
             "accepts 'user_message.client_tools'."
         ),
     )
+    answer_excerpt: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_ANSWER_EXCERPT_CHARS,
+        description=(
+            "The part of an earlier answer in this conversation that the person selected and asks this "
+            "question about. Rendered for the model as what the question refers to. Sent only to a server "
+            "whose hello accepts 'user_message.answer_excerpt'."
+        ),
+    )
 
 
 class InteractionResponse(_ClientBase):
@@ -981,39 +995,3 @@ ClientMessage = Annotated[
 WIRE_EVENT: TypeAdapter[Any] = TypeAdapter(WireEvent)
 CLIENT_MESSAGE: TypeAdapter[Any] = TypeAdapter(ClientMessage)
 HELLO: TypeAdapter[Hello] = TypeAdapter(Hello)
-
-
-def _consts_required(node: Any) -> None:
-    if isinstance(node, list):
-        for entry in node:
-            _consts_required(entry)
-        return
-    if not isinstance(node, dict):
-        return
-    properties = node.get("properties")
-    if isinstance(properties, dict):
-        consts = [name for name, prop in properties.items() if isinstance(prop, dict) and "const" in prop]
-        required = list(node.get("required", []))
-        node["required"] = required + [name for name in consts if name not in required]
-    for value in node.values():
-        _consts_required(value)
-
-
-def wire_json_schema() -> dict[str, Any]:
-    events = WIRE_EVENT.json_schema(ref_template="#/$defs/{model}")
-    clients = CLIENT_MESSAGE.json_schema(ref_template="#/$defs/{model}")
-    hello = HELLO.json_schema(ref_template="#/$defs/{model}")
-    defs = {**events.pop("$defs", {}), **clients.pop("$defs", {}), **hello.pop("$defs", {})}
-    defs["WireEvent"] = events
-    defs["ClientMessage"] = clients
-    defs["Hello"] = hello
-    _consts_required(defs)
-    return {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "title": "Chat wire v2",
-        "description": (
-            "Generated from packages/agent/src/agent/common/wire_v2.py by scripts/generate_wire_schema.py. "
-            "Do not edit by hand; packages/agent/tests/common/test_wire_v2.py fails when it is stale."
-        ),
-        "$defs": dict(sorted(defs.items())),
-    }

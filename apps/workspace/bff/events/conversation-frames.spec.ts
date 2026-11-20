@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { conversationFramesAvailable, decodeConversationFrame } from './conversation-frames'
 
 const EVENT = {
@@ -69,17 +69,17 @@ describe('conversationFramesAvailable', () => {
   const original = process.env.REDIS_URL
 
   afterEach(() => {
-    if (original === undefined) delete process.env.REDIS_URL
-    else process.env.REDIS_URL = original
+    if (original === undefined) vi.stubEnv('REDIS_URL', undefined)
+    else vi.stubEnv('REDIS_URL', original)
   })
 
   it('is false with no shared cache tier, so the route can say so once', () => {
-    delete process.env.REDIS_URL
+    vi.stubEnv('REDIS_URL', undefined)
     expect(conversationFramesAvailable()).toBe(false)
   })
 
   it('is true when one is configured', () => {
-    process.env.REDIS_URL = 'redis://dragonfly:6379'
+    vi.stubEnv('REDIS_URL', 'redis://dragonfly:6379')
     expect(conversationFramesAvailable()).toBe(true)
   })
 })

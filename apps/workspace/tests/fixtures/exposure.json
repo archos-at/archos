@@ -920,6 +920,26 @@
    "withheld": null,
    "reason": null
   },
+  "office-shelf-folder-norms-decide": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "whether a file in an ordinary folder becomes a norm the office relies on, or stays an ordinary file for good, is the person’s decision"
+  },
+  "office-shelf-folder-norms-list": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "office-shelf-folder-update": {
    "kind": "catalog",
    "domain": "folders",
@@ -1130,6 +1150,16 @@
    "withheld": null,
    "reason": null
   },
+  "inbound-mail-address-forwards-set": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "inbound-mail-address-get": {
    "kind": "catalog",
    "domain": "mail",
@@ -1212,6 +1242,16 @@
    "platform": false,
    "withheld": null,
    "reason": "held mail is unconfirmed third-party content nobody has filed yet; the agent reads it once a person filed it into the project"
+  },
+  "inbound-mail-report": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "warns colleagues in their inbox that a mail is fraud; only a person who read the mail makes that call, never an agent or an outside one a mail could steer"
   },
   "inbound-mail-restore": {
    "kind": "catalog",
@@ -1779,6 +1819,26 @@
    "withheld": null,
    "reason": null
   },
+  "conversation-draft-delete": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "conversation-draft-download": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "conversation-draft-file": {
    "kind": "catalog",
    "domain": "conversations",
@@ -1790,6 +1850,16 @@
    "reason": null
   },
   "conversation-draft-get": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "conversation-draft-rendition-get": {
    "kind": "catalog",
    "domain": "conversations",
    "sensitivity": null,
@@ -2800,6 +2870,16 @@
    "withheld": null,
    "reason": null
   },
+  "base-knowledge-recognize": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "base-knowledge-remove": {
    "kind": "catalog",
    "domain": "knowledge",
@@ -2811,6 +2891,26 @@
    "reason": null
   },
   "base-knowledge-report": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-settle": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms"
+  },
+  "base-knowledge-unlist": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,
@@ -2871,6 +2971,26 @@
    "reason": null
   },
   "norm-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "project-norm-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "project-norm-place": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,

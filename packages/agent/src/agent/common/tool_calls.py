@@ -11,11 +11,11 @@ from agent.common.status_keys import KEY_ACTION_ANNOTATIONS_REPLY
 from agent.common.status_keys import KEY_ACTION_ANNOTATIONS_SET
 from agent.common.status_keys import KEY_ACTION_ANNOTATIONS_UPDATE
 from agent.common.status_keys import KEY_ACTION_CARD
+from agent.common.status_keys import KEY_ACTION_CODE_RUN
 from agent.common.status_keys import KEY_ACTION_DRAFT_EDIT
 from agent.common.status_keys import KEY_ACTION_DRAFT_FILED
 from agent.common.status_keys import KEY_ACTION_DRAFT_LIST
 from agent.common.status_keys import KEY_ACTION_DRAFT_READ
-from agent.common.status_keys import KEY_ACTION_DRAFT_SUBMITTED
 from agent.common.status_keys import KEY_ACTION_DRAFT_WRITE
 from agent.common.status_keys import KEY_ACTION_FILE_PROPOSAL
 from agent.common.status_keys import KEY_ACTION_LOOK
@@ -64,6 +64,7 @@ _ACTION_KEYS = {
     "edit_file": KEY_ACTION_DRAFT_EDIT,
     "propose_file_change": KEY_ACTION_FILE_PROPOSAL,
     "file_draft": KEY_ACTION_DRAFT_FILED,
+    "execute": KEY_ACTION_CODE_RUN,
     "create_task": KEY_ACTION_TASK_CREATED,
     "marks": KEY_ACTION_ANNOTATIONS_READ,
     "mark": KEY_ACTION_ANNOTATIONS_PROPOSE,
@@ -81,8 +82,6 @@ def _flag(args: Any, name: str) -> bool:
 def action_status_key(base: str, args: Any, name: str = "") -> str | None:
     if is_workspace_call(name):
         return KEY_ACTION_WORKSPACE_CALL
-    if base == "file_draft" and _flag(args, "submit"):
-        return KEY_ACTION_DRAFT_SUBMITTED
     if base == "mark" and _flag(args, "open"):
         return KEY_ACTION_ANNOTATIONS_SET
     return _ACTION_KEYS.get(base)

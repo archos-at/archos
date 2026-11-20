@@ -243,7 +243,7 @@ export function loadSeaweedfs(cfg: pulumi.Config): SeaweedfsConfig {
     );
   }
       return {
-    image: cfg.get("seaweedfsImage") ?? "chrislusf/seaweedfs:latest",
+    image: cfg.get("seaweedfsImage") ?? "chrislusf/seaweedfs:4.54",
     storageSize: cfg.get("seaweedfsStorageSize") ?? "20Gi",
     growVolume: bool(cfg, "seaweedfsGrowVolume", false),
     bucket: cfg.get("seaweedfsBucket") ?? "grid-documents",

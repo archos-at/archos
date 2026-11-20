@@ -240,7 +240,7 @@ Fields:
 | `confidence` | required on research | low/medium/high + reason | Chip; server may lower, never raise |
 | `escalate_to_deep` | control | Hand-off | Banner |
 
-The gates are deterministic and fail-open (`answer_envelope.py:46–54`). A long “verdict” is dropped. Takeaways vanish if the prose is short. **Nothing in the schema says “this turn is not a ruling.”** Absence of a verdict is a missing masthead, not a different document type. The prompt still tells the model that “a ruling is earned, a summary is owed” (`researcher.j2:44`).
+The gates are deterministic and fail-open (`envelope_gates.py`). A long “verdict” is dropped. Takeaways vanish if the prose is short. **Nothing in the schema says “this turn is not a ruling.”** Absence of a verdict is a missing masthead, not a different document type. The prompt still tells the model that “a ruling is earned, a summary is owed” (`researcher.j2:44`).
 
 The frontend dispatches this as `AnatomyMasthead`: verdict first, then summary, hairline, then prose (`AnswerAnatomy.tsx:29–47`). The verdict card uses a **Gavel** icon at 30px (`VerdictHeaderCard.tsx`). There is one answer template (`AgentResponse`), not several. The tab is **„Ergebnis“** for every non-`meta` turn and **„Hinweis“** only when observed routing is `meta` (no data-source tool *and* no confidence). A folder question that happens to search becomes Ergebnis. Sources row: **„Belegt durch“**, or **„Ohne Quellenbeleg“** if a substantive turn cited nothing. Confidence chip label: **„Einschätzung“**. Export copy: “Verdict” / “Urteil”.
 
@@ -485,7 +485,7 @@ A turn like “Soll-Ist über alle OIB-Richtlinien” should create a task of ki
 ### This repo (primary)
 
 - `packages/agent/src/agent/agents/shallow_researcher/prompts/researcher.j2` — identity, output contract, stimme, envelope teaching, 2-call cap
-- `packages/agent/src/agent/common/answer_envelope.py` — schema, gates, “verdict is the headline”
+- `packages/agent/src/agent/common/envelope_schema.py` and `envelope_gates.py` — schema, gates, “verdict is the headline”
 - `packages/agent/src/agent/agents/shallow_researcher/agent.py` — ReAct loop, budgets, forced synthesis, repair
 - `configs/config_oib_openrouter.yml` — tool list, `max_tool_iterations: 7`, `repair_pass` (the `compliance_check` binding is retired; see §1)
 - `packages/agent/src/agent/common/turn_status.py` — live status keys, requery/repair events, replace-not-accumulate

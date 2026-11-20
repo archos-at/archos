@@ -328,7 +328,7 @@ register_agent(
 
 Requirements:
 - **config_name** must match a function in your YAML (e.g. `deep_research_agent`).
-- The agent class must be constructable from that config and support the run signature expected by the runner (see `jobs/runner.py`).
+- The agent class must be constructable from that config and support the run signature expected by the runner (see `jobs/agent_run.py`).
 
 ## Knowledge API
 

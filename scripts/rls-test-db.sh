@@ -72,8 +72,10 @@ run_pg() { if [ -n "$RUNAS" ]; then su "$RUNAS" -c "$1"; else sh -c "$1"; fi; }
 
 echo "==> $("$PGBIN/postgres" --version)"
 echo "==> initialising a throwaway cluster on port $PORT"
-run_pg "'$PGBIN/initdb' -D '$PGDATA' -U postgres --auth=trust" >/dev/null
-run_pg "'$PGBIN/pg_ctl' -D '$PGDATA' -o '-p $PORT -k $WORKDIR' -l '$PGDATA/server.log' -w start" >/dev/null
+run_pg "'$PGBIN/initdb' -D '$PGDATA' -U postgres --auth=trust --encoding=UTF8 --locale=C" >/dev/null
+# max_connections: the batch's parallel files each pool up to DB_POOL_MAX (10);
+# past the default 100 a late file dies with 53300 "remaining connection slots".
+run_pg "'$PGBIN/pg_ctl' -D '$PGDATA' -o '-p $PORT -k $WORKDIR -c max_connections=400' -l '$PGDATA/server.log' -w start" >/dev/null
 
 # NOTICEs from the idempotent DROP ... IF EXISTS guards are expected noise.
 export PGOPTIONS="-c client_min_messages=warning"
@@ -169,6 +171,20 @@ if [ "${1:-}" = "--only" ]; then
   exit 0
 fi
 
+SUITES="$REPO_ROOT/scripts/rls-test-db-suites.txt"
+run_step() {
+  local step="$1" name path specs=()
+  shift
+  while read -r name path; do
+    if [ "$name" = "$step" ]; then specs+=("$path"); fi
+  done < "$SUITES"
+  if [ "${#specs[@]}" -eq 0 ]; then
+    echo "error: $SUITES names no suite for the step '$step'" >&2
+    exit 1
+  fi
+  "$@" "${specs[@]}"
+}
+
 # Every suite here needs the same cluster and the same restricted role. The BIM
 # and memory ones are here rather than in the unit shards because every claim
 # they make is a claim about SQL — jsonb property filters, grouped aggregates,
@@ -176,7 +192,8 @@ fi
 # cosine query — and a mocked drizzle handle cannot disagree with the fixture
 # that mocked it. (The memory suite is the one that found the semantic gate
 # reading `.rows` off a postgres-js array, which every mock had agreed with.)
-# The inbound mail and mail thread suites (ADR-0137) are named here before
+# Each step's suites are the lines of `rls-test-db-suites.txt` that name it, in
+# order. The inbound mail and mail thread suites (ADR-0137) are named there before
 # their files exist, one per package that writes one: the repository (D7, D8),
 # the sweeps (D12), the review-first ratchet (D9), append (D9), follow (D10)
 # and the archive (D11). A name vitest finds no file for filters nothing, and
@@ -191,92 +208,10 @@ release_databases
 # 2026-11-10 once the batch's timing moved).
 echo "==> running the site-resolution suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/site-resolution/site-resolution.integration.spec.ts
-echo "==> running the isolation, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
+  run_step site-resolution npx vitest run
+echo "==> running the isolation, tenant keys, BIM query, memory consolidation, personal memory, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run \
-    bff/db/tenant-isolation.integration.spec.ts \
-    bff/bim/query.integration.spec.ts \
-    bff/bim/extraction-repository.integration.spec.ts \
-    bff/bim/model-shelf.integration.spec.ts \
-    bff/bim/model-kinds-repository.integration.spec.ts \
-    bff/projects/memory-service.integration.spec.ts \
-    bff/projects/memory-restricted.integration.spec.ts \
-    bff/personal-memory/personal-memory.integration.spec.ts \
-    bff/personal-memory/personal-memory-topics.integration.spec.ts \
-    bff/projects/memory-topics.integration.spec.ts \
-    bff/documents/document-versions.integration.spec.ts \
-    bff/documents/list-page.integration.spec.ts \
-    bff/documents/quarantine-listing.integration.spec.ts \
-    bff/documents/visibility.integration.spec.ts \
-    bff/documents/local-work-ownership.integration.spec.ts \
-    bff/documents/dispatch-failure-race.integration.spec.ts \
-    bff/upload-batches/upload-batches.integration.spec.ts \
-    bff/authz/folder-access.integration.spec.ts \
-    bff/projects/collection-placement.integration.spec.ts \
-    bff/projects/folder-visibility.integration.spec.ts \
-    bff/documents/shelf-folders.integration.spec.ts \
-    bff/projects/folder-bin.integration.spec.ts \
-    bff/documents/stuck-processing.integration.spec.ts \
-    bff/documents/retry-policy.integration.spec.ts \
-    bff/project-profile/profile-bindings.integration.spec.ts \
-    bff/compliance/legal-hold.integration.spec.ts \
-    bff/conversations/erasure-queue.integration.spec.ts \
-    bff/scheduling/conversation-trace-erasure.integration.spec.ts \
-    bff/conversations/restricted-use.integration.spec.ts \
-    bff/feedback/restricted-feedback.integration.spec.ts \
-    bff/tasks/subject-access.integration.spec.ts \
-    bff/tasks/active-runs.integration.spec.ts \
-    bff/conversations/cross-project-use.integration.spec.ts \
-    bff/cross-project/decisions-repository.integration.spec.ts \
-    bff/similar-passages/service.integration.spec.ts \
-    bff/permits/repository.integration.spec.ts \
-    bff/annotations/repository.integration.spec.ts \
-    bff/annotations/project-repository.integration.spec.ts \
-    bff/proposals/repository.integration.spec.ts \
-    bff/agent-api/operation-proposals.integration.spec.ts \
-    bff/agent-api/read-gate.integration.spec.ts \
-    bff/project-intake/repository.integration.spec.ts \
-    bff/project-intake/setup-records.integration.spec.ts \
-    bff/changes/repository.integration.spec.ts \
-    bff/push/repository.integration.spec.ts \
-    bff/agent-asks/repository.integration.spec.ts \
-    bff/turns/turn-steps.integration.spec.ts \
-    bff/residency/processing-policy.integration.spec.ts \
-    bff/inbox/repository.integration.spec.ts \
-    bff/project-experience/readable-files.integration.spec.ts \
-    bff/projects/memory-evidence.integration.spec.ts \
-    bff/download-log/download-log.integration.spec.ts \
-    bff/runs/reconcile.integration.spec.ts \
-    bff/budgets/service.integration.spec.ts \
-    bff/analytics/usage-export-repository.integration.spec.ts \
-    bff/feedback/repository.integration.spec.ts \
-    bff/citations/repository.integration.spec.ts \
-    bff/profiler/repository.integration.spec.ts \
-    bff/projects/project-status.integration.spec.ts \
-    bff/projects/project-record.integration.spec.ts \
-    bff/projects/cleanup.integration.spec.ts \
-    bff/feedback/repository.integration.spec.ts \
-    bff/filing/root-sort-run-repository.integration.spec.ts \
-    bff/folder-cards/repository.integration.spec.ts \
-    bff/estate-tree/repository.integration.spec.ts \
-    bff/mail-import/repository.integration.spec.ts \
-    bff/search/providers.integration.spec.ts \
-    bff/search/document-repository.integration.spec.ts \
-    bff/inbound-mail/repository.integration.spec.ts \
-    bff/inbound-mail/sweep.integration.spec.ts \
-    bff/inbound-mail/review-first.e2e.spec.ts \
-    bff/mail-thread/append.integration.spec.ts \
-    bff/mail-thread/follow.integration.spec.ts \
-    bff/mail-thread/archive.integration.spec.ts \
-    bff/base-knowledge/store/repository.integration.spec.ts \
-    bff/base-knowledge/store/office-editions.integration.spec.ts \
-    bff/base-knowledge/store/rulesets.integration.spec.ts \
-    bff/base-knowledge/platform/platform.integration.spec.ts \
-    bff/base-knowledge/platform/approve-alone.integration.spec.ts \
-    bff/base-knowledge/platform/single-operator.integration.spec.ts \
-    bff/base-knowledge/platform/texts.integration.spec.ts \
-    bff/base-knowledge/platform/organization-countries.integration.spec.ts
+  run_step batch npx vitest run
 
 # Editions in time: alone, after the platform suite, since both release
 # Austria's territory and a release over one moved since a request was opened
@@ -284,7 +219,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # request first lost (seen 2026-11-10 once a file joined the batch).
 echo "==> running the editions-in-time suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/base-knowledge/time/time.integration.spec.ts
+  run_step editions-in-time npx vitest run
 
 # The onboarding door (ADR-0170): a scripted client takes AT-9 through the
 # platform door to a stable release. Alone and after the platform suite, since
@@ -292,30 +227,30 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # request was opened is a 409 by design.
 echo "==> running the onboarding door suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/agent-api/onboarding-door.integration.spec.ts
+  run_step onboarding-door npx vitest run
 
 # The onboarding tooling (ADR-0174): a scripted client onboards the synthetic
 # country XA (a source record, its testing hosts, an advice policy, counsel's
 # approval) and the source monitor opens a change request when the source changes.
 echo "==> running the synthetic country suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/agent-api/synthetic-country-door.integration.spec.ts
+  run_step synthetic-country npx vitest run
 
 # A source whose documents are PDFs (ADR-0174 amendment): a pdf_document source
 # record, a real public PDF captured through it, and a quote from its page 2
 # that passes KC-6. Its own synthetic country (XP), so it shares no territory.
 echo "==> running the PDF source suite as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
-  npx vitest run bff/agent-api/pdf-source-door.integration.spec.ts
+  run_step pdf-source npx vitest run
 
 # A country's release, exported from one deployment's database and imported as a
 # draft into another's (rollover-to-prod, step 2). Its own two databases.
 echo "==> running the release transfer suite as app_rw"
-env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/release-transfer.integration.spec.ts
+run_step release-transfer env $RELEASE_URLS npx vitest run
 
 # Reviewed releases carried to a deployment by the promotion (ADR-0181): its own database.
 echo "==> running the knowledge carry suite as app_rw"
-env $RELEASE_URLS npx vitest run bff/base-knowledge/platform/carry.integration.spec.ts
+run_step carry env $RELEASE_URLS npx vitest run
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused
@@ -332,17 +267,12 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 # platform suite above publishes too: alone, so neither publish meets the other's.
 # The visibility suite reads the owner's URL to check the office predicate with
 # the row policy bypassed (`store/visibility.ts`).
+# The Papierkorb suites sweep the same deletion queue (`claimable()` in each), so
+# they run one at a time too.
 echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
 TEST_OWNER_DATABASE_URL="postgres://app_owner@127.0.0.1:$PORT/grid_app" \
-  npx vitest run --no-file-parallelism \
-    bff/jobs-queue/repository.integration.spec.ts \
-    bff/jobs-queue/task-run.integration.spec.ts \
-    bff/jobs-queue/orchestrator.integration.spec.ts \
-    bff/scheduling/repository.integration.spec.ts \
-    bff/base-knowledge/chain/chain.integration.spec.ts \
-    bff/base-knowledge/store/visibility.integration.spec.ts \
-    bff/base-knowledge/golden/golden-run.integration.spec.ts
+  run_step one-at-a-time npx vitest run --no-file-parallelism
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
@@ -472,6 +402,25 @@ apply_in() {
   $PGBIN/psql -h "$WORKDIR" -p "$PORT" -U "$OWNER" -d "$1" -v ON_ERROR_STOP=1 -q -f "migrations/$2" >/dev/null || {
     echo "MIGRATION $2 FAILED on $1 — re-run without -q to see the error" >&2
     exit 1
+  }
+}
+# One registered SQL backfill through the runner the deploy Job uses, twice: the
+# first run must write (unless "any" is passed) and the second must find 0.
+run_backfill() {
+  local manifest="backfills/$2/backfill.json"
+  PATH="$PGBIN:$PATH" APP_MIGRATION_DATABASE_URL="postgresql://$OWNER@127.0.0.1:$PORT/$1" sh backfills/run-sql.sh "$2" test \
+    "backfills/$2/$(node -p "require('./$manifest').dryRun")" "backfills/$2/$(node -p "require('./$manifest').apply")"
+}
+run_backfill_twice() {
+  local first second
+  first="$(run_backfill "$1" "$2")" || { echo "$first" >&2; echo "FAIL: backfill $2 left rows on $1" >&2; exit 1; }
+  second="$(run_backfill "$1" "$2")" || { echo "$second" >&2; echo "FAIL: backfill $2 left rows on its second run on $1" >&2; exit 1; }
+  echo "$first" | grep '"event":"backfill.done"'
+  if [ "${3:-}" != any ] && echo "$first" | grep -q '"event":"backfill.done".*"written":0,'; then
+    echo "FAIL: backfill $2 wrote nothing on its seeded rows on $1" >&2; exit 1
+  fi
+  echo "$second" | grep -q '"event":"backfill.done".*"before":0,"written":0,"after":0' || {
+    echo "$second" >&2; echo "FAIL: backfill $2 is not idempotent on $1" >&2; exit 1
   }
 }
 sql_in() { $PGBIN/psql -h "$WORKDIR" -p "$PORT" -U "$OWNER" -d "$1" -v ON_ERROR_STOP=1 -q >/dev/null; }
@@ -4458,3 +4407,348 @@ apply_in um_0244 0244_usage_events_model_once.down.sql
 apply_in um_0244 0244_usage_events_model_once.sql
 check_in um_0244 "$STATE_0244" "a-doubled=openai/gpt-6.1-terra,b-once=openai/gpt-6.1-terra,c-no-prefix=gpt-4ogpt-4o,d-none=null" "0244 applies again after its down and folds nothing twice"
 echo "==> 0244 model folded once and its down migration verified"
+# Migration 0245 and the step-1 backfills of deploy 2 (ADR-0182 phase 4).
+# 0245: current_org() and current_user_id() read app.* only; its down restores
+# 0241. The step-1 backfills of apps/workspace/backfills/ run through the
+# deploy Job's runner against seeded rows, twice each, and the mention and lane
+# rewrites are checked on literal values.
+# ---------------------------------------------------------------------------
+echo "==> verifying migration 0245 and the step-1 backfills on sn_0245"
+migrate_before sn_0245 0245_app_session_settings_only
+apply_in sn_0245 0245_app_session_settings_only.sql
+apply_in sn_0245 0245_app_session_settings_only.sql   # up twice: idempotent
+check_in sn_0245 "SELECT current_org() FROM (SELECT set_config('app.organization_id', 'org_new', false)) AS s" "org_new" "0245: current_org() reads app.organization_id"
+check_in sn_0245 "SELECT coalesce(current_org(), 'none') FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "none" "0245: current_org() no longer reads grid.organization_id"
+check_in sn_0245 "SELECT coalesce(current_user_id(), 'none') FROM (SELECT set_config('grid.user_id', 'user_old', false)) AS s" "none" "0245: current_user_id() no longer reads grid.user_id"
+check_in sn_0245 "SELECT count(*) FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid = d.adrelid AND a.attnum = d.adnum WHERE a.attname = 'organization_id' AND pg_get_expr(d.adbin, d.adrelid) LIKE '%app.organization_id%' AND pg_get_expr(d.adbin, d.adrelid) NOT LIKE '%grid.%'" "4" "0245: the four organization defaults read only the new setting"
+apply_in sn_0245 0245_app_session_settings_only.down.sql
+check_in sn_0245 "SELECT current_org() FROM (SELECT set_config('grid.organization_id', 'org_old', false)) AS s" "org_old" "0245 down: current_org() falls back to grid.organization_id again"
+apply_in sn_0245 0245_app_session_settings_only.sql
+
+sql_in sn_0245 <<'SQL'
+INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id, anchor_id, group_key, actionable, count, created_at) VALUES
+  ('org_b1', 'user_b1', 'piloti.asks_you', 'document', 'doc_1', 'ann_1', 'piloti.asks_you:document:doc_1:ann_1', true, 2, '2026-11-01'),
+  ('org_b1', 'user_b1', 'agent.asks_you', 'document', 'doc_1', 'ann_1', 'agent.asks_you:document:doc_1:ann_1', true, 1, '2026-11-10'),
+  ('org_b1', 'user_b1', 'piloti.work_done', 'document', 'doc_1', 'ann_2', 'piloti.work_done:document:doc_1:ann_2', false, 1, '2026-11-02'),
+  ('org_b1', 'user_b1', 'mention.requested', 'document', 'doc_1', 'ann_3', 'mention.requested:document:doc_1:ann_3', true, 1, '2026-11-03');
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000245', 'org_b1', 'Backfill 0245', 'user_b1', 'proj_0245');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+VALUES ('d1d1d1d1-0000-4000-8000-000000000245', 'org_b1', 'user_b1', 'a.pdf', 'k/0245/a', 'proj_0245', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000245');
+INSERT INTO document_annotations (organization_id, document_id, number, page, shape, x, y, w, h, kind, body, author_kind, status, created_by, mentions)
+VALUES ('org_b1', 'd1d1d1d1-0000-4000-8000-000000000245', 1, 1, 'region', 0.1, 0.1, 0.5, 0.5, 'question', 'Laufbreite?', 'piloti', 'proposed', 'user_b1',
+        '[{"targetId": "agent:piloti", "display": "agent:piloti"}, {"targetId": "user_b2", "display": "Ben"}]');
+INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id, anchor_id, group_key, actionable, payload) VALUES
+  ('org_b1', 'user_b2', 'mention.requested', 'document', 'doc_2', 'ann_9', 'mention.requested:document:doc_2:ann_9', true,
+   '{"note": "agent:piloti", "mentions": [{"targetId": "agent:piloti", "display": "Agent"}]}');
+INSERT INTO citation_events (organization_id, turn_id, agent, kind, severity, detail) VALUES
+  ('org_b1', 'turn_1', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 2, "office_agent": 3, "project": 1}}'),
+  ('org_b1', 'turn_2', 'agent', 'health', 'info', '{"lanes": {"office_piloti": 4}}'),
+  ('org_b1', 'turn_3', 'agent', 'health', 'info', '{"lanes": {"project": 5}}');
+INSERT INTO conversations (id, organization_id, created_by) VALUES ('conv_0245', 'org_b1', 'user_b1');
+INSERT INTO messages (id, conversation_id, organization_id, role, content, metadata)
+VALUES ('e1e1e1e1-0000-4000-8000-000000000245', 'conv_0245', 'org_b1', 'user', '@agent:piloti office_piloti',
+        '{"mentions": [{"targetId": "agent:piloti", "display": "agent:piloti"}], "lane": "office_piloti", "lanes": ["office_piloti", "project"], "counts": {"office_piloti": 1}}');
+SQL
+run_backfill_twice sn_0245 actor-kind
+run_backfill_twice sn_0245 inbox-types
+check_in sn_0245 "SELECT string_agg(type || '=' || count || '@' || created_at::date, ',' ORDER BY type) FROM inbox_items WHERE recipient_user_id = 'user_b1'" "agent.asks_you=3@2026-11-01,agent.work_done=1@2026-11-02,mention.requested=1@2026-11-03" "backfill: an old inbox row folds into its twin or takes the new type, and others stay"
+check_in sn_0245 "SELECT count(*) FROM inbox_items WHERE group_key LIKE 'piloti.%'" "0" "backfill: no group key keeps the old type"
+run_backfill_twice sn_0245 mention-ids
+check_in sn_0245 "SELECT author_kind || ' ' || status FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" "agent proposed" "backfill: the agent's proposal is the agent's, still proposed"
+check_in sn_0245 "SELECT mentions::text FROM document_annotations WHERE document_id = 'd1d1d1d1-0000-4000-8000-000000000245'" '[{"display": "agent:piloti", "targetId": "agent:core"}, {"display": "Ben", "targetId": "user_b2"}]' "backfill: a mark's agent mention takes the new id, a person's and the display text stay"
+check_in sn_0245 "SELECT payload::text FROM inbox_items WHERE anchor_id = 'ann_9'" '{"note": "agent:piloti", "mentions": [{"display": "Agent", "targetId": "agent:core"}]}' "backfill: an inbox payload's mention takes the new id, free text stays"
+run_backfill_twice sn_0245 lanes
+check_in sn_0245 "SELECT string_agg(detail -> 'lanes' ->> 'office_agent', ',' ORDER BY detail::text) FROM citation_events WHERE detail -> 'lanes' ? 'office_agent'" "4,5" "backfill: a lane count moves to the new key and adds to one already there"
+check_in sn_0245 "SELECT count(*) FROM citation_events WHERE detail -> 'lanes' ? 'office_piloti'" "0" "backfill: no lane count keeps the old key"
+check_in sn_0245 "SELECT metadata::text FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '{"lane": "office_agent", "lanes": ["office_agent", "project"], "counts": {"office_piloti": 1}, "mentions": [{"display": "agent:piloti", "targetId": "agent:core"}]}' "backfill: a message's agent mention and lane values take the new names, its keys and display text stay"
+check_in sn_0245 "SELECT content FROM messages WHERE id = 'e1e1e1e1-0000-4000-8000-000000000245'" '@agent:piloti office_piloti' "backfill: a message's text stays as written"
+echo "==> migration 0245 and the step-1 backfills verified"
+
+echo "==> verifying migration 0246 and the step-3 rename on ns_0246"
+migrate_before ns_0246 0246_documents_live_name_by_producer
+sql_in ns_0246 <<'SQL'
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000246', 'org_n1', 'Namespace 0246', 'user_n1', 'proj_0246');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
+                       authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind)
+VALUES ('d2d2d2d2-0000-4000-8000-000000000001', 'org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md',
+        'k/0246/1', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_document', 'conv_1-a', 'answer_artifact'),
+       ('d2d2d2d2-0000-4000-8000-000000000002', 'org_n1', 'user_n1', 'Bericht.pdf',
+        'k/0246/2', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'deep_research', 'run_1', 'agent_run'),
+       ('d2d2d2d2-0000-4000-8000-000000000003', 'org_n1', 'user_n1', 'plan.pdf',
+        'k/0246/3', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'user', NULL, NULL, NULL),
+       ('d2d2d2d2-0000-4000-8000-000000000004', 'org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000004/flaechen.csv',
+        'k/0246/6', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_file', 'conv_1-b', 'answer_artifact');
+SQL
+apply_in ns_0246 0246_documents_live_name_by_producer.sql
+apply_in ns_0246 0246_documents_live_name_by_producer.sql   # up twice: idempotent
+check_in ns_0246 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%authored_by_producer%' AND indexdef NOT LIKE '%piloti/%' AND indexdef NOT LIKE '%generated/%'" "1" "0246: the live-name rule names the producer, not a prefix"
+refused_in ns_0246 "INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id, authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind) VALUES ('org_n1', 'user_n1', 'piloti/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md', 'k/0246/4', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246', 'agent', 'agent_document', 'conv_2-a', 'answer_artifact')" "uniq_documents_live_name_per_collection" "0246: a second live agent document under one name is refused"
+sql_in ns_0246 <<'SQL'
+INSERT INTO documents (organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id,
+                       authored_by, authored_by_producer, authored_by_ref, authored_by_ref_kind)
+VALUES ('org_n1', 'user_n1', 'Bericht.pdf', 'k/0246/5', 'proj_0246', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000246',
+        'agent', 'deep_research', 'run_2', 'agent_run');
+SQL
+check_in ns_0246 "SELECT count(*) FROM documents WHERE filename = 'Bericht.pdf'" "2" "0246: a producer that is never indexed stays outside the rule, as before"
+apply_in ns_0246 0246_documents_live_name_by_producer.down.sql
+check_in ns_0246 "SELECT count(*) FROM pg_indexes WHERE indexname = 'uniq_documents_live_name_per_collection' AND indexdef LIKE '%generated/%'" "1" "0246 down: the prefix arms of 0243 are back"
+apply_in ns_0246 0246_documents_live_name_by_producer.sql
+run_backfill_twice ns_0246 agent-document-namespace
+check_in ns_0246 "SELECT string_agg(filename, ',' ORDER BY filename) FROM documents WHERE project_id = 'aaaaaaaa-0000-4000-8000-000000000246'" "Bericht.pdf,Bericht.pdf,generated/d2d2d2d2-0000-4000-8000-000000000001/vermerk.md,generated/d2d2d2d2-0000-4000-8000-000000000004/flaechen.csv,plan.pdf" "backfill: the agent document and the agent file move to generated/, every other name stays"
+
+echo "==> running the step-3 metadata rename against the backend's tables on bf_jobs"
+$PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE bf_jobs OWNER $OWNER;"
+sql_in bf_jobs <<'SQL'
+CREATE TABLE document_metadata (collection VARCHAR(256) NOT NULL, filename VARCHAR(512) NOT NULL, summary TEXT NOT NULL,
+                                superseded_by TEXT, revision_suggestion TEXT, PRIMARY KEY (collection, filename));
+CREATE TABLE document_revision_retained (collection VARCHAR(256) NOT NULL, filename VARCHAR(512) NOT NULL, superseded_by TEXT,
+                                         revision_suggestion TEXT, change_summary TEXT, change_basis TEXT, PRIMARY KEY (collection, filename));
+INSERT INTO document_metadata VALUES
+  ('c', 'piloti/d1/a.md', 's', 'piloti/d2/b.md', '[{"file_name": "piloti/d0/z.md", "basis": "name"}]'),
+  ('c', 'plan.pdf', 's', NULL, '[{"file_name": "plan-piloti/x.pdf"}]');
+INSERT INTO document_revision_retained VALUES ('c', 'piloti/d1/a.md', 'piloti/d2/b.md', NULL, NULL, NULL);
+SQL
+run_backfill_twice bf_jobs agent-document-namespace-metadata
+check_in bf_jobs "SELECT string_agg(filename || '>' || coalesce(superseded_by, '-') || '>' || coalesce(revision_suggestion, '-'), ' ' ORDER BY filename) FROM document_metadata" 'generated/d1/a.md>generated/d2/b.md>[{"file_name": "generated/d0/z.md", "basis": "name"}] plan.pdf>->[{"file_name": "plan-piloti/x.pdf"}]' "backfill: a metadata row's key, successor and suggested names move, a name that only contains the old prefix stays"
+check_in bf_jobs "SELECT filename || '>' || superseded_by FROM document_revision_retained" "generated/d1/a.md>generated/d2/b.md" "backfill: a retained revision row moves with it"
+echo "==> migration 0246 and the step-3 renames verified"
+
+# Migration 0250 (ADR-0137, amendment of 2026-11-19): a relaxed-aligned
+# writer's mail files directly, a colleague releases a mail that claims a writer
+# once they acknowledge it (an impersonation stays the member's), and an address
+# keeps the office's existing project addresses that forward to it.
+echo "==> verifying the 0250 release rule, the forwarding addresses and the down migration on rel_0250"
+migrate_before rel_0250 0250_inbound_mail_release_and_forwards
+W250="user_01J0MA1LUSERW00000000000W2"
+X250="user_01J0MA1LUSERX00000000000X2"
+P250="a0000000-0000-4000-8000-000000000250"
+A250="aa000000-0000-4000-8000-000000000250"
+sql_in rel_0250 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES ('$P250', 'org_0250', 'Release', '$W250', 'proj_0250');
+INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES ('$A250', 'org_0250', '$P250', 'aaaaaaaaaa25', 'release', '$W250');
+SQL
+V250=$'\\set VERBOSITY verbose\n'
+received250() {
+  sql_in rel_0250 <<<"INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_storage_key, raw_scan_status, raw_scanned_at, expires_at) VALUES ('$1', 'org_0250', '$P250', '$A250', 'received', md5('$1') || md5('$1'), 100, 'b', 'org/org_0250/project/$P250/_inbound-mail/$1/raw.eml', 'clean', now(), now() + interval '30 days');"
+}
+HOLD250="UPDATE inbound_mails SET status = 'waiting', sender_address = 'w@buero.at', (sender_trust, sender_reason, sender_user_id, sender_flags, automatic, sender_class) = "
+# A mail that claims W, held with <reason>, and its text part.
+claimed250() {  # <mail id> <trust> <reason>
+  sql_in rel_0250 <<SQL
+INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_reason, sender_user_id, sender_class, expires_at)
+VALUES ('$1', 'org_0250', '$P250', '$A250', 'waiting', md5('$1') || md5('$1'), 100, 'b', 'clean', now(), 'w@buero.at', '$2', '$3', '$W250', 'unverified_writer', now() + interval '30 days');
+INSERT INTO inbound_mail_parts (id, organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, storage_key, scan_status, scanned_at, risk_flags)
+VALUES (md5('part' || '$1')::uuid, 'org_0250', '$P250', '$1', 0, 'message', NULL, 'text/plain', 10, repeat('a', 64), NULL, 'not_applicable', NULL, '{}'::text[]);
+SQL
+}
+text250() {  # <mail id> <decider> <via> <acknowledged_sender>
+  echo "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name, thread_action, message_text, screening_release, acknowledged_sender, acknowledged_risk) VALUES ('org_0250', '$P250', '$1', md5('part' || '$1')::uuid, 'file', '$2', '$3', '', 'Verlauf', 'create', 'full', false, $4, false)"
+}
+act250() {  # <mail id> <action> <decider>
+  echo "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via) VALUES ('org_0250', '$P250', '$1', md5('part' || '$1')::uuid, '$2', '$3', 'app')"
+}
+CLAIMED250="inbound_mail_decisions_claimed_sender_releases"
+EVIDENCE250="inbound_mails_verified_writer_evidence"
+MRL="31000000-0000-4000-8000-000000000250"   # received, signed by a subdomain of the From domain
+MU1="32000000-0000-4000-8000-000000000250"   # claims W, unsigned
+MU2="33000000-0000-4000-8000-000000000250"   # claims W, unsigned: dismissed and restored by X
+MU3="34000000-0000-4000-8000-000000000250"   # claims W, unsigned: for the down
+received250 "$MRL"
+claimed250 "$MU1" member_unverified dkim_none
+claimed250 "$MU2" member_unverified dkim_none
+claimed250 "$MU3" member_unverified dkim_none
+refused_in rel_0250 "${V250}$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment}', false, 'verified_writer') WHERE id = '$MRL'" "$EVIDENCE250" "before 0250: a relaxed-aligned writer's mail as a verified writer's"
+refused_in rel_0250 "${V250}$(text250 "$MU1" "$X250" app true)" "$CLAIMED250" "before 0250: a colleague releasing a writer's unsigned mail"
+
+apply_in rel_0250 0250_inbound_mail_release_and_forwards.sql
+AFTER_0250=$($PSQL -d rel_0250 -tAc "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'")
+apply_in rel_0250 0250_inbound_mail_release_and_forwards.sql
+check_in rel_0250 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0250" "0250 re-applied changes nothing"
+
+# Relaxed alignment files directly; every other rule of the evidence stands.
+refused_in rel_0250 "${V250}$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment,stale_date}', false, 'verified_writer') WHERE id = '$MRL'" "$EVIDENCE250" "0250: a relaxed-aligned writer's mail with a stale date as a verified writer's"
+refused_in rel_0250 "${V250}$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment,not_addressed_to_project,bcc_own}', false, 'verified_writer') WHERE id = '$MRL'" "$EVIDENCE250" "0250: a relaxed-aligned Bcc copy as a verified writer's"
+refused_in rel_0250 "${V250}$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment}', true, 'verified_writer') WHERE id = '$MRL'" "$EVIDENCE250" "0250: a relaxed-aligned automatic mail as a verified writer's"
+sql_in rel_0250 <<<"$HOLD250('member_verified', 'dkim_pass', '$W250', '{relaxed_alignment}', false, 'verified_writer') WHERE id = '$MRL';"
+check_in rel_0250 "SELECT sender_class FROM inbound_mails WHERE id = '$MRL'" "verified_writer" "0250: a writer's mail signed by a subdomain of their domain is a verified writer's"
+
+# A colleague releases a writer's unsigned mail once they acknowledge it; never without.
+refused_in rel_0250 "${V250}$(text250 "$MU1" "$X250" app false)" "$CLAIMED250" "0250: a colleague filing a writer's unsigned mail without acknowledging it"
+refused_in rel_0250 "${V250}$(text250 "$MU1" "$X250" follow false)" "$CLAIMED250" "0250: a follower appending a writer's unsigned mail"
+sql_in rel_0250 <<<"$(text250 "$MU1" "$X250" app true);"
+sql_in rel_0250 <<<"$(act250 "$MU2" dismiss "$X250"); UPDATE inbound_mail_parts SET state = 'dismissed', ended_at = now() WHERE mail_id = '$MU2';"
+sql_in rel_0250 <<<"$(act250 "$MU2" restore "$X250");"
+check_in rel_0250 "SELECT string_agg(action || ':' || acknowledged_sender, ',' ORDER BY action) FROM inbound_mail_decisions WHERE decided_by = '$X250'" \
+  "dismiss:false,file:true,restore:false" "0250: a colleague files a writer's unsigned mail acknowledging it, and dismisses and restores one"
+
+# An impersonation stays the member's: a colleague is refused even acknowledging it, the member is not.
+i=0
+for reason in dkim_fail dkim_policy dkim_weak_algorithm dkim_short_key; do
+  i=$((i + 1))
+  MI="4${i}000000-0000-4000-8000-000000000250"
+  claimed250 "$MI" member_unverified "$reason"
+  refused_in rel_0250 "${V250}$(text250 "$MI" "$X250" app true)" "$CLAIMED250" "0250: a colleague releasing a writer's mail their domain rejected ($reason)"
+  refused_in rel_0250 "${V250}$(act250 "$MI" restore "$X250")" "$CLAIMED250" "0250: a colleague restoring a writer's mail their domain rejected ($reason)"
+done
+sql_in rel_0250 <<<"$(text250 "41000000-0000-4000-8000-000000000250" "$W250" app true);"
+
+# The office's existing project addresses: at most ten, lowercase, none empty.
+check_in rel_0250 "SELECT forwarded_from::text FROM inbound_mail_addresses WHERE id = '$A250'" "{}" "0250: an existing address forwards from nothing"
+sql_in rel_0250 <<<"UPDATE inbound_mail_addresses SET forwarded_from = '{projekt-kienberg@buero.at}' WHERE id = '$A250';"
+refused_in rel_0250 "UPDATE inbound_mail_addresses SET forwarded_from = '{Projekt@Buero.at}' WHERE id = '$A250'" "inbound_mail_addresses_forwarded_from_shape" "0250: a forwarding address not lowercased"
+refused_in rel_0250 "UPDATE inbound_mail_addresses SET forwarded_from = '{\"\"}' WHERE id = '$A250'" "inbound_mail_addresses_forwarded_from_shape" "0250: an empty forwarding address"
+refused_in rel_0250 "UPDATE inbound_mail_addresses SET forwarded_from = ARRAY(SELECT 'p' || n || '@buero.at' FROM generate_series(1, 11) AS n) WHERE id = '$A250'" "inbound_mail_addresses_forwarded_from_shape" "0250: eleven forwarding addresses"
+
+# Down: the list goes, the 0197 rules come back for new rows, what was decided stays.
+apply_in rel_0250 0250_inbound_mail_release_and_forwards.down.sql
+check_in rel_0250 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'inbound_mail_addresses' AND column_name = 'forwarded_from'" "0" "0250 down drops the forwarding addresses"
+check_in rel_0250 "SELECT count(*) FROM inbound_mail_decisions WHERE decided_by = '$X250'" "3" "0250 down keeps the colleague's decisions"
+check_in rel_0250 "SELECT sender_class FROM inbound_mails WHERE id = '$MRL'" "verified_writer" "0250 down keeps a relaxed-aligned verified writer's class"
+refused_in rel_0250 "${V250}$(text250 "$MU3" "$X250" app true)" "$CLAIMED250" "0250 down: a colleague releasing a writer's unsigned mail is refused again"
+apply_in rel_0250 0250_inbound_mail_release_and_forwards.sql
+check_in rel_0250 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0250" "0250 applies again after its down"
+echo "==> migration 0250 verified"
+
+# Migration 0252 (ADR-0137, amendment of 2026-11-19: replies from known
+# correspondents are filed without a click): a follow files a reply's clean
+# attachment into an existing folder, or as a Fassung, alongside the text it
+# appended; never a flagged, unscanned or stray one, never into a new folder.
+echo "==> verifying a follow's attachments and the down migration on fol_0252"
+migrate_before fol_0252 0252_follow_files_attachments
+U252="user_01J0MA1LUSERU00000000000U2"   # follows the Verlauf and appended the replies' text
+X252="user_01J0MA1LUSERX00000000000X2"   # follows it too, appended nothing
+P252="a0000000-0000-4000-8000-000000000252"
+A252="aa000000-0000-4000-8000-000000000252"
+T252="ea000000-0000-4000-8000-000000000252"
+F252="fa000000-0000-4000-8000-000000000252"
+G252="fb000000-0000-4000-8000-000000000252"
+D252="d1000000-0000-4000-8000-000000000252"
+FOLDER252="f0000000-0000-4000-8000-000000000252"
+M252="1a000000-0000-4000-8000-000000000252"   # a reply the follow appended
+N252="1b000000-0000-4000-8000-000000000252"   # a reply whose text nobody's follow appended
+R252="1c000000-0000-4000-8000-000000000252"   # a reply whose raw message did not scan clean
+sql_in fol_0252 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES ('$P252', 'org_0252', 'Follow', '$U252', 'proj_0252');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id) VALUES
+  ('$D252', 'org_0252', '$U252', 'Statik.md', 'k/0252/a', 'proj_0252', 'completed', 'project', '$P252');
+INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES ('$A252', 'org_0252', '$P252', 'aaaaaaaaaa52', 'follow', '$U252');
+INSERT INTO mail_threads (id, organization_id, project_id, document_id, base_subject, participant_domains, locale, created_by) VALUES
+  ('$T252', 'org_0252', '$P252', '$D252', 'Statik', '{statik.at}', 'de', '$U252');
+INSERT INTO mail_thread_follows (id, organization_id, project_id, thread_id, user_id, created_at, expires_at) VALUES
+  ('$F252', 'org_0252', '$P252', '$T252', '$U252', now() - interval '1 day', now() + interval '60 days'),
+  ('$G252', 'org_0252', '$P252', '$T252', '$X252', now() - interval '1 day', now() + interval '60 days');
+SQL
+reply252() {  # <mail id> <raw scan>
+  sql_in fol_0252 <<SQL
+INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_reason, sender_class, expires_at)
+VALUES ('$1', 'org_0252', '$P252', '$A252', 'waiting', md5('$1') || md5('$1'), 100, 'b', '$2', now(), 'huber@statik.at', 'external_verified', 'dkim_pass', 'external', now() + interval '14 days');
+INSERT INTO inbound_mail_parts (id, organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, storage_key, scan_status, scanned_at, risk_flags) VALUES
+  (md5('text' || '$1')::uuid, 'org_0252', '$P252', '$1', 0, 'message', NULL, 'text/plain', 10, repeat('a', 64), NULL, 'not_applicable', NULL, '{}'::text[]),
+  (md5('clean' || '$1')::uuid, 'org_0252', '$P252', '$1', 1, 'attachment', 'S-101.pdf', 'application/pdf', 10, repeat('b', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/1', 'clean', now(), '{}'::text[]),
+  (md5('flagged' || '$1')::uuid, 'org_0252', '$P252', '$1', 2, 'attachment', 'Rechnung.docm', 'application/pdf', 10, repeat('c', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/2', 'clean', now(), '{macro}'::text[]),
+  (md5('unscanned' || '$1')::uuid, 'org_0252', '$P252', '$1', 3, 'attachment', 'S-102.pdf', 'application/pdf', 10, repeat('d', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/3', 'pending', NULL, '{}'::text[]),
+  (md5('other' || '$1')::uuid, 'org_0252', '$P252', '$1', 4, 'attachment', 'S-103.pdf', 'application/pdf', 10, repeat('e', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/4', 'clean', now(), '{}'::text[]),
+  (md5('fassung' || '$1')::uuid, 'org_0252', '$P252', '$1', 5, 'attachment', 'Statik.pdf', 'application/pdf', 10, repeat('f', 64), 'org/org_0252/project/$P252/_inbound-mail/$1/5', 'clean', now(), '{}'::text[]);
+SQL
+}
+text252() {  # <mail id>: the follow F252 appends its text, as U252
+  echo "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, thread_action, mail_thread_id, message_text) VALUES ('org_0252', '$P252', '$1', md5('text' || '$1')::uuid, 'file', '$U252', 'follow', '$F252', 'append', '$T252', 'full')"
+}
+att252() {  # <mail id> <part> <decider> <follow> <folder_id> <folder_path> <target document> [<acknowledged_risk>]
+  echo "INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, folder_id, folder_path, file_name, target_document_id, acknowledged_risk) VALUES (md5('decision' || '$2' || '$1' || '$3' || '$6')::uuid, 'org_0252', '$P252', '$1', md5('$2' || '$1')::uuid, 'file', '$3', 'follow', '$4', $5, '$6', 'Datei.pdf', $7, ${8:-false})"
+}
+claim252() {  # <mail id> <part> <decider> <folder_path>
+  echo "UPDATE inbound_mail_parts SET state = 'filing', decision_id = md5('decision' || '$2' || '$1' || '$3' || '$4')::uuid, claim_expires_at = now() + interval '5 minutes' WHERE id = md5('$2' || '$1')::uuid"
+}
+V252=$'\\set VERBOSITY verbose\n'
+reply252 "$M252" clean
+reply252 "$N252" clean
+reply252 "$R252" failed
+sql_in fol_0252 <<<"$(text252 "$M252"); $(text252 "$R252");"
+refused_in fol_0252 "${V252}$(att252 "$M252" clean "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_files_text" "before 0252: a follow filing its reply's clean attachment into an existing folder"
+
+apply_in fol_0252 0252_follow_files_attachments.sql
+AFTER_0252=$($PSQL -d fol_0252 -tAc "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'")
+apply_in fol_0252 0252_follow_files_attachments.sql
+check_in fol_0252 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0252" "0252 re-applied changes nothing"
+
+# The follow that appended the text files the reply's clean attachments: into a folder, or as a Fassung, and claims them.
+sql_in fol_0252 <<<"$(att252 "$M252" clean "$U252" "$F252" "'$FOLDER252'" Statik NULL); $(claim252 "$M252" clean "$U252" Statik);"
+sql_in fol_0252 <<<"$(att252 "$M252" fassung "$U252" "$F252" NULL '' "'$D252'"); $(claim252 "$M252" fassung "$U252" '');"
+check_in fol_0252 "SELECT string_agg(p.filename || ':' || p.state, ',' ORDER BY p.position) FROM inbound_mail_parts p JOIN inbound_mail_decisions d ON d.id = p.decision_id WHERE p.mail_id = '$M252' AND d.via = 'follow'" \
+  "S-101.pdf:filing,Statik.pdf:filing" "0252: a follow files a reply's clean attachment into an existing folder and one as a Fassung"
+
+# Never a flagged, unscanned or stray attachment, never into a folder to be made, never with an acknowledgement.
+refused_in fol_0252 "${V252}$(att252 "$M252" flagged "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: a follow filing a flagged attachment"
+refused_in fol_0252 "${V252}$(att252 "$M252" unscanned "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: a follow filing an attachment not yet scanned"
+refused_in fol_0252 "${V252}$(att252 "$N252" clean "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: a follow filing an attachment of a reply whose text it did not append"
+refused_in fol_0252 "${V252}$(att252 "$M252" other "$X252" "$G252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: another follower's follow filing an attachment of a reply it did not append"
+refused_in fol_0252 "${V252}$(att252 "$R252" clean "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_attachment_clean" "0252: a follow filing an attachment of a reply whose raw message did not scan clean"
+refused_in fol_0252 "$(att252 "$M252" other "$U252" "$F252" NULL 'Statik/Neu' NULL)" "inbound_mail_decisions_follow_files_clean" "0252: a follow filing an attachment into a folder it would create"
+refused_in fol_0252 "$(att252 "$M252" other "$U252" "$F252" "'$FOLDER252'" Statik NULL true)" "inbound_mail_decisions_follow_files_clean" "0252: a follow acknowledging an attachment's risk"
+refused_in fol_0252 "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, folder_path, file_name, thread_action, message_text) VALUES ('org_0252', '$P252', '$N252', md5('text' || '$N252')::uuid, 'file', '$U252', 'follow', '$F252', 'Statik', 'Neu', 'create', 'full')" "inbound_mail_decisions_follow_files_clean" "0252: a follow starting a new Verlauf"
+# An attachment flagged after its follow's decision is not claimed on it.
+sql_in fol_0252 <<<"$(att252 "$M252" other "$U252" "$F252" "'$FOLDER252'" Statik NULL); UPDATE inbound_mail_parts SET risk_flags = '{type_mismatch}' WHERE id = md5('other' || '$M252')::uuid;"
+refused_in fol_0252 "${V252}$(claim252 "$M252" other "$U252" Statik)" "inbound_mail_parts_follow_files_clean" "0252: an attachment flagged since its follow's decision claimed on it"
+
+# Down: what a follow decided stays, and a follow files a text and nothing else again.
+apply_in fol_0252 0252_follow_files_attachments.down.sql
+check_in fol_0252 "SELECT count(*) FROM inbound_mail_decisions d JOIN inbound_mail_parts p ON p.id = d.part_id WHERE d.via = 'follow' AND p.kind = 'attachment'" "3" "0252 down keeps a follow's attachment decisions"
+refused_in fol_0252 "${V252}$(att252 "$M252" unscanned "$U252" "$F252" "'$FOLDER252'" Statik NULL)" "inbound_mail_decisions_follow_files_text" "0252 down: a follow filing an attachment is refused again"
+apply_in fol_0252 0252_follow_files_attachments.sql
+check_in fol_0252 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%'" "$AFTER_0252" "0252 applies again after its down"
+echo "==> migration 0252 verified"
+
+# Migration 0255 (ADR-0137, amendment of 2026-11-19): an outsider's mail that
+# ran out is restored like anyone's, within the seven days the sweep keeps it.
+echo "==> verifying an outsider's expired part is restored, and the down migration, on exp_0255"
+migrate_before exp_0255 0255_external_expiry_restorable
+U255="user_01J0MA1LUSERU00000000000U5"
+P255="a0000000-0000-4000-8000-000000000255"
+A255="aa000000-0000-4000-8000-000000000255"
+M255="1a000000-0000-4000-8000-000000000255"
+T255="2a000000-0000-4000-8000-000000000255"
+sql_in exp_0255 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES ('$P255', 'org_0255', 'Ablauf', '$U255', 'proj_0255');
+INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES ('$A255', 'org_0255', '$P255', 'aaaaaaaaaa55', 'ablauf', '$U255');
+INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_reason, sender_class, expires_at)
+VALUES ('$M255', 'org_0255', '$P255', '$A255', 'waiting', md5('$M255') || md5('$M255'), 100, 'b', 'clean', now(), 'huber@statik.at', 'external_verified', 'dkim_pass', 'external', now() + interval '14 days');
+INSERT INTO inbound_mail_parts (id, organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, storage_key, scan_status, scanned_at, risk_flags)
+VALUES ('$T255', 'org_0255', '$P255', '$M255', 0, 'message', NULL, 'text/plain', 10, repeat('a', 64), NULL, 'not_applicable', NULL, '{}'::text[]);
+UPDATE inbound_mail_parts SET state = 'expired', ended_at = now() WHERE id = '$T255';
+SQL
+RESTORE255="INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via) VALUES ('org_0255', '$P255', '$M255', '$T255', 'restore', '$U255', 'app')"
+V255=$'\\set VERBOSITY verbose\n'
+refused_in exp_0255 "${V255}${RESTORE255}" "inbound_mail_decisions_external_expiry_final" "before 0255: an outsider's expired part restored"
+
+apply_in exp_0255 0255_external_expiry_restorable.sql
+apply_in exp_0255 0255_external_expiry_restorable.sql
+sql_in exp_0255 <<<"${RESTORE255};"
+check_in exp_0255 "SELECT count(*) FROM inbound_mail_decisions WHERE part_id = '$T255' AND action = 'restore'" "1" "0255: an outsider's expired part is restored"
+
+# Down: the restore made stays, and the guard refuses the next one again.
+apply_in exp_0255 0255_external_expiry_restorable.down.sql
+check_in exp_0255 "SELECT count(*) FROM inbound_mail_decisions WHERE part_id = '$T255' AND action = 'restore'" "1" "0255 down keeps the restore made"
+refused_in exp_0255 "${V255}${RESTORE255}" "inbound_mail_decisions_external_expiry_final" "0255 down: an outsider's expired part restored is refused again"
+apply_in exp_0255 0255_external_expiry_restorable.sql
+sql_in exp_0255 <<<"${RESTORE255};"
+echo "==> migration 0255 verified"
+
+# ---------------------------------------------------------------------------
+# Every registered SQL backfill (apps/workspace/backfills/), run twice through
+# the deploy Job's runner against the full schema with every suite's rows in
+# it: each ends at 0, and the second run finds nothing to write.
+# ---------------------------------------------------------------------------
+echo "==> running every registered SQL backfill twice on bf_registry"
+$PSQL -q -v ON_ERROR_STOP=1 -c "CREATE DATABASE bf_registry TEMPLATE grid_app OWNER $OWNER;"
+for name in $(node -e '
+  const fs = require("fs");
+  for (const d of fs.readdirSync("backfills", { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort()) {
+    if (JSON.parse(fs.readFileSync(`backfills/${d}/backfill.json`, "utf8")).kind === "sql") console.log(d);
+  }
+'); do
+  run_backfill_twice bf_registry "$name" any
+done
+echo "==> every registered SQL backfill verified"

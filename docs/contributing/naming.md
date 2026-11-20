@@ -223,7 +223,7 @@ brand-word renames are in ADR-0149's map, not here.
 
 | Term today | Where | Proposed name | Priority |
 |---|---|---|---|
-| "agent door" in tool descriptions | `catalog/platform.ts:806`, `catalog/documents.ts:26` (`SIZE_NOTE`) | "the MCP server", or drop the phrase | High |
+| "agent door" in tool descriptions | `catalog/platform-base-corpus.ts`, `catalog/documents.ts:26` (`SIZE_NOTE`) | "the MCP server", or drop the phrase | High |
 | canvas tools `marks`, `mark` | `packages/agent/src/agent/tools/canvas/register.py` | `annotations`, `annotation` | High |
 | `document-bin` operation, `/dev/bin` | `catalog/documents.ts:98` | `document-trash`, `/dev/trash`, old name aliased one release | High |
 | `## Trace-Lanes` heading in tool results | the grounding block (`common/grounding_block.py`), parsed in `deep_researcher/custom_middleware.py` | `## Collections searched` | High |

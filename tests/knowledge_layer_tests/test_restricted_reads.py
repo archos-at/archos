@@ -230,6 +230,7 @@ async def test_read_passage_withholds_a_restricted_passage_the_bff_refuses(scope
 
 
 async def test_exact_search_reports_every_collection_its_match_table_names(monkeypatch):
+    from knowledge_layer.browse import exact as browse_exact
     from knowledge_layer.browse import tool as browse
 
     class _Retriever:
@@ -243,7 +244,7 @@ async def test_exact_search_reports_every_collection_its_match_table_names(monke
     entries = [ScopedCollection(PROJ, Shelf.PROJECT), ScopedCollection(R, Shelf.PROJECT)]
 
     async def run():
-        return await browse._search(_Retriever(), entries, ["Gehalt"], browse.phrase_pattern(["Gehalt"]), {})
+        return await browse_exact._search(_Retriever(), entries, ["Gehalt"], browse.phrase_pattern(["Gehalt"]), {})
 
     message, _ = await _round(run, "knowledge_search")
 

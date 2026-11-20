@@ -145,7 +145,7 @@ per-turn chip … **polls** conversation-scoped memory after each answer"
 **Consequence for this design:** there is *no existing streamed post-answer
 channel on the chat path* to copy. The nearest thing is the deep-research job
 runner, which does re-emit its artifact after the answer
-(`agent_host/jobs/runner.py:939-947` → `jobs/callbacks.py:355-373`). The chat path
+(`agent_host/jobs/job_outcome.py` → `jobs/callbacks.py`, `emit_final_report`). The chat path
 needs the channel built. Section 4 builds it out of parts that already exist.
 
 ### 1.2 How it is scheduled and forced
@@ -184,7 +184,7 @@ also skips a turn that only commissioned a run (`not run_id`) and requires a
 `project_id` (`reflection.py:420-422`).
 
 Deep-research jobs are covered separately on the worker
-(`jobs/runner.py:1330-1398`), **awaited** rather than fire-and-forget, because
+(`jobs/report_passes.py`, `_run_deep_research_reflection`), **awaited** rather than fire-and-forget, because
 the report exists only when the job finishes.
 
 ### 1.4 Does it survive a truncated turn?
@@ -531,7 +531,7 @@ def register_stage_frame_sink(sink: StageFrameSink) -> None: ...
 ```
 
 and `agent_host/plugin.py` registers an implementation that calls
-`send_stage` (`agent_host/chat_socket.py`), which hands the value to the turn's
+`send_stage` (`agent_host/chat_registry.py`), which hands the value to the turn's
 `TurnWire` as a `StageBody`, so the stage event takes the turn's own `seq` (chat wire v2,
 `CUSTOM stage`). Going through the turn's wire and not through the socket directly
 buys the **multi-replica relay for free**: the wire publishes to the conversation bus so
@@ -542,7 +542,7 @@ on a relay replica with no new code.
 closed enum that cannot gain a member without patching the dependency, so the app owns the
 stage event instead (chat wire v2 defines it as `CUSTOM stage`).
 
-> **[as built]** The implementation is `send_stage` in `agent_host/chat_socket.py`
+> **[as built]** The implementation is `send_stage` in `agent_host/chat_registry.py`
 > (originally a `GridStageMessage` frame in `websocket_reconnect.py`, replaced by wire
 > v2), registered by `register_stage_frame_sink(send_stage)` at **import** of
 > `agent_host/plugin.py`. Import-time and not inside `add_routes`, because that is what
@@ -1519,7 +1519,7 @@ The mechanics exist. `FadeIn distance={6}` is what wraps every card today
 answer is still streaming, and may not appear if the reader has already typed
 into the composer. The first would move text mid-read; the second replaces the
 reader's own intention with a suggestion. `composerDrafts` is already in the store
-(`stores/messages-store.ts:63`) and is the check.
+(`stores/messages-slice-types.ts:20`) and is the check.
 
 And the reason there is a floor under the whole problem: **the reader loses
 nothing if it never arrives.** That is the design's licence to be casual about

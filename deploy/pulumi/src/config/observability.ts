@@ -1,4 +1,5 @@
 import * as pulumi from "@pulumi/pulumi";
+import { BACKFILL_POD } from "../constants";
 
 export interface ObservabilityConfig {
   enabled: boolean;
@@ -47,3 +48,40 @@ export function loadObservability(
     oidcClientSecret: otelOidcClientSecret ?? pulumi.output(""),
   };
 }
+
+export const LOG_SHIPPER = {
+  name: "otel-logs",
+  namespace: "observability",
+  podLogDir: "/var/log/pods",
+  maxLineBytes: 16 * 1024,
+  infoSamplePercent: 10,
+  unsampledPodPrefixes: [BACKFILL_POD],
+  otlpInstrumentedContainers: [
+    "agent-worker",
+    "aiq-agent",
+    "aiq-api",
+    "api",
+    "bff-jobs",
+    "chat",
+    "frontend",
+    "ingest-worker",
+    "purger",
+  ],
+  ownContainers: ["collector"],
+  noisyContainers: [
+    "clickhouse",
+    "dragonfly",
+    "filer",
+    "langfuse-web",
+    "langfuse-worker",
+    "master",
+    "pgbouncer",
+    "postgres",
+    "qdrant",
+    "rabbitmq",
+    "volume",
+  ],
+} as const;
+
+export const LOG_SOURCE_ATTRIBUTE = "collector.log.source";
+export const LOG_SOURCE = { container: "container", event: "k8s.event" } as const;

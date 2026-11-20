@@ -44,7 +44,7 @@ freigegeben von {Name}, {Datum}** in the office colour rather than in law blue
 (`piloti-dokument-als-quelle`, `docs/architecture/agent-document-provenance.md`),
 and a *verdict* — the masthead value a reader copies into a Nachweis — is
 dropped when its Fundstelle resolves to such a document
-(`_gate_verdict`, `packages/agent/src/agent/common/answer_envelope.py:294-336`). Nothing an
+(`_gate_verdict`, `packages/agent/src/agent/common/envelope_gates.py`). Nothing an
 architect does differently; a class of quiet self-citation that can no longer
 happen.
 
@@ -278,7 +278,7 @@ proposal tools (`:557-600`, listed at `:660-666`).
 | Drafts written vs. drafts filed vs. drafts submitted | `document.version.drafted` / `.submitted` audit actions (`lib/audit/schemas.mjs:300-320`); the gap between the first two is the composer hand-off, between the second and third is the reviewer bug |
 | Submits refused for want of a reviewer | 422s from `resolveReviewersOrRefuse` (`lifecycle.ts:594`) — the single best test of §3 item 1 |
 | Median time `in_review` → `approved`, per producer | `document.version.submitted` / `.approved`; under a minute means rubber-stamping, never means nothing |
-| Verdicts dropped for naming an agent-authored source | `emit_verdict_dropped`, `status:verdict:dropped` (`common/turn_status.py`, `answer_envelope.py:294`) — the rate says how often the agent reaches for its own document as a norm |
+| Verdicts dropped for naming an agent-authored source | `emit_verdict_dropped`, `status:verdict:dropped` (`common/turn_status.py`, `envelope_gates.py`) — the rate says how often the agent reaches for its own document as a norm |
 | Drafting turns that behave, on the live model | `task be:eval:turn-shapes` extended with commission / revise / file cases (`Taskfile.yml:433`) |
 
 ---

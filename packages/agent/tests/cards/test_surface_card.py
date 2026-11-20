@@ -414,8 +414,8 @@ class TestWhereASurfaceIsTaught:
         assert [card["type"] for card in validated] == ["ifc_model_picker"]
 
     def test_the_chat_contract_s_craft_names_no_card_it_withholds(self):
-        from agent.cards.catalog import RETIRED_CARD_TYPES
-        from agent.cards.catalog import render_card_doctrine
+        from agent.cards.card_doctrine import render_card_doctrine
+        from agent.cards.retired_cards import RETIRED_CARD_TYPES
 
         doctrine = render_card_doctrine()
         withheld = [card for card in RETIRED_CARD_TYPES if re.search(rf"-> {card}\b", doctrine)]
