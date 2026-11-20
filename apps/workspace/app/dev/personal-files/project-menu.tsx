@@ -42,7 +42,7 @@ export function SpaceToggle({ personal }: { personal: boolean }): JSX.Element {
 
 export function PersonalLine(): JSX.Element | null {
   const form = useSearchParams()?.get('pl')
-  if (form === 'a') return null
+  if (!form || form === 'a') return null
   if (form === 'e') return <div className="h-10 w-full" />
   if (form === 'b') {
     return (
