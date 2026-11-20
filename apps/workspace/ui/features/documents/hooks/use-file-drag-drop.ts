@@ -22,6 +22,7 @@ interface UseFileDragDropOptions {
   disabled?: boolean
   refusal?: string | null
   acceptZip?: boolean
+  acceptMailArchives?: boolean
 }
 
 interface UseFileDragDropReturn {
@@ -41,6 +42,7 @@ export function useFileDragDrop({
   disabled = false,
   refusal = null,
   acceptZip = false,
+  acceptMailArchives = false,
 }: UseFileDragDropOptions): UseFileDragDropReturn {
   const [isDragging, setIsDragging] = useState(false)
   const [isUnsupportedDrag, setIsUnsupportedDrag] = useState(false)
@@ -64,10 +66,11 @@ export function useFileDragDrop({
       setIsDragging(true)
       const allSupported = checkDraggedFilesSupported(e.dataTransfer, fileUploadConfig, {
         allowZip: acceptZip,
+        allowMailArchives: acceptMailArchives,
       })
       setIsUnsupportedDrag(!allSupported)
     },
-    [disabled, fileUploadConfig, acceptZip]
+    [disabled, fileUploadConfig, acceptZip, acceptMailArchives]
   )
 
   const handleDragLeave = useCallback(

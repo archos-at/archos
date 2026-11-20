@@ -181,6 +181,7 @@ export function FileWorkspace({
         onUpload={handleUpload}
         isUploading={isUploading}
         onSendByMail={shelf.inboundMail?.openAddress}
+        acceptsMailArchives={Boolean(shelf.takeMailArchives)}
         {...props}
       />
     ) : undefined

@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mail } from 'lucide-react'
 import { ProjectSectionActions } from '@/components/shell/project-section-frame'
 import { createDocumentNameProbeClient } from '@/lib/documents/name-probe-client'
 import { useTranslations } from '@/i18n'
@@ -10,15 +9,15 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import type { DocumentLifecyclePermission } from '@/lib/documents/lifecycle-types'
 import { askAboutFile } from '../lib/ask-about-file'
 import type { FileShelf } from '../lib/file-shelf'
-import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { projectEndpoints } from '../lib/file-shelf'
 import type { DocumentWireRow } from '../lib/file-item'
 import { useProjectDocuments } from '../hooks/use-project-documents'
 import type { FolderItem } from '../file-types'
 import type { StoredUpload } from '../hooks/use-office-shelf-documents'
 import { FileWorkspace } from './file-workspace'
-import { MailImportAction } from './mail-import-action'
-import { MailImportDialog } from './mail-import-dialog'
+import { useMailImports } from '../hooks/use-mail-imports'
+import { MailImportDialogView, type HandedArchives } from './mail-import-dialog'
+import { MailImportLine, mailImportOngoing } from './mail-import-line'
 import { ProjectNormNotices } from './project-norm-notices'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
@@ -64,9 +63,14 @@ export function ProjectFileWorkspace({
   const t = useTranslations(filesCopy)
   const router = useRouter()
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
-  const phone = usePhoneLayout()
   const [mailOpen, setMailOpen] = useState(false)
   const mailOffered = mailImportEnabled && initialRootAccess === 'write'
+  const mailImports = useMailImports(projectId, mailOffered)
+  const [handedArchives, setHandedArchives] = useState<HandedArchives | null>(null)
+  const takeMailArchives = useCallback((files: File[]) => {
+    setHandedArchives({ files, onTaken: () => setHandedArchives(null) })
+    setMailOpen(true)
+  }, [])
   const search = useShelfSearchMode()
   const [awaitingNorms, setAwaitingNorms] = useState<ReadonlySet<string>>(() => new Set())
   const onStored = useCallback(
@@ -93,6 +97,7 @@ export function ProjectFileWorkspace({
     canCollaborate,
     currentUserId,
     askAbout: (file) => askAboutFile({ projectId, file, navigate: (href) => router.push(href) }),
+    takeMailArchives: mailOffered ? takeMailArchives : undefined,
     useUpload: ({ collectionName: collection, folderId, onComplete }) =>
       useProjectDocuments({ projectId, collectionName: collection, folderId, onComplete, onStored: officeStandards ? onStored : undefined }),
     probeNames: (names) => probe.project(projectId, names),
@@ -123,33 +128,20 @@ export function ProjectFileWorkspace({
       <FileWorkspace
         shelf={shelf}
         renderHeader={(controls) => (
-          <ProjectSectionActions>
-            {controls}
-            {mailOffered && !phone && <MailImportAction projectId={projectId} />}
-          </ProjectSectionActions>
+          <ProjectSectionActions>{controls}</ProjectSectionActions>
         )}
         onOpenSearch={search.open}
-        moreEntries={[
-          ...(mailOffered && phone
-            ? [
-                {
-                  type: 'item' as const,
-                  id: 'mail-import',
-                  label: t('mailImport.action'),
-                  icon: Mail,
-                  onSelect: () => setMailOpen(true),
-                  testId: 'mail-import-trigger',
-                },
-              ]
-            : []),
-        ]}
         initialFolders={initialFolders}
         initialFiles={initialFiles}
         initialNextCursor={initialNextCursor}
         initialFolderId={initialFolderId}
-        renderLevelNotice={
-          officeStandards
-            ? ({ folderId, revision }) => (
+        renderLevelNotice={({ folderId, revision }) => {
+          const importing = mailOffered && mailImportOngoing(mailImports)
+          if (!importing && !officeStandards) return null
+          return (
+            <>
+              {importing && <MailImportLine state={mailImports} onOpen={() => setMailOpen(true)} />}
+              {officeStandards && (
                 <ProjectNormNotices
                   projectId={projectId}
                   folderId={folderId}
@@ -157,11 +149,20 @@ export function ProjectFileWorkspace({
                   awaiting={awaitingNorms}
                   onAwaited={onAwaited}
                 />
-              )
-            : undefined
-        }
+              )}
+            </>
+          )
+        }}
       />
-      {mailOffered && phone && <MailImportDialog projectId={projectId} open={mailOpen} onOpenChange={setMailOpen} />}
+      {mailOffered && (
+        <MailImportDialogView
+          projectId={projectId}
+          open={mailOpen}
+          onOpenChange={setMailOpen}
+          state={mailImports}
+          handed={handedArchives}
+        />
+      )}
     </>
   )
 }

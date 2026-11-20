@@ -22,11 +22,13 @@ export function ProjectFileDrop({
   projectId,
   disabled = false,
   rootAccess = 'write',
+  mailArchives = false,
   children,
 }: {
   projectId: string
   disabled?: boolean
   rootAccess?: FolderAccessLevel
+  mailArchives?: boolean
   children: ReactNode
 }) {
   const pathname = usePathname() ?? ''
@@ -46,6 +48,7 @@ export function ProjectFileDrop({
     disabled: !active,
     refusal: rootAccess === 'write' ? null : t('workspace.dropRefusedHere'),
     acceptZip: true,
+    acceptMailArchives: mailArchives,
   })
   useWindowDragGuard()
 

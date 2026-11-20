@@ -215,12 +215,13 @@ describe('ProjectFileWorkspace — on a phone', () => {
     expect(screen.queryByTestId('files-more')).toBeNull()
   })
 
-  it('moves the Outlook import behind ⋯ instead of a second header button', async () => {
+  it('offers no Outlook import of its own behind ⋯: an archive goes through Hochladen', async () => {
     const user = userEvent.setup()
     renderWorkspace(phoneWorkspace({ mailImportEnabled: true, initialRootAccess: 'write' }))
-    expect(screen.queryByTestId('mail-import-trigger')).toBeNull()
     await user.click(screen.getByTestId('files-more'))
-    expect(await screen.findByTestId('mail-import-trigger')).toBeInTheDocument()
+    await screen.findByTestId('files-view-list')
+    expect(screen.queryByTestId('mail-import-trigger')).toBeNull()
+    expect(within(screen.getByTestId('files-upload-fab')).getByTestId('project-upload-input').getAttribute('accept')).toMatch(/\.pst/)
   })
 
   it('turns the view with the ⋯ menu', async () => {

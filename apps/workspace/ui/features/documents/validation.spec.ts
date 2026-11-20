@@ -654,3 +654,16 @@ describe('a dragged zip', () => {
     ).toBe(false)
   })
 })
+
+describe('a dragged Outlook archive', () => {
+  const dragOf = (type: string): DataTransfer =>
+    ({ items: [{ kind: 'file', type }] }) as unknown as DataTransfer
+
+  test('is unsupported where the shelf does not import mail', () => {
+    expect(checkDraggedFilesSupported(dragOf('application/vnd.ms-outlook'), undefined, { allowZip: true })).toBe(false)
+  })
+
+  test('is welcome on a shelf that imports it as mail', () => {
+    expect(checkDraggedFilesSupported(dragOf('application/vnd.ms-outlook'), undefined, { allowMailArchives: true })).toBe(true)
+  })
+})

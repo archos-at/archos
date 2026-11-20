@@ -56,6 +56,7 @@ export interface FileShelf {
   askAbout?: (file: FileItem) => void
   fileActions?: (file: FileItem) => readonly ActionMenuEntry[]
   useUpload: (input: ShelfUploadInput) => ShelfUploadApi
+  takeMailArchives?: (archives: File[]) => void
   probeNames: (names: readonly string[]) => Promise<DocumentNameMatch[]>
   probeRevisions: (names: readonly string[], landsIn: ReadonlyMap<string, string | null>) => Promise<RevisionCandidateMatch[]>
   handoverKey?: string

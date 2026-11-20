@@ -8,12 +8,13 @@ import type { FolderItem } from '../file-types'
 import { takeDroppedFiles } from '../lib/dropped-file-handover'
 import { filesToUpload, samePlanOutcome, type FolderUploadPlan, type PlannedMove } from '../lib/folder-upload-plan'
 import { isZipArchive } from '../lib/zip-types'
+import { splitMailArchives } from '../lib/mail-archive'
 import type { FileShelf, ShelfEndpoints, ShelfUploadApi } from '../lib/file-shelf'
 import { useUploadDecision, type SettledPlan } from './use-upload-decision'
 import { UploadScreeningPolicyUnavailableError } from '@/adapters/api/upload-screening-policy'
 
 export interface ShelfUploadOptions {
-  shelf: Pick<FileShelf, 'probeNames' | 'probeRevisions' | 'handoverKey'> & {
+  shelf: Pick<FileShelf, 'probeNames' | 'probeRevisions' | 'handoverKey' | 'takeMailArchives'> & {
     endpoints: Pick<ShelfEndpoints, 'folders'>
     projectId?: string | null
   }
@@ -52,7 +53,7 @@ export function useShelfUpload({
   const decision = useUploadDecision({ projectId: shelf.projectId ?? null })
   const { propose, setReleased, settle, changeRevision, plan, setOpen, setPending } = decision
   const { uploadFiles } = upload
-  const { probeNames, probeRevisions, handoverKey } = shelf
+  const { probeNames, probeRevisions, handoverKey, takeMailArchives } = shelf
   const ensureUrl = `${shelf.endpoints.folders}/ensure`
 
   const pathOf = useCallback(
@@ -119,8 +120,10 @@ export function useShelfUpload({
       const { info } = target
       if (info?.truncated) toast.warning(t('workspace.dropTruncated', { count: incoming.length }))
       if (info && info.unreadable > 0) toast.warning(t('workspace.dropUnreadable', { count: info.unreadable }))
-      if (incoming.length === 0) return
-      const drop: QueuedDrop = { files: incoming, folderId: target.folderId === undefined ? selectedFolderId : target.folderId }
+      const { archives, rest } = takeMailArchives ? splitMailArchives(incoming) : { archives: [], rest: incoming }
+      if (takeMailArchives && archives.length > 0) takeMailArchives(archives)
+      if (rest.length === 0) return
+      const drop: QueuedDrop = { files: rest, folderId: target.folderId === undefined ? selectedFolderId : target.folderId }
       if (busy || queue.current.length > 0) {
         queue.current.push(drop)
         setQueued(queue.current.length)
@@ -130,7 +133,7 @@ export function useShelfUpload({
       setProposing(true)
       void proposeDrop(drop).finally(() => setProposing(false))
     },
-    [busy, foldersSettled, selectedFolderId, proposeDrop, t]
+    [busy, foldersSettled, selectedFolderId, proposeDrop, takeMailArchives, t]
   )
 
   useEffect(() => {
