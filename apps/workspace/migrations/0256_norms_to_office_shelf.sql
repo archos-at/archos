@@ -1,4 +1,4 @@
--- 0250: a norm in a project goes to the Büroablage (ADR-0185).
+-- 0256: a norm in a project goes to the Büroablage (ADR-0185).
 --
 -- `office_shelf_references` is the Verweis a project keeps where a norm lay
 -- after it went to the Büroablage. The norm's bytes become an office shelf

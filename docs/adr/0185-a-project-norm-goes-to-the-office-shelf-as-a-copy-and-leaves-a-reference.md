@@ -58,7 +58,7 @@ Chosen option 2.
   (`moveDocumentToBin`), so the move can be undone from there; if that fails, the copy is
   removed again. The search index follows the two existing doors: the copy is not read until
   its entry is confirmed, and the bin takes the project file out of retrieval.
-- **The reference** is a row in `office_shelf_references` (migration 0250): the project, the
+- **The reference** is a row in `office_shelf_references` (migration 0256): the project, the
   folder, the project file it replaced, the copy in the office shelf, the file name and how it
   was placed (`moved`, `edition`, `duplicate`). The copy's key is
   `ON DELETE SET NULL (office_document_id)`, so removing the copy from the Büroablage keeps

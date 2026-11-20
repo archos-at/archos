@@ -1,6 +1,7 @@
 import { latinize } from '@/lib/text/latinize'
 import { isOwnBccCopy } from '@/lib/mail-thread/mail-threading'
-import type { ImpersonationBasis, SenderFlag, SenderReason, SenderRiskLevel, SenderTrust } from './inbound-mail-vocabulary'
+import { impersonationOf } from './impersonation'
+import type { SenderFlag, SenderReason, SenderRiskLevel, SenderTrust } from './inbound-mail-vocabulary'
 
 export interface SenderFacts {
   trust: SenderTrust
@@ -16,15 +17,7 @@ export function senderFactsOf(mail: {
   return mail.senderTrust && mail.senderReason ? { trust: mail.senderTrust, reason: mail.senderReason, flags: mail.senderFlags } : null
 }
 
-export function isRejectedSignature(reason: SenderReason): boolean {
-  return reason === 'dkim_fail' || reason === 'dkim_policy' || reason === 'dkim_weak_algorithm' || reason === 'dkim_short_key'
-}
-
-export function impersonationOf(sender: SenderFacts): ImpersonationBasis | null {
-  if (sender.flags.includes('claims_member_name')) return 'member_name'
-  if (isRejectedSignature(sender.reason)) return 'rejected_signature'
-  return null
-}
+export { impersonationOf, isRejectedSignature } from './impersonation'
 
 export function senderNeedsAcknowledgement(sender: SenderFacts): boolean {
   if (sender.trust === 'member_unverified') return true
@@ -41,8 +34,20 @@ export function senderRiskLevel(sender: SenderFacts | null): SenderRiskLevel {
   return senderNeedsAcknowledgement(sender) ? 'caution' : 'none'
 }
 
+const LOOK_ALIKES: Readonly<Record<string, string>> = {
+  А: 'A', а: 'a', В: 'B', Е: 'E', е: 'e', Ё: 'E', ё: 'e', І: 'I', і: 'i', Ї: 'I', ї: 'i', Ј: 'J', ј: 'j',
+  К: 'K', к: 'k', М: 'M', м: 'm', Н: 'H', н: 'h', О: 'O', о: 'o', Р: 'P', р: 'p', С: 'C', с: 'c', Т: 'T', т: 't',
+  У: 'Y', у: 'y', Х: 'X', х: 'x', Ѕ: 'S', ѕ: 's', Ь: 'b', ь: 'b', Ԁ: 'D', ԁ: 'd', Һ: 'H', һ: 'h', Ү: 'Y', ү: 'y',
+  Ԛ: 'Q', ԛ: 'q', Ԝ: 'W', ԝ: 'w', Ӏ: 'I', ӏ: 'l',
+  Α: 'A', α: 'a', Β: 'B', β: 'b', Ε: 'E', ε: 'e', Ζ: 'Z', Η: 'H', Ι: 'I', ι: 'i', Κ: 'K', κ: 'k', Μ: 'M', Ν: 'N',
+  ν: 'v', Ο: 'O', ο: 'o', Ρ: 'P', ρ: 'p', Τ: 'T', τ: 't', Υ: 'Y', υ: 'u', Χ: 'X', χ: 'x',
+}
+
+const LOOK_ALIKE = new RegExp(`[${Object.keys(LOOK_ALIKES).join('')}]`, 'gu')
+
 function nameWords(name: string): string[] {
-  return latinize(name.normalize('NFKC'))
+  const visible = name.normalize('NFKC').replace(/\p{Cf}/gu, '')
+  return latinize(visible.replace(LOOK_ALIKE, (letter) => LOOK_ALIKES[letter] ?? letter))
     .toLowerCase()
     .split(/[^a-z]+/u)
     .filter((word) => word.length > 0)
@@ -51,14 +56,33 @@ function nameWords(name: string): string[] {
 const MIN_NAME_WORDS = 2
 const MIN_WORD_LENGTH = 2
 
-export function claimsMemberName(displayName: string | null, memberNames: Iterable<string>): boolean {
-  if (!displayName) return false
+function claimsWord(claimed: ReadonlySet<string>, word: string, initialSuffices: boolean): boolean {
+  return claimed.has(word) || (initialSuffices && claimed.has(word[0]))
+}
+
+function claimsName(claimed: ReadonlySet<string>, name: string): boolean {
+  if (name.includes('@')) return false
+  const words = nameWords(name).filter((word) => word.length >= MIN_WORD_LENGTH)
+  if (words.length < MIN_NAME_WORDS) return false
+  const surname = words.length - 1
+  return words.every((word, index) => claimsWord(claimed, word, index !== surname))
+}
+
+function claimedWords(displayName: string | null): ReadonlySet<string> | null {
+  if (!displayName) return null
   const claimed = new Set(nameWords(displayName))
-  if (claimed.size < MIN_NAME_WORDS) return false
-  for (const name of memberNames) {
-    if (name.includes('@')) continue
-    const words = nameWords(name).filter((word) => word.length >= MIN_WORD_LENGTH)
-    if (words.length >= MIN_NAME_WORDS && words.every((word) => claimed.has(word))) return true
-  }
+  return claimed.size < MIN_NAME_WORDS ? null : claimed
+}
+
+export function claimsMemberName(displayName: string | null, memberNames: Iterable<string>): boolean {
+  const claimed = claimedWords(displayName)
+  if (!claimed) return false
+  for (const name of memberNames) if (claimsName(claimed, name)) return true
   return false
+}
+
+export function claimedMemberIds(displayName: string | null, members: Iterable<{ userId: string; name: string }>): string[] {
+  const claimed = claimedWords(displayName)
+  if (!claimed) return []
+  return [...members].filter((member) => claimsName(claimed, member.name)).map((member) => member.userId)
 }

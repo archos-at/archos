@@ -1,6 +1,6 @@
--- Undo 0251. ORDER: roll the frontend back first; the newer build parks records.
+-- Undo 0257. ORDER: roll the frontend back first; the newer build parks records.
 --
--- Lossy, as unlisting was before 0251: a parked entry's records are deleted,
+-- Lossy, as unlisting was before 0257: a parked entry's records are deleted,
 -- its file stays where it lies.
 DELETE FROM "knowledge_records" WHERE "unlisted_at" IS NOT NULL;
 --> statement-breakpoint

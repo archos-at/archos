@@ -652,6 +652,7 @@ export const files: typeof en.files = {
     list: 'Ordner',
     empty: 'Kein Ordner passt zu „{query}“.',
     here: 'Hier',
+    chosen: 'Gewählt',
     close: 'Schließen',
   },
   list: {

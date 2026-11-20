@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The files of an office shelf folder the folder's norm notice reads, and the „Im Ordner lassen“ rows
- * (migration 0250), against a REAL Postgres through the restricted runtime role:
+ * (migration 0256), against a REAL Postgres through the restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run bff/base-knowledge/office/folder-norms-repository.integration.spec.ts

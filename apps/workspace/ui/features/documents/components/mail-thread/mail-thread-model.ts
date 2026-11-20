@@ -1,7 +1,8 @@
 import type { DocumentVersionView } from '@/lib/documents/lifecycle-types'
-import type { SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
+import { OFFICE_TIME_ZONE, formatAbsoluteTime } from '@/lib/format'
+import { MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS, type SenderTrust } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import {
-  MAIL_THREAD_FOLLOW_MAX_DAYS,
+  MAIL_THREAD_FOLLOW_DEFAULT_DAYS,
   type MailThreadAttachmentNotFiledReason,
   type MailThreadAttachmentView,
   type MailThreadEntryView,
@@ -17,14 +18,19 @@ export type ViewerFollow =
   | { kind: 'none' }
   | { kind: 'following'; follow: MailThreadFollowView | null; renewable: boolean }
 
-export function followRenewable(follow: MailThreadFollowView): boolean {
-  const ceiling = Date.parse(follow.createdAt) + MAIL_THREAD_FOLLOW_MAX_DAYS * DAY_MS
-  return ceiling - Date.parse(follow.expiresAt) >= DAY_MS
+export function followRenewable(follow: MailThreadFollowView, now: number = Date.now()): boolean {
+  const left = Date.parse(follow.expiresAt) - now
+  const renewedTo = now + MAIL_THREAD_FOLLOW_DEFAULT_DAYS * DAY_MS
+  return left <= MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS * DAY_MS && renewedTo - Date.parse(follow.expiresAt) >= DAY_MS
 }
 
-export function viewerFollow(view: Pick<MailThreadView, 'followed' | 'follows'>, viewerUserId: string | null | undefined): ViewerFollow {
+export function viewerFollow(
+  view: Pick<MailThreadView, 'followed' | 'follows'>,
+  viewerUserId: string | null | undefined,
+  now: number = Date.now(),
+): ViewerFollow {
   const own = viewerUserId ? (view.follows.find((follow) => follow.userId === viewerUserId) ?? null) : null
-  if (own) return { kind: 'following', follow: own, renewable: followRenewable(own) }
+  if (own) return { kind: 'following', follow: own, renewable: followRenewable(own, now) }
   if (view.followed) return { kind: 'following', follow: null, renewable: false }
   return { kind: 'none' }
 }
@@ -70,17 +76,6 @@ export function entriesNewestFirst(entries: readonly MailThreadEntryView[]): Mai
   return [...entries].reverse()
 }
 
-export function currentVersionNumber(
-  versions: readonly Pick<DocumentVersionView, 'versionNumber'>[] | null,
-  entries: readonly Pick<MailThreadEntryView, 'firstVersion'>[],
-): number | null {
-  const numbers = [
-    ...(versions ?? []).map((version) => version.versionNumber),
-    ...entries.flatMap((entry) => (entry.firstVersion ? [entry.firstVersion.number] : [])),
-  ]
-  return numbers.length > 0 ? Math.max(...numbers) : null
-}
-
 export function comparedVersions(
   entry: Pick<MailThreadEntryView, 'firstVersion'>,
   versions: readonly Pick<DocumentVersionView, 'id' | 'versionNumber' | 'bytesReadable'>[],
@@ -93,18 +88,9 @@ export function comparedVersions(
   return { from: { id: from.id, number: from.versionNumber }, to: { id: to.id, number: to.versionNumber } }
 }
 
-export function detachKeeps(
-  entry: Pick<MailThreadEntryView, 'firstVersion'>,
-  current: number | null,
-): { first: number; last: number; next: number } | null {
-  if (!entry.firstVersion || current === null) return null
-  const last = Math.max(current, entry.firstVersion.number)
-  return { first: entry.firstVersion.number, last, next: last + 1 }
-}
-
 export type AttachmentLine =
   | { kind: 'hidden'; position: number }
-  | { kind: 'filed' | 'already_present'; position: number; name: string; documentId: string | null }
+  | { kind: 'filed' | 'already_present'; position: number; name: string; documentId: string | null; folderPath: string | null }
   | { kind: 'not_filed'; position: number; name: string; reason: MailThreadAttachmentNotFiledReason | null }
 
 export function attachmentLines(attachments: readonly MailThreadAttachmentView[]): AttachmentLine[] {
@@ -116,7 +102,13 @@ export function attachmentLines(attachments: readonly MailThreadAttachmentView[]
       if (attachment.disposition === 'not_filed') {
         return { kind: 'not_filed', position: attachment.position, name, reason: attachment.notFiledReason ?? null }
       }
-      return { kind: attachment.disposition, position: attachment.position, name, documentId: attachment.documentId ?? null }
+      return {
+        kind: attachment.disposition,
+        position: attachment.position,
+        name,
+        documentId: attachment.documentId ?? null,
+        folderPath: attachment.folderPath ?? null,
+      }
     })
 }
 
@@ -138,6 +130,18 @@ export function entriesSayingTrust(entries: readonly Pick<MailThreadEntryView, '
     run = key
   }
   return saying
+}
+
+const officeDay = (iso: string): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: OFFICE_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso))
+
+export function receivedAtLabel(entry: Pick<MailThreadEntryView, 'sentAt' | 'receivedAt'>, locale: string): string {
+  const at = new Date(entry.receivedAt)
+  if (Number.isNaN(at.getTime())) return entry.receivedAt
+  if (officeDay(entry.sentAt) === officeDay(entry.receivedAt)) {
+    return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: OFFICE_TIME_ZONE }).format(at)
+  }
+  return formatAbsoluteTime(entry.receivedAt, locale, OFFICE_TIME_ZONE)
 }
 
 export function headingParts(heading: string): { when: string; who: string; domain: string } {

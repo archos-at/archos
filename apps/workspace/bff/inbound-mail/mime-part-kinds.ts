@@ -9,6 +9,8 @@ const PDF_TRAILER_BYTES = 1024 * 1024
 
 const TRACKING_PIXEL_MAX_BYTES = 2 * 1024
 
+const SIGNATURE_IMAGE_MAX_BYTES = 32 * 1024
+
 const AUTO_NAMED_IMAGE = [
   /^image\d{3,}\.(png|jpe?g|gif|bmp)$/i,
   /^Outlook-.*\.(png|jpe?g|gif|bmp)$/i,
@@ -84,10 +86,16 @@ export function isEncryptedMessage(email: Email): boolean {
   return /^\s*(multipart\/encrypted|application\/(x-)?pkcs7-mime)\b/i.test(contentType)
 }
 
+function isSignatureImage(attachment: Attachment, size: number): boolean {
+  const shownInTheText = attachment.disposition === 'inline' || attachment.related === true
+  return Boolean(attachment.contentId) && shownInTheText && size <= SIGNATURE_IMAGE_MAX_BYTES
+}
+
 function isEmbedded(attachment: Attachment, name: string, size: number): boolean {
   if (attachment.related && !name) return true
   if (AUTO_NAMED_IMAGE.some((pattern) => pattern.test(name))) return true
-  return attachment.mimeType.toLowerCase().startsWith('image/') && size < TRACKING_PIXEL_MAX_BYTES
+  if (!attachment.mimeType.toLowerCase().startsWith('image/')) return false
+  return size < TRACKING_PIXEL_MAX_BYTES || isSignatureImage(attachment, size)
 }
 
 export function structuralSkip(attachment: Attachment, name: string, size: number, context: MessageContext): NotStagedReason | null {

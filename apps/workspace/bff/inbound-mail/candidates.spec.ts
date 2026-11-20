@@ -23,6 +23,7 @@ const thread = (threadId: string, folderId: string | null, overrides: Partial<Th
   nextVersion: 4,
   entryCount: 3,
   renderedBytes: 1000,
+  participantDomains: ['statik-weber.at'],
   ...overrides,
 })
 

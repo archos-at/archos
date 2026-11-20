@@ -3,7 +3,7 @@ import { DETAIL_VARIANTS, FOLDERS } from '@/app/dev/inbound-mail/fixtures'
 import { asSuggested, bulkPlan, fileableReason, isReady } from './completeness'
 import { initialDraft, type DraftCopy } from './draft'
 
-const copy: DraftCopy = { unnamedAttachment: (position) => `Attachment ${position}`, untitledThread: '(no subject)' }
+const copy: DraftCopy = { unnamedAttachment: (part) => `Attachment ${part.position}`, untitledThread: '(no subject)' }
 
 describe('bulkPlan', () => {
   it('groups where things go, threads first', () => {

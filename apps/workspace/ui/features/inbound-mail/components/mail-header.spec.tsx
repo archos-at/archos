@@ -40,7 +40,9 @@ describe('MailHeader', () => {
     renderDetail('member-verified')
     const line = screen.getByTestId('mail-header-line')
     expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber m.huber@huber-architektur.at')
-    expect(within(line).getByTestId('sender-trust')).toHaveTextContent('Domain verified: huber-architektur.at')
+    expect(within(line).getByTestId('sender-trust')).toHaveTextContent('Address verified')
+    expect(within(line).getByTestId('sender-trust')).toHaveAttribute('data-tone', 'confirmed')
+    expect(screen.queryByTestId('mail-trust-technical')).toBeNull()
     expect(within(line).getByTestId('mail-header-received')).toBeInTheDocument()
     expect(screen.queryByTestId('mail-original')).toBeNull()
     expect(screen.queryByText('Opens in your mail program; images from outside are loaded there.')).toBeNull()
@@ -54,21 +56,22 @@ describe('MailHeader', () => {
     expect(details).toHaveTextContent('Sent')
     expect(details).toHaveTextContent('post@ma37.wien.gv.at')
     expect(within(details).getByTestId('mail-expires')).toHaveTextContent('then it expires')
+    expect(within(details).getByTestId('mail-trust-technical')).toHaveTextContent('Domain verified: huber-architektur.at signed the mail (DKIM).')
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_details_opened', { status: 'waiting', risk_level: 'none' })
   })
 
-  it('puts the text right after the header, before any part can be checked', () => {
+  it('puts the text right after the header, before the attachments', () => {
     renderDetail('member-verified')
     const header = screen.getByTestId('mail-header')
-    const text = screen.getByText(/der Bescheid zum Stellplatznachweis ist gestern gekommen/)
-    const checkbox = screen.getByTestId('attachment-checkbox')
+    const text = screen.getByText(/der Bescheid der MA 37 zum Stellplatznachweis/)
+    const checkbox = screen.getByTestId('attachments-list')
     expect(header.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(text.compareDocumentPosition(checkbox) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('brings the expiry forward only in its last week', () => {
     renderDetail('expires-soon')
-    expect(screen.getByTestId('mail-expires-soon')).toHaveTextContent('Waits only until')
+    expect(screen.getByTestId('mail-expires-soon')).toHaveTextContent(/^Stays in Project mail until [^,]+, \d{4}$/)
   })
 
   it('keeps a month-away expiry in „Details“', () => {
@@ -104,8 +107,9 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
   it('asks the member a mail with their address whether they sent it, and lets them file it saying so', () => {
     renderDetail('own-unverified')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signatureOwn')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Did you send this mail? Your domain did not verify it')
-    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Member · domain not verified')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for you: did you send this mail? Whether it comes from you cannot be verified')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address, cannot be verified')
+    expect(screen.getByTestId('sender-trust')).toHaveAttribute('data-tone', 'neutral')
   })
 
   it('tells the member their own rejected mail in their own voice, once: no fraud warning about themself, no second question (B4)', () => {
@@ -113,62 +117,89 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('impersonation-warning')).toHaveAttribute('data-own', 'true')
     expect(screen.getByTestId('impersonation-warning')).toHaveTextContent('This mail carries your address, but your domain rejected it.')
     expect(screen.getByTestId('impersonation-warning')).not.toHaveTextContent('poses as')
-    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address · rejected by your domain')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address, rejected by your domain')
     expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
   })
 
-  it('says a verified writer’s mail direct filing left waits for any writer, with the next step (not_filed)', () => {
+  it('says nothing in the pane about why a verified writer’s mail waits (not_filed): there is nothing to do but file it', () => {
     renderDetail('not-filed')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'not_filed')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Miriam Huber sent it and the domain verified it, but it was not filed directly. Check it, then file or dismiss it.')
+    expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
     expect(screen.queryByTestId('claimed-mail-bar')).toBeNull()
-    expect(screen.getAllByTestId('attachment-checkbox').length).toBeGreaterThan(0)
+    expect(screen.getByTestId('decision-open')).toBeInTheDocument()
   })
 
   it('says a signed writer’s mail held as re-sent or misdated, or as sent automatically, waits for that, not for a bad signature', () => {
-    const { unmount } = render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'replay', onlySenderReleases: false }} />)
+    const { unmount } = render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'replay', ownClaimedMail: true }} />)
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'replayOwn')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('addressed to others, oddly dated or already known')
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('signature does not match')
     unmount()
-    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'automatic', onlySenderReleases: true }} />)
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'automatic', ownClaimedMail: false }} />)
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'automatic')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('sent automatically')
   })
 
-  it('says a verified writer’s mail waits because direct filing is off, for any writer: never asked of its member alone', () => {
-    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'paused', onlySenderReleases: false }} />)
-    expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'paused')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Anyone who may file in this project can file it')
-    expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('Did you send this mail?')
+  it('says a wait reason only where it asks the reader something or the mail will be gone (paused, no_write_rights stay quiet)', () => {
+    const { unmount } = render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'paused', ownClaimedMail: false }} />)
+    expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
+    unmount()
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'no_write_rights', ownClaimedMail: false }} />)
+    expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
   })
 
-  it('tells another writer whom it waits for, once, and offers them only „Dismiss …“ (B2)', () => {
+  it('lets another writer file a writer’s unsigned mail once they say they checked it is from them (amendment of 2026-11-19)', async () => {
     renderDetail('claimed-by-colleague')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for Miriam Huber: the domain did not verify this mail.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent(
+      'Waiting to be filed: whether the mail comes from Miriam Huber cannot be verified. File it once you have checked it is from Miriam Huber.',
+    )
     expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent('has left the office')
-    expect(screen.getByTestId('claimed-mail-bar')).toHaveTextContent('Only Miriam Huber can file or restore this mail. You can dismiss it.')
-    expect(screen.queryByTestId('decision-bar')).toBeNull()
+    expect(screen.queryByTestId('claimed-mail-bar')).toBeNull()
+    expect(screen.getByTestId('decision-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Miriam Huber’s address, cannot be verified')
+    await userEvent.click(screen.getByTestId('decision-open'))
+    expect(await screen.findByRole('heading', { name: 'Is this mail from Miriam Huber?' })).toBeInTheDocument()
+    expect(screen.getByTestId('acknowledge-sender-row')).toHaveTextContent(/^I checked this mail is from Miriam Huber$/)
+    expect(screen.getByTestId('inbound-mail-detail')).not.toHaveTextContent('did you send this mail')
+  })
+
+  it('still offers another writer only „Dismiss …“ for an impersonation of a writer (B2)', () => {
+    renderDetail('impersonation-colleague')
+    expect(screen.getByTestId('claimed-mail-bar')).toBeInTheDocument()
     expect(screen.queryByTestId('decision-file')).toBeNull()
     expect(screen.queryByTestId('acknowledge-sender')).toBeNull()
     expect(screen.queryByTestId('attachment-checkbox')).toBeNull()
-    expect(screen.queryByTestId('attachment-change')).toBeNull()
-    expect(screen.getByTestId('decision-dismiss')).toHaveTextContent('Dismiss …')
   })
 
   it('says a sender the directory could not check could not be checked, never an outsider’s 14 days (R14)', () => {
-    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'sender_unchecked', onlySenderReleases: false }} />)
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'sender_unchecked', ownClaimedMail: false }} />)
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'sender_unchecked')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('could not be checked. Check the address and the domain above before you file.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('could not be checked. Check the address and the sender above before you file.')
     expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('outside the office')
   })
 
-  it('says an outsider’s mail expires after 14 days for good, and a member without write rights waits for the writers', () => {
+  it('says calmly until when an outsider’s mail stays, that it can be restored after, and that a reminder comes, and asks for no check of it', () => {
     const { unmount } = renderDetail('external-unverified')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('it expires after 14 days and cannot be restored')
+    const line = screen.getByTestId('sender-wait-reason')
+    expect(line).toHaveTextContent(/^Stays in Project mail until .+, and can be restored for 7 days after that\. \S+ reminds you 5 days before\.$/)
+    expect(line).not.toHaveAttribute('data-asks')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Sender cannot be verified')
+    expect(screen.getByTestId('sender-trust')).toHaveAttribute('data-tone', 'neutral')
     unmount()
+    renderDetail('expires-soon')
+    expect(screen.getByTestId('mail-expires-soon')).toHaveTextContent(/Stays in Project mail until \S+/)
+    expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
+  })
+
+  it('says nothing of a colleague without the right to file: the mail is simply the reader’s to file', () => {
     renderDetail('member-verified')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Waiting for you to file it, because the sender may not file in this project.')
+    expect(screen.queryByTestId('sender-wait-reason')).toBeNull()
+    expect(screen.getByTestId('decision-open')).toBeInTheDocument()
+  })
+
+  it('draws a forgery’s verdict in the danger colour', () => {
+    renderDetail('member-name')
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Caution: possible forgery')
+    expect(screen.getByTestId('sender-trust')).toHaveAttribute('data-tone', 'danger')
   })
 })

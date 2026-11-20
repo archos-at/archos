@@ -1,7 +1,9 @@
 import 'server-only'
 
 import { randomUUID } from 'node:crypto'
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEvent, SYSTEM_ACTORS } from '@/lib/audit/service'
+import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { endFollowBySystem } from '@/lib/mail-thread/follows'
 import { finishOriginalMove } from '@/lib/mail-thread/originals'
@@ -18,7 +20,7 @@ import {
   settleProjectNotices,
 } from './announce'
 import { auditDecisions } from './audit'
-import { projectIsHeld } from './filing-repository'
+import { decideEndedAttachments } from './entry-attachments'
 import type { InboundMailCapNotice } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
 import { INBOUND_MAIL_ADDRESS_STAGED_BYTES, INBOUND_MAIL_ORGANIZATION_STAGED_BYTES } from './receive'
@@ -87,8 +89,13 @@ export async function sweepStaleReceptions(now: Date): Promise<SweepCounts> {
   const before = new Date(now.getTime() - STALE_RECEPTION_MS)
   const rows = await discover('stale receptions', () => sweeps.findStaleReceptions(before, SWEEP_BATCH))
   await eachRow(rows, result, (row) => `the stale reception ${row.id}`, async (row) => {
-    if (row.rawStorageKey && (await eraseStagedObjects(row.stagingBucket, [row.rawStorageKey])).length > 0) {
-      throw new Error('its staged raw message could not be erased')
+    if (row.rawStorageKey) {
+      const taken = { id: row.id, rawStorageKey: row.rawStorageKey }
+      if (!(await sweeps.takeStaleReceptionKey(taken, before))) return
+      if ((await eraseStagedObjects(row.stagingBucket, [row.rawStorageKey]).catch(() => [row.rawStorageKey])).length > 0) {
+        await sweeps.returnStaleReceptionKey(taken)
+        throw new Error('its staged raw message could not be erased')
+      }
     }
     const deleted = await withPlatformAccess('inbound mail sweep 1: a stale reception', () => sweeps.deleteStaleReception(row.id, before))
     if (deleted) result.deleted += 1
@@ -133,14 +140,20 @@ export async function sweepStalledMoves(now: Date): Promise<SweepCounts> {
       if ((await finishOriginalMove(mail, entry)) === 'moved') result.moved += 1
       return
     }
-    if (mail.rawStorageKey && (await projectIsHeld(row.projectId, row.organizationId))) {
+    if (!mail.rawStorageKey) {
+      await forgetMovedRaw(row.id)
+      result.forgotten += 1
+      return
+    }
+    const raw: sweeps.StalledRaw = { id: mail.id, rawStorageKey: mail.rawStorageKey, originalMovePendingAt: mail.originalMovePendingAt }
+    if (!(await sweeps.takeStalledMoveRaw(raw, now))) {
       result.held += 1
       return
     }
-    if (mail.rawStorageKey && (await eraseStagedObjects(mail.stagingBucket, [mail.rawStorageKey])).length > 0) {
+    if ((await eraseStagedObjects(mail.stagingBucket, [raw.rawStorageKey]).catch(() => [raw.rawStorageKey])).length > 0) {
+      await sweeps.returnStalledMoveRaw(raw, now)
       throw new Error('its staged raw message could not be erased')
     }
-    await forgetMovedRaw(row.id)
     result.forgotten += 1
   })
   return result
@@ -179,7 +192,14 @@ export async function sweepExpiredMails(now: Date): Promise<SweepCounts> {
       occurredAt: now,
       idempotencyKey: `inbound_mail.expired:${row.id}:${now.toISOString()}`,
     })
+    captureServer({
+      event: 'inbound_mail_expired',
+      distinctId: null,
+      organizationId: row.organizationId,
+      properties: { parts, sender_class: row.senderClass, automatic: row.automatic },
+    })
     publishProjectChanged(row.organizationId, row.projectId)
+    await decideEndedAttachments(row.projectId, [row.id], now)
     await settleProjectNotices(row.organizationId, row.projectId)
     await settleHeld(row.organizationId, [row.id])
     await announceExpired({ ...row, mailId: row.id })
@@ -219,16 +239,26 @@ export async function sweepEndedParts(now: Date): Promise<SweepCounts> {
   await eachRow(mails, result, (row) => `the settle of mail ${row.id}`, async (row) => {
     const mail = await sweeps.findMailRow(row.id)
     if (!mail || mail.status !== 'waiting') return
-    if (!row.held) {
-      const keys = [mail.readStorageKey, mail.originalMovePendingAt ? null : mail.rawStorageKey].filter((key): key is string => key !== null)
-      if ((await eraseStagedObjects(mail.stagingBucket, keys)).length > 0) throw new Error('its staged objects could not be erased')
-    }
     if (!(await sweeps.settleEndedMail(mail, row.held, now))) return
     result.settled += 1
+    await decideEndedAttachments(row.projectId, [row.id], now)
     publishProjectChanged(row.organizationId, row.projectId)
     await settleProjectNotices(row.organizationId, row.projectId)
+    if (!row.held) await eraseSettledMail(mail, now)
   })
   return result
+}
+
+async function eraseSettledMail(mail: InboundMailRow, now: Date): Promise<void> {
+  const readKey = mail.readStorageKey
+  const rawKey = mail.originalMovePendingAt ? null : mail.rawStorageKey
+  const keys = [readKey, rawKey].filter((key): key is string => key !== null)
+  if (keys.length === 0) return
+  const kept = await eraseStagedObjects(mail.stagingBucket, keys).catch(() => keys)
+  if (kept.length === 0) return
+  const erasure: sweeps.DeferredErasure = { id: mail.id, kind: 'mail', organizationId: mail.organizationId, stagingBucket: mail.stagingBucket, storageKey: null, readKey, rawKey, keys }
+  await sweeps.returnReleasedErasure(erasure, kept, now)
+  throw new Error('its staged objects could not be erased')
 }
 
 export async function sweepFailedScans(now: Date): Promise<SweepCounts> {

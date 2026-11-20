@@ -94,7 +94,7 @@ The CHECKs hold the lifecycle, so no code path can break it:
 - The claim has both columns or neither, and exists only while the proposal is
   `proposed`.
 - `kind` is `file_operation`, `memory`, `project_profile`, `operation` (0175) or
-  `office_shelf_norm` (0250);
+  `office_shelf_norm` (0256);
   `status` and
   `proposed_by_kind` are known values; `payload` is an object.
 - `origin_card_index` is null or not negative, and needs an `origin_message_id`

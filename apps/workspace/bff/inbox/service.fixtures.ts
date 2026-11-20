@@ -64,6 +64,8 @@ export const ALL_TYPES = [
   'inbound_mail.held_for_writers',
   'inbound_mail.rejected',
   'inbound_mail.expired',
+  'mail_thread.follow_ended',
+  'inbound_mail.fraud_reported',
   'base_knowledge.new_edition',
 ] as const satisfies readonly InboxItemType[]
 
@@ -103,6 +105,8 @@ export const OPERATIONAL_TYPES = [
   'inbound_mail.held_for_writers',
   'inbound_mail.rejected',
   'inbound_mail.expired',
+  'mail_thread.follow_ended',
+  'inbound_mail.fraud_reported',
   'base_knowledge.new_edition',
 ] as const satisfies readonly InboxItemType[]
 

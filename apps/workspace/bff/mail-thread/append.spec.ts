@@ -21,6 +21,7 @@ vi.mock('@/lib/inbound-mail/repository', () => ({
 }))
 vi.mock('@/lib/inbound-mail/decision', () => ({ THREAD_DOCUMENT_TYPE: 'correspondence' }))
 vi.mock('@/lib/projects/folder-service', () => ({ ensureProjectFolderPaths: vi.fn() }))
+vi.mock('./rematch', () => ({ rematchAfterWrite: vi.fn(async () => undefined) }))
 
 import {
   BadRequestError,
@@ -66,6 +67,7 @@ import {
   type AppendRequest,
   type AttachmentFact,
 } from './append'
+import { rematchAfterWrite } from './rematch'
 import { renderMailThread } from './render'
 import {
   acquireRenderLease,
@@ -592,6 +594,45 @@ describe('appending to a thread', () => {
     )
   })
 
+  it('takes the appended mail’s subject for the thread, so a later reply under it matches by reference', async () => {
+    await appendInboundMessage(request({ mail: heldMail({ baseSubject: 'statik einreichung freigabe' }) }))
+    expect(vi.mocked(commitAppend).mock.calls[0]![0].threadUpdate.baseSubject).toBe('statik einreichung freigabe')
+    vi.mocked(commitAppend).mockClear()
+    await appendInboundMessage(request({ mail: heldMail({ baseSubject: '' }) }))
+    expect(vi.mocked(commitAppend).mock.calls[0]![0].threadUpdate.baseSubject).toBe('statik einreichung')
+  })
+
+  it('keeps the mail’s own subject and conversation on its entry, for a detach to start a Verlauf from', async () => {
+    const guid = '6f1d2c3b-4a5e-4f60-8172-839405a6b7c8'
+    await appendInboundMessage(request({ mail: heldMail({ baseSubject: 'statik einreichung freigabe', threadIndexGuid: guid }) }))
+    expect(vi.mocked(commitAppend).mock.calls[0]![0].entry).toMatchObject({
+      baseSubject: 'statik einreichung freigabe',
+      threadIndexGuid: guid,
+    })
+  })
+
+  it('matches the project’s waiting mails again against the thread it wrote, under its subject now', async () => {
+    await appendInboundMessage(request({ mail: heldMail({ baseSubject: 'statik einreichung freigabe' }) }))
+    expect(rematchAfterWrite).toHaveBeenCalledExactlyOnceWith(PROJECT_ID, [
+      { id: THREAD_ID, baseSubject: 'statik einreichung freigabe', threadIndexGuid: null },
+    ])
+    expect(vi.mocked(commitAppend).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(rematchAfterWrite).mock.invocationCallOrder[0]!
+    )
+    vi.mocked(rematchAfterWrite).mockClear()
+    vi.mocked(commitAppend).mockResolvedValueOnce('already')
+    await appendInboundMessage(request())
+    expect(rematchAfterWrite).not.toHaveBeenCalled()
+  })
+
+  it('commits only while it still holds the thread, and waits to try again when another writer took it', async () => {
+    vi.mocked(commitAppend).mockResolvedValueOnce('lost')
+    expect(await appendInboundMessage(request())).toEqual({ kind: 'busy' })
+    expect(rematchAfterWrite).not.toHaveBeenCalled()
+    expect(vi.mocked(commitAppend).mock.calls[0]![0].leaseHolder).toBe(DECISION_ID)
+    expect(releaseRenderLease).toHaveBeenCalledWith(THREAD_ID, DECISION_ID)
+  })
+
   describe('a forward whose original the project already filed (B2, migration 0198)', () => {
     const forward = (ownText: string) =>
       request({
@@ -773,6 +814,10 @@ describe('starting a thread', () => {
       createdBy: PERSON,
       baseSubject: 'statik einreichung',
     })
+    expect(commit.leaseHolder).toBeNull()
+    expect(rematchAfterWrite).toHaveBeenCalledWith(PROJECT_ID, [
+      { id: newThreadIdOf(DECISION_ID), baseSubject: 'statik einreichung', threadIndexGuid: null },
+    ])
   })
 
   it('never files into another document of the name: `name_taken`, unless it is this filing’s own (a retry)', async () => {

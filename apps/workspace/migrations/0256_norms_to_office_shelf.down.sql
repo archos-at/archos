@@ -1,4 +1,4 @@
--- Undo 0250. Lossy: every Verweis and every „Hier lassen“ is forgotten, and an
+-- Undo 0256. Lossy: every Verweis and every „Hier lassen“ is forgotten, and an
 -- open suggestion of a project norm for the Büroablage is deleted with its
 -- kind. The norms that went to the Büroablage stay there.
 DELETE FROM "proposed_changes" WHERE "kind" = 'office_shelf_norm';

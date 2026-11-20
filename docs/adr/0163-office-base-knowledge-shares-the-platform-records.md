@@ -256,7 +256,7 @@ nobody is told about.
   may manage the Büroablage. „Unter Normen & Richtlinien führen“ proposes each file (`takeAsNorm`, which remembers
   the folder) and then moves it under the standards root, up to 50 a request, where it waits under „Zu bestätigen“,
   and opens the norm dialog for the files it moved; the folder stays, even empty. „Im Ordner lassen“ writes one row per document to `office_shelf_norm_keeps`, the table a
-  project's „Hier lassen“ uses too (ADR-0185, migration 0250, without a project), and the folder does not offer that document again. Operations:
+  project's „Hier lassen“ uses too (ADR-0185, migration 0256, without a project), and the folder does not offer that document again. Operations:
   `office-shelf-folder-norms-list` and `office-shelf-folder-norms-decide` (the person's own decision, not the
   agent's).
 - **What is read is the file name**, as at upload: the title and summary the backend reads later are not in
@@ -309,7 +309,7 @@ lists standards with dated editions, every office ÖNORM keeps the manual check.
 „Nicht mehr als Norm führen“ deleted the document's records, so every Ausgabe, check and the topic were gone and
 the only way back was a fresh proposal. Now:
 
-- **Parked, not deleted** (migration 0251). `base-knowledge-unlist` moves the file to the top of the Büroablage,
+- **Parked, not deleted** (migration 0257). `base-knowledge-unlist` moves the file to the top of the Büroablage,
   as before, and parks its records: `knowledge_records.unlisted_at` is set and the head moves to
   `unlisted_head_revision_id`, so every reader that reads heads sees nothing of the entry, as of an unconfirmed
   proposal. Every reader by document (`readOfficeEntries`, `documentHasEntry`, `documentsWithEntries`,

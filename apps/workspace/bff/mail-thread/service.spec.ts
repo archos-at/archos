@@ -21,7 +21,7 @@ const attachment = (overrides: Partial<EntryAttachment>): EntryAttachment => ({
   notFiledReason: null,
   documentId: 'doc-1',
   documentVersionId: null,
-  document: { folderId: null },
+  document: { folderId: null, folderPath: '' },
   ...overrides,
 })
 
@@ -33,13 +33,28 @@ describe('an entry’s attachments for the reader', () => {
         new Set(),
       ),
     ).toEqual([
-      { position: 1, filename: 'S-101_C.pdf', disposition: 'filed', documentId: 'doc-1', visible: true },
+      { position: 1, filename: 'S-101_C.pdf', disposition: 'filed', documentId: 'doc-1', folderPath: '', visible: true },
       { position: 2, filename: null, disposition: 'not_filed', notFiledReason: 'type_not_accepted', visible: true },
     ])
   })
 
+  it('says the folder a filed attachment lies in now, for one the reader may open', () => {
+    expect(
+      attachmentViews(
+        [
+          attachment({ document: { folderId: 'f-statik', folderPath: 'Tragwerk/Statik' } }),
+          attachment({ position: 2, disposition: 'already_present', document: { folderId: 'f-plaene', folderPath: 'Pläne' } }),
+        ],
+        new Set(),
+      ),
+    ).toEqual([
+      expect.objectContaining({ position: 1, folderPath: 'Tragwerk/Statik' }),
+      expect.objectContaining({ position: 2, folderPath: 'Pläne' }),
+    ])
+  })
+
   it('keeps the place of one filed where the reader may not look, without its name or ids', () => {
-    expect(attachmentViews([attachment({ document: { folderId: HIDDEN } })], new Set([HIDDEN]))).toEqual([
+    expect(attachmentViews([attachment({ document: { folderId: HIDDEN, folderPath: 'Vertraulich' } })], new Set([HIDDEN]))).toEqual([
       { position: 1, filename: null, disposition: 'filed', visible: false },
     ])
   })

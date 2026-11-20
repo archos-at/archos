@@ -1,4 +1,4 @@
--- 0251: a norm taken off Normen & Richtlinien keeps its records (ADR-0163, amendment of 2026-11-19).
+-- 0257: a norm taken off Normen & Richtlinien keeps its records (ADR-0163, amendment of 2026-11-19).
 --
 -- „Nicht mehr als Norm führen“ deleted the document's records, and with them
 -- every Ausgabe, check and the topic it had: the toast's „Rückgängig“ could
