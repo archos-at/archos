@@ -86,9 +86,9 @@ function WhoPill({ own }: { own: boolean }): JSX.Element {
 }
 
 export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office, query, noProject = false, alone = false, plainTitle = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string; query?: string; noProject?: boolean; alone?: boolean; plainTitle?: boolean }): JSX.Element {
-  const query = useSearchParams()
-  const who = query?.get('who') ?? (query?.get('space') === '1' ? 'c' : null)
-  const line = query?.get('line') === '1'
+  const search = useSearchParams()
+  const who = search?.get('who') ?? (search?.get('space') === '1' ? 'c' : null)
+  const line = search?.get('line') === '1'
   const search = (
     <div className={`bg-sheet flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm ${query ? 'border-foreground' : 'border-field-border text-muted-foreground'}`}>
       <Search className="size-4 shrink-0" aria-hidden />

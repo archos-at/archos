@@ -510,7 +510,6 @@ function OfficePage({ name, moreOpen }: { name: string; moreOpen: boolean }): JS
 
 function ShelfPage({ own, form, moreOpen, trashOpen, folder, query, across, alone = false }: { own: boolean; form: string; moreOpen: boolean; trashOpen: boolean; folder: string | null; query: string | null; across: boolean; alone?: boolean }): JSX.Element {
   const first = useFirstRoom()
-  const params = useSearchParams()
   return (
     <>
       <Rail own={across || (first.space && own)} section="files" gear="none" mine={alone && own} />
