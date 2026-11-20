@@ -29,6 +29,7 @@ COPY --from=deps /app/node_modules/source-sans/TTF ./node_modules/source-sans/TT
 COPY --from=deps /app/node_modules/source-sans/LICENSE.md ./node_modules/source-sans/
 COPY --from=deps /app/node_modules/source-code-pro/TTF ./node_modules/source-code-pro/TTF
 COPY --from=deps /app/node_modules/source-code-pro/LICENSE.md ./node_modules/source-code-pro/
+COPY brand/print-fonts ./brand/print-fonts
 COPY package.json ./
 COPY src ./src
 USER pptruser

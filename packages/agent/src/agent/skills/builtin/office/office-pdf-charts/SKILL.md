@@ -151,6 +151,9 @@ sandbox forbids `eval`, so the view needs `vega-interpreter`: always
 `vega.parse(spec, null, { ast: true })` and
 `new vega.View(runtime, { expr: expressionInterpreter, renderer: "none" })`.
 
+- The look through `config: { ...vegaLiteConfig }` from `house-style`
+  (`office-design`): General Sans, ink bars, quiet axes, the ink series for
+  up to three series.
 - German number format on the axes through `config.locale` as below, and
   `axis: { format: ",.0f" }`.
 - Bars start at zero; one colour unless a second one means something; the
@@ -163,6 +166,7 @@ import { writeFile } from "node:fs/promises";
 import * as vega from "vega";
 import * as vegaLite from "vega-lite";
 import { expressionInterpreter } from "vega-interpreter";
+import { vegaLiteConfig } from "house-style";
 
 export default async function () {
   const values = [
@@ -173,9 +177,9 @@ export default async function () {
   const spec = vegaLite.compile({
     width: 420,
     height: 240,
-    config: { font: "Arial", locale: { number: { decimal: ",", thousands: ".", grouping: [3], currency: ["", " €"] } } },
+    config: { ...vegaLiteConfig, locale: { number: { decimal: ",", thousands: ".", grouping: [3], currency: ["", " €"] } } },
     data: { values },
-    mark: { type: "bar", color: "#4C6A92" },
+    mark: { type: "bar" },
     encoding: {
       x: { field: "stage", type: "nominal", sort: null, title: null, axis: { labelAngle: 0 } },
       y: { field: "eur", type: "quantitative", title: "EUR netto", axis: { format: ",.0f" } },

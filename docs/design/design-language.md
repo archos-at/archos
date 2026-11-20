@@ -332,8 +332,9 @@ app's own choices, not defects). Inside that level the rules are the brand's:
 - **PDF exports:** ink, paper and greys are the brand neutrals (`theme.spec.ts` holds them to
   `apps/workspace/shared/brand/tokens.vars.css`); the wordmark is Switzer Semibold; the body
   stays Helvetica because the brand ships General Sans only as a variable
-  WOFF2, which react-pdf embeds as blank glyphs. A static General Sans Medium
-  TTF or OTF from `packages/brand` is the one thing that unlocks it.
+  WOFF2, which react-pdf embeds as blank glyphs. The static OTFs now exist in
+  `packages/brand/print-fonts` (the agent's own PDFs set in them); registering
+  them in `bff/pdf/fonts.ts` is what unlocks it for the exports.
 
 ### Accessibility gate (WCAG 2.2 AA, light and dark)
 

@@ -146,6 +146,20 @@ export function renderTokensCss(tokens) {
  * Everything dist/ holds, keyed by the path under dist/. Pure: reads the sources, writes nothing.
  * @returns {Map<string, string | Buffer>}
  */
+const DOCUMENT_COLORS = ['surface', 'surface-sunken', 'line', 'line-strong', 'ink', 'ink-hover', 'ink-muted', 'ink-faint', 'markup', 'markup-soft']
+
+export function renderDocumentColors(tokens) {
+  const byName = new Map(tokens.color.tokens.map((t) => [t.name, t]))
+  const light = (name) => {
+    const token = byName.get(name)
+    if (!token) throw new Error(`tokens.json has no colour "${name}" (document-colors.json)`)
+    const value = isThemed(token.value) ? token.value.light : token.value
+    return isAlias(value) ? light(value.slice(1, -1)) : value
+  }
+  const colors = Object.fromEntries(DOCUMENT_COLORS.map((name) => [name, light(name)]))
+  return `${JSON.stringify(colors, null, 2)}\n`
+}
+
 export function renderDist() {
   const tokens = JSON.parse(readFileSync(join(BRAND, 'tokens.json'), 'utf8'))
   for (const group of [...SCALAR_GROUPS, 'color', 'shadow']) {
@@ -156,6 +170,7 @@ export function renderDist() {
   const out = new Map()
   out.set('tokens.css', renderTokensCss(tokens))
   out.set('tokens.vars.css', renderVarsCss(tokens))
+  out.set('document-colors.json', renderDocumentColors(tokens))
   out.set('components.css', readFileSync(join(BRAND, 'css/components.css')))
   out.set('motion.css', readFileSync(join(BRAND, 'css/motion.css')))
   out.set('covers.css', readFileSync(join(BRAND, 'css/covers.css')))
@@ -163,6 +178,9 @@ export function renderDist() {
   out.set('blocks.css', readFileSync(join(BRAND, 'css/blocks.css')))
   for (const file of readdirSync(join(BRAND, 'fonts')).sort()) {
     out.set(`fonts/${file}`, readFileSync(join(BRAND, 'fonts', file)))
+  }
+  for (const file of readdirSync(join(BRAND, 'print-fonts')).sort()) {
+    out.set(`print-fonts/${file}`, readFileSync(join(BRAND, 'print-fonts', file)))
   }
   return out
 }

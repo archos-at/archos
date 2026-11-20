@@ -144,7 +144,10 @@ test("every bundled package and font is pinned with a licence", () => {
     assert.match(entry.sha256, /^[0-9a-f]{64}$/, entry.name);
     assert.ok(entry.license, entry.name);
   }
-  for (const font of manifest.typst.fonts) assert.equal(font.license, "OFL-1.1");
+  for (const font of manifest.typst.fonts) {
+    if (font.local) assert.ok(font.license_note, font.name);
+    else assert.equal(font.license, "OFL-1.1");
+  }
 });
 
 after(() => {

@@ -69,6 +69,7 @@ Office refuse or repair a file, and its example is the code to start from.
 | `unpdf` 2.1 | the text of a PDF | `office-pdf-charts` |
 | `vega` 6.4, `vega-lite` 6.5, `vega-interpreter` 2.3 | charts as SVG | `office-pdf-charts` |
 | `@cloudflare/puppeteer` 2.0 | HTML and CSS to a designed PDF, Mermaid diagrams, PNG screenshots | `office-html-pdf` |
+| `house-style` 1.0 | the house style for every file: colours, deck master, PDF and Word styles, German formats | `office-design` |
 | `decimal.js` 10.6 | exact decimals: areas, money | this one |
 | `mathjs` 15.2 | units, matrices, expressions | this one |
 | `papaparse` 5.7 | CSV in and out: `delimiter: ";"`, and `"\uFEFF"` before the text so Excel reads umlauts | |
@@ -77,8 +78,12 @@ Office refuse or repair a file, and its example is the code to start from.
 
 ## The office's conventions
 
-- A4 portrait unless asked otherwise. Arial throughout unless the office's
-  template says otherwise.
+- A4 portrait unless asked otherwise. The look comes from `house-style`
+  (`office-design`): read it before the first file a person will show to
+  others, and leave it only for the office's template or what the person asked.
+  Aptos in Office files (the recipient's Office draws the font; Arial when they
+  say their Office lacks it), General Sans
+  in PDFs (embedded).
 - Numbers as the office writes them, 1.234,56:
   `new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })`.
   Take `de-DE`: other German locales group thousands with a narrow space.

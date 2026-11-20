@@ -16,11 +16,12 @@ or a brand string changes here and reaches every surface on the next sync.
 | `css/status.css` | The website's 404, 410 and 500 pages (`ui-status`): the layout, and the motion of their drawings, which use the covers' pens. The workspace draws the same scenes on its own tokens (`apps/workspace/ui/styles/status-drawing.css`). |
 | `css/blocks.css` | The content blocks of a blog post (`ui-chart`, `ui-figures`, `ui-compare`, `ui-annotated`, `ui-legal`, `ui-qa`, `ui-takeaways`): the website's `src/components/blocks/`, one sheet each in `docs/components/`. Chart series are steps of the one ink, validated as an ordinal ramp ([Chart.md](docs/components/Chart.md#farbe)). |
 | `fonts/` | The two WOFF2 files (General Sans variable, Switzer Semibold). |
+| `print-fonts/` | General Sans as static OTFs (Regular, Medium, Semibold, each with italic) for documents: Typst and the browser renderer embed them in the agent's PDFs. Licensed by the company under its own licence, not the Fontshare FFL that ships with the free download. |
 | `assets/logos/` | Client logos in grey (Pilotbüros, funding logo). The brand video is not here; it lives with the website. |
 | `docs/components/` | One Markdown rules sheet per component, plus `ColorUsage.md`. |
 | `docs/blog-covers.md` | The blog's cover format: canvas, frame, pens, composition, and how to draw the next one. |
 | `docs/brand-basis.md` | What the brand says and stands for (Markenbasis): positioning, mission, values, antonyms, tonality, Belegpflicht, image families, logo clear space and minimum size, and which source wins when the Markenbasis and the design system disagree. |
-| `build-tokens.mjs` | Builds `dist/tokens.css` (the website layer: shared tokens only) and `dist/tokens.vars.css` (the app layer: every token, app-scoped ones included, as variables prefixed `--ds-`, dark under `.dark` too) from `tokens.json`, and copies `css/` and `fonts/` into `dist/`. The workspace imports `tokens.vars.css` and maps its own names onto it rather than typing a value. |
+| `build-tokens.mjs` | Builds `dist/document-colors.json` (the light colours for printed and Office documents) and `dist/tokens.css` (the website layer: shared tokens only) and `dist/tokens.vars.css` (the app layer: every token, app-scoped ones included, as variables prefixed `--ds-`, dark under `.dark` too) from `tokens.json`, and copies `css/` and `fonts/` into `dist/`. The workspace imports `tokens.vars.css` and maps its own names onto it rather than typing a value. |
 | `sync.mjs` | Copies each app the files of its layer (`TARGETS`) and deletes any it no longer receives; copies `identity.json` alone into the agent's package (a `shared` target: nothing else there is touched); writes the product's name into the files listed in `name-copies.mjs`. `--check` writes nothing and fails on a stale, missing or unexpected file. |
 | `name-copies.mjs` | The files that must spell the product's name as a literal (the service worker's fallback title, the icons' SVG `<title>`). `sync.mjs` fills them from `identity.json`, so a rename is still one edit (ADR-0149). |
 | `dist/` | Built output, committed on purpose (see the root `.gitignore` negation). |
@@ -36,6 +37,8 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 | `apps/workspace/shared/brand/` | `tokens.vars.css`, `fonts/`, `identity.json` |
 | `packages/agent/src/agent/common/` | `identity.json` only: `agent.common.brand` reads the name from it |
 | `apps/agent-host/src/agent_host/drawings/brand/` | `fonts/`, `identity.json`: the title block of the sheet a DXF is drawn on, and its „Erstellt mit …“ line (ADR-0152) |
+| `apps/code-runner/src/house-style/brand/` | `document-colors.json` and `print-fonts/`: the light colours, aliases resolved, which the runner's `house-style` module builds the agent's decks, PDFs, Word and Excel files from, and the face Typst embeds |
+| `apps/browser-renderer/brand/` | `print-fonts/`: the face of HTML to PDF |
 
 ## Two layers: website and app
 

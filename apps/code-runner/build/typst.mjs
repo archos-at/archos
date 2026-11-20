@@ -27,7 +27,7 @@ async function checkPinned(root, pkg, name, version) {
 
 async function checkTypst(root, typst, pkg) {
   await checkPinned(root, pkg, typst.compiler.name, typst.compiler.version);
-  for (const font of typst.fonts) await checkPinned(root, pkg, font.package, font.version);
+  for (const font of typst.fonts) if (!font.local) await checkPinned(root, pkg, font.package, font.version);
   for (const entry of [typst.compiler, ...typst.fonts, ...typst.packages]) {
     if (!admitted(entry)) throw new Error(`${entry.name ?? entry.package}: licence ${entry.license} is not admitted.`);
   }
@@ -62,7 +62,8 @@ async function packFiles(root, typst) {
   };
   const fonts = [];
   for (const font of typst.fonts) {
-    for (const file of font.files) fonts.push(place(await readFile(join(root, "node_modules", font.package, file))));
+    const dir = font.local ? join(root, font.local) : join(root, "node_modules", font.package);
+    for (const file of font.files) fonts.push(place(await readFile(join(dir, file))));
   }
   const packages = {};
   for (const entry of typst.packages) packages[`${entry.name}:${entry.version}`] = place(await typstPackage(root, entry));

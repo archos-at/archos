@@ -19,6 +19,11 @@ async function readJson(path) {
 
 async function checkManifest(manifest, pkg) {
   for (const lib of manifest.libraries) {
+    if (lib.local) {
+      if (!lib.entry) throw new Error(`${lib.name}: a local library names its entry under src/.`);
+      await readFile(join(ROOT, lib.entry));
+      continue;
+    }
     const packageName = lib.package ?? lib.name;
     const pinned = pkg.devDependencies?.[packageName] ?? pkg.dependencies?.[packageName];
     if (pinned !== lib.version) {

@@ -68,9 +68,11 @@ Every command the client sends is checked before it reaches Chromium:
 
 ## Fonts and Mermaid
 
-The house fonts come from Adobe's npm packages `source-sans` 3.52 and `source-code-pro` 2.42 (OFL-1.1,
-their licences ship in the image) and are the fontconfig defaults for `sans-serif`, `system-ui` and
-`monospace`. Mermaid 12.3 (MIT) is served to pages from the image only.
+General Sans, the house face of the agent's PDFs, comes from `brand/print-fonts`, a copy
+`packages/brand/sync.mjs` writes from `packages/brand/print-fonts` (static OTFs under the company's
+licence); pages ask for it by name. Adobe's npm packages `source-sans` 3.52 and `source-code-pro` 2.42
+(OFL-1.1, their licences ship in the image) are the fontconfig defaults for `sans-serif`, `system-ui`
+and `monospace`. Mermaid 12.3 (MIT) is served to pages from the image only.
 
 ## Image
 

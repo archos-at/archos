@@ -106,6 +106,14 @@
       "version": "2.0.1",
       "license": "Apache-2.0",
       "purpose": "Puppeteer: HTML and CSS to PDF, screenshots, Mermaid diagrams, in a fresh headless Chromium with no network. puppeteer.launch(env.BROWSER)."
+    },
+    {
+      "name": "house-style",
+      "local": true,
+      "entry": "src/house-style/index.js",
+      "version": "1.0.0",
+      "license": "first-party",
+      "purpose": "The office's house style for every file the agent makes: colours from the brand tokens (packages/brand), a PowerPoint master, CSS for HTML to PDF, a Typst preamble, Word and Excel styles, a Vega-Lite config, German number and date formats."
     }
   ],
   "typst": {
@@ -118,6 +126,20 @@
       "typst": "0.14.2"
     },
     "fonts": [
+      {
+        "name": "general-sans",
+        "local": "src/house-style/brand/print-fonts",
+        "license": "commercial",
+        "license_note": "General Sans under the company's own licence (not the Fontshare FFL); copied from packages/brand/print-fonts by packages/brand/sync.mjs.",
+        "files": [
+          "GeneralSans-Regular.otf",
+          "GeneralSans-Italic.otf",
+          "GeneralSans-Medium.otf",
+          "GeneralSans-MediumItalic.otf",
+          "GeneralSans-Semibold.otf",
+          "GeneralSans-SemiboldItalic.otf"
+        ]
+      },
       {
         "package": "source-sans",
         "version": "3.52.0",

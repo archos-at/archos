@@ -30,9 +30,13 @@ with `fletcher` (flowcharts) or `timeliney` (Gantt).
 
 ## Rules
 
-- Start every document with the page and text setup of the example: A4,
-  margins, header and footer, `font: "Source Sans 3"`, `lang: "de"`. The fonts
-  are Source Sans 3 and, for code, Source Code Pro; no other font exists.
+- Start every document with `typstPreamble` from `house-style`, as the
+  example does: A4, margins, header and footer, type, headings, tables, and the
+  `house` colours and helpers (`office-design`). Header and footer text go in
+  through `typstInputs({ header, footer, lang })`; merge your own inputs into
+  the same object. The fonts are General Sans (the house face: Regular, Medium,
+  Semibold, each with italic), Source Sans 3 and, for code, Source Code Pro;
+  no other font exists.
 - Page numbers only in the footer, as `counter(page).display()` and
   `counter(page).final().first()` inside `context`.
 - Tables: `table.header(...)` repeats on every page. Right-align numbers and
@@ -44,8 +48,8 @@ with `fletcher` (flowcharts) or `timeliney` (Gantt).
   `@preview/chronos:0.3.0` (sequence), `@preview/cetz:0.4.2` (drawing). Any
   other import fails.
 - Text from the person or a document goes in as data, not markup:
-  `compile(markup, { inputs: { notiz: text } })` and `#sys.inputs.notiz` in the
-  markup. Pasted into the markup, a `#`, `*`, `_`, `$`, `<` or `@` in it changes
+  `compile(markup, { inputs: { ...typstInputs({ … }), notiz: text } })` and
+  `#sys.inputs.notiz` in the markup. Pasted into the markup, a `#`, `*`, `_`, `$`, `<` or `@` in it changes
   the document.
 - A compile error comes back on stderr with `main.typ:line:column`: fix that
   line and run again.
@@ -55,50 +59,45 @@ with `fletcher` (flowcharts) or `timeliney` (Gantt).
 ```js
 import { writeFile } from "node:fs/promises";
 import { compile } from "typst";
+import { format, typstInputs, typstPreamble } from "house-style";
 
 const rooms = [["EG", "Wohnen", 32.4], ["EG", "Küche", 11.2], ["OG", "Zimmer 1", 14.8]];
-const de = (n) => n.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default async function () {
-  const rows = rooms.map(([floor, room, area]) => `[${floor}], [${room}], [${de(area)}],`).join("\n");
-  const total = de(rooms.reduce((sum, [, , area]) => sum + area, 0));
-  const markup = String.raw`
+  const rows = rooms.map(([floor, room, area]) => `[${floor}], [${room}], [${format.number(area)}],`).join("\n");
+  const total = format.number(rooms.reduce((sum, [, , area]) => sum + area, 0));
+  const markup = typstPreamble + String.raw`
 #import "@preview/fletcher:0.5.8": diagram, node, edge
 #import "@preview/timeliney:0.4.0"
-#set page(paper: "a4", margin: (x: 20mm, top: 28mm, bottom: 24mm),
-  header: [#set text(9pt, fill: luma(90)); Büro #h(1fr) Wohnhaus Lindengasse],
-  footer: context [#set text(9pt, fill: luma(90)); Stand 18.11.2026 #h(1fr)
-    Seite #counter(page).display() von #counter(page).final().first()])
-#set text(font: "Source Sans 3", size: 10.5pt, lang: "de")
 #set heading(numbering: "1.")
 
+#house-title([Baubeschreibung], subtitle: [Wohnhaus Lindengasse], meta: [Stand 18.11.2026])
+
 = Flächen
-#table(columns: (auto, 1fr, auto), align: (left, left, right), stroke: none,
-  fill: (_, y) => if y == 0 { luma(230) },
-  table.header[*Geschoss*][*Raum*][*Fläche m²*],
+#table(columns: (auto, 1fr, auto), align: (left, left, right),
+  table.header[Geschoss][Raum][Fläche m²],
   ${rows}
-  table.hline(), [], [*Summe*], [*${total}*])
+  table.hline(stroke: 0.75pt + house.ink), [], [*Summe*], [*${total}*])
 
 = Ablauf
-#diagram(node-stroke: 0.6pt, spacing: 14mm,
-  node((0,0), [Entwurf], corner-radius: 3pt), edge("-|>"),
-  node((1,0), [Einreichung], corner-radius: 3pt), edge("-|>"),
-  node((2,0), [Bewilligung], corner-radius: 3pt))
+#diagram(node-stroke: 0.6pt + house.ink, spacing: 14mm,
+  node((0,0), [Entwurf]), edge("-|>"),
+  node((1,0), [Einreichung]), edge("-|>"),
+  node((2,0), [Bewilligung], fill: house.band))
 
 = Terminplan
 #timeliney.timeline(show-grid: true, {
   import timeliney: *
-  headerline(group(([*2027*], 6)))
-  headerline(group(..range(6).map(n => strong("M" + str(n + 1)))))
-  taskgroup(title: [*Planung*], {
-    task("Vorentwurf", (0, 2), style: (stroke: 6pt + rgb("#4C6A92")))
-    task("Einreichplanung", (1.5, 4), style: (stroke: 6pt + rgb("#4C6A92")))
+  headerline(group(([2027], 6)))
+  headerline(group(..range(6).map(n => "M" + str(n + 1))))
+  taskgroup(title: [Planung], {
+    task("Vorentwurf", (0, 2), style: (stroke: 6pt + house.ink))
+    task("Einreichplanung", (1.5, 4), style: (stroke: 6pt + house.muted))
   })
-  milestone(at: 4, style: (stroke: (dash: "dashed")), align(center, [*Einreichung*]))
+  milestone(at: 4, style: (stroke: (paint: house.markup, dash: "dashed")), align(center, text(fill: house.markup)[Einreichung]))
 })
-
 `;
-  const pdf = await compile(markup);
+  const pdf = await compile(markup, { inputs: typstInputs({ header: "Wohnhaus Lindengasse · Baubeschreibung", footer: "Stand 18.11.2026" }) });
   await writeFile("/workspace/Baubeschreibung.pdf", pdf);
   return { file: "/workspace/Baubeschreibung.pdf", bytes: pdf.byteLength };
 }
