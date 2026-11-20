@@ -48,6 +48,9 @@ export const research: typeof en.research = {
     research: 'Recherche',
     moreActions: 'Weitere Aktionen',
     renameSession: 'Chat umbenennen',
+    rename: 'Umbenennen',
+    delete: 'Löschen',
+    changedOn: 'Geändert am {date}',
     researching: 'Recherche läuft',
   },
 

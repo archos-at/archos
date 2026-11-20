@@ -36,9 +36,11 @@ export function ConversationPrivacyLineView({
           </FactLine>
         )}
         {privateToReader && (
-          <FactLine icon={Lock} testId="conversation-private-line">
-            {t('privacy.onlyYou')}
-          </FactLine>
+          <div className="sm:hidden" data-slot="phone-only">
+            <FactLine icon={Lock} testId="conversation-private-line">
+              {t('privacy.onlyYou')}
+            </FactLine>
+          </div>
         )}
       </div>
     </div>

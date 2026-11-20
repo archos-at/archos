@@ -169,8 +169,6 @@ export const chat: typeof en.chat = {
     afternoon: 'Guten Tag',
     evening: 'Guten Abend',
     withName: '{greeting}, {name}.',
-    projectWrites:
-      '{productName} beantwortet nicht nur Fragen – auf Zuruf schreibt {productName} Aktenvermerke, Notizen und Entwürfe direkt in die Projektdateien.',
   },
   roles: {
     input: 'Eingabe',
@@ -1747,6 +1745,8 @@ export const chat: typeof en.chat = {
   },
   privacy: {
     onlyYou: 'Nur Sie sehen diesen Chat, bis Sie ihn teilen.',
+    onlyYouShort: 'Nur Sie',
+    newChat: 'Nur Sie sehen diesen Chat.',
   },
   confidence: {
     label: 'Einschätzung: {level}',

@@ -13,6 +13,7 @@ import { RightsLostPanel } from './RightsLostPanel'
 import { useChatStore } from '@/features/chat/store'
 import { NoSourcesBanner, ChatUsageNotice } from '@/features/chat'
 import { ConversationPrivacyLine } from '@/features/chat/conversation-privacy'
+import { NewChatMailLine } from './new-chat-mail-line'
 import { useSessionUrl } from '@/hooks/use-session-url'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { useTranslations } from '@/i18n'
@@ -149,6 +150,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
             sessionTitle={currentConversationTitle}
             onNewSession={handleNewSession}
             isChatStarted={messageCount > 0}
+            onDeleteSession={handleDeleteSession}
             conversationId={currentConversationId ?? null}
             isCollaborationEnabled={canCollaborate}
             currentUserId={currentUserId}
@@ -223,6 +225,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
                   conversationId={currentConversationId ?? null}
                   canCollaborate={canCollaborate}
                 />
+                {messageCount === 0 && <NewChatMailLine projectId={projectId ?? null} />}
               </motion.div>
             </>
           )}
