@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: files between a chat and the shelves, step by step (concept for ticket 81).
 
 import type { JSX, ReactNode } from 'react'
-import { Archive, ArrowUp, Check, ChevronRight, FileText, FileUp, Folder, FolderInput, Hash, LockKeyhole, Paperclip, Search, Sparkles, Users, X, type LucideIcon } from 'lucide-react'
+import { Archive, ArrowUp, Check, ChevronRight, FileText, FileUp, Folder, FolderInput, Hash, LayoutGrid, List, LockKeyhole, Paperclip, Search, Sparkles, Users, X, type LucideIcon } from 'lucide-react'
 
 import identity from '@/shared/brand/identity.json'
 import { ChatHeader } from '../personal-area-rail/prototype'
@@ -128,6 +128,27 @@ function Source({ icon: Icon, label, sub, picked = false }: { icon: LucideIcon; 
   )
 }
 
+function Sketch({ plan }: { plan: boolean }): JSX.Element {
+  if (!plan) {
+    return (
+      <span className="flex w-[70%] flex-col gap-1.5">
+        <span className="bg-selected h-1.5 w-[45%] rounded" />
+        <span className="bg-desk h-1 w-full rounded" />
+        <span className="bg-desk h-1 w-[92%] rounded" />
+        <span className="bg-desk h-1 w-[97%] rounded" />
+        <span className="bg-desk h-1 w-[70%] rounded" />
+      </span>
+    )
+  }
+  return (
+    <svg viewBox="0 0 120 70" className="text-foreground h-[70px] w-[120px]" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden>
+      <rect x="6" y="8" width="108" height="54" />
+      <path d="M48 8v26h24v28M72 34h42M6 44h22" />
+      <path d="M48 34a10 10 0 0 0-10 10" strokeDasharray="2 2" />
+    </svg>
+  )
+}
+
 function Picker({ personal, own, warn }: { personal: boolean; own: boolean; warn: boolean }): JSX.Element {
   const files = own ? OWN_FILES : PICK_FILES
   const count = files.filter((file) => file.picked).length
@@ -160,6 +181,14 @@ function Picker({ personal, own, warn }: { personal: boolean; own: boolean; warn
               <Search className="size-4" aria-hidden />
               {own ? 'In meiner Ablage suchen …' : 'In der Projektablage suchen …'}
             </div>
+            <span className="bg-desk flex rounded-control p-0.5">
+              <span className="bg-sheet shadow-xs flex size-7 items-center justify-center rounded-[5px]">
+                <LayoutGrid className="size-3.5" aria-label="Kacheln" />
+              </span>
+              <span className="text-muted-foreground flex size-7 items-center justify-center">
+                <List className="size-3.5" aria-label="Liste" />
+              </span>
+            </span>
             <X className="text-muted-foreground size-4" aria-label="Schließen" />
           </div>
           <p className="text-muted-foreground text-meta border-hairline flex items-center gap-1.5 border-b px-5 py-3">
@@ -167,7 +196,7 @@ function Picker({ personal, own, warn }: { personal: boolean; own: boolean; warn
             <ChevronRight className="size-3" aria-hidden />
             <span className="text-foreground">{own ? 'Vorlagen' : 'Abgabepläne'}</span>
           </p>
-          <div className="min-h-0 flex-1 px-3 pt-2">
+          <div className="min-h-0 flex-1 overflow-hidden px-3 pt-2">
             {!own && (
               <div className="flex items-center gap-3 rounded-control px-2 py-2">
                 <span className="size-4" />
@@ -176,16 +205,19 @@ function Picker({ personal, own, warn }: { personal: boolean; own: boolean; warn
                 <ChevronRight className="text-muted-foreground size-3.5" aria-hidden />
               </div>
             )}
-            {files.map((file) => (
-              <div key={file.name} className={`flex items-center gap-3 rounded-control px-2 py-2 ${file.picked ? 'bg-desk' : ''}`}>
-                <span className={`flex size-4 items-center justify-center rounded-[4px] ${file.picked ? 'bg-primary text-primary-foreground' : 'border-field-border border'}`}>{file.picked && <Check className="size-3" aria-hidden />}</span>
-                <FileText className={ICON} aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="text-name block truncate">{file.name}</span>
-                  <span className="text-muted-foreground text-meta block">{file.meta}</span>
-                </span>
-              </div>
-            ))}
+            <p className="text-muted-foreground text-meta px-2 pb-2 pt-3">Dateien</p>
+            <div className="grid grid-cols-3 gap-3 px-2">
+              {files.map((file, index) => (
+                <div key={file.name} className="min-w-0">
+                  <div className={`bg-sheet relative flex h-[104px] items-center justify-center rounded-[10px] ${file.picked ? 'ring-foreground ring-2' : 'shadow-sm'}`}>
+                    <span className={`absolute left-2 top-2 flex size-4 items-center justify-center rounded-[4px] ${file.picked ? 'bg-primary text-primary-foreground' : 'border-field-border bg-sheet border'}`}>{file.picked && <Check className="size-3" aria-hidden />}</span>
+                    <Sketch plan={index !== 1} />
+                  </div>
+                  <span className="text-name mt-1.5 block truncate">{file.name}</span>
+                  <span className="text-muted-foreground text-meta block truncate">{file.meta}</span>
+                </div>
+              ))}
+            </div>
           </div>
           {warn && (
             <p className="mx-5 mb-3 flex items-start gap-2 rounded-control bg-[#f6ecd6] px-3 py-2 text-[13px] text-[#8a5a00]">
@@ -267,7 +299,43 @@ function Answer(): JSX.Element {
 
 const FILE_ACTION = 'text-name border-hairline ml-2 inline-flex h-7 items-center gap-1.5 border-l pl-2.5 font-medium'
 
-export function ChatFiles({ step, personal }: { step: string; personal: boolean }): JSX.Element {
+function ScopeLine({ form }: { form: string }): JSX.Element {
+  if (form === 'a') {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground text-meta">{identity.name} liest</span>
+        <span className="bg-desk text-meta flex rounded-control p-0.5 font-medium">
+          <span className="bg-sheet shadow-xs rounded-[5px] px-2 py-1">nur diese 3 Dateien</span>
+          <span className="text-muted-foreground px-2 py-1">diese Dateien und das Projekt</span>
+        </span>
+      </div>
+    )
+  }
+  if (form === 'b') {
+    return (
+      <p className="text-muted-foreground text-meta flex items-center gap-2">
+        <span className="border-field-border bg-sheet size-3.5 rounded-[3px] border" />
+        Zusätzlich im ganzen Projekt nachsehen
+      </p>
+    )
+  }
+  if (form === 'c') {
+    return (
+      <p className="text-muted-foreground text-meta flex items-center gap-2">
+        {identity.name} nutzt diese 3 Dateien und, wenn nötig, das Projekt.
+        <span className="text-foreground font-medium underline underline-offset-2">Nur diese Dateien</span>
+      </p>
+    )
+  }
+  return (
+    <p className="text-muted-foreground text-meta flex items-center gap-2">
+      {identity.name} antwortet aus diesen 3 Dateien.
+      <span className="text-foreground font-medium underline underline-offset-2">Auch im Projekt suchen</span>
+    </p>
+  )
+}
+
+export function ChatFiles({ step, personal, scope = '' }: { step: string; personal: boolean; scope?: string }): JSX.Element {
   const shared = step === 'shared'
   const sent = step === 'sent' || step === 'file' || step === 'filed'
   const made = step === 'made' || step === 'madefile'
@@ -394,10 +462,7 @@ export function ChatFiles({ step, personal }: { step: string; personal: boolean 
           chips={step === 'ready' ? ready : shared ? <FileChip name="Leitfaden_Bauherrengespraech.pdf" origin="own" path="Vorlagen" close /> : undefined}
           note={
             step === 'ready' ? (
-              <p className="text-muted-foreground text-meta flex items-center gap-2">
-                {identity.name} antwortet aus diesen 3 Dateien.
-                <span className="text-foreground font-medium underline underline-offset-2">Auch im Projekt suchen</span>
-              </p>
+              <ScopeLine form={scope} />
             ) : shared ? (
               <p className="flex items-start gap-2 rounded-control bg-[#f6ecd6] px-3 py-2 text-[13px] text-[#8a5a00]">
                 <LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden />
