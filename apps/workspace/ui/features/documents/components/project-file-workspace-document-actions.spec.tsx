@@ -207,12 +207,12 @@ describe('ProjectFileWorkspace — renaming and deleting a document', () => {
     expect((await screen.findAllByText('Einreichplan EG.pdf')).length).toBeGreaterThan(0)
   })
 
-  it('deletes through the project route and drops the card', async () => {
+  it('moves a deleted document to the bin and drops the card', async () => {
     const deleted: string[] = []
     server.use(
-      http.delete('/api/documents/:id', ({ params }) => {
+      http.post('/api/documents/:id/bin', ({ params }) => {
         deleted.push(String(params.id))
-        return new HttpResponse(null, { status: 204 })
+        return HttpResponse.json({ documentId: String(params.id), binEntryId: 'holder-1', purgeAfter: '2026-12-04T10:00:00.000Z' })
       })
     )
     const user = userEvent.setup()
