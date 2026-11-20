@@ -15,6 +15,7 @@ import { MAIL_THREAD_RENDER_COPY, type MailThreadRenderCopy } from './render-cop
 
 export const MAX_SECTION_TEXT_CHARS = 100_000
 const MAX_NAME_CHARS = 80
+const MAX_SUBJECT_CHARS = 300
 const MAX_LISTED_RECIPIENTS = 10
 const MIN_FOLD_CHARS = 20
 const FOLD_RESIDUE_PER_ENTRY = 200
@@ -41,6 +42,7 @@ export interface MailThreadRenderEntry extends MailThreadHeadingFields {
   id: string
   heading: string
   filedAt: Date
+  subject?: string | null
   inReplyToEntryId: string | null
   participants: readonly MailThreadParticipant[]
   ownText: string
@@ -138,7 +140,7 @@ export function renderMailThread(input: MailThreadRenderInput): MailThreadRendit
   for (const entry of ordered) {
     const answered = entry.inReplyToEntryId ? byId.get(entry.inReplyToEntryId) : undefined
     const earlier = filedBefore(entry)
-    blocks.push(section(entry, answered && earlier.includes(answered) ? answered : undefined, earlier, copy))
+    blocks.push(section(entry, answered && earlier.includes(answered) ? answered : undefined, earlier, input.title, copy))
   }
   const markdown = `${blocks.join('\n\n')}\n`
   return {
@@ -180,13 +182,14 @@ function section(
   entry: MailThreadRenderEntry,
   answered: MailThreadRenderEntry | undefined,
   earlier: readonly MailThreadRenderEntry[],
+  title: string,
   copy: MailThreadRenderCopy
 ): string {
   const heading = escapeInline(oneLine(entry.heading))
   const parts = [`## ${heading}`, `*${escapeInline(copy.received(entry.receivedAt))}*`]
   if (clampSentAt(entry.sentAt, entry.receivedAt).outOfRange) parts.push(`*${escapeInline(copy.dateOutOfRange)}*`)
 
-  const facts = factLines(entry, answered, copy)
+  const facts = factLines(entry, answered, title, copy)
   if (facts.length > 0) parts.push(facts.join('\n'))
   parts.push(bodyText(masked(entry.ownText, entry.maskedSpans), copy))
 
@@ -204,10 +207,13 @@ function section(
 function factLines(
   entry: MailThreadRenderEntry,
   answered: MailThreadRenderEntry | undefined,
+  title: string,
   copy: MailThreadRenderCopy
 ): string[] {
   const lines: string[] = []
   const fact = (label: string, value: string) => lines.push(`- **${escapeInline(label)}:** ${escapeInline(value)}`)
+  const subject = ownSubject(entry.subject, title)
+  if (subject) fact(copy.subject, subject)
   if (entry.author && (entry.author.name || entry.author.address)) fact(copy.forwardedBy, forwardedByLine(entry, copy))
   if (answered) fact(copy.replyTo, oneLine(answered.heading))
   for (const role of ['to', 'cc'] as const) {
@@ -221,6 +227,15 @@ function factLines(
   const attachments = attachmentLine(entry.attachments, copy)
   if (attachments) fact(copy.attachments, attachments)
   return lines
+}
+
+// A mail's subject where it says more than the Verlauf's name: an Outlook reader finds a mail by its subject, and a
+// reply that changed it („… – Nachreichung Statik“) left no trace in the record, the search or the agent's passages.
+function ownSubject(subject: string | null | undefined, title: string): string | null {
+  const own = subject ? oneLine(subject).slice(0, MAX_SUBJECT_CHARS) : ''
+  if (!own) return null
+  const same = (value: string) => value.normalize('NFC').toLocaleLowerCase('de').replace(/\s+/g, ' ').trim()
+  return same(own) === same(oneLine(title)) ? null : own
 }
 
 function recipient(participant: MailThreadParticipant, copy: MailThreadRenderCopy): string {
@@ -258,10 +273,15 @@ function attachmentLine(attachments: readonly MailThreadSectionAttachment[], cop
       unnamed += 1
       continue
     }
-    named.push(attachment.folderPath ? `${name} (${copy.filedIn(oneLine(attachment.folderPath))})` : name)
+    const folder = attachment.folderPath ? folderWords(attachment.folderPath) : ''
+    named.push(folder ? `${name} (${copy.filedIn(folder)})` : name)
   }
   if (unnamed > 0) named.push(copy.unnamedAttachments(unnamed))
   return named.join('; ')
+}
+
+function folderWords(folderPath: string): string {
+  return oneLine(folderPath).replace(/^\/+/, '').replace(/\/+$/, '')
 }
 
 export interface MailThreadAttachmentFiling {

@@ -8,7 +8,6 @@ export interface CodeRunnerConfig {
   minReplicas: number;
   maxReplicas: number;
   cpuTargetPercent: number;
-  memoryTargetPercent: number;
 }
 
 export function codeRunnerImage(images: ImagesConfig, override: string | undefined): string {
@@ -29,6 +28,5 @@ export function loadCodeRunner(cfg: pulumi.Config, images: ImagesConfig): CodeRu
     minReplicas,
     maxReplicas,
     cpuTargetPercent: percent(cfg, "codeRunnerCpuTargetPercent", 70),
-    memoryTargetPercent: percent(cfg, "codeRunnerMemoryTargetPercent", 80),
   };
 }

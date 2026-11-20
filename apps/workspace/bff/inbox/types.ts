@@ -30,6 +30,7 @@ export interface InboxItemView {
   mentions: MarkMention[]
   variant: string | null
   dueOn?: string | null
+  via?: string | null
   openMarks?: number | null
   marksRevision?: number | null
   uploadReport?: UploadReport | null
@@ -120,6 +121,7 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'annotation.mentioned': { icon: 'at-sign', i18nKey: 'annotationMentioned', tone: 'request', anchor: 'mark' },
   'root_sort.ready': { icon: 'check-circle', i18nKey: 'rootSortReady', tone: 'info' },
   'root_sort.failed': { icon: 'alert-triangle', i18nKey: 'rootSortFailed', tone: 'warning' },
+  'office_shelf.norm_suggested': { icon: 'layers', i18nKey: 'officeShelfNormSuggested', tone: 'request' },
   'inbound_mail.waiting': { icon: 'mail', i18nKey: 'inboundMailWaiting', tone: 'request' },
   'inbound_mail.expiring': { icon: 'mail-clock', i18nKey: 'inboundMailExpiring', tone: 'warning' },
   'inbound_mail.decided': { icon: 'mail-check', i18nKey: 'inboundMailDecided', tone: 'info' },
@@ -131,6 +133,9 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'inbound_mail.rejected': { icon: 'mail-x', i18nKey: 'inboundMailRejected', tone: 'info' },
   'inbound_mail.expired': { icon: 'mail-clock', i18nKey: 'inboundMailExpired', tone: 'info' },
   'mail_thread.follow_expiring': { icon: 'clock', i18nKey: 'mailThreadFollowExpiring', tone: 'request' },
+  'mail_thread.follow_ended': { icon: 'mail-x', i18nKey: 'mailThreadFollowEnded', tone: 'info' },
+  'inbound_mail.fraud_reported': { icon: 'shield-alert', i18nKey: 'inboundMailFraudReported', tone: 'warning' },
+  'base_knowledge.new_edition': { icon: 'layers', i18nKey: 'baseKnowledgeNewEdition', tone: 'info' },
 }
 
 export const LEGACY_INBOX_TYPES: Readonly<Record<string, InboxItemType>> = {

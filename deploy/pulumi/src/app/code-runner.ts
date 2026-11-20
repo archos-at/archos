@@ -22,7 +22,7 @@ export const CODE_RUNNER = {
   workDirSizeLimit: "1Gi",
   tmpSizeLimit: "64Mi",
   resources: {
-    requests: { cpu: "250m", memory: "1Gi" },
+    requests: { cpu: "250m", memory: "1536Mi" },
     limits: { cpu: "2", memory: "4Gi" },
   },
 } as const;
@@ -143,7 +143,7 @@ export function installCodeRunnerScaling(
   dependsOn: pulumi.Resource[],
 ): k8s.apiextensions.CustomResource {
   const { name } = CODE_RUNNER;
-  const { minReplicas, maxReplicas, cpuTargetPercent, memoryTargetPercent } = cfg.codeRunner;
+  const { minReplicas, maxReplicas, cpuTargetPercent } = cfg.codeRunner;
   return new k8s.apiextensions.CustomResource(
     name,
     {
@@ -157,9 +157,11 @@ export function installCodeRunnerScaling(
         pollingInterval: SCALER_POLLING_SECONDS,
         cooldownPeriod: SCALER_COOLDOWN_SECONDS,
         advanced: { horizontalPodAutoscalerConfig: { behavior: CODE_RUNNER_SCALE_BEHAVIOR } },
+        // CPU only. workerd keeps a finished run's memory until the slot is recycled, and an idle
+        // pod already holds about 1.15 GiB (four slots with the Typst files), so a memory trigger
+        // reads every pod as busy and pins the autoscaler at maxReplicas (2026-11-20).
         triggers: [
           { type: "cpu", metricType: "Utilization", metadata: { value: String(cpuUtilizationTarget(cpuTargetPercent)) } },
-          { type: "memory", metricType: "Utilization", metadata: { value: String(memoryTargetPercent) } },
         ],
       },
     },

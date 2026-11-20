@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { bestEffortInbox } from '@/lib/inbox/best-effort'
-import { inboxGroupKey } from '@/lib/inbox/registry'
+import { inboxGroupKey, PROPOSAL_ANCHORED_INBOX_TYPES } from '@/lib/inbox/registry'
 import { emitInboxItems, resolveInboxItemsAnchoredOn } from '@/lib/inbox/service'
 import type { ProposalNoticeVariant } from './types'
 
@@ -50,7 +50,7 @@ export async function onProposalDecided(input: { organizationId: string; proposa
   await bestEffortInbox(`settling proposal ${input.proposalId}`, input.organizationId, () =>
     resolveInboxItemsAnchoredOn({
       organizationId: input.organizationId,
-      types: [TYPE],
+      types: PROPOSAL_ANCHORED_INBOX_TYPES,
       anchorId: input.proposalId,
     })
   )

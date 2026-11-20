@@ -3,18 +3,23 @@ import type {
   BaseKnowledgeFolder,
   BaseKnowledgeFolders,
   BaseKnowledgeList,
+  BaseKnowledgeUnlisting,
   BulkEntriesBody,
   BulkEntriesResult,
   ConfirmEntryBody,
   CreateFolderBody,
   LicenceEntryBody,
   ListEntriesQuery,
+  NormRecognition,
+  RecognizeBody,
   RecordCheckBody,
+  SettleProposalsBody,
+  SettleProposalsResult,
   UpdateEntryBody,
 } from '@/lib/base-knowledge/wire'
 import { ApiRequestError } from './api-error'
 
-export type { BaseKnowledgeEntry, BaseKnowledgeFolder, BaseKnowledgeFolders, BaseKnowledgeList, BulkEntriesResult }
+export type { BaseKnowledgeEntry, BaseKnowledgeFolder, BaseKnowledgeFolders, BaseKnowledgeList, BulkEntriesResult, NormRecognition, SettleProposalsResult }
 
 const ENDPOINT = '/api/base-knowledge'
 const jsonHeaders: HeadersInit = { 'Content-Type': 'application/json' }
@@ -86,19 +91,6 @@ export const addBaseKnowledgeEdition = async (entryId: string, file: File): Prom
   return json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/editions`, { method: 'POST', body: form }), 'add an edition')
 }
 
-export const proposeBaseKnowledge = async (documentId: string): Promise<BaseKnowledgeEntry> =>
-  json(
-    await fetch(ENDPOINT, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ documentId }) }),
-    'propose base knowledge',
-  )
-
-export const uploadBaseKnowledge = async (file: File, folderId: string | null = null): Promise<BaseKnowledgeEntry> => {
-  const form = new FormData()
-  form.append('file', file)
-  if (folderId) form.append('folderId', folderId)
-  return json(await fetch(`${ENDPOINT}/upload`, { method: 'POST', body: form }), 'upload base knowledge')
-}
-
 export const confirmBaseKnowledge = async (entryId: string, body: ConfirmEntryBody): Promise<BaseKnowledgeEntry> =>
   json(
     await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/confirm`, {
@@ -137,13 +129,42 @@ export interface BaseKnowledgeRemovalReceipt {
 export const removeBaseKnowledge = async (entryId: string): Promise<BaseKnowledgeRemovalReceipt> =>
   json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}`, { method: 'DELETE' }), 'remove base knowledge')
 
+export const recognizeNorms = async (body: RecognizeBody): Promise<NormRecognition> =>
+  json(await fetch(`${ENDPOINT}/recognize`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }), 'recognise norms')
+
+type NormsSettledListener = (result: SettleProposalsResult) => void
+const normsSettledListeners = new Set<NormsSettledListener>()
+
+export function onNormsSettled(listener: NormsSettledListener): () => void {
+  normsSettledListeners.add(listener)
+  return () => normsSettledListeners.delete(listener)
+}
+
+export const settleNorms = async (body: SettleProposalsBody): Promise<SettleProposalsResult> => {
+  const result: SettleProposalsResult = await json(
+    await fetch(`${ENDPOINT}/settle`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(body) }),
+    'settle norms',
+  )
+  for (const listener of normsSettledListeners) listener(result)
+  return result
+}
+
+export const unlistBaseKnowledge = async (entryId: string): Promise<BaseKnowledgeUnlisting> =>
+  json(await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/unlist`, { method: 'POST' }), 'take it off the norms')
+
+export const relistBaseKnowledge = async (entryId: string, folderId: string | null): Promise<BaseKnowledgeEntry> =>
+  json(
+    await fetch(`${ENDPOINT}/${encodeURIComponent(entryId)}/relist`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ folderId }) }),
+    'keep it as a standard again',
+  )
+
 export interface ShelfCandidate {
   id: string
   name: string
 }
 
 export const listShelfCandidates = async (q = ''): Promise<ShelfCandidate[]> => {
-  const query = new URLSearchParams({ scope: 'office_shelf', limit: '200' })
+  const query = new URLSearchParams({ scope: 'office_shelf', includeStandards: 'true', limit: '200' })
   if (q.trim()) query.set('q', q.trim())
   const body = await json<{ documents: { id: string; filename: string; displayName?: string | null }[] }>(
     await fetch(`/api/documents?${query.toString()}`),

@@ -1,7 +1,7 @@
 import type { en } from '../en'
 
 export const files: typeof en.files = {
-  baseKnowledge: { label: 'Grundlage', open: 'Als Grundlage des Büros öffnen: Ausgabe, Lizenz, letzte Prüfung' },
+  baseKnowledge: { label: 'Norm', open: 'Als Norm öffnen: Ausgabe, Lizenz, letzte Prüfung' },
   uploadZone: {
     clickToUpload: 'Zum Hochladen klicken',
     orDragAndDrop: ' oder per Drag-and-drop ablegen',
@@ -652,6 +652,7 @@ export const files: typeof en.files = {
     list: 'Ordner',
     empty: 'Kein Ordner passt zu „{query}“.',
     here: 'Hier',
+    chosen: 'Gewählt',
     close: 'Schließen',
   },
   list: {
@@ -1930,5 +1931,45 @@ export const files: typeof en.files = {
     save: 'Ablegen',
     saving: 'Wird abgelegt …',
     close: 'Schließen',
+  },
+  normOffer: {
+    title: '{productName} schlägt die Büroablage vor.',
+    bodyOne: '{names} gibt es bisher nur in diesem Projekt. In der Büroablage finden alle Projekte sie, und neue Ausgaben werden gemeldet. Sichtbar wäre sie dann für alle im Büro.',
+    bodyMany: '{names} gibt es bisher nur in diesem Projekt. In der Büroablage finden alle Projekte sie, und neue Ausgaben werden gemeldet. Sichtbar wären sie dann für alle im Büro.',
+    move: 'In die Büroablage verschieben',
+    suggest: 'Für die Büroablage vorschlagen',
+    keep: 'Hier lassen',
+    moved: 'Bestätigt und nach Büroablage › Normen & Richtlinien gebracht. Das Projekt behält einen Verweis.',
+    suggested: 'Vorschlag an die Büroverwaltung geschickt. Bis dahin bleiben die Normen hier.',
+    kept: 'Bleiben im Projekt. {productName} fragt für diese Normen nicht mehr.',
+    refused: 'Nicht alle Normen ließen sich ablegen: {reason}',
+    failed: 'Das hat nicht geklappt. Es hat sich nichts geändert.',
+    notNormOne: '1 Datei bleibt eine normale Projektdatei.',
+    notNorm: '{count} Dateien bleiben normale Projektdateien.',
+    noDecider:
+      'Niemand, der hier schreiben darf, darf auch die Büroablage verwalten, also kann niemand den Vorschlag entscheiden. Entscheiden könnten {names}, sobald sie in diesem Projekt schreiben dürfen. Die Normen bleiben hier.',
+    noDeciderNobody:
+      'Im Büro darf niemand die Büroablage verwalten, also kann niemand den Vorschlag entscheiden. Das Recht vergibt, wer die Organisation verwaltet. Die Normen bleiben hier.',
+    dialog: {
+      body: '{productName} hat Art, Bezeichnung und Ausgabe aus dem Dateinamen gelesen. Was Sie bestätigen, gilt so in der Büroablage. Was keine Norm ist, stellen Sie auf „Keine Norm“.',
+      questionOne: 'Wohin gehört diese Norm?',
+      question: 'Wohin gehören diese Normen?',
+      office_shelf: 'Büroablage (empfohlen)',
+      office_shelfHint: 'für alle im Büro sichtbar · alle Projekte finden sie · neue Ausgaben werden gemeldet · das Projekt behält einen Verweis',
+      suggest: 'Für die Büroablage vorschlagen',
+      suggestHint: 'Die Büroverwaltung entscheidet. Bis dahin bleibt die Norm hier.',
+      project: 'Nur dieses Projekt',
+      projectHint: 'nur das Projektteam sieht sie · {productName} fragt dafür nicht mehr',
+      later: 'Die Normen bleiben vorerst nur in diesem Projekt. Der Hinweis über den Dateien bietet die Büroablage weiter an.',
+      editionNeeded: 'Tragen Sie die Ausgabe ein. Ohne Ausgabe lässt sich die Norm nicht bestätigen.',
+    },
+  },
+  shelfReference: {
+    section: 'Verweise',
+    inShelf: 'Verweis · liegt in der Büroablage',
+    unlisted: 'Verweis · liegt in der Büroablage, nicht mehr als Norm',
+    removed: 'Verweis · aus der Büroablage entfernt',
+    open: '„{name}“ in der Büroablage öffnen',
+    openShort: 'Öffnen',
   },
 }

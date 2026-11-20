@@ -48,6 +48,10 @@ const STATE_DESCRIPTION =
 export const documentListQuerySchema = documentListFilterSchema.extend({
   ...shelfSelectorFields,
   state: documentListFilterSchema.shape.state.describe(STATE_DESCRIPTION),
+  includeStandards: z
+    .literal('true')
+    .optional()
+    .describe('Office shelf: also list the standards folder’s documents, else left to base-knowledge-list.'),
 })
 
 export const documentSummaryFilterSchema = documentListFilterSchema.pick({ authoredBy: true, includeArchived: true })

@@ -9,6 +9,7 @@ import {
   isInboundMailEnabled,
   isMailImportEnabled,
   isIfcModelsEnabled,
+  isOfficeStandardsEnabled,
 } from '@/lib/authz/feature-flags'
 import { requireMailReviewer } from '@/lib/inbound-mail/access'
 import { findProjectInOrg } from '@/lib/projects/repository'
@@ -92,6 +93,7 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
         canCollaborate={isCollaborationEnabled(session)}
         currentUserId={session.userId}
         mailImportEnabled={isMailImportEnabled(session)}
+        officeStandards={isOfficeStandardsEnabled(session)}
         inboundMailEnabled={inboundMailEnabled}
       />
     )

@@ -113,6 +113,7 @@ light run always runs in full.
 | Workspace accessibility (`task workspace:a11y`) | not in CI yet: run it locally, a shard at a time | axe-core, WCAG 2.2 AA, over every `/dev` preview route except those still listed in `apps/workspace/scripts/a11y-pending-routes.json` (not yet audited; the list only shrinks), light and dark, 1440 and 390 (`task workspace:a11y -- --shard i/4`). The script starts `next dev` itself with placeholder WorkOS settings; fails on a violation not in `apps/workspace/scripts/a11y-baseline.json` and on an entry that is gone. The CI job follows in a separate PR: its first run (4 shards) failed shards 1, 3 and 4 while the same shards pass locally, so the baseline does not yet hold on the runner. On GitHub Actions the script writes each difference as an `::error` annotation, which the check-run API returns where job logs cannot be fetched |
 | Agent to engine tests (`agent-engine`) | backend or packages tier, except on a light pull request run | the root environment plus the IFC engine as `apps/agent-host/Dockerfile` installs it, and every suite that otherwise skips without the engine (`importorskip("ifc_spatial…")`): `test_question_battery.py` and three more. Fails when its one report holds no test or a skipped one; an expected failure counts as run, here and in `hatchet`, which shares the check (`ci/hatchet_engine.sh require-ran`). `tests/test_ci_workflows.py` fails when a gated suite is not named here. The install floats on purpose, like the image's: a new release of a dependency can turn this red with no commit, on every full run in these tiers and on `publish`. The image built next would carry that release, which is how ifcopenshell 0.9 got there unnoticed. Green proves only what these suites call, not that the engine works on that release |
 | Website, Infra, Standalone packages | their tier | `task website:verify`; `task infra:types` + `infra:test`; `task pkg:test:*`, and in the same `packages` job `task browser:test` and `task runner:test` (the browser renderer's and the code runner's own suites) |
+| Infra preview (`infra-preview`) | infra tier, pull requests from this repository only (not Dependabot) | `deploy/pulumi/scripts/preview-pull-request.sh`: `pulumi preview` with the policy pack against the staging stack, pinned to the images and PostHog release staging runs, then `deploy/pulumi/scripts/validate-crs.mjs` and `deploy/pulumi/scripts/summarize-plan.mjs`. The job summary lists what the change would create, update, replace and delete. It fails when the preview fails, when a custom resource is invalid, or when it would replace or delete a Namespace, PersistentVolumeClaim, StatefulSet or CNPG Cluster, unless the pull request is labelled `infra:destroys-state` |
 | Code runner end to end (`runner-e2e`) | `runner_e2e` tier: the code runner, the agent's `tools/execute/` and `tools/documents/`, the office skills, their test | the root venv and the runner's Node toolchain in one job; `task runner:e2e` starts the real runner and drives the agent's `execute` and `file_draft` tools against it (about 20 s after install). The task builds first, so a missing toolchain fails rather than skips |
 | Hatchet engine tests (`hatchet`) | pushes and `ci:full` PRs, `hatchet` tier: the ingest, folder card and research Hatchet code, the BFF's jobs and scheduler, the SDK pins | starts `hatchet-lite` at production's tag and its Postgres, makes an API token in the container (`ci/hatchet_engine.sh`), and runs every suite that otherwise skips without an engine: `test_ingest_workflow_engine.py`, `test_folder_card_workflow_engine.py`, `test_research_workflow_engine.py` and each `bff/*/orchestrator.integration.spec.ts` over the RLS script's database. Fails when one of them ran no test or skipped one |
 | Image vulns (`trivy`) | a pin added or moved | trivy on those pins |
@@ -320,12 +321,15 @@ the whole PR. Merging or closing a pull request cancels its run too
 (`ci-cancel.yml` joins the same concurrency group): the squash merge's push run
 tests the merged tree, and the PR run's slots go back to the queue.
 
-What this does not give you is a test of each PR against the PR merged just
-before it. GitHub's merge queue does that, by testing the merge group before it
-lands; the push run here is what catches a semantic conflict after the fact,
-and it does catch it before staging. Enabling the queue is a repository setting
-(and for a private repository, a plan question); `ci.yml` would need a
-`merge_group` trigger, and the reuse marker would then hit on every merge.
+A pull request run tests the PR against the develop it branched from, not
+against the PR merged just before it. The merge queue closes that gap. `ci.yml`
+answers its `merge_group` event with a full run (`ci/ci_depth.py`) on the
+queue's merge of develop and the PRs ahead. That run records its tree as green,
+and the push that lands it reuses the result (`ci/reuse_green_run.py`). To use
+it, an owner ticks **Require merge queue** in the `protect-develop` ruleset
+(Settings → Rules → Rulesets), with `CI OK` as the required check. The
+release-notes push uses `RELEASE_PAT`, an admin's token, and admins bypass the
+queue.
 
 ## Runner slots are the budget
 
@@ -555,7 +559,7 @@ Checked against GitHub's feature set on 2026-10-09.
 | Actions pinned by commit SHA | Used | A tag can be moved after review (tj-actions/changed-files, March 2025). Dependabot bumps the SHA and its version comment, workflows and composite actions both. A test and Semgrep's `github-actions-mutable-action-tag` rule refuse a tag |
 | Job-scoped `GITHUB_TOKEN` permissions | Used | Read-only by default; only `image-push` and `publish` can write packages |
 | Caching | Used where measured | pre-commit envs, uv, npm, Astro assets, trivy layers. Not `bun install`: 8 seconds cold, so a cache restore would buy nothing |
-| Merge queue | **Not used: plan** | Would test each PR on top of the one merged before it. Needs the `merge_group` trigger and, for a private repository, GitHub Enterprise Cloud |
+| Merge queue | **Ready, off until an owner enables it** | Tests each PR on top of the ones queued before it, with the full suite. `ci.yml` answers `merge_group`; the switch is **Require merge queue** in the `protect-develop` ruleset |
 | Artifact attestations | **Not used: plan** | Signed provenance for the images. Private repositories need GitHub Enterprise Cloud |
 | OIDC to Pulumi Cloud | **Not used: your setting** | Would replace the stored `PULUMI_ACCESS_TOKEN` with a short-lived token per job. [cd.md](../deployment/cd.md#3-github-environments-settings--environments) has the steps |
 | Environment branch policies | **Your setting** | `staging` deploys only from `develop`, `production` only from `prod`, and the token is an environment secret, not a repository one. [cd.md](../deployment/cd.md#3-github-environments-settings--environments) |

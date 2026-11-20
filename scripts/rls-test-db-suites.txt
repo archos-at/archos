@@ -75,13 +75,16 @@ batch              bff/search/providers.integration.spec.ts
 batch              bff/search/document-repository.integration.spec.ts
 batch              bff/inbound-mail/repository.integration.spec.ts
 batch              bff/inbound-mail/sweep.integration.spec.ts
+batch              bff/inbound-mail/sender-memory.integration.spec.ts
 batch              bff/inbound-mail/review-first.e2e.spec.ts
 batch              bff/mail-thread/append.integration.spec.ts
 batch              bff/mail-thread/follow.integration.spec.ts
 batch              bff/mail-thread/archive.integration.spec.ts
 batch              bff/base-knowledge/store/repository.integration.spec.ts
 batch              bff/base-knowledge/store/office-editions.integration.spec.ts
+batch              bff/office-shelf/project-norms/repository.integration.spec.ts
 batch              bff/base-knowledge/store/rulesets.integration.spec.ts
+batch              bff/base-knowledge/office/folder-norms-repository.integration.spec.ts
 batch              bff/base-knowledge/platform/platform.integration.spec.ts
 batch              bff/base-knowledge/platform/approve-alone.integration.spec.ts
 batch              bff/base-knowledge/platform/single-operator.integration.spec.ts

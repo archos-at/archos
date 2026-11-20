@@ -95,7 +95,8 @@ def runs(job: str, *, event: str, outputs: dict) -> bool:
     return bool(evaluate(condition, github={"event_name": event}, needs=needs))
 
 
-CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push")]
+PULL_REQUEST_ONLY = ("infra-preview",)
+CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push", *PULL_REQUEST_ONLY)]
 FULL_PY = ["backend", "backend-coverage", "backend-suites"]
 FULL_ONLY = [*FULL_PY, "workspace-test", "hatchet", "image"]
 
@@ -143,11 +144,26 @@ def test_only_a_full_run_leaves_the_green_marker_a_push_reuses():
     assert "needs.changes.outputs.depth == 'full'" in steps["Name the tree this run tested"]["if"]
 
 
-def test_a_pull_request_diffs_its_whole_base_and_a_push_its_last_green_commit():
+def test_a_pull_request_or_queue_diffs_its_whole_base_and_a_push_its_last_green_commit():
     base = STEPS["filter"]["with"]["base"]
     pins = STEPS["pins"]["env"]["BASE"]
 
-    assert base == pins == "${{ github.event.pull_request.base.sha || steps.green.outputs.sha }}"
+    assert (
+        base
+        == pins
+        == ("${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || steps.green.outputs.sha }}")
+    )
+
+
+def test_a_merge_queue_run_is_full_and_builds_what_a_pull_request_would():
+    outputs = plan(event="merge_group", depth="full")
+
+    assert "checks_requested" in CI["on"]["merge_group"]["types"]
+    assert all(runs(job, event="merge_group", outputs=outputs) for job in FULL_ONLY)
+    assert not runs("backend-affected", event="merge_group", outputs=outputs)
+    assert not runs("infra-preview", event="merge_group", outputs=outputs)
+    assert not runs("image-push", event="merge_group", outputs=outputs)
+    assert not runs("publish", event="merge_group", outputs=outputs)
 
 
 def test_no_workflow_diffs_against_the_previous_push():
@@ -303,7 +319,7 @@ def test_the_reuse_lookup_cannot_fail_the_run():
     }
 
 
-def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
+def test_the_marker_is_uploaded_only_by_a_passing_pull_request_or_queue_gate():
     steps = JOBS["ci-ok"]["steps"]
     check = next(i for i, step in enumerate(steps) if "Require needed jobs" in step.get("name", ""))
     uploads = [i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/upload-artifact")]
@@ -313,7 +329,7 @@ def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
     assert len(uploads) == 1 and uploads[0] > check
     upload = steps[uploads[0]]
     assert not re.search(r"always\(\)|failure\(\)|cancelled\(\)", upload["if"])
-    assert "github.event_name == 'pull_request'" in upload["if"]
+    assert "github.event_name != 'push'" in upload["if"]
     assert upload["with"]["name"] == "ci-green-${{ steps.tree.outputs.tree }}"
     assert int(upload["with"]["retention-days"]) <= 7
     for other in WORKFLOWS.glob("*.yml"):
@@ -781,6 +797,14 @@ def test_the_named_test_files_reach_every_path_their_suite_runs():
         for path in value.split():
             if (WORKFLOWS.parents[1] / path).is_dir():
                 assert re.match(roots[suite], path.rstrip("/") + "/"), (suite, path)
+
+
+def test_the_staging_preview_runs_on_a_pull_request_from_this_repository_only():
+    condition = CI["jobs"]["infra-preview"]["if"]
+
+    assert "github.event_name == 'pull_request'" in condition
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in condition
+    assert "infra-preview" in CI["jobs"]["ci-ok"]["needs"]
 
 
 # --- Where a job runs: GitHub's runners, or the dev cluster's (ADR-0184) ---

@@ -19,10 +19,11 @@ const ENV = {
 function runLoader(body, extra = {}) {
   const appended = []
   const calls = []
+  const registered = []
   const dispatched = []
   const script = {}
   const window = {
-    posthog: { init: (...args) => calls.push(args) },
+    posthog: { init: (...args) => calls.push(args), register: (props) => registered.push(props) },
     dispatchEvent: (event) => dispatched.push(event.type),
     ...extra,
   }
@@ -31,7 +32,7 @@ function runLoader(body, extra = {}) {
     head: { appendChild: (el) => appended.push(el) },
   }
   vm.runInNewContext(body, { window, document, Event, ...extra })
-  return { appended, calls, dispatched, script }
+  return { appended, calls, registered, dispatched, script }
 }
 
 test('analytics is off unless both the host and the token are set', () => {
@@ -109,6 +110,14 @@ test('the enabled script is valid JavaScript that loads the SDK, inits it and te
   assert.equal(calls[0][1].api_host, 'https://eu.i.posthog.com')
   assert.equal(calls[0][1].cookieless_mode, 'on_reject')
   assert.deepEqual(dispatched, [ANALYTICS_READY_EVENT], 'the consent note learns the SDK is there')
+})
+
+test('every event says it came from the website and from which deployment, as the app events do', () => {
+  const config = webAnalyticsConfig({ ...ENV, POSTHOG_DEPLOYMENT: 'prod' })
+  assert.equal(config?.deployment, 'prod')
+  const { registered, script } = runLoader(webAnalyticsScript(config))
+  script.onload()
+  assert.equal(JSON.stringify(registered), JSON.stringify([{ site: 'website', deployment: 'prod' }]))
 })
 
 test('a token with script-breaking characters cannot escape the string', () => {

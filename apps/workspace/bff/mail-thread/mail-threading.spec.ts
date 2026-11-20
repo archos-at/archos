@@ -28,6 +28,7 @@ import {
   type ThreadingMessage,
   type ThreadMatch,
   type ThreadMatchStrength,
+  type ThreadParticipation,
 } from './mail-threading'
 
 const DAY = 86_400_000
@@ -256,9 +257,12 @@ function sender(overrides: Partial<SenderEvidence> = {}): SenderEvidence {
     senderTrust: 'external_verified',
     senderFlags: [],
     signedHeaders: ['From', 'To', 'Subject', 'Date', 'Message-ID', 'In-Reply-To', 'References'],
+    senderDomain: 'statik-weber.at',
     ...overrides,
   }
 }
+
+const knownThread: ThreadParticipation = { participantDomains: ['statik-weber.at', 'buero-muster.at'] }
 
 const referenceMatch: ThreadMatch = { threadId: 't', strength: 'reference', headers: ['in-reply-to'] }
 
@@ -283,7 +287,7 @@ describe('threadPreselection: the matrix', () => {
         it(`${strength} · ${trust} · header ${signed ? 'signed' : 'unsigned'}`, () => {
           const match = { threadId: 't', strength, headers: headersOf[strength] }
           const signedHeaders = ['from', 'subject', 'date', 'message-id', ...(signed ? headersOf[strength] : [])]
-          const result = threadPreselection(match, sender({ senderTrust: trust, signedHeaders }))
+          const result = threadPreselection(match, sender({ senderTrust: trust, signedHeaders }), knownThread)
           expect(result.preselected).toBe(expected(strength, trust, signed))
           expect(result.blocks.length === 0).toBe(result.preselected)
         })
@@ -292,44 +296,74 @@ describe('threadPreselection: the matrix', () => {
   it('names its reasons from the closed list', () => {
     const { blocks } = threadPreselection(
       { threadId: 't', strength: 'subject', headers: ['subject'] },
-      sender({ senderTrust: 'external_unverified', senderFlags: ['stale_date', 'date_out_of_range'] })
+      sender({ senderTrust: 'external_unverified', senderFlags: ['stale_date', 'date_out_of_range'] }),
+      knownThread
     )
     expect(blocks).toEqual(['weak_match', 'sender_not_verified', 'stale_date', 'date_out_of_range'])
     for (const block of blocks) expect(PRESELECTION_BLOCKS).toContain(block)
   })
 
   it('compares signed header names in any case', () => {
-    expect(threadPreselection(referenceMatch, sender({ signedHeaders: ['IN-REPLY-TO'] })).preselected).toBe(true)
+    expect(threadPreselection(referenceMatch, sender({ signedHeaders: ['IN-REPLY-TO'] }), knownThread).preselected).toBe(true)
   })
 
   it.each(['not_addressed_to_project', 'stale_date', 'date_out_of_range'])(
     'never pre-selects a %s mail, even a member’s',
     (flag) => {
-      const result = threadPreselection(referenceMatch, sender({ senderTrust: 'member_verified', senderFlags: [flag] }))
+      const result = threadPreselection(referenceMatch, sender({ senderTrust: 'member_verified', senderFlags: [flag] }), knownThread)
       expect(result).toEqual({ preselected: false, blocks: [flag] })
     }
   )
 
   it('pre-selects a member’s own Bcc copy like any member mail', () => {
     const bcc = sender({ senderTrust: 'member_verified', senderFlags: ['not_addressed_to_project', 'bcc_own'] })
-    expect(threadPreselection(referenceMatch, bcc).preselected).toBe(true)
+    expect(threadPreselection(referenceMatch, bcc, knownThread).preselected).toBe(true)
   })
 
   it('does not take a Bcc flag from anyone but a verified member', () => {
     const forged = sender({ senderTrust: 'member_unverified', senderFlags: ['not_addressed_to_project', 'bcc_own'] })
-    expect(threadPreselection(referenceMatch, forged).blocks).toEqual(['sender_not_verified', 'not_addressed_to_project'])
+    expect(threadPreselection(referenceMatch, forged, knownThread).blocks).toEqual(['sender_not_verified', 'not_addressed_to_project'])
   })
 
   it('does not pre-select a forged In-Reply-To from an unverified stranger', () => {
-    expect(threadPreselection(referenceMatch, sender({ senderTrust: 'external_unverified' })).preselected).toBe(false)
+    expect(threadPreselection(referenceMatch, sender({ senderTrust: 'external_unverified' }), knownThread).preselected).toBe(false)
   })
 
   it('does not pre-select References added outside h= by a verified stranger', () => {
     const outsideSignature = sender({ signedHeaders: ['from', 'subject', 'date', 'message-id', 'to'] })
-    expect(threadPreselection(referenceMatch, outsideSignature)).toEqual({
+    expect(threadPreselection(referenceMatch, outsideSignature, knownThread)).toEqual({
       preselected: false,
       blocks: ['header_not_signed'],
     })
+  })
+})
+
+describe('threadPreselection: an outsider’s domain must already have taken part', () => {
+  it('does not pre-select a signed reference from a domain the thread has never seen (a reused Message-ID)', () => {
+    const hijack = sender({ senderDomain: 'evil.example' })
+    expect(threadPreselection(referenceMatch, hijack, knownThread)).toEqual({ preselected: false, blocks: ['sender_domain_new'] })
+    expect(appendNeedsAcknowledgement(hijack, referenceMatch, knownThread)).toBe(true)
+  })
+
+  it('does not pre-select when the thread’s participants are unknown, or the sender has no domain', () => {
+    expect(threadPreselection(referenceMatch, sender(), null).blocks).toEqual(['sender_domain_new'])
+    expect(threadPreselection(referenceMatch, sender({ senderDomain: null }), knownThread).blocks).toEqual(['sender_domain_new'])
+  })
+
+  it('compares the domain in any case', () => {
+    expect(threadPreselection(referenceMatch, sender({ senderDomain: 'Statik-Weber.AT' }), knownThread).preselected).toBe(true)
+  })
+
+  it('never pre-selects by a public mail domain, even one the thread has seen: the domain proves nothing about the person', () => {
+    const gmail = sender({ senderDomain: 'gmail.com' })
+    const thread: ThreadParticipation = { participantDomains: ['gmail.com'] }
+    expect(threadPreselection(referenceMatch, gmail, thread)).toEqual({ preselected: false, blocks: ['public_mail_domain'] })
+    expect(appendNeedsAcknowledgement(gmail, referenceMatch, thread)).toBe(true)
+  })
+
+  it('asks nothing of a member’s domain: the office is no outsider', () => {
+    const member = sender({ senderTrust: 'member_verified', senderDomain: 'gmail.com' })
+    expect(threadPreselection(referenceMatch, member, { participantDomains: [] }).preselected).toBe(true)
   })
 })
 
@@ -345,28 +379,28 @@ describe('senderPreselectionBlocks', () => {
 
   it('keeps a member’s name on an outsider’s address from every candidate, however well its own domain signed', () => {
     expect(senderPreselectionBlocks(sender({ senderFlags: ['claims_member_name'] }))).toEqual(['claims_member_name'])
-    expect(threadPreselection(referenceMatch, sender({ senderFlags: ['claims_member_name'] }))).toEqual({ preselected: false, blocks: ['claims_member_name'] })
+    expect(threadPreselection(referenceMatch, sender({ senderFlags: ['claims_member_name'] }), knownThread)).toEqual({ preselected: false, blocks: ['claims_member_name'] })
   })
 })
 
 describe('appendNeedsAcknowledgement (the unverified_thread rule)', () => {
   it('needs none for a pre-selectable append', () => {
-    expect(appendNeedsAcknowledgement(sender(), referenceMatch)).toBe(false)
+    expect(appendNeedsAcknowledgement(sender(), referenceMatch, knownThread)).toBe(false)
   })
 
   it('needs one for any sender that keeps candidates unchecked', () => {
-    expect(appendNeedsAcknowledgement(sender({ senderTrust: 'external_unverified' }), undefined)).toBe(true)
-    expect(appendNeedsAcknowledgement(sender({ senderFlags: ['stale_date'] }), referenceMatch)).toBe(true)
+    expect(appendNeedsAcknowledgement(sender({ senderTrust: 'external_unverified' }), undefined, knownThread)).toBe(true)
+    expect(appendNeedsAcknowledgement(sender({ senderFlags: ['stale_date'] }), referenceMatch, knownThread)).toBe(true)
   })
 
   it('needs one when the append rests on a header the stranger’s domain did not sign', () => {
-    expect(appendNeedsAcknowledgement(sender({ signedHeaders: ['from'] }), referenceMatch)).toBe(true)
+    expect(appendNeedsAcknowledgement(sender({ signedHeaders: ['from'] }), referenceMatch, knownThread)).toBe(true)
   })
 
   it('needs none when a qualifying sender’s mail is put where the person chose', () => {
-    expect(appendNeedsAcknowledgement(sender({ signedHeaders: ['from'] }), undefined)).toBe(false)
+    expect(appendNeedsAcknowledgement(sender({ signedHeaders: ['from'] }), undefined, knownThread)).toBe(false)
     const subject: ThreadMatch = { threadId: 't', strength: 'subject', headers: ['subject'] }
-    expect(appendNeedsAcknowledgement(sender({ signedHeaders: ['from'] }), subject)).toBe(false)
+    expect(appendNeedsAcknowledgement(sender({ signedHeaders: ['from'] }), subject, knownThread)).toBe(false)
   })
 })
 

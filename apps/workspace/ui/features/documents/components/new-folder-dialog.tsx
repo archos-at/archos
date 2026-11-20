@@ -21,10 +21,12 @@ export interface NewFolderDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreate: (name: string) => Promise<boolean>
+  label?: string
 }
 
-export function NewFolderDialog({ open, onOpenChange, onCreate }: NewFolderDialogProps): JSX.Element {
+export function NewFolderDialog({ open, onOpenChange, onCreate, label }: NewFolderDialogProps): JSX.Element {
   const t = useTranslations(filesCopy)
+  const action = label ?? t('folders.newFolder')
   const [name, setName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
 
@@ -44,7 +46,7 @@ export function NewFolderDialog({ open, onOpenChange, onCreate }: NewFolderDialo
     <Dialog open={open} onOpenChange={(next) => (isCreating ? undefined : onOpenChange(next))}>
       <DialogContent className="max-w-sm" showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>{t('folders.newFolder')}</DialogTitle>
+          <DialogTitle>{action}</DialogTitle>
         </DialogHeader>
         <InputGroup>
           <InputGroupAddon align="start" className="left-2">
@@ -75,7 +77,7 @@ export function NewFolderDialog({ open, onOpenChange, onCreate }: NewFolderDialo
             {t('rename.cancel')}
           </Button>
           <Button type="button" onClick={() => void commit()} disabled={isCreating || name.trim() === ''}>
-            {t('folders.newFolder')}
+            {action}
           </Button>
         </DialogFooter>
       </DialogContent>

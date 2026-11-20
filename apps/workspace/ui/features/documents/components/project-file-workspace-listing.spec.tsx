@@ -4,6 +4,10 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
+import { act } from 'react'
+import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
+import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
+import { useProjectDocuments } from '../hooks/use-project-documents'
 import { ProjectFileWorkspace } from './project-file-workspace'
 import type { DocumentWireRow } from '../lib/file-item'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -511,5 +515,71 @@ describe('ProjectFileWorkspace — a folder larger than one page', () => {
 
     expect(await screen.findByText(/showing the newest 20 documents/i)).toBeInTheDocument()
     expect(requests).toBe(20)
+  })
+})
+
+describe('ProjectFileWorkspace — norms that could go to the Büroablage', () => {
+  const norms = {
+    canManageOfficeShelf: true,
+    canWrite: true,
+    offers: [{ documentId: 'doc-norm', fileName: 'OENORM_B_1600.pdf', folderId: null, designation: 'ÖNORM B 1600', kind: 'technical_standard', editionLabel: null }],
+    references: [],
+    nextCursor: null,
+  }
+
+  beforeEach(() => {
+    searchParams = new URLSearchParams()
+    resetPreviewStore()
+  })
+
+  it('asks for the level’s norms with the office standards on, and offers them above the files', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('/api/documents', () => HttpResponse.json({ documents: [] })),
+      http.get('/api/projects/:projectId/norms', ({ request }) => {
+        asked.push(request.url)
+        return HttpResponse.json(norms)
+      }),
+    )
+    renderWorkspace(<ProjectFileWorkspace projectId="proj-1" projectName="Test" collectionName="test-coll" officeStandards />)
+
+    expect(await screen.findByTestId('project-norm-offer')).toHaveTextContent('ÖNORM B 1600')
+    expect(new URL(asked[0]).pathname).toBe('/api/projects/proj-1/norms')
+  })
+
+  it('opens the norm dialog for the norms the person just uploaded, once they are offered', async () => {
+    server.use(
+      http.get('/api/documents', () => HttpResponse.json({ documents: [] })),
+      http.get('/api/projects/:projectId/norms', () => HttpResponse.json(norms)),
+    )
+    renderWorkspace(
+      <NormDialogProvider dialog={NormDialog}>
+        <ProjectFileWorkspace projectId="proj-1" projectName="Test" collectionName="test-coll" officeStandards />
+      </NormDialogProvider>,
+    )
+    expect(await screen.findByTestId('project-norm-offer')).toBeInTheDocument()
+    expect(screen.queryByTestId('norm-dialog')).not.toBeInTheDocument()
+
+    const onStored = vi.mocked(useProjectDocuments).mock.calls.at(-1)?.[0]?.onStored
+    act(() => onStored?.([{ documentId: 'doc-norm', fileName: 'OENORM_B_1600.pdf' }]))
+
+    const dialog = await screen.findByTestId('norm-dialog')
+    expect(within(dialog).getByRole('radio', { name: /^Office filing \(recommended\)/ })).toBeChecked()
+    expect(within(dialog).getByRole('radio', { name: /^This project only/ })).toBeInTheDocument()
+  })
+
+  it('asks nothing without them', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('/api/documents', () => HttpResponse.json({ documents: [] })),
+      http.get('/api/projects/:projectId/norms', ({ request }) => {
+        asked.push(request.url)
+        return HttpResponse.json(norms)
+      }),
+    )
+    renderWorkspace(<ProjectFileWorkspace projectId="proj-1" projectName="Test" collectionName="test-coll" />)
+    await waitFor(() => expect(screen.queryByTestId('file-browser-skeleton')).not.toBeInTheDocument())
+    expect(asked).toEqual([])
+    expect(screen.queryByTestId('project-norm-offer')).not.toBeInTheDocument()
   })
 })

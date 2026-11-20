@@ -64,6 +64,7 @@ const OPAQUE_STATUS_WRITES: Readonly<Record<string, string>> = {
   'bff/documents/repository/reconcile.ts: documents.status':
     'a RETURNING projection and a guard comparison, not a write',
   'bff/session-documents/repository.ts: documents.status': 'a SELECT projection, not a write',
+  'bff/office-shelf/project-norms/repository.ts: documents.status': 'a SELECT projection, not a write',
   'bff/documents/name-probe-types.ts: z.string()':
     "the name probe's wire schema, carrying the status the probe read to the upload planner; never a write",
   'bff/documents/placement-repository.ts: documents.status':

@@ -5,7 +5,9 @@ import { incompleteReason, partPreselected, withReviewDefaults } from './review-
 import type { SenderFacts } from './sender-risk'
 
 const confirmed: SenderFacts = { trust: 'external_verified', reason: 'dkim_pass', flags: [] }
-const open = { projectClosed: false, rawScan: 'clean' as const, sender: confirmed }
+const verifiedMember: SenderFacts = { trust: 'member_verified', reason: 'dkim_pass', flags: [] }
+const signedThread = [{ blocks: [] }]
+const open = { projectClosed: false, rawScan: 'clean' as const, sender: confirmed, threadCandidates: signedThread }
 
 const forgedMember: InboundMailSenderView = {
   name: 'Miriam Huber',
@@ -48,23 +50,32 @@ describe('partPreselected: an attachment', () => {
     expect(partPreselected(part(overrides), open)).toBe(false)
   })
 
-  it('offers a Fassung checked from a confirmed sender, unchecked from one that cannot vouch (D11)', () => {
+  it('offers a Fassung checked from a verified member, unchecked from one that cannot vouch (D11)', () => {
     const revisionCandidate = { documentId: 'd', name: 'S-101_B.pdf', folderPath: 'Tragwerk', nextVersion: 3 }
-    expect(partPreselected(part({ revisionCandidate }), open)).toBe(true)
-    expect(partPreselected(part({ revisionCandidate }), { projectClosed: false, rawScan: 'clean' as const, sender: { trust: 'external_unverified', reason: 'dkim_none', flags: [] } })).toBe(false)
+    expect(partPreselected(part({ revisionCandidate }), { ...open, sender: verifiedMember, threadCandidates: [] })).toBe(true)
+    expect(partPreselected(part({ revisionCandidate }), { ...open, sender: { trust: 'external_unverified', reason: 'dkim_none', flags: [] } })).toBe(false)
     expect(partPreselected(part({ revisionCandidate, riskFlags: ['unverified_thread'] }), open)).toBe(false)
   })
 
+  it('offers a confirmed outsider’s Fassung checked only on a signed thread their domain took part in (ADR-0137)', () => {
+    const revisionCandidate = { documentId: 'd', name: 'S-101_B.pdf', folderPath: 'Tragwerk', nextVersion: 3 }
+    expect(partPreselected(part({ revisionCandidate }), open)).toBe(true)
+    expect(partPreselected(part({ revisionCandidate }), { ...open, threadCandidates: [] })).toBe(false)
+    expect(partPreselected(part({ revisionCandidate }), { ...open, threadCandidates: [{ blocks: ['sender_domain_new'] }] })).toBe(false)
+    expect(partPreselected(part({ revisionCandidate }), { ...open, threadCandidates: [{ blocks: ['header_not_signed'] }] })).toBe(false)
+    expect(partPreselected(part({ revisionCandidate }), { ...open, threadCandidates: [{ blocks: ['weak_match'] }] })).toBe(false)
+  })
+
   it('offers nothing in a closed project', () => {
-    expect(partPreselected(part(), { projectClosed: true, rawScan: 'clean' as const, sender: confirmed })).toBe(false)
-    expect(partPreselected(messagePart(), { projectClosed: true, rawScan: 'clean' as const, sender: confirmed })).toBe(false)
+    expect(partPreselected(part(), { ...open, projectClosed: true })).toBe(false)
+    expect(partPreselected(messagePart(), { ...open, projectClosed: true })).toBe(false)
   })
 })
 
 describe('partPreselected: the text', () => {
   it('offers a readable, waiting text checked, even from an unsigned stranger (it starts a thread of its own)', () => {
     expect(partPreselected(messagePart(), open)).toBe(true)
-    expect(partPreselected(messagePart(), { projectClosed: false, rawScan: 'clean' as const, sender: { trust: 'external_unverified', reason: 'dkim_none', flags: [] } })).toBe(true)
+    expect(partPreselected(messagePart(), { ...open, sender: { trust: 'external_unverified', reason: 'dkim_none', flags: [] } })).toBe(true)
   })
 
   it('offers no text whose raw message did not scan clean: it cannot be filed (review D, finding 7)', () => {
@@ -73,7 +84,7 @@ describe('partPreselected: the text', () => {
   })
 
   it('offers a text already in a thread, or one that could not be read, unchecked', () => {
-    expect(partPreselected(messagePart(), { projectClosed: false, rawScan: 'clean' as const, sender: { ...confirmed, flags: ['message_id_reused', 'already_filed'] } })).toBe(false)
+    expect(partPreselected(messagePart(), { ...open, sender: { ...confirmed, flags: ['message_id_reused', 'already_filed'] } })).toBe(false)
     expect(partPreselected(messagePart({ riskFlags: ['unreadable'] }), open)).toBe(false)
   })
 })
@@ -122,7 +133,7 @@ describe('incompleteReason (RT-X10)', () => {
 
   it('counts a member’s own Bcc copy with nothing attached as complete once its sender is no question, and asks its writer first', () => {
     expect(reason('bcc-own')).toBe('sender')
-    const readOnly = mail({ key: 'bcc-read-only', sender: DETAIL_VARIANTS['bcc-own'].view.sender, reading: { writes: false, viewer: 'colleague' }, threadCandidates: [] })
+    const readOnly = mail({ key: 'bcc-read-only', sender: DETAIL_VARIANTS['bcc-own'].view.sender, reading: { writes: false }, threadCandidates: [] })
     expect(readOnly.senderClass).toBe('office_member')
     expect(incompleteReason(readOnly)).toBeNull()
   })

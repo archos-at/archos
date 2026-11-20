@@ -60,6 +60,7 @@ export interface FileWorkspaceProps {
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
   initialFolderId?: string | null
+  renderLevelNotice?: (level: { folderId: string | null; revision: string; reload: () => void }) => ReactNode
 }
 
 const renderDocumentActions = (): ReactNode => <DocumentActionsTrigger />
@@ -73,6 +74,7 @@ export function FileWorkspace({
   initialFiles,
   initialNextCursor = null,
   initialFolderId = null,
+  renderLevelNotice,
 }: FileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const { canManage, canCollaborate } = shelf
@@ -160,6 +162,8 @@ export function FileWorkspace({
   }, [selectedFolderId, searchingNow, sliceOpen, exitSelection])
   const mayPick = canManage && writableHere
   const pickable = useMemo(() => levelFiles.map((file) => file.id), [levelFiles])
+  const levelRevision = useMemo(() => levelFiles.map((file) => `${file.id}:${file.status ?? ''}`).join('|'), [levelFiles])
+  const levelNotice = searchingNow || sliceOpen ? null : renderLevelNotice?.({ folderId: selectedFolderId, revision: levelRevision, reload: () => void reloadAll() })
   const moveSelection = async (folderId: string | null, folderName: string): Promise<void> => {
     setMoveSheetOpen(false)
     const ids = [...selection.selectedIds]
@@ -248,7 +252,7 @@ export function FileWorkspace({
 
   const folderDestinations = useMemo(() => sortedFolderDestinations(folders), [folders])
   const { documentActionsAt } = access
-  const { askAbout, documentScope } = shelf
+  const { askAbout, documentScope, fileActions } = shelf
   const objectMenu = useCallback(
     (file: FileItem, node: ReactNode, asChild: boolean) => (
       <DocumentObjectMenu
@@ -260,6 +264,7 @@ export function FileWorkspace({
         destinations={folderDestinations}
         onOpen={() => selectFile(file.id)}
         onAsk={askAbout ? () => askAbout(file) : undefined}
+        extraEntries={fileActions?.(file)}
         onRenamed={handlers.onRenamed}
         onDeleted={handlers.onDeleted}
         onMoved={moved}
@@ -277,6 +282,7 @@ export function FileWorkspace({
       folderDestinations,
       selectFile,
       askAbout,
+      fileActions,
       handlers,
       moved,
       mayPick,
@@ -359,6 +365,7 @@ export function FileWorkspace({
             uploadFab && (inSheet ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-24')
           )}
         >
+          {levelNotice && <div className={cn(NOTICE_STRIP, 'pb-1')}>{levelNotice}</div>}
           {listingError ? (
             <PaneLoadError message={t('workspace.documentsLoadError')} onRetry={retryListing} />
           ) : (

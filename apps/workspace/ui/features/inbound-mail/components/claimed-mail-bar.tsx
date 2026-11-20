@@ -12,7 +12,6 @@ import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface ClaimedMailBarProps {
   member: { name: string; address: string }
-  impersonation: boolean
   confirmOpen: boolean
   onConfirmOpenChange: (open: boolean) => void
   onDismiss: () => void
@@ -22,7 +21,6 @@ export interface ClaimedMailBarProps {
 
 export function ClaimedMailBar({
   member,
-  impersonation,
   confirmOpen,
   onConfirmOpenChange,
   onDismiss,
@@ -37,7 +35,7 @@ export function ClaimedMailBar({
       </FactLine>
       <BusyButton
         type="button"
-        variant={impersonation ? 'default' : 'secondary'}
+        variant="secondary"
         busy={dismissing}
         busyLabel={t('bar.dismissBusy')}
         onClick={() => onConfirmOpenChange(true)}

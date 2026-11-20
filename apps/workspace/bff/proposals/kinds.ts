@@ -8,13 +8,16 @@ import { MEMORY_WRITE_PERMISSIONS } from '@/lib/projects/service'
 import { applyMemory, applyProjectProfile, noteLabel, type ApplyContext } from './appliers'
 import { applyOperation, requireProposableOperation } from './operation-applier'
 import { applyFileOperations, operationLabel, REQUIRED_FIELDS } from './executors'
+import { applyOfficeShelfNorm } from '@/lib/office-shelf/project-norms/move'
 import {
   fileOperationPayloadSchema,
   memoryPayloadSchema,
+  officeShelfNormPayloadSchema,
   operationPayloadSchema,
   projectProfilePayloadSchema,
   type FileOperationPayload,
   type MemoryPayload,
+  type OfficeShelfNormPayload,
   type OperationPayload,
   type ProjectProfilePayload,
   type ProposalScope,
@@ -28,6 +31,7 @@ export type KindPayload =
   | { kind: 'memory'; payload: MemoryPayload }
   | { kind: 'project_profile'; payload: ProjectProfilePayload }
   | { kind: 'operation'; payload: OperationPayload }
+  | { kind: 'office_shelf_norm'; payload: OfficeShelfNormPayload }
 
 export function parseKindPayload(kind: ProposedChangeKind, payload: unknown): KindPayload {
   switch (kind) {
@@ -39,6 +43,8 @@ export function parseKindPayload(kind: ProposedChangeKind, payload: unknown): Ki
       return { kind, payload: projectProfilePayloadSchema.parse(payload) }
     case 'operation':
       return { kind, payload: operationPayloadSchema.parse(payload) }
+    case 'office_shelf_norm':
+      return { kind, payload: officeShelfNormPayloadSchema.parse(payload) }
   }
 }
 
@@ -47,6 +53,7 @@ export const DECIDE_PERMISSIONS: Record<ProposedChangeKind, readonly ProjectPerm
   memory: MEMORY_WRITE_PERMISSIONS,
   project_profile: MEMORY_WRITE_PERMISSIONS,
   operation: ['project:view'],
+  office_shelf_norm: DOCUMENT_WRITE_PERMISSIONS,
 }
 
 export const ORGANIZATION_KINDS: ReadonlySet<ProposedChangeKind> = new Set(['operation'])
@@ -113,6 +120,11 @@ export function requireProposable(typed: KindPayload, scope: ProposalScope = 'pr
     })
   }
   if (scope === 'office_shelf') requireOfficeShelfMove(typed)
+  if (typed.kind === 'office_shelf_norm' && scope !== 'project') {
+    throw new UnprocessableError('A norm is suggested for the office shelf from its project', {
+      reason: 'proposal-needs-project',
+    })
+  }
   if (typed.kind === 'file_operation') {
     requireItemFields(typed.payload)
     requireNewFolderTarget(typed.payload)
@@ -138,6 +150,11 @@ export function summaryOf(typed: KindPayload): string {
       return typed.payload.title
     case 'operation':
       return typed.payload.summary
+    case 'office_shelf_norm': {
+      const names = typed.payload.documents.map((document) => document.designation ?? document.name)
+      const shown = names.slice(0, SUMMARY_NAMES).join(', ')
+      return names.length > SUMMARY_NAMES ? `${shown} +${names.length - SUMMARY_NAMES}` : shown
+    }
   }
 }
 
@@ -162,5 +179,7 @@ export function applyKind(typed: KindPayload, context: KindApplyContext): Promis
       return applyProjectProfile(typed.payload, inProject(context))
     case 'operation':
       return applyOperation(typed.payload, context)
+    case 'office_shelf_norm':
+      return applyOfficeShelfNorm(typed.payload, inProject(context))
   }
 }

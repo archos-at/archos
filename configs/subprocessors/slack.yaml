@@ -32,10 +32,12 @@ posthog_destinations:
   - 01a159e8-dc54-0000-ef13-a9083eabd27c
   - 01a17ea5-0076-0000-c725-3cd6187d926a
   - 01a17ea5-03eb-0000-0596-3dccfc406539
+  - 01a1f320-80b7-0000-21fc-d17970947d39
   - 01a17ea5-06b2-0000-a138-a2d2cd892bc5
 hog_files:
   - deploy/posthog/support/slack-alert.hog
   - deploy/posthog/support/claim-update.hog
+  - deploy/posthog/website/enquiry-slack.hog
 evidence:
   - deploy/posthog/README.md
 agreement:
@@ -51,8 +53,8 @@ copy:
     de: Slack Technologies, LLC
     en: Slack Technologies, LLC
   purpose:
-    de: Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Fehler und Betriebswarnungen
-    en: Notifying our team internally about new reports, answer ratings, errors and operational alerts
+    de: Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Anfragen über die Website, Fehler und Betriebswarnungen
+    en: Notifying our team internally about new reports, answer ratings, enquiries through the website, errors and operational alerts
   data:
     de: Ticketnummer, Art der Rückmeldung, Grund einer negativen Bewertung, Name der Organisation, Links; Titel von Fehlermeldungen, die den Namen eines Dokuments oder Projekts enthalten können; Kennzahlen zu Betrieb und Kosten. Kein Text Ihrer Rückmeldungen oder Chats
     en: Ticket number, kind of report, reason of a negative rating, organization name, links; titles of error messages, which can contain the name of a document or project; operational and cost figures. No text of your reports or chats

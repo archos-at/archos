@@ -1,5 +1,5 @@
 import * as k8s from "@pulumi/kubernetes";
-import { PLATFORM_RESOURCES } from "../constants";
+import { PLATFORM_RESOURCES, HELM_RELEASE_TIMEOUT_SECONDS } from "../constants";
 import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const METRICS_SERVER_CHART_VERSION = "3.14.0";
@@ -10,6 +10,7 @@ export function installMetricsServer(provider: k8s.Provider): k8s.helm.v3.Releas
     {
       chart: "metrics-server",
       version: METRICS_SERVER_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: "kube-system",
       repositoryOpts: { repo: "https://kubernetes-sigs.github.io/metrics-server/" },
       values: {

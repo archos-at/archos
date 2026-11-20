@@ -2,14 +2,22 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest'
+import { mail as reviewView, part as reviewPart, thread as reviewThread } from '@/app/dev/inbound-mail/fixtures'
+import { baseSubject, domainOf, matchThread, threadPreselection, type SenderEvidence } from '@/lib/mail-thread/mail-threading'
 import { redactProjectAddresses } from '../address'
 import { classifyAutomaticMail } from '../automatic-mail'
 import { MAX_FORWARD_DEPTH, MAX_HEADER_BLOCK_BYTES, rawHeaderFields, readMime, SNIFF_BYTES, type MimeRead } from '../mime'
-import { authenticateSender, judgeSender, MAX_DKIM_SIGNATURES } from '../sender-auth'
-import { senderNeedsAcknowledgement } from '../sender-risk'
+import { authenticateSender, judgeSender, MAX_DKIM_SIGNATURES, type SenderVerdict } from '../sender-auth'
+import { claimsMemberName, impersonationOf, senderNeedsAcknowledgement } from '../sender-risk'
 import {
+  ATTACKER_ADDRESS,
+  ATTACKER_DOMAIN,
   attachment,
   BODY,
+  encodedWord,
+  KNOWN_PARTNER_DOMAIN,
+  MEMBER_NAME,
+  MEMBER_NAME_EVASIONS,
   bytes,
   eicar,
   exe,
@@ -283,6 +291,95 @@ describe('hostile: senders', () => {
   it('no stored evidence line ever says spf=', async () => {
     const { result } = await authenticate(await sign(message()), { ...keyFor(MEMBER_DOMAIN), [`_dmarc.${MEMBER_DOMAIN}`]: 'v=DMARC1; p=reject' })
     expect(result.authenticationResults).not.toMatch(/spf=/i)
+  })
+})
+
+describe('hostile: what a verified outsider can get pre-selected', () => {
+  const REFERENCE_SIGNED = 'From:To:Subject:Date:Message-ID:In-Reply-To:References'
+  const GENUINE = '<genuine@buero-muster.at>'
+
+  async function outsider(raw: string, domain = ATTACKER_DOMAIN) {
+    const { result } = await authenticate(raw, keyFor(domain))
+    const read = await readOk(raw)
+    const verdict = judgeSender(result, { memberUserId: null, receivedAt: RECEIVED, sentAtHeader: read.headers.sentAtHeader })
+    return { verdict, read }
+  }
+
+  const evidence = (verdict: SenderVerdict, address: string): SenderEvidence => ({
+    senderTrust: verdict.trust,
+    senderFlags: verdict.flags,
+    signedHeaders: verdict.signedHeaders,
+    senderDomain: domainOf(address),
+  })
+
+  const senderView = (verdict: SenderVerdict, address: string) => ({
+    name: 'Bauleitung',
+    address,
+    domain: domainOf(address),
+    signerDomain: verdict.signerDomain,
+    trust: verdict.trust,
+    reason: verdict.reason,
+    flags: verdict.flags,
+  })
+
+  const earlierVersion = { documentId: 'd-s101', name: 'S-101_B.pdf', folderPath: 'Tragwerk', nextVersion: 3 }
+
+  it('a verified attacker domain sending a plan under an existing name: the new Fassung is offered, never pre-selected', async () => {
+    const raw = await sign(
+      message(multipart('mixed', [BODY, attachment('S-101_B.pdf', 'application/pdf', pdf('forged'))]), { From: `Bauleitung <${ATTACKER_ADDRESS}>` }),
+      { domain: ATTACKER_DOMAIN }
+    )
+    const { verdict, read } = await outsider(raw)
+    expect(verdict.trust).toBe('external_verified')
+    const filename = read.attachments[0]?.filename ?? ''
+    expect(filename).toBe('S-101_B.pdf')
+    const view = reviewView({
+      sender: senderView(verdict, ATTACKER_ADDRESS),
+      parts: [reviewPart({ name: filename, revisionCandidate: earlierVersion })],
+      threadCandidates: [],
+    })
+    expect(view.parts[0]).toMatchObject({ revisionCandidate: earlierVersion, preselected: false })
+    expect(view.incompleteReason).toBe('needs_person')
+  })
+
+  it('a Message-ID-reuse thread hijack from a new domain: matched by a signed reference, never pre-selected, and its Fassung neither', async () => {
+    const headers = { From: `Bauleitung <${ATTACKER_ADDRESS}>`, Subject: 'AW: Einreichplan', 'In-Reply-To': GENUINE, References: GENUINE }
+    const raw = await sign(message(BODY, headers), { domain: ATTACKER_DOMAIN, headerList: REFERENCE_SIGNED })
+    const { verdict, read } = await outsider(raw)
+    expect(verdict.trust).toBe('external_verified')
+    expect(verdict.signedHeaders).toEqual(expect.arrayContaining(['in-reply-to', 'references']))
+
+    const [match] = matchThread(
+      { ...read.headers, baseSubject: baseSubject(read.headers.subject), participants: [ATTACKER_ADDRESS], sentAt: SENT },
+      [{ threadId: 't-einreichplan', baseSubject: 'einreichplan', threadIndexGuid: null, receivedIds: ['genuine@buero-muster.at'], referencedIds: [], participants: [], lastEntryAt: SENT }]
+    )
+    expect(match).toMatchObject({ threadId: 't-einreichplan', strength: 'reference' })
+    const thread = { participantDomains: [MEMBER_DOMAIN, KNOWN_PARTNER_DOMAIN] }
+    const hijack = threadPreselection(match, evidence(verdict, ATTACKER_ADDRESS), thread)
+    expect(hijack).toEqual({ preselected: false, blocks: ['sender_domain_new'] })
+
+    const view = reviewView({
+      sender: senderView(verdict, ATTACKER_ADDRESS),
+      parts: [reviewPart({ name: 'S-101_B.pdf', revisionCandidate: earlierVersion })],
+      threadCandidates: [reviewThread({ preselected: hijack.preselected, blocks: hijack.blocks })],
+    })
+    expect(view.parts[0]?.preselected).toBe(false)
+
+    const partner = `p.weber@${KNOWN_PARTNER_DOMAIN}`
+    const genuine = await sign(message(BODY, { ...headers, From: `DI Petra Weber <${partner}>` }), { domain: KNOWN_PARTNER_DOMAIN, headerList: REFERENCE_SIGNED })
+    const { verdict: partnerVerdict } = await outsider(genuine, KNOWN_PARTNER_DOMAIN)
+    expect(threadPreselection(match, evidence(partnerVerdict, partner), thread)).toEqual({ preselected: true, blocks: [] })
+  })
+
+  it.each(MEMBER_NAME_EVASIONS)("a member's name with %s, on a verified outsider's address: claims the member, an impersonation", async (_label, name) => {
+    const raw = await sign(message(BODY, { From: `${encodedWord(name)} <${ATTACKER_ADDRESS}>` }), { domain: ATTACKER_DOMAIN })
+    const { result } = await authenticate(raw, keyFor(ATTACKER_DOMAIN))
+    const read = await readOk(raw)
+    const claims = claimsMemberName(read.headers.from?.name ?? null, [MEMBER_NAME, 'Petra Weber'])
+    expect(claims).toBe(true)
+    const verdict = judgeSender(result, { memberUserId: null, claimsMemberName: claims, receivedAt: RECEIVED, sentAtHeader: read.headers.sentAtHeader })
+    expect(verdict.flags).toContain('claims_member_name')
+    expect(impersonationOf(verdict)).toBe('member_name')
   })
 })
 

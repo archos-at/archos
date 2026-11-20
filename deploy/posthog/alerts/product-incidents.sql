@@ -109,4 +109,29 @@ LEFT ANTI JOIN (
     WHERE event IN ('inbound_mail_received', 'inbound_mail_dropped') AND timestamp > now() - INTERVAL 6 HOUR AND timestamp <= now()
     GROUP BY host
 ) AS took ON refused.host = took.host
+UNION ALL
+SELECT
+    concat('[Projekt-E-Mail] ', host, ': ', reason, ' ', toString(n), 'x in 1 h abgewiesen (Schritt ', arrayStringConcat(stages, ', '), ')') AS rule,
+    toFloat(n) AS breach
+FROM (
+    -- One is enough: only a broken Worker, key, store or database refuses for these, or an address at its byte cap.
+    SELECT coalesce(toString(properties.app_host), '?') AS host, toString(properties.reason) AS reason, count() AS n,
+        groupUniqArray(5)(coalesce(toString(properties.stage), '?')) AS stages
+    FROM events
+    WHERE event = 'inbound_mail_refused' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
+        AND toString(properties.reason) IN ('misconfigured', 'body_truncated', 'body_overlong', 'bad_digest', 'cap_reached')
+    GROUP BY host, reason
+)
+UNION ALL
+SELECT
+    concat('[Projekt-E-Mail] ', host, ': seit ', toString(dateDiff('hour', last, now())), ' h keine Mail angenommen, an ', toString(days), ' der letzten 7 Tage schon') AS rule,
+    toFloat(1) AS breach
+FROM (
+    -- A host that takes mail on most days took none for a day: no refusal rule sees a Worker or route that never calls.
+    SELECT coalesce(toString(properties.app_host), '?') AS host, uniqExact(toDate(timestamp)) AS days, max(timestamp) AS last
+    FROM events
+    WHERE event IN ('inbound_mail_received', 'inbound_mail_dropped') AND timestamp > now() - INTERVAL 7 DAY AND timestamp <= now()
+    GROUP BY host
+    HAVING days >= 3 AND last <= now() - INTERVAL 24 HOUR
+)
 ))

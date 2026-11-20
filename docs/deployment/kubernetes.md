@@ -29,7 +29,7 @@ their own namespaces.
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
 | `dragonfly` (Redis-proto cache) | Deployment | 1 | — (cache) | — |
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
-| `code-runner` (the agent's `execute` tool: one fresh isolate per run, no network, nothing kept; [`agent-code-execution.md`](../design/agent-code-execution.md); `codeRunnerEnabled`, default off, set per stack in its `Pulumi.<stack>.yaml` by [`code-runner-runbook.md`](code-runner-runbook.md); CI publishes its image `code-runner` with the others) | Deployment + KEDA ScaledObject + PDB | `codeRunnerMinReplicas`→`codeRunnerMaxReplicas` (default 2→10; dev 1→3) | memory-backed emptyDir `/run/code-runner/do` (1 Gi, a run's files while it runs) and an emptyDir `/tmp`; nothing durable | Horizontally, on CPU and memory utilisation through metrics-server (`codeRunnerCpuTargetPercent` 70, `codeRunnerMemoryTargetPercent` 80). A rollout waits up to 200 s, so a run of the 180 s maximum finishes |
+| `code-runner` (the agent's `execute` tool: one fresh isolate per run, no network, nothing kept; [`agent-code-execution.md`](../design/agent-code-execution.md); `codeRunnerEnabled`, default off, set per stack in its `Pulumi.<stack>.yaml` by [`code-runner-runbook.md`](code-runner-runbook.md); CI publishes its image `code-runner` with the others) | Deployment + KEDA ScaledObject + PDB | `codeRunnerMinReplicas`→`codeRunnerMaxReplicas` (default 2→10; dev 1→3) | memory-backed emptyDir `/run/code-runner/do` (1 Gi, a run's files while it runs) and an emptyDir `/tmp`; nothing durable | Horizontally, on CPU utilisation through metrics-server (`codeRunnerCpuTargetPercent` 70); not on memory, which workerd does not hand back after a run. A rollout waits up to 200 s, so a run of the 180 s maximum finishes |
 | `browser-renderer` (headless Chromium for Puppeteer in a code-runner run: one sandboxed process per run, no egress, only the code runner may reach it; [`apps/browser-renderer/README.md`](../../apps/browser-renderer/README.md); `browserRendererEnabled`, default off, needs `codeRunnerEnabled` and nodes that allow unprivileged user namespaces, [the runbook](code-runner-runbook.md#the-browser-puppeteer-in-a-run)) | Deployment + KEDA ScaledObject, no PDB | `browserRendererMinReplicas`→`browserRendererMaxReplicas` (default 1→3), 2 browsers per pod (`browserRendererSessionsPerPod`) | memory-backed emptyDir `/tmp` (512 Mi, a run's profile); nothing durable | Horizontally, on CPU and memory utilisation (`browserRendererCpuTargetPercent` 70, `browserRendererMemoryTargetPercent` 80); 500m CPU and 512 Mi requested, 2 CPU and 1.5 Gi limit |
 | `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0157; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
@@ -759,8 +759,9 @@ lock times out at Envoy after its route timeout.
    and G7 (below), then set `inboundMailPaused: false` and promote: that exposes
    no customer. Then run the gates that need mail to arrive (G1–G6). The smoke
    tool's `signed --run` expects 202s, so it cannot pass while paused.
-5. Switch `inbound-mail` on for an office only after the Datenschutzberater's
-   sign-off and the customer notice (gate O7).
+5. Switch `inbound-mail` on (gate O7). Production: on for all
+   organizations since 2026-11-14, by the owner's decision with the
+   data-protection go-ahead for every office.
 
 ### The gates, in order
 
@@ -770,13 +771,13 @@ below.
 
 | # | Gate | When |
 |---|---|---|
-| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists, OFF for all organizations in both environments; staging switched ON for all organizations on 2026-11-05 (owner). `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
+| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists; staging switched ON for all organizations on 2026-11-05 (owner), production ON for all organizations on 2026-11-14 (O7). `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
 | O2 | Cloudflare Workers Paid | before O4 |
 | O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
 | O4 | `npm run up` with `malwareScanEnabled` (the scanner), then with `inboundMailDomain`, the keys and `inboundMailPaused: true` | after the merge |
 | O5 | DNS: Email Routing on the subdomain writes its MX and TXT records, Pulumi the zone's DMARC record (`inboundMailDmarc`); then subaddressing switched on with one API call and the operator's destination address verified with one click (the runbook's §7) | with O4 |
 | O6 | Launch gates G0–G9, then unpause | after O4 and O5, with a named pilot office for G9 |
-| O7 | The `inbound-mail` entitlement on, per office, only after the Datenschutzberater's sign-off and the customer notice | per office |
+| O7 | The `inbound-mail` entitlement on | **Done 2026-11-14**: ON for all organizations in Production, by the owner's decision with the data-protection go-ahead for every office (the runbook's §9) |
 
 Launch gates, run with `deploy/pulumi/scripts/inbound-mail-smoke.ts` (usage in
 [`deploy/pulumi/README.md`](../../deploy/pulumi/README.md#project-mails-launch-gates);
@@ -804,10 +805,17 @@ Record of runs: none yet.
   and `.error`; the `[Projekt-E-Mail]` rules of the Product incidents alert and
   `[Objektspeicher]` of the Infrastructure incidents alert,
   [`deploy/posthog/README.md`](../../deploy/posthog/README.md#alerts), on every stack):
-  `bad-signature` (a key or `BFF_URL` mismatch), `body-truncated`,
-  `unavailable` (storage or database), `cap_reached`, and no `received` for
-  24 hours on a deployment that usually receives mail. The receive log line per
-  delivery carries ids, sizes and the outcome code only.
+  three or more refusals of ours on a host in an hour (`unavailable`, storage
+  or database, among them); a host that has only refused for six hours; one
+  refusal for `misconfigured`, `body_truncated`, `body_overlong`, `bad_digest`
+  or `cap_reached`; and no mail taken for 24 hours by a host that took mail on
+  three of the last seven days. The last two are in
+  `deploy/posthog/alerts/product-incidents.sql` but run only once the file is
+  pasted into the live insight. `bad-signature` (a key or `BFF_URL` mismatch)
+  has no alert: it is refused before the handler and sends no PostHog event,
+  and shows as the BFF's 401 in the Worker's line in Cloudflare's Workers
+  Logs. The receive log line per delivery carries ids, sizes and the outcome
+  code only.
 - **A dependency that does not answer delays mail, it does not degrade it.**
   The receive job gives a WorkOS, DNS, reader, object-store or database fault
   (for the object store: no answer, a timeout or a 5xx; a 4xx is a bug and spends

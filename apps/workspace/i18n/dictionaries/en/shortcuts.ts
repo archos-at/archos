@@ -59,7 +59,7 @@ export const shortcuts = {
       inboundMailOpen: 'Open the mail',
       inboundMailSelect: 'Select the mail',
       inboundMailPreview: 'Preview the attachment',
-      inboundMailFile: 'File as shown',
+      inboundMailFile: 'Review and file (in the overview: File)',
       inboundMailDismiss: 'Dismiss the mail',
     },
     disableHint: 'You can turn shortcuts off in your profile settings.',

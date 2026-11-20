@@ -170,8 +170,10 @@ every slot at its cap at once:
 | **Total**, against 4096 | **3978** |
 
 Four runs at the input and output limits stay under the first row: 4 × 628 MiB plus their files on
-the memory-backed volume (about 100 MB each) is 2912 MiB. An idle pod holds about
-4 × 84 + 50 + 63 ≈ 450 MiB, so the request stays at 1 GiB. The 2 GiB limit before this was short
+the memory-backed volume (about 100 MB each) is 2912 MiB. An idle pod holds 4 × about 230 (a slot
+with the Typst files) + 50 + 63 ≈ 1030 MiB, and production measured 1.13 to 1.18 GiB of working set
+on idle pods (2026-11-20), so the request is 1.5 GiB. The pod scales on CPU only: a memory trigger
+read every idle pod as above its target and held the autoscaler at its maximum. The 2 GiB limit before this was short
 of its own contract: two concurrent runs at the input and output limits measured 1.6 GB together.
 
 ## Running and testing

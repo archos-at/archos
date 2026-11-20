@@ -5,6 +5,7 @@ import { appPullPolicy, webImage } from '../config/images'
 import { assertHpaTargetIsProportional, assertMemoryFitsLimit, toResourceRequirements } from '../config/resources'
 import { webPosthogEnv } from "./posthog-env";
 import { webCmsEnv } from "../platform/cms";
+import { webMailEnv, webMailPodAnnotations } from "./web-mail";
 import { commonLabels } from "../platform/namespaces";
 import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
@@ -43,7 +44,7 @@ export function installWeb(
         selector: { matchLabels: labels },
         ...surgeRollout(ROLLOUT.web),
         template: {
-          metadata: { labels },
+          metadata: { labels, annotations: webMailPodAnnotations(cfg) },
           spec: {
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             imagePullSecrets,
@@ -67,6 +68,7 @@ export function installWeb(
                   },
                   ...webPosthogEnv(cfg),
                   ...webCmsEnv(cfg),
+                  ...webMailEnv(cfg),
                 ],
                 resources: toResourceRequirements(cfg.web.resources),
                 lifecycle: shutdown.lifecycle,

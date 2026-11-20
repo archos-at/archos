@@ -165,6 +165,10 @@ export function describeProposal(proposal: ProposedChangeView): string {
       return `a note for ${PRODUCT_NAME} to remember (${proposal.payload.kind}): "${oneLine(proposal.payload.content)}"`
     case 'project_profile':
       return `a change to the project context, "${oneLine(proposal.payload.title)}"`
+    case 'office_shelf_norm': {
+      const norms = proposal.payload.documents.map((document) => `"${oneLine(document.designation ?? document.name, 80)}"`)
+      return `moving ${norms.length === 1 ? 'a norm' : `${norms.length} norms`} into the office shelf: ${norms.join(', ')}`
+    }
   }
 }
 
