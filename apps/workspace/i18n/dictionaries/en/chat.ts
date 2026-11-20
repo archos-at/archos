@@ -164,8 +164,6 @@ export const chat = {
     afternoon: 'Good afternoon',
     evening: 'Good evening',
     withName: '{greeting}, {name}.',
-    projectWrites:
-      '{productName} does more than answer — ask, and it writes file notes, memos and drafts straight into the project files.',
   },
   roles: {
     input: 'Input',
@@ -1733,6 +1731,8 @@ export const chat = {
   },
   privacy: {
     onlyYou: 'Only you see this chat until you share it.',
+    onlyYouShort: 'Only you',
+    newChat: 'Only you see this chat.',
   },
   confidence: {
     label: 'Confidence: {level}',
