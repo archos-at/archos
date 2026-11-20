@@ -50,7 +50,7 @@ function Pair({ className }: { className?: string }): JSX.Element {
 
 export function useProjectIcon(): typeof Layers {
   const pick = useSearchParams()?.get('pi')
-  return pick === 'a' ? UsersRound : pick === 'b' ? Building2 : pick === 'c' ? BriefcaseBusiness : pick === 'd' ? Users : pick === 'e' ? (Trio as unknown as typeof Layers) : pick === 'f' ? Handshake : pick === 'g' ? (Pair as unknown as typeof Layers) : Folders
+  return pick === 'a' ? UsersRound : pick === 'b' ? Building2 : pick === 'c' ? BriefcaseBusiness : pick === 'd' ? Users : pick === 'e' ? (Trio as unknown as typeof Layers) : pick === 'f' ? Handshake : pick === 'g' ? (Pair as unknown as typeof Layers) : pick === 'x' ? Folders : Users
 }
 
 export function SpaceToggle({ personal }: { personal: boolean }): JSX.Element {

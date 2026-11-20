@@ -5,7 +5,7 @@
 import { useSearchParams } from 'next/navigation'
 import type { JSX } from 'react'
 import { UploadMenu } from './office-norms'
-import { Library, ChevronDown, UsersRound, LockKeyhole, X, FileText, ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
+import { Library, ChevronDown, Users, LockKeyhole, X, FileText, ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
 
 function Side({ icon: Icon, label, who, picked, faded = false }: { icon: LucideIcon; label: string; who: string; picked: boolean; faded?: boolean }): JSX.Element {
   return (
@@ -55,7 +55,7 @@ function MoreMenu({ norms = false }: { norms?: boolean }): JSX.Element {
 }
 
 export function Who({ own }: { own: boolean }): JSX.Element {
-  const Icon = own ? LockKeyhole : UsersRound
+  const Icon = own ? LockKeyhole : Users
   return (
     <span className="text-muted-foreground text-name mb-1 inline-flex items-center gap-1.5">
       <Icon className="size-3.5" aria-hidden />

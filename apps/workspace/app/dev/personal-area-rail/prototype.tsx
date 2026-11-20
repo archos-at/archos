@@ -27,7 +27,7 @@ import {
   Search,
   Share2,
   UserRound,
-  UsersRound,
+  Users,
   Zap,
   type LucideIcon,
 } from 'lucide-react'
@@ -136,7 +136,7 @@ export function ChatRow({ chat, current = false, showProject = false, indent = t
       <a href="#" className={cn(SUB_ROW, !indent && 'pl-3', current ? 'text-foreground font-medium' : hovered ? 'bg-selected text-foreground' : 'text-muted-foreground hover:bg-selected hover:text-foreground')}>
         {current && <span aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" />}
         <span className="relative min-w-0 flex-1 truncate">{chat.title}</span>
-        {chat.shared && <UsersRound aria-label="Geteilt" className="relative size-3.5 shrink-0" />}
+        {chat.shared && <Users aria-label="Geteilt" className="relative size-3.5 shrink-0" />}
         {tag && <span className="text-muted-foreground text-meta relative max-w-[84px] shrink-0 truncate font-normal">{tag}</span>}
         {markOwn && !tag && <UserRound aria-label="Ohne Projekt" className="text-muted-foreground relative size-3.5 shrink-0" />}
         {hovered && (

@@ -183,20 +183,34 @@ export function FoldedRail({ personal, show }: { personal: boolean; show: string
   const ProjectIcon = useProjectIcon()
   return (
     <div className="relative z-40 flex h-full shrink-0">
-      <div className="bg-desk border-hairline flex h-full w-14 flex-col items-center gap-1 border-r py-3">
-        <span title="Leiste ausklappen" className="text-muted-foreground flex size-9 items-center justify-center">
-          <PanelLeft className="size-4" aria-label="Leiste ausklappen" />
-        </span>
-        <div className="h-2" />
-        <IconSpot icon={personal ? LockKeyhole : ProjectIcon} dark={personal} active={!personal} />
-        <div className="bg-selected my-1 h-px w-6" />
-        <IconSpot icon={SquarePen} />
-        <IconSpot icon={Folder} />
-        <IconSpot icon={Zap} />
+      <div className="bg-desk border-hairline flex h-full w-14 flex-col border-r pl-[14px]">
+        <div className="flex min-h-14 items-center">
+          <span title="Leiste ausklappen" className="text-muted-foreground flex size-9 items-center justify-center">
+            <PanelLeft className="size-4" aria-label="Leiste ausklappen" />
+          </span>
+        </div>
+        <div className="mb-1.5 flex h-9 items-center">
+          <IconSpot icon={personal ? LockKeyhole : ProjectIcon} dark={personal} active={!personal} />
+        </div>
+        {!personal && (
+          <div className="mt-1 flex h-10 items-center">
+            <span title="Wohnbau Seestadt Baufeld D12" className="bg-sheet shadow-press text-meta flex size-9 items-center justify-center rounded-control font-medium">WS</span>
+          </div>
+        )}
+        <div className="mt-3 flex flex-col gap-0.5 pt-px">
+          <IconSpot icon={SquarePen} />
+          <IconSpot icon={Folder} />
+          <IconSpot icon={Zap} />
+        </div>
         <div className="flex-1" />
-        <IconSpot icon={Archive} active={show === 'office'} />
         <IconSpot icon={Bell} badge={8} active={show === 'bell'} />
-        <span className="bg-sheet shadow-xs text-meta mt-1 flex size-7 items-center justify-center rounded-full font-medium">AB</span>
+        <div className="mb-2">
+          <IconSpot icon={Archive} active={show === 'office'} />
+        </div>
+        <div className="flex h-10 items-center pb-0">
+          <span className="bg-sheet shadow-xs text-meta ml-1 flex size-7 items-center justify-center rounded-full font-medium">AB</span>
+        </div>
+        <div className="h-3" />
       </div>
       {show === 'office' && <Label text="Bürobibliothek" at="bottom-[92px]" />}
       {show === 'bell' && <InboxPopover beside />}
