@@ -198,18 +198,25 @@ function Picker({ personal, own, warn }: { personal: boolean; own: boolean; warn
           </p>
           <div className="min-h-0 flex-1 overflow-hidden px-3 pt-2">
             {!own && (
-              <div className="flex items-center gap-3 rounded-control px-2 py-2">
-                <span className="size-4" />
-                <Folder className={ICON} aria-hidden />
-                <span className="text-name flex-1 font-normal">Fluchtwegnachweise Tiefgarage</span>
-                <ChevronRight className="text-muted-foreground size-3.5" aria-hidden />
-              </div>
+              <>
+                <p className="text-muted-foreground text-meta px-2 pb-2 pt-1">Ordner</p>
+                <div className="grid grid-cols-3 gap-3 px-2">
+                  <div className="bg-sheet shadow-sm col-span-2 flex items-center gap-3 rounded-[10px] px-3 py-2.5">
+                    <Folder className={ICON} aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="text-name block truncate">Fluchtwegnachweise Tiefgarage</span>
+                      <span className="text-muted-foreground text-meta block">2 Elemente</span>
+                    </span>
+                    <ChevronRight className="text-muted-foreground size-3.5" aria-hidden />
+                  </div>
+                </div>
+              </>
             )}
             <p className="text-muted-foreground text-meta px-2 pb-2 pt-3">Dateien</p>
             <div className="grid grid-cols-3 gap-3 px-2">
               {files.map((file, index) => (
                 <div key={file.name} className="min-w-0">
-                  <div className={`bg-sheet relative flex h-[104px] items-center justify-center rounded-[10px] ${file.picked ? 'ring-foreground ring-2' : 'shadow-sm'}`}>
+                  <div className={`bg-sheet relative flex h-[104px] items-center justify-center rounded-[10px] ${file.picked ? 'ring-foreground shadow-sm ring-1' : 'shadow-sm'}`}>
                     <span className={`absolute left-2 top-2 flex size-4 items-center justify-center rounded-[4px] ${file.picked ? 'bg-primary text-primary-foreground' : 'border-field-border bg-sheet border'}`}>{file.picked && <Check className="size-3" aria-hidden />}</span>
                     <Sketch plan={index !== 1} />
                   </div>
@@ -300,6 +307,7 @@ function Answer(): JSX.Element {
 const FILE_ACTION = 'text-name border-hairline ml-2 inline-flex h-7 items-center gap-1.5 border-l pl-2.5 font-medium'
 
 function ScopeLine({ form }: { form: string }): JSX.Element {
+  if (form === 'auto') return <></>
   if (form === 'a') {
     return (
       <div className="flex items-center gap-2">
@@ -393,6 +401,15 @@ export function ChatFiles({ step, personal, scope = '' }: { step: string; person
               )}
             </div>
             <Answer />
+            {scope === 'auto' && (
+              <p className="text-muted-foreground text-meta flex flex-wrap items-center gap-x-2 gap-y-1">
+                Gelesen:
+                <span className="bg-desk rounded-full px-2 py-0.5">Brandschutzkonzept_Index-D.pdf</span>
+                <span className="bg-desk rounded-full px-2 py-0.5">Stellungnahme_MA37.pdf</span>
+                <span>und aus dem Projekt</span>
+                <span className="bg-desk rounded-full px-2 py-0.5">Grundriss_EG_Index-C.pdf</span>
+              </p>
+            )}
           </>
         )}
         {made && (
