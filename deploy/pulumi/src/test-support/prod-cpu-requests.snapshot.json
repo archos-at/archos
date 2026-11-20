@@ -100,6 +100,16 @@
         "memory": "512Mi"
       }
     },
+    "cbc4b90923e8023c": {
+      "limits": {
+        "cpu": "2",
+        "memory": "1536Mi"
+      },
+      "requests": {
+        "cpu": "500m",
+        "memory": "512Mi"
+      }
+    },
     "dd5d0f5c8f297ad1": {
       "limits": {
         "cpu": "250m",
@@ -218,6 +228,16 @@
       "requests": {
         "cpu": "100m",
         "memory": "128Mi"
+      }
+    },
+    "ca61ba9361714b91": {
+      "limits": {
+        "cpu": "2",
+        "memory": "4Gi"
+      },
+      "requests": {
+        "cpu": "250m",
+        "memory": "1Gi"
       }
     },
     "80d71faf1c40c1d4": {
@@ -540,16 +560,6 @@
         "memory": "12Gi"
       }
     },
-    "93094781ffbf62bf": {
-      "limits": {
-        "cpu": "4",
-        "memory": "8Gi"
-      },
-      "requests": {
-        "cpu": "375m",
-        "memory": "2Gi"
-      }
-    },
     "acfb878569fef639": {
       "limits": {
         "cpu": "2",
@@ -568,6 +578,16 @@
       "requests": {
         "cpu": "875m",
         "memory": "1536Mi"
+      }
+    },
+    "93094781ffbf62bf": {
+      "limits": {
+        "cpu": "4",
+        "memory": "8Gi"
+      },
+      "requests": {
+        "cpu": "375m",
+        "memory": "2Gi"
       }
     },
     "9f69c6ba35fd9f77": {
@@ -732,9 +752,15 @@
     }
   },
   "cpuScalingTargets": {
+    "be97493cc7721d52": {
+      "value": "70"
+    },
     "b583cc5ff23bb709": {
       "averageUtilization": 70,
       "type": "Utilization"
+    },
+    "fc76c9e38dc7c044": {
+      "value": "70"
     },
     "1c643d34ba6cc3c4": {
       "averageUtilization": 40,
