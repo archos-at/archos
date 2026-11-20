@@ -1,0 +1,12 @@
+{
+  "surface": "#fafaf9",
+  "surface-sunken": "#f2f1f0",
+  "line": "#e7e5e3",
+  "line-strong": "#8a8784",
+  "ink": "#0f0e0d",
+  "ink-hover": "#2e2c29",
+  "ink-muted": "#5e5b57",
+  "ink-faint": "#aba8a4",
+  "markup": "#c42b1c",
+  "markup-soft": "#fbe9e6"
+}

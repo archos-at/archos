@@ -12,7 +12,9 @@ metadata:
 
 A .docx is a ZIP of XML parts. `docx` builds a new one; `jszip` opens an
 existing one and changes its XML. Read `execute` first if you have not
-this conversation.
+this conversation. A new document takes its look from `house-style`
+(`office-design`): `styles: docxStyles`, `page: docxPage`, and
+`docxTableBorders()` with `docxHeaderCell()` for tables, as the memo below.
 
 ## A new document with `docx`
 
@@ -45,8 +47,9 @@ import { writeFile } from "node:fs/promises";
 import Decimal from "decimal.js";
 import {
   AlignmentType, Document, Footer, Header, HeadingLevel, LevelFormat, Packer, PageNumber,
-  Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType,
+  Paragraph, Table, TableCell, TableRow, TextRun, WidthType,
 } from "docx";
+import { colors, docxHeaderCell, docxPage, docxStyles, docxTableBorders, hex } from "house-style";
 
 const area = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const date = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -56,7 +59,7 @@ const COLUMNS = [1400, 5154, 2800];
 function cell(text, width, { header = false, right = false } = {}) {
   return new TableCell({
     width: { size: width, type: WidthType.DXA },
-    shading: header ? { type: ShadingType.CLEAR, fill: "D9D9D9", color: "auto" } : undefined,
+    ...(header ? docxHeaderCell() : {}),
     children: [new Paragraph({
       alignment: right ? AlignmentType.RIGHT : AlignmentType.LEFT,
       children: [new TextRun({ text, bold: header })],
@@ -75,6 +78,7 @@ export default async function () {
   const table = new Table({
     width: { size: COLUMNS.reduce((a, b) => a + b, 0), type: WidthType.DXA },
     columnWidths: COLUMNS,
+    borders: docxTableBorders(),
     rows: [
       new TableRow({
         tableHeader: true,
@@ -104,41 +108,30 @@ export default async function () {
   const doc = new Document({
     creator: "Office",
     title: "Aktenvermerk",
-    styles: {
-      default: {
-        document: { run: { font: "Arial", size: 20 } },
-        heading1: { run: { font: "Arial", size: 28, bold: true, color: "000000" }, paragraph: { spacing: { before: 240, after: 120 }, keepNext: true } },
-        heading2: { run: { font: "Arial", size: 22, bold: true, color: "000000" }, paragraph: { spacing: { before: 200, after: 80 }, keepNext: true } },
-      },
-    },
+    styles: docxStyles,
     numbering: {
       config: [{
         reference: "bullets",
-        levels: [{ level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 360, hanging: 260 } } } }],
+        levels: [{ level: 0, format: LevelFormat.BULLET, text: "–", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 360, hanging: 260 } } } }],
       }],
     },
     sections: [{
-      properties: {
-        page: {
-          size: { width: 11906, height: 16838 },
-          margin: { top: 1418, bottom: 1134, left: 1418, right: 1134, header: 709, footer: 709 },
-        },
-      },
+      properties: { page: docxPage },
       headers: {
-        default: new Header({ children: [new Paragraph({ children: [new TextRun("Projekt Musterstraße 12")] })] }),
+        default: new Header({ children: [new Paragraph({ children: [new TextRun({ text: "Projekt Musterstraße 12", size: 16, color: hex(colors.muted) })] })] }),
       },
       footers: {
         default: new Footer({
           children: [new Paragraph({
             alignment: AlignmentType.RIGHT,
-            children: [new TextRun({ children: ["Seite ", PageNumber.CURRENT, " von ", PageNumber.TOTAL_PAGES] })],
+            children: [new TextRun({ children: [PageNumber.CURRENT, " / ", PageNumber.TOTAL_PAGES], size: 16, color: hex(colors.muted) })],
           })],
         }),
       },
       children: [
-        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Aktenvermerk")] }),
-        new Paragraph({ children: [new TextRun(`Datum: ${date.format(new Date(2026, 10, 18))}`)] }),
-        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("Flächen")] }),
+        new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun("Aktenvermerk")] }),
+        new Paragraph({ style: "Meta", children: [new TextRun(`Projekt Musterstraße 12 · ${date.format(new Date(2026, 10, 18))}`)] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Flächen")] }),
         new Paragraph({
           spacing: { after: 120 },
           children: [
@@ -149,7 +142,7 @@ export default async function () {
           ],
         }),
         table,
-        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun("Nächste Schritte")] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Nächste Schritte")] }),
         ...["Fensterfarbe mit der Bauherrschaft festlegen", "Flächen nach dem nächsten Stand prüfen"].map(
           (text) => new Paragraph({ numbering: { reference: "bullets", level: 0 }, children: [new TextRun(text)] }),
         ),
@@ -242,6 +235,77 @@ export default async function () {
 }
 ```
 
-A chart cannot go into a Word file from a run: Word needs a PNG beside the SVG,
-and nothing here draws one. Make the chart as its own SVG file
-(`office-pdf-charts`) and say so.
+## Charts in a Word file
+
+Word shows a chart as a picture. Draw each chart as an SVG with Vega-Lite
+(`office-pdf-charts`), turn it into a PNG with the browser (`office-html-pdf`)
+at `deviceScaleFactor: 2` so it prints sharp, and place it with `ImageRun`
+at the size `boundingBox()` measured. One browser and one page serve every
+chart of the document, all in one run; a document with twenty charts is one
+run too. State each chart's key figures in the text as well: a picture cannot
+be searched or read aloud.
+
+```js
+import { writeFile } from "node:fs/promises";
+import puppeteer from "@cloudflare/puppeteer";
+import { Document, HeadingLevel, ImageRun, Packer, Paragraph, TextRun } from "docx";
+import * as vega from "vega";
+import * as vegaLite from "vega-lite";
+import { expressionInterpreter } from "vega-interpreter";
+import { docxPage, docxStyles, vegaLiteConfig } from "house-style";
+
+const charts = [
+  { title: "Kosten je Phase", note: "EUR netto", values: [["Schätzung", 412000], ["Berechnung", 451000], ["Anschlag", 448500]] },
+  { title: "Flächen je Geschoss", note: "m² NRF", values: [["KG", 96.4], ["EG", 142.8], ["OG", 138.2], ["DG", 74.5]] },
+];
+
+async function chartSvg({ note, values }) {
+  const spec = vegaLite.compile({
+    width: 420, height: 200,
+    config: { ...vegaLiteConfig, locale: { number: { decimal: ",", thousands: ".", grouping: [3], currency: ["", " €"] } } },
+    data: { values: values.map(([label, value]) => ({ label, value })) },
+    mark: { type: "bar" },
+    encoding: {
+      x: { field: "label", type: "nominal", sort: null, title: null, axis: { labelAngle: 0 } },
+      y: { field: "value", type: "quantitative", title: note, axis: { format: ",.0f" } },
+    },
+  }).spec;
+  const view = new vega.View(vega.parse(spec, null, { ast: true }), { expr: expressionInterpreter, renderer: "none" });
+  const svg = await view.toSVG();
+  await view.finalize();
+  return svg;
+}
+
+export default async function () {
+  const browser = await puppeteer.launch(env.BROWSER);
+  const blocks = [];
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 800, height: 600, deviceScaleFactor: 2 });
+    for (const chart of charts) {
+      const svg = await chartSvg(chart);
+      await page.setContent(`<body style="margin:0;background:#fff">${svg}</body>`);
+      const element = await page.$("svg");
+      const { width, height } = await element.boundingBox();
+      const png = await element.screenshot({ type: "png" });
+      blocks.push(
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(chart.title)] }),
+        new Paragraph({ children: [new ImageRun({ type: "png", data: png, transformation: { width: Math.round(width), height: Math.round(height) } })] }),
+      );
+    }
+  } finally {
+    await browser.close();
+  }
+
+  const doc = new Document({
+    styles: docxStyles,
+    sections: [{ properties: { page: docxPage }, children: [new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun("Projektkennzahlen")] }), ...blocks] }],
+  });
+  await writeFile("/workspace/Projektkennzahlen.docx", await Packer.toBuffer(doc));
+  return { file: "/workspace/Projektkennzahlen.docx", charts: charts.length };
+}
+```
+
+If `puppeteer.launch` fails with "no browser", this deployment has none: make
+the Word file without the charts and each chart as its own SVG file beside it,
+and say so in one sentence.

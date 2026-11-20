@@ -11,15 +11,20 @@ metadata:
 # A PowerPoint deck
 
 `pptxgenjs` builds new decks. Read `execute` first if you have not this
-conversation.
+conversation, and `office-design` for the look: `houseDeck` from
+`house-style` sets the layout, the masters, titles, footer and slide numbers,
+and returns fresh options for every `add…` call.
 
 ## The deck
 
 - One message per slide, and the deck built toward what the meeting is for: a
   decision, the open points, the next dates. About two minutes of talk per slide.
-- Titles at the same place and size on every content slide, without a full
-  stop. Body text left-aligned, never below 14 pt; titles 28 to 36 pt.
-- Arial or Calibri: the person's PowerPoint renders the font you name.
+- The title says what the slide shows, as a sentence without a full stop.
+  `deck.slide(title)` puts it in the same place on every slide. Body text
+  left-aligned, never below 14 pt.
+- Aptos (`fonts.office`), Microsoft 365's own face: the person's PowerPoint
+  renders the font you name, and an older Office substitutes it. When the
+  person says their Office has no Aptos, take Arial.
 - At most five bullets on a slide; if the text does not fit its box, cut words
   or split the slide rather than shrink the type.
 
@@ -47,47 +52,45 @@ conversation.
 ```js
 import { writeFile } from "node:fs/promises";
 import PptxGenJS from "pptxgenjs";
+import { houseDeck } from "house-style";
 
 export default async function () {
   const pptx = new PptxGenJS();
-  pptx.layout = "LAYOUT_16x9";
-  pptx.title = "Bauherrenbesprechung";
+  pptx.title = "Bauherrenbesprechung 4";
+  const deck = houseDeck(pptx, { footer: "Wohnhaus Musterstraße 12 · Bauherrenbesprechung 4" });
 
-  const title = pptx.addSlide();
-  title.addText("Bauherrenbesprechung 4", { x: 0.6, y: 1.8, w: 8.8, h: 1, fontSize: 32, bold: true, fontFace: "Arial" });
-  title.addText("Wohnhaus Musterstraße 12 · 18.11.2026", { x: 0.6, y: 2.9, w: 8.8, h: 0.5, fontSize: 16, color: "555555", fontFace: "Arial" });
+  deck.cover({
+    title: "Bauherrenbesprechung 4",
+    subtitle: "Kosten, offene Entscheidungen, nächste Termine",
+    meta: "Wohnhaus Musterstraße 12 · 18.11.2026",
+  });
 
-  const status = pptx.addSlide();
-  status.addText("Offene Punkte", { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true, fontFace: "Arial" });
-  status.addText(
-    [
-      { text: "Fensterfarbe festlegen", options: { bullet: true } },
-      { text: "Angebot Haustechnik prüfen", options: { bullet: true } },
-      { text: "Termin Einreichung bestätigen", options: { bullet: true } },
-    ],
-    { x: 0.5, y: 1.1, w: 4.4, h: 2.5, fontSize: 16, fontFace: "Arial", valign: "top" },
+  const decisions = deck.slide("Drei Entscheidungen brauchen wir heute");
+  decisions.addText(
+    deck.bullets(["Fensterfarbe: Anthrazit oder Eiche", "Angebot Haustechnik annehmen", "Einreichung am 05.12.2026 bestätigen"]),
+    deck.text("left"),
   );
-  status.addTable(
-    [
-      [{ text: "Kostengruppe", options: { bold: true, fill: { color: "D9D9D9" } } },
-        { text: "EUR", options: { bold: true, fill: { color: "D9D9D9" }, align: "right" } }],
-      ["Baukonstruktion", { text: "412.000", options: { align: "right" } }],
-      ["Technik", { text: "138.500", options: { align: "right" } }],
-    ],
-    { x: 5.2, y: 1.1, w: 4.3, colW: [2.6, 1.7], fontSize: 14, fontFace: "Arial", border: { type: "solid", pt: 0.5, color: "999999" } },
+  decisions.addTable(
+    deck.table(
+      [["Kostengruppe", "EUR"], ["Baukonstruktion", "412.000"], ["Technik", "138.500"], ["Summe", "550.500"]],
+      { numeric: [1], total: true },
+    ),
+    deck.tableOptions("right", { colW: [2.6, 1.6] }),
   );
-  status.addChart(
+
+  deck.section("Kosten");
+
+  const costs = deck.slide("Die Kostenschätzung liegt 9 % über dem Budget");
+  costs.addChart(
     pptx.ChartType.bar,
-    [{ name: "Kosten", labels: ["KS", "KF", "KB"], values: [412000, 451000, 448500] }],
-    {
-      x: 0.5, y: 3.7, w: 9, h: 1.8, barDir: "col", valAxisMinVal: 0, valAxisLabelFormatCode: "#,##0",
-      chartColors: ["4C6A92"], showLegend: false, showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: "#,##0",
-      catAxisLabelFontFace: "Arial", valAxisLabelFontFace: "Arial", dataLabelFontFace: "Arial",
-    },
+    [{ name: "Kosten", labels: ["Budget", "Kostenschätzung", "Kostenberechnung"], values: [412000, 451000, 448500] }],
+    deck.chart("wide", { barDir: "col", valAxisLabelFormatCode: "#,##0", showValue: true, dataLabelPosition: "outEnd", dataLabelFormatCode: "#,##0" }),
   );
+  costs.addText("Mehrkosten vor allem aus der Haustechnik (+ 31.000 EUR) und der Fassade (+ 8.000 EUR).", deck.text("aside", { fontSize: 14 }));
+  costs.addNotes("Haustechnik: Wärmepumpe statt Gastherme, vom Bauherrn gewünscht.");
 
   await writeFile("/workspace/Bauherrenbesprechung.pptx", await pptx.write({ outputType: "uint8array" }));
-  return { file: "/workspace/Bauherrenbesprechung.pptx", slides: 2 };
+  return { file: "/workspace/Bauherrenbesprechung.pptx", slides: 4 };
 }
 ```
 

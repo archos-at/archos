@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import Decimal from "decimal.js";
 import ExcelJS from "exceljs";
+import { styleSheet } from "house-style";
 
 export default async function () {
   const rooms = [
@@ -21,17 +22,9 @@ export default async function () {
   ];
   sheet.addRows(rooms);
 
-  const header = sheet.getRow(1);
-  header.font = { bold: true };
-  header.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9D9D9" } };
-  header.getCell(3).alignment = { horizontal: "right" };
-
   const last = rooms.length + 1;
-  const sum = sheet.addRow([null, "Summe", { formula: `SUM(C2:C${last})`, result: total }]);
-  sum.font = { bold: true };
-  sum.getCell(3).border = { top: { style: "thin" } };
-
-  sheet.views = [{ state: "frozen", ySplit: 1 }];
+  sheet.addRow([null, "Summe", { formula: `SUM(C2:C${last})`, result: total }]);
+  styleSheet(sheet, { numeric: [3], numFmt: '#,##0.00 "m²"', total: true });
   sheet.autoFilter = { from: "A1", to: { row: last, column: 3 } };
 
   await writeFile("/workspace/Flaechenaufstellung.xlsx", new Uint8Array(await workbook.xlsx.writeBuffer()));

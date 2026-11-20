@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import * as vega from "vega";
 import * as vegaLite from "vega-lite";
 import { expressionInterpreter } from "vega-interpreter";
+import { vegaLiteConfig } from "house-style";
 
 export default async function () {
   const values = [
@@ -12,9 +13,9 @@ export default async function () {
   const spec = vegaLite.compile({
     width: 420,
     height: 240,
-    config: { font: "Arial", locale: { number: { decimal: ",", thousands: ".", grouping: [3], currency: ["", " €"] } } },
+    config: { ...vegaLiteConfig, locale: { number: { decimal: ",", thousands: ".", grouping: [3], currency: ["", " €"] } } },
     data: { values },
-    mark: { type: "bar", color: "#4C6A92" },
+    mark: { type: "bar" },
     encoding: {
       x: { field: "stage", type: "nominal", sort: null, title: null, axis: { labelAngle: 0 } },
       y: { field: "eur", type: "quantitative", title: "EUR netto", axis: { format: ",.0f" } },

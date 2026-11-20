@@ -29,6 +29,13 @@ COPY --from=deps /app/node_modules/source-sans/TTF ./node_modules/source-sans/TT
 COPY --from=deps /app/node_modules/source-sans/LICENSE.md ./node_modules/source-sans/
 COPY --from=deps /app/node_modules/source-code-pro/TTF ./node_modules/source-code-pro/TTF
 COPY --from=deps /app/node_modules/source-code-pro/LICENSE.md ./node_modules/source-code-pro/
+COPY --from=deps /app/node_modules/@expo-google-fonts/hanken-grotesk/LICENSE_FONT ./node_modules/@expo-google-fonts/hanken-grotesk/
+COPY --from=deps /app/node_modules/@expo-google-fonts/hanken-grotesk/400Regular ./node_modules/@expo-google-fonts/hanken-grotesk/400Regular
+COPY --from=deps /app/node_modules/@expo-google-fonts/hanken-grotesk/400Regular_Italic ./node_modules/@expo-google-fonts/hanken-grotesk/400Regular_Italic
+COPY --from=deps /app/node_modules/@expo-google-fonts/hanken-grotesk/500Medium ./node_modules/@expo-google-fonts/hanken-grotesk/500Medium
+COPY --from=deps /app/node_modules/@expo-google-fonts/hanken-grotesk/500Medium_Italic ./node_modules/@expo-google-fonts/hanken-grotesk/500Medium_Italic
+COPY --from=deps /app/node_modules/@expo-google-fonts/hanken-grotesk/600SemiBold ./node_modules/@expo-google-fonts/hanken-grotesk/600SemiBold
+COPY --from=deps /app/node_modules/@expo-google-fonts/hanken-grotesk/600SemiBold_Italic ./node_modules/@expo-google-fonts/hanken-grotesk/600SemiBold_Italic
 COPY package.json ./
 COPY src ./src
 USER pptruser

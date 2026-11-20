@@ -9,6 +9,7 @@
     "test": "node --test --test-concurrency=1 'test/*.test.mjs'"
   },
   "dependencies": {
+    "@expo-google-fonts/hanken-grotesk": "0.4.3",
     "mermaid": "12.3.0",
     "source-code-pro": "2.42.0",
     "source-sans": "3.52.0",

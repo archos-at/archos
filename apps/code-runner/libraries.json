@@ -106,6 +106,14 @@
       "version": "2.0.1",
       "license": "Apache-2.0",
       "purpose": "Puppeteer: HTML and CSS to PDF, screenshots, Mermaid diagrams, in a fresh headless Chromium with no network. puppeteer.launch(env.BROWSER)."
+    },
+    {
+      "name": "house-style",
+      "local": true,
+      "entry": "src/house-style/index.js",
+      "version": "1.0.0",
+      "license": "first-party",
+      "purpose": "The office's house style for every file the agent makes: colours from the brand tokens (packages/brand), a PowerPoint master, CSS for HTML to PDF, a Typst preamble, Word and Excel styles, a Vega-Lite config, German number and date formats."
     }
   ],
   "typst": {
@@ -118,6 +126,20 @@
       "typst": "0.14.2"
     },
     "fonts": [
+      {
+        "package": "@expo-google-fonts/hanken-grotesk",
+        "version": "0.4.3",
+        "license": "OFL-1.1",
+        "license_note": "The package is MIT AND OFL-1.1: MIT for its JavaScript, OFL-1.1 for the fonts, which are all the build takes.",
+        "files": [
+          "400Regular/HankenGrotesk_400Regular.ttf",
+          "400Regular_Italic/HankenGrotesk_400Regular_Italic.ttf",
+          "500Medium/HankenGrotesk_500Medium.ttf",
+          "500Medium_Italic/HankenGrotesk_500Medium_Italic.ttf",
+          "600SemiBold/HankenGrotesk_600SemiBold.ttf",
+          "600SemiBold_Italic/HankenGrotesk_600SemiBold_Italic.ttf"
+        ]
+      },
       {
         "package": "source-sans",
         "version": "3.52.0",

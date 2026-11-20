@@ -302,7 +302,7 @@ markup as `sys.inputs`. A compile error throws with Typst's diagnostics (`main.t
   (`return this`, `return 0`, `return path`, ...). `build/typst.mjs` replaces the call at bundle time
   with a function that answers exactly those and throws on any other.
 - **Fonts and packages are bundled, nothing is fetched.** `libraries.json` under `typst` lists them:
-  Source Sans 3 and Source Code Pro (OFL-1.1, from npm, pinned in `bun.lock`), and the Typst packages
+  Hanken Grotesk (the house face, OFL-1.1, from `@expo-google-fonts/hanken-grotesk`), Source Sans 3 and Source Code Pro (OFL-1.1, from npm, pinned in `bun.lock`), and the Typst packages
   `fletcher` 0.5.8 (flowcharts), `timeliney` 0.4.0 (Gantt), `chronos` 0.3.0 (sequence), `cetz` 0.4.2,
   0.4.1 and 0.3.4 (the drawing layer each of them pins) and `oxifmt`, each with its sha256. The build
   downloads a package from `packages.typst.org` once, checks the hash, and caches it in
@@ -337,3 +337,9 @@ to `libraries.json` with the same version, commit `bun.lock`, and run `task runn
 refuses a scoped specifier, so a scoped package gets a `name` without `/` and its npm name as
 `package`; with `import` set to the npm name, the runner rewrites that import to `name` before the
 run. `entry` names a local module to bundle instead of the package itself.
+
+A first-party module has no npm package: `"local": true` and its `entry` under `src/`, and the build
+skips the pin and licence checks. `house-style` (`src/house-style/`) is one: the house look of the
+agent's files, built on the brand's print colours, which `packages/brand/sync.mjs` copies into
+`src/house-style/brand/document-colors.json`. Change a colour in `packages/brand/tokens.json`, never
+in that copy.
