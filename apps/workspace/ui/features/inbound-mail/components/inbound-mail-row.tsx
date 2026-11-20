@@ -128,7 +128,7 @@ export function InboundMailRow({
               grey on the page; white on the row's hover and open fill, as anything on a grey surface is. */}
           {who === null ? (
             // A settled mail has no sender left to draw initials from: the same disc, carrying the Verlauf's glyph.
-            <span className="bg-sheet text-muted-foreground group-hover/row:bg-background group-data-current/row:bg-background group-data-checked/row:bg-background mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full" data-testid="inbound-mail-row-settled-avatar" aria-hidden>
+            <span className="bg-sheet text-muted-foreground mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full" data-testid="inbound-mail-row-settled-avatar" aria-hidden>
               <Mails className="size-3.5" />
             </span>
           ) : (
