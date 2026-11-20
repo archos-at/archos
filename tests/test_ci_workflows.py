@@ -925,7 +925,7 @@ def test_the_cluster_path_swaps_each_container_for_the_runner_images_binary():
 def test_the_jobs_that_stay_on_github_are_the_ones_that_must():
     hosted = {name for name, job in JOBS.items() if job["runs-on"] == "ubuntu-latest"}
 
-    assert hosted == {"packages", "hatchet", "image", "image-push", "publish"}
+    assert hosted == {"packages", "hatchet", "image", "image-push", "publish", "infra-preview"}
     assert load("sourcemaps.yml")["jobs"]["upload"]["runs-on"] == "ubuntu-latest"
 
 

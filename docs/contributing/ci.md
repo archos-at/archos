@@ -376,7 +376,8 @@ instead of from containers, and skips the `sudo` install of Chromium's
 libraries, which the image carries. A job that needs Docker, root, a secret or
 a write token says `runs-on: ubuntu-latest`: the image builds, `publish`, the
 Hatchet engine tests, the standalone packages (the browser renderer's
-hardened-container suite) and the source-map upload.
+hardened-container suite), the staging preview of the cluster program
+(`infra-preview`) and the source-map upload.
 `tests/test_ci_workflows.py` holds both directions: a job runs on GitHub
 exactly when it needs one of those, following `task` calls and scripts, and
 with the variable unset every job runs as before. Switch it on only once the

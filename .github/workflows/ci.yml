@@ -653,7 +653,7 @@ jobs:
       needs.changes.outputs.infra == 'true' && github.event_name == 'pull_request'
       && github.event.pull_request.head.repo.full_name == github.repository
       && github.actor != 'dependabot[bot]'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
       group: infra-preview-${{ github.ref }}
