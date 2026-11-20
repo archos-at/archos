@@ -419,7 +419,7 @@ export const ROLES: readonly RoleSpec[] = [
     slug: 'org-platform-external-developer',
     name: 'External Developer',
     description:
-      'Outside developer on the platform knowledge: drafts and submits change requests and manages the base corpus. Cannot review or approve, sees no organization, usage or traces. Exclusive to the platform organization.',
+      'Outside developer: drafts and submits knowledge change requests and manages the base corpus. No review, tenant data or traces. Platform org only.',
     tier: 'platform',
     scope: 'platform-org',
     permissions: ['platform:settings:view', 'platform:knowledge:write'],
