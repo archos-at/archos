@@ -159,7 +159,8 @@ sandbox forbids `eval`, so the view needs `vega-interpreter`: always
 - Bars start at zero; one colour unless a second one means something; the
   axis title names the unit.
 - The SVG is a file of its own. In a deck use a native chart instead
-  (`office-powerpoint`); a Word file cannot take it from a run.
+  (`office-powerpoint`); in a Word file it goes in as a PNG the browser draws
+  (`office-word`, „Charts in a Word file").
 
 ```js
 import { writeFile } from "node:fs/promises";
