@@ -40,7 +40,26 @@ export function SpaceToggle({ personal }: { personal: boolean }): JSX.Element {
   )
 }
 
-export function PersonalLine(): JSX.Element {
+export function PersonalLine(): JSX.Element | null {
+  const form = useSearchParams()?.get('pl')
+  if (form === 'a') return null
+  if (form === 'b') {
+    return (
+      <div className="bg-desk shadow-press flex h-10 w-full items-center gap-2.5 rounded-control pl-1.5 pr-3">
+        <span className="bg-sheet shadow-xs text-meta flex size-7 shrink-0 items-center justify-center rounded-[5px] font-medium">AB</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">Anna Berger</span>
+        <LockKeyhole className="text-muted-foreground size-3.5 shrink-0" aria-label="Nur Sie" />
+      </div>
+    )
+  }
+  if (form === 'c') {
+    return (
+      <div className="border-hairline text-muted-foreground flex h-10 w-full items-center justify-between rounded-control border border-dashed px-3 text-sm">
+        Kein Projekt
+        <ChevronsUpDown className="size-4 shrink-0 opacity-50" aria-hidden />
+      </div>
+    )
+  }
   return <div className="text-muted-foreground text-meta flex h-10 w-full items-center px-3">Nur Sie sehen, was hier liegt.</div>
 }
 
