@@ -29,7 +29,7 @@ import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
 import { AcrossTrigger, PersonalLine, ProjectMenu, ProjectOverview, SpaceToggle, useFirstRoom } from './project-menu'
 import { ChatFiles } from './chat-files'
-import { AllChats, MixedList, OriginLine } from './chat-origin'
+import { AllChats, MixedList, OriginChat } from './chat-origin'
 import { NormsPlace } from './office-norms'
 import { BrandRow, FoldedRail, SearchWindow } from './rail-extras'
 import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, UnreadHint } from './shelf-header'
@@ -573,10 +573,7 @@ export default function PersonalFilesPreview(): JSX.Element {
           <>
             <Rail own={false} openChat={params?.get('filter') ? 1 : null} gear="none" />
             {params?.get('filter') ? <AllChats filter={params.get('filter') ?? 'mine'} /> : null}
-            <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <ChatHeader title={params?.get('filter') ? 'Fluchtweglänge im Erdgeschoss' : 'Wöchentlicher Brandschutz-Abgleich'} />
-              {!params?.get('filter') && <OriginLine answered={params?.get('answered') === '1'} />}
-            </main>
+            {params?.get('filter') ? <Page me={false} /> : <OriginChat answered={params?.get('answered') === '1'} />}
           </>
         ) : variant === 'cf' ? (
           <>

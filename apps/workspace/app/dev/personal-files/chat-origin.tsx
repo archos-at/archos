@@ -3,9 +3,10 @@
 // PROTOTYPE, not for merge: chats the agent opened versus chats a person began (concept for ticket 81).
 
 import type { JSX } from 'react'
-import { ClipboardCheck, CircleHelp, FileText, Search, Users, X, Zap, type LucideIcon } from 'lucide-react'
+import { ArrowUp, ClipboardCheck, CircleHelp, Paperclip, FileText, Search, Users, X, Zap, type LucideIcon } from 'lucide-react'
 
 import identity from '@/shared/brand/identity.json'
+import { ChatHeader } from '../personal-area-rail/prototype'
 
 type Row = { title: string; project?: string; when: string; origin?: { icon: LucideIcon; label: string }; shared?: boolean }
 const AUTO = { icon: Zap, label: 'Automatisierung' }
@@ -100,5 +101,45 @@ export function OriginLine({ answered }: { answered: boolean }): JSX.Element {
         </>
       )}
     </p>
+  )
+}
+
+export function OriginChat({ answered }: { answered: boolean }): JSX.Element {
+  const bar = 'bg-selected h-2 rounded'
+  return (
+    <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <ChatHeader title="Wöchentlicher Brandschutz-Abgleich" />
+      <OriginLine answered={answered} />
+      <div className="mx-auto mt-6 flex w-full max-w-2xl flex-1 flex-col gap-5 px-8">
+        <div className="flex max-w-[90%] flex-col gap-2.5">
+          <p className="text-name font-medium">Abgleich vom 17.11.2026: zwei Abweichungen gefunden.</p>
+          <div className={`${bar} w-[96%]`} />
+          <div className={`${bar} w-[88%]`} />
+          <div className={`${bar} w-[92%]`} />
+          <div className={`${bar} w-[61%]`} />
+        </div>
+        {answered && (
+          <>
+            <div className="bg-desk text-name max-w-[80%] self-end rounded-[16px] px-3 py-2 font-normal">Welche der beiden Abweichungen ist für die Einreichung kritisch?</div>
+            <div className="flex max-w-[90%] flex-col gap-2.5">
+              <div className={`${bar} w-[90%]`} />
+              <div className={`${bar} w-[70%]`} />
+            </div>
+          </>
+        )}
+      </div>
+      <div className="mx-auto mb-6 w-full max-w-2xl px-8">
+        <div className="bg-sheet border-field-border flex flex-col gap-3 rounded-[10px] border p-3">
+          <span className="text-muted-foreground text-sm">Frage stellen …</span>
+          <div className="flex items-center justify-between">
+            <Paperclip className="size-4" aria-hidden />
+            <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-control opacity-80">
+              <ArrowUp className="size-4" aria-hidden />
+            </span>
+          </div>
+        </div>
+        <p className="text-muted-foreground text-meta pt-2 text-center">{identity.name} ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.</p>
+      </div>
+    </main>
   )
 }
