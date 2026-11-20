@@ -717,6 +717,13 @@ export const files = {
     error: 'The document could not be moved to the bin',
     legalHold: 'The document is under a legal hold and cannot be deleted',
   },
+  erase: {
+    title: 'Delete “{name}”?',
+    confirm: 'The held file is deleted for good. It does not go to the bin.',
+    confirmAction: 'Delete for good',
+    deleting: 'Deleting…',
+    error: 'The document could not be deleted',
+  },
   zip: {
     reading: 'Reading the ZIP…',
     unreadable: '“{name}” could not be read. Is it a valid ZIP without a password?',

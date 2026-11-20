@@ -79,7 +79,7 @@ All list/get queries for projects and conversations gain `WHERE deleted_at IS NU
 | Entity | Confirm UX | Grace period | Restorable |
 |---|---|---|---|
 | Folder | simple confirm; „Endgültig löschen" (project admins) confirms again | 14 days (config `FOLDER_PURGE_GRACE_DAYS`) in the Papierkorb | yes, with its access, subfolders and documents |
-| Document, deleted (`DELETE /api/documents/[id]`: an office shelf document, and the agent's own delete) | simple confirm dialog | 0 (purged on next reaper tick, ≤~60s) | no |
+| Document, deleted (`DELETE /api/documents/[id]`: an office shelf document, a project file the content check holds back (ADR-0086: binning it would name it in the project's bin), and the agent's own delete) | simple confirm dialog | 0 (purged on next reaper tick, ≤~60s) | no |
 | Document, to the bin (`POST /api/documents/[id]/bin`): what „Dokument löschen“ does for a project document in Files, the preview and the model stage | a confirm that names the bin; restorable | the folder grace period: it goes to the Papierkorb in a folder of its own, made in its folder and named after it (as „Ausmisten" does, ADR-0092), and the entry records the document | yes, to the folder it came from (`POST /api/documents/[id]/restore`) |
 | Conversation | simple confirm (existing modal flow, upgraded) | 0 | no |
 | Project | **type-to-confirm** (project name) | 7 days (config `PROJECT_PURGE_GRACE_DAYS`) | yes |

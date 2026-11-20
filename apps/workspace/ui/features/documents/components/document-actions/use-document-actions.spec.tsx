@@ -171,6 +171,32 @@ describe('useDocumentActions — deleting', () => {
     expect(success).not.toHaveBeenCalledWith(expect.stringContaining('bin'))
   })
 
+  it('deletes a held project file for good, so its name never shows in the project bin', async () => {
+    const binned = vi.fn()
+    const permanent = vi.fn()
+    server.use(
+      http.post('/api/documents/doc-1/bin', () => {
+        binned()
+        return HttpResponse.json({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-04T10:00:00.000Z' })
+      }),
+      http.delete('/api/documents/doc-1', () => {
+        permanent()
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const held = { ...DOCUMENT, status: 'quarantined' }
+    const hook = renderHook(() => useDocumentActions({ document: held, scope: 'files' }))
+
+    expect(hook.result.current.erases).toBe(true)
+    await act(async () => {
+      await hook.result.current.remove()
+    })
+
+    expect(binned).not.toHaveBeenCalled()
+    expect(permanent).toHaveBeenCalledTimes(1)
+  })
+
   it('says a legal hold keeps the document, when the bin refuses for that', async () => {
     server.use(
       http.post('/api/documents/doc-1/bin', () =>

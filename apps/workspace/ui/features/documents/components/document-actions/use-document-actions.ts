@@ -39,6 +39,7 @@ export interface DocumentActions {
   isRenamed: boolean
   isRenaming: boolean
   isDeleting: boolean
+  erases: boolean
   isDownloading: boolean
   isReingesting: boolean
   isCancelling: boolean
@@ -64,9 +65,11 @@ async function isLegalHoldRefusal(res: Response): Promise<boolean> {
   )
 }
 
-function removal(scope: DocumentScope, documentId: string): [string, RequestInit] {
+const HELD_STATUS = 'quarantined'
+
+function removal(erases: boolean, documentId: string): [string, RequestInit] {
   const document = `/api/documents/${encodeURIComponent(documentId)}`
-  return scope === 'files' ? [`${document}/bin`, { method: 'POST' }] : [document, { method: 'DELETE' }]
+  return erases ? [document, { method: 'DELETE' }] : [`${document}/bin`, { method: 'POST' }]
 }
 
 async function binnedUntil(res: Response): Promise<string | null> {
@@ -96,6 +99,7 @@ export function useDocumentActions({
 
   const name = documentDisplayName(document)
   const isRenamed = name !== document.filename
+  const erases = scope !== 'files' || document.status === HELD_STATUS
 
   const rename = useCallback(
     async (displayName: string | null): Promise<boolean> => {
@@ -133,13 +137,13 @@ export function useDocumentActions({
   const remove = useCallback(async (): Promise<boolean> => {
     setIsDeleting(true)
     try {
-      const res = await fetch(...removal(scope, document.id))
+      const res = await fetch(...removal(erases, document.id))
       if (res.status === 409 && (await isLegalHoldRefusal(res))) {
         toast.error(t('delete.legalHold'))
         return false
       }
       if (!res.ok && res.status !== 204) throw new Error(`Delete failed (${res.status})`)
-      const restorableUntil = scope === 'files' ? await binnedUntil(res) : null
+      const restorableUntil = erases ? null : await binnedUntil(res)
       notifyDocumentsChanged()
       toast.success(
         restorableUntil
@@ -149,12 +153,12 @@ export function useDocumentActions({
       onDeleted?.(document.id)
       return true
     } catch {
-      toast.error(t('delete.error'))
+      toast.error(scope === 'files' && erases ? tFiles('erase.error') : t('delete.error'))
       return false
     } finally {
       setIsDeleting(false)
     }
-  }, [document.id, name, onDeleted, scope, t, tFiles, locale])
+  }, [document.id, name, onDeleted, scope, erases, t, tFiles, locale])
 
   const download = useCallback(async (): Promise<void> => {
     setDownloadFailed(false)
@@ -256,6 +260,7 @@ export function useDocumentActions({
     isRenamed,
     isRenaming,
     isDeleting,
+    erases,
     isDownloading,
     isReingesting,
     isCancelling,

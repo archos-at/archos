@@ -731,6 +731,13 @@ export const files: typeof en.files = {
     error: 'Das Dokument konnte nicht in den Papierkorb verschoben werden',
     legalHold: 'Das Dokument unterliegt einer rechtlichen Sperre und kann nicht gelöscht werden',
   },
+  erase: {
+    title: '„{name}“ löschen?',
+    confirm: 'Die zurückgehaltene Datei wird endgültig gelöscht. Sie kommt nicht in den Papierkorb.',
+    confirmAction: 'Endgültig löschen',
+    deleting: 'Wird gelöscht…',
+    error: 'Das Dokument konnte nicht gelöscht werden',
+  },
   zip: {
     reading: 'ZIP wird gelesen…',
     unreadable: '„{name}“ konnte nicht gelesen werden. Ist es ein gültiges ZIP ohne Passwort?',
