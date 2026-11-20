@@ -29,7 +29,7 @@ import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
 import { AcrossTrigger, PersonalLine, ProjectMenu, ProjectOverview, SpaceToggle, useFirstRoom } from './project-menu'
 import { NormsPlace } from './office-norms'
-import { FoldedRail, SearchIcon, SearchWindow } from './rail-extras'
+import { BrandRow, FoldedRail, SearchWindow } from './rail-extras'
 import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, UnreadHint } from './shelf-header'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
@@ -77,10 +77,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
-          <div className="relative">
-            <SidebarBrand iconRail={false} />
-            {(find || query?.get('si')) && <SearchIcon hint={query?.get('si') === 'hint'} />}
-          </div>
+          {find || query?.get('si') ? <BrandRow hint={query?.get('si') === 'hint'} /> : <SidebarBrand iconRail={false} />}
           {space && <SpaceToggle personal={own} />}
           <div className="relative mt-1 flex items-center gap-1.5">
             {space && own ? <PersonalLine /> : own && menuForm === 'gear' ? <AcrossTrigger /> : <ProjectSwitcher projects={[menuForm === 'top' ? OWN : OWN_ACROSS, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />}

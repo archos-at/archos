@@ -3,29 +3,38 @@
 // PROTOTYPE, not for merge: the search window and the folded rail with its fly-out (concept for ticket 81).
 
 import type { JSX, ReactNode } from 'react'
-import { Archive, ArrowRight, Bell, ChevronsRight, CornerDownLeft, FileText, Folder, Folders, LockKeyhole, MessageSquare, MessagesSquare, PanelLeft, Search, SquarePen, Zap, type LucideIcon } from 'lucide-react'
+import { Archive, ArrowRight, Bell, CornerDownLeft, FileText, Folder, Folders, LockKeyhole, MessageSquare, MessagesSquare, PanelLeft, Search, SquarePen, Zap, type LucideIcon } from 'lucide-react'
 
 import { ProjectSwitcher } from '@/components/shell/project-switcher'
 import { SidebarMenu, SidebarProvider } from '@/components/ui/sidebar'
+import { Logo } from '@/components/brand/logo'
 import identity from '@/shared/brand/identity.json'
 import { ALL_CHATS, ChatRow, MoreRow, NavRow, PROJECTS } from '../personal-area-rail/prototype'
 import { SpaceToggle } from './project-menu'
 
 const KEY = 'bg-sheet shadow-xs text-meta rounded-[4px] px-1.5 py-0.5 font-medium'
 
-export function SearchIcon({ hint = false }: { hint?: boolean }): JSX.Element {
+export function BrandRow({ hint = false }: { hint?: boolean }): JSX.Element {
   return (
-    <span className="absolute right-11 top-1/2 z-10 -translate-y-1/2">
-      <span className={`flex size-8 items-center justify-center rounded-control ${hint ? 'bg-selected' : ''}`}>
-        <Search className="size-4" aria-label="Suche" />
-      </span>
-      {hint && (
-        <span className="bg-sheet shadow-md text-meta absolute left-1/2 top-full z-50 mt-1.5 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-control px-2 py-1">
-          Suche
-          <span className="text-muted-foreground">Strg K</span>
+    <div className="flex min-h-14 items-center pl-3 pr-1.5">
+      <Logo kind="wordmark" size="small" />
+      <span className="text-muted-foreground ml-auto flex items-center gap-0.5">
+        <span className="relative">
+          <span className={`flex size-7 items-center justify-center rounded-control ${hint ? 'bg-selected text-foreground' : ''}`}>
+            <Search className="size-4" aria-label="Suche" />
+          </span>
+          {hint && (
+            <span className="bg-sheet shadow-md text-foreground text-meta absolute left-1/2 top-full z-50 mt-1.5 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-control px-2 py-1">
+              Suche
+              <span className="text-muted-foreground">Strg K</span>
+            </span>
+          )}
         </span>
-      )}
-    </span>
+        <span className="flex size-7 items-center justify-center">
+          <PanelLeft className="size-4" aria-label="Leiste einklappen" />
+        </span>
+      </span>
+    </div>
   )
 }
 
@@ -132,17 +141,17 @@ function IconSpot({ icon: Icon, active = false, dark = false, badge }: { icon: L
 export function FoldedRail({ personal, flyout }: { personal: boolean; flyout: boolean }): JSX.Element {
   return (
     <div className="relative z-40 flex h-full shrink-0">
-      <div className="bg-desk flex h-full w-14 flex-col items-center gap-1 py-3">
-        <span className="text-foreground flex size-9 items-center justify-center text-[15px] font-semibold">{identity.name.slice(0, 1)}</span>
-        <IconSpot icon={ChevronsRight} />
+      <div className="bg-desk border-hairline flex h-full w-14 flex-col items-center gap-1 border-r py-3">
+        <span title="Leiste ausklappen" className="text-muted-foreground flex size-9 items-center justify-center">
+          <PanelLeft className="size-4" aria-label="Leiste ausklappen" />
+        </span>
         <div className="h-2" />
         <IconSpot icon={personal ? LockKeyhole : Folders} dark={personal} active={!personal} />
-        <IconSpot icon={Search} />
         <div className="bg-selected my-1 h-px w-6" />
-        <IconSpot icon={SquarePen} active={flyout ? false : true} />
+        <IconSpot icon={SquarePen} />
         <IconSpot icon={Folder} />
         <IconSpot icon={Zap} />
-        <IconSpot icon={MessagesSquare} active={flyout} />
+        <IconSpot icon={MessagesSquare} active />
         <div className="flex-1" />
         <IconSpot icon={Archive} />
         <IconSpot icon={Bell} badge={8} />
@@ -150,7 +159,7 @@ export function FoldedRail({ personal, flyout }: { personal: boolean; flyout: bo
       </div>
       {flyout && (
         <SidebarProvider className="absolute bottom-2 left-[60px] top-2 min-h-0 w-[288px]">
-          <div className="bg-desk shadow-lg flex h-full w-full flex-col overflow-hidden rounded-[16px] p-3">
+          <div className="bg-desk border-hairline shadow-lg flex h-full w-full flex-col overflow-hidden rounded-[16px] border p-3">
             <div className="flex items-center justify-between px-2 pb-3 pt-1">
               <span className="text-[15px] font-semibold">{identity.name}</span>
               <span className="text-muted-foreground flex items-center gap-1">
