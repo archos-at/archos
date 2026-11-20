@@ -456,7 +456,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `codeRunnerEnabled` | `false` | Deploy the runner and set `CODE_RUNNER_URL` on the chat tier and `agent-worker` |
 | `codeRunnerImage` | `<imageRegistry>/code-runner:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
 | `codeRunnerMinReplicas` / `codeRunnerMaxReplicas` | `2` / `10` | The ScaledObject's bounds |
-| `codeRunnerCpuTargetPercent` / `codeRunnerMemoryTargetPercent` | `70` / `80` | Utilisation the ScaledObject scales on |
+| `codeRunnerCpuTargetPercent` | `70` | CPU utilisation the ScaledObject scales on (CPU only: an idle pod already holds more than its memory request would allow a memory trigger) |
 | `browserRendererEnabled` | `false` | Needs `codeRunnerEnabled`. Deploy the `browser-renderer` Deployment (headless Chromium, `apps/browser-renderer`), Service, KEDA ScaledObject and the `browser-renderer-code-runner-only` NetworkPolicy (ingress from `code-runner` only, no egress), open the runner's egress to it, and set `BROWSER_RENDERER_ADDR` on the runner. No PDB. The container is the browser's sandbox: `RuntimeDefault` seccomp, no capabilities, read-only root, and Chromium runs `--no-sandbox` ([runbook](../../docs/deployment/code-runner-runbook.md#the-browser-puppeteer-in-a-run)) |
 | `browserRendererImage` | `<imageRegistry>/browser-renderer:<imageTag>` | A full image reference instead of the commit's own build; the staging deploy sets it to the ref it resolved |
 | `browserRendererMinReplicas` / `browserRendererMaxReplicas` | `1` / `3` | The ScaledObject's bounds |
