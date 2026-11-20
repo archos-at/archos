@@ -34,7 +34,7 @@ with `fletcher` (flowcharts) or `timeliney` (Gantt).
   example does: A4, margins, header and footer, type, headings, tables, and the
   `house` colours and helpers (`office-design`). Header and footer text go in
   through `typstInputs({ header, footer, lang })`; merge your own inputs into
-  the same object. The fonts are General Sans (the house face: Regular, Medium,
+  the same object. The fonts are Hanken Grotesk (the house face: Regular, Medium,
   Semibold, each with italic), Source Sans 3 and, for code, Source Code Pro;
   no other font exists.
 - Page numbers only in the footer, as `counter(page).display()` and

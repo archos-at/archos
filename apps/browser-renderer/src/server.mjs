@@ -15,7 +15,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SESSION_PATH = /^\/v1\/devtools\/browser\/([0-9a-f-]{36})$/;
 const SETUP_TIMEOUT_MS = 15_000;
 
-export const FONT_DIRS = [join(ROOT, "brand", "print-fonts"), join(ROOT, "node_modules", "source-sans", "TTF"), join(ROOT, "node_modules", "source-code-pro", "TTF"), "/usr/share/fonts"];
+export const FONT_DIRS = [join(ROOT, "node_modules", "@expo-google-fonts", "hanken-grotesk"), join(ROOT, "node_modules", "source-sans", "TTF"), join(ROOT, "node_modules", "source-code-pro", "TTF"), "/usr/share/fonts"];
 export const ASSETS = {
   "/mermaid.min.js": { file: join(ROOT, "node_modules", "mermaid", "dist", "mermaid.min.js"), type: "text/javascript" },
 };

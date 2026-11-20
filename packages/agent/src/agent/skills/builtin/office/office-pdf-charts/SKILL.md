@@ -152,7 +152,7 @@ sandbox forbids `eval`, so the view needs `vega-interpreter`: always
 `new vega.View(runtime, { expr: expressionInterpreter, renderer: "none" })`.
 
 - The look through `config: { ...vegaLiteConfig }` from `house-style`
-  (`office-design`): General Sans, ink bars, quiet axes, the ink series for
+  (`office-design`): Hanken Grotesk, ink bars, quiet axes, the ink series for
   up to three series.
 - German number format on the axes through `config.locale` as below, and
   `axis: { format: ",.0f" }`.

@@ -302,9 +302,7 @@ markup as `sys.inputs`. A compile error throws with Typst's diagnostics (`main.t
   (`return this`, `return 0`, `return path`, ...). `build/typst.mjs` replaces the call at bundle time
   with a function that answers exactly those and throws on any other.
 - **Fonts and packages are bundled, nothing is fetched.** `libraries.json` under `typst` lists them:
-  General Sans (the house face, static OTFs under the company's licence, from `packages/brand/print-fonts`
-  through `sync.mjs` into `src/house-style/brand/print-fonts`; an entry with `local` instead of a
-  `package`), Source Sans 3 and Source Code Pro (OFL-1.1, from npm, pinned in `bun.lock`), and the Typst packages
+  Hanken Grotesk (the house face, OFL-1.1, from `@expo-google-fonts/hanken-grotesk`), Source Sans 3 and Source Code Pro (OFL-1.1, from npm, pinned in `bun.lock`), and the Typst packages
   `fletcher` 0.5.8 (flowcharts), `timeliney` 0.4.0 (Gantt), `chronos` 0.3.0 (sequence), `cetz` 0.4.2,
   0.4.1 and 0.3.4 (the drawing layer each of them pins) and `oxifmt`, each with its sha256. The build
   downloads a package from `packages.typst.org` once, checks the hash, and caches it in

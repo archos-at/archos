@@ -15,7 +15,7 @@ export const colors = Object.freeze({
 
 export const series = Object.freeze([colors.ink, colors.muted, colors.lineStrong]);
 
-export const fonts = Object.freeze({ office: "Aptos", pdf: "General Sans", pdfFallback: "Source Sans 3", mono: "Source Code Pro" });
+export const fonts = Object.freeze({ office: "Aptos", pdf: "Hanken Grotesk", pdfFallback: "Source Sans 3", mono: "Source Code Pro" });
 
 export const hex = (color) => color.replace(/^#/, "").toUpperCase();
 

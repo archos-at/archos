@@ -82,7 +82,7 @@ Office refuse or repair a file, and its example is the code to start from.
   (`office-design`): read it before the first file a person will show to
   others, and leave it only for the office's template or what the person asked.
   Aptos in Office files (the recipient's Office draws the font; Arial when they
-  say their Office lacks it), General Sans
+  say their Office lacks it), Hanken Grotesk
   in PDFs (embedded).
 - Numbers as the office writes them, 1.234,56:
   `new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })`.

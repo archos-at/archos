@@ -179,9 +179,6 @@ export function renderDist() {
   for (const file of readdirSync(join(BRAND, 'fonts')).sort()) {
     out.set(`fonts/${file}`, readFileSync(join(BRAND, 'fonts', file)))
   }
-  for (const file of readdirSync(join(BRAND, 'print-fonts')).sort()) {
-    out.set(`print-fonts/${file}`, readFileSync(join(BRAND, 'print-fonts', file)))
-  }
   return out
 }
 

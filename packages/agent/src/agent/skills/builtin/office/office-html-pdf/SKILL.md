@@ -38,7 +38,7 @@ so in one sentence, without naming the engine. On "busy", run once more first.
   every request the page makes, except `data:` and `blob:` URLs. Put the HTML
   in with `page.setContent(html)`; read a file from `/workspace/` and pass its
   text, or embed it as a `data:` URL (an image, an SVG).
-- Fonts: "General Sans" (the house face, 400 to 600 with italics), "Source
+- Fonts: "Hanken Grotesk" (the house face, 400 to 600 with italics), "Source
   Sans 3" (also `sans-serif`) and "Source Code Pro" (also
   `monospace`) are installed. No other web font loads.
 - Mermaid: `await page.addScriptTag({ url: "http://assets.local/mermaid.min.js" })`
@@ -132,7 +132,7 @@ export default async function () {
         theme: "neutral",
         htmlLabels: false,
         flowchart: { htmlLabels: false },
-        themeVariables: { fontFamily: '"General Sans", sans-serif' },
+        themeVariables: { fontFamily: '"Hanken Grotesk", sans-serif' },
       });
       return (await mermaid.render("ablauf", source)).svg;
     }, diagram);
@@ -172,7 +172,7 @@ import { readFile, writeFile } from "node:fs/promises";
 
 export default async function () {
   const diagram = encodeURIComponent(await readFile("/workspace/Ablauf.svg", "utf8"));
-  const html = `<body style="margin:0; font-family: 'General Sans'; background:#ffffff">
+  const html = `<body style="margin:0; font-family: 'Hanken Grotesk'; background:#ffffff">
     <div id="card" style="width:900px; padding:32px; background:#fff">
       <h2 style="margin:0 0 16px; font-weight:600">Projektstand KW 47</h2>
       <img src="data:image/svg+xml,${diagram}" style="width:100%">

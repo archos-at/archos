@@ -16,7 +16,6 @@ or a brand string changes here and reaches every surface on the next sync.
 | `css/status.css` | The website's 404, 410 and 500 pages (`ui-status`): the layout, and the motion of their drawings, which use the covers' pens. The workspace draws the same scenes on its own tokens (`apps/workspace/ui/styles/status-drawing.css`). |
 | `css/blocks.css` | The content blocks of a blog post (`ui-chart`, `ui-figures`, `ui-compare`, `ui-annotated`, `ui-legal`, `ui-qa`, `ui-takeaways`): the website's `src/components/blocks/`, one sheet each in `docs/components/`. Chart series are steps of the one ink, validated as an ordinal ramp ([Chart.md](docs/components/Chart.md#farbe)). |
 | `fonts/` | The two WOFF2 files (General Sans variable, Switzer Semibold). |
-| `print-fonts/` | General Sans as static OTFs (Regular, Medium, Semibold, each with italic) for documents: Typst and the browser renderer embed them in the agent's PDFs. Licensed by the company under its own licence, not the Fontshare FFL that ships with the free download. |
 | `assets/logos/` | Client logos in grey (Pilotbüros, funding logo). The brand video is not here; it lives with the website. |
 | `docs/components/` | One Markdown rules sheet per component, plus `ColorUsage.md`. |
 | `docs/blog-covers.md` | The blog's cover format: canvas, frame, pens, composition, and how to draw the next one. |
@@ -37,8 +36,7 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 | `apps/workspace/shared/brand/` | `tokens.vars.css`, `fonts/`, `identity.json` |
 | `packages/agent/src/agent/common/` | `identity.json` only: `agent.common.brand` reads the name from it |
 | `apps/agent-host/src/agent_host/drawings/brand/` | `fonts/`, `identity.json`: the title block of the sheet a DXF is drawn on, and its „Erstellt mit …“ line (ADR-0152) |
-| `apps/code-runner/src/house-style/brand/` | `document-colors.json` and `print-fonts/`: the light colours, aliases resolved, which the runner's `house-style` module builds the agent's decks, PDFs, Word and Excel files from, and the face Typst embeds |
-| `apps/browser-renderer/brand/` | `print-fonts/`: the face of HTML to PDF |
+| `apps/code-runner/src/house-style/brand/` | `document-colors.json`: the light colours, aliases resolved, which the runner's `house-style` module builds the agent's decks, PDFs, Word and Excel files from |
 
 ## Two layers: website and app
 

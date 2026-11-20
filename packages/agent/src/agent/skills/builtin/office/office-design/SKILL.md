@@ -56,7 +56,7 @@ anything else yourself in the same spirit.
 | Import | What it is | Where |
 |---|---|---|
 | `colors`, `series`, `hex(color)` | The brand's print colours (`#rrggbb`); `hex` strips the `#` for pptxgenjs and docx | everywhere |
-| `fonts` | `office` (Aptos, Microsoft 365's face; Arial for an older Office), `pdf` (General Sans, embedded in every PDF), `mono` | everywhere |
+| `fonts` | `office` (Aptos, Microsoft 365's face; Arial for an older Office), `pdf` (Hanken Grotesk, embedded in every PDF), `mono` | everywhere |
 | `format.number(n, digits)`, `format.area(n)`, `format.date(d)` | 1.234,56 · 32,40 m² · 18.11.2026 | everywhere |
 | `houseDeck(pptx, { footer })` | 16:9 master with title placeholder, footer and slide number. Returns `cover({ title, subtitle, meta })`, `section(title)`, `slide(title)` and fresh options for each `add…`: `text(box)`, `bullets(items)`, `table(rows, { numeric, total })` with `tableOptions(box)`, `chart(box, { series, … })`. Boxes: `full`, `left`, `right`, `wide`, `aside` | `office-powerpoint` |
 | `htmlPage({ title, lang, body })`, `css`, `pdfOptions(footer)` | A4 page, type scale, tables, and the classes `meta`, `lead`, `n` (number cell), `figures`, `band`, `finding`, `cover` | `office-html-pdf` |

@@ -127,17 +127,17 @@
     },
     "fonts": [
       {
-        "name": "general-sans",
-        "local": "src/house-style/brand/print-fonts",
-        "license": "commercial",
-        "license_note": "General Sans under the company's own licence (not the Fontshare FFL); copied from packages/brand/print-fonts by packages/brand/sync.mjs.",
+        "package": "@expo-google-fonts/hanken-grotesk",
+        "version": "0.4.3",
+        "license": "OFL-1.1",
+        "license_note": "The package is MIT AND OFL-1.1: MIT for its JavaScript, OFL-1.1 for the fonts, which are all the build takes.",
         "files": [
-          "GeneralSans-Regular.otf",
-          "GeneralSans-Italic.otf",
-          "GeneralSans-Medium.otf",
-          "GeneralSans-MediumItalic.otf",
-          "GeneralSans-Semibold.otf",
-          "GeneralSans-SemiboldItalic.otf"
+          "400Regular/HankenGrotesk_400Regular.ttf",
+          "400Regular_Italic/HankenGrotesk_400Regular_Italic.ttf",
+          "500Medium/HankenGrotesk_500Medium.ttf",
+          "500Medium_Italic/HankenGrotesk_500Medium_Italic.ttf",
+          "600SemiBold/HankenGrotesk_600SemiBold.ttf",
+          "600SemiBold_Italic/HankenGrotesk_600SemiBold_Italic.ttf"
         ]
       },
       {
