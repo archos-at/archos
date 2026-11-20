@@ -1,0 +1,8 @@
+---
+# area: documents
+fixes:
+  - >
+    An Outlook archive import no longer creates a folder named after the
+    archive's own root, such as „Top of Personal Folders“, above Inbox and
+    Sent Items. With the office's upload screening on, that folder's name
+    could hold back every attachment of the archive.
