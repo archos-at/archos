@@ -63,6 +63,30 @@ export async function resolveOpenItemsAnchoredOn(input: {
   return [...new Set(rows.map((row) => row.recipientUserId))]
 }
 
+export interface OpenItemsOfType {
+  organizationId: string
+  types: readonly InboxItemType[]
+  keepAnchors?: readonly string[]
+}
+
+export async function resolveOpenItemsOfType(input: OpenItemsOfType): Promise<string[]> {
+  if (input.types.length === 0) return []
+  const keep = input.keepAnchors ?? []
+  const rows = await getDb()
+    .update(inboxItems)
+    .set({ resolvedAt: new Date() })
+    .where(
+      and(
+        eq(inboxItems.organizationId, input.organizationId),
+        inArray(inboxItems.type, storedInboxTypesOf(input.types)),
+        isNull(inboxItems.resolvedAt),
+        keep.length > 0 ? or(isNull(inboxItems.anchorId), notInArray(inboxItems.anchorId, [...keep])) : undefined,
+      ),
+    )
+    .returning({ recipientUserId: inboxItems.recipientUserId })
+  return [...new Set(rows.map((row) => row.recipientUserId))]
+}
+
 export interface AnchoredRows {
   organizationId: string
   types: readonly InboxItemType[]

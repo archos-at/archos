@@ -42,6 +42,7 @@ describe('answerCompletionOf', () => {
       duration_ms: 4200,
       citation_count: 3,
       source_kinds: 'building_law,office',
+      office_norm_citations: 0,
       effort: 'medium',
       has_run: false,
     })
@@ -68,6 +69,22 @@ describe('answerCompletionOf', () => {
     expect(answerCompletionOf(running, running, undefined, 1)).toBeNull()
     expect(answerCompletionOf(ended({}), undefined, undefined, 1)).toBeNull()
     expect(answerCompletionOf(ended({}), ended({ outcome: 'cancelled' }), undefined, 1)).toBeNull()
+  })
+
+  it('counts the passages it cited from a confirmed office norm, never another office file', () => {
+    const completion = answerCompletionOf(
+      ended({}),
+      running,
+      answer({
+        citations: [
+          { ...citation('a', 'office'), shelf: 'office_shelf', line: { edition_id: 'edition_office_1', edition_label: '2017-04-01' } },
+          { ...citation('b', 'office'), shelf: 'office_shelf' },
+          { ...citation('c', 'building_law'), shelf: 'base', line: { edition_id: 'edition_platform_1' } },
+        ],
+      }),
+      1
+    )
+    expect(completion?.office_norm_citations).toBe(1)
   })
 
   it('carries no text, title, file name or id', () => {

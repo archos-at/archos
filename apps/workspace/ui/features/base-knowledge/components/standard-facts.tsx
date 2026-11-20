@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { InspectorGroup, InspectorRow, InspectorSection } from '@/components/ui/inspector-group'
 import { useLocale, useTranslations } from '@/i18n'
 import { baseKnowledgeCopy } from '@/i18n/namespaces/base-knowledge'
-import { day, LastChecked, StatusChip, superseded, TextUseChip } from './entry-atoms'
+import { standFromBinding } from '@/lib/base-knowledge/office/listing'
+import { CurrencyNote, day, StatusChip, superseded, TextUseChip } from './entry-atoms'
 
 interface StandardFactsProps {
   entry: BaseKnowledgeEntry
@@ -52,7 +53,7 @@ export function StandardFacts({ entry, canManage, onManage, onOpenEdition, onCha
     >
       <InspectorGroup>
         {entry.values.designation && (
-          <InspectorRow label={t('facts.designation')} icon={Tag}>
+          <InspectorRow label={t('facts.designation')} icon={Tag} stacked>
             {entry.values.designation}
           </InspectorRow>
         )}
@@ -70,9 +71,11 @@ export function StandardFacts({ entry, canManage, onManage, onOpenEdition, onCha
         <InspectorRow label={t('column.text')} icon={ScanText}>
           <TextUseChip entry={entry} />
         </InspectorRow>
-        <InspectorRow label={t('column.checked')} icon={History}>
-          <LastChecked entry={entry} locale={locale} />
-        </InspectorRow>
+        {entry.status === 'confirmed' && (
+          <InspectorRow label={t('detail.checkSection')} icon={History} stacked>
+            <CurrencyNote entry={entry} />
+          </InspectorRow>
+        )}
         {others.length > 0 && (
           <InspectorRow label={t('detail.editions')} icon={Layers}>
             <span className="flex flex-col items-end gap-1">
@@ -96,7 +99,7 @@ export function StandardFacts({ entry, canManage, onManage, onOpenEdition, onCha
         </Button>
       )}
       {/* A superseded edition is not checked: the newer one is what a check would find. */}
-      {canManage && entry.status === 'confirmed' && !superseded(entry) && (
+      {canManage && entry.status === 'confirmed' && !superseded(entry) && !standFromBinding(entry) && (
         <Button size="sm" variant="secondary" className="mt-2 self-start" disabled={busy} onClick={() => void check()} data-testid="standard-facts-check">
           {t('detail.checkCurrent')}
         </Button>

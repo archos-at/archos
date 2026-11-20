@@ -40,6 +40,7 @@ export interface UploadTrackedFileContext
   batchId: string | null
   resolvedFolderId: (file: File) => string | null
   revisionOfFile: (file: File) => string | null
+  asNorm?: boolean
   screeningReleased: (file: File) => boolean | undefined
   abortControllers: Map<string, AbortController>
   failureCopy: UploadFailureCopy
@@ -59,6 +60,7 @@ export async function uploadTrackedFile(
     batchId,
     resolvedFolderId,
     revisionOfFile,
+    asNorm = false,
     screeningReleased,
     abortControllers,
     failureCopy,
@@ -80,6 +82,7 @@ export async function uploadTrackedFile(
   }
   if (projectId) formData.append('projectId', projectId)
   if (shelf === 'office_shelf') formData.append('scope', 'office_shelf')
+  if (shelf === 'office_shelf' && asNorm) formData.append('asNorm', 'true')
   if (shelf !== 'session') {
     const resolved = resolvedFolderId(file)
     if (resolved) formData.append('folderId', resolved)

@@ -163,7 +163,8 @@ describe('POST /api/internal/turn-context', () => {
     vi.mocked(baseKnowledgeForTurn).mockResolvedValue({ block: 'OFFICE_BASE_KNOWLEDGE v1', labels: [] } as never)
     expect((await (await call()).json()).data.baseKnowledge).toBe('OFFICE_BASE_KNOWLEDGE v1')
     expect(officeStandardsEnabled).toHaveBeenCalledWith('org_1')
-    expect(baseKnowledgeForTurn).toHaveBeenCalledWith('org_1', 'proj_1')
+    expect(baseKnowledgeForTurn).toHaveBeenCalledWith('org_1', 'proj_1', expect.any(Promise))
+    await expect(vi.mocked(baseKnowledgeForTurn).mock.calls[0]?.[2]).resolves.toEqual(UNAVAILABLE)
 
     vi.mocked(baseKnowledgeForTurn).mockClear()
     vi.mocked(officeStandardsEnabled).mockResolvedValue(false)

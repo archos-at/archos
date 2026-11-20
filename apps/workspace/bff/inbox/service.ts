@@ -9,6 +9,7 @@ export {
   openRecipientsOf,
   resolveInboxItemsAnchoredOn,
   resolveInboxItemsFor,
+  resolveInboxItemsOfType,
   retractInboxOccurrenceAnchoredOn,
   rewriteInboxPayloadsAnchoredOn,
 } from './inbox-resolution'

@@ -730,9 +730,9 @@ export const organization: typeof en.organization = {
     },
   },
   baseKnowledge: {
-    title: 'Grundlagen des Büros',
-    description: 'Die Normen, Kommentare und Weisungen Ihres Büros haben einen eigenen Bereich neben der Büroablage. Dort laden Sie sie hoch, ordnen sie in Ordner, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
-    open: 'Grundlagen öffnen',
+    title: 'Normen & Richtlinien',
+    description: 'Die Normen, Kommentare und Weisungen Ihres Büros liegen in der Büroablage unter Normen & Richtlinien. Dort laden Sie sie hoch, ordnen sie in Themen, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
+    open: 'Normen & Richtlinien öffnen',
   },
   officeConventions: {
     title: 'Was {productName} über das Büro gelernt hat',

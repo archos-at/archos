@@ -1,10 +1,41 @@
 import type { InboxItemView } from '@/lib/inbox/types'
+import type { ProposalResponse } from '@/lib/proposals/types'
 import { MENTIONABLE, VIEWER_ID, replyToMark, withProjects } from './inbox-rows'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const now = Date.now()
 
 const ago = (minutes: number): string => new Date(now - minutes * 60_000).toISOString()
+
+const NORM_PROPOSAL_ID = '0b7c8f5e-1d1e-4c39-9d2c-3f0f6c1a2b3c'
+
+export function normProposal(status: 'proposed' | 'applied' | 'dismissed'): ProposalResponse {
+  const decided = status !== 'proposed'
+  return {
+    proposal: {
+      id: NORM_PROPOSAL_ID,
+      kind: 'office_shelf_norm',
+      projectId: 'p1',
+      status,
+      proposedByKind: 'person',
+      onBehalfOf: 'u-anna',
+      onBehalfOfName: 'Anna Berger',
+      originConversationId: null,
+      originMessageId: null,
+      createdAt: ago(110),
+      decidedBy: decided ? VIEWER_ID : null,
+      decidedByName: decided ? 'Miriam Hofer' : null,
+      decidedAt: decided ? new Date().toISOString() : null,
+      results: status === 'applied' ? [{ label: 'ÖNORM B 2320', ok: true }] : null,
+      canDecide: !decided,
+      payload: {
+        documents: [
+          { id: '5c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f', name: 'OENORM_B_2320_2017.pdf', designation: 'ÖNORM B 2320', editionLabel: '2017-09-15' },
+        ],
+      },
+    },
+  }
+}
 
 export const ITEMS: InboxItemView[] = [
   {
@@ -145,6 +176,53 @@ export const ITEMS: InboxItemView[] = [
     answerIn: null,
     createdAt: ago(2_600),
     updatedAt: ago(2_600),
+  },
+  {
+    id: 'i5n',
+    type: 'base_knowledge.new_edition',
+    state: 'unread',
+    archived: false,
+    read: false,
+    actionable: true,
+    resourceType: 'organization',
+    resourceId: 'org-1',
+    anchorId: 'önorm b 1600@2023-02-01',
+    actorName: null,
+    actorUserId: null,
+    count: 1,
+    href: '/app/base-knowledge?entry=edition_oenorm-b-1600',
+    subject: 'ÖNORM B 1600:2017',
+    related: '2023-02-01',
+    via: 'OIB-RL 4 2023',
+    excerpt: 'Wohnbau Seestadt Baufeld D12, Dachausbau Mollardgasse',
+    mentions: [],
+    variant: 'via',
+    answerIn: null,
+    createdAt: ago(90),
+    updatedAt: ago(90),
+  },
+  {
+    id: 'i-norm-suggested',
+    type: 'office_shelf.norm_suggested',
+    state: 'unread',
+    archived: false,
+    read: false,
+    actionable: true,
+    resourceType: 'project',
+    resourceId: 'p1',
+    anchorId: NORM_PROPOSAL_ID,
+    actorName: 'Anna Berger',
+    actorUserId: 'u-anna',
+    count: 1,
+    href: '/app/projects/p1/files?folder=f-normen',
+    subject: 'Wohnanlage Linzer Straße',
+    related: null,
+    excerpt: 'ÖNORM B 2320',
+    mentions: [],
+    variant: null,
+    answerIn: null,
+    createdAt: ago(110),
+    updatedAt: ago(110),
   },
   {
     id: 'i5a',
@@ -794,6 +872,11 @@ export function installInboxShim(): void {
         const items = rows.slice(start, start + PAGE)
         const hasMore = start + PAGE < rows.length
         return Response.json({ items, pending: PENDING.length, counts, hasMore, nextCursor: hasMore ? String(start + PAGE) : null })
+      }
+      const decision = /^\/api\/proposals\/([^/]+)(?:\/(apply|dismiss))?$/.exec(url)
+      if (decision && decodeURIComponent(decision[1]) === NORM_PROPOSAL_ID) {
+        const status = { apply: 'applied', dismiss: 'dismissed' } as const
+        return Response.json(normProposal(decision[2] ? status[decision[2] as keyof typeof status] : 'proposed'))
       }
       if (/^\/api\/assignments\/document\/[^/]+\/candidates/.test(url)) {
         return Response.json({ candidates: MENTIONABLE })

@@ -5328,6 +5328,16 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          {
+            "name": "includeStandards",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Office shelf: also list the standards folder’s documents, else left to base-knowledge-list.",
+              "const": "true"
+            },
+            "description": "Office shelf: also list the standards folder’s documents, else left to base-knowledge-list."
           }
         ],
         "responses": {
@@ -8594,6 +8604,162 @@
         "x-mcp-annotations": {
           "title": "Resolve office shelf folder paths, creating the missing",
           "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/office-shelf/folders/{folderId}/norms": {
+      "post": {
+        "operationId": "office-shelf-folder-norms-decide",
+        "summary": "Move a folder’s norms to base knowledge, or keep them as ordinary files",
+        "description": "Acts on office-shelf-folder-norms-list’s files, up to 50 a call (`remaining` counts the rest). The folder stays. Needs org:office_shelf:manage.",
+        "tags": [
+          "folders"
+        ],
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "An office shelf folder id, from office-shelf-folder-list."
+            },
+            "description": "An office shelf folder id, from office-shelf-folder-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "record",
+                      "keep"
+                    ],
+                    "description": "`record`: proposed as base knowledge, moved to its root. `keep`: ordinary files, never offered again."
+                  }
+                },
+                "required": [
+                  "action"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Move a folder’s norms to base knowledge, or keep them as ordinary files",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      },
+      "get": {
+        "operationId": "office-shelf-folder-norms-list",
+        "summary": "List the files in an office shelf folder that read as norms",
+        "description": "Files in the folder whose name reads as a norm and that are neither base knowledge nor kept as ordinary files. A person decides whether they move. Needs org:office_shelf:manage.",
+        "tags": [
+          "folders"
+        ],
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "An office shelf folder id, from office-shelf-folder-list."
+            },
+            "description": "An office shelf folder id, from office-shelf-folder-list."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Default and max 100.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Default and max 100."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The previous page’s `nextCursor`.",
+              "type": "string",
+              "pattern": "^\\d{1,4}$"
+            },
+            "description": "The previous page’s `nextCursor`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the files in an office shelf folder that read as norms",
+          "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
           "openWorldHint": false
@@ -18310,6 +18476,7 @@
                 "annotation.mentioned",
                 "root_sort.ready",
                 "root_sort.failed",
+                "office_shelf.norm_suggested",
                 "inbound_mail.waiting",
                 "inbound_mail.expiring",
                 "inbound_mail.decided",
@@ -18322,7 +18489,8 @@
                 "inbound_mail.rejected",
                 "inbound_mail.expired",
                 "mail_thread.follow_ended",
-                "inbound_mail.fraud_reported"
+                "inbound_mail.fraud_reported",
+                "base_knowledge.new_edition"
               ]
             },
             "description": "Only this item type."
@@ -19284,7 +19452,8 @@
                 "file_operation",
                 "memory",
                 "project_profile",
-                "operation"
+                "operation",
+                "office_shelf_norm"
               ]
             },
             "description": "Only proposals of this kind."
@@ -23177,7 +23346,7 @@
       "get": {
         "operationId": "base-knowledge-get",
         "summary": "Read one base-knowledge entry",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `binding`. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -23560,7 +23729,7 @@
       "get": {
         "operationId": "base-knowledge-list",
         "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse` and `freshness`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. Proposals and checks due come first. Only confirmed entries reach answers. Any member may read.",
+        "description": "An entry is an office shelf document read as base knowledge: `values`, `status` (proposed until confirmed), `textUse`, `freshness` and `binding`. Narrow by `folderId` (with its subfolders), `attention`, `kind` or `q`; `counts` are the folder’s before those narrow it. What needs a person comes first. Only confirmed entries reach answers. Any member may read.",
         "tags": [
           "knowledge"
         ],
@@ -23621,15 +23790,16 @@
             "in": "query",
             "required": false,
             "schema": {
-              "description": "proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used.",
+              "description": "proposed: to confirm; newer_edition: a newer one binds; check_due: unchecked, overdue or not current; metadata_only: text not used.",
               "type": "string",
               "enum": [
                 "proposed",
+                "newer_edition",
                 "check_due",
                 "metadata_only"
               ]
             },
-            "description": "proposed: to confirm; check_due: never checked, overdue or last found not current; metadata_only: text not used."
+            "description": "proposed: to confirm; newer_edition: a newer one binds; check_due: unchecked, overdue or not current; metadata_only: text not used."
           },
           {
             "name": "folderId",
@@ -23703,7 +23873,7 @@
       "post": {
         "operationId": "base-knowledge-propose",
         "summary": "Propose an office shelf document as base knowledge",
-        "description": "Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.",
+        "description": "Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law) and moves it under the norms: give the values from its masthead; the rest come from its reading. No answer uses it until a person confirms. 409 when it already has one. Needs org:office_shelf:manage.",
         "tags": [
           "knowledge"
         ],
@@ -23891,6 +24061,78 @@
         }
       }
     },
+    "/api/base-knowledge/recognize": {
+      "post": {
+        "operationId": "base-knowledge-recognize",
+        "summary": "Recognise which office shelf documents are norms",
+        "description": "Reads each document’s name: a norm becomes a proposal, its text withheld until settled; a match of a confirmed work is a new edition (`editionOf`), or `duplicate` when held. Others stay where they lie (`plain`); `asNorm` proposes them anyway. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "documentIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "description": "Office shelf documents, from document-list; at most 50."
+                  },
+                  "asNorm": {
+                    "description": "true: propose each document even when its reading finds no norm.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "documentIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Recognise which office shelf documents are norms",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/base-knowledge/reports": {
       "post": {
         "operationId": "base-knowledge-report",
@@ -23969,6 +24211,192 @@
         },
         "x-mcp-annotations": {
           "title": "Report wrong law in the base knowledge to the platform",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/settle": {
+      "post": {
+        "operationId": "base-knowledge-settle",
+        "summary": "Confirm or drop the proposals of base-knowledge-recognize",
+        "description": "Per proposal: confirm into its topic folder (`topicId`; a new edition goes to its work’s folder), delete a duplicate, or `notNorm` to leave an ordinary file where it lies. Answers one outcome per row. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rows": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "entryId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "description": "A proposal from base-knowledge-recognize."
+                        },
+                        "notNorm": {
+                          "description": "true: not a norm; the file returns to its folder, not offered again.",
+                          "type": "boolean"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "technical_standard",
+                            "guideline",
+                            "commentary",
+                            "authority_directive",
+                            "statute"
+                          ],
+                          "description": "A commentary only interprets."
+                        },
+                        "designation": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "e.g. \"ÖNORM B 1600:2017\"."
+                        },
+                        "editionLabel": {
+                          "description": "Empty or null: no edition, so it stays proposed; omit to keep the read one.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 120
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "topicId": {
+                          "description": "From base-knowledge-folder-list; null: the root.",
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "entryId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "rows"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Confirm or drop the proposals of base-knowledge-recognize",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/{entryId}/unlist": {
+      "post": {
+        "operationId": "base-knowledge-unlist",
+        "summary": "Take a document off the base knowledge and keep its file",
+        "description": "Removes the entry; the document stays as an ordinary file at the top of the office shelf. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Take a document off the base knowledge and keep its file",
           "readOnlyHint": false,
           "destructiveHint": false,
           "idempotentHint": false,
@@ -24283,6 +24711,227 @@
           "readOnlyHint": true,
           "destructiveHint": false,
           "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/projects/{id}/norms": {
+      "get": {
+        "operationId": "project-norm-list",
+        "summary": "A project folder’s norms for the office shelf, and their references",
+        "description": "`offers`: norms here whose work the office shelf lacks, not kept or suggested. `references`: norms moved to the office shelf; `state` removed once its copy is deleted.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "From project-list."
+            },
+            "description": "From project-list."
+          },
+          {
+            "name": "folderId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Omit for the top level.",
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Omit for the top level."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "A project folder’s norms for the office shelf, and their references",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "post": {
+        "operationId": "project-norm-place",
+        "summary": "Move project norms into the office shelf, suggest them, or keep them here",
+        "description": "office_shelf files each as an entry or edition, bins the project file, leaves a reference; suggest asks the managers; project keeps it.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "description": "From project-list."
+            },
+            "description": "From project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "destination": {
+                    "type": "string",
+                    "enum": [
+                      "office_shelf",
+                      "suggest",
+                      "project"
+                    ]
+                  },
+                  "documents": {
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "documentId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "values": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "technical_standard",
+                                "guideline",
+                                "commentary",
+                                "authority_directive",
+                                "statute"
+                              ]
+                            },
+                            "designation": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 120
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "editionLabel": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "documentId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "visibility": {
+                    "description": "Required unless project: the office sees it.",
+                    "const": "office"
+                  },
+                  "confirm": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "destination",
+                  "documents"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Move project norms into the office shelf, suggest them, or keep them here",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
           "openWorldHint": false
         }
       }

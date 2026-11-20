@@ -1,3 +1,4 @@
+import type { ActionMenuEntry } from '@/components/ui/action-menu'
 import type { DocumentScope } from '../components/document-actions'
 import type { FileItem } from '../file-types'
 import type { UploadFilesOptions } from '../hooks/use-file-upload'
@@ -53,6 +54,7 @@ export interface FileShelf {
   canCollaborate: boolean
   currentUserId?: string
   askAbout?: (file: FileItem) => void
+  fileActions?: (file: FileItem) => readonly ActionMenuEntry[]
   useUpload: (input: ShelfUploadInput) => ShelfUploadApi
   probeNames: (names: readonly string[]) => Promise<DocumentNameMatch[]>
   probeRevisions: (names: readonly string[], landsIn: ReadonlyMap<string, string | null>) => Promise<RevisionCandidateMatch[]>

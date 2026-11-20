@@ -33,6 +33,8 @@ export function toItemView(
   const conversationId = nonEmpty(payload.conversationId)
   const runId = nonEmpty(payload.runId)
   const messageId = nonEmpty(payload.runMessageId)
+  const folderId = nonEmpty(payload.folderId)
+  const entryId = nonEmpty(payload.entryId)
   const run: RunMessageRef | null =
     conversationId && runId && messageId ? { conversationId, runId, messageId } : null
   const answerIn = answerPlaceOf(row, access !== null, answers)
@@ -55,7 +57,7 @@ export function toItemView(
     actorUserId: row.actorUserId,
     count: row.count,
     href: access
-      ? access.deepLink({ itemType: canonicalInboxType(row.type), anchorId: row.anchorId, taskId, run })
+      ? access.deepLink({ itemType: canonicalInboxType(row.type), anchorId: row.anchorId, taskId, run, folderId, entryId })
       : null,
     subject: access ? coerceText(payload.subject, SUBJECT_MAX_LENGTH) : null,
     related: access ? coerceText(payload.related, SUBJECT_MAX_LENGTH) : null,
@@ -63,6 +65,7 @@ export function toItemView(
     mentions: access ? coerceMentions(payload.mentions) : [],
     variant: access ? coerceVariant(payload.variant) : null,
     dueOn: access ? coerceDay(payload.dueOn) : null,
+    via: access ? coerceText(payload.via, SUBJECT_MAX_LENGTH) : null,
     openMarks: access ? coerceCount(payload.openMarks) : null,
     marksRevision: access ? coerceCount(payload.marksRevision ?? payload.marksFassung) : null,
     uploadReport: access ? parseUploadReport(payload.report) : null,

@@ -1,7 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { StoredEntry } from '../store/repository'
-import { editionOnDay, editionsByWork, editionsOf } from './work-editions'
+import { editionOnDay, editionsByWork, editionsForDay, editionsOf } from './work-editions'
 import { workDesignation } from './work-designation'
+
+const licenceStep = vi.hoisted(() => ({ ask: false }))
+vi.mock('@/lib/base-knowledge/wire/licence-step', () => ({
+  get ASK_FOR_LICENCE() {
+    return licenceStep.ask
+  },
+}))
+
+afterEach(() => {
+  licenceStep.ask = false
+})
 
 function edition(editionId: string, issuedOn: string | null, rest: Partial<StoredEntry> = {}, values: Partial<StoredEntry['values']> = {}): StoredEntry {
   return {
@@ -73,6 +84,36 @@ describe('the edition in force on a day', () => {
       { id: 'e2023', editionLabel: '2023-02-01', startsOn: '2023-02-01', status: 'confirmed', inForceToday: true },
       { id: 'e2017', editionLabel: '2017-04-01', startsOn: '2017-04-01', status: 'confirmed', inForceToday: false },
     ])
+  })
+})
+
+describe('the editions a turn carries, with what the resolver names as binding', () => {
+  const via = { designation: 'OIB-RL 4', editionLabel: '2023' }
+  const binds = (editionLabel: string) => new Map([['önorm b 1600', [{ editionLabel, startsOn: editionLabel, via }]]])
+
+  it('still carries the office’s own edition when another one binds, for the answer to name both', () => {
+    expect(editionsForDay([OLD], binds('2023-02-01'), '2024-03-01')).toEqual([OLD])
+  })
+
+  it('carries the held edition the resolver names as binding, over the office’s own dates', () => {
+    expect(editionsForDay([OLD, NEW], binds('2023-02-01'), '2020-06-01')).toEqual([NEW])
+    expect(editionsForDay([OLD, NEW], binds('2017-04-01'), '2024-03-01')).toEqual([OLD])
+  })
+
+  it('falls back to the office’s own dates where the resolver names no edition', () => {
+    expect(editionsForDay([OLD, NEW], new Map(), '2020-06-01')).toEqual([OLD])
+  })
+
+  it('keeps a licensed proposal, which is listed and never read, while the office is asked about licences', () => {
+    licenceStep.ask = true
+    const proposal = edition('e-proposal', '2023-02-01', { workId: 'work_2', confirmed: false }, { licenceClass: 'licensed', designation: 'ÖNORM B 5371' })
+    expect(editionsForDay([proposal], binds('2023-02-01'), '2024-03-01')).toEqual([proposal])
+  })
+
+  it('keeps no proposal, licensed or not, while the office is not asked about licences', () => {
+    const licensed = edition('e-proposal', '2023-02-01', { workId: 'work_2', confirmed: false }, { licenceClass: 'licensed', designation: 'ÖNORM B 5371' })
+    const open = edition('e-open', '2023-02-01', { workId: 'work_3', confirmed: false }, { designation: 'ÖNORM B 5372' })
+    expect(editionsForDay([licensed, open], binds('2023-02-01'), '2024-03-01')).toEqual([])
   })
 })
 

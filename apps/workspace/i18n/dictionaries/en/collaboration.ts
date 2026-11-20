@@ -342,6 +342,15 @@ export const collaboration = {
         body: 'On “{subject}” — read and reply in My feedback.',
         bodyNoSubject: 'Read and reply in My feedback.',
       },
+      baseKnowledgeNewEdition: {
+        title: '{subject} is no longer the binding edition',
+        body: 'Edition {related} is binding. Affects: {excerpt}',
+        variants: {
+          via: {
+            body: 'Edition {related} is binding, under {via}. Affects: {excerpt}',
+          },
+        },
+      },
       storageQuotaWarning: {
         title: 'Your organization is running out of storage',
         body: '{subject} of the storage quota is in use. Once it is full, uploads will start failing — delete documents you no longer need, or ask whoever runs {productName} for you to raise the quota.',
@@ -511,6 +520,7 @@ export const collaboration = {
           memory: { title: '{productName} would like to remember a note' },
           project_profile: { title: '{productName} suggests a change to the project context' },
           operation: { title: '{productName} suggests an action' },
+          office_shelf_norm: { title: '{productName} suggests a norm for the office filing' },
         },
       },
       agentIntakeReady: {
@@ -834,6 +844,12 @@ export const collaboration = {
           office: { title: 'The sort of the office filing stopped' },
         },
       },
+      officeShelfNormSuggested: {
+        title: '{actor} suggests a norm for the office filing',
+        titleNoActor: 'A norm is suggested for the office filing',
+        titleResolved: 'The suggestion for the office filing is decided',
+        body: 'From “{subject}”. In the office filing every project finds it.',
+      },
       unknown: {
         title: 'Something happened',
         body: 'in {subject}',
@@ -859,6 +875,25 @@ export const collaboration = {
       failed: 'That did not go through. Nothing has changed.',
       stale: 'Someone decided first. The current revision is in the file.',
       reload: 'Open current revision',
+    },
+    normNotice: {
+      uploadEdition: 'Upload the new edition',
+      viewEdition: 'View',
+      viewEditionLabel: 'View {subject} in Standards & guidelines',
+    },
+    normSuggestion: {
+      accept: 'Take into the office filing',
+      decline: 'Decline',
+      visibility: 'Everyone in the office can see it then.',
+      accepted: 'Confirmed and in the office filing. The project keeps a reference.',
+      unconfirmed: 'In the office filing, but waiting for confirmation under Standards & guidelines: {reason}',
+      declined: 'Declined. The norm stays in the project.',
+      failed: 'That did not go through: {reason}',
+      stale: 'Someone has already decided.',
+      confirmBody:
+        'Check the type, designation and edition. Once confirmed the norm goes under Standards & guidelines, visible to everyone in the office, and the project keeps a reference.',
+      later: 'The suggestion keeps waiting in the inbox.',
+      editionNeeded: 'Enter the edition. Without one the norm cannot be confirmed.',
     },
   },
 

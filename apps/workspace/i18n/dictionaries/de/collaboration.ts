@@ -349,6 +349,15 @@ export const collaboration: typeof en.collaboration = {
         body: 'Zu „{subject}“ – in „Mein Feedback“ lesen und antworten.',
         bodyNoSubject: 'In „Mein Feedback“ lesen und antworten.',
       },
+      baseKnowledgeNewEdition: {
+        title: '{subject} ist nicht mehr die verbindliche Ausgabe',
+        body: 'Verbindlich ist die Ausgabe {related}. Betrifft: {excerpt}',
+        variants: {
+          via: {
+            body: 'Verbindlich ist die Ausgabe {related}, laut {via}. Betrifft: {excerpt}',
+          },
+        },
+      },
       storageQuotaWarning: {
         title: 'Der Speicherplatz Ihrer Organisation wird knapp',
         body: '{subject} des Speicherkontingents sind belegt. Sobald es voll ist, schlagen Uploads fehl – löschen Sie nicht mehr benötigte Dokumente oder bitten Sie den Betreiber Ihrer {productName}-Installation, das Kontingent zu erhöhen.',
@@ -518,6 +527,7 @@ export const collaboration: typeof en.collaboration = {
           memory: { title: '{productName} möchte sich eine Notiz merken' },
           project_profile: { title: '{productName} schlägt eine Änderung am Projektkontext vor' },
           operation: { title: '{productName} schlägt eine Aktion vor' },
+          office_shelf_norm: { title: '{productName} schlägt eine Norm für die Büroablage vor' },
         },
       },
       agentIntakeReady: {
@@ -847,6 +857,12 @@ export const collaboration: typeof en.collaboration = {
           office: { title: 'Die Sortierung der Büroablage wurde abgebrochen' },
         },
       },
+      officeShelfNormSuggested: {
+        title: '{actor} schlägt eine Norm für die Büroablage vor',
+        titleNoActor: 'Eine Norm wird für die Büroablage vorgeschlagen',
+        titleResolved: 'Der Vorschlag für die Büroablage ist entschieden',
+        body: 'Aus „{subject}“. In der Büroablage finden alle Projekte sie.',
+      },
       unknown: {
         title: 'Es gab Aktivität',
         body: 'in {subject}',
@@ -873,6 +889,25 @@ export const collaboration: typeof en.collaboration = {
       failed: 'Das hat nicht geklappt. Es hat sich nichts geändert.',
       stale: 'Jemand hat zuerst entschieden – die aktuelle Fassung liegt in der Datei.',
       reload: 'Aktuelle Fassung öffnen',
+    },
+    normNotice: {
+      uploadEdition: 'Neue Ausgabe hochladen',
+      viewEdition: 'Ansehen',
+      viewEditionLabel: '{subject} in Normen & Richtlinien ansehen',
+    },
+    normSuggestion: {
+      accept: 'In die Büroablage übernehmen',
+      decline: 'Ablehnen',
+      visibility: 'Danach ist sie für alle im Büro sichtbar.',
+      accepted: 'Bestätigt und in der Büroablage. Das Projekt behält einen Verweis.',
+      unconfirmed: 'Liegt in der Büroablage, wartet aber unter Normen & Richtlinien auf Bestätigung: {reason}',
+      declined: 'Abgelehnt. Die Norm bleibt im Projekt.',
+      failed: 'Das hat nicht geklappt: {reason}',
+      stale: 'Jemand hat schon entschieden.',
+      confirmBody:
+        'Prüfen Sie Art, Bezeichnung und Ausgabe. Bestätigt kommt die Norm unter Normen & Richtlinien, für alle im Büro sichtbar, und das Projekt behält einen Verweis.',
+      later: 'Der Vorschlag wartet weiter im Postfach.',
+      editionNeeded: 'Tragen Sie die Ausgabe ein. Ohne Ausgabe lässt sich die Norm nicht bestätigen.',
     },
   },
 
