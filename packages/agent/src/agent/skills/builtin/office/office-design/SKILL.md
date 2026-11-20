@@ -39,9 +39,9 @@ anything else yourself in the same spirit.
   vertical lines in tables.
 - **Left-aligned,** text and titles. Numbers right-aligned with tabular figures,
   formatted German (`format.number`, `format.area`, `format.date`).
-- **A slide says one thing,** and its title is that thing as a sentence („Die
-  Kostenschätzung liegt 9 % über dem Budget", not „Kosten"). At most five
-  bullets; cut words before you shrink type.
+- **A slide says one thing,** and its title is that thing as a sentence:
+  „Die Kostenschätzung liegt 9 % über dem Budget“, not „Kosten“.
+  At most five bullets; cut words before you shrink type.
 - **A chart has one series in ink** unless it compares; at most three series
   (`series`: ink, dark grey, grey), a fourth goes to „Sonstige" or a second
   chart. Start bars at zero, label values directly, no 3D, no pie with more

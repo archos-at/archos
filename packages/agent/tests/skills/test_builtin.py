@@ -23,6 +23,7 @@ EXPECTED = {
     ("office", "office-word"),
     ("office", "office-excel"),
     ("office", "office-powerpoint"),
+    ("office", "office-design"),
     ("office", "office-pdf"),
     ("office", "office-pdf-charts"),
     ("office", "office-html-pdf"),
