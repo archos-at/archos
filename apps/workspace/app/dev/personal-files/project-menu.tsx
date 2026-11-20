@@ -52,11 +52,11 @@ export function PersonalLine(): JSX.Element | null {
       </div>
     )
   }
-  if (form === 'c') {
+  if (form === 'c' || form === 'c2') {
     return (
       <div className="border-hairline text-muted-foreground flex h-10 w-full items-center justify-between rounded-control border border-dashed px-3 text-sm">
-        Kein Projekt
-        <ChevronsUpDown className="size-4 shrink-0 opacity-50" aria-hidden />
+        Projektübergreifend
+        {form === 'c' && <ChevronsUpDown className="size-4 shrink-0 opacity-50" aria-hidden />}
       </div>
     )
   }
