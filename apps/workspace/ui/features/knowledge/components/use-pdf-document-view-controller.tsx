@@ -172,6 +172,7 @@ export function usePdfDocumentViewController(props: PdfDocumentViewProps) {
     onViewport,
     position,
     doc,
+    pagesSized: defaultAspect !== null && targetWidth > 0,
     setCurrentPage,
     setAnnounced,
     scrollRef,

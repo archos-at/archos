@@ -102,7 +102,7 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
         const entry = entries[entries.length - 1]
         if (entry) setNear(entry.isIntersecting)
       },
-      { rootMargin: PRERENDER_MARGIN },
+      { root: frameRef.current, rootMargin: PRERENDER_MARGIN },
     )
     observer.observe(node)
     return () => observer.disconnect()

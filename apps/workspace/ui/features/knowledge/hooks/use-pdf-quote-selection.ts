@@ -3,7 +3,12 @@ import { useCallback, useEffect } from 'react'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
 import type { PdfDocumentViewProps } from '../components/pdf-document-view-props'
-import { COPIED_FEEDBACK_MS, MIN_QUOTE_LENGTH, type QuoteSelection } from '../components/pdf-document-view-helpers'
+import {
+  COPIED_FEEDBACK_MS,
+  MIN_QUOTE_LENGTH,
+  offsetInContent,
+  type QuoteSelection,
+} from '../components/pdf-document-view-helpers'
 
 export interface PdfQuoteSelectionArgs {
   quoteFormat: PdfDocumentViewProps['quoteFormat']
@@ -59,13 +64,12 @@ export function usePdfQuoteSelection({
       quotedRef.current = text
       setCopied('idle')
     }
-    const rect = range.getBoundingClientRect()
-    const origin = content.getBoundingClientRect()
+    const { x, y } = offsetInContent(range.getBoundingClientRect(), content)
     setQuote({
       text,
       page: Number(node.closest('[data-page]')?.getAttribute('data-page')) || currentPageRef.current,
-      x: rect.left - origin.left,
-      y: rect.top - origin.top,
+      x,
+      y,
     })
   }, [quoteFormat, onFindSimilar])
 

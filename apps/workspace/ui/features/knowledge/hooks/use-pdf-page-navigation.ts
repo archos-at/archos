@@ -11,6 +11,7 @@ export interface PdfPageNavigationArgs {
   onViewport: PdfDocumentViewProps['onViewport']
   position: string
   doc: PDFDocumentProxy | null
+  pagesSized: boolean
   setCurrentPage: Dispatch<SetStateAction<number>>
   setAnnounced: Dispatch<SetStateAction<string>>
   scrollRef: RefObject<HTMLDivElement | null>
@@ -22,6 +23,7 @@ export function usePdfPageNavigation({
   onViewport,
   position,
   doc,
+  pagesSized,
   setCurrentPage,
   setAnnounced,
   scrollRef,
@@ -76,7 +78,7 @@ export function usePdfPageNavigation({
   useEffect(() => {
     const frameNode = scrollRef.current
     const focus = focusRef.current
-    if (!focus || !doc || !frameNode) return
+    if (!focus || !doc || !frameNode || !pagesSized) return
     const pageNode = pageRefs.current.get(clampPage(focus.page, doc.numPages))
     if (!pageNode) return
     const frameBox = frameNode.getBoundingClientRect()
@@ -86,7 +88,7 @@ export function usePdfPageNavigation({
       top: Math.max(0, pointTop - frameBox.height / 2),
       behavior: scrollBehavior(!focus.instant),
     })
-  }, [focusKey, doc])
+  }, [focusKey, doc, pagesSized])
 
   const onViewportRef = useRef(onViewport)
   onViewportRef.current = onViewport

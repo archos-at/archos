@@ -40,7 +40,7 @@ function fakeDoc(): { doc: PDFDocumentProxy; calls: RenderCall[] } {
   return { doc: { getPage: () => Promise.resolve(page) } as unknown as PDFDocumentProxy, calls }
 }
 
-const canvasAt = (doc: PDFDocumentProxy, targetWidth: number) => (
+const canvasAt = (doc: PDFDocumentProxy, targetWidth: number, frame: HTMLElement | null = null) => (
   <PdfPageCanvas
     doc={doc}
     pageNumber={1}
@@ -56,7 +56,7 @@ const canvasAt = (doc: PDFDocumentProxy, targetWidth: number) => (
     onMiss={() => {}}
     onBase={() => {}}
     registerRef={() => {}}
-    frameRef={{ current: null }}
+    frameRef={{ current: frame }}
     viewSignal={{ subscribe: () => () => {}, emit: () => {} }}
     moving={{ active: false }}
   />
@@ -115,5 +115,23 @@ describe('PdfPageCanvas', () => {
     view.rerender(canvasAt(doc, 800))
     await settle(1000)
     expect(calls.map((call) => Math.round(call.width))).toEqual([1000, 800])
+  })
+
+  it('pre-renders against the scroll frame it sits in, not the browser window', async () => {
+    const roots: Array<Element | Document | null | undefined> = []
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        constructor(_: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+          roots.push(options?.root)
+        }
+        observe() {}
+        disconnect() {}
+      },
+    )
+    const frame = document.createElement('div')
+    render(canvasAt(fakeDoc().doc, 1000, frame))
+    await settle(0)
+    expect(roots).toEqual([frame])
   })
 })
