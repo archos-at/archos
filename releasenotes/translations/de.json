@@ -600,6 +600,10 @@
     "de": "Eine E-Mail, die in weniger als fünf Tagen abläuft, wird in ihrer Zeile entsprechend gekennzeichnet und rückt an den Anfang ihres Abschnitts, bevor die E-Mail eines externen Absenders nach 14 Tagen gelöscht wird."
   },
   {
+    "en": "A mail you filed from the E-Mail-Eingang showed under „Bearbeitet“ as „(ohne Betreff)“ with an error where its text was. It is now named after the E-Mail-Verlauf it went into, and its text is where you filed it.",
+    "de": "Eine E-Mail, die Sie aus dem E-Mail-Eingang abgelegt haben, wird unter „Bearbeitet“ als „(ohne Betreff)“ angezeigt, und anstelle ihres Textes erscheint eine Fehlermeldung. Jetzt trägt sie den Namen des E-Mail-Verlaufs, in den Sie sie abgelegt haben, und ihr Text wird dort angezeigt."
+  },
+  {
     "en": "A member budget can no longer be set for someone who does not belong to the organization; such a limit used to be saved and never applied.",
     "de": "Ein Mitgliederbudget lässt sich nicht mehr für jemanden festlegen, der der Organisation nicht angehört; so ein Limit wurde bisher gespeichert und griff nie."
   },

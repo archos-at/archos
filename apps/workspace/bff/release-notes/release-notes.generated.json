@@ -451,6 +451,14 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "A mail you filed from the E-Mail-Eingang showed under „Bearbeitet“ as „(ohne Betreff)“ with an error where its text was. It is now named after the E-Mail-Verlauf it went into, and its text is where you filed it.",
+            "de": "Eine E-Mail, die Sie aus dem E-Mail-Eingang abgelegt haben, wird unter „Bearbeitet“ als „(ohne Betreff)“ angezeigt, und anstelle ihres Textes erscheint eine Fehlermeldung. Jetzt trägt sie den Namen des E-Mail-Verlaufs, in den Sie sie abgelegt haben, und ihr Text wird dort angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "Backspace and Delete no longer dismiss the open mail while a button or a checkbox has the focus, and they ask first for an outsider's mail that cannot be restored once dismissed. No shortcut answers while the profile has keyboard shortcuts turned off.",
             "de": "Backspace und Delete schließen die geöffnete Mail nicht mehr, wenn eine Schaltfläche oder ein Kontrollkästchen fokussiert ist; bei nicht wiederherstellbaren Mails von externen Absendern fragen sie vorher nach. Tastenkombinationen funktionieren nicht, wenn sie im Profil deaktiviert sind."
           }
