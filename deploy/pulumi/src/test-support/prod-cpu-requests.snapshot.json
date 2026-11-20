@@ -237,7 +237,7 @@
       },
       "requests": {
         "cpu": "250m",
-        "memory": "1Gi"
+        "memory": "1536Mi"
       }
     },
     "80d71faf1c40c1d4": {
