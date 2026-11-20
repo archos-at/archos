@@ -476,7 +476,7 @@ export function InboundMailDetail({
           originalUrl={client.originalUrl(projectId, view.id)}
           now={now}
         />
-        <MailText state={text} onRetry={() => void loadText()} />
+        {view.status === 'waiting' && <MailText state={text} onRetry={() => void loadText()} />}
         {messagePart?.state === 'waiting' && <MessageFacts view={view} />}
 
         {/* The forged mail's way to filing is one deliberate press, never the page's default. */}
