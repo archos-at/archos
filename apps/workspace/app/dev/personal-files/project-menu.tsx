@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: the project menu and the project overview for the personal-area concept (ticket 81).
 
 import type { JSX } from 'react'
-import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, BriefcaseBusiness, Building2, Folders, LockKeyhole, Search, Settings, UserRound, UsersRound, X } from 'lucide-react'
+import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, BriefcaseBusiness, Building2, Folders, Handshake, Users, LockKeyhole, Search, Settings, UserRound, UsersRound, X } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 
 import { PROJECTS } from '../personal-area-rail/prototype'
@@ -24,9 +24,33 @@ export function useFirstRoom(): { Icon: typeof Layers; name: string; line: strin
   return room ? { Icon: UserRound, name: 'Persönlich', line: 'Nur für Sie, ohne Bindung an ein Projekt', room, space } : { Icon: Layers, name: 'Projektübergreifend', line: 'Fragen ohne Bindung an ein Projekt', room, space }
 }
 
+function Trio({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="12" cy="8" r="3" />
+      <path d="M7 20v-1a5 5 0 0 1 10 0v1" />
+      <circle cx="4.5" cy="10.5" r="2" />
+      <path d="M1.5 19v-.5a3 3 0 0 1 3-3" />
+      <circle cx="19.5" cy="10.5" r="2" />
+      <path d="M22.5 19v-.5a3 3 0 0 0-3-3" />
+    </svg>
+  )
+}
+
+function Pair({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden>
+      <circle cx="8" cy="8" r="3" />
+      <path d="M2.5 20v-1a5.5 5.5 0 0 1 11 0v1" />
+      <circle cx="16.5" cy="8" r="3" />
+      <path d="M17 14.2a5.5 5.5 0 0 1 4.5 4.8v1" />
+    </svg>
+  )
+}
+
 export function useProjectIcon(): typeof Layers {
   const pick = useSearchParams()?.get('pi')
-  return pick === 'a' ? UsersRound : pick === 'b' ? Building2 : pick === 'c' ? BriefcaseBusiness : Folders
+  return pick === 'a' ? UsersRound : pick === 'b' ? Building2 : pick === 'c' ? BriefcaseBusiness : pick === 'd' ? Users : pick === 'e' ? (Trio as unknown as typeof Layers) : pick === 'f' ? Handshake : pick === 'g' ? (Pair as unknown as typeof Layers) : Folders
 }
 
 export function SpaceToggle({ personal }: { personal: boolean }): JSX.Element {

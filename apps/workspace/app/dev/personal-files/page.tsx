@@ -71,13 +71,13 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
   const space = query?.get('space') === '1'
   const folded = query?.get('rail')
   const find = query?.get('find')
-  if (folded) return <FoldedRail personal={own} show={folded} />
+  if (folded && folded !== 'open') return <FoldedRail personal={own} show={folded} />
   const plain = query?.get('my') !== '1' && (Boolean(person) || space || query?.get('room') === '1')
-  return (
+  const full = (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
-          {find || query?.get('si') ? <BrandRow hint={query?.get('si') === 'hint'} /> : <SidebarBrand iconRail={false} />}
+          {find || folded || query?.get('si') ? <BrandRow hint={query?.get('si') === 'hint'} /> : <SidebarBrand iconRail={false} />}
           {space && <SpaceToggle personal={own} />}
           <div className="relative mt-1 flex items-center gap-1.5">
             {space && own ? <PersonalLine /> : own && menuForm === 'gear' ? <AcrossTrigger /> : <ProjectSwitcher projects={[menuForm === 'top' ? OWN : OWN_ACROSS, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />}
@@ -118,11 +118,19 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             <MoreRow label="Alle Chats" indent={false} />
           </ul>
         </SidebarContent>
-        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} person={person} personOpen={personOpen} hideSearch={Boolean(find || query?.get('si'))} />
+        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} person={person} personOpen={personOpen} hideSearch={Boolean(find || folded || query?.get('si'))} />
         <SidebarRail aria-label="Breite ändern" />
       </Sidebar>
     </SidebarProvider>
   )
+  if (folded === 'open') {
+    return (
+      <div className="relative z-40 h-full w-14 shrink-0">
+        <div className="border-hairline shadow-lg absolute inset-y-0 left-0 border-r">{full}</div>
+      </div>
+    )
+  }
+  return full
 }
 
 function Browser({ files, folders, openFolder = null, toolsInHead = false }: { files: FileItem[]; folders: FolderItem[]; openFolder?: string | null; toolsInHead?: boolean }): JSX.Element {

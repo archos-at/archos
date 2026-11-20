@@ -196,7 +196,7 @@ export function FoldedRail({ personal, show }: { personal: boolean; show: string
         <div className="flex-1" />
         <IconSpot icon={Archive} active={show === 'office'} />
         <IconSpot icon={Bell} badge={8} active={show === 'bell'} />
-        <span className={`text-meta mt-1 flex size-7 items-center justify-center rounded-full font-medium ${show === 'me' ? 'bg-primary text-primary-foreground' : 'bg-sheet shadow-xs'}`}>AB</span>
+        <span className="bg-sheet shadow-xs text-meta mt-1 flex size-7 items-center justify-center rounded-full font-medium">AB</span>
       </div>
       {show === 'office' && <Label text="Bürobibliothek" at="bottom-[92px]" />}
       {show === 'bell' && <InboxPopover beside />}
