@@ -12,17 +12,23 @@ import { useTranslations } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { officeShelfCopy } from '@/i18n/namespaces/office-shelf'
 import { createDocumentNameProbeClient } from '@/lib/documents/name-probe-client'
-import { useOfficeShelfDocuments } from '../hooks/use-office-shelf-documents'
+import { useOfficeShelfDocuments, type StoredUpload } from '../hooks/use-office-shelf-documents'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
 import { OFFICE_SHELF_ENDPOINTS, type FileShelf } from '../lib/file-shelf'
 import { FileWorkspace } from './file-workspace'
+import { OfficeShelfFolderNorms } from './office-shelf-folder-norms'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
-interface OfficeShelfWorkspaceProps {
+export interface OfficeShelfWorkspaceProps {
   canManage: boolean
   showModels?: boolean
   trailingActions?: ReactNode
   organizationName?: string | null
+  places?: ReactNode
+  onUploadsStored?: (uploads: StoredUpload[]) => void
+  onNormsRecorded?: (documentIds: string[]) => void
+  fileActions?: FileShelf['fileActions']
+  normsInFolders?: boolean
 }
 
 export function OfficeShelfWorkspace({
@@ -30,6 +36,11 @@ export function OfficeShelfWorkspace({
   showModels = false,
   trailingActions,
   organizationName = null,
+  places,
+  onUploadsStored,
+  onNormsRecorded,
+  fileActions,
+  normsInFolders = false,
 }: OfficeShelfWorkspaceProps) {
   const t = useTranslations(officeShelfCopy)
   const probe = useMemo(() => createDocumentNameProbeClient(), [])
@@ -48,6 +59,7 @@ export function OfficeShelfWorkspace({
         collectionName: canManage ? collectionName : undefined,
         folderId,
         onComplete,
+        onStored: onUploadsStored,
       }),
     probeNames: probe.officeShelf,
     probeRevisions: probe.officeShelfRevisions,
@@ -57,6 +69,7 @@ export function OfficeShelfWorkspace({
       ingestionComplete: (name) => t('toast.ingestionComplete', { name }),
     },
     showModels,
+    fileActions,
   }
 
   if (search.active) {
@@ -81,8 +94,16 @@ export function OfficeShelfWorkspace({
         <FileWorkspace
           shelf={shelf}
           onOpenSearch={search.open}
+          renderLevelNotice={
+            normsInFolders && canManage
+              ? ({ folderId, reload }) =>
+                  folderId === null ? null : (
+                    <OfficeShelfFolderNorms key={folderId} folderId={folderId} onChanged={reload} onRecorded={onNormsRecorded} />
+                  )
+              : undefined
+          }
           renderHeader={(controls, { count }) => (
-            <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} />
+            <OfficeShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} organizationName={organizationName} places={places} />
           )}
         />
       </SectionToolRowScope>
@@ -90,18 +111,20 @@ export function OfficeShelfWorkspace({
   )
 }
 
-function OfficeShelfHeader({
+export function OfficeShelfHeader({
   controls,
   count,
   phone,
   trailingActions,
   organizationName,
+  places,
 }: {
   controls: ReactNode
   count: number | null
   phone: boolean
   trailingActions?: ReactNode
   organizationName: string | null
+  places?: ReactNode
 }): JSX.Element {
   const t = useTranslations(officeShelfCopy)
   const place = useSectionPlace()
@@ -139,6 +162,7 @@ function OfficeShelfHeader({
         action={trailingActions}
         actionInline
       />
+      {places && <div className="-mb-2 mt-6 min-w-0 phone:mt-4">{places}</div>}
       <SectionToolRow className="mt-4">
         <div className="flex min-w-0 flex-1" data-testid="office-shelf-controls">
           {controls}

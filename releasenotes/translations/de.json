@@ -16,6 +16,10 @@
     "de": "In „Mein Gedächtnis“ gibt es „Alle Notizen entfernen“: Nach einer Bestätigung mit der Anzahl der zu löschenden Notizen wird alles, was der Assistent über Sie gespeichert hat, in einem Schritt entfernt."
   },
   {
+    "en": "\"Nicht mehr als Norm führen\" takes a norm off at once and keeps its file in your folders; \"Rückgängig\" brings it back as it was, with its editions, checks and topic. A norm you bought is read like any other once you confirm it.",
+    "de": "„Nicht mehr als Norm führen“ entfernt eine Norm sofort und lässt ihre Datei in Ihren Ordnern; „Rückgängig“ stellt sie mit ihren Ausgaben, Prüfungen und ihrem Thema wieder her. Eine gekaufte Norm können Sie nach der Bestätigung wie jede andere lesen."
+  },
+  {
     "en": "\"Wie vorgeschlagen ablegen\" on a row now reports when the mail has landed and where, or what failed. On a phone it appears only on the open mail.",
     "de": "„Wie vorgeschlagen ablegen“ meldet jetzt in einer Zeile, ob und wo die Mail abgelegt wurde oder was fehlgeschlagen ist. Auf dem Smartphone erscheint die Meldung nur in der geöffneten Mail."
   },
@@ -50,6 +54,10 @@
   {
     "en": "A PDF now opens the same way everywhere: a cited source, a file in Files, its enlarged view and the file beside the chat. The pages lie on one stage, with the controls in one bar at its foot.",
     "de": "Ein PDF wird jetzt überall auf dieselbe Weise geöffnet: als zitierte Quelle, als Datei in Files, in der vergrößerten Ansicht und neben dem Chat. Die Seiten liegen auf einer gemeinsamen Fläche, die Bedienelemente befinden sich in einer Leiste am unteren Rand."
+  },
+  {
+    "en": "A PDF page no longer stays white when you open a plan in the preview, in the review view or to add an annotation. You no longer have to resize the window or fit the page again to make it appear.",
+    "de": "Eine PDF-Seite bleibt nicht mehr weiß, wenn Sie einen Plan in der Vorschau oder in der Prüfansicht öffnen oder eine Anmerkung hinzufügen. Sie müssen das Fenster nicht mehr skalieren oder die Seite erneut einpassen, damit sie angezeigt wird."
   },
   {
     "en": "A PDF with a few damaged pages is now read up to its last page instead of stopping at the first damaged one. A PDF with too many damaged pages fails with a retry instead of being read with gaps.",
@@ -624,6 +632,14 @@
     "de": "Ein neu hochgeladenes Dokument ist schneller über die Suche auffindbar: Sein Inhalt ist durchsuchbar, sobald er eingelesen wurde, während Zusammenfassung, Tags und Themen noch erstellt werden. Das Dokument wird als abgeschlossen angezeigt, sobald auch diese fertig sind."
   },
   {
+    "en": "A norm moved or taken over into the Büroablage is now confirmed with the values you saw, so answers keep using it instead of waiting unread for a confirmation.",
+    "de": "Eine in die Büroablage verschobene oder übernommene Norm wird jetzt mit den angezeigten Werten bestätigt, sodass Antworten sie weiterhin verwenden, statt auf eine ungelesene Bestätigung zu warten."
+  },
+  {
+    "en": "A norm uploaded to a project is offered for the Büroablage, where every project finds it. You move it there, or suggest it to whoever manages the Büroablage, or leave it in the project; a moved norm leaves a reference behind in the project folder.",
+    "de": "Eine in ein Projekt hochgeladene Norm wird für die Büroablage vorgeschlagen, in der sie für alle Projekte auffindbar ist. Sie verschieben sie dorthin, schlagen sie der zuständigen Person für die Büroablage vor oder belassen sie im Projekt; beim Verschieben bleibt im Projektordner ein Verweis zurück."
+  },
+  {
     "en": "A note that corrects an earlier one, such as a changed dimension, date or quantity, now replaces it. Before, the old value could stay and look freshly confirmed.",
     "de": "Eine Notiz, die eine frühere korrigiert – etwa eine geänderte Abmessung, ein Datum oder eine Menge –, ersetzt diese nun. Bisher konnte der alte Wert bestehen bleiben und so wirken, als wäre er gerade bestätigt worden."
   },
@@ -730,6 +746,10 @@
   {
     "en": "A project's memory now says that every member of the project reads its notes, and a private chat says that you have not shared it with anyone.",
     "de": "Im Projekt-Memory steht jetzt, dass jedes Projektmitglied dessen Notizen liest, während in einem privaten Chat steht, dass Sie sie mit niemandem geteilt haben."
+  },
+  {
+    "en": "A project's reference to a norm taken off Normen & Richtlinien now says it still lies in the Büroablage and opens the file.",
+    "de": "Ein Projektverweis auf eine aus Normen & Richtlinien entfernte Norm zeigt jetzt an, dass sie weiterhin in der Büroablage liegt, und öffnet die Datei."
   },
   {
     "en": "A project's setup now shows the law that applies at its site, each code and guideline with the edition that binds there, the same law the chat answers with. Where no law can be named yet, it says why: no site, or a country your office has not enabled.",
@@ -996,6 +1016,10 @@
     "de": "Ein Vorschlag, den Piloti für eine Datei gemacht hat, wird bei der Datei unter „Dateien“ angezeigt, nicht in einem Chat."
   },
   {
+    "en": "A suggestion nobody in the project may decide is no longer reported as sent: ARCHOS says so and names who could decide it, and the offer stays.",
+    "de": "Ein Vorschlag, über den im Projekt niemand entscheiden darf, wird nicht mehr als gesendet angezeigt: ARCHOS weist darauf hin und nennt, wer darüber entscheiden dürfte; das Angebot bleibt bestehen."
+  },
+  {
     "en": "A task Piloti starts in a conversation, and a connection message, now appear in that conversation even if you have opened another one in the meantime.",
     "de": "Ein Auftrag, den Piloti in einer Unterhaltung startet, und eine Verbindungsmeldung erscheinen jetzt in dieser Unterhaltung, auch wenn Sie inzwischen eine andere geöffnet haben."
   },
@@ -1130,6 +1154,10 @@
   {
     "en": "After you work through annotations in the review, the count beside the document in Files shows what is still open, and closing a review you opened from the inbox or from open points takes you back there with your filter, in a single Back step.",
     "de": "Wenn Sie die Anmerkungen im Review bearbeiten, zeigt die Zahl neben dem Dokument unter „Dateien“ an, was noch offen ist. Schließen Sie ein Review, das Sie über den Posteingang oder die offenen Punkte geöffnet haben, gelangen Sie mit Ihrem Filter in einem einzigen Schritt zurück."
+  },
+  {
+    "en": "After zooming in on selected text, the bar to copy it as a citation now stays next to the selection.",
+    "de": "Nach dem Heranzoomen bleibt die Leiste zum Kopieren des ausgewählten Textes als Zitat jetzt neben der Auswahl."
   },
   {
     "en": "Agents connected to Piloti now get the purpose of a field quoted back when their input is refused, and large operation inputs are described in layers they can open one part at a time. They can also report a confusing description or error message, not only a missing operation.",
@@ -2424,6 +2452,10 @@
     "de": "Bei einer sehr langen Textdatei steht jetzt unter dem Text, dass nur der Anfang angezeigt wird, damit die letzte sichtbare Zeile nicht wie das Ende des Dokuments wirkt."
   },
   {
+    "en": "For an uploaded norm, ARCHOS reads the edition and designation from its title page and says in the dialog where they differ from the file name. When the title page names an edition you hold as replaced, that copy shows \"Abgelöst\" once you confirm the new one.",
+    "de": "Bei einer hochgeladenen Norm liest ARCHOS Ausgabe und Bezeichnung vom Titelblatt aus und zeigt im Dialog an, worin sie vom Dateinamen abweichen. Nennt das Titelblatt eine Ausgabe, die Sie als abgelöst führen, wird dieses Exemplar mit „Abgelöst“ gekennzeichnet, sobald Sie die neue Ausgabe bestätigen."
+  },
+  {
     "en": "For now the setup no longer marks the OIB guidelines that only some buildings trigger (a Betriebsbau, a garage, a high-rise) with a reason for each. They return shortly, worked out from the building's facts.",
     "de": "Fürs Erste kennzeichnet das Setup die OIB-Richtlinien, die nur für bestimmte Gebäude gelten (Betriebsbau, Garage, Hochhaus), nicht mehr jeweils mit einer Begründung. Sie kommen bald zurück und werden anhand der Gebäudedaten ermittelt."
   },
@@ -2848,6 +2880,10 @@
     "de": "Neue Aufgaben liefern immer einen recherchierten Bericht, der im Projekt abgelegt wird, und Sie richten eine Aufgabe in drei statt vier Schritten ein. Bestehende Aufgaben behalten die Art ihres Ergebnisses."
   },
   {
+    "en": "Norms you had filed in ordinary Büroablage folders are found, and the folder offers to move them under \"Normen & Richtlinien\" or to leave them where they are.",
+    "de": "Normen, die Sie in gewöhnlichen Büroablage-Ordnern abgelegt haben, werden gefunden, und der Ordner bietet Ihnen an, sie nach „Normen & Richtlinien“ zu verschieben oder dort zu belassen."
+  },
+  {
     "en": "Notes in your personal memory and in a project's memory can now be sorted into topics such as Brandschutz, Stellplätze or Bauherr, and each list shows its topics with the number of notes in each. You can move a note to another topic, rename or merge topics, and the assistant files new notes under a fitting topic by itself.",
     "de": "Notizen in „Mein Gedächtnis“ und im Projektgedächtnis lassen sich jetzt nach Themen ordnen, etwa Brandschutz, Stellplätze oder Bauherr, und jede dieser Listen zeigt ihre Themen mit der Anzahl der Notizen. Sie können eine Notiz in ein anderes Thema verschieben, Themen umbenennen oder zusammenführen; der Assistent ordnet neue Notizen selbst einem passenden Thema zu."
   },
@@ -3072,6 +3108,10 @@
     "de": "Ein geteilter Link zu einer Projektdatei lässt sich wieder öffnen, auch wenn der Link den Namen der Datei enthält. Der Chat findet die Datei jetzt und zeigt ihren Status an, statt zu scheitern."
   },
   {
+    "en": "Opening an annotation from the file preview or a link now scrolls the review view to that annotation, not to a page a few pages earlier.",
+    "de": "Wenn Sie eine Anmerkung aus der Dateivorschau oder über einen Link öffnen, scrollt die Review-Ansicht jetzt direkt zu dieser Anmerkung statt zu einer Seite ein paar Seiten davor."
+  },
+  {
     "en": "Opening the inbox from the bell puts the keyboard in it, so j and k work right away; Escape closes it and returns you to the bell.",
     "de": "Wenn Sie den Posteingang über die Glocke öffnen, erhält er sofort den Tastaturfokus, sodass j und k gleich funktionieren; mit Escape schließen Sie ihn und der Fokus kehrt zur Glocke zurück."
   },
@@ -3110,6 +3150,10 @@
   {
     "en": "Pages are easier to use with a keyboard, a screen reader or low vision: larger touch targets, readable text on photos, and a menu that closes with Escape.",
     "de": "Seiten lassen sich mit Tastatur, Screenreader oder bei Sehschwäche leichter bedienen: mit größeren Touch-Zielen, gut lesbarem Text auf Fotos und einem Menü, das sich mit Escape schließen lässt."
+  },
+  {
+    "en": "Pages further down a PDF are drawn before you scroll to them, and stay drawn when you scroll back, instead of flashing white.",
+    "de": "Seiten weiter unten in einem PDF werden bereits gerendert, bevor Sie zu ihnen scrollen, und bleiben auch beim Zurückscrollen sichtbar, statt weiß aufzublitzen."
   },
   {
     "en": "Pausing, closing and reopening are offered from the project's overview menu and from the notice at the top of a paused or closed project, and the project switcher no longer lists every closed project of the office.",
@@ -3898,6 +3942,10 @@
   {
     "en": "The Bin says why a folder cannot be restored, and the list view shows reading and open comments right after each file's name.",
     "de": "Der Papierkorb zeigt an, warum ein Ordner nicht wiederhergestellt werden kann. In der Listenansicht werden gelesene und offene Kommentare direkt nach dem Namen jeder Datei angezeigt."
+  },
+  {
+    "en": "The Büroablage has one upload, and ARCHOS asks about the norms among your files in one dialog: kind, designation, edition and topic, with \"Keine Norm\" for anything it got wrong, and a newer edition or a second copy of a norm you hold already recognised as such. Ordinary files go to your folders as before.",
+    "de": "In der Büroablage gibt es nur einen Upload, und ARCHOS fragt in einem Dialog nach den Normen in Ihren Dateien: Art, Bezeichnung, Ausgabe und Thema. Für alles, was nicht stimmt, wählen Sie „Keine Norm“; eine neuere Ausgabe oder ein weiteres Exemplar einer Norm, die Sie bereits haben, wird als solches erkannt. Normale Dateien landen wie bisher in Ihren Ordnern."
   },
   {
     "en": "The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and Postfach entries that point to /app/archiv keep working and lead there.",
@@ -4832,6 +4880,10 @@
     "de": "Unter „Bearbeitet“ zeigt eine so abgelegte Mail den Hinweis „Ohne Klick abgelegt“ sowie den E-Mail-Verlauf, in dem sie abgelegt wurde."
   },
   {
+    "en": "Under Normen & Richtlinien a norm's Stand now comes from the law or guideline that makes an edition of it binding, where ARCHOS knows one: „Aktuell“ when your office holds that edition, „Neuere Ausgabe“ when a newer one binds, and the norm says under what. Everything else keeps a quiet yearly check, and a norm your office never bought is never held against it.",
+    "de": "Unter Normen & Richtlinien ergibt sich der Stand einer Norm jetzt – sofern ARCHOS eine Rechtsgrundlage kennt – aus dem Gesetz oder der Richtlinie, durch die eine Ausgabe verbindlich wird: „Aktuell“, wenn Ihr Büro diese Ausgabe besitzt, „Neuere Ausgabe“, wenn eine neuere Ausgabe verbindlich ist; die Norm nennt die Rechtsgrundlage. Alles andere wird weiterhin unauffällig jährlich geprüft, und eine Norm, die Ihr Büro nie gekauft hat, wird ihm nicht angelastet."
+  },
+  {
     "en": "Under a longer answer in a project, Als Aktenvermerk schreiben fills the message box with the request, and Piloti then writes a draft into the project files.",
     "de": "Unter einer längeren Antwort in einem Projekt füllt „Als Aktenvermerk schreiben“ das Eingabefeld mit der passenden Bitte, und Piloti schreibt daraufhin einen Entwurf in die Projektdateien."
   },
@@ -5128,6 +5180,10 @@
     "de": "Wenn eine neuere Revision einer Zeichnung abgelegt wird, kann Piloti sie jetzt automatisch mit der vorherigen vergleichen und Änderungen als Vorschläge in der neuen Revision markieren, die Sie im Review übernehmen oder verwerfen. Sie erhalten eine Nachricht in Ihrer Inbox – und keine, wenn keine sichtbaren Änderungen vorliegen."
   },
   {
+    "en": "When a norm your office holds is no longer the binding edition for one of your active projects, whoever manages the Büroablage finds it once in the Postfach, with the projects it affects.",
+    "de": "Wenn eine Norm aus Ihrer Büroablage für eines Ihrer aktiven Projekte nicht mehr die verbindliche Ausgabe ist, findet die zuständige Person sie einmalig im Postfach – zusammen mit den betroffenen Projekten."
+  },
+  {
     "en": "When a page cannot be found, you lack access to it, or something goes wrong on our side, the screen now says so with a small drawing and offers a way on. An error screen also shows a reference you can quote, and \"Report the error\" opens an email to us with the address and that reference filled in.",
     "de": "Wenn eine Seite nicht gefunden werden kann, Ihnen der Zugriff darauf fehlt oder bei uns etwas schiefgeht, zeigt der Bildschirm das jetzt mit einer kleinen Illustration an und bietet Ihnen eine Möglichkeit, fortzufahren. Auf einem Fehlerbildschirm wird außerdem eine Referenz angezeigt, die Sie angeben können. Über „Fehler melden“ öffnen Sie eine E-Mail an uns, in der die Adresse und die Referenz bereits eingetragen sind."
   },
@@ -5198,6 +5254,10 @@
   {
     "en": "When another AI assistant searches your documents through Piloti, a long result now keeps every hit with its citation instead of losing the last ones, and the assistant is no longer asked for a note it never needed.",
     "de": "Wenn ein anderer KI-Assistent Ihre Dokumente über Piloti durchsucht, bleiben bei langen Ergebnissen jetzt alle Treffer samt Quellenangaben erhalten, statt dass die letzten verloren gehen, und der Assistent wird nicht mehr nach einer Notiz gefragt, die er nie benötigt hat."
+  },
+  {
+    "en": "When another edition of a standard binds on your project's reference day than the one in the Büroablage, the answer may still use your copy, and says which edition binds and under what. Without a reference day it says that it used today's date.",
+    "de": "Wenn am Stichtag Ihres Projekts eine andere Ausgabe einer Norm maßgeblich ist als die in der Büroablage, kann die Antwort dennoch Ihre Kopie heranziehen und nennt, welche Ausgabe maßgeblich ist und unter welchen Voraussetzungen. Ohne Stichtag gibt sie an, dass sie das heutige Datum verwendet."
   },
   {
     "en": "When everything an upload brought in has been read, your inbox tells you, with a summary of what arrived, where it was filed, what each file is, and what was held back or failed. Project settings list every upload with its outcome and who uploaded it.",
@@ -5414,6 +5474,10 @@
   {
     "en": "When you upload a new version of a file under the same name, the document type, display title and folder carry over from the earlier version. Before, they were lost, and Piloti guessed the document type from the file name again.",
     "de": "Wenn Sie eine neue Fassung einer Datei unter demselben Namen hochladen, bleiben Dokumentart, Anzeigetitel und Ordner der früheren Fassung erhalten. Bisher gingen sie verloren, und Piloti leitete die Dokumentart erneut aus dem Dateinamen ab."
+  },
+  {
+    "en": "When you upload a norm to a project, the norm dialog opens in Dateien with its kind, designation and edition and asks where it belongs: the Büroablage, a suggestion for it, only this project, or later.",
+    "de": "Wenn Sie eine Norm in ein Projekt hochladen, öffnet sich in Dateien der Normdialog mit Art, Bezeichnung und Ausgabe und fragt, wohin sie gehört: in die Büroablage, als Vorschlag für die Büroablage, nur in dieses Projekt oder später."
   },
   {
     "en": "When you write @Piloti in an Anmerkung's thread or answer a question Piloti asked there, Piloti answers in that thread even when nobody has the chat open. You can also hand an open Anmerkung to Piloti („An Piloti delegieren“): it stays assigned to its person, and Piloti works it for you and hands it back with its reply.",
@@ -5658,6 +5722,10 @@
   {
     "en": "Your office's existing email address for a project can now feed its E-Mail-Eingang: redirect it with an Outlook rule and enter it under Einstellungen › Dokumente, where the card shows both setups, Cc and redirect, in a line each to copy. Mail to it then counts as sent to the project, so your own signed mail is filed directly.",
     "de": "Die bestehende E-Mail-Adresse Ihres Büros für ein Projekt können Sie jetzt mit dessen E-Mail-Eingang verknüpfen: Richten Sie dazu eine Weiterleitung mit einer Outlook-Regel ein und tragen Sie die Adresse unter Einstellungen › Dokumente ein. Die Karte zeigt beide Varianten – Cc und Weiterleitung – jeweils in einer kopierbaren Zeile. E-Mails an diese Adresse gelten dann als ans Projekt gesendet, sodass Ihre eigenen E-Mails mit Signatur direkt abgelegt werden."
+  },
+  {
+    "en": "Your office's own standards, guidelines, authority directives and commentaries now have their own tab in the Büroablage, \"Normen & Richtlinien\", beside your folders. Adding one no longer asks for licence statements.",
+    "de": "Die eigenen Normen, Richtlinien, Behördenvorgaben und Kommentare Ihres Büros haben jetzt neben Ihren Ordnern einen eigenen Reiter in der Büroablage: „Normen & Richtlinien“. Beim Hinzufügen werden Sie nicht mehr nach Lizenzangaben gefragt."
   },
   {
     "en": "Your office's shared documents now have one name everywhere: Büroablage, in the navigation, on source labels, in upload messages and in Piloti's answers. The English interface calls it Office filing.",

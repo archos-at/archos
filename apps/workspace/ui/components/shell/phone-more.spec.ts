@@ -47,11 +47,11 @@ describe('moreDestinations: what "Mehr" lists', () => {
 
   test('in a project it lists the rail sections without a tab, gated as the rail gates them', () => {
     const keys = (flags: MoreFlags) => moreDestinations('p1', '/app/projects/p1/chat', flags).map((d) => d.key)
-    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'baseKnowledge', 'search', 'profile', 'memory', 'organization', 'platform', 'whats-new'])
+    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'memory', 'organization', 'platform', 'whats-new'])
     expect(keys(NONE)).toEqual(['search', 'profile', 'memory', 'whats-new'])
     expect(keys({ ...ALL, showSkills: false })).not.toContain('automation')
     expect(keys({ ...ALL, canAccessOfficeShelf: false })).not.toContain('officeShelf')
-    expect(keys({ ...ALL, canAccessOfficeStandards: false })).not.toContain('baseKnowledge')
+    expect(keys(ALL)).not.toContain('baseKnowledge')
   })
 
   test('groups the places as the rail does: the project’s, then the organisation’s', () => {

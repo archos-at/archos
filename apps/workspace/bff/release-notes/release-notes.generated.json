@@ -131,6 +131,54 @@
           "section": "features",
           "area": "documents",
           "text": {
+            "en": "Your office's own standards, guidelines, authority directives and commentaries now have their own tab in the Büroablage, \"Normen & Richtlinien\", beside your folders. Adding one no longer asks for licence statements.",
+            "de": "Die eigenen Normen, Richtlinien, Behördenvorgaben und Kommentare Ihres Büros haben jetzt neben Ihren Ordnern einen eigenen Reiter in der Büroablage: „Normen & Richtlinien“. Beim Hinzufügen werden Sie nicht mehr nach Lizenzangaben gefragt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The Büroablage has one upload, and ARCHOS asks about the norms among your files in one dialog: kind, designation, edition and topic, with \"Keine Norm\" for anything it got wrong, and a newer edition or a second copy of a norm you hold already recognised as such. Ordinary files go to your folders as before.",
+            "de": "In der Büroablage gibt es nur einen Upload, und ARCHOS fragt in einem Dialog nach den Normen in Ihren Dateien: Art, Bezeichnung, Ausgabe und Thema. Für alles, was nicht stimmt, wählen Sie „Keine Norm“; eine neuere Ausgabe oder ein weiteres Exemplar einer Norm, die Sie bereits haben, wird als solches erkannt. Normale Dateien landen wie bisher in Ihren Ordnern."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A norm uploaded to a project is offered for the Büroablage, where every project finds it. You move it there, or suggest it to whoever manages the Büroablage, or leave it in the project; a moved norm leaves a reference behind in the project folder.",
+            "de": "Eine in ein Projekt hochgeladene Norm wird für die Büroablage vorgeschlagen, in der sie für alle Projekte auffindbar ist. Sie verschieben sie dorthin, schlagen sie der zuständigen Person für die Büroablage vor oder belassen sie im Projekt; beim Verschieben bleibt im Projektordner ein Verweis zurück."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Norms you had filed in ordinary Büroablage folders are found, and the folder offers to move them under \"Normen & Richtlinien\" or to leave them where they are.",
+            "de": "Normen, die Sie in gewöhnlichen Büroablage-Ordnern abgelegt haben, werden gefunden, und der Ordner bietet Ihnen an, sie nach „Normen & Richtlinien“ zu verschieben oder dort zu belassen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "\"Nicht mehr als Norm führen\" takes a norm off at once and keeps its file in your folders; \"Rückgängig\" brings it back as it was, with its editions, checks and topic. A norm you bought is read like any other once you confirm it.",
+            "de": "„Nicht mehr als Norm führen“ entfernt eine Norm sofort und lässt ihre Datei in Ihren Ordnern; „Rückgängig“ stellt sie mit ihren Ausgaben, Prüfungen und ihrem Thema wieder her. Eine gekaufte Norm können Sie nach der Bestätigung wie jede andere lesen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "For an uploaded norm, ARCHOS reads the edition and designation from its title page and says in the dialog where they differ from the file name. When the title page names an edition you hold as replaced, that copy shows \"Abgelöst\" once you confirm the new one.",
+            "de": "Bei einer hochgeladenen Norm liest ARCHOS Ausgabe und Bezeichnung vom Titelblatt aus und zeigt im Dialog an, worin sie vom Dateinamen abweichen. Nennt das Titelblatt eine Ausgabe, die Sie als abgelöst führen, wird dieses Exemplar mit „Abgelöst“ gekennzeichnet, sobald Sie die neue Ausgabe bestätigen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
             "en": "In Project mail, all attachments of a mail can be selected at once and the selected ones sent to one folder in a single step.",
             "de": "In Project mail können Sie alle Anhänge einer Mail auf einmal auswählen und die ausgewählten in einem Schritt in einen Ordner verschieben."
           }
@@ -225,6 +273,22 @@
         },
         {
           "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Under Normen & Richtlinien a norm's Stand now comes from the law or guideline that makes an edition of it binding, where ARCHOS knows one: „Aktuell“ when your office holds that edition, „Neuere Ausgabe“ when a newer one binds, and the norm says under what. Everything else keeps a quiet yearly check, and a norm your office never bought is never held against it.",
+            "de": "Unter Normen & Richtlinien ergibt sich der Stand einer Norm jetzt – sofern ARCHOS eine Rechtsgrundlage kennt – aus dem Gesetz oder der Richtlinie, durch die eine Ausgabe verbindlich wird: „Aktuell“, wenn Ihr Büro diese Ausgabe besitzt, „Neuere Ausgabe“, wenn eine neuere Ausgabe verbindlich ist; die Norm nennt die Rechtsgrundlage. Alles andere wird weiterhin unauffällig jährlich geprüft, und eine Norm, die Ihr Büro nie gekauft hat, wird ihm nicht angelastet."
+          }
+        },
+        {
+          "section": "features",
+          "area": "office-knowledge",
+          "text": {
+            "en": "When a norm your office holds is no longer the binding edition for one of your active projects, whoever manages the Büroablage finds it once in the Postfach, with the projects it affects.",
+            "de": "Wenn eine Norm aus Ihrer Büroablage für eines Ihrer aktiven Projekte nicht mehr die verbindliche Ausgabe ist, findet die zuständige Person sie einmalig im Postfach – zusammen mit den betroffenen Projekten."
+          }
+        },
+        {
+          "section": "features",
           "area": "answers",
           "text": {
             "en": "Select text in an answer and choose „Dazu fragen“ to ask about exactly that part, which appears above the message field until you send or remove it. A follow-up no longer has to describe or retype the sentence it means.",
@@ -237,6 +301,14 @@
           "text": {
             "en": "When you connect your own AI assistant to the workspace, the setup steps now suggest the server name „workspace“. Assistants you have already connected keep the name you gave them and need no change.",
             "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbinden, schlagen die Einrichtungsschritte jetzt den Servernamen „workspace“ vor. Bereits verbundene Assistenten behalten den von Ihnen vergebenen Namen und müssen nicht geändert werden."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "office-knowledge",
+          "text": {
+            "en": "When another edition of a standard binds on your project's reference day than the one in the Büroablage, the answer may still use your copy, and says which edition binds and under what. Without a reference day it says that it used today's date.",
+            "de": "Wenn am Stichtag Ihres Projekts eine andere Ausgabe einer Norm maßgeblich ist als die in der Büroablage, kann die Antwort dennoch Ihre Kopie heranziehen und nennt, welche Ausgabe maßgeblich ist und unter welchen Voraussetzungen. Ohne Stichtag gibt sie an, dass sie das heutige Datum verwendet."
           }
         },
         {
@@ -353,6 +425,14 @@
         },
         {
           "section": "improvements",
+          "area": "office-knowledge",
+          "text": {
+            "en": "When you upload a norm to a project, the norm dialog opens in Dateien with its kind, designation and edition and asks where it belongs: the Büroablage, a suggestion for it, only this project, or later.",
+            "de": "Wenn Sie eine Norm in ein Projekt hochladen, öffnet sich in Dateien der Normdialog mit Art, Bezeichnung und Ausgabe und fragt, wohin sie gehört: in die Büroablage, als Vorschlag für die Büroablage, nur in dieses Projekt oder später."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "In the E-Mail-Eingang, ARCHOS now also suggests a folder and a Dokumentart for mail whose sender's domain did not confirm it, which is most mail from outside the office. You still file it yourself, with fewer folders to pick by hand.",
@@ -403,6 +483,38 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "A PDF page no longer stays white when you open a plan in the preview, in the review view or to add an annotation. You no longer have to resize the window or fit the page again to make it appear.",
+            "de": "Eine PDF-Seite bleibt nicht mehr weiß, wenn Sie einen Plan in der Vorschau oder in der Prüfansicht öffnen oder eine Anmerkung hinzufügen. Sie müssen das Fenster nicht mehr skalieren oder die Seite erneut einpassen, damit sie angezeigt wird."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Pages further down a PDF are drawn before you scroll to them, and stay drawn when you scroll back, instead of flashing white.",
+            "de": "Seiten weiter unten in einem PDF werden bereits gerendert, bevor Sie zu ihnen scrollen, und bleiben auch beim Zurückscrollen sichtbar, statt weiß aufzublitzen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Opening an annotation from the file preview or a link now scrolls the review view to that annotation, not to a page a few pages earlier.",
+            "de": "Wenn Sie eine Anmerkung aus der Dateivorschau oder über einen Link öffnen, scrollt die Review-Ansicht jetzt direkt zu dieser Anmerkung statt zu einer Seite ein paar Seiten davor."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "After zooming in on selected text, the bar to copy it as a citation now stays next to the selection.",
+            "de": "Nach dem Heranzoomen bleibt die Leiste zum Kopieren des ausgewählten Textes als Zitat jetzt neben der Auswahl."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "An opened mail no longer stays on \"Being checked for malware\" or \"still reading\" until reloaded, and a mail reloaded after someone else's change keeps the folders you had chosen.",
             "de": "Eine geöffnete E-Mail bleibt nicht mehr bis zum Neuladen bei „Wird auf Malware geprüft“ oder „Wird noch gelesen“ hängen, und eine nach einer Änderung durch eine andere Person neu geladene E-Mail behält die von Ihnen ausgewählten Ordner."
           }
@@ -445,6 +557,30 @@
           "text": {
             "en": "An automatic reply that carries an attachment now waits in the E-Mail-Eingang, marked as automatic, instead of being discarded unseen.",
             "de": "Eine automatische Antwort mit Anhang bleibt nun im E-Mail-Eingang und wird als automatisch gekennzeichnet, statt unbemerkt verworfen zu werden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A norm moved or taken over into the Büroablage is now confirmed with the values you saw, so answers keep using it instead of waiting unread for a confirmation.",
+            "de": "Eine in die Büroablage verschobene oder übernommene Norm wird jetzt mit den angezeigten Werten bestätigt, sodass Antworten sie weiterhin verwenden, statt auf eine ungelesene Bestätigung zu warten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A suggestion nobody in the project may decide is no longer reported as sent: ARCHOS says so and names who could decide it, and the offer stays.",
+            "de": "Ein Vorschlag, über den im Projekt niemand entscheiden darf, wird nicht mehr als gesendet angezeigt: ARCHOS weist darauf hin und nennt, wer darüber entscheiden dürfte; das Angebot bleibt bestehen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "office-knowledge",
+          "text": {
+            "en": "A project's reference to a norm taken off Normen & Richtlinien now says it still lies in the Büroablage and opens the file.",
+            "de": "Ein Projektverweis auf eine aus Normen & Richtlinien entfernte Norm zeigt jetzt an, dass sie weiterhin in der Büroablage liegt, und öffnet die Datei."
           }
         },
         {

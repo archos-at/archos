@@ -73,3 +73,32 @@ def test_the_file_name_finds_nothing_and_the_next_turn_carries_none() -> None:
     assert "edition_label" not in source_entry_to_wire(_entry(None, file_name="norm.pdf"))
     set_turn_office_labels(None)
     assert "edition_label" not in source_entry_to_wire(_entry("edition_office_1"))
+
+
+def test_a_norm_names_the_shelf_it_came_from_whatever_its_class() -> None:
+    office = source_entry_to_wire(
+        SourceEntry(
+            title="OENORM_B_1600.pdf",
+            citation_key="OENORM_B_1600.pdf, p.3",
+            collection="archiv_org-1",
+            shelf="office_shelf",
+            edition_id="edition_office_1",
+            doc_class="external_standard",
+            source_type="knowledge_layer",
+            chunk_text="A passage.",
+        )
+    )
+    project = source_entry_to_wire(
+        SourceEntry(
+            title="OENORM_B_1600.pdf",
+            citation_key="OENORM_B_1600.pdf, p.3",
+            collection="proj_p1",
+            shelf="project",
+            doc_class="external_standard",
+            source_type="knowledge_layer",
+            chunk_text="A passage.",
+        )
+    )
+    assert (office["kind"], office["lane_label"], office["edition_id"]) == ("office", "Büroablage", "edition_office_1")
+    assert (project["kind"], project["lane_label"]) == ("project", "Projektwissen")
+    assert "edition_id" not in project

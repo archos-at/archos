@@ -7,6 +7,7 @@ import { Chip } from '@/components/ui/chip'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { cn } from '@/lib/utils'
+import { baseKnowledgeHref } from '@/lib/base-knowledge/entry-link'
 import type { FileItem } from '../file-types'
 
 export function BaseKnowledgeChip({ file, className }: { file: Pick<FileItem, 'baseKnowledgeEntryId'>; className?: string }): JSX.Element | null {
@@ -15,7 +16,7 @@ export function BaseKnowledgeChip({ file, className }: { file: Pick<FileItem, 'b
   return (
     <Chip asChild size="sm" variant="info" interactive className={cn('shrink-0', className)}>
       <Link
-        href={`/app/base-knowledge?file=${encodeURIComponent(file.baseKnowledgeEntryId)}`}
+        href={baseKnowledgeHref(file.baseKnowledgeEntryId, 'file')}
         onClick={(event) => event.stopPropagation()}
         title={t('baseKnowledge.open')}
         data-testid="base-knowledge-chip"

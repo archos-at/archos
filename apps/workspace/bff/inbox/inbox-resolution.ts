@@ -9,10 +9,12 @@ import {
   openRecipientsOfGroup,
   resolveInboxItemsForTargets,
   resolveOpenItemsAnchoredOn,
+  resolveOpenItemsOfType,
   retractOccurrenceAnchoredOn,
   rewriteItemPayloadsAnchoredOn,
   type AnchoredRows,
   type InboxResolutionTarget,
+  type OpenItemsOfType,
 } from './repository'
 
 export async function openRecipientsOf(organizationId: string, groupKey: string): Promise<string[]> {
@@ -38,6 +40,10 @@ export async function resolveInboxItemsAnchoredOn(input: {
   recipientUserId?: string
 }): Promise<number> {
   return nudge(await resolveOpenItemsAnchoredOn(input))
+}
+
+export async function resolveInboxItemsOfType(input: OpenItemsOfType): Promise<number> {
+  return nudge(await resolveOpenItemsOfType(input))
 }
 
 async function nudge(recipients: readonly string[]): Promise<number> {

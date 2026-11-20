@@ -216,6 +216,20 @@ describe('useFileUpload — durable document uploads', () => {
     expect((xhr.last().body as FormData).get('projectId')).toBeNull()
   })
 
+  test('sends no flag that would route an Archiv upload to the norms: the server reads a norm from its name', async () => {
+    const { result } = renderHook(() => useFileUpload({ collectionName: 'archiv_org-1', officeShelf: true }))
+    let pending!: Promise<unknown>
+    await act(async () => {
+      pending = result.current.uploadFiles(makeFiles(1))
+      await Promise.resolve()
+    })
+    await act(async () => {
+      xhr.last().respond(200, uploadOk('doc-0'))
+      await pending
+    })
+    expect((xhr.last().body as FormData).get('forStandards')).toBeNull()
+  })
+
   test('the Archiv files into the folder the reader stands in, and records where a tree came from', async () => {
     const { result } = renderHook(() =>
       useFileUpload({ collectionName: 'archiv_org-1', officeShelf: true, folderId: 'folder-3' })

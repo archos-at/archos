@@ -54,6 +54,8 @@ export type ServerEvent =
   | 'inbound_mail_address_forwards_changed'
   | 'mail_thread_followed'
   | 'mail_thread_original_downloaded'
+  | 'norm_recognized_at_upload'
+  | 'office_norm_cited'
 
 let client: PostHog | null = null
 let resolved = false

@@ -920,6 +920,26 @@
    "withheld": null,
    "reason": null
   },
+  "office-shelf-folder-norms-decide": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "whether a file in an ordinary folder becomes a norm the office relies on, or stays an ordinary file for good, is the person’s decision"
+  },
+  "office-shelf-folder-norms-list": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "office-shelf-folder-update": {
    "kind": "catalog",
    "domain": "folders",
@@ -2850,6 +2870,16 @@
    "withheld": null,
    "reason": null
   },
+  "base-knowledge-recognize": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "base-knowledge-remove": {
    "kind": "catalog",
    "domain": "knowledge",
@@ -2861,6 +2891,26 @@
    "reason": null
   },
   "base-knowledge-report": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "base-knowledge-settle": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "which documents the office relies on in its answers is the person’s decision; the agent proposes, the person confirms"
+  },
+  "base-knowledge-unlist": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,
@@ -2921,6 +2971,26 @@
    "reason": null
   },
   "norm-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "project-norm-list": {
+   "kind": "catalog",
+   "domain": "knowledge",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "project-norm-place": {
    "kind": "catalog",
    "domain": "knowledge",
    "sensitivity": null,

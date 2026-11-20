@@ -170,10 +170,10 @@ describe("code-runner", () => {
     ]);
   });
 
-  it("requests 1 vCPU and 1 GiB, limited to 4 GiB for four slots at their memory cap", async () => {
+  it("requests 250m CPU and 1.5 GiB (an idle pod holds about 1.15 GiB), limited to 4 GiB for four slots at their memory cap", async () => {
     const spec = await resolve(find(DEPLOYMENT, "code-runner").inputs.spec);
     const r = spec.template.spec.containers[0].resources;
-    expect(r.requests).toEqual({ cpu: "250m", memory: "1Gi" });
+    expect(r.requests).toEqual({ cpu: "250m", memory: "1536Mi" });
     expect(r.limits.memory).toBe("4Gi");
     expect(r.limits.cpu).toBeDefined();
   });
@@ -236,13 +236,13 @@ describe("code-runner", () => {
     }
   });
 
-  it("scales between two and ten pods on CPU and memory", async () => {
+  it("scales between two and ten pods on CPU only, never on memory", async () => {
     const so = find("kubernetes:keda.sh/v1alpha1:ScaledObject", "code-runner").inputs;
     const spec = await resolve(so.spec);
     expect(spec.minReplicaCount).toBe(2);
     expect(spec.maxReplicaCount).toBe(10);
     expect(await resolve(spec.scaleTargetRef.name)).toBe("code-runner");
-    expect(spec.triggers.map((t: { type: string }) => t.type)).toEqual(["cpu", "memory"]);
+    expect(spec.triggers.map((t: { type: string }) => t.type)).toEqual(["cpu"]);
     expect(spec.triggers.every((t: { metricType: string }) => t.metricType === "Utilization")).toBe(true);
 
     const deployment = await resolve(find(DEPLOYMENT, "code-runner").inputs.spec);

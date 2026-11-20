@@ -20,6 +20,8 @@ function payloadFacts(typed: KindPayload) {
       return { operation: null, items: typed.payload.patch.length, memoryScope: null }
     case 'operation':
       return { operation: typed.payload.operation, items: 1, memoryScope: null }
+    case 'office_shelf_norm':
+      return { operation: null, items: typed.payload.documents.length, memoryScope: null }
   }
 }
 

@@ -637,13 +637,12 @@ def lane_for_hit(
     if source_format == MAIL_SOURCE_FORMAT:
         return (OFFICE_MAIL_LANE if known_shelf is Shelf.OFFICE_SHELF else MAIL_LANE, MAIL_LANE_LABEL)
     users_shelf = known_shelf in (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION)
-    if doc_class:
-        from agent.knowledge.document_classification import DEFAULT_DOC_CLASS
+    if doc_class and not users_shelf:
         from agent.knowledge.document_classification import DOCUMENT_CLASS_LANES
         from agent.knowledge.document_classification import canonical_doc_class
 
         doc_class = canonical_doc_class(doc_class)
-        if doc_class and not (doc_class == DEFAULT_DOC_CLASS and users_shelf):
+        if doc_class:
             lane_key = DOCUMENT_CLASS_LANES[doc_class]
             return (lane_key, _LANE_LABELS.get(lane_key, "Baurecht"))
     if known_shelf is Shelf.OFFICE_SHELF:

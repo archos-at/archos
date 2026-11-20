@@ -8,9 +8,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { findOperation } from '@/lib/agent-api/catalog'
 import { callOperation } from '@/lib/agent-api/dispatch'
 
-vi.mock('@/lib/office-shelf/service', () => ({ uploadOfficeShelfDocument: vi.fn() }))
+vi.mock('@/lib/base-knowledge/office/norm-intake', () => ({ uploadToOfficeShelf: vi.fn() }))
 
-import { uploadOfficeShelfDocument } from '@/lib/office-shelf/service'
+import { uploadToOfficeShelf } from '@/lib/base-knowledge/office/norm-intake'
 
 const session = {
   userId: 'user-1',
@@ -27,7 +27,7 @@ const OLDER = '0b8f3c1e-0d3a-4d2e-9a53-6d1f9d6c2b11'
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(uploadOfficeShelfDocument).mockResolvedValue({
+  vi.mocked(uploadToOfficeShelf).mockResolvedValue({
     documentId: 'd1',
     jobId: null,
     status: 'uploaded',
@@ -51,7 +51,7 @@ describe('office-shelf-document-upload', () => {
     )
 
     expect(result.status).toBe(200)
-    const [, file, , options] = vi.mocked(uploadOfficeShelfDocument).mock.calls[0] ?? []
+    const [, file, , options] = vi.mocked(uploadToOfficeShelf).mock.calls[0] ?? []
     expect(file?.name).toBe('Norm.pdf')
     expect(await file?.text()).toBe('%PDF fake')
     expect(options).toMatchObject({
@@ -67,6 +67,6 @@ describe('office-shelf-document-upload', () => {
     const op = findOperation('office-shelf-document-upload')
     if (!op) throw new Error('office-shelf-document-upload is not in the catalog')
     await callOperation(op, { body: { files: [{ name: 'a.pdf', contentBase64: 'YQ==' }] } }, session)
-    expect(vi.mocked(uploadOfficeShelfDocument).mock.calls[0]?.[3]).toMatchObject({ folderId: null, originPath: null })
+    expect(vi.mocked(uploadToOfficeShelf).mock.calls[0]?.[3]).toMatchObject({ folderId: null, originPath: null })
   })
 })

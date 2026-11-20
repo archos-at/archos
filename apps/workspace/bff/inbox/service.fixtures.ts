@@ -52,6 +52,7 @@ export const ALL_TYPES = [
   'annotation.mentioned',
   'root_sort.ready',
   'root_sort.failed',
+  'office_shelf.norm_suggested',
   'inbound_mail.waiting',
   'inbound_mail.expiring',
   'inbound_mail.decided',
@@ -65,6 +66,7 @@ export const ALL_TYPES = [
   'inbound_mail.expired',
   'mail_thread.follow_ended',
   'inbound_mail.fraud_reported',
+  'base_knowledge.new_edition',
 ] as const satisfies readonly InboxItemType[]
 
 export const OPERATIONAL_TYPES = [
@@ -91,6 +93,7 @@ export const OPERATIONAL_TYPES = [
   'annotation.mentioned',
   'root_sort.ready',
   'root_sort.failed',
+  'office_shelf.norm_suggested',
   'inbound_mail.waiting',
   'inbound_mail.expiring',
   'inbound_mail.decided',
@@ -104,6 +107,7 @@ export const OPERATIONAL_TYPES = [
   'inbound_mail.expired',
   'mail_thread.follow_ended',
   'inbound_mail.fraud_reported',
+  'base_knowledge.new_edition',
 ] as const satisfies readonly InboxItemType[]
 
 export const at = new Date('2026-07-29T10:00:00.000Z')

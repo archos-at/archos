@@ -15,12 +15,15 @@ import { findOwnUploadBatch } from '@/lib/upload-batches/service'
 import { getOwnProductFeedback } from '@/lib/product-feedback/repository'
 import { feedbackThreadHref } from '@/lib/product-feedback/types'
 import { inboundMailPaths, inboundMailReadyPath } from '@/lib/inbound-mail/paths'
+import { baseKnowledgeHref } from '@/lib/base-knowledge/entry-link'
 
 export interface InboxTargetLinkContext {
   itemType: InboxItemType
   anchorId?: string | null
   taskId?: string | null
   run?: RunMessageRef | null
+  folderId?: string | null
+  entryId?: string | null
 }
 
 export interface RunMessageRef {
@@ -84,10 +87,11 @@ const organizationTarget: InboxTargetDescriptor = {
     if (resourceId !== session.organizationId) return null
     return {
       projectId: null,
-      deepLink: (context) =>
-        context.itemType.startsWith('root_sort.')
-          ? rootSortHref('/app/office-shelf', context.anchorId)
-          : (ORGANIZATION_DESTINATIONS[context.itemType] ?? '/app/organization'),
+      deepLink: (context) => {
+        if (context.itemType.startsWith('root_sort.')) return rootSortHref('/app/office-shelf', context.anchorId)
+        if (context.itemType === 'base_knowledge.new_edition') return baseKnowledgeHref(context.entryId)
+        return ORGANIZATION_DESTINATIONS[context.itemType] ?? '/app/organization'
+      },
     }
   },
 }
@@ -113,6 +117,10 @@ const projectTarget: InboxTargetDescriptor = {
           return `/app/projects/${resourceId}/files${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
         }
         if (context.itemType === 'agent.proposal_waiting') return `/app/projects/${resourceId}/files`
+        if (context.itemType.startsWith('office_shelf.')) {
+          const folder = context.folderId?.trim()
+          return `/app/projects/${resourceId}/files${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`
+        }
         if (context.itemType === 'agent.intake_ready') return `/app/projects/${resourceId}/setup`
         const mailLink = inboundMailLink(resourceId, context)
         if (mailLink) return mailLink

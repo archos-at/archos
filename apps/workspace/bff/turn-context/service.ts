@@ -26,7 +26,7 @@ import { listConversationProposals } from '@/lib/proposals/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { countActiveRunsInProject } from '@/lib/tasks/repository'
 import { officeConventionsForTurn } from '@/lib/office-conventions/service'
-import { baseKnowledgeForTurn } from '@/lib/base-knowledge/office/service'
+import { baseKnowledgeForTurn, type TurnKnowledge } from '@/lib/base-knowledge/office/service'
 import { officeStandardsEnabled } from '@/lib/base-knowledge/office/access'
 import { knowledgeContextForTurn } from '@/lib/base-knowledge/context/service'
 import { goldenTurnFor } from '@/lib/base-knowledge/golden/turn'
@@ -108,9 +108,9 @@ async function loadPersonalMemory(context: VerifiedRequestContext, solo: Promise
   )
 }
 
-async function loadOfficeStandards(organizationId: string, projectId: string | null) {
+async function loadOfficeStandards(organizationId: string, projectId: string | null, knowledge: Promise<TurnKnowledge>) {
   if (!(await officeStandardsEnabled(organizationId))) return null
-  return baseKnowledgeForTurn(organizationId, projectId)
+  return baseKnowledgeForTurn(organizationId, projectId, knowledge)
 }
 
 async function checkAccess(session: AuthorizedSession, context: VerifiedRequestContext): Promise<ProjectAccess | null> {
@@ -142,6 +142,9 @@ export async function loadTurnContext(
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
   const goldenTurn = goldenTurnFor(organizationId, conversationId)
   const solo = readSoloAudience(context)
+  const knowledge = goldenTurn.then(
+    (golden) => golden?.knowledgeContext ?? knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
+  )
 
   const [projectContext, orgInstructions, digest, personalMemory, temporary, decisions, reviewDecisions, drewOnOthers, referenceProjects, folders, workspace, baseKnowledge, knowledgeContext, projectModels] = await Promise.all([
     projectId ? timed('profile', () => loadProjectPromptView(projectId, organizationId)) : Promise.resolve(null),
@@ -159,8 +162,8 @@ export async function loadTurnContext(
     timed('references', () => advisory('load reference projects', () => loadReferenceBrief(organizationId, projectId ?? null))),
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
     timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query, solo))),
-    timed('base-knowledge', () => advisory('load the base knowledge', () => loadOfficeStandards(organizationId, projectId ?? null))),
-    goldenTurn.then((golden) => golden?.knowledgeContext ?? knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null)),
+    timed('base-knowledge', () => advisory('load the base knowledge', () => loadOfficeStandards(organizationId, projectId ?? null, knowledge))),
+    knowledge,
     projectId
       ? timed('models', () => advisory('read the project models', () => projectModelKinds(organizationId, projectId, conversationId ?? null)))
       : Promise.resolve(null),

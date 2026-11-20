@@ -48,7 +48,8 @@ export {
   markItemsInertForSubjectRow,
   resolveInboxItemsForTargets,
   resolveOpenItemsAnchoredOn,
+  resolveOpenItemsOfType,
   retractOccurrenceAnchoredOn,
   rewriteItemPayloadsAnchoredOn,
 } from './inbox-item-lifecycle'
-export type { AnchoredRows, InboxResolutionTarget } from './inbox-item-lifecycle'
+export type { AnchoredRows, InboxResolutionTarget, OpenItemsOfType } from './inbox-item-lifecycle'

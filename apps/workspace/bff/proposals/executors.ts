@@ -3,7 +3,7 @@ import { captureServer } from '@/lib/analytics/posthog-server'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { addResourceAssignment, listAssignmentCandidates } from '@/lib/assignments/service'
 import { ensureOfficeShelfFolderPaths, listOfficeShelfFolders, updateOfficeShelfFolder } from '@/lib/office-shelf/folder-service'
-import { resolveOfficeShelfDocumentsByName } from '@/lib/office-shelf/service'
+import { assertMoveKeepsOutOfStandards, resolveOfficeShelfDocumentsByName } from '@/lib/office-shelf/service'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
 import { renameDocument } from '@/lib/documents/document-edits'
 import { resolveProjectDocumentsByName } from '@/lib/documents/document-listing'
@@ -154,6 +154,7 @@ async function makeNewFolder(
 const EXECUTORS: Record<FileOperationPayload['operation'], Executor> = {
   move: async (item, context) => {
     const [documentId, folderId] = await Promise.all([documentIdFor(item, context), targetFolderId(item, context)])
+    if (shelfOf(item) === 'office') await assertMoveKeepsOutOfStandards(context.session, documentId, folderId)
     const result = await moveDocumentToFolder({ documentId, folderId }, context.session)
     if (!result.ok) throw new Error(result.error)
   },
