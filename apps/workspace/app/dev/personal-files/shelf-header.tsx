@@ -87,6 +87,7 @@ function WhoPill({ own }: { own: boolean }): JSX.Element {
 
 export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, office, query, noProject = false, alone = false, plainTitle = false }: { own: boolean; form: string; moreOpen: boolean; crumb: string; trashOpen?: boolean; office?: string; query?: string; noProject?: boolean; alone?: boolean; plainTitle?: boolean }): JSX.Element {
   const who = useSearchParams()?.get('who')
+  const line = useSearchParams()?.get('line') === '1'
   const search = (
     <div className={`bg-sheet flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm ${query ? 'border-foreground' : 'border-field-border text-muted-foreground'}`}>
       <Search className="size-4 shrink-0" aria-hidden />
@@ -130,7 +131,7 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
         <div>
           <span className="text-muted-foreground text-meta">{crumb}{who === 'c' ? (own ? ' · Nur Sie' : ' · Projektteam') : ''}</span>
           <h1 className="text-page-title">{office ?? (alone && own && !plainTitle ? 'Meine Ablage' : 'Ablage')}</h1>
-          {alone && who === 'b' && <p className="text-muted-foreground mt-1 text-sm">{own ? 'Nur Sie sehen diese Ablage.' : 'Alle im Projekt sehen diese Ablage.'}</p>}
+          {alone && (who === 'b' || line) && <p className="text-muted-foreground mt-1 text-sm">{own ? 'Nur Sie sehen diese Ablage. Sie gehört zu keinem Projekt.' : 'Alle im Projekt sehen diese Ablage.'}</p>}
         </div>
         {alone && !who && <Who own={own} />}
         {alone && who === 'd' && <WhoPill own={own} />}

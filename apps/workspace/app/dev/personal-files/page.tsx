@@ -66,7 +66,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
   const person = query?.get('person') ?? null
   const personOpen = query?.get('pact') ?? null
   const space = query?.get('space') === '1'
-  const plain = Boolean(person) || space || query?.get('room') === '1'
+  const plain = query?.get('my') !== '1' && (Boolean(person) || space || query?.get('room') === '1')
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
@@ -233,6 +233,8 @@ function AllProjects({ page, own }: { page: 'files' | 'automation'; own: boolean
 
 function AutomationPage({ own }: { own: boolean }): JSX.Element {
   const first = useFirstRoom()
+  const params = useSearchParams()
+  const my = params?.get('my') === '1'
   const [filter, setFilter] = useState<TaskFilter>('all')
   return (
     <>
@@ -240,10 +242,11 @@ function AutomationPage({ own }: { own: boolean }): JSX.Element {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="flex items-end justify-between gap-4 px-8 pb-4 pt-3">
           <div>
-            <span className="text-muted-foreground text-meta">{own ? first.name : PROJECTS[0]!.name}</span>
-            <h1 className="text-page-title">{own && !first.room ? 'Meine Automatisierungen' : 'Automatisierung'}</h1>
+            <span className="text-muted-foreground text-meta">{own ? first.name : PROJECTS[0]!.name}{first.space ? (own ? ' · Nur Sie' : ' · Projektteam') : ''}</span>
+            <h1 className="text-page-title">{own && (my || !first.room) ? 'Meine Automatisierungen' : 'Automatisierung'}</h1>
+            {params?.get('line') === '1' && <p className="text-muted-foreground mt-1 text-sm">{own ? 'Nur Sie sehen diese Automatisierungen. Sie laufen für Sie, nicht für ein Projekt.' : 'Alle im Projekt sehen diese Automatisierungen.'}</p>}
           </div>
-          <Who own={own} />
+          {!first.space && <Who own={own} />}
         </header>
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-8">
           <TaskList projectId="preview" tasks={own ? OWN_RUNS : PROJECT_RUNS} filter={filter} onFilterChange={setFilter} onSelectTask={() => {}} />
@@ -507,12 +510,13 @@ function OfficePage({ name, moreOpen }: { name: string; moreOpen: boolean }): JS
 
 function ShelfPage({ own, form, moreOpen, trashOpen, folder, query, across, alone = false }: { own: boolean; form: string; moreOpen: boolean; trashOpen: boolean; folder: string | null; query: string | null; across: boolean; alone?: boolean }): JSX.Element {
   const first = useFirstRoom()
+  const params = useSearchParams()
   return (
     <>
       <Rail own={across} section="files" gear="none" mine={alone && own} />
       {trashOpen && <TrashWindow />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={alone && own ? (across ? first.name : 'Persönlich') : own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} alone={alone} plainTitle={first.room} />
+        <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={alone && own ? (across ? first.name : 'Persönlich') : own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} alone={alone} plainTitle={first.room && params?.get('my') !== '1'} />
         <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&>div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
           {query ? <SearchHits query={query} /> : null}
           {!own && !folder && !query && <UnreadHint count={2} />}
