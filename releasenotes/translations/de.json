@@ -1188,6 +1188,10 @@
     "de": "Ein OIB-Dokument einer anderen Ausgabe als Mai 2023 trägt jetzt den richtigen Ausgabevermerk im Titel."
   },
   {
+    "en": "An Outlook archive (.pst or .ost) you upload to a project's Dateien, with „Hochladen“ or dropped on the page, is now imported as E-Mail-Verläufe and attachment folders, so the separate „Outlook-Archiv importieren“ button is gone.",
+    "de": "Ein Outlook-Archiv (.pst oder .ost), das Sie über „Hochladen“ in den Bereich „Dateien“ eines Projekts hochladen oder auf der Seite ablegen, wird jetzt als E-Mail-Verläufe und Ordner für Anhänge importiert; der separate Button „Outlook-Archiv importieren“ entfällt."
+  },
+  {
     "en": "An Outlook archive import ends with the same summary, once everything it filed has been read.",
     "de": "Ein Outlook-Archivimport endet mit derselben Zusammenfassung, sobald alles gelesen ist, was er abgelegt hat."
   },

@@ -403,6 +403,14 @@
           "section": "improvements",
           "area": "documents",
           "text": {
+            "en": "An Outlook archive (.pst or .ost) you upload to a project's Dateien, with „Hochladen“ or dropped on the page, is now imported as E-Mail-Verläufe and attachment folders, so the separate „Outlook-Archiv importieren“ button is gone.",
+            "de": "Ein Outlook-Archiv (.pst oder .ost), das Sie über „Hochladen“ in den Bereich „Dateien“ eines Projekts hochladen oder auf der Seite ablegen, wird jetzt als E-Mail-Verläufe und Ordner für Anhänge importiert; der separate Button „Outlook-Archiv importieren“ entfällt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
             "en": "An opened mail says what an unverified sender means for you (\"name and address could be forged\"), and each confirmation names what you confirm instead of one \"File anyway\".",
             "de": "Eine geöffnete E-Mail erklärt, was ein nicht verifizierter Absender für Sie bedeutet („Name und Adresse könnten gefälscht sein“), und jede Bestätigung gibt konkret an, was Sie bestätigen, statt einer allgemeinen Option „Trotzdem ablegen“."
           }
