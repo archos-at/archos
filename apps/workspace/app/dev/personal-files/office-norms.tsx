@@ -3,8 +3,7 @@
 // PROTOTYPE, not for merge: the upload menu and the norms place of the office library (concept for ticket 81).
 
 import type { JSX } from 'react'
-import identity from '@/shared/brand/identity.json'
-import { ChevronRight, FileUp, Folder, FolderUp, Mail, MailPlus, Sparkles } from 'lucide-react'
+import { ChevronDown, FileUp, FolderUp, Mail, MailPlus } from 'lucide-react'
 
 export function UploadMenu({ mail }: { mail: boolean }): JSX.Element {
   const row = 'text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal'
@@ -37,38 +36,78 @@ export function UploadMenu({ mail }: { mail: boolean }): JSX.Element {
   )
 }
 
-const TOPICS = [
-  { name: 'Barrierefreiheit', count: 2 },
-  { name: 'Brandschutz', count: 4 },
-  { name: 'Kommentare', count: 1 },
-  { name: 'Schallschutz', count: 2 },
+const NORMS = [
+  { name: 'DIN 4109-1:2018', sub: 'Schallschutz im Hochbau – Teil 1: Mindestanforderungen', topic: 'Schallschutz', kind: 'Norm', edition: '2018-01', state: 'Zu bestätigen', use: 'Erst nach Bestätigung' },
+  { name: 'ÖNORM B 1300:2018', sub: 'Objektsicherheitsprüfungen für Wohngebäude', topic: 'Brandschutz', kind: 'Norm', edition: '2018-11-01', state: 'Zu bestätigen', use: 'Erst nach Bestätigung' },
+  { name: 'ÖNORM B 8115-2:2021', sub: 'Schallschutz und Raumakustik im Hochbau – Teil 2', topic: 'Schallschutz', kind: 'Norm', edition: '2021-11-15', state: 'Neuere Ausgabe', use: 'Wird zitiert' },
+  { name: 'Bauordnung für Wien, Kommentar', sub: 'kommentar-bo.pdf', topic: 'Kommentare', kind: 'Kommentar', edition: '7. Auflage 2019', state: 'Prüfung fällig', use: 'Wird zitiert' },
+  { name: 'Weisung Dachgeschoßausbau', sub: 'ma37.pdf', topic: 'Weisungen Wien', kind: 'Weisung', edition: '2021-03-15', state: 'Prüfung fällig', use: 'Wird zitiert' },
+  { name: 'ÖNORM B 1600:2023', sub: 'Barrierefreies Bauen – Planungsgrundlagen', topic: 'Barrierefreiheit', kind: 'Norm', edition: '2023-05-01', state: 'Geprüft am 12.11.2026', use: 'Wird zitiert' },
+  { name: 'OIB-Richtlinie 2: Brandschutz', sub: 'Ausgabe Mai 2023', topic: 'Brandschutz', kind: 'Richtlinie', edition: '2023-05', state: 'Geprüft am 12.11.2026', use: 'Wird zitiert' },
 ]
 
+const STATE_TONE: Record<string, string> = {
+  'Zu bestätigen': 'bg-[#f6ecd6] text-[#8a5a00]',
+  'Neuere Ausgabe': 'bg-[#f6ecd6] text-[#8a5a00]',
+  'Prüfung fällig': 'bg-desk text-muted-foreground',
+}
+
 export function NormsPlace(): JSX.Element {
+  const chip = 'text-name inline-flex items-center gap-1.5 rounded-full px-2.5 py-1'
+  const head = 'text-muted-foreground text-meta px-3 py-2 text-left font-normal'
+  const drop = 'text-muted-foreground text-name inline-flex items-center gap-1'
   return (
-    <>
-      <p className="mx-8 mt-4 flex items-center gap-2 rounded-control bg-[#f6ecd6] px-3 py-2 text-[13px] text-[#8a5a00]">
-        <Sparkles className="size-3.5 shrink-0" aria-hidden />
-        2 Normen warten auf Bestätigung. Bis dahin nutzt {identity.name} sie nicht.
-        <span className="font-medium underline underline-offset-2">Jetzt prüfen</span>
-      </p>
-      <div className="px-8 pt-5">
-        <p className="text-muted-foreground text-meta pb-2">Themen</p>
-        <div className="grid grid-cols-3 gap-4">
-          {TOPICS.map((topic) => (
-            <div key={topic.name} className="bg-sheet shadow-sm flex items-center gap-3 rounded-[10px] px-4 py-3">
-              <Folder className="text-muted-foreground size-4 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1">
-                <span className="text-name block">{topic.name}</span>
-                <span className="text-muted-foreground text-meta block">
-                  {topic.count} {topic.count === 1 ? 'Element' : 'Elemente'}
-                </span>
-              </span>
-              <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
-            </div>
-          ))}
-        </div>
+    <div className="px-8 pt-4">
+      <div className="flex items-center gap-1">
+        <span className={`${chip} bg-desk font-medium`}>
+          Alle <span className="text-muted-foreground font-normal">12</span>
+        </span>
+        <span className={`${chip} text-muted-foreground`}>
+          Zu bestätigen <span className="rounded-full bg-[#f6ecd6] px-1.5 text-[#8a5a00]">2</span>
+        </span>
+        <span className={`${chip} text-muted-foreground`}>Neuere Ausgabe 1</span>
+        <span className={`${chip} text-muted-foreground`}>Prüfung fällig 2</span>
+        <span className="ml-auto flex items-center gap-4">
+          <span className={drop}>
+            Alle Themen
+            <ChevronDown className="size-3.5" aria-hidden />
+          </span>
+          <span className={drop}>
+            Alle Arten
+            <ChevronDown className="size-3.5" aria-hidden />
+          </span>
+        </span>
       </div>
-    </>
+      <table className="mt-3 w-full border-collapse">
+        <thead>
+          <tr className="border-hairline border-b">
+            <th className={head}>Norm</th>
+            <th className={head}>Thema</th>
+            <th className={head}>Art</th>
+            <th className={head}>Ausgabe</th>
+            <th className={head}>Stand</th>
+            <th className={head}>In Antworten</th>
+          </tr>
+        </thead>
+        <tbody>
+          {NORMS.map((norm) => (
+            <tr key={norm.name} className="border-hairline border-b">
+              <td className="px-3 py-2.5">
+                <span className="text-name block">{norm.name}</span>
+                <span className="text-muted-foreground text-meta block">{norm.sub}</span>
+              </td>
+              <td className="text-name px-3 font-normal">{norm.topic}</td>
+              <td className="text-name px-3 font-normal">{norm.kind}</td>
+              <td className="text-name px-3 font-normal">{norm.edition}</td>
+              <td className="px-3">
+                <span className={`text-meta whitespace-nowrap rounded-full px-2 py-0.5 ${STATE_TONE[norm.state] ?? 'border-hairline border'}`}>{norm.state}</span>
+              </td>
+              <td className="text-muted-foreground text-meta px-3">{norm.use}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="text-muted-foreground text-meta pb-6 pt-3">7 von 12 Normen und Richtlinien</p>
+    </div>
   )
 }

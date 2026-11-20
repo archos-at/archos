@@ -32,19 +32,23 @@ function MoreMenu({ norms = false }: { norms?: boolean }): JSX.Element {
   const icon = 'text-muted-foreground size-4 shrink-0'
   return (
     <div className="bg-sheet shadow-md absolute right-0 top-full z-30 mt-1.5 w-60 rounded-[16px] p-1.5">
-      <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Ansicht</div>
-      <div className={`${row} bg-desk`}>
-        <LayoutGrid className={icon} aria-hidden />
-        Kacheln
-      </div>
-      <div className={row}>
-        <List className={icon} aria-hidden />
-        Liste
-      </div>
-      <div className="bg-desk mx-1 my-1.5 h-px" />
+      {!norms && (
+        <>
+          <div className="text-muted-foreground text-meta px-2.5 pb-1 pt-1.5 font-medium">Ansicht</div>
+          <div className={`${row} bg-desk`}>
+            <LayoutGrid className={icon} aria-hidden />
+            Kacheln
+          </div>
+          <div className={row}>
+            <List className={icon} aria-hidden />
+            Liste
+          </div>
+          <div className="bg-desk mx-1 my-1.5 h-px" />
+        </>
+      )}
       <div className={row}>
         <SlidersHorizontal className={icon} aria-hidden />
-        {norms ? 'Nach Art filtern' : 'Filtern und sortieren'}
+        {norms ? 'Sortieren' : 'Filtern und sortieren'}
       </div>
       <div className={row}>
         <FolderPlus className={icon} aria-hidden />
