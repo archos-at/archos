@@ -29,6 +29,7 @@ import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
 import { AcrossTrigger, PersonalLine, ProjectMenu, ProjectOverview, SpaceToggle, useFirstRoom } from './project-menu'
 import { NormsPlace } from './office-norms'
+import { FoldedRail, SearchIcon, SearchWindow } from './rail-extras'
 import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, UnreadHint } from './shelf-header'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
@@ -68,12 +69,18 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
   const person = query?.get('person') ?? null
   const personOpen = query?.get('pact') ?? null
   const space = query?.get('space') === '1'
+  const folded = query?.get('rail')
+  const find = query?.get('find')
+  if (folded) return <FoldedRail personal={own} flyout={folded === 'fly'} />
   const plain = query?.get('my') !== '1' && (Boolean(person) || space || query?.get('room') === '1')
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
-          <SidebarBrand iconRail={false} />
+          <div className="relative">
+            <SidebarBrand iconRail={false} />
+            {(find || query?.get('si')) && <SearchIcon hint={query?.get('si') === 'hint'} />}
+          </div>
           {space && <SpaceToggle personal={own} />}
           <div className="relative mt-1 flex items-center gap-1.5">
             {space && own ? <PersonalLine /> : own && menuForm === 'gear' ? <AcrossTrigger /> : <ProjectSwitcher projects={[menuForm === 'top' ? OWN : OWN_ACROSS, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />}
@@ -114,7 +121,7 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
             <MoreRow label="Alle Chats" indent={false} />
           </ul>
         </SidebarContent>
-        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} person={person} personOpen={personOpen} />
+        <Foot officeShelfOpen={officeShelfOpen} ownShelf={ownShelf} inbox={inbox} inboxOpen={inboxOpen} officeName={officeName} person={person} personOpen={personOpen} hideSearch={Boolean(find || query?.get('si'))} />
         <SidebarRail aria-label="Breite ändern" />
       </Sidebar>
     </SidebarProvider>
@@ -566,7 +573,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'headnow' ? <div className="min-w-0 flex-1"><HeadToday /></div> : variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1' && params?.get('in') !== '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{params?.get('find') && <SearchWindow query={params.get('find') ?? '1'} />}{variant === 'headnow' ? <div className="min-w-0 flex-1"><HeadToday /></div> : variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1' && params?.get('in') !== '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
