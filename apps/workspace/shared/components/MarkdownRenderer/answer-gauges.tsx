@@ -96,7 +96,7 @@ export const ThresholdRuler: FC<{
           className="absolute -top-6 flex -translate-x-1/2 flex-col items-center"
           style={{ left: `${Math.min(100, Math.max(0, ruler.pin))}%` }}
         >
-          <span className="card-meta whitespace-nowrap rounded bg-foreground px-1 font-semibold text-background tabular-nums">{valueText}</span>
+          <span className="card-meta whitespace-nowrap rounded bg-foreground px-1 font-medium text-background tabular-nums">{valueText}</span>
           <span className="h-4 w-0.5 bg-foreground" />
         </span>
       </div>

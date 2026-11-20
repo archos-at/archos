@@ -52,7 +52,7 @@ function Tab({ variant }: { variant: string }): JSX.Element {
       <section aria-label={fixture.view.name} className="hidden min-w-0 flex-1 p-6 sm:block">
         <article className="bg-sheet rounded-surface mx-auto flex max-w-2xl flex-col gap-5 p-8 text-sm shadow-sm">
           <header className="flex flex-col gap-1">
-            <h1 className="text-lg font-semibold [overflow-wrap:anywhere]">{fixture.view.name}</h1>
+            <h1 className="text-lg font-medium [overflow-wrap:anywhere]">{fixture.view.name}</h1>
             <p className="text-muted-foreground text-xs">E-Mail-Verlauf · {fixture.view.entries.length} E-Mails</p>
           </header>
           {fixture.view.entries.map((item) => (

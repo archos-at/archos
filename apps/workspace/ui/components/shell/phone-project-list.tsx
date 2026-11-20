@@ -150,7 +150,7 @@ function SwitcherRow({
         <span
           className={cn(
             'text-foreground min-w-0 flex-1 truncate text-[15px]',
-            current && 'font-semibold'
+            current && 'font-medium'
           )}
         >
           {project.name}

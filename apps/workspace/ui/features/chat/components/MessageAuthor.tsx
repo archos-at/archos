@@ -21,7 +21,7 @@ export interface MessageAuthorProps {
 }
 
 const AVATAR_CLASS =
-  'flex size-[22px] shrink-0 items-center justify-center overflow-hidden rounded-full text-[9.5px] font-semibold uppercase leading-none'
+  'flex size-[22px] shrink-0 items-center justify-center overflow-hidden rounded-full text-[9.5px] font-medium uppercase leading-none'
 
 export const MessageAuthor: FC<MessageAuthorProps> = ({
   userId,

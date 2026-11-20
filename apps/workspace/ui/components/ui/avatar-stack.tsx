@@ -100,7 +100,7 @@ export function AvatarStack({
           data-slot="avatar-stack-overflow"
           data-testid="avatar-stack-overflow"
           className={cn(
-            'relative inline-flex items-center justify-center rounded-full bg-muted font-semibold tabular-nums text-muted-foreground ring-2 ring-card',
+            'relative inline-flex items-center justify-center rounded-full bg-muted font-medium tabular-nums text-muted-foreground ring-2 ring-card',
             AVATAR_STACK_SIZES[size]
           )}
         >

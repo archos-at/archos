@@ -1,0 +1,12 @@
+---
+# area: general
+improvements:
+  - >
+    Text across the app is set lighter: headings, unread mails and the numbers
+    in small badges no longer use the heavy weight, so a page reads calmer.
+  - >
+    Buttons, tabs and menus are a little smaller and now match the sidebar and
+    the lists.
+  - >
+    On a phone a page's title is slightly larger, so it stands above the
+    headings on the page, and the greeting in an empty chat is one step larger.

@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from 'clsx'
 import { extendTailwindMerge } from 'tailwind-merge'
 
-export const TYPE_SCALE = ['meta', 'name', 'section', 'pane-title', 'page-title', 'answer'] as const
+export const TYPE_SCALE = ['meta', 'name', 'section', 'pane-title', 'page-title', 'display', 'answer'] as const
 export const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {

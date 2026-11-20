@@ -274,23 +274,23 @@ function pressKeyOf(element: Opening): string {
   return translated ? (translated.arguments[0] as ts.StringLiteral).text : 'unnamed'
 }
 
-const BOLD_ALLOWED = modulesOf('Logo', 'ReadingMilestoneCard')
+const BOLD_ALLOWED = modulesOf('Logo')
 const WHITE_ALLOWED = modulesOf('LiveCursor', 'CommentPin', 'PageThumbnailButton', 'SketchFigure', 'QuestionControl', 'ReviewPageLayer', 'MermaidDiagram')
 const CAPITALS_ALLOWED = new Set([...modulesOf('Logo', 'FileExtChip', 'FileListView', 'FolderBinPanel', 'DocumentKindThumbnail', 'MessageAuthor', 'AuthorityTag'), moduleOf('FileCard', 'ui/features/documents/')])
 const H1_ALLOWED = modulesOf('WelcomeState', 'StatusScreen', 'OrganizationSetup', 'ReadingStep', 'RoundList', 'MarkdownH1')
 const LEGAL_DIRECTORY = 'app/legal/[slug]/'
 
 describe('weight', () => {
-  it('weights are 440, 500 and 600: nothing is bold or extrabold but the wordmark', () => {
+  it('weights are 440 and 500: nothing is semibold or bolder but the wordmark', () => {
     const offenders = tsFiles()
       .filter((path) => !BOLD_ALLOWED.has(path))
-      .filter((path) => classesOf(path).some((token) => ['font-bold', 'font-extrabold', 'font-black'].includes(utilityOf(token))))
+      .filter((path) => classesOf(path).some((token) => ['font-semibold', 'font-bold', 'font-extrabold', 'font-black'].includes(utilityOf(token))))
     expect(offenders).toEqual([])
   })
 
-  it('the type scale carries a title by size at 500 and the small heading at 600: section 16/600, pane title 18/500, page title 20/500', () => {
+  it('the type scale carries every heading by size at 500: section 16, pane title 18, page title 20, display 24', () => {
     const tokens = sheet(TOKENS)
-    for (const [name, size, weight] of [['section', '1rem', '600'], ['pane-title', '1.125rem', '500'], ['page-title', '1.25rem', '500']]) {
+    for (const [name, size, weight] of [['section', '1rem', '500'], ['pane-title', '1.125rem', '500'], ['page-title', '1.25rem', '500'], ['display', '1.5rem', '500']]) {
       expect(valuesOf(tokens, `--text-${name}`), name).toContain(size)
       expect(valuesOf(tokens, `--text-${name}--font-weight`), name).toContain(weight)
     }
@@ -883,14 +883,14 @@ describe('one separator', () => {
 })
 
 describe('one size for a segmented control', () => {
-  it('every worded segmented group in Dateien is 14px', () => {
+  it('every worded segmented group in Dateien is the interface\u2019s 13px', () => {
     const offenders = tsFiles()
       .filter(inDateien)
       .filter((path) =>
         elementsNamed(parseSource(path), ['ToggleGroup']).some((element) => {
           const segmented = attributeOf(element, 'segmented') !== undefined || classesOfAttributes(element).includes('segmented')
           const icon = (stringAttribute(element, 'size') ?? '').startsWith('icon')
-          return segmented && !icon && !classesOfAttributes(element).includes('[&>button]:text-sm')
+          return segmented && !icon && !classesOfAttributes(element).includes('[&>button]:text-name')
         }),
       )
     expect(offenders).toEqual([])
@@ -965,7 +965,7 @@ describe('colour is a verdict', () => {
 
   it('a mention of the reader in a mark wins by weight on the desk, not by ochre', () => {
     expect(attributeWith(parseSource(moduleOf('MarkBody')), 'meTone', 'ink')).toBe(true)
-    expect(hasShape(parseSource(moduleOf('MentionText')), "meTone === 'ink' ? 'bg-desk text-foreground font-semibold'")).toBe(true)
+    expect(hasShape(parseSource(moduleOf('MentionText')), "meTone === 'ink' ? 'bg-desk text-foreground font-medium'")).toBe(true)
   })
 
   it('a face in Dateien is no hue: the preview’s and the list’s assignees are neutral', () => {
@@ -1060,9 +1060,9 @@ describe('rows, weights and the phone', () => {
     expect(summaryOf(moduleOf('MarkRowContent')).literals.some((text) => text.startsWith('flex w-full gap-3 rounded-control px-2.5 py-2.5 '))).toBe(true)
   })
 
-  it('a mail subject’s weight is its state: 600 needs the reader, 500 waits on a press, 440 is handled', () => {
+  it('a mail subject’s weight is its state: 500 needs the reader or waits on a press, 440 is handled', () => {
     const subject = parseSource(moduleOf('InboundMailRow'))
-    expect(hasShape(subject, "needsReader ? 'text-foreground font-semibold' : waiting ? 'text-foreground font-medium' : 'text-foreground font-normal'")).toBe(true)
+    expect(hasShape(subject, "needsReader || waiting ? 'text-foreground font-medium' : 'text-foreground font-normal'")).toBe(true)
     expect(literalHasRun(moduleOf('InboundMailRow'), ['line-clamp-2', 'text-name', 'text-pretty'])).toBe(true)
   })
 
