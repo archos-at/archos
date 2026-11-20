@@ -35,6 +35,7 @@ import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, Unre
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
 
+const MEASURE = 'mx-auto w-full max-w-[1280px]'
 const OWN = { id: 'none', name: 'Alle Projekte' }
 const OWN_ACROSS = { id: 'none', name: 'Projektübergreifend' }
 
@@ -531,9 +532,11 @@ function OfficePage({ name, moreOpen }: { name: string; moreOpen: boolean }): JS
       <Rail own={false} officeShelfOpen gear="none" officeName={name} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ShelfHeader own={false} form="search" moreOpen={moreOpen} crumb="Musterarchitektur ZT GmbH" office={name} />
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto [&>div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden">
-          {norms ? <NormsPlace /> : <Browser key="office" files={files} folders={folders} toolsInHead />}
-          {!norms && <ReadStatus text="Alle 6 Dokumente gelesen" />}
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto [&_div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden">
+          <div className={MEASURE}>
+            {norms ? <NormsPlace /> : <Browser key="office" files={files} folders={folders} toolsInHead />}
+            {!norms && <ReadStatus text="Alle 6 Dokumente gelesen" />}
+          </div>
         </div>
       </div>
     </>
@@ -548,12 +551,14 @@ function ShelfPage({ own, form, moreOpen, trashOpen, folder, query, across, alon
       {trashOpen && <TrashWindow />}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ShelfHeader own={own} form={form} moreOpen={moreOpen} trashOpen={trashOpen} crumb={(alone || first.space) && own ? (across || first.space ? first.name : 'Persönlich') : own ? 'Projektunabhängig' : PROJECTS[0]!.name} query={query ?? undefined} noProject={across} alone={alone || first.space} plainTitle={first.room && !first.space} />
-        <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&>div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
-          {query ? <SearchHits query={query} /> : null}
-          {!own && !folder && !query && <UnreadHint count={2} />}
-          {!own && folder && <FolderPath trail={folderTrail(folder)} name={REAL_FOLDERS.find((item) => item.id === folder)?.name ?? ''} />}
-          {query ? null : own ? <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} toolsInHead /> : <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} openFolder={folder} toolsInHead />}
-          {query ? null : own ? <ReadStatus text="Alle 6 Dokumente gelesen" /> : folder ? <ReadStatus text="Alle 2 Dokumente gelesen" /> : <ReadStatus text="284 von 286 Dokumenten gelesen ·" open="2 ansehen" />}
+        <div className={`min-h-0 min-w-0 flex-1 overflow-y-auto [&_div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden`}>
+          <div className={MEASURE}>
+            {query ? <SearchHits query={query} /> : null}
+            {!own && !folder && !query && <UnreadHint count={2} />}
+            {!own && folder && <FolderPath trail={folderTrail(folder)} name={REAL_FOLDERS.find((item) => item.id === folder)?.name ?? ''} />}
+            {query ? null : own ? <Browser key="own" files={OWN_FILES} folders={OWN_FOLDERS} toolsInHead /> : <Browser key="project" files={REAL_FILES} folders={REAL_FOLDERS} openFolder={folder} toolsInHead />}
+            {query ? null : own ? <ReadStatus text="Alle 6 Dokumente gelesen" /> : folder ? <ReadStatus text="Alle 2 Dokumente gelesen" /> : <ReadStatus text="284 von 286 Dokumenten gelesen ·" open="2 ansehen" />}
+          </div>
         </div>
       </div>
     </>

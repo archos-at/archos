@@ -137,7 +137,8 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
     </div>
   )
   return (
-    <header className="border-hairline flex flex-col gap-4 border-b px-8 pb-0 pt-3">
+    <header className="border-hairline border-b px-8 pb-0 pt-3">
+      <div className="mx-auto flex w-full max-w-[1216px] flex-col gap-4">
       <div className="flex items-end justify-between gap-4">
         <div>
           <span className="text-muted-foreground text-meta">{crumb}{who === 'c' && !office ? (own ? ' · Nur Sie' : ' · Projektteam') : ''}</span>
@@ -176,6 +177,7 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
           </div>
         </div>
       )}
+      </div>
     </header>
   )
 }
