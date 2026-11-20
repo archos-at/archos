@@ -365,7 +365,8 @@ function MailHint({ chip = false }: { chip?: boolean }): JSX.Element {
 }
 
 export function NewChatPage({ temporary, infoOpen = false, lay = 'subline', across = false }: { temporary: boolean; infoOpen?: boolean; lay?: string; across?: boolean }): JSX.Element {
-  const belongs = useSearchParams()?.get('belongs')
+  const query = useSearchParams()
+  const belongs = query?.get('space') === '1' ? '1' : query?.get('belongs')
   return (
     <main className="flex min-h-0 min-w-0 flex-1 flex-col">
       <header className="flex items-center justify-end gap-3 px-8 pb-2 pt-2">

@@ -41,7 +41,7 @@ const ENTRIES: Entry[] = [
 ]
 
 const TONE = { late: 'bg-[rgb(193_74_56_/_0.12)] text-destructive', soon: 'bg-[#f6ecd6] text-[#8a5a00]', plain: 'bg-desk text-muted-foreground' }
-const NO_PROJECT = 'Projektübergreifend'
+const NO_PROJECT = 'Persönlich'
 
 const ORDER = ['Min.', 'Std.', 'gestern']
 const age = (entry: Entry): number => ORDER.findIndex((unit) => entry.ago.includes(unit)) * 1000 + (Number.parseInt(entry.ago.replace(/\D/g, ''), 10) || 0)
