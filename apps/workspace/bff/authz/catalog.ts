@@ -415,6 +415,15 @@ export const ROLES: readonly RoleSpec[] = [
     scope: 'platform-org',
     permissions: ['platform:observability:view'],
   },
+  {
+    slug: 'org-platform-external-developer',
+    name: 'External Developer',
+    description:
+      'Outside developer on the platform knowledge: drafts and submits change requests and manages the base corpus. Cannot review or approve, sees no organization, usage or traces. Exclusive to the platform organization.',
+    tier: 'platform',
+    scope: 'platform-org',
+    permissions: ['platform:settings:view', 'platform:knowledge:write'],
+  },
 
   {
     slug: 'project-viewer',

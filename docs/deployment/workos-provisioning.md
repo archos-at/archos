@@ -278,6 +278,7 @@ environment-scoped role holds a `platform:*` permission.
 | `org-platform-owner` | **GRID Platform org only** | all `platform:*` + five `widgets:*` |
 | `org-platform-support` | **GRID Platform org only** | `platform:organizations:view`, `platform:usage:view`, `platform:settings:view`, `platform:observability:view` — every read, no `*:manage`. `platformApiRoute` requires the specific permission per route, which is what makes "read-only" true rather than described. |
 | `org-platform-observability-analyst` | **GRID Platform org only** | `platform:observability:view` only: opens Langfuse at the edge for business analysts and the Fachbereich, and no platform surface in the app (ADR-0089). The scope must be assigned to the Connect application before the stack that checks it is deployed, or every Langfuse login fails with `invalid_scope` |
+| `org-platform-external-developer` | **platform org only** | `platform:settings:view`, `platform:knowledge:write`: an outside developer drafts and submits knowledge change requests and manages the base corpus. No review or approval, so a platform owner still signs off; no `platform:organizations:view`, `platform:usage:view` or `platform:observability:view`, so no tenant data and no traces |
 
 The two folder roles are assigned on one folder resource to one organization
 membership, by the folder's access dialog in a project's Files
