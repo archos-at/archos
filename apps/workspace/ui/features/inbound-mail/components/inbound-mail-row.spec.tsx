@@ -28,6 +28,8 @@ describe('a settled mail, whose subject and sender were erased when it was filed
     expect(screen.getByRole('listitem').textContent).toContain('Das ist ein Test')
     expect(screen.queryByText('(no subject)')).toBeNull()
     expect(screen.queryByText('—')).toBeNull()
+    expect(screen.queryByText('?')).toBeNull()
+    expect(screen.getByTestId('inbound-mail-row-settled-avatar')).toBeTruthy()
   })
 })
 

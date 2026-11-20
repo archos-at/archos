@@ -126,11 +126,18 @@ export function InboundMailRow({
         >
           {/* A sender is not a member: one neutral disc, no identity hue (colour here would mean nothing). The one
               grey on the page; white on the row's hover and open fill, as anything on a grey surface is. */}
-          <PersonAvatar
-            person={{ userId: mail.senderDomain ?? who ?? mail.id, name: who ?? '' }}
-            size="sm"
-            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-sheet [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-background"
-          />
+          {who === null ? (
+            // A settled mail has no sender left to draw initials from: the same disc, carrying the Verlauf's glyph.
+            <span className="bg-sheet text-muted-foreground group-hover/row:bg-background group-data-current/row:bg-background group-data-checked/row:bg-background mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full" data-testid="inbound-mail-row-settled-avatar" aria-hidden>
+              <Mails className="size-3.5" />
+            </span>
+          ) : (
+            <PersonAvatar
+              person={{ userId: mail.senderDomain ?? who, name: who }}
+              size="sm"
+              className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-sheet [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-background"
+            />
+          )}
           <div className="flex min-w-0 flex-1 flex-col" /* a name and one meta line: 56px with the row's 10px */>
             <div className="flex min-w-0 items-baseline gap-2">
               <p className={cn('min-w-0 flex-1 line-clamp-2 text-name text-pretty [overflow-wrap:anywhere]', needsReader ? 'text-foreground font-semibold' : waiting ? 'text-foreground font-medium' : 'text-foreground font-normal')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
