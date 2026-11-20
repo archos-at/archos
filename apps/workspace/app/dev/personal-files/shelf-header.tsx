@@ -4,7 +4,8 @@
 
 import { useSearchParams } from 'next/navigation'
 import type { JSX } from 'react'
-import { UsersRound, LockKeyhole, X, FileText, ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
+import { UploadMenu } from './office-norms'
+import { Library, ChevronDown, UsersRound, LockKeyhole, X, FileText, ArrowLeft, CheckSquare, ChevronRight, Folder, FolderLock, FolderPlus, LayoutGrid, List, ListChecks, Mail, MoreHorizontal, Search, SlidersHorizontal, Sparkles, Trash2, Upload, type LucideIcon } from 'lucide-react'
 
 function Side({ icon: Icon, label, who, picked, faded = false }: { icon: LucideIcon; label: string; who: string; picked: boolean; faded?: boolean }): JSX.Element {
   return (
@@ -26,7 +27,7 @@ function Place({ icon: Icon, label, count, current = false }: { icon: LucideIcon
   )
 }
 
-function MoreMenu(): JSX.Element {
+function MoreMenu({ norms = false }: { norms?: boolean }): JSX.Element {
   const row = 'text-name flex h-9 items-center gap-2.5 rounded-control px-2.5 font-normal'
   const icon = 'text-muted-foreground size-4 shrink-0'
   return (
@@ -43,11 +44,11 @@ function MoreMenu(): JSX.Element {
       <div className="bg-desk mx-1 my-1.5 h-px" />
       <div className={row}>
         <SlidersHorizontal className={icon} aria-hidden />
-        Filtern und sortieren
+        {norms ? 'Nach Art filtern' : 'Filtern und sortieren'}
       </div>
       <div className={row}>
         <FolderPlus className={icon} aria-hidden />
-        Ordner anlegen
+        {norms ? 'Thema anlegen' : 'Ordner anlegen'}
       </div>
     </div>
   )
@@ -89,6 +90,7 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
   const urlState = useSearchParams()
   const who = urlState?.get('who') ?? (urlState?.get('space') === '1' ? 'c' : null)
   const line = urlState?.get('line') === '1'
+  const norms = Boolean(office) && urlState?.get('place') === 'norms'
   const search = (
     <div className={`bg-sheet flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border px-3 text-sm ${query ? 'border-foreground' : 'border-field-border text-muted-foreground'}`}>
       <Search className="size-4 shrink-0" aria-hidden />
@@ -97,7 +99,7 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
           <span className="flex-1">{query}</span>
           <X className="text-muted-foreground size-4" aria-label="Suche leeren" />
         </>
-      ) : office ? `In „${office}“ suchen …` : own ? 'In meiner Ablage suchen …' : 'In der Projektablage suchen …'}
+      ) : norms ? 'In Normen & Richtlinien suchen …' : office ? `In „${office}“ suchen …` : own ? 'In meiner Ablage suchen …' : 'In der Projektablage suchen …'}
     </div>
   )
   const tools = (
@@ -109,14 +111,18 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
       <span title="Papierkorb" className={`relative flex size-9 items-center justify-center rounded-control ${trashOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
         <Trash2 className="size-4" aria-label="Papierkorb" />
       </span>
-      <span className="bg-sheet shadow-press inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium">
-        <Upload className="size-4" aria-hidden />
-        Hochladen
+      <span className="relative">
+        <span className={`inline-flex h-9 items-center gap-2 rounded-control px-3 text-sm font-medium ${urlState?.get('up') === '1' ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
+          <Upload className="size-4" aria-hidden />
+          Hochladen
+          <ChevronDown className="text-muted-foreground size-3.5" aria-hidden />
+        </span>
+        {urlState?.get('up') === '1' && <UploadMenu mail={!own && !office} />}
       </span>
       <span className={`flex size-9 items-center justify-center rounded-control ${moreOpen ? 'bg-selected' : 'bg-sheet shadow-press'}`}>
         <MoreHorizontal className="size-4" aria-label="Mehr" />
       </span>
-      {moreOpen && <MoreMenu />}
+      {moreOpen && <MoreMenu norms={norms} />}
     </div>
   )
   const places = (
@@ -145,11 +151,17 @@ export function ShelfHeader({ own, form, moreOpen, crumb, trashOpen = false, off
       )}
       {form === 'search' ? (
         <>
-          <div className={`flex items-center gap-2 ${own || office ? 'pb-4' : ''}`}>
+          <div className={`flex items-center gap-2 ${own ? 'pb-4' : ''}`}>
             {search}
             {tools}
           </div>
           {!own && !office && places}
+          {office && (
+            <div className="flex items-center gap-6">
+              <Place icon={Folder} label="Dateien" current={!norms} />
+              <Place icon={Library} label="Normen & Richtlinien" count={norms ? undefined : 2} current={norms} />
+            </div>
+          )}
         </>
       ) : (
         <div className="flex items-end justify-between gap-6">

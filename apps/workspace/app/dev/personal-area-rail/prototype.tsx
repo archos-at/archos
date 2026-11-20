@@ -14,7 +14,6 @@ import {
   Folder,
   FolderInput,
   FolderLock,
-  Library,
   LayoutGrid,
   LockKeyhole,
   Paperclip,
@@ -210,7 +209,6 @@ export function Foot({ personalDoor = false, officeShelfOpen = false, ownShelf, 
         <div className="text-muted-foreground text-meta flex min-h-6 items-end px-3 pb-1.5 font-medium">{OFFICE}</div>
         <SidebarMenu className="gap-0.5">
           <NavRow icon={Archive} label={officeName} active={officeShelfOpen} />
-          <NavRow icon={Library} label="Grundlagen" />
           <NavRow icon={Search} label="Suche" />
           {inbox === 'org' && <NavRow icon={Bell} label="Postfach" badge={8} active={inboxOpen} />}
         </SidebarMenu>

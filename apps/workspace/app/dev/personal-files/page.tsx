@@ -15,6 +15,7 @@ import { FileBrowserPane } from '@/features/documents/components/file-browser-pa
 import { FileFilterMenu } from '@/features/documents/components/file-filter-menu'
 import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
 import type { FileItem, FolderItem } from '@/features/documents/components/project-file-workspace'
+import { MailImportAction } from '@/features/documents/components/mail-import-action'
 import { ProjectUppyUpload } from '@/features/documents/components/project-uppy-upload'
 import { TaskList } from '@/features/tasks/components/task-list'
 import type { TaskFilter, TaskRunView } from '@/features/tasks/lib/task-view'
@@ -27,6 +28,7 @@ import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
 import { AcrossTrigger, PersonalLine, ProjectMenu, ProjectOverview, SpaceToggle, useFirstRoom } from './project-menu'
+import { NormsPlace } from './office-norms'
 import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, UnreadHint } from './shelf-header'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
@@ -253,6 +255,22 @@ function AutomationPage({ own }: { own: boolean }): JSX.Element {
         </div>
       </div>
     </>
+  )
+}
+
+function HeadToday(): JSX.Element {
+  const [view, setView] = useState<FileView>('cards')
+  const search = useFileSearch(projectSearchScope('proj-demo'))
+  return (
+    <ProjectSectionFrame projectId="dev" projectName={PROJECTS[0]!.name} pathname="/app/projects/dev/files" inboundMail>
+      <ProjectSectionActions>
+        <FilesHeaderControls phone={false} view={view} onViewChange={setView} renderFilter={(compact) => <FileFilterMenu canCollaborate filters={NO_FILE_FILTERS} onFiltersChange={() => {}} sort={DEFAULT_FILE_SORT} onSortChange={() => {}} compact={compact} />} search={{ value: search.query, onChange: search.setQuery, onSubmit: search.run, onClear: search.clear }} upload={<ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />} />
+        <MailImportAction projectId="dev" />
+      </ProjectSectionActions>
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <Browser files={REAL_FILES} folders={REAL_FOLDERS} />
+      </div>
+    </ProjectSectionFrame>
   )
 }
 
@@ -492,6 +510,7 @@ function folderTrail(folderId: string): string[] {
 }
 
 function OfficePage({ name, moreOpen }: { name: string; moreOpen: boolean }): JSX.Element {
+  const norms = useSearchParams()?.get('place') === 'norms'
   const files = OFFICE_FILES.filter((file) => file.folderId !== 'f-own')
   const folders = OFFICE_FOLDERS.filter((item) => item.id !== 'f-own')
   return (
@@ -500,8 +519,8 @@ function OfficePage({ name, moreOpen }: { name: string; moreOpen: boolean }): JS
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <ShelfHeader own={false} form="search" moreOpen={moreOpen} crumb="Musterarchitektur ZT GmbH" office={name} />
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto [&>div.min-h-full]:!min-h-0 [&_[data-testid=folder-breadcrumb-row]]:hidden">
-          <Browser key="office" files={files} folders={folders} toolsInHead />
-          <ReadStatus text="Alle 6 Dokumente gelesen" />
+          {norms ? <NormsPlace /> : <Browser key="office" files={files} folders={folders} toolsInHead />}
+          {!norms && <ReadStatus text="Alle 6 Dokumente gelesen" />}
         </div>
       </div>
     </>
@@ -547,7 +566,7 @@ export default function PersonalFilesPreview(): JSX.Element {
   const variant = params?.get('v') ?? 'page'
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1' && params?.get('in') !== '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
+      <div className="bg-background text-foreground relative flex h-dvh overflow-hidden">{variant === 'headnow' ? <div className="min-w-0 flex-1"><HeadToday /></div> : variant === 'ctx' ? (params?.get('page') === 'auto' ? <AutomationPage own={params?.get('me') === '1'} /> : <ShelfPage own={params?.get('me') === '1'} form="search" moreOpen={false} trashOpen={false} folder={null} query={null} across={params?.get('me') === '1' && params?.get('in') !== '1'} alone />) : variant === 'inboxpage' ? <><Rail own={false} gear="none" inboxOpen /><InboxPage /></> : variant === 'officepage' ? <OfficePage name={params?.get('name') ?? 'Bürobibliothek'} moreOpen={params?.get('more') === '1'} /> : variant === 'shelf' ? <ShelfPage own={params?.get('shelf') === 'own'} form={params?.get('form') ?? 'search'} moreOpen={params?.get('more') === '1'} trashOpen={params?.get('trash') === '1'} folder={params?.get('folder') ?? null} query={params?.get('q') ?? null} across={params?.get('across') === '1'} /> : variant === 'talk' ? <Talk place={params?.get('place') ?? 'me'} settingsOpen={params?.get('settings') === '1'} menu={params?.get('menu') ?? null} menuForm={params?.get('form') ?? 'gear'} lay={params?.get('lay') ?? 'subline'} inbox={params?.get('inbox') ?? 'bell'} /> : variant === 'all' ? <AllProjects page={params?.get('page') === 'automation' ? 'automation' : 'files'} own={params?.get('shelf') === 'own'} /> : variant === 'switch' ? <SwitchPage own={params?.get('shelf') === 'own'} top={params?.get('top') === 'all' ? 'all' : 'project'} mode={params?.get('mode') ?? 'track'} menuOpen={params?.get('open') === '1'} settingsOpen={params?.get('settings') === '1'} titleSwitch={params?.get('pos') === 'title'} /> : variant === 'office' ? <InOfficeShelf /> : variant === 'chat' ? <FromChat /> : <OwnPage />}</div>
     </I18nProvider>
   )
 }
