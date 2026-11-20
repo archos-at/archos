@@ -16,4 +16,5 @@ runs:
       shell: bash
       env:
         TASK_VERSION: ${{ inputs.version }}
-      run: npm i -g "@go-task/cli@${TASK_VERSION}"
+      run: |
+        [ "$(task --version 2>/dev/null)" = "$TASK_VERSION" ] || npm i -g "@go-task/cli@${TASK_VERSION}"

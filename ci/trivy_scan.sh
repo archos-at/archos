@@ -2,7 +2,8 @@
 # Scan pinned third-party images with trivy; fail on a fixable HIGH or CRITICAL.
 #
 # Usage: trivy_scan.sh <file with one image@sha256:... per line>
-# Environment: TRIVY_VERSION (the aquasec/trivy image tag).
+# Environment: TRIVY_VERSION (the aquasec/trivy image tag); NO_DOCKER=true runs the
+# trivy on the PATH instead, as a runner without a Docker daemon must (ADR-0184).
 # Reads .trivyignore.yaml from the working directory, and caches in .trivy-cache.
 #
 # Used twice: CI scans the pins a change adds (ci/pinned_images.py new), the
@@ -28,16 +29,22 @@ pins="${1:?usage: trivy_scan.sh <pins file>}"
 
 cache="$PWD/.trivy-cache"
 mkdir -p "$cache"
-trivy() {
-  docker run --rm \
-    --user "$(id -u):$(id -g)" \
-    --env HOME=/tmp \
-    -v "$cache:/cache" \
-    -v "$PWD/.trivyignore.yaml:/config/.trivyignore.yaml:ro" \
-    "aquasec/trivy:${TRIVY_VERSION}" \
-    --cache-dir /cache \
-    "$@"
-}
+ignorefile=/config/.trivyignore.yaml
+if [ "${NO_DOCKER:-false}" = true ]; then
+  ignorefile="$PWD/.trivyignore.yaml"
+  trivy() { command trivy --cache-dir "$cache" "$@"; }
+else
+  trivy() {
+    docker run --rm \
+      --user "$(id -u):$(id -g)" \
+      --env HOME=/tmp \
+      -v "$cache:/cache" \
+      -v "$PWD/.trivyignore.yaml:/config/.trivyignore.yaml:ro" \
+      "aquasec/trivy:${TRIVY_VERSION}" \
+      --cache-dir /cache \
+      "$@"
+  }
+fi
 
 downloaded=0
 for attempt in 1 2 3 4 5; do
@@ -58,7 +65,7 @@ while read -r image; do
   trivy image \
     --scanners vuln \
     --skip-db-update \
-    --ignorefile /config/.trivyignore.yaml \
+    --ignorefile "$ignorefile" \
     --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$image" || failed=1
 done < "$pins"
 exit "$failed"
