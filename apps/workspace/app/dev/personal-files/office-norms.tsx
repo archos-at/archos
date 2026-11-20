@@ -54,19 +54,24 @@ const STATE_TONE: Record<string, string> = {
 
 export function NormsPlace(): JSX.Element {
   const chip = 'text-name inline-flex items-center gap-1.5 rounded-full px-2.5 py-1'
+  const count = 'text-meta rounded-full px-1.5 font-medium'
   const head = 'text-muted-foreground text-meta px-3 py-2 text-left font-normal'
   const drop = 'text-muted-foreground text-name inline-flex items-center gap-1'
   return (
     <div className="px-8 pt-4">
       <div className="flex items-center gap-1">
         <span className={`${chip} bg-desk font-medium`}>
-          Alle <span className="text-muted-foreground font-normal">12</span>
+          Alle <span className={`${count} bg-sheet`}>12</span>
         </span>
         <span className={`${chip} text-muted-foreground`}>
-          Zu bestätigen <span className="rounded-full bg-[#f6ecd6] px-1.5 text-[#8a5a00]">2</span>
+          Zu bestätigen <span className={`${count} bg-[#f6ecd6] text-[#8a5a00]`}>2</span>
         </span>
-        <span className={`${chip} text-muted-foreground`}>Neuere Ausgabe 1</span>
-        <span className={`${chip} text-muted-foreground`}>Prüfung fällig 2</span>
+        <span className={`${chip} text-muted-foreground`}>
+          Neuere Ausgabe <span className={`${count} bg-[#f6ecd6] text-[#8a5a00]`}>1</span>
+        </span>
+        <span className={`${chip} text-muted-foreground`}>
+          Prüfung fällig <span className={`${count} bg-desk text-foreground`}>2</span>
+        </span>
         <span className="ml-auto flex items-center gap-4">
           <span className={drop}>
             Alle Themen
