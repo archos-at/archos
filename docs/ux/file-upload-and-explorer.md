@@ -877,6 +877,25 @@ Three decisions worth keeping:
   enforces and not in the chat, where an archive is not a document. `.ifczip`
   stays a model: the pattern needs the dot.
 
+### An Outlook archive is uploaded like any file
+
+Where the `mail-import` flag is on and the reader may write at the project root,
+a `.pst` or `.ost` picked with Hochladen or dropped on Dateien (or anywhere in
+the project, handed over) becomes a mail import, not a stored file. The split
+sits at the same single entry point as the ZIP: `handleUpload` in
+`hooks/use-shelf-upload.ts` hands every archive of a pick or drop to
+`FileShelf.takeMailArchives` (`lib/mail-archive.ts`) and uploads the rest as
+usual. Only the project shelf sets it (`project-file-workspace.tsx`), which opens
+the import dialog with the archive started, or resumed when it is a send of the
+person's that broke off (same name and size). A second archive in the same
+gesture is named, not sent: one archive at a time. The pickers add `.pst,.ost`
+to their accept list and say so in the Hochladen menu; the drop overlay counts
+`application/vnd.ms-outlook` as welcome (`acceptMailArchives`). There is no
+button of its own. While an import sends, files or waits to be resumed, a line
+above the files names it and reopens the dialog (`mail-import-line.tsx`).
+Without the flag an archive is an ordinary upload, refused as a type the workspace
+does not read.
+
 ### Drag and drop, start to end
 
 **Date:** 2026-10-17 · **Surfaces:** project Files workspace, org Büroablage, chat composer
@@ -1047,7 +1066,7 @@ never drains the shelf for the default view.
   | An upload's read (project or office shelf) | a read settles: `reconcileDocumentStatuses`, reached at once by the ingest worker's settle push | `useUploadOrchestrator` → `UploadOrchestrator.askNow()`: the job's status and the watched rows are read at once |
   | A filing suggestion | the filing job proposed or withdrew one (`reviewUploadFiling`) | `useFilingSuggestions` |
   | A project's IFC model | its extraction is ready (`runBimExtractJob`) or failed (`markDocumentIngestFailed`) | `useProjectBimModels` |
-  | A mail import | a slice filed its mails, and the import ended (`lib/mail-import/job.ts`) | `useMailImports`, while the dialog is open |
+  | A mail import | a slice filed its mails, and the import ended (`lib/mail-import/job.ts`) | `useMailImports`, while the project's Dateien is open |
 
   Four waits still run on a clock, each for a reason. A chat's attachments
   (`pollSessionDocuments`, 5 s) are on no shelf, so no channel carries their

@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw'
 import { server } from '@/mocks/server'
 import { ProjectFileWorkspace } from './project-file-workspace'
 import type { DocumentWireRow } from '../lib/file-item'
+import type { MailImportView } from '@/lib/mail-import/types'
 import { handOverDroppedFiles, takeDroppedFiles } from '../lib/dropped-file-handover'
 import { makeDataTransfer, renderWorkspace, resetPreviewStore } from './project-file-workspace.fixtures'
 
@@ -231,24 +232,155 @@ describe('ProjectFileWorkspace', () => {
   })
 })
 
-describe('ProjectFileWorkspace — the mail import action', () => {
+describe('ProjectFileWorkspace — an Outlook archive is uploaded like any file', () => {
+  let started: Array<{ filename: string; sizeBytes: number }> = []
+  let resumed: string[] = []
+  let imports: MailImportView[] = []
+
+  const view = (overrides: Partial<MailImportView>): MailImportView => ({
+    id: 'imp-1',
+    filename: 'Postfach.pst',
+    sizeBytes: 3,
+    status: 'importing',
+    startedBy: { userId: 'u-1', email: null },
+    ownedByViewer: true,
+    cancellable: true,
+    folderId: null,
+    totalItems: 10,
+    processedItems: 4,
+    mailsFiled: 4,
+    filesFiled: 2,
+    itemsSkipped: 0,
+    filesSkipped: 0,
+    threadsCreated: 1,
+    threadsAppended: 0,
+    alreadyInProject: 0,
+    skippedSamples: [],
+    errorCode: null,
+    error: null,
+    createdAt: '2026-11-20T09:00:00.000Z',
+    completedAt: null,
+    ...overrides,
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     searchParams = new URLSearchParams()
     resetPreviewStore()
+    started = []
+    resumed = []
+    imports = []
+    server.use(
+      http.get('/api/projects/:projectId/folders', () => HttpResponse.json({ folders: [] })),
+      http.get('/api/projects/:projectId/mail-imports', () =>
+        HttpResponse.json({ imports, nextCursor: null, maxSizeBytes: 25e9, partSize: 32 * 1024 * 1024 })
+      ),
+      http.post('/api/projects/:projectId/mail-imports', async ({ request }) => {
+        started.push((await request.json()) as { filename: string; sizeBytes: number })
+        return HttpResponse.json({ error: 'full', code: 'STORAGE_QUOTA_EXCEEDED' }, { status: 507 })
+      }),
+      http.get('/api/projects/:projectId/mail-imports/:importId', ({ params }) => {
+        resumed.push(String(params.importId))
+        return HttpResponse.json({ error: 'gone', code: 'CONFLICT' }, { status: 409 })
+      }),
+    )
   })
 
-  const workspace = (rootAccess?: 'read' | 'write') => (
-    <ProjectFileWorkspace projectId="proj-1" projectName="Test" collectionName="test-coll" mailImportEnabled initialRootAccess={rootAccess} />
+  const workspace = (mailImportEnabled = true) => (
+    <ProjectFileWorkspace
+      projectId="proj-1"
+      projectName="Test"
+      collectionName="test-coll"
+      mailImportEnabled={mailImportEnabled}
+      initialRootAccess="write"
+    />
   )
+  const pick = (files: File[]) =>
+    fireEvent.change(screen.getByTestId('project-upload-input'), { target: { files } })
 
-  it('offers the import to a reader who may write at the project root, where it files its folder', () => {
-    renderWorkspace(workspace('write'))
-    expect(screen.getByTestId('mail-import-trigger')).toBeDefined()
+  it('has no button of its own in the toolbar', () => {
+    renderWorkspace(workspace())
+    expect(screen.queryByTestId('mail-import-trigger')).toBeNull()
+    expect(screen.queryByText(/import outlook archive/i)).toBeNull()
   })
 
-  it('hides it from a reader whose root access is read (ADR-0088)', () => {
-    renderWorkspace(workspace('read'))
-    expect(screen.queryByTestId('mail-import-trigger')).toBeNull()
+  it('offers .pst and .ost in the Hochladen picker only where the import is on', () => {
+    const { unmount } = renderWorkspace(workspace())
+    expect(screen.getByTestId('project-upload-input').getAttribute('accept')).toMatch(/\.pst,\.ost/)
+    unmount()
+    renderWorkspace(workspace(false))
+    expect(screen.getByTestId('project-upload-input').getAttribute('accept')).not.toMatch(/\.pst/)
+  })
+
+  it('imports a picked archive as mail instead of uploading it, and uploads the rest of the pick', async () => {
+    renderWorkspace(workspace())
+    const pdf = new File(['x'], 'plan.pdf', { type: 'application/pdf' })
+    const archive = new File(['pst'], 'Postfach.PST')
+    pick([pdf, archive])
+
+    await waitFor(() => expect(started).toEqual([{ filename: 'Postfach.PST', sizeBytes: 3 }]))
+    expect(await screen.findByTestId('mail-import-dialog')).toBeInTheDocument()
+    expect(await screen.findByText(/storage is full, so the archive cannot be imported/i)).toBeInTheDocument()
+    await waitFor(() => expect(mockUploadFiles).toHaveBeenCalledTimes(1))
+    expect(mockUploadFiles).toHaveBeenCalledWith([pdf], expect.objectContaining({ folderPathFor: expect.any(Function) }))
+  })
+
+  it('imports a dropped archive and hands nothing to the upload', async () => {
+    renderWorkspace(workspace())
+    const archive = new File(['pst'], 'Postfach.ost', { type: 'application/vnd.ms-outlook' })
+    const dataTransfer = makeDataTransfer([archive])
+    const dropzone = screen.getByTestId('workspace-dropzone')
+
+    fireEvent.dragEnter(dropzone, { dataTransfer })
+    expect(screen.queryByText(/not a supported type/i)).toBeNull()
+    fireEvent.drop(dropzone, { dataTransfer })
+
+    await waitFor(() => expect(started).toEqual([{ filename: 'Postfach.ost', sizeBytes: 3 }]))
+    expect(mockUploadFiles).not.toHaveBeenCalled()
+  })
+
+  it('goes on sending the archive whose send broke off instead of starting it again', async () => {
+    imports = [view({ id: 'imp-broken', status: 'uploading', cancellable: true })]
+    renderWorkspace(workspace())
+    pick([new File(['pst'], 'Postfach.pst')])
+
+    await waitFor(() => expect(resumed).toEqual(['imp-broken']))
+    expect(started).toEqual([])
+  })
+
+  it('says which further archives of one pick wait, one at a time', async () => {
+    renderWorkspace(workspace())
+    pick([new File(['pst'], 'A.pst'), new File(['pst'], 'B.pst')])
+
+    await waitFor(() => expect(started).toEqual([{ filename: 'A.pst', sizeBytes: 3 }]))
+    expect(await screen.findByText(/one Outlook archive at a time: upload “B.pst”/i)).toBeInTheDocument()
+  })
+
+  it('uploads an archive as a plain file where the import is off', async () => {
+    renderWorkspace(workspace(false))
+    const archive = new File(['pst'], 'Postfach.pst')
+    pick([archive])
+
+    await waitFor(() => expect(mockUploadFiles).toHaveBeenCalledWith([archive], expect.objectContaining({ folderPathFor: expect.any(Function) })))
+    expect(started).toEqual([])
+    expect(screen.queryByTestId('mail-import-dialog')).toBeNull()
+  })
+
+  it('keeps a running import reachable from a line above the files', async () => {
+    imports = [view({ filename: 'Korrespondenz.pst' })]
+    renderWorkspace(workspace())
+
+    const line = await screen.findByTestId('mail-import-line')
+    expect(line).toHaveTextContent('Importing “Korrespondenz.pst”')
+    fireEvent.click(screen.getByTestId('mail-import-line-open'))
+    expect(await screen.findByTestId('mail-import-dialog')).toBeInTheDocument()
+  })
+
+  it('shows no line once every import has ended', async () => {
+    imports = [view({ status: 'completed', cancellable: false, completedAt: '2026-11-20T10:00:00.000Z' })]
+    renderWorkspace(workspace())
+    await waitFor(() => expect(screen.getByTestId('project-upload-input')).toBeInTheDocument())
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(screen.queryByTestId('mail-import-line')).toBeNull()
   })
 })

@@ -7,6 +7,7 @@ export const files = {
     accepts: 'Accepts: {types}',
     dropAnywhere: 'Or drop files anywhere on this page.',
     maxSizeShort: 'max. {size} per file',
+    mailArchives: 'An Outlook archive (.pst, .ost) is imported as mail threads, its attachments into folders.',
   },
   uploads: {
     region: 'Uploads',
@@ -828,7 +829,6 @@ export const files = {
     view: 'View',
   },
   mailImport: {
-    action: 'Import Outlook archive',
     title: 'Import an Outlook archive',
     description:
       'Choose a .pst or .ost file. Each email’s attachments go into a folder under “E-Mail-Import”, its text into the project’s mail threads. Emails the project already has are not filed twice.',
@@ -839,6 +839,7 @@ export const files = {
     desktopHint: 'Large archives are best sent from a desk. If the connection drops, pick the same file again and it carries on from there.',
     notAnArchive: '“{name}” is not an Outlook archive (.pst or .ost).',
     tooLarge: '“{name}” is larger than {size}.',
+    oneAtATime: 'One Outlook archive at a time: upload “{names}” once this one has been sent.',
     sending: 'Sending {sent} of {total}…',
     sendingHint:
       'You can go on working in {productName} meanwhile; just keep this tab open until the archive is sent. Filing then runs in the background.',
@@ -871,6 +872,11 @@ export const files = {
     },
     cancelError: 'The import could not be cancelled.',
     close: 'Close',
+    line: {
+      interrupted: 'Sending “{name}” broke off.',
+      more: '{count, plural, one {and # more import} other {and # more imports}}',
+      open: 'View',
+    },
     history: 'Imports in this project',
     empty: 'No archive has been imported into this project yet.',
     loadError: 'The imports could not be loaded.',

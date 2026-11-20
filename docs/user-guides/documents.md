@@ -342,6 +342,16 @@ offered as its next Fassung, an unchanged one left alone.
   attachment in an Outlook import, an agent's upload) is refused as a type
   ARCHOS does not read; unpack it and upload its content.
 
+## Uploading an Outlook archive
+
+Where your organisation has the Outlook import, a `.pst` or `.ost` file you
+upload to a project's Dateien (with „Hochladen“, or dropped on the page) is not
+stored as one file: ARCHOS imports it, each e-mail's text into the project's
+E-Mail-Verläufe and its attachments into folders under „E-Mail-Import“. The
+import window opens and shows the send; other files you picked with it upload as
+usual. While an import runs, a line above the files says so; „Ansehen“ reopens
+the window. If a send broke off, upload the same file again and it carries on.
+
 File names in ZIPs made by very old Windows versions, which did not mark their
 names as UTF-8, can show garbled umlauts; renaming the folder in ARCHOS fixes it.
 

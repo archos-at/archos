@@ -9,6 +9,7 @@ export const files: typeof en.files = {
     accepts: 'Zulässig: {types}',
     dropAnywhere: 'Oder Dateien irgendwo auf die Seite ziehen.',
     maxSizeShort: 'max. {size} pro Datei',
+    mailArchives: 'Ein Outlook-Archiv (.pst, .ost) wird als E-Mail-Verläufe importiert, seine Anhänge in Ordner.',
   },
   uploads: {
     region: 'Uploads',
@@ -842,7 +843,6 @@ export const files: typeof en.files = {
     view: 'Ansehen',
   },
   mailImport: {
-    action: 'Outlook-Archiv importieren',
     title: 'Outlook-Archiv importieren',
     description:
       'Wählen Sie eine .pst- oder .ost-Datei. Die Anhänge jeder E-Mail kommen in einen Ordner unter „E-Mail-Import“, ihr Text in die E-Mail-Verläufe des Projekts. Was das Projekt schon hat, wird nicht doppelt abgelegt.',
@@ -853,6 +853,7 @@ export const files: typeof en.files = {
     desktopHint: 'Große Archive lassen sich am Schreibtisch am besten senden. Bricht die Verbindung ab, wählen Sie dieselbe Datei erneut und es geht dort weiter.',
     notAnArchive: '„{name}“ ist kein Outlook-Archiv (.pst oder .ost).',
     tooLarge: '„{name}“ ist größer als {size}.',
+    oneAtATime: 'Ein Outlook-Archiv nach dem anderen: Laden Sie „{names}“ hoch, sobald dieses gesendet ist.',
     sending: '{sent} von {total} gesendet…',
     sendingHint:
       'Sie können in {productName} inzwischen weiterarbeiten; lassen Sie nur diesen Tab offen, bis das Outlook-Archiv gesendet ist. Das Ablegen läuft danach im Hintergrund.',
@@ -886,6 +887,11 @@ export const files: typeof en.files = {
     },
     cancelError: 'Der Import konnte nicht abgebrochen werden.',
     close: 'Schließen',
+    line: {
+      interrupted: 'Das Senden von „{name}“ ist unterbrochen.',
+      more: '{count, plural, one {und # weiterer Import} other {und # weitere Importe}}',
+      open: 'Ansehen',
+    },
     history: 'Importe in diesem Projekt',
     empty: 'In dieses Projekt wurde noch kein Outlook-Archiv importiert.',
     loadError: 'Die Importe konnten nicht geladen werden.',

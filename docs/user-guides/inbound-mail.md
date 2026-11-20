@@ -509,7 +509,7 @@ eingegangen“, „eine Prüfung nötig“).
 
 ## Outlook archives
 
-An Outlook archive you import (Dateien › Outlook-Archiv importieren) files its
+An Outlook archive you upload to Dateien (a `.pst` or `.ost`, with „Hochladen“ or dropped on the page) files its
 e-mails' text into the same E-Mail-Verläufe, and skips any e-mail the project
 already has. Importing is your decision, so an archive does not wait in the
 E-Mail-Eingang. Its sections say „aus dem Outlook-Archiv“, its rows in the

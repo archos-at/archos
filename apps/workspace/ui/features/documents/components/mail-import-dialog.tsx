@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import Link from 'next/link'
 import { AlertTriangle, CheckCircle2, FolderOpen, Loader2, Mail, Upload, XCircle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -50,6 +50,11 @@ export interface MailImportDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+export interface HandedArchives {
+  files: readonly File[]
+  onTaken: () => void
+}
+
 export function MailImportDialog({ projectId, open, onOpenChange }: MailImportDialogProps): JSX.Element {
   const state = useMailImports(projectId, open)
   return <MailImportDialogView projectId={projectId} open={open} onOpenChange={onOpenChange} state={state} />
@@ -60,7 +65,8 @@ export function MailImportDialogView({
   open,
   onOpenChange,
   state,
-}: MailImportDialogProps & { state: UseMailImports }): JSX.Element {
+  handed = null,
+}: MailImportDialogProps & { state: UseMailImports; handed?: HandedArchives | null }): JSX.Element {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -83,16 +89,35 @@ export function MailImportDialogView({
     inputRef.current?.click()
   }
 
+  const send = (file: File, target: MailImportView | null): string | null => {
+    const refusal = pickRefusal(t, locale, file, maxSize, target)
+    if (refusal) return refusal
+    void (target ? state.resume(target, file) : state.start(file))
+    return null
+  }
+
   const onPicked = (file: File | undefined) => {
     if (inputRef.current) inputRef.current.value = ''
     if (!file) return
-    const refusal = pickRefusal(t, locale, file, maxSize, resumeTarget)
-    if (refusal) {
-      setPickError(refusal)
-      return
-    }
-    void (resumeTarget ? state.resume(resumeTarget, file) : state.start(file))
+    setPickError(send(file, resumeTarget))
   }
+
+  const takeHanded = useEffectEvent((files: readonly File[]) => {
+    const [file, ...more] = files
+    if (!file) return
+    setResumeTarget(null)
+    state.dismissErrors()
+    const refusal = send(file, resumableFor(state.list?.imports ?? [], file, state.sending?.importId ?? null))
+    setPickError(
+      refusal ?? (more.length > 0 ? t('mailImport.oneAtATime', { names: more.map((each) => each.name).join(', ') }) : null)
+    )
+  })
+  const listSettled = state.list !== null || state.loadError
+  useEffect(() => {
+    if (!open || !handed || !listSettled) return
+    handed.onTaken()
+    takeHanded(handed.files)
+  }, [open, handed, listSettled])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -389,6 +414,19 @@ function StatusIcon({ status }: { status: MailImportView['status'] }): JSX.Eleme
   if (status === 'failed') return <XCircle className="size-4 text-destructive" aria-hidden />
   if (status === 'cancelled') return <XCircle className="size-4 text-muted-foreground" aria-hidden />
   return <Loader2 className="size-4 animate-spin text-info motion-reduce:animate-none" aria-hidden />
+}
+
+function resumableFor(rows: readonly MailImportView[], file: File, sendingId: string | null): MailImportView | null {
+  return (
+    rows.find(
+      (row) =>
+        row.status === 'uploading' &&
+        row.ownedByViewer &&
+        row.id !== sendingId &&
+        row.filename === file.name &&
+        row.sizeBytes === file.size
+    ) ?? null
+  )
 }
 
 function pickRefusal(
