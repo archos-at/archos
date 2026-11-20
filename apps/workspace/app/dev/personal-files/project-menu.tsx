@@ -3,7 +3,7 @@
 // PROTOTYPE, not for merge: the project menu and the project overview for the personal-area concept (ticket 81).
 
 import type { JSX } from 'react'
-import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, Search, Settings, UserRound, X } from 'lucide-react'
+import { Check, ChevronRight, ChevronsUpDown, Layers, LayoutGrid, Plus, Folders, LockKeyhole, Search, Settings, UserRound, X } from 'lucide-react'
 import { useSearchParams } from 'next/navigation'
 
 import { PROJECTS } from '../personal-area-rail/prototype'
@@ -17,9 +17,31 @@ function ProjectRow({ name, current = false }: { name: string; current?: boolean
   )
 }
 
-export function useFirstRoom(): { Icon: typeof Layers; name: string; line: string; room: boolean } {
-  const room = useSearchParams()?.get('room') === '1'
-  return room ? { Icon: UserRound, name: 'Persönlich', line: 'Nur für Sie, ohne Bindung an ein Projekt', room } : { Icon: Layers, name: 'Projektübergreifend', line: 'Fragen ohne Bindung an ein Projekt', room }
+export function useFirstRoom(): { Icon: typeof Layers; name: string; line: string; room: boolean; space: boolean } {
+  const query = useSearchParams()
+  const space = query?.get('space') === '1'
+  const room = space || query?.get('room') === '1'
+  return room ? { Icon: UserRound, name: 'Persönlich', line: 'Nur für Sie, ohne Bindung an ein Projekt', room, space } : { Icon: Layers, name: 'Projektübergreifend', line: 'Fragen ohne Bindung an ein Projekt', room, space }
+}
+
+export function SpaceToggle({ personal }: { personal: boolean }): JSX.Element {
+  const half = 'flex h-8 items-center justify-center gap-1.5 rounded-[6px] text-[13px]'
+  return (
+    <div className="bg-selected mb-1.5 grid grid-cols-2 rounded-control p-0.5">
+      <span className={`${half} ${personal ? 'bg-primary text-primary-foreground font-medium' : 'text-muted-foreground'}`}>
+        <LockKeyhole className="size-3.5" aria-hidden />
+        Persönlich
+      </span>
+      <span className={`${half} ${personal ? 'text-muted-foreground' : 'bg-sheet shadow-xs font-medium'}`}>
+        <Folders className="size-3.5" aria-hidden />
+        Projekt
+      </span>
+    </div>
+  )
+}
+
+export function PersonalLine(): JSX.Element {
+  return <div className="text-muted-foreground text-meta flex h-10 w-full items-center px-3">Nur Sie sehen, was hier liegt.</div>
 }
 
 export function ProjectMenu({ form, across = false }: { form: string; across?: boolean }): JSX.Element {
@@ -67,7 +89,7 @@ export function ProjectMenu({ form, across = false }: { form: string; across?: b
       )}
       {(form === 'blocks' || form === 'gear' || form === 'inline') && (
         <>
-          <div className="bg-desk mb-1.5 flex items-center gap-3 rounded-[10px] p-2.5">
+          <div className={`bg-desk mb-1.5 items-center gap-3 rounded-[10px] p-2.5 ${first.space ? 'hidden' : 'flex'}`}>
             <span className="bg-sheet shadow-xs flex size-8 shrink-0 items-center justify-center rounded-control">
               <first.Icon className="size-4" aria-hidden />
             </span>

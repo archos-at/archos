@@ -26,7 +26,7 @@ import { DEFAULT_FILE_SORT } from '@/features/documents/lib/file-sort'
 import { I18nProvider } from '@/i18n'
 import { makeFile, useFixtureFolderNav } from '../file-browser/fixtures'
 import { InboxAll, InboxPage, InboxPanel, InboxPopover } from './inbox-panel'
-import { AcrossTrigger, ProjectMenu, ProjectOverview, useFirstRoom } from './project-menu'
+import { AcrossTrigger, PersonalLine, ProjectMenu, ProjectOverview, SpaceToggle, useFirstRoom } from './project-menu'
 import { FolderPath, ReadStatus, SearchHits, ShelfHeader, Who, TrashWindow, UnreadHint } from './shelf-header'
 import { REAL_FILES, REAL_FOLDERS } from '../files-page/fixtures'
 import { ALL_CHATS, ChatHeader, ChatRow, Foot, MoreRow, NavRow, NewChatPage, Page, PROJECTS } from '../personal-area-rail/prototype'
@@ -65,14 +65,16 @@ function Rail({ own, ownFiles = false, officeShelfOpen = false, openChat = null,
   const query = useSearchParams()
   const person = query?.get('person') ?? null
   const personOpen = query?.get('pact') ?? null
-  const plain = Boolean(person) || query?.get('room') === '1'
+  const space = query?.get('space') === '1'
+  const plain = Boolean(person) || space || query?.get('room') === '1'
   return (
     <SidebarProvider className="h-full min-h-0 w-auto shrink-0">
       <Sidebar collapsible="icon" data-scope="project" aria-label="Navigation">
         <SidebarHeader className="shrink-0 gap-0 p-0 px-3">
           <SidebarBrand iconRail={false} />
+          {space && <SpaceToggle personal={own} />}
           <div className="relative mt-1 flex items-center gap-1.5">
-            {own && menuForm === 'gear' ? <AcrossTrigger /> : <ProjectSwitcher projects={[menuForm === 'top' ? OWN : OWN_ACROSS, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />}
+            {space && own ? <PersonalLine /> : own && menuForm === 'gear' ? <AcrossTrigger /> : <ProjectSwitcher projects={[menuForm === 'top' ? OWN : OWN_ACROSS, ...PROJECTS]} activeProjectId={own ? 'none' : 'p-1'} />}
             {gear === 'menu' && <ProjectMenu form={menuForm} across={own} />}
             {gear === true && !own && (
               <span title="Projekteinstellungen" className="bg-sheet shadow-press text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-control">
