@@ -28,6 +28,9 @@ _PR_EMAIL_ADDRESS = 0x3003
 _PR_SMTP_ADDRESS = 0x39FE
 _PR_RECIPIENT_TYPE = 0x0C15
 _PR_ATTACH_METHOD = 0x3705
+_PR_IPM_SUBTREE_ENTRYID = 0x35E0
+_ENTRY_ID_BYTES = 24
+_MAIL_ROOT_DEPTH = 2
 _PR_ATTACH_FILENAME = 0x3704
 _PR_ATTACH_MIME_TAG = 0x370E
 _PR_ATTACH_CONTENT_ID = 0x3712
@@ -110,7 +113,7 @@ class Archive:
     def __init__(self, handle: pypff.file, source: object | None = None) -> None:
         self._handle = handle
         self._source = source
-        self._folders = tuple(_mail_folders(handle.get_root_folder()))
+        self._folders = tuple(_mail_folders(handle))
         self.total = sum(entry.count for entry in self._folders)
         self.lock = threading.Lock()
 
@@ -191,12 +194,15 @@ def open_archive(file_object) -> Archive:  # noqa: ANN001 - any seekable binary 
     return Archive(handle, source=file_object)
 
 
-def _mail_folders(root: pypff.folder) -> Iterator[_Folder]:
-    base = _mail_root(root)
-    yield from _walk(base, ())
+def _mail_folders(handle: pypff.file) -> Iterator[_Folder]:
+    yield from _walk(_mail_root(handle), ())
 
 
-def _mail_root(root: pypff.folder) -> pypff.folder:
+def _mail_root(handle: pypff.file) -> pypff.folder:
+    root = handle.get_root_folder()
+    named = _folder_numbered(root, _ipm_subtree_number(handle), _MAIL_ROOT_DEPTH)
+    if named is not None:
+        return named
     children = [root.get_sub_folder(i) for i in range(root.number_of_sub_folders)]
     for child in children:
         subtree = _child_named(child, "IPM_SUBTREE") if child.name == "Root - Mailbox" else None
@@ -204,6 +210,31 @@ def _mail_root(root: pypff.folder) -> pypff.folder:
             return subtree
     personal = [child for child in children if child.name not in _SYSTEM_TOP_FOLDERS]
     return personal[0] if len(personal) == 1 else root
+
+
+def _ipm_subtree_number(handle: pypff.file) -> int | None:
+    try:
+        store = handle.get_message_store()
+        entry_id = _properties(store, {_PR_IPM_SUBTREE_ENTRYID}).get(_PR_IPM_SUBTREE_ENTRYID) if store else None
+    except OSError:
+        return None
+    if not isinstance(entry_id, bytes) or len(entry_id) != _ENTRY_ID_BYTES:
+        return None
+    return int.from_bytes(entry_id[-4:], "little")
+
+
+def _folder_numbered(folder: pypff.folder, number: int | None, depth: int) -> pypff.folder | None:
+    if number is None or depth == 0:
+        return None
+    children = [folder.get_sub_folder(i) for i in range(folder.number_of_sub_folders)]
+    for child in children:
+        if child.identifier == number:
+            return child
+    for child in children:
+        found = _folder_numbered(child, number, depth - 1)
+        if found is not None:
+            return found
+    return None
 
 
 def _child_named(folder: pypff.folder, name: str) -> pypff.folder | None:
