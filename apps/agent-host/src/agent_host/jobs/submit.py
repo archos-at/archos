@@ -17,7 +17,6 @@ from .access import create_job_access
 from .access import derive_project_collection
 from .access import job_exists
 from .access import rollback_job_submission
-from .legacy_agent_class_paths import CLASS_PATH_OF
 
 
 def _build_run_agent_payload(
@@ -65,7 +64,7 @@ def _build_run_agent_payload(
         "job_id": job_id,
         "input_text": input_text,
         "agent_config_name": get_agent_config(agent_type).config_name,
-        "agent_class_path": CLASS_PATH_OF[agent_type],  # drop after release 2026-W50
+        "agent_type": agent_type,
         "parent_span_id": parent_span_id,
         "parent_function_id": parent_function_id,
         "parent_function_name": parent_function_name,
