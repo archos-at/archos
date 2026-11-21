@@ -59,6 +59,7 @@ def test_a_missing_vision_model_is_configuration_and_the_job_names_its_reader(tm
     detail = status.file_details[0]
     assert detail.status == FileStatus.FAILED
     assert (detail.failure_category, detail.retryable) == ("configuration", True)
+    assert detail.failure_reason == "vlm_not_configured"
     assert status.reader_version == INGEST_READER_VERSION
 
 
@@ -75,6 +76,7 @@ def test_an_exception_of_the_moment_is_transient(tmp_path, ingestor, monkeypatch
     assert detail.status == FileStatus.FAILED
     assert detail.error_message == "read timed out"
     assert (detail.failure_category, detail.retryable) == ("transient", True)
+    assert detail.failure_reason == "timeout"
 
 
 def test_a_file_whose_bytes_cannot_be_read_is_deterministic(tmp_path, ingestor, monkeypatch):
@@ -88,6 +90,24 @@ def test_a_file_whose_bytes_cannot_be_read_is_deterministic(tmp_path, ingestor, 
     detail = _run(ingestor, pdf, "kaputt.pdf").file_details[0]
 
     assert (detail.failure_category, detail.retryable) == ("deterministic", False)
+    assert detail.failure_reason == "raw_binary_content"
+
+
+def test_an_encrypted_pdf_names_its_reason(tmp_path, ingestor, monkeypatch):
+    class PDFPasswordIncorrect(Exception):
+        pass
+
+    def locked(_path):
+        raise PDFPasswordIncorrect("")
+
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", locked)
+    pdf = tmp_path / "gesperrt.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+    detail = _run(ingestor, pdf, "gesperrt.pdf").file_details[0]
+
+    assert (detail.failure_category, detail.retryable) == ("deterministic", False)
+    assert detail.failure_reason == "encrypted"
 
 
 def test_an_empty_file_is_deterministic(tmp_path, ingestor, monkeypatch):
@@ -99,6 +119,7 @@ def test_an_empty_file_is_deterministic(tmp_path, ingestor, monkeypatch):
 
     assert detail.status == FileStatus.FAILED
     assert (detail.failure_category, detail.retryable) == ("deterministic", False)
+    assert detail.failure_reason == "no_content"
 
 
 def test_a_file_that_reads_carries_no_failure(tmp_path, ingestor):
@@ -109,7 +130,7 @@ def test_a_file_that_reads_carries_no_failure(tmp_path, ingestor):
 
     detail = status.file_details[0]
     assert detail.status == FileStatus.SUCCESS
-    assert (detail.failure_category, detail.retryable) == (None, None)
+    assert (detail.failure_category, detail.failure_reason, detail.retryable) == (None, None, None)
     assert status.reader_version == INGEST_READER_VERSION
 
 
@@ -130,4 +151,5 @@ def test_a_job_whose_owner_died_fails_its_unfinished_files_as_transient():
 
     unfinished, finished = failed.file_details
     assert (unfinished.failure_category, unfinished.retryable) == ("transient", True)
-    assert (finished.failure_category, finished.retryable) == (None, None)
+    assert unfinished.failure_reason == "interrupted"
+    assert (finished.failure_category, finished.failure_reason, finished.retryable) == (None, None, None)

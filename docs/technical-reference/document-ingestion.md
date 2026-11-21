@@ -748,7 +748,7 @@ defaults (`ingest_workflow.hold_seconds`).
 ### Which failures are read again
 
 A terminal job also says *why* each file failed (`agent/knowledge/ingest_failures.py`):
-`FileProgress.failure_category` and `retryable`, and the job's `reader_version`
+`FileProgress.failure_category`, `failure_reason` and `retryable`, and the job's `reader_version`
 (`packages/knowledge-layer/src/knowledge_layer/ingest/reader_version.py`). Step 2 writes them onto the row
 (`ingest_failure_category`, `ingest_retryable`, `ingest_reader_version`, migration 0134),
 and `lib/documents/retry-policy.ts` (`canRetry`) decides from them whether reading the
