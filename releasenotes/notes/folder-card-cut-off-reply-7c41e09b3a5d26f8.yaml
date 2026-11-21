@@ -1,0 +1,8 @@
+---
+# area: documents
+operators:
+  - >
+    A folder card reply that is cut off at its output cap is asked once more with
+    twice the cap. Both attempts count against `FOLDER_CARDS_MONTHLY_TOKENS` and
+    each is its own `folder-card` generation in Langfuse, with `finish_reason`
+    `length` on the cut-off one.

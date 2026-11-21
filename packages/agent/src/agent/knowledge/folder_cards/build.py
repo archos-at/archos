@@ -229,6 +229,70 @@ def _cut_off_tokens(body: Mapping[str, Any], prompt: str, cap: int) -> int:
     return body["usage"].get("total_tokens") or (len(SYSTEM_PROMPT) + len(prompt)) // 4 + cap
 
 
+@dataclass(frozen=True)
+class _Call:
+    llm: Any
+    model: str
+    system: str
+    prompt: str
+    metadata: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class _CutOff:
+    tokens: int
+    error: LengthFinishReasonError
+
+
+async def _ask(call: _Call, cap: int, spent: int) -> Any:
+    from langchain_core.messages import HumanMessage
+    from langchain_core.messages import SystemMessage
+
+    from agent.common.llm_factory import strict_json_response_format
+
+    structured = call.llm.bind(max_tokens=cap, response_format=strict_json_response_format(CardReply))
+    try:
+        return await structured.ainvoke([SystemMessage(content=call.system), HumanMessage(content=call.prompt)])
+    except LengthFinishReasonError:
+        raise
+    except Exception as exc:
+        if not spent:
+            raise
+        raise GenerationRejected(f"{type(exc).__name__} after a cut-off reply", tokens=spent) from exc
+
+
+def _reply_of(text: str, tokens: int) -> CardReply:
+    from agent.common.json_utils import extract_json
+
+    try:
+        parsed = extract_json(text)
+        if not isinstance(parsed, dict):
+            raise ValueError("the folder card reply is not a JSON object")
+        return CardReply.model_validate(parsed)
+    except Exception as exc:  # noqa: BLE001 — the call was made and billed; the worker books it
+        raise GenerationRejected(str(exc), tokens=tokens) from exc
+
+
+async def _attempt(call: _Call, cap: int, spent: int) -> Generation | _CutOff:
+    from agent.common.message_utils import content_to_text
+    from agent.observability.direct_trace import observed_generation
+
+    messages = [{"role": "system", "content": call.system}, {"role": "user", "content": call.prompt}]
+    metadata = {**call.metadata, "max_output_tokens": cap}
+    async with observed_generation(GENERATION_NAME, model=call.model, messages=messages, metadata=metadata) as traced:
+        try:
+            response = await _ask(call, cap, spent)
+        except LengthFinishReasonError as error:
+            body = _cut_off_body(error)
+            traced.finish(body)
+            return _CutOff(_cut_off_tokens(body, call.prompt, cap), error)
+        text = content_to_text(getattr(response, "content", response))
+        tokens = spent + _tokens(response, call.prompt, text)
+        traced.finish(_completion_body(response, text))
+        reply = _reply_of(text, tokens)
+        return Generation(reply=reply, model=call.model, tokens=tokens, trace_id=traced.trace_id)
+
+
 async def generate(
     inputs: FolderInputs,
     llm: Any,
@@ -237,18 +301,8 @@ async def generate(
     mode: str = "full",
     diff_counts: Mapping[str, int] | None = None,
 ) -> Generation:
-    from langchain_core.messages import HumanMessage
-    from langchain_core.messages import SystemMessage
-
-    from agent.common.json_utils import extract_json
-    from agent.common.llm_factory import strict_json_response_format
-    from agent.common.message_utils import content_to_text
     from agent.knowledge.permit_extraction import llm_model_name
-    from agent.observability.direct_trace import observed_generation
 
-    system = SYSTEM_PROMPT + (INCREMENTAL_NOTE if mode == "incremental" else "")
-    prompt = prompt if prompt is not None else user_prompt(inputs)
-    model = llm_model_name(llm)
     metadata = {
         "collection": inputs.collection,
         "depth": inputs.depth,
@@ -258,37 +312,17 @@ async def generate(
         "mode": mode,
         **(diff_counts or {}),
     }
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
+    system = SYSTEM_PROMPT + (INCREMENTAL_NOTE if mode == "incremental" else "")
+    call = _Call(llm, llm_model_name(llm), system, prompt if prompt is not None else user_prompt(inputs), metadata)
     spent = 0
-    cut_off: LengthFinishReasonError | None = None
     for cap in OUTPUT_TOKEN_STEPS:
-        structured = llm.bind(max_tokens=cap, response_format=strict_json_response_format(CardReply))
-        traced = {**metadata, "max_output_tokens": cap}
-        async with observed_generation(GENERATION_NAME, model=model, messages=messages, metadata=traced) as generation:
-            try:
-                response = await structured.ainvoke([SystemMessage(content=system), HumanMessage(content=prompt)])
-            except LengthFinishReasonError as error:
-                body = _cut_off_body(error)
-                generation.finish(body)
-                spent += _cut_off_tokens(body, prompt, cap)
-                cut_off = error
-                continue
-            except Exception as exc:
-                if not spent:
-                    raise
-                raise GenerationRejected(f"{type(exc).__name__} after a cut-off reply", tokens=spent) from exc
-            text = content_to_text(getattr(response, "content", response))
-            tokens = spent + _tokens(response, prompt, text)
-            generation.finish(_completion_body(response, text))
-            try:
-                parsed = extract_json(text)
-                if not isinstance(parsed, dict):
-                    raise ValueError("the folder card reply is not a JSON object")
-                reply = CardReply.model_validate(parsed)
-            except Exception as exc:  # noqa: BLE001 — the call was made and billed; the worker books it
-                raise GenerationRejected(str(exc), tokens=tokens) from exc
-            return Generation(reply=reply, model=model, tokens=tokens, trace_id=generation.trace_id)
-    raise GenerationRejected(f"the folder card reply was cut off at {cap} output tokens", tokens=spent) from cut_off
+        outcome = await _attempt(call, cap, spent)
+        if isinstance(outcome, Generation):
+            return outcome
+        spent += outcome.tokens
+    raise GenerationRejected(
+        f"the folder card reply was cut off at {cap} output tokens", tokens=spent
+    ) from outcome.error
 
 
 _ABBREVIATIONS = re.compile(
