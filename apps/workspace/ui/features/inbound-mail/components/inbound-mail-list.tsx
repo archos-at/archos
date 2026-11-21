@@ -102,7 +102,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         <ToggleGroup
           type="single"
           segmented
-          className="@3xl:bg-selected [&>button]:text-sm"
+          className="@3xl:bg-selected [&>button]:text-name"
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}
@@ -423,7 +423,7 @@ function ListBody({
                 {/* What „Ablagebereit“ means is the label's hover, not a second line over every list. */}
                 {/* The count is the tabs' muted pill, not brackets: one way to write a count on the page. */}
                 {/* A section outranks a thread: 13px in ink here, the thread's line 12px muted. */}
-                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="text-foreground flex items-center gap-1.5 !text-[length:var(--text-section)] !leading-6 !font-semibold">
+                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="text-foreground flex items-center gap-1.5 !text-[length:var(--text-section)] !leading-6 !font-medium">
                   {t(`readiness.${head.readiness}`)}
                   <CountPill count={head.mails.length} tone="muted" />
                 </SectionLabel>

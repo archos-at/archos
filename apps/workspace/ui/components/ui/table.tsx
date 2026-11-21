@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement> & { scrollX?: boolean }>(
   ({ className, scrollX = true, ...props }, ref) => (
     <div className={cn('relative w-full', scrollX && 'overflow-x-auto')}>
-      <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
+      <table ref={ref} className={cn('w-full caption-bottom text-name font-normal', className)} {...props} />
     </div>
   ),
 )

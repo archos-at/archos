@@ -24,7 +24,7 @@ const TITLE_ROW_CLASS =
 
 const TITLE_COLUMN_CLASS = 'min-w-0 sm:min-w-56'
 
-export const PAGE_TITLE_CLASS = 'text-page-title font-medium phone:text-section'
+export const PAGE_TITLE_CLASS = 'text-page-title phone:text-pane-title'
 
 export function PageHeader({
   title,

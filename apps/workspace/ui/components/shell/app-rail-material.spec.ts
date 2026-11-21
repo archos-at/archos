@@ -269,7 +269,7 @@ describe('the app rail’s material', () => {
     expect(allClasses(container)).not.toContain('font-semibold')
 
     const { container: switcher } = render(createElement(ProjectSwitcher, { projects: PROJECTS, activeProjectId: 'p1', collapsed: true }))
-    expect(allClasses(switcher).filter((cls) => cls === 'font-semibold')).toHaveLength(1)
+    expect(allClasses(switcher)).not.toContain('font-semibold')
     const title = render(createElement(ProjectSwitcher, { projects: PROJECTS, activeProjectId: 'p1' })).container.querySelector('[title="Project One"]') as HTMLElement
     expect(classesOf(title)).toEqual(expect.arrayContaining(['text-[13px]', 'font-medium']))
 

@@ -162,7 +162,7 @@ function SectionNavLink({
       data-focus-inset={onTrack ? '' : undefined}
       title={compactOnPhone && !active ? item.label : undefined}
       className={cn(
-        'duration-quick focus-visible:ring-ring/60 relative isolate items-center rounded-control text-sm transition-colors ease-out focus-visible:outline-none focus-visible:ring-2',
+        'duration-quick focus-visible:ring-ring/60 relative isolate items-center rounded-control text-[13px] leading-5 transition-colors ease-out focus-visible:outline-none focus-visible:ring-2',
         onTrack ? 'focus-visible:ring-inset' : 'focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         variant === 'rail'
           ? 'flex gap-2 px-3 py-2 pointer-coarse:min-h-11'

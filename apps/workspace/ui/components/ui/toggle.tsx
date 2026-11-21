@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 
 const toggleVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 rounded-control text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,opacity,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out outline-none disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 motion-reduce:transition-none active:scale-[0.98] motion-reduce:active:scale-100 " +
+  "inline-flex items-center justify-center gap-1.5 rounded-control text-name font-medium whitespace-nowrap transition-[color,background-color,border-color,opacity,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out outline-none disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 motion-reduce:transition-none active:scale-[0.98] motion-reduce:active:scale-100 " +
     FOCUS_RING,
   {
     variants: {
@@ -21,7 +21,7 @@ const toggleVariants = cva(
         chip: 'rounded-full bg-desk text-foreground font-medium hover:bg-selected data-[state=on]:bg-selected data-[state=on]:hover:bg-pressed',
       },
       size: {
-        default: 'h-9 px-3 text-sm pointer-coarse:h-11 pointer-coarse:min-w-11',
+        default: 'h-9 px-3 text-name pointer-coarse:h-11 pointer-coarse:min-w-11',
         sm: 'h-8 px-3 text-xs pointer-coarse:h-11 pointer-coarse:min-w-11',
         lg: 'h-10 px-3.5 pointer-coarse:h-11 pointer-coarse:min-w-11',
         icon: 'size-8 pointer-coarse:size-11',

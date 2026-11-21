@@ -37,7 +37,7 @@ export const faceStyle = (variant: CitationVariant, signal: SourceTint): CSSProp
 
 export const CitationIndex: FC<{ index?: string }> = ({ index }) =>
   !index ? null : (
-    <span className="me-1 shrink-0 text-xs font-semibold tabular-nums opacity-60">{index}</span>
+    <span className="me-1 shrink-0 text-xs font-medium tabular-nums opacity-60">{index}</span>
   )
 
 interface CitationFaceProps {
