@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from openai import LengthFinishReasonError
 from pydantic import BaseModel
 from pydantic import ConfigDict
 
@@ -25,6 +26,7 @@ MAX_STATEMENT_CHARS = 300
 MAX_FACT_DOCUMENTS = 8
 MAX_PAGES_CHARS = 40
 MAX_OUTPUT_TOKENS = 2000
+OUTPUT_TOKEN_STEPS = (MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS * 2)
 
 SYSTEM_PROMPT = (
     "You write the card of one folder in an Austrian architecture office's document store. The card "
@@ -208,6 +210,25 @@ def _tokens(response: Any, prompt: str, text: str) -> int:
     return total or (len(SYSTEM_PROMPT) + len(prompt) + len(text)) // 4
 
 
+def _cut_off_body(cut_off: LengthFinishReasonError) -> dict[str, Any]:
+    completion = getattr(cut_off, "completion", None)
+    usage = getattr(completion, "usage", None)
+    choices = getattr(completion, "choices", None) or [None]
+    text = getattr(getattr(choices[0], "message", None), "content", None)
+    return {
+        "choices": [{"message": {"content": text if isinstance(text, str) else ""}, "finish_reason": "length"}],
+        "usage": {
+            key: value
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens")
+            if isinstance(value := getattr(usage, key, None), int)
+        },
+    }
+
+
+def _cut_off_tokens(body: Mapping[str, Any], prompt: str, cap: int) -> int:
+    return body["usage"].get("total_tokens") or (len(SYSTEM_PROMPT) + len(prompt)) // 4 + cap
+
+
 async def generate(
     inputs: FolderInputs,
     llm: Any,
@@ -228,7 +249,6 @@ async def generate(
     system = SYSTEM_PROMPT + (INCREMENTAL_NOTE if mode == "incremental" else "")
     prompt = prompt if prompt is not None else user_prompt(inputs)
     model = llm_model_name(llm)
-    structured = llm.bind(max_tokens=MAX_OUTPUT_TOKENS, response_format=strict_json_response_format(CardReply))
     metadata = {
         "collection": inputs.collection,
         "depth": inputs.depth,
@@ -239,18 +259,36 @@ async def generate(
         **(diff_counts or {}),
     }
     messages = [{"role": "system", "content": system}, {"role": "user", "content": prompt}]
-    async with observed_generation(GENERATION_NAME, model=model, messages=messages, metadata=metadata) as generation:
-        response = await structured.ainvoke([SystemMessage(content=system), HumanMessage(content=prompt)])
-        text = content_to_text(getattr(response, "content", response))
-        generation.finish(_completion_body(response, text))
-        try:
-            parsed = extract_json(text)
-            if not isinstance(parsed, dict):
-                raise ValueError("the folder card reply is not a JSON object")
-            reply = CardReply.model_validate(parsed)
-        except Exception as exc:  # noqa: BLE001 — the call was made and billed; the worker books it
-            raise GenerationRejected(str(exc), tokens=_tokens(response, prompt, text)) from exc
-    return Generation(reply=reply, model=model, tokens=_tokens(response, prompt, text), trace_id=generation.trace_id)
+    spent = 0
+    cut_off: LengthFinishReasonError | None = None
+    for cap in OUTPUT_TOKEN_STEPS:
+        structured = llm.bind(max_tokens=cap, response_format=strict_json_response_format(CardReply))
+        traced = {**metadata, "max_output_tokens": cap}
+        async with observed_generation(GENERATION_NAME, model=model, messages=messages, metadata=traced) as generation:
+            try:
+                response = await structured.ainvoke([SystemMessage(content=system), HumanMessage(content=prompt)])
+            except LengthFinishReasonError as error:
+                body = _cut_off_body(error)
+                generation.finish(body)
+                spent += _cut_off_tokens(body, prompt, cap)
+                cut_off = error
+                continue
+            except Exception as exc:
+                if not spent:
+                    raise
+                raise GenerationRejected(f"{type(exc).__name__} after a cut-off reply", tokens=spent) from exc
+            text = content_to_text(getattr(response, "content", response))
+            tokens = spent + _tokens(response, prompt, text)
+            generation.finish(_completion_body(response, text))
+            try:
+                parsed = extract_json(text)
+                if not isinstance(parsed, dict):
+                    raise ValueError("the folder card reply is not a JSON object")
+                reply = CardReply.model_validate(parsed)
+            except Exception as exc:  # noqa: BLE001 — the call was made and billed; the worker books it
+                raise GenerationRejected(str(exc), tokens=tokens) from exc
+            return Generation(reply=reply, model=model, tokens=tokens, trace_id=generation.trace_id)
+    raise GenerationRejected(f"the folder card reply was cut off at {cap} output tokens", tokens=spent) from cut_off
 
 
 _ABBREVIATIONS = re.compile(
