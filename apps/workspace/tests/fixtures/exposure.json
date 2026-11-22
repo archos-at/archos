@@ -101,6 +101,16 @@
    "withheld": null,
    "reason": null
   },
+  "project-intake-building": {
+   "kind": "catalog",
+   "domain": "projects",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "project-intake-complete": {
    "kind": "catalog",
    "domain": "projects",
