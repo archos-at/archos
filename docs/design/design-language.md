@@ -1,5 +1,7 @@
 # Design Language
 
+> **Superseded for new work (2026-11-22, [ADR-0187](../adr/0187-archos-design-governs-the-app-as-well-as-the-website.md)).** The design system 3.0 (`packages/brand/`) governs the app as well as the website. „Paper on a desk“ below and the app-only shadows, radius ladder and status colours describe the app as it is today, until the migration moves each surface; a new or reworked surface follows the design system.
+
 > Branding note (2026-07-17): the user-facing product brand — wordmark, tab titles, all UI copy — is **the product name** (`src/lib/brand.ts`). The internal platform name stays unchanged, including this design language and its tokens (e.g. the `--law-blue` alias).
 
 The single reference every page redesign builds against. Goal: an **understated, premium, precise** workspace for architects and planning offices, where they run projects, files, the building model, tasks and research. Linear/Vercel/Stripe-dashboard restraint, not consumer SaaS. Calm, trustworthy, dense-but-legible. No gradients, no emojis, no decorative color.

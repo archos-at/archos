@@ -40,6 +40,8 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 
 ## Two layers: website and app
 
+> Since 2026-11-22 ([ADR-0187](../../docs/adr/0187-archos-design-governs-the-app-as-well-as-the-website.md)) the app follows this system too. The app layer below is what the migration retires.
+
 The design system 3.0 is a website system: square shapes, 4px controls, no shadows. The
 workspace is rebranded with a lighter hand on purpose and keeps a softer shape language of
 its own; where its rules differ from the website's on purpose (the tonal secondary press, D4),

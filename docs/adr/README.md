@@ -255,6 +255,7 @@ Consequences, where a reader looks for them.
 | [0184](0184-pull-request-ci-runs-on-runners-in-the-dev-cluster.md) | CI runs on runners in the dev cluster, with no Docker and no credentials | Proposed |
 | [0185](0185-a-project-norm-goes-to-the-office-shelf-as-a-copy-and-leaves-a-reference.md) | A project norm goes to the office shelf as a copy, and the project keeps a reference | Proposed |
 | [0186](0186-the-office-norms-add-on-as-a-bet.md) | The office-norms add-on as a bet | Proposed |
+| [0187](0187-archos-design-governs-the-app-as-well-as-the-website.md) | ARCHOS Design governs the app as well as the website | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off
