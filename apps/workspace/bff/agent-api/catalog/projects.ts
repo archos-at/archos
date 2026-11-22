@@ -409,9 +409,8 @@ export const projectsOperations = [
     domain: 'projects',
     summary: 'Add, rename or remove a building of the project',
     description:
-      'Changes which buildings the project describes, when a site holds more than one. `add` creates a building (the server assigns its id; `name` is optional), ' +
-      '`rename` sets its name, `remove` deletes the building with every value recorded for it; the last building cannot be removed (409 `last-building`). ' +
-      'Building ids come from `buildings` in project-intake-get. Answers `{ buildingId, intake }`; the new building’s questions are in the intake after it.',
+      'One change to the project’s buildings, for a site with several: `add` (the server assigns the id), `rename`, or `remove`, which deletes the building with every value recorded for it and is refused for the last one (409). ' +
+      'Ids are `buildings` in project-intake-get.',
     method: 'POST',
     path: '/api/projects/[id]/intake/buildings',
     params: projectParams,
