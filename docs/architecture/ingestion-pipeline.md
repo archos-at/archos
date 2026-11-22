@@ -329,7 +329,8 @@ What is measured in production today:
   breakdown (roles `ingest_vision`, `ingest_transcription`, `embedding`).
 - `document_ingest_finished` in PostHog, one per settled document
   (`bff/analytics/ingest-events.ts`), with `document_id`, `attempt`,
-  `failure_category` (failed only, the stored category), `settled_by` and two
+  `error_reason` (what went wrong, a slug of the worker's closed set),
+  `error_category` (failed only, the stored category), `settled_by` and two
   durations:
   - `processing_ms` is the job's own `started_at` to `completed_at`, from the
     backend's batch status: what the worker spent, queue wait excluded. Absent

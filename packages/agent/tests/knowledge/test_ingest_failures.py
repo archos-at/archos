@@ -194,6 +194,8 @@ _NAMED_FAILURES = [
     ("upstream_refused", None, _StatusError(401)),
     ("upstream_unavailable", None, _StatusError(503)),
     ("upstream_unavailable", "Bad Gateway", None),
+    ("upstream_unavailable", None, _StatusError(425)),
+    ("upstream_conflict", None, _StatusError(409)),
     ("rate_limited", None, _StatusError(429)),
     ("rate_limited", None, RateLimitError("slow down")),
     ("timeout", None, TimeoutError("read timed out")),

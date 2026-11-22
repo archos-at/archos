@@ -43,6 +43,7 @@ REASON_CATEGORIES: Final[dict[str, FailureCategory]] = {
     "connection_failed": TRANSIENT,
     "rate_limited": TRANSIENT,
     "upstream_unavailable": TRANSIENT,
+    "upstream_conflict": TRANSIENT,
     "credits_in_flight": TRANSIENT,
     "no_allowed_provider": TRANSIENT,
     "upstream_refused": CONFIGURATION,
@@ -132,7 +133,7 @@ _DETERMINISTIC_TEXT: Final[tuple[tuple[re.Pattern[str], str], ...]] = (
     (re.compile(r"\bempty file\b|\bfile is empty\b", re.I), "empty_file"),
 )
 _TEXT_REASONS: Final = (*_TRANSIENT_TEXT, *_DETERMINISTIC_TEXT)
-_RETRYABLE_STATUS: Final[dict[int, str]] = {408: "timeout", 409: "upstream_unavailable", 425: "upstream_unavailable"}
+_RETRYABLE_STATUS: Final[dict[int, str]] = {408: "timeout", 409: "upstream_conflict", 425: "upstream_unavailable"}
 _PREFIX = re.compile(r"^([a-z][a-z_]*):")
 
 
