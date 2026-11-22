@@ -137,6 +137,7 @@ def interrupted(status: IngestionJobStatus) -> IngestionJobStatus:
         detail.status = FileStatus.FAILED
         detail.error_message = INTERRUPTED_MESSAGE
         detail.failure_category = verdict.category
+        detail.failure_reason = verdict.reason
         detail.retryable = verdict.retryable
     return failed
 

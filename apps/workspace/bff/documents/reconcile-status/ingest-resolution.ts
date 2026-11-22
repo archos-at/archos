@@ -26,6 +26,7 @@ type JobResolution =
 
 const failureFacts = (job: BackendJobStatus, file: BackendJobFile | undefined): IngestFailureFacts => ({
   category: parseIngestFailureCategory(file?.failure_category),
+  reason: typeof file?.failure_reason === 'string' ? file.failure_reason : null,
   retryable: typeof file?.retryable === 'boolean' ? file.retryable : null,
   readerVersion: typeof job.reader_version === 'string' && job.reader_version.length > 0 ? job.reader_version : null,
 })

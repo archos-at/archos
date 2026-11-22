@@ -13,11 +13,13 @@ from knowledge_layer.ingest import unreadable_pdf_verdict
 
 from agent.knowledge.ingest_failures import FAILURE_CATEGORIES
 from agent.knowledge.ingest_failures import PREFIX_CATEGORIES
+from agent.knowledge.ingest_failures import REASON_CATEGORIES
 from agent.knowledge.ingest_failures import classify_failure
 from agent.knowledge.ingest_status_store import INTERRUPTED_MESSAGE
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TS_MAPPER = REPO_ROOT / "apps" / "workspace" / "ui" / "features" / "documents" / "lib" / "ingest-failure.ts"
+EVENTS_DOC = REPO_ROOT / "docs" / "observability" / "posthog-events.md"
 TS_RETRY_POLICY = REPO_ROOT / "apps" / "workspace" / "bff" / "documents" / "retry-policy.ts"
 BACKEND_ROOTS = (
     REPO_ROOT / "packages" / "knowledge-layer" / "src",
@@ -109,6 +111,12 @@ def test_the_bff_knows_the_same_categories_in_the_same_order():
     assert set(PREFIX_CATEGORIES.values()) <= set(FAILURE_CATEGORIES)
 
 
+def test_the_event_doc_lists_every_reason_without_a_prefix():
+    doc = EVENTS_DOC.read_text(encoding="utf-8")
+    unlisted = sorted(r for r in set(REASON_CATEGORIES) - set(PREFIX_CATEGORIES) if f"`{r}`" not in doc)
+    assert not unlisted, f"not under error_reason in posthog-events.md: {unlisted}"
+
+
 def test_the_bff_compares_against_the_reader_the_backend_stamps():
     assert _ts_reader_version() == INGEST_READER_VERSION
 
@@ -131,3 +139,4 @@ def test_the_bff_compares_against_the_reader_the_backend_stamps():
 def test_each_known_reason_carries_its_category(message, category, retryable):
     verdict = classify_failure(message)
     assert (verdict.category, verdict.retryable) == (category, retryable)
+    assert verdict.reason == _prefix(message)

@@ -25,6 +25,7 @@ export interface BackendJobFile {
   screening?: string | null
   quarantine?: unknown
   failure_category?: string | null
+  failure_reason?: string | null
   retryable?: boolean | null
 }
 

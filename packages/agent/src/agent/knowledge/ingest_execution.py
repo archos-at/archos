@@ -73,12 +73,13 @@ def unreadable_job_failure(status: IngestionJobStatus) -> IngestionJobStatus:
     failed = ingest_status_store.interrupted(status)
     failed.error_message = UNREADABLE_JOB_MESSAGE
     verdict = classify_failure(UNREADABLE_JOB_MESSAGE)
-    failed.metadata = {**failed.metadata, "failure_reason": "unreadable_job", "retryable": verdict.retryable}
+    failed.metadata = {**failed.metadata, "failure_reason": verdict.reason, "retryable": verdict.retryable}
     for before, detail in zip(status.file_details, failed.file_details, strict=True):
         if before.status in (FileStatus.SUCCESS, FileStatus.FAILED):
             continue
         detail.error_message = UNREADABLE_JOB_MESSAGE
         detail.failure_category = verdict.category
+        detail.failure_reason = verdict.reason
         detail.retryable = verdict.retryable
     return failed
 

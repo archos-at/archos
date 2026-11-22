@@ -337,6 +337,16 @@ class FileProgress(BaseModel):
             "Null while the file has not failed."
         ),
     )
+    failure_reason: str | None = Field(
+        default=None,
+        description=(
+            "What went wrong with a FAILED file, as one slug of the closed set "
+            "`agent.knowledge.ingest_failures.REASON_CATEGORIES` (e.g. `encrypted`, `no_content`, "
+            "`raw_binary_content`, `pdf_unparseable`, `timeout`, or a message prefix such as "
+            "`interrupted`); `unknown` when nothing recognised the failure. Never the message text. "
+            "Null while the file has not failed, and on jobs from before the field."
+        ),
+    )
     retryable: bool | None = Field(
         default=None,
         description=(
