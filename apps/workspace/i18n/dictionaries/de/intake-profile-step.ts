@@ -49,6 +49,27 @@ export const intakeProfileStep: typeof en.intakeProfileStep = {
       grossFloorArea: 'BGF {value}',
     },
   },
+  buildings: {
+    heading: 'Bauwerke',
+    description:
+      'Stehen auf dem Grundstück mehrere Bauwerke, legen Sie jedes eigens an. Fluchtniveau, Gebäudeklasse und Rückfragen gelten dann je Bauwerk.',
+    add: 'Bauwerk hinzufügen',
+    addBusy: 'Wird angelegt …',
+    rename: 'Umbenennen',
+    renameAria: '{name} umbenennen',
+    nameLabel: 'Name des Bauwerks',
+    save: 'Übernehmen',
+    saveBusy: 'Wird gespeichert …',
+    cancel: 'Abbrechen',
+    remove: 'Entfernen',
+    removeAria: '{name} entfernen',
+    removeTitle: '„{name}“ entfernen?',
+    removeDescription:
+      'Damit werden alle Angaben und Vorschläge zu diesem Bauwerk gelöscht, auch seine Gebäudeklasse. Das lässt sich nicht rückgängig machen.',
+    removeConfirm: 'Bauwerk entfernen',
+    class: 'GK {value}',
+    classOpen: 'Gebäudeklasse noch offen',
+  },
   rules: {
     heading: 'Was für dieses Projekt gilt',
     role: {

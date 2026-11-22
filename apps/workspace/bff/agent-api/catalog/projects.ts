@@ -5,7 +5,7 @@ import {
   patchProfileSchema,
 } from '@/lib/project-profile/profile-wire'
 import { ProjectProfileSchema } from '@/lib/project-profile/types'
-import { intakeDecisionsRequestSchema, startIntakeRequestSchema } from '@/lib/project-intake/types'
+import { intakeBuildingRequestSchema, intakeDecisionsRequestSchema, startIntakeRequestSchema } from '@/lib/project-intake/types'
 import { confirmCleanupSchema, proposeCleanupSchema } from '@/lib/projects/cleanup-wire'
 import { createProjectSchema } from '@/lib/projects/create-project-schema'
 import { projectSiteSetBodySchema } from '@/lib/site-resolution/wire'
@@ -403,6 +403,21 @@ export const projectsOperations = [
     params: projectParams,
     body: intakeDecisionsRequestSchema,
     load: () => import('@/app/api/projects/[id]/intake/decisions/route'),
+  },
+  {
+    name: 'project-intake-building',
+    domain: 'projects',
+    summary: 'Add, rename or remove a building of the project',
+    description:
+      'Changes which buildings the project describes, when a site holds more than one. `add` creates a building (the server assigns its id; `name` is optional), ' +
+      '`rename` sets its name, `remove` deletes the building with every value recorded for it; the last building cannot be removed (409 `last-building`). ' +
+      'Building ids come from `buildings` in project-intake-get. Answers `{ buildingId, intake }`; the new building’s questions are in the intake after it.',
+    method: 'POST',
+    path: '/api/projects/[id]/intake/buildings',
+    params: projectParams,
+    body: intakeBuildingRequestSchema,
+    destructive: true,
+    load: () => import('@/app/api/projects/[id]/intake/buildings/route'),
   },
   {
     name: 'project-intake-complete',

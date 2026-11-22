@@ -8,6 +8,7 @@ import {
   PROFILE_NOT_ENTITLED,
   PROFILE_READONLY,
   PROFILE_REVIEW,
+  PROFILE_SEVERAL_BUILDINGS,
   PROFILE_SITE_UNKNOWN,
   PROFILE_UNCURATED,
 } from '@/app/dev/_fixtures/project-setup-profile'
@@ -21,6 +22,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
 
 const onDecide = vi.fn()
 const onComplete = vi.fn()
+const onChangeBuilding = vi.fn()
 const onGoTo = vi.fn()
 
 function Framed(props: ProfileStepProps): JSX.Element {
@@ -47,6 +49,7 @@ function setup(view: IntakeView, { busy = false }: { busy?: boolean } = {}) {
       onReread={vi.fn()}
       onGoTo={onGoTo}
       onComplete={onComplete}
+      onChangeBuilding={onChangeBuilding}
     />
   )
 }
@@ -61,6 +64,82 @@ describe('ProfileStep', () => {
     vi.clearAllMocks()
     onDecide.mockResolvedValue(true)
     onComplete.mockResolvedValue(true)
+  })
+
+  describe('the buildings', () => {
+    const row = (id: string) => within(screen.getByTestId(`profile-building-${id}`))
+
+    it('lists each building by its name, with its escape level and what its class is', () => {
+      setup(PROFILE_SEVERAL_BUILDINGS)
+
+      expect(row('bldg1').getByText('Haus A, Turm')).toBeInTheDocument()
+      expect(row('bldg1').getByText('Fluchtniveau 24.6 m')).toBeInTheDocument()
+      expect(row('bldg1').getByText('Hochhaus')).toBeInTheDocument()
+      expect(row('bldg2').getByText('Haus B, Hoftrakt')).toBeInTheDocument()
+      expect(row('bldg2').getByText('Gebäudeklasse noch offen')).toBeInTheDocument()
+    })
+
+    it('names the building, not its number, on the class switch', () => {
+      setup(PROFILE_SEVERAL_BUILDINGS)
+
+      const card = within(screen.getByTestId('profile-class'))
+      expect(card.getByRole('radio', { name: 'Haus B, Hoftrakt' })).toBeInTheDocument()
+    })
+
+    it('adds a building and opens its name for editing', async () => {
+      onChangeBuilding.mockResolvedValue('bldg2')
+      setup(PROFILE_SEVERAL_BUILDINGS)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Bauwerk hinzufügen' }))
+
+      expect(onChangeBuilding).toHaveBeenCalledWith({ action: 'add' })
+      expect(await row('bldg2').findByRole('textbox', { name: 'Name des Bauwerks' })).toHaveValue('Haus B, Hoftrakt')
+    })
+
+    it('renames a building with the name typed, trimmed', async () => {
+      onChangeBuilding.mockResolvedValue('bldg1')
+      setup(PROFILE_SEVERAL_BUILDINGS)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Haus A, Turm umbenennen' }))
+      const field = row('bldg1').getByRole('textbox', { name: 'Name des Bauwerks' })
+      await userEvent.clear(field)
+      await userEvent.type(field, ' Hochhaus Nord {Enter}')
+
+      expect(onChangeBuilding).toHaveBeenCalledWith({ action: 'rename', buildingId: 'bldg1', name: 'Hochhaus Nord' })
+    })
+
+    it('asks before it removes a building, and says what goes with it', async () => {
+      onChangeBuilding.mockResolvedValue('bldg2')
+      setup(PROFILE_SEVERAL_BUILDINGS)
+
+      await userEvent.click(screen.getByRole('button', { name: 'Haus B, Hoftrakt entfernen' }))
+      expect(onChangeBuilding).not.toHaveBeenCalled()
+      const dialog = within(screen.getByRole('dialog'))
+      expect(dialog.getByText('„Haus B, Hoftrakt“ entfernen?')).toBeInTheDocument()
+      expect(dialog.getByText(/alle Angaben und Vorschläge zu diesem Bauwerk/)).toBeInTheDocument()
+
+      await userEvent.click(dialog.getByRole('button', { name: 'Bauwerk entfernen' }))
+      expect(onChangeBuilding).toHaveBeenCalledWith({ action: 'remove', buildingId: 'bldg2' })
+    })
+
+    it('offers no removal for the last building', () => {
+      setup(PROFILE_CONFIRMED)
+
+      expect(screen.getByTestId('profile-building-bldg1')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /entfernen$/ })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Bauwerk hinzufügen' })).toBeInTheDocument()
+    })
+
+    it('shows several buildings to a reader without the controls, and hides a single one', () => {
+      const { unmount } = setup({ ...PROFILE_SEVERAL_BUILDINGS, canDecide: false, canComplete: false })
+      expect(screen.getByTestId('profile-buildings')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Bauwerk hinzufügen' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /umbenennen$/ })).not.toBeInTheDocument()
+      unmount()
+
+      setup({ ...PROFILE_CONFIRMED, canDecide: false, canComplete: false })
+      expect(screen.queryByTestId('profile-buildings')).not.toBeInTheDocument()
+    })
   })
 
   describe('the Gebäudeklasse', () => {

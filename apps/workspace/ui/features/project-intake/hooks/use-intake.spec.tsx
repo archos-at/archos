@@ -11,6 +11,7 @@ const client = {
   get: vi.fn<ProjectIntakeClient['get']>(),
   start: vi.fn<ProjectIntakeClient['start']>(),
   decide: vi.fn<ProjectIntakeClient['decide']>(),
+  changeBuilding: vi.fn<ProjectIntakeClient['changeBuilding']>(),
   complete: vi.fn<ProjectIntakeClient['complete']>(),
 }
 const ID = INTAKE_READY.projectId

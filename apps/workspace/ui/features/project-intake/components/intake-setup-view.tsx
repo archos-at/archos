@@ -17,6 +17,7 @@ import { useTranslations, type Translator } from '@/i18n'
 import { intakeShellCopy } from '@/i18n/namespaces/intake-shell'
 import { projectIntakeCopy } from '@/i18n/namespaces/project-intake'
 import type { IntakeDecision, IntakeView } from '@/lib/project-intake/types'
+import type { ChangeBuilding } from './profile/buildings-card'
 import { usePressed } from '../hooks/use-pressed'
 import { CompletedNote } from './completed-note'
 import { EvidenceProjectContext } from './evidence-chips'
@@ -46,6 +47,7 @@ export interface IntakeSetupViewProps {
   uploading: boolean
   onFiles: (files: File[], info?: DropInfo) => void
   onDecide: (decisions: IntakeDecision[]) => Promise<boolean>
+  onChangeBuilding: ChangeBuilding
   onReread: () => void | Promise<void>
   onComplete: () => Promise<boolean>
   onRetry: () => void
@@ -135,6 +137,7 @@ export function IntakeSetupView({
   uploading,
   onFiles,
   onDecide,
+  onChangeBuilding,
   onReread,
   onComplete,
   onRetry,
@@ -246,7 +249,7 @@ export function IntakeSetupView({
             )}
             {step === 'reading' && <ReadingStep {...stepProps} />}
             {step === 'questions' && <QuestionsStep {...stepProps} />}
-            {step === 'profile' && <ProfileStep {...stepProps} onComplete={onComplete} />}
+            {step === 'profile' && <ProfileStep {...stepProps} onComplete={onComplete} onChangeBuilding={onChangeBuilding} />}
           </main>
 
           <SetupFooter

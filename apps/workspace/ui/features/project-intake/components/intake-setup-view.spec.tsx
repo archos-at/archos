@@ -123,6 +123,7 @@ function setup(view: IntakeView, props: Partial<IntakeSetupViewProps> = {}) {
       uploading={false}
       onFiles={onFiles}
       onDecide={onDecide}
+      onChangeBuilding={vi.fn()}
       onReread={onReread}
       onComplete={onComplete}
       onRetry={onRetry}
