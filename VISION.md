@@ -52,6 +52,9 @@ places, not the frame around them.
 | What the office knows | Project memory, the office's standing instructions, similar closed projects, what an authority asked for before (Behörden-Gedächtnis), and the experience a closed project leaves behind. Closing a project proposes what to clear out and records what the office learned. |
 | Building law and norms | The OIB-Richtlinien, Austrian law via RIS, a curated norm register, and norms an office uploads itself, cited at the passage. One capability among the others, and a deep one. |
 
+Every capability, with where it lives in the app and whether a person confirms
+it: [`docs/product/capabilities.md`](docs/product/capabilities.md).
+
 ## Where it is going
 
 These are directions with a document behind them, not promises:

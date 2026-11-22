@@ -38,7 +38,7 @@ A word you do not know: the domain language is in
 | [`api/`](api/) | Route and protocol contracts | You are calling or changing an endpoint or a WebSocket message |
 | [`database/`](database/) | Schema, migrations, row-level security | You are adding a table or touching the tenant boundary |
 | [`deployment/`](deployment/) | Compose, Kubernetes, environment variables, secrets | You are deploying, or you need to know what a variable does |
-| [`user-guides/`](user-guides/) | What the product does, from the user's side | You need to know how a feature is meant to behave |
+| [`user-guides/`](user-guides/) | What the product does, from the user's side; every capability on one page: [`product/capabilities.md`](product/capabilities.md) | You need to know how a feature is meant to behave |
 | [`design/`](design/) | Design language, card charter, UI specs | You are building a surface |
 | [`ux/`](ux/) | UX playbooks: visual evidence, file explorer, motion on the public site ([`ux/motion.md`](ux/motion.md)) | You are adding a user-visible component, or animating anything on the site |
 | [`product/`](product/) | Vision, positioning, long-form writing, the public site's audiences and keyword map ([`website-conversion-and-seo.md`](product/website-conversion-and-seo.md), the SEO/GEO audit [`seo-geo-audit-2026-09.md`](product/seo-geo-audit-2026-09.md)) | You want the why behind the roadmap, or you are writing for the public website |
