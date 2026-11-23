@@ -1079,6 +1079,140 @@
         }
       }
     },
+    "/api/projects/{id}/intake/buildings": {
+      "post": {
+        "operationId": "project-intake-building",
+        "summary": "Add, rename or remove a building of the project",
+        "description": "One change to the project’s buildings, for a site with several: `add` (the server assigns the id), `rename`, or `remove`, which deletes the building with every value recorded for it and is refused for the last one (409). Ids are `buildings` in project-intake-get.",
+        "tags": [
+          "projects"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The project id, from project-list."
+            },
+            "description": "The project id, from project-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "operation": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "const": "add"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "action"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "const": "rename"
+                          },
+                          "buildingId": {
+                            "type": "string",
+                            "pattern": "^bldg[1-9]\\d{0,3}$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          }
+                        },
+                        "required": [
+                          "action",
+                          "buildingId",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "action": {
+                            "const": "remove"
+                          },
+                          "buildingId": {
+                            "type": "string",
+                            "pattern": "^bldg[1-9]\\d{0,3}$"
+                          }
+                        },
+                        "required": [
+                          "action",
+                          "buildingId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "action"
+                    }
+                  }
+                },
+                "required": [
+                  "operation"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Add, rename or remove a building of the project",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/projects/{id}/intake/complete": {
       "post": {
         "operationId": "project-intake-complete",

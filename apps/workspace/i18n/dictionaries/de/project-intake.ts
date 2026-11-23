@@ -167,6 +167,7 @@ export const projectIntake: typeof en.projectIntake = {
     refused: '{count, plural, one {# Entscheidung wurde nicht übernommen.} other {# Entscheidungen wurden nicht übernommen.}}',
     start: 'Wir konnten das Lesen nicht starten.',
     complete: 'Wir konnten die Erfassung nicht abschließen.',
+    building: 'Das Bauwerk konnte nicht geändert werden. Bitte versuchen Sie es erneut.',
   },
   empty: {
     title: 'Dieses Projekt hat keine Erfassung durch {productName}',

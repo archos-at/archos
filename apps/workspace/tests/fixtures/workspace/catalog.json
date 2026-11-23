@@ -84,6 +84,15 @@
    "describe": "{\"name\":\"project-get\",\"domain\":\"projects\",\"summary\":\"Read one project\",\"description\":\"One project by id: name, status, dates and the person’s access to it.\",\"annotations\":{\"title\":\"Read one project\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
+   "name": "project-intake-building",
+   "domain": "projects",
+   "summary": "Add, rename or remove a building of the project",
+   "description": "One change to the project’s buildings, for a site with several: `add` (the server assigns the id), `rename`, or `remove`, which deletes the building with every value recorded for it and is refused for the last one (409). Ids are `buildings` in project-intake-get.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"project-intake-building\",\"domain\":\"projects\",\"summary\":\"Add, rename or remove a building of the project\",\"description\":\"One change to the project’s buildings, for a site with several: `add` (the server assigns the id), `rename`, or `remove`, which deletes the building with every value recorded for it and is refused for the last one (409). Ids are `buildings` in project-intake-get.\",\"annotations\":{\"title\":\"Add, rename or remove a building of the project\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"body\":{\"type\":\"object\",\"properties\":{\"operation\":{\"oneOf\":[{\"type\":\"object\",\"properties\":{\"action\":{\"const\":\"add\"},\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80}},\"required\":[\"action\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"action\":{\"const\":\"rename\"},\"buildingId\":{\"type\":\"string\",\"pattern\":\"^bldg[1-9]\\\\d{0,3}$\"},\"name\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":80}},\"required\":[\"action\",\"buildingId\",\"name\"],\"additionalProperties\":false},{\"type\":\"object\",\"properties\":{\"action\":{\"const\":\"remove\"},\"buildingId\":{\"type\":\"string\",\"pattern\":\"^bldg[1-9]\\\\d{0,3}$\"}},\"required\":[\"action\",\"buildingId\"],\"additionalProperties\":false}],\"discriminator\":{\"propertyName\":\"action\"}}},\"required\":[\"operation\"],\"additionalProperties\":false},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\",\"body\"]}}"
+  },
+  {
    "name": "project-intake-complete",
    "domain": "projects",
    "summary": "Finish the intake review",
@@ -2275,26 +2284,26 @@
   "add member project": [
    "project-person-add",
    "project-member-list",
+   "project-intake-building",
    "base-knowledge-edition-add",
    "project-create",
    "assignment-candidate-list",
    "project-record-get",
    "task-run-document-add",
    "project-profile-patch",
-   "organization-member-list",
-   "inbound-mail-list"
+   "organization-member-list"
   ],
   "Mitglied zu Projekt hinzufügen": [
    "project-person-add",
    "project-member-list",
+   "project-intake-building",
    "base-knowledge-edition-add",
    "project-create",
    "assignment-candidate-list",
    "project-record-get",
    "task-run-document-add",
    "project-profile-patch",
-   "organization-member-list",
-   "inbound-mail-list"
+   "organization-member-list"
   ],
   "list project members": [
    "project-member-list",
@@ -2395,11 +2404,11 @@
    "project-rename",
    "personal-memory-topic-rename",
    "saved-search-update",
+   "project-intake-building",
    "office-shelf-folder-update",
    "project-folder-update",
    "conversation-update",
-   "document-archive",
-   "document-bin"
+   "document-archive"
   ],
   "Dokument umbenennen": [
    "document-rename",
@@ -2407,11 +2416,11 @@
    "project-rename",
    "personal-memory-topic-rename",
    "saved-search-update",
+   "project-intake-building",
    "office-shelf-folder-update",
    "project-folder-update",
    "conversation-update",
-   "document-archive",
-   "document-bin"
+   "document-archive"
   ],
   "move document folder": [
    "document-move",
@@ -2629,7 +2638,7 @@
    "project-delete",
    "project-experience-extract",
    "project-get",
-   "project-intake-complete"
+   "project-intake-building"
   ],
   "a project list": [
    "project-list",
