@@ -24,6 +24,24 @@
   ],
   "releases": [
     {
+      "id": "2026-W48",
+      "kind": "week",
+      "version": null,
+      "date": "2026-11-23",
+      "dateEnd": "2026-11-29",
+      "summary": null,
+      "notes": [
+        {
+          "section": "features",
+          "area": "projects",
+          "text": {
+            "en": "A project with several buildings on one site can now be set up that way: in the last step of the project setup you add each building, name it, or remove it again. The escape level, the Gebäudeklasse and the open questions are then kept for each building on its own.",
+            "de": "Ein Projekt mit mehreren Gebäuden auf einem Grundstück lässt sich jetzt entsprechend anlegen: Im letzten Schritt der Projekteinrichtung fügen Sie jedes Gebäude hinzu, benennen es oder entfernen es wieder. Das Fluchtniveau, die Gebäudeklasse und die offenen Fragen werden anschließend für jedes Gebäude separat geführt."
+          }
+        }
+      ]
+    },
+    {
       "id": "2026-W47",
       "kind": "week",
       "version": null,
