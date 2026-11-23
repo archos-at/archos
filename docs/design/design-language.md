@@ -1,6 +1,6 @@
 # Design Language
 
-> **Superseded for new work (2026-11-22, [ADR-0187](../adr/0187-archos-design-governs-the-app-as-well-as-the-website.md)).** The design system 3.0 (`packages/brand/`) governs the app as well as the website. „Paper on a desk“ below and the app-only shadows, radius ladder and status colours describe the app as it is today, until the migration moves each surface; a new or reworked surface follows the design system.
+> **Partly superseded for new work (2026-11-22, [ADR-0187](../adr/0187-archos-design-governs-the-app-as-well-as-the-website.md)).** The design system 3.0 (`packages/brand/`) governs the app as well as the website. For shape, elevation and status colour it wins: „Paper on a desk“ below, and the radius ladder, shadows and status colours that section and „Weight, face and white“ set, describe the app as it is today until the migration moves each surface. Every other section (Principles, Tokens, Type ramp, the Accessibility gate, Touch, Breakpoints, Component layers, Overlays, Motion vocabulary, Do-not) stays in force for new work until the design system's app part replaces it.
 
 > Branding note (2026-07-17): the user-facing product brand — wordmark, tab titles, all UI copy — is **the product name** (`src/lib/brand.ts`). The internal platform name stays unchanged, including this design language and its tokens (e.g. the `--law-blue` alias).
 

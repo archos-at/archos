@@ -7,7 +7,7 @@ and file layout: read the guide in `node_modules/next/dist/docs/` before writing
 code, and heed its deprecation notices.
 
 Each rule in full, with its reason: [`workspace-rules.md`](../../docs/architecture/workspace-rules.md).
-For how the UI looks, [`design-language.md`](../../docs/design/design-language.md) wins over any design skill.
+For how the UI looks, [`design-language.md`](../../docs/design/design-language.md) wins over any design skill; for shape, elevation and status colour the design system in `packages/brand/` wins over it (ADR-0187).
 
 - Declare `authz` on every `app/api` route's factory (`@/lib/api/handler`). `authz-coverage.spec.ts`.
 - Check a permission, never a role name, through `bff/authz/decide.ts` or its gates. Review.

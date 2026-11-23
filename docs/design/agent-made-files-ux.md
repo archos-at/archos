@@ -4,7 +4,8 @@ How a Word, Excel, PowerPoint, PDF, SVG, PNG or CSV file the agent made with
 code (`execute`, [agent-code-execution.md](agent-code-execution.md)) reaches the
 person who asked for it. The Markdown draft keeps its own card; this is its
 sibling for real files. [design-language.md](design-language.md) wins wherever
-the two disagree.
+the two disagree; for shape, elevation and status colour the design system in
+`packages/brand/` wins over both (ADR-0187).
 
 ## The scene
 
