@@ -1188,6 +1188,10 @@
     "de": "Ein Outlook-Archivimport endet mit derselben Zusammenfassung, sobald alles gelesen ist, was er abgelegt hat."
   },
   {
+    "en": "An Outlook archive import no longer creates a folder named after the archive's own root, such as „Top of Personal Folders“, above Inbox and Sent Items. With the office's upload screening on, that folder's name could hold back every attachment of the archive.",
+    "de": "Beim Import eines Outlook-Archivs wird oberhalb von Posteingang und Gesendete Elemente kein Ordner mehr angelegt, der nach dem Stammordner des Archivs benannt ist, etwa „Top of Personal Folders“. Bei aktivierter Upload-Prüfung des Büros kann der Ordnername sämtliche Anhänge des Archivs zurückhalten."
+  },
+  {
     "en": "An address typed when creating a project, rather than chosen from the search, now waits for your confirmation instead of counting as confirmed.",
     "de": "Eine bei der Projekterstellung eingegebene statt aus den Suchergebnissen ausgewählte Adresse gilt nun erst nach Ihrer Bestätigung als bestätigt."
   },
