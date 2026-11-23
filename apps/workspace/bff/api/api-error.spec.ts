@@ -30,7 +30,7 @@ describe('ApiError across bundles', () => {
   })
 
   it('keeps the marker out of what an error serialises to', () => {
-    expect(JSON.stringify({ ...new NotFoundError() })).not.toContain('archos')
-    expect(Object.keys(new NotFoundError())).not.toContain('Symbol(archos.ApiError)')
+    expect(JSON.stringify({ ...new NotFoundError() })).not.toContain('bff.ApiError')
+    expect(Object.keys(new NotFoundError())).not.toContain('Symbol(bff.ApiError)')
   })
 })

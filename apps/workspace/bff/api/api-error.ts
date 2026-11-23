@@ -1,4 +1,4 @@
-const API_ERROR = Symbol.for('archos.ApiError')
+const API_ERROR = Symbol.for('bff.ApiError')
 
 export class ApiError extends Error {
   readonly [API_ERROR] = true
