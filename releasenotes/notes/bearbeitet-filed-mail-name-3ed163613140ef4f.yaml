@@ -1,0 +1,7 @@
+---
+# area: documents
+fixes:
+  - >
+    A mail you filed from the E-Mail-Eingang showed under „Bearbeitet“ as
+    „(ohne Betreff)“ with an error where its text was. It is now named after
+    the E-Mail-Verlauf it went into, and its text is where you filed it.

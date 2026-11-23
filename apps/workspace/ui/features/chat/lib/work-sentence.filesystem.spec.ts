@@ -31,7 +31,7 @@ const open = (action: StoredAction): string[] => {
 }
 
 describe('a filesystem row names a place, never a path', () => {
-  test('Piloti opens a folder, by its breadcrumb, with what the folder holds', () => {
+  test('the agent opens a folder, by its breadcrumb, with what the folder holds', () => {
     expect(
       sentence({
         verb: 'list',
@@ -276,7 +276,7 @@ describe('what a filesystem call found, or did not', () => {
     expect(folded.every((each) => !each.fold)).toBe(true)
   })
 
-  test('folders Piloti opened never fold: each names its own place, and their counts do not add up', () => {
+  test('folders the agent opened never fold: each names its own place, and their counts do not add up', () => {
     const row = (id: string, mount: 'estate' | 'law' | 'chat', files: number): WorkRow => ({
       id,
       running: false,

@@ -20,8 +20,10 @@ import {
   PORT,
   POSTGRES_POOLER,
   POSTGRES_TUNING,
+  HELM_RELEASE_TIMEOUT_SECONDS,
 } from "../constants";
 import { logicalName, objectName } from "../names";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export type PgRoute = "pooler" | "direct";
 
@@ -48,6 +50,12 @@ export interface Postgres {
 
 export const CLUSTER_NAME = objectName("pgCluster");
 
+export const CNPG_CHART_VERSION = "0.29.2";
+
+export const CNPG_OPERATOR_VERSION = "1.30.2";
+
+export const CNPG_OPERATOR_CONFIG = { ENABLE_INSTANCE_MANAGER_INPLACE_UPDATES: "true" } as const;
+
 export function sslParamFor(driver: string): "ssl" | "sslmode" {
   return driver.includes("asyncpg") ? "ssl" : "sslmode";
 }
@@ -70,9 +78,11 @@ export function installPostgres(
     "cloudnative-pg",
     {
       chart: "cloudnative-pg",
+      version: CNPG_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: opNs.metadata.name,
       repositoryOpts: { repo: "https://cloudnative-pg.github.io/charts" },
-      values: { resources: PLATFORM_RESOURCES.cnpgOperator },
+      values: { resources: scaledCpuRequest(PLATFORM_RESOURCES.cnpgOperator), config: { data: CNPG_OPERATOR_CONFIG } },
     },
     { provider, dependsOn: opNs },
   );
@@ -93,7 +103,7 @@ export function installPostgres(
                 name: "wait",
                 image: "curlimages/curl:latest",
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 command: ["/bin/sh", "-c"],
                 args: [
                   "echo 'waiting for cnpg webhook…'; " +
@@ -264,7 +274,7 @@ export function installPostgres(
               {
                 name: "pgbouncer",
                 image: cfg.postgres.pooler.image,
-                resources: POSTGRES_POOLER.resources,
+                resources: scaledCpuRequest(POSTGRES_POOLER.resources),
               },
             ],
           },
@@ -411,7 +421,7 @@ export function installPostgres(
                 name: "psql",
                 image: "postgres:17-alpine",
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 envFrom: [{ secretRef: { name: initDsnSecret.metadata.name } }],
                 command: ["/bin/sh", "-c"],
                 args: [

@@ -72,6 +72,18 @@ describe("BackendTrafficPolicies", () => {
     expect(policy("grid-web-timeouts")).not.toHaveProperty("compression");
   });
 
+  it("enforces the website's enquiry limit per client IP, even in shadow mode", () => {
+    type Rule = { clientSelectors: { path?: { value: string } }[]; limit: { requests: number; unit: string }; shadowMode: boolean };
+    const website = POLICIES.find((p) => "compressor" in p.spec)?.spec;
+    const rules = (website?.rateLimit as { global: { rules: Rule[] } }).global.rules;
+    const enquiry = rules.filter((r) => r.clientSelectors[0]?.path?.value === "/api/enquiry");
+    expect(enquiry).toHaveLength(2);
+    for (const rule of enquiry) {
+      expect(rule.limit).toEqual({ requests: 5, unit: "Hour" });
+      expect(rule.shadowMode).toBe(false);
+    }
+  });
+
   it("leaves the streaming app route and presigned S3 bodies uncompressed", () => {
     for (const name of ["grid-app-timeouts", "grid-s3-timeouts"]) {
       expect(policy(name)).not.toHaveProperty("compressor");

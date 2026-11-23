@@ -46,6 +46,7 @@ def _add(repo: Path, path: str, text: str) -> None:
         ("GRID operates the platform", 1),
         ("Grid platform and Grid agent", 2),
         ("image grid-oib-backend", 1),
+        ("the stack grid-oib/dev and its key grid-oib:imageTag", 0),
         ("display: grid; grid-template-columns: 1fr", 0),
         ("<div className='grid grid-cols-2'>", 0),
         ("a Grid of cards, the document grid", 0),
@@ -55,14 +56,6 @@ def _add(repo: Path, path: str, text: str) -> None:
 )
 def test_retired_names_are_words_not_css(checker, text: str, hits: int) -> None:
     assert checker.count_retired(text) == hits
-
-
-def test_an_import_path_into_the_chat_package_is_an_identifier_not_copy(checker) -> None:
-    assert (
-        checker.count_retired("from agent.agents.piloti.history import trim\nimport agent.agents.piloti as chat\n") == 0
-    )
-    assert checker.count_retired("from agent.agents.piloti.cards import piloti\n") == 1
-    assert checker.count_retired("see agent.agents.piloti.history\n") == 1
 
 
 def test_a_marked_line_may_quote_an_old_name_in_backticks(checker) -> None:

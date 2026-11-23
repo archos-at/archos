@@ -27,7 +27,7 @@
 
 ## 1. Purpose & Scope
 
-Piloti is a B2B, multi‑tenant workspace for architects and planning offices, built on the
+The platform is a B2B, multi‑tenant workspace for architects and planning offices, built on the
 NVIDIA AI‑Q blueprint. Austrian building law is one capability in it. When this spec was
 written, the product had **effectively no identity or tenancy**: every browser was an
 anonymous, hard‑coded user, and the only isolation between uploaded data was a

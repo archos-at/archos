@@ -84,12 +84,11 @@ describe('OrgHeader — the org scope in one slim band', () => {
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
   })
 
-  test('opens the office standards only for an office with the office-standards entitlement', () => {
-    const { unmount } = render(<OrgHeader {...baseProps} />)
-    expect(screen.queryByLabelText('Office standards')).not.toBeInTheDocument()
-    unmount()
+  test('opens the office standards through Office filing, which stays lit on their tab', () => {
+    pathname = '/app/base-knowledge'
     render(<OrgHeader {...baseProps} canAccessOfficeStandards />)
-    expect(screen.getByLabelText('Office standards')).toHaveAttribute('href', '/app/base-knowledge')
+    expect(screen.queryByLabelText('Office standards')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Office filing')).toHaveAttribute('aria-current', 'page')
   })
 
   test('marks the doorway whose sheet is open, and only that one', () => {
@@ -145,7 +144,7 @@ describe('OrgHeader — on a phone', () => {
 describe('the organization switcher', () => {
   test('is handed to the avatar menu, and the header band carries none', () => {
     const organizations = [
-      { id: 'org_1', name: 'GRID Test', current: true },
+      { id: 'org_1', name: 'Test Office', current: true },
       { id: 'org_2', name: 'feld72 Architekten', current: false },
     ]
     render(<OrgHeader {...baseProps} organizations={organizations} />)

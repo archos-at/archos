@@ -97,7 +97,7 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     db = (await import('@/lib/db')).getDb()
@@ -257,6 +257,18 @@ describe.skipIf(!url)('document versions under concurrency', () => {
     const cause = ((await unapproved) as { cause?: { code?: string; constraint_name?: string } } | null)?.cause
     expect(cause?.code).toBe('23514')
     expect(cause?.constraint_name).toBe('document_versions_published_is_approved')
+  })
+
+  it('publishes a person’s filing without an approver, first and when filed again over a draft', async () => {
+    const doc = await seedDocument()
+    await inTenant(() => repo.insertPublishedVersion({ ...published(doc.id, `${doc.storageKey}.f1`), origin: 'filing' }))
+    const draft = await inTenant(() =>
+      repo.insertDocumentVersion({ ...baseVersion(doc.id, `${doc.storageKey}.f2`), state: 'draft', origin: 'draft' }),
+    )
+    const stamp = { state: 'published' as const, origin: 'filing' as const, publishedBy: USER, publishedAt: new Date() }
+
+    expect(await inTenant(() => repo.promoteVersionToPublished(draft.id, doc.id, ORG, 'draft', stamp))).not.toBeNull()
+    expect(await versionsOf(doc.id)).toMatchObject([{ state: 'superseded' }, { state: 'published' }])
   })
 
   it('approves in one step: the promotion and the round decision land together, or neither does', async () => {

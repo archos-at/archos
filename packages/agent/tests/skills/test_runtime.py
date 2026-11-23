@@ -35,7 +35,7 @@ HIDDEN = Skill(
     name="piloti-voice",
     description="Hausstimme, auf jeder Antwort.",
     body="voice body",
-    metadata={"grid-title": "Piloti-Stimme", "grid-hidden": "true"},
+    metadata={"grid-title": "Stimme des Agenten", "grid-hidden": "true"},
     origin="platform",
 )
 
@@ -205,6 +205,18 @@ class TestPinned:
         assert runtime.pin("einreichcheck")
         assert runtime.record_applied(["einreichcheck"]) == ("submission-check",)
 
+    def test_a_stored_house_skill_pins_and_applies_under_either_name(self) -> None:
+        from agent.skills.legacy_names import LEGACY_PLATFORM_SKILL_NAMES
+
+        legacy, current = next(iter(LEGACY_PLATFORM_SKILL_NAMES.items()))
+        stored = Skill(name=legacy, description="Karten.", body="stored body")
+        runtime = _runtime(stored)
+        assert runtime.pin(current)
+        assert runtime.record_applied([current]) == (legacy,)
+        other = _runtime(stored)
+        assert other.pin(legacy)
+        assert other.record_applied([legacy]) == (legacy,)
+
 
 class TestActivationEvents:
     def test_each_activation_emits_exactly_one_step_for_its_skill(self, emitted) -> None:
@@ -239,7 +251,7 @@ class TestActivationEvents:
                 id="skill:piloti-voice",
                 phase="activated",
                 skill="piloti-voice",
-                title="Piloti-Stimme",
+                title="Stimme des Agenten",
                 hidden=True,
                 channel="technical",
             )

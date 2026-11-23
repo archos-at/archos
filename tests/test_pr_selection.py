@@ -8,7 +8,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = {
-    "packages/agent/tests/test_prompt.py": "PROMPT = 'agents/piloti/prompts/chat_static.md'",
+    "packages/agent/tests/test_prompt.py": "PROMPT = 'core/prompts/chat_static.md'",
     "tests/test_grounding.py": "FIXTURE = ROOT / 'tests/fixtures/citation_pipeline/grounding_block.txt'",
     "tests/test_decisions_eval.py": "CASES = sorted((ROOT / 'tests' / 'fixtures' / 'decisions').rglob('*.json'))",
     "tests/test_visual_eval.py": "SHAPES = list((ROOT / 'tests' / 'fixtures' / 'visual').iterdir())",
@@ -74,7 +74,7 @@ def test_what_changes_how_every_python_test_runs_forces_the_full_suite(mod, path
 
 @pytest.mark.parametrize(
     "path",
-    ["scripts/release_notes.py", "packages/ifc-spatial-py/x.py", "deploy/migration/chroma_export.py"],
+    ["scripts/release_notes.py", "packages/ifc-spatial-py/x.py", "deploy/posthog/weekly-report/compact.py"],
 )
 def test_python_outside_the_tested_packages_forces_the_full_suite(mod, path):
     assert mod.decide_python([path], TESTS, recorded=True)[0] == "full"
@@ -93,16 +93,13 @@ def test_a_non_python_input_adds_every_test_that_names_it(mod):
 
 
 def test_a_file_named_only_by_its_basename_still_counts(mod):
-    changed = ["packages/knowledge-layer/src/vector_store/schemas.json"]
+    changed = ["packages/knowledge-layer/src/knowledge_layer/vector_store/schemas.json"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[1] == ["packages/knowledge-layer/tests/test_schema.py"]
 
 
 def test_package_data_no_test_names_forces_the_full_suite(mod):
-    assert (
-        mod.decide_python(["packages/agent/src/agent/agents/piloti/prompts/unnamed.md"], TESTS, recorded=True)[0]
-        == "full"
-    )
+    assert mod.decide_python(["packages/agent/src/agent/core/prompts/unnamed.md"], TESTS, recorded=True)[0] == "full"
 
 
 def test_a_fixture_selects_the_tests_that_read_it(mod):
@@ -155,6 +152,58 @@ def test_python_in_a_support_package_is_python_testmon_sees(mod):
     changed = ["packages/knowledge-layer/testing/knowledge_layer_testing/vector_store.py"]
 
     assert mod.decide_python(changed, TESTS, recorded=True)[0] == "select"
+
+
+SPAWNING = {
+    "packages/agent/tests/testing/agent_testing/tool_payloads.py": "subprocess.run([sys.executable, '-c', BUILD])",
+    "packages/agent/tests/core/test_static_prefix_size.py": "from agent_testing.tool_payloads import built_tools",
+    "tests/test_import_weight.py": "subprocess.run([sys.executable, '-c', CODE])",
+    "packages/agent/tests/test_other.py": "from agent_testing.langfuse import trace",
+}
+
+
+def test_package_python_adds_every_test_that_runs_it_in_a_subprocess(mod):
+    changed = ["packages/knowledge-layer/src/knowledge_layer/browse/tool_text.py"]
+
+    mode, extra, reason = mod.decide_python(changed, SPAWNING, recorded=True)
+
+    assert (mode, extra) == (
+        "select",
+        ["packages/agent/tests/core/test_static_prefix_size.py", "tests/test_import_weight.py"],
+    )
+    assert "2 that run package code in a subprocess" in reason
+
+
+def test_a_change_to_a_test_adds_no_subprocess_test(mod):
+    assert mod.decide_python(["packages/agent/tests/test_other.py"], SPAWNING, recorded=True)[:2] == ("select", [])
+
+
+def test_the_prompt_size_test_runs_when_a_tool_text_changes(mod):
+    changed = ["packages/knowledge-layer/src/knowledge_layer/browse/tool_text.py"]
+
+    extra = mod.decide_python(changed, mod._python_test_files(), recorded=True)[1]
+
+    assert "packages/agent/tests/core/test_static_prefix_size.py" in extra
+    assert "packages/agent/tests/common/test_backend_tools_schema.py" in extra
+
+
+def test_package_data_runs_the_prompt_size_test_too(mod):
+    changed = ["packages/agent/src/agent/core/prompts/chat_static.md"]
+
+    mode, extra, _ = mod.decide_python(changed, mod._python_test_files(), recorded=True)
+
+    assert mode == "select"
+    assert "packages/agent/tests/core/test_static_prefix_size.py" in extra
+
+
+def test_a_spawning_helper_no_test_connects_to_forces_the_full_suite(mod):
+    tests = {**SPAWNING, "tests/helpers/run.py": "subprocess.run([sys.executable, '-m', 'agent'])"}
+    changed = ["packages/agent/src/agent/core/turn_tools.py"]
+
+    mode, _, reason = mod.decide_python(changed, tests, recorded=True)
+
+    assert mode == "full"
+    assert "tests/helpers/run.py" in reason
 
 
 def test_a_document_a_helper_only_cites_selects_nothing_extra(mod):
@@ -264,13 +313,17 @@ def test_the_declaration_is_read_relative_to_the_ui(mod):
 def test_the_newest_green_run_on_an_ancestor_is_the_reference(mod):
     runs = {
         "workflow_runs": [
-            {"head_sha": "c" * 40, "created_at": "2026-10-20T09:00:00Z"},  # not an ancestor (force-pushed away)
-            {"head_sha": "b" * 40, "created_at": "2026-10-20T08:00:00Z"},
-            {"head_sha": "a" * 40, "created_at": "2026-10-20T07:00:00Z"},
+            {"id": 3, "head_sha": "c" * 40, "created_at": "2026-10-20T09:00"},  # not an ancestor (force-pushed away)
+            {"id": 2, "head_sha": "b" * 40, "created_at": "2026-10-20T08:00:00Z"},
+            {"id": 1, "head_sha": "a" * 40, "created_at": "2026-10-20T07:00:00Z"},
         ]
     }
+    marker = {"artifacts": [{"name": "ci-green-" + "d" * 40, "expired": False}]}
 
-    found = mod.previous_green(lambda _path: runs, "o/r", "branch", "h" * 40, lambda sha: sha != "c" * 40)
+    def get(path: str) -> dict:
+        return marker if "/artifacts" in path else runs
+
+    found = mod.previous_green(get, "o/r", "branch", "h" * 40, lambda sha: sha != "c" * 40)
 
     assert found["head_sha"] == "b" * 40
 

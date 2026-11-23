@@ -1,23 +1,3 @@
-"""The post-answer **stage** primitive: what a stage declares, receives, returns.
-
-A post-answer stage is a bounded, gated, independently-failing unit of work that
-runs *after* a turn's answer exists, produces at most one payload addressed to
-that turn, and may not affect the answer in any way. Two properties are
-load-bearing:
-
-- **The answer is already written when a stage runs.** A stage can therefore
-  never delay, alter, block or fail an answer. If it can, it is not a stage.
-- **A stage is addressed to a turn, not to a session.** Its output lands on one
-  turn or nowhere.
-
-This module holds only the shapes. Registration lives in :mod:`.registry`,
-execution in :mod:`.runner`, and the frame channel in :mod:`.delivery`. Nothing
-here knows about any individual stage — a module in this package that branches on
-a stage id is a design failure, not a special case.
-
-See docs/architecture/post-answer-stages.md.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Awaitable
@@ -39,16 +19,6 @@ StageStatus = Literal["ready", "empty", "skipped", "failed", "timeout", "disable
 
 @dataclass(frozen=True)
 class TurnFacts:
-    """Everything a gate or handler may know about the finished turn.
-
-    Frozen and request-context-free: captured by the single call site **while
-    the request context is still live**, then passed explicitly, because a stage
-    task outlives that context. Everything a gate needs to decide must be in
-    here. If a stage wants a fact that is not present, the fact gets added to
-    ``TurnFacts`` — never fetched inside the handler, where the request context
-    is gone.
-    """
-
     conversation_id: str | None = None
     ws_parent_id: str | None = None
     organization_id: str | None = None
@@ -76,17 +46,10 @@ class TurnFacts:
     enabled_stages: frozenset[str] | None = None
 
     def stage_enabled(self, stage_id: str) -> bool:
-        """Whether ``stage_id``'s flag is on for this turn. Fails closed."""
         return bool(self.enabled_stages) and stage_id in self.enabled_stages
 
     @property
     def turn_key(self) -> tuple[str, str] | None:
-        """The ``(conversation_id, ws_parent_id)`` pair that identifies the turn.
-
-        ``None`` when either half is missing — there is then no turn identity to
-        be idempotent against, and the runner says so rather than inventing one
-        that would collapse every turn of a conversation onto the same key.
-        """
         if not self.conversation_id or not self.ws_parent_id:
             return None
         return (self.conversation_id, self.ws_parent_id)
@@ -94,35 +57,12 @@ class TurnFacts:
 
 @dataclass(frozen=True)
 class StageContext:
-    """What a handler receives: the turn's facts plus its resolved LLM.
-
-    The LLM has already been through the org's model override and the ADR-0022
-    BYOK credential swap, applied at schedule time while the request context was
-    live. The handler is given **no reference to the response object**: it cannot
-    mutate the answer even if it tries.
-    """
-
     facts: TurnFacts
     llm: Any
 
 
 @dataclass(frozen=True)
 class StageEmpty:
-    """A deliberate "nothing" that names *which* nothing it was.
-
-    A handler may return ``None`` for the plain case, but "nothing" is rarely one
-    fact. A follow-ups handler that gets no questions back from the model and one
-    that gets four unusable ones have produced the same absence for opposite
-    reasons: the first says the gate let through a turn the model saw nothing in,
-    the second says the prompt is not landing. Collapsing them into one
-    ``empty`` bucket makes the number the stage exists to produce unreadable, so
-    a handler may name the case and the runner puts the name on the span next to
-    the outcome.
-
-    Not a status: ``empty`` stays a first-class *success* on the wire, and the
-    reason is telemetry, never something a client reads.
-    """
-
     reason: str
 
     def __post_init__(self) -> None:
@@ -132,8 +72,6 @@ class StageEmpty:
 
 @dataclass(frozen=True)
 class GateDecision:
-    """A deterministic gate's verdict. Never an LLM's opinion."""
-
     run: bool
     reason: str | None = None
 
@@ -143,8 +81,6 @@ class GateDecision:
 
     @classmethod
     def skip(cls, reason: str) -> GateDecision:
-        """Decline, naming the condition that declined. The reason is required:
-        a gate's own correctness is then measurable rather than assumed."""
         if not reason:
             raise ValueError("GateDecision.skip requires a machine-readable reason")
         return cls(run=False, reason=reason)
@@ -152,9 +88,6 @@ class GateDecision:
 
 @dataclass(frozen=True)
 class StageOutcome:
-    """One terminal record per stage per turn — including the runs that did not
-    happen, which is exactly the data that makes the gate falsifiable."""
-
     stage_id: str
     status: StageStatus
     reason: str | None = None
@@ -170,14 +103,6 @@ class StageOutcome:
 
 @dataclass(frozen=True)
 class StageSpec:
-    """One stage, declared once. Adding a stage is a declaration and a handler.
-
-    ``timeout_s`` has **no default**: a stage without a hard bound is the defect
-    this primitive exists to close (memory reflection ran with the provider's
-    120s × 2 retries as its only limit, holding a concurrency slot for minutes),
-    so the declaration is forced to state one.
-    """
-
     id: str
     agent_group: AgentGroup
     flag_slug: str

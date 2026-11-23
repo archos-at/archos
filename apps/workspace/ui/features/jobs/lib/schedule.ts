@@ -241,3 +241,9 @@ export function defaultDueAt(now: Date = new Date()): Date {
   due.setHours(9, 0, 0, 0)
   return due
 }
+
+export function toggleDay(weekdays: readonly number[], weekday: number): number[] {
+  if (!weekdays.includes(weekday)) return [...weekdays, weekday].sort((a, b) => a - b)
+  if (weekdays.length === 1) return [...weekdays]
+  return weekdays.filter((day) => day !== weekday)
+}

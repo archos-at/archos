@@ -53,7 +53,7 @@ export function useProjectInventory(projectId: string | null, enabled: boolean):
     setLoading(true)
     void Promise.all([
       listing(`/api/documents?projectId=${encodeURIComponent(projectId)}`),
-      listing('/api/documents?scope=office_shelf'),
+      listing('/api/documents?scope=office_shelf&includeStandards=true'),
     ]).then(([project, officeShelf]) => {
       if (cancelled) return
       setLoaded({

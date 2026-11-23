@@ -224,7 +224,7 @@ describe('mayOpenDocument on a held upload', () => {
     expect(allowed).toEqual(new Set(['user_uploader']))
   })
 
-  it('asks nobody about the hold once the upload has passed, and never for Piloti’s own documents', async () => {
+  it('asks nobody about the hold once the upload has passed, and never for the agent’s own documents', async () => {
     await mayOpenDocument(session, doc({}), ['user_a'])
     await mayOpenDocument(session, doc({ authoredBy: 'agent', screeningOutcome: null, screenedHash: null }), ['user_a'])
 

@@ -1,13 +1,3 @@
-"""Every producer family, run inside a compiled graph and read off its custom stream.
-
-Chat wire v2 (``docs/design/chat-wire-v2.md`` §b) has no queue of its own: a
-producer calls ``turn_status.emit_step`` and LangGraph's writer carries the
-body. So what is asserted here is the stream a graph run under
-``astream(stream_mode=["custom"])`` really yields, body for body, and that the
-setup phase, which runs before any graph, RETURNS its steps rather than
-emitting them.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -139,7 +129,6 @@ HIT = GroundingHit(
 
 
 async def test_an_evidence_tool_is_one_sources_step_from_its_records_even_off_the_loop() -> None:
-    """The knowledge layer renders in ``asyncio.to_thread``; the writer must still reach it."""
     block = GroundingBlock(preamble="Found 1", degraded_banner="", hits=(HIT,), lanes=LANES, tool="knowledge_search")
 
     async def work() -> None:
@@ -150,20 +139,17 @@ async def test_an_evidence_tool_is_one_sources_step_from_its_records_even_off_th
     assert body == _finished(SourcesStep(id=body.step.id, round=1, tool="knowledge_search", lanes=list(LANES)))
 
 
-@tool
+@tool(description="Return a plan.")
 async def fetch_plan(q: str) -> str:
-    """Return a plan."""
     return "the whole passage, which never reaches the wire"
 
 
-@tool
+@tool(description="Fail.")
 async def broken_probe(q: str) -> str:
-    """Fail."""
     raise ValueError("secret stack detail")
 
 
 async def test_every_tool_call_is_a_started_and_a_finished_step_with_its_basename_only() -> None:
-    """One callback on the run config sees every tool, and says only which one ran and how it ended."""
     builder = StateGraph(MessagesState)
     builder.add_node("tools", ToolNode([fetch_plan, broken_probe], handle_tool_errors=True))
     builder.add_edge(START, "tools")
@@ -205,7 +191,6 @@ async def test_a_step_emitted_inside_deep_research_carries_its_scope() -> None:
 
 
 async def test_the_setup_phase_returns_its_steps_and_emits_nothing() -> None:
-    """``_run`` yields these before the graph starts; inside a graph they still only return."""
     returned = []
 
     async def work() -> None:
@@ -222,6 +207,5 @@ async def test_the_setup_phase_returns_its_steps_and_emits_nothing() -> None:
 
 
 def test_outside_a_graph_run_emission_is_a_no_op() -> None:
-    """Outside any runnable (the setup phase), and inside one that is not a graph (a tool called directly)."""
     retrieval_status.emit_citation_check()
     assert asyncio.run(fetch_plan.ainvoke({"q": "a"}, config={"callbacks": [action_rows.ToolStepCallback()]}))

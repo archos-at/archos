@@ -3004,6 +3004,29 @@
             ]
           }
         },
+        "buildings": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          }
+        },
         "canDecide": {
           "type": "boolean"
         },
@@ -3604,6 +3627,7 @@
         "openQuestions",
         "groups",
         "derivations",
+        "buildings",
         "canDecide",
         "canComplete",
         "readingProgress"

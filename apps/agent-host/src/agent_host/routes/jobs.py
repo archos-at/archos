@@ -1,18 +1,3 @@
-"""Agent-agnostic async job API routes.
-
-Routes:
-    GET  /v1/jobs/async/agents                            - List available agent types
-    POST /v1/jobs/async/submit                            - Submit a new job for any agent
-    GET  /v1/jobs/async/job/{job_id}                      - Get job status
-    GET  /v1/jobs/async/job/{job_id}/stream               - SSE stream from beginning
-    GET  /v1/jobs/async/job/{job_id}/stream/{last_event_id} - SSE stream from event ID
-    POST /v1/jobs/async/job/{job_id}/cancel               - Cancel running job
-    GET  /v1/jobs/async/job/{job_id}/state                - Get artifacts from event store
-    GET  /v1/jobs/async/job/{job_id}/report               - Get final report
-    GET  /v1/internal/jobs/{job_id}/outcome               - A job's verdict for the BFF's run reconciler
-                                                            (service token, never on the external allowlist)
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -257,22 +242,16 @@ _JOB_ROUTES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
 
 
 def _add_routes(app: FastAPI, handlers: Any, routes: tuple[tuple[str, str, str, dict[str, Any]], ...]) -> None:
-    """Register each route on ``app``, as ``@app.get`` / ``@app.post`` would, with its metadata."""
     for method, path, name, metadata in routes:
         app.add_api_route(path, getattr(handlers, name), methods=[method], **metadata)
 
 
 async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: FastApiFrontEndPluginWorker) -> None:
-    """
-    Register agent-agnostic async job routes.
-
-    Uses the agent runtime's JobStore for job metadata. Research runs on Hatchet
-    (ADR-0150). The /v1/data_sources endpoint is always registered.
-    """
     from .builder_state import set_active_builder
 
     set_active_builder(builder)
 
+    from agent.common.boot_retry import retry_connection
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
     from ..jobs import orchestrator_runs
@@ -300,26 +279,21 @@ async def register_job_routes(app: FastAPI, builder: WorkflowBuilder, worker: Fa
     front_end_config = getattr(worker, "_front_end_config", None)
     default_expiry_seconds = getattr(front_end_config, "expiry_seconds", 86400) if front_end_config else 86400
     logger.info("Registering async job routes: db=%s, expiry=%ds", redact_db_url(db_url), default_expiry_seconds)
-    await asyncio.get_running_loop().run_in_executor(None, ensure_job_access_table, db_url)
-    await asyncio.get_running_loop().run_in_executor(None, orchestrator_runs.ensure_table, db_url)
+
+    def ensure_job_tables() -> None:
+        ensure_job_access_table(db_url)
+        orchestrator_runs.ensure_table(db_url)
+        EventStore._ensure_table_exists(db_url)
+
+    await asyncio.to_thread(retry_connection, ensure_job_tables, what="job tables")
     handlers = job_handlers.JobRouteHandlers(builder, job_store, db_url, default_expiry_seconds)
     _add_routes(app, handlers, _JOB_ROUTES)
     logger.info("Registered async job routes at /v1/jobs/async")
-
-    EventStore._ensure_table_exists(db_url)
 
     _add_housekeeping_routes(app, job_store, db_url, default_expiry_seconds)
 
 
 def _add_housekeeping_routes(app: FastAPI, job_store, db_url: str, expiry_seconds: int) -> None:
-    """One cycle of each housekeeping job, behind the internal token.
-
-    The first three take the same Postgres advisory lock as their loop did, so a
-    call that overlaps a running cycle (a slow previous call) skips and reports
-    nothing done. The base-corpus cycle instead waits on the cross-replica
-    ``oib-sync`` lock and then finds nothing left to queue. It ingests nothing itself: it
-    records the ingest jobs that finished and queues one for each file that needs it.
-    """
 
     @app.post("/v1/maintenance/housekeeping/ghost-jobs", tags=["maintenance"], include_in_schema=False)
     async def housekeeping_ghost_jobs(request: Request) -> dict:

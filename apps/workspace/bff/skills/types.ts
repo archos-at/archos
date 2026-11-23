@@ -5,32 +5,33 @@ import {
 } from '@/features/skills/lib/card-catalog'
 import type { SkillOrigin } from '@/lib/db/schema/jobs'
 import { PLATFORM_SKILL_DELIVERIES } from '@/lib/db/schema/platform-skills'
+import { readMetadata } from './legacy-names'
 
 export const MAX_SKILL_NAME_LENGTH = 64
 export const MAX_SKILL_DESCRIPTION_LENGTH = 1024
 export const MAX_SKILL_BODY_LENGTH = 32000
 
-export const METADATA_AGENTS = 'grid-agents'
+export const METADATA_AGENTS = 'agents'
 
-export const METADATA_CARDS = 'grid-cards'
+export const METADATA_CARDS = 'cards'
 
-export const METADATA_CATALOG = 'grid-catalog'
+export const METADATA_CATALOG = 'catalog'
 
 export const CATALOG_CURATED = 'curated'
 
 export function isCuratedPlatformSkill(metadata: Record<string, string>): boolean {
-  return (metadata[METADATA_CATALOG] ?? '').trim().toLowerCase() === CATALOG_CURATED
+  return (readMetadata(metadata, METADATA_CATALOG) ?? '').trim().toLowerCase() === CATALOG_CURATED
 }
 
-export const METADATA_HIDDEN = 'grid-hidden'
+export const METADATA_HIDDEN = 'hidden'
 
 const HIDDEN_TRUE: ReadonlySet<string> = new Set(['true', '1', 'yes'])
 
 export function isHiddenSkill(metadata: Record<string, string>): boolean {
-  return HIDDEN_TRUE.has((metadata[METADATA_HIDDEN] ?? '').trim().toLowerCase())
+  return HIDDEN_TRUE.has((readMetadata(metadata, METADATA_HIDDEN) ?? '').trim().toLowerCase())
 }
 
-export const METADATA_AUTO_INVOKE = 'grid-auto-invoke'
+export const METADATA_AUTO_INVOKE = 'auto-invoke'
 
 export const KNOWN_SKILL_AGENTS = ['researcher', 'deep_researcher'] as const
 export type KnownSkillAgent = (typeof KNOWN_SKILL_AGENTS)[number]
@@ -46,7 +47,7 @@ export function canonicalSkillAgent(name: string): string {
 }
 
 export function preferredCardsOf(metadata: Record<string, string>): string[] {
-  return parsePreferredCardTypes(metadata[METADATA_CARDS])
+  return parsePreferredCardTypes(readMetadata(metadata, METADATA_CARDS))
 }
 
 export interface SkillSnapshot {
@@ -107,7 +108,7 @@ const metadataSchema = z
     'A skill may carry at most 64 metadata keys.'
   )
   .superRefine((metadata, ctx) => {
-    const raw = metadata[METADATA_CARDS]
+    const raw = readMetadata(metadata, METADATA_CARDS)
     if (raw === undefined) return
     const unknown = raw
       .split(',')

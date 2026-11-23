@@ -168,7 +168,15 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     const labels = Array.from(navs)
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
-    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Office standards', 'Search', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Search', 'Inbox'])
+  })
+
+  test('keeps Office filing lit on its standards tab, which has no doorway of its own', () => {
+    pathname = '/app/base-knowledge'
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf canAccessOfficeStandards />)
+    expect(screen.queryByText('Office standards')).not.toBeInTheDocument()
+    const shelf = screen.getAllByRole('link', { name: /Office filing/ })[0]
+    expect(shelf).toHaveAttribute('data-active', 'true')
   })
 
   test('lists no office standards without the office-standards entitlement, the Archiv still there', () => {
@@ -429,6 +437,26 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
     expect(chat).not.toHaveAttribute('aria-current')
     expect(chat).toHaveClass('text-foreground', 'font-medium')
+  })
+
+  test('a row shows what its chat is doing, and says it: working, waiting for an answer, answer ready, answer failed', () => {
+    const base = chats().items[0]!
+    renderWith(
+      chats({
+        items: [
+          { ...base, id: 'w', title: 'Fluchtwege', activity: 'working' },
+          { ...base, id: 'q', title: 'Stellplätze', activity: 'waiting' },
+          { ...base, id: 'a', title: 'Abstandsflächen', activity: 'answered' },
+          { ...base, id: 'f', title: 'Barrierefreiheit', activity: 'failed' },
+          { ...base, id: 'n', title: 'Brandschutz', activity: null },
+        ],
+      })
+    )
+    expect(within(screen.getByRole('link', { name: 'Fluchtwege (working)' })).getByTestId('rail-chat-working')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Stellplätze (waiting for your answer)' })).getByTestId('rail-chat-waiting')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Abstandsflächen (answer ready)' })).getByTestId('rail-chat-answered')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Barrierefreiheit (answer failed)' })).getByTestId('rail-chat-failed')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Brandschutz' }).querySelector('[data-testid^="rail-chat-"]')).toBeNull()
   })
 
   test('with no chat open, „Chat“ stays the current place', () => {

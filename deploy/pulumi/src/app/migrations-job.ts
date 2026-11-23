@@ -9,6 +9,7 @@ import { JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
 import { AppSecrets, AppWiring } from "./config";
 import { migrationEnv } from "./job-env";
 import { logicalName } from "../names";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export function runMigrations(
   w: AppWiring,
@@ -39,7 +40,7 @@ export function runMigrations(
                 securityContext: hardenedContainerSecurityContext(),
                 command: ["node", "node_modules/drizzle-kit/bin.cjs", "migrate"],
                 env: migrationEnv(),
-                resources: LIGHT_WORKER_RESOURCES,
+                resources: scaledCpuRequest(LIGHT_WORKER_RESOURCES),
               },
             ],
           },

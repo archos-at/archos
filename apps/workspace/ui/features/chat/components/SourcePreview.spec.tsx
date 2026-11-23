@@ -148,7 +148,7 @@ describe('SourcePreviewChip', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  test('a RIS source peeks its bindingness and opens in Piloti, never as a bare link', async () => {
+  test('a RIS source peeks its bindingness and opens in the app, never as a bare link', async () => {
     const user = userEvent.setup()
     render(
       <SourcePreviewChip

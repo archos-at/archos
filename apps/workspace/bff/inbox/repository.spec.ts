@@ -33,6 +33,7 @@ import {
   markInboxItemsRead,
   markResourceItemsRead,
   resolveOpenItemsAnchoredOn,
+  resolveOpenItemsOfType,
   markItemsInertAnchoredOn,
   upsertInboxItem,
   upsertInboxItems,
@@ -223,7 +224,7 @@ describe('markItemsInertAnchoredOn', () => {
   it('turns every live item of the named types on one anchor inert, for everyone, and wipes what it quoted', async () => {
     await markItemsInertAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you', 'annotation.activity'],
+      types: ['agent.asks_you', 'annotation.activity'],
       anchorId: 'ann_1',
     })
 
@@ -236,7 +237,7 @@ describe('markItemsInertAnchoredOn', () => {
     expect(sql).toContain('"anchor_id" = $')
     expect(sql).toContain('"inert_at" is null')
     expect(sql).not.toContain('"recipient_user_id" = $')
-    expect(params).toEqual(expect.arrayContaining(['org_1', 'piloti.asks_you', 'annotation.activity', 'ann_1']))
+    expect(params).toEqual(expect.arrayContaining(['org_1', 'agent.asks_you', 'piloti.asks_you', 'annotation.activity', 'ann_1']))
   })
 
   it('turns one recipient’s items inert, and nobody else’s, when one is named', async () => {
@@ -253,6 +254,14 @@ describe('markItemsInertAnchoredOn', () => {
     expect(params).toEqual(expect.arrayContaining(['org_1', 'annotation.mentioned', 'ann_1', 'user_anna']))
   })
 
+  it('keeps the open items anchored on what still holds', async () => {
+    await resolveOpenItemsOfType({ organizationId: 'org_1', types: ['base_knowledge.new_edition'], keepAnchors: ['önorm b 1600@2025-01-01'] })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toContain('"anchor_id" is null or "inbox_items"."anchor_id" not in ($')
+    expect(params).toEqual(expect.arrayContaining(['önorm b 1600@2025-01-01']))
+  })
+
   it('touches nothing for an empty type list', async () => {
     expect(await markItemsInertAnchoredOn({ organizationId: 'org_1', types: [], anchorId: 'ann_1' })).toEqual([])
     expect(captured).toHaveLength(0)
@@ -267,7 +276,7 @@ describe('resolveOpenItemsAnchoredOn', () => {
   it('resolves the open items of the named types on one anchor, in one organization, for everyone', async () => {
     await resolveOpenItemsAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you'],
+      types: ['agent.asks_you'],
       anchorId: 'ann_1',
     })
 
@@ -278,13 +287,13 @@ describe('resolveOpenItemsAnchoredOn', () => {
     expect(sql).toContain('"anchor_id" = $')
     expect(sql).toContain('"resolved_at" is null')
     expect(sql).not.toContain('"recipient_user_id" = $')
-    expect(params).toEqual(expect.arrayContaining(['org_1', 'piloti.asks_you', 'ann_1']))
+    expect(params).toEqual(expect.arrayContaining(['org_1', 'agent.asks_you', 'piloti.asks_you', 'ann_1']))
   })
 
   it('narrows to one recipient when one is named', async () => {
     await resolveOpenItemsAnchoredOn({
       organizationId: 'org_1',
-      types: ['piloti.asks_you'],
+      types: ['agent.asks_you'],
       anchorId: 'ann_1',
       recipientUserId: 'user_me',
     })
@@ -292,6 +301,14 @@ describe('resolveOpenItemsAnchoredOn', () => {
     const { sql, params } = onlyQuery()
     expect(sql).toContain('"recipient_user_id" = $')
     expect(params).toContain('user_me')
+  })
+
+  it('keeps the open items anchored on what still holds', async () => {
+    await resolveOpenItemsOfType({ organizationId: 'org_1', types: ['base_knowledge.new_edition'], keepAnchors: ['önorm b 1600@2025-01-01'] })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toContain('"anchor_id" is null or "inbox_items"."anchor_id" not in ($')
+    expect(params).toEqual(expect.arrayContaining(['önorm b 1600@2025-01-01']))
   })
 
   it('touches nothing for an empty type list', async () => {
@@ -407,11 +424,43 @@ describe('listTouchedOfType — the rows a burst is made of', () => {
     await listTouchedOfType('org_1', 'user_me', 'annotation.assigned_to_you', { from, to }, 51)
 
     const { sql, params } = onlyQuery()
-    for (const column of ['organization_id', 'recipient_user_id', 'type']) expect(sql).toContain(`"inbox_items"."${column}" = $`)
+    for (const column of ['organization_id', 'recipient_user_id']) expect(sql).toContain(`"inbox_items"."${column}" = $`)
+    expect(sql).toContain('"inbox_items"."type" in ($')
     for (const state of ['read_at', 'archived_at', 'resolved_at', 'inert_at']) expect(sql).not.toContain(`"inbox_items"."${state}"`)
     expect(sql).toContain('"inbox_items"."updated_at" >= $')
     expect(sql).toContain('"inbox_items"."updated_at" <= $')
     expect(sql).toMatch(/order by "inbox_items"."updated_at" desc limit \$\d+/)
     expect(params).toEqual(expect.arrayContaining(['org_1', 'user_me', 'annotation.assigned_to_you', 51]))
+  })
+})
+
+describe('resolveOpenItemsOfType', () => {
+  beforeEach(() => {
+    captured.length = 0
+  })
+
+  it('resolves every open item of the named types in one organization, whatever its anchor', async () => {
+    await resolveOpenItemsOfType({ organizationId: 'org_1', types: ['base_knowledge.new_edition'] })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toMatch(/^update "inbox_items" set "resolved_at" = /)
+    expect(sql).toContain('"organization_id" = $')
+    expect(sql).toContain('"type" in ($')
+    expect(sql).toContain('"resolved_at" is null')
+    expect(sql).not.toContain('"anchor_id"')
+    expect(params).toEqual(expect.arrayContaining(['org_1', 'base_knowledge.new_edition']))
+  })
+
+  it('keeps the open items anchored on what still holds', async () => {
+    await resolveOpenItemsOfType({ organizationId: 'org_1', types: ['base_knowledge.new_edition'], keepAnchors: ['önorm b 1600@2025-01-01'] })
+
+    const { sql, params } = onlyQuery()
+    expect(sql).toContain('"anchor_id" is null or "inbox_items"."anchor_id" not in ($')
+    expect(params).toEqual(expect.arrayContaining(['önorm b 1600@2025-01-01']))
+  })
+
+  it('touches nothing for an empty type list', async () => {
+    expect(await resolveOpenItemsOfType({ organizationId: 'org_1', types: [] })).toEqual([])
+    expect(captured).toHaveLength(0)
   })
 })

@@ -4,6 +4,7 @@ import { expect, vi } from 'vitest'
 import { server } from '@/mocks/server'
 import { __resetRealtimeConnection } from '@/features/realtime/connection'
 import type { ProposedChangeView } from '@/lib/proposals/types'
+import { AGENT_KIND } from '@/lib/agent-kind'
 
 export const PROPOSAL_ID = '00000000-0000-4000-8000-0000000000a1'
 export const CHANNEL = `proposal:${PROPOSAL_ID}`
@@ -14,7 +15,7 @@ export const proposalBase = (patch: Partial<Base> = {}): Base => ({
   id: PROPOSAL_ID,
   projectId: 'proj-1',
   status: 'proposed',
-  proposedByKind: 'piloti',
+  proposedByKind: AGENT_KIND,
   onBehalfOf: 'user_me',
   onBehalfOfName: 'Mia Huber',
   originConversationId: 'conv-1',

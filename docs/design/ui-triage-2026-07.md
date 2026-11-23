@@ -1,6 +1,6 @@
 # UI/UX Triage — July 2026
 
-A full heuristic evaluation of the Piloti/GRID app (excluding the marketing
+A full heuristic evaluation of the app (excluding the marketing
 page), run against Nielsen's 10 usability heuristics plus the supporting laws
 (Fitts, Hick, Miller, Jakob, Gestalt, Tesler's conservation of complexity,
 aesthetic–usability, peak-end) — read through *value* and *actual user flow* for
@@ -272,7 +272,7 @@ documented `text-xl` title-size question becomes a single knob.
   becomes citable fires no confirmation; add a provenance-correct success toast.
   Best landed with the `useDocumentWorkspace` extraction so it fires once across
   both the project and Archiv workspaces (currently ~80% duplicated).
-- **[backlog] P0 · Grid has no live status once the client orchestrator is gone** —
+- **[backlog] P0 · The app has no live status once the client orchestrator is gone** —
   a doc still ingesting server-side shows a "Processing" badge that never
   advances; add polling / a refresh affordance.
 - **[backlog] P1 · Delete button is mis-composed** — `DeleteDocumentButton` is

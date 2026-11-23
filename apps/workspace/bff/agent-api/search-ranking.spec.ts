@@ -11,7 +11,7 @@ import type { AgentPrincipal } from './principal'
 
 const session = {
   userId: 'user_eval',
-  email: 'eval@piloti.test',
+  email: 'eval@example.test',
   name: 'Eval',
   accessToken: '',
   organizationId: 'org_eval',

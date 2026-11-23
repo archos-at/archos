@@ -1,0 +1,5 @@
+---
+# area: administration
+operators:
+  - >
+    The workers no longer move jobs from the old research and ingest queues onto Hatchet at boot, and the two manual cutover commands are gone. A job still left in research_job_queue or ingest_job_queue is no longer run. The tables stay until a later migration drops them, so check them first with the query in the Hatchet runbook.

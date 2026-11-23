@@ -10,14 +10,14 @@ import pytest
 
 from agent.common.content_screen import DETECTORS
 from agent.common.content_screen import DETECTORS_ONLY
-from agent.common.content_screen import IBAN_LENGTHS
 from agent.common.content_screen import PLACEHOLDERS
-from agent.common.content_screen import WHITESPACE
 from agent.common.content_screen import ScreeningRules
 from agent.common.content_screen import find_spans
 from agent.common.content_screen import findings_summary
-from agent.common.content_screen import fold
 from agent.common.content_screen import mask_text
+from agent.common.screen_chars import WHITESPACE
+from agent.common.screen_numbers import IBAN_LENGTHS
+from agent.common.screen_reading import fold
 
 REPO = Path(__file__).resolve().parents[4]
 FIXTURE_PATH = REPO / "tests" / "fixtures" / "content_screen_cases.json"

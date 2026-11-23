@@ -1,0 +1,11 @@
+---
+# area: answers
+improvements:
+  - >
+    A file {productName} changed after you filed it now updates the project
+    document in one click, and the card warns you first when someone else has
+    changed that document.
+  - >
+    A file made from a project document can be filed as its next Fassung with a
+    short note of what changed, and a draft you no longer need can be deleted
+    from the chat.

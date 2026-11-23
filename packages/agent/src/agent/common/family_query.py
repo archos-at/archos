@@ -1,17 +1,3 @@
-"""Family-shaped queries: a question that names a Richtlinie and nothing else.
-
-"Was weißt du über die OIB 2?" asks for the family, not for a passage inside
-it. Semantic search answers it with whatever two documents ranked highest,
-and the model then opens the rest one at a time. Detected here, the retrieval
-layer can answer it with every member the corpus holds in ONE round.
-
-Detection is pure; :func:`agent.common.norm_registry.oib_families` turns the
-number this returns into the members. It reads the anchor vocabulary the
-requery gate reads (``knowledge_layer.search.requery._NARROW_ANCHOR_PATTERNS``) and
-adds the bare ``OIB 2`` spelling, which is how the question is usually asked.
-``norm_registry`` re-exports :func:`family_query_number`, its one public name.
-"""
-
 from __future__ import annotations
 
 import re
@@ -73,23 +59,12 @@ _FAMILY_TOKEN_RE = re.compile(r"[^\W\d_]+|\d+(?:[.,]\d+)?")
 
 
 def _is_topic_free(text: str) -> bool:
-    """True when nothing in ``text`` names a topic.
-
-    Digits pass: what is left of "OIB 2 Ausgabe Mai 2023" once the anchor and
-    the edition words are gone is a year, and a year is a printing.
-    """
     return all(
         token.isdigit() or token in _FAMILY_QUERY_STOPWORDS for token in _FAMILY_TOKEN_RE.findall(text.casefold())
     )
 
 
 def _joined_keys(text: str, start: int) -> list[re.Match[str]]:
-    """The further keys chained onto the anchor ending at ``start``, in order.
-
-    "OIB 2 und 4" names two families as surely as "OIB 2 und OIB 4"; without
-    this the bare ``4`` falls into the leftover, where a number passes as a
-    printing and the query came back as family 2 alone.
-    """
     found: list[re.Match[str]] = []
     while (joined := _FAMILY_JOINED_KEY_RE.match(text, start)) is not None:
         found.append(joined)
@@ -98,21 +73,6 @@ def _joined_keys(text: str, start: int) -> list[re.Match[str]]:
 
 
 def family_query_number(query: str) -> str | None:
-    """The Richtlinien-family a query asks about AS A WHOLE, or ``None``.
-
-    ``"was weißt du über die OIB 2"`` and ``"OIB-Richtlinie 2.1"`` both answer
-    ``"2"``: the family key, which :func:`oib_families` turns into the members
-    the corpus holds. A part number resolves to its family on purpose: a
-    reader who asks about 2.1 is asking inside a Richtlinie whose other parts
-    they are unlikely to know exist.
-
-    ``None`` for everything else, and that is the common answer. A query that
-    still names a topic once the anchor is removed is an ordinary search; so is
-    one that addresses a Punkt, a paragraph, a page, a table or a file; and so
-    is one naming two families, because a single overview cannot be both,
-    including when the second key is chained on without its anchor ("OIB 2
-    und 4", "OIB 2, 4").
-    """
     text = (query or "").strip()
     if not text or _FAMILY_BLOCKER_RE.search(text):
         return None

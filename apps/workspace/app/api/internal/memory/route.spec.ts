@@ -49,7 +49,7 @@ const REAL_TOKEN = 'a-real-secret-token'
 const PROJECT_ID = '4f9c1d2e-3b4a-4c5d-8e6f-7a8b9c0d1e2f'
 
 const makeRequest = (body: unknown, token?: string) =>
-  new Request('https://grid.test/api/internal/memory', {
+  new Request('https://example.test/api/internal/memory', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

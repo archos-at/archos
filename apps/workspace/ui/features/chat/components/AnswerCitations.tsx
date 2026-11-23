@@ -26,11 +26,14 @@ import {
 import { CitationScope } from './CitationScope'
 import { CitationMarker } from './CitationMarker'
 import {
+  DraftFileReference,
   FileReferenceLink,
   FileReferenceProvider,
   type FileReferenceResolver,
 } from './FileReference'
 import { SourceDocumentDialog } from './source-preview/source-document-dialog'
+import { useChatStore } from '../store'
+import { draftDownloadHref, draftFileName, draftLinkPath } from '../lib/draft-links'
 
 const NO_FILE_REFERENCES: FileReferenceResolver = () => null
 
@@ -54,6 +57,7 @@ export const AnswerCitations: FC<{
   children: ReactNode
 }> = ({ documents, anchorPrefix, resolveFileReference, children }) => {
   const linked = useLinkedCitation(documents)
+  const conversationId = useChatStore((s) => s.currentConversation?.id ?? null)
   const renderExcerptSource = useMemo(() => excerptSourceRenderer(documents), [documents])
 
   return (
@@ -90,6 +94,15 @@ export const AnswerCitations: FC<{
             const element = parseElementLink(href)
             if (element) {
               return <IfcElementChip link={element}>{label}</IfcElementChip>
+            }
+            if (draftLinkPath(href)) {
+              const download = conversationId ? draftDownloadHref(conversationId, href) : null
+              if (!download) return <span>{label}</span>
+              return (
+                <DraftFileReference href={download} fileName={draftFileName(href)}>
+                  {label}
+                </DraftFileReference>
+              )
             }
             if (href.startsWith('/api/')) {
               return (

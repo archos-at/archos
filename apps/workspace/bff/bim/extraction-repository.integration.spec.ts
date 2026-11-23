@@ -98,7 +98,7 @@ describe.skipIf(!url)('a model row is moved only by the run that started it', ()
     })
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const dbModule = await import('@/lib/db')
     db = dbModule.getDb()
     closeDb = dbModule.closeDb

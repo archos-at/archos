@@ -8,6 +8,7 @@ import { scrapeAnnotations } from "./scrape";
 import { hardenedJobSecurityContext } from "./security";
 import { BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS } from "../constants";
 import { RABBITMQ, RABBITMQ_DEFAULT_USER_SECRET, RABBITMQ_HOST } from "./rabbitmq";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const HATCHET = {
   release: "hatchet",
@@ -40,10 +41,10 @@ export const HATCHET_API_URL = `http://${HATCHET.apiService}.${BACKGROUND_WORK.n
 type Resources = { requests: Record<string, string>; limits: Record<string, string> };
 
 export const HATCHET_RESOURCES: Record<keyof typeof HATCHET_COMPONENTS | "frontend", Resources> = {
-  api: { requests: { cpu: "250m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
-  grpc: { requests: { cpu: "500m", memory: "1Gi" }, limits: { cpu: "2", memory: "1Gi" } },
-  controllers: { requests: { cpu: "250m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
-  scheduler: { requests: { cpu: "500m", memory: "1Gi" }, limits: { cpu: "2", memory: "1Gi" } },
+  api: { requests: { cpu: "50m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
+  grpc: { requests: { cpu: "75m", memory: "1Gi" }, limits: { cpu: "2", memory: "1Gi" } },
+  controllers: { requests: { cpu: "50m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } },
+  scheduler: { requests: { cpu: "75m", memory: "1Gi" }, limits: { cpu: "2", memory: "1Gi" } },
   frontend: { requests: { cpu: "50m", memory: "64Mi" }, limits: { cpu: "250m", memory: "128Mi" } },
 };
 
@@ -85,7 +86,7 @@ function component(cfg: DeployConfig, key: keyof typeof HATCHET_COMPONENTS, extr
     ],
     env: RABBITMQ_URL_ENV,
     ingress: { enabled: false },
-    resources: HATCHET_RESOURCES[key],
+    resources: scaledCpuRequest(HATCHET_RESOURCES[key]),
     podDisruptionBudget: { maxUnavailable: 1 },
     affinity: spreadAffinity(name),
     ...onNodeGroup(cfg.nodeGroups.app),
@@ -134,7 +135,7 @@ export function hatchetValues(cfg: DeployConfig) {
       fullnameOverride: "hatchet-frontend",
       replicaCount: 1,
       ingress: { enabled: false },
-      resources: HATCHET_RESOURCES.frontend,
+      resources: scaledCpuRequest(HATCHET_RESOURCES.frontend),
       ...onNodeGroup(cfg.nodeGroups.app),
     },
     postgres: { enabled: false },
@@ -265,7 +266,7 @@ echo 'worker token copied'`;
                 name: "copy",
                 image: "curlimages/curl:8.11.1",
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 command: ["/bin/sh", "-c"],
                 args: [script],
               },

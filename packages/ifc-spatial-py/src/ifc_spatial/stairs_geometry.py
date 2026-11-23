@@ -1,5 +1,3 @@
-"""The stair operator: geometry of a whole stair, its flights and landings."""
-
 from __future__ import annotations
 
 from typing import Any
@@ -31,60 +29,6 @@ from .operators import _wrong_kind
 
 
 def stair_geometry(model: SpatialModel, global_id: str) -> Answer[dict[str, Any]]:
-    """Steigungshöhe, Auftrittsbreite, their spread, rise, going and Nutzbreite.
-
-    Both routes run and both are reported:
-
-    - **the schedule** — ``Pset_StairCommon`` / ``Pset_StairFlightCommon`` with
-      ``NumberOfRiser``, ``RiserHeight`` and ``TreadLength``, and
-      ``Qto_StairFlightBaseQuantities`` where the export writes it;
-    - **the solid** — the up-facing horizontal faces of the body, clustered by
-      height. Consecutive spacings are the risers; the plan distance between
-      consecutive tread centres is the going; the narrowest tread surface is the
-      Nutzbreite.
-
-    Where both exist they are triangulated, and a disagreement is reported as a
-    finding about the EXPORT rather than resolved silently in favour of either.
-    On the fixture: ``RiserHeight = 0.170`` declared, 0.180 measured, 5.6 % apart
-    — the geometry wins the value and the caveat names both numbers.
-
-    ## The spread is the point
-
-    A mean riser height cannot fail. The fixture's second stair has risers of
-    0.160, 0.190, 0.170, 0.200 and 0.180 m; their mean is exactly the declared
-    0.180 and their **spread is 0.040 m**. OIB 4 requires the risers of a flight
-    to be equal, and every number except the spread hides that they are not. So
-    ``riserHeight`` and ``treadDepth`` each carry ``min``, ``max`` and ``spread``
-    beside the mean, and the caveat says in German how far the steps vary.
-
-    ## Assemblies
-
-    An ``IfcStair`` that aggregates flights is measured flight by flight and the
-    measurements are POOLED — a stair whose two flights are individually regular
-    but differ from each other is exactly as unwalkable as one irregular flight,
-    and pooling is what surfaces it. The per-flight breakdown travels in
-    ``flights`` so a caller can still ask about one of them. An ``IfcStair`` with
-    no parts is measured directly: Revit writes the whole staircase as one body
-    and refusing that file would refuse most files.
-
-    ## …and the assemblies that are not declared as one
-
-    A body with no parts is not the same thing as a body with one flight, and
-    treating it as one is what this operator got wrong. ArchiCAD writes the
-    Institute's „Treppe-EG" as a single ``IfcStair`` with no ``IfcStairFlight``,
-    no landing slab and no ``PredefinedType`` — nothing in the file says it is a
-    three-flight dogleg — and the reader took the chord from its first tread to
-    its last, which runs diagonally across the stairwell. It reported
-    ``riserCount 45``, ``riserHeight 0.065``, ``clearWidth 0.318``, ``landings 0``
-    with ``decidable=True``, for a stair with 21 risers of 0.137 m, a going of
-    0.348 m, a **1.500 m** Nutzbreite and two Podeste. So the flights are found
-    at the body — at the turns and at the landings — and each is measured on its
-    own axis (:func:`_read_body`). What cannot be read as a straight flight is
-    refused with the measurement that decided it rather than averaged.
-
-    No threshold is applied and no verdict is returned. The maximum riser and the
-    minimum Nutzbreite are in OIB 4, and OIB 4 is not this layer.
-    """
     method = f"stairGeometry({global_id})"
     subject = _require(model, global_id, method)
     if not any(subject.is_a(name) for name in STAIR_TYPES):

@@ -126,12 +126,15 @@ export async function senderIdentityFor(
   return { memberUserId: null, claimsMemberName: claimsMemberName(fromName, names), unchecked: false }
 }
 
+const READER_FAULT_REASONS: ReadonlySet<MailRead['unreadableReasons'][number]> = new Set(['timeout', 'failed'])
+
 export async function readHeldText(
   mail: Pick<InboundMailRow, 'id' | 'stagingBucket' | 'rawStorageKey'>,
   degraded: boolean,
 ): Promise<{ read: MailRead; readerFault: boolean }> {
   try {
-    return { read: await readMail(await stagedObjectUrlForBackend(mail.stagingBucket, mail.rawStorageKey as string)), readerFault: false }
+    const read = await readMail(await stagedObjectUrlForBackend(mail.stagingBucket, mail.rawStorageKey as string))
+    return { read, readerFault: read.unreadableReasons.some((reason) => READER_FAULT_REASONS.has(reason)) }
   } catch (error) {
     if (error instanceof MailReadRefusedError) {
       console.error(`[inbound-mail] the reader refused mail ${mail.id}; its text is held as unreadable`)

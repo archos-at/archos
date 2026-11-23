@@ -3,7 +3,8 @@ import time
 import pytest
 from knowledge_layer.ingest import INGEST_READER_VERSION
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import vision_credentials
 
 from agent.common.credential_resolution import ResolvedCredential
 from agent.knowledge.ingest_status_store import interrupted
@@ -32,7 +33,7 @@ def ingestor(monkeypatch, summary_db, qdrant_store):
     ing._embed_model = FakeEmbedder()
     ing._initialized = True
     cred = ResolvedCredential(api_key="", base_url="https://vlm.test/v1", model="test-vlm", source="none")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
     return ing
 
 
@@ -58,6 +59,7 @@ def test_a_missing_vision_model_is_configuration_and_the_job_names_its_reader(tm
     detail = status.file_details[0]
     assert detail.status == FileStatus.FAILED
     assert (detail.failure_category, detail.retryable) == ("configuration", True)
+    assert detail.failure_reason == "vlm_not_configured"
     assert status.reader_version == INGEST_READER_VERSION
 
 
@@ -65,7 +67,7 @@ def test_an_exception_of_the_moment_is_transient(tmp_path, ingestor, monkeypatch
     def times_out(_path):
         raise TimeoutError("read timed out")
 
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", times_out)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", times_out)
     pdf = tmp_path / "plan.pdf"
     pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
@@ -74,23 +76,42 @@ def test_an_exception_of_the_moment_is_transient(tmp_path, ingestor, monkeypatch
     assert detail.status == FileStatus.FAILED
     assert detail.error_message == "read timed out"
     assert (detail.failure_category, detail.retryable) == ("transient", True)
+    assert detail.failure_reason == "timeout"
 
 
 def test_a_file_whose_bytes_cannot_be_read_is_deterministic(tmp_path, ingestor, monkeypatch):
     def refuses(_path):
         raise ValueError("Raw PDF/binary content detected; refusing to index")
 
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", refuses)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", refuses)
     pdf = tmp_path / "kaputt.pdf"
     pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
     detail = _run(ingestor, pdf, "kaputt.pdf").file_details[0]
 
     assert (detail.failure_category, detail.retryable) == ("deterministic", False)
+    assert detail.failure_reason == "raw_binary_content"
+
+
+def test_an_encrypted_pdf_names_its_reason(tmp_path, ingestor, monkeypatch):
+    class PDFPasswordIncorrect(Exception):
+        pass
+
+    def locked(_path):
+        raise PDFPasswordIncorrect("")
+
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", locked)
+    pdf = tmp_path / "gesperrt.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+    detail = _run(ingestor, pdf, "gesperrt.pdf").file_details[0]
+
+    assert (detail.failure_category, detail.retryable) == ("deterministic", False)
+    assert detail.failure_reason == "encrypted"
 
 
 def test_an_empty_file_is_deterministic(tmp_path, ingestor, monkeypatch):
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda _path: [])
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda _path: [])
     pdf = tmp_path / "leer.pdf"
     pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
@@ -98,6 +119,7 @@ def test_an_empty_file_is_deterministic(tmp_path, ingestor, monkeypatch):
 
     assert detail.status == FileStatus.FAILED
     assert (detail.failure_category, detail.retryable) == ("deterministic", False)
+    assert detail.failure_reason == "no_content"
 
 
 def test_a_file_that_reads_carries_no_failure(tmp_path, ingestor):
@@ -108,7 +130,7 @@ def test_a_file_that_reads_carries_no_failure(tmp_path, ingestor):
 
     detail = status.file_details[0]
     assert detail.status == FileStatus.SUCCESS
-    assert (detail.failure_category, detail.retryable) == (None, None)
+    assert (detail.failure_category, detail.failure_reason, detail.retryable) == (None, None, None)
     assert status.reader_version == INGEST_READER_VERSION
 
 
@@ -129,4 +151,5 @@ def test_a_job_whose_owner_died_fails_its_unfinished_files_as_transient():
 
     unfinished, finished = failed.file_details
     assert (unfinished.failure_category, unfinished.retryable) == ("transient", True)
-    assert (finished.failure_category, finished.retryable) == (None, None)
+    assert unfinished.failure_reason == "interrupted"
+    assert (finished.failure_category, finished.failure_reason, finished.retryable) == (None, None, None)

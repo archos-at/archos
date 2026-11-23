@@ -57,7 +57,7 @@ def test_a_plain_sentence_passes():
         ("Re-indexing works again after the fix in ingest_oib.py landed here.", "file name"),
         ("Re-indexing works again after the change to packages/agent/src/agent landed here.", "repository path"),
         ("Re-indexing works again as of commit 4f2a91c in the ingest path.", "commit sha"),
-        ("Re-indexing is fixed, details at https://github.com/GRID-check/grid-oib-agent.", "link"),
+        ("Re-indexing is fixed, details at https://github.com/example-org/example-agent.", "link"),
     ],
 )
 def test_internal_and_markup_references_are_rejected(text, expected):
@@ -117,12 +117,12 @@ def test_an_empty_file_is_rejected():
 
 
 def test_german_prose_is_rejected():
-    problems = lint_entry("Piloti zeigt jetzt die Fundstelle mit dem Punkt der Richtlinie an.")
+    problems = lint_entry("Der Agent zeigt jetzt die Fundstelle mit dem Punkt der Richtlinie an.")
     assert any("reads as German" in problem for problem in problems)
 
 
 def test_english_that_quotes_a_german_label_passes():
-    assert lint_entry("The filter „Von Piloti erstellt“ now also finds diagrams in the project.") == []
+    assert lint_entry("The filter „Vom Agenten erstellt“ now also finds diagrams in the project.") == []
 
 
 def test_more_than_two_sentences_are_rejected():
@@ -191,7 +191,7 @@ def test_every_lint_message_names_the_fix():
         ("Tokens used by a conversation are now shown beside its title.", "Tokens"),
         ("A feature flag now decides who sees the new export dialog.", "feature flag"),
         ("Answers are cached for a day, so a repeated question returns at once.", "cached"),
-        ("Buckets on S3 can now be connected to Piloti as a source.", "S3"),
+        ("Buckets on S3 can now be connected to the agent as a source.", "S3"),
         ("Die neue Warteschlange verarbeitet Dokumente schneller.", "Warteschlange"),
         ("Der Index wird jetzt bei jeder Änderung aktualisiert.", "Index"),
         ("Das Feature-Flag steuert den neuen Export für jedes Büro.", "Feature-Flag"),
@@ -214,7 +214,7 @@ def test_the_jargon_message_names_the_word_and_gives_the_fix():
     "text",
     [
         "Deleted folders stay in the Papierkorb for thirty days before they are removed.",
-        "Files Piloti cannot read end up in the Quarantäne, where an admin can review them.",
+        "Files the agent cannot read end up in the Quarantäne, where an admin can review them.",
         "The Steckbrief of every project now lists its address and its phase.",
     ],
 )
@@ -266,7 +266,7 @@ def test_the_ui_product_terms_are_not_on_the_list():
         ("Civil works are listed under their own heading.", []),
         ("The S3-Bucket is connected.", ["S3"]),
         ("Each api call is logged.", ["api"]),
-        ("Piloti runs its CI/CD checks on every change.", ["CI"]),
+        ("The agent runs its CI/CD checks on every change.", ["CI"]),
         ("A feature-flag and a flag.", ["feature-flag", "flag"]),
         ("Tokens, tokens and Tokenizer.", ["Tokens"]),
     ],

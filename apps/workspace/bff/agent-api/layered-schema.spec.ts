@@ -57,7 +57,7 @@ describe('layerSchema', () => {
 describe('describe-operation over the real catalog', () => {
   const session = {
     userId: 'u',
-    email: 'a@piloti.test',
+    email: 'a@example.test',
     name: null,
     accessToken: '',
     organizationId: 'o',
@@ -66,7 +66,7 @@ describe('describe-operation over the real catalog', () => {
     permissions: [],
     featureFlags: null,
   }
-  const principal: AgentPrincipal = { actor: 'external_agent', session, clientId: 'c', scopes: ['piloti:sensitive'] }
+  const principal: AgentPrincipal = { actor: 'external_agent', session, clientId: 'c', scopes: ['documents:sensitive'] }
   const run = (args: Record<string, unknown>) =>
     describeOperation({ principal, mode: 'search' }, args) as { isError?: boolean; structuredContent: Record<string, unknown> }
 

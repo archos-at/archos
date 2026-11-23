@@ -25,7 +25,7 @@
  *     never negative; the two newer kinds are stored, an unknown one is not;
  *   - a Büroablage proposal (0146) has no project and moves only Büroablage
  *     documents; its organization lists it on its shelf, another organization
- *     sees none of it, and Piloti's withdrawal deletes an open one and never a
+ *     sees none of it, and the agent's withdrawal deletes an open one and never a
  *     decided one;
  *   - an organization-scoped proposal (0176) has no project, is an `operation`
  *     and nothing else, and is listed on its own shelf; one open operation
@@ -110,7 +110,7 @@ describe.skipIf(!url)('proposed changes against live Postgres', () => {
   const stale = () => new Date(Date.now() - 5 * 60 * 1000)
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess

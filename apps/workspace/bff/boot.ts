@@ -12,6 +12,10 @@ export function deployedSha(env: NodeJS.ProcessEnv = process.env): string {
   return sha === '' ? UNKNOWN_SHA : sha
 }
 
+export function deploymentName(env: Record<string, string | undefined> = process.env): string | null {
+  return (env.POSTHOG_DEPLOYMENT ?? '').trim() || null
+}
+
 export function flagSource(env: NodeJS.ProcessEnv = process.env): FlagSource {
   return (env.REQUIRE_AUTH ?? '').toLowerCase() === 'true' ? 'workos' : 'defaults'
 }

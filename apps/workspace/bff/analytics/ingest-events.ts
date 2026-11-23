@@ -21,6 +21,7 @@ export interface FinishedIngest {
   reading?: IngestReading
   errorMessage?: string | null
   failureCategory?: string | null
+  failureReason?: string | null
   retryable?: boolean | null
   quarantine?: { reasons: ReadonlyArray<{ kind: string }> } | null
 }
@@ -31,7 +32,7 @@ export const finishedIngestOf = (
     status: FinishedIngest['status'] | 'pending' | 'cancelled'
     errorMessage: string | null
     screeningOutcome?: string
-    failure?: { category: string | null; retryable: boolean | null }
+    failure?: { category: string | null; retryable: boolean | null; reason?: string | null }
     timing?: Partial<IngestTiming>
     quarantine?: FinishedIngest['quarantine']
   },
@@ -46,6 +47,7 @@ export const finishedIngestOf = (
   chunkCount: meta?.chunkCount,
   errorMessage: resolution.errorMessage,
   failureCategory: resolution.failure?.category,
+  failureReason: resolution.failure?.reason,
   retryable: resolution.failure?.retryable,
   queueWaitMs: resolution.timing?.queueWaitMs,
   processingMs: resolution.timing?.processingMs,
@@ -63,10 +65,17 @@ const stageProperties = (stageSeconds: IngestTiming['stageSeconds']): Record<str
   )
 
 const REASON = /^([a-z][a-z0-9_]{1,40}):/
+const REASON_SLUG = /^[a-z][a-z0-9_]{1,40}$/
 
 export const errorReasonOf = (message: string | null | undefined): string | undefined => {
   if (!message) return undefined
   return REASON.exec(message)?.[1] ?? 'unknown'
+}
+
+export const failureReasonOf = (ingest: Pick<FinishedIngest, 'errorMessage' | 'failureReason'>): string | undefined => {
+  const named = ingest.failureReason
+  if (named && named !== 'unknown' && REASON_SLUG.test(named)) return named
+  return errorReasonOf(ingest.errorMessage)
 }
 
 export const SCREENING_NOT_RUN = 'not_run'
@@ -108,7 +117,7 @@ class IngestFailedError extends Error {
 const captureIngestFailure = (organizationId: string, ingest: FinishedIngest, now: number): void => {
   const posthog = getPosthogServer()
   if (!posthog) return
-  const reason = errorReasonOf(ingest.errorMessage) ?? 'unknown'
+  const reason = failureReasonOf(ingest) ?? 'unknown'
   const window = failureWindows.get(reason)
   if (!window || now - window.startedAt >= FAILURE_CAPTURE_WINDOW_MS) failureWindows.set(reason, { startedAt: now, count: 1 })
   else if (++window.count > FAILURE_CAPTURE_BURST) return
@@ -164,7 +173,7 @@ export function announceIngestsFinished(
         status: ingest.status,
         screening: ingest.screening ?? SCREENING_NOT_RUN,
         hold_kinds: ingest.status === 'quarantined' ? holdKindsOf(ingest.quarantine) : undefined,
-        error_reason: errorReasonOf(ingest.errorMessage),
+        error_reason: failureReasonOf(ingest),
         error_category: ingest.status === 'failed' ? (ingest.failureCategory ?? undefined) : undefined,
         retryable: ingest.retryable ?? undefined,
         file_type: fileTypeOf(ingest.filename),

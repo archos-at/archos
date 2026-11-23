@@ -77,18 +77,6 @@ class OtelCollectorRedactionTelemetryExporter(
 
 
 class _DisabledSpanExporter(BaseExporter):
-    """
-    No-op exporter yielded when no OTLP endpoint is configured.
-
-    The agent runtime has no way to conditionally declare a `general.telemetry.tracing`
-    entry, so the exporter is always constructed. Availability is therefore
-    derived here from the dependency (ADR-0029 "availability = flag AND
-    capability"): no endpoint means nothing to export to, so spans are dropped
-    at the source instead of being queued and retried forever against an
-    address that does not exist. Mirrors `apps/workspace/instrumentation.ts`,
-    which no-ops on the same missing env var.
-    """
-
     def export(self, event: Any) -> None:
         return None
 

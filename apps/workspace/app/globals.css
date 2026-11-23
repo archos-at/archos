@@ -7,7 +7,7 @@
 @import 'tailwindcss/preflight.css' layer(base);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
-/* GRID design tokens — shadcn vars + legacy semantic vars (see tokens.css). */
+/* Design tokens — shadcn vars + legacy semantic vars (see tokens.css). */
 /* The corporate design's tokens (--ds-*, from packages/brand via sync.mjs); tokens.css maps onto them. */
 @import '../shared/brand/tokens.vars.css';
 @import '../ui/styles/tokens.css';

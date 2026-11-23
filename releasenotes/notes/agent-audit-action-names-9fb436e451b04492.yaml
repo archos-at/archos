@@ -1,0 +1,7 @@
+---
+# area: administration
+upgrade:
+  - >
+    New audit log entries for the agent's actions start with „agent.“, while
+    earlier entries keep their old names, so the audit log shows both. If you
+    filter or export the agent's actions, include both names.

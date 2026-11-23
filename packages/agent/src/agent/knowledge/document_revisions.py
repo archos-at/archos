@@ -1,28 +1,3 @@
-"""Fassungen across different file names: whether a new document is a newer state of another, and what changed.
-
-Re-uploading a file under the SAME name already replaces its chunks (ADR-0054).
-Offices also name every state explicitly (``Grundriss_EG_Index_B.pdf``, then
-``Grundriss_EG_Index_C.pdf``), and the two files are two documents. This module
-is the model's half of reading that:
-
-* :func:`judge_revision` — is the new document a newer Fassung of ONE of a few
-  candidates from the same collection? An answer is a SUGGESTION. Nothing here
-  links, hides or re-files a document; a person confirms
-  (``PUT /v1/collections/{collection}/revision``), and only that confirmation
-  writes ``superseded_by``.
-* :func:`summarize_change` — what changed between two Fassungen, in German,
-  from what the two descriptions support and nothing else.
-
-Both run on the summary model beside the summary, tags and topics, fully
-fail-open: no model, an error or an unreadable reply is ``None`` and ingestion
-carries on. The prompt builders and parsers are public and pure so the API
-route, which posts to the gateway itself (and traces the call as a Langfuse
-generation), reads the same contract as the ingestion path.
-
-A name says nothing about WHAT a file is, so nothing here guesses a kind of
-file from it: Dokument, Datei, Fassung, Stand (CONTEXT.md, "Fassung").
-"""
-
 from __future__ import annotations
 
 import json
@@ -55,14 +30,6 @@ NO_CHANGE_TEXT = "Keine inhaltliche Änderung aus den Zusammenfassungen erkennba
 
 @dataclass(frozen=True)
 class RevisionDocument:
-    """What the judge and the change summary may read of one document: no content beyond a short excerpt.
-
-    ``revision`` is the label the name grammar reads (``Index C · 14.08.2026``),
-    ``series_key`` what the Fassungen of one document share in their names
-    (without index, date and extension). ``excerpt`` is the start of the first
-    chunk, when the caller has it for BOTH documents.
-    """
-
     file_name: str
     summary: str = ""
     doc_class: str | None = None
@@ -75,15 +42,12 @@ class RevisionDocument:
 
 @dataclass(frozen=True)
 class RevisionVerdict:
-    """The model's answer, already checked: ``of`` is one of the candidates handed in."""
-
     of: str
     confidence: float
     reason: str
     basis: str
 
     def as_suggestion(self) -> dict[str, Any]:
-        """The record the metadata row stores (``revision_suggestion``), not yet dismissed."""
         return {
             "of": self.of,
             "confidence": self.confidence,
@@ -109,13 +73,6 @@ def _same_number(new_doc: RevisionDocument, other: RevisionDocument) -> bool:
 def rank_candidates(
     new_doc: RevisionDocument, candidates: Sequence[RevisionDocument], limit: int = MAX_REVISION_CANDIDATES
 ) -> list[RevisionDocument]:
-    """The candidates a prompt may carry: at most ``limit``, the likeliest first.
-
-    The same document number in the title block leads, then name-series matches
-    (same series key, ignoring the extension), then the same Dokumentart, then
-    the most tags in common, then the name for a stable order. The new document
-    itself and a repeated name are never candidates.
-    """
     seen = {new_doc.file_name}
     unique: list[RevisionDocument] = []
     for candidate in candidates:
@@ -159,7 +116,6 @@ def _document_line(doc: RevisionDocument, *, excerpt: bool = False) -> str:
 
 
 def build_judge_prompt(new_doc: RevisionDocument, candidates: Sequence[RevisionDocument]) -> str:
-    """The judge's prompt for the (already ranked and bounded) ``candidates``."""
     lines = "\n".join(_document_line(candidate) for candidate in candidates[:MAX_REVISION_CANDIDATES])
     return (
         "You decide whether a newly uploaded document is a NEWER FASSUNG (revision, state) of exactly one of "
@@ -208,7 +164,6 @@ TITLE_BLOCK_CONFIDENCE = 0.95
 
 
 def title_block_reason(new_doc: RevisionDocument, older: RevisionDocument) -> str:
-    """The sentence a person reads beside a suggestion the title blocks decided: the facts, not a model's prose."""
     new_facts, old_facts = new_doc.revision_facts or {}, older.revision_facts or {}
     number = new_facts.get("document_number") or old_facts.get("document_number")
     if new_facts.get("revision") and old_facts.get("revision"):
@@ -223,19 +178,6 @@ def title_block_reason(new_doc: RevisionDocument, older: RevisionDocument) -> st
 def settle_by_title_block(
     new_doc: RevisionDocument, candidates: Sequence[RevisionDocument]
 ) -> tuple[bool, RevisionVerdict | None]:
-    """``(True, verdict)`` when the title blocks decide, else ``(False, None)`` and the model is asked.
-
-    Decided when a candidate carries the new document's ``document_number``:
-
-    * the new document is the later state of one or more of them (higher Index,
-      else later date) -> the newest of those is the verdict, ``basis="title_block"``;
-    * every one of them is the later state, or the same one -> ``(True, None)``:
-      nothing is suggested, because the candidate is the current Fassung (or a
-      second copy), and no other candidate is a likelier ancestor;
-    * the blocks do not say which is later (an Index on one side only) ->
-      ``(False, None)``; the judge reads the descriptions, the same-number
-      candidates ranked first.
-    """
     same = [candidate for candidate in candidates if _same_number(new_doc, candidate)]
     if not same:
         return False, None
@@ -257,13 +199,6 @@ def settle_by_title_block(
 def parse_revision_verdict(
     content: str, new_doc: RevisionDocument, candidates: Sequence[RevisionDocument]
 ) -> RevisionVerdict | None:
-    """The checked verdict of a reply, or ``None``.
-
-    ``None`` for an unreadable reply, an ``of`` that is not exactly one of the
-    candidates handed in (a name the model made up is never stored), a
-    confidence under :data:`REVISION_THRESHOLD` (a flag and NaN are no
-    confidence), or an empty reason.
-    """
     data = _json_object(content)
     if data is None:
         return None
@@ -290,14 +225,6 @@ def parse_revision_verdict(
 def judge_revision(
     new_doc: RevisionDocument, candidates: Sequence[RevisionDocument], llm: Any
 ) -> RevisionVerdict | None:
-    """The candidate ``new_doc`` is a newer Fassung of, or ``None``. Fully fail-open.
-
-    Ranks and bounds the candidates (:func:`rank_candidates`); when the title
-    blocks decide (:func:`settle_by_title_block`) no model is called. Otherwise
-    asks once and keeps only an answer that names one of them above the
-    threshold. Runs on the ingestion's summary model, so it lands on the same
-    cost ledger and trace as the summary.
-    """
     ranked = rank_candidates(new_doc, candidates)
     if not ranked:
         return None
@@ -320,7 +247,6 @@ def judge_revision(
 
 
 def build_change_prompt(older: RevisionDocument, newer: RevisionDocument) -> str:
-    """The prompt that compares two descriptions of one document in two states."""
     both_excerpts = bool(older.excerpt and newer.excerpt)
     return (
         "An architecture office replaced one Fassung (state) of a document by a newer one. Tell the people "
@@ -342,11 +268,6 @@ _BULLET = re.compile(r"^\s*(?:[-*•–—]|\d{1,2}[.)])\s*")
 
 
 def parse_change_summary(content: str) -> str | None:
-    """Bullet lines from a reply: at most :data:`MAX_CHANGE_LINES`, each cut to :data:`MAX_CHANGE_LINE_CHARS`.
-
-    The model's "no difference" sentence is kept as that sentence, without a
-    bullet. A reply with no usable line is ``None``.
-    """
     body = (content or "").strip()
     fenced = re.match(r"^```(?:\w+)?\s*(.*?)\s*```$", body, re.DOTALL)
     if fenced:
@@ -359,13 +280,6 @@ def parse_change_summary(content: str) -> str | None:
 
 
 def settled_change(older: RevisionDocument, newer: RevisionDocument) -> tuple[bool, str | None]:
-    """``(True, answer)`` when the comparison needs no model call, else ``(False, None)``.
-
-    A missing summary on either side settles it as ``None``: nothing is compared
-    that is not there. Two identical descriptions settle it as
-    :data:`NO_CHANGE_TEXT`. The API route, which posts to the gateway itself,
-    asks this before it spends a call.
-    """
     if not (older.summary or "").strip() or not (newer.summary or "").strip():
         return True, None
     same_excerpt = not (older.excerpt and newer.excerpt) or _clip(older.excerpt, 10_000) == _clip(newer.excerpt, 10_000)
@@ -375,12 +289,6 @@ def settled_change(older: RevisionDocument, newer: RevisionDocument) -> tuple[bo
 
 
 def would_loop(documents: Mapping[str, Any], *, newer: str, older: str) -> bool:
-    """Whether ``older -> newer`` would close a loop: ``newer`` already leads to ``older`` through replacements.
-
-    ``documents`` maps file names to rows carrying ``superseded_by``. The one rule both writers of the
-    link share: the route a person confirms through and the ingestion that writes a link the person
-    chose at upload.
-    """
     seen: set[str] = set()
     name: str | None = newer
     while name and name not in seen:
@@ -393,11 +301,6 @@ def would_loop(documents: Mapping[str, Any], *, newer: str, older: str) -> bool:
 
 
 def summarize_change(older: RevisionDocument, newer: RevisionDocument, llm: Any) -> str | None:
-    """German bullet lines on what changed from ``older`` to ``newer``, or ``None``. Fully fail-open.
-
-    See :func:`settled_change` for the two cases that need no call. No model or
-    a failed call is ``None``.
-    """
     if llm is None:
         return None
     settled, answer = settled_change(older, newer)

@@ -150,7 +150,7 @@ export const organization: typeof en.organization = {
       permissionCountOne: '1 Berechtigung',
       permissionCountOther: '{count} Berechtigungen',
       platformNotice:
-        'Nur für Plattform-Personal. Diese Rollen liegen in der Organisation „GRID Platform“ und können hier nicht vergeben werden.',
+        'Nur für Plattform-Personal. Diese Rollen liegen in der Plattform-Organisation und können hier nicht vergeben werden.',
     },
     permissions: {
       title: 'Berechtigungen',
@@ -540,6 +540,11 @@ export const organization: typeof en.organization = {
     ownKeyNote:
       'Ihre Organisation arbeitet mit einem eigenen Anbieterschlüssel. Der Verbrauch wird in Tokens auf Ihrer eigenen Rechnung gezählt; {productName} berechnet dafür keine Punkte.',
     overLimit: 'Budget ausgeschöpft — neue Anfragen werden blockiert',
+    workTitle: 'Laufende Arbeit',
+    ingestTitle: 'Einlesen von Unterlagen',
+    ingestNote:
+      'Das Einlesen hochgeladener Unterlagen zählt nicht gegen Tages- und Monatslimit. Es hat ein eigenes Kontingent pro Monat, das für das ganze Büro gilt: das Dreifache des Monatslimits.',
+    ingestOverLimit: 'Kontingent ausgeschöpft — neue Unterlagen werden gespeichert, aber erst nach einer Erhöhung gelesen',
     legendTitle: 'Verbrauch nach Modell',
     legendEmpty: 'In diesem Zeitraum wurde noch keine LLM-Nutzung erfasst.',
     trendTitle: 'Letzte 30 Tage',
@@ -725,9 +730,9 @@ export const organization: typeof en.organization = {
     },
   },
   baseKnowledge: {
-    title: 'Grundlagen des Büros',
-    description: 'Die Normen, Kommentare und Weisungen Ihres Büros haben einen eigenen Bereich neben der Büroablage. Dort laden Sie sie hoch, ordnen sie in Ordner, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
-    open: 'Grundlagen öffnen',
+    title: 'Normen & Richtlinien',
+    description: 'Die Normen, Kommentare und Weisungen Ihres Büros liegen in der Büroablage unter Normen & Richtlinien. Dort laden Sie sie hoch, ordnen sie in Themen, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
+    open: 'Normen & Richtlinien öffnen',
   },
   officeConventions: {
     title: 'Was {productName} über das Büro gelernt hat',

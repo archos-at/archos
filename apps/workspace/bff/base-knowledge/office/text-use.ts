@@ -8,9 +8,11 @@ const NEEDS_AI_STATEMENT: Readonly<Record<LicenceClass, boolean>> = {
   licensed: true,
 }
 
-export function textUseOf(licenceClass: LicenceClass, terms: KnowledgeTerms): TextUse {
+const aiProcessingAllowed = (terms: KnowledgeTerms, askForLicence: boolean): boolean => !askForLicence || Boolean(terms.aiProcessingAttestedAt)
+
+export function textUseOf(licenceClass: LicenceClass, terms: KnowledgeTerms, askForLicence: boolean): TextUse {
   if (!NEEDS_AI_STATEMENT[licenceClass]) return 'used'
-  return terms.aiProcessingAttestedAt ? 'used' : 'metadata_only'
+  return aiProcessingAllowed(terms, askForLicence) ? 'used' : 'metadata_only'
 }
 
 export interface Attestations {
@@ -38,11 +40,11 @@ export interface LicenceMark {
   quoteMaxChars: number
 }
 
-export function licenceMarkOf(licenceClass: LicenceClass, terms: KnowledgeTerms): LicenceMark {
+export function licenceMarkOf(licenceClass: LicenceClass, terms: KnowledgeTerms, askForLicence: boolean): LicenceMark {
   const cap = terms.quoteMaxChars
   return {
     licenceClass,
-    aiProcessingAttested: Boolean(terms.aiProcessingAttestedAt),
+    aiProcessingAttested: aiProcessingAllowed(terms, askForLicence),
     quoteMaxChars: typeof cap === 'number' && Number.isInteger(cap) && cap > 0 ? cap : DEFAULT_QUOTE_MAX_CHARS,
   }
 }

@@ -5,7 +5,7 @@ Status: built, 7 Oct 2026. The decision record is ADR-0094.
 ## What the user should get
 
 A planner asks „Wie haben wir die Fluchttreppe beim letzten GK4-Holzbau in
-Niederösterreich gelöst?" in any chat, solo or shared, and Piloti answers from
+Niederösterreich gelöst?" in any chat, solo or shared, and the agent answers from
 the office's past projects without being told where to look. It cites each
 passage with its project, and says where it looked. Nothing a colleague may not
 open reaches that colleague, and the chat stays as usable as before: shareable,
@@ -75,7 +75,7 @@ Every source passage has a set of readers:
 
 The model climbs on its own and the BFF decides how high this chat may go.
 Nobody is asked: the product owner's correction of 7 Oct was that a user should
-not have to ask, or approve, for Piloti to look in past projects.
+not have to ask, or approve, for the agent to look in past projects.
 
 | Rung | Scope | Who decides | What the user sees |
 |---|---|---|---|
@@ -179,7 +179,7 @@ does not conclude „we never did that" from a filter.
 | Citations with project, the notice, the status line | Doors shut only for content that narrows the readers: a running project or a restricted folder. The notice names only running projects |
 | One tool, `project_lookup` | It is offered in every chat, gains `scope: similar` as default, and its description says to look unasked |
 | — | **New**: the reference catalog in every turn |
-| — | **Added 2026-10-21**: Piloti's workspace door (ADR-0122) reaches other projects by the same reach (`audienceReachAmong`) and the same record (`recordCrossProjectHandOut`); in a shared chat it reads only a document's content or a project's facts there ([`agent-surface.md`](../architecture/agent-surface.md#reads-in-a-conversation)) |
+| — | **Added 2026-10-21**: the agent's workspace door (ADR-0122) reaches other projects by the same reach (`audienceReachAmong`) and the same record (`recordCrossProjectHandOut`); in a shared chat it reads only a document's content or a project's facts there ([`agent-surface.md`](../architecture/agent-surface.md#reads-in-a-conversation)) |
 
 ## Open for the product owner
 

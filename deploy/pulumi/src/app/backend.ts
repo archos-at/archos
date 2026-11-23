@@ -16,7 +16,7 @@ import {
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { AppSecrets, AppWiring, chatEnv } from "./config";
 import { PORT, UID } from "../constants";
-import { CHAT_TIER } from "./tier-names";
+import { CHAT_TIER, LEGACY_CHAT_TIER } from "./tier-names";
 
 export interface Backend {
   statefulSet: k8s.apps.v1.StatefulSet;
@@ -68,7 +68,7 @@ export function installBackend(
                 securityContext: hardenedContainerSecurityContext(),
                 ports: [{ containerPort: PORT.backend, name: "http" }],
                 env: chatEnv(w),
-                resources: toResourceRequirements(cfg.backend.resources),
+                resources: toResourceRequirements(name === LEGACY_CHAT_TIER ? cfg.backend.legacyResources : cfg.backend.resources),
                 lifecycle: shutdown.lifecycle,
                 startupProbe: {
                   httpGet: { path: "/health", port: PORT.backend },

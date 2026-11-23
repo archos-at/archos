@@ -17,6 +17,7 @@ import { AppSecrets, AppWiring, frontendEnv } from "./config";
 import { installMcpAdmissionSecret, platformMcpServerEnv } from "../platform/mcp-gateway";
 import { formerAgentOriginsEnv } from "./former-domain";
 import { PORT, UID } from "../constants";
+import { cpuUtilizationTarget } from "../config/cpu-requests";
 
 export interface Frontend {
   deployment: k8s.apps.v1.Deployment;
@@ -129,7 +130,7 @@ export function installFrontend(
               name: "cpu",
               target: {
                 type: "Utilization",
-                averageUtilization: cfg.frontend.hpaCpuTargetPercent,
+                averageUtilization: cpuUtilizationTarget(cfg.frontend.hpaCpuTargetPercent),
               },
             },
           },

@@ -28,6 +28,14 @@ class TestTheRoom:
         ):
             assert expected in result, expected
 
+    async def test_an_agent_peer_is_the_agent_under_its_new_kind(self, monkeypatch, calls):
+        peer = {"name": "Martin Huber", "kind": "agent", "page": None, "viewport": None, "selectedMarkNumber": None}
+        answering(monkeypatch, calls, {**ROOM_BODY, "peers": [peer]})
+
+        result = await run_room()
+
+        assert "- Martin Huber (Agent)" in result
+
     async def test_an_empty_room_says_so(self, monkeypatch, calls):
         answering(monkeypatch, calls, {**ROOM_BODY, "peers": []})
 

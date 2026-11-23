@@ -26,7 +26,7 @@ vi.mock('@/lib/agent-api/telemetry', async (original) => ({
 
 import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { actingReaderIsAgent } from '@/lib/agent-api/acting-session'
+import { actingDoor, actingReaderIsAgent } from '@/lib/agent-api/acting-session'
 import { resolvePrincipal, type AgentPrincipal } from '@/lib/agent-api/principal'
 import { recordOperationCalled } from '@/lib/agent-api/telemetry'
 import { enforceLimit, MCP_REQUEST_LIMIT, memberSubject } from '@/lib/limits'
@@ -35,7 +35,7 @@ import { askAgent, cancelAsk, getAsk } from '@/lib/agent-asks/service'
 import { GET, POST } from './route'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-const URL_ = 'https://app.piloti.test/api/a2a'
+const URL_ = 'https://app.example.test/api/a2a'
 const ID = '22222222-2222-4222-8222-222222222222'
 const THREAD = 's_11111111_1111_4111_8111_111111111111'
 
@@ -48,7 +48,7 @@ const SESSION: AuthorizedSession = {
   organizationMembershipId: 'om_1',
   role: 'member',
   permissions: [],
-  featureFlags: ['piloti-ask'],
+  featureFlags: ['agent-requests'],
 }
 
 const PERSON: AgentPrincipal = { actor: 'external_agent', session: SESSION, clientId: 'claude', scopes: [] }
@@ -103,8 +103,8 @@ beforeAll(() => {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(askAgent).mockReset()
-  process.env.WORKOS_AUTHKIT_DOMAIN = 'auth.piloti.test'
-  process.env.MCP_RESOURCE_URL = 'https://app.piloti.test/api/mcp'
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', 'auth.example.test')
+  vi.stubEnv('MCP_RESOURCE_URL', 'https://app.example.test/api/mcp')
   vi.mocked(resolvePrincipal).mockResolvedValue(PERSON)
   vi.mocked(askAgent).mockResolvedValue(view())
   vi.mocked(getAsk).mockResolvedValue(view())
@@ -130,7 +130,7 @@ describe('who is turned away', () => {
     expect(askAgent).not.toHaveBeenCalled()
   })
 
-  it('refuses Piloti’s own credential: Piloti never asks Piloti', async () => {
+  it('refuses the agent’s own credential: the agent never asks the agent', async () => {
     vi.mocked(resolvePrincipal).mockResolvedValue({ ...PERSON, actor: 'piloti', clientId: null })
     const response = await POST(rpc('SendMessage', { message: userMessage('Hallo?') }, V1))
     expect(response.status).toBe(403)
@@ -139,7 +139,7 @@ describe('who is turned away', () => {
   })
 
   it('answers 503 while the agent door is not configured', async () => {
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     const response = await POST(rpc('SendMessage', { message: userMessage('Hallo?') }, V1))
     expect(response.status).toBe(503)
   })
@@ -158,7 +158,7 @@ describe('who is turned away', () => {
 })
 
 describe('A2A 1.0', () => {
-  it('SendMessage asks Piloti as the person and answers the completed task with its answer', async () => {
+  it('SendMessage asks the agent as the person and answers the completed task with its answer', async () => {
     const response = await POST(
       rpc('SendMessage', { message: userMessage('Welche Fluchtweglänge gilt?', { metadata: { projectId: '44444444-4444-4444-8444-444444444444' } }) }, V1),
     )
@@ -221,6 +221,16 @@ describe('A2A 1.0', () => {
     expect(agentReads).toBe(true)
   })
 
+  it('runs the ask route behind the A2A door, so its turn is filed under that door', async () => {
+    let door: ReturnType<typeof actingDoor> | null = null
+    vi.mocked(askAgent).mockImplementation(async () => {
+      door = actingDoor()
+      return view()
+    })
+    await POST(rpc('SendMessage', { message: userMessage('Hallo?') }, V1))
+    expect(door).toEqual({ door: 'a2a', sessionSource: 'mcp' })
+  })
+
   it('records each method’s call on the agent door, door a2a, and not the polls it waits with', async () => {
     vi.mocked(askAgent).mockResolvedValue(view({ state: 'working', answer: null, endedAt: null, pollAfterSeconds: 10 }))
     await POST(rpc('SendMessage', { message: userMessage('Lang?') }, V1))
@@ -251,7 +261,7 @@ describe('A2A 1.0', () => {
     expect(body.result?.task).toMatchObject({ status: { state: 'TASK_STATE_COMPLETED' } })
   })
 
-  it('refuses a file part: Piloti reads files from the workspace', async () => {
+  it('refuses a file part: the agent reads files from the workspace', async () => {
     const message = { messageId: 'm', role: 'ROLE_USER', parts: [{ url: 'https://x.test/a.pdf', mediaType: 'application/pdf' }] }
     const body = (await (await POST(rpc('SendMessage', { message }, V1))).json()) as Envelope
     expect(body.error?.code).toBe(-32005)

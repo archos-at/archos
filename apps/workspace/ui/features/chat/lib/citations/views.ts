@@ -106,6 +106,7 @@ export const NAMED_LANES = [
   'authority',
   'external_standard',
   'office_piloti',
+  'office_agent',
   'measurement',
 ] as const
 export type NamedLane = (typeof NAMED_LANES)[number]

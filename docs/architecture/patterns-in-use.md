@@ -104,10 +104,10 @@ content, whose value is the same whichever tenant or turn asks, or a
 process-lifetime handle holding no tenant or turn data:
 
 - the query-embedding LRU with its in-flight dedupe, keyed by (model, text), on
-  the retriever in `packages/knowledge-layer/src/search/query_embeddings.py`;
+  the retriever in `packages/knowledge-layer/src/knowledge_layer/search/query_embeddings.py`;
 - `knowledge/factory._SEARCH_RETRIEVER`, the retriever handle recorded when the
   knowledge tool is built;
-- `agents/piloti/register._WARMING`, strong references to running warm-ups, so
+- `core/register._WARMING`, strong references to running warm-ups, so
   the loop does not drop a task it holds only weakly;
 - the parsed-model cache in `apps/workspace/ui/features/diagrams/use-diagram-model.ts`,
   keyed by the mermaid source text and capped at 64.

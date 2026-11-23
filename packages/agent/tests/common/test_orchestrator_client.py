@@ -28,3 +28,22 @@ def test_a_rest_call_that_hangs_frees_its_caller_after_the_timeout():
 
 def test_a_rest_call_in_time_returns_its_result():
     assert orchestrator_client.within_rest_timeout(lambda: "cancelled") == "cancelled"
+
+
+def test_a_workflow_registration_that_finds_the_engine_down_is_retried(monkeypatch):
+    import grpc
+    from agent_testing import orchestrator_fake
+
+    from agent.common import boot_retry
+
+    class Unavailable(grpc.RpcError):
+        def code(self):
+            return grpc.StatusCode.UNAVAILABLE
+
+    fake = orchestrator_fake.install_for(monkeypatch)
+    monkeypatch.setattr(boot_retry, "_sleep", lambda seconds: None)
+    fake.admin.fail_with = [Unavailable()]
+
+    orchestrator_client.register_workflows([fake.workflow(name="w")])
+
+    assert fake.admin.put_calls == ["w", "w"]

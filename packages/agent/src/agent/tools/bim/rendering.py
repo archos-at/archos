@@ -1,5 +1,3 @@
-"""Rendering primitives both BIM tools share: clipped lists and the unresolved-model reply."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -29,11 +27,6 @@ _SINGULAR = {
 
 
 def clipped(items: list, shown: int, noun: str) -> str | None:
-    """A line saying what a clipped list left out, or None when nothing was.
-
-    Every list a renderer cuts must say so, or the agent presents fifty rows as
-    the whole set. Singular when exactly one was left out.
-    """
     missing = len(items) - shown
     if missing <= 0:
         return None
@@ -50,7 +43,6 @@ def listed(
     *,
     indent: str = "",
 ) -> list[str]:
-    """The first ``shown`` items rendered, followed by the clip note when the list was cut."""
     lines: list[str] = []
     for item in items[:shown]:
         rendered = render(item)
@@ -67,35 +59,16 @@ _NOTHING_TO_READ = {
 
 
 def render_unresolved(result: dict[str, Any], fallback: str) -> str:
-    """A model that could not be selected, with the alternatives when there are any.
-
-    "Available" only when the list really is a set of alternatives: on
-    ``not_ready`` the route returns the model that could not be read, and
-    calling that available beside "(processing, 0 Bauteile)" reads as a
-    building with no elements.
-
-    A project with nothing to read gets the sentence saying so AND what to do
-    with it (:data:`~agent.tools.bim.failures.NO_MODEL_TEXT`). The route's
-    „Für dieses Projekt ist kein IFC-Modell hinterlegt" (the route's German sentence) alone reads as one
-    operation's miss, and the agent spent the rest of its rounds trying the
-    others. ``not_ready`` gets its own sentence
-    (:data:`~agent.tools.bim.failures.NOT_READY_TEXT`) for the same reason
-    and a different fact: extraction finishes after this turn, so the model
-    named under "not yet queryable" answers a later question and not this
-    one.
-    """
     text = _unresolved_message(result, fallback)
     advice = _NOTHING_TO_READ.get(str(result.get("reason")))
     return f"{text} {advice}" if advice else text
 
 
 def _shelf_suffix(model: dict[str, Any]) -> str:
-    """Marks a model that belongs to no project; nothing for the project's own."""
     return ", office shelf, not the project's" if model.get("shelf") == "office" else ""
 
 
 def shelf_notice(result: dict[str, Any]) -> str | None:
-    """The line a shelf model's answer must open with, or None for the project's own model."""
     selection = result.get("selection")
     if not isinstance(selection, dict) or selection.get("shelf") != "office":
         return None
@@ -111,7 +84,6 @@ def shelf_notice(result: dict[str, Any]) -> str | None:
 
 
 def _unresolved_message(result: dict[str, Any], fallback: str) -> str:
-    """The route's own sentence, plus the model list when there is one."""
     message = result.get("message") or fallback
     models = result.get("models") or []
     if not models:

@@ -30,12 +30,12 @@ ws://<host>/websocket?v=2&projectId=<uuid>&conversationId=<session_id>
 
 - **Browser:** same origin; `server.js` proxies to the agent tier.
 - **`v=2` is required.** The server closes any other version with **`4426`**
-  (`CLOSE_CLIENT_OUTDATED`); the client turns that into "Piloti was updated,
+  (`CLOSE_CLIENT_OUTDATED`); the client turns that into "{productName} was updated,
   reload". An older bundle gets its ordinary connection-failed banner: nothing
   is said to it in its own dialect.
 - **The server speaks first: `hello`.** Once the version and the caller have
   passed, the first frame on every socket is
-  `{"v":2,"type":"CUSTOM","name":"hello","ts":…,"value":{"build":"<sha>","accepts":["cancel_turn.shown","user_message.posthog_session_id","user_message.focus_region","user_message.reply_in_thread","user_message.trigger","user_message.if_idle","steer"]}}`
+  `{"v":2,"type":"CUSTOM","name":"hello","ts":…,"value":{"build":"<sha>","accepts":["cancel_turn.shown","user_message.posthog_session_id","user_message.focus_region","user_message.reply_in_thread","user_message.trigger","user_message.if_idle","user_message.client_tools","user_message.answer_excerpt","steer"]}}`
   (`build` is `GIT_SHA`, or `unknown`, as `/health` has it). `accepts`
   names the optional client fields this server reads, as `<type>.<field>`, and
   the one optional message type, `steer`, by its bare name; the
@@ -346,7 +346,7 @@ refuse the whole message.
 
 | `type` | Fields | Notes |
 |---|---|---|
-| `user_message` | `message_id` (becomes `turn_id`), `text`, `data_sources[]`, `context_only?`, `author_name?`, `focus_file_name?`, `focus_shelf?`, `source_preset?`, `focus_document_id?`, `focus_version_id?`, `focus_version_state?`, `reasoning_effort?`, `posthog_session_id?`, `focus_region?`, `reply_in_thread?`, `trigger?`, `if_idle?` | A question. With `if_idle` (a turn an event woke, [below](#a-turn-an-event-woke-trigger--if_idle)) it never supersedes: a conversation with a running turn refuses it as `rejected{busy}`, before its id is claimed, so it may be sent again under the same id. The type name is what the gateway's turn limiter (`lib/limits/ws-frames.js`) counts. A second `user_message` for a turn already running or run, on any replica, is `rejected{duplicate_turn}` (the turn id is claimed on the bus for as long as the stream keeps it); a new one supersedes and cancels a stale turn, on whichever replica runs it, and starts only once the stale turn has stopped: the conversation's running marker (`conv:<id>:running`, ADR-0080) is held by the turn that runs, so two turns of one conversation never run at once. If the stale turn has not stopped within `CHAT_SUPERSEDE_WAIT_SECONDS`, the new question ends with a refused `RUN_FINISHED` ("still finishing the previous answer", with a retry hint) and nothing runs. With `CHAT_AFFINITY` off, a turn that can no longer renew its marker (Dragonfly unreachable from its replica for most of `CHAT_RUNNING_TTL_SECONDS`, or the marker gone) stops itself before a newer turn could take the marker and ends with a `cancelled` `RUN_FINISHED`; the partial answer is not persisted. |
+| `user_message` | `message_id` (becomes `turn_id`), `text`, `data_sources[]`, `context_only?`, `author_name?`, `focus_file_name?`, `focus_shelf?`, `source_preset?`, `focus_document_id?`, `focus_version_id?`, `focus_version_state?`, `reasoning_effort?`, `posthog_session_id?`, `focus_region?`, `reply_in_thread?`, `trigger?`, `if_idle?`, `client_tools?`, `answer_excerpt?` | A question. With `if_idle` (a turn an event woke, [below](#a-turn-an-event-woke-trigger--if_idle)) it never supersedes: a conversation with a running turn refuses it as `rejected{busy}`, before its id is claimed, so it may be sent again under the same id. The type name is what the gateway's turn limiter (`lib/limits/ws-frames.js`) counts. A second `user_message` for a turn already running or run, on any replica, is `rejected{duplicate_turn}` (the turn id is claimed on the bus for as long as the stream keeps it); a new one supersedes and cancels a stale turn, on whichever replica runs it, and starts only once the stale turn has stopped: the conversation's running marker (`conv:<id>:running`, ADR-0080) is held by the turn that runs, so two turns of one conversation never run at once. If the stale turn has not stopped within `CHAT_SUPERSEDE_WAIT_SECONDS`, the new question ends with a refused `RUN_FINISHED` ("still finishing the previous answer", with a retry hint) and nothing runs. With `CHAT_AFFINITY` off, a turn that can no longer renew its marker (Dragonfly unreachable from its replica for most of `CHAT_RUNNING_TTL_SECONDS`, or the marker gone) stops itself before a newer turn could take the marker and ends with a `cancelled` `RUN_FINISHED`; the partial answer is not persisted. |
 | `interaction_response` | `turn_id`, `interaction_id`, `answer: {text} \| {option_id}` | Exactly one answer, structurally. Only the person the prompt addressed may answer; anyone else gets `rejected{not_asker}`, and an answer with no prompt waiting `rejected{no_pending_interaction}`. |
 | `cancel_turn` | `turn_id`, `shown?: {seq, chars}` | Stop. Only the asker's verified subject (or an internal caller) may cancel; anyone else gets `rejected{not_asker}`. The server cancels the graph run, not just the socket. `shown` says how much was on screen (the first `chars` code points of the answer as folded through `seq`), and the stopped answer is cut to it; sent only when the hello accepts `cancel_turn.shown`. |
 | `attach` | `turn_id`, `after_seq` | Replay the turn from `after_seq + 1`, then continue live. Sent for every open turn after a reconnect, and with `after_seq: 0` after a reload. `rejected{turn_not_found}` when the stream holds nothing for the turn: ask for the persisted answer instead. |
@@ -438,7 +438,7 @@ Absence of every field is the unscoped project turn: the signed header stands
 as-is.
 
 `focus_file_name` is not only a retrieval hint. It is lifted onto
-`ConversationState` and rendered into the answering prompt (`piloti.j2`),
+`ConversationState` and rendered into the answering prompt (`system.j2`),
 because a turn that says "fass zusammen" carries its subject in the composer bar
 and nowhere in its text: with retrieval scoped correctly but the model told
 nothing, the answer was "which document do you mean?" over an open PDF. The
@@ -465,8 +465,8 @@ version nobody has published there are no chunks to prefer.
 
 Only a published version reaches the retrieval index (ADR-0054), so a draft has
 no chunks, the focus filter matches nothing, and it falls open to the whole
-corpus (`packages/knowledge-layer/src/register.py`) — the reader asks about the
-Befund Piloti filed a minute ago and gets an answer sourced from everything
+corpus (`packages/knowledge-layer/src/knowledge_layer/register.py`) — the reader asks about the
+Befund the agent filed a minute ago and gets an answer sourced from everything
 except that Befund. Told which version the subject is, the backend reads that
 version's own bytes through
 `GET /api/internal/document-versions/[versionId]/content` and writes them into
@@ -532,9 +532,9 @@ clock, and ends visibly:
 
 | The server… | The client | The reader sees |
 |---|---|---|
-| opens and says nothing for 5 s (`HELLO_TIMEOUT_MS`), or opens with anything but a v2 `hello` | drops the socket and tries again on the ladder; when it is spent the status is `incompatible` | `connection.server_incompatible` („Piloti ist gerade nicht erreichbar"), not "check your network". The health poll does not clear it, since an old agent is healthy; the next question tries a new socket, and its hello clears it |
-| sends, after the hello, a frame this bundle cannot parse | closes the socket: `outdated`, as for `4426` | „Piloti wurde aktualisiert", reload. A turn whose next `seq` cannot be read could never fold its terminal. Additive drift is not this: an unknown key in a server-to-client frame is stripped, and a v2 turn event of an unknown `type`, step `kind` or `CUSTOM` name is folded as a no-op that keeps `seq` continuous (`parseWireEvent`, [chat-wire-v2 §a Compatibility](../design/chat-wire-v2.md#compatibility-additive-changes-are-safe)). A renamed, retyped or newly required field still lands here |
-| does not answer a `user_message` within 15 s (`ACK_TIMEOUT_MS`): no `RUN_STARTED`, no `rejected`, no frame of the turn | reopens the socket, which sends the question again; a second miss ends the turn | an `agent.no_response` warning card („Keine Rückmeldung": Piloti did not react to the question, nor to a second try) with „Erneut versuchen", after the server was asked once for a finished answer; the Herleitung goes from live to „Fehlgeschlagen" |
+| opens and says nothing for 5 s (`HELLO_TIMEOUT_MS`), or opens with anything but a v2 `hello` | drops the socket and tries again on the ladder; when it is spent the status is `incompatible` | `connection.server_incompatible` („{productName} ist gerade nicht erreichbar"), not "check your network". The health poll does not clear it, since an old agent is healthy; the next question tries a new socket, and its hello clears it |
+| sends, after the hello, a frame this bundle cannot parse | closes the socket: `outdated`, as for `4426` | „{productName} wurde aktualisiert", reload. A turn whose next `seq` cannot be read could never fold its terminal. Additive drift is not this: an unknown key in a server-to-client frame is stripped, and a v2 turn event of an unknown `type`, step `kind` or `CUSTOM` name is folded as a no-op that keeps `seq` continuous (`parseWireEvent`, [chat-wire-v2 §a Compatibility](../design/chat-wire-v2.md#compatibility-additive-changes-are-safe)). A renamed, retyped or newly required field still lands here |
+| does not answer a `user_message` within 15 s (`ACK_TIMEOUT_MS`): no `RUN_STARTED`, no `rejected`, no frame of the turn | reopens the socket, which sends the question again; a second miss ends the turn | an `agent.no_response` warning card („Keine Rückmeldung": the agent did not react to the question, nor to a second try) with „Erneut versuchen", after the server was asked once for a finished answer; the Herleitung goes from live to „Fehlgeschlagen" |
 | lets a running turn go silent for three beats | drops and reopens the socket, re-attaching the turn; a second silent socket in a row with nothing of the turn folded ends it | the answer, if the server finished it; otherwise `agent.response_interrupted` |
 | refuses an `attach` or a `cancel_turn` as `invalid_message` or `conversation_mismatch` | treats it as `turn_not_found`: nothing is following the turn any more | as for `turn_not_found` |
 | answers a `cancel_turn` with `turn_not_found` because the answer finished before the Stop reached it | stores the answer as it stood at the press and asks the BFF to cut the server's whole row to it (`keepStoppedAnswer`, or `stoppedLate` when the terminal crossed the Stop; `POST …/messages/{id}/stopped`, [`design/chat-wire-v2.md`](../design/chat-wire-v2.md) §c) | the answer they stopped on, after a reload too |
@@ -587,7 +587,7 @@ the run's message (`metadata.run_ledger`, read back sanitised by the message
 mapper); if that ledger is not terminal it reads
 `GET /api/projects/[id]/runs/[runId]?include=stream` for `backendJobId`, opens the stream
 through the same-origin proxy (`/api/jobs/async/job/[jobId]/stream`, the SSE
-client in `apps/workspace/ui/adapters/api/deep-research-client.ts`) with **no**
+client in `apps/workspace/ui/adapters/api/deep-research-stream.ts`) with **no**
 `last_event_id`, so the replay runs from the first flush and the newest snapshot
 lands last, and wires only `onLedger`. Every snapshot goes through
 `sanitizeRunLedger` and **replaces** what is held, unless its `updatedAt` is older
@@ -596,6 +596,27 @@ frames). On a terminal status the client disconnects; on unmount it disconnects.
 Each block holds its own subscription, keyed by run id — several live runs in one
 thread are the normal case. A refused read or a stream that never opens leaves the
 stored ledger on screen; a reload shows the same block either way.
+
+### A question about part of an answer (`answer_excerpt`)
+
+A person selects text in a settled answer, the composer shows that part above
+the field, and the next question carries it as `answer_excerpt`: a string of 1
+to 2000 characters (`MAX_ANSWER_EXCERPT_CHARS`), the selected text itself. The
+page sends it only to a server whose hello lists `user_message.answer_excerpt`.
+For an older server `forServer` (`turn-socket.ts`) writes the part into `text`
+as a Markdown quote above the question, so the question never loses what it
+refers to.
+
+The socket masks it as it masks `text` (`chat_socket.on_user_message`). The turn
+lifts it onto `ConversationState.answer_excerpt` (`turn/payload.py`) and the
+turn context gains „Selected part of an earlier answer“ with the text inside
+`<answer_excerpt>` (`core/prompt.py` `answer_excerpt_block`), which tells the
+model to answer about exactly that part. It holds for that turn only: the
+history keeps the question's own text. The page keeps the part on the stored
+user message as `metadata.answerExcerpt` (`{messageId, text}`), which is what
+the bubble quotes after a reload and what a resend carries: the retry after a
+failed turn (`retryLastUserMessage`) and „Gründlicher neu beantworten“
+(`RetryThoroughButton`) send the question again with the same part.
 
 ### The review canvas (`focus_region` / `reply_in_thread`)
 
@@ -610,7 +631,7 @@ what it did before the canvas could ask.
 | `focus_region` | `{page, x, y, w, h, annotation_id?}` | A box a person drew on a page of the document the question is about. `page` counts from 1; `x`, `y`, `w`, `h` are shares of the page **as shown** (its rotation applied), origin top left, the frame an Anmerkung's region uses: `0 ≤ x, y ≤ 1`, `0 < w, h ≤ 1`, `x + w ≤ 1` and `y + h ≤ 1` (a rounding slack of 1e-6 is allowed; the JSON Schema cannot state the sums, so the server's model does and refuses the message). `annotation_id` names the Anmerkung the box is the region of, when the question was asked in its thread. |
 | `reply_in_thread` | `boolean` | The question was asked in the thread of `focus_region.annotation_id`. Without an `annotation_id` it means nothing. |
 
-What the turn does with them (`turn/payload.py`, `agents/piloti/prompt.py`):
+What the turn does with them (`turn/payload.py`, `core/prompt.py`):
 the system prompt gains a „Fokusbereich“ section naming the document, page and
 box in words, and telling the model to look at exactly that crop
 (`look` with `region=[x, y, w, h]`) before it answers. With
@@ -624,12 +645,12 @@ no document. Both fields are on the turn's trace as `turn_surface`
 
 Because `accepts` is itself withheld while `WIRE_V2_ADDITIVE_FIELDS` is
 off, a page sends neither field with that flag off. It is on by default; `off`
-is the rollback, and with it off a canvas question reaches Piloti without its
+is the rollback, and with it off a canvas question reaches the agent without its
 box and no reply lands in its thread.
 
 ### Steering a running turn (`steer`)
 
-What a person types while Piloti works on their own question goes into that
+What a person types while the agent works on their own question goes into that
 turn, not into a new one (`common/steering.py`, the steering research of
 2026-10-13):
 
@@ -655,14 +676,14 @@ turn, not into a new one (`common/steering.py`, the steering research of
   or was refused) is asked as the next question by the asker's client once the
   terminal has arrived, unless the asker stopped the turn.
 - **Where it is typed.** The chat composer, while the asker's own turn runs
-  and the hello offers `steer`: the placeholder says „Piloti lenken …“, a small
+  and the hello offers `steer`: the placeholder says „{productName} lenken …“, a small
   „lenkt“ chip sits by the field, and Enter sends the note. The review
-  canvas: the working card takes a note, and a box drawn while Piloti works is
+  canvas: the working card takes a note, and a box drawn while the agent works is
   sent as the note's `focus_region`.
 
 Like every optional entry, `steer` is in `accepts` only while
 `WIRE_V2_ADDITIVE_FIELDS` is on, its default; with it set off, the composer keeps its
-type-ahead behaviour and the canvas says Piloti is busy.
+type-ahead behaviour and the canvas says the agent is busy.
 
 ### A turn an event woke (`trigger` / `if_idle`)
 
@@ -686,6 +707,10 @@ a server whose hello lists it (`user_message.trigger`, `user_message.if_idle`).
   then marked `headless` (and `skip_clarifier`), so the clarifier and its plan
   approval are skipped and `ask_user` refuses without prompting; the model asks
   in the thread instead of waiting thirty minutes on a socket nobody reads.
+  An ask through an agent door (`agent_consult`) also sends `x-turn-door`
+  (`mcp`, `a2a`) and `x-turn-session-source` (`mcp`, `script`), the door its
+  turn's `answer_finished` is filed under. The backend reads them only on a
+  headless socket, and `server.js` strips both from a browser's upgrade.
 - **Before sending,** read the hello: `accepts` must hold
   `user_message.trigger` and `user_message.if_idle`. A server without them
   (or `WIRE_V2_ADDITIVE_FIELDS` set off) would supersede a typed turn; do not

@@ -9,7 +9,7 @@ import { skillsCopy } from '@/i18n/namespaces/skills'
 import { cn } from '@/lib/utils'
 import { useInvocableSkills } from '../hooks/use-invocable-skills'
 import { skillLabel } from '../lib/skill-activity'
-import { canonicalSkillName } from '@/lib/skills/legacy-names'
+import { findSkillNamed } from '@/lib/skills/legacy-names'
 
 export interface SkillsUsedDisclosureProps {
   skillsActivated?: string[]
@@ -65,7 +65,7 @@ export const SkillsUsedDisclosure: FC<SkillsUsedDisclosureProps> = ({
 
           <ul className="flex flex-col gap-1.5">
             {skillsActivated.map((name) => {
-              const known = skills.find((skill) => skill.name === name || skill.name === canonicalSkillName(name))
+              const known = findSkillNamed(skills, name)
               const label = skillLabel({ name })
               if (!label) return null
               const hidden = hiddenSet.has(name)

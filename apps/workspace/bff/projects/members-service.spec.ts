@@ -79,13 +79,13 @@ const session = {
   userId: 'user_1',
   organizationId: 'org_1',
   organizationMembershipId: 'om_caller',
-  email: 'admin@grid.com',
+  email: 'admin@example.test',
   permissions: [] as string[],
 } as never
 
 const EVERY_PROJECT_PERMISSION = PROJECT_PERMISSION_SPECS.map((spec) => spec.slug)
 
-const request = new Request('https://grid.test/api/projects/p1/members', { method: 'POST' })
+const request = new Request('https://app.example.test/api/projects/p1/members', { method: 'POST' })
 
 function stubAssignments(assignments: Assignment[]): void {
   listRoleAssignmentsForResource.mockResolvedValue({

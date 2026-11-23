@@ -38,8 +38,8 @@ def _rejection(get: Get, artifact: dict, *, repo: str, path: str, blob: str) -> 
 def _run_rejection(get: Get, run: dict, *, run_id: int, repo: str, path: str, blob: str) -> str | None:
     if run.get("status") != "completed" or run.get("conclusion") != "success":
         return f"run {run_id} is {run.get('status')}/{run.get('conclusion')}, not completed/success"
-    if run.get("event") != "pull_request":
-        return f"run {run_id} was a {run.get('event')!r} run, not a pull_request run"
+    if run.get("event") not in ("pull_request", "merge_group"):
+        return f"run {run_id} was a {run.get('event')!r} run, not a pull_request or merge_group run"
     if str(run.get("path", "")).split("@", 1)[0] != path:
         return f"run {run_id} ran {run.get('path')!r}, not {path!r}"
     if (run.get("head_repository") or {}).get("full_name") != repo:

@@ -53,7 +53,7 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -63,7 +63,7 @@ const session = {
   featureFlags: null,
 }
 const outside: AgentPrincipal = { actor: 'external_agent', clientId: 'client_claude', scopes: [], session }
-const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
+const inProduct: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
 const platform: AgentPrincipal = { ...outside, door: 'platform' }
 
 const PROPOSAL_ID = '5f0c8a3e-2b7d-4e1a-9c6f-1d2e3f4a5b6c'
@@ -113,7 +113,7 @@ async function rpc(
   capabilities: Record<string, unknown> = RENDERS_APPS,
 ) {
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -162,7 +162,7 @@ const callTool = async (
 
 async function legacyRpc(method: string, params: object = {}) {
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
       headers: { 'content-type': 'application/json', accept: 'application/json', 'mcp-protocol-version': '2025-11-25' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -197,8 +197,8 @@ describe('the proposal card resource', () => {
     expect(await read(other)).toBe(await read(outside))
   })
 
-  it('is not offered on Piloti’s own door or the platform door', async () => {
-    for (const who of [piloti, platform]) {
+  it('is not offered on the in-product agent’s own door or the platform door', async () => {
+    for (const who of [inProduct, platform]) {
       const listed = ((await rpc(who, 'search', 'resources/list')).result?.resources ?? []) as { uri: string }[]
       expect(listed.map((resource) => resource.uri)).not.toContain(PROPOSAL_CARD_URI)
       const names = (await tools(who, 'tools')).map((tool) => tool.name)
@@ -224,8 +224,8 @@ describe('the tool that draws it', () => {
     expect(vi.mocked(callOperation).mock.calls[0]?.[0].name).toBe('proposal-get')
   })
 
-  it('is no view for Piloti: its proposal-get links to nothing', async () => {
-    const get = (await tools(piloti, 'tools')).find((tool) => tool.name === 'proposal-get')
+  it('is no view for the in-product agent: its proposal-get links to nothing', async () => {
+    const get = (await tools(inProduct, 'tools')).find((tool) => tool.name === 'proposal-get')
     expect(get && getToolUiResourceUri(get)).toBeUndefined()
   })
 })
@@ -446,30 +446,30 @@ describe('a refusal before the route answers', () => {
 })
 
 describe('who may press', () => {
-  it('is an outside agent only: Piloti’s audience has no app-only tool', () => {
+  it('is an outside agent only: the in-product agent’s audience has no app-only tool', () => {
     for (const tool of APP_TOOLS) {
       expect(isAppToolFor('external', tool.name)).toBe(true)
       expect(isAppToolFor('agent', tool.name), tool.name).toBe(false)
     }
   })
 
-  it('refuses Piloti’s own press of a button, even with a host that declares MCP Apps, and runs no route', async () => {
+  it('refuses the in-product agent’s own press of a button, even with a host that declares MCP Apps, and runs no route', async () => {
     for (const tool of APP_TOOLS) {
-      const result = await runAppTool({ principal: piloti, mode: 'tools', appHost: 'declared' }, tool, { id: PROPOSAL_ID })
+      const result = await runAppTool({ principal: inProduct, mode: 'tools', appHost: 'declared' }, tool, { id: PROPOSAL_ID })
       expect(result, tool.name).toMatchObject({ isError: true, structuredContent: { status: 404 } })
     }
-    const call = await callTool(piloti, 'tools', 'proposal-card-apply', { id: PROPOSAL_ID })
+    const call = await callTool(inProduct, 'tools', 'proposal-card-apply', { id: PROPOSAL_ID })
     expect(call?.structuredContent?.proposal).toBeUndefined()
     expect(callOperation).not.toHaveBeenCalled()
   })
 })
 
 describe('the extension', () => {
-  it('is declared to an outside agent on the 2026-07-28 era, never to Piloti', async () => {
+  it('is declared to an outside agent on the 2026-07-28 era, never to the in-product agent', async () => {
     const extensions = async (who: AgentPrincipal) =>
       ((await rpc(who, 'search', 'server/discover')).result as { capabilities: { extensions?: Record<string, unknown> } }).capabilities.extensions ?? {}
     expect(await extensions(outside)).toHaveProperty(['io.modelcontextprotocol/ui'])
-    expect(await extensions(piloti)).not.toHaveProperty(['io.modelcontextprotocol/ui'])
+    expect(await extensions(inProduct)).not.toHaveProperty(['io.modelcontextprotocol/ui'])
     const undeclared = (await rpc(outside, 'search', 'server/discover', {}, {})).result as { capabilities: { extensions?: object } }
     expect(undeclared.capabilities.extensions ?? {}).not.toHaveProperty(['io.modelcontextprotocol/ui'])
   })

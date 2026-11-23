@@ -73,16 +73,19 @@ def stack(monkeypatch):
             pytest.fail("QDRANT_TEST_URL is unset on CI: the Qdrant service container is missing")
         pytest.skip("QDRANT_TEST_URL not set")
     from knowledge_layer.search import LlamaIndexRetriever
-    from knowledge_layer.vector_store import schema
-    from knowledge_layer.vector_store import store as store_module
+    from knowledge_layer.vector_store import ALIASES
+    from knowledge_layer.vector_store import FIRST_VERSION
+    from knowledge_layer.vector_store import Physical
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import reset_store
 
     suffix = uuid.uuid4().hex[:8]
-    monkeypatch.setitem(schema.ALIASES, schema.Physical.CORPUS, f"similar_corpus_{suffix}")
-    monkeypatch.setitem(schema.ALIASES, schema.Physical.OFFICE, f"similar_office_{suffix}")
+    monkeypatch.setitem(ALIASES, Physical.CORPUS, f"similar_corpus_{suffix}")
+    monkeypatch.setitem(ALIASES, Physical.OFFICE, f"similar_office_{suffix}")
     monkeypatch.setenv("QDRANT_URL", url)
     monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
-    store_module.reset_store()
+    reset_store()
     retriever = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     retriever._initialized = True
     embedder = _Embedder()
@@ -92,17 +95,25 @@ def stack(monkeypatch):
     router = APIRouter()
     add_similar_passages_routes(router)
     app.include_router(router)
-    store = store_module.get_store(retriever._identity())
+    store = get_store(retriever._identity())
     yield app, store, embedder
     clear_active_retriever()
-    for physical in schema.Physical:
-        name = schema.ALIASES[physical] + schema.FIRST_VERSION
+    for physical in Physical:
+        name = ALIASES[physical] + FIRST_VERSION
         if store.client.collection_exists(name):
             store.client.delete_collection(name)
-    store_module.reset_store()
+    reset_store()
 
 
-def _put(store, scope: str, file_name: str, *passages: tuple[float, int], text: str = "", **metadata) -> list[str]:
+def _put(
+    store,
+    scope: str,
+    file_name: str,
+    *passages: tuple[float, int],
+    text: str = "",
+    document_id: str | None = None,
+    **metadata,
+) -> list[str]:
     from knowledge_layer.vector_store import ChunkRecord
 
     ids = [str(uuid.uuid4()) for _ in passages]
@@ -117,6 +128,7 @@ def _put(store, scope: str, file_name: str, *passages: tuple[float, int], text: 
             )
             for chunk_id, (cosine, page) in zip(ids, passages, strict=True)
         ],
+        {"document_id": document_id} if document_id else None,
     )
     return ids
 
@@ -241,7 +253,7 @@ async def test_a_superseded_revision_and_another_copy_of_the_source_document_sta
     app, store, _ = stack
     ids = _seed(store)
     _put(store, "proj_a", "Brandschutzkonzept-alt.pdf", (0.99, 4), superseded=True)
-    _put(store, "proj_a", "Brandschutzkonzept (1).pdf", (0.99, 4), grid_document_id="doc-source")
+    _put(store, "proj_a", "Brandschutzkonzept (1).pdf", (0.99, 4), document_id="doc-source")
 
     async with _client(app) as client:
         res = await client.post(

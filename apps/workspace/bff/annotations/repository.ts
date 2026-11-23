@@ -20,6 +20,7 @@ import {
   type MarkMention,
   type MarkTally,
 } from './types'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export interface CarryLink {
   annotationId: string
@@ -225,8 +226,8 @@ export class AnnotationLimitReachedError extends Error {}
 
 export async function insertDocumentAnnotations(input: NewAnnotationsInput): Promise<DocumentAnnotationRow[]> {
   const db = getDb()
-  const acceptedBy = input.authorKind === 'piloti' ? (input.acceptedBy ?? null) : null
-  const status: AnnotationStatus = input.authorKind === 'piloti' && !acceptedBy ? 'proposed' : 'open'
+  const acceptedBy = isAgentKind(input.authorKind) ? (input.acceptedBy ?? null) : null
+  const status: AnnotationStatus = isAgentKind(input.authorKind) && !acceptedBy ? 'proposed' : 'open'
   const acceptance = acceptedBy ? { acceptedBy, acceptedAt: new Date() } : {}
   return withTenant({ organizationId: input.organizationId }, () =>
     db.transaction(async (tx) => {

@@ -5,6 +5,8 @@ import pytest
 from agent.citations.entries import SourceEntry
 from agent.citations.wire import source_entry_to_wire
 from agent.common.brand import PRODUCT_NAME
+from agent.common.legacy_lane_names import LEGACY_AGENT_AUTHORED_LANE
+from agent.common.legacy_lane_names import is_agent_lane
 from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 from agent.common.source_kinds import DEFAULT_SOURCE_KIND
@@ -33,13 +35,20 @@ class TestKindForLane:
             ("authority", "building_law"),
             ("external_standard", "building_law"),
             ("office", "office"),
-            ("office_piloti", "office"),
+            (AGENT_AUTHORED_LANE, "office"),
+            (LEGACY_AGENT_AUTHORED_LANE, "office"),
             ("project", "project"),
             ("web", "web"),
         ],
     )
     def test_lane_maps_to_coarse_kind(self, lane_key: str, expected: str):
         assert kind_for_lane(lane_key) == expected
+
+    def test_both_spellings_of_the_agent_lane_are_one_lane(self):
+        assert is_agent_lane(AGENT_AUTHORED_LANE)
+        assert is_agent_lane(LEGACY_AGENT_AUTHORED_LANE)
+        assert not is_agent_lane("office")
+        assert not is_agent_lane(None)
 
     def test_unknown_lane_fails_open_to_default(self):
         assert kind_for_lane("something_new") == DEFAULT_SOURCE_KIND

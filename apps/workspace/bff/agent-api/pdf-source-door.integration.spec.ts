@@ -199,7 +199,7 @@ describe.skipIf(!url)('an operator’s agent proposes a PDF source, captures a P
 
   beforeAll(async () => {
     Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     vi.stubEnv('INTERNAL_API_TOKEN', 'a-real-internal-token-for-the-pdf-spec')
     vi.stubEnv('BACKEND_URL', BACKEND)
     db = (await import('@/lib/db')).getDb()

@@ -5,7 +5,7 @@ import { publish } from '@/lib/realtime/hub'
 
 export const DOOR_EVENTS_TOPIC = 'rt:door:events'
 
-export const PROJECT_URI_PREFIX = 'piloti://project/'
+export const PROJECT_URI_PREFIX = 'workspace://project/'
 
 export const projectResourceUri = (projectId: string): string => `${PROJECT_URI_PREFIX}${projectId}`
 

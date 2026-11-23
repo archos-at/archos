@@ -91,7 +91,9 @@ What is measured, all by the SDK unless named:
 | Where a call to action sits | `data-ph-capture-attribute-cta-area` and `-cta-label` on `Button`, `TextLink`, `CTABand` (areas: `header`, `mobile_menu`, `founders`, `security_cta`, `contact_info`, `not_found`, `server_error`; labels: `demo`, `login`, `open_app`, `contact`, `home`, `blog`, `retry`) |
 | Language switch | `data-ph-capture-attribute-language-switch` (`de-en`, `en-de`) on the header link |
 | Which form | `data-ph-capture-attribute-form` (`contact`, `demo`) on the form |
-| `form_submitted` `{ form, method: 'mailto', locale, newsletter? }` | `MailForm.astro`, the one thing autocapture cannot see: the mail hand-off. No field values |
+| `form_submitted` `{ form, method: 'site' \| 'mailto', fallback_reason?, locale, newsletter? }` | `MailForm.astro`, the one thing autocapture cannot see: whether the site sent the enquiry or handed it to the mail program, and why (`not_configured`, `budget_spent`, `send_failed`, `rate_limited`: the edge's 429, `network`, `http_<status>`). No field values |
+| `website_enquiry` `{ outcome, form?, locale?, confirmed?, attio? }` | Server-side, `src/lib/enquiry-analytics.ts` from `/api/enquiry`: personless (`distinct_id` `website`), one per request. `outcome`: `sent`, `not_configured`, `budget_spent`, `send_failed`, `invalid`, `trap` (a bot); `attio`: `off`, `recorded`, `failed`. The browser cannot see whether Gmail took the mail; this can |
+| `site`, `deployment` on every event | `site: 'website'` and the Pulumi stack (`POSTHOG_DEPLOYMENT`), registered at init and set on `website_enquiry`, so the website's events filter apart from the app's and dev's from prod's |
 | `video_played` `{ video, locale }` | `Video.astro`, first play |
 | Heatmaps | `enable_heatmaps` |
 
@@ -101,14 +103,27 @@ No event carries what a visitor typed. Dashboards: PostHog's Web Analytics produ
 
 ## Forms
 
-Contact and demo hand off to the visitor's mail program (owner decision D9): `MailForm.astro` builds a
-`mailto:` with a subject and a readable `Label: value` body (`src/lib/mailto.ts`), opens it, and shows
-what happens next and the address to write to if no mail program opened. Without JavaScript the
-browser's own `mailto:` post is the fallback. Nothing reaches a server of ours, so nothing is stored.
+Contact and demo send through the site: `MailForm.astro` posts the fields as JSON to `/api/enquiry`
+(`src/pages/api/enquiry.ts`). The endpoint mails the enquiry to the contact inbox, from the sending
+Workspace user with Reply-To set to the visitor, then confirms to the visitor from the contact address.
+The confirmation repeats nothing the visitor typed, because anyone can enter anyone's address. With
+`ATTIO_API_KEY` set, the endpoint also upserts the person in Attio by email and attaches the enquiry as
+a note (`src/lib/enquiry-delivery.ts`). Only the notification must succeed: a failed confirmation or
+Attio call is logged and the visitor still sees "sent". Both mails go out as plain text and as HTML
+in the design system's look, built with the shared `packages/mail` (copied to `src/lib/mail/`): table layout with inline styles, colours read
+from `tokens.css` at build time, the light page with the dark footer, General Sans and Switzer where the
+mail client loads web fonts, Helvetica elsewhere.
 
-Roadmap: the target is Attio. A form posts to an endpoint that creates the person and the request in
-Attio, so a lead is recorded and answered from the CRM. Attio has a REST API and an MCP server, so an
-agent can read and act on the same records (AI-native tooling).
+The site falls back to the earlier hand-off (owner decision D9) whenever it cannot send: no
+`SMTP_USER`/`SMTP_PASSWORD`, a spent send budget (5 per client address and 60 per pod an hour), or a
+failed notification. The form then builds a `mailto:` with a subject and a readable `Label: value` body
+(`src/lib/mailto.ts`) and opens the visitor's mail program. Without JavaScript the browser's own
+`mailto:` post does the same. A hidden `website` field traps bots: filled in, the endpoint answers as if
+it had sent.
+
+The deploy sets the env from `websiteSmtpUser`, `websiteSmtpPassword` and `attioApiKey`
+(`deploy/pulumi/README.md`). The sending user must be allowed to send as the contact address (Gmail,
+"Send mail as"), or Gmail rewrites the confirmation's sender to the user.
 
 ## Accessibility
 
@@ -372,7 +387,7 @@ The full form of the rules in [`AGENTS.md`](AGENTS.md), with their reasons and c
 | Name a file, a component or a class | `PascalCase.astro` for a component, kebab-case for everything else ([`naming.md`](../../docs/contributing/naming.md#casing-and-form)) | Review. `ui-button`, `DuoCards`. |
 | Add an image | A photo or screenshot the page renders goes in `src/assets/media/` as the full-resolution master (3840 px long edge at most, never shrunk by hand, sRGB; at least as many pixels as its widest drawing needs, README "Media"), is exported from `src/lib/media.ts` and is rendered with Astro's `<Image>` and its `widths` and `sizes`. Only a file that must keep a fixed address (a logo, the share card) goes in `public/media/`. English kebab-case name, and a row in the table in `README.md`. No CSS filter on a photo: text on it gets its contrast from the design system's scrim | The table is how a reader finds out what a file shows. A phone must not download a 3840 px master, and a retina screen must not get a blurry one: a master narrower than its drawing in device pixels is enlarged and looks soft. A filter that darkens or tints a photo leaves it dull and colour-shifted |
 | Add an AI-generated image | Mark it with the `AITag` component | The design system requires the mark. |
-| Write a blog post | Write it in the CMS (`apps/cms`, ADR-0155): both languages live in one post, and a person with the Publisher role publishes it. A new cover drawing is a pull request: `src/assets/covers/<id>.svg`, drawn by [`packages/brand/docs/blog-covers.md`](../../packages/brand/docs/blog-covers.md), and the same id in `COVER_DRAWINGS` (`apps/cms/src/fields/choices.ts`) | `apps/cms/tests/choices.test.ts` fails a CMS cover, category or call-to-action list that differs from this app's; `src/lib/covers.test.ts` fails a drawing outside the system |
+| Write a blog post | Write it in the CMS (`apps/cms`, ADR-0155): both languages live in one post, and a person with the Publisher role publishes it. A new cover drawing is a pull request: `src/assets/covers/<id>.svg`, drawn by [`packages/brand/docs/blog-covers.md`](../../packages/brand/docs/blog-covers.md), and the same id in `COVER_DRAWINGS` (`apps/cms/src/fields/choices.ts`) | `src/lib/cms-choices.test.ts` fails a CMS cover, category or call-to-action list that differs from this app's; `src/lib/covers.test.ts` fails a drawing outside the system |
 | Change the MDX fixtures in `src/content/blog` | Keep them a faithful offline copy: give a fixture a `category`, a `cover`, and set `translationSlug` to its twin's slug | The content schema; `apps/cms/tests/import-blog.test.ts` fails twins that do not name each other or disagree, and MDX the CMS cannot hold |
 | Render something new from the CMS | A block: its config in `apps/cms/src/blocks/`, its props in `BLOCK_PROPS` (`src/lib/post-blocks.ts`), its component in `src/components/PostBlock.astro` (`apps/cms/README.md`, "Adding a block"). A node of the rich text: `src/components/RichText.astro`. CMS text reaches the page only through these two components, never as raw HTML | `src/lib/rich-text.test.ts` fails a CMS block without props here or without a component in `PostBlock.astro` |
 | Edit a legal page (`/datenschutz`, `/impressum`, the English twins) | Leave no bracketed placeholder (`[14 Tagen]`, `[EU]`); a value nobody verified is marked `TODO(owner):` and listed in the pull request | Nothing yet: `scripts/check_brand_rules.mjs` at the repo root does not look for brackets |

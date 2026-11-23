@@ -32,30 +32,30 @@ beforeEach(() => {
   vi.mocked(enqueueJob).mockResolvedValue({ jobId: wakeTurnId(EVENT.eventId) })
 })
 
-describe('what wakes Piloti', () => {
+describe('what wakes the agent', () => {
   type Mark = Parameters<typeof replyTrigger>[0]
   const personsMark: Mark = { authorKind: 'person', kind: 'defect', status: 'open' }
-  const pilotisQuestion: Mark = { authorKind: 'piloti', kind: 'question', status: 'proposed' }
+  const agentsQuestion: Mark = { authorKind: 'piloti', kind: 'question', status: 'proposed' }
 
-  it('a reply that addresses Piloti, by the flag the composer sets', () => {
+  it('a reply that addresses the agent, by the flag the composer sets', () => {
     expect(replyTrigger(personsMark, { authorKind: 'person', addressesPiloti: true })).toBe('thread_mention')
   })
 
-  it('a reply on Piloti’s own question while it is proposed or open, addressed or not', () => {
-    expect(replyTrigger(pilotisQuestion, { authorKind: 'person', addressesPiloti: false })).toBe('thread_reply')
-    expect(replyTrigger({ ...pilotisQuestion, status: 'open' }, { authorKind: 'person', addressesPiloti: false })).toBe(
+  it('a reply on the agent’s own question while it is proposed or open, addressed or not', () => {
+    expect(replyTrigger(agentsQuestion, { authorKind: 'person', addressesPiloti: false })).toBe('thread_reply')
+    expect(replyTrigger({ ...agentsQuestion, status: 'open' }, { authorKind: 'person', addressesPiloti: false })).toBe(
       'thread_reply'
     )
   })
 
-  it('nothing for a reply to people on a person’s mark, or on Piloti’s closed or non-question mark', () => {
+  it('nothing for a reply to people on a person’s mark, or on the agent’s closed or non-question mark', () => {
     expect(replyTrigger(personsMark, { authorKind: 'person', addressesPiloti: false })).toBeNull()
-    expect(replyTrigger({ ...pilotisQuestion, status: 'resolved' }, { authorKind: 'person', addressesPiloti: false })).toBeNull()
-    expect(replyTrigger({ ...pilotisQuestion, kind: 'defect' }, { authorKind: 'person', addressesPiloti: false })).toBeNull()
+    expect(replyTrigger({ ...agentsQuestion, status: 'resolved' }, { authorKind: 'person', addressesPiloti: false })).toBeNull()
+    expect(replyTrigger({ ...agentsQuestion, kind: 'defect' }, { authorKind: 'person', addressesPiloti: false })).toBeNull()
   })
 
-  it('never Piloti’s own reply: no Agent-wakes-Agent, even on its open question', () => {
-    expect(replyTrigger(pilotisQuestion, { authorKind: 'piloti', addressesPiloti: true })).toBeNull()
+  it('never the agent’s own reply: no Agent-wakes-Agent, even on its open question', () => {
+    expect(replyTrigger(agentsQuestion, { authorKind: 'piloti', addressesPiloti: true })).toBeNull()
   })
 })
 

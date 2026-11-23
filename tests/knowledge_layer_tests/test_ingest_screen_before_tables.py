@@ -5,10 +5,12 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import limits
+from knowledge_layer.ingest import pdf_tables
 from knowledge_layer.ingest import processing
 from knowledge_layer.ingest import screening
 from knowledge_layer.ingest import transcription
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 
@@ -52,7 +54,7 @@ def store(monkeypatch):
 def calls(tmp_path, monkeypatch, summary_db, store):
     record: dict[str, list] = {"ocr": [], "vlm": [], "indexed": []}
     cred = ResolvedCredential(api_key="", base_url="", model="", source="env")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
     def _route(path, text_pages, page_texts, **kwargs):
         record["ocr"].append(kwargs.get("triage", "measured-inside"))
@@ -98,7 +100,7 @@ class TestAHeldFileNeverExtractsTables:
         def _fail(*args, **kwargs):
             raise AssertionError("the table pass ran for a file the screen held")
 
-        monkeypatch.setattr(adapter, "_extract_tables_from_pdf", _fail)
+        monkeypatch.setattr(pdf_tables, "_extract_tables_from_pdf", _fail)
 
         detail = _ingest(calls, _pdf(tmp_path, *_PAYSLIP), "Abrechnung.pdf", _TERMS)
 
@@ -112,13 +114,13 @@ class TestAHeldFileNeverExtractsTables:
     def test_a_term_in_the_text_layer_and_a_table_never_reaches_the_table_pass(self, tmp_path, calls, monkeypatch):
         path = _pdf_with_table_page(tmp_path, monkeypatch, [["Posten", "Betrag"], ["Gehaltsabrechnung", "4200"]])
         seen: list[str] = []
-        real = adapter._extract_tables_from_pdf
+        real = pdf_tables._extract_tables_from_pdf
 
         def _record(*args, **kwargs):
             seen.append("tables")
             return real(*args, **kwargs)
 
-        monkeypatch.setattr(adapter, "_extract_tables_from_pdf", _record)
+        monkeypatch.setattr(pdf_tables, "_extract_tables_from_pdf", _record)
 
         detail = _ingest(calls, path, "Liste.pdf", _TERMS, extract_tables=True)
 
@@ -132,13 +134,13 @@ class TestTheTablesAreStillScreened:
         path = _pdf_with_table_page(tmp_path, monkeypatch, [["Posten", "Betrag"], ["Gehaltsabrechnung", "4200"]])
         _text_pass_loses_page(monkeypatch, 2)
         seen: list[str] = []
-        real = adapter._extract_tables_from_pdf
+        real = pdf_tables._extract_tables_from_pdf
 
         def _record(*args, **kwargs):
             seen.append("tables")
             return real(*args, **kwargs)
 
-        monkeypatch.setattr(adapter, "_extract_tables_from_pdf", _record)
+        monkeypatch.setattr(pdf_tables, "_extract_tables_from_pdf", _record)
 
         detail = _ingest(calls, path, "Liste.pdf", _TERMS, extract_tables=True)
 
@@ -158,7 +160,7 @@ class TestTheTablesAreStillScreened:
         assert detail.status == FileStatus.SUCCESS
         assert detail.screening == "clean"
         taken = {}
-        extracted = adapter._extract_tables_from_pdf(str(path), taken)
+        extracted = pdf_tables._extract_tables_from_pdf(str(path), taken)
         assert len(extracted) == 1
         assert extracted[0]["page_number"] == 2
         assert extracted[0]["cells"] == rows
@@ -174,7 +176,7 @@ class TestTheTablesAreStillScreened:
 def test_the_screen_runs_before_the_table_pass(tmp_path, calls, monkeypatch):
     events: list[str] = []
     real_screen = screening.screen_pages
-    real_tables = adapter._extract_tables_from_pdf
+    real_tables = pdf_tables._extract_tables_from_pdf
 
     def _screen(*args, **kwargs):
         events.append("screen")
@@ -185,7 +187,7 @@ def test_the_screen_runs_before_the_table_pass(tmp_path, calls, monkeypatch):
         return real_tables(*args, **kwargs)
 
     monkeypatch.setattr(screening, "screen_pages", _screen)
-    monkeypatch.setattr(adapter, "_extract_tables_from_pdf", _tables)
+    monkeypatch.setattr(pdf_tables, "_extract_tables_from_pdf", _tables)
     path = _pdf_with_table_page(tmp_path, monkeypatch, [["Posten", "Betrag"], ["Estrich", "4200"]])
 
     _ingest(calls, path, "Liste.pdf", _TERMS, extract_tables=True)
@@ -203,15 +205,15 @@ class TestTheTablePassLeavesTheDrawingsToVision:
         return PdfTriage(kinds=kinds)
 
     def test_the_drawings_vision_reads_are_skipped_beside_the_dense_pages(self):
-        skip = adapter._table_pass_skips([7], self._triage(2, 3), vision_reads=True)
+        skip = pdf_tables._table_pass_skips([7], self._triage(2, 3), vision_reads=True)
         assert skip == [2, 3, 7]
 
     def test_a_drawing_past_the_render_cap_keeps_its_table_pass(self, monkeypatch):
-        monkeypatch.setattr(adapter, "MAX_RENDERED_PAGES", 2)
-        assert adapter._table_pass_skips([], self._triage(4, 5, 6), vision_reads=True) == [4, 5]
+        monkeypatch.setattr(limits, "MAX_RENDERED_PAGES", 2)
+        assert pdf_tables._table_pass_skips([], self._triage(4, 5, 6), vision_reads=True) == [4, 5]
 
     def test_without_a_vision_model_no_drawing_is_skipped(self):
-        assert adapter._table_pass_skips([7], self._triage(2, 3), vision_reads=False) == [7]
+        assert pdf_tables._table_pass_skips([7], self._triage(2, 3), vision_reads=False) == [7]
 
     def test_an_unmeasured_pdf_skips_only_the_dense_pages(self):
-        assert adapter._table_pass_skips([7], None, vision_reads=True) == [7]
+        assert pdf_tables._table_pass_skips([7], None, vision_reads=True) == [7]

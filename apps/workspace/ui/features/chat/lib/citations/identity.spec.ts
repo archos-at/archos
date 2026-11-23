@@ -203,7 +203,7 @@ describe('resolveCitationTarget', () => {
     contentType: 'application/pdf',
   }
 
-  test('http(s) URLs link out — except RIS, which Piloti reads itself', () => {
+  test('http(s) URLs link out — except RIS, which the agent reads itself', () => {
     expect(targetFor({ url: 'https://example.com/article', content: '' })).toEqual({
       kind: 'url',
       url: 'https://example.com/article',

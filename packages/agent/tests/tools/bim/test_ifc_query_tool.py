@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from agent.tools.bim.register import _build_query
-from agent.tools.bim.register import _element_link
-from agent.tools.bim.register import _render
+from agent.tools.bim.query_build import _build_query
+from agent.tools.bim.query_render import _element_link
+from agent.tools.bim.query_render import _render
 
 
 def build(**overrides):
@@ -321,15 +321,15 @@ class TestTheFiveWaysAModelIsNotResolved:
                         "ifcType": "IfcWall",
                         "name": "Aussenwand Nord",
                         "storeyName": "Erdgeschoss",
-                        "globalId": "0GridFixtureWall0001",
+                        "globalId": "0TestFixtureWall0001",
                     }
                 ],
             }
         )
-        assert "IfcWall „Aussenwand Nord“ · Erdgeschoss · GlobalId 0GridFixtureWall0001" in rendered
+        assert "IfcWall „Aussenwand Nord“ · Erdgeschoss · GlobalId 0TestFixtureWall0001" in rendered
 
     def test_a_partial_whole_model_answer_is_not_advice_to_narrow_the_query(self):
-        from agent.tools.bim.register import _truncation_note
+        from agent.tools.bim.query_render import _truncation_note
 
         assert "only part of the model" in _truncation_note("schedule")
         assert "only part of the model" in _truncation_note("compliance")
@@ -436,13 +436,13 @@ class TestElementLinks:
                         "ifcType": "IfcWall",
                         "name": "Aussenwand Nord",
                         "storeyName": "Erdgeschoss",
-                        "globalId": "0GridFixtureWall0001",
+                        "globalId": "0TestFixtureWall0001",
                     }
                 ],
             },
             "p1",
         )
-        assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0GridFixtureWall0001" in rendered
+        assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0TestFixtureWall0001" in rendered
 
     def test_one_element_carries_its_own_link(self):
         rendered = _render(
@@ -452,7 +452,7 @@ class TestElementLinks:
                 "model": {"filename": "haus-a.ifc"},
                 "summary": "IfcWall „Aussenwand Nord“.",
                 "element": {
-                    "globalId": "0GridFixtureWall0001",
+                    "globalId": "0TestFixtureWall0001",
                     "storeyName": "Erdgeschoss",
                     "materials": [],
                     "properties": {},
@@ -461,7 +461,7 @@ class TestElementLinks:
             },
             "p1",
         )
-        assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0GridFixtureWall0001" in rendered
+        assert "Link: /app/projects/p1/model?model=haus-a.ifc&element=0TestFixtureWall0001" in rendered
 
     def test_no_project_context_renders_no_link_line(self):
         rendered = _render(
@@ -562,7 +562,7 @@ class TestComplianceOperation:
                         "richtlinie": "OIB 4",
                         "failures": [
                             {
-                                "globalId": "0GridFixtureDoor00001",
+                                "globalId": "0TestFixtureDoor00001",
                                 "name": "T-14",
                                 "reading": "Breite 0.7 m — Schwellwert ≥ 0,80 m",
                             }
@@ -573,8 +573,8 @@ class TestComplianceOperation:
             "p1",
         )
         assert "Breite 0.7 m — Schwellwert ≥ 0,80 m" in rendered
-        assert "element=0GridFixtureDoor00001" in rendered
-        assert "hl=fail%3A0GridFixtureDoor00001" in rendered
+        assert "element=0TestFixtureDoor00001" in rendered
+        assert "hl=fail%3A0TestFixtureDoor00001" in rendered
 
     def test_a_rule_that_left_work_behind_prints_the_id_the_card_asks_for(self):
         rendered = _render(
@@ -802,7 +802,7 @@ class TestTheDescriptionDescribesTheRealTool:
 class TestBuildingClassValidation:
     @pytest.mark.parametrize("value", [0, 6, 9, -1, None])
     def test_an_impossible_building_class_reaches_neither_the_query_nor_the_link(self, value):
-        from agent.tools.bim.register import _bcf_link
+        from agent.tools.bim.query_render import _bcf_link
 
         query = build(operation="compliance", building_class=value or 0)
         assert "buildingClass" not in query
@@ -811,7 +811,7 @@ class TestBuildingClassValidation:
 
     @pytest.mark.parametrize("value", [1, 2, 3, 4, 5])
     def test_a_real_building_class_reaches_both(self, value):
-        from agent.tools.bim.register import _bcf_link
+        from agent.tools.bim.query_render import _bcf_link
 
         assert build(operation="compliance", building_class=value)["buildingClass"] == value
         assert f"buildingClass={value}" in _bcf_link("p1", "haus.ifc", value, "")
@@ -865,14 +865,14 @@ class TestWhatTheTraceRecords:
         assert self._recorded()["tags"] == ["feature:ifc"]
 
     def test_a_list_clipped_by_one_reads_as_one(self):
-        from agent.tools.bim.register import _clipped
+        from agent.tools.bim.query_render import _clipped
 
         assert _clipped(list(range(21)), 20, "storeys") == "… 1 more storey not shown."
         assert _clipped(list(range(22)), 20, "storeys") == "… 2 more storeys not shown."
         assert _clipped(list(range(20)), 20, "storeys") is None
 
     def test_the_model_handle_is_stable_and_not_the_name(self):
-        from agent.tools.bim.register import _model_handle
+        from agent.tools.bim.trace import model_handle as _model_handle
 
         assert _model_handle("Haus-Mayr_Landstrasser-Hauptstr-12_V3.ifc") == _model_handle(
             "Haus-Mayr_Landstrasser-Hauptstr-12_V3.ifc"
@@ -945,7 +945,7 @@ class TestWhatTheTraceRecords:
             {
                 "resolved": True,
                 "model": {"filename": "haus.ifc"},
-                "elements": [{"globalId": "0GridFixture00Wall0001", "name": "Aussenwand Nord"}],
+                "elements": [{"globalId": "0TestFixture00Wall0001", "name": "Aussenwand Nord"}],
                 "summary": "…",
             },
         )
@@ -953,7 +953,7 @@ class TestWhatTheTraceRecords:
         rendered = repr(self._recorded())
         assert "Aussenwand" not in rendered
         assert "Fluchttuer" not in rendered
-        assert "0GridFixture00Wall0001" not in rendered
+        assert "0TestFixture00Wall0001" not in rendered
 
 
 class TestTheToolBody:

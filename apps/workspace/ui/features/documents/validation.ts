@@ -2,6 +2,7 @@ import type { FileUploadConfig } from '@/shared/context'
 import { IMAGE_EXTENSIONS } from '@/shared/config/file-upload'
 import { isIfcFilename } from '@/lib/bim/types'
 import { ZIP_MIME_TYPES } from './lib/zip-types'
+import { MAIL_ARCHIVE_MIME_TYPES } from './lib/mail-archive'
 import {
   DEFAULT_MAX_FILE_SIZE,
   DEFAULT_MAX_TOTAL_SIZE,
@@ -249,12 +250,13 @@ export function validateFileUpload(
 export function checkDraggedFilesSupported(
   dataTransfer: DataTransfer,
   config: FileUploadConfig = DEFAULT_CONFIG,
-  { allowZip = false }: { allowZip?: boolean } = {}
+  { allowZip = false, allowMailArchives = false }: { allowZip?: boolean; allowMailArchives?: boolean } = {}
 ): boolean {
   const items = Array.from(dataTransfer.items)
   for (const item of items) {
     if (item.kind !== 'file') continue
     if (allowZip && ZIP_MIME_TYPES.includes(item.type.toLowerCase())) continue
+    if (allowMailArchives && MAIL_ARCHIVE_MIME_TYPES.includes(item.type.toLowerCase())) continue
     if (!isValidMimeType(item.type, config)) return false
   }
   return true

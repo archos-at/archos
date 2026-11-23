@@ -122,7 +122,10 @@ export async function patchProjectProfile(
   }
 
   try {
-    return await persistProfile(projectId, session.organizationId, profile, current)
+    return await persistProfile(projectId, session.organizationId, profile, current, {
+      inTransaction: (tx, saved) =>
+        deleteBindingsOutsideBuildings(projectId, buildingIds(saved.profile), tx).then(() => undefined),
+    })
   } catch (error) {
     if (!(error instanceof ConflictError)) throw error
     const fresh = await findProjectProfileInOrg(projectId, session.organizationId)

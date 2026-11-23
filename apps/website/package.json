@@ -8,7 +8,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "capture": "node scripts/capture.mjs",
-    "check": "astro check && node ../../packages/brand/sync.mjs --check && node ../../packages/brand/build-brand-assets.mjs --check && node ../../packages/brand/email-signatures.mjs --check && bun ../../scripts/check_brand_rules.mjs",
+    "check": "astro check && node ../../packages/brand/sync.mjs --check && node ../../packages/mail/sync.mjs --check && node ../../packages/brand/build-brand-assets.mjs --check && node ../../packages/brand/email-signatures.mjs --check && bun ../../scripts/check_brand_rules.mjs",
     "start": "node runtime/server.mjs",
     "test": "node --test runtime/*.test.mjs && bun test src",
     "check:a11y": "node scripts/check-accessibility.mjs",
@@ -26,9 +26,11 @@
     "github-slugger": "2.0.0",
     "micromark": "4.0.3",
     "micromark-extension-gfm": "3.0.0",
+    "nodemailer": "10.3.1",
     "typescript": "^6.0.3"
   },
   "devDependencies": {
+    "@astrojs/compiler-rs": "0.5.2",
     "@axe-core/playwright": "^4.14.0",
     "@types/d3-array": "3.2.2",
     "axe-core": "4",

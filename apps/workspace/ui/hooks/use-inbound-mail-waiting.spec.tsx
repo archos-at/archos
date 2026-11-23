@@ -13,8 +13,32 @@ describe('useInboundMailWaiting', () => {
     const first = renderHook(() => useInboundMailWaiting('p', true, client))
     const second = renderHook(() => useInboundMailWaiting('p', true, client))
     await waitFor(() => expect(first.result.current.count).toBe(9))
-    expect(second.result.current).toEqual({ count: 9, more: true })
+    expect(second.result.current).toMatchObject({ count: 9, more: false })
     expect(list).toHaveBeenCalledTimes(1)
+  })
+
+  it('says a read that stopped at its page, so every surface writes „n+“', async () => {
+    const client = fixtureClient({ list: LIST_VARIANTS['worst-case'] })
+    const hook = renderHook(() => useInboundMailWaiting('p-more', true, client))
+    await waitFor(() => expect(hook.result.current.count).not.toBeNull())
+    expect(hook.result.current.more).toBe(true)
+  })
+
+  it('counts what the list shows as rows: an outsider’s mail yes, automatic mail (its folded group) no', async () => {
+    const client = fixtureClient({ list: LIST_VARIANTS['unverified-group'] })
+    const { result } = renderHook(() => useInboundMailWaiting('p', true, client))
+    await waitFor(() => expect(result.current.count).toBe(3))
+  })
+
+  it('stamps each read with what it saw, so a list can tell that something arrived or was decided elsewhere', async () => {
+    const client = fixtureClient({ list: LIST_VARIANTS.one })
+    const { result } = renderHook(() => useInboundMailWaiting('p', true, client))
+    await waitFor(() => expect(result.current.stamp).toBeTruthy())
+    const first = result.current.stamp
+    vi.spyOn(client, 'list').mockResolvedValue({ items: [], threadGroups: [], nextCursor: null })
+    await refreshInboundMailWaiting('p', client)
+    await waitFor(() => expect(result.current.stamp).not.toBe(first))
+    expect(result.current.count).toBe(0)
   })
 
   it('reads nothing while off', () => {

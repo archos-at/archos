@@ -26,10 +26,12 @@ import { buildFolderBrief } from '@/features/documents/lib/folder-knowledge'
 import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { I18nProvider } from '@/i18n'
 import { DevRailShell } from '../_fixtures/rail-shell'
+import { HiddenDevChrome } from '../inbound-mail/dev-chrome'
 import { FILES as BROWSER_FILES, FOLDERS as BROWSER_FOLDERS, useFixtureFolderNav } from '../file-browser/fixtures'
+import { PROJECT_NAME } from '../inbound-mail/fixture-base'
 import { MANY_FOLDERS, REAL_FILES, REAL_FINDINGS, REAL_FOLDERS } from './fixtures'
 
-const projectNameFor = (real: boolean): string => (real ? 'Holzbau Wien' : 'Wohnhaus Lindengasse')
+const projectNameFor = (real: boolean): string => (real ? PROJECT_NAME : 'Wohnhaus Lindengasse')
 
 const UPLOADING: TrackedFile[] = [
   { id: 'up1', fileName: 'Brandschutzkonzept_Wohnhausanlage_Bauteil_C_Index-D.pdf', fileSize: 4_800_000, status: 'uploading', progress: 0, collectionName: 'dev', uploadStartedAt: 1, bytesUploaded: 3_000_000 },
@@ -171,10 +173,19 @@ function FilesPageInShell(): JSX.Element {
   const params = useSearchParams()
   const inShell = params?.get('rail') === '1'
   const real = params?.get('project') === 'real'
-  if (!inShell) return <FilesPage />
+  const chrome = params?.get('chrome') === '0' ? <HiddenDevChrome /> : null
+  if (!inShell) {
+    return (
+      <>
+        <FilesPage />
+        {chrome}
+      </>
+    )
+  }
   return (
     <DevRailShell projectId="dev" projectName={projectNameFor(real)} pathname="/app/projects/dev/files">
       <FilesPage inShell />
+      {chrome}
     </DevRailShell>
   )
 }

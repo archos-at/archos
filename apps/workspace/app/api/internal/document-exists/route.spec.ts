@@ -30,8 +30,8 @@ const request = (
 describe('GET /api/internal/document-exists', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
   })
 
   it('rejects when the token is missing or wrong', async () => {
@@ -41,7 +41,7 @@ describe('GET /api/internal/document-exists', () => {
   })
 
   it('fails closed when the token is unconfigured', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await GET(request())).status).toBe(503)
   })
 

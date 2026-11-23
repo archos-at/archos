@@ -103,6 +103,7 @@ class Folder:
     name: str | None
     messages: list[Message] = field(default_factory=list)
     folders: list[Folder] = field(default_factory=list)
+    identifier: int = 0
 
     @property
     def number_of_sub_messages(self):
@@ -119,12 +120,26 @@ class Folder:
         return self.folders[index]
 
 
+@dataclass
+class Store:
+    record_sets: list[RecordSet] = field(default_factory=list)
+
+
+def store_naming(folder_number: int) -> Store:
+    entry_id = bytes(4) + bytes(range(16)) + folder_number.to_bytes(4, "little")
+    return Store(props(x35E0=(BINARY, entry_id)))
+
+
 class Handle:
-    def __init__(self, root: Folder) -> None:
+    def __init__(self, root: Folder, store: Store | None = None) -> None:
         self.root = root
+        self.store = store or Store()
 
     def get_root_folder(self):
         return self.root
+
+    def get_message_store(self):
+        return self.store
 
     def close(self):
         pass
@@ -167,6 +182,37 @@ def test_a_page_resumes_exactly_where_the_last_one_stopped():
     assert first.next_position == 4
     assert [m.subject for m in second.messages] == ["4", "x"]
     assert second.next_position is None
+
+
+def test_the_mail_tree_is_the_folder_the_store_names_whatever_stands_beside_it():
+    root = Folder(
+        None,
+        folders=[
+            Folder("SPAM Search Folder 2", identifier=0x2223),
+            Folder("Top of Personal Folders", folders=[Folder("Inbox", [Message("mail")])], identifier=0x8022),
+            Folder("Search Root", identifier=0x8042),
+            Folder("IPM_VIEWS", identifier=0x80E2),
+            Folder("IPM_COMMON_VIEWS", identifier=0x8102),
+            Folder(
+                "Freebusy Data",
+                [Message("frei", message_class="IPM.Microsoft.ScheduleData.FreeBusy")],
+                identifier=0x8222,
+            ),
+            Folder("Reminders", identifier=0x80023),
+        ],
+    )
+
+    page = Archive(Handle(root, store_naming(0x8022))).page(0, 10)
+    assert [(m.subject, m.folder_path) for m in page.messages] == [("mail", ("Inbox",))]
+
+
+def test_a_store_naming_no_folder_of_the_archive_falls_back_to_the_folder_names():
+    root = Folder(
+        None, folders=[Folder("Top of Personal Folders", folders=[Folder("Inbox", [Message("mail")])], identifier=7)]
+    )
+
+    page = Archive(Handle(root, store_naming(0x8022))).page(0, 10)
+    assert [m.folder_path for m in page.messages] == [("Inbox",)]
 
 
 def test_an_ost_walks_the_mailbox_ipm_subtree():

@@ -10,6 +10,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
 
+import answer_checks  # noqa: E402
 import edition_eval  # noqa: E402
 import suite  # noqa: E402
 
@@ -250,10 +251,10 @@ class TestJudgedChecks:
         assert run.signals == ["judge_unavailable:abstains"]
 
     def test_the_suite_records_an_unavailable_judge_after_the_precedent_checks(self, monkeypatch):
-        monkeypatch.setattr(suite, "_judge", lambda: None)
+        monkeypatch.setattr(answer_checks, "_judge", lambda: None)
         row = _row("r3-wien-rl2-2020-01-31")
         run = _run("Damals galt die Ausgabe 2019.")
-        checks = suite.check(row, run, {"cards": []})
+        checks = answer_checks.check(row, run, {"cards": []})
         assert checks["abstains"] is False and "judge_unavailable:abstains" in run.signals
         assert "family_cited" not in checks
 
@@ -267,7 +268,7 @@ class TestJudgedChecks:
 
     def test_the_loop_set_gets_none_of_these_checks(self):
         row = {"id": "q", "family": "OIB-RL 2", "question": "?", "expect": {"edition": "2023"}}
-        checks = suite.check(row, _run("Ausgabe 2019"), {"cards": []})
+        checks = answer_checks.check(row, _run("Ausgabe 2019"), {"cards": []})
         assert "binding" not in checks and "family_cited" in checks
 
 
@@ -284,12 +285,12 @@ class TestReport:
 
 class TestTheRealRunPath:
     def test_a_row_the_suite_selects_is_checked_by_the_set(self, monkeypatch):
-        monkeypatch.setattr(suite, "_judge", lambda: None)
+        monkeypatch.setattr(answer_checks, "_judge", lambda: None)
         path = suite.NORM_QUESTIONS["editions"]
         (row,), _ = suite.select_questions(["r2-sbg-rl2-2026-09-01"], False, path)
         assert row["set"] == "editions"
         wrong = "Am 1. September 2026 gilt noch die Ausgabe 2019; die Ausgabe Mai 2023 wird erst später verbindlich."
-        checks = suite.check(row, _run(wrong), {"cards": []})
+        checks = answer_checks.check(row, _run(wrong), {"cards": []})
         assert checks["binding"] is False and "family_cited" not in checks
 
     def test_the_loop_set_rows_stay_unmarked(self):

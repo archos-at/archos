@@ -63,8 +63,8 @@ const post = (body: unknown): Promise<Response> =>
 describe('POST /api/internal/bim/query', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
     vi.mocked(listBimModels).mockResolvedValue([NEW, OLD])
     vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
     vi.mocked(runBimQuery).mockResolvedValue({
@@ -141,7 +141,7 @@ describe('POST /api/internal/bim/query', () => {
       vi.mocked(listBimModels).mockResolvedValue([])
       await post(overview)
 
-      process.env.IFC_MODELS_ENABLED = 'false'
+      vi.stubEnv('IFC_MODELS_ENABLED', 'false')
       await post(overview)
 
       expect(captureServer).not.toHaveBeenCalled()

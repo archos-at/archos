@@ -9,6 +9,7 @@ import type { ChannelStatus } from '@/features/realtime/connection'
 import { realtimeLink } from '@/features/realtime/use-channel'
 import { documentRoomChannel } from '@/features/documents/hooks/use-document-room'
 import type { LastReply, LiveMark } from '../lib/canvas-activity'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export const CHANGE_DEBOUNCE_MS = 120
 
@@ -22,7 +23,7 @@ const lastReplyOf = (annotation: AnnotationView): LastReply | null => {
   if (!newest) return null
   return {
     authorKind: newest.authorKind,
-    authorName: newest.authorKind === 'piloti' ? null : newest.createdByName,
+    authorName: isAgentKind(newest.authorKind) ? null : newest.createdByName,
     body: newest.body,
   }
 }

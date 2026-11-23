@@ -15,7 +15,6 @@ from agent.tools.documents.draft_store import FILED_HASH_KEY
 from agent.tools.documents.draft_store import FILED_STATE_KEY
 from agent.tools.documents.draft_store import FILED_VERSION_KEY
 from agent.tools.documents.draft_store import DraftBackend
-from agent.tools.documents.draft_store import draft_namespace
 
 from .conftest import BODY
 from .conftest import CONVERSATION
@@ -29,7 +28,6 @@ from .conftest import _edit
 from .conftest import _file
 from .conftest import _responder
 from .conftest import _stored
-from .conftest import _submit
 from .conftest import _version
 from .conftest import _write
 from .conftest import envelope
@@ -70,14 +68,18 @@ class TestFilingANewDraft:
         )
         assert calls[0][0]["title"] == "Vermerk Fluchtweglänge"
 
-    async def test_the_answer_says_it_is_a_draft_nobody_approved(self, _one_store, monkeypatch, calls) -> None:
+    async def test_the_answer_says_the_user_signed_it_off_and_nothing_waits_for_approval(
+        self, _one_store, monkeypatch, calls
+    ) -> None:
         await _write(_one_store)
         message = await _file(
-            monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls
+            monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "published", "h1")}], calls
         )
         assert "Aktenvermerk – Fluchtweg" in message
-        assert "DRAFT" in message
-        assert "approved" in message
+        assert "their project document" in message
+        assert "made by you" in message
+        assert "DRAFT" not in message
+        assert [payload["op"] for payload, _ in calls] == ["create"]
 
     async def test_the_filing_is_remembered_on_the_draft(self, _one_store, monkeypatch, calls) -> None:
         await _write(_one_store)
@@ -218,121 +220,6 @@ class TestFilingTheSameDraftTwice:
         assert _stored(_one_store)[FILED_STATE_KEY] == "draft"
 
 
-class TestSubmitting:
-    async def test_it_posts_a_submit_for_the_open_version(self, _one_store, monkeypatch, calls) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-
-        calls.clear()
-        message = await _submit(
-            monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls
-        )
-
-        payload, signed = calls[0]
-        assert payload == {
-            "op": "submit",
-            "documentId": "doc-1",
-            "versionId": "ver-1",
-            "reviewerUserIds": [],
-        }
-        assert signed.header == ENVELOPE_HEADER
-        assert "approval" in message
-        assert "to the project's editors" in message
-        assert "DRAFT" in message
-        assert _stored(_one_store)[FILED_STATE_KEY] == "in_review"
-
-    async def test_a_named_reviewer_travels_as_a_NAME(self, _one_store, monkeypatch, calls) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-
-        calls.clear()
-        message = await _submit(
-            monkeypatch,
-            [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}],
-            calls,
-            reviewer="  Anna   Berger ",
-        )
-
-        payload, _ = calls[0]
-        assert payload["reviewer"] == "Anna Berger"
-        assert payload["reviewerUserIds"] == []
-        assert "to Anna Berger" in message
-
-    async def test_no_reviewer_puts_no_field_on_the_wire(self, _one_store, monkeypatch, calls) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-
-        calls.clear()
-        await _submit(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls)
-
-        assert "reviewer" not in calls[0][0]
-
-    async def test_a_person_the_project_does_not_have_is_a_refusal_in_those_words(
-        self, _one_store, monkeypatch, calls
-    ) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-
-        def _refuse(payload, signed):  # noqa: ANN001, ARG001
-            raise filing.FilingError("the document API refused the call (400)", status=400, code="UNKNOWN_REVIEWER")
-
-        monkeypatch.setattr(filing_tools, "post_document_version", _refuse)
-        message = await filing_tools.run_file_draft(DRAFT, submit=True, reviewer="Anna Berger")
-
-        assert "I do not know a person named „Anna Berger“" in message
-        assert "Nothing was submitted" in message
-        assert "project's editors" in message
-        assert _stored(_one_store)[FILED_STATE_KEY] == "draft"
-
-    async def test_a_400_without_a_named_reviewer_keeps_the_submit_wording(
-        self, _one_store, monkeypatch, calls
-    ) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-
-        def _refuse(payload, signed):  # noqa: ANN001, ARG001
-            raise filing.FilingError("the document API refused the call (400)", status=400)
-
-        monkeypatch.setattr(filing_tools, "post_document_version", _refuse)
-        message = await filing_tools.run_file_draft(DRAFT, submit=True)
-
-        assert "Ich kenne keine Person" not in message
-        assert "as a DRAFT" in message
-
-    async def test_a_filed_unchanged_draft_is_only_submitted(self, _one_store, monkeypatch, calls) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-
-        calls.clear()
-        await _submit(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls)
-        assert [payload["op"] for payload, _ in calls] == ["submit"]
-
-    async def test_submitting_twice_is_refused_rather_than_repeated(self, _one_store, monkeypatch, calls) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-        calls.clear()
-        await _submit(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls)
-
-        calls.clear()
-        _conflict(monkeypatch, calls)
-        message = await filing_tools.run_file_draft(DRAFT, submit=True)
-        assert "already been submitted" in message
-        assert [payload["op"] for payload, _ in calls] == ["submit"]
-
-    async def test_a_version_sent_back_unedited_can_be_submitted_again(self, _one_store, monkeypatch, calls) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-        calls.clear()
-        await _submit(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls)
-
-        calls.clear()
-        message = await _submit(
-            monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls
-        )
-        assert [payload["op"] for payload, _ in calls] == ["submit"]
-        assert "Error" not in message
-
-
 class TestRefusals:
     async def test_without_a_project_nothing_is_filed(self, _one_store, monkeypatch, calls) -> None:
         await _write(_one_store)
@@ -390,15 +277,6 @@ class TestTheCard:
         card = _draft_cards(registry)[-1]
         assert "document_id" not in card
         assert "version_state" not in card
-
-    async def test_submitting_re_emits_the_card_in_its_new_state(
-        self, _one_store, monkeypatch, calls, registry
-    ) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-        calls.clear()
-        await _submit(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")}], calls)
-        assert _draft_cards(registry)[-1]["version_state"] == "in_review"
 
 
 class TestTheReadRouteIsScopedToTheConversation:
@@ -464,69 +342,7 @@ class TestTheFilingReferenceMirrorsTheBrowser:
         )
 
 
-class TestFilingAndSubmittingInOneCall:
-    async def test_an_unfiled_draft_is_filed_then_submitted(self, _one_store, monkeypatch, calls, registry) -> None:
-        await _write(_one_store)
-        message = await _submit(
-            monkeypatch,
-            [
-                {"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")},
-                {"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")},
-            ],
-            calls,
-        )
-
-        assert [payload["op"] for payload, _ in calls] == ["create", "submit"]
-        assert calls[1][0] == {"op": "submit", "documentId": "doc-1", "versionId": "ver-1", "reviewerUserIds": []}
-        assert "submitted for approval to the project's editors" in message
-        assert "Aktenvermerk – Fluchtweg" in message
-        assert "DRAFT" in message
-        assert _stored(_one_store)[FILED_STATE_KEY] == "in_review"
-        cards = [card for card in _draft_cards(registry) if card.get("document_id")]
-        assert len(cards) == 1
-        assert cards[0]["version_state"] == "in_review"
-
-    async def test_an_edit_since_filing_is_filed_again_before_it_is_submitted(
-        self, _one_store, monkeypatch, calls
-    ) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-        await _edit(_one_store, "42 m", "38 m")
-
-        calls.clear()
-        await _submit(
-            monkeypatch,
-            [
-                {"documentId": "doc-1", "version": _version("ver-1", "draft", "h2")},
-                {"documentId": "doc-1", "version": _version("ver-1", "in_review", "h2")},
-            ],
-            calls,
-            reviewer="Anna Berger",
-        )
-
-        assert [payload["op"] for payload, _ in calls] == ["update", "submit"]
-        assert calls[0][0]["ifMatch"] == "h1"
-        assert "38 m" in calls[0][0]["content"]
-        assert calls[1][0]["reviewer"] == "Anna Berger"
-
-    async def test_a_record_filed_before_the_stamp_existed_is_filed_again(self, _one_store, monkeypatch, calls) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-        namespace = draft_namespace(CONVERSATION)
-        value = {k: v for k, v in _stored(_one_store).items() if k != FILED_AT_DRAFT_VERSION_KEY}
-        _one_store.put(namespace, DRAFT, value)
-
-        calls.clear()
-        await _submit(
-            monkeypatch,
-            [
-                {"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")},
-                {"documentId": "doc-1", "version": _version("ver-1", "in_review", "h1")},
-            ],
-            calls,
-        )
-        assert [payload["op"] for payload, _ in calls] == ["update", "submit"]
-
+class TestFilingAgain:
     async def test_an_edited_draft_already_in_review_is_refused_as_unreplaceable(
         self, _one_store, monkeypatch, calls
     ) -> None:
@@ -536,77 +352,9 @@ class TestFilingAndSubmittingInOneCall:
 
         calls.clear()
         _conflict(monkeypatch, calls)
-        message = await filing_tools.run_file_draft(DRAFT, submit=True)
+        message = await filing_tools.run_file_draft(DRAFT)
         assert "cannot be replaced" in message
         assert [payload["op"] for payload, _ in calls] == ["update"]
-
-    async def test_a_failed_submit_after_filing_says_the_filing_stands(
-        self, _one_store, monkeypatch, calls, registry
-    ) -> None:
-        await _write(_one_store)
-        answers = iter([{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}])
-
-        def _create_then_refuse(payload, signed):  # noqa: ANN001, ARG001
-            calls.append((payload, signed))
-            if payload["op"] == "submit":
-                raise filing.FilingError("the document API refused the call (403)", status=403)
-            return next(answers)
-
-        monkeypatch.setattr(filing_tools, "post_document_version", _create_then_refuse)
-        message = await filing_tools.run_file_draft(DRAFT, submit=True)
-
-        assert [payload["op"] for payload, _ in calls] == ["create", "submit"]
-        assert "Filed in the project" in message
-        assert "NOT submitted" in message
-        assert "Nothing was filed" not in message
-        assert _stored(_one_store)[FILED_DOCUMENT_KEY] == "doc-1"
-        assert _stored(_one_store)[FILED_STATE_KEY] == "draft"
-        assert _draft_cards(registry)[-1]["version_state"] == "draft"
-
-    async def test_a_failed_submit_of_an_already_filed_draft_says_it_is_filed(
-        self, _one_store, monkeypatch, calls
-    ) -> None:
-        await _write(_one_store)
-        await _file(monkeypatch, [{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}], calls)
-        calls.clear()
-
-        def _refuse_submit(payload, signed):  # noqa: ANN001, ARG001
-            calls.append((payload, signed))
-            raise filing.FilingError("the document API refused the call (500)", status=500)
-
-        monkeypatch.setattr(filing_tools, "post_document_version", _refuse_submit)
-        message = await filing_tools.run_file_draft(DRAFT, submit=True)
-
-        assert [payload["op"] for payload, _ in calls] == ["submit"]
-        assert "as a DRAFT" in message
-        assert "not submitted" in message
-        assert "Nothing was filed" not in message
-
-    async def test_an_unknown_reviewer_after_filing_keeps_the_reviewer_wording(self, _one_store, monkeypatch, calls):
-        await _write(_one_store)
-        answers = iter([{"documentId": "doc-1", "version": _version("ver-1", "draft", "h1")}])
-
-        def _create_then_400(payload, signed):  # noqa: ANN001, ARG001
-            if payload["op"] == "submit":
-                raise filing.FilingError("the document API refused the call (400)", status=400)
-            return next(answers)
-
-        monkeypatch.setattr(filing_tools, "post_document_version", _create_then_400)
-        message = await filing_tools.run_file_draft(DRAFT, submit=True, reviewer="Anna Berger")
-
-        assert "Filed in the project" in message
-        assert "I do not know a person named „Anna Berger“" in message
-
-    async def test_a_reviewer_without_submit_is_refused_before_anything_is_filed(
-        self, _one_store, monkeypatch, calls
-    ) -> None:
-        await _write(_one_store)
-        message = await filing_tools.run_file_draft(DRAFT, reviewer="Anna Berger")
-
-        assert "`submit=true`" in message
-        assert "Nothing was filed" in message
-        assert calls == []
-        assert FILED_DOCUMENT_KEY not in _stored(_one_store)
 
     async def test_filing_stamps_the_draft_version_it_filed(self, _one_store, monkeypatch, calls) -> None:
         await _write(_one_store)
@@ -620,11 +368,9 @@ class TestFilingAndSubmittingInOneCall:
 
 
 class TestTheLiveLine:
-    def test_filing_and_submitting_read_differently(self) -> None:
+    def test_filing_reads_as_filing(self) -> None:
         def key(args: dict) -> str | None:
             return retrieval_status._describe_calls([{"name": "file_draft", "args": args}])["key"]
 
         assert key({"path": DRAFT}) == status_keys.KEY_ACTION_DRAFT_FILED
-        assert key({"path": DRAFT, "submit": False}) == status_keys.KEY_ACTION_DRAFT_FILED
-        assert key({"path": DRAFT, "submit": True}) == status_keys.KEY_ACTION_DRAFT_SUBMITTED
-        assert key({"path": DRAFT, "submit": "true"}) == status_keys.KEY_ACTION_DRAFT_SUBMITTED
+        assert key({"path": DRAFT, "submit": True}) == status_keys.KEY_ACTION_DRAFT_FILED

@@ -1,11 +1,11 @@
 # Agent-document provenance
 
-What a published Piloti document carries into retrieval, so a reader and the
+What a published agent document carries into retrieval, so a reader and the
 model can see who wrote it — and cannot mistake it for a norm.
 
 ## The gap this fills
 
-A document Piloti wrote and a person approved is filed like any other document:
+A document the agent wrote and a person approved is filed like any other document:
 same shelf, same folder, same ingest. Once it is in the index, nothing that
 travels with a retrieved chunk says an agent wrote it, and the two axes that
 look like they could say it both fail:
@@ -13,7 +13,7 @@ look like they could say it both fail:
 | Axis | Why it cannot carry authorship |
 |---|---|
 | `doc_class` ("Dokumentart") | A closed nine-value NORM-HIERARCHY vocabulary (`knowledge/document_classification.py`), human-set, whose fail-open lane is `building_law_base` — "Basisdokument", in law blue. Filing authorship here files it under authority, where an unknown value reads as a weak norm. `agent_authored` is deliberately NOT a member |
-| Shelf (ADR-0047) | The shelf says WHERE the document sits, and a published Piloti document really does sit on the project or the Archiv shelf. It would render as Projektwissen or Büroablage, both true and both silent about the author |
+| Shelf (ADR-0047) | The shelf says WHERE the document sits, and a published agent document really does sit on the project or the Archiv shelf. It would render as Projektwissen or Büroablage, both true and both silent about the author |
 
 So authorship is its own axis, and it beats both.
 
@@ -49,7 +49,7 @@ doc_class stamped at ingest would place it in the norm hierarchy under the
 
 ## What retrieval says
 
-`packages/knowledge-layer/src/register.py` adds one line to a marked hit's
+`packages/knowledge-layer/src/knowledge_layer/register.py` adds one line to a marked hit's
 grounding block, and nothing to an unmarked one:
 
 ```
@@ -66,7 +66,7 @@ office decided, never for what the OIB requires.
 
 ## The gate
 
-`common/answer_envelope._gate_verdict` drops a verdict whose `reference`
+`common/envelope_gates._gate_verdict` drops a verdict whose `reference`
 resolves to an agent-authored source, logs why, and emits a technical
 `status:verdict:dropped` event (`reason: agent_authored_reference`) so the rate
 is countable. The verdict is the one place an answer names a Fundstelle for a
@@ -83,9 +83,11 @@ version's bytes to `POST /v1/ingest` with these four fields beside `file_name`,
 unless the dispatch names the row's own `published_version_id`, so a draft, an
 in-review version, an approved-but-unpublished one, a superseded one and a
 rejected one never reach the index; the document is filed under the
-`piloti/<document id>/<name>` namespace so a model-chosen title cannot collide
-with a person's upload, and migration 0083 makes that a unique index rather than
-a convention. Superseding and archiving purge the chunks, and the backend's
+`generated/<document id>/<name>` namespace so a model-chosen title cannot collide
+with a person's upload (rows filed before step 3 of ADR-0182 phase 4 carry
+the old prefix until the backfill renames them). Only the `agent_document` and
+`agent_file` producers are filed there and may be indexed, and migration 0246 makes
+one live row per name a unique index over those producers rather than a convention. Superseding and archiving purge the chunks, and the backend's
 `unregister_summary` takes the `document_metadata` row's `provenance` with them.
 
 The BFF resolves `approved_by` through `resolvePeople`, the same lookup every

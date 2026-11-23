@@ -437,7 +437,7 @@ describe('optional fields, by what the hello accepts', () => {
       type: 'user_message',
       conversation_id: 'conv_1',
       message_id: 'w1',
-      text: '@Piloti?',
+      text: '@Agent?',
       trigger: { kind: 'thread_mention', event_id: 'r-1', annotation_id: 'a-1' },
       if_idle: true,
     } as const
@@ -486,6 +486,36 @@ describe('optional fields, by what the hello accepts', () => {
       latest().greet()
       socket.send(question)
       expect(latest().sent).toEqual([bareQuestion])
+    })
+  })
+
+  describe('the part of an answer a question is about (answer_excerpt)', () => {
+    const question = {
+      type: 'user_message' as const,
+      conversation_id: 'conv_1',
+      message_id: 'q1',
+      text: 'Woher kommt das?',
+      answer_excerpt: 'höchstens 40 m\nje Geschoß',
+    }
+
+    it('goes to a server whose hello names it', async () => {
+      const { socket } = setup()
+      await socket.connect()
+      latest().open()
+      latest().receive({ ...HELLO, value: { build: 'new', accepts: ['user_message.answer_excerpt'] } })
+      socket.send(question)
+      expect(latest().sent).toEqual([question])
+    })
+
+    it('is quoted above the question for an older server, so the question keeps what it refers to', async () => {
+      const { socket } = setup()
+      await socket.connect()
+      latest().greet()
+      socket.send(question)
+      const { answer_excerpt: _excerpt, ...bareQuestion } = question
+      expect(latest().sent).toEqual([
+        { ...bareQuestion, text: '> höchstens 40 m\n> je Geschoß\n\nWoher kommt das?' },
+      ])
     })
   })
 

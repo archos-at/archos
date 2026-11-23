@@ -1,2 +1,2 @@
-# Single required reviewer for every path in the repository.
-* @matthiasbigl
+# Either owner can approve any path in the repository.
+* @matthiasbigl @thom-ba

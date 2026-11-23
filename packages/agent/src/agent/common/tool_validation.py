@@ -1,5 +1,3 @@
-"""Tool validation utilities for checking tool availability."""
-
 import logging
 import os
 import re
@@ -15,12 +13,6 @@ _STUB_MARKER = re.compile(r"\(unavailable\b", re.IGNORECASE)
 
 
 def _extract_unavailable_reason(description: str) -> str:
-    """Extract the reason from a stub tool's description.
-
-    Stub tools typically have descriptions like:
-        ``"Web search tool (unavailable - missing TAVILY_API_KEY)"``
-    This extracts ``"missing TAVILY_API_KEY"`` from the parenthetical.
-    """
     match = re.search(r"\(unavailable\s*[-:]\s*(.+?)\)", description, re.IGNORECASE)
     if match:
         return match.group(1).strip()
@@ -35,20 +27,6 @@ def validate_tool_availability(
     research_type: str = "research",
     enable_logging: bool = True,
 ) -> tuple[bool, int, list[str]]:
-    """
-    Validate that at least one tool is available.
-
-    Args:
-        tools: List of tools to validate
-        research_type: Type of research (e.g., "research", "deep research") for logging
-        enable_logging: Whether to log tool availability information
-
-    Returns:
-        Tuple of (is_valid, available_count, unavailable_tools):
-        - is_valid: True if at least one tool is available
-        - available_count: Number of available tools
-        - unavailable_tools: List of unavailable tool names with reasons
-    """
     available_tools_count = 0
     unavailable_tools = []
 
@@ -85,16 +63,6 @@ def format_tool_unavailability_error(
     research_type: str,
     unavailable_tools: list[str],
 ) -> str:
-    """
-    Format an error message for unavailable tools.
-
-    Args:
-        research_type: Type of research (e.g., "research", "deep research")
-        unavailable_tools: List of unavailable tool names with reasons
-
-    Returns:
-        Formatted error message string
-    """
     unavailable_info = ""
     if unavailable_tools:
         unavailable_info = f"\nUnavailable tools: {', '.join(unavailable_tools)}.\n"
@@ -111,24 +79,6 @@ def format_user_facing_tool_error(
     unavailable_tools: list[str],
     available_count: int = 0,
 ) -> str:
-    """Format a tool-unavailability error appropriate for the current deployment mode.
-
-    In local development (``DEV_ENV=cli``), the full tool details are
-    returned so developers can diagnose quickly.  In all other modes
-    (e2e, web, production, unset) a generic message is returned to avoid
-    leaking infrastructure details to end users in the web UI.
-
-    The detailed message is **always** logged at WARNING level regardless of
-    deployment mode so operators can still diagnose from server logs.
-
-    Args:
-        research_type: Type of research (e.g., "research", "deep research")
-        unavailable_tools: List of unavailable tool names with reasons
-        available_count: Number of tools that passed pre-flight checks
-
-    Returns:
-        User-facing error message string
-    """
     if available_count == 0:
         detailed = format_tool_unavailability_error(research_type, unavailable_tools)
     else:
@@ -151,13 +101,6 @@ def format_no_sources_message(
     *,
     scoped: bool = False,
 ) -> str:
-    """The reply to a turn whose searches left nothing citable.
-
-    A tool that failed its pre-flight check is the cause the reader cannot fix,
-    so it is named first. Otherwise the advice depends on whether the user set
-    a scope: "don't narrow it to one file" told a user who had narrowed nothing
-    to do something they could not (answer feedback, October 2026).
-    """
     if unavailable_tools:
         return format_user_facing_tool_error(research_type, unavailable_tools, available_count)
     return SCOPED_NO_SOURCES_MESSAGE if scoped else NO_SOURCES_MESSAGE

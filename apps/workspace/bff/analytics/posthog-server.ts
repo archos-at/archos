@@ -2,8 +2,8 @@ import 'server-only'
 
 import { PostHog } from 'posthog-node'
 
-import { configuredAppOrigin } from '@/lib/app-origin'
-import { deployedSha } from '@/lib/boot'
+import { configuredAppHost } from '@/lib/app-origin'
+import { deployedSha, deploymentName } from '@/lib/boot'
 
 import { scrubServerEvent } from './scrub-server-event'
 
@@ -43,11 +43,19 @@ export type ServerEvent =
   | 'inbound_mail_received'
   | 'inbound_mail_refused'
   | 'inbound_mail_dropped'
+  | 'inbound_mail_receive_failed'
+  | 'inbound_mail_expired'
   | 'inbound_mail_decided'
+  | 'inbound_mail_reported'
   | 'inbound_mail_sender_filed'
+  | 'inbound_mail_suggested'
+  | 'inbound_mail_address_created'
   | 'inbound_mail_address_rotated'
+  | 'inbound_mail_address_forwards_changed'
   | 'mail_thread_followed'
   | 'mail_thread_original_downloaded'
+  | 'norm_recognized_at_upload'
+  | 'office_norm_cited'
 
 let client: PostHog | null = null
 let resolved = false
@@ -61,12 +69,19 @@ export const posthogServerSettings = (): { host: string; projectToken: string } 
 
 export const isPosthogServerEnabled = (): boolean => posthogServerSettings() !== null
 
-export const serverSuperProperties = (): { release: string; service: string; app_host?: string } => {
-  const origin = configuredAppOrigin() ?? configuredAppOrigin({ WORKOS_REDIRECT_URI: process.env.MCP_RESOURCE_URL })
+export const serverSuperProperties = (): {
+  release: string
+  service: string
+  app_host?: string
+  deployment?: string
+} => {
+  const host = configuredAppHost()
+  const deployment = deploymentName()
   return {
     release: deployedSha(),
     service: process.env.OTEL_SERVICE_NAME?.trim() || 'grid-ui',
-    ...(origin ? { app_host: new URL(origin).host } : {}),
+    ...(host ? { app_host: host } : {}),
+    ...(deployment ? { deployment } : {}),
   }
 }
 

@@ -1,5 +1,5 @@
 /*
- * The proposal card view's stylesheet (ADR-0142): Piloti's design system
+ * The proposal card view's stylesheet (ADR-0142): the app's design system
  * (`globals.css`: tokens, utilities, the dark variant), with Tailwind told to
  * generate only the classes the card's components use. The build sets the scan
  * base to this folder (`scripts/build-mcp-app-views.ts`); every other folder

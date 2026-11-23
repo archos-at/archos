@@ -5,7 +5,7 @@ import {
   patchProfileSchema,
 } from '@/lib/project-profile/profile-wire'
 import { ProjectProfileSchema } from '@/lib/project-profile/types'
-import { intakeDecisionsRequestSchema, startIntakeRequestSchema } from '@/lib/project-intake/types'
+import { intakeBuildingRequestSchema, intakeDecisionsRequestSchema, startIntakeRequestSchema } from '@/lib/project-intake/types'
 import { confirmCleanupSchema, proposeCleanupSchema } from '@/lib/projects/cleanup-wire'
 import { createProjectSchema } from '@/lib/projects/create-project-schema'
 import { projectSiteSetBodySchema } from '@/lib/site-resolution/wire'
@@ -108,7 +108,7 @@ export const projectsOperations = [
     summary: 'Create a project',
     description:
       'Creates a project in the organization and returns it with its id. Give a name; optionally the address (typed `address`), ' +
-      'a description, and `setup`: `piloti` (default) has ' + PRODUCT_NAME + ' read the documents afterwards, `self` leaves the profile to the intake wizard. ' +
+      'a description, and `setup`: `agent` (default) has ' + PRODUCT_NAME + ' read the documents afterwards, `self` leaves the profile to the intake wizard. ' +
       'State the site with `country` (`at`, `de`, `ch`, `other`) and, in Austria, `federalState`; without them, an Austrian postal code ' +
       'and place in a typed address suggest the Land for the person to confirm. ' +
       'To add a past project as a reference, pass `closing` with the outcome and months. Call project-same-address-list first to avoid a duplicate. ' +
@@ -403,6 +403,20 @@ export const projectsOperations = [
     params: projectParams,
     body: intakeDecisionsRequestSchema,
     load: () => import('@/app/api/projects/[id]/intake/decisions/route'),
+  },
+  {
+    name: 'project-intake-building',
+    domain: 'projects',
+    summary: 'Add, rename or remove a building of the project',
+    description:
+      'One change to the project’s buildings, for a site with several: `add` (the server assigns the id), `rename`, or `remove`, which deletes the building with every value recorded for it and is refused for the last one (409). ' +
+      'Ids are `buildings` in project-intake-get.',
+    method: 'POST',
+    path: '/api/projects/[id]/intake/buildings',
+    params: projectParams,
+    body: intakeBuildingRequestSchema,
+    destructive: true,
+    load: () => import('@/app/api/projects/[id]/intake/buildings/route'),
   },
   {
     name: 'project-intake-complete',

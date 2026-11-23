@@ -243,7 +243,7 @@ describe('runHandler', () => {
     })
   })
 
-  it('runs a wake of Piloti, and hands its wait to the runner as a time, not as a failure', async () => {
+  it('runs a wake of the agent, and hands its wait to the runner as a time, not as a failure', async () => {
     const wake = {
       wakeId: '44444444-4444-4444-8444-444444444444',
       trigger: 'thread_mention',

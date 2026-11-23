@@ -2,20 +2,20 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from agent.cards.models import answer_card_adapter
-from agent.cards.surface_documents import _BRIEF_SNIPPET_MAX
+from agent.cards.surface_briefing import _BRIEF_SNIPPET_MAX
+from agent.cards.surface_briefing import _briefing_for_agent
 from agent.cards.surface_documents import _CHUNK_TOP_K
 from agent.cards.surface_documents import _TOOL_DESCRIPTION
-from agent.cards.surface_documents import MAX_SURFACED_FILES
-from agent.cards.surface_documents import MIN_SURFACE_SCORE
 from agent.cards.surface_documents import SurfaceDocumentsConfig
-from agent.cards.surface_documents import _aggregate_surfaced
-from agent.cards.surface_documents import _briefing_for_agent
-from agent.cards.surface_documents import _filename_mentioned_in_query
-from agent.cards.surface_documents import _match_known_filename
-from agent.cards.surface_documents import _source_for_collection
-from agent.cards.surface_documents import _source_for_target
-from agent.cards.surface_documents import _target_collections
 from agent.cards.surface_documents import surface_documents
+from agent.cards.surface_ranking import MAX_SURFACED_FILES
+from agent.cards.surface_ranking import MIN_SURFACE_SCORE
+from agent.cards.surface_ranking import _aggregate_surfaced
+from agent.cards.surface_targets import _filename_mentioned_in_query
+from agent.cards.surface_targets import _match_known_filename
+from agent.cards.surface_targets import _source_for_collection
+from agent.cards.surface_targets import _source_for_target
+from agent.cards.surface_targets import _target_collections
 
 
 def _chunk(file_name, score, content="passage", page=1):

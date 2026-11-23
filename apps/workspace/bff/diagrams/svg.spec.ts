@@ -11,6 +11,7 @@ import {
   censusSvg,
   diagramSourceOf,
   parseDiagramSvg,
+  STORED_METADATA_KIND_ATTRIBUTE,
   serializeDiagramSvg,
   withDiagramMarking,
 } from './svg'
@@ -177,7 +178,7 @@ describe('what is refused, by name', () => {
 
   it('refuses a metadata block anywhere but the root', () => {
     expect(
-      rejection(`${OPEN}<g><metadata data-grid-diagram-source="mermaid">x</metadata></g></svg>`),
+      rejection(`${OPEN}<g><metadata data-diagram-source="mermaid">x</metadata></g></svg>`),
     ).toBe('unsupported-element')
   })
 
@@ -251,7 +252,9 @@ describe('the diagram carries its own source', () => {
   it('files the source inside the file, so it travels with the drawing', () => {
     const accepted = acceptDiagram(submission, MARKING)
     expect(diagramSourceOf(accepted.root)).toEqual({ kind: 'mermaid', source: submission.source })
-    expect(acceptDiagram(submission, MARKING).svg).toContain('<metadata data-grid-diagram-source="mermaid">')
+    const { svg } = acceptDiagram(submission, MARKING)
+    expect(svg).toContain('<metadata data-diagram-source="mermaid">')
+    expect(svg).not.toContain(STORED_METADATA_KIND_ATTRIBUTE)
   })
 
   it('survives a round trip through the parser it will be read back with', () => {
@@ -259,17 +262,37 @@ describe('the diagram carries its own source', () => {
     expect(diagramSourceOf(parseDiagramSvg(stored).root)?.source).toBe(submission.source)
   })
 
-  it('discards a metadata block the client sent and records its own', () => {
-    const accepted = acceptDiagram(
-      {
-        ...submission,
-        svg: `${OPEN}<metadata data-grid-diagram-source="mermaid">a lie</metadata><rect width="1" height="1"/></svg>`,
-      },
-      MARKING,
-    )
-    expect(accepted.svg).not.toContain('a lie')
-    expect(diagramSourceOf(accepted.root)?.source).toBe(submission.source)
+  it('reads a diagram stored under the old attribute name, and writes it back under the new one', () => {
+    const stored = `${OPEN}<metadata ${STORED_METADATA_KIND_ATTRIBUTE}="mermaid">graph TD</metadata><rect width="1" height="1"/></svg>`
+    const { root } = parseDiagramSvg(stored)
+    expect(diagramSourceOf(root)).toEqual({ kind: 'mermaid', source: 'graph TD' })
+    const rewritten = serializeDiagramSvg(root)
+    expect(rewritten).toContain('<metadata data-diagram-source="mermaid">graph TD</metadata>')
+    expect(rewritten).not.toContain(STORED_METADATA_KIND_ATTRIBUTE)
+    expect(diagramSourceOf(parseDiagramSvg(rewritten).root)).toEqual({ kind: 'mermaid', source: 'graph TD' })
   })
+
+  it('reads the new attribute first when a block carries both names', () => {
+    const { root } = parseDiagramSvg(
+      `${OPEN}<metadata data-diagram-source="mermaid" ${STORED_METADATA_KIND_ATTRIBUTE}="excalidraw">graph TD</metadata></svg>`,
+    )
+    expect(diagramSourceOf(root)?.kind).toBe('mermaid')
+  })
+
+  it.each(['data-diagram-source', STORED_METADATA_KIND_ATTRIBUTE])(
+    'discards a metadata block the client sent under %s and records its own',
+    (attribute) => {
+      const accepted = acceptDiagram(
+        {
+          ...submission,
+          svg: `${OPEN}<metadata ${attribute}="mermaid">a lie</metadata><rect width="1" height="1"/></svg>`,
+        },
+        MARKING,
+      )
+      expect(accepted.svg).not.toContain('a lie')
+      expect(diagramSourceOf(accepted.root)?.source).toBe(submission.source)
+    },
+  )
 
   it('refuses a nested metadata rather than filing the source inside it', () => {
     const decoy = 'x'.repeat(200 * 1024)
@@ -277,7 +300,7 @@ describe('the diagram carries its own source', () => {
       acceptDiagram(
         {
           ...submission,
-          svg: `${OPEN}<g><metadata data-grid-diagram-source="mermaid">${decoy}</metadata></g></svg>`,
+          svg: `${OPEN}<g><metadata data-diagram-source="mermaid">${decoy}</metadata></g></svg>`,
         },
         MARKING,
       ),
@@ -288,11 +311,12 @@ describe('the diagram carries its own source', () => {
     const accepted = acceptDiagram(
       {
         ...submission,
-        svg: `${OPEN}<metadata data-grid-diagram-source="mermaid">a lie</metadata><rect width="1" height="1"/></svg>`,
+        svg: `${OPEN}<metadata data-diagram-source="mermaid">a lie</metadata><rect width="1" height="1"/></svg>`,
       },
       MARKING,
     )
-    expect(accepted.svg.match(/data-grid-diagram-source/g)).toHaveLength(1)
+    expect(accepted.svg.match(/data-diagram-source/g)).toHaveLength(1)
+    expect(accepted.svg).not.toContain(STORED_METADATA_KIND_ATTRIBUTE)
   })
 
   it('reads the viewport off the root, for the page the PDF has to fit', () => {

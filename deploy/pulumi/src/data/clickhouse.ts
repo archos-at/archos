@@ -13,6 +13,7 @@ import {
 } from "../platform/rollout";
 import { DATA_RESOURCES, LANGFUSE, PORT } from "../constants";
 import { scrapeAnnotations } from "../platform/scrape";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const CLICKHOUSE_PASSWORD_SECRET_KEY = "clickhouse-password"; // pragma: allowlist secret (Secret key name, not a credential)
 
@@ -152,7 +153,7 @@ export function installClickHouse(
                     readOnly: true,
                   },
                 ],
-                resources: DATA_RESOURCES.clickhouse,
+                resources: scaledCpuRequest(DATA_RESOURCES.clickhouse),
                 startupProbe: {
                   httpGet: { path: "/ping", port: PORT.clickhouseHttp },
                   periodSeconds: 10,

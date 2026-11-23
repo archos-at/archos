@@ -30,7 +30,13 @@ vi.mock('@/lib/office-shelf/folder-service', () => ({
   ensureOfficeShelfFolderPaths: vi.fn(),
 }))
 
+vi.mock('@/lib/authz/feature-flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/authz/feature-flags')>()),
+  isOfficeStandardsEnabled: vi.fn(() => false),
+}))
+
 import { ForbiddenError } from '@/lib/api/errors'
+import { isOfficeStandardsEnabled } from '@/lib/authz/feature-flags'
 import {
   createOfficeShelfFolder,
   deleteOfficeShelfFolder,
@@ -80,6 +86,29 @@ describe('GET /api/office-shelf/folders', () => {
   })
 })
 
+describe('GET /api/office-shelf/folders while the office keeps its standards in their own tab', () => {
+  const standards = { ...folder, id: '00000000-0000-4000-8000-000000000002', name: 'Grundlagen des Büros', path: 'Grundlagen des Büros' }
+  const topic = { ...folder, id: '00000000-0000-4000-8000-000000000003', parentId: standards.id, name: 'Brandschutz', path: 'Grundlagen des Büros/Brandschutz' }
+
+  it('leaves the standards tree out of the Ordner tab', async () => {
+    vi.mocked(isOfficeStandardsEnabled).mockReturnValue(true)
+    vi.mocked(listOfficeShelfFolders).mockResolvedValue([folder, standards, topic])
+
+    const body = await (await GET(new NextRequest('https://grid.test/api/office-shelf/folders'), noParams)).json()
+
+    expect(body.folders.map((row: { name: string }) => row.name)).toEqual(['Normen'])
+  })
+
+  it('shows every folder while the standards tab is off', async () => {
+    vi.mocked(isOfficeStandardsEnabled).mockReturnValue(false)
+    vi.mocked(listOfficeShelfFolders).mockResolvedValue([folder, standards, topic])
+
+    const body = await (await GET(new NextRequest('https://grid.test/api/office-shelf/folders'), noParams)).json()
+
+    expect(body.folders).toHaveLength(3)
+  })
+})
+
 describe('POST /api/office-shelf/folders', () => {
   it('creates a folder and answers 201 { folder }', async () => {
     vi.mocked(createOfficeShelfFolder).mockResolvedValue({ ok: true, folder })
@@ -102,7 +131,7 @@ describe('POST /api/office-shelf/folders', () => {
     expect(response.status).toBe(400)
   })
 
-  it('answers 403 for a member without org:archiv:manage', async () => {
+  it('answers 403 for a member without org:office_shelf:manage', async () => {
     vi.mocked(createOfficeShelfFolder).mockRejectedValue(new ForbiddenError())
 
     const response = await POST(json('/api/office-shelf/folders', 'POST', { name: 'Normen' }), noParams)

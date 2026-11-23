@@ -1,29 +1,3 @@
-"""Read an Outlook archive for the BFF's mail import (ADR-0085).
-
-Two internal-token routes, both handed the archive as a presigned GET URL into
-object storage (the BFF staged the upload there and decided who may import it):
-
-- ``POST /v1/mail-archive/messages``: a page of messages from a position on,
-  with headers, the body as text and what each attachment is.
-- ``POST /v1/mail-archive/attachment``: one attachment's bytes, raw.
-
-The URL is the caller's and this tier requests it, so it is an
-:data:`~agent_host.object_store_url.ObjectStoreUrl`: a URL naming anything but the
-object store is refused with 422 before a byte is read. The token is checked
-before the body, so a caller without it gets 403 whatever it sent.
-
-Answers the BFF acts on: 422 the file is not an archive or the URL is not the
-store's (no retry helps), 409
-one attachment is damaged (skip it), 413 too large (skip it), 502 the object
-store failed (retry). A damaged message comes back in the page as an
-``unreadable`` item rather than as an error, so the rest of the page files.
-
-The bytes are a second request rather than base64 inside the page because an
-attachment can be a hundred megabytes, and a page of them would be a response
-nobody should hold in memory twice. This tier decides nothing about access, and
-it stores nothing: the archive is read where it lies.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -72,7 +46,6 @@ class AttachmentRequest(BaseModel):
 
 
 def add_mail_archive_routes(router: APIRouter) -> None:
-    """Register the archive-reading endpoints."""
     internal_only = [Depends(_require_internal_token)]
 
     @router.post(
@@ -107,7 +80,6 @@ def add_mail_archive_routes(router: APIRouter) -> None:
 
 
 async def _read(operation, ref: ArchiveRef):  # noqa: ANN001, ANN202 - a closure over the open archive
-    """Run ``operation`` on the open archive, off the event loop, with errors as HTTP answers."""
 
     def run():  # noqa: ANN202
         with use_archive(object_store_request_url(ref.url, field="archive.url"), ref.size) as archive:

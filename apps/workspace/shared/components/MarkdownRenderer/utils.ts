@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { transliterateGerman } from '@/lib/text/latinize'
 import type { SupportedLanguage } from './types'
 
@@ -57,3 +58,13 @@ export const headingAnchorId = (text: string): string =>
     .replace(/[^\w\s-]/g, '')
     .replace(/[\s_]+/g, '-')
     .replace(/^-+|-+$/g, '')
+
+export function getTextFromChildren(node: ReactNode): string {
+  if (typeof node === 'string') return node
+  if (typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(getTextFromChildren).join('')
+  if (node && typeof node === 'object' && 'props' in node) {
+    return getTextFromChildren((node as React.ReactElement<{ children?: ReactNode }>).props.children)
+  }
+  return ''
+}

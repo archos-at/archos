@@ -21,15 +21,17 @@ vi.mock('@/lib/project-intake/service', () => ({
   getIntakeView: vi.fn(),
   startIntakeRun: vi.fn(),
   applyIntakeDecisions: vi.fn(),
+  applyBuildingOperation: vi.fn(),
   completeIntake: vi.fn(),
 }))
 
 import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import { createProjectIntakeClient, ProjectIntakeRequestError } from '@/lib/project-intake/client'
-import { applyIntakeDecisions, completeIntake, getIntakeView, startIntakeRun } from '@/lib/project-intake/service'
+import { applyBuildingOperation, applyIntakeDecisions, completeIntake, getIntakeView, startIntakeRun } from '@/lib/project-intake/service'
 import type { IntakeView } from '@/lib/project-intake/types'
 import { GET, POST as start } from './route'
 import { POST as decide } from './decisions/route'
+import { POST as changeBuilding } from './buildings/route'
 import { POST as complete } from './complete/route'
 
 type Handler = (request: Request, context?: { params?: Promise<Record<string, string>> }) => Promise<Response>
@@ -38,6 +40,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler }> = [
   { pattern: /^\/api\/projects\/([^/]+)\/intake$/, method: 'GET', handler: GET },
   { pattern: /^\/api\/projects\/([^/]+)\/intake$/, method: 'POST', handler: start },
   { pattern: /^\/api\/projects\/([^/]+)\/intake\/decisions$/, method: 'POST', handler: decide },
+  { pattern: /^\/api\/projects\/([^/]+)\/intake\/buildings$/, method: 'POST', handler: changeBuilding },
   { pattern: /^\/api\/projects\/([^/]+)\/intake\/complete$/, method: 'POST', handler: complete },
 ]
 
@@ -101,6 +104,7 @@ const VIEW: IntakeView = {
     },
   ],
   derivations: [],
+  buildings: [{ id: 'bldg1', name: 'Bauwerk 1' }],
   canDecide: true,
   canComplete: true,
   readingProgress: {
@@ -183,6 +187,45 @@ describe('POST /api/projects/[id]/intake/decisions', () => {
     })
     expect(wrong.status).toBe(400)
     expect(applyIntakeDecisions).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/projects/[id]/intake/buildings', () => {
+  beforeEach(() => {
+    vi.mocked(applyBuildingOperation).mockResolvedValue({ buildingId: 'bldg2', intake: VIEW })
+  })
+
+  it('applies one building operation and answers the building and the review after it', async () => {
+    expect(await client.changeBuilding(PROJECT, { action: 'add' })).toEqual({ buildingId: 'bldg2', intake: VIEW })
+    expect(applyBuildingOperation).toHaveBeenCalledWith(SESSION, PROJECT, { action: 'add' })
+
+    await client.changeBuilding(PROJECT, { action: 'rename', buildingId: 'bldg2', name: '  Turm B ' })
+    expect(applyBuildingOperation).toHaveBeenLastCalledWith(SESSION, PROJECT, {
+      action: 'rename',
+      buildingId: 'bldg2',
+      name: 'Turm B',
+    })
+  })
+
+  it('refuses a name that is empty, a building id of another shape and an unknown action', async () => {
+    const send = (operation: unknown) =>
+      run(`/api/projects/${PROJECT}/intake/buildings`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ operation }),
+      })
+    expect((await send({ action: 'rename', buildingId: 'bldg2', name: '   ' })).status).toBe(400)
+    expect((await send({ action: 'remove', buildingId: 'storeys_above_ground' })).status).toBe(400)
+    expect((await send({ action: 'merge', buildingId: 'bldg2' })).status).toBe(400)
+    expect(applyBuildingOperation).not.toHaveBeenCalled()
+  })
+
+  it('carries the refusal to remove the last building to the client', async () => {
+    vi.mocked(applyBuildingOperation).mockRejectedValue(new ConflictError('last', { reason: 'last-building' }))
+    await expect(client.changeBuilding(PROJECT, { action: 'remove', buildingId: 'bldg1' })).rejects.toMatchObject({
+      status: 409,
+      reason: 'last-building',
+    })
   })
 })
 

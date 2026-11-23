@@ -12,6 +12,7 @@ import {
 import { SHAREABLE_RESOURCE_TYPES } from './resource-shares'
 
 import { INBOX_ITEM_TYPES, type InboxItemType } from '@/lib/inbox/inbox-vocabulary'
+import type { StoredInboxType } from '@/lib/inbox/legacy-agent-types'
 export { INBOX_ITEM_TYPES, type InboxItemType }
 
 export const INBOX_TARGET_TYPES = [
@@ -29,7 +30,7 @@ export const inboxItems = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     organizationId: text('organization_id').notNull(),
     recipientUserId: text('recipient_user_id').notNull(),
-    type: text('type').$type<InboxItemType>().notNull(),
+    type: text('type').$type<StoredInboxType>().notNull(),
     resourceType: text('resource_type').$type<InboxTargetType>().notNull(),
     resourceId: text('resource_id').notNull(),
     anchorId: text('anchor_id'),

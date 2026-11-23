@@ -91,7 +91,7 @@ function envelopeHeaders(
 
 function call(body: unknown, headers: Record<string, string> = envelopeHeaders()) {
   return POST(
-    new Request('https://grid.test/api/internal/tasks', {
+    new Request('https://example.test/api/internal/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-grid-internal-token': SECRET, ...headers },
       body: JSON.stringify(body),
@@ -103,7 +103,7 @@ const CREATE = { op: 'create', projectId: PROJECT, kind: 'submission_check', goa
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(session)
   vi.mocked(isDeepResearchEnabledForOrg).mockResolvedValue(true)
   vi.mocked(isTaskAutomationEnabledForOrg).mockResolvedValue(true)

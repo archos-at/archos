@@ -1,5 +1,3 @@
-"""Agent-runtime register function for deep research agent."""
-
 import asyncio
 import logging
 from dataclasses import dataclass
@@ -55,8 +53,6 @@ logger = logging.getLogger(__name__)
 
 
 class DeepResearchAgentConfig(FunctionBaseConfig, name="deep_research_agent"):
-    """Configuration for the deep research agent."""
-
     model_config = ConfigDict(extra="forbid")
 
     orchestrator_llm: LLMRef = Field(..., description="LLM for orchestrator")
@@ -139,10 +135,8 @@ class DeepResearchAgentConfig(FunctionBaseConfig, name="deep_research_agent"):
 
 @register_function(config_type=DeepResearchSkillsConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
 async def deep_research_skills(config: DeepResearchSkillsConfig, builder: Builder):
-    """Config-only function for deep research skill collection assignments."""
 
     async def _noop(query: str) -> str:
-        """Deep research skills config placeholder."""
         return "This is a config-only function."
 
     yield FunctionInfo.from_fn(_noop, description="Deep research skills config-only function.")
@@ -150,10 +144,8 @@ async def deep_research_skills(config: DeepResearchSkillsConfig, builder: Builde
 
 @register_function(config_type=DeepResearchSandboxConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
 async def deep_research_sandbox(config: DeepResearchSandboxConfig, builder: Builder):
-    """Config-only function for deep research sandbox settings."""
 
     async def _noop(query: str) -> str:
-        """Deep research sandbox config placeholder."""
         return "This is a config-only function."
 
     yield FunctionInfo.from_fn(_noop, description="Deep research sandbox config-only function.")
@@ -175,7 +167,6 @@ def resolve_deep_research_runtime_config(
     config: DeepResearchAgentConfig,
     builder: Builder,
 ) -> tuple[DeepResearchSkillsConfig | None, DeepResearchSandboxConfig | None]:
-    """Resolve optional Deep Research runtime config refs into concrete config objects."""
     skills = _resolve_config_ref(builder, config.skills, DeepResearchSkillsConfig)
     sandbox = _resolve_config_ref(builder, config.sandbox, DeepResearchSandboxConfig)
     return skills, sandbox
@@ -186,13 +177,6 @@ async def _resolve_tools(builder: Builder, tool_refs: list[str], exclude_tools: 
 
 
 async def _explicit_tools(builder: Builder, config: DeepResearchAgentConfig) -> list | None:
-    """Eagerly resolved tools for an explicit ``config.tools``; None when inheriting.
-
-    When tools are inherited (``config.tools`` empty) the data_source_registry
-    may not be populated at BUILD time — the agent runtime adds no build-order dependency in
-    that case — so eager resolution would capture an empty list. Those are
-    resolved lazily on the first request instead (:class:`LazyTools`).
-    """
     if not config.tools:
         return None
     tools = await _resolve_tools(builder, list(config.tools), config.exclude_tools)
@@ -214,11 +198,6 @@ _ROLE_LLM_FIELDS: tuple[tuple[str, LLMRole, AgentGroup], ...] = (
 
 
 async def _build_provider(builder: Builder, config: DeepResearchAgentConfig) -> LLMProvider:
-    """The role-based provider, its LLMs resolved concurrently.
-
-    Registration-only cost, but on the worker cold-start path the ghost reaper
-    measures, so the five independent resolutions are one gather.
-    """
     configured = [(name, role, group) for name, role, group in _ROLE_LLM_FIELDS if getattr(config, name)]
     refs = [config.orchestrator_llm, *(getattr(config, name) for name, _, _ in configured)]
     orchestrator_llm, *role_llms = await asyncio.gather(*(get_langchain_llm(builder, ref) for ref in refs))
@@ -231,14 +210,6 @@ async def _build_provider(builder: Builder, config: DeepResearchAgentConfig) -> 
 
 
 async def _open_checkpointer(checkpoint_db: str | None) -> Checkpointer | None:
-    """The optional durable checkpointer, built once and shared by every agent built here.
-
-    ``get_checkpointer`` caches by path/DSN, so this is a cache hit when the
-    async job runner already opened the same one. Fails OPEN: durable
-    checkpointing is an optional resilience feature, and an unopenable DB
-    (read-only container FS, missing volume, bad DSN) must degrade to the
-    in-memory default with a loud warning, never take application startup down.
-    """
     if not checkpoint_db:
         return None
     try:
@@ -255,8 +226,6 @@ async def _open_checkpointer(checkpoint_db: str | None) -> Checkpointer | None:
 
 @dataclass(frozen=True)
 class _AgentBlueprint:
-    """Everything a ``DeepResearcherAgent`` is built from, minus the tools."""
-
     config: DeepResearchAgentConfig
     provider: LLMProvider
     verbose: bool
@@ -266,12 +235,6 @@ class _AgentBlueprint:
     checkpointer: Checkpointer | None
 
     def build(self, tools: list, *, llm_provider: LLMProvider | None = None, job_id: str | None = None):
-        """One constructor call for the eager, lazy and per-request build sites.
-
-        Omitted overrides fall back to the registration-time provider and a
-        fresh job_id, so per-request paths (model overrides / BYOK credential,
-        source-filtered tools, sandbox-scoped job_id) reuse the same kwargs.
-        """
         config = self.config
         return DeepResearcherAgent(
             llm_provider=llm_provider if llm_provider is not None else self.provider,
@@ -294,14 +257,6 @@ class _AgentBlueprint:
 
 @dataclass
 class LazyTools:
-    """The (tools, prebuilt agent) pair, resolved once and on first use.
-
-    Populated eagerly for an explicit ``config.tools``; for inherited tools it
-    is filled by the first request that resolves a non-empty set, so an early
-    request that races registry population is retried on the next call. A
-    genuinely empty set is handled by the runtime gate in :func:`run_deep_research`.
-    """
-
     builder: Builder
     blueprint: _AgentBlueprint
     tools: list | None = None
@@ -328,16 +283,6 @@ def _agent_for_request(
     selected_tools: list,
     llm_context: RequestLLMContext,
 ) -> DeepResearcherAgent:
-    """The prebuilt agent, or a per-request one when something differs.
-
-    Per-org model overrides and the org's BYOK credential / ZDR flag
-    (ADR-0022) come off the request context; an identity check on the provider
-    means "nothing to apply" keeps the prebuilt agent. There is deliberately no
-    ``data_sources is not None`` guard: org-disabled sources narrow
-    ``selected_tools`` even on "all tools" requests. A sandbox is scoped to the
-    async job_id the agent runtime carries (set by ``agent_host/jobs/agent_job.py``; a per-request
-    uuid in ``DeepAgentsRuntime`` when None), so it is always rebuilt.
-    """
     provider = llm_context.apply(blueprint.provider)
     if provider is blueprint.provider and blueprint.sandbox is None and selected_tools == tools:
         return prebuilt
@@ -345,7 +290,6 @@ def _agent_for_request(
 
 
 async def run_deep_research(state: DeepResearchAgentState, lazy: LazyTools) -> DeepResearchAgentState:
-    """Run deep research for one request against the resolved tool set."""
     tools, agent = await lazy.get()
     disabled = set(get_disabled_sources_from_context()) | law_sources_withheld()
     selected_tools = filter_tools_by_sources(tools, state.data_sources, disabled)
@@ -366,7 +310,6 @@ async def run_deep_research(state: DeepResearchAgentState, lazy: LazyTools) -> D
 
 @register_function(config_type=DeepResearchAgentConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
 async def deep_research_agent(config: DeepResearchAgentConfig, builder: Builder):
-    """Deep research agent using multi-phase workflow."""
     skills_config, sandbox_config = resolve_deep_research_runtime_config(config, builder)
     explicit_tools, provider, checkpointer = await asyncio.gather(
         _explicit_tools(builder, config),
@@ -391,29 +334,20 @@ async def deep_research_agent(config: DeepResearchAgentConfig, builder: Builder)
     )
 
     async def _run(state: DeepResearchAgentState) -> DeepResearchAgentState:
-        """Run deep research with a list of messages or payload."""
         return await run_deep_research(state, lazy)
 
     yield FunctionInfo.from_fn(_run, description="Deep research agent for comprehensive multi-phase research.")
 
 
 class DeepResearchWorkflowConfig(FunctionBaseConfig, name="deep_research_workflow"):
-    """Configuration for the deep research workflow wrapper.
-
-    This wrapper accepts a string query and converts it to messages
-    for the deep_research_agent. Use this as the workflow for evaluation.
-    """
-
     pass
 
 
 @register_function(config_type=DeepResearchWorkflowConfig, framework_wrappers=[LLMFrameworkEnum.LANGCHAIN])
 async def deep_research_workflow(config: DeepResearchWorkflowConfig, builder: Builder):
-    """Wrapper workflow that accepts string queries for evaluation."""
     deep_research_agent_fn = await builder.get_function("deep_research_agent")
 
     async def _run(query: str, project_context: str | None = None) -> str:
-        """Run deep research on a query string."""
         state = DeepResearchAgentState(messages=[HumanMessage(content=query)], project_context=project_context)
         result = await deep_research_agent_fn.ainvoke(state)
         return str(result.messages[-1].content)

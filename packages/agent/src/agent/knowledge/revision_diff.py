@@ -1,28 +1,3 @@
-"""What changed between two Fassungen, read from what the index already holds (ADR-0104).
-
-The cheap layers of the compare: no model call, nothing read again. Both
-Fassungen were read at ingestion, and their chunks carry two kinds of content
-that compare honestly, each labelled as what it is:
-
-* **Printed text** (``content_type == "text"``): the words on the page as the
-  reader extracted them. Pages are aligned by their text, so a sheet inserted in
-  the middle shifts nothing after it; a changed page reports the lines that went
-  and came, and the values that moved inside a line that otherwise stayed
-  („Fluchtweglänge 38 m → 42 m“).
-* **Piloti's reading of a drawing** (``drawing_data`` on a visual chunk): the
-  quantities the drawing analysis recorded (object, property, value, unit) and
-  the dimension strings it copied verbatim (``annotations``). Compared as sets
-  per page, never as prose: two readings of one sheet word their summaries
-  differently, and a diff of prose would report a model rewording as a change.
-
-The title block (``revision_facts``) says which Index and date each side is.
-
-Pure: the caller loads the chunks (``load_fassung_chunks``) and the rows; this
-module decides and renders. What it does NOT do is look at pixels. The visual
-marks (``revision_compare``) are the check on the drawing itself, and the report
-says so.
-"""
-
 from __future__ import annotations
 
 import json
@@ -37,6 +12,8 @@ from typing import Any
 from typing import Literal
 
 from agent.common.brand import PRODUCT_NAME
+from agent.knowledge.table_diff import TablesDiff
+from agent.knowledge.table_diff import render_tables
 
 TITLE_BLOCK_LABELS: tuple[tuple[str, str], ...] = (
     ("document_number", "Nummer"),
@@ -62,8 +39,6 @@ _PAGE_MARKER = re.compile(r"^\[(?:TEXT|DRAWING|IMAGE|CHART|TABLE)[^\]]*\]\s*", r
 
 @dataclass(frozen=True)
 class RevisionChunk:
-    """One stored chunk of a Fassung: the page it belongs to, what kind of content, and its text or reading."""
-
     page: str
     content_type: str
     text: str = ""
@@ -167,7 +142,6 @@ def _annotations(structured: Mapping[str, Any]) -> Iterable[str]:
 
 
 def _pages(chunks: Sequence[RevisionChunk]) -> list[_Page]:
-    """The Fassung's pages in reading order, each with its printed lines and its drawing reading."""
     pages: dict[str, _Page] = {}
     for chunk in chunks:
         page = pages.setdefault(chunk.page, _Page(label=chunk.page))
@@ -183,14 +157,12 @@ def _pages(chunks: Sequence[RevisionChunk]) -> list[_Page]:
 
 
 def _subject_before(line: str, start: int) -> str:
-    """The words in front of a value: what the value is about, as the line says it."""
     head = line[:start].rstrip(" :=–-")
     words = head.split()
     return " ".join(words[-5:])
 
 
 def _line_values(older: str, newer: str) -> list[ValueChange]:
-    """Values that moved in a line that otherwise stayed the same."""
     old_values = list(_VALUE.finditer(older))
     new_values = list(_VALUE.finditer(newer))
     if not old_values or len(old_values) != len(new_values):
@@ -263,7 +235,6 @@ def _page_key(page: _Page) -> tuple[str, tuple[Any, ...]]:
 
 
 def _align(older: list[_Page], newer: list[_Page]) -> tuple[list[PageChange], int]:
-    """Pair the pages: identical ones first, wherever they moved to; the rest in order inside each gap."""
     matcher = SequenceMatcher(a=[_page_key(p) for p in older], b=[_page_key(p) for p in newer], autojunk=False)
     changes: list[PageChange] = []
     unchanged = 0
@@ -287,7 +258,6 @@ def _align(older: list[_Page], newer: list[_Page]) -> tuple[list[PageChange], in
 
 
 def diff_title_blocks(older: Mapping[str, Any] | None, newer: Mapping[str, Any] | None) -> tuple[FieldChange, ...]:
-    """The title-block fields that differ; a field only one side prints counts as a change."""
     older = older or {}
     newer = newer or {}
     changes: list[FieldChange] = []
@@ -306,7 +276,6 @@ def diff_revisions(
     older_facts: Mapping[str, Any] | None = None,
     newer_facts: Mapping[str, Any] | None = None,
 ) -> RevisionDiff:
-    """What changed from ``older`` to ``newer``, from their stored chunks and title blocks."""
     older_pages = _pages(older_chunks)
     newer_pages = _pages(newer_chunks)
     changes, unchanged = _align(older_pages, newer_pages)
@@ -322,13 +291,6 @@ def diff_revisions(
 
 
 def changed_pages(diff: RevisionDiff) -> tuple[int, ...]:
-    """The pages of the NEWER Fassung that changed or came new, as 1-based numbers, in page order.
-
-    What a look at the pictures is spent on (ADR-0130): a page the read content
-    shows unchanged is not sent to a vision model. A page whose label is not a
-    number (a roman preface, a sheet name) cannot be rendered by number and is
-    left out; a removed page has nothing on the newer Fassung to mark.
-    """
     numbers: set[int] = set()
     for change in diff.pages:
         if change.kind == "removed" or not change.newer_page:
@@ -343,7 +305,6 @@ def changed_pages(diff: RevisionDiff) -> tuple[int, ...]:
 
 
 def chunk_from_store(text: str | None, metadata: Mapping[str, Any] | None) -> RevisionChunk | None:
-    """One stored chunk as the compare reads it; ``None`` for a chunk that says nothing comparable."""
     metadata = metadata or {}
     content_type = str(metadata.get("content_type") or "text")
     structured = None
@@ -369,40 +330,55 @@ def _value_text(change: ValueChange) -> str:
     return f"{subject}{change.older} → {change.newer}"
 
 
-def _page_name(change: PageChange) -> str:
+def _page_name(change: PageChange, related: bool) -> str:
     if change.kind == "added":
-        return f"Page {change.newer_page} (new)"
+        return f"Page {change.newer_page} ({'new' if related else 'only in the second file'})"
     if change.kind == "removed":
-        return f"Page {change.older_page} (removed)"
+        return f"Page {change.older_page} ({'removed' if related else 'only in the first file'})"
     if change.older_page and change.older_page != change.newer_page:
-        return f"Page {change.newer_page} (previously {change.older_page})"
+        earlier = "previously" if related else "in the first file page"
+        return f"Page {change.newer_page} ({earlier} {change.older_page})"
     return f"Page {change.newer_page}"
 
 
-def _page_lines(change: PageChange) -> list[str]:
+def _page_lines(change: PageChange, related: bool) -> list[str]:
     if change.kind != "changed":
-        return [f"- {_page_name(change)}."]
+        return [f"- {_page_name(change, related)}."]
+    gone, come = ("removed", "new") if related else ("only in the first file", "only in the second file")
     parts: list[str] = []
     if change.values:
         parts.append("Values: " + "; ".join(_value_text(v) for v in change.values[:MAX_VALUES_PER_PAGE]))
     if change.removed_lines:
         quoted = " | ".join(f"„{_clip(line)}“" for line in change.removed_lines[:MAX_LINES_PER_PAGE])
         more = len(change.removed_lines) - MAX_LINES_PER_PAGE
-        parts.append(f"removed: {quoted}" + (f" and {more} more lines" if more > 0 else ""))
+        parts.append(f"{gone}: {quoted}" + (f" and {more} more lines" if more > 0 else ""))
     if change.added_lines:
         quoted = " | ".join(f"„{_clip(line)}“" for line in change.added_lines[:MAX_LINES_PER_PAGE])
         more = len(change.added_lines) - MAX_LINES_PER_PAGE
-        parts.append(f"new: {quoted}" + (f" and {more} more lines" if more > 0 else ""))
+        parts.append(f"{come}: {quoted}" + (f" and {more} more lines" if more > 0 else ""))
     drawing: list[str] = []
     if change.drawing_values:
         drawing.append("; ".join(_value_text(v) for v in change.drawing_values[:MAX_VALUES_PER_PAGE]))
     if change.annotations_added:
-        drawing.append("Dimensions/labels new: " + ", ".join(f"„{a}“" for a in change.annotations_added[:8]))
+        drawing.append(f"Dimensions/labels {come}: " + ", ".join(f"„{a}“" for a in change.annotations_added[:8]))
     if change.annotations_removed:
-        drawing.append("removed: " + ", ".join(f"„{a}“" for a in change.annotations_removed[:8]))
+        drawing.append(f"{gone}: " + ", ".join(f"„{a}“" for a in change.annotations_removed[:8]))
     if drawing:
         parts.append(f"according to {PRODUCT_NAME}'s reading of the drawing: " + "; ".join(drawing))
-    return [f"- {_page_name(change)}: " + ". ".join(parts) + "."]
+    return [f"- {_page_name(change, related)}: " + ". ".join(parts) + "."]
+
+
+def _page_counts(diff: RevisionDiff, related: bool) -> str:
+    changed = [c for c in diff.pages if c.kind == "changed"]
+    added = [c for c in diff.pages if c.kind == "added"]
+    removed = [c for c in diff.pages if c.kind == "removed"]
+    counts = [f"{diff.unchanged_pages} unchanged" if related else f"{diff.unchanged_pages} the same"]
+    counts.append(f"{len(changed)} changed" if related else f"{len(changed)} differing")
+    if added:
+        counts.append(f"{len(added)} new" if related else f"{len(added)} only in the second file")
+    if removed:
+        counts.append(f"{len(removed)} removed" if related else f"{len(removed)} only in the first file")
+    return f"Pages: {diff.older_page_count} → {diff.newer_page_count}; {', '.join(counts)}."
 
 
 def render_diff(
@@ -411,27 +387,31 @@ def render_diff(
     newer_name: str,
     *,
     change_summary: str | None = None,
+    tables: TablesDiff | None = None,
+    related: bool = True,
 ) -> str:
-    """The compare as the model reads it: title block, then pages, then what it does not cover. Bounded."""
-    lines = [f"Comparison „{older_name}“ (older) → „{newer_name}“ (newer), from the read content of both files."]
+    table_lines = render_tables(tables, older_name, newer_name) if tables is not None else []
+    if related:
+        lines = [f"Comparison „{older_name}“ (older) → „{newer_name}“ (newer), from the read content of both files."]
+    else:
+        lines = [
+            f"Comparison of two different documents, first „{older_name}“ → second „{newer_name}“, from the read "
+            "content of both files. They are not Fassungen of one document, so neither is the older or the newer "
+            "state; every „→“ reads first file → second file."
+        ]
     if diff.title_block:
         moved = "; ".join(f"{c.label} {c.older or '—'} → {c.newer or '—'}" for c in diff.title_block)
         lines.append(f"Plankopf (title block): {moved}.")
-    changed = [c for c in diff.pages if c.kind == "changed"]
-    added = [c for c in diff.pages if c.kind == "added"]
-    removed = [c for c in diff.pages if c.kind == "removed"]
-    counts = [f"{diff.unchanged_pages} unchanged", f"{len(changed)} changed"]
-    if added:
-        counts.append(f"{len(added)} new")
-    if removed:
-        counts.append(f"{len(removed)} removed")
-    lines.append(f"Pages: {diff.older_page_count} → {diff.newer_page_count}; {', '.join(counts)}.")
+    if diff.older_page_count or diff.newer_page_count or not table_lines:
+        lines.append(_page_counts(diff, related))
     for change in diff.pages[:MAX_PAGES_SHOWN]:
-        lines.extend(_page_lines(change))
+        lines.extend(_page_lines(change, related))
     if len(diff.pages) > MAX_PAGES_SHOWN:
         lines.append(f"… and {len(diff.pages) - MAX_PAGES_SHOWN} more changed pages.")
-    if not diff.pages and not diff.title_block:
-        if diff.has_text or diff.has_drawing:
+    lines.extend(table_lines)
+    differs_in_tables = tables is not None and tables.differs
+    if not diff.pages and not diff.title_block and not differs_in_tables:
+        if diff.has_text or diff.has_drawing or table_lines:
             lines.append("In the read content the two files do not differ.")
         else:
             lines.append(
@@ -441,9 +421,15 @@ def render_diff(
     if change_summary:
         lines.append(f"{PRODUCT_NAME}'s summary of the change (from the descriptions): {_clip(change_summary)}")
     lines.append(
-        f"What was compared is the printed text and {PRODUCT_NAME}'s reading of the drawings, "
+        f"What was compared is the printed text, the tables and {PRODUCT_NAME}'s reading of the drawings, "
         "not the drawings themselves. "
-        "Check a dimension by reading the document before stating it; marks on the page are shown by "
-        "„Vergleichen“ in Dateien."
+        + (
+            "Check a dimension by reading the document before stating it; marks on the page are shown by "
+            "„Vergleichen“ in Dateien."
+            if related
+            else "This comparison rests on these two files only: name both as its basis, state no difference that "
+            "is not listed here, and read the place named beside a difference before stating it, so that it "
+            "carries its source."
+        )
     )
     return "\n".join(lines)

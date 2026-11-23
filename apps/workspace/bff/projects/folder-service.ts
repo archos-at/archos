@@ -24,6 +24,7 @@ import {
   listShelfFolders,
   mirrorShelfFolderPathRewrite,
   updateShelfFolder,
+  toFolderRow,
   type FolderRow,
   type ShelfFolderVisibility,
 } from '@/lib/documents/shelf-folders'
@@ -109,6 +110,15 @@ export function findRootProjectFolderByName(
   organizationId: string,
 ): Promise<FolderRow | null> {
   return findShelfRootFolder(projectShelf(projectId), organizationId, name)
+}
+
+export async function findProjectFolder(
+  projectId: string,
+  folderId: string,
+  organizationId: string,
+): Promise<FolderRow | null> {
+  const row = await findShelfFolder(projectShelf(projectId), organizationId, folderId)
+  return row ? toFolderRow(row) : null
 }
 
 export function getOrCreateProjectFolderByName(

@@ -1,0 +1,10 @@
+---
+features:
+  - >
+    A Word, Excel, PowerPoint, PDF or image file the agent makes in a chat now
+    arrives as a file card with its first page, to open, download or file into
+    the project as a draft for review. You see what you got before you keep it,
+    and a rewrite shows the new version instead of a second card.
+  - >
+    A CSV file from the agent says why it cannot be filed into the project and
+    offers to ask for an Excel workbook instead.

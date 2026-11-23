@@ -11,11 +11,12 @@ import { getDb } from '@/lib/db'
 import type { MailThreadFollowRow } from '@/lib/db/schema/mail-thread'
 import { memberReader } from '@/lib/documents/document-reader'
 import { managesProject, requireInboundMailEnabled, requireMailReviewer } from '@/lib/inbound-mail/access'
-import { settleFollowExpiring } from '@/lib/inbound-mail/announce'
+import { announceFollowEnded, announceFollowsEnded, settleFollowExpiring } from '@/lib/inbound-mail/announce'
 import { auditFollowsEnded } from '@/lib/inbound-mail/audit'
 import { endProjectFollows } from '@/lib/inbound-mail/repository'
+import { isProjectClosedError } from '@/lib/projects/project-status'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
-import { endFollow, findRunningFollow, renewFollow, startFollow, type FollowEnd } from './follow-repository'
+import { endFollow, extendRunningFollows, findRunningFollow, renewFollow, startFollow, type FollowEnd } from './follow-repository'
 import type {
   MailThreadFollowBody,
   MailThreadFollowResultView,
@@ -94,6 +95,46 @@ async function startOrRenew(
   throw new Error(`could not start or renew the follow of mail thread ${threadId}`)
 }
 
+export async function extendFollowsOnFiling(organizationId: string, threadId: string, filedAt: Date = new Date()): Promise<number> {
+  const until = new Date(filedAt.getTime() + MAIL_THREAD_FOLLOW_DEFAULT_DAYS * DAY_MS)
+  const extended = await extendRunningFollows(threadId, until, filedAt)
+  if (extended.length > 0) await settleFollowExpiring(organizationId, extended.map((follow) => follow.id))
+  return extended.length
+}
+
+export type FollowByDefault = 'started' | 'running' | 'refused'
+
+export async function followByDefault(
+  session: AuthorizedSession,
+  projectId: string,
+  threadId: string,
+  now: Date = new Date(),
+): Promise<FollowByDefault> {
+  if (await findRunningFollow(threadId, session.userId)) return 'running'
+  try {
+    if ((await requireMailReviewer(session, projectId)).closed) return 'refused'
+    const thread = await findWritableThread(projectId, threadId, memberReader(session.userId))
+    if (!thread) return 'refused'
+    await requireFolderWrite(session, projectId, [thread.document.folderId])
+  } catch (error) {
+    if (error instanceof NotFoundError || error instanceof ForbiddenError || isProjectClosedError(error)) return 'refused'
+    throw error
+  }
+  const days = MAIL_THREAD_FOLLOW_DEFAULT_DAYS
+  const follow = await startFollow({
+    organizationId: session.organizationId,
+    projectId,
+    threadId,
+    userId: session.userId,
+    createdAt: now,
+    expiresAt: new Date(now.getTime() + days * DAY_MS),
+  })
+  if (!follow) return 'running'
+  recordFollowStarted(session, follow, { days, renewed: false, byDefault: true })
+  publishProjectChanged(session.organizationId, projectId)
+  return 'started'
+}
+
 export async function unfollowMailThread(
   session: AuthorizedSession,
   projectId: string,
@@ -120,21 +161,27 @@ export async function unfollowMailThread(
   if (!ended) return { endedFollowId: null }
   recordFollowEnded(session.organizationId, { userId: session.userId, email: session.email || null }, ended)
   await settleFollowExpiring(session.organizationId, [ended.id])
+  await announceFollowEnded(endedNotice(ended, end.reason, session.userId))
   publishProjectChanged(session.organizationId, projectId)
   return { endedFollowId: ended.id }
 }
 
 export async function endFollowBySystem(
   follow: Pick<MailThreadFollowRow, 'id'>,
-  reason: Extract<FollowEnd['reason'], 'access_lost' | 'document_gone' | 'expired' | 'project_closed'>,
+  reason: Extract<FollowEnd['reason'], 'access_lost' | 'document_gone' | 'expired' | 'project_closed' | 'thread_full'>,
   now: Date = new Date(),
 ): Promise<boolean> {
   const ended = await endFollow(follow.id, { reason, endedBy: null }, now)
   if (!ended) return false
   recordFollowEnded(ended.organizationId, { userId: SYSTEM_ACTORS.inboundMail, email: null }, ended)
   await settleFollowExpiring(ended.organizationId, [ended.id])
+  await announceFollowEnded(endedNotice(ended, reason, null))
   publishProjectChanged(ended.organizationId, ended.projectId)
   return true
+}
+
+function endedNotice(follow: MailThreadFollowRow, reason: FollowEnd['reason'], endedBy: string | null) {
+  return { organizationId: follow.organizationId, projectId: follow.projectId, followId: follow.id, followerUserId: follow.userId, reason, endedBy }
 }
 
 export async function endFollowsOnProjectClose(session: AuthorizedSession, projectId: string, at: Date = new Date()): Promise<number> {
@@ -150,6 +197,7 @@ export async function endFollowsOnProjectClose(session: AuthorizedSession, proje
     })
   )
   await settleFollowExpiring(session.organizationId, ended.map((follow) => follow.id))
+  await announceFollowsEnded(session.organizationId, projectId, ended, 'project_closed', session.userId)
   publishProjectChanged(session.organizationId, projectId)
   return ended.length
 }
@@ -157,7 +205,7 @@ export async function endFollowsOnProjectClose(session: AuthorizedSession, proje
 function recordFollowStarted(
   session: AuthorizedSession,
   follow: MailThreadFollowRow,
-  started: { days: number; renewed: boolean },
+  started: { days: number; renewed: boolean; byDefault?: boolean },
 ): void {
   recordAuditEventAfterCommit({
     action: 'mail_thread.follow_started',
@@ -172,7 +220,7 @@ function recordFollowStarted(
     event: 'mail_thread_followed',
     distinctId: session.userId,
     organizationId: session.organizationId,
-    properties: { action: started.renewed ? 'renew' : 'start', days: started.days },
+    properties: { action: started.renewed ? 'renew' : 'start', days: started.days, by_default: started.byDefault ?? false },
   })
 }
 

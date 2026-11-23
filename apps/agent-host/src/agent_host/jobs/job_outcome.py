@@ -1,18 +1,3 @@
-"""The persist and finish phases of a research job, and its failure path.
-
-``persist`` turns the agent's raw result into the job's output: the post-report
-passes (cards, anatomy, follow-ups, memory reflection), the cards re-emitted
-with the report, and the marks the run left on its answer. ``finish`` writes the
-terminal SUCCESS and only then the thread turn and the notification.
-``finish_failed`` is the same for a run that raised.
-
-EVERY PUBLISH IS GATED ON OWNING THE VERDICT. Terminal statuses are sticky: a
-job the reaper or the cancel route already finalized (FAILURE, INTERRUPTED) is
-never flipped back. A run that does not own the
-verdict writes no thread turn, no notice and no notification: thread, Report
-and status would otherwise tell three different stories about one run.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -23,14 +8,22 @@ from typing import Any
 from agent.common.turn_notices import DEGRADED_CARDS_GENERATION_FAILED
 from agent.observability.turn_trace import current_trace_id_hex
 
+from .agent_construction import _workflow_reflection_llm_ref
 from .conversation_output import FAILURE_NOTICE
 from .conversation_output import write_job_notice
 from .conversation_output import write_job_turn
 from .event_store import BatchingEventStore
 from .event_store import EventStore
+from .job_errors import sanitize_job_error
+from .job_status import _should_notify_outcome
+from .job_status import _should_write_notice
+from .job_status import _update_status_if_not_terminal
 from .outcome_notify import notify_job_outcome
 from .phase_events import PHASE_DONE
 from .phase_events import emit_phase_event
+from .report_passes import _merge_job_cards
+from .report_passes import _produces_report
+from .report_passes import _run_report_passes
 from .run_result import TEMPORARY_CONVERSATION_SKIP
 from .run_result import build_job_output
 from .run_result import extract_answer_transparency
@@ -41,14 +34,6 @@ from .run_result import is_temporary_conversation
 from .run_result import mark_degraded
 from .runner import _DEGRADED_EVENT_FIELDS
 from .runner import JOB_DEGRADED_EVENT_TYPE
-from .runner import _merge_job_cards
-from .runner import _produces_report
-from .runner import _run_report_passes
-from .runner import _should_notify_outcome
-from .runner import _should_write_notice
-from .runner import _update_status_if_not_terminal
-from .runner import _workflow_reflection_llm_ref
-from .runner import sanitize_job_error
 
 if TYPE_CHECKING:
     from .agent_job import JobRequest
@@ -61,8 +46,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class JobOutcome:
-    """What a finished run produced, read once and handed to every surface that shows it."""
-
     report: str
     cards: list[Any] | None
     transparency: dict[str, Any]
@@ -72,14 +55,6 @@ class JobOutcome:
 
 
 def reflection_enabled(request: JobRequest) -> bool:
-    """Whether the run reflects on its report: the organization's flag, and never for a temporary conversation.
-
-    A temporary conversation keeps nothing (ADR-0180 rule 2). The BFF says so at
-    submit (``usage_context["temporary_conversation"]``), so the skip costs no
-    model call and is named in the log; the trace says it on the workflow span
-    (``agent_job_setup.trace_metadata``). A conversation switched to temporary
-    after the submit is not known here: the BFF's memory routes refuse its writes.
-    """
     if not request.memory_reflection_enabled:
         return False
     if is_temporary_conversation(request.usage_context):
@@ -99,11 +74,6 @@ async def persist(
     builder: Any,
     config: Any,
 ) -> JobOutcome:
-    """The post-report passes, the cards and the answer's marks, folded into the job output.
-
-    Everything here is bookkeeping ABOUT a finished answer: each step is
-    best-effort and none of them can fail the job.
-    """
     report = extract_result(result)
     cards_result, anatomy, follow_ups = await _run_report_passes(
         produces_report=_produces_report(agent_cls),
@@ -146,11 +116,6 @@ async def persist(
 def _transparency(
     scope: JobScope, request: JobRequest, result: Any, anatomy: Any, follow_ups: Any, *, cards_failed: bool
 ) -> dict[str, Any]:
-    """The marks the run left on its own answer (cut off, degraded, citations stripped), and its anatomy.
-
-    Read once, one step before the job is finalized, so the persisted output and
-    the live ``job.degraded`` event come from the same read. Never raises.
-    """
     transparency: dict[str, Any] = {}
     try:
         transparency = extract_answer_transparency(result)
@@ -173,7 +138,6 @@ def _transparency(
 
 
 async def finish(scope: JobScope, request: JobRequest, outcome: JobOutcome) -> None:
-    """Write SUCCESS unless the verdict is not this run's; then the thread turn and the notification."""
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
     finalized = await _update_status_if_not_terminal(
@@ -203,11 +167,6 @@ async def finish(scope: JobScope, request: JobRequest, outcome: JobOutcome) -> N
 
 
 async def _write_thread_turn(scope: JobScope, request: JobRequest, outcome: JobOutcome) -> None:
-    """Put the run INTO the conversation it was given when it fired, so somebody can open it and keep typing.
-
-    Best-effort by contract: the report is already stored on the job, and a
-    conversation write must never unmake a good run.
-    """
     landed_in = await write_job_turn(
         conversation_id=request.parent_conversation_id,
         job_id=request.job_id,
@@ -226,11 +185,6 @@ async def _write_thread_turn(scope: JobScope, request: JobRequest, outcome: JobO
 
 
 async def finish_failed(scope: JobScope, request: JobRequest, exc: Exception) -> None:
-    """Record a run that raised: FAILURE unless the verdict is not this run's, the notice, the error event.
-
-    The full exception is logged here; only the sanitized message is persisted
-    and streamed.
-    """
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
     logger.exception("Job %s failed: %s", request.job_id, type(exc).__name__)

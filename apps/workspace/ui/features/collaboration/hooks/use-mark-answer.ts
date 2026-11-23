@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { AnnotationRequestError, replyToAnnotation, updateAnnotation } from '@/lib/annotations/client'
 import type { MarkMention } from '@/lib/annotations/types'
 import type { InboxItemView } from '@/lib/inbox/types'
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { isAgentMentionId } from '@/lib/mentions/types'
 import type { ComposerSend } from '@/features/documents/review-links'
 import { useUndoableArchive } from './use-undoable-archive'
 
@@ -51,7 +51,7 @@ export function useMarkAnswer({ item, markRow, markClient = MARK_CLIENT, onOpen 
       const keptIds = new Set(kept.map((mention) => mention.targetId))
       setUntold(
         mentions
-          .filter((mention) => mention.targetId !== AGENT_MENTION_ID && !keptIds.has(mention.targetId))
+          .filter((mention) => !isAgentMentionId(mention.targetId) && !keptIds.has(mention.targetId))
           .map((mention) => mention.display),
       )
       setReplying(false)

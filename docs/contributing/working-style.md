@@ -70,7 +70,7 @@ roadmap. Starting from the star alone produces a vision nobody can ship. The
 star sets the direction; the landing keeps it honest, including the honest
 sentence "this is not measured yet".
 
-The case: Piloti could already render any region of a page at 1200 dpi, but
+The case: the agent could already render any region of a page at 1200 dpi, but
 only looked when a person had drawn a box, and the chat never showed a look at
 all. The realistic framing ("the tool exists, add a prompt line") would have
 stopped there. The north star ("talk to a senior architect who opens the
@@ -386,7 +386,7 @@ and what is missing is at most a record of the agent's activity on it, not a
 second work item that has to be kept in step with the first forever.
 
 The case: asked whether event-woken turns rebuilt tasks, the first answer was
-"make a mark delegated to Piloti a task run". It would have given one piece of
+"make a mark delegated to the agent a task run". It would have given one piece of
 work two records (the mark's offen → erledigt and the task's queued → accepted),
 two lists, and no delegation on the Büroablage, whose documents have no
 project. The mark already had the person, the status and the thread; the wake
@@ -460,7 +460,7 @@ property of one tool, a constraint that holds today. A later reader then checks
 the premise in a minute, where a bare verdict ("too costly", "doesn't fit")
 invites re-arguing the whole option, or worse, treating it as settled forever.
 
-The cases, both found on 2026-10-27 while deciding how Piloti reads the office's
+The cases, both found on 2026-10-27 while deciding how the agent reads the office's
 documents ([ADR-0133](../adr/0133-piloti-reads-the-estate-through-standard-filesystem-tools.md)):
 
 * [ADR-0046](../adr/0046-agent-skills.md) rejected Deep Agents'

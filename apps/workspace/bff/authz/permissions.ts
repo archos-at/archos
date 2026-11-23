@@ -62,16 +62,8 @@ export type KnownPermission = OrgPermission | PlatformPermission
 
 export type AnyPermission = KnownPermission | ProjectPermission
 
-const RENAMED_PERMISSIONS: Readonly<Record<string, readonly string[]>> = {
-  [ORG_PERMISSIONS.officeShelfManage]: ['org:archiv:manage'],
-}
-
-export function acceptedPermissionSlugs(permission: string): readonly string[] {
-  return [permission, ...(RENAMED_PERMISSIONS[permission] ?? [])]
-}
-
 export function hasPermission(session: Pick<UserSession, 'permissions'>, permission: KnownPermission): boolean {
-  return acceptedPermissionSlugs(permission).some((slug) => session.permissions.includes(slug))
+  return session.permissions.includes(permission)
 }
 
 export const ALL_ORG_PERMISSION_SLUGS: readonly string[] = ORG_PERMISSION_SPECS.map(

@@ -435,7 +435,7 @@ A source is a record: `{protocol, formatProfileId, config, credentialRef?, hosts
 ### 4.3 The contract an external agent drives
 
 The product contains no onboarding agent, skill, prompt or model call. It offers seven guarantees instead:
-1. **Guide and schemas.** `piloti://platform/onboarding-guide` (from `docs/operations/country-onboarding.md`) is served like `piloti://guide` [V `mcp-server.ts:69`]; `schema-get` returns each record type's JSON Schema. <!-- brand-history -->
+1. **Guide and schemas.** `workspace://platform/onboarding-guide` (from `docs/operations/country-onboarding.md`) is served like `workspace://guide` [V `mcp-server.ts:69`]; `schema-get` returns each record type's JSON Schema. <!-- brand-history -->
 2. **Idempotent writes.** Every write takes an `Idempotency-Key`. `records-propose` upserts by `(change_request, record_id)`, with natural platform ids (`ch-zh/pbg`) and a `clientRef` for office records. The catalog declares `idempotent: true` [V `operation.ts:107`].
 3. **Batches** of up to 200 records, each with its own result.
 4. **Dry run.** `{dryRun: true}` returns the KC report per record path and writes nothing.

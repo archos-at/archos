@@ -9,6 +9,7 @@ from agent.common import cache as shared_cache
 from agent.skills.backend import SkillsBackend
 from agent.skills.backend import skill_document
 from agent.skills.builtin import discover_builtin_skills
+from agent.skills.legacy_brand_names import LEGACY_PLATFORM_SKILL_NAMES
 from agent.skills.models import Skill
 from agent.skills.models import parse_skill_md
 from agent.skills.resolver import SkillResolver
@@ -83,8 +84,8 @@ class TestAMissSaysWhatExists:
 
     def test_with_few_skills_every_offered_path_is_listed(self) -> None:
         runtime = SkillRuntime.office((self._skill("building-class"), self._skill("fire-safety")))
-        error = runtime.mounted().read("/skills/office/brandschutz/SKILL.md").error or ""
-        assert error.startswith("/skills/office/brandschutz/SKILL.md does not exist.")
+        error = runtime.mounted().read("/skills/office/brandschtz/SKILL.md").error or ""
+        assert error.startswith("/skills/office/brandschtz/SKILL.md does not exist.")
         assert "/skills/office/building-class/SKILL.md" in error
         assert "/skills/office/fire-safety/SKILL.md" in error
         assert "Call read_file with one of these paths" in error
@@ -111,10 +112,35 @@ class TestAMissSaysWhatExists:
         runtime = SkillRuntime.office((self._skill("building-class"),))
         (read,) = draft_tools(None, skills=runtime.backend)
         message = await read.coroutine(
-            "/skills/office/gebaeudeklasse/SKILL.md", SimpleNamespace(tool_call_id="c1"), offset=0, limit=1000
+            "/skills/office/buildng-class/SKILL.md", SimpleNamespace(tool_call_id="c1"), offset=0, limit=1000
         )
         text = message if isinstance(message, str) else message.content
         assert "/skills/office/building-class/SKILL.md" in text
+
+
+_OLD_VOICE, _VOICE = next(iter(LEGACY_PLATFORM_SKILL_NAMES.items()))
+
+
+class TestAHouseSkillAnswersToEitherName:
+    @pytest.mark.parametrize(
+        ("stored", "asked"),
+        [(_OLD_VOICE, _VOICE), (_VOICE, _OLD_VOICE)],
+    )
+    def test_a_read_by_the_other_name_reaches_the_stored_skill(self, stored: str, asked: str) -> None:
+        backend = SkillsBackend({"office": (Skill(name=stored, description="Haus.", body="Kein Vorbehalt."),)})
+        result = backend.read(f"/office/{asked}/SKILL.md")
+        assert result.error is None
+        assert "Kein Vorbehalt." in result.file_data["content"]  # type: ignore[index]
+
+    def test_a_retired_builtin_name_reads_the_builtin(self) -> None:
+        backend = SkillsBackend({"office": (Skill(name="building-class", description="d.", body="Klasse."),)})
+        result = backend.read("/office/gebaeudeklasse/SKILL.md")
+        assert result.error is None
+        assert "Klasse." in result.file_data["content"]  # type: ignore[index]
+
+    def test_the_catalog_lists_the_stored_name_only(self) -> None:
+        backend = SkillsBackend({"office": (Skill(name=_OLD_VOICE, description="Haus.", body="Kein Vorbehalt."),)})
+        assert [m["path"] for m in backend.glob("**/SKILL.md").matches or []] == [f"/office/{_OLD_VOICE}/SKILL.md"]
 
 
 @pytest.fixture(autouse=True)

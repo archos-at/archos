@@ -14,6 +14,9 @@ export type QdrantLowMemoryMode = (typeof QDRANT_LOW_MEMORY_MODES)[number];
 export const RETIRED_VECTOR_KEYS = [
   "chromaEnabled",
   "chromaImage",
+  "chromaMigration",
+  "chromaMigrationScratchSize",
+  "chromaMigrationTimeoutMinutes",
   "chromaStorageSize",
   "qdrantEnabled",
   "vectorBackend",
@@ -25,17 +28,9 @@ export function refuseRetiredVectorKeys(cfg: pulumi.Config): void {
   throw new Error(
     `${set.map((k) => `grid-oib:${k}`).join(", ")} ${set.length === 1 ? "is" : "are"} retired: Qdrant is ` +
       "the only vector store and always deployed, and Chroma is gone (ADR-0115). Remove " +
-      `${set.length === 1 ? "it" : "them"} with \`pulumi config rm\`. To move the old Chroma data, see ` +
-      '`chromaMigration` (docs/deployment/qdrant-runbook.md, "Migrating from Chroma on Kubernetes").',
+      `${set.length === 1 ? "it" : "them"} with \`pulumi config rm\`. The one-time move of the Chroma data ` +
+      "has run on every deployment, and its Job is gone.",
   );
-}
-
-export function loadChromaMigration(cfg: pulumi.Config): ChromaMigrationConfig {
-  return {
-    enabled: bool(cfg, "chromaMigration", false),
-    scratchSize: cfg.get("chromaMigrationScratchSize") ?? "50Gi",
-    timeoutMinutes: positiveInt(cfg, "chromaMigrationTimeoutMinutes", 40),
-  };
 }
 
 export function loadQdrant(cfg: pulumi.Config, dashboard: QdrantConfig["dashboard"]): QdrantConfig {
@@ -119,12 +114,6 @@ function assertQdrantSecrets(cfg: pulumi.Config): void {
         "its own single bucket.",
     );
   }
-}
-
-export interface ChromaMigrationConfig {
-  enabled: boolean;
-  scratchSize: string;
-  timeoutMinutes: number;
 }
 
 export interface QdrantConfig {

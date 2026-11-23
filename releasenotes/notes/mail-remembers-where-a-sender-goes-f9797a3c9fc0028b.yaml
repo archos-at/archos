@@ -1,0 +1,12 @@
+---
+improvements:
+  - >
+    When you file a mail in the E-Mail-Eingang, the folders where earlier
+    attachments from the same sender went in this project are offered first,
+    each with how many went there. This works for senders whose domain cannot
+    be confirmed too.
+  - >
+    When ARCHOS has no folder to suggest for an attachment and most of this
+    sender's earlier attachments went to one folder, that folder is filled in,
+    marked "Wie die letzten E-Mails von …". Nothing is filed there without you:
+    replies filed without a click still go only where ARCHOS suggests.

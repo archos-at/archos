@@ -57,7 +57,7 @@ Checked against pypdfium2 5.14.0 and pdfminer as installed; the declared floor i
   has edges and no stroke; AutoCAD SHX text is plotted as linework, so a vector
   page can have no characters at all.
 * **PDFium is not thread-safe.** Every call holds `pdfium_lock`
-  (`knowledge_layer.ingest.pdfium_lock`), which `look` shares. Copy raw points out
+  (`knowledge_layer.ingest.pdfium_guard`), which `look` shares. Copy raw points out
   under the lock in one pass and do all Python work outside it.
 
 The frame mapping, after subtracting the box origin:
@@ -93,7 +93,7 @@ fixtures of slice 1.
      makes for its own;
    * `look` reads characters only, never paths.
 2. **The reader lives in `knowledge_layer`, the measuring in `agent`.**
-   `packages/knowledge-layer/src/sheet/` holds everything that touches PDFium or
+   `packages/knowledge-layer/src/knowledge_layer/sheet/` holds everything that touches PDFium or
    pdfminer. Three things make that true rather than said:
    * the package lists its modules by hand (`packages/knowledge-layer/pyproject.toml`,
      `[tool.setuptools] packages`): add `knowledge_layer.sheet`, or it does not
@@ -341,7 +341,7 @@ otherwise to state as „not verified because“ in the closing checklist.
   `packages/agent/pyproject.toml`; `configs/config_oib_openrouter.yml` (the
   function block and both tool lists); `common/backend_tools.py`;
   `common/tool_calls.py`; `common/workspace_records.py`;
-  `agents/piloti/turn_tools.py` (`_MODEL_KIND_OF_TOOL`); <!-- brand-history -->
+  `core/turn_tools.py` (`_MODEL_KIND_OF_TOOL`);
   `turn/context_client.py` (`_model_kinds` hard-codes `ifc` and `dxf`);
   `apps/workspace/bff/turn-context/wire.ts` (a strict object of `ifc` and `dxf`)
   and its service; `bff/bim/model-kinds-repository.ts`;
@@ -351,7 +351,7 @@ otherwise to state as „not verified because“ in the closing checklist.
   `ui/features/chat/lib/executed-steps.ts` and its copy in every dictionary;
   both token ceilings of `test_static_prefix_size.py` and both of
   `mcp-server.spec.ts` (decision 12);
-  `agents/piloti/AGENTS.md`. <!-- brand-history -->
+  `core/AGENTS.md`.
 * **Mind:** the turn-context wire is strict, so a new field needs the BFF and the
   agent to roll in an order the pull request states.
 * **Done when:** `test_chat_tools_are_classified.py`,

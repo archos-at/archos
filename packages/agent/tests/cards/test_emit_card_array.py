@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock
 
-from agent.cards.catalog import CARD_EXAMPLES
+from agent.cards.card_examples import CARD_EXAMPLES
 from agent.cards.register import EmitCardConfig
 from agent.cards.register import emit_card
 from agent.cards.registry import CardRegistry

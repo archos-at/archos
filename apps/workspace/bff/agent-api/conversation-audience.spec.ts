@@ -26,7 +26,7 @@ import type { AgentPrincipal } from './principal'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -35,7 +35,7 @@ const session = {
   permissions: [],
   featureFlags: null,
 }
-const piloti = (extra: Partial<AgentPrincipal> = {}): AgentPrincipal => ({
+const inProduct = (extra: Partial<AgentPrincipal> = {}): AgentPrincipal => ({
   actor: 'piloti',
   session,
   clientId: null,
@@ -60,21 +60,21 @@ beforeEach(() => {
 describe('conversationAudienceOf', () => {
   it('is null for an external agent and for a call in no conversation', async () => {
     expect(await conversationAudienceOf({ actor: 'external_agent', session, clientId: 'c', scopes: [] })).toBeNull()
-    expect(await conversationAudienceOf(piloti({ conversationId: null }))).toBeNull()
+    expect(await conversationAudienceOf(inProduct({ conversationId: null }))).toBeNull()
     expect(readConversationAudience).not.toHaveBeenCalled()
   })
 
   it('is solo for a private chat of the requester, and for one not created yet', async () => {
     vi.mocked(readConversationAudience).mockResolvedValueOnce(audience({}))
-    expect(await conversationAudienceOf(piloti())).toMatchObject({ solo: true, key: 'private|user_1' })
+    expect(await conversationAudienceOf(inProduct())).toMatchObject({ solo: true, key: 'private|user_1' })
     vi.mocked(readConversationAudience).mockResolvedValueOnce(audience({ exists: false }))
-    expect(await conversationAudienceOf(piloti())).toMatchObject({ solo: true, key: 'new' })
+    expect(await conversationAudienceOf(inProduct())).toMatchObject({ solo: true, key: 'new' })
   })
 
   it('is shared once anyone else reads it, with the key the record checks under the lock', async () => {
     for (const shared of [{ grantees: ['user_2'] }, { visibility: 'project' }, { createdBy: 'user_2' }]) {
       vi.mocked(readConversationAudience).mockResolvedValueOnce(audience(shared))
-      const found = await conversationAudienceOf(piloti())
+      const found = await conversationAudienceOf(inProduct())
       expect(found?.solo, JSON.stringify(shared)).toBe(false)
       expect(found?.key, JSON.stringify(shared)).not.toBe('private|user_1')
     }

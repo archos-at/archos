@@ -67,7 +67,7 @@ describe('Ausmisten by rule', () => {
     expect(proposed([doc('Schnitt Index A.pdf'), doc('Schnitt Index B.pdf')])).toEqual({ 'Schnitt Index A.pdf': 'older-version' })
   })
 
-  it('proposes a Piloti draft nobody published, and no person\'s draft', () => {
+  it('proposes a draft the agent wrote that nobody published, and no person\'s draft', () => {
     expect(
       proposed([doc('Aktenvermerk.md', { authoredBy: 'agent', versionState: 'draft' }), doc('Notiz.md', { versionState: 'draft' })])
     ).toEqual({ 'Aktenvermerk.md': 'unpublished-draft' })

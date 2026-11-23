@@ -1,6 +1,6 @@
-# Piloti - Docker Compose
+# Docker Compose
 
-Use this guide to deploy Piloti with Docker Compose. The deployment
+Use this guide to deploy the app with Docker Compose. The deployment
 starts a FastAPI backend, PostgreSQL for async jobs and checkpoints, and a database-claimed research worker for background work.
 
 ## Prerequisites

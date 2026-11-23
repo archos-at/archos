@@ -1,48 +1,3 @@
-"""Spatial engine client — the model's own BYTES, and one operator over them.
-
-Where :mod:`agent.knowledge.bim_query` asks the BFF a question and reports
-the answer, this module asks the BFF for a FILE and answers the question here.
-The difference is not architectural taste, it is where the capability lives:
-the extracted index in Postgres knows what the export wrote down, and the
-questions ``ifc_measure`` exists for are the ones it did not write down — a
-room's floor area when no ``Qto_*`` was published, a window's sill height, the
-clear height under a suspended ceiling. Those need geometry, geometry needs the
-file, and the engine that reads it (IfcOpenShell/OCCT, roadmap §13b) is Python.
-
-## How a model becomes bytes
-
-The agent backend owns no object storage — ADR-0045 puts `app` and the
-bucket behind the BFF — so it obtains the source exactly as the viewer does:
-it asks for a short-lived presigned URL and reads it. The route is
-``POST /api/internal/bim/source``, the service-token twin of the viewer's
-``GET /api/bim/models/<id>/source``, and it applies the same ``ifc-models``
-flag and the same project + Archiv scope as ``POST /api/internal/bim/query``
-because both share ``lib/bim/internal-access``. **This module widens nothing.**
-It cannot: it names a project and a file name, exactly like ``ifc_query``, and
-the BFF decides what that means.
-
-## Why the cache needs a second key
-
-:class:`ifc_spatial.cache.SpatialCache` is keyed on the sha256 of the bytes,
-which is the right key and the wrong question: knowing it requires having
-already downloaded the file. A 150 MB IFC downloaded once per tool call would
-make the second question about a building cost as much as the first.
-
-So this module keys on a SOURCE IDENTITY as well — the object's ETag if the
-store gave one, else the model id and its ``updatedAt`` — and remembers what
-that identity resolved to. The second question about a building is then a
-dictionary lookup and no network at all, while a re-export lands under a new
-identity and is a guaranteed miss. That last property is the one worth having:
-it is what stops the agent measuring last week's building because the file name
-did not change.
-
-The cache is process-local and holds no tenancy, exactly as its own docstring
-warns. That is safe here for one reason and it is worth stating: **the content
-hash is never a way in.** Every call re-resolves the model through the BFF, so
-a caller that may not see a building never reaches the cache lookup, and the
-hash is only ever used to skip work for a model this process was just granted.
-"""
-
 from __future__ import annotations
 
 import atexit
@@ -71,13 +26,6 @@ _MAX_MODEL_BYTES_CAP = 512 * 1024 * 1024
 
 
 def _container_memory_bytes() -> int | None:
-    """What this container may actually use, not what the host has.
-
-    ``os.sysconf`` reports the HOST's RAM inside a cgroup-limited container, so
-    a 2 GB pod on a 128 GB node would size its ceiling for 128 GB and be OOM-
-    killed by the kernel — silently, taking the conversation with it. cgroup v2
-    first, then v1, then the host as a last resort.
-    """
     for path in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
         try:
             with open(path, encoding="ascii") as handle:
@@ -99,18 +47,6 @@ def _container_memory_bytes() -> int | None:
 
 
 def _derive_max_model_bytes() -> int:
-    """The largest model this process will admit, from the memory it actually has.
-
-    A fixed 512 MB was the previous rule, justified as "a refusal rather than an
-    OOM". It accounted for the DOWNLOAD and not for the parse: at 20× the low
-    end, a 512 MB file needs 10 GB resident before a single question is asked,
-    so on any ordinary pod the guard guaranteed exactly the OOM it named.
-
-    Half the container's memory, divided by the footprint ratio, leaves room for
-    the model already resident (``MAX_RESIDENT_MODELS`` is 2) and for the rest of
-    the process. Overridable, because an operator who has sized a dedicated
-    worker knows better than this arithmetic does.
-    """
     override = os.environ.get("BIM_SPATIAL_MAX_MODEL_BYTES", "").strip()
     if override:
         try:
@@ -132,30 +68,10 @@ def _derive_max_model_bytes() -> int:
 MAX_MODEL_BYTES = _derive_max_model_bytes()
 
 
-class SpatialEngineUnavailableError(RuntimeError):
-    """The spatial engine is not installed in this process.
-
-    Distinct from every other failure here: nothing is wrong with the model or
-    the request, this deployment simply cannot answer geometric questions. The
-    tool says so in those words rather than implying the building is unreadable.
-    """
+class SpatialEngineUnavailableError(RuntimeError): ...
 
 
 class ModelTooLargeError(BimQueryUnavailableError):
-    """This model is over what can be read here: this worker's memory gate, or the engine's own limit.
-
-    A subclass so every existing handler keeps working, and its own type because
-    the sentence a user needs is completely different. Reported as the generic
-    „der Modelldienst ist nicht erreichbar", an architect waits for an outage
-    that will never end: the service is perfectly healthy and their 300 MB
-    export is never going to be measurable on this deployment. The fact is
-    about the FILE, and only a message that says so lets them act — split the
-    model by building section, or ask for the limit to be raised.
-
-    Carries the numbers so the message can name them instead of gesturing at a
-    limit the reader cannot see.
-    """
-
     def __init__(self, model_bytes: int | None, limit_bytes: int) -> None:
         self.model_bytes = model_bytes
         self.limit_bytes = limit_bytes
@@ -163,24 +79,10 @@ class ModelTooLargeError(BimQueryUnavailableError):
         super().__init__(f"{size} exceeds the {limit_bytes // (1024 * 1024)} MB this worker can hold")
 
 
-class ModelUnreadableError(BimQueryUnavailableError):
-    """The engine refused this file and said why: cut off, empty, not IFC at all.
-
-    Like :class:`ModelTooLargeError`, a fact about the FILE that waiting does not
-    change. Its message is the engine's own German reason.
-    """
+class ModelUnreadableError(BimQueryUnavailableError): ...
 
 
-class SpatialToolError(ValueError):
-    """The call could not be MADE — no such GlobalId, no such relation.
-
-    :class:`ifc_spatial.tools.ToolError` re-raised under a name this package's
-    callers can catch without importing IfcOpenShell to do it. The distinction
-    it carries is the one the whole envelope is built on: this means we could
-    not look, while every "looked, and the file cannot say" comes back as a
-    successful answer carrying ``decidable: false``. Collapsing the two would
-    let a typo in a GlobalId read as a finding about the building.
-    """
+class SpatialToolError(ValueError): ...
 
 
 def resolve_model_source(
@@ -189,17 +91,6 @@ def resolve_model_source(
     project_id: str | None,
     model_name: str | None = None,
 ) -> dict[str, Any]:
-    """Ask the BFF which model this is, and where its bytes are.
-
-    Returns the endpoint's body verbatim. ``resolved: false`` is a normal
-    outcome carrying a German ``message`` (no model, several models, extraction
-    still running) that the caller reports rather than treating as a failure.
-
-    :raises BimQueryUnavailableError: nothing was looked up — no token, no
-        transport, or a 5xx.
-    :raises BimQueryRejectedError: the endpoint understood the request and
-        refused it, which is correctable by the caller.
-    """
     from agent.knowledge.bim_query import _rejection_message
     from agent.knowledge.bim_query import is_correctable
 
@@ -229,17 +120,6 @@ def resolve_model_source(
 
 
 def source_identity(result: dict[str, Any]) -> str:
-    """A key for "the same bytes as last time", from a resolved source body.
-
-    The object's ETag when the store gave one — it changes when the object
-    changes, which is precisely the property a cache key needs. Otherwise the
-    model id plus its revision timestamp, which changes on every re-extraction
-    and is therefore correct in the same direction, if coarser.
-
-    Never the file name alone. A re-export under the same name is the ordinary
-    way an architect works, and serving the old parse for it would answer a
-    question about a building that no longer exists.
-    """
     model = result.get("model") or {}
     source = result.get("source") or {}
     etag = source.get("etag")
@@ -265,7 +145,6 @@ _HTTP_ONLY_OPENER = _http_only_opener()
 
 
 def _download(url: str, expected_bytes: Any = None) -> bytes:
-    """The model's bytes, or a refusal that says which limit was hit."""
     if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
         raise BimQueryUnavailableError("the model source URL was not usable")
     if isinstance(expected_bytes, (int, float)) and expected_bytes > MAX_MODEL_BYTES:
@@ -300,7 +179,6 @@ _LOCK = threading.Lock()
 
 _OPEN_LOCK = threading.Lock()
 
-# Bounded by MAX_RESIDENT_MODELS: an unbounded per-tenant-file table would retain tenant model data.
 _PATH_BY_SOURCE: dict[str, str] = {}
 _HANDLE_BY_SOURCE: dict[str, str] = {}
 _OPEN_HANDLES: list[str] = []
@@ -319,20 +197,6 @@ def _remove_spilled_files() -> None:
 
 
 def _engine() -> tuple[Any, Any]:
-    """The shared cache and the current tool table.
-
-    Imported lazily and behind a lock: ``import ifc_spatial`` pulls in
-    IfcOpenShell, numpy and shapely, which is a second of import time and a few
-    hundred megabytes of address space that a deployment answering no model
-    questions should never pay.
-
-    The lock is the whole build, not just the ``None`` test, and the docstring
-    used to claim that while the code did not. Measured with four
-    ``asyncio.to_thread`` workers arriving together on a cold process: FOUR tool
-    tables were built, three callers walked away holding a table that was not
-    the module's, and every model they opened against it was invisible to the
-    next operator call.
-    """
     global _CACHE, _TOOLS
     with _LOCK:
         if _TOOLS is None:
@@ -347,21 +211,6 @@ def _engine() -> tuple[Any, Any]:
 
 
 def _spill(identity: str, data: bytes) -> str:
-    """These bytes as a file on disk, once per source identity.
-
-    IfcOpenShell wants a path, and it wants the file to stay there: the entity
-    graph is read first and the geometry pass and the OCCT tree read the same
-    file again later. So the file outlives the call, and it is unlinked only
-    when the interpreter exits — the same posture
-    :class:`ifc_spatial.cache.SpatialCache` takes toward its own spills, and for
-    the same reason. Unlinking a file whose model is still resident would turn a
-    memory decision into a broken model.
-
-    The consequence is stated rather than hidden: a process that opens many
-    different buildings accumulates their files for its lifetime. A host serving
-    many models from one process should recycle it, which is what the engine's
-    own cache docstring says about the identical trade.
-    """
     with _LOCK:
         existing = _PATH_BY_SOURCE.get(identity)
     if existing and os.path.isfile(existing):
@@ -377,7 +226,6 @@ def _spill(identity: str, data: bytes) -> str:
 
 
 def _open_failure(refusal: Exception) -> BimQueryUnavailableError:
-    """What the engine's `open_model` failure means here; its cause says which refusal it was."""
     from ifc_spatial.model import ModelTooLargeError as EngineTooLargeError
     from ifc_spatial.model import ModelUnreadableError as EngineUnreadableError
 
@@ -390,29 +238,6 @@ def _open_failure(refusal: Exception) -> BimQueryUnavailableError:
 
 
 def open_model(result: dict[str, Any]) -> str:
-    """Open a resolved model and return the handle every operator takes.
-
-    Three levels of "already have it", cheapest first:
-
-    1. the handle is registered in the current tool table — nothing at all
-       happens, and this is the ordinary case for the second, third and tenth
-       question about one building;
-    2. the bytes are on disk from an earlier turn — the file is re-read (a hash
-       plus, on a cache hit, nothing else);
-    3. neither — the file is downloaded.
-
-    The tool table is REPLACED once it holds more models than the cache does,
-    and that is not an optimisation. ``create_tools`` keeps a handle table that
-    never evicts, deliberately, so that a handle handed to an MCP client three
-    turns ago still resolves. In an agent process serving many tenants from one
-    interpreter that table is unbounded retention of tenant model data — so the
-    table is dropped and rebuilt around the cache's own lid, which is the only
-    number here that has a memory meaning.
-
-    Which makes the rebuild the one step that MUST NOT interleave with another
-    open, and :data:`_OPEN_LOCK` is what says so — see its own comment for the
-    failure that was reproduced without it.
-    """
     global _TOOLS
 
     cache, _ = _engine()
@@ -456,17 +281,6 @@ def open_model(result: dict[str, Any]) -> str:
 
 
 def call_spatial_tool(handle: str, name: str, args: dict[str, Any]) -> Any:
-    """Run one operator from :mod:`ifc_spatial.tools` against an open model.
-
-    ``handle`` is what :func:`open_model` returned — the content hash, which is
-    the package's own address for a model, so nothing has to translate between
-    two notions of "which building".
-
-    Raises :class:`SpatialToolError` for a call that could not be made at all
-    (no such GlobalId, an unknown relation). Every "the file cannot say" comes
-    back as a successful answer carrying ``decidable: false``, and the two must
-    not be collapsed.
-    """
     _engine()
     with _LOCK:
         tools = _TOOLS
@@ -481,7 +295,6 @@ def call_spatial_tool(handle: str, name: str, args: dict[str, Any]) -> Any:
 
 
 def reset_cache_for_tests() -> None:
-    """Forget every parsed model, handle and source identity."""
     global _CACHE, _TOOLS
     with _LOCK:
         if _CACHE is not None:

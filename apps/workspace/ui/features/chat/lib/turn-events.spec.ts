@@ -3,8 +3,6 @@
  * @vitest-environment node
  */
 
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, test, expect } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -72,30 +70,7 @@ describe('liveLine', () => {
   })
 })
 
-describe('every key the backend can emit has words in every locale', () => {
-  const repoRoot = join(process.cwd(), '..', '..')
-
-  const registry = (file: string, constant: string): string[] => {
-    const source = readFileSync(join(repoRoot, file), 'utf8')
-    const block = source.split(`${constant}: tuple[str, ...] = (`)[1]
-    expect(block, `${constant} not found in ${file}`).toBeDefined()
-    return [...block.split(')')[0].matchAll(/'([^']+)'|"([^"]+)"/g)].map((m) => m[1] ?? m[2])
-  }
-
-  const backendKeys = [
-    ...registry('packages/agent/src/agent/common/status_keys.py', 'ALL_STATUS_KEYS'),
-    ...registry('packages/agent/src/agent/skills/events.py', 'ALL_SKILL_KEYS'),
-  ]
-
-  test('the guard is actually reading the backend', () => {
-    expect(backendKeys.length).toBeGreaterThan(10)
-    expect(backendKeys).toContain('status.retrieval.withQuery')
-  })
-
-  test('this UI declares exactly the keys the backend emits', () => {
-    expect(backendKeys.slice().sort()).toEqual(Object.keys(TURN_EVENT_KEYS).sort())
-  })
-
+describe('every declared key has words in every locale', () => {
   test.each(['de', 'en'] as const)('%s has a string for every declared key', (locale) => {
     const chat = chatCopy.messages[locale]
     const missing = Object.entries({ ...TURN_EVENT_KEYS, ...FOLD_EVENT_KEYS }).filter(

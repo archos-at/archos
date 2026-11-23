@@ -17,13 +17,16 @@ import type { FolderItem } from './project-file-workspace'
 interface FolderLevelProps {
   currentFolderId: string | null
   onCreateFolder: (name: string, parentId?: string) => Promise<boolean>
+  label?: string
 }
 
 export function NewFolderControl({
   currentFolderId,
   onCreateFolder,
+  label,
 }: FolderLevelProps): JSX.Element {
   const t = useTranslations(filesCopy)
+  const action = label ?? t('folders.newFolder')
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
@@ -44,10 +47,10 @@ export function NewFolderControl({
     <Popover open={open} onOpenChange={(next) => (isCreating ? undefined : setOpen(next))}>
       <PopoverTrigger asChild>
         {/* Tonal: it creates, and as bare words „Ordner anlegen“ read as a label. Its fill ends on the column's edge, under Hochladen's. */}
-        <Button type="button" variant="secondary" size="sm" className="gap-1.5" title={t('folders.newFolder')}>
+        <Button type="button" variant="secondary" size="sm" className="gap-1.5" title={action}>
           <FolderPlus className="size-4" aria-hidden />
           {/* A glyph on a phone inside a folder, where the path needs the width; at the root, its words. */}
-          <span className={cn(currentFolderId !== null && 'phone:sr-only')}>{t('folders.newFolder')}</span>
+          <span className={cn(currentFolderId !== null && 'phone:sr-only')}>{action}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-2">

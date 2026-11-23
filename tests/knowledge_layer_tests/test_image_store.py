@@ -6,8 +6,11 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import image_store
+from knowledge_layer.ingest import pdf_rasters
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import vision_credentials
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer.search import format_results
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
@@ -191,10 +194,10 @@ def _indexed_documents():
 
 def _prepare_pdf_with_one_raster(tmp_path, monkeypatch):
     cred = ResolvedCredential(api_key="vlm-key", base_url="https://vlm.test/v1", model="test-vlm", source="env")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
-    monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda p: [])
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda p: [])
     monkeypatch.setattr(
-        adapter,
+        pdf_rasters,
         "_extract_image_records",
         lambda *a, **k: (
             [
@@ -211,7 +214,7 @@ def _prepare_pdf_with_one_raster(tmp_path, monkeypatch):
             0,
         ),
     )
-    monkeypatch.setattr(adapter, "analyze_visual", lambda *a, **k: ("image", "A photo of the facade.", {}))
+    monkeypatch.setattr(vision_reads, "analyze_visual", lambda *a, **k: ("image", "A photo of the facade.", {}))
     import knowledge_layer.ingest.processing as processing_module
 
     monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", lambda *a, **k: [])

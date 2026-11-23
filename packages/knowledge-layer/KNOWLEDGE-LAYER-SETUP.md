@@ -1,6 +1,6 @@
 # Knowledge Layer
 
-Document ingestion and retrieval for Piloti, on one backend: `llamaindex`.
+Document ingestion and retrieval for the agent, on one backend: `llamaindex`.
 
 ## Key Features
 
@@ -36,12 +36,12 @@ chunking, Qdrant as the one vector store (ADR-0115, reached through
 `qdrant-client` inside `knowledge_layer/vector_store/`), embeddings and the VLM
 through OpenRouter. It runs in the agent's process and needs a Qdrant cluster
 (`QDRANT_URL`) and OpenRouter. It is the production backend,
-and has been since the first commit: every config Piloti deployed selects it.
+and has been since the first commit: every deployed config selects it.
 
 Earlier versions of this guide listed a second backend (a client for NVIDIA's
-hosted retrieval service, inherited from the AI-Q template) as "Production,
-multi-user". That was the template's claim, never Piloti's: no
-Piloti deployment ran it, and it could not serve the product's retrieval. It was
+hosted retrieval service, inherited from the upstream template) as "Production,
+multi-user". That was the template's claim, never the agent's: no
+deployment ran it, and it could not serve the product's retrieval. It was
 deleted; [ADR-0072](../../docs/adr/0072-the-knowledge-layer-has-one-backend-llamaindex.md)
 records why.
 
@@ -111,7 +111,7 @@ functions:
     collection_name: ${COLLECTION_NAME:-default}
 ```
 
-> **Note:** To add config fields, edit `KnowledgeRetrievalConfig` in `packages/knowledge-layer/src/register.py`. An older config that still sets `backend: llamaindex` loads unchanged; the key is ignored.
+> **Note:** To add config fields, edit `KnowledgeRetrievalConfig` in `packages/knowledge-layer/src/knowledge_layer/register.py`. An older config that still sets `backend: llamaindex` loads unchanged; the key is ignored.
 
 #### Multimodal Extraction
 
@@ -359,7 +359,7 @@ The summary store uses SQLAlchemy and follows the same pattern as the jobs datab
 
 To customize summary generation, modify the `generate_summary()` method in your adapter. See reference implementations:
 
-- **LlamaIndex**: `packages/knowledge-layer/src/ingest/adapter.py` (search for `generate_summary`)
+- **LlamaIndex**: `packages/knowledge-layer/src/knowledge_layer/ingest/adapter.py` (search for `generate_summary`)
 
 Key customization points:
 - LLM model selection and prompt template
@@ -428,10 +428,10 @@ packages/agent/src/agent/knowledge/
 | `schema.py` | Universal data models - backends convert native formats to these |
 | `factory.py` | Registration decorators + factory functions for instantiation |
 
-### Backend Adapters (`packages/knowledge-layer/src/`)
+### Backend Adapters (`packages/knowledge-layer/src/knowledge_layer/`)
 
 ```
-packages/knowledge-layer/src/
+packages/knowledge-layer/src/knowledge_layer/
     <backend_name>/
         __init__.py      # Imports adapter to trigger registration
         adapter.py       # @register_retriever/@register_ingestor decorated classes
@@ -439,10 +439,10 @@ packages/knowledge-layer/src/
         pyproject.toml   # Optional: isolated dependencies
 ```
 
-### Agent runtime integration (`packages/knowledge-layer/src/`)
+### Agent runtime integration (`packages/knowledge-layer/src/knowledge_layer/`)
 
 ```
-packages/knowledge-layer/src/
+packages/knowledge-layer/src/knowledge_layer/
     register.py      # @register_function exposes retrieval to agents
 ```
 

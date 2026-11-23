@@ -111,7 +111,7 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
 
   async function on(deployment: 'source' | 'target') {
     await db.closeDb()
-    process.env.APP_DATABASE_URL = deployment === 'source' ? SOURCE_URL : TARGET_URL
+    vi.stubEnv('APP_DATABASE_URL', deployment === 'source' ? SOURCE_URL : TARGET_URL)
     corpora.current = deployment
   }
 
@@ -183,7 +183,7 @@ describe.skipIf(!SOURCE_URL || !TARGET_URL)('a country’s release, exported on 
 
   beforeAll(async () => {
     Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
-    process.env.APP_DATABASE_URL = SOURCE_URL
+    vi.stubEnv('APP_DATABASE_URL', SOURCE_URL)
     handler = (await import('@/lib/agent-api/mcp-server')).createAgentDoorHandler(() => undefined)
     db = await import('@/lib/db')
     withPlatformAccess = (await import('@/lib/db/tenant-context')).withPlatformAccess

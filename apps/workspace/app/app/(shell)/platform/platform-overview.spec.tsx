@@ -196,7 +196,7 @@ describe('PlatformOverview', () => {
       withOrganizations([
         org({
           id: 'org_1',
-          name: 'GRID Platform',
+          name: 'Example Platform',
           isPlatformOrg: true,
           projectCount: 4,
           dayUsd: 3,
@@ -208,7 +208,7 @@ describe('PlatformOverview', () => {
 
     render(<PlatformOverview />)
 
-    expect(await screen.findByText('GRID Platform')).toBeDefined()
+    expect(await screen.findByText('Example Platform')).toBeDefined()
     const table = within(directory())
     expect(table.getByRole('columnheader', { name: /Organization/i })).toBeDefined()
     expect(table.getByRole('columnheader', { name: /Cost this month/i })).toBeDefined()

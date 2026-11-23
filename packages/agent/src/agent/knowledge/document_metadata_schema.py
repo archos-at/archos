@@ -30,7 +30,6 @@ def _is_postgres(store) -> bool:
 
 
 def _ensure_table_sync(store):
-    """Create/migrate the ``document_metadata`` table if needed (sync)."""
     with facade.DocumentMetadataStore._cache_lock:
         if store.db_url in facade.DocumentMetadataStore._tables_initialized:
             return
@@ -44,7 +43,6 @@ def _ensure_table_sync(store):
 
 
 async def _ensure_table_async(cls, db_url: str):
-    """Ensure the ``document_metadata`` table exists/migrated (async)."""
     if db_url in cls._tables_initialized:
         return
 
@@ -64,11 +62,6 @@ async def _ensure_table_async(cls, db_url: str):
 
 
 def _run_schema(store, conn) -> None:
-    """Create fresh, rename the legacy table, then backfill missing columns.
-
-    Runs over a live sync connection (the caller owns the transaction/commit,
-    and has taken the schema lock: the processes of a boot all reach this at once).
-    """
     from sqlalchemy import inspect
     from sqlalchemy import text
 
@@ -94,13 +87,6 @@ def _run_schema(store, conn) -> None:
 
 
 def _rename_legacy_doc_classes(store, conn) -> None:
-    """Rewrite a ``doc_class`` still spelled the German way to the English key (idempotent).
-
-    The nine Dokumentart keys became English; a row written before, or by a pod that has not
-    rolled yet, still holds one. Reads map them anyway (:func:`canonical_doc_class`), so this
-    only keeps the stored values honest: it touches nothing once no row holds an old key.
-    Remove with ``LEGACY_DOC_CLASSES``, after one release.
-    """
     from sqlalchemy import text
 
     names = list(LEGACY_DOC_CLASSES.items())
@@ -120,13 +106,6 @@ def _rename_legacy_doc_classes(store, conn) -> None:
 
 
 def _create_retained_table(store, conn) -> None:
-    """Make :data:`RETAINED_TABLE_NAME` exist: the Fassung facts a reversible purge keeps.
-
-    A table still under :data:`LEGACY_RETAINED_TABLE_NAME` is renamed in place, rows kept. A pod
-    that has not rolled yet creates the legacy table again beside the new one; its rows are moved
-    across (a name already retained under the new table wins) and the legacy table is emptied, not
-    dropped, so that pod keeps working until it is replaced.
-    """
     from sqlalchemy import inspect
     from sqlalchemy import text
 
@@ -187,11 +166,6 @@ def _create_table(store, conn) -> None:
 
 
 def _add_column_if_missing(store, conn, column: str, ddl_type: str = "TEXT") -> None:
-    """Add a nullable column to ``document_metadata`` if it is not present.
-
-    Postgres supports ``ADD COLUMN IF NOT EXISTS``; SQLite does not, so the
-    column is added only after a ``PRAGMA table_info`` existence check.
-    """
     from sqlalchemy import text
 
     if store._is_postgres():
@@ -206,7 +180,6 @@ def _add_column_if_missing(store, conn, column: str, ddl_type: str = "TEXT") -> 
 
 
 def _ensure_index(store, conn) -> None:
-    """Create the collection index under the new name; drop the legacy one."""
     from sqlalchemy import text
 
     if _INDEX_NAME not in present_indexes(conn, TABLE_NAME):

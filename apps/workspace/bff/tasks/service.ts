@@ -258,6 +258,7 @@ async function fileResultFor(
   }
 
   const filed = await fileAgentDocumentDraft({
+    op: 'create',
     session,
     projectId: run.projectId,
     ref: `task-${run.id}`,

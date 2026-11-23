@@ -31,6 +31,7 @@ import {
   type ChannelLink,
   type SnapshotStore,
 } from '@/features/realtime/use-channel'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export interface RoomTransport {
   connect(handlers: { onFrame: (frame: RoomFrame) => void; onOpen: () => void; onDrop: () => void }): () => void
@@ -155,7 +156,7 @@ export interface AgentHighlight {
 export const HIGHLIGHT_MS = 6_000
 
 export function agentHighlightOf(state: RoomPeerState, now = Date.now()): AgentHighlight | null {
-  if (state.peer.kind !== 'piloti') return null
+  if (!isAgentKind(state.peer.kind)) return null
   if (state.highlight && state.highlight.expiresAt > now) {
     return { ...state.highlight.box, label: state.highlight.label }
   }

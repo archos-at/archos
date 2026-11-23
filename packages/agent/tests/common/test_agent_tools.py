@@ -1,9 +1,3 @@
-"""A blank string for a numeric tool argument is an omitted argument, for every tool (#656).
-
-Driven through the agent runtime's real builder and LangChain tool wrapper, because that is
-where the ``InputArgsSchema`` that rejected ``page=''`` is made.
-"""
-
 from __future__ import annotations
 
 import re
@@ -32,7 +26,6 @@ class _PagedSearchConfig(FunctionBaseConfig, name="test_fixture_paged_search"):
 @register_function(config_type=_PagedSearchConfig)
 async def _paged_search(config: _PagedSearchConfig, builder: Builder):
     async def _search(query: str, page: int = 1, note: str = "") -> str:
-        """Search, like ris_search: an int page with a default."""
         return f"{query}|{page}|{note}"
 
     yield FunctionInfo.from_fn(_search, description="Search.")

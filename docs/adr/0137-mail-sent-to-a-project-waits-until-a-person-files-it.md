@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-10-27
 decision-makers: product owner, Grid engineering
 consulted: the security, shippability and product red teams of the project-mail design
@@ -181,8 +181,8 @@ label decides:
   Bcc case) and a stale date need `acknowledgeSender`; an append or Fassung the
   defaults would not pre-select needs the part in `acknowledgeRisk`
   (`unverified_thread`), as do `macro` and `type_mismatch` attachments;
-- whether the agent suggests anything (not for `external_unverified`, automatic or
-  impersonating mail);
+- whether the agent suggests anything (not for automatic or impersonating mail;
+  until the [amendment of 2026-11-19](#amendment-2026-11-19-the-agent-suggests-for-unconfirmed-senders-too) not for `external_unverified` either);
 - how the Verlauf cites it: a verified section is headed by the signer's
   domain, an unverified one says „Domain nicht bestätigt“.
 
@@ -296,7 +296,9 @@ re-verifiable only on those bytes.
 ### Verlauf folgen: a person's standing decision
 
 A person may follow one E-Mail-Verlauf (`mail_thread_follows`): 60 days by
-default, renewable, at most 180 from its start, at most 20 appends a day. While
+default, renewable, at most 20 appends a day; since 2026-11-19 every mail filed
+into the Verlauf moves it to 60 days after that filing, with no cap from its
+start. While
 it runs, a later reply's **text** is appended to the Verlauf as that person,
 with a decision row `via = 'follow'`. **Attachments always wait** for a person,
 and the mail stays in the E-Mail-Eingang until they are decided; a text-only
@@ -341,8 +343,12 @@ decision to file replies ends with the work). Closing ends every running follow
 of the project as the person who closed it; sweep 12 is the backstop and ends,
 as the system, a follow it finds running in a closed project. Reopening starts
 no follow again. Whether a follow should instead end after 60 quiet days rather
-than run to 180 days with renewals is an open question to the owner; the 180
-days stand. Every start, renewal and end is
+than run to 180 days with renewals was an open question to the owner; the owner
+decided on 2026-11-19 that it runs while the conversation is active: each filing
+into the Verlauf, by hand or by a follow, extends every running follow of it to
+60 days after the filing, and the 180-day cap is gone (migration 0254). An
+extension re-arms the five-days-before notice, never revives an ended follow and
+never starts one. Every start, renewal and end is
 audited (`mail_thread.follow_started`, `mail_thread.follow_ended`). Following
 is a `control`-sensitive operation (ADR-0122): The agent never sees it, an outside
 agent only under the office's opt-in and the step-up scope. Ending is offered
@@ -389,7 +395,7 @@ code, never a sender, subject or file name. A mail's notices go to its sender
 only when it is `member_verified`, addressed to the project or the member's own
 Bcc copy, and the member may read the project; otherwise to the project's
 managers, so whoever forged a member's address never reaches that member
-through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-eleven-notices).
+through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-thirteen-notices).
 
 *Amended by the [amendment of 2026-11-03](#amendment-2026-11-03-verified-project-mail-is-filed-directly-only-unverified-mail-waits):* the member a
 From address names now hears why their mail waits and what became of it, forged
@@ -413,7 +419,8 @@ hears `held_for_writers`.
   (`/v1/filing-fit`, `basis: mail`) reads the attachments' names that passed
   the name check, the masked subject, the sender's domain, the folders every
   member may read and the office's conventions; never the text, never the bytes;
-  not for an unconfirmed sender, automatic mail or an impersonation. Each
+  not for automatic mail or an impersonation (by the [amendment of 2026-11-19](#amendment-2026-11-19-the-agent-suggests-for-unconfirmed-senders-too);
+  before it, not for an unconfirmed sender either). Each
   decision scores it (`piloti-decision`, subject `inbound_mail_suggestion`;
   `mail-thread-match`).
 - **The agent may propose** `inbound-mail-file` and `inbound-mail-dismiss` as
@@ -434,7 +441,7 @@ hears `held_for_writers`.
 | Item | Kept |
 |---|---|
 | A held mail | 30 days (`INBOUND_MAIL_WAIT_DAYS`); mail from outside the office 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`, set at the hold, by the [amendment of 2026-11-03](#amendment-2026-11-03-verified-project-mail-is-filed-directly-only-unverified-mail-waits)); a notice five days before the end |
-| Dismissed or expired parts | restorable 7 days, then erased; a dismissed part of an `external_unverified` mail, and an expired part of an `external` mail (the amendment), are erased by the next sweep |
+| Dismissed or expired parts | restorable 7 days, then erased, whoever sent the mail (amendment of 2026-11-19, „Every dismissal can be undone“, extended to expiry the same day) |
 | A settled mail (ids, counts, trust) | while any filed part's document lives, else 30 days |
 | A dropped mail (auto-reply, report, loop) | 30 days, its bytes erased at once |
 | The original of a filed message | its entry's life: until the Verlauf's document is deleted |
@@ -472,7 +479,8 @@ Decided in the DDL, each deviating from the design document for a reason:
 
 The one model call before filing is the suggestion, queued `bulk`, checked
 against `unaskedSpendAllowed` for the project (no member's budget: it is system
-work), skipped for unconfirmed and automatic mail. Parsing, matching, rendering
+work), skipped for automatic and impersonating mail (unconfirmed mail too until
+the [amendment of 2026-11-19](#amendment-2026-11-19-the-agent-suggests-for-unconfirmed-senders-too)). Parsing, matching, rendering
 and scanning make no model call. A Verlauf Fassung starts no intake reading, no
 placement review and no document check.
 
@@ -495,8 +503,9 @@ placement review and no document check.
   filing action yet.
 * Bad, because a project's mail is kept: originals of filed mail live as long as
   their Verlauf, which is a retention decision about third parties' data. The
-  Datenschutzberater's sign-off (owner question Q1) is open, and the
-  `inbound-mail` entitlement stays off for every office until it is given.
+  owner gave the data-protection go-ahead (owner question Q1) for every office
+  on 2026-11-14, and the `inbound-mail` entitlement is on for all
+  organizations in production since that day.
 * Bad, because files the office does not accept (DWG, ZIP) cannot be filed;
   they survive only inside the original. Fetching cloud links is a follow-up.
 * Bad, because one held document of a project pauses that project's mail
@@ -737,3 +746,310 @@ scanner (ADR-0157) and the upload path like any other file.
 - `review-first.spec.ts`: the receive side still imports no filing code; it
   queues `inbound_mail_sender_file` by name, and `sender-file-job.ts` is among
   the filing modules.
+
+## Amendment, 2026-11-19: the agent suggests for unconfirmed senders too
+
+*Product owner.* The suggestion was skipped for `external_unverified` and
+`member_unverified` mail. Outsider mail is most of a small office's real mail
+and is often not DKIM-signed, so most held mail got no suggestion and every
+attachment's folder was picked by hand: the E-Mail-Eingang went unused.
+
+- **The suggestion is asked for every waiting mail except an impersonation or
+  automatic mail** (`suggestionSkipReason` in `lib/inbound-mail/suggest.ts`).
+  A suggestion only pre-fills: for any mail that is not a `verified_writer`'s,
+  a person still files, and the risk flags, the name check and every
+  acknowledgement apply unchanged. The model reads names, never content, so an
+  unconfirmed sender reaches it through the same input as a
+  confirmed one, as data and never as instructions; its answer can only name
+  a folder of the allowlist.
+- **The budget rules stand**: queued `bulk`, `unaskedSpendAllowed` for the
+  project before the call, at most 60 attachments.
+- **A direct filing never creates a folder from a convention.** A
+  `verified_writer`'s mail filed by its sender's own filing is filed unseen, so
+  its suggestion is asked without the office's conventions: it lands in an
+  existing folder or the correspondence fallback. A mail a person reviews keeps
+  them.
+- **The file names are masked** by the office's content check, as the subject
+  always was.
+- **A failed call is retried and recorded.** A transient failure (backend
+  unreachable or 5xx, the model's request failed or its answer was malformed)
+  is retried by the job's own attempts; every outcome is the PostHog event
+  `inbound_mail_suggested` and, where a trace exists, an event on it.
+- **Only a judged part scores the suggestion.** A part left unfiled, a mail
+  dismissed whole and a text appended to a Verlauf write no `piloti-decision`:
+  discarding junk or choosing a Verlauf says nothing about the suggested folder.
+
+## Amendment, 2026-11-19: what a verified outsider's domain is trusted with
+
+*Grid engineering, after a security review of our own code.* DKIM proves a
+domain, and anyone can own one. "The label decides" above is narrowed; the rest
+stands.
+
+- **Pre-selection.** An `external_verified` mail's thread append is
+  pre-selected only when, besides a signed `reference` or `thread_index`
+  match, its From domain already took part in the thread
+  (`participantDomains`), and never on a public mail domain (gmail.com,
+  gmx.at, outlook.com and the like, one list in
+  `lib/mail-thread/public-mail-domains.ts`). A new Fassung found by file name
+  is pre-selected for a `member_verified` sender, as before, and for an
+  outsider only with a thread candidate the defaults would pre-select. All else
+  is offered unchecked and needs `acknowledgeRisk` (`unverified_thread`), as
+  "what needs an acknowledgement" says.
+- **Following.** Condition 5 holds per address on a public mail domain: every
+  From, To and Cc address there must already have taken part in the thread.
+  `relaxed_alignment` refuses no follow.
+- **Impersonation.** `claims_member_name` is judged after Unicode format
+  characters are stripped and Cyrillic and Greek look-alikes folded to Latin,
+  and an initial stands for any name but the surname.
+
+Where it lives: [Sender trust](../architecture/inbound-mail.md#sender-trust) and
+[Following a Verlauf](../architecture/inbound-mail.md#following-a-verlauf) in the
+architecture.
+
+## Amendment, 2026-11-19: automatic by default, review only the exceptions; dock onto existing project addresses
+
+*Product owner.* Offices asked for „höchstens ein Schritt“ to get mail into a
+project (tickets #25 and #46: „ohne weiteren Schritt“), and the one real tester's
+own mails from his own domain waited: one with a subdomain's signature, which
+only he could release, one flagged as an impersonation. The two pilot offices
+(feld72, GernerGernerPlus) already run project addresses in Outlook, for all
+project mail or in Cc, and will not add a second; they would redirect theirs to
+ours. The decision: **automatic by default, review only the exceptions, and
+dock onto the project addresses the office already has.** It amends the
+amendment of 2026-11-03; the rest of this record stands.
+
+### What changes
+
+- **Relaxed alignment files directly.** A writer's mail signed by the
+  organizational domain or a subdomain of the From domain (DMARC relaxed
+  alignment, the Public Suffix List's organizational domain) is a
+  `verified_writer`'s. The flag `relaxed_alignment` stays as evidence. Every
+  other rule of the evidence stands: a replay or date flag, a Bcc copy,
+  automatic sending, no write right. The premise of the old rule was that a
+  delegated key (a newsletter service's for `news.<domain>`) must not file as
+  a member; DMARC treats that key as the domain's, and its bulk mail is held as
+  automatic anyway.
+- **Any writer releases a mail that claims a writer.** An `unverified_writer`
+  mail is filed by its member („Ja, ich habe diese E-Mail gesendet“) or by any
+  other of the project's writers who says they checked it is from that member
+  („Ich habe geprüft, dass diese E-Mail von {Name} ist“), the same
+  `acknowledged_sender`. A mail whose signature the member's domain rejected
+  (an impersonation, `impersonationOf`) stays the member's alone (`sender_only`).
+  This retires "can be filed by nobody" for a member who left, for every mail
+  but an impersonation.
+- **An existing project address forwards here.** A project manager registers
+  up to ten of the office's addresses on the project address
+  (`forwarded_from`); a signed To or Cc naming one counts as addressed to the
+  project. Any real address is accepted, because the office's own domains are
+  known only where WorkOS domain verification is set up; the card asks for the
+  office's own.
+
+Migration 0250 holds all three in the database
+(`inbound_mails_verified_writer_evidence` without `relaxed_alignment`,
+`inbound_mail_decisions_claimed_sender_releases` for a colleague with the
+acknowledgement, `inbound_mail_addresses.forwarded_from`), with a down
+migration.
+
+### What this gives up, stated plainly
+
+- Whoever holds a key for a subdomain of the member's domain can now file as
+  the member, as DMARC already lets them send as the member.
+- A colleague's acknowledgement is a person's judgement, not a signature: the
+  row records who made it (`decided_by` is not the sender). It is the same
+  judgement the colleague already made for an outsider's mail.
+- An address outside the office, registered as forwarding, would let whoever
+  reads it re-send a member's signed mail to the project and have it filed as
+  the member.
+- A redirect that rewrites the body breaks the original signature, and the
+  mail reads as an impersonation (`dkim_fail`). Exchange Online's inbox-rule
+  redirect keeps the body in our fixture; a real tenant has not been observed.
+  Trusting Microsoft's ARC seal for the original verdict would cover it and is
+  not built.
+
+### Confirmation, in addition to the above
+
+- `scripts/rls-test-db.sh`, the 0250 section: a relaxed-aligned hold refused
+  before 0250 and accepted after, with a stale date, a Bcc copy or automatic
+  sending still refused; a colleague's acknowledged filing refused before and
+  accepted after, without the acknowledgement or as a follow refused; each
+  rejected-signature reason refused to a colleague and accepted from the
+  member; the forwarding list's shape; the down.
+- `sender-class.spec.ts` (`senderReleaseOf`), `sender-auth.spec.ts` (relaxed
+  alignment, the forwarding addresses, the Exchange redirect fixture
+  `__fixtures__/exchange-redirect.ts`), `decision.spec.ts` and `service.spec.ts`
+  (the colleague's release, `sender_only` for an impersonation on file and
+  restore), `receive-job.spec.ts` (a redirected writer's mail filed directly
+  once its project mailbox is registered), `address-service.spec.ts`,
+  `forwarding-addresses.spec.ts`, the route and the address card's specs.
+- The architecture: [`inbound-mail.md`](../architecture/inbound-mail.md#the-sender-rule)
+  and [its forwarding section](../architecture/inbound-mail.md#an-existing-project-address-forwards-here).
+
+## Amendment, 2026-11-19: replies from known correspondents are filed without a click
+
+*Product owner.* A person should not have to think about mail from known
+correspondents. Before this amendment only a writer's own signed mail was filed
+directly; a follow appended a reply's text only, and only once a person had
+switched it on, which nobody did, so every reply in a running conversation
+waited with all its attachments. The decision: **mail that is provably from
+someone the project already corresponds with is filed without a click; only
+the exceptions reach a person.** It is built on "Verlauf folgen" above, not on
+a new path, and it amends that section; the rest of this record stands.
+
+### The rule
+
+A reply is filed without a click when it is a signed reply in one of the
+project's E-Mail-Verläufe from someone who already took part in it: the nine
+conditions of "Verlauf folgen", unchanged (a signed `reference` match, every
+participant domain already in the Verlauf, per address on a public mail
+domain, no impersonation or risk flag, not automatic, a clean scan). What
+cannot be filed waits for a person, part by part: the text and the confident
+attachments are filed, the rest waits in the E-Mail-Eingang. Unsigned mail is
+never filed this way, however familiar the name.
+
+### What changes
+
+- **Follow by default.** When a person files a mail's text into a Verlauf in
+  the app (`via = 'app'`, a new Verlauf or an existing one) and has no running
+  follow on it, the filing job starts one for them, 60 days, as
+  `followMailThread` would (`followByDefault` in `lib/mail-thread/follows.ts`).
+  The rights a follow asks are asked again; when one refuses, or anything
+  fails, the text is filed all the same and no follow starts. A filing by an
+  outside agent, an agent's card, a follow or a sender's own filing starts
+  none: following stays a person's act in the app, `control`-sensitive for
+  outside agents (ADR-0122). The single-mail dialog says it in one line,
+  „Weitere Antworten in diesem Verlauf legt ARCHOS ohne Klick ab.“ The
+  follow stays visible and stoppable as before („Beenden“ in the E-Mails tab),
+  and ends with a notice for every reason it ended before.
+- **A follow files attachments.** After it decides the text, the follow job
+  files each attachment the follower's review defaults pre-select
+  (`preselected`: a clean scan, no risk flag, no duplicate, a revision only
+  where `revisionVouchedInThread` vouches for it for this sender) that has a
+  stored suggestion naming a folder that exists, or a vouched revision as the
+  next Fassung of its document (`followAttachmentDecisions` in
+  `lib/inbound-mail/follow-filing.ts`). It never creates a folder from a
+  convention, and never files an attachment whose name another document the
+  follower cannot see already holds. Every check of a person's decision runs
+  as the follower (`planMailDecision`, `requireDecisionRights`); a part it
+  refuses waits. The text and the attachments are one decision, one
+  transaction, one filing run; only the text counts against the follow's 20 a
+  day and the project's 100.
+- **It waits for the suggestion.** The receive job now queues the suggestion
+  before the follow, and the follow job waits while that suggestion is still
+  queued (30 s, at most ten times), as the sender's filing does, so a reply is
+  not filed with every attachment left behind because its suggestion was a few
+  seconds late.
+- **It says what it filed.** `inbound_mail.appended` names whether the
+  attachments went too (variant `with_attachments`, else `text`); a handled
+  mail in „Bearbeitet“ says „Ohne Klick abgelegt → {Verlauf}“
+  (`filedWithoutClick` on the list's summary); `inbound_mail_decided` with
+  `via: follow` counts the attachments in `files` and what still waits in
+  `left`; `mail_thread_followed` says `by_default`.
+
+Migration 0252 holds it in the database
+(`inbound_mail_decisions_follow_files_clean`,
+`inbound_mail_decisions_follow_attachment_clean`,
+`inbound_mail_parts_follow_files_clean`), with a down migration.
+
+### What this gives up, stated plainly
+
+- A reply's attachments land in the project unseen, as a writer's own mail's
+  already do. The trust is the follow's: the domain signed it and already
+  took part in the conversation. Whoever controls a correspondent's domain can
+  now put a clean, accepted file into an existing folder of a project they
+  already write to, in the follower's name. The name check, the scan, the
+  accepted types and the folder rights still apply, and the file is audited
+  as the follower's decision.
+- A follow starts without a separate yes. A person who pressed „Beenden“ and
+  later files another reply of the same Verlauf by hand follows it again; the
+  dialog says so.
+- A filing by an outside agent or an agent's card does not follow, so the same
+  filing made through them leaves later replies waiting.
+- A verified writer's own mail filed directly (`via = 'sender'`) starts no
+  follow, so the replies to a writer's own mail sent with the project in Cc
+  still wait until a person files one of them. Whether the sender's filing
+  should follow too is the product owner's next call.
+
+### Confirmation, in addition to the above
+
+- `scripts/rls-test-db.sh`, the 0252 section: a follow's clean attachment
+  into an existing folder refused before 0252 and accepted after, and one as a
+  Fassung; refused after 0252: a flagged or unscanned attachment, one of a
+  reply whose text the follow did not append (or another follower's follow),
+  one of a reply whose raw message did not scan clean, one into a folder to be
+  created, one with an acknowledgement, a new Verlauf; an attachment flagged
+  after its decision not claimed; the down.
+- `follow-filing.spec.ts` (which attachments go), `follow-job.spec.ts` (filed
+  with the text, each kind left waiting, the suggestion waited for, an
+  unsigned reply from a known name never filed), `file-job.spec.ts` and
+  `follows.spec.ts` (follow by default, and not on a refusal),
+  `receive-job.spec.ts` (the suggestion queued first), `service.spec.ts` and
+  `inbound-mail-row.spec.tsx` („Ohne Klick abgelegt“), `announce.spec.ts`;
+  against Postgres `follow.integration.spec.ts` (an attachment filed through
+  the real receive, follow and filing jobs; the caps count replies only; a
+  person's filing starts a follow).
+- The architecture: [Following a Verlauf](../architecture/inbound-mail.md#following-a-verlauf).
+
+## Amendment, 2026-11-19: a reported fraud names the mail
+
+*Product owner, from a blind usability read of the fraud stop: "Nobody else is
+warned. Accounting might see the same mail in Outlook and pay."*
+
+A person who reads a mail that poses as a member („Vorsicht: … gibt sich als
+… aus“) can report it („Melden …“). One press dismisses it as „Verwerfen“
+does and warns the project's managers (each office admin among them) and the
+member it poses as in the Postfach: `inbound_mail.fraud_reported`, and the
+variant `reported` of `inbound_mail.rejected`.
+
+This narrows "a row carries the project's name, a count and a code, never a
+sender, subject or file name" above by one type. A warning that cannot say
+which mail it means asks the reader to guess, and the mail it warns about is
+in their own mail program, not here. So the warning names the sender
+(„{display name} ‹{address}›“) and, in the row only, the subject. Both pass
+the office's content check with the IBAN detector forced on: the forger's
+account number never reaches a row. The push carries no subject. Nothing is
+emailed: "we never send mail about mail" stands, and a mail from us saying
+"this mail is fraud" would be the next thing to forge.
+
+### Consequences
+
+- Text a stranger wrote now reaches a row: the display name and the subject,
+  masked and cut short, under a title that says it is a forgery. Every other
+  mail notice still carries none (`announce.spec.ts`, the canaries).
+- Only people the notice registry can name truthfully are warned: those who
+  manage the project. An accounting colleague without project rights hears it
+  from them; the reporter's toast says how many were warned, and when nobody
+  was, to warn the office themselves.
+- The agent never reports (`inbound-mail-report` is offered to no agent):
+  a fraud alarm in colleagues' inboxes rests on a person's reading.
+
+### Confirmation
+
+- `report.spec.ts` (who is warned, once; the payload with the IBAN taken out;
+  the refusal of a mail that poses as nobody; the right to dismiss),
+  `inbound-mail-copy.spec.ts` (the words), `fraud-report.spec.tsx` (the
+  confirm, one press, the count).
+- The architecture: [Sender trust](../architecture/inbound-mail.md#sender-trust)
+  and [the notices](../architecture/inbound-mail.md#the-thirteen-notices).
+
+## Amendment, 2026-11-19: every dismissal can be undone for seven days
+
+*Product owner, after a blind usability read.* A dismissed part of an
+`external_unverified` mail was erased by the next sweep, while a dismissed
+forgery stayed restorable for seven days. Readers found that backwards: the
+weekly partner whose domain does not sign lost their plans to one wrong press,
+the fraud mail did not. Every dismissal is now restorable for seven days,
+whoever sent the mail; the sweep erases it after that, as it does every other
+dismissal. What this gives up: an unconfirmed outsider's dismissed mail is kept
+up to seven days longer than before.
+
+*Extended to expiry the same day, product owner.* An outsider's mail nobody
+filed within its 14 days was erased by the next sweep, never restorable, while
+a member's kept seven days. The list row therefore read „Wird am … entfernt,
+wenn niemand sie ablegt“, a threat the office could not undo once the date
+passed. Every expired part is now restorable for seven days, whoever sent the
+mail, and the sweep erases it after them; the row states the deadline plainly
+(„Bleibt bis … im E-Mail-Eingang“). The 14-day window itself is unchanged.
+Migration 0255 drops the decision guard's refusal
+(`inbound_mail_decisions_external_expiry_final`); a legal hold defers the
+erasure as before. What this gives up: an outsider's expired mail is kept up to
+seven days longer than before.

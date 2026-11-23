@@ -22,7 +22,7 @@ import {
 import { QUESTIONS_FIXTURES } from '@/app/dev/_fixtures/project-setup-questions'
 import { READING_FIXTURES } from '@/app/dev/_fixtures/project-setup-reading'
 import { useFilingSuggestions } from '@/features/documents/hooks/use-filing-suggestions'
-import type { IntakeDecision } from '@/lib/project-intake/types'
+import type { BuildingOperation, IntakeDecision } from '@/lib/project-intake/types'
 
 installFixtureDocuments(INTAKE_FIXTURES.ready)
 
@@ -92,6 +92,10 @@ export default function ProjectSetupPreviewPage({
         onDecide={async (decisions: IntakeDecision[]) => {
           setSent(`decide: ${JSON.stringify(decisions)}`)
           return true
+        }}
+        onChangeBuilding={async (operation: BuildingOperation) => {
+          setSent(`building: ${JSON.stringify(operation)}`)
+          return 'buildingId' in operation ? operation.buildingId : null
         }}
         onReread={() => setSent('start: {"scope":"new"}')}
         onComplete={async () => {

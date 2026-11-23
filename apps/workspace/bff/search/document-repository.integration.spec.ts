@@ -390,7 +390,7 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     repo = await import('./document-repository')
@@ -515,7 +515,7 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
       expect(unchanged.rows[0].changedFacts).toEqual([])
     })
 
-    it('counts the documents in reach Piloti has not read, whatever the filters, and none it may not see', async () => {
+    it('counts the documents in reach the agent has not read, whatever the filters, and none it may not see', async () => {
       expect(await repo.countUnreadDocuments(officeReach(), false)).toBe(2)
       expect(await repo.countUnreadDocuments(officeReach(), true)).toBe(2)
       const p2Only: SearchReach = { ...officeReach(), projects: officeReach().projects.slice(1), officeShelf: null }
@@ -535,6 +535,31 @@ describe.skipIf(!url)('the search documents SQL against Postgres', () => {
       const shelf: SearchReach = { ...reach, scope: { kind: 'office_shelf' }, projects: [] }
       expect(await found(shelf, query())).toEqual(keys('A5', 'A6'))
       expect(await found({ ...reach, projects: [], officeShelf: null }, query())).toEqual([])
+    })
+
+    it('leaves out an office shelf document filed in a folder the office shelf hides, and its folder', async () => {
+      const [standards] = Array.from(
+        await inTenant(ORG, () =>
+          db.execute<{ id: string }>(sql`
+            INSERT INTO project_folders (organization_id, project_id, scope, name, path)
+            VALUES (${ORG}, NULL, 'office_shelf', 'Grundlagen des Büros', 'Grundlagen des Büros')
+            RETURNING id`)
+        )
+      )
+      const hiddenId = String(standards.id)
+      const fileA6 = (folderId: string | null): Promise<unknown> =>
+        inTenant(ORG, () => db.execute(sql`UPDATE documents SET folder_id = ${folderId}::uuid WHERE id = ${ids.A6}::uuid`))
+      await fileA6(hiddenId)
+      try {
+        const reach = officeReach()
+        const shelf: SearchReach = { ...reach, scope: { kind: 'office_shelf' }, projects: [] }
+        const ordner: SearchReach = { ...shelf, officeShelf: { ...reach.officeShelf!, hiddenFolderIds: [hiddenId] } }
+        expect(await found(shelf, query())).toEqual(keys('A5', 'A6'))
+        expect(await found(ordner, query())).toEqual(keys('A5'))
+      } finally {
+        await fileA6(null)
+        await inTenant(ORG, () => db.execute(sql`DELETE FROM project_folders WHERE id = ${hiddenId}::uuid`))
+      }
     })
 
     it('reads the folder path of each row from the shelf root, nested names joined by a slash, the root as empty', async () => {

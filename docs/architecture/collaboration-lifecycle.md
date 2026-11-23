@@ -54,7 +54,7 @@ flowchart TD
     ProjPurge["Project purged<br/>(outside the BFF)"]
     OrgPurge["Organization purged"]
 
-    ConvDel --> P1["PURGE grants + requests + items<br/>(conversations/service deleteConversation)"]
+    ConvDel --> P1["PURGE grants + requests + items<br/>(conversations/conversation-erasure deleteConversation)"]
     ProjSoft --> N1["NEUTRALIZE every conversation in the project<br/>void requests, inert items, KEEP grants<br/>(projects/service deleteProject)"]
     ProjPurge --> C1["PURGE grants + requests + items,<br/>THEN delete the conversations<br/>(purger/purge-project.js, raw SQL)"]
     C1 --> S1["anything missed -> reconciled by the sweep"]
@@ -64,7 +64,7 @@ flowchart TD
 
 | Path | Behaviour | Where |
 |---|---|---|
-| **Conversation deleted** (requires `owner`) | Purge grants, requests, items. `messages`/`reads` cascade. | `conversations/service.ts` → `purgeConversationCollaboration` |
+| **Conversation deleted** (requires `owner`) | Purge grants, requests, items. `messages`/`reads` cascade. | `conversations/conversation-erasure.ts` → `purgeConversationCollaboration` |
 | **Conversation that never existed** | Nothing purged, and the client is told **exactly what it is told for a conversation that exists and is not theirs**: `204`. The chat store deletes ids that may only ever have lived in a browser, so absence must not surface an error — and a 204/404 split would have made the endpoint a cross-tenant existence oracle (spec SH-6). The service reports the truth (`NotFoundError` for both); the DELETE route is what collapses the two into one response. | `deleteConversation` + `api/conversations/[id]` DELETE |
 | **Project soft-deleted** | Neutralize every conversation in it. Grants kept for restore. Best-effort: a failure here never fails the deletion. | `projects/service.ts` → `neutralizeCollaborationForProject` |
 | **Project restored** | Nothing to do — grants survived, and voided requests stay void (a request nobody could answer for days should not silently come back and re-block the thread). | — |

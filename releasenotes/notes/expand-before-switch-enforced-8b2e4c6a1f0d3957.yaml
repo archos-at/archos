@@ -1,0 +1,7 @@
+---
+operators:
+  - >
+    A pull request that switches writers to a new stored shape now fails CI
+    until prod runs the release that taught the readers that shape, and Promote
+    to prod refuses a commit that would ship both at once. Nobody has to read
+    pull request bodies to keep the two in separate promotions.

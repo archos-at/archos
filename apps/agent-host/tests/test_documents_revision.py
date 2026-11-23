@@ -164,7 +164,9 @@ class TestLinking:
         snapshot = store.get_all(COLLECTION)
         store.link_revision(COLLECTION, NEWER, OLDER)
 
-        with patch("agent_host.routes.documents.get_available_documents_async", AsyncMock(return_value=snapshot)):
+        with patch(
+            "agent_host.routes.document_revisions.get_available_documents_async", AsyncMock(return_value=snapshot)
+        ):
             res = await _put(app, LINK)
 
         assert res.status_code == 409
@@ -239,7 +241,7 @@ class TestLinking:
         from agent.common import provider_limiter
 
         fake, post = _gateway()
-        with patch("agent_host.routes.documents.limited_async_http_client", fake):
+        with patch("agent_host.routes.document_revisions.limited_async_http_client", fake):
             async with _client(app) as client:
                 await client.put(f"/v1/collections/{COLLECTION}/revision", json=LINK)
 
@@ -247,7 +249,7 @@ class TestLinking:
         post.assert_called_once()
 
     async def test_the_organization_header_reaches_the_credential_resolution(self, app, store):
-        with patch("agent_host.routes.documents._llm_settings") as settings:
+        with patch("agent_host.routes.document_revisions._llm_settings") as settings:
             settings.return_value = MagicMock(api_key="")
             await _put(app, LINK, headers={"x-grid-organization-id": "org_1"})
         settings.assert_called_once_with("org_1")
@@ -355,6 +357,19 @@ class TestThePurge:
         res, delete_files = await self._delete(app, {"file_ids": [OLDER], "permanent": True})
         assert res.status_code == 200
         delete_files.assert_called_once_with([OLDER], COLLECTION, permanent=True)
+
+    async def test_a_purge_that_names_its_documents_deletes_them_by_id(self, app):
+        from agent.knowledge.factory import get_active_ingestor
+
+        ingestor = get_active_ingestor()
+        ingestor.delete_documents.return_value = {"successful": [OLDER], "failed": [], "total_deleted": 1}
+        body = {"file_ids": [OLDER], "documents": [{"id": "doc-1", "file_name": OLDER}], "permanent": True}
+
+        res, delete_files = await self._delete(app, body)
+
+        assert res.status_code == 200
+        ingestor.delete_documents.assert_called_once_with([("doc-1", OLDER)], COLLECTION, permanent=True)
+        delete_files.assert_not_called()
 
 
 class TestValidation:

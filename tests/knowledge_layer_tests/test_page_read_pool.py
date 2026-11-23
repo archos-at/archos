@@ -5,11 +5,13 @@ import threading
 import time
 
 import pytest
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import page_reads
 from knowledge_layer.ingest import page_triage
+from knowledge_layer.ingest import pdf_text
 from knowledge_layer.ingest import processing
+from knowledge_layer.ingest import text_chunks
 from knowledge_layer.ingest import transcription
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer_testing.pdf_fixtures import build_drawing_sheets_pdf
 
 VISION = {"vlm_model": "m", "vlm_base_url": "u", "vlm_api_key": "k"}
@@ -74,14 +76,14 @@ def meter(monkeypatch):
         meter.call("ocr")
         return "# Bescheid\n" + "Auflage " * 40
 
-    monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", drawing)
+    monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", drawing)
     monkeypatch.setattr(transcription, "_transcribe_live", transcribe)
     return meter
 
 
 def _read_pages(path: str, parallelism: int):
-    text_pages = adapter._extract_text_from_pdf(path)
-    page_texts = adapter.page_texts_for_visual_heuristic(text_pages)
+    text_pages = pdf_text._extract_text_from_pdf(path)
+    page_texts = text_chunks.page_texts_for_visual_heuristic(text_pages)
     triage = page_triage.triage_pdf(path, page_texts, min_text_chars=200, min_paths=300)
     with page_reads.file_page_reads(parallelism) as reads:
         reads.read_drawings_ahead(triage, path, cap=20, max_dim=1024, vision={**VISION, "extract_charts": True})

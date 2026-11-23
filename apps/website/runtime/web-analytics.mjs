@@ -44,8 +44,8 @@
  * submits, and markup adds properties to them with `data-ph-capture-attribute-*`
  * (a CTA's area, the language switch). Campaign parameters and the referrer
  * ride on every pageview, and `$pageleave` carries the scroll depth. Two events
- * are the site's: `form_submitted` (the mailto hand-off, `src/components/MailForm.astro`)
- * and `video_played` (`src/components/Video.astro`). README, "Analytics".
+ * are the site's: `form_submitted` (`src/components/MailForm.astro`) and `video_played`
+ * (`src/components/Video.astro`); the server adds `website_enquiry`. README, "Analytics".
  * The loader dispatches `ANALYTICS_READY_EVENT` on `window` after `init`, so the
  * consent note knows the SDK is there to ask.
  *
@@ -63,6 +63,7 @@ export const ANALYTICS_READY_EVENT = 'analytics:ready'
  * @typedef {object} WebAnalyticsConfig
  * @property {string} host Ingestion host without a trailing slash, e.g. `https://eu.i.posthog.com`.
  * @property {string} token Public project token (`phc_…`).
+ * @property {string} [deployment] The Pulumi stack (`POSTHOG_DEPLOYMENT`), registered on every event as the app does.
  */
 
 /**
@@ -82,7 +83,8 @@ export function webAnalyticsConfig(env) {
     return null
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
-  return { host: url.origin + url.pathname.replace(/\/+$/, ''), token }
+  const deployment = (env.POSTHOG_DEPLOYMENT ?? '').trim()
+  return { host: url.origin + url.pathname.replace(/\/+$/, ''), token, ...(deployment ? { deployment } : {}) }
 }
 
 /**
@@ -107,6 +109,24 @@ export function webAnalyticsInitOptions(config) {
     disable_surveys: true,
     respect_dnt: true,
   }
+}
+
+/**
+ * The site's `before_send`: drops a bare `Script error.` without a stack, which
+ * a browser reports for an error in a script from another origin served without
+ * CORS headers. It names neither script nor line (KAN-101). The loader embeds
+ * this function's source, so it uses nothing outside its own body.
+ *
+ * @param {{ event: string, properties?: { $exception_list?: Array<{ value?: unknown, stacktrace?: { frames?: unknown[] } | null }> } } | null} capture
+ */
+export function dropOpaqueScriptError(capture) {
+  if (!capture || capture.event !== '$exception') return capture
+  var list = (capture.properties && capture.properties.$exception_list) || []
+  var opaque = list.length > 0 && list.every(function (entry) {
+    var frames = entry && entry.stacktrace && entry.stacktrace.frames
+    return entry && typeof entry.value === 'string' && /^Script error\.?$/.test(entry.value) && !(frames && frames.length)
+  })
+  return opaque ? null : capture
 }
 
 /**
@@ -156,7 +176,10 @@ export function webAnalyticsScript(config) {
   s.src = ${JSON.stringify(sdkUrl(config.host))};
   s.onload = function () {
     if (window.posthog && typeof window.posthog.init === 'function') {
-      window.posthog.init(${JSON.stringify(config.token)}, ${options});
+      var options = ${options};
+      options.before_send = ${dropOpaqueScriptError.toString()};
+      window.posthog.init(${JSON.stringify(config.token)}, options);
+      window.posthog.register(${JSON.stringify({ site: 'website', ...(config.deployment ? { deployment: config.deployment } : {}) })});
       window.dispatchEvent(new Event(${JSON.stringify(ANALYTICS_READY_EVENT)}));
     }
   };

@@ -20,7 +20,7 @@ const LIMIT = 10
 
 const session = {
   userId: 'user_eval',
-  email: 'eval@piloti.test',
+  email: 'eval@example.test',
   name: 'Eval',
   accessToken: '',
   organizationId: 'org_eval',
@@ -29,8 +29,8 @@ const session = {
   permissions: [],
   featureFlags: null,
 }
-const piloti: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
-const ctx = { principal: piloti, mode: 'search' as const }
+const agent: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [] }
+const ctx = { principal: agent, mode: 'search' as const }
 
 export const SEARCH_QUERIES = [
   'add member project',
@@ -85,7 +85,7 @@ function describeText(name: string): string {
 }
 
 function render(): string {
-  const operations = visibleOperations(piloti).map((op) => {
+  const operations = visibleOperations(agent).map((op) => {
     const annotations = annotationsOf(op)
     return {
       name: op.name,
@@ -110,7 +110,7 @@ function render(): string {
 }
 
 describe('the workspace eval catalog', () => {
-  it('is what the production door shows in-product Piloti', () => {
+  it('is what the production door shows for the in-product agent', () => {
     const rendered = render()
     if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FILE, rendered)
     expect(readFileSync(FILE, 'utf8')).toBe(rendered)

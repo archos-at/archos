@@ -54,6 +54,8 @@ beforeAll(() => {
     "pulumi",
     [
       'if [ "$1 $2 $3" = "config get cmsEnabled" ]; then [ -n "${STUB_CMS_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_CMS_ENABLED"; exit 0; fi',
+      'if [ "$1 $2 $3" = "config get browserRendererEnabled" ]; then [ -n "${STUB_BROWSER_RENDERER_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_BROWSER_RENDERER_ENABLED"; exit 0; fi',
+      'if [ "$1 $2 $3" = "config get codeRunnerEnabled" ]; then [ -n "${STUB_CODE_RUNNER_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_CODE_RUNNER_ENABLED"; exit 0; fi',
       '[ "$1 $2" = "stack output" ] || exit 64',
       '[ -z "${STUB_PULUMI_FAIL:-}" ] || exit 1',
       'out="${STUB_OUTPUTS:-}"; [ -n "$out" ] || out="{}"',
@@ -92,9 +94,9 @@ afterAll(() => {
 
 type Run = { status: number | null; stdout: string; stderr: string };
 
-function run(script: string, env: Record<string, string>, args: string[] = [], cwd: string = REPO): Run {
+function run(script: string, env: Record<string, string>, args: string[] = []): Run {
   const result = spawnSync("bash", [join(SCRIPTS, script), ...args], {
-    cwd,
+    cwd: REPO,
     encoding: "utf8",
     env: {
       ...GIT_ENV,
@@ -112,14 +114,14 @@ function run(script: string, env: Record<string, string>, args: string[] = [], c
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
-const repository = (service: string) => (service === "cms" ? "cms" : `grid-oib-${service}`);
+const repository = (service: string) => (["cms", "code-runner", "browser-renderer"].includes(service) ? service : `grid-oib-${service}`);
 
 const ref = (service: string, commitName: string) =>
   `ghcr.io/archos-at/${repository(service)}:sha-${C[commitName]}`;
 
 const publishedAt = (...commitNames: string[]) =>
   commitNames
-    .flatMap((n) => ["backend", "frontend", "web", "cms"].map((s) => `${s} sha-${C[n]}`))
+    .flatMap((n) => ["backend", "frontend", "web", "cms", "code-runner", "browser-renderer"].map((s) => `${s} sha-${C[n]}`))
     .join("\n");
 
 const deployed = (refs: Record<string, string>) => JSON.stringify({ deployedImages: refs });
@@ -146,6 +148,8 @@ describe("resolve-image-refs.sh", () => {
       FRONTEND_IMAGE_REF: ref("frontend", "c5"),
       WEB_IMAGE_REF: ref("web", "c5"),
       CMS_IMAGE_REF: ref("cms", "c5"),
+      CODE_RUNNER_IMAGE_REF: ref("code-runner", "c5"),
+      BROWSER_RENDERER_IMAGE_REF: ref("browser-renderer", "c5"),
     });
   });
 
@@ -169,6 +173,8 @@ describe("resolve-image-refs.sh", () => {
       FRONTEND_IMAGE_REF: ref("frontend", "c5"),
       WEB_IMAGE_REF: ref("web", "c5"),
       CMS_IMAGE_REF: ref("cms", "c5"),
+      CODE_RUNNER_IMAGE_REF: ref("code-runner", "c5"),
+      BROWSER_RENDERER_IMAGE_REF: ref("browser-renderer", "c5"),
     });
   });
 
@@ -316,92 +322,48 @@ describe("resolve-image-refs.sh", () => {
   });
 });
 
-describe("resolve-image-refs.sh, the vector-store floor", () => {
-  const STORE_REPO = join(ROOT, "store-repo");
-  const S: Record<string, string> = {};
-  const sgit = (...args: string[]) =>
-    execFileSync("git", args, { cwd: STORE_REPO, env: GIT_ENV, encoding: "utf8" }).trim();
-  const scommit = (name: string) => {
-    sgit("add", "-A");
-    sgit("commit", "--allow-empty", "-q", "-m", name);
-    S[name] = sgit("rev-parse", "HEAD");
-  };
-  const chromaTs = join(STORE_REPO, "deploy", "pulumi", "src", "data", "chroma.ts");
-  const backend = (name: string) => `ghcr.io/archos-at/grid-oib-backend:sha-${S[name]}`;
-  const all = (name: string) => ({
-    backend: backend(name),
-    frontend: `ghcr.io/archos-at/grid-oib-frontend:sha-${S[name]}`,
-    web: `ghcr.io/archos-at/grid-oib-web:sha-${S[name]}`,
-    cms: `ghcr.io/archos-at/cms:sha-${S[name]}`,
-  });
-  const resolveAt = (deploy: string, env: Record<string, string>) =>
-    run("resolve-image-refs.sh", { DEPLOY_SHA: S[deploy], ...env }, [], STORE_REPO);
+describe("resolve-image-refs.sh, the code runner", () => {
+  const older = () => ["backend", "frontend", "web", "cms"].map((s) => `${s} sha-${C.c2}`).join("\n");
 
-  beforeAll(() => {
-    execFileSync("mkdir", ["-p", join(STORE_REPO, "deploy", "pulumi", "src", "data")]);
-    sgit("init", "-q", "-b", "develop");
-    writeFileSync(chromaTs, "export function installChroma() {}\n");
-    scommit("chroma1");
-    rmSync(chromaTs);
-    scommit("removal");
-    scommit("after");
-    writeFileSync(chromaTs, "export function installChroma() {}\n");
-    scommit("revert");
+  it("looks the code runner up in its own repository and prints CODE_RUNNER_IMAGE_REF", () => {
+    const out = resolve({ STUB_PUBLISHED: publishedAt("c3") });
+    expect(out.status, out.stderr).toBe(0);
+    expect(pinned(out).CODE_RUNNER_IMAGE_REF).toBe("ghcr.io/archos-at/code-runner:sha-" + C.c3);
   });
 
-  it("refuses a rollback to an image built while the program still deployed Chroma", () => {
-    const out = resolveAt("after", {
-      EXPLICIT_TAG: `sha-${S.chroma1}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }),
-    });
-    expect(out.status).toBe(1);
-    expect(out.stdout).toBe("");
-    expect(out.stderr).toContain(`::error::backend: refusing ${backend("chroma1")}. It was built for chroma`);
-    expect(out.stderr).toContain("git revert");
-  });
-
-  it("refuses a bare re-deploy that would keep a Chroma-era backend under a program without Chroma", () => {
-    const out = resolveAt("after", {
-      RESOLVE_DEPTH: "1",
-      STUB_PUBLISHED: "",
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("chroma1") }),
-    });
-    expect(out.status).toBe(1);
-    expect(out.stderr).toContain("It was built for chroma, and the program");
-  });
-
-  it("allows a rollback that stays on the same side of the removal", () => {
-    const out = resolveAt("after", {
-      EXPLICIT_TAG: `sha-${S.removal}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }),
+  it("keeps the running code runner when a rollback tag has no code-runner image", () => {
+    const out = resolve({
+      EXPLICIT_TAG: `sha-${C.c2}`,
+      STUB_PUBLISHED: older(),
+      STUB_OUTPUTS: deployed({ backend: ref("backend", "c5"), "code-runner": ref("code-runner", "c5") }),
     });
     expect(out.status, out.stderr).toBe(0);
-    expect(out.stdout).toContain(`BACKEND_IMAGE_REF=${backend("removal")}`);
+    expect(pinned(out).CODE_RUNNER_IMAGE_REF).toBe(ref("code-runner", "c5"));
+    expect(out.stderr).toContain(`::warning::code-runner: sha-${C.c2} has no code-runner image`);
   });
 
-  it("allows the forward deploy of a revert, whose program and image both run Chroma again", () => {
-    const out = resolveAt("revert", { RUN_ID: "7", STUB_OUTPUTS: JSON.stringify({ deployedImages: all("after") }) });
+  it("leaves the code runner unpinned while it is off and no commit in the walk has its image", () => {
+    const out = resolve({ STUB_PUBLISHED: older() });
     expect(out.status, out.stderr).toBe(0);
-    expect(out.stdout).toContain(`BACKEND_IMAGE_REF=${backend("revert")}`);
+    expect(pinned(out).CODE_RUNNER_IMAGE_REF).toBe("");
+    expect(out.stderr).toContain("::warning::code-runner: no image in the last 200 develop commits and none is deployed; it is off");
   });
 
-  it("is a script of its own, as the prod job runs it on the pinned tag", () => {
-    const floor = (deploy: string, ref: string) =>
-      run("vector-store-floor.sh", { DEPLOY_SHA: S[deploy] }, [ref], STORE_REPO);
-    expect(floor("after", backend("chroma1")).status).toBe(1);
-    expect(floor("after", backend("removal")).status).toBe(0);
-    const unreadable = floor("after", "ghcr.io/archos-at/grid-oib-backend:latest");
-    expect(unreadable.status).toBe(0);
-    expect(unreadable.stderr).toContain("::warning::backend: cannot tell which vector store");
+  it("fails that walk when the code runner is on, rather than deploy it with no image", () => {
+    const out = resolve({ STUB_PUBLISHED: older(), STUB_CODE_RUNNER_ENABLED: "true" });
+    expect(out.status).toBe(1);
+    expect(out.stderr).toContain("::error::code-runner: no image in the last 200 develop commits and no deployed ref to keep.");
   });
 
-  it("refuses a Qdrant-only image under a program that deploys Chroma again", () => {
-    const out = resolveAt("revert", {
-      EXPLICIT_TAG: `sha-${S.after}`,
-      STUB_OUTPUTS: JSON.stringify({ deployedImages: all("revert") }),
+  it("fails a rollback with the code runner on and no image to keep, naming codeRunnerImage", () => {
+    const out = resolve({
+      EXPLICIT_TAG: `sha-${C.c2}`,
+      STUB_PUBLISHED: older(),
+      STUB_CODE_RUNNER_ENABLED: "true",
+      STUB_OUTPUTS: deployed({ backend: ref("backend", "c5") }),
     });
     expect(out.status).toBe(1);
-    expect(out.stderr).toContain("It was built for qdrant, and the program");
+    expect(out.stderr).toContain("Set codeRunnerImage to a published code-runner image (ghcr.io/archos-at/code-runner:sha-<commit>)");
   });
 });
 
@@ -449,5 +411,14 @@ describe("verify-image-tag.sh", () => {
     expect(out.status).toBe(1);
     expect(out.stdout).toContain("not published for cms");
     expect(run("verify-image-tag.sh", { STUB_CURL_CODES: all("sha-a", "200") }, ["archos-at", "sha-a"]).status).toBe(0);
+  });
+
+  it("checks the code-runner image as well when the stack runs the code runner", () => {
+    const withRunner = `${all("sha-a", "200")}\narchos-at/code-runner:sha-a 200`;
+    const env = { CODE_RUNNER_ENABLED: "true" };
+    expect(run("verify-image-tag.sh", { STUB_CURL_CODES: withRunner, ...env }, ["archos-at", "sha-a"]).status).toBe(0);
+    const out = run("verify-image-tag.sh", { STUB_CURL_CODES: all("sha-a", "200"), ...env }, ["archos-at", "sha-a"]);
+    expect(out.status).toBe(1);
+    expect(out.stdout).toContain("not published for code-runner");
   });
 });

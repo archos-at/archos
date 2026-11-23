@@ -2,8 +2,10 @@ import { z } from 'zod'
 import { ProjectProfilePatchOperationSchema } from '@/lib/project-profile/types'
 import { PROJECT_MEMORY_CONFIDENCES, PROJECT_MEMORY_KINDS } from '@/lib/projects/memory-vocabulary'
 import { memoryTopicField } from '@/lib/memory-topics/wire'
+import { AGENT_KINDS } from '@/lib/agent-kind'
+import { OFFICE_WORK_KINDS } from '@/lib/base-knowledge/wire/vocab'
 
-export const PROPOSED_CHANGE_KINDS = ['file_operation', 'memory', 'project_profile', 'operation'] as const
+export const PROPOSED_CHANGE_KINDS = ['file_operation', 'memory', 'project_profile', 'operation', 'office_shelf_norm'] as const
 export type ProposedChangeKind = (typeof PROPOSED_CHANGE_KINDS)[number]
 
 export const PROPOSED_CHANGE_STATUSES = ['proposed', 'applied', 'partially_applied', 'failed', 'dismissed'] as const
@@ -15,7 +17,7 @@ export type ProposalScope = (typeof PROPOSAL_SCOPES)[number]
 export const FILE_OPERATIONS = ['move', 'rename', 'create_folder', 'assign'] as const
 export type FileOperation = (typeof FILE_OPERATIONS)[number]
 
-export const PROPOSAL_NOTICE_VARIANTS = [...FILE_OPERATIONS, 'memory', 'project_profile', 'operation'] as const
+export const PROPOSAL_NOTICE_VARIANTS = [...FILE_OPERATIONS, 'memory', 'project_profile', 'operation', 'office_shelf_norm'] as const
 export type ProposalNoticeVariant = (typeof PROPOSAL_NOTICE_VARIANTS)[number]
 
 export const MAX_FILE_OPERATION_ITEMS = 8
@@ -109,6 +111,28 @@ export const operationPayloadSchema = z
   .strict()
 export type OperationPayload = z.infer<typeof operationPayloadSchema>
 
+export const MAX_SUGGESTED_NORMS = 8
+
+export const officeShelfNormPayloadSchema = z
+  .object({
+    documents: z
+      .array(
+        z
+          .object({
+            id: z.guid(),
+            name: text(512),
+            designation: z.string().trim().max(120).nullable(),
+            kind: z.enum(OFFICE_WORK_KINDS).optional(),
+            editionLabel: z.string().trim().max(120).nullable().optional(),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(MAX_SUGGESTED_NORMS),
+  })
+  .strict()
+export type OfficeShelfNormPayload = z.infer<typeof officeShelfNormPayloadSchema>
+
 export const OPERATION_TARGET_TYPES = [
   'project',
   'document',
@@ -145,7 +169,7 @@ const proposedChangeBaseSchema = z.object({
   id: z.guid(),
   projectId: z.string().nullable(),
   status: z.enum(PROPOSED_CHANGE_STATUSES),
-  proposedByKind: z.enum(['piloti', 'person']),
+  proposedByKind: z.enum(['person', ...AGENT_KINDS] as const),
   onBehalfOf: z.string(),
   onBehalfOfName: z.string().nullable(),
   originConversationId: z.string().nullable(),
@@ -166,6 +190,11 @@ export const proposedChangeViewSchema = z.discriminatedUnion('kind', [
     kind: z.literal('operation'),
     payload: operationPayloadSchema,
     targets: z.array(operationTargetViewSchema).optional(),
+  }),
+  proposedChangeBaseSchema.extend({
+    kind: z.literal('office_shelf_norm'),
+    proposedByKind: z.literal('person'),
+    payload: officeShelfNormPayloadSchema,
   }),
 ])
 export type ProposedChangeView = z.infer<typeof proposedChangeViewSchema>
@@ -231,7 +260,26 @@ export const proposalListQuerySchema = proposalListQueryShape.refine(
 export type ProposalListQuery = z.input<typeof proposalListQuerySchema>
 export type ParsedProposalListQuery = z.infer<typeof proposalListQuerySchema>
 
+const confirmedNormSchema = z
+  .object({
+    documentId: z.guid(),
+    values: z
+      .object({
+        kind: z.enum(OFFICE_WORK_KINDS),
+        designation: z.string().trim().min(1).max(120).nullable(),
+        editionLabel: z.string().trim().min(1).max(120),
+      })
+      .strict(),
+  })
+  .strict()
+export type ConfirmedNorm = z.infer<typeof confirmedNormSchema>
+
 export const applyProposalRequestSchema = z
   .object({ memoryScope: z.literal('project').optional() })
   .strict()
 export type ApplyProposalRequest = z.infer<typeof applyProposalRequestSchema>
+
+export const applyProposalBodySchema = applyProposalRequestSchema
+  .extend({ norms: z.array(confirmedNormSchema).min(1).max(MAX_SUGGESTED_NORMS).optional() })
+  .strict()
+export type ApplyProposalBody = z.infer<typeof applyProposalBodySchema>

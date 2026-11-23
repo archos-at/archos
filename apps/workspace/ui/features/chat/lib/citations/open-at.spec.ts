@@ -286,7 +286,7 @@ describe('a cited office document opens on its PDF rendition (ADR-0070)', () => 
   })
 })
 
-describe('a RIS source opens inside Piloti (#622)', () => {
+describe('a RIS source opens inside the app (#622)', () => {
   const risCitation = (url: string) => {
     const [document] = buildCitationModel({
       citations: [

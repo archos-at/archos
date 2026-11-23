@@ -15,6 +15,7 @@ import {
   type PostHogIdentity,
 } from './posthog-config'
 import { isControlFlowExceptionEvent, isFrameworkControlFlow } from './control-flow-error'
+import { isOpaqueScriptErrorEvent } from './opaque-script-error'
 import { SENSITIVE_QUERY_KEYS, scrubDeep } from './posthog-scrub'
 
 export { DISABLED_POSTHOG_CONFIG, postHogConfigFromEnv, type PostHogConfig, type PostHogIdentity }
@@ -67,6 +68,10 @@ export type PostHogEvent =
   | 'inbound_mail_filed_outcome_opened'
   | 'inbound_mail_address_copied'
   | 'inbound_mail_address_contact_saved'
+  | 'norm_dialog_shown'
+  | 'norm_dialog_settled'
+  | 'norm_unlisted'
+  | 'norm_relisted'
 
 let initialized = false
 
@@ -75,8 +80,29 @@ export const stripUrlQuery = (url: string): string => {
   return cut === -1 ? url : url.slice(0, cut)
 }
 
-const SECRET_HEADER =
-  /^(?:authorization|proxy-authorization|cookie|set-cookie|x-grid-.*|x-workos-.*|x-api-key|.*token.*|.*secret.*)$/i
+export const SERVICE_HEADER_NAMES = [
+  'x-answer-message-id',
+  'x-budget',
+  'x-collection-scope',
+  'x-context-transport',
+  'x-disabled-sources',
+  'x-feature-memory-reflection',
+  'x-locale',
+  'x-model-overrides',
+  'x-org-instructions',
+  'x-organization-id',
+  'x-project-context',
+  'x-project-id',
+  'x-project-memory',
+  'x-request-context',
+  'x-request-context-sig',
+  'x-user-id',
+]
+
+const SECRET_HEADER = new RegExp(
+  `^(?:authorization|proxy-authorization|cookie|set-cookie|x-grid-.*|x-workos-.*|x-api-key|.*token.*|.*secret.*|${SERVICE_HEADER_NAMES.join('|')})$`,
+  'i'
+)
 
 const NO_BODY_PATH =
   /^\/api\/(?:organization\/llm-credentials|internal|auth|organization\/audit-portal|platform\/audit-portal)(?:\/|$)/
@@ -131,6 +157,7 @@ export const buildSessionRecordingOptions = (sampleRate: number): SessionRecordi
 export const scrubEvent: BeforeSendFn = (capture) => {
   if (!capture) return capture
   if (isControlFlowExceptionEvent(capture.event, capture.properties)) return null
+  if (isOpaqueScriptErrorEvent(capture.event, capture.properties)) return null
   const properties =
     capture.event === '$snapshot'
       ? Object.fromEntries(
@@ -155,11 +182,16 @@ export interface IdentityClient {
   register?: (properties: Record<string, string>) => void
 }
 
-let releaseTag = ''
+let buildProperties: Record<string, string> = {}
 
-export const registerRelease = (client: Pick<IdentityClient, 'register'>, release: string): void => {
-  releaseTag = release
-  if (release) client.register?.({ release })
+export const registerBuild = (
+  client: Pick<IdentityClient, 'register'>,
+  build: { release?: string; deployment?: string }
+): void => {
+  buildProperties = Object.fromEntries(
+    Object.entries(build).filter((entry): entry is [string, string] => Boolean(entry[1]))
+  )
+  if (Object.keys(buildProperties).length > 0) client.register?.(buildProperties)
 }
 
 export const ORGANIZATION_GROUP = 'organization'
@@ -184,7 +216,7 @@ export const buildPosthogInitOptions = (
   ...(identity ? { bootstrap: { distinctID: identity.distinctId, isIdentifiedID: true } } : {}),
   loaded: (client: IdentityClient) => {
     if (identity) adoptServerIdentity(client, identity.distinctId)
-    registerRelease(client, config.release ?? '')
+    registerBuild(client, { release: config.release, deployment: config.deployment })
   },
   capture_pageview: 'history_change',
   capture_heatmaps: true,
@@ -286,7 +318,7 @@ export const isPosthogOptedOut = (): boolean => {
 export const resetPosthog = (): void => {
   if (!initialized) return
   posthog.reset()
-  registerRelease(posthog, releaseTag)
+  registerBuild(posthog, buildProperties)
 }
 
 const SESSION_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

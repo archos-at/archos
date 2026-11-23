@@ -18,7 +18,7 @@ SCANNED = [
 RAW_CLIENT = re.compile(r"\b(?:Async)?OpenAI\(|\bNVIDIAEmbedding\(")
 RAW_CLIENT_HOMES = {
     "packages/agent/src/agent/common/openrouter.py",  # openai_client
-    "packages/knowledge-layer/src/embedding.py",  # make_embed_model
+    "packages/knowledge-layer/src/knowledge_layer/embedding.py",  # make_embed_model
 }
 
 MODEL_ENDPOINT = re.compile(
@@ -52,7 +52,7 @@ def _rel(path: Path) -> str:
 def test_the_scan_sees_the_known_call_sites():
     scanned = {_rel(p) for p in _python_files()}
     assert "apps/agent-host/src/agent_host/routes/generate_summary.py" in scanned
-    assert "packages/knowledge-layer/src/search/cross_encoder.py" in scanned
+    assert "packages/knowledge-layer/src/knowledge_layer/search/cross_encoder.py" in scanned
     assert "packages/agent/src/agent/common/decisions.py" in scanned
 
 

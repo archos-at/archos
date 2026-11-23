@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.browse import ListFilesConfig
 from knowledge_layer.browse import list_files
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer.read_passage import ReadPassageConfig
 from knowledge_layer.read_passage import read_passage
 from knowledge_layer.register import KnowledgeRetrievalConfig
@@ -230,6 +230,7 @@ async def test_read_passage_withholds_a_restricted_passage_the_bff_refuses(scope
 
 
 async def test_exact_search_reports_every_collection_its_match_table_names(monkeypatch):
+    from knowledge_layer.browse import exact as browse_exact
     from knowledge_layer.browse import tool as browse
 
     class _Retriever:
@@ -243,7 +244,7 @@ async def test_exact_search_reports_every_collection_its_match_table_names(monke
     entries = [ScopedCollection(PROJ, Shelf.PROJECT), ScopedCollection(R, Shelf.PROJECT)]
 
     async def run():
-        return await browse._search(_Retriever(), entries, ["Gehalt"], browse.phrase_pattern(["Gehalt"]), {})
+        return await browse_exact._search(_Retriever(), entries, ["Gehalt"], browse.phrase_pattern(["Gehalt"]), {})
 
     message, _ = await _round(run, "knowledge_search")
 
@@ -282,7 +283,7 @@ def image_tool(monkeypatch):
 
     monkeypatch.setattr(vi, "_resolve_storage_location", _resolve)
     monkeypatch.setattr(vi, "_fetch_seaweed_bytes", lambda key, bucket=None: _png())
-    monkeypatch.setattr(adapter_module, "_get_vlm_api_key", lambda: "k")
+    monkeypatch.setattr(vision_credentials, "_get_vlm_api_key", lambda: "k")
     monkeypatch.setattr(vi, "try_consume_image_view", lambda *_kind: True)
 
     async def view(*, file_name: str, collection: str):

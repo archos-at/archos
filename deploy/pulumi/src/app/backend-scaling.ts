@@ -6,6 +6,7 @@ import { AppWiring, SECRET_NAME } from "./config";
 import { SCALER_POLLING_SECONDS, installTriggerAuth } from "./keda-scaling";
 import { PORT } from "../constants";
 import { CHAT_TIER } from "./tier-names";
+import { cpuUtilizationTarget } from "../config/cpu-requests";
 
 export const OCCUPANCY_PATH = "/v1/internal/chat-occupancy";
 
@@ -74,7 +75,7 @@ export function installBackendScaling(
           {
             type: "cpu",
             metricType: "Utilization",
-            metadata: { value: String(cfg.backend.cpuTargetPercent) },
+            metadata: { value: String(cpuUtilizationTarget(cfg.backend.cpuTargetPercent)) },
           },
         ],
       },

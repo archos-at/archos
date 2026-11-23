@@ -6,6 +6,7 @@ import { pullPolicyFor } from '../config/images'
 import { commonLabels } from "../platform/namespaces";
 import { hardenedJobSecurityContext } from "../platform/security";
 import { BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS } from "../constants";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export interface SeaweedFSBackup {
   objectMirror?: k8s.apps.v1.Deployment;
@@ -85,7 +86,7 @@ export function installSeaweedFSBackup(
                 volumeMounts: [
                   { name: "backup-config", mountPath: "/etc/seaweedfs/backup", readOnly: true },
                 ],
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
               },
             ],
             volumes: [
@@ -133,7 +134,7 @@ echo "metadata snapshot stored"
                     image: cfg.seaweedfs.image,
                     imagePullPolicy: pullPolicyFor(cfg.seaweedfs.image),
                     securityContext: hardenedJobSecurityContext(),
-                    resources: BOOTSTRAP_JOB_RESOURCES,
+                    resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                     command: ["/bin/sh", "-c"],
                     args: [snapshotScript],
                   },

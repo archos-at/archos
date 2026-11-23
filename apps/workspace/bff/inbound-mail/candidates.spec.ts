@@ -23,6 +23,7 @@ const thread = (threadId: string, folderId: string | null, overrides: Partial<Th
   nextVersion: 4,
   entryCount: 3,
   renderedBytes: 1000,
+  participantDomains: ['statik-weber.at'],
   ...overrides,
 })
 
@@ -107,7 +108,7 @@ describe('where a filed part went, for the viewer', () => {
   const filed = (folderId: string | null): CandidateDocument => ({ documentId: DOCUMENT_ID, name: 'S-101_C.pdf', folderId, folderPath: folderId ? 'Tragwerk' : null, nextVersion: 4 })
 
   it('names the document, its folder and the Fassung the part became', () => {
-    expect(filedAsFor({ documentId: DOCUMENT_ID, documentVersionId: VERSION }, new Map([[DOCUMENT_ID, filed(FOLDER_ID)]]), new Map([[VERSION, 3]]), new Set())).toEqual({
+    expect(filedAsFor({ kind: 'attachment', documentId: DOCUMENT_ID, documentVersionId: VERSION }, new Map([[DOCUMENT_ID, filed(FOLDER_ID)]]), new Map([[VERSION, 3]]), new Set())).toEqual({
       name: 'S-101_C.pdf',
       folderPath: 'Tragwerk',
       version: 3,
@@ -115,12 +116,17 @@ describe('where a filed part went, for the viewer', () => {
   })
 
   it('says nothing of a document in a folder the viewer may not read, and nothing before filing', () => {
-    expect(filedAsFor({ documentId: DOCUMENT_ID, documentVersionId: VERSION }, new Map([[DOCUMENT_ID, filed(HIDDEN)]]), new Map([[VERSION, 3]]), new Set([HIDDEN]))).toBeNull()
-    expect(filedAsFor({ documentId: null, documentVersionId: null }, new Map(), new Map(), new Set())).toBeNull()
+    expect(filedAsFor({ kind: 'attachment', documentId: DOCUMENT_ID, documentVersionId: VERSION }, new Map([[DOCUMENT_ID, filed(HIDDEN)]]), new Map([[VERSION, 3]]), new Set([HIDDEN]))).toBeNull()
+    expect(filedAsFor({ kind: 'attachment', documentId: null, documentVersionId: null }, new Map(), new Map(), new Set())).toBeNull()
+  })
+
+  it('names a filed mail text by its Verlauf, without the file ending', () => {
+    const verlauf = { ...filed(null), name: 'Das ist ein Test.md' }
+    expect(filedAsFor({ kind: 'message', documentId: DOCUMENT_ID, documentVersionId: null }, new Map([[DOCUMENT_ID, verlauf]]), new Map(), new Set())?.name).toBe('Das ist ein Test')
   })
 
   it('keeps the place and drops the number when that Fassung is gone', () => {
-    expect(filedAsFor({ documentId: DOCUMENT_ID, documentVersionId: VERSION }, new Map([[DOCUMENT_ID, filed(null)]]), new Map(), new Set())).toEqual({
+    expect(filedAsFor({ kind: 'attachment', documentId: DOCUMENT_ID, documentVersionId: VERSION }, new Map([[DOCUMENT_ID, filed(null)]]), new Map(), new Set())).toEqual({
       name: 'S-101_C.pdf',
       folderPath: null,
       version: null,

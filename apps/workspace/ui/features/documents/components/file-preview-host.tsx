@@ -439,7 +439,7 @@ function PeekToolbar({
           <Spinner size="xs" aria-hidden className="text-muted-foreground mt-0.5 shrink-0" />
         )}
         <p className="text-muted-foreground min-w-0 flex-1 text-pretty leading-snug">
-          {/* A failed NEW version is not a file Piloti cannot cite: the
+          {/* A failed NEW version is not a file the agent cannot cite: the
               previous version's passages stay in the index, so the sentence
               that says "cannot cite" would be wrong about the one thing the
               strip exists to say. Same rule as the pane's failure panel. */}
@@ -449,7 +449,7 @@ function PeekToolbar({
               ? t('preview.peekFailedHint')
               : t('preview.peekIndexingHint')}
         </p>
-        {/* NO DEAD ENDS. "Piloti cannot cite this file" was a statement with
+        {/* NO DEAD ENDS. "the agent cannot cite this file" was a statement with
             nothing after it — the worst kind of message, because it tells the
             reader the question they are about to ask is already compromised
             and then leaves them holding it. The details are where this

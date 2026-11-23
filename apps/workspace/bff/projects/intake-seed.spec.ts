@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * What creating a project for Piloti writes beside it: the profile facts the
+ * What creating a project for the agent writes beside it: the profile facts the
  * address decides, with the geocoder as evidence, and the intake row, in one
  * write.
  */

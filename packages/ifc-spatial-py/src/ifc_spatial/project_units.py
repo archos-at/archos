@@ -1,5 +1,3 @@
-"""The project's length scale, for a file whose unit definition can be followed to its end."""
-
 from __future__ import annotations
 
 from collections.abc import Iterator

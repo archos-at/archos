@@ -59,8 +59,8 @@ describe('/api/projects/[id]/mail-threads/[threadId]/follow', () => {
     expect(followMailThread).toHaveBeenCalledWith(session, PROJECT, THREAD, {})
   })
 
-  it('POST refuses more than 180 days, or a key the wire does not know, before the service runs', async () => {
-    expect((await post(JSON.stringify({ days: 181 }))).status).toBe(400)
+  it('POST refuses more than 60 days from now, or a key the wire does not know, before the service runs', async () => {
+    expect((await post(JSON.stringify({ days: 61 }))).status).toBe(400)
     expect((await post(JSON.stringify({ days: 30, dailyCap: 50 }))).status).toBe(400)
     expect(followMailThread).not.toHaveBeenCalled()
   })

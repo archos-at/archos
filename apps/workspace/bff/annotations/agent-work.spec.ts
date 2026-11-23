@@ -21,7 +21,7 @@ const wake = (patch: Partial<Parameters<typeof agentWorkOf>[0]>): Parameters<typ
 })
 
 describe('agentWorkOf', () => {
-  it('says Piloti is on it while queued, and working once its turn started, for whom', () => {
+  it('says the agent is on it while queued, and working once its turn started, for whom', () => {
     expect(agentWorkOf(wake({}), 'Anna Berger', NOW)).toMatchObject({
       state: 'queued',
       forUserId: 'user_anna',

@@ -20,6 +20,19 @@ def render(env: dict[str, str]) -> str:
     pins = json.loads(env.get("PINS") or "[]")
 
     lines = ["## Plan", ""]
+    if env.get("DEPTH") == "light":
+        lines += [
+            f"**Light run** ({env.get('DEPTH_REASON')}). The test shards, suites, Hatchet tests and image "
+            "builds run on the push to develop. Label the pull request `ci:full`, then push or use "
+            "Re-run all jobs, to run them here.",
+            "",
+        ]
+        if tiers.get("backend") == "true" and env.get("PY_MODE") == "full":
+            lines += [
+                "**No Python tests in this run:** testmon could not select tests for this change. "
+                "Label it `ci:full` to run the backend suite before the merge.",
+                "",
+            ]
     if event == "pull_request":
         base = _short(env.get("BASE", ""))
         lines.append(f"Diffed against the pull request's base, {base}: the whole PR, every push.")

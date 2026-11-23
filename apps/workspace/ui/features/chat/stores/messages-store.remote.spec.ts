@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest'
 import { useChatStore } from '../store'
 import type { ChatMessage, Conversation } from '../types'
 import type { MessagesSlice } from './messages-store'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const mockLayoutState = vi.hoisted(() => ({
   enabledDataSourceIds: ['web_search'],
@@ -109,7 +110,7 @@ describe('insertRemoteMessages', () => {
       message('m1', {
         authorUserId: 'user_anna',
         authorName: 'Anna Berger',
-        mentions: [{ targetId: 'agent:piloti', display: 'Piloti' }],
+        mentions: [{ targetId: 'agent:piloti', display: PRODUCT_NAME }],
         addressees: { agent: true, users: [] },
       }),
     ])
@@ -117,7 +118,7 @@ describe('insertRemoteMessages', () => {
     const stored = messagesNow()[0]
     expect(stored.authorUserId).toBe('user_anna')
     expect(stored.authorName).toBe('Anna Berger')
-    expect(stored.mentions).toEqual([{ targetId: 'agent:piloti', display: 'Piloti' }])
+    expect(stored.mentions).toEqual([{ targetId: 'agent:piloti', display: PRODUCT_NAME }])
     expect(stored.addressees).toEqual({ agent: true, users: [] })
   })
 

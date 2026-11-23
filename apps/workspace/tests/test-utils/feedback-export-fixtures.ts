@@ -43,8 +43,8 @@ export function feedbackExportRecord(overrides: Partial<FeedbackExportRecord> = 
     lessonStatus: 'candidate',
     lessonsHoldout: false,
     appUrl:
-      'https://app.piloti.example/app/projects/3f1a2b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b/chat?session=s_8d1f2e#message-0f0f0f0f-0000-4000-8000-000000000002',
-    langfuseTraceUrl: 'https://langfuse.piloti.example/project/p1/traces/0f0f0f0f000040008000000000000002',
+      'https://app.example.test/app/projects/3f1a2b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b/chat?session=s_8d1f2e#message-0f0f0f0f-0000-4000-8000-000000000002',
+    langfuseTraceUrl: 'https://langfuse.example.test/project/p1/traces/0f0f0f0f000040008000000000000002',
     ...overrides,
   }
 }

@@ -1,18 +1,3 @@
-"""Regression tests locking the prompt <-> registered-toolset contract.
-
-Backlog T2-9: the orchestrator prompt advertised every configured source tool
-under "Available Tools" while only think / get_verified_sources /
-run_research_batch were bound, so the model called unbound tools ("not a valid
-tool" errors). The fix renders each agent's advertised tool list from the same
-list bound to that agent. These tests would have caught the drift: they render
-the REAL .j2 prompts and assert that every tool a prompt advertises as directly
-callable is actually registered for that agent.
-
-Backlog T2-8 (adjacent): researcher workers return structured ResearchNotes.
-A renamed/dropped contract field would make workers emit schema-invalid (or
-empty) notes, so the ResearchNotes worker field set is pinned here too.
-"""
-
 from __future__ import annotations
 
 import re
@@ -50,9 +35,8 @@ _BUILTIN_TOOL_NAMES = {
 }
 
 
-@tool
+@tool(description="Search the web for information.")
 def web_search_tool(query: str) -> str:
-    """Search the web for information."""
     return f"Results for: {query}"
 
 
@@ -76,11 +60,6 @@ def _llm_provider() -> LLMProvider:
 
 
 def _rendered_agents() -> dict[str, dict[str, object]]:
-    """Render the real prompts through the factory and capture prompt + bound tools per agent.
-
-    Returns a mapping ``agent_name -> {"system_prompt": str, "tool_names": set[str]}``
-    for the orchestrator plus every subagent and the researcher worker.
-    """
     registry = SourceRegistryMiddleware(source_tool_names={web_search_tool.name})
     tool_set = build_deep_research_tool_set(
         [web_search_tool],
@@ -147,7 +126,6 @@ def _rendered_agents() -> dict[str, dict[str, object]]:
 
 
 def _section(prompt: str, heading_contains: str) -> str:
-    """Return the body of the first ``## `` section whose heading contains a marker."""
     body: list[str] = []
     capturing = False
     for line in prompt.splitlines():
@@ -165,7 +143,6 @@ _BOLD_TOOL_BULLET = re.compile(r"^- \*\*(?P<name>[^*]+)\*\*\s*:", re.MULTILINE)
 
 
 def _advertised_tool_names(section_body: str) -> set[str]:
-    """Tool names rendered as ``- **name**: ...`` bullets in a prompt section."""
     return {match.group("name").strip() for match in _BOLD_TOOL_BULLET.finditer(section_body)}
 
 
@@ -177,7 +154,6 @@ _CALLABLE_TOOL_SECTIONS = {
 
 
 def test_orchestrator_prompt_never_advertises_source_tools_as_callable():
-    """T2-9: the orchestrator's callable tool list is exactly its bound tools, source tools excluded."""
     agents = _rendered_agents()
     orchestrator = agents["orchestrator"]
     prompt = orchestrator["system_prompt"]
@@ -193,7 +169,6 @@ def test_orchestrator_prompt_never_advertises_source_tools_as_callable():
 
 
 def test_every_advertised_callable_tool_is_registered_for_its_agent():
-    """Generic T2-9 guard: every tool a prompt advertises as callable is bound to that agent."""
     agents = _rendered_agents()
     for agent_name, heading in _CALLABLE_TOOL_SECTIONS.items():
         prompt = agents[agent_name]["system_prompt"]
@@ -208,13 +183,6 @@ def test_every_advertised_callable_tool_is_registered_for_its_agent():
 
 
 def test_source_router_prompt_only_requires_its_bound_tool():
-    """The source-router requires lookup_source_catalog (bound) and write_file (builtin) only.
-
-    The source-router advertises tools as prose (no `{% for tool %}` loop), so
-    check the explicitly-required tool bullets (``- `name`: required.``) rather
-    than every backticked name -- the prompt also names tools it forbids
-    (``Do not call `think` ...``), which are negative references, not calls.
-    """
     agents = _rendered_agents()
     router = agents["source-router-agent"]
     assert router["tool_names"] == {"lookup_source_catalog"}
@@ -226,12 +194,6 @@ def test_source_router_prompt_only_requires_its_bound_tool():
 
 
 def test_research_notes_contract_exposes_expected_worker_fields():
-    """T2-8 (adjacent): pin the ResearchNotes field set the researcher worker must return.
-
-    A renamed or dropped field silently breaks structured output for every
-    researcher worker (schema-valid-but-empty or validation failure), which is
-    the observed 5-of-6-worker production failure mode.
-    """
     assert set(ResearchNotes.model_fields) == {
         "query_topic",
         "target_components",

@@ -10,10 +10,10 @@ import type { McpCallContext } from '../telemetry'
 import { DOOR_DOCS, type DoorDoc } from './docs.generated'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-export const GUIDE_URI = 'piloti://guide'
-export const GLOSSARY_URI = 'piloti://glossary'
-export const CATALOG_URI = 'piloti://catalog'
-export const PROJECT_URI_TEMPLATE = 'piloti://project/{projectId}'
+export const GUIDE_URI = 'workspace://guide'
+export const GLOSSARY_URI = 'workspace://glossary'
+export const CATALOG_URI = 'workspace://catalog'
+export const PROJECT_URI_TEMPLATE = 'workspace://project/{projectId}'
 
 const PLACEHOLDER = /\{\{(\w+)\}\}/g
 
@@ -145,7 +145,7 @@ export function offersProjectResource(ctx: McpCallContext): boolean {
 
 export const MAX_RESOURCE_SUBSCRIPTIONS = 50
 
-const PROJECT_URI = /^piloti:\/\/project\/([A-Za-z0-9_-]{1,120})$/
+const PROJECT_URI = /^workspace:\/\/project\/([A-Za-z0-9_-]{1,120})$/
 
 export async function readableProjectUris(ctx: McpCallContext, uris: readonly string[]): Promise<string[]> {
   if (!offersProjectResource(ctx)) return []
@@ -212,7 +212,7 @@ function registerProjectResource(server: McpServer, ctx: McpCallContext): void {
   const template = new ResourceTemplate(PROJECT_URI_TEMPLATE, {
     list: async () => ({
       resources: (await projectsMatching(ctx, '')).map((project) => ({
-        uri: `piloti://project/${project.id}`,
+        uri: `workspace://project/${project.id}`,
         name: project.projectName ?? project.name,
         description: [project.name, project.status, project.siteAddress].filter(Boolean).join(' · '),
         mimeType: 'application/json',

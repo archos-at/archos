@@ -83,7 +83,7 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     const tenant = await import('@/lib/db/tenant-context')
     withTenant = tenant.withTenant
     withPlatformAccess = tenant.withPlatformAccess
@@ -148,6 +148,32 @@ describe.skipIf(!url)('a newer edition of an office standard against Postgres', 
     const series = (await repo.readOfficeEntries(ORG)).filter((entry) => entry.editionId === first.editionId || entry.editionId === ids.editionId)
     expect(series.map((entry) => entry.workId)).toEqual([ids.workId, ids.workId])
     expect(series.every((entry) => entry.values.title === 'Barrierefreies Bauen, korrigiert')).toBe(true)
+  })
+
+  it('keeps a person’s values on a proposal that stays one', async () => {
+    const documentId = await newDocument()
+    const ids = await repo.insertProposedEntry(documentId, { ...VALUES, editionLabel: 'unbekannt', issuedOn: null }, context)
+    await repo.writeProposedValues({ ...ids, workStandsAlone: false }, { ...VALUES, kind: 'guideline', designation: 'ÖNORM B 1601', editionLabel: 'unbekannt', issuedOn: null }, {
+      ...context,
+      provenance: { proposedBy: 'person' },
+    })
+
+    const [read] = await repo.readOfficeEntries(ORG, [documentId])
+    expect(read).toMatchObject({ confirmed: false, provenance: { proposedBy: 'person' }, values: { kind: 'guideline', designation: 'ÖNORM B 1601' } })
+  })
+
+  it('revises a newer edition’s proposal without touching the work it shares', async () => {
+    const { stored: first } = await confirmedFirst()
+    const documentId = await newDocument()
+    const ids = await editions.insertEditionOfWork(documentId, first, { ...NEWER, editionLabel: 'unbekannt', issuedOn: null }, context)
+    const [proposal] = await repo.readOfficeEntries(ORG, [documentId])
+    await repo.writeProposedValues(proposal, { ...proposal.values, kind: 'guideline', title: 'Anders', editionLabel: '2023-02-01' }, context)
+
+    const series = (await repo.readOfficeEntries(ORG)).filter((entry) => entry.workId === ids.workId)
+    expect(series.map((entry) => [entry.values.editionLabel, entry.confirmed, entry.values.kind, entry.values.title]).sort()).toEqual([
+      ['2017-04-01', true, 'technical_standard', VALUES.title],
+      ['2023-02-01', false, 'technical_standard', VALUES.title],
+    ])
   })
 
   it('leaves no work behind once the last edition is gone', async () => {

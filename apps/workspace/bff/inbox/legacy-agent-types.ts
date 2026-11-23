@@ -1,0 +1,15 @@
+// drop after release 2026-W51
+import type { InboxItemType } from '@/lib/inbox/inbox-vocabulary'
+
+export const LEGACY_AGENT_INBOX_TYPES = {
+  'piloti.work_done': 'agent.work_done',
+  'piloti.work_failed': 'agent.work_failed',
+  'piloti.asks_you': 'agent.asks_you',
+  'piloti.proposal_waiting': 'agent.proposal_waiting',
+  'piloti.intake_ready': 'agent.intake_ready',
+  'piloti.revision_checked': 'agent.revision_checked',
+} as const satisfies Readonly<Record<string, InboxItemType>>
+
+export type LegacyAgentInboxType = keyof typeof LEGACY_AGENT_INBOX_TYPES
+
+export type StoredInboxType = InboxItemType | LegacyAgentInboxType

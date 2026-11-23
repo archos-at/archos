@@ -19,9 +19,13 @@ import type { AgentPrincipal } from '@/lib/agent-api/principal'
 import { APP_INFO, ProposalCardFrame } from './ProposalCardApp'
 import { PRODUCT_NAME } from '@/lib/brand'
 
+it('introduces itself to the host as proposal-card', () => {
+  expect(APP_INFO.name).toBe('proposal-card')
+})
+
 const session = {
   userId: 'user_anna',
-  email: 'anna@piloti.test',
+  email: 'anna@example.test',
   name: 'Anna Berger',
   accessToken: '',
   organizationId: 'org_1',

@@ -81,8 +81,8 @@ describe('per-organization upload limit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     setCacheStore(mapStore())
-    delete process.env.FILE_UPLOAD_MAX_SIZE_MB
-    delete process.env.BIM_MAX_IFC_BYTES
+    vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', undefined)
+    vi.stubEnv('BIM_MAX_IFC_BYTES', undefined)
     getOrgSettings.mockResolvedValue(withOwnLimit(undefined))
     aggregateStorageUsage.mockResolvedValue({
       project: { bytes: 0, documents: 0 },
@@ -95,8 +95,8 @@ describe('per-organization upload limit', () => {
   })
 
   afterEach(() => {
-    delete process.env.FILE_UPLOAD_MAX_SIZE_MB
-    delete process.env.BIM_MAX_IFC_BYTES
+    vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', undefined)
+    vi.stubEnv('BIM_MAX_IFC_BYTES', undefined)
   })
 
   describe('bounds', () => {
@@ -125,7 +125,7 @@ describe('per-organization upload limit', () => {
     })
 
     it('follows FILE_UPLOAD_MAX_SIZE_MB for the default', async () => {
-      process.env.FILE_UPLOAD_MAX_SIZE_MB = '40'
+      vi.stubEnv('FILE_UPLOAD_MAX_SIZE_MB', '40')
       expect(await getEffectiveMaxUploadBytes('org-1')).toBe(40 * MB)
     })
 

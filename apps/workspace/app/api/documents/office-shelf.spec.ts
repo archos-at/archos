@@ -18,6 +18,7 @@ const session = {
   featureFlags: ['office-standards'] as string[] | null,
 }
 
+vi.mock('@/lib/mail-thread/document-threads', () => ({ mailThreadsOfDocuments: vi.fn(async () => new Map()) }))
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn(async () => session),
 }))
@@ -41,6 +42,7 @@ const LISTED: ListedDocument = {
   contentType: 'application/pdf',
   status: 'completed',
   authoredBy: 'user',
+  authoredByProducer: null,
   publishedVersionId: null,
   lifecycle: 'active',
   collectionName: 'archiv_org-1',
@@ -75,7 +77,7 @@ describe('GET /api/documents?scope=office_shelf', () => {
     const body = await (await get()).json()
 
     const expected = JSON.parse(
-      JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 2, state: 'published' }), baseKnowledgeEntryId: 'work_1' }),
+      JSON.stringify({ ...toDocumentWireRow(LISTED, { versionCount: 2, state: 'published' }), baseKnowledgeEntryId: 'work_1', mailThread: null }),
     )
     expect(body.documents[0]).toEqual(expected)
     expect(body.documents[0]).toMatchObject({
@@ -108,6 +110,7 @@ describe('GET /api/documents?scope=office_shelf', () => {
     expect(listOfficeShelf).toHaveBeenCalledWith(expect.anything(), {
       authoredBy: undefined,
       includeArchived: false,
+      includeStandards: false,
       level: { folderId: undefined, sort: 'added', dir: 'desc', limit: 100 },
     })
   })
@@ -126,6 +129,13 @@ describe('GET /api/documents?scope=office_shelf', () => {
 
     expect(response.status).toBe(400)
     expect(listOfficeShelf).not.toHaveBeenCalled()
+  })
+
+  it('lists the standards tree too only for a reader that asks for it with ?includeStandards=true', async () => {
+    await get('?includeStandards=true')
+
+    expect(listOfficeShelf).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ includeStandards: true }))
+    expect((await get('?includeStandards=1')).status).toBe(400)
   })
 
   it('refuses includeArchived with any value but true', async () => {

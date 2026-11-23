@@ -1,23 +1,3 @@
-"""A seekable, read-only file over HTTP range requests, for libpff.
-
-libpff reads an archive the way a parser reads a local file: hundreds of small
-reads at scattered offsets (the spike against the pst-extractor fixtures made
-12,848 reads for a 14 MB archive). One range request per read would be a
-request per page of the B-tree, so reads are served from aligned blocks kept in
-a small LRU, and a request fetches a whole block. Re-reading what libpff already
-looked at, which it does (the same spike read the file twice over), then costs
-nothing.
-
-The URL is presigned and expires, while an open archive outlives one request,
-so :meth:`RangeFile.renew` swaps it without dropping the cache.
-
-**A failed fetch is remembered.** libpff calls ``read`` from C and turns
-whatever it raises into a plain ``OSError`` about the archive, so a 503 from
-the store, an expired URL or a timeout would read as "not an archive" and end
-an import that only needed another try. :attr:`RangeFile.last_error` keeps the
-real cause; the reader checks it before blaming the file.
-"""
-
 from __future__ import annotations
 
 import io
@@ -31,13 +11,10 @@ BLOCK_SIZE = 1024 * 1024
 CACHE_BLOCKS = 64
 
 
-class RemoteFileError(OSError):
-    """The object store did not answer a range request with the bytes asked for."""
+class RemoteFileError(OSError): ...
 
 
 class RangeFile(io.RawIOBase):
-    """The object at ``url``, ``size`` bytes long, read through a block cache."""
-
     def __init__(self, url: str, size: int, client: httpx.Client) -> None:
         super().__init__()
         self._url = url
@@ -49,26 +26,12 @@ class RangeFile(io.RawIOBase):
         self.last_error: RemoteFileError | None = None
 
     def clear_error(self) -> None:
-        """Forget an earlier failure; called before each operation on the archive."""
         self.last_error = None
 
     def renew(self, url: str) -> None:
-        """Read through a fresh presigned URL for the same object from now on.
-
-        Only a URL :meth:`prove` accepted: the cache serves what an earlier URL read.
-        """
         self._url = url
 
     def prove(self, url: str) -> None:
-        """Raise :class:`RemoteFileError` unless the store serves this object's first byte through ``url``.
-
-        The blocks cached here were read through another holder's presigned
-        URL. A URL naming the same object is not yet proof of a right to read
-        it: its signature may be missing, wrong or expired, and only the store
-        can tell. So a fresh URL is asked for one byte before it is trusted.
-        Leaves this file untouched (its URL, its blocks, ``last_error``), so a
-        refused URL costs the other holders nothing.
-        """
         try:
             response = self._client.get(url, headers={"Range": "bytes=0-0"})
         except httpx.HTTPError as error:
@@ -111,7 +74,6 @@ class RangeFile(io.RawIOBase):
         return len(data)
 
     def _slice(self, block_start: int, end: int) -> bytes:
-        """The part of the block at ``block_start`` that lies in [position, end)."""
         block = self._block(block_start)
         lo = max(self._position, block_start) - block_start
         hi = min(end, block_start + len(block)) - block_start
@@ -148,6 +110,5 @@ class RangeFile(io.RawIOBase):
 
 
 def _block_starts(start: int, end: int) -> range:
-    """The aligned block offsets covering [start, end)."""
     first = start - start % BLOCK_SIZE
     return range(first, end, BLOCK_SIZE)

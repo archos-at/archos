@@ -102,7 +102,7 @@ function call(body: unknown = {}, headers: Record<string, string> = signedHeader
 
 beforeEach(() => {
   vi.resetAllMocks()
-  process.env.INTERNAL_API_TOKEN = SECRET
+  vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(SESSION)
   vi.mocked(withTenant).mockImplementation(async (_scope, run) => run())
   vi.mocked(withPlatformAccess).mockImplementation(async (_reason, run) => run())
@@ -163,7 +163,8 @@ describe('POST /api/internal/turn-context', () => {
     vi.mocked(baseKnowledgeForTurn).mockResolvedValue({ block: 'OFFICE_BASE_KNOWLEDGE v1', labels: [] } as never)
     expect((await (await call()).json()).data.baseKnowledge).toBe('OFFICE_BASE_KNOWLEDGE v1')
     expect(officeStandardsEnabled).toHaveBeenCalledWith('org_1')
-    expect(baseKnowledgeForTurn).toHaveBeenCalledWith('org_1', 'proj_1')
+    expect(baseKnowledgeForTurn).toHaveBeenCalledWith('org_1', 'proj_1', expect.any(Promise))
+    await expect(vi.mocked(baseKnowledgeForTurn).mock.calls[0]?.[2]).resolves.toEqual(UNAVAILABLE)
 
     vi.mocked(baseKnowledgeForTurn).mockClear()
     vi.mocked(officeStandardsEnabled).mockResolvedValue(false)
@@ -359,7 +360,7 @@ describe('POST /api/internal/turn-context', () => {
   })
 
   it('fails closed without a configured token', async () => {
-    delete process.env.INTERNAL_API_TOKEN
+    vi.stubEnv('INTERNAL_API_TOKEN', undefined)
     expect((await call()).status).toBe(503)
     expect(loadProjectPromptView).not.toHaveBeenCalled()
   })

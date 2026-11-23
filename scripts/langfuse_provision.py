@@ -1,38 +1,5 @@
 #!/usr/bin/env python3
 
-"""Bring a Langfuse project in line with what Grid declares, or say what that would change.
-
-What it provisions (``agent.observability.langfuse_catalog``, ADR-0089):
-
-* a **score config** for every score Grid, a reviewer or a judge writes
-  (``langfuse_scores.SCORE_DEFINITIONS``), so Langfuse validates the values and
-  the UI offers the categories;
-* the **annotation queue** ``answer-review``, which every down-voted answer
-  lands in, with the two reviewer scores;
-* the **LLM-as-a-judge evaluators** and the rule that runs them on answered
-  chat turns. The rule is created DISABLED, always: enabling it sends answers
-  to the project's evaluation model and costs money per turn, so a person does
-  that in the Langfuse UI after checking the model's data policy (ADR-0074);
-* the **dataset** ``golden-questions`` from the answer suite's questions, so
-  experiments compare prompt and model versions on the same items.
-
-It never deletes and never changes what exists. A score config whose type or
-categories differ from the declaration is reported as drift for a person to
-resolve, because Langfuse cannot change a config's type and an archived one
-keeps its scores.
-
-Usage
------
-
-::
-
-    task langfuse:provision                 # CHECK: prints the plan, writes nothing
-    task langfuse:provision -- --apply      # WRITES what is missing
-
-It reads ``LANGFUSE_HOST``, ``LANGFUSE_PUBLIC_KEY`` and ``LANGFUSE_SECRET_KEY``.
-Checking is read-only and safe anywhere; ask before running ``--apply``
-against a project other people use (AGENTS.md, "Ask first").
-"""
 
 from __future__ import annotations
 
@@ -60,14 +27,11 @@ _DEFINITIONS = {definition.name: definition for definition in SCORE_DEFINITIONS}
 
 
 def _rules() -> tuple[RuleDefinition, ...]:
-    """The judge rules for the cell this runs in: ``RESIDENCY_CELL`` set, the include-only filter (ADR-0167)."""
     return judge_rules(active_cell() is not None)
 
 
 @dataclass
 class Plan:
-    """What applying would do, and what a person has to resolve."""
-
     score_configs: list[ScoreDefinition] = field(default_factory=list)
     queues: list[str] = field(default_factory=list)
     judges: list[str] = field(default_factory=list)
@@ -84,7 +48,6 @@ class Plan:
 
 
 def _paged(fetch: Any) -> list[Any]:
-    """Every row of a page-numbered listing."""
     rows: list[Any] = []
     page = 1
     while True:
@@ -96,7 +59,6 @@ def _paged(fetch: Any) -> list[Any]:
 
 
 def _cursored(fetch: Any) -> list[Any]:
-    """Every row of a cursor listing."""
     rows: list[Any] = []
     cursor = None
     while True:
@@ -112,7 +74,6 @@ def _category_labels(config: Any) -> tuple[str, ...]:
 
 
 def config_drift(definition: ScoreDefinition, config: Any) -> str | None:
-    """Why an existing score config does not match its declaration, or None. Pure."""
     data_type = str(getattr(config, "data_type", ""))
     if data_type != definition.data_type:
         return f"score config {definition.name}: type {data_type}, declared {definition.data_type}"
@@ -126,12 +87,6 @@ def config_drift(definition: ScoreDefinition, config: Any) -> str | None:
 
 
 def plan_against(state: dict[str, Any]) -> Plan:
-    """Compare the declarations with a project's ``state``. Pure, so the tests need no Langfuse.
-
-    ``state`` holds ``score_configs`` (objects with name/data_type/categories),
-    ``queues``, ``evaluators`` and ``rules`` (objects with ``name``),
-    ``llm_connections`` (a count), ``dataset`` (bool) and ``dataset_item_ids``.
-    """
     plan = Plan()
     configs = {config.name: config for config in state["score_configs"]}
     for definition in SCORE_DEFINITIONS:
@@ -160,7 +115,6 @@ def plan_against(state: dict[str, Any]) -> Plan:
 
 
 def read_state(api: Any) -> dict[str, Any]:
-    """What the project holds, through the Langfuse public API."""
     from langfuse.api.core.api_error import ApiError
 
     try:
@@ -265,7 +219,6 @@ def _create_queue(api: Any, name: str) -> None:
 
 
 def apply(api: Any, plan: Plan) -> None:
-    """Create what ``plan`` names, in dependency order: configs before the queue, judges before the rule."""
     for definition in plan.score_configs:
         _create_score_config(api, definition)
     for name in plan.queues:
@@ -284,7 +237,6 @@ def apply(api: Any, plan: Plan) -> None:
 
 
 def render(plan: Plan) -> str:
-    """The plan as a person reads it."""
     lines = []
     lines += [f"+ score config {definition.name} ({definition.data_type})" for definition in plan.score_configs]
     lines += [f"+ annotation queue {name}" for name in plan.queues]
@@ -311,7 +263,9 @@ def _client() -> Any:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Bring a Langfuse project in line with what Grid declares, or say what that would change."
+    )
     parser.add_argument("--apply", action="store_true", help="create what is missing (default: only print the plan)")
     args = parser.parse_args(argv)
     api = _client()

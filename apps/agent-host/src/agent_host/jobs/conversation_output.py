@@ -1,29 +1,3 @@
-"""Materialising a finished job run into the conversation it was given.
-
-**A run is ONE message in the thread that commissioned it** (ADR-0062). The BFF
-mints that message when the run is submitted — empty, carrying the run ledger
-the runner grows as it works — and this module fills in the finished report.
-There is no question row: nobody typed a question, and the prompt is on the run.
-
-The older shape is still here, one `if` below, and still correct for the runs
-that have no such message: an interactive deep-research job (no ``task_runs`` row
-exists for it) and every run submitted before this design. Those get what they
-always got — the prompt as a user turn and the answer as an assistant turn, in
-the conversation the job was given. The BFF's 404 is what tells the two apart, so
-the two services can deploy in either order without losing anybody's report.
-
-Two rules shape everything here.
-
-**Python never touches the database.** ``app`` is single-writer and the
-BFF owns Postgres, so this writes over the internal HTTP API with the service
-token, exactly as the memory-reflection step already does from inside a worker.
-
-**Nothing here may fail a run.** Every call is best-effort. A conversation
-write that times out or 500s must never turn a successful research run into a
-failed one — the report is already stored on the job, and the thread is a
-convenience layered on top of it.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -68,16 +42,6 @@ _TRANSPARENCY_METADATA_KEYS = (
 
 
 def _transparency_metadata(transparency: dict[str, Any] | None) -> dict[str, Any]:
-    """The transparency keys worth writing, or an empty dict.
-
-    Absent, never false. ``research_truncated`` is written as ``true`` or not at
-    all, and an empty ``degraded_reasons`` stays out entirely — an empty value is
-    not a claim of "degraded in zero ways", it is the ordinary case, and storing
-    it would let a later reader mistake "nothing was recorded" for "we checked
-    and there was nothing". Same contract the job output keeps
-    (``run_result.build_job_output``), enforced again here because this is a second
-    door into the same fact and the two must not drift.
-    """
     if not transparency:
         return {}
 
@@ -95,23 +59,10 @@ def _transparency_metadata(transparency: dict[str, Any] | None) -> dict[str, Any
 
 
 def _message_id(conversation_id: str, job_id: str, role: str) -> str:
-    """A stable id per (conversation, job, role).
-
-    The internal route upserts with ``onConflictDoNothing`` on the message id,
-    so a retried or duplicated write is a no-op rather than a second copy of
-    the answer.
-    """
     return str(uuid.uuid5(_JOB_MESSAGE_NAMESPACE, f"grid:job:{conversation_id}:{job_id}:{role}"))
 
 
 def report_message_id(conversation_id: str | None, job_id: str) -> str | None:
-    """The id of the row :func:`write_job_turn` writes the report into.
-
-    Public because the run ledger's ``result.reportMessageId`` has to name that
-    same row, and deriving it a second time somewhere else is how two ids for
-    one message start disagreeing after a rename. None when the job was given no
-    conversation, which is also when no report message is written.
-    """
     if not conversation_id:
         return None
     return _message_id(conversation_id, job_id, "assistant")
@@ -126,11 +77,6 @@ def _answer_metadata(
     transparency: dict[str, Any] | None,
     trace_id: str | None = None,
 ) -> dict[str, Any]:
-    """Everything a finished answer says ABOUT itself, in the backend's spelling.
-
-    One dict for both destinations — the run's own message and the fallback
-    thread turn — so the two cannot come to describe the same answer differently.
-    """
     metadata: dict[str, Any] = {"job_id": job_id}
     if trace_id:
         metadata[TRACE_ID_METADATA_KEY] = trace_id
@@ -155,14 +101,6 @@ def _answer_metadata(
 async def _write_into_run_message(
     *, job_id: str, text: str, metadata: dict[str, Any], expect_run: bool = False
 ) -> str | None:
-    """Try the run's own message; the id it landed in, or None when it did not.
-
-    The guard is this module's first rule applied to a second door: the helper
-    below already answers ``None`` for every ordinary refusal, so anything that
-    escapes it is a surprise — and a surprise must cost the reader nothing more
-    than the tidier shape. ``None`` sends the caller to the older path, which
-    still has a conversation to write into.
-    """
     try:
         return await post_internal_run_report(job_id=job_id, text=text, metadata=metadata, expect_run=expect_run)
     except Exception:  # noqa: BLE001 — best-effort by contract; see module docstring
@@ -188,48 +126,6 @@ async def write_job_turn(
     expect_run: bool = False,
     trace_id: str | None = None,
 ) -> str | None:
-    """Write the job's question and its answer into the conversation.
-
-    ``expect_run`` is True when the job was submitted for a ``task_runs`` row
-    (the runner holds its run id): the run-message write then retries a 404
-    briefly, because the BFF may not have recorded the row's backend job id yet,
-    before falling back to the question-and-answer pair.
-
-    Returns the id of the message the answer landed in — the run's own message
-    when it has one, the derived assistant row otherwise — so the run's ledger
-    names the same row (``result.reportMessageId``). None when nothing was
-    written.
-
-    No conversation id (a deep-research job, or one whose conversation could
-    not be created) means there is nothing to do and no HTTP call is made.
-
-    ``skills_activated`` is the same transparency field the socket path already
-    persists (``chat_socket.persist_turn_result``). Without it a
-    job that ran under a skill produced a thread message indistinguishable from
-    one that ran without: the reader of the thread could not tell that their
-    office's own working method had shaped the answer, while the reader of an
-    interactive turn could. Same metadata key, so the UI renders both from one
-    code path.
-
-    ``sources`` is that same argument for the answer's provenance, and it only
-    matters on RELOAD: the live panel has the job output, but a thread reopened
-    tomorrow has nothing but this row. Written under the backend's own wire
-    spelling because the BFF's ``normalizeAgentAnswerMetadata`` is what turns it
-    into the stored ``citations`` envelope — spelling it any other way here
-    would store a key that reader never looks at, which is a message whose
-    citations are silently gone rather than one that fails loudly.
-
-    ``transparency`` is what the run said about its OWN answer: that its
-    research was cut off and the report salvaged from partial work, that it
-    shipped in a known-weaker form, that citations were stripped before anyone
-    saw them, and how confident it is. The job store and the live ``job.degraded``
-    event already carried all of it; the thread carried none, so a deep run that
-    was cut off at the wall clock reopened tomorrow as a clean-looking answer
-    with no hint that anything had been salvaged. Deep is the only path that can
-    say "I was cut off and this is what I could save", and until this it said it
-    to nobody who came back later. Keys are the backend's wire spelling, for the
-    same reason ``sources`` is (see ``_TRANSPARENCY_METADATA_KEYS``).
-    """
     metadata = _answer_metadata(
         job_id=job_id,
         cards=cards,
@@ -295,17 +191,6 @@ async def write_job_notice(
     notice: str,
     expect_run: bool = False,
 ) -> None:
-    """Say in the thread that the run produced nothing.
-
-    The run's message exists from the moment the run is submitted, before the
-    outcome is known. Without this it stays empty for good — which reads as a
-    broken product rather than a failed run. The interactive path never needs
-    this: there is always a human on a socket watching it happen.
-
-    Same order as the turn above: into the run's own message when it has one, so
-    the failure is stated in the place the reader has been watching, and only
-    otherwise as a message of its own.
-    """
     notice_metadata = {"job_id": job_id}
     if (
         await _write_into_run_message(job_id=job_id, text=notice, metadata=notice_metadata, expect_run=expect_run)
@@ -340,20 +225,6 @@ def run_message_for_outcome(
     status: str,
     output: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """What a finished job's run message should hold, rebuilt from the job store.
-
-    The BFF's run reconciler asks for this when a run's own write never arrived
-    (``GET /v1/internal/jobs/{job_id}/outcome``). It must be the SAME content and
-    metadata the runner would have posted, so it is built here, next to the
-    writers above, from the job's persisted ``output`` — the dict
-    ``run_result.build_job_output`` wrote, whose report, cards, sources and
-    transparency keys are the ones ``_answer_metadata`` reads. The one thing the
-    output does not keep is the skills a run activated, so a reconciled message
-    carries no ``skills_activated``.
-
-    ``{"content": ..., "metadata": ...}`` for a terminal job; None while it runs
-    or when a success left no report to show.
-    """
     normalized = status.lower()
     if normalized == "success":
         output = output or {}

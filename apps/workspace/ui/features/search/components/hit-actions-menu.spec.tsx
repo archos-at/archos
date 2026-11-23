@@ -78,7 +78,7 @@ describe('a document hit’s ⋯', () => {
     render(view({ ...EMPTY_SEARCH_STATE, text: 'Fluchtweg' }))
     await userEvent.click(screen.getByTestId(`search-hit-actions-${CONCEPT}`))
     await userEvent.click(screen.getByTestId('search-hit-action-open'))
-    const url = new URL(routerPush.mock.calls[0][0] as string, 'https://piloti.test')
+    const url = new URL(routerPush.mock.calls[0][0] as string, 'https://example.test')
     expect(url.pathname).toBe(`/app/projects/${PROJECT}/files`)
     expect(url.searchParams.get('doc')).toBe(CONCEPT)
     expect(url.searchParams.get('page')).toBe('7')
@@ -89,7 +89,7 @@ describe('a document hit’s ⋯', () => {
     render(view({ ...EMPTY_SEARCH_STATE, text: 'Fluchtweg' }))
     await userEvent.click(screen.getByTestId(`search-hit-actions-${CONCEPT}`))
     await userEvent.click(screen.getByTestId('search-hit-action-showInFolder'))
-    const url = new URL(routerPush.mock.calls[0][0] as string, 'https://piloti.test')
+    const url = new URL(routerPush.mock.calls[0][0] as string, 'https://example.test')
     expect(url.pathname).toBe(`/app/projects/${PROJECT}/files`)
     const hit = SEARCH_FIXTURE_RESPONSE.sections.document!.hits.find((entry) => entry.id === CONCEPT)!
     expect(url.searchParams.get('folder')).toBe(hit.folderId)
@@ -119,16 +119,16 @@ describe('a document hit’s ⋯', () => {
     render(view({ ...EMPTY_SEARCH_STATE, text: 'Fluchtweg' }))
     await userEvent.click(screen.getByTestId(`search-hit-actions-${CONCEPT}`))
     await userEvent.click(screen.getByTestId('search-hit-action-openPoints'))
-    const url = new URL(routerPush.mock.calls[0][0] as string, 'https://piloti.test')
+    const url = new URL(routerPush.mock.calls[0][0] as string, 'https://example.test')
     expect(url.pathname).toBe(`/app/projects/${PROJECT}/files`)
     expect(readReviewParams(url.searchParams)).toMatchObject({ documentId: CONCEPT, open: true, back: '/app/search?q=Fluchtweg' })
   })
 
-  it('asks Piloti about the file in its project chat, the passage’s page in the question', async () => {
+  it('asks the agent about the file in its project chat, the passage’s page in the question', async () => {
     render(view({ ...EMPTY_SEARCH_STATE, text: 'Fluchtweg' }))
     await userEvent.click(screen.getByTestId(`search-hit-actions-${CONCEPT}`))
     await userEvent.click(screen.getByTestId('search-hit-action-ask'))
-    const url = new URL(routerPush.mock.calls[0][0] as string, 'https://piloti.test')
+    const url = new URL(routerPush.mock.calls[0][0] as string, 'https://example.test')
     expect(url.pathname).toBe(`/app/projects/${PROJECT}/chat`)
     expect(url.searchParams.get('doc')).toBe(CONCEPT)
     expect(url.searchParams.get('ask')).toMatch(/^Was steht auf S\. 7 in „.+“\?$/)
@@ -143,7 +143,7 @@ describe('a document hit’s ⋯', () => {
     await userEvent.click(screen.getByTestId(`search-hit-actions-${REPLACED}`))
     await userEvent.click(screen.getByTestId('search-hit-action-openCurrent'))
     await waitFor(() => expect(routerPush).toHaveBeenCalled())
-    expect(new URL(routerPush.mock.calls[0][0] as string, 'https://piloti.test').searchParams.get('doc')).toBe(CURRENT)
+    expect(new URL(routerPush.mock.calls[0][0] as string, 'https://example.test').searchParams.get('doc')).toBe(CURRENT)
 
     routerPush.mockClear()
     server.use(http.get(`/api/documents/${REPLACED}/status`, () => HttpResponse.json({ id: REPLACED, revision: null })))

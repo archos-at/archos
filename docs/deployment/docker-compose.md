@@ -95,11 +95,7 @@ and set their own `PROCESS_ROLE`, so the four cannot drift.
 There is no mount for the OIB Richtlinien PDFs: the base corpus lives in SeaweedFS
 and the `oib_corpus_files` table (ADR-0082 step A2). Upload it in the admin UI, or
 `scripts/upload_oib_corpus.py <directory>`; an empty corpus boots fine and answers
-nothing until it is filled. A stack upgraded from before A2 needs neither: the
-one-shot `legacy-corpus-import` service reads the old `aiq-data` volume and
-`data/oib` read-only and stores what they held, and the base-corpus housekeeping
-route indexes it. Remove the `aiq-data` volume once the knowledge view lists the
-corpus. The backend keeps no volume at all: the vectors are in
+nothing until it is filled. The backend keeps no volume at all: the vectors are in
 the shared `qdrant` service.
 
 **Healthcheck**: `python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"` — interval 15s, timeout 10s, retries 10, start period 30s.
@@ -157,16 +153,12 @@ and runs without an API key. Its data is the `qdrant_data` volume at
 | Quotas | writes refused with HTTP 507 above 90% of memory or 85% of the volume (`QDRANT_QUOTA_MEMORY_PERCENT`, `QDRANT_QUOTA_DISK_PERCENT`), seeded on the first start only |
 | Healthcheck | `GET /readyz` over bash's `/dev/tcp` (the image has no curl) — interval 10s, timeout 10s, retries 12, `start_period` 300s (loading large collections takes minutes) |
 
-**An installation that ran Chroma** keeps its vectors in the old `chroma_data`
+**An installation that ran Chroma** may still have the old `chroma_data`
 volume (`compose_chroma_data` with the default project name). The file no longer
-declares it, so neither `up` nor `down -v` touches it. Move them into Qdrant
-once with the exporter and importer: the Compose procedure in
-[`qdrant-runbook.md`](qdrant-runbook.md), "Migrating from Chroma". Stop,
-export, import, then `up`: never `up -d` the new release before the import has
-verified, or its first base-corpus sync takes the empty store for a reset and
-re-embeds the whole corpus. Until then the stack answers nothing from what
-Chroma held. Remove the volume by hand
-once the new release has served for a while.
+declares it, so neither `up` nor `down -v` touches it, and nothing reads it:
+delete it by hand. The one-time exporter and importer are gone
+([`qdrant-runbook.md`, "Chroma, retired"](qdrant-runbook.md#chroma-retired));
+the base-corpus sync re-embeds the corpus into an empty Qdrant on its own.
 
 ### seaweedfs
 
@@ -436,12 +428,11 @@ PostgreSQL 16 database.
 
 ### postgres-rename
 
-A one-shot run of `deploy/postgres/rename-legacy-names.sh` (ADR-0145 row 10d): a volume
-made before the rename has the databases `aiq_jobs` and `aiq_checkpoints` and the
-superuser `aiq`, and this renames them to `jobs`, `checkpoints` and
-`app`. Every service that waits on `postgres` waits for it to complete. A volume
-made with the new names, and every run after the first, change nothing. The
-renamed databases refuse new sessions and end the open ones while it runs.
+A one-shot run of `deploy/postgres/rename-legacy-names.sh` (ADR-0145 row 10d): it
+creates the row-level-security roles a fresh volume lacks and hands every object
+in `public` to the migration role. Every service that waits on `postgres` waits
+for it to complete. A volume from before the database rename (`aiq_jobs`,
+`aiq_checkpoints`, superuser `aiq`) is no longer renamed: drop it and start fresh.
 
 | Property | Value |
 |----------|-------|

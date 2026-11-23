@@ -20,7 +20,7 @@ const SUMMARY: BimModelSummary = {
     timeStamp: '2026-02-03T10:00:00',
     author: ['A. Muster'],
     organization: ['Musterbuero ZT GmbH'],
-    preprocessorVersion: 'GRID',
+    preprocessorVersion: 'Fixture Exporter',
     originatingSystem: 'Revit 2026',
     description: [],
   },

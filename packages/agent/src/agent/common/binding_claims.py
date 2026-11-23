@@ -1,32 +1,3 @@
-"""Sentences that state law the turn's records do not carry: found by rule, capped and recorded (ADR-0175).
-
-"No binding claim before the records are published" and "the web is information" were held by the prompt
-alone (``knowledge_context.gate_note``, ``WEB_IS_INFORMATION``), and dev answers of 2026-11-10 broke both: a
-binding edition named from a web page, a requirement stated as the site's before publication, a paragraph
-of state law cited from two mirror sites. This is the deterministic half of the check; the answer check's
-judge (``claim_judge``) stays the second.
-
-A sentence of the final answer is a claim without records when either holds:
-
-- **web only**: every source it cites came from the web (an address off every configured source's hosts),
-  and it names law: a work the turn holds, a word for an edition, or a cited page that is itself a copy of
-  a held work (``web_sources.copied_work``). Law is cited from its own source, so this holds under any gate.
-- **the gate may not bind** (``KnowledgeContext.withholds_law``): it says something binds or is required
-  and names law (a held work, a word for an edition, or a building-law citation). A sentence that says the
-  binding edition is *not* known is the honest answer and is left alone.
-
-Nothing here is a country's: the works come from the turn's records (``web_sources.held_works``), the gate
-from the knowledge context, and the words from locale data beside the norm registry
-(``configs/norms/<country>/claim_terms.yml``), one block per language. Without that data only the parts
-that need no words run (a web-only sentence that names a held work or cites a copy).
-
-The cap is the law gate's own: ``answer_law_unsettled`` (``markers``, at most medium), so the reader sees
-one reason, not two. The record is two Langfuse scores, ``binding-claim-without-records`` and
-``law-cited-from-web``. The second is wider than the web-only rule: a sentence that names a held work and
-cites a web page beside its own source still cites the web for law the records hold (:func:`law_cited_from_web`).
-It is recorded, never removed: a citation is not dropped after the prose settled (ADR-0067).
-"""
-
 from __future__ import annotations
 
 import functools
@@ -69,8 +40,6 @@ _MONTH_YEAR_AFTER_RE = re.compile(r"[^\W\d_]+\s+\d{4}\b")
 
 
 class _LocaleTerms(BaseModel):
-    """One language's words (``claim_terms.yml``): each a word or a short phrase, matched as whole tokens."""
-
     model_config = ConfigDict(extra="forbid")
 
     binding: list[str] = []
@@ -87,8 +56,6 @@ class _ClaimTermsFile(BaseModel):
 
 @dataclass(frozen=True)
 class ClaimTerms:
-    """The words of every loaded language, as token runs."""
-
     binding: tuple[Run, ...] = ()
     requirement: tuple[Run, ...] = ()
     edition: tuple[Run, ...] = ()
@@ -97,8 +64,6 @@ class ClaimTerms:
 
 @dataclass(frozen=True)
 class BindingClaim:
-    """One sentence that states law without the records, and which rule found it."""
-
     sentence: str
     reason: Reason
 
@@ -111,7 +76,6 @@ _FIELDS = ("binding", "requirement", "edition", "negation")
 
 
 def _file_words(path: str) -> dict[str, list[str]]:
-    """One file's words per field, every language together; none when the file cannot be read (logged)."""
     try:
         parsed = _ClaimTermsFile.model_validate(yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {})
     except Exception:  # noqa: BLE001 - a broken word list switches its words off, never the answer
@@ -128,7 +92,6 @@ def _terms_from(files: tuple[tuple[str, int], ...]) -> ClaimTerms:
 
 
 def load_claim_terms(norms_dir: str | None = None) -> ClaimTerms:
-    """The claim words of every country directory under the norms seed; empty when there are none."""
     from agent.common.norm_registry import registry_yaml_files
 
     files: list[tuple[str, int]] = []
@@ -140,7 +103,6 @@ def load_claim_terms(norms_dir: str | None = None) -> ClaimTerms:
 
 
 def sentences(content: str) -> list[str]:
-    """The answer's body as sentences: its lines (a table row, a list item), each split at sentence ends."""
     section = REFERENCE_SECTION_RE.search(content)
     body = content[: section.start()] if section else content
     found: list[str] = []
@@ -150,7 +112,6 @@ def sentences(content: str) -> list[str]:
 
 
 def _split_line(line: str) -> list[str]:
-    """One line cut at its sentence ends, never inside a written date."""
     parts: list[str] = []
     start = 0
     for end in _SENTENCE_END_RE.finditer(line):
@@ -162,7 +123,6 @@ def _split_line(line: str) -> list[str]:
 
 
 def is_web_source(entry: SourceEntry) -> bool:
-    """Whether a cited source came from the web: it has an address, off every host a work's own text is read from."""
     return bool(entry.url) and not is_own_source(entry.url)
 
 
@@ -179,8 +139,6 @@ def _has(words: tuple[str, ...], runs: tuple[Run, ...]) -> bool:
 
 @dataclass(frozen=True)
 class _Reading:
-    """What the rules need to know about the turn, read once per answer."""
-
     by_number: dict[int, SourceEntry]
     works: tuple[HeldWork, ...]
     terms: ClaimTerms
@@ -213,11 +171,6 @@ def binding_claims(
     works: Sequence[HeldWork] | None = None,
     terms: ClaimTerms | None = None,
 ) -> list[BindingClaim]:
-    """The sentences of ``content`` that state law without the records (module docstring).
-
-    ``cited`` pairs each cited source with the ``[N]`` the text shows. ``works`` and ``terms`` default to the
-    turn's records and the loaded words.
-    """
     turn = _Reading(
         by_number={number: entry for entry, number in cited if number is not None},
         works=tuple(held_works() if works is None else works),
@@ -233,7 +186,6 @@ def binding_claims(
 
 
 def turn_binding_claims(content: str | None, cited: Iterable[tuple[SourceEntry, int | None]]) -> list[BindingClaim]:
-    """:func:`binding_claims` for the turn's own gate; nothing for an empty answer. Never raises."""
     if not content:
         return []
     from agent.common.knowledge_context import turn_knowledge_context
@@ -251,13 +203,6 @@ def law_cited_from_web(
     *,
     works: Sequence[HeldWork] | None = None,
 ) -> list[str]:
-    """The works the answer cites a web page for, each once.
-
-    A page that is a copy of a held work or only names one (``web_sources.copied_work``), and a page a
-    sentence cites while it names a held work: the records hold that law, so its edition, its binding and
-    the day it binds from are read there, never from the web (dev, 2026-11-12: a professional body's newsletter
-    cited beside the legal database for the day a guideline binds, a day the records held).
-    """
     from agent.common.web_sources import copied_work
 
     pairs = list(cited)
@@ -274,7 +219,6 @@ def law_cited_from_web(
 
 
 def score_answer(claims: Sequence[BindingClaim], web_law: Sequence[str]) -> None:
-    """Write ``binding-claim-without-records`` and ``law-cited-from-web`` for an answered turn."""
     from agent.observability.langfuse_scores import RuntimeScore
     from agent.observability.langfuse_scores import emit_scores
 

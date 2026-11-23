@@ -7,32 +7,22 @@ import { calendarDayIn } from '@/lib/format'
 import { officeTimeZone } from '@/lib/organizations/time-zone'
 import { competentAuthorities } from '@/lib/site-resolution/competence'
 import type { SiteAuthority } from '@/lib/site-resolution/wire'
-import { directiveVerdict, type PlatformAddressee } from '../platform'
+import { designationKey, directiveVerdict, type PlatformAddressee } from '../platform'
 import { recordReadable } from '../store/visibility'
 import { readTerritoryChain } from '../time/repository'
 
 const MAX_READ = 200
 
-export function designationKey(designation: string): string {
-  return designation.toLocaleLowerCase('de').replace(/\s+/g, ' ').trim().replace(/:\d{4}(-\d{2}(-\d{2})?)?$/, '')
-}
-
 interface ListingRow extends Record<string, unknown> {
   designation: string
   title: string
   edition_label: string
-  has_text: boolean
 }
 
 async function listedFor(organizationId: string): Promise<ListedEdition[]> {
   const rows = await withTenant({ organizationId }, () =>
     getDb().execute<ListingRow>(sql`
-      SELECT w.identifiers ->> 'designation' AS designation, w.title, e.label AS edition_label,
-        EXISTS (
-          SELECT 1 FROM knowledge_records mr
-          JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
-          WHERE mr.organization_id IS NULL AND m.edition_id = er.id AND m.corpus_file IS NOT NULL
-        ) AS has_text
+      SELECT w.identifiers ->> 'designation' AS designation, w.title, e.label AS edition_label
       FROM knowledge_records wr
       JOIN knowledge_work_revisions w ON w.revision_id = wr.head_revision_id
       JOIN knowledge_edition_revisions e ON e.work_id = wr.id
@@ -40,6 +30,11 @@ async function listedFor(organizationId: string): Promise<ListedEdition[]> {
       WHERE wr.organization_id IS NULL AND wr.type = 'work' AND ${recordReadable('wr', organizationId)}
         AND er.organization_id IS NULL AND ${recordReadable('er', organizationId)}
         AND w.identifiers ->> 'designation' IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM knowledge_records mr
+          JOIN knowledge_manifestation_revisions m ON m.revision_id = mr.head_revision_id
+          WHERE mr.organization_id IS NULL AND m.edition_id = er.id AND m.corpus_file IS NOT NULL
+        )
       ORDER BY designation
       LIMIT ${MAX_READ}`),
   )
@@ -47,7 +42,6 @@ async function listedFor(organizationId: string): Promise<ListedEdition[]> {
     designation: String(row.designation),
     title: String(row.title),
     editionLabel: String(row.edition_label),
-    hasText: row.has_text === true,
   }))
 }
 

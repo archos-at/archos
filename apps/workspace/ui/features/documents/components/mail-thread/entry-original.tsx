@@ -28,9 +28,10 @@ export function originalState(entry: Pick<MailThreadEntryView, 'original'>): Ori
 export interface EntryOriginalProps {
   entry: Pick<MailThreadEntryView, 'original'>
   download: () => Promise<{ saved: true } | { saved: false; status: number | null; reason: string | null }>
+  inline?: boolean
 }
 
-export function EntryOriginal({ entry, download }: EntryOriginalProps): JSX.Element {
+export function EntryOriginal({ entry, download, inline = false }: EntryOriginalProps): JSX.Element {
   const t = useTranslations(mailThreadCopy)
   const [answered, setAnswered] = useState<OriginalState | null>(null)
   const [busy, setBusy] = useState(false)
@@ -69,11 +70,12 @@ export function EntryOriginal({ entry, download }: EntryOriginalProps): JSX.Elem
     <span className="inline-flex">
       <BusyButton
         type="button"
-        variant="secondary"
-        size="sm"
+        variant={inline ? 'inline' : 'secondary'}
+        size={inline ? undefined : 'sm'}
+        className={inline ? 'touch-target h-auto p-0 text-xs' : undefined}
         busy={busy}
         busyLabel={t('original.downloading')}
-        icon={<Download aria-hidden />}
+        icon={inline ? undefined : <Download aria-hidden />}
         title={t('original.hint')}
         aria-describedby={hintId}
         onClick={() => void press()}

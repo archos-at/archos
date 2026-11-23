@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from knowledge_layer.ingest import limits
 from knowledge_layer_testing import pdf_fixtures
 
 _OVER_CAP_PAGES = 8
@@ -64,13 +65,13 @@ class _Tally:
 
 
 @contextlib.contextmanager
-def _counting_decodes(adapter: Any) -> Iterator[_Tally]:
+def _counting_decodes(pdf_rasters: Any) -> Iterator[_Tally]:
     pdfium = pytest.importorskip("pypdfium2")
     tally = _Tally()
     real_get_bitmap = pdfium.PdfImage.get_bitmap
     real_close = pdfium.PdfBitmap.close
-    real_detached_pil = adapter.detached_pil
-    real_raster_record = adapter._raster_record
+    real_detached_pil = pdf_rasters.detached_pil
+    real_raster_record = pdf_rasters._raster_record
 
     def get_bitmap(self: Any, *args: Any, **kwargs: Any) -> Any:
         metadata = tuple(self.get_px_size())
@@ -95,20 +96,20 @@ def _counting_decodes(adapter: Any) -> Iterator[_Tally]:
 
     pdfium.PdfImage.get_bitmap = get_bitmap
     pdfium.PdfBitmap.close = close
-    adapter.detached_pil = detached_pil
-    adapter._raster_record = raster_record
+    pdf_rasters.detached_pil = detached_pil
+    pdf_rasters._raster_record = raster_record
     try:
         yield tally
     finally:
         pdfium.PdfImage.get_bitmap = real_get_bitmap
         pdfium.PdfBitmap.close = real_close
-        adapter.detached_pil = real_detached_pil
-        adapter._raster_record = real_raster_record
+        pdf_rasters.detached_pil = real_detached_pil
+        pdf_rasters._raster_record = real_raster_record
 
 
 @pytest.fixture(scope="module")
-def adapter() -> Any:
-    return pytest.importorskip("knowledge_layer.ingest.adapter")
+def pdf_rasters() -> Any:
+    return pytest.importorskip("knowledge_layer.ingest.pdf_rasters")
 
 
 @pytest.fixture(scope="module")
@@ -118,35 +119,35 @@ def heavy_plan_set(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture(scope="module")
-def heavy_run(heavy_plan_set: Path, adapter: Any) -> tuple[list[dict[str, Any]], int, _Tally]:
-    with _counting_decodes(adapter) as tally:
-        kept, over_cap, _ = adapter._embedded_images_for_analysis(
+def heavy_run(heavy_plan_set: Path, pdf_rasters: Any) -> tuple[list[dict[str, Any]], int, _Tally]:
+    with _counting_decodes(pdf_rasters) as tally:
+        kept, over_cap, _ = pdf_rasters._embedded_images_for_analysis(
             str(heavy_plan_set), rendered_pages=set(), enabled=True
         )
     return kept, over_cap, tally
 
 
 @pytest.fixture
-def over_cap_run(adapter: Any, tmp_path: Path) -> tuple[list[dict[str, Any]], int, _Tally]:
+def over_cap_run(pdf_rasters: Any, tmp_path: Path) -> tuple[list[dict[str, Any]], int, _Tally]:
     path = pdf_fixtures.write_plan_set(
         tmp_path / "over-cap.pdf",
-        raster_pages=adapter.MAX_IMAGES_PER_DOCUMENT,
+        raster_pages=limits.MAX_IMAGES_PER_DOCUMENT,
         rasters_per_page=1,
         raster_px=_OVER_CAP_RASTER_PX,
         small_raster_pages=_OVER_CAP_PAGES,
         include_undersized_raster=True,
     )
-    with _counting_decodes(adapter) as tally:
-        kept, over_cap, _ = adapter._embedded_images_for_analysis(str(path), rendered_pages=set(), enabled=True)
+    with _counting_decodes(pdf_rasters) as tally:
+        kept, over_cap, _ = pdf_rasters._embedded_images_for_analysis(str(path), rendered_pages=set(), enabled=True)
     return kept, over_cap, tally
 
 
-def test_the_cap_and_the_icon_filter_bite_before_any_decode(over_cap_run: Any, adapter: Any) -> None:
+def test_the_cap_and_the_icon_filter_bite_before_any_decode(over_cap_run: Any, pdf_rasters: Any) -> None:
     kept, over_cap, tally = over_cap_run
-    candidates = adapter.MAX_IMAGES_PER_DOCUMENT + _OVER_CAP_PAGES
+    candidates = limits.MAX_IMAGES_PER_DOCUMENT + _OVER_CAP_PAGES
 
-    assert len(tally.decodes) == min(adapter.MAX_IMAGES_PER_DOCUMENT, candidates)
-    assert len(kept) == adapter.MAX_IMAGES_PER_DOCUMENT
+    assert len(tally.decodes) == min(limits.MAX_IMAGES_PER_DOCUMENT, candidates)
+    assert len(kept) == limits.MAX_IMAGES_PER_DOCUMENT
     assert over_cap == _OVER_CAP_PAGES
 
     decoded = set(tally.sizes)

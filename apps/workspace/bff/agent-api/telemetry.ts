@@ -2,13 +2,15 @@ import 'server-only'
 
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordToolCallTrace } from '@/lib/langfuse/tool-call-trace'
+import { type CallDoor, callDoorOf, sessionSourceOf } from './call-origin'
 import type { Confirmation } from './confirmation'
 import type { CallDecision } from './policy'
 import type { AgentPrincipal } from './principal'
 
 export type McpMode = 'search' | 'tools'
 
-export type CallDoor = 'mcp' | 'piloti' | 'a2a' | 'platform'
+export type { CallDoor, SessionSource } from './call-origin'
+export { sessionSourceOf }
 
 export interface McpCallContext {
   principal: AgentPrincipal
@@ -22,19 +24,6 @@ export interface McpCallContext {
 export type DecisionSource = 'elicitation' | 'app' | 'app-unverified'
 
 export type RecordedDecision = CallDecision | 'refused' | 'confirm' | 'declined' | 'person_required'
-
-function doorOf({ principal, door }: McpCallContext): CallDoor {
-  if (door) return door
-  if (principal.door === 'platform') return 'platform'
-  return principal.actor === 'external_agent' ? 'mcp' : 'piloti'
-}
-
-export type SessionSource = 'ui' | 'mcp' | 'script'
-
-export function sessionSourceOf({ principal }: Pick<McpCallContext, 'principal'>): SessionSource {
-  if (principal.actor !== 'external_agent') return 'ui'
-  return principal.clientId ? 'mcp' : 'script'
-}
 
 export function recordOperationCalled(
   ctx: McpCallContext,
@@ -51,7 +40,7 @@ export function recordOperationCalled(
   void recordToolCallTrace({
     operation: call.operation,
     domain: call.domain,
-    door: doorOf(ctx),
+    door: callDoorOf(ctx),
     mode,
     decision: call.decision,
     ...(ctx.decisionSource ? { decisionSource: ctx.decisionSource } : {}),
@@ -70,7 +59,7 @@ export function recordOperationCalled(
     properties: {
       operation: call.operation,
       domain: call.domain,
-      door: doorOf(ctx),
+      door: callDoorOf(ctx),
       session_source: sessionSourceOf(ctx),
       mode,
       decision: call.decision,
@@ -91,7 +80,7 @@ export function recordOperationMissing(ctx: McpCallContext, description: string,
     properties: {
       description_length: description.length,
       category,
-      door: doorOf(ctx),
+      door: callDoorOf(ctx),
       session_source: sessionSourceOf(ctx),
       mode,
       client_id: principal.clientId,

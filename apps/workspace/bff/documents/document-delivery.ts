@@ -1,5 +1,6 @@
 import 'server-only'
 import { contentDisposition } from './content-disposition'
+import { deliveredFilename } from './agent-namespace'
 import { GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { s3Client, signingS3Client, buildThumbnailStorageKey } from '@/lib/s3'
@@ -53,7 +54,8 @@ export async function getDocumentDownload(
     throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'This file has no PDF form', { contentType: doc.contentType })
   }
   const key = asRendition ? await officeRenditionKey(doc, doc.contentType || 'application/octet-stream') : doc.storageKey
-  const filename = asRendition ? renditionFilename(doc.filename) : doc.filename
+  const plain = deliveredFilename(doc.filename)
+  const filename = asRendition ? renditionFilename(plain) : plain
 
   const downloadUrl = await getSignedUrl(
     signingS3Client,
@@ -137,7 +139,7 @@ export async function getDocumentPreview(
       new GetObjectCommand({
         Bucket: resolveDocumentBucket(doc.storageBucket),
         Key: renditionKey,
-        ResponseContentDisposition: contentDisposition('inline', renditionFilename(doc.filename)),
+        ResponseContentDisposition: contentDisposition('inline', renditionFilename(deliveredFilename(doc.filename))),
         ResponseContentType: 'application/pdf',
       }),
       { expiresIn: 3600 }
@@ -164,7 +166,7 @@ export async function getDocumentPreview(
     new GetObjectCommand({
       Bucket: resolveDocumentBucket(doc.storageBucket),
       Key: doc.storageKey,
-      ResponseContentDisposition: contentDisposition('inline', doc.filename),
+      ResponseContentDisposition: contentDisposition('inline', deliveredFilename(doc.filename)),
       ResponseContentType: contentType,
     }),
     { expiresIn: 3600 }
@@ -188,10 +190,10 @@ export async function streamDocumentFile(
 
   const contentType = doc.contentType || 'application/octet-stream'
   let key = doc.storageKey
-  let filename = doc.filename
+  let filename = deliveredFilename(doc.filename)
   if (servedAsRendition(doc)) {
     key = await officeRenditionKey(doc, contentType)
-    filename = renditionFilename(doc.filename)
+    filename = renditionFilename(filename)
   } else if (contentType !== 'application/pdf') {
     throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Only PDF documents stream from this route', {
       contentType,
@@ -213,12 +215,11 @@ export async function streamDocumentFile(
   if (!body) throw new NotFoundError('File not available')
   await recordDocumentAccess(session, doc, 'pdf')
 
-  const asciiName = filename.replace(/[^\x20-\x7e]/g, '_').replace(/"/g, '_')
   return new Response(body.transformToWebStream(), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${asciiName}"`,
+      'Content-Disposition': contentDisposition('inline', filename),
       // Private: these bytes are tenant data.
       'Cache-Control': 'private, max-age=300',
       'X-Frame-Options': 'SAMEORIGIN',

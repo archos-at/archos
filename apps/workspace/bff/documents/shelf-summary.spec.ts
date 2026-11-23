@@ -2,13 +2,20 @@
  * @vitest-environment node
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ getHiddenFolderIds: vi.fn(async () => ['hidden-1']) }))
 vi.mock('@/lib/upload-screening/quarantine-reviewers', () => ({
   shelfReaderFor: vi.fn(async () => ({ kind: 'member', userId: 'user-1' })),
+}))
+vi.mock('./shelf-folders', () => ({
+  listShelfFolders: vi.fn(async () => [
+    { id: 'folder-plans', path: 'Pläne' },
+    { id: 'folder-standards', path: 'Grundlagen des Büros' },
+    { id: 'folder-fire', path: 'Grundlagen des Büros/Brandschutz' },
+  ]),
 }))
 vi.mock('./repository', () => ({
   summarizeShelfFolders: vi.fn(async () => [
@@ -68,9 +75,23 @@ describe('summarizeOfficeShelfDocuments', () => {
     expect(requireProjectAccess).not.toHaveBeenCalled()
     expect(shelfReaderFor).toHaveBeenCalledWith(session, { scope: 'office_shelf', projectId: null })
     expect(summarizeShelfFolders).toHaveBeenCalledWith({ kind: 'office_shelf' }, 'org-1', {
+      hiddenFolderIds: [],
       reader: { kind: 'member', userId: 'user-1' },
       authoredBy: undefined,
       includeArchived: undefined,
     })
+  })
+})
+
+describe('summarizeOfficeShelfDocuments once the office keeps its own standards (office-standards on)', () => {
+  beforeEach(() => vi.stubEnv('REQUIRE_AUTH', 'true'))
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('counts, and offers to read again, only the Ordner, never a document under the standards tree', async () => {
+    await summarizeOfficeShelfDocuments({ ...session, featureFlags: ['office-standards'] })
+
+    const filters = expect.objectContaining({ hiddenFolderIds: ['folder-standards', 'folder-fire'] })
+    expect(summarizeShelfFolders).toHaveBeenCalledWith({ kind: 'office_shelf' }, 'org-1', filters)
+    expect(listShelfFailedDocuments).toHaveBeenCalledWith({ kind: 'office_shelf' }, 'org-1', filters)
   })
 })

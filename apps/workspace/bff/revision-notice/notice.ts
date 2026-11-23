@@ -2,6 +2,7 @@ import { v5 as uuidv5 } from 'uuid'
 import { MAX_ANNOTATION_BASIS, MAX_ANNOTATION_BODY, MAX_PROPOSALS_PER_CALL, type AnnotationProposal } from '@/lib/annotations/types'
 import type { CompareRegion, RevisionVisualChanges } from '@/lib/documents/revision-compare-types'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export const DEFAULT_MAX_PAGES = 3
 export const MAX_PAGES_CEILING = 10
@@ -81,7 +82,7 @@ export interface ExistingMark {
 }
 
 const samePlace = (mark: ExistingMark, proposal: AnnotationProposal): boolean =>
-  mark.authorKind === 'piloti' &&
+  isAgentKind(mark.authorKind) &&
   mark.page === proposal.page &&
   mark.body.trim() === proposal.body.trim() &&
   Math.abs(mark.x - proposal.x) < 1e-4 &&

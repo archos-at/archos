@@ -69,7 +69,11 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                 {controller.viewerActionRow}
                 <CardSlotLiveProvider value={controller.live}>
                   <MarkdownSlotProvider render={controller.renderCardSlot}>
-                    <div ref={controller.proseRef} className={proseClass(controller.ledeClass)}>
+                    <div
+                      ref={controller.proseRef}
+                      className={proseClass(controller.ledeClass)}
+                      data-answer-excerpt-source={controller.excerptSourceId}
+                    >
                       <MarkdownRenderer
                         content={controller.body}
                         isStreaming={controller.live}
@@ -235,7 +239,11 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
                   >
                     <CardSlotLiveProvider value={controller.live}>
                       <MarkdownSlotProvider render={controller.renderCardSlot}>
-                        <div ref={controller.proseRef} className={proseClass(controller.ledeClass)}>
+                        <div
+                          ref={controller.proseRef}
+                          className={proseClass(controller.ledeClass)}
+                          data-answer-excerpt-source={controller.excerptSourceId}
+                        >
                           <MarkdownRenderer
                             content={controller.body}
                             isStreaming={controller.live}

@@ -1,4 +1,5 @@
 import type { PushClient } from './client'
+import { LEGACY_WORKER_MESSAGES } from './legacy-worker-names'
 import type { PushDeviceView } from './types'
 
 export type PushSupport = 'unsupported' | 'needs-install' | 'denied' | 'default' | 'granted'
@@ -168,7 +169,9 @@ export type CloseNotificationsRequest = { itemIds: string[] } | { all: true }
 export async function closeNotifications(request: CloseNotificationsRequest): Promise<void> {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
   const registration = await navigator.serviceWorker.getRegistration('/')
-  registration?.active?.postMessage({ type: 'piloti:close-notifications', ...request })
+  const worker = registration?.active
+  worker?.postMessage({ type: 'close-notifications', ...request })
+  worker?.postMessage({ type: LEGACY_WORKER_MESSAGES.closeNotifications, ...request })
 }
 
 export function setAppBadge(count: number): void {

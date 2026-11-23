@@ -93,7 +93,7 @@ The client is `createTurnSocket` (`apps/workspace/ui/adapters/api/turn-socket.ts
 - **Liveness.** While a turn runs the server sends `heartbeat{every_ms}`;
   three beats of silence and the socket is dropped and reopened, and a turn
   silent on two sockets in a row is ended. Nothing is watched after the
-  terminal. Before `RUN_STARTED` the driver (`use-websocket-chat.ts`) watches
+  terminal. Before `RUN_STARTED` the driver (`turn-driver.ts`) watches
   instead: a question has 15 s to be answered before the socket is reopened,
   and a second miss ends it with an error card.
 
@@ -103,7 +103,7 @@ The client is `createTurnSocket` (`apps/workspace/ui/adapters/api/turn-socket.ts
 { "v": 2, "type": "CUSTOM", "name": "heartbeat", "conversation_id": "s_<uuid>", "turn_id": "<message_id>", "seq": 10, "ts": 1759000016777, "value": { "every_ms": 20000 } }
 ```
 
-Stamped by the turn's own sequencer (`agent_host.chat_socket.TurnWire`) every
+Stamped by the turn's own sequencer (`agent_host.chat_wire.TurnWire`) every
 `TURN_HEARTBEAT_SECONDS`, by a task that lives exactly as long as the turn does,
 so it covers what the answer stream cannot: context loading before the graph
 starts, a ten-minute tool call, and the whole of a deep-research turn that runs

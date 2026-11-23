@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from agent_host.models.requests import GroupedDocumentSearchRequest
+from agent_host.models.document_search import GroupedDocumentSearchRequest
 from agent_host.models.requests import ProjectFacts
 from agent_host.models.similar import SimilarPassagesRequest
 from agent_host.routes.maintenance import REFRESH_FACTS_MAX_COLLECTIONS

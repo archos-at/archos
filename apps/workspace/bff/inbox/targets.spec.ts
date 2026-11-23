@@ -60,7 +60,7 @@ describe('the organization target', () => {
   it('deep-links a Büroablage filing suggestion to the Büroablage, where its file row carries it', async () => {
     const access = await organizationTarget.resolve(makeSession(), 'org_1')
 
-    expect(access!.deepLink({ itemType: 'piloti.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/office-shelf')
+    expect(access!.deepLink({ itemType: 'agent.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/office-shelf')
   })
 
   it('lands an office filing sort on the office shelf with the run open', async () => {
@@ -70,6 +70,15 @@ describe('the organization target', () => {
       '/app/office-shelf?rootSort=run-1',
     )
     expect(access!.deepLink({ itemType: 'root_sort.failed', anchorId: null })).toBe('/app/office-shelf')
+  })
+
+  it('opens the norm a new edition appeared for in Normen & Richtlinien, where its upload starts', async () => {
+    const access = await organizationTarget.resolve(makeSession(), 'org_1')
+
+    expect(
+      access!.deepLink({ itemType: 'base_knowledge.new_edition', anchorId: 'önorm b 1600@2023-02-01', entryId: 'edition_1' }),
+    ).toBe('/app/base-knowledge?entry=edition_1')
+    expect(access!.deepLink({ itemType: 'base_knowledge.new_edition', anchorId: 'önorm b 1600@2023-02-01' })).toBe('/app/base-knowledge')
   })
 
   it('falls back to the organization overview for a type with no destination', async () => {
@@ -202,6 +211,8 @@ describe('the project target', () => {
       '/app/projects/proj_1/files?folder=folder%201',
     )
     expect(access!.deepLink({ itemType: 'inbound_mail.decided', anchorId: null })).toBe('/app/projects/proj_1/files')
+    expect(access!.deepLink({ itemType: 'inbound_mail.fraud_reported', anchorId: 'mail-9' })).toBe(`${list}/mail-9?status=handled`)
+    expect(access!.deepLink({ itemType: 'inbound_mail.fraud_reported', anchorId: null })).toBe(`${list}?status=handled`)
   })
 
   it('redacts the row, rather than throwing, for a project the reader can no longer open', async () => {
@@ -230,7 +241,7 @@ describe('where an anchor lands (marks, proposals and Fassungen anchor rows too)
     return deepLink.mock.calls.at(-1)?.[1]
   }
 
-  it.each(['piloti.asks_you', 'piloti.work_done', 'piloti.work_failed', 'annotation.assigned_to_you', 'annotation.activity'] as const)(
+  it.each(['agent.asks_you', 'agent.work_done', 'agent.work_failed', 'annotation.assigned_to_you', 'annotation.activity'] as const)(
     'opens a document at the mark for %s',
     async (itemType) => {
       expect(await linkFor('document', { itemType, anchorId: 'ann-1' })).toEqual({
@@ -250,7 +261,7 @@ describe('where an anchor lands (marks, proposals and Fassungen anchor rows too)
   })
 
   it('does not read a proposal id as a message of the chat it was made in', async () => {
-    expect(await linkFor('conversation', { itemType: 'piloti.proposal_waiting', anchorId: 'prop-1' })).toEqual({
+    expect(await linkFor('conversation', { itemType: 'agent.proposal_waiting', anchorId: 'prop-1' })).toEqual({
       anchorId: undefined,
       markId: undefined,
       projectId: 'proj_1',
@@ -273,7 +284,7 @@ describe('where an anchor lands (marks, proposals and Fassungen anchor rows too)
   it('sends a proposal with no chat (a filing suggestion) to the project files, and redacts it for a reader who cannot view the project', async () => {
     vi.mocked(requireProjectAccess).mockResolvedValueOnce({ role: 'project-viewer', closed: false, readsBecauseClosed: false })
     const access = await INBOX_TARGET_REGISTRY.project.resolve(makeSession(), 'proj_1')
-    expect(access!.deepLink({ itemType: 'piloti.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/projects/proj_1/files')
+    expect(access!.deepLink({ itemType: 'agent.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/projects/proj_1/files')
 
     vi.mocked(requireProjectAccess).mockRejectedValueOnce(new Error('forbidden'))
     expect(await INBOX_TARGET_REGISTRY.project.resolve(makeSession(), 'proj_1')).toBeNull()

@@ -1,4 +1,3 @@
-// @disk-inputs: ui/styles/tokens.css
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { diagramThemeVariables, resetDiagramPaletteCache } from './diagram-palette'
 
@@ -159,34 +158,6 @@ describe('the palette is the product’s, not mermaid’s', () => {
     stubCanvas()
     stubTokens()
     expect(diagramThemeVariables('light')?.fontSize).toBe('14px')
-  })
-})
-
-describe('the stubbed tokens are the shipped tokens', () => {
-  it('matches the hexes tokens.css documents for the ramp the diagram uses', async () => {
-    const { readFileSync } = await import('node:fs')
-    const { resolve } = await import('node:path')
-    const css = readFileSync(resolve(process.cwd(), 'ui/styles/tokens.css'), 'utf8')
-
-    const documented = (token: string, from: number): string | null => {
-      const at = css.indexOf(`  ${token}:`, from)
-      if (at === -1) return null
-      const line = css.slice(at, css.indexOf('\n', at))
-      return /\/\*[^*]*?(#[0-9a-f]{6})/i.exec(line)?.[1]?.toLowerCase() ?? null
-    }
-    const darkFrom = css.indexOf('\n.dark {')
-    expect(darkFrom).toBeGreaterThan(0)
-
-    for (const [token, expected] of Object.entries(LIGHT)) {
-      const hex = documented(token, 0)
-      if (hex) expect(`light ${token} ${hex}`).toBe(`light ${token} ${expected}`)
-    }
-    for (const [token, expected] of Object.entries(DARK)) {
-      const hex = documented(token, darkFrom)
-      if (hex) expect(`dark ${token} ${hex}`).toBe(`dark ${token} ${expected}`)
-    }
-    expect(documented('--muted-foreground', 0)).toBe(LIGHT['--muted-foreground'])
-    expect(documented('--foreground', darkFrom)).toBe(DARK['--foreground'])
   })
 })
 

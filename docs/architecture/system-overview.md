@@ -1,7 +1,7 @@
-# Piloti — System Overview
+# The agent — System Overview
 
 > **The single source of truth for the shape of the system.** An enterprise
-> architecture view: what Piloti is, its major components, how they fit together,
+> architecture view: what the agent is, its major components, how they fit together,
 > the key flows, and the boundaries that matter. Written to let a new senior
 > engineer or a stakeholder *understand the system* without reading the code.
 > For implementation detail, follow the links to the subsystem docs.
@@ -14,21 +14,21 @@
 
 ## 1. Executive summary
 
-Piloti is the **workspace in which a planning office runs its work**: every
+The platform is the **workspace in which a planning office runs its work**: every
 project, every process, the whole organization. Architects work inside
 **projects**. A project holds its intake (the facts that decide the rest of
 it), its files and the office's Büroablage, its building model (IFC, opened in
 the browser), its tasks and research, and its team. What the office knows
 carries from one project to the next, through project and organization memory.
 
-Piloti, the agent, is a **member of that office**. Chat is how people talk to
+The agent is a **member of that office**. Chat is how people talk to
 it, and **tasks** (Aufgaben) are how they hand it work: a task is the work
 object, a job the recurring schedule behind it (§5.12). Building law is one
 capability in this workspace, not the frame around it. Legal claims cite the
-passage they rest on (§5.2). Not every answer is a ruling. Piloti does not
+passage they rest on (§5.2). Not every answer is a ruling. The agent does not
 replace the Entwurfsverfasser or the Behörde.
 
-Architecturally, Piloti is a **two-tier system**:
+Architecturally, the platform is a **two-tier system**:
 
 - A **stateful BFF** (Next.js) owns identity, the application database, file
   storage, and access control — everything tenant-specific and durable.
@@ -50,10 +50,10 @@ provider (the reference config uses OpenAI GPT-5.6 Luna via OpenRouter).
 
 ```mermaid
 flowchart TB
-    Architect["👤 Architect / Org member<br/>works in a project, talks to Piloti"]
+    Architect["👤 Architect / Org member<br/>works in a project, talks to the agent"]
     Admin["👤 Org admin<br/>manages projects, members, memory"]
 
-    subgraph APP["Piloti"]
+    subgraph APP["the app"]
         SYS["Workspace for planning offices"]
     end
 
@@ -168,10 +168,10 @@ or security, and every tenant-data mutation goes through one audited layer.
 The workspace surfaces, each with its own doc:
 
 - **Projects and intake:** [projects guide](../user-guides/projects.md)
-- **Files, Büroablage and document roles:** [documents guide](../user-guides/documents.md), [Piloti in the file system](filesystem-design.md), [document roles](document-roles.md)
+- **Files, Büroablage and document roles:** [documents guide](../user-guides/documents.md), [the agent in the file system](filesystem-design.md), [document roles](document-roles.md)
 - **Building model (IFC):** [IFC models guide](../user-guides/bim-models.md)
 - **Tasks and jobs:** §5.12 below, and [projects guide, Jobs](../user-guides/projects.md#jobs-feature-flagged)
-- **Research and reports:** [reports Piloti writes](../user-guides/agent-authored-reports.md), [deep research report](deep-research-report.md)
+- **Research and reports:** [reports the agent writes](../user-guides/agent-authored-reports.md), [deep research report](deep-research-report.md)
 - **Team and access:** [collaboration lifecycle](collaboration-lifecycle.md), [sensitive data and access](../user-guides/sensitive-data-and-access.md)
 - **Office knowledge:** [project memory design](project-memory-design.md)
 - **Project mail:** [the E-Mail-Eingang and the E-Mail-Verläufe](inbound-mail.md), [Outlook archive import](mail-import.md)
@@ -192,7 +192,7 @@ Every normative claim is grounded in a passage retrieved this turn from the
 project, the Büroablage, or the Austrian building-regulation corpus. Not every
 answer is a ruling.
 
-Piloti deliberately separates **retrieval** from **memory** — they answer
+The agent deliberately separates **retrieval** from **memory** — they answer
 different questions and reach the agent differently:
 
 - **Retrieval (RAG) — "the library, searched on demand."** The OIB corpus,
@@ -463,8 +463,8 @@ What lives where in the checkout.
 | `apps/workspace/` | Next.js app: UI + BFF API routes + WS proxy (`server.js`) |
 | `apps/website/` | The public website (Astro, static with a few server endpoints, `de`/`en`, blog in MDX), built from `packages/brand`; the `web` image builds it |
 | `apps/agent-host/` | The backend FastAPI front-end plugin (`_type: agent_host`): REST routes, async jobs, `/v1/ingest` |
-| `evals/` | Piloti's evals, each with its tests: `oib-retrieval` and the live `turn-shapes` check |
-| `packages/` | Libraries outside the uv and bun workspaces: `ifc-spatial` and `ifc-spatial-py` (the IFC spatial engine, ADR-0045) and `brand` (the Piloti mark and the script that renders every icon from it) |
+| `evals/` | The agent's evals, each with its tests: `oib-retrieval` and the live `turn-shapes` check |
+| `packages/` | Libraries outside the uv and bun workspaces: `ifc-spatial` and `ifc-spatial-py` (the IFC spatial engine, ADR-0045) and `brand` (the product mark and the script that renders every icon from it) |
 | `configs/` | Workflow configs. **LLM-agnostic** — any OpenAI-compatible endpoint (set `base_url`/key per config). **`config_oib_openrouter.yml` is the working reference config** (the legacy Kimi config is currently unmaintained). The `model_name` values are only the **boot fallback**: the live default per agent group is admin-controlled (Platform → Models, `platform_model_defaults`) and a tenant may override it (Organization → Models) — see `docs/architecture/org-model-configuration.md`. Do not edit the YAML to move the fleet to a new model. |
 | `deploy/` | Docker Compose assets and environment templates; `deploy/pulumi/` holds the Pulumi (TypeScript) Kubernetes deployment (see `docs/deployment/kubernetes.md`) |
 | `docs/architecture/` | Architecture docs (see `backend-deep-dive.md`, `project-memory-design.md`, `docs/audit/citation-system-audit-2026-07.md` for the citation pipeline as built) |

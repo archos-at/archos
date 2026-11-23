@@ -25,6 +25,8 @@ from agent_host.auth import TokenValidator
 from agent_host.auth import get_current_user
 from agent_host.auth import middleware as middleware_module
 from agent_host.auth.errors import AuthError
+from agent_host.auth.utils import is_headless_request
+from agent_host.legacy_headers import legacy_header
 
 
 def _with_legacy_tags(tags: dict[str, str]) -> dict[str, str]:
@@ -721,7 +723,7 @@ class TestAuthMiddlewareInternal:
             extra_headers=[
                 (b"authorization", b"Bearer eyJhbGciOiJIUzI1NiJ9.x.y"),
                 (b"x-aiq-access-channel", b"headless"),
-                (b"x-aiq-mode", b"headless"),
+                (legacy_header("x-chat-mode").encode(), b"headless"),
             ],
         )
         with (
@@ -1078,3 +1080,9 @@ class TestMiddlewareErrorCodes:
         assert body["error"] == "token_expired"
         assert body["detail"] == "Token has expired"
         assert messages[0]["status"] == 401
+
+
+@pytest.mark.parametrize("name", [b"x-chat-mode", legacy_header("x-chat-mode").encode()])
+def test_a_headless_caller_is_read_under_either_mode_name(name):
+    assert is_headless_request({name: b"headless"}) is True
+    assert is_headless_request({name: b"ui"}) is False

@@ -5,11 +5,17 @@ import { normalizeProfileToken } from '@/lib/project-profile/legacy-names'
 import { MAX_INTAKE_DESCRIPTION_LENGTH } from '@/lib/project-intake/types'
 import { monthSchema } from './month'
 import { PROJECT_OUTCOMES } from './project-status'
+import { isLegacyAgentSetup, LEGACY_AGENT_SETUP } from './legacy-project-setup'
 
 export const MAX_ADDRESS_LENGTH = 200
 
-export const PROJECT_SETUPS = ['piloti', 'self'] as const
+export const AGENT_SETUP = 'agent' as const
+
+export const PROJECT_SETUPS = [AGENT_SETUP, LEGACY_AGENT_SETUP, 'self'] as const
 export type ProjectSetup = (typeof PROJECT_SETUPS)[number]
+
+export const isAgentSetup = (setup: ProjectSetup | undefined): boolean =>
+  setup === AGENT_SETUP || isLegacyAgentSetup(setup)
 
 export const createProjectFieldsSchema = z
   .object({
@@ -22,7 +28,7 @@ export const createProjectFieldsSchema = z
       })
       .strict()
       .optional(),
-    setup: z.enum(PROJECT_SETUPS).default('piloti'),
+    setup: z.enum(PROJECT_SETUPS).default(AGENT_SETUP),
     description: z
       .string()
       .trim()

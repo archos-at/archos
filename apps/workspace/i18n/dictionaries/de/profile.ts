@@ -105,7 +105,7 @@ export const profile: typeof en.profile = {
         name: 'Claude Code',
         hint: 'Im Terminal',
         s1: 'Fügen Sie den Server mit diesem Befehl hinzu:',
-        s2: 'Starten Sie Claude Code, geben Sie /mcp ein und wählen Sie piloti.',
+        s2: 'Starten Sie Claude Code, geben Sie /mcp ein und wählen Sie {serverName}.',
         s3: 'Melden Sie sich mit Ihrem {productName}-Konto an, sobald sich der Browser öffnet.',
       },
       cursor: {

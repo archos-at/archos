@@ -1,15 +1,3 @@
-"""Why a chat turn ended without an answer: the ``answer_failed`` PostHog event.
-
-``answer_completed`` is emitted by the browser, so a turn whose page closed, or
-whose server ended it in a fault, left only a missing event (12 of 205 questions
-in 30 days). The chat host reports the ending itself, with a ``reason`` an
-analyst can group by and the ``message_id`` that joins it to the question, the
-trace (``trace_id_for_message``) and ``answer_completed``.
-
-Non-personal by rule: an enum, ids of our own rows, the exception's class name.
-Never the exception text (it can carry content).
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -42,7 +30,6 @@ def _status_of(error: BaseException) -> object:
 
 
 def reason_for(exc: BaseException) -> str:
-    """The coarse reason a failure ended the turn, from the exception and what it wraps."""
     reasons: set[str] = set()
     for error in _chain(exc):
         status = _status_of(error)
@@ -61,7 +48,6 @@ def reason_for(exc: BaseException) -> str:
 
 
 def reason_for_text(text: str | None) -> str:
-    """:func:`reason_for` for a failure that arrives as text (a ``RUN_ERROR`` the runtime built)."""
     lowered = (text or "").lower()
     if "402" in lowered and ("credit" in lowered or "payment" in lowered) or "insufficient credits" in lowered:
         return PROVIDER_CREDITS
@@ -81,7 +67,6 @@ def capture_answer_failed(
     error_type: str | None = None,
     conversation_id: str | None = None,
 ) -> None:
-    """Queue one ``answer_failed``. Never raises (the posthog client is no-throw)."""
     properties = {
         "message_id": message_id,
         "conversation_id": conversation_id,
@@ -102,7 +87,6 @@ CREDITS_MESSAGE: Final = (
 
 
 def report_turn_failed(turn: Any, reason: str, error_type: str | None = None) -> None:
-    """:func:`capture_answer_failed` for a running chat turn (message id, asker, office, conversation)."""
     capture_answer_failed(
         message_id=turn.message_id,
         reason=reason,

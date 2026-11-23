@@ -24,7 +24,8 @@ import {
   type HeadlessCancelOutcome,
   type HeadlessUserMessage,
 } from '@/lib/turns/headless-turn'
-import { HEADLESS_MODE_HEADERS } from '@/lib/turns/headless-mode'
+import { actingDoor } from '@/lib/agent-api/acting-session'
+import { HEADLESS_MODE_HEADERS, turnDoorHeaders } from '@/lib/turns/headless-mode'
 import type { TurnOutcomeRequest } from '@/lib/turns/outcome-types'
 import { askAnswerMessageId } from '@/lib/turns/answer-ids'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
@@ -75,7 +76,7 @@ const clip = (text: string, max: number) => {
 
 function requireEnabled(session: AuthorizedSession): void {
   if (isAgentAskEnabled(session)) return
-  throw new ForbiddenError('Asking ' + PRODUCT_NAME + ' from another agent is not enabled for this organization (piloti-ask).', {
+  throw new ForbiddenError('Asking ' + PRODUCT_NAME + ' from another agent is not enabled for this organization (agent-requests).', {
     reason: 'piloti-ask-off',
   })
 }
@@ -174,6 +175,7 @@ async function startTurn(
     headers: {
       ...turnContextHeaders(context, { issuedAt: Date.now(), secret: target.secret }),
       ...HEADLESS_MODE_HEADERS,
+      ...turnDoorHeaders(actingDoor()),
     },
     message: askMessage({ askId: ask.id, conversationId: ask.conversationId, question, authorName: session.name }),
     requires: ASK_REQUIRES,

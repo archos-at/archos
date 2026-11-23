@@ -1,10 +1,3 @@
-"""The agent-runtime function: config, description, and the stages in order.
-
-Nothing is decided here. Every bound, every fallback and every sentence the
-model reads lives in the stage that owns it, and every word of the source in
-its record; this module says what the tool takes and which stage runs next.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -57,8 +50,6 @@ _MAX_BOUND = 16
 
 
 class LawLookupToolConfig(FunctionBaseConfig, name="law_lookup"):
-    """One law source, read through its record: question in, citable passages out."""
-
     source: str = Field(
         description=(
             "The repository record (configs/sources/, by id) read when no released record reaches the turn; "
@@ -119,8 +110,6 @@ async def law_lookup(tool_config: LawLookupToolConfig, builder: Builder):
 
 @dataclass
 class _Bound:
-    """One source as one call reads it: the source, its client, its search, its picker."""
-
     law: LawSource
     client: object
     search: Search
@@ -130,8 +119,6 @@ class _Bound:
 
 
 class _Lookup:
-    """One bound tool: its config, and each source it has read, built once per revision."""
-
     def __init__(self, config: LawLookupToolConfig, llms) -> None:
         self.config, self.llms = config, llms
         self.ttl = ttl_seconds(config.cache_ttl_days)
@@ -151,7 +138,6 @@ class _Lookup:
         return self.bound[key]
 
     def for_turn(self) -> tuple[_Bound, str]:
-        """The source this turn reads, and a note when the turn's own source could not be carried or read."""
         chosen = turn_source()
         if chosen is not None:
             try:
@@ -226,13 +212,6 @@ class _Lookup:
 
 
 async def _resolve_llms(tool_config: LawLookupToolConfig, builder: Builder):
-    """What builds a source's search planner and provision picker from the configured model, or None.
-
-    One configured model serves both: they are the same kind of bounded
-    structured-output call. A model that cannot be resolved is not fatal: the
-    live search then uses the caller's own words and the picker only answers a
-    named provision.
-    """
     if not tool_config.planner_llm:
         return None
     try:

@@ -9,7 +9,11 @@ export const messages = pgTable(
     conversationId: text('conversation_id').notNull(),
     organizationId: text('organization_id')
       .notNull()
-      .default(sql`nullif(current_setting('grid.organization_id', true), '')`),
+      .default(
+        sql.raw(
+          `nullif(current_setting('app.organization_id', true), '')`
+        )
+      ),
     role: text('role').notNull(),
     authorUserId: text('author_user_id'),
     content: text('content').notNull(),

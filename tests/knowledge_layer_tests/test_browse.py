@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer import register as register_module
+from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
 from knowledge_layer.browse import MAX_TOPIC_COUNTS
 from knowledge_layer.browse import MAX_TYPE_COUNTS
 from knowledge_layer.browse import ListFilesConfig
@@ -17,7 +18,6 @@ from knowledge_layer.browse import pick_passages
 from knowledge_layer.browse import render_listing
 from knowledge_layer.browse import select_files
 from knowledge_layer.browse import split_alternatives
-from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 from knowledge_layer.search import reading_as

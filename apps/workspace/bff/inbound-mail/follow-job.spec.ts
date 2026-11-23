@@ -8,6 +8,7 @@ vi.mock('server-only', () => ({}))
 const state = vi.hoisted(() => ({
   nameStops: [] as string[],
   followContext: null as unknown,
+  work: null as FilingWork | null,
 }))
 
 vi.mock('./filing-repository', () => ({ findFilingWork: vi.fn() }))
@@ -15,7 +16,10 @@ vi.mock('./repository', () => ({
   findThreadFollowContext: vi.fn(async () => state.followContext),
   findFiledMessages: vi.fn(async () => []),
   findMailParts: vi.fn(),
+  findDocumentIdByStoredName: vi.fn(async () => null),
 }))
+vi.mock('./mail-views', () => ({ mailViews: vi.fn() }))
+vi.mock('@/lib/jobs-queue/repository', () => ({ findOpenJobId: vi.fn(async () => null) }))
 vi.mock('./staging', () => ({ readStagedObject: vi.fn() }))
 vi.mock('./screening', () => ({
   mailScreeningFor: vi.fn(async () => ({ nameStops: () => state.nameStops, contentFindings: () => [] })),
@@ -24,7 +28,7 @@ vi.mock('./file-job', () => ({ runInboundMailFiling: vi.fn() }))
 vi.mock('./audit', () => ({ auditDecisions: vi.fn(async () => true) }))
 vi.mock('./announce', () => ({ announceAppended: vi.fn(async () => true) }))
 vi.mock('./suggest-scores', () => ({ scoreMailDecision: vi.fn(() => 'no_suggestion') }))
-vi.mock('./service', () => ({ FILING_CLAIM_MS: 300_000, hoursWaitingBucket: () => 'lt_1h' }))
+vi.mock('./service', () => ({ FILING_CLAIM_MS: 300_000, hoursWaitingBucket: () => 'lt_1h', decisionContext: vi.fn() }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSessionStrict: vi.fn() }))
 vi.mock('@/lib/authz/feature-flags', () => ({ isInboundMailEnabled: vi.fn(() => true) }))
@@ -49,13 +53,20 @@ import { findThreadDocumentState, writeFollowDecision } from '@/lib/mail-thread/
 import { endFollowBySystem } from '@/lib/mail-thread/follows'
 import { findWritableThread, type WritableThread } from '@/lib/mail-thread/write-repository'
 import { PROJECT_CLOSED_REASON } from '@/lib/projects/project-status'
-import { filePart, heldMail, MAIL_ID, PERSON, PROJECT_ID, textPart, THREAD_ID } from './__fixtures__/review'
+import { mail as mailView, messagePart, part, suggestion, thread } from '@/app/dev/inbound-mail/fixture-builders'
+import { findOpenJobId } from '@/lib/jobs-queue/repository'
+import { DOCUMENT_ID, FILE_PART_ID, filePart, FOLDER_ID, heldMail, MAIL_ID, PERSON, PROJECT_ID, TEXT_PART_ID, textPart, THREAD_ID } from './__fixtures__/review'
 import { announceAppended } from './announce'
 import { auditDecisions } from './audit'
+import { mailIfMatch, type DecisionContext } from './decision'
 import { runInboundMailFiling } from './file-job'
-import { findFilingWork } from './filing-repository'
+import { findFilingWork, type FilingWork } from './filing-repository'
 import { followMail, runInboundMailFollow } from './follow-job'
-import { findFiledMessages, findMailParts } from './repository'
+import type { InboundMailPartView, InboundMailView } from './inbound-mail-wire'
+import { mailViews } from './mail-views'
+import { findDocumentIdByStoredName, findFiledMessages, findMailParts, findThreadFollowContext } from './repository'
+import { decisionContext } from './service'
+import { SUGGESTION_MAX_WAITS } from './suggestion-wait'
 import { readStagedObject } from './staging'
 import { scoreMailDecision } from './suggest-scores'
 
@@ -76,6 +87,7 @@ const payload: InboundMailFollowPayload = {
     role: 'member',
     permissions: [],
   },
+  waits: 0,
 }
 
 const follow = (overrides: Record<string, unknown> = {}) => ({
@@ -102,9 +114,8 @@ function given(
   attachments: InboundMailPartRow[] = [filePart()],
   decisions = new Map<string, InboundMailDecisionRow>(),
 ) {
-  vi.mocked(findFilingWork).mockResolvedValue([
-    { mail: heldMail({ receivedAt: RECEIVED, ...mail }), parts: [textPart(text), ...attachments], decisions },
-  ])
+  state.work = { mail: heldMail({ receivedAt: RECEIVED, ...mail }), parts: [textPart(text), ...attachments], decisions }
+  vi.mocked(findFilingWork).mockResolvedValue([state.work])
 }
 
 const decided = { id: 'decision-1', partId: textPart().id, via: 'follow', mailThreadId: THREAD_ID } as InboundMailDecisionRow
@@ -113,7 +124,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
   state.nameStops = []
-  state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], follows: [follow()] }
+  state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], participantAddresses: [], follows: [follow()] }
   given()
   vi.mocked(readStagedObject).mockResolvedValue(RAW)
   vi.mocked(resolvePinnedRequesterSessionStrict).mockResolvedValue(follower)
@@ -122,10 +133,50 @@ beforeEach(() => {
   vi.mocked(findThreadDocumentState).mockResolvedValue('live')
   vi.mocked(findWritableThread).mockResolvedValue(writable())
   vi.mocked(findFiledMessages).mockResolvedValue([])
-  vi.mocked(writeFollowDecision).mockResolvedValue({ kind: 'written', decision: decided })
+  vi.mocked(writeFollowDecision).mockResolvedValue({ kind: 'written', decision: decided, attachments: [] })
+  vi.mocked(findOpenJobId).mockResolvedValue(null)
+  vi.mocked(findDocumentIdByStoredName).mockResolvedValue(null)
+  viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: null })])
+  vi.mocked(decisionContext).mockResolvedValue(context)
   vi.mocked(runInboundMailFiling).mockResolvedValue({ done: true, payload: { ...payload, mailIds: [MAIL_ID] } })
   vi.mocked(findMailParts).mockResolvedValue([textPart({ state: 'filed' }), filePart()])
 })
+
+const EARLIER = { documentId: DOCUMENT_ID, name: 'S-101_C.pdf', folderPath: 'Tragwerk', nextVersion: 4 }
+
+const context: DecisionContext = {
+  actor: { decidedBy: PERSON, via: 'app', proposalId: null },
+  bulk: false,
+  acceptedTypes: ['.pdf'],
+  nameStops: () => [],
+  candidates: {
+    threads: () => ({ shown: [], hidden: 0 }),
+    part: () => ({ duplicateOf: null, revisionCandidate: null, revisionCandidateHidden: false }),
+    readsFolder: () => true,
+    readsDocument: () => true,
+    filedAs: () => null,
+  },
+  folders: new Map([[FOLDER_ID, 'Tragwerk']]),
+  threads: new Map(),
+  documents: new Map([[DOCUMENT_ID, { documentId: DOCUMENT_ID, name: 'S-101_C.pdf', folderId: FOLDER_ID, folderPath: 'Tragwerk', nextVersion: 4 }]]),
+}
+
+const inTragwerk = { ...suggestion('Tragwerk', 'Grundriss', 'Wie S-101_C.'), folderId: FOLDER_ID }
+
+function viewing(attachments: InboundMailPartView[], overrides: Partial<InboundMailView> = {}) {
+  vi.mocked(mailViews).mockImplementation(async (_session, _project, [held]) => {
+    const work = state.work!
+    return [
+      mailView({
+        id: held!.id,
+        ifMatch: mailIfMatch(work.mail, work.parts),
+        parts: [messagePart({ id: TEXT_PART_ID }), ...attachments],
+        threadCandidates: [thread()],
+        ...overrides,
+      }),
+    ]
+  })
+}
 
 function expectWaitsUntouched() {
   expect(writeFollowDecision).not.toHaveBeenCalled()
@@ -135,7 +186,7 @@ function expectWaitsUntouched() {
 
 describe('a reply every condition of D31 holds for', () => {
   it('is decided as the follower, audited, scored on its text alone, and filed by the filing step', async () => {
-    expect(await followMail('org_1', payload)).toEqual({ kind: 'appended' })
+    expect(await followMail('org_1', payload)).toMatchObject({ kind: 'appended' })
 
     expect(writeFollowDecision).toHaveBeenCalledOnce()
     const write = vi.mocked(writeFollowDecision).mock.calls[0]![0]
@@ -176,6 +227,7 @@ describe('a reply every condition of D31 holds for', () => {
       mailId: MAIL_ID,
       threadId: THREAD_ID,
       followerUserId: PERSON,
+      attachments: 0,
     })
   })
 
@@ -189,6 +241,7 @@ describe('a reply every condition of D31 holds for', () => {
     state.followContext = {
       threadId: THREAD_ID,
       participantDomains: ['statik-weber.at'],
+      participantAddresses: [],
       follows: [follow({ id: 'f-early', userId: OTHER_FOLLOWER, createdAt: new Date(RECEIVED.getTime() - 2 * DAY) }), follow()],
     }
     await followMail('org_1', payload)
@@ -197,13 +250,126 @@ describe('a reply every condition of D31 holds for', () => {
   })
 })
 
+describe('the attachments of a followed reply (ADR-0137, 2026-11-19: replies from known correspondents are filed without a click)', () => {
+  const attachmentDecision = { id: 'decision-file', partId: FILE_PART_ID, via: 'follow' } as InboundMailDecisionRow
+
+  function written() {
+    vi.mocked(writeFollowDecision).mockResolvedValue({ kind: 'written', decision: decided, attachments: [attachmentDecision] })
+    vi.mocked(findMailParts).mockResolvedValue([textPart({ state: 'filed' }), filePart({ state: 'filed', decisionId: attachmentDecision.id })])
+  }
+
+  const planned = () => vi.mocked(writeFollowDecision).mock.calls[0]![0].attachments
+
+  it('files a clean attachment with an existing folder from the suggestion, with the text, as the follower, and says so', async () => {
+    viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: inTragwerk })])
+    written()
+
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'appended', attachments: 1, left: 0 })
+    expect(planned()).toEqual([
+      expect.objectContaining({
+        partId: FILE_PART_ID,
+        folderId: FOLDER_ID,
+        folderPath: 'Tragwerk',
+        fileName: 'S-101_C.pdf',
+        targetDocumentId: null,
+        documentType: 'Grundriss',
+      }),
+    ])
+    expect(mailViews).toHaveBeenCalledWith(follower, PROJECT_ID, [expect.objectContaining({ id: MAIL_ID })], false)
+    expect(requireFolderWrite).toHaveBeenCalledWith(follower, PROJECT_ID, [FOLDER_ID])
+    expect(auditDecisions).toHaveBeenCalledWith([decided, attachmentDecision])
+    expect(vi.mocked(runInboundMailFiling).mock.calls[0]![1].decisionIds).toEqual([decided.id, attachmentDecision.id])
+    expect(captureServer).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'inbound_mail_decided', properties: expect.objectContaining({ via: 'follow', files: 2, left: 0 }) }),
+    )
+    expect(announceAppended).toHaveBeenCalledWith(expect.objectContaining({ attachments: 1 }))
+  })
+
+  it('files a revision the defaults vouch for as the next Fassung of its document', async () => {
+    viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: inTragwerk, revisionCandidate: EARLIER })])
+    await followMail('org_1', payload)
+    expect(planned()).toEqual([expect.objectContaining({ partId: FILE_PART_ID, targetDocumentId: DOCUMENT_ID, folderId: FOLDER_ID })])
+  })
+
+  const waiting: Array<[string, () => void]> = [
+    ['an attachment with no suggestion', () => viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: null })])],
+    ['an attachment the suggestion would put into a folder a convention creates', () =>
+      viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: { ...suggestion('Tragwerk/Index D', 'Grundriss', 'Konvention', { newFolder: true }) } })])],
+    ['a flagged attachment', () => {
+      viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: inTragwerk, riskFlags: ['macro'] })])
+      given({}, {}, [filePart({ riskFlags: ['macro'] })])
+    }],
+    ['an attachment not yet scanned', () => {
+      viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: inTragwerk, scan: 'pending' })])
+      given({}, {}, [filePart({ scanStatus: 'pending', scannedAt: null })])
+    }],
+    ['a revision the defaults would not pre-select for this sender', () =>
+      viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: inTragwerk, revisionCandidate: EARLIER })], {
+        threadCandidates: [thread({ blocks: ['sender_domain_new'], preselected: false })],
+      })],
+    ['an attachment whose name another document of the project already has', () => {
+      viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: inTragwerk })])
+      vi.mocked(findDocumentIdByStoredName).mockResolvedValue('other-document')
+    }],
+  ]
+
+  it.each(waiting)('leaves %s waiting, and still appends the text', async (_name, arrange) => {
+    arrange()
+    expect(await followMail('org_1', payload)).toMatchObject({ kind: 'appended' })
+    expect(planned()).toEqual([])
+    expect(vi.mocked(runInboundMailFiling).mock.calls[0]![1].decisionIds).toEqual([decided.id])
+  })
+
+  it('waits for a suggestion still being made, and decides once it is there or the wait ran out', async () => {
+    viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: inTragwerk })])
+    vi.mocked(findOpenJobId).mockResolvedValue('suggest-job')
+
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'later' })
+    expect(findOpenJobId).toHaveBeenCalledWith({ kind: 'inbound_mail_suggest', organizationId: 'org_1', matching: { mailId: MAIL_ID } })
+    expect(writeFollowDecision).not.toHaveBeenCalled()
+    expect(runInboundMailFiling).not.toHaveBeenCalled()
+
+    const before = Date.now()
+    const later = await runInboundMailFollow('org_1', payload)
+    expect(later).toMatchObject({ done: false, payload: { waits: 1 } })
+    expect(later.notBefore!.getTime()).toBeGreaterThanOrEqual(before + 30_000)
+
+    expect(await followMail('org_1', { ...payload, waits: SUGGESTION_MAX_WAITS })).toMatchObject({ kind: 'appended' })
+    expect(planned()).toEqual([expect.objectContaining({ partId: FILE_PART_ID })])
+  })
+
+  it('never files anything of an unsigned reply, however well its sender is known to the Verlauf', async () => {
+    state.followContext = {
+      threadId: THREAD_ID,
+      participantDomains: ['statik-weber.at'],
+      participantAddresses: ['p.weber@statik-weber.at'],
+      follows: [follow()],
+    }
+    given({ senderTrust: 'external_unverified', senderReason: 'dkim_none', senderClass: 'external', senderUserId: null, signedHeaders: [] })
+    viewing([part({ id: FILE_PART_ID, name: 'S-101_C.pdf', suggestion: inTragwerk })])
+
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'waits', reason: 'ineligible' })
+    expect(mailViews).not.toHaveBeenCalled()
+    expectWaitsUntouched()
+  })
+})
+
+describe('a reply from a public mail domain', () => {
+  it('asks the repository which of its public-domain addresses took part, and joins when the sender did', async () => {
+    state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at', 'gmx.at'], participantAddresses: ['bauherr@gmx.at'], follows: [follow()] }
+    given({ senderAddress: 'Bauherr@GMX.at', signerDomain: 'gmx.at' })
+    expect(await followMail('org_1', payload)).toMatchObject({ kind: 'appended' })
+    expect(findThreadFollowContext).toHaveBeenCalledWith(PROJECT_ID, THREAD_ID, ['bauherr@gmx.at'])
+  })
+})
+
 describe('each of D31’s nine conditions, failing alone, leaves the mail waiting', () => {
   const cases: Array<[string, () => void]> = [
     ['1. the follow was made after the mail arrived', () => {
-      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], follows: [follow({ createdAt: new Date(RECEIVED.getTime() + 1) })] }
+      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], participantAddresses: [], follows: [follow({ createdAt: new Date(RECEIVED.getTime() + 1) })] }
     }],
     ['1. the follow ran out', () => {
-      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], follows: [follow({ expiresAt: new Date(Date.now() - 1) })] }
+      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], participantAddresses: [], follows: [follow({ expiresAt: new Date(Date.now() - 1) })] }
     }],
     ['2. the sender’s domain is not verified', () => given({ senderTrust: 'external_unverified' })],
     ['3. the match is only by subject', () => given({ threadMatch: [{ threadId: THREAD_ID, strength: 'subject', headers: [] }] })],
@@ -215,6 +381,10 @@ describe('each of D31’s nine conditions, failing alone, leaves the mail waitin
     ['4. automatic mail', () => given({ automatic: true })],
     ['5. a new participant domain', () =>
       given({ participants: [{ role: 'cc', name: null, address: 'neu@fremd-planer.at' }] })],
+    ['5. a stranger on a public mail domain the thread has seen', () => {
+      state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at', 'gmx.at'], participantAddresses: [], follows: [follow()] }
+      given({ senderAddress: 'irgendwer@gmx.at', signerDomain: 'gmx.at' })
+    }],
     ['6. the name check stopped the subject', () => {
       state.nameStops = ['Gehalt']
     }],
@@ -229,12 +399,6 @@ describe('each of D31’s nine conditions, failing alone, leaves the mail waitin
     }],
     ['8. the project’s follows made theirs', () => {
       vi.mocked(writeFollowDecision).mockResolvedValue({ kind: 'project_cap' })
-    }],
-    ['8. the thread is at its entry cap', () => {
-      vi.mocked(findWritableThread).mockResolvedValue(writable({ entryCount: 200 }))
-    }],
-    ['8. the thread is at its byte cap', () => {
-      vi.mocked(findWritableThread).mockResolvedValue(writable({ renderedBytes: 2 * 1024 * 1024 }))
     }],
     ['9. the thread document is held by its screening', () => {
       vi.mocked(findWritableThread).mockResolvedValue(null)
@@ -274,6 +438,52 @@ describe('what ends the follow', () => {
     vi.mocked(requireFolderWrite).mockRejectedValue(error)
     expect(await followMail('org_1', payload)).toEqual({ kind: 'ended', reason: 'access_lost' })
     expect(endFollowBySystem).toHaveBeenCalledWith(expect.objectContaining({ id: FOLLOW_ID }), 'access_lost')
+    expectWaitsUntouched()
+  })
+
+  it.each([
+    ['its entry cap', { entryCount: 200 }],
+    ['its byte cap', { renderedBytes: 2 * 1024 * 1024 }],
+  ])('8. a thread at %s: thread_full, for every follow on it, and the mail waits', async (_name, full) => {
+    vi.mocked(findWritableThread).mockResolvedValue(writable(full))
+    state.followContext = {
+      threadId: THREAD_ID,
+      participantDomains: ['statik-weber.at'],
+      participantAddresses: [],
+      follows: [follow(), follow({ id: 'f-later', userId: OTHER_FOLLOWER })],
+    }
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'ended', reason: 'thread_full' })
+    expect(vi.mocked(endFollowBySystem).mock.calls.map(([ended, reason]) => [ended.id, reason])).toEqual([
+      [FOLLOW_ID, 'thread_full'],
+      ['f-later', 'thread_full'],
+    ])
+    expectWaitsUntouched()
+  })
+
+  it('7. the earliest follower lost access: their follow ends, and the next running follower appends', async () => {
+    state.followContext = {
+      threadId: THREAD_ID,
+      participantDomains: ['statik-weber.at'],
+      participantAddresses: [],
+      follows: [follow({ id: 'f-early', userId: OTHER_FOLLOWER, createdAt: new Date(RECEIVED.getTime() - 2 * DAY) }), follow()],
+    }
+    vi.mocked(resolvePinnedRequesterSessionStrict).mockImplementation(async ({ userId }) => (userId === OTHER_FOLLOWER ? null : follower))
+    expect(await followMail('org_1', payload)).toMatchObject({ kind: 'appended' })
+    expect(endFollowBySystem).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: 'f-early' }), 'access_lost')
+    expect(vi.mocked(writeFollowDecision).mock.calls[0]![0].follow).toMatchObject({ id: FOLLOW_ID, userId: PERSON })
+    expect(announceAppended).toHaveBeenCalledWith(expect.objectContaining({ followerUserId: PERSON }))
+  })
+
+  it('7. every follower lost access: each follow ends, once, and the mail waits', async () => {
+    state.followContext = {
+      threadId: THREAD_ID,
+      participantDomains: ['statik-weber.at'],
+      participantAddresses: [],
+      follows: [follow({ id: 'f-early', userId: OTHER_FOLLOWER, createdAt: new Date(RECEIVED.getTime() - 2 * DAY) }), follow()],
+    }
+    vi.mocked(requireFolderWrite).mockRejectedValue(new ForbiddenError('no'))
+    expect(await followMail('org_1', payload)).toEqual({ kind: 'ended', reason: 'access_lost' })
+    expect(vi.mocked(endFollowBySystem).mock.calls.map(([ended]) => ended.id)).toEqual(['f-early', FOLLOW_ID])
     expectWaitsUntouched()
   })
 
@@ -349,7 +559,7 @@ describe('the run', () => {
   it('files a text it decided and could not finish on that decision, as its decider, without deciding again', async () => {
     given({}, { state: 'filing', decisionId: 'decision-1' }, [filePart()], new Map([[textPart().id, { ...decided, decidedBy: OTHER_FOLLOWER }]]))
     vi.mocked(resolvePinnedRequesterSessionStrict).mockResolvedValue({ ...follower, userId: OTHER_FOLLOWER })
-    expect(await followMail('org_1', payload)).toEqual({ kind: 'appended' })
+    expect(await followMail('org_1', payload)).toMatchObject({ kind: 'appended' })
     expect(writeFollowDecision).not.toHaveBeenCalled()
     expect(resolvePinnedRequesterSessionStrict).toHaveBeenCalledWith({ userId: OTHER_FOLLOWER, email: null, organizationId: 'org_1' })
     expect(runInboundMailFiling).toHaveBeenCalledOnce()

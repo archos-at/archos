@@ -1,6 +1,6 @@
-# Contributing to grid-oib-agent
+# Contributing
 
-Canonical entry point for developing on Grid. The deep references live elsewhere
+Canonical entry point for developing on this codebase. The deep references live elsewhere
 and are linked below; this file ties them together so the workflow is discoverable
 from one place.
 
@@ -68,7 +68,7 @@ task release:note -- re-index-projects   # creates releasenotes/notes/<slug>-<ha
 task release:lint                        # the same check CI runs
 ```
 
-Write it for the architect using Piloti: plain sentences, no issue numbers, no
+Write it for the architect using the workspace: plain sentences, no issue numbers, no
 file or component names. A PR that genuinely changes nothing a user can observe
 carries the `no-release-note` label instead.
 
@@ -102,7 +102,7 @@ tasks, so there is no second copy to drift:
 
 ## Commits and PR titles
 
-Grid uses Conventional Commits. The repo **squash-merges the PR title**, so the
+This repo uses Conventional Commits. The repo **squash-merges the PR title**, so the
 PR title itself must be a valid Conventional Commit subject — the `Conventional
 PR title` check ([`.github/workflows/pr.yml`](.github/workflows/pr.yml)) blocks
 the PR otherwise. Allowed types:
@@ -115,9 +115,9 @@ just the commits.
 
 ## Headless first
 
-Every capability a person has in Piloti is an operation, and Piloti's MCP server
-offers agents what only Piloti has: the office's workspace, Piloti's domain
-knowledge and Piloti itself. A new route a person calls ships with its operation
+Every capability a person has in the workspace is an operation, and the agent's MCP server
+offers agents what only the agent has: the office's workspace, the agent's domain
+knowledge and the agent itself. A new route a person calls ships with its operation
 in `apps/workspace/bff/agent-api/catalog/` in the same change (marked
 `withheld` when it is product configuration, a proxied service, model compute
 or screen state), or with a reason in `NOT_AN_AGENT_CAPABILITY`. Build the route, write the operation, then wire the
@@ -138,10 +138,14 @@ UI. `agent-reachability.spec.ts` fails the PR otherwise. Checklist:
 
 ## CI and the merge gate
 
+- A pull request gets the light checks. The test shards, suites, Hatchet tests
+  and image builds run on the push to `develop` after the merge, which the deploy
+  to staging waits for. Label a pull request **`ci:full`**, then push or use **Re-run all jobs**,
+  to run them before the merge.
 - The single required status check is **CI OK**
   ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): it passes only when
-  every needed job succeeded or was skipped because the change could not affect
-  it. How CI decides what to run, and why:
+  every job this run needed succeeded or was skipped. How CI decides what to run,
+  and why:
   [docs/contributing/ci.md](docs/contributing/ci.md).
 - Security checks a change can fail are part of CI: gitleaks on every run,
   Semgrep on the findings a PR introduces, trivy on the image pins it adds.

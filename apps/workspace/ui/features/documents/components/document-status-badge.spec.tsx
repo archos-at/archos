@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import { DOCUMENT_STATUS_FACTS, KNOWN_DOCUMENT_STATUSES } from '@/lib/documents/document-status'
 import { render, screen } from '@/test-utils'
 import { DocumentStatusBadge } from './document-status'
+
+describe('DocumentStatusBadge colour', () => {
+  it.each(KNOWN_DOCUMENT_STATUSES)('draws %s in the colour the declaration gives it', (status) => {
+    const { container } = render(<DocumentStatusBadge status={status} />)
+    expect(container.querySelector('[data-slot="badge"]')).toHaveAttribute(
+      'data-variant',
+      DOCUMENT_STATUS_FACTS[status].variant,
+    )
+  })
+})
 
 describe('DocumentStatusBadge queue position', () => {
   it("says how many of the office's uploads are ahead while the document waits", () => {
