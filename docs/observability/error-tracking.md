@@ -38,6 +38,12 @@ places drop it: `capturePosthogException`, the browser `before_send`
 (`scrubEvent`, for the unhandled-rejection autocapture) and the server
 `beforeCapture`.
 
+A page that reaches a project it cannot see (gone, another office's, not shared
+with the visitor) gets `NotFoundError` from `requireProjectAccess`.
+`withPageSession` (`bff/auth/require-auth.ts`) turns it into Next's `notFound()`,
+so the visitor sees the 404 page and the filter above keeps it out of error
+tracking (KAN-99).
+
 Neither boundary reports an authorization denial (an expected outcome, told by
 its message, since a server-thrown class does not survive the RSC boundary) or an error with a `digest` (thrown on the server, where
 `onRequestError` already reported it with its stack; the client copy is the
