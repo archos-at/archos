@@ -281,7 +281,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
                 {t('chatToolbar.newChat')}
               </DropdownMenuItem>
               {canRename && (
-                <DropdownMenuItem onSelect={startEditingTitleFromMenu} data-testid="rename-session">
+                <DropdownMenuItem disabled={isDeepResearchStreaming} onSelect={startEditingTitleFromMenu} data-testid="rename-session">
                   <PencilLine className="size-4" aria-hidden="true" />
                   {t('chatToolbar.rename')}
                 </DropdownMenuItem>
@@ -293,7 +293,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
                 </DropdownMenuItem>
               )}
               {canDelete && (
-                <DropdownMenuItem variant="destructive" onSelect={() => setIsDeleteOpen(true)} data-testid="delete-session">
+                <DropdownMenuItem variant="destructive" disabled={isDeepResearchStreaming} onSelect={() => setIsDeleteOpen(true)} data-testid="delete-session">
                   <Trash2 className="size-4" aria-hidden="true" />
                   {t('chatToolbar.delete')}
                 </DropdownMenuItem>

@@ -28,7 +28,7 @@ export function ConversationPrivacyLineView({
   const statement = temporary === true ? 'temporary' : temporary || null
   if (!statement && !privateToReader) return null
   return (
-    <div className={cn(THREAD_GUTTER, className)} data-testid="conversation-privacy-line">
+    <div className={cn(THREAD_GUTTER, !statement && 'sm:hidden', className)} data-testid="conversation-privacy-line">
       <div className={cn(THREAD_COLUMN_INNER, 'flex flex-wrap justify-center gap-x-4 gap-y-1 pt-2')}>
         {statement && (
           <FactLine icon={MessageCircleDashed} tone="default" role="status" testId="conversation-temporary-line">

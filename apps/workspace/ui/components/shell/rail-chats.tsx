@@ -19,6 +19,7 @@ export interface RailChat {
   href: string
   current: boolean
   temporary?: boolean
+  locked?: boolean
   activity?: 'working' | 'waiting' | 'answered' | 'failed' | null
 }
 
@@ -87,6 +88,7 @@ function RailChatActivity({ activity }: { activity: RailChat['activity'] }): JSX
 function RailChatMenu({ chat, chats, onRename }: { chat: RailChat; chats: RailChats; onRename: () => void }): JSX.Element | null {
   const t = useTranslations(navCopy)
   if (!chats.onRename && !chats.onDelete) return null
+  const busy = chat.activity === 'working'
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -100,14 +102,14 @@ function RailChatMenu({ chat, chats, onRename }: { chat: RailChat; chats: RailCh
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        {chats.onRename && (
-          <DropdownMenuItem onSelect={onRename} data-testid="rail-chat-rename">
+        {chats.onRename && !chat.locked && (
+          <DropdownMenuItem disabled={busy} onSelect={onRename} data-testid="rail-chat-rename">
             <PencilLine className="size-4" aria-hidden />
             {t('chatRename')}
           </DropdownMenuItem>
         )}
         {chats.onDelete && (
-          <DropdownMenuItem variant="destructive" onSelect={() => chats.onDelete?.(chat.id)} data-testid="rail-chat-delete">
+          <DropdownMenuItem variant="destructive" disabled={busy} onSelect={() => chats.onDelete?.(chat.id)} data-testid="rail-chat-delete">
             <Trash2 className="size-4" aria-hidden />
             {t('chatDelete')}
           </DropdownMenuItem>

@@ -1,7 +1,18 @@
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
+import { emptyRunLedger, setRunStatus } from '@/lib/runs/run-ledger'
 import { ChatToolbar } from './ChatToolbar'
+
+let answering = false
+const RUNNING = {
+  id: 'run-1',
+  role: 'assistant',
+  content: '',
+  messageType: 'agent_response',
+  timestamp: new Date('2026-01-01T00:00:00Z'),
+  runLedger: setRunStatus(emptyRunLedger('run-1'), 'running'),
+}
 
 vi.mock('@/adapters/auth', () => ({ useAuth: () => ({ isAuthenticated: true }) }))
 vi.mock('@/shared/hooks/use-connection-presence', () => ({ useConnectionPresence: () => 'connected' }))
@@ -9,12 +20,16 @@ vi.mock('../store', () => ({ useLayoutStore: (selector: (s: { toggleSessionsPane
 vi.mock('@/features/chat/store', () => ({
   useChatStore: (selector: (s: unknown) => unknown) =>
     selector({
-      currentConversation: { id: 'session-1', messages: [], updatedAt: new Date('2026-11-18T09:00:00Z') },
+      currentConversation: { id: 'session-1', messages: answering ? [RUNNING] : [], updatedAt: new Date('2026-11-18T09:00:00Z') },
       updateConversationTitle: vi.fn(),
     }),
 }))
 
 describe('what the header says about the chat', () => {
+  afterEach(() => {
+    answering = false
+  })
+
   test('the date of the last change stands beside the title', () => {
     render(<ChatToolbar sessionTitle="My Session" />)
 
@@ -49,5 +64,16 @@ describe('what the header says about the chat', () => {
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /delete/i }))
 
     expect(onDeleteSession).toHaveBeenCalledWith('session-1')
+  })
+
+  test('while the chat is still answering, the menu neither renames nor deletes it', async () => {
+    answering = true
+    const user = userEvent.setup()
+    render(<ChatToolbar sessionTitle="My Session" onDeleteSession={vi.fn()} />)
+
+    await user.click(screen.getByTestId('thread-menu'))
+
+    expect(await screen.findByTestId('rename-session')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByTestId('delete-session')).toHaveAttribute('aria-disabled', 'true')
   })
 })

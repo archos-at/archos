@@ -46,4 +46,18 @@ describe('RailChatList — the menu at each chat', () => {
 
     expect(screen.queryByTestId('rail-chat-menu')).not.toBeInTheDocument()
   })
+
+  test('a chat that is still answering can be neither renamed nor deleted', async () => {
+    const onRename = vi.fn()
+    const onDelete = vi.fn()
+    const user = userEvent.setup()
+    const busy = chats({ onRename, onDelete })
+    busy.items[0]!.activity = 'working'
+    render(<RailChatList chats={busy} pillId="pill" />)
+
+    await user.click(screen.getByTestId('rail-chat-menu'))
+
+    expect(await screen.findByTestId('rail-chat-rename')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByTestId('rail-chat-delete')).toHaveAttribute('aria-disabled', 'true')
+  })
 })
