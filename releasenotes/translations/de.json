@@ -2784,6 +2784,10 @@
     "de": "Gesetze im RIS-Leser werden jetzt vollständig angezeigt. Früher wurde die Bauordnung für Wien abgeschnitten, sodass § 108 nicht zu lesen war."
   },
   {
+    "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
+    "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+  },
+  {
     "en": "Legal research is now one step in the Herleitung, and it returns the paragraph in question instead of a hit list, the whole law or text without a reference.",
     "de": "Die Rechtsrecherche ist jetzt ein Schritt in der Herleitung und liefert den betreffenden Paragraphen statt einer Trefferliste, des ganzen Gesetzes oder eines Textes ohne Fundstelle."
   },

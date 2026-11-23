@@ -38,6 +38,14 @@
             "en": "A project with several buildings on one site can now be set up that way: in the last step of the project setup you add each building, name it, or remove it again. The escape level, the Gebäudeklasse and the open questions are then kept for each building on its own.",
             "de": "Ein Projekt mit mehreren Gebäuden auf einem Grundstück lässt sich jetzt entsprechend anlegen: Im letzten Schritt der Projekteinrichtung fügen Sie jedes Gebäude hinzu, benennen es oder entfernen es wieder. Das Fluchtniveau, die Gebäudeklasse und die offenen Fragen werden anschließend für jedes Gebäude separat geführt."
           }
+        },
+        {
+          "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
+            "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+          }
         }
       ]
     },
