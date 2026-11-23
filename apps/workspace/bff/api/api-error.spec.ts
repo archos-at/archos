@@ -29,8 +29,10 @@ describe('ApiError across bundles', () => {
     expect(isApiError(null)).toBe(false)
   })
 
-  it('keeps the marker out of what an error serialises to', () => {
-    expect(JSON.stringify({ ...new NotFoundError() })).not.toContain('bff.ApiError')
-    expect(Object.keys(new NotFoundError())).not.toContain('Symbol(bff.ApiError)')
+  it('keeps the marker on the class, so a copy of an error is not an ApiError', () => {
+    const error = new NotFoundError()
+    expect(Reflect.ownKeys(error)).not.toContain(Symbol.for('bff.ApiError'))
+    expect(isApiError({ ...error })).toBe(false)
+    expect(isApiError(Object.assign({}, error))).toBe(false)
   })
 })
