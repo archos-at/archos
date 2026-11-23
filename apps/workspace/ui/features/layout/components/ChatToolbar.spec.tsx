@@ -183,7 +183,7 @@ describe('ChatToolbar', () => {
   })
 
   describe('thread row on a phone — a run and a rule together', () => {
-    test('the title hyphenates at syllables, and the chip steps aside for the spinner', () => {
+    test('the title hyphenates at syllables, and the spinner stands beside the faces', () => {
       mockIsDeepResearchStreaming = true
       mockSharingState = { ...SHARED_STATE, visibility: 'project' }
 
@@ -195,7 +195,7 @@ describe('ChatToolbar', () => {
       const phone = document.querySelector('[data-status-surface="phone"]')
       expect(phone?.querySelector('[data-testid="research-running"]')).not.toBeNull()
       expect(phone?.querySelector('[data-testid="access-chip"]')).toBeNull()
-      expect(document.querySelector('[data-status-surface="desktop"] [data-testid="access-chip"]')).not.toBeNull()
+      expect(document.querySelector('[data-status-surface="desktop"] [data-testid="participant-strip"]')).not.toBeNull()
     })
   })
 
@@ -389,7 +389,7 @@ describe('ChatToolbar', () => {
       )
 
       const phone = document.querySelector('[data-status-surface="phone"]')
-      expect(phone?.querySelector('[data-testid="access-chip"]')).not.toBeNull()
+      expect(phone?.querySelector('[data-testid="participant-strip"]')).not.toBeNull()
     })
 
     test('the menu is a 44px square on a phone', () => {
@@ -594,7 +594,7 @@ describe('ChatToolbar — sharing surfaces', () => {
     expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
   })
 
-  test('the faces are STATUS — they say who is here, they do not act', () => {
+  test('the faces open the sharing surface, where everyone the chat is shared with is listed', () => {
     mockSharingState = SHARED_STATE
     render(
       <ChatToolbar
@@ -606,11 +606,11 @@ describe('ChatToolbar — sharing surfaces', () => {
     )
 
     for (const strip of screen.getAllByTestId('participant-strip')) {
-      expect(strip.tagName).not.toBe('BUTTON')
+      expect(strip.tagName).toBe('BUTTON')
     }
   })
 
-  test('a blanket rule REPLACES the faces — the rule is the audience, not the roster', () => {
+  test('a chat shared with the whole project shows faces too, three and a plus for the rest', () => {
     mockSharingState = { ...SHARED_STATE, visibility: 'project' }
     render(
       <ChatToolbar
@@ -621,8 +621,8 @@ describe('ChatToolbar — sharing surfaces', () => {
       />,
     )
 
-    expect(screen.getAllByTestId('access-chip')[0]).toHaveTextContent('Project')
-    expect(screen.queryByTestId('participant-strip')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('participant-strip').length).toBeGreaterThan(0)
   })
 
   test('a solo private thread carries no collaboration furniture at all', async () => {

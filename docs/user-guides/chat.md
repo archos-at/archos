@@ -27,10 +27,10 @@ The header is two floating pills, split by what they are for.
 
 **Right — what is true about this chat, then what you can do to it,** separated by a hairline.
 
-Before the line is *status*, and none of it is clickable. Who can read the chat is answered in **one** of two forms, never both, depending on what kind of audience it has:
+Who can read the chat stands on the right, in one form:
 
-- **shared with named people** → their **faces**. The audience was listed person by person, so the faces are the whole answer.
-- **shared with the whole project or organization** → an **access chip** (`Projekt`, `Organisation`) and *no* faces. That audience is a rule, not a list — it changes as people join the project — so avatars would show a handful of people and imply only they can read it.
+- **shared**, with named people or with the whole project or organization → their **faces**, at most three, and a **+n** for the rest. A click opens the sharing surface, which lists everyone and the rule.
+- **shared with the whole project or organization, and nobody else is in yet** → an **access chip** (`Projekt`, `Organisation`).
 - **private, just you** → **„Nur Sie“** with a lock. A click shows the sentence behind it: only you see this chat until you share it. On a phone the same sentence stands under the composer.
 
 Alongside it, while deep research is running, a spinner — so the "still working" signal survives scrolling past the run block in the thread.

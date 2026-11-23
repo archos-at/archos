@@ -81,12 +81,16 @@ const ROWS = [
   },
   {
     id: 'conv-project',
-    caption: 'Projektweit — die Regel ersetzt die Gesichter',
+    caption: 'Projektweit — drei Gesichter, der Rest hinter dem Plus',
     sessionTitle: 'Brandschutz Stiegenhaus',
     started: true,
     state: sharingState('conv-project', 'project', [
       ME_ENTRY,
       entry('u-anna', 'Anna Berger', 'collaborator', 'visibility-project'),
+      entry('u-tom', 'Tom Kainz', 'collaborator', 'visibility-project'),
+      entry('u-lena', 'Lena Fuchs', 'collaborator', 'visibility-project'),
+      entry('u-paul', 'Paul Huber', 'collaborator', 'visibility-project'),
+      entry('u-ida', 'Ida Moser', 'collaborator', 'visibility-project'),
     ]),
   },
 ] as const

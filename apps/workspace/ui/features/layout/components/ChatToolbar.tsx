@@ -107,8 +107,8 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
 
   const canRename = isAuthenticated && !!currentSessionId && !!updateConversationTitle
 
-  const showFaces = sharingState?.visibility === 'private'
-  const showAccessChip = Boolean(sharingState && sharingState.visibility !== 'private')
+  const showFaces = (sharingState?.entries.length ?? 0) > 1
+  const showAccessChip = Boolean(sharingState && sharingState.visibility !== 'private' && !showFaces)
 
   const hasPeople = Boolean(
     showAccessChip || (showFaces && (sharingState?.entries.length ?? 0) > 1),
@@ -249,6 +249,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
                   currentUserId={currentUserId}
                   isResearching={isDeepResearchStreaming}
                   researchingLabel={t('chatToolbar.researching')}
+              onOpenPeople={canShare ? () => setIsShareOpen(true) : undefined}
                   className="flex shrink-0 items-center gap-1.5 pr-0.5 sm:hidden"
                 />
               )}
@@ -327,6 +328,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
               currentUserId={currentUserId}
               isResearching={isDeepResearchStreaming}
               researchingLabel={t('chatToolbar.researching')}
+              onOpenPeople={canShare ? () => setIsShareOpen(true) : undefined}
               className="contents"
             />
           </motion.div>
@@ -395,6 +397,7 @@ interface ThreadStatusProps {
   currentUserId: string | null
   isResearching: boolean
   researchingLabel: string
+  onOpenPeople?: () => void
   className?: string
 }
 
@@ -404,20 +407,19 @@ const ThreadStatus: FC<ThreadStatusProps> = ({
   currentUserId,
   isResearching,
   researchingLabel,
+  onOpenPeople,
   className,
 }) => {
-  const showFaces = sharingState?.visibility === 'private'
-  const showAccessChip = Boolean(sharingState && sharingState.visibility !== 'private')
+  const showFaces = (sharingState?.entries.length ?? 0) > 1
+  const showAccessChip = Boolean(sharingState && sharingState.visibility !== 'private' && !showFaces)
   return (
     <div className={className} data-status-surface={surface}>
-      {/* No `onOpen`: the strip is deliberately inert here. Sharing has ONE door
-          in this header and it is the menu item, so the faces can be read as
-          what they are. */}
       {showFaces && sharingState && (
         <ParticipantStrip
           entries={sharingState.entries}
           currentUserId={currentUserId}
-          maxVisible={surface === 'phone' ? 2 : undefined}
+          maxVisible={surface === 'phone' ? 2 : 3}
+          onOpen={onOpenPeople}
         />
       )}
       {/* On a phone, while a run is going the spinner is the news and the rule
