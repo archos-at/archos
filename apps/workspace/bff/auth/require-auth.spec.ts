@@ -3,7 +3,7 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-import { isAuthzRefusal, NoOrganizationError, SessionRequiredError } from '@/lib/api/errors'
+import { ForbiddenError, isAuthzRefusal, NoOrganizationError, NotFoundError, SessionRequiredError } from '@/lib/api/errors'
 
 class RedirectError extends Error {
   constructor(public url: string) {
@@ -16,9 +16,18 @@ vi.mock('./session', () => ({
   requireUserSession: vi.fn(),
 }))
 
+class NotFoundSignal extends Error {
+  constructor() {
+    super('NEXT_HTTP_ERROR_FALLBACK;404')
+  }
+}
+
 vi.mock('next/navigation', () => ({
   redirect: vi.fn((url: string) => {
     throw new RedirectError(url)
+  }),
+  notFound: vi.fn(() => {
+    throw new NotFoundSignal()
   }),
 }))
 
@@ -27,6 +36,7 @@ import { redirect } from 'next/navigation'
 import {
   requireAuthorizedSession,
   requireAuthorizedPageSession,
+  withPageSession,
 } from './require-auth'
 import type { AuthorizedSession, UserSession } from './types'
 
@@ -90,5 +100,30 @@ describe('require-auth guards', () => {
       'Unauthorized: Grid session required',
     )
     expect(redirect).not.toHaveBeenCalled()
+  })
+})
+
+describe('withPageSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(requireUserSession).mockResolvedValue(authorizedSession)
+  })
+
+  it('answers a page whose project is gone or not the visitor\'s with the 404 page, not the error boundary (KAN-99)', async () => {
+    await expect(
+      withPageSession(async () => {
+        throw new NotFoundError()
+      })
+    ).rejects.toBeInstanceOf(NotFoundSignal)
+  })
+
+  it('passes the page result and every other error through', async () => {
+    await expect(withPageSession(async (session) => session.organizationId)).resolves.toBe('org-1')
+    const denied = new ForbiddenError()
+    await expect(
+      withPageSession(async () => {
+        throw denied
+      })
+    ).rejects.toBe(denied)
   })
 })

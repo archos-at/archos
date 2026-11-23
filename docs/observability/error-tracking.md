@@ -43,6 +43,12 @@ places drop it: `capturePosthogException`, the browser `before_send`
 (`scrubEvent`, for the unhandled-rejection autocapture) and the server
 `beforeCapture`.
 
+A page that reaches a project it cannot see (gone, another office's, not shared
+with the visitor) gets `NotFoundError` from `requireProjectAccess`.
+`withPageSession` (`bff/auth/require-auth.ts`) turns it into Next's `notFound()`,
+so the visitor sees the 404 page and the filter above keeps it out of error
+tracking (KAN-99).
+
 A bare `Script error.` with no stack is what a browser reports for an error in a
 script from another origin served without CORS headers: it names neither the
 script nor the line, so nobody can act on it. `bff/analytics/opaque-script-error.ts`
