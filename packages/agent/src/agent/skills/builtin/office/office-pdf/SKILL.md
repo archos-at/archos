@@ -31,8 +31,12 @@ with `fletcher` (flowcharts) or `timeliney` (Gantt).
 ## Rules
 
 - Start every document with `typstPreamble` from `house-style`, as the
-  example does: A4, margins, header and footer, type, headings, tables, and the
-  `house` colours and helpers (`office-design`). Header and footer text go in
+  example does: A4, margins, header and footer, type, headings, tables, the
+  `house` colours (`house.ink`, `house.muted`, `house.band`, `house.markup`)
+  and these helpers: `#house-title([Titel], subtitle: [..], meta: [..])`,
+  `#house-band[..]` (a grey band), `#house-finding([Label], [..])` (a finding
+  with the red rule) and `#house-figures(([32,4 m²], [Wohnen]), ..)` (key
+  figures set large). The look behind them: `office-design`. Header and footer text go in
   through `typstInputs({ header, footer, lang })`; merge your own inputs into
   the same object. The fonts are Hanken Grotesk (the house face: Regular, Medium,
   Semibold, each with italic), Source Sans 3 and, for code, Source Code Pro;
