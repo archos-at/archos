@@ -284,8 +284,8 @@ the office's number and date formats, exact calculation, reading the file back, 
 `office-word`, `office-excel`, `office-powerpoint`, `office-pdf` (typeset PDFs with diagrams, Typst),
 `office-pdf-charts` and `office-html-pdf` (HTML and CSS to PDF, Mermaid, screenshots, through the
 browser), one per file type with its
-pitfalls and worked examples, and `office-design`, the house style: the rules that make a file look
-like a good office made it, and the `house-style` module every example builds on. The office's own
+pitfalls and worked examples, and `office-design`, the house style: design principles and the
+brand's look as defaults the agent starts from, and the `house-style` module every example builds on. The office's own
 template or what the person asked for wins over it; nothing forces it. They are offered to the chat agent by default. Each `js` fence is also a
 file under the skill's `examples/` (`test_office_skills.py` holds the two equal), and
 `apps/code-runner/test/skill-examples.test.mjs` runs every example in the isolate. Anthropic's

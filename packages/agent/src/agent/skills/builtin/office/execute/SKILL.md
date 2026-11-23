@@ -78,12 +78,9 @@ Office refuse or repair a file, and its example is the code to start from.
 
 ## The office's conventions
 
-- A4 portrait unless asked otherwise. The look comes from `house-style`
-  (`office-design`): read it before the first file a person will show to
-  others, and leave it only for the office's template or what the person asked.
-  Aptos in Office files (the recipient's Office draws the font; Arial when they
-  say their Office lacks it), Hanken Grotesk
-  in PDFs (embedded).
+- A4 portrait unless asked otherwise. Design defaults come from `house-style`;
+  `office-design` has the principles behind them. Read it before the first file
+  a person will look at.
 - Numbers as the office writes them, 1.234,56:
   `new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })`.
   Take `de-DE`: other German locales group thousands with a narrow space.
