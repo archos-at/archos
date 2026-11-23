@@ -119,6 +119,12 @@ because `str(httpx.HTTPStatusError)` embeds the request URL.
 Records from the `posthog` logger and from `agent.observability.posthog*` are
 skipped, so a failure of the reporter cannot report itself.
 
+A Hatchet task that will be tried again is not an error yet.
+`orchestrator_client.sanitized(..., final=False)` logs a retryable failure as a
+warning, so only the last attempt reaches PostHog. The ingest settle steps pass
+`final` from `ctx.attempt_number >= ctx.max_attempts` (KAN-100); every other
+caller keeps `final=True`.
+
 ## Staying inside the free tier
 
 PostHog's free tier is 100,000 exceptions a month. Three limits keep a hot loop
