@@ -42,10 +42,12 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 
 > Since 2026-11-22 ([ADR-0187](../../docs/adr/0187-archos-design-governs-the-app-as-well-as-the-website.md)) the app follows this system too. The app-scoped shadow and radius tokens below are what the migration retires; what the app needs beyond the website becomes the design system's app part.
 
-The design system 3.0 is a website system: square shapes, 4px controls, no shadows. The
-workspace is rebranded with a lighter hand on purpose and keeps a softer shape language of
-its own; where its rules differ from the website's on purpose (the tonal secondary press, D4),
-`docs/design/design-language.md` says so and why. Both come from `tokens.json`, kept apart by scope:
+The design system 3.0 began as a website system: square shapes, 4px controls, no shadows.
+Until ADR-0187 the workspace kept a softer shape language of its own, and the app's surfaces
+still wear it until the migration moves them. New work follows the shared rules; where the app
+needs a treatment the website does not, it becomes part of the design system's app part rather
+than a rule of the workspace's own (`docs/design/design-language.md` names the sections this
+covers). Both layers come from `tokens.json`, kept apart by scope:
 
 | Layer | Tokens | Reaches |
 |---|---|---|
