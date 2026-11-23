@@ -56,7 +56,7 @@ const sharingState = (
 const ROWS = [
   {
     id: 'conv-empty',
-    caption: 'Frischer, leerer Chat — nur die Tür zum Verlauf, ohne Pillen-Rahmen',
+    caption: 'Frischer, leerer Chat — ab sm leer; die Tür zum Verlauf steht nur am Telefon',
     sessionTitle: '',
     started: false,
     state: sharingState('conv-empty', 'private', [ME_ENTRY]),
