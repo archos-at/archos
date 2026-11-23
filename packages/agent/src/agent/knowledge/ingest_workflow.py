@@ -202,16 +202,16 @@ def _declare(client: Any, heavy: bool) -> Any:
 
     @workflow.task(name=SETTLE_STEP, parents=[index], **settle_options())
     def settle(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
-        return settle_step(input.job_id)
+        return settle_step(input.job_id, final=ctx.attempt_number >= ctx.max_attempts)
 
     @workflow.on_failure_task(name=SETTLE_FAILED_STEP, **settle_options())
     def settle_failed(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
-        return settle_step(input.job_id)
+        return settle_step(input.job_id, final=ctx.attempt_number >= ctx.max_attempts)
 
     return workflow
 
 
-def settle_step(job_id: str) -> dict[str, Any]:
+def settle_step(job_id: str, *, final: bool = True) -> dict[str, Any]:
     try:
         return {"job_id": job_id, "settled": ingest_execution.settle(job_id)}
     except bff_http.BffRefusedError as refused:
@@ -219,13 +219,13 @@ def settle_step(job_id: str) -> dict[str, Any]:
             raise NonRetryableException(
                 f"the BFF refused to settle ingestion job {job_id} ({refused.status})"
             ) from None
-        raise _sanitized(job_id, refused) from None
+        raise _sanitized(job_id, refused, final=final) from None
     except Exception as error:
-        raise _sanitized(job_id, error) from None
+        raise _sanitized(job_id, error, final=final) from None
 
 
-def _sanitized(job_id: str, error: Exception, *, retry: bool = True) -> Exception:
-    return orchestrator_client.sanitized(f"Ingestion job {job_id}", error, retry=retry)
+def _sanitized(job_id: str, error: Exception, *, retry: bool = True, final: bool = True) -> Exception:
+    return orchestrator_client.sanitized(f"Ingestion job {job_id}", error, retry=retry, final=final)
 
 
 def workflow_for(byte_size: int | None) -> bool:
