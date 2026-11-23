@@ -435,6 +435,10 @@ describe('scrubEvent (before_send)', () => {
     expect(scrubEvent(capture({ $exception_list: [{ type: 'Error', value: 'boom' }] }, '$exception'))).not.toBeNull()
   })
 
+  test('drops a cross-origin "Script error." without a stack (KAN-101)', () => {
+    expect(scrubEvent(capture({ $exception_list: [{ type: 'Error', value: 'Script error.' }] }, '$exception'))).toBeNull()
+  })
+
   test('scrubs a click on a signed link, element chains and exception stacks', () => {
     const scrubbed = scrubEvent(
       capture(

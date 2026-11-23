@@ -15,6 +15,7 @@ import {
   type PostHogIdentity,
 } from './posthog-config'
 import { isControlFlowExceptionEvent, isFrameworkControlFlow } from './control-flow-error'
+import { isOpaqueScriptErrorEvent } from './opaque-script-error'
 import { SENSITIVE_QUERY_KEYS, scrubDeep } from './posthog-scrub'
 
 export { DISABLED_POSTHOG_CONFIG, postHogConfigFromEnv, type PostHogConfig, type PostHogIdentity }
@@ -156,6 +157,7 @@ export const buildSessionRecordingOptions = (sampleRate: number): SessionRecordi
 export const scrubEvent: BeforeSendFn = (capture) => {
   if (!capture) return capture
   if (isControlFlowExceptionEvent(capture.event, capture.properties)) return null
+  if (isOpaqueScriptErrorEvent(capture.event, capture.properties)) return null
   const properties =
     capture.event === '$snapshot'
       ? Object.fromEntries(
