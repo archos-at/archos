@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, waitFor } from '@testing-library/react'
+import { capturePosthogException } from '@/lib/analytics/posthog'
 import { IfcViewerCanvas } from './ifc-viewer-canvas'
 import type { BimViewerElement } from '../lib/model-index'
 import type { Measurement } from '../lib/viewer-measure'
@@ -30,6 +31,22 @@ const BOUNDS = { min: { x: -10, y: -3, z: -10 }, max: { x: 10, y: 9, z: 10 } }
 
 const renders: RecordedRender[] = []
 const disposed = { renderer: 0, geometry: 0 }
+const kernel: {
+  booting: Promise<void> | null
+  hold: Promise<void> | null
+  failWith: Error | null
+  wedged: boolean
+} = {
+  booting: null,
+  hold: null,
+  failWith: null,
+  wedged: false,
+}
+
+const gpu: { failWith: Error | null; finalizing: Promise<void> | null } = {
+  failWith: null,
+  finalizing: null,
+}
 
 const loadOrder: string[] = []
 let capturedFrame = -1
@@ -57,7 +74,9 @@ const camera = {
 
 vi.mock('@ifc-lite/renderer', () => ({
   Renderer: class {
-    async init(): Promise<void> {}
+    async init(): Promise<void> {
+      if (gpu.failWith) throw gpu.failWith
+    }
     addMeshes(): void {
       loadOrder.push('addMeshes')
     }
@@ -101,6 +120,10 @@ vi.mock('@ifc-lite/renderer', () => ({
         clearColorOverrides: vi.fn(),
         getEntityBoundingBox: () => null,
         setLodBuildsEnabled: () => loadOrder.push('setLodBuildsEnabled'),
+        finalizeStreamingAsync: async () => {
+          loadOrder.push('finalizeStreaming')
+          if (gpu.finalizing) await gpu.finalizing
+        },
       }
     }
     getGPUDevice() {
@@ -115,13 +138,32 @@ vi.mock('@ifc-lite/renderer', () => ({
   },
 }))
 
+vi.mock('@/lib/analytics/posthog', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/analytics/posthog')>()),
+  capturePosthog: vi.fn(),
+  capturePosthogException: vi.fn(),
+}))
+
 vi.mock('@ifc-lite/geometry', () => ({
   GeometryProcessor: class {
-    async init(): Promise<void> {}
+    async init(): Promise<void> {
+      loadOrder.push('geometry.init')
+      if (kernel.booting) await kernel.booting
+      loadOrder.push('geometry.ready')
+    }
     async *processAdaptive(): AsyncGenerator<{ type: string; meshes: unknown[] }> {
+      if (kernel.hold) await kernel.hold
+      if (kernel.failWith) {
+        kernel.wedged = true
+        throw kernel.failWith
+      }
       yield { type: 'batch', meshes: [{}, {}] }
     }
     dispose(): void {
+      if (kernel.wedged) {
+        throw new Error('attempted to take ownership of Rust value while it was borrowed')
+      }
+      loadOrder.push('geometry.dispose')
       disposed.geometry += 1
     }
   },
@@ -144,6 +186,12 @@ beforeEach(() => {
   capturedFrame = -1
   disposed.renderer = 0
   disposed.geometry = 0
+  kernel.booting = null
+  gpu.failWith = null
+  gpu.finalizing = null
+  kernel.hold = null
+  kernel.failWith = null
+  kernel.wedged = false
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => ({
@@ -532,11 +580,137 @@ describe('capturing the view', () => {
 })
 
 describe('lifecycle', () => {
-  it('disposes the renderer AND the geometry kernel on unmount', async () => {
-    const { unmount } = await mountLoaded()
+  it('frees the geometry kernel once the model has streamed, and the renderer on unmount', async () => {
+    let finish = () => {}
+    gpu.finalizing = new Promise((resolve) => {
+      finish = resolve
+    })
+    const { unmount } = render(
+      <IfcViewerCanvas sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />
+    )
+    await waitFor(() => expect(loadOrder).toContain('finalizeStreaming'))
+    expect(disposed.geometry).toBe(1)
+    finish()
+    await waitFor(() => expect(renders.length).toBeGreaterThan(0))
+    expect(disposed.geometry).toBe(1)
+    expect(disposed.renderer).toBe(0)
     unmount()
     expect(disposed.renderer).toBe(1)
     expect(disposed.geometry).toBe(1)
+  })
+
+  it('frees the geometry kernel on unmount while the model is still streaming, and only once', async () => {
+    let release = () => {}
+    kernel.hold = new Promise((resolve) => {
+      release = resolve
+    })
+    const { unmount } = render(
+      <IfcViewerCanvas sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />
+    )
+    await waitFor(() => expect(loadOrder).toContain('enableQuantizedBatches'))
+
+    unmount()
+    expect(disposed.renderer).toBe(1)
+    expect(disposed.geometry).toBe(1)
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(disposed.geometry).toBe(1)
+  })
+
+  it('frees a kernel that finishes booting after the reader left, and only once', async () => {
+    let boot = () => {}
+    kernel.booting = new Promise((resolve) => {
+      boot = resolve
+    })
+    const { unmount } = render(
+      <IfcViewerCanvas sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />
+    )
+    await waitFor(() => expect(loadOrder).toContain('geometry.init'))
+
+    unmount()
+    boot()
+    await waitFor(() => expect(disposed.geometry).toBe(1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(loadOrder.filter((step) => step.startsWith('geometry.'))).toEqual([
+      'geometry.init',
+      'geometry.ready',
+      'geometry.dispose',
+    ])
+    expect(capturePosthogException).not.toHaveBeenCalled()
+  })
+
+  it('frees a kernel that finishes booting after the renderer already failed', async () => {
+    let boot = () => {}
+    kernel.booting = new Promise((resolve) => {
+      boot = resolve
+    })
+    const noAdapter = new Error('no GPU adapter')
+    gpu.failWith = noAdapter
+    const onStatus = vi.fn()
+    render(
+      <IfcViewerCanvas
+        sourceUrl="https://example.test/model.ifc"
+        elements={ELEMENTS}
+        onStatus={onStatus}
+      />
+    )
+    await waitFor(() => expect(onStatus).toHaveBeenCalledWith(expect.objectContaining({ phase: 'error' })))
+    expect(disposed.geometry).toBe(0)
+
+    boot()
+    await waitFor(() => expect(disposed.geometry).toBe(1))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(disposed.geometry).toBe(1)
+    expect(capturePosthogException).toHaveBeenCalledTimes(1)
+    expect(capturePosthogException).toHaveBeenCalledWith(noAdapter, { source: 'ifc-viewer-load' })
+  })
+
+  it('does not take the page down when the reader leaves while a wedged kernel is still streaming', async () => {
+    let release = () => {}
+    kernel.hold = new Promise((resolve) => {
+      release = resolve
+    })
+    const { unmount } = render(
+      <IfcViewerCanvas sourceUrl="https://example.test/model.ifc" elements={ELEMENTS} />
+    )
+    await waitFor(() => expect(loadOrder).toContain('enableQuantizedBatches'))
+    kernel.wedged = true
+    kernel.failWith = new Error('null pointer passed to rust')
+
+    expect(() => unmount()).not.toThrow()
+    release()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(disposed.geometry).toBe(0)
+    expect(capturePosthogException).toHaveBeenCalledTimes(1)
+    expect(capturePosthogException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('while it was borrowed') }),
+      { source: 'ifc-viewer-dispose' }
+    )
+  })
+
+  it('does not take the page down when the reader leaves a model whose kernel call failed', async () => {
+    const trap = new Error('unreachable')
+    kernel.failWith = trap
+    const onStatus = vi.fn()
+    const { unmount } = render(
+      <IfcViewerCanvas
+        sourceUrl="https://example.test/model.ifc"
+        elements={ELEMENTS}
+        onStatus={onStatus}
+      />
+    )
+    await waitFor(() =>
+      expect(capturePosthogException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining('while it was borrowed') }),
+        { source: 'ifc-viewer-dispose' }
+      )
+    )
+    expect(onStatus).toHaveBeenCalledWith(expect.objectContaining({ phase: 'error' }))
+
+    expect(() => unmount()).not.toThrow()
+    expect(disposed.renderer).toBe(1)
+    expect(capturePosthogException).toHaveBeenCalledTimes(2)
+    expect(capturePosthogException).toHaveBeenCalledWith(trap, { source: 'ifc-viewer-load' })
   })
 
   it('reports a failed download as an error rather than an empty canvas', async () => {

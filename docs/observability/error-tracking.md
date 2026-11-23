@@ -12,7 +12,7 @@ none of the code below sends anything.
 
 | Runtime | Settings that switch it on | Where the exception is captured |
 |---|---|---|
-| Browser | `NEXT_PUBLIC_POSTHOG_HOST` + `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, handed to the page through `AppConfig` | posthog-js autocapture (unhandled errors and rejections), and `capturePosthogException` from the two error boundaries |
+| Browser | `NEXT_PUBLIC_POSTHOG_HOST` + `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, handed to the page through `AppConfig` | posthog-js autocapture (unhandled errors and rejections), and `capturePosthogException` from the two error boundaries and the IFC viewer |
 | BFF server | the same two variables, read by `posthog-server.ts` | `onRequestError` in `src/instrumentation.ts`, and `captureUpstreamError` for a 502 the BFF answers itself |
 | Python (agent and API) | `POSTHOG_HOST` + `POSTHOG_PROJECT_TOKEN` | a logging handler on the root logger, `observability/posthog_exceptions.py` |
 
@@ -29,6 +29,11 @@ while disabled):
   `globals.css` and the theme boot script again, reads the locale from the
   `locale` cookie (no provider exists) and reuses `errors.appError` for its
   copy, German and English. The prop is `retry` (stable since Next 16.3).
+
+The IFC viewer catches its own errors, so it reports them too: a failed load as
+`ifc-viewer-load` (`ui/features/bim/hooks/use-ifc-model-load.ts`) and a
+geometry kernel whose free throws as `ifc-viewer-dispose` (`guardedKernel()` in
+`ui/features/bim/components/ifc-viewer-canvas-helpers.ts`).
 
 Next's control flow (`redirect()`, `notFound()`, `forbidden()`: a throw the
 framework catches and turns into navigation) is never an exception.
