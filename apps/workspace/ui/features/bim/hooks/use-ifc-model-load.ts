@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
-import { capturePosthog } from '@/lib/analytics/posthog'
+import { capturePosthog, capturePosthogException } from '@/lib/analytics/posthog'
 import { unwrapModelSource } from '../lib/model-source'
 import { downloadWithProgress } from '../lib/viewer-camera'
 import { readViewerTheme } from '../lib/viewer-scene'
-import type { RendererLike } from '../components/ifc-viewer-canvas-helpers'
+import { guardedKernel, type RendererLike } from '../components/ifc-viewer-canvas-helpers'
 import type { IfcViewerStatus } from '../components/ifc-viewer-canvas-contract'
 import type { IfcViewerState } from './use-ifc-viewer-state'
 import type { IfcViewerFrame } from './use-ifc-viewer-frame'
@@ -15,7 +15,6 @@ export function useIfcModelLoad(viewer: IfcViewerState & IfcViewerFrame) {
     elementsRef,
     fittedOnLoadRef,
     frameRef,
-    geometryRef,
     onStatusRef,
     rendererRef,
     requestFrame,
@@ -38,6 +37,8 @@ export function useIfcModelLoad(viewer: IfcViewerState & IfcViewerFrame) {
       if (!cancelled) onStatusRef.current?.(status)
     }
 
+    const kernel = guardedKernel()
+
     const run = async () => {
       const startedAt = performance.now()
       report({ phase: 'downloading', percent: 0, meshCount: 0 })
@@ -59,11 +60,10 @@ export function useIfcModelLoad(viewer: IfcViewerState & IfcViewerFrame) {
         if (cancelled) return
 
         const geometry = new GeometryProcessor()
-        geometryRef.current = geometry
         const renderer: RendererLike = new Renderer(canvas)
         rendererRef.current = renderer
         try {
-          await Promise.all([geometry.init(), renderer.init()])
+          await Promise.all([geometry.init().then(() => kernel.hold(geometry)), renderer.init()])
         } catch (error) {
           renderer.destroy()
           if (rendererRef.current === renderer) rendererRef.current = null
@@ -100,6 +100,7 @@ export function useIfcModelLoad(viewer: IfcViewerState & IfcViewerFrame) {
           report({ phase: 'parsing', percent: null, meshCount })
           requestFrame()
         }
+        kernel.release()
         if (cancelled) return
 
         streamingRef.current = false
@@ -130,6 +131,7 @@ export function useIfcModelLoad(viewer: IfcViewerState & IfcViewerFrame) {
         requestFrame()
       } catch (error) {
         if (controller.signal.aborted) return
+        capturePosthogException(error, { source: 'ifc-viewer-load' })
         report({
           phase: 'error',
           percent: null,
@@ -139,7 +141,7 @@ export function useIfcModelLoad(viewer: IfcViewerState & IfcViewerFrame) {
       }
     }
 
-    void run()
+    void run().finally(() => kernel.release())
 
     return () => {
       cancelled = true
@@ -150,8 +152,7 @@ export function useIfcModelLoad(viewer: IfcViewerState & IfcViewerFrame) {
       cameraLoopRef.current = null
       rendererRef.current?.destroy()
       rendererRef.current = null
-      geometryRef.current?.dispose()
-      geometryRef.current = null
+      kernel.release()
       setReady(false)
       setHovering(false)
     }
