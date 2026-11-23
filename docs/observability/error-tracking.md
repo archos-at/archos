@@ -41,8 +41,10 @@ places drop it: `capturePosthogException`, the browser `before_send`
 A bare `Script error.` with no stack is what a browser reports for an error in a
 script from another origin served without CORS headers: it names neither the
 script nor the line, so nobody can act on it. `bff/analytics/opaque-script-error.ts`
-recognises it and the browser `before_send` drops it (KAN-101). The same message
-with a stack is ours and is kept.
+recognises it and the browser `before_send` drops it (KAN-101). The public site
+loads its own posthog-js and drops it the same way, in
+`apps/website/runtime/web-analytics.mjs` (`dropOpaqueScriptError`); the one prod
+event came from there. The same message with a stack is ours and is kept.
 
 Neither boundary reports an authorization denial (an expected outcome, told by
 its message, since a server-thrown class does not survive the RSC boundary) or an error with a `digest` (thrown on the server, where

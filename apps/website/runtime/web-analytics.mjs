@@ -39,6 +39,8 @@
  * - Pageviews, page leaves, web vitals, autocaptured clicks and heatmaps: on
  *   in both modes. Surveys: off.
  * - `respect_dnt`: a browser that sends Do Not Track is not measured.
+ * - `before_send` drops a bare `Script error.` without a stack
+ *   (`dropOpaqueScriptError`): a cross-origin error nobody can act on.
  *
  * Everything else is the SDK's own: autocapture records clicks and form
  * submits, and markup adds properties to them with `data-ph-capture-attribute-*`
@@ -112,6 +114,24 @@ export function webAnalyticsInitOptions(config) {
 }
 
 /**
+ * The site's `before_send`: drops a bare `Script error.` without a stack, which
+ * a browser reports for an error in a script from another origin served without
+ * CORS headers. It names neither script nor line (KAN-101). The loader embeds
+ * this function's source, so it uses nothing outside its own body.
+ *
+ * @param {{ event: string, properties?: { $exception_list?: Array<{ value?: unknown, stacktrace?: { frames?: unknown[] } | null }> } } | null} capture
+ */
+export function dropOpaqueScriptError(capture) {
+  if (!capture || capture.event !== '$exception') return capture
+  var list = (capture.properties && capture.properties.$exception_list) || []
+  var opaque = list.length > 0 && list.every(function (entry) {
+    var frames = entry && entry.stacktrace && entry.stacktrace.frames
+    return entry && typeof entry.value === 'string' && /^Script error\.?$/.test(entry.value) && !(frames && frames.length)
+  })
+  return opaque ? null : capture
+}
+
+/**
  * The origins the browser talks to when analytics is on: the ingestion host
  * and the host the SDK bundle comes from. The Content-Security-Policy
  * (`security-headers.mjs`) allows exactly these.
@@ -158,7 +178,9 @@ export function webAnalyticsScript(config) {
   s.src = ${JSON.stringify(sdkUrl(config.host))};
   s.onload = function () {
     if (window.posthog && typeof window.posthog.init === 'function') {
-      window.posthog.init(${JSON.stringify(config.token)}, ${options});
+      var options = ${options};
+      options.before_send = ${dropOpaqueScriptError.toString()};
+      window.posthog.init(${JSON.stringify(config.token)}, options);
       window.posthog.register(${JSON.stringify({ site: 'website', ...(config.deployment ? { deployment: config.deployment } : {}) })});
       window.dispatchEvent(new Event(${JSON.stringify(ANALYTICS_READY_EVENT)}));
     }
