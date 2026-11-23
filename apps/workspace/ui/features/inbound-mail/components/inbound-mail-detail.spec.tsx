@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({
 import { toast } from 'sonner'
 import { act, render, screen, waitFor, within } from '@/test-utils'
 import { ApiRequestError } from '@/adapters/api/api-error'
-import { DETAIL_VARIANTS, FIXTURE_NOW, FOLDERS, PROJECT_ID, fixtureClient, mail, messagePart, text } from '@/app/dev/inbound-mail/fixtures'
+import { DETAIL_VARIANTS, FIXTURE_NOW, FOLDERS, PROJECT_ID, fixtureClient, mail, messagePart, part, text } from '@/app/dev/inbound-mail/fixtures'
 import type { InboundMailClient } from '../lib/client'
 import { decisionOf, initialDraft, type DraftCopy } from '../lib/draft'
 import { FILING_QUICK_ROUNDS, InboundMailDetail, type DetailActions } from './inbound-mail-detail'
@@ -815,6 +815,33 @@ describe('„Einordnen“', () => {
     await screen.findByTestId('inbound-mail-detail')
     expect(text).not.toHaveBeenCalled()
     expect(screen.queryByText('The text could not be loaded.')).toBeNull()
+  })
+
+  it('names an unsigned member’s filed mail under „Bearbeitet“ by its Verlauf and shows no load error (KAN-72)', async () => {
+    const filed = mail({
+      key: 'own-unverified-filed',
+      status: 'handled',
+      subject: null,
+      sender: null,
+      participants: [],
+      parts: [
+        messagePart({ id: 'filed-message', state: 'filed', documentId: 'verlauf-doc', filedAs: { name: 'Neuer Planstand', folderPath: null, version: 1 } }),
+        part({ id: 'filed-photo', name: undefined, filename: null, contentType: 'image/jpeg', state: 'filed' }),
+      ],
+      threadCandidates: [],
+    })
+    const handled = { ...filed, senderClass: 'unverified_writer' as const, waitReason: 'signature' as const, incompleteReason: 'not_waiting' as const }
+    const client = fixtureClient({ detail: { view: handled, text: text({ ownText: '', quoted: [] }) } })
+    const textRead = vi.spyOn(client, 'text').mockRejectedValue(new ApiRequestError('The text of a handled mail is in its mail thread, if it was filed', 409, 'CONFLICT'))
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={handled.id} initial={handled} folders={FOLDERS} client={client} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />)
+    const detail = await screen.findByTestId('inbound-mail-detail')
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    })
+    expect(textRead).not.toHaveBeenCalled()
+    expect(within(detail).getAllByText('Neuer Planstand').length).toBeGreaterThan(0)
+    expect(within(detail).queryByText('(no subject)')).toBeNull()
+    expect(within(detail).queryByText('The text could not be loaded.')).toBeNull()
   })
 
   it('reads the mail again when a colleague decided first, says so, and closes', async () => {
