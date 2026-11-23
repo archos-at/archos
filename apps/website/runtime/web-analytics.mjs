@@ -39,8 +39,6 @@
  * - Pageviews, page leaves, web vitals, autocaptured clicks and heatmaps: on
  *   in both modes. Surveys: off.
  * - `respect_dnt`: a browser that sends Do Not Track is not measured.
- * - `before_send` drops a bare `Script error.` without a stack
- *   (`dropOpaqueScriptError`): a cross-origin error nobody can act on.
  *
  * Everything else is the SDK's own: autocapture records clicks and form
  * submits, and markup adds properties to them with `data-ph-capture-attribute-*`
