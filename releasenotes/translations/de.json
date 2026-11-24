@@ -3172,6 +3172,10 @@
     "de": "Auf dem Smartphone ragte der letzte Filter in der Tasks-Liste über den Kartenrand hinaus und war nicht erreichbar. Filterzeilen und Ansichtsumschalter bleiben jetzt innerhalb ihrer Karte und lassen sich horizontal scrollen, wenn die Beschriftungen nicht hineinpassen."
   },
   {
+    "en": "On a phone, the line that folds a background check in a chat open and shut is as tall as a fingertip, so it no longer takes a second try.",
+    "de": "Auf dem Smartphone ist die Zeile zum Auf- und Zuklappen einer Hintergrundprüfung im Chat nun so hoch wie eine Fingerspitze, sodass Sie nicht zweimal tippen müssen."
+  },
+  {
     "en": "On a phone, the paperclip in the chat now offers \"Foto aufnehmen\", which opens the camera directly, and \"Aus Mediathek\", and says that what you add stays in this chat; the upload menu under Dateien offers the same two entries.",
     "de": "Auf dem Smartphone bietet die Büroklammer im Chat jetzt „Foto aufnehmen“, wodurch sich direkt die Kamera öffnet, und „Aus Mediathek“. Außerdem weist sie darauf hin, dass Hinzugefügtes in diesem Chat bleibt. Das Upload-Menü unter Dateien bietet dieselben zwei Einträge."
   },
@@ -3180,12 +3184,24 @@
     "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
   },
   {
+    "en": "On a phone, the reply field under an annotation in the Postfach is as tall as its Senden button, so a tap lands in it instead of beside it.",
+    "de": "Auf dem Smartphone ist das Antwortfeld unter einer Anmerkung im Postfach genauso hoch wie die Schaltfläche „Senden“, sodass man beim Tippen das Feld statt den Bereich daneben trifft."
+  },
+  {
     "en": "On a phone, the schedule wizard's last step, the run history, the task filters, the Büroablage header and several project and administration pages no longer run off the edge of the screen.",
     "de": "Auf dem Smartphone ragen der letzte Schritt des Terminplanungsassistenten, der Ausführungsverlauf, die Aufgabenfilter, die Kopfzeile der Büroablage sowie mehrere Projekt- und Verwaltungsseiten nicht mehr über den Bildschirmrand hinaus."
   },
   {
     "en": "On a phone, the search box or button beside a project section's heading now sits below it, so the explanation gets the full width. It used to break to one word per line.",
     "de": "Am Telefon steht das Suchfeld oder die Schaltfläche neben der Überschrift eines Projektbereichs jetzt darunter, und der Erklärtext bekommt die volle Breite. Bisher brach er auf ein Wort pro Zeile um."
+  },
+  {
+    "en": "On a phone, „Antwortdetails“ under an answer is as tall as a fingertip all the way to its edge.",
+    "de": "Auf dem Smartphone reicht der Bereich „Antwortdetails“ unter einer Antwort bis zum Rand und ist so hoch wie eine Fingerspitze."
+  },
+  {
+    "en": "On a phone, „Details“ under a file that could not be read is as tall as a fingertip.",
+    "de": "Auf dem Smartphone ist „Details“ unter einer nicht lesbaren Datei etwa so hoch wie eine Fingerspitze."
   },
   {
     "en": "On a phone, „Mehr“ now starts with the Persönlich | Projekt switch, so you can move between your own chats and a project's from anywhere.",

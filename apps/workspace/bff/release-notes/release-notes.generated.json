@@ -681,6 +681,38 @@
         },
         {
           "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "On a phone, the reply field under an annotation in the Postfach is as tall as its Senden button, so a tap lands in it instead of beside it.",
+            "de": "Auf dem Smartphone ist das Antwortfeld unter einer Anmerkung im Postfach genauso hoch wie die Schaltfläche „Senden“, sodass man beim Tippen das Feld statt den Bereich daneben trifft."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "On a phone, the line that folds a background check in a chat open and shut is as tall as a fingertip, so it no longer takes a second try.",
+            "de": "Auf dem Smartphone ist die Zeile zum Auf- und Zuklappen einer Hintergrundprüfung im Chat nun so hoch wie eine Fingerspitze, sodass Sie nicht zweimal tippen müssen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "On a phone, „Details“ under a file that could not be read is as tall as a fingertip.",
+            "de": "Auf dem Smartphone ist „Details“ unter einer nicht lesbaren Datei etwa so hoch wie eine Fingerspitze."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "collaboration",
+          "text": {
+            "en": "On a phone, „Antwortdetails“ under an answer is as tall as a fingertip all the way to its edge.",
+            "de": "Auf dem Smartphone reicht der Bereich „Antwortdetails“ unter einer Antwort bis zum Rand und ist so hoch wie eine Fingerspitze."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "search",
           "text": {
             "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
