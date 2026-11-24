@@ -29,7 +29,9 @@ placeholder rows stand in. When the side has more, **„Alle Chats“** ends the
 side's history. Switching between Persönlich and Projekt moves the rail at once;
 the page follows when it has loaded. The chat you had open stays on its side:
 the other side reopens the chat you last had open there (a new one if there
-is none), never the one you left. A chat without a project has no `@`: to bring someone in, share it
+is none), never the one you left. A chat opens only on its own side: a link to a
+project's chat on the personal page, or to a personal chat in a project, takes you to
+where that chat lives (to a new chat, if it is not yours to see). A chat without a project has no `@`: to bring someone in, share it
 through **Teilen**.
 
 ## Starting a conversation

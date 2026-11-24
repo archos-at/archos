@@ -128,6 +128,7 @@ import {
   foldersEveryoneMayRead,
   lockedConversationIds,
   peopleWhoMayRead,
+  projectOf,
   READERS_MAX_PEOPLE,
   recordedRestrictedFolders,
 } from './restricted-use'
@@ -664,5 +665,28 @@ describe('the cost of asking who may open the recorded projects (ADR-0094)', () 
     expect([...readers]).toEqual([OWNER])
     const asked = vi.mocked(userHoldsProjectPermission).mock.calls.filter((call) => call[2] === 'user_outsider')
     expect(asked).toHaveLength(1)
+  })
+})
+
+describe('projectOf — the conversation’s row names the project, never the request (ADR-0193)', () => {
+  const rowOf = (projectId: string | null): ConversationAudienceRow => ({
+    exists: true,
+    projectId,
+    createdBy: OWNER,
+    visibility: 'private',
+    grantees: [],
+    version: 1,
+  })
+
+  it('a personal chat gets no project, whatever project the request states', async () => {
+    expect(await projectOf(ORG, rowOf(null), PROJECT)).toBeNull()
+  })
+
+  it('a chat of one project never draws on the project the request states', async () => {
+    expect(await projectOf(ORG, rowOf('project_2'), PROJECT)).toEqual({ projectId: 'project_2', projectCollection: COLLECTION })
+  })
+
+  it('only a first turn, whose row does not exist yet, takes the stated project', async () => {
+    expect(await projectOf(ORG, { ...rowOf(null), exists: false }, PROJECT)).toEqual({ projectId: PROJECT, projectCollection: COLLECTION })
   })
 })
