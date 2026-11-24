@@ -15,6 +15,7 @@ vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
 }))
 
 vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn() }))
+vi.mock('@/lib/conversations/hidden', () => ({ personalConversationHidden: vi.fn(async () => false) }))
 vi.mock('@/lib/sharing/repository', () => ({ findGrantForSubject: vi.fn() }))
 
 import { isAuthzRefusal, NotFoundError } from '@/lib/api/errors'
@@ -23,6 +24,7 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { ForbiddenError } from '@/lib/api/errors'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { findConversationTenancy } from '@/lib/conversations/repository'
+import { personalConversationHidden } from '@/lib/conversations/hidden'
 import { getDb } from '@/lib/db'
 import { findGrantForSubject } from '@/lib/sharing/repository'
 import { buildCollectionScopeFromRequest, ConversationProjectMismatchError } from './collection-scope-request'
@@ -96,6 +98,15 @@ describe('a conversationId on the WS upgrade is authorized (F2)', () => {
     expect(result.conversationId).toBe('conv_brand_new')
     expect(result.scope).toContain('s_conv_brand_new')
     expect(result.verifiedConversationId).toBeUndefined()
+  })
+
+  it('refuses an id the caller cannot see because it is someone else’s personal chat, never reading it as new (0269)', async () => {
+    vi.mocked(findConversationTenancy).mockResolvedValue(null)
+    vi.mocked(personalConversationHidden).mockResolvedValueOnce(true)
+
+    await expect(
+      buildCollectionScopeFromRequest(session, { conversationId: CONVERSATION_ID }),
+    ).rejects.toBeInstanceOf(NotFoundError)
   })
 
   it('allows a conversation the caller created', async () => {

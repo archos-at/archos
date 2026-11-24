@@ -93,6 +93,24 @@ describe('a chat that read its owner’s shelf (ADR-0193, rule 4)', () => {
   })
 })
 
+describe('a chat the caller may not see, someone else’s personal one (0269)', () => {
+  beforeEach(() => {
+    vi.mocked(personalShelfUseOf).mockResolvedValue({ ownerId: null })
+  })
+
+  it('lets nothing leave it and files it nowhere, not even into a personal shelf', async () => {
+    expect((await refusal(requireMayLeaveConversation({ conversationId: CONV, locale: 'de' }, ORG, 'memory'))).details).toEqual({
+      action: 'personalShelf',
+    })
+    await refusal(
+      requireMayFileFrom(
+        { conversationId: CONV, locale: 'de' },
+        { organizationId: ORG, projectId: null, projectCollection: personalShelfCollectionName(ORG, 'user_owner'), folderId: null },
+      ),
+    )
+  })
+})
+
 describe('requireMayLeaveConversation — runs, tasks and the profile', () => {
   it.each(['deepResearch', 'task', 'profilePatch'] as const)(
     'refuses %s from a conversation that recorded a restricted folder',

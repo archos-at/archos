@@ -27,10 +27,15 @@ vi.mock('@/lib/conversations/restricted-use-repository', () => ({
 vi.mock('@/lib/conversations/restricted-use', () => ({
   recordedForeignRestrictedFolders: vi.fn(async () => new Map()),
 }))
-const temporary = vi.hoisted(() => ({ conversations: new Set<string>() }))
+const temporary = vi.hoisted(() => ({ conversations: new Set<string>(), scopes: [] as unknown[] }))
 vi.mock('@/lib/conversations/temporary-repository', () => ({
-  readConversationTemporary: vi.fn(async (id: string, org: string) => temporary.conversations.has(`${org}/${id}`)),
+  readConversationTemporary: vi.fn(async (id: string, org: string) => {
+    const { getTenantContext } = await import('@/lib/db/tenant-context')
+    temporary.scopes.push(getTenantContext())
+    return temporary.conversations.has(`${org}/${id}`) ? true : null
+  }),
 }))
+vi.mock('@/lib/conversations/hidden', () => ({ personalConversationHidden: vi.fn(async () => false) }))
 vi.mock('@/lib/projects/repository', () => ({
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org_1', deletedAt: null })),
 }))
@@ -70,6 +75,7 @@ afterEach(() => {
   vi.clearAllMocks()
   crossProject.recorded.clear()
   temporary.conversations.clear()
+  temporary.scopes.length = 0
 })
 
 describe('POST /api/internal/memory — a conversation that drew on another project (ADR-0094)', () => {
@@ -126,6 +132,10 @@ describe('POST /api/internal/memory — a temporary conversation keeps nothing (
     expect(body.error).toBe('This conversation is temporary: nothing from it is kept in memory')
     expect(organization.status).toBe(403)
     expect((await organization.json()).code).toBe('TEMPORARY_CONVERSATION')
+    expect(temporary.scopes).toEqual([
+      { kind: 'tenant', organizationId: 'org_1', userId: null, systemReader: 'conversation-memory' },
+      { kind: 'tenant', organizationId: 'org_1', userId: null, systemReader: 'conversation-memory' },
+    ])
     expect(createProjectMemoryItemForProject).not.toHaveBeenCalled()
     expect(createProjectMemoryItem).not.toHaveBeenCalled()
     expect(recordMemoryJudgeVerdict).not.toHaveBeenCalled()

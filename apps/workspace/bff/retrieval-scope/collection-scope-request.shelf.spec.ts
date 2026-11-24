@@ -10,6 +10,7 @@ vi.mock('@/lib/base-knowledge/context/service', () => ({ contextForPage: (...arg
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn() }))
+vi.mock('@/lib/conversations/hidden', () => ({ personalConversationHidden: vi.fn(async () => false) }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectCollectionName: vi.fn(), findProjectProfile: vi.fn(async () => null) }))
 vi.mock('@/lib/retrieval-scope/collection-scope', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/retrieval-scope/collection-scope')>()
