@@ -1,11 +1,19 @@
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { render, screen, within } from '@/test-utils'
+import { toast } from 'sonner'
+import { act, render, screen, waitFor, within } from '@/test-utils'
+import { getAnnotation } from '@/lib/annotations/client'
+import type { AnnotationView } from '@/lib/annotations/types'
 import type { InboxItemView, InboxListFilter } from '@/lib/inbox/types'
 
 vi.mock('sonner', () => ({ toast: vi.fn() }))
 vi.mock('../hooks/use-inbox', () => ({ useInboxList: vi.fn(), useInboxBadge: vi.fn() }))
+vi.mock('@/lib/annotations/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/annotations/client')>()),
+  getAnnotation: vi.fn(),
+}))
+vi.mock('@/features/knowledge/components/page-region-thumbnail', () => ({ PageRegionThumbnail: () => null }))
 
 const page = vi.hoisted(() => ({ search: '' }))
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }))
@@ -24,6 +32,7 @@ vi.mock('next/link', () => ({
 }))
 
 import { useInboxList, type UseInboxListResult } from '../hooks/use-inbox'
+import type { InboxMarkClient } from '../hooks/use-mark-answer'
 import { InboxWorkspace } from './InboxWorkspace'
 
 const row = (id: string, overrides: Partial<InboxItemView> = {}): InboxItemView => ({
@@ -87,11 +96,29 @@ let lists: Partial<Record<InboxListFilter, UseInboxListResult>>
 const serve = (filter: InboxListFilter, items: InboxItemView[], overrides: Partial<UseInboxListResult> = {}): UseInboxListResult =>
   (lists[filter] = hook(items, { counts: { requests: 3, unread: 1 }, ...overrides }))
 const ids = (): (string | null)[] => screen.getAllByTestId('inbox-entry').map((entry) => entry.getAttribute('data-item-id'))
+const current = (): string | null | undefined =>
+  screen.getAllByTestId('inbox-entry').find((entry) => entry.getAttribute('aria-current') === 'true')?.getAttribute('data-item-id')
+
+const annotation = (documentId: string, id: string): AnnotationView =>
+  ({ id, documentId, number: 4, page: 1, shape: 'point', x: 0.5, y: 0.5, w: null, h: null, status: 'open', onCurrentRevision: true, revisionNumber: 1, body: `Body of ${id}`, mentions: [], replies: [] }) as unknown as AnnotationView
+const markClient = (): InboxMarkClient => ({
+  reply: vi.fn(async (documentId: string, id: string) => ({ annotation: annotation(documentId, id), replyId: 'r1', wake: 'none' }) as never),
+  update: vi.fn(async () => ({}) as never),
+})
+const onDocument = (id: string, documentId: string, overrides: Partial<InboxItemView> = {}): InboxItemView =>
+  row(id, { resourceId: documentId, href: `/app/projects/p1/files?doc=${documentId}&review=1&mark=mark-${id}`, ...overrides })
+const followTheUrl = (): void => {
+  router.replace.mockImplementation((url: string) => {
+    page.search = url.split('?')[1] ?? ''
+  })
+}
 
 beforeEach(() => {
   page.search = ''
   lists = {}
+  router.replace.mockImplementation(() => {})
   vi.mocked(useInboxList).mockImplementation((_enabled, filter) => lists[filter] ?? hook([]))
+  vi.mocked(getAnnotation).mockImplementation(async (documentId, id) => annotation(documentId, id))
 })
 afterEach(() => vi.clearAllMocks())
 
@@ -105,11 +132,12 @@ describe('InboxWorkspace', () => {
     expect(useInboxList).toHaveBeenCalledWith(true, 'requests')
   })
 
-  test('shows the newest entry beside the list before anything is picked, and leaves it unread', () => {
+  test('shows the newest entry beside the list before anything is picked, and leaves it unread', async () => {
     const list = serve('requests', [older, newer])
     render(<InboxWorkspace />)
     expect(screen.getAllByTestId('inbox-entry')[0]).toHaveAttribute('aria-current', 'true')
-    expect(within(screen.getByTestId('inbox-opened')).getByTestId('inbox-item')).toBeInTheDocument()
+    expect(await within(screen.getByTestId('inbox-opened')).findByText('Body of mark-newer')).toBeInTheDocument()
+    expect(getAnnotation).toHaveBeenCalledWith('doc-eg', 'mark-newer')
     expect(list.markRead).not.toHaveBeenCalled()
     expect(router.replace).not.toHaveBeenCalled()
   })
@@ -177,8 +205,30 @@ describe('InboxWorkspace', () => {
     view.unmount()
 
     page.search = 'tab=archived'
+    serve('archived', [{ ...news, archived: true }])
     render(<InboxWorkspace />)
-    expect(screen.queryByTestId('inbox-mark-all-read')).not.toBeInTheDocument()
+    expect(screen.getByTestId('inbox-mark-all-read')).toBeDisabled()
+    expect(screen.getByTestId('inbox-mark-all-read')).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  test.each([
+    ['', 'requests', true],
+    ['tab=news', 'all', true],
+    ['tab=archived', 'archived', false],
+  ] as const)('keeps „Mark all read“ in its place on every tab, so the tabs never move (%s)', (search, filter, usable) => {
+    page.search = search
+    serve(filter, [{ ...news, archived: filter === 'archived' }])
+    render(<InboxWorkspace />)
+    const button = screen.getByTestId('inbox-mark-all-read')
+    if (usable) expect(button).toBeEnabled()
+    else expect(button).toBeDisabled()
+  })
+
+  test('an empty tab says so across the whole width, with no opened pane beside it', () => {
+    serve('requests', [])
+    render(<InboxWorkspace />)
+    expect(screen.getByTestId('inbox-entries')).toHaveTextContent('All caught up')
+    expect(screen.queryByTestId('inbox-opened')).not.toBeInTheDocument()
   })
 
   test('J steps to the next entry, U marks the opened one unread again, E archives it', async () => {
@@ -196,11 +246,103 @@ describe('InboxWorkspace', () => {
     expect(ids()).toEqual(['older'])
   })
 
-  test('an annotation assigned to the reader can be marked as done from the opened entry, and opens in the review view', () => {
+  test('an annotation assigned to the reader can be marked as done from the opened entry, and opens in the review view', async () => {
     serve('requests', [{ ...newer, type: 'annotation.assigned_to_you', answerIn: 'row', anchorId: 'mark-1', href: '/app/projects/p1/files/d1?mark=mark-1' }])
     render(<InboxWorkspace />)
-    expect(screen.getByTestId('inbox-opened-done')).toHaveTextContent('Mark as done')
+    expect(await screen.findByTestId('inbox-opened-done')).toHaveTextContent('Mark as done')
     expect(screen.getByTestId('inbox-opened-go')).toHaveTextContent('Open in the review view')
     expect(screen.getByTestId('inbox-opened-archive')).toHaveTextContent('Archive')
+  })
+
+  test('archiving the opened entry opens the one that slides into its place', async () => {
+    followTheUrl()
+    page.search = 'item=b'
+    const list = serve('requests', [
+      onDocument('a', 'doc-1', { updatedAt: '2026-10-29T08:00:00Z' }),
+      onDocument('b', 'doc-2', { updatedAt: '2026-10-28T08:00:00Z' }),
+      onDocument('c', 'doc-3', { updatedAt: '2026-10-27T08:00:00Z' }),
+    ])
+    render(<InboxWorkspace />)
+    await userEvent.click(screen.getByTestId('inbox-opened-archive'))
+    expect(router.replace).toHaveBeenLastCalledWith('/app/inbox?item=c', { scroll: false })
+    expect(list.markRead).toHaveBeenCalledWith(['c'])
+    expect(ids()).toEqual(['a', 'c'])
+    expect(current()).toBe('c')
+  })
+
+  test('marking the opened entry done holds the write for the undo, and opens the next mark on the same document', async () => {
+    followTheUrl()
+    page.search = 'item=x'
+    const marks = markClient()
+    const list = serve('requests', [
+      onDocument('x', 'doc-1', { updatedAt: '2026-10-29T08:00:00Z' }),
+      onDocument('y', 'doc-2', { updatedAt: '2026-10-28T08:00:00Z' }),
+      onDocument('z', 'doc-1', { updatedAt: '2026-10-27T08:00:00Z' }),
+    ])
+    const view = render(<InboxWorkspace markClient={marks} />)
+    await userEvent.click(await screen.findByTestId('inbox-opened-done'))
+
+    expect(router.replace).toHaveBeenLastCalledWith('/app/inbox?item=z', { scroll: false })
+    expect(ids()).toEqual(['y', 'z'])
+    expect(current()).toBe('z')
+    expect(toast).toHaveBeenCalledWith('Marked as resolved.', expect.objectContaining({ action: expect.objectContaining({ label: 'Undo' }) }))
+    expect(marks.update).not.toHaveBeenCalled()
+
+    view.unmount()
+    await waitFor(() => expect(marks.update).toHaveBeenCalledWith('doc-1', 'mark-x', { status: 'resolved', expectedStatus: 'open' }))
+    await waitFor(() => expect(list.refresh).toHaveBeenCalled())
+  })
+
+  test('„Undo“ on the toast brings the resolved entry back and writes nothing', async () => {
+    const marks = markClient()
+    serve('requests', [onDocument('x', 'doc-1')])
+    const view = render(<InboxWorkspace markClient={marks} />)
+    await userEvent.click(await screen.findByTestId('inbox-opened-done'))
+    expect(screen.queryByTestId('inbox-entry')).not.toBeInTheDocument()
+
+    const { action } = vi.mocked(toast).mock.calls.at(-1)?.[1] ?? {}
+    if (!action || typeof action !== 'object' || !('onClick' in action)) throw new Error('the toast offers no undo')
+    act(() => action.onClick(new MouseEvent('click') as never))
+    expect(ids()).toEqual(['x'])
+    view.unmount()
+    expect(marks.update).not.toHaveBeenCalled()
+  })
+
+  test('an answered question of the agent leaves „Waiting on you“, and the next entry opens', async () => {
+    followTheUrl()
+    page.search = 'item=ask'
+    const marks = markClient()
+    const list = serve('requests', [
+      onDocument('ask', 'doc-1', { type: 'agent.asks_you', actorName: null, actorUserId: null, updatedAt: '2026-10-29T08:00:00Z' }),
+      onDocument('other', 'doc-2', { updatedAt: '2026-10-28T08:00:00Z' }),
+    ])
+    render(<InboxWorkspace markClient={marks} />)
+    await userEvent.type(await screen.findByTestId('inbox-opened-reply'), 'Ja, 1,00 m.')
+    await userEvent.click(screen.getByTestId('inbox-opened-reply-send'))
+
+    await waitFor(() => expect(ids()).toEqual(['other']))
+    expect(marks.reply).toHaveBeenCalledWith('doc-1', 'mark-ask', { body: 'Ja, 1,00 m.' })
+    expect(router.replace).toHaveBeenLastCalledWith('/app/inbox?item=other', { scroll: false })
+    expect(list.refresh).toHaveBeenCalled()
+  })
+
+  test('an answered assignment stays where it waits: answering is not resolving', async () => {
+    const marks = markClient()
+    serve('requests', [onDocument('task', 'doc-1'), onDocument('other', 'doc-2', { updatedAt: '2026-10-28T08:00:00Z' })])
+    render(<InboxWorkspace markClient={marks} />)
+    await userEvent.type(await screen.findByTestId('inbox-opened-reply'), 'Ist bestellt.')
+    await userEvent.click(screen.getByTestId('inbox-opened-reply-send'))
+
+    await waitFor(() => expect(marks.reply).toHaveBeenCalled())
+    expect(ids()).toEqual(['task', 'other'])
+    expect(router.replace).not.toHaveBeenCalled()
+  })
+
+  test('R puts the cursor in the reply box', async () => {
+    serve('requests', [onDocument('x', 'doc-1')])
+    render(<InboxWorkspace markClient={markClient()} />)
+    const reply = await screen.findByTestId('inbox-opened-reply')
+    await userEvent.keyboard('r')
+    expect(reply).toHaveFocus()
   })
 })
