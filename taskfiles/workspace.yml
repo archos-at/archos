@@ -19,6 +19,13 @@ tasks:
     cmds:
       - bun run a11y {{.CLI_ARGS}}
 
+  workspace:phone-gate:
+    desc: 'The phone gate: every /dev preview route at 360 and 390 under touch, failing on sideways scroll and on a control whose hit area is under 44px, against scripts/phone-baseline.json. `-- --shard 1/4` for a quarter. See scripts/phone-checks.mjs'
+    dir: '{{.UI}}'
+    cmds:
+      - bunx playwright-core install chromium
+      - bun run phone-gate {{.CLI_ARGS}}
+
   workspace:lint:
     desc: 'Lint the UI (oxlint, the repo rules included as a JS plugin) and its module seams (dependency-cruiser). CI: task workspace:lint -- --format=github'
     dir: '{{.UI}}'

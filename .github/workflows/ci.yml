@@ -569,6 +569,33 @@ jobs:
           FILES_JSON: ${{ needs.changes.outputs.ui_files }}
         run: task workspace:test:related SHARD="$SHARD" FILES="$(jq -r 'join(" ")' <<<"$FILES_JSON")"
 
+  workspace-phone:
+    name: Workspace phone gate (shard ${{ matrix.shard }}/4)
+    needs: changes
+    if: needs.changes.outputs.workspace == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - run: task workspace:install
+      - if: ${{ !vars.CI_RUNNER }}
+        run: >-
+          npx --yes playwright@1.63.0 install-deps chromium
+          || echo "::warning::playwright install-deps failed; the phone gate fails if Chromium cannot start"
+      - name: Every preview route at 360 and 390 under touch, shard ${{ matrix.shard }}/4
+        run: task workspace:phone-gate -- --shard ${{ matrix.shard }}/4
+
   site:
     name: Website (Astro check, tests, build, a11y)
     needs: changes
@@ -920,7 +947,7 @@ jobs:
 
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, workspace-phone, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -960,7 +987,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, infra-preview, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, workspace-phone, site, cms, infra, infra-preview, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:

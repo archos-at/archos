@@ -40,22 +40,29 @@ import { createRequire } from 'node:module'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { chromium } from 'playwright-core'
+import { MIN_TARGET_PX, phoneFindings } from './phone-checks.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const appRoot = join(here, '..')
 const require = createRequire(import.meta.url)
 const axeSource = readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8')
-const BASELINE = join(here, 'a11y-baseline.json')
+const PHONE_ONLY = process.argv.includes('--phone-only')
+const BASELINE = join(here, PHONE_ONLY ? 'phone-baseline.json' : 'a11y-baseline.json')
 const PENDING = join(here, 'a11y-pending-routes.json')
 const DEV_DIR = join(appRoot, 'app', 'dev')
 
 /** What a dynamic `[segment]` of a preview route is filled with. */
 const DYNAMIC_SEGMENT_SAMPLE = 'overview'
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
-const VIEWPORTS = [
-  { name: '1440', width: 1440, height: 900 },
-  { name: '390', width: 390, height: 844 },
-]
+const VIEWPORTS = PHONE_ONLY
+  ? [
+      { name: '360', width: 360, height: 780 },
+      { name: '390', width: 390, height: 844 },
+    ]
+  : [
+      { name: '1440', width: 1440, height: 900 },
+      { name: '390', width: 390, height: 844 },
+    ]
 const CONCURRENCY = Math.max(1, Number(process.env.A11Y_CONCURRENCY ?? 3))
 
 /** Every /dev preview route, from the pages on disk. */
@@ -152,7 +159,27 @@ const run = (command, args, env) =>
  * to dark (the media feature and the `dark` class, as the app's theme does) and
  * audited again, which halves the page loads a dev server has to serve.
  */
+async function auditPhone(browser, base, route, found) {
+  for (const viewport of VIEWPORTS) {
+    const context = await browser.newContext({ viewport, hasTouch: true, isMobile: true, colorScheme: 'light' })
+    const page = await context.newPage()
+    try {
+      const response = await page.goto(base + route, { waitUntil: 'load', timeout: 300000 })
+      if (!response?.ok()) throw new Error(`HTTP ${response?.status() ?? 'no response'}`)
+      await page.waitForTimeout(2500)
+      await page.evaluate(() => document.querySelectorAll('nextjs-portal').forEach((node) => node.remove()))
+      for (const finding of await page.evaluate(phoneFindings, MIN_TARGET_PX)) {
+        found.set(`${route} phone ${viewport.name} ${finding.id}`, { count: finding.count, sample: finding.sample, help: finding.id })
+      }
+    } catch (error) {
+      found.set(`${route} phone ${viewport.name} load-failed`, { count: 1, sample: String(error.message).slice(0, 120), help: 'route did not render' })
+    }
+    await context.close().catch(() => {})
+  }
+}
+
 async function auditRoute(browser, base, route, found) {
+  if (PHONE_ONLY) return auditPhone(browser, base, route, found)
   for (const viewport of VIEWPORTS) {
     const context = await browser.newContext({ viewport, colorScheme: 'light' })
     const page = await context.newPage()
@@ -185,8 +212,8 @@ async function auditRoute(browser, base, route, found) {
 const args = parseArgs(process.argv.slice(2))
 const discovered = previewRoutes()
 const pending = existsSync(PENDING) ? JSON.parse(readFileSync(PENDING, 'utf8')) : []
-const all = args.named.length ? args.named : discovered.filter((route) => !pending.includes(route))
-const stalePending = args.named.length ? [] : pending.filter((route) => !discovered.includes(route))
+const all = args.named.length ? args.named : PHONE_ONLY ? discovered : discovered.filter((route) => !pending.includes(route))
+const stalePending = args.named.length || PHONE_ONLY ? [] : pending.filter((route) => !discovered.includes(route))
 const routes = inShard(all, args.shard)
 const server = process.env.A11Y_BASE_URL ? undefined : await startDevServer()
 const base = process.env.A11Y_BASE_URL ?? server.origin
@@ -236,15 +263,15 @@ const fresh = [...found.keys()].filter((key) => !known.has(key))
 const reportsOrphans = !args.named.length && (!args.shard || args.shard.index === 1)
 const orphan = (key) => reportsOrphans && !discovered.includes(key.split(' ')[0])
 const gone = [...known].filter((key) => (inScope(key) && !found.has(key)) || orphan(key))
-const annotate = (message) => process.env.GITHUB_ACTIONS === 'true' && console.log(`::error title=a11y::${message.replace(/\n/g, '%0A')}`)
+const annotate = (message) => process.env.GITHUB_ACTIONS === 'true' && console.log(`::error title=${PHONE_ONLY ? 'phone' : 'a11y'}::${message.replace(/\n/g, '%0A')}`)
 for (const key of fresh) {
   const v = found.get(key)
   console.log(`NEW   ${key}  x${v.count}  ${v.help}\n      ${v.sample}`)
   annotate(`NEW ${key} x${v.count} ${v.help}: ${v.sample}`)
 }
 for (const key of gone) {
-  console.log(`FIXED ${key} (remove it from scripts/a11y-baseline.json)`)
-  annotate(`FIXED ${key} (remove it from scripts/a11y-baseline.json)`)
+  console.log(`FIXED ${key} (remove it from scripts/${PHONE_ONLY ? 'phone' : 'a11y'}-baseline.json)`)
+  annotate(`FIXED ${key} (remove it from scripts/${PHONE_ONLY ? 'phone' : 'a11y'}-baseline.json)`)
 }
 for (const route of stalePending) {
   console.log(`GONE  ${route} (remove it from scripts/a11y-pending-routes.json)`)
