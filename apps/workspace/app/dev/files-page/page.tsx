@@ -9,7 +9,7 @@ import { DocumentActionsTrigger, DocumentObjectMenu } from '@/features/documents
 import { FileBrowserPane } from '@/features/documents/components/file-browser-pane'
 import { FileFilterMenu } from '@/features/documents/components/file-filter-menu'
 import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
-import { FolderBrief } from '@/features/documents/components/folder-brief'
+import { briefSitsAtEnd, FolderBrief } from '@/features/documents/components/folder-brief'
 import { SelectionBar } from '@/features/documents/components/selection-bar'
 import { UploadTray } from '@/features/documents/components/upload-tray'
 import { UPLOAD_TRAY_SHEET } from '@/features/documents/components/upload-tray-sheet'
@@ -19,7 +19,7 @@ import { UploadFab } from '@/features/documents/components/upload-fab'
 import { useFileSearch } from '@/features/documents/hooks/use-file-search'
 import { usePhoneLayout } from '@/features/documents/hooks/use-phone-layout'
 import type { FileView } from '@/features/documents/hooks/use-view-preference'
-import { NO_FILE_FILTERS, type FileFilters } from '@/features/documents/lib/file-filters'
+import { activeFilterCount, NO_FILE_FILTERS, type FileFilters } from '@/features/documents/lib/file-filters'
 import { projectSearchScope } from '@/features/documents/lib/file-shelf'
 import { DEFAULT_FILE_SORT, type FileSort } from '@/features/documents/lib/file-sort'
 import { buildFolderBrief } from '@/features/documents/lib/folder-knowledge'
@@ -62,6 +62,8 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
   const picked = new Set(levelFiles.slice(0, 2).map((file) => file.id))
   const currentFolderName = FOLDERS.find((folder) => folder.id === folderNav.currentFolderId)?.name ?? null
   const projectName = projectNameFor(real)
+  const brief = buildFolderBrief(FILES, FOLDERS, folderNav.currentFolderId)
+  const findings = real ? { projectId: 'dev', response: REAL_FINDINGS } : null
 
   primeInboundMailWaiting('dev', { count: 3, more: false })
   return (
@@ -73,6 +75,8 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
             view={view}
             onViewChange={setView}
             binHref="/dev/files-page?bin=1"
+            shelfSource="project"
+            filterCount={activeFilterCount(filters, true)}
             renderFilter={(compact, anchored) => (
               <FileFilterMenu canCollaborate filters={filters} onFiltersChange={setFilters} sort={sort} onSortChange={setSort} compact={compact} anchored={anchored} />
             )}
@@ -110,9 +114,10 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
               folderNav={folderNav}
               selection={{ active: picking, selectedIds: picking ? picked : new Set(), onToggle: () => {}, onStart: () => {} }}
               rootToolsInMenu={phone}
+              briefAtEnd={briefSitsAtEnd(brief.tally, findings?.response.findings.length ?? 0)}
               brief={
                 <FolderBrief
-                  brief={buildFolderBrief(FILES, FOLDERS, folderNav.currentFolderId)}
+                  brief={brief}
                   folderName={currentFolderName}
                   hasSubfolders={FOLDERS.some((folder) => folder.parentId === folderNav.currentFolderId)}
                   shelfKind="project"
@@ -120,7 +125,7 @@ function FilesPage({ inShell = false }: { inShell?: boolean }): JSX.Element {
                   onOpenFolder={folderNav.onNavigate}
                   collapsed={briefCollapsed}
                   onCollapsedChange={setBriefCollapsed}
-                  findings={real ? { projectId: 'dev', response: REAL_FINDINGS } : null}
+                  findings={findings}
                 />
               }
               wrapFile={(file, card) => (

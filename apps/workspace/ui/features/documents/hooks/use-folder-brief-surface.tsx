@@ -12,7 +12,7 @@ import {
   type BriefSelection,
   type FolderBrief as FolderBriefData,
 } from '../lib/folder-knowledge'
-import { everythingRead, FolderBrief } from '../components/folder-brief'
+import { briefSitsAtEnd, FolderBrief } from '../components/folder-brief'
 import { useBriefCollapsed } from './use-brief-collapsed'
 import { useBulkReingest } from './use-bulk-reingest'
 import { useDocumentFindings } from './use-document-findings'
@@ -105,10 +105,7 @@ export function useFolderBriefSurface({
         detailsLoading={detailsLoading}
       />
     ) : null,
-    briefAtEnd:
-      brief !== null &&
-      everythingRead(brief.tally) &&
-      (findings?.response.findings.length ?? 0) === 0,
+    briefAtEnd: brief !== null && briefSitsAtEnd(brief.tally, findings?.response.findings.length ?? 0),
     slice: active
       ? {
           files: brief && !partial ? selectInBrief(brief, active) : NO_FILES,
