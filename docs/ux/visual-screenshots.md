@@ -187,13 +187,13 @@ PNG, JPEG, GIF, WebP, SVG, MP4, MOV and WebM all work.
 
 | Was | Now |
 |---|---|
-| `task workspace:screenshots` | `agent-browser screenshot` against a running dev server |
+| `workspace:screenshots` | `agent-browser screenshot` against a running dev server |
 | `visual/registry.mjs` targets | the `/dev/*` routes themselves; no second list to keep in sync |
 | Committed PNGs under `visual/screenshots/` | attachments on the PR |
 | `visual-coverage` workflow | nothing but a reviewer reading the attachment |
 | `screenshot-preview` workflow and its bot commits | nothing; nobody commits screenshots |
 | `visual/screenshots.manifest.json` staleness gate | nothing. A capture is taken against the branch under review, so it cannot go stale |
-| `task workspace:touch-audit` | **nothing.** It imported the registry, so it went with it |
+| `workspace:touch-audit` | **nothing.** It imported the registry, so it went with it |
 
 That last row is a real loss, not a migration. `touch-audit.mjs` measured every
 `/dev` surface at a phone viewport and reported overflow, scroll traps and

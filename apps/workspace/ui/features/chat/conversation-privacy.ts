@@ -10,3 +10,4 @@ export {
   type TemporaryChatToggleProps,
   type TemporaryChatToggleViewProps,
 } from './components/conversation-privacy/TemporaryChatToggle'
+export { useTemporarySwitch } from './lib/temporary-conversation'

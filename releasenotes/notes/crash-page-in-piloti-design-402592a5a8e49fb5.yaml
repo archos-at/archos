@@ -1,4 +1,5 @@
 ---
+# area: general
 fixes:
   - >
     If Piloti itself fails to load, you now see a Piloti page in your language

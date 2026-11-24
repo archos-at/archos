@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     A file the content check holds back now says why: whose rule it is, which

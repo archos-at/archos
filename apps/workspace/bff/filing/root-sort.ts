@@ -6,7 +6,7 @@ import { getBackendUrl } from '@/lib/backend-proxy'
 import type { Document } from '@/lib/db/schema/documents'
 import { hasPassedScreening, memberReader, SCREENED_ONLY } from '@/lib/documents/document-reader'
 import { reconcileDocumentStatuses } from '@/lib/documents/reconcile-status'
-import type { DocumentShelf } from '@/lib/documents/shelf'
+import type { SharedShelf } from '@/lib/documents/shelf'
 import { requireShelfWrite } from '@/lib/documents/shelf-authz'
 import { surfaceStateOf } from '@/lib/documents/surface-state'
 import { folderPathKey, pathSegments, validateFolderName } from '@/lib/projects/folders'
@@ -41,7 +41,7 @@ type EnrichedDocument = Document & { tags?: string[]; summary?: string }
 
 const isJudgeable = (row: Document) => hasPassedScreening(row) && surfaceStateOf(row.status) === 'citable'
 
-export async function requireSortable(session: AuthorizedSession, shelf: DocumentShelf): Promise<void> {
+export async function requireSortable(session: AuthorizedSession, shelf: SharedShelf): Promise<void> {
   await requireShelfWrite(session, shelf)
   if (shelf.kind !== 'project') return
   const project = await findProjectInOrg(shelf.projectId, session.organizationId)
@@ -51,7 +51,7 @@ export async function requireSortable(session: AuthorizedSession, shelf: Documen
 
 const openFoldersOf = (folders: ShelfFolders) => folders.rows.filter((row) => !folders.isRestricted(row.id))
 
-async function folderSpace(session: AuthorizedSession, shelf: DocumentShelf, folders: ShelfFolders): Promise<FolderSpace> {
+async function folderSpace(session: AuthorizedSession, shelf: SharedShelf, folders: ShelfFolders): Promise<FolderSpace> {
   const paths = await listShelfFolderPaths(session.organizationId, shelf)
   return {
     takenKeys: new Set(paths.map(folderPathKey)),
@@ -59,7 +59,7 @@ async function folderSpace(session: AuthorizedSession, shelf: DocumentShelf, fol
   }
 }
 
-export async function scanRoot(session: AuthorizedSession, shelf: DocumentShelf): Promise<RootSortScan> {
+export async function scanRoot(session: AuthorizedSession, shelf: SharedShelf): Promise<RootSortScan> {
   await requireSortable(session, shelf)
   const [folders, rows] = await Promise.all([
     shelfFolders(session, shelf),
@@ -77,7 +77,7 @@ export async function scanRoot(session: AuthorizedSession, shelf: DocumentShelf)
 
 async function judgeableRootDocuments(
   session: AuthorizedSession,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   documentIds: readonly string[]
 ): Promise<EnrichedDocument[]> {
   const rows = await findRootDocuments(session.organizationId, shelf, SCREENED_ONLY, documentIds)
@@ -85,7 +85,7 @@ async function judgeableRootDocuments(
   return enriched.filter(isJudgeable)
 }
 
-async function folderInputs(session: AuthorizedSession, shelf: DocumentShelf, folders: ShelfFolders) {
+async function folderInputs(session: AuthorizedSession, shelf: SharedShelf, folders: ShelfFolders) {
   const docTypes = await shelfDocTypes(session.organizationId, shelf, folders)
   return openFoldersOf(folders)
     .slice(0, MAX_JUDGED_FOLDERS)
@@ -142,7 +142,7 @@ export interface SortContext {
   conventions: FilingConventionInput[]
 }
 
-export async function sortContextFor(session: AuthorizedSession, shelf: DocumentShelf): Promise<SortContext> {
+export async function sortContextFor(session: AuthorizedSession, shelf: SharedShelf): Promise<SortContext> {
   await requireSortable(session, shelf)
   const folders = await shelfFolders(session, shelf)
   const [inputs, space, conventions] = await Promise.all([
@@ -157,7 +157,7 @@ export async function sortContextFor(session: AuthorizedSession, shelf: Document
 
 export async function planRootChunk(
   session: AuthorizedSession,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   documentIds: readonly string[],
   context: SortContext
 ): Promise<RootSortPlan> {
@@ -228,7 +228,7 @@ export function keepNewFolders(
 
 export async function proposeRootFolders(
   session: AuthorizedSession,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   documentIds: readonly string[]
 ): Promise<NewFolders> {
   await requireSortable(session, shelf)

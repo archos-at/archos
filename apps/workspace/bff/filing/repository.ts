@@ -5,7 +5,7 @@ import { documents, type Document } from '@/lib/db/schema/documents'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { DocumentReader } from '@/lib/documents/document-reader'
-import { shelfDocumentWhere, shelfFolderWhere, type DocumentShelf } from '@/lib/documents/shelf'
+import { shelfDocumentWhere, shelfFolderWhere, type SharedShelf } from '@/lib/documents/shelf'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 
 export const MAX_CONVENTION_FOLDERS = 3000
@@ -82,12 +82,14 @@ export async function listDescribedFolders(
     projectId ? read(and(eq(projectFolders.scope, 'project'), eq(projectFolders.projectId, projectId))) : Promise.resolve([]),
     read(eq(projectFolders.scope, 'office_shelf')),
   ])
-  return [...project, ...officeShelf].flatMap((row) => (row.description ? [{ ...row, description: row.description }] : []))
+  return [...project, ...officeShelf].flatMap(({ scope, description, ...row }) =>
+    description && scope !== 'personal' ? [{ ...row, scope, description }] : []
+  )
 }
 
 export async function listFiledDocuments(
   organizationId: string,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   reader: DocumentReader
 ): Promise<Document[]> {
   return withTenant({ organizationId }, () =>
@@ -109,7 +111,7 @@ export async function listFiledDocuments(
 
 export async function listRootDocuments(
   organizationId: string,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   reader: DocumentReader,
   limit: number
 ): Promise<Document[]> {
@@ -125,7 +127,7 @@ export async function listRootDocuments(
 
 export async function findRootDocuments(
   organizationId: string,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   reader: DocumentReader,
   ids: readonly string[]
 ): Promise<Document[]> {
@@ -148,7 +150,7 @@ export async function findRootDocuments(
 
 export const MAX_SHELF_FOLDER_PATHS = 5000
 
-export async function listShelfFolderPaths(organizationId: string, shelf: DocumentShelf): Promise<string[]> {
+export async function listShelfFolderPaths(organizationId: string, shelf: SharedShelf): Promise<string[]> {
   const rows = await withTenant({ organizationId }, () =>
     getDb()
       .select({ path: projectFolders.path })
@@ -161,7 +163,7 @@ export async function listShelfFolderPaths(organizationId: string, shelf: Docume
 
 export async function findShelfFolderPaths(
   organizationId: string,
-  shelf: DocumentShelf,
+  shelf: SharedShelf,
   ids: readonly string[]
 ): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map()

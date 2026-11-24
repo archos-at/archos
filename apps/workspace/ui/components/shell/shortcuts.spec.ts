@@ -3,7 +3,7 @@
  */
 import { describe, test, expect } from 'vitest'
 
-import { railSections, paletteSections } from './project-sections'
+import { railSections } from './project-sections'
 import {
   jumpTargets,
   isModifierKey,
@@ -72,17 +72,6 @@ describe('jumpTargets', () => {
       expect(section.shortcutKey, `rail section "${section.key}" has no jump key`).toBeTruthy()
       expect(jumps).toContain(section.shortcutKey)
     }
-  })
-
-  test('every jump is reachable in the palette too, or is the palette itself', () => {
-    const palette = new Set(paletteSections(ALL).map((section) => section.shortcutKey))
-    const missing = jumpTargets(ALL)
-      .map((target) => target.key)
-      .filter((key) => !palette.has(key) && !['p', 'o'].includes(key))
-    expect(
-      missing,
-      'jump keys reachable by keyboard but not from the ⌘K palette — wire the section into the palette, or add its key here with a reason',
-    ).toEqual(['i'])
   })
 })
 

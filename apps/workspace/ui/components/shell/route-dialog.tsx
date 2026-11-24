@@ -25,7 +25,7 @@ export function RouteDialog({
   description,
   closeLabel,
   standalone = false,
-  fallbackHref = '/app/projects',
+  fallbackHref = '/app',
   bodyClassName,
   testId,
   children,

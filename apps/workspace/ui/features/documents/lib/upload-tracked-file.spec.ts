@@ -56,3 +56,12 @@ describe('the upload request', () => {
     expect(sent.bodies.map((body) => body.get('asNorm'))).toEqual([null, null])
   })
 })
+
+describe('an upload to Meine Ablage (ADR-0193)', () => {
+  it('names the personal shelf and no project, and never a norm', async () => {
+    await upload('personal', true)
+    expect(sent.bodies[0].get('scope')).toBe('personal')
+    expect(sent.bodies[0].get('projectId')).toBeNull()
+    expect(sent.bodies[0].get('asNorm')).toBeNull()
+  })
+})

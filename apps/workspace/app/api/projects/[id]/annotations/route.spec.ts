@@ -92,6 +92,8 @@ const record = (documentId: string, number: number, extra: Partial<ProjectAnnota
   y: 0.5,
   w: null,
   h: null,
+  points: null,
+  reading: null,
   kind: 'defect',
   body: `Punkt ${number}`,
   basis: null,

@@ -28,6 +28,7 @@ import {
   visibleDocumentNames,
   wipe,
 } from './folder-bin.fixtures'
+import { projectShelf } from '@/lib/documents/shelf'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
@@ -103,7 +104,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('frees the name: a folder upload of the same path creates a new folder rather than matching the binned one', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       const ensured = await folders.ensureProjectFolderPaths({ projectId, parentId: null, paths: ['Pläne/Archiv'] }, pl)
       expect(ensured.ok).toBe(true)
       const created = ensured.ok ? ensured.folderIdByPath['Pläne/Archiv'] : ''
@@ -116,7 +117,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('answers a binned folder as missing to a rename, a move into it and a new subfolder', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       await expect(folders.updateProjectFolder({ projectId, folderId: folder.plans, name: 'Neu' }, pl)).resolves.toEqual({
         ok: false,
         error: 'Folder not found.',

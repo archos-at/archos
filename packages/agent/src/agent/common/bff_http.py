@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import contextvars
 import json
 import os
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -17,6 +19,20 @@ INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 INTERNAL_TOKEN_HEADER = "X-Internal-Token"
 REQUEST_CONTEXT_HEADER = "X-Request-Context"
 REQUEST_CONTEXT_SIGNATURE_HEADER = "X-Request-Context-Sig"
+
+
+_turn_headers: contextvars.ContextVar[Callable[[], Mapping[str, str] | None] | None] = contextvars.ContextVar(
+    "bff_turn_headers", default=None
+)
+
+
+def bind_turn_headers(headers: Callable[[], Mapping[str, str] | None] | None) -> None:
+    _turn_headers.set(headers)
+
+
+def _current_turn_headers() -> Mapping[str, str]:
+    source = _turn_headers.get()
+    return (source() or {}) if source is not None else {}
 
 
 def internal_base_url() -> str:
@@ -129,6 +145,7 @@ def send(
     if query:
         url = f"{url}?{urllib.parse.urlencode(query)}"
     sent: dict[str, str] = {"Content-Type": "application/json"} if body is not None else {}
+    sent.update(_current_turn_headers())
     sent.update(headers or {})
     sent[INTERNAL_TOKEN_HEADER] = token
     data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None

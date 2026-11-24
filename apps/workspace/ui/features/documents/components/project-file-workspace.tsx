@@ -19,7 +19,9 @@ import { useMailImports } from '../hooks/use-mail-imports'
 import { MailImportDialogView, type HandedArchives } from './mail-import-dialog'
 import { MailImportLine, mailImportOngoing } from './mail-import-line'
 import { ProjectNormNotices } from './project-norm-notices'
-import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
+import { FolderBinDialog } from './folder-bin-dialog'
+import { binHrefOf } from '../lib/bin-href'
+import { useBinParam } from '../hooks/use-bin-param'
 
 export type { FileAssignee, FileItem, FolderItem } from '../file-types'
 
@@ -71,7 +73,7 @@ export function ProjectFileWorkspace({
     setHandedArchives({ files, onTaken: () => setHandedArchives(null) })
     setMailOpen(true)
   }, [])
-  const search = useShelfSearchMode()
+  const bin = useBinParam()
   const [awaitingNorms, setAwaitingNorms] = useState<ReadonlySet<string>>(() => new Set())
   const onStored = useCallback(
     (uploads: StoredUpload[]) => setAwaitingNorms((current) => new Set([...current, ...uploads.map((upload) => upload.documentId)])),
@@ -91,13 +93,14 @@ export function ProjectFileWorkspace({
     collectionName,
     canManage: true,
     folderAccess: { projectId, canManage: canManageFolderAccess, initialRootAccess },
-    bin: { href: `/app/projects/${projectId}/files/bin` },
+    bin: { href: binHrefOf(`/app/projects/${projectId}/files`) },
     openPoints: { href: `/app/projects/${projectId}/files/open-points` },
     inboundMail,
     canCollaborate,
     currentUserId,
     askAbout: (file) => askAboutFile({ projectId, file, navigate: (href) => router.push(href) }),
     takeMailArchives: mailOffered ? takeMailArchives : undefined,
+    openMailImport: mailOffered ? () => setMailOpen(true) : undefined,
     useUpload: ({ collectionName: collection, folderId, onComplete }) =>
       useProjectDocuments({ projectId, collectionName: collection, folderId, onComplete, onStored: officeStandards ? onStored : undefined }),
     probeNames: (names) => probe.project(projectId, names),
@@ -112,16 +115,6 @@ export function ProjectFileWorkspace({
     lifecyclePermissions,
   }
 
-  if (search.active) {
-    return (
-      <>
-        <ProjectSectionActions>
-          <ShelfSearchBack onClose={search.close} label="backToFiles" />
-        </ProjectSectionActions>
-        <SearchWorkspace surface={{ kind: 'project', projectId, folderId: search.folderId }} currentUserId={currentUserId} inset autoFocus />
-      </>
-    )
-  }
 
   return (
     <>
@@ -130,7 +123,6 @@ export function ProjectFileWorkspace({
         renderHeader={(controls) => (
           <ProjectSectionActions>{controls}</ProjectSectionActions>
         )}
-        onOpenSearch={search.open}
         initialFolders={initialFolders}
         initialFiles={initialFiles}
         initialNextCursor={initialNextCursor}
@@ -154,6 +146,7 @@ export function ProjectFileWorkspace({
           )
         }}
       />
+      <FolderBinDialog shelf={{ kind: 'project', projectId }} open={bin.open} onOpenChange={bin.setOpen} />
       {mailOffered && (
         <MailImportDialogView
           projectId={projectId}

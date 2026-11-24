@@ -31,8 +31,8 @@ const TURN_DOOR_HEADERS = new Set(['x-turn-door', 'x-turn-session-source'])
  * The same context headers under their names without the product's (`x-budget`
  * for `x-grid-budget`), which the backend reads beside the old ones from this
  * release (`agent_host.legacy_headers`). Named one by one: `x-` alone is every
- * proxy's prefix. `tests/test_legacy_headers.py` holds this list and the
- * backend's equal.
+ * proxy's prefix. `tests/test_legacy_headers.py` holds this list to the
+ * backend's, plus a retired name still stripped during a rollout.
  */
 const SERVICE_HEADERS = new Set([
   'x-answer-message-id',

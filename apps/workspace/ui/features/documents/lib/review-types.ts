@@ -1,7 +1,8 @@
 import type { AnnotationShape, AnnotationView } from '@/lib/annotations/types'
+import type { PagePoint } from '@/lib/annotations/measure-shapes'
 import type { RevisionRef } from '@/lib/documents/revision-links'
 
-export type ReviewTool = 'select' | 'point' | 'region' | 'ask'
+export type ReviewTool = 'select' | 'point' | 'region' | 'ask' | 'measure'
 export type ReviewFilter = 'open' | 'closed'
 
 export interface ReviewRevision {
@@ -22,4 +23,5 @@ export interface ReviewDraft {
   y: number
   w: number | null
   h: number | null
+  points?: PagePoint[] | null
 }

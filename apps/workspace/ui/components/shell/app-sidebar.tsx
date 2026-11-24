@@ -3,9 +3,10 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Folder, SquarePen } from 'lucide-react'
 
-import { motion, springGlide } from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionQuick, motionSnap } from '@/components/motion'
+import { useReducedMotion } from '@/hooks/use-reduced-motion'
 import {
   Sidebar,
   SidebarContent,
@@ -26,18 +27,14 @@ import { navCopy } from '@/i18n/namespaces/nav'
 import { pruneProjectSections, useRecordProjectSection } from '@/hooks/use-last-project-section'
 import { InboundMailWaitingBadge } from './inbound-mail-waiting-badge'
 import { useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
-import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
-import { useStartDockDoor, type StartDockDoor } from './start-dock'
-import { InboxBadge } from '@/features/collaboration/components'
+import { InboxBell } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import {
-  PROJECT_SETTINGS_SECTION,
   railGroups,
   isSectionPathActive,
-  sectionHref,
   sectionLinkHref,
   type ProjectNavGroup,
   type ProjectSection,
@@ -46,18 +43,31 @@ import { phoneBackTarget } from './phone-tabs'
 import { framesProjectPage } from './project-section-frame'
 import { useRecordRecentProject } from './recent-projects'
 import { ShellSearchButton } from './shell-search-button'
+import { RailActivePill } from './rail-active-pill'
 import { RailChatList, useRailChats } from './rail-chats'
+import { RailModeSwitch } from './rail-mode-switch'
+import { shownSide, useRailSide } from './rail-side'
+import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH, type RailMode } from './rail-mode'
 import { ConnectionBand } from './connection-band'
 import { ShortcutKeys } from './shortcut-keys'
 import { LEADER_KEY } from './shortcuts'
 import { sectionAnchor } from '@/lib/onboarding/product-tour'
 
-export function railActivePillId(iconRail: boolean): string {
-  return `rail-active-project-${iconRail ? 'icon' : 'full'}`
+
+const SIDE_DIRECTION: Record<RailMode, number> = { personal: -1, project: 1 }
+const SIDE_SLIDE_PX = 10
+
+const SIDE_VARIANTS = {
+  enter: (direction: number) => ({ opacity: 0, x: direction * SIDE_SLIDE_PX }),
+  shown: { opacity: 1, x: 0 },
+  leave: (direction: number) => ({ opacity: 0, x: -direction * SIDE_SLIDE_PX, transition: direction === 0 ? motionInstant : motionSnap }),
+}
+export function railActivePillId(iconRail: boolean, side: RailMode): string {
+  return `rail-active-${side}-${iconRail ? 'icon' : 'full'}`
 }
 
 export interface AppSidebarProps {
-  projectId: string
+  projectId: string | null
   projects: ProjectSwitcherProject[]
   user?: SidebarUser
   organizationName?: string | null
@@ -72,23 +82,22 @@ export interface AppSidebarProps {
   canAccessInbox: boolean
   inboundMailEnabled?: boolean
   pathname?: string
+  navigateSide?: (href: string) => void
 }
 
-interface RailItemModel {
+export interface RailItemModel {
   key: string
   href: string
   icon: ProjectSection['icon']
   label: string
   active: boolean
   within?: boolean
-  badgeCount: number
-  door?: StartDockDoor
   waitingCount: number | null
   waitingMore?: boolean
   shortcutKey?: string
 }
 
-interface RailGroupModel {
+export interface RailGroupModel {
   key: ProjectNavGroup
   label: string
   items: RailItemModel[]
@@ -126,27 +135,28 @@ function AppSidebarFrame({
   canAccessInbox,
   inboundMailEnabled = false,
   pathname: pathnameOverride,
+  navigateSide,
 }: AppSidebarProps) {
   const routerPathname = usePathname()
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
-  const { state, isMobile } = useSidebar()
-  const { pending: inboxPending } = useInboxBadge(canAccessInbox)
-  const inboxDoor = useStartDockDoor('inbox')
-  const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
+  const { state, isMobile, peek } = useSidebar()
   const railChats = useRailChats()
+  const pending = useRailSide((state) => state.pending)
+  const side = shownSide(pending, { mode: projectId === null ? 'personal' : 'project', projectId })!
+  const mode: RailMode = side.mode
+  const sideProjectId = side.projectId
+  const inboundMail = useInboundMailWaiting(sideProjectId, inboundMailEnabled)
+  const reduceMotion = useReducedMotion()
 
-  const base = `/app/projects/${projectId}`
+  const base = sideProjectId === null ? '' : `/app/projects/${sideProjectId}`
 
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
-  const iconRail = state === 'collapsed' && !isMobile
-  const chatOpen = !iconRail && (railChats?.items.some((chat) => chat.current) ?? false)
-  const back = phoneBackTarget(pathname, projectId)
-  const pageHasHeader = framesProjectPage(pathname, projectId)
-
-  useRecordProjectSection(projectId)
-  useRecordRecentProject(projectId)
+  const iconRail = state === 'collapsed' && !isMobile && !peek
+  const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
+  const back = projectId === null ? null : phoneBackTarget(pathname, projectId)
+  const pageHasHeader = projectId === null || framesProjectPage(pathname, projectId)
 
   React.useEffect(() => {
     pruneProjectSections(projects.map((project) => project.id))
@@ -159,12 +169,10 @@ function AppSidebarFrame({
       items: group.items.map((item) => ({
         key: item.key,
         href: sectionLinkHref(item, base),
-        icon: item.icon,
-        label: sectionLabel(item, t, tCollaboration),
+        icon: item.key === 'chat' ? SquarePen : item.icon,
+        label: item.key === 'chat' ? t('newChat') : sectionLabel(item, t, tCollaboration),
         active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
-        within: item.key === 'chat' && chatOpen,
-        badgeCount: item.key === 'inbox' ? inboxPending : 0,
-        door: item.key === 'inbox' ? inboxDoor : undefined,
+        within: item.key === 'chat' && chatOpen && !iconRail,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
         waitingMore: item.key === 'files' && inboundMail.more,
         shortcutKey: item.shortcutKey,
@@ -172,24 +180,16 @@ function AppSidebarFrame({
     })
   )
 
-  const orgGroup = groups.find((g) => g.key === 'org')
-  const settingsHref = sectionHref(PROJECT_SETTINGS_SECTION, base)
-  const overview: RailItemModel = {
-    key: PROJECT_SETTINGS_SECTION.key,
-    href: settingsHref,
-    icon: PROJECT_SETTINGS_SECTION.icon,
-    label: sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration),
-    active: pathname.startsWith(settingsHref),
-    badgeCount: 0,
-    waitingCount: null,
-    shortcutKey: PROJECT_SETTINGS_SECTION.shortcutKey,
-  }
-  const projectItems: RailItemModel[] = groups
-    .filter((g) => g.key !== 'org')
-    .flatMap((g) => g.items)
-    .flatMap((item) => (item.key === 'files' ? [item, overview] : [item]))
+  const org = groups.find((g) => g.key === 'org')
+  const orgGroup = org && { ...org, items: org.items.filter((item) => iconRail || item.key !== 'search') }
+  const projectItems: RailItemModel[] =
+    mode === 'personal'
+      ? personalRailItems(pathname, t, chatOpen, iconRail)
+      : groups
+          .filter((g) => g.key !== 'org')
+          .flatMap((g) => g.items)
 
-  const activePillId = railActivePillId(iconRail)
+  const activePillId = railActivePillId(iconRail, mode)
   const railItem = (item: RailItemModel): React.JSX.Element => (
     <RailNavItem
       key={item.key}
@@ -199,13 +199,11 @@ function AppSidebarFrame({
       active={item.active}
       within={item.within}
       label={item.label}
-      badgeCount={item.badgeCount}
       waitingCount={item.waitingCount}
       waitingMore={item.waitingMore}
       tooltip={iconRail}
       shortcutKey={item.shortcutKey}
       pillId={activePillId}
-      door={item.door}
     />
   )
   const column = iconRail ? 'px-3.5' : 'px-3'
@@ -245,7 +243,7 @@ function AppSidebarFrame({
         {isMobile && <ConnectionBand />}
       </header>
 
-      <Sidebar collapsible="icon" data-scope="project" aria-label={t('projectNavigation')}>
+      <Sidebar collapsible="icon" peekOnHover data-scope={mode} aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectNavigation')}>
         {/* `shrink-0` on the header and footer is load-bearing, not defensive.
             `SidebarContent` between them is `flex-1 basis-0`, whose scaled
             shrink factor is 0 — so under a height deficit the whole deficit
@@ -259,33 +257,52 @@ function AppSidebarFrame({
           className={cn(
             'shrink-0 gap-0 p-0 pt-[env(safe-area-inset-top)]',
             column,
-            iconRail && 'overflow-hidden pb-px'
+            iconRail && 'overflow-hidden'
           )}
         >
           <SidebarBrand iconRail={iconRail} />
-          {/* The project selector, the rail's first control in both widths:
-              which project this is, and the way to another. The icon rail
-              keeps it as a tile of its initials, or a collapsed rail could
-              not say which project its sections belong to. */}
-          <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
-            <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
+          <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mb-1.5')}>
+            <RailModeSwitch mode={mode} collapsed={iconRail} navigate={navigateSide} />
           </div>
+          {projectId !== null && <ProjectRecorder projectId={projectId} />}
         </SidebarHeader>
 
-        <SidebarContent
-          className={cn(
-            'mt-3 min-h-0 flex-1 gap-0 overflow-hidden',
-            column
+        <SidebarContent className={cn('relative min-h-0 flex-1 gap-0 overflow-hidden', column)}>
+          <AnimatePresence initial={false} mode="popLayout" custom={reduceMotion ? 0 : SIDE_DIRECTION[mode]}>
+            <motion.div
+              key={mode}
+              data-slot="rail-side"
+              data-side={mode}
+              custom={reduceMotion ? 0 : SIDE_DIRECTION[mode]}
+              variants={SIDE_VARIANTS}
+              initial="enter"
+              animate="shown"
+              exit="leave"
+              transition={reduceMotion ? motionInstant : motionQuick}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+          {/* The project selector, the rail's first control in both widths:
+              which project this is, and the way to another. The icon rail
+              keeps it as a tile of its initials, on the selector's own line,
+              so nothing below it moves when the rail opens under the pointer. */}
+          {sideProjectId !== null && (
+            <div className={cn('mt-1 flex h-10 shrink-0 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
+              <ProjectSwitcher projects={projects} activeProjectId={sideProjectId} collapsed={iconRail} />
+            </div>
           )}
-        >
-          <nav aria-label={t('projectSections')} className="shrink-0 py-px">
+          <nav
+            aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectSections')}
+            className={cn('shrink-0 py-px', mode === 'personal' && !iconRail ? 'mt-4' : 'mt-3')}
+          >
             <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
           </nav>
           {/* The project's last chats, as a list of their own under the sections (owner decision 2026-11-11,
               as a chat app lists its recent chats): headed „Letzte Chats“, scrolling between the sections
               and the office's doorways, which both stay put. The icon rail has no room for a title: there
               „Chat“ is its glyph, and the chat's toolbar names its door. */}
-          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} />}
+          {railChats && !iconRail && <RailChatList chats={railChats} />}
+            </motion.div>
+          </AnimatePresence>
         </SidebarContent>
 
         <SidebarFooter
@@ -320,20 +337,33 @@ function AppSidebarFrame({
               eye) while all is well. Nothing above it moves when it appears:
               the space it takes is the band's empty middle. */}
           <ConnectionBand appearance="rail" compact={iconRail} />
-          <SidebarUserMenu
-            user={user}
-            organizationName={organizationName}
-            authRequired={authRequired}
-            compact={iconRail}
-            avatarSizeClass="size-6"
-            menuSide={iconRail ? 'right' : 'top'}
-            menuAlign="end"
-            menuSideOffset={iconRail ? 24 : 6}
-            menuMatchTrigger={!iconRail}
-            canManageOrganization={canManageOrganization}
-            canViewOrganization={canViewOrganization}
-            canManagePlatform={canManagePlatform}
-          />
+          <div className={cn('relative flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
+            <div className={cn('min-w-0', !iconRail && 'flex-1')}>
+              <SidebarUserMenu
+                user={user}
+                organizationName={organizationName}
+                authRequired={authRequired}
+                compact={iconRail}
+                avatarSizeClass="size-6"
+                menuSide={iconRail ? 'right' : 'top'}
+                menuAlign="end"
+                menuSideOffset={iconRail ? 24 : 6}
+                menuMatchTrigger={!iconRail}
+                canManageOrganization={canManageOrganization}
+                canViewOrganization={canViewOrganization}
+                canManagePlatform={canManagePlatform}
+                beforeChevron={canAccessInbox && !iconRail ? 'w-12' : undefined}
+              />
+            </div>
+            {canAccessInbox && (
+              <InboxBell
+                compact={iconRail}
+                tourAnchor={sectionAnchor('inbox')}
+                pathname={pathname}
+                className={iconRail ? undefined : 'absolute right-8 top-1/2 z-10 h-7 min-w-7 -translate-y-1/2 border-transparent px-1.5 pointer-coarse:h-9'}
+              />
+            )}
+          </div>
         </SidebarFooter>
         {/* The primitive's own strings are English; the rail is a tab stop now,
             so the one control a keyboard user lands on has to speak the app's
@@ -348,34 +378,54 @@ function AppSidebarFrame({
   )
 }
 
-function RailNavItem({
+
+function ProjectRecorder({ projectId }: { projectId: string }): null {
+  useRecordProjectSection(projectId)
+  useRecordRecentProject(projectId)
+  return null
+}
+
+function personalRailItems(pathname: string, t: (key: string) => string, chatOpen: boolean, iconRail: boolean): RailItemModel[] {
+  const onChat = pathname === PERSONAL_CHAT_PATH || pathname.startsWith(`${PERSONAL_CHAT_PATH}/`)
+  const onShelf = pathname === PERSONAL_SHELF_PATH || pathname.startsWith(`${PERSONAL_SHELF_PATH}/`)
+  const row = (key: string, href: string, icon: ProjectSection['icon'], label: string, active: boolean): RailItemModel => ({
+    key,
+    href,
+    icon,
+    label,
+    active,
+    waitingCount: null,
+  })
+  return [
+    { ...row('chat', NEW_PERSONAL_CHAT_HREF, SquarePen, t('newChat'), onChat && !chatOpen), within: onChat && chatOpen && !iconRail },
+    row('personalShelf', PERSONAL_SHELF_PATH, Folder, t('personalShelf'), onShelf),
+  ]
+}
+
+export function RailNavItem({
   icon: Icon,
   href,
   active,
   within = false,
   label,
-  badgeCount,
   waitingCount = null,
   waitingMore = false,
   tooltip,
   shortcutKey,
   pillId,
   tourAnchor,
-  door,
 }: {
   icon: ProjectSection['icon']
   href: string
   active: boolean
   within?: boolean
   label: string
-  badgeCount: number
   waitingCount?: number | null
   waitingMore?: boolean
   tooltip: boolean
   shortcutKey?: string
   pillId: string
   tourAnchor: string
-  door?: StartDockDoor
 }) {
   return (
     <SidebarMenuItem>
@@ -389,22 +439,13 @@ function RailNavItem({
           'group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center',
           active
             ? 'text-foreground data-[active=true]:text-foreground hover:bg-transparent active:bg-transparent data-[active=true]:bg-transparent font-medium data-[active=true]:font-medium'
-            : door?.open
-              ? // The Postfach docked open beside the page: open is the picked
-                'text-foreground bg-selected hover:bg-selected'
-              : // The pointer's fill is one step down from the plane it lies
-                cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
+            : // The pointer's fill is one step down from the plane it lies
+              cn('hover:bg-selected active:bg-pressed', within && 'text-foreground font-medium')
         )}
       >
-        <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
+        <Link href={href} aria-current={active ? 'page' : undefined} data-tour={tourAnchor}>
           {active && (
-            <motion.span
-              layoutId={pillId}
-              data-slot="rail-active-pill"
-              aria-hidden
-              className="bg-sheet absolute inset-0 rounded-control shadow-xs"
-              transition={springGlide}
-            />
+            <RailActivePill pillId={pillId} at={href} />
           )}
           <Icon
             aria-hidden
@@ -420,18 +461,11 @@ function RailNavItem({
           >
             {label}
           </span>
-          <InboxBadge
-            pending={badgeCount}
-            tone="muted"
-            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
+          <InboundMailWaitingBadge
+            count={waitingCount}
+            more={waitingMore}
+            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
           />
-          {badgeCount <= 0 && (
-            <InboundMailWaitingBadge
-              count={waitingCount}
-              more={waitingMore}
-              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
-            />
-          )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>

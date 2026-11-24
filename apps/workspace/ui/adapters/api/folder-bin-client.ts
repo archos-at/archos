@@ -59,23 +59,21 @@ async function request<T>(url: string, init: RequestInit, schema: z.ZodType<T>):
   return schema.parse(await response.json())
 }
 
-const project = (projectId: string): string => `/api/projects/${encodeURIComponent(projectId)}`
-
-export function listFolderBin(projectId: string, cursor?: string): Promise<FolderBinListing> {
+export function listFolderBin(binPath: string, cursor?: string): Promise<FolderBinListing> {
   const query = new URLSearchParams({ limit: String(BIN_PAGE_MAX), ...(cursor ? { cursor } : {}) })
-  return request(`${project(projectId)}/bin?${query.toString()}`, { method: 'GET' }, binListingSchema)
+  return request(`${binPath}?${query.toString()}`, { method: 'GET' }, binListingSchema)
 }
 
 export function restoreDocument(documentId: string): Promise<DocumentRestoreResult> {
   return request(`/api/documents/${encodeURIComponent(documentId)}/restore`, { method: 'POST' }, documentRestoreResultSchema)
 }
 
-export function restoreFolder(projectId: string, folderId: string): Promise<RestoreFolderResult> {
-  return request(`${project(projectId)}/bin/${encodeURIComponent(folderId)}/restore`, { method: 'POST' }, RestoreSchema)
+export function restoreFolder(binPath: string, folderId: string): Promise<RestoreFolderResult> {
+  return request(`${binPath}/${encodeURIComponent(folderId)}/restore`, { method: 'POST' }, RestoreSchema)
 }
 
-export function purgeFolderNow(projectId: string, folderId: string): Promise<z.infer<typeof PurgeSchema>> {
-  return request(`${project(projectId)}/bin/${encodeURIComponent(folderId)}`, { method: 'DELETE' }, PurgeSchema)
+export function purgeFolderNow(binPath: string, folderId: string): Promise<z.infer<typeof PurgeSchema>> {
+  return request(`${binPath}/${encodeURIComponent(folderId)}`, { method: 'DELETE' }, PurgeSchema)
 }
 
 export async function getDeletedFolderContentPolicy(): Promise<DeletedFolderContentPolicy> {

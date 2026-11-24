@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import urllib.error
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import pytest
+from agent_testing.generated import assert_generated
 
 from agent.common import bff_http
 from agent.common.bff_http import SignedEnvelope
@@ -125,7 +125,7 @@ def _document(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
             "Written by packages/agent/tests/tools/workspace/test_workspace_mcp_contract.py from the real request "
             "builder of agent/tools/workspace/client.py; replayed by "
             "apps/workspace/app/api/mcp/workspace-contract.spec.ts against the real route. "
-            "Regenerate with UPDATE_FIXTURES=1. The spec signs envelopePayload (with a current issuedAt) and "
+            "Regenerate with `task generate`. The spec signs envelopePayload (with a current issuedAt) and "
             "substitutes the placeholders."
         ),
         "placeholders": {"token": TOKEN_PLACEHOLDER, "signature": SIGNATURE_PLACEHOLDER, "envelope": ENVELOPE_HEADER},
@@ -136,12 +136,7 @@ def _document(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
 def test_request_fixture_is_what_the_client_builds(monkeypatch: pytest.MonkeyPatch) -> None:
     document = _document(monkeypatch)
-    if os.environ.get("UPDATE_FIXTURES") == "1":
-        REQUESTS_PATH.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    assert json.loads(REQUESTS_PATH.read_text(encoding="utf-8")) == document, (
-        "client.py builds a different request than the committed fixture. Re-run with UPDATE_FIXTURES=1, "
-        "then run the BFF spec (workspace-contract.spec.ts) and commit both fixtures in the same change."
-    )
+    assert_generated(REQUESTS_PATH, json.dumps(document, indent=2, ensure_ascii=False) + "\n")
 
 
 def test_every_server_tool_the_agent_names_is_in_the_fixture() -> None:

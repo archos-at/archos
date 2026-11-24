@@ -3,8 +3,16 @@ import 'server-only'
 import { getUserSession } from '@/lib/auth/session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getNavFlags, type NavFlags } from '@/lib/authz/nav'
-import { isIfcModelsEnabled, isInboundMailEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
+import {
+  isIfcModelsEnabled,
+  isInboundMailEnabled,
+  isSkillsEnabled,
+} from '@/lib/authz/feature-flags'
 import { listProjects } from '@/lib/projects/service'
+import { overviewOrder } from '@/lib/projects/overview-order'
+import { toOverviewProject, type OverviewProject } from '@/lib/projects/overview-project'
+import { lastProjectActivityByUser } from '@/lib/conversations/repository'
+import { bestEffort } from '@/lib/best-effort'
 import { getOrganizationDisplayName, switchableOrganizations } from '@/lib/organizations/service'
 import { ensureOrganizationRow } from '@/lib/organizations/home-country-row'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
@@ -13,11 +21,12 @@ import { resolveTourEligibility } from '@/lib/onboarding/tour-eligibility'
 import { NO_TOURS, type TourEligibility } from '@/lib/onboarding/product-tour'
 import { resolveWhatsNewNotice } from '@/lib/release-notes/summary-notice'
 import type { WhatsNewNoticeState } from '@/lib/release-notes/release-notes-wire'
-import type { ProjectSwitcherProject } from '@/components/shell/project-switcher'
 import type { SidebarUser } from '@/components/shell/sidebar-user-menu'
 
 export interface ShellChrome {
-  projects: ProjectSwitcherProject[]
+  projects: OverviewProject[]
+  /** When the viewer last worked in each project, ISO; the overview orders and dates its rows by it. */
+  projectActivity: Record<string, string>
   user?: SidebarUser
   organizationName: string | null
   organizations: SwitchableOrganization[]
@@ -38,11 +47,13 @@ const EMPTY_NAV_FLAGS: NavFlags = {
   canAccessOfficeStandards: false,
   canCollaborate: false,
   canAccessInbox: false,
+  canManageCompliance: false,
 }
 
 function emptyChrome(): ShellChrome {
   return {
     projects: [],
+    projectActivity: {},
     user: undefined,
     organizationName: null,
     organizations: [],
@@ -53,6 +64,28 @@ function emptyChrome(): ShellChrome {
     authRequired: isAuthRequired(),
     tours: NO_TOURS,
     whatsNew: null,
+  }
+}
+
+interface ShellProjects {
+  projects: OverviewProject[]
+  activity: Record<string, string>
+}
+
+async function loadShellProjects(session: AuthorizedSession): Promise<ShellProjects> {
+  try {
+    const visible = await listProjects(session)
+    const activity =
+      (await bestEffort('shell project activity', () =>
+        lastProjectActivityByUser(
+          session.organizationId,
+          session.userId,
+          visible.map((project) => project.id)
+        )
+      )) ?? {}
+    return { projects: overviewOrder(visible, activity).map(toOverviewProject), activity }
+  } catch {
+    return { projects: [], activity: {} }
   }
 }
 
@@ -70,6 +103,10 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
     ? switchableOrganizations(session.organizationId, session.userId)
     : Promise.resolve([])
 
+  const shellProjects = session.organizationId
+    ? loadShellProjects(session as AuthorizedSession)
+    : Promise.resolve<ShellProjects>({ projects: [], activity: {} })
+
   let navFlags = EMPTY_NAV_FLAGS
   try {
     navFlags = await getNavFlags(session)
@@ -77,16 +114,7 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
     // page that 500s because a capability lookup was slow or down.
   }
 
-  let projects: ProjectSwitcherProject[] = []
-  if (session.organizationId) {
-    try {
-      projects = (await listProjects(session as AuthorizedSession))
-        .map((project) => ({ id: project.id, name: project.name, status: project.status }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    } catch {
-      projects = []
-    }
-  }
+  const { projects, activity: projectActivity } = await shellProjects
 
   let organizationName: string | null = null
   try {
@@ -96,11 +124,16 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
     organizationName = null
   }
 
-  const tours = session.organizationId ? await resolveTourEligibility(session as AuthorizedSession) : NO_TOURS
-  const whatsNew = session.organizationId ? await resolveWhatsNewNotice(session as AuthorizedSession, tours) : null
+  const tours = session.organizationId
+    ? await resolveTourEligibility(session as AuthorizedSession)
+    : NO_TOURS
+  const whatsNew = session.organizationId
+    ? await resolveWhatsNewNotice(session as AuthorizedSession, tours)
+    : null
 
   return {
     projects,
+    projectActivity,
     user: { name: session.name, email: session.email },
     organizationName,
     organizations: await switchable,

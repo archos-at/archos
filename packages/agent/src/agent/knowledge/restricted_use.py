@@ -13,8 +13,8 @@ from dataclasses import field
 from typing import Any
 
 from agent.common import bff_http
+from agent.common.turn_decision import TurnDecision
 from agent.knowledge.restricted_collections import is_restricted_collection
-from agent.knowledge.restricted_collections import restricted_collections_in
 
 logger = logging.getLogger(__name__)
 
@@ -128,18 +128,6 @@ def _names(value: object) -> list[str]:
     return [name for name in value if isinstance(name, str)] if isinstance(value, list) else []
 
 
-def check_restricted_use(use: RestrictedUse, candidates: Sequence[str]) -> RestrictedUse:
-    body = _post(use, {"candidates": list(dict.fromkeys(candidates))})
-    if body is None:
-        use.drawable = set()
-        use.confined = True
-        return use
-    offered = set(candidates)
-    use.drawable = {name for name in _names(body.get("drawable")) if name in offered}
-    use.confined = bool(_names(body.get("recorded")))
-    return use
-
-
 def admit(use: RestrictedUse, collections: Sequence[str]) -> set[str]:
     asked = [name for name in dict.fromkeys(collections) if name]
     if not asked:
@@ -158,29 +146,33 @@ def admit(use: RestrictedUse, collections: Sequence[str]) -> set[str]:
     return admitted
 
 
-async def begin_restricted_use(
-    request: Any, conversation_id: str | None, *, answer_message_id: str | None = None
+def restricted_use_from_decision(
+    decision: TurnDecision, request: Any, *, answer_message_id: str | None = None
 ) -> RestrictedUse | None:
-    candidates = restricted_collections_in(getattr(request, "collection_scope", None))
-    if not candidates:
+    if not decision.restricted_collections and not decision.recorded_restricted:
         return None
-    organization_id = getattr(request, "organization_id", None)
-    user_id = getattr(request, "user_id", None)
-    use = RestrictedUse(
-        organization_id=organization_id or "",
-        user_id=user_id or "",
+    return RestrictedUse(
+        organization_id=getattr(request, "organization_id", None) or "",
+        user_id=getattr(request, "user_id", None) or "",
+        conversation_id=decision.conversation_id or "",
+        project_id=getattr(request, "project_id", None),
+        drawable=set(decision.restricted_collections),
+        confined=decision.recorded_restricted,
+        answer_message_id=answer_message_id,
+    )
+
+
+def nothing_drawable(
+    request: Any, conversation_id: str | None, *, answer_message_id: str | None = None
+) -> RestrictedUse:
+    return RestrictedUse(
+        organization_id=getattr(request, "organization_id", None) or "",
+        user_id=getattr(request, "user_id", None) or "",
         conversation_id=conversation_id or "",
         project_id=getattr(request, "project_id", None),
         confined=True,
         answer_message_id=answer_message_id,
     )
-    if not getattr(request, "envelope_header", None):
-        logger.warning("Restricted collections in an unsigned scope: nothing drawable")
-        return use
-    if not organization_id or not user_id or not conversation_id:
-        logger.warning("Restricted scope without an organization, asker or conversation: nothing drawable")
-        return use
-    return await asyncio.to_thread(check_restricted_use, use, candidates)
 
 
 COLLECTIONS_READ_KEY = "grid_collections_read"
@@ -226,7 +218,8 @@ def collections_read(message: Any) -> set[str]:
     return set(_names(value))
 
 
-_RESTRICTED_IN_TEXT = re.compile(r"(?<![\w-])proj_[\w-]+?_r[0-9a-f]{12}(?![\w-])", re.IGNORECASE)
+_RESTRICTED_IN_TEXT = re.compile(r"(?<![\w-])(?i:proj_[\w-]+?_r[0-9a-f]{12})(?![\w-])")
+_PERSONAL_IN_TEXT = re.compile(r"(?<![\w-])personal_org_[A-Za-z0-9-]+__user_[A-Za-z0-9_-]+(?![\w-])")
 
 
 def _text_of(message: Any) -> str:
@@ -241,7 +234,8 @@ def _text_of(message: Any) -> str:
 
 def _carried(message: Any) -> set[str]:
     reported = {name for name in collections_read(message) if is_restricted_collection(name)}
-    named = {match.group(0) for match in _RESTRICTED_IN_TEXT.finditer(_text_of(message))}
+    text = _text_of(message)
+    named = {match.group(0) for pattern in (_RESTRICTED_IN_TEXT, _PERSONAL_IN_TEXT) for match in pattern.finditer(text)}
     return reported | {name for name in named if is_restricted_collection(name)}
 
 

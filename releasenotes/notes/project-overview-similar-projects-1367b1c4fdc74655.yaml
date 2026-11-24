@@ -1,4 +1,5 @@
 ---
+# area: projects
 fixes:
   - >
     A project's Übersicht opens again when your office has a closed project to compare it with.

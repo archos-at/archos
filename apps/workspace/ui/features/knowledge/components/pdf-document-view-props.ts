@@ -9,6 +9,7 @@ export interface PdfDocumentViewProps {
   highlight?: string | null
   highlightColor?: string
   regions?: readonly PageRegion[] | null
+  zoomToRegion?: boolean
   quoteFormat?: (quote: { text: string; page: number }) => string
   onFindSimilar?: (passage: { text: string; page: number }) => void
   onLoadError?: () => void

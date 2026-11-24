@@ -1,4 +1,5 @@
 import 'server-only'
+import { requirePersonalShelfDoor } from '@/lib/documents/personal-shelf-door'
 import { GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { s3Client, signingS3Client } from '@/lib/s3'
@@ -54,6 +55,10 @@ async function assertDocumentReadable(
     case 'session':
       if (!document.conversationId) throw new NotFoundError(notFoundMessage)
       await requireResourceAccess(session, 'conversation', document.conversationId, 'viewer')
+      return
+    case 'personal':
+      if (document.ownerUserId !== session.userId) throw new NotFoundError(notFoundMessage)
+      requirePersonalShelfDoor(session)
       return
     case 'project': {
       if (document.projectId === null) throw new NotFoundError(notFoundMessage)

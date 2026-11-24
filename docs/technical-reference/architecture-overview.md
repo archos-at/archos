@@ -58,7 +58,7 @@ The Node.js gateway (`server.js`) runs on port 3000 and serves as the single ent
 Key responsibilities of the BFF:
 
 1. **Authentication**: WorkOS AuthKit middleware (`proxy.ts`) enforces session-based auth. The `REQUIRE_AUTH` env var controls whether auth is required.
-2. **Collection scoping**: On WebSocket upgrade, the gateway fetches `/api/auth/websocket-scope` to compute the `X-Grid-Collection-Scope` header, which tells the Python backend which knowledge collections to search.
+2. **Collection scoping**: On WebSocket upgrade, the gateway fetches `/api/auth/websocket-scope` to authorize the person, project and conversation and sign the request-context envelope. Each turn then fetches its signed decision (`POST /api/internal/turn-decision`), whose shelves tell the Python backend which knowledge collections to search (ADR-0194).
 3. **File uploads**: Handles multipart uploads, validates against `FILE_UPLOAD_ACCEPTED_TYPES` and `FILE_UPLOAD_MAX_SIZE_MB`, then uploads to SeaweedFS and triggers backend ingestion.
 
 ### Tier 2: Python FastAPI Backend (port 8000)
@@ -89,12 +89,12 @@ Browser
   ▼
 Node.js Gateway
   │  1. Calls /api/auth/websocket-scope (internal HTTP to itself)
-  │  2. Gets X-Grid-Collection-Scope (base64url-encoded JSON list)
+  │  2. Signs the request-context envelope (no scope)
   │  3. Gets user identity (organizationId, userId, accessToken)
   ▼
 Python FastAPI
-  │  4. The runtime's request context reads X-Grid-Collection-Scope header
-  │  5. Collection scoping resolves target collections
+  │  4. Fetches the turn's signed decision (POST /api/internal/turn-decision)
+  │  5. Collection scoping takes the decision's shelves
   │  6. LangGraph agent pipeline: intent → research → response
   │  7. SSE stream back through WebSocket
   ▼
@@ -130,7 +130,7 @@ Return: job_id for status polling
 
 ### Key Design Decisions
 
-1. **Next.js BFF pattern** (ADR-0003): The Next.js layer handles auth sessions, database access, and collection scoping. The Python backend remains stateless and trusts the `X-Grid-Collection-Scope` header.
+1. **Next.js BFF pattern** (ADR-0003): The Next.js layer handles auth sessions, database access, and collection scoping. The Python backend remains stateless and reads the scope only from what the BFF signed: a turn's decision or a request-context envelope (ADR-0194).
 2. **No asyncio.run()**: `start_web.py` runs uvicorn directly instead of using `nat serve`, avoiding the "event loop is already running" error.
 3. **Singleton ingestor**: The knowledge layer factory (`factory.py`) caches ingestor instances to preserve job state across requests and avoid duplicate TTL cleanup threads.
 4. **Custom WebSocket proxy**: `server.js` intercepts `/websocket` connections, enriches them with collection scope and auth context, then proxies to the Python backend.

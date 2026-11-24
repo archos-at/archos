@@ -15,7 +15,7 @@ import {
 import type { Message } from '@/lib/db/schema/messages'
 import type { TaskRun } from '@/lib/db/schema/task-model'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { resolveConversationScope } from '@/lib/conversation-context'
 import {
   addDocumentToBackendJob,
   cancelBackendJob,
@@ -23,7 +23,7 @@ import {
   writeNowBackendJob,
   type JobControlCaller,
 } from '@/lib/jobs/backend-client'
-import { signJobRequestContext } from '@/lib/jobs/request-envelope'
+import { jobScopeOf, signJobRequestContext } from '@/lib/jobs/request-envelope'
 import type { PlanDocument } from './plan-documents'
 import { AGENT_REFUSAL_LOCALE, requirePlanDocumentsOpen } from '@/lib/conversations/restricted-egress'
 import type { Locale } from '@/i18n/config'
@@ -350,7 +350,7 @@ async function jobControlCaller(
   session: AuthorizedSession,
   projectId: string
 ): Promise<JobControlCaller> {
-  const scope = await buildCollectionScopeFromRequest(session, { projectId })
+  const scope = jobScopeOf(await resolveConversationScope(session, { projectId, kind: 'run' }))
   return {
     accessToken: session.accessToken ?? null,
     contextHeaders: signJobRequestContext(session, scope),

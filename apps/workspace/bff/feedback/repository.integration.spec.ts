@@ -83,7 +83,13 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
     )
     await inOrg(async () => {
       await db.execute(sql`
-        insert into conversations (id, organization_id, created_by, title) values (${CHAT}, ${ORG}, ${USER}, 'Fluchtwege')
+        insert into projects (id, organization_id, name, created_by, collection_name, profile)
+        values (${PROJECT}::uuid, ${ORG}, 'Wohnanlage West', ${USER}, ${`p_feedback_${STAMP}`},
+                '{"facts": {"federal_state": {"value": "tyrol"}}, "goals": {}, "unknowns": [], "assumptions": {}}'::jsonb)
+      `)
+      await db.execute(sql`
+        insert into conversations (id, organization_id, created_by, title, project_id)
+        values (${CHAT}, ${ORG}, ${USER}, 'Fluchtwege', ${PROJECT}::uuid)
       `)
       await db.execute(sql`
         insert into messages (id, conversation_id, role, content, created_at) values
@@ -116,12 +122,6 @@ describe.skipIf(!url)('answer-feedback platform reads against live Postgres', ()
           'provenance', jsonb_build_object('deepResearchJobId', ${JOB}::text, 'researchTruncated', true)
         ) where id = ${A2}::uuid
       `)
-      await db.execute(sql`
-        insert into projects (id, organization_id, name, created_by, collection_name, profile)
-        values (${PROJECT}::uuid, ${ORG}, 'Wohnanlage West', ${USER}, ${`p_feedback_${STAMP}`},
-                '{"facts": {"federal_state": {"value": "tyrol"}}, "goals": {}, "unknowns": [], "assumptions": {}}'::jsonb)
-      `)
-      await db.execute(sql`update conversations set project_id = ${PROJECT}::uuid where id = ${CHAT}`)
       await db.execute(sql`
         insert into llm_usage_events (organization_id, conversation_id, message_id, job_id, model, total_tokens, cost_usd) values
           (${ORG}, ${CHAT},       ${A1}, null,    'model-a', 1000, 0.010000),

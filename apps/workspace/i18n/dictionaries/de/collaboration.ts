@@ -6,6 +6,7 @@ export const collaboration: typeof en.collaboration = {
     title: 'Ihnen fehlen inzwischen die Rechte, um diesen Chat zu sehen',
     description:
       'Der Zugriff auf einen Ordner, aus dem dieser Chat stammt, hat sich seit dem Teilen geändert. Fragen Sie eine Person, die diese Ordner lesen darf, oder Ihre Administration.',
+    withheldFrom: 'Ab hier stützt sich der Chat auf eine Quelle, die Sie nicht öffnen dürfen.',
   },
   sharing: {
     title: 'Teilen',
@@ -100,6 +101,11 @@ export const collaboration: typeof en.collaboration = {
         'Diese Person darf nicht jeden Ordner mit eingeschränktem Zugriff lesen, auf den sich dieser Chat stützt. Deshalb kann er nicht mit ihr geteilt werden.',
       restrictedContentSelf:
         'Sie dürfen nicht jeden Ordner mit eingeschränktem Zugriff lesen, auf den sich dieser Chat stützt, und können ihn deshalb nicht übernehmen.',
+      personalShelfContent:
+        'Dieser Chat hat aus „Meine Ablage“ gelesen. Wer ihn sieht, sieht seine Antworten, nie die Dateien. Danach liest er nicht mehr aus Ihrer Ablage.',
+      personalShelfContentNotOwner:
+        'Dieser Chat hat aus der persönlichen Ablage der Person gelesen, die ihn begonnen hat. Nur sie kann ihn weiter teilen.',
+      personalShelfConfirm: 'Trotzdem teilen',
       restrictedContentProject:
         'Dieser Chat stützt sich auf einen Ordner mit eingeschränktem Zugriff und kann deshalb nicht für das ganze Projekt sichtbar gemacht werden. Teilen Sie ihn mit einzelnen Personen, die den Ordner lesen dürfen.',
       crossProjectContent:
@@ -214,11 +220,29 @@ export const collaboration: typeof en.collaboration = {
   },
 
   inbox: {
-    title: 'Postfach',
-    dock: {
-      close: 'Postfach schließen',
-      all: 'Alle Einträge, auch archivierte',
+    bell: {
+      late: '{count} überfällig',
+      news: '{count, plural, one {# Neuigkeit} other {# Neuigkeiten}}',
+      open: 'Postfach öffnen',
+      back: 'Postfach verlassen',
     },
+    page: {
+      done: 'Als erledigt markieren',
+      review: 'In der Prüfansicht öffnen',
+      personal: 'Persönlich',
+      back: 'Zurück',
+      opened: 'Geöffneter Eintrag',
+      go: 'Öffnen',
+      sheet: 'Seite {page}',
+      openPlace: '{sheet}, Anmerkung {number} in der Prüfansicht öffnen',
+      onRevision: 'Diese Anmerkung steht auf Fassung {revision}, nicht auf der aktuellen.',
+      earlierRevision: 'Diese Anmerkung steht auf einer früheren Fassung.',
+      thread: 'Verlauf der Anmerkung',
+      markFailed: 'Die Anmerkung konnte nicht geladen werden. Öffnen Sie sie in der Prüfansicht.',
+      archiveKey: 'Archivieren (E)',
+      nextHere: '{count, plural, one {Noch # in diesem Dokument} other {Noch # in diesem Dokument}}',
+    },
+    title: 'Postfach',
     navLabel: 'Postfach',
     badgeAria:
       '{count, plural, one {# Eintrag braucht} other {# Einträge brauchen}} Ihre Aufmerksamkeit',
@@ -230,10 +254,10 @@ export const collaboration: typeof en.collaboration = {
       archived: 'Archiviert',
       ariaLabel: 'Postfach filtern',
     },
-    markAllRead: 'Alle als gelesen markieren',
+    archiveAll: 'Alle archivieren',
     archive: 'Archivieren',
     undo: 'Rückgängig',
-    markAllReadShort: 'Alle gelesen',
+    archivedAll: 'Postfach geleert',
     archived: 'Archiviert',
     unarchive: 'Wiederherstellen',
     unarchived: 'Wiederhergestellt',

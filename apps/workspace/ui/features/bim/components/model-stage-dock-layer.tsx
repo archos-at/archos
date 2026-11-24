@@ -1,6 +1,7 @@
 
 
 import { Camera, Eye, Home, Layers, MonitorX, PanelLeft, Ruler, Scissors, SlidersHorizontal, Undo2 } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 
 import { cn } from '@/lib/utils'
@@ -17,8 +18,32 @@ import { ViewerDock, ViewerDockSeparator, ViewerIconButton, ViewerLegend, Viewer
 
 import type { ModelStageController } from './use-model-stage-controller'
 
+const MEASURE_KEY = 'M'
+
+const typing = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+
+function useMeasureKey(ready: boolean, toggle: () => void) {
+  const toggleRef = useRef(toggle)
+  useEffect(() => {
+    toggleRef.current = toggle
+  })
+  useEffect(() => {
+    if (!ready) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
+      if (event.key.toUpperCase() !== MEASURE_KEY || typing(event.target)) return
+      event.preventDefault()
+      toggleRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [ready])
+}
+
 export function ModelStageDockLayer({ controller }: { controller: ModelStageController }) {
   const { advancedOpen, advancedToggleRef, captureFailed, closeAdvanced, coarsePointer, compact, compactSheet, cutDefault, elementList, elementsError, elementsLoading, focusViewport, goBack, handleSelect, history, layout, legendEntries, locale, measureLabels, model, modelId, models, phoneSheet, projectId, railHasContent, railOpen, reloadElements, section, selectedGlobalId, setAdvancedOpen, setRailChoice, setView, storey, t, togglePhoneSheet, view, viewport, xrayNeedsTarget } = controller
+  useMeasureKey(viewport.status.phase === 'ready', () => viewport.measure.setActive(!viewport.measure.active))
   return (
     <>
           <ViewerDock
@@ -256,6 +281,7 @@ export function ModelStageDockLayer({ controller }: { controller: ModelStageCont
             <ViewerIconButton
               label={t('viewer.measure.toggle')}
               icon={Ruler}
+              shortcut={MEASURE_KEY}
               active={viewport.measure.active}
               disabled={viewport.status.phase !== 'ready'}
               onClick={() => viewport.measure.setActive(!viewport.measure.active)}

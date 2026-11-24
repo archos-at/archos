@@ -147,6 +147,11 @@
         // unrelated runs red. See eslint-rules/motion-vocabulary.mjs.
         "grid/motion-vocabulary": "warn",
 
+        // A text field's focus stays inside its box: an outward ring on a
+        // field in a scroll box is cut (the rail's rename field, 2026-11-24).
+        // See eslint-rules/field-focus-inside.mjs.
+        "grid/field-focus-inside": "error",
+
         // The other half of the tenant boundary, and the half row-level
         // security cannot backstop: `getCached` answers from the store BEFORE
         // the loader runs, so an unpartitioned key never reaches a tenant scope

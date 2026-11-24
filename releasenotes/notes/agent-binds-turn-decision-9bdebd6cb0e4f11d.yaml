@@ -1,0 +1,8 @@
+---
+# area: agents
+operators:
+  - >
+    The agent now asks the app what a chat turn may draw on before it reads
+    anything, at /api/internal/turn-decision, and reads only that. Without a
+    decision it falls back to the signed socket scope, and with REQUIRE_AUTH on
+    it reads nothing. Traces carry context.decision (bound or missing).

@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     When the agent looks at a page of a base-knowledge document, it now does so

@@ -41,6 +41,7 @@ import {
   url,
   wipe,
 } from '@/lib/projects/folder-bin.fixtures'
+import { projectShelf } from '@/lib/documents/shelf'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
@@ -54,7 +55,7 @@ vi.mock('@/lib/documents/document-dispatch', () => ({
   dispatchDocument: vi.fn(async () => ({ jobId: 'job', status: 'pending' })),
 }))
 vi.mock('@/lib/documents/document-edits', () => ({
-  eraseProjectDocument: vi.fn(async (doc: { id: string; organizationId: string; projectId: string }) => {
+  eraseShelfDocument: vi.fn(async (doc: { id: string; organizationId: string; projectId: string }) => {
     const { deleteProjectDocument } = await import('@/lib/documents/repository')
     await deleteProjectDocument(doc.id, doc.organizationId, doc.projectId)
     return true
@@ -146,7 +147,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     ] as const)('%s: locked for exactly the people the folder rule leaves out', async (policy, expected) => {
       const sharing = inTenant(await import('@/lib/sharing/access'))
       const id = await chatOnVertraege()
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.contracts })
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.contracts })
       await bin.purgeBinnedFolder(ORG, folder.contracts)
       expect(ids(await inOrg(() => db.execute<{ id: string }>(sql`
         SELECT folder_id AS id FROM conversation_restricted_folders WHERE conversation_id = ${id}`)))).toEqual([folder.contracts])
@@ -172,7 +173,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
 
   describe('„Inhalte aus gelöschten Ordnern": applied when derived content is read', () => {
     async function purgeVertraege(): Promise<void> {
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.contracts })
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.contracts })
       await bin.purgeBinnedFolder(ORG, folder.contracts)
     }
     const reads = async (membershipId: string | null, seesEverything = false) =>
@@ -218,7 +219,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
 
     it('restricts the conversations that drew on a purged OPEN folder once the setting says admins only', async () => {
       await insertAnswer('Plan …', [{ collection: COLLECTION, file_name: 'Plan.pdf' }])
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       await bin.purgeBinnedFolder(ORG, folder.plans)
       expect(await restrictedUse.recordedRestrictedFolders(CHAT, ORG)).toEqual([])
       await setting.saveDeletedFolderContentPolicy(admin, 'admins', new Request('http://test'))
@@ -229,7 +230,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       await setting.saveDeletedFolderContentPolicy(admin, 'remove', new Request('http://test'))
       const cites = await insertAnswer('Plan …', [{ collection: COLLECTION, file_name: 'Plan.pdf' }])
       const note = await insertNote('aus dem Plan', [folder.plans], null)
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       const result = await bin.purgeBinnedFolder(ORG, folder.plans)
       expect(result.counts).toMatchObject({ memoryNotes: 1, answers: 1 })
       expect(result.traceConversationIds).toEqual([CHAT])

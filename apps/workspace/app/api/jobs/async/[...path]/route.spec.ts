@@ -17,13 +17,16 @@ vi.mock('@/lib/proxy/collection-authz', () => ({
   })),
 }))
 
-vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
-  buildCollectionScopeFromRequest: vi.fn().mockResolvedValue({
-    headerValue: 'scope',
-    scope: [],
-    scopedCollections: [],
-    projectId: undefined,
-    verifiedConversationId: undefined,
+vi.mock('@/lib/conversation-context', () => ({
+  resolveConversationScope: vi.fn().mockResolvedValue({
+    kind: 'run',
+    conversationId: null,
+    projectId: null,
+    projectCollectionName: null,
+    shelves: [],
+    restrictedCollections: [],
+    verifiedConversationId: null,
+    projectReadOnly: false,
   }),
 }))
 
@@ -45,10 +48,39 @@ vi.mock('@/lib/projects/repository', () => ({
 import { DELETE, GET, POST } from './route'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
 import { getEffectiveModelOverrides } from '@/lib/model-config/service'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { resolveConversationScope } from '@/lib/conversation-context'
+import type { ConversationScope } from '@/lib/conversation-context/resolve'
+import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 import { loadProjectFederalState } from '@/lib/project-profile/prompt-view'
 import { fileCommissionedReport } from '@/lib/documents/commissioned-report'
 import { verifyRequestContextEnvelope } from '@/lib/request-context'
+
+const mockResolveConversationScope = vi.mocked(resolveConversationScope)
+
+interface BuiltScope {
+  scopedCollections: ScopedCollection[]
+  projectId?: string
+  verifiedConversationId?: string
+  projectReadOnly?: boolean
+  [key: string]: unknown
+}
+
+
+function asScope(built: BuiltScope): ConversationScope {
+  return {
+    kind: 'run',
+    conversationId: null,
+    audience: { row: { exists: false, projectId: null, createdBy: null, visibility: 'private', grantees: [], version: null }, solo: false, version: null },
+    projectId: built.projectId ?? null,
+    projectCollectionName: null,
+    shelves: built.scopedCollections,
+    restrictedCollections: [],
+    verifiedConversationId: built.verifiedConversationId ?? null,
+    projectReadOnly: built.projectReadOnly ?? false,
+  }
+}
+
+
 
 const originalRequireAuth = process.env.REQUIRE_AUTH
 const originalInternalToken = process.env.INTERNAL_API_TOKEN
@@ -260,7 +292,7 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
   beforeEach(() => {
     vi.stubEnv('REQUIRE_AUTH', 'true')
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
-    vi.mocked(buildCollectionScopeFromRequest).mockResolvedValue({
+    mockResolveConversationScope.mockResolvedValue(asScope({
       headerValue: 'scope',
       scope: ['oib_knowledge', 'proj_abc'],
       scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_abc', shelf: 'project' }],
@@ -268,7 +300,8 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
       projectCollectionName: 'proj_abc',
       conversationId: undefined,
       verifiedConversationId: undefined,
-    })
+      restrictedCollections: [],
+    }))
     vi.mocked(getEffectiveModelOverrides).mockResolvedValue(null)
     vi.mocked(loadProjectFederalState).mockResolvedValue(null)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -322,6 +355,7 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
       ],
       issuedAt: expect.any(Number),
       requester: { name: 'Test User', email: 'user@app.example', organizationName: null },
+      contextKind: 'run',
     })
   })
 
@@ -565,7 +599,7 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
     vi.stubEnv('REQUIRE_AUTH', 'true')
     vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
     vi.mocked(requireAuthorizedSession).mockResolvedValue(session)
-    vi.mocked(buildCollectionScopeFromRequest).mockResolvedValue({
+    mockResolveConversationScope.mockResolvedValue(asScope({
       headerValue: 'scope',
       scope: ['oib_knowledge', 'proj_abc'],
       scopedCollections: [
@@ -576,7 +610,8 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
       projectCollectionName: 'proj_abc',
       conversationId: 'conv-1',
       verifiedConversationId: 'conv-1',
-    })
+      restrictedCollections: [],
+    }))
     vi.mocked(getEffectiveModelOverrides).mockResolvedValue(null)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
       async () =>
@@ -630,13 +665,13 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
       postParams(['job', 'job-1', 'cancel'])
     )
 
-    expect(buildCollectionScopeFromRequest).toHaveBeenCalledWith(session, { projectId: 'proj-1' })
+    expect(resolveConversationScope).toHaveBeenCalledWith(session, { projectId: 'proj-1', conversationId: undefined, kind: 'run' })
     expect(verifiedEnvelope()).toMatchObject({ projectId: 'proj-1' })
     expect(getEffectiveModelOverrides).not.toHaveBeenCalled()
   })
 
-  it('signs nothing as a conversation the scope builder did not find and authorize', async () => {
-    vi.mocked(buildCollectionScopeFromRequest).mockResolvedValue({
+  it('signs nothing as a conversation the context module did not find and authorize', async () => {
+    mockResolveConversationScope.mockResolvedValue(asScope({
       headerValue: 'scope',
       scope: ['oib_knowledge', 's_conv-new'],
       scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }],
@@ -644,35 +679,19 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
       projectCollectionName: undefined,
       conversationId: 'conv-new',
       verifiedConversationId: undefined,
-    })
+      restrictedCollections: [],
+    }))
 
     await GET(getRequest('https://grid.example/api/jobs/async/job/job-1?conversationId=conv-new'), streamParams(['job', 'job-1']))
 
     expect(verifiedEnvelope()?.conversationId).toBeNull()
   })
 
-  it('filters the run listing to the checked project and never forwards a client collection', async () => {
-    await GET(
-      getRequest('https://grid.example/api/jobs/async/jobs?projectId=proj-1&project_collection=proj_other&status=running'),
-      streamParams(['jobs'])
-    )
+  it('lists no runs: the run ledger behind /api/projects/{projectId}/runs is the one list', async () => {
+    const res = await GET(getRequest('https://grid.example/api/jobs/async/jobs?projectId=proj-1'), streamParams(['jobs']))
 
-    const upstream = new URL(String(fetchSpy.mock.calls[0][0]))
-    expect(upstream.pathname).toBe('/v1/jobs/async/jobs')
-    expect(upstream.searchParams.get('project_collection')).toBe('proj_abc')
-    expect(upstream.searchParams.get('status')).toBe('running')
-    expect(upstream.searchParams.has('projectId')).toBe(false)
-    expect(verifiedEnvelope()).toMatchObject({ projectId: 'proj-1' })
-  })
-
-  it('forwards no project filter when the listing names no project', async () => {
-    await GET(
-      getRequest('https://grid.example/api/jobs/async/jobs?project_collection=proj_other'),
-      streamParams(['jobs'])
-    )
-
-    const upstream = new URL(String(fetchSpy.mock.calls[0][0]))
-    expect(upstream.searchParams.has('project_collection')).toBe(false)
+    expect(res.status).toBe(404)
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
 

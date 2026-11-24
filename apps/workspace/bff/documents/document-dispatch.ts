@@ -29,6 +29,7 @@ export interface UploadDocumentInput {
   documentType?: DocumentTypeTag
   mailThread?: MailThreadIngestFacts
   mailOrigin?: MailOriginIngestFacts
+  originConversationId?: string | null
 }
 
 export type { UploadDocumentResult }

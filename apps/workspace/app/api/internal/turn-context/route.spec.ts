@@ -19,9 +19,16 @@ vi.mock('@/lib/projects/proposal-decisions', async (original) => ({
 vi.mock('@/lib/documents/review-decisions', () => ({ buildReviewDecisionsBlock: vi.fn() }))
 vi.mock('@/lib/conversations/cross-project-use', () => ({
   drewOnOtherProjects: vi.fn(async () => false),
+}))
+vi.mock('@/lib/conversation-context/types', async (original) => ({
+  ...(await original<typeof import('@/lib/conversation-context/types')>()),
   isSoloAudience: vi.fn(() => true),
 }))
-vi.mock('@/lib/conversations/restricted-use-repository', () => ({ readConversationAudience: vi.fn(async () => ({})) }))
+vi.mock('@/lib/conversations/restricted-use-repository', () => ({
+  readConversationAudience: vi.fn(async () => ({})),
+  markAnswerRestrictedUse: vi.fn(async () => undefined),
+}))
+vi.mock('@/lib/conversation-context/record', () => ({ recordDecidedAnswer: vi.fn(async () => true) }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/inbox/repository', () => ({ EVERY_INBOX_TYPE: 'every-type', countPendingInboxItems: vi.fn(async () => 3) }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn() }))
@@ -37,7 +44,7 @@ const { UNAVAILABLE } = vi.hoisted(() => ({
   } as const,
 }))
 vi.mock('@/lib/base-knowledge/context/service', () => ({ knowledgeContextForTurn: vi.fn(async () => structuredClone(UNAVAILABLE)) }))
-vi.mock('@/lib/bim/model-kinds-repository', () => ({ projectModelKinds: vi.fn(async () => ({ ifc: true, dxf: false })) }))
+vi.mock('@/lib/bim/model-kinds-repository', () => ({ projectModelKinds: vi.fn(async () => ({ ifc: true, dxf: false, pdf: true })) }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
   ...(await original<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
@@ -60,8 +67,12 @@ import { buildPersonalMemoryDigest } from '@/lib/personal-memory/service'
 import { isTemporaryConversation } from '@/lib/conversations/temporary'
 import { buildProposalDecisionsBlock } from '@/lib/projects/proposal-decisions'
 import { buildReviewDecisionsBlock } from '@/lib/documents/review-decisions'
-import { drewOnOtherProjects, isSoloAudience } from '@/lib/conversations/cross-project-use'
-import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
+import { drewOnOtherProjects } from '@/lib/conversations/cross-project-use'
+import { isSoloAudience } from '@/lib/conversation-context/types'
+import { closedContext } from '@/lib/conversation-context/context.fixtures'
+import { decisionOf, signDecision, TURN_DECISION_HEADER, TURN_DECISION_SIGNATURE_HEADER } from '@/lib/conversation-context/wire'
+import { markAnswerRestrictedUse, readConversationAudience } from '@/lib/conversations/restricted-use-repository'
+import { recordDecidedAnswer } from '@/lib/conversation-context/record'
 import { countPendingInboxItems } from '@/lib/inbox/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { listConversationProposals } from '@/lib/proposals/repository'
@@ -208,7 +219,8 @@ describe('POST /api/internal/turn-context', () => {
       baseKnowledge: null,
       baseKnowledgeLabels: [],
       knowledgeContext: UNAVAILABLE,
-      projectModels: { ifc: true, dxf: false },
+      // The project holds a PDF, and the session does not hold `drawing-measure`: it is not stated (ADR-0190).
+      projectModels: { ifc: true, dxf: false, pdf: false },
     })
     expect(Buffer.byteLength(data.projectContext)).toBeGreaterThan(6200)
     expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({
@@ -275,12 +287,116 @@ describe('POST /api/internal/turn-context', () => {
     warn.mockRestore()
   })
 
-  it('delivers personal memory on a turn without a conversation, asking for no audience', async () => {
+  it('narrows personal memory and the workspace line by the turn decision (ADR-0194)', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
+    const closed = closedContext('chat', 's_text-conversation')
+    const decision = signDecision(
+      decisionOf({ ...closed, audience: { ...closed.audience, solo: false, version: 4 }, may: { ...closed.may, workspaceRead: 'document+projectFacts' } }, { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()),
+      SECRET,
+    )
+
+    const { data } = await (
+      await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
+    ).json()
+
+    expect(data.personalMemory).toBeNull()
+    expect(data.workspace).toContain("shared (others read it, so a workspace read runs only on a document or a project's facts")
+  })
+
+  it('withholds personal memory once the chat was shared after the turn was decided solo', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
+    vi.mocked(isSoloAudience).mockReturnValue(false)
+    const closed = closedContext('chat', 's_text-conversation')
+    const decision = signDecision(
+      decisionOf(
+        { ...closed, audience: { ...closed.audience, solo: true, version: 1 }, may: { ...closed.may, personalMemory: true, workspaceRead: 'all' } },
+        { organizationId: 'org_1', userId: 'user_1' },
+        null,
+        Date.now(),
+      ),
+      SECRET,
+    )
+
+    const { data } = await (
+      await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
+    ).json()
+
+    expect(data.personalMemory).toBeNull()
+    expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
+    expect(data.workspace).toContain('shared (others read it')
+  })
+
+  it('writes the answer’s record and its restricted-use mark beside the prompt blocks, off the decision’s path', async () => {
+    const answerId = '5a5a5a5a-0000-4000-8000-000000000001'
+    const closed = closedContext('chat', 's_text-conversation')
+    const body = decisionOf(closed, { organizationId: 'org_1', userId: 'user_1' }, answerId, Date.now())
+    const decision = signDecision(body, SECRET)
+
+    const response = await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
+
+    expect(response.status).toBe(200)
+    expect(recordDecidedAnswer).toHaveBeenCalledWith(body, 'proj_1')
+    expect(markAnswerRestrictedUse).toHaveBeenCalledWith(expect.anything(), 'org_1', 's_text-conversation', answerId)
+    expect(response.headers.get('Server-Timing')).toContain('answer-record')
+  })
+
+  it('refuses a turn decision that is not signed by the BFF', async () => {
+    const closed = closedContext('chat', 's_text-conversation')
+    const decision = signDecision(decisionOf({ ...closed, may: { ...closed.may, personalMemory: true } }, { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()), 'forged')
+
+    const response = await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
+
+    expect(response.status).toBe(401)
+    expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['another asker', { organizationId: 'org_1', userId: 'user_2' }],
+    ['another organisation', { organizationId: 'org_2', userId: 'user_1' }],
+  ])('closes a turn whose decision was made for %s, and gives it no project block', async (_, asker) => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
+    vi.mocked(loadReferenceBrief).mockResolvedValue('- Wohnbau Graz (id p1): 2019, GK 4')
+    const closed = closedContext('chat', 's_text-conversation')
+    const decision = signDecision(
+      decisionOf({ ...closed, may: { ...closed.may, personalMemory: true, workspaceRead: 'all' } }, asker, null, Date.now()),
+      SECRET,
+    )
+
+    const { data } = await (
+      await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
+    ).json()
+
+    expect(data.personalMemory).toBeNull()
+    expect(data.workspace).toContain('no workspace read runs here')
+    expect(data.projectContext).toBeNull()
+    expect(loadProjectPromptView).not.toHaveBeenCalled()
+    expect(buildProjectMemoryDigest).toHaveBeenCalledWith(undefined, 'org_1', expect.anything())
+    expect(buildReviewDecisionsBlock).not.toHaveBeenCalled()
+    expect(loadReferenceBrief).not.toHaveBeenCalled()
+    expect(data.projectMemory ?? '').not.toContain('Review decisions')
+    expect(data.referenceProjects).toBeNull()
+  })
+
+  it('closes a turn whose decision names another conversation', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
+    const other = closedContext('chat', 's_other')
+    const decision = signDecision(decisionOf({ ...other, may: { ...other.may, personalMemory: true, workspaceRead: 'all' } }, { organizationId: 'org_1', userId: 'user_1' }, null, Date.now()), SECRET)
+
+    const { data } = await (
+      await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
+    ).json()
+
+    expect(data.personalMemory).toBeNull()
+    expect(data.workspace).toContain('no workspace read runs here')
+  })
+
+  it('withholds personal memory from a turn without a conversation, asking for no audience (ADR-0194)', async () => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
 
     const { data } = await (await call({}, signedHeaders({ conversationId: null }))).json()
 
-    expect(data.personalMemory).toContain('Leads the fire-safety reviews.')
+    expect(data.personalMemory).toBeNull()
+    expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
     expect(readConversationAudience).not.toHaveBeenCalled()
   })
 
@@ -344,7 +460,7 @@ describe('POST /api/internal/turn-context', () => {
     const response = await call()
     expect(response.status).toBe(200)
     const { data } = await response.json()
-    expect(data.workspace).toContain('shared (others read it, so no workspace read runs here')
+    expect(data.workspace).toContain("shared (others read it, so a workspace read runs only on a document or a project's facts")
     expect(data.workspace).not.toContain('inbox:')
   })
 

@@ -100,6 +100,7 @@ import { admitOrDiscard, admitReplacementOrDiscard } from '@/lib/storage/admissi
 import { ConflictError } from '@/lib/api/errors'
 import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import { requireResourceAccess } from '@/lib/sharing/access'
+import { createConversation } from '@/lib/conversations/service'
 import { deleteDocumentObjects } from '@/lib/documents/object-cleanup'
 import { purgeCollectionChunks } from './cleanup'
 import {
@@ -144,6 +145,12 @@ beforeEach(() => {
 describe('uploadSessionDocument, a file already attached under that name', () => {
   beforeEach(() => {
     vi.mocked(findLiveDocumentByFilename).mockResolvedValue(existing)
+  })
+
+  it('starts the chat in Persönlich when the upload comes before its create and it has no project', async () => {
+    await uploadSessionDocument(session, { conversationId: CONVERSATION_ID, file: file() }, new Request('http://x'))
+
+    expect(createConversation).toHaveBeenCalledWith(session, { id: CONVERSATION_ID, projectId: null, personal: true })
   })
 
   it('probes the conversation\'s own collection, not the project\'s', async () => {

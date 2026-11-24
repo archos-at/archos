@@ -5,6 +5,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
+const featureHeld = vi.hoisted(() => vi.fn(() => true))
+vi.mock('@/lib/authz/feature-flags', async (original) => ({
+  ...(await original<typeof import('@/lib/authz/feature-flags')>()),
+  isFeatureEnabled: featureHeld,
+}))
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
@@ -281,6 +286,17 @@ describe('proposeOperation', () => {
     expect(insertProposedChange).not.toHaveBeenCalled()
   })
 
+  it('files nothing for an operation behind a feature the organization does not hold', async () => {
+    const gated = { ...FOLDER_RENAME, feature: 'drawing-measure' as const }
+    featureHeld.mockReturnValue(false)
+    await expect(propose(gated)).rejects.toMatchObject({ status: 403, code: 'feature_disabled' })
+    expect(insertProposedChange).not.toHaveBeenCalled()
+
+    featureHeld.mockReturnValue(true)
+    await expect(propose(gated)).resolves.toMatchObject({ proposalId: expect.any(String) })
+    expect(featureHeld).toHaveBeenLastCalledWith(ASKER, 'drawing-measure')
+  })
+
   it('files the same call once while the first proposal is open, and again once it is decided', async () => {
     const first = await propose()
     const again = await propose()
@@ -309,6 +325,26 @@ describe('proposeOperation', () => {
     const afterDecision = await propose()
     expect(afterDecision.proposalId).not.toBe(first.proposalId)
     expect(insertProposedChange).toHaveBeenCalledTimes(4)
+  })
+
+  it('stores a diagram filing with the turn’s conversation, so the filing guard runs on apply (ADR-0193)', async () => {
+    const diagramFile: AgentOperation = {
+      ...FOLDER_RENAME,
+      name: 'diagram-file',
+      summary: 'File a drawn diagram into a project',
+      method: 'POST',
+      path: '/api/projects/[id]/diagrams',
+      params: z.object({ id: z.string() }),
+      body: z.object({ title: z.string(), conversationId: z.string().optional() }),
+    }
+    catalog = [...CATALOG, diagramFile]
+    const { proposalId } = await proposeOperation({
+      principal: { session: ASKER, conversationId: 'conv_1', projectId: PROJECT },
+      op: diagramFile,
+      input: { params: { id: PROJECT }, body: { title: 'Schnitt', conversationId: 'conv_elsewhere' } },
+    })
+
+    expect((store.get(proposalId)?.payload as { input: { body: unknown } }).input.body).toEqual({ title: 'Schnitt', conversationId: 'conv_1' })
   })
 
   it('keeps the turn’s answer as the proposal’s origin message (x-grid-answer-message-id)', async () => {

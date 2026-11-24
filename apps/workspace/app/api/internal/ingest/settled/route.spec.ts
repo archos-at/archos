@@ -13,6 +13,7 @@ vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/db/tenant-context', async (original) => ({
   ...(await original<typeof import('@/lib/db/tenant-context')>()),
   withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
+  withSystemReader: vi.fn(async (_organizationId: string, _reader: string, run: () => Promise<unknown>) => run()),
   withPlatformAccess: vi.fn(async (_reason: string, run: () => Promise<unknown>) => run()),
 }))
 vi.mock('@/lib/documents/repository', async (original) => ({
@@ -30,7 +31,7 @@ vi.mock('@/lib/documents/shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 vi.mock('@/lib/search/facets-projector', () => ({ projectReadings: vi.fn().mockResolvedValue(0) }))
 vi.mock('@/lib/search/facets-repository', () => ({ listCollectionDocumentsForProjection: vi.fn().mockResolvedValue([]) }))
 
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { clearCollectionFilesCache } from '@/lib/documents/reconcile-status'
 import { listSettleableDocumentsForIngestJobs, setDocumentReconciledStatus } from '@/lib/documents/repository'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
@@ -144,8 +145,8 @@ describe('POST /api/internal/ingest/settled', () => {
 
     expect(response.status).toBe(202)
     expect(await response.json()).toEqual({ settled: 2 })
-    expect(vi.mocked(withTenant).mock.calls.map(([scope]) => scope)).toEqual(
-      expect.arrayContaining([{ organizationId: 'org-1' }, { organizationId: 'org-2' }])
+    expect(vi.mocked(withSystemReader).mock.calls.map(([organizationId, reader]) => [organizationId, reader])).toEqual(
+      expect.arrayContaining([['org-1', 'ingestion'], ['org-2', 'ingestion']])
     )
     const events = settledEvents()
     expect(events.map((sent) => [sent.organizationId, sent.properties.document_id])).toEqual([

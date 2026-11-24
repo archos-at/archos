@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 import { AnnotationRequestError, replyToAnnotation, updateAnnotation } from '@/lib/annotations/client'
-import type { MarkMention } from '@/lib/annotations/types'
+import type { AnnotationView, MarkMention } from '@/lib/annotations/types'
 import type { InboxItemView } from '@/lib/inbox/types'
 import { isAgentMentionId } from '@/lib/mentions/types'
 import type { ComposerSend } from '@/features/documents/review-links'
@@ -17,6 +17,35 @@ export interface InboxMarkClient {
 export const MARK_CLIENT: InboxMarkClient = { reply: replyToAnnotation, update: updateAnnotation }
 
 export type MarkOutcome = 'sent' | 'sentAgentNotAsked' | 'resolved' | 'conflict' | 'failed'
+
+export interface MarkReplySent {
+  annotation: AnnotationView
+  kept: readonly MarkMention[]
+  untold: string[]
+  wake: string | undefined
+}
+
+export async function replyOnMark(
+  markClient: InboxMarkClient,
+  documentId: string,
+  markId: string,
+  body: string,
+  { piloti: asksAgent, mentions }: ComposerSend,
+): Promise<MarkReplySent> {
+  const { annotation, replyId, wake } = await markClient.reply(documentId, markId, {
+    body: body.trim(),
+    ...(asksAgent ? { addressesPiloti: true } : {}),
+    ...(mentions.length > 0 ? { mentions } : {}),
+  })
+  const kept = annotation.replies.find((reply) => reply.id === replyId)?.mentions ?? []
+  const keptIds = new Set(kept.map((mention) => mention.targetId))
+  const untold = mentions.filter((mention) => !isAgentMentionId(mention.targetId) && !keptIds.has(mention.targetId)).map((mention) => mention.display)
+  return { annotation, kept, untold, wake }
+}
+
+export function wakesAgent(item: InboxItemView): boolean {
+  return item.pilotiWakes === true
+}
 
 export interface UseMarkAnswerOptions {
   item: InboxItemView
@@ -37,27 +66,17 @@ export function useMarkAnswer({ item, markRow, markClient = MARK_CLIENT, onOpen 
   const [markOutcome, setMarkOutcome] = useState<MarkOutcome | null>(null)
   const [untold, setUntold] = useState<string[]>([])
 
-  const sendReply = async (body: string, { piloti, mentions }: ComposerSend): Promise<readonly MarkMention[] | void> => {
+  const sendReply = async (body: string, send: ComposerSend): Promise<readonly MarkMention[] | void> => {
     if (!answerHere || !item.anchorId) return
     setMarkBusy(true)
     setMarkOutcome(null)
     try {
-      const { annotation, replyId, wake } = await markClient.reply(item.resourceId, item.anchorId, {
-        body: body.trim(),
-        ...(piloti ? { addressesPiloti: true } : {}),
-        ...(mentions.length > 0 ? { mentions } : {}),
-      })
-      const kept = annotation.replies.find((reply) => reply.id === replyId)?.mentions ?? []
-      const keptIds = new Set(kept.map((mention) => mention.targetId))
-      setUntold(
-        mentions
-          .filter((mention) => !isAgentMentionId(mention.targetId) && !keptIds.has(mention.targetId))
-          .map((mention) => mention.display),
-      )
+      const sent = await replyOnMark(markClient, item.resourceId, item.anchorId, body, send)
+      setUntold(sent.untold)
       setReplying(false)
-      setMarkOutcome(wake === 'off' ? 'sentAgentNotAsked' : 'sent')
+      setMarkOutcome(sent.wake === 'off' ? 'sentAgentNotAsked' : 'sent')
       onOpen?.(item)
-      return kept
+      return sent.kept
     } finally {
       setMarkBusy(false)
     }

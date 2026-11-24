@@ -1,13 +1,16 @@
 import { findProjectCollectionName } from '@/lib/projects/repository'
-import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { findConversationTenancy } from '@/lib/conversations/repository'
 import { requireResourceAccess } from '@/lib/sharing/access'
-import { restrictedCollectionsForChatScope } from '@/lib/conversations/restricted-use'
+import { readableRestrictedCollections } from '@/lib/conversations/restricted-use'
+import { readConversationRow } from '@/lib/conversation-context/audience'
+import type { ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
 import { getProjectFolderAccess } from '@/lib/authz/folder-access'
+import { ForbiddenError, isAuthzRefusal } from '@/lib/api/errors'
 import {
   computeCollectionScope,
+  encodeCollectionScopeHeader,
   sessionCollectionName,
   type CollectionShelf,
   resolveBaseCollectionName,
@@ -23,64 +26,57 @@ export interface RequestContext {
   includeProject?: boolean
   conversationId?: string
   interactiveChat?: boolean
+  audience?: ConversationAudienceRow
 }
 
 export type { CollectionShelf, ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 
-export function encodeCollectionScopeHeader(collections: ScopedCollection[]): string {
-  return Buffer.from(JSON.stringify(collections)).toString('base64url')
-}
+export { encodeCollectionScopeHeader } from '@/lib/retrieval-scope/collection-scope'
 
 function isAuthRequired(): boolean {
   return process.env.REQUIRE_AUTH?.toLowerCase() === 'true'
-}
-
-export async function resolveActiveProjectId(
-  session: UserSession | null,
-  explicitProjectId?: string
-): Promise<string | undefined> {
-  if (explicitProjectId) {
-    return explicitProjectId
-  }
-
-  if (!session) {
-    return undefined
-  }
-
-  const prefs = await findUserPreferencesForSession(session.userId, session.organizationId)
-
-  if (prefs && typeof prefs === 'object') {
-    const activeId = prefs.active_project_id
-    if (typeof activeId === 'string' && activeId) {
-      return activeId
-    }
-  }
-
-  return undefined
 }
 
 export async function authorizeConversationScope(
   session: AuthorizedSession,
   conversationId: string
 ): Promise<boolean> {
+  return (await readConversationProject(session, conversationId)) !== NO_ROW
+}
+
+const NO_ROW = Symbol('no conversation row')
+
+async function readConversationProject(
+  session: AuthorizedSession,
+  conversationId: string
+): Promise<string | null | typeof NO_ROW> {
   const tenancy = await findConversationTenancy(conversationId)
-  if (!tenancy) return false
+  if (!tenancy) return NO_ROW
   await requireResourceAccess(session, 'conversation', conversationId, 'viewer')
-  return true
+  return tenancy.projectId
+}
+
+export class ConversationProjectMismatchError extends ForbiddenError {
+  constructor() {
+    super('This chat belongs to another project than the request names.')
+    this.name = 'ConversationProjectMismatchError'
+  }
 }
 
 async function resolveRestrictedCollections(
   session: AuthorizedSession,
   projectId: string,
   projectCollection: string,
-  conversationId: string | undefined
+  conversationId: string | undefined,
+  known: ConversationAudienceRow | undefined
 ): Promise<string[]> {
   if (!conversationId) return []
   const access = await getProjectFolderAccess(session, projectId, projectCollection)
   if (access.clearedRestrictedCollections.length === 0) return []
-  return restrictedCollectionsForChatScope(
-    session,
-    conversationId,
+  const audience = known ?? (await readConversationRow(session.organizationId, conversationId))
+  return readableRestrictedCollections(
+    { organizationId: session.organizationId, userId: session.userId, session },
+    audience,
     { projectId, projectCollection },
     access.clearedRestrictedCollections
   )
@@ -108,45 +104,34 @@ export async function buildCollectionScopeFromRequest(
   projectCollectionName: string | undefined
   conversationId: string | undefined
   verifiedConversationId: string | undefined
+  restrictedCollections: string[]
   projectReadOnly?: boolean
 }> {
   const anonymous = !isAuthRequired()
 
   const includeProject = context.includeProject !== false
 
-  let projectId = includeProject ? context.projectId : undefined
-  const explicitProject = Boolean(projectId)
-  if (includeProject && !projectId && session && !anonymous) {
-    projectId = await resolveActiveProjectId(session, undefined)
-  }
-
   const conversationId = context.conversationId
-
-  const conversationVerified =
+  const rowProject =
     conversationId && session && !anonymous
-      ? await authorizeConversationScope(session as AuthorizedSession, conversationId)
-      : false
+      ? await readConversationProject(session as AuthorizedSession, conversationId)
+      : NO_ROW
+  const conversationVerified = rowProject !== NO_ROW
+
+  if (conversationVerified && context.projectId && context.projectId !== rowProject) {
+    throw new ConversationProjectMismatchError()
+  }
+  const namedProject = conversationVerified ? (rowProject ?? undefined) : context.projectId
+  let projectId = includeProject ? namedProject : undefined
 
   let projectReadOnly = false
   if (projectId && session && !anonymous) {
-    if (explicitProject) {
-      const access = await requireProjectAccess(
-        session as AuthorizedSession,
-        projectId,
-        CHAT_PERMISSIONS
-      )
+    try {
+      const access = await requireProjectAccess(session as AuthorizedSession, projectId, CHAT_PERMISSIONS)
       projectReadOnly = access.readsBecauseClosed
-    } else {
-      try {
-        const access = await requireProjectAccess(
-          session as AuthorizedSession,
-          projectId,
-          CHAT_PERMISSIONS
-        )
-        projectReadOnly = access.readsBecauseClosed
-      } catch {
-        projectId = undefined
-      }
+    } catch (error) {
+      if (context.projectId || !isAuthzRefusal(error)) throw error
+      projectId = undefined
     }
   }
 
@@ -169,7 +154,8 @@ export async function buildCollectionScopeFromRequest(
           session as AuthorizedSession,
           projectId,
           projectCollectionName,
-          conversationId
+          conversationId,
+          context.audience
         )
       : []
 
@@ -211,6 +197,7 @@ export async function buildCollectionScopeFromRequest(
     projectCollectionName,
     conversationId,
     verifiedConversationId: conversationVerified ? conversationId : undefined,
+    restrictedCollections,
     projectReadOnly: Boolean(projectId) && projectReadOnly,
   }
 }

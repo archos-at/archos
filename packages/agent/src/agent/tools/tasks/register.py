@@ -131,8 +131,8 @@ class CreateTaskConfig(FunctionBaseConfig, name="create_task"): ...
 
 
 async def _create(kind: str, goal: str, due: str, cadence: str) -> str:
-    project_id = _project_or_refuse()
     envelope = _envelope()
+    project_id = _project_or_refuse()
     chosen_kind = _kind_or_refuse(kind)
     chosen_goal = _goal_or_refuse(goal)
 

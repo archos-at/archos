@@ -1,5 +1,4 @@
 import 'server-only'
-import { ConflictError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import {
   ANY_MEMBER,
@@ -7,7 +6,6 @@ import {
   clearanceOf,
   clearanceOfMember,
   computeFolderAccess,
-  customFolderNames,
   effectiveFolderLevel,
   EVERY_FOLDER,
   folderTree,
@@ -20,10 +18,10 @@ import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { getDb } from '@/lib/db'
-import type { DbExecutor } from '@/lib/db/executor'
+import { personalShelfUsed } from './personal-shelf-use'
 import { findProjectCollectionName } from '@/lib/projects/repository'
-import { loadOrganizationDirectory } from '@/lib/sharing/directory'
-import { SHARING_ERROR_REASONS } from '@/lib/sharing/types'
+import { readConversationRow } from '@/lib/conversation-context/audience'
+import { recordAnswerReads } from '@/lib/conversation-context/record'
 import {
   listRecordedSourceFolders,
   listRecordedSourceFoldersFor,
@@ -70,7 +68,7 @@ export interface ProjectRef {
   projectCollection: string
 }
 
-async function projectOf(
+export async function projectOf(
   organizationId: string,
   audience: ConversationAudienceRow,
   statedProjectId: string | null
@@ -85,12 +83,12 @@ async function treeOf(organizationId: string, project: ProjectRef): Promise<Fold
   return folderTree(await listProjectFolderTree(organizationId, project.projectId))
 }
 
-interface RecordView {
+export interface RecordView {
   tree: FolderTree
   ownerOf: ReadonlyMap<string, string>
 }
 
-async function recordView(
+export async function recordView(
   organizationId: string,
   projectId: string | null,
   folderIds: readonly string[]
@@ -112,11 +110,11 @@ async function recordView(
   return { tree: merged, ownerOf }
 }
 
-function ownersOf(view: RecordView, folderIds: readonly string[]): string[] {
+export function ownersOf(view: RecordView, folderIds: readonly string[]): string[] {
   return [...new Set(folderIds.map((folderId) => view.ownerOf.get(folderId)).filter((owner): owner is string => !!owner))]
 }
 
-function mayReadEvery(
+export function mayReadEvery(
   view: RecordView,
   clearanceIn: (projectId: string) => FolderClearance | undefined,
   folderIds: readonly string[]
@@ -153,7 +151,7 @@ async function peopleWhoMayOpen(
   return opening
 }
 
-async function sessionMayOpenAll(
+export async function sessionMayOpenAll(
   session: AuthorizedSession,
   projectIds: readonly string[],
   known: Map<string, boolean>
@@ -191,14 +189,39 @@ async function clearancesOf(
   return clearances
 }
 
-function stillRestricting(tree: FolderTree, recorded: readonly string[]): string[] {
+export function stillRestricting(tree: FolderTree, recorded: readonly string[]): string[] {
   return recorded.filter((folderId) => !readableByEveryMember(tree, folderId))
+}
+
+export interface ConversationRecord {
+  folders: string[]
+  otherProjects: string[]
+  personalShelf: boolean
+}
+
+export async function conversationRecord(
+  organizationId: string,
+  conversationId: string,
+  projectId: string | null
+): Promise<ConversationRecord> {
+  const [recorded, projects, personalShelf] = await Promise.all([
+    listRecordedSourceFolders(getDb(), organizationId, conversationId),
+    listRestrictingSourceProjects(getDb(), organizationId, conversationId),
+    personalShelfUsed(organizationId, conversationId),
+  ])
+  if (recorded.length === 0) return { folders: [], otherProjects: projects, personalShelf }
+  const view = await recordView(organizationId, projectId, recorded)
+  const folders = stillRestricting(view.tree, recorded)
+  const foreign = folders
+    .filter((folderId) => view.ownerOf.get(folderId) !== projectId)
+    .map((folderId) => view.ownerOf.get(folderId) ?? folderId)
+  return { folders, otherProjects: [...new Set([...projects, ...foreign])], personalShelf }
 }
 
 export async function recordedRestrictedFolders(conversationId: string, organizationId: string): Promise<string[]> {
   const recorded = await listRecordedSourceFolders(getDb(), organizationId, conversationId)
   if (recorded.length === 0) return []
-  const audience = await readConversationAudience(getDb(), organizationId, conversationId)
+  const audience = await readConversationRow(organizationId, conversationId)
   return stillRestricting((await recordView(organizationId, audience.projectId, recorded)).tree, recorded)
 }
 
@@ -208,18 +231,13 @@ export async function recordedForeignRestrictedFolders(
 ): Promise<Map<string, string | null>> {
   const recorded = await listRecordedSourceFolders(getDb(), organizationId, conversationId)
   if (recorded.length === 0) return new Map()
-  const audience = await readConversationAudience(getDb(), organizationId, conversationId)
+  const audience = await readConversationRow(organizationId, conversationId)
   const view = await recordView(organizationId, audience.projectId, recorded)
   return new Map(
     stillRestricting(view.tree, recorded)
       .filter((folderId) => view.ownerOf.get(folderId) !== audience.projectId)
       .map((folderId) => [folderId, view.ownerOf.get(folderId) ?? null])
   )
-}
-
-export async function markTurnAnswer(request: RestrictedUseRequest): Promise<void> {
-  if (!request.answerMessageId) return
-  await markAnswerRestrictedUse(getDb(), request.organizationId, request.conversationId, request.answerMessageId)
 }
 
 export async function recordedSourceProjects(conversationId: string, organizationId: string): Promise<string[]> {
@@ -240,7 +258,7 @@ export async function peopleWhoMayRead(
     listRestrictingSourceProjects(getDb(), organizationId, conversationId),
   ])
   if (recorded.length === 0 && projects.length === 0) return new Set(userIds)
-  const audience = await readConversationAudience(getDb(), organizationId, conversationId)
+  const audience = await readConversationRow(organizationId, conversationId)
   const view = await recordView(organizationId, audience.projectId, recorded)
   const restricting = stillRestricting(view.tree, recorded)
   if (restricting.length === 0 && projects.length === 0) return new Set(userIds)
@@ -260,6 +278,31 @@ export async function peopleWhoMayRead(
         mayReadEvery(view, (owner) => clearancesByProject.get(owner)?.get(person), restricting)
     )
   )
+}
+
+export interface UnreadableSources {
+  folders: Set<string>
+  projects: Set<string>
+}
+
+export async function unreadableSourcesOf(session: AuthorizedSession, conversationId: string): Promise<UnreadableSources> {
+  const { organizationId } = session
+  const [recorded, projects, audience] = await Promise.all([
+    listRecordedSourceFolders(getDb(), organizationId, conversationId),
+    listRestrictingSourceProjects(getDb(), organizationId, conversationId),
+    readConversationRow(organizationId, conversationId),
+  ])
+  const opens = new Map<string, boolean>()
+  const closedProjects = new Set<string>()
+  for (const projectId of projects) {
+    if (!(await sessionMayOpenAll(session, [projectId], opens))) closedProjects.add(projectId)
+  }
+  const view = await recordView(organizationId, audience.projectId, recorded)
+  const restricting = stillRestricting(view.tree, recorded)
+  const clearances = new Map<string, FolderClearance>()
+  for (const owner of ownersOf(view, restricting)) clearances.set(owner, await clearanceOf(session, owner))
+  const closedFolders = restricting.filter((folderId) => !mayReadEvery(view, (owner) => clearances.get(owner), [folderId]))
+  return { folders: new Set(closedFolders), projects: closedProjects }
 }
 
 export interface ListedConversationRef {
@@ -328,42 +371,48 @@ function sourceFolders(tree: FolderTree, project: ProjectRef, collections: reado
   return found
 }
 
+export interface RestrictedReader {
+  organizationId: string
+  userId: string
+  session?: AuthorizedSession
+}
+
+export async function readableRestrictedCollections(
+  reader: RestrictedReader,
+  audience: ConversationAudienceRow,
+  project: ProjectRef | null,
+  candidates: readonly string[]
+): Promise<string[]> {
+  if (candidates.length === 0 || !project) return []
+  if (audience.exists && audience.projectId !== project.projectId) return []
+  const tree = await treeOf(reader.organizationId, project)
+  const folders = sourceFolders(tree, project, candidates)
+  const people = audiencePeople(audience, reader.userId)
+  const known = reader.session
+    ? new Map([[reader.userId, await clearanceOf(reader.session, project.projectId)]])
+    : new Map<string, FolderClearance>()
+  const clearances = await clearancesOf(reader.organizationId, project.projectId, people, known)
+  const readable = new Set(foldersEveryoneMayRead(tree, [...folders.values()], audience, people, clearances))
+  return candidates.filter((collection) => readable.has(folders.get(collection) ?? ''))
+}
+
+export async function sourceFoldersOf(
+  organizationId: string,
+  project: ProjectRef,
+  collections: readonly string[]
+): Promise<string[]> {
+  if (collections.length === 0) return []
+  return [...new Set(sourceFolders(await treeOf(organizationId, project), project, collections).values())]
+}
+
 export async function drawableRestrictedCollections(
   request: RestrictedUseRequest,
   candidates: readonly string[]
 ): Promise<string[]> {
   if (candidates.length === 0) return []
-  const audience = await readConversationAudience(getDb(), request.organizationId, request.conversationId)
-  const project = await projectOf(request.organizationId, audience, request.projectId)
-  if (!project) return []
-  const tree = await treeOf(request.organizationId, project)
-  const folders = sourceFolders(tree, project, candidates)
-  const people = audiencePeople(audience, request.userId)
-  const clearances = await clearancesOf(request.organizationId, project.projectId, people)
-  const readable = new Set(foldersEveryoneMayRead(tree, [...folders.values()], audience, people, clearances))
-  return candidates.filter((collection) => readable.has(folders.get(collection) ?? ''))
-}
-
-export async function restrictedCollectionsForChatScope(
-  session: AuthorizedSession,
-  conversationId: string,
-  project: ProjectRef,
-  sessionCleared: readonly string[]
-): Promise<string[]> {
-  if (sessionCleared.length === 0) return []
-  const audience = await readConversationAudience(getDb(), session.organizationId, conversationId)
-  if (audience.exists && audience.projectId !== project.projectId) return []
-  const tree = await treeOf(session.organizationId, project)
-  const folders = sourceFolders(tree, project, sessionCleared)
-  const people = audiencePeople(audience, session.userId)
-  const clearances = await clearancesOf(
-    session.organizationId,
-    project.projectId,
-    people,
-    new Map([[session.userId, await clearanceOf(session, project.projectId)]])
-  )
-  const readable = new Set(foldersEveryoneMayRead(tree, [...folders.values()], audience, people, clearances))
-  return sessionCleared.filter((collection) => readable.has(folders.get(collection) ?? ''))
+  const row = await readConversationRow(request.organizationId, request.conversationId)
+  const project = await projectOf(request.organizationId, row, request.projectId)
+  return readableRestrictedCollections(request, row, project, candidates)
 }
 
 export interface FolderAdmission {
@@ -375,7 +424,7 @@ export interface FolderAdmission {
 export async function admitSourceFolders(request: RestrictedUseRequest, folderIds: readonly string[]): Promise<FolderAdmission> {
   const { organizationId, conversationId } = request
   const asked = [...new Set(folderIds)].slice(0, ADMISSION_MAX_COLLECTIONS)
-  const before = await readConversationAudience(getDb(), organizationId, conversationId)
+  const before = await readConversationRow(organizationId, conversationId)
   const project = await projectOf(organizationId, before, request.projectId)
   const tree: FolderTree = project ? await treeOf(organizationId, project) : new Map()
   const open = asked.filter((folderId) => tree.has(folderId) && readableByEveryMember(tree, folderId))
@@ -391,6 +440,7 @@ export async function admitSourceFolders(request: RestrictedUseRequest, folderId
     await recordSourceFolders(tx, organizationId, conversationId, admitted)
     if (request.answerMessageId) {
       await markAnswerRestrictedUse(tx, organizationId, conversationId, request.answerMessageId)
+      await recordAnswerReads(tx, organizationId, conversationId, request.answerMessageId, { folders: admitted })
     }
     const recorded = await listRecordedSourceFolders(tx, organizationId, conversationId)
     const kept = new Set([...open, ...admitted])
@@ -413,7 +463,7 @@ export async function admitRestrictedUse(
   collections: readonly string[]
 ): Promise<AdmissionResult> {
   const asked = [...new Set(collections)].slice(0, ADMISSION_MAX_COLLECTIONS)
-  const audience = await readConversationAudience(getDb(), request.organizationId, request.conversationId)
+  const audience = await readConversationRow(request.organizationId, request.conversationId)
   const project = await projectOf(request.organizationId, audience, request.projectId)
   const folders = project ? sourceFolders(await treeOf(request.organizationId, project), project, asked) : new Map<string, string>()
   const admission = await admitSourceFolders(request, [...new Set(folders.values())])
@@ -423,175 +473,4 @@ export async function admitRestrictedUse(
     refused: asked.filter((collection) => !admitted.has(folders.get(collection) ?? '')),
     recorded: admission.recorded,
   }
-}
-
-export type AudienceWidening =
-  | { kind: 'person'; userId: string; self: boolean }
-  | { kind: 'visibility' }
-
-interface Uncovered {
-  folders: string[]
-  projects: string[]
-}
-
-function isCovered(missing: Uncovered): boolean {
-  return missing.folders.length === 0 && missing.projects.length === 0
-}
-
-async function wideningRefusal(
-  session: AuthorizedSession,
-  widening: AudienceWidening,
-  missing: Uncovered,
-  context: WideningContext
-): Promise<ConflictError> {
-  const crossProject = missing.projects.length > 0
-  if (widening.kind === 'visibility') {
-    return crossProject
-      ? new ConflictError(
-          'This conversation draws on another project and cannot be made visible to the whole project.',
-          { reason: SHARING_ERROR_REASONS.crossProjectContentProject }
-        )
-      : new ConflictError(
-          'This conversation draws on a folder with restricted access and cannot be made visible to the whole project.',
-          { reason: SHARING_ERROR_REASONS.restrictedContentProject }
-        )
-  }
-  if (widening.self) {
-    return crossProject
-      ? new ConflictError('You may not open every project this conversation draws on.', {
-          reason: SHARING_ERROR_REASONS.crossProjectContentSelf,
-        })
-      : new ConflictError('You may not read every restricted folder this conversation draws on.', {
-          reason: SHARING_ERROR_REASONS.restrictedContentSelf,
-        })
-  }
-  const directory = await loadOrganizationDirectory(session.organizationId)
-  const person = directory.get(widening.userId)?.name ?? null
-  if (crossProject) {
-    return new ConflictError('That person may not open every project this conversation draws on.', {
-      reason: SHARING_ERROR_REASONS.crossProjectContent,
-      ...(person ? { person } : {}),
-    })
-  }
-  const folders = context.project ? await folderNamesReadableBy(session, context, missing.folders) : []
-  return new ConflictError('That person may not read every restricted folder this conversation draws on.', {
-    reason: SHARING_ERROR_REASONS.restrictedContent,
-    ...(person ? { person } : {}),
-    ...(folders.length > 0 ? { folders } : {}),
-  })
-}
-
-async function folderNamesReadableBy(
-  session: AuthorizedSession,
-  context: WideningContext,
-  folderIds: readonly string[]
-): Promise<string[]> {
-  if (!context.project) return []
-  const names = await customFolderNames(session.organizationId, context.project.projectId)
-  const sharer = await clearanceOf(session, context.project.projectId)
-  return folderIds
-    .filter((folderId) => mayReadFolder(context.view.tree, sharer, folderId))
-    .map((folderId) => names.get(folderId))
-    .filter((name): name is string => Boolean(name))
-}
-
-function uncovered(
-  widening: AudienceWidening,
-  restricted: readonly string[],
-  projects: readonly string[],
-  context: WideningContext
-): Uncovered {
-  if (widening.kind === 'visibility') return { folders: [...restricted], projects: [...projects] }
-  const clearances = context.personClearances
-  return {
-    folders: restricted.filter(
-      (folderId) => !clearances || !mayReadEvery(context.view, (owner) => clearances.get(owner), [folderId])
-    ),
-    projects: projects.filter((projectId) => !context.personOpens.has(projectId)),
-  }
-}
-
-interface WideningContext {
-  project: ProjectRef | null
-  view: RecordView
-  personClearances: ReadonlyMap<string, FolderClearance> | null
-  personOpens: ReadonlySet<string>
-}
-
-async function wideningContext(
-  session: AuthorizedSession,
-  conversationId: string,
-  widening: AudienceWidening
-): Promise<WideningContext> {
-  const { organizationId } = session
-  const [audience, recorded, projects] = await Promise.all([
-    readConversationAudience(getDb(), organizationId, conversationId),
-    listRecordedSourceFolders(getDb(), organizationId, conversationId),
-    listRestrictingSourceProjects(getDb(), organizationId, conversationId),
-  ])
-  const project = await projectOf(organizationId, audience, null)
-  const view = await recordView(organizationId, audience.projectId, recorded)
-  if (widening.kind === 'visibility') return { project, view, personClearances: null, personOpens: new Set() }
-  const owners = ownersOf(view, stillRestricting(view.tree, recorded))
-  const clearanceIn = (owner: string) =>
-    widening.self ? clearanceOf(session, owner) : clearanceOfMember(organizationId, widening.userId, owner)
-  const [found, personOpens] = await Promise.all([
-    Promise.all(owners.map(clearanceIn)),
-    widening.self ? sessionOpens(session, projects) : peopleWhoMayOpenEach(organizationId, widening.userId, projects),
-  ])
-  const personClearances = new Map(owners.map((owner, index) => [owner, found[index]]))
-  return { project, view, personClearances, personOpens }
-}
-
-async function sessionOpens(session: AuthorizedSession, projectIds: readonly string[]): Promise<Set<string>> {
-  const opens = new Map<string, boolean>()
-  for (const projectId of projectIds) await sessionMayOpenAll(session, [projectId], opens)
-  return new Set(projectIds.filter((projectId) => opens.get(projectId) === true))
-}
-
-async function peopleWhoMayOpenEach(organizationId: string, userId: string, projectIds: readonly string[]): Promise<Set<string>> {
-  const verdicts = await Promise.all(
-    projectIds.map((projectId) => userHoldsProjectPermission({ organizationId }, projectId, userId, 'project:view'))
-  )
-  return new Set(projectIds.filter((_, index) => verdicts[index]))
-}
-
-function restrictedRecord(context: WideningContext, recorded: readonly string[]): string[] {
-  return stillRestricting(context.view.tree, recorded)
-}
-
-export async function assertMayWidenConversation(
-  session: AuthorizedSession,
-  conversationId: string,
-  widening: AudienceWidening
-): Promise<void> {
-  const { organizationId } = session
-  const context = await wideningContext(session, conversationId, widening)
-  const [recorded, projects] = await Promise.all([
-    listRecordedSourceFolders(getDb(), organizationId, conversationId),
-    listRestrictingSourceProjects(getDb(), organizationId, conversationId),
-  ])
-  const missing = uncovered(widening, restrictedRecord(context, recorded), projects, context)
-  if (!isCovered(missing)) throw await wideningRefusal(session, widening, missing, context)
-}
-
-export async function widenConversationAudience<T>(
-  session: AuthorizedSession,
-  conversationId: string,
-  widening: AudienceWidening,
-  write: (executor: DbExecutor) => Promise<T>
-): Promise<T> {
-  const { organizationId } = session
-  const context = await wideningContext(session, conversationId, widening)
-  const refusal: { missing: Uncovered } = { missing: { folders: [], projects: [] } }
-  const result = await getDb().transaction(async (tx) => {
-    await lockConversationAudience(tx, organizationId, conversationId)
-    const recorded = restrictedRecord(context, await listRecordedSourceFolders(tx, organizationId, conversationId))
-    const projects = await listRestrictingSourceProjects(tx, organizationId, conversationId)
-    refusal.missing = uncovered(widening, recorded, projects, context)
-    if (!isCovered(refusal.missing)) return null
-    return { value: await write(tx) }
-  })
-  if (result === null) throw await wideningRefusal(session, widening, refusal.missing, context)
-  return result.value
 }

@@ -37,7 +37,7 @@ describe('reconcileStalePending', () => {
     )
   })
 
-  it('reconciles each organization rows together, inside that organization', async () => {
+  it('reconciles each organization rows together, inside that organization, as the recovery reader that sees personal rows (ADR-0193)', async () => {
     vi.mocked(listStalePendingDocuments).mockResolvedValue([row('a', 'org_1'), row('b', 'org_2'), row('c', 'org_1')])
     const seen: Array<[unknown, string[]]> = []
     vi.mocked(reconcileDocumentStatuses).mockImplementation(async (rows) => {
@@ -48,8 +48,8 @@ describe('reconcileStalePending', () => {
     const result = await reconcileStalePending(NOW)
 
     expect(seen).toEqual([
-      [expect.objectContaining({ kind: 'tenant', organizationId: 'org_1' }), ['a', 'c']],
-      [expect.objectContaining({ kind: 'tenant', organizationId: 'org_2' }), ['b']],
+      [expect.objectContaining({ kind: 'tenant', organizationId: 'org_1', systemReader: 'ingestion-recovery' }), ['a', 'c']],
+      [expect.objectContaining({ kind: 'tenant', organizationId: 'org_2', systemReader: 'ingestion-recovery' }), ['b']],
     ])
     expect(result).toEqual({ checked: 3, organizations: 2, errors: 0 })
     expect(vi.mocked(reconcileDocumentStatuses).mock.calls.map((call) => call[2])).toEqual(['sweep', 'sweep'])

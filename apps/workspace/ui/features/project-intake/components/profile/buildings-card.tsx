@@ -41,7 +41,7 @@ export function BuildingsCard({ buildings, derivations, canDecide, busy, onChang
   return (
     <section
       aria-labelledby="profile-buildings-heading"
-      className="bg-card border-border rounded-[14px] border"
+      className="bg-card border-border rounded-[12px] border"
       data-testid="profile-buildings"
     >
       <header className="flex flex-col gap-3 px-4 pb-3 pt-4 md:flex-row md:items-start md:justify-between md:gap-6 md:px-[18px]">

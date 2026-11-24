@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { FIELD_FOCUS_RING } from '@/components/ui/focus-ring'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
+import { cn } from '@/lib/utils'
 import { DISCIPLINE_TAGS, DOCUMENT_TYPE_TAGS, MAX_TAGS, tagLabel } from '@/lib/documents/tag-vocabulary'
 
 const ALL_VOCABULARY_TAGS: readonly string[] = [...DOCUMENT_TYPE_TAGS, ...DISCIPLINE_TAGS]
@@ -163,7 +165,7 @@ export function DocumentTagsEditor({
               disabled={isSaving}
               placeholder={t('preview.addTagPlaceholder')}
               aria-label={t('preview.addTagLabel')}
-              className="border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-ring pointer-coarse:h-11 pointer-coarse:w-36 pointer-coarse:pl-8 pointer-coarse:text-base h-6 w-28 rounded-control border border-dashed bg-transparent pl-6 pr-1.5 text-xs focus-visible:border-solid focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
+              className={cn('border-input text-foreground placeholder:text-muted-foreground pointer-coarse:h-11 pointer-coarse:w-36 pointer-coarse:pl-8 pointer-coarse:text-base h-6 w-28 rounded-control border border-dashed bg-transparent pl-6 pr-1.5 text-xs focus-visible:border-solid disabled:opacity-50', FIELD_FOCUS_RING)}
             />
           </span>
         )}

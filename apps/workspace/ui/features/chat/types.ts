@@ -92,6 +92,7 @@ export interface ChatMessage {
   timestamp: Date
   messageType?: MessageType
   isStreaming?: boolean
+  unsent?: true
   promptId?: string
   promptParentId?: string
   promptInputType?: 'text' | 'choice'
@@ -153,13 +154,16 @@ export interface Conversation {
   projectId?: string | null
   jobId?: string | null
   title: string
+  titleProvisional?: true
   subjectResourceType?: 'document' | null
   subjectResourceId?: string | null
   messages: ChatMessage[]
   createdAt: Date
   updatedAt: Date
   contentLocked?: boolean
+  withheldFrom?: string
   temporary?: boolean
+  shared?: boolean
   enabledDataSourceIds?: string[]
 }
 

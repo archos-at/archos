@@ -105,6 +105,10 @@ export function useInputAreaController({
   })
 
   const currentConversationId = useChatStore((state) => state.currentConversation?.id)
+  const chatHasProject = useChatStore(
+    (state) => (state.currentConversation ? state.currentConversation.projectId : state.projectId) != null
+  )
+  const canMention = canCollaborate && chatHasProject
   const ensureSession = useChatStore((state) => state.ensureSession)
 
   const composerPrefill = useChatStore((state) => state.composerPrefill)
@@ -225,7 +229,7 @@ export function useInputAreaController({
   const typeAheadHintId = useId()
 
   const {
-    mentions,
+    mentions, sendableMentions,
     setMentions,
     mentionQuery,
     setMentionQuery,
@@ -237,7 +241,7 @@ export function useInputAreaController({
     mentionsLoading,
     syncMentionQuery,
     mentionPickerOpen,
-  } = useComposerMentions({ currentSessionId, canCollaborate, draftLocked })
+  } = useComposerMentions({ currentSessionId, canMention, draftLocked })
 
   useLayoutEffect(() => {
     if (FIELD_SIZING_CONTENT) return
@@ -294,7 +298,7 @@ export function useInputAreaController({
         name: composerSubject.title?.trim() || tFiles('assignment.thisFile'),
       })
     }
-    return placeholder ?? tChat('composer.placeholder')
+    return placeholder ?? tChat(chatHasProject ? 'composer.placeholder' : 'composer.placeholderPersonal')
   }
 
   const handleValueChange = useCallback(
@@ -328,7 +332,7 @@ export function useInputAreaController({
   )
 
   const handleMentionSomeone = useCallback(() => {
-    if (cannotContribute) return
+    if (cannotContribute || !canMention) return
     const el = textareaRef.current
     const base = message.length > 0 && !message.endsWith(' ') ? `${message} ` : message
     const next = `${base}@`
@@ -338,7 +342,7 @@ export function useInputAreaController({
       el?.focus()
       el?.setSelectionRange(next.length, next.length)
     })
-  }, [message, handleValueChange, cannotContribute])
+  }, [message, handleValueChange, cannotContribute, canMention])
 
   const syncMentionQueryFromElement = useCallback(
     (element: HTMLTextAreaElement) => {
@@ -371,6 +375,7 @@ export function useInputAreaController({
   )
   const pickReference = useCallback(
     (hit: DocumentHit) =>
+      hit.shelf !== 'personal' &&
       setComposerSubject({
         resourceType: 'document',
         resourceId: hit.id,
@@ -432,9 +437,9 @@ export function useInputAreaController({
         text: message,
         mentions,
         awaitingHuman: threadAwaitsHuman,
-        canCollaborate,
+        canCollaborate: canMention,
       }),
-    [message, mentions, threadAwaitsHuman, canCollaborate]
+    [message, mentions, threadAwaitsHuman, canMention]
   )
   const activeMentions = addressee.mentions
   const taggedHumans = addressee.humans
@@ -451,7 +456,7 @@ export function useInputAreaController({
     wsChat,
     message,
     setMessage,
-    mentions,
+    mentions: sendableMentions,
     setMentions,
     setMentionQuery,
     canCollaborate,
@@ -527,6 +532,7 @@ export function useInputAreaController({
 
   return {
     canCollaborate,
+    canMention,
     t,
     tChat,
     locale,

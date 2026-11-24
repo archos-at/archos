@@ -1,4 +1,5 @@
 import 'server-only'
+import { shelfFoldersOf, type SharedShelf } from '@/lib/documents/shelf'
 import { and, eq, isNull, notExists } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { getDb } from '@/lib/db'
@@ -6,7 +7,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { documents } from '@/lib/db/schema/documents'
 import { projectFolders } from '@/lib/db/schema/project-folders'
 
-export async function deleteEmptyCreatedFolder(organizationId: string, projectId: string, folderId: string): Promise<boolean> {
+export async function deleteEmptyCreatedFolder(organizationId: string, shelf: SharedShelf, folderId: string): Promise<boolean> {
   const db = getDb()
   const child = alias(projectFolders, 'child')
   const rows = await withTenant({ organizationId }, () =>
@@ -15,8 +16,7 @@ export async function deleteEmptyCreatedFolder(organizationId: string, projectId
       .where(
         and(
           eq(projectFolders.id, folderId),
-          eq(projectFolders.organizationId, organizationId),
-          eq(projectFolders.projectId, projectId),
+          shelfFoldersOf(shelf, organizationId),
           isNull(projectFolders.deletedAt),
           notExists(db.select({ id: documents.id }).from(documents).where(eq(documents.folderId, folderId))),
           notExists(db.select({ id: child.id }).from(child).where(eq(child.parentId, folderId)))

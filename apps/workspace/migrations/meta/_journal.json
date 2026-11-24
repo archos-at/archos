@@ -1807,6 +1807,83 @@
       "when": 1795601600000,
       "tag": "0257_unlisted_norms",
       "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1795601700000,
+      "tag": "0258_drawing_calibrations",
+      "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1795601800000,
+      "tag": "0259_annotation_measure_shapes",
+      "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1795601900000,
+      "tag": "0260_drawing_calibration_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 261,
+      "version": "7",
+      "when": 1795602000000,
+      "tag": "0261_conversation_audience_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 262,
+      "version": "7",
+      "when": 1795602100000,
+      "tag": "0262_answer_contexts",
+      "breakpoints": true
+    },
+    {
+      "idx": 263,
+      "version": "7",
+      "when": 1795602200000,
+      "tag": "0263_personal_shelf",
+      "breakpoints": true
+    },
+    {
+      "idx": 264,
+      "version": "7",
+      "when": 1795602300000,
+      "tag": "0264_office_shelf_bin",
+      "breakpoints": true
+    },
+    {
+      "idx": 265,
+      "version": "7",
+      "when": 1795602400000,
+      "tag": "0265_conversation_personal_shelf_use",
+      "breakpoints": true
+    },
+    {
+      "idx": 266,
+      "version": "7",
+      "when": 1795602500000,
+      "tag": "0266_message_received_seq",
+      "breakpoints": true
+    },
+    {
+      "idx": 267,
+      "version": "7",
+      "when": 1795602600000,
+      "tag": "0267_conversation_started_in_personal",
+      "breakpoints": true
+    },
+    {
+      "idx": 268,
+      "version": "7",
+      "when": 1795602660000,
+      "tag": "0268_conversation_side_is_fixed",
+      "breakpoints": true
     }
   ]
 }

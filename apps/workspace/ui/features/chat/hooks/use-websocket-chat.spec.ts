@@ -435,14 +435,16 @@ describe('switching conversations mid-turn', () => {
     expect(reopened.options.openTurns()).toEqual([{ turnId: TURN, lastSeq: 9 }])
   })
 
-  it('stops the turn of a conversation that is deleted while it answers in the background', () => {
+  it('stops the turn of a conversation that is deleted while it answers in the background', async () => {
     const { rerender } = openTurn(answered)
     deliver(answered.filter((event) => event.seq <= 9))
     const first = socket()
     leave()
     rerender()
 
-    act(() => useChatStore.getState().deleteConversation(CONVERSATION))
+    await act(async () => {
+      await useChatStore.getState().deleteConversation(CONVERSATION)
+    })
     expect(useChatStore.getState().hasAnyBusySession()).toBe(false)
     expect(first.sent).toContainEqual(expect.objectContaining({ type: 'cancel_turn', turn_id: TURN }))
     expect(first.close).toHaveBeenCalled()
@@ -1253,5 +1255,99 @@ describe('the agent’s viewer actions', () => {
     await settle()
 
     expect(run).not.toHaveBeenCalled()
+  })
+})
+
+describe('a message to people (the ruled send) stands at once, and goes again when the server refuses it', () => {
+  const fresh = (): Conversation => ({ ...conversationOf('ruled'), title: '' })
+  const answer = (): { resolve: (response: Response) => Promise<void> } => {
+    let reply: ((response: Response) => void) | null = null
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => (reply = resolve))))
+    return {
+      resolve: async (response) => {
+        await vi.waitFor(() => expect(reply).not.toBeNull())
+        reply!(response)
+      },
+    }
+  }
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('the message and its provisional title are in the store before the server answers', async () => {
+    const server = answer()
+    const { result } = open(fresh())
+    let sent!: Promise<unknown>
+    act(() => {
+      sent = result.current.sendMessage('Bitte prüfen\nzweite Zeile', { awaitingHuman: true }) as Promise<unknown>
+    })
+
+    expect(messages().map((m) => m.content)).toEqual(['Bitte prüfen\nzweite Zeile'])
+    expect(useChatStore.getState().currentConversation).toMatchObject({ title: 'Bitte prüfen', titleProvisional: true })
+
+    const id = messages()[0]!.id
+    await act(async () => {
+      await server.resolve(new Response(JSON.stringify({ id, addressees: { agent: false, users: ['u2'] } }), { status: 201 }))
+      await sent
+    })
+    expect(messages()[0]!.addressees).toEqual({ agent: false, users: ['u2'] })
+  })
+
+  it('the message is marked unsent until the server takes it; a message only to people settles the title at once', async () => {
+    const server = answer()
+    const { result } = open(fresh())
+    let sent!: Promise<unknown>
+    act(() => {
+      sent = result.current.sendMessage('Bitte prüfen', { awaitingHuman: true }) as Promise<unknown>
+    })
+    expect(messages()[0]!.unsent).toBe(true)
+
+    await act(async () => {
+      await server.resolve(new Response(JSON.stringify({ id: messages()[0]!.id, addressees: { agent: false, users: ['u2'] } }), { status: 201 }))
+      await sent
+    })
+
+    expect(messages()[0]!.unsent).toBeUndefined()
+    expect(useChatStore.getState().currentConversation).toMatchObject({ title: 'Bitte prüfen' })
+    expect(useChatStore.getState().currentConversation!.titleProvisional).toBeUndefined()
+  })
+
+  it('a refused send takes back only its own change: a name or a lock that came meanwhile stays', async () => {
+    const server = answer()
+    const { result } = open(fresh())
+    let sent!: Promise<unknown>
+    act(() => {
+      sent = result.current.sendMessage('Bitte prüfen', { awaitingHuman: true }) as Promise<unknown>
+    })
+    act(() => {
+      const named = { ...useChatStore.getState().currentConversation!, title: 'Prüfauftrag', titleProvisional: undefined }
+      useChatStore.setState({ currentConversation: named, conversations: [named] })
+    })
+
+    await act(async () => {
+      await server.resolve(new Response(JSON.stringify({ error: 'nope' }), { status: 403 }))
+      await sent
+    })
+
+    expect(useChatStore.getState().currentConversation).toMatchObject({ title: 'Prüfauftrag', messages: [] })
+  })
+
+  it('a refused send takes the message and the title back, so the chat is unsent again', async () => {
+    const server = answer()
+    const { result } = open(fresh())
+    let sent!: Promise<unknown>
+    act(() => {
+      sent = result.current.sendMessage('Bitte prüfen', { awaitingHuman: true }) as Promise<unknown>
+    })
+    expect(messages()).toHaveLength(1)
+
+    await act(async () => {
+      await server.resolve(new Response(JSON.stringify({ error: 'nope' }), { status: 403 }))
+      expect(await sent).toMatchObject({ ok: false })
+    })
+
+    const conversation = useChatStore.getState().currentConversation!
+    expect(conversation.messages).toEqual([])
+    expect(conversation.title).toBe('')
+    expect(conversation.titleProvisional).toBeUndefined()
+    expect(useChatStore.getState().conversations[0]).toMatchObject({ messages: [], title: '' })
   })
 })

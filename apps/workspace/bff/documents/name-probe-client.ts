@@ -18,6 +18,7 @@ export class NameProbeError extends Error {
 export const NAME_PROBE_PATH = '/api/documents/name-matches'
 export const REVISION_CANDIDATES_PATH = '/api/documents/revision-candidates'
 const OFFICE_SHELF = { scope: 'office_shelf' } as const
+const PERSONAL_SHELF = { scope: 'personal' } as const
 
 export interface DocumentNameProbeClient {
   project: (projectId: string, names: readonly string[]) => Promise<DocumentNameMatch[]>
@@ -28,6 +29,8 @@ export interface DocumentNameProbeClient {
     landsIn?: ReadonlyMap<string, string | null>,
   ) => Promise<RevisionCandidateMatch[]>
   officeShelfRevisions: (names: readonly string[]) => Promise<RevisionCandidateMatch[]>
+  personalShelf: (names: readonly string[]) => Promise<DocumentNameMatch[]>
+  personalShelfRevisions: (names: readonly string[]) => Promise<RevisionCandidateMatch[]>
 }
 
 function chunks(names: readonly string[]): string[][] {
@@ -81,5 +84,7 @@ export function createDocumentNameProbeClient(
     officeShelf: (names) => batched(NAME_PROBE_PATH, names, OFFICE_SHELF),
     projectRevisions: (projectId, names, landsIn) => candidates(REVISION_CANDIDATES_PATH, names, { projectId }, landsIn),
     officeShelfRevisions: (names) => candidates(REVISION_CANDIDATES_PATH, names, OFFICE_SHELF),
+    personalShelf: (names) => batched(NAME_PROBE_PATH, names, PERSONAL_SHELF),
+    personalShelfRevisions: (names) => candidates(REVISION_CANDIDATES_PATH, names, PERSONAL_SHELF),
   }
 }

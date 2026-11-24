@@ -90,6 +90,7 @@ export const makeDocument = (overrides: Partial<Document> = {}): Document => ({
   scope: 'project',
   conversationId: null,
   createdBy: 'user-1',
+  ownerUserId: null,
   authoredBy: 'user',
   authoredByProducer: null,
   authoredByRef: null,

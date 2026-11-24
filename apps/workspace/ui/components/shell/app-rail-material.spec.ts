@@ -61,6 +61,7 @@ const CHATS: RailChats = {
     { id: 'c2', title: 'Zweite Frage', href: '/app/projects/p1/chat/c2', current: false, activity: 'working' },
   ],
   allHref: '/app/projects/p1/chats',
+  more: true,
 }
 
 function renderRail(props: Partial<typeof BASE_PROPS> = {}, chats: RailChats | null = null) {
@@ -131,8 +132,11 @@ const RULES_ALLOWED: Record<string, { pattern: RegExp; reason: string }[]> = {
 }
 
 const WHITE_ALLOWED: Record<string, { fill: RegExp; what: string }[]> = {
-  'ui/components/shell/app-sidebar': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'the current section: a sheet with the thumb’s shadow' }],
-  'ui/components/shell/phone-tab-bar': [{ fill: /in-data-\[scope=project\]:bg-sheet in-data-\[scope=project\]:shadow-xs/, what: 'the current tab: the same sheet' }],
+  'ui/components/shell/rail-active-pill': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'where the reader is: a sheet with the thumb’s shadow' }],
+  'ui/components/shell/phone-tab-bar': [
+    { fill: /in-data-\[scope=project\]:bg-sheet in-data-\[scope=project\]:shadow-xs/, what: 'the current tab: the same sheet' },
+    { fill: /in-data-\[scope=personal\]:bg-sheet in-data-\[scope=personal\]:shadow-xs/, what: 'the current tab under Persönlich: the same sheet' },
+  ],
   'ui/components/shell/phone-more-sheet': [{ fill: /bg-sheet shadow-press/, what: 'the phone’s project selector, the first row of „Mehr“: a press' }],
   'ui/components/ui/sidebar': [{ fill: /data-\[active=true\]:bg-sheet/, what: 'the primitive’s active row' }],
 }
@@ -260,9 +264,9 @@ describe('the app rail’s material', () => {
 
   it('sets a row at 13px, muted at 440 at rest and ink at 500 where the reader is: never 14px or 600', () => {
     shell.pathname = '/app/projects/p1/files'
-    const { container } = renderRail({}, CHATS)
+    const { container } = renderRail({}, { ...CHATS, items: CHATS.items.map((chat) => ({ ...chat, current: false })) })
     const labels = [...container.querySelectorAll('[data-slot="rail-nav-label"]')]
-    const rest = labels.find((el) => el.textContent === 'Overview')!.closest('a') as HTMLElement
+    const rest = labels.find((el) => el.textContent === 'New chat')!.closest('a') as HTMLElement
     expect(classesOf(rest)).toEqual(expect.arrayContaining(['text-muted-foreground', 'h-9', 'text-[13px]', 'font-normal']))
     const active = container.querySelector('nav a[aria-current="page"]') as HTMLElement
     expect(classesOf(active)).toEqual(expect.arrayContaining(['font-medium', 'data-[active=true]:font-medium']))
@@ -273,7 +277,7 @@ describe('the app rail’s material', () => {
     const title = render(createElement(ProjectSwitcher, { projects: PROJECTS, activeProjectId: 'p1' })).container.querySelector('[title="Project One"]') as HTMLElement
     expect(classesOf(title)).toEqual(expect.arrayContaining(['text-[13px]', 'font-medium']))
 
-    const { container: list } = render(createElement(RailChatList, { chats: CHATS, pillId: 'rail-pill' }))
+    const { container: list } = render(createElement(RailChatList, { chats: CHATS }))
     expect(allClasses(list).filter((cls) => /^text-(sm|name)$/.test(cls))).toEqual([])
   })
 
@@ -284,7 +288,11 @@ describe('the app rail’s material', () => {
     const sectionNav = chatSection.previousElementSibling as HTMLElement
     expect(sectionNav.tagName).toBe('NAV')
     expect(sectionNav.compareDocumentPosition(chatSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(classesOf(sectionNav.parentElement as HTMLElement)).toEqual(expect.arrayContaining(['mt-3', 'min-h-0', 'flex-1', 'gap-0', 'overflow-hidden']))
+    expect(classesOf(sectionNav)).toContain('mt-3')
+    const side = sectionNav.parentElement as HTMLElement
+    expect(side.getAttribute('data-slot')).toBe('rail-side')
+    expect(classesOf(side)).toEqual(expect.arrayContaining(['min-h-0', 'flex-1', 'flex-col']))
+    expect(classesOf(side.parentElement as HTMLElement)).toEqual(expect.arrayContaining(['min-h-0', 'flex-1', 'gap-0', 'overflow-hidden']))
 
     expect(classesOf(chatList)).toEqual(expect.arrayContaining(['overflow-y-auto', '-mx-px', 'p-px']))
     expect(RAIL_CHAT_LIMIT).toBeGreaterThan(0)

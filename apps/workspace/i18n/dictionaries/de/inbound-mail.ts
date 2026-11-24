@@ -32,13 +32,13 @@ export const inboundMail: typeof en.inboundMail = {
   loadMore: 'Weitere laden',
 
   search: {
-    label: 'E-Mails nach Absender oder Betreff filtern',
-    placeholder: 'Absender oder Betreff',
+    label: 'E-Mails nach Absender, Betreff oder Anhang filtern',
+    placeholder: 'Im E-Mail-Eingang suchen …',
     clear: 'Suche leeren',
     results: '{count, plural, one {# Treffer} other {# Treffer}}',
     noResults: 'Keine Treffer',
     noneTitle: 'Keine E-Mail passt zu „{query}“',
-    noneHint: 'Gesucht wird in Absender und Betreff der geladenen E-Mails.',
+    noneHint: 'Gesucht wird in Absender, Betreff und den Namen der Anhänge der geladenen E-Mails.',
   },
 
   closed: {
@@ -567,7 +567,6 @@ export const inboundMail: typeof en.inboundMail = {
 
   state: {
     filing: 'Wird abgelegt …',
-    filingSlow: 'Das dauert länger als üblich. Die Ablage läuft weiter; Sie können die E-Mail verlassen.',
     decidedByOther: 'Jemand anderes hat diese E-Mail inzwischen bearbeitet.',
     partialFailure: '{failed} von {total} Dateien konnten nicht abgelegt werden.',
     partialFailureAll: '{failed, plural, one {Die Datei konnte nicht abgelegt werden.} other {Keine der # Dateien konnte abgelegt werden.}}',

@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Uploading a folder again no longer marks every file with an umlaut in its

@@ -93,7 +93,7 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
-  let use: typeof import('./restricted-use')
+  let use: typeof import('./restricted-use') & typeof import('./audience-widening')
   let crossUse: typeof import('./cross-project-use')
   let repo: typeof import('./repository')
   let upsertGrant: typeof import('@/lib/sharing/repository').upsertGrant
@@ -135,16 +135,16 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
     )
   const keyOf = async (conversationId: string) => {
     const { readConversationAudience } = await import('./restricted-use-repository')
-    return crossUse.audienceKey(await inOrg(ORG, () => readConversationAudience(db, ORG, conversationId)))
+    return (await inOrg(ORG, () => readConversationAudience(db, ORG, conversationId))).version
   }
   const admit = async (
     conversationId: string,
     folders: readonly string[] = [folderId],
     project = ids.other,
-    searchedFor?: string,
+    searchedFor?: number | null,
     answerMessageId?: string
   ) => {
-    const key = searchedFor ?? (await keyOf(conversationId))
+    const key = searchedFor !== undefined ? searchedFor : await keyOf(conversationId)
     return inOrg(ORG, () =>
       crossUse.recordCrossProjectHandOut(
         { organizationId: ORG, userId: OWNER, conversationId, answerMessageId },
@@ -216,7 +216,7 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
-    use = await import('./restricted-use')
+    use = { ...(await import('./restricted-use')), ...(await import('./audience-widening')) }
     crossUse = await import('./cross-project-use')
     repo = await import('./repository')
     upsertGrant = (await import('@/lib/sharing/repository')).upsertGrant

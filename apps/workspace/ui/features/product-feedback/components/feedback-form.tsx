@@ -247,7 +247,7 @@ function CapturedContext({ pagePath, context }: ReturnType<typeof captureFeedbac
   ]
   return (
     <Collapsible className="bg-muted/40 rounded-lg border">
-      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground group flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-medium">
+      <CollapsibleTrigger className="text-muted-foreground hover:text-foreground group flex w-full items-center justify-between gap-2 rounded-[7px] px-3 py-2 text-xs font-medium">
         {t('dialog.context.summary')}
         <ChevronDown
           aria-hidden

@@ -1,4 +1,5 @@
 ---
+# area: general
 fixes:
   - >
     Piloti no longer switches to English on its own: pages open in the

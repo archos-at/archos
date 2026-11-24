@@ -1,4 +1,5 @@
 import 'server-only'
+import { opensBeyond } from '@/lib/conversation-context/types'
 import { NotFoundError, ResourceRightsLostError } from '@/lib/api/errors'
 import { isFolderVisibleTo } from '@/lib/authz/folder-access'
 import { requireProjectAccess, type ProjectRole } from '@/lib/authz/projects'
@@ -134,5 +135,5 @@ export interface RequireResourceAccessOptions {
 }
 
 export function isShared(visibility: ResourceVisibility, grantCount: number): boolean {
-  return visibility !== 'private' || grantCount > 0
+  return opensBeyond(visibility, grantCount)
 }

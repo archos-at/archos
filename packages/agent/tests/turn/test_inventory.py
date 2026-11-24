@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from agent.common.source_kinds import Shelf
 from agent.common.wire_v2 import StatusStep
 from agent.knowledge.scoping import ScopedCollection
@@ -249,12 +251,26 @@ class TestScope:
         monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
         assert fallback_scope(None) == [ScopedCollection("oib_knowledge", Shelf.BASE)]
 
-    def test_a_stated_scope_wins_and_an_empty_one_falls_back(self, monkeypatch):
+    def test_a_stated_scope_wins_even_empty_and_only_no_scope_falls_back(self, monkeypatch):
         monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
         stated = [ScopedCollection("archiv_org", Shelf.OFFICE_SHELF)]
         assert resolve_scope(stated, "conv-1") == stated
-        assert resolve_scope([], "conv-1") == fallback_scope("conv-1")
+        assert resolve_scope([], "conv-1") == []
         assert resolve_scope(None, None) == fallback_scope(None)
+
+    @pytest.mark.parametrize("bound", ["empty decision", "missing decision"])
+    def test_an_empty_bound_scope_lists_nothing(self, monkeypatch, bound):
+        from agent_testing.turn_decision import signed_decision
+
+        from agent.common.turn_decision import bind_turn_decision
+        from agent.common.turn_decision import reset_turn_decision
+
+        monkeypatch.setenv("COLLECTION_NAME", "oib_knowledge")
+        token = bind_turn_decision(signed_decision(may={"shelves": []}) if bound == "empty decision" else None)
+        try:
+            assert resolve_scope([], "conv-1") == []
+        finally:
+            reset_turn_decision(token)
 
     def test_shelves_in_scope_skips_unknown_shelves(self):
         scope = [ScopedCollection("archiv_org", Shelf.OFFICE_SHELF), ScopedCollection("legacy")]

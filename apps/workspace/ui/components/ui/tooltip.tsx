@@ -116,22 +116,23 @@ const TOOLTIP_MOTION =
 
 const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & { tone?: 'ink' | 'paper' }
+>(({ className, sideOffset = 4, tone = 'ink', children, ...props }, ref) => (
   <TooltipPrimitive.Portal>
     <TooltipPrimitive.Content
       ref={ref}
       data-slot="tooltip-content"
       sideOffset={sideOffset}
       className={cn(
-        'bg-foreground text-background z-50 w-fit max-w-(--radix-tooltip-content-available-width) origin-(--radix-tooltip-content-transform-origin) rounded-control px-3 py-1.5 text-xs font-medium text-balance shadow-xs',
+        'z-50 w-fit max-w-(--radix-tooltip-content-available-width) origin-(--radix-tooltip-content-transform-origin) rounded-control px-3 py-1.5 text-xs font-medium text-balance',
+        tone === 'paper' ? 'bg-sheet text-foreground shadow-sm' : 'bg-foreground text-background shadow-xs',
         TOOLTIP_MOTION,
         className
       )}
       {...props}
     >
       {children}
-      <TooltipPrimitive.Arrow className="bg-foreground fill-foreground z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45" />
+      {tone === 'ink' && <TooltipPrimitive.Arrow className="bg-foreground fill-foreground z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45" />}
     </TooltipPrimitive.Content>
   </TooltipPrimitive.Portal>
 ))

@@ -148,8 +148,8 @@ class TestNoBindingNote:
 
 
 class TestShelf:
-    def test_the_enum_holds_exactly_the_four_shelves(self):
-        assert {shelf.value for shelf in Shelf} == {"office_shelf", "project", "session", "base"}
+    def test_the_enum_holds_exactly_the_five_shelves(self):
+        assert {shelf.value for shelf in Shelf} == {"office_shelf", "project", "session", "base", "personal"}
 
     @pytest.mark.parametrize(
         "value,expected",

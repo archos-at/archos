@@ -199,10 +199,10 @@ describe('PATCH and DELETE /api/office-shelf/folders/[folderId]', () => {
     expect(response.status).toBe(400)
   })
 
-  it('deletes and reports where the contents went', async () => {
+  it('moves the folder to the bin and says until when it is restorable', async () => {
     vi.mocked(deleteOfficeShelfFolder).mockResolvedValue({
       ok: true,
-      result: { documentsMoved: 3, foldersMoved: 1 },
+      result: { documentsBinned: 3, foldersBinned: 1, purgeAfter: new Date('2026-12-08T10:00:00.000Z') },
     })
 
     const response = await DELETE(
@@ -211,8 +211,8 @@ describe('PATCH and DELETE /api/office-shelf/folders/[folderId]', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ documentsMoved: 3, foldersMoved: 1 })
-    expect(deleteOfficeShelfFolder).toHaveBeenCalledWith(expect.anything(), FOLDER_ID)
+    expect(await response.json()).toEqual({ documentsBinned: 3, foldersBinned: 1, purgeAfter: '2026-12-08T10:00:00.000Z' })
+    expect(deleteOfficeShelfFolder).toHaveBeenCalledWith(expect.anything(), FOLDER_ID, expect.any(Request))
   })
 
   it('is a 400 for a folder that is not on the shelf', async () => {

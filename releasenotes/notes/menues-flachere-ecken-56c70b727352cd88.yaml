@@ -1,0 +1,6 @@
+---
+# area: general
+improvements:
+  - >
+    Menus and selection lists now have the same corners as the cards around
+    them, so they no longer look rounder than the rest of the page.

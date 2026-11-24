@@ -197,7 +197,8 @@ different questions and reach the agent differently:
 
 - **Retrieval (RAG) — "the library, searched on demand."** The OIB corpus,
   uploaded documents, and chat attachments live as embeddings in Qdrant,
-  queried per turn and scoped by a base64url `X-Grid-Collection-Scope` header:
+  queried per turn and scoped by the turn's signed scope (its decision, or a
+  run's signed envelope):
   `[oib_knowledge, archiv_<org>, proj_<id>, s_<conversation>]`. Legal claims
   must ground here and are cited.
 - **Memory & context — "the briefing, carried every turn."** The intake profile
@@ -339,8 +340,10 @@ agent with its retrieval tools.
 ## 6. Key flows
 
 **A chat turn.** Browser opens a WebSocket → `server.js` resolves the session and
-attaches `X-Grid-Collection-Scope` + `x-grid-project-context` +
-`x-grid-project-memory` (base64url) → proxies the upgrade to the backend → the
+attaches the signed request-context envelope (no scope) → proxies the upgrade to
+the backend → each turn fetches its signed decision (`POST
+/api/internal/turn-decision`) and its prompt blocks (`POST
+/api/internal/turn-context`) → the
 LangGraph workflow retrieves in scope (or replies directly), verifies citations,
 generates the answer + any cards → streams back → the UI renders text, sources,
 and cards.

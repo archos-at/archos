@@ -18,6 +18,7 @@ import {
 } from './providers-repository'
 import type { DocumentQuery } from './document-repository'
 import type { ReachedProject, SearchReach } from './reach'
+import { hidesShelfChatFromAgent } from '@/lib/conversations/shelf-titles'
 import {
   SEARCH_LIMIT_MAX,
   type AnnotationFilters,
@@ -25,6 +26,7 @@ import {
   type ConversationHit,
   type FolderHit,
   type ProjectHit,
+  searchShelfOf,
 } from './search-wire'
 
 export const EXCERPT_MAX = 200
@@ -68,7 +70,7 @@ export async function searchAnnotations(
       id: row.id,
       documentId: row.documentId,
       documentName: documentDisplayName(row),
-      shelf: row.projectId === null ? 'office_shelf' : 'project',
+      shelf: searchShelfOf(row.scope),
       projectId: row.projectId,
       projectName: row.projectName,
       annotationKind: row.kind,
@@ -197,7 +199,7 @@ export async function searchConversations(
         candidates.map((row) => ({ id: row.id, projectId: row.projectId }))
       )
   )
-  const readable = candidates.filter((row) => !locked.has(row.id))
+  const readable = candidates.filter((row) => !locked.has(row.id) && !hidesShelfChatFromAgent(row, reach.userId))
   const names = new Map(reach.projects.map((reached) => [reached.project.id, reached.project.name]))
   const { limit, offset } = pageOf(page)
   const hits = readable.slice(offset, offset + limit).map((row): ConversationHit => ({

@@ -31,6 +31,8 @@ import {
 } from '@/app/dev/inbound-mail/fixtures'
 import { refreshInboundMailWaiting, resetInboundMailWaitingForTests } from '@/hooks/use-inbound-mail-waiting'
 import { SHORTCUTS_PREFERENCE_KEY } from '@/hooks/use-shortcuts-preference'
+import { ProjectSectionFrame, SectionActionsInline } from '@/components/shell/project-section-frame'
+import { TOOL_ROW_SEARCH_CLASS } from '@/features/documents'
 import { InboundMailWorkspace } from './inbound-mail-workspace'
 
 function renderWorkspace(variant: string, overrides: Partial<Parameters<typeof InboundMailWorkspace>[0]> = {}) {
@@ -261,9 +263,10 @@ describe('InboundMailWorkspace', () => {
     expect(within(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['member-verified'].view.id}`)).queryByTestId('inbound-mail-row-expiry')).toBeNull()
   })
 
-  it('filters the rows by sender and subject, says the count once, and offers to clear a search that finds nothing', async () => {
+  it('filters the rows by sender and subject on a phone, in the list’s own field, says the count once, and offers to clear a search that finds nothing', async () => {
+    media.phone = true
     renderWorkspace('many')
-    const search = screen.getByRole('searchbox', { name: 'Filter mail by sender or subject' })
+    const search = screen.getByRole('searchbox', { name: 'Filter mail by sender, subject or attachment' })
     await userEvent.type(search, 'novak')
     expect(screen.getAllByTestId('inbound-mail-row-link')).toHaveLength(1)
     expect(screen.getByTestId('inbound-mail-search-status')).toHaveTextContent('1 match')
@@ -391,6 +394,23 @@ describe('InboundMailWorkspace', () => {
     const next = (nav.replace.mock.calls.at(-1)?.[0] as string).split('/').at(-1)
     expect(next).not.toBe(id)
     expect(screen.getByTestId(`inbound-mail-row-${next}`)).toHaveAttribute('data-focused', 'true')
+  })
+
+  it('opens the next mail as soon as the open one is filed, and reports its landing in a toast meanwhile', async () => {
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    vi.mocked(toast.loading).mockReturnValueOnce('landing-of-the-open-mail')
+    const { client } = renderOpen('many', id, { pollMs: 1 })
+    const file = vi.spyOn(client, 'file')
+    vi.spyOn(client, 'get').mockReturnValue(new Promise(() => {}))
+    await userEvent.click(screen.getByTestId('decision-open'))
+    await userEvent.click(within(await screen.findByTestId('filing-dialog')).getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(expect.stringMatching(/\/files\/mail\/[0-9a-f-]+$/)))
+    const next = (nav.replace.mock.calls.at(-1)?.[0] as string).split('/').at(-1)
+    expect(next).not.toBe(id)
+    expect(screen.getByTestId(`inbound-mail-row-${next}`)).toHaveAttribute('data-focused', 'true')
+    expect(toast.loading).toHaveBeenCalledWith('Being filed …', {})
+    expect(toast.success).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ id: 'landing-of-the-open-mail' }))
   })
 
   it('leaves a mail that still waits (a restore, a filing that failed) where it is', async () => {
@@ -531,5 +551,96 @@ describe('InboundMailWorkspace', () => {
     renderOpen('many', EXPIRING)
     await userEvent.click(within(screen.getByTestId(`inbound-mail-row-${EXPIRING}`)).getByTestId('inbound-mail-row-file-now'))
     expect(await screen.findByTestId('filing-dialog')).toBeInTheDocument()
+  })
+
+  describe('the search in the tool row', () => {
+    const inRow = (overrides: Partial<Parameters<typeof InboundMailWorkspace>[0]> = {}) => {
+      const fixture = LIST_VARIANTS.many
+      return render(
+        <SectionActionsInline>
+          <InboundMailWorkspace
+            projectId={PROJECT_ID}
+            projectName={PROJECT_NAME}
+            projectClosed={false}
+            folders={FOLDERS}
+            status="waiting"
+            outcome={null}
+            initialList={listPage(fixture.items.filter((item) => item.status === 'waiting'), null)}
+            mailId={null}
+            initialMail={null}
+            client={fixtureClient({ list: fixture })}
+            addressClient={fixtureAddressClient(ADDRESS_VARIANTS.manager)}
+            now={FIXTURE_NOW}
+            {...overrides}
+          />
+        </SectionActionsInline>
+      )
+    }
+    const field = () => within(screen.getByTestId('inbound-mail-tools')).getByRole('textbox', { name: 'Filter mail by sender, subject or attachment' })
+    const rows = () => screen.queryAllByTestId('inbound-mail-row-link')
+    const PHOTO = DETAIL_VARIANTS['mixed-attachments'].view.id
+
+    it('fills the head’s tool row from its start on the desk, the address’s tools at its end', async () => {
+      const fixture = LIST_VARIANTS.many
+      render(
+        <ProjectSectionFrame projectId="p" projectName={PROJECT_NAME} inboundMail>
+          <InboundMailWorkspace
+            projectId={PROJECT_ID}
+            projectName={PROJECT_NAME}
+            projectClosed={false}
+            folders={FOLDERS}
+            status="waiting"
+            outcome={null}
+            initialList={listPage(fixture.items.filter((item) => item.status === 'waiting'), null)}
+            mailId={null}
+            initialMail={null}
+            client={fixtureClient({ list: fixture })}
+            addressClient={fixtureAddressClient(ADDRESS_VARIANTS.manager)}
+            now={FIXTURE_NOW}
+          />
+        </ProjectSectionFrame>
+      )
+      const tools = screen.getByTestId('inbound-mail-tools')
+      expect(within(screen.getByTestId('files-tool-row')).getByTestId('shelf-head-tools').firstElementChild).toBe(tools)
+      expect(tools.firstElementChild).toBe(field().closest('form'))
+      expect((await within(tools).findByRole('button', { name: 'Copy address' })).closest('.ml-auto')?.parentElement).toBe(tools)
+    })
+
+    it('stands in the tool row on the desk, not over the list, and finds a mail by an attachment’s name (Foto_Baustelle.jpg)', async () => {
+      const replaceState = vi.spyOn(window.history, 'replaceState')
+      const user = userEvent.setup()
+      inRow()
+      expect(field()).toHaveAttribute('placeholder', 'Search the project mail …')
+      expect(field().closest('form')).toHaveClass(...TOOL_ROW_SEARCH_CLASS.split(' '))
+      expect(within(screen.getByTestId('inbound-mail-list')).queryByRole('searchbox')).toBeNull()
+      await user.type(field(), 'foto_baustelle')
+      expect(rows()).toHaveLength(1)
+      expect(screen.getByTestId(`inbound-mail-row-${PHOTO}`)).toBeInTheDocument()
+      expect(screen.getByTestId('inbound-mail-search-status')).toHaveTextContent('1 match')
+      expect(replaceState).toHaveBeenLastCalledWith(null, '', `/app/projects/${PROJECT_ID}/files/mail?q=foto_baustelle`)
+    })
+
+    it('says in the list’s empty state that nothing matches, and its button or Escape clears the search', async () => {
+      const user = userEvent.setup()
+      inRow()
+      const all = rows().length
+      await user.type(field(), 'zzz')
+      expect(screen.getByTestId('inbound-mail-no-match')).toHaveTextContent('No mail matches “zzz”')
+      await user.click(within(screen.getByTestId('inbound-mail-no-match')).getByRole('button', { name: 'Clear search' }))
+      expect(field()).toHaveValue('')
+      expect(rows()).toHaveLength(all)
+
+      await user.type(field(), 'zzz')
+      await user.keyboard('{Escape}')
+      expect(field()).toHaveValue('')
+      expect(rows()).toHaveLength(all)
+    })
+
+    it('starts with the query the address holds, and an opened mail keeps it in its address', () => {
+      inRow({ initialQuery: 'foto_baustelle' })
+      expect(field()).toHaveValue('foto_baustelle')
+      expect(rows()).toHaveLength(1)
+      expect(rows()[0]).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files/mail/${PHOTO}?q=foto_baustelle`)
+    })
   })
 })

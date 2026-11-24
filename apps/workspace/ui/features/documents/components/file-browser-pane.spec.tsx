@@ -214,6 +214,16 @@ describe('FileBrowserPane — folder drill-down', () => {
     expect(within(card).getByText('2 items')).toBeInTheDocument()
   })
 
+  it('gives a folder card 240px at every width, so a phone shows one whole name per row and not two cut ones', () => {
+    renderPane({ folderNav: folderNav(null) })
+    const grid = screen.getByTestId('folder-card-root-1').closest('.grid')
+    const columns = (grid?.className ?? '').split(/\s+/).filter((token) => token.includes('grid-template-columns'))
+    expect(columns).toEqual([
+      '[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]',
+      'md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]',
+    ])
+  })
+
   it('lists the level’s folders as the first rows of the file table, under its head', () => {
     renderPane({ folderNav: folderNav(null), view: 'list' })
     const row = screen.getByTestId('folder-row-root-1')
@@ -729,5 +739,16 @@ describe('FileBrowserPane — older Fassungen in search', () => {
     await user.type(screen.getByRole('textbox', { name: /search files/i }), 'plan_v1')
     expect(screen.getByText('current.pdf')).toBeInTheDocument()
     expect(screen.getByText('plan_v1.pdf')).toBeInTheDocument()
+  })
+})
+
+describe('FileBrowserPane — the read state (KAN-86)', () => {
+  it('says what could not be read above the list and how far it read below it', () => {
+    renderPane({ unreadHint: <p data-testid="hint">2 unread</p>, brief: <p data-testid="read-state">All read</p> })
+    const hint = screen.getByTestId('hint')
+    const readState = screen.getByTestId('read-state')
+    const firstCard = screen.getAllByTestId('file-card')[0]!
+    expect(hint.compareDocumentPosition(firstCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(firstCard.compareDocumentPosition(readState) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 })

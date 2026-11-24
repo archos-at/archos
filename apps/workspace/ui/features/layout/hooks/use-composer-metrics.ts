@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, type CSSProperties } from 'react'
 import { flushSync } from 'react-dom'
 import type { Transition } from 'motion/react'
 import { springGlide } from '@/components/motion'
+import { useInputSinceMount } from '@/components/motion/use-input-since-mount'
 
 const COMPOSER_GAP_PX = 32
 
@@ -69,11 +70,12 @@ export function useComposerMetrics(isThreadEmpty: boolean): ComposerMetrics {
   }
   const welcomeOffset = welcomeOffsetRef.current
 
+  const readerActed = useInputSinceMount()
   const [wasEmpty, setWasEmpty] = useState(isThreadEmpty)
   const [travelling, setTravelling] = useState(false)
   if (wasEmpty !== isThreadEmpty) {
     setWasEmpty(isThreadEmpty)
-    setTravelling(true)
+    setTravelling(readerActed.current)
   }
 
   return {

@@ -1,0 +1,9 @@
+---
+# area: collaboration
+improvements:
+  - >
+    The Postfach no longer opens as a second bar beside the sidebar: a bell
+    beside your name shows the count and, on a click, the four newest entries
+    that wait for you. The Postfach itself is a page with the tabs Wartet auf
+    Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry
+    on the right.

@@ -1,12 +1,12 @@
 import type { useTranslations } from '@/i18n'
-import type { AnnotationView } from '@/lib/annotations/types'
+import { isMeasurement, type AnnotationView } from '@/lib/annotations/types'
 import type { RoomPeerState } from '../hooks/use-document-room'
 
 type Translate = ReturnType<typeof useTranslations>
 
 export function pinLabel(
   t: Translate,
-  annotation: Pick<AnnotationView, 'number' | 'kind' | 'status' | 'revisionNumber'>,
+  annotation: Pick<AnnotationView, 'number' | 'kind' | 'status' | 'revisionNumber'> & { shape?: AnnotationView['shape'] },
   agentLine: string | undefined,
   openBy: readonly RoomPeerState[] | undefined,
   { ghost = false, unread = false }: { ghost?: boolean; unread?: boolean } = {}
@@ -25,7 +25,12 @@ export function pinLabel(
       ? t('review.pinState.ghost', { number: annotation.revisionNumber })
       : t('review.pinState.ghostUnnumbered')
   return [
-    t('review.pinLabel', { number: annotation.number, kind: t(`annotations.kinds.${annotation.kind}`) }),
+    t('review.pinLabel', {
+      number: annotation.number,
+      kind: annotation.shape && isMeasurement({ shape: annotation.shape })
+        ? t('annotations.measurement')
+        : t(`annotations.kinds.${annotation.kind}`),
+    }),
     earlier,
     state,
     unread ? t('review.pinState.unread') : null,

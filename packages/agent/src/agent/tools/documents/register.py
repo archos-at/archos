@@ -370,8 +370,8 @@ def _filed_message(chosen: str, usage: DraftUsage, choice: _Choice, put: _Put) -
 
 async def _file(path: str, choice: _Choice) -> str:
     path = modernize_draft_path(path)
-    _project_or_refuse()
     envelope = _envelope()
+    _project_or_refuse()
     backend, usage = await _draft(path)
     chosen = choice.title or draft_title(path, usage.content or "")
     put = await _put(path, usage, replace(choice, title=chosen), envelope)

@@ -4,9 +4,11 @@ import contextlib
 import contextvars
 import re
 from collections.abc import Iterator
+from collections.abc import Mapping
 from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
+from typing import Any
 
 if TYPE_CHECKING:
     from agent.project_context import RequestContext
@@ -371,6 +373,11 @@ def corpus_countries() -> frozenset[str] | _Unscoped:
         return context.retrieval_countries
     if _unscoped_reads.get():
         return UNSCOPED
+    from agent.knowledge.scoping import bound_scope_entries
+
+    bound = bound_scope_entries()
+    if bound is not None:
+        return _base_countries(bound)
     from agent.project_context import RequestContext
 
     try:
@@ -379,8 +386,12 @@ def corpus_countries() -> frozenset[str] | _Unscoped:
         return frozenset()
     if _belongs_to_no_request(request):
         return UNSCOPED
-    for entry in request.collection_scope_entries or []:
-        if isinstance(entry, dict) and entry.get("shelf") == "base" and isinstance(entry.get("countries"), list):
+    return _base_countries(request.collection_scope_entries or [])
+
+
+def _base_countries(entries: Any) -> frozenset[str]:
+    for entry in entries:
+        if isinstance(entry, Mapping) and entry.get("shelf") == "base" and isinstance(entry.get("countries"), list):
             return frozenset(country for country in entry["countries"] if isinstance(country, str))
     return frozenset()
 

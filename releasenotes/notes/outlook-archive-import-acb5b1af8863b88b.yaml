@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     You can import an Outlook archive (.pst or .ost, up to 25 GB) into a

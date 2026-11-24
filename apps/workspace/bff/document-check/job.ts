@@ -25,7 +25,7 @@ import { documentFocus } from '@/lib/turns/document-focus'
 import { chatSocketUrl, runHeadlessTurn, type HeadlessUserMessage } from '@/lib/turns/headless-turn'
 import { HEADLESS_MODE_HEADERS } from '@/lib/turns/headless-mode'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
-import { turnContextHeaders } from '@/lib/turns/turn-headers.js'
+import { socketTurnHeaders } from '@/lib/turns/turn-headers.js'
 import {
   checkExcerpt,
   checkInstruction,
@@ -134,7 +134,7 @@ async function startCheck(
 
   let context: Awaited<ReturnType<typeof resolveTurnContext>>
   try {
-    context = await resolveTurnContext(session, { projectId: document.projectId ?? undefined, conversationId })
+    context = await resolveTurnContext(session, { projectId: document.projectId ?? undefined, conversationId, kind: 'headless' })
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError) return end(`budget: ${error.message}`)
     if (isAuthzRefusal(error)) return end('the person may no longer chat here')
@@ -147,7 +147,7 @@ async function startCheck(
     url: chatSocketUrl(conversationId),
     conversationId,
     projectId: context.projectId,
-    headers: { ...turnContextHeaders(context, { issuedAt: Date.now(), secret }), ...HEADLESS_MODE_HEADERS },
+    headers: { ...socketTurnHeaders(context, { issuedAt: Date.now(), secret }), ...HEADLESS_MODE_HEADERS },
     message: checkTurnMessage({ payload, conversationId, document, authorName: session.name }),
     requires: CHECK_REQUIRES,
   })

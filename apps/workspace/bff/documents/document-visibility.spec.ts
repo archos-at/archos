@@ -51,19 +51,15 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/projects/cleanup-repository.ts#deleteEmptyCreatedFolder':
     'Undo of a clean-out: removes a folder only when NO document is filed in it, held ones included.',
 
-  'lib/storage/repository.ts#aggregateStorageUsage': 'Quota: a held file occupies storage like any other (ADR-0086, Consequences).',
   'lib/storage/repository.ts#aggregateStorageUsageByOrganization': 'Quota, per organization, for the platform view: every byte.',
-  'lib/storage/repository.ts#readStorageUsage': 'Quota admission under the lock: every byte, or a held upload is free storage.',
-  'lib/storage/repository.ts#sumItemBytes': 'Quota: item bytes, every row.',
-  'lib/storage/repository.ts#versionOverheadByScope': 'Quota: version bytes, every row.',
-  'lib/storage/repository.ts#versionOverheadBytes': 'Quota: version bytes, every row.',
-  'lib/storage/repository.ts#versionOverheadSql': 'Quota: the version-overhead fragment the sums above share.',
 
   'lib/documents/placement-repository.ts#listPlacementRows':
     "Placement moves every document whose folder's access changed into the right collection, held ones too, or a held file stays in a collection readers it should not have can search once it passes.",
   'lib/documents/placement-repository.ts#takeAwaitingPlacementReingest':
     'The `placement_reingest` job takes the rows placement marked for their re-read. Rows to a job, nothing to a person; a quarantined row is never marked.',
   'lib/projects/folder-bin-repository.ts#listDocumentIdsInFolders': 'The Papierkorb moves a folder with every document in it.',
+  'lib/office-shelf/project-norms/repository.ts#binnedOfficeDocuments':
+    "Which office shelf copies a project's norm references name lie in the Papierkorb, so the reference reads as removed. Ids only.",
   'lib/projects/folder-bin-repository.ts#listDocumentPageInFolders':
     'The Papierkorb purges, takes out of retrieval and restores every document of a folder, in pages for its jobs.',
   'lib/projects/folder-bin-repository.ts#listRestoringDocumentPage':
@@ -115,8 +111,6 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
   'lib/documents/version-repository/insert.ts#allocateVersionNumber|documentVersions': 'Inside the insert of a new version. A number, no fact.',
   'lib/projects/folder-derived-repository.ts#listReportsDerivedFrom|documentVersions':
     "The agent's own reports drawn from a purged folder (see SEES_EVERY_ROW): none of them is an upload.",
-  'lib/storage/repository.ts#versionOverheadByScope|documentVersions': 'Quota: version bytes, every row.',
-  'lib/storage/repository.ts#versionOverheadBytes|documentVersions': 'Quota: version bytes, every row.',
 
   'lib/bim/element-queries.ts#elementScope|bimModels':
     "The tenant half of every element query's WHERE, on a model id `getAccessibleModel` or `runBimQuery` already read.",
@@ -154,6 +148,8 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
     "The estate tree's Fassung count, a subquery correlated to the outer row's `documents.id`; the outer query, and its join to the published version, read `documents` under the search reach (`reachWhere`) or `documentVisibleTo` itself.",
   'lib/annotations/repository.ts#insertAnnotationReply|documentAnnotationReplies':
     "The thread's count under the insert's lock, for an Anmerkung of a document the service read for writing.",
+  'lib/drawing-calibrations/repository.ts#setDrawingCalibration|drawingCalibrations':
+    "The page's active calibrations, under the insert's lock, to supersede the same region or refuse an overlap, for a document `setCalibration` read through `getAccessibleDocument(…, 'write')` first.",
 
   'lib/changes/repository.ts#listTurnChangeRows|pilotiChanges':
     "The rows of one turn's answer, which `listTurnChanges` then narrows by `viewsFor`: a row whose document `listAnnotations` refuses is dropped.",
@@ -187,6 +183,10 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   'lib/bim/model-service.ts#getModelForDocument': {
     makes: ['internal:reloaded'],
     why: 'The model of a document this request just loaded through `findDocumentForSession`.',
+  },
+  'lib/drawing-calibrations/page-read.ts#activeCalibrationsOfPage': {
+    makes: ['internal:reloaded'],
+    why: "The measuring tool's read of a page's active calibrations: `GET /api/internal/document-file` resolved the document under the turn's signed scope a moment ago and passes its id and version.",
   },
   'lib/bim/query.ts#runBimQuery': {
     makes: ['internal:reloaded'],
@@ -314,6 +314,8 @@ const GUARDED_TABLES: Record<string, string> = {
   documentAnnotations: 'document_annotations',
   documentAnnotationReplies: 'document_annotation_replies',
   pilotiChanges: 'agent_changes',
+  // The scale a person set for a region of a page of one version (migration 0236): a document fact.
+  drawingCalibrations: 'drawing_calibrations',
 }
 
 function documentRelations(): Set<string> {

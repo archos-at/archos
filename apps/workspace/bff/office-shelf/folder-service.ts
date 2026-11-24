@@ -9,8 +9,10 @@ import {
   findShelfFolder,
   listShelfFolders,
   updateShelfFolder,
+  type DeleteFolderResult,
   type ShelfFolderVisibility,
 } from '@/lib/documents/shelf-folders'
+import { moveFolderToBin, type BinFolderResult } from '@/lib/projects/folder-bin'
 import { isStandardsRoot, isUnderStandardsRoot, ORDNER_FOLDER_STAYS_OUT, STANDARDS_ROOT_FIXED } from './standards-folder'
 
 async function isFixedFolder(session: AuthorizedSession, folderId: string): Promise<boolean> {
@@ -59,9 +61,17 @@ async function movesIntoStandards(session: AuthorizedSession, folderId: string, 
   return hidden.includes(parentId) && !hidden.includes(folderId)
 }
 
-export async function deleteOfficeShelfFolder(session: AuthorizedSession, folderId: string) {
-  if (await isFixedFolder(session, folderId)) return { ok: false as const, error: STANDARDS_ROOT_FIXED }
-  return deleteShelfFolder(session, OFFICE_SHELF, folderId)
+export type OfficeShelfFolderDeletion = DeleteFolderResult | BinFolderResult
+
+export async function deleteOfficeShelfFolder(
+  session: AuthorizedSession,
+  folderId: string,
+  request?: Request,
+): Promise<{ ok: true; result: OfficeShelfFolderDeletion } | { ok: false; error: string }> {
+  const folder = await findShelfFolder(OFFICE_SHELF, session.organizationId, folderId)
+  if (folder && isStandardsRoot(folder)) return { ok: false, error: STANDARDS_ROOT_FIXED }
+  if (folder && isUnderStandardsRoot(folder.path)) return deleteShelfFolder(session, OFFICE_SHELF, folderId)
+  return { ok: true, result: await moveFolderToBin(session, { shelf: OFFICE_SHELF, folderId }, request) }
 }
 
 export async function ensureOfficeShelfFolderPaths(

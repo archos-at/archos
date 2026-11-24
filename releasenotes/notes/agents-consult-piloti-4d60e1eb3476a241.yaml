@@ -1,4 +1,5 @@
 ---
+# area: agents
 features:
   - >
     The assistant you connected to Piloti, such as Claude or Cursor, can now

@@ -44,6 +44,7 @@ describe('resolvePinnedRequesterSession', () => {
       roles: ['member'],
       accessToken: '',
       featureFlags: [],
+      pinnedForTurn: true,
     })
     expect(rolePermissions).toHaveBeenCalledWith('org_1', ['member'])
     expect(session?.permissions).toEqual(['org:projects:create'])

@@ -4,9 +4,14 @@ export const profile: typeof en.profile = {
   title: 'Profil',
   subtitle: 'Verwalten Sie Ihr Konto, das Erscheinungsbild und Ihre Spracheinstellungen.',
   loading: 'Profil wird geladen…',
-  backToApp: 'Zurück zu den Projekten',
+  backToApp: 'Zurück zum Chat',
   savedToast: 'Einstellungen gespeichert',
   saveError: 'Ihre Einstellungen konnten nicht gespeichert werden. Bitte versuchen Sie es erneut.',
+  memory: {
+    title: 'Mein Gedächtnis',
+    description: 'Was {productName} sich über Sie und Ihre Arbeitsweise merkt. Nur Sie sehen diese Notizen.',
+    open: 'Öffnen',
+  },
   account: {
     title: 'Konto',
     description: 'Ihre Identität innerhalb von {productName}.',

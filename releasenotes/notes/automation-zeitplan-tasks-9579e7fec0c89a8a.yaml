@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     Automation shows a week timetable: each scheduled run is a block in its

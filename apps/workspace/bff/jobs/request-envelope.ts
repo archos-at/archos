@@ -1,4 +1,5 @@
 import type { UserSession } from '@/lib/auth/types'
+import type { ConversationScope } from '@/lib/conversation-context/resolve'
 import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 import {
   buildRequestContextWireHeaders,
@@ -11,6 +12,15 @@ export interface AuthorizedJobScope {
   scopedCollections: ScopedCollection[]
   verifiedConversationId: string | undefined
   projectReadOnly?: boolean
+}
+
+export function jobScopeOf(scope: ConversationScope): AuthorizedJobScope {
+  return {
+    projectId: scope.projectId ?? undefined,
+    scopedCollections: scope.shelves,
+    verifiedConversationId: scope.verifiedConversationId ?? undefined,
+    projectReadOnly: scope.projectReadOnly,
+  }
 }
 
 export type JobSubmitContext = Pick<
@@ -35,6 +45,7 @@ export function signJobRequestContext(
     conversationId: scope.verifiedConversationId ?? null,
     issuedAt: now,
     requester: requesterOf(session),
+    contextKind: 'run',
     ...submit,
   }
   return buildRequestContextWireHeaders(input, process.env.INTERNAL_API_TOKEN)

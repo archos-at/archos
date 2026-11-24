@@ -1,70 +1,45 @@
-import type { ReactNode } from 'react'
 import { render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, beforeEach } from 'vitest'
 import { SessionsPanel } from './SessionsPanel'
-import type { ResearchRun } from '@/adapters/api/research-runs-client'
+import { JobApiError } from '@/adapters/api/jobs-client'
 import { asStoreState, type DeepPartial, type StoreSelector } from '@/test-utils/store-fixtures'
 import type { LayoutStore } from '../types'
 import { useLayoutStore } from '../store'
-import { setupChatStoreMock } from './sessions-panel.fixtures'
+import { makeLedgerRun, setupChatStoreMock } from './sessions-panel.fixtures'
 
 const mockSetSessionsPanelOpen = vi.fn()
 
-const mockListResearchRuns = vi.fn()
-vi.mock('@/adapters/api/research-runs-client', () => ({
-  listResearchRuns: (...args: unknown[]) => mockListResearchRuns(...args),
-}))
-
-vi.mock('next/link', () => ({
-  default: ({ href, children, ...rest }: { href: string; children: ReactNode }) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
+const mockListProjectRuns = vi.fn()
+vi.mock('@/adapters/api/jobs-client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/adapters/api/jobs-client')>()),
+  listProjectRuns: (...args: unknown[]) => mockListProjectRuns(...args),
 }))
 
 vi.mock('../store', () => ({
-  useLayoutStore: vi.fn((selector?: StoreSelector<LayoutStore>) => {
-    const state: DeepPartial<LayoutStore> = {
-      isSessionsPanelOpen: true,
-      setSessionsPanelOpen: mockSetSessionsPanelOpen,
-    }
-    return selector ? selector(asStoreState<LayoutStore>(state)) : state
-  }),
+  useLayoutStore: vi.fn(),
 }))
 
 vi.mock('@/features/chat/store', () => ({
   useChatStore: vi.fn(),
 }))
 
-describe('SessionsPanel - Deep Research section (FB-10)', () => {
+describe('SessionsPanel - deep research marks the chat that holds it', () => {
   const today = new Date()
+  const sessions = [
+    { id: 'conv-research', title: 'OIB 2 Prüfung', date: today },
+    { id: 'conv-plain', title: 'Stellplatznachweis', date: today },
+  ]
 
-  const makeRun = (overrides: Partial<ResearchRun>): ResearchRun => ({
-    job_id: 'job-aaaaaaaa1111',
-    status: 'completed',
-    created_at: today.toISOString(),
-    conversation_id: null,
-    project_collection: 'proj_1',
-    ...overrides,
-  })
+  const renderPanel = (projectId: string | undefined = 'p1') =>
+    render(<SessionsPanel sessions={sessions} projectId={projectId} />)
 
-  const sessions = [{ id: 'conv-1', title: 'Fire safety review', date: today }]
-
-  const renderPanel = (extra: Partial<Parameters<typeof SessionsPanel>[0]> = {}) =>
-    render(
-      <SessionsPanel
-        sessions={sessions}
-        projectId="p1"
-        {...extra}
-      />
-    )
+  const rowOf = (title: RegExp) => screen.getByRole('button', { name: title })
 
   beforeEach(() => {
     vi.clearAllMocks()
     setupChatStoreMock()
-    mockListResearchRuns.mockResolvedValue({ jobs: [], total: 0 })
+    mockListProjectRuns.mockResolvedValue([])
     vi.mocked(useLayoutStore).mockImplementation((selector?: StoreSelector<LayoutStore>) => {
       const state: DeepPartial<LayoutStore> = {
         isSessionsPanelOpen: true,
@@ -74,198 +49,119 @@ describe('SessionsPanel - Deep Research section (FB-10)', () => {
     })
   })
 
-  test('does not render the section, the filter, or fetch runs outside a project', () => {
+  test('keeps runs out of a list of their own: the history is the chats, newest first', async () => {
+    mockListProjectRuns.mockResolvedValue([makeLedgerRun({ conversationId: 'conv-research' })])
+
+    renderPanel()
+
+    await waitFor(() => {
+      expect(within(rowOf(/chat: oib 2 prüfung/i)).getByText('Deep Research')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('deep-research-section')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /deep research run/i })).not.toBeInTheDocument()
+    expect(within(rowOf(/chat: stellplatznachweis/i)).queryByText('Deep Research')).not.toBeInTheDocument()
+    expect(mockListProjectRuns).toHaveBeenCalledWith('p1', { limit: 50, kind: 'deep-research' })
+  })
+
+  test.each([
+    ['running', 'Working on this chat'],
+    ['queued', 'Working on this chat'],
+    ['succeeded', 'Report ready'],
+    ['failed', 'Research failed'],
+    ['error', 'Research failed'],
+  ] as const)('a chat whose newest run is %s reads "%s"', async (status, label) => {
+    mockListProjectRuns.mockResolvedValue([makeLedgerRun({ conversationId: 'conv-research', status })])
+
+    renderPanel()
+
+    expect(await screen.findByRole('button', { name: `Chat: OIB 2 Prüfung — ${label}` })).toBeInTheDocument()
+  })
+
+  test('the newest run of a chat decides its mark', async () => {
+    mockListProjectRuns.mockResolvedValue([
+      makeLedgerRun({ id: 'old', conversationId: 'conv-research', status: 'failed', createdAt: '2026-09-01T00:00:00.000Z' }),
+      makeLedgerRun({ id: 'new', conversationId: 'conv-research', status: 'succeeded', createdAt: '2026-09-28T00:00:00.000Z' }),
+    ])
+
+    renderPanel()
+
+    expect(await screen.findByRole('button', { name: 'Chat: OIB 2 Prüfung — Report ready' })).toBeInTheDocument()
+  })
+
+  test('the filter narrows the one list to research chats, or to the others, with a count', async () => {
+    mockListProjectRuns.mockResolvedValue([makeLedgerRun({ conversationId: 'conv-research' })])
+    const user = userEvent.setup()
+
+    renderPanel()
+
+    const researchFilter = await screen.findByRole('radio', { name: /deep research/i })
+    await waitFor(() => expect(within(researchFilter).getByText('1')).toBeInTheDocument())
+
+    await user.click(researchFilter)
+    expect(rowOf(/chat: oib 2 prüfung/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /chat: stellplatznachweis/i })).not.toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('radio', { name: 'Chats' }))
+    expect(await screen.findByRole('button', { name: /chat: stellplatznachweis/i })).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /chat: oib 2 prüfung/i })).not.toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('radio', { name: 'All' }))
+    expect(await screen.findByRole('button', { name: /chat: oib 2 prüfung/i })).toBeInTheDocument()
+    expect(rowOf(/chat: stellplatznachweis/i)).toBeInTheDocument()
+  })
+
+  test('the Deep Research filter says so when no chat holds a run', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    await user.click(await screen.findByRole('radio', { name: /deep research/i }))
+    expect(await screen.findByText('No deep research runs yet')).toBeInTheDocument()
+  })
+
+  test('an office without deep research gets no filter, and its chats stay unmarked', async () => {
+    mockListProjectRuns.mockRejectedValue(new JobApiError('forbidden', 403, 'feature_disabled', null))
+
+    renderPanel()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('radiogroup', { name: /filter history/i })).not.toBeInTheDocument()
+    })
+    expect(within(rowOf(/chat: oib 2 prüfung/i)).queryByText('Deep Research')).not.toBeInTheDocument()
+  })
+
+  test('outside a project nothing is fetched and no filter shows', () => {
     render(<SessionsPanel sessions={sessions} />)
 
-    expect(screen.queryByTestId('deep-research-section')).not.toBeInTheDocument()
     expect(screen.queryByRole('radiogroup', { name: /filter history/i })).not.toBeInTheDocument()
-    expect(mockListResearchRuns).not.toHaveBeenCalled()
+    expect(mockListProjectRuns).not.toHaveBeenCalled()
   })
 
-  test('renders a run count and fetches runs scoped to the project collection', async () => {
-    mockListResearchRuns.mockResolvedValue({
-      jobs: [makeRun({ job_id: 'job-1' }), makeRun({ job_id: 'job-2' })],
-      total: 2,
-    })
+  test('a failed ledger read keeps the chats and their own marks', async () => {
+    mockListProjectRuns.mockRejectedValue(new Error('network down'))
 
-    renderPanel()
-
-    const section = await screen.findByTestId('deep-research-section')
-    await waitFor(() => {
-      expect(within(section).getByText('2')).toBeInTheDocument()
-    })
-    const researchFilter = screen.getByRole('radio', { name: /deep research/i })
-    expect(within(researchFilter).getByText('2')).toBeInTheDocument()
-
-    expect(mockListResearchRuns).toHaveBeenCalledWith(
-      expect.objectContaining({ projectId: 'p1' })
-    )
-  })
-
-  test('shows runs by default: session-title label, untitled fallback, and thread hrefs', async () => {
-    mockListResearchRuns.mockResolvedValue({
-      jobs: [
-        makeRun({ job_id: 'job-completed', status: 'completed', conversation_id: 'conv-1' }),
-        makeRun({ job_id: 'job-failed', status: 'failed', conversation_id: null }),
-      ],
-      total: 2,
-    })
-
-    renderPanel()
-
-    const completed = await screen.findByRole('link', {
-      name: /Open deep research run: Fire safety review/i,
-    })
-    expect(completed.getAttribute('href')).toBe('/app/projects/p1/chat?session=conv-1')
-
-    expect(screen.getByText('Deep research run')).toBeInTheDocument()
-    expect(
-      screen.queryByRole('link', { name: /Open deep research run: Deep research run/i })
-    ).not.toBeInTheDocument()
-  })
-
-  test('a run states its status in words, not only in its icon', async () => {
-    mockListResearchRuns.mockResolvedValue({
-      jobs: [
-        makeRun({ job_id: 'job-ok', status: 'completed', conversation_id: 'conv-1' }),
-        makeRun({ job_id: 'job-bad', status: 'failed', conversation_id: 'conv-2' }),
-        makeRun({ job_id: 'job-live', status: 'running', conversation_id: 'conv-3' }),
-      ],
-      total: 3,
-    })
-
-    renderPanel()
-
-    expect(await screen.findByText('Report ready')).toBeInTheDocument()
-    expect(screen.getByText('Failed')).toBeInTheDocument()
-    expect(screen.getByText('Running')).toBeInTheDocument()
-    expect(
-      screen.getByRole('link', { name: /Open deep research run: .* — Failed/i })
-    ).toBeInTheDocument()
-  })
-
-  test('marks research-carrying sessions with a Deep Research chip', async () => {
     render(
       <SessionsPanel
-        sessions={[{ id: 'conv-1', title: 'Research chat', date: today, hasCompletedReport: true }]}
+        sessions={[{ id: 'conv-live', title: 'Live chat', date: today, hasActiveDeepResearch: true }]}
         projectId="p1"
       />
     )
 
-    const row = screen.getByRole('button', { name: /chat: research chat/i })
-    await waitFor(() => {
-      expect(within(row).getByText('Deep Research')).toBeInTheDocument()
-    })
+    await waitFor(() => expect(mockListProjectRuns).toHaveBeenCalled())
+    expect(within(rowOf(/chat: live chat/i)).getByText('Deep Research')).toBeInTheDocument()
   })
 
-  test('shows skeleton rows while the first runs fetch is pending', () => {
-    mockListResearchRuns.mockReturnValue(new Promise(() => {}))
+  test('a chat row offers no stop action: a run is stopped from its block in the thread', async () => {
+    mockListProjectRuns.mockResolvedValue([makeLedgerRun({ conversationId: 'conv-research', status: 'running' })])
 
-    renderPanel()
-
-    const skeleton = screen.getByTestId('deep-research-skeleton')
-    expect(skeleton).toHaveAttribute('aria-busy', 'true')
-  })
-
-  test('a failed runs fetch shows a retry line instead of a silently empty section', async () => {
-    mockListResearchRuns
-      .mockRejectedValueOnce(new Error('network down'))
-      .mockResolvedValueOnce({
-        jobs: [makeRun({ job_id: 'job-1', conversation_id: 'conv-1' })],
-        total: 1,
-      })
-
-    const user = userEvent.setup()
-    renderPanel()
-
-    expect(
-      await screen.findByText('Deep-research runs could not be loaded.')
-    ).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'Retry' }))
-    expect(
-      await screen.findByRole('link', { name: /Open deep research run: Fire safety review/i })
-    ).toBeInTheDocument()
-    expect(mockListResearchRuns).toHaveBeenCalledTimes(2)
-  })
-
-  test('the scope filter shows chats, runs, or both', async () => {
-    mockListResearchRuns.mockResolvedValue({
-      jobs: [makeRun({ job_id: 'job-1', conversation_id: 'conv-1' })],
-      total: 1,
-    })
-
-    const user = userEvent.setup()
-    renderPanel()
-
-    expect(await screen.findByRole('link', { name: /open deep research run/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /chat: fire safety review/i })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('radio', { name: 'Chats' }))
-    expect(screen.queryByRole('link', { name: /open deep research run/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /chat: fire safety review/i })).toBeInTheDocument()
-
-    await user.click(screen.getByRole('radio', { name: /deep research/i }))
-    expect(await screen.findByRole('link', { name: /open deep research run/i })).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: /chat: fire safety review/i })
-    ).not.toBeInTheDocument()
-  })
-
-  test('the Deep Research scope shows a proper empty state when there are no runs', async () => {
-    const user = userEvent.setup()
     renderPanel()
 
     await waitFor(() => {
-      expect(screen.queryByTestId('deep-research-skeleton')).not.toBeInTheDocument()
+      expect(within(rowOf(/chat: oib 2 prüfung/i)).getByText('Deep Research')).toBeInTheDocument()
     })
-    expect(screen.queryByTestId('deep-research-section')).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('radio', { name: /deep research/i }))
-    expect(await screen.findByText('No deep research runs yet')).toBeInTheDocument()
-  })
-
-  test('populates the section after a quick close→reopen while the fetch is pending', async () => {
-    let isPanelOpen = true
-    let resolveRuns: (value: { jobs: ResearchRun[]; total: number }) => void = () => {}
-    mockListResearchRuns.mockReturnValue(
-      new Promise((resolve) => {
-        resolveRuns = resolve
-      })
-    )
-    vi.mocked(useLayoutStore).mockImplementation((selector?: StoreSelector<LayoutStore>) => {
-      const state: DeepPartial<LayoutStore> = {
-        isSessionsPanelOpen: isPanelOpen,
-        setSessionsPanelOpen: mockSetSessionsPanelOpen,
-      }
-      return selector ? selector(asStoreState<LayoutStore>(state)) : state
-    })
-
-    const { rerender } = render(
-      <SessionsPanel sessions={sessions} projectId="p1" />
-    )
-
-    expect(mockListResearchRuns).toHaveBeenCalledTimes(1)
-
-    isPanelOpen = false
-    rerender(
-      <SessionsPanel sessions={sessions} projectId="p1" />
-    )
-    isPanelOpen = true
-    rerender(
-      <SessionsPanel sessions={sessions} projectId="p1" />
-    )
-
-    resolveRuns({
-      jobs: [
-        makeRun({ job_id: 'job-1', conversation_id: 'conv-1' }),
-        makeRun({ job_id: 'job-2', conversation_id: 'conv-2' }),
-      ],
-      total: 2,
-    })
-
-    expect(
-      await screen.findAllByRole('link', { name: /open deep research run/i })
-    ).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: /stop research/i })).not.toBeInTheDocument()
   })
 })

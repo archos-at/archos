@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     The content check now finds a term whose word is split once by a space or

@@ -32,7 +32,7 @@ const mockEnsureConversationExists = vi.fn(async () => {})
 function mockChatState() {
   return {
     currentConversation: mockCurrentSessionId
-      ? { id: mockCurrentSessionId, messages: mockConversationMessages }
+      ? { id: mockCurrentSessionId, projectId: 'project-1', messages: mockConversationMessages }
       : null,
     conversations: mockCurrentSessionId
       ? [{ id: mockCurrentSessionId, messages: mockConversationMessages ?? [] }]
@@ -70,6 +70,12 @@ function mockChatState() {
     },
   }
 }
+
+const mockTemporary = vi.hoisted(() => ({ pressed: false }))
+vi.mock('@/features/chat/conversation-privacy', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/chat/conversation-privacy')>()),
+  useTemporarySwitch: () => ({ pressed: mockTemporary.pressed, pending: false, statement: null, sendBlocked: false }),
+}))
 
 vi.mock('@/features/chat', () => ({
   useWebSocketChat: vi.fn(() => ({
@@ -226,6 +232,7 @@ describe('InputArea', () => {
     mockRestartMentionCandidates.mockClear()
     mockAwaitingPending = []
     resetThreadSharing()
+    mockTemporary.pressed = false
     vi.mocked(useFileDragDrop).mockReturnValue({
       isDragging: false,
       isUnsupportedDrag: false,
@@ -256,6 +263,35 @@ describe('InputArea', () => {
       noteSendIntent: mockNoteSendIntent,
       pendingInteraction: null,
     } as unknown as ReturnType<typeof useWebSocketChat>)
+  })
+
+  test('lands its controls without easing until the session is confirmed, so a load does not fade them up', () => {
+    const { rerender } = render(<InputArea isAuthenticated={false} />)
+    const root = screen.getByTestId('composer-root')
+    expect(root).toHaveAttribute('data-arriving')
+    expect(root.className).toContain('data-arriving:**:transition-none')
+
+    rerender(<InputArea isAuthenticated={true} />)
+    expect(screen.getByTestId('composer-root')).not.toHaveAttribute('data-arriving')
+  })
+
+  test('a composer that mounts signed in, as after a switch, has nothing to land', () => {
+    render(<InputArea isAuthenticated={true} />)
+    expect(screen.getByTestId('composer-root')).not.toHaveAttribute('data-arriving')
+  })
+
+  test('a temporary chat swaps the card’s shadow for a dashed ink line, on colour alone and with no change of size', () => {
+    const { unmount } = render(<InputArea isAuthenticated={true} />)
+    const card = (): HTMLElement => screen.getByTestId('composer-root').querySelector('.\\@container') as HTMLElement
+    expect(card()).not.toHaveAttribute('data-temporary')
+    expect(card()).toHaveClass('outline-dashed', 'outline-transparent', 'shadow-md')
+    unmount()
+
+    mockTemporary.pressed = true
+    render(<InputArea isAuthenticated={true} />)
+    expect(card()).toHaveAttribute('data-temporary')
+    expect(card()).toHaveClass('outline-dashed', 'outline-foreground', 'shadow-none')
+    expect(card()).toHaveClass('transition-[outline-color,box-shadow]', 'duration-quick', 'motion-reduce:transition-none')
   })
 
   test('does not render the Auto mode selector button', () => {
@@ -444,4 +480,16 @@ describe('InputArea', () => {
     expect(mockSendMessage).not.toHaveBeenCalled()
   })
 
+
+  test('the AI notice stands under the composer of a running chat, and not on an empty one', () => {
+    const { unmount } = render(<InputArea isAuthenticated />)
+    expect(screen.queryByTestId('ai-disclosure')).not.toBeInTheDocument()
+    unmount()
+
+    mockConversationMessages = [{ id: 'm1', role: 'user', content: 'Wie viele Stellplätze?' }]
+    render(<InputArea isAuthenticated />)
+
+    expect(screen.getByTestId('ai-disclosure')).toHaveTextContent(new RegExp(`^${PRODUCT_NAME} is an AI`))
+    expect(screen.getByTestId('ai-disclosure').className).not.toMatch(/bg-/)
+  })
 })

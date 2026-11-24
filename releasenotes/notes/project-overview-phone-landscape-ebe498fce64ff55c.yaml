@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    On a phone turned on its side, the project overview now slides up and can
+    be pulled down to close, as it does when the phone is upright.

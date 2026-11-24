@@ -73,7 +73,9 @@ def fallback_scope(conversation_id: str | None) -> list[ScopedCollection]:
 
 
 def resolve_scope(header_scope: list[ScopedCollection] | None, conversation_id: str | None) -> list[ScopedCollection]:
-    return list(header_scope) if header_scope else fallback_scope(conversation_id)
+    if header_scope is not None:
+        return list(header_scope)
+    return fallback_scope(conversation_id)
 
 
 def shelves_in_scope(scope: Iterable[ScopedCollection]) -> list[str]:

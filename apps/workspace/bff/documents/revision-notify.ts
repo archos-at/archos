@@ -4,6 +4,7 @@ import { insertRevisionNotice, planRevisionNotice, type RevisionNoticeJob } from
 import { documentCheckMaxBatch } from '@/lib/document-check/check'
 import { queueDocumentCheck } from '@/lib/document-check/queue'
 import { listDocumentAnnotations, type AnnotationRecord } from '@/lib/annotations/repository'
+import { isOpenItem } from '@/lib/annotations/types'
 import { listAssignmentsForResources } from '@/lib/assignments/repository'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -96,7 +97,7 @@ async function marksLeftBehind(
 ): Promise<AnnotationRecord[]> {
   if (follow.scope !== 'project' && follow.scope !== 'office_shelf') return []
   const marks = await listDocumentAnnotations(organizationId, follow.id)
-  return marks.filter((mark) => mark.status === 'open' && (!versionId || (mark.versionId ?? null) !== versionId))
+  return marks.filter((mark) => isOpenItem(mark) && (!versionId || (mark.versionId ?? null) !== versionId))
 }
 
 export async function notifyNewRevision(announcement: NewRevisionAnnouncement): Promise<number> {

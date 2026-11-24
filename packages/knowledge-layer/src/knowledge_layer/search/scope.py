@@ -46,9 +46,9 @@ def resolve_scoped_collections(
     try:
         from agent.knowledge.scoping import get_scoped_collections_from_context
 
-        header_scope = get_scoped_collections_from_context()
-        if header_scope:
-            return header_scope
+        signed_scope = get_scoped_collections_from_context()
+        if signed_scope is not None:
+            return signed_scope
     except ImportError:
         pass
 
@@ -56,7 +56,7 @@ def resolve_scoped_collections(
     if not _warned_legacy_fallback:
         _warned_legacy_fallback = True
         logger.warning(
-            "X-Grid-Collection-Scope header not present, falling back to legacy config-based collection resolution"
+            "No signed decision or envelope scope; falling back to legacy config-based collection resolution"
         )
 
     base = base_collection if base_collection is not None else config.collection_name

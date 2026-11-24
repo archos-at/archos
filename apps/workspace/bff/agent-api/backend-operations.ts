@@ -7,8 +7,9 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { withTenant } from '@/lib/db/tenant-context'
 import { getBackendUrl } from '@/lib/backend-url'
 import { InternalServiceUnavailableError, internalServiceHeaders } from '@/lib/internal-auth'
-import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
-import { turnContextHeaders } from '@/lib/turns/turn-headers.js'
+import { signedEnvelopeHeaders } from '@/lib/turns/signed-envelope'
+import type { ContextKind } from '@/lib/conversation-context/types'
+import { TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
 import backendTools from '../../tests/fixtures/backend-tools.schema.json'
 import type { AgentDomain, ToolAnnotations } from './operation'
 import { type OperationResult, readResponseBody } from './dispatch'
@@ -171,6 +172,22 @@ const ENTRIES = [
       'and the remedy verbatim. Never recompute, round or convert a returned number, and pass only GlobalIds a call returned. ' +
       'A measurement that contradicts a declared quantity is reported as a contradiction with both numbers. The first ' +
       'geometric call on a model costs seconds; later calls are fast.',
+    needsProject: true,
+  },
+  {
+    name: 'drawing-measure',
+    tool: 'drawing_measure',
+    domain: 'documents',
+    summary: 'Read printed figures and measure widths, distances and areas on a page of a project’s PDF drawing',
+    description:
+      'Read and measure a page of a project’s PDF drawing (a floor plan, a section, a site plan plotted from CAD) from the ' +
+      'file itself: `sheet` (size, each region’s scale and its state), `figures` and `rooms` (what is printed, as text), ' +
+      '`scale_check`, and `clearance`, `distance`, `path`, `area`. Places are shares of the page as shown, 0 to 1, origin top ' +
+      'left; document-look shows where things are. The engine ties each point to linework and returns no number where it ' +
+      'cannot, or where the region’s scale is neither calibrated by a person nor corroborated by the sheet’s own dimension ' +
+      'figures. A scale is verified, estimated or uncalibrated; an estimated one gives a length with a caveat and never a ' +
+      'verdict against `threshold_min` / `threshold_max`. State every number with its interval and provenance; never ' +
+      'recompute, round or convert one, and never work a length out from a printed scale.',
     needsProject: true,
   },
   {
@@ -344,8 +361,6 @@ export function findBackendOperation(name: string): BackendOperation | undefined
 
 const BACKEND_TOOL_TIMEOUT_MS = 120_000
 
-const ENVELOPE_HEADERS = ['x-request-context', 'x-request-context-sig'] as const
-
 function refusal(status: number, code: string, message: string, details?: unknown): OperationResult {
   return { status, ok: false, body: { error: message, code, ...(details === undefined ? {} : { details }) } }
 }
@@ -363,23 +378,11 @@ export function backendRefusal(status: number, body: unknown): OperationResult {
   return refusal(status, `http_${status}`, `The backend answered HTTP ${status}`)
 }
 
-async function signedEnvelope(
-  session: AuthorizedSession,
-  projectId: string | undefined,
-  secret: string
-): Promise<Record<string, string>> {
-  const context = await resolveTurnContext(session, { projectId })
-  const headers = turnContextHeaders(context, { issuedAt: Date.now(), secret })
-  return Object.fromEntries(
-    ENVELOPE_HEADERS.flatMap((name) => (headers[name] ? [[name, headers[name]]] : []))
-  )
-}
-
 export async function callBackendOperation(
   name: string,
   args: Record<string, unknown>,
   session: AuthorizedSession,
-  options: { projectId?: string }
+  options: { projectId?: string; kind: ContextKind }
 ): Promise<OperationResult> {
   const op = findBackendOperation(name)
   if (!op) return refusal(404, 'unknown_operation', `${name} is not a backend operation`)
@@ -411,7 +414,7 @@ export async function callBackendOperation(
   try {
     envelope = await withTenant(tenant, async () => {
       if (projectId) await requireProjectAccess(session, projectId, CHAT_PERMISSIONS)
-      return signedEnvelope(session, projectId, secret)
+      return signedEnvelopeHeaders(session, projectId, secret, options.kind)
     })
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError)

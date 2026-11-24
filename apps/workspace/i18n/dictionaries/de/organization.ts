@@ -5,7 +5,7 @@ export const organization: typeof en.organization = {
   subtitle: 'Verwalten Sie Ihre Organisation, ihre Mitglieder und Zugriffe.',
   loading: 'Organisation wird geladen…',
   memberSubtitle: 'Ihr Verbrauch und Ihre Organisation auf einen Blick.',
-  backToApp: 'Zurück zu den Projekten',
+  backToApp: 'Zurück zum Chat',
   nav: {
     label: 'Organisationsbereiche',
     overview: 'Übersicht',

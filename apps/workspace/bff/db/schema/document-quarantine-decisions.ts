@@ -27,7 +27,7 @@ export const documentQuarantineDecisions = pgTable(
     ),
     scopeCheck: check(
       'document_quarantine_decisions_scope_check',
-      sql`${table.scope} IN ('project', 'office_shelf', 'archiv', 'session')`
+      sql`${table.scope} IN ('project', 'office_shelf', 'archiv', 'session', 'personal')`
     ),
     scopeProject: check(
       'document_quarantine_decisions_scope_project',

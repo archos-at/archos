@@ -1,4 +1,5 @@
 ---
+# area: tasks
 operators:
   - >
     The bff-jobs pod can run its job slices without starting a second Next.js

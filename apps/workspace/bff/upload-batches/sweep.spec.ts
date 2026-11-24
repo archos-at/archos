@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/db/tenant-context', () => ({
-  withTenant: vi.fn(async (_scope: unknown, run: () => Promise<unknown>) => run()),
+  withSystemReader: vi.fn(async (_organizationId: string, _reader: string, run: () => Promise<unknown>) => run()),
 }))
 vi.mock('./repository', () => ({
   listOpenBatchesBetween: vi.fn(),
@@ -21,6 +21,7 @@ vi.mock('@/lib/upload-screening/quarantine-audit', () => ({
 }))
 
 import { DEFAULT_UPLOAD_BATCH_EFFECTS, type UploadBatch } from '@/lib/db/schema/upload-batches'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { reconcileDocumentStatuses } from '@/lib/documents/reconcile-status'
 import { pruneSpentQuarantines, sweepOwedQuarantines } from '@/lib/upload-screening/quarantine-audit'
 import { makeDocument } from '@/test-utils/db-fixtures'
@@ -93,6 +94,7 @@ describe('sweepUploadBatches', () => {
     expect(reconcileDocumentStatuses).toHaveBeenCalledWith([reading], 'org-1', 'sweep')
     expect(settleUploadBatches).toHaveBeenCalledWith('org-1', ['b1'])
     expect(result).toMatchObject({ completed: 1, failed: 0 })
+    expect(withSystemReader).toHaveBeenCalledWith('org-1', 'ingestion-recovery', expect.any(Function))
   })
 
   it('looks back as far as an operator asks, and a week by default', async () => {

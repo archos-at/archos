@@ -23,6 +23,7 @@ interface EntryTableProps {
   onToggle: (entryId: string, on: boolean) => void
   onToggleAll: (on: boolean) => void
   onOpen: (entry: BaseKnowledgeEntry) => void
+  topicOf?: (entry: BaseKnowledgeEntry) => string | null
 }
 
 export function EntryTable({
@@ -32,6 +33,7 @@ export function EntryTable({
   onToggle,
   onToggleAll,
   onOpen,
+  topicOf,
 }: EntryTableProps): JSX.Element {
   const t = useTranslations(baseKnowledgeCopy)
   const phone = usePhoneLayout()
@@ -51,6 +53,7 @@ export function EntryTable({
             </TableHead>
           )}
           <TableHead>{t('column.entry')}</TableHead>
+          {topicOf && <TableHead className="w-36 max-lg:hidden">{t('column.topic')}</TableHead>}
           <TableHead className="w-28 max-md:hidden">{t('column.kind')}</TableHead>
           <TableHead className="w-32 max-lg:hidden">{t('column.edition')}</TableHead>
           {!phone && <TableHead className="w-48">{t('column.status')}</TableHead>}
@@ -92,6 +95,11 @@ export function EntryTable({
                 </span>
               )}
             </TableCell>
+            {topicOf && (
+              <TableCell className="truncate text-sm max-lg:hidden" data-testid="base-knowledge-topic">
+                {topicOf(entry) ?? ''}
+              </TableCell>
+            )}
             <TableCell className="text-sm whitespace-nowrap max-md:hidden">
               {t(`kind.${entry.values.kind}`)}
             </TableCell>

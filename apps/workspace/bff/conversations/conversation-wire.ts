@@ -13,12 +13,20 @@ export const createConversationSchema = z.object({
     .boolean()
     .optional()
     .describe('True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.'),
+  personal: z
+    .boolean()
+    .optional()
+    .describe('True starts the chat on the person\'s personal side, which lists only chats started there. Ignored with a `projectId`.'),
 })
 
 export const CONVERSATION_PAGE_MAX = 200
 
 export const listConversationsQuerySchema = z.object({
-  projectId: z.guid().optional().describe('Only this project’s conversations.'),
+  projectId: z.guid().optional().describe('This project’s chats and the projectless ones.'),
+  place: z
+    .enum(['personal', 'project'])
+    .optional()
+    .describe('`personal`: the chats started on the personal side; `project`: `projectId`’s only.'),
   limit: z.coerce
     .number()
     .int()
@@ -27,7 +35,22 @@ export const listConversationsQuerySchema = z.object({
     .default(50)
     .describe(`Page size (default 50, most ${CONVERSATION_PAGE_MAX}).`),
   cursor: z.string().min(1).max(128).optional().describe('The previous `nextCursor`.'),
+}).refine((query) => query.place !== 'project' || query.projectId !== undefined, {
+  message: '`place=project` needs a `projectId`.',
+  path: ['place'],
 })
+
+export const deleteOwnConversationsQuerySchema = z
+  .object({
+    place: z
+      .enum(['personal', 'project'])
+      .describe('`personal`: the caller\'s own chats started on the personal side; `project`: the caller\'s own chats in `projectId`.'),
+    projectId: z.guid().optional().describe('The project whose chats `place=project` deletes.'),
+  })
+  .refine((query) => (query.place === 'project') === (query.projectId !== undefined), {
+    message: '`place=project` needs a `projectId`, and `place=personal` takes none.',
+    path: ['projectId'],
+  })
 
 export const MESSAGE_INCLUDES = ['citations', 'steps', 'metadata'] as const
 export type MessageInclude = (typeof MESSAGE_INCLUDES)[number]
@@ -57,6 +80,11 @@ export const listMessagesQuerySchema = z.object({
     .describe(
       'Comma-separated extras, none by default: `citations` (sources with snippets), `steps` (thinking steps), `metadata` (cards, provenance, the rest).',
     ),
+})
+
+export const listAnswerTrailsQuerySchema = z.object({
+  limit: listMessagesQuerySchema.shape.limit,
+  cursor: z.string().guid().optional().describe('The previous `nextCursor`: earlier answers.'),
 })
 
 export const updateConversationSchema = z

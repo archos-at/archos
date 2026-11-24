@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     The first message of a new chat is saved even when Piloti is briefly busy.

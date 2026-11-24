@@ -1,5 +1,7 @@
 import httpx
 import pytest
+from agent_testing.bff import FakeBff
+from agent_testing.bff import fake_bff
 
 from agent.common import retrieval_settings
 from agent.common.retrieval_settings import get_retrieval_setting
@@ -16,27 +18,8 @@ def _clean_cache(monkeypatch):
     reset_retrieval_settings_cache()
 
 
-def _mock_bff(monkeypatch, payload: object = None, error: Exception | None = None) -> int:
-    calls = {"n": 0}
-
-    class FakeResponse:
-        def __init__(self, body: object) -> None:
-            self._body = body
-
-        def raise_for_status(self) -> None:
-            return None
-
-        def json(self) -> object:
-            return self._body
-
-    def fake_get(url, **kwargs):
-        calls["n"] += 1
-        if error is not None:
-            raise error
-        return FakeResponse(payload)
-
-    monkeypatch.setattr(httpx, "get", fake_get)
-    return calls
+def _mock_bff(monkeypatch, payload: object = None, error: Exception | None = None) -> FakeBff:
+    return fake_bff(monkeypatch, payload, error=error)
 
 
 class TestSanitize:
@@ -100,19 +83,19 @@ class TestResolution:
         calls = _mock_bff(monkeypatch, {"settings": {"knowledge.top_k": 20}})
         assert get_retrieval_setting("knowledge.top_k", 8) == 20
         assert get_retrieval_setting("knowledge.top_k", 8) == 20
-        assert calls["n"] == 1
+        assert calls.n == 1
 
     def test_negative_result_cached_briefly(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
         calls = _mock_bff(monkeypatch, {"settings": {}})
         assert get_retrieval_setting("knowledge.top_k", 8) == 8
         assert get_retrieval_setting("knowledge.top_k", 8) == 8
-        assert calls["n"] == 1
+        assert calls.n == 1
 
     def test_unknown_key_uses_fallback_without_fetch(self, monkeypatch):
         calls = _mock_bff(monkeypatch, {"settings": {}})
         assert get_retrieval_setting("made.up.key", 3) == 3
-        assert calls["n"] == 0
+        assert calls.n == 0
 
     def test_reset_cache_refetches(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
@@ -120,29 +103,15 @@ class TestResolution:
         assert get_retrieval_setting("knowledge.top_k", 8) == 20
         reset_retrieval_settings_cache()
         assert get_retrieval_setting("knowledge.top_k", 8) == 20
-        assert calls["n"] == 2
+        assert calls.n == 2
 
     def test_frontend_internal_url_respected(self, monkeypatch):
         monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
         monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://bff:3000/")
-        seen = {}
-
-        class FakeResponse:
-            def raise_for_status(self) -> None:
-                return None
-
-            def json(self) -> object:
-                return {"settings": {}}
-
-        def fake_get(url, **kwargs):
-            seen["url"] = url
-            seen["token"] = kwargs["headers"]["x-internal-token"]
-            return FakeResponse()
-
-        monkeypatch.setattr(httpx, "get", fake_get)
+        calls = _mock_bff(monkeypatch, {"settings": {}})
         get_retrieval_setting("knowledge.top_k", 8)
-        assert seen["url"] == "http://bff:3000/api/internal/retrieval-settings"
-        assert seen["token"] == "tok"
+        assert calls.calls[-1].url == "http://bff:3000/api/internal/retrieval-settings"
+        assert calls.calls[-1].headers["x-internal-token"] == "tok"
 
 
 class TestCatalogParity:

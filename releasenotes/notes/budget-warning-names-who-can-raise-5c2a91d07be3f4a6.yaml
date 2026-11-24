@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     The budget warning in the chat now tells members who cannot change the

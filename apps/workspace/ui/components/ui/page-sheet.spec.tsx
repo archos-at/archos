@@ -59,4 +59,5 @@ describe('PageSheet', () => {
     expect(screen.getByRole('dialog').className).toContain('pl-[env(safe-area-inset-left)]')
     expect(screen.getByRole('dialog').className).toContain('pr-[env(safe-area-inset-right)]')
   })
+
 })

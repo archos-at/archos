@@ -6,7 +6,7 @@ The Next.js app acts as a BFF layer between the browser and the Python FastAPI b
 
 - **Avoid CORS issues**: Browser requests stay on the same origin (`localhost:3000` in dev, single domain in production).
 - **Centralize auth**: The BFF resolves the app's sessions (WorkOS AuthKit) and forwards credentials as `Authorization` headers. Anonymous mode skips auth entirely.
-- **Inject collection scope**: Every upstream request gets an `X-Grid-Collection-Scope` header that tells the Python backend which knowledge collections to query.
+- **Authorize collection scope**: Every proxied request resolves the scope through the conversation-context module (`resolveConversationScope`). Runs and jobs carry it in the signed request-context envelope; no plain scope header is sent (ADR-0194).
 - **Normalize errors**: Authz errors from FGA are translated to `403`/`404` HTTP responses. Backend errors are wrapped in a consistent `{ error: { code, message } }` envelope.
 
 ## Pattern
@@ -18,22 +18,22 @@ Each BFF route is a `route.ts` file in `apps/workspace/app/api/` that exports HT
 ```
 import { NextResponse } from 'next/server'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { resolveConversationScope } from '@/lib/conversation-context'
 
 export async function GET(req: Request, { params }): Promise<Response> {
   try {
     // 1. Resolve session
     const session = await resolveSession() // null in anon mode
 
-    // 2. Build collection scope header
-    const { headerValue } = await buildCollectionScopeFromRequest(session, context)
+    // 2. Authorize the scope the request names (no shelves are sent)
+    await resolveConversationScope(session, { ...context, kind: 'run' }, { withoutShelves: true })
 
     // 3. Set auth headers
     const authHeaders = session ? { Authorization: `Bearer ${session.accessToken}` } : {}
 
     // 4. Proxy to backend
     const response = await fetch(backendUrl, {
-      headers: { ...authHeaders, 'X-Grid-Collection-Scope': headerValue },
+      headers: { ...authHeaders },
     })
 
     // 5. Handle errors / return response
@@ -57,7 +57,7 @@ Source: `apps/workspace/app/api/v1/[...path]/route.ts:84`
 
 ## Scope injection
 
-`buildCollectionScopeFromRequest(session, { projectId?, conversationId? })` builds an ordered `X-Grid-Collection-Scope` header:
+`buildCollectionScopeFromRequest(session, { projectId?, conversationId? })`, reached through the conversation-context module (`resolveConversationScope`), builds the ordered scope that a turn's decision or a request-context envelope signs. No proxy sends it as a plain header:
 
 1. The base collection (e.g., `oib_knowledge`).
 2. If `projectId` is set: the project's collection (`proj_{projectId}`).

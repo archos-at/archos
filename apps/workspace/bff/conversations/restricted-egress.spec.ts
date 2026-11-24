@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
+vi.mock('./personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => null) }))
 vi.mock('./restricted-use', () => ({ recordedRestrictedFolders: vi.fn(), recordedSourceProjects: vi.fn() }))
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn() }))
 vi.mock('@/lib/documents/repository', () => ({ findProjectDocumentsByFilenames: vi.fn() }))
@@ -14,6 +15,8 @@ import type { AccessFolder } from '@/lib/authz/folder-access'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { findProjectDocumentsByFilenames, type DocumentListRow } from '@/lib/documents/repository'
 import { recordedRestrictedFolders, recordedSourceProjects } from './restricted-use'
+import { personalShelfUseOf } from './personal-shelf-use'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 import {
   confinementRefusal,
   folderRestrictsReading,
@@ -49,6 +52,7 @@ beforeEach(() => {
   vi.mocked(recordedRestrictedFolders).mockResolvedValue([])
   vi.mocked(recordedSourceProjects).mockResolvedValue([])
   vi.mocked(listProjectFolderTree).mockResolvedValue(TREE)
+  vi.mocked(personalShelfUseOf).mockResolvedValue(null)
 })
 
 async function refusal(promise: Promise<unknown>): Promise<ConversationConfinedError> {
@@ -59,6 +63,35 @@ async function refusal(promise: Promise<unknown>): Promise<ConversationConfinedE
   expect(error).toBeInstanceOf(ConversationConfinedError)
   return error as ConversationConfinedError
 }
+
+describe('a chat that read its owner’s shelf (ADR-0193, rule 4)', () => {
+  beforeEach(() => {
+    vi.mocked(personalShelfUseOf).mockResolvedValue({ ownerId: 'user_owner' })
+  })
+
+  it.each(['deepResearch', 'task', 'profilePatch', 'memory'] as const)('lets nothing leave it as %s', async (action) => {
+    const error = await refusal(requireMayLeaveConversation({ conversationId: CONV, locale: 'de' }, ORG, action))
+    expect(error.details).toEqual({ action: 'personalShelf' })
+    expect(error.message).toContain('Meine Ablage')
+  })
+
+  it('files only into its owner’s own shelf, never into a project', async () => {
+    const error = await refusal(requireMayFileFrom({ conversationId: CONV, locale: 'de' }, destination(VERTRAEGE)))
+    expect(error.details).toEqual({ action: 'personalShelf' })
+    await expect(
+      requireMayFileFrom(
+        { conversationId: CONV, locale: 'de' },
+        { organizationId: ORG, projectId: null, projectCollection: personalShelfCollectionName(ORG, 'user_owner'), folderId: null },
+      ),
+    ).resolves.toBeUndefined()
+    await refusal(
+      requireMayFileFrom(
+        { conversationId: CONV, locale: 'de' },
+        { organizationId: ORG, projectId: null, projectCollection: personalShelfCollectionName(ORG, 'user_other'), folderId: null },
+      ),
+    )
+  })
+})
 
 describe('requireMayLeaveConversation — runs, tasks and the profile', () => {
   it.each(['deepResearch', 'task', 'profilePatch'] as const)(

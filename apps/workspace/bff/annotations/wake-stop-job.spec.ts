@@ -58,7 +58,7 @@ describe('runAgentWakeStop', () => {
     expect(request.headers).not.toHaveProperty('authorization')
   })
 
-  it('signs an envelope that names the organization, the person and the thread, and builds no turn context', async () => {
+  it('signs a headless envelope that names the organization, the person and the thread, and builds no turn context', async () => {
     await runAgentWakeStop('org_1', PAYLOAD, NOT_LAST)
 
     const { headers } = sentRequest()
@@ -67,7 +67,7 @@ describe('runAgentWakeStop', () => {
       headers['x-request-context-sig'],
       SECRET
     )
-    expect(envelope).toMatchObject({ organizationId: 'org_1', userId: 'user_anna', conversationId: THREAD })
+    expect(envelope).toMatchObject({ organizationId: 'org_1', userId: 'user_anna', conversationId: THREAD, contextKind: 'headless' })
   })
 
   it('leaves a turn that already ended alone, and sends nothing', async () => {

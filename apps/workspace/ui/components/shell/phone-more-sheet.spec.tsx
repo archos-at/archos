@@ -71,7 +71,9 @@ describe('PhoneMoreSheet', () => {
 
     const selector = sheet.querySelector<HTMLElement>('[data-project-selector]')!
     const body = selector.parentElement!
-    expect(body.querySelectorAll('button, a')[0]).toBe(selector)
+    const side = within(body).getByTestId('rail-mode-switch')
+    expect(body.firstElementChild).toContainElement(side)
+    expect(body.querySelectorAll('button, a')[2]).toBe(selector)
     expect(selector).toHaveClass('bg-sheet', 'shadow-press', 'min-h-14')
     expect(selector).toHaveAccessibleName('Switch project (current: Wohnbau Seestadt Baufeld D12)')
     const name = selector.querySelector('.whitespace-nowrap')!
@@ -83,7 +85,7 @@ describe('PhoneMoreSheet', () => {
     const list = await screen.findByRole('dialog', { name: 'Switch project' })
     expect(within(list).getByRole('searchbox', { name: 'Search projects' })).toBeInTheDocument()
     expect(within(list).getByRole('button', { name: 'Sanierung Amtshaus Favoriten' })).toBeInTheDocument()
-    expect(within(list).getByRole('link', { name: 'View all projects' })).toBeInTheDocument()
+    expect(within(list).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
 
     await user.click(within(list).getByRole('button', { name: 'Back to More' }))
     expect(await screen.findByRole('dialog', { name: 'More' })).toBeInTheDocument()
@@ -93,5 +95,29 @@ describe('PhoneMoreSheet', () => {
     render(<PhoneMoreSheet projectId={null} authRequired {...flags} />)
     act(() => useShellOverlays.getState().setMoreSheetOpen(true))
     expect(document.querySelector('[data-project-selector]')).toBeNull()
+  })
+
+  test('under Persönlich it starts with the Persönlich | Projekt switch and lists the office and the account, no project (ADR-0193)', async () => {
+    render(<PhoneMoreSheet projectId={null} pathname="/app/personal/chat" authRequired {...flags} />)
+    act(() => useShellOverlays.getState().setMoreSheetOpen(true))
+    const sheet = await screen.findByRole('dialog', { name: 'More' })
+
+    const side = within(sheet).getByTestId('rail-mode-switch')
+    expect(within(side).getByRole('radio', { name: 'Personal' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(side).getByRole('radio', { name: 'Project' })).toHaveClass('pointer-coarse:h-11')
+    expect(sheet.querySelector('[data-project-selector]')).toBeNull()
+    const links = within(sheet).getAllByRole('link').map((link) => link.getAttribute('data-destination'))
+    expect(links).toEqual(['officeShelf', 'search', 'profile', 'memory', 'organization', 'whats-new'])
+  })
+
+  test('inside a project the same switch stands above the project selector, on Projekt', async () => {
+    render(<PhoneMoreSheet projectId="p1" projects={[{ id: 'p1', name: 'Seestadt' }]} projectName="Seestadt" authRequired {...flags} />)
+    act(() => useShellOverlays.getState().setMoreSheetOpen(true))
+    const sheet = await screen.findByRole('dialog', { name: 'More' })
+
+    expect(within(within(sheet).getByTestId('rail-mode-switch')).getByRole('radio', { name: 'Project' })).toHaveAttribute('aria-checked', 'true')
+    expect(sheet.querySelector('[data-slot="phone-more-side"]')!.compareDocumentPosition(sheet.querySelector('[data-project-selector]')!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    )
   })
 })

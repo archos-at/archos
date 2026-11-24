@@ -120,14 +120,18 @@ describe('SessionsPanel - Delete Button States', () => {
     setupChatStoreMock({ hasAnyBusySession: () => true })
     render(<SessionsPanel sessions={sessions} />)
 
-    expect(
-      screen.getByRole('button', { name: /delete all chats in this project \(disabled\)/i })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: /^delete all your personal chats$/i })).toBeDisabled()
   })
 
   test('enables "Delete All" button when no sessions are busy', () => {
     render(<SessionsPanel sessions={[session('session-2', 'Second Session')]} />)
 
-    expect(screen.getByRole('button', { name: /^delete all chats in this project$/i })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: /^delete all your personal chats$/i })).not.toBeDisabled()
+  })
+
+  test('in a project, "Delete All" names that it deletes your chats in this project', () => {
+    render(<SessionsPanel sessions={[session('session-2', 'Second Session')]} side="project" />)
+
+    expect(screen.getByRole('button', { name: /^delete all your chats in this project$/i })).not.toBeDisabled()
   })
 })

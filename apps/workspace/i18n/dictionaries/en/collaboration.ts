@@ -4,6 +4,7 @@ export const collaboration = {
     title: 'You no longer have the rights to view this chat',
     description:
       'Access to a folder this chat draws on has changed since it was shared. Ask someone who can read those folders, or your administrator.',
+    withheldFrom: 'From here on, the chat draws on a source you may not open.',
   },
   sharing: {
     title: 'Share',
@@ -94,6 +95,11 @@ export const collaboration = {
         'This person may not read every folder with restricted access this conversation draws on, so it cannot be shared with them.',
       restrictedContentSelf:
         'You may not read every folder with restricted access this conversation draws on, so you cannot take it over.',
+      personalShelfContent:
+        'This chat read from your own files. Whoever sees it sees its answers, never the files. After that it no longer reads from them.',
+      personalShelfContentNotOwner:
+        'This chat read from the own files of the person who started it. Only they can share it further.',
+      personalShelfConfirm: 'Share anyway',
       restrictedContentProject:
         'This conversation draws on a folder with restricted access, so it cannot be made visible to the whole project. Share it with individual people who may read that folder instead.',
       crossProjectContent:
@@ -207,11 +213,29 @@ export const collaboration = {
   },
 
   inbox: {
-    title: 'Inbox',
-    dock: {
-      close: 'Close the inbox',
-      all: 'All entries and the archive',
+    bell: {
+      late: '{count} overdue',
+      news: '{count, plural, one {# news item} other {# news items}}',
+      open: 'Open inbox',
+      back: 'Leave the inbox',
     },
+    page: {
+      done: 'Mark as done',
+      review: 'Open in the review view',
+      personal: 'Personal',
+      back: 'Back',
+      opened: 'Opened entry',
+      go: 'Open',
+      sheet: 'Page {page}',
+      openPlace: 'Open {sheet}, annotation {number} in the review',
+      onRevision: 'This annotation is on revision {revision}, not on the current one.',
+      earlierRevision: 'This annotation is on an earlier revision.',
+      thread: 'Annotation thread',
+      markFailed: 'The annotation could not be loaded. Open it in the review.',
+      archiveKey: 'Archive (E)',
+      nextHere: '{count, plural, one {# more in this document} other {# more in this document}}',
+    },
+    title: 'Inbox',
     navLabel: 'Inbox',
     badgeAria:
       '{count, plural, one {# item needs} other {# items need}} your attention',
@@ -223,10 +247,10 @@ export const collaboration = {
       archived: 'Archived',
       ariaLabel: 'Filter inbox',
     },
-    markAllRead: 'Mark all as read',
+    archiveAll: 'Archive all',
     archive: 'Archive',
     undo: 'Undo',
-    markAllReadShort: 'All read',
+    archivedAll: 'Inbox cleared',
     archived: 'Archived',
     unarchive: 'Restore',
     unarchived: 'Restored',

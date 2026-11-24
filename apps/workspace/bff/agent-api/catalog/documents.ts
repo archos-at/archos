@@ -12,7 +12,13 @@ import {
 import { nameProbeRequestSchema } from '@/lib/documents/name-probe-types'
 import { DOCUMENT_STATUSES } from '@/lib/documents/document-status'
 import { SHELF_SCOPES } from '@/lib/documents/shelf-scope'
-import { searchBodyInputSchema, searchBodySchema, searchExportQuerySchema, searchScopeQuerySchema, suggestBodySchema } from '@/lib/search/search-wire'
+import {
+  searchBodyInputSchema,
+  searchBodySchema,
+  searchExportQuerySchema,
+  searchScopeQuerySchema,
+  suggestBodySchema,
+} from '@/lib/search/search-wire'
 import type { AgentOperation } from '../operation'
 import { MAX_UPLOAD_BYTES, documentUploadFields, uploadBodySchemaWith } from '../upload-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -33,6 +39,7 @@ const uploadBody = uploadBodySchemaWith({
   projectId: z.string().optional(),
   folderId: z.string().optional().describe('From project-folder-list or office-shelf-folder-list; omit for the root.'),
   revisionOf: revisionOfField,
+  originConversationId: z.string().max(128).optional().describe('Set by the server to your conversation; a value you send is replaced.'),
   ...documentUploadFields,
 })
 const projectUploadExample = {
@@ -95,10 +102,11 @@ export const documentsOperations = [
   {
     name: 'document-bin',
     domain: 'documents',
-    summary: 'Move a project document to the bin',
+    summary: 'Move a project or office shelf document to the bin',
     description:
-      'Deletes a project document restorably: out of every listing and every answer, in the project’s bin until `purgeAfter`. ' +
-      'Undo with document-restore. The office shelf has no bin (409).',
+      'Deletes a project or office shelf document restorably: out of every listing and every answer, in its shelf’s bin until ' +
+      '`purgeAfter`. Undo with document-restore. A person’s own shelf has no bin, a norm leaves through the base knowledge, ' +
+      'and a legal hold refuses it (each 409).',
     method: 'POST',
     path: '/api/documents/[id]/bin',
     params: documentParams,
@@ -251,8 +259,8 @@ export const documentsOperations = [
     domain: 'documents',
     summary: 'Search everything the person may read, with filters',
     description:
-      'Searches every shelf the person may read, or one project (`projectId`), a folder of it (`folderId`) or the office ' +
-      'shelf (`scope: office_shelf`). Finds documents by name, by what ingestion read (type, parties, facts, references, ' +
+      'Searches every shared shelf, a project (`projectId`), its folder (`folderId`), the office shelf ' +
+      '(`office_shelf`) or yours (`personal`). Finds documents by name, by what ingestion read (type, parties, facts, references, ' +
       'drawing number, revision, scale) and by content with the passage and page; also annotations, folders, projects and ' +
       'conversations (`kinds`). `sort` orders like a drawing register, `facets` counts per value, `cursor` pages one kind. ' +
       'A passage points at a page: read the document before quoting it.',

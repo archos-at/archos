@@ -14,13 +14,11 @@ vi.mock('@/lib/projects/service', () => ({ listProjects: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn() }))
 vi.mock('@/lib/office-shelf/collection', () => ({ officeShelfCollectionName: () => 'office_org_1' }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
-vi.mock('@/lib/conversations/restricted-use-repository', () => ({ readConversationAudience: vi.fn() }))
 vi.mock('@/lib/organizations/time-zone', () => ({ officeTimeZone: vi.fn().mockResolvedValue('Europe/Vienna') }))
 vi.mock('@/lib/office-shelf/folder-service', () => ({ officeShelfHiddenFolderIds: vi.fn().mockResolvedValue(['f-standards', 'f-fire']) }))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { audienceReach } from '@/lib/cross-project/audience-reach'
-import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import type { Project } from '@/lib/db/schema/projects'
@@ -35,7 +33,7 @@ beforeEach(() => vi.clearAllMocks())
 
 describe('reachForAudience', () => {
   it('reads what the asker reads in a chat that is theirs alone', async () => {
-    vi.mocked(audienceReach).mockResolvedValue({ projects: [project], restrictedFolders: true, key: 'k' })
+    vi.mocked(audienceReach).mockResolvedValue({ projects: [project], restrictedFolders: true, version: 1, ownProjectId: null })
     const reach = await reachForAudience(session, 'conv_1', { kind: 'office' })
     expect(reach.projects[0]).toMatchObject({ hiddenFolderIds: ['f-hidden'], collections: ['proj_a', 'proj_a_r1'], reviewsQuarantine: true })
     expect(reach.screenedOnly).toBe(false)
@@ -43,7 +41,7 @@ describe('reachForAudience', () => {
   })
 
   it('hides restricted folders and held uploads from a shared audience', async () => {
-    vi.mocked(audienceReach).mockResolvedValue({ projects: [project], restrictedFolders: false, key: 'k' })
+    vi.mocked(audienceReach).mockResolvedValue({ projects: [project], restrictedFolders: false, version: 1, ownProjectId: null })
     const reach = await reachForAudience(session, 'conv_1', { kind: 'office' })
     expect(reach.projects[0]).toMatchObject({ collections: ['proj_a'], reviewsQuarantine: false })
     expect(reach.projects[0].hiddenFolderIds).toEqual(expect.arrayContaining(['f-hidden', 'f-restricted']))
@@ -52,8 +50,7 @@ describe('reachForAudience', () => {
   })
 
   it('adds the conversation\'s own project when asked, pruned like the audience, after its project:view', async () => {
-    vi.mocked(audienceReach).mockResolvedValue({ projects: [], restrictedFolders: false, key: 'k' })
-    vi.mocked(readConversationAudience).mockResolvedValue({ exists: true, projectId: 'p1', createdBy: 'u2', visibility: 'project', grantees: [] })
+    vi.mocked(audienceReach).mockResolvedValue({ projects: [], restrictedFolders: false, version: 1, ownProjectId: 'p1' })
     vi.mocked(findProjectInOrg).mockResolvedValue(project)
 
     const reach = await reachForAudience(session, 'conv_1', { kind: 'project', projectId: 'p1' }, { includeOwnProject: true })
@@ -64,7 +61,7 @@ describe('reachForAudience', () => {
   })
 
   it('leaves restricted folders out of a listing even in the asker\'s own chat, keeping their own held uploads', async () => {
-    vi.mocked(audienceReach).mockResolvedValue({ projects: [project], restrictedFolders: true, key: 'k' })
+    vi.mocked(audienceReach).mockResolvedValue({ projects: [project], restrictedFolders: true, version: 1, ownProjectId: null })
     const reach = await reachForAudience(session, 'conv_1', { kind: 'office' }, { listing: true })
     expect(reach.projects[0].hiddenFolderIds).toEqual(expect.arrayContaining(['f-hidden', 'f-restricted']))
     expect(reach.projects[0].collections).toEqual(['proj_a'])
@@ -72,7 +69,7 @@ describe('reachForAudience', () => {
   })
 
   it('does not find a project outside the audience', async () => {
-    vi.mocked(audienceReach).mockResolvedValue({ projects: [], restrictedFolders: true, key: 'k' })
+    vi.mocked(audienceReach).mockResolvedValue({ projects: [], restrictedFolders: true, version: 1, ownProjectId: null })
     await expect(reachForAudience(session, 'conv_1', { kind: 'project', projectId: 'p1' })).rejects.toThrow('Project not found')
   })
 })
@@ -87,6 +84,25 @@ describe('resolveScope', () => {
   it('refuses a folder without its shelf, and a project scope without a project', () => {
     expect(() => resolveScope({ folderId: 'f1' })).toThrow(BadRequestError)
     expect(() => resolveScope({ scope: 'project' })).toThrow(BadRequestError)
+  })
+})
+
+describe('the personal shelf in search (ADR-0193)', () => {
+  it('is a scope of its own, without a project', () => {
+    expect(resolveScope({ scope: 'personal', folderId: 'f1' })).toEqual({ kind: 'personal', folderId: 'f1' })
+    expect(() => resolveScope({ scope: 'personal', projectId: 'p1' })).toThrow(BadRequestError)
+  })
+
+  it('reaches the caller’s own shelf and nothing else', async () => {
+    const reach = await reachFor(session, { kind: 'personal' })
+
+    expect(reach.personal).toEqual({ collection: expect.stringContaining(session.userId.replace(/[^A-Za-z0-9_-]/g, '_')), userId: session.userId })
+    expect(reach.projects).toEqual([])
+    expect(reach.officeShelf).toBeNull()
+  })
+
+  it('is never reached for a chat’s audience', async () => {
+    await expect(reachForAudience(session, 'c1', { kind: 'personal' })).rejects.toBeInstanceOf(NotFoundError)
   })
 })
 

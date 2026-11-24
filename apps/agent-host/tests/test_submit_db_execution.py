@@ -22,7 +22,6 @@ def _sample_payload():
         available_documents=[{"file_name": "d.pdf", "summary": "s"}],
         data_sources=["web"],
         auth_token="tok",
-        collection_scope=["c1"],
         platform_lessons='PLATFORM_LESSONS v1\n- [inaccurate | 2x] "Maße nie schätzen."',
         project_context="ctx",
         project_memory="PROJECT_MEMORY v1\n- Atrium ist OIB 2.3",
@@ -55,3 +54,19 @@ def test_payload_is_json_serializable():
     assert restored["job_id"] == "job-1"
     assert restored["parent_workflow_trace_id"] == 123
     assert restored["available_documents"] == [{"file_name": "d.pdf", "summary": "s"}]
+
+
+def test_a_job_s_project_collection_comes_from_the_signed_envelope_alone(monkeypatch):
+    from agent_testing.envelope import SECRET
+    from agent_testing.envelope import signed_envelope
+
+    from agent_host.jobs.access import derive_project_collection
+    from agent_host.jobs.submit import signed_job_scope
+
+    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
+    header, signature = signed_envelope(
+        organizationId="org_1", userId="user_1", collectionScope=["oib_knowledge", "proj_signed"]
+    )
+    assert signed_job_scope({"header": header, "signature": signature}) == ["oib_knowledge", "proj_signed"]
+    assert derive_project_collection(signed_job_scope({"header": header, "signature": signature})) == "proj_signed"
+    assert signed_job_scope({"header": header, "signature": "0" * 64}) is None

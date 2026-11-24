@@ -4,7 +4,7 @@ import { recordAuditEvent } from '@/lib/audit/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { DbExecutor } from '@/lib/db/executor'
 import type { ResourceRole, ResourceVisibility, ShareableResourceType } from '@/lib/db/schema/resource-shares'
-import type { AudienceWidening } from '@/lib/conversations/restricted-use'
+import type { AudienceWidening } from '@/lib/conversations/audience-widening'
 import { publishToUsers } from '@/lib/events/bus'
 import { requireResourceAccess, requireResourceWriteAccess } from './access'
 import { loadOrganizationDirectory, unknownPerson } from './directory'
@@ -110,6 +110,7 @@ export async function setResourceVisibility(
   resourceId: string,
   visibility: ResourceVisibility,
   request?: Request,
+  options: { confirmPersonalShelf?: boolean } = {},
 ): Promise<ResourceSharingState> {
   const access = await requireResourceAccess(session, resourceType, resourceId, 'owner')
   await requireResourceWriteAccess(session, resourceType, resourceId)
@@ -125,8 +126,9 @@ export async function setResourceVisibility(
     return getSharingState(session, resourceType, resourceId)
   }
 
+  const widening: AudienceWidening = { kind: 'visibility', ownerConfirmed: options.confirmPersonalShelf === true }
   if (visibility !== 'private') {
-    await assertMayWiden(session, resourceType, resourceId, { kind: 'visibility' })
+    await assertMayWiden(session, resourceType, resourceId, widening)
   }
 
   const previousAudience = await resolveParticipants(session.organizationId, resourceType, resourceId)
@@ -136,7 +138,7 @@ export async function setResourceVisibility(
   const written =
     visibility === 'private'
       ? await write()
-      : await widen(session, resourceType, resourceId, { kind: 'visibility' }, write)
+      : await widen(session, resourceType, resourceId, widening, write)
   if (!written) throw new NotFoundError()
 
   await recordAuditEvent({
@@ -163,6 +165,7 @@ export async function setResourceVisibility(
 export interface GrantAccessInput {
   subjectUserId: string
   role: ResourceRole
+  confirmPersonalShelf?: boolean
 }
 
 export async function grantResourceAccess(
@@ -184,7 +187,12 @@ export async function grantResourceAccess(
     throw new BadRequestError(`Role "${input.role}" is not available for this resource`)
   }
 
-  const widening: AudienceWidening = { kind: 'person', userId: input.subjectUserId, self: false }
+  const widening: AudienceWidening = {
+    kind: 'person',
+    userId: input.subjectUserId,
+    self: false,
+    ownerConfirmed: input.confirmPersonalShelf === true,
+  }
   await assertMayWiden(session, resourceType, resourceId, widening)
 
   const limit = await consumeLimit(SHARE_LIMIT, memberSubject(session))

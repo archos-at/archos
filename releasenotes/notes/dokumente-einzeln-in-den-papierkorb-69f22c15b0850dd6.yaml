@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     A single document can now go to the bin and come back from it: the bin

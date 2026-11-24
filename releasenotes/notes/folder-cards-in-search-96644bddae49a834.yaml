@@ -1,4 +1,5 @@
 ---
+# area: search
 operators:
   - >
     For an organization with the folder-cards feature flag, a search can now point Piloti to a

@@ -27,7 +27,7 @@ export function useCompletionToast(files: FileItem[], shelf: FileShelf): void {
           isModel
             ? t('toast.modelReady', { name: documentDisplayName(file) })
             : messages.ingestionComplete(documentDisplayName(file)),
-          { icon: <Icon className="size-4" style={{ color: sourceBase(source) }} aria-hidden /> }
+          { icon: <Icon className="size-4" style={{ color: sourceBase(source === 'personal' ? 'project' : source) }} aria-hidden /> }
         )
       },
       [t, source, messages]

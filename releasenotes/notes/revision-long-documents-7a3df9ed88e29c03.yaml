@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     When a document is too long for Piloti to revise as a task, the task now

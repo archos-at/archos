@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     When reading a large PDF has to be tried again, for example after an

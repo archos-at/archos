@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     When the office's usage budget runs out while Piloti is reading a new

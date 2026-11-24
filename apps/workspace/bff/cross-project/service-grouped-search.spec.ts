@@ -39,7 +39,7 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('./audience-reach', () => ({
-  audienceReach: vi.fn(async () => ({ projects: state.reachable, restrictedFolders: state.restrictedFolders, key: 'audience-key' })),
+  audienceReach: vi.fn(async () => ({ projects: state.reachable, restrictedFolders: state.restrictedFolders, version: 7, ownProjectId: null })),
 }))
 vi.mock('@/lib/conversations/cross-project-use', () => ({
   recordCrossProjectHandOut: vi.fn(
