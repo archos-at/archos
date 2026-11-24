@@ -130,7 +130,6 @@ ignore_imports = [
   "agent.knowledge.folder_cards.inputs -> knowledge_layer.browse",
   "agent.knowledge.folder_cards.worker -> knowledge_layer.browse",
   "agent.knowledge.folder_cards.worker -> knowledge_layer.vector_store",
-  "agent.knowledge.scoping -> knowledge_layer.search",
   "agent.oib_sync -> knowledge_layer.ingest",
   "agent.tools.cross_project.hit_judge -> knowledge_layer.search",
   "agent.tools.cross_project.lookup_rendering -> knowledge_layer.search",

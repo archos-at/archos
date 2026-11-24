@@ -477,6 +477,7 @@ class TestTheWireContract:
 
 _HMAC_SITES = {
     ("packages/agent/src/agent/project_context.py", "from_envelope"),  # verifies, compare_digest
+    ("packages/agent/src/agent/common/turn_decision.py", "verify_decision"),  # verifies, compare_digest
     ("apps/agent-host/src/agent_host/auth/utils.py", "_build_pseudonymous_trace_user_id"),  # trace ids
     ("apps/agent-host/src/agent_host/auth/utils.py", "_build_pseudonymous_trace_client_id"),  # trace ids
 }

@@ -22,6 +22,7 @@ from agent.knowledge.inventory import set_inventory_drops
 from agent.knowledge.inventory import set_norm_families
 from agent.knowledge.inventory import stamp_document
 from agent.knowledge.scoping import ScopedCollection
+from agent.knowledge.scoping import turn_scope_is_bound
 from agent.turn.admission import spanned
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,9 @@ def fallback_scope(conversation_id: str | None) -> list[ScopedCollection]:
 
 
 def resolve_scope(header_scope: list[ScopedCollection] | None, conversation_id: str | None) -> list[ScopedCollection]:
-    return list(header_scope) if header_scope else fallback_scope(conversation_id)
+    if header_scope is not None and (header_scope or turn_scope_is_bound()):
+        return list(header_scope)
+    return fallback_scope(conversation_id)
 
 
 def shelves_in_scope(scope: Iterable[ScopedCollection]) -> list[str]:

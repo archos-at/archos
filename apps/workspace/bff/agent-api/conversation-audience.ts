@@ -4,7 +4,7 @@ import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { folderTree, getHiddenFolderIds, readableByEveryMember, readRestrictingFoldersOnPath } from '@/lib/authz/folder-access'
 import { CrossProjectAudienceChangedError } from '@/lib/api/errors'
 import { drewOnOtherProjects, recordCrossProjectHandOut, type CrossProjectHandOut } from '@/lib/conversations/cross-project-use'
-import { readContextAudience } from '@/lib/conversation-context/audience'
+import { narrowedByDecision, readContextAudience } from '@/lib/conversation-context/audience'
 import { kindOf, workspaceReadOf, type ContextAudience, type WorkspaceRead } from '@/lib/conversation-context/types'
 import { audienceReachAmong } from '@/lib/cross-project/audience-reach'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -46,8 +46,9 @@ export async function conversationAudienceOf(principal: AgentPrincipal): Promise
   const now = await withTenant(tenantOf(principal), () =>
     readContextAudience(principal.session.organizationId, conversationId, principal.session.userId)
   )
+  const narrowed = narrowedByDecision(now, principal.decision, conversationId)
   const kind = kindOf(null, 'ui')
-  return { ...now, workspaceRead: workspaceReadOf(kind, conversationId, now.solo) }
+  return { ...narrowed, workspaceRead: workspaceReadOf(kind, conversationId, narrowed.solo) }
 }
 
 export const READ_REFUSALS = {

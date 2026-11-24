@@ -250,6 +250,30 @@ The pattern is used in:
 
 **File**: `packages/agent/src/agent/knowledge/scoping.py`
 
+### In a chat turn: the turn's decision (ADR-0194)
+
+A chat turn asks the BFF for its decision before it reads any scope
+(`POST /api/internal/turn-decision`, from `_run` in
+`packages/agent/src/agent/core/conversation_register.py`) and binds it for the
+turn (`packages/agent/src/agent/common/turn_decision.py`). While a turn is bound:
+
+- the scope is the decision's `may.shelves`, and the socket's scope is not read;
+- an empty decision stays empty: neither `scoping.py` nor
+  `knowledge_layer/search/scope.py` falls back to the config path;
+- without a decision the turn falls back to the socket envelope's scope only when
+  the envelope is signed and `INTERNAL_API_TOKEN` is set; with `REQUIRE_AUTH`
+  on it reads nothing otherwise;
+- the decision travels on every BFF call of the turn (`x-turn-decision`,
+  `x-turn-decision-signature`, added in `bff_http.send`), and the agent-api
+  narrows the audience by it: a chat shared since the turn was decided reads as
+  shared, one decided shared stays shared;
+- the restricted collections the turn may draw on are the decision's, so the
+  restricted-use pre-check no longer runs beside it; `admit` still reports what a
+  tool read.
+
+Outside a chat turn (jobs, intake) nothing is bound, and the reads below apply
+unchanged until slice 3 gives those callers their kind.
+
 ### `get_collection_scope_from_context()`
 
 Reads and decodes the `X-Grid-Collection-Scope` header from the runtime context:
@@ -347,7 +371,8 @@ invisible.
 
 | Priority | Source | When |
 |----------|--------|------|
-| 1 (highest) | `X-Grid-Collection-Scope` header | Present on proxied HTTP requests and WebSocket upgrades |
+| 0 (highest) | the turn's decision | A chat turn, once `turn-decision` answered |
+| 1 | `X-Grid-Collection-Scope` header | Present on proxied HTTP requests and WebSocket upgrades; in a chat turn only inside a valid signature |
 | 2 | `_resolve_target_collections()` config | Header absent (legacy/fallback) |
 
 The header is always set for proxied HTTP requests (`/api/v1/*`, `/api/jobs/async/*`) and WebSocket upgrades. It is absent only when requests bypass the BFF or when the runtime context has no metadata headers.

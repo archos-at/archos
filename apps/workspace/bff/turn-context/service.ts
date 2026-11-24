@@ -20,6 +20,9 @@ import { buildFolderDescriptionsBlock } from '@/lib/filing/folder-descriptions-b
 import type { VerifiedRequestContext } from '@/lib/request-context'
 import { promptFacts, type PromptFacts } from '@/lib/conversation-context'
 import type { ConversationDecision } from '@/lib/conversation-context/wire'
+import { recordDecidedAnswer } from '@/lib/conversation-context/record'
+import { markAnswerRestrictedUse } from '@/lib/conversations/restricted-use-repository'
+import { getDb } from '@/lib/db'
 import { countPendingInboxItems, EVERY_INBOX_TYPE } from '@/lib/inbox/repository'
 import { listConversationProposals } from '@/lib/proposals/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
@@ -99,6 +102,12 @@ async function loadPersonalMemory(context: VerifiedRequestContext, decided: Prom
   )
 }
 
+async function recordTurnAnswer(context: VerifiedRequestContext, decision: ConversationDecision): Promise<void> {
+  if (decision.conversationId !== context.conversationId || decision.userId !== context.userId) return
+  if (!(await recordDecidedAnswer(decision, context.projectId))) return
+  await markAnswerRestrictedUse(getDb(), context.organizationId, decision.conversationId!, decision.answerMessageId!)
+}
+
 async function loadOfficeStandards(organizationId: string, projectId: string | null, knowledge: Promise<TurnKnowledge>) {
   if (!(await officeStandardsEnabled(organizationId))) return null
   return baseKnowledgeForTurn(organizationId, projectId, knowledge)
@@ -133,7 +142,10 @@ export async function loadTurnContext(
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
   const goldenTurn = goldenTurnFor(organizationId, conversationId)
-  const decided = await timing.time('decision', () => promptFacts(context, decision))
+  const [decided] = await Promise.all([
+    timing.time('decision', () => promptFacts(context, decision)),
+    decision ? timing.time('answer-record', () => recordTurnAnswer(context, decision)) : Promise.resolve(),
+  ])
   const projectId = decided.closed ? null : context.projectId
   const projectAccess = decided.closed ? null : access
   const knowledge = goldenTurn.then(
@@ -149,11 +161,13 @@ export async function loadTurnContext(
     projectId
       ? timed('decisions', () => advisory('load proposal decisions', () => buildProposalDecisionsBlock(projectId, organizationId)))
       : Promise.resolve(null),
-    conversationId
+    conversationId && !decided.closed
       ? timed('reviews', () => advisory('load review decisions', () => buildReviewDecisionsBlock(conversationId, organizationId)))
       : Promise.resolve(null),
     conversationId ? timed('cross-project', () => drewOnOtherProjects(conversationId, organizationId)) : Promise.resolve(false),
-    timed('references', () => advisory('load reference projects', () => loadReferenceBrief(organizationId, projectId ?? null))),
+    decided.closed
+      ? Promise.resolve(null)
+      : timed('references', () => advisory('load reference projects', () => loadReferenceBrief(organizationId, projectId ?? null))),
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
     timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, { ...context, projectId }, projectAccess, query, decided))),
     timed('base-knowledge', () => advisory('load the base knowledge', () => loadOfficeStandards(organizationId, projectId ?? null, knowledge))),
