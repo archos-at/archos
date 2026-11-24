@@ -9,8 +9,7 @@ import type { Document } from '@/lib/db/schema/documents'
 import { mayReviewQuarantine } from '@/lib/upload-screening/quarantine-reviewers'
 import { internalRead, memberReader } from './document-reader'
 import { requirePersonalShelfDoor } from './personal-shelf-door'
-import { findDocumentInOrg } from './repository'
-import { folderIsInBin } from './shelf-folders'
+import { findDocumentInOrg, folderIsInBin } from './repository'
 
 export async function findDocumentForSession(
   session: AuthorizedSession,

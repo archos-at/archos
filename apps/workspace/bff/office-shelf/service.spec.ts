@@ -64,6 +64,7 @@ vi.mock('@/lib/documents/revision-links-loader', () => ({ loadRevisionLinks: vi.
 vi.mock('@/lib/annotations/repository', () => ({ tallyLiveMarks: vi.fn(async () => new Map()) }))
 
 vi.mock('@/lib/documents/repository', () => ({
+  folderIsInBin: vi.fn(async () => false),
   findLiveDocumentByFilename: vi.fn().mockResolvedValue(null),
   findFolderPathInOfficeShelf: vi.fn().mockResolvedValue(null),
   findDocumentInOrg: vi.fn(async (id: string) =>

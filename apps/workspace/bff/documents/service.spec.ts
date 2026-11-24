@@ -104,10 +104,6 @@ vi.mock('./repository', () => ({
   setDocumentDisplayName: vi.fn().mockResolvedValue(undefined),
   setDocumentReconciledStatus: vi.fn().mockResolvedValue(true),
   listFailedDocumentPageInOrg: vi.fn().mockResolvedValue({ ids: [], nextCursor: null }),
-}))
-
-vi.mock('./shelf-folders', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./shelf-folders')>()),
   folderIsInBin: vi.fn(async () => false),
 }))
 
