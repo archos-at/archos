@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import type { DocumentReview } from '../../../hooks/use-document-review'
 import { TAPE_SHAPE, type PageSize } from '../../../hooks/use-sheet-tape'
 import { formatProvisional, formatRounded } from '../../../lib/tape-format'
+import { spreadLabels } from './label-spread'
 
 export type MeasureLayerReview = Pick<
   DocumentReview,
@@ -41,24 +42,11 @@ const px = (points: readonly PagePoint[], size: PageSize): MeasureMarkPoint[] =>
 export const isKeptMeasure = (annotation: AnnotationView): boolean =>
   isMeasureShape(annotation.shape) && (annotation.points?.length ?? 0) >= 2
 
-function KeptMeasure({
-  annotation,
-  size,
-  selected,
-  onSelect,
-  passThrough,
-}: {
-  annotation: AnnotationView
-  size: PageSize
-  selected: boolean
-  onSelect: () => void
-  passThrough: boolean
-}): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const { locale } = useLocale()
-  const points = px(annotation.points ?? [], size)
-  const closed = annotation.shape === 'polygon'
-  const [x, y] = labelAnchor(points, closed)
+function keptValue(
+  annotation: AnnotationView,
+  t: ReturnType<typeof useTranslations>,
+  locale: string
+): string | null {
   const rounded = annotation.reading ? formatRounded(annotation.reading, locale) : null
   const body = annotation.body.trim()
   const named =
@@ -68,10 +56,31 @@ function KeptMeasure({
     )
       ? body
       : null
-  const value =
-    rounded && named
-      ? `${named.length > 28 ? `${named.slice(0, 27)}…` : named} · ${rounded}`
-      : rounded
+  return rounded && named
+    ? `${named.length > 28 ? `${named.slice(0, 27)}…` : named} · ${rounded}`
+    : rounded
+}
+
+function KeptMeasure({
+  annotation,
+  size,
+  value,
+  at: [x, y],
+  selected,
+  onSelect,
+  passThrough,
+}: {
+  annotation: AnnotationView
+  size: PageSize
+  value: string | null
+  at: readonly [number, number]
+  selected: boolean
+  onSelect: () => void
+  passThrough: boolean
+}): JSX.Element {
+  const t = useTranslations(filesCopy)
+  const points = px(annotation.points ?? [], size)
+  const closed = annotation.shape === 'polygon'
   return (
     <>
       <svg
@@ -160,6 +169,15 @@ export function MeasureLayer({
     tape.mode === 'area' &&
     tape.points.length >= 3 &&
     Math.hypot((hover.at[0] - first[0]) * size.width, (hover.at[1] - first[1]) * size.height) <= 10
+  const keptLabels = spreadLabels(
+    (engineValue || provisional) && shown.length >= 2
+      ? [{ x: lx, y: ly, text: `≈ ${engineValue ?? provisional}` }]
+      : [],
+    kept.map((annotation) => {
+      const [x, y] = labelAnchor(px(annotation.points ?? [], size), annotation.shape === 'polygon')
+      return { x, y, text: keptValue(annotation, t, locale) ?? '' }
+    })
+  )
   const onMove = (event: ReactPointerEvent<HTMLDivElement>) =>
     tape.pointer(page, share(event.currentTarget, event), size)
   return (
@@ -184,11 +202,13 @@ export function MeasureLayer({
           onDoubleClick={() => tape.finish()}
         />
       )}
-      {kept.map((annotation) => (
+      {kept.map((annotation, index) => (
         <KeptMeasure
           key={annotation.id}
           annotation={annotation}
           size={size}
+          value={keptLabels[index].text || null}
+          at={[keptLabels[index].x, keptLabels[index].y]}
           selected={annotation.id === selectedId}
           onSelect={() => select(annotation.id === selectedId ? null : annotation.id)}
           passThrough={active && !blocked}
