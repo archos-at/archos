@@ -8,13 +8,13 @@ vi.mock('./temporary-repository', () => ({
   updateConversationTemporaryInOrg: vi.fn(),
 }))
 vi.mock('@/lib/sharing/access', () => ({ requireResourceAccess: vi.fn() }))
-vi.mock('./hidden', () => ({ personalConversationHidden: vi.fn() }))
+vi.mock('./repository', () => ({ personalConversationHidden: vi.fn() }))
 
 import { ForbiddenError, NotFoundError, TemporaryConversationError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireResourceAccess } from '@/lib/sharing/access'
 import { isTemporaryConversation, requireConversationKeepsMemory, setConversationTemporary } from './temporary'
-import { personalConversationHidden } from './hidden'
+import { personalConversationHidden } from './repository'
 import { readConversationTemporary, updateConversationTemporaryInOrg } from './temporary-repository'
 
 const session = { userId: 'user_1', organizationId: 'org_1', role: 'member', permissions: [] } as unknown as AuthorizedSession

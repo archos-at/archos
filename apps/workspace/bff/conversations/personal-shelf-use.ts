@@ -7,7 +7,7 @@ import { recordAnswerReads } from '@/lib/conversation-context/record'
 import { isSoloAudience } from '@/lib/conversation-context/types'
 import type { ConversationDecision } from '@/lib/conversation-context/wire'
 import { isPersonalShelfCollectionName, personalShelfCollectionName } from '@/lib/personal-shelf/collection'
-import { personalConversationHidden } from './hidden'
+import { personalConversationHidden } from './repository'
 import { lockConversationAudience, readConversationAudience } from './restricted-use-repository'
 
 export interface PersonalShelfUseRequest {

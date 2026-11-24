@@ -10,7 +10,7 @@ import { projectFolders } from '@/lib/db/schema/project-folders'
 import { projects } from '@/lib/db/schema/projects'
 import { resourceShares, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
 import { taskRuns } from '@/lib/db/schema/task-model'
-import { personalConversationHidden } from './hidden'
+import { personalConversationHidden } from './repository'
 
 export const RECORDED_FOLDERS_LIMIT = 200
 

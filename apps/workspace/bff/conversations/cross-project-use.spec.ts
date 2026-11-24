@@ -58,7 +58,7 @@ vi.mock('@/lib/conversation-context/record', () => ({
   }),
 }))
 
-vi.mock('./hidden', () => ({
+vi.mock('./repository', () => ({
   personalConversationHidden: vi.fn(async () => state.hidden),
 }))
 

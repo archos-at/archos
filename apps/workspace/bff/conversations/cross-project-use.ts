@@ -4,7 +4,7 @@ import { errorsCopy } from '@/i18n/namespaces/errors'
 import { getDb } from '@/lib/db'
 import { AGENT_REFUSAL_LOCALE } from './restricted-egress'
 import { isUuid } from '@/lib/ids'
-import { personalConversationHidden } from './hidden'
+import { personalConversationHidden } from './repository'
 import { recordedForeignRestrictedFolders } from './restricted-use'
 import {
   listProjectNames,

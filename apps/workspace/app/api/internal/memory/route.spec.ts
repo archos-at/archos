@@ -35,7 +35,10 @@ vi.mock('@/lib/conversations/temporary-repository', () => ({
     return temporary.conversations.has(`${org}/${id}`) ? true : null
   }),
 }))
-vi.mock('@/lib/conversations/hidden', () => ({ personalConversationHidden: vi.fn(async () => false) }))
+vi.mock('@/lib/conversations/repository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/conversations/repository')>()),
+  personalConversationHidden: vi.fn(async () => false),
+}))
 vi.mock('@/lib/projects/repository', () => ({
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org_1', deletedAt: null })),
 }))

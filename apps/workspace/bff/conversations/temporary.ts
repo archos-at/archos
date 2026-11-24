@@ -3,7 +3,7 @@ import { NotFoundError, TemporaryConversationError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Conversation } from '@/lib/db/schema/conversations'
 import { requireResourceAccess } from '@/lib/sharing/access'
-import { personalConversationHidden } from './hidden'
+import { personalConversationHidden } from './repository'
 import { readConversationTemporary, updateConversationTemporaryInOrg } from './temporary-repository'
 
 export async function isTemporaryConversation(

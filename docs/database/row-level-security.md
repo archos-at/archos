@@ -118,7 +118,7 @@ its reader; one that acts for a verified person passes that person's
 SECURITY DEFINER functions that read past the parent's policy.
 
 A hidden row reads as missing, so code that treats a missing row as „new“ or
-„unrestricted“ asks `personalConversationHidden` (`bff/conversations/hidden.ts`)
+„unrestricted“ asks `personalConversationHidden` (`bff/conversations/repository.ts`)
 before it does: the turn's audience (`readConversationAudience`), the scope of
 a turn (`collection-scope-request.ts`), the egress checks
 (`personalShelfUseOf`, `drewOnOtherProjects`) and the memory check

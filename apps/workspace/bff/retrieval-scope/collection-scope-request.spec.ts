@@ -14,8 +14,7 @@ vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   lockedConversationIds: vi.fn(async () => new Set<string>()),
 }))
 
-vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn() }))
-vi.mock('@/lib/conversations/hidden', () => ({ personalConversationHidden: vi.fn(async () => false) }))
+vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn(), personalConversationHidden: vi.fn(async () => false) }))
 vi.mock('@/lib/sharing/repository', () => ({ findGrantForSubject: vi.fn() }))
 
 import { isAuthzRefusal, NotFoundError } from '@/lib/api/errors'
@@ -23,8 +22,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { ForbiddenError } from '@/lib/api/errors'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
-import { findConversationTenancy } from '@/lib/conversations/repository'
-import { personalConversationHidden } from '@/lib/conversations/hidden'
+import { findConversationTenancy, personalConversationHidden } from '@/lib/conversations/repository'
 import { getDb } from '@/lib/db'
 import { findGrantForSubject } from '@/lib/sharing/repository'
 import { buildCollectionScopeFromRequest, ConversationProjectMismatchError } from './collection-scope-request'

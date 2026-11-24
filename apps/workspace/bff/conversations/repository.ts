@@ -3,6 +3,7 @@ import { and, desc, eq, exists, inArray, isNotNull, isNull, ne, or, sql, type SQ
 import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { stripJsonNullBytes } from '@/lib/text/jsonb'
+import { executeRows } from '@/lib/db/execute-rows'
 import { answerContexts } from '@/lib/db/schema/answer-contexts'
 import { answerFeedback } from '@/lib/db/schema/answer-feedback'
 import { conversationReads, type ConversationRead } from '@/lib/db/schema/conversation-reads'
@@ -583,4 +584,11 @@ export async function findConversationRead(
     .where(and(eq(conversationReads.conversationId, conversationId), eq(conversationReads.userId, userId)))
     .limit(1)
   return row ?? null
+}
+
+export async function personalConversationHidden(conversationId: string, executor: DbExecutor = getDb()): Promise<boolean> {
+  const [row] = executeRows<{ hidden: boolean }>(
+    await executor.execute(sql`select personal_conversation_hidden(${conversationId}) as hidden`),
+  )
+  return row?.hidden === true
 }
