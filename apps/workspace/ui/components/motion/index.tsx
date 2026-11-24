@@ -187,3 +187,4 @@ export const StaggerItem = ({ children, ...props }: HTMLMotionProps<'div'>): Rea
 )
 
 export { motion, AnimatePresence, LayoutGroup } from 'motion/react'
+export { useInputSinceMount } from './use-input-since-mount'

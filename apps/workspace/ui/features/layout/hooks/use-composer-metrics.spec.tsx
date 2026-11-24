@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { useComposerMetrics, type ComposerMetrics } from './use-composer-metrics'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
@@ -111,17 +111,38 @@ describe('useComposerMetrics', () => {
     expect(latest.composerMotion.animate.y).toBe(0)
   })
 
-  test('travels only when the thread stops being empty', () => {
+  test('travels only when the thread stops being empty after the reader acted', () => {
     const { rerender } = render(<Harness isThreadEmpty />)
     expect(latest.composerMotion.transition).toEqual({ duration: 0 })
     expect(latest.composerMotion.initial).toBe(false)
 
+    fireEvent.keyDown(window, { key: 'Enter' })
     rerender(<Harness isThreadEmpty={false} />)
+    expect(latest.composerMotion.transition).toMatchObject({ type: 'spring' })
+  })
+
+  test('places at once when the thread fills or empties before the reader acted, as on a project switch', () => {
+    const { rerender } = render(<Harness isThreadEmpty={false} />)
+
+    rerender(<Harness isThreadEmpty />)
+    expect(latest.composerMotion.animate.y).toBe(-EXPECTED_LIFT)
+    expect(latest.composerMotion.transition).toEqual({ duration: 0 })
+
+    rerender(<Harness isThreadEmpty={false} />)
+    expect(latest.composerMotion.transition).toEqual({ duration: 0 })
+  })
+
+  test('travels back up on a new chat the reader pressed for', () => {
+    const { rerender } = render(<Harness isThreadEmpty={false} />)
+
+    fireEvent.pointerDown(window)
+    rerender(<Harness isThreadEmpty />)
     expect(latest.composerMotion.transition).toMatchObject({ type: 'spring' })
   })
 
   test('goes back to placing instantly once the journey has arrived', () => {
     const { rerender } = render(<Harness isThreadEmpty />)
+    fireEvent.pointerDown(window)
     rerender(<Harness isThreadEmpty={false} />)
     expect(latest.composerMotion.transition).toMatchObject({ type: 'spring' })
 

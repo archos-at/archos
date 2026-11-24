@@ -11,7 +11,7 @@ import { useMessageAnchor } from '@/features/collaboration/hooks/use-message-anc
 import { useSharedThread } from '@/features/collaboration/hooks/use-shared-thread'
 import { useSpectatedTurn } from '@/features/collaboration/hooks/use-spectated-turn'
 import { useAwaitingState } from '@/features/collaboration/hooks/use-sharing'
-import { motionEntrance, motionInstant, motionQuickExit } from '@/components/motion'
+import { motionEntrance, motionInstant, motionQuickExit, motionSnap, useInputSinceMount } from '@/components/motion'
 import type { Variants } from 'motion/react'
 import { useAuth } from '@/adapters/auth'
 import { useReducedMotion } from '@/hooks/use-reduced-motion'
@@ -141,6 +141,8 @@ export function useChatAreaController({
 
   const rowEnter = prefersReducedMotion ? motionInstant : motionEntrance
   const rowLeave = prefersReducedMotion ? motionInstant : motionQuickExit
+  const arrivalFade = prefersReducedMotion ? motionInstant : motionSnap
+  const readerActed = useInputSinceMount()
   const rowVariants = useMemo<Variants>(
     () => ({
       hidden: { opacity: 0, y: 4 },
@@ -423,6 +425,8 @@ export function useChatAreaController({
     prefersReducedMotion,
     rowEnter,
     rowLeave,
+    arrivalFade,
+    readerActed,
     rowVariants,
     messages,
     commissionRun,
