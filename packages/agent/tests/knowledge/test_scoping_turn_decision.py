@@ -1,5 +1,3 @@
-import base64
-import json
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -14,16 +12,8 @@ from agent.knowledge.restricted_use import bind_restricted_use
 from agent.knowledge.restricted_use import reset_restricted_use
 from agent.knowledge.restricted_use import restricted_use_from_decision
 from agent.knowledge.scoping import get_scoped_collections_from_context
-from agent.project_context import COLLECTION_SCOPE_HEADER
 
 RESTRICTED = "proj_p1_r0123456789ab"
-
-
-def _plain_scope_headers(scope: list[str]) -> MagicMock:
-    context = MagicMock()
-    encoded = base64.urlsafe_b64encode(json.dumps(scope).encode()).decode()
-    context.metadata.headers = {COLLECTION_SCOPE_HEADER: encoded}
-    return context
 
 
 @pytest.fixture
@@ -42,7 +32,8 @@ def bound():
 def test_a_turn_searches_the_decision_and_not_the_socket(monkeypatch, bound):
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
     bound(signed_decision(may={"shelves": [{"collection": "proj_row", "shelf": "project"}]}))
-    with patch("agent.knowledge.scoping.Context.get", return_value=_plain_scope_headers(["proj_page_open"])):
+    socket = MagicMock(envelope_signature="sig", collection_scope_entries=[{"collection": "proj_page_open"}])
+    with patch("agent.project_context.get_signed_request_context", return_value=socket):
         scoped = get_scoped_collections_from_context()
     assert [entry.collection for entry in scoped] == ["proj_row"]
 
@@ -52,25 +43,12 @@ def test_an_empty_decision_stays_empty(bound):
     assert get_scoped_collections_from_context() == []
 
 
-def test_without_a_decision_a_required_turn_reads_nothing_from_plain_headers(monkeypatch, bound):
-    monkeypatch.setenv("REQUIRE_AUTH", "true")
-    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
-    bound(None)
-    with patch("agent.knowledge.scoping.Context.get", return_value=_plain_scope_headers(["oib_knowledge", "proj_x"])):
-        with patch("agent.project_context.get_signed_request_context", return_value=None):
-            assert get_scoped_collections_from_context() == []
-
-
-def test_without_a_decision_a_required_turn_falls_back_only_inside_a_valid_signature(monkeypatch, bound):
-    monkeypatch.setenv("REQUIRE_AUTH", "true")
+def test_without_a_decision_a_turn_reads_nothing_even_inside_a_valid_signature(monkeypatch, bound):
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
     bound(None)
     signed = MagicMock(
         envelope_signature="sig", collection_scope_entries=[{"collection": "proj_signed", "shelf": "project"}]
     )
-    with patch("agent.project_context.get_signed_request_context", return_value=signed):
-        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["proj_signed"]
-    monkeypatch.delenv("INTERNAL_API_TOKEN")
     with patch("agent.project_context.get_signed_request_context", return_value=signed):
         assert get_scoped_collections_from_context() == []
 

@@ -10,9 +10,7 @@ from typing import Any
 import pytest
 
 from agent.common import MODEL_OVERRIDES_HEADER
-from agent.project_context import COLLECTION_SCOPE_HEADER
 from agent.project_context import ORGANIZATION_ID_HEADER
-from agent.project_context import PROJECT_CONTEXT_HEADER
 from agent.project_context import PROJECT_ID_HEADER
 from agent.project_context import PROJECT_MEMORY_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
@@ -184,28 +182,16 @@ def _decoded(value: str) -> str:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode()
 
 
-def test_the_scope_headers_are_base64url_so_german_text_survives(monkeypatch):
-    injected: dict[str, str] = {}
-    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
-    request = _request(collection_scope=["p_1"], project_context="Bauvorhaben „Hof“ — 3 Geschosse")
-
-    agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
-
-    assert json.loads(_decoded(injected["x-collection-scope"])) == ["p_1"]
-    assert "„Hof“" in _decoded(injected["x-project-context"])
-
-
-def test_each_scope_header_goes_under_its_new_name_and_the_old_one_its_readers_read(monkeypatch):
+def test_a_job_sends_no_unsigned_scope_or_project_context_only_its_model_overrides(monkeypatch):
     injected: dict[str, str] = {}
     monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
     request = _request(collection_scope=["p_1"], project_context="Hof", model_overrides={"research": "m"})
 
     agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
 
-    assert injected[COLLECTION_SCOPE_HEADER] == injected["x-collection-scope"]
-    assert injected[PROJECT_CONTEXT_HEADER] == injected["x-project-context"]
+    assert json.loads(_decoded(injected["x-model-overrides"])) == {"research": "m"}
     assert injected[MODEL_OVERRIDES_HEADER] == injected["x-model-overrides"]
-    assert len(injected) == 6
+    assert len(injected) == 2
 
 
 @pytest.mark.asyncio

@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Any
 
+from agent.common import bff_http
 from agent.common import cache as shared_cache
 from agent.skills.builtin import discover_builtin_skills
 from agent.skills.legacy_names import metadata_value
@@ -160,23 +161,10 @@ class SkillResolver:
         return tuple(s for s in _build_org_skills(rows) if s.name in known)
 
     def _fetch_org_skills(self, organization_id: str) -> list[Any]:
-        token = os.environ.get("INTERNAL_API_TOKEN")
-        if not token:
-            raise RuntimeError("INTERNAL_API_TOKEN unset; org skills unavailable")
-        import httpx
-
-        base_url = (os.environ.get("FRONTEND_INTERNAL_URL") or "http://frontend:3000").rstrip("/")
         params = {"organization_id": organization_id}
         if self.agent:
             params["agent"] = self.agent
-        response = httpx.get(
-            f"{base_url}/api/internal/skills/resolve",
-            params=params,
-            headers={"x-internal-token": token},
-            timeout=_REQUEST_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        payload = bff_http.get_json("/api/internal/skills/resolve", query=params, timeout=_REQUEST_TIMEOUT_SECONDS)
         if not isinstance(payload, dict):
             raise ValueError("skills/resolve returned a non-object payload")
         return payload.get("skills", [])

@@ -5,6 +5,8 @@ import { withOptionalTenant, withTenant } from '@/lib/db/tenant-context'
 import { NotFoundError } from '@/lib/api/errors'
 import { restrictedCollectionBase } from '@/lib/authz/folder-access-rule'
 import { drawableRestrictedCollections } from '@/lib/conversations/restricted-use'
+import { decisionFromRequest } from '@/lib/conversation-context'
+import type { ConversationDecision } from '@/lib/conversation-context/wire'
 import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
 import { type VerifiedRequestContext } from '@/lib/request-context'
 import { hasHeader } from '@/lib/http/legacy-header-names'
@@ -28,13 +30,25 @@ function isRestrictedCollection(collection: string): boolean {
   return restrictedCollectionBase(collection.toLowerCase()) !== null
 }
 
-async function requireReadable(collection: string, context: VerifiedRequestContext | null): Promise<void> {
+function decidedFor(decision: ConversationDecision, context: VerifiedRequestContext, collection: string, restricted: boolean): boolean {
+  if (decision.organizationId !== context.organizationId || decision.userId !== context.userId) return false
+  if (decision.conversationId !== (context.conversationId ?? null)) return false
+  if (!decision.may.shelves.some((entry) => entry.collection === collection)) return false
+  return !restricted || decision.may.restrictedCollections.includes(collection)
+}
+
+async function requireReadable(
+  collection: string,
+  context: VerifiedRequestContext | null,
+  decision: ConversationDecision | null = null
+): Promise<void> {
   const restricted = isRestrictedCollection(collection)
   if (!context) {
     if (restricted) throw new NotFoundError('Document not found')
     return
   }
   if (!context.collectionScope.includes(collection)) throw new NotFoundError('Document not found')
+  if (decision && !decidedFor(decision, context, collection, restricted)) throw new NotFoundError('Document not found')
   if (!restricted) return
   if (!context.conversationId) throw new NotFoundError('Document not found')
   const drawable = await drawableRestrictedCollections(
@@ -72,11 +86,12 @@ export const GET = internalApiRoute(
     const query = parseQuery(request, querySchema)
     const context = presentedContext(request)
     if (context) {
+      const decision = decisionFromRequest(request)
       if (query.organizationId && query.organizationId !== context.organizationId) {
         throw new NotFoundError('Document not found')
       }
       return withTenant({ organizationId: context.organizationId }, async () => {
-        await requireReadable(query.collection, context)
+        await requireReadable(query.collection, context, decision)
         return lookUp(query, context.organizationId)
       })
     }

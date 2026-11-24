@@ -1,11 +1,12 @@
 import hashlib
 import logging
-import os
 import re
 import threading
 import time
 from dataclasses import dataclass
 from typing import Literal
+
+from agent.common import bff_http
 
 logger = logging.getLogger(__name__)
 
@@ -76,20 +77,9 @@ def sanitize_lesson_ids(value: object) -> tuple[str, ...]:
 
 
 def _fetch_digest() -> tuple[str | None, tuple[str, ...]]:
-    token = os.environ.get("INTERNAL_API_TOKEN")
-    if not token:
+    if not bff_http.internal_token():
         return None, ()
-
-    import httpx
-
-    base_url = (os.environ.get("FRONTEND_INTERNAL_URL") or "http://frontend:3000").rstrip("/")
-    response = httpx.get(
-        f"{base_url}/api/internal/platform-lessons/digest",
-        headers={"x-internal-token": token},
-        timeout=_REQUEST_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    payload = response.json()
+    payload = bff_http.get_json("/api/internal/platform-lessons/digest", timeout=_REQUEST_TIMEOUT_SECONDS)
     if not isinstance(payload, dict):
         return None, ()
     digest = sanitize_lessons_digest(payload.get("digest"))

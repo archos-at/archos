@@ -26,6 +26,8 @@ import { drawableRestrictedCollections } from '@/lib/conversations/restricted-us
 import { withTenant } from '@/lib/db/tenant-context'
 import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
 import { REQUEST_CONTEXT_HEADER_NAMES, buildRequestContextEnvelope } from '@/lib/request-context'
+import { closedContext } from '@/lib/conversation-context/context.fixtures'
+import { TURN_DECISION_HEADER, TURN_DECISION_SIGNATURE_HEADER, decisionOf, signDecision } from '@/lib/conversation-context/wire'
 
 const request = (
   query = '?collection=proj_1&filename=plan.png',
@@ -57,6 +59,16 @@ function envelope(
     [REQUEST_CONTEXT_HEADER_NAMES.REQUEST_CONTEXT]: header,
     [REQUEST_CONTEXT_HEADER_NAMES.REQUEST_CONTEXT_SIG]: signature ?? '',
   }
+}
+
+function decided(
+  shelves: string[],
+  { restricted = [], conversationId = 's_conv_1', userId = 'user_asker' }: { restricted?: string[]; conversationId?: string; userId?: string } = {}
+): Record<string, string> {
+  const closed = closedContext('chat', conversationId)
+  const may = { ...closed.may, shelves: shelves.map((collection) => ({ collection, shelf: 'project' as const })), restrictedCollections: restricted }
+  const { header, signature } = signDecision(decisionOf({ ...closed, may }, { organizationId: 'org_1', userId }, null, Date.now()), 'test-token')
+  return { [TURN_DECISION_HEADER]: header, [TURN_DECISION_SIGNATURE_HEADER]: signature }
 }
 
 const STORED = { id: '11111111-1111-4111-8111-111111111111', storageKey: 'org/o1/project/p1/doc/d1/plan.png', storageBucket: null, contentType: 'image/png', versionId: null }
@@ -246,6 +258,40 @@ describe('GET /api/internal/document-file', () => {
       expect((await GET(request(`?collection=${RESTRICTED.toUpperCase()}&filename=gehalt.png`))).status).toBe(404)
       expect(findDocumentStorageKey).not.toHaveBeenCalled()
       expect(drawableRestrictedCollections).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('with a turn decision', () => {
+    it('serves only what the decision lets the turn draw on, though the envelope signs more', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const headers = { ...envelope(), ...decided(['oib_knowledge']) }
+      expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(404)
+      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(200)
+    })
+
+    it('404s under a decision made for another conversation or asker', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      for (const other of [decided(['proj_1'], { conversationId: 's_other' }), decided(['proj_1'], { userId: 'user_other' })]) {
+        expect((await GET(request(undefined, 'test-token', { ...envelope(), ...other }))).status).toBe(404)
+      }
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
+    })
+
+    it('reaches the live check for a restricted folder only when the decision names it', async () => {
+      vi.mocked(drawableRestrictedCollections).mockResolvedValue([RESTRICTED])
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const scope = envelope({ collectionScope: ['proj_1', RESTRICTED] })
+      const query = `?collection=${RESTRICTED}&filename=gehalt.png`
+      expect((await GET(request(query, 'test-token', { ...scope, ...decided(['proj_1', RESTRICTED]) }))).status).toBe(404)
+      expect(drawableRestrictedCollections).not.toHaveBeenCalled()
+      const allowed = decided(['proj_1', RESTRICTED], { restricted: [RESTRICTED] })
+      expect((await GET(request(query, 'test-token', { ...scope, ...allowed }))).status).toBe(200)
+    })
+
+    it('refuses a forged decision', async () => {
+      const forged = { ...decided(['proj_1']), [TURN_DECISION_SIGNATURE_HEADER]: '0'.repeat(64) }
+      expect((await GET(request(undefined, 'test-token', { ...envelope(), ...forged }))).status).toBe(401)
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
     })
   })
 })

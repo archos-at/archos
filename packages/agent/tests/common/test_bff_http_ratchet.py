@@ -19,11 +19,7 @@ TOKEN_HEADER_TREES = ("packages/agent/src/agent",)
 
 ALLOWED: dict[str, dict[str, int]] = {
     "base_url": {
-        "packages/agent/src/agent/skills/resolver.py": 1,
-        "packages/agent/src/agent/common/model_overrides.py": 1,
         "packages/agent/src/agent/common/llm_credentials.py": 1,
-        "packages/agent/src/agent/common/platform_lessons.py": 1,
-        "packages/agent/src/agent/common/retrieval_settings.py": 1,
         "packages/agent/src/agent/common/reasoning_settings.py": 1,
         "packages/agent/src/agent/corpus_store.py": 4,
         "packages/agent/src/agent/knowledge/permit_records_client.py": 3,
@@ -33,11 +29,7 @@ ALLOWED: dict[str, dict[str, int]] = {
         "apps/agent-host/src/agent_host/internal_api.py": 2,
     },
     "token_header": {
-        "packages/agent/src/agent/skills/resolver.py": 1,
-        "packages/agent/src/agent/common/model_overrides.py": 1,
         "packages/agent/src/agent/common/llm_credentials.py": 1,
-        "packages/agent/src/agent/common/platform_lessons.py": 1,
-        "packages/agent/src/agent/common/retrieval_settings.py": 1,
         "packages/agent/src/agent/common/reasoning_settings.py": 1,
         "packages/agent/src/agent/corpus_store.py": 1,
         "packages/agent/src/agent/knowledge/permit_records_client.py": 1,

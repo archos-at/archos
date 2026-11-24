@@ -353,20 +353,24 @@ class TestHttpEnforcement:
         assert messages[0]["status"] == 403
 
     @pytest.mark.asyncio
-    async def test_dev_mode_no_secret_accepts_unsigned_envelope(self, capture_asgi):
+    async def test_without_a_secret_an_envelope_is_refused(self, capture_asgi):
         assert not os.environ.get("INTERNAL_API_TOKEN")
         app, calls = capture_asgi
         mw = RequestContextEnvelopeMiddleware(app, require_auth=True)
+        messages: list[dict] = []
+
+        async def send(msg):
+            messages.append(msg)
 
         scope = _http_scope(
             "/v1/jobs/async/submit",
             user={"type": "jwt"},
             extra_headers=_envelope_headers({"organizationId": "org_1"}, secret=None),
         )
+        await mw(scope, AsyncMock(), send)
 
-        await mw(scope, AsyncMock(), AsyncMock())
-
-        assert calls == ["/v1/jobs/async/submit"]
+        assert calls == []
+        assert messages[0]["status"] == 403
 
 
 class TestWebSocketEnforcement:

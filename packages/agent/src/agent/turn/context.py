@@ -15,13 +15,11 @@ from agent.common.knowledge_context import KnowledgeContext
 from agent.common.platform_lessons import LessonsResolution
 from agent.common.platform_lessons import resolve_platform_lessons
 from agent.common.turn_decision import current_turn_decision
-from agent.common.turn_decision import decision_required
+from agent.common.turn_decision import decision_missing
 from agent.knowledge.project_memory import fetch_memory_digest
-from agent.knowledge.restricted_collections import restricted_collections_in
 from agent.knowledge.restricted_use import current_cross_project_turn
 from agent.knowledge.restricted_use import current_restricted_use
 from agent.knowledge.restricted_use import drew_on_other_projects
-from agent.knowledge.scoping import bound_scope_entries
 from agent.observability.base_knowledge_scores import missing_edition_count
 from agent.observability.base_knowledge_scores import overdue_count
 from agent.observability.langfuse_scores import RuntimeScore
@@ -110,15 +108,11 @@ def user_info_for(request: RequestContext | None) -> dict[str, Any] | None:
 
 
 def signed_restricted_collections(request: RequestContext) -> list[str]:
-    bound = bound_scope_entries()
-    if bound is not None:
-        names = [entry.get("collection") if isinstance(entry, dict) else entry for entry in bound]
-        signed = restricted_collections_in(name for name in names if isinstance(name, str))
-    elif request.envelope_header:
-        signed = restricted_collections_in(request.collection_scope)
-    else:
+    decision = current_turn_decision()
+    if decision is None:
         return []
     use = current_restricted_use()
+    signed = sorted(decision.restricted_collections)
     return signed if use is None else [name for name in signed if use.allows(name)]
 
 
@@ -182,7 +176,7 @@ def _flags_without_organization() -> TurnFlags:
         return TurnFlags(
             enabled_stages=frozenset(), deep_research_allowed=decision.deep_research, tasks_allowed=decision.tasks
         )
-    if decision_required():
+    if decision_missing():
         return TurnFlags(enabled_stages=frozenset(), deep_research_allowed=False, tasks_allowed=False)
     return TurnFlags(enabled_stages=frozenset())
 

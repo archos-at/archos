@@ -208,21 +208,10 @@ def bind_knowledge(request: JobRequest) -> None:
 
 
 def _inject_scope_headers(state: Any, request: JobRequest, fn_config: Any) -> None:
-    from agent.project_context import normalize_project_context
-
-    headers: dict[str, str] = {}
-    if request.collection_scope is not None:
-        headers["x-collection-scope"] = _b64url_encode_text(json.dumps(request.collection_scope))
-    elif getattr(fn_config, "type", None) == "deep_research_agent":
+    if not request.request_envelope and getattr(fn_config, "type", None) == "deep_research_agent":
         _warn_unscoped(request)
-    if request.project_context is not None:
-        normalized = normalize_project_context(request.project_context)
-        if normalized:
-            headers["x-project-context"] = _b64url_encode_text(normalized)
     if request.model_overrides:
-        headers["x-model-overrides"] = _b64url_encode_text(json.dumps(request.model_overrides))
-    if headers:
-        _inject_service_headers(state, headers)
+        _inject_service_headers(state, {"x-model-overrides": _b64url_encode_text(json.dumps(request.model_overrides))})
 
 
 def _inject_service_headers(state: Any, headers: dict[str, str]) -> None:
@@ -232,7 +221,7 @@ def _inject_service_headers(state: Any, headers: dict[str, str]) -> None:
 def _warn_unscoped(request: JobRequest) -> None:
     identity = request.identity
     logger.warning(
-        "Job %s: async deep-research job has no collection scope; knowledge "
+        "Job %s: async deep-research job has no signed envelope, so no collection scope; knowledge "
         "retrieval will search only the base/OIB and s_<conversation> session "
         "collections for this job — project collections will be invisible "
         "(authenticated=%s, project_scoped=%s)",
