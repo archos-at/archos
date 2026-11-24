@@ -349,11 +349,14 @@ describe('POST /api/internal/turn-context', () => {
     expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
   })
 
-  it('closes a turn whose decision was made for another asker', async () => {
+  it.each([
+    ['another asker', { organizationId: 'org_1', userId: 'user_2' }],
+    ['another organisation', { organizationId: 'org_2', userId: 'user_1' }],
+  ])('closes a turn whose decision was made for %s', async (_, asker) => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
     const closed = closedContext('chat', 's_text-conversation')
     const decision = signDecision(
-      decisionOf({ ...closed, may: { ...closed.may, personalMemory: true, workspaceRead: 'all' } }, { organizationId: 'org_1', userId: 'user_2' }, null, Date.now()),
+      decisionOf({ ...closed, may: { ...closed.may, personalMemory: true, workspaceRead: 'all' } }, asker, null, Date.now()),
       SECRET,
     )
 

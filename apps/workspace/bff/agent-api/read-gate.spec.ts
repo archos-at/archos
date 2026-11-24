@@ -239,7 +239,7 @@ describe('in a conversation that is the requester’s alone', () => {
       projectIds: ['proj_b'],
       folderIds: [],
     })
-    expect(audienceReachAmong).toHaveBeenCalledWith(session, audienceOf(true).row, ['proj_b'])
+    expect(audienceReachAmong).toHaveBeenCalledWith(session, 'conv_1', audienceOf(true).row, ['proj_b'])
   })
 
   it('runs nothing outside the reach, and relays the refusal', async () => {
