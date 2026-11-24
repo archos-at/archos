@@ -1618,7 +1618,7 @@ export const files = {
         zoom: 'Pinch to zoom in for a precise measurement',
       },
       closeArea: 'Close the area',
-      snapped: { vertex: 'Corner', edge: 'on line' },
+      snapped: { vertex: 'Corner · Ctrl/⌘ places freely', edge: 'On line · Ctrl/⌘ places freely' },
       noScale:
         'No scale is known for this page. Set it from a length you know, then you can measure.',
       exit: 'Stop measuring',
