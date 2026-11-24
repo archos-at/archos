@@ -258,6 +258,7 @@ Consequences, where a reader looks for them.
 | [0187](0187-a-model-card-starts-its-3d-view-on-request.md) | A model card starts its 3D view on request | Proposed |
 | [0188](0188-a-model-is-loaded-once-per-page-and-its-load-can-be-stopped.md) | A model is loaded once per page and its load can be stopped; geometry stays in the browser | Proposed |
 | [0189](0189-a-model-view-is-one-description-and-an-isolated-set-is-part-of-it.md) | A model view is one description, and an isolated set is part of it | Proposed |
+| [0191](0191-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md) | A person's own shelf is drawn on only where its owner alone reads the chat | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off
