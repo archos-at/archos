@@ -90,9 +90,10 @@ one.
    in parallel with the inventory, and reads the decision's `may.*` rather than
    re-deciding.
 
-After slice 2, Python reads scope in exactly one place,
-`scoping.get_scoped_collections_from_context`. The eight other modules that read
-`.collection_scope` or `.collection_scope_entries` today move onto it in slice 2.
+After slice 3, Python reads scope in exactly one place,
+`scoping.get_scoped_collections_from_context`. Of the eight other modules that
+read `.collection_scope` or `.collection_scope_entries` today, the ones that shape
+an answer move in slice 2 and the rest in slice 3.
 
 The socket's envelope keeps everything it carries except `collectionScope`:
 identity, the project for a chat whose row is not there yet, budget, model
