@@ -54,8 +54,8 @@ keep the personal shelf in a chat after it was shared.
    are today (`admit`).
 
    The routes that legitimately run without an envelope keep their own guard:
-   the eight exempt prefixes of the envelope middleware, ingestion, and the
-   worker identity headers.
+   the eight exempt prefixes of the envelope middleware, and ingestion. A job
+   worker binds its identity from the job it runs, never from plain headers.
 4. **A changed audience narrows; it does not stall.** `conversations` gains an
    `audience_version`. Triggers bump it on any change of visibility, creator,
    project or grants, and raise if the bump is lost. The context carries the
