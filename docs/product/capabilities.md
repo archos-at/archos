@@ -45,7 +45,7 @@ person knows who sees a thing.
 | Ask about anything in the project | Chat (`/chat`) | Searches project files, Büroablage, law, web, as the question needs | — |
 | Chat without a project | Rail › Persönlich › Neuer Chat (`/app/personal/chat`) | Reads the Büroablage, law, the web where the office allows it, and Mein Gedächtnis while only the person reads the chat | — |
 | A chat reads its own project | Every chat | Searches the project the chat belongs to, never the project the page shows; a chat without a project reads none | — |
-| Find past chats | Rail › Letzte Chats (ten newest of the side: Persönlich the chats without a project, Projekt that project's; a people mark when shared); toolbar › Chats (panel with search) | — | — |
+| Find past chats | Rail › Letzte Chats (eight newest of the side, the open one always among them: Persönlich the chats without a project, Projekt that project's; a people mark when shared); toolbar › Chats (panel with search) | — | — |
 | Rename, share, see who reads | Chat toolbar: title, Teilen (dialog), participants | — | — |
 | Temporary chat | Composer › Temporär | Remembers nothing from it | — |
 | Attach files, mention colleagues, dictate | Composer: Dateien anhängen, @-Erwähnung, Diktieren | — | — |

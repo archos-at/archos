@@ -291,6 +291,31 @@ describe('useChatStore', () => {
         expect(useChatStore.getState().currentConversation?.id).toBe('legacy')
       })
 
+      test('switching to Persönlich drops the project’s open chat, so its thread never shows on the personal side', () => {
+        const project = makeConv('a-1', 'user-1', 'proj-a')
+        useChatStore.setState({ currentUserId: 'user-1', projectId: 'proj-a', currentConversation: project, conversations: [project] })
+
+        useChatStore.getState().enterSide(null)
+
+        const state = useChatStore.getState()
+        expect(state.projectId).toBeNull()
+        expect(state.currentConversation).toBeNull()
+        expect(state.conversations.map((c) => c.id)).toEqual(['a-1'])
+      })
+
+      test('switching to a project drops the open personal chat, and each side keeps a chat of its own', () => {
+        const personal = makeConv('me-1', 'user-1', null)
+        useChatStore.setState({ currentUserId: 'user-1', projectId: null, currentConversation: personal, conversations: [personal] })
+
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation).toBeNull()
+
+        const own = makeConv('a-1', 'user-1', 'proj-a')
+        useChatStore.setState({ currentConversation: own, conversations: [personal, own] })
+        useChatStore.getState().enterSide('proj-a')
+        expect(useChatStore.getState().currentConversation?.id).toBe('a-1')
+      })
+
       test('leaving the project context (null) never clears the current conversation', () => {
         const own = makeConv('a-1', 'user-1', 'proj-a')
         useChatStore.setState({
