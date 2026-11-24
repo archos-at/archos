@@ -103,7 +103,15 @@ describe('InboxWorkspace', () => {
     expect(screen.getByTestId('inbox-tab-news')).toHaveTextContent('News')
     expect(screen.getByTestId('inbox-tab-archived')).toHaveTextContent('Archived')
     expect(useInboxList).toHaveBeenCalledWith(true, 'requests')
-    expect(screen.getByTestId('inbox-opened')).toHaveTextContent('Pick an entry on the left.')
+  })
+
+  test('shows the newest entry beside the list before anything is picked, and leaves it unread', () => {
+    const list = serve('requests', [older, newer])
+    render(<InboxWorkspace />)
+    expect(screen.getAllByTestId('inbox-entry')[0]).toHaveAttribute('aria-current', 'true')
+    expect(within(screen.getByTestId('inbox-opened')).getByTestId('inbox-item')).toBeInTheDocument()
+    expect(list.markRead).not.toHaveBeenCalled()
+    expect(router.replace).not.toHaveBeenCalled()
   })
 
   test('keeps overdue entries on top, and the newest first below them', () => {

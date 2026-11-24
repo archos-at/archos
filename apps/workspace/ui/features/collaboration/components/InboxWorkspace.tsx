@@ -56,7 +56,7 @@ export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspace
     const shown = list.items.filter((item) => !archiveLater.pendingIds.has(item.id) && (tab !== 'news' || !isOpenRequest(item)))
     return newestFirstOverdueOnTop(shown)
   }, [list.items, archiveLater.pendingIds, tab])
-  const picked = entries.find((item) => item.id === pickedId) ?? null
+  const picked = entries.find((item) => item.id === pickedId) ?? entries[0] ?? null
 
   const go = useCallback(
     (next: { tab?: InboxTab; item?: string | null }): void => {
@@ -97,7 +97,7 @@ export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspace
       const target = event.target as HTMLElement | null
       if (event.metaKey || event.ctrlKey || event.altKey || target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [role="menu"]')) return
       const key = event.key.toLowerCase()
-      const at = entries.findIndex((item) => item.id === pickedId)
+      const at = entries.findIndex((item) => item.id === picked?.id)
       if (key === 'j' || key === 'k') {
         const next = entries[at < 0 ? 0 : Math.min(entries.length - 1, Math.max(0, at + (key === 'j' ? 1 : -1)))]
         if (next) pick(next)
@@ -137,7 +137,7 @@ export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspace
       {offer}
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-        <div className="min-h-0 overflow-y-auto" data-testid="inbox-entries">
+        <div className="scroll-fade-bottom min-h-0 overflow-y-auto pb-6" data-testid="inbox-entries">
           {list.loading ? (
             <InboxQueueSkeleton />
           ) : list.error ? (
@@ -148,7 +148,7 @@ export function InboxWorkspace({ viewerId = null, offer = null }: InboxWorkspace
             <ul className="flex flex-col gap-0.5">
               {entries.map((item) => (
                 <li key={item.id}>
-                  <InboxEntry item={item} current={item.id === pickedId} onPick={pick} />
+                  <InboxEntry item={item} current={item.id === picked?.id} onPick={pick} />
                 </li>
               ))}
               {list.hasMore && (

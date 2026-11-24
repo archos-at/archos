@@ -57,13 +57,15 @@ function Glance({ onLeave }: { onLeave: (href: string) => void }): JSX.Element {
 export interface InboxBellProps {
   compact?: boolean
   tourAnchor?: string
+  pathname?: string
   className?: string
 }
 
-export function InboxBell({ compact = false, tourAnchor, className }: InboxBellProps): JSX.Element {
+export function InboxBell({ compact = false, tourAnchor, pathname: pathnameOverride, className }: InboxBellProps): JSX.Element {
   const t = useTranslations(collaborationCopy)
   const router = useRouter()
-  const pathname = usePathname() ?? ''
+  const routerPathname = usePathname()
+  const pathname = pathnameOverride ?? routerPathname ?? ''
   const here = pathname === INBOX_HREF || pathname.startsWith(`${INBOX_HREF}/`)
   const { pending } = useInboxBadge(true)
   const [open, setOpen] = useState(false)

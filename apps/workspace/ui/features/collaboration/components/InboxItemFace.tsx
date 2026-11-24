@@ -17,6 +17,7 @@ import {
   Megaphone,
   MessageSquare,
   ShieldAlert,
+  Sparkles,
   UserPlus,
   type LucideIcon,
 } from 'lucide-react'
@@ -62,7 +63,6 @@ export function InboxItemFace({ item, size = 'md' }: { item: InboxItemView; size
 
 export function InboxKindIcon({ item, className }: { item: InboxItemView; className?: string }): JSX.Element {
   const presentation = inboxTypePresentation(item.type) ?? UNKNOWN_TYPE_PRESENTATION
-  if (presentation.icon === 'agent') return <AgentGlyph size="md" tone="outline" />
-  const Icon = ICONS[presentation.icon]
+  const Icon = presentation.icon === 'agent' ? Sparkles : ICONS[presentation.icon]
   return <Icon className={className} aria-hidden />
 }

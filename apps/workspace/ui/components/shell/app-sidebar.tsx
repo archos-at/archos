@@ -326,7 +326,7 @@ function AppSidebarFrame({
             canManagePlatform={canManagePlatform}
           />
           </div>
-          {canAccessInbox && <InboxBell compact={iconRail} tourAnchor={sectionAnchor('inbox')} />}
+          {canAccessInbox && <InboxBell compact={iconRail} tourAnchor={sectionAnchor('inbox')} pathname={pathname} />}
           </div>
         </SidebarFooter>
         {/* The primitive's own strings are English; the rail is a tab stop now,
