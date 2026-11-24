@@ -352,12 +352,13 @@ export const createConversationActions = (
     enterSide: (projectId: string | null) => {
       const { currentConversation: open, conversations, currentUserId, lastChatBySide } = get()
       const onSide = (c: Conversation): boolean => (projectId === null ? !c.projectId : c.projectId === projectId)
-      if (!open || onSide(open)) {
+      if (open && onSide(open)) {
         set({ projectId }, false, 'enterSide')
         return
       }
-      const left = { ...lastChatBySide, [sideKeyOf(open.projectId ?? null)]: open.id }
-      set({ ...withoutOpenConversation(projectId), lastChatBySide: left }, false, 'enterSide:leaveOtherSide')
+      const left = open ? { ...lastChatBySide, [sideKeyOf(open.projectId ?? null)]: open.id } : lastChatBySide
+      if (open) set({ ...withoutOpenConversation(projectId), lastChatBySide: left }, false, 'enterSide:leaveOtherSide')
+      else set({ projectId }, false, 'enterSide')
       const last = conversations.find((c) => c.id === left[sideKeyOf(projectId)] && onSide(c) && c.userId === currentUserId)
       if (last) get().selectConversation(last.id)
     },

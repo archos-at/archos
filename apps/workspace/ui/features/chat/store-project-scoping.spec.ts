@@ -348,6 +348,26 @@ describe('useChatStore', () => {
         expect(useChatStore.getState().lastChatBySide).toEqual({ 'proj-a': 'a-1', 'proj-b': 'b-1' })
       })
 
+      test('a side switch keeps what the store holds: both chats, and the draft typed in the one left', () => {
+        const project = makeConv('a-1', 'user-1', 'proj-a')
+        const personal = makeConv('me-1', 'user-1', null)
+        useChatStore.setState({
+          currentUserId: 'user-1',
+          projectId: 'proj-a',
+          currentConversation: project,
+          conversations: [project, personal],
+          composerDrafts: { 'a-1': 'Stellplatznachweis prüfen' },
+        })
+
+        useChatStore.getState().enterSide(null)
+        useChatStore.getState().enterSide('proj-a')
+
+        const state = useChatStore.getState()
+        expect(state.conversations.map((c) => c.id)).toEqual(['a-1', 'me-1'])
+        expect(state.composerDrafts).toEqual({ 'a-1': 'Stellplatznachweis prüfen' })
+        expect(state.currentConversation?.id).toBe('a-1')
+      })
+
       test('another person’s remembered chat is never reopened', () => {
         const theirs = makeConv('a-1', 'user-2', 'proj-a')
         const mine = makeConv('me-1', 'user-1', null)
