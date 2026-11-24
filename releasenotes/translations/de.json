@@ -4208,6 +4208,10 @@
     "de": "Der Header der App, die Antwortkarte in der Dokumentenprüfung und das Projekt-Setup zeigen jetzt überall den aktuellen Produktnamen."
   },
   {
+    "en": "The assistant can now measure a PDF drawing between points it places freely, as you do with Ctrl held, and can keep a measurement on the sheet for you.",
+    "de": "Der Assistent kann jetzt in einer PDF-Zeichnung zwischen frei platzierten Punkten messen – wie beim Messen mit gedrückter Strg-Taste – und eine Messung für Sie am Planblatt belassen."
+  },
+  {
     "en": "The assistant draws on what it keeps about you personally only in chats that you alone read. In a chat you share with colleagues it leaves those notes out, because others read the answers there.",
     "de": "Der Assistent nutzt persönliche Informationen, die er über Sie gespeichert hat, nur in Chats, die nur Sie lesen. In einem Chat, den Sie mit Kolleginnen und Kollegen teilen, lässt er diese Notizen weg, weil dort auch andere die Antworten lesen."
   },

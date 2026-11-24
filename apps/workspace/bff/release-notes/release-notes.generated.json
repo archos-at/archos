@@ -65,6 +65,14 @@
         },
         {
           "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "The assistant can now measure a PDF drawing between points it places freely, as you do with Ctrl held, and can keep a measurement on the sheet for you.",
+            "de": "Der Assistent kann jetzt in einer PDF-Zeichnung zwischen frei platzierten Punkten messen – wie beim Messen mit gedrückter Strg-Taste – und eine Messung für Sie am Planblatt belassen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "office-knowledge",
           "text": {
             "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
