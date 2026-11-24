@@ -508,3 +508,58 @@ describe('ChatArea — the jump-to-latest button', () => {
     }
   })
 })
+
+describe('ChatArea — the greeting after the thread empties', () => {
+  const thread = {
+    currentConversation: {
+      id: 'c1',
+      messages: [
+        { id: 'u1', role: 'user', content: 'Frage', messageType: 'user' },
+        { id: 'a1', role: 'assistant', content: 'Antwort.', messageType: 'agent_response' },
+      ],
+    },
+    hasHydrated: true,
+    isLoading: false,
+    isStreaming: false,
+  } as ChatStoreFixture
+  const empty = { currentConversation: null, hasHydrated: true, isLoading: false, isStreaming: false } as ChatStoreFixture
+  const use = (state: ChatStoreFixture) =>
+    vi
+      .mocked(useChatStore)
+      .mockImplementation((selector?: StoreSelector<ChatStoreWithHydration>) =>
+        selector ? selector(asStoreState<ChatStoreWithHydration>(state)) : state
+      )
+  const greetingPlane = (): HTMLElement => {
+    let node: HTMLElement | null = screen.getByRole('heading')
+    while (node && !node.style.opacity) node = node.parentElement
+    return node!
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockSharedThread = { ...INERT_SHARED_THREAD }
+    mockProjectId = null
+  })
+
+  test('fades in without rising when the route emptied it, as a project switch does', () => {
+    use(thread)
+    const { rerender } = render(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+    use(empty)
+    rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+
+    expect(greetingPlane().style.opacity).toBe('0')
+    expect(greetingPlane().style.transform).not.toMatch(/16px/)
+  })
+
+  test('rises with the composer when the reader pressed for a new chat', () => {
+    use(thread)
+    const { rerender } = render(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+    act(() => {
+      window.dispatchEvent(new Event('pointerdown'))
+    })
+    use(empty)
+    rerender(<ChatArea isAuthenticated={true} onSignIn={vi.fn()} />)
+
+    expect(greetingPlane().style.transform).toMatch(/16px/)
+  })
+})
