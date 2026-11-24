@@ -73,7 +73,7 @@ export default async function ProfilePage(): Promise<JSX.Element> {
       <ShellContent>
         <BackLink
           className="touch-target mb-6"
-          fallbackHref="/app/projects"
+          fallbackHref="/app"
           fallbackLabel={t('backToApp')}
         />
 

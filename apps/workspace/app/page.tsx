@@ -19,6 +19,6 @@ export default async function HomePage({ searchParams }: HomePageProps): Promise
         redirect(wantsSignIn || !landingUrl ? SIGN_IN_ROUTE : landingUrl)
       }
     }
-    redirect('/app/projects')
+    redirect('/app')
   })
 }

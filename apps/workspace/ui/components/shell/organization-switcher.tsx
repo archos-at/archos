@@ -15,8 +15,9 @@ import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { isFrameworkControlFlow } from '@/lib/analytics/control-flow-error'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
+import { FIRST_PLACE } from './landing'
 
-const AFTER_SWITCH = '/app/projects'
+const AFTER_SWITCH = FIRST_PLACE
 
 export function isNavigatingAway(error: unknown): boolean {
   return isFrameworkControlFlow(error)

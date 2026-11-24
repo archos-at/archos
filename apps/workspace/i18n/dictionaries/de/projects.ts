@@ -1,6 +1,10 @@
 import type { en } from '../en'
 
 export const projects: typeof en.projects = {
+  portfolio: {
+    title: 'Projektübersicht',
+    searchPlaceholder: 'Projekt suchen …',
+  },
   list: {
     heading: 'Projekte',
     description:
@@ -305,8 +309,8 @@ export const projects: typeof en.projects = {
     documents: 'Dokumente',
     docLabel: '{count} {unit}',
     open: '{name} öffnen',
-    overview: 'Übersicht',
-    overviewAria: 'Übersicht von {name} öffnen',
+    settings: 'Projekteinstellungen',
+    settingsAria: 'Projekteinstellungen von {name}',
     mailWaiting: '{count, plural, one {# E-Mail wartet} other {# E-Mails warten}}',
     mailWaitingAria: '{count, plural, one {# E-Mail wartet in {name} auf Ablage} other {# E-Mails warten in {name} auf Ablage}}',
   },

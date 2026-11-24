@@ -34,7 +34,7 @@ export default async function OrganizationLayout({
       <ShellContent>
         <BackLink
           className="touch-target mb-6"
-          fallbackHref="/app/projects"
+          fallbackHref="/app"
           fallbackLabel={t('backToApp')}
         />
         {/* Rail beside the content from `lg`; stacked strip below that. */}

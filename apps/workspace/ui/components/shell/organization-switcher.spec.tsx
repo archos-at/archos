@@ -45,14 +45,14 @@ describe('OrganizationSwitcherMenu', () => {
     expect(screen.getByRole('menuitem', { name: /Test Office/ })).toHaveAttribute('data-disabled')
   })
 
-  test('switches the session, then loads the new office’s projects', async () => {
+  test('switches the session, then opens a new personal chat in the new office, where no last place of the old one holds', async () => {
     switchToOrganization.mockResolvedValue({})
     await openSwitcher()
 
     await userEvent.click(await screen.findByRole('menuitem', { name: /feld72 Architekten/ }))
 
     expect(switchToOrganization).toHaveBeenCalledWith('org_2')
-    expect(assign).toHaveBeenCalledWith('/app/projects')
+    expect(assign).toHaveBeenCalledWith('/app/personal/chat?new=1')
   })
 
   test('leaves an SSO or MFA sign-in to the redirect Next is already following', async () => {

@@ -6,15 +6,15 @@ export const errors: typeof en.errors = {
     title: 'Das konnten wir nicht finden',
     description:
       'Die gesuchte Seite oder das gesuchte Projekt existiert nicht, oder Sie haben keinen Zugriff mehr darauf.',
-    action: 'Zurück zu den Projekten',
+    action: 'Zur Startseite',
   },
   appError: {
     code: 'Fehler',
     title: 'Etwas ist schiefgelaufen',
     description:
-      'Ein unerwarteter Fehler ist aufgetreten. Sie können es erneut versuchen oder zu Ihren Projekten zurückkehren.',
+      'Ein unerwarteter Fehler ist aufgetreten. Sie können es erneut versuchen oder zur Startseite zurückkehren.',
     action: 'Erneut versuchen',
-    backAction: 'Zurück zu den Projekten',
+    backAction: 'Zur Startseite',
     report: 'Fehler melden',
     reference: 'Referenz: {reference}',
     reportSubject: 'Fehler in {productName}',

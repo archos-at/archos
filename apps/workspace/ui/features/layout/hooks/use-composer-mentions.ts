@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useChatStore } from '@/features/chat/store'
 import type {
   MentionPickerAria,
@@ -6,6 +6,7 @@ import type {
 } from '@/features/collaboration/components/MentionPicker'
 import { useMentionCandidates } from '@/features/collaboration/hooks/use-sharing'
 import { findMentionQuery, type DraftMention, type MentionQuery } from '@/lib/mentions/mention-text'
+import { isAgentMentionId } from '@/lib/mentions/types'
 
 interface ComposerMentionsInput {
   currentSessionId: string | undefined
@@ -69,8 +70,14 @@ export function useComposerMentions({
     !draftLocked &&
     (mentionsLoading || mentionData !== null)
 
+  const sendableMentions = useMemo(
+    () => (canMention ? mentions : mentions.filter((mention) => isAgentMentionId(mention.targetId))),
+    [canMention, mentions]
+  )
+
   return {
     mentions,
+    sendableMentions,
     setMentions,
     mentionQuery,
     setMentionQuery,

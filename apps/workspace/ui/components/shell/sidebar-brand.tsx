@@ -17,7 +17,7 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
 
   const home = (
     <Link
-      href="/app/projects"
+      href="/app"
       aria-label={t('allProjects')}
       data-focus-inset=""
       className="text-foreground rounded-control"

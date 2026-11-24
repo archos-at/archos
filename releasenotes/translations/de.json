@@ -624,6 +624,10 @@
     "de": "Ein Mitgliederbudget lässt sich nicht mehr für jemanden festlegen, der der Organisation nicht angehört; so ein Limit wurde bisher gespeichert und griff nie."
   },
   {
+    "en": "A message started from a suggestion in a chat without a project no longer fails because it named a colleague; it goes to ARCHOS as written.",
+    "de": "Eine Nachricht, die Sie über einen Vorschlag in einem Chat ohne Projekt starten, schlägt nicht mehr fehl, wenn sie einen Kollegen erwähnt, sondern wird unverändert an ARCHOS gesendet."
+  },
+  {
     "en": "A missing chat permission now names Piloti, not an internal research step. The last step of the derivation (Herleitung) shows how far the reading got, not an assessment of the answer.",
     "de": "Eine fehlende Chat-Berechtigung nennt jetzt Piloti statt eines internen Rechercheschritts. Der letzte Schritt der Herleitung zeigt, wie weit das Lesen gekommen ist, nicht eine Bewertung der Antwort."
   },
@@ -1090,6 +1094,10 @@
   {
     "en": "A word search that could not search all your documents no longer looks complete in the Herleitung. It is drawn with a dashed ring and says that a missing hit is no proof; an incomplete search without a hit appears under „Offen“.",
     "de": "Eine Wortsuche, die nicht alle Ihre Dokumente durchsuchen konnte, wird in der Herleitung nicht mehr als vollständig angezeigt. Sie ist mit einem gestrichelten Ring markiert und weist darauf hin, dass ein fehlender Treffer kein Beweis ist; eine unvollständige Suche ohne Treffer erscheint unter „Offen“."
+  },
+  {
+    "en": "ARCHOS now opens with a new chat in the area you last worked in, a project's or your own. Every project is in the „Projektübersicht“, a window over the page you are on, opened from „Übersicht“ in the project picker.",
+    "de": "ARCHOS öffnet jetzt einen neuen Chat in dem Bereich, in dem Sie zuletzt gearbeitet haben – in einem Projekt oder Ihrem eigenen Bereich. Jedes Projekt finden Sie in der „Projektübersicht“, einem Fenster über der aktuellen Seite, das Sie über „Übersicht“ in der Projektauswahl öffnen."
   },
   {
     "en": "ARCHOS suggests a folder and a Dokumentart for each attachment of a waiting mail, from the file names, the masked subject and the sender's domain only. Several complete mails can then be filed as suggested with one press.",
@@ -2438,6 +2446,10 @@
   {
     "en": "Finishing the project intake now ends on a check that lands on the save button before the project opens, and moving between intake steps no longer pauses on an empty form.",
     "de": "Beim Abschließen der Projektaufnahme endet der Ablauf jetzt mit einer Prüfung, bei der der Fokus auf der Schaltfläche „Speichern“ liegt, bevor das Projekt geöffnet wird; beim Wechsel zwischen den Schritten bleibt der Ablauf nicht mehr bei einem leeren Formular stehen."
+  },
+  {
+    "en": "Folder cards have the rounded corners of a card again, not the small ones they briefly took.",
+    "de": "Ordnerkarten haben wieder die abgerundeten Ecken einer Karte und nicht mehr die kleinen, die sie kurzzeitig hatten."
   },
   {
     "en": "Folder names of a folder dropped into a chat, and folder names far down a long path, are now checked against your office's list on the server too.",
@@ -4716,6 +4728,10 @@
     "de": "Die über den Projektnamen geöffnete Projektliste ist nun so breit wie die Schaltfläche in der Seitenleiste und ragt nicht mehr über deren Rand hinaus."
   },
   {
+    "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
+    "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
+  },
+  {
     "en": "The project selector at the top of the sidebar is one button with the project's name on a single line, and the list of projects opens right under it.",
     "de": "Die Projektauswahl oben in der Seitenleiste ist eine einzelne Schaltfläche mit dem Projektnamen in einer Zeile, und die Projektliste öffnet sich direkt darunter."
   },
@@ -5954,6 +5970,10 @@
   {
     "en": "Übersicht now stands with the project's other sections, under the project switcher, rather than at the foot of the sidebar among the organisation's Büroablage, Suche and Postfach.",
     "de": "Die Übersicht befindet sich jetzt bei den anderen Projektbereichen unter dem Projektwechsler und nicht mehr unten in der Seitenleiste bei Büroablage, Suche und Postfach der Organisation."
+  },
+  {
+    "en": "„Alle Chats“ opened from a project's Ablage or settings now lists only that project's chats, as „Letzte Chats“ does.",
+    "de": "„Alle Chats“ zeigt beim Öffnen über die Ablage oder die Einstellungen eines Projekts jetzt wie „Letzte Chats“ nur die Chats dieses Projekts an."
   },
   {
     "en": "„Als PDF herunterladen“ also gives the PDF of a Word, Excel or PowerPoint file.",

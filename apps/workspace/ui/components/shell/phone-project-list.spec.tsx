@@ -107,7 +107,7 @@ describe('PhoneProjectList', () => {
     expect(rows.map((row) => row.textContent)).toEqual(['Bürohaus Lände', 'Amtshaus Favoriten'])
     expect(rows[1]).toHaveAttribute('aria-current', 'true')
     for (const row of rows) expect(row.className).toContain('min-h-14')
-    expect(within(list).getByRole('link', { name: 'View all projects' })).toHaveAttribute('href', '/app/projects')
+    expect(within(list).getByRole('link', { name: 'Overview' })).toHaveAttribute('href', '/app/projects')
   })
 
   test('does not raise the keyboard: the field waits for a tap', () => {

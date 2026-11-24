@@ -1,10 +1,41 @@
 import type { JSX, ReactNode } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PAGE_SHEET_OVERLAY_CLASS, PAGE_SHEET_PANEL_CLASS } from '@/components/ui/page-sheet'
+import { PAGE_SHEET_OVERLAY_CLASS, PAGE_SHEET_PANEL_CLASS, PAGE_SHEET_WINDOW_CLASS, PAGE_SHEET_WINDOW_OVERLAY_CLASS, type PageSheetSize } from '@/components/ui/page-sheet'
 
 export const PAGE_SHEET_SKELETON_SLOT = 'page-sheet-skeleton'
 
-export function PageSheetSkeleton({ loadingLabel, children }: { loadingLabel: string; children?: ReactNode }): JSX.Element {
+export const WINDOW_SKELETON_CARDS = 9
+
+export function PageSheetSkeleton({
+  loadingLabel,
+  size = 'page',
+  children,
+}: {
+  loadingLabel: string
+  size?: PageSheetSize
+  children?: ReactNode
+}): JSX.Element {
+  if (size === 'window') {
+    return (
+      <div aria-busy="true" data-slot={PAGE_SHEET_SKELETON_SLOT}>
+        <div className={`${PAGE_SHEET_WINDOW_OVERLAY_CLASS} animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none`} aria-hidden />
+        <div className={`${PAGE_SHEET_WINDOW_CLASS} animate-in fade-in-0 duration-base ease-entrance motion-reduce:animate-none`}>
+          <span className="sr-only" role="status">
+            {loadingLabel}
+          </span>
+          <div className="flex flex-col gap-5 p-6" aria-hidden>
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-9 w-full rounded-control" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3" data-slot="page-sheet-skeleton-cards">
+              {Array.from({ length: WINDOW_SKELETON_CARDS }, (_, key) => (
+                <Skeleton key={key} className="h-[92px] w-full rounded-[10px]" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
   return (
     <div aria-busy="true" data-slot={PAGE_SHEET_SKELETON_SLOT}>
       <div

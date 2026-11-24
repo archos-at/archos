@@ -91,7 +91,7 @@ describe('KeyboardShortcuts', () => {
 
     await screen.findByText('Keyboard shortcuts')
     const jumps = within(document.querySelector<HTMLElement>('[data-shortcut-group="navigation"]')!)
-    for (const label of ['All projects', 'Organization', 'Chat', 'Documents', 'Office library', 'Overview']) {
+    for (const label of ['All projects', 'Organization', 'Chat', 'Documents', 'Office library', 'Project settings']) {
       expect(jumps.getByText(label)).toBeInTheDocument()
     }
     expect(screen.queryByText('Skills')).toBeNull()

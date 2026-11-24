@@ -59,4 +59,18 @@ describe('PageSheet', () => {
     expect(screen.getByRole('dialog').className).toContain('pl-[env(safe-area-inset-left)]')
     expect(screen.getByRole('dialog').className).toContain('pr-[env(safe-area-inset-right)]')
   })
+
+  it('a window stands in the middle of the screen over a page that is dimmed, not blurred, as the concept draws it', () => {
+    render(
+      <PageSheet open onOpenChange={vi.fn()} title="Projektübersicht" closeLabel="Schließen" size="window">
+        <p>Inhalt</p>
+      </PageSheet>
+    )
+    const window = screen.getByRole('dialog')
+    expect(window).toHaveAttribute('data-size', 'window')
+    expect(window).toHaveClass('inset-4', 'm-auto', 'h-fit')
+    expect(window.className).not.toMatch(/(?:^|\s)top-/)
+    const scrim = document.querySelector<HTMLElement>('.bg-overlay')!
+    expect(scrim.className).not.toContain('backdrop-blur')
+  })
 })

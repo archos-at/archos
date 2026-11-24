@@ -22,6 +22,7 @@ vi.mock('next/link', () => ({
 }))
 
 import { useInboxBadge, useInboxList, type UseInboxListResult } from '../hooks/use-inbox'
+import { FIRST_PLACE, landingPath } from '@/components/shell/landing'
 import { InboxBell } from './InboxBell'
 
 const row = (id: string, overrides: Partial<InboxItemView> = {}): InboxItemView => ({
@@ -122,6 +123,18 @@ describe('InboxBell', () => {
     await userEvent.click(bell)
     expect(router.back).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId('inbox-glance')).not.toBeInTheDocument()
+  })
+
+  test('opened directly, with no history, the inbox is left for /app, which lands on a new personal chat, not back here', async () => {
+    page.pathname = '/app/inbox'
+    const length = vi.spyOn(window.history, 'length', 'get').mockReturnValue(1)
+    render(<InboxBell />)
+    await userEvent.click(screen.getByTestId('inbox-bell'))
+    expect(router.back).not.toHaveBeenCalled()
+    expect(router.push).toHaveBeenCalledWith('/app')
+    expect(landingPath(encodeURIComponent('/app/inbox'))).toBe(FIRST_PLACE)
+    expect(FIRST_PLACE).not.toBe('/app/inbox')
+    length.mockRestore()
   })
 
   test('leaves a modifier click to the browser, which opens the page in a new tab', () => {

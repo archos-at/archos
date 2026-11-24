@@ -77,7 +77,7 @@ describe('inside a project', () => {
     expect(lit(projectPhoneTabs('p1', '/app/office-shelf', ALL))).toEqual(['more'])
   })
 
-  it('names each tab with the rail label, and marks it as a tour stop', () => {
+  it('names each tab with the rail label (the settings tab with its short one), and marks it as a tour stop', () => {
     const [chat, files, settings, inbox, more] = projectPhoneTabs(
       'p1',
       '/app/projects/p1/chat',
@@ -92,7 +92,7 @@ describe('inside a project', () => {
       tourAnchor: 'section-files',
     })
     expect(settings).toMatchObject({
-      label: { namespace: 'nav', key: 'sections.settings' },
+      label: { namespace: 'nav', key: 'sections.settingsShort' },
       tourAnchor: 'section-settings',
     })
     expect(inbox).toMatchObject({ label: { namespace: 'collaboration', key: 'inbox.navLabel' } })

@@ -33,6 +33,14 @@
       "notes": [
         {
           "section": "features",
+          "area": "projects",
+          "text": {
+            "en": "ARCHOS now opens with a new chat in the area you last worked in, a project's or your own. Every project is in the „Projektübersicht“, a window over the page you are on, opened from „Übersicht“ in the project picker.",
+            "de": "ARCHOS öffnet jetzt einen neuen Chat in dem Bereich, in dem Sie zuletzt gearbeitet haben – in einem Projekt oder Ihrem eigenen Bereich. Jedes Projekt finden Sie in der „Projektübersicht“, einem Fenster über der aktuellen Seite, das Sie über „Übersicht“ in der Projektauswahl öffnen."
+          }
+        },
+        {
+          "section": "features",
           "area": "documents",
           "text": {
             "en": "You can now set the scale of a PDF drawing once for all its pages by choosing \"All pages\"; a scale set for one page or frame still takes precedence there. The measure strip also names the estimated scale instead of \"No scale\".",
@@ -193,6 +201,14 @@
         },
         {
           "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
+            "de": "Die Projektübersicht verändert ihre Größe nicht mehr sprunghaft, wenn Ihre Projekte geladen werden: Während des Ladens zeigt sie bereits drei Kartenreihen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "collaboration",
           "text": {
             "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
@@ -305,6 +321,14 @@
         },
         {
           "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Folder cards have the rounded corners of a card again, not the small ones they briefly took.",
+            "de": "Ordnerkarten haben wieder die abgerundeten Ecken einer Karte und nicht mehr die kleinen, die sie kurzzeitig hatten."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "„Letzte Chats“ in the sidebar now shows only the side you are on: under Persönlich your chats without a project, under Projekt that project's chats. „Alle Chats“ opens the same side's history.",
@@ -317,6 +341,22 @@
           "text": {
             "en": "A chat without a project no longer offers to mention a colleague with @, and no longer speaks of a project in its input field. To bring someone in, share the chat through Teilen.",
             "de": "Ein Chat ohne Projekt bietet keine Möglichkeit mehr, Kolleg:innen mit @ zu erwähnen, und zeigt im Eingabefeld kein Projekt mehr an. Um jemanden dazuzuholen, teilen Sie den Chat über Teilen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "„Alle Chats“ opened from a project's Ablage or settings now lists only that project's chats, as „Letzte Chats“ does.",
+            "de": "„Alle Chats“ zeigt beim Öffnen über die Ablage oder die Einstellungen eines Projekts jetzt wie „Letzte Chats“ nur die Chats dieses Projekts an."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "A message started from a suggestion in a chat without a project no longer fails because it named a colleague; it goes to ARCHOS as written.",
+            "de": "Eine Nachricht, die Sie über einen Vorschlag in einem Chat ohne Projekt starten, schlägt nicht mehr fehl, wenn sie einen Kollegen erwähnt, sondern wird unverändert an ARCHOS gesendet."
           }
         },
         {

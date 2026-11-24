@@ -1,0 +1,9 @@
+---
+# area: general
+fixes:
+  - >
+    „Alle Chats“ opened from a project's Ablage or settings now lists only that
+    project's chats, as „Letzte Chats“ does.
+  - >
+    A message started from a suggestion in a chat without a project no longer
+    fails because it named a colleague; it goes to ARCHOS as written.

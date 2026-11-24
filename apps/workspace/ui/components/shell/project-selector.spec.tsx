@@ -6,7 +6,8 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider } from '@/i18n'
 import { ProjectSwitcher } from './project-switcher'
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }))
+const push = vi.hoisted(() => vi.fn())
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }))
 
 const PROJECTS = [
   { id: 'p-1', name: 'Wohnbau Seestadt Baufeld D12' },
@@ -43,17 +44,85 @@ describe('the project selector is one press', () => {
     expect(selector()).toHaveAccessibleName(/Wohnbau Seestadt Baufeld D12/)
   })
 
-  test('opens the list under it: a search, the projects by name alone, the current one checked', async () => {
+  test('opens the concept’s menu: one list „Projects“, no search, the current one checked, 320px wide', async () => {
     const user = userEvent.setup()
     show()
     await user.click(selector())
-    const list = await screen.findByRole('listbox')
-    const options = within(list).getAllByRole('option')
-    expect(options.map((option) => option.textContent)).toEqual([
-      'Wohnbau Seestadt Baufeld D12',
-      'Sanierung Amtshaus Favoriten',
-      'View all projects',
-    ])
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    const menu = await screen.findByTestId('project-switcher-menu')
+    expect(menu).toHaveClass('w-80')
+    expect(within(menu).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(menu).getAllByRole('group')).toHaveLength(1)
+    expect(within(menu).getByText('Projects')).toBeInTheDocument()
+    const options = within(menu).getAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual(['Wohnbau Seestadt Baufeld D12', 'Sanierung Amtshaus Favoriten'])
+  })
+
+  test('ends under a rule in two equal buttons: the overview of every project, and a new one', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(selector())
+    const overview = await screen.findByRole('button', { name: 'Overview' })
+    const create = screen.getByRole('button', { name: 'New project' })
+    expect(overview.parentElement).toBe(create.parentElement)
+    expect(overview.parentElement).toHaveClass('grid-cols-2')
+    await user.click(overview)
+    expect(push).toHaveBeenLastCalledWith('/app/projects')
+    await user.click(selector())
+    await user.click(await screen.findByRole('button', { name: 'New project' }))
+    expect(push).toHaveBeenLastCalledWith('/app/projects?new=1')
+  })
+
+  test('choosing the current project only closes the menu; its gear alone opens the project settings', async () => {
+    const user = userEvent.setup()
+    show()
+    push.mockClear()
+    await user.click(selector())
+    const gear = await screen.findByRole('link', { name: 'Project settings of Wohnbau Seestadt Baufeld D12' })
+    expect(gear).toHaveAttribute('href', '/app/projects/p-1/settings')
+    expect(gear).toHaveAttribute('title', 'Project settings')
+    expect(within(screen.getByRole('option', { name: /Wohnbau Seestadt/ })).getByRole('link')).toBe(gear)
+    await user.click(screen.getByRole('option', { name: /Wohnbau Seestadt/ }))
+    expect(push).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('project-switcher-menu')).not.toBeInTheDocument()
+    await user.click(selector())
+    await user.click(await screen.findByRole('option', { name: 'Sanierung Amtshaus Favoriten' }))
+    expect(push).toHaveBeenLastCalledWith('/app/projects/p-2/chat')
+  })
+
+  test('Enter on the gear opens the project settings, never the project under cmdk’s cursor; the gear is a full touch target', async () => {
+    const user = userEvent.setup()
+    show()
+    push.mockClear()
+    await user.click(selector())
+    const gear = await screen.findByRole('link', { name: 'Project settings of Wohnbau Seestadt Baufeld D12' })
+    expect(gear).toHaveClass('pointer-coarse:size-11')
+    gear.focus()
+    await user.keyboard('{ArrowDown}')
+    gear.focus()
+    await user.keyboard('{Enter}')
+    expect(push).not.toHaveBeenCalledWith('/app/projects/p-2/chat')
+  })
+
+  test('opens with the keyboard in the list: ArrowDown and Enter switch the project', async () => {
+    push.mockClear()
+    const user = userEvent.setup()
+    show()
+    selector().focus()
+    await user.keyboard('{Enter}')
+    const menu = await screen.findByTestId('project-switcher-menu')
+    expect(within(menu).getByTestId('project-switcher-overview')).not.toHaveFocus()
+
+    await user.keyboard('{ArrowDown}')
+    await user.keyboard('{Enter}')
+
+    expect(push).toHaveBeenCalledWith('/app/projects/p-2/chat')
+  })
+
+  test('a row is a full touch target on a coarse pointer, as tall as its gear', async () => {
+    const user = userEvent.setup()
+    show()
+    await user.click(selector())
+    const menu = await screen.findByTestId('project-switcher-menu')
+    for (const option of within(menu).getAllByRole('option')) expect(option).toHaveClass('pointer-coarse:h-11')
   })
 })

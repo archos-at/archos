@@ -30,7 +30,7 @@ export default async function PlatformLayout({
 
     const shell = (body: React.ReactNode): JSX.Element => (
       <ShellContent>
-        <BackLink className="mb-6" fallbackHref="/app/projects" fallbackLabel={tOrg('backToApp')} />
+        <BackLink className="mb-6" fallbackHref="/app" fallbackLabel={tOrg('backToApp')} />
         {body}
       </ShellContent>
     )
