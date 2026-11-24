@@ -35,10 +35,13 @@ const mockSaveDataSourcesToConversation = vi.fn()
 
 const mockEnsureConversationExists = vi.fn(async () => {})
 
+let mockChatProjectId: string | null = 'project-1'
+
 function mockChatState() {
   return {
+    projectId: mockChatProjectId,
     currentConversation: mockCurrentSessionId
-      ? { id: mockCurrentSessionId, messages: mockConversationMessages }
+      ? { id: mockCurrentSessionId, projectId: mockChatProjectId, messages: mockConversationMessages }
       : null,
     conversations: mockCurrentSessionId
       ? [{ id: mockCurrentSessionId, messages: mockConversationMessages ?? [] }]
@@ -215,6 +218,7 @@ describe('InputArea', () => {
     mockConversationMessages = []
     mockCurrentSessionId = 'session-1'
     mockComposerPrefill = null
+    mockChatProjectId = 'project-1'
     mockComposerSubject = null
     mockDrafts = {}
     mockActiveSourcePreset = null
@@ -311,6 +315,28 @@ describe('InputArea', () => {
       })
       expect(composer()).toHaveValue('')
       expect(screen.queryByTestId('composer-mention-hint')).not.toBeInTheDocument()
+    })
+
+    test('in a chat without a project a prefilled person is not sent as a mention; the text still goes (ADR-0193)', async () => {
+      mockChatProjectId = null
+      mockComposerPrefill = {
+        text: `@Anna Weber @${PRODUCT_NAME} passt das?`,
+        mentions: [
+          { targetId: 'u-anna', display: 'Anna Weber' },
+          { targetId: AGENT_CANDIDATE.targetId, display: PRODUCT_NAME },
+        ],
+      }
+      mockSendMessage.mockResolvedValue({ ok: true, addressees: { agent: true, users: [] } })
+      const user = userEvent.setup()
+      render(<InputArea isAuthenticated={true} canCollaborate connectionMode="sse" />)
+
+      await user.click(screen.getByRole('button', { name: /send message/i }))
+
+      expect(mockSendMessage).toHaveBeenCalledTimes(1)
+      const [text, options] = mockSendMessage.mock.calls[0]!
+      expect(text).toBe(`@Anna Weber @${PRODUCT_NAME} passt das?`)
+      const sent = (options as { mentions?: { targetId: string }[] } | undefined)?.mentions ?? []
+      expect(sent.map((mention) => mention.targetId)).not.toContain('u-anna')
     })
 
     test('deleting the inserted token deletes the mention (MN-3)', async () => {

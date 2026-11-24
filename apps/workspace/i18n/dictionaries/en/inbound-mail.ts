@@ -29,13 +29,13 @@ export const inboundMail = {
   loadMore: 'Load more',
 
   search: {
-    label: 'Filter mail by sender or subject',
-    placeholder: 'Sender or subject',
+    label: 'Filter mail by sender, subject or attachment',
+    placeholder: 'Search the project mail …',
     clear: 'Clear search',
     results: '{count, plural, one {# match} other {# matches}}',
     noResults: 'No matches',
     noneTitle: 'No mail matches “{query}”',
-    noneHint: 'Searches the sender and subject of the mail loaded so far.',
+    noneHint: 'Searches the sender, subject and attachment names of the mail loaded so far.',
   },
 
   closed: {
@@ -563,7 +563,6 @@ export const inboundMail = {
 
   state: {
     filing: 'Being filed …',
-    filingSlow: 'This takes longer than usual. Filing goes on; you can leave the mail.',
     decidedByOther: 'Someone else has handled this mail in the meantime.',
     partialFailure: '{failed} of {total} files could not be filed.',
     partialFailureAll: '{failed, plural, one {The file could not be filed.} other {None of the # files could be filed.}}',

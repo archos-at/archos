@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     A task's run history now shows how each run actually ended, so a failed run

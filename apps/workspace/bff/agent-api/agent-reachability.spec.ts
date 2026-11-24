@@ -1,9 +1,9 @@
-// @disk-inputs: app/api/**, bff/agent-api/agent-reachability-baseline.json, bff/agent-api/catalog/**
+// @disk-inputs: app/api/**, bff/agent-api/catalog/**
 /**
  * @vitest-environment node
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -18,7 +18,6 @@ import { type Sensitivity, pathParams, withInputDefaults } from './operation'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const API_DIR = join(HERE, '../../app/api')
 const CATALOG_DIR = join(HERE, 'catalog')
-const BASELINE_FILE = join(HERE, 'agent-reachability-baseline.json')
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
 
@@ -30,6 +29,26 @@ interface Exemption {
 }
 
 const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
+  'GET /api/personal-shelf/folders': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
+  'POST /api/personal-shelf/folders': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
+  'PATCH /api/personal-shelf/folders/[folderId]': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
+  'DELETE /api/personal-shelf/folders/[folderId]': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
+  'POST /api/personal-shelf/folders/ensure': {
+    category: 'other',
+    reason: 'the folders of the person’s own shelf (ADR-0193) are kept by the person; their own mcp agent reaches its files through document-list, document-upload and workspace-search with scope personal, and no other door reaches it',
+  },
   'GET /api/ris/document': {
     category: 'external-service',
     reason: 'the RIS text dialog proxies the public legal text service; an agent reads a RIS document by number or URL through law-lookup (`instrument`)',
@@ -77,6 +96,10 @@ const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
   '* /api/conversations/[id]/messages/[messageId]/stopped': {
     category: 'ui-state',
     reason: 'cuts an answer to the text the Stop button had on screen; only the browser knows what it showed',
+  },
+  'GET /api/documents/[id]/snap-targets': {
+    category: 'ui-state',
+    reason: 'the linework a browser snaps a pointer to while placing a measurement; an agent measures through document-measure',
   },
   'POST /api/notifications/push/devices': {
     category: 'ui-state',
@@ -251,38 +274,17 @@ const ROUTES = personFacingRouteMethods()
 const COVERED = new Set(AGENT_OPERATIONS.map((op) => `${op.method} ${op.path}`))
 const UNCOVERED = ROUTES.filter((route) => !COVERED.has(route.key) && !isExempt(route)).map((r) => r.key)
 
-function readBaseline(): string[] {
-  try {
-    return JSON.parse(readFileSync(BASELINE_FILE, 'utf8')) as string[]
-  } catch {
-    return []
-  }
-}
-
-if (process.env.UPDATE_FIXTURES === '1') {
-  writeFileSync(BASELINE_FILE, `${JSON.stringify(UNCOVERED, null, 2)}\n`)
-}
-
 describe('every person-facing route is agent-reachable (ADR-0122)', () => {
-  const baseline = new Set(readBaseline())
-
   it('finds the routes', () => {
     expect(ROUTES.length).toBeGreaterThan(200)
   })
 
-  it('a route added since the rule has an operation or a stated exemption', () => {
-    const added = UNCOVERED.filter((key) => !baseline.has(key))
+  it('every route has an operation or a stated exemption', () => {
     expect(
-      added,
+      UNCOVERED,
       'Add an operation to lib/agent-api/catalog/<domain>.ts, or a reason to NOT_AN_AGENT_CAPABILITY. ' +
         'See docs/architecture/agent-surface.md.',
     ).toEqual([])
-  })
-
-  it('the baseline only shrinks: covered or deleted routes leave it', () => {
-    const stillUncovered = new Set(UNCOVERED)
-    const stale = [...baseline].filter((key) => !stillUncovered.has(key))
-    expect(stale, 'Remove these from agent-reachability-baseline.json (UPDATE_FIXTURES=1 rewrites it).').toEqual([])
   })
 
   it('a sensitive capability is catalogued with exactly its class, and nothing else carries one', () => {

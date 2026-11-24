@@ -1,4 +1,5 @@
 import 'server-only'
+import { bestEffortInBackground } from '@/lib/best-effort'
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getAccessibleDocument } from '@/lib/documents/access'
@@ -11,8 +12,11 @@ import {
   updateDocumentAnnotation,
   type AnnotationChanges,
   type AnnotationRecord,
-  type NewAnnotationValues,
 } from './repository'
+import { toMark } from './mark-values'
+import { keptReadingFor } from '@/lib/drawing-tape/kept-reading'
+import { isTapeDocument } from '@/lib/drawing-tape/wire'
+import { isDrawingMeasureEnabled } from '@/lib/authz/feature-flags'
 import { onMarkDeleted } from './attention'
 import { keepMentions, newlyMentioned, noLongerMentioned } from './mentions'
 import { ANNOTATION_LIFECYCLE } from './lifecycles'
@@ -36,7 +40,6 @@ import {
   type AnnotationView,
   type CreateAnnotationRequest,
   type InternalAnnotation,
-  type MarkMention,
   type UpdateAnnotationRequest,
   type WakeOutcome,
 } from './types'
@@ -63,7 +66,6 @@ import {
 import { announce, markEvent, traceMove } from './annotation-events'
 import { limitReached, conflict } from './annotation-errors'
 import {
-  bestEffort,
   spendMentions,
   traceWithdrawn,
   traceMentioned,
@@ -75,44 +77,17 @@ import { delegationOfMark, delegationOf, takeBackAudit, auditHeldWake } from './
 import { carryToCurrent } from './annotation-carry'
 import { postReply } from './annotation-replies'
 
-const toMark = (input: {
-  page: number
-  shape: NewAnnotationValues['shape']
-  x: number
-  y: number
-  w?: number | null
-  h?: number | null
-  kind: NewAnnotationValues['kind']
-  body: string
-  mentions?: MarkMention[]
-  basis?: string | null
-  assigneeUserId?: string | null
-  dueOn?: string | null
-}): NewAnnotationValues => ({
-  page: input.page,
-  shape: input.shape,
-  x: input.x,
-  y: input.y,
-  w: input.shape === 'region' ? (input.w ?? null) : null,
-  h: input.shape === 'region' ? (input.h ?? null) : null,
-  kind: input.kind,
-  body: input.body,
-  mentions: input.mentions ?? [],
-  basis: input.basis ?? null,
-  assigneeUserId: input.assigneeUserId ?? null,
-  dueOn: input.dueOn ?? null,
-})
-
 export async function listAnnotations(session: AuthorizedSession, documentId: string): Promise<AnnotationListResponse> {
   const doc = await getAccessibleDocument(session, documentId, 'read')
-  if (!annotatable(doc)) return { annotations: [], canAnnotate: false, pilotiWakes: false }
+  if (!annotatable(doc)) return { annotations: [], canAnnotate: false, canMeasure: false, pilotiWakes: false }
   const [records, writable, names] = await Promise.all([
     listDocumentAnnotations(session.organizationId, doc.id),
     canWriteDocument(session, doc.id),
     directoryNames(session.organizationId),
   ])
   const annotations = (await documentAnnotationViews(session, doc, records, { writable, names })).sort(compareAnnotations)
-  return { annotations, canAnnotate: writable, pilotiWakes: wakesEnabled(session) }
+  const canMeasure = isDrawingMeasureEnabled(session) && isTapeDocument(doc)
+  return { annotations, canAnnotate: writable, canMeasure, pilotiWakes: wakesEnabled(session) }
 }
 
 export async function createAnnotation(
@@ -125,6 +100,7 @@ export async function createAnnotation(
   const doc = await requireWritableDocument(session, documentId)
   if (parsed.assigneeUserId) await requireAssignable(session, doc, parsed.assigneeUserId)
   const mentions = await keepMentions(session, doc, parsed.body, parsed.mentions ?? [], { piloti: false })
+  const reading = await keptReadingFor(session, doc, parsed)
   const mentioned = await spendMentions(session, newlyMentioned(mentions, [], session.userId), false)
   const [row] = await insertDocumentAnnotations({
     organizationId: session.organizationId,
@@ -132,7 +108,7 @@ export async function createAnnotation(
     versionId: doc.publishedVersionId ?? null,
     authorKind: 'person',
     createdBy: session.userId,
-    marks: [toMark({ ...parsed, mentions })],
+    marks: [toMark({ ...parsed, mentions, reading })],
   }).catch(limitReached)
   announce(session, doc.id, [row.id], 'created', { ...actor, kind: 'person' })
   markEvent(session, 'annotation_created', doc.id, { author_kind: 'person', kind: row.kind, status: row.status })
@@ -169,6 +145,7 @@ async function insertAgentMarks(
   }
   const parsed = proposals.map((proposal) => annotationProposalSchema.parse(proposal))
   const doc = await requireWritableDocument(session, documentId)
+  const readings = await Promise.all(parsed.map((mark) => keptReadingFor(session, doc, mark)))
   const rows = await insertDocumentAnnotations({
     organizationId: session.organizationId,
     documentId: doc.id,
@@ -176,7 +153,7 @@ async function insertAgentMarks(
     authorKind: AGENT_KIND,
     createdBy: session.userId,
     acceptedBy,
-    marks: parsed.map(toMark),
+    marks: parsed.map((mark, index) => toMark({ ...mark, reading: readings[index] })),
   }).catch(limitReached)
   const ids = rows.map((row) => row.id)
   announce(session, doc.id, ids, 'created', AGENT)
@@ -368,7 +345,7 @@ export async function deleteAnnotation(
   )
   announce(session, doc.id, [annotationId], 'deleted', actor)
   if (found.takeBack) auditDeletedWithMark(found.takeBack, takeBackAudit(session, doc, existing, actor))
-  bestEffort('clear the deleted mark’s rows', () =>
+  bestEffortInBackground('clear the deleted mark’s rows', () =>
     onMarkDeleted({ organizationId: session.organizationId, annotationId })
   )
   return null
@@ -459,6 +436,8 @@ export async function listAnnotationsForAgent(
       page: annotation.page,
       shape: annotation.shape,
       box: annotationBox(annotation),
+      points: annotation.points ?? null,
+      reading: annotation.reading ?? null,
       kind: annotation.kind,
       status: annotation.status,
       authorKind: annotation.authorKind,

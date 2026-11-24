@@ -6,7 +6,7 @@ import fixtureData from '../tests/fixtures/request_context.json'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { callsTo, parseSourceText, ts } from '@/test-utils/source-ast'
-import { buildRequestContextEnvelopeHeaders as commonJsEnvelopeHeaders, turnContextHeaders } from './turns/turn-headers.js'
+import { buildRequestContextEnvelopeHeaders as commonJsEnvelopeHeaders, socketTurnHeaders, turnContextHeaders } from './turns/turn-headers.js'
 
 import {
   buildRequestContextEnvelope,
@@ -320,7 +320,19 @@ describe('verifyRequestContextEnvelope', () => {
       conversationId: 's_conv_1',
       issuedAt: NOW,
       collectionScope: [],
+      contextKind: 'chat',
     })
+  })
+
+  it('signs a caller’s kind last, so a chat envelope keeps its bytes, and refuses an unknown kind while a missing one stays a chat', () => {
+    const base = { organizationId: 'org_1', userId: 'user_1', issuedAt: NOW }
+    expect(Object.keys(buildRequestContextEnvelopePayload({ ...base, contextKind: 'headless' })).at(-1)).toBe('contextKind')
+    expect(buildRequestContextEnvelopePayload(base)).not.toHaveProperty('contextKind')
+    const headless = buildRequestContextEnvelope({ ...base, contextKind: 'headless' }, SECRET)
+    expect(verifyRequestContextEnvelope(headless.header, headless.signature, SECRET, NOW)?.contextKind).toBe('headless')
+    const json = JSON.stringify({ ...base, contextKind: 'root' })
+    const forgedKind = Buffer.from(json).toString('base64url')
+    expect(verifyRequestContextEnvelope(forgedKind, signRequestContextEnvelope(json, SECRET), SECRET, NOW)).toBeNull()
   })
 
   it('reads the signed scope names in both entry shapes (ADR-0047), dropping anything else', () => {
@@ -501,6 +513,33 @@ describe('turn-headers.js mints the envelope the gateway sends', () => {
     }
   })
 
+  it('signs no collection scope and sends no plain scope header for a socket turn, which takes its scope from the decision (ADR-0194)', () => {
+    const data = {
+      header: 'scope',
+      scopedCollections: [{ collection: 'proj_1', shelf: 'project' }],
+      scope: ['proj_1'],
+      organizationId: 'org_1',
+      userId: 'user_1',
+      conversationId: 's_conv_1',
+    }
+    const socket = socketTurnHeaders(data, { issuedAt: NOW, secret: SECRET })
+    expect(decodeEnvelope(socket)).not.toHaveProperty('collectionScope')
+    expect(socket).not.toHaveProperty('x-collection-scope')
+    expect(decodeEnvelope(turnContextHeaders(data, { issuedAt: NOW, secret: SECRET }))).toHaveProperty('collectionScope')
+  })
+
+  it('signs a caller’s kind in the same bytes as the canonical builder', () => {
+    const input: RequestContextInput = {
+      organizationId: 'org_1', userId: 'user_1', conversationId: 's_conv_1', issuedAt: Date.now(),
+      contextTransport: 'bff', requester: { name: 'Ada', email: null, organizationName: null }, contextKind: 'headless',
+    }
+    const canonical = buildRequestContextEnvelope(input, 'fixture-secret')
+    expect(commonJsEnvelopeHeaders(input, 'fixture-secret')).toEqual({
+      'x-request-context': canonical.header,
+      'x-request-context-sig': canonical.signature,
+    })
+  })
+
   it('matches the signed bytes for compact capsules and every legacy fixture', () => {
     const serverBuilder = (input: RequestContextInput) => commonJsEnvelopeHeaders(input, 'fixture-secret')
     for (const testCase of fixture.envelopeCases) {
@@ -537,9 +576,10 @@ describe('turn-headers.js mints the envelope the gateway sends', () => {
 })
 
 describe('server.js hands the gateway the scope route data', () => {
-  it('calls turnContextHeaders once, with the scope route result and the mint time, never a query parameter', () => {
+  it('calls socketTurnHeaders once, with the scope route result and the mint time, never a query parameter', () => {
     const server = parseSourceText(readFileSync(new URL('../server.js', import.meta.url), 'utf8'), 'server.js')
-    const calls = callsTo(server, 'turnContextHeaders')
+    expect(callsTo(server, 'turnContextHeaders')).toEqual([])
+    const calls = callsTo(server, 'socketTurnHeaders')
     expect(calls.map((call) => dottedName(call.arguments[0]))).toEqual(['result.data'])
     expect(calls.map((call) => propertyNames(call.arguments[1]))).toEqual([['issuedAt', 'secret']])
   })

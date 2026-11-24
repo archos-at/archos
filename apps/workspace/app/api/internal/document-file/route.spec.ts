@@ -12,6 +12,9 @@ vi.mock('@/lib/documents/document-storage-keys', () => ({
   findDocumentImageStorageKey: vi.fn(),
 }))
 
+vi.mock('@/lib/drawing-calibrations/page-read', () => ({ activeCalibrationsOfPage: vi.fn() }))
+vi.mock('@/lib/conversations/personal-shelf-use', () => ({ admitPersonalShelf: vi.fn(async () => []) }))
+
 vi.mock('@/lib/conversations/restricted-use', () => ({
   drawableRestrictedCollections: vi.fn(),
 }))
@@ -23,9 +26,13 @@ vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
 
 import { GET } from './route'
 import { drawableRestrictedCollections } from '@/lib/conversations/restricted-use'
+import { admitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
 import { withTenant } from '@/lib/db/tenant-context'
+import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
 import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
 import { REQUEST_CONTEXT_HEADER_NAMES, buildRequestContextEnvelope } from '@/lib/request-context'
+import { closedContext } from '@/lib/conversation-context/context.fixtures'
+import { TURN_DECISION_HEADER, TURN_DECISION_SIGNATURE_HEADER, decisionOf, signDecision } from '@/lib/conversation-context/wire'
 
 const request = (
   query = '?collection=proj_1&filename=plan.png',
@@ -57,6 +64,21 @@ function envelope(
     [REQUEST_CONTEXT_HEADER_NAMES.REQUEST_CONTEXT]: header,
     [REQUEST_CONTEXT_HEADER_NAMES.REQUEST_CONTEXT_SIG]: signature ?? '',
   }
+}
+
+function decided(
+  shelves: string[],
+  {
+    restricted = [],
+    conversationId = 's_conv_1',
+    userId = 'user_asker',
+    kind = 'chat',
+  }: { restricted?: string[]; conversationId?: string; userId?: string; kind?: 'chat' | 'headless' } = {}
+): Record<string, string> {
+  const closed = closedContext(kind, conversationId)
+  const may = { ...closed.may, shelves: shelves.map((collection) => ({ collection, shelf: 'project' as const })), restrictedCollections: restricted }
+  const { header, signature } = signDecision(decisionOf({ ...closed, may }, { organizationId: 'org_1', userId }, null, Date.now()), 'test-token')
+  return { [TURN_DECISION_HEADER]: header, [TURN_DECISION_SIGNATURE_HEADER]: signature }
 }
 
 const STORED = { id: '11111111-1111-4111-8111-111111111111', storageKey: 'org/o1/project/p1/doc/d1/plan.png', storageBucket: null, contentType: 'image/png', versionId: null }
@@ -183,7 +205,7 @@ describe('GET /api/internal/document-file', () => {
     it('answers for a collection the envelope signs, in the organization it names', async () => {
       const res = await GET(request('?collection=proj_1&filename=plan.png', 'test-token', envelope()))
       expect(res.status).toBe(200)
-      expect(vi.mocked(withTenant).mock.calls[0][0]).toEqual({ organizationId: 'org_1' })
+      expect(vi.mocked(withTenant).mock.calls[0][0]).toEqual({ organizationId: 'org_1', userId: 'user_asker' })
       expect(vi.mocked(findDocumentStorageKey).mock.calls[0]).toEqual(['proj_1', 'plan.png', 'org_1'])
     })
 
@@ -246,6 +268,132 @@ describe('GET /api/internal/document-file', () => {
       expect((await GET(request(`?collection=${RESTRICTED.toUpperCase()}&filename=gehalt.png`))).status).toBe(404)
       expect(findDocumentStorageKey).not.toHaveBeenCalled()
       expect(drawableRestrictedCollections).not.toHaveBeenCalled()
+    })
+
+    it('never answers for a person’s own shelf, which only its owner’s signed envelope reaches (ADR-0193)', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      expect((await GET(request('?collection=personal_org_1__user_asker&filename=plan.png&organizationId=org_1'))).status).toBe(404)
+      expect((await GET(request('?collection=PERSONAL_org_1__user_asker&filename=plan.png'))).status).toBe(404)
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
+    })
+
+    it('serves the owner’s own shelf only once its live admission under the turn’s decision holds (ADR-0193)', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const own = 'personal_org_1__user_asker'
+      const url = `?collection=${own}&filename=plan.png`
+      const headers = { ...envelope({ collectionScope: [own] }), ...decided([own], { restricted: [own] }) }
+
+      expect((await GET(request(url, 'test-token', envelope({ collectionScope: [own] })))).status).toBe(404)
+      expect((await GET(request(url, 'test-token', headers))).status).toBe(404)
+      vi.mocked(admitPersonalShelf).mockResolvedValueOnce([own])
+      expect((await GET(request(url, 'test-token', headers))).status).toBe(200)
+      expect(admitPersonalShelf).toHaveBeenLastCalledWith(
+        { organizationId: 'org_1', conversationId: 's_conv_1', userId: 'user_asker', answerMessageId: null },
+        [own],
+        expect.objectContaining({ conversationId: 's_conv_1' }),
+      )
+    })
+  })
+
+  describe('with a turn decision', () => {
+    it('serves only what the decision lets the turn draw on, though the envelope signs more', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const headers = { ...envelope(), ...decided(['oib_knowledge']) }
+      expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(404)
+      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(200)
+    })
+
+    it('serves a socket turn whose envelope signs no scope, from its decision’s shelves (ADR-0194)', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const headers = { ...envelope({ collectionScope: [] }), ...decided(['proj_1']) }
+      expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(200)
+      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(404)
+    })
+
+    it('serves the document check, a headless socket turn, its focused document from its decision (ADR-0194)', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const headers = { ...envelope({ collectionScope: [] }), ...decided(['proj_1'], { kind: 'headless' }) }
+      expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(200)
+      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(404)
+    })
+
+    it('404s under a decision made for another conversation or asker', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      for (const other of [decided(['proj_1'], { conversationId: 's_other' }), decided(['proj_1'], { userId: 'user_other' })]) {
+        expect((await GET(request(undefined, 'test-token', { ...envelope(), ...other }))).status).toBe(404)
+      }
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
+    })
+
+    it('reaches the live check for a restricted folder only when the decision names it', async () => {
+      vi.mocked(drawableRestrictedCollections).mockResolvedValue([RESTRICTED])
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const scope = envelope({ collectionScope: ['proj_1', RESTRICTED] })
+      const query = `?collection=${RESTRICTED}&filename=gehalt.png`
+      expect((await GET(request(query, 'test-token', { ...scope, ...decided(['proj_1', RESTRICTED]) }))).status).toBe(404)
+      expect(drawableRestrictedCollections).not.toHaveBeenCalled()
+      const allowed = decided(['proj_1', RESTRICTED], { restricted: [RESTRICTED] })
+      expect((await GET(request(query, 'test-token', { ...scope, ...allowed }))).status).toBe(200)
+    })
+
+    it('refuses a forged decision', async () => {
+      const forged = { ...decided(['proj_1']), [TURN_DECISION_SIGNATURE_HEADER]: '0'.repeat(64) }
+      expect((await GET(request(undefined, 'test-token', { ...envelope(), ...forged }))).status).toBe(401)
+      expect(findDocumentStorageKey).not.toHaveBeenCalled()
+    })
+  })
+
+  // A person's calibrations for the measuring tool (migration 0236): only under the turn's envelope.
+  describe('with calibrationsPage', () => {
+    const VERSIONED = { ...STORED, versionId: '22222222-2222-4222-8222-222222222222' }
+    const CALIBRATION = {
+      id: '33333333-3333-4333-8333-333333333333',
+      region: { x: 0.1, y: 0.1, w: 0.5, h: 0.5 },
+      from: { x: 0.2, y: 0.2 },
+      to: { x: 0.4, y: 0.2 },
+      lengthM: 5,
+      scope: 'page' as const,
+      page: 2,
+      referenceSize: null,
+    }
+    const query = '?collection=proj_1&filename=plan.png&calibrationsPage=2'
+
+    beforeEach(() => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(VERSIONED)
+      vi.mocked(activeCalibrationsOfPage).mockResolvedValue([CALIBRATION])
+    })
+
+    it('carries the active calibrations of that page of the version, in the signed organization', async () => {
+      const res = await GET(request(query, 'test-token', envelope()))
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ documentId: VERSIONED.id, versionId: VERSIONED.versionId, calibrations: [CALIBRATION] })
+      expect(vi.mocked(activeCalibrationsOfPage).mock.calls[0]).toEqual([
+        'org_1',
+        { documentId: VERSIONED.id, versionId: VERSIONED.versionId, page: 2 },
+      ])
+    })
+
+    it('carries none without an envelope, and reads none', async () => {
+      const res = await GET(request(query))
+      expect(await res.json()).toMatchObject({ calibrations: [] })
+      expect(activeCalibrationsOfPage).not.toHaveBeenCalled()
+    })
+
+    it('carries none for a document with no version row', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const res = await GET(request(query, 'test-token', envelope()))
+      expect(await res.json()).toMatchObject({ calibrations: [] })
+      expect(activeCalibrationsOfPage).not.toHaveBeenCalled()
+    })
+
+    it('leaves the field out when the query does not ask', async () => {
+      const res = await GET(request('?collection=proj_1&filename=plan.png', 'test-token', envelope()))
+      expect(await res.json()).not.toHaveProperty('calibrations')
+    })
+
+    it('400s a page below 1 or not a whole number', async () => {
+      expect((await GET(request('?collection=proj_1&filename=plan.png&calibrationsPage=0'))).status).toBe(400)
+      expect((await GET(request('?collection=proj_1&filename=plan.png&calibrationsPage=1.5'))).status).toBe(400)
     })
   })
 })

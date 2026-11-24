@@ -28,6 +28,7 @@ export type MessagesSlice = {
   turns: Record<string, TurnView>
   unseenAnswers: Record<string, UnseenEnd>
   projectId: string | null
+  lastChatBySide: Record<string, string>
   composerPrefill: ComposerPrefill | null
   composerSubject: ComposerSubject | null
   composerExcerpt: ComposerExcerpt | null
@@ -60,6 +61,7 @@ export type MessagesSlice = {
   dismissErrorCard: (messageId: string) => void
   dismissConnectionErrors: (conversationId?: string) => void
   setProjectId: (projectId: string | null) => void
+  enterSide: (projectId: string | null) => void
   setComposerPrefill: (text: string, mentions?: DraftMention[], subject?: ComposerSubject) => void
   setComposerSubject: (subject: ComposerSubject | null) => void
   setComposerExcerpt: (excerpt: ComposerExcerpt | null) => void

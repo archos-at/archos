@@ -90,6 +90,15 @@ class Shelf(StrEnum):
     PROJECT = "project"
     SESSION = "session"
     BASE = "base"
+    PERSONAL = "personal"
+
+
+USERS_SHELF_LANES: dict[Shelf, tuple[str, str]] = {
+    Shelf.OFFICE_SHELF: ("office", "Bürobibliothek"),
+    Shelf.PROJECT: ("project", "Projektwissen"),
+    Shelf.SESSION: ("project", "Private Sitzung"),
+    Shelf.PERSONAL: ("project", "Meine Ablage"),
+}
 
 
 LEGACY_SHELF_VALUES: dict[str, str] = {"archiv": Shelf.OFFICE_SHELF.value}
@@ -136,6 +145,7 @@ SHELF_QUALIFIERS: dict[Shelf, str] = {
     Shelf.PROJECT: "Projektwissen",
     Shelf.SESSION: "Private Sitzung",
     Shelf.BASE: "Basiswissen",
+    Shelf.PERSONAL: "Meine Ablage",
 }
 
 SCOPE_QUALIFIERS: dict[str, str] = {
@@ -176,6 +186,8 @@ def shelf_qualifier(shelf: Shelf | str | None) -> str | None:
             return SHELF_QUALIFIERS[Shelf.SESSION]
         case Shelf.BASE:
             return SHELF_QUALIFIERS[Shelf.BASE]
+        case Shelf.PERSONAL:
+            return SHELF_QUALIFIERS[Shelf.PERSONAL]
         case None:
             return None
         case other:  # pragma: no cover — unreachable until a member is added
@@ -198,4 +210,6 @@ def legacy_shelf_for_collection_name(collection: str | None) -> Shelf | None:
         return Shelf.PROJECT
     if key.startswith("s_"):
         return Shelf.SESSION
+    if key.startswith("personal_"):
+        return Shelf.PERSONAL
     return None

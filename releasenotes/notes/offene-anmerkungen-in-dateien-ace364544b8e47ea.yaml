@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Dateien now says which documents still have open Anmerkungen, and how many

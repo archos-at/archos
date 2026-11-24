@@ -1,7 +1,7 @@
 {
   "files": {
     "packages/agent/src/agent/common/norm_registry.py": 660,
-    "packages/agent/src/agent/common/wire_v2.py": 979,
+    "packages/agent/src/agent/common/wire_v2.py": 969,
     "packages/agent/src/agent/tokenomics/report/_report_template_single.py": 760,
     "packages/ris-adapter/src/ris_adapter/register.py": 636
   },
@@ -42,7 +42,7 @@
     "packages/agent/src/agent/core/conversation_register.py::_turn_runner": 67,
     "packages/agent/src/agent/core/conversation_register.py::_turn_runner._run": 62,
     "packages/agent/src/agent/core/decisions.py::questions_for": 66,
-    "packages/agent/src/agent/knowledge/inventory.py::render_inventory_block": 127,
+    "packages/agent/src/agent/knowledge/inventory.py::render_inventory_block": 122,
     "packages/agent/src/agent/knowledge/norm_store.py::NormRegistryStore.put": 62,
     "packages/agent/src/agent/observability/otel_header_redaction_exporter.py::otelcollector_redaction_telemetry_exporter": 93,
     "packages/agent/src/agent/tokenomics/nat_adapter.py::_parse_request": 121,

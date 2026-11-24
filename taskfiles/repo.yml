@@ -80,6 +80,11 @@ tasks:
     cmds:
       - '{{.RELNOTES}} publish {{.CLI_ARGS}}'
 
+  generate:
+    desc: 'Rewrite every file generated from code (generator scripts, the fixtures specs and tests hold, apm.lock.yaml), then commit what it lists'
+    cmds:
+      - 'APM_VERSION={{.APM_VERSION}} {{.PY}} scripts/generate.py {{.CLI_ARGS}}'
+
   baselines:tighten:
     desc: Lower every shrink-only ratchet baseline to the tree, so a gain cannot be spent again
     cmds:

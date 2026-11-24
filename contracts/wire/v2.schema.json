@@ -150,6 +150,18 @@
           "title": "Kind",
           "type": "string"
         },
+        "measure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MeasuredShape"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a measuring call measured, to draw."
+        },
         "missing": {
           "anyOf": [
             {
@@ -301,7 +313,8 @@
             "law",
             "web",
             "model",
-            "workspace"
+            "workspace",
+            "measure"
           ],
           "title": "Verb",
           "type": "string"
@@ -1666,6 +1679,84 @@
         "answer_meta"
       ],
       "title": "MastheadValue",
+      "type": "object"
+    },
+    "MeasuredShape": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "description": "A scale a person confirmed, a scale the sheet's own figures corroborate, or a printed figure.",
+          "enum": [
+            "confirmed",
+            "estimated",
+            "printed"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "points": {
+          "description": "[[x, y], ...] in shares of the page, the ends as snapped.",
+          "items": {
+            "items": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "maxItems": 60,
+          "minItems": 2,
+          "title": "Points",
+          "type": "array"
+        },
+        "quantity": {
+          "enum": [
+            "clearance",
+            "distance",
+            "path",
+            "area"
+          ],
+          "title": "Quantity",
+          "type": "string"
+        },
+        "ratio": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The scale's N in 1:N, when the value is measured.",
+          "title": "Ratio"
+        },
+        "unit": {
+          "enum": [
+            "m",
+            "m2"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "minimum": 0,
+          "title": "Value",
+          "type": "number"
+        }
+      },
+      "required": [
+        "quantity",
+        "points",
+        "value",
+        "unit",
+        "basis"
+      ],
+      "title": "MeasuredShape",
       "type": "object"
     },
     "OptionAnswer": {

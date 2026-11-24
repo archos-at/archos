@@ -5,13 +5,14 @@ import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { findConversationInOrg, insertConversation } from '@/lib/conversations/repository'
 import type { Document } from '@/lib/db/schema/documents'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 import { documentThreadConversationId } from './wake-ids'
 
 const MAX_TITLE = 200
 
 export async function ensureDocumentThread(
   session: AuthorizedSession,
-  doc: Pick<Document, 'id' | 'projectId' | 'filename' | 'displayName'>,
+  doc: Pick<Document, 'id' | 'projectId' | 'filename' | 'displayName' | 'collectionName'>,
   title?: string | null
 ): Promise<string> {
   if (doc.projectId) await requireProjectAccess(session, doc.projectId, CHAT_PERMISSIONS)
@@ -24,6 +25,8 @@ export async function ensureDocumentThread(
     projectId: doc.projectId ?? null,
     subjectResourceType: 'document',
     subjectResourceId: doc.id,
+    startedInPersonal:
+      !doc.projectId && doc.collectionName === personalShelfCollectionName(session.organizationId, session.userId),
   })
   if (inserted) return id
   const existing = await findConversationInOrg(id, session.organizationId)

@@ -1,4 +1,5 @@
 ---
+# area: administration
 operators:
   - >
     The platform view names every organization. The storage table and the

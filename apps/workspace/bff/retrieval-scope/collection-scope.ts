@@ -1,6 +1,8 @@
 import type { UserSession } from '@/lib/auth/types'
 
-export type CollectionShelf = 'office_shelf' | 'project' | 'session' | 'base'
+export const COLLECTION_SHELVES = ['office_shelf', 'project', 'session', 'base', 'personal'] as const
+
+export type CollectionShelf = (typeof COLLECTION_SHELVES)[number]
 
 export interface ScopedCollection {
   collection: string
@@ -55,4 +57,8 @@ export function computeCollectionScope(
 
 export function buildCollectionScopeHeader(scope: string[]): string {
   return Buffer.from(JSON.stringify(scope)).toString('base64url')
+}
+
+export function encodeCollectionScopeHeader(collections: ScopedCollection[]): string {
+  return Buffer.from(JSON.stringify(collections)).toString('base64url')
 }

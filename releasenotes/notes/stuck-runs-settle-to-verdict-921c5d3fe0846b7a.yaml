@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     Research runs that had already finished, but still showed as running in the

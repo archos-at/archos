@@ -2,12 +2,12 @@ import type { JSX } from 'react'
 import { type ReactNode } from 'react'
 import { AppShellChrome } from '@/components/shell/app-shell-chrome'
 import { RailChatsProvider } from '@/features/layout/components/rail-chats-provider'
-import { InboxDock } from '@/features/collaboration/components'
 import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
 import { resolveShellChrome } from '@/lib/shell/chrome'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
+import { RecentlyDeleted } from '@/features/projects/components/recently-deleted'
 import { ShellNormDialog } from './shell-norm-dialog'
 
 export default async function AppShellLayout({
@@ -24,6 +24,8 @@ export default async function AppShellLayout({
     <ShellNormDialog>
     <AppShellChrome
       projects={chrome.projects}
+      projectActivity={chrome.projectActivity}
+      projectOverviewAfter={<RecentlyDeleted canManageCompliance={chrome.navFlags.canManageCompliance} />}
       user={chrome.user}
       organizationName={chrome.organizationName}
       authRequired={chrome.authRequired}
@@ -39,7 +41,6 @@ export default async function AppShellLayout({
       inboundMail={chrome.inboundMail}
       tours={chrome.tours}
       overlay={overlay}
-      startDock={{ inbox: chrome.navFlags.canAccessInbox ? <InboxDock /> : undefined }}
     >
       {/* `relative` is load-bearing for the docked chat panels: they position
           against this box, so "the inner edge of the rail" is true by

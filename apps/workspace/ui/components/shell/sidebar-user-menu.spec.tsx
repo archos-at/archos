@@ -20,6 +20,14 @@ async function openMenu(organizations: { id: string; name: string; current: bool
 }
 
 describe('SidebarUserMenu', () => {
+  test('keeps room between the name and the chevron when the rail sets a bell there', () => {
+    render(<SidebarUserMenu authRequired user={{ name: 'Anna Berger' }} beforeChevron="w-12" />)
+    const reserved = screen.getByRole('button').querySelector('[data-slot="user-menu-reserved"]')
+    expect(reserved).toHaveClass('w-12')
+    expect(reserved?.previousElementSibling).toHaveTextContent('Anna Berger')
+    expect(reserved?.nextElementSibling?.tagName.toLowerCase()).toBe('svg')
+  })
+
   test('offers the switch to someone in several organizations', async () => {
     await openMenu([
       { id: 'org_1', name: 'Test Office', current: true },

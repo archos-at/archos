@@ -51,6 +51,7 @@ describe('ConversationPrivacyLineView', () => {
 
   test('a private chat says only the reader sees it until they share it', () => {
     render(<ConversationPrivacyLineView temporary={false} privateToReader />)
+    expect(screen.getByTestId('conversation-privacy-line')).toHaveClass('sm:hidden')
     expect(screen.getByTestId('conversation-private-line')).toHaveTextContent('Only you see this chat until you share it.')
   })
 })
@@ -88,6 +89,12 @@ describe('ConversationPrivacyLine', () => {
     act(() => publishThreadSharing('c-1', true))
     render(<ConversationPrivacyLine conversationId="c-1" canCollaborate />)
     expect(screen.getByTestId('conversation-temporary-line')).toBeInTheDocument()
+  })
+
+  test('on a new chat the welcome says it, so the line under the composer stays out and the composer never moves', () => {
+    open(conversation({ temporary: true }))
+    render(<ConversationPrivacyLine conversationId="c-1" canCollaborate={false} statesTemporary={false} />)
+    expect(screen.queryByTestId('conversation-temporary-line')).not.toBeInTheDocument()
   })
 
   test('the temporary line goes when the conversation is switched back', () => {

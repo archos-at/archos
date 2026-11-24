@@ -4,6 +4,7 @@ import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { AppSidebar } from '@/components/shell/app-sidebar'
+import { KeyboardShortcuts } from '@/components/shell/keyboard-shortcuts'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { PhoneMoreSheet } from '@/components/shell/phone-more-sheet'
 import { recordRecentProject } from '@/components/shell/recent-projects'
@@ -47,6 +48,8 @@ const ACTIVE_PATHS: Record<string, string> = {
   officeShelf: '/app/office-shelf',
   search: '/app/search',
   inbox: '/app/inbox',
+  personalChat: '/app/personal/chat',
+  personalShelf: '/app/personal-shelf',
 }
 
 
@@ -63,6 +66,7 @@ export default function AppRailPreview(): JSX.Element {
   const viewer = params?.get('gates') === 'viewer'
   const previewPath = ACTIVE_PATHS[params?.get('active') ?? 'files'] ?? ACTIVE_PATHS.files!
   const setSheetOpen = useShellOverlays((s) => s.setMoreSheetOpen)
+  const projectId = previewPath.startsWith('/app/personal') ? null : 'p-1'
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -83,7 +87,7 @@ export default function AppRailPreview(): JSX.Element {
           below. */}
       <div className="contents">
         <AppSidebar
-          projectId="p-1"
+          projectId={projectId}
           projects={PROJECTS}
           pathname={previewPath}
           user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
@@ -113,9 +117,9 @@ export default function AppRailPreview(): JSX.Element {
           <span className="md:hidden"> · phone: tab bar lit for {previewPath}</span>
         </p>
       </main>
-      <PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname={previewPath} />
+      <PhoneTabBar projectId={projectId} canAccessOfficeShelf canAccessInbox pathname={previewPath} />
       <PhoneMoreSheet
-        projectId="p-1"
+        projectId={projectId}
         projects={PROJECTS}
         projectName={PROJECTS[0]!.name}
         initialView={open === 'switcher' ? 'projects' : 'more'}
@@ -130,6 +134,7 @@ export default function AppRailPreview(): JSX.Element {
         canManageOrganization={false}
         canManagePlatform={false}
       />
+      <KeyboardShortcuts authRequired canViewOrganization />
     </div>
     </DevRailChats>
   )

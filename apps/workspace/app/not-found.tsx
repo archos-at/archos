@@ -1,3 +1,4 @@
+import { FIRST_PLACE } from '@/components/shell/landing'
 import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
@@ -16,7 +17,7 @@ export default async function NotFound() {
       description={t('notFound.description')}
       actions={
         <Button asChild>
-          <Link href="/app/projects">{t('notFound.action')}</Link>
+          <Link href={FIRST_PLACE}>{t('notFound.action')}</Link>
         </Button>
       }
     />

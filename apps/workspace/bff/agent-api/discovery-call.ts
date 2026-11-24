@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { withConversationOrigin } from './operation-origin'
+import { ownShelfReadable } from './own-shelf'
 import type { CallToolResult } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import { isAgentKind } from '@/lib/agent-kind'
@@ -7,6 +9,7 @@ import { ApiError } from '@/lib/api/errors'
 import { offersAppViews } from './app-host'
 import { type BackendOperation, callBackendOperation } from './backend-operations'
 import { actingDoorOf } from './call-origin'
+import { kindOf } from '@/lib/conversation-context/types'
 import {
   type OperationInput,
   OperationInputError,
@@ -41,7 +44,8 @@ export async function runBackendOperation(
       record(403)
       return failure(refused)
     }
-    const result = await callBackendOperation(op.name, input, ctx.principal.session, { projectId })
+    const { door, sessionSource } = actingDoorOf(ctx)
+    const result = await callBackendOperation(op.name, input, ctx.principal.session, { projectId, kind: kindOf(door, sessionSource) })
     record(result.status)
     return fromBackendResult(op, result)
   } catch (error) {
@@ -83,9 +87,14 @@ export async function readOperationBody(
       record(403)
       return { refusal: refused }
     }
-    const result = await callOperation(op, input, ctx.principal.session, 'agent')
+    const result = await callOperation(op, withConversationOrigin(op, input, ctx.principal.conversationId), ctx.principal.session, 'agent', { ownShelfReadable: ownShelfReadable(ctx) })
     record(result.status)
     if (!result.ok) return { refusal: `${name} was refused (HTTP ${result.status}).` }
+    const late = await readGateFor(ctx.principal).afterRead(op, input)
+    if (late) {
+      record(403)
+      return { refusal: late }
+    }
     return { body: result.body }
   } catch (error) {
     if (error instanceof OperationInputError) {
@@ -158,8 +167,13 @@ export async function executeOperation(
       record(403)
       return { refusal: problemFailure(refused, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }
-    const result = await callOperation(op, input, ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined, ...actingDoorOf(ctx) })
+    const result = await callOperation(op, withConversationOrigin(op, input, ctx.principal.conversationId), ctx.principal.session, 'agent', { decisionSource: ctx.decisionSource, clientId: ctx.principal.clientId ?? undefined, ...actingDoorOf(ctx), ownShelfReadable: ownShelfReadable(ctx) })
     record(result.status)
+    const late = annotationsOf(op).readOnlyHint ? await gate.afterRead(op, input) : null
+    if (late) {
+      record(403)
+      return { refusal: problemFailure(late, 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
+    }
     if (isRedirectBody(result.body) && !(await gate.mayHandOnLink())) {
       return { refusal: problemFailure(sharedConversationReadRefusal(), 403, 'FORBIDDEN', READ_GATE_DETAIL), status: 403, code: 'FORBIDDEN' }
     }

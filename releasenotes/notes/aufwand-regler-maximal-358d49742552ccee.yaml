@@ -1,4 +1,5 @@
 ---
+# area: general
 features:
   - >
     The effort slider now warns when it is set to Maximum, and the level label

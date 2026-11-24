@@ -35,6 +35,8 @@ import { intakeInstruction, mintIntakeJobId, submitIntakeRun } from './run'
 const PROJECT = '6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f'
 
 const CONTEXT: RunContext = {
+  kind: 'headless',
+  conversationId: null,
   budget: null,
   modelOverrides: { chat: 'model-x' },
   collectionScope: ['base_oib', 'proj_main', 'proj_main__restricted_1'],
@@ -72,7 +74,6 @@ describe('submitIntakeRun', () => {
       job_id: 'intake-job-1',
       output: 'chat',
       skills: [],
-      collection_scope: ['proj_main'],
       project_context: null,
       project_memory: null,
       memory_reflection_enabled: false,
@@ -85,6 +86,7 @@ describe('submitIntakeRun', () => {
       priority: 'bulk',
       input: intakeInstruction('new', 'upload'),
     })
+    expect(payload).not.toHaveProperty('collection_scope')
     expect(payload).not.toHaveProperty('run_id')
     expect(payload).not.toHaveProperty('conversation_id')
 

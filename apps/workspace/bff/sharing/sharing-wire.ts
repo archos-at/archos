@@ -3,11 +3,13 @@ import { RESOURCE_ROLES, RESOURCE_VISIBILITIES } from '@/lib/sharing/sharing-voc
 
 export const visibilitySchema = z.object({
   visibility: z.enum(RESOURCE_VISIBILITIES),
+  confirmPersonalShelf: z.boolean().optional(),
 })
 
 export const grantSchema = z.object({
   subjectUserId: z.string().min(1).max(256),
   role: z.enum(RESOURCE_ROLES).default('collaborator'),
+  confirmPersonalShelf: z.boolean().optional(),
 })
 
 export const escalateSchema = z.object({ escalate: z.literal(true) })

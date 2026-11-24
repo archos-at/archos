@@ -40,16 +40,16 @@ The Archiv collection is injected in `buildCollectionScopeFromRequest` (which ha
 │    headerValue, projectId, conversationId}                       │
 └────┬─────────────────────────────────────────────────────────┬───┘
      │ HTTP (/api/v1, /api/jobs/async)                         │ WebSocket upgrade
-     │ X-Grid-Collection-Scope header                          │ calls /api/auth/websocket-scope
+     │ signed envelope (runs, jobs); no scope header            │ calls /api/auth/websocket-scope
      ▼                                                          ▼
 ┌────────────────────────────────────────────────────────────────┐
 │                   Python Backend (runtime context)              │
 │                                                                  │
 │  get_collection_scope_from_context() → list[str] | None         │
-│    Reads X-Grid-Collection-Scope from Context.metadata.headers   │
+│    Reads the turn's decision, or a signed envelope's scope       │
 │                                                                  │
-│  get_collection_scope_from_context_or(config, session_id)        │
-│    → Falls back to config-based resolution if header missing     │
+│  resolve_scoped_collections(config, session_id)                  │
+│    → Falls back to config-based resolution if no signed scope    │
 │                                                                  │
 │  _resolve_target_collections(config, session_id) → list[str]     │
 │    → Legacy: use_fixed_collection, include_base_collection,      │
@@ -102,11 +102,19 @@ function buildCollectionScopeHeader(scope: string[]): string
 
 The main entry point for SSE and WebSocket routes. It:
 
-1. Resolves the active project ID:
-   - Uses the explicit `projectId` from the request body if provided
-   - Otherwise reads `active_project_id` from the user's `user_preferences` Drizzle row
+1. Resolves the project from the conversation row (ADR-0193 rule 2):
+   - With a `conversationId` whose row exists, the row's `project_id` is the
+     project, `null` meaning none. A request `projectId` that differs is refused
+     with `ConversationProjectMismatchError` (403): a chat without a project
+     never reads the project the page has open.
+   - With no row yet (the first turn of a chat minted in the browser, ADR-0033),
+     the request's `projectId` is taken; `createConversation` stamps the same
+     one on the row.
+   - With no `conversationId` (deep research, runs), the request's `projectId`.
+   - With neither a conversation row nor a request project, no project. The
+     stored `active_project_id` preference is no longer read.
 
-2. Enforces project access via `requireProjectAccess(session, projectId, 'project:view')` when auth is required
+2. Enforces project access via `requireProjectAccess(session, projectId, CHAT_PERMISSIONS)` when auth is required
 
 3. Calls `computeCollectionScope` and `buildCollectionScopeHeader`
 
@@ -146,7 +154,7 @@ shelf `project`, only when ALL of these hold:
   `lib/authz/folder-roles.ts`, cached for `AUTHZ_CACHE_TTL_MS`; a lookup
   that fails clears nothing);
 - everyone the conversation is shared with may read it too
-  (`restrictedCollectionsForChatScope` in `lib/conversations/restricted-use.ts`).
+  (`readableRestrictedCollections` in `lib/conversations/restricted-use.ts`, the same rule the agent's turn-start check `drawableRestrictedCollections` asks; the turn reads the audience once, through `lib/conversation-context`).
 
 The same rule gates the collection proxy: `/api/v1/collections/<name>` with a
 restricted name is authorized as its project's collection and then 404s unless
@@ -200,20 +208,9 @@ different thread over the same socket.
 During WebSocket upgrade (`/websocket` path):
 
 1. `server.js` parses `projectId` and `conversationId` from the WebSocket URL query string
-2. Calls `fetchCollectionScopeHeader()` which makes an internal HTTP GET to `http://127.0.0.1:{port}/api/auth/websocket-scope?projectId=...&conversationId=...`
-3. The `websocket-scope` route resolves the session from cookies, calls `buildCollectionScopeFromRequest`, and returns the header value
-4. `server.js` injects `x-grid-collection-scope` into the proxied WebSocket upgrade request headers
-5. Also forwards `x-grid-organization-id`, `x-grid-user-id`, and `authorization` (Bearer token) for user context
-
-**File**: `apps/workspace/app/api/auth/websocket-scope/route.ts`
-
-Internal endpoint that:
-- Reads `projectId` and `conversationId` from query params
-- Asks for an interactive chat scope (`interactiveChat: true`), the only scope that may carry
-  restricted-folder collections
-- Resolves the session from the encrypted WorkOS cookie
-- Enforces project access if auth is required
-- Returns JSON with `{ scope, header, organizationId, userId, accessToken }`
+2. Calls `fetchTurnContext()`, an internal HTTP GET to `http://127.0.0.1:{port}/api/auth/websocket-scope?projectId=...&conversationId=...`, memoised per cookie, project and conversation (`turnContextCache`)
+3. The `websocket-scope` route resolves the session from cookies and authorizes the person, the project and the conversation through `resolveTurnContext(..., { shelves: false })`: it decides no shelves, because a chat turn takes them from its signed decision (ADR-0194)
+4. `server.js` signs the turn context into the request-context envelope (`socketTurnHeaders`, no `collectionScope`) and forwards `authorization` (Bearer token) for user context; no plain scope header is sent
 
 On 401/403, the WebSocket connection is rejected with the appropriate status code.
 
@@ -222,19 +219,14 @@ On 401/403, the WebSocket connection is rejected with the appropriate status cod
 ## HTTP proxy routes
 
 There is no HTTP chat route: a chat turn runs on the WebSocket alone (ADR-0068). The HTTP proxies read `projectId` and
-`conversationId`, call `buildCollectionScopeFromRequest`, and include the header when proxying to the backend:
+`conversationId` and resolve the scope through the conversation-context module with kind `run`
+(`resolveConversationScope`, ADR-0194), which builds it with `buildCollectionScopeFromRequest` and never draws
+a restricted folder:
 
-```typescript
-const { headerValue } = await buildCollectionScopeFromRequest(session, {
-  projectId: body.projectId,
-  conversationId,
-})
-// Forwarded as: 'X-Grid-Collection-Scope': headerValue
-```
-
-The pattern is used in:
-- `apps/workspace/app/api/v1/[...path]/route.ts` — generic API proxy
-- `apps/workspace/app/api/jobs/async/[...path]/route.ts` — async job proxy
+- `apps/workspace/app/api/v1/[...path]/route.ts`: the generic API proxy (`scopeHeader`)
+- `apps/workspace/app/api/jobs/async/[...path]/route.ts`: the async job proxy (`jobScope`, signed by
+  `signJobRequestContext` in `apps/workspace/bff/jobs/request-envelope.ts`)
+- `apps/workspace/bff/runs/service.ts`: a run's cancel and document hand-off (`jobControlCaller`)
 
 ---
 
@@ -242,31 +234,43 @@ The pattern is used in:
 
 **File**: `packages/agent/src/agent/knowledge/scoping.py`
 
+### In a chat turn: the turn's decision (ADR-0194)
+
+A chat turn asks the BFF for its decision before it reads any scope
+(`POST /api/internal/turn-decision`, from `_run` in
+`packages/agent/src/agent/core/conversation_register.py`) and binds it for the
+turn (`packages/agent/src/agent/common/turn_decision.py`). While a turn is bound:
+
+- the scope is the decision's `may.shelves`, and the socket's scope is not read;
+- an empty decision stays empty: neither `scoping.py` nor
+  `knowledge_layer/search/scope.py` falls back to the config path;
+- without a decision the turn falls back to the socket envelope's scope only when
+  the envelope is signed and `INTERNAL_API_TOKEN` is set; with `REQUIRE_AUTH`
+  on it reads nothing otherwise;
+- the decision travels on every BFF call of the turn (`x-turn-decision`,
+  `x-turn-decision-signature`, added in `bff_http.send`), and the agent-api
+  narrows the audience by it: a chat shared since the turn was decided reads as
+  shared, one decided shared stays shared;
+- the restricted collections the turn may draw on are the decision's, so the
+  restricted-use pre-check no longer runs beside it; `admit` still reports what a
+  tool read.
+
+Outside a chat turn (runs, intake, external calls) no decision is bound: the
+reads below take the signed envelope, whose scope the BFF decided with the
+caller's kind (`contextKind`: `run`, `headless`, `external`).
+
 ### `get_collection_scope_from_context()`
 
-Reads and decodes the `X-Grid-Collection-Scope` header from the runtime context:
+Returns the collection names of `get_scoped_collections_from_context()`: in a
+bound turn the decision's shelves (nothing without a decision); outside one the
+signed envelope's scope (`RequestContext.from_context` reads only a signed
+envelope), or `None` when there is none. A reader of another request's scope
+(job access, run renewal, document search) takes it through
+`signed_scope_names(context)`. No plain scope header is read.
 
-```python
-def get_collection_scope_from_context() -> list[str] | None:
-```
-
-- Accesses `Context.get().metadata.headers['x-grid-collection-scope']`
-- Base64url-decodes and JSON-parses the value
-- Validates it is a list of strings
-- Returns deduplicated list (preserving order), or `None` if missing/malformed
-
-### `get_collection_scope_from_context_or(config, session_id)`
-
-Tries the header-based scope first, falls back to legacy config-based resolution:
-
-```python
-def get_collection_scope_from_context_or(
-    config: Any,
-    session_id: str | None,
-) -> list[str]:
-```
-
-The fallback calls `_resolve_target_collections()` from the `knowledge_layer` register module.
+When the answer is `None`, `knowledge_layer/search/scope.py`
+(`resolve_scoped_collections`) and the inventory fall back to the legacy
+config path below; an empty signed scope stays empty.
 
 ---
 
@@ -274,7 +278,7 @@ The fallback calls `_resolve_target_collections()` from the `knowledge_layer` re
 
 **File**: `packages/knowledge-layer/src/knowledge_layer/register.py` (line 220)
 
-Config-based collection resolution when no scope header is present:
+Config-based collection resolution when no signed scope is present:
 
 ```python
 def _resolve_target_collections(
@@ -302,36 +306,13 @@ This limit is relevant in multi-tenant or multi-project setups where many collec
 
 ---
 
-## Async Deep-Research Jobs: Collection-Scope Re-injection Gap (fixed 2026-07-16, `f8093a0`)
+## Async jobs
 
-The scope header described above governs synchronous chat requests. Async
-deep-research jobs are different: the `X-Grid-Collection-Scope` header is
-read **once, at job submit time**, in `core/conversation_register.py`, and
-carried through as a `collection_scope` field on the job payload rather than
-as a live header.
-
-When the research worker later runs the job, `apps/agent-host/src/agent_host/jobs/runner.py:641`
-re-injects it into the worker's own request context **only when present**:
-
-```python
-if collection_scope is not None:
-    encoded = base64.urlsafe_b64encode(json.dumps(collection_scope).encode()).rstrip(b"=").decode()
-    # ... set back onto the header the worker's runtime context reads
-```
-
-If `collection_scope` is `None` at submit time (e.g. the request bypassed the
-BFF, or came from an older client that never set the header),
-`knowledge_retrieval` inside the worker has no header to read and falls back
-to `_resolve_target_collections()` — priority 2 in the table below — using
-**base collection + session collection only**. Because `project_collections`
-is `[]` in the shipped configs, project collections are **never** searched in
-that fallback for the affected job. The fallback behavior itself is
-unchanged — this is still a real degradation for the affected job — but it is
-no longer silent: the `elif` branch for `deep_research_agent` jobs now logs a
-one-time WARNING (job id, whether the request looked
-authenticated/project-scoped) at exactly the point re-injection would
-otherwise be skipped, so the gap is diagnosable from logs instead of
-invisible.
+A job's scope is its signed request-context envelope's (ADR-0194). The job
+payload carries none; `signed_job_scope` in
+`apps/agent-host/src/agent_host/jobs/submit.py` derives the project collection
+the job's access is keyed by from it. A deep-research job without an envelope
+logs a WARNING and reads the legacy config path below.
 
 ---
 
@@ -339,7 +320,8 @@ invisible.
 
 | Priority | Source | When |
 |----------|--------|------|
-| 1 (highest) | `X-Grid-Collection-Scope` header | Present on proxied HTTP requests and WebSocket upgrades |
-| 2 | `_resolve_target_collections()` config | Header absent (legacy/fallback) |
+| 0 (highest) | the turn's decision | A chat turn, once `turn-decision` answered |
+| 1 | the signed request-context envelope's `collectionScope` | A run, job or external call; never a plain header |
+| 2 | `_resolve_target_collections()` config | No decision and no signed envelope (legacy/fallback) |
 
-The header is always set for proxied HTTP requests (`/api/v1/*`, `/api/jobs/async/*`) and WebSocket upgrades. It is absent only when requests bypass the BFF or when the runtime context has no metadata headers.
+A chat turn's socket envelope signs no scope; the turn reads its decision.

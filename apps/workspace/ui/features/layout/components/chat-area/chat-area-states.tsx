@@ -1,10 +1,10 @@
-import { type FC } from 'react'
-import { usePathname } from 'next/navigation'
+import { type FC, type ReactNode } from 'react'
 import { ShimmerText } from '@/components/ui/shimmer-text'
-import { Lock } from 'lucide-react'
+import { HatGlasses, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useChatStore } from '@/features/chat/store'
+import { useTemporarySwitch } from '@/features/chat/conversation-privacy'
 import { useElapsedSeconds, formatElapsed } from '@/features/chat'
 import { cn } from '@/lib/utils'
 import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
@@ -14,10 +14,6 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { researchCopy } from '@/i18n/namespaces/research'
-import { projectIdFromPathname } from '@/components/shell'
-import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
-import { inboundMailPaths } from '@/lib/inbound-mail/paths'
-import { InboundMailWaitingLine } from '@/features/documents'
 import { WELCOME_OFFSET_FALLBACK } from '../../hooks/use-composer-metrics'
 import { TOOLBAR_CLEAR_PADDING } from '../../lib/toolbar-clearance'
 
@@ -44,13 +40,16 @@ export const TurnInFlightBanner: FC<{ label: string }> = ({ label }) => (
   </div>
 )
 
-export const TypingIndicator: FC = () => {
+export const TypingIndicator: FC<{ arrives?: boolean }> = ({ arrives = true }) => {
   const t = useTranslations(researchCopy)
   const label = t('chatArea.status.thinking')
   const elapsed = useElapsedSeconds(true)
   return (
     <div
-      className="animate-in fade-in-0 bg-muted duration-base flex min-h-9 w-fit items-center gap-2 rounded-bubble px-3.5 py-2.5 ease-out motion-reduce:animate-none"
+      className={cn(
+        'bg-muted flex min-h-9 w-fit items-center gap-2 rounded-bubble px-3.5 py-2.5',
+        arrives && 'animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none'
+      )}
       role="status"
       aria-label={label}
     >
@@ -120,7 +119,6 @@ export const MessageListSkeleton: FC = () => {
 interface WelcomeStateProps {
   isAuthenticated?: boolean
   onSignIn?: () => void
-  inProject?: boolean
 }
 
 const greetingKeyForHour = (hour: number): 'morning' | 'afternoon' | 'evening' => {
@@ -132,15 +130,14 @@ const greetingKeyForHour = (hour: number): 'morning' | 'afternoon' | 'evening' =
 export const WelcomeState: FC<WelcomeStateProps> = ({
   isAuthenticated = false,
   onSignIn,
-  inProject = false,
 }) => {
   const t = useTranslations(researchCopy)
   const tChat = useTranslations(chatCopy)
   const { user } = useAuth()
   const composerSubject = useChatStore((s) => s.composerSubject)
+  const conversationId = useChatStore((s) => s.currentConversation?.id)
+  const temporary = useTemporarySwitch(conversationId).pressed
   const tFiles = useTranslations(filesCopy)
-  const projectId = projectIdFromPathname(usePathname() ?? '')
-  const waitingMail = useInboundMailWaitingShown(inProject ? projectId : null)
 
   if (!isAuthenticated) {
     return (
@@ -176,9 +173,20 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
           project-grounded starters live in their own plan (categorized,
           backend-driven) — until they land, the canvas stays quiet rather
           than showing static examples. */}
-      <h1 className="text-foreground text-center text-[23px] font-medium">
-        {heading}
-      </h1>
+      <div className="grid w-full max-w-md items-end justify-items-center" data-temporary={temporary || undefined}>
+        <WelcomeFace shown={!temporary} testId="new-chat-greeting">
+          <h1 className="text-foreground text-center text-[23px] font-medium">{heading}</h1>
+          <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-center text-sm" data-testid="new-chat-only-you">
+            <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+            {tChat('privacy.newChat')}
+          </p>
+        </WelcomeFace>
+        <WelcomeFace shown={temporary} testId="new-chat-temporary">
+          <HatGlasses className="text-foreground mb-3 size-7" aria-hidden="true" />
+          <h1 className="text-foreground text-center text-[23px] font-medium">{tChat('temporary.welcomeTitle')}</h1>
+          <p className="text-muted-foreground mt-2 text-center text-sm text-balance">{tChat('temporary.welcomeBody')}</p>
+        </WelcomeFace>
+      </div>
 
       {/* The chat is about one file: say which. A named file is the state of
           THIS canvas, and it is not recoverable from anything else on
@@ -191,34 +199,20 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
         </p>
       )}
 
-      {/* One sentence, and only in a project: that the agent WRITES. The canvas is
-          otherwise deliberately quiet (the starters were cut for costing every
-          user on every new thread), and this earns its place because it is the
-          product's least discoverable capability — today it is found only by
-          someone who happens to phrase a request as a commission (ledger 23).
-          Below the file line, because a named subject is the state of THIS
-          canvas and this is a standing fact about the project.
-
-          Not shown when the thread is about one file: that reader has already
-          been told what this canvas is for, and two grey sentences under a
-          greeting is a paragraph. */}
-      {inProject && !composerSubject && (
-        <p className="text-muted-foreground mt-3 max-w-md text-center text-sm leading-relaxed">
-          {tChat('greeting.projectWrites')}
-        </p>
-      )}
-
-      {/* What waits for this reader at the project's start (the UI revision's „what happened since your last
-          visit“, its first line): mail to file, the rail's own number, quiet, and only while something waits. */}
-      {inProject && projectId && (waitingMail.count ?? 0) > 0 && (
-        <div className="mt-4">
-          <InboundMailWaitingLine
-            href={inboundMailPaths(projectId).list({ status: 'waiting', outcome: null })}
-            count={waitingMail.count ?? 0}
-            more={waitingMail.more}
-          />
-        </div>
-      )}
     </div>
   )
 }
+
+const WelcomeFace: FC<{ shown: boolean; testId: string; children: ReactNode }> = ({ shown, testId, children }) => (
+  <div
+    data-testid={testId}
+    aria-hidden={shown ? undefined : true}
+    inert={!shown}
+    className={cn(
+      'col-start-1 row-start-1 flex flex-col items-center transition-opacity duration-quick ease-out motion-reduce:transition-none',
+      shown ? 'opacity-100' : 'pointer-events-none opacity-0'
+    )}
+  >
+    {children}
+  </div>
+)

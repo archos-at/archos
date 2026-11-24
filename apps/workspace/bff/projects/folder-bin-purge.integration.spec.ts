@@ -48,6 +48,7 @@ import {
   wipe,
   withPlatformAccess,
 } from './folder-bin.fixtures'
+import { projectShelf } from '@/lib/documents/shelf'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
@@ -61,7 +62,7 @@ vi.mock('@/lib/documents/document-dispatch', () => ({
   dispatchDocument: vi.fn(async () => ({ jobId: 'job', status: 'pending' })),
 }))
 vi.mock('@/lib/documents/document-edits', () => ({
-  eraseProjectDocument: vi.fn(async (doc: { id: string; organizationId: string; projectId: string }) => {
+  eraseShelfDocument: vi.fn(async (doc: { id: string; organizationId: string; projectId: string }) => {
     const { deleteProjectDocument } = await import('@/lib/documents/repository')
     await deleteProjectDocument(doc.id, doc.organizationId, doc.projectId)
     return true
@@ -119,7 +120,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     it('erases the documents, keeps the folders as tombstones with their lists, and marks what was derived', async () => {
       const cites = await insertAnswer('Laut Plan.pdf ist …', [{ collection: COLLECTION, file_name: 'Plan.pdf', title: 'Plan' }])
       const other = await insertAnswer('Laut Lageplan.pdf …', [{ collection: COLLECTION, file_name: 'Lageplan.pdf' }])
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.plans })
       await makeDue(folder.plans)
 
       const result = await bin.purgeBinnedFolder(ORG, folder.plans)
@@ -143,7 +144,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('keeps a purged restricted folder’s own list, which still decides who reads what came from it', async () => {
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.contracts })
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.contracts })
       await makeDue(folder.contracts)
       await bin.purgeBinnedFolder(ORG, folder.contracts)
       const [row] = await inOrg(() =>
@@ -158,15 +159,15 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('is idempotent: a second run finds it purged and does nothing', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       await bin.purgeBinnedFolder(ORG, folder.plans)
       await expect(bin.purgeBinnedFolder(ORG, folder.plans)).resolves.toMatchObject({ status: 'already-purged' })
     })
 
     it('„Endgültig löschen" purges at once for a project admin and closes the record', async () => {
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
-      await expect(bin.purgeFolderFromBinNow(pl, { projectId, folderId: folder.plans })).rejects.toMatchObject({ status: 404 })
-      const result = await bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
+      await expect(bin.purgeFolderFromBinNow(pl, { shelf: projectShelf(projectId), folderId: folder.plans })).rejects.toMatchObject({ status: 404 })
+      const result = await bin.purgeFolderFromBinNow(manager, { shelf: projectShelf(projectId), folderId: folder.plans })
       expect(result.counts.documents).toBe(2)
       const [row] = await queueRow(folder.plans)
       expect(row.status).toBe('purged')
@@ -211,13 +212,13 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
     })
 
     it('keeps the purger from claiming, and refuses the purge and „Endgültig löschen" with 409', async () => {
-      await bin.moveFolderToBin(gf, { projectId, folderId: folder.contracts })
+      await bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: folder.contracts })
       await makeDue(folder.contracts)
       await hold('document', doc.contract)
       expect(await claimable()).not.toContain(folder.contracts)
       const held = { status: 409, details: { reason: 'legal_hold' } }
       await expect(bin.purgeBinnedFolder(ORG, folder.contracts)).rejects.toMatchObject(held)
-      await expect(bin.purgeFolderFromBinNow(sessionOf('user_mgr', GF, [...PROJECT_WRITE, 'project:manage']), { projectId, folderId: folder.contracts })).rejects.toMatchObject(held)
+      await expect(bin.purgeFolderFromBinNow(sessionOf('user_mgr', GF, [...PROJECT_WRITE, 'project:manage']), { shelf: projectShelf(projectId), folderId: folder.contracts })).rejects.toMatchObject(held)
       const refusal = await bin.purgeBinnedFolder(ORG, folder.contracts).catch((error) => error)
       expect(JSON.stringify(refusal.details)).not.toContain('integration test')
       const left = await inOrg(() => db.execute<{ id: string }>(sql`SELECT id FROM documents WHERE id = ${doc.contract}::uuid`))
@@ -246,13 +247,13 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
 
     it('hands the traces to the purger with its attempts started over, also when a person retried a row the purger gave up on', async () => {
       message.cites = await insertAnswer('Laut Plan.pdf …', [{ collection: COLLECTION, file_name: 'Archiv.pdf' }])
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
       await withPlatformAccess('test: the purger gave up', () =>
         db.execute(sql`UPDATE deletion_queue SET status = 'failed', attempts = 10, claimed_at = now() - interval '2 hours'
                        WHERE entity_type = 'folder' AND entity_id = ${folder.plans}`)
       )
 
-      const result = await bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans }, new Request('http://test'))
+      const result = await bin.purgeFolderFromBinNow(manager, { shelf: projectShelf(projectId), folderId: folder.plans }, new Request('http://test'))
 
       expect(result.traceConversationIds).toEqual([CHAT])
       expect((await queueRow(folder.plans))[0].status).toBe('pending')
@@ -277,9 +278,9 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
             RETURNING id`)
         )
       )
-      await bin.moveFolderToBin(pl, { projectId, folderId: folder.plans })
+      await bin.moveFolderToBin(pl, { shelf: projectShelf(projectId), folderId: folder.plans })
 
-      const result = await bin.purgeFolderFromBinNow(manager, { projectId, folderId: folder.plans }, new Request('http://test'))
+      const result = await bin.purgeFolderFromBinNow(manager, { shelf: projectShelf(projectId), folderId: folder.plans }, new Request('http://test'))
 
       expect(result.counts).toMatchObject({ documents: 2, folders: 2, memoryNotes: 2, answers: 1, conversations: 1, reports: 1, tracesErased: 0 })
       const notes = await inOrg(() => db.execute<{ id: string }>(sql`SELECT id FROM project_memory WHERE organization_id = ${ORG}`))
@@ -300,7 +301,7 @@ describe.skipIf(!url)('the Papierkorb against live Postgres (migration 0115)', (
       const [record] = await queueRow(folder.plans)
       expect(record.status).toBe('pending')
       expect(await claimable()).toContain(folder.plans)
-      expect((await bin.listFolderBin(manager, projectId)).entries).toEqual([])
+      expect((await bin.listFolderBin(manager, projectShelf(projectId))).entries).toEqual([])
       expect(record.requested_by).toBe('user_pl')
       expect(record.payload.derivedRemoval).toMatchObject({
         conversationIds: [CHAT],

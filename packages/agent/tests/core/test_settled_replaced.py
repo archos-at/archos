@@ -134,3 +134,68 @@ async def test_a_stream_the_reader_abandons_unwinds_the_answer_before_the_ledger
     await run.aclose()  # the reader walked away after the first word
 
     assert order == ["answer unwound", "ledgers flushed"]
+
+
+async def test_a_turn_binds_its_decision_before_any_scope_read_and_traces_it(workflow, monkeypatch):
+    from agent_testing.turn_decision import signed_decision
+
+    from agent.common.turn_decision import current_turn_decision
+    from agent.knowledge.restricted_use import current_restricted_use
+
+    decision = signed_decision(conversationId="c1", may={"restrictedCollections": ["proj_p_r0123456789ab"]})
+    seen: dict = {}
+
+    async def decide(_request, conversation_id, answer_id):
+        seen["asked"] = (conversation_id, answer_id)
+        return decision
+
+    def scope():
+        seen["bound_at_scope"] = current_turn_decision()
+        seen["use"] = current_restricted_use()
+
+    traced: dict = {}
+    monkeypatch.setattr(cr, "_decide_turn", decide)
+    monkeypatch.setattr(cr, "get_scoped_collections_from_context", scope)
+    monkeypatch.setattr(cr, "record_trace_metadata", lambda **pairs: traced.update(pairs))
+    monkeypatch.setattr(cr, "turn_answer_message_id", lambda _c: "answer-1")
+
+    [_ async for _ in workflow["run"]([], _terminal("A."))]
+
+    assert seen["asked"] == ("c1", "answer-1")
+    assert seen["bound_at_scope"] is decision
+    assert seen["use"].drawable == {"proj_p_r0123456789ab"}
+    assert traced["context.kind"] == "chat"
+    assert traced["context.audienceVersion"] == 0
+    assert set(traced) >= {
+        "context.solo",
+        "context.shelves",
+        "context.personalMemory",
+        "context.personalShelf",
+        "context.features",
+    }
+
+
+async def test_a_turn_without_a_decision_draws_on_nothing_and_is_marked_missing(workflow, monkeypatch):
+    from agent.common.turn_decision import decision_missing
+    from agent.knowledge.restricted_use import current_restricted_use
+
+    seen: dict = {}
+    traced: dict = {}
+
+    async def decide(*_a):
+        return None
+
+    def scope():
+        seen["missing"] = decision_missing()
+        seen["use"] = current_restricted_use()
+
+    monkeypatch.setattr(cr, "_decide_turn", decide)
+    monkeypatch.setattr(cr, "get_scoped_collections_from_context", scope)
+    monkeypatch.setattr(cr, "record_trace_metadata", lambda **pairs: traced.update(pairs))
+
+    [_ async for _ in workflow["run"]([], _terminal("A."))]
+
+    assert seen["missing"] is True
+    assert seen["use"].confined is True
+    assert seen["use"].drawable == set()
+    assert traced["context.decision"] == "missing"

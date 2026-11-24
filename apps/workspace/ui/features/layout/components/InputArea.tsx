@@ -14,23 +14,32 @@ import { MentionPicker } from '@/features/collaboration/components/MentionPicker
 import { SlashCommandPicker } from '@/features/skills/components/SlashCommandPicker'
 import { ComposerSearchPicker } from '@/features/search'
 import { useInputAreaController } from './input-area/use-input-area-controller'
+import { useComposerArriving } from '../hooks/use-composer-arrival'
 import type { InputAreaProps } from './input-area/use-input-area-controller'
 import { ComposerAboveField } from './input-area/composer-above-field'
 import { ComposerField } from './input-area/composer-field'
 import { ComposerControls } from './input-area/composer-controls'
 
+import { useChatStore } from '@/features/chat/store'
+import { useTemporarySwitch } from '@/features/chat/conversation-privacy'
 export type { ConnectionMode } from './input-area/use-input-area-controller'
 
 export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
   const controller = useInputAreaController(props)
+  const chatStarted = useChatStore((s) => (s.currentConversation?.messages?.length ?? 0) > 0)
+  const arriving = useComposerArriving(props.isAuthenticated ?? false)
+  const temporary = useTemporarySwitch(controller.currentConversationId).pressed
 
   return (
     <div
       ref={controller.composerRootRef}
+      data-arriving={arriving || undefined}
+      data-testid="composer-root"
       className={cn(
         THREAD_COLUMN,
         THREAD_GUTTER,
-        'flex flex-col pt-3 pb-[max(0.75rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] sm:pt-4 sm:pb-4'
+        'flex flex-col pt-3 pb-[max(0.75rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] sm:pt-4 sm:pb-4',
+        'data-arriving:**:transition-none'
       )}
     >
       {/* The mention picker is anchored to the composer CARD and opens above it,
@@ -48,8 +57,11 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
         <PopoverAnchor asChild>
           <div
             ref={controller.composerRef}
+            data-temporary={temporary || undefined}
             className={cn(
-              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 relative flex flex-col rounded-xl px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
+              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 relative flex flex-col rounded-xl px-3 py-2.5 backdrop-blur-md sm:px-4',
+              'outline-1 -outline-offset-1 outline-dashed transition-[outline-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+              temporary ? 'outline-foreground shadow-none' : 'outline-transparent shadow-md',
               FIELD_FOCUS_WITHIN_RING,
               controller.isDisabledByAuth && 'opacity-60'
             )}
@@ -114,24 +126,11 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
         </PopoverContent>
       </Popover>
 
-      {/* AI-transparency disclosure (EU AI Act Art. 50): users must know they
-          interact with an AI system and that answers can be wrong. Kept to a
-          single compact line so it costs minimal vertical space on both mobile
-          and desktop, while staying persistently visible, legible and not
-          hidden behind a click, per the Art. 50(5) "clear and distinguishable"
-          standard. That standard is carried by the SENTENCE, which is
-          unabridged, always rendered and never collapsed; it used to be led by
-          a spark glyph as well, and the glyph was reinforcement rather than the
-          disclosure. The composer floats over the scrolling chat, so a light
-          blurred pill keeps it readable over messages behind it. */}
-      <div className="mt-1.5 flex justify-center">
-        {/* Frosted, not hand-derived: this hint sits ON the transcript, and the
-            alpha pair is what `backdrop-blur-sm` has to blur (the `supports-`
-            step is the no-blur fallback). */}
-        <p className="text-muted-foreground bg-muted/70 supports-[backdrop-filter]:bg-muted/45 inline-flex max-w-[calc(100%-1rem)] items-center rounded-lg px-2.5 py-1 text-center text-xs leading-snug backdrop-blur-sm">
+      {chatStarted && (
+        <p className="text-muted-foreground mt-1.5 px-2 text-center text-xs leading-snug" data-testid="ai-disclosure">
           {controller.t('inputArea.aiDisclosure')}
         </p>
-      </div>
+      )}
 
       {/* Manage-files dialog — one controlled instance shared by the desktop
           button and the mobile text entry. Mobile: a bottom sheet that slides up

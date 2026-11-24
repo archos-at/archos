@@ -248,7 +248,7 @@ describe('gateway compact turn-context transport', () => {
     expect(backendHeaders).toEqual({})
   })
 
-  it('does not emit the BFF transport marker for anonymous upgrades', async () => {
+  it('does not emit the BFF transport marker for anonymous upgrades, and sends the prompt blocks only signed', async () => {
     anonymousScope = true
     scopeExtra = {
       projectContext: 'legacy profile',
@@ -262,9 +262,9 @@ describe('gateway compact turn-context transport', () => {
     expect(payload.projectContext).toBe('legacy profile')
     expect(payload.projectMemory).toBe('legacy memory')
     expect(payload.orgInstructions).toBe('legacy instructions')
-    expect(Buffer.from(backendHeaders['x-project-context'] as string, 'base64url').toString('utf8')).toBe('legacy profile')
-    expect(Buffer.from(backendHeaders['x-project-memory'] as string, 'base64url').toString('utf8')).toBe('legacy memory')
-    expect(Buffer.from(backendHeaders['x-org-instructions'] as string, 'base64url').toString('utf8')).toBe('legacy instructions')
+    for (const plain of ['x-project-context', 'x-project-memory', 'x-org-instructions', 'x-collection-scope']) {
+      expect(backendHeaders).not.toHaveProperty(plain)
+    }
   })
 })
 

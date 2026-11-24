@@ -403,19 +403,19 @@ export const FileCard = memo(function FileCard({
           {/* On a 156px card the size and the age are about 125px, so the
               phone's card keeps 10px of padding (the title's too) and a tighter
               gap: the age used to run into the edge the title keeps clear. */}
-          <span className="flex shrink-0 items-center gap-1" /* the dot's 4px each side: the width of the bound text join (`CLAUSE_JOIN`) */>
+          <span className="flex min-w-0 max-w-full items-center gap-1" /* the dot's 4px each side: the width of the bound text join (`CLAUSE_JOIN`) */>
             {/* The format in words, with the facts: a type is not a signal, so it is ink like them, never a tinted chip. */}
             {thread && <span className="font-medium" data-testid="file-card-kind">{threadLabel}</span>}
-            {ext !== '' && <span className="font-medium uppercase tracking-wide">{ext}</span>}
+            {ext !== '' && <span className="shrink-0 font-medium uppercase tracking-wide">{ext}</span>}
             {hasSize && (
               <>
                 {ext !== '' && <FactDot />}
-                <span className="tabular-nums">{formatBytes(file.fileSize, locale)}</span>
+                <span className="shrink-0 whitespace-nowrap tabular-nums">{formatBytes(file.fileSize, locale)}</span>
               </>
             )}
-            <span className="flex items-center gap-1 group-has-[[data-slot=filing-chip]]/foot:@max-[14rem]/foot:hidden">
+            <span className="flex min-w-0 items-center gap-1 group-has-[[data-slot=filing-chip]]/foot:@max-[14rem]/foot:hidden">
               {(ext !== '' || hasSize || thread) && <FactDot />}
-              <TimeAgo date={file.createdAt} locale={locale} className="tabular-nums" />
+              <TimeAgo date={file.createdAt} locale={locale} className="min-w-0 truncate tabular-nums" />
             </span>
           </span>
         </FileTileFooter>

@@ -45,6 +45,7 @@ const crypto = require('crypto')
  * @property {ReadonlyArray<string> | undefined} [disabledSources]
  * @property {string | null | undefined} [federalState]
  * @property {Requester | null | undefined} [requester] who `userId` is, by name (envelope-only)
+ * @property {'run' | 'headless' | 'external' | undefined} [contextKind] the caller's kind; absent for a chat turn
  */
 
 /**
@@ -90,6 +91,7 @@ function requesterOf(value) {
  * @property {number | null} [issuedAt]
  * @property {'bff'} [contextTransport]
  * @property {Requester | null} [requester]
+ * @property {'run' | 'headless' | 'external' | null} [contextKind]
  */
 
 /**
@@ -130,6 +132,7 @@ function buildRequestContextEnvelopeHeaders(input, secret) {
   if (input.contextTransport) payload.contextTransport = input.contextTransport
   const requester = requesterOf(input.requester)
   if (requester) payload.requester = requester
+  if (input.contextKind) payload.contextKind = input.contextKind
 
   const json = JSON.stringify(payload)
   /** @type {Record<string, string>} */
@@ -137,9 +140,21 @@ function buildRequestContextEnvelopeHeaders(input, secret) {
     'x-request-context': Buffer.from(json, 'utf8').toString('base64url'),
   }
   if (secret) {
-    headers['x-request-context-sig'] = crypto.createHmac('sha256', secret).update(json, 'utf8').digest('hex')
+    headers['x-request-context-sig'] = hmacHex(json, secret)
   }
   return headers
+}
+
+/**
+ * The HMAC every signed internal header carries: SHA-256 over the raw JSON
+ * with the internal token, hex. The request envelope and the turn decision
+ * (`bff/conversation-context/wire.ts`) sign the same way.
+ *
+ * @param {string} json
+ * @param {string} secret
+ */
+function hmacHex(json, secret) {
+  return crypto.createHmac('sha256', secret).update(json, 'utf8').digest('hex')
 }
 
 /** @param {unknown} value */
@@ -166,23 +181,12 @@ const base64urlJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toSt
 function turnContextHeaders(data, { issuedAt, secret }) {
   /** @type {Record<string, string>} */
   const headers = {}
-  if (data.header) headers['x-collection-scope'] = data.header
   const authenticated = Boolean(data.organizationId && data.userId)
   if (data.organizationId) {
     headers['x-organization-id'] = data.organizationId
     if (data.userId) headers['x-user-id'] = data.userId
   }
   if (data.accessToken) headers.authorization = `Bearer ${data.accessToken}`
-  if (!authenticated) {
-    for (const [field, header] of /** @type {const} */ ([
-      ['projectContext', 'x-project-context'],
-      ['projectMemory', 'x-project-memory'],
-      ['orgInstructions', 'x-org-instructions'],
-    ])) {
-      const value = data[field]
-      if (value) headers[header] = Buffer.from(value, 'utf8').toString('base64url')
-    }
-  }
   if (data.projectId) headers['x-project-id'] = data.projectId
   headers['x-feature-memory-reflection'] = data.memoryReflectionEnabled ? 'true' : 'false'
   if (data.modelOverrides) headers['x-model-overrides'] = base64urlJson(data.modelOverrides)
@@ -210,6 +214,7 @@ function turnContextHeaders(data, { issuedAt, secret }) {
         issuedAt,
         contextTransport: authenticated ? 'bff' : undefined,
         requester: data.requester,
+        contextKind: data.contextKind,
       },
       secret,
     ),
@@ -217,4 +222,16 @@ function turnContextHeaders(data, { issuedAt, secret }) {
   return headers
 }
 
-module.exports = { buildRequestContextEnvelopeHeaders, turnContextHeaders }
+/**
+ * The headers of a chat-socket turn: the turn context without its collection
+ * scope, which the turn takes from its signed decision (ADR-0194).
+ *
+ * @param {TurnContextData} data
+ * @param {{ issuedAt: number, secret: string | null | undefined }} options
+ * @returns {Record<string, string>}
+ */
+function socketTurnHeaders(data, options) {
+  return turnContextHeaders({ ...data, header: undefined, scope: undefined, scopedCollections: undefined }, options)
+}
+
+module.exports = { buildRequestContextEnvelopeHeaders, hmacHex, socketTurnHeaders, turnContextHeaders }

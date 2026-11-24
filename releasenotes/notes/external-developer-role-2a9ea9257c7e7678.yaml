@@ -1,4 +1,5 @@
 ---
+# area: administration
 operators:
   - >
     A new platform role, External Developer, lets an outside developer draft and

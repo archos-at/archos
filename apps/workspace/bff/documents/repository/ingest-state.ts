@@ -114,7 +114,7 @@ export async function markDocumentIngestFailed(
           failureLandsOn(from),
         ),
       )
-      .returning({ projectId: documents.projectId, scope: documents.scope }),
+      .returning({ projectId: documents.projectId, scope: documents.scope, ownerUserId: documents.ownerUserId }),
   )
   if (row) publishShelfChanged(organizationId, documentShelf(row))
   return Boolean(row)

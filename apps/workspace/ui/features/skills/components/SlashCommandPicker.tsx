@@ -148,7 +148,7 @@ export const SlashCommandPicker = forwardRef<SlashCommandPickerHandle, SlashComm
         value={optionValue(skill)}
         onSelect={() => onSelect(skill)}
         className={cn(
-          'flex-col items-start gap-0.5 rounded-lg px-2.5 py-1.5 transition-colors duration-snap ease-out',
+          'flex-col items-start gap-0.5 rounded-surface px-2.5 py-1.5 transition-colors duration-snap ease-out',
           'data-[selected=true]:bg-hover data-[selected=true]:text-accent-foreground',
         )}
       >

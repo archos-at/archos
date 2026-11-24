@@ -7,6 +7,16 @@ import { assertNoActiveHold } from '@/lib/compliance/holds'
 import { sessionCollectionName } from '@/lib/retrieval-scope/collection-scope'
 import { deleteSessionCollection, purgeSessionDocuments } from '@/lib/session-documents/cleanup'
 import { requireResourceAccess } from '@/lib/sharing/access'
+import { withTenant } from '@/lib/db/tenant-context'
+import { enqueueJob } from '@/lib/jobs-queue/enqueue'
+import {
+  BFF_JOB_PRIORITY,
+  emptyCounts,
+  recordJobFailure,
+  requesterOf,
+  type EraseConversationsPayload,
+  type JobSliceResult,
+} from '@/lib/jobs-queue/types'
 import { discardConversationDrafts } from './working-directory'
 import {
   deleteConversationInOrg,
@@ -14,6 +24,11 @@ import {
   markConversationDeleting,
   recordConversationErased,
 } from './repository'
+import {
+  listMarkedOwnConversationIds,
+  markOwnConversationsDeleting,
+  type ConversationSide,
+} from './own-conversations-repository'
 
 async function authorizeConversationDelete(
   session: AuthorizedSession,
@@ -76,6 +91,82 @@ export async function retryConversationErasure(
   }
   await eraseMarkedConversation(organizationId, conversationId)
   return { outcome: tenancy ? 'erased' : 'already-gone' }
+}
+
+export interface OwnConversationsDeleted {
+  deleted: string[]
+  held: { id: string; title: string | null }[]
+}
+
+export async function deleteOwnConversations(
+  session: AuthorizedSession,
+  side: ConversationSide
+): Promise<OwnConversationsDeleted> {
+  if (side.projectId) await requireProjectAccess(session, side.projectId, 'project:view')
+
+  const { markedAt, marked, held } = await markOwnConversationsDeleting(
+    session.organizationId,
+    session.userId,
+    side
+  )
+  if (marked.length > 0) {
+    const payload: EraseConversationsPayload = {
+      markedAt: markedAt.toISOString(),
+      requester: requesterOf(session),
+      cursor: null,
+      counts: emptyCounts(),
+    }
+    try {
+      await enqueueJob({
+        kind: 'erase_conversations',
+        organizationId: session.organizationId,
+        payload: { ...payload },
+        priority: BFF_JOB_PRIORITY.interactive,
+      })
+    } catch (error) {
+      console.error(
+        `[conversations] the erase job for ${marked.length} chat(s) was not stored; their deletion queue rows erase them:`,
+        error
+      )
+    }
+  }
+  return { deleted: marked.map((row) => row.id), held }
+}
+
+export const ERASE_SLICE_CONVERSATIONS = 10
+
+export async function runEraseConversationsSlice(
+  session: AuthorizedSession,
+  payload: EraseConversationsPayload
+): Promise<JobSliceResult<EraseConversationsPayload>> {
+  const { organizationId, userId } = session
+  const ids = await withTenant({ organizationId, userId }, () =>
+    listMarkedOwnConversationIds(organizationId, userId, new Date(payload.markedAt), {
+      after: payload.cursor,
+      limit: ERASE_SLICE_CONVERSATIONS,
+    })
+  )
+  const counts = { ...payload.counts, failedNames: [...payload.counts.failedNames] }
+  for (const conversationId of ids) {
+    try {
+      await withTenant({ organizationId, userId }, async () => {
+        await assertNoActiveHold(organizationId, 'conversation', conversationId)
+        await eraseMarkedConversation(organizationId, conversationId)
+      })
+      counts.queued += 1
+    } catch (error) {
+      console.warn(
+        `[conversations] erasing ${conversationId} failed; the purger retries it from the deletion queue:`,
+        error
+      )
+      recordJobFailure(counts, conversationId)
+    }
+  }
+  const cursor = ids.at(-1) ?? payload.cursor
+  return {
+    done: ids.length < ERASE_SLICE_CONVERSATIONS,
+    payload: { ...payload, cursor, counts },
+  }
 }
 
 async function eraseMarkedConversation(organizationId: string, conversationId: string): Promise<void> {

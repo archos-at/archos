@@ -187,8 +187,8 @@ has a kind the client cannot ask for.
 ## Wire contracts
 
 The proposal and lifecycle bodies are described once, in the BFF's zod, and
-exported as JSON Schema fixtures. There is no Pydantic twin. Regenerate a
-fixture with `UPDATE_FIXTURES=1` on its spec:
+exported as JSON Schema fixtures. There is no Pydantic twin. Regenerate every
+fixture with `task generate`; each is written by its spec:
 
 | Contract | Fixture | Spec that writes it | Python tests against it |
 |---|---|---|---|

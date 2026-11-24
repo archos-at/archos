@@ -21,6 +21,7 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: vi.fn().mockResolvedValue('https://seaweedfs.internal/presigned'),
 }))
 vi.mock('./repository', () => ({
+  folderIsInBin: vi.fn(async () => false),
   findDocumentInOrg: vi.fn(),
   listDocumentLevelPage: vi.fn().mockResolvedValue({ rows: [], nextCursor: null }),
   findProjectDocumentsByFilenames: vi.fn().mockResolvedValue([]),

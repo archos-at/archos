@@ -1,13 +1,13 @@
 import base64
 import json
 import logging
-import os
 import re
 import threading
 import time
 import types
 from enum import StrEnum
 
+from agent.common import bff_http
 from agent.common import residency
 from agent.common.org_config_shared import read_shared
 from agent.common.org_config_shared import write_shared
@@ -122,21 +122,11 @@ def _log_no_trust_channel_once() -> None:
 
 
 def _fetch_org_config(organization_id: str) -> tuple[dict[str, str], bool, ProcessingPolicy]:
-    token = os.environ.get("INTERNAL_API_TOKEN")
-    if not token:
+    if not bff_http.internal_token():
         raise _NoTrustChannel()
-
-    import httpx
-
-    base_url = (os.environ.get("FRONTEND_INTERNAL_URL") or "http://frontend:3000").rstrip("/")
-    response = httpx.get(
-        f"{base_url}/api/internal/model-overrides",
-        params={"organizationId": organization_id},
-        headers={"x-internal-token": token},
-        timeout=_REQUEST_TIMEOUT_SECONDS,
+    payload = bff_http.get_json(
+        "/api/internal/model-overrides", query={"organizationId": organization_id}, timeout=_REQUEST_TIMEOUT_SECONDS
     )
-    response.raise_for_status()
-    payload = response.json()
     if not isinstance(payload, dict):
         return {}, False, UNREADABLE_POLICY
     overrides = payload.get("overrides")

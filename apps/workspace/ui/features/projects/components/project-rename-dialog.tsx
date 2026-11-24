@@ -16,7 +16,6 @@ import { Field, FieldLabel } from '@/components/ui/field'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import { renameProject } from '@/adapters/api/project-lifecycle-client'
 import { Input } from '@/components/ui/input'
-import { Spinner } from '@/components/ui/spinner'
 import { useTranslations } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
 
@@ -62,7 +61,9 @@ export function ProjectRenameDialog({
       router.refresh()
     } catch (error) {
       if (error instanceof ApiRequestError) {
-        toast.error(error.status === 403 ? t('overview.rename.forbidden') : t('overview.rename.error'))
+        toast.error(
+          error.status === 403 ? t('overview.rename.forbidden') : t('overview.rename.error')
+        )
       } else {
         toast.error(error instanceof Error ? error.message : t('overview.rename.error'))
       }
@@ -103,16 +104,12 @@ export function ProjectRenameDialog({
             >
               {t('overview.rename.cancel')}
             </Button>
-            <Button type="submit" disabled={!canSave} className="min-w-24">
-              <Spinner
-                size="sm"
-                aria-hidden={!pending}
-                className={
-                  pending
-                    ? 'duration-snap transition-opacity ease-out motion-reduce:transition-none'
-                    : 'opacity-0'
-                }
-              />
+            <Button
+              type="submit"
+              disabled={!canSave && !pending}
+              loading={pending}
+              className="min-w-24"
+            >
               {pending ? t('overview.rename.saving') : t('overview.rename.save')}
             </Button>
           </DialogFooter>

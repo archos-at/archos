@@ -14,6 +14,7 @@ vi.mock('@/lib/conversations/repository', () => ({
   findMessageInConversation: vi.fn(),
   insertConversation: vi.fn(),
   insertMessages: vi.fn(),
+  listMessageRolesInOrder: vi.fn(async () => []),
   listMessagePage: vi.fn(),
   listVisibleConversations: vi.fn(),
   markConversationDeleting: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock('@/lib/conversations/repository', () => ({
 vi.mock('@/lib/sharing/repository', () => ({
   findGrantForSubject: vi.fn(),
   countGrantsForResource: vi.fn(),
+  resourceIdsWithGrants: vi.fn(async () => new Set<string>()),
 }))
 
 vi.mock('@/lib/sharing/service', () => ({ resolveParticipants: vi.fn() }))
@@ -37,6 +39,11 @@ vi.mock('./restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_organizationId: string, _conversationId: string, userIds: readonly string[]) => new Set(userIds)),
   lockedConversationIds: vi.fn(async () => new Set<string>()),
+}))
+
+vi.mock('./reader-cut', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./reader-cut')>()),
+  readerCut: vi.fn(async () => ({ kind: 'none' })),
 }))
 
 vi.mock('./cross-project-use', () => ({ restrictingOtherProjects: vi.fn(async () => []) }))
@@ -72,6 +79,7 @@ vi.mock('./engagement', () => ({
 }))
 
 import { NotFoundError, ResourceRightsLostError } from '@/lib/api/errors'
+import { runAsActingSession } from '@/lib/agent-api/acting-session'
 import { threadIsAwaitingHuman } from '@/lib/mentions/service'
 import type { Message } from '@/lib/db/schema/messages'
 import { emitInboxItems } from '@/lib/inbox/service'
@@ -81,6 +89,7 @@ import { resolveParticipants } from '@/lib/sharing/service'
 import { deleteSessionCollection, purgeSessionDocuments } from '@/lib/session-documents/cleanup'
 import { resolveEngagement, resolveEngagementFor } from './engagement'
 import { restrictingOtherProjects } from './cross-project-use'
+import { readerCut } from './reader-cut'
 import { lockedConversationIds, peopleWhoMayRead } from './restricted-use'
 import { deleteConversationInOrg, findConversationInOrg, findConversationRead, findMessageInConversation, insertMessages, listMessagePage, listVisibleConversations, markConversationDeleting, updateConversationTitleInOrg } from './repository'
 import { createConversationMessages, deleteConversation, getConversation, listConversationMessages, listConversations, markConversationRead, updateConversationTitle } from './service'
@@ -171,6 +180,30 @@ describe('a chat the reader may no longer read (ADR-0088)', () => {
     vi.mocked(peopleWhoMayRead).mockImplementation(async (_org, _id, userIds) => new Set(userIds))
   })
 
+  describe('a chat that read its owner’s shelf (ADR-0193)', () => {
+    const shelfRow = (id: string, createdBy: string) =>
+      ({ ...(row(id, 'Bewerbung Sanierung privat') as object), createdBy, personalShelfUsedAt: new Date('2026-11-01T00:00:00Z') }) as never
+    beforeEach(() => {
+      vi.mocked(listVisibleConversations).mockResolvedValue([shelfRow('s_mine', 'user_me'), shelfRow('s_ina', 'user_ina')])
+      vi.mocked(lockedConversationIds).mockResolvedValue(new Set())
+    })
+    const titles = (page: Awaited<ReturnType<typeof listConversations>>) => page.conversations.map((chat) => chat.title)
+
+    it('keeps its title in the person’s own list', async () => {
+      expect(titles(await listConversations(session))).toEqual(['Bewerbung Sanierung privat', 'Bewerbung Sanierung privat'])
+    })
+
+    it('lists it without title, tags or subject to an agent, unless the call may read the owner’s shelf and the chat is theirs', async () => {
+      const asAgent = await runAsActingSession(session, () => listConversations(session), 'agent')
+      expect(asAgent.conversations.map(({ title, tags, subjectResourceId }) => ({ title, tags, subjectResourceId }))).toEqual([
+        { title: null, tags: [], subjectResourceId: null },
+        { title: null, tags: [], subjectResourceId: null },
+      ])
+      const asOwnShelfTurn = await runAsActingSession(session, () => listConversations(session), 'agent', { ownShelfReadable: true })
+      expect(titles(asOwnShelfTurn)).toEqual(['Bewerbung Sanierung privat', null])
+    })
+  })
+
   describe('the list keeps it, under a neutral title', () => {
     it('sends no title, topic tags or subject for a locked chat, and the rest of the row as it was', async () => {
       vi.mocked(listVisibleConversations).mockResolvedValue([
@@ -245,6 +278,16 @@ describe('a chat the reader may no longer read (ADR-0088)', () => {
     it('answers the typed 403 for the messages, and reads none of them', async () => {
       await expect(listConversationMessages(session, CONVERSATION_ID)).rejects.toBeInstanceOf(ResourceRightsLostError)
       expect(listMessagePage).not.toHaveBeenCalled()
+    })
+
+    it('gives a reader who joined later the messages before the first answer resting on what they may not open', async () => {
+      vi.mocked(readerCut).mockResolvedValueOnce({ kind: 'until', messageId: 'q_2', readableAnswers: new Set(['a_1']) })
+      vi.mocked(listMessagePage).mockResolvedValueOnce({ rows: [], hasMore: false })
+
+      const page = await listConversationMessages(session, CONVERSATION_ID)
+
+      expect(listMessagePage).toHaveBeenCalledWith(CONVERSATION_ID, expect.objectContaining({ until: 'q_2' }))
+      expect(page.withheldFrom).toBe('q_2')
     })
 
     it('refuses a message into it, and stores nothing', async () => {

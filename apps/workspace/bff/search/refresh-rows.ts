@@ -1,13 +1,14 @@
 import 'server-only'
 import { collectionFileRef, type CollectionFileRef } from '@/lib/documents/collection-file-ref'
 import { readCollectionReadings } from '@/lib/documents/reconcile-status'
-import { documentShelf, type DocumentShelf } from '@/lib/documents/shelf'
+import { documentShelf, shelfKey, type DocumentShelf } from '@/lib/documents/shelf'
 import { projectReadings, type DocumentReading } from './facets-projector'
 import { markShelvesStale, type ProjectionDocument } from './facets-repository'
 
 export interface SearchRowDocument extends ProjectionDocument {
   scope?: string
   projectId: string | null
+  ownerUserId: string | null
 }
 
 export async function projectDocuments(organizationId: string, docs: readonly ProjectionDocument[]): Promise<number> {
@@ -50,7 +51,7 @@ function shelvesOf(docs: readonly SearchRowDocument[]): DocumentShelf[] {
   const shelves = new Map<string, DocumentShelf>()
   for (const doc of docs) {
     const shelf = documentShelf(doc)
-    if (shelf) shelves.set(shelf.kind === 'project' ? shelf.projectId : 'office_shelf', shelf)
+    if (shelf) shelves.set(shelfKey(shelf), shelf)
   }
   return [...shelves.values()]
 }

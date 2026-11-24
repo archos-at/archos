@@ -5,6 +5,7 @@ export type SearchSurface =
   | { kind: 'office' }
   | { kind: 'project'; projectId: string; folderId?: string | null }
   | { kind: 'office_shelf'; folderId?: string | null }
+  | { kind: 'personal'; folderId?: string | null }
 
 export function surfaceScope(surface: SearchSurface, state: Pick<SearchUrlState, 'projectId'>): SearchScopeQuery {
   switch (surface.kind) {
@@ -13,7 +14,8 @@ export function surfaceScope(surface: SearchSurface, state: Pick<SearchUrlState,
     case 'project':
       return { scope: 'project', projectId: surface.projectId, ...(surface.folderId ? { folderId: surface.folderId } : {}) }
     case 'office_shelf':
-      return { scope: 'office_shelf', ...(surface.folderId ? { folderId: surface.folderId } : {}) }
+    case 'personal':
+      return { scope: surface.kind, ...(surface.folderId ? { folderId: surface.folderId } : {}) }
   }
 }
 

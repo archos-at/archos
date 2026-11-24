@@ -36,12 +36,15 @@ import type { TurnView } from '@/lib/turns/turn-fold'
 import {
   readAddresseeRuling,
   readSendFailure,
+  type SendMessageFailure,
   type SendMessageOptions,
   type SendMessageOutcome,
 } from '../lib/send-message-result'
 import { discoverBudgetFailureMessage } from '../lib/budget-failure-message'
 import { ownsUnansweredTurnIn } from '../lib/turn-ownership'
 import { viewerClientTools } from '../lib/viewer-actions'
+import { ownProjectOf } from '../lib/own-project'
+import { titledByFirstMessage } from '../lib/conversation-title'
 
 export type {
   SendMessageFailure,
@@ -51,28 +54,59 @@ export type {
 } from '../lib/send-message-result'
 export { ACK_TIMEOUT_MS, DELTA_FLUSH_MS, type SteerOptions, type TurnDriver } from '../lib/turn-driver'
 
-function appendLocalUserMessage(message: ChatMessage): void {
-  const store = useChatStore as unknown as {
-    getState: () => { currentConversation: Conversation | null; conversations: Conversation[] }
-    setState?: (
-      partial: Partial<{ currentConversation: Conversation | null; conversations: Conversation[] }>
-    ) => void
-  }
-  const { currentConversation, conversations } = store.getState()
-  if (!currentConversation || typeof store.setState !== 'function') return
+type LocalConversations = {
+  getState: () => { currentConversation: Conversation | null; conversations: Conversation[] }
+  setState?: (partial: Partial<{ currentConversation: Conversation | null; conversations: Conversation[] }>) => void
+}
 
-  const updated: Conversation = {
-    ...currentConversation,
-    title: currentConversation.title || message.content.trim().slice(0, 50),
-    messages: [...currentConversation.messages, message],
-    updatedAt: new Date(),
-  }
+function replaceLocalConversation(store: LocalConversations, id: string, change: (conversation: Conversation) => Conversation): void {
+  const { currentConversation, conversations } = store.getState()
+  if (typeof store.setState !== 'function') return
   store.setState({
-    currentConversation: updated,
-    conversations: conversations.map((conversation) =>
-      conversation.id === updated.id ? updated : conversation
-    ),
+    ...(currentConversation?.id === id ? { currentConversation: change(currentConversation) } : {}),
+    conversations: conversations.map((conversation) => (conversation.id === id ? change(conversation) : conversation)),
   })
+}
+
+function appendLocalUserMessage(message: ChatMessage): { settle: (patch: Partial<ChatMessage>) => void; withdraw: () => void } | null {
+  const store = useChatStore as unknown as LocalConversations
+  const before = store.getState().currentConversation
+  if (!before || typeof store.setState !== 'function') return null
+  const appended = { ...titledByFirstMessage(before, message.content), messages: [...before.messages, { ...message, unsent: true as const }], updatedAt: new Date() }
+  const titledHere = appended.title !== before.title || appended.titleProvisional !== before.titleProvisional
+  replaceLocalConversation(store, before.id, (conversation) => ({
+    ...conversation,
+    ...(titledHere && { title: appended.title, titleProvisional: appended.titleProvisional }),
+    messages: [...conversation.messages, ...appended.messages.slice(-1)],
+    updatedAt: appended.updatedAt,
+  }))
+  return {
+    settle: (patch) =>
+      replaceLocalConversation(store, before.id, (conversation) => ({
+        ...conversation,
+        messages: conversation.messages.map((m) => {
+          if (m.id !== message.id) return m
+          const { unsent: _accepted, ...sent } = m
+          return { ...sent, ...patch }
+        }),
+      })),
+    withdraw: () =>
+      replaceLocalConversation(store, before.id, (conversation) => {
+        const messages = conversation.messages.filter((m) => m.id !== message.id)
+        const ownTitle = titledHere && !conversation.contentLocked && conversation.titleProvisional === true && conversation.title === appended.title
+        const nextUser = messages.find((m) => m.messageType === 'user')
+        const retitled = !ownTitle
+          ? conversation
+          : nextUser
+            ? titledByFirstMessage({ ...conversation, messages: [] }, nextUser.content)
+            : { ...conversation, title: before.title, titleProvisional: before.titleProvisional }
+        return {
+          ...retitled,
+          messages,
+          updatedAt: conversation.updatedAt === appended.updatedAt ? before.updatedAt : conversation.updatedAt,
+        }
+      }),
+  }
 }
 
 const openVersionState = (state: DocumentVersionState | null | undefined): UserMessage['focus_version_state'] =>
@@ -239,18 +273,18 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
 
   const ensureDriver = useCallback(
     (conversationId: string): TurnDriver =>
-      pool.ensure(conversationId, useChatStore.getState().projectId || undefined),
+      pool.ensure(conversationId, ownProjectOf(useChatStore.getState(), conversationId)),
     [pool]
   )
 
   const reconcileDrivers = useCallback((previousTurns?: Record<string, TurnView>): void => {
-    const { currentConversation, conversations, turns, projectId } = useChatStore.getState()
+    const { currentConversation, conversations, turns } = useChatStore.getState()
     pool.reconcile({
       currentId: currentConversation?.id,
       turns,
       previousTurns,
       known: (id) => id === currentConversation?.id || conversations.some((conversation) => conversation.id === id),
-      projectIdOf: (id) => conversations.find((conversation) => conversation.id === id)?.projectId || projectId || undefined,
+      projectIdOf: (id) => ownProjectOf({ currentConversation, conversations }, id),
     })
   }, [pool])
 
@@ -413,9 +447,26 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
       const { dataSourcesForMessage, dataSourcesOnWire, messageFiles } = collectSendMetadata()
       const messageId = uuidv4()
 
+      const ensured = store._ensureConversationExists?.()
+      const local = appendLocalUserMessage({
+        id: messageId,
+        role: 'user',
+        content,
+        timestamp: new Date(),
+        messageType: 'user',
+        enabledDataSources: dataSourcesForMessage,
+        messageFiles: messageFiles.length > 0 ? messageFiles : undefined,
+        ...(options.answerExcerpt ? { answerExcerpt: options.answerExcerpt } : {}),
+        mentions: mentions.map((mention) => ({ ...mention })),
+      })
+      const refused = (failure: SendMessageFailure): SendMessageOutcome => {
+        local?.withdraw()
+        return { ok: false, failure }
+      }
+
       let ruling: AddresseeSet | null = null
       try {
-        await store._ensureConversationExists?.()
+        await ensured
 
         const response = await fetch(
           `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
@@ -439,31 +490,18 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
           }
         )
 
-        if (!response.ok) {
-          return { ok: false, failure: await readSendFailure(response) }
-        }
+        if (!response.ok) return refused(await readSendFailure(response))
         ruling = readAddresseeRuling(await response.json(), messageId)
       } catch {
-        return { ok: false, failure: { reason: null, message: null } }
+        return refused({ reason: null, message: null })
       }
 
-      if (!ruling) return { ok: false, failure: { reason: null, message: null } }
-
-      appendLocalUserMessage({
-        id: messageId,
-        role: 'user',
-        content,
-        timestamp: new Date(),
-        messageType: 'user',
-        enabledDataSources: dataSourcesForMessage,
-        messageFiles: messageFiles.length > 0 ? messageFiles : undefined,
-        ...(options.answerExcerpt ? { answerExcerpt: options.answerExcerpt } : {}),
-        mentions: mentions.map((mention) => ({ ...mention })),
-        addressees: ruling,
-      })
+      if (!ruling) return refused({ reason: null, message: null })
+      local?.settle({ addressees: ruling })
 
       if (!ruling.agent) {
         deliverAsContext(messageId, content, dataSourcesOnWire)
+        useChatStore.getState().maybeGenerateConversationName(conversationId)
         return { ok: true, addressees: ruling }
       }
 

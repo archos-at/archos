@@ -316,7 +316,7 @@ export function Composer({
           <Button
             type="button"
             size="icon"
-            className="touch-target size-6 shrink-0 rounded-full pointer-coarse:size-8 pointer-coarse:min-w-0 [&_svg]:size-3.5 pointer-coarse:[&_svg]:size-4"
+            className="size-6 shrink-0 rounded-full pointer-coarse:size-11 [&_svg]:size-3.5 pointer-coarse:[&_svg]:size-4"
             disabled={!body.trim() || busy}
             aria-label={submitLabel}
             title={`${submitLabel} (Enter)`}

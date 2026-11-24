@@ -1,5 +1,5 @@
 {
- "comment": "Who sees each capability: apps/workspace/bff/agent-api/exposure.config.ts, written by exposure.config.spec.ts (UPDATE_FIXTURES=1). `agent` is true, false or \"native:<tool>\" (the in-product agent uses that tool; the door hides the operation from it). `appTools` are the MCP Apps views’ app-only tools (ADR-0142), each running the operation it names.",
+ "comment": "Who sees each capability: apps/workspace/bff/agent-api/exposure.config.ts, written by exposure.config.spec.ts (`task generate`). `agent` is true, false or \"native:<tool>\" (the in-product agent uses that tool; the door hides the operation from it). `appTools` are the MCP Apps views’ app-only tools (ADR-0142), each running the operation it names.",
  "operations": {
   "classification-evaluate": {
    "kind": "catalog",
@@ -890,6 +890,26 @@
    "withheld": null,
    "reason": null
   },
+  "office-shelf-folder-bin-list": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "office-shelf-folder-bin-purge": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "office-shelf-folder-create": {
    "kind": "catalog",
    "domain": "folders",
@@ -941,6 +961,16 @@
    "reason": "whether a file in an ordinary folder becomes a norm the office relies on, or stays an ordinary file for good, is the person’s decision"
   },
   "office-shelf-folder-norms-list": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "office-shelf-folder-restore": {
    "kind": "catalog",
    "domain": "folders",
    "sensitivity": null,
@@ -1496,6 +1526,16 @@
    "withheld": null,
    "reason": null
   },
+  "document-measure": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": "native:drawing_measure",
+   "platform": false,
+   "withheld": null,
+   "reason": "the review view’s tape on a PDF drawing; the chat agent measures with its own drawing_measure, and the door stays shut for it while the drawing-measure entitlement stands, as for the drawing-measure read tool"
+  },
   "document-quarantine-allow": {
    "kind": "catalog",
    "domain": "review",
@@ -1696,6 +1736,36 @@
    "withheld": null,
    "reason": null
   },
+  "drawing-calibration-list": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
+  "drawing-calibration-set": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
+  "drawing-calibration-withdraw": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": null,
+   "external": false,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": "a person’s calibration of a PDF drawing; behind the drawing-measure entitlement, which the route checks, and the door has no per-operation flag yet, so `external: true` would list it for every outside agent"
+  },
   "project-annotation-list": {
    "kind": "catalog",
    "domain": "review",
@@ -1809,6 +1879,16 @@
    "withheld": null,
    "reason": null
   },
+  "conversation-answer-trail-list": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "conversation-create": {
    "kind": "catalog",
    "domain": "conversations",
@@ -1820,6 +1900,16 @@
    "reason": null
   },
   "conversation-delete": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "conversation-delete-all": {
    "kind": "catalog",
    "domain": "conversations",
    "sensitivity": null,
@@ -2128,6 +2218,19 @@
    "withheld": null,
    "reason": null
   },
+  "inbox-archive-all": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "ui-state",
+    "reason": "empties the person's inbox, open requests included; an agent doing it hides from them what waits on them"
+   },
+   "reason": null
+  },
   "inbox-item-archive": {
    "kind": "catalog",
    "domain": "collaboration",
@@ -2188,6 +2291,19 @@
    "agent": true,
    "platform": false,
    "withheld": null,
+   "reason": null
+  },
+  "inbox-restore-all": {
+   "kind": "catalog",
+   "domain": "collaboration",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "ui-state",
+    "reason": "the undo of inbox-archive-all, which an agent cannot do"
+   },
    "reason": null
   },
   "inbox-summary-get": {
@@ -4698,6 +4814,16 @@
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
+  },
+  "drawing-measure": {
+   "kind": "backend",
+   "domain": "documents",
+   "sensitivity": null,
+   "external": false,
+   "agent": "native:drawing_measure",
+   "platform": false,
+   "withheld": null,
+   "reason": "reads and measures a page of a PDF drawing; the chat agent calls its own drawing_measure, bound only where the organization holds the drawing-measure entitlement, and the door has no per-operation flag yet"
   },
   "dxf-measure": {
    "kind": "backend",

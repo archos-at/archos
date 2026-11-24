@@ -6,7 +6,9 @@ import { render, screen } from '@/test-utils'
 import { I18nProvider } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { CONTROL_HEIGHT } from '@/components/ui/control-height'
+import { SectionToolRowScope } from '@/components/shell/section-tool-row'
 import { FilesHeaderControls } from './files-header-controls'
+import { TOOL_ROW_SEARCH_CLASS } from './file-search-bar'
 
 function german(ui: ReactElement): ReturnType<typeof render> {
   return render(
@@ -17,7 +19,7 @@ function german(ui: ReactElement): ReturnType<typeof render> {
 }
 
 function controls(
-  search: { opensSearch?: boolean; onSubmit: () => void; value?: string },
+  search: { placeholder?: string; onSubmit: () => void; value?: string },
   phone = false,
   neighbours: { filter?: (compact: boolean) => ReactElement; upload?: ReactElement } = {}
 ): ReactElement {
@@ -28,24 +30,45 @@ function controls(
       onViewChange={() => {}}
       renderFilter={neighbours.filter ?? (() => null)}
       upload={neighbours.upload}
-      search={{ value: search.value ?? '', onChange: () => {}, onSubmit: search.onSubmit, onClear: () => {}, opensSearch: search.opensSearch }}
+      search={{ value: search.value ?? '', onChange: () => {}, onSubmit: search.onSubmit, onClear: () => {}, placeholder: search.placeholder }}
     />
   )
 }
 
 describe('FilesHeaderControls', () => {
-  it('is one way into a shelf’s search: the field says Enter searches everything, and Enter does', async () => {
+  it('says in the field where it searches, and Enter searches there: no window (KAN-86)', async () => {
     const onSubmit = vi.fn()
-    german(controls({ opensSearch: true, onSubmit, value: 'EP-03' }))
+    german(controls({ placeholder: 'In der Projektablage suchen …', onSubmit, value: 'EP-03' }))
     const field = screen.getByRole('textbox', { name: 'Dateien durchsuchen' })
-    expect(field).toHaveAttribute('placeholder', 'Filtern, Enter sucht alles…')
+    expect(field).toHaveAttribute('placeholder', 'In der Projektablage suchen …')
     expect(screen.queryByRole('button', { name: 'Suche' })).toBeNull()
     await userEvent.type(field, '{Enter}')
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the short placeholder on a phone and where the shelf has no search', () => {
-    const { unmount } = german(controls({ opensSearch: true, onSubmit: () => {} }, true))
+  it('in the tool row, takes the box every Ablage place’s search takes, its tools at the row’s end, and Escape clears it', async () => {
+    const onClear = vi.fn()
+    german(
+      <SectionToolRowScope enabled>
+        <FilesHeaderControls
+          phone={false}
+          view="list"
+          onViewChange={() => {}}
+          renderFilter={() => null}
+          upload={<Button size="sm">Hochladen</Button>}
+          search={{ value: 'EP-03', onChange: () => {}, onSubmit: () => {}, onClear, placeholder: 'In der Projektablage suchen …' }}
+        />
+      </SectionToolRowScope>
+    )
+    const field = screen.getByRole('textbox', { name: 'Dateien durchsuchen' })
+    expect(field.closest('form')).toHaveClass(...TOOL_ROW_SEARCH_CLASS.split(' '))
+    expect(screen.getByRole('button', { name: 'Hochladen' }).parentElement).toHaveClass('ml-auto')
+    await userEvent.type(field, '{Escape}')
+    expect(onClear).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the short placeholder on a phone and where the shelf names no scope', () => {
+    const { unmount } = german(controls({ placeholder: 'In der Projektablage suchen …', onSubmit: () => {} }, true))
     expect(screen.getByRole('textbox', { name: 'Dateien durchsuchen' })).toHaveAttribute('placeholder', 'Suchen…')
     unmount()
     german(controls({ onSubmit: () => {} }))

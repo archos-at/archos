@@ -8,6 +8,7 @@ export interface UseFileUploadOptions {
   projectId?: string
   folderId?: string
   officeShelf?: boolean
+  personalShelf?: string
   asNorm?: boolean
   conversationProjectId?: string | null
   onComplete?: () => void

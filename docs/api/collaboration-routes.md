@@ -74,7 +74,7 @@ Returns `ResourceSharingState` (`lib/sharing/types.ts`):
 
 ### `PATCH /api/sharing/{resourceType}/{resourceId}`
 
-Body `{ visibility }`. Requires `owner`. Rejects a visibility the registry does
+Body `{ visibility, confirmPersonalShelf? }`. Requires `owner`. Rejects a visibility the registry does
 not permit for the type (`400`, `details.allowed`), which includes `private` on a
 document. A no-op save is a no-op: no
 audit event, no events published. Widening a conversation whose answers drew on
@@ -88,8 +88,8 @@ as the new one, so losing sight of a thread is never silent.
 
 Two shapes on one route:
 
-- `{ subjectUserId, role? }` — grant or re-grant (`role` defaults to
-  `collaborator`). Requires `owner`. `201`.
+- `{ subjectUserId, role?, confirmPersonalShelf? }` — grant or re-grant (`role`
+  defaults to `collaborator`). Requires `owner`. `201`.
 - `{ escalate: true }` — a project admin taking ownership of a resource they
   can already read and do not own. Audited distinctly as
   `resource.ownership.escalated`, and each owner the resource had before gets a
@@ -104,6 +104,7 @@ Refusals worth handling in the UI:
 | `400` | `container-access-required` | The invitee is not a member of the container project. Sharing never grants project access (spec SH-5) |
 | `409` | `roster-full` | The roster cap (`SHARE_ROSTER_LIMIT`) is reached |
 | `409` | `restricted-content` | The conversation recorded a folder the invitee may not read now (ADR-0087, ADR-0088). Applies to a grant, to a mention that would invite, and to `escalate`; the share dialog does not offer such a person, and this refusal stays the authority |
+| `409` | `personal-shelf-content` | The conversation read from its creator's own shelf (ADR-0193 rule 5, `conversations.personal_shelf_used_at`). `details.confirmable` is `true` for the creator, who repeats the call with `confirmPersonalShelf: true`; the others see its answers, never the files. Anyone else gets `confirmable: false`. A restricted folder or another project is refused first, since a confirmation cannot cover them. Applies to a grant and to a visibility change |
 | `403` | `folder-read-only` | A **document** in a folder the caller may only read (ADR-0088): sharing it, changing its visibility or a role, removing someone, taking ownership and assigning it each change the document and need „Bearbeiten“ in its folder |
 | `403` | `rate-limited` | Sharing rate limit for this actor |
 
@@ -313,9 +314,13 @@ id, on the bare column the list index covers). `filter` picks the slice
 | `archived` | only archived rows | „Archiviert“ |
 | `pending` | the badge's own set: unread, or a request still open | — |
 
-The Postfach keeps the filter it shows in its page's address (`/app/inbox?filter=unread|all|archived`;
-„Für mich“, the default, is not written; `InboxList`), replaced with `history.replaceState` on a
-change, so a row's link into the review carries it as `back` and closing the review comes back to it.
+The Postfach keeps the tab it shows and the entry it has open in its page's address
+(`/app/inbox?tab=news|archived&item=<id>`; „Wartet auf Sie“, the default, is not written;
+`InboxWorkspace`), replaced with `router.replace` on a change. „Wartet auf Sie“ reads `requests`,
+„Neuigkeiten“ reads `all` and leaves out the open requests, „Archiviert“ reads `archived`.
+An opened entry about a mark reads that mark with `GET /api/documents/{documentId}/annotations/{anchorId}`
+(`useInboxMark`) for its place, its whole text and its replies, answers it with the replies route and marks it done
+with `PATCH` on the same path; the list reads nothing more per row.
 
 `counts` are the numbers beside the first two
 filters. `hasMore` says a further page exists; pass `nextCursor` back as

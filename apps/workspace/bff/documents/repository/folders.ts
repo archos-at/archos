@@ -30,7 +30,7 @@ export async function findFolderPathsInProject(
   return new Map(rows.map((row) => [row.id, row.path]))
 }
 
-async function findFolderPathOnShelf(
+export async function findFolderPathOnShelf(
   shelf: DocumentShelf,
   folderId: string,
   organizationId: string,
@@ -82,4 +82,14 @@ export async function countDocumentsByProject(
       .groupBy(documents.projectId),
   )
   return Object.fromEntries(rows.map((row) => [row.projectId, Number(row.total)]))
+}
+
+export async function folderIsInBin(organizationId: string, folderId: string | null): Promise<boolean> {
+  if (!folderId) return false
+  const [row] = await getDb()
+    .select({ deletedAt: projectFolders.deletedAt })
+    .from(projectFolders)
+    .where(and(eq(projectFolders.id, folderId), eq(projectFolders.organizationId, organizationId)))
+    .limit(1)
+  return Boolean(row?.deletedAt)
 }

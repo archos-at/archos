@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from typing import Any
 
+from opentelemetry import metrics
+
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import compose_project_context
@@ -29,6 +31,11 @@ if TYPE_CHECKING:
     from .agent_job import JobRequest
 
 logger = logging.getLogger(__name__)
+
+ENVELOPE_LESS_RUNS = "jobs.envelope_less_runs"
+_envelope_less_runs = metrics.get_meter(__name__).create_counter(
+    ENVELOPE_LESS_RUNS, description="Runs the worker started without a signed request-context envelope"
+)
 
 _IDENTITY_HEADERS = ("x-project-id", "x-organization-id", "x-user-id")
 _ENVELOPE_HEADERS = {
@@ -208,21 +215,10 @@ def bind_knowledge(request: JobRequest) -> None:
 
 
 def _inject_scope_headers(state: Any, request: JobRequest, fn_config: Any) -> None:
-    from agent.project_context import normalize_project_context
-
-    headers: dict[str, str] = {}
-    if request.collection_scope is not None:
-        headers["x-collection-scope"] = _b64url_encode_text(json.dumps(request.collection_scope))
-    elif getattr(fn_config, "type", None) == "deep_research_agent":
+    if not request.request_envelope and getattr(fn_config, "type", None) == "deep_research_agent":
         _warn_unscoped(request)
-    if request.project_context is not None:
-        normalized = normalize_project_context(request.project_context)
-        if normalized:
-            headers["x-project-context"] = _b64url_encode_text(normalized)
     if request.model_overrides:
-        headers["x-model-overrides"] = _b64url_encode_text(json.dumps(request.model_overrides))
-    if headers:
-        _inject_service_headers(state, headers)
+        _inject_service_headers(state, {"x-model-overrides": _b64url_encode_text(json.dumps(request.model_overrides))})
 
 
 def _inject_service_headers(state: Any, headers: dict[str, str]) -> None:
@@ -232,7 +228,7 @@ def _inject_service_headers(state: Any, headers: dict[str, str]) -> None:
 def _warn_unscoped(request: JobRequest) -> None:
     identity = request.identity
     logger.warning(
-        "Job %s: async deep-research job has no collection scope; knowledge "
+        "Job %s: async deep-research job has no signed envelope, so no collection scope; knowledge "
         "retrieval will search only the base/OIB and s_<conversation> session "
         "collections for this job — project collections will be invisible "
         "(authenticated=%s, project_scoped=%s)",
@@ -243,7 +239,14 @@ def _warn_unscoped(request: JobRequest) -> None:
 
 
 async def _inject_identity_headers(state: Any, request: JobRequest) -> dict | None:
+    from agent.project_context import bind_worker_identity
+
     identity = request.identity
+    bind_worker_identity(
+        organization_id=identity.get("organization_id"),
+        user_id=identity.get("user_id"),
+        project_id=identity.get("project_id"),
+    )
     identity_headers = {
         name: value
         for name, value in zip(_IDENTITY_HEADERS, _identity_values(identity), strict=True)
@@ -254,6 +257,10 @@ async def _inject_identity_headers(state: Any, request: JobRequest) -> dict | No
     envelope_headers = await envelope_headers_for_run(
         request.request_envelope, run_id=request.run_id, job_id=request.job_id, identity=identity
     )
+    if not envelope_headers:
+        _envelope_less_runs.add(
+            1, {"agent_type": request.registered_agent_type, "renewal": bool(request.request_envelope)}
+        )
     if envelope_headers:
         _inject_service_headers(
             state, {_ENVELOPE_HEADERS.get(name, name): value for name, value in envelope_headers.items()}

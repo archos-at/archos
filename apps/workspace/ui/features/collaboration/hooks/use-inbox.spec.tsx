@@ -32,6 +32,8 @@ function client(pages: Record<string, InboxListResponse>): InboxClient {
     markUnread: vi.fn(ok),
     archive: vi.fn(ok),
     unarchive: vi.fn(ok),
+    archiveAll: vi.fn(async () => ({ affected: 2, pending: 0, archivedAt: '2026-11-24T10:00:00.000Z' })),
+    unarchiveAll: vi.fn(ok),
   }
 }
 
@@ -131,5 +133,33 @@ describe('useInboxList', () => {
     expect(inbox.markUnread).toHaveBeenCalledWith(['a'])
     expect(inbox.unarchive).toHaveBeenCalledWith('a')
     expect(inbox.archive).toHaveBeenCalledWith('a')
+  })
+
+  it('empties the list at once and hands back what undoes it', async () => {
+    const inbox = client({ first: page(['a', 'b'], null) })
+    const { result } = renderHook(() => useInboxList(true, 'requests', inbox))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    vi.mocked(inbox.list).mockResolvedValue(page([], null))
+    let archivedAt: string | null = null
+    await act(async () => {
+      archivedAt = await result.current.archiveAll()
+    })
+    expect(archivedAt).toBe('2026-11-24T10:00:00.000Z')
+    expect(result.current.items).toEqual([])
+    await act(() => result.current.unarchiveAll('2026-11-24T10:00:00.000Z'))
+    expect(inbox.unarchiveAll).toHaveBeenCalledWith('2026-11-24T10:00:00.000Z')
+  })
+
+  it('puts the list back when emptying it is refused', async () => {
+    const inbox = client({ first: page(['a'], null) })
+    vi.mocked(inbox.archiveAll).mockRejectedValueOnce(new Error('refused'))
+    const { result } = renderHook(() => useInboxList(true, 'requests', inbox))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    let archivedAt: string | null = 'unset'
+    await act(async () => {
+      archivedAt = await result.current.archiveAll()
+    })
+    expect(archivedAt).toBeNull()
+    expect(result.current.items.map((item) => item.id)).toEqual(['a'])
   })
 })

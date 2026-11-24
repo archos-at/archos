@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ChatThinking } from '@/features/chat'
 import { AnswerExcerptAsk } from '@/features/chat/answer-excerpt'
 import { FollowUpsRail } from '@/features/chat/components/FollowUpsRail'
@@ -9,13 +10,7 @@ import { AwaitingBanner } from '@/features/collaboration/components/AwaitingBann
 import { EngagementNotice } from '@/features/collaboration/components/EngagementNotice'
 import { HandbackOffer } from '@/features/collaboration/components/HandbackOffer'
 import { SpectatedTurn } from '@/features/collaboration/components/SpectatedTurn'
-import {
-  AnimatePresence,
-  motion,
-  motionInstant,
-  motionSheetEnter,
-  motionSheetExit,
-} from '@/components/motion'
+import { AnimatePresence, motion, motionInstant, motionSheetExit } from '@/components/motion'
 import { TOOLBAR_CLEAR_PADDING, TOOLBAR_CLEAR_SCROLL_MARGIN } from '../../lib/toolbar-clearance'
 import { MessageRenderer } from '../chat-area/message-renderer'
 import {
@@ -24,12 +19,18 @@ import {
   TypingIndicator,
   WelcomeState,
 } from '../chat-area/chat-area-states'
-import { turnEnding, NO_MESSAGES } from '../chat-area/chat-area-helpers'
+import { turnEnding, NO_MESSAGES, welcomeEntrance } from '../chat-area/chat-area-helpers'
 import type { ChatAreaController } from './use-chat-area-controller'
 
 export function ChatMessageList({ controller }: { controller: ChatAreaController }) {
+  const [typingAtMount, setTypingAtMount] = useState(controller.showTypingPlaceholder)
+  if (typingAtMount && !controller.showTypingPlaceholder) setTypingAtMount(false)
   const handback = controller.handback
   const spectatedTurn = controller.spectatedTurn
+  const welcome = welcomeEntrance({
+    readerActed: controller.readerActed.current,
+    reducedMotion: controller.prefersReducedMotion,
+  })
 
   return (
     <>
@@ -57,19 +58,14 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
               <motion.div
                 key="welcome"
                 className="flex flex-1 flex-col"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  transition: controller.prefersReducedMotion ? motionInstant : motionSheetEnter,
-                }}
+                initial={welcome.initial}
+                animate={{ opacity: 1, y: 0, transition: welcome.transition }}
                 exit={{ opacity: 0, y: 16 }}
                 transition={controller.prefersReducedMotion ? motionInstant : motionSheetExit}
               >
                 <WelcomeState
                   isAuthenticated={controller.isAuthenticated}
                   onSignIn={controller.onSignIn}
-                  inProject={Boolean(controller.activeProjectId)}
                 />
               </motion.div>
             )}
@@ -77,7 +73,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
           {!controller.isEmpty && (
             <motion.div
               initial={controller.listArrivesFromSkeleton ? { opacity: 0 } : false}
-              animate={{ opacity: 1, transition: controller.rowEnter }}
+              animate={{ opacity: 1, transition: controller.arrivalFade }}
               className={cn(
                 THREAD_COLUMN,
                 THREAD_GUTTER,
@@ -383,7 +379,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                 </AnimatePresence>
 
                 {/* Latency-gap typing indicator (before the first token arrives) */}
-                {controller.showTypingPlaceholder && <TypingIndicator />}
+                {controller.showTypingPlaceholder && <TypingIndicator arrives={!typingAtMount} />}
 
                 {/* The agent is working for SOMEONE in this thread (spec CC-13). Without
                     this an observer sees a thread where nothing appears to be happening

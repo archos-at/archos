@@ -4,8 +4,10 @@ import type { JSX } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { FIELD_FOCUS_RING } from '@/components/ui/focus-ring'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
+import { cn } from '@/lib/utils'
 
 export const MAX_TOPICS = 6
 const MAX_TOPIC_CHARS = 40
@@ -114,7 +116,7 @@ export function DocumentTopicsEditor({
               disabled={saving}
               placeholder={t('preview.reading.addTopic')}
               aria-label={t('preview.reading.addTopic')}
-              className="border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-ring pointer-coarse:h-11 pointer-coarse:w-40 pointer-coarse:pl-8 pointer-coarse:text-base h-6 w-32 rounded-control border border-dashed bg-transparent pl-6 pr-1.5 text-xs focus-visible:border-solid focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
+              className={cn('border-input text-foreground placeholder:text-muted-foreground pointer-coarse:h-11 pointer-coarse:w-40 pointer-coarse:pl-8 pointer-coarse:text-base h-6 w-32 rounded-control border border-dashed bg-transparent pl-6 pr-1.5 text-xs focus-visible:border-solid disabled:opacity-50', FIELD_FOCUS_RING)}
             />
           </span>
         )}

@@ -197,7 +197,7 @@ function BottomSheet({
           type="button"
           variant="ghost"
           size="icon"
-          className="mr-1 mt-1 shrink-0 rounded-md"
+          className="mr-1 mt-1 shrink-0 rounded-[10px]"
           onClick={onClose}
           aria-label={closeLabel}
         >

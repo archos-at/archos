@@ -9,7 +9,7 @@ import {
   useRef,
   useEffect,
 } from 'react'
-import { MessageSquare, Plus, Search, Trash2 } from 'lucide-react'
+import { FlaskConical, MessageSquare, Plus, Search, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CountPill } from '@/components/ui/count-pill'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -23,18 +23,15 @@ import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useLocale, useTranslations } from '@/i18n'
 import { researchCopy } from '@/i18n/namespaces/research'
-import type { ResearchRun } from '@/adapters/api/research-runs-client'
 import { useLayoutStore } from '../store'
 import { useChatStore } from '@/features/chat/store'
 import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
 import { DeleteAllSessionsConfirmationModal } from './DeleteAllSessionsConfirmationModal'
-import { StopResearchConfirmationModal } from './StopResearchConfirmationModal'
-import { cancelJob } from '@/adapters/api/deep-research-client'
 import { useDeepResearchRuns } from '../hooks/use-deep-research-runs'
 import { groupSessionsByDate } from '../lib/group-sessions-by-date'
+import { hasResearchMark, withRunMarks } from '../lib/run-marks'
 import { HISTORY_SCOPES, SCOPE_LABEL_KEY, isHistoryScope, type HistoryScope } from '../lib/history-scope'
 import type { Session } from '../types'
-import { DeepResearchSection } from './sessions-panel/deep-research-section'
 import { SessionItem } from './sessions-panel/session-item'
 
 interface SessionsPanelProps {
@@ -42,10 +39,11 @@ interface SessionsPanelProps {
   selectedSessionId?: string
   onSelectSession?: (sessionId: string) => void
   onNewSession?: () => void
-  onDeleteSession?: (sessionId: string) => void
-  onDeleteAllSessions?: () => void
+  onDeleteSession?: (sessionId: string) => void | Promise<void>
+  onDeleteAllSessions?: () => void | Promise<void>
   onRenameSession?: (sessionId: string, newTitle: string) => void
   projectId?: string
+  side?: 'personal' | 'project'
 }
 
 export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel({
@@ -57,6 +55,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   onDeleteAllSessions,
   onRenameSession,
   projectId,
+  side = projectId ? 'project' : 'personal',
 }) {
   const t = useTranslations(researchCopy)
   const { locale } = useLocale()
@@ -71,7 +70,6 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const [pendingStop, setPendingStop] = useState<ResearchRun | null>(null)
 
   useEffect(() => {
     if (!isSessionsPanelOpen) {
@@ -80,7 +78,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     }
   }, [isSessionsPanelOpen])
 
-  const { deepResearchRuns, deepResearchError, fetchDeepResearchRuns } = useDeepResearchRuns({
+  const { deepResearch } = useDeepResearchRuns({
     isSessionsPanelOpen,
     projectId,
   })
@@ -90,19 +88,18 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     setDeleteModalOpen(true)
   }, [])
 
-  const handleConfirmDelete = useCallback(() => {
-    if (sessionToDelete) {
-      onDeleteSession?.(sessionToDelete)
-      setSessionToDelete(null)
-    }
+  const handleConfirmDelete = useCallback(async () => {
+    if (!sessionToDelete) return
+    await onDeleteSession?.(sessionToDelete)
+    setSessionToDelete(null)
   }, [sessionToDelete, onDeleteSession])
 
   const handleDeleteAllClick = useCallback(() => {
     setDeleteAllModalOpen(true)
   }, [])
 
-  const handleConfirmDeleteAll = useCallback(() => {
-    onDeleteAllSessions?.()
+  const handleConfirmDeleteAll = useCallback(async () => {
+    await onDeleteAllSessions?.()
   }, [onDeleteAllSessions])
 
   const handleClose = useCallback(() => {
@@ -127,28 +124,29 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     searchInputRef.current?.focus()
   }, [])
 
-  const handleConfirmStop = useCallback(async () => {
-    if (!pendingStop) return
-    try {
-      await cancelJob(pendingStop.job_id, undefined, { projectId })
-    } catch (err) {
-      console.warn('[SessionsPanel] Failed to stop run:', pendingStop.job_id, err)
-    }
-    fetchDeepResearchRuns()
-  }, [pendingStop, projectId, fetchDeepResearchRuns])
-
   const untitledLabel = t('sessionsPanel.untitledSession')
   const trimmedQuery = searchQuery.trim()
   const isSearching = trimmedQuery !== ''
 
+  const markedSessions = useMemo(
+    () => withRunMarks(sessions, deepResearch.kind === 'loaded' ? deepResearch.runs : []),
+    [sessions, deepResearch]
+  )
+  const researchCount = useMemo(() => markedSessions.filter(hasResearchMark).length, [markedSessions])
+
+  const deepResearchEnabled = Boolean(projectId) && deepResearch.kind !== 'unavailable'
+  const scope: HistoryScope = deepResearchEnabled ? scopeFilter : 'all'
+
   const filteredSessions = useMemo(() => {
-    if (!trimmedQuery) return sessions
     const query = trimmedQuery.toLowerCase()
-    return sessions.filter((s) => {
+    return markedSessions.filter((s) => {
+      if (scope === 'research' && !hasResearchMark(s)) return false
+      if (scope === 'chats' && hasResearchMark(s)) return false
+      if (!query) return true
       const title = s.title.trim() || untitledLabel
       return title.toLowerCase().includes(query)
     })
-  }, [sessions, trimmedQuery, untitledLabel])
+  }, [markedSessions, scope, trimmedQuery, untitledLabel])
 
   const todayLabel = t('sessionsPanel.today')
   const groupedSessions = useMemo(
@@ -164,53 +162,9 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     [filteredSessions, t, todayLabel, locale]
   )
   const hasSessions = sessions.length > 0
+  const deleteAllLabel =
+    side === 'personal' ? t('sessionsPanel.deleteAllPersonal') : t('sessionsPanel.deleteAllProject')
   const isEmptyState = filteredSessions.length === 0
-
-  const sessionTitleById = useMemo(() => {
-    const map: Record<string, string> = {}
-    for (const s of sessions) {
-      const title = s.title.trim()
-      if (title) map[s.id] = title
-    }
-    return map
-  }, [sessions])
-
-  const runLabel = useCallback(
-    (run: ResearchRun): string => {
-      const title = run.conversation_id ? sessionTitleById[run.conversation_id] : undefined
-      return title ?? t('runsList.untitledRun')
-    },
-    [sessionTitleById, t]
-  )
-
-  const runHref = useCallback(
-    (run: ResearchRun): string | null =>
-      run.conversation_id
-        ? `/app/projects/${projectId}/chat?session=${encodeURIComponent(run.conversation_id)}`
-        : null,
-    [projectId]
-  )
-
-  const filteredRuns = useMemo(() => {
-    const runs = deepResearchRuns ?? []
-    if (!trimmedQuery) return runs
-    const query = trimmedQuery.toLowerCase()
-    return runs.filter((run) => runLabel(run).toLowerCase().includes(query))
-  }, [deepResearchRuns, trimmedQuery, runLabel])
-
-  const deepResearchEnabled = Boolean(projectId)
-  const researchScopeSelected = deepResearchEnabled && scopeFilter === 'research'
-  const showChats = !deepResearchEnabled || scopeFilter !== 'research'
-  const isResearchLoading = deepResearchRuns === null && !deepResearchError
-
-  const showResearchSection =
-    deepResearchEnabled &&
-    scopeFilter !== 'chats' &&
-    (researchScopeSelected || isResearchLoading || deepResearchError || filteredRuns.length > 0)
-
-  const handleStopRun = useCallback((run: ResearchRun) => {
-    setPendingStop(run)
-  }, [])
 
   return (
     <PageSheet
@@ -295,9 +249,9 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                   {t(SCOPE_LABEL_KEY[scope])}
                   {scope === 'research' && (
                     <CountPill
-                      className={cn((deepResearchRuns?.length ?? 0) === 0 && 'invisible')}
-                      aria-hidden={(deepResearchRuns?.length ?? 0) === 0 || undefined}
-                      count={deepResearchRuns?.length ?? 0}
+                      className={cn(researchCount === 0 && 'invisible')}
+                      aria-hidden={researchCount === 0 || undefined}
+                      count={researchCount}
                     />
                   )}
                 </ToggleGroupItem>
@@ -313,38 +267,19 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
           stagger, deliberately: the user opened this to reach a specific row,
           and a cascade delays precisely the row they are reaching for — the
           sheet's own rise is the arrival. */}
-      <div className="scroll-fade-bottom flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-4 pb-6 md:px-8">
+      <div className="scroll-fade-bottom flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain scroll-pt-8 px-4 pb-6 md:px-8">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col">
-          {/* Deep Research (FB-10) — server-truth runs for this project, always
-              open, with a count. Includes headless/CLI jobs that have no local
-              session. Quiet under "All" when there is nothing to show; the
-              whole list under the Deep Research scope. */}
-          {showResearchSection && (
-            <DeepResearchSection
-              filteredRuns={filteredRuns}
-              isResearchLoading={isResearchLoading}
-              deepResearchError={deepResearchError}
-              isSearching={isSearching}
-              trimmedQuery={trimmedQuery}
-              runLabel={runLabel}
-              runHref={runHref}
-              handleClearSearch={handleClearSearch}
-              fetchDeepResearchRuns={fetchDeepResearchRuns}
-              handleClose={handleClose}
-              handleStopRun={handleStopRun}
-            />
-          )}
-
-          {showChats &&
-            groupedSessions.map(([dateLabel, dateSessions]) => (
+          {groupedSessions.map(([dateLabel, dateSessions]) => (
               <div key={dateLabel} className="mb-4 flex flex-col gap-1.5 last:mb-0">
                 {/* Sticky so the day you are scrolling through stays named. The
                     scroller is the offset parent, hence `top-0`; `-mx-2 px-2`
                     widens the opaque backing past the card's shadow so rows pass
                     UNDER it rather than beside it. */}
-                <SectionLabel className="bg-background sticky top-0 z-10 -mx-2 px-2 pb-1.5 pt-1">
-                  {dateLabel}
-                </SectionLabel>
+                <div className="sticky-head sticky top-0 z-10 -mx-2">
+                  <SectionLabel className="fade-under-when-stuck bg-background block px-2 pb-1.5 pt-1">
+                    {dateLabel}
+                  </SectionLabel>
+                </div>
                 <ItemList as="ul" className="border-0 bg-card shadow-xs">
                   {/*Deleting a row removes it, so the list needs an exit —
                       which CSS cannot give it — and `layout` so the rows below
@@ -367,7 +302,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
               </div>
             ))}
 
-          {showChats && isEmptyState && (
+          {isEmptyState && (
             <div className="flex flex-1 flex-col items-center justify-center py-8">
               {isSearching ? (
                 <EmptyState
@@ -380,6 +315,13 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
                       {t('sessionsPanel.clearSearch')}
                     </Button>
                   }
+                />
+              ) : scope === 'research' ? (
+                <EmptyState
+                  variant="bare"
+                  icon={FlaskConical}
+                  title={t('sessionsPanel.noRuns')}
+                  description={t('sessionsPanel.noRunsDescription')}
                 />
               ) : (
                 <EmptyState
@@ -409,12 +351,8 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
               className="text-destructive hover:text-destructive -ml-2 h-8 w-fit justify-start px-2 pointer-coarse:h-11"
               onClick={handleDeleteAllClick}
               disabled={anySessionBusy}
-              aria-label={
-                anySessionBusy ? t('sessionsPanel.deleteAllDisabled') : t('sessionsPanel.deleteAll')
-              }
-              title={
-                anySessionBusy ? t('sessionsPanel.cannotDeleteBusy') : t('sessionsPanel.deleteAll')
-              }
+              aria-label={deleteAllLabel}
+              title={anySessionBusy ? t('sessionsPanel.cannotDeleteBusy') : deleteAllLabel}
             >
               <Trash2 className="size-4" aria-hidden="true" />
               <span>{t('sessionsPanel.deleteAllButton')}</span>
@@ -434,18 +372,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
         open={deleteAllModalOpen}
         onOpenChange={setDeleteAllModalOpen}
         onConfirm={handleConfirmDeleteAll}
-        count={sessions.length}
-      />
-
-      {/* Stopping cancels server-side work that cannot be resumed — it
-          confirms through the shared ConfirmDialog rather than firing off
-          its icon. */}
-      <StopResearchConfirmationModal
-        open={pendingStop !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingStop(null)
-        }}
-        onConfirm={() => handleConfirmStop()}
+        side={side}
       />
     </PageSheet>
   )

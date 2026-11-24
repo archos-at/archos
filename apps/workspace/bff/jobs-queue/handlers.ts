@@ -24,10 +24,12 @@ import { runInboundMailReceive } from '@/lib/inbound-mail/receive-job'
 import { runInboundMailSenderFile } from '@/lib/inbound-mail/sender-file-job'
 import { runInboundMailSuggest } from '@/lib/inbound-mail/suggest-job'
 import { runSearchFacetsSyncSlice } from '@/lib/search/shelf-projection'
+import { runEraseConversationsSlice } from '@/lib/conversations/conversation-erasure'
 import { isLastAttempt } from './attempts'
 import {
   annotationDueRemindersPayloadSchema,
   bimExtractPayloadSchema,
+  eraseConversationsPayloadSchema,
   fileResearchReportPayloadSchema,
   filingReviewPayloadSchema,
   inboxPushPayloadSchema,
@@ -157,4 +159,5 @@ export const JOB_HANDLERS: Record<BffJobKind, JobHandler> = {
   search_facets_sync: systemSliceHandler(searchFacetsSyncPayloadSchema, runSearchFacetsSyncSlice),
   platform_text_index: systemHandler(platformTextIndexPayloadSchema, runPlatformTextIndex),
   platform_text_deindex: systemHandler(platformTextDeindexPayloadSchema, runPlatformTextDeindex),
+  erase_conversations: handler(eraseConversationsPayloadSchema, runEraseConversationsSlice),
 }

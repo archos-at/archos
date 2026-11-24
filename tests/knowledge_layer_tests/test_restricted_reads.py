@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from agent_testing.turn_decision import signed_decision
 from knowledge_layer.browse import ListFilesConfig
 from knowledge_layer.browse import list_files
 from knowledge_layer.ingest import vision_credentials
@@ -16,6 +17,8 @@ from knowledge_layer.register import KnowledgeRetrievalConfig
 from langchain_core.messages import ToolMessage
 
 from agent.common.source_kinds import Shelf
+from agent.common.turn_decision import bind_turn_decision
+from agent.common.turn_decision import reset_turn_decision
 from agent.knowledge import restricted_use as ru
 from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
@@ -64,13 +67,17 @@ class _Store:
 
 @pytest.fixture
 def scope(monkeypatch):
-    monkeypatch.setattr(
-        "agent.knowledge.scoping._parse_scope_payload",
-        lambda _s: [
-            ScopedCollection("oib_knowledge", Shelf.BASE),
-            ScopedCollection(PROJ, Shelf.PROJECT),
-            ScopedCollection(R, Shelf.PROJECT),
-        ],
+    token = bind_turn_decision(
+        signed_decision(
+            may={
+                "shelves": [
+                    {"collection": "oib_knowledge", "shelf": Shelf.BASE.value},
+                    {"collection": PROJ, "shelf": Shelf.PROJECT.value},
+                    {"collection": R, "shelf": Shelf.PROJECT.value},
+                ],
+                "restrictedCollections": [R],
+            }
+        )
     )
     monkeypatch.setattr("agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
@@ -90,6 +97,7 @@ def scope(monkeypatch):
     set_turn_documents(None)
     yield store
     set_turn_documents(None)
+    reset_turn_decision(token)
 
 
 @pytest.fixture
@@ -293,11 +301,10 @@ def image_tool(monkeypatch):
     return view
 
 
-def _scope_of(monkeypatch, *names: str) -> None:
-    monkeypatch.setattr(
-        "agent.knowledge.scoping._parse_scope_payload",
-        lambda _s: [ScopedCollection(name, Shelf.PROJECT) for name in names],
-    )
+def _scope_of(_monkeypatch, *names: str) -> None:
+    shelves = [{"collection": name, "shelf": Shelf.PROJECT.value} for name in names]
+    restricted = [name for name in names if name == R]
+    bind_turn_decision(signed_decision(may={"shelves": shelves, "restrictedCollections": restricted}))
 
 
 async def test_view_image_refuses_a_restricted_collection_outside_the_turn_before_any_lookup(monkeypatch, image_tool):
@@ -353,28 +360,18 @@ async def test_view_image_reaches_an_open_collection_in_scope_without_admitting_
 
 
 async def test_the_lookup_echoes_the_turns_signed_envelope(monkeypatch):
-    import httpx
     from knowledge_layer.view_image import _resolve_storage_location
+
+    from agent.common import bff_http
 
     seen: list[dict[str, str]] = []
 
-    class _Client:
-        def __init__(self, **_kwargs):
-            pass
+    def get_json(path, *, timeout, query=None, headers=None):
+        seen.append(dict(headers or {}))
+        return {"storageKey": "k"}
 
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return False
-
-        async def get(self, url, *, params, headers):
-            seen.append(headers)
-            return SimpleNamespace(status_code=200, json=lambda: {"storageKey": "k"})
-
-    monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://frontend:3000")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
-    monkeypatch.setattr(httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(bff_http, "get_json", get_json)
     monkeypatch.setattr("agent.project_context.get_request_envelope_from_context", lambda: ("ZW52ZWxvcGU", "c2ln"))
 
     assert await _resolve_storage_location(PROJ, "plan.png") == ("k", None)
@@ -387,28 +384,14 @@ async def test_the_lookup_echoes_the_turns_signed_envelope(monkeypatch):
 
 
 async def test_the_lookup_carries_the_revision_the_bff_names(monkeypatch):
-    import httpx
     from knowledge_layer.view_image import _resolve_storage_location
     from knowledge_layer.view_image import location_version
 
+    from agent.common import bff_http
+
     body = {"storageKey": "k", "versionId": "v-7"}
-
-    class _Client:
-        def __init__(self, **_kwargs):
-            pass
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return False
-
-        async def get(self, url, *, params, headers):
-            return SimpleNamespace(status_code=200, json=lambda: body)
-
-    monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://frontend:3000")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
-    monkeypatch.setattr(httpx, "AsyncClient", _Client)
+    monkeypatch.setattr(bff_http, "get_json", lambda path, **_kw: dict(body))
 
     location = await _resolve_storage_location(PROJ, "plan.png")
     assert location == ("k", None) and location_version(location) == "v-7"

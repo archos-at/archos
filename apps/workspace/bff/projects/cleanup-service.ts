@@ -208,7 +208,7 @@ async function clearOutAllOrNothing(
       }
     }
     for (const holder of done.holders) {
-      await moveFolderToBin(session, { projectId, folderId: holder.id }, request, { onlyDocuments: holder.documentIds })
+      await moveFolderToBin(session, { shelf: projectShelf(projectId), folderId: holder.id }, request, { onlyDocuments: holder.documentIds })
       done.binned.push(holder.id)
     }
   } catch (error) {
@@ -240,7 +240,7 @@ async function undoCleanOut(session: AuthorizedSession, projectId: string, done:
     }
   }
   for (const folderId of [...done.binned].reverse()) {
-    await attempt(`restore ${folderId}`, () => restoreFolderFromBin(session, { projectId, folderId }, request))
+    await attempt(`restore ${folderId}`, () => restoreFolderFromBin(session, { shelf: projectShelf(projectId), folderId }, request))
   }
   for (const { documentId, sourceFolderId } of [...done.moved].reverse()) {
     await attempt(`move ${documentId} back`, async () => {
@@ -250,7 +250,7 @@ async function undoCleanOut(session: AuthorizedSession, projectId: string, done:
   }
   for (const holder of [...done.holders].reverse()) {
     await attempt(`remove ${holder.id}`, async () => {
-      if (!(await deleteEmptyCreatedFolder(session.organizationId, projectId, holder.id))) throw new Error('not empty')
+      if (!(await deleteEmptyCreatedFolder(session.organizationId, projectShelf(projectId), holder.id))) throw new Error('not empty')
       publishShelfChanged(session.organizationId, projectShelf(projectId), { folders: true })
     })
   }

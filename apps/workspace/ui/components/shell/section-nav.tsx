@@ -30,6 +30,7 @@ export interface SectionNavProps {
   railTopClassName?: string
   pathname?: string
   track?: boolean
+  words?: boolean
   compactOnPhone?: boolean
   'data-testid'?: string
 }
@@ -49,6 +50,7 @@ export function SectionNav({
   railTopClassName = 'lg:top-24',
   pathname: pathnameOverride,
   track = false,
+  words = false,
   compactOnPhone = false,
   'data-testid': testId,
 }: SectionNavProps): JSX.Element {
@@ -65,6 +67,7 @@ export function SectionNav({
         isActive={(href) => isSectionActive(pathname, href, rootHref)}
         className={cn(orientation === 'rail' && 'lg:hidden')}
         track={track}
+        words={words}
         compactOnPhone={compactOnPhone}
       />
 
@@ -94,6 +97,7 @@ export function SectionStrip({
   isActive,
   className,
   track = false,
+  words = false,
   compactOnPhone = false,
 }: {
   label: string
@@ -102,6 +106,7 @@ export function SectionStrip({
   isActive: (href: string) => boolean
   className?: string
   track?: boolean
+  words?: boolean
   compactOnPhone?: boolean
 }): JSX.Element {
   const pathname = usePathname()
@@ -121,14 +126,14 @@ export function SectionStrip({
     <div ref={stripRef} className={className}>
       {/* A fade, no chevron: on a phone the chevron sat on the third tab's glyph; the cut tab says the row scrolls (iOS). */}
       <HorizontalScroll aria-label={label} className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <ul className={cn('flex', track ? 'mb-2 w-fit rounded-control bg-desk p-0.5' : 'gap-1 pb-2')}>
+        <ul className={cn('flex', words ? 'gap-6' : track ? 'mb-2 w-fit rounded-[6px] bg-desk p-0.5' : 'gap-1 pb-2')}>
           {items.map((item) => (
             <li key={item.key} className="shrink-0">
               <SectionNavLink
                 item={item}
                 active={isActive(item.href)}
                 pillId={pillId}
-                variant={track ? 'track' : 'strip'}
+                variant={words ? 'words' : track ? 'track' : 'strip'}
                 compactOnPhone={compactOnPhone}
               />
             </li>
@@ -150,9 +155,10 @@ function SectionNavLink({
   active: boolean
   pillId: string
   compactOnPhone?: boolean
-  variant: 'strip' | 'track' | 'rail'
+  variant: 'strip' | 'track' | 'rail' | 'words'
 }): JSX.Element {
   const Icon = item.icon
+  if (variant === 'words') return <SectionNavWord item={item} active={active} compactOnPhone={compactOnPhone} />
   const onTrack = variant === 'track'
   return (
     <Link
@@ -202,6 +208,38 @@ function SectionNavLink({
           aria-label={item.countLabel}
           title={item.countLabel}
           className={cn(active !== onTrack && 'bg-background')}
+          {...(item.countMore ? { children: <span aria-hidden>{`${item.count}+`}</span> } : { count: item.count })}
+        />
+      )}
+    </Link>
+  )
+}
+
+function SectionNavWord({ item, active, compactOnPhone }: { item: SectionNavItem; active: boolean; compactOnPhone: boolean }): JSX.Element {
+  const Icon = item.icon
+  return (
+    <Link
+      href={item.href}
+      replace
+      aria-current={active ? 'page' : undefined}
+      title={compactOnPhone && !active ? item.label : undefined}
+      className={cn(
+        'duration-quick focus-visible:ring-ring/60 inline-flex h-10 items-center gap-2 border-b-2 text-sm transition-colors ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11',
+        active ? 'border-foreground text-foreground font-medium' : 'text-muted-foreground hover:text-foreground border-transparent'
+      )}
+    >
+      <Icon className="size-4 shrink-0" aria-hidden />
+      <span className={cn(compactOnPhone && !active && 'phone:sr-only')}>{item.label}</span>
+      {item.count === null && (
+        <CountPill tone="muted" aria-hidden>
+          <span className="invisible before:content-['8']" />
+        </CountPill>
+      )}
+      {item.count != null && item.count > 0 && (
+        <CountPill
+          tone="muted"
+          aria-label={item.countLabel}
+          title={item.countLabel}
           {...(item.countMore ? { children: <span aria-hidden>{`${item.count}+`}</span> } : { count: item.count })}
         />
       )}

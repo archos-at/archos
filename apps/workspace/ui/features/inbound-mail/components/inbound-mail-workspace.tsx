@@ -49,9 +49,11 @@ import { InboundMailAddressBlock, InboundMailAddressDialog, InboundMailStartHint
 import { InboundMailHeaderActions } from './inbound-mail-header-actions'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
+import { mailToast } from './inbound-mail-atoms'
 import { MailStepper } from './mail-stepper'
 import { SelectionBar, type BulkBlock } from './selection-bar'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
+import { FileSearchField, TOOL_ROW_SEARCH_CLASS } from '@/features/documents'
 
 export interface InboundMailWorkspaceProps {
   projectId: string
@@ -60,6 +62,7 @@ export interface InboundMailWorkspaceProps {
   folders: readonly FolderOption[]
   status: InboundMailListStatus
   outcome: InboundMailOutcome | null
+  initialQuery?: string
   initialList: InboundMailListView | null
   mailId: string | null
   initialMail: InboundMailView | null
@@ -84,6 +87,7 @@ export function InboundMailWorkspace({
   folders,
   status,
   outcome,
+  initialQuery = '',
   initialList,
   mailId,
   initialMail,
@@ -103,7 +107,8 @@ export function InboundMailWorkspace({
   const backInHeader = useSectionBackSlot()
   const router = useRouter()
   const paths = useMemo(() => pathsProp ?? inboundMailPaths(projectId), [pathsProp, projectId])
-  const filter = useMemo(() => ({ status, outcome }), [status, outcome])
+  const [query, setQueryState] = useState(initialQuery)
+  const filter = useMemo(() => ({ status, outcome, query }), [status, outcome, query])
   const [list, setList] = useState<ListState>(
     listLoading ? { kind: 'loading' } : initialList ? { kind: 'ready', ...initialList } : initialListFailed ? { kind: 'error' } : { kind: 'loading' }
   )
@@ -111,7 +116,6 @@ export function InboundMailWorkspace({
   const [checked, setChecked] = useState<Set<string>>(() => new Set(initialChecked))
   const [focusedId, setFocusedId] = useState<string | null>(mailId)
   const [quietToggled, setQuietToggled] = useState<boolean | null>(null)
-  const [query, setQuery] = useState('')
   const [focusTarget, setFocusTarget] = useState<string | null>(null)
   const [nowMs, setNowMs] = useState(() => now ?? Date.now())
   const lastReload = useRef(initialList ? Date.now() : 0)
@@ -126,6 +130,15 @@ export function InboundMailWorkspace({
   const waiting = useInboundMailWaiting(projectId, true, client)
 
   const copy = useDraftCopy()
+
+  const setQuery = useCallback(
+    (next: string) => {
+      setQueryState(next)
+      const at = { status, outcome, query: next }
+      window.history.replaceState(null, '', mailId ? paths.mail(mailId, at) : paths.list(at))
+    },
+    [status, outcome, mailId, paths]
+  )
 
   useEffect(() => {
     if (initialList && status === 'waiting' && initialList.nextCursor === null) {
@@ -320,6 +333,20 @@ export function InboundMailWorkspace({
   const keyState = useRef({ rows, mailId })
   keyState.current = { rows, mailId }
 
+  const advance = useCallback(
+    (decided: string, before: readonly InboundMailSummaryView[], after: readonly InboundMailSummaryView[]): void => {
+      const next = nextOpenAfter(decided, before, after)
+      if (next) {
+        setFocusedId(next)
+        if (!phone) setFocusTarget(next)
+        router.replace(paths.mail(next, filter))
+      } else {
+        router.replace(paths.list(filter))
+      }
+    },
+    [phone, router, paths, filter]
+  )
+
   const changed = useCallback(async (): Promise<void> => {
     const before = keyState.current
     const refreshed = refreshInboundMailWaiting(projectId, client)
@@ -330,19 +357,20 @@ export function InboundMailWorkspace({
     const nextSections = sectionsOf(page.items, page.threadGroups)
     const after = visibleMails(nextSections, quietToggled ?? !hasLoudMail(nextSections))
     if (!wasDecided(open, before.rows, page.items)) return
-    const next = nextOpenAfter(open, before.rows, after)
-    if (next) {
-      setFocusedId(next)
-      if (!phone) setFocusTarget(next)
-      router.replace(paths.mail(next, filter))
-    } else {
-      router.replace(paths.list(filter))
-    }
-  }, [projectId, client, reload, status, sectionsOf, quietToggled, phone, router, paths, filter])
+    advance(open, before.rows, after)
+  }, [projectId, client, reload, status, sectionsOf, quietToggled, advance])
 
   useInboxLive({ projectId, enabled: status === 'waiting', stamp: waiting.stamp, lastRead: lastReload, reload })
 
   const reportLanding = useLandingReport({ client, projectId, pollMs, onSettled: () => void changed() })
+
+  const filedOpen = (sent: InboundMailView, decision: InboundMailDecision): void => {
+    const toastId = toast.loading(t('toast.filing'), mailToast())
+    const { rows: before, mailId: open } = keyState.current
+    if (status === 'waiting' && open === sent.id) advance(open, before, before.filter((mail) => mail.id !== open))
+    void reload()
+    void reportLanding(sent, decision, toastId)
+  }
   const showHandled = useCallback(() => router.replace(paths.list({ status: 'handled', outcome: null })), [router, paths])
   const reportBulk = useBulkLandingReport({ client, projectId, pollMs, onSettled: () => void changed(), onShowHandled: showHandled })
 
@@ -429,12 +457,31 @@ export function InboundMailWorkspace({
 
   return (
     <div ref={firstMail.ref} className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
-      <ProjectSectionActions onTitleLine>
+      <ProjectSectionActions onTitleLine={phone}>
         {/* An opened mail on a phone has the step to the next mail where the address's menu stands on the list. */}
         {mailId && phone ? (
           <MailStepper ids={rows.map((mail) => mail.id)} openId={mailId} hrefFor={(id) => paths.mail(id, filter)} />
+        ) : phone ? (
+          !never && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} compact />
         ) : (
-          !never && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} compact={phone} />
+          <div className="flex min-w-0 flex-1 items-center gap-3" data-testid="inbound-mail-tools">
+            {!never && (
+              <FileSearchField
+                className={TOOL_ROW_SEARCH_CLASS}
+                size="sm"
+                value={query}
+                onChange={setQuery}
+                onSubmit={() => {}}
+                onClear={() => setQuery('')}
+                placeholder={t('search.placeholder')}
+                searchLabel={t('search.label')}
+                resetLabel={t('search.clear')}
+              />
+            )}
+            <div className="ml-auto flex shrink-0 items-center">
+              {!never && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />}
+            </div>
+          </div>
         )}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
@@ -450,13 +497,14 @@ export function InboundMailWorkspace({
             status={status}
             onFilterChange={(nextStatus, nextOutcome) => {
               setChecked(new Set())
-              setQuery('')
+              setQueryState('')
               router.replace(paths.list({ status: nextStatus, outcome: nextOutcome }))
             }}
             waitingCount={waiting.count}
             waitingMore={waiting.more}
             query={query}
             onQueryChange={setQuery}
+            searchInList={phone}
             matchCount={rows.length}
             now={nowMs}
             openId={mailId}
@@ -534,6 +582,7 @@ export function InboundMailWorkspace({
               folders={folders}
               client={client}
               onChanged={() => void changed()}
+              onFiled={filedOpen}
               back={back}
               actionsRef={detailActions}
               now={now}

@@ -1,4 +1,5 @@
 ---
+# area: bim
 fixes:
   - >
     Asking for a room's clear height in an IFC model now gives the measured

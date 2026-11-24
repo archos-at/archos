@@ -6,7 +6,7 @@ import type { RootSortRun } from '@/lib/db/schema/root-sort-runs'
 import { isUniqueViolation } from '@/lib/db/errors'
 import { memberReader } from '@/lib/documents/document-reader'
 import { moveDocumentsToFolders } from '@/lib/documents/move-to-folder'
-import { OFFICE_SHELF, projectShelf, type DocumentShelf } from '@/lib/documents/shelf'
+import { OFFICE_SHELF, projectShelf, type SharedShelf } from '@/lib/documents/shelf'
 import { enqueueJob } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY, requesterOf, type JobSliceResult, type RootSortPayload } from '@/lib/jobs-queue/types'
 import { ensureOfficeShelfFolderPaths } from '@/lib/office-shelf/folder-service'
@@ -48,16 +48,16 @@ const PROGRESS_WRITE_MS = 1_000
 
 const RECENT_PLACEMENTS = 4
 
-async function settleStalledRuns(organizationId: string, shelf: DocumentShelf): Promise<void> {
+async function settleStalledRuns(organizationId: string, shelf: SharedShelf): Promise<void> {
   const ended = await failStalledRootSortRuns(organizationId, shelf)
   for (const run of ended) await announceRootSortRun(run)
 }
 
-export function shelfOfRun(run: Pick<RootSortRun, 'scope' | 'projectId'>): DocumentShelf {
+export function shelfOfRun(run: Pick<RootSortRun, 'scope' | 'projectId'>): SharedShelf {
   return run.scope === 'project' && run.projectId ? projectShelf(run.projectId) : OFFICE_SHELF
 }
 
-export async function describeRootSort(session: AuthorizedSession, shelf: DocumentShelf) {
+export async function describeRootSort(session: AuthorizedSession, shelf: SharedShelf) {
   const scan = await scanRoot(session, shelf)
   await settleStalledRuns(session.organizationId, shelf)
   const latest = await findLatestRootSortRun(session.organizationId, shelf, session.userId)
@@ -71,7 +71,7 @@ export async function describeRootSort(session: AuthorizedSession, shelf: Docume
 }
 
 
-export async function startRootSort(session: AuthorizedSession, shelf: DocumentShelf): Promise<RootSortRunView> {
+export async function startRootSort(session: AuthorizedSession, shelf: SharedShelf): Promise<RootSortRunView> {
   const scan = await scanRoot(session, shelf)
   if (scan.folders.length === 0) throw new BadRequestError('The shelf has no folder to sort into.')
   if (scan.documents.length === 0) throw new BadRequestError('The root holds no file to sort.')

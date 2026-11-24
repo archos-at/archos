@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, type JSX } from 'react'
-import { MessageCircleDashed } from 'lucide-react'
+import { HatGlasses } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toggle } from '@/components/ui/toggle'
 import { useTranslations } from '@/i18n'
@@ -31,21 +31,30 @@ export function TemporaryChatToggleView({
   return (
     <Toggle
       size="sm"
+      variant="inverted"
       pressed={pressed}
-      onPressedChange={onPressedChange}
-      disabled={disabled || pending}
+      onPressedChange={(next) => {
+        if (!pending) onPressedChange(next)
+      }}
+      disabled={disabled}
       aria-label={label}
       title={pressed ? t('temporary.switchOffTitle') : t('temporary.switchOnTitle')}
       aria-busy={pending || undefined}
       data-testid="temporary-chat-toggle"
-      className={cn('gap-1 px-2.5 text-xs max-sm:px-1.5', className)}
+      className={cn('gap-0 px-2', className)}
     >
-      {/* The word at every width: a glyph alone is not found, and a pressed
-          glyph does not say what is on. On a phone the composer row is 294px
-          for five controls, so there the glyph goes and the word stays (the
-          effort dial beside it gives up its chevron the same way). */}
-      <MessageCircleDashed className="size-3.5 max-sm:hidden" aria-hidden="true" data-testid="temporary-chat-glyph" />
-      <span data-testid="temporary-chat-word">{t('temporary.label')}</span>
+      <HatGlasses className="size-[18px]" aria-hidden="true" data-testid="temporary-chat-glyph" />
+      <span
+        aria-hidden="true"
+        data-testid="temporary-chat-word"
+        data-shown={pressed}
+        className={cn(
+          'grid transition-[grid-template-columns,opacity] duration-quick ease-out motion-reduce:transition-none',
+          pressed ? 'grid-cols-[1fr] opacity-100' : 'grid-cols-[0fr] opacity-0'
+        )}
+      >
+        <span className="min-w-0 overflow-hidden ps-1.5">{t('temporary.label')}</span>
+      </span>
     </Toggle>
   )
 }

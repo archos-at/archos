@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useChatStore } from '@/features/chat/store'
 import type {
   MentionPickerAria,
@@ -6,16 +6,17 @@ import type {
 } from '@/features/collaboration/components/MentionPicker'
 import { useMentionCandidates } from '@/features/collaboration/hooks/use-sharing'
 import { findMentionQuery, type DraftMention, type MentionQuery } from '@/lib/mentions/mention-text'
+import { isAgentMentionId } from '@/lib/mentions/types'
 
 interface ComposerMentionsInput {
   currentSessionId: string | undefined
-  canCollaborate: boolean
+  canMention: boolean
   draftLocked: boolean
 }
 
 export function useComposerMentions({
   currentSessionId,
-  canCollaborate,
+  canMention,
   draftLocked,
 }: ComposerMentionsInput) {
   const ensureSession = useChatStore((state) => state.ensureSession)
@@ -34,7 +35,7 @@ export function useComposerMentions({
     data: mentionData,
     loading: mentionsLoading,
     restart: restartMentionCandidates,
-  } = useMentionCandidates(currentSessionId ?? null, canCollaborate && mentionRequested)
+  } = useMentionCandidates(currentSessionId ?? null, canMention && mentionRequested)
 
   const mentionRetryRef = useRef<(() => void) | null>(null)
   mentionRetryRef.current =
@@ -63,14 +64,20 @@ export function useComposerMentions({
   }, [])
 
   const mentionPickerOpen =
-    canCollaborate &&
+    canMention &&
     mentionQuery !== null &&
     !mentionDismissed &&
     !draftLocked &&
     (mentionsLoading || mentionData !== null)
 
+  const sendableMentions = useMemo(
+    () => (canMention ? mentions : mentions.filter((mention) => isAgentMentionId(mention.targetId))),
+    [canMention, mentions]
+  )
+
   return {
     mentions,
+    sendableMentions,
     setMentions,
     mentionQuery,
     setMentionQuery,

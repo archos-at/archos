@@ -1,8 +1,6 @@
 import 'server-only'
-import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { computeFolderAccess, EVERY_FOLDER, loadCustomFolderTree } from '@/lib/authz/folder-access'
-import { requireProjectAccess } from '@/lib/authz/projects'
 import { getDb } from '@/lib/db'
 import type { Document } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -12,6 +10,7 @@ import { redispatchPublishedVersion } from '@/lib/documents/lifecycle'
 import { markDocumentIngestFailed } from '@/lib/documents/repository'
 import { dispatchDocument } from '@/lib/documents/document-dispatch'
 import { INGEST_DISPATCH_FAILED_MESSAGE } from '@/lib/documents/ingest-dispatch'
+import { shelfProjectId, type SharedShelf } from '@/lib/documents/shelf'
 import {
   recordJobFailure,
   type JobAttempt,
@@ -21,6 +20,7 @@ import {
   type RestoreFolderBinPayload,
 } from '@/lib/jobs-queue/types'
 import { inPool } from '@/lib/utils/in-pool'
+import { binPolicyOf, shelfOfBinPayload } from './bin-shelf'
 import { BACKEND_CONCURRENCY, purgeChunksOf, returnFromBin } from './folder-bin'
 import {
   findBinEntryById,
@@ -32,24 +32,14 @@ import {
   setDocumentCollection,
   type FolderBinPayload,
 } from './folder-bin-repository'
-import { findProjectInOrg } from './repository'
 
 export const RESTORE_SLICE_DOCUMENTS = 25
 const RESTORE_CONCURRENCY = 4
 export const PURGE_SLICE_DOCUMENTS = 50
 
-type ProjectRow = NonNullable<Awaited<ReturnType<typeof findProjectInOrg>>>
-
-async function collectionPlacement(organizationId: string, project: ProjectRow): Promise<(doc: Document) => string> {
-  const folders = await loadCustomFolderTree(organizationId, project.id)
-  if (!folders) return () => project.collectionName
-  const placement = computeFolderAccess(folders, EVERY_FOLDER, project.collectionName)
-  return (doc) => placement.collectionFor(doc.folderId)
-}
-
 async function reingestRestored(
   organizationId: string,
-  project: ProjectRow,
+  shelf: SharedShelf,
   target: string,
   doc: Document
 ): Promise<'queued' | 'failed'> {
@@ -64,7 +54,7 @@ async function reingestRestored(
       doc.authoredBy === 'user'
         ? await dispatchDocument({
             organizationId,
-            projectId: project.id,
+            projectId: shelfProjectId(shelf),
             documentId: doc.id,
             filename: doc.filename,
             storageKey: doc.storageKey,
@@ -87,22 +77,23 @@ export async function runRestoreFolderSlice(
   payload: RestoreFolderBinPayload
 ): Promise<JobSliceResult<RestoreFolderBinPayload>> {
   const { organizationId } = session
-  try {
-    await requireProjectAccess(session, payload.projectId, ['project:documents:write', 'project:edit'])
-  } catch (error) {
-    if (!(error instanceof NotFoundError) && !(error instanceof ForbiddenError)) throw error
+  const shelf = shelfOfBinPayload(payload)
+  const policy = binPolicyOf(shelf)
+  if (!(await policy.requesterMayRestore(session))) {
     console.warn(`[folder-bin] restore of ${payload.folderId}: the requester no longer has access; stopping`)
     return { done: true, payload }
   }
-  const project = await findProjectInOrg(payload.projectId, organizationId)
-  if (!project) return { done: true, payload }
 
-  const rows = await listRestoringDocumentPage(organizationId, project.id, payload.jobId, payload.cursor, RESTORE_SLICE_DOCUMENTS)
+  const rows = await listRestoringDocumentPage(organizationId, shelf, payload.jobId, payload.cursor, RESTORE_SLICE_DOCUMENTS)
   const counts: JobCounts = { ...payload.counts, failedNames: [...payload.counts.failedNames] }
   if (rows.length > 0) {
-    const collectionFor = await collectionPlacement(organizationId, project)
+    const collectionFor = await policy.collectionFor(organizationId).catch((error: unknown) => {
+      if (error instanceof NotFoundError) return null
+      throw error
+    })
+    if (!collectionFor) return { done: true, payload }
     await inPool(rows, RESTORE_CONCURRENCY, async (doc) => {
-      const outcome = await reingestRestored(organizationId, project, collectionFor(doc), doc)
+      const outcome = await reingestRestored(organizationId, shelf, collectionFor(doc), doc)
       if (outcome === 'failed') recordJobFailure(counts, doc.id)
       else counts.queued += 1
     })
@@ -128,19 +119,19 @@ export async function runPurgeBinnedChunksSlice(
   const recorded = (entry?.payload ?? null) as Partial<FolderBinPayload> | null
   if (!entry || entry.status !== 'pending' || recorded?.chunksPurgedAt) return finished
   const db = getDb()
-  const root = await withTenant({ organizationId }, () => findFolderInOrg(db, organizationId, payload.projectId, payload.folderId))
+  const shelf = shelfOfBinPayload(payload)
+  const root = await withTenant({ organizationId }, () => findFolderInOrg(db, shelf, organizationId, payload.folderId))
   if (!root || !root.deletedAt || root.purgedAt || root.binRootId !== root.id) return finished
 
   const folderIds = await withTenant({ organizationId }, () => listEntryFolderIds(db, root))
-  const page = await listDocumentPageInFolders(organizationId, root.projectId, folderIds, payload.cursor, PURGE_SLICE_DOCUMENTS)
+  const page = await listDocumentPageInFolders(organizationId, shelf, folderIds, payload.cursor, PURGE_SLICE_DOCUMENTS)
   const confirmed = await inPool(page, BACKEND_CONCURRENCY, purgeChunksOf)
   const refused = confirmed.filter((ok) => !ok).length
   if (refused > 0) {
     if (!attempt.last) {
       throw new Error(`the search index did not confirm the chunk purge of ${refused} document(s) of binned folder ${root.id}`)
     }
-    const project = await findProjectInOrg(root.projectId, organizationId)
-    if (project) await returnFromBin(organizationId, project, root.id, payload.requester)
+    await returnFromBin(organizationId, shelf, root.id, payload.requester)
     console.error(`[folder-bin] the index refused the chunk purge of binned folder ${root.id} on every attempt; the delete was undone`)
     return finished
   }

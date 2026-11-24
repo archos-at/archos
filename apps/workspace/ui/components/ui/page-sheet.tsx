@@ -24,6 +24,12 @@ export const PAGE_SHEET_PANEL_CLASS =
 
 const PANEL_WIDTH = 'md:max-w-[1400px]'
 
+const SLIDE_MOTION = {
+  initial: { y: '100%' },
+  animate: { y: 0, transition: motionSheetEnter },
+  exit: { y: '100%', transition: motionSheetExit },
+}
+
 interface PageSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -33,7 +39,6 @@ interface PageSheetProps {
   headerActions?: React.ReactNode
   headerless?: boolean
   initialFocusRef?: React.RefObject<HTMLElement | null>
-  enterFrom?: { y: number; scrim: number }
   onExitComplete?: () => void
   bodyClassName?: string
   children: React.ReactNode
@@ -48,7 +53,6 @@ export function PageSheet({
   headerActions,
   headerless = false,
   initialFocusRef,
-  enterFrom,
   onExitComplete,
   bodyClassName,
   children,
@@ -82,7 +86,7 @@ export function PageSheet({
             <DialogPrimitive.Overlay asChild forceMount>
               <motion.div
                 className={PAGE_SHEET_OVERLAY_CLASS}
-                initial={{ opacity: enterFrom?.scrim ?? 0 }}
+                initial={{ opacity: 0 }}
                 animate={{ opacity: 1, transition: motionEntrance }}
                 exit={{ opacity: 0, transition: motionSheetExit }}
               />
@@ -98,9 +102,7 @@ export function PageSheet({
             >
               <motion.div
                 className={cn(PAGE_SHEET_PANEL_CLASS, PANEL_WIDTH)}
-                initial={{ y: enterFrom?.y ?? '100%' }}
-                animate={{ y: 0, transition: motionSheetEnter }}
-                exit={{ y: '100%', transition: motionSheetExit }}
+                {...SLIDE_MOTION}
                 drag="y"
                 dragListener={false}
                 dragControls={dragControls}
@@ -115,7 +117,11 @@ export function PageSheet({
                 }}
                 onDragEnd={handleDragEnd}
               >
-                <PageSheetGrabber label={closeLabel} onPointerDown={startDrag} pulledRef={pulledRef} />
+                <PageSheetGrabber
+                  label={closeLabel}
+                  onPointerDown={startDrag}
+                  pulledRef={pulledRef}
+                />
                 {headerless ? (
                   <>
                     <DialogPrimitive.Title data-slot="page-sheet-title" className="sr-only">
@@ -167,15 +173,20 @@ function PageSheetGrabber({
   label,
   onPointerDown,
   pulledRef,
+  className,
 }: {
   label: string
   onPointerDown: (event: React.PointerEvent) => void
   pulledRef: React.RefObject<boolean>
+  className?: string
 }): JSX.Element {
   return (
     <div
       data-slot="page-sheet-grabber"
-      className="flex shrink-0 cursor-grab touch-none justify-center py-2 select-none active:cursor-grabbing pointer-coarse:py-0"
+      className={cn(
+        'flex shrink-0 cursor-grab touch-none justify-center py-2 select-none active:cursor-grabbing pointer-coarse:py-0',
+        className
+      )}
       onPointerDown={onPointerDown}
     >
       <DialogPrimitive.Close

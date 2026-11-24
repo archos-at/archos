@@ -237,7 +237,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
                   unusual case, "the agent is next" would remain something the user has to
                   infer from an absence. Borderless on purpose — it is a statement
                   standing among buttons, and must not read as one. */}
-        {controller.canCollaborate && (
+        {controller.canMention && (
           <AddresseeIndicator
             mentions={controller.activeMentions}
             awaitingHuman={controller.threadAwaitsHuman}

@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    Switching between Persönlich and Projekt, or to another project, no longer
+    leaves the chat you had open on screen under the other side.

@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     Your organization's choice of AI model can be saved again. Saving had failed

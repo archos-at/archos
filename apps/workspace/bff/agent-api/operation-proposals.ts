@@ -2,10 +2,13 @@ import 'server-only'
 
 import { ForbiddenError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
+import { FeatureDisabledError } from '@/lib/authz/feature-disabled-error'
+import { isFeatureEnabled } from '@/lib/authz/feature-flags'
 import { withTenant } from '@/lib/db/tenant-context'
 import { createProposal } from '@/lib/proposals/service'
 import { MAX_OPERATION_SUMMARY_LENGTH, type OperationPayload } from '@/lib/proposals/types'
 import type { OperationInput } from './dispatch'
+import { withConversationOrigin } from './operation-origin'
 import type { AgentOperation } from './operation'
 import { proposalReachRefusal } from './conversation-audience'
 import { requireTargetsReadable, targetsOf, TooManyTargetsError } from './operation-targets'
@@ -77,7 +80,11 @@ export async function proposeOperation({
   op: AgentOperation
   input: OperationInput
 }): Promise<{ proposalId: string; summary: string }> {
+  input = withConversationOrigin(op, input, principal.conversationId)
   if (op.sensitivity) throw new ForbiddenError(sensitiveProposalRefusal(op))
+  // Behind a feature the organization does not hold: refused as the route would refuse the call, before a
+  // proposal exists that could only fail when accepted.
+  if (op.feature && !isFeatureEnabled(principal.session, op.feature)) throw new FeatureDisabledError(op.feature)
   const stored: OperationPayload['input'] = {
     params: input.params,
     query: input.query,

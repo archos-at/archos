@@ -1,7 +1,7 @@
 # Project surfaces — the card is the staple, atoms are the material
 
 **The rule, in one line: a new surface that lists a project renders
-`ProjectCard`, or is composed from `project-atoms.tsx`. It never hand-rolls a
+the project overview's card (`project-overview.tsx`), or is composed from `project-atoms.tsx`. It never hand-rolls a
 lookalike.**
 
 The project card is part of the design language, not one page's component. It is
@@ -25,8 +25,7 @@ projects-home rework grew a second, larger `ProjectResumeCard` beside
 | `components/ui/raised-card.tsx` | The **shape**: the tray, the laid-in white sheet, the footer tab. Shared with the document and job cards |
 | `components/ui/section-label.tsx`, `components/ui/count-pill.tsx` | The eyebrow and the quiet number beside it. The grid's `SectionHeading` is only the arrangement of these two |
 | `components/projects/project-atoms.tsx` | The **project-specific parts**: links, location, activity, doc count, initials tile |
-| `components/projects/project-card.tsx` | **The card.** `RaisedCard` + the atoms. Use this by default |
-| `components/projects/project-list-row.tsx` | The dense row — the same atoms in a different arrangement, an `Item` in the connected `ItemList` |
+| `components/projects/project-overview.tsx` | **The card** for the overview's first six projects (`/app/projects`), and **the row** for every project after them and for search results: name, the one line, `ProjectActivity`, the gear. Use these by default |
 | `components/projects/project-status.tsx` | The status chip and the (deliberately honest) status derivation |
 
 The split matters: the card's geometry is not a project concern. `RaisedCard`
@@ -73,17 +72,15 @@ review.
 
 ## Adding a surface
 
-1. **Can it be a `ProjectCard`?** Then it is one. A grid, a rail, a picker, a
+1. **Can it be the overview's card?** Then it is one. A grid, a rail, a
    related-projects strip — all of these are a selection and an arrangement, not
-   a new card. The projects-home resume rail is exactly this: same card, three
-   of them, ordered by the viewer's own activity.
+   a new card. The project overview is exactly this: the same card for every
+   project, ordered by status and then by the viewer's own activity.
 2. **Does it need a genuinely different arrangement** (a table row, a compact
-   menu item, a mention chip)? Compose it from the atoms, like
-   `ProjectListRow` does. The row is the card's material caught in another
-   state: one row of a connected `ItemList`, divided from its neighbours by the
-   list's hairline, with no radius, border or shadow of its own. On hover it
-   tints like every `Item`. It does not lift, because a lifted row detaches from
-   the rows either side of it.
+   menu item, a mention chip)? Compose it from the atoms. A row is the card's
+   material caught in another state: no radius, border or shadow of its own, a
+   tint on hover and no lift, because a lifted row detaches from the rows either
+   side of it.
 3. **Does it need something no atom provides?** Add the atom, then use it. An
    atom added for one surface is available to the others; a bespoke `div` in one
    component is not.
@@ -110,7 +107,7 @@ bit denser.
 
 ## Visual evidence
 
-`/dev/projects-home` renders the real `ProjectsGrid` over fixture data at nine
-projects (`?variant=fresh` for a viewer with no activity anywhere). Capture both
-and attach them to the PR that changes either — see
+`/dev/project-overview` renders the real `ProjectOverview` in its sheet over
+fixture data, with phases, paused and closed projects and waiting mail. Capture
+it and attach it to the PR that changes the card or the overview — see
 `docs/ux/visual-screenshots.md`.

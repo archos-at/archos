@@ -1,0 +1,10 @@
+---
+# area: general
+improvements:
+  - >
+    Dark mode is calmer: cards, the chat field, the open e-mail and menus now
+    sit just above the near-black page with a thin edge, no longer as light
+    grey panels.
+  - >
+    A button you cannot press yet, such as send in an empty chat, now recedes
+    instead of being the brightest thing on the screen.

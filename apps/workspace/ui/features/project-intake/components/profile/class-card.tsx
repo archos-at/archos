@@ -30,7 +30,7 @@ export function ClassCard({ derivations, buildings, onAnswer }: ClassCardProps):
   return (
     <section
       aria-label={t('class.label')}
-      className="bg-card border-border flex min-w-0 flex-col justify-center gap-3 rounded-[14px] border px-4 py-4 md:px-[22px] md:py-5"
+      className="bg-card border-border flex min-w-0 flex-col justify-center gap-3 rounded-[12px] border px-4 py-4 md:px-[22px] md:py-5"
       data-testid="profile-class"
     >
       {derivation ? (

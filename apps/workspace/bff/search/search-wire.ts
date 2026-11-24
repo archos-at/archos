@@ -132,8 +132,18 @@ export const searchBodySchema = z.object({
 })
 export type SearchBody = z.infer<typeof searchBodySchema>
 
+export const SEARCH_SCOPES = ['office', 'project', 'office_shelf', 'personal'] as const
+
+export type SearchShelf = 'project' | 'office_shelf' | 'personal'
+
+export const searchShelfOf = (scope: string): SearchShelf =>
+  scope === 'office_shelf' || scope === 'personal' ? scope : 'project'
+
 export const searchScopeQuerySchema = z.object({
-  scope: z.enum(['office', 'project', 'office_shelf']).optional().describe('Default `office`: every shelf the person may read.'),
+  scope: z
+    .enum(SEARCH_SCOPES)
+    .optional()
+    .describe('Default `office`: every shared shelf. `personal`: the caller’s own.'),
   projectId: z.guid().optional(),
   folderId: z.guid().optional().describe('A folder of the project or the office shelf, its subfolders included.'),
 })
@@ -143,6 +153,7 @@ export type SearchScope =
   | { kind: 'office' }
   | { kind: 'project'; projectId: string; folderId?: string }
   | { kind: 'office_shelf'; folderId?: string }
+  | { kind: 'personal'; folderId?: string }
 
 export interface SearchPassage {
   text: string
@@ -154,7 +165,7 @@ export interface DocumentHit {
   id: string
   name: string
   filename: string
-  shelf: 'project' | 'office_shelf'
+  shelf: SearchShelf
   projectId: string | null
   projectName: string | null
   folderId: string | null
@@ -186,7 +197,7 @@ export interface AnnotationHit {
   id: string
   documentId: string
   documentName: string
-  shelf: 'project' | 'office_shelf'
+  shelf: SearchShelf
   projectId: string | null
   projectName: string | null
   annotationKind: string
@@ -200,7 +211,7 @@ export interface FolderHit {
   kind: 'folder'
   id: string
   name: string
-  shelf: 'project' | 'office_shelf'
+  shelf: SearchShelf
   projectId: string | null
   projectName: string | null
   excerpt: string | null

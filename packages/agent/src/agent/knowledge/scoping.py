@@ -1,14 +1,14 @@
-import base64
-import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any
 
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import parse_shelf
+from agent.common.turn_decision import current_turn_decision
+from agent.common.turn_decision import decision_missing
 from agent.knowledge.restricted_collections import is_restricted_collection
 from agent.knowledge.restricted_use import current_restricted_use
-from nat.plugin_api import Context
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +23,6 @@ def _normalize_collection_name(name: str) -> str:
     while name.startswith("s_s_"):
         name = name[2:]
     return name
-
-
-def _base64url_decode(value: str) -> bytes:
-    padding = 4 - len(value) % 4
-    if padding != 4:
-        value += "=" * padding
-    return base64.urlsafe_b64decode(value)
 
 
 class _UnreadableScopeEntry:
@@ -80,47 +73,41 @@ def _parse_scope_payload(scope: Any) -> list[ScopedCollection] | None:
     return entries
 
 
-def _raw_collection_scope_from_header() -> list[Any] | None:
-    try:
-        ctx = Context.get()
-        if ctx is None:
-            return None
-        metadata = ctx.metadata
-        if metadata is None:
-            return None
-        raw = metadata.headers.get("x-grid-collection-scope")
-        if raw is None:
-            return None
-    except Exception:
-        logger.debug("Failed to read X-Grid-Collection-Scope from context", exc_info=True)
-        return None
+def turn_scope_is_bound() -> bool:
+    return current_turn_decision() is not None or decision_missing()
 
-    try:
-        decoded = _base64url_decode(raw)
-        scope: Any = json.loads(decoded)
-    except Exception:
-        logger.debug("Failed to decode X-Grid-Collection-Scope header", exc_info=True)
-        return None
 
-    if not isinstance(scope, list):
-        logger.debug("X-Grid-Collection-Scope is not a list: %s", scope)
-        return None
+def _signed_envelope_scope() -> Any:
+    from agent.project_context import get_signed_request_context
 
-    return scope
+    if not os.environ.get("INTERNAL_API_TOKEN"):
+        return None
+    ctx = get_signed_request_context()
+    if ctx is None or not ctx.envelope_signature:
+        return None
+    return ctx.collection_scope_entries if ctx.collection_scope_entries is not None else ctx.collection_scope
+
+
+def bound_scope_entries() -> list[Any] | None:
+    decision = current_turn_decision()
+    if decision is not None:
+        return list(decision.shelves)
+    return [] if decision_missing() else None
+
+
+def _turn_scope() -> list[ScopedCollection]:
+    decision = current_turn_decision()
+    if decision is None:
+        logger.warning("A turn without a signed decision reads nothing")
+        return []
+    return _drawable_only(_parse_scope_payload(list(decision.shelves))) or []
 
 
 def get_scoped_collections_from_context() -> list[ScopedCollection] | None:
-    scope: Any = None
-    try:
-        from agent.project_context import RequestContext
-
-        ctx = RequestContext.from_context()
-        scope = ctx.collection_scope_entries if ctx.collection_scope_entries is not None else ctx.collection_scope
-    except Exception:
-        logger.debug("Verified collection-scope read failed; falling back to raw header", exc_info=True)
-        scope = _raw_collection_scope_from_header()
-
-    return _drawable_only(_parse_scope_payload(scope))
+    if turn_scope_is_bound():
+        return _turn_scope()
+    signed = _signed_envelope_scope()
+    return _drawable_only(_parse_scope_payload(signed)) if signed is not None else None
 
 
 def _drawable_only(entries: list[ScopedCollection] | None) -> list[ScopedCollection] | None:
@@ -132,25 +119,13 @@ def _drawable_only(entries: list[ScopedCollection] | None) -> list[ScopedCollect
     ]
 
 
+def signed_scope_names(context: Any) -> list[str] | None:
+    if context is None or not getattr(context, "envelope_signature", None):
+        return None
+    scope = getattr(context, "collection_scope", None)
+    return list(scope) if scope is not None else None
+
+
 def get_collection_scope_from_context() -> list[str] | None:
     entries = get_scoped_collections_from_context()
     return None if entries is None else [entry.collection for entry in entries]
-
-
-def get_scoped_collections_from_context_or(
-    config: Any,
-    session_id: str | None,
-) -> list[ScopedCollection]:
-    scope = get_scoped_collections_from_context()
-    if scope:
-        return scope
-    from knowledge_layer.search import scoped_collections_for_site
-
-    return scoped_collections_for_site(config, session_id)
-
-
-def get_collection_scope_from_context_or(
-    config: Any,
-    session_id: str | None,
-) -> list[str]:
-    return [entry.collection for entry in get_scoped_collections_from_context_or(config, session_id)]

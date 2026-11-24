@@ -59,6 +59,7 @@ const chatState = {
   pendingMessagesFor: null as string | null,
   composerSubject: null as { resourceId: string } | null,
   setProjectId: vi.fn(),
+  enterSide: vi.fn(),
   loadServerConversations: vi.fn(async () => {}),
   setComposerPrefill: vi.fn(),
   startNewSessionDraft: vi.fn(),
@@ -91,6 +92,15 @@ describe('ProjectChatClient ?session= hydration', () => {
     chatState.serverConversationsLoaded = true
     chatState.composerSubject = null
     chatState.pendingMessagesFor = null
+  })
+
+  test('the chat page itself enters its project, and gives the scope back when it leaves', () => {
+    const { unmount } = render(<ProjectChatClient {...clientProps} />)
+    expect(chatState.enterSide).toHaveBeenCalledWith('p1')
+    expect(chatState.loadServerConversations).toHaveBeenCalledWith('p1', 'project')
+
+    unmount()
+    expect(chatState.setProjectId).toHaveBeenCalledWith(null)
   })
 
   test('selects a job-output conversation the sessions panel hides', () => {

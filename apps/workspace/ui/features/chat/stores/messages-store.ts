@@ -19,6 +19,7 @@ export const initialMessagesState = {
   turns: {} as Record<string, TurnView>,
   unseenAnswers: {} as Record<string, UnseenEnd>,
   projectId: null as string | null,
+  lastChatBySide: {} as Record<string, string>,
   composerPrefill: null as ComposerPrefill | null,
   composerSubject: null,
   composerExcerpt: null as ComposerExcerpt | null,

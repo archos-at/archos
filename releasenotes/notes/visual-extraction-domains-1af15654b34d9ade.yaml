@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     Images inside PDFs are now read as thoroughly as whole drawing pages, so

@@ -1,4 +1,5 @@
 ---
+# area: agents
 operators:
   - >
     Platform staff can now connect their own AI assistant to the operator

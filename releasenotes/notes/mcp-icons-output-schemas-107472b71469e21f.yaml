@@ -1,4 +1,5 @@
 ---
+# area: agents
 improvements:
   - >
     Claude, Cursor and other assistants now show Piloti with its own name and

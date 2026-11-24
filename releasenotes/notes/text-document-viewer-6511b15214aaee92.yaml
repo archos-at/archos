@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Text, Markdown and CSV files can now be read directly in Piloti. A Markdown

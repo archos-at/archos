@@ -627,6 +627,7 @@ def lane_for_hit(
     source_format: str | None = None,
 ) -> tuple[str, str]:
     from agent.common.provenance import is_agent_author
+    from agent.common.source_kinds import USERS_SHELF_LANES
     from agent.common.source_kinds import Shelf
     from agent.common.source_kinds import legacy_shelf_for_collection_name
     from agent.common.source_kinds import parse_shelf
@@ -636,8 +637,7 @@ def lane_for_hit(
     known_shelf = parse_shelf(shelf) or legacy_shelf_for_collection_name(collection)
     if source_format == MAIL_SOURCE_FORMAT:
         return (OFFICE_MAIL_LANE if known_shelf is Shelf.OFFICE_SHELF else MAIL_LANE, MAIL_LANE_LABEL)
-    users_shelf = known_shelf in (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION)
-    if doc_class and not users_shelf:
+    if doc_class and known_shelf not in USERS_SHELF_LANES:
         from agent.knowledge.document_classification import DOCUMENT_CLASS_LANES
         from agent.knowledge.document_classification import canonical_doc_class
 
@@ -645,12 +645,8 @@ def lane_for_hit(
         if doc_class:
             lane_key = DOCUMENT_CLASS_LANES[doc_class]
             return (lane_key, _LANE_LABELS.get(lane_key, "Baurecht"))
-    if known_shelf is Shelf.OFFICE_SHELF:
-        return ("office", "Bürobibliothek")
-    if known_shelf is Shelf.PROJECT:
-        return ("project", "Projektwissen")
-    if known_shelf is Shelf.SESSION:
-        return ("project", "Private Sitzung")
+    if known_shelf in USERS_SHELF_LANES:
+        return USERS_SHELF_LANES[known_shelf]
     return _lane_for_source(file_name=file_name, source_url=source_url, collection=collection, registry=registry)
 
 

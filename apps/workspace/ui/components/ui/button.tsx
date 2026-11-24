@@ -34,6 +34,10 @@ const buttonVariants = cva(
     },
     compoundVariants: [
       {
+        variant: 'default',
+        className: 'disabled:opacity-100 disabled:bg-foreground/[0.07] disabled:text-foreground/35 disabled:shadow-none',
+      },
+      {
         variant: 'inline',
         className: 'h-auto p-0 align-baseline text-[length:inherit] leading-[inherit] pointer-coarse:h-auto pointer-coarse:min-w-0',
       },

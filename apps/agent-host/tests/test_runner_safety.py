@@ -815,13 +815,13 @@ class TestWorkerHeaderTextEncoding:
     def test_encoded_text_is_header_safe_and_round_trips(self) -> None:
         from starlette.datastructures import Headers
 
-        from agent.project_context import RequestContext
+        from agent.project_context import PROJECT_CONTEXT_HEADER
+        from agent.project_context import _base64url_decode_text
 
         encoded = _b64url_encode_text(self.GERMAN_CONTEXT)
         assert encoded.isascii()
         headers = Headers(headers={"x-grid-project-context": encoded})
-        ctx = RequestContext.from_headers(dict(headers))
-        assert ctx.project_context == self.GERMAN_CONTEXT
+        assert _base64url_decode_text(dict(headers)[PROJECT_CONTEXT_HEADER]) == self.GERMAN_CONTEXT
 
 
 class TestTheReportsOwnAccountReachesTheMessage:

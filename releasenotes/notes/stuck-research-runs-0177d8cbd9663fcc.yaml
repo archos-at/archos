@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     Deep research runs that have stopped now show as ended, including those

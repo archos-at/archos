@@ -10,6 +10,7 @@ import { createSessionsSlice } from './stores/sessions-store'
 import { createInteractionSlice } from './stores/interaction-store'
 import { chatIndexKey, createResilientStorage } from './stores/chat-storage'
 import { moveStoredChat } from './stores/chat-storage-rename'
+export { serverSideKey } from './stores/server-sides'
 import {
   logStoreHydration,
   logExternalStorageEvent,
@@ -45,6 +46,7 @@ export const useChatStore = create<ChatStoreWithHydration>()(
           conversations: state.conversations,
           currentConversation: state.currentConversation,
           composerDrafts: state.composerDrafts,
+          lastChatBySide: state.lastChatBySide,
         }),
         onRehydrateStorage: () => (state) => {
           useChatStore.setState({ hasHydrated: true })

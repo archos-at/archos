@@ -45,6 +45,23 @@
       "header": "W3siY29sbGVjdGlvbiI6Im9pYl9rbm93bGVkZ2UiLCJzaGVsZiI6ImJhc2UifSx7ImNvbGxlY3Rpb24iOiJhcmNoaXZfb3JnXzEiLCJzaGVsZiI6Im9mZmljZV9zaGVsZiJ9LHsiY29sbGVjdGlvbiI6InByb2pfM2YyNTA0ZTAtNGY4OS0xMWQzLTlhMGMtMDMwNWU4MmMzMzAxIiwic2hlbGYiOiJwcm9qZWN0In0seyJjb2xsZWN0aW9uIjoic19jb252X2FiYyIsInNoZWxmIjoic2Vzc2lvbiJ9XQ"
     },
     {
+      "name": "a personal chat's own shelf",
+      "emittedByBff": true,
+      "entries": [
+        {
+          "collection": "personal_org_1__user_1",
+          "shelf": "personal"
+        }
+      ],
+      "parsed": [
+        {
+          "collection": "personal_org_1__user_1",
+          "shelf": "personal"
+        }
+      ],
+      "header": "W3siY29sbGVjdGlvbiI6InBlcnNvbmFsX29yZ18xX191c2VyXzEiLCJzaGVsZiI6InBlcnNvbmFsIn1d"
+    },
+    {
       "name": "a project collection whose name carries no prefix still states its shelf",
       "emittedByBff": true,
       "entries": [

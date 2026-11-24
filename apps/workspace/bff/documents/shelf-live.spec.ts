@@ -25,6 +25,7 @@ const ANNOUNCED_ELSEWHERE: Record<string, string> = {
   'lib/documents/placement-repository.ts': 'which collection a document is indexed in; nothing a listing shows',
   'lib/projects/folder-derived-repository.ts': 'a derived report’s source marker; nothing a listing shows',
   'lib/session-documents/repository.ts': 'chat attachments, which are on no shelf',
+  'lib/personal-shelf/repository.ts': 'the personal-shelf delete; `lib/personal-shelf/service.ts` announces it',
 }
 
 const ANNOUNCERS = [

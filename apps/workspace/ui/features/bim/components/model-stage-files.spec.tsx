@@ -109,10 +109,11 @@ describe('ModelStage — the file operations on the building', () => {
     expect(screen.getByRole('menuitem', { name: /delete/i })).toBeInTheDocument()
   })
 
-  it('closes the stage after the building it was showing is deleted', async () => {
+  it('closes the stage after the building it was showing goes to the bin', async () => {
     const onClose = vi.fn()
     const onModelDeleted = vi.fn()
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 })
+    const binned = { documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-04T10:00:00.000Z' }
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => binned })
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
@@ -130,7 +131,7 @@ describe('ModelStage — the file operations on the building', () => {
     await user.click(await screen.findByTestId('document-delete-confirm'))
 
     await waitFor(() => expect(onModelDeleted).toHaveBeenCalledWith('doc-1'))
-    expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-1', { method: 'DELETE' })
+    expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-1/bin', { method: 'POST' })
     expect(onClose).toHaveBeenCalled()
     vi.unstubAllGlobals()
   })
@@ -149,7 +150,7 @@ describe('ModelStage — the file operations on the building', () => {
 })
 
 describe('ModelStage — a model from the Bürobibliothek', () => {
-  it('deletes it through the org-scoped route, not the project one', async () => {
+  it('moves it into the Bürobibliothek\'s Papierkorb, as a project model goes to the project bin', async () => {
     state.models = [model({ projectId: null })]
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 })
     vi.stubGlobal('fetch', fetchMock)
@@ -162,8 +163,9 @@ describe('ModelStage — a model from the Bürobibliothek', () => {
     await user.click(await screen.findByTestId('document-delete-confirm'))
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-1', { method: 'DELETE' })
+      expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-1/bin', { method: 'POST' })
     )
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/documents/doc-1', { method: 'DELETE' })
     vi.unstubAllGlobals()
   })
 })

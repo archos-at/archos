@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from dataclasses import replace
 
+from agent.common import bff_http
 from agent.common import seaweed_s3
 from agent.common.image_view_budget import MAX_IMAGE_VIEWS_PER_TURN
 from agent.common.image_view_budget import MAX_OVERVIEW_VIEWS_PER_TURN
@@ -15,6 +16,8 @@ from agent.common.image_view_budget import try_consume_image_view
 from agent.common.source_kinds import office_shelf_organization_id
 from agent.knowledge.restricted_use import note_collections_read
 
+from .sheet.crop_text import CropText
+from .sheet.crop_text import look_text
 from .view_regions import Region
 from .view_regions import parse_region
 from .view_rendering import _crop_image_region
@@ -31,9 +34,6 @@ _DEFAULT_MAX_DIM = 2048
 _VIEW_IMAGES_ENABLED_ENV = "VIEW_IMAGES_ENABLED"
 
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
-
-_FRONTEND_INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
-_INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 
 
 def default_max_dim() -> int:
@@ -87,13 +87,9 @@ def location_version(location: object) -> str | None:
 async def _resolve_storage_location(
     collection: str, file_name: str, organization_id: str | None = None, image_index: int | None = None
 ) -> StorageLocation | None:
-    base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
-    token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
-    if not base_url or not token:
+    if not bff_http.internal_token():
         return None
     try:
-        import httpx
-
         if organization_id is None:
             organization_id = office_shelf_organization_id(collection)
         params: dict[str, str] = {"collection": collection, "filename": file_name}
@@ -101,15 +97,11 @@ async def _resolve_storage_location(
             params["organizationId"] = organization_id
         if image_index is not None:
             params["imageIndex"] = str(image_index)
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"{base_url.rstrip('/')}/api/internal/document-file",
-                params=params,
-                headers={"x-internal-token": token, **_envelope_headers()},
-            )
-        if response.status_code != 200:
+        data = await asyncio.to_thread(
+            bff_http.get_json, "/api/internal/document-file", timeout=10.0, query=params, headers=_envelope_headers()
+        )
+        if not isinstance(data, dict):
             return None
-        data = response.json()
         storage_key = data.get("storageKey")
         if not isinstance(storage_key, str) or not storage_key:
             return None
@@ -199,6 +191,7 @@ class View:
     height: int
     region: Region | None = None
     version_id: str | None = None
+    printed: CropText | None = None
 
     def with_text(self, text: str) -> View:
         return replace(self, text=text)
@@ -294,21 +287,15 @@ async def _pdf_view(
         return f"[{tool}] Could not render page {page_number} of '{file_name}': {e}"
     if region is not None:
         note_region_viewed()
-        return View(
-            _region_text(f"page {page_number} of '{file_name}'{origin}", region, width, height, widened),
-            jpeg_bytes,
-            width,
-            height,
-            region,
+        text = _region_text(f"page {page_number} of '{file_name}'{origin}", region, width, height, widened)
+    else:
+        text = (
+            f"Rendered page {page_number} of '{file_name}'{origin} ({width}x{height}px). "
+            "This is the actual page the retrieved chunk describes — inspect it "
+            "for plans, drawings, scale, dimensions and relationships."
         )
-    return View(
-        f"Rendered page {page_number} of '{file_name}'{origin} ({width}x{height}px). "
-        "This is the actual page the retrieved chunk describes — inspect it "
-        "for plans, drawings, scale, dimensions and relationships.",
-        jpeg_bytes,
-        width,
-        height,
-    )
+    printed = await look_text(source, page_number, region, limits.timeout)
+    return View(text, jpeg_bytes, width, height, region, printed=printed)
 
 
 async def _stored_raster(

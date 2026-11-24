@@ -1,5 +1,6 @@
 import type { GeneratedContent } from './ai-generated-meta'
 import type { z } from 'zod'
+import type { KnownFeatureFlag } from '@/lib/authz/feature-flags'
 import type { OperationInput } from './dispatch'
 
 export type BodyEncoding = 'json' | 'multipart' | 'raw'
@@ -52,6 +53,7 @@ export interface AgentOperation {
   readonly ifMatchHeader?: true
   readonly examples?: readonly OperationExample[]
   readonly sensitivity?: Sensitivity
+  readonly feature?: KnownFeatureFlag
   readonly requiresPersonConfirmation?: PersonConfirmation
   readonly spansProjects?: SpansProjects
   readonly inputDefaults?: OperationExample

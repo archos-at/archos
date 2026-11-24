@@ -226,7 +226,7 @@ export function UploadSummaryDialog({ batchId, standalone }: { batchId: string; 
       description={summary ? <UploadSummaryMeta summary={summary} projectName={projectName} /> : undefined}
       closeLabel={tCommon('actions.close')}
       standalone={standalone}
-      fallbackHref={(summary && placeHref(summary)) ?? '/app/projects'}
+      fallbackHref={(summary && placeHref(summary)) ?? '/app'}
       testId="upload-summary-dialog"
     >
       <UploadSummaryBody state={state} retry={retry} />
