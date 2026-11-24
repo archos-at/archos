@@ -143,8 +143,13 @@ export function RailChatList({
                 </>
               )}
               {chat.projectId && names.has(chat.projectId) && (
-                <span className="text-muted-foreground text-meta relative max-w-[84px] shrink-0 truncate font-normal" data-testid="rail-chat-project">
-                  {names.get(chat.projectId)}
+                <span
+                  dir="rtl"
+                  title={names.get(chat.projectId)}
+                  className="text-muted-foreground text-meta relative max-w-[84px] shrink-0 truncate font-normal"
+                  data-testid="rail-chat-project"
+                >
+                  <bdi dir="ltr">{names.get(chat.projectId)}</bdi>
                 </span>
               )}
               {chat.temporary && (
