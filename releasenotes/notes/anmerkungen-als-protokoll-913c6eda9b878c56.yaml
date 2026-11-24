@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Export a document's annotations from the review as minutes for a site

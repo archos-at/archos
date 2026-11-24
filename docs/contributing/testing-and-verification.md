@@ -640,7 +640,7 @@ and `apps/workspace/ui/components/ui/touch-target.spec.ts`. Capture a 390x844
 viewport alongside the desktop shot when you ship a surface — the playbook above
 has the command.
 
-**The browser measurement is gone.** `task workspace:touch-audit` loaded the screenshot
+**The browser measurement is gone.** `workspace:touch-audit` loaded the screenshot
 registry at a phone viewport and reported what neither a spec nor a screenshot
 can: regions whose `touch-action` refuses the vertical pan (a finger lands and
 the page does not move), boxes that stick out past the viewport, and interactive
@@ -748,7 +748,7 @@ its passage; this asks what the reader waited for and what they got.
   in its own Land. A fixture BFF serves them (`scripts/turn_census/fixture_law.py`)
   from `tests/fixtures/base-knowledge/turn_law_austria.json`, which
   `turn-law.fixture.spec.ts` writes from the packs with the production
-  resolvers (`UPDATE_FIXTURES=1`). A run without them would read no law at all.
+  resolvers (`task generate`). A run without them would read no law at all.
 - **No stack needed:** `--ingest --corpus data/oib` takes the base corpus
   from that directory's PDFs instead of the object store, so the suite runs
   on a machine with no BFF and no SeaweedFS. The table, the ingest queue and
@@ -801,8 +801,7 @@ the scorer of the door's `platform-knowledge-golden-run`
 (`apps/workspace/bff/base-knowledge/golden/score.ts`).
 `tests/fixtures/golden/scoring_parity.json` holds both to one set of verdicts on
 recorded answers of the before-baseline: change one scorer and the other's test
-fails until it follows (`UPDATE_FIXTURES=1 bunx vitest run
-bff/base-knowledge/golden/score.spec.ts` rewrites the verdicts; read the diff).
+fails until it follows (`task generate` rewrites the verdicts; read the diff).
 A run carries the law of the case's `territoryId` from the same fixture the
 other norm sets read; a case with no site, or a site that fixture does not
 hold, runs with none. A suite run has no citation objects, so the source rules
@@ -820,7 +819,7 @@ serves the routes such a turn reads: the turn context, with the reference
 catalog, and the three cross-project lookups. It drops every other connection,
 as the norm set's runs see no BFF at all. The catalog, the project context
 and the briefs are written by the production renderers
-(`reference-brief.fixture.spec.ts`, regenerated with `UPDATE_FIXTURES=1`), so
+(`reference-brief.fixture.spec.ts`, regenerated with `task generate`), so
 the eval cannot drift from what production sends. The questions are in
 `tests/fixtures/precedent/precedent_questions.yaml`, in five groups:
 
@@ -1071,8 +1070,7 @@ ADR-0137) is cut as its own ingest cuts it, by the Markdown chunker, and stamped
 boundary. Its bytes are the BFF renderer's, pinned by
 `apps/workspace/bff/mail-thread/files-eval-fixture.spec.ts` from
 `parking-thread.json`; after a change to the rendition's format, rewrite them
-with `UPDATE_FIXTURES=1 bunx vitest run src/lib/mail-thread/files-eval-fixture.spec.ts`
-in `apps/workspace` and reseed. The rows' judges (`attributes_mail`,
+with `task generate` and reseed. The rows' judges (`attributes_mail`,
 `quoted_as_quote`, `forged_not_authority`, `scripts/turn_census/judge.py`) ask
 whether the answer says whose mail and of when, calls a quote a quote, and never
 presents the unconfirmed sender's claim as the Behörde's.

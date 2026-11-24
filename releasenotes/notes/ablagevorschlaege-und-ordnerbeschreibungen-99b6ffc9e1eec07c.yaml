@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     A folder can now say what belongs in it, in Dateien and in the Büroablage, and Piloti reads that when it works with your files.

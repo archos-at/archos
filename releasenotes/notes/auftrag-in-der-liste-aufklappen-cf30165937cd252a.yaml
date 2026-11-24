@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     Clicking a row in the task list now opens the run itself, with the same

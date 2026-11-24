@@ -1,4 +1,5 @@
 ---
+# area: documents
 incident:
   - >
     If a file is deleted while someone is uploading a new version of it, the

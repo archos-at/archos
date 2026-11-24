@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Deleting a folder in a project now moves it to the project's Papierkorb

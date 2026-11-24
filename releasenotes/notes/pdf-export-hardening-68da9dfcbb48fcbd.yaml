@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Downloading an answer as PDF no longer fails on certain reports.

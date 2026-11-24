@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     Deep research no longer has a side panel: each run is a block in the chat

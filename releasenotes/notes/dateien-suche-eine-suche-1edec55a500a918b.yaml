@@ -1,4 +1,5 @@
 ---
+# area: search
 improvements:
   - >
     Searching a project's documents or the Archiv now also finds a document by

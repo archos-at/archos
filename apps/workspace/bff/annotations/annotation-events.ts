@@ -9,7 +9,7 @@ import type { AnnotationChange } from './room-types'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { isAgentKind } from '@/lib/agent-kind'
 import type { AnnotationActor } from './annotation-access'
-import { bestEffort } from './annotation-notifications'
+import { bestEffortInBackground } from '@/lib/best-effort'
 
 export function announce(
   session: AuthorizedSession,
@@ -55,7 +55,7 @@ export function traceMove(
   const proposal = isAgentKind(existing.authorKind) && existing.status === 'proposed'
   if (!proposal || (to !== 'open' && to !== 'dismissed')) return
   auditMarkDecided(session, doc, { ...existing, id: annotationId }, to === 'open' ? 'taken_over' : 'dismissed')
-  bestEffort('score the decision', () =>
+  bestEffortInBackground('score the decision', () =>
     recordDecisionScore({
       subject: 'annotation',
       subjectId: annotationId,

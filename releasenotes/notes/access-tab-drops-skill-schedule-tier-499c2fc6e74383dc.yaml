@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     The permission reference on the Access tab no longer lists skill-schedule

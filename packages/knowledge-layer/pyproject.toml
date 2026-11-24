@@ -26,6 +26,7 @@ llamaindex = [
     "llama-index-embeddings-nvidia>=0.1.0",
     "qdrant-client>=1.19.1,<2",
     "pdfplumber>=0.11.10",
+    "pdfminer.six>=20251230",
     "pypdfium2>=5.12.1",
     "Pillow>=9.0.0",
     "openai>=2.53.0",

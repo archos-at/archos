@@ -1,4 +1,5 @@
 ---
+# area: projects
 fixes:
   - >
     In some projects Piloti treated its saved notes as confirmed project facts.

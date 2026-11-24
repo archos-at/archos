@@ -1,4 +1,5 @@
 ---
+# area: answers
 operators:
   - >
     Pull requests can now run the answer suite in CI by adding the

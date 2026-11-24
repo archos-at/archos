@@ -1,4 +1,5 @@
 ---
+# area: administration
 operators:
   - >
     Each organization's name under Platform → Overview now opens its spend as

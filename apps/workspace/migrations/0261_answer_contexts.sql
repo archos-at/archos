@@ -1,4 +1,4 @@
--- 0259: answer_contexts, the server-written record of what one answer was
+-- 0261: answer_contexts, the server-written record of what one answer was
 -- allowed to read and what it read (ADR-0192, "The record per answer").
 --
 -- One row per answer, keyed by (organization, answer message id), the id the

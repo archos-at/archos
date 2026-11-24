@@ -1,4 +1,5 @@
 import 'server-only'
+import { bestEffort } from '@/lib/best-effort'
 import type { UserSession } from '@/lib/auth/types'
 import { encodeCollectionScopeHeader } from '@/lib/retrieval-scope/collection-scope'
 import { resolveConversationScope } from '@/lib/conversation-context'
@@ -10,15 +11,6 @@ import { getBudgetStatus } from '@/lib/budgets/service'
 import { announceBudgetBlocked } from '@/lib/budgets/budget-events'
 import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 import { requesterOf, type RequestPerson } from '@/lib/request-context'
-
-async function bestEffort<T>(what: string, load: () => Promise<T>): Promise<T | null> {
-  try {
-    return await load()
-  } catch (error) {
-    console.warn(`[Turn Context] Failed to ${what}:`, error)
-    return null
-  }
-}
 
 export interface TurnBudget {
   remainingOrgUsd: number | null

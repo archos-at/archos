@@ -56,7 +56,6 @@ see.
 | Give the agent a native tool that does what an operation does | Set the operation's entry to `agent: 'native:<tool>'`, and run the answer suite's workspace set before and after |
 | Change a route's body, query or meaning | Update the operation's schema and description. The schema is shared, so the type checker tells you; the description only review does |
 | Move a route-local zod schema | Into `lib/<area>/<x>-wire.ts`, imported by the route and the catalog |
-| Cover a route that sits in `agent-reachability-baseline.json` | Remove it from the baseline (`UPDATE_FIXTURES=1`) |
 | Add a Python tool for a workspace capability | Do not. A capability is a route and an operation. A Python tool is for task-shaped reasoning (retrieval, IFC, canvas) |
 | Touch sharing grants, folder access, custom roles, a held file let through or a legal hold lifted | Catalogue it with its `sensitivity`, and its line in `SENSITIVE` ([ADR-0122](../adr/0122-everything-a-person-can-do-an-agent-can-do.md), "Sensitive operations") |
 
@@ -74,9 +73,9 @@ see.
 
 ## What fails you
 
-`apps/workspace/bff/agent-api/agent-reachability.spec.ts`. It fails a new
-person-facing route with no operation and no exemption, a baseline entry that is
-now covered, and a malformed operation. The baseline only shrinks. It also fails
+`apps/workspace/bff/agent-api/agent-reachability.spec.ts`. It fails a
+person-facing route with no operation and no exemption, and a malformed
+operation. It also fails
 when an offered operation sits on a product-configuration path
 (`/api/organization/settings`, `/model-config`, `/llm-credentials`,
 `/web-search`, `/upload-screening`, `/api/platform/…` and the rest of

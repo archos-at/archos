@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 improvements:
   - >
     The inbox opens in one movement. It used to slide up twice, and its placeholder now has the shape of the list that replaces it.
