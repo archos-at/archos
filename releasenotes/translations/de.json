@@ -4400,6 +4400,10 @@
     "de": "Wenn zum ersten Mal etwas auf Sie wartet, bietet Piloti Ihnen einmalig an, Sie auf diesem Gerät zu benachrichtigen – auch wenn Sie das Postfach nie öffnen."
   },
   {
+    "en": "The folded sidebar opens over the page when the pointer rests on it and folds again when the pointer leaves, so every place in it is one click away without keeping it open. Its signs stand at the height of their rows.",
+    "de": "Die eingeklappte Seitenleiste klappt über der Seite auf, sobald der Mauszeiger darauf ruht, und wieder ein, wenn er sie verlässt. So ist jeder Punkt darin einen Klick entfernt, ohne sie geöffnet zu lassen. Ihre Zeichen stehen auf der Höhe ihrer Zeilen."
+  },
+  {
     "en": "The folder chips above the file list in Dateien are readable again. In projects with a long file list, they were squeezed until the folder names were cut off in the middle.",
     "de": "Die Ordner-Chips über der Dateiliste in Dateien sind wieder lesbar. In Projekten mit einer langen Dateiliste waren sie so stark zusammengedrückt, dass die Ordnernamen mitten im Wort abgeschnitten wurden."
   },
@@ -4674,6 +4678,10 @@
   {
     "en": "The search filters now complete as you type: party names, place, cited norms and drawings, drawing number, revision, scale and stated facts offer the values your documents actually hold, each with how many documents hold it, so you pick the exact spelling instead of guessing it.",
     "de": "Die Suchfilter ergänzen jetzt beim Tippen: Beteiligte, Ort, zitierte Normen und Pläne, Plannummer, Index, Maßstab und Angaben schlagen die Werte vor, die in Ihren Dokumenten tatsächlich stehen, jeweils mit der Zahl der Dokumente, die ihn enthalten. So wählen Sie die genaue Schreibweise, statt sie zu erraten."
+  },
+  {
+    "en": "The search has a magnifier at the top of the sidebar, and the window behind it and behind Ctrl+K is now the search first: it finds files, chats and projects across the whole office, narrowed to one kind if you like, and shows what you opened from it last. The general entries stay under it; the list of projects and of the current project's sections is gone.",
+    "de": "Die Suche hat eine Lupe oben in der Seitenleiste, und das Fenster dahinter und hinter Strg+K ist jetzt zuerst die Suche: Sie findet Dateien, Chats und Projekte im ganzen Büro, auf Wunsch nur eine Art davon, und zeigt, was Sie zuletzt von dort geöffnet haben. Die allgemeinen Einträge stehen weiter darunter; die Liste der Projekte und der Bereiche des aktuellen Projekts entfällt."
   },
   {
     "en": "The search in Dateien now sits in the header, next to the view switcher, the Alle / Meine / Nicht zugewiesen filter and Hochladen. The documents start a row higher, and there is one search on the page instead of two.",
@@ -5870,13 +5878,5 @@
   {
     "en": "„offen“ now counts the same everywhere: Piloti's proposals that nobody has taken over are no longer counted as open in Dateien, in the Prüfansicht or before a Freigabe. They are named on their own, „2 offen · 12 Vorschläge“, so the number matches Offene Punkte and the Protokoll.",
     "de": "„Offen“ wird jetzt überall gleich gezählt: Vorschläge von Piloti, die niemand übernommen hat, werden in Dateien, in der Prüfansicht oder vor einer Freigabe nicht mehr als offen gezählt. Sie werden separat ausgewiesen: „2 offen · 12 Vorschläge“, damit die Zahl mit „Offene Punkte“ und dem Protokoll übereinstimmt."
-  },
-  {
-    "en": "The search has a magnifier at the top of the sidebar, and the window behind it and behind Ctrl+K is now the search first: it finds files, chats and projects across the whole office, narrowed to one kind if you like, and shows what you opened from it last. The general entries stay under it; the list of projects and of the current project's sections is gone.",
-    "de": "Die Suche hat eine Lupe oben in der Seitenleiste, und das Fenster dahinter und hinter Strg+K ist jetzt zuerst die Suche: Sie findet Dateien, Chats und Projekte im ganzen Büro, auf Wunsch nur eine Art davon, und zeigt, was Sie zuletzt von dort geöffnet haben. Die allgemeinen Einträge stehen weiter darunter; die Liste der Projekte und der Bereiche des aktuellen Projekts entfällt."
-  },
-  {
-    "en": "The folded sidebar opens over the page when the pointer rests on it and folds again when the pointer leaves, so every place in it is one click away without keeping it open. Its signs stand at the height of their rows.",
-    "de": "Die eingeklappte Seitenleiste klappt über der Seite auf, sobald der Mauszeiger darauf ruht, und wieder ein, wenn er sie verlässt. So ist jeder Punkt darin einen Klick entfernt, ohne sie geöffnet zu lassen. Ihre Zeichen stehen auf der Höhe ihrer Zeilen."
   }
 ]
