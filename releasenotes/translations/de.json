@@ -576,6 +576,10 @@
     "de": "Ein Link in einer Mail zeigt die Website, zu der er führt, und kann kopiert werden; beim Folgen eines Mail-Threads wird erklärt, was das jetzt bedeutet und wie Sie es beenden können."
   },
   {
+    "en": "A link to a chat now always opens it where it belongs: a personal chat never opens inside a project, and a project's chat never on the personal side or in another project.",
+    "de": "Ein Link zu einem Chat öffnet ihn jetzt immer dort, wo er hingehört: Ein persönlicher Chat öffnet sich nie innerhalb eines Projekts, und ein Projekt-Chat nie im persönlichen Bereich oder in einem anderen Projekt."
+  },
+  {
     "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
     "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
   },
