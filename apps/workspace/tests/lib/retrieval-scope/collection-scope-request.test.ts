@@ -2,16 +2,15 @@
  * @vitest-environment node
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-  buildCollectionScopeFromRequest,
-  resolveActiveProjectId,
-} from '@/lib/retrieval-scope/collection-scope-request'
+import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
 vi.mock('@/lib/base-knowledge/context/corpus-countries', () => ({ corpusCountriesFor: vi.fn(async () => ['AT']) }))
 vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))
+
+vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn(async () => null) }))
 
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(),
@@ -61,29 +60,10 @@ function mockDbSelect(rows: Array<{ prefs: Record<string, unknown> }>) {
   }
 }
 
-describe('resolveActiveProjectId', () => {
-  it('returns explicit projectId when provided', async () => {
-    const result = await resolveActiveProjectId(baseSession, 'explicit')
-    expect(result).toBe('explicit')
-    expect(mockGetDb).not.toHaveBeenCalled()
-  })
-
-  it('returns active_project_id from user_preferences', async () => {
-    mockGetDb.mockReturnValue(mockDbSelect([{ prefs: { active_project_id: 'pref_1' } }]) as never)
-    const result = await resolveActiveProjectId(baseSession)
-    expect(result).toBe('pref_1')
-  })
-
-  it('returns undefined when no preference exists', async () => {
-    mockGetDb.mockReturnValue(mockDbSelect([]) as never)
-    const result = await resolveActiveProjectId(baseSession)
-    expect(result).toBeUndefined()
-  })
-})
-
 describe('buildCollectionScopeFromRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetDb.mockReturnValue(mockDbSelect([]) as never)
   })
 
   it('builds base-only scope for anonymous mode', async () => {
@@ -109,12 +89,13 @@ describe('buildCollectionScopeFromRequest', () => {
     vi.stubEnv('REQUIRE_AUTH', undefined)
   })
 
-  it('reads active project from preferences when no explicit id', async () => {
+  it('reads no project when the request names none, whatever the stored preferences say', async () => {
     vi.stubEnv('REQUIRE_AUTH', 'true')
     mockGetDb.mockReturnValue(mockDbSelect([{ prefs: { active_project_id: 'pref_1' } }]) as never)
-    mockRequireProjectAccess.mockResolvedValue({ role: 'project-viewer', closed: false, readsBecauseClosed: false })
-    const { scope } = await buildCollectionScopeFromRequest(baseSession, {})
-    expect(scope).toEqual(['oib_knowledge', 'proj_pref_1'])
+    const { scope, projectId } = await buildCollectionScopeFromRequest(baseSession, {})
+    expect(scope).toEqual(['oib_knowledge'])
+    expect(projectId).toBeUndefined()
+    expect(mockRequireProjectAccess).not.toHaveBeenCalled()
     vi.stubEnv('REQUIRE_AUTH', undefined)
   })
 })

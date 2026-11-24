@@ -19,9 +19,12 @@ type Params = { id: string }
 export const GET = apiRoute<Params>(
   async ({ session, params, request }) => {
     const query = parseQuery(request, taskRunListQuerySchema)
-    const gated = query.taskId
-      ? requireSkillsEnabled(session)
-      : (requireSkillsEnabled(session) ?? requireTaskAutomationEnabled(session))
+    const gated =
+      query.kind === 'deep-research'
+        ? requireFeature(session, FEATURE_FLAGS.deepResearch)
+        : query.taskId
+          ? requireSkillsEnabled(session)
+          : (requireSkillsEnabled(session) ?? requireTaskAutomationEnabled(session))
     if (gated) return gated
     return listTaskRunViews(session, params.id, query)
   },

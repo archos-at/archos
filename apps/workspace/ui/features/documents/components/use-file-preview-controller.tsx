@@ -39,7 +39,7 @@ import { useRoomCompany } from './review/document-review'
 import { tabCounts } from './review/review-panel'
 
 import { reviewFilesHref } from '../lib/open-review'
-import { isLive, type MarkTally } from '@/lib/annotations/types'
+import { isLive, isMeasurement, type MarkTally } from '@/lib/annotations/types'
 
 import { ToolbarTextButton } from '@/components/ui/floating-toolbar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -194,7 +194,8 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
       chatHosted: inChat,
     },
   })
-  const liveMarks = review.annotations.filter(isLive).length
+  const liveMarks = review.annotations.filter((annotation) => isLive(annotation) && !isMeasurement(annotation)).length
+  const marked = review.annotations.some(isLive)
   const marksForYou = useMemo(
     () => tabCounts(review.annotations, { on: true, me: review.me }).open,
     [review.annotations, review.me]
@@ -297,12 +298,12 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
       </Tooltip>
     ) : undefined
   const readerAnnotate: ReaderAnnotate | null =
-    reviewEnabled && review.load === 'ready' && (review.canAnnotate || liveMarks > 0)
+    reviewEnabled && review.load === 'ready' && (review.canAnnotate || marked)
       ? {
-          label: liveMarks > 0 ? t('annotations.section') : t('annotations.annotate'),
+          label: marked ? t('annotations.section') : t('annotations.annotate'),
           count: liveMarks,
           countLabel: t('annotations.readerCount', { count: liveMarks }),
-          onClick: () => (liveMarks > 0 ? openReview() : openReview(undefined, 'point')),
+          onClick: () => (marked ? openReview() : openReview(undefined, 'point')),
         }
       : null
 

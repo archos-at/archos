@@ -42,6 +42,7 @@ import {
 import { discoverBudgetFailureMessage } from '../lib/budget-failure-message'
 import { ownsUnansweredTurnIn } from '../lib/turn-ownership'
 import { viewerClientTools } from '../lib/viewer-actions'
+import { ownProjectOf } from '../lib/own-project'
 
 export type {
   SendMessageFailure,
@@ -239,18 +240,18 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
 
   const ensureDriver = useCallback(
     (conversationId: string): TurnDriver =>
-      pool.ensure(conversationId, useChatStore.getState().projectId || undefined),
+      pool.ensure(conversationId, ownProjectOf(useChatStore.getState(), conversationId)),
     [pool]
   )
 
   const reconcileDrivers = useCallback((previousTurns?: Record<string, TurnView>): void => {
-    const { currentConversation, conversations, turns, projectId } = useChatStore.getState()
+    const { currentConversation, conversations, turns } = useChatStore.getState()
     pool.reconcile({
       currentId: currentConversation?.id,
       turns,
       previousTurns,
       known: (id) => id === currentConversation?.id || conversations.some((conversation) => conversation.id === id),
-      projectIdOf: (id) => conversations.find((conversation) => conversation.id === id)?.projectId || projectId || undefined,
+      projectIdOf: (id) => ownProjectOf({ currentConversation, conversations }, id),
     })
   }, [pool])
 

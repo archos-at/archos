@@ -55,7 +55,10 @@
                     "type": "string",
                     "enum": [
                       "point",
-                      "region"
+                      "region",
+                      "line",
+                      "path",
+                      "polygon"
                     ]
                   },
                   "x": {
@@ -86,6 +89,35 @@
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "points": {
+                    "anyOf": [
+                      {
+                        "minItems": 2,
+                        "maxItems": 60,
+                        "type": "array",
+                        "items": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            }
+                          ],
+                          "minItems": 2,
+                          "maxItems": 2
+                        }
                       },
                       {
                         "type": "null"
@@ -166,7 +198,10 @@
                     "type": "string",
                     "enum": [
                       "point",
-                      "region"
+                      "region",
+                      "line",
+                      "path",
+                      "polygon"
                     ]
                   },
                   "x": {
@@ -197,6 +232,35 @@
                         "type": "number",
                         "minimum": 0,
                         "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "points": {
+                    "anyOf": [
+                      {
+                        "minItems": 2,
+                        "maxItems": 60,
+                        "type": "array",
+                        "items": {
+                          "type": "array",
+                          "prefixItems": [
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            }
+                          ],
+                          "minItems": 2,
+                          "maxItems": 2
+                        }
                       },
                       {
                         "type": "null"
@@ -601,7 +665,10 @@
                 "type": "string",
                 "enum": [
                   "point",
-                  "region"
+                  "region",
+                  "line",
+                  "path",
+                  "polygon"
                 ]
               },
               "box": {
@@ -622,6 +689,110 @@
                 ],
                 "minItems": 4,
                 "maxItems": 4
+              },
+              "points": {
+                "anyOf": [
+                  {
+                    "minItems": 2,
+                    "maxItems": 60,
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        }
+                      ],
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reading": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": "number"
+                      },
+                      "unit": {
+                        "type": "string",
+                        "enum": [
+                          "m",
+                          "m2"
+                        ]
+                      },
+                      "low": {
+                        "type": "number"
+                      },
+                      "high": {
+                        "type": "number"
+                      },
+                      "provenance": {
+                        "type": "string",
+                        "enum": [
+                          "printed_figure",
+                          "vector_verified",
+                          "vector_estimated"
+                        ]
+                      },
+                      "scaleState": {
+                        "type": "string",
+                        "enum": [
+                          "verified",
+                          "estimated",
+                          "uncalibrated"
+                        ]
+                      },
+                      "scaleRatio": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "printed": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "unit",
+                      "low",
+                      "high",
+                      "provenance",
+                      "scaleState"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "kind": {
                 "type": "string",
@@ -766,7 +937,10 @@
                 "type": "string",
                 "enum": [
                   "point",
-                  "region"
+                  "region",
+                  "line",
+                  "path",
+                  "polygon"
                 ]
               },
               "x": {
@@ -785,6 +959,110 @@
                 "type": [
                   "number",
                   "null"
+                ]
+              },
+              "points": {
+                "anyOf": [
+                  {
+                    "minItems": 2,
+                    "maxItems": 60,
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        }
+                      ],
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reading": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": "number"
+                      },
+                      "unit": {
+                        "type": "string",
+                        "enum": [
+                          "m",
+                          "m2"
+                        ]
+                      },
+                      "low": {
+                        "type": "number"
+                      },
+                      "high": {
+                        "type": "number"
+                      },
+                      "provenance": {
+                        "type": "string",
+                        "enum": [
+                          "printed_figure",
+                          "vector_verified",
+                          "vector_estimated"
+                        ]
+                      },
+                      "scaleState": {
+                        "type": "string",
+                        "enum": [
+                          "verified",
+                          "estimated",
+                          "uncalibrated"
+                        ]
+                      },
+                      "scaleRatio": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "printed": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "unit",
+                      "low",
+                      "high",
+                      "provenance",
+                      "scaleState"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "kind": {
@@ -847,7 +1125,10 @@
                 "type": "string",
                 "enum": [
                   "point",
-                  "region"
+                  "region",
+                  "line",
+                  "path",
+                  "polygon"
                 ]
               },
               "x": {
@@ -866,6 +1147,110 @@
                 "type": [
                   "number",
                   "null"
+                ]
+              },
+              "points": {
+                "anyOf": [
+                  {
+                    "minItems": 2,
+                    "maxItems": 60,
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        }
+                      ],
+                      "minItems": 2,
+                      "maxItems": 2
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reading": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": "number"
+                      },
+                      "unit": {
+                        "type": "string",
+                        "enum": [
+                          "m",
+                          "m2"
+                        ]
+                      },
+                      "low": {
+                        "type": "number"
+                      },
+                      "high": {
+                        "type": "number"
+                      },
+                      "provenance": {
+                        "type": "string",
+                        "enum": [
+                          "printed_figure",
+                          "vector_verified",
+                          "vector_estimated"
+                        ]
+                      },
+                      "scaleState": {
+                        "type": "string",
+                        "enum": [
+                          "verified",
+                          "estimated",
+                          "uncalibrated"
+                        ]
+                      },
+                      "scaleRatio": {
+                        "anyOf": [
+                          {
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "printed": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "unit",
+                      "low",
+                      "high",
+                      "provenance",
+                      "scaleState"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
                 ]
               },
               "kind": {

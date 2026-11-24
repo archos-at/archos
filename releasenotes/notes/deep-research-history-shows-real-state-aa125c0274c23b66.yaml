@@ -1,0 +1,8 @@
+---
+# area: answers
+fixes:
+  - >
+    The Deep Research list in the chat history now shows each research run
+    under its own name with its real state, so a finished report no longer
+    reads as still running. Offices without deep research no longer see the
+    list, and reading the documents of a new upload no longer appears in it.

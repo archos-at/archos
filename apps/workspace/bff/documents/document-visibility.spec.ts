@@ -154,6 +154,8 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
     "The estate tree's Fassung count, a subquery correlated to the outer row's `documents.id`; the outer query, and its join to the published version, read `documents` under the search reach (`reachWhere`) or `documentVisibleTo` itself.",
   'lib/annotations/repository.ts#insertAnnotationReply|documentAnnotationReplies':
     "The thread's count under the insert's lock, for an Anmerkung of a document the service read for writing.",
+  'lib/drawing-calibrations/repository.ts#setDrawingCalibration|drawingCalibrations':
+    "The page's active calibrations, under the insert's lock, to supersede the same region or refuse an overlap, for a document `setCalibration` read through `getAccessibleDocument(…, 'write')` first.",
 
   'lib/changes/repository.ts#listTurnChangeRows|pilotiChanges':
     "The rows of one turn's answer, which `listTurnChanges` then narrows by `viewsFor`: a row whose document `listAnnotations` refuses is dropped.",
@@ -187,6 +189,10 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   'lib/bim/model-service.ts#getModelForDocument': {
     makes: ['internal:reloaded'],
     why: 'The model of a document this request just loaded through `findDocumentForSession`.',
+  },
+  'lib/drawing-calibrations/page-read.ts#activeCalibrationsOfPage': {
+    makes: ['internal:reloaded'],
+    why: "The measuring tool's read of a page's active calibrations: `GET /api/internal/document-file` resolved the document under the turn's signed scope a moment ago and passes its id and version.",
   },
   'lib/bim/query.ts#runBimQuery': {
     makes: ['internal:reloaded'],
@@ -314,6 +320,8 @@ const GUARDED_TABLES: Record<string, string> = {
   documentAnnotations: 'document_annotations',
   documentAnnotationReplies: 'document_annotation_replies',
   pilotiChanges: 'agent_changes',
+  // The scale a person set for a region of a page of one version (migration 0236): a document fact.
+  drawingCalibrations: 'drawing_calibrations',
 }
 
 function documentRelations(): Set<string> {

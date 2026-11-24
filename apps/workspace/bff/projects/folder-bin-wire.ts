@@ -42,12 +42,7 @@ export const binListingSchema = z.object({
 })
 export type BinListingWire = z.infer<typeof binListingSchema>
 
-export const documentBinResultSchema = z.object({
-  documentId: z.string(),
-  binEntryId: z.string(),
-  purgeAfter: z.string(),
-})
-export type DocumentBinResult = z.infer<typeof documentBinResultSchema>
+export { documentBinResultSchema, type DocumentBinResult } from './document-bin-wire'
 
 export const documentRestoreResultSchema = z.object({
   documentId: z.string(),

@@ -161,12 +161,11 @@ describe('ChatToolbar', () => {
   })
 
   describe('thread row on a phone', () => {
-    test('New chat is the first entry of the ⋯ menu there, and still a button in the open on a desktop', async () => {
+    test('New chat is the first entry of the ⋯ menu there; on a desktop the rail has it', async () => {
       const user = userEvent.setup()
       const onNewSession = vi.fn()
       render(<ChatToolbar sessionTitle="My Session" onNewSession={onNewSession} />)
 
-      expect(screen.getByRole('button', { name: 'Create new session' })).toHaveClass('max-sm:hidden')
       await openThreadMenu(user)
       const item = screen.getByTestId('new-chat-menu-item')
       expect(item).toHaveClass('sm:hidden')
@@ -184,7 +183,7 @@ describe('ChatToolbar', () => {
   })
 
   describe('thread row on a phone — a run and a rule together', () => {
-    test('the title hyphenates at syllables, and the chip steps aside for the spinner', () => {
+    test('the title hyphenates at syllables, and the spinner stands beside the faces', () => {
       mockIsDeepResearchStreaming = true
       mockSharingState = { ...SHARED_STATE, visibility: 'project' }
 
@@ -196,7 +195,7 @@ describe('ChatToolbar', () => {
       const phone = document.querySelector('[data-status-surface="phone"]')
       expect(phone?.querySelector('[data-testid="research-running"]')).not.toBeNull()
       expect(phone?.querySelector('[data-testid="access-chip"]')).toBeNull()
-      expect(document.querySelector('[data-status-surface="desktop"] [data-testid="access-chip"]')).not.toBeNull()
+      expect(document.querySelector('[data-status-surface="desktop"] [data-testid="participant-strip"]')).not.toBeNull()
     })
   })
 
@@ -256,7 +255,7 @@ describe('ChatToolbar', () => {
       expect(screen.queryByText('My Session')).not.toBeInTheDocument()
     })
 
-    test('shows New chat, the thread menu and the breadcrumb once a chat has started', async () => {
+    test('shows the thread menu and the breadcrumb once a chat has started, and no New chat button', async () => {
       const user = userEvent.setup()
       render(
         <ChatToolbar
@@ -265,7 +264,7 @@ describe('ChatToolbar', () => {
         />
       )
 
-      expect(screen.getByRole('button', { name: 'Create new session' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Create new session' })).not.toBeInTheDocument()
       expect(screen.getByText('My Session')).toBeInTheDocument()
 
       await openThreadMenu(user)
@@ -280,7 +279,8 @@ describe('ChatToolbar', () => {
 
       render(<ChatToolbar onNewSession={onNewSession} />)
 
-      await user.click(screen.getByRole('button', { name: 'Create new session' }))
+      await openThreadMenu(user)
+      await selectMenuItem(user, 'new-chat-menu-item')
 
       expect(onNewSession).toHaveBeenCalledOnce()
     })
@@ -293,7 +293,7 @@ describe('ChatToolbar', () => {
       ['an empty chat', { isChatStarted: false }],
       ['a chat with a title', { isChatStarted: true, sessionTitle: 'Fluchtweglängen OG2' }],
       ['a chat whose title is not in yet', { isChatStarted: true }],
-    ])('%s: the door says „Chats“ in words, and no breakpoint hides them', (_, props) => {
+    ])('%s: the door says „Chats“ in words, and stands on a phone only, where there is no rail', (_, props) => {
       render(<ChatToolbar {...props} />)
 
       const door = screen.getByTestId('chat-history-door')
@@ -301,9 +301,8 @@ describe('ChatToolbar', () => {
       expect(label?.textContent).toBe('Chats')
       expect(door).not.toHaveAttribute('aria-label')
       expect(door).toHaveAccessibleName('Chats')
-      for (const node of [door, label]) {
-        expect([...(node?.classList ?? [])].filter((c) => HIDING.test(c)), node?.outerHTML.slice(0, 80)).toEqual([])
-      }
+      expect([...(label?.classList ?? [])].filter((c) => HIDING.test(c))).toEqual([])
+      expect([...door.classList].filter((c) => HIDING.test(c))).toEqual(['sm:hidden'])
     })
   })
 
@@ -336,7 +335,7 @@ describe('ChatToolbar', () => {
       expect(title.closest('div[class*="max-w-[64%]"]')).toBeNull()
     })
 
-    test('from `sm` the title yields to New chat: it shrinks and clamps, the actions keep their width', () => {
+    test('from `sm` the title yields: it shrinks and clamps, the menu keeps its width', () => {
       render(<ChatToolbar sessionTitle="Wiener Garagengesetz — Stellplatzverpflichtung" />)
 
       const title = screen.getByText('Wiener Garagengesetz — Stellplatzverpflichtung')
@@ -346,8 +345,7 @@ describe('ChatToolbar', () => {
         expect(box?.className).toContain('sm:flex-initial')
         expect(box?.className).not.toContain('sm:flex-none')
       }
-      const newChat = screen.getByRole('button', { name: 'Create new session' })
-      expect(newChat.parentElement?.className).toContain('shrink-0')
+      expect(screen.getByTestId('thread-menu').className).toContain('shrink-0')
     })
 
     test('the header is an opaque band in the page surface, and takes its own clicks', () => {
@@ -391,15 +389,13 @@ describe('ChatToolbar', () => {
       )
 
       const phone = document.querySelector('[data-status-surface="phone"]')
-      expect(phone?.querySelector('[data-testid="access-chip"]')).not.toBeNull()
+      expect(phone?.querySelector('[data-testid="participant-strip"]')).not.toBeNull()
     })
 
-    test('New chat is a 44px square on a phone, like the menu beside it', () => {
+    test('the menu is a 44px square on a phone', () => {
       render(<ChatToolbar sessionTitle="My Session" />)
 
-      expect(screen.getByRole('button', { name: 'Create new session' }).className).toContain(
-        'size-11',
-      )
+      expect(screen.getByTestId('thread-menu').className).toContain('size-11')
     })
   })
 
@@ -410,12 +406,10 @@ describe('ChatToolbar', () => {
       expect(screen.getByText('My Session')).toBeInTheDocument()
     })
 
-    test('the title is the size of the New chat label beside it, from `sm` on', () => {
+    test('the title is small from `sm` on', () => {
       render(<ChatToolbar sessionTitle="My Session" />)
 
-      const newChatLabel = screen.getByText('New chat')
       const title = screen.getByRole('button', { name: /rename session/i })
-      expect(newChatLabel.className).toContain('text-xs')
       expect(title.className).toContain('sm:text-xs')
       expect(title.className).toContain('sm:leading-4')
     })
@@ -600,7 +594,7 @@ describe('ChatToolbar — sharing surfaces', () => {
     expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
   })
 
-  test('the faces are STATUS — they say who is here, they do not act', () => {
+  test('the faces open the sharing surface, where everyone the chat is shared with is listed', () => {
     mockSharingState = SHARED_STATE
     render(
       <ChatToolbar
@@ -612,11 +606,11 @@ describe('ChatToolbar — sharing surfaces', () => {
     )
 
     for (const strip of screen.getAllByTestId('participant-strip')) {
-      expect(strip.tagName).not.toBe('BUTTON')
+      expect(strip.tagName).toBe('BUTTON')
     }
   })
 
-  test('a blanket rule REPLACES the faces — the rule is the audience, not the roster', () => {
+  test('a chat shared with the whole project shows faces too, three and a plus for the rest', () => {
     mockSharingState = { ...SHARED_STATE, visibility: 'project' }
     render(
       <ChatToolbar
@@ -627,8 +621,8 @@ describe('ChatToolbar — sharing surfaces', () => {
       />,
     )
 
-    expect(screen.getAllByTestId('access-chip')[0]).toHaveTextContent('Project')
-    expect(screen.queryByTestId('participant-strip')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('access-chip')).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('participant-strip').length).toBeGreaterThan(0)
   })
 
   test('a solo private thread carries no collaboration furniture at all', async () => {

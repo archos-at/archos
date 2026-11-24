@@ -3,6 +3,7 @@ import { UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { Document } from '@/lib/db/schema/documents'
 import { replacingDocumentOf } from './carry'
+import { isMeasureShape } from './measure-shapes'
 import {
   AlreadyCarriedError,
   carryAnnotationToDocument,
@@ -28,6 +29,12 @@ export async function carryToCurrent(
     throw new UnprocessableError('Only an open Anmerkung goes on with the current Fassung.', {
       field: 'carryToCurrent',
       reason: 'not-open',
+    })
+  }
+  if (isMeasureShape(existing.shape)) {
+    throw new UnprocessableError('A measurement belongs to the Fassung it was measured on. Measure again on the current one.', {
+      field: 'carryToCurrent',
+      reason: 'measurement',
     })
   }
   const replacing = await replacingDocumentOf(session, doc)

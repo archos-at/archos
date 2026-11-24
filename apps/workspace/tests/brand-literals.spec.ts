@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import postcss, { type Declaration, type Root, type Rule } from 'postcss'
 import { describe, expect, it } from 'vitest'
+import { ROW_GLYPH_PRESS } from '@/components/ui/row-hairline'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { calleeName, exportedNames, nodesOf, parseSource, productionSources, ts, walk } from '@/test-utils/source-ast'
 import { srcEntries, srcPath } from '@/test-utils/source-tree'
@@ -1032,10 +1033,10 @@ describe('rows, weights and the phone', () => {
     expect(descriptions.filter((classes) => !classes.includes('sm:hidden'))).toHaveLength(1)
     expect(
       elementsNamed(bin, ['Button', 'BusyButton']).some(
-        (element) => stringAttribute(element, 'variant') === 'secondary' && stringAttribute(element, 'size') === 'sm' && shapeOfAttribute(element, 'className') === 'RESTORE_PRESS',
+        (element) => stringAttribute(element, 'variant') === 'secondary' && stringAttribute(element, 'size') === 'sm' && shapeOfAttribute(element, 'className') === 'ROW_GLYPH_PRESS',
       ),
     ).toBe(true)
-    expect((stringConst(bin, 'RESTORE_PRESS') ?? '').startsWith('pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 ')).toBe(true)
+    expect(ROW_GLYPH_PRESS.startsWith('pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 ')).toBe(true)
     expect(
       elementsNamed(bin, ['span']).some((element) => {
         const parent = elementOf(element)

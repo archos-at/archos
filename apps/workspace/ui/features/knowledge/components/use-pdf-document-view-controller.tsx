@@ -17,6 +17,7 @@ import { usePdfPageNavigation } from '../hooks/use-pdf-page-navigation'
 import { usePdfPassageScroll } from '../hooks/use-pdf-passage-scroll'
 import { usePdfQuoteSelection } from '../hooks/use-pdf-quote-selection'
 import { usePdfTextSearch } from '../hooks/use-pdf-text-search'
+import { usePdfRegionFrame } from '../hooks/use-pdf-region-frame'
 import { usePdfZoom } from '../hooks/use-pdf-zoom'
 
 import {
@@ -56,6 +57,7 @@ export function usePdfDocumentViewController(props: PdfDocumentViewProps) {
   focus,
   onViewport,
   className,
+  zoomToRegion = false,
   } = props
   const t = useTranslations(knowledgeCopy)
   const coarse = useMediaQuery('(pointer: coarse)')
@@ -163,6 +165,19 @@ export function usePdfDocumentViewController(props: PdfDocumentViewProps) {
     pageRefs,
     pageWidths,
     foundRef,
+  })
+
+  usePdfRegionFrame({
+    enabled: zoomToRegion,
+    ready: Boolean(doc) && defaultAspect !== null && targetWidth > 0,
+    page,
+    regionsOnPage,
+    scrollRef,
+    pageRefs,
+    zoomRef,
+    maxZoomRef,
+    setZoom,
+    setPing,
   })
 
   const position = doc ? t('viewer.pagePosition', { page: currentPage, count: doc.numPages }) : ''

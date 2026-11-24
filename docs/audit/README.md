@@ -34,6 +34,8 @@ The one live backlog is the
 | [`prompt-audit-2026-09.md`](prompt-audit-2026-09.md) | Whether the answering prompt defines a good answer |
 | [`prompt-value-audit-2026-10.md`](prompt-value-audit-2026-10.md) | Piloti's system prompt, line by line |
 | [`qdrant-gates-2026-10.md`](qdrant-gates-2026-10.md) | The Qdrant migration gates, measured once before the flip |
+| [`chat-scope-and-sharing-2026-11.md`](chat-scope-and-sharing-2026-11.md) | What a chat reads and who reads the chat: retrieval scope, memory, sharing, and what is flaky; the evidence behind ADR-0193 |
+| [`shared-ai-context-elsewhere-2026-11.md`](shared-ai-context-elsewhere-2026-11.md) | How eight AI products handle personal and shared context when several people use the assistant, and four ideas not yet decided |
 
 ## Frozen run logs
 

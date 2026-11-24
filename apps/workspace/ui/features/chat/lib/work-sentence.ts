@@ -265,6 +265,7 @@ const FOLDED_KEYS: Record<WorkSentenceKind, string> = {
   lookup: 'lookupSearches',
   model: 'modelQueries',
   workspace: 'workspaceCalls',
+  measure: 'measures',
 }
 
 const foldedObject = (t: Translator, action: StoredAction, count: number): string =>
@@ -304,6 +305,15 @@ const verbAndObject = (
       return { verb: t(`thinking.work.verb.${verb}`), object: quotedQuery(t, query) }
     case 'workspace':
       return { verb: t('thinking.work.verb.workspace'), object: target ?? '' }
+    case 'measure':
+      return {
+        verb: t(
+          action.measure?.basis === 'printed'
+            ? 'thinking.work.verb.measurePrinted'
+            : 'thinking.work.verb.measure'
+        ),
+        object: target ? placeObject(t, target, pages) : '',
+      }
   }
 }
 
@@ -336,9 +346,9 @@ const foundOf = (t: Translator, action: StoredAction, counts: StoredAction['coun
 export function workParts(
   t: Translator,
   action: StoredAction,
-  options: { running?: boolean; fold?: WorkFold; where?: string; reading?: string } = {}
+  options: { running?: boolean; fold?: WorkFold; where?: string; reading?: string; measured?: string } = {}
 ): WorkParts {
-  const { running = false, fold, where, reading } = options
+  const { running = false, fold, where, reading, measured } = options
   const folded = fold && fold.count > 1 ? fold : undefined
   const named = verbAndObject(t, action, where)
   const object = folded ? foldedObject(t, action, folded.count) : named.object
@@ -358,18 +368,20 @@ export function workParts(
     }
   if (action.status === 'empty') {
     const result = emptyResult(t, action)
-    return action.incomplete
-      ? { ...parts, ...incomplete(t, result, false) }
+    if (action.incomplete) return { ...parts, ...incomplete(t, result, false) }
+    return action.verb === 'measure' && !action.missing
+      ? { ...parts, result, tone: 'empty', note: t('thinking.work.noNumberNote') }
       : { ...parts, result, tone: 'empty' }
   }
   const found = foundOf(t, action, folded ? folded.counts : action.counts)
   if (action.incomplete) return { ...parts, ...incomplete(t, found, true) }
   const short = reading && reading.length <= MAX_READING_RESULT_CHARS ? reading : ''
-  return { ...parts, result: found || (action.verb === 'look' ? short : ''), tone: 'ok' }
+  return { ...parts, result: found || (action.verb === 'look' ? short : '') || (measured ?? ''), tone: 'ok' }
 }
 
 const emptyResult = (t: Translator, action: StoredAction): string => {
   if (action.missing) return t('thinking.work.notFound')
+  if (action.verb === 'measure') return t('thinking.work.noNumber')
   if (sentenceKind(action) === 'glob') return t('thinking.work.noFile')
   if (!SEARCHING.has(action.verb)) return t('thinking.work.nothingFound')
   const searched = action.counts?.searched

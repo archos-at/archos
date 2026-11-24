@@ -56,6 +56,7 @@ describe('the registry', () => {
         'byok-llm',
         'collaboration',
         'deep-research',
+        'drawing-measure',
         'folder-cards',
         'inbound-mail',
         'licensed-seam',
