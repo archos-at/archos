@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 improvements:
   - >
     The inbox is calmer: each entry shows what happened, which project it belongs to and when, with overdue and soon-due annotations marked, and its actions appear when you point at it.

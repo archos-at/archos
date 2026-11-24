@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     When an upload to a project has been read, its inbox notice says what it

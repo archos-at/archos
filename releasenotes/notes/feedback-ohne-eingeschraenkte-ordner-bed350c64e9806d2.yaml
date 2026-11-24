@@ -1,4 +1,5 @@
 ---
+# area: documents
 security:
   - >
     A rated answer from a chat that used a folder with restricted access no

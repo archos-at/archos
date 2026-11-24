@@ -17,7 +17,7 @@ export const turnContextResponseSchema = z.object({
   baseKnowledge: z.string().nullable(),
   baseKnowledgeLabels: z.array(z.record(z.string(), z.unknown())),
   knowledgeContext: knowledgeContextSchema,
-  projectModels: z.object({ ifc: z.boolean(), dxf: z.boolean() }).strict().nullable(),
+  projectModels: z.object({ ifc: z.boolean(), dxf: z.boolean(), pdf: z.boolean() }).strict().nullable(),
 }).strict()
 
 export const turnContextApiResponseSchema = z.object({ data: turnContextResponseSchema }).strict()

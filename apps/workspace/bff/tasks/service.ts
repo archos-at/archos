@@ -336,13 +336,14 @@ export async function recordRunOutcome(
 export async function listTaskRuns(
   session: AuthorizedSession,
   projectId: string,
-  query: Pick<TaskRunListQuery, 'limit' | 'taskId' | 'status' | 'review'> & { cursor?: string },
+  query: Pick<TaskRunListQuery, 'limit' | 'taskId' | 'kind' | 'status' | 'review'> & { cursor?: string },
 ): Promise<KeysetPage<TaskRun>> {
   await requireProjectAccess(session, projectId, 'project:view')
   const page = await repository.listRunPage(projectId, session.organizationId, {
     limit: query.limit,
     cursor: decodeCursorParam(query.cursor),
     definitionId: query.taskId,
+    kind: query.kind,
     status: query.status,
     review: query.review,
   })

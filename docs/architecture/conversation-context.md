@@ -1,6 +1,6 @@
 # The conversation context
 
-Status: design, decided in [ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) (proposed). Not built yet. The evidence it rests on, with file and line, is in
+Status: design, decided in [ADR-0194](../adr/0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) (proposed). Not built yet. The evidence it rests on, with file and line, is in
 [`audit/chat-scope-and-sharing-2026-11.md`](../audit/chat-scope-and-sharing-2026-11.md).
 Reviewed twice against `develop` by independent agents. Their blockers are folded
 in below.
@@ -71,7 +71,7 @@ one. A signed envelope without a kind reads as `chat` (envelopes signed before t
 - `may.personalMemory = solo && conversationId !== null && (kind === 'chat' || kind === 'run')`.
   ADR-0180 holds for chats as it does today: a solo project chat keeps personal
   memory.
-- `may.personalShelf = may.personalMemory && projectId === null && kind === 'chat'`, per ADR-0191.
+- `may.personalShelf = may.personalMemory && projectId === null && kind === 'chat'`, per ADR-0193.
 - `may.features = entitlement && !confined`. A turn that draws on restricted
   folders keeps deep research and tasks off, as `settle_restriction` does today.
 - `isShared` in `bff/sharing/access.ts` stays viewer-independent. It decides
@@ -303,7 +303,7 @@ What slice 1 fixes, so no builder has to guess:
    the run and job readers (`jobs/access.py`, `agent_job_setup.py`,
    `run_envelope.py`), `routes/document_search.py` (an exempt route),
    `routes/skills.py` and `turn/response.py`.
-4. **ADR-0191 on top:** `may.personalShelf`, the personal admit callback,
+4. **ADR-0193 on top:** `may.personalShelf`, the personal admit callback,
    `recorded.personalShelf` and the owner's confirmation. The personal shelf's
    row policy extends the one permissive policy on `documents` (migration 0031,
    held by `rls-coverage.spec.ts`), so it is a single predicate. The builder

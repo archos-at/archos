@@ -3668,6 +3668,10 @@
     "de": "Rechercheberichte werden jetzt in Ihrem Projekt unter „Berichte“ abgelegt und als von Piloti verfasst gekennzeichnet. Projektordner lassen sich umbenennen, verschieben und löschen, ohne dass Dokumente verloren gehen, und Piloti weiß, in welchem Ordner jedes Dokument liegt. In dieser Woche ist dieses Changelog gestartet."
   },
   {
+    "en": "Research runs no longer sit in a list of their own above your chats: the chat that holds a run now carries a Deep Research mark with the run's state, including a failed one, and the Deep Research filter shows just those chats with their count.",
+    "de": "Rechercheläufe werden nicht mehr in einer eigenen Liste über Ihren Chats angezeigt: Der Chat, zu dem ein Lauf gehört, trägt jetzt eine Deep-Research-Markierung mit seinem Status, auch wenn der Lauf fehlgeschlagen ist, und der Deep-Research-Filter zeigt nur diese Chats samt Anzahl an."
+  },
+  {
     "en": "Research runs that had already finished, but still showed as running in the history, now show their real outcome when stopped, instead of staying stuck. Stopping a run now asks for confirmation first.",
     "de": "Recherchen, die bereits fertig waren, aber im Verlauf noch als laufend angezeigt wurden, zeigen beim Beenden jetzt ihr tatsächliches Ergebnis, statt hängen zu bleiben. Ein Beenden einer Recherche fragt jetzt zuerst nach einer Bestätigung."
   },
@@ -3982,6 +3986,10 @@
   {
     "en": "The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and Postfach entries that point to /app/archiv keep working and lead there.",
     "de": "Die Büroablage öffnet sich jetzt unter /app/office-shelf. Lesezeichen, geteilte Links und Postfach-Einträge, die auf /app/archiv verweisen, funktionieren weiterhin und führen dorthin."
+  },
+  {
+    "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
+    "de": "Die Deep-Research-Liste im Chatverlauf zeigt jetzt jeden Recherchelauf mit eigenem Namen und tatsächlichem Status an, sodass ein fertiger Bericht nicht mehr als laufend erscheint. Büros ohne Deep Research sehen die Liste nicht mehr, und das Lesen der Dokumente eines neuen Uploads erscheint nicht mehr darin."
   },
   {
     "en": "The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's origin names who wrote it and who forwarded it. The project settings, the address dialog and the guide on the website describe direct filing.",
@@ -5338,6 +5346,10 @@
   {
     "en": "When the app moves to a new web address, an AI client you connected before the move, such as Claude, Cursor or Claude Code, keeps working at the address you set it up with, without signing in again.",
     "de": "Wenn die App auf eine neue Webadresse umzieht, funktioniert ein KI-Client, den Sie zuvor verbunden haben, etwa Claude, Cursor oder Claude Code, weiterhin unter der Adresse, mit der Sie ihn eingerichtet haben – ohne dass Sie sich erneut anmelden müssen."
+  },
+  {
+    "en": "When the assistant looks at a drawing exported from CAD as a PDF, it now reads the printed dimensions and labels from the file itself instead of from the picture, so small figures are quoted exactly as printed.",
+    "de": "Wenn der Assistent eine aus CAD exportierte Zeichnung als PDF betrachtet, liest er die gedruckten Maße und Beschriftungen nun direkt aus der Datei statt aus dem Bild, sodass auch kleine Zahlen exakt wie gedruckt wiedergegeben werden."
   },
   {
     "en": "When the building-regulation search finds nothing that answers your question, Piloti now tells you it found no supporting passage, instead of answering from loosely related text.",

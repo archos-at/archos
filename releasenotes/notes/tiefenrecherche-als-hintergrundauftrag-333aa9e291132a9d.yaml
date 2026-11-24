@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     A deep research started from the chat now runs in the background: it appears

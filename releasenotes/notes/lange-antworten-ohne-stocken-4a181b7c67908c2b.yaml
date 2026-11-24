@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     Long answers and long tables now appear without slowing down. Before,

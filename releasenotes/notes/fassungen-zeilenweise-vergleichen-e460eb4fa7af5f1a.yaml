@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Comparing two versions now shows what changed, line by line: added lines

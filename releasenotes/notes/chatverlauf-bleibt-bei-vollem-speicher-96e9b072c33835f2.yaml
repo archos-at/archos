@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     When your browser runs out of room, your chat history is not wiped: Piloti

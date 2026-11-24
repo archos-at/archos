@@ -30,6 +30,8 @@ export interface PdfViewerDialogProps {
   highlight?: string | null
   highlightColor?: string
   regions?: readonly PageRegion[] | null
+  zoomToRegion?: boolean
+  pageOverlay?: (page: number) => ReactNode
   quoteFormat?: (quote: { text: string; page: number }) => string
   onFindSimilar?: (passage: { text: string; page: number }) => void
   imageUnoptimized?: boolean
@@ -40,7 +42,7 @@ export interface PdfViewerDialogProps {
   aside?: ReactNode
 }
 
-export function PdfViewerDialog({ open, onOpenChange, fileName, page, title, src: srcOverride, isImage, imageUnoptimized = true, highlight, highlightColor, regions, quoteFormat, onFindSimilar, headerChip, headerActions, description, children, aside }: PdfViewerDialogProps) {
+export function PdfViewerDialog({ open, onOpenChange, fileName, page, title, src: srcOverride, isImage, imageUnoptimized = true, highlight, highlightColor, regions, zoomToRegion, pageOverlay, quoteFormat, onFindSimilar, headerChip, headerActions, description, children, aside }: PdfViewerDialogProps) {
   const t = useTranslations(knowledgeCopy)
   const baseSrc = srcOverride ?? `/api/knowledge-base/documents/${encodeURIComponent(fileName)}`
   const src = page && !isImage ? `${baseSrc}#page=${page}` : baseSrc
@@ -143,6 +145,8 @@ export function PdfViewerDialog({ open, onOpenChange, fileName, page, title, src
                 highlight={highlight}
                 highlightColor={highlightColor}
                 regions={regions}
+                zoomToRegion={zoomToRegion}
+                pageOverlay={pageOverlay}
                 quoteFormat={quoteFormat}
                 onFindSimilar={onFindSimilar}
               />

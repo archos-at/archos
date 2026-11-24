@@ -4,14 +4,15 @@
  *
  * One source for every word of the base knowledge records (`./vocab.ts`). The
  * migration's CHECKs must list exactly these values, and the committed fixture
- * the Python tier reads is written from them: `UPDATE_FIXTURES=1` rewrites it,
+ * the Python tier reads is written from them: `task generate` rewrites it,
  * otherwise it is compared. A word added here without its CHECK (or the other
  * way round) fails before a write could.
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { constraintClauses, listedValues, parseSql, readSql, type SqlStatement } from '@/test-utils/sql-statements'
 import { DECISION_TABLE_PURPOSES, KNOWLEDGE_VOCABULARIES } from './vocab'
 
@@ -81,10 +82,6 @@ describe('the base knowledge vocabularies', () => {
 
   it('matches the committed fixture the Python tier reads', () => {
     const generated = `${JSON.stringify(vocabularySchema(), null, 2)}\n`
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FIXTURE, generated, 'utf8')
-    expect(
-      readFileSync(FIXTURE, 'utf8'),
-      'The vocabularies changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture in the same change.',
-    ).toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 })

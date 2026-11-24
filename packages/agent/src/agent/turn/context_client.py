@@ -159,7 +159,7 @@ def _parse_blocks(body: object) -> ContextBlocks:
 def _model_kinds(value: object) -> frozenset[str] | None:
     if not isinstance(value, dict):
         return None
-    return frozenset(kind for kind in ("ifc", "dxf") if value.get(kind) is True)
+    return frozenset(kind for kind in ("ifc", "dxf", "pdf") if value.get(kind) is True)
 
 
 def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str | None:

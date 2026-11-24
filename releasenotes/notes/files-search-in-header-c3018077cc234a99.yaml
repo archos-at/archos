@@ -1,4 +1,5 @@
 ---
+# area: search
 improvements:
   - >
     Typing in the search field narrows the file list as you go, and Enter

@@ -1,4 +1,5 @@
 ---
+# area: administration
 improvements:
   - >
     Organizations with their own AI key now use it for sorting search results

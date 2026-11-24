@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEffect } from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ModelStage } from './model-stage'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -328,5 +328,32 @@ describe('ModelStage — a download that goes badly', () => {
     canvasStatus = { phase: 'ready', percent: 100, meshCount: 12 }
     await userEvent.click(screen.getByRole('button', { name: 'Load again' }))
     expect(await screen.findByTestId('ifc-canvas')).toBeInTheDocument()
+  })
+})
+
+describe('ModelStage — the measure key', () => {
+  it('turns measuring on and off with M, as the plan reader does', async () => {
+    render(<ModelStage projectId="p1" onClose={vi.fn()} />)
+    const measure = screen.getByRole('button', { name: 'Measure' })
+    expect(measure).toHaveAttribute('aria-keyshortcuts', 'M')
+    expect(measure).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.keyboard('m')
+    expect(measure).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Click the first point')).toBeInTheDocument()
+
+    await userEvent.keyboard('M')
+    expect(measure).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('leaves an M typed into a field alone', () => {
+    render(
+      <>
+        <input aria-label="note" />
+        <ModelStage projectId="p1" onClose={vi.fn()} />
+      </>
+    )
+    fireEvent.keyDown(screen.getByLabelText('note'), { key: 'm' })
+    expect(screen.getByRole('button', { name: 'Measure' })).toHaveAttribute('aria-pressed', 'false')
   })
 })

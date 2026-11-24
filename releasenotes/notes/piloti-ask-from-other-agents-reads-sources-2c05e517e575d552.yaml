@@ -1,4 +1,5 @@
 ---
+# area: agents
 fixes:
   - >
     Asked from your own agent (Claude, Cursor or another MCP client), Piloti

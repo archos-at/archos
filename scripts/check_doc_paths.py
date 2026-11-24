@@ -10,6 +10,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 INDEX = Path("docs/architecture/where-is-what.md")
 
 CODE_SPAN_RE = re.compile(r"`([^`\n]+)`")
@@ -33,6 +35,18 @@ BASELINE = Path("ci/doc_paths_baseline.json")
 RATCHETED = ("docs/architecture/", "docs/contributing/")
 
 GENERATED = ("node_modules/", ".claude/", ".agents/", ".venv/", "apm_modules/")
+
+TASKFILE = Path("Taskfile.yml")
+
+TASK_SPAN_RE = re.compile(r"`task ([a-z0-9][\w.-]*(?::[\w.*-]+)+)[^`\n]*`")
+
+TASK_LINE_RE = re.compile(r"^\s*task ([a-z0-9][\w.-]*(?::[\w.*-]+)+)", re.MULTILINE)
+
+FENCE_RE = re.compile(r"^```[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
+
+DATED_RECORDS = ("docs/adr/", "docs/audit/", "docs/roadmap/", "releasenotes/")
+
+DATED_NAME_RE = re.compile(r"\d{4}-\d{2}")
 
 
 def tracked_paths() -> set[str]:
@@ -122,6 +136,58 @@ def check_scoped(errors: list[str], update: bool = False) -> None:
             errors.append(f"{doc}: {n} dead path(s), baseline {baseline.get(doc, 0)}: {dead}. Fix the new one.")
 
 
+def _declared(taskfile: Path, prefix: str) -> set[str]:
+    data = yaml.safe_load(taskfile.read_text(encoding="utf-8")) or {}
+    names: set[str] = set()
+    for name, body in (data.get("tasks") or {}).items():
+        aliases = body.get("aliases", []) if isinstance(body, dict) else []
+        names.update(prefix + alias for alias in [name, *aliases])
+    for key, include in (data.get("includes") or {}).items():
+        spec = include if isinstance(include, dict) else {"taskfile": include}
+        nested = prefix if spec.get("flatten") else f"{prefix}{key}:"
+        names |= _declared(taskfile.parent / spec["taskfile"], nested)
+    return names
+
+
+def task_names() -> set[str]:
+    return _declared(TASKFILE, "")
+
+
+def task_claims(text: str) -> set[str]:
+    fenced = "\n".join(FENCE_RE.findall(text))
+    return set(TASK_SPAN_RE.findall(text)) | set(TASK_LINE_RE.findall(fenced))
+
+
+def dead_tasks(text: str, declared: set[str]) -> list[str]:
+    def exists(claim: str) -> bool:
+        if claim.endswith("*"):
+            return any(name.startswith(claim.rstrip("*")) for name in declared)
+        return claim in declared
+
+    return sorted(claim for claim in task_claims(text) if not exists(claim))
+
+
+def task_docs(tracked: set[str]) -> list[Path]:
+    return sorted(
+        Path(p)
+        for p in tracked
+        if p.endswith(".md")
+        and not p.startswith((*DATED_RECORDS, *GENERATED))
+        and not DATED_NAME_RE.search(Path(p).name)
+        and Path(p).exists()
+    )
+
+
+def check_tasks(errors: list[str]) -> None:
+    declared = task_names()
+    for doc in task_docs(tracked_paths()):
+        errors.extend(
+            f"{doc}: `task {claim}` is no task in {TASKFILE} or its includes. "
+            "Name the task it became (`task --list-all`), or drop the command."
+            for claim in dead_tasks(doc.read_text(encoding="utf-8"), declared)
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Keep the paths written in agent guides and docs pointing at files that exist."
@@ -143,6 +209,7 @@ def main(argv: list[str] | None = None) -> int:
     errors: list[str] = []
     claims = check(errors)
     check_scoped(errors)
+    check_tasks(errors)
 
     if errors:
         print(f"Doc-path check FAILED ({len(errors)} error(s)):", file=sys.stderr)
@@ -150,7 +217,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {e}", file=sys.stderr)
         return 1
 
-    print(f"Doc-path check passed: {len(claims)} path(s) in {INDEX} resolve; the guides and docs hold their baseline.")
+    print(f"Doc-path check passed: {len(claims)} path(s) in {INDEX} resolve; the docs hold their baseline.")
+    print("Every `task` the docs name exists.")
     return 0
 
 

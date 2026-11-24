@@ -1,4 +1,5 @@
 ---
+# area: documents
 upgrade:
   - >
     The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and

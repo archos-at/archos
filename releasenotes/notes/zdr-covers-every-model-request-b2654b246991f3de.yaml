@@ -1,4 +1,5 @@
 ---
+# area: administration
 features:
   - >
     Zero data retention is on by default for every organization, and it covers

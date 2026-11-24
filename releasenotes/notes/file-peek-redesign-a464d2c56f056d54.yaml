@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     A file opened beside the chat now shows its format, page count and size

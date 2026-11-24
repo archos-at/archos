@@ -1,4 +1,5 @@
 ---
+# area: projects
 fixes:
   - >
     When another AI assistant passes Piloti a setting an action does not have,

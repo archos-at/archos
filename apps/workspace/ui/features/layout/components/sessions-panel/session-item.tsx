@@ -17,6 +17,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { researchCopy } from '@/i18n/namespaces/research'
 import { statusKeyFor } from '../../lib/session-status-key'
+import { hasResearchMark } from '../../lib/run-marks'
 import type { Session } from '../../types'
 import { SessionTemporaryMark, TEMPORARY_LABEL } from '../session-temporary-mark'
 import { SessionStatusIcon } from './session-status-icon'
@@ -56,7 +57,7 @@ export const SessionItem = forwardRef<HTMLLIElement, SessionItemProps>(function 
 
   const sessionDate = session.date instanceof Date ? session.date : new Date(session.date)
   const sessionIso = Number.isNaN(sessionDate.getTime()) ? '' : sessionDate.toISOString()
-  const showResearchChip = session.hasActiveDeepResearch || session.hasCompletedReport
+  const showResearchChip = hasResearchMark(session)
 
   useEffect(() => {
     if (isEditing && inputRef.current) {

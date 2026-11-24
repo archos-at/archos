@@ -9,11 +9,43 @@ import { askRegionOf } from '../../../hooks/use-canvas-ask'
 import type { DocumentReview, ReviewDraft } from '../../../hooks/use-document-review'
 import { useSelfAssignee } from '../../../hooks/use-self-assignee'
 import { Composer } from '../composer'
+import { MeasureDraftBody } from '../measure/measure-reading'
 import { KindPicker } from './kind-picker'
 import { ResponsibilityRow } from './responsibility-row'
 import { ReviewCard, type CardPlacement } from './review-card'
 
 export function DraftCard({
+  review,
+  draft,
+  placement,
+  canPickAssignee,
+  onSetScale,
+}: {
+  review: DocumentReview
+  draft: ReviewDraft
+  placement: CardPlacement
+  canPickAssignee: boolean
+  onSetScale?: (page: number) => void
+}): JSX.Element {
+  const t = useTranslations(filesCopy)
+  const reading = draft.points ? review.tape.reading : null
+  if (draft.points && reading) {
+    const shape = draft.shape === 'line' || draft.shape === 'path' || draft.shape === 'polygon' ? draft.shape : 'line'
+    return (
+      <ReviewCard placement={placement} testId="review-draft" label={t('review.measure.readingLabel')}>
+        <MeasureDraftBody
+          reading={reading}
+          onSetScale={onSetScale ? () => onSetScale(draft.page) : undefined}
+          onDiscard={() => review.setDraft(null)}
+          onKeep={(note) => review.create({ kind: 'hint', body: note || t(`review.measure.shape.${shape}`) })}
+        />
+      </ReviewCard>
+    )
+  }
+  return <PinDraftCard review={review} draft={draft} placement={placement} canPickAssignee={canPickAssignee} />
+}
+
+function PinDraftCard({
   review,
   draft,
   placement,
