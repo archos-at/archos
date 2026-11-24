@@ -114,7 +114,7 @@ describe.skipIf(!url)('personal shelf use against Postgres (migration 0264)', ()
     expect(await usedAt(solo)).toBeNull()
   })
 
-  it('refuses a document thread, whose answers reach the document's readers as annotation replies', async () => {
+  it('refuses a document thread, whose answers reach the document’s readers as annotation replies', async () => {
     const thread = await chat('private', true)
     const admitted = await asOwner(() =>
       use.admitPersonalShelf({ organizationId: ORG, conversationId: thread, userId: OWNER }, [own], allowing(thread, null)),
