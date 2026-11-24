@@ -73,7 +73,7 @@ describe('Archiv header', () => {
 
   it('lets the controls group shrink to the card instead of keeping its single-line width', async () => {
     render(createElement(OfficeShelfWorkspace, { canManage: true }))
-    const controls = await screen.findByTestId('office-shelf-controls')
+    const controls = await screen.findByTestId('shelf-head-tools')
     expect(classesOf(controls.className)).toContain('min-w-0')
     expect(classesOf(controls.className)).not.toContain('shrink-0')
   })
@@ -82,7 +82,7 @@ describe('Archiv header', () => {
     render(createElement(OfficeShelfWorkspace, { canManage: true }))
     const header = await screen.findByTestId('office-shelf-header')
     const title = within(header).getByRole('heading', { level: 1 })
-    const controls = within(header).getByTestId('office-shelf-controls')
+    const controls = within(header).getByTestId('shelf-head-tools')
     expect(title.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
     const toolRow = controls.parentElement as HTMLElement

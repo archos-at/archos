@@ -3996,6 +3996,10 @@
     "de": "Der Kopf der Ablage ist ruhiger: Suche, „Auswählen“, der Papierkorb als Fenster, „Hochladen“ und ⋯; Ansicht, „Filtern und sortieren“ und „Ordner anlegen“ liegen hinter ⋯. „Hochladen“ sammelt jetzt alle Wege in die Ablage, auch den Outlook-Import und „Per E-Mail senden“, und ist nicht mehr schwarz hervorgehoben."
   },
   {
+    "en": "The Ablage keeps its head when you switch between Dateien, E-Mail-Eingang and Offene Punkte: the title stays „Ablage“, each place's own buttons share the one row of tools, and the places no longer jump. Only the content below changes, and it answers your click at once.",
+    "de": "Die Ablage behält ihren Kopf, wenn Sie zwischen Dateien, E-Mail-Eingang und Offene Punkte wechseln: Der Titel bleibt „Ablage“, die eigenen Schaltflächen jedes Bereichs stehen in derselben Werkzeugzeile, und die Bereiche springen nicht mehr. Nur der Inhalt darunter wechselt, und er reagiert sofort auf Ihren Klick."
+  },
+  {
     "en": "The Archiv and the inbox now rise as a large panel over whatever you were looking at, instead of taking over the whole screen as a separate page. Open one from inside a project and the project stays visible underneath, so you never lose your place — close it and you are exactly where you left off.",
     "de": "Das Archiv und die Inbox erscheinen jetzt als großes Panel über der gerade geöffneten Ansicht, statt als separate Seite den ganzen Bildschirm einzunehmen. Öffnen Sie eines davon innerhalb eines Projekts, bleibt das Projekt darunter sichtbar. So verlieren Sie nicht den Überblick – beim Schließen gelangen Sie genau an die Stelle zurück, an der Sie aufgehört haben."
   },
@@ -4050,6 +4054,10 @@
   {
     "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
     "de": "Die Deep-Research-Liste im Chatverlauf zeigt jetzt jeden Recherchelauf mit eigenem Namen und tatsächlichem Status an, sodass ein fertiger Bericht nicht mehr als laufend erscheint. Büros ohne Deep Research sehen die Liste nicht mehr, und das Lesen der Dokumente eines neuen Uploads erscheint nicht mehr darin."
+  },
+  {
+    "en": "The E-Mail-Eingang and Offene Punkte now have a search where Dateien has its own, at the start of the Ablage's row of tools: „Im E-Mail-Eingang suchen …“ finds mails by sender, subject or the name of an attachment, „In den offenen Punkten suchen …“ finds points by their text, their document or who is responsible. The list narrows as you type, Escape clears the search, and it survives a reload.",
+    "de": "Der E-Mail-Eingang und die Offenen Punkte haben jetzt eine Suche an derselben Stelle wie Dateien, am Anfang der Werkzeugzeile der Ablage: „Im E-Mail-Eingang suchen …“ findet E-Mails nach Absender, Betreff oder dem Namen eines Anhangs, „In den offenen Punkten suchen …“ findet Punkte nach ihrem Text, ihrem Dokument oder der zuständigen Person. Die Liste wird schon beim Tippen kürzer, Escape leert die Suche, und sie bleibt auch nach dem Neuladen erhalten."
   },
   {
     "en": "The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's origin names who wrote it and who forwarded it. The project settings, the address dialog and the guide on the website describe direct filing.",
@@ -5950,6 +5958,10 @@
   {
     "en": "„Meine Ablage“ is a shelf of your own: upload, folders, preview, search and delete as on the office shelf, and nobody else in the office sees it, not even an administrator. Your own connected agent can work in it with your rights; no other agent reaches it.",
     "de": "„Meine Ablage“ ist Ihr eigenes Regal: Upload, Ordner, Vorschau, Suche und Löschen wie im Büroregal. Niemand sonst im Büro sieht sie, nicht einmal ein Administrator. Ihr eigener verbundener Agent kann darin mit Ihren Rechten arbeiten; kein anderer Agent hat Zugriff darauf."
+  },
+  {
+    "en": "„Meine Ablage“ keeps its head when you open a folder, as the project's Ablage and the Bürobibliothek do: the title and its row of tools stay where they are, and the way to the folder is the line under the head. While you search in „Meine Ablage“ or the Bürobibliothek, the head stays too, with the way back in its row of tools.",
+    "de": "„Meine Ablage“ behält ihren Kopf, wenn Sie einen Ordner öffnen, wie die Ablage eines Projekts und die Bürobibliothek: Der Titel und die Werkzeugzeile bleiben, wo sie sind, und der Weg zum Ordner steht in der Zeile unter dem Kopf. Auch während Sie in „Meine Ablage“ oder der Bürobibliothek suchen, bleibt der Kopf stehen, mit dem Weg zurück in der Werkzeugzeile."
   },
   {
     "en": "„Mir zugewiesen“ in the Prüfansicht finds your Anmerkungen also while the connection to your colleagues is down.",

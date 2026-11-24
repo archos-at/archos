@@ -183,6 +183,7 @@ export function summaryOf(view: InboundMailView, overrides: Partial<InboundMailS
     receivedAt: view.receivedAt,
     expiresAt: view.expiresAt,
     attachments: attachments.length,
+    attachmentNames: attachments.flatMap((part) => (part.filename ? [part.filename] : [])),
     waitingParts: view.parts.filter((candidate) => candidate.state === 'waiting').length,
     outcomes: {
       filed: view.parts.filter((candidate) => candidate.state === 'filed').length,
