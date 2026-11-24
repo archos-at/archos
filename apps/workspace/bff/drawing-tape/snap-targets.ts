@@ -1,4 +1,5 @@
 import 'server-only'
+import { kindOf } from '@/lib/conversation-context/types'
 import { createHash } from 'node:crypto'
 import {
   ApiError,
@@ -39,7 +40,7 @@ async function backendHeaders(session: AuthorizedSession, document: Document, ba
   if (!secret) throw new ServiceUnavailableError('The measuring service is not configured')
   try {
     return {
-      ...(await signedEnvelopeHeaders(session, document.projectId ?? undefined, secret)),
+      ...(await signedEnvelopeHeaders(session, document.projectId ?? undefined, secret, kindOf(null, 'ui'))),
       ...token,
     }
   } catch (error) {

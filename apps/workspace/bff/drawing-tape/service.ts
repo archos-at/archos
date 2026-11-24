@@ -1,4 +1,5 @@
 import 'server-only'
+import { kindOf } from '@/lib/conversation-context/types'
 import {
   ApiError,
   ForbiddenError,
@@ -23,7 +24,7 @@ const BACKEND_TAPE_TIMEOUT_MS = 125_000
 
 async function envelopeFor(session: AuthorizedSession, document: Document, secret: string) {
   try {
-    return await signedEnvelopeHeaders(session, document.projectId ?? undefined, secret)
+    return await signedEnvelopeHeaders(session, document.projectId ?? undefined, secret, kindOf(null, 'ui'))
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError) throw new ApiError(429, 'BUDGET_EXHAUSTED', error.message)
     if (isAuthzRefusal(error)) throw new ForbiddenError('You cannot measure on this document')
