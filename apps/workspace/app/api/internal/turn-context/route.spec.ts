@@ -280,7 +280,7 @@ describe('POST /api/internal/turn-context', () => {
     warn.mockRestore()
   })
 
-  it('reads personal memory and the workspace line from the turn decision, not from the audience (ADR-0192)', async () => {
+  it('narrows personal memory and the workspace line by the turn decision (ADR-0192)', async () => {
     vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1\n- [profile] "Leads the fire-safety reviews."')
     const closed = closedContext('chat', 's_text-conversation')
     const decision = signDecision(
@@ -292,9 +292,30 @@ describe('POST /api/internal/turn-context', () => {
       await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
     ).json()
 
-    expect(readConversationAudience).not.toHaveBeenCalled()
     expect(data.personalMemory).toBeNull()
     expect(data.workspace).toContain("shared (others read it, so a workspace read runs only on a document or a project's facts")
+  })
+
+  it('withholds personal memory once the chat was shared after the turn was decided solo', async () => {
+    vi.mocked(buildPersonalMemoryDigest).mockResolvedValue('PERSONAL_MEMORY v1')
+    vi.mocked(isSoloAudience).mockReturnValue(false)
+    const closed = closedContext('chat', 's_text-conversation')
+    const decision = signDecision(
+      decisionOf(
+        { ...closed, audience: { ...closed.audience, solo: true, version: 1 }, may: { ...closed.may, personalMemory: true, workspaceRead: 'all' } },
+        null,
+        Date.now(),
+      ),
+      SECRET,
+    )
+
+    const { data } = await (
+      await call({}, { ...signedHeaders(), [TURN_DECISION_HEADER]: decision.header, [TURN_DECISION_SIGNATURE_HEADER]: decision.signature })
+    ).json()
+
+    expect(data.personalMemory).toBeNull()
+    expect(buildPersonalMemoryDigest).not.toHaveBeenCalled()
+    expect(data.workspace).toContain('shared (others read it')
   })
 
   it('refuses a turn decision that is not signed by the BFF', async () => {

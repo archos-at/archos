@@ -37,6 +37,7 @@ batch              bff/feedback/restricted-feedback.integration.spec.ts
 batch              bff/tasks/subject-access.integration.spec.ts
 batch              bff/tasks/active-runs.integration.spec.ts
 batch              bff/conversations/cross-project-use.integration.spec.ts
+batch              bff/conversation-context/record.integration.spec.ts
 batch              bff/cross-project/decisions-repository.integration.spec.ts
 batch              bff/similar-passages/service.integration.spec.ts
 batch              bff/permits/repository.integration.spec.ts
