@@ -5,6 +5,6 @@ features:
     Distances, paths and areas can now be measured on a PDF drawing in the
     review: „Messen“ (M) snaps to the drawing's lines, shows the length as you
     place points and keeps the measurement on the sheet with its tolerance and
-    the drawing's scale, where the whole team and Piloti can see it. Piloti can
+    the drawing's scale, where the whole team and {productName} can see it. {productName} can
     keep a measurement on a drawing too, and it is always measured again from
     the drawing.
