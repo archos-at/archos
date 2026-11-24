@@ -174,7 +174,7 @@ export function PageSheet({
                     </div>
                   </header>
                 )}
-                <div className={cn('min-h-0 flex-1', asWindow && 'overflow-y-auto', bodyClassName)}>{children}</div>
+                <div className={cn('min-h-0 flex-1', asWindow && 'scroll-fade-bottom overflow-y-auto', bodyClassName)}>{children}</div>
               </motion.div>
             </DialogPrimitive.Content>
           </DialogPrimitive.Portal>

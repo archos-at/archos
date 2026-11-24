@@ -86,6 +86,14 @@ const WITH_LIFECYCLE: Project[] = PROJECTS.map((project) => {
   return project
 })
 
+// ?variant=many: an office with a long tail of projects, so the window scrolls and fades its last rows.
+const MANY: Project[] = [
+  ...WITH_LIFECYCLE,
+  ...Array.from({ length: 12 }, (_, index) =>
+    makeProject(`s${index}`, `Scorecard Wohnbau ${String.fromCharCode(65 + index)}`, 'Wohnbau · Wien', 60 * 24 * (45 + index * 6), `Teststraße ${index + 1}, 1100 Wien`)
+  ),
+]
+
 function ProjectOverviewPreview(): JSX.Element {
   const variant = useSearchParams()?.get('variant')
   return (
@@ -93,7 +101,7 @@ function ProjectOverviewPreview(): JSX.Element {
       <RoutePageSheet title="Projektübersicht" closeLabel="Schließen" headerless standalone size="window">
         <div className="p-6">
           <ProjectOverview
-            projects={variant === 'empty' ? [] : WITH_LIFECYCLE}
+            projects={variant === 'empty' ? [] : variant === 'many' ? MANY : WITH_LIFECYCLE}
             viewerActivity={variant === 'fresh' ? {} : VIEWER_ACTIVITY}
             closeAction={<PageSheetClose label="Schließen" />}
           />
