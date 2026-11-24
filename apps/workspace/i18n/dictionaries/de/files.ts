@@ -1656,6 +1656,8 @@ export const files: typeof en.files = {
       provisionalLabel: 'Vorläufig {value}, wird beim Abschluss gemessen',
       readingLabel: 'Messung',
       withTolerance: '{value} ± {tolerance}',
+      printedCheck: { true: 'Maßzahl {figure} stimmt überein', false: 'Maßzahl {figure} weicht ab, bitte prüfen', null: 'Maßzahl {figure} gedruckt, nicht verglichen' },
+      perimeter: 'Umfang {value}',
       shape: { line: 'Strecke', path: 'Weglänge', polygon: 'Fläche' },
       basis: {
         verified: 'Maßstab bestätigt',
@@ -1904,6 +1906,7 @@ export const files: typeof en.files = {
     mine: 'Für Sie',
     measurementsGroup: 'Messungen',
     measurementsLegend: 'Maße auf dem Blatt, keine offenen Punkte.',
+    measurementsTotal: 'Summe aus {count, plural, one {# Messung} other {# Messungen}}',
     proposalsGroup: '{count, plural, one {# Vorschlag von {productName}} other {# Vorschläge von {productName}}}',
     walkProposals: 'Durchgehen',
     walkPosition: '{index}/{total}',
