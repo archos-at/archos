@@ -35,6 +35,14 @@
           "section": "features",
           "area": "documents",
           "text": {
+            "en": "You can now set the scale of a PDF drawing once for all its pages by choosing \"All pages\"; a scale set for one page or frame still takes precedence there. The measure strip also names the estimated scale instead of \"No scale\".",
+            "de": "Sie können den Maßstab einer PDF-Zeichnung jetzt für alle Seiten festlegen, indem Sie „Alle Seiten“ auswählen. Ein für eine einzelne Seite oder einen Rahmen festgelegter Maßstab hat dort weiterhin Vorrang. In der Messleiste wird außerdem der geschätzte Maßstab statt „Kein Maßstab“ angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
             "en": "Distances, paths and areas can now be measured on a PDF drawing in the review: „Messen“ (M) snaps to the drawing's lines, shows the length as you place points and keeps the measurement on the sheet with its tolerance and the drawing's scale, where the whole team and {productName} can see it. {productName} can keep a measurement on a drawing too, and it is always measured again from the drawing.",
             "de": "Abstände, Wege und Flächen lassen sich jetzt im Review auf einer PDF-Zeichnung messen: „Messen“ (M) rastet an den Linien der Zeichnung ein, zeigt beim Setzen der Punkte die Länge an und hält die Messung samt Toleranz und Maßstab der Zeichnung auf dem Blatt fest, wo das gesamte Team und {productName} sie sehen. Auch {productName} kann eine Messung in einer Zeichnung festhalten; sie wird immer erneut anhand der Zeichnung gemessen."
           }
@@ -45,6 +53,22 @@
           "text": {
             "en": "A project with several buildings on one site can now be set up that way: in the last step of the project setup you add each building, name it, or remove it again. The escape level, the Gebäudeklasse and the open questions are then kept for each building on its own.",
             "de": "Ein Projekt mit mehreren Gebäuden auf einem Grundstück lässt sich jetzt entsprechend anlegen: Im letzten Schritt der Projekteinrichtung fügen Sie jedes Gebäude hinzu, benennen es oder entfernen es wieder. Das Fluchtniveau, die Gebäudeklasse und die offenen Fragen werden anschließend für jedes Gebäude separat geführt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "office-knowledge",
+          "text": {
+            "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
+            "de": "Die Bürobibliothek ist jetzt eine Seite neben der Seitenleiste, mit dem Kopf der Ablage und den Bereichen „Dateien“ und „Normen & Richtlinien“, statt einer Fläche über der Seite."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "office-knowledge",
+          "text": {
+            "en": "Normen & Richtlinien is one list: the categories with their counts, ochre where something waits for you, filters by topic and kind, and the topic as a column instead of tiles.",
+            "de": "„Normen & Richtlinien“ ist eine einzige Liste: die Kategorien mit ihren Zahlen, in Ocker, wo etwas auf Sie wartet, Filter nach Thema und Art und das Thema als Spalte statt als Kacheln."
           }
         },
         {
@@ -109,6 +133,22 @@
           "text": {
             "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
             "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Inside a folder the Ablage keeps its header and shows the way there in one line under it, and the search says where it searches and shows its hits in place, Enter included, without opening a window.",
+            "de": "In einem Ordner bleibt der Kopf der Ablage stehen, und eine Zeile darunter zeigt den Weg dorthin. Die Suche sagt, wo sie sucht, und zeigt ihre Treffer an Ort und Stelle, auch nach Enter, ohne ein Fenster zu öffnen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "How much ARCHOS has read is the last line of the list now; only when it could not read something does a line above the files say so, with „Ansehen“.",
+            "de": "Wie viel ARCHOS gelesen hat, steht jetzt in der letzten Zeile der Liste. Nur wenn es etwas nicht lesen konnte, sagt das zusätzlich eine Zeile über den Dateien, mit „Ansehen“."
           }
         },
         {

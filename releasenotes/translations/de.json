@@ -5752,6 +5752,10 @@
     "de": "Sie können jetzt von überall in der App Feedback an das Piloti-Team senden: Melden Sie einen Fehler, schlagen Sie eine Idee vor, hinterlassen Sie Lob oder stellen Sie eine Frage – über das Avatar-Menü oder den neuen Button neben der Inbox."
   },
   {
+    "en": "You can now set the scale of a PDF drawing once for all its pages by choosing \"All pages\"; a scale set for one page or frame still takes precedence there. The measure strip also names the estimated scale instead of \"No scale\".",
+    "de": "Sie können den Maßstab einer PDF-Zeichnung jetzt für alle Seiten festlegen, indem Sie „Alle Seiten“ auswählen. Ein für eine einzelne Seite oder einen Rahmen festgelegter Maßstab hat dort weiterhin Vorrang. In der Messleiste wird außerdem der geschätzte Maßstab statt „Kein Maßstab“ angezeigt."
+  },
+  {
     "en": "You can now tell a project which file is its Bebauungsplan, by uploading it right where the project wizard asks for it or by picking a document already in the project. Piloti then cites the Bebauungsplan by name.",
     "de": "Sie können einem Projekt jetzt sagen, welche Datei sein Bebauungsplan ist: Laden Sie sie direkt dort hoch, wo der Projektassistent danach fragt, oder wählen Sie ein Dokument, das schon im Projekt liegt. Piloti zitiert den Bebauungsplan dann mit seinem Namen."
   },
