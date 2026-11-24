@@ -81,6 +81,21 @@ describe('IfcRevisionTimeline', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it('cuts a long file name in Compare with an ellipsis inside its column, and keeps the whole name in the tooltip', () => {
+    render(
+      <IfcRevisionTimeline
+        series={SERIES}
+        currentModelId="id-Haus-A_V3.ifc"
+        onOpen={noop}
+        onCompareWithPrevious={noop}
+      />
+    )
+    const [compare] = screen.getAllByTestId('bim-revision-compare')
+    expect(compare).toHaveClass('max-w-full')
+    expect(compare?.querySelector('span')).toHaveClass('min-w-0', 'truncate')
+    expect(compare).toHaveAttribute('title', compare?.textContent)
+  })
+
   it('lists newest first and marks the current revision', () => {
     render(
       <IfcRevisionTimeline

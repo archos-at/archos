@@ -417,6 +417,14 @@
         },
         {
           "section": "fixes",
+          "area": "bim",
+          "text": {
+            "en": "On a phone, „Mit … vergleichen“ in a model's revisions no longer pushes the page sideways: a long file name is cut short with an ellipsis.",
+            "de": "Auf dem Smartphone verschiebt „Mit … vergleichen“ in den Revisionen eines Modells die Seite nicht mehr seitlich: Ein langer Dateiname wird mit Auslassungspunkten gekürzt."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "general",
           "text": {
             "en": "„Alle Chats löschen“ now deletes the chats you started on the side you are on, Persönlich or this project, and they no longer come back after a reload. A chat that cannot be deleted stays in the list, with a message saying why.",
@@ -689,6 +697,14 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The cards in an answer's reasoning view (the question, each step, the sources it rests on) now show their outline all the way round instead of only at the corners.",
+            "de": "Die Karten in der Reasoning-Ansicht einer Antwort – die Frage, jeder Schritt und die Quellen, auf denen die Antwort beruht – zeigen jetzt rundum einen Rahmen statt nur an den Ecken."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "collaboration",
           "text": {
             "en": "On a phone, the reply field under an annotation in the Postfach is as tall as its Senden button, so a tap lands in it instead of beside it.",
@@ -741,6 +757,14 @@
           "text": {
             "en": "Switching a chat to temporary changes the button, the composer and the line under it in place, and nothing else on the page moves. On a new chat the choice waits for the first message, so no empty chat appears under „Letzte Chats“.",
             "de": "Beim Wechsel eines Chats zu „temporär“ ändern sich Schaltfläche, Eingabebereich und die Zeile darunter direkt an Ort und Stelle; sonst bleibt die Seite unverändert. In einem neuen Chat wird die Auswahl erst mit der ersten Nachricht wirksam, sodass unter „Letzte Chats“ kein leerer Chat erscheint."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone the composer's row fits the screen again. The temporary-chat switch shows only its glasses there, filled in when the chat is temporary, so the row no longer scrolls sideways at 360 pixels.",
+            "de": "Auf dem Smartphone passt die Eingabezeile wieder auf den Bildschirm. Der Schalter für temporäre Chats zeigt dort nur noch das Brillensymbol, das bei temporären Chats ausgefüllt ist, sodass die Zeile bei 360 Pixeln nicht mehr horizontal scrollt."
           }
         },
         {
