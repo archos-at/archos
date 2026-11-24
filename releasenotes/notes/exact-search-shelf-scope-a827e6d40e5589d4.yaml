@@ -1,4 +1,5 @@
 ---
+# area: search
 features:
   - >
     When you ask whether something appears in your own documents, Piloti can

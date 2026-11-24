@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     Reacting to an answer's cards no longer fails when an imported document

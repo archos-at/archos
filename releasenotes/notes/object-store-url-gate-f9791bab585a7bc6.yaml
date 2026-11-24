@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     The mail-archive import's reading service no longer requests an archive

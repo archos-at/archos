@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     An overview now shows its parts as a table or as a mindmap, never both. A

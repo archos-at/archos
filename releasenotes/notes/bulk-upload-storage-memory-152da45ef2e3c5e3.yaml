@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Uploading hundreds of files at once no longer makes a share of them fail to

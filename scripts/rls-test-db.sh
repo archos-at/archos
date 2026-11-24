@@ -4736,74 +4736,74 @@ apply_in exp_0255 0255_external_expiry_restorable.sql
 sql_in exp_0255 <<<"${RESTORE255};"
 echo "==> migration 0255 verified"
 
-# 0258: the database bumps a conversation's audience_version on every change of
-# who may read it, and a bump that would be lost raises (ADR-0192). 0259: the
+# 0260: the database bumps a conversation's audience_version on every change of
+# who may read it, and a bump that would be lost raises (ADR-0192). 0261: the
 # per-answer record keeps to its kinds.
-echo "==> verifying the audience version, its triggers and the per-answer record on aud_0258"
-migrate_before aud_0258 0258_conversation_audience_version
-sql_in aud_0258 <<SQL
-INSERT INTO conversations (id, organization_id, created_by) VALUES ('s_0258', 'org_0258', 'user_owner');
-INSERT INTO conversations (id, organization_id, created_by) VALUES ('s_0258_b', 'org_0258_b', 'user_b');
+echo "==> verifying the audience version, its triggers and the per-answer record on aud_0260"
+migrate_before aud_0260 0260_conversation_audience_version
+sql_in aud_0260 <<SQL
+INSERT INTO conversations (id, organization_id, created_by) VALUES ('s_0260', 'org_0260', 'user_owner');
+INSERT INTO conversations (id, organization_id, created_by) VALUES ('s_0260_b', 'org_0260_b', 'user_b');
 SQL
-apply_in aud_0258 0258_conversation_audience_version.sql
-apply_in aud_0258 0258_conversation_audience_version.sql
-V258="SELECT audience_version FROM conversations WHERE id = 's_0258'"
-check_in aud_0258 "$V258" "0" "0258: an existing chat starts at 0"
-sql_in aud_0258 <<<"UPDATE conversations SET title = 'Fassade', updated_at = now() WHERE id = 's_0258';"
-check_in aud_0258 "$V258" "0" "0258: a title keeps the version"
-sql_in aud_0258 <<<"UPDATE conversations SET visibility = 'project' WHERE id = 's_0258';"
-check_in aud_0258 "$V258" "1" "0258: a visibility change bumps"
-sql_in aud_0258 <<<"UPDATE conversations SET audience_version = 99 WHERE id = 's_0258';"
-check_in aud_0258 "$V258" "1" "0258: a hand-set version is ignored"
-sql_in aud_0258 <<<"INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0258', 'conversation', 's_0258', 'user_ina', 'viewer', 'user_owner');"
-check_in aud_0258 "$V258" "2" "0258: a grant bumps"
-sql_in aud_0258 <<<"INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0258', 'conversation', 's_0258', 'user_ina', 'collaborator', 'user_owner') ON CONFLICT (resource_type, resource_id, subject_user_id) DO UPDATE SET role = EXCLUDED.role;"
-check_in aud_0258 "$V258" "3" "0258: an upserted grant bumps"
-sql_in aud_0258 <<<"DELETE FROM resource_shares WHERE resource_id = 's_0258';"
-check_in aud_0258 "$V258" "4" "0258: a revoked grant bumps"
-refused_in aud_0258 "INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0258', 'conversation', 's_0258_gone', 'user_ina', 'viewer', 'user_owner')" "could not take its audience bump" "0258: a grant naming no chat"
-check_in aud_0258 "SELECT count(*) FROM resource_shares WHERE resource_id = 's_0258_gone'" "0" "0258: a grant naming no chat is refused"
-sql_in aud_0258 <<SQL
+apply_in aud_0260 0260_conversation_audience_version.sql
+apply_in aud_0260 0260_conversation_audience_version.sql
+V260="SELECT audience_version FROM conversations WHERE id = 's_0260'"
+check_in aud_0260 "$V260" "0" "0260: an existing chat starts at 0"
+sql_in aud_0260 <<<"UPDATE conversations SET title = 'Fassade', updated_at = now() WHERE id = 's_0260';"
+check_in aud_0260 "$V260" "0" "0260: a title keeps the version"
+sql_in aud_0260 <<<"UPDATE conversations SET visibility = 'project' WHERE id = 's_0260';"
+check_in aud_0260 "$V260" "1" "0260: a visibility change bumps"
+sql_in aud_0260 <<<"UPDATE conversations SET audience_version = 99 WHERE id = 's_0260';"
+check_in aud_0260 "$V260" "1" "0260: a hand-set version is ignored"
+sql_in aud_0260 <<<"INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0260', 'conversation', 's_0260', 'user_ina', 'viewer', 'user_owner');"
+check_in aud_0260 "$V260" "2" "0260: a grant bumps"
+sql_in aud_0260 <<<"INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0260', 'conversation', 's_0260', 'user_ina', 'collaborator', 'user_owner') ON CONFLICT (resource_type, resource_id, subject_user_id) DO UPDATE SET role = EXCLUDED.role;"
+check_in aud_0260 "$V260" "3" "0260: an upserted grant bumps"
+sql_in aud_0260 <<<"DELETE FROM resource_shares WHERE resource_id = 's_0260';"
+check_in aud_0260 "$V260" "4" "0260: a revoked grant bumps"
+refused_in aud_0260 "INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0260', 'conversation', 's_0260_gone', 'user_ina', 'viewer', 'user_owner')" "could not take its audience bump" "0260: a grant naming no chat"
+check_in aud_0260 "SELECT count(*) FROM resource_shares WHERE resource_id = 's_0260_gone'" "0" "0260: a grant naming no chat is refused"
+sql_in aud_0260 <<SQL
 ALTER TABLE resource_shares DISABLE TRIGGER resource_shares_conversation_audience;
-INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0258', 'conversation', 's_0258_orphan', 'user_ina', 'viewer', 'user_owner');
+INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0260', 'conversation', 's_0260_orphan', 'user_ina', 'viewer', 'user_owner');
 ALTER TABLE resource_shares ENABLE TRIGGER resource_shares_conversation_audience;
-DELETE FROM resource_shares WHERE resource_id = 's_0258_orphan';
+DELETE FROM resource_shares WHERE resource_id = 's_0260_orphan';
 SQL
-check_in aud_0258 "SELECT count(*) FROM resource_shares WHERE resource_id = 's_0258_orphan'" "0" "0258: an orphaned grant can still be swept"
+check_in aud_0260 "SELECT count(*) FROM resource_shares WHERE resource_id = 's_0260_orphan'" "0" "0260: an orphaned grant can still be swept"
 rename_rls_roles
-RW258=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d aud_0258 -qtA -v ON_ERROR_STOP=1 \
-  -c "SET app.organization_id = 'org_0258'" \
-  -c "INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0258', 'conversation', 's_0258_b', 'user_ina', 'viewer', 'user_owner')" 2>&1 || true)
+RW258=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d aud_0260 -qtA -v ON_ERROR_STOP=1 \
+  -c "SET app.organization_id = 'org_0260'" \
+  -c "INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0260', 'conversation', 's_0260_b', 'user_ina', 'viewer', 'user_owner')" 2>&1 || true)
 if ! grep -q "could not take its audience bump" <<<"$RW258"; then
-  echo "MIGRATION ASSERTION FAILED on aud_0258: the runtime role granted another organization's chat without its bump ($RW258)" >&2
+  echo "MIGRATION ASSERTION FAILED on aud_0260: the runtime role granted another organization's chat without its bump ($RW258)" >&2
   exit 1
 fi
-RWOK258=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d aud_0258 -qtA -v ON_ERROR_STOP=1 \
-  -c "SET app.organization_id = 'org_0258'" \
-  -c "INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0258', 'conversation', 's_0258', 'user_jo', 'viewer', 'user_owner')" \
-  -c "SELECT audience_version FROM conversations WHERE id = 's_0258'" 2>&1 | tail -1)
+RWOK258=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d aud_0260 -qtA -v ON_ERROR_STOP=1 \
+  -c "SET app.organization_id = 'org_0260'" \
+  -c "INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0260', 'conversation', 's_0260', 'user_jo', 'viewer', 'user_owner')" \
+  -c "SELECT audience_version FROM conversations WHERE id = 's_0260'" 2>&1 | tail -1)
 restore_rls_role_names
 if [ "$RWOK258" != "5" ]; then
-  echo "MIGRATION ASSERTION FAILED on aud_0258: the runtime role's grant in its own organization did not bump (got: $RWOK258)" >&2
+  echo "MIGRATION ASSERTION FAILED on aud_0260: the runtime role's grant in its own organization did not bump (got: $RWOK258)" >&2
   exit 1
 fi
 
-apply_in aud_0258 0259_answer_contexts.sql
-apply_in aud_0258 0259_answer_contexts.sql
-sql_in aud_0258 <<<"INSERT INTO answer_contexts (organization_id, message_id, conversation_id, user_id, kind, audience_version, solo, other_projects, workspace_read, personal_memory, personal_shelf) VALUES ('org_0258', 'm1', 's_0258', 'user_owner', 'chat', NULL, true, 'chat-projects', 'all', true, true);"
+apply_in aud_0260 0261_answer_contexts.sql
+apply_in aud_0260 0261_answer_contexts.sql
+sql_in aud_0260 <<<"INSERT INTO answer_contexts (organization_id, message_id, conversation_id, user_id, kind, audience_version, solo, other_projects, workspace_read, personal_memory, personal_shelf) VALUES ('org_0260', 'm1', 's_0260', 'user_owner', 'chat', NULL, true, 'chat-projects', 'all', true, true);"
 V259=$'\\set VERBOSITY verbose\n'
-refused_in aud_0258 "${V259}INSERT INTO answer_contexts (organization_id, message_id, conversation_id, user_id, kind, solo, other_projects, workspace_read, personal_memory, personal_shelf) VALUES ('org_0258', 'm2', 's_0258', 'u', 'socket', true, 'none', 'all', false, false)" "answer_contexts_kind" "0259: an unknown kind"
-refused_in aud_0258 "${V259}INSERT INTO answer_contexts (organization_id, message_id, conversation_id, user_id, kind, solo, other_projects, workspace_read, personal_memory, personal_shelf) VALUES ('org_0258', 'm3', 's_0258', 'u', 'chat', true, 'none', 'some', false, false)" "answer_contexts_workspace_read" "0259: an unknown workspace read"
-refused_in aud_0258 "${V259}INSERT INTO answer_contexts (organization_id, message_id, conversation_id, user_id, kind, audience_version, solo, other_projects, workspace_read, personal_memory, personal_shelf) VALUES ('org_0258', 'm4', 's_0258', 'u', 'chat', -1, true, 'none', 'all', false, false)" "answer_contexts_version" "0259: a negative version"
-apply_in aud_0258 0259_answer_contexts.down.sql
-check_in aud_0258 "SELECT count(*) FROM pg_class WHERE relname = 'answer_contexts'" "0" "0259 down drops the record"
-apply_in aud_0258 0258_conversation_audience_version.down.sql
-check_in aud_0258 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'audience_version'" "0" "0258 down drops the version"
-sql_in aud_0258 <<<"INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0258', 'conversation', 's_0258', 'user_kim', 'viewer', 'user_owner');"
-apply_in aud_0258 0258_conversation_audience_version.sql
-apply_in aud_0258 0259_answer_contexts.sql
-check_in aud_0258 "$V258" "0" "0258 applies again after its down"
-echo "==> migrations 0258 and 0259 verified"
+refused_in aud_0260 "${V259}INSERT INTO answer_contexts (organization_id, message_id, conversation_id, user_id, kind, solo, other_projects, workspace_read, personal_memory, personal_shelf) VALUES ('org_0260', 'm2', 's_0260', 'u', 'socket', true, 'none', 'all', false, false)" "answer_contexts_kind" "0261: an unknown kind"
+refused_in aud_0260 "${V259}INSERT INTO answer_contexts (organization_id, message_id, conversation_id, user_id, kind, solo, other_projects, workspace_read, personal_memory, personal_shelf) VALUES ('org_0260', 'm3', 's_0260', 'u', 'chat', true, 'none', 'some', false, false)" "answer_contexts_workspace_read" "0261: an unknown workspace read"
+refused_in aud_0260 "${V259}INSERT INTO answer_contexts (organization_id, message_id, conversation_id, user_id, kind, audience_version, solo, other_projects, workspace_read, personal_memory, personal_shelf) VALUES ('org_0260', 'm4', 's_0260', 'u', 'chat', -1, true, 'none', 'all', false, false)" "answer_contexts_version" "0261: a negative version"
+apply_in aud_0260 0261_answer_contexts.down.sql
+check_in aud_0260 "SELECT count(*) FROM pg_class WHERE relname = 'answer_contexts'" "0" "0261 down drops the record"
+apply_in aud_0260 0260_conversation_audience_version.down.sql
+check_in aud_0260 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'audience_version'" "0" "0260 down drops the version"
+sql_in aud_0260 <<<"INSERT INTO resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by) VALUES ('org_0260', 'conversation', 's_0260', 'user_kim', 'viewer', 'user_owner');"
+apply_in aud_0260 0260_conversation_audience_version.sql
+apply_in aud_0260 0261_answer_contexts.sql
+check_in aud_0260 "$V260" "0" "0260 applies again after its down"
+echo "==> migrations 0260 and 0261 verified"
 
 # ---------------------------------------------------------------------------
 # Every registered SQL backfill (apps/workspace/backfills/), run twice through
@@ -4821,3 +4821,39 @@ for name in $(node -e '
   run_backfill_twice bf_registry "$name" any
 done
 echo "==> every registered SQL backfill verified"
+echo "==> verifying the 0258 drawing calibrations table and its down migration on dc_0258"
+migrate_until dc_0258 0258_drawing_calibrations
+check_in dc_0258 "SELECT relrowsecurity::text FROM pg_class WHERE relname = 'drawing_calibrations'" "true" "0258 brings the table up under row-level security"
+sql_in dc_0258 <<'SQL'
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000258', 'org_0258', 'Kalibrierung 0258', 'user_1', 'proj_0258');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+VALUES ('d1d1d1d1-0000-4000-8000-000000000258', 'org_0258', 'user_1', 'a.pdf', 'k/0258/a', 'proj_0258', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000258');
+INSERT INTO document_versions (id, organization_id, document_id, project_id, version_number, state, storage_key, content_hash, created_by, approved_by, approved_at)
+VALUES ('e1e1e1e1-0000-4000-8000-000000000258', 'org_0258', 'd1d1d1d1-0000-4000-8000-000000000258', 'aaaaaaaa-0000-4000-8000-000000000258', 1, 'published', 'k/0258/a1', 'sha256:a1', 'user_1', 'user_1', now());
+SQL
+DC236="INSERT INTO drawing_calibrations (organization_id, document_id, version_id, page, region_x, region_y, region_w, region_h, point_a_x, point_a_y, point_b_x, point_b_y, reference_length_m, created_by"
+DC236_ROW="VALUES ('org_0258', 'd1d1d1d1-0000-4000-8000-000000000258', 'e1e1e1e1-0000-4000-8000-000000000258'"
+sql_in dc_0258 <<<"$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5.4, 'user_1')"
+refused_in dc_0258 "$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.3, 0.5, 0.3, 6, 'user_2')" "uniq_drawing_calibrations_active_region" "a second active calibration of one region was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 1, 0.8, 0.1, 0.5, 0.4, 0.9, 0.2, 1, 0.2, 5, 'user_1')" "drawing_calibrations_region_on_page" "a region off the page was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 1, 0.1, 0.1, 0, 0.4, 0.1, 0.2, 0.1, 0.3, 5, 'user_1')" "drawing_calibrations_region_on_page" "a region without width was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.7, 0.2, 5, 'user_1')" "drawing_calibrations_points_in_region" "a point outside its region was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.2, 0.2, 5, 'user_1')" "drawing_calibrations_points_apart" "two points at one place were accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 0, 'user_1')" "drawing_calibrations_length_positive" "a length of zero was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 0, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5, 'user_1')" "drawing_calibrations_page_positive" "page zero was accepted"
+refused_in dc_0258 "$DC236, status) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5, 'user_1', 'deleted')" "drawing_calibrations_status_known" "an unknown status was accepted"
+refused_in dc_0258 "UPDATE drawing_calibrations SET status = 'withdrawn'" "drawing_calibrations_withdrawal_stamped" "a withdrawal nobody stamped was accepted"
+refused_in dc_0258 "UPDATE drawing_calibrations SET withdrawn_at = now(), withdrawn_by = 'user_1'" "drawing_calibrations_withdrawal_stamped" "an active calibration was stamped withdrawn"
+sql_in dc_0258 <<<"UPDATE drawing_calibrations SET status = 'superseded'"
+sql_in dc_0258 <<<"$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.3, 0.5, 0.3, 6, 'user_2')"
+sql_in dc_0258 <<<"UPDATE drawing_calibrations SET status = 'withdrawn', withdrawn_at = now(), withdrawn_by = 'user_2' WHERE status = 'active'"
+check_in dc_0258 "SELECT string_agg(status, ',' ORDER BY created_at, status) FROM drawing_calibrations" "superseded,withdrawn" "0258: a region's history stands beside it, and a withdrawal revives nothing"
+sql_in dc_0258 <<<"DELETE FROM document_versions WHERE id = 'e1e1e1e1-0000-4000-8000-000000000258'"
+check_in dc_0258 "SELECT count(*) FROM drawing_calibrations" "0" "0258: a version takes its calibrations with it"
+apply_in dc_0258 0258_drawing_calibrations.down.sql
+check_in dc_0258 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'drawing_calibrations'" "0" "0258 down drops the table"
+apply_in dc_0258 0258_drawing_calibrations.sql
+apply_in dc_0258 0258_drawing_calibrations.sql   # up twice: idempotent
+check_in dc_0258 "SELECT relrowsecurity::text || ':' || (SELECT count(*) FROM drawing_calibrations) FROM pg_class WHERE relname = 'drawing_calibrations'" "true:0" "0258 applies again after its down, twice, secured and empty"
+echo "==> 0258 drawing calibrations table and its down migration verified"

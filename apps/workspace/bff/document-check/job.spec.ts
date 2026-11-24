@@ -139,6 +139,7 @@ describe('runDocumentCheckSlice — starting the turn', () => {
         subjectResourceId: DOC_ID,
       }),
     )
+    expect(resolveTurnContext).toHaveBeenCalledWith(expect.anything(), { projectId: 'p1', conversationId: CONVERSATION, kind: 'headless' })
     const [[request]] = vi.mocked(runHeadlessTurn).mock.calls
     expect(request.conversationId).toBe(CONVERSATION)
     expect(request.headers['x-chat-mode']).toBe('headless')

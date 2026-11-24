@@ -42,6 +42,10 @@ vi.mock('@/lib/project-profile/prompt-view', () => ({
 vi.mock('@/lib/conversation-context', () => ({
   resolveConversationContext: vi.fn(),
 }))
+vi.mock('@/lib/conversation-context/resolve', () => ({
+  conversationInProject: vi.fn(async (_session: unknown, conversationId: string | null | undefined) =>
+    conversationId === 's_elsewhere' ? null : (conversationId ?? null)),
+}))
 vi.mock('@/lib/auth/pinned-session', () => ({
   resolvePinnedRequesterSession: vi.fn(async (who: { userId: string; organizationId: string }) => ({ ...who })),
 }))
@@ -769,13 +773,21 @@ describe('submitAgentRun', () => {
     expect(submitted.collection_scope).toEqual(['oib_knowledge', 'proj_x'])
   })
 
-  it('reads nothing when the requester is no longer a member', async () => {
+  it('refuses a run whose requester is no longer a member, and submits nothing', async () => {
     const { resolvePinnedRequesterSession } = await import('@/lib/auth/pinned-session')
     vi.mocked(resolvePinnedRequesterSession).mockResolvedValueOnce(null)
 
-    await submitAgentRun(spec)
+    await expect(submitAgentRun(spec)).rejects.toBeInstanceOf(JobSubmitSkippedError)
+    expect(submitJob).not.toHaveBeenCalled()
+    expect(resolveConversationContext).not.toHaveBeenCalled()
+  })
 
-    expect(vi.mocked(submitJob).mock.calls[0][0].collection_scope).toBeNull()
+  it('decides a run whose chat is in another project, or in none, as a run without a conversation', async () => {
+    await submitAgentRun({ ...spec, conversationId: 's_elsewhere' })
+
+    expect(vi.mocked(resolveConversationContext).mock.calls[0]?.[1]).toMatchObject({ kind: 'run', conversationId: undefined })
+    expect(vi.mocked(buildRequestContextWireHeaders).mock.calls[0][0].conversationId).toBeNull()
+    expect(vi.mocked(submitJob).mock.calls[0][0].conversation_id).toBe('s_elsewhere')
   })
 })
 

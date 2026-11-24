@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     A task you hand to Piloti now appears as a block in the conversation where

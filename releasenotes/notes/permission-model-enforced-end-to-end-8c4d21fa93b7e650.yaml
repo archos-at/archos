@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     A Viewer who opens a project's chat now sees the message box locked, with

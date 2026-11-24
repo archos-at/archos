@@ -1,4 +1,5 @@
 ---
+# area: office-knowledge
 fixes:
   - >
     Piloti no longer saves notes to the project memory from an answer that

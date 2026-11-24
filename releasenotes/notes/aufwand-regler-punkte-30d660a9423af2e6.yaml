@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     The effort slider no longer moves its row of dots along with the handle.

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * The per-answer record (ADR-0192, migration 0259) against a REAL Postgres,
+ * The per-answer record (ADR-0192, migration 0261) against a REAL Postgres,
  * through the restricted runtime role:
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -33,7 +33,7 @@ describe('the per-answer record suite is not silently skipped in CI', () => {
   })
 })
 
-describe.skipIf(!url)('answer_contexts against Postgres (migration 0259)', () => {
+describe.skipIf(!url)('answer_contexts against Postgres (migration 0261)', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let record: typeof import('./record')
@@ -79,5 +79,15 @@ describe.skipIf(!url)('answer_contexts against Postgres (migration 0259)', () =>
       readProjects: ['p1'],
     })
     expect(await rowOf(OTHER_ORG, answer)).toEqual([])
+  })
+
+  it('writes the record of a headless turn in its conversation, under its kind', async () => {
+    const answer = randomUUID()
+    const context = closedContext('headless', 's_ac_check')
+    const headless = { ...context, may: { ...context.may, workspaceRead: 'document+projectFacts' as const } }
+    expect(await inOrg(ORG, () => record.recordDecidedAnswer(decisionOf(headless, { organizationId: ORG, userId: USER }, answer, Date.now()), 'p1'))).toBe(true)
+
+    const [row] = await rowOf(ORG, answer)
+    expect(row).toMatchObject({ conversationId: 's_ac_check', kind: 'headless', workspaceRead: 'document+projectFacts' })
   })
 })

@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     Langfuse moves to 4.74.0 on both images, clearing a high follow-redirects

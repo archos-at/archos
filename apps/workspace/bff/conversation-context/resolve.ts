@@ -69,6 +69,8 @@ export interface ConversationScope {
   projectCollectionName: string | null
   shelves: ConversationContext['may']['shelves']
   restrictedCollections: string[]
+  verifiedConversationId: string | null
+  projectReadOnly: boolean
 }
 
 export async function resolveConversationScope(
@@ -100,6 +102,8 @@ export async function resolveConversationScope(
     projectCollectionName: scope.projectCollectionName ?? null,
     shelves,
     restrictedCollections,
+    verifiedConversationId: scope.verifiedConversationId ?? null,
+    projectReadOnly: scope.projectReadOnly ?? false,
   }
 }
 
@@ -145,4 +149,14 @@ export async function resolveConversationContext(
     },
     recorded,
   }
+}
+
+export async function conversationInProject(
+  session: AuthorizedSession,
+  conversationId: string | null | undefined,
+  projectId: string,
+): Promise<string | null> {
+  if (!conversationId) return null
+  const row = await readConversationRow(session.organizationId, conversationId)
+  return row.exists && row.projectId === projectId ? conversationId : null
 }

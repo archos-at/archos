@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     Feedback reports now actually open their PostHog Support ticket. The server

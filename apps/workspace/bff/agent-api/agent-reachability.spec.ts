@@ -1,9 +1,9 @@
-// @disk-inputs: app/api/**, bff/agent-api/agent-reachability-baseline.json, bff/agent-api/catalog/**
+// @disk-inputs: app/api/**, bff/agent-api/catalog/**
 /**
  * @vitest-environment node
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -18,7 +18,6 @@ import { type Sensitivity, pathParams, withInputDefaults } from './operation'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const API_DIR = join(HERE, '../../app/api')
 const CATALOG_DIR = join(HERE, 'catalog')
-const BASELINE_FILE = join(HERE, 'agent-reachability-baseline.json')
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
 
@@ -251,38 +250,17 @@ const ROUTES = personFacingRouteMethods()
 const COVERED = new Set(AGENT_OPERATIONS.map((op) => `${op.method} ${op.path}`))
 const UNCOVERED = ROUTES.filter((route) => !COVERED.has(route.key) && !isExempt(route)).map((r) => r.key)
 
-function readBaseline(): string[] {
-  try {
-    return JSON.parse(readFileSync(BASELINE_FILE, 'utf8')) as string[]
-  } catch {
-    return []
-  }
-}
-
-if (process.env.UPDATE_FIXTURES === '1') {
-  writeFileSync(BASELINE_FILE, `${JSON.stringify(UNCOVERED, null, 2)}\n`)
-}
-
 describe('every person-facing route is agent-reachable (ADR-0122)', () => {
-  const baseline = new Set(readBaseline())
-
   it('finds the routes', () => {
     expect(ROUTES.length).toBeGreaterThan(200)
   })
 
-  it('a route added since the rule has an operation or a stated exemption', () => {
-    const added = UNCOVERED.filter((key) => !baseline.has(key))
+  it('every route has an operation or a stated exemption', () => {
     expect(
-      added,
+      UNCOVERED,
       'Add an operation to lib/agent-api/catalog/<domain>.ts, or a reason to NOT_AN_AGENT_CAPABILITY. ' +
         'See docs/architecture/agent-surface.md.',
     ).toEqual([])
-  })
-
-  it('the baseline only shrinks: covered or deleted routes leave it', () => {
-    const stillUncovered = new Set(UNCOVERED)
-    const stale = [...baseline].filter((key) => !stillUncovered.has(key))
-    expect(stale, 'Remove these from agent-reachability-baseline.json (UPDATE_FIXTURES=1 rewrites it).').toEqual([])
   })
 
   it('a sensitive capability is catalogued with exactly its class, and nothing else carries one', () => {

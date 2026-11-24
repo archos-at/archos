@@ -14,8 +14,10 @@ from agent.core import prompt as prompt_module
 from agent.core import turn_tools
 
 SYSTEM_CEILING = 8_300
-TOOLS_CEILING = 20_300
+TOOLS_CEILING = 21_700
 TOOLS_WITHOUT_A_MODEL_CEILING = 11_200
+#: Inside a project that holds a PDF and no model, in an organization with the `drawing-measure` entitlement.
+TOOLS_WITH_A_PDF_CEILING = 12_600
 
 _ENCODING = tiktoken.get_encoding("o200k_base")
 
@@ -64,3 +66,16 @@ def test_a_project_without_a_model_is_not_sent_the_measuring_tools(chat_tools, m
     total = sum(chat_tools[name] for name in kept if name in chat_tools)
     print(f"chat tools in a project without a model: {len(kept)}, {total} tokens (o200k)")
     assert total <= TOOLS_WITHOUT_A_MODEL_CEILING
+
+
+def test_a_project_with_a_pdf_adds_only_the_drawing_tool(chat_tools, monkeypatch):
+    monkeypatch.setattr(turn_tools, "get_project_id_from_context", lambda: "p-1")
+    turn_tools.set_project_models(frozenset({"pdf"}))
+    try:
+        kept = [tool.name for tool in turn_tools.tools_in_scope([SimpleNamespace(name=n) for n in chat_tools])]
+    finally:
+        turn_tools.set_project_models(None)
+    total = sum(chat_tools[name] for name in kept if name in chat_tools)
+    print(f"chat tools in a project with a PDF and no model: {len(kept)}, {total} tokens (o200k)")
+    assert "drawing_measure" in kept and "dxf_measure" not in kept
+    assert total <= TOOLS_WITH_A_PDF_CEILING

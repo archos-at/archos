@@ -1,4 +1,5 @@
 ---
+# area: administration
 security:
   - >
     Files attached to a chat now go through the same checks as project files:

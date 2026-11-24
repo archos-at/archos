@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     A document is now one entry, however many revisions it has. The entry shows

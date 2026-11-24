@@ -57,7 +57,7 @@ export async function submitBackgroundRun(run: BackgroundRunSubmission): Promise
   }
 
   const contextHeaders = buildRequestContextWireHeaders(
-    runRequestContextInput(subject, context, conversationId, Date.now()),
+    runRequestContextInput(subject, context, Date.now()),
     process.env.INTERNAL_API_TOKEN,
   )
   warnIfRunEnvelopeLarge(contextHeaders, run.runId ?? run.jobId ?? subject.projectId)

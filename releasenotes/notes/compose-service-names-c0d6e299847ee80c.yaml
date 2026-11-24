@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     In Docker Compose the backend services aiq-agent and aiq-api are now chat

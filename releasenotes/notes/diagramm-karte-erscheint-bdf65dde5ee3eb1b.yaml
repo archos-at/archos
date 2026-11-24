@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     Diagrams you ask for now reliably appear in the answer. Before, a requested

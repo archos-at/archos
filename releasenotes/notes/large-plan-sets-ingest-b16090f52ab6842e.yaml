@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     Large plan sets with many drawings now upload and become searchable instead

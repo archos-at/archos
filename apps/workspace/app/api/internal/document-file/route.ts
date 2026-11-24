@@ -8,6 +8,7 @@ import { drawableRestrictedCollections } from '@/lib/conversations/restricted-us
 import { decisionFromRequest } from '@/lib/conversation-context'
 import type { ConversationDecision } from '@/lib/conversation-context/wire'
 import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/documents/document-storage-keys'
+import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
 import { type VerifiedRequestContext } from '@/lib/request-context'
 import { hasHeader } from '@/lib/http/legacy-header-names'
 
@@ -16,6 +17,7 @@ const querySchema = z.object({
   filename: z.string().min(1),
   organizationId: z.string().min(1).optional(),
   imageIndex: z.coerce.number().int().min(0).optional(),
+  calibrationsPage: z.coerce.number().int().min(1).optional(),
 })
 
 type DocumentFileQuery = z.infer<typeof querySchema>
@@ -80,6 +82,19 @@ async function lookUp({ collection, filename, imageIndex }: DocumentFileQuery, o
   }
 }
 
+type Found = Awaited<ReturnType<typeof lookUp>>
+
+async function withCalibrations(found: Found, page: number | undefined, context: VerifiedRequestContext | null) {
+  if (page === undefined) return found
+  if (!context || !('documentId' in found) || !found.versionId) return { ...found, calibrations: [] }
+  const calibrations = await activeCalibrationsOfPage(context.organizationId, {
+    documentId: found.documentId,
+    versionId: found.versionId,
+    page,
+  })
+  return { ...found, calibrations }
+}
+
 export const GET = internalApiRoute(
   'document-file',
   async ({ request }) => {
@@ -92,7 +107,7 @@ export const GET = internalApiRoute(
       }
       return withTenant({ organizationId: context.organizationId }, async () => {
         await requireReadable(query.collection, context, decision)
-        return lookUp(query, context.organizationId)
+        return withCalibrations(await lookUp(query, context.organizationId), query.calibrationsPage, context)
       })
     }
     return withOptionalTenant(
@@ -100,7 +115,7 @@ export const GET = internalApiRoute(
       'document addressed by collection name, with no envelope and no organization supplied',
       async () => {
         await requireReadable(query.collection, null)
-        return lookUp(query, query.organizationId)
+        return withCalibrations(await lookUp(query, query.organizationId), query.calibrationsPage, null)
       }
     )
   },

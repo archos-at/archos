@@ -1,4 +1,5 @@
 ---
+# area: agents
 operators:
   - >
     Platform owners can read agent traces from their own AI assistant through

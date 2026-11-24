@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     The upload panel no longer jumps or cuts off status words while a batch
