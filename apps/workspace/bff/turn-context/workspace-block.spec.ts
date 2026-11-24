@@ -11,7 +11,7 @@ const facts = (overrides: Partial<WorkspaceFacts> = {}): WorkspaceFacts => ({
   organizationRole: 'admin',
   projectRole: 'project-admin',
   project: { id: 'p1', name: 'Wohnhaus Mödling', status: 'active' },
-  conversation: { id: 'c1', audience: 'solo' },
+  conversation: { id: 'c1', workspaceRead: 'all' },
   inboxWaiting: 2,
   activeRuns: 1,
   proposals: [],
@@ -63,11 +63,13 @@ describe('renderWorkspaceBlock', () => {
 
   it('leaves out what it could not read instead of guessing it, and tells the agent a shared audience', () => {
     const block = renderWorkspaceBlock(
-      facts({ inboxWaiting: null, activeRuns: null, conversation: { id: 'c1', audience: 'shared' } })
+      facts({ inboxWaiting: null, activeRuns: null, conversation: { id: 'c1', workspaceRead: 'document+projectFacts' } })
     )
     expect(block).not.toContain('inbox:')
     expect(block).not.toContain('runs:')
-    expect(block).toContain('shared (others read it, so no workspace read runs here; writes are still proposed)')
+    expect(block).toContain(
+      "shared (others read it, so a workspace read runs only on a document or a project's facts that every reader may open; writes are still proposed)",
+    )
   })
 
   it('clips a long summary to one bounded line', () => {

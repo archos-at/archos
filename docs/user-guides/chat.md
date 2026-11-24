@@ -13,7 +13,7 @@ Every chat you had in a project is kept, and there are two ways back to one:
 
 ## Starting a conversation
 
-Click **New chat** in the chat-history panel or the quiet **New chat** button in the thread header (on a phone it is the first entry of the **…** menu) to start a fresh conversation. The sidebar's **Chat** entry also always opens an empty draft, never the last thread you left. On an empty thread the chat shows a time-of-day greeting (with your first name when available). Type your message in the composer at the bottom of the screen and press Enter. The first user message sets the conversation title (truncated to 50 characters).
+Click **New chat** in the sidebar or in the chat-history panel (on a phone it is the first entry of the header's **…** menu) to start a fresh conversation. The sidebar's **Chat** entry also always opens an empty draft, never the last thread you left. On an empty thread the chat shows a time-of-day greeting (with your first name when available) and, under it, „Nur Sie sehen diesen Chat.“; mail waiting to be filed in the project is named under the composer. Type your message in the composer at the bottom of the screen and press Enter. The first user message sets the conversation title (truncated to 50 characters).
 
 You do not have to wait for an answer before asking something else. While ARCHOS answers in one chat, open another chat or start a new one: the first keeps working and its answer is complete when you come back. The chat-history panel and the sidebar's **Recent chats** show what each chat is doing: a spinner while ARCHOS works on it, a question mark while it waits for your answer, and a mark with the title in bold once the answer is ready, or a warning mark if the answer failed, until you open the chat. A chat that is still answering cannot be renamed or deleted. The marks belong to the open browser tab: after a reload the answer is still there, the mark is not.
 
@@ -27,23 +27,26 @@ The header is two floating pills, split by what they are for.
 
 **Right — what is true about this chat, then what you can do to it,** separated by a hairline.
 
-Before the line is *status*, and none of it is clickable. Who can read the chat is answered in **one** of two forms, never both, depending on what kind of audience it has:
+Who can read the chat stands on the right, in one form:
 
-- **shared with named people** → their **faces**. The audience was listed person by person, so the faces are the whole answer.
-- **shared with the whole project or organization** → an **access chip** (`Projekt`, `Organisation`) and *no* faces. That audience is a rule, not a list — it changes as people join the project — so avatars would show a handful of people and imply only they can read it.
-- **private, just you** → neither. There is nothing to report.
+- **shared**, with named people or with the whole project or organization → their **faces**, at most three, and a **+n** for the rest. A click opens the sharing surface, which lists everyone and the rule.
+- **shared with the whole project or organization, and nobody else is in yet** → an **access chip** (`Projekt`, `Organisation`).
+- **private, just you** → **„Nur Sie“** with a lock. A click shows the sentence behind it: only you see this chat until you share it. On a phone the same sentence stands under the composer.
 
 Alongside it, while deep research is running, a spinner — so the "still working" signal survives scrolling past the run block in the thread.
 
 Either way the full picture (the rule *and* anyone individually invited) is in the sharing surface, one click away in the menu. Below the `sm` breakpoint there is no room for the status beside the actions, so the faces or the access chip, and the research spinner, move to the end of the title's row in the left pill.
 
-After the line is *action*. **New chat** is the only one kept in the open (on a phone it moves into the **…** menu, so the right pill is a single button). The rest live in the **…** menu, and each appears only when it is real:
+The left pill names the chat: its **title**, the **…** menu and, from a tablet's width up, the date of the last change („Geändert am …“). The right pill says who sees the chat and, when it can be shared, carries **Share**. The sidebar lists the chats and starts a new one, so the header has neither „Chats“ nor „New chat“ on a desktop; a phone has no sidebar and keeps the „Chats“ door.
 
 | Menu entry | Appears when |
 |---|---|
-| **New chat** | on a phone only; a desktop keeps it in the open |
-| **Rename chat** | there is a chat to rename — it opens the same in-place editor a click on the title opens (the menu entry is how you find it; the click is the shortcut). Enter or clicking away commits, Escape cancels — the same rename action as the chat-history panel |
-| **Share** | collaboration is enabled and this thread is reachable — the one door to the sharing surface, for every participant, not only owners. On a brand-new chat the thread only reaches the server with its first message, so this entry arrives a moment after you send it rather than being there from the first keystroke |
+| **New chat** | on a phone only |
+| **Rename** | there is a chat to rename — it opens the same in-place editor a click on the title opens. Enter or clicking away commits, Escape cancels |
+| **Share** | on a phone only, when collaboration is enabled and this thread is reachable; a desktop has the button in the right pill. On a brand-new chat the thread only reaches the server with its first message, so it arrives a moment after you send it |
+| **Delete** | there is a chat to delete — it asks first |
+
+The same **…** menu (Rename, Delete) stands at each chat under the sidebar's **Recent chats**, when the pointer is over the row.
 
 Everything in this pill comes and goes during a conversation — the participants resolve a moment after the chat opens, research starts and finishes, the menu appears with the first thing worth listing — so arrivals fade in rather than blinking into place, and the controls already there keep their position instead of sliding sideways.
 
@@ -64,7 +67,7 @@ The composer is a translucent card floating over the thread, with the message fi
 
 On a phone the control row stays one line. The `@` list keeps the keyboard open when you pick a name.
 
-Under the composer one line always reads „ARCHOS ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.“ (see [AI Act](ai-act.md)).
+Under the composer of a running chat, from your first message on, one line reads „ARCHOS ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.“ (see [AI Act](ai-act.md)).
 
 **Above the composer, a usage notice** appears when a budget that applies to you is close to stopping chat: the office's, your own limit, or the project's, daily or monthly. It shows one budget, the one that matters most:
 
@@ -134,13 +137,13 @@ When collaboration is enabled (ADR-0032…0036), a chat can have a named audienc
 
 **Read-only and revoked access.** Someone with view-only access reads along but cannot send; the composer says so instead of silently rejecting, and everything on the composer that would write to the shared chat goes with it — attachments, drag-and-drop, managing the attached files, the `/` and `#` pickers, the mention offer, the „Aufwand“ dial and dictation. Opening a file that is already attached still works: reading along is the point. If access to a shared chat is revoked while it is open, a notice explains that what remains is a local copy that no longer updates. While a colleague's turn is running, the composer is locked with a hint rather than letting two people write into one thread at once.
 
-**The inbox.** The inbox (nav entry with a live count badge, and an "Inbox" pill on org-level pages) lists everything that needs a person: mention requests, answers, and shares. It also tells you when a document you follow has a newer Fassung (see below). Items deep-link into the right chat, highlight the message, and are marked read as you open them, whether from the row, from a notification on your device, or by opening the annotation they are about in the review; resolved items carry an *Answered* chip. Four filters answer four questions: *Needs me* (a request still waiting on you), *Unread*, *All*, and *Archived*, where an archived item can be restored. Each row's menu marks it read or unread again and archives it; older items load at the end of the list, and the list can be worked from the keyboard (J/K, Enter, E, U). A row about an annotation opens it with *Go to annotation*, and an annotation assigned to you, or ARCHOS's question, can be answered (and an assigned one resolved) right in the row. The badge count also rides on the chat's own navigation on phones. Someone who never opens the inbox is offered device notifications once, the first time something waits on them. The page lives above projects, so it has the same back control Organisation and Platform do: it returns you to the project you came from, not to a settings tab you clicked through on the way.
+**The inbox.** The inbox (Postfach) holds everything that needs a person: mention requests, answers, and shares. It also tells you when a document you follow has a newer Fassung (see below). It opens from the **bell beside your name** at the foot of the sidebar (on org-level pages the bell is in the header; on a phone it is in the tab bar); the bell carries the count of what waits. A click on the bell opens a small window with the four newest entries that wait on you, the number of news, and **Postfach öffnen**. An entry there, or **Postfach öffnen**, opens the page **Postfach**. The page has three tabs: **Wartet auf Sie** (requests still waiting on you), **Neuigkeiten** (everything else that is not archived) and **Archiviert**, where an archived entry can be restored. The list is on the left and the entry you opened on the right; on a narrow screen the opened entry stands under the list. Overdue entries stay on top, otherwise the newest comes first. With nothing picked, the first entry of the list stands on the right, still unread; picking an entry marks it read. Under the opened entry stand its actions: **Als erledigt markieren** for an annotation assigned to you, **In der Prüfansicht öffnen** (or **Öffnen** for anything that is not an annotation), which goes to the chat, file or annotation it is about, and **Archivieren**. An entry that belongs to no project carries „Persönlich“ where the others name their project. A resolved entry carries an *Answered* chip. The opened entry's menu marks it read or unread again and archives it (with Undo for a few seconds); **Alle gelesen** marks the whole tab read, and older entries load at the end of the list. An entry about an annotation opens it with *Go to annotation*, and an annotation assigned to you, or the agent's question, can be answered (and an assigned one resolved) right in the opened entry. Someone who never opens the inbox is offered device notifications once, the first time something waits on them. The page lives above projects: its back control, and the bell while you are on the page, return you to where you came from.
 
 **A new Fassung of a document you follow.** When a newer Fassung appears, the people assigned to the older document and the person who uploaded it get an inbox item that says who did it: „Sabine Gruber hat eine neue Fassung von „Grundriss EG Index B“ hochgeladen“, with the first line of what changed below it when ARCHOS has written it. The item opens the newer document. When the newer Fassung has another name, **Fassungen vergleichen** opens it with the visual comparison against the one you follow already open; **Besprechen** asks ARCHOS about it. It appears when someone confirms „Ja, neuere Fassung“, when an upload is linked to the document it replaces while it is read, and when a new upload or a published Fassung replaces a document under the same name; for an upload, once it has been read and has passed the content check, because until then only its uploader may see it. The person who made the change is not told about their own change. Nobody is told who may not open the newer document, whether through the project or through a restricted folder, and a document held back by the content check tells nobody anything. „Verknüpfung lösen“ tells nobody. Whoever already has the item for that Fassung is not told twice, so reading it once is enough.
 
 ## Chat history panel
 
-The history panel opens from **Chats** in the thread header, or from **Alle Chats** under Chat in the sidebar, as a sheet that rises over the chat (the same sheet as the inbox, with a sliver of the chat left visible above it), and is this project's whole record of past chats and research runs. Close it with its **✕** or Escape; focus returns to the control that opened it.
+The history panel opens from **Chats** in the thread header, or from **Alle Chats** under Chat in the sidebar, as a sheet that rises over the chat (with a sliver of the chat left visible above it), and is this project's whole record of past chats and research runs. Close it with its **✕** or Escape; focus returns to the control that opened it.
 
 Its heading names the panel and its size (**Chat history · 12 chats**). Below that, the controls stay pinned while the list scrolls:
 

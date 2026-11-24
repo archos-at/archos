@@ -1,19 +1,16 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
 import { I18nProvider } from '@/i18n'
 import { AppShellChrome } from '@/components/shell/app-shell-chrome'
-import { useStartDock } from '@/components/shell/start-dock'
-import { InboxDock } from '@/features/collaboration/components'
 import { FilePreviewBridge } from '@/features/documents/components/file-preview-host'
 import type { FileItem } from '@/features/documents/components/project-file-workspace'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import { NO_TOURS } from '@/lib/onboarding/product-tour'
 import { AppConfigProvider, type AppConfig } from '@/shared/context'
 import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
-import { installInboxShim } from '../../../_fixtures/inbox-items'
 
 const FILE: FileItem = {
   id: 'doc-brandschutz',
@@ -36,18 +33,11 @@ const FILE: FileItem = {
 
 const config: AppConfig = { authRequired: false, fileUpload: getFileUploadConfigFromEnv() }
 
-installInboxShim()
-
 export default function FileAskSplitInShellPreview(): JSX.Element {
-  const [dockable, setDockable] = useState(false)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     useFilePreviewStore.setState({ file: null, mode: 'modal', hidden: false })
     if (params.get('peek') === 'open') useFilePreviewStore.getState().open(FILE, 'peek', { projectId: 'p1' })
-    if (params.get('dock') === 'open') {
-      setDockable(true)
-      useStartDock.getState().open('inbox')
-    }
   }, [])
 
   return (
@@ -67,7 +57,6 @@ export default function FileAskSplitInShellPreview(): JSX.Element {
           showModels={false}
           tours={NO_TOURS}
           overlay={null}
-          startDock={dockable ? { inbox: <InboxDock /> } : {}}
         >
           <main
             id="main-content"

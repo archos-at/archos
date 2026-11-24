@@ -400,7 +400,8 @@ export const files = {
     noDocumentsDescription:
       'Upload your project’s documents: drawings, official notices, expert reports. {productName} reads them and cites them instead of answering from generic guidance.',
     searchPlaceholder: 'Search…',
-    searchPlaceholderEverything: 'Filter, Enter searches all…',
+    searchPlaceholderProject: 'Search the project’s documents …',
+    searchPlaceholderOffice: 'Search the office library …',
     searchLabel: 'Search files',
     noMatch: 'No files match “{query}”',
     noMatchDescription:
@@ -544,6 +545,7 @@ export const files = {
   },
   bin: {
     title: 'Bin',
+    dialogDescription: 'Deleted files and folders of the project. Each row says until when it can be restored.',
     empty: 'The bin is empty.',
     emptyHint: 'Deleted folders appear here and can be restored.',
     deletedBy: 'deleted by {name} on {date}',
@@ -709,13 +711,20 @@ export const files = {
   delete: {
     action: 'Delete document',
     title: 'Delete “{name}”?',
-    confirm: 'This removes the document from this project. This cannot be undone.',
+    confirm: 'The document goes to the project’s bin. It can be restored from there until it is deleted for good.',
     confirmAction: 'Delete',
     cancel: 'Cancel',
     deleting: 'Deleting…',
     success: '“{name}” was removed from the project',
     error: 'The document could not be deleted',
     legalHold: 'The document is under a legal hold and cannot be deleted',
+  },
+  erase: {
+    title: 'Delete “{name}”?',
+    confirm: 'The held file is deleted for good. It does not go to the bin.',
+    confirmAction: 'Delete for good',
+    deleting: 'Deleting…',
+    error: 'The document could not be deleted',
   },
   zip: {
     reading: 'Reading the ZIP…',
@@ -923,6 +932,9 @@ export const files = {
     upload: 'Upload',
     uploadFolder: 'Upload folder',
     uploadFiles: 'Choose files',
+    mails: 'E-mails',
+    importMailArchive: 'Import an Outlook archive …',
+    importMailArchiveHint: 'Attachments into folders, the text into the mail threads',
   },
   errors: {
     projectClosed: 'This project is closed and read-only. Whoever manages it can reopen it from the notice at the top or in the Overview.',
@@ -976,6 +988,8 @@ export const files = {
     headlineSome: '{readable} of {count, plural, one {# document} other {# documents}} read',
     headlineNone: '{count, plural, one {The document is not read yet} other {None of the # documents read yet}}',
     headlineNothingToRead: '{count, plural, one {# document, not part of the knowledge base} other {# documents, none part of the knowledge base}}',
+    unreadHint: '{count, plural, one {# document could not be read.} other {# documents could not be read.}}',
+    unreadHintShow: 'Show',
     states: {
       readable: '{count} read',
       reading: '{count} being read',
@@ -1116,6 +1130,8 @@ export const files = {
   },
   filters: {
     label: 'Filter',
+    menuItem: 'Filter and sort',
+    moreActive: 'More, {count} filters active',
     labelActive: 'Filters ({count} active)',
     reset: 'Reset filters',
     alsoShowLabel: 'Also show',
@@ -1602,7 +1618,7 @@ export const files = {
         zoom: 'Pinch to zoom in for a precise measurement',
       },
       closeArea: 'Close the area',
-      snapped: { vertex: 'Corner', edge: 'on line' },
+      snapped: { vertex: 'Corner · Ctrl/⌘ places freely', edge: 'On line · Ctrl/⌘ places freely' },
       noScale:
         'No scale is known for this page. Set it from a length you know, then you can measure.',
       exit: 'Stop measuring',
@@ -1650,6 +1666,7 @@ export const files = {
       scale: {
         button: {
           none: 'No scale',
+          estimated: 'Scale {ratio}, estimated',
           one: 'Scale {ratio}',
           two: 'Scale {ratio} · {other}',
           count: '{count, plural, one {# scale} other {# scales}}',
@@ -1662,6 +1679,7 @@ export const files = {
         you: 'You',
         where: {
           page: 'whole page',
+          document: 'all pages',
           topLeft: 'frame top left',
           top: 'frame at the top',
           topRight: 'frame top right',
@@ -1702,6 +1720,7 @@ export const files = {
           cancel: 'Cancel',
           next: 'Next',
           wholePage: 'Whole page',
+          wholeDocument: 'All pages',
           gives: 'gives {ratio}',
         },
         form: {
@@ -1709,7 +1728,7 @@ export const files = {
           lengthLabel: 'True length of the distance',
           unit: 'm',
           lengthInvalid: 'Enter a length above 0',
-          region: 'Holds within the frame',
+          region: 'Holds for',
           regionMisses: 'Misses a point',
           replaces: 'Replaces scale {ratio}',
           ratio: 'Scale',
@@ -1730,13 +1749,13 @@ export const files = {
           firstPoint: 'Click the start of a distance you know',
           secondPoint: 'Click the end of the distance',
           length: 'How long is the distance in reality?',
-          region: 'Drag a frame around the drawing the scale holds for',
+          region: 'Where does the scale hold? Drag a frame.',
         },
         nextTouch: {
           firstPoint: 'Tap the start of a distance you know',
           secondPoint: 'Tap the end of the distance',
           length: 'How long is the distance in reality?',
-          region: 'Drag a frame around the drawing the scale holds for',
+          region: 'Where does the scale hold? Drag a frame.',
         },
       },
     },

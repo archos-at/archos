@@ -5,6 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotFoundError } from '@/lib/api/errors'
+import { scopeWith } from '@/lib/conversation-context/context.fixtures'
 
 vi.mock('@/lib/db/tenant-context', () => ({ tenantSlotRoute: (handler: unknown) => handler }))
 const isAuthRequired = vi.fn()
@@ -15,9 +16,9 @@ vi.mock('@/lib/auth/session', () => ({
   getUserSession: (...args: unknown[]) => getUserSession(...args),
 }))
 
-const buildCollectionScopeFromRequest = vi.fn()
-vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
-  buildCollectionScopeFromRequest: (...args: unknown[]) => buildCollectionScopeFromRequest(...args),
+const resolveConversationScope = vi.fn()
+vi.mock('@/lib/conversation-context', () => ({
+  resolveConversationScope: (...args: unknown[]) => resolveConversationScope(...args),
 }))
 
 const loadProjectPromptView = vi.fn()
@@ -95,14 +96,7 @@ const OPEN_BUDGET = {
 }
 
 function scopeReturning(projectId: string | undefined) {
-  return {
-    scope: ['base'],
-    scopedCollections: [{ collection: 'base', shelf: 'base' }],
-    headerValue: 'aGVsbG8',
-    projectId,
-    projectCollectionName: projectId ? `proj_${projectId}` : undefined,
-    conversationId: undefined,
-  }
+  return scopeWith([{ collection: 'base', shelf: 'base' }], projectId ?? null)
 }
 
 const upgrade = (query = '?projectId=proj_q') =>
@@ -113,7 +107,7 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     vi.clearAllMocks()
     isAuthRequired.mockReturnValue(true)
     getUserSession.mockResolvedValue(SESSION)
-    buildCollectionScopeFromRequest.mockResolvedValue(scopeReturning('proj_q'))
+    resolveConversationScope.mockResolvedValue(scopeReturning('proj_q'))
     isMemoryReflectionEnabled.mockResolvedValue(true)
     getBudgetStatus.mockResolvedValue({ ...OPEN_BUDGET })
     isWebSearchEnabledForOrg.mockResolvedValue(true)
@@ -124,13 +118,13 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     buildProposalDecisionsBlock.mockResolvedValue('decisions')
   })
 
-  it('asks for an INTERACTIVE CHAT scope, the only one that may carry restricted folders (ADR-0087)', async () => {
+  it('decides a chat turn, the only kind whose scope may carry restricted folders (ADR-0087, ADR-0194)', async () => {
     await upgrade('?projectId=proj_q&conversationId=s_mine')
 
-    expect(buildCollectionScopeFromRequest).toHaveBeenCalledWith(SESSION, {
+    expect(resolveConversationScope).toHaveBeenCalledWith(SESSION, {
       projectId: 'proj_q',
       conversationId: 's_mine',
-      interactiveChat: true,
+      kind: 'chat',
     })
   })
 
@@ -189,7 +183,7 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
   })
 
   it('scopes every lookup to the implicit project when the query names none', async () => {
-    buildCollectionScopeFromRequest.mockResolvedValue(scopeReturning('proj_implicit'))
+    resolveConversationScope.mockResolvedValue(scopeReturning('proj_implicit'))
 
     const response = await upgrade('')
 
@@ -199,18 +193,18 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     expect(await response.json()).toMatchObject({ projectId: 'proj_implicit' })
   })
 
-  it('falls back to the query project when the scope carries none', async () => {
-    buildCollectionScopeFromRequest.mockResolvedValue(scopeReturning(undefined))
+  it('reads no project when the scope carries none, whatever the query names', async () => {
+    resolveConversationScope.mockResolvedValue(scopeReturning(undefined))
 
     const response = await upgrade()
 
     expect(response.status).toBe(200)
-    expect(getBudgetStatus).toHaveBeenCalledWith('org_1', 'user_1', 'proj_q')
-    expect(await response.json()).toMatchObject({ projectId: 'proj_q' })
+    expect(getBudgetStatus).toHaveBeenCalledWith('org_1', 'user_1', null)
+    expect(await response.json()).not.toHaveProperty('projectId')
   })
 
   it('preserves the scope authorization gate', async () => {
-    buildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
+    resolveConversationScope.mockRejectedValue(new NotFoundError())
 
     const response = await upgrade()
 

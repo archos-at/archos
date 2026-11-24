@@ -45,6 +45,7 @@ class Request:
     threshold_max: float | None = None
     calibrations: Sequence[Calibration] = ()
     crop_attached: bool = False
+    as_placed: bool = False
 
 
 def _on_page(shares: Sequence[Sequence[float]]) -> bool:
@@ -254,6 +255,8 @@ def _askew(answer: Measurement, degrees: float, request: Request) -> Measurement
 
 
 def _snapped(sheet: Sheet, shares: Sequence[Sequence[float]], request: Request) -> list[sheet_probe.Snapped] | NoNumber:
+    if request.as_placed:
+        return [sheet_probe.Snapped(sheet.point(share), 0.0, 0.0) for share in shares]
     snapped: list[sheet_probe.Snapped] = []
     for number, share in enumerate(shares, start=1):
         found = sheet_probe.snap(sheet, sheet.point(share))

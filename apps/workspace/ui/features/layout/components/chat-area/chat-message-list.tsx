@@ -69,7 +69,6 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                 <WelcomeState
                   isAuthenticated={controller.isAuthenticated}
                   onSignIn={controller.onSignIn}
-                  inProject={Boolean(controller.activeProjectId)}
                 />
               </motion.div>
             )}

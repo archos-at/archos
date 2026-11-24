@@ -41,10 +41,10 @@ function Explained({ hint, children }: { hint: string; children: JSX.Element }):
 }
 
 const STAND_VARIANT: Record<EntryStand, ChipProps['variant']> = {
-  proposed: 'info',
+  proposed: 'warning',
   superseded: 'muted',
   current: 'success',
-  newer_edition: 'info',
+  newer_edition: 'warning',
   checked: 'outline',
   check_due: 'muted',
 }

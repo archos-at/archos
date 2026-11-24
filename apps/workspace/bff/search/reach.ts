@@ -14,7 +14,6 @@ import { OFFICE_SHELF, projectShelf, shelfFolderWhere, type DocumentShelf } from
 import { officeShelfCollectionName } from '@/lib/office-shelf/collection'
 import { officeShelfHiddenFolderIds } from '@/lib/office-shelf/folder-service'
 import { audienceReach } from '@/lib/cross-project/audience-reach'
-import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { listProjects } from '@/lib/projects/service'
 import { escapeLikePattern } from '@/lib/text/like-pattern'
@@ -138,7 +137,7 @@ export async function reachForAudience(
     listing?: boolean
   } = {}
 ): Promise<SearchReach> {
-  const audience = await withOwnProject(session, conversationId, await audienceReach(session, conversationId), options)
+  const audience = await withOwnProject(session, await audienceReach(session, conversationId), options)
   const pruneRestricted = !audience.restrictedFolders || options.listing === true
   const base = {
     organizationId: session.organizationId,
@@ -191,13 +190,11 @@ export function narrowReach(reach: SearchReach, projectIds: readonly string[]): 
 
 async function withOwnProject(
   session: AuthorizedSession,
-  conversationId: string,
   audience: Awaited<ReturnType<typeof audienceReach>>,
   options: { includeOwnProject?: boolean }
 ): Promise<Awaited<ReturnType<typeof audienceReach>>> {
   if (!options.includeOwnProject) return audience
-  const row = await readConversationAudience(getDb(), session.organizationId, conversationId)
-  const ownId = row.projectId
+  const ownId = audience.ownProjectId
   if (!ownId || audience.projects.some((project) => project.id === ownId)) return audience
   await requireProjectAccess(session, ownId, 'project:view')
   const own = await findProjectInOrg(ownId, session.organizationId)

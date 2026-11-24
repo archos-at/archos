@@ -67,7 +67,7 @@ _NUMBER = r"(-?\d+\.\d{3}) m"
 
 
 @pytest.mark.parametrize(("operation", "points"), [("distance", CORNERS[:2]), ("path", CORNERS), ("area", CORNERS)])
-async def test_the_data_and_the_text_of_one_call_carry_the_same_value_interval_and_provenance(
+async def test_the_data_and_the_text_of_one_call_carry_the_same_value_and_provenance_and_the_tapes_interval_sits_inside(
     looked_up: list[dict[str, Any]], operation: str, points: list[Any]
 ) -> None:
     loaded = await _loaded()
@@ -78,7 +78,8 @@ async def test_the_data_and_the_text_of_one_call_carry_the_same_value_interval_a
 
     assert answered
     value, low, high = re.search(rf"{operation}: {_NUMBER}²? \(interval {_NUMBER}²? to {_NUMBER}²?\)", text).groups()
-    assert (f"{data['value']:.3f}", f"{data['low']:.3f}", f"{data['high']:.3f}") == (value, low, high)
+    assert f"{data['value']:.3f}" == value
+    assert float(low) - 1e-3 <= data["low"] <= data["value"] <= data["high"] <= float(high) + 1e-3
     assert f"Provenance: {data['provenance']} " in text
     assert f"Scale: 1:{data['scaleRatio']:.4g} ({data['scaleState']};" in text
     assert data["unit"] == ("m2" if operation == "area" else "m")
@@ -98,13 +99,24 @@ async def test_an_area_states_its_outline_and_a_distance_does_not(looked_up: lis
 
 async def test_a_refusal_is_the_engines_reason_and_remedy_as_the_text_states_them(looked_up) -> None:
     loaded = await _loaded()
-    request = _request("distance", [[0.9, 0.9], [0.95, 0.95]])
+    request = _request("distance", [CORNERS[0], CORNERS[0]])
 
     data = tape.measured(loaded, request)["noNumber"]
     text, answered, _ = measure_register.answer(loaded, tape.arguments_of(request))
 
     assert not answered
     assert f"No number: {data['reason']}." in text and f"Remedy: {data['remedy']}." in text
+
+
+async def test_points_placed_off_any_linework_are_measured_as_placed_while_the_agent_still_snaps(looked_up) -> None:
+    loaded = await _loaded()
+    request = _request("distance", [FLOOR.share(1.3, 1.1), FLOOR.share(2.7, 1.1)])
+
+    data = tape.measured(loaded, request)["measurement"]
+    text, answered, _ = measure_register.answer(loaded, tape.arguments_of(request))
+
+    assert data["value"] > 0 and data["low"] <= data["value"] <= data["high"]
+    assert not answered and "none_in_reach" not in text
 
 
 async def test_a_snap_says_where_each_point_lands_or_that_nothing_is_in_reach(looked_up) -> None:
@@ -120,13 +132,13 @@ async def test_a_snap_says_where_each_point_lands_or_that_nothing_is_in_reach(lo
 
 async def test_a_refusal_carries_a_code_the_interface_words_and_the_text_a_model_reads_is_unchanged(looked_up) -> None:
     loaded = await _loaded()
-    nowhere = _request("distance", [[0.9, 0.9], [0.95, 0.95]])
+    nowhere = _request("distance", [CORNERS[0], CORNERS[0]])
     bow_tie = _request("area", [FLOOR.share(0, 0), FLOOR.share(4, 3), FLOOR.share(4, 0), FLOOR.share(0, 3)])
 
-    assert tape.measured(loaded, nowhere)["noNumber"]["code"] == "none_in_reach"
+    assert tape.measured(loaded, nowhere)["noNumber"]["code"] == "other"
     assert tape.measured(loaded, bow_tie)["noNumber"]["code"] == "not_an_area"
     text, *_ = measure_register.answer(loaded, tape.arguments_of(nowhere))
-    assert "none_in_reach" not in text and "cause" not in text
+    assert "cause" not in text
 
 
 @pytest.mark.parametrize(

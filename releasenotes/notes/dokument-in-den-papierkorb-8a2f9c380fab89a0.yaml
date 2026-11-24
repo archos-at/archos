@@ -1,0 +1,7 @@
+---
+# area: documents
+improvements:
+  - >
+    Deleting a single document in a project now moves it to the project's bin
+    instead of removing it for good. It can be restored from there to the
+    folder it came from until the bin's deadline.

@@ -8,6 +8,7 @@ export const officeShelf = {
     ingestionComplete: '„{name}“ ist jetzt in der Bürobibliothek – zitierbar',
   },
   places: {
+    normsToConfirm: '{count, plural, one {# Norm wartet auf Bestätigung} other {# Normen warten auf Bestätigung}}',
     label: 'Bereiche der Bürobibliothek',
     files: 'Dateien',
     norms: 'Normen & Richtlinien',

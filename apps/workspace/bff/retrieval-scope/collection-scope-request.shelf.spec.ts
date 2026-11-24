@@ -11,7 +11,6 @@ vi.mock('@/lib/db', () => ({ getDb: vi.fn() }))
 vi.mock('@/lib/authz/projects', () => ({ requireProjectAccess: vi.fn() }))
 vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectCollectionName: vi.fn(), findProjectProfile: vi.fn(async () => null) }))
-vi.mock('@/lib/user-preferences/repository', () => ({ findUserPreferencesForSession: vi.fn() }))
 vi.mock('@/lib/retrieval-scope/collection-scope', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/retrieval-scope/collection-scope')>()
   return { ...actual, computeCollectionScope: vi.fn(actual.computeCollectionScope) }
@@ -22,7 +21,6 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { computeCollectionScope } from '@/lib/retrieval-scope/collection-scope'
 import { findConversationTenancy } from '@/lib/conversations/repository'
 import { findProjectCollectionName } from '@/lib/projects/repository'
-import { findUserPreferencesForSession } from '@/lib/user-preferences/repository'
 import {
   buildCollectionScopeFromRequest,
   type ScopedCollection,
@@ -55,7 +53,6 @@ beforeEach(() => {
   vi.mocked(requireProjectAccess).mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
   vi.mocked(findConversationTenancy).mockResolvedValue(null)
   vi.mocked(findProjectCollectionName).mockResolvedValue(null)
-  vi.mocked(findUserPreferencesForSession).mockResolvedValue(null)
 })
 
 describe('X-Grid-Collection-Scope carries the shelf (ADR-0047)', () => {

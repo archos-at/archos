@@ -51,21 +51,26 @@ vi.mock('./restricted-use-repository', () => ({
   }),
 }))
 
+vi.mock('@/lib/conversation-context/record', () => ({
+  recordAnswerReads: vi.fn(async (_tx: unknown, _org: string, _conversation: string, messageId: string, reads: { projects?: string[]; folders?: string[] }) => {
+    state.steps.push(`reads:${messageId}:${[...(reads.projects ?? []), ...(reads.folders ?? [])].join(',')}`)
+  }),
+}))
+
 vi.mock('./restricted-use', () => ({
   recordedForeignRestrictedFolders: vi.fn(async () => new Map(state.foreignFolders)),
 }))
 
 import { CrossProjectAudienceChangedError, CrossProjectMemoryError } from '@/lib/api/errors'
 import {
-  audienceKey,
   drewOnOtherProjects,
-  isSoloAudience,
   recordCrossProjectHandOut,
   restrictingOtherProjects,
   requireMayRememberFrom,
 } from './cross-project-use'
 
-const solo: ConversationAudienceRow = { exists: true, projectId: null, createdBy: OWNER, visibility: 'private', grantees: [] }
+const solo: ConversationAudienceRow = { exists: true, projectId: null, createdBy: OWNER, visibility: 'private', grantees: [], version: 3 }
+const SHARED_SINCE = { ...solo, grantees: ['user_ina'], version: 4 }
 const party = { organizationId: ORG, userId: OWNER, conversationId: CONV }
 
 beforeEach(() => {
@@ -76,35 +81,12 @@ beforeEach(() => {
   state.foreignFolders = new Map()
 })
 
-describe('isSoloAudience', () => {
-  it.each([
-    ['a chat that does not exist yet', { ...solo, exists: false, createdBy: null }, true],
-    ['the asker’s private chat', solo, true],
-    ['one the asker is also listed on', { ...solo, grantees: [OWNER] }, true],
-    ['one shared with a colleague', { ...solo, grantees: ['user_ina'] }, false],
-    ['one visible to the project', { ...solo, visibility: 'project' as const }, false],
-    ['somebody else’s', { ...solo, createdBy: 'user_ina' }, false],
-  ])('%s → %s', (_label, audience, expected) => {
-    expect(isSoloAudience(audience, OWNER)).toBe(expected)
-  })
-})
-
-describe('audienceKey', () => {
-  it('is the same for the same readers, whatever the grant order, and differs for any other', () => {
-    const shared = { ...solo, grantees: ['user_b', 'user_a'] }
-    expect(audienceKey(shared)).toBe(audienceKey({ ...solo, grantees: ['user_a', 'user_b'] }))
-    expect(audienceKey(shared)).not.toBe(audienceKey(solo))
-    expect(audienceKey({ ...solo, visibility: 'project' })).not.toBe(audienceKey(solo))
-    expect(audienceKey({ ...solo, exists: false, createdBy: null })).toBe('new')
-  })
-})
-
 describe('recordCrossProjectHandOut', () => {
   it('records the projects and the restricted folders, deduplicated, after the audience check under the lock', async () => {
     await recordCrossProjectHandOut(
       party,
       { projectIds: [OTHER, OTHER], folderIds: [FEES_ID, FEES_ID] },
-      audienceKey(solo)
+      solo.version
     )
 
     expect(state.steps).toEqual(['lock', 'audience', `projects:${OTHER}`, `folders:${FEES_ID}`])
@@ -114,7 +96,7 @@ describe('recordCrossProjectHandOut', () => {
     await recordCrossProjectHandOut(
       { ...party, answerMessageId: ANSWER },
       { projectIds: [OTHER], folderIds: [FEES_ID] },
-      audienceKey(solo)
+      solo.version
     )
 
     expect(state.steps).toEqual([
@@ -123,16 +105,17 @@ describe('recordCrossProjectHandOut', () => {
       `projects:${OTHER}`,
       `folders:${FEES_ID}`,
       `mark:${ANSWER}:{"tx":true}`,
+      `reads:${ANSWER}:${OTHER},${FEES_ID}`,
     ])
   })
 
   it('marks nothing without an answer id, and nothing when the chat is refused', async () => {
-    await recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [FEES_ID] }, audienceKey(solo))
-    state.audiences = [{ ...solo, grantees: ['user_ina'] }]
+    await recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [FEES_ID] }, solo.version)
+    state.audiences = [SHARED_SINCE]
     const refused = recordCrossProjectHandOut(
       { ...party, answerMessageId: ANSWER },
       { projectIds: [OTHER], folderIds: [] },
-      audienceKey(solo)
+      solo.version
     )
     await refused.catch(() => undefined)
 
@@ -140,24 +123,42 @@ describe('recordCrossProjectHandOut', () => {
   })
 
   it('records into a shared chat whose readers are the ones the reach was computed for', async () => {
-    const shared = { ...solo, grantees: ['user_ina'] }
-    state.audiences = [shared]
+    state.audiences = [SHARED_SINCE]
 
-    await recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, audienceKey(shared))
+    await recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, SHARED_SINCE.version)
 
     expect(state.steps).toEqual(['lock', 'audience', `projects:${OTHER}`, 'folders:'])
   })
 
   it('records into a chat its first turn created mid-lookup, still the asker’s alone', async () => {
-    await recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, 'new')
+    await recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, null)
 
     expect(state.steps).toContain(`projects:${OTHER}`)
   })
 
-  it('refuses with the typed 409 and records nothing once the audience changed, as read under the lock', async () => {
-    state.audiences = [{ ...solo, grantees: ['user_ina'] }]
+  it('refuses a lookup decided before the row existed once the row is shared', async () => {
+    state.audiences = [SHARED_SINCE]
 
-    const error = await recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, audienceKey(solo)).catch(
+    await expect(recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, null)).rejects.toBeInstanceOf(
+      CrossProjectAudienceChangedError
+    )
+    expect(state.steps).toEqual(['lock', 'audience'])
+  })
+
+  it('reads version 0 as an ordinary version, never as a chat with no row', async () => {
+    state.audiences = [{ ...SHARED_SINCE, version: 0 }]
+
+    await expect(recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, 0)).resolves.toBeUndefined()
+    state.audiences = [{ ...SHARED_SINCE, version: 1 }]
+    await expect(recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, 0)).rejects.toBeInstanceOf(
+      CrossProjectAudienceChangedError
+    )
+  })
+
+  it('refuses with the typed 409 and records nothing once the audience changed, as read under the lock', async () => {
+    state.audiences = [SHARED_SINCE]
+
+    const error = await recordCrossProjectHandOut(party, { projectIds: [OTHER], folderIds: [] }, solo.version).catch(
       (caught: unknown) => caught
     )
 

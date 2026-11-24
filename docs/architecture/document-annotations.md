@@ -385,8 +385,8 @@ that page's own address with its filters (`reviewFilesHref(…, { back })`,
 `withReviewBack`), and closing a review the pane did not push goes there, so the
 reader lands where they left rather than in Dateien. When that page, query
 and all, is the entry one step back in this tab, closing is `router.back()`: a
-replace left the Postfach in history twice, and its sheet, whose close is Back,
-came back after the first. The tab's history answers that, not the return
+replace left the Postfach in history twice, and Back from it
+came back to it after the first. The tab's history answers that, not the return
 trail: `backLandsOn` in `apps/workspace/bff/navigation/history-step.ts` reads the entry before
 `navigation.currentEntry` off the Navigation API, which sees each
 `replaceState`, and compares path and query with `back` (parameters in any
@@ -1058,7 +1058,7 @@ what the mark says (the agent's question for a Rückfrage). Beside the excerpt o
 an `annotation.mentioned` and of a reply's `annotation.activity` it carries
 whom that text mentions (`mentions`, as the server kept them), and the row
 draws them as the thread's chips (`MentionText`, the reader's own louder:
-`InboxList` takes the reader's id from the page's session). Every excerpt
+`InboxWorkspace` takes the reader's id from the page's session). Every excerpt
 writes its `mentions`, `[]` where there are none, so a folded row never pairs
 one quote with the last one's names. A row written before this, or a chat
 mention (the chat keeps no names on the server), quotes plain text:
@@ -1116,8 +1116,8 @@ on a row about several new marks („Anna hat 15 Anmerkungen gesetzt“,
 `annotation.activity` with the variant `created` or `created_piloti` and a
 count over one) it says „Zu den Anmerkungen“ (`inbox.mark.openMany`). The
 link carries the Postfach's own address as `back`, and the Postfach keeps its
-filter in that address (`filter=unread|all|archived`, „Für mich“ unwritten,
-`InboxList`), so closing the review comes back to the filter the reader left.
+tab and its opened entry in that address (`tab=news|archived`, `item=<id>`,
+`InboxWorkspace`), so closing the review comes back to the entry the reader left.
 The row offers only what the reader can do, and the server says what that is:
 every request on a mark (`annotation.assigned_to_you`, `piloti.asks_you`,
 `annotation.mentioned`) carries `answerIn` (`InboxItemView`, decided in

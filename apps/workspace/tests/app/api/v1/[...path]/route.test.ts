@@ -103,6 +103,7 @@ describe('/api/v1/[...path]', () => {
         conversationId: 'conv-1',
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
+        restrictedCollections: [],
       })
       const fetchMock = mockFetch()
 
@@ -138,6 +139,7 @@ describe('/api/v1/[...path]', () => {
         conversationId: 'conv-1',
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
+        restrictedCollections: [],
       })
       mockDbProjectLookup([{ id: 'proj-1' }])
       mockRequireProjectAccess.mockResolvedValue({ role: 'project-editor', closed: false, readsBecauseClosed: false })
@@ -176,6 +178,7 @@ describe('/api/v1/[...path]', () => {
         conversationId: 'conv-1',
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
+        restrictedCollections: [],
       })
       const fetchMock = mockFetch()
 
