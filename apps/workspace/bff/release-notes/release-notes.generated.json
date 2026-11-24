@@ -177,6 +177,14 @@
         },
         {
           "section": "improvements",
+          "area": "collaboration",
+          "text": {
+            "en": "An entry about an annotation in the Postfach now shows the place on the plan it marks, the whole annotation with its replies, and a field to answer it right there. When you answer, mark it as done or archive it, the next entry opens, first the next one on the same document.",
+            "de": "Ein Eintrag zu einer Anmerkung im Postfach zeigt jetzt die Stelle im Plan, die sie markiert, die ganze Anmerkung mit ihren Antworten und ein Feld, um sie gleich dort zu beantworten. Wenn Sie antworten, ihn als erledigt markieren oder archivieren, öffnet sich der nächste Eintrag, zuerst der nächste zum selben Dokument."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
