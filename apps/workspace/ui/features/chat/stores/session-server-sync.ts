@@ -47,7 +47,8 @@ export const createSessionServerSyncSlice: StateCreator<
   const loadSide = async (
     projectId?: string,
     place?: 'personal' | 'project',
-    isLatest: () => boolean = () => true
+    isLatest: () => boolean = () => true,
+    anotherSideLoading: () => boolean = () => false
   ): Promise<boolean> => {
     const since = Date.now()
     try {
@@ -125,7 +126,7 @@ export const createSessionServerSyncSlice: StateCreator<
       console.warn('[loadServerConversations] Failed to load server conversations:', err)
       return false
     } finally {
-      if (isLatest()) set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
+      if (isLatest() && !anotherSideLoading()) set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
     }
   }
 
@@ -139,7 +140,8 @@ export const createSessionServerSyncSlice: StateCreator<
     if (known && hasWanted && Date.now() - known.at < SIDE_FRESH_MS) return known.pending
     const load: SideLoad = { at: Date.now(), settled: false, pending: Promise.resolve() }
     const isLatest = () => sideLoads.get(key) === load
-    load.pending = loadSide(projectId, place, isLatest).then((ok) => {
+    const anotherSideLoading = () => [...sideLoads.values()].some((other) => other !== load && !other.settled)
+    load.pending = loadSide(projectId, place, isLatest, anotherSideLoading).then((ok) => {
       if (!isLatest()) return
       if (!ok) sideLoads.delete(key)
       else Object.assign(load, { at: Date.now(), settled: true })

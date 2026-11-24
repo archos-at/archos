@@ -102,6 +102,21 @@ describe('a side’s chats are fetched once while fresh (ADR-0193, the rail’s 
     expect(useChatStore.getState().serverConversationsLoaded).toBe(true)
   })
 
+  it('the other side’s warm-up answering first does not mark the list loaded while the linked side still loads', async () => {
+    let finishLinked: (rows: unknown[]) => void = () => {}
+    list.mockImplementationOnce(() => new Promise((resolve) => { finishLinked = resolve })).mockResolvedValue([])
+    useChatStore.setState({ serverConversationsLoaded: false })
+    const { loadServerConversations } = useChatStore.getState()
+    const linked = loadServerConversations('p1', 'project', 's_linked')
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(1))
+    await loadServerConversations(undefined, 'personal')
+    expect(useChatStore.getState().serverConversationsLoaded).toBe(false)
+
+    finishLinked([row('s_linked')])
+    await linked
+    expect(useChatStore.getState().serverConversationsLoaded).toBe(true)
+  })
+
   it('another person signing in on the same tab fetches their sides afresh', async () => {
     const { loadServerConversations, setCurrentUser } = useChatStore.getState()
     setCurrentUser('u1')
