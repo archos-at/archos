@@ -4,3 +4,7 @@ improvements:
   - >
     Switching between Persönlich and Projekt, or to another project, reopens
     the chat you last had open on that side, so you pick up where you left off.
+  - >
+    After a switch nothing in the chat or an empty page plays its entrance
+    again: the composer's controls, a running reply's typing dots and an empty
+    Meine Ablage or Dateien simply stand there.

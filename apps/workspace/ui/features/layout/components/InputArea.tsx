@@ -20,11 +20,13 @@ import { ComposerField } from './input-area/composer-field'
 import { ComposerControls } from './input-area/composer-controls'
 
 import { useChatStore } from '@/features/chat/store'
+import { useSettledAfterMount } from '@/components/motion/use-settled-after-mount'
 export type { ConnectionMode } from './input-area/use-input-area-controller'
 
 export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
   const controller = useInputAreaController(props)
   const chatStarted = useChatStore((s) => (s.currentConversation?.messages?.length ?? 0) > 0)
+  const settled = useSettledAfterMount(!controller.disabled && !controller.isDisabledByAuth)
 
   return (
     <div
@@ -53,7 +55,8 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
             className={cn(
               '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 relative flex flex-col rounded-xl px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
               FIELD_FOCUS_WITHIN_RING,
-              controller.isDisabledByAuth && 'opacity-60'
+              controller.isDisabledByAuth && 'opacity-60',
+              !settled && '[&_*]:transition-none!'
             )}
           >
             <ComposerAboveField controller={controller} />
