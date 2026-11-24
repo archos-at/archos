@@ -117,7 +117,7 @@ export function MeasureDraftBody({
         rows={2}
         value={note}
         maxLength={2000}
-        placeholder={t('review.measure.notePlaceholder')}
+        placeholder={t(reading.unit === 'm2' ? 'review.measure.notePlaceholderArea' : 'review.measure.notePlaceholder')}
         data-testid="measure-note"
         onChange={(event) => setNote(event.target.value)}
         onKeyDown={(event) => {

@@ -284,9 +284,13 @@ export function DocumentReviewMode({
     } else if (draft?.points && isMeasureShape(draft.shape)) {
       const kept = { page: draft.page, shape: draft.shape, points: draft.points }
       setDraft(null)
-      toast(t('review.measure.discarded'), {
-        action: { label: t('review.measure.restore'), onClick: () => review.tape.again(kept) },
-      })
+      toast(
+        t('review.measure.discarded'),
+        reviewToast({
+          duration: 10_000,
+          action: { label: t('review.measure.restore'), onClick: () => review.tape.again(kept) },
+        })
+      )
     } else if (draft) setDraft(null)
     else select(null)
   }, [dockedAsk, agent, draft, setDraft, select, t, review.tape])

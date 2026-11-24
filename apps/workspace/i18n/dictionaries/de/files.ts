@@ -1664,6 +1664,7 @@ export const files: typeof en.files = {
       measuring: 'Wird gemessen …',
       failed: 'Das hat nicht geklappt. Bitte noch einmal versuchen.',
       notePlaceholder: 'Name auf dem Blatt (optional), z. B. Flurbreite',
+      notePlaceholderArea: 'Name auf dem Blatt (optional), z. B. Zimmer 2',
       keep: 'Behalten',
       discard: 'Verwerfen',
       kept: 'Anmerkung {number}, Messung: {value}',

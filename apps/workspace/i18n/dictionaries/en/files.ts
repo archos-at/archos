@@ -1637,6 +1637,7 @@ export const files = {
       measuring: 'Measuring …',
       failed: 'That did not work. Please try again.',
       notePlaceholder: 'Name on the sheet (optional), e.g. Corridor width',
+      notePlaceholderArea: 'Name on the sheet (optional), e.g. Room 2',
       keep: 'Keep',
       discard: 'Discard',
       kept: 'Annotation {number}, measurement: {value}',

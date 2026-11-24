@@ -29,8 +29,7 @@ export function MeasureModeStrip({
   onExit: () => void
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const placing = tape.phase === 'placing' && tape.points.length > 0
-  const undoable = placing || tape.phase !== 'placing'
+  const undoable = tape.points.length > 0 && tape.phase !== 'measuring'
   return (
     <FloatingToolbar
       className="pointer-events-auto"
@@ -74,7 +73,7 @@ export function MeasureModeStrip({
             aria-label={t('review.measure.undoPoint')}
             aria-keyshortcuts="Backspace"
             data-testid="measure-undo-point"
-            disabled={!undoable || tape.phase === 'measuring'}
+            disabled={!undoable}
             onClick={tape.undo}
           >
             <Undo2 aria-hidden />
@@ -95,8 +94,10 @@ export function MeasureModeStrip({
           {t('review.measure.finish')}
         </ToolbarTextButton>
       )}
-      <ToolbarDivider />
-      {scale}
+      <span className="contents pointer-coarse:max-sm:hidden">
+        <ToolbarDivider />
+        {scale}
+      </span>
       <ToolbarDivider />
       <Tooltip>
         <TooltipTrigger asChild>

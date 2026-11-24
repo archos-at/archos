@@ -101,6 +101,7 @@ function KeptMeasure({
             MEASURE_LABEL_AT_CLASS,
             measureLabelClass('paper'),
             'focus-visible:ring-ring/60 z-30 outline-none focus-visible:ring-2',
+            "pointer-coarse:after:absolute pointer-coarse:after:-inset-x-1 pointer-coarse:after:-inset-y-3.5 pointer-coarse:after:content-['']",
             passThrough ? 'pointer-events-none' : 'pointer-events-auto',
             selected && 'bg-paper-ink text-paper-ink-foreground'
           )}
