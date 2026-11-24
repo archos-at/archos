@@ -42,7 +42,7 @@ Paths are relative to `apps/workspace/` unless they start with `docs/` or
 | A chat is shared by `visibility = 'project'` or by named grants in `resource_shares`; there is no participants table. Several people post into one chat, each message carries `authorUserId`, and the whole history goes to the agent whoever wrote it | `bff/sharing/registry.ts`, `bff/sharing/access.ts` — `resolveResourceAccess`; `bff/db/schema/messages.ts` | |
 | The turn runs as the person posting. „The asker alone reads it“ is `isSoloAudience`: private, created by the asker, every grantee is the asker | `bff/conversations/cross-project-use.ts` — `isSoloAudience` | read |
 | In a shared chat the agent reads only a document or a project's facts, and only what every reader may read; a restricted folder or a cross-project source a chat drew on is recorded (`conversation_restricted_folders`, `conversation_source_projects`), and widening the audience is refused while the record is not covered | `bff/agent-api/conversation-audience.ts` — `judgeWorkspaceRead`; `bff/conversations/restricted-use.ts` — `assertMayWidenConversation` | read |
-| Private chats live in the browser first; a chat moves to the server when it is shared | ADR-0033; `ui/features/chat/hooks/use-shared-thread.ts` | |
+| Every chat gets its server row with its first message (`conversation-persistence.ts`); ADR-0033 decides only which copy is the truth: the browser's for a private chat, the server's once it is shared | ADR-0033; `ui/features/chat/hooks/use-shared-thread.ts` | read |
 
 ## What is flaky, and why
 
@@ -59,7 +59,7 @@ Paths are relative to `apps/workspace/` unless they start with `docs/` or
 4. **Two definitions of shared.** `isShared` (visibility or any grant) drives the
    UI; `isSoloAudience` (also the creator must be the asker) drives the agent.
    They differ for a colleague who reaches a private chat without a grant.
-5. **The local-first to server seam.** A chat changes where it is stored the
+5. **The local-first to server seam.** A chat changes which copy is the truth the
    moment it is shared, and the client's shared state can be `unknown` meanwhile.
 6. **Stale status.** ADR-0180 is `proposed` though merged;
    `docs/design/collaboration-sharing-and-inbox-spec.md` says „Proposed“ while its
@@ -69,4 +69,26 @@ Paths are relative to `apps/workspace/` unless they start with `docs/` or
    suggests switching to „on mention“, so it may answer a message meant for a
    colleague.
 
-Items 1 and 2 are taken up by ADR-0191. Items 3 to 7 are open.
+8. **The audience is decided many times.** `readConversationAudience` has
+   fifteen call sites in the BFF (read), and one turn reads the row at least eight
+   times across scope, restricted use, turn context, memory digest, workspace
+   reads and reach; solo or shared is decided at five points.
+9. **The scope cache ignores the audience.** `server.js` caches a turn's scope
+   for 10 seconds keyed on cookie, project and conversation (`scopeCacheKey`,
+   read); sharing a chat inside that window serves the old scope.
+10. **Runs build their scope apart.** `bff/jobs/run-context.ts` calls
+    `computeCollectionScope(null, {projectId, …})` (read): no office shelf, no
+    audience, no restricted folders.
+11. **The Python side allows more when context is missing** (read). With
+    `INTERNAL_API_TOKEN` unset, `RequestContext.from_envelope` accepts an unsigned
+    envelope; without a valid envelope, `from_context` falls back to the plain
+    `x-grid-*` headers and `scoping.py` to the raw scope header; an empty scope
+    falls through `if header_scope:` in `knowledge_layer/search/scope.py` to the
+    config path; `stages/flags.py` treats an unreachable BFF as „allowed“. Not an
+    open door today: `server.js` strips client context headers, the agent host
+    refuses requests without a valid envelope, and the config path holds only the
+    base corpus and the chat's own collection. It is a missing second line.
+
+Items 1 and 2 are taken up by ADR-0191, items 1, 2, 3, 4, 8, 9, 10 and 11 by
+[ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md).
+Items 5 to 7 are open.
