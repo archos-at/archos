@@ -67,7 +67,6 @@
   "/dev/base-knowledge 390 target span \"base-knowledge-status\"",
   "/dev/bim-compliance 360 target a \"Kind #\"",
   "/dev/bim-compliance 390 target a \"Kind #\"",
-  "/dev/bim-tables 360 overflow",
   "/dev/bim-tables 360 target a \"Open in the model\"",
   "/dev/bim-tables 360 target button \"Kind #\"",
   "/dev/bim-tables 360 target button \"Küche\"",
