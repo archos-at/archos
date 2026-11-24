@@ -1,0 +1,7 @@
+---
+# area: administration
+fixes:
+  - >
+    If you belong to more than one office, you can switch offices from the
+    menu under your name in the sidebar and, on a phone, from „Mehr“. Before,
+    the switch was only in the menu of the bar above the project overview.
