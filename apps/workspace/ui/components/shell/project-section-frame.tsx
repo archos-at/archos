@@ -12,7 +12,7 @@ import {
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, ChevronRight, FolderOpen, ListTodo, Mail } from 'lucide-react'
+import { ArrowLeft, FolderOpen, ListTodo, Mail } from 'lucide-react'
 
 import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
@@ -261,8 +261,11 @@ export function ProjectSectionFrame({
   const reached = allFiles ? placeState : null
   const place = phone ? reached : null
   const pathPlace = phone ? null : reached
-  const toolRow = files && actions !== null && (phone ? !actionsOnTitle : allFiles)
-  const title = place ? <BreakableName text={place.title} /> : allFiles ? t('sections.files') : files ? t(`subpages.${subpage}.title`) : sectionLabel
+  const ablageHead = files && !phone
+  const toolRow = files && (!phone || (actions !== null && !actionsOnTitle))
+  const title = place
+    ? <BreakableName text={place.title} />
+    : files ? (phone && opened && subpage ? t(`subpages.${subpage}.title`) : t('sections.files')) : sectionLabel
   const projectStep = <span className="max-w-[16rem] shrink-0 truncate" title={projectName}>{projectName}</span>
 
   return (
@@ -283,17 +286,11 @@ export function ProjectSectionFrame({
             titleTooltip={place ? [place.title, place.count].filter(Boolean).join(CLAUSE_JOIN) : undefined}
             titleAside={place?.count && <span className="text-muted-foreground text-[13px] leading-5 tabular-nums phone:hidden" data-testid="page-header-count">{place.count}</span>}
             crumb={
-              files && !phone ? (
+              ablageHead ? (
                 <>
                   {projectStep}
-                  {allFiles && !place && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span className="shrink-0">{t('projectTeam')}</span>
-                    </>
-                  )}
-                  {!(allFiles && !place) && <ChevronRight className="size-3 shrink-0" aria-hidden />}
-                  {place ? place.trail : allFiles ? null : <span className="shrink-0">{sectionLabel}</span>}
+                  <span aria-hidden>·</span>
+                  <span className="shrink-0">{t('projectTeam')}</span>
                 </>
               ) : files && place?.phoneTrail ? (
                 place.phoneTrail
@@ -324,9 +321,13 @@ export function ProjectSectionFrame({
                 {files && phone && actionsOnTitle ? actions : null}
               </>
             }
-            action={files && (phone || allFiles) ? undefined : actions}
+            action={files ? undefined : actions}
           />
-          {toolRow && !phone && <SectionToolRow className="mt-6">{actions}</SectionToolRow>}
+          {toolRow && !phone && (
+            <SectionToolRow className="mt-6 h-9 phone:hidden">
+              {actionsOnTitle ? <div className="ml-auto flex shrink-0 items-center">{actions}</div> : actions}
+            </SectionToolRow>
+          )}
           {files && (
             <div className={cn('-mb-4 mt-4 min-w-0 phone:mt-4', opened && 'phone:hidden')}>
               <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
