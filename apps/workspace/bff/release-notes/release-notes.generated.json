@@ -137,6 +137,22 @@
         },
         {
           "section": "improvements",
+          "area": "search",
+          "text": {
+            "en": "The search has a magnifier at the top of the sidebar, and the window behind it and behind Ctrl+K is now the search first: it finds files, chats and projects across the whole office, narrowed to one kind if you like, and shows what you opened from it last. The general entries stay under it; the list of projects and of the current project's sections is gone.",
+            "de": "Die Suche hat eine Lupe oben in der Seitenleiste, und das Fenster dahinter und hinter Strg+K ist jetzt zuerst die Suche: Sie findet Dateien, Chats und Projekte im ganzen Büro, auf Wunsch nur eine Art davon, und zeigt, was Sie zuletzt von dort geöffnet haben. Die allgemeinen Einträge stehen weiter darunter; die Liste der Projekte und der Bereiche des aktuellen Projekts entfällt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "search",
+          "text": {
+            "en": "The folded sidebar opens over the page when the pointer rests on it and folds again when the pointer leaves, so every place in it is one click away without keeping it open. Its signs stand at the height of their rows.",
+            "de": "Die eingeklappte Seitenleiste klappt über der Seite auf, sobald der Mauszeiger darauf ruht, und wieder ein, wenn er sie verlässt. So ist jeder Punkt darin einen Klick entfernt, ohne sie geöffnet zu lassen. Ihre Zeichen stehen auf der Höhe ihrer Zeilen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "Inside a folder the Ablage keeps its header and shows the way there in one line under it, and the search says where it searches and shows its hits in place, Enter included, without opening a window.",
