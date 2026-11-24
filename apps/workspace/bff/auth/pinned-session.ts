@@ -12,6 +12,11 @@ export interface PinnedRequester {
 }
 
 export async function resolvePinnedRequesterSession(requester: PinnedRequester): Promise<AuthorizedSession | null> {
+  const session = await resolveMemberSession(requester)
+  return session && { ...session, pinnedForTurn: true }
+}
+
+export async function resolveMemberSession(requester: PinnedRequester): Promise<AuthorizedSession | null> {
   const membership = await resolveSubjectMembership(requester.organizationId, requester.userId)
   return sessionFor(requester, membership)
 }
@@ -20,7 +25,8 @@ export async function resolvePinnedRequesterSessionStrict(
   requester: PinnedRequester,
 ): Promise<AuthorizedSession | null> {
   const membership = await lookupSubjectMembership(requester.organizationId, requester.userId)
-  return sessionFor(requester, membership)
+  const session = await sessionFor(requester, membership)
+  return session && { ...session, pinnedForTurn: true }
 }
 
 async function sessionFor(
@@ -47,6 +53,5 @@ async function sessionFor(
     roles: membership.roles,
     permissions: [...permissions],
     featureFlags,
-    pinnedForTurn: true,
   }
 }
