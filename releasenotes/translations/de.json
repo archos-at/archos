@@ -4020,6 +4020,10 @@
     "de": "Wenn Ihr Büro ein Modell ausgewählt hat, das vor jeder Antwort immer nachdenkt, erscheinen jetzt unter jeder Antwort Folgefragen. Bisher wurden diese Vorschläge bei solchen Modellen nicht angezeigt."
   },
   {
+    "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
+    "de": "Beim Wechsel zu einem temporären Chat bleibt alles ruhiger: Die Brillen-Schaltfläche füllt sich und zeigt „Temporär“, der Rand des Eingabefelds wird gestrichelt und in einem leeren Chat steht statt der Begrüßung „Temporärer Chat“ – ohne dass etwas springt."
+  },
+  {
     "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
     "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
   },
