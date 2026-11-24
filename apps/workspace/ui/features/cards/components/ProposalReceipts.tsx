@@ -19,7 +19,7 @@ import { OperationList } from './FileOperationRows'
 import { ProfilePatchTable } from './ProfilePatchTable'
 import { ProposalReceipt } from './ProposalReceipt'
 
-function FailureReasons({ results }: { results: readonly ProposedChangeResult[] | null }) {
+export function FailureReasons({ results }: { results: readonly ProposedChangeResult[] | null }) {
   const reasons = (results ?? []).filter((result) => !result.ok && result.reason)
   if (reasons.length === 0) return null
   return (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useState, type JSX } from 'react'
-import { Check, Link2, MoreHorizontal, Pencil, RotateCcw, Scale, Sparkles, Trash2, Undo2, X } from 'lucide-react'
+import { Check, Link2, MoreHorizontal, Pencil, RotateCcw, Ruler, Scale, Sparkles, Trash2, Undo2, X } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { AgentGlyph } from '@/components/ui/agent-glyph'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,7 @@ import { FieldError } from '@/components/ui/field'
 import { Kbd } from '@/components/ui/kbd'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { ANNOTATION_KINDS, isLive, type AnnotationView } from '@/lib/annotations/types'
+import { ANNOTATION_KINDS, isLive, isMeasurement, type AnnotationView } from '@/lib/annotations/types'
 import { wakeTurnId } from '@/lib/annotations/wake-ids'
 import { cn } from '@/lib/utils'
 import { isAgentKind } from '@/lib/agent-kind'
@@ -20,6 +20,7 @@ import type { DocumentReview } from '../../hooks/use-document-review'
 import { useFollowEnd } from '../../hooks/use-follow-end'
 import { useSelfAssignee } from '../../hooks/use-self-assignee'
 import { Composer, type ComposerSend } from './composer'
+import { MeasureReadingLines } from './measure/measure-reading'
 import { useFocusBackOnClose } from './focus-return'
 import { AgentThreadRow, AgentWorkRow } from './thread-card/agent-rows'
 import { KIND_ICONS } from './thread-card/kind-picker'
@@ -55,9 +56,11 @@ export function ThreadCard({
   const [editing, setEditing] = useState(false)
   const self = useSelfAssignee(review)
   const headerId = useId()
-  const KindIcon = KIND_ICONS[annotation.kind]
+  const measured = isMeasurement(annotation)
+  const KindIcon = measured ? Ruler : KIND_ICONS[annotation.kind]
   const proposed = annotation.status === 'proposed'
   const live = isLive(annotation)
+  const resolvable = annotation.canEdit && annotation.status === 'open' && !measured
   const { piloti } = review
   const agentReplies = annotation.replies.filter((reply) => isAgentKind(reply.authorKind)).length
   const threadAsk = piloti.asks.find(
@@ -127,7 +130,7 @@ export function ThreadCard({
           },
         ]
       : []),
-    ...ANNOTATION_KINDS.filter((kind) => kind !== annotation.kind && annotation.canEdit).map((kind) => ({
+    ...ANNOTATION_KINDS.filter((kind) => kind !== annotation.kind && annotation.canEdit && !measured).map((kind) => ({
       type: 'item' as const,
       id: `kind-${kind}`,
       label: t('review.makeKind', { kind: t(`annotations.kinds.${kind}`) }),
@@ -145,7 +148,7 @@ export function ThreadCard({
           },
         ]
       : []),
-    ...(review.pilotiWakes && annotation.canEdit && annotation.status === 'open'
+    ...(review.pilotiWakes && resolvable
       ? [
           {
             type: 'item' as const,
@@ -176,7 +179,7 @@ export function ThreadCard({
     ...(!annotation.canDelete && annotation.deleteRefused
       ? [
           { type: 'separator' as const },
-          ...(annotation.canEdit && annotation.status === 'open'
+          ...(resolvable
             ? [
                 {
                   type: 'item' as const,
@@ -229,7 +232,9 @@ export function ThreadCard({
         <KindIcon className="text-muted-foreground size-3.5" aria-hidden />
         {/* What the card is about, which names it as a dialog: the kind, the number, its state. */}
         <span id={headerId} className="flex min-w-0 items-center gap-1.5">
-          <span className="text-foreground text-xs font-medium">{t(`annotations.kinds.${annotation.kind}`)}</span>{' '}
+          <span className="text-foreground text-xs font-medium">
+            {measured ? t('annotations.measurement') : t(`annotations.kinds.${annotation.kind}`)}
+          </span>{' '}
           <span className="text-muted-foreground font-mono text-[11px]">#{annotation.number}</span>
           {proposed && (
             <span className="text-muted-foreground border-foreground/50 ml-1 rounded-full border border-dashed px-1.5 text-[10px] font-medium">
@@ -243,7 +248,7 @@ export function ThreadCard({
           )}
         </span>
         <span className="ml-auto flex items-center">
-          {annotation.canEdit && annotation.status === 'open' && (
+          {resolvable && (
             <Button
               type="button"
               variant="ghost"
@@ -315,6 +320,11 @@ export function ThreadCard({
         </div>
       )}
 
+      {annotation.reading && (
+        <div className="border-b px-3 py-2.5">
+          <MeasureReadingLines reading={annotation.reading} />
+        </div>
+      )}
       <div
         ref={thread.ref}
         onScroll={thread.onScroll}
@@ -396,17 +406,19 @@ export function ThreadCard({
       )}
 
       <div className="space-y-2 border-t px-3 py-2.5">
-        <ResponsibilityRow
-          documentId={review.documentId}
-          assigneeUserId={annotation.assigneeUserId}
-          assigneeName={annotation.assigneeUserId ? (annotation.assigneeName ?? t('review.someone')) : null}
-          dueOn={annotation.dueOn}
-          editable={annotation.canEdit && live}
-          canPickAssignee={canPickAssignee}
-          self={self}
-          onAssignee={(person) => void act(() => review.update(annotation.id, { assigneeUserId: person?.userId ?? null }))}
-          onDueOn={(dueOn) => void act(() => review.update(annotation.id, { dueOn }))}
-        />
+        {!measured && (
+          <ResponsibilityRow
+            documentId={review.documentId}
+            assigneeUserId={annotation.assigneeUserId}
+            assigneeName={annotation.assigneeUserId ? (annotation.assigneeName ?? t('review.someone')) : null}
+            dueOn={annotation.dueOn}
+            editable={annotation.canEdit && live}
+            canPickAssignee={canPickAssignee}
+            self={self}
+            onAssignee={(person) => void act(() => review.update(annotation.id, { assigneeUserId: person?.userId ?? null }))}
+            onDueOn={(dueOn) => void act(() => review.update(annotation.id, { dueOn }))}
+          />
+        )}
         {annotation.canEdit && (
           <Composer
             testId="thread-reply"
