@@ -337,6 +337,30 @@
         },
         {
           "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "When a chat has read from Meine Ablage, the refusal now names each step it blocks instead of saying nothing leaves the chat.",
+            "de": "Wenn ein Chat Daten aus Meine Ablage gelesen hat, nennt die Ablehnung jetzt jeden blockierten Schritt, statt zu sagen, dass nichts den Chat verlässt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A source from Meine Ablage cited without a file name is now labelled Meine Ablage instead of a building regulation.",
+            "de": "Eine Quelle aus Meine Ablage, die ohne Dateinamen zitiert wird, wird jetzt als Meine Ablage statt als Bauvorschrift gekennzeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A refused share no longer carries over to the next chat you open in the sharing dialog.",
+            "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "Deleting a file in Meine Ablage works again. It failed because it tried to move the file to a Papierkorb that Meine Ablage does not have; the file is now deleted for good, and the dialog says so before you confirm.",

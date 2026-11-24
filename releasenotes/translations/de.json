@@ -872,6 +872,10 @@
     "de": "Ein Verweis auf eine Word- oder PowerPoint-Datei öffnet die Vorschau auf der Seite, von der die Textstelle stammt."
   },
   {
+    "en": "A refused share no longer carries over to the next chat you open in the sharing dialog.",
+    "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
+  },
+  {
     "en": "A reply that arrived before its first e-mail was filed is now offered the E-Mail-Verlauf that e-mail started, and is appended if you follow it.",
     "de": "Eine Antwort, die eingegangen ist, bevor ihre ursprüngliche E-Mail abgelegt wurde, wird nun im E-Mail-Verlauf angezeigt, den diese E-Mail begonnen hat, und dort angehängt, wenn Sie dem Verlauf folgen."
   },
@@ -1014,6 +1018,10 @@
   {
     "en": "A source could be marked as cited before it had been checked, and stayed marked even when the check later removed it from the answer. The panel now lists only the sources that survived the check.",
     "de": "Eine Quelle konnte als zitiert markiert sein, bevor sie geprüft war, und blieb so markiert, auch wenn die Prüfung sie später aus der Antwort entfernte. Die Liste zeigt jetzt nur noch Quellen, die die Prüfung überstanden haben."
+  },
+  {
+    "en": "A source from Meine Ablage cited without a file name is now labelled Meine Ablage instead of a building regulation.",
+    "de": "Eine Quelle aus Meine Ablage, die ohne Dateinamen zitiert wird, wird jetzt als Meine Ablage statt als Bauvorschrift gekennzeichnet."
   },
   {
     "en": "A source from another project is now labelled as a precedent, with the project's status and Bundesland, and an answer that uses one keeps apart what applies, how the office usually does it, and where it was done before, saying when the rules or the Land differ.",
@@ -5314,6 +5322,10 @@
   {
     "en": "When a building model is too large to measure or the file cannot be read, the assistant now says so and gives the reason, instead of claiming a temporary outage. You can split the model or export it again rather than wait for an outage that was never there.",
     "de": "Wenn ein Gebäudemodell zu groß zum Messen ist oder die Datei nicht gelesen werden kann, weist der Assistent jetzt darauf hin und nennt den Grund, statt eine vorübergehende Störung zu melden. Sie können das Modell aufteilen oder erneut exportieren, anstatt auf eine Störung zu warten, die es gar nicht gibt."
+  },
+  {
+    "en": "When a chat has read from Meine Ablage, the refusal now names each step it blocks instead of saying nothing leaves the chat.",
+    "de": "Wenn ein Chat Daten aus Meine Ablage gelesen hat, nennt die Ablehnung jetzt jeden blockierten Schritt, statt zu sagen, dass nichts den Chat verlässt."
   },
   {
     "en": "When a chat was deleted, the stored record of how its answers were produced could stay behind if removing it kept failing. It is now removed automatically and the deletion is recorded as complete.",
