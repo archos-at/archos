@@ -33,12 +33,14 @@ const HEADLINE_CLASS: Record<ProposedChangeStatus, string> = {
 export interface ProposalReceiptProps<K extends ProposedChangeKind> {
   server: ServerProposal<K>
   eyebrow?: ReactNode
-  title: string
+  title?: string
   open: ReactNode
   headline: (proposal: ProposalOfKind<K>) => string
   decidedBody?: (proposal: ProposalOfKind<K>) => ReactNode
   alternative?: { label: string; working: string; body: ApplyProposalRequest }
   acceptBlocked?: string
+  accept?: { label: string; working: string } | null
+  prompt?: string | null
 }
 
 export function ProposalReceipt<K extends ProposedChangeKind>({
@@ -50,6 +52,8 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
   decidedBody,
   alternative,
   acceptBlocked,
+  accept,
+  prompt,
 }: ProposalReceiptProps<K>) {
   const t = useTranslations(chatCopy)
   const { locale } = useLocale()
@@ -85,7 +89,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
   return (
     <ProposalShell tone="pending">
       {eyebrow}
-      <p className="text-foreground text-sm font-medium">{title}</p>
+      {title && <p className="text-foreground text-sm font-medium">{title}</p>}
       {open}
 
       {/* Why there is nothing to press, stated where the buttons would be:
@@ -129,7 +133,7 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
           button the reader just pressed dropped their focus to <body>.
           `aria-disabled` keeps it, the handler ignores a second press, and
           `StackedLabel` keeps the button as wide as its longer label. */}
-      {proposal?.canDecide && acceptBlocked && (
+      {proposal?.canDecide && accept !== null && acceptBlocked && (
         <p className="card-caption text-muted-foreground" data-testid="proposal-accept-blocked">
           {acceptBlocked}
         </p>
@@ -137,23 +141,27 @@ export function ProposalReceipt<K extends ProposedChangeKind>({
 
       {proposal?.canDecide && (
         <div className={DECISION_ROW}>
-          <p className="text-muted-foreground text-sm sm:mr-auto">{t('cards.proposalReceipt.prompt')}</p>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => {
-              if (!applyWaits) void decide('apply')
-            }}
-            aria-disabled={applyWaits || undefined}
-            aria-busy={(busy?.action === 'apply' && !busy.withBody) || undefined}
-            className={cn(DECISION_BUTTON, 'aria-disabled:cursor-default', acceptBlocked && 'aria-disabled:opacity-50')}
-          >
-            <StackedLabel
-              busy={busy?.action === 'apply' && !busy.withBody}
-              idle={t('cards.proposalReceipt.accept')}
-              working={t('cards.proposalReceipt.applying')}
-            />
-          </Button>
+          {prompt !== null && (
+            <p className="text-muted-foreground text-sm sm:mr-auto">{prompt ?? t('cards.proposalReceipt.prompt')}</p>
+          )}
+          {accept !== null && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                if (!applyWaits) void decide('apply')
+              }}
+              aria-disabled={applyWaits || undefined}
+              aria-busy={(busy?.action === 'apply' && !busy.withBody) || undefined}
+              className={cn(DECISION_BUTTON, 'aria-disabled:cursor-default', acceptBlocked && 'aria-disabled:opacity-50')}
+            >
+              <StackedLabel
+                busy={busy?.action === 'apply' && !busy.withBody}
+                idle={accept?.label ?? t('cards.proposalReceipt.accept')}
+                working={accept?.working ?? t('cards.proposalReceipt.applying')}
+              />
+            </Button>
+          )}
           {alternative && (
             <Button
               type="button"

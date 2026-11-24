@@ -674,6 +674,29 @@ export const chat = {
         dismissed: 'Discarded. The project context is unchanged.',
       },
     },
+    calibrationProposal: {
+      eyebrow: 'Confirm the scale',
+      question: 'Is the marked length {length}?',
+      meaning: 'Then the scale in this part of the drawing is {ratio}.',
+      caption: '{document} · page {page}',
+      captionPage: 'Page {page}',
+      receipt: '{length} · {place}',
+      picture: 'Page {page}, clip with the marked length',
+      drawing: 'Loading the clip',
+      waiting: 'The clip is still loading.',
+      accept: 'Confirm',
+      accepting: 'Confirming…',
+      refused: {
+        denied:
+          'You cannot open this drawing. Without the marked length the scale cannot be confirmed here.',
+        unavailable:
+          'The clip of the drawing cannot be drawn. Without the marked length the scale cannot be confirmed here.',
+        incomplete:
+          'This proposal does not say where the length lies or how long it is. Ask {productName} to propose the scale again.',
+      },
+      applied: 'Scale confirmed.',
+      dismissed: 'Scale not confirmed.',
+    },
     operationProposal: {
       eyebrow: 'Action',
       operation: 'Action: {operation}',
@@ -1012,6 +1035,16 @@ export const chat = {
       'Not saved: this chat is temporary, so {productName} keeps nothing from it. You can save once “Temporary” is switched off.',
   },
   thinking: {
+    measure: {
+      basis: {
+        confirmed: 'scale 1:{ratio}, confirmed',
+        estimated: 'scale 1:{ratio}, estimated',
+        confirmedPlain: 'scale confirmed',
+        estimatedPlain: 'scale estimated',
+        printed: 'read from a dimension figure',
+      },
+      open: 'Open {document}, p.\u00A0{page}',
+    },
     look: {
       place: 'p.\u00A0{page}, {where}',
       placeWhole: 'p.\u00A0{page}',
@@ -1051,6 +1084,7 @@ export const chat = {
       times: '×{count}',
       innerQuote: '‘{text}’',
       readOff: 'read off, not measured',
+      noNumber: 'no number',
       kind: {
         search: 'Search',
         read: 'Reading',
@@ -1058,6 +1092,7 @@ export const chat = {
         look: 'Look',
         model: 'Query the model',
         workspace: 'Workspace',
+        measure: 'Measure',
       },
       shelf: {
         project: 'in the project',
@@ -1109,6 +1144,7 @@ export const chat = {
         web: 'Searches the web for',
         model: 'Queries the building model for',
         workspace: 'Workspace:',
+        measure: 'Measures',
       },
       done: {
         search: 'Searched: {name}',
@@ -1122,6 +1158,7 @@ export const chat = {
         web: 'Searched the web: {name}',
         model: 'Queried the building model: {name}',
         workspace: 'In the workspace: {name}',
+        measure: 'Measured: {name}',
       },
       doneFallback: {
         search: 'Searched the documents',
@@ -1133,6 +1170,7 @@ export const chat = {
         web: 'Searched the web',
         model: 'Queried the building model',
         workspace: 'Worked in the workspace',
+        measure: 'Measured on a drawing',
       },
       object: {
         query: '“{query}”',
@@ -1168,6 +1206,7 @@ export const chat = {
           '{count, plural, one {#\u00A0building model query} other {#\u00A0building model queries}}',
         workspaceCalls:
           '{count, plural, one {#\u00A0workspace call} other {#\u00A0workspace calls}}',
+        measures: '{count, plural, one {#\u00A0measurement} other {#\u00A0measurements}}',
       },
       fallback: {
         search: 'Searches the documents',
@@ -1179,6 +1218,7 @@ export const chat = {
         web: 'Searches the web',
         model: 'Queries the building model',
         workspace: 'Works in the workspace',
+        measure: 'Measures on a drawing',
       },
       found: {
         hits: '{count, plural, one {#\u00A0hit} other {#\u00A0hits}}',
@@ -1462,6 +1502,7 @@ export const chat = {
           web: 'the web search',
           model: 'the building model query',
           workspace: 'a workspace call',
+          measure: 'measuring on the drawing',
         },
       },
       cardLink: 'Highlight the calls for {name}',

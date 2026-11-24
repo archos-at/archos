@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { PagePlace } from '../lib/page-place'
 import type { PageRegion } from '../lib/page-region'
 import { PagePlaceDialog } from './page-place-dialog'
-import { PageRegionThumbnail } from './page-region-thumbnail'
+import { PageRegionThumbnail, type DrawnFrame } from './page-region-thumbnail'
 
 export interface PagePlaceButtonProps {
   place: PagePlace
@@ -15,6 +15,7 @@ export interface PagePlaceButtonProps {
   thumbnailWidth?: number
   thumbnailMaxHeight?: number
   marks?: readonly PageRegion[]
+  overlay?: (frame: DrawnFrame) => ReactNode
   children?: ReactNode
   className?: string
   eager?: boolean
@@ -27,6 +28,7 @@ export const PagePlaceButton: FC<PagePlaceButtonProps> = ({
   thumbnailWidth,
   thumbnailMaxHeight,
   marks,
+  overlay,
   children,
   className,
   eager,
@@ -58,6 +60,7 @@ export const PagePlaceButton: FC<PagePlaceButtonProps> = ({
           maxHeight={thumbnailMaxHeight}
           clip={marks ? false : undefined}
           marks={marks}
+          overlay={overlay}
           lazy={!eager}
           label={label}
           onDrawn={({ image }) => setImageUrl(image?.url ?? null)}

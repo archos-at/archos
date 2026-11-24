@@ -35,6 +35,29 @@ export function inRegion(point: CalibrationPoint, region: CalibrationRegion): bo
   )
 }
 
+export const REGION_TOLERANCE = 1e-6
+
+export type RegionRelation = 'same' | 'inside' | 'contains' | 'apart' | 'overlaps'
+
+const covers = (outer: CalibrationRegion, inner: CalibrationRegion): boolean =>
+  inner.x >= outer.x - REGION_TOLERANCE &&
+  inner.y >= outer.y - REGION_TOLERANCE &&
+  inner.x + inner.w <= outer.x + outer.w + REGION_TOLERANCE &&
+  inner.y + inner.h <= outer.y + outer.h + REGION_TOLERANCE
+
+export function regionRelation(region: CalibrationRegion, other: CalibrationRegion): RegionRelation {
+  const inside = covers(other, region)
+  const contains = covers(region, other)
+  if (inside && contains) return 'same'
+  if (inside) return 'inside'
+  if (contains) return 'contains'
+  const across = Math.min(region.x + region.w, other.x + other.w) - Math.max(region.x, other.x)
+  const down = Math.min(region.y + region.h, other.y + other.h) - Math.max(region.y, other.y)
+  return across > REGION_TOLERANCE && down > REGION_TOLERANCE ? 'overlaps' : 'apart'
+}
+
+export const REGION_OVERLAPS = 'region-overlaps'
+
 export const setCalibrationRequestSchema = z
   .object({
     page: z.number().int().min(1).max(100_000).describe('The page, starting at 1.'),

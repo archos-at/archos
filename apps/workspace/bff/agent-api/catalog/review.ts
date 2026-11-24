@@ -481,7 +481,9 @@ export const reviewOperations = [
     summary: 'Set the scale of a region of a PDF drawing',
     description:
       'Calibrates a region of a page of the document’s current version from two reference points and the true length between them, ' +
-      'superseding the region’s earlier calibration. Both points lie inside `region`, which is never the whole page by default. ' +
+      'superseding the calibration of the same region. Both points lie inside `region`, which is never the whole page by default. ' +
+      'Regions on one page lie apart or one wholly inside another (a 1:20 detail inside a 1:100 sheet; the smaller one holds there); ' +
+      'a region that partly overlaps an active one is refused (409, code `region-overlaps`, `overlapping` names it). ' +
       'A file that is not a PDF is refused (422), a document with no version too (409). Returns the calibration.',
     method: 'POST',
     path: '/api/documents/[id]/calibrations',

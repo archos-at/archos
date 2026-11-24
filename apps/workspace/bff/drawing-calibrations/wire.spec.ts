@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { CALIBRATION_LIFECYCLE, inRegion, listCalibrationsQuerySchema, setCalibrationRequestSchema } from './wire'
+import {
+  CALIBRATION_LIFECYCLE,
+  inRegion,
+  listCalibrationsQuerySchema,
+  regionRelation,
+  setCalibrationRequestSchema,
+} from './wire'
 
 const VALID = {
   page: 1,
@@ -89,5 +95,31 @@ describe('the calibration lifecycle', () => {
     expect(CALIBRATION_LIFECYCLE.sourcesOf('supersede')).toEqual(['active'])
     expect(CALIBRATION_LIFECYCLE.sourcesOf('withdraw')).toEqual(['active'])
     expect(CALIBRATION_LIFECYCLE.finalStates).toEqual(['superseded', 'withdrawn'])
+  })
+})
+
+describe('how two regions on one page relate', () => {
+  const sheet = { x: 0.1, y: 0.1, w: 0.8, h: 0.8 }
+
+  it('calls a box equal within rounding the same region', () => {
+    expect(regionRelation({ x: 0.1 + 1e-9, y: 0.1, w: 0.8, h: 0.8 - 1e-9 }, sheet)).toBe('same')
+  })
+
+  it('tells a detail inside a sheet from a sheet around a detail', () => {
+    const detail = { x: 0.5, y: 0.5, w: 0.3, h: 0.3 }
+    expect(regionRelation(detail, sheet)).toBe('inside')
+    expect(regionRelation(sheet, detail)).toBe('contains')
+    expect(regionRelation({ x: 0.1, y: 0.1, w: 0.4, h: 0.8 }, sheet)).toBe('inside')
+  })
+
+  it('calls regions that only touch at an edge or a corner apart', () => {
+    expect(regionRelation({ x: 0.9, y: 0.1, w: 0.1, h: 0.5 }, sheet)).toBe('apart')
+    expect(regionRelation({ x: 0, y: 0, w: 0.1, h: 0.1 }, sheet)).toBe('apart')
+    expect(regionRelation({ x: 0.9, y: 0.9, w: 0.05, h: 0.05 }, sheet)).toBe('apart')
+  })
+
+  it('calls any shared area that is not a nesting a partial overlap', () => {
+    expect(regionRelation({ x: 0.8, y: 0.2, w: 0.2, h: 0.2 }, sheet)).toBe('overlaps')
+    expect(regionRelation({ x: 0, y: 0.4, w: 1, h: 0.1 }, sheet)).toBe('overlaps')
   })
 })

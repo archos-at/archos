@@ -11,7 +11,9 @@ import { getAccessibleDocument } from '@/lib/documents/access'
 import { canWriteDocument } from '@/lib/documents/can-write'
 import { isUuid } from '@/lib/ids'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
+import { RegionOverlapsError } from './errors'
 import {
+  CalibrationRegionOverlapError,
   CalibrationSetConflictError,
   findDrawingCalibration,
   listDrawingCalibrations,
@@ -118,6 +120,7 @@ export async function setCalibration(
     captured(session, 'drawing_calibration_set', doc.id, row.page)
     return { calibration: toView(row) }
   } catch (error) {
+    if (error instanceof CalibrationRegionOverlapError) throw new RegionOverlapsError(toView(error.overlapping))
     if (error instanceof CalibrationSetConflictError) {
       throw new ConflictError('Somebody calibrated this region a moment ago. Look again.')
     }

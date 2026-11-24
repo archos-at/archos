@@ -266,7 +266,10 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
    more than the tolerance is saved and reported, and while it disagrees every
    verdict in its region is `undecidable`: two sources say different things and
    a person has to look. A calibration belongs to one version of a document;
-   none carries over to a new version.
+   none carries over to a new version. Calibrated regions on a page nest or
+   keep apart: an equal region supersedes, one inside or around another stands
+   (the smaller holds where both do), and a partial overlap is refused, 409
+   `region-overlaps` (ADR-0183).
 8. **A measurement never crosses two regions.** Both ends lie in one region, or
    the answer is undecidable and names both.
 9. **The engine produces the one span.** `clearance` takes two points placed near
@@ -311,7 +314,8 @@ on a cropped one, against PDFium's own `FPDF_PageToDevice`
     *As built:* an `estimated` reading carries at least 0.5 % (decision 5), and
     a length is never finer than 0.25 pt, the distance below which two lines
     are one. A calibration counts as contradicted by another calibration over
-    the same place, by its stored region, by what the figures corroborate at
+    the same place whose region does not lie wholly around its own, by its
+    stored region, by what the figures corroborate at
     that place without it, or by the figures inside its own region: any
     number of them, two included, and whole-number figures whose unit cannot
     be told under both readings (slice 7; before it fewer than three figures

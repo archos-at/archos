@@ -154,6 +154,8 @@ const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
     "The estate tree's Fassung count, a subquery correlated to the outer row's `documents.id`; the outer query, and its join to the published version, read `documents` under the search reach (`reachWhere`) or `documentVisibleTo` itself.",
   'lib/annotations/repository.ts#insertAnnotationReply|documentAnnotationReplies':
     "The thread's count under the insert's lock, for an Anmerkung of a document the service read for writing.",
+  'lib/drawing-calibrations/repository.ts#setDrawingCalibration|drawingCalibrations':
+    "The page's active calibrations, under the insert's lock, to supersede the same region or refuse an overlap, for a document `setCalibration` read through `getAccessibleDocument(…, 'write')` first.",
 
   'lib/changes/repository.ts#listTurnChangeRows|pilotiChanges':
     "The rows of one turn's answer, which `listTurnChanges` then narrows by `viewsFor`: a row whose document `listAnnotations` refuses is dropped.",

@@ -16,7 +16,9 @@
  *   - setting a region again supersedes its active calibration in one move,
  *     and another region, page or version is left alone;
  *   - two active calibrations of one region are impossible: writers at once
- *     leave exactly one, and each loser is a conflict;
+ *     leave exactly one, and the index refuses a second;
+ *   - a region inside or around an active one stands beside it; one that
+ *     partly overlaps it is refused, naming it, and changes nothing;
  *   - withdrawing stamps who and when, happens once, and does not revive the
  *     calibration it had superseded;
  *   - the CHECKs refuse a point outside its region and a region off the page;
@@ -103,8 +105,8 @@ describe.skipIf(!url)('drawing calibrations against live Postgres', () => {
       versionId: ids.v2,
       page: 1,
       region,
-      from: { x: region.x + 0.01, y: region.y + 0.01 },
-      to: { x: region.x + 0.2, y: region.y + 0.01 },
+      from: { x: region.x + region.w * 0.1, y: region.y + region.h * 0.1 },
+      to: { x: region.x + region.w * 0.9, y: region.y + region.h * 0.1 },
       lengthM: 5,
       createdBy: USER,
       ...extra,
@@ -214,7 +216,7 @@ describe.skipIf(!url)('drawing calibrations against live Postgres', () => {
     expect((await list({ page, versionId: ids.v1 })).map((row) => row.id)).toEqual([otherVersion.id])
   })
 
-  it('makes two active calibrations of one region impossible: writers at once leave one, the losers conflict', async () => {
+  it('makes two active calibrations of one region impossible: writers at once leave one', async () => {
     const page = 5
     const settled = await Promise.allSettled(Array.from({ length: 6 }, (_, index) => set({ page, lengthM: index + 1 })))
     const won = settled.filter((result) => result.status === 'fulfilled')
@@ -227,6 +229,33 @@ describe.skipIf(!url)('drawing calibrations against live Postgres', () => {
       inOrg(ORG, () => rawInsert(ORG, { page, region: [REGION.x, REGION.y, REGION.w, REGION.h], a: [0.2, 0.2], b: [0.3, 0.2] }))
     )
     expect(name).toBe('uniq_drawing_calibrations_active_region')
+  })
+
+  it('lets a region sit inside or around an active one, and refuses one that partly overlaps it', async () => {
+    const page = 11
+    const sheet = await set({ page, region: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } })
+    const detail = await set({ page, region: { x: 0.5, y: 0.5, w: 0.3, h: 0.3 } })
+    const around = await set({ page, region: { x: 0, y: 0, w: 1, h: 1 } })
+    const crossing = calibration({ page, region: { x: 0.7, y: 0.6, w: 0.15, h: 0.15 } })
+    const refused = await repo.setDrawingCalibration(crossing).catch((error: unknown) => error)
+    expect(refused).toBeInstanceOf(repo.CalibrationRegionOverlapError)
+    expect((refused as InstanceType<typeof repo.CalibrationRegionOverlapError>).overlapping.id).toBe(detail.id)
+    expect((await list({ page })).map((row) => row.id)).toEqual([sheet.id, detail.id, around.id])
+
+    const again = await set({ page, region: { x: 0.5 + 1e-9, y: 0.5, w: 0.3, h: 0.3 }, lengthM: 2 })
+    expect((await list({ page })).map((row) => row.id)).toEqual([sheet.id, around.id, again.id])
+    expect((await list({ page, status: 'superseded' })).map((row) => row.id)).toEqual([detail.id])
+  })
+
+  it('refuses a new region against legacy rows that already overlap, without failing on them', async () => {
+    const page = 12
+    await inOrg(ORG, () => rawInsert(ORG, { page, region: [0.1, 0.1, 0.4, 0.4], a: [0.2, 0.2], b: [0.3, 0.2] }))
+    await inOrg(ORG, () => rawInsert(ORG, { page, region: [0.3, 0.3, 0.4, 0.4], a: [0.4, 0.4], b: [0.5, 0.4] }))
+    const inBoth = await repo.setDrawingCalibration(calibration({ page, region: { x: 0.35, y: 0.35, w: 0.1, h: 0.1 } }))
+    expect(inBoth.status).toBe('active')
+    await expect(set({ page, region: { x: 0.05, y: 0.05, w: 0.3, h: 0.3 } })).rejects.toBeInstanceOf(
+      repo.CalibrationRegionOverlapError
+    )
   })
 
   it('withdraws once, stamped, and does not revive the calibration it had superseded', async () => {
@@ -307,7 +336,7 @@ describe.skipIf(!url)('drawing calibrations against live Postgres', () => {
 
   it('pages the list, oldest first, one row past the limit telling of a next page', async () => {
     const page = 10
-    const regions = [0.1, 0.2, 0.3, 0.4, 0.5].map((x) => ({ x, y: 0.1, w: 0.3, h: 0.3 }))
+    const regions = [0, 0.2, 0.4, 0.6, 0.8].map((x) => ({ x, y: 0.1, w: 0.15, h: 0.3 }))
     const created: string[] = []
     for (const region of regions) created.push((await set({ page, region })).id)
 

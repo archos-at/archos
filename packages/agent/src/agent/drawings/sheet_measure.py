@@ -125,6 +125,11 @@ def _along(points: Sequence[Point], closed: bool) -> list[Point]:
     return places or list(points)
 
 
+def _named(reading: ScaleReading) -> str:
+    name = reading.label or reading.reason or "no region"
+    return name if reading.ratio is None else f"{name}, 1:{reading.ratio:.1f}"
+
+
 def _one_scale(
     sheet: Sheet, points: Sequence[Point], request: Request, closed: bool = False
 ) -> ScaleReading | NoNumber:
@@ -132,7 +137,7 @@ def _one_scale(
     apart = next((reading for reading in readings[1:] if not same_region(readings[0], reading)), None)
     if apart is None:
         return readings[0]
-    first, second = (reading.label or reading.reason or "no region" for reading in (readings[0], apart))
+    first, second = (_named(reading) for reading in (readings[0], apart))
     return NoNumber(
         f"the measurement touches two scale regions ({first}; {second})",
         "measure inside one region: a measurement never crosses two",

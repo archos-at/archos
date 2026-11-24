@@ -4,6 +4,8 @@ import { cardKey } from '../card-decision'
 import { ProjectProfilePatchCard } from './ProjectProfilePatchCard'
 import { MemoryProposalCard } from './MemoryProposalCard'
 import { OperationReceipt } from './ProposalReceipts'
+import { CalibrationReceipt } from './CalibrationProposalPreview'
+import { isCalibrationProposal } from '../lib/calibration-operation'
 import { FileOperationProposalCard } from './FileOperationProposalCard'
 import { CanvasActivityCard } from './CanvasActivityCard'
 import { LookCard } from './LookCard'
@@ -417,12 +419,16 @@ export const AnswerCardView: FC<AnswerCardViewProps> = ({
   if (card.type === 'operation_proposal') {
     return (
       <FadeIn distance={6}>
-        <OperationReceipt
-          proposalId={card.proposal_id}
-          title={card.title}
-          operation={card.operation}
-          input={card.input ?? {}}
-        />
+        {isCalibrationProposal(card.operation) ? (
+          <CalibrationReceipt proposalId={card.proposal_id} input={card.input ?? {}} />
+        ) : (
+          <OperationReceipt
+            proposalId={card.proposal_id}
+            title={card.title}
+            operation={card.operation}
+            input={card.input ?? {}}
+          />
+        )}
       </FadeIn>
     )
   }

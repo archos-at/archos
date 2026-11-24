@@ -1,3 +1,8 @@
 export { documentParameters, loadPdfjs } from './lib/pdfjs-runtime'
 export { PagePlaceDialog } from './components/page-place-dialog'
 export type { PagePlace } from './lib/page-place'
+export { PagePlaceButton } from './components/page-place-button'
+export type { DrawnFrame } from './components/page-region-thumbnail'
+export { PageSheet } from './components/pdf-viewer-atoms'
+export { placeClip } from './lib/page-place'
+export { maxCanvasPixels, rasterFor } from './lib/pdf-raster'

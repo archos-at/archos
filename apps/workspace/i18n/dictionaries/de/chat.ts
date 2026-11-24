@@ -683,6 +683,29 @@ export const chat: typeof en.chat = {
         dismissed: 'Verworfen. Der Projektkontext blieb unverändert.',
       },
     },
+    calibrationProposal: {
+      eyebrow: 'Maßstab bestätigen',
+      question: 'Ist die markierte Strecke {length} lang?',
+      meaning: 'Dann gilt in diesem Bereich der Zeichnung der Maßstab {ratio}.',
+      caption: '{document} · Seite {page}',
+      captionPage: 'Seite {page}',
+      receipt: '{length} · {place}',
+      picture: 'Seite {page}, Ausschnitt mit der markierten Strecke',
+      drawing: 'Ausschnitt wird geladen',
+      waiting: 'Der Ausschnitt wird noch geladen.',
+      accept: 'Bestätigen',
+      accepting: 'Wird bestätigt …',
+      refused: {
+        denied:
+          'Sie können diese Zeichnung nicht öffnen. Ohne die markierte Strecke lässt sich der Maßstab hier nicht bestätigen.',
+        unavailable:
+          'Der Ausschnitt der Zeichnung lässt sich nicht zeichnen. Ohne die markierte Strecke lässt sich der Maßstab hier nicht bestätigen.',
+        incomplete:
+          'Diesem Vorschlag fehlt, wo die Strecke liegt oder wie lang sie ist. Bitten Sie {productName}, den Maßstab noch einmal vorzuschlagen.',
+      },
+      applied: 'Maßstab bestätigt.',
+      dismissed: 'Maßstab nicht bestätigt.',
+    },
     operationProposal: {
       eyebrow: 'Aktion',
       operation: 'Aktion: {operation}',
@@ -1023,6 +1046,16 @@ export const chat: typeof en.chat = {
       'Nicht gespeichert: Dieser Chat ist temporär, {productName} merkt sich daraus nichts. Speichern geht, sobald „Temporär“ ausgeschaltet ist.',
   },
   thinking: {
+    measure: {
+      basis: {
+        confirmed: 'Maßstab 1:{ratio}, bestätigt',
+        estimated: 'Maßstab 1:{ratio}, geschätzt',
+        confirmedPlain: 'Maßstab bestätigt',
+        estimatedPlain: 'Maßstab geschätzt',
+        printed: 'aus einer Maßzahl abgelesen',
+      },
+      open: '{document}, S.\u00A0{page} öffnen',
+    },
     look: {
       place: 'S.\u00A0{page}, {where}',
       placeWhole: 'S.\u00A0{page}',
@@ -1062,6 +1095,7 @@ export const chat: typeof en.chat = {
       times: '×{count}',
       innerQuote: '‚{text}‘',
       readOff: 'abgelesen, nicht gemessen',
+      noNumber: 'keine Zahl',
       kind: {
         search: 'Suchen',
         read: 'Lesen',
@@ -1069,6 +1103,7 @@ export const chat: typeof en.chat = {
         look: 'Betrachten',
         model: 'Modell abfragen',
         workspace: 'Arbeitsbereich',
+        measure: 'Messen',
       },
       shelf: {
         project: 'im Projekt',
@@ -1120,6 +1155,7 @@ export const chat: typeof en.chat = {
         web: 'Sucht im Web:',
         model: 'Fragt das Gebäudemodell ab:',
         workspace: 'Arbeitsbereich:',
+        measure: 'Misst',
       },
       done: {
         search: 'Gesucht: {name}',
@@ -1133,6 +1169,7 @@ export const chat: typeof en.chat = {
         web: 'Im Web gesucht: {name}',
         model: 'Gebäudemodell abgefragt: {name}',
         workspace: 'Im Arbeitsbereich: {name}',
+        measure: 'Gemessen: {name}',
       },
       doneFallback: {
         search: 'In den Dokumenten gesucht',
@@ -1144,6 +1181,7 @@ export const chat: typeof en.chat = {
         web: 'Im Web gesucht',
         model: 'Gebäudemodell abgefragt',
         workspace: 'Im Arbeitsbereich gearbeitet',
+        measure: 'In einer Zeichnung gemessen',
       },
       object: {
         query: '„{query}“',
@@ -1179,6 +1217,7 @@ export const chat: typeof en.chat = {
           '{count, plural, one {#\u00A0Abfrage am Gebäudemodell} other {#\u00A0Abfragen am Gebäudemodell}}',
         workspaceCalls:
           '{count, plural, one {#\u00A0Aufruf im Arbeitsbereich} other {#\u00A0Aufrufe im Arbeitsbereich}}',
+        measures: '{count, plural, one {#\u00A0Messung} other {#\u00A0Messungen}}',
       },
       fallback: {
         search: 'Sucht in den Dokumenten',
@@ -1190,6 +1229,7 @@ export const chat: typeof en.chat = {
         web: 'Sucht im Web',
         model: 'Fragt das Gebäudemodell ab',
         workspace: 'Arbeitet im Arbeitsbereich',
+        measure: 'Misst in einer Zeichnung',
       },
       found: {
         hits: '{count, plural, one {#\u00A0Treffer} other {#\u00A0Treffer}}',
@@ -1473,6 +1513,7 @@ export const chat: typeof en.chat = {
           web: 'die Suche im Web',
           model: 'die Abfrage des Gebäudemodells',
           workspace: 'ein Aufruf im Arbeitsbereich',
+          measure: 'das Messen in der Zeichnung',
         },
       },
       cardLink: 'Aufrufe zu {name} hervorheben',
