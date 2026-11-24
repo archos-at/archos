@@ -1156,6 +1156,10 @@
     "de": "Nachdem Sie eine Rückfrage beantwortet haben, zeigt ein Hinweis unten im Chat jetzt, dass Piloti weiterarbeitet. Bisher wirkte der Chat fertig, obwohl die Antwort noch kam."
   },
   {
+    "en": "After you filed a mail in the E-Mail-Eingang, it stayed open for a moment as „(ohne Betreff)“ with its text marked as filed before the next mail came up. The next mail now opens as soon as you press „Ablegen“, and a message says where everything went once it has landed.",
+    "de": "Bisher bleibt eine E-Mail nach dem Ablegen im E-Mail-Eingang kurz als „(ohne Betreff)“ geöffnet und ihr Text als abgelegt markiert, bevor die nächste E-Mail angezeigt wird. Jetzt öffnet sich die nächste E-Mail sofort, sobald Sie „Ablegen“ drücken, und eine Meldung zeigt an, wo die abgelegte E-Mail gelandet ist."
+  },
+  {
     "en": "After you mark an answer as not helpful, \"Answer again, more thoroughly\" asks the same question again, and Piloti thinks longer about that one answer. Your chat's thinking setting stays as it was.",
     "de": "Wenn Sie eine Antwort als nicht hilfreich markieren, stellt „Antwort erneut, ausführlicher“ dieselbe Frage noch einmal, und Piloti denkt bei dieser einen Antwort länger nach. Die Einstellung für die Denkzeit Ihres Chats bleibt unverändert."
   },
