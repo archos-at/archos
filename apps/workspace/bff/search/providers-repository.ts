@@ -254,7 +254,7 @@ export async function searchConversationRows(
   tagKeys: readonly string[]
 ): Promise<ConversationSearchRow[]> {
   if (where.projectIds.length === 0 && !where.withoutContainer) return []
-  const rows = await withTenant({ organizationId }, () =>
+  const rows = await withTenant({ organizationId, userId }, () =>
     getDb()
       .select({
         id: conversations.id,
