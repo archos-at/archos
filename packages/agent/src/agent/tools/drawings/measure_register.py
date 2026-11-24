@@ -115,8 +115,10 @@ def _need_two(arguments: DrawingMeasureInput, page: int) -> NoNumber | None:
     return None
 
 
-def measure(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> Answer:
-    request = Request(loaded.page, arguments.threshold_min, arguments.threshold_max, loaded.calibrations)
+def measure(loaded: LoadedSheet, arguments: DrawingMeasureInput, as_placed: bool = False) -> Answer:
+    request = Request(
+        loaded.page, arguments.threshold_min, arguments.threshold_max, loaded.calibrations, as_placed=as_placed
+    )
     sheet = loaded.sheet
     if arguments.operation in ("path", "area"):
         operation = sheet_measure.path if arguments.operation == "path" else sheet_measure.area
