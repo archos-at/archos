@@ -1,0 +1,7 @@
+---
+# area: general
+security:
+  - >
+    The database now refuses to move a chat to another project, between a
+    project and Persönlich, or to another person, and refuses to move a
+    message into another chat, whatever the application asks.
