@@ -63,6 +63,7 @@ describe('document-upload', () => {
       screeningRelease: true,
       uploadBatchId: BATCH,
       revisionOf: null,
+      originConversationId: null,
     })
     expect(input?.file.name).toBe('Plan.pdf')
     expect(await input?.file.text()).toBe('%PDF fake')
@@ -82,6 +83,7 @@ describe('document-upload', () => {
       { organizationId: 'org-1', projectId: 'proj-1', projectCollection: 'proj_proj-1', folderId: 'fold-1' },
     )
     expect(uploadDocument).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(uploadDocument).mock.calls[0]?.[1]).toMatchObject({ originConversationId: 's_conv_1' })
 
     vi.clearAllMocks()
     vi.mocked(requireMayFileFrom).mockRejectedValueOnce(new ConversationConfinedError('personalShelf', 'nein'))

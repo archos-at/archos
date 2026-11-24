@@ -33,8 +33,9 @@ export const POST = apiRoute(
       screeningRelease: readScreeningRelease(formData.get('screeningRelease')),
       uploadBatchId: readUploadBatchId(formData.get('uploadBatchId')),
       revisionOf: readRevisionOf(formData.get('revisionOf') ?? formData.get('fassungOf')),
+      originConversationId: text(formData.get('originConversationId')) ?? null,
     }
-    const originConversationId = text(formData.get('originConversationId'))
+    const { originConversationId } = input
     if (originConversationId) {
       await requireResourceAccess(session, 'conversation', originConversationId, 'viewer')
       await requireMayFileFrom(
