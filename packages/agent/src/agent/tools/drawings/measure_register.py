@@ -71,6 +71,10 @@ TOOL_DESCRIPTION = (
     "the requirement you looked up; the answer then says met, not_met or undecidable. A scale is verified (a "
     "person calibrated it), estimated (the file hints at it and the sheet's own figures agree) or uncalibrated. "
     "An estimated scale gives a length with a caveat and never a verdict; an uncalibrated one gives no number. "
+    "By default each point is moved to the one line end or corner within reach, and a point with none is refused; "
+    "pass `snap` false to measure the points exactly as given, as a person does on an empty margin or a wall's face. "
+    "To keep a measurement on the sheet, set a `line`, `path` or `polygon` mark with the same points (canvas `mark`); "
+    "the server measures it again.\n"
     "'No number' and 'undecidable' are answers: report the reason and the remedy as given, and never work a "
     "length out yourself from a printed scale. State every number with its interval and provenance; never "
     "recompute, round or convert one. `document` is the PDF's file name; empty means the open document."
@@ -101,6 +105,10 @@ class DrawingMeasureInput(BaseModel):
     points: list[list[float]] = Field(
         default_factory=list, max_length=60, description="[[x, y], ...] for 'path' and 'area', in order."
     )
+    snap: bool = Field(
+        default=True,
+        description="False measures `from`, `to` and `points` exactly as given, off any linework, as a person does with Ctrl held.",
+    )
     threshold_min: float | None = Field(
         default=None, ge=0, allow_inf_nan=False, description="A minimum to compare with, in m or m²."
     )
@@ -116,6 +124,7 @@ def _need_two(arguments: DrawingMeasureInput, page: int) -> NoNumber | None:
 
 
 def measure(loaded: LoadedSheet, arguments: DrawingMeasureInput, as_placed: bool = False) -> Answer:
+    as_placed = as_placed or not arguments.snap
     request = Request(
         loaded.page, arguments.threshold_min, arguments.threshold_max, loaded.calibrations, as_placed=as_placed
     )
