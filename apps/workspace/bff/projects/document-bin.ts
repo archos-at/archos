@@ -2,6 +2,7 @@ import 'server-only'
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireFolderWrite } from '@/lib/authz/folder-access'
+import { assertNoActiveHold } from '@/lib/compliance/holds'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { findDocumentForSession } from '@/lib/documents/access'
@@ -65,6 +66,7 @@ export async function moveDocumentToBin(
 ): Promise<DocumentBinResult> {
   const { doc, projectId } = await projectDocumentFor(session, documentId)
   await requireFolderWrite(session, projectId, [doc.folderId])
+  await assertNoActiveHold(session.organizationId, 'document', documentId)
   const current = await folderOf(session.organizationId, projectId, doc.folderId)
   if (current?.deletedAt) throw new ConflictError('This document is already in the bin.')
 

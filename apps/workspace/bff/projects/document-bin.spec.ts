@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/documents/access', () => ({ findDocumentForSession: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({ requireFolderWrite: vi.fn() }))
+vi.mock('@/lib/compliance/holds', () => ({ assertNoActiveHold: vi.fn() }))
 vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: (_scope: unknown, fn: () => unknown) => fn() }))
 vi.mock('@/lib/documents/move-to-folder', () => ({ moveDocumentToFolder: vi.fn() }))
@@ -16,6 +17,8 @@ vi.mock('./folder-bin-repository', () => ({ findFolderInOrg: vi.fn(), findActive
 vi.mock('./folder-service', () => ({ createProjectFolder: vi.fn() }))
 
 import { ConflictError } from '@/lib/api/errors'
+import { assertNoActiveHold } from '@/lib/compliance/holds'
+import { LEGAL_HOLD_MESSAGE, LEGAL_HOLD_REASON } from '@/lib/compliance/legal-hold-codes'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { findDocumentForSession } from '@/lib/documents/access'
 import { moveDocumentToFolder } from '@/lib/documents/move-to-folder'
@@ -60,6 +63,19 @@ describe('moveDocumentToBin', () => {
 
     expect(moveDocumentToFolder).toHaveBeenLastCalledWith({ documentId: 'd1', folderId: 'f-plans', expectedFolderId: 'h1' }, session)
     expect(deleteEmptyCreatedFolder).toHaveBeenCalledWith('org-1', 'p1', 'h1')
+  })
+
+  it('refuses a document under a legal hold before it touches anything', async () => {
+    vi.mocked(assertNoActiveHold).mockRejectedValueOnce(
+      new ConflictError(LEGAL_HOLD_MESSAGE, { reason: LEGAL_HOLD_REASON, entityType: 'document' })
+    )
+
+    await expect(moveDocumentToBin(session, 'd1')).rejects.toMatchObject({ status: 409, details: { reason: LEGAL_HOLD_REASON } })
+
+    expect(assertNoActiveHold).toHaveBeenCalledWith('org-1', 'document', 'd1')
+    expect(createProjectFolder).not.toHaveBeenCalled()
+    expect(moveDocumentToFolder).not.toHaveBeenCalled()
+    expect(moveFolderToBin).not.toHaveBeenCalled()
   })
 
   it('refuses an office shelf document, which has no bin', async () => {
