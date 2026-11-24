@@ -175,6 +175,19 @@ def restricted_use_from_decision(
     )
 
 
+def nothing_drawable(
+    request: Any, conversation_id: str | None, *, answer_message_id: str | None = None
+) -> RestrictedUse:
+    return RestrictedUse(
+        organization_id=getattr(request, "organization_id", None) or "",
+        user_id=getattr(request, "user_id", None) or "",
+        conversation_id=conversation_id or "",
+        project_id=getattr(request, "project_id", None),
+        confined=True,
+        answer_message_id=answer_message_id,
+    )
+
+
 async def begin_restricted_use(
     request: Any, conversation_id: str | None, *, answer_message_id: str | None = None
 ) -> RestrictedUse | None:
@@ -183,14 +196,7 @@ async def begin_restricted_use(
         return None
     organization_id = getattr(request, "organization_id", None)
     user_id = getattr(request, "user_id", None)
-    use = RestrictedUse(
-        organization_id=organization_id or "",
-        user_id=user_id or "",
-        conversation_id=conversation_id or "",
-        project_id=getattr(request, "project_id", None),
-        confined=True,
-        answer_message_id=answer_message_id,
-    )
+    use = nothing_drawable(request, conversation_id, answer_message_id=answer_message_id)
     if not getattr(request, "envelope_header", None):
         logger.warning("Restricted collections in an unsigned scope: nothing drawable")
         return use

@@ -5,16 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 
 vi.mock('server-only', () => ({}))
-vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({ db: true })) }))
-vi.mock('@/lib/conversations/restricted-use-repository', () => ({ markAnswerRestrictedUse: vi.fn() }))
-vi.mock('./record', () => ({ recordAnswerContext: vi.fn() }))
 vi.mock('./resolve', () => ({ resolveConversationContext: vi.fn() }))
 
-import { markAnswerRestrictedUse } from '@/lib/conversations/restricted-use-repository'
-import { recordAnswerContext } from './record'
 import { resolveConversationContext } from './resolve'
 import { decideTurn } from './turn-decision'
-import { closedContext } from './types'
+import { closedContext } from './context.fixtures'
 import { verifyDecision } from './wire'
 
 const SECRET = 'decision-secret'
@@ -30,15 +25,10 @@ beforeEach(() => {
 })
 
 describe('decideTurn', () => {
-  it('decides a chat turn from the envelope, records the answer before signing, and signs what it returns', async () => {
+  it('decides a chat turn from the envelope and signs what it returns, writing nothing on the way', async () => {
     const answer = await decideTurn(session, envelope, ANSWER, NOW)
 
     expect(resolveConversationContext).toHaveBeenCalledWith(session, { conversationId: 's_c', projectId: 'p_env', kind: 'chat' })
-    expect(recordAnswerContext).toHaveBeenCalledWith(
-      { organizationId: 'org_1', userId: 'user_1', conversationId: 's_c', answerMessageId: ANSWER },
-      expect.objectContaining({ projectId: 'p_row' }),
-    )
-    expect(markAnswerRestrictedUse).toHaveBeenCalledWith({ db: true }, 'org_1', 's_c', ANSWER)
     expect(verifyDecision(answer.decision, answer.signature, SECRET, NOW)).toEqual(answer.body)
     expect(answer.body).toMatchObject({ conversationId: 's_c', answerMessageId: ANSWER, kind: 'chat', issuedAt: NOW })
   })
@@ -49,11 +39,10 @@ describe('decideTurn', () => {
     expect(resolveConversationContext).toHaveBeenCalledWith(session, { conversationId: 's_c', projectId: 'p_env', kind: 'headless' })
   })
 
-  it('records nothing without an answer id', async () => {
-    await decideTurn(session, envelope, null, NOW)
+  it('signs no decision when the audience cannot be read (fail-closed)', async () => {
+    vi.mocked(resolveConversationContext).mockRejectedValueOnce(new Error('connection reset'))
 
-    expect(recordAnswerContext).not.toHaveBeenCalled()
-    expect(markAnswerRestrictedUse).not.toHaveBeenCalled()
+    await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toThrow('connection reset')
   })
 
   it('refuses to decide without a token to sign with', async () => {

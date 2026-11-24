@@ -14,7 +14,7 @@ vi.mock('./operation-targets', () => ({}))
 
 import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
 import { conversationAudienceOf } from './conversation-audience'
-import { closedContext } from '@/lib/conversation-context/types'
+import { closedContext } from '@/lib/conversation-context/context.fixtures'
 import { decisionOf } from '@/lib/conversation-context/wire'
 import type { AgentPrincipal } from './principal'
 
@@ -53,7 +53,7 @@ beforeEach(() => {
 })
 
 const closed = closedContext('chat', 'conv_1')
-const base = decisionOf(closed, null, 1)
+const base = decisionOf(closed, { organizationId: 'org_1', userId: 'user_1' }, null, 1)
 
 describe('conversationAudienceOf', () => {
   it('is null for an external agent and for a call in no conversation', async () => {

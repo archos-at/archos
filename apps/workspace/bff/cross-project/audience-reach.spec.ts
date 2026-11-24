@@ -100,11 +100,11 @@ describe('audienceReachAmong', () => {
     const shared = { ...solo, grantees: [INA] }
     state.opens = new Set([`${INA}:running`])
 
-    const reach = await audienceReachAmong(session, shared, ['running', 'foreign', 'archive', 'nowhere'])
+    const reach = await audienceReachAmong(session, 's_c', shared, ['running', 'foreign', 'archive', 'nowhere'])
 
     expect(ids(reach.projects)).toEqual(['running', 'archive'])
     expect(reach).toMatchObject({ restrictedFolders: false, version: shared.version })
     expect(state.checks).toBe(2)
-    expect(ids((await audienceReachAmong(session, solo, ['foreign'])).projects)).toEqual(['foreign'])
+    expect(ids((await audienceReachAmong(session, 's_c', solo, ['foreign'])).projects)).toEqual(['foreign'])
   })
 })

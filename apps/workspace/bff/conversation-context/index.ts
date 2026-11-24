@@ -5,7 +5,13 @@ import { readContextAudience } from './audience'
 import { TURN_DECISION_HEADER, TURN_DECISION_SIGNATURE_HEADER, verifyDecision, type ConversationDecision } from './wire'
 import { mayPersonalMemory, workspaceReadOf, type WorkspaceRead } from './types'
 
-export { resolveConversationContext, type ContextRequest, type AudienceRead } from './resolve'
+export {
+  resolveConversationContext,
+  resolveConversationScope,
+  type ContextRequest,
+  type AudienceRead,
+  type ConversationScope,
+} from './resolve'
 export type { ConversationContext, ContextKind } from './types'
 
 export interface PromptFacts {
@@ -23,7 +29,8 @@ export async function promptFacts(
 ): Promise<PromptFacts> {
   const { organizationId, userId, conversationId } = context
   const kind = context.contextKind ?? 'chat'
-  if (decision && (decision.conversationId !== conversationId || decision.kind !== kind)) return CLOSED
+  const foreign = decision && (decision.userId !== userId || decision.organizationId !== organizationId)
+  if (decision && (foreign || decision.conversationId !== conversationId || decision.kind !== kind)) return CLOSED
   if (!conversationId) return { solo: false, personalMemory: false, workspaceRead: workspaceReadOf(kind, null, false) }
   try {
     const { solo: now } = await readContextAudience(organizationId, conversationId, userId)

@@ -3,7 +3,7 @@
 --
 -- One row per answer, keyed by (organization, answer message id), the id the
 -- agent mints for the turn's answer before it reads anything. The BFF writes
--- it when it decides the turn (`POST /api/internal/turn-decision`) and adds to
+-- it from the turn's signed decision (`POST /api/internal/turn-context`) and adds to
 -- `read_*` as the agent reports what a tool actually read (`admit`). The
 -- browser never writes it: the client's `retrievalLedger` stays a display aid.
 --

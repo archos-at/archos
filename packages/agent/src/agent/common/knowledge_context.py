@@ -373,11 +373,11 @@ def corpus_countries() -> frozenset[str] | _Unscoped:
         return context.retrieval_countries
     if _unscoped_reads.get():
         return UNSCOPED
-    from agent.common.turn_decision import current_turn_decision
+    from agent.knowledge.scoping import bound_scope_entries
 
-    decision = current_turn_decision()
-    if decision is not None:
-        return _base_countries(decision.shelves)
+    bound = bound_scope_entries()
+    if bound is not None:
+        return _base_countries(bound)
     from agent.project_context import RequestContext
 
     try:

@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -102,22 +103,92 @@ def test_a_turn_without_a_decision_is_marked_missing():
     assert not decision_missing()
 
 
-@pytest.mark.parametrize("conversation_id", ["s_conv_1", "s_other"])
-def test_fetch_refuses_a_decision_for_another_conversation(monkeypatch, conversation_id):
+ANSWER = "5a5a5a5a-0000-4000-8000-000000000001"
+
+
+@pytest.mark.parametrize(
+    ("conversation_id", "answer", "user", "organization", "kind", "accepted"),
+    [
+        ("s_conv_1", ANSWER, "user_1", "org_1", "chat", True),
+        ("s_other", ANSWER, "user_1", "org_1", "chat", False),
+        ("s_conv_1", "5a5a5a5a-0000-4000-8000-000000000002", "user_1", "org_1", "chat", False),
+        ("s_conv_1", ANSWER, "user_2", "org_1", "chat", False),
+        ("s_conv_1", ANSWER, "user_1", "org_2", "chat", False),
+        ("s_conv_1", ANSWER, "user_1", "org_1", "run", False),
+    ],
+)
+def test_fetch_refuses_a_decision_for_another_conversation_answer_asker_organization_or_kind(
+    monkeypatch, conversation_id, answer, user, organization, kind, accepted
+):
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
-    header, signature = sign_payload(decision_payload())
-    answer = bff_http.BffResponse(
+    header, signature = sign_payload(decision_payload(answerMessageId=ANSWER, kind=kind))
+    response = bff_http.BffResponse(
         status=200,
         content_type="application/json",
         body=json.dumps({"decision": header, "signature": signature}).encode(),
         server_timing="",
     )
-    with patch.object(bff_http, "send", return_value=answer) as sent:
+    with patch.object(bff_http, "send", return_value=response) as sent:
         fetched = turn_decision.fetch_turn_decision(
-            bff_http.SignedEnvelope("h", "s"), conversation_id=conversation_id, answer_message_id="a1"
+            bff_http.SignedEnvelope("h", "s"),
+            conversation_id=conversation_id,
+            answer_message_id=answer,
+            user_id=user,
+            organization_id=organization,
         )
-    assert sent.call_args.kwargs["body"] == {"answerMessageId": "a1"}
-    assert (fetched is not None) is (conversation_id == "s_conv_1")
+    assert sent.call_args.kwargs["body"] == {"answerMessageId": answer}
+    assert (fetched is not None) is accepted
+
+
+def test_the_python_enums_are_the_fixture_s():
+    defs = json.loads(FIXTURE.read_text(encoding="utf-8"))["$defs"]["conversationDecision"]["properties"]
+    may = defs["may"]["properties"]
+    assert set(defs["kind"]["enum"]) == turn_decision._KINDS
+    assert set(may["workspaceRead"]["enum"]) == turn_decision._WORKSPACE_READS
+    assert set(may["otherProjects"]["properties"]["reach"]["enum"]) == turn_decision._REACHES
+    assert set(may["shelves"]["items"]["properties"]["shelf"]["enum"]) == turn_decision._SHELVES
+
+
+def test_it_refuses_a_key_the_contract_does_not_name():
+    assert verify_decision(*sign_payload(decision_payload(extra=True)), SECRET) is None
+    assert verify_decision(*sign_payload(decision_payload(may={"extra": True})), SECRET) is None
+
+
+@pytest.mark.parametrize("version", [None, 0, 7])
+def test_it_reads_a_null_zero_or_ordinary_audience_version(version):
+    decision = signed_decision(audienceVersion=version)
+    assert decision.audience_version == version
+    traced = decision.trace_metadata()["context.audienceVersion"]
+    assert traced == ("null" if version is None else version)
+
+
+def test_the_trace_says_whether_a_decision_was_bound_and_flattens_the_features():
+    traced = signed_decision(may={"features": {"deepResearch": True, "tasks": False}}).trace_metadata()
+    assert traced["context.decision"] == "bound"
+    assert traced["context.features"] == "deepResearch"
+    assert turn_decision.MISSING_TRACE == {"context.decision": "missing"}
+
+
+def test_an_expired_decision_is_no_longer_sent(monkeypatch):
+    stale = signed_decision(issuedAt=int(time.time() * 1000) - MAX_AGE_MS + 1000)
+    token = bind_turn_decision(stale)
+    try:
+        assert bff_http._current_turn_headers() == stale.headers()
+        monkeypatch.setattr(time, "time", lambda: (stale.issued_at + MAX_AGE_MS + 1) / 1000)
+        assert bff_http._current_turn_headers() == {}
+    finally:
+        reset_turn_decision(token)
+
+
+def test_reset_restores_the_decision_bound_before():
+    outer = signed_decision()
+    inner = signed_decision(conversationId="s_inner")
+    first = bind_turn_decision(outer)
+    second = bind_turn_decision(inner)
+    reset_turn_decision(second)
+    assert current_turn_decision() is outer
+    assert bff_http._current_turn_headers() == outer.headers()
+    reset_turn_decision(first)
 
 
 def test_fetch_answers_none_when_the_bff_cannot_decide(monkeypatch):

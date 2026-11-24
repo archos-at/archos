@@ -2,7 +2,7 @@ import 'server-only'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
 import { readConversationRow } from '@/lib/conversation-context/audience'
-import { isSoloAudience } from '@/lib/conversation-context/types'
+import { isSoloAudience, otherProjectsOf } from '@/lib/conversation-context/types'
 import type { ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
 import type { Project } from '@/lib/db/schema/projects'
 import { isProjectClosed } from '@/lib/projects/project-status'
@@ -39,34 +39,37 @@ export async function audienceReach(session: AuthorizedSession, conversationId: 
     readConversationRow(session.organizationId, conversationId),
     listChatProjects(session, 'newest'),
   ])
-  return reachOver(session, audience, chat)
+  return reachOver(session, conversationId, audience, chat)
 }
 
 export async function audienceReachAmong(
   session: AuthorizedSession,
+  conversationId: string | null,
   audience: ConversationAudienceRow,
   projectIds: readonly string[]
 ): Promise<AudienceReach> {
-  return reachOver(session, audience, await listChatProjectsAmong(session, projectIds))
+  return reachOver(session, conversationId, audience, await listChatProjectsAmong(session, projectIds))
 }
 
 async function reachOver(
   session: AuthorizedSession,
+  conversationId: string | null,
   audience: ConversationAudienceRow,
   chat: readonly Project[]
 ): Promise<AudienceReach> {
   const version = audience.version
   const ownProjectId = audience.projectId
-  if (isSoloAudience(audience, session.userId)) return { projects: [...chat], restrictedFolders: true, version, ownProjectId }
+  const reach = otherProjectsOf('chat', conversationId, isSoloAudience(audience, session.userId))
+  if (reach.reach === 'chat-projects') return { projects: [...chat], restrictedFolders: reach.restrictedFolders, version, ownProjectId }
   const closed = chat.filter((project) => isProjectClosed(project))
   const others = otherReaders(audience.createdBy, audience.grantees, session.userId)
   if (audience.visibility !== 'private' || others.length > REACH_MAX_OTHER_READERS) {
-    return { projects: closed, restrictedFolders: false, version, ownProjectId }
+    return { projects: closed, restrictedFolders: reach.restrictedFolders, version, ownProjectId }
   }
   const kept: Project[] = []
   for (const project of chat) {
     if (project.id === audience.projectId) continue
     if (isProjectClosed(project) || (await everyoneOpens(session.organizationId, others, project.id))) kept.push(project)
   }
-  return { projects: kept, restrictedFolders: false, version, ownProjectId }
+  return { projects: kept, restrictedFolders: reach.restrictedFolders, version, ownProjectId }
 }

@@ -52,7 +52,9 @@ vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
 }))
 
 import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
-import { resolveConversationContext } from './resolve'
+import { resolveConversationContext, resolveConversationScope } from './resolve'
+import { conversationRecord, sourceFoldersOf } from '@/lib/conversations/restricted-use'
+import { featureEntitlement } from '@/lib/turns/feature-entitlement'
 
 const OWNER = 'user_owner'
 const session = { userId: OWNER, organizationId: 'org_1' } as AuthorizedSession
@@ -157,5 +159,16 @@ describe('resolveConversationContext', () => {
     expect(headless.may.workspaceRead).toBe('document+projectFacts')
     expect(headless.may.restrictedCollections).toEqual([])
     expect(external.conversationId).toBeNull()
+  })
+
+  it('resolves only the scope for the socket upgrade: no record, entitlement or folder reads', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+
+    const scope = await resolveConversationScope(session, { conversationId: 's_c', kind: 'chat' })
+
+    expect(scope.shelves.map((entry) => entry.collection)).toContain('proj_p1')
+    expect(conversationRecord).not.toHaveBeenCalled()
+    expect(featureEntitlement).not.toHaveBeenCalled()
+    expect(sourceFoldersOf).not.toHaveBeenCalled()
   })
 })

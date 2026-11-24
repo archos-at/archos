@@ -145,6 +145,7 @@ const audienceOf = (solo: boolean) => ({
   row: { exists: true, projectId: null, createdBy: 'user_1', visibility: 'private' as const, grantees: solo ? [] : ['user_2'], version: solo ? 1 : 2 },
   solo,
   version: solo ? 1 : 2,
+  workspaceRead: solo ? ('all' as const) : ('document+projectFacts' as const),
 })
 
 beforeEach(() => {

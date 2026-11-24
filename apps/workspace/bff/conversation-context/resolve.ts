@@ -61,11 +61,21 @@ function drawsOnRestricted(kind: ContextKind, conversationId: string | null): bo
   return conversationId !== null && kind === 'chat'
 }
 
-export async function resolveConversationContext(
+export interface ConversationScope {
+  kind: ContextKind
+  conversationId: string | null
+  audience: ConversationContext['audience']
+  projectId: string | null
+  projectCollectionName: string | null
+  shelves: ConversationContext['may']['shelves']
+  restrictedCollections: string[]
+}
+
+export async function resolveConversationScope(
   session: UserSession | null,
   request: ContextRequest,
   options: ContextOptions = {},
-): Promise<ConversationContext> {
+): Promise<ConversationScope> {
   const { kind } = request
   const conversationId = kind === 'external' ? null : (request.conversationId ?? null)
   const row = await rowOf(session, conversationId, options)
@@ -77,20 +87,37 @@ export async function resolveConversationContext(
     interactiveChat: drawsOnRestricted(kind, conversationId),
     audience: row,
   })
-  const projectId = scope.projectId ?? null
+  const restrictedCollections = kind === 'headless' ? [] : scope.restrictedCollections
   const shelves =
     kind === 'headless'
       ? scope.scopedCollections.filter((entry) => entry.shelf === 'project' && !scope.restrictedCollections.includes(entry.collection))
       : scope.scopedCollections
-  const restrictedCollections = kind === 'headless' ? [] : scope.restrictedCollections
+  return {
+    kind,
+    conversationId,
+    audience,
+    projectId: scope.projectId ?? null,
+    projectCollectionName: scope.projectCollectionName ?? null,
+    shelves,
+    restrictedCollections,
+  }
+}
+
+export async function resolveConversationContext(
+  session: UserSession | null,
+  request: ContextRequest,
+  options: ContextOptions = {},
+): Promise<ConversationContext> {
+  const { kind, conversationId, audience, projectId, projectCollectionName, shelves, restrictedCollections } =
+    await resolveConversationScope(session, request, options)
   const organizationId = session?.organizationId ?? undefined
   const [record, entitlement, readableFolderIds] = await Promise.all([
-    conversationId && row.exists && organizationId
+    conversationId && audience.row.exists && organizationId
       ? conversationRecord(organizationId, conversationId, projectId)
       : Promise.resolve(null),
     featureEntitlement(organizationId, projectId),
-    projectId && organizationId && scope.projectCollectionName
-      ? sourceFoldersOf(organizationId, { projectId, projectCollection: scope.projectCollectionName }, restrictedCollections)
+    projectId && organizationId && projectCollectionName
+      ? sourceFoldersOf(organizationId, { projectId, projectCollection: projectCollectionName }, restrictedCollections)
       : Promise.resolve([]),
   ])
   const recorded: ContextRecorded = record
@@ -108,7 +135,7 @@ export async function resolveConversationContext(
       restrictedCollections,
       otherProjects: otherProjectsOf(kind, conversationId, audience.solo),
       personalMemory,
-      personalShelf: mayPersonalShelf(personalMemory, projectId),
+      personalShelf: mayPersonalShelf(kind, personalMemory, projectId),
       projectMemory: { readableFolderIds },
       workspaceRead: workspaceReadOf(kind, conversationId, audience.solo),
       features: {

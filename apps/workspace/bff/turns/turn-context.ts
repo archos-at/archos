@@ -1,7 +1,7 @@
 import 'server-only'
 import type { UserSession } from '@/lib/auth/types'
 import { encodeCollectionScopeHeader } from '@/lib/retrieval-scope/collection-scope'
-import { resolveConversationContext } from '@/lib/conversation-context'
+import { resolveConversationScope } from '@/lib/conversation-context'
 import { loadProjectFederalState } from '@/lib/project-profile/prompt-view'
 import { isMemoryReflectionEnabled } from '@/lib/workos/feature-flags'
 import { isWebSearchEnabledForOrg } from '@/lib/organizations/service'
@@ -62,8 +62,8 @@ export async function resolveTurnContext(
 ): Promise<TurnContext> {
   const { projectId, conversationId } = request
   const kind = request.kind ?? 'chat'
-  const decided = await resolveConversationContext(session, { projectId, conversationId, kind })
-  const scopedCollections = decided.may.shelves
+  const decided = await resolveConversationScope(session, { projectId, conversationId, kind })
+  const scopedCollections = decided.shelves
   const scope = scopedCollections.map((entry) => entry.collection)
   const headerValue = encodeCollectionScopeHeader(scopedCollections)
   const authorizedProjectId = decided.projectId ?? undefined

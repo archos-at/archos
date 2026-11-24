@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NotFoundError } from '@/lib/api/errors'
-import { closedContext } from '@/lib/conversation-context/types'
+import { scopeWith } from '@/lib/conversation-context/context.fixtures'
 
 vi.mock('@/lib/db/tenant-context', () => ({ tenantSlotRoute: (handler: unknown) => handler }))
 const isAuthRequired = vi.fn()
@@ -16,9 +16,9 @@ vi.mock('@/lib/auth/session', () => ({
   getUserSession: (...args: unknown[]) => getUserSession(...args),
 }))
 
-const resolveConversationContext = vi.fn()
+const resolveConversationScope = vi.fn()
 vi.mock('@/lib/conversation-context', () => ({
-  resolveConversationContext: (...args: unknown[]) => resolveConversationContext(...args),
+  resolveConversationScope: (...args: unknown[]) => resolveConversationScope(...args),
 }))
 
 const loadProjectPromptView = vi.fn()
@@ -96,8 +96,7 @@ const OPEN_BUDGET = {
 }
 
 function scopeReturning(projectId: string | undefined) {
-  const closed = closedContext('chat', null)
-  return { ...closed, projectId: projectId ?? null, may: { ...closed.may, shelves: [{ collection: 'base', shelf: 'base' }] } }
+  return scopeWith([{ collection: 'base', shelf: 'base' }], projectId ?? null)
 }
 
 const upgrade = (query = '?projectId=proj_q') =>
@@ -108,7 +107,7 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     vi.clearAllMocks()
     isAuthRequired.mockReturnValue(true)
     getUserSession.mockResolvedValue(SESSION)
-    resolveConversationContext.mockResolvedValue(scopeReturning('proj_q'))
+    resolveConversationScope.mockResolvedValue(scopeReturning('proj_q'))
     isMemoryReflectionEnabled.mockResolvedValue(true)
     getBudgetStatus.mockResolvedValue({ ...OPEN_BUDGET })
     isWebSearchEnabledForOrg.mockResolvedValue(true)
@@ -122,7 +121,7 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
   it('decides a chat turn, the only kind whose scope may carry restricted folders (ADR-0087, ADR-0192)', async () => {
     await upgrade('?projectId=proj_q&conversationId=s_mine')
 
-    expect(resolveConversationContext).toHaveBeenCalledWith(SESSION, {
+    expect(resolveConversationScope).toHaveBeenCalledWith(SESSION, {
       projectId: 'proj_q',
       conversationId: 's_mine',
       kind: 'chat',
@@ -184,7 +183,7 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
   })
 
   it('scopes every lookup to the implicit project when the query names none', async () => {
-    resolveConversationContext.mockResolvedValue(scopeReturning('proj_implicit'))
+    resolveConversationScope.mockResolvedValue(scopeReturning('proj_implicit'))
 
     const response = await upgrade('')
 
@@ -195,7 +194,7 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
   })
 
   it('reads no project when the scope carries none, whatever the query names', async () => {
-    resolveConversationContext.mockResolvedValue(scopeReturning(undefined))
+    resolveConversationScope.mockResolvedValue(scopeReturning(undefined))
 
     const response = await upgrade()
 
@@ -205,7 +204,7 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
   })
 
   it('preserves the scope authorization gate', async () => {
-    resolveConversationContext.mockRejectedValue(new NotFoundError())
+    resolveConversationScope.mockRejectedValue(new NotFoundError())
 
     const response = await upgrade()
 

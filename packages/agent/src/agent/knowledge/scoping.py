@@ -128,6 +128,18 @@ def _signed_envelope_scope() -> Any:
     return ctx.collection_scope_entries if ctx.collection_scope_entries is not None else ctx.collection_scope
 
 
+def bound_scope_entries() -> list[Any] | None:
+    decision = current_turn_decision()
+    if decision is not None:
+        return list(decision.shelves)
+    if not decision_missing():
+        return None
+    signed = _signed_envelope_scope()
+    if signed is None:
+        return [] if decision_required() else None
+    return list(signed) if isinstance(signed, list) else []
+
+
 def _turn_scope() -> list[ScopedCollection] | None:
     decision = current_turn_decision()
     if decision is not None:
@@ -136,7 +148,13 @@ def _turn_scope() -> list[ScopedCollection] | None:
     if signed is None and decision_required():
         logger.warning("A turn without a signed decision or envelope reads nothing")
         return []
-    return _drawable_only(_parse_scope_payload(signed)) if signed is not None else None
+    if signed is None:
+        return None
+    parsed = _drawable_only(_parse_scope_payload(signed))
+    if parsed is None and decision_required():
+        logger.warning("A turn without a signed decision whose signed scope does not parse reads nothing")
+        return []
+    return parsed
 
 
 def get_scoped_collections_from_context() -> list[ScopedCollection] | None:
@@ -169,22 +187,3 @@ def _drawable_only(entries: list[ScopedCollection] | None) -> list[ScopedCollect
 def get_collection_scope_from_context() -> list[str] | None:
     entries = get_scoped_collections_from_context()
     return None if entries is None else [entry.collection for entry in entries]
-
-
-def get_scoped_collections_from_context_or(
-    config: Any,
-    session_id: str | None,
-) -> list[ScopedCollection]:
-    scope = get_scoped_collections_from_context()
-    if scope:
-        return scope
-    from knowledge_layer.search import scoped_collections_for_site
-
-    return scoped_collections_for_site(config, session_id)
-
-
-def get_collection_scope_from_context_or(
-    config: Any,
-    session_id: str | None,
-) -> list[str]:
-    return [entry.collection for entry in get_scoped_collections_from_context_or(config, session_id)]

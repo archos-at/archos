@@ -119,6 +119,7 @@ backend:
   - 'apps/workspace/shared/cards/generated.ts'
   - 'apps/workspace/tests/fixtures/backend-tools.schema.json'
   - 'apps/workspace/tests/fixtures/base-knowledge.schema.json'
+  - 'apps/workspace/tests/fixtures/conversation-decision.schema.json'
   - 'apps/workspace/tests/fixtures/cross-project.schema.json'
   - 'apps/workspace/tests/fixtures/document-annotations.schema.json'
   - 'apps/workspace/tests/fixtures/document-lifecycle.schema.json'

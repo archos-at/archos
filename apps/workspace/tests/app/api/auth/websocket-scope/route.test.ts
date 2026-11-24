@@ -13,7 +13,7 @@ vi.mock('@/lib/authz/projects', () => ({
 }))
 
 vi.mock('@/lib/conversation-context', () => ({
-  resolveConversationContext: vi.fn(),
+  resolveConversationScope: vi.fn(),
 }))
 
 vi.mock('@/lib/project-profile/prompt-view', () => ({
@@ -28,18 +28,17 @@ vi.mock('@/lib/projects/memory-service', () => ({
 import { GET } from '@/app/api/auth/websocket-scope/route'
 import { getUserSession } from '@/lib/auth/session'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import { resolveConversationContext } from '@/lib/conversation-context'
-import { closedContext, type ConversationContext } from '@/lib/conversation-context/types'
+import { resolveConversationScope } from '@/lib/conversation-context'
+import { scopeWith } from '@/lib/conversation-context/context.fixtures'
 import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 import { loadProjectPromptView } from '@/lib/project-profile/prompt-view'
 
 const mockGetUserSession = vi.mocked(getUserSession)
 const mockRequireProjectAccess = vi.mocked(requireProjectAccess)
-const mockResolveConversationContext = vi.mocked(resolveConversationContext)
+const mockResolveConversationContext = vi.mocked(resolveConversationScope)
 
-function decided(shelves: ScopedCollection[], projectId: string | null): ConversationContext {
-  const closed = closedContext('chat', null)
-  return { ...closed, projectId, may: { ...closed.may, shelves } }
+function decided(shelves: ScopedCollection[], projectId: string | null) {
+  return scopeWith(shelves, projectId)
 }
 
 const header = (shelves: ScopedCollection[]) => Buffer.from(JSON.stringify(shelves)).toString('base64url')

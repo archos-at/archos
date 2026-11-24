@@ -77,6 +77,7 @@ const audienceOf = (solo: boolean): ConversationAudience => ({
   row: { exists: true, projectId: 'proj_1', createdBy: 'user_1', visibility: 'private', grantees: solo ? [] : ['user_2'], version: solo ? 2 : 3 },
   solo,
   version: solo ? 2 : 3,
+  workspaceRead: solo ? ('all' as const) : ('document+projectFacts' as const),
 })
 const reachOf = (ids: string[], solo: boolean) => ({
   projects: ids.map((id) => ({ id }) as Project),
@@ -238,7 +239,7 @@ describe('in a conversation that is the requester’s alone', () => {
       projectIds: ['proj_b'],
       folderIds: [],
     })
-    expect(audienceReachAmong).toHaveBeenCalledWith(session, audienceOf(true).row, ['proj_b'])
+    expect(audienceReachAmong).toHaveBeenCalledWith(session, 'conv_1', audienceOf(true).row, ['proj_b'])
   })
 
   it('runs nothing outside the reach, and relays the refusal', async () => {
