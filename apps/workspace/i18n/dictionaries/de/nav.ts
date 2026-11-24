@@ -45,6 +45,7 @@ export const nav: typeof en.nav = {
     search: 'Suche',
     settings: 'Projekteinstellungen',
     settingsShort: 'Übersicht',
+    filesShort: 'Ablage',
     intake: 'Einrichtung',
     setup: 'Einrichtung',
   },

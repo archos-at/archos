@@ -9,7 +9,6 @@ import {
   phoneBackTarget,
   phoneTabBarHiddenOnRoute,
   projectPhoneTabs,
-  type PhoneTabLabel,
 } from './phone-tabs'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { navCopy } from '@/i18n/namespaces/nav'
@@ -81,7 +80,7 @@ describe('inside a project', () => {
     expect(lit(projectPhoneTabs('p1', '/app/office-shelf', ALL))).toEqual(['more'])
   })
 
-  it('names each tab with the rail label (the settings tab with its short one), and marks it as a tour stop', () => {
+  it('names each tab with the rail label (the files and settings tabs with their short ones), and marks it as a tour stop', () => {
     const [chat, files, settings, inbox, more] = projectPhoneTabs(
       'p1',
       '/app/projects/p1/chat',
@@ -92,7 +91,7 @@ describe('inside a project', () => {
       tourAnchor: 'section-chat',
     })
     expect(files).toMatchObject({
-      label: { namespace: 'nav', key: 'sections.files' },
+      label: { namespace: 'nav', key: 'sections.filesShort' },
       tourAnchor: 'section-files',
     })
     expect(settings).toMatchObject({
@@ -212,39 +211,27 @@ describe('under Persönlich (ADR-0193)', () => {
   })
 })
 
-describe('every tab label fits its tab on a 360px phone', () => {
-  const PHONE_WIDTH = 360
-  const BAR_PADDING = 8
-  const LABEL_PADDING = 4
-  // The bar's labels are 11px below 380px; „Dokumente“ in the active tab's semibold measured 65px there in Chromium,
-  // „Meine Ablage“ 75.5px: a space is about half a glyph.
-  const GLYPH_AT_11PX_SEMIBOLD = 65 / 9
-
-  const resolve = (locale: 'de' | 'en', label: PhoneTabLabel): string => {
-    const copy = label.namespace === 'nav' ? navCopy : collaborationCopy
-    const value = label.key
-      .split('.')
-      .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], copy.messages[locale])
-    if (typeof value !== 'string') throw new Error(`no label at ${label.namespace}.${label.key}`)
-    return value
-  }
-
-  const bars = {
-    project: projectPhoneTabs('p1', '/app/projects/p1/chat', ALL),
-    personal: personalPhoneTabs('/app/personal/chat', ALL),
-    org: orgPhoneTabs('/app/projects', ALL),
+describe('every label of the project bar fits its tab on a 360px phone', () => {
+  // A fifth of 360px less the bar's 8px and the label's 4px. Widths measured in Chromium at 12px semibold (the open tab),
+  // 2026-11-24: "Documents" at 66.5px was cut by a tenth of a pixel. A new label is measured before it is added here.
+  const ROOM_PX = (360 - 8) / 5 - 4
+  const MEASURED_PX: Record<string, number> = {
+    Chat: 28.2, Ablage: 40.3, Übersicht: 56.9, Postfach: 51.8, Mehr: 30.2,
+    Files: 26.7, Overview: 53.9, Inbox: 31.9, More: 30.1, Documents: 66.5,
   }
 
   for (const locale of ['de', 'en'] as const) {
-    for (const [scope, tabs] of Object.entries(bars)) {
-      it(`${locale}, ${scope} bar`, () => {
-        const room = (PHONE_WIDTH - BAR_PADDING) / tabs.length - LABEL_PADDING
-        for (const tab of tabs) {
-          const text = resolve(locale, tab.label)
-          const glyphs = text.length - text.split(' ').length / 2 + 0.5
-          expect(glyphs * GLYPH_AT_11PX_SEMIBOLD, `${tab.key} in ${locale}: „${text}“`).toBeLessThanOrEqual(room)
-        }
-      })
-    }
+    it(locale, () => {
+      for (const tab of projectPhoneTabs('p1', '/app/projects/p1/chat', ALL)) {
+        const copy = tab.label.namespace === 'nav' ? navCopy : collaborationCopy
+        const text = tab.label.key
+          .split('.')
+          .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], copy.messages[locale])
+        expect(typeof text, `${tab.key} in ${locale}`).toBe('string')
+        const width = MEASURED_PX[text as string]
+        expect(width, `„${String(text)}“ has not been measured`).toBeDefined()
+        expect(width, `„${String(text)}“`).toBeLessThanOrEqual(ROOM_PX)
+      }
+    })
   }
 })

@@ -43,6 +43,7 @@ export const nav = {
     search: 'Search',
     settings: 'Project settings',
     settingsShort: 'Overview',
+    filesShort: 'Files',
     intake: 'Setup',
     setup: 'Setup',
   },
