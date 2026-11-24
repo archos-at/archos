@@ -1690,6 +1690,7 @@ export const files: typeof en.files = {
       scale: {
         button: {
           none: 'Ohne Maßstab',
+          estimated: 'Maßstab {ratio}, geschätzt',
           one: 'Maßstab {ratio}',
           two: 'Maßstab {ratio} · {other}',
           count: '{count, plural, one {# Maßstab} other {# Maßstäbe}}',
@@ -1702,6 +1703,7 @@ export const files: typeof en.files = {
         you: 'Sie',
         where: {
           page: 'ganze Seite',
+          document: 'alle Seiten',
           topLeft: 'Rahmen oben links',
           top: 'Rahmen oben',
           topRight: 'Rahmen oben rechts',
@@ -1742,6 +1744,7 @@ export const files: typeof en.files = {
           cancel: 'Abbrechen',
           next: 'Weiter',
           wholePage: 'Ganze Seite',
+          wholeDocument: 'Alle Seiten',
           gives: 'ergibt {ratio}',
         },
         form: {
@@ -1749,7 +1752,7 @@ export const files: typeof en.files = {
           lengthLabel: 'Wahre Länge der Strecke',
           unit: 'm',
           lengthInvalid: 'Geben Sie eine Länge über 0 ein',
-          region: 'Gilt im Rahmen',
+          region: 'Gilt für',
           regionMisses: 'Ohne beide Punkte',
           replaces: 'Ersetzt Maßstab {ratio}',
           ratio: 'Maßstab',
@@ -1770,13 +1773,13 @@ export const files: typeof en.files = {
           firstPoint: 'Klicken Sie auf den Anfang einer bekannten Strecke',
           secondPoint: 'Klicken Sie auf das Ende der Strecke',
           length: 'Wie lang ist die Strecke in Wirklichkeit?',
-          region: 'Ziehen Sie einen Rahmen um die Zeichnung, für die der Maßstab gilt',
+          region: 'Wo gilt der Maßstab? Ziehen Sie einen Rahmen.',
         },
         nextTouch: {
           firstPoint: 'Tippen Sie auf den Anfang einer bekannten Strecke',
           secondPoint: 'Tippen Sie auf das Ende der Strecke',
           length: 'Wie lang ist die Strecke in Wirklichkeit?',
-          region: 'Ziehen Sie einen Rahmen um die Zeichnung, für die der Maßstab gilt',
+          region: 'Wo gilt der Maßstab? Ziehen Sie einen Rahmen.',
         },
       },
     },

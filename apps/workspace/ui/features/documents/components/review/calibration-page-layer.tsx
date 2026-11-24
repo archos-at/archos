@@ -315,7 +315,8 @@ function ShownLayer({
 
   const scales = calibration.onPage(page)
   const several = scales.length > 1
-  const saved = open || setting || (measuring && several) ? scales : []
+  const framed = scales.filter((entry) => entry.scope === 'page' || entry.id === hoveredId)
+  const saved = open || setting || (measuring && several) ? framed : []
   const dragRegion = drag ? regionBetween(drag.a, drag.b) : null
   const draftRegion = dragRegion ?? here?.region ?? null
   const refused = !dragRegion && proposal.blocked === 'overlaps'
