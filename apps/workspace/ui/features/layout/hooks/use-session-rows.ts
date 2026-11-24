@@ -10,6 +10,8 @@ export interface SessionRow {
   id: string
   title: string
   date: Date
+  createdAt: Date
+  untouched: boolean
   hasActiveDeepResearch: boolean
   hasCompletedReport: boolean
   contentLocked: boolean
@@ -27,6 +29,8 @@ interface RowCache {
 const sameRow = (a: SessionRow, b: SessionRow): boolean =>
   a.title === b.title &&
   +new Date(a.date) === +new Date(b.date) &&
+  +new Date(a.createdAt) === +new Date(b.createdAt) &&
+  a.untouched === b.untouched &&
   a.hasActiveDeepResearch === b.hasActiveDeepResearch &&
   a.hasCompletedReport === b.hasCompletedReport &&
   a.contentLocked === b.contentLocked &&
@@ -42,6 +46,8 @@ const rowFor = (conversation: Conversation, activity: ConversationActivity | nul
     id: conversation.id,
     title: conversation.title,
     date: conversation.updatedAt,
+    createdAt: conversation.createdAt,
+    untouched: conversation.contentLocked !== true && conversation.messages.length === 0 && conversation.title.trim() === '',
     hasActiveDeepResearch: hasLiveRun(conversation.messages),
     hasCompletedReport: hasFinishedRun(conversation.messages),
     contentLocked: conversation.contentLocked === true,

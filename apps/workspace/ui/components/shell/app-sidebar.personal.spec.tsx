@@ -1,9 +1,10 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { render, screen, within } from '@/test-utils'
+import { act, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { AppSidebar } from './app-sidebar'
 import { RailChatsSource } from './rail-chats'
+import { useRailSide } from './rail-side'
 import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH } from './rail-mode'
 
 let pathname = PERSONAL_SHELF_PATH
@@ -23,6 +24,8 @@ vi.mock('next/link', () => ({
     }
   ),
 }))
+const motion = vi.hoisted(() => ({ reduced: false }))
+vi.mock('@/hooks/use-reduced-motion', () => ({ useReducedMotion: () => motion.reduced }))
 vi.mock('@/hooks/use-last-project-section', () => ({ useRecordProjectSection: () => {}, pruneProjectSections: () => {} }))
 vi.mock('./project-switcher', () => ({ ProjectSwitcher: () => <div data-testid="project-switcher" /> }))
 vi.mock('./connection-band', () => ({ ConnectionBand: () => <div /> }))
@@ -38,6 +41,21 @@ afterEach(() => {
 })
 
 describe('the rail switches between Persönlich and Projekt (ADR-0193)', () => {
+  test('the switch stays one element across a side change, its thumb sliding sideways only', () => {
+    const { container, rerender } = render(<AppSidebar {...props} projectId={null} />)
+    const thumb = container.querySelector('[data-slot="rail-mode-thumb"]')
+    const personal = screen.getByRole('radio', { name: 'Personal' })
+    expect(thumb).not.toHaveClass('translate-x-full')
+
+    pathname = '/app/projects/p1/files'
+    rerender(<AppSidebar {...props} projectId="p1" />)
+
+    expect(container.querySelector('[data-slot="rail-mode-thumb"]')).toBe(thumb)
+    expect(screen.getByRole('radio', { name: 'Personal' })).toBe(personal)
+    expect(thumb).toHaveClass('translate-x-full')
+    expect(thumb?.className).not.toMatch(/translate-y/)
+  })
+
   test('under Persönlich: a new chat, Meine Ablage and the person’s last chats, and no project selector', () => {
     const chats = { items: [{ id: 'c1', title: 'Anfrage Huber', href: `${PERSONAL_CHAT_PATH}?session=c1`, current: false }], allHref: PERSONAL_CHAT_PATH }
     render(
@@ -97,5 +115,30 @@ describe('the rail switches between Persönlich and Projekt (ADR-0193)', () => {
     render(<AppSidebar {...props} projectId={null} />)
     await user.click(screen.getByRole('radio', { name: 'Project' }))
     expect(push).toHaveBeenLastCalledWith('/app/projects/p1/chat')
+  })
+
+  describe('switching the side (the rail’s transition)', () => {
+    afterEach(() => {
+      motion.reduced = false
+      act(() => useRailSide.getState().settle())
+    })
+
+    test('the rail shows the side the switch chose at once, the project’s sections and selector before the route lands', () => {
+      render(<AppSidebar {...props} projectId={null} />)
+      act(() => useRailSide.getState().begin({ mode: 'project', projectId: 'p1' }))
+
+      const entering = document.querySelector('[data-slot="rail-side"][data-side="project"]')!
+      expect(entering).toContainElement(screen.getByTestId('project-switcher'))
+      expect(within(entering as HTMLElement).getByRole('link', { name: 'New chat' })).toHaveAttribute('href', expect.stringContaining('/app/projects/p1/chat'))
+    })
+
+    test('under reduced motion the old side is gone at once: no slide, no fade to wait out', async () => {
+      motion.reduced = true
+      render(<AppSidebar {...props} projectId={null} />)
+      act(() => useRailSide.getState().begin({ mode: 'project', projectId: 'p1' }))
+
+      await vi.waitFor(() => expect(document.querySelector('[data-slot="rail-side"][data-side="personal"]')).toBeNull())
+      expect(document.querySelectorAll('[data-slot="rail-side"]')).toHaveLength(1)
+    })
   })
 })

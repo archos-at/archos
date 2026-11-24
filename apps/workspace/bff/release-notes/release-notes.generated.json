@@ -291,6 +291,22 @@
           "section": "improvements",
           "area": "general",
           "text": {
+            "en": "Switching between Persönlich and Projekt is now smooth: the switch slides over, and the sidebar shows the other side's sections and recent chats at once, without a jump or an empty list. The chat you had open stays on its side: the other side never shows it.",
+            "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "„Letzte Chats“ in the sidebar is shorter and quieter: at most eight chats, under a lighter heading, and the one you have open stays among them once it has a message or a title. „Alle Chats“ appears when there are more.",
+            "de": "„Letzte Chats“ in der Seitenleiste ist kürzer und dezenter: maximal acht Chats unter einer zurückhaltenderen Überschrift. Der geöffnete Chat bleibt dabei, sobald er eine Nachricht oder einen Titel hat. „Alle Chats“ wird angezeigt, wenn es mehr Chats gibt."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "general",
+          "text": {
             "en": "Corners across the app are slightly tighter, and menus, tabs and switches round their inner corners to match the corners around them.",
             "de": "Die Ecken in der gesamten App sind etwas enger gerundet; Menüs, Tabs und Schalter stimmen ihre inneren Rundungen auf die umgebenden Ecken ab."
           }

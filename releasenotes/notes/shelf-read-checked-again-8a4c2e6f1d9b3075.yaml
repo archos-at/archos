@@ -1,0 +1,8 @@
+---
+# area: agents
+operators:
+  - >
+    When the agent reads another chat, it checks again once the read is back
+    whether that chat has meanwhile drawn on its owner's Meine Ablage, and
+    withholds the result if so. An upload from a chat checks write access to
+    its shelf before anything else.

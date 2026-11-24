@@ -14,6 +14,7 @@ interface ActingCall {
   readonly clientId?: string
   readonly door?: CallDoor
   readonly sessionSource?: SessionSource
+  readonly ownShelfReadable?: boolean
 }
 
 export type ActingDecisionSource = 'elicitation' | 'app' | 'app-unverified'
@@ -24,6 +25,7 @@ export interface ActingOrigin {
   readonly clientId?: string
   readonly door?: CallDoor
   readonly sessionSource?: SessionSource
+  readonly ownShelfReadable?: boolean
 }
 
 const acting = new AsyncLocalStorage<ActingCall>()
@@ -43,6 +45,7 @@ export function runAsActingSession<T>(
       ...(origin.clientId ? { clientId: origin.clientId } : {}),
       ...(origin.door ? { door: origin.door } : {}),
       ...(origin.sessionSource ? { sessionSource: origin.sessionSource } : {}),
+      ...(origin.ownShelfReadable ? { ownShelfReadable: true } : {}),
     },
     fn,
   )
@@ -54,6 +57,10 @@ export function currentActingSession(): AuthorizedSession | undefined {
 
 export function actingReaderIsAgent(): boolean {
   return acting.getStore()?.reader === 'agent'
+}
+
+export function actingOwnShelfReadable(): boolean {
+  return acting.getStore()?.ownShelfReadable === true
 }
 
 export function actingProposalId(): string | undefined {
