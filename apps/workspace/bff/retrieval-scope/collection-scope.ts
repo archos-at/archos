@@ -1,6 +1,6 @@
 import type { UserSession } from '@/lib/auth/types'
 
-export const COLLECTION_SHELVES = ['office_shelf', 'project', 'session', 'base'] as const
+export const COLLECTION_SHELVES = ['office_shelf', 'project', 'session', 'base', 'personal'] as const
 
 export type CollectionShelf = (typeof COLLECTION_SHELVES)[number]
 

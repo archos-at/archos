@@ -217,6 +217,14 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Menus and selection lists now have the same corners as the cards around them, so they no longer look rounder than the rest of the page.",
+            "de": "Menüs und Auswahllisten haben jetzt denselben Eckenradius wie die sie umgebenden Karten und wirken dadurch nicht mehr runder als der Rest der Seite."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "projects",
           "text": {
             "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",
@@ -237,6 +245,30 @@
           "text": {
             "en": "An entry about an annotation in the Postfach now shows the place on the plan it marks, the whole annotation with its replies, and a field to answer it right there. When you answer, mark it as done or archive it, the next entry opens, first the next one on the same document.",
             "de": "Ein Eintrag zu einer Anmerkung im Postfach zeigt jetzt die Stelle im Plan, die sie markiert, die ganze Anmerkung mit ihren Antworten und ein Feld, um sie gleich dort zu beantworten. Wenn Sie antworten, ihn als erledigt markieren oder archivieren, öffnet sich der nächste Eintrag, zuerst der nächste zum selben Dokument."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project picker lists the five projects you worked in last, with \"Show all projects\" for the rest and a search over every project. This keeps the projects you are busy with one click away, however many the office has.",
+            "de": "Die Projektauswahl zeigt die fünf Projekte, an denen Sie zuletzt gearbeitet haben, sowie „Alle Projekte anzeigen“ für die übrigen und eine Suche über alle Projekte. So erreichen Sie die Projekte, mit denen Sie gerade beschäftigt sind, mit einem Klick – unabhängig davon, wie viele Projekte Ihr Büro hat."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "The project overview shows your six latest projects as cards and every other one as a row with its place, phase and when you last worked in it. The long wall of cards is gone, and the older projects are easier to scan.",
+            "de": "Die Projektübersicht zeigt Ihre sechs neuesten Projekte als Karten und alle weiteren als Zeilen mit Standort, Phase und dem Zeitpunkt, zu dem Sie zuletzt daran gearbeitet haben. Die lange Kartenwand entfällt, und ältere Projekte lassen sich leichter überblicken."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "projects",
+          "text": {
+            "en": "Every project in the picker and in the overview's list now has a gear to its project settings. You no longer have to open a project first to reach them.",
+            "de": "Jedes Projekt in der Projektauswahl und in der Liste der Übersicht hat jetzt ein Zahnrad, über das Sie direkt zu den Projekteinstellungen gelangen. Sie müssen ein Projekt nicht mehr zuerst öffnen, um diese aufzurufen."
           }
         },
         {
@@ -289,6 +321,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
+            "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "answers",
           "text": {
             "en": "A chat now reads only the project it belongs to. A chat without a project, continued while a project page is open, no longer searches that project.",
@@ -317,6 +357,30 @@
           "text": {
             "en": "Leaving a 3D model that could not be loaded, for example by switching to another chat, no longer replaces the whole page with an error screen.",
             "de": "Wenn Sie ein 3D-Modell verlassen, das nicht geladen werden konnte, etwa indem Sie zu einem anderen Chat wechseln, wird nicht mehr die gesamte Seite durch einen Fehlerbildschirm ersetzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "When a chat has read from Meine Ablage, the refusal now names each step it blocks instead of saying nothing leaves the chat.",
+            "de": "Wenn ein Chat Daten aus Meine Ablage gelesen hat, nennt die Ablehnung jetzt jeden blockierten Schritt, statt zu sagen, dass nichts den Chat verlässt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A source from Meine Ablage cited without a file name is now labelled Meine Ablage instead of a building regulation.",
+            "de": "Eine Quelle aus Meine Ablage, die ohne Dateinamen zitiert wird, wird jetzt als Meine Ablage statt als Bauvorschrift gekennzeichnet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "agents",
+          "text": {
+            "en": "A refused share no longer carries over to the next chat you open in the sharing dialog.",
+            "de": "Eine abgelehnte Freigabe wird nicht mehr in den nächsten Chat übernommen, den Sie im Freigabe-Dialog öffnen."
           }
         },
         {
@@ -413,6 +477,14 @@
           "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "projects",
+          "text": {
+            "en": "The \"Restore\" button under \"Recently deleted\" and the \"Save\" button when renaming a project are centred again.",
+            "de": "Die Schaltflächen „Wiederherstellen“ unter „Zuletzt gelöscht“ und „Speichern“ beim Umbenennen eines Projekts sind wieder zentriert."
           }
         },
         {

@@ -10,7 +10,7 @@ vi.mock('server-only', () => ({}))
 const state = vi.hoisted(() => ({
   rows: [] as ConversationAudienceRow[],
   reads: 0,
-  record: { folders: [] as string[], otherProjects: [] as string[] },
+  record: { folders: [] as string[], otherProjects: [] as string[], personalShelf: false },
 }))
 
 vi.mock('./audience', async (original) => ({
@@ -74,7 +74,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   state.rows = [row()]
   state.reads = 0
-  state.record = { folders: [], otherProjects: [] }
+  state.record = { folders: [], otherProjects: [], personalShelf: false }
 })
 
 describe('resolveConversationContext', () => {
@@ -104,6 +104,16 @@ describe('resolveConversationContext', () => {
     expect(context.audience).toMatchObject({ solo: false, version: 5 })
   })
 
+  it('never draws on the personal shelf in a document thread, whose answers others read as annotation replies', async () => {
+    state.rows = [row({ subject: true })]
+
+    const context = await resolveConversationContext(session, { conversationId: 's_thread', kind: 'chat' })
+
+    expect(context.may).toMatchObject({ personalMemory: true, personalShelf: false })
+    expect(context.may.shelves.map((entry) => entry.shelf)).not.toContain('personal')
+    expect(context.may.restrictedCollections).toEqual([])
+  })
+
   it('draws on the personal shelf in a solo chat, and not in the next turn once the chat is shared', async () => {
     state.rows = [row(), row({ grantees: ['user_ina'], version: 3 })]
 
@@ -113,6 +123,31 @@ describe('resolveConversationContext', () => {
     expect(first.may).toMatchObject({ personalMemory: true, personalShelf: true, workspaceRead: 'all' })
     expect(second.may).toMatchObject({ personalMemory: false, personalShelf: false, workspaceRead: 'document+projectFacts' })
     expect(second.audience.version).toBe(3)
+    const personal = 'personal_org_1__user_owner'
+    expect(first.may.shelves).toContainEqual({ collection: personal, shelf: 'personal' })
+    expect(first.may.restrictedCollections).toEqual([personal])
+    expect(first.may.features).toEqual({ deepResearch: true, tasks: true })
+    expect(second.may.shelves.map((entry) => entry.collection)).not.toContain(personal)
+    expect(second.may.restrictedCollections).toEqual([])
+  })
+
+  it('never draws on the personal shelf in a project chat whose project the reader lost (ADR-0193, rule 4)', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+    vi.mocked(buildCollectionScopeFromRequest).mockResolvedValueOnce({
+      scope: [],
+      scopedCollections: [],
+      headerValue: '',
+      projectId: undefined,
+      projectCollectionName: undefined,
+      conversationId: undefined,
+      verifiedConversationId: 's_c',
+      restrictedCollections: [],
+    })
+
+    const context = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
+
+    expect(context.may.personalShelf).toBe(false)
+    expect(context.may.shelves).toEqual([])
   })
 
   it('keeps personal memory but not the personal shelf in a solo project chat (ADR-0180, ADR-0193)', async () => {
@@ -140,10 +175,21 @@ describe('resolveConversationContext', () => {
     expect(confined.may.features).toEqual({ deepResearch: false, tasks: false })
 
     state.rows = [row()]
-    state.record = { folders: [], otherProjects: ['p_other'] }
+    state.record = { folders: [], otherProjects: ['p_other'], personalShelf: false }
     const recorded = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
     expect(recorded.recorded.projects).toEqual(['p_other'])
     expect(recorded.may.features).toEqual({ deepResearch: false, tasks: false })
+  })
+
+  it('keeps deep research and tasks off once the chat read its owner’s shelf, though the next turn may still draw on it (ADR-0193)', async () => {
+    const fresh = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
+    expect(fresh.may.features).toEqual({ deepResearch: true, tasks: true })
+
+    state.record = { folders: [], otherProjects: [], personalShelf: true }
+    const used = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
+    expect(used.recorded.personalShelf).toBe(true)
+    expect(used.may.personalShelf).toBe(true)
+    expect(used.may.features).toEqual({ deepResearch: false, tasks: false })
   })
 
   it('gives a run without a chat, a headless job and an external caller nothing personal', async () => {
@@ -221,5 +267,13 @@ describe('resolveConversationContext', () => {
 
     expect(scope).toMatchObject({ projectId: 'p1', shelves: [], restrictedCollections: [] })
     expect(vi.mocked(buildCollectionScopeFromRequest).mock.calls[0]?.[1]).toMatchObject({ interactiveChat: false })
+  })
+
+  it('adds no personal shelf to a context resolved without shelves, though the chat is the owner’s alone', async () => {
+    const context = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' }, { withoutShelves: true })
+
+    expect(context.may.personalShelf).toBe(false)
+    expect(context.may.shelves).toEqual([])
+    expect(context.may.restrictedCollections).toEqual([])
   })
 })

@@ -30,9 +30,9 @@ vi.mock('@/lib/conversations/repository', () => ({
 }))
 
 const widenings = vi.hoisted(() => ({ executor: { tx: true } }))
-vi.mock('@/lib/conversations/restricted-use', () => ({
+vi.mock('@/lib/conversations/restricted-use', () => ({ peopleWhoMayRead: vi.fn() }))
+vi.mock('@/lib/conversations/audience-widening', () => ({
   assertMayWidenConversation: vi.fn(),
-  peopleWhoMayRead: vi.fn(),
   widenConversationAudience: vi.fn(
     async (_session: unknown, _id: string, _widening: unknown, write: (executor: unknown) => Promise<unknown>) =>
       write(widenings.executor),
@@ -89,11 +89,8 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { canUserAccessProject, isUserInOrganization } from '@/lib/authz/project-membership'
 import { findConversationTenancy, updateConversationVisibilityInOrg } from '@/lib/conversations/repository'
 import { findDocumentTenancy, updateDocumentVisibilityInOrg } from '@/lib/documents/repository'
-import {
-  assertMayWidenConversation,
-  peopleWhoMayRead,
-  widenConversationAudience,
-} from '@/lib/conversations/restricted-use'
+import { peopleWhoMayRead } from '@/lib/conversations/restricted-use'
+import { assertMayWidenConversation, widenConversationAudience } from '@/lib/conversations/audience-widening'
 import type { ResourceRole, ResourceVisibility } from '@/lib/db/schema/resource-shares'
 import { publishToUsers } from '@/lib/events/bus'
 import { requireResourceAccess, requireResourceWriteAccess, resolveResourceAccess } from './access'
@@ -521,6 +518,7 @@ describe('a conversation that drew on a restricted folder reaches only people cl
       kind: 'person',
       userId: 'user_member',
       self: false,
+      ownerConfirmed: false,
     })
     expect(consumeLimit).not.toHaveBeenCalled()
     expect(upsertGrant).not.toHaveBeenCalled()
@@ -532,7 +530,7 @@ describe('a conversation that drew on a restricted folder reaches only people cl
     expect(widenConversationAudience).toHaveBeenCalledWith(
       session,
       'conv_1',
-      { kind: 'person', userId: 'user_member', self: false },
+      { kind: 'person', userId: 'user_member', self: false, ownerConfirmed: false },
       expect.any(Function),
     )
     expect(upsertGrant).toHaveBeenCalledWith(
@@ -562,7 +560,7 @@ describe('a conversation that drew on a restricted folder reaches only people cl
     const error = await refusal(setResourceVisibility(session, 'conversation', 'conv_1', 'project'))
 
     expect(error.details).toMatchObject({ reason: 'restricted-content-project' })
-    expect(assertMayWidenConversation).toHaveBeenCalledWith(session, 'conv_1', { kind: 'visibility' })
+    expect(assertMayWidenConversation).toHaveBeenCalledWith(session, 'conv_1', { kind: 'visibility', ownerConfirmed: false })
     expect(updateConversationVisibilityInOrg).not.toHaveBeenCalled()
     expect(recordAuditEvent).not.toHaveBeenCalled()
 

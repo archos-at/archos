@@ -39,6 +39,7 @@ const uploadBody = uploadBodySchemaWith({
   projectId: z.string().optional(),
   folderId: z.string().optional().describe('From project-folder-list or office-shelf-folder-list; omit for the root.'),
   revisionOf: revisionOfField,
+  originConversationId: z.string().max(128).optional().describe('Set by the server to your conversation; a value you send is replaced.'),
   ...documentUploadFields,
 })
 const projectUploadExample = {

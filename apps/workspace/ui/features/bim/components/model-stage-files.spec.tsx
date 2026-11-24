@@ -150,7 +150,7 @@ describe('ModelStage — the file operations on the building', () => {
 })
 
 describe('ModelStage — a model from the Bürobibliothek', () => {
-  it('deletes it through the org-scoped route, not the project one', async () => {
+  it('moves it into the Bürobibliothek\'s Papierkorb, as a project model goes to the project bin', async () => {
     state.models = [model({ projectId: null })]
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 })
     vi.stubGlobal('fetch', fetchMock)
@@ -163,8 +163,9 @@ describe('ModelStage — a model from the Bürobibliothek', () => {
     await user.click(await screen.findByTestId('document-delete-confirm'))
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-1', { method: 'DELETE' })
+      expect(fetchMock).toHaveBeenCalledWith('/api/documents/doc-1/bin', { method: 'POST' })
     )
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/documents/doc-1', { method: 'DELETE' })
     vi.unstubAllGlobals()
   })
 })

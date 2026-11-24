@@ -19,8 +19,15 @@ vi.mock('@/lib/conversations/restricted-use', () => ({
   ADMISSION_MAX_COLLECTIONS: 20,
   admitRestrictedUse: vi.fn(),
 }))
+vi.mock('@/lib/conversations/personal-shelf-use', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/conversations/personal-shelf-use')>()),
+  admitPersonalShelf: vi.fn(),
+}))
+vi.mock('@/lib/conversation-context', () => ({ decisionFromRequest: vi.fn(() => null) }))
 
 import { admitRestrictedUse } from '@/lib/conversations/restricted-use'
+import { admitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
+import { decisionFromRequest } from '@/lib/conversation-context'
 import { withTenant } from '@/lib/db/tenant-context'
 import { POST } from './route'
 
@@ -29,6 +36,7 @@ const CONVERSATION_ID = 's_7d1e2c3b_0000_4000_8000_00000000000c'
 const ORG_ID = 'org_1'
 const ASKER = 'user_me'
 const CONTRACTS = 'proj_abc_r0123456789ab'
+const OWN_SHELF = 'personal_org_1__user_me'
 
 const ask = (body: unknown, token: string = TOKEN, id: string = CONVERSATION_ID) =>
   POST(
@@ -52,6 +60,7 @@ const REQUEST = {
 beforeEach(() => {
   vi.stubEnv('INTERNAL_API_TOKEN', TOKEN)
   vi.mocked(admitRestrictedUse).mockResolvedValue({ admitted: [CONTRACTS], refused: [], recorded: ['folder-vertraege'] })
+  vi.mocked(admitPersonalShelf).mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -67,6 +76,25 @@ describe('POST /api/internal/conversations/[id]/restricted-use', () => {
     expect(await response.json()).toEqual({ admitted: [CONTRACTS], refused: [], recorded: ['folder-vertraege'] })
     expect(withTenant).toHaveBeenCalledWith({ organizationId: ORG_ID }, expect.any(Function))
     expect(admitRestrictedUse).toHaveBeenCalledWith(REQUEST, [CONTRACTS])
+  })
+
+  it('admits the asker’s own shelf apart from the folders, under the turn’s signed decision (ADR-0193)', async () => {
+    const decision = { conversationId: CONVERSATION_ID } as never
+    vi.mocked(decisionFromRequest).mockReturnValueOnce(decision)
+    vi.mocked(admitPersonalShelf).mockResolvedValueOnce([OWN_SHELF])
+
+    const response = await ask({ organizationId: ORG_ID, userId: ASKER, admit: [CONTRACTS, OWN_SHELF] })
+
+    expect(await response.json()).toEqual({ admitted: [CONTRACTS, OWN_SHELF], refused: [], recorded: ['folder-vertraege'] })
+    expect(admitRestrictedUse).toHaveBeenCalledWith({ ...REQUEST, projectId: null }, [CONTRACTS])
+    expect(admitPersonalShelf).toHaveBeenCalledWith({ ...REQUEST, projectId: null }, [OWN_SHELF], decision)
+  })
+
+  it('refuses the own shelf the admission did not admit, and never asks the folder rule about it', async () => {
+    const response = await ask({ organizationId: ORG_ID, userId: ASKER, admit: [OWN_SHELF] })
+
+    expect(await response.json()).toEqual({ admitted: [], refused: [OWN_SHELF], recorded: [] })
+    expect(admitRestrictedUse).not.toHaveBeenCalled()
   })
 
   it('hands the answer the turn writes to the admission', async () => {

@@ -91,5 +91,10 @@ export function otherProjectsOf(
 }
 
 export function isConfined(may: Pick<ContextMay, 'restrictedCollections'>, recorded: ContextRecorded): boolean {
-  return may.restrictedCollections.length > 0 || recorded.folders.length > 0 || recorded.projects.length > 0
+  return (
+    may.restrictedCollections.length > 0 ||
+    recorded.folders.length > 0 ||
+    recorded.projects.length > 0 ||
+    recorded.personalShelf
+  )
 }

@@ -12,6 +12,7 @@ import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
 import { type VerifiedRequestContext } from '@/lib/request-context'
 import { hasHeader } from '@/lib/http/legacy-header-names'
 import { isPersonalShelfCollectionName } from '@/lib/personal-shelf/collection'
+import { admitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
 
 const querySchema = z.object({
   collection: z.string().min(1),
@@ -45,15 +46,26 @@ async function requireReadable(
   context: VerifiedRequestContext | null,
   decision: ConversationDecision | null = null
 ): Promise<void> {
-  const restricted = isRestrictedCollection(collection)
+  const personal = isPersonalShelfCollectionName(collection.toLowerCase())
+  const restricted = isRestrictedCollection(collection) || personal
   if (!context) {
-    if (restricted || isPersonalShelfCollectionName(collection.toLowerCase())) throw new NotFoundError('Document not found')
+    if (restricted) throw new NotFoundError('Document not found')
     return
   }
   if (!context.collectionScope.includes(collection)) throw new NotFoundError('Document not found')
   if (decision && !decidedFor(decision, context, collection, restricted)) throw new NotFoundError('Document not found')
   if (!restricted) return
   if (!context.conversationId) throw new NotFoundError('Document not found')
+  if (personal) {
+    const request = {
+      organizationId: context.organizationId,
+      conversationId: context.conversationId,
+      userId: context.userId,
+      answerMessageId: decision?.answerMessageId ?? null,
+    }
+    if ((await admitPersonalShelf(request, [collection], decision)).length === 0) throw new NotFoundError('Document not found')
+    return
+  }
   const drawable = await drawableRestrictedCollections(
     {
       organizationId: context.organizationId,

@@ -88,6 +88,7 @@ export const CITATION_KEY_QUALIFIERS: ReadonlyArray<readonly [qualifier: string,
   ['Projektwissen', 'project'],
   ['Basiswissen', 'base'],
   ['Private Sitzung', 'session'],
+  ['Meine Ablage', 'personal'],
   ['Büroablage', 'office_shelf'],
   ['Büroarchiv', 'office_shelf'],
 ]
