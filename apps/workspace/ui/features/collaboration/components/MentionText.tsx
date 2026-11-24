@@ -28,7 +28,7 @@ const pillClasses = (isMe: boolean, isAgent: boolean, interactive: boolean, meTo
     'pointer-coarse:py-1',
     isMe
       ? meTone === 'ink'
-        ? 'bg-desk text-foreground font-semibold'
+        ? 'bg-desk text-foreground font-medium'
         : 'bg-warning-subtle text-warning'
       : isAgent
         ? 'bg-foreground/[0.08] text-foreground/85'

@@ -105,13 +105,13 @@ function HeaderRow({
   return (
     <div className="mx-auto flex w-full max-w-[720px] items-center gap-3 rounded-2xl border bg-card px-5 py-3.5 shadow-2xs">
       <span
-        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-[10px] font-bold uppercase leading-none text-muted-foreground"
+        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-[10px] font-medium uppercase leading-none text-muted-foreground"
         aria-hidden
       >
         {drawing ? 'DXF' : 'PDF'}
       </span>
       <div className="min-w-0 flex-1">
-        <h3 className="truncate text-[15px] font-semibold leading-tight text-foreground">
+        <h3 className="truncate text-[15px] font-medium leading-tight text-foreground">
           {document.displayName}
         </h3>
         <p className="mt-1 truncate text-[11.5px] text-muted-foreground">

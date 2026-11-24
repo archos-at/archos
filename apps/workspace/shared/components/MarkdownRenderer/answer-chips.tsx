@@ -29,7 +29,7 @@ export const EnergyClassChip: FC<{ rating: string }> = ({ rating }) => {
       title={t('markdown.energyClass', { rating })}
       data-testid="energy-class"
       data-class={rating}
-      className="mx-0.5 inline-flex h-5 min-w-7 items-center justify-center rounded-full px-1.5 align-[1px] text-[12px] font-semibold no-underline"
+      className="mx-0.5 inline-flex h-5 min-w-7 items-center justify-center rounded-full px-1.5 align-[1px] text-[12px] font-medium no-underline"
       style={{
         backgroundColor: `var(--energy-band-${band})`,
         color: band === ENERGY_CLASSES.length ? 'var(--energy-band-paper)' : 'var(--energy-band-ink)',

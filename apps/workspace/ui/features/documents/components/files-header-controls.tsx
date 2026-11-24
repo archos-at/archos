@@ -168,7 +168,7 @@ export function FilesHeaderControls({
       ...(advancedEntries && advancedEntries.length > 0 ? [...(narrow ? [{ type: 'separator' as const }] : []), ...advancedEntries] : []),
     ]
     return (
-      <div className={cn('flex min-w-0 flex-1 items-center [&_[data-slot=button]]:text-sm', narrow ? 'gap-2' : 'gap-3')} data-testid="files-controls">
+      <div className={cn('flex min-w-0 flex-1 items-center [&_[data-slot=button]]:text-name', narrow ? 'gap-2' : 'gap-3')} data-testid="files-controls">
         {searchField('min-w-40 max-w-[28rem] flex-1')}
         {renderFilter(narrow)}
         {!narrow && viewToggle}
@@ -182,7 +182,7 @@ export function FilesHeaderControls({
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
+    <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 [&_[data-slot=button]]:text-name" data-testid="files-controls">
       {viewToggle}
       {/* The open Anmerkungen of every document, for the Jour fixe: a page of its own, as the Papierkorb is. */}
       {openPointsHref && (

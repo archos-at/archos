@@ -59,7 +59,7 @@ export const CitationMarker: FC<{ href: string; fallback: ReactNode }> = ({ href
         })}
         className={cn(
           'inline-flex items-center rounded-control px-[3px]',
-          'relative -top-[0.15em] text-[0.68em] font-semibold leading-[1.45] tabular-nums',
+          'relative -top-[0.15em] text-[0.68em] font-medium leading-[1.45] tabular-nums',
           'pointer-coarse:min-h-[26px] pointer-coarse:justify-center pointer-coarse:px-[7px] pointer-coarse:text-[0.78em]',
           PRESSABLE,
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
@@ -181,7 +181,7 @@ const PendingCitationMarker: FC<{ number: number }> = ({ number }) => {
       aria-label={t('citationPeek.pendingAria', { number })}
       className={cn(
         'inline-flex items-center rounded-control px-[3px]',
-        'relative -top-[0.15em] text-[0.68em] font-semibold leading-[1.45] tabular-nums',
+        'relative -top-[0.15em] text-[0.68em] font-medium leading-[1.45] tabular-nums',
         'pointer-coarse:min-h-[26px] pointer-coarse:justify-center pointer-coarse:px-[7px] pointer-coarse:text-[0.78em]',
         'bg-muted text-muted-foreground'
       )}

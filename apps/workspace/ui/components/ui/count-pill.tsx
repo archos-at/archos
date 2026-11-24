@@ -9,7 +9,7 @@ const countPillVariants = cva(
     variants: {
       tone: {
         muted: 'bg-muted font-medium text-foreground/70',
-        attention: 'bg-primary font-semibold text-primary-foreground',
+        attention: 'bg-primary font-medium text-primary-foreground',
       },
     },
     defaultVariants: {
