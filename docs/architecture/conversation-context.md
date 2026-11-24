@@ -181,6 +181,25 @@ subject or excerpt. Reading such a chat by its id is the read gate's
 unchanged (`bff/conversations/shelf-titles.ts`; the call sets
 `ownShelfReadable` on its acting session, `bff/agent-api/own-shelf.ts`).
 
+Reading another chat checks, before the read, whether that chat drew on its
+owner's shelf. A chat can start to while it is read, so the read gate checks
+again once the read is back (`afterRead`, `shelfUseSinceJudged`). It withholds
+what the read brought, unless the turn may draw on that same person's shelf: then
+the reading chat is admitted and marked as a shelf read, as it would have been
+had the other chat used the shelf before. A chat gone by then withholds it too.
+A write is not undone that way: it is the agent's proposal, which a person
+accepts.
+
+Two things are left unguarded on purpose:
+- **Moves.** A move from a chat (`document-move`, a folder's new parent, a
+  restore from the bin) is not checked against what the chat read. The in-product
+  agent only proposes a move, the person accepts it on a card that names it, and
+  they hold write access on both folders. The filing rule would also refuse
+  harmless moves.
+- **Proposals from before #1947.** A `document-upload` or `diagram-file`
+  proposal created before #1947 carries no chat, so accepting it files without
+  the filing guard. They are rare and expire, so none were swept.
+
 The personal-memory digest is injected into every solo turn in a conversation, so recording it
 would make every share ask. It is not recorded. Once a chat is shared, the next
 turn no longer injects it (ADR-0180, rule 4, fresh each turn). Earlier answers
