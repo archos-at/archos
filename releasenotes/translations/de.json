@@ -4024,6 +4024,10 @@
     "de": "Der Wechsel zwischen Persönlich und Projekt läuft jetzt flüssig: Die Ansicht gleitet über, und die Seitenleiste zeigt sofort die Bereiche und letzten Chats der jeweils anderen Seite – ohne Sprung und ohne leere Liste. Der geöffnete Chat bleibt auf seiner Seite und wird auf der anderen nie angezeigt."
   },
   {
+    "en": "Switching between Persönlich and Projekt, or to another project, no longer leaves the chat you had open on screen under the other side.",
+    "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt bleibt der zuvor geöffnete Chat nicht mehr im Hintergrund sichtbar."
+  },
+  {
     "en": "Switching between Persönlich and Projekt, or to another project, reopens the chat you last had open on that side, so you pick up where you left off.",
     "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt wird der zuletzt auf dieser Seite geöffnete Chat wieder geöffnet, sodass Sie dort weitermachen können, wo Sie aufgehört haben."
   },

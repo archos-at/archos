@@ -632,6 +632,14 @@
           }
         },
         {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Switching between Persönlich and Projekt, or to another project, no longer leaves the chat you had open on screen under the other side.",
+            "de": "Beim Wechsel zwischen Persönlich und Projekt oder zu einem anderen Projekt bleibt der zuvor geöffnete Chat nicht mehr im Hintergrund sichtbar."
+          }
+        },
+        {
           "section": "upgrade",
           "area": "documents",
           "text": {
