@@ -7,3 +7,6 @@ export const ROW_REVEAL =
 
 export const TABLE_ROW_HAIRLINE =
   '[&>td]:bg-[image:linear-gradient(var(--hairline),var(--hairline))] [&>td]:bg-no-repeat [&>td]:bg-bottom [&>td]:bg-[length:100%_1px] [&>td[data-row-text]]:bg-right-bottom [&>td[data-row-text]]:bg-[length:calc(100%-var(--row-lead,0px))_1px] [&>td:last-child]:bg-left-bottom [&>td:last-child]:bg-[length:calc(100%-var(--row-end,0px))_1px] [&>td[data-row-skip]]:bg-none last:[&>td]:bg-none data-filled:[&>td]:bg-none [&:has(+[data-filled])>td]:bg-none'
+
+export const ROW_GLYPH_PRESS =
+  'pointer-coarse:size-11 pointer-coarse:px-0 pointer-fine:w-8 pointer-fine:px-0 pointer-fine:text-muted-foreground pointer-fine:shadow-none pointer-fine:bg-transparent pointer-fine:group-hover/row:w-auto pointer-fine:group-hover/row:px-3.5 pointer-fine:group-hover/row:text-foreground pointer-fine:group-hover/row:bg-sheet pointer-fine:group-hover/row:shadow-press pointer-fine:group-focus-within/row:w-auto pointer-fine:group-focus-within/row:px-3.5 pointer-fine:group-focus-within/row:text-foreground pointer-fine:group-focus-within/row:bg-sheet pointer-fine:group-focus-within/row:shadow-press dark:pointer-fine:group-hover/row:bg-transparent dark:pointer-fine:group-focus-within/row:bg-transparent'

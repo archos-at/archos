@@ -1,3 +1,4 @@
+import { MEASURE_MARKER, MEASURE_STROKE, measureMarkerPath, type MeasureMarkerShape } from '@/components/ui/measure-mark-recipe'
 import {
   distanceMetres,
   formatMetres,
@@ -21,10 +22,7 @@ export interface MeasureOverlayLabels {
   locale: string
 }
 
-const TICK_RADIUS = 4
-const CURSOR_RADIUS = 6
-
-const SNAP_SHAPE: Record<MeasureSnapKind, 'square' | 'diamond' | 'circle'> = {
+const SNAP_SHAPE: Record<MeasureSnapKind, MeasureMarkerShape> = {
   vertex: 'square',
   edge: 'diamond',
   face: 'circle',
@@ -32,9 +30,6 @@ const SNAP_SHAPE: Record<MeasureSnapKind, 'square' | 'diamond' | 'circle'> = {
   point_cloud: 'circle',
   none: 'circle',
 }
-
-const HALO_WIDTH = '4'
-const LINE_WIDTH = '1.5'
 
 interface MeasurementNodes {
   halo: SVGLineElement
@@ -46,14 +41,7 @@ interface MeasurementNodes {
 }
 
 function markerPath(kind: MeasureSnapKind, radius: number): string {
-  switch (SNAP_SHAPE[kind]) {
-    case 'square':
-      return `M ${-radius} ${-radius} H ${radius} V ${radius} H ${-radius} Z`
-    case 'diamond':
-      return `M 0 ${-radius} L ${radius} 0 L 0 ${radius} L ${-radius} 0 Z`
-    default:
-      return `M ${-radius} 0 a ${radius} ${radius} 0 1 0 ${radius * 2} 0 a ${radius} ${radius} 0 1 0 ${-radius * 2} 0`
-  }
+  return measureMarkerPath(SNAP_SHAPE[kind], radius)
 }
 
 export function measurementText(
@@ -99,8 +87,8 @@ export class MeasureOverlay {
     this.nodes = measurements.map((measurement) => {
       const { halo, line } = this.appendLine(false)
 
-      const from = this.appendMarker(measurement.from.snap, TICK_RADIUS)
-      const to = this.appendMarker(measurement.to.snap, TICK_RADIUS)
+      const from = this.appendMarker(measurement.from.snap, MEASURE_MARKER.radius)
+      const to = this.appendMarker(measurement.to.snap, MEASURE_MARKER.radius)
 
       const label = document.createElement('div')
       label.className =
@@ -120,7 +108,7 @@ export class MeasureOverlay {
       const pending = this.appendLine(true)
       this.pendingHalo = pending.halo
       this.pendingLine = pending.line
-      this.pendingMarker = this.appendMarker(anchor.snap, TICK_RADIUS)
+      this.pendingMarker = this.appendMarker(anchor.snap, MEASURE_MARKER.radius)
       this.pendingLabel = document.createElement('div')
       this.pendingLabel.className =
         'pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-md bg-background/95 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm'
@@ -129,9 +117,9 @@ export class MeasureOverlay {
     if (!anchor) this.clearPending()
 
     if (cursor && !this.cursorMarker) {
-      this.cursorMarker = this.appendMarker(cursor.snap, CURSOR_RADIUS)
+      this.cursorMarker = this.appendMarker(cursor.snap, MEASURE_MARKER.cursorRadius)
     } else if (cursor && this.cursorMarker) {
-      this.cursorMarker.setAttribute('d', markerPath(cursor.snap, CURSOR_RADIUS))
+      this.cursorMarker.setAttribute('d', markerPath(cursor.snap, MEASURE_MARKER.cursorRadius))
     } else if (!cursor && this.cursorMarker) {
       this.cursorMarker.remove()
       this.cursorMarker = null
@@ -199,19 +187,19 @@ export class MeasureOverlay {
 
   private appendLine(dashed: boolean): { halo: SVGLineElement; line: SVGLineElement } {
     const halo = this.svg.appendChild(document.createElementNS(SVG_NS, 'line'))
-    halo.setAttribute('stroke', 'var(--background)')
-    halo.setAttribute('stroke-width', HALO_WIDTH)
+    halo.setAttribute('stroke', MEASURE_STROKE.haloColor)
+    halo.setAttribute('stroke-width', MEASURE_STROKE.halo)
     halo.setAttribute('stroke-linecap', 'round')
     halo.setAttribute('vector-effect', 'non-scaling-stroke')
 
     const line = this.svg.appendChild(document.createElementNS(SVG_NS, 'line'))
-    line.setAttribute('stroke', 'var(--foreground)')
-    line.setAttribute('stroke-width', LINE_WIDTH)
+    line.setAttribute('stroke', MEASURE_STROKE.lineColor)
+    line.setAttribute('stroke-width', MEASURE_STROKE.line)
     line.setAttribute('vector-effect', 'non-scaling-stroke')
 
     if (dashed) {
-      halo.setAttribute('stroke-dasharray', '4 3')
-      line.setAttribute('stroke-dasharray', '4 3')
+      halo.setAttribute('stroke-dasharray', MEASURE_STROKE.dash)
+      line.setAttribute('stroke-dasharray', MEASURE_STROKE.dash)
     }
     return { halo, line }
   }
@@ -219,9 +207,9 @@ export class MeasureOverlay {
   private appendMarker(kind: MeasureSnapKind, radius: number): SVGPathElement {
     const marker = this.svg.appendChild(document.createElementNS(SVG_NS, 'path'))
     marker.setAttribute('d', markerPath(kind, radius))
-    marker.setAttribute('fill', 'var(--background)')
-    marker.setAttribute('stroke', 'var(--foreground)')
-    marker.setAttribute('stroke-width', '1.5')
+    marker.setAttribute('fill', MEASURE_MARKER.fill)
+    marker.setAttribute('stroke', MEASURE_MARKER.stroke)
+    marker.setAttribute('stroke-width', MEASURE_MARKER.strokeWidth)
     return marker
   }
 

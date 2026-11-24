@@ -444,15 +444,36 @@ class TestWhatAnIndependentCheckRefuted:
         assert reading.state == "verified"
         assert "the sheet's own figures corroborate 1:100.0 here" in reading.contradiction
 
-    def test_two_calibrations_that_disagree_at_a_place_contradict_each_other(self):
+    def test_a_detail_calibrated_inside_a_calibrated_sheet_holds_there_without_contradicting_it(self):
         drawn, sheet = floor(stored_region=False, scale_note=False)
         whole = (0.0, 0.0, sheet.width_pt, sheet.height_pt)
         inner = (100.0, 100.0, sheet.width_pt - 100, sheet.height_pt - 100)
-        both = [Calibration(whole, 0.03, 300.0), Calibration(inner, 0.04, 300.0)]
+        both = [Calibration(inner, 0.04, 300.0), Calibration(whole, 0.03, 300.0)]
+
+        reading = scale_at(sheet, (500.0, 500.0), both)
+        outside = scale_at(sheet, (50.0, 50.0), both)
+
+        assert reading.metres_per_point == 0.04 and reading.box == inner
+        assert "another calibration" not in reading.contradiction
+        assert outside.metres_per_point == 0.03 and outside.box == whole
+
+    def test_two_calibrations_whose_regions_partly_overlap_contradict_each_other_where_they_disagree(self):
+        drawn, sheet = floor(stored_region=False, scale_note=False)
+        left = (0.0, 0.0, 700.0, sheet.height_pt)
+        right = (400.0, 0.0, sheet.width_pt, sheet.height_pt)
+        both = [Calibration(left, 0.03, 300.0), Calibration(right, 0.04, 300.0)]
 
         reading = scale_at(sheet, (500.0, 500.0), both)
 
-        assert "another calibration covering this place says 1:85.0" in reading.contradiction
+        assert "whose region does not lie wholly around its own, says 1:" in reading.contradiction
+
+    def test_of_two_equally_small_regions_over_a_place_the_newest_calibration_holds(self):
+        drawn, sheet = floor(stored_region=False, scale_note=False)
+        older, newer = (0.0, 0.0, 600.0, 600.0), (200.0, 200.0, 800.0, 800.0)
+        both = [Calibration(older, 0.03, 300.0), Calibration(newer, 0.04, 300.0)]
+
+        assert scale_at(sheet, (400.0, 400.0), both).box == newer
+        assert scale_at(sheet, (400.0, 400.0), both[::-1]).box == older
 
     @pytest.mark.parametrize("scale", [0.0, -0.01])
     def test_a_calibration_needs_a_positive_scale(self, scale):

@@ -539,3 +539,49 @@ async def test_a_listing_and_a_sheet_without_a_document_id_propose_nothing(store
 
     monkeypatch.setattr(sheet_source.bff_http, "get_json", get_json)
     assert "drawing-calibration-set" not in await _run(operation="clearance", **CLEARANCE)
+
+
+async def test_a_measure_row_carries_the_snapped_shape_its_value_and_basis(store: _Store, emitted, monkeypatch) -> None:
+    monkeypatch.setattr(measure_register, "may_name", lambda _collection: True)
+
+    await _run(operation="clearance", **{"from": FLOOR.share(5.0, 3.1), "to": FLOOR.share(5.0, 4.1)})
+
+    started, finished = [step for step in emitted.steps if step.kind == "action"]
+    assert (started.verb, started.status, finished.verb, finished.status) == ("measure", "running", "measure", "ok")
+    assert (finished.target, finished.document_id, finished.pages) == (FILE, "doc-1", "1")
+    shape = finished.measure
+    assert (shape.quantity, shape.value, shape.unit, shape.basis, shape.ratio) == (
+        "clearance",
+        pytest.approx(1.2, abs=0.001),
+        "m",
+        "estimated",
+        pytest.approx(100),
+    )
+    assert len(shape.points) == 2 and all(0 <= share <= 1 for point in shape.points for share in point)
+
+
+async def test_no_number_is_an_empty_row_without_a_shape(store: _Store, emitted, monkeypatch) -> None:
+    monkeypatch.setattr(measure_register, "may_name", lambda _collection: True)
+
+    await _run(operation="distance")
+
+    finished = [step for step in emitted.steps if step.kind == "action"][-1]
+    assert (finished.verb, finished.status, finished.measure, finished.pages) == ("measure", "empty", None, "1")
+
+
+async def test_a_reading_operation_is_a_read_of_the_page(store: _Store, emitted, monkeypatch) -> None:
+    monkeypatch.setattr(measure_register, "may_name", lambda _collection: True)
+
+    await _run(operation="rooms")
+
+    finished = [step for step in emitted.steps if step.kind == "action"][-1]
+    assert (finished.verb, finished.status, finished.target, finished.measure) == ("read", "ok", FILE, None)
+
+
+async def test_a_file_the_turn_may_not_name_leaves_the_row_without_a_place(store: _Store, emitted, monkeypatch) -> None:
+    monkeypatch.setattr(measure_register, "may_name", lambda _collection: False)
+
+    await _run(operation="clearance", **{"from": FLOOR.share(5.0, 3.1), "to": FLOOR.share(5.0, 4.1)})
+
+    finished = [step for step in emitted.steps if step.kind == "action"][-1]
+    assert (finished.target, finished.document_id, finished.measure) == (None, None, None)

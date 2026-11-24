@@ -411,6 +411,20 @@ class TestWhatAnIndependentCheckRefuted:
 
         assert isinstance(answer, NoNumber) and "crosses itself" in answer.reason
 
+    def test_a_span_from_a_calibrated_detail_into_the_calibrated_sheet_around_it_is_not_measured(self):
+        drawn, sheet = floor()
+        (x0, y0), (x1, y1) = sheet.point(drawn.share(4.8, 4.0)), sheet.point(drawn.share(5.6, 3.2))
+        detail = Calibration((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)), 0.0035 / 5, 200.0, "detail by A.")
+        whole = Calibration(
+            (0.0, 0.0, sheet.width_pt, sheet.height_pt), drawn.true_metres_per_point, 283.0, "sheet by A."
+        )
+        request = Request(calibrations=[whole, detail])
+
+        answer = sheet_measure.clearance(sheet, drawn.share(0.1, 3.6), drawn.share(9.9, 3.6), request)
+
+        assert isinstance(answer, NoNumber) and answer.cause == "two_regions"
+        assert "sheet by A., 1:" in answer.reason and "detail by A., 1:" in answer.reason
+
     def test_a_span_that_passes_over_another_region_is_refused(self):
         drawn, sheet = floor(stored_unit="m")
         (x0, y0), (x1, y1) = sheet.point(drawn.share(4.8, 4.0)), sheet.point(drawn.share(5.6, 3.2))

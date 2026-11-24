@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
+from typing import Any
 from typing import Literal
 
 from pydantic import BaseModel
@@ -9,13 +11,16 @@ from pydantic import ConfigDict
 from pydantic import Field
 
 from agent.common.action_outcome import ActionOutcome
+from agent.common.action_outcome import SettledStatus
 from agent.common.action_rows import ActionRow
 from agent.common.passage_fence import fence
 from agent.common.turn_file_kinds import turn_states
 from agent.common.turn_status import record_lane_hit
+from agent.common.wire_action import MeasuredShape
 from agent.drawings import sheet_listing
 from agent.drawings import sheet_measure
 from agent.drawings.sheet_answers import Answer
+from agent.drawings.sheet_answers import Measurement
 from agent.drawings.sheet_answers import NoNumber
 from agent.drawings.sheet_answers import render
 from agent.drawings.sheet_figures import Kind
@@ -149,7 +154,30 @@ def _confirmation(loaded: LoadedSheet, result: Answer) -> list[str]:
     return [] if proposal is None else proposal_lines(proposal, loaded.document_id)
 
 
-def answer(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> tuple[str, bool]:
+@dataclass(frozen=True)
+class Answered:
+    text: str
+    status: SettledStatus
+    loaded: LoadedSheet | None = None
+    measured: Measurement | None = None
+
+
+_BASIS = {"vector_verified": "confirmed", "vector_estimated": "estimated", "printed_figure": "printed"}
+
+
+def shape_of(measured: Measurement) -> MeasuredShape:
+    ratio = measured.scale.ratio if measured.provenance != "printed_figure" else None
+    return MeasuredShape(
+        quantity=measured.quantity,
+        points=[[min(1.0, max(0.0, x)), min(1.0, max(0.0, y))] for x, y in measured.points],
+        value=measured.value,
+        unit=measured.unit,
+        basis=_BASIS[measured.provenance],
+        ratio=ratio if ratio and ratio > 0 else None,
+    )
+
+
+def answer(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> tuple[str, bool, Measurement | None]:
     head = f"File: {loaded.file_name}, page {loaded.page}"
     if loaded.calibrations_unread:
         head += (
@@ -158,37 +186,55 @@ def answer(loaded: LoadedSheet, arguments: DrawingMeasureInput) -> tuple[str, bo
     if arguments.operation in MEASURING:
         result = measure(loaded, arguments)
         lines = [head, render(result), *_confirmation(loaded, result)]
-        return "\n".join(lines), not isinstance(result, NoNumber)
-    return "\n".join([head, *(_listed(found) for found in listing(loaded, arguments))]), True
+        measured = result if isinstance(result, Measurement) else None
+        return "\n".join(lines), measured is not None, measured
+    return "\n".join([head, *(_listed(found) for found in listing(loaded, arguments))]), True, None
 
 
-async def _answered(arguments: DrawingMeasureInput) -> tuple[str, bool]:
+async def _answered(arguments: DrawingMeasureInput) -> Answered:
     if not turn_states("pdf"):
-        return NOT_ENABLED, False
+        return Answered(NOT_ENABLED, "error")
     loaded = await load_sheet(arguments.document, arguments.page)
     if isinstance(loaded, str):
-        return loaded, False
+        return Answered(loaded, "error")
     try:
-        text, answered = await asyncio.wait_for(asyncio.to_thread(answer, loaded, arguments), ANSWER_TIMEOUT_S)
+        text, answered, measured = await asyncio.wait_for(
+            asyncio.to_thread(answer, loaded, arguments), ANSWER_TIMEOUT_S
+        )
     except TimeoutError:
-        return (
+        return Answered(
             f"File: {loaded.file_name}, page {loaded.page}\nNo answer: the page is too dense for '"
             f"{arguments.operation}' to finish in time. Narrow `region`, or read the page with look.",
-            False,
+            "error",
         )
-    if may_name(loaded.collection):
-        record_lane_hit(loaded.file_name, detail=f"{arguments.operation} · p.{loaded.page}")
-    return text, answered
+    status: SettledStatus = "ok" if answered else "empty"
+    if not may_name(loaded.collection):
+        return Answered(text, status)
+    record_lane_hit(loaded.file_name, detail=f"{arguments.operation} · p.{loaded.page}")
+    return Answered(text, status, loaded, measured)
+
+
+def _placed(result: Answered) -> dict[str, Any]:
+    loaded = result.loaded
+    if loaded is None:
+        return {}
+    return {
+        "target": loaded.file_name,
+        "document_id": loaded.document_id,
+        "pages": str(loaded.page),
+        "measure": shape_of(result.measured) if result.measured and loaded.document_id else None,
+    }
 
 
 async def run_drawing_measure(arguments: DrawingMeasureInput) -> str:
     outcome = ActionOutcome()
-    row = ActionRow("model", query=f"drawing {arguments.operation} p.{arguments.page}")
+    verb = "measure" if arguments.operation in MEASURING else "read"
+    row = ActionRow(verb, query=f"drawing {arguments.operation} p.{arguments.page}")
     try:
-        text, answered = await _answered(arguments)
-        outcome.failed = not answered
-        outcome.settle(row)
-        return text
+        result = await _answered(arguments)
+        outcome.failed = result.status == "error"
+        outcome.settle(row, default=result.status, **_placed(result))
+        return result.text
     except BaseException:
         row.finish("error")
         raise
