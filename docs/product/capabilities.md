@@ -5,7 +5,7 @@ app and what ARCHOS itself does there. UI names are the German strings the app
 shows. A change that adds, renames, moves or removes a capability updates its row
 in the same commit.
 
-Built from the code on 2026-11-22. Where a page is gated, the gate is named.
+Built from the code on 2026-11-22; the personal side added on 2026-11-24. Where a page is gated, the gate is named.
 The column **Needs a yes** says whether a person confirms before the record
 changes ([VISION principle 4](../../VISION.md#principles)).
 
@@ -16,7 +16,7 @@ person knows who sees a thing.
 
 | Place | Who sees it | What lives there today |
 |---|---|---|
-| **Ich** (the person) | Only the person | Mein Gedächtnis, Profil, private chats (every chat starts private) |
+| **Ich** (the person) | Only the person | The rail's Persönlich side: chats without a project, Meine Ablage; Mein Gedächtnis, Profil (every chat starts private) |
 | **Projekt** | The project's members, by role | Chats once shared, Dateien, Modelle, E-Mail-Eingang, Offene Punkte, Projektgedächtnis, Aufgaben, Projekteinstellungen |
 | **Büro** (the organization) | Everyone in the office, by role | Büroablage, Normen & Richtlinien, Skills, Anweisungen, Organisation |
 
@@ -27,7 +27,7 @@ person knows who sees a thing.
 | Open the app | `/app` opens Neuer Chat in the area last used: the last project's new chat while it still opens, else a new personal chat | — | — |
 | See every project and search them | Projektübersicht (`/app/projects`), a window over the page, from Übersicht in the project picker: cards active, ruhend, abgeschlossen, with search and Neues Projekt | — | — |
 | Create a project, running or closed (as a reference) | Projektübersicht or project picker › Neues Projekt (dialog) | — | — |
-| Switch project | Rail › project selector; phone › Mehr | — | — |
+| Switch between Persönlich and a project | Rail › Persönlich \| Projekt; project selector; phone › Mehr | — | — |
 | Set the project up from its documents | Einrichtung (`/setup`): Projekt, Ablage, Erfassung, Rückfragen, Steckbrief | Reads the uploads, proposes each fact with its quote | Each fact |
 | Guided briefing | Einrichtung (`/intake`), eight modules, answers as Wert, Schätzung or noch offen | Derives Gebäudeklasse and which OIB-Richtlinien apply | — |
 | Steckbrief: address, dates, Beteiligte | Projekteinstellungen › Steckbrief › Bearbeiten (dialog) | Flags a document that contradicts it | Corrections |
@@ -43,7 +43,9 @@ person knows who sees a thing.
 | Capability | Where | What ARCHOS does | Needs a yes |
 |---|---|---|---|
 | Ask about anything in the project | Chat (`/chat`) | Searches project files, Büroablage, law, web, as the question needs | — |
-| Find past chats | Rail › Letzte Chats (ten newest); toolbar › Chats (panel with search) | — | — |
+| Chat without a project | Rail › Persönlich › Neuer Chat (`/app/personal/chat`) | Reads the Büroablage, law, the web where the office allows it, and Mein Gedächtnis while only the person reads the chat | — |
+| A chat reads its own project | Every chat | Searches the project the chat belongs to, never the project the page shows; a chat without a project reads none | — |
+| Find past chats | Rail › Letzte Chats (ten newest, each with its project, a people mark when shared); toolbar › Chats (panel with search) | — | — |
 | Rename, share, see who reads | Chat toolbar: title, Teilen (dialog), participants | — | — |
 | Temporary chat | Composer › Temporär | Remembers nothing from it | — |
 | Attach files, mention colleagues, dictate | Composer: Dateien anhängen, @-Erwähnung, Diktieren | — | — |
@@ -76,6 +78,7 @@ person knows who sees a thing.
 | Search file names and content | Dateien › Suche (Enter for content); Suche (`/app/search`) across office, project, folder | — | — |
 | Filter and sort | Dateien › Filter: Status, Herkunft, Freigabe, Kategorie, Dateityp | — | — |
 | Restore deleted files | Papierkorb (`/files/bin`) | — | — |
+| Keep my own files | Rail › Persönlich › Meine Ablage (`/app/personal-shelf`): upload, folders, search, preview; only the person reads it, deleting is final (no Papierkorb) | Reads every file; not yet drawn on in chats ([ADR-0193](../adr/0193-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md)) | — |
 | Ask about one file | File menu › Danach fragen; Mit ARCHOS besprechen | — | — |
 | Download, as PDF | File menu | Logged in the Download-Protokoll | — |
 
@@ -140,7 +143,7 @@ person knows who sees a thing.
 
 | Capability | Where | What ARCHOS does | Needs a yes |
 |---|---|---|---|
-| Share a chat or an answer | Chat › Teilen; answer › Antwort teilen | — | — |
+| Share a chat or an answer | Chat › Teilen; answer › Antwort teilen | From the next answer on, draws only on what every reader of the chat may read; personal memory stays out ([ADR-0194](../adr/0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md)) | — |
 | Mentions | Composer › @ | — | — |
 | One inbox | Postfach (`/app/inbox`), docked beside the page on wide screens | — | — |
 | Push notifications | Profil › Benachrichtigungen | — | — |
@@ -174,7 +177,7 @@ person knows who sees a thing.
 
 | Capability | Where | What ARCHOS does | Needs a yes |
 |---|---|---|---|
-| Connect Claude, Claude Code, Cursor or ChatGPT | Profil › Agent verbinden, where the organization has the `agent-mcp` flag | Serves the workspace as one MCP server with the person's rights | Writes run for the person. The server asks the person only for an operation marked `requiresPersonConfirmation`, for deciding a proposal, and, on a client that can ask, before a destructive write; any other prompt is the client's own ([agent-surface.md](../architecture/agent-surface.md)) |
+| Connect Claude, Claude Code, Cursor or ChatGPT | Profil › Agent verbinden, where the organization has the `agent-mcp` flag | Serves the workspace as one MCP server with the person's rights; reaches the person's own Meine Ablage (list, read, upload, search with scope `personal`), which no other agent door reaches | Writes run for the person. The server asks the person only for an operation marked `requiresPersonConfirmation`, for deciding a proposal, and, on a client that can ask, before a destructive write; any other prompt is the client's own ([agent-surface.md](../architecture/agent-surface.md)) |
 
 Not reachable by an agent: deciding a proposal without the person's yes, the office's settings, budgets,
 models and screening, and the platform console

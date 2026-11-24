@@ -57,6 +57,14 @@
         },
         {
           "section": "features",
+          "area": "projects",
+          "text": {
+            "en": "The rail now switches between „Persönlich“ and „Projekt“: under Persönlich you find your chats without a project and your own files in „Meine Ablage“, which only you see.",
+            "de": "Die Seitenleiste wechselt jetzt zwischen „Persönlich“ und „Projekt“: Unter „Persönlich“ finden Sie Ihre Chats ohne Projekt und Ihre eigenen Dateien in „Meine Ablage“, die nur Sie sehen."
+          }
+        },
+        {
+          "section": "features",
           "area": "documents",
           "text": {
             "en": "„Meine Ablage“ is a shelf of your own: upload, folders, preview, search and delete as on the office shelf, and nobody else in the office sees it, not even an administrator. Your own connected agent can work in it with your rights; no other agent reaches it.",
