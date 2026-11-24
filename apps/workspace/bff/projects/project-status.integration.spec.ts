@@ -124,8 +124,8 @@ describe.skipIf(!url)('a closed project against Postgres', () => {
   }
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
-    process.env.AUTHZ_CACHE_TTL_MS = '0'
+    vi.stubEnv('APP_DATABASE_URL', url)
+    vi.stubEnv('AUTHZ_CACHE_TTL_MS', '0')
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     access = await import('@/lib/authz/folder-access')

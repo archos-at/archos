@@ -1,20 +1,3 @@
-"""The pen of the permitting memory: one Bescheid in, one structured permit record out.
-
-Every project document the ingest types as ``Bescheid`` (``document_classification``)
-is read once more here by a model with a strict schema. What it says is stored by
-the BFF (``permit_records_client``) and recalled beside other projects' passages
-and decisions. The contract is ``docs/design/permitting-memory.md``.
-
-Nothing in this module reads the document itself: the sieve is the type decision
-made before it, the reading is the model's. The prompt describes the fields and
-what they mean and leaves the kind of notice, and whether the document is a notice
-at all, to the model. A word list or a regex over the text would be the same
-judgement made worse.
-
-Extraction never fails an ingest. Any fault (a provider error, unparseable JSON, a
-reply that does not fit the schema) returns ``None`` and logs at WARNING.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -73,19 +56,16 @@ LEGACY_REQUIREMENT_KINDS: dict[str, str] = {
 
 
 def canonical_record_kind(value: object) -> str:
-    """The current record kind for ``value``, which may be a legacy one; anything else as text."""
     text = str(value)
     return LEGACY_RECORD_KINDS.get(text, text)
 
 
 def canonical_requirement_kind(value: object) -> str:
-    """The current requirement kind for ``value``, which may be a legacy one; anything else as text."""
     text = str(value)
     return LEGACY_REQUIREMENT_KINDS.get(text, text)
 
 
 def is_permit_decision(tags: Iterable[str] | None) -> bool:
-    """Whether the ingest's tag decision typed the document a Bescheid."""
     return PERMIT_DECISION_TAG in (tags or ())
 
 
@@ -93,15 +73,6 @@ _UNDECIDED_TYPE = "Sonstiges"
 
 
 def typed_as_something_else(tags: Iterable[str] | None) -> bool:
-    """Whether the tag decision positively typed the document as another kind than a Bescheid.
-
-    Only a document-type tag counts. ``None`` or ``[]`` is no decision (the tagger timed out
-    or failed, the classifier abstained, summaries are off); a list of discipline tags alone
-    is none either, because the fallback drops a type outside the vocabulary
-    (``["Baubescheid", "Brandschutz"]`` comes back as ``["Brandschutz"]``); and
-    ``Sonstiges`` is the type picked when unsure. A record is dropped on nothing less than a
-    positive other type, so a real Bescheid's record survives every re-ingest a move makes.
-    """
     from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
 
     given = set(tags or ())
@@ -109,16 +80,15 @@ def typed_as_something_else(tags: Iterable[str] | None) -> bool:
 
 
 def _blank_to_none(value: Any) -> Any:
-    """A model writes ``""`` for "not stated"; the record stores that as absent."""
     if isinstance(value, str):
         return value.strip() or None
     return value
 
 
 class PermitRequirement(BaseModel):
-    """One item a notice grants, demands or points out."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid", json_schema_extra={"description": "One item a notice grants, demands or points out."}
+    )
 
     kind: RequirementKind = Field(
         description=(
@@ -149,7 +119,6 @@ class PermitRequirement(BaseModel):
     @field_validator("content", mode="before")
     @classmethod
     def _clip_content(cls, value: Any) -> Any:
-        """Clip rather than reject: a long item should not cost the whole record."""
         return value.strip()[:MAX_CONTENT_CHARS] if isinstance(value, str) else value
 
     @field_validator("evidence", "legal_basis", mode="before")
@@ -159,9 +128,10 @@ class PermitRequirement(BaseModel):
 
 
 class PermitRecord(BaseModel):
-    """What one authority's notice in a building permit procedure says."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"description": "What one authority's notice in a building permit procedure says."},
+    )
 
     kind: RecordKind = Field(
         description=(
@@ -205,7 +175,6 @@ class PermitRecord(BaseModel):
     @field_validator("issued_on", mode="before")
     @classmethod
     def _iso_date_or_none(cls, value: Any) -> Any:
-        """A date the model wrote in another format is dropped; the rest of the record is still good."""
         value = _blank_to_none(value)
         if value is None:
             return None
@@ -220,7 +189,6 @@ class PermitRecord(BaseModel):
         return value[:MAX_REQUIREMENTS]
 
     def to_wire(self) -> dict[str, Any]:
-        """The body's ``record`` object (camelCase, as the BFF's zod schema reads it)."""
         return {
             "kind": self.kind,
             "authority": self.authority,
@@ -242,9 +210,12 @@ class PermitRecord(BaseModel):
 
 
 class PermitExtraction(BaseModel):
-    """The strict reply: a record, or ``null`` when the document is not such a notice."""
-
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "description": "The strict reply: a record, or ``null`` when the document is not such a notice."
+        },
+    )
 
     record: PermitRecord | None = Field(
         description="null when the document is not an authority's notice in a building permit procedure."
@@ -277,11 +248,6 @@ PERMIT_SYSTEM_PROMPT = (
 
 
 def pages_with_markers(pages: Iterable[tuple[Any, str]]) -> str:
-    """The document's pages joined under ``[Seite N]`` markers.
-
-    ``pages`` is ``(page_label, text)`` per page or chunk, in reading order. A part
-    without a page label (a Word document has none) follows the previous marker.
-    """
     parts: list[str] = []
     last_label = None
     for label, text in pages:
@@ -297,7 +263,6 @@ def pages_with_markers(pages: Iterable[tuple[Any, str]]) -> str:
 
 
 def llm_model_name(llm: Any) -> str:
-    """The model id a chat model reports, for the record's ``model`` column."""
     for attr in ("model_name", "model"):
         value = getattr(llm, attr, None)
         if isinstance(value, str) and value:
@@ -310,13 +275,6 @@ def _user_prompt(text: str, file_name: str) -> str:
 
 
 def extract_permit_record(text: str, llm: Any, *, file_name: str) -> PermitRecord | None:
-    """The permit record the document's text states, or ``None``.
-
-    ``text`` is the pages joined under ``[Seite N]`` markers (:func:`pages_with_markers`),
-    cut at :data:`MAX_TEXT_CHARS`. One synchronous structured call: the ingest runs it
-    on a worker thread, and a sync client has no event loop to outlive. ``None`` means
-    the model found no such notice, or the call failed; neither fails the ingest.
-    """
     if not text.strip():
         return None
     messages = [SystemMessage(content=PERMIT_SYSTEM_PROMPT), HumanMessage(content=_user_prompt(text, file_name))]
@@ -348,15 +306,6 @@ def extract_and_store_permit_record(
     collection: str,
     file_name: str,
 ) -> bool:
-    """Read the document, and hand what it states to the BFF. True when a record landed.
-
-    ``document_id`` is optional: without it the BFF addresses the document by ``collection``
-    and ``file_name`` (see ``permit_records_client.store_permit_record``).
-
-    When nothing was extracted the stored record is left alone: ``None`` cannot tell a
-    document that is no notice from a model call that failed, and a provider outage
-    must not erase a record an earlier ingest wrote.
-    """
     from agent.knowledge.permit_records_client import store_permit_record
 
     record = extract_permit_record(pages_with_markers(pages), llm, file_name=file_name)

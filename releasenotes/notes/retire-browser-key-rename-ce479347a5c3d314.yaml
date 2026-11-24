@@ -1,0 +1,7 @@
+---
+operators:
+  - >
+    The workspace no longer moves browser settings off their names from before
+    the rename, and no longer reads the old grid-locale cookie. A browser that
+    has not opened the workspace since the end of October shows the default
+    sidebar, layout and language once.

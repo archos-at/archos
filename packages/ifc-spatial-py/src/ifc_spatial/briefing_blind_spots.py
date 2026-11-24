@@ -1,5 +1,3 @@
-"""Blind spots: what the model cannot say, found from its geometry and its declarations."""
-
 from __future__ import annotations
 
 from ifc_spatial.briefing_reading import _georeferenced
@@ -13,19 +11,6 @@ from .model import SpatialModel
 
 
 def find_blind_spots(model: SpatialModel, dialect_sample: int | None = None) -> list[BlindSpot]:
-    """What this file cannot answer, worked out before anybody asks.
-
-    The point is to move the discovery of a gap from the end of a long agent
-    turn to the beginning of it. An agent told up front that this export wrote
-    no space boundaries does not spend six tool calls finding out, and does not
-    report "the building has no rooms" when the truth is "this export omitted a
-    relation".
-
-    Every test below is a read of the file, not of a graph: ``by_type`` for the
-    relation entities, ``TrueNorth`` and ``IfcMapConversion`` for the two
-    orientation facts, and the model's own record of whether the geometry pass
-    has run.
-    """
     spots: list[BlindSpot] = []
     spaces = len(_spaces_of(model))
     fillers = len(_by_type(model, "IfcWindow")) + len(_by_type(model, "IfcDoor"))
@@ -102,46 +87,6 @@ def find_blind_spots(model: SpatialModel, dialect_sample: int | None = None) -> 
 
 
 def _geometry_blind_spots(model: SpatialModel) -> list[BlindSpot]:
-    """The geometry-related blind spots, which depend on whether geometry ran.
-
-    ## The bug this shape exists to kill
-
-    The TS ``findBlindSpots`` used to append, unconditionally,
-
-        keine Geometrie in dieser Ausbaustufe → Abstände, lichte Maße,
-        Auskragungen, Flächen aus Geometrie und der freie Lichteinfall sind noch
-        nicht berechenbar
-
-    because the list was assembled in ``buildGraph``, which by construction runs
-    before the geometry pass. Every model the library opened therefore carried a
-    sentence telling the reader that the geometric answers were impossible —
-    printed under ``BLIND``, in front of an agent whose whole job is to decide
-    what it can and cannot answer. A false "undecidable" is the exact failure
-    this library was built to end, and the library was emitting one about
-    itself on every file.
-
-    So this asks the model. ``SpatialModel`` is lazy: the pass runs on the first
-    model-wide question and not before, and ``geometry_seconds`` is the record
-    of whether it has. When it has not, the blind spot says exactly that and
-    names the remedy as a call rather than as a re-export — because nothing is
-    missing from the file.
-
-    ## And the mirror-image bug, which it then had
-
-    „sie sind aber berechenbar, dieser Export trägt Geometrie" was emitted
-    unconditionally, on files that contain no body at all. Four of the five
-    fixtures — ``house-with-rooms.ifc``, ``units-feet.ifc``,
-    ``floor-slab-and-window.ifc`` and ``road-ifc4x3.ifc`` — carry a
-    ``Representation`` on **0** of their ``IfcProduct`` entities, and every one
-    of them was told the geometric answers were only a call away. A false
-    capability claim in the block whose whole job is to say what the file cannot
-    answer is the same failure as the false „undecidable", pointing the other
-    way: it costs the agent a geometry pass and a turn, and it propagates into
-    the IDS summary.
-
-    The honest test is one attribute read per product and no kernel work: does
-    any ``IfcProduct`` carry a ``Representation`` at all.
-    """
     if model.geometry_seconds <= 0:
         with_body = _products_with_representation(model)
         if with_body == 0:

@@ -5,9 +5,13 @@ from types import SimpleNamespace
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import _PreviousVersion
+from knowledge_layer.ingest import collection_catalog
 from knowledge_layer.ingest import deferred_files as deferred_files_module
-from knowledge_layer.ingest.adapter import _PreviousVersion
+from knowledge_layer.ingest import file_ingest
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import stored_names
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer_testing import reingest as harness
 from knowledge_layer_testing.reingest import _seed_previous_version
@@ -41,7 +45,7 @@ def registries(monkeypatch):
         "unregister_summary",
         lambda coll, name, permanent=False: unregistered.append((coll, name) if permanent else (coll, name, "kept")),
     )
-    monkeypatch.setattr(adapter_module, "bump_collection_version", lambda name: bumped.append(name))
+    monkeypatch.setattr(collection_catalog, "bump_collection_version", lambda name: bumped.append(name))
     human_set: dict[str, dict] = {"doc_class": {}, "display_title": {}, "folder_path": {}, "tags": {}}
 
     def reader(field):
@@ -55,7 +59,7 @@ def registries(monkeypatch):
     monkeypatch.setattr(
         knowledge,
         "find_tmp_upload_names",
-        lambda coll, names: [row for row in rows if adapter_module._normalized_file_name(row) in names],
+        lambda coll, names: [row for row in rows if stored_names._normalized_file_name(row) in names],
     )
     return {"unregistered": unregistered, "bumped": bumped, "human_set": human_set, "rows": rows}
 
@@ -281,7 +285,7 @@ def test_a_reupload_that_fails_keeps_the_previous_version(tmp_path, monkeypatch,
     def encrypted(_path):
         raise ValueError("PDF is encrypted")
 
-    monkeypatch.setattr(adapter_module, "_extract_text_from_pdf", encrypted)
+    monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", encrypted)
     upload = tmp_path / "tmp_upload.pdf"
     upload.write_bytes(b"%PDF-1.7\n%encrypted\n")
 
@@ -323,7 +327,7 @@ def test_a_reupload_with_no_vlm_key_keeps_the_previous_image(tmp_path, monkeypat
 
     _seed_previous_version(live_ingestor, stores, "proj_img", "grundriss.png")
     no_key = ResolvedCredential(api_key="", base_url="https://vlm.test/v1", model="test-vlm", source="none")
-    monkeypatch.setattr(adapter_module, "resolve_vlm_credential", lambda organization_id=None: no_key)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: no_key)
     upload = tmp_path / "tmp_upload.png"
     upload.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
 
@@ -477,7 +481,7 @@ def test_a_person_tagged_legacy_tmp_version_keeps_its_tags_under_the_new_name(
 
 def _two_page_pdf(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        adapter_module,
+        pdf_text,
         "_extract_text_from_pdf",
         lambda _path: [
             {"page_number": 1, "text": "Neue Fassung Seite eins"},
@@ -616,7 +620,7 @@ def test_a_delete_during_a_reupload_leaves_no_chunks(tmp_path, monkeypatch, live
     assert _chunks(live_ingestor, "proj_del") == {}
     _no_metadata_row("proj_del", "statik.pdf")
     assert status.file_details[0].status.value == "failed"
-    assert status.file_details[0].error_message == adapter_module.DOCUMENT_DELETED_DURING_INGEST
+    assert status.file_details[0].error_message == file_ingest.DOCUMENT_DELETED_DURING_INGEST
     assert presence.asked == [("doc-1", "proj_del", None)] * 2
 
 
@@ -709,7 +713,7 @@ def test_a_document_deleted_while_its_job_waited_is_not_read_at_all(tmp_path, mo
 
     assert read == []
     assert presence.asked == [("doc-1", "proj_gone", None)]
-    assert status.file_details[0].error_message == adapter_module.DOCUMENT_DELETED_DURING_INGEST
+    assert status.file_details[0].error_message == file_ingest.DOCUMENT_DELETED_DURING_INGEST
 
 
 @pytest.mark.parametrize("policy", [{"content_terms": "Gehalt"}, {"detectors": ["passport"]}])
@@ -727,7 +731,7 @@ def test_a_screening_policy_that_cannot_be_applied_holds_the_file_unread(tmp_pat
 
     assert read == []
     detail = status.file_details[0]
-    assert detail.error_message == adapter_module.SCREENING_UNAVAILABLE
+    assert detail.error_message == file_ingest.SCREENING_UNAVAILABLE
     assert (detail.failure_category, detail.retryable) == ("configuration", True)
 
 

@@ -1,6 +1,6 @@
 import pytest
+from knowledge_layer.ingest import _looks_like_image
 from knowledge_layer.ingest import office_extractors
-from knowledge_layer.ingest.adapter import _looks_like_image
 
 
 class TestXlsx:

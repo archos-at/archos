@@ -7,10 +7,11 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.ingest import QUARANTINED_PREFIX
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import caption_documents
 from knowledge_layer.ingest import page_triage
 from knowledge_layer.ingest import pdf_text
 from knowledge_layer.ingest import transcription
+from knowledge_layer.ingest import vision_credentials
 from knowledge_layer_testing.pdf_fixtures import build_pdf
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
@@ -40,7 +41,7 @@ def calls(tmp_path, monkeypatch, summary_db, qdrant_store):
 
     record: dict[str, list] = {"ocr": [], "image_caption": [], "vlm": []}
     cred = ResolvedCredential(api_key="vlm-key", base_url="https://vlm.test/v1", model="test-vlm", source="env")
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
     def _route(path, text_pages, page_texts, **kwargs):
         record["ocr"].append(kwargs.get("triage", "measured-inside"))
@@ -57,7 +58,7 @@ def calls(tmp_path, monkeypatch, summary_db, qdrant_store):
         return [], []
 
     monkeypatch.setattr(transcription, "route_pdf_pages", _route)
-    monkeypatch.setattr(adapter, "_build_image_documents", _caption)
+    monkeypatch.setattr(caption_documents, "_build_image_documents", _caption)
     monkeypatch.setattr(processing, "enrich_vlm_batch", _enrich)
     monkeypatch.setattr(processing, "render_visual_pages_no_vlm", lambda *a, **k: [])
 
@@ -255,7 +256,7 @@ class TestOutcomes:
 
         payslip = [Document(text="Gehaltsabrechnung Oktober", metadata={"content_type": "image"})]
         monkeypatch.setattr(
-            adapter, "_build_image_documents", lambda *a, **k: calls["image_caption"].append(1) or payslip
+            caption_documents, "_build_image_documents", lambda *a, **k: calls["image_caption"].append(1) or payslip
         )
         path = tmp_path / "scan.jpg"
         path.write_bytes(b"\xff\xd8\xff" + b"\0" * 64)
@@ -310,7 +311,7 @@ class TestOutcomes:
 
     def test_without_a_vision_key_the_image_goes_nowhere_and_it_stays_clean(self, tmp_path, calls, monkeypatch):
         cred = ResolvedCredential(api_key="", base_url="https://vlm.test/v1", model="test-vlm", source="env")
-        monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+        monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
         detail = _ingest(calls, _pdf_with_raster(tmp_path, _BODY), "Bericht.pdf", _TERMS)
 
@@ -346,7 +347,7 @@ def _pdf_with_table_page(tmp_path, monkeypatch, rows: list[list[str]]):
 
 
 def _text_pass_loses_page(monkeypatch, lost: int) -> None:
-    read = adapter._read_pdf_page
+    read = pdf_text._read_pdf_page
 
     def _read(page, page_num, previous, pdf_path):
         if page_num == lost:

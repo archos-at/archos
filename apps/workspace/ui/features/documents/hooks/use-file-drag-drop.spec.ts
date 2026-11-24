@@ -21,6 +21,8 @@ vi.mock('@/shared/context', () => ({
 }))
 
 import { checkDraggedFilesSupported } from '../validation'
+import { FOLDER_DRAG_TYPE } from './use-document-drag'
+import { LEGACY_FOLDER_DRAG_TYPE } from './legacy-drag-types'
 
 function createMockDragEvent(files: File[] = [], items: DataTransferItem[] = []): React.DragEvent {
   return {
@@ -83,7 +85,7 @@ describe('useFileDragDrop', () => {
     expect(mockEvent.stopPropagation).toHaveBeenCalled()
   })
 
-  test('asks whether a zip counts only when the surface unpacks them', () => {
+  test('asks whether a zip or an Outlook archive counts only when the surface takes them', () => {
     vi.mocked(checkDraggedFilesSupported).mockClear()
     const zip = createMockDragEvent(
       [new File(['z'], 'a.zip')],
@@ -94,9 +96,15 @@ describe('useFileDragDrop', () => {
     act(() => chat.result.current.dragHandlers.onDragEnter(zip))
     const shelf = renderHook(() => useFileDragDrop({ onDrop: vi.fn(), acceptZip: true }))
     act(() => shelf.result.current.dragHandlers.onDragEnter(zip))
+    const mailShelf = renderHook(() => useFileDragDrop({ onDrop: vi.fn(), acceptZip: true, acceptMailArchives: true }))
+    act(() => mailShelf.result.current.dragHandlers.onDragEnter(zip))
 
     const options = vi.mocked(checkDraggedFilesSupported).mock.calls.map((call) => call[2])
-    expect(options).toEqual([{ allowZip: false }, { allowZip: true }])
+    expect(options).toEqual([
+      { allowZip: false, allowMailArchives: false },
+      { allowZip: true, allowMailArchives: false },
+      { allowZip: true, allowMailArchives: true },
+    ])
   })
 
   test('sets isUnsupportedDrag when files are unsupported', () => {
@@ -284,15 +292,11 @@ describe('useFileDragDrop — an in-app drag is not an upload', () => {
     expect(result.current.isUnsupportedDrag).toBe(false)
   })
 
-  test('ignores a folder drag entirely', () => {
+  test.each([FOLDER_DRAG_TYPE, LEGACY_FOLDER_DRAG_TYPE])('ignores a folder drag entirely (%s)', (type) => {
     const onDrop = vi.fn()
     const { result } = renderHook(() => useFileDragDrop({ onDrop }))
 
-    act(() =>
-      result.current.dragHandlers.onDragEnter(
-        createInternalDragEvent('application/x-grid-folder-id'),
-      ),
-    )
+    act(() => result.current.dragHandlers.onDragEnter(createInternalDragEvent(type)))
 
     expect(result.current.isDragging).toBe(false)
   })

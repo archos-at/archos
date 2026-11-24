@@ -74,14 +74,14 @@ describe('contextStatement', () => {
     const batch = contextStatement({ kind: 'tenant', organizationId: 'org_01H', userId: 'user_01H' })
 
     expect(batch).toBe(
-      `SET LOCAL "grid.organization_id" = 'org_01H'; SET LOCAL "grid.user_id" = 'user_01H'; ${TIMEOUT}`
+      `SET LOCAL "app.organization_id" = 'org_01H'; SET LOCAL "app.user_id" = 'user_01H'; ${TIMEOUT}`
     )
   })
 
   it('gives a tenant with no user an empty user, which no row policy matches', () => {
-    expect(contextStatement({ kind: 'tenant', organizationId: 'org_01H', userId: null })).toContain(
-      `SET LOCAL "grid.user_id" = ''`
-    )
+    const batch = contextStatement({ kind: 'tenant', organizationId: 'org_01H', userId: null })
+
+    expect(batch).toContain(`SET LOCAL "app.user_id" = ''`)
   })
 
   it('steps a platform scope up first and still sets the statement timeout', () => {
@@ -124,7 +124,7 @@ describe('the BFF client behind a transaction pooler', () => {
 
     expect(driver.calls.transactions).toEqual([
       [
-        `SET LOCAL "grid.organization_id" = 'org_01H'; SET LOCAL "grid.user_id" = 'user_01H'; SET LOCAL statement_timeout = '30000'`,
+        `SET LOCAL "app.organization_id" = 'org_01H'; SET LOCAL "app.user_id" = 'user_01H'; SET LOCAL statement_timeout = '30000'`,
         'select 1',
       ],
     ])

@@ -1,5 +1,3 @@
-"""The frozen records the briefing is built from: storeys, counts, coverage, dialect, room uses and blind spots."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,8 +29,6 @@ class BriefingStorey:
 
 @dataclass(frozen=True)
 class BriefingCount:
-    """A count, for ``byKind`` / ``byType`` tables."""
-
     key: str
     count: int
 
@@ -42,16 +38,6 @@ class BriefingCount:
 
 @dataclass(frozen=True)
 class Coverage:
-    """How far a relation actually reaches, as ``n of m``.
-
-    Both numbers travel together because either alone lies. ``n`` alone hides
-    that the model has 300 windows and resolved 4 of them; ``of`` alone hides
-    that the export wrote the relation at all. ``relation`` names the IFC
-    construct that would supply the missing part, so a shortfall can be blamed
-    on the export in the export's own vocabulary rather than reported as a
-    property of the building.
-    """
-
     id: Literal[
         "oeffnungenMitWand",
         "raeumeMitBegrenzung",
@@ -118,13 +104,6 @@ class BlindSpot:
 
 @dataclass(frozen=True)
 class Briefing:
-    """The machine-readable précis.
-
-    :func:`render_briefing` is a projection of this and adds no facts of its
-    own, so anything a caller reads in the text block it can also read here
-    without re-parsing German.
-    """
-
     content_hash: str
     schema: str
     source_name: str | None

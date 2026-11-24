@@ -122,7 +122,7 @@ describe('AgentReading', () => {
       expect(screen.getByRole('button', { name: 'Correct' })).toBeInTheDocument()
     })
 
-    it('offers Assign instead of Correct when Piloti found no type, and opens the editor from it', async () => {
+    it('offers Assign instead of Correct when the agent found no type, and opens the editor from it', async () => {
       const user = userEvent.setup()
       render(<AgentReading file={fileFixture({ tags: [] })} canManage />)
 
@@ -162,6 +162,20 @@ describe('AgentReading', () => {
 
       expect(screen.queryByTestId('agent-reading-editor')).toBeNull()
       expect(screen.getByRole('button', { name: 'Correct' })).toBeInTheDocument()
+    })
+  })
+
+  describe('a file recorded as a norm', () => {
+    it('asks no document type of it, since its facts above say what it is', () => {
+      render(<AgentReading file={fileFixture({ pageCount: 1, baseKnowledgeEntryId: 'entry-1' })} canManage />)
+      expect(screen.getByTestId('agent-reading')).not.toHaveTextContent(`${PRODUCT_NAME} did not recognize a document type.`)
+      expect(screen.queryByTestId('agent-reading-correct')).toBeNull()
+    })
+
+    it('still shows a type that was read, and lets it be corrected', () => {
+      render(<AgentReading file={fileFixture({ tags: ['correspondence'], baseKnowledgeEntryId: 'entry-1' })} canManage />)
+      expect(screen.getByTestId('agent-reading-type')).toBeInTheDocument()
+      expect(screen.getByTestId('agent-reading-correct')).toBeInTheDocument()
     })
   })
 })

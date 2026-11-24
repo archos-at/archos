@@ -1,0 +1,16 @@
+---
+fixes:
+  - >
+    A reply that arrived before its first e-mail was filed is now offered the
+    E-Mail-Verlauf that e-mail started, and is appended if you follow it.
+  - >
+    After the correspondents change the subject, later replies are still
+    offered their E-Mail-Verlauf first, and a reply is no longer missed
+    because many other Verläufe share its subject.
+  - >
+    When your follow of an E-Mail-Verlauf ends without you ending it, a notice
+    now tells you why, so you know replies wait in the E-Mail-Eingang again.
+    If the first follower has lost access, the reply is appended for the next.
+  - >
+    Moving an e-mail into another E-Mail-Verlauf no longer shows the names and
+    folders of its attachments to people who cannot open them.

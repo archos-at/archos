@@ -462,6 +462,22 @@ describe('resolveSkillsForAgent', () => {
     expect(other.map((s) => s.name)).toEqual(['oib-fire-check', 'data-table-analysis', 'for-everyone'])
   })
 
+  it('filters by agents the same way for a skill that carries only the new key', async () => {
+    vi.mocked(repository.listSkillsInOrg).mockResolvedValue([
+      makeSkill({ name: 'for-researcher', metadata: { agents: 'deep_researcher' } }),
+      makeSkill({ id: 's2', name: 'for-everyone' }),
+    ])
+    const { skills } = await resolveSkillsForAgent('org_1', 'deep_researcher')
+    expect(skills.map((s) => s.name)).toEqual([
+      'oib-fire-check',
+      'data-table-analysis',
+      'for-researcher',
+      'for-everyone',
+    ])
+    const { skills: other } = await resolveSkillsForAgent('org_1', 'researcher')
+    expect(other.map((s) => s.name)).toEqual(['oib-fire-check', 'data-table-analysis', 'for-everyone'])
+  })
+
   it('ignores an unknown grid-agents name rather than hiding the skill from everyone', async () => {
     vi.mocked(repository.listSkillsInOrg).mockResolvedValue([
       makeSkill({ name: 'typo', metadata: { 'grid-agents': 'shallow_reseacher' } }),

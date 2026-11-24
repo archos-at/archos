@@ -101,10 +101,10 @@ FILE_NAME('haus-a.ifc','2026-01-01T00:00:00',(''),(''),'t','t','');
 FILE_SCHEMA(('IFC4'));
 ENDSEC;
 DATA;
-#1=IFCPROJECT('0GridServiceProject01',$,'Haus A',$,$,$,$,$,$);
-#2=IFCBUILDINGSTOREY('0GridServiceStorey01',$,'Erdgeschoss',$,$,$,$,$,.ELEMENT.,0.);
-#3=IFCWALL('0GridServiceWall00001',$,'Aussenwand',$,$,$,$,'W-1',.SOLIDWALL.);
-#4=IFCRELCONTAINEDINSPATIALSTRUCTURE('0GridServiceCont0001',$,$,$,(#3),#2);
+#1=IFCPROJECT('0TestServiceProject01',$,'Haus A',$,$,$,$,$,$);
+#2=IFCBUILDINGSTOREY('0TestServiceStorey01',$,'Erdgeschoss',$,$,$,$,$,.ELEMENT.,0.);
+#3=IFCWALL('0TestServiceWall00001',$,'Aussenwand',$,$,$,$,'W-1',.SOLIDWALL.);
+#4=IFCRELCONTAINEDINSPATIALSTRUCTURE('0TestServiceCont0001',$,$,$,(#3),#2);
 ENDSEC;
 END-ISO-10303-21;
 `

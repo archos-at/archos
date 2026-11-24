@@ -8,6 +8,7 @@ import { commonLabels } from "../platform/namespaces";
 import { secretChecksum, secretChecksumAnnotations } from "../platform/rollout";
 import { onNodeGroup } from "../platform/scheduling";
 import { hardenedJobSecurityContext } from "../platform/security";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const JOBS_DB = "jobs";
 export const CHECKPOINTS_DB = "checkpoints";
@@ -100,7 +101,7 @@ function renameJob(
                 name: "psql",
                 image: "postgres:17-alpine",
                 securityContext: hardenedJobSecurityContext(),
-                resources: BOOTSTRAP_JOB_RESOURCES,
+                resources: scaledCpuRequest(BOOTSTRAP_JOB_RESOURCES),
                 env: [
                   { name: "PGHOST", value: wiring.rwHost },
                   { name: "PGPORT", value: String(PORT.postgres) },

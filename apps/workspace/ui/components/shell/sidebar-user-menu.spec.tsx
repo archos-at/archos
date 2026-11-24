@@ -22,7 +22,7 @@ async function openMenu(organizations: { id: string; name: string; current: bool
 describe('SidebarUserMenu', () => {
   test('offers the switch to someone in several organizations', async () => {
     await openMenu([
-      { id: 'org_1', name: 'GRID Test', current: true },
+      { id: 'org_1', name: 'Test Office', current: true },
       { id: 'org_2', name: 'feld72 Architekten', current: false },
     ])
 

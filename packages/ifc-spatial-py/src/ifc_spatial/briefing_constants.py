@@ -1,5 +1,3 @@
-"""Limits, match thresholds and the room-use vocabulary the briefing shares, each named once."""
-
 from __future__ import annotations
 
 from typing import Literal

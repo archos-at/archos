@@ -1,41 +1,3 @@
-"""Per-run completion-token budget cap for async research jobs (backlog T4-4).
-
-``MAX_RUN_COMPLETION_TOKENS`` bounds the total completion (output) tokens
-a single async job may consume across *every* LLM call it makes --
-orchestrator, planner, writer, source-router, and every concurrent researcher
-worker alike. It is a coarse run-away-job safety valve, independent of (and
-complementary to) the USD-denominated org/user/project budgets enforced by
-``agent.common.cost_tracking.CostTracker``.
-
-Mechanism: a ``BaseCallbackHandler`` with ``raise_error = True`` so an
-exception raised from one of its methods propagates out of LangChain's
-``handle_event`` instead of being swallowed and logged (see
-``langchain_core.callbacks.manager.handle_event`` -- exceptions only
-propagate when ``handler.raise_error`` is set). Usage is only known
-*after* a call completes, so the ceiling is enforced at the START of the
-*next* call: ``on_llm_start``/``on_chat_model_start`` check accumulated usage
-and raise ``RunBudgetExceededError`` once the ceiling was already exceeded by
-a prior call. A call already in flight is never interrupted mid-generation --
-the same soft-limit semantic ``CostTracker`` documents for its USD
-budgets.
-
-Named ``RunBudgetExceededError`` (not ``BudgetExceededError``) to avoid
-colliding with the unrelated, pre-existing
-``agent.common.cost_tracking.BudgetExceededError`` (a USD-denominated
-org/user/project budget check) -- the two are independent mechanisms that can
-both apply to the same job.
-
-Thread/concurrency safety: up to ``max_research_concurrency`` (default 6)
-researcher workers can be in flight at once within a single job (see
-``agent.agents.deep_researcher.agent.DEFAULT_MAX_RESEARCH_CONCURRENCY``
-and ``tools/research.py._run_research_queries``). Every worker's callback
-list is forwarded straight through to this handler (no ``for_new_run`` is
-implemented here -- there is no per-run mutable state on the handler itself,
-only on the shared, lock-guarded ``_BudgetTracker``), so one tracker
-correctly accumulates completion tokens across the whole job regardless of
-how many workers are concurrently active.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -53,14 +15,6 @@ DISABLED_CEILING = 0
 
 
 class RunBudgetExceededError(RuntimeError):
-    """Raised when a run's accumulated completion-token usage exceeds its ceiling.
-
-    ``str(exc)`` is a curated, user-safe message -- safe to persist directly
-    as the job's error field and to stream in a ``job.error`` event without
-    going through the generic exception-message sanitization used for
-    unclassified errors (see ``agent_host.jobs.runner.sanitize_job_error``).
-    """
-
     expected_outcome = True
 
     def __init__(self, ceiling: int, used: int) -> None:
@@ -70,13 +24,6 @@ class RunBudgetExceededError(RuntimeError):
 
 
 def _parse_completion_token_ceiling(raw: str | None) -> int:
-    """Parse ``MAX_RUN_COMPLETION_TOKENS`` defensively.
-
-    Mirrors the fail-safe-to-disabled parsing style used for other numeric
-    env knobs in this codebase (e.g. ``DB_POOL_MAX``): missing, blank,
-    unparseable, or non-positive values all fall back to disabled (0) rather
-    than raising or silently picking an arbitrary default ceiling.
-    """
     if raw is None or not raw.strip():
         return DISABLED_CEILING
     try:
@@ -94,16 +41,6 @@ def _parse_completion_token_ceiling(raw: str | None) -> int:
 
 
 def _extract_completion_tokens(response: Any) -> int:
-    """Extract the completion/output token count from an ``LLMResult``.
-
-    Mirrors the extraction order ``AgentEventCallback._extract_llm_response``
-    uses in ``agent_host.jobs.callbacks`` (LangChain's standardized
-    ``usage_metadata.output_tokens`` first, then the OpenAI-style
-    ``response_metadata.token_usage.completion_tokens`` fallback). Returns 0
-    -- never raises -- when no usage information is present (e.g. a cached or
-    mocked generation), matching how the rest of this codebase treats absent
-    usage data as "nothing to add" rather than an error.
-    """
     try:
         generations = getattr(response, "generations", None)
         if not generations or not generations[0]:
@@ -130,8 +67,6 @@ def _extract_completion_tokens(response: Any) -> int:
 
 
 class _BudgetTracker:
-    """Thread-safe accumulator shared by every ``BudgetGuardCallback`` copy in one job."""
-
     def __init__(self, ceiling: int) -> None:
         self.ceiling = ceiling
         self._lock = threading.Lock()
@@ -151,7 +86,6 @@ class _BudgetTracker:
                 self._exceeded = True
 
     def check(self) -> None:
-        """Raise RunBudgetExceededError if a prior call already pushed usage past the ceiling."""
         if not self.enabled:
             return
         with self._lock:
@@ -167,16 +101,6 @@ class _BudgetTracker:
 
 
 class BudgetGuardCallback(BaseCallbackHandler):
-    """LangChain callback enforcing a per-job completion-token ceiling.
-
-    Add one instance to a job's callback list (see
-    ``agent_host.jobs.agent_job.run_agent_job``); it reaches every LLM call in the
-    job the same way the existing ``AgentEventCallback``/
-    ``VerboseTraceCallback`` do -- LangGraph/DeepAgents' ``task`` tool merges
-    the ambient parent config (including ``callbacks``) into every subagent
-    and researcher-worker invocation.
-    """
-
     raise_error = True
 
     def __init__(self, tracker: _BudgetTracker) -> None:
@@ -185,7 +109,6 @@ class BudgetGuardCallback(BaseCallbackHandler):
 
     @property
     def completion_tokens(self) -> int:
-        """Completion tokens accumulated so far this job (for tests/observability)."""
         return self._tracker.completion_tokens
 
     def on_llm_start(self, serialized: dict | None, prompts: list, **kwargs: Any) -> None:
@@ -201,13 +124,6 @@ class BudgetGuardCallback(BaseCallbackHandler):
 
 
 def create_budget_guard_callback(ceiling: int | None = None) -> BudgetGuardCallback | None:
-    """Build a job-scoped ``BudgetGuardCallback``, or ``None`` when the cap is disabled.
-
-    Args:
-        ceiling: Completion-token ceiling to enforce. Defaults to
-            ``MAX_RUN_COMPLETION_TOKENS`` (parsed defensively; 0/unset
-            disables the cap).
-    """
     resolved_ceiling = (
         ceiling
         if ceiling is not None

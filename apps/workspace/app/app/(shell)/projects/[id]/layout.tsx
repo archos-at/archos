@@ -13,7 +13,7 @@ import { CurrentProjectProvider } from '@/features/projects/lib/current-project'
 import { ProjectStatusBanner } from '@/features/projects/components/project-status-banner'
 import { lifecycleViewOf } from '@/lib/projects/project-status'
 import { holdsManageEvenWhenClosed } from '@/lib/projects/settings-access'
-import { isInboundMailEnabled } from '@/lib/authz/feature-flags'
+import { isInboundMailEnabled, isMailImportEnabled } from '@/lib/authz/feature-flags'
 import { requireMailReviewer } from '@/lib/inbound-mail/access'
 
 interface ProjectLayoutProps {
@@ -95,7 +95,12 @@ export default async function ProjectLayout({
             {/* A file dropped on any page of the project lands in its Dateien;
                 a closed project takes none, and a reader who may only read at
                 its root is told so. */}
-            <ProjectFileDrop projectId={id} disabled={current.status === 'closed'} rootAccess={rootAccess}>
+            <ProjectFileDrop
+              projectId={id}
+              disabled={current.status === 'closed'}
+              rootAccess={rootAccess}
+              mailArchives={isMailImportEnabled(session)}
+            >
               <ProjectSectionFrame projectId={id} projectName={current.name} inboundMail={inboundMail}>
                 {children}
               </ProjectSectionFrame>

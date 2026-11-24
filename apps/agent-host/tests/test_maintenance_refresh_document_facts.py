@@ -5,7 +5,7 @@ from fastapi import APIRouter
 from fastapi import FastAPI
 from httpx import ASGITransport
 from httpx import AsyncClient
-from knowledge_layer.vector_store import writes
+from knowledge_layer import vector_store
 
 from agent_host.routes.maintenance import REFRESH_FACTS_MAX_COLLECTIONS
 from agent_host.routes.maintenance import add_maintenance_routes
@@ -24,7 +24,7 @@ def copied(monkeypatch):
             raise outcome
         return outcome
 
-    monkeypatch.setattr(writes, "copy_facts", copy_facts)
+    monkeypatch.setitem(vars(vector_store), "copy_facts", copy_facts)
     return outcomes, calls
 
 

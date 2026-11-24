@@ -1,26 +1,26 @@
 import pytest
 
-from agent.cards.catalog import _CARD_HONESTY
-from agent.cards.catalog import _CARD_RESTRAINT
-from agent.cards.catalog import _CARD_TRIGGER_HEAD
-from agent.cards.catalog import _CARD_TRIGGERS
-from agent.cards.catalog import _MODEL_PICKER_NOTE
-from agent.cards.catalog import _MODEL_PICKER_ROW
+from agent.cards.card_doctrine import _CARD_HONESTY
+from agent.cards.card_doctrine import _CARD_RESTRAINT
+from agent.cards.card_doctrine import _CARD_TRIGGER_HEAD
+from agent.cards.card_doctrine import _CARD_TRIGGERS
+from agent.cards.card_doctrine import _MODEL_PICKER_NOTE
+from agent.cards.card_doctrine import _MODEL_PICKER_ROW
+from agent.cards.card_doctrine import render_card_doctrine
 from agent.cards.catalog import CHAT_ONLY_CARD_TYPES
 from agent.cards.catalog import INTERACTIVE_CARD_TYPES
-from agent.cards.catalog import RETIRED_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.catalog import _interactive_note
 from agent.cards.catalog import model_facing_card_types
 from agent.cards.catalog import render_card_catalog
 from agent.cards.catalog import render_card_details
-from agent.cards.catalog import render_card_doctrine
 from agent.cards.catalog import render_card_index
 from agent.cards.models import AnswerCard
 from agent.cards.models import answer_card_adapter
 from agent.cards.register import _CARD_EXAMPLES
 from agent.cards.register import _build_tool_description
 from agent.cards.register import _shape_hint_for
+from agent.cards.retired_cards import RETIRED_CARD_TYPES
 
 _CARD_TYPES = [getattr(c.model_fields["type"].annotation, "__args__", ("?",))[0] for c in AnswerCard.__args__]
 
@@ -267,7 +267,7 @@ class TestTheDescriptionStaysAffordable:
         assert cost <= self.MAX_TOKENS, (
             f"emit_card's description is {cost} tokens, over the {self.MAX_TOKENS} ceiling. "
             "Every turn pays this whether or not a card is emitted. If you added a card type, "
-            "its trigger line AND its craft belong in `cards.catalog._CARD_TRIGGERS`, together — "
+            "its trigger line AND its craft belong in `cards.card_doctrine._CARD_TRIGGERS`, together — "
             "so what to cut is prose that repeats what another row already says, never the craft "
             "moved back out into a prompt where nothing counts it."
         )

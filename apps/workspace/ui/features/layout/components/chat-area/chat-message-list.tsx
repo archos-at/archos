@@ -1,4 +1,5 @@
 import { ChatThinking } from '@/features/chat'
+import { AnswerExcerptAsk } from '@/features/chat/answer-excerpt'
 import { FollowUpsRail } from '@/features/chat/components/FollowUpsRail'
 import { offersFileNote } from '@/features/chat/lib/file-note-chip'
 import { previousRunFindings } from '@/features/runs/lib/carry-forward'
@@ -32,6 +33,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
 
   return (
     <>
+      <AnswerExcerptAsk conversationId={controller.currentConversation?.id} />
       {!controller.showSkeleton && (
         <>
           {/* The greeting LEAVES rather than disappearing. Sending the first
@@ -312,7 +314,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
 
                 {/* The routing rule for a message that tags nobody (ADR-0036).
                     In `mention` mode it states the rule where the question occurs —
-                    "why didn't Piloti answer that?" — and offers the way back. In `ask`
+                    "why didn't the agent answer that?" — and offers the way back. In `ask`
                     mode, which is the default and stays the default, it is silent unless
                     the server suggests otherwise, and then it OFFERS rather than
                     announces: a thread must not rewire who answers next on its own.
@@ -359,7 +361,7 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
                   )}
                 </AnimatePresence>
 
-                {/* The colleague has answered and Piloti is out of the loop — the one
+                {/* The colleague has answered and the agent is out of the loop — the one
                     moment the thread is worth handing on, and until now the only
                     transition with no affordance on screen (see HandbackOffer). Anchored
                     here, directly under the answer it is about. */}

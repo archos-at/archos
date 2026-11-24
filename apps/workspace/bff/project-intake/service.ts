@@ -20,6 +20,7 @@ import { findProjectInOrg, findProjectProfileInOrg } from '@/lib/projects/reposi
 import { setProjectStatus } from '@/lib/projects/service'
 import { maskAnswerText } from '@/lib/upload-screening/service'
 import { onIntakeCompleted, onIntakeReady } from './attention'
+import { BUILDING_REFUSALS, planBuildingOperation, type BuildingRefusal } from './buildings'
 import { planDecisions } from './decisions'
 import { documentEvidence, reasonFromEvidence } from './evidence'
 import { computeNeeds } from './needs'
@@ -44,7 +45,9 @@ import {
   MAX_INTAKE_NEEDS,
   MAX_UNREAD_FILES,
   STALE_READING_REASON,
+  type BuildingOperation,
   type DocumentRead,
+  type IntakeBuildingResponse,
   type IntakeDecision,
   type IntakeDecisionResult,
   type IntakeStatus,
@@ -343,6 +346,27 @@ export async function applyIntakeDecisions(
   const updated = plan.dismissed.length > 0 ? await addIntakeDismissed(session.organizationId, projectId, plan.dismissed) : null
   await scoreDecisions(row, session, plan.scored)
   return { results: plan.results, intake: await viewOf(session, updated ?? row) }
+}
+
+function buildingRefused(refusal: BuildingRefusal): Error {
+  if (refusal === BUILDING_REFUSALS.unknownBuilding) return new NotFoundError('This project has no such building.')
+  return new ConflictError('The building could not be changed.', { reason: refusal })
+}
+
+export async function applyBuildingOperation(
+  session: AuthorizedSession,
+  projectId: string,
+  operation: BuildingOperation
+): Promise<IntakeBuildingResponse> {
+  await requireProfileWriter(session, projectId)
+  const row = await requireIntake(session.organizationId, projectId)
+  const context = { userId: session.userId, now: new Date().toISOString(), dismissed: row.dismissed }
+  const buildingId = await writeProfile(session, projectId, (profile) => {
+    const planned = planBuildingOperation(profile, definition, operation, context)
+    if (!planned.ok) throw buildingRefused(planned.refusal)
+    return { value: planned.buildingId, before: profile, after: planned.profile, keys: planned.changedKeys }
+  })
+  return { buildingId, intake: await viewOf(session, row) }
 }
 
 export async function completeIntake(session: AuthorizedSession, projectId: string, request?: Request): Promise<IntakeView> {

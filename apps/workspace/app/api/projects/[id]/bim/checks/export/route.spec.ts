@@ -36,7 +36,7 @@ import { BIM_EXPORT_LIMIT, createInProcessStore, setLimitStore } from '@/lib/lim
 const MODEL_ID = '3f6e1c2a-0000-4000-8000-000000000001'
 
 const call = (query: string): Promise<Response> =>
-  GET(new Request(`https://grid.test/api/projects/proj-1/bim/checks/export${query}`), {
+  GET(new Request(`https://example.test/api/projects/proj-1/bim/checks/export${query}`), {
     params: Promise.resolve({ id: 'proj-1' }),
   })
 

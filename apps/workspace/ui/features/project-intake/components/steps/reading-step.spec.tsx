@@ -76,7 +76,7 @@ const footer = () => within(screen.getByTestId('intake-setup-footer'))
 describe('ReadingStep', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  describe('while Piloti reads', () => {
+  describe('while the agent reads', () => {
     it('shows the documents as a bar and the milestones with the view’s own numbers', () => {
       setup(READING_RUNNING)
 

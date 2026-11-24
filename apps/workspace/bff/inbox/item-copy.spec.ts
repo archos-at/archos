@@ -75,10 +75,10 @@ describe('a reviewer’s notice about held files', () => {
   })
 })
 
-describe('Piloti’s Rückfrage, by where it is answered', () => {
+describe('the agent’s Rückfrage, by where it is answered', () => {
   const asks = (answerIn: InboxItemView['answerIn']) =>
     quarantined({
-      type: 'piloti.asks_you',
+      type: 'agent.asks_you',
       resourceType: 'document',
       resourceId: 'doc-1',
       anchorId: 'mark-4',

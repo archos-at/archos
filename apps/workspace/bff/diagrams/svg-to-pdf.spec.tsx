@@ -9,12 +9,13 @@ import { describe, expect, it } from 'vitest'
 import { MAX_DIAGRAM_SVG_DEPTH } from './diagram-sources'
 import { IPTC_TRAINED_ALGORITHMIC_MEDIA, aiProvenanceMarking } from '@/lib/ai-provenance'
 import { readPdf } from '@/test-utils/read-pdf'
+import { PRODUCT_NAME } from '@/lib/brand'
 import { acceptDiagram, type SvgElement } from './svg'
 import { renderDiagramPdf, textOrigin, tspanPositions } from './svg-to-pdf'
 
 const PROVENANCE = aiProvenanceMarking({})
 const MARKING = {
-  notice: 'Von Piloti erstellt — KI-generiert, nicht geprüft.',
+  notice: `Von ${PRODUCT_NAME} erstellt — KI-generiert, nicht geprüft.`,
   provenance: PROVENANCE,
 }
 
@@ -54,7 +55,7 @@ async function pdfFor(svgBody: string, viewBox?: string) {
     viewport: accepted.viewport,
     title: 'Ablauf Einreichung',
     projectName: 'Straßenhäuser',
-    marking: 'Von Piloti erstellt — KI-generiert, nicht geprüft.',
+    marking: `Von ${PRODUCT_NAME} erstellt — KI-generiert, nicht geprüft.`,
     provenance: PROVENANCE,
     createdAt: new Date('2026-08-20T00:00:00Z'),
   })
@@ -192,7 +193,7 @@ describe('real mermaid output', () => {
       viewport: diagram.viewport,
       title: 'Ablauf Einreichung',
       projectName: 'Straßenhäuser',
-      marking: 'Von Piloti erstellt — KI-generiert, nicht geprüft.',
+      marking: `Von ${PRODUCT_NAME} erstellt — KI-generiert, nicht geprüft.`,
       provenance: PROVENANCE,
       createdAt: new Date('2026-08-20T00:00:00Z'),
     })

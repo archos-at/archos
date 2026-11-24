@@ -95,6 +95,11 @@ def _redacted(headers: dict[str, str]) -> dict[str, str]:
     return dict(sorted(out.items()))
 
 
+def _path_and_query(url: str) -> str:
+    parts = urlparse(url)
+    return f"{parts.path}?{parts.query}" if parts.query else parts.path
+
+
 def _built_requests(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     built = []
     for case, tool, arguments in CASES:
@@ -106,7 +111,7 @@ def _built_requests(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
             {
                 "name": case,
                 "method": request.get_method(),
-                "path": urlparse(request.full_url).path,
+                "path": _path_and_query(request.full_url),
                 "headers": _redacted(dict(request.header_items())),
                 "body": json.loads(request.data.decode("utf-8")),
             }

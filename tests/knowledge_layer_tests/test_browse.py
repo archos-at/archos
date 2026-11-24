@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer import register as register_module
+from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
 from knowledge_layer.browse import MAX_TOPIC_COUNTS
 from knowledge_layer.browse import MAX_TYPE_COUNTS
 from knowledge_layer.browse import ListFilesConfig
@@ -17,7 +18,6 @@ from knowledge_layer.browse import pick_passages
 from knowledge_layer.browse import render_listing
 from knowledge_layer.browse import select_files
 from knowledge_layer.browse import split_alternatives
-from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 from knowledge_layer.search import reading_as
@@ -197,7 +197,7 @@ class TestListFilesTool:
 
     async def test_reads_the_turns_uncapped_rows(self, scope):
         text = await self._call(folder="Plaene/Grundrisse")
-        assert "2 file(s) on Projektwissen and Büroablage and Private Sitzung" in text
+        assert "2 file(s) on Projektwissen and Bürobibliothek and Private Sitzung" in text
         assert "Grundriss_OG1.pdf" in text
 
     async def test_falls_back_to_the_scope_when_no_rows_are_bound(self, scope, monkeypatch):
@@ -312,7 +312,7 @@ class TestExactSearch:
         assert "Citation: Schnitt_A-A.pdf, p.4" in text
         assert '## Matches for "BA-03"' in text
         assert "- Schnitt_A-A.pdf (Projektwissen): 2×, p. 4" in text
-        assert "- Leitfaden_Buero.pdf (Büroablage): 1×, p. 9" in text
+        assert "- Leitfaden_Buero.pdf (Bürobibliothek): 1×, p. 9" in text
         table = text[text.index("## Matches") :]
         assert table.index("Schnitt_A-A.pdf") < table.index("oib-rl_2.pdf")
         assert {call["collection"] for call in store.calls} == {"proj_1", "archiv_1", "oib_knowledge"}
@@ -542,7 +542,7 @@ class TestListFilesHonoursTheTurn:
         text = await self._call()
         assert "Leitfaden_Buero.pdf" in text
         assert "Grundriss_EG.pdf" not in text
-        assert "1 file(s) on Büroablage and Private Sitzung" in text
+        assert "1 file(s) on Bürobibliothek and Private Sitzung" in text
 
     async def test_a_restriction_that_would_leave_nothing_keeps_everything(self, scope, turn_shelves):
         set_turn_documents([_doc("Grundriss_EG.pdf", "Plaene")])
@@ -660,7 +660,7 @@ class TestAShelfTheTurnRemoved:
         turn_shelves({"office_shelf", "session", "base"})
         text = await self._call(shelf="project")
         assert "Keine Datei" not in text
-        assert "to Büroablage, Private Sitzung and Basiswissen" in text
+        assert "to Bürobibliothek, Private Sitzung and Basiswissen" in text
         assert "so Projektwissen is not listed here" in text
         assert "Grundriss_EG.pdf" not in text
 

@@ -22,6 +22,7 @@ import {
   renderAgentgatewayConfig,
   resourceUrl,
 } from "./mcp-gateway-config";
+import { cpuRequest } from "../config/cpu-requests";
 
 const RATE_PER_MINUTE = 300;
 const DRAIN_SECONDS = 5;
@@ -241,7 +242,7 @@ export function installMcpGateway(
                   capabilities: { drop: ["ALL"] },
                 },
                 resources: {
-                  requests: { cpu: "100m", memory: "128Mi" },
+                  requests: { cpu: cpuRequest("100m"), memory: "128Mi" },
                   limits: { cpu: "500m", memory: "256Mi" },
                 },
                 startupProbe: {

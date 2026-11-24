@@ -90,6 +90,14 @@ const RAW_FIXTURES: CardInput[] = [
     version_state: 'draft',
   },
   {
+    type: 'document_draft',
+    title: 'Flächenaufstellung Top 4.xlsx',
+    path: '/drafts/Flächenaufstellung Top 4.xlsx',
+    bytes: 9412,
+    version: 2,
+    media_type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  },
+  {
     type: 'task_created',
     task_id: '00000000-0000-4000-8000-0000000000f1',
     kind: 'submission_check',

@@ -1,4 +1,4 @@
-import { isOwnBccCopy, senderPreselectionBlocks } from '@/lib/mail-thread/mail-threading'
+import { isOwnBccCopy, senderPreselectionBlocks, type PreselectionBlock } from '@/lib/mail-thread/mail-threading'
 import type {
   InboundMailPartView,
   InboundMailThreadCandidateView,
@@ -35,20 +35,34 @@ export function isImageInMail(part: Pick<InboundMailPartBase, 'filename' | 'cont
   return part.filename === null && part.contentType.toLowerCase().startsWith('image/')
 }
 
+interface ThreadVouch {
+  blocks: readonly PreselectionBlock[]
+}
+
 export function revisionVouched(part: Pick<InboundMailPartBase, 'riskFlags'>, sender: SenderFacts | null): boolean {
-  if (!sender) return false
+  if (sender?.trust !== 'member_verified') return false
   if (senderPreselectionBlocks({ senderTrust: sender.trust, senderFlags: sender.flags }).length > 0) return false
   return !part.riskFlags.includes('unverified_thread')
 }
 
-function attachmentNeedsPerson(part: InboundMailPartBase, sender: SenderFacts | null): boolean {
+export function revisionVouchedInThread(
+  part: Pick<InboundMailPartBase, 'riskFlags'>,
+  sender: SenderFacts | null,
+  threadCandidates: readonly ThreadVouch[],
+): boolean {
+  if (revisionVouched(part, sender)) return true
+  if (sender?.trust !== 'external_verified' || part.riskFlags.includes('unverified_thread')) return false
+  return threadCandidates.some((candidate) => candidate.blocks.length === 0)
+}
+
+function attachmentNeedsPerson(part: InboundMailPartBase, sender: SenderFacts | null, threadCandidates: readonly ThreadVouch[]): boolean {
   return (
     part.duplicateOf !== null ||
     part.riskFlags.includes('name_stop') ||
     part.riskFlags.includes('macro') ||
     part.riskFlags.includes('type_mismatch') ||
     isImageInMail(part) ||
-    (part.revisionCandidate !== null && !revisionVouched(part, sender))
+    (part.revisionCandidate !== null && !revisionVouchedInThread(part, sender, threadCandidates))
   )
 }
 
@@ -66,6 +80,11 @@ interface MessageContext {
   rawScan: MalwareScanStatus
 }
 
+interface PartContext extends MessageContext {
+  sender: SenderFacts | null
+  threadCandidates: readonly ThreadVouch[]
+}
+
 export function messageSelectable(part: InboundMailPartBase, mail: MessageContext): boolean {
   return (
     part.kind === 'message' &&
@@ -76,10 +95,10 @@ export function messageSelectable(part: InboundMailPartBase, mail: MessageContex
   )
 }
 
-export function partPreselected(part: InboundMailPartBase, mail: MessageContext & { sender: SenderFacts | null }): boolean {
+export function partPreselected(part: InboundMailPartBase, mail: PartContext): boolean {
   if (!mail.sender || impersonationOf(mail.sender) !== null) return false
   if (part.kind === 'message') return messageSelectable(part, mail) && !mail.sender.flags.includes('already_filed')
-  return attachmentSelectable(part, mail.projectClosed) && !attachmentNeedsPerson(part, mail.sender)
+  return attachmentSelectable(part, mail.projectClosed) && !attachmentNeedsPerson(part, mail.sender, mail.threadCandidates)
 }
 
 export function defaultThread(view: Pick<InboundMailView, 'threadCandidates'>): InboundMailThreadCandidateView | null {
@@ -113,7 +132,9 @@ export function withReviewDefaults(base: InboundMailViewBase): InboundMailView {
   const sender = senderFactsOfView(base)
   const parts = base.parts.map((part) => ({
     ...part,
-    preselected: !base.onlySenderReleases && partPreselected(part, { projectClosed: base.projectClosed, rawScan: base.rawScan, sender }),
+    preselected:
+      !base.onlySenderReleases &&
+      partPreselected(part, { projectClosed: base.projectClosed, rawScan: base.rawScan, sender, threadCandidates: base.threadCandidates }),
   }))
   const view = { ...base, parts }
   return {

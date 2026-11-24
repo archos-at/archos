@@ -62,7 +62,7 @@ describe('mayOpenDocument', () => {
     expect(await mayOpenDocument(session, doc({}), ['user_a', 'user_outside'])).toEqual(new Set(['user_a']))
   })
 
-  it('opens a document on the Büroablage for the organization’s members', async () => {
+  it('opens a document on the Bürobibliothek for the organization’s members', async () => {
     const allowed = await mayOpenDocument(session, doc({ scope: 'office_shelf', projectId: null }), ['user_a', 'user_gone'])
 
     expect(allowed).toEqual(new Set(['user_a']))
@@ -128,7 +128,7 @@ describe('mayWriteDocument', () => {
     expect(allowed).toEqual(new Set(['user_legacy']))
   })
 
-  it('on the Büroablage keeps whoever holds org:office_shelf:manage, asked of their membership’s role, never its name', async () => {
+  it('on the Bürobibliothek keeps whoever holds org:office_shelf:manage, asked of their membership’s role, never its name', async () => {
     vi.mocked(resolveSubjectMembership).mockImplementation(async (_org, userId) =>
       userId === 'user_gone'
         ? null
@@ -207,7 +207,7 @@ describe('mayOpenDocument on a held upload', () => {
     expect(allowed).toEqual(new Set())
   })
 
-  it('holds a Büroablage upload the same way', async () => {
+  it('holds a Bürobibliothek upload the same way', async () => {
     vi.mocked(loadOrganizationDirectory).mockResolvedValue(
       new Map(
         ['user_uploader', 'user_reviewer', 'user_a'].map((userId) => [
@@ -224,7 +224,7 @@ describe('mayOpenDocument on a held upload', () => {
     expect(allowed).toEqual(new Set(['user_uploader']))
   })
 
-  it('asks nobody about the hold once the upload has passed, and never for Piloti’s own documents', async () => {
+  it('asks nobody about the hold once the upload has passed, and never for the agent’s own documents', async () => {
     await mayOpenDocument(session, doc({}), ['user_a'])
     await mayOpenDocument(session, doc({ authoredBy: 'agent', screeningOutcome: null, screenedHash: null }), ['user_a'])
 

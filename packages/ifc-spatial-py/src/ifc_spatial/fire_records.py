@@ -1,5 +1,3 @@
-"""The frozen records a storey judgement and a separating element are read into."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,14 +7,6 @@ from typing import Any
 
 @dataclass(frozen=True)
 class StoreyJudgement:
-    """One storey, its elevation, and whether it was counted — with the reason.
-
-    Both halves travel. A caller that renders only the counted storeys has
-    published a number nobody can correct: the whole point of reporting the
-    Technikgeschoss that was dropped is that a reviewer who knows it is a
-    Wohnung can say so, and the arithmetic is one subtraction away.
-    """
-
     global_id: str
     name: str | None
     elevation: float | None
@@ -37,8 +27,6 @@ class StoreyJudgement:
 
 @dataclass(frozen=True)
 class SeparatingElement:
-    """One element between two spaces, with what the file declares about it."""
-
     global_id: str
     name: str | None
     ifc_type: str

@@ -1,0 +1,5 @@
+---
+# area: administration
+operators:
+  - >
+    The finished Chroma-to-Qdrant migration, the old database rename and the pre-A2 corpus import are gone. A stack that still sets chromaMigration now fails its plan, and a developer Compose volume from before the database rename has to be recreated.

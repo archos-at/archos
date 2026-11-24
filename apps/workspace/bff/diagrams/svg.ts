@@ -212,7 +212,8 @@ const ELEMENT_GEOMETRY: ReadonlyMap<string, ReadonlySet<string>> = new Map([
 ])
 
 const METADATA_ELEMENT = 'metadata'
-const METADATA_KIND_ATTRIBUTE = 'data-grid-diagram-source'
+const METADATA_KIND_ATTRIBUTE = 'data-diagram-source'
+export const STORED_METADATA_KIND_ATTRIBUTE = 'data-grid-diagram-source'
 
 const MARKING_TITLE_ELEMENT = 'title'
 const MARKING_DESC_ELEMENT = 'desc'
@@ -546,7 +547,8 @@ function escapeAttribute(value: string): string {
 
 function keptAttributes(element: SvgElement): readonly SvgAttribute[] {
   if (element.name === METADATA_ELEMENT) {
-    return element.attributes.filter((attribute) => attribute.name === METADATA_KIND_ATTRIBUTE)
+    const kind = diagramKindOf(element)
+    return kind === undefined ? [] : [{ name: METADATA_KIND_ATTRIBUTE, value: kind }]
   }
   const geometry = ELEMENT_GEOMETRY.get(element.name)
   if (!geometry) return []
@@ -630,10 +632,17 @@ export function withDiagramMarking(root: SvgElement, marking: DiagramMarking): S
   }
 }
 
+function diagramKindOf(metadata: SvgElement): string | undefined {
+  return (
+    attributeOf(metadata, METADATA_KIND_ATTRIBUTE) ??
+    attributeOf(metadata, STORED_METADATA_KIND_ATTRIBUTE)
+  )
+}
+
 export function diagramSourceOf(root: SvgElement): { kind: string; source: string } | null {
   for (const child of root.children) {
     if (child.kind !== 'element' || child.name !== METADATA_ELEMENT) continue
-    const kind = child.attributes.find((a) => a.name === METADATA_KIND_ATTRIBUTE)?.value
+    const kind = diagramKindOf(child)
     if (!kind) continue
     const source = child.children.map((node) => (node.kind === 'text' ? node.text : '')).join('')
     return { kind, source }

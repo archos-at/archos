@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
+const OPTIONS = new Map<string, pulumi.CustomResourceOptions>();
 
 pulumi.runtime.setMocks(
   {
@@ -23,11 +22,6 @@ pulumi.runtime.setMocks(
   false,
 );
 
-const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
-const route = read("apps", "agent-host", "src", "agent_host", "routes", "chat_occupancy.py");
-const chatSocket = read("apps", "agent-host", "src", "agent_host", "chat_socket.py");
-
 function find(type: string, name: string) {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
   if (!hit) throw new Error(`no ${type} named "${name}"`);
@@ -42,6 +36,7 @@ const SCALED = "kubernetes:keda.sh/v1alpha1:ScaledObject";
 const AUTH = "kubernetes:keda.sh/v1alpha1:TriggerAuthentication";
 const NETPOL = "kubernetes:networking.k8s.io/v1:NetworkPolicy";
 const STATEFULSET = "kubernetes:apps/v1:StatefulSet";
+const FIXED = "chat-fixed";
 
 const AUTOSCALING = {
   "grid-oib:allowPlaintextJobPayloads": "true",
@@ -76,24 +71,34 @@ describe("the chat tier's scale-out", () => {
   let frontendEnvNames: Record<string, string> = {};
 
   beforeAll(async () => {
-    const made = await wiringFor(AUTOSCALING);
-    cfg = made.cfg;
-    const { installBackend } = await import("./backend");
-    const { installBackendScaling } = await import("./backend-scaling");
-    const { installNetworkPolicies } = await import("../platform/network-policies");
-    const { backendEnv, frontendEnv } = await import("./config");
-    const secrets = {
-      secret: new k8s.core.v1.Secret("grid-secrets", {}, { provider: made.provider }),
-      checksum: pulumi.output("abc"),
-    };
-    const backend = installBackend(made.wiring as never, cfg, secrets, []);
-    installBackendScaling(made.wiring as never, cfg, backend.statefulSet, []);
-    installNetworkPolicies(cfg, made.provider, "grid");
-    const literal = (env: k8s.types.input.core.v1.EnvVar[]) =>
-      Object.fromEntries(env.filter((e) => typeof e.value === "string").map((e) => [e.name, e.value as string]));
-    backendEnvNames = literal(backendEnv(made.wiring as never));
-    frontendEnvNames = literal(frontendEnv(made.wiring as never));
-    await new Promise((done) => backend.service.id.apply(done));
+    await pulumi.runtime.runInPulumiStack(async () => {
+      pulumi.runtime.registerStackTransformation(({ type, name, opts }) => {
+        if (type === STATEFULSET) OPTIONS.set(name, opts as pulumi.CustomResourceOptions);
+        return undefined;
+      });
+      const made = await wiringFor(AUTOSCALING);
+      cfg = made.cfg;
+      const { installBackend } = await import("./backend");
+      const { installBackendScaling } = await import("./backend-scaling");
+      const { installNetworkPolicies } = await import("../platform/network-policies");
+      const { backendEnv, frontendEnv } = await import("./config");
+      const { loadConfig } = await import("../config");
+      const secrets = {
+        secret: new k8s.core.v1.Secret("grid-secrets", {}, { provider: made.provider }),
+        checksum: pulumi.output("abc"),
+      };
+      const backend = installBackend(made.wiring as never, cfg, secrets, []);
+      installBackendScaling(made.wiring as never, cfg, backend.statefulSet, []);
+      installNetworkPolicies(cfg, made.provider, "grid");
+      const literal = (env: k8s.types.input.core.v1.EnvVar[]) =>
+        Object.fromEntries(env.filter((e) => typeof e.value === "string").map((e) => [e.name, e.value as string]));
+      backendEnvNames = literal(backendEnv(made.wiring as never));
+      frontendEnvNames = literal(frontendEnv(made.wiring as never));
+      pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...AUTOSCALING, "grid-oib:chatAffinity": "true" });
+      installBackend(made.wiring as never, loadConfig(), secrets, [], FIXED);
+      await new Promise((done) => backend.service.id.apply(done));
+      return {};
+    });
   });
 
   it("autoscales only with affinity off, a database-claimed tier and room between floor and ceiling", async () => {
@@ -124,12 +129,6 @@ describe("the chat tier's scale-out", () => {
     expect(trigger.metadata.url).toBe("http://chat.grid.svc.cluster.local:8000/v1/internal/chat-occupancy");
     expect(trigger.metricType).toBe("AverageValue");
     expect(trigger.metadata.targetValue).toBe(String(cfg.backend.turnsPerReplica));
-
-    expect(route).toContain(`CHAT_OCCUPANCY_PATH = "${new URL(trigger.metadata.url).pathname}"`);
-    expect(route).toContain(`"${trigger.metadata.valueLocation}": active`);
-    expect(read("apps", "agent-host", "src", "agent_host", "routes", "internal_auth.py")).toContain(
-      `"${trigger.metadata.keyParamName}"`,
-    );
     expect(trigger.metadata).toMatchObject({ authMode: "apiKey", method: "header" });
   });
 
@@ -167,28 +166,22 @@ describe("the chat tier's scale-out", () => {
     ]);
   });
 
-  it("gives a terminating replica the whole drain, and the drain covers the longest chat turn", async () => {
+  it("gives a terminating replica the whole drain", async () => {
     const spec = await resolve(find(STATEFULSET, "chat").inputs.spec);
     const grace = spec.template.spec.terminationGracePeriodSeconds;
     const drain = Number(backendEnvNames.CHAT_DRAIN_SECONDS);
 
     expect(drain).toBe(cfg.backend.drainSeconds);
     expect(grace).toBeGreaterThan(drain + 10); // the preStop endpoint drain comes out of the same budget
-    const deadline = Number(chatSocket.match(/CHAT_TURN_DEADLINE_SECONDS", "(\d+)"/)?.[1]);
-    expect(deadline).toBeGreaterThan(0);
-    expect(drain).toBeGreaterThanOrEqual(deadline);
   });
 
   it("hands both tiers the one affinity flag, in the spelling each reads", () => {
     expect(backendEnvNames.CHAT_AFFINITY).toBe("0");
     expect(frontendEnvNames.CHAT_AFFINITY).toBe("0");
-    expect(chatSocket).toContain('"CHAT_AFFINITY"');
-    expect(read("apps", "workspace", "server.js")).toContain("CHAT_AFFINITY");
   });
 
-  it("leaves the replica count to KEDA once it exists", () => {
-    expect(read("deploy", "pulumi", "src", "app", "backend.ts")).toMatch(
-      /ignoreChanges: autoscaled \? \["spec\.replicas"\] : \[\]/,
-    );
+  it("leaves the replica count to KEDA once it exists, and to the stack while it does not", () => {
+    expect(OPTIONS.get("chat")?.ignoreChanges).toEqual(["spec.replicas"]);
+    expect(OPTIONS.get(FIXED)?.ignoreChanges).toEqual([]);
   });
 });

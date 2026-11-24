@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import ingest_run
 
 from agent.common.cost_tracking import cost_tracker_var
 from agent.common.cost_tracking import record_usage_event
@@ -11,7 +12,7 @@ from agent.common.cost_tracking import record_usage_event
 def test_an_ingestion_job_opens_a_tracker_booked_to_its_organization_project_and_uploader():
     config = {"organization_id": "org_1", "project_id": "proj-1", "user_id": "user_1"}
     with patch("agent.common.cost_tracking._post_usage_events") as post:
-        with adapter._ingest_cost_scope("job-1", config):
+        with ingest_run._ingest_cost_scope("job-1", config):
             tracker = cost_tracker_var.get()
             assert record_usage_event(model="vendor/vision-1", role="ingest_vision", prompt_tokens=10, cost_usd=0.01)
     assert (tracker.organization_id, tracker.project_id, tracker.user_id, tracker.job_id) == (
@@ -26,7 +27,7 @@ def test_an_ingestion_job_opens_a_tracker_booked_to_its_organization_project_and
 
 def test_an_ingestion_job_is_never_refused_by_a_budget_midway():
     with patch("agent.common.cost_tracking._post_usage_events"):
-        with adapter._ingest_cost_scope("job-1", {"organization_id": "org_1"}):
+        with ingest_run._ingest_cost_scope("job-1", {"organization_id": "org_1"}):
             tracker = cost_tracker_var.get()
             tracker._turn_cost_usd = 1_000_000.0
             tracker._check_budget()

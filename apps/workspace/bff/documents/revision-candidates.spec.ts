@@ -37,6 +37,7 @@ const row = (id: string, filename: string, createdAt = '2026-07-02T10:00:00Z'): 
   createdAt: new Date(createdAt),
   collectionName: 'proj_abc',
   authoredBy: 'user',
+  authoredByProducer: null,
   publishedVersionId: null,
 })
 

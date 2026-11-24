@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-"""Comment-line ratchet; the rule and its reasons: docs/contributing/code-conventions.md#comments."""
 
 from __future__ import annotations
 
 import argparse
+import ast
 import functools
 import json
 import re
@@ -15,14 +15,17 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import tree_sitter_javascript  # noqa: E402
 import tree_sitter_typescript  # noqa: E402
+import yaml  # noqa: E402
 from check_file_size import comment_lines  # noqa: E402
+from release_notes_areas import AREA_LINE  # noqa: E402
 from tree_sitter import Language  # noqa: E402
 from tree_sitter import Node  # noqa: E402
 from tree_sitter import Parser  # noqa: E402
 
 BASELINE = Path("ci/comment_baseline.json")
 FREE = 3
-SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+CONFIG_SUFFIXES = (".yml", ".yaml", ".toml")
+SUFFIXES = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", *CONFIG_SUFFIXES)
 EXCLUDED = re.compile(
     "|".join(
         (
@@ -41,9 +44,20 @@ EXCLUDED = re.compile(
 DIRECTIVE = re.compile(
     r"noqa|type:\s*ignore|ty:\s*ignore|nosemgrep|nosec\b|NOSONAR|isort:|@deprecated|pragma|pyright:|mypy:|fmt:\s*(off|on|skip)|ruff:|"
     r"eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-(expect-error|ignore|nocheck|check)|"
-    r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|"
+    r"istanbul ignore|c8 ignore|v8 ignore|@vitest-environment|@jest-environment|@disk-inputs|drop after release|"
     r"@type\s*\{|@typedef|@param\s*\{|@returns?\s*\{|@template|@satisfies|@import|"
-    r"webpack[A-Z]|@vite-ignore|/// <reference|#!|-\*- coding|@license|@preserve"
+    r"webpack[A-Z]|@vite-ignore|/// <reference|#!|-\*- coding|@license|@preserve|gitleaks:allow"
+)
+TOOL_DIRECTIVES = (
+    r"yaml-language-server:\s*\$schema=|yamllint (disable|enable)(-line)?\b|zizmor:\s*ignore\[|"
+    r"shellcheck (disable|enable|source|shell)=|checkov:skip=|trivy:ignore:"
+)
+CONFIG_DIRECTIVE = re.compile(rf"\s*#\s*({TOOL_DIRECTIVES})")
+RELEASE_NOTES = "releasenotes/notes/"
+YAML_BREAK = re.compile(r"\r\n|[\r\n\x85\u2028\u2029]")
+YAML_BLOCK_START = re.compile(r"(^|\s)[|>][-+0-9]*\s*(#.*)?$")
+TOML_TOKEN = re.compile(
+    r'"""(?:\\.|[^\\])*?""""{0,2}|\'\'\'.*?\'\'\'\'{0,2}|"(?:\\.|[^"\\\n])*"|\'[^\'\n]*\'|#[^\n]*', re.S
 )
 MESSAGE = (
     "Fix the code instead of explaining it: a clearer name, a smaller function, a check whose "
@@ -118,13 +132,120 @@ def script_prose_lines(path: str, source: bytes) -> int:
     return len(lines)
 
 
+def _yaml_scalar_tokens(source: str) -> list[yaml.ScalarToken] | None:
+    for text in (source, source.replace("\t", " ")):
+        try:
+            return [token for token in yaml.scan(text, Loader=yaml.SafeLoader) if isinstance(token, yaml.ScalarToken)]
+        except yaml.YAMLError:
+            continue
+    return None
+
+
+def _yaml_block_scalar_lines(rows: list[str]) -> set[int]:
+    lines: set[int] = set()
+    parent = None
+    for number, row in enumerate(rows, start=1):
+        indent = len(row) - len(row.lstrip())
+        if parent is not None and (not row.strip() or indent > parent):
+            lines.add(number)
+            continue
+        opens = not row.lstrip().startswith("#") and YAML_BLOCK_START.search(row)
+        parent = indent if opens else None
+    return lines
+
+
+def _yaml_string_lines(rows: list[str], source: str) -> set[int]:
+    tokens = _yaml_scalar_tokens(source)
+    if tokens is None:
+        return _yaml_block_scalar_lines(rows)
+    lines: set[int] = set()
+    for token in tokens:
+        start, end = token.start_mark, token.end_mark
+        closing = rows[end.line][: end.column] if end.line < len(rows) else ""
+        last = end.line + 1 if closing.strip() else end.line
+        lines.update(range(start.line + 2, last + 1))
+    return lines
+
+
+def _toml_string_lines(source: str) -> set[int]:
+    lines: set[int] = set()
+    for match in TOML_TOKEN.finditer(source):
+        if match.group().startswith(('"""', "'''")):
+            first = source.count("\n", 0, match.start()) + 1
+            lines.update(range(first + 1, first + match.group().count("\n") + 1))
+    return lines
+
+
+def _tool_reads(path: str, row: str) -> bool:
+    if DIRECTIVE.search(row) or CONFIG_DIRECTIVE.match(row):
+        return True
+    return path.startswith(RELEASE_NOTES) and bool(AREA_LINE.match(row))
+
+
+def config_prose_lines(path: str, source: str) -> int:
+    source = source.removeprefix("\ufeff")
+    if path.endswith(".toml"):
+        rows, inside = source.split("\n"), _toml_string_lines(source)
+    else:
+        rows = YAML_BREAK.split(source)
+        inside = _yaml_string_lines(rows, source)
+    return sum(
+        1
+        for number, row in enumerate(rows, start=1)
+        if row.lstrip().startswith("#") and number not in inside and not _tool_reads(path, row)
+    )
+
+
 def measure(root: Path, paths: list[str]) -> dict[str, int]:
-    python = [path for path in paths if path.endswith(".py")]
-    counts = {p: prose_comment_count(p, (root / p).read_text(encoding="utf-8", errors="replace")) for p in python}
+    counts = {}
     for path in paths:
-        if not path.endswith(".py"):
+        if path.endswith(".py"):
+            counts[path] = prose_comment_count(path, (root / path).read_text(encoding="utf-8", errors="replace"))
+        elif path.endswith(CONFIG_SUFFIXES):
+            counts[path] = config_prose_lines(path, (root / path).read_text(encoding="utf-8", errors="replace"))
+        else:
             counts[path] = script_prose_lines(path, (root / path).read_bytes())
     return counts
+
+
+DOC_READ = (
+    "reads a docstring, and docstrings are purged: give the text an explicit field, `description=` on a tool or "
+    "an argparse parser, a `*_DESCRIPTION` constant, `Field(description=...)`, or "
+    '`model_config = ConfigDict(json_schema_extra={"description": ...})` on a schema.'
+)
+
+
+def _bare_tool(decorator: ast.expr) -> bool:
+    if isinstance(decorator, ast.Name):
+        return decorator.id == "tool"
+    named = isinstance(decorator, ast.Call) and getattr(decorator.func, "id", "") == "tool"
+    return named and not any(keyword.arg == "description" for keyword in decorator.keywords)
+
+
+def docstring_reads(path: str, source: str) -> list[str]:
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+    lines = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and node.attr == "__doc__" and isinstance(node.ctx, ast.Load):
+            lines.add(node.lineno)
+        elif isinstance(node, ast.Name) and node.id == "__doc__" and isinstance(node.ctx, ast.Load):
+            lines.add(node.lineno)
+        elif isinstance(node, ast.Attribute) and node.attr == "getdoc":
+            lines.add(node.lineno)
+        elif isinstance(node, ast.Name) and node.id == "getdoc":
+            lines.add(node.lineno)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            lines.update(d.lineno for d in node.decorator_list if _bare_tool(d))
+        elif isinstance(node, ast.Call) and getattr(node.func, "attr", "") == "from_function":
+            if not any(keyword.arg == "description" for keyword in node.keywords):
+                lines.add(node.lineno)
+        elif isinstance(node, ast.Call) and getattr(node.func, "id", "") == "getattr" and len(node.args) > 1:
+            if isinstance(node.args[1], ast.Constant) and node.args[1].value == "__doc__":
+                lines.add(node.lineno)
+    return [f"{path}:{line}: {DOC_READ}" for line in sorted(lines)]
 
 
 def check(current: dict[str, int], baseline: dict[str, int]) -> list[str]:
@@ -151,7 +272,7 @@ def write_baseline(path: Path, counts: dict[str, int]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Comment-line ratchet.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--update", action="store_true", help="Lower and remove entries; never raise or add one.")
     mode.add_argument("--rebaseline", action="store_true", help="Rewrite the baseline from the tree.")
@@ -173,6 +294,9 @@ def main(argv: list[str] | None = None) -> int:
         write_baseline(root / BASELINE, baseline)
 
     findings = check(current, baseline)
+    for path in current:
+        if path.endswith(".py"):
+            findings += docstring_reads(path, (root / path).read_text(encoding="utf-8", errors="replace"))
     slack = [f for f in findings if "so lower its" in f]
     findings = [f for f in findings if f not in slack]
     if findings:

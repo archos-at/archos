@@ -1,12 +1,3 @@
-"""The ``document_draft`` card: how the reader learns a draft was written.
-
-The answer envelope carries no field for it. A written draft is a system card
-pushed by the tool that wrote it, exactly the way ``remember`` pushes
-``memory_proposal`` and ``surface_documents`` pushes ``document_grid``: the
-model cannot fabricate one, and the card is addressable positionally like every
-other card of the turn.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -16,13 +7,14 @@ from pydantic import ValidationError
 from agent.cards.models import answer_card_adapter
 from agent.cards.registry import get_card_registry
 
+from .media_types import shown_content_type
+
 logger = logging.getLogger(__name__)
 
 MAX_TITLE_CHARS = 120
 
 
 def draft_title(path: str, content: str) -> str:
-    """The document's own first heading, or its file name when it has none."""
     for line in content.splitlines():
         stripped = line.strip()
         if stripped.startswith("#"):
@@ -40,11 +32,14 @@ _FILED_FIELDS = {
 
 
 def _filed_fields(filing: dict[str, str] | None) -> dict[str, str]:
-    """The three filed fields, or nothing at all when any of them is missing."""
     if not filing:
         return {}
     fields = {name: filing[key] for key, name in _FILED_FIELDS.items() if filing.get(key)}
     return fields if len(fields) == len(_FILED_FIELDS) else {}
+
+
+def _optional(**fields: object) -> dict[str, object]:
+    return {name: value for name, value in fields.items() if value}
 
 
 def emit_draft_card(
@@ -54,38 +49,47 @@ def emit_draft_card(
     version: int,
     filing: dict[str, str] | None = None,
     title: str | None = None,
+    size: int | None = None,
+    filed_at_version: int = 0,
+    derived_from: dict[str, str] | None = None,
+    removed: bool = False,
 ) -> bool:
-    """Put the draft in front of the reader; ``True`` when a card channel took it.
-
-    Fail-open by construction: a turn with no bound card registry (a CLI run, a
-    test) still writes the file and still answers. The write is the product;
-    the card is how it is announced.
-
-    ``filing`` is the draft store's record of the project document this path was
-    filed as (:data:`~agent.tools.documents.draft_store.FILING_KEYS`). Passed
-    through rather than looked up here, because the two callers know it for
-    different reasons: a write or an edit carries forward what the store held,
-    and ``file_draft`` carries what the BFF just answered. A card whose filing is
-    incomplete is emitted UNFILED rather than half-filed — the model validator
-    would refuse the mixed shape, and losing the buttons is better than losing
-    the card.
-    """
     registry = get_card_registry()
     if registry is None:
         return False
+    filed = _filed_fields(filing)
+    derived = derived_from or {}
     card = {
         "type": "document_draft",
         "title": title or draft_title(path, content),
         "path": path,
-        "bytes": len(content.encode("utf-8")),
+        "bytes": size if size is not None else len(content.encode("utf-8")),
         "version": version,
-        **_filed_fields(filing),
+        **({"media_type": media_type} if (media_type := shown_content_type(path)) else {}),
+        **filed,
+        **_optional(
+            filed_draft_version=filed_at_version if filed else 0,
+            derived_from_document_id=derived.get("document_id"),
+            derived_from_name=derived.get("name"),
+            removed=removed,
+        ),
     }
     try:
         validated = answer_card_adapter.validate_python(card).model_dump(exclude_none=True)
     except ValidationError:
         logger.exception("Failed to build document_draft card for %s", path)
         return False
-    registry.add(validated)
+    earlier = next(
+        (
+            index
+            for index, shown in enumerate(registry.snapshot())
+            if shown.get("type") == "document_draft" and shown.get("path") == path
+        ),
+        None,
+    )
+    if earlier is None:
+        registry.add(validated)
+    else:
+        registry.replace(earlier, validated)
     logger.info("Emitted document_draft card (path=%s version=%d)", path, version)
     return True

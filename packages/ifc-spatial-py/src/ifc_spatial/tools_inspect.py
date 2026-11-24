@@ -1,5 +1,3 @@
-"""Inspecting elements: finding them, one element's profile, its relations, the room inventory and the shopping list."""
-
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -120,20 +118,6 @@ def _profile_measures(model: SpatialModel, global_id: str, applicable: list[str]
 
 
 def element_profile(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
-    """Every measure that applies to ONE element — the inverse of `survey`.
-
-    `survey` is one measure over many elements; this is many measures over
-    one. Both exist for the same reason: the expensive thing is not the
-    measurement, it is the turn. „Erzähl mir alles über diesen Raum" is a
-    normal opening move for a reviewer who has just been pointed at an
-    outlier, and composed from primitives it costs one `measure` call per
-    kind — twenty turns for a question that has one answer.
-
-    Which measures apply is read from `MEASURE_SUBJECT`, so a door is not
-    asked for its lichte Raumhöhe and a room is not asked for its
-    Schwellenhöhe. The refusals that would produce are not useful output;
-    they are noise that pushes the real numbers out of the context window.
-    """
     model = resolve(args.get("model"))
     global_id = _require(args, "globalId")
     try:
@@ -175,13 +159,6 @@ def element_profile(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]
 
 
 def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
-    """The model's blind spots as a buildingSMART IDS file.
-
-    The one output of this package that leaves the conversation and keeps
-    working. Everything else is a sentence an architect reads once; this is
-    a file they run in their own checker, on their own schedule, and re-run
-    after the fix to prove it landed.
-    """
     try:
         from . import ids_export as ids
     except ImportError as error:
@@ -202,18 +179,6 @@ def shopping_list(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) 
 
 
 def room_inventory(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -> Any:
-    """``kind`` is validated here, exactly like ``relation`` and ``measure``.
-
-    It used to go straight through as ``str(args.get("kind") or "")``, and
-    ``briefing.inventory`` indexed ``KIND_LABEL`` with it — so an omitted or
-    misspelt kind came back as ``KeyError: ''`` from ``briefing.py:799``. A
-    Python traceback is not a refusal: the caller cannot read it, cannot act
-    on it, and an MCP client sees a crash where every other enum in this file
-    produces a German sentence naming the allowed values. The agent-runtime tool layer
-    happened to validate ``kind`` before this was reached, but this module is
-    the engine's own entry point, and a host may hand arguments here
-    unfiltered.
-    """
     model = resolve(args.get("model"))
     kind = str(args.get("kind") or "").strip()
     kind = LEGACY_ROOM_USE_KINDS.get(kind, kind)

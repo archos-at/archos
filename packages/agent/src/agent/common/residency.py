@@ -1,27 +1,3 @@
-"""Where a model call is processed, and whether this deployment may send it there (ADR-0167).
-
-Every model call leaves through the seam in ``common/openrouter.py`` (an httpx transport for the bespoke call
-sites) or the chat-request contract in ``common/llm_factory.py`` (every LangChain chat model). Both ask this
-module about the URL they are about to call:
-
-- :func:`routed_url` rewrites it into the cell's zone where the zone names a rewrite (``openrouter.ai`` to
-  ``eu.openrouter.ai`` for ``eu``), so a call that can stay inside the zone does;
-- :func:`route_for` says where the request is processed (``processing_location``) and by whom
-  (``subprocessor``), read per host from the data-flow register's ``endpoints``, and whether that is allowed;
-- :func:`enforce` refuses a request whose location the cell's zone does not hold. A host the register does not
-  place has location ``unknown`` and is in no zone: unknown is never allowed.
-
-Residency is switched on by naming the deployment's cell in ``RESIDENCY_CELL`` (``configs/residency/cells.yaml``).
-Unset, nothing is rewritten or refused, and every generation still records where it went, so the
-``processing-location-compliant`` score measures the gap before anyone switches it on. A cell the file does not
-know refuses the boot (:func:`assert_residency`) and every call.
-
-The office's side of it: an organization is placed in a cell (``organizations.residency_cell``) and has a
-processing policy (``organization_processing_policies``: the purposes it allows, ``purpose_ok`` on its traces).
-:class:`ProcessingPolicy` is what the BFF reports for one organization; an organization placed in another cell is
-refused here, and a policy that cannot be read allows ``service`` alone.
-"""
-
 from __future__ import annotations
 
 import contextvars
@@ -68,12 +44,10 @@ MODEL_BASE_URL_ENVS = (
 CHAT_BASE_URL_ENV = "OPENROUTER_BASE_URL"
 
 
-class ResidencyError(RuntimeError):
-    """The deployment's residency configuration is not one this process can serve."""
+class ResidencyError(RuntimeError): ...
 
 
-class ResidencyViolation(RuntimeError):
-    """A model call that would be processed outside where its organization's data may go."""
+class ResidencyViolation(RuntimeError): ...
 
 
 @dataclass(frozen=True)
@@ -92,15 +66,12 @@ class Cell:
 
 @dataclass(frozen=True)
 class Route:
-    """Where one request is processed, by whom, and whether that is allowed."""
-
     host: str
     processing_location: str
     subprocessor: str
     compliant: bool
 
     def metadata(self) -> dict[str, Any]:
-        """The generation metadata that records this route (design 7.3)."""
         return {
             "processing_location": self.processing_location,
             "subprocessor": self.subprocessor,
@@ -110,8 +81,6 @@ class Route:
 
 @dataclass(frozen=True)
 class ProcessingPolicy:
-    """One organization's processing policy, as the BFF reports it."""
-
     residency_cell: str | None = None
     purposes: frozenset[str] = DEFAULT_PURPOSES
     version: int = 1
@@ -125,7 +94,6 @@ UNREADABLE_POLICY = ProcessingPolicy(purposes=FAIL_CLOSED_PURPOSES, known=False)
 
 
 def parse_policy(payload: object) -> ProcessingPolicy:
-    """The BFF's ``processingPolicy`` object as a :class:`ProcessingPolicy`; the fail-closed one when malformed."""
     if not isinstance(payload, Mapping):
         return UNREADABLE_POLICY
     purposes = payload.get("purposes")
@@ -144,7 +112,6 @@ def parse_policy(payload: object) -> ProcessingPolicy:
 
 
 def policy_to_json(policy: ProcessingPolicy) -> dict[str, Any]:
-    """The inverse of :func:`parse_policy`, for the shared cache."""
     return {"residencyCell": policy.residency_cell, "purposes": sorted(policy.purposes), "version": policy.version}
 
 
@@ -176,7 +143,6 @@ def _cells() -> dict[str, Cell]:
 
 @functools.lru_cache(maxsize=1)
 def endpoints() -> dict[str, tuple[str, tuple[str, ...]]]:
-    """Every host the register places: ``host -> (subprocessor id, processing locations)``."""
     directory = _config_dir(REGISTER_DIR)
     placed: dict[str, tuple[str, tuple[str, ...]]] = {}
     if directory is None:
@@ -189,7 +155,6 @@ def endpoints() -> dict[str, tuple[str, tuple[str, ...]]]:
 
 
 def cell_named(cell_id: str) -> Cell:
-    """The cell ``cell_id`` names; :class:`ResidencyError` when ``configs/residency/cells.yaml`` has none."""
     cell = _cells().get(cell_id)
     if cell is None:
         raise ResidencyError(f"{RESIDENCY_CELL_ENV}={cell_id!r} is not a cell in {CELLS_FILE}; refusing to serve")
@@ -197,7 +162,6 @@ def cell_named(cell_id: str) -> Cell:
 
 
 def active_cell(env: Mapping[str, str] | None = None) -> Cell | None:
-    """This deployment's cell, or None when residency is not switched on. An unknown cell raises."""
     name = ((env if env is not None else os.environ).get(RESIDENCY_CELL_ENV) or "").strip()
     return cell_named(name) if name else None
 
@@ -208,7 +172,6 @@ def _host(url: object) -> str:
 
 
 def routed_url(url: str, cell: Cell | None) -> str:
-    """``url`` with its host rewritten into ``cell``'s zone, where the zone names a rewrite for it."""
     if cell is None:
         return url
     host = _host(url)
@@ -221,10 +184,6 @@ def routed_url(url: str, cell: Cell | None) -> str:
 
 
 def route_for(url: object, cell: Cell | None) -> Route:
-    """Where a request to ``url`` is processed, and whether ``cell`` allows it. Pure.
-
-    Without a cell any placed location is allowed; an unplaced host is never.
-    """
     host = _host(url)
     subprocessor, locations = endpoints().get(host, (UNKNOWN, ()))
     known = bool(locations)
@@ -238,11 +197,6 @@ def route_for(url: object, cell: Cell | None) -> Route:
 
 
 def enforce(url: str, *, rewrite: bool = True) -> tuple[str, Route]:
-    """The URL to send to and its route; :class:`ResidencyViolation` when the cell's zone does not hold it.
-
-    ``rewrite=False`` judges ``url`` as it is, for a client whose address is fixed at construction (a LangChain
-    chat model). The route is recorded on the generation it belongs to (:func:`record_route`), refused or not.
-    """
     cell = active_cell()
     target = routed_url(url, cell) if rewrite else url
     route = route_for(target, cell)
@@ -256,12 +210,6 @@ def enforce(url: str, *, rewrite: bool = True) -> tuple[str, Route]:
 
 
 def check_organization(policy: ProcessingPolicy) -> None:
-    """Refuse to serve an organization placed in a cell other than this deployment's, or whose placement is unknown.
-
-    An organization with no cell is served by the cell it reaches, under that cell's zone. A policy that could
-    not be read is refused: its organization may be placed anywhere. Without residency switched on nothing is
-    refused.
-    """
     cell = active_cell()
     if cell is None:
         return
@@ -283,7 +231,6 @@ def _current_organization() -> str | None:
 
 
 def _runs_for_a_tenant() -> bool:
-    """Whether the current request acts for a person or a project, the marks of tenant work."""
     try:
         from agent.project_context import RequestContext
 
@@ -294,11 +241,6 @@ def _runs_for_a_tenant() -> bool:
 
 
 def _organization_to_place(cell: Cell) -> str | None:
-    """The organization the current request runs for, or None for platform work, which has none to place.
-
-    Tenant work (a person, a project or a conversation in the context) that names no organization cannot be
-    placed, so the cell refuses it rather than serve it unplaced.
-    """
     organization_id = _current_organization()
     if organization_id:
         return organization_id
@@ -308,7 +250,6 @@ def _organization_to_place(cell: Cell) -> str | None:
 
 
 def check_current_organization() -> None:
-    """:func:`check_organization` for the organization the current request runs for. Blocking on a cache miss."""
     cell = active_cell()
     if cell is None:
         return
@@ -321,7 +262,6 @@ def check_current_organization() -> None:
 
 
 async def acheck_current_organization() -> None:
-    """:func:`check_current_organization` off the event loop: the cached policy, else a worker thread."""
     cell = active_cell()
     if cell is None:
         return
@@ -345,12 +285,10 @@ _route_sink: contextvars.ContextVar[Any] = contextvars.ContextVar("residency_rou
 
 
 def route_sink() -> contextvars.ContextVar[Any]:
-    """The context variable a generation sets to a callable taking a :class:`Route`."""
     return _route_sink
 
 
 def record_route(route: Route) -> None:
-    """Record ``route`` on the enclosing generation and as the trace's compliance score. Never raises."""
     try:
         sink = _route_sink.get()
         if sink is not None:
@@ -384,11 +322,6 @@ def _score(route: Route) -> None:
 
 
 def stamp_message(message: Any, route: Route | None) -> Any:
-    """``message`` (an AIMessage or chunk) carrying ``route`` in its ``response_metadata``.
-
-    The span exporter keeps ``response_metadata`` in the generation's ``nat.metadata``, which is where
-    ``ProcessingLocationProcessor`` reads it back onto the Langfuse generation.
-    """
     if route is None or message is None:
         return message
     metadata = getattr(message, "response_metadata", None)
@@ -398,24 +331,17 @@ def stamp_message(message: Any, route: Route | None) -> Any:
 
 
 def stamp_result(result: Any, route: Route | None) -> Any:
-    """Every generation of a ``ChatResult`` stamped with ``route``."""
     for generation in getattr(result, "generations", None) or ():
         stamp_message(getattr(generation, "message", None), route)
     return result
 
 
 def stamp_chunk(chunk: Any, route: Route | None) -> Any:
-    """A ``ChatGenerationChunk`` stamped with ``route``: the stream's first chunk only, since chunks merge."""
     stamp_message(getattr(chunk, "message", None), route)
     return chunk
 
 
 def turn_trace_metadata(policy: ProcessingPolicy, cell: Cell | None) -> tuple[dict[str, str], list[str]]:
-    """The trace metadata and tags that say where a turn ran and what it may be used for. Pure.
-
-    ``purpose_ok`` lists the purposes the organization allows; a judge rule runs only on a trace tagged
-    ``purpose_ok:quality_evaluation``, so an organization whose policy is unreadable is never judged.
-    """
     metadata = {
         "cell": cell.id if cell is not None else "none",
         "purpose_ok": ",".join(sorted(policy.purposes)),
@@ -426,10 +352,6 @@ def turn_trace_metadata(policy: ProcessingPolicy, cell: Cell | None) -> tuple[di
 
 
 def record_turn_residency(policy: ProcessingPolicy) -> None:
-    """Put ``cell`` and ``purpose_ok`` on the current turn's trace. Never raises.
-
-    Call it in the turn's own context (not on a worker thread): trace contributions are a context variable.
-    """
     try:
         from agent.observability.langfuse_trace_attributes import add_trace_tag
         from agent.observability.langfuse_trace_attributes import record_trace_metadata
@@ -443,10 +365,6 @@ def record_turn_residency(policy: ProcessingPolicy) -> None:
 
 
 def boot_errors(env: Mapping[str, str], urls: Iterable[tuple[str, str]] = ()) -> list[str]:
-    """What keeps this deployment from serving its cell; empty when it can, or when no cell is named. Pure.
-
-    ``urls`` adds further ``(name, url)`` endpoints to judge, beside :data:`MODEL_BASE_URL_ENVS`.
-    """
     try:
         cell = active_cell(env)
     except ResidencyError as error:
@@ -468,7 +386,6 @@ def boot_errors(env: Mapping[str, str], urls: Iterable[tuple[str, str]] = ()) ->
 
 
 def assert_residency(env: Mapping[str, str] | None = None) -> None:
-    """Refuse the boot when this deployment would route a model call outside its cell's zone."""
     errors = boot_errors(os.environ if env is None else env)
     if errors:
         raise ResidencyError("; ".join(errors) + "; refusing to start (ADR-0167)")

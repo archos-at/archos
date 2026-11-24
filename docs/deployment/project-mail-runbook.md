@@ -71,7 +71,7 @@ the pull request.
 1. The owner switches `inbound-mail` on in WorkOS Production for all
    organizations (§9). Not before: until then the frontend shows no address,
    so no address exists that could bounce while subaddressing is still being
-   switched on.
+   switched on. **Done 2026-11-14.**
 2. `kubectl -n grid rollout status deploy/clamav --timeout=30m` (§6's checks).
    Not ready after that: freshclam's log, §6.
 3. A test-office address into the `production` environment's secret
@@ -493,14 +493,18 @@ Only the test office has the entitlement, so unpausing exposes no customer.
 Afterwards: dismiss every `[smoke]` mail in the test project, and check that
 `cloudflare` passes again (no G2 rule left).
 
-## 9. Launch, per office (owner gate O7)
+## 9. Launch (owner gate O7)
 
-Per office, only after the Datenschutzberater's sign-off and the customer
-notice (Cloudflare as a transit processor: [`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)),
-and only once the Worker's `LANDING_URL` binding names the website (B1):
+**Done for every office on 2026-11-14.** The owner decided that day that
+project mail goes live for all offices and gave the data-protection go-ahead
+for every one of them (Cloudflare as a transit processor:
+[`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)).
+The `inbound-mail` flag is ON for all organizations in WorkOS Production since
+2026-11-14, so a new organization has it too; there is no per-office step left.
 
-- [ ] WorkOS → Feature Flags → `inbound-mail` → add the office's organization.
-- [ ] Tell the office: section 11 below is what they get.
+To take one office out (the rollback of §10, narrowed): WorkOS → Feature
+Flags → `inbound-mail` → target that organization off. Section 11 is what an
+office gets; tell a new office about it when it starts.
 
 ## 10. Operating it
 
@@ -615,9 +619,11 @@ without a successor.
    `[inbound-mail] delivery outcome=` line for the same minute.
 4. **In the project**: it may be filed already (the sender's own signed mail is
    filed directly into an E-Mail-Verlauf, with a notice to them), waiting in the
-   E-Mail-Eingang, or folded under „Domain nicht bestätigt oder automatisch“.
-   Waiting mail from outside the office expires after 14 days; dismissed and
-   expired parts can be restored for 7 days (an outsider's expired mail cannot).
+   E-Mail-Eingang (an outsider's unconfirmed mail is a row like any other), or
+   folded under „Automatisch“. Waiting mail from outside the office expires
+   after 14 days; dismissed and expired parts can be restored for 7 days (an
+   outsider's expired mail cannot, nor a dismissed part of an outsider's mail
+   whose domain did not confirm it).
 5. An auto-reply or a delivery report is dropped on purpose (`inbound_mail_dropped`).
 
 ## 11. What the customer sees (for support)
@@ -650,8 +656,10 @@ Domain hat sie bestätigt, und Sie dürfen in diesem Projekt ablegen.“
 
 **Held for a person** in the project's E-Mail-Eingang (Dateien → E-Mail-Eingang):
 - a member's mail that is not signed by their own domain, is their Bcc copy,
-  reads as re-sent or misdated, or is automatic: only that member may file it
-  („Haben Sie diese E-Mail gesendet?“), anyone may dismiss it, for 30 days;
+  reads as re-sent or misdated, or is automatic: that member files it („Haben
+  Sie diese E-Mail gesendet?“), or any writer who checked it is from them
+  (migration 0250); one whose signature the domain rejected only that member;
+  anyone may dismiss it, for 30 days;
 - a member's mail who may not write in the project: for the project's writers, 30 days;
 - everyone else's: for the project's writers, 14 days, then discarded.
 Five days before a mail runs out, the people it waits for are reminded.

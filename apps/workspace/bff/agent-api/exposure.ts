@@ -1,5 +1,6 @@
 import { EXPOSURE, type Exposure } from './exposure.config'
 import type { AgentPrincipal } from './principal'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export type AgentDoor = 'office' | 'platform'
 
@@ -11,7 +12,7 @@ export function doorOfPrincipal(principal: Pick<AgentPrincipal, 'door'>): AgentD
 
 export function audienceOf(principal: Pick<AgentPrincipal, 'actor' | 'door'>): Audience {
   if (doorOfPrincipal(principal) === 'platform') return 'platform'
-  return principal.actor === 'piloti' ? 'agent' : 'external'
+  return isAgentKind(principal.actor) ? 'agent' : 'external'
 }
 
 function exposureOf(name: string): Exposure | undefined {

@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { LEGACY_AGENT_AUTHORED_LANE } from '@/lib/legacy-lane-names'
 import {
   boundSteps,
   MAX_THINKING_STEPS,
@@ -409,7 +410,22 @@ describe('a step stored before the English names', () => {
           kind: 'sources',
           traceLanes: [
             { key: 'building_law_ris', label: 'Rechtsquelle', hitCount: 1, sources: [], signal: 'law', kind: 'building_law' },
-            { key: 'office_piloti', label: 'Piloti-Dokument', hitCount: 1, sources: [], signal: 'office', kind: 'office' },
+            {
+              key: LEGACY_AGENT_AUTHORED_LANE,
+              label: 'Piloti-Dokument',
+              hitCount: 1,
+              sources: [],
+              signal: 'office',
+              kind: 'office',
+            },
+            {
+              key: 'office_agent',
+              label: '{productName}-Dokument',
+              hitCount: 1,
+              sources: [],
+              signal: 'office',
+              kind: 'office',
+            },
           ],
         }),
         step({
@@ -421,7 +437,8 @@ describe('a step stored before the English names', () => {
     expect(result!.degradedReasons).toEqual(['basis_unread'])
     expect(result!.thinkingSteps![0].traceLanes!.map((lane) => [lane.key, lane.kind])).toEqual([
       ['building_law_ris', 'building_law'],
-      ['office_piloti', 'office'],
+      [LEGACY_AGENT_AUTHORED_LANE, 'office'],
+      ['office_agent', 'office'],
     ])
     expect(result!.thinkingSteps![1].turnEvent).toEqual({
       key: 'status.retrieval.clause',

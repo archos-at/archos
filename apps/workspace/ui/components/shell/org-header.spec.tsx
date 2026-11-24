@@ -67,7 +67,7 @@ describe('OrgHeader — the org scope in one slim band', () => {
   test('carries the wordmark home link, both doorways, and the avatar menu', () => {
     render(<OrgHeader {...baseProps} />)
     expect(screen.getByRole('img', { name: PRODUCT_NAME }).closest('a')).toHaveAttribute('href', '/app/projects')
-    expect(screen.getByLabelText('Office filing')).toHaveAttribute('href', '/app/office-shelf')
+    expect(screen.getByLabelText('Office library')).toHaveAttribute('href', '/app/office-shelf')
     expect(screen.getByLabelText('Inbox')).toHaveAttribute('href', '/app/inbox')
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
   })
@@ -79,23 +79,22 @@ describe('OrgHeader — the org scope in one slim band', () => {
 
   test('drops each doorway with its own gate', () => {
     render(<OrgHeader {...baseProps} canAccessOfficeShelf={false} canAccessInbox={false} />)
-    expect(screen.queryByLabelText('Office filing')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Office library')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Inbox')).not.toBeInTheDocument()
     expect(screen.getByTestId('user-menu')).toBeInTheDocument()
   })
 
-  test('opens the office standards only for an office with the office-standards entitlement', () => {
-    const { unmount } = render(<OrgHeader {...baseProps} />)
-    expect(screen.queryByLabelText('Office standards')).not.toBeInTheDocument()
-    unmount()
+  test('opens the office standards through Office library, which stays lit on their tab', () => {
+    pathname = '/app/base-knowledge'
     render(<OrgHeader {...baseProps} canAccessOfficeStandards />)
-    expect(screen.getByLabelText('Office standards')).toHaveAttribute('href', '/app/base-knowledge')
+    expect(screen.queryByLabelText('Office standards')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Office library')).toHaveAttribute('aria-current', 'page')
   })
 
   test('marks the doorway whose sheet is open, and only that one', () => {
     pathname = '/app/office-shelf'
     render(<OrgHeader {...baseProps} />)
-    expect(screen.getByLabelText('Office filing')).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByLabelText('Office library')).toHaveAttribute('aria-current', 'page')
     expect(screen.getByLabelText('Inbox')).not.toHaveAttribute('aria-current')
   })
 
@@ -121,8 +120,8 @@ describe('OrgHeader — on a phone', () => {
   test('the doorways give way to the tab bar; search opens the palette', () => {
     mobile = true
     render(<OrgHeader {...baseProps} />)
-    expect(screen.getByLabelText('Office filing').className).toMatch(/(^|\s)hidden(\s|$)/)
-    expect(screen.getByLabelText('Office filing').className).toContain('md:flex')
+    expect(screen.getByLabelText('Office library').className).toMatch(/(^|\s)hidden(\s|$)/)
+    expect(screen.getByLabelText('Office library').className).toContain('md:flex')
     const search = screen.getByTestId('shell-search')
     expect(search.className).toContain('md:hidden')
     expect(search.className).toContain('pointer-coarse:size-11')
@@ -145,7 +144,7 @@ describe('OrgHeader — on a phone', () => {
 describe('the organization switcher', () => {
   test('is handed to the avatar menu, and the header band carries none', () => {
     const organizations = [
-      { id: 'org_1', name: 'GRID Test', current: true },
+      { id: 'org_1', name: 'Test Office', current: true },
       { id: 'org_2', name: 'feld72 Architekten', current: false },
     ]
     render(<OrgHeader {...baseProps} organizations={organizations} />)

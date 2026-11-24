@@ -1,0 +1,50 @@
+import asyncio
+import logging
+from collections.abc import Sequence
+
+logger = logging.getLogger(__name__)
+
+
+_HIDDEN_REVISIONS_NAMED = 5
+
+
+async def superseded_files(collections: Sequence[str]) -> dict[str, dict[str, str]]:
+    from agent.knowledge import get_superseded_files
+
+    answers = await asyncio.gather(
+        *(asyncio.to_thread(get_superseded_files, collection) for collection in collections),
+        return_exceptions=True,
+    )
+    return {
+        collection: dict(sorted(answer.items()))
+        for collection, answer in zip(collections, answers, strict=True)
+        if isinstance(answer, dict) and answer
+    }
+
+
+def named_older_revision_notice(file_name: str | None, superseded: dict[str, dict[str, str]]) -> str:
+    if not file_name:
+        return ""
+    from agent.knowledge.restricted_use import may_name
+    from knowledge_layer.read_passage import older_revision_line
+
+    lines = []
+    for collection, links in superseded.items():
+        if file_name not in links or not may_name(collection):
+            continue
+        seen, current = {file_name}, links[file_name]
+        while current in links and current not in seen:
+            seen.add(current)
+            current = links[current]
+        lines.append(older_revision_line(file_name, current))
+    return "".join(sorted(set(lines)))
+
+
+def hidden_revisions_notice(superseded: dict[str, dict[str, str]]) -> str:
+    names = sorted({name for hidden in superseded.values() for name in hidden})
+    if not names:
+        return ""
+    shown = ", ".join(names[:_HIDDEN_REVISIONS_NAMED])
+    rest = len(names) - _HIDDEN_REVISIONS_NAMED
+    tail = f" and {rest} more" if rest > 0 else ""
+    return f"Older Fassungen left out: {shown}{tail}; each is readable when it is named.\n\n"

@@ -87,15 +87,15 @@ describe('buildCollectionScopeFromRequest', () => {
   })
 
   it('builds base-only scope for anonymous mode', async () => {
-    process.env.REQUIRE_AUTH = 'false'
+    vi.stubEnv('REQUIRE_AUTH', 'false')
     const { scope } = await buildCollectionScopeFromRequest(null, {})
     expect(scope).toEqual(['oib_knowledge'])
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
   })
 
   it('authorizes project and includes proj_ corpus', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     mockRequireProjectAccess.mockResolvedValue({ role: 'project-viewer', closed: false, readsBecauseClosed: false })
     const { scope } = await buildCollectionScopeFromRequest(baseSession, {
       projectId: 'proj_1',
@@ -106,15 +106,15 @@ describe('buildCollectionScopeFromRequest', () => {
       'project:chat',
       'project:edit',
     ])
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
   })
 
   it('reads active project from preferences when no explicit id', async () => {
-    process.env.REQUIRE_AUTH = 'true'
+    vi.stubEnv('REQUIRE_AUTH', 'true')
     mockGetDb.mockReturnValue(mockDbSelect([{ prefs: { active_project_id: 'pref_1' } }]) as never)
     mockRequireProjectAccess.mockResolvedValue({ role: 'project-viewer', closed: false, readsBecauseClosed: false })
     const { scope } = await buildCollectionScopeFromRequest(baseSession, {})
     expect(scope).toEqual(['oib_knowledge', 'proj_pref_1'])
-    delete process.env.REQUIRE_AUTH
+    vi.stubEnv('REQUIRE_AUTH', undefined)
   })
 })

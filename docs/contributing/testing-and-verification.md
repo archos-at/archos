@@ -88,7 +88,7 @@ Reach for the narrow task rather than the whole gate:
 | UI lint (oxlint; why not ESLint or Biome: [lint-evaluation.md](lint-evaluation.md)), and the module seams (dependency-cruiser: [module-seams.md](module-seams.md)) | `task workspace:lint` |
 | Backend lint (ruff), and the package seams (import-linter: [module-seams.md](module-seams.md)) | `task be:lint` |
 | Backend tests | `task be:test`, or `task be:test:api` for the plugin suite |
-| The Chroma exporter and the move off Chroma (`deploy/migration/`, `vector_store/import_vectors.py`) | `task be:test:migration`, in its own `chromadb` environment; nothing else imports `chromadb` ([`deploy/migration/README.md`](../../deploy/migration/README.md#tests)) |
+| A suite that needs Qdrant (the store, ranking, grouped search) | `bash scripts/qdrant-test-server.sh --exec task be:test:sources`: production's Qdrant from its checksummed binary, no Docker; without a server those tests skip locally and fail on CI |
 | Pulumi and the policy pack | `task infra:types` |
 | The public website (`apps/website`) and the riso kit | `task website:verify` |
 | A page behind a session, in the real app (click through, capture, Playwright) | `task local:up`, then `task local:session -- anna` ([local-stack.md](local-stack.md)) |
@@ -96,6 +96,12 @@ Reach for the narrow task rather than the whole gate:
 Then run `task verify:fast` before you push.
 
 ## Traps the task list cannot tell you about
+
+**The core and agent_host suites run on one xdist worker per logical CPU**
+(`XDIST` in `Taskfile.yml`). Much of their wall clock is asyncio waits: on two
+workers agent_host went from 67 s to 44 s and the core suite from about 3m20s to
+2m27s. A test that passes only after another one ran fails under it; fix the
+test, do not drop the flag.
 
 **The UI suite runs in vitest's vm pool, and seven specs do not.** A worker
 process runs many spec files, each in a fresh vm context, instead of one
@@ -144,6 +150,9 @@ specs). Each listed file carries a `RLS_SUITE_REQUIRED` guard so the CI job
 fails if the database goes missing instead of skipping green; CI sets that
 variable (`.github/workflows/ci.yml`), the script does not, so a local run can
 still skip green.
+The script takes the newest server binaries under `/usr/lib/postgresql` (or
+`PGBIN`): production runs 17, Ubuntu and `ubuntu-latest` ship 16, and the dev
+cluster's CI runners carry 17 (`deploy/ci-runner/Dockerfile`).
 
 The per-migration sections at the end of that script prove a backfill, a data
 rewrite or a down migration on a clone of the chain. Once the migration has
@@ -159,18 +168,13 @@ resolves `agent` from whatever the venv has installed, possibly another
 worktree, and validates the wrong code while appearing to pass. `pyproject.toml`'s
 `pythonpath` puts `packages/agent/src/` first, so a bare `pytest` is safe as well as the Taskfile.
 
-**The claim queues, kept until the cutover to Hatchet drains them (ADR-0150),
-are tested on Postgres by `task be:test:postgres`, in CI's Backend job.**
-`packages/agent/tests/common/test_claim_queue.py` and
-`tests/knowledge_layer_tests/test_ingest_queue.py` run every scenario on
-SQLite, which ranks in Python, and on Postgres, which runs production's claim
-SQL. The folder card builder's suites (`packages/agent/tests/knowledge/folder_cards/`:
-dirty set, budget, manifests, the build over a collection) run on both too, through the
-`database_url` and `agent_db` fixtures in their `conftest.py`, and so does the
-metadata store's mail records (`packages/agent/tests/knowledge/test_mail_facts.py`: the
-add-column path on a table from before the columns, and the read-back), and the research
-cutover (`apps/agent-host/tests/test_research_cutover.py`: a row it holds is skipped by the
-old claim's `FOR UPDATE SKIP LOCKED` and by a second cutover). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
+**The folder card builder's suites run on Postgres too, through `task
+be:test:postgres` in CI's Backend job.** `packages/agent/tests/knowledge/folder_cards/`
+(dirty set, budget, manifests, the build over a collection) runs every scenario on
+SQLite and on Postgres, through the `database_url` and `agent_db` fixtures in its
+`conftest.py`, and so does the metadata store's mail records
+(`packages/agent/tests/knowledge/test_mail_facts.py`: the add-column path on a table
+from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
 reuses `scripts/rls-test-db.sh --exec` for a throwaway cluster and names a
 scratch database in it. Each file carries an `TEST_POSTGRES_REQUIRED` guard,
 set in CI, that fails instead of skipping. A new suite with a Postgres parameter
@@ -221,6 +225,16 @@ selection locally, record once with `task be:test:testmon` and then
 `task workspace:test:related SHARD=1/1 FILES="src/path/changed.ts"`. Locally `task workspace:verify` runs lint, types, tests and
 build in order instead.
 
+The mechanics behind those tasks, each a reason a flag is there:
+
+- **testmon** keeps one database per suite and never runs under coverage, since it switches itself off under pytest-cov. CI caches a database only from a green run, because a failed test is recorded as failed and re-runs every time. `--testmon-forceselect` is needed because `addopts` carries `-m`, which otherwise switches selection off; exit 5 (nothing selected) is a pass.
+- **pytest-split** deselects after testmon (both `trylast`, split second), so the shards together run exactly the selection, provided they start from the same database. A test missing from `tests/.test_durations` counts at the average, so a stale file unbalances shards and never drops a test. `be:test:durations` records with the ingest tests' server present, because a skipped test is stored at the milliseconds its skip took (on 2026-11-11 that file weighed a third of the suite at nothing), and with `--clean-durations`, without which the file only grows (1,086 of 20,206 entries were gone tests on 2026-11-11).
+- **The packages run with `--dist loadfile`**, so a file's Qdrant collections and module fixtures stay on one worker. The database suites run serially: every test drops and recreates the same tables in one scratch database.
+- **Coverage instrumentation** costs the core suite 30 s (168 s against 138 s, 2026-11-10) for a 65 % gate it clears at 93 %, so the fast paths leave it off.
+- **`be:test:harness`** runs on workers: 16 s serial against 9 s on four (2026-11-10).
+- **The UI shards** each write a blob report to an explicit `--outputFile` named for the shard (`.vitest-reports/blob-1-8.json` for the first of eight), so the shards of one local run sit side by side in one directory, where a fixed name would overwrite the rest. The default reporter and, on Actions, the `github-actions` reporter are named beside it, because Vitest adds the latter only when no reporter is named. CI runs each shard with `COVERAGE=false` and uploads and merges nothing, since nothing gates on UI coverage. Locally, coverage is collected per shard (a shard loads only its slice of the app) and `workspace:test:merge` stitches the blobs together with `--merge-reports=.vitest-reports`.
+- **`ifc-spatial-py` runs with `--dist loadfile`** too: its modules build their IFC models in module-scoped fixtures.
+
 What decides which jobs run (a pull request against its base, a push against the
 last commit CI passed), when a push reuses its pull request's result, and how
 images are built and tagged: [ci.md](ci.md). The reuse decision and every reason
@@ -261,18 +275,20 @@ copy of the engine's names without installing the engine.
 
 The single required status check is **CI OK**
 ([`ci.yml`](../../.github/workflows/ci.yml)), which passes only when every
-needed job succeeded or was skipped by the path filter.
+needed job succeeded or was skipped. A pull request runs the light checks, the
+push to `develop` the full suite, and a pull request labelled `ci:full` both
+([ci.md](ci.md#how-a-ci-run-decides-what-to-run)).
 
 ## The live turn-shape eval
 
 ADR-0052 deleted the intent router, so two things that used to be code are now
-Piloti's reading of its own prompt: a greeting or a question
-about the assistant answers without calling a search tool, and a commissioned
+the agent's reading of its own prompt: a greeting or a question
+about the agent answers without calling a search tool, and a commissioned
 report („erstelle mir einen vollständigen Prüfbericht …") escalates to deep
 research before it retrieves anything.
 [`evals/turn-shapes/test_turn_shapes_live.py`](../../evals/turn-shapes/test_turn_shapes_live.py)
 pins both, plus a control question that must still search. It runs the real
-agent on the real prompt against Piloti's own model through OpenRouter, with
+agent on the real prompt against the agent's own model through OpenRouter, with
 stub tools in place of retrieval, and reads the trace from the turn's own
 transcript (every tool call the model asked for), so the assertion is on the
 trace rather than on the prose.
@@ -285,6 +301,11 @@ Selected without the key, it skips itself. Locally:
 ```bash
 OPENROUTER_API_KEY=… task be:eval:turn-shapes
 ```
+
+The `code_runner` marker is the same arrangement for the tests that start the
+real code runner (`apps/code-runner`) and drive the agent's `execute` tool
+against it: deselected by `addopts`, selected by `task runner:e2e`, run in CI's
+`runner-e2e` job. What it covers: [the runner's README](../../apps/code-runner/README.md#running-and-testing).
 
 `DEFAULT_MODEL` moves the model under test, the same way it moves the
 config's boot floor. In CI,
@@ -488,7 +509,7 @@ and broken in production:
 
 | Writer | Reader | What the reader got |
 |---|---|---|
-| `visual_analysis.segment_payloads`: one `segment` per chunk | `dossier.lifted_drawing_facts` iterated `segments` | No printed fact from any drawing (#1491) |
+| `visual_rendering.segment_payloads`: one `segment` per chunk | `dossier.lifted_drawing_facts` iterated `segments` | No printed fact from any drawing (#1491) |
 | The wake and the document check sent the display name | Retrieval matches `focus_file_name` against the stored filename | No focus on any renamed document (#1492) |
 | `references.norm_key` keeps the document's spacing | The `refers_to` filter used the asker's spelling | No match for `B1600` against `B 1600` (#1493) |
 | Only the plain-text reader stamps chunk dates | The file listing read only those | No ingest date a day after upload (#1494) |
@@ -940,7 +961,7 @@ measured on 2026-09-24, and the effort A/B:
 
 ### The workspace set
 
-**The workspace set** (`-- --set workspace`, ADR-0123) asks Piloti for office
+**The workspace set** (`-- --set workspace`, ADR-0123) asks the agent for office
 work through its MCP door: reads, writes that must come back as proposals with
 the right input, two writes in one turn, an ambiguous target it must ask about,
 German and English, and follow-up turns in one conversation (a row's `turns`
@@ -948,10 +969,10 @@ run in order; the checkpointer carries the history between processes). Each
 run sits in the current project of a fixture office
 (`apps/workspace/tests/fixtures/workspace/office.json`) as an admin, with a
 signed envelope. `scripts/turn_census/fixture_workspace.py` serves the door from
-the catalog production shows Piloti (`catalog.json`, written by
+the catalog production shows the agent (`catalog.json`, written by
 `workspace-eval.fixture.spec.ts`) and the turn context with the WORKSPACE block
 the production renderer writes (`rendered.json`); a follow-up turn's block lists
-what the run filed, as production would. A search ranks as `discovery.ts` does
+what the run filed, as production would. A search ranks as `discovery-search.ts` does
 (`lib/text/operation-search.ts`); `tests/test_workspace_eval.py` holds the
 Python mirror to lists the TypeScript wrote. The questions are `tests/fixtures/workspace/workspace_questions.yaml`;
 the checks (`reads`, `proposes`, `uses`, `no_write`, `no_workspace`, `no_repeat`, the

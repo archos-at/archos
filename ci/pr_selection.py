@@ -1,66 +1,4 @@
 #!/usr/bin/env python3
-"""Decide which tests a pull request runs: the whole suite, or only what its change can reach.
-
-Two questions, answered once in the Plan job for both test tiers.
-
-**What changed?** Two references are sound, and the cheaper one wins.
-
-- The whole pull request against its base. A test that reaches none of its
-  files gives on the merge commit what it gives on `develop`, whose own full
-  run (the deploy gate) answers for it.
-- Against the pull request's last green CI run, when it has one: the pull
-  request's own diff since that run's head, plus every file `develop` changed
-  since shortly before that run, because the merge commit CI tests carries
-  both. The tests that ran passed, so a push that only answers a review
-  comment re-runs only what that push reaches. Each run's selection was sound
-  against its own reference, so chaining them is sound too.
-
-The second is smaller when `develop` stood still, and usually larger when it
-moved: an hour of `develop` was a median 83 files, and adding it forced the
-full Python suite on 90 of 113 replayed re-runs, where the pull request's own
-diff forces it on 27 (docs/audit/blast-radius-2026-10.md). So the plan takes
-the one that forces fewer full suites, then the one with fewer files, and says
-which (`reference`): the first holds only against `develop`'s testmon database,
-so a suite that would restore this pull request's own database restores
-`develop`'s instead (ci.yml, "Restore this pull request's test database").
-
-**Python** (pytest-testmon). Every green push to develop records which test
-executed which function (`backend-testmon`); a pull request's own runs keep
-their database per pull request, so the next push starts from it. The run is
-FULL when the change touches what testmon cannot see:
-
-- a conftest, a Python fixture, the lockfile or any pyproject.toml;
-- how the backend jobs run (ci.yml, its setup action, the task files, the
-  filters, this script);
-- Python outside the tested packages (scripts/, deploy/, ...), which tests
-  load by path or in a subprocess;
-- a non-Python file under a package's src/ that no test names;
-- no recorded database (first run, evicted cache).
-A non-Python input (a config, a prompt, a skill, a JSON schema) is invisible
-to coverage, so every test file that names it is added. A fixture under
-tests/fixtures/ counts as named by a test that names its directory too, since
-tests read whole fixture directories; one that no test names forces the full
-run, and so does any input a helper or conftest reads, since nothing says
-which tests load the helper.
-
-**UI** (`vitest related`). The specs whose import graph reaches a changed file,
-plus every spec that reads files from disk instead of importing them (route
-walkers, schema and migration checks), which no import graph can connect to a
-change. FULL when the change reaches what every spec loads: the package
-manifest, the vitest config and setup, the mocks the setup installs, the
-tsconfig, or how the workspace jobs run.
-
-The whole suite, sharded and coverage-gated, still runs on every push to
-develop, which the deploy waits for (deploy.yml), so anything a selection
-misses turns develop red before it reaches staging.
-
-Usage: pr_selection.py BASE
-Environment: GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_API_URL, GITHUB_HEAD_REF
-(all optional: without them there is no previous green run and no recorded
-database, so the answer is the whole PR, and full for Python).
-Writes `since`, `reference`, `py_mode`, `py_extra`, `ui_mode` and `ui_files`
-to $GITHUB_OUTPUT.
-"""
 
 from __future__ import annotations
 
@@ -177,7 +115,6 @@ DiskReaders = dict[str, tuple[str, ...] | None]
 
 
 def declared_inputs(source: str) -> tuple[str, ...] | None:
-    """The repo-relative globs a spec's `@disk-inputs` line names, or None without one."""
     found = DISK_INPUTS.search(source)
     if not found or SPAWNS.search(source):
         return None
@@ -190,15 +127,6 @@ def _matches(path: str, patterns: Iterable[str]) -> bool:
 
 
 def _reads(path: str, file: str, text: str) -> bool:
-    """Whether `text`, the source of `file` under a test root, names the non-Python `path`.
-
-    A test file names it by its path or file name anywhere. A helper or conftest
-    names it only as code reads a file, in a string literal that ends in its
-    name (`"…/folder-cards.schema.json"`, `"stored_answers.json"`). Prose in a
-    docstring (``packages/AGENTS.md``) is not a read, and counting it would run
-    every test for each edit of a document. A fixture is named by its
-    directories too, since tests read whole fixture directories (`rglob`).
-    """
     name = Path(path).name
     if Path(file).name.startswith("test_") and (path in text or name in text):
         return True
@@ -211,7 +139,6 @@ def _reads(path: str, file: str, text: str) -> bool:
 
 
 def _readers(path: str, test_files: dict[str, str]) -> set[str]:
-    """The files under the test roots that name `path` (:func:`_reads`)."""
     words = [Path(path).name]
     if path.startswith(PY_FIXTURES):
         words += Path(path).parent.relative_to(PY_FIXTURES).parts
@@ -224,12 +151,6 @@ SUPPORT_MODULE = re.compile(r"/testing/(?P<module>\w+_testing(?:/\w+)*)\.py$")
 
 
 def _importers(helper: str, test_files: dict[str, str]) -> set[str] | None:
-    """The test files that import a support-package helper, or None for any other helper.
-
-    A support module is imported by one stable name (`from agent_testing.exposure
-    import ...`, `from agent_testing import exposure`), so its importers can be
-    found; a conftest or another helper has no such name.
-    """
     match = SUPPORT_MODULE.search(f"/{helper}")
     if not match:
         return None
@@ -242,16 +163,25 @@ def _importers(helper: str, test_files: dict[str, str]) -> set[str] | None:
     return {file for file, text in test_files.items() if Path(file).name.startswith("test_") and imports.search(text)}
 
 
-def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool) -> tuple[str, list[str], str]:
-    """`(mode, extra test files, reason)` for the Python suites.
+SPAWNS_PYTHON = re.compile(r"\bsys\.executable\b")
 
-    `test_files` maps every Python file under the test roots (test files and
-    the helpers and conftests they load) to its text; `recorded` says whether a
-    testmon database from develop exists. A non-Python input that only a
-    helper names forces the full run, since nothing says which tests load the
-    helper, unless the helper is a support-package module, whose importers are
-    known by its name (:func:`_importers`).
-    """
+
+def _spawners(test_files: dict[str, str]) -> tuple[set[str], str | None]:
+    spawners: set[str] = set()
+    for file, text in test_files.items():
+        if not SPAWNS_PYTHON.search(text):
+            continue
+        if Path(file).name.startswith("test_"):
+            spawners.add(file)
+            continue
+        importers = _importers(file, test_files)
+        if importers is None:
+            return set(), file
+        spawners |= importers
+    return spawners, None
+
+
+def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool) -> tuple[str, list[str], str]:
     if not recorded:
         return "full", [], "no recorded testmon database to select from"
     forced = [path for path in changed if _matches(path, PY_FULL)]
@@ -276,15 +206,16 @@ def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool
             return "full", [], f"{path} is package data no test names"
         extra |= named
     reason = f"{len(changed)} changed files; testmon selects, plus {len(extra)} test files naming a non-Python change"
+    if any(_matches(path, PY_PACKAGE_SRC) for path in changed):
+        spawners, unconnected = _spawners(test_files)
+        if unconnected:
+            return "full", [], f"{unconnected} runs Python in a subprocess, and no test file connects to it"
+        extra |= spawners
+        reason += f" and {len(spawners)} that run package code in a subprocess"
     return "select", sorted(extra), reason
 
 
 def decide_ui(changed: list[str], disk_readers: DiskReaders) -> tuple[str, list[str], str]:
-    """`(mode, files for vitest related, reason)`; paths in the files list are relative to apps/workspace.
-
-    `none` means no UI spec can have changed outcome, so none runs. A disk reader
-    runs when a changed path matches its declared inputs, or always without them.
-    """
     forced = [path for path in changed if _matches(path, UI_FULL)]
     if forced:
         return "full", [], f"{forced[0]} reaches every spec"
@@ -317,6 +248,8 @@ def _python_test_files() -> dict[str, str]:
             relative = path.relative_to(ROOT).as_posix()
             if root == "packages" and "/tests/" not in f"/{relative}" and "/testing/" not in f"/{relative}":
                 continue
+            if "/.venv/" in f"/{relative}":
+                continue
             files[relative] = path.read_text(encoding="utf-8", errors="ignore")
     return files
 
@@ -337,12 +270,18 @@ def _disk_readers() -> DiskReaders:
     return dict(sorted(readers.items()))
 
 
+def was_full(get: Get, repo: str, run_id: object) -> bool:
+    artifacts = get(f"/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100").get("artifacts", [])
+    return any(a.get("name", "").startswith("ci-green-") and not a.get("expired") for a in artifacts)
+
+
 def previous_green(get: Get, repo: str, branch: str, head: str, is_ancestor: Callable[[str], bool]) -> dict | None:
-    """The newest successful CI run of this pull request's branch at an ancestor of `head` (or `head` itself)."""
     query = urllib.parse.urlencode({"branch": branch, "event": "pull_request", "status": "success", "per_page": 30})
     for run in get(f"/repos/{repo}/actions/workflows/ci.yml/runs?{query}").get("workflow_runs", []):
         sha = run.get("head_sha", "")
-        if re.fullmatch(r"[0-9a-f]{40}", sha) and (sha == head or is_ancestor(sha)):
+        if not (re.fullmatch(r"[0-9a-f]{40}", sha) and (sha == head or is_ancestor(sha))):
+            continue
+        if was_full(get, repo, run.get("id")):
             return run
     return None
 
@@ -351,7 +290,6 @@ Reference = tuple[list[str], str, str]
 
 
 def changed_paths(base: str, previous: dict | None) -> list[Reference]:
-    """Each sound reference for the paths the tests have not yet seen."""
     merge_base = _git("merge-base", base, "HEAD").strip()
     whole = (_names("diff", "--name-only", "--no-renames", merge_base, "HEAD"), f"the base {merge_base[:12]}", "base")
     if previous is None:
@@ -365,12 +303,10 @@ def changed_paths(base: str, previous: dict | None) -> list[Reference]:
 
 
 def cheaper(candidates: list[Reference], cost: Callable[[list[str]], int]) -> Reference:
-    """The candidate that forces the fewest full suites, then has the fewest paths; the first on a tie."""
     return min(candidates, key=lambda candidate: (cost(candidate[0]), len(candidate[0])))
 
 
 def recorded_database(get: Get) -> bool:
-    """Whether develop has saved a testmon database. Any failure answers no."""
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     query = urllib.parse.urlencode({"key": CACHE_PREFIX, "ref": "refs/heads/develop", "per_page": "1"})
     try:
@@ -380,9 +316,15 @@ def recorded_database(get: Get) -> bool:
         return False
 
 
+USAGE = (
+    "usage: pr_selection.py BASE\n"
+    "environment (all optional): GITHUB_TOKEN, GITHUB_REPOSITORY, GITHUB_API_URL, GITHUB_HEAD_REF"
+)
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
-        print(__doc__, file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         return 2
     token = os.environ.get("GITHUB_TOKEN", "")
     previous, recorded = None, False

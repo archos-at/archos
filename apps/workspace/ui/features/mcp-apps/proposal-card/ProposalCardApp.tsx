@@ -17,7 +17,7 @@ import { applyHostTheme } from './host-theme'
 import { cardOfProposal, renderProposalCard } from './proposal-cards'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-export const APP_INFO = { name: 'piloti-proposal-card', version: '1.0.0' } as const
+export const APP_INFO = { name: 'proposal-card', version: '1.0.0' } as const
 
 type HostApp = Pick<App, 'callServerTool' | 'updateModelContext'>
 

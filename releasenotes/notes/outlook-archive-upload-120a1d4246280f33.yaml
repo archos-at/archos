@@ -1,0 +1,7 @@
+---
+# area: documents
+improvements:
+  - >
+    An Outlook archive (.pst or .ost) you upload to a project's Dateien, with
+    „Hochladen“ or dropped on the page, is now imported as E-Mail-Verläufe and
+    attachment folders, so the separate „Outlook-Archiv importieren“ button is gone.

@@ -27,7 +27,7 @@ describe('planRevisionNotice', () => {
   it('plans one bulk job per pair, held for the debounce, naming the person and nothing of the content', async () => {
     const job = await planRevisionNotice(request, NOW)
 
-    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('piloti-notices', 'org-1')
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('revision-suggestions', 'org-1')
     const noticeId = revisionNoticeId('doc-b', 'doc-a')
     expect(job).toEqual({
       kind: 'revision_notice',

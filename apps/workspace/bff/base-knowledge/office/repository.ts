@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { documents } from '@/lib/db/schema/documents'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -13,6 +13,7 @@ export interface EntryDocument {
   collectionName: string
   storedName: string
   folderId: string | null
+  textWithheld?: boolean
 }
 
 export async function visibleOfficeDocuments(
@@ -29,6 +30,7 @@ export async function visibleOfficeDocuments(
         displayName: documents.displayName,
         collectionName: documents.collectionName,
         folderId: documents.folderId,
+        status: documents.status,
       })
       .from(documents)
       .where(
@@ -43,7 +45,14 @@ export async function visibleOfficeDocuments(
   return new Map(
     rows.map((row) => [
       row.id,
-      { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename, folderId: row.folderId },
+      {
+        id: row.id,
+        fileName: row.displayName ?? row.filename,
+        collectionName: row.collectionName,
+        storedName: row.filename,
+        folderId: row.folderId,
+        textWithheld: row.status === 'stored',
+      },
     ])
   )
 }
@@ -77,21 +86,12 @@ export async function readShelfDocument(
   return { id: row.id, fileName: row.displayName ?? row.filename, collectionName: row.collectionName, storedName: row.filename, folderId: row.folderId }
 }
 
-export async function shelfNameHasEntry(organizationId: string, filename: string, reader: DocumentReader): Promise<boolean> {
-  const rows = await withTenant({ organizationId }, () =>
-    getDb()
-      .select({ id: documents.id })
-      .from(documents)
-      .innerJoin(knowledgeRecords, eq(knowledgeRecords.documentId, documents.id))
-      .where(
-        and(
-          eq(documents.organizationId, organizationId),
-          eq(documents.scope, 'office_shelf'),
-          eq(documents.filename, filename),
-          documentVisibleTo(reader)
-        )
-      )
-      .limit(1)
-  )
-  return rows.length > 0
+export async function listOrganizationsWithOfficeEditions(limit: number): Promise<string[]> {
+  const rows = await getDb()
+    .selectDistinct({ organizationId: knowledgeRecords.organizationId })
+    .from(knowledgeRecords)
+    .where(and(isNotNull(knowledgeRecords.organizationId), eq(knowledgeRecords.type, 'edition'), isNotNull(knowledgeRecords.headRevisionId)))
+    .orderBy(asc(knowledgeRecords.organizationId))
+    .limit(limit)
+  return rows.flatMap((row) => (row.organizationId ? [row.organizationId] : []))
 }

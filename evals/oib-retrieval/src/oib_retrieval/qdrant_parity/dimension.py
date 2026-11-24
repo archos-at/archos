@@ -1,23 +1,3 @@
-"""Gate G6: does a 1024-d vector derived from the stored 3072-d one keep recall?
-
-Two instruments, because two different things could lose recall:
-
-* **Exact cosine in numpy** over the full vectors and over their truncated,
-  re-normalised prefix. This isolates the dimension: no index, no quantization.
-* **Qdrant's HNSW** on four named vectors in one throwaway collection: 3072 and
-  1024, each as float and as TurboQuant 4-bit (production's quantization,
-  ``schema.py``), searched with default parameters as ``hybrid_search``'s dense
-  prefetch is. This adds what the index and the quantized copy cost on top.
-
-Scored on the Punkt golden set's dense channel (German and English), units as
-everywhere else in this harness, production's base filter applied by dropping
-excluded files from a deeper ranking.
-
-This module drives ``qdrant_client`` directly: it builds a collection shape
-production does not have (four dense vectors), on a uniquely named collection it
-deletes afterwards, as the knowledge layer's own server tests do.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -43,7 +23,6 @@ VARIANTS = (
 
 
 def exact_rankings(doc_vectors: np.ndarray, query_vectors: np.ndarray, depth: int) -> list[list[int]]:
-    """Row indices of the ``depth`` nearest documents per query, by exact cosine (unit rows)."""
     scores = query_vectors @ doc_vectors.T
     depth = min(depth, doc_vectors.shape[0])
     order = np.argsort(-scores, axis=1, kind="stable")[:, :depth]
@@ -62,7 +41,6 @@ def _variant_params(models: Any, dimension: int, quantized: bool) -> Any:
 def qdrant_rankings(
     client: Any, doc_vectors: np.ndarray, query_vectors: np.ndarray, depth: int, timeout_s: float = 900.0
 ) -> tuple[dict[str, list[list[int]]], dict[str, Any]]:
-    """Per variant, the ANN ranking (row indices) for every query; and the collection's index state."""
     from qdrant_client import models
 
     name = f"parity_g6_{uuid.uuid4().hex[:8]}"
@@ -119,7 +97,6 @@ def _wait_green(client: Any, name: str, timeout_s: float) -> dict[str, Any]:
 
 
 def to_units(rows: Sequence[int], unit_of: Callable[[int], Any], allowed: Callable[[int], bool], depth: int) -> list:
-    """Row indices as distinct judged units, excluded rows dropped, cut at ``depth``."""
     units: list = []
     seen: set = set()
     for row in rows:

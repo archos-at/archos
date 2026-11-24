@@ -4,7 +4,6 @@ import io
 import json
 
 import httpx
-import knowledge_layer.ingest.adapter as llm_adapter
 import knowledge_layer.view_image as view
 import pypdfium2 as pdfium
 import pytest
@@ -80,7 +79,7 @@ def model(monkeypatch):
 @pytest.fixture(autouse=True)
 def stored(monkeypatch, calls):
     monkeypatch.setenv("VIEW_IMAGES_ENABLED", "true")
-    monkeypatch.setattr(llm_adapter, "_get_vlm_api_key", lambda: "sk-test")
+    monkeypatch.setenv("VLM_API_KEY", "sk-test")
     monkeypatch.setattr(view, "_find_pdf", lambda _name: None)
 
     async def locate(collection, file_name, organization_id=None, image_index=None):

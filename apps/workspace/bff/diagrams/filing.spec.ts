@@ -234,7 +234,7 @@ describe('what is stored is not what was sent', () => {
     await file()
     const body = s3Send.mock.calls[0][0] as PutObjectCommand
     const stored = Buffer.from(body.input.Body as Uint8Array).toString('utf8')
-    expect(stored).toContain('<metadata data-grid-diagram-source="mermaid">')
+    expect(stored).toContain('<metadata data-diagram-source="mermaid">')
     expect(stored).toContain('Bauverhandlung')
   })
 

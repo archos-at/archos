@@ -1,26 +1,13 @@
 'use client'
 
 import type { JSX } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import {
-  AlertTriangle,
-  Check,
-  Info,
-  Link2,
-  MoreHorizontal,
-  Search,
-  Share,
-  ShieldCheck,
-  UserMinus,
-  UserPlus,
-  X,
-} from 'lucide-react'
+import { AlertTriangle, MoreHorizontal, ShieldCheck, UserMinus, X } from 'lucide-react'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { Button } from '@/components/ui/button'
-import { Chip } from '@/components/ui/chip'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   Dialog,
@@ -40,9 +27,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
@@ -51,33 +38,17 @@ import {
   SHARING_ERROR_REASONS,
   type ResourceAccessEntry,
   type ResourceRole,
-  type ResourceSharingState,
   type ResourceVisibility,
-  type ShareCandidate,
   type ShareableResourceType,
+  type ShareCandidate,
 } from '@/lib/sharing/types'
-import { SectionLabel } from '@/components/ui/section-label'
-import { cn } from '@/lib/utils'
 import type { SharingFailure, UseSharingResult } from '../hooks/use-sharing'
 import { useShareCandidates } from '../hooks/use-sharing'
-import { canShareNatively, conversationLink, passOnLink, type ShareLinkOutcome } from '../lib/share-link'
+import { conversationLink } from '../lib/share-link'
+import { canLeave, isBlocked, MAX_CANDIDATES, ROLE_OPTIONS, VISIBILITY_RANK } from '../lib/share-rules'
 import { AccessOverview } from './AccessOverview'
-
-const ROLE_OPTIONS: readonly ResourceRole[] = ['viewer', 'collaborator', 'owner']
-const VISIBILITY_RANK: Record<ResourceVisibility, number> = {
-  private: 0,
-  project: 1,
-  organization: 2,
-}
-
-const MAX_CANDIDATES = 6
-
-const isBlocked = (candidate: ShareCandidate): boolean =>
-  candidate.needsProjectAccess || candidate.lacksFolderAccess === true
-
-const canLeave = (state: ResourceSharingState, currentUserId: string): boolean =>
-  state.myRole !== 'owner' ||
-  state.entries.some((entry) => entry.role === 'owner' && entry.person.userId !== currentUserId)
+import { ShareInviteSection } from './share-dialog/share-invite-section'
+import { ShareLink } from './share-dialog/share-link'
 
 type PendingConfirm =
   | { kind: 'visibility'; next: ResourceVisibility }
@@ -93,53 +64,6 @@ export interface ShareDialogProps {
   resourceType?: ShareableResourceType
   currentUserId?: string | null
   shareUrl?: string | null
-}
-
-function ShareLink({ url }: { url: string }): JSX.Element {
-  const t = useTranslations(collaborationCopy)
-  const [outcome, setOutcome] = useState<ShareLinkOutcome | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [native, setNative] = useState(false)
-  useEffect(() => {
-    setNative(canShareNatively())
-    return () => {
-      if (timer.current) clearTimeout(timer.current)
-    }
-  }, [])
-
-  const pass = async (): Promise<void> => {
-    const result = await passOnLink(url, t('sharing.link.shareTitle'))
-    if (timer.current) clearTimeout(timer.current)
-    setOutcome(result === 'cancelled' || result === 'shared' ? null : result)
-    if (result === 'copied') timer.current = setTimeout(() => setOutcome(null), 2400)
-  }
-
-  const Icon = outcome === 'copied' ? Check : native ? Share : Link2
-  return (
-    <section className="space-y-2" data-testid="share-link">
-      <SectionLabel as="h3">{t('sharing.link.heading')}</SectionLabel>
-      <Button
-        variant="secondary"
-        className="w-full justify-center gap-2 sm:w-auto"
-        onClick={() => void pass()}
-        data-testid="share-link-button"
-      >
-        <Icon className="size-4" aria-hidden />
-        {outcome === 'copied'
-          ? t('sharing.link.copied')
-          : native
-            ? t('sharing.link.share')
-            : t('sharing.link.copy')}
-      </Button>
-      <p role="status" className="text-xs leading-relaxed text-muted-foreground">
-        {outcome === 'failed' ? (
-          <span className="text-destructive">{t('sharing.link.failed')}</span>
-        ) : (
-          t('sharing.link.hint')
-        )}
-      </p>
-    </section>
-  )
 }
 
 export function ShareDialog({
@@ -474,154 +398,16 @@ export function ShareDialog({
             {canManage && (
               <>
                 <Separator />
-                <section className="space-y-2.5">
-                  <SectionLabel as="h3">{t('sharing.invite.label')}</SectionLabel>
-                  <div className="relative">
-                    <Search
-                      className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden
-                    />
-                    <Input
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder={t('sharing.invite.placeholder')}
-                      aria-label={t('sharing.invite.label')}
-                      className="pl-9"
-                    />
-                  </div>
-
-                  {candidatesLoading && candidates.length === 0 ? (
-                    <div className="space-y-2">
-                      {[0, 1].map((row) => (
-                        <Skeleton key={row} className="h-11 w-full" />
-                      ))}
-                    </div>
-                  ) : candidatesError ? (
-                    <Alert variant="destructive">
-                      <AlertTriangle className="size-4" aria-hidden />
-                      <AlertTitle className="line-clamp-none">
-                        {t('sharing.errors.loadFailed')}
-                      </AlertTitle>
-                      <AlertDescription>
-                        <Button variant="secondary" size="sm" className="mt-2" onClick={reloadCandidates}>
-                          {t('sharing.errors.tryAgain')}
-                        </Button>
-                      </AlertDescription>
-                    </Alert>
-                  ) : filteredCandidates.length === 0 ? (
-                    <p className="px-1 py-2 text-sm text-muted-foreground">
-                      {/* A typed query that matches nothing is a search result,
-                          not an empty org — the two need different sentences. */}
-                      {query.trim().length > 0
-                        ? t('sharing.invite.noResults', { query: query.trim() })
-                        : t('sharing.invite.empty')}
-                    </p>
-                  ) : (
-                    <ul className="-mx-2">
-                      {/* Deliberately NOT animated. This is a SEARCH RESULT list —
-                          the input above filters it on every keystroke — and an
-                          exit animation keeps the filtered-out row mounted until it
-                          finishes, so results lag behind typing. Even a pure
-                          `layout` reflow puts the rows in constant motion while
-                          someone types a name. The animation budget is spent where
-                          movement carries meaning (the roster regrouping, a release,
-                          an archive), not here, where instant is the feature. */}
-                      {filteredCandidates.map((candidate) => (
-                        <li
-                          key={candidate.person.userId}
-                          data-testid="share-candidate"
-                          data-blocked={isBlocked(candidate) || undefined}
-                          className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors duration-snap ease-out hover:bg-hover motion-reduce:transition-none"
-                        >
-                          <PersonAvatar person={candidate.person} size="md" />
-                          {/* Identity is a COLUMN, and the right-hand slot is its
-                              sibling — never inline with the name. With the badge
-                              inside the name's line (`truncate` name beside a
-                              `shrink-0` chip) the chip won every contest for width
-                              and a narrow dialog rendered "E…" where a colleague's
-                              name should be. The one thing this row exists to show
-                              is who the person is. */}
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className={cn(
-                                'truncate text-sm font-medium',
-                                isBlocked(candidate)
-                                  ? 'text-foreground/70'
-                                  : 'text-foreground',
-                              )}
-                            >
-                              {candidate.person.name}
-                            </p>
-                            {/* Always the email, on every row. It is what tells two
-                                same-named colleagues apart, so dropping it on the
-                                blocked row removed the identifying detail exactly
-                                where the reader has to make a decision. The reason
-                                the row is blocked is stated once below the list
-                                instead of once per row — same sentence, and it no
-                                longer turns a list item into a paragraph. */}
-                            <p className="truncate text-xs text-muted-foreground">
-                              {candidate.person.email ?? ''}
-                            </p>
-                            {/* Not in the project is one sentence for the whole list
-                                (below). This one is per person and exact: it is
-                                what the owner decided the row says, and it never
-                                names the folder — the sharer may not read it. */}
-                            {candidate.lacksFolderAccess === true && (
-                              <p
-                                data-testid="share-candidate-lacks-folder"
-                                className="text-xs leading-snug text-muted-foreground"
-                              >
-                                {t('sharing.invite.lacksFolderAccess')}
-                              </p>
-                            )}
-                          </div>
-                          {/* One slot on the right: the action, or the reason there
-                              isn't one. A disabled "Einladen" was a control that
-                              could never work no matter how often it was pressed —
-                              the badge says what to fix instead. */}
-                          {candidate.needsProjectAccess ? (
-                            <Chip variant="muted" size="sm" className="shrink-0 font-normal">
-                              {t('sharing.invite.needsProjectAccess')}
-                            </Chip>
-                          ) : candidate.lacksFolderAccess === true ? (
-                            <Chip variant="muted" size="sm" className="shrink-0 font-normal">
-                              {t('sharing.invite.lacksFolderAccessBadge')}
-                            </Chip>
-                          ) : (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="shrink-0 gap-1.5"
-                              disabled={saving}
-                              aria-label={`${t('sharing.invite.submit')}: ${candidate.person.name}`}
-                              onClick={() => void sharing.grant(candidate.person.userId)}
-                            >
-                              <UserPlus className="size-3.5" aria-hidden />
-                              {t('sharing.invite.submit')}
-                            </Button>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {/* The rule behind every "Noch nicht im Projekt" badge above,
-                      stated ONCE. Per row it was a two-sentence paragraph repeated
-                      for each blocked colleague, which made list items different
-                      heights and buried the names it sat under. It is the same
-                      sentence — it just belongs to the list, not to a row. */}
-                  {filteredCandidates.some((candidate) => candidate.needsProjectAccess) && (
-                    <p
-                      data-testid="share-blocked-note"
-                      className="flex items-start gap-1.5 pt-0.5 text-xs leading-snug text-muted-foreground"
-                    >
-                      <Info className="mt-px size-3.5 shrink-0 opacity-70" aria-hidden />
-                      <span className="min-w-0">
-                        {t('sharing.invite.needsProjectAccessHint')}
-                      </span>
-                    </p>
-                  )}
-                </section>
+                <ShareInviteSection
+                  sharing={sharing}
+                  candidates={candidates}
+                  candidatesLoading={candidatesLoading}
+                  candidatesError={candidatesError}
+                  reloadCandidates={reloadCandidates}
+                  query={query}
+                  onQueryChange={setQuery}
+                  filteredCandidates={filteredCandidates}
+                />
               </>
             )}
 

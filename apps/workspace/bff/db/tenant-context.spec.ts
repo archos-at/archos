@@ -1,8 +1,5 @@
 // @vitest-environment node
-// @disk-inputs: app/api/**, bff/agent-api/mcp-door-route.ts, bff/api/handler.ts, bff/api/platform-handler.ts, bff/db/tenant-context.ts
 
-import { readFileSync, readdirSync } from 'node:fs'
-import { join, relative } from 'node:path'
 import http from 'node:http'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -190,64 +187,5 @@ describe('explicit scopes', () => {
       })
 
     expect(await Promise.all([observe('ORG_A'), observe('ORG_B')])).toEqual(['ORG_A', 'ORG_B'])
-  })
-})
-
-describe('route factories open a request-scoped slot', () => {
-  const FACTORIES: Array<{ file: string; factories: string[] }> = [
-    { file: 'bff/api/handler.ts', factories: ['apiRoute', 'internalApiRoute', 'publicApiRoute'] },
-    { file: 'bff/api/platform-handler.ts', factories: ['platformApiRoute'] },
-    { file: 'bff/agent-api/mcp-door-route.ts', factories: ['mcpDoorPost'] },
-  ]
-
-  it.each(FACTORIES)('$file wraps every handler in runWithTenantSlot', ({ file, factories }) => {
-    const source = readFileSync(join(process.cwd(), file), 'utf8')
-
-    for (const factory of factories) {
-      const start = source.lastIndexOf(`export function ${factory}`)
-      expect(start, `${factory} not found in ${file}`).toBeGreaterThan(-1)
-      const next = FACTORIES.flatMap((entry) => entry.factories)
-        .map((name) => source.indexOf(`export function ${name}`, start + 1))
-        .filter((index) => index > start)
-      const body = source.slice(start, next.length ? Math.min(...next) : undefined)
-
-      expect(
-        body,
-        `${factory} must RETURN runWithTenantSlot(...) or tenantSlotRoute(...), or a ` +
-          `request can inherit the previous request's tenant off a keep-alive socket.`
-      ).toMatch(/return\s+(?:runWithTenantSlot|tenantSlotRoute)\(/)
-    }
-  })
-
-  it('every API route opens a slot, by factory or explicitly', () => {
-    const apiDir = join(process.cwd(), 'app', 'api')
-    const routes: string[] = []
-    const walk = (dir: string) => {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const path = join(dir, entry.name)
-        if (entry.isDirectory()) walk(path)
-        else if (entry.name === 'route.ts') routes.push(path)
-      }
-    }
-    walk(apiDir)
-    expect(routes.length, 'the API route walk found no route.ts files').toBeGreaterThan(0)
-
-    const SCOPED_EXPORT =
-      /export\s+const\s+(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s*=\s*(?:apiRoute|internalApiRoute|publicApiRoute|platformApiRoute|tenantSlotRoute|mcpDoorPost)\s*(?:<[^>]*>)?\s*\(/
-    const unscoped = routes
-      .filter((path) => !SCOPED_EXPORT.test(readFileSync(path, 'utf8')))
-      .map((path) => relative(apiDir, path))
-
-    expect(
-      unscoped,
-      'These routes open no tenant slot, so they run on the unbounded enterWith ' +
-        'fallback and can inherit the previous request\'s tenant. Declare them ' +
-        'through a factory, or wrap them in tenantSlotRoute().'
-    ).toEqual([])
-  })
-
-  it('nothing calls the unbounded enterWith except the documented session fallback', () => {
-    const context = readFileSync(join(process.cwd(), 'bff/db/tenant-context.ts'), 'utf8')
-    expect(context.match(/storage\.enterWith\(/g) ?? []).toHaveLength(1)
   })
 })

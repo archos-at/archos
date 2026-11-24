@@ -114,11 +114,17 @@ def test_the_tier_names_pending_the_deploy_rename_are_not_counted(checker):
     assert checker.count_text("from aiq_agent.agents.piloti import run") == 2
 
 
-def test_an_import_of_the_chat_package_is_not_a_new_name_but_the_path_elsewhere_is(checker):
-    assert checker.count_text("from agent.agents.piloti import run") == 0
-    assert checker.count_text("from agent.agents.piloti.prompt import TurnPrompt as PilotiPrompt") == 1
-    assert checker.count_text('module = "agent.agents.piloti.agent"') == 1
-    assert checker.count_text("from agent.agents.piloti_v2 import run") == 1
+def test_the_external_names_the_owner_kept_are_not_counted(checker):
+    assert checker.count_text('config.require("grid-oib:imageTag") and esc env get acme/grid-oib/dev') == 0
+    assert checker.count_text("bucket grid-documents, `grid-org-${id}`, grid-org-o1-abc") == 0
+    assert checker.count_text("alias piloti_corpus and piloti_office") == 0
+    assert checker.count_text("image grid-oib-backend, grid_document_id, piloti_corpus_v2") == 3
+
+
+def test_a_legacy_module_that_says_when_it_goes_is_not_counted(checker, repo):
+    _add(repo, "apps/x/legacy-flags.ts", "// drop after release 2026-W48\nexport const OLD = 'piloti-wakes'\n")
+    _add(repo, "apps/x/flags.ts", "export const OLD = 'piloti-wakes'\n")
+    assert checker.measure(repo, ["apps/x/legacy-flags.ts", "apps/x/flags.ts"]) == {"apps/x/flags.ts": 1}
 
 
 def test_a_file_split_inside_a_package_directory_is_not_a_new_hit(checker, repo):

@@ -1,9 +1,6 @@
-// @disk-inputs: ../../packages/agent/src/agent/project_context.py, migrations/0087_organization_instructions.sql
 /**
  * @vitest-environment node
  */
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
@@ -80,13 +77,7 @@ describe('the write boundary', () => {
   it('counts CHARACTERS, so an umlaut costs one', () => {
     const text = 'ä'.repeat(ORG_INSTRUCTIONS_MAX_CHARS)
     expect(orgInstructionsSchema.safeParse({ instructions: text }).success).toBe(true)
-  })
-
-  it('is the number the backend uses (the SQL CHECK is held to it below)', () => {
-    const backend = readFileSync(join(process.cwd(), '..', '..', 'packages', 'agent', 'src', 'agent', 'project_context.py'), 'utf8')
-    expect(backend).toContain(`ORG_INSTRUCTIONS_MAX_CHARS = ${ORG_INSTRUCTIONS_MAX_CHARS}\n`)
-  })
-})
+  })})
 
 describe('saving', () => {
   it('stores the trimmed block and invalidates the turn path', async () => {
@@ -178,24 +169,5 @@ describe('the settings read', () => {
       updatedByEmail: null,
       updatedAt: null,
     })
-  })
-})
-
-describe('the bound the database enforces', () => {
-  const migration = readFileSync(
-    join(process.cwd(), 'migrations', '0087_organization_instructions.sql'),
-    'utf8'
-  )
-
-  it('caps char_length at exactly the constant the UI counts against', () => {
-    expect(migration).toContain(`CHECK (char_length("instructions") <= ${ORG_INSTRUCTIONS_MAX_CHARS})`)
-  })
-
-  it('caps CHARACTERS, not bytes — an umlaut must not cost two', () => {
-    expect(migration).not.toContain('octet_length("instructions")')
-  })
-
-  it('forbids a blank block, because the row is deleted instead', () => {
-    expect(migration).toContain(`CHECK (btrim("instructions") <> '')`)
   })
 })

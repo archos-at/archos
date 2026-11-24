@@ -1,0 +1,10 @@
+{
+  "new_enquiry": "Neue Anfrage über die Website",
+  "check_inbox": "bitte Postfach prüfen:",
+  "send_failed": "Eine Anfrage konnte nicht per E-Mail zugestellt werden",
+  "visitor_mailed_us": "das Formular hat das E-Mail-Programm der Person geöffnet, die Anfrage kommt also vielleicht direkt an kontakt@",
+  "form_contact": "Kontakt",
+  "form_demo": "Demo",
+  "form_other": "Formular",
+  "unknown_deployment": "unbekannte Umgebung"
+}

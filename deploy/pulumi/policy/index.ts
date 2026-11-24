@@ -1,5 +1,6 @@
 import * as k8s from "@pulumi/kubernetes";
 import { PolicyPack, ReportViolation, validateResourceOfType } from "@pulumi/policy";
+import { UPSTREAM_SOAK_EXEMPT } from "./exemptions";
 
 type PodSpec = k8s.types.output.core.v1.PodSpec;
 type Container = k8s.types.output.core.v1.Container;
@@ -30,11 +31,6 @@ function containersOf(pod: PodSpec | undefined): Container[] {
 
 const CREATED_WITH_POD_MANAGEMENT_POLICY: Record<string, string> = { qdrant: "Parallel" };
 
-const UPSTREAM_SOAK_EXEMPT: Record<string, string> = {
-  "rabbitmq-cluster-operator":
-    "Reconciles RabbitmqCluster objects and serves nothing (deploy/pulumi/src/platform/rabbitmq.ts); " +
-    "the brokers keep serving while it restarts.",
-};
 
 function isImmutableRef(image: string): boolean {
   if (image.includes("@sha256:")) return true;
@@ -243,10 +239,10 @@ export default new PolicyPack("grid-oib-guardrails", {
     {
       name: "prefer-immutable-image-tags",
       description:
-        "Advisory: prefer a digest or a version tag over `latest`. A moving tag means the " +
+        "Pin every image to a digest or a version tag, never `latest`. A moving tag means the " +
         "running version changes at unpredictable times — every node replacement the " +
         "provider performs is an unreviewed upgrade.",
-      enforcementLevel: "advisory",
+      enforcementLevel: "mandatory",
       validateResource: forEachWorkload((workload, report) => {
         const name = workload.metadata?.name ?? "<unnamed>";
         for (const container of containersOf(workload.spec?.template?.spec)) {

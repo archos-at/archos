@@ -4,6 +4,10 @@ export const nav = {
   recentChats: 'Recent chats',
   allChats: 'All chats',
   temporaryChat: '(temporary chat)',
+  chatWorking: '(working)',
+  chatWaiting: '(waiting for your answer)',
+  chatAnswered: '(answer ready)',
+  chatFailed: '(answer failed)',
   temporaryChatTitle: '{title} (temporary chat: nothing from it is kept)',
   allProjects: '{productName} — all projects',
   collapseSidebar: 'Collapse sidebar',
@@ -15,7 +19,7 @@ export const nav = {
   openNavigation: 'Open navigation',
   sections: {
     chat: 'Chat',
-    files: 'Files',
+    files: 'Documents',
     knowledge: 'Knowledge',
     research: 'Research',
     automation: 'Automation',
@@ -23,8 +27,8 @@ export const nav = {
     skills: 'Skills',
     jobs: 'Jobs',
     tasks: 'Tasks',
-    officeShelf: 'Office filing',
-    baseKnowledge: 'Office standards',
+    officeShelf: 'Office library',
+    baseKnowledge: 'Standards & guidelines',
     search: 'Search',
     settings: 'Overview',
     intake: 'Setup',
@@ -44,8 +48,8 @@ export const nav = {
   },
   subpages: {
     'files/all': {
-      title: 'Files',
-      tab: 'Folders',
+      title: 'Documents',
+      tab: 'Files',
     },
     'files/mail': {
       title: 'Project mail',
@@ -57,7 +61,7 @@ export const nav = {
       title: 'Open points',
     },
   },
-  filesPlaces: 'File places',
+  filesPlaces: 'Document places',
   backTo: 'Back to {label}',
   returnTargets: {
     project: 'the project',

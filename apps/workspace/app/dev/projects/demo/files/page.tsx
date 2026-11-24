@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { ProjectFileWorkspace } from '@/features/documents/components/project-file-workspace'
 import type { DocumentWireRow } from '@/features/documents/lib/file-item'
+import type { MailImportView } from '@/lib/mail-import/types'
 import { PRODUCT_NAME } from '@/lib/brand'
 
 const row = (id: string, filename: string, summary: string, extra: Partial<DocumentWireRow> = {}): DocumentWireRow => ({
@@ -30,7 +31,39 @@ const row = (id: string, filename: string, summary: string, extra: Partial<Docum
 
 const DEMO_PROJECT = 'demo'
 
-const unread = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('unread') === '1'
+const query = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams()
+const unread = query.get('unread') === '1'
+const mail = query.get('mail')
+
+const MAIL_PART = 32 * 1024 * 1024
+
+const mailImport = (overrides: Partial<MailImportView>): MailImportView => ({
+  id: 'imp-running',
+  filename: 'Korrespondenz Behörden.pst',
+  sizeBytes: 1_850_000_000,
+  status: 'importing',
+  startedBy: { userId: 'u1', email: null },
+  ownedByViewer: true,
+  cancellable: true,
+  folderId: null,
+  totalItems: 2_904,
+  processedItems: 1_137,
+  mailsFiled: 1_090,
+  filesFiled: 812,
+  itemsSkipped: 0,
+  filesSkipped: 0,
+  threadsCreated: 64,
+  threadsAppended: 3,
+  alreadyInProject: 0,
+  skippedSamples: [],
+  errorCode: null,
+  error: null,
+  createdAt: new Date(Date.now() - 3_600_000).toISOString(),
+  completedAt: null,
+  ...overrides,
+})
+
+const MAIL_IMPORTS: MailImportView[] = mail === 'running' ? [mailImport({})] : []
 
 const FILES: DocumentWireRow[] = [
   row('d1', 'Lebenslauf_SebastianKufner.pdf', 'Das Dokument zeigt einen tabellarischen Lebenslauf mit Stationen.'),
@@ -80,6 +113,18 @@ function useFixtureFetch(): void {
       }
       if (path === '/api/documents') return json({ documents: FILES, nextCursor: null, collectionName: 'demo' })
       if (/\/folders$/.test(path)) return json({ folders: [], rootAccess: 'write' })
+      if (path === `/api/projects/${DEMO_PROJECT}/mail-imports`) {
+        if (init?.method === 'POST') {
+          const { filename, sizeBytes } = JSON.parse(String(init.body)) as { filename: string; sizeBytes: number }
+          const started = mailImport({ id: 'imp-new', filename, sizeBytes, status: 'uploading', totalItems: null, processedItems: 0 })
+          return json(
+            { import: started, partSize: MAIL_PART, partCount: Math.max(1, Math.ceil(sizeBytes / MAIL_PART)), uploadedParts: [] },
+            201
+          )
+        }
+        return json({ imports: MAIL_IMPORTS, nextCursor: null, maxSizeBytes: 25e9, partSize: MAIL_PART })
+      }
+      if (/\/mail-imports\/imp-new\/parts\//.test(path)) return new Promise<Response>(() => undefined)
       return real(input, init)
     }
     return () => {
@@ -108,6 +153,8 @@ function FilesPreview(): JSX.Element {
             currentUserId="u1"
             initialFolders={[]}
             initialFiles={FILES}
+            mailImportEnabled={mail !== null}
+            initialRootAccess="write"
           />
         </ProjectSectionFrame>
       </main>

@@ -1,5 +1,3 @@
-"""DeepAgents skills and sandbox runtime support for deep research."""
-
 from __future__ import annotations
 
 import functools
@@ -45,8 +43,6 @@ SKILL_AGENT_NAMES = frozenset({"researcher-agent", "writer-agent"})
 
 
 class DeepResearchSkillsConfig(FunctionBaseConfig, name="deep_research_skills"):
-    """AI-Q config surface for assigning built-in DeepAgents skill collections."""
-
     model_config = ConfigDict(extra="forbid")
 
     agents: dict[str, tuple[str, ...]] = Field(
@@ -70,8 +66,6 @@ class DeepResearchSkillsConfig(FunctionBaseConfig, name="deep_research_skills"):
 
 
 class DeepResearchSandboxConfig(FunctionBaseConfig, name="deep_research_sandbox"):
-    """AI-Q config surface for the optional DeepAgents sandbox backend."""
-
     model_config = ConfigDict(extra="forbid")
 
     provider: Literal["modal"] = Field(default="modal", description="Sandbox backend provider.")
@@ -91,13 +85,10 @@ class DeepResearchSandboxConfig(FunctionBaseConfig, name="deep_research_sandbox"
 
     @property
     def block_network(self) -> bool:
-        """Return the block_network flag for this public network setting."""
         return self.network == "blocked"
 
 
 class DeepAgentsRuntime:
-    """Build DeepAgents backend wiring and resolve AI-Q skill collections."""
-
     def __init__(
         self,
         *,
@@ -113,36 +104,23 @@ class DeepAgentsRuntime:
 
     @property
     def execution_enabled(self) -> bool:
-        """Return true when the runtime has a sandbox backend for execute."""
         return self._sandbox is not None
 
     @property
     def collections(self) -> tuple[str, ...]:
-        """Every builtin collection some subagent is assigned, in config order."""
         return tuple(dict.fromkeys(c for names in self._collections_by_agent.values() for c in names))
 
     def skill_runtime(self, office: Sequence[Skill] = ()) -> SkillRuntime:
-        """This run's skills: the assigned builtin collections, then the office's own.
-
-        Curated builtins are offers, not machinery: one the organization took up
-        arrives in ``office`` through the BFF payload, and is otherwise absent.
-        """
         machinery = _machinery_by_collection()
         sources: dict[str, Sequence[Skill]] = {c: machinery.get(c, ()) for c in self.collections}
         sources[OFFICE_SOURCE] = tuple(office)
         return SkillRuntime(sources)
 
     def skill_sources_for(self, agent_name: str, skills: SkillRuntime | None) -> list[str]:
-        """The builtin sources ``agent_name`` lists: its assigned collections holding a skill this run."""
         held = set(skills.sources) if skills is not None else set()
         return [source_path(c) for c in self._collections_by_agent.get(agent_name, ()) if c in held]
 
     def backend_for(self, skills: SkillRuntime | None) -> Any:
-        """The backend one run's graph uses: the job's default plus the ``/skills/`` and ``/shared/`` routes.
-
-        Built per run because the skills are per tenant; the default (state, or
-        the job's sandbox) is built once per agent instance.
-        """
         if self._default is None:
             self._default = _create_sandbox_backend(self._sandbox, self._job_id) if self._sandbox else StateBackend()
         routes: dict[str, Any] = {}
@@ -155,7 +133,6 @@ class DeepAgentsRuntime:
 
 @functools.cache
 def _machinery_by_collection() -> dict[str, tuple[Skill, ...]]:
-    """Non-curated builtin skills grouped by collection, read from disk once per process."""
     grouped: dict[str, list[Skill]] = {}
     for skill in discover_builtin_skills():
         if not _is_curated(skill):
@@ -164,7 +141,6 @@ def _machinery_by_collection() -> dict[str, tuple[Skill, ...]]:
 
 
 def discover_skill_collections(root: Path = BUILTIN_SKILLS_DIR) -> dict[str, str]:
-    """Return built-in skill collection names mapped to DeepAgents source paths."""
     if not root.exists():
         return {}
 
@@ -179,7 +155,6 @@ def discover_skill_collections(root: Path = BUILTIN_SKILLS_DIR) -> dict[str, str
 
 
 def resolve_skill_collections(collection_names: tuple[str, ...]) -> tuple[str, ...]:
-    """Resolve public skill collection names to DeepAgents source paths."""
     known = discover_skill_collections()
     unknown = sorted(set(collection_names) - set(known))
     if unknown:
@@ -188,7 +163,6 @@ def resolve_skill_collections(collection_names: tuple[str, ...]) -> tuple[str, .
 
 
 def _resolve_agent_collections(skills: DeepResearchSkillsConfig | None) -> dict[str, tuple[str, ...]]:
-    """Each subagent's collection names, every one checked against the builtin tree."""
     if skills is None:
         return {}
     for names in skills.agents.values():
@@ -256,8 +230,6 @@ def _ensure_modal_dependencies() -> None:
 
 
 class _LazyModalSandboxBackend(BaseSandbox):
-    """Job-scoped Modal backend that creates and recreates the sandbox on demand."""
-
     def __init__(self, config: DeepResearchSandboxConfig, job_id: str) -> None:
         self.config = config
         self.sandbox_name = _validate_modal_sandbox_name(job_id)
@@ -272,7 +244,6 @@ class _LazyModalSandboxBackend(BaseSandbox):
         return backend.id
 
     def _with_recreate(self, action: str, op: Callable[[Any], T]) -> T:
-        """Run ``op`` against the sandbox; recreate it once if Modal says it is gone."""
         try:
             return op(self._get_backend())
         except Exception as exc:

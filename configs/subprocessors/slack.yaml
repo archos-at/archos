@@ -24,23 +24,20 @@ deletion:
 hosts: [slack.com]
 env: []
 posthog_destinations:
-  # Feedback (deploy/posthog/support): new report, claimed, thumbs-down with a reason.
   - 01a16483-aaa2-0000-9400-98b42243aa65
   - 01a16445-c91c-0000-5f64-2f70e9c0e3b3
   - 01a17e99-0271-0000-4f5a-8c22030a5fd0
-  # Error tracking to #alerts-prod: issue spiking, upstream outage created and
-  # reopened. Each posts the issue's title, i.e. the exception message.
   - 01a15d7e-e622-0000-12c9-4226994d613e
   - 01a159e8-d931-0000-1e37-d70888119726
   - 01a159e8-dc54-0000-ef13-a9083eabd27c
-  # Insight alerts: platform health, a ticket waiting 24 h, costs and budgets.
-  # Counts and rule names, no office text.
   - 01a17ea5-0076-0000-c725-3cd6187d926a
   - 01a17ea5-03eb-0000-0596-3dccfc406539
+  - 01a1f320-80b7-0000-21fc-d17970947d39
   - 01a17ea5-06b2-0000-a138-a2d2cd892bc5
 hog_files:
   - deploy/posthog/support/slack-alert.hog
   - deploy/posthog/support/claim-update.hog
+  - deploy/posthog/website/enquiry-slack.hog
 evidence:
   - deploy/posthog/README.md
 agreement:
@@ -56,8 +53,8 @@ copy:
     de: Slack Technologies, LLC
     en: Slack Technologies, LLC
   purpose:
-    de: Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Fehler und Betriebswarnungen
-    en: Notifying our team internally about new reports, answer ratings, errors and operational alerts
+    de: Interne Benachrichtigung unseres Teams über neue Rückmeldungen, Antwort-Bewertungen, Anfragen über die Website, Fehler und Betriebswarnungen
+    en: Notifying our team internally about new reports, answer ratings, enquiries through the website, errors and operational alerts
   data:
     de: Ticketnummer, Art der Rückmeldung, Grund einer negativen Bewertung, Name der Organisation, Links; Titel von Fehlermeldungen, die den Namen eines Dokuments oder Projekts enthalten können; Kennzahlen zu Betrieb und Kosten. Kein Text Ihrer Rückmeldungen oder Chats
     en: Ticket number, kind of report, reason of a negative rating, organization name, links; titles of error messages, which can contain the name of a document or project; operational and cost figures. No text of your reports or chats

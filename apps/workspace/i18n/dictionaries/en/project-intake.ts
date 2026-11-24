@@ -164,6 +164,7 @@ export const projectIntake = {
     refused: '{count, plural, one {# decision was not taken.} other {# decisions were not taken.}}',
     start: 'We could not start reading.',
     complete: 'We could not finish the setup.',
+    building: 'The building could not be changed. Please try again.',
   },
   empty: {
     title: 'This project has no setup by {productName}',

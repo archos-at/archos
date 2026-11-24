@@ -167,7 +167,7 @@ describe.skipIf(!url)('a dispatch that fails late, against Postgres', () => {
     `))
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     context = await import('@/lib/db/tenant-context')
     db = (await import('@/lib/db')).getDb()
     schema = await import('@/lib/db/schema')

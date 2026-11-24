@@ -2,30 +2,38 @@ import 'server-only'
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { isUniqueViolation } from '@/lib/db/errors'
 import { bucketAdminS3Client, buildStorageKey, s3Client } from '@/lib/s3'
-import { agentDocumentFilename } from './agent-namespace'
+import { agentDocumentFilename, isNamespacedAgentDocument } from './agent-namespace'
 import { ensureTenantBucketChecked } from '@/lib/storage/bucket'
 import { admitOrDiscard } from '@/lib/storage/admission'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { placementCollectionFor, requireFolderWrite } from '@/lib/authz/folder-access'
-import { aiProvenanceMarking, markingIsInBytes, type AiProvenanceMarking } from '@/lib/ai-provenance'
+import { aiProvenanceMarking, markingIsInBytes, type AiProvenance, type AiProvenanceMarking } from '@/lib/ai-provenance'
+import { AGENT_FILE_TYPES } from './agent-file-types'
 import { fileSlug } from '@/lib/text/latinize'
 import { FEATURE_FLAGS, isAgentAuthoredDocumentsEnabled } from '@/lib/authz/feature-flags'
 import { recordAuditEventOrThrow } from '@/lib/audit/service'
 import { ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { findProjectInOrg } from '@/lib/projects/repository'
-import { findRootProjectFolderByName, getOrCreateProjectFolderByName } from '@/lib/projects/folder-service'
+import {
+  findProjectFolder,
+  findRootProjectFolderByName,
+  getOrCreateProjectFolderByName,
+  type FolderRow,
+} from '@/lib/projects/folder-service'
 import { requireMayFileFrom, type ConversationOrigin } from '@/lib/conversations/restricted-egress'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { AuthoredRefKind } from './document-authors'
 import { deleteProjectDocument, findDocumentAuthoredByRef } from './repository'
 import { projectShelf } from './shelf'
 import { publishShelfChanged } from './shelf-live'
+import { GENERATED_DOCUMENT_FOLDER_NAME } from './generated-folder'
 
 export const GENERATED_DOCUMENT_PRODUCER_REF_KINDS = {
   deep_research: 'agent_run',
   diagram_svg: 'answer_artifact',
   diagram_pdf: 'answer_artifact',
   agent_document: 'answer_artifact',
+  agent_file: 'answer_artifact',
 } as const satisfies Record<string, AuthoredRefKind>
 
 export type GeneratedDocumentProducer = keyof typeof GENERATED_DOCUMENT_PRODUCER_REF_KINDS
@@ -39,19 +47,16 @@ const REF_KIND_IS_A_RUN: Record<AuthoredRefKind, boolean> = {
   answer_artifact: false,
 }
 
-const PRODUCER_FILES_UNDER_NAMESPACE: Record<GeneratedDocumentProducer, boolean> = {
-  deep_research: false,
-  diagram_svg: false,
-  diagram_pdf: false,
-  agent_document: true,
+export function generatedDocumentProvenance(producer: GeneratedDocumentProducer, ref: string): AiProvenance {
+  const refKind = GENERATED_DOCUMENT_PRODUCER_REF_KINDS[producer]
+  return REF_KIND_IS_A_RUN[refKind] ? { runId: ref } : {}
 }
 
 export function generatedDocumentMarking(
   producer: GeneratedDocumentProducer,
   ref: string,
 ): AiProvenanceMarking {
-  const refKind = GENERATED_DOCUMENT_PRODUCER_REF_KINDS[producer]
-  return aiProvenanceMarking(REF_KIND_IS_A_RUN[refKind] ? { runId: ref } : {})
+  return aiProvenanceMarking(generatedDocumentProvenance(producer, ref))
 }
 
 export class UnmarkedRenderingError extends Error {
@@ -82,6 +87,8 @@ export interface FileGeneratedDocumentInput {
   ref: string
   title: string
   render: (context: GeneratedRenderContext) => Promise<GeneratedRendering> | GeneratedRendering
+  filename?: string
+  folderId?: string | null
   request?: Request
   origin?: ConversationOrigin
 }
@@ -93,7 +100,7 @@ export interface FiledGeneratedDocument {
   alreadyFiled: boolean
 }
 
-export const GENERATED_DOCUMENT_FOLDER_NAME = 'Berichte'
+export { GENERATED_DOCUMENT_FOLDER_NAME }
 
 export interface GeneratedDocumentDestination {
   folderName: string
@@ -106,21 +113,40 @@ export function resolveGeneratedDocumentDestination(
 }
 
 const EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = {
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-  'application/pdf': 'pdf',
+  ...Object.fromEntries(Object.entries(AGENT_FILE_TYPES).map(([type, { extension }]) => [type, extension])),
   'text/markdown': 'md',
   'application/json': 'json',
-  'image/svg+xml': 'svg',
 }
 
 export function generatedFilename(title: string, contentType: string, now: Date): string {
   const day = now.toISOString().slice(0, 10)
-  const slug = fileSlug(title)
   const extension = EXTENSION_BY_CONTENT_TYPE[contentType.split(';')[0].trim()] ?? 'bin'
+  const stem = title.toLowerCase().endsWith(`.${extension}`) ? title.slice(0, -(extension.length + 1)) : title
+  const slug = fileSlug(stem)
   return `${slug || 'document'}-${day}.${extension}`
 }
 
-export async function assertMayFileGeneratedDocument(session: AuthorizedSession, projectId: string): Promise<void> {
+export function storageName(name: string): string {
+  const dot = name.lastIndexOf('.')
+  const extension = dot > 0 ? name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : ''
+  const stem = fileSlug(dot > 0 ? name.slice(0, dot) : name, { lowercase: false, maxLength: 120 })
+  return `${stem || 'document'}${extension ? `.${extension}` : ''}`
+}
+
+type ChosenFolder = Pick<FolderRow, 'id' | 'path'> | null
+
+async function chosenFolder(session: AuthorizedSession, projectId: string, folderId: string | null): Promise<ChosenFolder> {
+  if (folderId === null) return null
+  const folder = await findProjectFolder(projectId, folderId, session.organizationId)
+  if (!folder) throw new NotFoundError('Folder not found')
+  return folder
+}
+
+export async function assertMayFileGeneratedDocument(
+  session: AuthorizedSession,
+  projectId: string,
+  folderId?: string | null,
+): Promise<void> {
   if (!isAgentAuthoredDocumentsEnabled(session)) {
     throw new ForbiddenError('Agent-authored documents are disabled', {
       feature: FEATURE_FLAGS.agentAuthoredDocuments,
@@ -130,6 +156,11 @@ export async function assertMayFileGeneratedDocument(session: AuthorizedSession,
   await requireProjectAccess(session, projectId, ['project:documents:write', 'project:edit'])
   await requireProjectAccess(session, projectId, 'project:documents:generate')
 
+  if (folderId !== undefined) {
+    const chosen = await chosenFolder(session, projectId, folderId)
+    await requireFolderWrite(session, projectId, [chosen?.id ?? null])
+    return
+  }
   const destination = await findRootProjectFolderByName(projectId, GENERATED_DOCUMENT_FOLDER_NAME, session.organizationId)
   await requireFolderWrite(session, projectId, [destination?.id ?? null])
 }
@@ -140,7 +171,7 @@ export async function fileGeneratedDocument(
   const { session, projectId, producer, ref, title, render, request, origin } = input
   const refKind = GENERATED_DOCUMENT_PRODUCER_REF_KINDS[producer]
 
-  await assertMayFileGeneratedDocument(session, projectId)
+  await assertMayFileGeneratedDocument(session, projectId, input.folderId)
 
   const existing = await findDocumentAuthoredByRef(ref, session.organizationId, projectId, producer)
   if (existing) {
@@ -155,11 +186,15 @@ export async function fileGeneratedDocument(
   const project = await findProjectInOrg(projectId, session.organizationId)
   if (!project) throw new NotFoundError('Project not found')
 
-  const existingDestination = await findRootProjectFolderByName(
-    projectId,
-    resolveGeneratedDocumentDestination(producer).folderName,
-    session.organizationId,
-  )
+  const chosen = input.folderId === undefined ? undefined : await chosenFolder(session, projectId, input.folderId)
+  const existingDestination =
+    chosen === undefined
+      ? await findRootProjectFolderByName(
+          projectId,
+          resolveGeneratedDocumentDestination(producer).folderName,
+          session.organizationId,
+        )
+      : chosen
   if (origin) {
     const destination = existingDestination
     await requireMayFileFrom(origin, {
@@ -177,16 +212,14 @@ export async function fileGeneratedDocument(
     throw new UnmarkedRenderingError(producer, rendered.contentType)
   }
 
-  const destination = resolveGeneratedDocumentDestination(producer)
-  const folder = await getOrCreateProjectFolderByName(projectId, destination.folderName, session.organizationId)
-  if (folder.id !== existingDestination?.id) await requireFolderWrite(session, projectId, [folder.id])
+  const folder = chosen === undefined ? await defaultDestination(session, projectId, producer, existingDestination) : chosen
 
   const documentId = crypto.randomUUID()
-  const storedName = generatedFilename(title, rendered.contentType, new Date())
-  const filename = PRODUCER_FILES_UNDER_NAMESPACE[producer]
+  const storedName = input.filename ?? generatedFilename(title, rendered.contentType, new Date())
+  const filename = isNamespacedAgentDocument({ authoredByProducer: producer })
     ? agentDocumentFilename(documentId, storedName)
     : storedName
-  const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storedName, folder.path)
+  const storageKey = buildStorageKey(session.organizationId, projectId, documentId, storageName(storedName), folder?.path)
 
   const storageBucket = await ensureTenantBucketChecked(bucketAdminS3Client, session.organizationId)
 
@@ -205,7 +238,7 @@ export async function fileGeneratedDocument(
       id: documentId,
       organizationId: session.organizationId,
       projectId,
-      folderId: folder.id,
+      folderId: folder?.id ?? null,
       createdBy: session.userId,
       authoredBy: 'agent',
       authoredByProducer: producer,
@@ -215,7 +248,12 @@ export async function fileGeneratedDocument(
       displayName: title.trim() || storedName,
       storageKey,
       storageBucket,
-      collectionName: await placementCollectionFor(session.organizationId, projectId, project.collectionName, folder.id),
+      collectionName: await placementCollectionFor(
+        session.organizationId,
+        projectId,
+        project.collectionName,
+        folder?.id ?? null,
+      ),
       fileSize: body.byteLength,
       contentType: rendered.contentType,
       status: 'stored',
@@ -241,7 +279,7 @@ export async function fileGeneratedDocument(
       action: 'document.generated',
       targetType: 'document',
       targetId: documentId,
-      filedIn: { projectId, folderId: folder.id },
+      filedIn: { projectId, folderId: folder?.id ?? null },
       metadata: { projectId, producer, filename, fileSize: body.byteLength },
       request,
     })
@@ -250,7 +288,19 @@ export async function fileGeneratedDocument(
     throw error
   }
 
-  return { documentId, filename, folderId: folder.id, alreadyFiled: false }
+  return { documentId, filename, folderId: folder?.id ?? null, alreadyFiled: false }
+}
+
+async function defaultDestination(
+  session: AuthorizedSession,
+  projectId: string,
+  producer: GeneratedDocumentProducer,
+  checked: ChosenFolder,
+): Promise<FolderRow> {
+  const destination = resolveGeneratedDocumentDestination(producer)
+  const folder = await getOrCreateProjectFolderByName(projectId, destination.folderName, session.organizationId)
+  if (folder.id !== checked?.id) await requireFolderWrite(session, projectId, [folder.id])
+  return folder
 }
 
 async function unfile(

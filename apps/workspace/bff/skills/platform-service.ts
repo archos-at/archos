@@ -4,6 +4,7 @@ import type { PlatformSkillDelivery, PlatformSkillRow } from '@/lib/db/schema/pl
 import * as repository from './platform-repository'
 import * as categoryRepository from './skill-category-repository'
 import { findPlatformSkill } from './platform-skills'
+import { skillNameFamily } from './legacy-names'
 import type {
   CreateCategoryInput,
   CreatePlatformSkillInput,
@@ -58,12 +59,15 @@ async function assertPlatformSkillCategory(categoryId: string | null | undefined
 }
 
 async function assertNameIsFree(name: string, exceptId?: string): Promise<void> {
-  if (findPlatformSkill(name)) {
+  const family = skillNameFamily(name)
+  if (family.some((candidate) => findPlatformSkill(candidate))) {
     throw new ConflictError(`"${name}" is the name of a built-in skill.`)
   }
-  const existing = await repository.findPlatformSkillRowByName(name)
-  if (existing && existing.id !== exceptId) {
-    throw new ConflictError(`A curated skill named "${name}" already exists.`)
+  for (const candidate of family) {
+    const existing = await repository.findPlatformSkillRowByName(candidate)
+    if (existing && existing.id !== exceptId) {
+      throw new ConflictError(`A curated skill named "${name}" already exists.`)
+    }
   }
 }
 

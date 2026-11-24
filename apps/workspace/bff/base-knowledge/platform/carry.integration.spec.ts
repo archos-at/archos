@@ -181,8 +181,8 @@ describe.skipIf(!URL_)('a reviewed release carried to this deployment by the pro
 
   beforeAll(async () => {
     Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
-    process.env.APP_DATABASE_URL = URL_
-    process.env.KNOWLEDGE_SINGLE_OPERATOR = 'true'
+    vi.stubEnv('APP_DATABASE_URL', URL_)
+    vi.stubEnv('KNOWLEDGE_SINGLE_OPERATOR', 'true')
     db = await import('@/lib/db')
     withPlatformAccess = (await import('@/lib/db/tenant-context')).withPlatformAccess
     carry = await import('./carry')
@@ -192,7 +192,7 @@ describe.skipIf(!URL_)('a reviewed release carried to this deployment by the pro
   })
 
   afterAll(async () => {
-    delete process.env.KNOWLEDGE_SINGLE_OPERATOR
+    vi.stubEnv('KNOWLEDGE_SINGLE_OPERATOR', undefined)
     await db.closeDb()
   })
 

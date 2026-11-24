@@ -103,7 +103,7 @@ const ROUTES: Array<{ pattern: RegExp; method: string; handler: Handler; params:
 ]
 
 const run = async (path: string, init?: RequestInit) => {
-  const url = new URL(path, 'https://grid.test')
+  const url = new URL(path, 'https://example.test')
   const method = init?.method ?? 'GET'
   const route = ROUTES.find((entry) => entry.pattern.test(url.pathname) && entry.method === method)
   if (!route) throw new Error(`no route for ${method} ${url.pathname}`)
@@ -267,7 +267,7 @@ describe('a reply that mentions colleagues', () => {
     expect(enforceMentionBounds).not.toHaveBeenCalled()
   })
 
-  it('addresses Piloti when Piloti is mentioned, as the chip’s flag does', async () => {
+  it('addresses the agent when the agent is mentioned, as the chip’s flag does', async () => {
     await replyToAnnotation('doc_1', 'ann_1', { body: `@${PRODUCT_NAME} stimmt die Breite?`, mentions: [AGENT] }, { run })
 
     expect(insertAnnotationReply).toHaveBeenCalledWith(
@@ -421,7 +421,7 @@ describe('a mark whose text mentions colleagues', () => {
 })
 
 describe('what a mention costs and where it counts', () => {
-  it('counts @Piloti against the chat’s one mention budget, like a person', async () => {
+  it('counts @agent against the chat’s one mention budget, like a person', async () => {
     await replyToAnnotation('doc_1', 'ann_1', { body: `@${PRODUCT_NAME} stimmt das?`, mentions: [AGENT] }, { run })
     expect(enforceMentionBounds).toHaveBeenLastCalledWith(expect.objectContaining({ userId: 'user_me' }), 1)
 
@@ -429,7 +429,7 @@ describe('what a mention costs and where it counts', () => {
     expect(enforceMentionBounds).toHaveBeenLastCalledWith(expect.objectContaining({ userId: 'user_me' }), 2)
   })
 
-  it('keeps no @Piloti in a mark’s own text: only a reply addresses Piloti, and setting a mark wakes nobody', async () => {
+  it('keeps no @agent in a mark’s own text: only a reply addresses the agent, and setting a mark wakes nobody', async () => {
     await createAnnotation(
       'doc_1',
       { page: 1, shape: 'point', x: 0.2, y: 0.2, kind: 'hint', body: `@${PRODUCT_NAME} @Anna Berger prüfen`, mentions: [AGENT, ANNA] },
@@ -442,7 +442,7 @@ describe('what a mention costs and where it counts', () => {
     expect(enforceMentionBounds).toHaveBeenCalledWith(expect.anything(), 1)
   })
 
-  it('mentions nobody but Piloti where the office has no collaboration, as the chat and the people picker do', async () => {
+  it('mentions nobody but the agent where the office has no collaboration, as the chat and the people picker do', async () => {
     vi.mocked(isCollaborationEnabled).mockReturnValue(false)
 
     await replyToAnnotation('doc_1', 'ann_1', { body: `@${PRODUCT_NAME} @Anna Berger bitte`, mentions: [AGENT, ANNA] }, { run })

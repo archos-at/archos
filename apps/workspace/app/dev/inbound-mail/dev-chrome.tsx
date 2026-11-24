@@ -3,6 +3,11 @@
 import type { JSX } from 'react'
 import Link from 'next/link'
 
+/** `?chrome=0`: the capture shows the product alone, without the framework's dev indicator in a corner. */
+export function HiddenDevChrome(): JSX.Element {
+  return <style>{'nextjs-portal { display: none !important; }'}</style>
+}
+
 export function DevVariantStrip({ base, variants, current, locale }: { base: string; variants: readonly string[]; current: string; locale: string }): JSX.Element {
   const href = (variant: string, nextLocale = locale) => `${base}?variant=${variant}${nextLocale === 'en' ? '&locale=en' : ''}`
   return (

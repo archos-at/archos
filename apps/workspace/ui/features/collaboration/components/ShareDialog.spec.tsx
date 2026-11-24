@@ -585,7 +585,7 @@ describe('ShareDialog — passing the link on', () => {
         resourceId="c1"
         currentUserId={ME}
         sharing={sharing()}
-        shareUrl="https://piloti.example/app/projects/p1/chat?session=c1"
+        shareUrl="https://example.test/app/projects/p1/chat?session=c1"
       />,
     )
   }
@@ -601,7 +601,7 @@ describe('ShareDialog — passing the link on', () => {
 
     fireEvent.click(button)
     await waitFor(() => expect(writeText).toHaveBeenCalled())
-    expect(writeText).toHaveBeenCalledWith('https://piloti.example/app/projects/p1/chat?session=c1')
+    expect(writeText).toHaveBeenCalledWith('https://example.test/app/projects/p1/chat?session=c1')
     await waitFor(() => expect(button).toHaveTextContent('Link copied'))
     vi.unstubAllGlobals()
   })
@@ -616,7 +616,7 @@ describe('ShareDialog — passing the link on', () => {
     fireEvent.click(button)
     await waitFor(() => expect(share).toHaveBeenCalled())
     expect(share).toHaveBeenCalledWith(
-      expect.objectContaining({ url: 'https://piloti.example/app/projects/p1/chat?session=c1' }),
+      expect.objectContaining({ url: 'https://example.test/app/projects/p1/chat?session=c1' }),
     )
     vi.unstubAllGlobals()
   })

@@ -42,7 +42,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  process.env.WORKOS_AUTHKIT_DOMAIN = DOMAIN
+  vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', DOMAIN)
   vi.mocked(getPlatformOrganizationId).mockResolvedValue(PLATFORM_ORG)
   vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(owner)
 })
@@ -88,7 +88,7 @@ describe('platformGatewayAdmission', () => {
   it('answers 503 while it cannot tell: no AuthKit domain, or no platform organization', async () => {
     vi.mocked(getPlatformOrganizationId).mockResolvedValue(null)
     expect(await platformGatewayAdmission(await bearer(), OWNER, { jwks })).toMatchObject({ admitted: false, status: 503 })
-    delete process.env.WORKOS_AUTHKIT_DOMAIN
+    vi.stubEnv('WORKOS_AUTHKIT_DOMAIN', undefined)
     expect(await platformGatewayAdmission(await bearer(), OWNER, { jwks })).toMatchObject({ admitted: false, status: 503 })
   })
 })

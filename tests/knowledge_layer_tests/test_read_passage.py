@@ -4,14 +4,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.read_passage import _MAX_PASSAGE_CHUNKS
+from knowledge_layer.read_passage import _READ_PASSAGE_DESCRIPTION
 from knowledge_layer.read_passage import ReadPassageConfig
+from knowledge_layer.read_passage import _clause_sort_key
+from knowledge_layer.read_passage import _document_names
+from knowledge_layer.read_passage import _matches
+from knowledge_layer.read_passage import _passage_filters
 from knowledge_layer.read_passage import read_passage
-from knowledge_layer.read_passage.tool import _MAX_PASSAGE_CHUNKS
-from knowledge_layer.read_passage.tool import _READ_PASSAGE_DESCRIPTION
-from knowledge_layer.read_passage.tool import _clause_sort_key
-from knowledge_layer.read_passage.tool import _document_names
-from knowledge_layer.read_passage.tool import _matches
-from knowledge_layer.read_passage.tool import _passage_filters
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf

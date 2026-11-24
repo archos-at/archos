@@ -1,13 +1,3 @@
-"""Shared agent skills substrate (agentskills.io format).
-
-Builtin (platform) skills ship as SKILL.md files under
-``packages/agent/src/agent/skills/builtin`` and are validated STRICTLY at discovery;
-org-authored skills are served by the BFF internal endpoint
-(``/api/internal/skills/resolve``) and resolved fail-open per run. Both reach
-the model through Deep Agents' ``SkillsMiddleware`` over :class:`SkillsBackend`
-(ADR-0135).
-"""
-
 from .backend import OFFICE_SOURCE
 from .backend import SKILLS_ROOT
 from .backend import SkillsBackend

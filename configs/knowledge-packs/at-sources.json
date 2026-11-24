@@ -508,8 +508,7 @@
             "Burgenland"
           ],
           "fact_keys": [
-            "federal_state",
-            "bundesland"
+            "federal_state"
           ],
           "fact_values": {
             "vienna": "Wien",

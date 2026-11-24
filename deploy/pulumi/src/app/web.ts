@@ -5,11 +5,13 @@ import { appPullPolicy, webImage } from '../config/images'
 import { assertHpaTargetIsProportional, assertMemoryFitsLimit, toResourceRequirements } from '../config/resources'
 import { webPosthogEnv } from "./posthog-env";
 import { webCmsEnv } from "../platform/cms";
+import { webMailEnv, webMailPodAnnotations } from "./web-mail";
 import { commonLabels } from "../platform/namespaces";
 import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { ROLLOUT, gracefulShutdown, surgeRollout } from "../platform/rollout";
 import { PORT, UID } from "../constants";
+import { cpuUtilizationTarget } from "../config/cpu-requests";
 
 export const WEB_HEALTH_PATH = "/healthz";
 
@@ -42,7 +44,7 @@ export function installWeb(
         selector: { matchLabels: labels },
         ...surgeRollout(ROLLOUT.web),
         template: {
-          metadata: { labels },
+          metadata: { labels, annotations: webMailPodAnnotations(cfg) },
           spec: {
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             imagePullSecrets,
@@ -66,6 +68,7 @@ export function installWeb(
                   },
                   ...webPosthogEnv(cfg),
                   ...webCmsEnv(cfg),
+                  ...webMailEnv(cfg),
                 ],
                 resources: toResourceRequirements(cfg.web.resources),
                 lifecycle: shutdown.lifecycle,
@@ -125,7 +128,7 @@ export function installWeb(
               name: "cpu",
               target: {
                 type: "Utilization",
-                averageUtilization: cfg.web.hpaCpuTargetPercent,
+                averageUtilization: cpuUtilizationTarget(cfg.web.hpaCpuTargetPercent),
               },
             },
           },

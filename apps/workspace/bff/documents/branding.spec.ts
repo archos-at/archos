@@ -52,6 +52,25 @@ describe('the platform default', () => {
     expect(branding.prose).not.toContain('{product}')
   })
 
+  it('says a filed document is made by the product and signed off, never a draft that nobody approved', async () => {
+    for (const locale of locales) {
+      const filed = await resolveDocumentBranding({ organizationName: 'X', locale, filed: true })
+      const draft = await resolveDocumentBranding({ organizationName: 'X', locale })
+      expect(filed.footerLine).not.toBe(draft.footerLine)
+      expect(filed.prose).not.toBe(draft.prose)
+      expect(filed.footerLine).toContain(PRODUCT_NAME)
+      expect(`${filed.footerLine} ${filed.prose}`).not.toMatch(/Entwurf|keine Freigabe|Draft|not an approval|not approved/)
+    }
+    const filed = await resolveDocumentBranding({ organizationName: 'X', locale: 'de', filed: true })
+    expect(filed.footerLine).toBe(`Von ${PRODUCT_NAME} erstellt`)
+  })
+
+  it('keeps the draft wording for a document nobody has filed, such as a task’s report', async () => {
+    const draft = await resolveDocumentBranding({ organizationName: 'X', locale: 'de', filed: false })
+    expect(draft.footerLine).toBe(`${PRODUCT_NAME} · Entwurf, nicht freigegeben`)
+    expect(draft.prose).toContain('keine Freigabe')
+  })
+
   it('leaves the marking’s generator name alone, because it is an interface', async () => {
     storedOverride({
       [ORGANIZATION_BRANDING_SETTINGS_KEY]: { copy: { de: { productName: 'Bürotool' } } },
@@ -192,6 +211,8 @@ describe('the prose survives both formats', () => {
         template.headerWithoutOrganization,
         template.footer,
         template.prose,
+        template.filedFooter,
+        template.filedProse,
         template.disclaimer,
       ]) {
         expect(line).not.toMatch(MARKDOWN_ACTIVE)
@@ -201,9 +222,11 @@ describe('the prose survives both formats', () => {
 
   it('is a block of sentences, not a wall and not a fragment', () => {
     for (const locale of locales) {
-      const sentences = PLATFORM_DOCUMENT_BRANDING.copy[locale].prose.split(/(?<=\.)\s+/)
-      expect(sentences.length).toBeGreaterThanOrEqual(2)
-      expect(sentences.length).toBeLessThanOrEqual(3)
+      for (const prose of [PLATFORM_DOCUMENT_BRANDING.copy[locale].prose, PLATFORM_DOCUMENT_BRANDING.copy[locale].filedProse]) {
+        const sentences = prose.split(/(?<=\.)\s+/)
+        expect(sentences.length).toBeGreaterThanOrEqual(2)
+        expect(sentences.length).toBeLessThanOrEqual(3)
+      }
     }
   })
 

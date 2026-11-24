@@ -129,7 +129,7 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
                 >
                   {/* A colleague at a keyboard. Distinct vocabulary from the
                       agent's banner (see TypingPresence), and independent of it:
-                      somebody may well start writing while Piloti is answering. */}
+                      somebody may well start writing while the agent is answering. */}
                   <TypingPresence typists={controller.typists} className="py-0" />
                 </motion.div>
               )

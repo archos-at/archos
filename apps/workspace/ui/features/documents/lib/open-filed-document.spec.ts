@@ -33,7 +33,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('opening the artifact Piloti just filed', () => {
+describe('opening the artifact the agent just filed', () => {
   it('puts it in the peek pane rather than navigating away', async () => {
     answerWith(ROW)
     await expect(openFiledDocument({ documentId: 'doc-9', projectId: 'proj-1' })).resolves.toBe(true)

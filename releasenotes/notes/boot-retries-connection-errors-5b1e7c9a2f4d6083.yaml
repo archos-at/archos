@@ -1,0 +1,16 @@
+---
+# area: administration
+incident:
+  - >
+    2026-11-18: the Postgres instances restarted for under a minute during a
+    deploy, and api, chat, aiq-api and ingest-worker exited at boot. Kubernetes'
+    growing restart back-off stretched that to about five minutes of
+    CrashLoopBackOff. Their boot-time calls to Postgres and Hatchet now retry
+    connection errors.
+operators:
+  - >
+    The checkpointer setup, the api's job tables, the ingest worker's credit
+    rate limit and each worker's workflow registration now retry a refused,
+    unreachable or still-starting Postgres or Hatchet for up to
+    BOOT_RETRY_BUDGET_SECONDS (default 180), logging a warning per attempt.
+    Any other error still stops the boot at once.

@@ -33,7 +33,7 @@ describe('AgentPrompt', () => {
     )
   })
 
-  test('shows "Piloti needs your input" when not responded', () => {
+  test('shows the "needs your input" line when not responded', () => {
     render(
       <AgentPrompt
         content="Please provide more details"
@@ -44,7 +44,7 @@ describe('AgentPrompt', () => {
     expect(screen.getByText(`${PRODUCT_NAME} needs your input`)).toBeInTheDocument()
   })
 
-  test('shows "Piloti received your input" when responded', () => {
+  test('shows the "received your input" line when responded', () => {
     render(
       <AgentPrompt
         content="Please provide more details"

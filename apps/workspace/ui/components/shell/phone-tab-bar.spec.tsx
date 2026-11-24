@@ -53,18 +53,18 @@ describe('PhoneTabBar — inside a project', () => {
     const links = within(bar()).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
       'Chat',
-      'Files',
+      'Documents',
       'Overview',
       expect.stringContaining('Inbox'),
     ])
-    expect(within(bar()).getByRole('link', { name: 'Files' })).toHaveAttribute(
+    expect(within(bar()).getByRole('link', { name: 'Documents' })).toHaveAttribute(
       'aria-current',
       'page'
     )
     expect(within(bar()).getByRole('button', { name: 'More' })).toBeInTheDocument()
     const pills = bar().querySelectorAll('[data-slot="phone-tab-pill"]')
     expect(pills).toHaveLength(1)
-    expect(pills[0]!.closest('a')).toHaveTextContent('Files')
+    expect(pills[0]!.closest('a')).toHaveTextContent('Documents')
   })
 
   test('"Mehr" opens the sheet of destinations the bar does not carry', async () => {
@@ -117,7 +117,7 @@ describe('PhoneTabBar — inside a project', () => {
 })
 
 describe('PhoneTabBar — above a project', () => {
-  test('Projekte, the Büroablage and the Postfach, no "Mehr"', () => {
+  test('Projekte, the Bürobibliothek and the Postfach, no "Mehr"', () => {
     pathname = '/app/projects'
     render(<PhoneTabBar projectId={null} canAccessOfficeShelf canAccessInbox />)
     const links = within(bar()).getAllByRole('link')

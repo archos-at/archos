@@ -3,27 +3,32 @@
  * @vitest-environment node
  */
 
-import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { runInNewContext } from 'node:vm'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { LEGACY_WORKER_MESSAGES } from './legacy-worker-names'
 
 const SW_PATH = join(process.cwd(), 'public', 'sw.js')
-const SOURCE = readFileSync(SW_PATH, 'utf8')
 const sw = createRequire(import.meta.url)(SW_PATH) as {
+  INBOX_TAG: string
+  LEGACY_NAMES: { close: string; navigate: string; tag: string }
   MESSAGE_CLOSE: string
   MESSAGE_NAVIGATE: string
   notificationOptions: (m: ReturnType<typeof parse>) => Record<string, unknown>
   notificationsToClose: <T extends { tag: string }>(n: T[], r: unknown) => T[]
   parseMessage: (text: string | null) => { title: string; body: string; url: string; tag: string; itemId: string }
   pickWindow: (windows: unknown[], origin: string) => unknown
+  register: (scope: object) => void
   safeTarget: (url: unknown, origin: string) => string
   urlBase64ToBytes: (value: string) => Uint8Array
 }
 const parse = sw.parseMessage
-const ORIGIN = 'https://app.piloti.test'
+const ORIGIN = 'https://app.example.test'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('the payload the server sends', () => {
   it('becomes a notification with its words, address and tag', () => {
@@ -45,6 +50,23 @@ describe('the payload the server sends', () => {
       expect(message.title).toBe(PRODUCT_NAME)
       expect(message.url).toBe('/app/inbox')
     }
+  })
+
+  it('is shown under the inbox tag when the payload names none', () => {
+    expect(sw.INBOX_TAG).toBe('inbox')
+    expect(parse(JSON.stringify({ title: 'x' })).tag).toBe('inbox')
+  })
+})
+
+describe('the names the worker and the page both carry', () => {
+  it('agrees with the page-side legacy module on the old message names', () => {
+    expect(sw.LEGACY_NAMES.close).toBe(LEGACY_WORKER_MESSAGES.closeNotifications)
+    expect(sw.LEGACY_NAMES.navigate).toBe(LEGACY_WORKER_MESSAGES.navigate)
+  })
+
+  it('sends and reads the new names', () => {
+    expect(sw.MESSAGE_CLOSE).toBe('close-notifications')
+    expect(sw.MESSAGE_NAVIGATE).toBe('navigate')
   })
 })
 
@@ -87,6 +109,12 @@ describe('closing notifications the page says are no longer news', () => {
     expect(sw.notificationsToClose(shown, {})).toEqual([])
     expect(sw.notificationsToClose(shown, null)).toEqual([])
   })
+
+  it('closes the inbox tag under both its names, so a notification an older worker showed still closes', () => {
+    const inbox = [{ tag: 'inbox' }, { tag: sw.LEGACY_NAMES.tag }, { tag: 'other' }]
+    expect(sw.notificationsToClose(inbox, { tags: ['inbox'] })).toEqual([inbox[0], inbox[1]])
+    expect(sw.notificationsToClose(inbox, { tags: [sw.LEGACY_NAMES.tag] })).toEqual([inbox[0], inbox[1]])
+  })
 })
 
 describe('the application server key', () => {
@@ -123,19 +151,11 @@ function boot(options: { windows?: unknown[]; fetchImpl?: (url: string, init?: R
       pushManager: { subscribe: vi.fn() },
     },
   }
-  const sandbox: Record<string, unknown> = {
-    self: scope,
-    atob: (value: string) => Buffer.from(value, 'base64').toString('binary'),
-    Uint8Array,
-    JSON,
-    Promise,
-    setTimeout,
-    fetch: async (url: string, init?: Record<string, unknown>) => {
-      fetchCalls.push({ url, init })
-      return options.fetchImpl ? options.fetchImpl(url, init) : { ok: false }
-    },
-  }
-  runInNewContext(SOURCE, sandbox)
+  vi.stubGlobal('fetch', async (url: string, init?: Record<string, unknown>) => {
+    fetchCalls.push({ url, init })
+    return options.fetchImpl ? options.fetchImpl(url, init) : { ok: false }
+  })
+  sw.register(scope)
   const fire = async (type: string, event: Record<string, unknown>) => {
     let pending: Promise<unknown> = Promise.resolve()
     listeners[type]?.({ ...event, waitUntil: (promise: Promise<unknown>) => (pending = promise) })
@@ -145,14 +165,33 @@ function boot(options: { windows?: unknown[]; fetchImpl?: (url: string, init?: R
 }
 
 describe('the registered worker', () => {
-  it('has no fetch handler and never touches a cache', () => {
-    const { listeners } = boot()
+  it('has no fetch handler and never touches a cache', async () => {
+    const touched: string[] = []
+    vi.stubGlobal(
+      'caches',
+      new Proxy(
+        {},
+        {
+          get: (_target, name) => {
+            touched.push(String(name))
+            return () => undefined
+          },
+        }
+      )
+    )
+    const { listeners, fire, notifications } = boot()
+    notifications.push({ tag: 'a', close: vi.fn() })
+    await fire('install', {})
+    await fire('activate', {})
+    await fire('push', { data: null })
+    await fire('message', { data: { type: 'close-notifications', all: true } })
+    await fire('notificationclick', { notification: { close: vi.fn(), data: { url: '/app/inbox', itemId: 'item-1' } } })
+    await fire('pushsubscriptionchange', {})
     expect(Object.keys(listeners).sort()).toEqual(
       ['activate', 'install', 'message', 'notificationclick', 'push', 'pushsubscriptionchange'].sort()
     )
     expect(listeners.fetch).toBeUndefined()
-    expect(SOURCE).not.toMatch(/\bcaches\b/)
-    expect(SOURCE).not.toMatch(/CacheStorage|cache\.put|cache\.add|\.match\(/)
+    expect(touched).toEqual([])
   })
 
   it('shows the notification for a push', async () => {
@@ -241,7 +280,8 @@ describe('the registered worker', () => {
     }
     const { fire } = boot({ windows: [client] })
     await fire('notificationclick', { notification: { close: vi.fn(), data: { url: '/app/inbox' } } })
-    expect(client.postMessage).toHaveBeenCalledWith({ type: 'piloti:navigate', url: '/app/inbox' })
+    expect(client.postMessage).toHaveBeenCalledWith({ type: 'navigate', url: '/app/inbox' })
+    expect(client.postMessage).toHaveBeenCalledWith({ type: LEGACY_WORKER_MESSAGES.navigate, url: '/app/inbox' })
   })
 
   it('opens a window when none is open, and never to a foreign address', async () => {
@@ -251,14 +291,22 @@ describe('the registered worker', () => {
     expect(opened).toEqual([`${ORIGIN}/app/inbox`, `${ORIGIN}/app/inbox`])
   })
 
-  it('closes the notifications the page names', async () => {
+  it.each([
+    ['the new message', 'close-notifications'],
+    ['the old message, from a page one release old', LEGACY_WORKER_MESSAGES.closeNotifications],
+  ])('closes the notifications the page names, from %s', async (_label, type) => {
     const { fire, notifications } = boot()
     notifications.push({ tag: 'a', close: vi.fn() }, { tag: 'b', close: vi.fn() })
-    await fire('message', { data: { type: 'piloti:close-notifications', tags: ['a'] } })
+    await fire('message', { data: { type, tags: ['a'] } })
     expect(notifications[0]?.close).toHaveBeenCalled()
     expect(notifications[1]?.close).not.toHaveBeenCalled()
+  })
+
+  it('ignores a message it does not know', async () => {
+    const { fire, notifications } = boot()
+    notifications.push({ tag: 'b', close: vi.fn() })
     await fire('message', { data: { type: 'something-else', all: true } })
-    expect(notifications[1]?.close).not.toHaveBeenCalled()
+    expect(notifications[0]?.close).not.toHaveBeenCalled()
   })
 
   it('subscribes again and tells the server which address replaced which', async () => {

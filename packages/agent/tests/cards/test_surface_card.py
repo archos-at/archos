@@ -414,8 +414,8 @@ class TestWhereASurfaceIsTaught:
         assert [card["type"] for card in validated] == ["ifc_model_picker"]
 
     def test_the_chat_contract_s_craft_names_no_card_it_withholds(self):
-        from agent.cards.catalog import RETIRED_CARD_TYPES
-        from agent.cards.catalog import render_card_doctrine
+        from agent.cards.card_doctrine import render_card_doctrine
+        from agent.cards.retired_cards import RETIRED_CARD_TYPES
 
         doctrine = render_card_doctrine()
         withheld = [card for card in RETIRED_CARD_TYPES if re.search(rf"-> {card}\b", doctrine)]
@@ -449,10 +449,10 @@ class TestPipelineRecital:
     def test_a_surface_that_would_collapse_is_stored_recited_in_place(self):
         from types import SimpleNamespace
 
-        from agent.agents.piloti.answer_pipeline import _recite_surface_cards
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import reset_card_registry
         from agent.cards.registry import set_card_registry
+        from agent.core.answer_pipeline import _recite_surface_cards
 
         before = {"type": "ifc_model_picker", "title": "OIB-Richtlinie 2", "note": "x"}
         card = _tabs(components=[_tabs()["components"][0], _text("a", "[3]"), _text("b", "REI 90 [5]")])
@@ -472,10 +472,10 @@ class TestPipelineRecital:
     def test_a_merged_duplicate_in_a_tab_follows_the_prose(self):
         from types import SimpleNamespace
 
-        from agent.agents.piloti.answer_pipeline import _recite_surface_cards
         from agent.cards.registry import CardRegistry
         from agent.cards.registry import reset_card_registry
         from agent.cards.registry import set_card_registry
+        from agent.core.answer_pipeline import _recite_surface_cards
 
         card = _tabs(components=[_tabs()["components"][0], copy.deepcopy(BASIS_A), _text("b", "Brandwand [2].")])
         registry = CardRegistry()

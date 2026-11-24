@@ -21,5 +21,5 @@ export const searchExport = {
   },
   yes: 'yes',
   no: 'no',
-  officeShelf: 'Office shelf',
+  officeShelf: 'Office library',
 }

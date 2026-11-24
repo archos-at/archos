@@ -46,12 +46,12 @@ may defer with a written reason; MAYs are explicitly optional.
 
 ## 1. Purpose & the product idea in one page
 
-Today Piloti is a **single-player tool**. One person works with the agent in their own chat, and the
+Today the workspace is a **single-player tool**. One person works with the agent in their own chat, and the
 conversation belongs — in every practical sense — to that
 person's browser. Everything the product knows about "working together" is
 inherited from the fact that colleagues happen to be in the same organisation.
 
-The feature described here makes Piloti **cooperative**, and it does so at the
+The feature described here makes the workspace **cooperative**, and it does so at the
 smallest surface that delivers real value: **the chat itself**.
 
 Three capabilities, in dependency order:
@@ -487,7 +487,7 @@ flowchart TB
   **Not by moving the bubble across the column** (ruling, 2026-07-30). The first
   implementation gave a colleague's message the messenger left/right treatment —
   left-aligned, muted, mirrored corner. That imports the grammar of a group chat
-  *between people* and quietly demotes Piloti to one participant in it, when the
+  *between people* and quietly demotes the agent to one participant in it, when the
   surface is several people consulting an assistant. So **every human message keeps
   the one right-hand card bubble a solo thread already teaches, whoever wrote it**,
   and the distinctions are carried on other axes: a human is a narrow right-hand
@@ -597,7 +597,7 @@ what it is doing.
 - **MN-1 (MUST).** Every message has an **addressee set**, derived from its mentions:
   - one or more human mentions → **those humans**, and the agent is **not**
     addressed;
-  - an explicit mention of the agent (`@Piloti`) → **the agent**, alongside any humans
+  - an explicit mention of the agent (`@` and its name) → **the agent**, alongside any humans
     mentioned;
   - no mentions → decided by the thread's **engagement mode** (ADR-0036): `ask` →
     the agent, `mention` → the thread, and nobody in particular. **`ask` is the
@@ -615,7 +615,7 @@ what it is doing.
   next message — most likely one human answering another — woke the agent.
   ADR-0036 records the fix, why the alternative (letting the model judge whether it
   was addressed) is rejected on measured capability rather than on taste, and why
-  the mode is *offered* to a multi-person thread rather than applied to it: Piloti
+  the mode is *offered* to a multi-person thread rather than applied to it: the agent
   is the point of this product, not a guest in someone else's chat app.
 
   This is the whole rule, and it is deliberately memorable: *if you tag a person, you
@@ -683,7 +683,7 @@ stateDiagram-v2
   1. **MN-9.1** — a mentioned person posts a message in the thread;
   2. **MN-9.2** — any participant explicitly **releases** the wait ("ohne Anna
      weitermachen");
-  3. **MN-9.3** — anyone addresses the agent explicitly (`@Piloti …`), which both
+  3. **MN-9.3** — anyone addresses the agent explicitly (`@` and its name …), which both
      clears the wait and starts an agent turn;
   4. **MN-9.4** — the mention becomes void: the mentioned person loses access, or the
      message is withdrawn.
@@ -746,7 +746,7 @@ stateDiagram-v2
 sequenceDiagram
     autonumber
     participant M as Matthias (asker)
-    participant App as Piloti (server)
+    participant App as the workspace (server)
     participant Ag as Agent
     participant A as Anna (recipient)
 
@@ -760,7 +760,7 @@ sequenceDiagram
     A->>App: Opens link, reads context, replies in thread
     App->>App: Clear awaiting-state; resolve Anna's inbox item (MN-16)
     App-->>M: Inbox/thread: "Anna answered" (MN-18)
-    M->>App: "@Piloti — dann bitte OIB 2.3 prüfen"
+    M->>App: "@Agent — dann bitte OIB 2.3 prüfen"
     App->>Ag: Agent turn starts (addressee = agent)
     Ag-->>App: Streams answer
     App-->>M: Answer
@@ -804,7 +804,7 @@ events can drive**.
   type (linking it to SH-7 for the deep link and reference rendering); the grouping
   key (IB-8); the default notification-channel preferences (IB-11); and its retention
   period (IB-15). A type MAY word itself by a **variant** its emitter stores in the
-  payload as a key segment, never as copy: why Piloti could not work a mark, what a
+  payload as a key segment, never as copy: why the agent could not work a mark, what a
   proposal changes. The templates stay the registry's, under
   `inbox.types.<key>.variants.<variant>`, and an unknown variant reads the type's
   general template.
@@ -1198,7 +1198,7 @@ Written as observable outcomes; each maps to at least one requirement above.
     the same way. `MN-9`
 18. Typing the literal text "@Anna" without selecting her from the picker notifies
     nobody and does not suppress the agent. `MN-3`
-19. Adding `@Piloti` alongside a human mention runs the agent *and* notifies the human.
+19. Adding the agent's `@` mention alongside a human mention runs the agent *and* notifies the human.
     `MN-1`
 
 **Inbox**
@@ -1239,7 +1239,7 @@ Written as observable outcomes; each maps to at least one requirement above.
 >   everyone with no admin able to prevent it. The registry lists only
 >   `private`/`project` as permitted for conversations.
 > - **Observers get turn *state*, not token-level streaming** (ADR-0033 §7):
->   "Piloti is answering X's question", then the answer when it lands. Mirroring
+>   "The agent is answering X's question", then the answer when it lands. Mirroring
 >   the agent's frames to non-askers needs a relay out of the Python tier for a
 >   fraction of the value.
 >   *Superseded:* ADR-0039 (live frames), ADR-0066 (full answer surface).
@@ -1267,7 +1267,7 @@ Each has a recommendation, because an unowned open question is how specs die.
   primitives (MN-5).* **Owner: product.**
 
 - **OQ-4 — Queue or block a concurrent agent turn?** *Recommendation: block with a
-  clear "Piloti is answering Matthias's question" state and let the sender send when
+  clear "The agent is answering Matthias's question" state and let the sender send when
   it clears. Queuing hides cost and surprises people with answers to questions they
   forgot they asked (CC-13).* **Owner: product + design.**
 

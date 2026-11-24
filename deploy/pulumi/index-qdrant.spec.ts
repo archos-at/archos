@@ -344,7 +344,6 @@ describe("Qdrant, three peers on the data group", () => {
         "agent-worker",
         "ingest-worker",
         "qdrant-snapshot",
-        "chroma-migration",
         "qdrant-ops",
       ]),
     );

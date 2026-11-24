@@ -11,6 +11,7 @@ const client = {
   get: vi.fn<ProjectIntakeClient['get']>(),
   start: vi.fn<ProjectIntakeClient['start']>(),
   decide: vi.fn<ProjectIntakeClient['decide']>(),
+  changeBuilding: vi.fn<ProjectIntakeClient['changeBuilding']>(),
   complete: vi.fn<ProjectIntakeClient['complete']>(),
 }
 const ID = INTAKE_READY.projectId
@@ -31,7 +32,7 @@ describe('useIntake', () => {
     expect(client.get).not.toHaveBeenCalled()
   })
 
-  it('polls every five seconds while Piloti reads, and stops when the reading ends', async () => {
+  it('polls every five seconds while the agent reads, and stops when the reading ends', async () => {
     client.get.mockResolvedValueOnce(INTAKE_READING).mockResolvedValue(INTAKE_READY)
     const { result } = mount(INTAKE_READING)
 

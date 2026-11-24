@@ -5,10 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 from knowledge_layer.ingest import PageTable
-from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import file_version
 from knowledge_layer.ingest import page_triage
 from knowledge_layer.ingest import parsed_store
+from knowledge_layer.ingest import pdf_tables
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import text_chunks
 
 from .test_ingest_screen_before_tables import _ingest
 from .test_ingest_screen_before_tables import calls  # noqa: F401 - fixtures, shared with the harness
@@ -48,7 +50,7 @@ def _parsed_store(objects: _ObjectStore) -> parsed_store.ParsedStore:
 def _run(path: str, objects: _ObjectStore):
     with parsed_store.file_parse(_parsed_store(objects), file_version(path)) as parse:
         text_pages = parse.text_pages(path)
-        page_texts = adapter.page_texts_for_visual_heuristic(text_pages)
+        page_texts = text_chunks.page_texts_for_visual_heuristic(text_pages)
         triage = parse.triage(path, page_texts, min_text_chars=200, min_paths=300)
         taken = {page["page_number"]: page.get("table_boxes") or [] for page in text_pages}
         tables = parse.tables(path, taken, list(text_pages.dense_pages))
@@ -59,8 +61,8 @@ def _run(path: str, objects: _ObjectStore):
 def _passes(monkeypatch) -> dict[str, int]:
     ran = {"text": 0, "triage": 0, "tables": 0}
     for name, attr, module in (
-        ("text", "_extract_text_from_pdf", adapter),
-        ("tables", "_extract_tables_from_pdf", adapter),
+        ("text", "_extract_text_from_pdf", pdf_text),
+        ("tables", "_extract_tables_from_pdf", pdf_tables),
         ("triage", "triage_pdf", page_triage),
     ):
         real = getattr(module, attr)
@@ -90,11 +92,13 @@ def test_a_retry_reads_back_the_same_pages_triage_and_tables_without_the_passes(
         assert getattr(cached_pages, attr) == getattr(fresh_pages, attr)
     assert cached_triage == fresh_triage
     assert cached_tables == fresh_tables and fresh_tables, "the ruled table was read"
-    assert adapter.page_texts_for_visual_heuristic(cached_pages) == adapter.page_texts_for_visual_heuristic(fresh_pages)
+    assert text_chunks.page_texts_for_visual_heuristic(cached_pages) == text_chunks.page_texts_for_visual_heuristic(
+        fresh_pages
+    )
 
 
 def test_the_codec_keeps_tuples_and_captioned_tables_exact():
-    pages = adapter.PdfTextPages(
+    pages = pdf_text.PdfTextPages(
         [
             {
                 "page_number": 3,

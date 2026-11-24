@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   ANALYTICS_READY_EVENT,
   analyticsOrigins,
+  dropOpaqueScriptError,
   sdkUrl,
   webAnalyticsConfig,
   webAnalyticsInitOptions,
@@ -19,10 +20,11 @@ const ENV = {
 function runLoader(body, extra = {}) {
   const appended = []
   const calls = []
+  const registered = []
   const dispatched = []
   const script = {}
   const window = {
-    posthog: { init: (...args) => calls.push(args) },
+    posthog: { init: (...args) => calls.push(args), register: (props) => registered.push(props) },
     dispatchEvent: (event) => dispatched.push(event.type),
     ...extra,
   }
@@ -31,7 +33,7 @@ function runLoader(body, extra = {}) {
     head: { appendChild: (el) => appended.push(el) },
   }
   vm.runInNewContext(body, { window, document, Event, ...extra })
-  return { appended, calls, dispatched, script }
+  return { appended, calls, registered, dispatched, script }
 }
 
 test('analytics is off unless both the host and the token are set', () => {
@@ -111,6 +113,14 @@ test('the enabled script is valid JavaScript that loads the SDK, inits it and te
   assert.deepEqual(dispatched, [ANALYTICS_READY_EVENT], 'the consent note learns the SDK is there')
 })
 
+test('every event says it came from the website and from which deployment, as the app events do', () => {
+  const config = webAnalyticsConfig({ ...ENV, POSTHOG_DEPLOYMENT: 'prod' })
+  assert.equal(config?.deployment, 'prod')
+  const { registered, script } = runLoader(webAnalyticsScript(config))
+  script.onload()
+  assert.equal(JSON.stringify(registered), JSON.stringify([{ site: 'website', deployment: 'prod' }]))
+})
+
 test('a token with script-breaking characters cannot escape the string', () => {
   const body = webAnalyticsScript({ host: 'https://eu.i.posthog.com', token: `x');alert(1);//` })
   const alerts = []
@@ -118,4 +128,21 @@ test('a token with script-breaking characters cannot escape the string', () => {
   script.onload()
   assert.deepEqual(calls.map((c) => c[0]), [`x');alert(1);//`])
   assert.deepEqual(alerts, [])
+})
+
+test('a cross-origin "Script error." without a stack is dropped before it is sent (KAN-101)', () => {
+  const { calls, script } = runLoader(webAnalyticsScript({ host: 'https://eu.i.posthog.com', token: 'phc_test' }))
+  script.onload()
+  const beforeSend = calls[0][1].before_send
+  const exception = (entry) => ({ event: '$exception', properties: { $exception_list: [entry] } })
+  // The event prod received on 2026-11-21 from https://archos.tech/en/
+  const prod = exception({ type: 'Error', value: 'Script error.', mechanism: { handled: false, synthetic: true, type: 'generic' } })
+  assert.equal(beforeSend(prod), null)
+  const ours = exception({ type: 'TypeError', value: 'x', stacktrace: { frames: [{ filename: 'https://archos.tech/_astro/a.js' }] } })
+  assert.equal(beforeSend(ours), ours)
+  const stacked = exception({ type: 'Error', value: 'Script error.', stacktrace: { frames: [{ filename: 'https://archos.tech/a.js' }] } })
+  assert.equal(beforeSend(stacked), stacked)
+  const pageview = { event: '$pageview', properties: {} }
+  assert.equal(beforeSend(pageview), pageview)
+  assert.equal(dropOpaqueScriptError(null), null)
 })

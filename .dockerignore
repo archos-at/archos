@@ -1,5 +1,5 @@
 # =============================================================================
-# AI-Q Blueprint - Docker Ignore
+# Docker build context exclusions
 # =============================================================================
 # This file controls what enters the Docker build context.
 # .gitignore has NO effect on Docker builds — only .dockerignore does.

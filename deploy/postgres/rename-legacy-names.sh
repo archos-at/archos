@@ -1,40 +1,32 @@
 #!/bin/sh
-# Rename the databases and the application role the platform inherited from the
-# AI-Q blueprint to names without a brand (ADR-0145 row 10d):
-#
-#   aiq_jobs        -> jobs
-#   aiq_checkpoints -> checkpoints
-#   grid_app        -> app
-#   role aiq        -> agent
-#
-# and, once the migrations have run (`after-migrate`), the row-level-security
-# roles:
+# Give the row-level-security roles names without a brand (ADR-0145 row 10d),
+# once the migrations have run (`after-migrate`):
 #
 #   grid_app_owner    -> app_owner
 #   grid_app_platform -> app_platform
 #   grid_app_rw       -> app_rw
 #   grid_keda_scaler  -> keda_scaler
 #
-# The roles go last because the migrations written before the rename grant to
-# them by their old names: a fresh install creates them under those names
-# (`ensure_rls_roles` here, `init-db.sql` in Compose), migrates, and renames.
+# The migrations written before the rename grant to them by their old names: a
+# fresh install creates them under those names (`ensure_rls_roles` here,
+# `init-db.sql` in Compose), migrates, and renames. The databases and the
+# application role (`aiq_jobs`, `aiq_checkpoints`, `grid_app`, role `aiq`) were
+# renamed by this script too, until every deployment had run it (2026-11): a
+# fresh install creates them under their new names.
 #
 # Run on every deploy before the backend starts: the Kubernetes Jobs
 # `pg-rename-legacy-names` and `pg-rename-rls-roles`
 # (deploy/pulumi/src/data/postgres-rename.ts) and the Compose services
-# `postgres-rename` and `postgres-rename-roles`. Idempotent: a name already
-# renamed is left alone, and a fresh install that never had the old names is
-# left alone too, so the second run is a no-op.
+# `postgres-rename` and `postgres-rename-roles`. Idempotent: a role already
+# renamed is left alone, so the second run is a no-op.
 #
 # It connects as a superuser to the maintenance database `postgres`, from the
-# libpq environment (PGHOST, PGPORT, PGUSER, PGPASSWORD). A database is renamed
-# with new connections refused and the open ones terminated: the deploy that
-# carries this is a short outage, which the release note says. ROLE_PASSWORD,
-# when set, becomes the role's password afterwards, because a rename clears an
-# MD5 hash (a SCRAM one survives). RUNTIME_PASSWORD and SCALER_PASSWORD, when
-# set, are the runtime and the KEDA scaler role's passwords: Kubernetes keeps
-# these roles here rather than in the Cluster's `managed.roles`, which would
-# create the new names as new, empty roles before the rename ran.
+# libpq environment (PGHOST, PGPORT, PGUSER, PGPASSWORD). ROLE_PASSWORD, when
+# set, is the application role's password. RUNTIME_PASSWORD and
+# SCALER_PASSWORD, when set, are the runtime and the KEDA scaler role's
+# passwords: Kubernetes keeps these roles here rather than in the Cluster's
+# `managed.roles`, which would create the new names as new, empty roles before
+# the rename ran.
 #
 # A third mode, `normalize-ownership`, also runs at the end of the default mode:
 # every function, table, view, materialized view and sequence in `public` that
@@ -53,9 +45,6 @@ export PGOPTIONS
 q() { psql -X -v ON_ERROR_STOP=1 -tAq -d postgres "$@"; }
 database_exists() { [ "$(q -c "SELECT 1 FROM pg_database WHERE datname = '$1'")" = 1 ]; }
 role_exists() { [ "$(q -c "SELECT 1 FROM pg_roles WHERE rolname = '$1'")" = 1 ]; }
-# `as_role USER PASSWORD psql-args…`: one psql call as another login. A subshell,
-# because a POSIX shell may keep `VAR=x function` assignments after the call.
-as_role() { (PGUSER=$1 PGPASSWORD=$2 && export PGUSER PGPASSWORD && shift 2 && q "$@"); }
 
 wait_for_server() {
   tries=0
@@ -84,35 +73,6 @@ log_in() {
   done
 }
 
-rename_database() {
-  old=$1
-  new=$2
-  if database_exists "$new"; then
-    # A run that died between the rename and this line left it closed.
-    q -c "ALTER DATABASE $new ALLOW_CONNECTIONS true"
-    echo "$new: present"
-    return
-  fi
-  if ! database_exists "$old"; then
-    echo "$old: absent, nothing to rename"
-    return
-  fi
-  # Refuse new sessions first, or a client that reconnects between the
-  # terminate and the rename keeps the database busy forever.
-  q -c "ALTER DATABASE $old ALLOW_CONNECTIONS false"
-  tries=0
-  until q -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$old' AND pid <> pg_backend_pid()" >/dev/null &&
-    q -c "ALTER DATABASE $old RENAME TO $new" 2>/dev/null; do
-    tries=$((tries + 1))
-    [ "$tries" -lt 30 ] || q -c "ALTER DATABASE $old RENAME TO $new"
-    sleep 1
-  done
-  q -c "ALTER DATABASE $new ALLOW_CONNECTIONS true"
-  echo "$old -> $new"
-}
-
-# A session cannot rename its own role. On Compose the only superuser IS the
-# role being renamed, so a temporary superuser does it and is dropped after.
 rename_role() {
   old=$1
   new=$2
@@ -120,24 +80,7 @@ rename_role() {
     echo "role $new: present or nothing to rename"
     return
   fi
-  if [ "$(q -c "SELECT current_user")" != "$old" ]; then
-    q -c "ALTER ROLE $old RENAME TO $new"
-    echo "role $old -> $new"
-    return
-  fi
-  helper=rename_helper
-  helper_password=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
-  q -c "DROP ROLE IF EXISTS $helper" -c "CREATE ROLE $helper SUPERUSER LOGIN PASSWORD '$helper_password'"
-  as_role "$helper" "$helper_password" -c "ALTER ROLE $old RENAME TO $new"
-  # The superuser is now called $new. Its password survives unless the hash was
-  # MD5, so set it before logging in under the new name.
-  if [ -n "${ROLE_PASSWORD:-}" ]; then
-    echo "ALTER ROLE $new PASSWORD :'password'" | as_role "$helper" "$helper_password" -v password="$ROLE_PASSWORD"
-    PGPASSWORD=$ROLE_PASSWORD
-  fi
-  PGUSER=$new
-  export PGUSER PGPASSWORD
-  q -c "DROP ROLE $helper"
+  q -c "ALTER ROLE $old RENAME TO $new"
   echo "role $old -> $new"
 }
 
@@ -257,13 +200,7 @@ if [ "${1:-}" = after-migrate ]; then
   echo "rename of the row-level-security roles: done"
   exit 0
 fi
-rename_database aiq_jobs jobs
-rename_database aiq_checkpoints checkpoints
-rename_database grid_app app
-rename_role aiq agent
 set_password agent
 [ -z "${ENSURE_RLS_ROLES:-}" ] || ensure_rls_roles
-# Left behind only by a run that died between creating and dropping it.
-q -c "DROP ROLE IF EXISTS rename_helper"
 normalize_ownership
 echo "rename of the legacy names: done"

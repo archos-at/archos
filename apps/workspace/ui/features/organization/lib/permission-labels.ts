@@ -9,7 +9,6 @@ export const PERMISSION_LABEL_KEYS: Readonly<Record<string, string>> = {
   'org:audit:view': 'audit_view',
   'org:downloads:view': 'downloads_view',
   'org:office_shelf:manage': 'office_shelf_manage',
-  'org:archiv:manage': 'office_shelf_manage',
   'org:skills:manage': 'skills_manage',
   'org:projects:create': 'projects_create',
   'org:projects:administer': 'projects_administer',

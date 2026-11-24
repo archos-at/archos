@@ -60,7 +60,7 @@ const member: AuthorizedSession = {
   featureFlags: null,
 }
 const orgAdmin: AuthorizedSession = { ...member, userId: 'user-admin', permissions: ['org:projects:administer'] }
-const archivist: AuthorizedSession = { ...member, userId: 'user-arch', permissions: ['org:archiv:manage'] }
+const archivist: AuthorizedSession = { ...member, userId: 'user-arch', permissions: ['org:office_shelf:manage'] }
 
 const verdict = 'quarantined:{"reasons":[{"kind":"term","term":"Lohnzettel","count":1,"pages":[1]},{"kind":"iban","count":1,"sample":"AT61 •••• 1234"}],"checked":"full"}'
 const quarantined = makeDocument({
@@ -99,7 +99,7 @@ describe('mayReviewQuarantine', () => {
     expect(requireProjectAccess).toHaveBeenCalledWith(member, 'proj-1', 'project:manage')
   })
 
-  it('leaves the Büroablage to whoever curates it, and a chat attachment to org admins', async () => {
+  it('leaves the Bürobibliothek to whoever curates it, and a chat attachment to org admins', async () => {
     expect(await mayReviewQuarantine(archivist, { scope: 'office_shelf', projectId: null, folderId: null })).toBe(true)
     expect(await mayReviewQuarantine(member, { scope: 'office_shelf', projectId: null, folderId: null })).toBe(false)
     expect(await mayReviewQuarantine(archivist, { scope: 'session', projectId: null, folderId: null })).toBe(false)

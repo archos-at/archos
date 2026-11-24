@@ -41,7 +41,7 @@ vi.mock('@/lib/organizations/display-names', () => ({
   getOrganizationDisplayNames: vi.fn(async () => new Map([['org_1', 'Planungsbüro Huber']])),
 }))
 
-vi.mock('@/lib/app-origin', () => ({ configuredAppOrigin: vi.fn(() => 'https://app.piloti.example') }))
+vi.mock('@/lib/app-origin', () => ({ configuredAppOrigin: vi.fn(() => 'https://app.example.test') }))
 
 vi.mock('@/lib/sharing/registry', () => ({
   describeResource: () => ({
@@ -163,8 +163,8 @@ describe('getAnswerFeedbackExport', () => {
 
     expect(exported.records[0].organizationName).toBe('Planungsbüro Huber')
     expect(exported.records.map((record) => record.appUrl)).toEqual([
-      'https://app.piloti.example/app/projects/p_1/chat?session=s_1#message-m_1',
-      'https://app.piloti.example/app/chat?session=s_2#message-m_2',
+      'https://app.example.test/app/projects/p_1/chat?session=s_1#message-m_1',
+      'https://app.example.test/app/chat?session=s_2#message-m_2',
     ])
     expect(deleted.records[0].appUrl).toBeNull()
   })

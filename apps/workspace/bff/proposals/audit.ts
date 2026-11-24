@@ -20,6 +20,8 @@ function payloadFacts(typed: KindPayload) {
       return { operation: null, items: typed.payload.patch.length, memoryScope: null }
     case 'operation':
       return { operation: typed.payload.operation, items: 1, memoryScope: null }
+    case 'office_shelf_norm':
+      return { operation: null, items: typed.payload.documents.length, memoryScope: null }
   }
 }
 
@@ -43,7 +45,7 @@ export function auditProposalCreated(
 ): void {
   const facts = payloadFacts(typed)
   recordAuditEventAfterCommit({
-    action: 'piloti.proposal.created',
+    action: 'agent.proposal.created',
     organizationId: row.organizationId,
     actor: { userId: session.userId, email: session.email || null },
     targetType: 'proposed_change',
@@ -63,7 +65,7 @@ export function auditProposalDecided(session: AuthorizedSession, row: ProposedCh
   const facts = storedFacts(row)
   const results = row.results ?? []
   recordAuditEventAfterCommit({
-    action: 'piloti.proposal.decided',
+    action: 'agent.proposal.decided',
     organizationId: row.organizationId,
     actor: { userId: session.userId, email: session.email || null },
     targetType: 'proposed_change',

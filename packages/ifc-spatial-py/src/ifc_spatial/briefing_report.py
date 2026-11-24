@@ -1,5 +1,3 @@
-"""The briefing itself: built from the readers above, rendered as text, and hashed for the cache."""
-
 from __future__ import annotations
 
 import hashlib
@@ -38,14 +36,6 @@ from .model import SpatialModel
 
 
 def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_SIZE) -> Briefing:
-    """Compute the précis. Deterministic, and free of geometry.
-
-    Deterministic matters more than it sounds: this text enters the model's
-    context on every conversation about the file, so a briefing that varied
-    between calls would make two answers about the same building differ for
-    reasons nobody can reconstruct afterwards. Every list below is therefore
-    sorted by a total order, and the scan walks the file in file order.
-    """
     spaces = _spaces_of(model)
     windows = _by_type(model, "IfcWindow")
     doors = _by_type(model, "IfcDoor")
@@ -179,26 +169,6 @@ def briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_S
 
 
 def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_SAMPLE_SIZE) -> str:
-    """The text block the agent gets in context. The single most important
-    function in this module.
-
-    ## Why render at all, when :func:`briefing` returns data
-
-    Because this is read by a language model under a budget, and JSON spends a
-    third of its tokens on punctuation and repeated keys. A fixed-column block
-    with German labels also has a property JSON does not: it is quotable. An
-    agent that copies ``Pset_WallCommon.ThermalTransmittance`` out of the
-    DIALEKT block cannot mistype it, which was the failure this whole module
-    exists to prevent.
-
-    ## The budget is a correctness feature, not a cost feature
-
-    Every list here is capped and every cap announces what it dropped
-    (``+18 weitere Typen``). Silent truncation is the same bug as a subset
-    reported as a total: an agent reading a list that ENDS believes it is
-    complete, and then answers "the model contains no IfcRamp" from a table that
-    was cut at 15 rows.
-    """
     b = briefing(model, dialect_sample_size=dialect_sample_size)
     lines: list[str] = []
 
@@ -314,12 +284,6 @@ def render_briefing(model: SpatialModel, *, dialect_sample_size: int = DIALECT_S
 
 
 def _header(model: SpatialModel, field_name: str) -> str | None:
-    """One STEP header field, with the empty string folded to ``None``.
-
-    Exporters write ``''`` for a field they have nothing to say about, and an
-    empty string rendered into the identity line looks like a name nobody can
-    read rather than like an absent fact.
-    """
     try:
         value = getattr(model.file.header.file_name, field_name, None)
     except Exception:
@@ -332,14 +296,6 @@ def _header(model: SpatialModel, field_name: str) -> str | None:
 
 
 def content_hash(model: SpatialModel) -> str:
-    """sha256 of the file's bytes — the identity of everything in the briefing.
-
-    Memoised on ``(path, size, mtime_ns)`` rather than on the path alone: a file
-    that was edited in place must produce a different hash, and a hash that
-    survives an edit is exactly the failure the content-addressing exists to
-    prevent. See :mod:`ifc_spatial.cache` for the same rule applied to the model
-    cache itself.
-    """
     path = Path(model.path)
     try:
         stat = path.stat()

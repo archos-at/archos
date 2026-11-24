@@ -235,10 +235,19 @@ class TestTheDraftCard:
             }
         ]
 
-    def test_an_edit_puts_up_the_next_version(self, backend: DraftBackend, cards: CardRegistry) -> None:
+    def test_an_edit_turns_the_same_card_to_the_next_version(self, backend: DraftBackend, cards: CardRegistry) -> None:
         backend.write(DRAFT, "# Aktenvermerk\n\nPunkt 3\n")
         backend.edit(DRAFT, "Punkt 3", "Punkt 3 gekürzt")
-        assert [card["version"] for card in cards.snapshot()] == [1, 2]
+        assert [card["version"] for card in cards.snapshot()] == [2]
+
+    def test_two_paths_keep_two_cards_in_their_order(self, cards: CardRegistry) -> None:
+        emit_draft_card(path="/drafts/a.xlsx", content="", version=1, size=10)
+        emit_draft_card(path="/drafts/b.docx", content="", version=1, size=20)
+        emit_draft_card(path="/drafts/a.xlsx", content="", version=2, size=12)
+        assert [(card["path"], card["version"]) for card in cards.snapshot()] == [
+            ("/drafts/a.xlsx", 2),
+            ("/drafts/b.docx", 1),
+        ]
 
     def test_a_refused_verb_puts_up_nothing(self, backend: DraftBackend, cards: CardRegistry) -> None:
         backend.write(DRAFT, "# Aktenvermerk\n")

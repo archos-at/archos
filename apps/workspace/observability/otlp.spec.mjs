@@ -29,7 +29,7 @@ describe('resourceAttributes', () => {
     })
   })
 
-  it('leaves blank values out and falls back to grid-ui', () => {
+  it('leaves blank values out and falls back to the default service name', () => {
     expect(resourceAttributes({ OTEL_SERVICE_NAME: ' ', GIT_SHA: '', HOSTNAME: '' }, 42)).toEqual({
       'service.name': 'grid-ui',
       'process.pid': 42,

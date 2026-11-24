@@ -1,5 +1,6 @@
 import type { SenderTrust, ThreadMatch } from './mail-threading'
 import { domainOf, restsOnSignedHeader, signedHeaderSet, VERIFIED_SENDER_TRUSTS } from './mail-threading'
+import { isPublicMailDomain } from './public-mail-domains'
 
 export const FOLLOW_INELIGIBILITY_REASONS = [
   'no_active_follow',
@@ -9,6 +10,7 @@ export const FOLLOW_INELIGIBILITY_REASONS = [
   'flagged',
   'automatic',
   'new_participant_domain',
+  'new_participant_address',
   'recipients_unchecked',
   'name_stop',
   'content_finding',
@@ -45,6 +47,7 @@ export interface FollowCandidateMail {
 export interface FollowedThread {
   id: string
   participantDomains: readonly string[]
+  participantAddresses: readonly string[]
 }
 
 export interface FollowRow {
@@ -61,6 +64,7 @@ export type FollowEligibility =
       eligible: false
       reasons: FollowIneligibilityReason[]
       newDomains: string[]
+      newAddresses: string[]
     }
 
 export interface FollowEligibilityContext {
@@ -76,6 +80,7 @@ export function followEligibility(
 ): FollowEligibility {
   const follow = earliestActiveFollow(follows, mail.receivedAt, context.now)
   const newDomains = newParticipantDomains(mail, thread, context.ownDomains)
+  const newAddresses = newPublicDomainAddresses(mail, thread)
   const reasons: FollowIneligibilityReason[] = []
   if (!follow) reasons.push('no_active_follow')
   if (!VERIFIED_SENDER_TRUSTS.includes(mail.senderTrust)) reasons.push('sender_not_verified')
@@ -85,11 +90,12 @@ export function followEligibility(
   if (FOLLOW_REFUSING_FLAGS.some((flag) => mail.senderFlags.includes(flag))) reasons.push('flagged')
   if (mail.automatic) reasons.push('automatic')
   if (newDomains.length > 0) reasons.push('new_participant_domain')
+  if (newAddresses.length > 0) reasons.push('new_participant_address')
   if (mail.recipientCount > mail.checkedRecipientCount) reasons.push('recipients_unchecked')
   if (mail.subjectNameStops.length > 0) reasons.push('name_stop')
   if (mail.contentFindings > 0) reasons.push('content_finding')
   if (follow && reasons.length === 0) return { eligible: true, follow }
-  return { eligible: false, reasons, newDomains }
+  return { eligible: false, reasons, newDomains, newAddresses }
 }
 
 export function earliestActiveFollow(follows: readonly FollowRow[], receivedAt: Date, now: Date): FollowRow | null {
@@ -123,4 +129,17 @@ export function newParticipantDomains(
     else if (!known.has(domain)) fresh.add(domain)
   }
   return [...fresh].sort()
+}
+
+export function publicDomainAddresses(mail: Pick<FollowCandidateMail, 'participantAddresses'>): string[] {
+  const addresses = mail.participantAddresses.filter((address) => isPublicMailDomain(domainOf(address)))
+  return [...new Set(addresses.map((address) => address.trim().toLowerCase()))].sort()
+}
+
+export function newPublicDomainAddresses(
+  mail: Pick<FollowCandidateMail, 'participantAddresses'>,
+  thread: Pick<FollowedThread, 'participantAddresses'>
+): string[] {
+  const known = new Set(thread.participantAddresses.map((address) => address.trim().toLowerCase()))
+  return publicDomainAddresses(mail).filter((address) => !known.has(address))
 }

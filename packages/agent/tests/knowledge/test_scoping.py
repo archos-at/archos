@@ -3,8 +3,6 @@ import json
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
-from knowledge_layer.search import scope as scope_module
-
 from agent.common.source_kinds import Shelf
 from agent.knowledge.scoping import ScopedCollection
 from agent.knowledge.scoping import _base64url_decode
@@ -362,11 +360,6 @@ class TestGetCollectionScopeFromContextOr:
         with (
             patch("agent.knowledge.scoping.Context.get", return_value=ctx),
             patch("agent.project_context.get_profile_context_from_context", return_value=None),
-            patch.object(
-                scope_module,
-                "resolve_scoped_collections",
-                return_value=[ScopedCollection("oib_knowledge", Shelf.BASE)],
-            ),
         ):
             result = get_collection_scope_from_context_or(mock_config, None)
             assert result == []
@@ -383,18 +376,7 @@ class TestGetCollectionScopeFromContextOr:
         mock_config.include_session_collection = True
         mock_config.project_collections = ["proj_extra"]
 
-        with (
-            patch("agent.knowledge.scoping.Context.get", return_value=ctx),
-            patch.object(
-                scope_module,
-                "resolve_scoped_collections",
-                return_value=[
-                    ScopedCollection("oib_knowledge", Shelf.BASE),
-                    ScopedCollection("s_abc", Shelf.SESSION),
-                    ScopedCollection("proj_extra", Shelf.PROJECT),
-                ],
-            ),
-        ):
+        with patch("agent.knowledge.scoping.Context.get", return_value=ctx):
             result = get_collection_scope_from_context_or(mock_config, "s_abc")
             assert result == ["oib_knowledge", "s_abc", "proj_extra"]
 

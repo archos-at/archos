@@ -20,33 +20,10 @@ from agent.knowledge.document_metadata_helpers import _with_refusal
 
 
 def set_superseded_by(store, collection: str, older: str, newer: str | None) -> bool:
-    """Record that a PERSON confirmed ``newer`` replaces ``older`` (sync), or lift it with ``None``.
-
-    The link lives on the OLDER document's row, as the file name of the newer
-    one in the same collection. Only a person's confirmation writes it;
-    ingestion and models suggest through :meth:`set_revision_suggestion` and
-    never here. A re-ingest of either file keeps it: :meth:`register` writes
-    only the summary, tags and topics. Same UPDATE-only contract as
-    :meth:`set_doc_class`.
-
-    Without a loop check, so it is for lifting a link (``None``) and for
-    carrying one that already exists onto another spelling. A NEW link goes
-    through :meth:`link_revision`, which refuses a loop in the same transaction.
-    """
     return store._update_column(collection, older, "superseded_by", newer or None)
 
 
 def set_revision_suggestion(store, collection: str, filename: str, suggestion: dict[str, Any] | None) -> bool:
-    """Store (or clear, with ``None``) Piloti's suggestion that ``filename`` is a newer Fassung of another.
-
-    A suggestion, never a link: nothing hides or re-ranks a document because
-    of it. A dict that is not a valid suggestion (:meth:`_normalise_suggestion`)
-    is refused with ``False`` rather than stored. UPDATE-only, like the rest.
-
-    The refusals a person made (``dismissed_of``) outlive every write here: a new
-    suggestion keeps them, and one naming a refused file is stored dismissed, so
-    it is not offered again. ``None`` clears the open suggestion and keeps them.
-    """
     normalised = None
     if suggestion is not None:
         normalised = store._normalise_suggestion(suggestion)
@@ -57,12 +34,6 @@ def set_revision_suggestion(store, collection: str, filename: str, suggestion: d
 
 
 def dismiss_revision_suggestion(store, collection: str, filename: str, older: str) -> bool:
-    """Record that a person refused ``older`` as the Fassung ``filename`` replaces (sync).
-
-    Added to the refusals the row already holds, so „Nein" to one file never
-    undoes „Nein" to another. An open suggestion about ``older`` is marked
-    dismissed; one about another file stays open. ``False`` when no row exists.
-    """
     if not older.strip():
         return False
     return store._rewrite_suggestion(collection, filename, lambda stored: _with_refusal(stored, older))
@@ -71,7 +42,6 @@ def dismiss_revision_suggestion(store, collection: str, filename: str, older: st
 def _rewrite_suggestion(
     store, collection: str, filename: str, rewrite: Callable[[dict[str, Any] | None], dict[str, Any] | None]
 ) -> bool:
-    """Read the stored suggestion, ``rewrite`` it, and write the result back in one transaction."""
     from sqlalchemy import text
 
     params = {"collection": collection, "filename": filename}
@@ -103,20 +73,6 @@ def _rewrite_suggestion(
 
 
 def link_revision(store, collection: str, older: str, newer: str) -> LinkOutcome:
-    """Record that a PERSON confirmed ``newer`` replaces ``older``, refusing a loop, in one locked transaction.
-
-    The loop check and the write are one step: two people confirming A over B
-    and B over A at the same moment each read a collection with no link, and
-    writing after a separate check stored both. Here the second waits for the
-    first (an advisory lock per collection on Postgres, a process lock on
-    SQLite) and then sees its link.
-
-    In the same transaction: a suggestion on ``newer`` that named ``older`` is
-    cleared (its refusals stay), and when ``older`` was replaced by another file
-    X until now, X's change line told against ``older`` goes, because X no longer
-    replaces it. ``newer`` need not have a row yet: an upload whose summary is
-    still missing has the link waiting for it (:meth:`_attach_supersedes`).
-    """
     if store._is_postgres():
         return store._link_revision_locked(collection, older, newer)
     with facade.DocumentMetadataStore._link_lock:
@@ -153,7 +109,6 @@ def _link_revision_locked(store, collection: str, older: str, newer: str) -> Lin
 
 
 def _write_link(store, conn, collection: str, older: str, newer: str, rows: dict[str, _LinkRow]) -> None:
-    """The three writes of a confirmed link, on the caller's locked transaction."""
     _set_columns(conn, collection, older, superseded_by=newer)
     previous = rows[older].superseded_by
     if previous and previous != newer and previous in rows and rows[previous].change_basis == older:
@@ -166,18 +121,10 @@ def _write_link(store, conn, collection: str, older: str, newer: str, rows: dict
 
 
 def get_superseded_by_batch(store, collection: str, filenames: list[str]) -> dict[str, str]:
-    """The confirmed ``superseded_by`` of the rows among ``filenames`` that have one."""
     return store._get_column_batch(collection, filenames, "superseded_by")
 
 
 def files_linked_to(store, collection: str, newer: str) -> list[str]:
-    """The rows whose stored ``superseded_by`` names ``newer``, whether or not ``newer`` has a row (sync).
-
-    What a register or an unregister of ``newer`` changes the meaning of: the
-    link counts only while ``newer`` has its row (:meth:`get_superseded_files`),
-    so each of these rows reads as replaced or as current again. Fail-open to
-    ``[]``.
-    """
     from sqlalchemy import text
 
     try:
@@ -194,13 +141,6 @@ def files_linked_to(store, collection: str, newer: str) -> list[str]:
 
 
 def get_superseded_files(store, collection: str) -> dict[str, str]:
-    """Every file of ``collection`` a person replaced, with the file that replaced it (sync).
-
-    Read at search time, so the answer is the store's and a delete or an
-    unlink applies to the next search. A link counts only while the newer
-    document still has its row, which the same query checks. Fail-open to
-    ``{}``: a search that cannot read it hides nothing.
-    """
     from sqlalchemy import text
 
     try:
@@ -222,5 +162,4 @@ def get_superseded_files(store, collection: str) -> dict[str, str]:
 
 
 def get_revision_suggestions_batch(store, collection: str, filenames: list[str]) -> dict[str, str]:
-    """The stored ``revision_suggestion`` JSON of the rows among ``filenames`` that have one (raw text)."""
     return store._get_column_batch(collection, filenames, "revision_suggestion")

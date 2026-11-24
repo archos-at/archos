@@ -1,5 +1,3 @@
-"""Structured response contracts for deep researcher planning, research, and synthesis."""
-
 from typing import ClassVar
 from typing import Literal
 
@@ -12,13 +10,11 @@ from agent.common.plan_vocabulary import LEGACY_PLAN_GENRE
 
 
 class _StrictContract(BaseModel):
-    """Base model for structured response schemas."""
-
     model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
 
 
 class TaskAnalysis(_StrictContract):
-    """Planner analysis of the user's research request."""
+    model_config = ConfigDict(json_schema_extra={"description": "Planner analysis of the user's research request."})
 
     user_intent: str = Field(description="Brief statement of what the user wants to achieve.")
     explicit_requirements: list[str] = Field(description="Requirements explicitly stated by the user.")
@@ -28,7 +24,9 @@ class TaskAnalysis(_StrictContract):
 
 
 class AnswerComponent(_StrictContract):
-    """Required evidence or synthesis component for the final answer."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "Required evidence or synthesis component for the final answer."}
+    )
 
     id: str = Field(description="Stable component identifier, such as 'latest_price_anchor'.")
     name: str = Field(description="Short human-readable component name.")
@@ -36,7 +34,9 @@ class AnswerComponent(_StrictContract):
 
 
 class AnswerStrategy(_StrictContract):
-    """Planner guidance for the final answer shape and synthesis logic."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "Planner guidance for the final answer shape and synthesis logic."}
+    )
 
     answer_type: Literal[
         "inspection_report",
@@ -55,7 +55,6 @@ class AnswerStrategy(_StrictContract):
     @field_validator("answer_type", mode="before")
     @classmethod
     def _legacy_answer_type(cls, value: object) -> object:
-        """A checkpointed strategy still names the German genre."""
         return LEGACY_PLAN_GENRE.get(value, value) if isinstance(value, str) else value
 
     title: str = Field(description="Concise human-facing title for the final output.")
@@ -65,7 +64,7 @@ class AnswerStrategy(_StrictContract):
 
 
 class Constraint(_StrictContract):
-    """Lightweight final-answer requirement."""
+    model_config = ConfigDict(json_schema_extra={"description": "Lightweight final-answer requirement."})
 
     category: Literal["content", "source", "structure", "depth", "format", "exclusion"] = Field(
         description="Constraint category."
@@ -75,8 +74,6 @@ class Constraint(_StrictContract):
 
 
 class SourceRecommendation(_StrictContract):
-    """A source-router recommendation for the planner."""
-
     source_id: str = Field(description="Configured data source ID to use.")
     tool_names: list[str] = Field(description="Exact available source tool names under this source.")
     priority: int = Field(ge=1, le=3, description="Priority rank for this source: 1 is highest, 3 is lowest.")
@@ -84,8 +81,6 @@ class SourceRecommendation(_StrictContract):
 
 
 class SourceRoutingPlan(_StrictContract):
-    """Advisory source route produced before planning."""
-
     domain_id: str = Field(description="Best-fit configured domain route for this request.")
     domain_name: str = Field(description="Human-readable domain name.")
     routing_reason: str = Field(description="Why this domain/source route fits the user request.")
@@ -95,7 +90,9 @@ class SourceRoutingPlan(_StrictContract):
 
 
 class ResearchQuery(_StrictContract):
-    """Self-contained research query for a researcher worker."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "Self-contained research query for a researcher worker."}
+    )
 
     query: str = Field(description="Specific, self-contained search or document query.")
     subqueries: list[str] = Field(
@@ -120,22 +117,13 @@ class ResearchQuery(_StrictContract):
     @field_validator("preferred_tools", mode="after")
     @classmethod
     def _require_preferred_tools(cls, value: list[str]) -> list[str]:
-        """Enforce non-empty preferred_tools without a JSON-Schema minLength.
-
-        Field(min_length=1) compiles to a JSON-Schema minLength constraint,
-        which strict json_schema structured-output mode does not support (see
-        EvidenceJudgment.relevance_score below for the ge/le equivalent).
-        Unlike relevance_score, an empty preferred_tools list cannot be
-        clamped to a valid value -- there is no tool name to invent -- so this
-        raises, matching the previous Field(min_length=1) failure semantics.
-        """
         if not value:
             raise ValueError("preferred_tools must include at least one tool name")
         return value
 
 
 class ResearchPlan(_StrictContract):
-    """Structured plan produced by the planner subagent."""
+    model_config = ConfigDict(json_schema_extra={"description": "Structured plan produced by the planner subagent."})
 
     task_analysis: TaskAnalysis = Field(description="Planner analysis of the user's request.")
     answer_strategy: AnswerStrategy = Field(description="Final answer shape and synthesis strategy.")
@@ -144,7 +132,7 @@ class ResearchPlan(_StrictContract):
 
 
 class ResearchSource(_StrictContract):
-    """Source used by a researcher worker."""
+    model_config = ConfigDict(json_schema_extra={"description": "Source used by a researcher worker."})
 
     id: int = Field(description="Integer source identifier used by findings in this note.")
     title: str = Field(description="Source title or document name.")
@@ -160,7 +148,7 @@ class ResearchSource(_StrictContract):
 
 
 class ResearchFinding(_StrictContract):
-    """Atomic finding captured from one or more sources."""
+    model_config = ConfigDict(json_schema_extra={"description": "Atomic finding captured from one or more sources."})
 
     claim: str = Field(description="Concise factual claim or analytical conclusion.")
     evidence: str = Field(description="Detailed supporting evidence, including dates, figures, names, and context.")
@@ -170,7 +158,7 @@ class ResearchFinding(_StrictContract):
 
 
 class ResearchGap(_StrictContract):
-    """Information gap identified during research."""
+    model_config = ConfigDict(json_schema_extra={"description": "Information gap identified during research."})
 
     description: str = Field(description="Missing or weakly supported information.")
     impact: str = Field(description="Why the gap matters for the final report.")
@@ -178,7 +166,7 @@ class ResearchGap(_StrictContract):
 
 
 class EvidenceJudgment(_StrictContract):
-    """Post-research judgment attached to a research note."""
+    model_config = ConfigDict(json_schema_extra={"description": "Post-research judgment attached to a research note."})
 
     relevance_score: int = Field(
         description="How useful this note is for the final answer, from 0 to 100.",
@@ -189,21 +177,11 @@ class EvidenceJudgment(_StrictContract):
     @field_validator("relevance_score", mode="after")
     @classmethod
     def _clamp_relevance_score(cls, value: int) -> int:
-        """Clamp out-of-range scores instead of raising.
-
-        Field(ge=0, le=100) compiles to JSON-Schema minimum/maximum, which
-        strict json_schema structured-output mode does not support --
-        langchain's ProviderStrategy ships the schema verbatim (no
-        sanitization), causing provider 400s or inconsistent handling for
-        researcher-worker structured responses. A model returning 105 should
-        degrade gracefully to 100 rather than raising and killing the whole
-        research worker over a minor numeric overshoot.
-        """
         return max(0, min(100, value))
 
 
 class ResearchNotes(_StrictContract):
-    """Structured notes produced by a researcher worker."""
+    model_config = ConfigDict(json_schema_extra={"description": "Structured notes produced by a researcher worker."})
 
     query_topic: str = Field(description="Short topic label for this research note.")
     target_components: list[str] = Field(description="Answer components these notes support.")

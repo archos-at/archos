@@ -1,9 +1,3 @@
-"""Event store for real-time SSE streaming.
-
-Uses async SQLAlchemy with psycopg (psycopg3) for PostgreSQL - the same driver
-used by LangGraph checkpointer, reducing dependency footprint.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -22,13 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 class SQLAlchemyPoolFilter(logging.Filter):
-    """
-    Filter to suppress expected CancelledError exceptions from SQLAlchemy pool.
-
-    These occur normally when SSE clients disconnect and async tasks are cancelled.
-    The errors are benign but noisy in logs.
-    """
-
     def filter(self, record: logging.LogRecord) -> bool:
         if record.levelno >= logging.ERROR:
             msg = str(record.getMessage())
@@ -38,7 +25,6 @@ class SQLAlchemyPoolFilter(logging.Filter):
 
 
 def configure_sqlalchemy_logging():
-    """Apply filter to suppress expected async cancellation errors."""
     pool_logger = logging.getLogger("sqlalchemy.pool")
     pool_logger.addFilter(SQLAlchemyPoolFilter())
 
@@ -50,7 +36,6 @@ ENGINE_CACHE_MAX_SIZE = 10
 
 
 def _create_job_events_table(conn) -> None:
-    """Create ``job_events`` and its indexes over a live sync connection (the caller commits, under the schema lock)."""
     from sqlalchemy import Column
     from sqlalchemy import DateTime
     from sqlalchemy import Index
@@ -79,7 +64,6 @@ def _create_job_events_table(conn) -> None:
 def _events_query(
     job_id: str, after_id: int, limit: int, event_types: Sequence[str] | None
 ) -> tuple[Any, dict[str, Any]]:
-    """The page-of-events SELECT, narrowed to ``event_types`` when given."""
     from sqlalchemy import bindparam
     from sqlalchemy import text
 
@@ -103,21 +87,6 @@ def _events_query(
 
 
 class EventStore:
-    """
-    Event store for real-time SSE streaming using SQLAlchemy.
-
-    Uses SQLAlchemy with psycopg (psycopg3) for PostgreSQL, consolidating
-    on the same driver used by LangGraph checkpointer.
-
-    Features:
-    - Automatic SQLite/PostgreSQL support based on db_url
-    - Connection pooling with TTL-based cache management
-    - Both sync and async operations supported
-
-    PostgreSQL deployments use LISTEN/NOTIFY for real-time push-based events.
-    SQLite deployments use polling (SQLite doesn't support pub-sub).
-    """
-
     _async_engine_cache: dict[str, tuple[Any, float]] = {}
     _sync_engine_cache: dict[str, tuple[Any, float]] = {}
     _cache_lock = threading.Lock()
@@ -132,7 +101,6 @@ class EventStore:
 
     @classmethod
     def _get_or_create_sync_engine(cls, db_url: str):
-        """Get or create a sync SQLAlchemy engine with TTL-based caching."""
         with cls._cache_lock:
             cls._cleanup_stale_engines(cls._sync_engine_cache)
 
@@ -170,7 +138,6 @@ class EventStore:
 
     @classmethod
     def _get_or_create_async_engine(cls, db_url: str):
-        """Get or create an async SQLAlchemy engine with TTL-based caching."""
         with cls._cache_lock:
             cls._cleanup_stale_engines(cls._async_engine_cache)
 
@@ -196,7 +163,6 @@ class EventStore:
 
     @classmethod
     def _cleanup_stale_engines(cls, cache: dict[str, tuple[Any, float]]):
-        """Remove engines that haven't been used recently."""
         now = time.monotonic()
         stale_keys = [key for key, (_, last_used) in cache.items() if now - last_used > ENGINE_CACHE_TTL_SECONDS]
         for key in stale_keys:
@@ -213,7 +179,6 @@ class EventStore:
 
     @classmethod
     def _dispose_engine(cls, engine: Any, log_debug_key: str | None = None) -> None:
-        """Dispose a sync or async SQLAlchemy engine safely."""
         try:
             dispose_result = engine.dispose()
         except RuntimeError, OSError:
@@ -238,7 +203,6 @@ class EventStore:
 
     @classmethod
     async def dispose_all_engines_async(cls):
-        """Dispose all cached engines (async-safe shutdown)."""
         async_engines: list[Any] = []
         with cls._cache_lock:
             for _, (engine, _) in list(cls._sync_engine_cache.items()):
@@ -260,7 +224,6 @@ class EventStore:
 
     @classmethod
     def dispose_all_engines(cls):
-        """Dispose all cached engines (for shutdown). Prefer async in event loops."""
         async_engines: list[Any] = []
         with cls._cache_lock:
             for _, (engine, _) in list(cls._sync_engine_cache.items()):
@@ -281,12 +244,10 @@ class EventStore:
             cls._dispose_engine(engine)
 
     def _ensure_table_sync(self):
-        """Create events table if it doesn't exist (sync version)."""
         self._ensure_table_exists(self.db_url)
 
     @classmethod
     async def _ensure_table_async(cls, db_url: str):
-        """Ensure job_events table exists (async version)."""
         if db_url in cls._tables_initialized:
             return
 
@@ -299,13 +260,6 @@ class EventStore:
         logger.info("Ensured job_events table (async) in %s", redact_db_url(db_url))
 
     def store(self, event: dict):
-        """
-        Store an event and notify listeners (PostgreSQL only).
-
-        For PostgreSQL deployments, issues NOTIFY on a job-specific channel
-        to enable real-time push-based SSE streaming with sub-10ms latency.
-        SQLite deployments rely on polling.
-        """
         import json
 
         from sqlalchemy import text
@@ -351,12 +305,6 @@ class EventStore:
             logger.warning("Failed to store event %s for job %s: %s", event_type, self.job_id, e)
 
     def store_batch(self, events: list[dict]):
-        """
-        Store multiple events in a single transaction.
-
-        Reduces DB round-trips by batching INSERTs into one COMMIT.
-        For PostgreSQL, issues pg_notify for each event in the batch.
-        """
         if not events:
             return
 
@@ -408,7 +356,6 @@ class EventStore:
 
     @classmethod
     def _ensure_table_exists(cls, db_url: str):
-        """Ensure job_events table exists (class method for use without instance)."""
         if db_url in cls._tables_initialized:
             return
 
@@ -426,21 +373,6 @@ class EventStore:
         limit: int = 100,
         event_types: Sequence[str] | None = None,
     ) -> list[dict]:
-        """
-        Retrieve events for SSE streaming (sync).
-
-        Args:
-            db_url: Database URL
-            job_id: Job ID to fetch events for
-            after_id: Only return events with id > after_id
-            limit: Maximum events to return
-            event_types: Only these types, when given. Filtered in the query,
-                so a reader waiting for one control event is not paged
-                through a run's token stream a hundred rows at a time.
-
-        Returns:
-            List of event dicts with '_id' field for cursor tracking
-        """
         import json
 
         try:
@@ -471,11 +403,6 @@ class EventStore:
         limit: int = 100,
         event_types: Sequence[str] | None = None,
     ) -> list[dict]:
-        """
-        Async version of get_events for FastAPI SSE routes.
-
-        Uses native async SQLAlchemy with psycopg for true async I/O.
-        """
         import json
 
         try:
@@ -501,19 +428,6 @@ class EventStore:
 
     @classmethod
     def get_event_by_id(cls, db_url: str, event_id: int) -> dict | None:
-        """
-        Retrieve a single event by its ID.
-
-        Used by PostgreSQL pub-sub SSE generator to fetch event details
-        after receiving a NOTIFY notification.
-
-        Args:
-            db_url: Database URL
-            event_id: Event ID to fetch
-
-        Returns:
-            Event dict with '_id' field, or None if not found
-        """
         import json
 
         from sqlalchemy import text
@@ -541,9 +455,6 @@ class EventStore:
 
     @classmethod
     async def get_event_by_id_async(cls, db_url: str, event_id: int) -> dict | None:
-        """
-        Async version of get_event_by_id for PostgreSQL pub-sub SSE generator.
-        """
         import asyncio
 
         loop = asyncio.get_running_loop()
@@ -551,24 +462,10 @@ class EventStore:
 
     @classmethod
     def is_postgres(cls, db_url: str) -> bool:
-        """Check if the database URL is for PostgreSQL."""
         return db_url.startswith("postgres")
 
     @classmethod
     def cleanup_job_events(cls, db_url: str, job_id: str) -> int:
-        """
-        Delete all events for a specific job.
-
-        Use for targeted cleanup when a job is deleted or no longer needed.
-        For automatic time-based cleanup, see cleanup_old_events().
-
-        Args:
-            db_url: Database connection URL
-            job_id: Job ID to delete events for
-
-        Returns:
-            Number of deleted events
-        """
         from sqlalchemy import text
 
         try:
@@ -586,19 +483,6 @@ class EventStore:
 
     @classmethod
     def cleanup_old_events(cls, db_url: str, retention_seconds: int = 86400) -> int:
-        """
-        Delete all events older than retention period (global cleanup).
-
-        Called periodically by the background task in plugin.py to prevent
-        unbounded table growth. Uses expiry_seconds from front_end config.
-
-        Args:
-            db_url: Database connection URL
-            retention_seconds: Delete events older than this (default: 86400 = 24h)
-
-        Returns:
-            Number of deleted events
-        """
         from sqlalchemy import text
 
         try:
@@ -627,7 +511,6 @@ class EventStore:
 
     @classmethod
     async def cleanup_old_events_async(cls, db_url: str, retention_seconds: int = 86400) -> int:
-        """Async wrapper for cleanup_old_events(), used by background task."""
         import asyncio
 
         loop = asyncio.get_running_loop()
@@ -635,20 +518,6 @@ class EventStore:
 
 
 class BatchingEventStore:
-    """
-    Wraps EventStore with time-based and size-based batching.
-
-    Buffers events and flushes them in a single transaction when either:
-    - The buffer reaches MAX_BATCH_SIZE events, or
-    - FLUSH_INTERVAL_MS milliseconds have passed since the first buffered event.
-
-    This reduces DB round-trips from N to N/MAX_BATCH_SIZE while keeping
-    maximum event delivery latency under FLUSH_INTERVAL_MS.
-
-    The wrapper exposes the same store() interface as EventStore, so it
-    can be used as a drop-in replacement in AgentEventCallback.
-    """
-
     FLUSH_INTERVAL_MS = 200
     MAX_BATCH_SIZE = 10
 
@@ -660,11 +529,9 @@ class BatchingEventStore:
 
     @property
     def job_id(self) -> str | None:
-        """Expose job_id from the underlying EventStore."""
         return self._store.job_id
 
     def store(self, event: dict):
-        """Buffer an event; flush when batch is full or timer fires."""
         with self._lock:
             self._buffer.append(event)
             if len(self._buffer) >= self.MAX_BATCH_SIZE:
@@ -675,7 +542,6 @@ class BatchingEventStore:
                 self._timer.start()
 
     def _flush_locked(self):
-        """Flush while already holding the lock."""
         if self._timer:
             self._timer.cancel()
             self._timer = None
@@ -686,10 +552,8 @@ class BatchingEventStore:
         self._store.store_batch(batch)
 
     def _flush(self):
-        """Flush from timer callback (acquires lock)."""
         with self._lock:
             self._flush_locked()
 
     def flush(self):
-        """Force flush all buffered events. Call before job completion."""
         self._flush()

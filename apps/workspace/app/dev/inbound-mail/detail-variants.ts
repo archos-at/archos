@@ -1,5 +1,5 @@
 import type { InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { daysAhead, fixtureId, minutesAgo } from './fixture-base'
+import { daysAhead, fixtureId, FIXTURE_NOW, minutesAgo } from './fixture-base'
 import { mail, messagePart, part, permitDecision, statik, suggestion, text, thread } from './fixture-builders'
 
 export interface DetailFixture {
@@ -23,7 +23,7 @@ const memberVerified = mail({
   },
   parts: [messagePart({ id: fixtureId('message:member') }), permitDecision()],
   threadCandidates: [thread()],
-  reading: { writes: false, viewer: 'colleague' },
+  reading: { writes: false },
 })
 
 const miriam = (overrides: Partial<NonNullable<InboundMailView['sender']>> = {}): NonNullable<InboundMailView['sender']> => ({
@@ -37,8 +37,20 @@ const miriam = (overrides: Partial<NonNullable<InboundMailView['sender']>> = {})
   ...overrides,
 })
 
+/** The reader of every preview: her own mail is the „own“ case, Miriam's is a colleague's. */
+const anna = (overrides: Partial<NonNullable<InboundMailView['sender']>> = {}): NonNullable<InboundMailView['sender']> =>
+  miriam({ name: 'Anna Berger', address: 'a.berger@huber-architektur.at', ...overrides })
+
 const unsigned = miriam({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_none' })
 const rejected = miriam({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_fail' })
+const ownUnsigned = anna({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_none' })
+const ownRejected = anna({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_fail' })
+
+const hearingAt = (utcHour: number): string => {
+  const day = new Date(FIXTURE_NOW + 12 * 86_400_000)
+  day.setUTCHours(utcHour, 0, 0, 0)
+  return day.toISOString()
+}
 
 const longName =
   'Einreichplanung_Stellplatznachweis_Tiefgarage_Ebene_-2_Brandabschnitte_und_Fluchtwege_überarbeitet_nach_Verhandlung_vom_14_10_2026_Index_F_final_final2.pdf'
@@ -46,7 +58,7 @@ const longName =
 export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
   'member-verified': {
     view: memberVerified,
-    text: text({ ownText: 'Zur Ablage: der Bescheid zum Stellplatznachweis ist gestern gekommen.\n\nlg Miriam', quoted: [] }),
+    text: text({ ownText: 'Zur Ablage: der Bescheid der MA 37 zum Stellplatznachweis, eingescannt.\n\nlg Miriam', quoted: [] }),
   },
   'external-unverified': {
     view: mail({
@@ -58,11 +70,26 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Sehr geehrte Damen und Herren,\n\nanbei unser Angebot für die Fassadenreinigung.\n\nMfG' , quoted: [] }),
   },
+  'unknown-plan-set': {
+    view: mail({
+      key: 'unknown-plan-set',
+      subject: 'Pläne Fassade Ost, Index B',
+      sender: { name: 'Martin Gruber', address: 'm.gruber@fassadenplan.example', domain: 'fassadenplan.example', signerDomain: null, trust: 'external_unverified', reason: 'dkim_none', flags: [] },
+      parts: [
+        messagePart({ id: fixtureId('message:plan-set') }),
+        part({ name: 'FA-201_Ansicht_Ost_B.pdf', sizeBytes: 3_200_000 }),
+        part({ name: 'FA-202_Schnitt_B.pdf', sizeBytes: 2_700_000 }),
+        part({ name: 'FA-210_Details_B.pdf', sizeBytes: 1_900_000 }),
+      ],
+      threadCandidates: [],
+    }),
+    text: text({ ownText: 'Sehr geehrte Frau Huber,\n\nanbei die Pläne der Fassade Ost in Index B, wie in der Besprechung vereinbart.\n\nMit freundlichen Grüßen\nMartin Gruber', quoted: [] }),
+  },
   impersonation: {
     view: mail({
       key: 'impersonation',
       subject: 'Dringend: Kontoänderung Honorarnote',
-      sender: rejected,
+      sender: ownRejected,
       parts: [messagePart({ id: fixtureId('message:imp') }), part({ name: 'Honorarnote_neu.pdf', riskFlags: ['name_stop'], nameStopTerms: ['Honorar'] })],
       threadCandidates: [],
     }),
@@ -73,7 +100,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'impersonation-colleague',
       subject: 'Dringend: Kontoänderung Honorarnote',
       sender: rejected,
-      reading: { viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:imp-col') }), part({ name: 'Honorarnote_neu.pdf', riskFlags: ['name_stop'], nameStopTerms: ['Honorar'] })],
       threadCandidates: [],
     }),
@@ -83,7 +109,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'own-unverified',
       subject: 'Plan Tiefgarage Index G',
-      sender: unsigned,
+      sender: ownUnsigned,
       parts: [messagePart({ id: fixtureId('message:own-unv') }), part({ name: 'TG_Index_G.pdf', suggestion: suggestion('Einreichung', 'Grundriss', 'Index G der Tiefgarage.') })],
       threadCandidates: [],
     }),
@@ -93,7 +119,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'automatic-own',
       subject: 'Scan vom Kopierer 3. OG',
-      sender: miriam(),
+      sender: anna(),
       automatic: true,
       parts: [messagePart({ id: fixtureId('message:auto') }), part({ name: 'Scan_2026-11-03_0912.pdf' })],
       threadCandidates: [],
@@ -105,7 +131,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'paused',
       subject: 'Protokoll Jour fixe 12',
       sender: miriam(),
-      reading: { directFiling: false, viewer: 'colleague' },
+      reading: { directFiling: false },
       parts: [messagePart({ id: fixtureId('message:paused') }), part({ name: 'Protokoll_JF_12.pdf', suggestion: suggestion('Protokolle', 'Sonstiges', 'Protokolle liegen in Protokolle.') })],
       threadCandidates: [],
     }),
@@ -116,7 +142,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'not-filed',
       subject: 'Fotos Baustelle KW 45',
       sender: miriam(),
-      reading: { viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:not-filed') }), part({ name: 'Baustelle_KW45.pdf', suggestion: null })],
       threadCandidates: [thread()],
     }),
@@ -147,7 +172,6 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'claimed-by-colleague',
       subject: 'Plan Tiefgarage Index G',
       sender: unsigned,
-      reading: { viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:claimed') }), part({ name: 'TG_Index_G.pdf' })],
       threadCandidates: [],
     }),
@@ -157,10 +181,10 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'bcc-own',
       subject: 'AW: Stellplatznachweis',
-      sender: { name: 'Miriam Huber', address: 'm.huber@huber-architektur.at', domain: 'huber-architektur.at', signerDomain: 'huber-architektur.at', trust: 'member_verified', reason: 'dkim_pass', flags: ['not_addressed_to_project', 'bcc_own'] },
+      sender: anna({ flags: ['not_addressed_to_project', 'bcc_own'] }),
       parts: [messagePart({ id: fixtureId('message:bcc') })],
     }),
-    text: text({ ownText: 'Liebe Frau Weber,\n\ndanke, das passt so. Wir reichen am Montag ein.\n\nlg Miriam', quoted: [] }),
+    text: text({ ownText: 'Liebe Frau Weber,\n\ndanke, das passt so. Wir reichen am Montag ein.\n\nlg Anna Berger', quoted: [] }),
   },
   'not-addressed': {
     view: mail({
@@ -176,7 +200,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'forwarded',
       subject: 'WG: Verhandlungsschrift Bauverhandlung 04.11.',
       sender: miriam(),
-      reading: { writes: false, viewer: 'colleague' },
+      reading: { writes: false },
       parts: [messagePart({ id: fixtureId('message:fwd') }), permitDecision({ filename: 'Verhandlungsschrift_2026-11-04.pdf' })],
       threadCandidates: [],
     }),
@@ -197,11 +221,11 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       parts: [
         messagePart({ id: fixtureId('message:mixed') }),
         statik(),
-        part({ name: 'Grundriss_EG.dwg', contentType: 'application/acad', sizeBytes: 5_800_000, suggestion: suggestion('Tragwerk', 'Grundriss', 'DWG mit Bezeichnung EG.') }),
-        part({ name: 'Foto_Baustelle.jpg', contentType: 'image/jpeg', sizeBytes: 3_100_000, suggestion: suggestion('Fotos', 'Foto', 'Foto vom Bauplatz.', { newFolder: true }) }),
+        part({ name: 'Grundriss_EG.dwg', contentType: 'application/acad', sizeBytes: 5_800_000, suggestion: suggestion('Tragwerk', 'Grundriss', 'Grundriss EG aus der Statik; Pläne der Statik liegen in Tragwerk.') }),
+        part({ name: 'Foto_Baustelle.jpg', contentType: 'image/jpeg', sizeBytes: 3_100_000, suggestion: suggestion('Fotos', 'Foto', 'Foto vom Bauplatz; das Projekt hat noch keinen Ordner für Fotos.', { newFolder: true }) }),
         part({ name: 'Bescheid_alt.pdf', duplicateOf: { documentId: fixtureId('doc:bescheid'), name: 'Bescheid_alt.pdf', folderPath: 'Behörde/Bescheide' } }),
-        part({ name: 'Statik_verschluesselt.pdf', riskFlags: ['encrypted'], suggestion: suggestion('Tragwerk', null, 'Nur nach dem Namen.') }),
-        part({ filename: null, contentType: 'image/png', sizeBytes: 182_000 }),
+        part({ name: 'Statik_verschluesselt.pdf', riskFlags: ['encrypted'], suggestion: suggestion('Tragwerk', null, 'Der Inhalt ist verschlüsselt; nur das Wort „Statik“ im Dateinamen spricht für Tragwerk.') }),
+        part({ filename: null, position: 6, contentType: 'image/png', sizeBytes: 182_000 }),
       ],
       notStaged: [
         { filename: 'winmail.dat', reason: 'tnef' },
@@ -213,7 +237,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       ],
     }),
     text: text({
-      calendar: [{ summary: 'Bauverhandlung Bauplatz 12', start: '2026-11-04T08:00:00.000Z', end: '2026-11-04T10:00:00.000Z', allDay: false, location: 'MA 37, Dresdner Straße 73–75, 1200 Wien', status: 'CONFIRMED' }],
+      calendar: [{ summary: 'Bauverhandlung Bauplatz 12', start: hearingAt(7), end: hearingAt(9), allDay: false, location: 'MA 37, Dresdner Straße 73–75, 1200 Wien', status: 'CONFIRMED' }],
     }),
   },
   'type-not-accepted': {
@@ -264,24 +288,60 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
   'content-finding': {
     view: mail({
       key: 'content-finding',
-      subject: 'AW: Honorarvereinbarung – Kontodaten',
+      subject: 'AW: Honorarvereinbarung Statik – Kontodaten',
       parts: [messagePart({ id: fixtureId('message:cf'), contentFindings: ['iban', 'term'] })],
+      threadCandidates: [thread({ threadId: fixtureId('thread:honorar'), documentId: fixtureId('doc:honorar'), name: 'Honorarvereinbarung Statik', nextVersion: 3 })],
     }),
-    text: text({ ownText: 'Liebe Frau Huber,\n\nbitte überweisen Sie auf AT•• •••• •••• •••• ••••.\n\nlg Petra Weber', masked: true, quoted: [] }),
+    text: text({ ownText: 'Liebe Frau Huber,\n\nwie besprochen unsere Kontodaten für die Teilrechnung zur Statik: AT•• •••• •••• •••• ••••.\n\nlg Petra Weber', masked: true, quoted: [] }),
   },
   'thread-append': { view: mail({ key: 'thread-append', parts: [messagePart({ id: fixtureId('message:ta') })] }), text: text() },
   'unverified-thread': {
     view: mail({
       key: 'unverified-thread',
+      subject: 'AW: Tiefgarage Lüftung',
       sender: { name: 'Ing. Karl Bauer', address: 'k.bauer@bauer-bau.at', domain: 'bauer-bau.at', signerDomain: 'bauer-bau.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
-      parts: [messagePart({ id: fixtureId('message:ut') }), statik({ riskFlags: ['unverified_thread'] })],
+      participants: [
+        { role: 'from', name: 'Ing. Karl Bauer', address: 'k.bauer@bauer-bau.at' },
+        { role: 'to', name: 'Miriam Huber', address: 'm.huber@huber-architektur.at' },
+      ],
+      parts: [
+        messagePart({ id: fixtureId('message:ut') }),
+        part({
+          name: 'TG-L01_C.pdf',
+          sizeBytes: 1_960_000,
+          riskFlags: ['unverified_thread'],
+          revisionCandidate: { documentId: fixtureId('doc:tgl01'), name: 'TG-L01_B.pdf', folderPath: 'Pläne', nextVersion: 3 },
+          suggestion: suggestion('Pläne', null, 'Gleiche Plannummer wie TG-L01_B.pdf in Pläne.'),
+        }),
+      ],
+      threadCandidates: [
+        thread({ threadId: fixtureId('thread:tg'), documentId: fixtureId('doc:tg'), name: 'Tiefgarage Lüftung', nextVersion: 2, strength: 'subject', preselected: false, blocks: ['weak_match'] }),
+      ],
+    }),
+    text: text({
+      ownText:
+        'Sehr geehrte Frau Huber,\n\nanbei unser Plan der Lüftungsöffnungen in der Tiefgarage in Index C, angepasst an die Statik S-101 in Index D. Bitte bestätigen Sie uns, dass wir danach bauen können.\n\nMit freundlichen Grüßen\nKarl Bauer\nBauer Bau GmbH',
+      quoted: [
+        {
+          header: 'Am 12.11.2026 um 16:40 schrieb Miriam Huber <m.huber@huber-architektur.at>:',
+          text: 'Lieber Herr Bauer,\n\nfür die Lüftung der Tiefgarage gilt die Statik in Index D. Bitte passen Sie Ihren Plan daran an.\n\nlg Miriam Huber',
+        },
+      ],
+    }),
+  },
+  'unconfirmed-reference': {
+    view: mail({
+      key: 'unconfirmed-reference',
+      subject: 'AW: Stellplatznachweis – Statik S-101 Index D',
+      sender: { name: 'Ing. Karl Bauer', address: 'k.bauer@bauer-bau.at', domain: 'bauer-bau.at', signerDomain: 'bauer-bau.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
+      parts: [messagePart({ id: fixtureId('message:ur') }), statik({ filename: 'S-101_Bewehrung.pdf', riskFlags: ['unverified_thread'] })],
       threadCandidates: [
         thread({ preselected: false, blocks: ['header_not_signed'] }),
         thread({ threadId: fixtureId('thread:tg'), documentId: fixtureId('doc:tg'), name: 'Tiefgarage Lüftung', nextVersion: 2, strength: 'subject', preselected: false, blocks: ['weak_match'] }),
       ],
       hiddenThreadCandidates: 1,
     }),
-    text: text(),
+    text: text({ ownText: 'Sehr geehrte Frau Huber,\n\nanbei die Bewehrung zur Statik S-101.\n\nMit freundlichen Grüßen\nKarl Bauer', quoted: [] }),
   },
   'new-thread': {
     view: mail({ key: 'new-thread', subject: 'Baustellenbegehung 28.10.', parts: [messagePart({ id: fixtureId('message:nt') })], threadCandidates: [] }),
@@ -292,14 +352,14 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     text: text(),
   },
   revision: {
-    view: mail({ key: 'revision', subject: 'AW: Stellplatznachweis – Statik S-101 Index C', parts: [messagePart({ id: fixtureId('message:rev') }), statik()] }),
+    view: mail({ key: 'revision', subject: 'AW: Stellplatznachweis – Statik S-101 Index D', parts: [messagePart({ id: fixtureId('message:rev') }), statik()] }),
     text: text(),
   },
   'authority-statement': {
     view: mail({
       key: 'authority-statement',
       subject: 'Stellungnahme Brandschutz – Bauplatz 12',
-      sender: { name: 'Mag. Karin Huber', address: 'k.huber@ma37.wien.gv.at', domain: 'ma37.wien.gv.at', signerDomain: 'wien.gv.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
+      sender: { name: 'Mag. Karin Schober', address: 'k.schober@ma37.wien.gv.at', domain: 'ma37.wien.gv.at', signerDomain: 'wien.gv.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
       receivedAt: minutesAgo(45),
       parts: [
         messagePart({ id: fixtureId('message:authority') }),
@@ -314,7 +374,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       ],
     }),
     text: text({
-      ownText: 'Sehr geehrte Frau Huber,\n\nanbei die Stellungnahme zum Brandschutzkonzept. Die Fluchtwege der Tiefgarage sind so genehmigungsfähig.\n\nMit freundlichen Grüßen\nKarin Huber\nMA 37 – Baupolizei',
+      ownText: 'Sehr geehrte Frau Huber,\n\nanbei die Stellungnahme zum Brandschutzkonzept. Die Fluchtwege der Tiefgarage sind so genehmigungsfähig.\n\nMit freundlichen Grüßen\nKarin Schober\nMA 37 – Baupolizei',
       quoted: [],
     }),
   },
@@ -323,7 +383,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       key: 'duplicate',
       parts: [
         messagePart({ id: fixtureId('message:dup') }),
-        part({ name: 'S-101_B.pdf', duplicateOf: { documentId: fixtureId('doc:s101'), name: 'S-101_B.pdf', folderPath: 'Tragwerk' } }),
+        part({ name: 'S-101_C.pdf', duplicateOf: { documentId: fixtureId('doc:s101'), name: 'S-101_C.pdf', folderPath: 'Tragwerk' } }),
         part({ name: 'Detail_Attika.pdf', revisionCandidateHidden: true, suggestion: suggestion('Tragwerk', 'Detail', 'Detail zur Statik.') }),
       ],
     }),
@@ -373,7 +433,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'filed-outcome',
       status: 'handled',
-      sender: { name: 'Mag. Huber', address: 'k.huber@ma37.wien.gv.at', domain: 'ma37.wien.gv.at', signerDomain: 'wien.gv.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
+      sender: { name: 'Mag. Schober', address: 'k.schober@ma37.wien.gv.at', domain: 'ma37.wien.gv.at', signerDomain: 'wien.gv.at', trust: 'external_verified', reason: 'dkim_pass', flags: [] },
       originalHeld: false,
       parts: [
         messagePart({
@@ -410,6 +470,19 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     text: text(),
   },
   closed: { view: mail({ key: 'closed', projectClosed: true, parts: [messagePart({ id: fixtureId('message:cl') }), permitDecision()] }), text: text() },
+  'stacked-notices': {
+    view: mail({
+      key: 'stacked-notices',
+      projectClosed: true,
+      parts: [
+        messagePart({ id: fixtureId('message:sn'), state: 'filed', documentId: fixtureId('doc:stellplatz') }),
+        statik({ state: 'filed', documentId: fixtureId('doc:s101') }),
+        permitDecision({ lastFailure: 'name_taken' }),
+      ],
+    }),
+    text: text(),
+    decidedByOther: true,
+  },
   expired: {
     view: mail({ key: 'expired', status: 'handled', parts: [messagePart({ id: fixtureId('message:exp'), state: 'expired', restorableUntil: daysAhead(5) }), permitDecision({ state: 'expired', restorableUntil: daysAhead(5) })] }),
     text: text(),

@@ -27,12 +27,7 @@ const httpProxy = require('http-proxy')
 const { parse } = require('url')
 const crypto = require('crypto')
 
-function bootLogLine(env) {
-  const sha = (env.GIT_SHA || '').trim() || 'unknown'
-  const flags = (env.REQUIRE_AUTH || '').toLowerCase() === 'true' ? 'workos' : 'defaults'
-  return `[boot] sha=${sha} flags=${flags}`
-}
-
+const { bootLogLine } = require('./bff/boot-line.js')
 const { turnContextHeaders } = require('./bff/turns/turn-headers.js')
 
 const dev = process.env.NODE_ENV !== 'production'

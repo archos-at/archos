@@ -57,7 +57,7 @@ def texts() -> list[tuple[str, str]]:
 
 def test_the_detector_tells_german_from_english() -> None:
     assert is_german("Die Datei wurde nicht gefunden und der Fehler ist offen.")
-    assert not is_german("Moves a file. Example: „wo ist der Plan“ or 'was ist in der Büroablage' (Fassung).")
+    assert not is_german("Moves a file. Example: „wo ist der Plan“ or 'was ist in der Bürobibliothek' (Fassung).")
     assert not is_german("The Dokumentart is set by a person; Bescheid, Plankopf and Einreichung stay German.")
 
 
@@ -108,7 +108,7 @@ def test_card_schema_descriptions_are_english() -> None:
     assert pinned == [], f"German prose that was translated once is back: {pinned}"
 
 
-PROMPTS = ROOT / "packages" / "agent" / "src" / "agent" / "agents" / "piloti" / "prompts"
+PROMPTS = ROOT / "packages" / "agent" / "src" / "agent" / "core" / "prompts"
 
 
 def _prompt_lines(text: str, name: str) -> list[tuple[str, str]]:
@@ -137,7 +137,7 @@ def _german_prompt_lines(text: str, name: str) -> list[tuple[str, str]]:
 
 def test_prompt_files_are_scanned() -> None:
     names = {path.name for path in _prompt_files()}
-    assert {"chat_static.md", "piloti.j2"} <= names
+    assert {"chat_static.md", "system.j2"} <= names
 
 
 def test_prompt_instructions_are_english() -> None:

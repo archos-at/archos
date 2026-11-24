@@ -1,9 +1,9 @@
 from types import SimpleNamespace
 
 from knowledge_layer.browse import FileRow
+from knowledge_layer.estate import _chunk_hit
+from knowledge_layer.estate import _page_hit
 from knowledge_layer.estate import grep
-from knowledge_layer.estate.render import _chunk_hit
-from knowledge_layer.estate.render import _page_hit
 from knowledge_layer.search import grounding_hits
 from knowledge_layer.stored_pages import Page
 

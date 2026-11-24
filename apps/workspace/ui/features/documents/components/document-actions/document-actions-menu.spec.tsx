@@ -55,6 +55,41 @@ describe('DocumentActionsMenu — what it offers', () => {
   })
 })
 
+describe('DocumentActionsMenu — a surface’s own actions', () => {
+  it('adds them after the document’s own, and runs them', async () => {
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <DocumentActionsMenu
+        document={DOCUMENT}
+        scope="officeShelf"
+        extraEntries={[{ type: 'item', id: 'as-norm', label: 'Als Norm führen', onSelect, testId: 'document-action-as-norm' }]}
+      />
+    )
+    await openMenu(user)
+
+    const items = await screen.findAllByRole('menuitem')
+    expect(items.at(-1)).toHaveTextContent('Als Norm führen')
+    await user.click(screen.getByTestId('document-action-as-norm'))
+    expect(onSelect).toHaveBeenCalled()
+  })
+
+  it('shows the menu for them alone when the viewer may do nothing else', async () => {
+    const user = userEvent.setup()
+    render(
+      <DocumentActionsMenu
+        document={DOCUMENT}
+        scope="officeShelf"
+        actions={['rename']}
+        canManage={false}
+        extraEntries={[{ type: 'item', id: 'as-norm', label: 'Als Norm führen', onSelect: vi.fn() }]}
+      />
+    )
+    await openMenu(user)
+    expect(await screen.findAllByRole('menuitem')).toHaveLength(1)
+  })
+})
+
 describe('DocumentActionsMenu — deleting', () => {
   it('asks first, names the document, and reports it upward on confirm', async () => {
     server.use(http.delete('/api/documents/:id', () => new HttpResponse(null, { status: 204 })))

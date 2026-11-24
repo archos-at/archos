@@ -1,38 +1,3 @@
-"""The write-side workspace tool. It proposes; it never changes anything.
-
-ONE tool, ``propose_file_change``, with an ``operation`` of ``move``,
-``rename``, ``create_folder`` or ``assign``. It resolves its arguments against
-what the turn can already see (``resolve.py``), emits one
-``file_operation_proposal`` card, and returns text that says in its first words
-that NOTHING has been changed.
-
-It used to be four tools, one per operation. They shared the card, the
-contract, the resolver and every refusal; what differed was one or two
-arguments. Four names cost the model four choices and ~760 tokens of schema on
-every call for what a person thinks of as one act — "tidy the files" — so the
-operation is an argument now (docs/architecture/agent-tool-surface.md). The
-card's ``operation`` vocabulary is unchanged, so every stored card reads exactly
-as before.
-
-The reason is the invariant in ``packages/agent/src/agent/tools/AGENTS.md``: the BFF is
-the single writer of ``app`` (ADR-0003), so this tier has no route to a
-document row and must not grow one. The proposal is a server object
-(``proposals_client.py``, ADR-0105): accepting the card asks the BFF to apply it
-through the same services the Files pane uses, in the accepting person's
-session, where ``requireProjectAccess`` and the audit trail already are. The
-browser executes nothing. Where the BFF cannot store the proposal, the call
-reports failure and the model is told so (``_NOT_PROPOSED``); the card it
-leaves behind is a read-only notice (``cards.py``). A tool here that wrote
-directly would bypass all three in one call — and would do it on behalf of a
-user who never saw what was about to happen.
-
-The descriptions and the results are ENGLISH, like everything an agent reads
-(working-style.md, "Industry standard first"). The arguments stay as the user typed
-them in German — a file, a folder, a colleague — and the refusals are written
-to be turned straight into the sentence the model says back, in the user's
-language („welche der beiden Dateien meinst du?").
-"""
-
 from __future__ import annotations
 
 import logging
@@ -73,7 +38,6 @@ MAX_REASON_CHARS = 200
 
 
 def _reason_field(reason: str) -> dict[str, str]:
-    """``{"reason": ...}`` when the model gave one, else nothing (the key stays off the item)."""
     text = " ".join((reason or "").split())
     if len(text) > MAX_REASON_CHARS:
         text = text[: MAX_REASON_CHARS - 1].rstrip() + "…"
@@ -81,12 +45,10 @@ def _reason_field(reason: str) -> dict[str, str]:
 
 
 def _project_or_error() -> str | None:
-    """``None`` when a project is in scope, else the message to hand back."""
     return None if project_context.get_project_id_from_context() else _NO_PROJECT
 
 
 def _document(name: str) -> ResolvedDocument | str:
-    """Resolve a document argument, flattening a refusal to its message."""
     resolved = resolve_document(name)
     return resolved.message if isinstance(resolved, Refusal) else resolved
 
@@ -213,8 +175,7 @@ _DESCRIPTION = (
 _OPERATIONS = ("move", "rename", "create_folder", "assign")
 
 
-class ProposeFileChangeConfig(FunctionBaseConfig, name="propose_file_change"):
-    """Configuration for the ``propose_file_change`` proposal tool."""
+class ProposeFileChangeConfig(FunctionBaseConfig, name="propose_file_change"): ...
 
 
 @register_function(config_type=ProposeFileChangeConfig)
@@ -227,16 +188,6 @@ async def propose_file_change(tool_config: ProposeFileChangeConfig, builder: Bui
         member: str = "",
         reason: str = "",
     ) -> str:
-        """Propose one change to the project's files: move, rename, create_folder or assign.
-
-        Args:
-            operation: move | rename | create_folder | assign.
-            document: The file, exactly as the overview or a listing names it (move, rename, assign).
-            target_folder: Existing folder path; the destination for move, the parent for create_folder.
-            new_name: The new display name (rename) or the new folder's name (create_folder).
-            member: The person, as the user named them (assign).
-            reason: Why, in one short sentence the person reads on the card (max 200 characters).
-        """
         if (refused := _project_or_error()) is not None:
             return refused
         op = (operation or "").strip().lower()

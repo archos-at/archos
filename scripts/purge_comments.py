@@ -1,5 +1,3 @@
-"""Comment and docstring purge for Python, TypeScript and JavaScript; the rule: code-conventions.md#comments."""
-
 from __future__ import annotations
 
 import ast
@@ -15,11 +13,6 @@ from check_comments import _comment_nodes  # noqa: E402
 from check_comments import _kind  # noqa: E402
 from check_comments import _parser  # noqa: E402
 from check_comments import script_metadata_lines  # noqa: E402
-
-MODEL_FACING = re.compile(
-    r"__doc__|getdoc|@tool|\.tool\(|from_function|FunctionInfo|StructuredTool|BaseModel|TypedDict|"
-    r"\btyper\b|\bclick\b|APIRouter|FastAPI|@\w+\.(get|post|put|patch|delete)\("
-)
 
 
 def _docstring_spans(tree: ast.Module, lines: list[str]) -> list[tuple[int, int, bool, int]]:
@@ -56,10 +49,10 @@ def _comment_lines(source: str) -> set[int]:
     return found
 
 
-KEEP_DOCSTRINGS = re.compile(r"^(packages/[^/]+/src|apps/agent-host/src|evals/[^/]+/src)/")
+EXPIRY = re.compile(r"drop after release \S+?(?=[.\s\"]|$)")
 
 
-def purge(path: Path, *, keep_docstrings: bool = False) -> int:
+def purge(path: Path) -> int:
     source = path.read_text(encoding="utf-8")
     lines = source.split("\n")
     try:
@@ -68,12 +61,13 @@ def purge(path: Path, *, keep_docstrings: bool = False) -> int:
     except SyntaxError, tokenize.TokenError, IndentationError:
         return 0
     replace: dict[int, str] = {}
-    keep = keep_docstrings or KEEP_DOCSTRINGS.search(path.as_posix()) or MODEL_FACING.search(source)
-    spans = [] if keep else _docstring_spans(tree, lines)
+    spans = _docstring_spans(tree, lines)
     for start, end, sole, col in spans:
         remove.update(range(start, end + 1))
         if sole:
             replace[start] = " " * col + "..."
+        elif marker := EXPIRY.search("\n".join(lines[start - 1 : end])):
+            replace[start] = " " * col + f"# {marker.group(0)}"
     if not remove:
         return 0
     out = []

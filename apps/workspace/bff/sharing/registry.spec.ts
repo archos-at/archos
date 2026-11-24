@@ -49,7 +49,7 @@ describe('a document deep link to a mark', () => {
     )
   })
 
-  it('does the same for a Büroablage document', () => {
+  it('does the same for a Bürobibliothek document', () => {
     expect(link('doc-1', { markId: 'ann-1' })).toBe('/app/office-shelf?doc=doc-1&review=1&mark=ann-1')
   })
 

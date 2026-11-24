@@ -26,6 +26,7 @@ import {
 import type { TargetPlace } from './operation-targets-repository'
 import type { AgentPrincipal } from './principal'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export interface ConversationAudience {
   row: ConversationAudienceRow
@@ -47,7 +48,7 @@ const tenantOf = (principal: AgentPrincipal) => ({
 
 export async function conversationAudienceOf(principal: AgentPrincipal): Promise<ConversationAudience | null> {
   const conversationId = principal.conversationId
-  if (principal.actor !== 'piloti' || !conversationId) return null
+  if (!isAgentKind(principal.actor) || !conversationId) return null
   const row = await withTenant(tenantOf(principal), () =>
     readConversationAudience(getDb(), principal.session.organizationId, conversationId)
   )

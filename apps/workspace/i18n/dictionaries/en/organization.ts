@@ -96,7 +96,7 @@ export const organization = {
     access: { download: 'Download', open: 'Opened' },
     columns: { when: 'When', person: 'Person', action: 'What', document: 'Document', place: 'Where' },
     place: {
-      officeShelf: 'Office filing',
+      officeShelf: 'Office library',
       session: 'Chat attachment',
       project: 'Project',
       root: 'Project root',
@@ -147,7 +147,7 @@ export const organization = {
       permissionCountOne: '1 permission',
       permissionCountOther: '{count} permissions',
       platformNotice:
-        'Platform staff only. These roles live in the GRID Platform organization and cannot be assigned here.',
+        'Platform staff only. These roles live in the platform organization and cannot be assigned here.',
     },
     permissions: {
       title: 'Permissions',
@@ -238,8 +238,8 @@ export const organization = {
         hint: 'Who downloaded which document. Reading it is itself recorded.',
       },
       office_shelf_manage: {
-        name: 'Manage Office filing',
-        hint: 'Upload, delete and re-read documents in Office filing. Everyone can read it.',
+        name: 'Manage Office library',
+        hint: 'Upload, delete and re-read documents in Office library. Everyone can read it.',
       },
       skills_manage: {
         name: 'Manage skills',
@@ -503,7 +503,7 @@ export const organization = {
     overQuota: 'Quota reached — new uploads are refused until space is freed',
     nearQuota: 'Almost full — new uploads will soon be refused',
     projectDocuments: 'Project documents',
-    officeShelfDocuments: 'Office filing',
+    officeShelfDocuments: 'Office library',
     documentCount: 'Documents: {count}',
     maxFileSize: 'Largest file per upload',
     setByPlatform:
@@ -528,6 +528,11 @@ export const organization = {
     ownKeyNote:
       'Your organization runs on its own provider key. Usage is counted in tokens on your own bill, and {productName} charges no credits for it.',
     overLimit: 'Budget exhausted — new requests are blocked',
+    workTitle: 'Day-to-day work',
+    ingestTitle: 'Reading documents in',
+    ingestNote:
+      'Reading uploaded documents in does not count against the daily and monthly limit. It has its own allowance per month, shared by the whole office: three times the monthly limit.',
+    ingestOverLimit: 'Allowance exhausted — new documents are stored, and read once it is raised',
     legendTitle: 'Usage by model',
     legendEmpty: 'No LLM usage recorded in this window yet.',
     trendTitle: 'Last 30 days',
@@ -655,7 +660,7 @@ export const organization = {
     emptyHint: 'When the content check holds a file back, it appears here. You see the files you may review.',
     whereProject: 'Project {name}',
     whereProjectUnknown: 'A project',
-    whereOfficeShelf: 'Office filing',
+    whereOfficeShelf: 'Office library',
     whereSession: 'Chat attachment',
     noReason: 'No reason stored. Open the file to check it yourself.',
     unscreened: 'Not checked: the file could not be read to the end. It stays held back until someone reviews it.',
@@ -710,9 +715,9 @@ export const organization = {
     },
   },
   baseKnowledge: {
-    title: 'Office standards',
-    description: 'Your office’s standards, commentaries and directives have a place of their own beside Office filing. Upload them there, sort them into folders, confirm and check them. {productName} answers from them for your office only.',
-    open: 'Open office standards',
+    title: 'Standards & guidelines',
+    description: 'Your office’s standards, commentaries and directives live in Office library under Standards & guidelines. Upload them there, sort them into topics, confirm and check them. {productName} answers from them for your office only.',
+    open: 'Open Standards & guidelines',
   },
   officeConventions: {
     title: 'What {productName} has learned about the office',

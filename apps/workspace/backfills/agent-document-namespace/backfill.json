@@ -1,0 +1,6 @@
+{"expires": "drop after release 2026-W51",
+  "kind": "sql",
+  "phase": "after-switch",
+  "dryRun": "dry-run.sql",
+  "apply": "apply.sql"
+}

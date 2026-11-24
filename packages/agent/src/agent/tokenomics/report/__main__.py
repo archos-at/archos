@@ -1,5 +1,3 @@
-"""CLI entry point: python -m agent.tokenomics.report"""
-
 from __future__ import annotations
 
 import argparse

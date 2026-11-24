@@ -3,7 +3,7 @@
 import type { JSX } from 'react'
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 
-import { AGENT_MENTION_ID } from '@/lib/mentions/types'
+import { isAgentMentionId } from '@/lib/mentions/types'
 import type { PersonPeekPerson } from '../components/PersonPeek'
 
 export interface ResolvedMentionPerson {
@@ -40,9 +40,9 @@ export function MentionPeopleProvider({
     const byId = new Map(participants.map((person) => [person.userId, person]))
     return {
       resolve: (targetId) => {
-        if (targetId === AGENT_MENTION_ID) {
+        if (isAgentMentionId(targetId)) {
           return {
-            person: { userId: AGENT_MENTION_ID, name: agentName },
+            person: { userId: targetId, name: agentName },
             isAgent: true,
             isYou: false,
           }

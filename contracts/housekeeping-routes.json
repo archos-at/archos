@@ -1,0 +1,5 @@
+{
+  "$comment": "The backend's housekeeping routes, POST <prefix><route>. Three sides must name exactly these: the backend registers them (apps/agent-host/src/agent_host/routes/jobs.py, _add_housekeeping_routes; tests/test_housekeeping_routes.py), Kubernetes runs one CronJob per route (deploy/pulumi/src/app/workers.ts; src/app/housekeeping.spec.ts), and Compose calls them from its clock (apps/workspace/workers/housekeeping-clock.js; housekeeping-clock.spec.mjs).",
+  "prefix": "/v1/maintenance/housekeeping/",
+  "routes": ["base-corpus", "chat-checkpoints", "ghost-jobs", "job-events"]
+}

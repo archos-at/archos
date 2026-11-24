@@ -219,20 +219,20 @@ afterEach(() => {
 })
 
 describe('CanvasActivityCard — what it says', () => {
-  it('heads the card with what Piloti did and on which document', () => {
+  it('heads the card with what the agent did and on which document', () => {
     renderCard([STAIR, DOOR])
     expect(screen.getByText('2 annotations proposed')).toBeInTheDocument()
     expect(screen.getByText('Grundriss EG.pdf')).toBeInTheDocument()
   })
 
-  it('names the thread when Piloti only replied', () => {
+  it('names the thread when the agent only replied', () => {
     renderCard([REPLY])
     expect(screen.getByText('Replied in the thread of #4')).toBeInTheDocument()
     expect(screen.getByText('„Im Türenbuch als EI2 30-C geführt.“')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Take over/ })).toBeNull()
   })
 
-  it('says both in one line when Piloti proposed and replied', () => {
+  it('says both in one line when the agent proposed and replied', () => {
     renderCard([STAIR, REPLY])
     expect(screen.getByText('1 annotation proposed, replied in one thread')).toBeInTheDocument()
   })
@@ -397,14 +397,14 @@ describe('CanvasActivityCard — what the person asked for', () => {
     expect(screen.queryByTestId('canvas-activity-state')).toBeNull()
   })
 
-  it('reads a change in the reader’s words, with Piloti’s note under it', () => {
+  it('reads a change in the reader’s words, with the agent’s note under it', () => {
     renderCard([RESOLVED, ASSIGNED])
     expect(screen.getByText('resolved')).toBeInTheDocument()
     expect(screen.getByText('assigned to Anna Berger')).toBeInTheDocument()
     expect(screen.getByText('„Erledigt: Die lichte Breite ist im Schnitt B-B mit 1,25 m kotiert.“')).toBeInTheDocument()
   })
 
-  it('undoes a change through the reader’s PATCH, guarded by the status Piloti left, and keeps nothing on the message', async () => {
+  it('undoes a change through the reader’s PATCH, guarded by the status the agent left, and keeps nothing on the message', async () => {
     stubRoutes({
       list: [[view('ann-4', 4, { status: 'resolved', authorKind: 'person', closedBy: 'user_1', closedByName: 'Anna' })]],
       patch: (id) => ({ status: 200, body: { annotation: view(id, 4, { status: 'open', authorKind: 'person' }) } }),
@@ -462,7 +462,7 @@ describe('CanvasActivityCard — what the person asked for', () => {
     expect(setCardDecision).not.toHaveBeenCalled()
   })
 
-  it('offers no undo where a person’s PATCH has no way back: a proposal Piloti took over', () => {
+  it('offers no undo where a person’s PATCH has no way back: a proposal the agent took over', () => {
     renderCard([
       { ...RESOLVED, status: 'open', changes: [{ field: 'status', before: 'proposed', after: 'open' }], note: 'Übernommen.' },
     ])

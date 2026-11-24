@@ -47,6 +47,10 @@ TOOLS: dict[str, tuple[str, str]] = {
     "emit_card": ("no_collection_content", "pushes a card the model composed from what it already read"),
     "describe_card": ("no_collection_content", "returns a card type's schema"),
     "file_draft": ("no_collection_content", "files the conversation's own draft; returns the filing outcome"),
+    "execute": (
+        "reports",
+        "packages/agent/tests/tools/execute/test_execute.py::test_a_named_document_reports_its_collection",
+    ),
     "create_task": ("no_collection_content", "queues work; returns the task it created"),
     "show_in_viewer": (
         "no_collection_content",
@@ -79,9 +83,9 @@ TOOLS: dict[str, tuple[str, str]] = {
     "ris_lookup": ("external", "the Austrian legal information system"),
     "law_lookup": ("external", "a public law source, read through its source record"),
     "tavily_web_search": ("external", "the web"),
-    "research_agent": ("agent", "Piloti; admits every tool round in its tools node"),
+    "research_agent": ("agent", "the agent; admits every tool round in its tools node"),
     "research_workflow": ("agent", "wraps research_agent"),
-    "chat_deepresearcher_agent": ("agent", "the chat workflow around Piloti"),
+    "chat_deepresearcher_agent": ("agent", "the chat workflow around the agent"),
     "deep_research_agent": ("agent", "a restricted collection is never signed into a run's scope (ADR-0087)"),
     "deep_research_workflow": ("agent", "wraps deep_research_agent"),
     "project_intake_agent": (

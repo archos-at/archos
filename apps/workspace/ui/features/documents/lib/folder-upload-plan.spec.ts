@@ -150,7 +150,7 @@ describe('buildFolderUploadPlan — what happens to each file', () => {
     expect(result.counts.refiled).toBe(1)
   })
 
-  it('leaves a machine-authored row alone — a person is not correcting Piloti', () => {
+  it('leaves a machine-authored row alone — a person is not correcting the agent', () => {
     const result = plan({
       files: [pathed('Wohnbau/Bericht.pdf')],
       documents: [doc({ id: 'd1', filename: 'Bericht.pdf', authoredBy: 'agent' })],

@@ -135,11 +135,11 @@ describe('SimilarProjects', () => {
     expect(screen.getByRole('link', { name: 'Halle Wels' })).toBeInTheDocument()
   })
 
-  test('counts what the project holds, not what the card shows, and asks Piloti in a new chat of THIS project', () => {
+  test('counts what the project holds, not what the card shows, and asks the agent in a new chat of THIS project', () => {
     render(<SimilarProjects projectId="current" page={page([WOHNHAUS])} />)
     expect(screen.getByText('7 decisions · 1 permit')).toBeInTheDocument()
     const ask = screen.getByRole('link', { name: referencesCopy.messages.en.ask.action })
-    const href = new URL(ask.getAttribute('href') ?? '', 'https://piloti.test')
+    const href = new URL(ask.getAttribute('href') ?? '', 'https://example.test')
     expect(href.pathname).toBe('/app/projects/current/chat')
     expect(href.searchParams.get('new')).toBe('1')
     expect(href.searchParams.get('ask')).toBe('What can we take from the project “Wohnhaus Mödling” for this project?')

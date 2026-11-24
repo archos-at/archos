@@ -18,6 +18,15 @@ vi.mock('@/lib/request-context', async (original) => ({
   buildRequestContextWireHeaders: vi.fn(() => ({ 'x-grid-request-context': 'signed' })),
 }))
 
+vi.mock('@/lib/budgets/ingest-allowance', () => ({
+  ingestBudgetSnapshot: vi.fn(async () => ({
+    activity: 'ingest',
+    remainingOrgUsd: 12,
+    remainingUserUsd: null,
+    remainingProjectUsd: null,
+  })),
+}))
+
 import { submitJob } from '@/lib/jobs/backend-client'
 import { resolveRunContext, type RunContext } from '@/lib/jobs/run-context'
 import { buildRequestContextWireHeaders } from '@/lib/request-context'
@@ -96,6 +105,18 @@ describe('submitIntakeRun', () => {
     await submitIntakeRun({ ...input, trigger: 'click', scope: 'all' })
     expect(vi.mocked(submitJob).mock.calls[0][0]).toMatchObject({ priority: 'interactive', input: intakeInstruction('all', 'click') })
   })
+
+  it('spends a reading after an upload from the ingest allowance, a clicked one from the work budget', async () => {
+    await submitIntakeRun(input)
+    const uploaded = vi.mocked(submitJob).mock.calls[0][0].budget_header
+    expect(JSON.parse(Buffer.from(uploaded ?? '', 'base64url').toString('utf8'))).toMatchObject({
+      activity: 'ingest',
+      remainingOrgUsd: 12,
+    })
+
+    await submitIntakeRun({ ...input, trigger: 'click' })
+    expect(vi.mocked(submitJob).mock.calls[1][0].budget_header).toBeNull()
+  })
 })
 
 describe('mintIntakeJobId', () => {
@@ -104,4 +125,5 @@ describe('mintIntakeJobId', () => {
     expect(id).toMatch(/^[a-zA-Z0-9_-]{1,64}$/)
     expect(mintIntakeJobId()).not.toBe(id)
   })
+
 })

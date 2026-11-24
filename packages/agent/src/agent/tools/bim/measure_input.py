@@ -1,8 +1,7 @@
-"""The validated input the ifc_measure tool takes, and the checks that refuse a call before it reaches the engine."""
-
 from typing import Any
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import field_validator
 from pydantic import model_validator
@@ -27,7 +26,9 @@ from agent.tools.bim.measure_vocab import _record_misses
 
 
 class IfcMeasureInput(BaseModel):
-    """The arguments of one ``ifc_measure`` call, as the model sees them."""
+    model_config = ConfigDict(
+        json_schema_extra={"description": "The arguments of one ``ifc_measure`` call, as the model sees them."}
+    )
 
     operation: _literal(OPERATIONS) = Field(
         description=(
@@ -165,15 +166,6 @@ class IfcMeasureInput(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _fold_case(cls, data: Any) -> Any:
-        """Case-fold what the tool has always case-folded, and keep the ledger.
-
-        A ``Literal`` is case-sensitive; ``kind='Compactness'`` has always been
-        answered, so the canonical spelling is substituted before the enum
-        runs. Whatever is still unknown afterwards is left for the ``Literal``
-        to refuse — after :func:`record_gap` has written down what was wanted,
-        because the refusal never reaches the tool body and the backlog would
-        otherwise go quiet exactly as refusals got cheaper.
-        """
         if not isinstance(data, dict):
             return data
         data = dict(data)
@@ -193,29 +185,11 @@ class IfcMeasureInput(BaseModel):
     @field_validator("global_id", "other_global_id", mode="after")
     @classmethod
     def _ids_on_one_line(cls, value: str | list[str]) -> str:
-        """A real array where the wire can carry one, a comma string underneath.
-
-        The engine's `highlight`, `only` and `exclude` have always been arrays,
-        and this field was narrower than they were: a caller who had a list had
-        to know to join it. `list[str]` is expressible in the wire schema — it
-        is an ordinary `type: array` and needs no `anyOf` gymnastics — so it is
-        offered, and the comma-separated string every existing caller and the
-        whole description already use is normalised onto it rather than
-        deprecated. Both reach the call builders as the one shape they parse.
-        """
         parts = value if isinstance(value, list) else str(value).split(",")
         return ",".join(str(part).strip() for part in parts if str(part).strip())
 
     @model_validator(mode="after")
     def _a_batch_fits_in_one_call(self) -> IfcMeasureInput:
-        """The engine's own ceiling, applied before the model is downloaded.
-
-        `measure` over more than :data:`MAX_BATCH` ids is refused by the engine
-        — but only after the file has been resolved, fetched and tessellated,
-        which is seconds and one of five turns spent to be told to count. Every
-        other operation that takes a list has no such ceiling, so none is
-        invented for them here.
-        """
         if self.operation == "measure":
             count = len([part for part in str(self.global_id).split(",") if part])
             if count > MAX_BATCH:

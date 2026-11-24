@@ -49,7 +49,7 @@ describe('the proposal card document', () => {
     expect(html).not.toMatch(/https:\/\/app\.piloti\.at/)
   })
 
-  it('carries the card’s words and not the rest of Piloti’s dictionaries', () => {
+  it('carries the card’s words and not the rest of the app’s dictionaries', () => {
     expect(html).toContain('Übernehmen')
     expect(html).toContain('Apply this?')
     expect(html).not.toContain('mermaid')

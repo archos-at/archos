@@ -35,11 +35,12 @@ export interface PdfViewerDialogProps {
   imageUnoptimized?: boolean
   headerChip?: ReactNode
   headerActions?: ReactNode
+  description?: ReactNode
   children?: ReactNode
   aside?: ReactNode
 }
 
-export function PdfViewerDialog({ open, onOpenChange, fileName, page, title, src: srcOverride, isImage, imageUnoptimized = true, highlight, highlightColor, regions, quoteFormat, onFindSimilar, headerChip, headerActions, children, aside }: PdfViewerDialogProps) {
+export function PdfViewerDialog({ open, onOpenChange, fileName, page, title, src: srcOverride, isImage, imageUnoptimized = true, highlight, highlightColor, regions, quoteFormat, onFindSimilar, headerChip, headerActions, description, children, aside }: PdfViewerDialogProps) {
   const t = useTranslations(knowledgeCopy)
   const baseSrc = srcOverride ?? `/api/knowledge-base/documents/${encodeURIComponent(fileName)}`
   const src = page && !isImage ? `${baseSrc}#page=${page}` : baseSrc
@@ -86,7 +87,7 @@ export function PdfViewerDialog({ open, onOpenChange, fileName, page, title, src
               of the document lost, and this one (the source note and the
               browser's own viewer) is the one the reader needs least there. */}
           <DialogDescription className="flex items-center gap-3 text-xs phone:landscape:hidden">
-            {t('viewer.description')}
+            {description ?? t('viewer.description')}
             <a
               href={src}
               target="_blank"

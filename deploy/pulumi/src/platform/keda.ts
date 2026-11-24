@@ -1,6 +1,7 @@
 import * as k8s from "@pulumi/kubernetes";
-import { PLATFORM_RESOURCES } from "../constants";
+import { PLATFORM_RESOURCES, HELM_RELEASE_TIMEOUT_SECONDS } from "../constants";
 import { scrapeAnnotations } from "./scrape";
+import { scaledCpuRequest } from "../config/cpu-requests";
 
 export const KEDA_NAMESPACE = "keda";
 
@@ -16,13 +17,14 @@ export function installKeda(provider: k8s.Provider): k8s.helm.v3.Release {
     {
       chart: "keda",
       version: KEDA_CHART_VERSION,
+      timeout: HELM_RELEASE_TIMEOUT_SECONDS,
       namespace: ns.metadata.name,
       repositoryOpts: { repo: "https://kedacore.github.io/charts" },
       values: {
         resources: {
-          operator: PLATFORM_RESOURCES.kedaOperator,
-          metricServer: PLATFORM_RESOURCES.kedaMetricServer,
-          webhooks: PLATFORM_RESOURCES.kedaWebhooks,
+          operator: scaledCpuRequest(PLATFORM_RESOURCES.kedaOperator),
+          metricServer: scaledCpuRequest(PLATFORM_RESOURCES.kedaMetricServer),
+          webhooks: scaledCpuRequest(PLATFORM_RESOURCES.kedaWebhooks),
         },
         prometheus: { operator: { enabled: true, port: KEDA_OPERATOR_METRICS_PORT } },
         podAnnotations: { keda: scrapeAnnotations(KEDA_OPERATOR_METRICS_PORT) },

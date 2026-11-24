@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Piloti's writes through the MCP surface, filed as proposals against a REAL
+ * The in-product agent's writes through the MCP surface, filed as proposals against a REAL
  * Postgres through the restricted runtime role (ADR-0122, ADR-0105):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -19,7 +19,7 @@
  *     found every one failing with `MissingTenantContextError`);
  *   - the turn's answer is the proposal's origin message;
  *   - the same call again in the conversation is the same proposal;
- *   - a member's Piloti cannot file a change to a project the member cannot
+ *   - a member's in-product agent cannot file a change to a project the member cannot
  *     see (the confused deputy), and nothing is stored;
  *   - the card names the target for a reader who may read it, by name;
  *   - a reader who may decide the proposal's project but not read its target
@@ -76,7 +76,7 @@ describe('the operation-proposal suite is not silently skipped in CI', () => {
   })
 })
 
-describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
+describe.skipIf(!url)('the in-product agent’s proposed operations against Postgres', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let proposeOperation: typeof import('./operation-proposals').proposeOperation
@@ -111,7 +111,7 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
     )
 
   beforeAll(async () => {
-    process.env.APP_DATABASE_URL = url
+    vi.stubEnv('APP_DATABASE_URL', url)
     withTenant = (await import('@/lib/db/tenant-context')).withTenant
     db = (await import('@/lib/db')).getDb()
     proposeOperation = (await import('./operation-proposals')).proposeOperation
@@ -168,7 +168,7 @@ describe.skipIf(!url)('Piloti’s proposed operations against Postgres', () => {
     expect(await rowsFor(ids.visible)).toHaveLength(1)
   })
 
-  it('refuses a member’s Piloti a change to a project the member cannot see, and stores nothing', async () => {
+  it('refuses a member’s in-product agent a change to a project the member cannot see, and stores nothing', async () => {
     await expect(
       proposeOperation({
         principal: { session: member, conversationId: conversation, projectId: ids.visible },

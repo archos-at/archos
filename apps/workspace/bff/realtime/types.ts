@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AGENT_KINDS } from '@/lib/agent-kind'
 
 export const MAX_CHANNELS_PER_CONNECTION = 8
 
@@ -17,7 +18,7 @@ export const realtimePeerSchema = z.object({
   peerId: z.string().min(8).max(64),
   userId: z.string(),
   name: z.string(),
-  kind: z.enum(['person', 'piloti']),
+  kind: z.enum(['person', ...AGENT_KINDS] as const),
   forName: z.string().min(1).max(120).optional(),
 })
 export type RealtimePeer = z.infer<typeof realtimePeerSchema>
@@ -36,8 +37,15 @@ export const presenceEventSchema = z.object({
 })
 export type PresenceEvent = z.infer<typeof presenceEventSchema>
 
+export const AGENT_PEER_PREFIX = 'agent-'
+
+export const clientPeerIdSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{8,64}$/)
+  .refine((peerId) => !peerId.startsWith(AGENT_PEER_PREFIX), 'This peer id is reserved for the agent.')
+
 export const upstreamBaseSchema = z.object({
-  peerId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/),
+  peerId: clientPeerIdSchema,
   presence: z.enum(PRESENCE_STATES).optional(),
 })
 export type UpstreamBase = z.infer<typeof upstreamBaseSchema>

@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * GRID purger service.
+ * Purger service.
  *
  * Dedicated container (frontend image, `node purger/index.js`) that polls the
  * deletion_queue in `app` and hard-deletes soft-deleted entities across all
@@ -9,7 +9,7 @@
  *
  * Environment:
  *   APP_DATABASE_URL   - `app` Postgres DSN
- *   BACKEND_URL             - aiq-api base URL (Python-side purge endpoint)
+ *   BACKEND_URL             - base URL of the agent backend (Python-side purge endpoint)
  *   FRONTEND_INTERNAL_URL   - BFF base URL (chat erasure retries, folder purges; default http://frontend:3000)
  *   INTERNAL_API_TOKEN - shared token for the internal endpoint
  *   SEAWEED_ENDPOINT / SEAWEED_ACCESS_KEY / SEAWEED_SECRET_KEY / SEAWEED_BUCKET

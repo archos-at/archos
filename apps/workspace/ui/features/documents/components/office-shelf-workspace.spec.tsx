@@ -118,7 +118,7 @@ describe('OfficeShelfWorkspace — library listing', () => {
   it('opens with the project section header: a title, no mark beside it, and the controls in its action slot', async () => {
     render(<OfficeShelfWorkspace canManage trailingActions={<button type="button">Close</button>} />)
     const header = await screen.findByTestId('office-shelf-header')
-    expect(within(header).getByRole('heading', { level: 1, name: /Office filing/ })).toBeInTheDocument()
+    expect(within(header).getByRole('heading', { level: 1, name: /Office library/ })).toBeInTheDocument()
     for (const glyph of header.querySelectorAll('svg')) expect(glyph.closest('button, a, label, input, [role="group"]')).not.toBeNull()
     expect(within(header).getByTestId('office-shelf-controls')).toBeInTheDocument()
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
@@ -226,6 +226,29 @@ describe('OfficeShelfWorkspace — permissions', () => {
     expect(screen.queryByRole('menuitem', { name: /rename/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: /delete/i })).not.toBeInTheDocument()
   })
+})
+
+describe('OfficeShelfWorkspace — what another feature adds', () => {
+  it('puts a surface’s own file action in each file’s menu, for that file', async () => {
+    const onSelect = vi.fn()
+    const fileActions = vi.fn((file: { id: string }) => [{ type: 'item' as const, id: 'as-norm', label: 'Als Norm führen', onSelect: () => onSelect(file.id) }])
+    render(<OfficeShelfWorkspace canManage fileActions={fileActions} />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+
+    const user = userEvent.setup()
+    await user.click(screen.getAllByTestId('document-actions-trigger')[0])
+    await user.click(await screen.findByRole('menuitem', { name: 'Als Norm führen' }))
+    expect(onSelect).toHaveBeenCalledWith('doc-2')
+    expect(new Set(fileActions.mock.calls.map(([file]) => file.id))).toEqual(new Set(['doc-1', 'doc-2']))
+  })
+
+  it('hands its upload the callback for the documents it stored', async () => {
+    const onUploadsStored = vi.fn()
+    render(<OfficeShelfWorkspace canManage onUploadsStored={onUploadsStored} />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+    expect(vi.mocked(useOfficeShelfDocuments).mock.calls.at(-1)?.[0]?.onStored).toBe(onUploadsStored)
+  })
+
 })
 
 describe('OfficeShelfWorkspace — a settling document settles on screen', () => {
@@ -761,6 +784,28 @@ describe('OfficeShelfWorkspace — folders', () => {
 
     const href = String(routerPush.mock.calls.at(-1)?.[0])
     expect(new URLSearchParams(href.split('?')[1]).get('folder')).toBe('f-1')
+  })
+
+  it('asks about the norms in the open folder only of one who may manage the office shelf, with office-standards on', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('/api/office-shelf/folders/:folderId/norms', ({ params }) => {
+        asked.push(String(params.folderId))
+        return HttpResponse.json({ folderId: params.folderId, total: 2, norms: [], nextCursor: null })
+      })
+    )
+    currentSearch = 'folder=f-2'
+    const { unmount } = render(<OfficeShelfWorkspace canManage normsInFolders />)
+    expect(await screen.findByTestId('office-shelf-folder-norms')).toHaveTextContent('2 files here are standards.')
+    expect(asked).toEqual(['f-2'])
+    unmount()
+
+    render(<OfficeShelfWorkspace canManage={false} normsInFolders />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+    render(<OfficeShelfWorkspace canManage />)
+    await screen.findAllByText('brandschutz-gutachten.pdf')
+    expect(screen.queryByTestId('office-shelf-folder-norms')).not.toBeInTheDocument()
+    expect(asked).toEqual(['f-2'])
   })
 
   it('reads the level out of the URL', async () => {

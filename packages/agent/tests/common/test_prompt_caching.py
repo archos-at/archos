@@ -37,7 +37,7 @@ def test_same_prefix_gives_the_same_key():
 
 
 def test_key_changes_with_the_system_prompt():
-    assert _key() != _key(system_prompt="You are Piloti. ")
+    assert _key() != _key(system_prompt="You are the agent. ")
 
 
 def test_key_changes_with_the_tool_set():
@@ -138,7 +138,7 @@ class TestClaudeIsAskedToCache:
 
 
 class TestAStablePrefixKeepsTheShard:
-    STATIC = "You are Piloti. [rules, tools, schema]"
+    STATIC = "You are the agent. [rules, tools, schema]"
 
     def _body(self, tail: str):
         messages = [SystemMessage(content=self.STATIC + tail), HumanMessage(content="q")]

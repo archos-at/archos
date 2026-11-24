@@ -11,7 +11,7 @@ SELECT
     toFloat(count()) AS breach
 FROM events
 WHERE event = '$exception' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
-    AND coalesce(toString(properties.app_host), '') != 'app.dev.piloti.at'
+    AND coalesce(toString(properties.app_host), '') NOT IN ('app.dev.piloti.at', 'app.dev.archos.tech')
     AND (toString(properties.$exception_values) ILIKE '%402%' OR toString(properties.$exception_values) ILIKE '%insufficient credits%' OR toString(properties.$exception_values) ILIKE '%available credits%')
 UNION ALL
 SELECT
@@ -26,14 +26,14 @@ SELECT
     toFloat(if(countIf(toString(properties.status) = 'failed') > 20 OR (count() >= 20 AND countIf(toString(properties.status) = 'failed') > 0.1 * count()), countIf(toString(properties.status) = 'failed'), 0)) AS breach
 FROM events
 WHERE event = 'document_ingest_finished' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
-    AND coalesce(toString(properties.app_host), '') != 'app.dev.piloti.at'
+    AND coalesce(toString(properties.app_host), '') NOT IN ('app.dev.piloti.at', 'app.dev.archos.tech')
 UNION ALL
 SELECT
     concat('[Ingest] Läufe, die länger als 60 min dauerten (in 1 h beendet): ', toString(count())) AS rule,
     toFloat(count()) AS breach
 FROM events
 WHERE event = 'document_ingest_finished' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
-    AND coalesce(toString(properties.app_host), '') != 'app.dev.piloti.at'
+    AND coalesce(toString(properties.app_host), '') NOT IN ('app.dev.piloti.at', 'app.dev.archos.tech')
     AND toFloat(properties.duration_ms) > 3600000
 UNION ALL
 SELECT
@@ -41,7 +41,7 @@ SELECT
     toFloat(count()) AS breach
 FROM events
 WHERE event = 'budget_blocked' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
-    AND coalesce(toString(properties.app_host), '') != 'app.dev.piloti.at'
+    AND coalesce(toString(properties.app_host), '') NOT IN ('app.dev.piloti.at', 'app.dev.archos.tech')
 UNION ALL
 SELECT
     concat('[Budget] Büro über 80 Prozent des Tagesbudgets: ', arrayStringConcat(groupArrayIf(concat(name, ' (', toString(round(pct)), ' Prozent)'), pct >= 80), ', ')) AS rule,
@@ -51,7 +51,7 @@ FROM (
         argMax(toString(properties.organization_name), timestamp) AS name,
         argMax(if(toFloat(properties.daily_limit) > 0, toFloat(properties.day_amount) / toFloat(properties.daily_limit) * 100, 0), timestamp) AS pct
     FROM events
-    WHERE event = 'organization_budget_snapshot' AND properties.app_host = 'app.piloti.at'
+    WHERE event = 'organization_budget_snapshot' AND properties.app_host IN ('app.piloti.at', 'app.archos.tech')
         AND timestamp > now() - INTERVAL 3 HOUR AND timestamp <= now()
     GROUP BY org
 )
@@ -60,13 +60,19 @@ SELECT
     concat('[Antworten] ', toString(sent - answered), ' von ', toString(sent), ' Chatfragen (vor 30 bis 90 min gestellt) ohne Antwort') AS rule,
     toFloat(if(sent - answered > 2, sent - answered, 0)) AS breach
 FROM (
+    -- Questions typed in a browser against the turns the chat host ended for the browser's door: answer_finished
+    -- is sent whether or not a page watched. A browser event names its deployment in $host, a server event in app_host.
     SELECT
         countIf(event = 'chat_message_sent' AND timestamp <= now() - INTERVAL 30 MINUTE) AS sent,
-        countIf(event = 'answer_completed') AS answered
+        countIf(event = 'answer_finished') AS answered
     FROM events
-    WHERE event IN ('chat_message_sent', 'answer_completed')
+    WHERE event IN ('chat_message_sent', 'answer_finished')
         AND timestamp > now() - INTERVAL 90 MINUTE AND timestamp <= now()
-        AND properties.$host = 'app.piloti.at'
+        AND (
+            (event = 'chat_message_sent' AND properties.$host IN ('app.piloti.at', 'app.archos.tech'))
+            OR (event = 'answer_finished' AND toString(properties.door) = 'chat'
+                AND properties.app_host IN ('app.piloti.at', 'app.archos.tech'))
+        )
 )
 UNION ALL
 SELECT
@@ -103,4 +109,29 @@ LEFT ANTI JOIN (
     WHERE event IN ('inbound_mail_received', 'inbound_mail_dropped') AND timestamp > now() - INTERVAL 6 HOUR AND timestamp <= now()
     GROUP BY host
 ) AS took ON refused.host = took.host
+UNION ALL
+SELECT
+    concat('[Projekt-E-Mail] ', host, ': ', reason, ' ', toString(n), 'x in 1 h abgewiesen (Schritt ', arrayStringConcat(stages, ', '), ')') AS rule,
+    toFloat(n) AS breach
+FROM (
+    -- One is enough: only a broken Worker, key, store or database refuses for these, or an address at its byte cap.
+    SELECT coalesce(toString(properties.app_host), '?') AS host, toString(properties.reason) AS reason, count() AS n,
+        groupUniqArray(5)(coalesce(toString(properties.stage), '?')) AS stages
+    FROM events
+    WHERE event = 'inbound_mail_refused' AND timestamp > now() - INTERVAL 1 HOUR AND timestamp <= now()
+        AND toString(properties.reason) IN ('misconfigured', 'body_truncated', 'body_overlong', 'bad_digest', 'cap_reached')
+    GROUP BY host, reason
+)
+UNION ALL
+SELECT
+    concat('[Projekt-E-Mail] ', host, ': seit ', toString(dateDiff('hour', last, now())), ' h keine Mail angenommen, an ', toString(days), ' der letzten 7 Tage schon') AS rule,
+    toFloat(1) AS breach
+FROM (
+    -- A host that takes mail on most days took none for a day: no refusal rule sees a Worker or route that never calls.
+    SELECT coalesce(toString(properties.app_host), '?') AS host, uniqExact(toDate(timestamp)) AS days, max(timestamp) AS last
+    FROM events
+    WHERE event IN ('inbound_mail_received', 'inbound_mail_dropped') AND timestamp > now() - INTERVAL 7 DAY AND timestamp <= now()
+    GROUP BY host
+    HAVING days >= 3 AND last <= now() - INTERVAL 24 HOUR
+)
 ))

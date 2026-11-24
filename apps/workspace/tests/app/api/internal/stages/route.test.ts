@@ -32,7 +32,7 @@ const mockTasks = vi.mocked(isTaskAutomationEnabledForOrg)
 const REAL_TOKEN = 'a-real-secret-token'
 
 function makeRequest(query: string, token?: string): Request {
-  return new Request(`https://grid.test/api/internal/stages${query}`, {
+  return new Request(`https://example.test/api/internal/stages${query}`, {
     headers: token ? { 'x-grid-internal-token': token } : {},
   })
 }

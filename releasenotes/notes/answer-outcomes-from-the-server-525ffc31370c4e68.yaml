@@ -1,0 +1,9 @@
+---
+# area: administration
+operators:
+  - >
+    Analytics now records how every answer ended (answered, failed, stopped,
+    refused), how long it took and where the question came from: the chat, a
+    connected agent or an event such as a reply in a thread. Answers nobody
+    watched in the browser were missing before, about a third of them. The
+    query of the alert for unanswered chat questions counts them.

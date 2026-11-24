@@ -262,6 +262,16 @@ button.ui-nav-link {
   }
 }
 
+/* The bots' trap field (MailForm.astro): never seen, never focused. */
+.mail-form-trap {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Contact and demo: what happens after the hand-off to the mail program. */
 .mail-form-sent > * {
   margin: 0;

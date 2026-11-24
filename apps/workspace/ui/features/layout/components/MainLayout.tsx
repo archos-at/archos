@@ -43,8 +43,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
     currentConversationTitle,
     currentConversationLocked,
     messageCount,
-    isStreaming,
-    pendingInteraction,
     currentUserId,
     projectId,
   } = useChatStore(
@@ -53,8 +51,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
       currentConversationTitle: s.currentConversation?.title,
       currentConversationLocked: s.currentConversation?.contentLocked === true,
       messageCount: s.currentConversation?.messages?.length ?? 0,
-      isStreaming: s.isStreaming,
-      pendingInteraction: s.pendingInteraction,
       currentUserId: s.currentUserId,
       projectId: s.projectId,
     }))
@@ -119,8 +115,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
     clearSessionUrl()
   }, [deleteAllConversations, clearSessionUrl])
 
-  const isNavigationBlocked = isStreaming || pendingInteraction !== null
-
   const content = (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
       {/* Main Content Area - using explicit widths instead of flex for smoother animation */}
@@ -154,7 +148,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
           <ChatToolbar
             sessionTitle={currentConversationTitle}
             onNewSession={handleNewSession}
-            isNewSessionDisabled={isNavigationBlocked}
             isChatStarted={messageCount > 0}
             conversationId={currentConversationId ?? null}
             isCollaborationEnabled={canCollaborate}
@@ -195,7 +188,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
               {/* The scrims under and above the floating composer (`ComposerScrim`). */}
               <ComposerScrim />
 
-              {/* What Piloti's viewer actions move, for this page only (ADR-0144). */}
+              {/* What the agent's viewer actions move, for this page only (ADR-0144). */}
               <ViewerActionHost />
 
               {/* Floating composer stack: overlays the bottom of the chat scroll

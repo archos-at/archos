@@ -36,6 +36,7 @@ export interface UserMessageProps {
   mentions?: Array<{ targetId: string; display: string }>
   currentUserId?: string | null
   side?: 'end' | 'start'
+  answerExcerpt?: string
 }
 
 export const UserMessage: FC<UserMessageProps> = ({
@@ -46,6 +47,7 @@ export const UserMessage: FC<UserMessageProps> = ({
   mentions,
   currentUserId,
   side,
+  answerExcerpt,
 }) => {
   const t = useTranslations(chatCopy)
   const swap = useIconSwapTransition()
@@ -62,12 +64,26 @@ export const UserMessage: FC<UserMessageProps> = ({
     }
   }
 
-  const body =
+  const text =
     mentions && mentions.length > 0 ? (
       <MentionText content={content} mentions={mentions} currentUserId={currentUserId} />
     ) : (
       <MarkdownRenderer content={content} compact />
     )
+  const body = answerExcerpt ? (
+    <>
+      <blockquote
+        className="text-muted-foreground mb-2 border-l-2 pl-2.5 text-xs leading-snug"
+        data-testid="user-message-answer-excerpt"
+      >
+        <span className="sr-only">{t('answerExcerpt.inMessage')} </span>
+        <span className="line-clamp-4 break-words whitespace-pre-line">{answerExcerpt}</span>
+      </blockquote>
+      {text}
+    </>
+  ) : (
+    text
+  )
 
   if (!author) {
     return (

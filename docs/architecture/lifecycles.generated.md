@@ -43,6 +43,7 @@ stateDiagram-v2
   [*] --> draft
   [*] --> published
   [*] --> approved
+  draft --> published: file
   draft --> draft: update
   draft --> in_review: submit
   in_review --> published: approve
@@ -60,6 +61,7 @@ Born as `draft`, `published`, `approved`. Final: `superseded`, `rejected`.
 
 | From | Move | To |
 |---|---|---|
+| `draft` | `file` | `published` |
 | `draft` | `update` | `draft` |
 | `draft` | `submit` | `in_review` |
 | `in_review` | `approve` | `published` |

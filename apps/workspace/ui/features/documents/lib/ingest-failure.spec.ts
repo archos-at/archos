@@ -1,9 +1,13 @@
 // @disk-inputs: bff/documents/ingest-dispatch.ts
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { translatorFor } from '@/i18n/namespace'
 import { filesCopy } from '@/i18n/namespaces/files'
+import {
+  DRAWING_UNREADABLE_MESSAGE,
+  INGEST_ALLOWANCE_SPENT_MESSAGE,
+  INGEST_DISPATCH_FAILED_MESSAGE,
+  RENDITION_REQUIRED_MESSAGE,
+} from '@/lib/documents/ingest-dispatch'
 import {
   BFF_FAILURE_PHRASES,
   classifyIngestFailure,
@@ -42,13 +46,6 @@ const BACKEND_MESSAGES: Array<[string, IngestFailureKind]> = [
   ['some_new_reason: text nobody mapped yet', 'unknown'],
 ]
 
-function bffConstant(name: string): string {
-  const source = readFileSync(path.resolve(__dirname, '../../../../bff/documents/ingest-dispatch.ts'), 'utf8')
-  const match = new RegExp(`export const ${name} = '([^']+)'`).exec(source)
-  if (!match) throw new Error(`${name} not found in lib/documents/ingest-dispatch.ts`)
-  return match[1]
-}
-
 describe('classifyIngestFailure', () => {
   it.each(BACKEND_MESSAGES)('%s → %s', (message, kind) => {
     expect(classifyIngestFailure(message)).toMatchObject({ kind, raw: message })
@@ -68,11 +65,11 @@ describe('classifyIngestFailure', () => {
   })
 
   it.each([
-    ['INGEST_DISPATCH_FAILED_MESSAGE', 'dispatch_failed'],
-    ['RENDITION_REQUIRED_MESSAGE', 'rendition_failed'],
-    ['DRAWING_UNREADABLE_MESSAGE', 'drawing_unreadable'],
-  ] as const)('classifies the BFF constant %s', (name, kind) => {
-    const message = bffConstant(name)
+    [INGEST_DISPATCH_FAILED_MESSAGE, 'dispatch_failed'],
+    [INGEST_ALLOWANCE_SPENT_MESSAGE, 'allowance_spent'],
+    [RENDITION_REQUIRED_MESSAGE, 'rendition_failed'],
+    [DRAWING_UNREADABLE_MESSAGE, 'drawing_unreadable'],
+  ] as const)('classifies the BFF message %s', (message, kind) => {
     expect(BFF_FAILURE_PHRASES).toHaveProperty([message], kind)
     expect(classifyIngestFailure(message)?.kind).toBe(kind)
   })

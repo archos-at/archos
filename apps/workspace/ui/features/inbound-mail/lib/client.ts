@@ -9,8 +9,10 @@ import {
   inboundMailOriginalUrl,
   inboundMailPartContentUrl,
   listInboundMails,
+  reportInboundMail,
   restoreInboundMail,
   rotateInboundMailAddress,
+  setInboundMailForwardedFrom,
 } from '@/adapters/api/inbound-mail-client'
 import { followMailThread, listMailThreads, unfollowMailThread } from '@/adapters/api/mail-thread-client'
 import type {
@@ -20,6 +22,7 @@ import type {
   InboundMailDecisionResultView,
   InboundMailListQuery,
   InboundMailListView,
+  InboundMailReportResultView,
   InboundMailTextView,
   InboundMailView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -32,6 +35,7 @@ export interface InboundMailClient {
   file(projectId: string, body: FileInboundMailsBody): Promise<InboundMailDecisionResultView>
   dismiss(projectId: string, body: DismissInboundMailsBody): Promise<{ mails: InboundMailView[] }>
   restore(projectId: string, mailId: string): Promise<InboundMailView>
+  report(projectId: string, mailId: string): Promise<InboundMailReportResultView>
   follow(projectId: string, threadId: string, body?: MailThreadFollowBody): Promise<void>
   unfollow(projectId: string, threadId: string): Promise<void>
   threadOfDocument(projectId: string, documentId: string): Promise<MailThreadSummaryView | null>
@@ -44,6 +48,7 @@ export interface InboundMailAddressClient {
   create(projectId: string): Promise<InboundMailAddressView>
   rotate(projectId: string): Promise<InboundMailAddressView>
   remove(projectId: string): Promise<InboundMailAddressView>
+  setForwardedFrom(projectId: string, forwardedFrom: readonly string[]): Promise<InboundMailAddressView>
 }
 
 export const inboundMailClient: InboundMailClient = {
@@ -53,6 +58,7 @@ export const inboundMailClient: InboundMailClient = {
   file: fileInboundMails,
   dismiss: dismissInboundMails,
   restore: restoreInboundMail,
+  report: reportInboundMail,
   follow: async (projectId, threadId, body) => {
     await followMailThread(projectId, threadId, body)
   },
@@ -69,4 +75,5 @@ export const inboundMailAddressClient: InboundMailAddressClient = {
   create: createInboundMailAddress,
   rotate: rotateInboundMailAddress,
   remove: deleteInboundMailAddress,
+  setForwardedFrom: setInboundMailForwardedFrom,
 }

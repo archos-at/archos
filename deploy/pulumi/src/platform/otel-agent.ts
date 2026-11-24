@@ -13,11 +13,12 @@ import {
   composeCollectorConfig,
   renderCollectorConfig,
 } from "./collector-config";
+import { cpuRequest } from "../config/cpu-requests";
 
 const COMPONENT = "otel-agent";
 const KUBELET_PORT = 10250;
 const SCRAPE_INTERVAL = "30s";
-const GATEWAY_EXPORTER = "otlp_http/gateway";
+export const GATEWAY_EXPORTER = "otlp_http/gateway";
 const KUBELET_RECEIVER = "kubelet_stats";
 
 export interface OtelAgent {
@@ -75,7 +76,7 @@ export function installOtelAgent(
                 ],
                 volumeMounts: [{ name: "config", mountPath: "/etc/otelcol", readOnly: true }],
                 resources: {
-                  requests: { cpu: "50m", memory: "64Mi" },
+                  requests: { cpu: cpuRequest("50m"), memory: "64Mi" },
                   limits: { cpu: "250m", memory: "256Mi" },
                 },
                 readinessProbe: { httpGet: { path: "/", port: HEALTH_PORT }, periodSeconds: 10, timeoutSeconds: 5 },
@@ -92,7 +93,7 @@ export function installOtelAgent(
         },
       },
     },
-    { provider, dependsOn: [...dependsOn, configMap, identity.binding] },
+    { provider, dependsOn: [...dependsOn, configMap, ...identity.bindings] },
   );
 
   return { daemonSet, configMap };
@@ -160,11 +161,11 @@ export function annotatedPods(): CollectorFragment {
   };
 }
 
-export function toGateway(): CollectorFragment {
+export function toGateway(host = "otel-collector", port = OTLP_HTTP_PORT): CollectorFragment {
   return {
     exporters: {
       [GATEWAY_EXPORTER]: {
-        endpoint: `http://otel-collector:${OTLP_HTTP_PORT}`,
+        endpoint: `http://${host}:${port}`,
         compression: "gzip",
         ...boundedDelivery(500),
       },

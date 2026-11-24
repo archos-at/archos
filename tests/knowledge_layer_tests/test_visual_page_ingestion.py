@@ -3,11 +3,15 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.ingest import LlamaIndexIngestor
-from knowledge_layer.ingest import adapter
-from knowledge_layer.ingest.adapter import _parse_drawing_fields
-from knowledge_layer.ingest.adapter import _scrub_watermark_phrases
-from knowledge_layer.ingest.adapter import _strip_watermark_lines
-from knowledge_layer.ingest.adapter import _summary_from_drawing_fields
+from knowledge_layer.ingest import _parse_drawing_fields
+from knowledge_layer.ingest import _scrub_watermark_phrases
+from knowledge_layer.ingest import _strip_watermark_lines
+from knowledge_layer.ingest import _summary_from_drawing_fields
+from knowledge_layer.ingest import limits
+from knowledge_layer.ingest import page_triage
+from knowledge_layer.ingest import pdf_text
+from knowledge_layer.ingest import vision_credentials
+from knowledge_layer.ingest import vision_reads
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import record
 from knowledge_layer_testing.vector_store import write
@@ -22,7 +26,7 @@ def _patch_vlm_credential(monkeypatch, api_key: str):
         model="test-vlm",
         source="env" if api_key else "none",
     )
-    monkeypatch.setattr(adapter, "resolve_vlm_credential", lambda organization_id=None: cred)
+    monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", lambda organization_id=None: cred)
 
 
 _VLM_DRAWING_RESPONSE = (
@@ -110,8 +114,8 @@ class TestGenericVlmPromptWatermarkExclusion:
         import openai
 
         monkeypatch.setattr(openai, "OpenAI", _FakeClient)
-        monkeypatch.setattr(adapter, "_get_vlm_api_key", lambda: "k")
-        adapter._analyze_image_with_vlm(b"fakeimagebytes", extract_charts=extract_charts)
+        monkeypatch.setattr(vision_credentials, "_get_vlm_api_key", lambda: "k")
+        vision_reads._analyze_image_with_vlm(b"fakeimagebytes", extract_charts=extract_charts)
         return captured["prompt"]
 
     @pytest.mark.parametrize("extract_charts", [True, False])
@@ -172,7 +176,7 @@ class TestSummaryFromDrawingFields:
 
 class TestVlmModelOverride:
     def test_none_without_org(self):
-        assert adapter._resolve_vlm_model_override(None) is None
+        assert vision_credentials._resolve_vlm_model_override(None) is None
 
     def test_reads_ingest_vlm_group_for_org(self, monkeypatch):
         from agent.common import model_overrides
@@ -180,7 +184,7 @@ class TestVlmModelOverride:
         monkeypatch.setattr(
             model_overrides, "resolve_org_model_overrides", lambda org: {"ingest_vlm": "tenant/vision-model"}
         )
-        assert adapter._resolve_vlm_model_override("org-1") == "tenant/vision-model"
+        assert vision_credentials._resolve_vlm_model_override("org-1") == "tenant/vision-model"
 
     def test_fails_open_to_none_on_error(self, monkeypatch):
         from agent.common import model_overrides
@@ -189,7 +193,7 @@ class TestVlmModelOverride:
             raise RuntimeError("BFF unreachable")
 
         monkeypatch.setattr(model_overrides, "resolve_org_model_overrides", boom)
-        assert adapter._resolve_vlm_model_override("org-1") is None
+        assert vision_credentials._resolve_vlm_model_override("org-1") is None
 
 
 class _FakeTextPage:
@@ -228,7 +232,7 @@ class _FakePage:
         return _FakeTextPage(self._text)
 
     def get_objects(self):
-        return [_FakeObj(adapter._PAGEOBJ_PATH) for _ in range(self._n_paths)]
+        return [_FakeObj(page_triage._PAGEOBJ_PATH) for _ in range(self._n_paths)]
 
     def get_size(self):
         return self._size
@@ -359,7 +363,7 @@ class TestRunIngestionDrawingBranch:
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
         monkeypatch.setattr(
-            adapter,
+            vision_reads,
             "_analyze_drawing_page_with_vlm",
             lambda *a, **k: (_VLM_DRAWING_RESPONSE, _parse_drawing_fields(_VLM_DRAWING_RESPONSE)),
         )
@@ -377,7 +381,7 @@ class TestRunIngestionDrawingBranch:
                 }
             ],
         )
-        monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda p: [])
+        monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda p: [])
 
         pdf = tmp_path / "perspektivischer_schnitt.pdf"
         pdf.write_bytes(b"%PDF-1.4\n% minimal\n")
@@ -404,7 +408,7 @@ class TestRunIngestionDrawingBranch:
         render = MagicMock()
         monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", render)
         monkeypatch.setattr(
-            adapter,
+            pdf_text,
             "_extract_text_from_pdf",
             lambda p: [{"page_number": 1, "text": "Baubeschreibung: dreigeschossiges Wohngebäude."}],
         )
@@ -515,9 +519,9 @@ class TestRunIngestionDrawingBranch:
             seen_org["override"] = organization_id
             return "tenant/vision-model"
 
-        monkeypatch.setattr(adapter, "resolve_vlm_credential", fake_cred)
-        monkeypatch.setattr(adapter, "_resolve_vlm_model_override", fake_override)
-        monkeypatch.setattr(adapter, "_extract_text_from_pdf", lambda p: [])
+        monkeypatch.setattr(vision_credentials, "resolve_vlm_credential", fake_cred)
+        monkeypatch.setattr(vision_credentials, "_resolve_vlm_model_override", fake_override)
+        monkeypatch.setattr(pdf_text, "_extract_text_from_pdf", lambda p: [])
 
         captured: dict[str, object] = {}
 
@@ -525,7 +529,7 @@ class TestRunIngestionDrawingBranch:
             captured.update(model=vlm_model, base_url=vlm_base_url, api_key=vlm_api_key)
             return ("ZEICHNUNGSTYP: grundriss\nMASSSTAB: keiner", {"drawing_type": "grundriss", "scale": "keiner"})
 
-        monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", fake_vlm_call)
+        monkeypatch.setattr(vision_reads, "_analyze_drawing_page_with_vlm", fake_vlm_call)
 
         import knowledge_layer.ingest.processing as processing_module
 
@@ -565,7 +569,7 @@ class TestRunIngestionEmbedsAndChecksWithTheWholePage:
         ]
         table = PageTable("3", "Anforderungen an Treppenhäuser", rows, 1)
         monkeypatch.setattr(
-            adapter,
+            pdf_text,
             "_extract_text_from_pdf",
             lambda p: [{"page_number": 1, "text": "Seite 1", "tables": [table], "table_boxes": [(0, 0, 1, 1)]}],
         )
@@ -581,7 +585,7 @@ class TestRunIngestionEmbedsAndChecksWithTheWholePage:
 
         page_texts = render.call_args.kwargs["page_texts"]
         assert "REI 90" in page_texts[1]
-        assert len(page_texts[1]) >= adapter.VISUAL_PAGE_MIN_TEXT_CHARS
+        assert len(page_texts[1]) >= limits.VISUAL_PAGE_MIN_TEXT_CHARS
 
     def test_the_chunks_are_embedded_with_the_ingestors_own_embed_model(
         self, tmp_path, monkeypatch, ingestor, summary_db

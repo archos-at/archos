@@ -3,7 +3,7 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
-from agent.common.wire_v2 import wire_json_schema
+from agent.common.wire_v2_schema import wire_json_schema
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "contracts" / "wire" / "v2.schema.json"
 

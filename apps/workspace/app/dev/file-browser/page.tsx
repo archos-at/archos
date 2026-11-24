@@ -8,6 +8,7 @@ import { DocumentActionsTrigger, DocumentObjectMenu } from '@/features/documents
 import { FileSearchBar, FileSearchField } from '@/features/documents/components/file-search-bar'
 import { FileFilterMenu } from '@/features/documents/components/file-filter-menu'
 import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
+import { FOLDER_DRAG_TYPE } from '@/features/documents/hooks/use-document-drag'
 import { usePhoneLayout } from '@/features/documents/hooks/use-phone-layout'
 import { NO_FILE_FILTERS, type FileFilters } from '@/features/documents/lib/file-filters'
 import { DEFAULT_FILE_SORT, type FileSort } from '@/features/documents/lib/file-sort'
@@ -131,7 +132,7 @@ function FolderDropTargetFixture(): JSX.Element {
   useEffect(() => {
     const card = document.querySelector('[data-testid="folder-card-f-statik"]')
     if (!card) return
-    const types = ['application/x-grid-folder-id', 'application/x-grid-folder-id:f-brand']
+    const types = [FOLDER_DRAG_TYPE, `${FOLDER_DRAG_TYPE}:f-brand`]
     const event = new Event('dragover', { bubbles: true, cancelable: true })
     Object.defineProperty(event, 'dataTransfer', {
       value: { types, getData: () => 'f-brand', dropEffect: 'none' },

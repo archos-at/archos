@@ -1,27 +1,27 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { computePurgeAfter, projectGraceDays } from './policy'
 
 describe('projectGraceDays', () => {
   it('defaults to 7 when env is unset', () => {
-    delete process.env.PROJECT_PURGE_GRACE_DAYS
+    vi.stubEnv('PROJECT_PURGE_GRACE_DAYS', undefined)
     expect(projectGraceDays()).toBe(7)
   })
 
   it('reads the env override', () => {
-    process.env.PROJECT_PURGE_GRACE_DAYS = '0'
+    vi.stubEnv('PROJECT_PURGE_GRACE_DAYS', '0')
     expect(projectGraceDays()).toBe(0)
   })
 
   it('caps at 23 days to stay inside the GDPR one-month window', () => {
-    process.env.PROJECT_PURGE_GRACE_DAYS = '90'
+    vi.stubEnv('PROJECT_PURGE_GRACE_DAYS', '90')
     expect(projectGraceDays()).toBe(23)
   })
 
   it('falls back to 7 on garbage input', () => {
-    process.env.PROJECT_PURGE_GRACE_DAYS = 'soon'
+    vi.stubEnv('PROJECT_PURGE_GRACE_DAYS', 'soon')
     expect(projectGraceDays()).toBe(7)
   })
 })

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer import register as register_module
+from knowledge_layer.browse import exact as browse_exact
 from knowledge_layer.browse import tool as browse
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
@@ -177,7 +178,7 @@ class TestKnowledgeSearchRow:
             return {BASE: 30}
 
         store.find_text = _find_text
-        monkeypatch.setattr(browse, "_searched_documents", _reads)
+        monkeypatch.setattr(browse_exact, "_searched_documents", _reads)
 
         await _search(query="Brandabschnitt", match="exact")
 
@@ -210,7 +211,7 @@ class TestKnowledgeSearchRow:
             return {BASE: 30}
 
         store.find_text = _find_text
-        monkeypatch.setattr(browse, "_searched_documents", _reads)
+        monkeypatch.setattr(browse_exact, "_searched_documents", _reads)
 
         await _search(query="Flucht", match="exact")
 
@@ -228,7 +229,7 @@ class TestKnowledgeSearchRow:
             return {BASE: 30}
 
         store.find_text = _find_text
-        monkeypatch.setattr(browse, "_searched_documents", _reads)
+        monkeypatch.setattr(browse_exact, "_searched_documents", _reads)
 
         await _search(query="Brandabschnitt", match="exact")
 
@@ -390,7 +391,7 @@ class TestRestrictedFoldersStayUnnamedOnTheRow:
             return {}
 
         store.find_text = _find_text
-        monkeypatch.setattr(browse, "_searched_documents", _reads)
+        monkeypatch.setattr(browse_exact, "_searched_documents", _reads)
 
         await _search(query="Gehalt", match="exact")
 
@@ -461,7 +462,7 @@ class TestExactSearchPartialFailure:
             return {}
 
         store.find_text = _find_text
-        monkeypatch.setattr(browse, "_searched_documents", _reads)
+        monkeypatch.setattr(browse_exact, "_searched_documents", _reads)
 
         result = await _search(query="Brandabschnitt", match="exact")
 

@@ -7,9 +7,10 @@ import { MentionPeopleProvider } from '../context/mention-people'
 
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 import { MentionText } from './MentionText'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 const anna = { targetId: 'u-anna', display: 'Anna Weber' }
-const agent = { targetId: AGENT_MENTION_ID, display: 'Piloti' }
+const agent = { targetId: AGENT_MENTION_ID, display: PRODUCT_NAME }
 
 describe('MentionText', () => {
   test('renders the text with the mention as a chip and keeps the prose intact', () => {
@@ -57,10 +58,10 @@ describe('MentionText', () => {
   })
 
   test('the assistant is chipped distinctly from a person', () => {
-    render(<MentionText content="@Piloti prüfe das" mentions={[agent]} />)
+    render(<MentionText content={`@${PRODUCT_NAME} prüfe das`} mentions={[agent]} />)
     const chip = screen.getByTestId('mention-chip')
     expect(chip).toHaveAttribute('data-mention-target', AGENT_MENTION_ID)
-    expect(chip).toHaveTextContent('@Piloti')
+    expect(chip).toHaveTextContent(`@${PRODUCT_NAME}`)
   })
 
   test('text that only LOOKS like a mention is plain text (MN-3)', () => {
@@ -111,7 +112,7 @@ describe('MentionText — the peek behind a pill', () => {
 
   const withPeople = (ui: JSX.Element, currentUserId?: string | null) =>
     render(
-      <MentionPeopleProvider participants={roster} currentUserId={currentUserId} agentName="Piloti">
+      <MentionPeopleProvider participants={roster} currentUserId={currentUserId} agentName={PRODUCT_NAME}>
         {ui}
       </MentionPeopleProvider>,
     )
@@ -125,7 +126,7 @@ describe('MentionText — the peek behind a pill', () => {
 
   test('stays a plain span when the provider is disabled', () => {
     render(
-      <MentionPeopleProvider participants={roster} agentName="Piloti" enabled={false}>
+      <MentionPeopleProvider participants={roster} agentName={PRODUCT_NAME} enabled={false}>
         <MentionText content="@Anna Weber bitte" mentions={[anna]} />
       </MentionPeopleProvider>,
     )
@@ -150,12 +151,12 @@ describe('MentionText — the peek behind a pill', () => {
 
   test('the assistant gets its own card rather than an email address', async () => {
     const user = userEvent.setup()
-    withPeople(<MentionText content="@Piloti bitte weiter" mentions={[agent]} />)
+    withPeople(<MentionText content={`@${PRODUCT_NAME} bitte weiter`} mentions={[agent]} />)
 
     await user.click(screen.getByTestId('mention-chip'))
 
     const peek = await screen.findByTestId('person-peek')
-    expect(peek).toHaveTextContent('Piloti')
+    expect(peek).toHaveTextContent(PRODUCT_NAME)
     expect(peek).toHaveTextContent('Assistant in this project')
     expect(screen.queryByTestId('person-peek-access')).not.toBeInTheDocument()
   })

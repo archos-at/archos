@@ -2,7 +2,7 @@
 /**
  * @vitest-environment node
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -13,6 +13,8 @@ import {
 } from './database-unavailable.js'
 import { databaseUnavailableCode as appDatabaseUnavailableCode } from '../bff/db/errors'
 import { classifyConsoleRecord } from '../observability/otel-logs.js'
+import { parseSource, ts, walk } from '../tests/test-utils/source-ast'
+import { srcEntries, srcPath } from '../tests/test-utils/source-tree'
 
 const UI_ROOT = path.resolve(__dirname, '..')
 
@@ -75,23 +77,35 @@ describe('the log bridge reads the same code set', () => {
 })
 
 describe('the code set is spelled once', () => {
-  const SPELLED = /CONNECTION_DESTROYED|['"`]57P0[0-9]['"`]|57P0\[|08\[0-9A-Z\]/
-  const ROOTS = ['app', 'bff', 'ui', 'i18n', 'shared', 'types', 'utils', 'purger', 'workers', 'observability', 'server.js']
-  const HOME = path.join('workers', 'database-unavailable.js')
+  const SPELLED = /CONNECTION_DESTROYED|^57P0\d$|57P0\[|08\[0-9A-Z\]/
+  const SCRIPT_EXTENSIONS = new Set(['js', 'cjs', 'mjs', 'ts', 'tsx'])
+  const SCANNED_DIRS = ['purger', 'workers', 'observability']
+  const HOME = path.join('workers', 'database-unavailable')
 
-  function sourceFiles(entry) {
+  const isScript = (file) => SCRIPT_EXTENSIONS.has(path.extname(file).slice(1)) && !/\.(spec|test)\./.test(file)
+
+  function filesUnder(entry) {
     const full = path.join(UI_ROOT, entry)
     if (statSync(full).isFile()) return [entry]
-    return readdirSync(full).flatMap((name) =>
-      name === 'node_modules' ? [] : sourceFiles(path.join(entry, name)),
-    )
+    return readdirSync(full).flatMap((name) => (name === 'node_modules' ? [] : filesUnder(path.join(entry, name))))
+  }
+
+  function spellings(source) {
+    const found = []
+    walk(source, (node) => {
+      if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isIdentifier(node) || ts.isRegularExpressionLiteral(node)) {
+        found.push(node.text)
+      }
+    })
+    return found
   }
 
   it('appears in no other source file', () => {
-    const copies = ROOTS.flatMap(sourceFiles)
-      .filter((file) => /\.(c?js|mjs|ts|tsx)$/.test(file) && !/\.(spec|test)\.|\.d\.ts$/.test(file))
-      .filter((file) => file !== HOME)
-      .filter((file) => SPELLED.test(readFileSync(path.join(UI_ROOT, file), 'utf8')))
+    const extra = [...readdirSync(UI_ROOT).filter((name) => name.startsWith('server.')), ...SCANNED_DIRS].flatMap(filesUnder)
+    const copies = [...srcEntries(UI_ROOT), ...extra]
+      .filter(isScript)
+      .filter((file) => file.slice(0, -path.extname(file).length) !== HOME)
+      .filter((file) => spellings(parseSource(srcPath(file, UI_ROOT), UI_ROOT)).some((text) => SPELLED.test(text)))
     expect(copies).toEqual([])
   })
 })

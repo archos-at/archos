@@ -1,28 +1,3 @@
-"""How a Katastralmappe looks on paper, from BEV's own plot scheme (ADR-0152).
-
-A Katastralmappe DXF carries no plot styling of its own: the "BEV-DXF+CSV"
-variant has no layer table at all, so every line comes out the same white
-hairline, and the variant with a header carries the SCREEN colours. BEV's spec
-lists a plot colour for every layer (Schnittstellenbeschreibung v2.6, §6,
-column "Plot"): parcel boundaries black, buildings red, land-use lines green,
-other lines and labels blue, administrative boundaries grey. This module applies
-that scheme, with line weights an office would plot it at, and three things the
-DXF leaves to the receiving system:
-
-* **Text sized for the paper.** The DKM's text heights are set for the sheet's
-  original scale (§4, "Maßstabsabhängige Objekte"), so a 1:2000 sheet printed at
-  1:200 has parcel numbers ten times too large. Heights are reset to a size in
-  millimetres on the paper; a point number BEV suppressed (height 0.01 × the
-  scale factor, §3.8) stays suppressed.
-* **Boundary-point marks.** The symbols are INSERTs of BEV blocks the partial
-  file does not define. They are drawn here as the spec describes them (§9.2):
-  an oblique cross for an unmarked point, a circle with a vertical stroke for a
-  marked one, a circle for an indirectly marked one; fixed points as a
-  triangle. Land-use symbols are not drawn.
-* **Buildings filled.** A building's outline (layer HG) is closed by repeating
-  its first vertex (§3.6); it gets the light red fill the analogue map had.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -35,7 +10,6 @@ from ezdxf.entities import DXFGraphic
 INK = (26, 26, 26)
 BUILDING_RED = (192, 57, 43)
 LAND_USE_GREEN = (62, 140, 80)
-# Plot colours, text scale and point marks follow BEV Schnittstellenbeschreibung v2.6 (§6 plot column, §4, §3.8, §9.2).
 OTHER_BLUE = (43, 87, 151)
 BOUNDARY_GREY = (110, 110, 110)
 
@@ -72,7 +46,6 @@ INK_HEX = "#{:02x}{:02x}{:02x}".format(*INK)
 
 
 def label_colour(layer: str) -> str:
-    """The plot colour a label on this layer is set in."""
     colour = PLOT_STYLE.get(layer.upper(), (INK, 0, False))[0]
     return "#{:02x}{:02x}{:02x}".format(*colour)
 
@@ -100,18 +73,12 @@ BUILDING_FILL = "#f4dcd7"
 
 @dataclass(frozen=True)
 class PointMark:
-    """A boundary or fixed point to mark: where, and which mark."""
-
     x: float
     y: float
     mark: str
 
 
 def apply_plot_style(doc: Drawing, units_per_mm: float) -> None:
-    """Give every cadastre layer its plot colour, weight and line type, and hide the sheet markers.
-
-    The dash-dot is defined in drawing units, so it is scaled from its paper size here.
-    """
     pattern = [abs(part) * units_per_mm * (1 if part >= 0 else -1) for part in _DASH_DOT_MM]
     if not doc.linetypes.has_entry("CADASTRE_DASHDOT"):
         doc.linetypes.add("CADASTRE_DASHDOT", pattern=[sum(abs(part) for part in pattern), *pattern])
@@ -126,7 +93,6 @@ def apply_plot_style(doc: Drawing, units_per_mm: float) -> None:
 
 
 def set_label_face(doc: Drawing, face_file: Path | None) -> None:
-    """Set the Katastralmappe's text style (``NORM``, spec §1.1) in the sheet's text face, when there is one."""
     if face_file is None:
         return
     for style in doc.styles:
@@ -143,7 +109,6 @@ def _texts_on(doc: Drawing) -> Iterator[DXFGraphic]:
 
 
 def size_text_for_paper(doc: Drawing, units_per_mm: float) -> None:
-    """Reset each cadastre text to its paper height at this sheet's scale."""
     for text in _texts_on(doc):
         target_mm = TEXT_HEIGHT_MM.get(text.dxf.layer.upper())
         if target_mm is None:
@@ -171,7 +136,6 @@ _MARK_BY_BLOCK: dict[str, str] = {
 
 
 def point_marks(doc: Drawing) -> list[PointMark]:
-    """The boundary and fixed points the file places, as marks to draw."""
     marks = []
     for insert in doc.modelspace().query("INSERT"):
         mark = _MARK_BY_BLOCK.get(insert.dxf.name.upper())
@@ -181,7 +145,6 @@ def point_marks(doc: Drawing) -> list[PointMark]:
 
 
 def building_outlines(doc: Drawing) -> list[list[tuple[float, float]]]:
-    """Each closed building outline on layer HG, as its vertices."""
     outlines = []
     for polyline in doc.modelspace().query("POLYLINE LWPOLYLINE"):
         if polyline.dxf.layer.upper() != "HG":

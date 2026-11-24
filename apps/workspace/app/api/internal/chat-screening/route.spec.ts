@@ -54,8 +54,8 @@ const OWN_POLICY = {
 
 describe('GET /api/internal/chat-screening', () => {
   beforeEach(() => {
-    process.env.INTERNAL_API_TOKEN = 'test-token'
-    process.env.APP_ENV = 'development'
+    vi.stubEnv('INTERNAL_API_TOKEN', 'test-token')
+    vi.stubEnv('APP_ENV', 'development')
     stored.settings = {}
   })
 

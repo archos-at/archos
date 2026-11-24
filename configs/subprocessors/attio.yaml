@@ -1,0 +1,53 @@
+id: attio
+kind: processor
+status: conditional
+order: 190
+name: Attio Ltd
+entity_country: GB
+processing_countries: [various]
+transfer: third_country
+contract: unknown
+data_classes: [support_text]
+purposes: [customer_support]
+holds_tenant_text: false
+deletion:
+  status: no_tenant_text
+  de: >-
+    Attio hält nur Personen und Anfragen aus den Kontakt- und Demoformularen der Website; Inhalte eines Büros liegen
+    dort nicht. Die Einträge bleiben, bis wir sie löschen.
+  en: >-
+    Attio holds only people and enquiries from the website's contact and demo forms; no office's content rests there.
+    The records stay until we delete them.
+hosts: [api.attio.com]
+env: [ATTIO_API_KEY]
+evidence:
+  - apps/website/src/lib/enquiry-delivery.ts
+  - deploy/pulumi/src/app/web-mail.ts
+agreement:
+  entity: Attio Ltd, United Kingdom (address per order form)
+  dpa: A Data Processing Addendum is published; whether it binds our plan without signature is to confirm
+  dpa_url: https://attio.com/legal/attio-data-processing-addendum
+  subprocessors: https://trust.attio.com/sub-processors
+  note: Conditional on attioApiKey being set. The DPA names Google Cloud as host; the hosting region is not confirmed.
+  checked: '2026-11-19'
+  sources:
+    - https://attio.com/legal/attio-data-processing-addendum
+copy:
+  name:
+    de: Attio Ltd
+    en: Attio Ltd
+  purpose:
+    de: Kundenverwaltung (CRM) für Kontakt- und Demoanfragen über die Website
+    en: Customer relationship management (CRM) for contact and demo enquiries through the website
+  data:
+    de: Name, E-Mail-Adresse und der Inhalt der Anfrage aus dem Formular
+    en: Name, email address and the content of the enquiry from the form
+  location:
+    de: Zu bestätigen (laut Attio Google Cloud)
+    en: To be confirmed (Google Cloud, according to Attio)
+  transfer:
+    de: Vereinbarung mit Attio wird geprüft
+    en: Agreement with Attio under review
+  required:
+    de: Nein, nur für Anfragen über die Website
+    en: No, only for enquiries through the website

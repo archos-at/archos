@@ -36,7 +36,7 @@ a BFF pod that has not rolled yet keeps working.
 
 ## What reads both until the rewrite has run
 
-- **Filters** (`packages/knowledge-layer/src/vector_store/scope.py`): a condition on a new name
+- **Filters** (`packages/knowledge-layer/src/knowledge_layer/vector_store/scope.py`): a condition on a new name
   matches the new name **or** the old one (`should`), with the German token for
   the old key; a negative condition (`$ne`, `$nin`) excludes both. That covers
   `read_passage`'s clause and outline filters, the `chunking != page` exclusion,

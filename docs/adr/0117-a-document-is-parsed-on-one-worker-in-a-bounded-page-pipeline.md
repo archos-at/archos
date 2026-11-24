@@ -56,7 +56,7 @@ get faster and keep scaling out, without ever buying speed with a killed pod.
    bounded window of pages, so peak memory is the window and not the document.
 3. Process-per-document: fork or spawn a child per document and let the OS
    schedule it, with the parent holding the claim.
-4. Shrink the PDFium critical section only (`pdfium_lock.py:40`), so the four
+4. Shrink the PDFium critical section only (`pdfium_guard.py:40`), so the four
    worker threads stop serialising on rendering.
 
 ## Decision Outcome
@@ -86,7 +86,7 @@ they are.
   two lists. The pipeline changes who calls them and in what order, not what they
   do.
 * **PDFium stays one lock.** Rendering remains serialised per process
-  (`pdfium_lock.py:40`), because pypdfium2 is not thread-safe. The pipeline
+  (`pdfium_guard.py:40`), because pypdfium2 is not thread-safe. The pipeline
   overlaps rendering with *vision*, which does not hold the lock, and with
   pdfplumber, which does not use PDFium at all. Option 3 was rejected because it
   buys at most the GIL's worth of extra text throughput while duplicating the

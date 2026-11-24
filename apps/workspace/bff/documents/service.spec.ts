@@ -789,6 +789,7 @@ describe('listDocumentsPage', () => {
         contentType: 'application/pdf',
         status: 'completed' as const,
         authoredBy: 'user',
+        authoredByProducer: null,
         collectionName: 'proj_abc',
         folderId: null,
         createdAt: new Date('2026-01-01T00:00:00Z'),
@@ -1996,7 +1997,11 @@ describe('the authorship gate on the (collection, filename) join', () => {
       const [url, init] = documentCalls()[0] ?? []
       expect(String(url)).toBe('http://backend:8000/v1/collections/proj_abc/documents')
       expect((init as RequestInit)?.method).toBe('DELETE')
-      expect(JSON.parse(String((init as RequestInit)?.body))).toEqual({ file_ids: [collidingName], permanent: true })
+      expect(JSON.parse(String((init as RequestInit)?.body))).toEqual({
+        file_ids: [collidingName],
+        documents: [{ id: 'doc-1', file_name: collidingName }],
+        permanent: true,
+      })
     })
 
     it('purges permanently, both times: a deleted document keeps no Fassung link for a later upload of its name', async () => {
@@ -2197,6 +2202,7 @@ describe('the authorship gate on the (collection, filename) join', () => {
           contentType: 'application/pdf',
           status: 'stored' as const,
           authoredBy: 'agent',
+          authoredByProducer: null,
           collectionName: 'proj_abc',
           folderId: null,
           createdAt: new Date('2026-08-20T00:00:00Z'),
@@ -2291,6 +2297,7 @@ describe('runReindexSlice', () => {
     contentType: 'application/pdf',
     status: 'completed' as const,
     authoredBy: 'user' as const,
+    authoredByProducer: null,
     collectionName: 'proj_abc',
     folderId: null,
     createdAt: new Date('2026-08-20T00:00:00Z'),

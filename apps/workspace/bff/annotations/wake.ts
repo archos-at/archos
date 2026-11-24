@@ -15,6 +15,7 @@ import {
   type WakeOutcome,
 } from './types'
 import { wakeTurnId } from './wake-ids'
+import { isAgentKind } from '@/lib/agent-kind'
 
 export const AGENT_WAKE_JOB = 'piloti_wake'
 
@@ -45,9 +46,9 @@ export function replyTrigger(
   mark: { authorKind: AnnotationAuthor; kind: AnnotationKind; status: AnnotationStatus },
   reply: { authorKind: AnnotationAuthor; addressesPiloti: boolean }
 ): AgentWakeTrigger | null {
-  if (reply.authorKind === 'piloti') return null
+  if (isAgentKind(reply.authorKind)) return null
   if (reply.addressesPiloti) return 'thread_mention'
-  if (mark.authorKind === 'piloti' && mark.kind === 'question' && isLive(mark)) return 'thread_reply'
+  if (isAgentKind(mark.authorKind) && mark.kind === 'question' && isLive(mark)) return 'thread_reply'
   return null
 }
 
@@ -146,7 +147,7 @@ export function auditSuppressedWake(input: {
   stage: 'enqueue' | 'claim'
 }): void {
   void recordAuditEvent({
-    action: 'piloti.wake.suppressed',
+    action: 'agent.wake.suppressed',
     organizationId: input.organizationId,
     actor: { userId: input.actor.userId, email: input.actor.email },
     targetType: 'document_annotation',

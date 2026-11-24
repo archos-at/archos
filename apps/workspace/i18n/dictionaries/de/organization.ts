@@ -99,7 +99,7 @@ export const organization: typeof en.organization = {
     access: { download: 'Download', open: 'Geöffnet' },
     columns: { when: 'Wann', person: 'Person', action: 'Was', document: 'Dokument', place: 'Wo' },
     place: {
-      officeShelf: 'Büroablage',
+      officeShelf: 'Bürobibliothek',
       session: 'Chat-Anhang',
       project: 'Projekt',
       root: 'Projektebene',
@@ -150,7 +150,7 @@ export const organization: typeof en.organization = {
       permissionCountOne: '1 Berechtigung',
       permissionCountOther: '{count} Berechtigungen',
       platformNotice:
-        'Nur für Plattform-Personal. Diese Rollen liegen in der Organisation „GRID Platform“ und können hier nicht vergeben werden.',
+        'Nur für Plattform-Personal. Diese Rollen liegen in der Plattform-Organisation und können hier nicht vergeben werden.',
     },
     permissions: {
       title: 'Berechtigungen',
@@ -247,8 +247,8 @@ export const organization: typeof en.organization = {
         hint: 'Wer welches Dokument heruntergeladen hat. Das Lesen wird selbst protokolliert.',
       },
       office_shelf_manage: {
-        name: 'Büroablage verwalten',
-        hint: 'Dokumente in der Büroablage hochladen, löschen und neu einlesen. Lesen dürfen alle.',
+        name: 'Bürobibliothek verwalten',
+        hint: 'Dokumente in der Bürobibliothek hochladen, löschen und neu einlesen. Lesen dürfen alle.',
       },
       skills_manage: {
         name: 'Skills verwalten',
@@ -515,7 +515,7 @@ export const organization: typeof en.organization = {
     overQuota: 'Kontingent erreicht — neue Uploads werden abgelehnt, bis Platz frei wird',
     nearQuota: 'Fast voll — neue Uploads werden bald abgelehnt',
     projectDocuments: 'Projektdokumente',
-    officeShelfDocuments: 'Büroablage',
+    officeShelfDocuments: 'Bürobibliothek',
     documentCount: 'Dokumente: {count}',
     maxFileSize: 'Max. Dateigröße je Upload',
     setByPlatform:
@@ -540,6 +540,11 @@ export const organization: typeof en.organization = {
     ownKeyNote:
       'Ihre Organisation arbeitet mit einem eigenen Anbieterschlüssel. Der Verbrauch wird in Tokens auf Ihrer eigenen Rechnung gezählt; {productName} berechnet dafür keine Punkte.',
     overLimit: 'Budget ausgeschöpft — neue Anfragen werden blockiert',
+    workTitle: 'Laufende Arbeit',
+    ingestTitle: 'Einlesen von Unterlagen',
+    ingestNote:
+      'Das Einlesen hochgeladener Unterlagen zählt nicht gegen Tages- und Monatslimit. Es hat ein eigenes Kontingent pro Monat, das für das ganze Büro gilt: das Dreifache des Monatslimits.',
+    ingestOverLimit: 'Kontingent ausgeschöpft — neue Unterlagen werden gespeichert, aber erst nach einer Erhöhung gelesen',
     legendTitle: 'Verbrauch nach Modell',
     legendEmpty: 'In diesem Zeitraum wurde noch keine LLM-Nutzung erfasst.',
     trendTitle: 'Letzte 30 Tage',
@@ -669,7 +674,7 @@ export const organization: typeof en.organization = {
       'Hält die Inhaltsprüfung eine Datei zurück, erscheint sie hier. Sie sehen die Dateien, die Sie prüfen dürfen.',
     whereProject: 'Projekt {name}',
     whereProjectUnknown: 'Ein Projekt',
-    whereOfficeShelf: 'Büroablage',
+    whereOfficeShelf: 'Bürobibliothek',
     whereSession: 'Chat-Anhang',
     noReason: 'Kein Grund gespeichert. Öffnen Sie die Datei, um selbst zu prüfen.',
     unscreened:
@@ -725,9 +730,9 @@ export const organization: typeof en.organization = {
     },
   },
   baseKnowledge: {
-    title: 'Grundlagen des Büros',
-    description: 'Die Normen, Kommentare und Weisungen Ihres Büros haben einen eigenen Bereich neben der Büroablage. Dort laden Sie sie hoch, ordnen sie in Ordner, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
-    open: 'Grundlagen öffnen',
+    title: 'Normen & Richtlinien',
+    description: 'Die Normen, Kommentare und Weisungen Ihres Büros liegen in der Bürobibliothek unter Normen & Richtlinien. Dort laden Sie sie hoch, ordnen sie in Themen, bestätigen und prüfen sie. {productName} antwortet nur für Ihr Büro aus ihnen.',
+    open: 'Normen & Richtlinien öffnen',
   },
   officeConventions: {
     title: 'Was {productName} über das Büro gelernt hat',

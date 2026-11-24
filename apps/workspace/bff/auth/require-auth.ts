@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
-import { NoOrganizationError } from '@/lib/api/errors'
+import { notFound, redirect } from 'next/navigation'
+import { NoOrganizationError, NotFoundError } from '@/lib/api/errors'
 import { runWithTenantSlot } from '@/lib/db/tenant-context'
 import { requireUserSession } from './session'
 import type { AuthorizedSession } from './types'
@@ -26,5 +26,13 @@ export async function requireAuthorizedPageSession(): Promise<AuthorizedSession>
 }
 
 export function withPageSession<T>(fn: (session: AuthorizedSession) => Promise<T> | T): Promise<T> {
-  return runWithTenantSlot(async () => fn(await requireAuthorizedPageSession()))
+  return runWithTenantSlot(async () => {
+    const session = await requireAuthorizedPageSession()
+    try {
+      return await fn(session)
+    } catch (error) {
+      if (error instanceof NotFoundError) notFound()
+      throw error
+    }
+  })
 }

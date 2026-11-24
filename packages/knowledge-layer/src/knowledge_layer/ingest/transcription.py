@@ -1,0 +1,292 @@
+from __future__ import annotations
+
+import base64
+import logging
+import os
+from dataclasses import dataclass
+from dataclasses import field
+from typing import Any
+
+from agent.common.cost_tracking import USAGE_ROLE_INGEST_TRANSCRIPTION
+
+logger = logging.getLogger(__name__)
+
+PROMPT_VERSION = 1
+
+SCAN_NEEDS_VLM = "vlm_not_configured: scanned PDF pages need a vision model to be transcribed (VLM_API_KEY)"
+
+NO_TEXT_MARKER = "[KEIN TEXT]"
+DRAWING_MARKER = "[ZEICHNUNG]"
+
+TRANSCRIPTION_PROMPT = f"""Du bist ein OCR-System. Transkribiere den Text dieser gescannten Dokumentseite wortgetreu.
+
+Regeln:
+- Gib ausschließlich den Text wieder, der auf der Seite steht. Nichts zusammenfassen,
+  nichts erklären, nichts ergänzen, nichts übersetzen, nichts korrigieren.
+- Behalte die Lesereihenfolge bei (bei mehreren Spalten: erst die linke Spalte vollständig, dann die rechte).
+- Überschriften als Markdown-Überschriften (#, ##, ###) entsprechend ihrer Ebene.
+- Tabellen als Markdown-Tabellen mit Kopfzeile; jede Zeile der Vorlage wird eine Tabellenzeile.
+- Aufzählungen und Nummerierungen (1., a), -, •) so wie auf der Seite.
+- Umlaute, ß, Paragraphenzeichen (§), Maßeinheiten und Zahlen exakt wie gedruckt (Dezimalkomma bleibt Komma).
+- Unleserliche Stellen markierst du als [unleserlich]; rate keine Wörter.
+- Stempel, handschriftliche Vermerke und Unterschriften: als [Stempel: …],
+  [handschriftlich: …], [Unterschrift] kennzeichnen, lesbaren Text darin wiedergeben.
+- Kopf- und Fußzeilen (Seitenzahlen, Aktenzahl) wiedergeben.
+- Keine Einleitung, kein Kommentar, keine Codeblöcke um die Antwort.
+
+Sonderfälle — dann antwortest du NUR mit der Markierung:
+- Die Seite ist leer oder enthält keinen lesbaren Text: {NO_TEXT_MARKER}
+- Die Seite ist überwiegend ein Plan, eine technische Zeichnung, ein Schnitt, eine Ansicht
+  oder ein Foto (nicht ein Textdokument mit einer kleinen Abbildung): {DRAWING_MARKER}"""
+
+OCR_MODEL_ENV = "OCR_MODEL"
+
+_MAX_TOKENS = 4096
+
+_FAILURE_PREFIX = "[transcription -"
+
+
+def cache_prompt_type() -> str:
+    return f"ocr:v{PROMPT_VERSION}"
+
+
+def resolve_ocr_model(vlm_model: str, org_override: str | None = None) -> str:
+    return org_override or os.environ.get(OCR_MODEL_ENV, "").strip() or vlm_model
+
+
+def _transcribe_live(image_bytes: bytes, *, ocr_model: str, base_url: str, api_key: str) -> str:
+    from knowledge_layer.ingest import vision_calls
+
+    try:
+        client = vision_calls._vlm_client(base_url, api_key, role=USAGE_ROLE_INGEST_TRANSCRIPTION)
+        image_b64 = base64.b64encode(image_bytes).decode("ascii")
+        reply = vision_calls._vlm_chat_create(
+            client,
+            model=ocr_model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": TRANSCRIPTION_PROMPT},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                    ],
+                }
+            ],
+            max_tokens=_MAX_TOKENS,
+            temperature=0.0,
+            prompt_id=cache_prompt_type(),
+        )
+    except Exception as exc:  # noqa: BLE001 - one page's failure costs that page
+        logger.warning("Page transcription failed (%s: %s)", type(exc).__name__, str(exc)[:120])
+        return f"{_FAILURE_PREFIX} failed: {type(exc).__name__}]"
+    return clean_reply(reply)
+
+
+def clean_reply(reply: str | None) -> str:
+    text = (reply or "").strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else ""
+        text = text.rsplit("```", 1)[0]
+    return text.strip()
+
+
+def is_failed(reply: str | None) -> bool:
+    return not reply or reply.startswith(_FAILURE_PREFIX)
+
+
+def transcribe_image(image_bytes: bytes, *, model: str, base_url: str, api_key: str) -> str:
+    from knowledge_layer.ingest import processing as _processing
+
+    return _processing._cached_vlm_call(
+        image_bytes,
+        cache_prompt_type(),
+        _transcribe_live,
+        image_bytes,
+        ocr_model=model,
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
+    )
+
+
+@dataclass
+class TranscriptionOutcome:
+    texts: dict[int, str] = field(default_factory=dict)
+    drawings: list[int] = field(default_factory=list)
+    blank: list[int] = field(default_factory=list)
+    failed: list[int] = field(default_factory=list)
+    over_cap: list[int] = field(default_factory=list)
+
+    def counts(self) -> dict[str, int]:
+        return {
+            "pages_transcribed": len(self.texts),
+            "pages_transcription_failed": len(self.failed),
+            "pages_over_ocr_cap": len(self.over_cap),
+        }
+
+
+def _classify_reply(outcome: TranscriptionOutcome, page_number: int, reply: str) -> None:
+    if is_failed(reply):
+        outcome.failed.append(page_number)
+    elif reply.startswith(DRAWING_MARKER):
+        outcome.drawings.append(page_number)
+    elif reply.startswith(NO_TEXT_MARKER):
+        outcome.blank.append(page_number)
+    else:
+        outcome.texts[page_number] = reply
+
+
+def transcribe_pdf_pages(
+    pdf_path: str,
+    page_numbers: list[int],
+    *,
+    model: str,
+    base_url: str,
+    api_key: str,
+    max_pages: int,
+    max_dim: int,
+    workers: int | None = None,
+) -> TranscriptionOutcome:
+    from knowledge_layer.ingest import page_reads
+
+    wanted = sorted(page_numbers)
+    outcome = TranscriptionOutcome(over_cap=wanted[max_pages:])
+    if outcome.over_cap:
+        logger.warning(
+            "OCR page cap (%d) reached for %s; %d scanned page(s) not transcribed",
+            max_pages,
+            pdf_path,
+            len(outcome.over_cap),
+        )
+    to_run = wanted[:max_pages]
+    if to_run:
+        with page_reads.pool_for_this_call(workers) as reads:
+            futures = _submit_transcriptions(reads, pdf_path, to_run, max_dim, model, base_url, api_key, outcome)
+            for number, reply in page_reads.ordered_results(futures):
+                _classify_reply(outcome, number, reply if isinstance(reply, str) else "")
+    outcome.failed.sort()
+    if outcome.failed:
+        logger.warning("Transcription failed on %d page(s) of %s", len(outcome.failed), pdf_path)
+    return outcome
+
+
+def _submit_transcriptions(
+    reads: Any,
+    pdf_path: str,
+    numbers: list[int],
+    max_dim: int,
+    model: str,
+    base_url: str,
+    api_key: str,
+    outcome: TranscriptionOutcome,
+) -> list[tuple[int, Any]]:
+    from knowledge_layer.ingest import processing as _processing
+
+    doc = _processing._open_pdf(pdf_path, "Page render")
+    if doc is None:
+        outcome.failed.extend(numbers)
+        return []
+    futures: list[tuple[int, Any]] = []
+    try:
+        for number in numbers:
+            with reads.room() as hand:
+                image = _processing._render_numbered_page(doc, number, max_dim, pdf_path)
+                if image is None:
+                    outcome.failed.append(number)
+                    continue
+                image_bytes = _processing._encode_jpeg(image)[0]
+                future = reads.submit(transcribe_image, image_bytes, model=model, base_url=base_url, api_key=api_key)
+                hand(future)
+            futures.append((number, future))
+    finally:
+        _processing._close_pdf(doc)
+    return futures
+
+
+@dataclass
+class PageRoutes:
+    drawing_pages: set[int] | None = None
+    scan_pages: set[int] = field(default_factory=set)
+    outcome: TranscriptionOutcome = field(default_factory=TranscriptionOutcome)
+    not_transcribed: list[int] = field(default_factory=list)
+    garbled_kept: list[int] = field(default_factory=list)
+
+    def counts(self) -> dict[str, int]:
+        counts = {
+            **self.outcome.counts(),
+            "pages_not_transcribed_no_vlm": len(self.not_transcribed),
+            "pages_garbled_text_kept": len(self.garbled_kept),
+        }
+        return {key: value for key, value in counts.items() if value}
+
+
+def _merge_transcriptions(
+    text_pages: list[dict], garbled: set[int], texts: dict[int, str], blank: set[int] | frozenset[int] = frozenset()
+) -> list[int]:
+    from knowledge_layer.ingest.page_triage import salvage_text
+
+    by_number = {page["page_number"]: page for page in text_pages}
+    kept: list[int] = []
+    for number in sorted(garbled & by_number.keys()):
+        salvaged = "" if number in blank or number in texts else salvage_text(by_number[number].get("text"))
+        if salvaged:
+            by_number[number] = {**by_number[number], "text": salvaged}
+            kept.append(number)
+        else:
+            del by_number[number]
+    for number, text in texts.items():
+        by_number[number] = {"page_number": number, "text": text, "tables": [], "table_boxes": []}
+    text_pages[:] = [by_number[number] for number in sorted(by_number)]
+    return kept
+
+
+_UNMEASURED: Any = object()
+
+
+def route_pdf_pages(
+    pdf_path: str,
+    text_pages: list[dict],
+    page_texts: dict[int, str],
+    *,
+    vlm_api_key: str | None,
+    model: str,
+    base_url: str,
+    min_text_chars: int,
+    min_paths: int,
+    max_ocr_pages: int,
+    max_dim: int,
+    workers: int | None = None,
+    triage: Any = _UNMEASURED,
+) -> PageRoutes:
+    from knowledge_layer.ingest import page_triage
+
+    if triage is _UNMEASURED:
+        triage = page_triage.triage_pdf(pdf_path, page_texts, min_text_chars=min_text_chars, min_paths=min_paths)
+    garbled = {n for n, text in page_texts.items() if page_triage.text_quality(text).garbled}
+    if triage is None:
+        kept = _merge_transcriptions(text_pages, garbled, {})
+        return PageRoutes(outcome=TranscriptionOutcome(failed=sorted(garbled)), garbled_kept=kept)
+    routes = PageRoutes(
+        drawing_pages=set(triage.drawings),
+        scan_pages=set(triage.pages(page_triage.PageKind.SCAN)),
+    )
+    wanted = triage.transcribed
+    if wanted and not vlm_api_key:
+        routes.not_transcribed = wanted
+        logger.warning("%d scanned/garbled page(s) of %s not transcribed: no vision key", len(wanted), pdf_path)
+    elif wanted:
+        routes.outcome = transcribe_pdf_pages(
+            pdf_path,
+            wanted,
+            model=model,
+            base_url=base_url,
+            api_key=vlm_api_key,
+            max_pages=max_ocr_pages,
+            max_dim=max_dim,
+            workers=workers,
+        )
+        routes.drawing_pages.update(routes.outcome.drawings)
+    routes.garbled_kept = _merge_transcriptions(
+        text_pages, garbled, routes.outcome.texts, blank=set(routes.outcome.blank)
+    )
+    return routes

@@ -91,7 +91,7 @@ describe('AppSidebar - click-dummy IA (FB-9/FB-10)', () => {
   test('renders the core nav set: Chat, Files', () => {
     render(<AppSidebar {...baseProps} />)
     expect(screen.getAllByText('Chat').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Files').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Documents').length).toBeGreaterThan(0)
   })
 
   test('Members, Research, Knowledge and History no longer appear in the nav', () => {
@@ -130,7 +130,7 @@ describe('AppSidebar - Automation nav item', () => {
     render(<AppSidebar {...baseProps} />)
     expect(screen.queryByText('Automation')).not.toBeInTheDocument()
     expect(screen.getAllByText('Chat').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Files').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Documents').length).toBeGreaterThan(0)
   })
 
   test('shows the Automation nav item when showSkills is true, linking to the merged section', () => {
@@ -149,7 +149,7 @@ describe('AppSidebar - Automation nav item', () => {
 describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
   test('shows office shelf when canAccessOfficeShelf is true, linking to the org office shelf', () => {
     render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
-    const links = screen.getAllByText('Office filing').map((el) => el.closest('a'))
+    const links = screen.getAllByText('Office library').map((el) => el.closest('a'))
     expect(links.length).toBeGreaterThan(0)
     for (const link of links) {
       expect(link).toHaveAttribute('href', '/app/office-shelf')
@@ -158,7 +158,7 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
 
   test('hides office shelf by default (org feature flag off)', () => {
     render(<AppSidebar {...baseProps} />)
-    expect(screen.queryByText('Office filing')).not.toBeInTheDocument()
+    expect(screen.queryByText('Office library')).not.toBeInTheDocument()
   })
 
   test('orders Chat first and Inbox last in the section nav', () => {
@@ -168,13 +168,21 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     const labels = Array.from(navs)
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
-    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Office standards', 'Search', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Documents', 'Overview', 'Office library', 'Search', 'Inbox'])
+  })
+
+  test('keeps Office library lit on its standards tab, which has no doorway of its own', () => {
+    pathname = '/app/base-knowledge'
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf canAccessOfficeStandards />)
+    expect(screen.queryByText('Office standards')).not.toBeInTheDocument()
+    const shelf = screen.getAllByRole('link', { name: /Office library/ })[0]
+    expect(shelf).toHaveAttribute('data-active', 'true')
   })
 
   test('lists no office standards without the office-standards entitlement, the Archiv still there', () => {
     render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
     expect(screen.queryByText('Office standards')).not.toBeInTheDocument()
-    expect(screen.getAllByText('Office filing').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Office library').length).toBeGreaterThan(0)
   })
 })
 
@@ -200,7 +208,7 @@ describe('AppSidebar - collapsed icon rail', () => {
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
 
     expect(within(sections).getByText('Chat')).toHaveClass('sr-only')
-    expect(within(sections).getByText('Files')).toHaveClass('sr-only')
+    expect(within(sections).getByText('Documents')).toHaveClass('sr-only')
     expect(within(org).queryByText('Organization')).not.toBeInTheDocument()
   })
 })
@@ -355,11 +363,11 @@ describe('AppSidebar - the org doorways stay reachable from inside a project', (
     pathname = '/app/office-shelf'
     render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
     const officeShelf = screen
-      .getAllByText('Office filing')
+      .getAllByText('Office library')
       .map((el) => el.closest('a'))
       .filter((link): link is HTMLAnchorElement => link !== null)
     expect(officeShelf.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
-    expect(screen.getAllByText('Files').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Documents').length).toBeGreaterThan(0)
   })
 })
 
@@ -429,6 +437,26 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     const chat = within(screen.getByLabelText('Project sections')).getByText('Chat').closest('a')
     expect(chat).not.toHaveAttribute('aria-current')
     expect(chat).toHaveClass('text-foreground', 'font-medium')
+  })
+
+  test('a row shows what its chat is doing, and says it: working, waiting for an answer, answer ready, answer failed', () => {
+    const base = chats().items[0]!
+    renderWith(
+      chats({
+        items: [
+          { ...base, id: 'w', title: 'Fluchtwege', activity: 'working' },
+          { ...base, id: 'q', title: 'Stellplätze', activity: 'waiting' },
+          { ...base, id: 'a', title: 'Abstandsflächen', activity: 'answered' },
+          { ...base, id: 'f', title: 'Barrierefreiheit', activity: 'failed' },
+          { ...base, id: 'n', title: 'Brandschutz', activity: null },
+        ],
+      })
+    )
+    expect(within(screen.getByRole('link', { name: 'Fluchtwege (working)' })).getByTestId('rail-chat-working')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Stellplätze (waiting for your answer)' })).getByTestId('rail-chat-waiting')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Abstandsflächen (answer ready)' })).getByTestId('rail-chat-answered')).toBeInTheDocument()
+    expect(within(screen.getByRole('link', { name: 'Barrierefreiheit (answer failed)' })).getByTestId('rail-chat-failed')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Brandschutz' }).querySelector('[data-testid^="rail-chat-"]')).toBeNull()
   })
 
   test('with no chat open, „Chat“ stays the current place', () => {

@@ -11,7 +11,7 @@ export const POST = apiRoute(
   {
     authz: {
       enforcedBy:
-        'openUploadBatch (project: requireProjectAccess project:documents:write; Büroablage: canManageOfficeShelf; chat: each upload is authorized on its own and the batch grants nothing)',
+        'openUploadBatch (project: requireProjectAccess project:documents:write; Bürobibliothek: canManageOfficeShelf; chat: each upload is authorized on its own and the batch grants nothing)',
     },
   }
 )

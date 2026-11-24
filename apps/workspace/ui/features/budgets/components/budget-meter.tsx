@@ -10,7 +10,8 @@ export const BudgetMeter: FC<{
   total: number
   limit: number | null
   formatAmount: (value: number) => string
-}> = ({ title, total, limit, formatAmount }) => {
+  overNote?: string
+}> = ({ title, total, limit, formatAmount, overNote }) => {
   const t = useTranslations(organizationCopy)
   const over = limit !== null && total >= limit
   const scale = limit !== null ? Math.max(limit, total) : total
@@ -56,7 +57,7 @@ export const BudgetMeter: FC<{
       {over && (
         <p className="text-destructive mt-1 flex items-center gap-1 text-sm">
           <AlertTriangle className="size-3" aria-hidden />
-          {t('budgets.overLimit')}
+          {overNote ?? t('budgets.overLimit')}
         </p>
       )}
     </div>

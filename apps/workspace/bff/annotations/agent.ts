@@ -2,6 +2,7 @@ import 'server-only'
 import { ApiError, BadRequestError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { isAgentActsEnabled } from '@/lib/authz/feature-flags'
+import { LEGACY_AGENT_DIRECT_EDITS_OFF } from '@/lib/authz/legacy-feature-flags'
 import { recordAgentChanges, type AppliedChange, type ChangeOrigin } from '@/lib/changes/service'
 import { fieldsOf, markState, replyState } from '@/lib/changes/state'
 import { findConversationInOrg } from '@/lib/conversations/repository'
@@ -34,18 +35,16 @@ export class NoDocumentSubjectError extends UnprocessableError {
   }
 }
 
-export const PILOTI_ACTS_OFF = 'piloti-acts-off'
-
 const ACTING_OPS: ReadonlySet<InternalAnnotationRequest['op']> = new Set(['create', 'update', 'delete'])
 
 export class AgentActsOffError extends ApiError {
   constructor(op: InternalAnnotationRequest['op']) {
     super(
       403,
-      'PILOTI_ACTS_OFF',
+      LEGACY_AGENT_DIRECT_EDITS_OFF.code,
       'This organization has ' + PRODUCT_NAME + ' propose only: it does not set, change or delete Anmerkungen for a person. ' +
         'Propose the mark instead, or tell the person to make the change themselves.',
-      { reason: PILOTI_ACTS_OFF, op }
+      { reason: LEGACY_AGENT_DIRECT_EDITS_OFF.reason, op }
     )
   }
 }

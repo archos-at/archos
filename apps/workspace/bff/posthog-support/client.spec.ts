@@ -140,7 +140,7 @@ describe('listFeedbackTickets', () => {
         count: 3,
         results: [
           row({
-            assignee: { id: 388858, type: 'user', user: { email: 'matthias@piloti.test' }, role: null },
+            assignee: { id: 388858, type: 'user', user: { email: 'matthias@example.test' }, role: null },
             message_count: 2,
             unread_team_count: 1,
             last_message_at: '2026-10-20T09:30:00Z',
@@ -154,7 +154,7 @@ describe('listFeedbackTickets', () => {
     const { tickets } = await listFeedbackTickets(config, { limit: 10, offset: 0 }, impl)
 
     expect(tickets[0]).toMatchObject({
-      assignee: { type: 'user', id: 388858, email: 'matthias@piloti.test' },
+      assignee: { type: 'user', id: 388858, email: 'matthias@example.test' },
       messageCount: 2,
       unreadTeamCount: 1,
       lastActivityAt: '2026-10-20T09:30:00Z',
@@ -542,7 +542,7 @@ describe('listFeedbackTicketsOf', () => {
       status: 'new',
       priority: null,
       channel_source: 'widget',
-      assignee: { id: 388858, type: 'user', user: { email: 'owner@piloti.test' }, role: null },
+      assignee: { id: 388858, type: 'user', user: { email: 'owner@example.test' }, role: null },
       last_message_text: 'hmm wir schauen uns das genauer an',
       message_count: 2,
       unread_team_count: 0,

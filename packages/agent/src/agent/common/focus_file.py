@@ -1,24 +1,3 @@
-"""Turn-level retrieval intent.
-
-The signed ``X-Grid-Collection-Scope`` header is the **authorization
-ceiling** (which corpora this caller may read). What a *turn* actually
-searches is a subtractive subset of that ceiling.
-
-The client states **intent**, never an expanded collection list:
-
-* ``focus_file_name`` — the file this send is about (composer subject)
-* ``focus_shelf`` — the shelf that file sits on (``session`` / ``project`` / ``office_shelf``)
-* ``source_preset`` — the composer chip (``law`` / ``project`` / ``office``)
-
-:func:`shelves_for_turn` is the one mapping from that intent to the
-shelves retrieval may keep. A subject shelf wins over a preset. Absence
-of both leaves the signed scope intact (ADR-0024: Archiv stays in
-every unscoped project turn).
-
-The mapping is a twin of ``includeShelvesForTurn`` in
-``apps/workspace/ui/features/layout/lib/retrieval-scope.ts``. Change both.
-"""
-
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -49,11 +28,6 @@ def _normalize_preset(value: object) -> str | None:
 
 
 def shelves_for_turn(*, focus_shelf: object = None, source_preset: object = None) -> frozenset[str] | None:
-    """Shelves this turn may retrieve from, or ``None`` to keep the signed scope.
-
-    A focused file's shelf is the commitment; the composer chip is the
-    fallback when no file is bound.
-    """
     shelf = _normalize_shelf(focus_shelf)
     if shelf == "session":
         return frozenset({"session", "base"})
@@ -78,7 +52,6 @@ def set_turn_intent(
     source_preset: object = None,
     document_id: object = None,
 ) -> None:
-    """Replace the whole turn intent. Every extract path goes through here."""
     trimmed = file_name.strip() if isinstance(file_name, str) else ""
     _focused_file_name.set(trimmed or None)
     _focused_document_id.set(document_id.strip() or None if isinstance(document_id, str) else None)
@@ -87,10 +60,6 @@ def set_turn_intent(
 
 
 def set_focused_file_name(name: str | None) -> None:
-    """Name-only setter kept for callers that do not know a shelf.
-
-    Clears shelf/preset so a leftover turn-shelf set cannot ride along.
-    """
     set_turn_intent(file_name=name)
 
 
@@ -101,11 +70,6 @@ def set_focus(
     source_preset: object = None,
     include_shelves: object = None,
 ) -> None:
-    """Back-compat wrapper. Prefer :func:`set_turn_intent`.
-
-    ``include_shelves`` is ignored — the mapping owns the expansion so a
-    client cannot ask for Archiv while claiming a project file.
-    """
     del include_shelves
     set_turn_intent(file_name=file_name, shelf=shelf, source_preset=source_preset)
 

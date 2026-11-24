@@ -24,7 +24,7 @@ const officeDocument = () => {
     entries: [
       {
         number: 1,
-        markdown: 'Sockeldetail_Holzmassivbau.pdf (Büroablage)',
+        markdown: 'Sockeldetail_Holzmassivbau.pdf (Bürobibliothek)',
       },
     ],
   })
@@ -286,7 +286,7 @@ describe('a cited office document opens on its PDF rendition (ADR-0070)', () => 
   })
 })
 
-describe('a RIS source opens inside Piloti (#622)', () => {
+describe('a RIS source opens inside the app (#622)', () => {
   const risCitation = (url: string) => {
     const [document] = buildCitationModel({
       citations: [
@@ -328,7 +328,7 @@ describe('an inline `[N]` binds to the locus that knows its page (#621)', () => 
           isCited: true,
         }),
       ],
-      entries: [{ number: 1, markdown: 'Sockeldetail_Holzmassivbau.pdf (Büroablage)' }],
+      entries: [{ number: 1, markdown: 'Sockeldetail_Holzmassivbau.pdf (Bürobibliothek)' }],
     })
     const bound = referencesByNumber([document!]).get(1)
 

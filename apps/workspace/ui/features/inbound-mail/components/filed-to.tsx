@@ -9,7 +9,7 @@ import { documentFilesHref } from '@/features/documents'
 import { useTranslations } from '@/i18n'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import type { InboundMailPartView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { filedPlace } from '../lib/filed'
+import { filedPlace, type FiledLine } from '../lib/filed'
 import { FactLine } from './inbound-mail-atoms'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -49,5 +49,19 @@ export function FiledTo({
         </>
       )}
     </FactLine>
+  )
+}
+
+export function FiledLines({ lines }: { lines: FiledLine[] }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  return (
+    <ul className="flex flex-col gap-0.5" data-testid="filed-lines">
+      {lines.map((line, index) => (
+        <li key={`${line.kind}-${index}`} className="[overflow-wrap:anywhere]">
+          {line.kind === 'message' ? t('toast.lineText', { name: line.place.name }) : t('toast.lineFile', { name: line.place.name, folder: line.place.folder })}
+          {line.place.version != null && `${CLAUSE_JOIN}${t('attachments.status.version', { version: line.place.version })}`}
+        </li>
+      ))}
+    </ul>
   )
 }

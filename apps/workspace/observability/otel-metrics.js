@@ -2,7 +2,7 @@
  * The process's one MeterProvider for the Node tiers (the gateway in
  * `server.js`, bff-jobs and the purger). It exports OTLP to the
  * collector, which forwards the readings to PostHog Metrics beside the Python
- * tiers' `grid.*` meters and the cluster's own.
+ * tiers' meters and the cluster's own.
  *
  * Installed on the OpenTelemetry API's global (`Symbol.for` on `globalThis`),
  * so it is one per process however many copies of this module are loaded, and

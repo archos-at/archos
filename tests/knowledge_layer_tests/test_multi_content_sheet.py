@@ -1,7 +1,9 @@
 import json
 from typing import Any
 
-from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import caption_documents
+from knowledge_layer.ingest import limits
+from knowledge_layer.ingest import pdf_text
 from knowledge_layer.ingest import visual_analysis as va
 from knowledge_layer.ingest import visual_domains as vd
 
@@ -78,9 +80,9 @@ class TestMultiContentSheetDetection:
         pdf = tmp_path / "zwei-grundrisse.pdf"
         pdf.write_bytes(two_plan_sheet_pdf())
 
-        text_pages = adapter._extract_text_from_pdf(str(pdf))
-        stripped = {page["page_number"]: adapter._strip_watermark_lines(page["text"]) for page in text_pages}
-        assert sum(len(text) for text in stripped.values()) < adapter.VISUAL_PAGE_MIN_TEXT_CHARS
+        text_pages = pdf_text._extract_text_from_pdf(str(pdf))
+        stripped = {page["page_number"]: pdf_text._strip_watermark_lines(page["text"]) for page in text_pages}
+        assert sum(len(text) for text in stripped.values()) < limits.VISUAL_PAGE_MIN_TEXT_CHARS
 
         rendered = _processing.render_visual_pages_no_vlm(str(pdf), page_texts=stripped)
 
@@ -93,7 +95,7 @@ class TestMultiContentSheetMapping:
         registry = vd.resolve_registry("architecture,general")
         analysis = _two_floor_plan_analysis(registry)
 
-        docs = adapter.visual_documents(
+        docs = caption_documents.visual_documents(
             "drawing",
             "unused when the analysis parsed",
             {"analysis": analysis},

@@ -3,7 +3,6 @@ import { type Metadata, type Viewport } from 'next'
 import localFont from 'next/font/local'
 import { connection } from 'next/server'
 import { ChunkReloadGuard } from './chunk-reload-guard'
-import { STORAGE_RENAME_BOOT_SCRIPT } from './storage-rename-boot'
 import { THEME_BOOT_SCRIPT, THEME_COLOR } from './theme-boot'
 import { Providers } from './providers'
 import { NavigationTrail } from '@/components/shell/navigation-trail'
@@ -56,7 +55,7 @@ export const metadata: Metadata = {
     template: `%s — ${PRODUCT_NAME}`,
   },
   description:
-    'Workspace for planning offices: projects, files, the building model, tasks and research, with Office filing and building law at hand. Every answer cites its source.',
+    'Workspace for planning offices: projects, files, the building model, tasks and research, with Office library and building law at hand. Every answer cites its source.',
   robots: { index: false, follow: false },
   appleWebApp: { capable: true, title: PRODUCT_NAME, statusBarStyle: 'default' },
   applicationName: PRODUCT_NAME,
@@ -156,10 +155,7 @@ const RootLayout = async ({ children }: RootLayoutProps): Promise<ReactNode> => 
         {/* Blocking on purpose: it sets `.dark` while <head> is parsed, so the
             first paint is already in the reader's theme (theme-boot.ts). The
             app sends no Content-Security-Policy for documents yet; the day it
-            does, this script needs the request nonce like Next's own. The
-            first moves browser keys off their old names (storage-rename-boot.ts),
-            so the theme script and every store read the new ones. */}
-        <script dangerouslySetInnerHTML={{ __html: STORAGE_RENAME_BOOT_SCRIPT }} />
+            does, this script needs the request nonce like Next's own. */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       {/* `overscroll-none` on html and body: inside the app the document never

@@ -1,5 +1,3 @@
-"""A job's events as a Server-Sent Events stream: LISTEN/NOTIFY on PostgreSQL, polling elsewhere, with keepalives."""
-
 from __future__ import annotations
 
 import asyncio
@@ -14,12 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 async def sse_generator(job_store, job_id: str, db_url: str, start_event_id: int = 0):
-    """
-    Route to appropriate SSE generator based on database type.
-
-    PostgreSQL: Uses LISTEN/NOTIFY for real-time push-based events (sub-10ms latency).
-    SQLite: Uses polling (0.5s interval) since SQLite doesn't support pub-sub.
-    """
     from ..jobs.event_store import EventStore
 
     if EventStore.is_postgres(db_url):
@@ -43,8 +35,6 @@ SSE_KEEPALIVE_FRAME = ": keepalive\n\n"
 
 
 class _PubSubStream:
-    """One pub-sub SSE stream's cursor and status, and the frames it yields (``_sse_generator_postgres``)."""
-
     def __init__(self, job_store, job_id: str, db_url: str, start_event_id: int, progress: dict[str, int] | None):
         from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
@@ -73,7 +63,6 @@ class _PubSubStream:
         return f"id: {self.sequence_id}\nevent: {event_type}\ndata: {json.dumps(data)}\n\n"
 
     def frames(self, events: list[dict]):
-        """Stored events as frames, the cursor moved past each one."""
         for event in events:
             db_event_id = event.pop("_id", None)
             if db_event_id:
@@ -95,7 +84,6 @@ class _PubSubStream:
         return await EventStore.get_events_async(self.db_url, self.job_id, self.last_event_id, limit)
 
     async def run(self, channel: str, notification_queue: asyncio.Queue):
-        """The history, the stream mode, a reconciliation fetch, then live events until the job ends."""
         job = await self.job_store.get_job(self.job_id)
         if not job:
             logger.warning(f"SSE pub-sub: Job {self.job_id} not found")
@@ -126,7 +114,6 @@ class _PubSubStream:
             yield frame
 
     async def live(self, notification_queue: asyncio.Queue):
-        """Notified events as they land, the job's status as it changes, and a terminal drain."""
         self.last_sent = time.monotonic()
         keepalive_cursor = self.last_event_id
         while True:
@@ -164,7 +151,6 @@ class _PubSubStream:
                 break
 
     async def _received(self, notification_queue: asyncio.Queue):
-        """The events a notification announces, or after five quiet seconds a fallback poll and a keepalive."""
         try:
             payload = await asyncio.wait_for(notification_queue.get(), timeout=5.0)
             event_id = json.loads(payload).get("id")
@@ -181,13 +167,6 @@ class _PubSubStream:
 
 
 def _asyncpg_url(listen_db_url: str) -> str:
-    """The direct DSN as asyncpg reads it.
-
-    Strip +psycopg2 before +psycopg (it's a prefix of the former): this
-    codebase standardizes on postgresql+psycopg:// URLs, which asyncpg rejects,
-    and a leftover driver suffix silently degrades every SSE stream to polling
-    ("Pub-sub failed, falling back to polling").
-    """
     return (
         listen_db_url.replace("+psycopg2", "")
         .replace("+psycopg", "")
@@ -199,16 +178,6 @@ def _asyncpg_url(listen_db_url: str) -> str:
 async def _sse_generator_postgres(
     job_store, job_id: str, db_url: str, start_event_id: int = 0, progress: dict[str, int] | None = None
 ):
-    """
-    PostgreSQL pub-sub based SSE generator - near-instant event delivery.
-
-    Uses asyncpg LISTEN/NOTIFY for real-time push-based events.
-    Achieves sub-10ms latency compared to 500ms polling interval.
-
-    When ``progress`` is provided, its ``last_event_id`` entry is kept in sync
-    with the cursor of the last real event yielded, so the caller can resume a
-    polling fallback from there after a mid-stream failure.
-    """
     import asyncpg
 
     stream = _PubSubStream(job_store, job_id, db_url, start_event_id, progress)
@@ -242,14 +211,6 @@ async def _sse_generator_postgres(
 
 
 async def _sse_generator_polling(job_store, job_id: str, db_url: str, start_event_id: int = 0):
-    """
-    Polling-based SSE generator for SQLite and fallback scenarios.
-
-    Replays historical events as fast as possible, then switches to live polling mode.
-    Live mode uses a 0.5s polling interval and is suitable for local development with SQLite.
-    Supports reconnection via start_event_id - replays events after that ID without delay.
-    Supports graceful shutdown via the SSE connection manager.
-    """
     import asyncio
 
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus

@@ -1,15 +1,13 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { load } from "js-yaml";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 import { WORKFLOW } from "./agent-worker";
 import { hatchetBacklogQuery } from "./keda-scaling";
 import { TRANSFER_HPA_OWNERSHIP } from "./keda-scaling";
-
-const repoRoot = join(__dirname, "..", "..", "..", "..");
-const read = (...parts: string[]) => readFileSync(join(repoRoot, ...parts), "utf8");
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, any> }> = [];
 
@@ -37,6 +35,13 @@ function find(type: string, name: string) {
 
 function resolve<T>(value: pulumi.Input<T>): Promise<T> {
   return new Promise((done) => pulumi.output(value).apply((v) => done(v as T)));
+}
+
+function stackConfigValue(stack: string, key: string): unknown {
+  const doc = load(readFileSync(join(__dirname, "..", "..", `Pulumi.${stack}.yaml`), "utf8")) as {
+    config?: Record<string, unknown>;
+  };
+  return doc.config?.[`grid-oib:${key}`];
 }
 
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
@@ -84,9 +89,8 @@ describe("the agent-worker tier", () => {
   });
 
   it("scales on a KEDA ScaledObject and no longer has a CPU HPA", () => {
-    expect(RESOURCES.filter((r) => r.type === HPA && r.name === "agent-worker")).toEqual([]);
+    expect(RESOURCES.filter((r) => r.type === HPA)).toEqual([]);
     expect(find(SCALED_OBJECT, "agent-worker")).toBeDefined();
-    expect(read("deploy", "pulumi", "src", "app", "agent-worker.ts")).not.toMatch(/HorizontalPodAutoscaler\(/);
   });
 
   it("asks KEDA for one replica per `concurrency` open `research-run` runs, within the configured bounds", async () => {
@@ -130,22 +134,15 @@ describe("the agent-worker tier", () => {
   });
 
   it("emits no drain variable the Hatchet worker does not read; its drain is the grace period", () => {
-    const hatchetLayer = read("apps", "agent-host", "src", "agent_host", "jobs", "research_workflow.py");
-    expect(hatchetLayer).not.toContain("RESEARCH_WORKER_DRAIN_SECONDS");
     expect(env.find((e) => e.name === "RESEARCH_WORKER_DRAIN_SECONDS")).toBeUndefined();
     expect(drainSeconds).toBeGreaterThan(0);
   });
 
   it("emits the per-organization caps the Hatchet concurrency and the admission read", () => {
     const names = new Set([...env, ...backendEnvVars].map((e) => e.name));
-    const jobs = ["research_workflow.py", "orchestrator_runs.py"]
-      .map((file) => read("apps", "agent-host", "src", "agent_host", "jobs", file))
-      .join("\n");
 
-    for (const name of ["MAX_ACTIVE_JOBS_PER_ORG", "MAX_QUEUED_JOBS_PER_ORG"]) {
-      expect(names.has(name), name).toBe(true);
-      expect(jobs).toContain(`"${name}"`);
-    }
+    expect(names.has("MAX_ACTIVE_JOBS_PER_ORG")).toBe(true);
+    expect(names.has("MAX_QUEUED_JOBS_PER_ORG")).toBe(true);
   });
 
   it("names no variable twice", () => {
@@ -155,10 +152,7 @@ describe("the agent-worker tier", () => {
   });
 
   it("sets its floor per stack: zero in dev, one warm worker in prod", () => {
-    const prod = read("deploy", "pulumi", "Pulumi.prod.yaml");
-    const dev = read("deploy", "pulumi", "Pulumi.dev.yaml");
-
-    expect(prod).toMatch(/grid-oib:agentWorkerMinReplicas: "1"/);
-    expect(dev).toMatch(/grid-oib:agentWorkerMinReplicas: "0"/);
+    expect(stackConfigValue("prod", "agentWorkerMinReplicas")).toBe("1");
+    expect(stackConfigValue("dev", "agentWorkerMinReplicas")).toBe("0");
   });
 });

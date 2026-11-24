@@ -147,7 +147,7 @@ class _FakePage:
 
 def test_a_captionless_box_pages_later_does_not_continue_an_old_table(monkeypatch):
     import pdfplumber
-    from knowledge_layer.ingest.adapter import _extract_text_from_pdf
+    from knowledge_layer.ingest import _extract_text_from_pdf
 
     box = _FakeTable([["Formular", "Feld"], ["Name", "—"]], top=60)
     pages = [
@@ -177,8 +177,8 @@ def test_a_captionless_box_pages_later_does_not_continue_an_old_table(monkeypatc
 
 def test_the_table_pass_skips_what_the_captioned_pass_took(monkeypatch):
     import pdfplumber
-    from knowledge_layer.ingest.adapter import _extract_tables_from_pdf
-    from knowledge_layer.ingest.adapter import _extract_text_from_pdf
+    from knowledge_layer.ingest import _extract_tables_from_pdf
+    from knowledge_layer.ingest import _extract_text_from_pdf
 
     box = _FakeTable([["Formular", "Feld"], ["Name", "—"]], top=400)
     pdf = SimpleNamespace(

@@ -20,7 +20,7 @@ import { PRODUCT_NAME } from '@/lib/brand'
 
 const session = {
   userId: 'user_1',
-  email: 'a@piloti.test',
+  email: 'a@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_1',
@@ -30,7 +30,7 @@ const session = {
   featureFlags: null,
 }
 const outside: AgentPrincipal = { actor: 'external_agent', clientId: 'c', scopes: [], session }
-const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
+const inProduct: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
 
 const ASK_ID = '0d7b3a5e-7c1c-4a4e-9a63-6a4a1f5f1c11'
 
@@ -99,7 +99,7 @@ async function modern(
     ...options.meta,
   }
   const response = await handler.fetch(
-    new Request('https://app.piloti.test/api/mcp', {
+    new Request('https://app.example.test/api/mcp', {
       method: 'POST',
       headers,
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: { ...params, _meta } }),
@@ -123,7 +123,7 @@ const askCall = (input: Record<string, unknown> = { body: { question: 'Wie hoch 
   arguments: { name: 'agent-ask-create', input },
 })
 
-describe('progress while Piloti answers', () => {
+describe('progress while the agent answers', () => {
   it('streams progress against the wait budget, then the answer, when the call carries a progress token', async () => {
     const { type, messages } = await modern('tools/call', askCall(), { name: 'call-operation', meta: { progressToken: 'p1' } })
     expect(type).toMatch(/^text\/event-stream/)
@@ -189,7 +189,7 @@ describe('every other call answers one JSON body', () => {
     ['server/discover', {}, undefined],
     ['tools/list', {}, undefined],
     ['tools/call', { name: 'call-operation', arguments: { name: 'project-list', input: {} } }, 'call-operation'],
-    ['tools/call', { name: 'search-operations', arguments: { query: 'ask Piloti' } }, 'search-operations'],
+    ['tools/call', { name: 'search-operations', arguments: { query: 'ask the agent' } }, 'search-operations'],
     ['resources/list', {}, undefined],
     ['prompts/list', {}, undefined],
   ])('%s %j', async (method, params, name) => {
@@ -201,12 +201,12 @@ describe('every other call answers one JSON body', () => {
 })
 
 describe('the tasks extension (SEP-2663)', () => {
-  it('is advertised on the 2026-07-28 era to an agent that may ask Piloti, and to nobody else', async () => {
+  it('is advertised on the 2026-07-28 era to an agent that may ask the in-product agent, and to nobody else', async () => {
     const offered = await modern('server/discover', {})
     expect((last(offered.messages).result as { capabilities: { extensions?: object } }).capabilities.extensions).toEqual({
       [TASKS_EXTENSION]: {},
     })
-    const own = await modern('server/discover', {}, { principal: piloti })
+    const own = await modern('server/discover', {}, { principal: inProduct })
     expect((last(own.messages).result as { capabilities: { extensions?: object } }).capabilities.extensions).toBeUndefined()
   })
 
@@ -280,8 +280,8 @@ describe('the tasks extension (SEP-2663)', () => {
     expect(last(messages).result).toMatchObject({ resultType: 'complete' })
   })
 
-  it('is not served to Piloti’s own client, whose writes are proposals', async () => {
-    const { messages } = await modern('tasks/get', { taskId: ASK_ID }, { name: ASK_ID, capabilities: TASKS, principal: piloti })
+  it('is not served to the in-product agent’s own client, whose writes are proposals', async () => {
+    const { messages } = await modern('tasks/get', { taskId: ASK_ID }, { name: ASK_ID, capabilities: TASKS, principal: inProduct })
     expect(last(messages).error?.code).toBe(-32601)
   })
 })
@@ -289,7 +289,7 @@ describe('the tasks extension (SEP-2663)', () => {
 describe('the 2025-era path', () => {
   it('ignores a progress token and answers today’s single JSON call', async () => {
     const response = await handler.fetch(
-      new Request('https://app.piloti.test/api/mcp', {
+      new Request('https://app.example.test/api/mcp', {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json', 'mcp-protocol-version': '2025-11-25' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { ...askCall(), _meta: { progressToken: 'p' } } }),

@@ -6,13 +6,13 @@ export const search: typeof en.search = {
     office: 'Ganzes Büro',
     project: 'Dieses Projekt',
     projectFolder: 'Dieser Ordner',
-    officeShelf: 'Büroablage',
+    officeShelf: 'Bürobibliothek',
   },
   field: {
     placeholder: {
       office: 'Im ganzen Büro suchen…',
       project: 'In diesem Projekt suchen…',
-      office_shelf: 'In der Büroablage suchen…',
+      office_shelf: 'In der Bürobibliothek suchen…',
     },
     placeholderShort: 'Suchen…',
     label: 'Suchen',
@@ -73,7 +73,7 @@ export const search: typeof en.search = {
     page: 'S. {page}',
   },
   where: {
-    officeShelf: 'Büroablage',
+    officeShelf: 'Bürobibliothek',
     folder: 'Ordner',
     separator: ' · ',
   },
@@ -276,7 +276,7 @@ export const search: typeof en.search = {
     summaryEverything: 'Ohne Begriffe und Filter',
   },
   mode: {
-    backToFiles: 'Zurück zu den Dateien',
+    backToFiles: 'Zurück zur Ablage',
     backToShelf: 'Zurück zur Ablage',
   },
   hitActions: {

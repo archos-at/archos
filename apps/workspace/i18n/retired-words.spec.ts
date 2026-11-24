@@ -14,9 +14,9 @@ const RETIRED: readonly { word: RegExp; use: string }[] = [
 
 const KEPT: Readonly<Record<string, string>> = {
   'projects.lifecycle.closeDialog.outcome.cancelledHint':
-    'a client’s commission to the office (a withdrawn Auftrag), not work handed to Piloti',
-  'files.lifecycle.submit.orderLabel': 'the instruction a person gives the reviewer of a revision, not work for Piloti',
-  'files.lifecycle.submit.needOrder': 'the instruction a person gives the reviewer of a revision, not work for Piloti',
+    'a client’s commission to the office (a withdrawn Auftrag), not work handed to the agent',
+  'files.lifecycle.submit.orderLabel': 'the instruction a person gives the reviewer of a revision, not work for the agent',
+  'files.lifecycle.submit.needOrder': 'the instruction a person gives the reviewer of a revision, not work for the agent',
 }
 
 function values(node: unknown, path: string, into: [string, string][]): [string, string][] {
@@ -44,5 +44,17 @@ describe('retired German words', () => {
       expect(text, path).toBeDefined()
       expect(RETIRED.some(({ word }) => word.test(text ?? '')), path).toBe(true)
     }
+  })
+})
+
+const NORM_PLACES = ['baseKnowledge', 'files.baseKnowledge', 'nav.sections.baseKnowledge', 'organization.baseKnowledge'] as const
+
+describe('a norm of the Bürobibliothek is a Norm, its place Normen & Richtlinien', () => {
+  it('says „Grundlage“ nowhere in the copy of Normen & Richtlinien', () => {
+    const found = values(de, '', [])
+      .filter(([path]) => NORM_PLACES.some((place) => path === place || path.startsWith(`${place}.`)))
+      .filter(([, text]) => /Grundlage/.test(text))
+      .map(([path, text]) => `${path}: ${text}`)
+    expect(found).toEqual([])
   })
 })

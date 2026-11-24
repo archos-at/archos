@@ -146,7 +146,7 @@ describe('uploadReport', () => {
     expect(report.findings).toHaveLength(UPLOAD_REPORT_LIMITS.findings)
   })
 
-  it('has nothing to say about an upload Piloti read none of', () => {
+  it('has nothing to say about an upload the agent read none of', () => {
     expect(reportSaysSomething(uploadReport([doc('held')], [description]))).toBe(false)
   })
 })

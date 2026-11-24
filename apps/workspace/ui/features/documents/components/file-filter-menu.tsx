@@ -180,9 +180,9 @@ export function FileFilterMenu({
 
         <Separator />
         {/* Provenance, and deliberately its own section rather than an eighth
-            Dateityp. „Von Piloti" answers who WROTE the file, which ANDs with
+            Dateityp. The authorship filter answers who WROTE the file, which ANDs with
             every other filter here — the lead looking for the reports nobody
-            has taken on yet needs `Unvergeben` and `Von Piloti` at once, and a
+            has taken on yet needs `Unvergeben` and the authorship filter at once, and a
             value inside the kind list would have made that unaskable. */}
         <FilterSection label={t('filters.originLabel')}>
           <CheckRow
@@ -193,7 +193,7 @@ export function FileFilterMenu({
             }
             label={t('authorship.filter')}
           />
-          {/* „Freigabe ausstehend" sits with „Von Piloti" rather than under
+          {/* „Freigabe ausstehend" sits with the authorship filter rather than under
               Status, and the two sections are not the same question: Status is
               where a document is in the INGESTION pipeline, this is whether the
               office has asserted its content (ADR-0054). It ANDs with everything

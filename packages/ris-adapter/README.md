@@ -1,6 +1,6 @@
 # RIS Adapter
 
-Austrian federal and state law and case law for Piloti, from the **Austrian
+Austrian federal and state law and case law for the agent, from the **Austrian
 RIS** (Rechtsinformationssystem des Bundes), built on the official [OGD-RIS API v2.6](https://data.bka.gv.at/ris/api/v2.6/)
 (see the *OGD-RIS API Handbuch V2_6*, July 2025). No API key is required —
 OGD-RIS is an open-government-data service.
@@ -9,7 +9,7 @@ OGD-RIS is an open-government-data service.
 
 | Tool | `_type` | Purpose | Bound on |
 |------|---------|---------|----------|
-| RIS lookup | `ris_lookup` | **Question in, citable passages out.** Runs address parse → candidates → fetch → extract inside ONE call and returns passages in the knowledge layer's grounding grammar (`Citation:`, `Punkt:`, `Dokumentart: gesetz`). | chat (Piloti) |
+| RIS lookup | `ris_lookup` | **Question in, citable passages out.** Runs address parse → candidates → fetch → extract inside ONE call and returns passages in the knowledge layer's grounding grammar (`Citation:`, `Punkt:`, `Dokumentart: gesetz`). | chat (the agent) |
 | RIS search | `ris_search` | Search federal law (`BrKons`, `BgblAuth`, …), state law (`LrKons`, …), and case law (`Vfgh`, `Vwgh`, `Justiz`, `Bvwg`, `Lvwg`, …). Returns document references with citation URLs. | deep research |
 | RIS document fetch | `ris_fetch_document` | Fetch an **entire document on demand** — a law paragraph, a complete consolidated law (`GesamteRechtsvorschrift`), or a court decision — and return its full text to the agent. | deep research |
 | RIS catalog lookup | `ris_catalog_lookup` | Topic search in the **norm registry** — verified pointers plus rank/role/relations for the building-relevant norms, no keyword guessing. | deep research |
@@ -25,7 +25,7 @@ the generic URL extractor, so the answer cited a link where it should have cited
 
 `ris_lookup(question, conclusion, jurisdiction, instrument, application)` runs
 the same path internally, with its own bounds, one module per stage under
-[`src/lookup/`](src/lookup/):
+[`src/ris_adapter/lookup/`](src/ris_adapter/lookup/):
 
 | Stage | Module | Bound |
 |---|---|---|
@@ -100,7 +100,7 @@ behavior with a warning):
 **Jurisdiction-aware matching.** Building law is state law, and the nine state
 codes all match generic topics like "bauordnung", so both tool consumers
 resolve the Bundesland before truncating results (`focus_entries`): the
-explicit `federal_state` argument (`ris_search`; the old `bundesland` is still read for one release) or the state named in the topic
+explicit `federal_state` argument (`ris_search`) or the state named in the topic
 (`ris_catalog_lookup`) drops the OTHER states' law and sorts the project's own
 state first; federal law always stays. The Bundesland itself comes from the
 structured `federal_state=<token>` fact the project-intake wizard writes into the
@@ -161,7 +161,7 @@ Platform integration: per call, the planner model passes through
 `apply_model_override(..., AgentGroup.DEEP_RESEARCH_ROUTER)` and
 `apply_org_credential(...)` — the same policy wrappers other auxiliary LLM calls
 use — so per-org runtime model overrides (ADR-0014) and BYOK credentials
-(ADR-0022) apply consistently. Outside the Piloti agent the wrappers degrade to
+(ADR-0022) apply consistently. Outside the agent the wrappers degrade to
 no-ops.
 
 ## The source record: RIS is configuration (ADR-0162)

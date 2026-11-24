@@ -47,7 +47,7 @@ export const KIND_TO_SIGNAL: Record<SourceKind, SourceSignal> = {
   measurement: 'model',
 }
 
-export const AGENT_AUTHORED_LANE = 'office_piloti'
+export const AGENT_AUTHORED_LANE = 'office_agent'
 export const AGENT_AUTHORED_LANE_LABEL = PRODUCT_NAME + '-Dokument'
 
 export const MAIL_LANE = 'project_mail'
@@ -84,10 +84,11 @@ export const asShelf = (value: string | null | undefined): Shelf | undefined => 
 }
 
 export const CITATION_KEY_QUALIFIERS: ReadonlyArray<readonly [qualifier: string, shelf: Shelf]> = [
-  ['Büroablage', 'office_shelf'],
+  ['Bürobibliothek', 'office_shelf'],
   ['Projektwissen', 'project'],
   ['Basiswissen', 'base'],
   ['Private Sitzung', 'session'],
+  ['Büroablage', 'office_shelf'],
   ['Büroarchiv', 'office_shelf'],
 ]
 

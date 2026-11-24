@@ -40,6 +40,7 @@ export const TARGETS = [
   { dir: 'apps/workspace/shared/brand', files: ['tokens.vars.css', 'fonts/', 'identity.json'] },
   { dir: 'packages/agent/src/agent/common', files: ['identity.json'], shared: true },
   { dir: 'apps/agent-host/src/agent_host/drawings/brand', files: ['fonts/', 'identity.json'] },
+  { dir: 'apps/code-runner/src/house-style/brand', files: ['document-colors.json'] },
 ]
 
 const toBuffer = (content) => (Buffer.isBuffer(content) ? content : Buffer.from(content))
