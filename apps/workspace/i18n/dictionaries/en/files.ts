@@ -710,13 +710,20 @@ export const files = {
   delete: {
     action: 'Delete document',
     title: 'Delete “{name}”?',
-    confirm: 'This removes the document from this project. This cannot be undone.',
+    confirm: 'The document goes to the project’s bin. It can be restored from there until it is deleted for good.',
     confirmAction: 'Delete',
     cancel: 'Cancel',
     deleting: 'Deleting…',
     success: '“{name}” was removed from the project',
     error: 'The document could not be deleted',
     legalHold: 'The document is under a legal hold and cannot be deleted',
+  },
+  erase: {
+    title: 'Delete “{name}”?',
+    confirm: 'The held file is deleted for good. It does not go to the bin.',
+    confirmAction: 'Delete for good',
+    deleting: 'Deleting…',
+    error: 'The document could not be deleted',
   },
   zip: {
     reading: 'Reading the ZIP…',

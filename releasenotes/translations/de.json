@@ -2040,6 +2040,10 @@
     "de": "Beim Löschen einer Rolle fragt Piloti jetzt auch nach Ordnern im Papierkorb oder in einem gelöschten Projekt, deren Zugriffsliste sie nennt, und markiert sie in der Liste. Bisher brachte das Wiederherstellen eines solchen Ordners eine Liste mit einer Rolle zurück, die es nicht mehr gab."
   },
   {
+    "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
+    "de": "Wer in einem Projekt ein einzelnes Dokument löscht, verschiebt es jetzt in den Papierkorb des Projekts, statt es endgültig zu entfernen. Von dort lässt es sich bis zum Ablauf der Frist in den Ordner zurückholen, aus dem es kam."
+  },
+  {
     "en": "Deleting an Archiv document or a chat attachment now also removes its version history.",
     "de": "Beim Löschen eines Archiv-Dokuments oder eines Chat-Anhangs verschwindet jetzt auch sein Versionsverlauf."
   },

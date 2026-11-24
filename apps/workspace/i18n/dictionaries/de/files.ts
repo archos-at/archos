@@ -724,13 +724,20 @@ export const files: typeof en.files = {
     action: 'Dokument löschen',
     title: '„{name}“ löschen?',
     confirm:
-      'Dadurch wird das Dokument aus diesem Projekt entfernt. Dies kann nicht rückgängig gemacht werden.',
+      'Das Dokument kommt in den Papierkorb des Projekts. Dort lässt es sich wiederherstellen, bis es endgültig gelöscht wird.',
     confirmAction: 'Löschen',
     cancel: 'Abbrechen',
     deleting: 'Wird gelöscht…',
     success: '„{name}“ wurde aus dem Projekt entfernt',
     error: 'Das Dokument konnte nicht gelöscht werden',
     legalHold: 'Das Dokument unterliegt einer rechtlichen Sperre und kann nicht gelöscht werden',
+  },
+  erase: {
+    title: '„{name}“ löschen?',
+    confirm: 'Die zurückgehaltene Datei wird endgültig gelöscht. Sie kommt nicht in den Papierkorb.',
+    confirmAction: 'Endgültig löschen',
+    deleting: 'Wird gelöscht…',
+    error: 'Das Dokument konnte nicht gelöscht werden',
   },
   zip: {
     reading: 'ZIP wird gelesen…',
