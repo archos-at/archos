@@ -43,6 +43,22 @@
           "section": "features",
           "area": "collaboration",
           "text": {
+            "en": "An answer's details now show where it read: the projects and folders, and whether Meine Ablage or your personal memory was in play.",
+            "de": "Die Details einer Antwort zeigen jetzt, woher sie ihre Informationen hat: aus welchen Projekten und Ordnern und ob Meine Ablage oder Ihr persönlicher Speicher verwendet wurde."
+          }
+        },
+        {
+          "section": "features",
+          "area": "collaboration",
+          "text": {
+            "en": "If you join a chat later and may not open every source it used, you now see it up to the question that led to such a source, instead of nothing.",
+            "de": "Wenn Sie später zu einem Chat dazukommen und möglicherweise nicht jede darin verwendete Quelle öffnen können, sehen Sie jetzt den Chatverlauf bis zu der Frage, die zu einer solchen Quelle geführt hat, statt gar nichts."
+          }
+        },
+        {
+          "section": "features",
+          "area": "collaboration",
+          "text": {
             "en": "„Alle archivieren“ empties the Postfach in one press, requests that wait on you included, and „Rückgängig“ brings everything back. The annotations and conversations behind the entries stay as they are, and anything new on one of them brings its entry back.",
             "de": "„Alle archivieren“ leert das Postfach mit einem Klick – einschließlich Anfragen, bei denen Sie am Zug sind. „Rückgängig“ stellt alles wieder her. Anmerkungen und Konversationen zu den Einträgen bleiben unverändert, und neue Aktivitäten zu einem Eintrag holen ihn zurück."
           }
