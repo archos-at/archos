@@ -195,6 +195,21 @@ step after the hold check is safe to repeat:
 5. `deleteSessionCollection`: the chat's whole `s_` collection through the backend's `DELETE /v1/collections/{name}`. This covers chunks no row names, such as attachments uploaded before session files were rows. A collection that does not exist (404), or a deployment with no knowledge layer (503), counts as erased. Any other failure keeps the conversation.
 6. Delete the votes cast on the chat (`answer_feedback`, which has no foreign key: found by the conversation id they carry or by the message id of an answer the chat holds, so before the messages cascade away) and the `conversations` row (`messages` and the remaining document rows cascade) in one transaction, so a refused row keeps its votes; then the record of restricted folders and source projects, then the collaboration rows; close the queue row (`pending` or `failed` → `purged`, never a row the purger has claimed); then the agent's drafts.
 
+**„Alle Chats löschen“ is one request, not one per chat:** `DELETE /api/conversations?place=personal`
+or `?place=project&projectId=…` (`deleteOwnConversations`). It touches only chats the caller
+started (`created_by`), on that side only: Persönlich takes the chats without a project, a
+project only its own; a job's chats and chats others started, shared ones included, stay. In one
+transaction it asks `legal_hold_blocks` of each, marks the rest `deleted_at` with one timestamp and
+inserts their `deletion_queue` rows (step 3 for many), and answers `{ deleted, held }`: a held chat
+is left as it is and named. The erasure (steps 4 to 6) runs on a BFF job, `erase_conversations`
+(`runEraseConversationsSlice`), ten chats a slice, which reads back the chats marked at that
+timestamp; a chat whose erase fails is counted and left to its queue row like a single delete's.
+When the job cannot be stored after the marking committed, the request still answers what it
+marked: the chats are hidden, and their queue rows erase them once due.
+Before this, the browser sent one DELETE per chat it had loaded, all at once; on Persönlich that was
+every chat it knew, project chats and colleagues' included, and the mutation limit answered most of
+the burst with 429 while the list had already emptied (2026-11-24).
+
 Steps 4 to 6 are one function (`eraseMarkedConversation`). When step 4 or 5
 fails, typically because the agent service is down, the request answers 502 and
 the chat stays marked, and the queue row is what brings it back. The purger

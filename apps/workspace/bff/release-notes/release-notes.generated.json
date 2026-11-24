@@ -339,6 +339,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "„Alle Chats löschen“ now deletes the chats you started on the side you are on, Persönlich or this project, and they no longer come back after a reload. A chat that cannot be deleted stays in the list, with a message saying why.",
+            "de": "„Alle Chats löschen“ löscht jetzt die Chats, die Sie im aktuellen Bereich – Persönlich oder dieses Projekt – gestartet haben. Nach dem Neuladen werden sie nicht wieder angezeigt. Ein Chat, der nicht gelöscht werden kann, bleibt mit einer Begründung in der Liste."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "In the chat history, chats now fade out under the pinned date as you scroll, the same way they fade at the bottom, instead of being cut off.",
             "de": "Im Chatverlauf werden Chats beim Scrollen jetzt unter dem angehefteten Datum weich ausgeblendet – wie am unteren Rand – statt abgeschnitten zu werden."
           }
@@ -533,6 +541,14 @@
           "text": {
             "en": "The \"Restore\" button under \"Recently deleted\" and the \"Save\" button when renaming a project are centred again.",
             "de": "Die Schaltflächen „Wiederherstellen“ unter „Zuletzt gelöscht“ und „Speichern“ beim Umbenennen eines Projekts sind wieder zentriert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "search",
+          "text": {
+            "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
+            "de": "Ein Klick auf den Suchbutton öffnet die Suche jetzt mit einem kurzen Fade-in, statt dass das Panel sofort erscheint. Ctrl+K öffnet sie weiterhin sofort."
           }
         },
         {

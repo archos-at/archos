@@ -1018,7 +1018,9 @@ times stops being a physical cue and becomes texture.
   (`DialogContent instant`; `CommandDialog` is instant by default). They are
   opened from the keyboard many times a day, and an entrance there is latency
   between the keystroke and the thing asked for. A dialog opened with a click
-  on an occasional task keeps its entrance.
+  keeps its entrance, the palette included: the search button opens it with
+  the dialog's fade and scale (`useShellOverlays().paletteSummon`), so a click
+  never lands on a panel that simply appears.
 - **A switch of place does not replay travel.** Persönlich ↔ Projekt and
   project → project remount the chat and the project's section, and the chat
   store catches up with the new route a moment later (the other project's
@@ -1028,9 +1030,10 @@ times stops being a physical cue and becomes texture.
   and the greeting's rise play only once the reader has pressed or typed anywhere
   in the window since the chat mounted (`components/motion/use-input-since-mount`),
   so sending the first message and „Neuer Chat“ keep them; an activation that
-  sends no press or key (a screen reader's virtual cursor) places them at once. A line that arrives after its
-  count is fetched (mail waiting, a mail import) fades on `duration-snap`, and a
-  thread replacing its skeleton fades on `--motion-snap` too.
+  sends no press or key (a screen reader's virtual cursor) places them at once.
+  A line that arrives after its count is fetched (mail waiting, a mail import)
+  fades on `duration-snap`, and a thread replacing its skeleton fades on
+  `--motion-snap` too.
 - **Toasts move on Sonner's paths and our clock.** A toast drops in from the
   edge it sits on and leaves through it, and the stack lifts and expands, all
   through Sonner's own CSS transitions, which `globals.css` retimes onto
