@@ -217,6 +217,14 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Menus and selection lists now have the same corners as the cards around them, so they no longer look rounder than the rest of the page.",
+            "de": "Menüs und Auswahllisten haben jetzt denselben Eckenradius wie die sie umgebenden Karten und wirken dadurch nicht mehr runder als der Rest der Seite."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "projects",
           "text": {
             "en": "The project overview no longer jumps in size as your projects appear: while it loads, it already shows three rows of cards.",

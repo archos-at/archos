@@ -2944,6 +2944,10 @@
     "de": "Das Erwähnen einer Kollegin mit @ funktioniert jetzt schon im ersten Moment eines neuen Chats. Bisher blieb die Personenliste dann für den ganzen Chat leer."
   },
   {
+    "en": "Menus and selection lists now have the same corners as the cards around them, so they no longer look rounder than the rest of the page.",
+    "de": "Menüs und Auswahllisten haben jetzt denselben Eckenradius wie die sie umgebenden Karten und wirken dadurch nicht mehr runder als der Rest der Seite."
+  },
+  {
     "en": "Mind maps show their topics without quotation marks, and on a phone only the outline appears instead of an unreadably small tree.",
     "de": "Mindmaps zeigen ihre Themen ohne Anführungszeichen, und auf dem Smartphone erscheint nur die Gliederung statt eines Baums, der zu klein zum Lesen ist."
   },
