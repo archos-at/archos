@@ -95,7 +95,7 @@ class TestMailLanes:
 
 class TestSourceKindLookup:
     def test_known_kind(self):
-        assert source_kind("office").label == "Büroablage"
+        assert source_kind("office").label == "Bürobibliothek"
 
     def test_unknown_kind_fails_open(self):
         assert source_kind("nope").key == DEFAULT_SOURCE_KIND
@@ -196,17 +196,18 @@ class TestShelf:
 
     def test_legacy_qualifier_keys_still_parse_to_the_old_vocabulary(self):
         assert scope_for_qualifier("Projektwissen") == "projekt"
-        assert scope_for_qualifier("Büroablage") == "buero"
+        assert scope_for_qualifier("Bürobibliothek") == "buero"
         assert scope_for_qualifier("Basiswissen") == "baurecht"
         assert scope_for_qualifier("Internal") is None
 
     def test_the_shelfs_retired_name_still_parses_and_is_never_written(self):
-        assert shelf_qualifier(Shelf.OFFICE_SHELF) == "Büroablage"
-        assert shelf_for_qualifier("Büroarchiv") is Shelf.OFFICE_SHELF
-        assert scope_for_qualifier("Büroarchiv") == "buero"
-        assert "Büroarchiv" not in SHELF_QUALIFIERS.values()
+        assert shelf_qualifier(Shelf.OFFICE_SHELF) == "Bürobibliothek"
+        for retired in ("Büroablage", "Büroarchiv"):
+            assert shelf_for_qualifier(retired) is Shelf.OFFICE_SHELF
+            assert scope_for_qualifier(retired) == "buero"
+            assert retired not in SHELF_QUALIFIERS.values()
 
-    @pytest.mark.parametrize("qualifier", ["Büroablage", "Büroarchiv"])
+    @pytest.mark.parametrize("qualifier", ["Bürobibliothek", "Büroablage", "Büroarchiv"])
     def test_a_key_under_either_name_strips_to_the_file(self, qualifier):
         from agent.citations.citation_keys import parse_citation_ref
 

@@ -45,7 +45,7 @@ def _constants(path: Path) -> list[tuple[str, str]]:
 def test_the_detector_tells_german_from_english() -> None:
     assert german_words("Read the project record") == []
     assert german_words("Fehler beim Zugriff auf den Arbeitsbereich") == ["Fehler", "Arbeitsbereich"]
-    assert german_words("the Büroablage") == ["Büroablage"]
+    assert german_words("the Bürobibliothek") == ["Bürobibliothek"]
 
 
 @pytest.mark.parametrize("path", MODULES, ids=lambda path: path.name)

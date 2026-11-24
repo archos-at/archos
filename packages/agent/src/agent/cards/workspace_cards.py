@@ -18,7 +18,7 @@ class SurfacedDocument(CardModel):
     page: int | None = Field(default=None, description="1-based page the snippet came from, if known")
     score: float | None = Field(default=None, description="0..1 relevance score of the best chunk")
     source: Literal["project", "office"] | None = Field(
-        default=None, description="Which corpus it came from: 'project' or 'office' (Büroablage)"
+        default=None, description="Which corpus it came from: 'project' or 'office' (Bürobibliothek)"
     )
 
 
@@ -44,7 +44,7 @@ class DocumentAnswerCard(CardModel):
     model_config = ConfigDict(
         json_schema_extra={
             "description": (
-                "Project/Büroablage files the user asked to see.\n"
+                "Project/Bürobibliothek files the user asked to see.\n"
                 "\n"
                 "System-emitted by ``surface_documents``. One file or a short browse\n"
                 "choice — same card, the list length is the difference. Never a\n"

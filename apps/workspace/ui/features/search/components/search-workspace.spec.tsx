@@ -107,7 +107,7 @@ describe('SearchWorkspaceView', () => {
     expect(within(concept).getByTestId('search-title-match')).toHaveTextContent('Brandschutzkonzept')
   })
 
-  it('leaves out the shelf a project’s own search already says, and keeps the Büroablage’s', () => {
+  it('leaves out the shelf a project’s own search already says, and keeps the Bürobibliothek’s', () => {
     german(
       <SearchWorkspaceView
         surface={{ kind: 'project', projectId: PROJECT }}
@@ -126,7 +126,7 @@ describe('SearchWorkspaceView', () => {
     const concept = screen.getByTestId('search-hit-document-d0000000-0000-4000-8000-000000000001')
     expect(concept).not.toHaveTextContent('Wohnhaus Seestadt Baufeld J7')
     expect(concept).toHaveTextContent('Ordner Brandschutz·Brandschutzkonzept')
-    expect(screen.getByTestId('search-hit-document-d0000000-0000-4000-8000-000000000006')).toHaveTextContent('Büroablage')
+    expect(screen.getByTestId('search-hit-document-d0000000-0000-4000-8000-000000000006')).toHaveTextContent('Bürobibliothek')
   })
 
   it('shows the kinds a document filter cannot narrow as not searched, and why, rather than unfiltered rows', () => {
@@ -305,7 +305,7 @@ describe('SearchWorkspaceView', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ filters: { changedFacts: ['escape_route_length'] } }))
   })
 
-  it('marks a replaced Fassung in ink with its icon and word, never in the Büroablage’s amber', () => {
+  it('marks a replaced Fassung in ink with its icon and word, never in the Bürobibliothek’s amber', () => {
     german(<Harness initial={{ ...EMPTY_SEARCH_STATE, text: 'Fluchtweg GK 4' }} onChange={() => {}} />)
     const replaced = screen.getByTestId('search-hit-document-d0000000-0000-4000-8000-000000000003')
     const mark = within(replaced).getByTestId('superseded-mark')

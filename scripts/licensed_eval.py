@@ -122,7 +122,7 @@ def _block(document: dict[str, Any], arm: str) -> str:
     from agent.common.grounding_block import render_grounding_block
 
     block = GroundingBlock(
-        preamble="Found 1 result in the office's Büroablage.",
+        preamble="Found 1 result in the office's Bürobibliothek.",
         degraded_banner="",
         hits=(_hit(document, arm),),
         lanes=(),

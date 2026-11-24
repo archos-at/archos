@@ -63,7 +63,7 @@ describe('renderPlanListCsv', () => {
     expect(first).toContain('"Hubergasse 14"')
     expect(first).toContain('"03 Einreichung/Grundrisse"')
     expect(first).toContain('"ja"')
-    expect(second).toContain('"Büroablage"')
+    expect(second).toContain('"Bürobibliothek"')
     expect(second).toContain('"nein"')
   })
 

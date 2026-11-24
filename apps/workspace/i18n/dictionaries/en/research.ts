@@ -27,7 +27,7 @@ export const research = {
     },
     loggedOutTitle: '{productName} opens after your organization is verified.',
     loggedOutBody:
-      'Sign in to open the project workspace: its files, Office filing, tasks and research.',
+      'Sign in to open the project workspace: its files, Office library, tasks and research.',
     signInSso: 'Sign in with SSO',
     welcomeTitle: 'How can {productName} help with your project?',
   },
@@ -77,7 +77,7 @@ export const research = {
     toggleAria: 'Allow {name}',
     strata: {
       law: 'Building law',
-      office: 'Office filing',
+      office: 'Office library',
       project: 'Project knowledge',
       auto: 'Web',
     },
@@ -85,12 +85,12 @@ export const research = {
       all: 'All sources',
       law: 'Building law & guidelines',
       project: 'Project documents',
-      office: 'Office filing',
+      office: 'Office library',
     },
     knowledge: {
       projectName: 'Project knowledge',
       projectDescription: 'Your project documents in this project.',
-      officeName: 'Office filing',
+      officeName: 'Office library',
       officeDescription: 'Shared documents from your office.',
     },
   },

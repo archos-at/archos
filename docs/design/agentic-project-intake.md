@@ -444,14 +444,14 @@ the quote states the value, as ADR-0096 does.
 
 Product decision (2026-10-14), revised the same day: filing belongs to the
 Files workspace, for every upload on either shelf (Dateien and the
-Büroablage), whether or not a project has an intake. The intake is one reader
+Bürobibliothek), whether or not a project has an intake. The intake is one reader
 of the result, not its home. The design is in
 [`proposed-changes.md`](../architecture/proposed-changes.md#filing-suggestions);
 what it means for the intake:
 
 - **A folder has a description.** `project_folders.description` (≤ 500
   characters, migration 0145), on both shelves, written in Dateien and the
-  Büroablage, and handed to the agents with the folder tree
+  Bürobibliothek, and handed to the agents with the folder tree
   (`FOLDER_DESCRIPTIONS v1`).
 - **The agent proposes, folder by folder.** Every upload batch is judged twice as
   its uploader (`filing_review`): from the names at the seal, from what

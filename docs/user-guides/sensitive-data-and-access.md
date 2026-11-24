@@ -128,10 +128,10 @@ applies to an open chat once the page is reloaded.
 
 **Organisation → Quarantäne.** A quarantined file shows which terms or checks
 matched, never the matched text beyond a masked sample. Organization admins,
-the project's admins and, for the Büroablage, its curators can:
+the project's admins and, for the Bürobibliothek, its curators can:
 
-- **Look at it** („Ansehen"), which opens it in the project's Dateien or in the
-  Büroablage, where it is filed. A chat attachment has no such view.
+- **Look at it** („Ansehen"), which opens it in the project's Ablage or in the
+  Bürobibliothek, where it is filed. A chat attachment has no such view.
 - **Allow** it („Zulassen"). ARCHOS then reads it like any other upload. The
   decision applies to exactly these bytes: uploading a changed version screens
   it again.
@@ -159,7 +159,7 @@ decision to allow it, with the terms and checks that matched but never the
 matched text.
 
 **Who sees a quarantined file.** Only the person who uploaded it and the people
-above. For everyone else in the project, or in the Büroablage, it is not there:
+above. For everyone else in the project, or in the Bürobibliothek, it is not there:
 it is missing from the file list, the search, the project overview and the
 model list, and its download, preview and thumbnail answer as if it did not
 exist. ARCHOS's assistant never reads it. Restoring a folder from the
@@ -435,7 +435,7 @@ absent for everyone, organization admins included: not listed, not searchable,
 not in ARCHOS's answers, not openable or downloadable from a link. Its
 documents are taken out of ARCHOS's search index at once.
 
-This is a project's Files. A folder in the **Büroablage** has no Papierkorb:
+This is a project's Files. A folder in the **Bürobibliothek** has no Papierkorb:
 deleting it moves its documents and subfolders into the folder above.
 
 You may delete a folder when you may edit it and every folder inside it. If it

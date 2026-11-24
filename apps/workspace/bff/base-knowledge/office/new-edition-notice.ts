@@ -117,7 +117,7 @@ export async function noticeNewEditions(organizationId: string): Promise<NewEdit
   if (affected.length === 0) return { newer: 0, notified: 0, resolved }
   const recipients = await activeMembersHolding(organizationId, ORG_PERMISSIONS.officeShelfManage)
   if (recipients.length === 0) {
-    console.warn(`[base-knowledge] ${organizationId} holds ${affected.length} norm(s) no longer binding for its projects, and nobody manages its Büroablage`)
+    console.warn(`[base-knowledge] ${organizationId} holds ${affected.length} norm(s) no longer binding for its projects, and nobody manages its Bürobibliothek`)
     return { newer: affected.length, notified: 0, resolved }
   }
   const candidates = affected.flatMap((norm) => {

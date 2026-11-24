@@ -104,7 +104,7 @@ A comment and not a key, because reno lints every top-level key as a section.
 | Area | Where the reader meets it |
 |---|---|
 | `projects` | Creating and setting up a project, the Steckbrief, closing a project |
-| `documents` | Files, folders, uploads, Fassungen, previews, the Büroablage, the bin and the archive, drafts and Freigabe |
+| `documents` | Files, folders, uploads, Fassungen, previews, the Bürobibliothek, the bin and the archive, drafts and Freigabe |
 | `answers` | Asking in the chat: answers, sources, cards, the Herleitung, exports of an answer |
 | `search` | Finding things: the search page, Ctrl+K, word search across documents |
 | `building-law` | OIB-Richtlinien, laws from the RIS, the norm register, site rules |

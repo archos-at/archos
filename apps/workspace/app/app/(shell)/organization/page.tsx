@@ -238,7 +238,7 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
               </CardTitle>
               <CardDescription>{t('baseKnowledge.description')}</CardDescription>
             </CardHeader>
-            {/* The standards have a place of their own now, beside the Büroablage;
+            {/* The standards have a place of their own now, beside the Bürobibliothek;
                 a settings card was where nobody looked for documents. */}
             <CardContent>
               <Button asChild variant="secondary" size="sm">

@@ -1408,7 +1408,7 @@ describe('InboxItemRow — who and what at a glance', () => {
     expect(row).toHaveAttribute('data-focus-inset')
   })
 
-  test('a filing suggestion says it waits on the file under Dateien, not in a chat', () => {
+  test('a filing suggestion says it waits on the file in the Ablage, not in a chat', () => {
     renderPlain(
       <I18nProvider initialLocale="de" fixedLocale>
         <InboxItemRow
@@ -1428,7 +1428,7 @@ describe('InboxItemRow — who and what at a glance', () => {
       </I18nProvider>,
     )
     expect(
-      screen.getByText('Der Vorschlag steht bei der Datei unter Dateien. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.'),
+      screen.getByText('Der Vorschlag steht bei der Datei in der Ablage. Übernehmen oder verwerfen Sie ihn dort; bis dahin ändert sich nichts.'),
     ).toBeInTheDocument()
   })
 })

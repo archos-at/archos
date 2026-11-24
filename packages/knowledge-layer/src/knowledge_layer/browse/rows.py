@@ -39,7 +39,7 @@ KNOWN_SHELVES = (*USER_SHELVES, "base")
 
 _SHELF_LABELS = {
     "project": "Projektwissen",
-    "office_shelf": "Büroablage",
+    "office_shelf": "Bürobibliothek",
     "session": "Private Sitzung",
     "base": "Basiswissen",
 }

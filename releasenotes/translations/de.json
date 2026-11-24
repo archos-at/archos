@@ -3976,6 +3976,10 @@
     "de": "In der Büroablage gibt es nur einen Upload, und ARCHOS fragt in einem Dialog nach den Normen in Ihren Dateien: Art, Bezeichnung, Ausgabe und Thema. Für alles, was nicht stimmt, wählen Sie „Keine Norm“; eine neuere Ausgabe oder ein weiteres Exemplar einer Norm, die Sie bereits haben, wird als solches erkannt. Normale Dateien landen wie bisher in Ihren Ordnern."
   },
   {
+    "en": "The Büroablage is now called the Bürobibliothek, and a project's Dateien are now its Ablage, with „Dateien“ as its first place where „Ordner“ stood. The office's shelf and the project's no longer read as one place, and answers name the Bürobibliothek as their source.",
+    "de": "Die Büroablage heißt jetzt Bürobibliothek, und die Dateien eines Projekts heißen jetzt Ablage; ihr erster Bereich heißt „Dateien“ statt „Ordner“. So sind die Unterlagen des Büros und die des Projekts nicht mehr zu verwechseln, und Antworten nennen die Bürobibliothek als Quelle."
+  },
+  {
     "en": "The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and Postfach entries that point to /app/archiv keep working and lead there.",
     "de": "Die Büroablage öffnet sich jetzt unter /app/office-shelf. Lesezeichen, geteilte Links und Postfach-Einträge, die auf /app/archiv verweisen, funktionieren weiterhin und führen dorthin."
   },

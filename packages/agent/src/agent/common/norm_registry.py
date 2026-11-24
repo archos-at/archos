@@ -646,7 +646,7 @@ def lane_for_hit(
             lane_key = DOCUMENT_CLASS_LANES[doc_class]
             return (lane_key, _LANE_LABELS.get(lane_key, "Baurecht"))
     if known_shelf is Shelf.OFFICE_SHELF:
-        return ("office", "Büroablage")
+        return ("office", "Bürobibliothek")
     if known_shelf is Shelf.PROJECT:
         return ("project", "Projektwissen")
     if known_shelf is Shelf.SESSION:

@@ -68,7 +68,7 @@ describe('KeyboardShortcuts', () => {
     pressCmdK()
 
     expect(await screen.findByText('Current project')).toBeInTheDocument()
-    for (const section of ['Chat', 'Files', 'Overview', 'Setup']) {
+    for (const section of ['Chat', 'Documents', 'Overview', 'Setup']) {
       expect(screen.getByText(section)).toBeInTheDocument()
     }
     expect(screen.queryByText('Members')).toBeNull()
@@ -108,7 +108,7 @@ describe('KeyboardShortcuts', () => {
 
     await screen.findByText('Keyboard shortcuts')
     const jumps = within(document.querySelector<HTMLElement>('[data-shortcut-group="navigation"]')!)
-    for (const label of ['All projects', 'Organization', 'Chat', 'Files', 'Office filing', 'Overview']) {
+    for (const label of ['All projects', 'Organization', 'Chat', 'Documents', 'Office library', 'Overview']) {
       expect(jumps.getByText(label)).toBeInTheDocument()
     }
     expect(screen.queryByText('Skills')).toBeNull()

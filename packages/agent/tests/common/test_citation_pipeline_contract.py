@@ -156,7 +156,7 @@ class TestProducerParserContract:
     def test_the_unclassified_hit_is_not_rendered_as_building_law(self):
         projekt, oib, archiv = roundtrip(self.PROJEKT, self.OIB, self.OFFICE_SHELF)
         assert source_lane(projekt) == ("project", "Projektwissen")
-        assert source_lane(archiv) == ("office", "Büroablage")
+        assert source_lane(archiv) == ("office", "Bürobibliothek")
         assert source_lane(oib) == ("building_law_oib", "OIB-Richtlinie")
 
     def test_all_hits_classified(self):

@@ -173,7 +173,7 @@ describe('BaseKnowledgeWorkspace', () => {
     expect(calls.some((call) => call.url.includes('folderId=00000000-0000-4000-8000-000000000002'))).toBe(true)
   })
 
-  it('uploads into the Büroablage and opens one dialog for the norms it recognised', async () => {
+  it('uploads into the Bürobibliothek and opens one dialog for the norms it recognised', async () => {
     shelfUpload.stored = [
       { documentId: 'doc-norm', fileName: 'OENORM_B_5371.pdf' },
       { documentId: 'doc-edition', fileName: 'OENORM_B_1600_2023-02-01_de.pdf' },

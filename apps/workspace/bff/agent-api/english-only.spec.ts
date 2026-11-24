@@ -126,7 +126,7 @@ describe('everything an agent reads is English', () => {
   it('tells German from English the way the checks need', () => {
     expect(germanProseWords('Read the project record')).toEqual([])
     expect(germanProseWords('Read the Steckbrief')).toEqual(['Steckbrief'])
-    expect(germanProseWords('the Büroablage')).toEqual(['Büroablage'])
+    expect(germanProseWords('the Bürobibliothek')).toEqual(['Bürobibliothek'])
     expect(germanProseWords('Neue Aufgabe anlegen')).toEqual(['Aufgabe'])
     expect(germanProseWords('archived items')).toEqual([])
   })

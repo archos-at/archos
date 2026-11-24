@@ -57,13 +57,13 @@ describe('the organization target', () => {
     )
   })
 
-  it('deep-links a Büroablage filing suggestion to the Büroablage, where its file row carries it', async () => {
+  it('deep-links a Bürobibliothek filing suggestion to the Bürobibliothek, where its file row carries it', async () => {
     const access = await organizationTarget.resolve(makeSession(), 'org_1')
 
     expect(access!.deepLink({ itemType: 'agent.proposal_waiting', anchorId: 'prop-1' })).toBe('/app/office-shelf')
   })
 
-  it('lands an office filing sort on the office shelf with the run open', async () => {
+  it('lands an office library sort on the office shelf with the run open', async () => {
     const access = await organizationTarget.resolve(makeSession(), 'org_1')
 
     expect(access!.deepLink({ itemType: 'root_sort.ready', anchorId: 'run-1' })).toBe(

@@ -37,7 +37,7 @@ describe('useProjectInventory', () => {
     ])
   })
 
-  it('offers the office’s standards too, which the Büroablage lists only when asked', async () => {
+  it('offers the office’s standards too, which the Bürobibliothek lists only when asked', async () => {
     server.use(
       shelfGet('project', '/api/documents', () => HttpResponse.json({ documents: [], nextCursor: null })),
       shelfGet('office_shelf', '/api/documents', ({ request }) =>
