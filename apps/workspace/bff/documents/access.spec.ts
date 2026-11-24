@@ -65,7 +65,7 @@ describe('getAccessibleDocument and read-only folders (ADR-0088)', () => {
   })
 })
 
-describe('getAccessibleDocument and a personal shelf (ADR-0191)', () => {
+describe('getAccessibleDocument and a personal shelf (ADR-0193)', () => {
   const own = makeDocument({ id: 'd', scope: 'personal', projectId: null, ownerUserId: 'u-1' })
 
   it('returns a document on the caller’s own shelf, to read and to change', async () => {

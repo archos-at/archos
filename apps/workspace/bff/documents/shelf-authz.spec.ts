@@ -11,7 +11,7 @@ import { requireShelfRead, requireShelfWrite } from './shelf-authz'
 const owner = { organizationId: 'org-1', userId: 'u-owner' } as AuthorizedSession
 const colleague = { organizationId: 'org-1', userId: 'u-colleague' } as AuthorizedSession
 
-describe('a personal shelf is read and written by its owner alone (ADR-0191 rule 1)', () => {
+describe('a personal shelf is read and written by its owner alone (ADR-0193 rule 1)', () => {
   it('lets the owner read and write it', async () => {
     await expect(requireShelfRead(owner, personalShelf('u-owner'))).resolves.toBeUndefined()
     await expect(requireShelfWrite(owner, personalShelf('u-owner'))).resolves.toBeUndefined()

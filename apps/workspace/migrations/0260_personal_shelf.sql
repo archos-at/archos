@@ -1,4 +1,4 @@
--- 0260: a person's own shelf, „Meine Ablage“ (ADR-0191 rule 1).
+-- 0260: a person's own shelf, „Meine Ablage“ (ADR-0193 rule 1).
 --
 -- A third shelf beside a project and the office shelf, with the scope value
 -- `personal` and its owner on the row (`owner_user_id`). The upload pipeline,
@@ -84,7 +84,7 @@ CREATE OR REPLACE FUNCTION organization_storage_by_scope()
 $$;
 --> statement-breakpoint
 COMMENT ON FUNCTION organization_storage_by_scope() IS
-  'The organization''s stored bytes and document counts per shelf, personal shelves included, for the storage quota: totals only, never a row (ADR-0191).';
+  'The organization''s stored bytes and document counts per shelf, personal shelves included, for the storage quota: totals only, never a row (ADR-0193).';
 --> statement-breakpoint
 REVOKE ALL ON FUNCTION organization_storage_by_scope() FROM PUBLIC;
 --> statement-breakpoint

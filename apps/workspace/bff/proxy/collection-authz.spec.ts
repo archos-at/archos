@@ -386,7 +386,7 @@ describe('validateCollectionName — what the proxy never does', () => {
   })
 })
 
-describe('validateCollectionName on a personal shelf (ADR-0191)', () => {
+describe('validateCollectionName on a personal shelf (ADR-0193)', () => {
   const own = personalShelfCollectionName('org-1', 'user-1')
   const someoneElses = personalShelfCollectionName('org-1', 'user-2')
 

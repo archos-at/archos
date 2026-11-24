@@ -29,7 +29,7 @@ beforeEach(() => vi.clearAllMocks())
 
 const IN_PRODUCT_DOOR = callDoorOf({ principal: { actor: AGENT_KIND } as AgentPrincipal })
 
-describe('which doors reach a person’s own shelf (ADR-0191)', () => {
+describe('which doors reach a person’s own shelf (ADR-0193)', () => {
   it('lets the person in the app and their own mcp agent in', async () => {
     expect(mayReachPersonalShelf(me)).toBe(true)
     expect(await through('mcp', async () => mayReachPersonalShelf(me))).toBe(true)

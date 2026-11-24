@@ -37,7 +37,7 @@ describe('reconcileStalePending', () => {
     )
   })
 
-  it('reconciles each organization rows together, inside that organization, as the recovery reader that sees personal rows (ADR-0191)', async () => {
+  it('reconciles each organization rows together, inside that organization, as the recovery reader that sees personal rows (ADR-0193)', async () => {
     vi.mocked(listStalePendingDocuments).mockResolvedValue([row('a', 'org_1'), row('b', 'org_2'), row('c', 'org_1')])
     const seen: Array<[unknown, string[]]> = []
     vi.mocked(reconcileDocumentStatuses).mockImplementation(async (rows) => {

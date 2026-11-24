@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.mocked(findDocumentInOrg).mockImplementation(async (id: string) => (id === own.id ? own : id === theirs.id ? theirs : null))
 })
 
-describe('the sessions an agent door acts with, and Meine Ablage (ADR-0191)', () => {
+describe('the sessions an agent door acts with, and Meine Ablage (ADR-0193)', () => {
   it('lets the person’s own mcp agent, with the session principal.ts builds, read its own shelf', async () => {
     const session = (await resolveMemberSession(person))!
     expect(session.pinnedForTurn).toBeUndefined()
