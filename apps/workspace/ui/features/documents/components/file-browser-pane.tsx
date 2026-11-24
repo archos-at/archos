@@ -74,6 +74,7 @@ interface FileBrowserPaneProps {
   onPickFiles?: () => void
   onPickFolder?: () => void
   brief?: ReactNode
+  briefAtEnd?: boolean
   slice?: BriefSlice
   paging?: { hasMore: boolean; loading: boolean; failed: boolean; onLoadMore: () => void }
   folderStats?: { counts: ReadonlyMap<string, number>; tallies: ReadonlyMap<string, KnowledgeTally> }
@@ -109,6 +110,7 @@ export function FileBrowserPane({
   sort = DEFAULT_FILE_SORT,
   onSortChange,
   brief,
+  briefAtEnd = false,
   slice,
   paging,
   folderStats,
@@ -426,7 +428,7 @@ export function FileBrowserPane({
         </div>
       )}
       {/* Under the tabs where the root's row went (tabs, ⋯). While picking the bar owns the action: no „Ordner anlegen“. */}
-      {brief && !semantic.active && !searching && (
+      {brief && !briefAtEnd && !semantic.active && !searching && (
         <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-2' /* its line 24px under the header's rule */ : 'pt-4')}>{brief}</div>
       )}
       {/* The agent's filing suggestions for the documents of this level, one line
@@ -580,6 +582,9 @@ export function FileBrowserPane({
         </motion.div>
       )}
       </ActionMenu>
+      {brief && briefAtEnd && !semantic.active && !searching && !slice && (
+        <div className={cn(CONTENT_MAX, 'px-4 pb-6 pt-2')} data-testid="folder-brief-at-end">{brief}</div>
+      )}
       {folderNav && !folderNav.readOnly && (
         <NewFolderDialog
           open={createFolderIn !== undefined}

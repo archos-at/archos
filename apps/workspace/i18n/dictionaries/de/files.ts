@@ -415,6 +415,11 @@ export const files: typeof en.files = {
     noDocumentsDescription:
       'Laden Sie die Unterlagen Ihres Projekts hoch: Zeichnungen, Bescheide, Gutachten, Berichte. {productName} liest sie und zitiert daraus, statt aus allgemeinen Hinweisen zu antworten.',
     searchPlaceholder: 'Suchen…',
+    searchPlaceholderIn: {
+      project: 'In der Projektablage suchen…',
+      personal: 'In meiner Ablage suchen…',
+      office: 'In der Bürobibliothek suchen…',
+    },
     searchPlaceholderEverything: 'Filtern, Enter sucht alles…',
     searchLabel: 'Dateien durchsuchen',
     noMatch: 'Keine Dateien entsprechen „{query}“',

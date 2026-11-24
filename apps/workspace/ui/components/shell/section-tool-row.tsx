@@ -42,7 +42,7 @@ export function useSectionPrimaryYields(): boolean {
 export function useSectionNewFolder(): (() => void) | null {
   const tier = useContext(ToolTierContext)
   const level = useContext(LevelToolsContext)
-  if (tier === null || tier === 'wide') return null
+  if (tier === null) return null
   return level?.newFolder ?? null
 }
 

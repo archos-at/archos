@@ -33,6 +33,7 @@ import { FolderPickerSheet } from './folder-picker-sheet'
 import { RootSortDialog } from './root-sort/root-sort-dialog'
 import { SelectionBar } from './selection-bar'
 import { sortedFolderDestinations } from '../lib/folder-path-label'
+import { activeFilterCount } from '../lib/file-filters'
 import { FilesHeaderControls } from './files-header-controls'
 import { usePhoneRootTools } from './phone-root-tools'
 import { FolderAccessDialog } from './folder-access-dialog'
@@ -218,11 +219,14 @@ export function FileWorkspace({
       phone={phone}
       view={view}
       onViewChange={selectView}
-      binHref={shelf.source === 'project' ? undefined : shelf.bin?.href}
+      binHref={shelf.bin?.href}
       openPointsHref={shelf.source === 'project' ? undefined : shelf.openPoints?.href}
       inboundMail={shelf.source !== 'project' && shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
-      renderFilter={(compact) => (
+      filterCount={activeFilterCount(filters, canCollaborate)}
+      shelfSource={shelf.source}
+      renderFilter={(compact, menu) => (
         <FileFilterMenu
+          menu={menu}
           canCollaborate={canCollaborate}
           filters={filters}
           onFiltersChange={setFilters}
@@ -427,6 +431,7 @@ export function FileWorkspace({
                 label: t('workspace.uploadDocuments'),
               })}
               brief={briefSurface.brief}
+              briefAtEnd={briefSurface.briefAtEnd}
               slice={briefSurface.slice}
               rootToolsInMenu={rootToolsInMenu}
               selection={

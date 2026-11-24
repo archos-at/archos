@@ -8,7 +8,7 @@ import { ArrowDownNarrowWide, ArrowUpNarrowWide, SlidersHorizontal } from 'lucid
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { CountPill } from '@/components/ui/count-pill'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Separator } from '@/components/ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -38,6 +38,13 @@ export interface FileFilterMenuProps {
   tagOptions?: readonly TagOption[]
   compact?: boolean
   defaultOpen?: boolean
+  menu?: FileFilterMenuAnchor
+}
+
+export interface FileFilterMenuAnchor {
+  anchor: ReactNode
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
 const SORT_KEYS: readonly FileSortKey[] = ['added', 'name', 'status', 'size']
@@ -60,6 +67,7 @@ export function FileFilterMenu({
   tagOptions = [],
   compact = false,
   defaultOpen,
+  menu,
 }: FileFilterMenuProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const count = activeFilterCount(filters, canCollaborate)
@@ -81,29 +89,33 @@ export function FileFilterMenu({
   const DirectionIcon = sort.direction === 'asc' ? ArrowUpNarrowWide : ArrowDownNarrowWide
 
   return (
-    <Popover defaultOpen={defaultOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="secondary"
-          size={compact ? 'icon' : 'sm'}
-          className={compact ? 'relative shrink-0' : 'gap-2'}
-          data-testid="file-filter-menu-trigger"
-          aria-label={count > 0 ? t('filters.labelActive', { count }) : t('filters.label')}
-        >
-          <SlidersHorizontal className="size-4" aria-hidden />
-          {!compact && t('filters.label')}
-          {count > 0 && (
-            <CountPill
-              tone="attention"
-              aria-hidden
-              className={compact ? 'absolute -right-1.5 -top-1.5' : undefined}
-              data-testid="file-filter-count"
-              count={count}
-            />
-          )}
-        </Button>
-      </PopoverTrigger>
+    <Popover defaultOpen={defaultOpen} {...(menu ? { open: menu.open, onOpenChange: menu.onOpenChange } : {})}>
+      {menu ? (
+        <PopoverAnchor asChild>{menu.anchor}</PopoverAnchor>
+      ) : (
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="secondary"
+            size={compact ? 'icon' : 'sm'}
+            className={compact ? 'relative shrink-0' : 'gap-2'}
+            data-testid="file-filter-menu-trigger"
+            aria-label={count > 0 ? t('filters.labelActive', { count }) : t('filters.label')}
+          >
+            <SlidersHorizontal className="size-4" aria-hidden />
+            {!compact && t('filters.label')}
+            {count > 0 && (
+              <CountPill
+                tone="attention"
+                aria-hidden
+                className={compact ? 'absolute -right-1.5 -top-1.5' : undefined}
+                data-testid="file-filter-count"
+                count={count}
+              />
+            )}
+          </Button>
+        </PopoverTrigger>
+      )}
       {/* Five sections is taller than a short laptop's viewport with the
           header above it, and a popover that runs off the bottom of the screen
           hides the reset. It scrolls inside itself rather than growing. */}
@@ -112,6 +124,7 @@ export function FileFilterMenu({
         collisionPadding={16}
         className="max-h-[min(70dvh,34rem)] w-72 max-w-[calc(100vw-2rem)] space-y-4 overflow-y-auto p-4"
         data-testid="file-filter-menu"
+        onFocusOutside={menu ? (event) => event.preventDefault() : undefined}
       >
         {!sortDisabled && (
           <FilterSection label={t('filters.sortLabel')}>

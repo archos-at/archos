@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type MutableRefObject } from 'react'
 import { cn } from '@/lib/utils'
-import { Camera, ChevronDown, FolderPlus, FolderUp, Images, Mail, Upload } from 'lucide-react'
+import { Camera, ChevronDown, FolderUp, Images, Mail, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
-import { useInSectionToolRow, useSectionNewFolder, useSectionPrimaryYields, useSectionToolTier } from '@/components/shell/project-section-frame'
+import { useInSectionToolRow, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useCoarsePointer } from '../hooks/use-coarse-pointer'
 import { useLocale, useTranslations } from '@/i18n'
 import { captureCopy } from '@/i18n/namespaces/capture'
@@ -72,8 +72,6 @@ export function ProjectUppyUpload({
   }, [pickFilesRef, pickFolderRef])
   const buttonLabel = label ?? t('upload.upload')
   const tier = useSectionToolTier()
-  const yields = useSectionPrimaryYields()
-  const newFolder = useSectionNewFolder()
   const headerInstance = useInSectionToolRow() && !glyphOnly
   const compact = headerInstance && tier === 'narrow'
   const fileUpload = useAppConfig().fileUpload
@@ -162,7 +160,7 @@ export function ProjectUppyUpload({
       onClick={allowFolders ? undefined : () => inputRef.current?.click()}
       disabled={isUploading}
       size={size}
-      variant={headerInstance && yields ? 'secondary' : variant}
+      variant={headerInstance ? 'secondary' : variant}
       className={cn('gap-2', compact && 'gap-1 px-2.5')}
       title={compact ? buttonLabel : undefined}
     >
@@ -247,12 +245,6 @@ export function ProjectUppyUpload({
             >
               <FolderUp className="size-4" aria-hidden />
               {t('upload.uploadFolder')}
-            </DropdownMenuItem>
-          )}
-          {headerInstance && newFolder && (
-            <DropdownMenuItem onSelect={newFolder} data-testid="project-upload-new-folder">
-              <FolderPlus className="size-4" aria-hidden />
-              {t('folders.newFolder')}
             </DropdownMenuItem>
           )}
           {onSendByMail && (

@@ -12,7 +12,7 @@ import {
 import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowLeft, ChevronRight, FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronRight, FolderOpen, ListTodo, Mail } from 'lucide-react'
 
 import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
@@ -197,7 +197,6 @@ function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; in
         ]
       : []),
     { key: 'open-points', href: `${base}/open-points`, icon: ListTodo, label: t('subpages.files/open-points.title') },
-    { key: 'bin', href: `${base}/bin`, icon: Trash2, label: t('subpages.files/bin.title') },
   ]
   return (
     <SectionNav
@@ -287,7 +286,7 @@ export function ProjectSectionFrame({
                 <>
                   {projectStep}
                   {!(allFiles && !place) && <ChevronRight className="size-3 shrink-0" aria-hidden />}
-                  {place ? place.trail : allFiles ? null : <span className="shrink-0">{sectionLabel}</span>}
+                  {place ? place.trail : allFiles ? <span className="shrink-0" data-testid="files-audience">· {t('projectTeam')}</span> : <span className="shrink-0">{sectionLabel}</span>}
                 </>
               ) : files && place?.phoneTrail ? (
                 place.phoneTrail

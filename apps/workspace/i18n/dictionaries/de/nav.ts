@@ -9,6 +9,7 @@ export const nav: typeof en.nav = {
   personalNavigation: 'Persönliche Navigation',
   newChat: 'Neuer Chat',
   personalShelf: 'Meine Ablage',
+  projectTeam: 'Projektteam',
   recentChats: 'Letzte Chats',
   allChats: 'Alle Chats',
   temporaryChat: '(temporärer Chat)',

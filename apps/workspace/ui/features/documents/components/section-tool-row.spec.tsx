@@ -14,7 +14,7 @@ vi.mock('@/shared/context', () => ({
 
 const FOLDERS: FolderItem[] = [{ id: 'a', parentId: null, name: 'Grundlagen', path: '/Grundlagen' }]
 
-function renderRow({ width, emptyLevel = false }: { width: number; emptyLevel?: boolean }) {
+function renderRow({ width, emptyLevel = false, shelfSource }: { width: number; emptyLevel?: boolean; shelfSource?: 'project' | 'personal' }) {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width, height: 32, top: 0, left: 0, right: width, bottom: 32, x: 0, y: 0, toJSON: () => ({}) })
   const onCreateFolder = vi.fn(async () => true)
   render(
@@ -24,7 +24,8 @@ function renderRow({ width, emptyLevel = false }: { width: number; emptyLevel?: 
           phone={false}
           view="cards"
           onViewChange={vi.fn()}
-          renderFilter={() => null}
+          shelfSource={shelfSource}
+          renderFilter={(_compact, menu) => (menu?.open ? <span data-testid="filter-open" /> : null)}
           search={{ value: '', onChange: vi.fn(), onSubmit: vi.fn(), onClear: vi.fn() }}
           upload={<ProjectUppyUpload onUpload={vi.fn()} isUploading={false} allowFolders />}
         />
@@ -42,37 +43,47 @@ afterEach(() => {
 })
 
 describe('Dateien’s tool row', () => {
-  it('holds the level’s tools before Hochladen, every press with its words on a wide row', () => {
+  it('reads search, the level’s tools, Hochladen and ⋯, in that order, with no folder press or view toggle on the row', () => {
     const { row } = renderRow({ width: 1100 })
     expect(row).toHaveAttribute('data-tier', 'wide')
-    const presses = within(row).getAllByRole('button').map((button) => button.textContent)
+    const presses = within(row).getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent)
     const select = presses.indexOf('Select')
+    const upload = presses.findIndex((text) => text?.includes('Upload'))
     expect(select).toBeGreaterThanOrEqual(0)
-    expect(presses.indexOf('Create folder')).toBe(select + 1)
-    expect(presses.findIndex((text) => text?.includes('Upload'))).toBeGreaterThan(select + 1)
+    expect(upload).toBeGreaterThan(select)
+    expect(presses.indexOf('More')).toBeGreaterThan(upload)
+    expect(presses).not.toContain('Create folder')
+    expect(within(row).queryByRole('group', { name: /view/i })).not.toBeInTheDocument()
   })
 
-  it('moves „Ordner anlegen“ into Hochladen’s menu where the row has no room for it, and keeps „Auswählen“ worded', async () => {
-    const { row, onCreateFolder } = renderRow({ width: 700 })
-    expect(row).toHaveAttribute('data-tier', 'medium')
-    expect(within(row).queryByRole('button', { name: /Create folder/ })).not.toBeInTheDocument()
-    expect(within(row).getByRole('button', { name: 'Select' })).toBeInTheDocument()
+  it.each([1100, 700, 440])('keeps „Ordner anlegen“ in the ⋯ at %ipx, never in Hochladen’s menu', async (width) => {
+    const { row, onCreateFolder } = renderRow({ width })
     await userEvent.click(within(row).getByRole('button', { name: /Upload/ }))
-    await userEvent.click(await screen.findByTestId('project-upload-new-folder'))
+    expect(screen.queryByTestId('project-upload-new-folder')).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(within(row).getByRole('button', { name: 'More' }))
+    await userEvent.click(await screen.findByTestId('files-new-folder-item'))
     await userEvent.type(await screen.findByRole('textbox'), 'Statik{Enter}')
     expect(onCreateFolder).toHaveBeenCalledWith('Statik', undefined)
   })
 
-  it('folds the view into the ⋯ and Hochladen to its glyph on a narrow row, never a second line', () => {
+  it('opens the filter from the ⋯', async () => {
+    const { row } = renderRow({ width: 1100 })
+    expect(screen.queryByTestId('filter-open')).not.toBeInTheDocument()
+    await userEvent.click(within(row).getByRole('button', { name: 'More' }))
+    await userEvent.click(await screen.findByTestId('files-filter-item'))
+    expect(await screen.findByTestId('filter-open')).toBeInTheDocument()
+  })
+
+  it('folds Hochladen to its glyph on a narrow row, never a second line', () => {
     const { row } = renderRow({ width: 440 })
     expect(row).toHaveAttribute('data-tier', 'narrow')
-    expect(within(row).queryByRole('group', { name: /view/i })).not.toBeInTheDocument()
     expect(within(row).getByRole('button', { name: 'More' })).toBeInTheDocument()
     expect(within(row).getByRole('button', { name: /Upload/ })).toHaveAttribute('title', 'Upload')
   })
 
-  it('steps Hochladen back to the raised press while the empty level’s own Hochladen shows', () => {
-    const { row } = renderRow({ width: 1100, emptyLevel: true })
+  it('draws the tool row’s Hochladen as the outlined press', () => {
+    const { row } = renderRow({ width: 1100 })
     expect(within(row).getByRole('button', { name: /Upload/ }).className).not.toMatch(/\bbg-primary\b/)
   })
 
@@ -89,8 +100,8 @@ describe('Dateien’s tool row', () => {
     expect(within(screen.getByTestId('empty-state')).getByRole('button', { name: /Upload/ }).className).toMatch(/\bbg-primary\b/)
   })
 
-  it('keeps Hochladen the ink press where the level has something in it', () => {
-    const { row } = renderRow({ width: 1100 })
-    expect(within(row).getByRole('button', { name: /Upload/ }).className).toMatch(/\bbg-primary\b/)
+  it('names the shelf it searches', () => {
+    renderRow({ width: 1100, shelfSource: 'personal' })
+    expect(screen.getByPlaceholderText('Search my files…')).toBeInTheDocument()
   })
 })

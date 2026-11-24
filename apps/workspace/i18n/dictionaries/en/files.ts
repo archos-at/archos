@@ -406,6 +406,11 @@ export const files = {
     noDocumentsDescription:
       'Upload your project’s documents: drawings, official notices, expert reports. {productName} reads them and cites them instead of answering from generic guidance.',
     searchPlaceholder: 'Search…',
+    searchPlaceholderIn: {
+      project: "Search the project's files…",
+      personal: 'Search my files…',
+      office: 'Search the office library…',
+    },
     searchPlaceholderEverything: 'Filter, Enter searches all…',
     searchLabel: 'Search files',
     noMatch: 'No files match “{query}”',

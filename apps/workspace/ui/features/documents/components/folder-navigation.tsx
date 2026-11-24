@@ -106,7 +106,7 @@ export function FolderBreadcrumbRow({
   const tabSlot = useSectionTabActionsSlot()
   const placeSlot = useSectionPlaceSlot()
   const tier = useSectionToolTier()
-  const folderInMenu = tabSlot && tier !== null && tier !== 'wide' && !readOnly && onCreateFolder !== undefined
+  const folderInMenu = tabSlot && tier !== null && !readOnly && onCreateFolder !== undefined
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const openNewFolder = useCallback(() => setNewFolderOpen(true), [])
   const tools = (

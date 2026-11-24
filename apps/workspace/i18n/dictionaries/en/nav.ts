@@ -7,6 +7,7 @@ export const nav = {
   personalNavigation: 'Personal navigation',
   newChat: 'New chat',
   personalShelf: 'Meine Ablage',
+  projectTeam: 'Project team',
   recentChats: 'Recent chats',
   allChats: 'All chats',
   temporaryChat: '(temporary chat)',

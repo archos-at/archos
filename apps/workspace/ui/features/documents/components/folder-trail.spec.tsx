@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
-import { ProjectSectionActions, ProjectSectionFrame, SectionLevelTools } from '@/components/shell/project-section-frame'
+import { ProjectSectionActions, ProjectSectionFrame, SectionLevelTools, useSectionNewFolder } from '@/components/shell/project-section-frame'
 import { FolderBreadcrumbRow } from './folder-navigation'
 import { trailSteps } from './folder-trail'
 import type { FolderItem } from '../file-types'
@@ -17,12 +17,18 @@ const FOLDERS: FolderItem[] = [
   folder('e', 'd', 'Rauchabschnittsbildung_Bauteil_C_Index-D'),
 ]
 
+function NewFolderProbe() {
+  const newFolder = useSectionNewFolder()
+  return newFolder ? <button type="button" onClick={newFolder}>Create folder</button> : null
+}
+
 function renderAt(currentFolderId: string | null, onNavigate = vi.fn(), itemCount?: number) {
   render(
     <ProjectSectionFrame projectId="p1" projectName="Holzbau Wien">
       {/* The header's tool row, where `FilesHeaderControls` draws the level's tools. */}
       <ProjectSectionActions>
         <SectionLevelTools />
+        <NewFolderProbe />
       </ProjectSectionActions>
       <FolderBreadcrumbRow folders={FOLDERS} currentFolderId={currentFolderId} onNavigate={onNavigate} onCreateFolder={vi.fn()} itemCount={itemCount} />
     </ProjectSectionFrame>

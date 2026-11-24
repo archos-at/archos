@@ -1,17 +1,18 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { LayoutGrid, List, ListTodo, Mail, MoreHorizontal, Trash2 } from 'lucide-react'
+import { FolderPlus, LayoutGrid, List, ListTodo, Mail, MoreHorizontal, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { CountPill } from '@/components/ui/count-pill'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { SectionLevelTools, useSectionToolTier } from '@/components/shell/project-section-frame'
+import { SectionLevelTools, useSectionNewFolder, useSectionToolTier } from '@/components/shell/project-section-frame'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { cn } from '@/lib/utils'
 import type { FileView } from '../hooks/use-view-preference'
+import type { FileFilterMenuAnchor } from './file-filter-menu'
 import { FileSearchField } from './file-search-bar'
 
 export interface FilesHeaderControlsProps {
@@ -21,7 +22,9 @@ export interface FilesHeaderControlsProps {
   binHref?: string
   openPointsHref?: string
   inboundMail?: { href: string; waiting: number | null }
-  renderFilter: (compact: boolean) => ReactNode
+  renderFilter: (compact: boolean, menu?: FileFilterMenuAnchor) => ReactNode
+  filterCount?: number
+  shelfSource?: 'project' | 'office' | 'personal'
   search: {
     value: string
     onChange: (value: string) => void
@@ -43,6 +46,8 @@ export function FilesHeaderControls({
   openPointsHref,
   inboundMail,
   renderFilter,
+  filterCount = 0,
+  shelfSource,
   search,
   upload,
   moreEntries,
@@ -51,6 +56,8 @@ export function FilesHeaderControls({
 }: FilesHeaderControlsProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const tier = useSectionToolTier()
+  const newFolder = useSectionNewFolder()
+  const [filterOpen, setFilterOpen] = useState(false)
   const choose = (value: string): void => {
     if (value === 'cards' || value === 'list') onViewChange(value)
   }
@@ -80,13 +87,21 @@ export function FilesHeaderControls({
       </ToggleGroupItem>
     </ToggleGroup>
   )
-  const moreMenu = (entries: readonly ActionMenuEntry[], testId: string): JSX.Element => (
+  const moreMenu = (entries: readonly ActionMenuEntry[], testId: string, marked = 0): JSX.Element => (
     <ActionMenu
       mode="dropdown"
       entries={[...entries]}
       trigger={
-        <Button type="button" variant="secondary" size="icon" aria-label={t('workspace.more')} data-testid={testId}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="relative"
+          aria-label={marked > 0 ? `${t('workspace.more')}, ${t('filters.labelActive', { count: marked })}` : t('workspace.more')}
+          data-testid={testId}
+        >
           <MoreHorizontal aria-hidden />
+          {marked > 0 && <CountPill tone="attention" aria-hidden className="absolute -right-1.5 -top-1.5" count={marked} data-testid="file-filter-count" />}
         </Button>
       }
     />
@@ -99,7 +114,13 @@ export function FilesHeaderControls({
       onChange={search.onChange}
       onSubmit={search.onSubmit}
       onClear={search.onClear}
-      placeholder={search.opensSearch && !phone ? t('browser.searchPlaceholderEverything') : t('browser.searchPlaceholder')}
+      placeholder={
+        shelfSource && !phone
+          ? t(`browser.searchPlaceholderIn.${shelfSource}`)
+          : search.opensSearch && !phone
+            ? t('browser.searchPlaceholderEverything')
+            : t('browser.searchPlaceholder')
+      }
       searchLabel={t('browser.searchLabel')}
       resetLabel={t('browser.resetSearch')}
     />
@@ -162,20 +183,34 @@ export function FilesHeaderControls({
   }
 
   if (tier !== null) {
-    const narrow = tier === 'narrow'
     const more: ActionMenuEntry[] = [
-      ...(narrow ? [viewChoice] : []),
-      ...(advancedEntries && advancedEntries.length > 0 ? [...(narrow ? [{ type: 'separator' as const }] : []), ...advancedEntries] : []),
+      viewChoice,
+      { type: 'separator' },
+      { type: 'item', id: 'filter', label: t('filters.label'), icon: SlidersHorizontal, onSelect: () => setFilterOpen(true), testId: 'files-filter-item' },
+      ...(newFolder ? [{ type: 'item' as const, id: 'new-folder', label: t('folders.newFolder'), icon: FolderPlus, onSelect: newFolder, testId: 'files-new-folder-item' }] : []),
+      ...(advancedEntries && advancedEntries.length > 0 ? [{ type: 'separator' as const }, ...advancedEntries] : []),
     ]
     return (
-      <div className={cn('flex min-w-0 flex-1 items-center [&_[data-slot=button]]:text-sm', narrow ? 'gap-2' : 'gap-3')} data-testid="files-controls">
-        {searchField('min-w-40 max-w-[28rem] flex-1')}
-        {renderFilter(narrow)}
-        {!narrow && viewToggle}
-        <div className={cn('ml-auto flex shrink-0 items-center', narrow ? 'gap-2' : 'gap-3')}>
+      <div className="flex min-w-0 flex-1 items-center gap-2 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
+        {searchField('min-w-40 flex-1')}
+        <div className="flex shrink-0 items-center gap-2">
           <SectionLevelTools />
+          {binHref && (
+            <Button asChild variant="secondary" size="icon" aria-label={t('workspace.openBin')} title={t('workspace.openBin')}>
+              <Link href={binHref} data-testid="files-open-bin">
+                <Trash2 />
+              </Link>
+            </Button>
+          )}
           {upload}
-          {more.length > 0 && moreMenu(more, 'files-advanced')}
+          <span className="relative inline-flex">
+            {moreMenu(more, 'files-advanced', filterCount)}
+            {renderFilter(true, {
+              open: filterOpen,
+              onOpenChange: setFilterOpen,
+              anchor: <span aria-hidden className="pointer-events-none absolute inset-0" />,
+            })}
+          </span>
         </div>
       </div>
     )

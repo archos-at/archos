@@ -129,7 +129,8 @@ describe('OfficeShelfWorkspace — library listing', () => {
     render(<OfficeShelfWorkspace canManage />)
     const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
     expect(row).toHaveAttribute('data-tier', 'wide')
-    expect(await within(row).findByRole('button', { name: /create folder/i })).toBeInTheDocument()
+    await userEvent.click(await within(row).findByRole('button', { name: 'More' }))
+    expect(await screen.findByTestId('files-new-folder-item')).toBeInTheDocument()
     expect(screen.queryByTestId('folder-breadcrumb-row')).not.toBeInTheDocument()
   })
 
@@ -170,7 +171,8 @@ describe('OfficeShelfWorkspace — library listing', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByText('brandschutz-gutachten.pdf')
 
-    await user.click(screen.getByTestId('file-filter-menu-trigger'))
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    await user.click(await screen.findByTestId('files-filter-item'))
     await user.click(await screen.findByRole('checkbox', { name: 'Detail' }))
     expect(screen.getByText('fassadendetail.pdf')).toBeInTheDocument()
     expect(screen.queryByText('brandschutz-gutachten.pdf')).not.toBeInTheDocument()
@@ -845,8 +847,9 @@ describe('OfficeShelfWorkspace — folders', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 
-    await user.click(screen.getByRole('button', { name: /create folder/i }))
-    await user.type(await screen.findByPlaceholderText(/folder name/i), 'Recht{Enter}')
+    await user.click(screen.getByRole('button', { name: 'More' }))
+    await user.click(await screen.findByTestId('files-new-folder-item'))
+    await user.type(await screen.findByRole('textbox', { name: /folder/i }), 'Recht{Enter}')
 
     await waitFor(() => expect(posted).toEqual([{ name: 'Recht' }]))
   })
