@@ -43,6 +43,23 @@ rules often; re-read the page before citing a row.
 - **No product says what happens to answers already written** when a reader
   loses access later.
 
+## Where the decision sits: published patterns
+
+| Pattern | Source | |
+|---|---|---|
+| Authorization runs in code between retrieval and generation: „the authorization check should happen after retrieval and before the documents reach the LLM“; pre-filtering by allowed ids is the alternative for narrow access | [OpenFGA, RAG authorization](https://openfga.dev/docs/modeling/agents/rag-authorization) | read |
+| Pre-filter (ask the permission system first, search only what it allows) suits large corpora and narrow access; post-filter (search, then check each hit) keeps search quality for broad access and needs over-fetching | [SpiceDB with Pinecone](https://authzed.com/docs/spicedb/integrations/pinecone) | read |
+| A server „MUST NOT pass through the token it received“ and must reject tokens not issued for it: an agent tier gets its own, narrowed authority | [MCP authorization, 2025-06-18](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization) | read |
+| A run's context object is local and „not sent to the LLM“; tools and hooks read it | [OpenAI Agents SDK, context](https://openai.github.io/openai-agents-python/context) | read |
+| The decision sits where the permissions live, and the index or runtime enforces it: Microsoft Graph for Copilot, Glean's runtime, Elastic document-level security, Qdrant's tenant filter taken from the authenticated user | [Copilot architecture](https://learn.microsoft.com/copilot/microsoft-365/microsoft-365-copilot-architecture), [Glean](https://developers.glean.com/libraries/indexing-sdk/permissions), [Elastic DLS](https://www.elastic.co/docs/deploy-manage/users-roles/cluster-or-deployment-auth/controlling-access-at-document-field-level), [Qdrant multitenancy](https://qdrant.tech/documentation/deploy-and-scale/multitenant-search/) | |
+| „Everyone in the chat may read it“ is an intersection over members, which relationship-based systems express directly (SpiceDB's intersection arrow); with Postgres already the source of truth it can be computed in the BFF | [SpiceDB schema language](https://authzed.com/docs/reference/schema-lang) | |
+| A prompt-injected mail made Copilot read data outside the asker's intent („LLM scope violation“, CVE-2025-32711, fixed May 2025) | [EchoLeak paper](https://arxiv.org/html/2509.10540v1) | |
+
+These carried [ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md):
+decide in the tier that holds identity and grants, carry the decision to the
+agent signed and typed, keep it out of the prompt, and check again where a tool's
+result enters the answer.
+
 ## Ideas not yet decided
 
 1. Per-answer approval for an answer that would draw on personal or restricted

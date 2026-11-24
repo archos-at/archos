@@ -69,4 +69,26 @@ Paths are relative to `apps/workspace/` unless they start with `docs/` or
    suggests switching to „on mention“, so it may answer a message meant for a
    colleague.
 
-Items 1 and 2 are taken up by ADR-0191. Items 3 to 7 are open.
+8. **The audience is decided many times.** `readConversationAudience` has
+   sixteen call sites in the BFF (read), and one turn reads the row at least eight
+   times across scope, restricted use, turn context, memory digest, workspace
+   reads and reach; solo or shared is decided at five points.
+9. **The scope cache ignores the audience.** `server.js` caches a turn's scope
+   for 10 seconds keyed on cookie, project and conversation (`scopeCacheKey`,
+   read); sharing a chat inside that window serves the old scope.
+10. **Runs build their scope apart.** `bff/jobs/run-context.ts` calls
+    `computeCollectionScope(null, {projectId, …})` (read): no office shelf, no
+    audience, no restricted folders.
+11. **The Python side allows more when context is missing** (read). With
+    `INTERNAL_API_TOKEN` unset, `RequestContext.from_envelope` accepts an unsigned
+    envelope; without a valid envelope, `from_context` falls back to the plain
+    `x-grid-*` headers and `scoping.py` to the raw scope header; an empty scope
+    falls through `if header_scope:` in `knowledge_layer/search/scope.py` to the
+    config path; `stages/flags.py` treats an unreachable BFF as „allowed“. Not an
+    open door today: `server.js` strips client context headers, the agent host
+    refuses requests without a valid envelope, and the config path holds only the
+    base corpus and the chat's own collection. It is a missing second line.
+
+Items 1 and 2 are taken up by ADR-0191, items 1, 2, 3, 4, 8, 9, 10 and 11 by
+[ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md).
+Items 5 to 7 are open.
