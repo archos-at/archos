@@ -1,4 +1,5 @@
-import { render, screen } from '@/test-utils'
+import { act, render, screen, within } from '@/test-utils'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { RAIL_CHAT_LIMIT, useRailChats } from '@/components/shell/rail-chats'
 import { useChatStore } from '@/features/chat/store'
@@ -6,7 +7,8 @@ import type { Conversation } from '@/features/chat/types'
 import { useLayoutStore } from '../store'
 import { RailChatsProvider } from './rail-chats-provider'
 
-vi.mock('next/navigation', () => ({ usePathname: () => '' }))
+const replace = vi.fn()
+vi.mock('next/navigation', () => ({ usePathname: () => '', useRouter: () => ({ replace }) }))
 
 const day = (n: number): Date => new Date(2026, 10, n)
 
@@ -137,5 +139,23 @@ describe('RailChatsProvider', () => {
     expect(activityOf('c4')).toBe('working')
     expect(activityOf('c2')).toBe('answered')
     expect(activityOf('c3')).toBeNull()
+  })
+
+  test('a row renames its chat, and deletes it only after the question, leaving the chat page when it was open', async () => {
+    const updateConversationTitle = vi.fn()
+    const deleteConversation = vi.fn()
+    useChatStore.setState({ projectId: 'p1', updateConversationTitle, deleteConversation })
+    const user = userEvent.setup()
+    show('/app/projects/p1/chat')
+
+    act(() => captured?.onRename?.('c6', 'Stellplätze'))
+    expect(updateConversationTitle).toHaveBeenCalledWith('c6', 'Stellplätze')
+
+    act(() => captured?.onDelete?.('c6'))
+    expect(deleteConversation).not.toHaveBeenCalled()
+    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: /delete/i }))
+
+    expect(deleteConversation).toHaveBeenCalledWith('c6')
+    expect(replace).toHaveBeenCalledWith('/app/projects/p1/chat')
   })
 })

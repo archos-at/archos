@@ -44,6 +44,7 @@ import { MeasureStack } from './measure/measure-stack'
 import { ScaleControl } from './measure/scale-control'
 import { CalibrationPageLayer } from './calibration-page-layer'
 import { useReviewCalibration } from '../../hooks/use-review-calibration'
+import { pageWideRatio } from '../../lib/sheet-snap'
 import { measureKey, tapeInHand } from './measure/measure-keys'
 
 export { TOOLS_INTRO_KEY, toolsIntroSeen } from '../../lib/review-tools-intro'
@@ -514,7 +515,13 @@ export function DocumentReviewMode({
                   review={review}
                   page={viewPage ?? 1}
                   touch={touch}
-                  scale={<ScaleControl calibration={calibration} page={viewPage ?? 1} />}
+                  scale={<ScaleControl
+                      calibration={calibration}
+                      page={viewPage ?? 1}
+                      estimatedRatio={
+                        pageWideRatio(review.tape.scaleOf(viewPage ?? 1))
+                      }
+                    />}
                   onSetScale={calibration.beginSetting}
                   settingScale={calibration.setting}
                 />

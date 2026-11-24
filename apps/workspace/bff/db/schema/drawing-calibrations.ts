@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { doublePrecision, index, integer, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
-import type { CalibrationStatus } from '@/lib/drawing-calibrations/wire'
+import type { CalibrationScope, CalibrationStatus } from '@/lib/drawing-calibrations/wire'
 import { documents } from './documents'
 import { documentVersions } from './document-versions'
 
@@ -25,6 +25,9 @@ export const drawingCalibrations = pgTable(
     pointBX: doublePrecision('point_b_x').notNull(),
     pointBY: doublePrecision('point_b_y').notNull(),
     referenceLengthM: doublePrecision('reference_length_m').notNull(),
+    scope: text('scope').$type<CalibrationScope>().notNull().default('page'),
+    referenceWidthPt: doublePrecision('reference_width_pt'),
+    referenceHeightPt: doublePrecision('reference_height_pt'),
     status: text('status').$type<CalibrationStatus>().notNull().default('active'),
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -41,7 +44,10 @@ export const drawingCalibrations = pgTable(
     ),
     activeRegionUnique: uniqueIndex('uniq_drawing_calibrations_active_region')
       .on(table.organizationId, table.versionId, table.page, table.regionX, table.regionY, table.regionW, table.regionH)
-      .where(sql`${table.status} = 'active'`),
+      .where(sql`${table.status} = 'active' and ${table.scope} = 'page'`),
+    activeDocumentUnique: uniqueIndex('uniq_drawing_calibrations_active_document')
+      .on(table.organizationId, table.versionId)
+      .where(sql`${table.status} = 'active' and ${table.scope} = 'document'`),
   })
 )
 

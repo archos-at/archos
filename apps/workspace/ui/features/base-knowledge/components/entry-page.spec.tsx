@@ -103,7 +103,8 @@ describe('EntryPage', () => {
     expect(screen.queryByRole('button', { name: 'Ist noch aktuell' })).toBeNull()
     expect(within(section).getByRole('button', { name: /Neuere Ausgabe hochladen/ })).toBeTruthy()
     expect(screen.getByTestId('base-knowledge-status')).toHaveAttribute('data-stand', 'newer_edition')
-    expect(screen.getByTestId('base-knowledge-status').className).not.toMatch(/warning|danger|error/)
+    expect(screen.getByTestId('base-knowledge-status').className).not.toMatch(/danger|error|\binfo\b|text-info/)
+    expect(screen.getByTestId('base-knowledge-status').className).toMatch(/warning/)
   })
 
   it('keeps the office’s own check where nothing binds an edition, and says it was the office that checked', async () => {

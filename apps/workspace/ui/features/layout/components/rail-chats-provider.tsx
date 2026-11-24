@@ -1,8 +1,8 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useCallback, useMemo } from 'react'
-import { usePathname } from 'next/navigation'
+import { useCallback, useMemo, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { projectIdFromPathname } from '@/components/shell/org-sections'
 import { PERSONAL_CHAT_PATH, railModeOf } from '@/components/shell/rail-mode'
@@ -13,6 +13,7 @@ import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { researchCopy } from '@/i18n/namespaces/research'
 import { useSessionRows } from '../hooks/use-session-rows'
 import { useLayoutStore } from '../store'
+import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal'
 
 export function chatPathOf(projectId: string | null): string {
   return projectId ? `/app/projects/${encodeURIComponent(projectId)}/chat` : PERSONAL_CHAT_PATH
@@ -29,6 +30,10 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   const openId = useChatStore((s) => s.currentConversation?.id ?? null)
   const selectConversation = useChatStore((s) => s.selectConversation)
   const setSessionsPanelOpen = useLayoutStore((s) => s.setSessionsPanelOpen)
+  const updateConversationTitle = useChatStore((s) => s.updateConversationTitle)
+  const deleteConversation = useChatStore((s) => s.deleteConversation)
+  const router = useRouter()
+  const [deleting, setDeleting] = useState<string | null>(null)
   const t = useTranslations(researchCopy)
   const tCollab = useTranslations(collaborationCopy)
 
@@ -55,13 +60,35 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
         temporary: row.temporary,
         projectId: row.projectId,
         shared: row.shared,
+        locked: row.contentLocked,
         activity: row.activity,
       })),
+      chatOpen: rows.some((row) => onChatPath(row.projectId) && row.id === openId),
       allHref,
       onOpen,
       onOpenAll,
+      onRename: updateConversationTitle,
+      onDelete: setDeleting,
     }
-  }, [mode, rows, allHref, onChatPath, openId, onOpen, onOpenAll, t, tCollab])
+  }, [mode, rows, allHref, onChatPath, openId, onOpen, onOpenAll, updateConversationTitle, t, tCollab])
 
-  return <RailChatsSource value={value}>{children}</RailChatsSource>
+  const confirmDelete = (): void => {
+    if (!deleting) return
+    const deletedChatPath = chatPathOf(projectOf.get(deleting) ?? null)
+    deleteConversation(deleting)
+    if (under(pathname, deletedChatPath) && deleting === openId) router.replace(deletedChatPath)
+    setDeleting(null)
+  }
+
+  return (
+    <RailChatsSource value={value}>
+      {children}
+      <DeleteSessionConfirmationModal
+        open={deleting !== null}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        onConfirm={confirmDelete}
+        sessionTitle={rows.find((row) => row.id === deleting)?.title}
+      />
+    </RailChatsSource>
+  )
 }

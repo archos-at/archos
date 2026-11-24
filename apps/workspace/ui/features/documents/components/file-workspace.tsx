@@ -56,7 +56,6 @@ export interface FileWorkspaceProps {
   shelf: FileShelf
   renderHeader: (controls: ReactNode, state: { count: number | null }) => ReactNode
   moreEntries?: readonly ActionMenuEntry[]
-  onOpenSearch?: (text: string) => void
   initialFolders?: readonly FolderItem[]
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
@@ -66,11 +65,16 @@ export interface FileWorkspaceProps {
 
 const renderDocumentActions = (): ReactNode => <DocumentActionsTrigger />
 
+const SEARCH_PLACEHOLDER = {
+  project: 'browser.searchPlaceholderProject',
+  office: 'browser.searchPlaceholderOffice',
+  personal: 'browser.searchPlaceholderPersonal',
+} as const
+
 export function FileWorkspace({
   shelf,
   renderHeader,
   moreEntries,
-  onOpenSearch,
   initialFolders,
   initialFiles,
   initialNextCursor = null,
@@ -224,7 +228,6 @@ export function FileWorkspace({
       openPointsHref={shelf.source === 'project' ? undefined : shelf.openPoints?.href}
       inboundMail={shelf.source !== 'project' && shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
       filterCount={activeFilterCount(filters, canCollaborate)}
-      shelfSource={shelf.source}
       renderFilter={(compact, anchored) => (
         <FileFilterMenu
           anchored={anchored}
@@ -241,9 +244,9 @@ export function FileWorkspace({
       search={{
         value: search.query,
         onChange: search.setQuery,
-        onSubmit: onOpenSearch ? () => onOpenSearch(search.query.trim()) : search.run,
+        onSubmit: search.run,
         onClear: search.clear,
-        opensSearch: Boolean(onOpenSearch),
+        placeholder: t(SEARCH_PLACEHOLDER[shelf.source]),
       }}
       upload={phone ? undefined : uploader({ allowFolders: true, pickFilesRef, pickFolderRef })}
       moreEntries={moreEntries}
@@ -252,7 +255,7 @@ export function FileWorkspace({
     />
   )
 
-  const inSheet = shelf.source !== 'project'
+  const inSheet = shelf.source === 'office'
   const uploadFab =
     phone && !selection.active ? uploader({ allowFolders: true, pickFilesRef, pickFolderRef, glyphOnly: true }) : undefined
 
@@ -432,7 +435,7 @@ export function FileWorkspace({
                 label: t('workspace.uploadDocuments'),
               })}
               brief={briefSurface.brief}
-              briefAtEnd={briefSurface.briefAtEnd}
+              unreadHint={briefSurface.unreadHint}
               slice={briefSurface.slice}
               rootToolsInMenu={rootToolsInMenu}
               selection={

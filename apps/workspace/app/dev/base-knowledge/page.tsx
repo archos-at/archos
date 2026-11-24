@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, type JSX } from 'react'
 import { I18nProvider } from '@/i18n'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { BackLink } from '@/components/shell/back-link'
+import { DevRailShell } from '../_fixtures/rail-shell'
 import { BaseKnowledgeWorkspace, useNormRecognition } from '@/features/base-knowledge'
 import { OfficeShelfPlaces, OFFICE_SHELF_NORMS_HREF } from '@/features/documents/components/office-shelf-places'
 import { writeTrail } from '@/lib/navigation/return-trail'
@@ -136,18 +136,17 @@ function PlainUploadToast(): null {
 function Preview(): JSX.Element {
   const variant = useSearchParams().get('variant')
   return (
-    <main className="mx-auto flex max-w-6xl flex-col p-6" data-testid="base-knowledge-preview">
-      <BackLink fallbackHref="/app/projects" fallbackLabel="Back to projects" />
-      <div className="shadow-xs mt-3 flex h-[820px] flex-col overflow-hidden rounded-xl border">
+    <DevRailShell projectId="dev" projectName="Stadthaus Wien" pathname={OFFICE_SHELF_NORMS_HREF}>
+      <div className="@container/section h-full min-h-0" data-testid="base-knowledge-preview">
         <BaseKnowledgeWorkspace
           key={variant ?? 'default'}
           uploadCollection="archiv_preview"
           organizationName="Atelier Nord"
           places={<OfficeShelfPlaces pathname={OFFICE_SHELF_NORMS_HREF} />}
         />
+        {variant === 'plain-upload' && <PlainUploadToast />}
       </div>
-      {variant === 'plain-upload' && <PlainUploadToast />}
-    </main>
+    </DevRailShell>
   )
 }
 

@@ -197,10 +197,6 @@ export function everythingRead(tally: KnowledgeTally): boolean {
   return tally.reading + tally.failed + tally.held === 0 && tally.readable === tally.total - tally.unindexed
 }
 
-export function briefSitsAtEnd(tally: KnowledgeTally, findingsCount: number): boolean {
-  return everythingRead(tally) && findingsCount === 0
-}
-
 function briefHeadline(tally: KnowledgeTally, t: Translate): string {
   const share = readShare(tally)
   if (share === null) return t('brief.headlineNothingToRead', { count: tally.total })

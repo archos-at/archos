@@ -74,7 +74,7 @@ interface FileBrowserPaneProps {
   onPickFiles?: () => void
   onPickFolder?: () => void
   brief?: ReactNode
-  briefAtEnd?: boolean
+  unreadHint?: ReactNode
   slice?: BriefSlice
   paging?: { hasMore: boolean; loading: boolean; failed: boolean; onLoadMore: () => void }
   folderStats?: { counts: ReadonlyMap<string, number>; tallies: ReadonlyMap<string, KnowledgeTally> }
@@ -110,7 +110,7 @@ export function FileBrowserPane({
   sort = DEFAULT_FILE_SORT,
   onSortChange,
   brief,
-  briefAtEnd = false,
+  unreadHint,
   slice,
   paging,
   folderStats,
@@ -426,10 +426,8 @@ export function FileBrowserPane({
           />
         </div>
       )}
-      {/* Under the tabs where the root's row went (tabs, ⋯). While picking the bar owns the action: no „Ordner anlegen“. */}
-      {brief && !briefAtEnd && !semantic.active && !searching && (
-        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone && !currentFolder?.description ? 'pt-2' /* its line 24px under the header's rule */ : 'pt-4')}>{brief}</div>
-      )}
+      {/* What could not be read, said at the top only when something was (KAN-86); the read state is the list's last line. */}
+      {unreadHint && !semantic.active && !searching && <div className={cn(CONTENT_MAX, 'px-4 pt-4')}>{unreadHint}</div>}
       {/* The agent's filing suggestions for the documents of this level, one line
           per target folder, when one folder would collect two or more: the
           decision that moves several files, made where they are all in view. */}
@@ -581,9 +579,7 @@ export function FileBrowserPane({
         </motion.div>
       )}
       </ActionMenu>
-      {brief && briefAtEnd && !semantic.active && !searching && !slice && (
-        <div className={cn(CONTENT_MAX, 'px-4 pb-6 pt-2')} data-testid="folder-brief-at-end">{brief}</div>
-      )}
+      {brief && !semantic.active && !searching && <div className={cn(CONTENT_MAX, 'px-4 pb-8')}>{brief}</div>}
       {folderNav && !folderNav.readOnly && (
         <NewFolderDialog
           open={createFolderIn !== undefined}

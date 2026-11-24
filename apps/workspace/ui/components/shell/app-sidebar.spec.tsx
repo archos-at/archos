@@ -1,5 +1,6 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { render, screen, within } from '@/test-utils'
+import { fireEvent, render, screen, waitFor, within } from '@/test-utils'
+import { SIDEBAR_PEEK_CLOSE_MS, SIDEBAR_PEEK_OPEN_MS } from '@/components/ui/sidebar-peek'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { useIsMobile } from '@/hooks/use-is-mobile'
@@ -34,7 +35,15 @@ vi.mock('@/hooks/use-last-project-section', () => ({
   pruneProjectSections: () => {},
 }))
 
-vi.mock('./project-switcher', () => ({ ProjectSwitcher: () => <div /> }))
+vi.mock('./project-switcher', async () => {
+  const { useState } = await import('react')
+  return {
+    ProjectSwitcher: () => {
+      const [open, setOpen] = useState(false)
+      return <button type="button" data-testid="selector" data-state={open ? 'open' : 'closed'} onClick={() => setOpen(!open)} />
+    },
+  }
+})
 vi.mock('./connection-band', () => ({
   ConnectionBand: ({ appearance = 'band' }: { appearance?: string }) => (
     <div data-testid="connection-band" data-appearance={appearance} />
@@ -161,7 +170,7 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     expect(screen.queryByText('Office library')).not.toBeInTheDocument()
   })
 
-  test('orders New chat first, and keeps only the office library under the office: Search and Inbox are icons', () => {
+  test('orders New chat first, keeps only the office library under the office, and the search in the head', () => {
     const { container } = render(<AppSidebar {...baseProps} canAccessOfficeShelf canAccessOfficeStandards />)
     const navs = container.querySelectorAll('[data-sidebar="sidebar"] nav')
     expect(navs.length).toBeGreaterThan(0)
@@ -169,7 +178,8 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
     expect(labels).toEqual(['New chat', 'Documents', 'Office library'])
-    expect(container.querySelector('[data-sidebar="header"] [data-testid="shell-search"]')).not.toBeNull()
+    expect(container.querySelector('[data-sidebar="sidebar"] a[href="/app/search"]')).toBeNull()
+    expect(container.querySelector('[data-sidebar="sidebar"] [data-testid="shell-search"]')).not.toBeNull()
   })
 
   test('keeps Office library lit on its standards tab, which has no doorway of its own', () => {
@@ -191,7 +201,7 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
 describe('AppSidebar - collapsed icon rail', () => {
   test('keeps nav labels in the a11y tree but does not paint them', async () => {
     const user = userEvent.setup()
-    render(<AppSidebar {...baseProps} />)
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
 
     const sections = screen.getByLabelText('Project sections')
     const org = screen.getByRole('navigation', { name: 'Organization' })
@@ -204,6 +214,89 @@ describe('AppSidebar - collapsed icon rail', () => {
     expect(within(sections).getByText('New chat')).toHaveClass('sr-only')
     expect(within(sections).getByText('Documents')).toHaveClass('sr-only')
     expect(within(org).queryByText('Organization')).not.toBeInTheDocument()
+  })
+})
+
+describe('AppSidebar - the folded rail opens over the page under the pointer', () => {
+  const rail = (): HTMLElement => document.querySelector('[data-slot="sidebar-container"]')!
+  const group = (): HTMLElement => document.querySelector('[data-slot="sidebar"]')!
+  const fold = async (): Promise<void> => {
+    render(<AppSidebar {...baseProps} />)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+  }
+  const enter = (pointerType = 'mouse'): void => {
+    fireEvent.pointerEnter(rail(), { pointerType })
+  }
+
+  test('labels come back while the page keeps the strip’s width, and the control now keeps the rail open', async () => {
+    await fold()
+    expect(group()).toHaveAttribute('data-collapsible', 'icon')
+    enter()
+    await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
+    expect(group()).toHaveAttribute('data-gap', 'icon')
+    expect(group()).toHaveAttribute('data-collapsible', '')
+    expect(within(screen.getByLabelText('Project sections')).getByText('Documents')).not.toHaveClass('sr-only')
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Keep the sidebar open' }))
+    expect(group()).toHaveAttribute('data-state', 'expanded')
+    expect(group()).not.toHaveAttribute('data-peek')
+  })
+
+  test('folds again once the pointer has left it', async () => {
+    await fold()
+    enter()
+    await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
+    fireEvent.pointerMove(document.body)
+    await waitFor(() => expect(group()).not.toHaveAttribute('data-peek'))
+    expect(group()).toHaveAttribute('data-collapsible', 'icon')
+  })
+
+  test('stays open while a menu opened from it is open', async () => {
+    await fold()
+    enter()
+    await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
+    await userEvent.setup().click(screen.getByTestId('selector'))
+    expect(screen.getByTestId('selector')).toHaveAttribute('data-state', 'open')
+    screen.getByTestId('selector').blur()
+    fireEvent.pointerMove(document.body)
+    await new Promise((resolve) => setTimeout(resolve, SIDEBAR_PEEK_CLOSE_MS + 80))
+    expect(group()).toHaveAttribute('data-peek', 'true')
+
+    await userEvent.setup().click(screen.getByTestId('selector'))
+    screen.getByTestId('selector').blur()
+    fireEvent.pointerMove(document.body)
+    await waitFor(() => expect(group()).not.toHaveAttribute('data-peek'))
+  })
+
+  test('folds while the pointer keeps moving over the page, and when it leaves the window', async () => {
+    await fold()
+    enter()
+    await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
+    const started = Date.now()
+    const moving = window.setInterval(() => fireEvent.pointerMove(document.body), 40)
+    await waitFor(() => expect(group()).not.toHaveAttribute('data-peek'))
+    window.clearInterval(moving)
+    expect(Date.now() - started).toBeLessThan(SIDEBAR_PEEK_CLOSE_MS * 3)
+
+    enter()
+    await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
+    fireEvent.pointerLeave(document.documentElement)
+    await waitFor(() => expect(group()).not.toHaveAttribute('data-peek'))
+  })
+
+  test('a finger does not open it: a tap on a glyph goes straight there', async () => {
+    await fold()
+    enter('touch')
+    await new Promise((resolve) => setTimeout(resolve, SIDEBAR_PEEK_OPEN_MS + 80))
+    expect(group()).not.toHaveAttribute('data-peek')
+  })
+
+  test('does not open under a pointer that only crossed it', async () => {
+    await fold()
+    enter()
+    fireEvent.pointerLeave(rail())
+    await new Promise((resolve) => setTimeout(resolve, SIDEBAR_PEEK_OPEN_MS + 80))
+    expect(group()).not.toHaveAttribute('data-peek')
   })
 })
 
@@ -353,7 +446,7 @@ describe('AppSidebar - the organisation heads its doorways', () => {
 })
 
 describe('AppSidebar - the org doorways stay reachable from inside a project', () => {
-  test('marks the office shelf doorway current while its sheet is open over the project', () => {
+  test('marks the office library doorway current while its page stands beside the project’s rail', () => {
     pathname = '/app/office-shelf'
     render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
     const officeShelf = screen
@@ -469,6 +562,13 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     expect(value.onOpenAll).toHaveBeenCalledOnce()
   })
 
+  test('marks nothing in the strip for an open chat that is older than the listed ones', async () => {
+    pathname = '/app/projects/p1/chat'
+    renderWith(chats({ items: chats().items.map((chat) => ({ ...chat, current: false })), chatOpen: true }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(document.querySelector('[data-sidebar="sidebar"] [aria-current="page"]')).toBeNull()
+  })
+
   test('a project with no chats shows nothing under „Chat“: no empty list, no „All chats“', () => {
     renderWith(chats({ items: [] }))
     expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
@@ -480,12 +580,13 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
   })
 
-  test('the icon rail has no room for titles: „Chat“ is its glyph, and the list is gone', async () => {
+  test('the icon rail has no room for titles: the list is gone, and with a chat open nothing in the strip is marked', async () => {
     const user = userEvent.setup()
     renderWith(chats())
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
     expect(screen.queryByRole('list', { name: 'Recent chats' })).not.toBeInTheDocument()
-    expect(within(screen.getByLabelText('Project sections')).getByText('New chat').closest('a')).toHaveAttribute('aria-current', 'page')
+    expect(document.querySelector('[data-sidebar="sidebar"] [aria-current="page"]')).toBeNull()
+    expect(document.querySelector('[data-slot="rail-active-pill"]')).toBeNull()
     expect(within(screen.getByLabelText('Project sections')).getByText('New chat').closest('a')?.getAttribute('href')).toMatch(/^\/app\/projects\/p1\/chat/)
   })
 })

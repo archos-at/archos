@@ -3,9 +3,10 @@
 import type { JSX } from 'react'
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, Users } from 'lucide-react'
+import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, MoreHorizontal, PencilLine, Trash2, Users } from 'lucide-react'
 
 import { motion, springGlide } from '@/components/motion'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
@@ -20,14 +21,18 @@ export interface RailChat {
   temporary?: boolean
   projectId?: string | null
   shared?: boolean
+  locked?: boolean
   activity?: 'working' | 'waiting' | 'answered' | 'failed' | null
 }
 
 export interface RailChats {
   items: RailChat[]
+  chatOpen?: boolean
   allHref: string
   onOpen?: (id: string) => void
   onOpenAll?: () => void
+  onRename?: (id: string, title: string) => void
+  onDelete?: (id: string) => void
 }
 
 const RailChatsContext = createContext<RailChats | null>(null)
@@ -83,6 +88,61 @@ function RailChatActivity({ activity }: { activity: RailChat['activity'] }): JSX
   )
 }
 
+function RailChatMenu({ chat, chats, onRename }: { chat: RailChat; chats: RailChats; onRename: () => void }): JSX.Element | null {
+  const t = useTranslations(navCopy)
+  if (!chats.onRename && !chats.onDelete) return null
+  const busy = chat.activity === 'working'
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={t('chatActions', { title: chat.title })}
+          data-testid="rail-chat-menu"
+          className="text-muted-foreground hover:text-foreground hover:bg-hover absolute right-1 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-control opacity-0 transition-opacity duration-quick ease-out focus-visible:opacity-100 group-focus-within/chat:opacity-100 group-hover/chat:opacity-100 data-[state=open]:opacity-100 motion-reduce:transition-none pointer-coarse:size-11 pointer-coarse:opacity-100"
+        >
+          <MoreHorizontal className="size-4" aria-hidden />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        {chats.onRename && !chat.locked && (
+          <DropdownMenuItem disabled={busy} onSelect={onRename} data-testid="rail-chat-rename">
+            <PencilLine className="size-4" aria-hidden />
+            {t('chatRename')}
+          </DropdownMenuItem>
+        )}
+        {chats.onDelete && (
+          <DropdownMenuItem variant="destructive" disabled={busy} onSelect={() => chats.onDelete?.(chat.id)} data-testid="rail-chat-delete">
+            <Trash2 className="size-4" aria-hidden />
+            {t('chatDelete')}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function RailChatRename({ chat, onDone }: { chat: RailChat; onDone: (title: string | null) => void }): JSX.Element {
+  const t = useTranslations(navCopy)
+  const [title, setTitle] = useState(chat.title)
+  return (
+    <input
+      autoFocus
+      value={title}
+      onChange={(event) => setTitle(event.target.value)}
+      onFocus={(event) => event.target.select()}
+      onBlur={() => onDone(title)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') onDone(title)
+        if (event.key === 'Escape') onDone(null)
+      }}
+      aria-label={t('chatRenameInput')}
+      data-testid="rail-chat-rename-input"
+      className="bg-card text-foreground h-8 w-full rounded-control border px-3 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:h-11 pointer-coarse:text-base"
+    />
+  )
+}
+
 export function RailChatList({
   chats,
   pillId,
@@ -96,6 +156,12 @@ export function RailChatList({
   const names = useMemo(() => new Map(projects.map(({ id, name }) => [id, name])), [projects])
   const listId = useId()
   const [collapsed, toggle] = useRecentChatsCollapsed()
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const finishRename = (chat: RailChat, title: string | null): void => {
+    setRenaming(null)
+    const next = title?.trim()
+    if (next && next !== chat.title) chats.onRename?.(chat.id, next)
+  }
   if (chats.items.length === 0) return null
   return (
     <section aria-label={t('recentChats')} className={cn('mt-6 flex min-h-0 flex-col', !collapsed && 'flex-1')}>
@@ -118,7 +184,11 @@ export function RailChatList({
           alone the current row's 1px edge was cut at its left and right. The foot fades while more lies below. */}
       <ul id={listId} aria-label={t('recentChats')} hidden={collapsed} className="scroll-fade-bottom -mx-px flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain p-px" data-testid="rail-chats">
         {chats.items.map((chat) => (
-          <li key={chat.id} className="relative shrink-0">
+          <li key={chat.id} className="group/chat relative shrink-0">
+            {renaming === chat.id ? (
+              <RailChatRename chat={chat} onDone={(title) => finishRename(chat, title)} />
+            ) : (
+            <>
             <Link
               href={chat.href}
               title={chat.temporary ? t('temporaryChatTitle', { title: chat.title }) : chat.title}
@@ -127,6 +197,7 @@ export function RailChatList({
               data-focus-inset
               className={cn(
                 ROW,
+                (chats.onRename || chats.onDelete) && 'group-hover/chat:pr-8 group-focus-within/chat:pr-8 pointer-coarse:pr-12',
                 chat.current ? 'text-foreground font-medium' : 'text-muted-foreground hover:bg-selected hover:text-foreground active:bg-pressed'
               )}
             >
@@ -159,6 +230,9 @@ export function RailChatList({
                 </>
               )}
             </Link>
+            <RailChatMenu chat={chat} chats={chats} onRename={() => setRenaming(chat.id)} />
+            </>
+            )}
           </li>
         ))}
         {/* At the end of the scroll, as a chat app's „more“: reached after the last chat, in the heading's face. */}

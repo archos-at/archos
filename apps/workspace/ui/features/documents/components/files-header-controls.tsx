@@ -25,13 +25,12 @@ export interface FilesHeaderControlsProps {
   inboundMail?: { href: string; waiting: number | null }
   renderFilter: (compact: boolean, anchored?: FileFilterMenuProps['anchored']) => ReactNode
   filterCount?: number
-  shelfSource?: 'project' | 'office' | 'personal'
   search: {
     value: string
     onChange: (value: string) => void
     onSubmit: () => void
     onClear: () => void
-    opensSearch?: boolean
+    placeholder?: string
   }
   upload?: ReactNode
   moreEntries?: readonly ActionMenuEntry[]
@@ -48,7 +47,6 @@ export function FilesHeaderControls({
   inboundMail,
   renderFilter,
   filterCount = 0,
-  shelfSource,
   search,
   upload,
   moreEntries,
@@ -107,13 +105,7 @@ export function FilesHeaderControls({
       onChange={search.onChange}
       onSubmit={search.onSubmit}
       onClear={search.onClear}
-      placeholder={
-        shelfSource && !phone
-          ? t(`browser.searchPlaceholderIn.${shelfSource}`)
-          : search.opensSearch && !phone
-            ? t('browser.searchPlaceholderEverything')
-            : t('browser.searchPlaceholder')
-      }
+      placeholder={!phone && search.placeholder ? search.placeholder : t('browser.searchPlaceholder')}
       searchLabel={t('browser.searchLabel')}
       resetLabel={t('browser.resetSearch')}
     />

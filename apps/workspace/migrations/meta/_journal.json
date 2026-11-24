@@ -1823,6 +1823,13 @@
       "breakpoints": true
     },
     {
+      "idx": 260,
+      "version": "7",
+      "when": 1795601900000,
+      "tag": "0260_drawing_calibration_scope",
+      "breakpoints": true
+    },
+    {
       "idx": 263,
       "version": "7",
       "when": 1795602200000,

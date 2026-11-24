@@ -301,21 +301,31 @@ export const search: typeof en.search = {
     hints: { move: 'bewegen', open: 'einfügen', close: 'schließen' },
   },
   palette: {
-    allResults: 'Alle Treffer für „{text}“',
-    open: 'Suche öffnen',
+    allResults: 'Alle Treffer mit Filtern öffnen',
+    allResultsCount: 'Alle {count} Treffer mit Filtern öffnen',
+    continueInSearch: 'Suche mit Filtern öffnen',
     noHits: 'Nichts gefunden',
     noHitsFor: 'Nichts gefunden für „{text}“',
-    continueInSearch: 'Suche mit Filtern öffnen',
     noHitsHint: 'Andere Schreibweise oder weniger Wörter versuchen, oder die Suche mit Filtern öffnen.',
     retry: 'Erneut versuchen',
     retryHint: 'Meist reicht ein zweiter Versuch; sonst die Verbindung prüfen.',
     ofTotal: '{shown} von {total}',
     allIn: 'In {project}',
-    recent: 'Zuletzt gesucht',
-    hint: {
-      office:
-        'Dokumente nach Name, Plankopf, Art und Inhalt, dazu Anmerkungen, Ordner, Projekte und Chats im ganzen Büro.',
-      project: 'Dokumente nach Name, Plankopf, Art und Inhalt, dazu Anmerkungen, Ordner und Chats in diesem Projekt.',
+    recentOpened: 'Zuletzt geöffnet',
+    opened: {
+      annotation: 'Anmerkung',
+      folder: 'Ordner',
+      project: 'Projekt',
+      conversation: 'Chat',
+    },
+    kinds: {
+      all: 'Alles',
+      files: 'Dateien',
+      chats: 'Chats',
+      projects: 'Projekte',
+    },
+    scope: {
+      office: 'im ganzen Büro',
     },
   },
 }

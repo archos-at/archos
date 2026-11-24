@@ -21,7 +21,7 @@ In a project chat that already has a file attached, **Dateien verwalten** also o
 
 Every way of uploading takes several files at once.
 
-In the Ablage, folders are the drill-down inside the listing, on the **„Dateien“** place: each level shows its folders first, as tiles (or rows, in the list view), then its files, each under its heading when both are there. At the top level the title is „Dateien“ under the project's name; inside a folder the title is the folder's name with what it holds beside it („240 Elemente“), and the line above it names the way there („Projekt › Dateien › Abgabepläne › …“), each step a click back up. The „Ordner“ tab takes you back to the top level from any folder. On a phone the line above the title names the parent folder (the levels above it behind „…“) and the arrow before the title goes up one level. The level's tools stand in one row under the tabs: the search, „Filter“ and the view on the left, „Auswählen“, „Ordner anlegen“, „Hochladen“ and `⋯` on the right; on a narrower window „Ordner anlegen“ moves into the „Hochladen“ menu (on a phone all of them are in the `⋯`). Long file names keep their end: a name that does not fit two lines loses its middle („Brandschutzkonzept_Wohnha…Index-D.pdf“), never its extension. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
+In the Ablage, folders are the drill-down inside the listing, on the **„Dateien“** place: each level shows its folders first, as tiles (or rows, in the list view), then its files, each under its heading when both are there. The title stays „Ablage“ at every depth, under the project's name and who sees it („Projekt · Projektteam“). Inside a folder a line under the places names the way there („← Ablage › Abgabepläne › … › Index C“, the open folder in ink with what it holds beside it, „240 Elemente“): each step is a click back up and a drop target, ← goes up one level, and past two levels the middle folds into „…“. „Dateien“ takes you back to the top level from any folder. On a phone the folder's name is the title and the line above it names the parent folder (the levels above it behind „…“); the arrow before the title goes up one level. The level's tools stand in one row over the places: the search, then „Auswählen“, the bin, „Hochladen“ and `⋯` with the view, „Filtern und sortieren“ and „Ordner anlegen“ (on a phone all of them are in the `⋯`). Long file names keep their end: a name that does not fit two lines loses its middle („Brandschutzkonzept_Wohnha…Index-D.pdf“), never its extension. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
@@ -31,6 +31,8 @@ The folders are the project's filing system, and they support the full set of op
 - **Rename** — the folder's `⋯` menu → **„Umbenennen …“** turns the tile or row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
 - **Move** — `PATCH …/folders/{folderId}` accepts a new `parentId`; moving a folder into itself or into one of its own subfolders is refused rather than silently producing a loop.
 - **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin in the Ablage's header, which opens the Papierkorb as a window; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
+
+A single document follows the same road: **„Dokument löschen“** asks *"Delete 'Einreichplan_EG.pdf'?"*, its text says that the document goes to the project's bin and can be restored from there, the button reads **„Löschen“**, the toast says until when it can be restored, and the Papierkorb lists it by its own name and puts it back into the folder it came from. A document in the Bürobibliothek has no bin and is deleted for good. So is a file the content check holds back, when a reviewer deletes it: its dialog says that it does not go to the bin.
 
 Each of these is a write in the folder. In a folder whose access list gives you only **Lesen**, the tree and the file grid mark it **Nur lesen** and offer none of them, nor upload or moving a document in or out; the route refuses them too (403, `reason: folder-read-only`). Who may read and edit a folder: [sensitive data and access](sensitive-data-and-access.md#who-may-read-and-edit-a-folder).
 
@@ -49,8 +51,11 @@ never filed simply have no folder, and the assistant says nothing about one.
 
 ### What ARCHOS knows about a folder
 
-Above every folder's files sits one quiet line, for example „35 von 44
-Dokumenten gelesen in diesem Projekt“. It covers the folder and everything
+Under every folder's files sits one quiet line, for example „35 von 44
+Dokumenten gelesen in diesem Projekt“. When ARCHOS could not read something, a
+line in ochre above the files says so too („2 Dokumente konnten nicht gelesen
+werden. Ansehen“), so a long list does not hide it; „Ansehen“ lists those
+files. It covers the folder and everything
 inside it, subfolders included, so you can see what has been read without
 opening each folder. Click the line and the full overview opens around it; click
 it again to fold it. The choice is remembered in this browser.
@@ -110,7 +115,7 @@ The **detail view** (the list toggle) is a dense sortable table for a corpus pas
 
 A folder opens on its first hundred documents, and more load as you scroll to the end of the grid or list (a **Weitere laden** button does the same from the keyboard). A folder with thousands of documents, such as a large Bürobibliothek root, therefore opens right away instead of waiting for the whole shelf. The folder tiles, the count in the header and the folder brief are counted by the server for the whole shelf, so they stay right however little of a folder has loaded.
 
-A **search field** above the grid searches the file names and renames of the whole shelf: it narrows what is on screen as you type and asks the server a moment after you stop, so a document two folders down is found from anywhere. To search the contents (the AI description, tags, the text), press Enter for the semantic search. Folders are the drill-down inside the listing itself (breadcrumb, tiles, `?folder=` in the URL); a search escapes the current folder and runs over everything.
+A **search field** in the header, which says where it searches („In der Projektablage suchen …“, „In der Bürobibliothek suchen …“), searches the file names and renames of the whole shelf: it narrows what is on screen as you type and asks the server a moment after you stop, so a document two folders down is found from anywhere. To search the contents (the AI description, tags, the text), press Enter: the hits replace the list on the page, no window opens. The search over everything stays behind the magnifier in the sidebar. Folders are the drill-down inside the listing itself (breadcrumb, tiles, `?folder=` in the URL); a search escapes the current folder and runs over everything.
 
 Most filters and the sort order are answered by the server per folder. A few still need every document of the shelf in the browser and load them when you turn them on: the kind and tag (Kategorie) filters, the assignment filter, „Freigabe ausstehend", sorting by status, and in the folder brief the „Worum es hier geht" details and the lists its chips open. For a very large shelf these take a moment the first time.
 
@@ -761,7 +766,10 @@ Session-scoped collections are prefixed with `s_` and are automatically reaped b
 ### The Bürobibliothek (ADR-0024)
 
 The **Bürobibliothek** (English UI: *Office library*) is a top-level document store
-that lives above projects, reachable from the navigation (Bürobibliothek). Until
+that lives above projects, reachable from the navigation (Bürobibliothek). It is a page
+like the Ablage, beside the sidebar, with the same head: the office's name over the
+title, the search („In der Bürobibliothek suchen …“), „Auswählen“, „Hochladen“ and ⋯,
+and the places **Dateien** and, where your office has them, **Normen & Richtlinien**. Until
 October 2026 it was called „Archiv“; the URL `/app/office-shelf`, the permission
 `org:office_shelf:manage` and the collection `archiv_{orgId}` keep that name. It is a
 different thing from the „Stilllegen“ action on a project document. Anything uploaded there is shared with **every

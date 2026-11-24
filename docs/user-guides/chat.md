@@ -25,7 +25,7 @@ share it. A chat opens where it belongs, in its project or under Persönlich.
 
 ## Starting a conversation
 
-Click **New chat** in the chat-history panel or the quiet **New chat** button in the thread header (on a phone it is the first entry of the **…** menu) to start a fresh conversation. The sidebar's **Chat** entry also always opens an empty draft, never the last thread you left. On an empty thread the chat shows a time-of-day greeting (with your first name when available). Type your message in the composer at the bottom of the screen and press Enter. The first user message sets the conversation title (truncated to 50 characters).
+Click **New chat** in the sidebar or in the chat-history panel (on a phone it is the first entry of the header's **…** menu) to start a fresh conversation. The sidebar's **Chat** entry also always opens an empty draft, never the last thread you left. On an empty thread the chat shows a time-of-day greeting (with your first name when available) and, under it, „Nur Sie sehen diesen Chat.“; mail waiting to be filed in the project is named under the composer. Type your message in the composer at the bottom of the screen and press Enter. The first user message sets the conversation title (truncated to 50 characters).
 
 You do not have to wait for an answer before asking something else. While ARCHOS answers in one chat, open another chat or start a new one: the first keeps working and its answer is complete when you come back. The chat-history panel and the sidebar's **Recent chats** show what each chat is doing: a spinner while ARCHOS works on it, a question mark while it waits for your answer, and a mark with the title in bold once the answer is ready, or a warning mark if the answer failed, until you open the chat. A chat that is still answering cannot be renamed or deleted. The marks belong to the open browser tab: after a reload the answer is still there, the mark is not.
 
@@ -39,23 +39,26 @@ The header is two floating pills, split by what they are for.
 
 **Right — what is true about this chat, then what you can do to it,** separated by a hairline.
 
-Before the line is *status*, and none of it is clickable. Who can read the chat is answered in **one** of two forms, never both, depending on what kind of audience it has:
+Who can read the chat stands on the right, in one form:
 
-- **shared with named people** → their **faces**. The audience was listed person by person, so the faces are the whole answer.
-- **shared with the whole project or organization** → an **access chip** (`Projekt`, `Organisation`) and *no* faces. That audience is a rule, not a list — it changes as people join the project — so avatars would show a handful of people and imply only they can read it.
-- **private, just you** → neither. There is nothing to report.
+- **shared**, with named people or with the whole project or organization → their **faces**, at most three, and a **+n** for the rest. A click opens the sharing surface, which lists everyone and the rule.
+- **shared with the whole project or organization, and nobody else is in yet** → an **access chip** (`Projekt`, `Organisation`).
+- **private, just you** → **„Nur Sie“** with a lock. A click shows the sentence behind it: only you see this chat until you share it. On a phone the same sentence stands under the composer.
 
 Alongside it, while deep research is running, a spinner — so the "still working" signal survives scrolling past the run block in the thread.
 
 Either way the full picture (the rule *and* anyone individually invited) is in the sharing surface, one click away in the menu. Below the `sm` breakpoint there is no room for the status beside the actions, so the faces or the access chip, and the research spinner, move to the end of the title's row in the left pill.
 
-After the line is *action*. **New chat** is the only one kept in the open (on a phone it moves into the **…** menu, so the right pill is a single button). The rest live in the **…** menu, and each appears only when it is real:
+The left pill names the chat: its **title**, the **…** menu and, from a tablet's width up, the date of the last change („Geändert am …“). The right pill says who sees the chat and, when it can be shared, carries **Share**. The sidebar lists the chats and starts a new one, so the header has neither „Chats“ nor „New chat“ on a desktop; a phone has no sidebar and keeps the „Chats“ door.
 
 | Menu entry | Appears when |
 |---|---|
-| **New chat** | on a phone only; a desktop keeps it in the open |
-| **Rename chat** | there is a chat to rename — it opens the same in-place editor a click on the title opens (the menu entry is how you find it; the click is the shortcut). Enter or clicking away commits, Escape cancels — the same rename action as the chat-history panel |
-| **Share** | collaboration is enabled and this thread is reachable — the one door to the sharing surface, for every participant, not only owners. On a brand-new chat the thread only reaches the server with its first message, so this entry arrives a moment after you send it rather than being there from the first keystroke |
+| **New chat** | on a phone only |
+| **Rename** | there is a chat to rename — it opens the same in-place editor a click on the title opens. Enter or clicking away commits, Escape cancels |
+| **Share** | on a phone only, when collaboration is enabled and this thread is reachable; a desktop has the button in the right pill. On a brand-new chat the thread only reaches the server with its first message, so it arrives a moment after you send it |
+| **Delete** | there is a chat to delete — it asks first |
+
+The same **…** menu (Rename, Delete) stands at each chat under the sidebar's **Recent chats**, when the pointer is over the row.
 
 Everything in this pill comes and goes during a conversation — the participants resolve a moment after the chat opens, research starts and finishes, the menu appears with the first thing worth listing — so arrivals fade in rather than blinking into place, and the controls already there keep their position instead of sliding sideways.
 
@@ -76,7 +79,7 @@ The composer is a translucent card floating over the thread, with the message fi
 
 On a phone the control row stays one line. The `@` list keeps the keyboard open when you pick a name.
 
-Under the composer one line always reads „ARCHOS ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.“ (see [AI Act](ai-act.md)).
+Under the composer of a running chat, from your first message on, one line reads „ARCHOS ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.“ (see [AI Act](ai-act.md)).
 
 **Above the composer, a usage notice** appears when a budget that applies to you is close to stopping chat: the office's, your own limit, or the project's, daily or monthly. It shows one budget, the one that matters most:
 

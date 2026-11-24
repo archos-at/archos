@@ -20,19 +20,15 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
       href="/app/projects"
       aria-label={t('allProjects')}
       data-focus-inset=""
-      className={cn(
-        'rounded-control',
-        iconRail ? 'flex size-9 items-center justify-center' : 'text-foreground'
-      )}
+      className="text-foreground rounded-control"
     >
-      <Logo kind={iconRail ? 'icon' : 'wordmark'} size="small" />
+      <Logo kind="wordmark" size="small" />
     </Link>
   )
 
   if (iconRail) {
     return (
-      <div className="flex flex-col items-center">
-        <div className={cn(BRAND_ROW, 'justify-center')}>{home}</div>
+      <div className={cn(BRAND_ROW, 'justify-center')}>
         <RailFoldButton />
       </div>
     )
@@ -40,32 +36,35 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   return (
     <div className={cn(BRAND_ROW, BRAND_INSET_RAIL)}>
       {home}
-      <span className="ml-auto flex items-center gap-0.5">
-        <ShellSearchButton className="size-7 [&_svg]:size-4" />
-        {!isMobile && <RailFoldButton />}
-      </span>
+      {!isMobile && (
+        <div className="ml-auto flex items-center gap-0.5">
+          <ShellSearchButton className="size-7" />
+          <RailFoldButton />
+        </div>
+      )}
     </div>
   )
 }
 
 export function RailFoldButton({ className }: { className?: string }) {
   const t = useTranslations(navCopy)
-  const { state, toggleSidebar } = useSidebar()
-  const collapsed = state === 'collapsed'
+  const { state, peek, toggleSidebar } = useSidebar()
+  const folded = state === 'collapsed'
   return (
     <button
       type="button"
       data-slot="rail-fold"
       data-focus-inset=""
       onClick={toggleSidebar}
-      aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
+      aria-label={folded ? (peek ? t('pinSidebar') : t('expandSidebar')) : t('collapseSidebar')}
+      aria-expanded={!folded}
       className={cn(
-        'text-muted-foreground hover:text-foreground flex shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none',
-        collapsed ? 'size-9' : 'size-7 pointer-coarse:size-11',
+        'text-muted-foreground hover:bg-selected hover:text-foreground flex shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:size-11',
+        folded && !peek ? 'size-9' : 'size-7',
         className
       )}
     >
-      <PanelLeft className="size-4" aria-hidden />
+      <PanelLeft className="size-[1.125rem]" aria-hidden />
     </button>
   )
 }

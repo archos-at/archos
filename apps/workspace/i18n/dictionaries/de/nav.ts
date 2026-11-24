@@ -10,6 +10,10 @@ export const nav: typeof en.nav = {
   newChat: 'Neuer Chat',
   personalShelf: 'Meine Ablage',
   recentChats: 'Letzte Chats',
+  chatActions: 'Aktionen für „{title}“',
+  chatRename: 'Umbenennen',
+  chatDelete: 'Löschen',
+  chatRenameInput: 'Neuer Name des Chats',
   allChats: 'Alle Chats',
   temporaryChat: '(temporärer Chat)',
   sharedChat: '(geteilt)',
@@ -20,6 +24,7 @@ export const nav: typeof en.nav = {
   temporaryChatTitle: '{title} (temporärer Chat: daraus wird nichts gemerkt)',
   allProjects: '{productName} — alle Projekte',
   collapseSidebar: 'Seitenleiste einklappen',
+  pinSidebar: 'Seitenleiste geöffnet lassen',
   expandSidebar: 'Seitenleiste ausklappen',
   resizeSidebar: 'Breite der Seitenleiste ändern',
   resizeSidebarHint: 'Ziehen zum Ändern der Breite, klicken zum Einklappen',
@@ -109,7 +114,7 @@ export const nav: typeof en.nav = {
     },
   },
   search: {
-    open: 'Suchen und springen',
+    open: 'Suche',
   },
   projectSheet: {
     description: 'Zuletzt geöffnete Projekte zuerst, danach alle laufenden.',

@@ -127,7 +127,7 @@ function AppSidebarFrame({
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const t = useTranslations(navCopy)
   const tCollaboration = useTranslations(collaborationCopy)
-  const { state, isMobile } = useSidebar()
+  const { state, isMobile, peek } = useSidebar()
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
   const railChats = useRailChats()
   const mode: RailMode = projectId === null ? 'personal' : 'project'
@@ -135,8 +135,8 @@ function AppSidebarFrame({
   const base = projectId === null ? '' : `/app/projects/${projectId}`
 
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
-  const iconRail = state === 'collapsed' && !isMobile
-  const chatOpen = !iconRail && (railChats?.items.some((chat) => chat.current) ?? false)
+  const iconRail = state === 'collapsed' && !isMobile && !peek
+  const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
   const back = projectId === null ? null : phoneBackTarget(pathname, projectId)
   const pageHasHeader = projectId === null || framesProjectPage(pathname, projectId)
 
@@ -154,7 +154,7 @@ function AppSidebarFrame({
         icon: item.key === 'chat' ? SquarePen : item.icon,
         label: item.key === 'chat' ? t('newChat') : sectionLabel(item, t, tCollaboration),
         active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
-        within: item.key === 'chat' && chatOpen,
+        within: item.key === 'chat' && chatOpen && !iconRail,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
         waitingMore: item.key === 'files' && inboundMail.more,
         shortcutKey: item.shortcutKey,
@@ -166,7 +166,7 @@ function AppSidebarFrame({
   const orgGroup = org && { ...org, items: org.items.filter((item) => iconRail || item.key !== 'search') }
   const projectItems: RailItemModel[] =
     mode === 'personal'
-      ? personalRailItems(pathname, t, chatOpen)
+      ? personalRailItems(pathname, t, chatOpen, iconRail)
       : groups
           .filter((g) => g.key !== 'org')
           .flatMap((g) => g.items)
@@ -225,7 +225,7 @@ function AppSidebarFrame({
         {isMobile && <ConnectionBand />}
       </header>
 
-      <Sidebar collapsible="icon" data-scope={mode} aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectNavigation')}>
+      <Sidebar collapsible="icon" peekOnHover data-scope={mode} aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectNavigation')}>
         {/* `shrink-0` on the header and footer is load-bearing, not defensive.
             `SidebarContent` between them is `flex-1 basis-0`, whose scaled
             shrink factor is 0 — so under a height deficit the whole deficit
@@ -239,7 +239,7 @@ function AppSidebarFrame({
           className={cn(
             'shrink-0 gap-0 p-0 pt-[env(safe-area-inset-top)]',
             column,
-            iconRail && 'overflow-hidden pb-px'
+            iconRail && 'overflow-hidden'
           )}
         >
           <SidebarBrand iconRail={iconRail} />
@@ -249,10 +249,10 @@ function AppSidebarFrame({
           {projectId !== null && <ProjectRecorder projectId={projectId} />}
           {/* The project selector, the rail's first control in both widths:
               which project this is, and the way to another. The icon rail
-              keeps it as a tile of its initials, or a collapsed rail could
-              not say which project its sections belong to. */}
+              keeps it as a tile of its initials, on the selector's own line,
+              so nothing below it moves when the rail opens under the pointer. */}
           {projectId !== null && (
-            <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
+            <div className={cn('mt-1 flex h-10 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
               <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
             </div>
           )}
@@ -347,7 +347,7 @@ function ProjectRecorder({ projectId }: { projectId: string }): null {
   return null
 }
 
-function personalRailItems(pathname: string, t: (key: string) => string, chatOpen: boolean): RailItemModel[] {
+function personalRailItems(pathname: string, t: (key: string) => string, chatOpen: boolean, iconRail: boolean): RailItemModel[] {
   const onChat = pathname === PERSONAL_CHAT_PATH || pathname.startsWith(`${PERSONAL_CHAT_PATH}/`)
   const onShelf = pathname === PERSONAL_SHELF_PATH || pathname.startsWith(`${PERSONAL_SHELF_PATH}/`)
   const row = (key: string, href: string, icon: ProjectSection['icon'], label: string, active: boolean): RailItemModel => ({
@@ -359,7 +359,7 @@ function personalRailItems(pathname: string, t: (key: string) => string, chatOpe
     waitingCount: null,
   })
   return [
-    { ...row('chat', NEW_PERSONAL_CHAT_HREF, SquarePen, t('newChat'), onChat && !chatOpen), within: onChat && chatOpen },
+    { ...row('chat', NEW_PERSONAL_CHAT_HREF, SquarePen, t('newChat'), onChat && !chatOpen), within: onChat && chatOpen && !iconRail },
     row('personalShelf', PERSONAL_SHELF_PATH, Folder, t('personalShelf'), onShelf),
   ]
 }
