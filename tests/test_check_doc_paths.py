@@ -86,19 +86,19 @@ def test_a_doc_may_keep_its_baseline_but_not_gain_a_dead_path(checker, tmp_path,
 
 
 def _taskfiles(tmp_path: Path) -> None:
-    (tmp_path / "taskfiles").mkdir()
+    (tmp_path / "tiers").mkdir()
     (tmp_path / "Taskfile.yml").write_text(
         "version: '3'\n"
         "includes:\n"
-        "  workspace: {taskfile: taskfiles/workspace.yml, flatten: true}\n"
-        "  pkg: {taskfile: taskfiles/pkg.yml}\n"
+        "  workspace: {taskfile: tiers/web.yml, flatten: true}\n"
+        "  pkg: {taskfile: tiers/pkg.yml}\n"
         "tasks:\n  verify:\n    aliases: [v]\n    cmds: [echo]\n",
         encoding="utf-8",
     )
-    (tmp_path / "taskfiles" / "workspace.yml").write_text(
+    (tmp_path / "tiers" / "web.yml").write_text(
         "version: '3'\ntasks:\n  workspace:build:\n    cmds: [echo]\n", encoding="utf-8"
     )
-    (tmp_path / "taskfiles" / "pkg.yml").write_text(
+    (tmp_path / "tiers" / "pkg.yml").write_text(
         "version: '3'\ntasks:\n  test:one:\n    cmds: [echo]\n", encoding="utf-8"
     )
 
