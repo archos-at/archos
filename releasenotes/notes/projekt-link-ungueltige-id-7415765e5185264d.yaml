@@ -1,4 +1,5 @@
 ---
+# area: general
 fixes:
   - >
     A project link with a mistyped or truncated address now shows the same

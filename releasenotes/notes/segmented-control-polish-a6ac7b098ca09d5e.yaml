@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     On a phone, the last filter in the Tasks list ran off the edge of the card

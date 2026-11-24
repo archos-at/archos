@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     Ask Piloti to do office work in plain German, such as creating a folder or renaming a document,

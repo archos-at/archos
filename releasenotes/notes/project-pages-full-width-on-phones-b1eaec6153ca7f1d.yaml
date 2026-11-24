@@ -1,4 +1,5 @@
 ---
+# area: general
 fixes:
   - >
     On a phone, every page of a project (the chat, the files, the mail and the

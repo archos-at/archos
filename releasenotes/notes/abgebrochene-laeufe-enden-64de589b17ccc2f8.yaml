@@ -1,4 +1,5 @@
 ---
+# area: tasks
 fixes:
   - >
     A cancelled, crashed or never-started run no longer shows as running forever

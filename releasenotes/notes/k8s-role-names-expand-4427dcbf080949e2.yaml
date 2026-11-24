@@ -1,4 +1,5 @@
 ---
+# area: administration
 operators:
   - >
     On Kubernetes the chat and api tiers start running a second time under

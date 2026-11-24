@@ -1,4 +1,5 @@
 ---
+# area: documents
 operators:
   - >
     Document uploads work again in setups where the file storage runs inside the

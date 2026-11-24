@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     Administrators can invite colleagues to a project again. Invitations failed

@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 improvements:
   - >
     The docked inbox is calmer. Entries are no longer boxed into cards, the heading says once how many wait and how many are overdue, and a finished inbox shows a quiet check instead of an empty frame.

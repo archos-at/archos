@@ -1,4 +1,5 @@
 ---
+# area: tasks
 features:
   - >
     When Piloti runs a deep research inside the chat, the Herleitung now shows who did the work: the

@@ -1,4 +1,5 @@
 ---
+# area: general
 fixes:
   - >
     The few fixed messages Piloti sends without research, such as a

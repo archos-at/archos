@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     New installations answer with GPT-6 Luna by default: more thorough, a little
