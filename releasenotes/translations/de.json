@@ -5996,6 +5996,10 @@
     "de": "„Alle Chats“ zeigt beim Öffnen über die Ablage oder die Einstellungen eines Projekts jetzt wie „Letzte Chats“ nur die Chats dieses Projekts an."
   },
   {
+    "en": "„Alle archivieren“ empties the Postfach in one press, requests that wait on you included, and „Rückgängig“ brings everything back. The annotations and conversations behind the entries stay as they are, and anything new on one of them brings its entry back.",
+    "de": "„Alle archivieren“ leert das Postfach mit einem Klick – einschließlich Anfragen, bei denen Sie am Zug sind. „Rückgängig“ stellt alles wieder her. Anmerkungen und Konversationen zu den Einträgen bleiben unverändert, und neue Aktivitäten zu einem Eintrag holen ihn zurück."
+  },
+  {
     "en": "„Als PDF herunterladen“ also gives the PDF of a Word, Excel or PowerPoint file.",
     "de": "„Als PDF herunterladen“ lädt jetzt auch Word-, Excel- und PowerPoint-Dateien als PDF herunter."
   },
