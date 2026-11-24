@@ -536,6 +536,14 @@
           }
         },
         {
+          "section": "fixes",
+          "area": "search",
+          "text": {
+            "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
+            "de": "Ein Klick auf den Suchbutton öffnet die Suche jetzt mit einem kurzen Fade-in, statt dass das Panel sofort erscheint. Ctrl+K öffnet sie weiterhin sofort."
+          }
+        },
+        {
           "section": "upgrade",
           "area": "documents",
           "text": {

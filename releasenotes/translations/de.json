@@ -1892,6 +1892,10 @@
     "de": "Ein Klick in ein Textfeld hebt es nur noch durch seinen Rahmen statt durch einen dicken Rahmen hervor; das Logo ist etwas größer und springt beim Öffnen eines Projekts nicht mehr."
   },
   {
+    "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
+    "de": "Ein Klick auf den Suchbutton öffnet die Suche jetzt mit einem kurzen Fade-in, statt dass das Panel sofort erscheint. Ctrl+K öffnet sie weiterhin sofort."
+  },
+  {
     "en": "Closing a document or annotation opened from the search returns to the search as you left it, with its words, filters, view and sort.",
     "de": "Wer ein Dokument oder eine Anmerkung aus der Suche öffnet und wieder schließt, kehrt zur Suche zurück, wie sie war: mit Suchbegriff, Filtern, Ansicht und Sortierung."
   },
