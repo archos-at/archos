@@ -771,7 +771,7 @@ describe('submitAgentRun', () => {
     })
   })
 
-  it('decides a run as a run, in its conversation, so it never searches a restricted folder (ADR-0087, ADR-0192)', async () => {
+  it('decides a run as a run, in its conversation, so it never searches a restricted folder (ADR-0087, ADR-0194)', async () => {
     await submitAgentRun(spec)
 
     expect(vi.mocked(resolveConversationContext).mock.calls[0]?.[1]).toMatchObject({ kind: 'run', projectId: spec.projectId })

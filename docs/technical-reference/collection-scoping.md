@@ -231,7 +231,7 @@ On 401/403, the WebSocket connection is rejected with the appropriate status cod
 
 There is no HTTP chat route: a chat turn runs on the WebSocket alone (ADR-0068). The HTTP proxies read `projectId` and
 `conversationId` and resolve the scope through the conversation-context module with kind `run`
-(`resolveConversationScope`, ADR-0192), which builds it with `buildCollectionScopeFromRequest` and never draws
+(`resolveConversationScope`, ADR-0194), which builds it with `buildCollectionScopeFromRequest` and never draws
 a restricted folder:
 
 - `apps/workspace/app/api/v1/[...path]/route.ts`: the generic API proxy (`scopeHeader`)
