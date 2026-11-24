@@ -393,6 +393,22 @@ describe('InboundMailWorkspace', () => {
     expect(screen.getByTestId(`inbound-mail-row-${next}`)).toHaveAttribute('data-focused', 'true')
   })
 
+  it('opens the next mail as soon as the open one is filed, and reports its landing in a toast meanwhile', async () => {
+    const id = DETAIL_VARIANTS['member-verified'].view.id
+    const { client } = renderOpen('many', id, { pollMs: 1 })
+    const file = vi.spyOn(client, 'file')
+    vi.spyOn(client, 'get').mockReturnValue(new Promise(() => {}))
+    await userEvent.click(screen.getByTestId('decision-open'))
+    await userEvent.click(within(await screen.findByTestId('filing-dialog')).getByTestId('decision-file'))
+    await waitFor(() => expect(file).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith(expect.stringMatching(/\/files\/mail\/[0-9a-f-]+$/)))
+    const next = (nav.replace.mock.calls.at(-1)?.[0] as string).split('/').at(-1)
+    expect(next).not.toBe(id)
+    expect(screen.getByTestId(`inbound-mail-row-${next}`)).toHaveAttribute('data-focused', 'true')
+    expect(toast.loading).toHaveBeenCalledWith('Being filed …', {})
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
   it('leaves a mail that still waits (a restore, a filing that failed) where it is', async () => {
     const id = DETAIL_VARIANTS['member-verified'].view.id
     const { client } = renderOpen('many', id)
