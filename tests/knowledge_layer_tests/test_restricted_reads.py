@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from agent_testing.turn_decision import signed_decision
 from knowledge_layer.browse import ListFilesConfig
 from knowledge_layer.browse import list_files
 from knowledge_layer.ingest import vision_credentials
@@ -16,6 +17,8 @@ from knowledge_layer.register import KnowledgeRetrievalConfig
 from langchain_core.messages import ToolMessage
 
 from agent.common.source_kinds import Shelf
+from agent.common.turn_decision import bind_turn_decision
+from agent.common.turn_decision import reset_turn_decision
 from agent.knowledge import restricted_use as ru
 from agent.knowledge.inventory import set_turn_documents
 from agent.knowledge.schema import AvailableDocument
@@ -64,13 +67,17 @@ class _Store:
 
 @pytest.fixture
 def scope(monkeypatch):
-    monkeypatch.setattr(
-        "agent.knowledge.scoping._parse_scope_payload",
-        lambda _s: [
-            ScopedCollection("oib_knowledge", Shelf.BASE),
-            ScopedCollection(PROJ, Shelf.PROJECT),
-            ScopedCollection(R, Shelf.PROJECT),
-        ],
+    token = bind_turn_decision(
+        signed_decision(
+            may={
+                "shelves": [
+                    {"collection": "oib_knowledge", "shelf": Shelf.BASE.value},
+                    {"collection": PROJ, "shelf": Shelf.PROJECT.value},
+                    {"collection": R, "shelf": Shelf.PROJECT.value},
+                ],
+                "restrictedCollections": [R],
+            }
+        )
     )
     monkeypatch.setattr("agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
@@ -90,6 +97,7 @@ def scope(monkeypatch):
     set_turn_documents(None)
     yield store
     set_turn_documents(None)
+    reset_turn_decision(token)
 
 
 @pytest.fixture
@@ -293,11 +301,10 @@ def image_tool(monkeypatch):
     return view
 
 
-def _scope_of(monkeypatch, *names: str) -> None:
-    monkeypatch.setattr(
-        "agent.knowledge.scoping._parse_scope_payload",
-        lambda _s: [ScopedCollection(name, Shelf.PROJECT) for name in names],
-    )
+def _scope_of(_monkeypatch, *names: str) -> None:
+    shelves = [{"collection": name, "shelf": Shelf.PROJECT.value} for name in names]
+    restricted = [name for name in names if name == R]
+    bind_turn_decision(signed_decision(may={"shelves": shelves, "restrictedCollections": restricted}))
 
 
 async def test_view_image_refuses_a_restricted_collection_outside_the_turn_before_any_lookup(monkeypatch, image_tool):

@@ -486,11 +486,14 @@ describe('five neutrals, three elevations', () => {
     expect(layer.get('--elevation-lg')).toBe('var(--elevation-3)')
   })
 
-  it('the radius ladder is 6 / 10 / 16 / full, with no stray --radius', () => {
-    const tokens = sheet(TOKENS)
-    expect(valuesOf(tokens, '--radius-overlay')).toContain('16px')
-    expect(valuesOf(tokens, '--radius-inline')).toContain('6px')
-    expect(valuesOf(tokens, '--radius')).toEqual([])
+  it('the radius ladder is 4 / 8 / 14 / full, with no stray --radius (#1929)', () => {
+    const brand = sheet('shared/brand/tokens.vars.css')
+    expect(valuesOf(brand, '--ds-radius-control')).toContain('4px')
+    expect(valuesOf(brand, '--ds-radius-inline')).toContain('4px')
+    expect(valuesOf(brand, '--ds-radius-surface')).toContain('8px')
+    expect(valuesOf(brand, '--ds-radius-overlay')).toContain('14px')
+    expect(valuesOf(sheet(TOKENS), '--radius-overlay')).toEqual(['var(--ds-radius-overlay)'])
+    expect(valuesOf(sheet(TOKENS), '--radius')).toEqual([])
   })
 
   it('the neutral ladder steps at least 1.07:1 in both themes, and the dark desk is lighter than its paper', () => {
@@ -538,7 +541,7 @@ describe('five neutrals, three elevations', () => {
   it('a sheet is white on every surface that draws a document or a floating bar', () => {
     const tile = moduleOf('FileTileBody')
     expect(literalHasRun(tile, ['bg-sheet', 'shadow-sm'])).toBe(true)
-    expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-surface bg-sheet shadow-sm')
+    expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-[4px] bg-sheet shadow-sm')
     expect(summaryOf(moduleOf('InspectorGroup')).literals).toContain('bg-sheet shadow-sm overflow-hidden rounded-surface')
     expect(literalHasRun(moduleOf('SelectionBar', 'ui/features/documents/'), ['bg-sheet', 'shadow-md', 'rounded-overlay'])).toBe(true)
   })
@@ -659,8 +662,8 @@ describe('press, thumb and sheet', () => {
     expect(ratio(layer.get('--field-border') ?? '', layer.get('--desk') ?? '')).toBeGreaterThanOrEqual(3)
   })
 
-  it('a folder is a sheet that opens: 56px, radius 10, elevation 1, a chevron at its end', () => {
-    expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-surface bg-sheet shadow-sm')
+  it('a folder is a sheet that opens: 56px, radius 4 inside its frame, elevation 1, a chevron at its end', () => {
+    expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-[4px] bg-sheet shadow-sm')
     const tile = parseSource(moduleOf('FolderCard'))
     expect(elementsNamed(tile, ['FileTileBody']).some((element) => stringAttribute(element, 'className')?.startsWith('flex h-14 '))).toBe(true)
     expect(elementsNamed(tile, ['FolderName']).some((element) => shapeOfAttribute(element, 'text') === 'folder . name')).toBe(true)
@@ -813,9 +816,9 @@ describe('a press looks pressable', () => {
 describe('a choice sits on its track', () => {
   it('the kit draws the track and has no trackless form', () => {
     const kit = moduleOf('ToggleGroup')
-    expect(literalHasRun(kit, ['rounded-control', 'bg-desk', 'p-0.5'])).toBe(true)
+    expect(literalHasRun(kit, ['rounded-[6px]', 'bg-desk', 'p-0.5'])).toBe(true)
     expect(classesOf(kit).includes('bare') || summaryOf(kit).identifiers.includes('bare')).toBe(false)
-    expect(literalHasRun(moduleOf('SectionNav'), ['rounded-control', 'bg-desk', 'p-0.5'])).toBe(true)
+    expect(literalHasRun(moduleOf('SectionNav'), ['rounded-[6px]', 'bg-desk', 'p-0.5'])).toBe(true)
   })
 
   it('the Ablage’s places are words with a rule under the open one, never a second track beside the presses (KAN-86)', () => {

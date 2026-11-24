@@ -297,7 +297,7 @@ export const MentionPicker = forwardRef<MentionPickerHandle, MentionPickerProps>
             if (!blocked) onSelect(candidate)
           }}
           className={cn(
-            'items-center gap-3 rounded-overlay px-2.5 py-2 transition-colors duration-snap ease-out motion-reduce:transition-none',
+            'items-center gap-3 rounded-surface px-2.5 py-2 transition-colors duration-snap ease-out motion-reduce:transition-none',
             'data-[selected=true]:bg-hover data-[selected=true]:text-accent-foreground',
             blocked && 'opacity-55',
           )}
