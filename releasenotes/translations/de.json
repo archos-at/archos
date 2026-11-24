@@ -1392,6 +1392,10 @@
     "de": "Eine offene Anmerkung aus einer früheren Revision lässt sich jetzt über ihre Karte in die aktuelle Revision übernehmen – oder alle auf einmal über die Liste. Nummer, Position und Kommentarverlauf bleiben dabei erhalten."
   },
   {
+    "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
+    "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
+  },
+  {
     "en": "An open document now shows what Piloti saw on each page, with the drawing type and scale, right under its summary, and a click on an entry turns the document to that page. Format, page count and size sit under the name, so the side panel keeps only what Piloti read, the Fassungen and the pages.",
     "de": "Ein geöffnetes Dokument zeigt jetzt direkt unter seiner Zusammenfassung, was Piloti auf jeder Seite erkannt hat, einschließlich Zeichnungstyp und Maßstab; ein Klick auf einen Eintrag springt zu dieser Seite. Format, Seitenzahl und Größe stehen unter dem Namen, sodass die Seitenleiste nur noch das enthält, was Piloti ausgelesen hat, die Fassungen und die Seiten."
   },

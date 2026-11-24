@@ -86,7 +86,8 @@ Who downloaded or opened which file is in [the download log](download-log.md).
 
 - **In the app.** The line under the message box reads „ARCHOS ist ein
   KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten
-  Unterlagen." It is always shown. The **KI-Transparenzhinweis** page explains
+  Unterlagen." It is shown from your first message on, before the first answer
+  arrives; the empty start page does not carry it. The **KI-Transparenzhinweis** page explains
   the system, its models and its limits.
 - **In files ARCHOS produces.** A filed report (PDF), a diagram (SVG or PDF)
   and an answer exported as a Word document carry a machine-readable marking in
