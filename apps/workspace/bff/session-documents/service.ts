@@ -105,7 +105,7 @@ export async function uploadSessionDocument(
 ): Promise<UploadSessionDocumentResult> {
   const { conversationId, file } = input
 
-  await createConversation(session, { id: conversationId, projectId: input.projectId ?? null })
+  await createConversation(session, { id: conversationId, projectId: input.projectId ?? null, personal: !input.projectId })
 
   const nameGate = await admitUpload(session, {
     filename: file.name,

@@ -47,7 +47,7 @@ const MENU_FOCUS_GUARD_MS = 250
 interface ChatToolbarProps {
   sessionTitle?: string
   onNewSession?: () => void
-  onDeleteSession?: (sessionId: string) => void
+  onDeleteSession?: (sessionId: string) => void | Promise<void>
   isChatStarted?: boolean
   conversationId?: string | null
   isCollaborationEnabled?: boolean
@@ -366,9 +366,8 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
         open={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
         sessionTitle={sessionTitle}
-        onConfirm={() => {
-          setIsDeleteOpen(false)
-          if (currentSessionId) onDeleteSession?.(currentSessionId)
+        onConfirm={async () => {
+          if (currentSessionId) await onDeleteSession?.(currentSessionId)
         }}
       />
     </header>

@@ -11,6 +11,7 @@ import { ComposerScrim } from './ComposerScrim'
 import { InputArea } from './InputArea'
 import { ChatDropZone } from './chat-drop-zone'
 import { RightsLostPanel } from './RightsLostPanel'
+import { WithheldFromHere } from './WithheldFromHere'
 import { useChatStore } from '@/features/chat/store'
 import { NoSourcesBanner, ChatUsageNotice } from '@/features/chat'
 import { ConversationPrivacyLine } from '@/features/chat/conversation-privacy'
@@ -23,6 +24,7 @@ import { useFilePreviewStore } from '@/features/documents/stores/file-preview-st
 import { ViewerActionHost } from '@/features/documents/components/viewer-action-host'
 import { useComposerMetrics } from '../hooks/use-composer-metrics'
 import { useSessionRows } from '../hooks/use-session-rows'
+import { useChatDeleteFeedback } from '../hooks/use-chat-delete-feedback'
 import { chatSideOf } from '@/components/shell/rail-mode'
 import { motion } from '@/components/motion'
 import { selectThreadPhase } from '../lib/thread-phase'
@@ -45,6 +47,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
     currentConversationId,
     currentConversationTitle,
     currentConversationLocked,
+    currentConversationPartlyReadable,
     messageCount,
     currentUserId,
     projectId,
@@ -53,13 +56,17 @@ export const MainLayout: FC<MainLayoutProps> = ({
       currentConversationId: s.currentConversation?.id,
       currentConversationTitle: s.currentConversation?.title,
       currentConversationLocked: s.currentConversation?.contentLocked === true,
+      currentConversationPartlyReadable: s.currentConversation?.withheldFrom !== undefined,
       messageCount: s.currentConversation?.messages?.length ?? 0,
       currentUserId: s.currentUserId,
       projectId: s.projectId,
     }))
   )
   const isThreadEmpty = useChatStore((s) => selectThreadPhase(s) === 'empty')
-  const sessions = useSessionRows(chatSideOf(usePathname() ?? ''))
+  const routeSide = chatSideOf(usePathname() ?? '')
+  const sessions = useSessionRows(routeSide)
+  const chatSide = routeSide === undefined ? (projectId ?? null) : routeSide
+  const deleteFeedback = useChatDeleteFeedback()
 
   const selectConversation = useChatStore((s) => s.selectConversation)
   const startNewSessionDraft = useChatStore((s) => s.startNewSessionDraft)
@@ -103,20 +110,30 @@ export const MainLayout: FC<MainLayoutProps> = ({
   }, [startNewSessionDraft, clearSessionUrl])
 
   const handleDeleteSession = useCallback(
-    (sessionId: string) => {
+    async (sessionId: string) => {
       const wasCurrentSession = currentConversationId === sessionId
-      deleteConversation(sessionId)
-      if (wasCurrentSession) {
-        clearSessionUrl()
+      try {
+        await deleteConversation(sessionId)
+      } catch (error) {
+        deleteFeedback.failed(error, 'one')
+        throw error
       }
+      if (wasCurrentSession) clearSessionUrl()
     },
-    [deleteConversation, currentConversationId, clearSessionUrl]
+    [deleteConversation, currentConversationId, clearSessionUrl, deleteFeedback]
   )
 
-  const handleDeleteAllSessions = useCallback(() => {
-    deleteAllConversations()
-    clearSessionUrl()
-  }, [deleteAllConversations, clearSessionUrl])
+  const handleDeleteAllSessions = useCallback(async () => {
+    const openBefore = useChatStore.getState().currentConversation?.id ?? null
+    try {
+      const result = await deleteAllConversations({ projectId: chatSide })
+      deleteFeedback.deletedAll(result)
+      if (openBefore && result.deleted.includes(openBefore)) clearSessionUrl()
+    } catch (error) {
+      deleteFeedback.failed(error, 'all')
+      throw error
+    }
+  }, [deleteAllConversations, chatSide, clearSessionUrl, deleteFeedback])
 
   const content = (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
@@ -174,10 +191,15 @@ export const MainLayout: FC<MainLayoutProps> = ({
             </button>
           )}
 
-          {/* A chat the reader may no longer read has no transcript and no
-              composer here (ADR-0088): nothing of it is mounted, so nothing of
-              it is fetched or drawn. */}
-          {currentConversationLocked ? (
+          {/* A chat the reader may no longer read whole (ADR-0088) has no
+              composer. They see what comes before its first answer resting on
+              a source they may not open (ADR-0194), or nothing of it. */}
+          {currentConversationLocked && currentConversationPartlyReadable ? (
+            <>
+              <ChatArea isAuthenticated={isAuthenticated} onSignIn={onSignIn} canCollaborate={false} />
+              <WithheldFromHere />
+            </>
+          ) : currentConversationLocked ? (
             <RightsLostPanel />
           ) : (
             <>
@@ -246,6 +268,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
         onDeleteAllSessions={handleDeleteAllSessions}
         onRenameSession={updateConversationTitle}
         projectId={projectId ?? undefined}
+        side={chatSide ? 'project' : 'personal'}
       />
     </div>
   )

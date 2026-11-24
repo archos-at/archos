@@ -29,6 +29,7 @@ export const BFF_JOB_KINDS = [
   'search_facets_sync',
   'platform_text_index',
   'platform_text_deindex',
+  'erase_conversations',
 ] as const
 export type BffJobKind = (typeof BFF_JOB_KINDS)[number]
 
@@ -89,6 +90,14 @@ export const restoreFolderBinPayloadSchema = z.object({
   counts: countsSchema,
 })
 export type RestoreFolderBinPayload = z.infer<typeof restoreFolderBinPayloadSchema>
+
+export const eraseConversationsPayloadSchema = z.object({
+  markedAt: z.iso.datetime(),
+  requester: requesterSchema,
+  cursor: z.string().nullable(),
+  counts: countsSchema,
+})
+export type EraseConversationsPayload = z.infer<typeof eraseConversationsPayloadSchema>
 
 export const rootSortPayloadSchema = z.object({
   runId: z.guid(),

@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand'
 import type { ChatStore, Conversation } from '../types'
 import type { SessionsSlice } from './sessions-store'
+import { serverSideKey } from './server-sides'
 import {
   clearAwaitingServerMessages,
   isAwaitingServerMessages,
@@ -10,8 +11,39 @@ import { mapServerMessagesToChatMessages } from '../lib/server-message-mapper'
 import { mergeRemoteMessages } from './messages-store'
 import { updateConversationInList } from '../lib/conversation-updates'
 import { getConversationsClient, isRightsLost } from '../lib/conversations-client-access'
+import { wasOnServerBefore } from '../lib/conversation-on-server'
+import { isConversationErased } from '../lib/erased-conversations'
+import { CONVERSATION_LIST_PAGE } from '../lib/conversation-list-page'
+
+const listScopeMatcher = (
+  projectId: string | undefined,
+  place: 'personal' | 'project' | undefined
+): ((c: Conversation) => boolean) | null => {
+  if (place === 'personal') return (c) => !c.projectId
+  if (place === 'project' && projectId) return (c) => c.projectId === projectId
+  return null
+}
 
 export const hydratingConversationIds = new Set<string>()
+
+const SIDE_FRESH_MS = 20_000
+interface SideLoad { at: number; settled: boolean; pending: Promise<void> }
+const sideLoads = new Map<string, SideLoad>()
+
+let sideLoadsOwner: string | null = null
+
+export function forgetSideLoads(): void {
+  sideLoads.clear()
+  sideLoadsOwner = null
+}
+
+export function sideLoadsChangeHands(userId: string | null): boolean {
+  if (userId === null) return false
+  const changed = sideLoadsOwner !== null && sideLoadsOwner !== userId
+  if (changed) sideLoads.clear()
+  sideLoadsOwner = userId
+  return changed
+}
 
 export const createSessionServerSyncSlice: StateCreator<
   ChatStore,
@@ -23,26 +55,52 @@ export const createSessionServerSyncSlice: StateCreator<
     | 'hydrateConversationMessages'
     | '_lockConversation'
   >
-> = (set, get) => ({
-  loadServerConversations: async (projectId?: string, place?: 'personal' | 'project') => {
+> = (set, get) => {
+  const loadSide = async (
+    projectId?: string,
+    place?: 'personal' | 'project',
+    isLatest: () => boolean = () => true,
+    anotherSideLoading: () => boolean = () => false
+  ): Promise<boolean> => {
+    const since = Date.now()
     try {
       const conversationsClient = await getConversationsClient()
-      const serverConvs = await conversationsClient.list(projectId, place)
-      if (!serverConvs || serverConvs.length === 0) return
+      const requestedAt = since
+      const listed = await conversationsClient.list(projectId, place)
+      if (!isLatest()) return true
+      if (!listed) return true
+      const serverConvs = listed.filter((c) => !isConversationErased(c.id))
+      if (place) {
+        const key = serverSideKey(place, projectId)
+        set({ serverSides: { ...get().serverSides, [key]: { ids: serverConvs.map((c) => c.id), since } } }, false, 'serverSides')
+      }
 
-      const { conversations, currentUserId } = get()
-      const merged = [...conversations]
+      const { conversations, currentUserId, currentConversation: openBefore } = get()
+      const listedIds = new Set(serverConvs.map((c) => c.id))
+      const inScope = listScopeMatcher(projectId, place)
+      const goneFromServer = (c: Conversation): boolean =>
+        isConversationErased(c.id) ||
+        (inScope !== null &&
+          listed.length < CONVERSATION_LIST_PAGE &&
+          inScope(c) &&
+          !listedIds.has(c.id) &&
+          openBefore?.id !== c.id &&
+          wasOnServerBefore(c.id, requestedAt) &&
+          new Date(c.createdAt).getTime() < requestedAt)
+      const merged = conversations.filter((c) => !goneFromServer(c))
 
       for (const serverConv of serverConvs) {
         const idx = merged.findIndex((c) => c.id === serverConv.id)
         const locked = serverConv.contentLocked === true
+        const withheldFrom = locked && idx >= 0 ? merged[idx].withheldFrom : undefined
         const local: Conversation = {
           id: serverConv.id,
           userId: currentUserId ?? serverConv.createdBy ?? 'unknown',
           projectId: serverConv.projectId ?? (idx >= 0 ? merged[idx].projectId : null) ?? null,
           title: locked ? '' : (serverConv.title ?? (idx >= 0 ? merged[idx].title : '') ?? ''),
-          messages: idx >= 0 && !locked ? merged[idx].messages : [],
+          messages: idx >= 0 && (!locked || withheldFrom) ? merged[idx].messages : [],
           ...(locked ? { contentLocked: true } : {}),
+          ...(withheldFrom ? { withheldFrom } : {}),
           enabledDataSourceIds: idx >= 0 ? merged[idx].enabledDataSourceIds : undefined,
           createdAt: new Date(serverConv.createdAt as unknown as string),
           updatedAt: new Date(serverConv.updatedAt as unknown as string),
@@ -61,7 +119,7 @@ export const createSessionServerSyncSlice: StateCreator<
               null),
         }
         if (idx >= 0) {
-          if (merged[idx].contentLocked && !locked) markAwaitingServerMessages(local.id)
+          if ((merged[idx].contentLocked && !locked) || withheldFrom) markAwaitingServerMessages(local.id)
           merged[idx] = local
         } else {
           if (!locked) markAwaitingServerMessages(local.id)
@@ -83,24 +141,45 @@ export const createSessionServerSyncSlice: StateCreator<
 
       const { currentConversation } = get()
       if (
-        currentConversation?.contentLocked !== true &&
         currentConversation &&
         (currentConversation.messages.length === 0 ||
           isAwaitingServerMessages(currentConversation.id))
       ) {
         void get().hydrateConversationMessages(currentConversation.id)
       }
+      return true
     } catch (err) {
       console.warn('[loadServerConversations] Failed to load server conversations:', err)
+      return false
     } finally {
-      set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
+      if (isLatest() && !anotherSideLoading()) set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
     }
+  }
+
+  return {
+  loadServerConversations: (projectId?: string, place?: 'personal' | 'project', wantConversationId?: string) => {
+    if (!place) return loadSide(projectId, place).then(() => undefined)
+    const key = serverSideKey(place, projectId)
+    const known = sideLoads.get(key)
+    if (known && !known.settled) return known.pending
+    const hasWanted = !wantConversationId || (get().serverSides[key]?.ids.includes(wantConversationId) ?? false)
+    if (known && hasWanted && Date.now() - known.at < SIDE_FRESH_MS) return known.pending
+    const load: SideLoad = { at: Date.now(), settled: false, pending: Promise.resolve() }
+    const isLatest = () => sideLoads.get(key) === load
+    const anotherSideLoading = () => [...sideLoads.values()].some((other) => other !== load && !other.settled)
+    load.pending = loadSide(projectId, place, isLatest, anotherSideLoading).then((ok) => {
+      if (!isLatest()) return
+      if (!ok) sideLoads.delete(key)
+      else Object.assign(load, { at: Date.now(), settled: true })
+      if (!anotherSideLoading()) set({ serverConversationsLoaded: true }, false, 'serverConversationsLoaded')
+    })
+    sideLoads.set(key, load)
+    return load.pending
   },
 
   hydrateConversationMessages: async (conversationId: string) => {
     const conversation = get().conversations.find((c) => c.id === conversationId)
     if (!conversation) return
-    if (conversation.contentLocked) return
     if (conversation.messages.length > 0 && !isAwaitingServerMessages(conversationId)) return
     if (get().currentConversation?.id === conversationId) get().setPendingMessagesFor(conversationId)
     if (hydratingConversationIds.has(conversationId)) return
@@ -110,7 +189,7 @@ export const createSessionServerSyncSlice: StateCreator<
 
     try {
       const conversationsClient = await getConversationsClient()
-      const serverMessages = await conversationsClient.listMessages(conversationId)
+      const { messages: serverMessages, withheldFrom } = await conversationsClient.listReadableMessages(conversationId)
       const messages = mapServerMessagesToChatMessages(serverMessages)
 
       const { conversations, currentConversation, isStreaming, isLoading } = get()
@@ -121,8 +200,8 @@ export const createSessionServerSyncSlice: StateCreator<
         return
       }
 
-      const { messages: merged } = mergeRemoteMessages(target.messages, messages, false)
-      const hydrated: Conversation = { ...target, messages: merged }
+      const merged = target.contentLocked ? messages : mergeRemoteMessages(target.messages, messages, false).messages
+      const hydrated: Conversation = { ...target, messages: merged, withheldFrom }
       const isCurrent = currentConversation?.id === conversationId
 
       clearAwaitingServerMessages(conversationId)
@@ -158,6 +237,7 @@ export const createSessionServerSyncSlice: StateCreator<
       subjectResourceType: null,
       subjectResourceId: null,
       contentLocked: true,
+      withheldFrom: undefined,
     })
     clearAwaitingServerMessages(conversationId)
     set(
@@ -169,4 +249,5 @@ export const createSessionServerSyncSlice: StateCreator<
       'lockConversation'
     )
   },
-})
+}
+}

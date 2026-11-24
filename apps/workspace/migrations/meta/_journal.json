@@ -1863,6 +1863,20 @@
       "when": 1795602400000,
       "tag": "0265_conversation_personal_shelf_use",
       "breakpoints": true
+    },
+    {
+      "idx": 266,
+      "version": "7",
+      "when": 1795602500000,
+      "tag": "0266_message_received_seq",
+      "breakpoints": true
+    },
+    {
+      "idx": 267,
+      "version": "7",
+      "when": 1795602600000,
+      "tag": "0267_conversation_started_in_personal",
+      "breakpoints": true
     }
   ]
 }

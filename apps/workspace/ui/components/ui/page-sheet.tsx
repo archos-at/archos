@@ -17,7 +17,7 @@ import {
 } from '@/components/motion'
 import { useDragControls, type PanInfo } from 'motion/react'
 import { pullDismisses } from '@/components/ui/sheet-pull'
-import { useMediaQuery } from '@/hooks/use-media-query'
+import { useIsMobile } from '@/hooks/use-is-mobile'
 
 export const PAGE_SHEET_OVERLAY_CLASS = 'bg-overlay fixed inset-0 z-50 backdrop-blur-sm'
 export const PAGE_SHEET_PANEL_CLASS =
@@ -30,8 +30,6 @@ export const PAGE_SHEET_WINDOW_OVERLAY_CLASS = 'bg-overlay fixed inset-0 z-50'
 // On a phone a window is a bottom sheet like the others there, risen to fit its content; from md a centred window.
 export const PAGE_SHEET_WINDOW_CLASS =
   'bg-background fixed inset-x-0 bottom-0 z-50 flex max-h-[min(90dvh,calc(100dvh-max(0.75rem,env(safe-area-inset-top))))] flex-col overflow-hidden rounded-overlay pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] shadow-xl outline-none md:inset-4 md:m-auto md:h-fit md:max-h-[min(84dvh,calc(100dvh-2rem))] md:max-w-[820px] md:rounded-[16px] md:p-0'
-
-const PHONE_QUERY = '(max-width: 767.98px)'
 
 export type PageSheetSize = 'page' | 'window'
 
@@ -79,7 +77,7 @@ export function PageSheet({
   children,
 }: PageSheetProps): JSX.Element {
   const asWindow = size === 'window'
-  const onPhone = useMediaQuery(PHONE_QUERY)
+  const onPhone = useIsMobile()
   const slides = !asWindow || onPhone
   const dragControls = useDragControls()
   const pulledRef = React.useRef(false)

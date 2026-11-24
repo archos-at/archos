@@ -1879,6 +1879,16 @@
    "withheld": null,
    "reason": null
   },
+  "conversation-answer-trail-list": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "conversation-create": {
    "kind": "catalog",
    "domain": "conversations",
@@ -1890,6 +1900,16 @@
    "reason": null
   },
   "conversation-delete": {
+   "kind": "catalog",
+   "domain": "conversations",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "conversation-delete-all": {
    "kind": "catalog",
    "domain": "conversations",
    "sensitivity": null,

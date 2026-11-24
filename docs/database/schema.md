@@ -211,7 +211,8 @@ export const messages = pgTable('messages', {
 | `content` | `text` | NOT NULL | Message body |
 | `run_id` | `text` | | The `task_runs` row this message is the account of (migration `0091`, ADR-0062). A run — a deep-research run, a scheduled task — is ONE assistant message in the conversation it was commissioned in, and that message carries the run ledger in `metadata.run_ledger`; this column is what finds it. NULL on every message a person or an ordinary turn wrote. `text` and no foreign key, for the reason `document_versions.origin_conversation_id` has none: the honest constraint would be composite with the tenant column, worth its cost on a row that decides access and not on one that decides rendering. Rendering and lookup only — never authorization, which comes from the conversation. |
 | `metadata` | `jsonb` | | Flexible: see the key list below |
-| `created_at` | `timestamptz` | NOT NULL, `defaultNow()` | |
+| `created_at` | `timestamptz` | NOT NULL, `defaultNow()` | The client's time when it sends one (`message-insert.ts`), so it can run behind; it orders the display |
+| `received_seq` | `bigint` | NOT NULL, default `nextval('messages_received_seq')` (migration 0266, ADR-0194) | The order in which the server received the message. No insert sets it, so the client cannot move it, and the rows of one batched insert keep their order. The cut for a reader who joined later is taken in this order (`listMessagePage` `until`, `readerCut`). Rows from before 0266 are numbered in `created_at` order |
 
 **`metadata` keys** written by the chat store (`_appendMessage`) and read back by
 `server-message-mapper.ts` when a history rehydrates from the server:

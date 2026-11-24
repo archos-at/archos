@@ -159,6 +159,7 @@ export interface Conversation {
   createdAt: Date
   updatedAt: Date
   contentLocked?: boolean
+  withheldFrom?: string
   temporary?: boolean
   shared?: boolean
   enabledDataSourceIds?: string[]

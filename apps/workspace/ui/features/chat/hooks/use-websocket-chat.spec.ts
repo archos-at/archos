@@ -435,14 +435,16 @@ describe('switching conversations mid-turn', () => {
     expect(reopened.options.openTurns()).toEqual([{ turnId: TURN, lastSeq: 9 }])
   })
 
-  it('stops the turn of a conversation that is deleted while it answers in the background', () => {
+  it('stops the turn of a conversation that is deleted while it answers in the background', async () => {
     const { rerender } = openTurn(answered)
     deliver(answered.filter((event) => event.seq <= 9))
     const first = socket()
     leave()
     rerender()
 
-    act(() => useChatStore.getState().deleteConversation(CONVERSATION))
+    await act(async () => {
+      await useChatStore.getState().deleteConversation(CONVERSATION)
+    })
     expect(useChatStore.getState().hasAnyBusySession()).toBe(false)
     expect(first.sent).toContainEqual(expect.objectContaining({ type: 'cancel_turn', turn_id: TURN }))
     expect(first.close).toHaveBeenCalled()

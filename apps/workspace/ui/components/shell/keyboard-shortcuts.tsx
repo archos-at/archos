@@ -52,6 +52,7 @@ export function KeyboardShortcuts({
   const pathname = usePathname() ?? ''
   const paletteOpen = useShellOverlays((s) => s.paletteOpen)
   const setPaletteOpen = useShellOverlays((s) => s.setPaletteOpen)
+  const paletteSummon = useShellOverlays((s) => s.paletteSummon)
   const togglePalette = useShellOverlays((s) => s.togglePalette)
   const [cheatsheetOpen, setCheatsheetOpen] = React.useState(false)
   const leaderArmedAtRef = React.useRef<number | null>(null)
@@ -138,7 +139,7 @@ export function KeyboardShortcuts({
     <>
       {/* Mounted whether or not shortcuts are on: turning the keys off must
           not take the search button's palette with them. */}
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} authRequired={authRequired} canViewOrganization={canViewOrganization} />
+      <CommandPalette open={paletteOpen} instant={paletteSummon === 'keyboard'} onOpenChange={setPaletteOpen} authRequired={authRequired} canViewOrganization={canViewOrganization} />
       {/* Only `?` opens the cheatsheet, so it only ever opens for someone at a
           keyboard; with shortcuts off it is not mounted at all. */}
       {enabled && (

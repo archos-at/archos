@@ -3,6 +3,7 @@ import type { Message } from '@/lib/db/schema/messages'
 import { fetchThreadHistory } from '@/lib/conversations/history-client'
 import type { MessageView } from '@/lib/conversations/message-view'
 import { ApiRequestError } from './api-error'
+import { CONVERSATION_LIST_PAGE } from '@/features/chat/lib/conversation-list-page'
 
 export interface ConversationSummary {
   id: string
@@ -30,6 +31,21 @@ export interface RestrictingOtherProject {
   name: string | null
 }
 
+export interface OwnConversationsDeleted {
+  deleted: string[]
+  held: { id: string; title: string | null }[]
+}
+
+async function deleteFailure(res: Response): Promise<ApiRequestError> {
+  const body = (await res.json().catch(() => null)) as {
+    error?: unknown
+    details?: { reason?: unknown } | null
+  } | null
+  const reason = typeof body?.details?.reason === 'string' ? body.details.reason : null
+  const message = typeof body?.error === 'string' ? body.error : `Failed to delete: ${res.status}`
+  return new ApiRequestError(message, res.status, reason)
+}
+
 export class ConversationRightsLostError extends Error {
   constructor() {
     super('You no longer have the rights to view this conversation.')
@@ -45,7 +61,7 @@ async function throwIfRightsLost(res: Response): Promise<void> {
 
 export const conversationsClient = {
   async list(projectId?: string, place?: 'personal' | 'project'): Promise<ListedConversation[]> {
-    const params = new URLSearchParams({ limit: '200' })
+    const params = new URLSearchParams({ limit: String(CONVERSATION_LIST_PAGE) })
     if (projectId) params.set('projectId', projectId)
     if (place) params.set('place', place)
     const res = await fetch(`/api/conversations?${params.toString()}`)
@@ -109,6 +125,7 @@ export const conversationsClient = {
         subjectResourceType: subject?.resourceType ?? null,
         subjectResourceId: subject?.resourceId ?? null,
         ...(temporary ? { temporary: true } : {}),
+        ...(projectId ? {} : { personal: true }),
       }),
     })
     if (!res.ok) throw new Error('Failed to create conversation')
@@ -153,16 +170,29 @@ export const conversationsClient = {
     const res = await fetch(`/api/conversations/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     })
-    if (!res.ok) throw new Error('Failed to delete conversation')
+    if (!res.ok) throw await deleteFailure(res)
+  },
+
+  async deleteOwn(side: { projectId: string | null }): Promise<OwnConversationsDeleted> {
+    const params = side.projectId
+      ? new URLSearchParams({ place: 'project', projectId: side.projectId })
+      : new URLSearchParams({ place: 'personal' })
+    const res = await fetch(`/api/conversations?${params.toString()}`, { method: 'DELETE' })
+    if (!res.ok) throw await deleteFailure(res)
+    return (await res.json()) as OwnConversationsDeleted
   },
 
   async listMessages(conversationId: string): Promise<MessageView[]> {
+    return (await conversationsClient.listReadableMessages(conversationId)).messages
+  },
+
+  async listReadableMessages(conversationId: string): Promise<{ messages: MessageView[]; withheldFrom?: string }> {
     const history = await fetchThreadHistory(conversationId)
     if (!history.ok) {
       await throwIfRightsLost(history.response)
       throw new Error('Failed to fetch messages')
     }
-    return history.messages
+    return { messages: history.messages, ...(history.withheldFrom ? { withheldFrom: history.withheldFrom } : {}) }
   },
 
   async createMessage(

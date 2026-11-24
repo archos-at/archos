@@ -85,7 +85,7 @@ describe('listVisibleConversations — scoped to a project', () => {
     const { sql, params } = onlyQuery()
     expect(sql).toContain('"conversations"."organization_id" = $1')
     expect(sql).toContain('("conversations"."project_id" = $2 and (')
-    expect(sql).toContain('or ("conversations"."project_id" is null and (')
+    expect(sql).toContain('or ("conversations"."project_id" is null and "conversations"."started_in_personal" and (')
     expect(params.slice(0, 2)).toEqual(['org_1', PROJECT_ID])
   })
 
@@ -104,7 +104,7 @@ describe('listVisibleConversations — scoped to a project', () => {
 
     const { sql, params } = onlyQuery()
     expect(sql).toContain(
-      '("conversations"."project_id" is null and ("conversations"."created_by" = $8 or exists (',
+      '("conversations"."project_id" is null and "conversations"."started_in_personal" and ("conversations"."created_by" = $8 or exists (',
     )
     expect(sql).toContain('"conversations"."visibility" = $12')
     expect(params[11]).toBe('organization')
@@ -138,7 +138,7 @@ describe('listVisibleConversations — one side of the rail (ADR-0193)', () => {
     await listVisibleConversations('org_1', 'user_me', { place: 'personal' })
 
     const { sql } = onlyQuery()
-    expect(sql).toContain('("conversations"."project_id" is null and (')
+    expect(sql).toContain('("conversations"."project_id" is null and "conversations"."started_in_personal" and (')
     expect(sql).not.toContain('"conversations"."project_id" = ')
     expect(sql).toContain('order by "conversations"."updated_at" desc')
   })
@@ -163,7 +163,8 @@ describe('listVisibleConversations — no project scope', () => {
     expect(sql).toContain('exists (select 1 from "resource_shares"')
     expect(sql).toContain('"conversations"."visibility" = $6')
     expect(params).toContain('organization')
-    expect(sql).not.toContain('"conversations"."project_id"')
+    expect(sql).toContain('("conversations"."project_id" is not null or "conversations"."started_in_personal")')
+    expect(sql.match(/"conversations"\."project_id"/g)).toHaveLength(1)
     expect(params).not.toContain('project')
   })
 })
@@ -182,16 +183,22 @@ describe('visibleConversationsWhere — over the projects a search reaches', () 
     expect(sql).toContain(
       '("conversations"."project_id" in ($2, $3) and ("conversations"."visibility" <> $4 or "conversations"."created_by" = $5'
     )
-    expect(sql).toContain('or ("conversations"."project_id" is null and (')
+    expect(sql).toContain('or ("conversations"."project_id" is null and "conversations"."started_in_personal" and (')
     expect(params.slice(0, 3)).toEqual(['org_1', PROJECT_ID, OTHER_ID])
     expect(sql.match(/"conversations"\."visibility" <> /g)).toHaveLength(1)
   })
 
   it('leaves the unstamped rows out when asked to, and matches nothing for no project and no unstamped rows', () => {
-    expect(statement({ projectIds: [PROJECT_ID], withoutContainer: false }).sql).not.toContain('is null')
+    expect(statement({ projectIds: [PROJECT_ID], withoutContainer: false }).sql).not.toContain('"project_id" is null')
     const none = statement({ projectIds: [], withoutContainer: false }).sql
     expect(none).toContain('false')
     expect(none).not.toContain('"conversations"."project_id"')
+  })
+
+  it('leaves out a chat being deleted in every scope, so no list or search shows it', () => {
+    for (const scope of [null, { projectIds: [PROJECT_ID], withoutContainer: true }, { projectIds: [], withoutContainer: true }]) {
+      expect(statement(scope).sql).toContain('"conversations"."deleted_at" is null')
+    }
   })
 })
 

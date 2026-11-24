@@ -71,7 +71,10 @@ one. A signed envelope without a kind reads as `chat` (envelopes signed before t
 - `may.personalMemory = solo && conversationId !== null && (kind === 'chat' || kind === 'run')`.
   ADR-0180 holds for chats as it does today: a solo project chat keeps personal
   memory.
-- `may.personalShelf = may.personalMemory && projectId === null && kind === 'chat'`, per ADR-0193.
+- `may.personalShelf = may.personalMemory && projectId === null && kind === 'chat'`, per ADR-0193,
+  and never for an unplaced chat: one without a project that was not started in
+  Persönlich (`audience.row.unplaced`, from `conversations.started_in_personal`;
+  ADR-0193 amendment of 2026-11-24).
 - `may.features = entitlement && !confined`. A turn that draws on restricted
   folders keeps deep research and tasks off, as `settle_restriction` does today.
 - `isShared` in `bff/sharing/access.ts` stays viewer-independent. It decides
@@ -170,6 +173,36 @@ stay off, because a run would carry the personal content out of the chat. A
 personal file enters a project only by an explicit act (ADR-0193, rule 4),
 never through a chat that read it.
 
+Its title, tags and subject can carry what it read, so an agent sees them only
+where it may draw on that shelf: the owner's in-product agent in a turn whose
+decision allows the shelf, or the owner's own connected agent. To any other
+agent call, the lists that name chats hold it back: the conversation list shows
+it without title, tags or subject, the workspace search leaves it out, since a
+hit on its title would already tell, and an inbox item about it comes without
+subject or excerpt. Reading such a chat by its id is the read gate's
+(`otherChatShelfRefusal`). The person's own list, search and inbox are
+unchanged (`bff/conversations/shelf-titles.ts`; the call sets
+`ownShelfReadable` on its acting session, `bff/agent-api/own-shelf.ts`).
+
+Reading another chat checks, before the read, whether that chat drew on its
+owner's shelf. A chat can start to while it is read, so the read gate checks
+again once the read is back (`afterRead`, `shelfUseSinceJudged`). It withholds
+what the read brought, unless the turn may draw on that same person's shelf: then
+the reading chat is admitted and marked as a shelf read, as it would have been
+had the other chat used the shelf before. A chat gone by then withholds it too.
+A write is not undone that way: it is the agent's proposal, which a person
+accepts.
+
+Two things are left unguarded on purpose:
+- **Moves.** A move from a chat (`document-move`, a folder's new parent, a
+  restore from the bin) is not checked against what the chat read. The in-product
+  agent only proposes a move, the person accepts it on a card that names it, and
+  they hold write access on both folders. The filing rule would also refuse
+  harmless moves.
+- **Proposals from before #1947.** A `document-upload` or `diagram-file`
+  proposal created before #1947 carries no chat, so accepting it files without
+  the filing guard. They are rare and expire, so none were swept.
+
 The personal-memory digest is injected into every solo turn in a conversation, so recording it
 would make every share ask. It is not recorded. Once a chat is shared, the next
 turn no longer injects it (ADR-0180, rule 4, fresh each turn). Earlier answers
@@ -237,11 +270,42 @@ and document-annotations routes since slice 3b.
 
 Each of these is the same function resolved for another audience, or a read of
 the per-answer record. None needs a rule of its own.
-1. **„Gelesen“ under every answer.** It shows the places and files read, whether
-   personal memory or Meine Ablage was in play, and who reads the chat.
-2. **Joining later.** Someone added to a chat sees the earlier answers. A source
-   they may not open shows as withheld. The `contentLocked` path in
-   `bff/sharing/access.ts` is its start.
+1. **„Gelesen“ under every answer (delivered in slice 5).** It shows the places
+   read, whether personal memory or Meine Ablage was in play, and whether the
+   chat was the asker's alone. A project or folder the reader may not open shows
+   as withheld, never by name (`GET /api/conversations/{id}/answers/trail`,
+   `bff/conversations/answer-trail.ts`). The record names folders and projects,
+   not files.
+2. **Joining later (delivered in slice 5).** A reader who may not read the whole
+   chat sees it up to the turn of its first answer that rests on a source they
+   may not open. That turn's question, the answer, and everything after it are
+   withheld. The question goes too, because it can be machine-written and carry
+   the source's text, as an annotation wake does. A later answer is withheld
+   even when it rests on no source of its own, because it may build on the
+   withheld one. The chat ends for them with „Ab hier stützt sich der Chat auf
+   eine Quelle, die Sie nicht öffnen dürfen.“, with no composer, because a turn
+   would read the withheld answers.
+   - The cut is per reader, in `readerCut` (`bff/conversations/reader-cut.ts`).
+     It reads the per-answer records (`answer_contexts`) against the sources of
+     the chat's ledger that this reader may not open (`unreadableSourcesOf`).
+     The message list carries `withheldFrom`, the first withheld message, and
+     „Gelesen“ is cut at the same turn. The cut is taken in the order the server
+     received the messages (`messages.received_seq`, migration 0266), never the
+     client's `created_at`, so a follow-up from a slow clock cannot sort before it.
+   - The whole chat stays locked, as before (`contentLocked` in
+     `bff/sharing/access.ts`), in these cases:
+     - an answer before the cut has no record;
+     - the first answer already rests on such a source;
+     - a source the reader may not open is named by no record from the cut on.
+       This covers a folder recorded at a bin purge, a revision's subject
+       folder, and an admission made without an answer.
+     - the chat has more than 5000 messages.
+     Records begin with slice 1, so an older answer cannot show what it rested
+     on.
+   - The refusals to widen a chat's audience are unchanged: the cut serves
+     readers the audience changed under, not a way to share past a refusal.
+   - The client asks again on every reload of the chat list, so a cut that moved
+     or a chat that locked whole is not shown from memory.
 3. **A preview before sharing.** The context is resolved for the audience the
    chat would have, and the preview lists the answers that rest on sources the
    new readers may not open. The choices are „share anyway“ or „hide those“.

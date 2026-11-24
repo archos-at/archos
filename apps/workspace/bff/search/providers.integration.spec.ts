@@ -159,6 +159,7 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
       visibility = 'private',
       tags = [],
       deleted = false,
+      startedInPersonal = false,
     }: {
       title: string
       projectId?: string | null
@@ -166,6 +167,7 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
       visibility?: 'private' | 'project' | 'organization'
       tags?: string[]
       deleted?: boolean
+      startedInPersonal?: boolean
     }
   ) => {
     const tagArray =
@@ -177,9 +179,9 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
         : sql`'{}'::text[]`
     await inOrg(() =>
       db.execute(sql`
-        insert into conversations (id, organization_id, created_by, title, project_id, visibility, tags, deleted_at)
+        insert into conversations (id, organization_id, created_by, title, project_id, visibility, tags, deleted_at, started_in_personal)
         values (${id}, ${ORG}, ${createdBy}, ${title}, ${projectId}::uuid, ${visibility}, ${tagArray},
-                ${deleted ? sql`now()` : null})`)
+                ${deleted ? sql`now()` : null}, ${startedInPersonal})`)
     )
   }
 
@@ -257,7 +259,9 @@ describe.skipIf(!url)('the search providers against live Postgres', () => {
       projectId: null,
       createdBy: OTHER,
       visibility: 'organization',
+      startedInPersonal: true,
     })
+    await conversation(`s_sp_legacy_${STAMP}`, { title: 'Fluchtweg alte Startseite', projectId: null })
     await conversation(`s_sp_tagged_${STAMP}`, { title: 'Stiegenhaus', tags: ['fire_safety'] })
     const withheld = `s_sp_withheld_${STAMP}`
     await conversation(withheld, { title: 'Fluchtweg Personalakte' })

@@ -59,6 +59,7 @@ const chatState = {
   pendingMessagesFor: null as string | null,
   composerSubject: null as { resourceId: string } | null,
   setProjectId: vi.fn(),
+  enterSide: vi.fn(),
   loadServerConversations: vi.fn(async () => {}),
   setComposerPrefill: vi.fn(),
   startNewSessionDraft: vi.fn(),

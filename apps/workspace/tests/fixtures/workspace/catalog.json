@@ -1398,13 +1398,22 @@
    "describe": "{\"name\":\"citation-style-get\",\"domain\":\"conversations\",\"summary\":\"Read how the office’s country writes a citation\",\"description\":\"The citation style released for the office’s home country, per language: which sources are a standard or a law, the line template per kind, the locus and page labels, the edition phrase and the date form. Write references in it. Returns `{ style }`, null while the country has none released.\",\"annotations\":{\"title\":\"Read how the office’s country writes a citation\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
   },
   {
+   "name": "conversation-answer-trail-list",
+   "domain": "conversations",
+   "summary": "Read what each answer of a conversation read",
+   "description": "Per answer, oldest first within the page, earlier ones through `nextCursor`: the projects and folders it read, each named only where the person may open it and otherwise withheld, and whether personal memory or the person’s own shelf was in play. Answers from before these records exist have no entry.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"conversation-answer-trail-list\",\"domain\":\"conversations\",\"summary\":\"Read what each answer of a conversation read\",\"description\":\"Per answer, oldest first within the page, earlier ones through `nextCursor`: the projects and folders it read, each named only where the person may open it and otherwise withheld, and whether personal memory or the person’s own shelf was in play. Answers from before these records exist have no entry.\",\"annotations\":{\"title\":\"Read what each answer of a conversation read\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"default\":50,\"description\":\"Page size (default 50, most 200).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous `nextCursor`: earlier answers.\",\"type\":\"string\",\"format\":\"uuid\"}}}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+  },
+  {
    "name": "conversation-create",
    "domain": "conversations",
    "summary": "Start a new conversation",
    "description": "Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, and optionally `temporary` (nothing from it is kept in memory). You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.",
    "readOnly": false,
    "destructive": false,
-   "describe": "{\"name\":\"conversation-create\",\"domain\":\"conversations\",\"summary\":\"Start a new conversation\",\"description\":\"Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, and optionally `temporary` (nothing from it is kept in memory). You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.\",\"annotations\":{\"title\":\"Start a new conversation\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},\"title\":{\"type\":[\"string\",\"null\"]},\"projectId\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]},\"subjectResourceType\":{\"anyOf\":[{\"const\":\"document\"},{\"type\":\"null\"}]},\"subjectResourceId\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},{\"type\":\"null\"}]},\"temporary\":{\"description\":\"True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.\",\"type\":\"boolean\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
+   "describe": "{\"name\":\"conversation-create\",\"domain\":\"conversations\",\"summary\":\"Start a new conversation\",\"description\":\"Creates an empty private conversation, optionally in a project (projectId from project-list) or about one document, and optionally `temporary` (nothing from it is kept in memory). You choose the id: `s_` plus a UUID with underscores. Returns it. Share it deliberately afterwards.\",\"annotations\":{\"title\":\"Start a new conversation\",\"readOnlyHint\":false,\"destructiveHint\":false,\"idempotentHint\":false,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"body\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},\"title\":{\"type\":[\"string\",\"null\"]},\"projectId\":{\"anyOf\":[{\"type\":\"string\",\"format\":\"uuid\"},{\"type\":\"null\"}]},\"subjectResourceType\":{\"anyOf\":[{\"const\":\"document\"},{\"type\":\"null\"}]},\"subjectResourceId\":{\"anyOf\":[{\"type\":\"string\",\"minLength\":1,\"maxLength\":128},{\"type\":\"null\"}]},\"temporary\":{\"description\":\"True starts a temporary conversation: nothing from it is kept in project, organization or personal memory.\",\"type\":\"boolean\"},\"personal\":{\"description\":\"True starts the chat on the person's personal side, which lists only chats started there. Ignored with a `projectId`.\",\"type\":\"boolean\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"body\"]}}"
   },
   {
    "name": "conversation-delete",
@@ -1414,6 +1423,15 @@
    "readOnly": false,
    "destructive": true,
    "describe": "{\"name\":\"conversation-delete\",\"domain\":\"conversations\",\"summary\":\"Delete a conversation\",\"description\":\"Deletes a conversation and its messages for everyone in it, permanently. The answer is the same whether or not the id was real.\",\"annotations\":{\"title\":\"Delete a conversation\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+  },
+  {
+   "name": "conversation-delete-all",
+   "domain": "conversations",
+   "summary": "Delete all of the person’s own chats on one side",
+   "description": "Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats started on the personal side, `place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"conversation-delete-all\",\"domain\":\"conversations\",\"summary\":\"Delete all of the person’s own chats on one side\",\"description\":\"Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats started on the personal side, `place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.\",\"annotations\":{\"title\":\"Delete all of the person’s own chats on one side\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"place\":{\"type\":\"string\",\"enum\":[\"personal\",\"project\"],\"description\":\"`personal`: the caller's own chats started on the personal side; `project`: the caller's own chats in `projectId`.\"},\"projectId\":{\"description\":\"The project whose chats `place=project` deletes.\",\"type\":\"string\",\"format\":\"uuid\"}},\"required\":[\"place\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"query\"]}}"
   },
   {
    "name": "conversation-draft-delete",
@@ -1476,7 +1494,7 @@
    "description": "The conversations the person may open, their own and shared ones, most recently active first, with id, title, project and unread state. Narrow with projectId (from project-list) and place; page with `nextCursor`. Its ids feed conversation-get and conversation-message-list.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"conversation-list\",\"domain\":\"conversations\",\"summary\":\"List the conversations the person can see\",\"description\":\"The conversations the person may open, their own and shared ones, most recently active first, with id, title, project and unread state. Narrow with projectId (from project-list) and place; page with `nextCursor`. Its ids feed conversation-get and conversation-message-list.\",\"annotations\":{\"title\":\"List the conversations the person can see\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"projectId\":{\"description\":\"This project’s chats and the projectless ones.\",\"type\":\"string\",\"format\":\"uuid\"},\"place\":{\"description\":\"`personal`: projectless only; `project`: `projectId`’s only.\",\"type\":\"string\",\"enum\":[\"personal\",\"project\"]},\"limit\":{\"default\":50,\"description\":\"Page size (default 50, most 200).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous `nextCursor`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":128}}}},\"additionalProperties\":false}}"
+   "describe": "{\"name\":\"conversation-list\",\"domain\":\"conversations\",\"summary\":\"List the conversations the person can see\",\"description\":\"The conversations the person may open, their own and shared ones, most recently active first, with id, title, project and unread state. Narrow with projectId (from project-list) and place; page with `nextCursor`. Its ids feed conversation-get and conversation-message-list.\",\"annotations\":{\"title\":\"List the conversations the person can see\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"projectId\":{\"description\":\"This project’s chats and the projectless ones.\",\"type\":\"string\",\"format\":\"uuid\"},\"place\":{\"description\":\"`personal`: the chats started on the personal side; `project`: `projectId`’s only.\",\"type\":\"string\",\"enum\":[\"personal\",\"project\"]},\"limit\":{\"default\":50,\"description\":\"Page size (default 50, most 200).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous `nextCursor`.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":128}}}},\"additionalProperties\":false}}"
   },
   {
    "name": "conversation-message-add",
@@ -1509,10 +1527,10 @@
    "name": "conversation-message-list",
    "domain": "conversations",
    "summary": "Read the messages of a conversation",
-   "description": "The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. Message ids feed conversation-message-changes.",
+   "description": "The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. Message ids feed conversation-message-changes. `withheldFrom`, when present, is the first message left out: from that turn on the chat rests on a source the person may not open, so it and everything after are withheld.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"conversation-message-list\",\"domain\":\"conversations\",\"summary\":\"Read the messages of a conversation\",\"description\":\"The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. Message ids feed conversation-message-changes.\",\"annotations\":{\"title\":\"Read the messages of a conversation\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"default\":50,\"description\":\"Page size (default 50, most 200).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous `nextCursor`: earlier messages.\",\"type\":\"string\",\"format\":\"uuid\"},\"include\":{\"description\":\"Comma-separated extras, none by default: `citations` (sources with snippets), `steps` (thinking steps), `metadata` (cards, provenance, the rest).\",\"type\":\"string\",\"maxLength\":64}}}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"conversation-message-list\",\"domain\":\"conversations\",\"summary\":\"Read the messages of a conversation\",\"description\":\"The newest messages of a conversation, oldest first within the page; earlier ones through `nextCursor`. Each has id, role, content, author, time and mentions; an assistant’s content is plain Markdown, with its cards and project values resolved. `include` adds citations, steps or metadata. Message ids feed conversation-message-changes. `withheldFrom`, when present, is the first message left out: from that turn on the chat rests on a source the person may not open, so it and everything after are withheld.\",\"annotations\":{\"title\":\"Read the messages of a conversation\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"default\":50,\"description\":\"Page size (default 50, most 200).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":200},\"cursor\":{\"description\":\"The previous `nextCursor`: earlier messages.\",\"type\":\"string\",\"format\":\"uuid\"},\"include\":{\"description\":\"Comma-separated extras, none by default: `citations` (sources with snippets), `steps` (thinking steps), `metadata` (cards, provenance, the rest).\",\"type\":\"string\",\"maxLength\":64}}}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
    "name": "conversation-message-update",
@@ -2339,8 +2357,8 @@
    "project-person-add",
    "project-member-list",
    "project-intake-building",
-   "project-create",
    "base-knowledge-edition-add",
+   "project-create",
    "assignment-candidate-list",
    "project-record-get",
    "task-run-document-add",
@@ -2351,8 +2369,8 @@
    "project-person-add",
    "project-member-list",
    "project-intake-building",
-   "project-create",
    "base-knowledge-edition-add",
+   "project-create",
    "assignment-candidate-list",
    "project-record-get",
    "task-run-document-add",
@@ -2661,19 +2679,7 @@
   "conversation share": [
    "conversation-create",
    "conversation-list",
-   "conversation-delete",
-   "conversation-draft-download",
-   "conversation-get",
-   "conversation-message-add",
-   "conversation-message-list",
-   "conversation-update",
-   "conversation-awaiting-get",
-   "conversation-mention-candidate-list"
-  ],
-  "Unterhaltung teilen": [
-   "conversation-list",
-   "sharing-get",
-   "conversation-create",
+   "conversation-delete-all",
    "conversation-delete",
    "conversation-draft-download",
    "conversation-get",
@@ -2681,6 +2687,18 @@
    "conversation-message-list",
    "conversation-update",
    "conversation-awaiting-get"
+  ],
+  "Unterhaltung teilen": [
+   "conversation-list",
+   "sharing-get",
+   "conversation-delete-all",
+   "conversation-create",
+   "conversation-delete",
+   "conversation-draft-download",
+   "conversation-get",
+   "conversation-message-add",
+   "conversation-message-list",
+   "conversation-update"
   ],
   "": [
    "classification-evaluate",

@@ -68,7 +68,7 @@ describe('useChatStore', () => {
   })
 
   describe('conversation management', () => {
-    test('deleteConversation removes conversation', () => {
+    test('deleteConversation removes conversation', async () => {
       const conv: Conversation = {
         id: 'conv-1',
         userId: 'user-1',
@@ -79,13 +79,13 @@ describe('useChatStore', () => {
       }
       useChatStore.setState({ currentConversation: conv, conversations: [conv] })
 
-      useChatStore.getState().deleteConversation('conv-1')
+      await useChatStore.getState().deleteConversation('conv-1')
 
       expect(useChatStore.getState().conversations).toHaveLength(0)
       expect(useChatStore.getState().currentConversation).toBeNull()
     })
 
-    test('deleteConversation keeps current if different', () => {
+    test('deleteConversation keeps current if different', async () => {
       const conv1: Conversation = {
         id: 'conv-1',
         userId: 'user-1',
@@ -104,7 +104,7 @@ describe('useChatStore', () => {
       }
       useChatStore.setState({ currentConversation: conv1, conversations: [conv1, conv2] })
 
-      useChatStore.getState().deleteConversation('conv-2')
+      await useChatStore.getState().deleteConversation('conv-2')
 
       expect(useChatStore.getState().currentConversation).toEqual(conv1)
     })
@@ -146,7 +146,7 @@ describe('useChatStore', () => {
         'conv-persist-2'
       )
 
-      useChatStore.getState().deleteConversation('conv-persist-1')
+      await useChatStore.getState().deleteConversation('conv-persist-1')
 
       await vi.waitFor(() => {
         const parsed = readStoredChat(STORAGE_KEY)!
@@ -187,7 +187,7 @@ describe('useChatStore', () => {
         expect(parsed.state.currentConversation).toBe('conv-current')
       })
 
-      useChatStore.getState().deleteConversation('conv-current')
+      await useChatStore.getState().deleteConversation('conv-current')
 
       await vi.waitFor(() => {
         const parsed = readStoredChat(STORAGE_KEY)!

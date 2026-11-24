@@ -20,9 +20,12 @@ lists **„Neuer Chat“** and **„Meine Ablage“**; a new chat started there 
 project, and it does not read any project's files (ADR-0193).
 
 **„Letzte Chats“** lists the side you are on: under Persönlich your chats
-without a project, under Projekt that project's chats, the ten newest first,
-with a people mark when you share one. **„Alle Chats“** opens the same side's
-history. A chat without a project has no `@`: to bring someone in, share it
+without a project, under Projekt that project's chats: at most eight, newest
+first and always with the chat you have open, with a people mark when you share
+one. When the side has more, **„Alle Chats“** ends the list and opens that
+side's history. Switching between Persönlich and Projekt moves the rail at once;
+the page follows when it has loaded. The chat you had open stays on its side:
+the other side opens its own chat, never the one you left. A chat without a project has no `@`: to bring someone in, share it
 through **Teilen**.
 
 ## Starting a conversation
@@ -174,7 +177,7 @@ The list groups chats by day (Today, Yesterday, then the date) with sticky day h
 
 Rename and delete appear on the row on hover or keyboard focus; on a touch screen each row has a visible menu at its end instead. A chat that holds a deep research run, started in it or by a scheduled task, carries a **Deep Research** mark beside its title; there is no separate list of runs, because a run is a message in its chat. A run is stopped from its block in the chat. An office without deep research sees no filter and no marks; reading a project's documents after an upload is not a research run.
 
-The footer explains that chats are saved in your workspace and available on every device, and that research reports may expire on the server, and holds **Delete all chats** — the destructive bulk action, kept at the far end of the panel rather than above the list it deletes. It is scoped to the current project.
+The footer explains that chats are saved in your workspace and available on every device, and that research reports may expire on the server, and holds **Delete all chats** — the destructive bulk action, kept at the far end of the panel rather than above the list it deletes. It deletes the chats you started on the side you are on: under **Persönlich** the chats you started there (chats without a project from before Persönlich existed are kept but listed nowhere, and this does not delete them), in a project your chats in that project. The confirmation says which. Chats in other projects, your personal chats when you are in a project, and chats others started stay. A chat under a legal hold is kept, and a message names it. If the deletion fails, nothing disappears from the list and a message says why.
 
 Switching chats is blocked during shallow thinking (WebSocket stream) or a HITL prompt; deep research runs server-side and does not block navigation.
 

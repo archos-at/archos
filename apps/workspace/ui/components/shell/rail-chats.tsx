@@ -11,7 +11,7 @@ import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 
-export const RAIL_CHAT_LIMIT = 10
+export const RAIL_CHAT_LIMIT = 8
 
 export interface RailChat {
   id: string
@@ -33,6 +33,8 @@ export interface RailChats {
   onOpenAll?: () => void
   onRename?: (id: string, title: string) => void
   onDelete?: (id: string) => void
+  onWarmOtherSide?: () => void
+  more?: boolean
 }
 
 const RailChatsContext = createContext<RailChats | null>(null)
@@ -43,9 +45,9 @@ export function useRailChats(): RailChats | null {
   return useContext(RailChatsContext)
 }
 
-const ROW = 'relative flex h-8 min-w-0 items-center gap-1 rounded-control px-3 text-[13px] transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:h-11'
+const ROW = 'relative flex h-7 min-w-0 items-center gap-1 rounded-control px-3 text-[13px] transition-colors duration-quick ease-out motion-reduce:transition-none pointer-coarse:h-11'
 
-const QUIET = 'text-muted-foreground hover:text-foreground text-meta flex items-center gap-1 rounded-control px-3 font-medium transition-colors duration-quick ease-out motion-reduce:transition-none'
+const QUIET = 'text-subtle hover:text-foreground text-meta flex items-center gap-1 rounded-control px-3 font-medium transition-colors duration-quick ease-out motion-reduce:transition-none'
 
 export const RECENT_CHATS_COLLAPSED_STORAGE_KEY = 'sidebar.recent-chats.collapsed'
 
@@ -155,7 +157,7 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
   }
   if (chats.items.length === 0) return null
   return (
-    <section aria-label={t('recentChats')} className={cn('mt-6 flex min-h-0 flex-col', !collapsed && 'flex-1')}>
+    <section aria-label={t('recentChats')} className={cn('mt-8 flex min-h-0 flex-col', !collapsed && 'flex-1')}>
       {/* The heading is the fold: the chevron points down while the list is open and right while it is folded. */}
       <h2 className="shrink-0">
         <button
@@ -165,10 +167,16 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
           aria-controls={listId}
           data-focus-inset
           data-testid="rail-chats-toggle"
-          className={cn(QUIET, 'h-7 w-full')}
+          className={cn(QUIET, 'group/heading mb-0.5 h-6 w-full pointer-coarse:h-11')}
         >
           {t('recentChats')}
-          <ChevronDown className={cn('size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none', collapsed && '-rotate-90')} aria-hidden />
+          <ChevronDown
+            className={cn(
+              'size-3.5 shrink-0 transition-[rotate,opacity] duration-quick ease-out motion-reduce:transition-none',
+              collapsed ? '-rotate-90' : 'opacity-0 group-hover/heading:opacity-100 group-focus-visible/heading:opacity-100 pointer-coarse:opacity-100'
+            )}
+            aria-hidden
+          />
         </button>
       </h2>
       {/* `p-px` (and `-mx-px`, so the rows keep their edge), because a scroll box clips on every side: with `py-px`
@@ -189,7 +197,7 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
               className={cn(
                 ROW,
                 (chats.onRename || chats.onDelete) && 'group-hover/chat:pr-8 group-focus-within/chat:pr-8 pointer-coarse:pr-12',
-                chat.current ? 'text-foreground font-medium' : 'text-muted-foreground hover:bg-selected hover:text-foreground active:bg-pressed'
+                chat.current ? 'text-foreground font-medium' : 'text-subtle hover:bg-selected hover:text-foreground active:bg-pressed'
               )}
             >
               {/* Where the reader is: the rail's one sheet, gliding here from „Chat“ (`railActivePillId`). */}
@@ -216,12 +224,14 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
             )}
           </li>
         ))}
-        {/* At the end of the scroll, as a chat app's „more“: reached after the last chat, in the heading's face. */}
-        <li className="shrink-0">
-          <Link href={chats.allHref} onClick={chats.onOpenAll} data-focus-inset data-testid="rail-all-chats" className={cn(QUIET, 'h-8 pointer-coarse:h-11')}>
-            {t('allChats')}
-          </Link>
-        </li>
+        {/* After the last chat, as a chat app's „more“, only while there are more: in the heading's face. */}
+        {chats.more && (
+          <li className="shrink-0">
+            <Link href={chats.allHref} onClick={chats.onOpenAll} data-focus-inset data-testid="rail-all-chats" className={cn(QUIET, 'h-7 pointer-coarse:h-11')}>
+              {t('allChats')}
+            </Link>
+          </li>
+        )}
       </ul>
     </section>
   )

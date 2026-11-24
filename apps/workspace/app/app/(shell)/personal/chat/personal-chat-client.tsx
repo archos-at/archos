@@ -12,7 +12,7 @@ export function opensHere(conversation: { projectId?: string | null; userId: str
 
 const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): ReactNode => {
   const { isAuthenticated, signIn } = useAuth()
-  const setProjectId = useChatStore((s) => s.setProjectId)
+  const enterSide = useChatStore((s) => s.enterSide)
   const loadServerConversations = useChatStore((s) => s.loadServerConversations)
   const startNewSessionDraft = useChatStore((s) => s.startNewSessionDraft)
   const selectConversation = useChatStore((s) => s.selectConversation)
@@ -24,9 +24,9 @@ const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): R
   const pathname = usePathname()
 
   useEffect(() => {
-    setProjectId(null)
+    enterSide(null)
     void loadServerConversations(undefined, 'personal')
-  }, [setProjectId, loadServerConversations])
+  }, [enterSide, loadServerConversations])
 
   const newParam = searchParams?.get('new') ?? null
   const consumedNew = useRef(false)
@@ -38,6 +38,9 @@ const PersonalChatContent = ({ canCollaborate }: { canCollaborate: boolean }): R
   }, [newParam, isAuthenticated, pathname, router, startNewSessionDraft])
 
   const sessionParam = searchParams?.get('session') ?? null
+  useEffect(() => {
+    if (sessionParam) void loadServerConversations(undefined, 'personal', sessionParam)
+  }, [sessionParam, loadServerConversations])
   const hydrated = useRef<string | null>(null)
   useEffect(() => {
     if (!isAuthenticated || !sessionParam || newParam || !userId || hydrated.current === sessionParam) return

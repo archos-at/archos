@@ -242,6 +242,8 @@ export interface ConversationSearchRow {
   projectId: string | null
   title: string | null
   updatedAt: Date
+  createdBy: string
+  personalShelfUsedAt: Date | null
 }
 
 export async function searchConversationRows(
@@ -259,6 +261,8 @@ export async function searchConversationRows(
         projectId: conversations.projectId,
         title: conversations.title,
         updatedAt: conversations.updatedAt,
+        createdBy: conversations.createdBy,
+        personalShelfUsedAt: conversations.personalShelfUsedAt,
       })
       .from(conversations)
       .where(
