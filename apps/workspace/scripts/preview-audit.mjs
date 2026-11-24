@@ -134,7 +134,9 @@ export function judgeAgainstBaseline({ baseline, found, routes, discovered, args
   const audited = new Set(routes)
   const inScope = (key) => audited.has(key.split(' ')[0])
   if (args.writeBaseline) {
-    const kept = existsSync(baseline) ? JSON.parse(readFileSync(baseline, 'utf8')).filter((key) => !inScope(key)) : []
+    const kept = existsSync(baseline)
+      ? JSON.parse(readFileSync(baseline, 'utf8')).filter((key) => !inScope(key) && discovered.includes(key.split(' ')[0]))
+      : []
     writeFileSync(baseline, `${JSON.stringify([...kept, ...found.keys()].sort(), null, 2)}\n`)
     console.log(`baseline: ${kept.length + found.size} entries`)
     return 0

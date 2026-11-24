@@ -590,9 +590,14 @@ jobs:
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
+      - if: ${{ !vars.CI_RUNNER }}
+        working-directory: apps/workspace
+        run: >-
+          node node_modules/playwright-core/cli.js install-deps chromium
+          || echo "::warning::playwright install-deps failed; the phone gate fails if Chromium cannot start"
       - name: Chromium for playwright-core
         working-directory: apps/workspace
-        run: node node_modules/playwright-core/cli.js install --with-deps chromium
+        run: node node_modules/playwright-core/cli.js install chromium
       - run: task workspace:phone-audit -- --shard ${{ matrix.shard }}/4
         env:
           # Four routes at once took `next dev` past a 16 GB machine's memory on the first seed (2026-11-24).

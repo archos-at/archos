@@ -646,8 +646,8 @@ has the command.
 than the phone and on a control under 44x44, counting a `touch-target` catchment
 and a frame's declared `data-tap-reach`. Known exceptions are in
 `ci/phone-audit-baseline.json`, which only shrinks. CI's
-**Workspace phone gate** runs it in four shards when `apps/workspace/ui`, `app`
-or `i18n` change; it is not part of `verify`, because a browser pass over every
+**Workspace phone gate** runs it in four shards when anything under `apps/workspace`
+or `packages/brand` changes; it is not part of `verify`, because a browser pass over every
 preview takes minutes. What the old `workspace:touch-audit` also caught and this
 does not: a region whose `touch-action` refuses the vertical pan (a reasoning
 graph that swallowed every swipe), and a `truncate` that never fires. Walk the

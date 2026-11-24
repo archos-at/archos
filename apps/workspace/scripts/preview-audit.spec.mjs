@@ -44,6 +44,13 @@ describe('judging findings against the baseline', () => {
     expect(judge(baselineWith(['/dev/files-page 360 overflow']), [], { argv: ['/dev/inbox'] })).toBe(0)
   })
 
+  it('drops the entries of a route that no longer exists when it writes', () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const file = baselineWith(['/dev/retired 390 overflow', '/dev/files-page 390 overflow'])
+    judge(file, [], { argv: ['--write-baseline'] })
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(['/dev/files-page 390 overflow'])
+  })
+
   it('writes the findings of the audited routes and keeps the others', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const file = baselineWith(['/dev/files-page 390 overflow', '/dev/inbox 390 overflow'])

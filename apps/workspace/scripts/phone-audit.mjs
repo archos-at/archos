@@ -43,15 +43,30 @@ function measure({ width, min, productName }) {
     const parent = el.parentElement
     return Boolean(parent && [...parent.childNodes].some((node) => node !== el && node.nodeType === Node.TEXT_NODE && node.textContent.trim()))
   }
+  const clipped = (rect, el) => {
+    const out = { ...rect }
+    for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+      const style = getComputedStyle(a)
+      const clip = a.getBoundingClientRect()
+      if (style.overflowX !== 'visible') Object.assign(out, { left: Math.max(out.left, clip.left), right: Math.min(out.right, clip.right) })
+      if (style.overflowY !== 'visible') Object.assign(out, { top: Math.max(out.top, clip.top), bottom: Math.min(out.bottom, clip.bottom) })
+    }
+    return { left: out.left, top: out.top, right: Math.max(out.left, out.right), bottom: Math.max(out.top, out.bottom) }
+  }
   const sizeOf = (el) => {
     const box = el.getBoundingClientRect()
     let w = box.width
     let h = box.height
+    const cx = box.left + box.width / 2
+    const cy = box.top + box.height / 2
     for (const pseudo of ['::after', '::before']) {
       const part = getComputedStyle(el, pseudo)
       if (part.content === 'none' || part.position !== 'absolute') continue
-      w = Math.max(w, parseFloat(part.width) || 0)
-      h = Math.max(h, parseFloat(part.height) || 0)
+      const pw = parseFloat(part.width) || 0
+      const ph = parseFloat(part.height) || 0
+      const seen = clipped({ left: cx - pw / 2, right: cx + pw / 2, top: cy - ph / 2, bottom: cy + ph / 2 }, el)
+      w = Math.max(w, seen.right - seen.left)
+      h = Math.max(h, seen.bottom - seen.top)
     }
     for (const label of el.labels ?? []) {
       const around = label.getBoundingClientRect()
@@ -93,7 +108,9 @@ async function auditRoute(browser, base, route, found, unrendered) {
     const context = await browser.newContext({ viewport: { width: phone.width, height: phone.height }, isMobile: true, hasTouch: true })
     const page = await context.newPage()
     try {
-      const response = await page.goto(base + route, { waitUntil: 'load', timeout: 300000 })
+      const load = () => page.goto(base + route, { waitUntil: 'load', timeout: 300000 })
+      const first = await load().catch(() => null)
+      const response = first?.ok() ? first : await load()
       if (!response?.ok()) throw new Error(`HTTP ${response?.status() ?? 'no response'}`)
       await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
       await page.waitForTimeout(1000)
