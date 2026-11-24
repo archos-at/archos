@@ -12,12 +12,18 @@ export const ROW_GAP = 40
 
 export const PAD = 24
 
+export const SHEET_EDGE = 1
+
 const MIN_CONTENT_W = 220
 
 export const FALLBACK_W = 680
 
 export function measuredFanWidth(previous: number, clientWidth: number): number {
   return clientWidth > 0 ? clientWidth : previous
+}
+
+export function sheetRoom(paneWidth: number): number {
+  return paneWidth - 2 * SHEET_EDGE
 }
 
 export interface FanLayout {

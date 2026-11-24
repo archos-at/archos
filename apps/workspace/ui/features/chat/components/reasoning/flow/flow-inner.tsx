@@ -13,11 +13,11 @@ import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { HandleSpec } from './flow-node-data'
 import { nodeTypes } from './flow-nodes'
-import { ROW_GAP, PAD, FanLayout } from './flow-layout'
+import { ROW_GAP, PAD, SHEET_EDGE, FanLayout } from './flow-layout'
 import { edgeTypes } from './flow-edges'
 import { BuiltGraph, sameNodeData, animateFrontier, keepEdgeIdentity } from './build-graph'
 
-const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 }
+const DEFAULT_VIEWPORT = { x: SHEET_EDGE, y: SHEET_EDGE, zoom: 1 }
 
 const PRO_OPTIONS = { hideAttribution: true }
 
@@ -139,7 +139,7 @@ export const FlowInner: FC<{ built: BuiltGraph; layout: FanLayout; live: boolean
       })
       return moved ? next : prev
     })
-    const measuredHeight = Math.max(120, Math.ceil(Math.max(0, y - ROW_GAP)) + PAD)
+    const measuredHeight = Math.max(120, Math.ceil(Math.max(0, y - ROW_GAP)) + SHEET_EDGE + PAD)
     setHeight((previous) =>
       live && previous !== null ? Math.max(previous, measuredHeight) : measuredHeight
     )

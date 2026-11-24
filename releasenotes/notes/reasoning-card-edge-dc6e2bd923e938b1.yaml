@@ -1,0 +1,7 @@
+---
+# area: answers
+fixes:
+  - >
+    The cards in an answer's reasoning view (the question, each step, the
+    sources it rests on) now show their outline all the way round instead of
+    only at the corners.

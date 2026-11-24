@@ -205,7 +205,7 @@ function BimTablesPreview(): JSX.Element {
 
   return (
     <div data-testid="bim-tables-preview" className="bg-background text-foreground min-h-dvh p-6">
-      <div className="mx-auto grid max-w-[1200px] gap-8 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-8 lg:grid-cols-2">
         <div className="flex flex-col gap-8">
           <IfcRoomSchedule
             schedule={SCHEDULE}
