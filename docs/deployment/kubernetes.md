@@ -2575,9 +2575,11 @@ services and not the metadata endpoint. The program refuses to plan the runners
 without `networkPolicies`. Their PriorityClass, `ci-runner`, is below every
 other pod's and never preempts: staging evicts a runner, never the reverse.
 
-Turn it on only once the repository is private: on a public one a fork's pull
-request can name the scale set in its own workflow. The rollout order is in
-ADR-0184.
+On a public repository a fork's pull request can name the scale set in its own
+copy of a workflow. While the repository is public, every outside contributor's
+run waits for a maintainer's approval (Settings → Actions → General), and that
+setting holds before the deploy that registers the scale set. The rollout order
+is in ADR-0184.
 
 ### What has been validated without the provider cluster
 

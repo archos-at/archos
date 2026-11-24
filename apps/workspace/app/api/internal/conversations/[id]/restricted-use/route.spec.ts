@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/auth/require-auth', () => ({ requireAuthorizedSession: vi.fn() }))
 vi.mock('@/lib/db/tenant-context', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/db/tenant-context')>()),
-  withTenant: vi.fn((_scope: unknown, run: () => Promise<unknown>) => run()),
+  withSystemReader: vi.fn((_organizationId: string, _reader: string, run: () => Promise<unknown>) => run()),
 }))
 vi.mock('@/lib/conversations/restricted-use', () => ({
   ADMISSION_MAX_COLLECTIONS: 20,
@@ -28,7 +28,7 @@ vi.mock('@/lib/conversation-context', () => ({ decisionFromRequest: vi.fn(() => 
 import { admitRestrictedUse } from '@/lib/conversations/restricted-use'
 import { admitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
 import { decisionFromRequest } from '@/lib/conversation-context'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { POST } from './route'
 
 const TOKEN = 'a-real-secret-token'
@@ -74,7 +74,7 @@ describe('POST /api/internal/conversations/[id]/restricted-use', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ admitted: [CONTRACTS], refused: [], recorded: ['folder-vertraege'] })
-    expect(withTenant).toHaveBeenCalledWith({ organizationId: ORG_ID }, expect.any(Function))
+    expect(withSystemReader).toHaveBeenCalledWith(ORG_ID, 'agent-host', expect.any(Function))
     expect(admitRestrictedUse).toHaveBeenCalledWith(REQUEST, [CONTRACTS])
   })
 

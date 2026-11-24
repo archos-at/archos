@@ -33,6 +33,7 @@ jobs:
       reused: ${{ steps.reuse.outputs.hit || 'false' }}
       backend: ${{ steps.filter.outputs.backend || 'false' }}
       workspace: ${{ steps.filter.outputs.workspace || 'false' }}
+      phone: ${{ steps.filter.outputs.phone || 'false' }}
       site: ${{ steps.filter.outputs.site || 'false' }}
       cms: ${{ steps.filter.outputs.cms || 'false' }}
       infra: ${{ steps.filter.outputs.infra || 'false' }}
@@ -569,6 +570,48 @@ jobs:
           FILES_JSON: ${{ needs.changes.outputs.ui_files }}
         run: task workspace:test:related SHARD="$SHARD" FILES="$(jq -r 'join(" ")' <<<"$FILES_JSON")"
 
+  workspace-phone:
+    name: Workspace phone gate (shard ${{ matrix.shard }}/4)
+    needs: changes
+    if: needs.changes.outputs.phone == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - run: task workspace:install
+      - if: ${{ !vars.CI_RUNNER }}
+        working-directory: apps/workspace
+        run: >-
+          node node_modules/playwright-core/cli.js install-deps chromium
+          || echo "::warning::playwright install-deps failed; the phone gate fails if Chromium cannot start"
+      - name: Chromium for playwright-core
+        working-directory: apps/workspace
+        run: node node_modules/playwright-core/cli.js install chromium
+      - run: task workspace:phone-audit -- --shard ${{ matrix.shard }}/4
+        env:
+          # Four routes at once took `next dev` past a 16 GB machine's memory on the first seed (2026-11-24).
+          PHONE_AUDIT_CONCURRENCY: '2'
+          PHONE_AUDIT_FINDINGS_OUT: ${{ runner.temp }}/phone-findings-${{ matrix.shard }}.json
+      - name: What this shard measured (the baseline is seeded from these)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: phone-findings-${{ matrix.shard }}
+          path: ${{ runner.temp }}/phone-findings-${{ matrix.shard }}.json
+          retention-days: 7
+          if-no-files-found: ignore
+
   site:
     name: Website (Astro check, tests, build, a11y)
     needs: changes
@@ -920,7 +963,7 @@ jobs:
 
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, workspace-phone, site, cms, infra, packages, agent-engine, runner-e2e, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -960,7 +1003,7 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, infra-preview, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, workspace-phone, site, cms, infra, infra-preview, packages, agent-engine, runner-e2e, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:

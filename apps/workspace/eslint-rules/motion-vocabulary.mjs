@@ -26,7 +26,10 @@
  *                           `@keyframes`/`animation` shorthand rather than as a
  *                           transition timing function.
  *
- *   `transition-[width]`  — and height/margin/padding/top/left/right/bottom.
+ *   `transition-[width]`  — and height/margin/padding/top/left/right/bottom,
+ *                           and grid-template-columns: a `0fr → 1fr` column is
+ *                           a width that pushes every neighbour in its row (the
+ *                           temporary switch's „Temporär“, 2026-11).
  *   and friends             These are LAYOUT properties: the browser cannot
  *                           composite them, so every frame re-runs layout for
  *                           the whole subtree. On a sidebar or a list that is
@@ -113,7 +116,7 @@
  */
 
 /** Layout properties whose transition costs a re-layout per frame. */
-const LAYOUT_PROPERTIES = ['width', 'height', 'margin', 'padding', 'top', 'left', 'right', 'bottom']
+const LAYOUT_PROPERTIES = ['width', 'height', 'margin', 'padding', 'top', 'left', 'right', 'bottom', 'grid-template-columns']
 
 const LAYOUT_TRANSITION = new RegExp(
   `^transition-\\[[^\\]]*\\b(?:${LAYOUT_PROPERTIES.join('|')})\\b`

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 import { persistInternalConversationMessages } from '@/lib/conversations/service'
 
 type Params = { id: string }
@@ -19,7 +19,7 @@ export const POST = internalApiRoute<Params>(
   'Internal Conversation Messages',
   async ({ request, params }) => {
     const { organizationId, ...message } = await parseJsonBody(request, internalMessageSchema)
-    const messages = await withTenant({ organizationId }, () =>
+    const messages = await withSystemReader(organizationId, 'agent-host', () =>
       persistInternalConversationMessages(organizationId, params.id, [message])
     )
     return { messages }

@@ -21,6 +21,7 @@ const actors = new Map<string, SwitchActor>()
 const refusalListeners = new Set<(error: unknown) => void>()
 
 const OFF: TemporarySwitchView = { pressed: false, pending: false, statement: null, sendBlocked: false }
+const DRAFT_ON: TemporarySwitchView = { pressed: true, pending: false, statement: 'temporary', sendBlocked: false }
 
 function storedTemporary(conversationId: string): boolean {
   const { currentConversation, conversations } = useChatStore.getState()
@@ -83,7 +84,11 @@ function switchFor(conversationId: string, stored: boolean = storedTemporary(con
 
 onCreateReport((conversationId, report) => actors.get(conversationId)?.send(report))
 
-export function setConversationTemporary(conversationId: string, temporary: boolean): void {
+export function setConversationTemporary(conversationId: string | null | undefined, temporary: boolean): void {
+  if (!conversationId) {
+    useChatStore.getState().setComposerTemporary(temporary)
+    return
+  }
   switchFor(conversationId).send({ type: 'toggle', temporary })
 }
 
@@ -111,7 +116,7 @@ const noSubscription = (): (() => void) => () => {}
 
 export function useTemporarySwitch(conversationId: string | null | undefined): TemporarySwitchView {
   const stored = useChatStore((state) => {
-    if (!conversationId) return false
+    if (!conversationId) return state.composerTemporary
     if (state.currentConversation?.id === conversationId) return state.currentConversation.temporary === true
     return state.conversations.some((conversation) => conversation.id === conversationId && conversation.temporary === true)
   })
@@ -124,7 +129,8 @@ export function useTemporarySwitch(conversationId: string | null | undefined): T
   useEffect(() => {
     actor?.send({ type: 'row.reported', temporary: stored })
   }, [actor, stored])
-  return snapshot ? viewOf(snapshot) : OFF
+  if (snapshot) return viewOf(snapshot)
+  return stored ? DRAFT_ON : OFF
 }
 
 export function useConversationTemporary(conversationId: string | null | undefined): boolean {

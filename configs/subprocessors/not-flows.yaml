@@ -97,6 +97,7 @@ env:
   DST_ACCESS_KEY: the storage migration script's target, our own object store
   DST_ENDPOINT: the storage migration script's target, our own object store
   DST_SECRET_KEY: the storage migration script's target, our own object store
+  PHONE_AUDIT_BASE_URL: the phone audit script's target, our own app
   SRC_ACCESS_KEY: the storage migration script's source, our own object store
   SRC_ENDPOINT: the storage migration script's source, our own object store
   SRC_SECRET_KEY: the storage migration script's source, our own object store

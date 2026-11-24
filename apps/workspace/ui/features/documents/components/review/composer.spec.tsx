@@ -11,7 +11,7 @@ describe('the reply composer on a touch screen', () => {
   it.each([
     ['a reply that may mention the agent', { mentionAgent: true }],
     ['a reply that may ask the agent', { onAskAgent: vi.fn() }],
-  ] as const)('%s: every button is a 44px square, not a catchment a short scroller clips', (_, props) => {
+  ] as const)('%s: every button is a 44px square and the field 44px tall, not a catchment a short scroller clips', (_, props) => {
     render(<Composer testId="reply" placeholder="Ihre Antwort" submitLabel="Senden" onSubmit={vi.fn()} {...props} />)
     const buttons = screen.getAllByRole('button')
     expect(buttons).toHaveLength(2)
@@ -19,5 +19,6 @@ describe('the reply composer on a touch screen', () => {
       expect(button).toHaveClass('pointer-coarse:size-11')
       expect(button).not.toHaveClass('pointer-coarse:size-8')
     }
+    expect(screen.getByTestId('reply')).toHaveClass('pointer-coarse:min-h-11')
   })
 })

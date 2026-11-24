@@ -108,8 +108,8 @@ neither a privileged pod nor a Kubernetes credential where a pull request's code
   can read, which is its own checkout and its read-only token, the same as on GitHub's runners.
 * Bad, because on a public repository a fork's pull request can name the scale set in its own
   copy of a workflow, and only the approval GitHub asks for outside contributors stands
-  between its code and the cluster. The runners are switched on only once the repository is
-  private.
+  between its code and the cluster. While the repository is public, every outside
+  contributor's run waits for that approval (Settings → Actions → General).
 * Bad, because Docker Hub rate-limits by IP and every runner shares the cluster's egress
   addresses. A pull-through mirror is the remedy when pulls start failing.
 * Bad, because GitHub's runners keep running Postgres 16 until a setup step installs 17 there
@@ -159,7 +159,8 @@ neither a privileged pod nor a Kubernetes credential where a pull request's code
 
 **Rolling it out.** Each step is a person's, in this order:
 
-1. Make the repository private (an organisation admin).
+1. Make the repository private, or, while it is public, require approval for every outside
+   contributor's workflow run (an organisation admin).
 2. Create a GitHub App on the organisation, installed on this repository, with Actions and
    Administration read/write. Set `ciRunnersGithubAppId`, `ciRunnersGithubAppInstallationId`
    and, as a secret, `ciRunnersGithubAppPrivateKey`. Optionally add a CI worker group and set

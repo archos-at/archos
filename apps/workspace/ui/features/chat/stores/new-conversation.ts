@@ -11,7 +11,8 @@ const mintConversationId = (): string => {
 export const createNewConversation = (
   userId: string,
   projectId: string | null,
-  subject?: { resourceType: 'document'; resourceId: string; title?: string | null } | null
+  subject?: { resourceType: 'document'; resourceId: string; title?: string | null } | null,
+  temporary = false
 ): Conversation => ({
   id: mintConversationId(),
   userId,
@@ -19,6 +20,7 @@ export const createNewConversation = (
   title: subject?.title ?? '',
   subjectResourceType: subject?.resourceType ?? null,
   subjectResourceId: subject?.resourceId ?? null,
+  ...(temporary ? { temporary: true } : {}),
   messages: [],
   createdAt: new Date(),
   updatedAt: new Date(),

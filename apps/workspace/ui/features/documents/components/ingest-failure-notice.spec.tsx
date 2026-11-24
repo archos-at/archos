@@ -18,6 +18,11 @@ describe('IngestFailureNotice', () => {
     expect(screen.getByTestId('ingest-failure-raw')).toHaveTextContent(raw)
   })
 
+  it('gives Details a 44px row to a finger: on a phone it was 16px of 12px type', () => {
+    render(<IngestFailureNotice errorMessage="office_rendition_required: none could be read" />)
+    expect(screen.getByRole('button', { name: 'Details' })).toHaveClass('pointer-coarse:min-h-11')
+  })
+
   it('puts the page counts into the unreadable-pages sentence', () => {
     render(<IngestFailureNotice errorMessage="pdf_pages_unreadable: 3 of 40 pages could not be read" />)
     expect(screen.getByText(/^3 of 40 pages couldn't be read/)).toBeInTheDocument()

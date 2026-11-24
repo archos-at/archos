@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
-import { withOptionalTenant } from '@/lib/db/tenant-context'
+import { withOptionalTenant, withSystemReader } from '@/lib/db/tenant-context'
 import { BadRequestError, NotFoundError, OrgMemoryDisabledError } from '@/lib/api/errors'
 import { requireMayRememberFrom } from '@/lib/conversations/cross-project-use'
 import { requireConversationKeepsMemory } from '@/lib/conversations/temporary'
@@ -98,8 +98,12 @@ export const POST = internalApiRoute(
         }
 
         const tenant = organizationId ?? (projectId ? (await findProjectTenancy(projectId))?.organizationId : null)
-        await requireMayRememberFrom(sourceConversationId, tenant)
-        await requireConversationKeepsMemory(sourceConversationId, tenant)
+        if (sourceConversationId && tenant) {
+          await withSystemReader(tenant, 'conversation-memory', async () => {
+            await requireMayRememberFrom(sourceConversationId, tenant)
+            await requireConversationKeepsMemory(sourceConversationId, tenant)
+          })
+        }
         const topic =
           rawTopic === undefined
             ? undefined

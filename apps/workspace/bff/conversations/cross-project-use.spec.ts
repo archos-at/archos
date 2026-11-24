@@ -22,6 +22,7 @@ const state = vi.hoisted(() => ({
   foreignFolders: new Map<string, string | null>(),
   names: new Map<string, string>(),
   nameQueries: [] as string[][],
+  hidden: false,
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -55,6 +56,10 @@ vi.mock('@/lib/conversation-context/record', () => ({
   recordAnswerReads: vi.fn(async (_tx: unknown, _org: string, _conversation: string, messageId: string, reads: { projects?: string[]; folders?: string[] }) => {
     state.steps.push(`reads:${messageId}:${[...(reads.projects ?? []), ...(reads.folders ?? [])].join(',')}`)
   }),
+}))
+
+vi.mock('./repository', () => ({
+  personalConversationHidden: vi.fn(async () => state.hidden),
 }))
 
 vi.mock('./restricted-use', () => ({
@@ -205,6 +210,17 @@ describe('drewOnOtherProjects', () => {
     state.recordedProjects = []
     state.foreignFolders = new Map([[FEES_ID, OTHER]])
     expect(await drewOnOtherProjects(CONV, ORG)).toBe(true)
+  })
+
+  it('is true for someone else’s personal chat the reader may not see, whose records read as none (0269)', async () => {
+    state.recordedProjects = []
+    state.foreignFolders = new Map()
+    state.hidden = true
+    try {
+      expect(await drewOnOtherProjects(CONV, ORG)).toBe(true)
+    } finally {
+      state.hidden = false
+    }
   })
 })
 

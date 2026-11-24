@@ -146,13 +146,14 @@ export const createSessionNavigationSlice: StateCreator<
     const defaultEnabledDataSourceIds = getDefaultEnabledDataSourceIds()
     layoutState.setEnabledDataSources(defaultEnabledDataSourceIds)
     const newConversation: Conversation = {
-      ...createNewConversation(currentUserId, projectId ?? null, get().composerSubject),
+      ...createNewConversation(currentUserId, projectId ?? null, get().composerSubject, get().composerTemporary),
       enabledDataSourceIds: defaultEnabledDataSourceIds,
     }
     set(
       (state) => ({
         conversations: [newConversation, ...state.conversations],
         currentConversation: newConversation,
+        composerTemporary: false,
         pendingInteraction: null,
       }),
       false,
@@ -177,6 +178,7 @@ export const createSessionNavigationSlice: StateCreator<
       {
         currentConversation: null,
         composerSubject: null,
+        composerTemporary: false,
         isStreaming: false,
         isLoading: false,
         currentUserMessageId: null,
@@ -202,13 +204,14 @@ export const createSessionNavigationSlice: StateCreator<
     const defaultEnabledDataSourceIds = getDefaultEnabledDataSourceIds()
     layoutState.setEnabledDataSources(defaultEnabledDataSourceIds)
     const newConversation: Conversation = {
-      ...createNewConversation(currentUserId, projectId ?? null, get().composerSubject),
+      ...createNewConversation(currentUserId, projectId ?? null, get().composerSubject, get().composerTemporary),
       enabledDataSourceIds: defaultEnabledDataSourceIds,
     }
     set(
       (state) => ({
         conversations: [newConversation, ...state.conversations],
         currentConversation: newConversation,
+        composerTemporary: false,
         pendingInteraction: null,
       }),
       false,
@@ -238,6 +241,7 @@ export const createSessionNavigationSlice: StateCreator<
           currentConversation: conversation,
           unseenAnswers: withoutUnseenAnswer(get().unseenAnswers, conversation.id),
           pendingMessagesFor: null,
+          composerTemporary: false,
           composerSubject: conversation.subjectResourceId
             ? {
                 resourceType: 'document' as const,

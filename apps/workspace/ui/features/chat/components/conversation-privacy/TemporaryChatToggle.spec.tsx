@@ -112,15 +112,22 @@ describe('TemporaryChatToggle', () => {
     expect(stored()).toBe(true)
   })
 
-  test('on the start screen the switch mints the conversation the choice is kept on', async () => {
+  test('on the start screen the switch keeps the choice as a draft and creates no chat', async () => {
     open(null)
-    act(() => useChatStore.setState({ currentUserId: 'u-1' }))
+    act(() => useChatStore.setState({ currentUserId: 'u-1', composerTemporary: false }))
     render(<TemporaryChatToggle conversationId={null} />)
 
     await userEvent.click(toggle())
 
-    await waitFor(() => expect(stored()).toBe(true))
+    expect(toggle()).toHaveAttribute('aria-pressed', 'true')
+    expect(useChatStore.getState().composerTemporary).toBe(true)
+    expect(useChatStore.getState().currentConversation).toBeNull()
+    expect(useChatStore.getState().conversations).toHaveLength(0)
     expect(fetchMock).not.toHaveBeenCalled()
+
+    await userEvent.click(toggle())
+    expect(toggle()).toHaveAttribute('aria-pressed', 'false')
+    expect(useChatStore.getState().composerTemporary).toBe(false)
   })
 
   test('the owner of a shared chat gets the control', () => {
@@ -142,27 +149,39 @@ describe('TemporaryChatToggle', () => {
     const { rerender } = render(<TemporaryChatToggleView pressed={false} onPressedChange={() => undefined} />)
     expect(screen.getByTestId('temporary-chat-glyph')).toBeInTheDocument()
     expect(screen.getByTestId('temporary-chat-word')).toHaveAttribute('data-shown', 'false')
-    expect(screen.getByTestId('temporary-chat-word')).toHaveClass('grid-cols-[0fr]', 'opacity-0')
+    expect(screen.getByTestId('temporary-chat-word')).toHaveClass('opacity-0')
     expect(toggle()).toHaveAccessibleName('Turn on temporary chat')
-    expect(toggle()).toHaveClass('data-[state=on]:bg-foreground', 'data-[state=on]:text-background')
+    expect(screen.getByTestId('temporary-chat-pill')).toHaveClass('group-data-[state=on]/temporary:bg-foreground')
 
     rerender(<TemporaryChatToggleView pressed onPressedChange={() => undefined} />)
     const word = screen.getByTestId('temporary-chat-word')
     expect(word).toHaveTextContent('Temporary')
     expect(word).toHaveAttribute('data-shown', 'true')
-    expect(word).toHaveClass('grid-cols-[1fr]', 'opacity-100')
+    expect(word).toHaveClass('opacity-100')
     expect(toggle()).toHaveAttribute('data-state', 'on')
     expect(toggle()).toHaveAccessibleName('Turn off temporary chat')
   })
 
-  test('the word opens in its own slot on the quick clock, and at once under reduced motion', () => {
+  test('its box is the same pressed or not, so nothing beside it moves: the ink opens by clip-path and the glyph slides by transform', () => {
+    open(conversation())
+    const { rerender } = render(<TemporaryChatToggleView pressed={false} onPressedChange={() => undefined} />)
+    const offBox = toggle().className
+    const glyphSlot = screen.getByTestId('temporary-chat-glyph').parentElement!
+    expect(glyphSlot).toHaveClass('translate-x-full')
+    expect(screen.getByTestId('temporary-chat-pill').className).toMatch(/\[clip-path:inset\(0_0_0_calc\(100%-var\(--temporary-box\)/)
+
+    rerender(<TemporaryChatToggleView pressed onPressedChange={() => undefined} />)
+    expect(toggle().className).toBe(offBox)
+    expect(glyphSlot).toHaveClass('translate-x-0')
+    expect(screen.getByTestId('temporary-chat-pill').className).toContain('group-data-[state=on]/temporary:[clip-path:inset(0_round')
+  })
+
+  test('the ink and the glyph move on the base clock, the word follows a snap later, and all of it at once under reduced motion', () => {
     open(conversation())
     render(<TemporaryChatToggleView pressed onPressedChange={() => undefined} />)
-    expect(screen.getByTestId('temporary-chat-word')).toHaveClass(
-      'transition-[grid-template-columns,opacity]',
-      'duration-quick',
-      'motion-reduce:transition-none'
-    )
+    expect(screen.getByTestId('temporary-chat-pill')).toHaveClass('duration-base', 'ease-entrance', 'motion-reduce:transition-none')
+    expect(screen.getByTestId('temporary-chat-glyph').parentElement).toHaveClass('transition-transform', 'duration-base', 'motion-reduce:transition-none')
+    expect(screen.getByTestId('temporary-chat-word')).toHaveClass('delay-(--motion-snap)', 'motion-reduce:transition-none')
   })
 
   test('while the server confirms, it keeps the wanted state at full ink and takes no second press', async () => {

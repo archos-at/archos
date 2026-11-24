@@ -545,10 +545,11 @@ insets too.
 
 Held statically by `apps/workspace/ui/components/ui/touch-target.spec.ts`,
 `apps/workspace/ui/components/ui/mobile-affordances.spec.ts` and
-`apps/workspace/ui/components/ui/breakpoints.spec.ts`. The browser
-measurement that once backed these (`workspace:touch-audit`) went with the
-screenshot harness; capture a 390x844 viewport and look, until it is rewritten
-(`docs/contributing/testing-and-verification.md`).
+`apps/workspace/ui/components/ui/breakpoints.spec.ts`, and in the browser by
+`task workspace:phone-audit`, CI's phone gate: every `/dev` route at 390 and 360,
+failing on any new sideways scroll or control under 44x44. What
+`ci/phone-audit-baseline.json` lists is known and still to fix, so a green run does
+not mean every page is clean (`docs/contributing/testing-and-verification.md`).
 
 ## Breakpoints: four axes, four questions
 
@@ -1047,15 +1048,25 @@ times stops being a physical cue and becomes texture.
 - **Turning a chat temporary is one calm change, on colour alone** (the owner,
   2026-11-24, against the concept on `claude/funny-meitner-k4hjls`). The
   switch is the glasses glyph alone while off; on, it fills with ink
-  (`Toggle variant="inverted"`) and „Temporär“ opens beside the glyph in a
-  slot that widens with it (`grid-template-columns` 0fr → 1fr), so nothing in
-  the row jumps. The composer's sheet trades its shadow for a dashed ink line
-  drawn as an inset outline, so its size never changes, and an empty chat's
-  greeting and „Temporärer Chat“ stand in one grid cell and cross-fade. All
-  of it on `duration-quick`, at once under reduced motion. While the server
-  confirms, the switch keeps the wanted state at full ink and takes no second
-  press; it never dims. On a new chat the welcome says what temporary means,
-  so the line under the composer stays out and the composer does not move.
+  and „Temporär“ stands beside the glyph. Pressing it moves nothing on the
+  page but the switch itself, and `bun run shift-check` against
+  `/dev/temporary-switch` fails on any layout shift. The switch's box always
+  holds the word, so its width never changes. The ink opens leftward by
+  `clip-path` and the glyph slides by `translate` (`duration-base`,
+  `ease-entrance`); the word fades in a snap later. Neither property is
+  layout, so the browser records no shift. The focus ring is drawn by two
+  more clipped layers, so it hugs the visible shape. The composer's sheet
+  trades its shadow for a dashed ink line drawn as an inset outline, so its
+  size never changes. An empty chat's greeting and „Temporärer Chat“ stand
+  in one grid cell and cross-fade. In a started chat the line under the
+  composer keeps its row, and every statement it can make stands in one
+  cell. The toolbar's mark keeps its slot after the title and only fades.
+  All of it lands at once under reduced motion. While the server confirms,
+  the switch keeps the wanted state at full ink and takes no second press;
+  it never dims. On a new chat the switch is a draft (`composerTemporary`)
+  that the first message carries, so pressing it creates no chat, no row in
+  „Letzte Chats“ and no `?session=`. The welcome says what temporary means,
+  so the line under the composer stays out.
 - **Toasts move on Sonner's paths and our clock.** A toast drops in from the
   edge it sits on and leaves through it, and the stack lifts and expands, all
   through Sonner's own CSS transitions, which `globals.css` retimes onto

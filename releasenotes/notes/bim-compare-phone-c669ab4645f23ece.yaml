@@ -1,0 +1,6 @@
+---
+# area: bim
+fixes:
+  - >
+    On a phone, „Mit … vergleichen“ in a model's revisions no longer pushes the
+    page sideways: a long file name is cut short with an ellipsis.

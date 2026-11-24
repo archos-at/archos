@@ -14,7 +14,7 @@ import {
   insertMessages,
 } from '@/lib/conversations/repository'
 import type { AgentAskRow } from '@/lib/db/schema/piloti-asks'
-import { withPlatformAccess } from '@/lib/db/tenant-context'
+import { withPlatformAccess, withSystemReader } from '@/lib/db/tenant-context'
 import { isUuid } from '@/lib/ids'
 import { memberReader } from '@/lib/documents/visibility'
 import {
@@ -234,7 +234,8 @@ export async function endLostAsks(now: Date = new Date()): Promise<number> {
   const lost = await findAsksOpenBefore(new Date(now.getTime() - maxSeconds * 1_000), LOST_ASKS_PER_SWEEP)
   let ended = 0
   for (const ask of lost) {
-    if (await endAsk(ask.organizationId, ask.id, lostAskEnd(maxSeconds))) ended += 1
+    const end = () => endAsk(ask.organizationId, ask.id, lostAskEnd(maxSeconds))
+    if (await withSystemReader(ask.organizationId, 'agent-host', end)) ended += 1
   }
   return ended
 }
@@ -405,5 +406,6 @@ export async function recordAskOutcome(request: TurnOutcomeRequest): Promise<boo
     () => findAskById(request.turnId),
   )
   if (!ask || isTerminalAskState(ask.state) || ask.conversationId !== request.conversationId) return false
-  return (await endAsk(ask.organizationId, ask.id, askEndOf(request))) !== null
+  const ended = await withSystemReader(ask.organizationId, 'agent-host', () => endAsk(ask.organizationId, ask.id, askEndOf(request)))
+  return ended !== null
 }
