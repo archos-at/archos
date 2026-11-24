@@ -209,9 +209,11 @@ describe('deleteConversationInOrg', () => {
   it('carries tenancy in the WHERE clause, not only in the service above it', async () => {
     await deleteConversationInOrg('conv_1', 'org_1')
 
-    expect(captured).toHaveLength(4)
-    expect(captured[3].sql).toContain('"conversation_source_projects"')
-    expect(captured[3].params).toEqual(['org_1', 'conv_1'])
+    expect(captured).toHaveLength(5)
+    expect(captured[2].sql).toContain('"answer_contexts"')
+    expect(captured[2].params).toEqual(['org_1', 'conv_1'])
+    expect(captured[4].sql).toContain('"conversation_source_projects"')
+    expect(captured[4].params).toEqual(['org_1', 'conv_1'])
     const { sql, params } = captured[1]
     expect(sql).toContain('"conversations"."id" = $1')
     expect(sql).toContain('"conversations"."organization_id" = $2')
@@ -221,7 +223,7 @@ describe('deleteConversationInOrg', () => {
   it('takes the record of restricted source folders with the row, in the same organization (ADR-0087, ADR-0088)', async () => {
     await deleteConversationInOrg('conv_1', 'org_1')
 
-    const { sql, params } = captured[2]
+    const { sql, params } = captured[3]
     expect(sql).toContain('delete from "conversation_restricted_folders"')
     expect(sql).toContain('"conversation_restricted_folders"."organization_id" = $1')
     expect(sql).toContain('"conversation_restricted_folders"."conversation_id" = $2')
@@ -238,6 +240,12 @@ describe('deleteConversationInOrg', () => {
     expect(sql).toContain('"answer_feedback"."message_id" in (select "messages"."id"::text from "messages"')
     expect(params).toEqual(['org_1', 'conv_1', 'conv_1', 'org_1'])
     expect(captured[1].sql).toContain('delete from "conversations"')
+  })
+
+  it('erases the answers’ records in the transaction that erases the chat, so a failure keeps neither', async () => {
+    await deleteConversationInOrg('conv_1', 'org_1')
+
+    expect(captured.slice(0, 3).map(({ sql }) => sql.match(/delete from "(\w+)"/)?.[1])).toEqual(['answer_feedback', 'conversations', 'answer_contexts'])
   })
 })
 

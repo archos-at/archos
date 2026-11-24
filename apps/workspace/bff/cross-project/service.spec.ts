@@ -39,7 +39,7 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('./audience-reach', () => ({
-  audienceReach: vi.fn(async () => ({ projects: state.reachable, restrictedFolders: state.restrictedFolders, key: 'audience-key' })),
+  audienceReach: vi.fn(async () => ({ projects: state.reachable, restrictedFolders: state.restrictedFolders, version: 7, ownProjectId: null })),
 }))
 vi.mock('@/lib/conversations/cross-project-use', () => ({
   recordCrossProjectHandOut: vi.fn(
@@ -232,7 +232,7 @@ describe('searchAcrossProjects', () => {
 
     expect(state.recorded).toEqual([{ projectIds: [one.id], folderIds: [] }])
     expect(state.recorded[0].projectIds).not.toContain(three.id)
-    expect(state.recordedFor).toEqual(['audience-key'])
+    expect(state.recordedFor).toEqual([7])
   })
 
   it('records the restricted folder a passage came from, and drops one whose folder cannot be named', async () => {
