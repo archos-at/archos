@@ -149,6 +149,19 @@ restricted folders today also takes personal collections. The BFF writes
 `recorded.personalShelf`, and `widenConversationAudience` asks the owner first
 when it is set.
 
+Since slice 4, a chat decided with `may.personalShelf` carries the owner's
+collection in `may.shelves` (shelf `personal`) and in `may.restrictedCollections`,
+so Python searches it only while it stays drawable. The restricted-use route
+admits it apart from folders (`admitPersonalShelf`,
+`bff/conversations/personal-shelf-use.ts`): only the asker's own, only under a
+signed chat decision that allows it, and only while the chat row exists, has no
+project and is the owner's alone, under the audience lock. An admission sets
+`conversations.personal_shelf_used_at` (migration 0264) and the answer's
+`read_personal_shelf`. The in-product agent's workspace reads take the same
+admission in its read gate before #1901's door lets the turn's session through.
+A widening of such a chat is refused with `personal-shelf-content` until its
+creator confirms (`confirmPersonalShelf`).
+
 The personal-memory digest is injected into every solo turn in a conversation, so recording it
 would make every share ask. It is not recorded. Once a chat is shared, the next
 turn no longer injects it (ADR-0180, rule 4, fresh each turn). Earlier answers
