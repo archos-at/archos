@@ -4076,6 +4076,10 @@
     "de": "Das Postfach hat vier Filter: „Für mich“ zeigt, was bei Ihnen ansteht, „Ungelesen“ zeigt, was Sie noch nicht geöffnet haben, „Alle“ zeigt alles und „Archiviert“ zeigt, was Sie abgelegt haben und wiederherstellen können. Ein Eintrag kann wieder als ungelesen markiert werden, ältere Einträge werden am Ende der Liste geladen und mit J, K, Enter, E und U bedienen Sie die Liste per Tastatur."
   },
   {
+    "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
+    "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
+  },
+  {
     "en": "The Postfach says who: a row shows the colleague's face and names them in the title, „Anna Weber hat in „Atrium“ geschrieben“. A row about an Anmerkung opens it with „Zur Anmerkung“, and an Anmerkung assigned to you, or Piloti's question, can be answered or resolved right in the row.",
     "de": "Das Postfach zeigt, von wem eine Nachricht stammt: Jede Zeile zeigt das Gesicht der Kollegin oder des Kollegen und nennt die Person im Titel: „Anna Weber hat in „Atrium“ geschrieben“. Eine Zeile zu einer Anmerkung öffnet diese mit „Zur Anmerkung“; eine Ihnen zugewiesene Anmerkung oder eine Frage von Piloti können Sie direkt in der Zeile beantworten oder erledigen."
   },
@@ -5870,9 +5874,5 @@
   {
     "en": "„offen“ now counts the same everywhere: Piloti's proposals that nobody has taken over are no longer counted as open in Dateien, in the Prüfansicht or before a Freigabe. They are named on their own, „2 offen · 12 Vorschläge“, so the number matches Offene Punkte and the Protokoll.",
     "de": "„Offen“ wird jetzt überall gleich gezählt: Vorschläge von Piloti, die niemand übernommen hat, werden in Dateien, in der Prüfansicht oder vor einer Freigabe nicht mehr als offen gezählt. Sie werden separat ausgewiesen: „2 offen · 12 Vorschläge“, damit die Zahl mit „Offene Punkte“ und dem Protokoll übereinstimmt."
-  },
-  {
-    "en": "The Postfach no longer opens as a second bar beside the sidebar: a bell beside your name shows the count and, on a click, the four newest entries that wait for you. The Postfach itself is a page with the tabs Wartet auf Sie, Neuigkeiten and Archiviert, the list on the left and the opened entry on the right.",
-    "de": "Das Postfach klappt nicht mehr als zweite Leiste neben der Seitenleiste auf: Eine Glocke neben Ihrem Namen zeigt die Zahl und auf einen Klick die vier neuesten Einträge, die auf Sie warten. Das Postfach selbst ist eine Seite mit den Reitern „Wartet auf Sie“, „Neuigkeiten“ und „Archiviert“, links die Liste, rechts der geöffnete Eintrag."
   }
 ]
