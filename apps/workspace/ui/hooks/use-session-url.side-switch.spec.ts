@@ -18,6 +18,8 @@ import { useChatStore } from '@/features/chat/store'
 import type { Conversation } from '@/features/chat/types'
 import { useSessionUrl } from './use-session-url'
 
+const replacedUrl = vi.spyOn(window.history, 'replaceState')
+
 const chat = (id: string, projectId: string | null, minutesAgo: number): Conversation => {
   const at = new Date(Date.now() - minutesAgo * 60_000)
   return {
@@ -36,6 +38,7 @@ const holzbau = chat('s_holzbau', 'p1', 30)
 
 beforeEach(() => {
   nav.replace.mockReset()
+  replacedUrl.mockClear()
   nav.search = new URLSearchParams()
 })
 afterEach(() => {
@@ -52,7 +55,7 @@ describe('a side switch never carries a chat over (the owner’s report from sta
     rerender()
 
     expect(useChatStore.getState().currentConversation?.id).not.toBe('s_dere')
-    expect(nav.replace.mock.calls.flat().join(' ')).not.toContain('s_dere')
+    expect(replacedUrl.mock.calls.flat().join(' ')).not.toContain('s_dere')
   })
 
   test('Projekt → Persönlich: the newest project chat is never resumed on the personal side', () => {
@@ -66,7 +69,7 @@ describe('a side switch never carries a chat over (the owner’s report from sta
     rerender()
 
     expect(useChatStore.getState().currentConversation?.projectId ?? null).toBeNull()
-    expect(nav.replace.mock.calls.flat().join(' ')).not.toContain('s_recent_project')
+    expect(replacedUrl.mock.calls.flat().join(' ')).not.toContain('s_recent_project')
   })
 
   test('project A → project B: A’s chat never shows under B', () => {
@@ -79,7 +82,7 @@ describe('a side switch never carries a chat over (the owner’s report from sta
     rerender()
 
     expect(useChatStore.getState().currentConversation).toBeNull()
-    expect(nav.replace.mock.calls.flat().join(' ')).not.toContain('s_a')
+    expect(replacedUrl.mock.calls.flat().join(' ')).not.toContain('s_a')
   })
 
   test('a link to the other side’s chat never opens it here', () => {
