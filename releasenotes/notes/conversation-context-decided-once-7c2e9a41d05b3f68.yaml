@@ -1,4 +1,5 @@
 ---
+# area: agents
 operators:
   - >
     What a chat turn may draw on is now decided once per turn in the app, at
