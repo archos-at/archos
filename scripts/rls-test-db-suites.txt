@@ -40,6 +40,7 @@ batch              bff/conversations/cross-project-use.integration.spec.ts
 batch              bff/cross-project/decisions-repository.integration.spec.ts
 batch              bff/similar-passages/service.integration.spec.ts
 batch              bff/permits/repository.integration.spec.ts
+batch              bff/drawing-calibrations/repository.integration.spec.ts
 batch              bff/annotations/repository.integration.spec.ts
 batch              bff/drawing-calibrations/repository.integration.spec.ts
 batch              bff/annotations/project-repository.integration.spec.ts

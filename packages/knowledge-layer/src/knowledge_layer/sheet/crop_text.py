@@ -81,7 +81,8 @@ def crop_text(page: dict[str, Any], figures: list[dict[str, Any]], box: Box | No
     head = (
         f"{sheet_line(page)} Printed text {where}, read from the file's text layer and not from the image "
         "(each line: the text as printed | its centre as shares of the page | its direction when not left to "
-        f"right). A raised final digit is written as a superscript. Text cut by the box edge is left out.{cut}"
+        "right). A raised final digit is written as a superscript. Text cut by the box edge is left out. "
+        f"Quote a printed figure from this list, not from the image.{cut}"
     )
     return CropText(head, tuple(_line(figure, page) for figure in shown))
 
