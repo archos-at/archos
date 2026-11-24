@@ -127,6 +127,7 @@ backend:
   - 'apps/workspace/tests/fixtures/exposure.json'
   - 'apps/workspace/tests/fixtures/job_fire_headers.json'
   - 'apps/workspace/tests/fixtures/knowledge-context.schema.json'
+  - 'apps/workspace/tests/fixtures/personal-shelf-collections.json'
   - 'apps/workspace/tests/fixtures/precedent/office.json'
   - 'apps/workspace/tests/fixtures/precedent/permits.json'
   - 'apps/workspace/tests/fixtures/proposals.schema.json'
