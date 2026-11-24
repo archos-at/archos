@@ -10,7 +10,9 @@ import { EntryList } from './entry-list'
 const layout = vi.hoisted(() => ({ phone: false }))
 vi.mock('@/features/documents/hooks/use-phone-layout', () => ({ usePhoneLayout: () => layout.phone }))
 
-function renderList(onFilters = vi.fn()) {
+const TOPICS = BASE_KNOWLEDGE_FOLDERS.folders.map((folder) => ({ id: folder.id, name: folder.name }))
+
+function renderList(onFilters = vi.fn(), onTopic = vi.fn()) {
   render(
     <I18nProvider initialLocale="de" fixedLocale>
       <TooltipProvider>
@@ -34,6 +36,8 @@ function renderList(onFilters = vi.fn()) {
           onOpen={vi.fn()}
           loadingMore={false}
           onLoadMore={vi.fn()}
+          topics={TOPICS}
+          onTopic={onTopic}
         />
       </TooltipProvider>
     </I18nProvider>,
@@ -53,6 +57,29 @@ describe('the norms list', () => {
     expect(pills.map((pill) => pill.textContent)).toEqual(['Alle12', 'Zu bestätigen2', 'Neuere Ausgabe1', 'Prüfung fällig2'])
     await userEvent.click(pills[2])
     expect(onFilters).toHaveBeenCalledWith({ attention: 'newer_edition' })
+  })
+
+  it('marks in ochre the counts that ask for something, never in blue (KAN-86)', () => {
+    renderList()
+    const count = (key: string) => within(screen.getByTestId(`base-knowledge-attention-${key}`)).getByText(/^\d+$/)
+    expect(count('proposed').className).toContain('bg-warning-subtle')
+    expect(count('newer_edition').className).toContain('bg-warning-subtle')
+    expect(count('check_due').className).not.toContain('bg-warning-subtle')
+    for (const chip of screen.getAllByTestId('base-knowledge-status')) expect(chip.className).not.toMatch(/\binfo\b|text-info/)
+  })
+
+  it('says each norm’s topic in a column and filters by topic and kind over the list, no topic tiles', async () => {
+    const onTopic = vi.fn()
+    const onFilters = renderList(vi.fn(), onTopic)
+    expect(screen.getAllByRole('columnheader').map((head) => head.textContent)).toContain('Thema')
+    const topic = BASE_KNOWLEDGE_ENTRIES.find((entry) => entry.folderId !== null && TOPICS.some((t) => t.id === entry.folderId))!
+    const name = TOPICS.find((t) => t.id === topic.folderId)!.name
+    expect(screen.getAllByTestId('base-knowledge-topic').map((cell) => cell.textContent)).toContain(name)
+    expect(screen.getByTestId('base-knowledge-topic-filter')).toHaveTextContent('Alle Themen')
+    expect(screen.getByTestId('base-knowledge-kind-filter')).toHaveTextContent('Alle Arten')
+    expect(screen.queryByTestId('base-knowledge-topics')).toBeNull()
+    expect(onFilters).not.toHaveBeenCalled()
+    expect(onTopic).not.toHaveBeenCalled()
   })
 
   it('shows the Stand from the platform’s editions, or from the last check', () => {

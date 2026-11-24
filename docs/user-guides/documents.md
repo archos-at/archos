@@ -763,7 +763,10 @@ Session-scoped collections are prefixed with `s_` and are automatically reaped b
 ### The Bürobibliothek (ADR-0024)
 
 The **Bürobibliothek** (English UI: *Office library*) is a top-level document store
-that lives above projects, reachable from the navigation (Bürobibliothek). Until
+that lives above projects, reachable from the navigation (Bürobibliothek). It is a page
+like the Ablage, beside the sidebar, with the same head: the office's name over the
+title, the search („In der Bürobibliothek suchen …“), „Auswählen“, „Hochladen“ and ⋯,
+and the places **Dateien** and, where your office has them, **Normen & Richtlinien**. Until
 October 2026 it was called „Archiv“; the URL `/app/office-shelf`, the permission
 `org:office_shelf:manage` and the collection `archiv_{orgId}` keep that name. It is a
 different thing from the „Stilllegen“ action on a project document. Anything uploaded there is shared with **every

@@ -34,10 +34,10 @@ import type { SidebarUser } from './sidebar-user-menu'
 import type { TourEligibility } from '@/lib/onboarding/product-tour'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
 
-const OVERLAY_ROUTES = ['/app/office-shelf', '/app/base-knowledge', '/app/inbox', '/app/uploads'] as const
+const KEEPS_THE_COVERED_CHROME = ['/app/office-shelf', '/app/base-knowledge', '/app/inbox', '/app/uploads'] as const
 
-function isOverlayPath(pathname: string): boolean {
-  return OVERLAY_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+function keepsTheCoveredChrome(pathname: string): boolean {
+  return KEEPS_THE_COVERED_CHROME.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 }
 
 export interface AppShellChromeProps {
@@ -70,8 +70,8 @@ export function AppShellChrome({
   const t = useTranslations(navCopy)
   const pathname = usePathname() ?? ''
 
-  const solidPathRef = React.useRef(isOverlayPath(pathname) ? '/app/projects' : pathname)
-  if (!isOverlayPath(pathname)) solidPathRef.current = pathname
+  const solidPathRef = React.useRef(keepsTheCoveredChrome(pathname) ? '/app/projects' : pathname)
+  if (!keepsTheCoveredChrome(pathname)) solidPathRef.current = pathname
 
   const projectId = projectIdFromPathname(solidPathRef.current)
   const inProject = projectId !== null

@@ -2916,6 +2916,10 @@
     "de": "Neue Aufgaben liefern immer einen recherchierten Bericht, der im Projekt abgelegt wird, und Sie richten eine Aufgabe in drei statt vier Schritten ein. Bestehende Aufgaben behalten die Art ihres Ergebnisses."
   },
   {
+    "en": "Normen & Richtlinien is one list: the categories with their counts, ochre where something waits for you, filters by topic and kind, and the topic as a column instead of tiles.",
+    "de": "„Normen & Richtlinien“ ist eine einzige Liste: die Kategorien mit ihren Zahlen, in Ocker, wo etwas auf Sie wartet, Filter nach Thema und Art und das Thema als Spalte statt als Kacheln."
+  },
+  {
     "en": "Norms you had filed in ordinary Büroablage folders are found, and the folder offers to move them under \"Normen & Richtlinien\" or to leave them where they are.",
     "de": "Normen, die Sie in gewöhnlichen Büroablage-Ordnern abgelegt haben, werden gefunden, und der Ordner bietet Ihnen an, sie nach „Normen & Richtlinien“ zu verschieben oder dort zu belassen."
   },
@@ -3994,6 +3998,10 @@
   {
     "en": "The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and Postfach entries that point to /app/archiv keep working and lead there.",
     "de": "Die Büroablage öffnet sich jetzt unter /app/office-shelf. Lesezeichen, geteilte Links und Postfach-Einträge, die auf /app/archiv verweisen, funktionieren weiterhin und führen dorthin."
+  },
+  {
+    "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",
+    "de": "Die Bürobibliothek ist jetzt eine Seite neben der Seitenleiste, mit dem Kopf der Ablage und den Bereichen „Dateien“ und „Normen & Richtlinien“, statt einer Fläche über der Seite."
   },
   {
     "en": "The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's origin names who wrote it and who forwarded it. The project settings, the address dialog and the guide on the website describe direct filing.",
