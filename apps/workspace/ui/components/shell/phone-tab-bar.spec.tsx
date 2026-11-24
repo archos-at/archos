@@ -53,18 +53,18 @@ describe('PhoneTabBar — inside a project', () => {
     const links = within(bar()).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
       'Chat',
-      'Documents',
-      'Settings',
+      'Files',
+      'Project',
       expect.stringContaining('Inbox'),
     ])
-    expect(within(bar()).getByRole('link', { name: 'Documents' })).toHaveAttribute(
+    expect(within(bar()).getByRole('link', { name: 'Files' })).toHaveAttribute(
       'aria-current',
       'page'
     )
     expect(within(bar()).getByRole('button', { name: 'More' })).toBeInTheDocument()
     const pills = bar().querySelectorAll('[data-slot="phone-tab-pill"]')
     expect(pills).toHaveLength(1)
-    expect(pills[0]!.closest('a')).toHaveTextContent('Documents')
+    expect(pills[0]!.closest('a')).toHaveTextContent('Files')
   })
 
   test('"Mehr" opens the sheet of destinations the bar does not carry', async () => {

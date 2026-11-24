@@ -41,6 +41,12 @@ function isUnder(pathname: string, href: string): boolean {
 
 const UNDER_OVERVIEW: readonly string[] = ['settings', 'setup', 'intake']
 
+/** A tab is a fifth of a 360px phone, 66px for its word: the rail's „Projekteinstellungen“ and "Documents" do not fit. */
+const PHONE_SHORT_LABEL: Partial<Record<ProjectSectionKey, string>> = {
+  settings: 'sections.settingsShort',
+  files: 'sections.filesShort',
+}
+
 function projectTab(
   key: Extract<ProjectSectionKey, 'chat' | 'files' | 'settings'>,
   base: string,
@@ -56,7 +62,7 @@ function projectTab(
     key,
     href: sectionLinkHref(section, base),
     icon: section.icon,
-    label: section.label ?? { namespace: 'nav', key: key === 'settings' ? 'sections.settingsShort' : `sections.${section.i18nKey}` },
+    label: section.label ?? { namespace: 'nav', key: PHONE_SHORT_LABEL[key] ?? `sections.${section.i18nKey}` },
     active,
     tourAnchor: sectionAnchor(key),
   }

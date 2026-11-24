@@ -6,6 +6,7 @@ export const collaboration: typeof en.collaboration = {
     title: 'Ihnen fehlen inzwischen die Rechte, um diesen Chat zu sehen',
     description:
       'Der Zugriff auf einen Ordner, aus dem dieser Chat stammt, hat sich seit dem Teilen geändert. Fragen Sie eine Person, die diese Ordner lesen darf, oder Ihre Administration.',
+    withheldFrom: 'Ab hier stützt sich der Chat auf eine Quelle, die Sie nicht öffnen dürfen.',
   },
   sharing: {
     title: 'Teilen',

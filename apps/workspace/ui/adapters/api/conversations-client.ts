@@ -157,12 +157,16 @@ export const conversationsClient = {
   },
 
   async listMessages(conversationId: string): Promise<MessageView[]> {
+    return (await conversationsClient.listReadableMessages(conversationId)).messages
+  },
+
+  async listReadableMessages(conversationId: string): Promise<{ messages: MessageView[]; withheldFrom?: string }> {
     const history = await fetchThreadHistory(conversationId)
     if (!history.ok) {
       await throwIfRightsLost(history.response)
       throw new Error('Failed to fetch messages')
     }
-    return history.messages
+    return { messages: history.messages, ...(history.withheldFrom ? { withheldFrom: history.withheldFrom } : {}) }
   },
 
   async createMessage(

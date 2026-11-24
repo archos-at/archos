@@ -1356,6 +1356,10 @@
     "de": "Die Details einer Antwort zeigen jetzt, was sie in Punkten gekostet hat, und bei Ihrem eigenen KI-Schlüssel, wie viel davon er verbraucht hat. Beim Überfahren der Zeile mit der Maus sehen Sie, wie viel auf Lesen, Schreiben und Denken entfällt."
   },
   {
+    "en": "An answer's details now show where it read: the projects and folders, and whether Meine Ablage or your personal memory was in play.",
+    "de": "Die Details einer Antwort zeigen jetzt, woher sie ihre Informationen hat: aus welchen Projekten und Ordnern und ob Meine Ablage oder Ihr persönlicher Speicher verwendet wurde."
+  },
+  {
     "en": "An archived document can be brought back into the working set, and Piloti reads it again so it answers questions as before.",
     "de": "Ein archiviertes Dokument lässt sich wieder in den Arbeitsbestand aufnehmen, und Piloti liest es erneut ein, damit es Fragen wieder wie zuvor beantworten kann."
   },
@@ -2652,6 +2656,10 @@
     "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbunden haben, funktioniert die Verbindung mindestens noch ein weiteres Release unter den bisherigen Adressen. Wir veröffentlichen zuerst die neuen Verbindungsnamen und nehmen erst danach die alten außer Betrieb."
   },
   {
+    "en": "If you join a chat later and may not open every source it used, you now see it up to the question that led to such a source, instead of nothing.",
+    "de": "Wenn Sie später zu einem Chat dazukommen und möglicherweise nicht jede darin verwendete Quelle öffnen können, sehen Sie jetzt den Chatverlauf bis zu der Frage, die zu einer solchen Quelle geführt hat, statt gar nichts."
+  },
+  {
     "en": "If you may review a held upload, you can view the finding and allow it right in the upload message instead of going to the quarantine first.",
     "de": "Wenn Sie einen zurückgehaltenen Upload prüfen dürfen, können Sie den Befund direkt in der Upload-Nachricht ansehen und den Upload freigeben, ohne zuerst zur Quarantäne zu wechseln."
   },
@@ -3060,6 +3068,10 @@
     "de": "Ältere und nicht veröffentlichte Fassungen einer Datei zählen jetzt zum Speicher Ihres Büros. Sie wurden bisher aufbewahrt, aber nicht mitgezählt, sodass die angezeigte Speichermenge kleiner war als das, was tatsächlich belegt war."
   },
   {
+    "en": "On Profil and Organisation the way back says „Zurück zum Chat“, since it now leads to the chat you last worked in rather than to the projects.",
+    "de": "Bei Profil und Organisation lautet der Zurück-Link „Zurück zum Chat“, da er jetzt zum Chat führt, in dem Sie zuletzt gearbeitet haben, und nicht zu den Projekten."
+  },
+  {
     "en": "On a phone a drawing now opens full screen, however you reach it, and zooms deep enough to read the 2.5 mm lettering of an A1 plan, with pinch, double tap and sharp lines at every zoom.",
     "de": "Auf dem Smartphone öffnet sich eine Zeichnung jetzt unabhängig davon, wie Sie sie aufrufen, im Vollbild und lässt sich so weit vergrößern, dass die 2,5-mm-Beschriftung eines A1-Plans lesbar ist – mit Pinch-Geste, Doppeltippen und scharfen Linien bei jeder Zoomstufe."
   },
@@ -3092,6 +3104,10 @@
     "de": "Auf dem Smartphone ist der obere Bereich jeder Projektseite ruhiger: mit einem kompakten Titel ohne Beschreibung, sodass in Dateien die ersten Dokumente im oberen Drittel des Bildschirms angezeigt werden."
   },
   {
+    "en": "On a phone turned on its side, the project overview now slides up and can be pulled down to close, as it does when the phone is upright.",
+    "de": "Im Querformat fährt die Projektübersicht jetzt nach oben und lässt sich zum Schließen nach unten ziehen – wie im Hochformat."
+  },
+  {
     "en": "On a phone you switch projects from „Mehr“: its first entry shows the project you are in, and „Projekt wechseln“ opens the list of projects.",
     "de": "Am Smartphone wechseln Sie Projekte über „Mehr“: Der erste Eintrag zeigt das Projekt, in dem Sie sich befinden, und „Projekt wechseln“ öffnet die Projektliste."
   },
@@ -3120,6 +3136,10 @@
     "de": "Auf dem Handy schluckte die Herleitung unter einer Antwort jede Wischbewegung: Ein Finger auf ihr bewegte nichts, sodass Sie nicht an ihr vorbei zur Antwort selbst scrollen konnten. Sie scrollt jetzt wie der Rest der Seite."
   },
   {
+    "en": "On a phone, the Offene Punkte tab, the reply button in the Postfach and the source numbers in answers are easier to hit, and the button that jumps to the newest message covers less of the text.",
+    "de": "Auf dem Smartphone lassen sich der Tab „Offene Punkte“, die Antwort-Schaltfläche im Postfach und die Quellenzahlen in Antworten leichter antippen; die Schaltfläche, die zur neuesten Nachricht springt, verdeckt außerdem weniger Text."
+  },
+  {
     "en": "On a phone, the document type in the file preview header is shortened instead of running under the buttons.",
     "de": "Am Telefon wird die Dokumentart im Kopf der Dateivorschau gekürzt, statt unter die Schaltflächen zu laufen."
   },
@@ -3130,6 +3150,10 @@
   {
     "en": "On a phone, the paperclip in the chat now offers \"Foto aufnehmen\", which opens the camera directly, and \"Aus Mediathek\", and says that what you add stays in this chat; the upload menu under Dateien offers the same two entries.",
     "de": "Auf dem Smartphone bietet die Büroklammer im Chat jetzt „Foto aufnehmen“, wodurch sich direkt die Kamera öffnet, und „Aus Mediathek“. Außerdem weist sie darauf hin, dass Hinzugefügtes in diesem Chat bleibt. Das Upload-Menü unter Dateien bietet dieselben zwei Einträge."
+  },
+  {
+    "en": "On a phone, the project's tab bar reads „Projekt“ in full, „Alle archivieren“ in the Postfach no longer runs off the screen, and folder names, a file's age and a shared chat's title are no longer cut short.",
+    "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
   },
   {
     "en": "On a phone, the schedule wizard's last step, the run history, the task filters, the Büroablage header and several project and administration pages no longer run off the edge of the screen.",

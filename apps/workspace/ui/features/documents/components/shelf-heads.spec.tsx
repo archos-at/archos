@@ -113,7 +113,7 @@ describe('the three shelves share one head (ShelfHead)', () => {
       expect(screen.queryByTestId('section-place-line')).toBeNull()
       const rows = within(band).getAllByTestId('files-tool-row')
       expect(rows).toHaveLength(1)
-      expect(rows[0]).toHaveClass('mt-4')
+      expect(rows[0]).toHaveClass(shelf === 'personal' ? 'mt-4' : 'mt-3')
       expect(rows[0]).not.toHaveClass('h-9')
     })
   }

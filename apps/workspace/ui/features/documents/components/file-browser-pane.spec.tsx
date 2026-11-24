@@ -214,6 +214,16 @@ describe('FileBrowserPane — folder drill-down', () => {
     expect(within(card).getByText('2 items')).toBeInTheDocument()
   })
 
+  it('gives a folder card 240px at every width, so a phone shows one whole name per row and not two cut ones', () => {
+    renderPane({ folderNav: folderNav(null) })
+    const grid = screen.getByTestId('folder-card-root-1').closest('.grid')
+    const columns = (grid?.className ?? '').split(/\s+/).filter((token) => token.includes('grid-template-columns'))
+    expect(columns).toEqual([
+      '[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]',
+      'md:[grid-template-columns:repeat(auto-fill,minmax(240px,1fr))]',
+    ])
+  })
+
   it('lists the level’s folders as the first rows of the file table, under its head', () => {
     renderPane({ folderNav: folderNav(null), view: 'list' })
     const row = screen.getByTestId('folder-row-root-1')

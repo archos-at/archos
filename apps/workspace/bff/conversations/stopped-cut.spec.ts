@@ -26,6 +26,7 @@ const row = (overrides: Partial<Message> = {}): Message => ({
     provenance: { answerConfidence: 'high' },
   },
   createdAt: new Date(NOW - 2_000),
+  receivedSeq: 1,
   ...overrides,
 })
 

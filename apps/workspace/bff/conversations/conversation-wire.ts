@@ -66,6 +66,11 @@ export const listMessagesQuerySchema = z.object({
     ),
 })
 
+export const listAnswerTrailsQuerySchema = z.object({
+  limit: listMessagesQuerySchema.shape.limit,
+  cursor: z.string().guid().optional().describe('The previous `nextCursor`: earlier answers.'),
+})
+
 export const updateConversationSchema = z
   .object({
     title: z.string().min(1).optional(),

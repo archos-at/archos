@@ -4,6 +4,7 @@ export const collaboration = {
     title: 'You no longer have the rights to view this chat',
     description:
       'Access to a folder this chat draws on has changed since it was shared. Ask someone who can read those folders, or your administrator.',
+    withheldFrom: 'From here on, the chat draws on a source you may not open.',
   },
   sharing: {
     title: 'Share',

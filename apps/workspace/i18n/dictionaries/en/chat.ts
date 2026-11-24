@@ -1010,6 +1010,13 @@ export const chat = {
       more: '+{count} more',
       less: 'Show less',
     },
+    trail: {
+      label: 'Read in',
+      withheldProject: 'A project you may not open',
+      withheldFolder: 'A folder you may not open',
+      personalShelf: 'Meine Ablage',
+      personalMemory: 'Personal memory',
+    },
   },
   profilePatchCard: {
     accept: 'Accept',
