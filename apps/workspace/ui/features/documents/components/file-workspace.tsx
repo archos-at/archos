@@ -11,6 +11,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import type { FileItem, FolderItem } from '../file-types'
 import type { DocumentWireRow } from '../lib/file-item'
 import type { FileShelf } from '../lib/file-shelf'
+import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode, type SearchSurface } from '@/features/search'
 import type { RootSortShelf } from '@/lib/filing/root-sort-types'
 import { activeFilterCount } from '../lib/file-filters'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
@@ -71,7 +72,32 @@ const SEARCH_PLACEHOLDER = {
   personal: 'browser.searchPlaceholderPersonal',
 } as const
 
-export function FileWorkspace({
+const SEARCH_BACK = {
+  project: 'backToFiles',
+  office: 'backToShelf',
+  personal: 'backToShelf',
+} as const
+
+function searchSurface(shelf: FileShelf, folderId: string | null): SearchSurface {
+  if (shelf.source === 'project' && shelf.projectId) return { kind: 'project', projectId: shelf.projectId, folderId }
+  return { kind: shelf.source === 'office' ? 'office_shelf' : 'personal', folderId }
+}
+
+export function FileWorkspace(props: FileWorkspaceProps) {
+  const search = useShelfSearchMode()
+  if (!search.active) return <ShelfListing {...props} />
+  const { shelf, renderHeader } = props
+  return (
+    <div className="flex h-full min-h-0 flex-col" data-testid="shelf-search">
+      {renderHeader(<ShelfSearchBack onClose={search.close} label={SEARCH_BACK[shelf.source]} />, { count: null })}
+      <div className="min-h-0 flex-1">
+        <SearchWorkspace surface={searchSurface(shelf, search.folderId)} currentUserId={shelf.currentUserId} inset autoFocus />
+      </div>
+    </div>
+  )
+}
+
+function ShelfListing({
   shelf,
   renderHeader,
   moreEntries,
