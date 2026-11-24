@@ -81,18 +81,19 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   )
   const onOpenAll = useCallback(() => setSessionsPanelOpen(true), [setSessionsPanelOpen])
 
-  const [loadingSides, setLoadingSides] = useState<ReadonlySet<string>>(() => new Set())
+  const [loadingSides, setLoadingSides] = useState<ReadonlyMap<string, number>>(() => new Map())
   const loadSide = useCallback(
     (sideProjectId: string | null): void => {
       const key = sideProjectId ? serverSideKey('project', sideProjectId) : serverSideKey('personal')
-      setLoadingSides((was) => (was.has(key) ? was : new Set(was).add(key)))
-      const settled = (): void =>
-        setLoadingSides((was) => {
-          if (!was.has(key)) return was
-          const next = new Set(was)
-          next.delete(key)
-          return next
-        })
+      const count = (step: 1 | -1) => (was: ReadonlyMap<string, number>) => {
+        const next = new Map(was)
+        const left = (was.get(key) ?? 0) + step
+        if (left > 0) next.set(key, left)
+        else next.delete(key)
+        return next
+      }
+      setLoadingSides(count(1))
+      const settled = (): void => setLoadingSides(count(-1))
       const load = sideProjectId ? loadServerConversations(sideProjectId, 'project') : loadServerConversations(undefined, 'personal')
       void Promise.resolve(load).then(settled, settled)
     },
@@ -165,7 +166,7 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
         open={deleting !== null}
         onOpenChange={(open) => !open && setDeleting(null)}
         onConfirm={confirmDelete}
-        sessionTitle={rows.find((row) => row.id === deleting)?.title}
+        sessionTitle={rows.find((row) => row.id === deleting)?.title || t('sessionsPanel.untitledSession')}
       />
     </RailChatsSource>
   )

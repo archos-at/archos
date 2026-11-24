@@ -1,0 +1,7 @@
+---
+# area: general
+fixes:
+  - >
+    A new chat's provisional title in „Letzte Chats“ no longer stays grey after
+    a failed answer or a reload, and a name you give a chat while ARCHOS is
+    naming it is kept.

@@ -23,7 +23,7 @@ import { ConnectionBand } from './connection-band'
 import { ShellSearchButton } from './shell-search-button'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
-import { PROJECT_OVERVIEW_PATH } from './landing'
+import { PROJECT_OVERVIEW_PATH, isOverviewPath } from './landing'
 import { overviewLinkClick } from './project-overview-entry'
 
 
@@ -84,7 +84,7 @@ export function OrgHeader({
             href={PROJECT_OVERVIEW_PATH}
             label={t('projectSwitcher.projects')}
             icon={FolderKanban}
-            active={pathname === PROJECT_OVERVIEW_PATH}
+            active={isOverviewPath(pathname)}
           />
           {/* On a phone the two doorways live in the tab bar, under the thumb
               (`PhoneTabBar`), and feedback in the avatar menu; the band keeps

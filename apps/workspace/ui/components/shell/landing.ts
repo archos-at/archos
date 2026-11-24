@@ -3,6 +3,10 @@ import { projectIdFromPathname } from './org-sections'
 
 export const PROJECT_OVERVIEW_PATH = '/app/projects'
 export const NEW_PROJECT_PATH = `${PROJECT_OVERVIEW_PATH}?new=1`
+
+export function isOverviewPath(pathname: string | null | undefined): boolean {
+  return !!pathname && pathname.replace(/\/+$/, '') === PROJECT_OVERVIEW_PATH
+}
 export const LAST_PLACE_COOKIE = 'last_place'
 export const FIRST_PLACE = NEW_PERSONAL_CHAT_HREF
 

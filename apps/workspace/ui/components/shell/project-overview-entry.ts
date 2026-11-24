@@ -3,7 +3,7 @@
 import type { MouseEvent } from 'react'
 import { create } from 'zustand'
 
-import { NEW_PROJECT_PATH, PROJECT_OVERVIEW_PATH } from './landing'
+import { NEW_PROJECT_PATH, isOverviewPath } from './landing'
 import type { PaletteSummon } from './shell-overlays'
 
 interface ProjectOverviewState {
@@ -37,7 +37,7 @@ export function openProjectOverview({ create = false, summon = 'pointer' }: { cr
 }
 
 export function isOverviewHref(href: string): boolean {
-  return href.split('?')[0] === PROJECT_OVERVIEW_PATH
+  return isOverviewPath(href.split(/[?#]/)[0])
 }
 
 export function openOverviewFor(href: string, summon: PaletteSummon = 'pointer'): boolean {

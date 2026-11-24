@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, MoreHorizontal, PencilLine, Trash2, Users } from 'lucide-react'
 
 import { motion, motionSnap, useMotionToken } from '@/components/motion'
+import { FIELD_FOCUS_RING } from '@/components/ui/focus-ring'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useTranslations } from '@/i18n'
@@ -144,7 +145,7 @@ function RailChatRename({ chat, onDone }: { chat: RailChat; onDone: (title: stri
       }}
       aria-label={t('chatRenameInput')}
       data-testid="rail-chat-rename-input"
-      className="bg-card text-foreground h-8 w-full rounded-control border px-3 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:h-11 pointer-coarse:text-base"
+      className={cn('bg-card text-foreground h-8 w-full rounded-control border px-3 text-[13px] pointer-coarse:h-11 pointer-coarse:text-base', FIELD_FOCUS_RING)}
     />
   )
 }
@@ -153,7 +154,7 @@ const PENDING_ROW_WIDTHS = ['w-3/4', 'w-1/2', 'w-2/3'] as const
 
 function RailChatTitle({ chat }: { chat: RailChat }): JSX.Element {
   const t = useTranslations(navCopy)
-  const [bornProvisional] = useState(chat.provisional === true)
+  const [born] = useState({ provisional: chat.provisional === true, title: chat.title })
   const fade = useMotionToken(motionSnap)
   const unseen = chat.activity === 'answered' || chat.activity === 'failed'
   if (chat.provisional && !chat.title) {
@@ -166,8 +167,8 @@ function RailChatTitle({ chat }: { chat: RailChat }): JSX.Element {
   }
   return (
     <motion.span
-      key={chat.provisional ? 'provisional' : 'named'}
-      initial={bornProvisional && !chat.provisional ? { opacity: 0 } : false}
+      key={chat.title}
+      initial={born.provisional && chat.title !== born.title ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       transition={fade}
       data-provisional={chat.provisional || undefined}

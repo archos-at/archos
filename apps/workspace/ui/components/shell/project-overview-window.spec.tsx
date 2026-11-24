@@ -161,6 +161,12 @@ describe('the project overview is a window of the shell, as search is', () => {
     expect(await screen.findByTestId('project-overview-window')).toHaveAttribute('data-instant', 'true')
   })
 
+  test('/app/projects/ with a trailing slash shows it too, never an empty page', async () => {
+    pathname = '/app/projects/'
+    render(shell())
+    expect(await screen.findByTestId('project-overview-window')).toBeInTheDocument()
+  })
+
   test('/app/projects?new=1 opens it with create open', async () => {
     pathname = '/app/projects'
     search = 'new=1'

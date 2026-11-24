@@ -408,6 +408,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
+            "de": "Beim Wechsel zu einem temporären Chat bleibt alles ruhiger: Die Brillen-Schaltfläche füllt sich und zeigt „Temporär“, der Rand des Eingabefelds wird gestrichelt und in einem leeren Chat steht statt der Begrüßung „Temporärer Chat“ – ohne dass etwas springt."
+          }
+        },
+        {
           "section": "fixes",
           "area": "general",
           "text": {
@@ -437,6 +445,14 @@
           "text": {
             "en": "The Deep Research list in the chat history now shows each research run under its own name with its real state, so a finished report no longer reads as still running. Offices without deep research no longer see the list, and reading the documents of a new upload no longer appears in it.",
             "de": "Die Deep-Research-Liste im Chatverlauf zeigt jetzt jeden Recherchelauf mit eigenem Namen und tatsächlichem Status an, sodass ein fertiger Bericht nicht mehr als laufend erscheint. Büros ohne Deep Research sehen die Liste nicht mehr, und das Lesen der Dokumente eines neuen Uploads erscheint nicht mehr darin."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Renaming a chat in „Letzte Chats“ no longer shows a cut-off field: its edge stays whole while you type. The chat's title in the toolbar and the fields for a file's tags and topics behave the same way.",
+            "de": "Beim Umbenennen eines Chats in „Letzte Chats“ wird das Eingabefeld nicht mehr abgeschnitten: Sein Rand bleibt beim Tippen vollständig sichtbar. Dasselbe gilt für den Chat-Titel in der Toolbar sowie die Felder für Tags und Themen einer Datei."
           }
         },
         {
@@ -605,6 +621,14 @@
           "text": {
             "en": "On a phone turned on its side, the project overview now slides up and can be pulled down to close, as it does when the phone is upright.",
             "de": "Im Querformat fährt die Projektübersicht jetzt nach oben und lässt sich zum Schließen nach unten ziehen – wie im Hochformat."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Opening the project overview at an address ending in a slash (/app/projects/) shows the overview instead of an empty page.",
+            "de": "Wenn Sie die Projektübersicht über eine Adresse öffnen, die mit einem Schrägstrich endet (/app/projects/), wird die Übersicht statt einer leeren Seite angezeigt."
           }
         },
         {

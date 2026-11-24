@@ -1,0 +1,6 @@
+---
+# area: general
+fixes:
+  - >
+    Opening the project overview at an address ending in a slash
+    (/app/projects/) shows the overview instead of an empty page.

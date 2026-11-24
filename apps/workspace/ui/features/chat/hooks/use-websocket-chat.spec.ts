@@ -1291,6 +1291,45 @@ describe('a message to people (the ruled send) stands at once, and goes again wh
     expect(messages()[0]!.addressees).toEqual({ agent: false, users: ['u2'] })
   })
 
+  it('the message is marked unsent until the server takes it; a message only to people settles the title at once', async () => {
+    const server = answer()
+    const { result } = open(fresh())
+    let sent!: Promise<unknown>
+    act(() => {
+      sent = result.current.sendMessage('Bitte prüfen', { awaitingHuman: true }) as Promise<unknown>
+    })
+    expect(messages()[0]!.unsent).toBe(true)
+
+    await act(async () => {
+      await server.resolve(new Response(JSON.stringify({ id: messages()[0]!.id, addressees: { agent: false, users: ['u2'] } }), { status: 201 }))
+      await sent
+    })
+
+    expect(messages()[0]!.unsent).toBeUndefined()
+    expect(useChatStore.getState().currentConversation).toMatchObject({ title: 'Bitte prüfen' })
+    expect(useChatStore.getState().currentConversation!.titleProvisional).toBeUndefined()
+  })
+
+  it('a refused send takes back only its own change: a name or a lock that came meanwhile stays', async () => {
+    const server = answer()
+    const { result } = open(fresh())
+    let sent!: Promise<unknown>
+    act(() => {
+      sent = result.current.sendMessage('Bitte prüfen', { awaitingHuman: true }) as Promise<unknown>
+    })
+    act(() => {
+      const named = { ...useChatStore.getState().currentConversation!, title: 'Prüfauftrag', titleProvisional: undefined }
+      useChatStore.setState({ currentConversation: named, conversations: [named] })
+    })
+
+    await act(async () => {
+      await server.resolve(new Response(JSON.stringify({ error: 'nope' }), { status: 403 }))
+      await sent
+    })
+
+    expect(useChatStore.getState().currentConversation).toMatchObject({ title: 'Prüfauftrag', messages: [] })
+  })
+
   it('a refused send takes the message and the title back, so the chat is unsent again', async () => {
     const server = answer()
     const { result } = open(fresh())

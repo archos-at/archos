@@ -92,6 +92,7 @@ export interface ChatMessage {
   timestamp: Date
   messageType?: MessageType
   isStreaming?: boolean
+  unsent?: true
   promptId?: string
   promptParentId?: string
   promptInputType?: 'text' | 'choice'

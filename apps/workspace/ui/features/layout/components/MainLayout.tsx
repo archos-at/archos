@@ -248,6 +248,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
                 <ConversationPrivacyLine
                   conversationId={currentConversationId ?? null}
                   canCollaborate={canCollaborate}
+                  statesTemporary={messageCount > 0}
                 />
                 {messageCount === 0 && <NewChatMailLine projectId={projectId ?? null} />}
               </motion.div>

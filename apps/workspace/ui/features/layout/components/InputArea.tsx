@@ -21,12 +21,14 @@ import { ComposerField } from './input-area/composer-field'
 import { ComposerControls } from './input-area/composer-controls'
 
 import { useChatStore } from '@/features/chat/store'
+import { useTemporarySwitch } from '@/features/chat/conversation-privacy'
 export type { ConnectionMode } from './input-area/use-input-area-controller'
 
 export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
   const controller = useInputAreaController(props)
   const chatStarted = useChatStore((s) => (s.currentConversation?.messages?.length ?? 0) > 0)
   const arriving = useComposerArriving(props.isAuthenticated ?? false)
+  const temporary = useTemporarySwitch(controller.currentConversationId).pressed
 
   return (
     <div
@@ -55,8 +57,11 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
         <PopoverAnchor asChild>
           <div
             ref={controller.composerRef}
+            data-temporary={temporary || undefined}
             className={cn(
-              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 relative flex flex-col rounded-xl px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
+              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 relative flex flex-col rounded-xl px-3 py-2.5 backdrop-blur-md sm:px-4',
+              'outline-1 -outline-offset-1 outline-dashed transition-[outline-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+              temporary ? 'outline-foreground shadow-none' : 'outline-transparent shadow-md',
               FIELD_FOCUS_WITHIN_RING,
               controller.isDisabledByAuth && 'opacity-60'
             )}

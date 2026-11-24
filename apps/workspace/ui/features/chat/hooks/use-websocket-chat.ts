@@ -72,25 +72,40 @@ function appendLocalUserMessage(message: ChatMessage): { settle: (patch: Partial
   const store = useChatStore as unknown as LocalConversations
   const before = store.getState().currentConversation
   if (!before || typeof store.setState !== 'function') return null
+  const appended = { ...titledByFirstMessage(before, message.content), messages: [...before.messages, { ...message, unsent: true as const }], updatedAt: new Date() }
+  const titledHere = appended.title !== before.title || appended.titleProvisional !== before.titleProvisional
   replaceLocalConversation(store, before.id, (conversation) => ({
-    ...titledByFirstMessage(conversation, message.content),
-    messages: [...conversation.messages, message],
-    updatedAt: new Date(),
+    ...conversation,
+    ...(titledHere && { title: appended.title, titleProvisional: appended.titleProvisional }),
+    messages: [...conversation.messages, ...appended.messages.slice(-1)],
+    updatedAt: appended.updatedAt,
   }))
   return {
     settle: (patch) =>
       replaceLocalConversation(store, before.id, (conversation) => ({
         ...conversation,
-        messages: conversation.messages.map((m) => (m.id === message.id ? { ...m, ...patch } : m)),
+        messages: conversation.messages.map((m) => {
+          if (m.id !== message.id) return m
+          const { unsent: _accepted, ...sent } = m
+          return { ...sent, ...patch }
+        }),
       })),
     withdraw: () =>
-      replaceLocalConversation(store, before.id, (conversation) => ({
-        ...conversation,
-        title: before.title,
-        titleProvisional: before.titleProvisional,
-        messages: conversation.messages.filter((m) => m.id !== message.id),
-        updatedAt: before.updatedAt,
-      })),
+      replaceLocalConversation(store, before.id, (conversation) => {
+        const messages = conversation.messages.filter((m) => m.id !== message.id)
+        const ownTitle = titledHere && !conversation.contentLocked && conversation.titleProvisional === true && conversation.title === appended.title
+        const nextUser = messages.find((m) => m.messageType === 'user')
+        const retitled = !ownTitle
+          ? conversation
+          : nextUser
+            ? titledByFirstMessage({ ...conversation, messages: [] }, nextUser.content)
+            : { ...conversation, title: before.title, titleProvisional: before.titleProvisional }
+        return {
+          ...retitled,
+          messages,
+          updatedAt: conversation.updatedAt === appended.updatedAt ? before.updatedAt : conversation.updatedAt,
+        }
+      }),
   }
 }
 
@@ -486,6 +501,7 @@ export const useWebSocketChat = (options: UseWebSocketChatOptions = {}): UseWebS
 
       if (!ruling.agent) {
         deliverAsContext(messageId, content, dataSourcesOnWire)
+        useChatStore.getState().maybeGenerateConversationName(conversationId)
         return { ok: true, addressees: ruling }
       }
 
