@@ -70,7 +70,6 @@ export function PersonalShelfWorkspace({ userId, showModels = false, trailingAct
       <SectionToolRowScope enabled={!phone}>
         <FileWorkspace
           shelf={shelf}
-          onOpenSearch={search.open}
           renderHeader={(controls, { count }) => (
             <PersonalShelfHeader controls={controls} count={count} phone={phone} trailingActions={trailingActions} />
           )}
