@@ -356,7 +356,6 @@ function personalRailItems(pathname: string, t: (key: string) => string, chatOpe
     icon,
     label,
     active,
-    badgeCount: 0,
     waitingCount: null,
   })
   return [
