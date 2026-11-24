@@ -619,6 +619,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "Opening the project overview at an address ending in a slash (/app/projects/) shows the overview instead of an empty page.",
+            "de": "Wenn Sie die Projektübersicht über eine Adresse öffnen, die mit einem Schrägstrich endet (/app/projects/), wird die Übersicht statt einer leeren Seite angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "A link to a project you cannot open, because it was deleted or is not shared with you, now shows the \"page not found\" page instead of an error.",
             "de": "Ein Link zu einem Projekt, das Sie nicht öffnen können, weil es gelöscht wurde oder nicht für Sie freigegeben ist, führt jetzt zur Seite „Seite nicht gefunden“ statt zu einer Fehlermeldung."
           }
