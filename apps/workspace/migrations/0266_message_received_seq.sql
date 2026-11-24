@@ -22,4 +22,6 @@ WHERE m."id" = o."id";
 --> statement-breakpoint
 SELECT setval('messages_received_seq', COALESCE((SELECT max("received_seq") FROM "messages"), 0) + 1, false);
 --> statement-breakpoint
-GRANT USAGE, SELECT ON SEQUENCE "messages_received_seq" TO grid_app_rw, grid_app_platform;
+DO $$ BEGIN
+  EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE messages_received_seq TO %I, %I', rls_role('rw'), rls_role('platform'));
+END $$;
