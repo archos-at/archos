@@ -77,8 +77,14 @@ keep the personal shelf in a chat after it was shared.
    The built-in agent's door is `chat`, `run` or `headless`, by what started it.
 
    Nothing without a conversation gets personal memory or the personal shelf,
-   and neither does an external caller. A run never gets the personal shelf. A missing row reads as solo, so solo
-   alone never grants anything personal. The table is in the design.
+   and neither does an external caller. A run never gets the personal shelf.
+   A missing row reads as solo, so solo alone never grants anything personal. The table is in the design.
+
+   These rules govern what a context draws on by itself. Explicit operations on a
+   person's own shelf are different: through the `mcp` door, the person's own
+   connected agent may upload to, list, search and read their own Meine Ablage
+   with their rights, as they could by hand. The `a2a` and `platform` doors may
+   not.
 
 ## Consequences
 
@@ -117,6 +123,8 @@ keep the personal shelf in a chat after it was shared.
   receives personal memory or the personal shelf; a run with a conversation
   receives personal memory only where that chat's turn would, and never the
   personal shelf.
+* An `mcp` caller reaches only its own person's shelf, and an `a2a` or
+  `platform` caller reaches no personal-shelf operation.
 * The TypeScript, CommonJS and Python sides parse one generated schema fixture.
 
 The design, the migration order and the slices are in

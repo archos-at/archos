@@ -63,7 +63,7 @@ one.
 | `chat` | a turn in a conversation, including a wake turn and an agent's ask in a chat | yes | what every reader may read | when `solo` | when `solo` and the chat has no project |
 | `run` | tasks and deep research; with a conversation, that chat's audience | yes | as `chat` when it has a conversation, otherwise none | as `chat` when it has a conversation, otherwise no | no: a run's decision lives up to an hour, past a share |
 | `headless` | document check, project intake, wake stop, jobs that serve no reader | the project only | none | no | no |
-| `external` | the `mcp`, `a2a` and `platform` doors and `script` sessions; the built-in agent's door is `chat`, `run` or `headless` by what started it | yes, with the caller's rights, through the agent-api | through the agent-api's per-target checks | no | no |
+| `external` | the `mcp`, `a2a` and `platform` doors and `script` sessions; the built-in agent's door is `chat`, `run` or `headless` by what started it | yes, with the caller's rights, through the agent-api | through the agent-api's per-target checks | no | never drawn into a context; through the `mcp` door the person's own agent may upload to, list, search and read their own shelf, through `a2a` and `platform` nothing |
 
 **The predicates.** Each is defined once, in `types.ts`.
 - `solo`: the existing `isSoloAudience`, unchanged. It is true for a missing row,
