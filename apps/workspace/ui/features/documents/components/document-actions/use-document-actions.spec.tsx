@@ -117,3 +117,101 @@ describe('useDocumentActions — move refusals', () => {
     expect(onMoved).not.toHaveBeenCalled()
   })
 })
+
+describe('useDocumentActions — deleting', () => {
+  it('moves a project document to the bin and says until when it can be restored', async () => {
+    const permanent = vi.fn()
+    server.use(
+      http.post('/api/documents/doc-1/bin', () =>
+        HttpResponse.json({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-04T10:00:00.000Z' })
+      ),
+      http.delete('/api/documents/doc-1', () => {
+        permanent()
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    const success = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const onDeleted = vi.fn()
+    const hook = renderHook(() => useDocumentActions({ document: DOCUMENT, scope: 'files', onDeleted }))
+
+    let removed = false
+    await act(async () => {
+      removed = await hook.result.current.remove()
+    })
+
+    expect(removed).toBe(true)
+    expect(permanent).not.toHaveBeenCalled()
+    expect(onDeleted).toHaveBeenCalledWith('doc-1')
+    expect(success).toHaveBeenCalledWith(expect.stringMatching(/^“Einreichplan_EG\.pdf” is in the bin\. Restorable until .*2026\.$/))
+  })
+
+  it('deletes an office shelf document for good, because that shelf has no bin', async () => {
+    const binned = vi.fn()
+    const permanent = vi.fn()
+    server.use(
+      http.post('/api/documents/doc-1/bin', () => {
+        binned()
+        return HttpResponse.json({}, { status: 409 })
+      }),
+      http.delete('/api/documents/doc-1', () => {
+        permanent()
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    const success = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const hook = renderHook(() => useDocumentActions({ document: DOCUMENT, scope: 'officeShelf' }))
+
+    await act(async () => {
+      await hook.result.current.remove()
+    })
+
+    expect(binned).not.toHaveBeenCalled()
+    expect(permanent).toHaveBeenCalledTimes(1)
+    expect(success).toHaveBeenCalledWith(expect.stringContaining('Einreichplan_EG.pdf'))
+    expect(success).not.toHaveBeenCalledWith(expect.stringContaining('bin'))
+  })
+
+  it('deletes a held project file for good, so its name never shows in the project bin', async () => {
+    const binned = vi.fn()
+    const permanent = vi.fn()
+    server.use(
+      http.post('/api/documents/doc-1/bin', () => {
+        binned()
+        return HttpResponse.json({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-04T10:00:00.000Z' })
+      }),
+      http.delete('/api/documents/doc-1', () => {
+        permanent()
+        return new HttpResponse(null, { status: 204 })
+      })
+    )
+    vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const held = { ...DOCUMENT, status: 'quarantined' }
+    const hook = renderHook(() => useDocumentActions({ document: held, scope: 'files' }))
+
+    expect(hook.result.current.erases).toBe(true)
+    await act(async () => {
+      await hook.result.current.remove()
+    })
+
+    expect(binned).not.toHaveBeenCalled()
+    expect(permanent).toHaveBeenCalledTimes(1)
+  })
+
+  it('says a legal hold keeps the document, when the bin refuses for that', async () => {
+    server.use(
+      http.post('/api/documents/doc-1/bin', () =>
+        HttpResponse.json({ error: 'Conflict', code: 'CONFLICT', details: { reason: 'legal_hold' } }, { status: 409 })
+      )
+    )
+    const error = vi.spyOn(toast, 'error').mockImplementation(() => 'id')
+    const hook = renderHook(() => useDocumentActions({ document: DOCUMENT, scope: 'files' }))
+
+    let removed = true
+    await act(async () => {
+      removed = await hook.result.current.remove()
+    })
+
+    expect(removed).toBe(false)
+    expect(error).toHaveBeenCalledWith('The document is under a legal hold and cannot be deleted')
+  })
+})

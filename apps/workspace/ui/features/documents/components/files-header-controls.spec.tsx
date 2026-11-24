@@ -17,7 +17,7 @@ function german(ui: ReactElement): ReturnType<typeof render> {
 }
 
 function controls(
-  search: { opensSearch?: boolean; onSubmit: () => void; value?: string },
+  search: { placeholder?: string; onSubmit: () => void; value?: string },
   phone = false,
   neighbours: { filter?: (compact: boolean) => ReactElement; upload?: ReactElement } = {}
 ): ReactElement {
@@ -28,24 +28,24 @@ function controls(
       onViewChange={() => {}}
       renderFilter={neighbours.filter ?? (() => null)}
       upload={neighbours.upload}
-      search={{ value: search.value ?? '', onChange: () => {}, onSubmit: search.onSubmit, onClear: () => {}, opensSearch: search.opensSearch }}
+      search={{ value: search.value ?? '', onChange: () => {}, onSubmit: search.onSubmit, onClear: () => {}, placeholder: search.placeholder }}
     />
   )
 }
 
 describe('FilesHeaderControls', () => {
-  it('is one way into a shelf’s search: the field says Enter searches everything, and Enter does', async () => {
+  it('says in the field where it searches, and Enter searches there: no window (KAN-86)', async () => {
     const onSubmit = vi.fn()
-    german(controls({ opensSearch: true, onSubmit, value: 'EP-03' }))
+    german(controls({ placeholder: 'In der Projektablage suchen …', onSubmit, value: 'EP-03' }))
     const field = screen.getByRole('textbox', { name: 'Dateien durchsuchen' })
-    expect(field).toHaveAttribute('placeholder', 'Filtern, Enter sucht alles…')
+    expect(field).toHaveAttribute('placeholder', 'In der Projektablage suchen …')
     expect(screen.queryByRole('button', { name: 'Suche' })).toBeNull()
     await userEvent.type(field, '{Enter}')
     expect(onSubmit).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the short placeholder on a phone and where the shelf has no search', () => {
-    const { unmount } = german(controls({ opensSearch: true, onSubmit: () => {} }, true))
+  it('keeps the short placeholder on a phone and where the shelf names no scope', () => {
+    const { unmount } = german(controls({ placeholder: 'In der Projektablage suchen …', onSubmit: () => {} }, true))
     expect(screen.getByRole('textbox', { name: 'Dateien durchsuchen' })).toHaveAttribute('placeholder', 'Suchen…')
     unmount()
     german(controls({ onSubmit: () => {} }))

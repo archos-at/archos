@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react'
 import { describe, expect, test, vi } from 'vitest'
-import { render, screen, within } from '@/test-utils'
+import { cleanup, render, screen } from '@/test-utils'
 import { I18nProvider } from '@/i18n'
 import { proposalResponseSchema } from '@/lib/proposals/types'
-import { InboxQueueList } from '@/features/collaboration/components/InboxQueueList'
-import { waitingGroups } from '@/features/collaboration/lib/inbox-queue'
+import { InboxItemRow } from '@/features/collaboration/components/InboxItemRow'
+import { NormDialogProvider } from '@/components/norms/norm-dialog-slot'
+import { NormDialog } from '@/features/base-knowledge/components/norm-dialog'
 import { NORM_NOTICE_TYPES } from '@/features/collaboration/lib/inbox-norm-notice'
 import { ITEMS, normProposal } from './inbox-items'
 
@@ -22,27 +23,21 @@ vi.mock('next/link', () => ({
 }))
 
 describe('/dev/inbox', () => {
-  test('waits with every norm item, each with its action', () => {
+  test('carries every norm item, each with its action', () => {
     const items = ITEMS.filter((item) => (NORM_NOTICE_TYPES as readonly string[]).includes(item.type))
     expect(items.map((item) => item.type).sort()).toEqual([...NORM_NOTICE_TYPES].sort())
-    render(
-      <I18nProvider initialLocale="de" fixedLocale>
-        <InboxQueueList
-          groups={waitingGroups(items, '2026-11-19')}
-          news={[]}
-          waitingCount={items.length}
-          lateCount={0}
-          currentId={null}
-          hrefOf={(item) => item.href}
-          onFollow={vi.fn()}
-        />
-      </I18nProvider>,
-    )
-    const entries = screen.getAllByTestId('inbox-queue-entry')
-    expect(entries).toHaveLength(NORM_NOTICE_TYPES.length)
-    for (const entry of entries) {
-      const actions = entry.parentElement!
-      expect(within(actions).queryAllByTestId(/^inbox-norm-(uploadEdition|decision)$/).length).toBeGreaterThan(0)
+    for (const item of items) {
+      render(
+        <I18nProvider initialLocale="de" fixedLocale>
+          <NormDialogProvider dialog={NormDialog}>
+            <ul>
+              <InboxItemRow item={item} />
+            </ul>
+          </NormDialogProvider>
+        </I18nProvider>,
+      )
+      expect(screen.queryAllByTestId(/^inbox-norm-(uploadEdition|decision)$/).length, item.type).toBeGreaterThan(0)
+      cleanup()
     }
   })
 

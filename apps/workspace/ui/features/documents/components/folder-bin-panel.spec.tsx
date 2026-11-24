@@ -47,6 +47,18 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     expect(phone).toEqual(['14 documents · 2 folders', expect.stringMatching(/^kept until .* · Gerda Fischer$/)])
   })
 
+  test('in the Ablage’s window it reads the bin itself, and a blocked row gives its short reason', async () => {
+    const fetch = vi.fn(async (_url: string) =>
+      answer(200, listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false, restoreBlocked: 'folder_read_only' })])),
+    )
+    vi.stubGlobal('fetch', fetch)
+    render(<FolderBinPanel projectId="p1" inDialog />)
+    expect(screen.getByTestId('folder-bin-loading')).toBeDefined()
+    expect(await screen.findByText('Verträge')).toBeDefined()
+    expect(String(fetch.mock.calls[0]?.[0])).toContain('/api/projects/p1/bin')
+    expect(screen.getByTestId('bin-blocked-f-ro')).toHaveTextContent('read only')
+  })
+
   test('says the bin is empty', () => {
     render(<FolderBinPanel projectId="p1" initial={listing([])} />)
     expect(screen.getByText('The bin is empty.')).toBeDefined()

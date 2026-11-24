@@ -103,6 +103,24 @@ describe('useReviewCalibration', () => {
     expect(three.result.current.labelFor(1)).toBe('3 scales')
   })
 
+  it('saves a scale for every page with the page size, and shows it on every page', async () => {
+    const { client, set } = recordingClient()
+    const hook = mount(client)
+    await complete(hook)
+    act(() => hook.result.current.wholeDocument())
+    await act(async () => {
+      await hook.result.current.save()
+    })
+    expect(set).toHaveBeenCalledWith(
+      SHEET_DOCUMENT,
+      expect.objectContaining({ scope: 'document', pageSize: { widthPt: SHEET_SIZE.width, heightPt: SHEET_SIZE.height } })
+    )
+    const saved = hook.result.current.calibrations.find((entry) => entry.scope === 'document')
+    expect(saved).toBeDefined()
+    expect(hook.result.current.onPage(7)).toContain(saved)
+    expect(hook.result.current.labelFor(7)).toBe('Scale 1:100')
+  })
+
   it('offers no setting to a reader who may not calibrate', async () => {
     const hook = mount(recordingClient([], false).client)
     await waitFor(() => expect(hook.result.current.shown).toBe(true))
@@ -119,7 +137,7 @@ describe('useReviewCalibration', () => {
       await Promise.all([hook.result.current.save(), hook.result.current.save()])
     })
     expect(set).toHaveBeenCalledTimes(1)
-    expect(set).toHaveBeenCalledWith(SHEET_DOCUMENT, { page: 1, region: BOX, from: FROM, to: TO, lengthM: 21 })
+    expect(set).toHaveBeenCalledWith(SHEET_DOCUMENT, { page: 1, region: BOX, from: FROM, to: TO, lengthM: 21, scope: 'page' })
     expect(hook.result.current).toMatchObject({ setting: false, open: true, said: 'Scale 1:100 set' })
     expect(hook.result.current.calibrations).toHaveLength(1)
   })
@@ -167,7 +185,7 @@ describe('useReviewCalibration', () => {
     expect(action.label).toBe('Undo')
 
     await act(async () => action.onClick())
-    expect(set).toHaveBeenCalledWith(SHEET_DOCUMENT, { page: 1, region: kept.region, from: kept.from, to: kept.to, lengthM: 21 })
+    expect(set).toHaveBeenCalledWith(SHEET_DOCUMENT, { page: 1, region: kept.region, from: kept.from, to: kept.to, lengthM: 21, scope: 'page' })
     await waitFor(() => expect(hook.result.current.calibrations).toHaveLength(1))
   })
 

@@ -794,9 +794,9 @@ describe('a choice sits on its track', () => {
     expect(literalHasRun(moduleOf('SectionNav'), ['rounded-control', 'bg-desk', 'p-0.5'])).toBe(true)
   })
 
-  it('Dateien’s tabs sit on the same track, so grey alone means a press and never „chosen“', () => {
+  it('the Ablage’s places are words with a rule under the open one, never a second track beside the presses (KAN-86)', () => {
     const frame = parseSource(moduleOf('ProjectSectionFrame'))
-    expect(elementsNamed(frame, ['SectionNav']).map((element) => attributeOf(element, 'track') !== undefined || classesOfAttributes(element).includes('track'))).toEqual([true])
+    expect(elementsNamed(frame, ['SectionNav']).map((element) => attributeOf(element, 'words') !== undefined)).toEqual([true])
   })
 
   it('every single choice on Dateien, the preview and the brief is segmented', () => {
@@ -1123,13 +1123,13 @@ describe('rows, weights and the phone', () => {
     expect(literalHasRun(row, ['text-muted-foreground', 'ml-auto', 'hidden', 'shrink-0', 'items-start', 'gap-4'])).toBe(true)
   })
 
-  it('the places stand clear of the title: 24px under the title block, 16px on a phone', () => {
-    expect(summaryOf(moduleOf('ProjectSectionFrame')).literals.includes('-mb-2 mt-6 min-w-0 phone:mt-4')).toBe(true)
+  it('the places stand under the tool row, their rule on the band’s rule (KAN-86)', () => {
+    expect(summaryOf(moduleOf('ProjectSectionFrame')).literals.includes('-mb-4 mt-4 min-w-0 phone:mt-4')).toBe(true)
   })
 
   it('on a phone the tabs name only the open place, and a page’s one ⋯ stands on the title’s line', () => {
     const frame = parseSource(moduleOf('ProjectSectionFrame'))
-    expect(elementsNamed(frame, ['SectionNav']).some((element) => attributeOf(element, 'track') !== undefined && attributeOf(element, 'compactOnPhone') !== undefined)).toBe(true)
+    expect(elementsNamed(frame, ['SectionNav']).some((element) => attributeOf(element, 'words') !== undefined && attributeOf(element, 'compactOnPhone') !== undefined)).toBe(true)
     for (const name of ['InboundMailWorkspace', 'OpenPointsPanel']) {
       expect(elementsNamed(parseSource(moduleOf(name)), ['ProjectSectionActions']).some((element) => attributeOf(element, 'onTitleLine') !== undefined), name).toBe(true)
     }

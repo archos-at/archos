@@ -22,12 +22,13 @@ export interface NewFolderDialogProps {
   onOpenChange: (open: boolean) => void
   onCreate: (name: string) => Promise<boolean>
   label?: string
+  initialName?: string
 }
 
-export function NewFolderDialog({ open, onOpenChange, onCreate, label }: NewFolderDialogProps): JSX.Element {
+export function NewFolderDialog({ open, onOpenChange, onCreate, label, initialName = '' }: NewFolderDialogProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const action = label ?? t('folders.newFolder')
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialName)
   const [isCreating, setIsCreating] = useState(false)
 
   const commit = async (): Promise<void> => {

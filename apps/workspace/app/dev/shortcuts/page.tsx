@@ -29,15 +29,7 @@ export default function ShortcutsPreviewPage() {
           /dev/shortcuts — Tastaturkürzel ({variant})
         </h1>
         {variant === 'palette' ? (
-          <CommandPalette
-            open
-            onOpenChange={() => {}}
-            authRequired
-            canViewOrganization
-            showKnowledge
-            showSkills
-            canAccessOfficeShelf
-          />
+          <CommandPalette open onOpenChange={() => {}} authRequired canViewOrganization />
         ) : (
         <ShortcutsCheatsheet
           open

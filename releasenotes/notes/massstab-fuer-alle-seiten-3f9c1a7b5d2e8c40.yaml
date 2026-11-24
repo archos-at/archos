@@ -1,0 +1,8 @@
+---
+# area: documents
+features:
+  - >
+    You can now set the scale of a PDF drawing once for all its pages by
+    choosing "All pages"; a scale set for one page or frame still takes
+    precedence there. The measure strip also names the estimated scale instead
+    of "No scale".

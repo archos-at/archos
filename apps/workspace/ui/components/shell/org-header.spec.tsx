@@ -98,6 +98,14 @@ describe('OrgHeader — the org scope in one slim band', () => {
     expect(screen.getByLabelText('Inbox')).not.toHaveAttribute('aria-current')
   })
 
+  test('the inbox doorway is a plain link to the page, lit while the reader is there', () => {
+    pathname = '/app/inbox'
+    render(<OrgHeader {...baseProps} />)
+    const inbox = screen.getByLabelText('Inbox')
+    expect(inbox).toHaveAttribute('aria-current', 'page')
+    expect(inbox).not.toHaveAttribute('aria-expanded')
+  })
+
   test('surfaces the pending count on the inbox doorway', () => {
     pending = 3
     render(<OrgHeader {...baseProps} />)
@@ -123,7 +131,6 @@ describe('OrgHeader — on a phone', () => {
     expect(screen.getByLabelText('Office library').className).toMatch(/(^|\s)hidden(\s|$)/)
     expect(screen.getByLabelText('Office library').className).toContain('md:flex')
     const search = screen.getByTestId('shell-search')
-    expect(search.className).toContain('md:hidden')
     expect(search.className).toContain('pointer-coarse:size-11')
     search.click()
     expect(useShellOverlays.getState().paletteOpen).toBe(true)
