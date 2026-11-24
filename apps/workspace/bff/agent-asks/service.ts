@@ -356,7 +356,7 @@ async function stopTurn(row: AgentAskRow): Promise<HeadlessCancelOutcome> {
     turnId: row.id,
     headers: {
       ...socketTurnHeaders(
-        { organizationId: row.organizationId, userId: row.requestedBy, conversationId: row.conversationId },
+        { organizationId: row.organizationId, userId: row.requestedBy, conversationId: row.conversationId, contextKind: 'headless' },
         { issuedAt: Date.now(), secret: target.secret },
       ),
       ...HEADLESS_MODE_HEADERS,

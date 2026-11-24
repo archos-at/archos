@@ -24,7 +24,7 @@ export interface ContextRequest {
 }
 
 export interface AudienceRead {
-  tx: DbExecutor
+  tx?: DbExecutor
   row: ConversationAudienceRow
 }
 
@@ -151,12 +151,15 @@ export async function resolveConversationContext(
   }
 }
 
-export async function conversationInProject(
+export async function resolveRunConversationContext(
   session: AuthorizedSession,
-  conversationId: string | null | undefined,
-  projectId: string,
-): Promise<string | null> {
-  if (!conversationId) return null
-  const row = await readConversationRow(session.organizationId, conversationId)
-  return row.exists && row.projectId === projectId ? conversationId : null
+  request: { projectId: string; conversationId?: string | null; kind: Extract<ContextKind, 'run' | 'headless'> },
+): Promise<ConversationContext> {
+  const row = await rowOf(session, request.conversationId ?? null, {})
+  const inProject = row.exists && row.projectId === request.projectId
+  return resolveConversationContext(
+    session,
+    { projectId: request.projectId, conversationId: inProject ? (request.conversationId ?? undefined) : undefined, kind: request.kind },
+    inProject ? { audience: { row } } : {},
+  )
 }

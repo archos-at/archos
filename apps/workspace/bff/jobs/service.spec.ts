@@ -42,10 +42,16 @@ vi.mock('@/lib/project-profile/prompt-view', () => ({
 vi.mock('@/lib/conversation-context', () => ({
   resolveConversationContext: vi.fn(),
 }))
-vi.mock('@/lib/conversation-context/resolve', () => ({
-  conversationInProject: vi.fn(async (_session: unknown, conversationId: string | null | undefined) =>
-    conversationId === 's_elsewhere' ? null : (conversationId ?? null)),
-}))
+vi.mock('@/lib/conversation-context/resolve', async () => {
+  const { resolveConversationContext } = await import('@/lib/conversation-context')
+  return {
+    resolveRunConversationContext: vi.fn(async (session: unknown, request: { projectId: string; conversationId?: string | null; kind: 'run' }) => {
+      const conversationId = request.conversationId === 's_elsewhere' ? undefined : (request.conversationId ?? undefined)
+      const context = await resolveConversationContext(session as never, { projectId: request.projectId, conversationId, kind: request.kind })
+      return { ...context, conversationId: conversationId ?? null }
+    }),
+  }
+})
 vi.mock('@/lib/auth/pinned-session', () => ({
   resolvePinnedRequesterSession: vi.fn(async (who: { userId: string; organizationId: string }) => ({ ...who })),
 }))
@@ -765,7 +771,7 @@ describe('submitAgentRun', () => {
     })
   })
 
-  it('decides a run as a run, in its conversation, so it never searches a restricted folder (ADR-0087, ADR-0192)', async () => {
+  it('decides a run as a run, in its conversation, so it never searches a restricted folder (ADR-0087, ADR-0194)', async () => {
     await submitAgentRun(spec)
 
     expect(vi.mocked(resolveConversationContext).mock.calls[0]?.[1]).toMatchObject({ kind: 'run', projectId: spec.projectId })

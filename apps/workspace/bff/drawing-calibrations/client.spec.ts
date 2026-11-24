@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   CalibrationRequestError,
   listActiveCalibrations,
+  regionOverlap,
   setCalibration,
   withdrawCalibration,
   type CalibrationFetch,
@@ -85,6 +86,18 @@ describe('the calibrations client', () => {
     const refused = await listActiveCalibrations(DOCUMENT, { run }).catch((error: unknown) => error)
     expect(refused).toBeInstanceOf(CalibrationRequestError)
     expect(refused).toMatchObject({ status: 403, code: 'feature_disabled' })
+  })
+
+  it('names the calibration a refused region overlaps, at the top of the body or in its details', async () => {
+    const input: SetCalibrationRequest = { page: 1, region: { x: 0, y: 0, w: 0.5, h: 0.5 }, from: { x: 0.1, y: 0.1 }, to: { x: 0.2, y: 0.1 }, lengthM: 3 }
+    const refusal = (body: unknown) =>
+      setCalibration(DOCUMENT, input, { run: vi.fn<CalibrationFetch>().mockResolvedValue(answer(body, 409)) }).catch((error: unknown) => error)
+    const id = '77777777-7777-4777-8777-777777777777'
+    expect(regionOverlap(await refusal({ code: 'region-overlaps', overlapping: id }))).toEqual({ overlapping: id })
+    expect(regionOverlap(await refusal({ code: 'region-overlaps', error: 'x', details: { overlapping: id } }))).toEqual({ overlapping: id })
+    expect(regionOverlap(await refusal({ code: 'region-overlaps' }))).toEqual({ overlapping: null })
+    expect(regionOverlap(await refusal({ code: 'CONFLICT' }))).toBeNull()
+    expect(regionOverlap(new Error('offline'))).toBeNull()
   })
 
   it('refuses an answer that is not the wire shape', async () => {

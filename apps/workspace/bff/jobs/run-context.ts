@@ -2,8 +2,7 @@ import 'server-only'
 import { resolvePerson } from '@/lib/auth/person'
 import { getBudgetStatus } from '@/lib/budgets/service'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { resolveConversationContext, type ContextKind } from '@/lib/conversation-context'
-import { conversationInProject } from '@/lib/conversation-context/resolve'
+import { resolveRunConversationContext } from '@/lib/conversation-context/resolve'
 import { getEffectiveModelOverrides } from '@/lib/model-config/service'
 import { resolveOrgInstructions } from '@/lib/org-instructions/service'
 import { loadProjectFederalState, loadProjectPromptView } from '@/lib/project-profile/prompt-view'
@@ -17,24 +16,19 @@ export interface RunSubject {
   userId: string
 }
 
-export interface RunDecision {
-  kind: Extract<ContextKind, 'run' | 'headless'>
-  session: AuthorizedSession | null
-  conversationId?: string | null
-}
+export type RunDecision =
+  | { kind: 'run'; session: AuthorizedSession; conversationId?: string | null }
+  | { kind: 'headless'; session: null }
 
 export async function resolveRunContext(
   { organizationId, projectId, userId }: RunSubject,
   prompt: string,
   decision: RunDecision,
 ) {
-  const conversationId = decision.session
-    ? await conversationInProject(decision.session, decision.conversationId, projectId)
-    : null
   const [
     budget,
     modelOverrides,
-    collectionScope,
+    decided,
     projectContext,
     federalState,
     projectMemory,
@@ -44,7 +38,9 @@ export async function resolveRunContext(
   ] = await Promise.all([
     resolveBudgetSnapshot(organizationId, userId, projectId),
     getEffectiveModelOverrides(organizationId).catch(() => null),
-    decision.session ? runCollectionScope(decision.session, projectId, decision.kind, conversationId) : null,
+    decision.session
+      ? resolveRunConversationContext(decision.session, { projectId, conversationId: decision.conversationId, kind: decision.kind })
+      : null,
     loadProjectPromptView(projectId, organizationId).catch(() => null),
     loadProjectFederalState(projectId, organizationId).catch(() => null),
     buildProjectMemoryDigest(projectId, organizationId, { query: prompt }).catch(() => null),
@@ -52,12 +48,13 @@ export async function resolveRunContext(
     resolveOrgInstructions(organizationId),
     resolvePerson(organizationId, userId),
   ])
+  const shelves = decided?.may.shelves.map((entry) => entry.collection) ?? []
   return {
     kind: decision.kind,
-    conversationId,
+    conversationId: decided?.conversationId ?? null,
+    collectionScope: shelves.length > 0 ? shelves : null,
     budget,
     modelOverrides,
-    collectionScope,
     projectContext,
     federalState: federalState,
     projectMemory,
@@ -111,17 +108,6 @@ async function resolveBudgetSnapshot(
   } catch {
     return null
   }
-}
-
-async function runCollectionScope(
-  session: AuthorizedSession,
-  projectId: string,
-  kind: RunDecision['kind'],
-  conversationId: string | null,
-): Promise<string[] | null> {
-  const context = await resolveConversationContext(session, { projectId, conversationId: conversationId ?? undefined, kind })
-  const scope = context.may.shelves.map((entry) => entry.collection)
-  return scope.length > 0 ? scope : null
 }
 
 export const RUN_ENVELOPE_WARN_BYTES = 12 * 1024

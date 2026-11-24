@@ -352,6 +352,8 @@ export const PdfPageCanvas: FC<PdfPageCanvasProps> = ({
         registerRef(pageNumber, node)
       }}
       data-page={pageNumber}
+      data-page-width-pt={base?.width}
+      data-page-height-pt={base?.height}
       role="group"
       aria-label={label}
       style={{ width: targetWidth || undefined, height }}

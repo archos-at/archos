@@ -687,28 +687,11 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
     expect(verifiedEnvelope()?.conversationId).toBeNull()
   })
 
-  it('filters the run listing to the checked project and never forwards a client collection', async () => {
-    await GET(
-      getRequest('https://grid.example/api/jobs/async/jobs?projectId=proj-1&project_collection=proj_other&status=running'),
-      streamParams(['jobs'])
-    )
+  it('lists no runs: the run ledger behind /api/projects/{projectId}/runs is the one list', async () => {
+    const res = await GET(getRequest('https://grid.example/api/jobs/async/jobs?projectId=proj-1'), streamParams(['jobs']))
 
-    const upstream = new URL(String(fetchSpy.mock.calls[0][0]))
-    expect(upstream.pathname).toBe('/v1/jobs/async/jobs')
-    expect(upstream.searchParams.get('project_collection')).toBe('proj_abc')
-    expect(upstream.searchParams.get('status')).toBe('running')
-    expect(upstream.searchParams.has('projectId')).toBe(false)
-    expect(verifiedEnvelope()).toMatchObject({ projectId: 'proj-1' })
-  })
-
-  it('forwards no project filter when the listing names no project', async () => {
-    await GET(
-      getRequest('https://grid.example/api/jobs/async/jobs?project_collection=proj_other'),
-      streamParams(['jobs'])
-    )
-
-    const upstream = new URL(String(fetchSpy.mock.calls[0][0]))
-    expect(upstream.searchParams.has('project_collection')).toBe(false)
+    expect(res.status).toBe(404)
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })
 

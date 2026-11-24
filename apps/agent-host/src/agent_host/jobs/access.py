@@ -24,6 +24,8 @@ from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
 
+from .terminal import terminal_job_statuses
+
 _job_access_schema_initialized: set[str] = set()
 
 _JOB_ACCESS_INDEX_SQL = "CREATE INDEX IF NOT EXISTS idx_job_access_owner ON job_access(owner_auth_type, owner_subject)"
@@ -41,8 +43,6 @@ _JOB_ACCESS_CLEANUP_SQL = text(
 )
 _JOB_INFO_DELETE_SQL = text("DELETE FROM job_info WHERE job_id = :job_id")
 _JOB_EVENTS_DELETE_SQL = text("DELETE FROM job_events WHERE job_id = :job_id")
-
-_TERMINAL_STATUSES = ("SUCCESS", "FAILURE", "INTERRUPTED")
 
 
 def _is_postgres(db_url: str) -> bool:
@@ -141,8 +141,9 @@ def _expire_terminal_jobs(conn: Connection, db_url: str, delete_grace_seconds: i
         return (0, 0)
 
     is_pg = _is_postgres(db_url)
-    status_params: dict[str, Any] = {f"s{i}": s for i, s in enumerate(_TERMINAL_STATUSES)}
-    placeholders = ", ".join(f":s{i}" for i in range(len(_TERMINAL_STATUSES)))
+    terminal = terminal_job_statuses()
+    status_params: dict[str, Any] = {f"s{i}": s for i, s in enumerate(terminal)}
+    placeholders = ", ".join(f":s{i}" for i in range(len(terminal)))
     keep_newest = (
         f"job_id <> COALESCE((SELECT job_id FROM job_info WHERE status IN ({placeholders}) "
         "ORDER BY updated_at DESC LIMIT 1), '')"
@@ -331,26 +332,6 @@ def job_access_allows(access: Mapping[str, Any], caller: JobCaller, action: JobA
         return False
     conversation_id = access.get("conversation_id")
     return bool(conversation_id) and conversation_id == scope.conversation_id
-
-
-def job_visibility_clause(caller: JobCaller) -> tuple[str, dict[str, Any]]:
-    clauses = ["(ja.owner_auth_type = :owner_auth_type AND ja.owner_subject = :owner_subject)"]
-    params: dict[str, Any] = {
-        "owner_auth_type": caller.principal.type,
-        "owner_subject": caller.principal.sub,
-    }
-    scope = caller.scope
-    shared: list[str] = []
-    if scope is not None and scope.project_collection:
-        shared.append("ja.project_collection = :scope_project_collection")
-        params["scope_project_collection"] = scope.project_collection
-    if scope is not None and scope.conversation_id:
-        shared.append("ja.conversation_id = :scope_conversation_id")
-        params["scope_conversation_id"] = scope.conversation_id
-    if scope is not None and shared:
-        clauses.append(f"(ja.organization_id = :scope_organization_id AND ({' OR '.join(shared)}))")
-        params["scope_organization_id"] = scope.organization_id
-    return f"({' OR '.join(clauses)})", params
 
 
 async def authorize_job_access(

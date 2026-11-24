@@ -7,13 +7,13 @@ vi.mock('@/lib/db', () => ({ getDb: vi.fn(() => ({})) }))
 vi.mock('@/lib/db/tenant-context', () => ({ withTenant: vi.fn((_tenant: unknown, run: () => unknown) => run()) }))
 vi.mock('@/lib/conversations/restricted-use-repository', () => ({ readConversationAudience: vi.fn() }))
 vi.mock('@/lib/conversations/cross-project-use', () => ({}))
-vi.mock('@/lib/cross-project/audience-reach', () => ({}))
+vi.mock('@/lib/cross-project/audience-reach', () => ({ audienceReachAmong: vi.fn(async () => ({ projects: [], restrictedFolders: false, version: 4, ownProjectId: 'proj_1' })) }))
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn() }))
 vi.mock('@/lib/authz/folder-access', () => ({}))
-vi.mock('./operation-targets', () => ({}))
+vi.mock('./operation-targets', () => ({ placesOf: vi.fn(async () => [{ projectId: 'proj_other', conversationId: null }]) }))
 
 import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
-import { conversationAudienceOf } from './conversation-audience'
+import { conversationAudienceOf, proposalReachRefusal, READ_REFUSALS } from './conversation-audience'
 import { closedContext } from '@/lib/conversation-context/context.fixtures'
 import { decisionOf } from '@/lib/conversation-context/wire'
 import type { AgentPrincipal } from './principal'
@@ -79,7 +79,7 @@ describe('conversationAudienceOf', () => {
   })
 })
 
-describe('the turn decision narrows the audience, never widens it (ADR-0192)', () => {
+describe('the turn decision narrows the audience, never widens it (ADR-0194)', () => {
   const decided = (solo: boolean, conversationId = 'conv_1') => ({ conversationId, solo })
 
   it('reads a chat shared since the turn was decided as shared, and carries today’s version instead of refusing', async () => {
@@ -100,5 +100,32 @@ describe('the turn decision narrows the audience, never widens it (ADR-0192)', (
     expect(await conversationAudienceOf(inProduct({ decision: { ...base, ...decided(true, 'conv_other') } }))).toMatchObject({
       solo: false,
     })
+  })
+
+  it('narrows a document check in a solo chat to a document or the project’s facts, as its headless decision says', async () => {
+    const headless = decisionOf(
+      { ...closedContext('headless', 'conv_1'), audience: { ...closed.audience, solo: true }, may: { ...closed.may, workspaceRead: 'document+projectFacts' } },
+      { organizationId: 'org_1', userId: 'user_1' },
+      null,
+      1,
+    )
+    vi.mocked(readConversationAudience).mockResolvedValueOnce(audience({}))
+    expect(await conversationAudienceOf(inProduct({ decision: headless }))).toMatchObject({ solo: true, workspaceRead: 'document+projectFacts' })
+    vi.mocked(readConversationAudience).mockResolvedValueOnce(audience({}))
+    expect(await conversationAudienceOf(inProduct())).toMatchObject({ solo: true, workspaceRead: 'all' })
+  })
+
+  it('never widens past what the decision allows: a decision that reads nothing reads nothing', async () => {
+    vi.mocked(readConversationAudience).mockResolvedValueOnce(audience({}))
+    const closedDecision = { ...base, solo: true, may: { ...base.may, workspaceRead: 'none' as const } }
+    expect(await conversationAudienceOf(inProduct({ decision: closedDecision }))).toMatchObject({ workspaceRead: 'none' })
+  })
+
+  it('holds a headless decision to the reach in a proposal too, though the chat is solo', async () => {
+    const headless = { ...base, kind: 'headless' as const, solo: true, may: { ...base.may, workspaceRead: 'document+projectFacts' as const } }
+    const targets = [{ type: 'project' as const, id: 'proj_other' }]
+    vi.mocked(readConversationAudience).mockResolvedValue(audience({}))
+    expect(await proposalReachRefusal(inProduct(), targets)).toBeNull()
+    expect(await proposalReachRefusal(inProduct({ decision: headless }), targets)).toBe(READ_REFUSALS.proposalOutsideReach)
   })
 })

@@ -118,7 +118,7 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     buildProposalDecisionsBlock.mockResolvedValue('decisions')
   })
 
-  it('decides a chat turn, the only kind whose scope may carry restricted folders (ADR-0087, ADR-0192)', async () => {
+  it('decides a chat turn, the only kind whose scope may carry restricted folders (ADR-0087, ADR-0194)', async () => {
     await upgrade('?projectId=proj_q&conversationId=s_mine')
 
     expect(resolveConversationScope).toHaveBeenCalledWith(SESSION, {

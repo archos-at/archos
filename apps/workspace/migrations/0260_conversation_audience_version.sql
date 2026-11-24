@@ -1,4 +1,4 @@
--- 0260: a conversation's audience carries a version (ADR-0192, decision 4).
+-- 0260: a conversation's audience carries a version (ADR-0194, decision 4).
 --
 -- `audience_version` counts the changes of who may read a conversation. The
 -- BFF decides a turn's context under the version it read, and a writer that
@@ -79,7 +79,7 @@ BEGIN
   IF p_deleting AND NOT conversation_exists(p_conversation_id) THEN RETURN; END IF;
   RAISE EXCEPTION 'conversation % of % could not take its audience bump', p_conversation_id, p_organization_id
     USING ERRCODE = 'check_violation',
-          HINT = 'A grant must name a conversation of its own organization that this role can update (ADR-0192).';
+          HINT = 'A grant must name a conversation of its own organization that this role can update (ADR-0194).';
 END
 $$;
 --> statement-breakpoint

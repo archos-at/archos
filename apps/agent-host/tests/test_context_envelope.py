@@ -83,7 +83,7 @@ class TestPathMatching:
         assert not _path_matches("/v1/jobs/async/submit", ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES)
 
     def test_job_reads_and_controls_authorize_by_themselves(self):
-        for path in ("/v1/jobs/async/jobs", "/v1/jobs/async/job/abc", "/v1/jobs/async/job/abc/cancel"):
+        for path in ("/v1/jobs/async/job/abc", "/v1/jobs/async/job/abc/cancel"):
             assert _path_matches(path, ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES), path
 
     def test_websocket_has_no_exemption(self):

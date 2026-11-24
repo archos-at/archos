@@ -2,7 +2,7 @@
 
 How eight products decide what an assistant may use when several people work
 with it, read on 2026-11-24 for
-[ADR-0191](../adr/0191-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md).
+[ADR-0193](../adr/0193-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md).
 Our own code is surveyed in [`chat-scope-and-sharing-2026-11.md`](chat-scope-and-sharing-2026-11.md).
 
 ## How far to trust it
@@ -31,7 +31,7 @@ rules often; re-read the page before citing a row.
 
 - **Everyone scopes to the asker's own access.** No product documents a rule of
   „only what every reader may read“ for a whole conversation. Ours is stricter,
-  and the risk the others leave open is the one ADR-0191 closes: an answer drawn
+  and the risk the others leave open is the one ADR-0193 closes: an answer drawn
   from one person's sources, read by people who may not open them.
 - **Personal memory stays out of shared spaces**, explicitly at ChatGPT. Claude
   is the exception and lets a project opt out. Our rule matches ChatGPT.
@@ -55,7 +55,7 @@ rules often; re-read the page before citing a row.
 | „Everyone in the chat may read it“ is an intersection over members, which relationship-based systems express directly (SpiceDB's intersection arrow); with Postgres already the source of truth it can be computed in the BFF | [SpiceDB schema language](https://authzed.com/docs/reference/schema-lang) | |
 | A prompt-injected mail made Copilot read data outside the asker's intent („LLM scope violation“, CVE-2025-32711, fixed May 2025) | [EchoLeak paper](https://arxiv.org/html/2509.10540v1) | |
 
-These carried [ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md):
+These carried [ADR-0194](../adr/0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md):
 decide in the tier that holds identity and grants, carry the decision to the
 agent signed and typed, keep it out of the prompt, and check again where a tool's
 result enters the answer.
@@ -64,7 +64,7 @@ result enters the answer.
 
 1. Per-answer approval for an answer that would draw on personal or restricted
    material in a shared chat, after Microsoft. It would refine rule 5 of
-   ADR-0191 from „stop drawing on it“ to „draw on it, and let the owner decide
+   ADR-0193 from „stop drawing on it“ to „draw on it, and let the owner decide
    before the others read it“.
 2. A scope line under every answer naming the places read and whether personal
    memory was used, after Slack's and Notion's citations; the „Mein Bereich“

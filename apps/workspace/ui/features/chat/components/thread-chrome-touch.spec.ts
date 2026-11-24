@@ -142,7 +142,6 @@ describe('thread chrome on a phone', () => {
     'ui/features/runs/components/run-block/run-round-row',
     'ui/features/runs/components/run-block/run-separator',
     'ui/features/layout/components/SessionsPanel',
-    'ui/features/layout/components/sessions-panel/deep-research-section',
     'ui/features/layout/components/sessions-panel/session-item',
     'ui/features/layout/components/sessions-panel/session-status-icon',
   ])('%s sets no text under 12px', (stem) => {

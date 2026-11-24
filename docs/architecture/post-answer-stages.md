@@ -1305,7 +1305,7 @@ is a map lookup, not a WorkOS round-trip.
 > The stages fail **open to the connection-time value**, not closed. A BFF blip
 > must degrade to the previous behaviour; failing closed would silently disable
 > every stage for as long as the blip lasts, which is worse than the defect.
-> Deep research and tasks do not (ADR-0192): when the call fails they follow the
+> Deep research and tasks do not (ADR-0194): when the call fails they follow the
 > turn's signed decision, and stay off without one (`stages/flags.py`
 > `resolve_turn_flags`).
 >

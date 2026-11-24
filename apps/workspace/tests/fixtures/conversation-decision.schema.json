@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Conversation decision wire contract (ADR-0192)",
+  "title": "Conversation decision wire contract (ADR-0194)",
   "description": "Generated from apps/workspace/bff/conversation-context/wire.ts. Do not edit by hand: wire.spec.ts rewrites this file and fails when it is stale.",
   "$defs": {
     "conversationDecision": {

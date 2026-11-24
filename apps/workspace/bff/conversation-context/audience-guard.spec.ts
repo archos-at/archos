@@ -12,7 +12,7 @@ const READS = [ENTRY, 'readConversationRow', 'readContextAudience'] as const
 const RATCHET: Readonly<Record<string, number>> = {
   'bff/conversation-context/audience.ts': 2,
   'bff/conversation-context/index.ts': 1,
-  'bff/conversation-context/resolve.ts': 2,
+  'bff/conversation-context/resolve.ts': 1,
   'bff/conversations/cross-project-use.ts': 1,
   'bff/conversations/restricted-use.ts': 8,
   'bff/agent-api/conversation-audience.ts': 2,
@@ -30,7 +30,7 @@ function callSites(): Record<string, number> {
   return found
 }
 
-describe('who reads a conversation’s audience (ADR-0192)', () => {
+describe('who reads a conversation’s audience (ADR-0194)', () => {
   it('is the context module, the writers that hold the audience lock, and the readers it names, and no new caller', () => {
     const found = callSites()
     for (const [file, count] of Object.entries(found)) {
