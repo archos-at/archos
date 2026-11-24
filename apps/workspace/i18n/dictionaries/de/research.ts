@@ -97,6 +97,16 @@ export const research: typeof en.research = {
     },
   },
 
+  deleteFeedback: {
+    oneFailed: 'Der Chat wurde nicht gelöscht.',
+    allFailed: 'Die Chats wurden nicht gelöscht.',
+    legalHold: 'Eine Aufbewahrungspflicht (Legal Hold) verbietet das Löschen.',
+    attachments: 'Die Anhänge ließen sich nicht entfernen. Das Löschen wird später erneut versucht.',
+    tooMany: 'Zu viele Anfragen in kurzer Zeit. Bitte versuchen Sie es gleich noch einmal.',
+    server: 'Der Server hat mit Fehler {status} geantwortet. Bitte versuchen Sie es erneut.',
+    offline: 'Der Server war nicht erreichbar. Bitte prüfen Sie Ihre Verbindung.',
+    held: '{count, plural, one {Ein Chat wurde} other {# Chats wurden}} wegen einer Aufbewahrungspflicht nicht gelöscht.',
+  },
   deleteModals: {
     cannotReverse:
       'Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher, dass Sie dies tun möchten?',
@@ -104,12 +114,14 @@ export const research: typeof en.research = {
     lossSuffix:
       ' zu löschen. Dabei gehen sämtliche Fortschritte verloren und alle von Ihnen angehängten Dateien werden entfernt.',
     all: {
-      title: 'Alle Chats dieses Projekts löschen?',
-      countSessions:
-        '{count, plural, one {der eine Chat dieses Projekts} other {alle # Chats dieses Projekts}}',
-      allSessions: 'JEDEN Chat dieses Projekts',
-      scopeNote:
-        'Es werden nur Chats dieses Projekts gelöscht. Ihre Chats in anderen Projekten sind nicht betroffen.',
+      titlePersonal: 'Alle Ihre persönlichen Chats löschen?',
+      titleProject: 'Alle Ihre Chats in diesem Projekt löschen?',
+      whatPersonal: 'alle Ihre persönlichen Chats, also jeden Chat ohne Projekt, den Sie begonnen haben',
+      whatProject: 'alle Ihre Chats in diesem Projekt, also jeden Chat dieses Projekts, den Sie begonnen haben',
+      scopeNotePersonal:
+        'Ihre Chats in Projekten bleiben erhalten, ebenso Chats, die andere mit Ihnen geteilt haben.',
+      scopeNoteProject:
+        'Ihre persönlichen Chats und Ihre Chats in anderen Projekten bleiben erhalten, ebenso die Chats anderer Mitglieder.',
       confirm: 'Alle Chats löschen',
     },
     file: {
@@ -239,8 +251,8 @@ export const research: typeof en.research = {
     countLabelOne: '1 Chat',
     syncedNote:
       'Chats werden in Ihrem Workspace gespeichert und sind auf allen Geräten verfügbar. Rechercheberichte können auf dem Server ablaufen.',
-    deleteAllDisabled: 'Alle Chats dieses Projekts löschen (deaktiviert)',
-    deleteAll: 'Alle Chats dieses Projekts löschen',
+    deleteAllPersonal: 'Alle Ihre persönlichen Chats löschen',
+    deleteAllProject: 'Alle Ihre Chats in diesem Projekt löschen',
     cannotDeleteBusy: 'Löschen nicht möglich, während Vorgänge laufen',
     deleteAllButton: 'Alle Chats löschen',
     startNewSession: 'Neuen Chat starten',

@@ -56,7 +56,12 @@ import {
   type PreparedMessage,
 } from './message-insert'
 
-export { assertConversationAcceptsUploads, deleteConversation, retryConversationErasure } from './conversation-erasure'
+export {
+  assertConversationAcceptsUploads,
+  deleteConversation,
+  deleteOwnConversations,
+  retryConversationErasure,
+} from './conversation-erasure'
 export { generateConversationTitle, updateConversationTitle } from './conversation-title'
 export type { ConversationTitleMessageInput, GenerateConversationTitleResult } from './conversation-title'
 export type { CreateMessageInput, PersistedMessage } from './message-insert'

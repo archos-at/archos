@@ -165,7 +165,7 @@ describe('useChatStore', () => {
       })
     })
 
-    test('deleteConversation drops the deleted session draft', () => {
+    test('deleteConversation drops the deleted session draft', async () => {
       const conv: Conversation = {
         id: 'conv-1',
         userId: 'user-1',
@@ -182,7 +182,7 @@ describe('useChatStore', () => {
       useChatStore.getState().setComposerDraft('conv-1', 'draft to drop')
       useChatStore.getState().setComposerDraft('conv-2', 'keep me')
 
-      useChatStore.getState().deleteConversation('conv-1')
+      await useChatStore.getState().deleteConversation('conv-1')
 
       expect('conv-1' in useChatStore.getState().composerDrafts).toBe(false)
       expect(useChatStore.getState().getComposerDraft('conv-2')).toBe('keep me')

@@ -188,10 +188,16 @@ describe('visibleConversationsWhere — over the projects a search reaches', () 
   })
 
   it('leaves the unstamped rows out when asked to, and matches nothing for no project and no unstamped rows', () => {
-    expect(statement({ projectIds: [PROJECT_ID], withoutContainer: false }).sql).not.toContain('is null')
+    expect(statement({ projectIds: [PROJECT_ID], withoutContainer: false }).sql).not.toContain('"project_id" is null')
     const none = statement({ projectIds: [], withoutContainer: false }).sql
     expect(none).toContain('false')
     expect(none).not.toContain('"conversations"."project_id"')
+  })
+
+  it('leaves out a chat being deleted in every scope, so no list or search shows it', () => {
+    for (const scope of [null, { projectIds: [PROJECT_ID], withoutContainer: true }, { projectIds: [], withoutContainer: true }]) {
+      expect(statement(scope).sql).toContain('"conversations"."deleted_at" is null')
+    }
   })
 })
 

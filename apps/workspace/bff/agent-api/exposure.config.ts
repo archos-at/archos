@@ -229,6 +229,7 @@ export const EXPOSURE = {
   'citation-style-get': OFFERED,
   'conversation-create': OFFERED,
   'conversation-delete': OFFERED,
+  'conversation-delete-all': OFFERED,
   'conversation-draft-delete': OFFERED,
   'conversation-draft-download': OFFERED,
   'conversation-draft-file': OFFERED,

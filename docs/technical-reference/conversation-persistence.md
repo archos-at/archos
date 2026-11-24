@@ -123,9 +123,18 @@ refetched on demand.
 
 ## Local → server lifecycle sync
 
-- `deleteConversation()` / `deleteAllConversations()` also delete the server
-  rows — otherwise the next merge would resurrect deleted sessions as empty
-  ghosts.
+- `deleteConversation()` / `deleteAllConversations()` delete on the server
+  first and remove local rows only for what the server confirmed; a refusal
+  keeps the rows and rejects, and the caller shows the reason in a toast
+  (`useChatDeleteFeedback`).
+- A deleted id is remembered for the page (`erased-conversations.ts`), so a
+  listing already on its way cannot bring it back.
+- `loadServerConversations(projectId, place)` reconciles: when the server's
+  listing is complete (fewer than `CONVERSATION_LIST_PAGE` rows), a local
+  conversation on that side that the server no longer lists, that the server
+  had (`isConversationOnServer`) and that is older than the request, is dropped
+  from the store and from the persisted copy, including after a reload. An
+  empty listing reconciles too.
 - `updateConversationTitle()` mirrors renames to the server row
   (best-effort; the row may not exist until the first message append).
 
