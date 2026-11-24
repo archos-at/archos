@@ -1400,6 +1400,10 @@
     "de": "Ein leerer Chat zeigt keine Beispielfragen mehr und erklärt nicht mehr, dass Antworten ihre Quellen angeben, und das Eingabefeld sagt nicht mehr, dass eine einfache Nachricht an Piloti geht. Eine Kollegin oder einen Kollegen zu erwähnen funktioniert wie bisher, und das Feld nennt den Empfänger weiterhin, sobald es nicht Piloti ist, etwa wenn Sie jemanden markiert haben oder der Chat auf eine Person wartet."
   },
   {
+    "en": "An empty list, such as an empty Dateien or Meine Ablage, now simply stands there when you open it instead of fading and zooming in, and the chat input no longer fades up from dimmed while a page loads. Motion is left for what you change yourself, like emptying a list with a filter.",
+    "de": "Eine leere Liste, etwa in Dateien oder Meine Ablage, bleibt beim Öffnen jetzt einfach stehen, statt auszublenden und heranzuzoomen. Auch die Chateingabe blendet sich beim Laden einer Seite nicht mehr aus einem abgedunkelten Zustand ein. Animationen gibt es nur noch bei Änderungen, die Sie selbst vornehmen, etwa wenn Sie eine Liste mit einem Filter leeren."
+  },
+  {
     "en": "An empty project chat now says in one sentence that Piloti can also write file notes and drafts on request.",
     "de": "Der leere Chat im Projekt sagt jetzt in einem Satz, dass Piloti auf Zuruf auch Aktenvermerke und Entwürfe schreibt."
   },

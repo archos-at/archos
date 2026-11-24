@@ -209,6 +209,14 @@
         },
         {
           "section": "improvements",
+          "area": "general",
+          "text": {
+            "en": "An empty list, such as an empty Dateien or Meine Ablage, now simply stands there when you open it instead of fading and zooming in, and the chat input no longer fades up from dimmed while a page loads. Motion is left for what you change yourself, like emptying a list with a filter.",
+            "de": "Eine leere Liste, etwa in Dateien oder Meine Ablage, bleibt beim Öffnen jetzt einfach stehen, statt auszublenden und heranzuzoomen. Auch die Chateingabe blendet sich beim Laden einer Seite nicht mehr aus einem abgedunkelten Zustand ein. Animationen gibt es nur noch bei Änderungen, die Sie selbst vornehmen, etwa wenn Sie eine Liste mit einem Filter leeren."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
