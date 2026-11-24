@@ -56,7 +56,6 @@ export interface FileWorkspaceProps {
   shelf: FileShelf
   renderHeader: (controls: ReactNode, state: { count: number | null }) => ReactNode
   moreEntries?: readonly ActionMenuEntry[]
-  onOpenSearch?: (text: string) => void
   initialFolders?: readonly FolderItem[]
   initialFiles?: readonly DocumentWireRow[]
   initialNextCursor?: string | null
@@ -70,7 +69,6 @@ export function FileWorkspace({
   shelf,
   renderHeader,
   moreEntries,
-  onOpenSearch,
   initialFolders,
   initialFiles,
   initialNextCursor = null,
@@ -240,9 +238,9 @@ export function FileWorkspace({
       search={{
         value: search.query,
         onChange: search.setQuery,
-        onSubmit: onOpenSearch ? () => onOpenSearch(search.query.trim()) : search.run,
+        onSubmit: search.run,
         onClear: search.clear,
-        opensSearch: Boolean(onOpenSearch),
+        placeholder: t(shelf.source === 'project' ? 'browser.searchPlaceholderProject' : 'browser.searchPlaceholderOffice'),
       }}
       upload={phone ? undefined : uploader({ allowFolders: true, pickFilesRef, pickFolderRef })}
       moreEntries={moreEntries}
@@ -431,6 +429,7 @@ export function FileWorkspace({
                 label: t('workspace.uploadDocuments'),
               })}
               brief={briefSurface.brief}
+              unreadHint={briefSurface.unreadHint}
               slice={briefSurface.slice}
               rootToolsInMenu={rootToolsInMenu}
               selection={

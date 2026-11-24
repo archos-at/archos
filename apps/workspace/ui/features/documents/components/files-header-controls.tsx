@@ -30,7 +30,7 @@ export interface FilesHeaderControlsProps {
     onChange: (value: string) => void
     onSubmit: () => void
     onClear: () => void
-    opensSearch?: boolean
+    placeholder?: string
   }
   upload?: ReactNode
   moreEntries?: readonly ActionMenuEntry[]
@@ -105,7 +105,7 @@ export function FilesHeaderControls({
       onChange={search.onChange}
       onSubmit={search.onSubmit}
       onClear={search.onClear}
-      placeholder={search.opensSearch && !phone ? t('browser.searchPlaceholderEverything') : t('browser.searchPlaceholder')}
+      placeholder={!phone && search.placeholder ? search.placeholder : t('browser.searchPlaceholder')}
       searchLabel={t('browser.searchLabel')}
       resetLabel={t('browser.resetSearch')}
     />

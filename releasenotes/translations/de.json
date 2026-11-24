@@ -2540,6 +2540,10 @@
     "de": "Wenn Sie mit dem Mauszeiger über eine in einer Antwort genannte Datei fahren, wird jetzt angezeigt, wenn sie zurückgehalten wird, und dass Piloti sie erst zitiert, nachdem jemand sie freigegeben hat."
   },
   {
+    "en": "How much ARCHOS has read is the last line of the list now; only when it could not read something does a line above the files say so, with „Ansehen“.",
+    "de": "Wie viel ARCHOS gelesen hat, steht jetzt in der letzten Zeile der Liste. Nur wenn es etwas nicht lesen konnte, sagt das zusätzlich eine Zeile über den Dateien, mit „Ansehen“."
+  },
+  {
     "en": "IFC models, Word and presentation files and finished research reports now survive an interruption, and none of them stays at “Reading” any more. A large folder of office files no longer slows other offices down, and a report whose PDF failed is tried again instead of being lost.",
     "de": "IFC-Modelle, Word- und Präsentationsdateien sowie fertige Recherche-Berichte überstehen jetzt eine Unterbrechung, und keines davon bleibt mehr bei „Wird gelesen“ hängen. Ein großer Ordner mit Büro-Dateien verlangsamt nicht mehr andere Büros, und ein Bericht, dessen PDF fehlgeschlagen ist, wird erneut versucht, statt verloren zu gehen."
   },
@@ -2778,6 +2782,10 @@
   {
     "en": "Inbox notices about Piloti now say what it did, on which annotation in which document, and what you can do next. When Piloti could not work on an annotation, the notice says why, such as a used-up usage budget, instead of only that it did not finish.",
     "de": "Meldungen im Postfach über Piloti sagen jetzt, was es getan hat, an welcher Anmerkung in welchem Dokument und was Sie als Nächstes tun können. Konnte Piloti eine Anmerkung nicht bearbeiten, nennt die Meldung den Grund, etwa ein aufgebrauchtes Nutzungsbudget, statt nur, dass es nicht fertig wurde."
+  },
+  {
+    "en": "Inside a folder the Ablage keeps its header and shows the way there in one line under it, and the search says where it searches and shows its hits in place, Enter included, without opening a window.",
+    "de": "In einem Ordner bleibt der Kopf der Ablage stehen, und eine Zeile darunter zeigt den Weg dorthin. Die Suche sagt, wo sie sucht, und zeigt ihre Treffer an Ort und Stelle, auch nach Enter, ohne ein Fenster zu öffnen."
   },
   {
     "en": "Jobs and Skills now sit together in one Automation section, as two tabs instead of two places in the sidebar. Jobs comes first, since a job is the instruction this project runs on a timer, and Skills is one click away.",
