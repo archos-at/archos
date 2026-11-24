@@ -72,6 +72,14 @@
           }
         },
         {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When you set the scale of a drawing, the two points now snap to corners and lines of the drawing, just like the measuring tape does, so the known length is picked exactly.",
+            "de": "Wenn Sie den Maßstab einer Zeichnung festlegen, rasten die beiden Punkte jetzt wie beim Maßband an Ecken und Linien der Zeichnung ein, sodass Sie die bekannte Länge exakt festlegen können."
+          }
+        },
+        {
           "section": "fixes",
           "area": "answers",
           "text": {
