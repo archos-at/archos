@@ -334,6 +334,7 @@ def area(sheet: Sheet, shares: Sequence[Sequence[float]], request: Request) -> A
         tuple(sheet.share(point) for point in points),
         scale,
         moved_pt=tuple(found.moved for found in snapped),
+        perimeter=outline,
         notes=("The area of the corners as placed on linework: no rule for what counts as floor area is applied.",),
     )
     floor = VERDICT_FLOOR_M * outline

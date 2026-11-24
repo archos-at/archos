@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Folder, SquarePen } from 'lucide-react'
 
 import { motion, springGlide } from '@/components/motion'
 import {
@@ -32,10 +32,8 @@ import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import {
-  PROJECT_SETTINGS_SECTION,
   railGroups,
   isSectionPathActive,
-  sectionHref,
   sectionLinkHref,
   type ProjectNavGroup,
   type ProjectSection,
@@ -45,6 +43,8 @@ import { framesProjectPage } from './project-section-frame'
 import { useRecordRecentProject } from './recent-projects'
 import { ShellSearchButton } from './shell-search-button'
 import { RailChatList, useRailChats } from './rail-chats'
+import { RailModeSwitch } from './rail-mode-switch'
+import { NEW_PERSONAL_CHAT_HREF, PERSONAL_CHAT_PATH, PERSONAL_SHELF_PATH, type RailMode } from './rail-mode'
 import { ConnectionBand } from './connection-band'
 import { ShortcutKeys } from './shortcut-keys'
 import { LEADER_KEY } from './shortcuts'
@@ -55,7 +55,7 @@ export function railActivePillId(iconRail: boolean): string {
 }
 
 export interface AppSidebarProps {
-  projectId: string
+  projectId: string | null
   projects: ProjectSwitcherProject[]
   user?: SidebarUser
   organizationName?: string | null
@@ -72,7 +72,7 @@ export interface AppSidebarProps {
   pathname?: string
 }
 
-interface RailItemModel {
+export interface RailItemModel {
   key: string
   href: string
   icon: ProjectSection['icon']
@@ -84,7 +84,7 @@ interface RailItemModel {
   shortcutKey?: string
 }
 
-interface RailGroupModel {
+export interface RailGroupModel {
   key: ProjectNavGroup
   label: string
   items: RailItemModel[]
@@ -130,17 +130,15 @@ function AppSidebarFrame({
   const { state, isMobile, peek } = useSidebar()
   const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
   const railChats = useRailChats()
+  const mode: RailMode = projectId === null ? 'personal' : 'project'
 
-  const base = `/app/projects/${projectId}`
+  const base = projectId === null ? '' : `/app/projects/${projectId}`
 
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
   const iconRail = state === 'collapsed' && !isMobile && !peek
   const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
-  const back = phoneBackTarget(pathname, projectId)
-  const pageHasHeader = framesProjectPage(pathname, projectId)
-
-  useRecordProjectSection(projectId)
-  useRecordRecentProject(projectId)
+  const back = projectId === null ? null : phoneBackTarget(pathname, projectId)
+  const pageHasHeader = projectId === null || framesProjectPage(pathname, projectId)
 
   React.useEffect(() => {
     pruneProjectSections(projects.map((project) => project.id))
@@ -153,8 +151,8 @@ function AppSidebarFrame({
       items: group.items.map((item) => ({
         key: item.key,
         href: sectionLinkHref(item, base),
-        icon: item.icon,
-        label: sectionLabel(item, t, tCollaboration),
+        icon: item.key === 'chat' ? SquarePen : item.icon,
+        label: item.key === 'chat' ? t('newChat') : sectionLabel(item, t, tCollaboration),
         active: isSectionPathActive(item, base, pathname) && !(item.key === 'chat' && chatOpen),
         within: item.key === 'chat' && chatOpen && !iconRail,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
@@ -164,21 +162,14 @@ function AppSidebarFrame({
     })
   )
 
-  const orgGroup = groups.find((g) => g.key === 'org')
-  const settingsHref = sectionHref(PROJECT_SETTINGS_SECTION, base)
-  const overview: RailItemModel = {
-    key: PROJECT_SETTINGS_SECTION.key,
-    href: settingsHref,
-    icon: PROJECT_SETTINGS_SECTION.icon,
-    label: sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration),
-    active: pathname.startsWith(settingsHref),
-    waitingCount: null,
-    shortcutKey: PROJECT_SETTINGS_SECTION.shortcutKey,
-  }
-  const projectItems: RailItemModel[] = groups
-    .filter((g) => g.key !== 'org')
-    .flatMap((g) => g.items)
-    .flatMap((item) => (item.key === 'files' ? [item, overview] : [item]))
+  const org = groups.find((g) => g.key === 'org')
+  const orgGroup = org && { ...org, items: org.items.filter((item) => iconRail || item.key !== 'search') }
+  const projectItems: RailItemModel[] =
+    mode === 'personal'
+      ? personalRailItems(pathname, t, chatOpen, iconRail)
+      : groups
+          .filter((g) => g.key !== 'org')
+          .flatMap((g) => g.items)
 
   const activePillId = railActivePillId(iconRail)
   const railItem = (item: RailItemModel): React.JSX.Element => (
@@ -234,7 +225,7 @@ function AppSidebarFrame({
         {isMobile && <ConnectionBand />}
       </header>
 
-      <Sidebar collapsible="icon" peekOnHover data-scope="project" aria-label={t('projectNavigation')}>
+      <Sidebar collapsible="icon" peekOnHover data-scope={mode} aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectNavigation')}>
         {/* `shrink-0` on the header and footer is load-bearing, not defensive.
             `SidebarContent` between them is `flex-1 basis-0`, whose scaled
             shrink factor is 0 — so under a height deficit the whole deficit
@@ -252,29 +243,36 @@ function AppSidebarFrame({
           )}
         >
           <SidebarBrand iconRail={iconRail} />
+          <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mb-1.5')}>
+            <RailModeSwitch mode={mode} collapsed={iconRail} />
+          </div>
+          {projectId !== null && <ProjectRecorder projectId={projectId} />}
           {/* The project selector, the rail's first control in both widths:
               which project this is, and the way to another. The icon rail
               keeps it as a tile of its initials, on the selector's own line,
               so nothing below it moves when the rail opens under the pointer. */}
-          <div className={cn('mt-1 flex h-10 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
-            <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
-          </div>
+          {projectId !== null && (
+            <div className={cn('mt-1 flex h-10 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
+              <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
+            </div>
+          )}
         </SidebarHeader>
 
         <SidebarContent
           className={cn(
-            'mt-3 min-h-0 flex-1 gap-0 overflow-hidden',
+            'min-h-0 flex-1 gap-0 overflow-hidden',
+            mode === 'personal' && !iconRail ? 'mt-4' : 'mt-3',
             column
           )}
         >
-          <nav aria-label={t('projectSections')} className="shrink-0 py-px">
+          <nav aria-label={t(mode === 'personal' ? 'personalNavigation' : 'projectSections')} className="shrink-0 py-px">
             <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
           </nav>
           {/* The project's last chats, as a list of their own under the sections (owner decision 2026-11-11,
               as a chat app lists its recent chats): headed „Letzte Chats“, scrolling between the sections
               and the office's doorways, which both stay put. The icon rail has no room for a title: there
               „Chat“ is its glyph, and the chat's toolbar names its door. */}
-          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} />}
+          {railChats && !iconRail && <RailChatList chats={railChats} pillId={activePillId} projects={projects} />}
         </SidebarContent>
 
         <SidebarFooter
@@ -309,24 +307,32 @@ function AppSidebarFrame({
               eye) while all is well. Nothing above it moves when it appears:
               the space it takes is the band's empty middle. */}
           <ConnectionBand appearance="rail" compact={iconRail} />
-          <div className={cn('flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
-          <div className={cn('min-w-0', !iconRail && 'flex-1')}>
-          <SidebarUserMenu
-            user={user}
-            organizationName={organizationName}
-            authRequired={authRequired}
-            compact={iconRail}
-            avatarSizeClass="size-6"
-            menuSide={iconRail ? 'right' : 'top'}
-            menuAlign="end"
-            menuSideOffset={iconRail ? 24 : 6}
-            menuMatchTrigger={!iconRail}
-            canManageOrganization={canManageOrganization}
-            canViewOrganization={canViewOrganization}
-            canManagePlatform={canManagePlatform}
-          />
-          </div>
-          {canAccessInbox && <InboxBell compact={iconRail} tourAnchor={sectionAnchor('inbox')} pathname={pathname} />}
+          <div className={cn('relative flex min-w-0 items-center gap-1', iconRail ? 'flex-col-reverse' : 'w-full')} data-slot="rail-person">
+            <div className={cn('min-w-0', !iconRail && 'flex-1')}>
+              <SidebarUserMenu
+                user={user}
+                organizationName={organizationName}
+                authRequired={authRequired}
+                compact={iconRail}
+                avatarSizeClass="size-6"
+                menuSide={iconRail ? 'right' : 'top'}
+                menuAlign="end"
+                menuSideOffset={iconRail ? 24 : 6}
+                menuMatchTrigger={!iconRail}
+                canManageOrganization={canManageOrganization}
+                canViewOrganization={canViewOrganization}
+                canManagePlatform={canManagePlatform}
+                beforeChevron={canAccessInbox && !iconRail ? 'w-12' : undefined}
+              />
+            </div>
+            {canAccessInbox && (
+              <InboxBell
+                compact={iconRail}
+                tourAnchor={sectionAnchor('inbox')}
+                pathname={pathname}
+                className={iconRail ? undefined : 'absolute right-8 top-1/2 z-10 h-7 min-w-7 -translate-y-1/2 border-transparent px-1.5 pointer-coarse:h-9'}
+              />
+            )}
           </div>
         </SidebarFooter>
         {/* The primitive's own strings are English; the rail is a tab stop now,
@@ -342,7 +348,31 @@ function AppSidebarFrame({
   )
 }
 
-function RailNavItem({
+
+function ProjectRecorder({ projectId }: { projectId: string }): null {
+  useRecordProjectSection(projectId)
+  useRecordRecentProject(projectId)
+  return null
+}
+
+function personalRailItems(pathname: string, t: (key: string) => string, chatOpen: boolean, iconRail: boolean): RailItemModel[] {
+  const onChat = pathname === PERSONAL_CHAT_PATH || pathname.startsWith(`${PERSONAL_CHAT_PATH}/`)
+  const onShelf = pathname === PERSONAL_SHELF_PATH || pathname.startsWith(`${PERSONAL_SHELF_PATH}/`)
+  const row = (key: string, href: string, icon: ProjectSection['icon'], label: string, active: boolean): RailItemModel => ({
+    key,
+    href,
+    icon,
+    label,
+    active,
+    waitingCount: null,
+  })
+  return [
+    { ...row('chat', NEW_PERSONAL_CHAT_HREF, SquarePen, t('newChat'), onChat && !chatOpen), within: onChat && chatOpen && !iconRail },
+    row('personalShelf', PERSONAL_SHELF_PATH, Folder, t('personalShelf'), onShelf),
+  ]
+}
+
+export function RailNavItem({
   icon: Icon,
   href,
   active,

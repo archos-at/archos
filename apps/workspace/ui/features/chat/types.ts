@@ -160,6 +160,7 @@ export interface Conversation {
   updatedAt: Date
   contentLocked?: boolean
   temporary?: boolean
+  shared?: boolean
   enabledDataSourceIds?: string[]
 }
 

@@ -89,6 +89,8 @@ export function measured(operation: string, points: PagePoint[]): TapeMeasuremen
     scaleState: 'estimated',
     scaleRatio: RATIO,
     printed: null,
+    printedCheck: null,
+    perimeter: isArea ? length([...points, points[0]]) : null,
     verdict: null,
     reasons: [],
     points,

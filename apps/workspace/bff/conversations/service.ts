@@ -9,7 +9,7 @@ import type { Conversation, ConversationEngagement } from '@/lib/db/schema/conve
 import type { Message } from '@/lib/db/schema/messages'
 import type { ResourceRole, ResourceVisibility } from '@/lib/db/schema/resource-shares'
 import { isShared, requireResourceAccess } from '@/lib/sharing/access'
-import { countGrantsForResource } from '@/lib/sharing/repository'
+import { countGrantsForResource, resourceIdsWithGrants } from '@/lib/sharing/repository'
 import { resolvePeople } from '@/lib/sharing/directory'
 import { resolveRequestsOnReply } from '@/lib/mentions/service'
 import { isAgentMentionId } from '@/lib/mentions/types'
@@ -99,19 +99,26 @@ export async function listConversations(
   })
   const hasMore = fetched.length > pageSize
   const rows = hasMore ? fetched.slice(0, pageSize) : fetched
-  const locked = await lockedConversationIds(
-    session,
-    rows.map((row) => ({ id: row.id, projectId: row.projectId }))
-  )
+  const [locked, granted] = await Promise.all([
+    lockedConversationIds(
+      session,
+      rows.map((row) => ({ id: row.id, projectId: row.projectId }))
+    ),
+    resourceIdsWithGrants(session.organizationId, 'conversation', rows.map((row) => row.id)),
+  ])
+  const listed = (row: Conversation): ListedConversation => ({
+    ...(locked.has(row.id) ? withheldConversation(row) : { ...row, contentLocked: false }),
+    shared: isShared(row.visibility, granted.has(row.id) ? 1 : 0),
+  })
   return {
-    conversations: rows.map((row) => (locked.has(row.id) ? withheldConversation(row) : { ...row, contentLocked: false })),
+    conversations: rows.map(listed),
     nextCursor: hasMore ? (rows.at(-1)?.id ?? null) : null,
   }
 }
 
-export type ListedConversation = Conversation & { contentLocked: boolean }
+export type ListedConversation = Conversation & { contentLocked: boolean; shared: boolean }
 
-function withheldConversation(row: Conversation): ListedConversation {
+function withheldConversation(row: Conversation): Omit<ListedConversation, 'shared'> {
   return { ...row, title: null, tags: [], subjectResourceType: null, subjectResourceId: null, contentLocked: true }
 }
 

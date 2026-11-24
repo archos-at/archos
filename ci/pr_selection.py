@@ -164,6 +164,13 @@ def _importers(helper: str, test_files: dict[str, str]) -> set[str] | None:
 
 
 SPAWNS_PYTHON = re.compile(r"\bsys\.executable\b")
+READS_THE_TREE = re.compile(r"""["']git["'],\s*["'](?:grep|ls-files)["']|\bgit (?:grep|ls-files)\b""")
+
+
+def _tree_readers(test_files: dict[str, str]) -> set[str]:
+    return {
+        file for file, text in test_files.items() if Path(file).name.startswith("test_") and READS_THE_TREE.search(text)
+    }
 
 
 def _spawners(test_files: dict[str, str]) -> tuple[set[str], str | None]:
@@ -212,6 +219,10 @@ def decide_python(changed: list[str], test_files: dict[str, str], recorded: bool
             return "full", [], f"{unconnected} runs Python in a subprocess, and no test file connects to it"
         extra |= spawners
         reason += f" and {len(spawners)} that run package code in a subprocess"
+    tree_readers = _tree_readers(test_files) - set(changed)
+    if tree_readers:
+        extra |= tree_readers
+        reason += f" and {len(tree_readers)} that read the whole tracked tree"
     return "select", sorted(extra), reason
 
 
