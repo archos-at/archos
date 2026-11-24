@@ -10,6 +10,8 @@ import {
   phoneTabBarHiddenOnRoute,
   projectPhoneTabs,
 } from './phone-tabs'
+import { collaborationCopy } from '@/i18n/namespaces/collaboration'
+import { navCopy } from '@/i18n/namespaces/nav'
 import { projectSection } from './project-sections'
 
 const ALL = { canAccessOfficeShelf: true, canAccessInbox: true }
@@ -78,7 +80,7 @@ describe('inside a project', () => {
     expect(lit(projectPhoneTabs('p1', '/app/office-shelf', ALL))).toEqual(['more'])
   })
 
-  it('names each tab with the rail label (the settings tab with its short one), and marks it as a tour stop', () => {
+  it('names each tab with the rail label (the files and settings tabs with their short ones), and marks it as a tour stop', () => {
     const [chat, files, settings, inbox, more] = projectPhoneTabs(
       'p1',
       '/app/projects/p1/chat',
@@ -89,7 +91,7 @@ describe('inside a project', () => {
       tourAnchor: 'section-chat',
     })
     expect(files).toMatchObject({
-      label: { namespace: 'nav', key: 'sections.files' },
+      label: { namespace: 'nav', key: 'sections.filesShort' },
       tourAnchor: 'section-files',
     })
     expect(settings).toMatchObject({
@@ -207,4 +209,29 @@ describe('under Persönlich (ADR-0193)', () => {
     expect(keys(personalPhoneTabs('/app/personal-shelf', ALL))).not.toContain('files')
     expect(keys(personalPhoneTabs('/app/personal-shelf', ALL))).not.toContain('settings')
   })
+})
+
+describe('every label of the project bar fits its tab on a 360px phone', () => {
+  // A fifth of 360px less the bar's 8px and the label's 4px. Widths measured in Chromium at 12px semibold (the open tab),
+  // 2026-11-24: "Documents" at 66.5px was cut by a tenth of a pixel. A new label is measured before it is added here.
+  const ROOM_PX = (360 - 8) / 5 - 4
+  const MEASURED_PX: Record<string, number> = {
+    Chat: 28.2, Ablage: 40.3, Projekt: 42, Postfach: 51.8, Mehr: 30.2,
+    Files: 26.7, Project: 41.8, Inbox: 31.9, More: 30.1, Documents: 66.5,
+  }
+
+  for (const locale of ['de', 'en'] as const) {
+    it(locale, () => {
+      for (const tab of projectPhoneTabs('p1', '/app/projects/p1/chat', ALL)) {
+        const copy = tab.label.namespace === 'nav' ? navCopy : collaborationCopy
+        const text = tab.label.key
+          .split('.')
+          .reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], copy.messages[locale])
+        expect(typeof text, `${tab.key} in ${locale}`).toBe('string')
+        const width = MEASURED_PX[text as string]
+        expect(width, `„${String(text)}“ has not been measured`).toBeDefined()
+        expect(width, `„${String(text)}“`).toBeLessThanOrEqual(ROOM_PX)
+      }
+    })
+  }
 })

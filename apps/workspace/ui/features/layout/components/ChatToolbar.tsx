@@ -418,7 +418,7 @@ const ThreadStatus: FC<ThreadStatusProps> = ({
         <ParticipantStrip
           entries={sharingState.entries}
           currentUserId={currentUserId}
-          maxVisible={surface === 'phone' ? 2 : 3}
+          maxVisible={surface === 'phone' ? 1 : 3}
           onOpen={onOpenPeople}
         />
       )}
