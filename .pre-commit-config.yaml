@@ -108,8 +108,8 @@ repos:
         types: [text]
 
       - id: doc-paths
-        name: paths in the concept index, the AGENTS.md guides and the docs exist
-        entry: python3 scripts/check_doc_paths.py
+        name: paths in the concept index, the AGENTS.md guides and the docs exist, and every task they name
+        entry: .venv/bin/python scripts/check_doc_paths.py
         language: system
         pass_filenames: false
         always_run: true

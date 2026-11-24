@@ -640,7 +640,7 @@ and `apps/workspace/ui/components/ui/touch-target.spec.ts`. Capture a 390x844
 viewport alongside the desktop shot when you ship a surface — the playbook above
 has the command.
 
-**The browser measurement is gone.** `task workspace:touch-audit` loaded the screenshot
+**The browser measurement is gone.** `workspace:touch-audit` loaded the screenshot
 registry at a phone viewport and reported what neither a spec nor a screenshot
 can: regions whose `touch-action` refuses the vertical pan (a finger lands and
 the page does not move), boxes that stick out past the viewport, and interactive

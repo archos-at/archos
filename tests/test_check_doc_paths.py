@@ -83,3 +83,40 @@ def test_a_doc_may_keep_its_baseline_but_not_gain_a_dead_path(checker, tmp_path,
     errors = _scoped(checker, tmp_path, monkeypatch, "", doc + " See `also/gone.ts`.", {"docs/architecture/a.md": 1})
 
     assert len(errors) == 1 and "baseline 1" in errors[0]
+
+
+def _taskfiles(tmp_path: Path) -> None:
+    (tmp_path / "taskfiles").mkdir()
+    (tmp_path / "Taskfile.yml").write_text(
+        "version: '3'\n"
+        "includes:\n"
+        "  workspace: {taskfile: taskfiles/workspace.yml, flatten: true}\n"
+        "  pkg: {taskfile: taskfiles/pkg.yml}\n"
+        "tasks:\n  verify:\n    aliases: [v]\n    cmds: [echo]\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "taskfiles" / "workspace.yml").write_text(
+        "version: '3'\ntasks:\n  workspace:build:\n    cmds: [echo]\n", encoding="utf-8"
+    )
+    (tmp_path / "taskfiles" / "pkg.yml").write_text(
+        "version: '3'\ntasks:\n  test:one:\n    cmds: [echo]\n", encoding="utf-8"
+    )
+
+
+def test_task_names_follow_flattened_and_namespaced_includes(checker, tmp_path):
+    _taskfiles(tmp_path)
+    assert checker.task_names() == {"verify", "v", "workspace:build", "pkg:test:one"}
+
+
+def test_a_renamed_task_in_a_doc_fails_and_the_current_one_passes(checker, tmp_path):
+    _taskfiles(tmp_path)
+    declared = checker.task_names()
+    doc = "Rerun `task fe:build`, then `task workspace:build -- --all`.\n\n```bash\ntask fe:provision:flags\n```\n"
+    assert checker.dead_tasks(doc, declared) == ["fe:build", "fe:provision:flags"]
+
+
+def test_prose_bare_names_and_wildcards_are_not_dead_tasks(checker, tmp_path):
+    _taskfiles(tmp_path)
+    declared = checker.task_names()
+    doc = "A task is done when `workspace:touch-audit` (deleted) is gone; run `task pkg:test:*`.\n"
+    assert checker.dead_tasks(doc, declared) == []
