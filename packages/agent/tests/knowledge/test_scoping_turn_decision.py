@@ -197,3 +197,21 @@ def test_a_personal_shelf_named_in_a_tool_result_is_admitted_before_the_model_se
 
     message = SimpleNamespace(content=f"Treffer aus {PERSONAL}: Wettbewerb.pdf", response_metadata={})
     assert _carried(message) == {PERSONAL}
+
+
+@pytest.mark.parametrize("name", ["Personal_Liste_2026.xlsx", "personal_liste_2026.xlsx", "Personal_org_1__user_1"])
+def test_a_file_named_personal_is_not_taken_for_the_owners_shelf(name):
+    from agent.knowledge.restricted_collections import is_restricted_collection
+
+    assert not is_restricted_collection(name)
+
+
+async def test_a_project_chat_result_naming_personal_liste_reaches_the_model_unwithheld():
+    from types import SimpleNamespace
+
+    from agent.knowledge.restricted_use import _carried
+    from agent.knowledge.restricted_use import admit_tool_results
+
+    message = SimpleNamespace(content="Gefunden: Personal_Liste_2026.xlsx, Blatt 2", response_metadata={})
+    assert _carried(message) == set()
+    assert await admit_tool_results([message]) == [message]
