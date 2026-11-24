@@ -99,7 +99,7 @@ export function InboxBell({ compact = false, tourAnchor, pathname: pathnameOverr
             'border-base text-foreground flex shrink-0 items-center justify-center gap-1.5 rounded-control border transition-colors duration-quick ease-out motion-reduce:transition-none',
             compact ? 'size-8 flex-col gap-0 border-transparent pointer-coarse:size-11' : 'h-8 min-w-8 px-2 pointer-coarse:h-11',
             'hover:bg-desk in-data-[sidebar=sidebar]:hover:bg-selected focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-            (here || open) && 'bg-sheet shadow-xs hover:bg-sheet in-data-[sidebar=sidebar]:hover:bg-sheet',
+            (here || open) && 'bg-sheet hover:bg-sheet in-data-[sidebar=sidebar]:hover:bg-sheet',
             className
           )}
         >
