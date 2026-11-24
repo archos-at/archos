@@ -2,7 +2,7 @@
 # area: answers
 fixes:
   - >
-    Research runs no longer sit in a list of their own above your chats: the
-    chat that holds a run carries a Deep Research mark with its real state, and
-    the Deep Research filter shows just those chats. Offices without deep
-    research no longer see runs there, and reading new uploads is not shown.
+    The Deep Research list in the chat history now shows each research run
+    under its own name with its real state, so a finished report no longer
+    reads as still running. Offices without deep research no longer see the
+    list, and reading the documents of a new upload no longer appears in it.

@@ -1,0 +1,8 @@
+---
+# area: answers
+improvements:
+  - >
+    Research runs no longer sit in a list of their own above your chats: the
+    chat that holds a run now carries a Deep Research mark with the run's
+    state, including a failed one, and the Deep Research filter shows just
+    those chats with their count.
