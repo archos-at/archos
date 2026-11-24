@@ -69,6 +69,15 @@ def test_a_deployed_dsn_is_read_through_the_sync_driver():
     assert gate.sync_url("sqlite:///x.db") == "sqlite:///x.db"
 
 
+def test_an_asyncpg_ssl_option_becomes_the_libpq_one():
+    gate = _gate()
+    deployed = "postgresql+asyncpg://u:p@h:5432/jobs?ssl=require&application_name=gate"
+    assert gate.sync_url(deployed) == "postgresql+psycopg://u:p@h:5432/jobs?sslmode=require&application_name=gate"
+    assert (
+        gate.sync_url("postgresql://u@h/app?sslmode=verify-full") == "postgresql+psycopg://u@h/app?sslmode=verify-full"
+    )
+
+
 def test_a_since_without_a_zone_is_utc():
     from datetime import UTC
 

@@ -83,6 +83,7 @@ export const stripUrlQuery = (url: string): string => {
 export const SERVICE_HEADER_NAMES = [
   'x-answer-message-id',
   'x-budget',
+  'x-collection-scope',
   'x-context-transport',
   'x-disabled-sources',
   'x-feature-memory-reflection',
