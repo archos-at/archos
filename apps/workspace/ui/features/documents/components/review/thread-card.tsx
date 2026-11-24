@@ -20,6 +20,7 @@ import type { DocumentReview } from '../../hooks/use-document-review'
 import { useFollowEnd } from '../../hooks/use-follow-end'
 import { useSelfAssignee } from '../../hooks/use-self-assignee'
 import { Composer, type ComposerSend } from './composer'
+import { MeasureReadingLines } from './measure/measure-reading'
 import { useFocusBackOnClose } from './focus-return'
 import { AgentThreadRow, AgentWorkRow } from './thread-card/agent-rows'
 import { KIND_ICONS } from './thread-card/kind-picker'
@@ -315,6 +316,11 @@ export function ThreadCard({
         </div>
       )}
 
+      {annotation.reading && (
+        <div className="border-b px-3 py-2.5">
+          <MeasureReadingLines reading={annotation.reading} />
+        </div>
+      )}
       <div
         ref={thread.ref}
         onScroll={thread.onScroll}

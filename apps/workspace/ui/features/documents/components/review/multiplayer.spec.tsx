@@ -7,6 +7,7 @@ import type { RoomPeer } from '@/lib/annotations/room-types'
 import type { AnnotationView } from '@/lib/annotations/types'
 import type { DocumentReview } from '../../hooks/use-document-review'
 import type { RoomPeerState } from '../../hooks/use-document-room'
+import { IDLE_TAPE } from '../../hooks/use-sheet-tape'
 import { LiveCursor } from '@/components/ui/live-cursor'
 import { CURSOR_CHAT_LINGER_MS, CursorChat, placeChat } from './cursor-chat'
 import { peerSide, walkPosition } from './document-review'
@@ -82,6 +83,7 @@ function reviewWith(peers: RoomPeerState[], annotations: AnnotationView[] = []):
     setDraft: () => {},
     hover: () => {},
     unread: new Set(),
+    tape: IDLE_TAPE,
   }
   return review as DocumentReview
 }

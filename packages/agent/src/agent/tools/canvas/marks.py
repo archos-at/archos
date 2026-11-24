@@ -12,6 +12,7 @@ from pydantic import ConfigDict
 from pydantic import ValidationError
 
 from agent.common.agent_kind import is_agent_kind
+from agent.common.turn_file_kinds import turn_states
 
 from .calls import ANNOTATION_GONE
 from .calls import Refused
@@ -20,6 +21,8 @@ from .cards import excerpt
 MAX_BODY = 2000
 MAX_BASIS = 300
 MAX_PROPOSALS_PER_CALL = 20
+MAX_MEASURE_POINTS = 60
+MEASURE_SHAPES = {"line": (2, 2), "path": (2, MAX_MEASURE_POINTS), "polygon": (3, MAX_MEASURE_POINTS)}
 
 _EDGE_SLACK = 0.02
 
@@ -29,7 +32,7 @@ def _normalized(value: object) -> object:
 
 
 Kind = Annotated[Literal["hint", "question", "defect"], BeforeValidator(_normalized)]
-Shape = Annotated[Literal["point", "region"], BeforeValidator(_normalized)]
+Shape = Annotated[Literal["point", "region", "line", "path", "polygon"], BeforeValidator(_normalized)]
 
 
 class AnnotationProposal(BaseModel):
@@ -41,10 +44,11 @@ class AnnotationProposal(BaseModel):
 
     page: int
     shape: Shape = "region"
-    x: float
-    y: float
+    x: float | None = None
+    y: float | None = None
     w: float | None = None
     h: float | None = None
+    points: list[tuple[float, float]] | None = None
     kind: Kind
     body: str
     basis: str | None = None
@@ -88,8 +92,21 @@ def _share(value: object) -> str:
         return "?"
 
 
+def _reading(item: dict[str, Any]) -> str:
+    reading = item.get("reading") if isinstance(item.get("reading"), dict) else {}
+    unit = "m²" if reading.get("unit") == "m2" else "m"
+    try:
+        low, value, high = (float(reading[key]) for key in ("low", "value", "high"))
+    except KeyError, TypeError, ValueError:
+        return ""
+    return f", {value:.3f} {unit} (interval {low:.3f} to {high:.3f}, {_text(reading.get('provenance'))})"
+
+
 def _place(item: dict[str, Any]) -> str:
     box = item.get("box") if isinstance(item.get("box"), list) and len(item["box"]) == 4 else [None] * 4
+    if item.get("shape") in MEASURE_SHAPES:
+        count = len(item["points"]) if isinstance(item.get("points"), list) else 0
+        return f"{item.get('shape')} through {count} points{_reading(item)}"
     if item.get("shape") == "point":
         return f"point x {_share(box[0])}, y {_share(box[1])}"
     return f"region x {_share(box[0])}–{_share(box[2])}, y {_share(box[1])}–{_share(box[3])}"
@@ -168,15 +185,33 @@ def _region_size(proposal: AnnotationProposal, index: int) -> tuple[float, float
     w, h = proposal.w or 0.0, proposal.h or 0.0
     if w <= 0 or h <= 0:
         raise Refused(f"Error: Proposal {index}: a region needs `w` and `h` greater than 0.")
-    if proposal.x + w > 1 + _EDGE_SLACK or proposal.y + h > 1 + _EDGE_SLACK:
+    x, y = proposal.x or 0.0, proposal.y or 0.0
+    if x + w > 1 + _EDGE_SLACK or y + h > 1 + _EDGE_SLACK:
         raise Refused(f"Error: Proposal {index}: the region extends beyond the page (x+w and y+h at most 1).")
-    return min(w, 1 - proposal.x), min(h, 1 - proposal.y)
+    return min(w, 1 - x), min(h, 1 - y)
+
+
+def _measure_points(proposal: AnnotationProposal, index: int) -> list[list[float]]:
+    if not turn_states("pdf"):
+        raise Refused(f"Error: Proposal {index}: a measurement is kept only on a PDF drawing where you measure.")
+    fewest, most = MEASURE_SHAPES[proposal.shape]
+    points = proposal.points or []
+    if not fewest <= len(points) <= most:
+        raise Refused(f"Error: Proposal {index}: a {proposal.shape} has {fewest} to {most} `points`.")
+    if any(not (0 <= x <= 1 and 0 <= y <= 1) for x, y in points):
+        raise Refused(f"Error: Proposal {index}: `points` are shares of the page between 0 and 1, not pixels.")
+    return [[round(x, 4), round(y, 4)] for x, y in points]
 
 
 def _proposal_payload(proposal: AnnotationProposal, index: int) -> dict[str, Any]:
     if proposal.page < 1:
         raise Refused(f"Error: Proposal {index}: `page` counts from 1.")
-    if not (0 <= proposal.x <= 1 and 0 <= proposal.y <= 1):
+    points = _measure_points(proposal, index) if proposal.shape in MEASURE_SHAPES else None
+    if points:
+        proposal = proposal.model_copy(update={"x": points[0][0], "y": points[0][1], "w": None, "h": None})
+    elif proposal.points:
+        raise Refused(f"Error: Proposal {index}: a {proposal.shape} has no `points`.")
+    if proposal.x is None or proposal.y is None or not (0 <= proposal.x <= 1 and 0 <= proposal.y <= 1):
         raise Refused(f"Error: Proposal {index}: `x` and `y` are shares of the page between 0 and 1, not pixels.")
     body = _text(proposal.body)
     if not body or len(body) > MAX_BODY:
@@ -192,6 +227,8 @@ def _proposal_payload(proposal: AnnotationProposal, index: int) -> dict[str, Any
     if proposal.shape == "region":
         w, h = _region_size(proposal, index)
         payload["w"], payload["h"] = round(w, 4), round(h, 4)
+    if points:
+        payload["points"] = points
     if basis := _text(proposal.basis):
         payload["basis"] = basis[:MAX_BASIS]
     return payload
@@ -247,6 +284,11 @@ def render_created(body: dict[str, Any]) -> str:
 
 
 def _box(item: dict[str, Any]) -> dict[str, Any]:
+    points = item.get("points") if isinstance(item.get("points"), list) else []
+    if item.get("shape") in MEASURE_SHAPES and points:
+        xs, ys = [float(point[0]) for point in points], [float(point[1]) for point in points]
+        x0, y0 = min(xs), min(ys)
+        return {"shape": "region", "x": x0, "y": y0, "w": max(max(xs) - x0, 0.001), "h": max(max(ys) - y0, 0.001)}
     if item.get("shape") == "point":
         return {"shape": "point", "x": item.get("x"), "y": item.get("y")}
     return {"shape": "region", "x": item.get("x"), "y": item.get("y"), "w": item.get("w"), "h": item.get("h")}

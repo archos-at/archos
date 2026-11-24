@@ -28,6 +28,7 @@ import type { AgentOperation } from '../operation'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { listCalibrationsQuerySchema, setCalibrationRequestSchema } from '@/lib/drawing-calibrations/wire'
 import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
+import { measureRequestSchema } from '@/lib/drawing-tape/wire'
 
 const documentParams = z.object({
   id: z.string().describe('The document id, from a project document listing or workspace-search.'),
@@ -459,6 +460,29 @@ export const reviewOperations = [
     load: () => import('@/app/api/projects/[id]/annotations/export/route'),
   },
 
+  {
+    name: 'document-measure',
+    feature: FEATURE_FLAGS.drawingMeasure,
+    domain: 'review',
+    summary: 'Measure a distance, a path or an area on a page of a PDF drawing, or snap points to its linework',
+    description:
+      'Measures on a page of the document’s current version, from the file’s linework: `distance` (two points), `path` (two or ' +
+      'more), `area` (three or more corners in order); `snap` says where each point ties to a line end or corner. Points are ' +
+      'shares of the page, origin top left. Returns a measurement with its interval, provenance and scale state, or no number ' +
+      'with a `code`, reason and remedy. State a number with its interval; never recompute one. Keep it with annotation-create.',
+    method: 'POST',
+    path: '/api/documents/[id]/measure',
+    params: documentParams,
+    body: measureRequestSchema,
+    readOnly: true,
+    examples: [
+      {
+        params: { id: '5b1e7c2a-9d4f-4c3b-8a6e-2f1d0c9b8a7e' },
+        body: { page: 1, operation: 'distance', points: [[0.21, 0.4], [0.36, 0.4]] },
+      },
+    ],
+    load: () => import('@/app/api/documents/[id]/measure/route'),
+  },
   {
     name: 'drawing-calibration-list',
     feature: FEATURE_FLAGS.drawingMeasure,

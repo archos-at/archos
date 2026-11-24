@@ -25,6 +25,8 @@ import type { ShownHighlight } from '../../hooks/use-document-room'
 import { usePeerSelections } from '../../hooks/use-peer-selections'
 import { at, box, onPage, placeCard, pointIn, tagFitsAbove, type CardAnchor } from '../../lib/review-overlay-geometry'
 import { PageCompany } from './review-page-layer/page-company'
+import { isKeptMeasure, MeasureLayer } from './measure/measure-layer'
+import { boxOfPoints, type PagePoint } from '@/lib/annotations/measure-shapes'
 import { PageMarks } from './review-page-layer/page-marks'
 
 export {
@@ -53,7 +55,7 @@ const MIN_REGION = 0.012
 
 const POINT_SLOP = 8
 
-const roomTool = (tool: ReviewTool) => (tool === 'ask' ? 'region' : tool)
+const roomTool = (tool: ReviewTool) => (tool === 'ask' ? 'region' : tool === 'measure' ? 'point' : tool)
 
 function KeyboardAim({
   page,
@@ -328,13 +330,18 @@ export function ReviewPageLayer({
   }
 
   const selected = marks.find((annotation) => annotation.id === selectedId) ?? null
+  const pins = marks.filter((annotation) => !isKeptMeasure(annotation))
   const draftHere = draft?.page === page ? draft : null
   const asksHere = agent.asks.filter(
     (ask): ask is CanvasAsk & { region: NonNullable<CanvasAsk['region']> } =>
       !ask.replyInThread && ask.region?.page === page
   )
   const openAsk = focused ? (asksHere.find((ask) => ask.id === agent.openId) ?? null) : null
-  const anchorOf = (place: { x: number; y: number; w: number | null; h?: number | null }) => placeCard(place, size)
+  const anchorOf = (place: { x: number; y: number; w: number | null; h?: number | null; points?: PagePoint[] | null }) => {
+    if (!place.points?.length) return placeCard(place, size)
+    const [x0, y0, x1, y1] = boxOfPoints(place.points)
+    return placeCard({ x: x0, y: y0, w: Math.max(x1 - x0, 0.002), h: Math.max(y1 - y0, 0.002) }, size)
+  }
   const threadPlace = draftHere ?? selected
   const threadAnchor = threadPlace ? anchorOf(threadPlace) : null
   const askAnchor = openAsk ? anchorOf(openAsk.region) : null
@@ -343,7 +350,7 @@ export function ReviewPageLayer({
     <div ref={layerRef} className="pointer-events-none absolute inset-0" data-testid={`review-layer-${page}`}>
       {/* The surface a tool works on. Over the text layer, so the click that
           sets a mark never starts a selection. */}
-      {focused && tool !== 'select' && (
+      {focused && tool !== 'select' && tool !== 'measure' && (
         <div
           data-testid="review-capture"
           aria-hidden
@@ -368,7 +375,7 @@ export function ReviewPageLayer({
         onHover={hover}
       />
       <PageMarks
-        marks={marks}
+        marks={pins}
         unread={unread}
         focused={focused}
         selectedId={selectedId}
@@ -475,6 +482,8 @@ export function ReviewPageLayer({
         ))}
       </AnimatePresence>
 
+      <MeasureLayer review={review} page={page} focused={focused} size={size} />
+
       <PageCompany
         room={room}
         page={page}
@@ -485,7 +494,7 @@ export function ReviewPageLayer({
         agentThinking={agentThinking}
       />
 
-      {focused && aim && tool !== 'select' && !draft && (
+      {focused && aim && tool !== 'select' && tool !== 'measure' && !draft && (
         <KeyboardAim key={aim.key} page={page} tool={tool} startY={aim.y} onSet={place} />
       )}
 

@@ -21,6 +21,7 @@ import {
   type MarkTally,
 } from './types'
 import { isAgentKind } from '@/lib/agent-kind'
+import type { KeptReading, PagePoint } from './measure-shapes'
 
 export interface CarryLink {
   annotationId: string
@@ -204,6 +205,8 @@ export interface NewAnnotationValues {
   y: number
   w: number | null
   h: number | null
+  points?: PagePoint[] | null
+  reading?: KeptReading | null
   kind: AnnotationKind
   body: string
   mentions?: MarkMention[]

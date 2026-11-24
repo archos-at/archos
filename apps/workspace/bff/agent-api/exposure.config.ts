@@ -186,6 +186,12 @@ export const EXPOSURE = {
   'annotation-reply-update': OFFERED,
   'annotation-update': { external: true, agent: 'native:canvas__update', reason: CANVAS },
   'document-annotations-export': OFFERED,
+  'document-measure': {
+    external: false,
+    agent: 'native:drawing_measure',
+    reason:
+      'the review view’s tape on a PDF drawing; the chat agent measures with its own drawing_measure, and the door stays shut for it while the drawing-measure entitlement stands, as for the drawing-measure read tool',
+  },
   'drawing-calibration-list': { external: false, agent: true, reason: DRAWING_CALIBRATION },
   'drawing-calibration-set': { external: false, agent: true, reason: DRAWING_CALIBRATION },
   'drawing-calibration-withdraw': { external: false, agent: true, reason: DRAWING_CALIBRATION },

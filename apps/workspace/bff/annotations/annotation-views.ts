@@ -13,6 +13,7 @@ import { latestWakesFor, agentWorkOf } from './agent-work'
 import { wakeOfReply, wakeSpansFor, type WakeSpan } from './wake-attribution'
 import type { AnnotationReplyView, AnnotationView, CarryLinkView, CarryTargetView } from './types'
 import { mayDeleteMark, deleteRefusalOf, annotatable } from './annotation-access'
+import { isMeasureShape } from './measure-shapes'
 
 type Names = ReadonlyMap<string, { name: string }>
 
@@ -66,6 +67,8 @@ export function toView(
     y: record.y,
     w: record.w,
     h: record.h,
+    points: record.points ?? null,
+    reading: record.reading ?? null,
     kind: record.kind,
     body: record.body,
     mentions: record.mentions,
@@ -144,7 +147,7 @@ export async function carryWayOf(
 }
 
 function carryTargetOf(record: AnnotationRecord, doc: Document, way: CarryWay | null): CarryTargetView | null {
-  if (!way || record.status !== 'open') return null
+  if (!way || record.status !== 'open' || isMeasureShape(record.shape)) return null
   if (way.across) return record.delegatedBy ? null : way.to
   return (record.versionId ?? null) === (doc.publishedVersionId ?? null) ? null : way.to
 }

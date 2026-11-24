@@ -28,6 +28,7 @@ import { registerCanvasFocusProvider } from '@/features/chat/lib/canvas-bridge'
 import { reviewFocusOf } from '../lib/review-focus'
 import { rebased, type HeldDecision } from '../lib/held-decision'
 import type { CarriedGroup, ReviewDraft, ReviewFilter, ReviewRevision, ReviewTool } from '../lib/review-types'
+import { useSheetTape } from './use-sheet-tape'
 import { useCanvasAsk, type UseCanvasAskOptions } from './use-canvas-ask'
 import { useDocumentRoom, type RoomTransport } from './use-document-room'
 import { useAnnotationList } from './use-annotation-list'
@@ -79,7 +80,7 @@ export function useDocumentReview(
   const [notice, setNotice] = useState<'conflict' | null>(null)
   const { carried, fetchCarried, retryCarried } = useCarriedAnnotations({ enabled, documentId, revision, canvas })
 
-  const { load, stored, setAnnotations, canAnnotate, pilotiWakes, setAttempt, reads, replace, drop, fetchList } =
+  const { load, stored, setAnnotations, canAnnotate, canMeasure, pilotiWakes, setAttempt, reads, replace, drop, fetchList } =
     useAnnotationList({ enabled, documentId, room, setDraft, setSelectedId })
 
   const guard = useCallback(
@@ -164,7 +165,7 @@ export function useDocumentReview(
       )
       replace(created)
       setDraft(null)
-      setToolState('select')
+      setToolState((current) => (current === 'measure' ? current : 'select'))
       setSelectedId(created.id)
       setFilter('open')
       return created
@@ -426,6 +427,14 @@ export function useDocumentReview(
     [annotations, listed, selectedId, documentId]
   )
 
+  const tape = useSheetTape({
+    documentId,
+    available: canMeasure && canAnnotate,
+    active: tool === 'measure',
+    draftOpen: Boolean(draft?.points),
+    placeDraft,
+  })
+
   const retry = useCallback(() => setAttempt((value) => value + 1), [])
   const dismissNotice = useCallback(() => setNotice(null), [])
 
@@ -441,6 +450,7 @@ export function useDocumentReview(
       counts,
       canAnnotate,
       pilotiWakes,
+      tape,
       tool,
       setTool,
       draft,
@@ -485,6 +495,7 @@ export function useDocumentReview(
       counts,
       canAnnotate,
       pilotiWakes,
+      tape,
       tool,
       setTool,
       draft,

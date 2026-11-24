@@ -78,6 +78,10 @@ const NOT_AN_AGENT_CAPABILITY: Record<string, Exemption> = {
     category: 'ui-state',
     reason: 'cuts an answer to the text the Stop button had on screen; only the browser knows what it showed',
   },
+  'GET /api/documents/[id]/snap-targets': {
+    category: 'ui-state',
+    reason: 'the linework a browser snaps a pointer to while placing a measurement; an agent measures through document-measure',
+  },
   'POST /api/notifications/push/devices': {
     category: 'ui-state',
     reason: 'registers this browser’s Web Push subscription; an agent has no browser to notify',

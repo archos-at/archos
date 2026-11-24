@@ -39,6 +39,8 @@ import { ReviewCardSheet } from './document-review/review-card-sheet'
 import { ReviewListSheet } from './document-review/review-list-sheet'
 import { Elsewhere } from './document-review/elsewhere'
 import { ReviewTools } from './document-review/review-tools'
+import { MeasureStack } from './measure/measure-stack'
+import { measureKey, tapeInHand } from './measure/measure-keys'
 
 export { TOOLS_INTRO_KEY, toolsIntroSeen } from '../../lib/review-tools-intro'
 export { walkPosition } from '../../lib/proposal-walk'
@@ -288,6 +290,8 @@ export function DocumentReviewMode({
     if (openAsk) agent.open(null)
     else if (draft) setDraft(null)
     else if (following) setFollowing(null)
+    else if (tapeInHand(review)) review.tape.clear()
+    else if (tool === 'measure' && selectedId) select(null)
     else if (tool !== 'select') setTool('select')
     else if (selectedId) select(null)
     else close()
@@ -312,7 +316,8 @@ export function DocumentReviewMode({
     if (listOpen || dockOpen) return
     if (event.key === 'Escape' || typing(event.target)) return
     const key = event.key.toLowerCase()
-    if (key === '/') openChat(true)
+    if (measureKey(key, review)) event.preventDefault()
+    else if (key === '/') openChat(true)
     else if (key === 'v') setTool('select')
     else if ((key === 'c' || key === 'r') && review.canAnnotate) {
       setTool(key === 'c' ? 'point' : 'region')
@@ -397,7 +402,7 @@ export function DocumentReviewMode({
   }
 
   const toolHint =
-    tool !== 'select' && !draft && !openAsk
+    tool !== 'select' && tool !== 'measure' && !draft && !openAsk
       ? aim
         ? t(`review.aim.hint.${tool}`)
         : t(`review.${touch ? 'toolHintTouch' : 'toolHint'}.${tool}`)
@@ -473,6 +478,7 @@ export function DocumentReviewMode({
                   </span>
                 )}
                 <Elsewhere review={review} page={viewPage ?? 1} edge="above" canvas={canvasRef} onJump={jumpTo} />
+                <MeasureStack review={review} page={viewPage ?? 1} touch={touch} />
                 {toolHint && (
                   <FloatingNote role={aim ? undefined : 'status'} aria-hidden={aim ? true : undefined} data-testid="review-tool-hint">
                     {toolHint}

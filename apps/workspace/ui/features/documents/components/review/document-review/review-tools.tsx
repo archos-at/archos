@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { MessageSquarePlus, MousePointer2, Sparkles, Speech, SquareDashed, X, type LucideIcon } from 'lucide-react'
+import { MessageSquarePlus, MousePointer2, Ruler, Sparkles, Speech, SquareDashed, X, type LucideIcon } from 'lucide-react'
 import { ToolbarIconButton } from '@/components/ui/floating-toolbar'
 import { Kbd } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -17,6 +17,7 @@ const TOOLS: Array<{ tool: PaletteTool; key: string; icon: LucideIcon }> = [
   { tool: 'select', key: 'V', icon: MousePointer2 },
   { tool: 'point', key: 'C', icon: MessageSquarePlus },
   { tool: 'region', key: 'R', icon: SquareDashed },
+  { tool: 'measure', key: 'M', icon: Ruler },
   { tool: 'ask', key: 'P', icon: Sparkles },
   { tool: 'chat', key: '/', icon: Speech },
 ]
@@ -52,7 +53,7 @@ export function ReviewTools({
             onClick={(event) => {
               if (tool === 'chat') return onChat()
               review.setTool(pressed ? 'select' : tool)
-              if (!pressed && tool !== 'select' && event.detail === 0) onAim?.()
+              if (!pressed && tool !== 'select' && tool !== 'measure' && event.detail === 0) onAim?.()
             }}
             className={cn(
               'aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:text-background',
@@ -65,10 +66,10 @@ export function ReviewTools({
               <>
                 {/* The short name: the pill also carries the viewer's own controls. */}
                 <span className="@max-5xl:sr-only">{t(`review.toolsShort.${tool}`)}</span>
-                <Kbd className="h-4 min-w-4 px-1 text-[10px] @max-5xl:hidden">{key}</Kbd>
+                <Kbd className="h-4 min-w-4 px-1 text-meta @max-5xl:hidden">{key}</Kbd>
               </>
             )}
-            {variant === 'touch' && <span className="text-[10px] leading-3 font-medium">{t(`review.toolsShort.${tool}`)}</span>}
+            {variant === 'touch' && <span className="text-meta font-medium">{t(`review.toolsShort.${tool}`)}</span>}
           </ToolbarIconButton>
         )
         if (variant === 'touch') return <span key={tool} className="contents">{button}</span>

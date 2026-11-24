@@ -5,7 +5,8 @@ import { Clock, MessageCircle, UserRound } from 'lucide-react'
 import { CommentPin } from '@/components/ui/comment-pin'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatCalendarDay, localCalendarDay } from '@/lib/format'
+import { CLAUSE_JOIN, formatCalendarDay, localCalendarDay } from '@/lib/format'
+import { formatRounded } from '../../lib/tape-format'
 import { isForReader, isLive, isOverdue, type AnnotationView } from '@/lib/annotations/types'
 import { cn } from '@/lib/utils'
 import { MarkBody } from './mark-body'
@@ -60,6 +61,11 @@ export function MarkRowContent({
     </span>
   ) : null
   const kind = <span className="whitespace-nowrap">{t(`annotations.kinds.${annotation.kind}`)}</span>
+  const reading = annotation.reading ? (
+    <span className="text-foreground font-medium whitespace-nowrap tabular-nums" data-testid="mark-row-measure">
+      {formatRounded(annotation.reading, locale)}
+    </span>
+  ) : null
   const page = showPage ? <span className="whitespace-nowrap">{t('review.page', { page: annotation.page })}</span> : null
   const setBy = <span className="min-w-0 truncate">{author}</span>
   const replies =
@@ -96,6 +102,12 @@ export function MarkRowContent({
       <span className={cn('min-w-0 flex-1', columns && 'max-w-[720px]' /* a measure, not the 1216px column */)}>
         <span className={cn('text-foreground line-clamp-2 text-sm leading-5', !isLive(annotation) && 'text-muted-foreground')}>
           <MarkBody text={annotation.body} mentions={annotation.mentions} viewerId={viewerId} clamped />
+          {reading && (
+            <>
+              {CLAUSE_JOIN}
+              {reading}
+            </>
+          )}
         </span>
         {/* Items apart by „·“ as every meta line of the surface (the tile's, the mail row's), the dot after an item
             so a wrapped line never starts with one; each item keeps to one line. 4px each side: a glyph clause's own
@@ -103,7 +115,7 @@ export function MarkRowContent({
             it and by when stand in their own column at desk width, and a phone has a line of its own (below), so a
             line never ends on a dot (round 3: „Bernd Huber ·“ at a line's end, four-line rows). */}
         <span className={cn(META_LINE, columns ? 'flex-nowrap overflow-hidden max-sm:hidden' : 'flex-wrap gap-y-0.5')} data-testid="review-row-meta">
-          {kind}
+          {!reading && kind}
           {page}
           {setBy}
           {!columns && who}
@@ -115,7 +127,7 @@ export function MarkRowContent({
             has it); the replies and the author are in the review. */}
         {columns && (
           <span className={cn(META_LINE, 'flex-nowrap overflow-hidden sm:hidden')} data-testid="review-row-meta-phone">
-            {kind}
+            {!reading && kind}
             {page}
             {who || due ? null : setBy}
             {who}

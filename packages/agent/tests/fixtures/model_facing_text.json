@@ -13419,7 +13419,7 @@
     }
   },
   "tool:chat:canvas__mark": {
-    "description": "Sets `proposals` as PROPOSALS from you; none of them counts until a person takes the proposal over in the document or dismisses it. Never say a defect has been entered. `open=true` only when the person asks for exactly this annotation to be set (then it is open at once, in their name; if the office lets you only propose, this is refused, then retry without `open`); your own findings, even in a requested review, stay proposals. First look at the page with `look` and estimate the spot there. Per proposal: `page` (from 1); `shape` `region` (preferred: a tight frame around the component) or `point`; `x`/`y` the top left corner, for `region` also `w`/`h` (x+w and y+h at most 1); `kind` `hint`, `question` or `defect`; `body` in the office's German, concrete and short (at most 2000 characters); `basis` with the source reference when the finding rests on a norm. At most 20 per call, the most important first. The file is called Dokument or Fassung, never Plan. Locations are a share of the page as displayed: 0 to 1, origin top left, no pixels. `document` (optional): the file name from the overview, or the id; without it, the document open on the canvas, otherwise this chat's document.",
+    "description": "Sets `proposals` as PROPOSALS from you; none of them counts until a person takes the proposal over in the document or dismisses it. Never say a defect has been entered. `open=true` only when the person asks for exactly this annotation to be set (then it is open at once, in their name; if the office lets you only propose, this is refused, then retry without `open`); your own findings, even in a requested review, stay proposals. First look at the page with `look` and estimate the spot there. Per proposal: `page` (from 1); `shape` `region` (preferred: a tight frame around the component) or `point`; `x`/`y` the top left corner, for `region` also `w`/`h` (x+w and y+h at most 1); on a PDF drawing where you measure with `drawing_measure`, a measurement kept on the sheet is `shape` `line` (two `points`), `path` (2 to 60) or `polygon` (3 to 60 corners in order), `points` `[[x, y], ...]` in the same frame, no `x`/`y`/`w`/`h` and never a number: the server measures the points itself; `kind` `hint`, `question` or `defect`; `body` in the office's German, concrete and short (at most 2000 characters); `basis` with the source reference when the finding rests on a norm. At most 20 per call, the most important first. The file is called Dokument or Fassung, never Plan. Locations are a share of the page as displayed: 0 to 1, origin top left, no pixels. `document` (optional): the file name from the overview, or the id; without it, the document open on the canvas, otherwise this chat's document.",
     "schema": {
       "properties": {
         "document": {
@@ -13477,11 +13477,39 @@
                     "title": "Page",
                     "type": "integer"
                   },
+                  "points": {
+                    "anyOf": [
+                      {
+                        "items": {
+                          "maxItems": 2,
+                          "minItems": 2,
+                          "prefixItems": [
+                            {
+                              "type": "number"
+                            },
+                            {
+                              "type": "number"
+                            }
+                          ],
+                          "type": "array"
+                        },
+                        "type": "array"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "Points"
+                  },
                   "shape": {
                     "default": "region",
                     "enum": [
                       "point",
-                      "region"
+                      "region",
+                      "line",
+                      "path",
+                      "polygon"
                     ],
                     "title": "Shape",
                     "type": "string"
@@ -13499,18 +13527,32 @@
                     "title": "W"
                   },
                   "x": {
-                    "title": "X",
-                    "type": "number"
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "X"
                   },
                   "y": {
-                    "title": "Y",
-                    "type": "number"
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "Y"
                   }
                 },
                 "required": [
                   "page",
-                  "x",
-                  "y",
                   "kind",
                   "body"
                 ],

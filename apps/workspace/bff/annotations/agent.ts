@@ -124,6 +124,8 @@ const setMark = (annotation: AnnotationView) => ({
   y: annotation.y,
   w: annotation.w,
   h: annotation.h,
+  points: annotation.points ?? null,
+  reading: annotation.reading ?? null,
   kind: annotation.kind,
   body: annotation.body,
 })
