@@ -1614,7 +1614,7 @@ export const files = {
       provisionalLabel: 'Provisionally {value}, measured when you finish',
       readingLabel: 'Measurement',
       withTolerance: '{value} ± {tolerance}',
-      printedCheck: { true: 'Printed figure {figure} agrees', false: 'Printed figure {figure} differs: check the plan', null: 'Printed figure {figure}, not compared' },
+      printedCheck: { true: 'Printed figure {figure} agrees', false: 'Printed figure {figure} differs, please check', null: 'Printed figure {figure}, not compared' },
       perimeter: 'Perimeter {value}',
       shape: { line: 'Distance', path: 'Path length', polygon: 'Area' },
       basis: {

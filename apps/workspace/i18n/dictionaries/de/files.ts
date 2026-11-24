@@ -1640,7 +1640,7 @@ export const files: typeof en.files = {
       provisionalLabel: 'Vorläufig {value}, wird beim Abschluss gemessen',
       readingLabel: 'Messung',
       withTolerance: '{value} ± {tolerance}',
-      printedCheck: { true: 'Maßzahl {figure} stimmt überein', false: 'Maßzahl {figure} weicht ab: Plan prüfen', null: 'Maßzahl {figure} gedruckt, nicht verglichen' },
+      printedCheck: { true: 'Maßzahl {figure} stimmt überein', false: 'Maßzahl {figure} weicht ab, bitte prüfen', null: 'Maßzahl {figure} gedruckt, nicht verglichen' },
       perimeter: 'Umfang {value}',
       shape: { line: 'Strecke', path: 'Weglänge', polygon: 'Fläche' },
       basis: {
