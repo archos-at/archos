@@ -111,8 +111,8 @@ The main entry point for SSE and WebSocket routes. It:
      the request's `projectId` is taken; `createConversation` stamps the same
      one on the row.
    - With no `conversationId` (deep research, runs), the request's `projectId`.
-   - No request project means no project. The stored `active_project_id`
-     preference is no longer read.
+   - With neither a conversation row nor a request project, no project. The
+     stored `active_project_id` preference is no longer read.
 
 2. Enforces project access via `requireProjectAccess(session, projectId, CHAT_PERMISSIONS)` when auth is required
 
