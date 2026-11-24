@@ -132,6 +132,49 @@ These keep their own guards and are not touched by fail-closed:
 - ingestion;
 - the worker identity headers.
 
+## The record per answer
+
+The record per chat (`conversation_source_projects`,
+`conversation_restricted_folders`, the personal-shelf record) says what a chat
+drew on, but not which answer drew on it. Next to it the context keeps one row
+per answer, written by the BFF, never by the browser:
+
+- the kind and the `audience_version` the turn was decided under;
+- the places the turn was allowed to read;
+- what it actually read, as Python reports it through `admit`;
+- whether personal memory and the personal shelf were in play.
+
+It grows out of `markAnswerRestrictedUse`, which already marks single answers
+for restricted folders. The client-written `retrievalLedger` in a message's
+provenance stays a display aid and is never read for permissions.
+
+## What it makes possible
+
+Each of these is the same function resolved for a different audience, or a read
+of the per-answer record. None needs a rule of its own:
+
+1. **„Gelesen“ under every answer:** the places and files read, whether personal
+   memory or Meine Ablage was in play, and who reads the chat.
+2. **Joining later:** someone added to a chat sees earlier answers, and a source
+   they may not open shows as withheld. The `contentLocked` path in
+   `bff/sharing/access.ts` is its start.
+3. **A preview before sharing:** the context resolved for the audience it would
+   have, listing the answers that rest on sources the new readers may not open.
+   „Share anyway“ or „hide those“.
+4. **Asking privately in a shared chat:** the asker's own context answers, only
+   the asker sees it, and they decide whether the chat does (as Microsoft 365
+   Copilot does in Teams group chats).
+5. **Bringing a personal file into a project chat on purpose:** a recorded source
+   with the owner's yes, shown to everyone as attached.
+6. **Moving a chat between Persönlich and a project:** allowed when its record
+   fits the target, refused with the reason when not.
+7. **Tasks and deep research with a stated reach** („liest: Projekt X,
+   Bürobibliothek“), including personal tasks over Meine Ablage.
+8. **Why the agent knew something:** the per-answer trail an office can show.
+
+The first two come first. They are cheap once the per-answer record exists, and
+they make visible what users have had to take on trust.
+
 ## Migration order
 
 1. **The BFF computes the context and dual-writes.** The per-turn response gains
@@ -148,9 +191,10 @@ These keep their own guards and are not touched by fail-closed:
 
 ## Slices
 
-1. **The module, its BFF consumers and `audience_version`.** The per-turn response
-   carries the decision, dual-written. The guard spec allows the audience to be
-   read only by the module and by locked writers. Builds on
+1. **The module, its BFF consumers, `audience_version` and the record per
+   answer.** The per-turn response carries the decision, dual-written. The
+   guard spec allows the audience to be read only by the module and by locked
+   writers. Builds on
    [#1899](https://github.com/archos-at/archos/pull/1899), which already takes a
    turn's project from the row.
 2. **Python binds the per-turn decision and fails closed on answer-shaping
@@ -160,6 +204,7 @@ These keep their own guards and are not touched by fail-closed:
 4. **ADR-0191 on top:** `may.personalShelf`, the personal admit callback,
    `recorded.personalShelf`, and the owner's confirmation in
    `widenConversationAudience`.
+5. **„Gelesen“ and joining later**, the first two of what it makes possible.
 
 Each slice changes what shapes an answer and runs the golden run on dev before
 and after (`docs/contributing/testing-and-verification.md`). The decision

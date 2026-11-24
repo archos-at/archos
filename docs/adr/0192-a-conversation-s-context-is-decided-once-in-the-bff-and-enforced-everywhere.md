@@ -77,6 +77,11 @@ keep the personal shelf in a chat after it was shared.
   personal shelf is used only where the chat has no project and its owner alone
   reads it. Personal memory follows ADR-0180: wherever the asker alone reads the
   chat.
+* Each answer keeps a server-written record of the context it was decided under
+  and what it actually read. That record is what makes new features possible:
+  „Gelesen“ under an answer, withheld sources for someone who joins later, a
+  preview before sharing, asking privately in a shared chat
+  (`conversation-context.md`, „What it makes possible“).
 * The socket's scope cache in `server.js` loses its reason to exist, because the
   scope no longer lives on the socket.
 * The workspace block's line about shared chats is generated from the context, so
