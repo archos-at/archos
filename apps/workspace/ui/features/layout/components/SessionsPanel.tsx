@@ -39,10 +39,11 @@ interface SessionsPanelProps {
   selectedSessionId?: string
   onSelectSession?: (sessionId: string) => void
   onNewSession?: () => void
-  onDeleteSession?: (sessionId: string) => void
-  onDeleteAllSessions?: () => void
+  onDeleteSession?: (sessionId: string) => void | Promise<void>
+  onDeleteAllSessions?: () => void | Promise<void>
   onRenameSession?: (sessionId: string, newTitle: string) => void
   projectId?: string
+  side?: 'personal' | 'project'
 }
 
 export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel({
@@ -54,6 +55,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
   onDeleteAllSessions,
   onRenameSession,
   projectId,
+  side = projectId ? 'project' : 'personal',
 }) {
   const t = useTranslations(researchCopy)
   const { locale } = useLocale()
@@ -86,19 +88,18 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     setDeleteModalOpen(true)
   }, [])
 
-  const handleConfirmDelete = useCallback(() => {
-    if (sessionToDelete) {
-      onDeleteSession?.(sessionToDelete)
-      setSessionToDelete(null)
-    }
+  const handleConfirmDelete = useCallback(async () => {
+    if (!sessionToDelete) return
+    await onDeleteSession?.(sessionToDelete)
+    setSessionToDelete(null)
   }, [sessionToDelete, onDeleteSession])
 
   const handleDeleteAllClick = useCallback(() => {
     setDeleteAllModalOpen(true)
   }, [])
 
-  const handleConfirmDeleteAll = useCallback(() => {
-    onDeleteAllSessions?.()
+  const handleConfirmDeleteAll = useCallback(async () => {
+    await onDeleteAllSessions?.()
   }, [onDeleteAllSessions])
 
   const handleClose = useCallback(() => {
@@ -161,6 +162,8 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
     [filteredSessions, t, todayLabel, locale]
   )
   const hasSessions = sessions.length > 0
+  const deleteAllLabel =
+    side === 'personal' ? t('sessionsPanel.deleteAllPersonal') : t('sessionsPanel.deleteAllProject')
   const isEmptyState = filteredSessions.length === 0
 
   return (
@@ -348,12 +351,8 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
               className="text-destructive hover:text-destructive -ml-2 h-8 w-fit justify-start px-2 pointer-coarse:h-11"
               onClick={handleDeleteAllClick}
               disabled={anySessionBusy}
-              aria-label={
-                anySessionBusy ? t('sessionsPanel.deleteAllDisabled') : t('sessionsPanel.deleteAll')
-              }
-              title={
-                anySessionBusy ? t('sessionsPanel.cannotDeleteBusy') : t('sessionsPanel.deleteAll')
-              }
+              aria-label={deleteAllLabel}
+              title={anySessionBusy ? t('sessionsPanel.cannotDeleteBusy') : deleteAllLabel}
             >
               <Trash2 className="size-4" aria-hidden="true" />
               <span>{t('sessionsPanel.deleteAllButton')}</span>
@@ -373,7 +372,7 @@ export const SessionsPanel: FC<SessionsPanelProps> = memo(function SessionsPanel
         open={deleteAllModalOpen}
         onOpenChange={setDeleteAllModalOpen}
         onConfirm={handleConfirmDeleteAll}
-        count={sessions.length}
+        side={side}
       />
     </PageSheet>
   )

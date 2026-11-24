@@ -41,7 +41,7 @@ export function visibleConversationsWhere(
   userId: string,
   projects: { projectIds: readonly string[]; withoutContainer: boolean } | null,
 ): SQL {
-  const orgScope = eq(conversations.organizationId, organizationId)
+  const orgScope = and(eq(conversations.organizationId, organizationId), isNull(conversations.deletedAt))
   const mine = eq(conversations.createdBy, userId)
   const granted = grantNamesCaller(organizationId, userId)
 

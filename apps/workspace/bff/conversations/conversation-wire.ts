@@ -36,6 +36,18 @@ export const listConversationsQuerySchema = z.object({
   path: ['place'],
 })
 
+export const deleteOwnConversationsQuerySchema = z
+  .object({
+    place: z
+      .enum(['personal', 'project'])
+      .describe('`personal`: the caller\'s own chats without a project; `project`: the caller\'s own chats in `projectId`.'),
+    projectId: z.guid().optional().describe('The project whose chats `place=project` deletes.'),
+  })
+  .refine((query) => (query.place === 'project') === (query.projectId !== undefined), {
+    message: '`place=project` needs a `projectId`, and `place=personal` takes none.',
+    path: ['projectId'],
+  })
+
 export const MESSAGE_INCLUDES = ['citations', 'steps', 'metadata'] as const
 export type MessageInclude = (typeof MESSAGE_INCLUDES)[number]
 

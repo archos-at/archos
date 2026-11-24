@@ -1425,6 +1425,15 @@
    "describe": "{\"name\":\"conversation-delete\",\"domain\":\"conversations\",\"summary\":\"Delete a conversation\",\"description\":\"Deletes a conversation and its messages for everyone in it, permanently. The answer is the same whether or not the id was real.\",\"annotations\":{\"title\":\"Delete a conversation\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The conversation id (`s_` plus a UUID with underscores), from conversation-list.\"}},\"required\":[\"id\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
   },
   {
+   "name": "conversation-delete-all",
+   "domain": "conversations",
+   "summary": "Delete all of the person’s own chats on one side",
+   "description": "Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats without a project, `place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.",
+   "readOnly": false,
+   "destructive": true,
+   "describe": "{\"name\":\"conversation-delete-all\",\"domain\":\"conversations\",\"summary\":\"Delete all of the person’s own chats on one side\",\"description\":\"Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats without a project, `place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.\",\"annotations\":{\"title\":\"Delete all of the person’s own chats on one side\",\"readOnlyHint\":false,\"destructiveHint\":true,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"place\":{\"type\":\"string\",\"enum\":[\"personal\",\"project\"],\"description\":\"`personal`: the caller's own chats without a project; `project`: the caller's own chats in `projectId`.\"},\"projectId\":{\"description\":\"The project whose chats `place=project` deletes.\",\"type\":\"string\",\"format\":\"uuid\"}},\"required\":[\"place\"]},\"idempotencyKey\":{\"type\":\"string\"}},\"additionalProperties\":false,\"required\":[\"query\"]}}"
+  },
+  {
    "name": "conversation-draft-delete",
    "domain": "conversations",
    "summary": "Delete a draft from a conversation",
@@ -2670,19 +2679,7 @@
   "conversation share": [
    "conversation-create",
    "conversation-list",
-   "conversation-delete",
-   "conversation-draft-download",
-   "conversation-get",
-   "conversation-message-add",
-   "conversation-message-list",
-   "conversation-update",
-   "conversation-awaiting-get",
-   "conversation-mention-candidate-list"
-  ],
-  "Unterhaltung teilen": [
-   "conversation-list",
-   "sharing-get",
-   "conversation-create",
+   "conversation-delete-all",
    "conversation-delete",
    "conversation-draft-download",
    "conversation-get",
@@ -2690,6 +2687,18 @@
    "conversation-message-list",
    "conversation-update",
    "conversation-awaiting-get"
+  ],
+  "Unterhaltung teilen": [
+   "conversation-list",
+   "sharing-get",
+   "conversation-delete-all",
+   "conversation-create",
+   "conversation-delete",
+   "conversation-draft-download",
+   "conversation-get",
+   "conversation-message-add",
+   "conversation-message-list",
+   "conversation-update"
   ],
   "": [
    "classification-evaluate",
