@@ -71,7 +71,10 @@ one. A signed envelope without a kind reads as `chat` (envelopes signed before t
 - `may.personalMemory = solo && conversationId !== null && (kind === 'chat' || kind === 'run')`.
   ADR-0180 holds for chats as it does today: a solo project chat keeps personal
   memory.
-- `may.personalShelf = may.personalMemory && projectId === null && kind === 'chat'`, per ADR-0193.
+- `may.personalShelf = may.personalMemory && projectId === null && kind === 'chat'`, per ADR-0193,
+  and never for an unplaced chat: one without a project that was not started in
+  Persönlich (`audience.row.unplaced`, from `conversations.started_in_personal`;
+  ADR-0193 amendment of 2026-11-24).
 - `may.features = entitlement && !confined`. A turn that draws on restricted
   folders keeps deep research and tasks off, as `settle_restriction` does today.
 - `isShared` in `bff/sharing/access.ts` stays viewer-independent. It decides

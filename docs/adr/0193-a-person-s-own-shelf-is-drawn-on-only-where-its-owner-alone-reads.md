@@ -79,6 +79,28 @@ without being recorded.
 How the context is decided and carried is ADR-0194; this decision is its
 fourth slice.
 
+### Amendment, 2026-11-24: Persönlich starts empty
+
+The product owner's requirement: Persönlich is new, so it is empty for everyone
+when it launches. „The chats without a project“ above meant every row with
+`project_id IS NULL`, which brought in each person's old chats from the former
+start page and chats the agent API made without a project.
+
+* A chat records at creation that it was started in Persönlich
+  (`conversations.started_in_personal`, migration 0267; the browser sends
+  `personal: true` with a chat without a project, and the server ignores it with
+  a project). Every existing row is false. It is not inferred from a date.
+* Persönlich lists only chats started there: the rail's „Letzte Chats“, the
+  Chatverlauf, the phone's Chats sheet and the agent API's `conversation-list`
+  with `place=personal`. A chat without a project that was not started there is
+  listed nowhere, not in an unscoped listing either, and search does not find
+  it. It is not deleted: its owner can still read it by id through the agent
+  API (`conversation-get`, `conversation-message-list`); the app has no page
+  for it.
+* „Alle Chats löschen“ under Persönlich deletes only chats started there.
+* Such an unplaced chat does not draw on „Meine Ablage“: having no project does
+  not make a chat personal (`may.personalShelf` is false for it).
+
 ### Confirmation
 
 Specs hold each rule: the personal shelf refuses every reader but its owner

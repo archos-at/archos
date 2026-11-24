@@ -228,6 +228,30 @@ describe('creating a temporary conversation (ADR-0180)', () => {
   })
 })
 
+describe('creating a chat in Persönlich (ADR-0193 amendment)', () => {
+  beforeEach(() => {
+    vi.mocked(insertConversation).mockImplementation(async (values) => values as never)
+  })
+
+  it('marks a chat without a project as started in Persönlich when the caller says so', async () => {
+    await createConversation(session, { id: CONVERSATION_ID, personal: true })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ startedInPersonal: true, projectId: null }))
+  })
+
+  it('does not mark a chat without a project that does not say so, as the agent API creates them', async () => {
+    await createConversation(session, { id: CONVERSATION_ID })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ startedInPersonal: false }))
+  })
+
+  it('never marks a project chat, whatever the caller sends', async () => {
+    await createConversation(session, { id: CONVERSATION_ID, projectId: PROJECT_ID, personal: true })
+
+    expect(insertConversation).toHaveBeenCalledWith(expect.objectContaining({ startedInPersonal: false }))
+  })
+})
+
 describe('creating a conversation on an id that already exists', () => {
   beforeEach(() => {
     vi.mocked(insertConversation).mockResolvedValue(null) // id conflict

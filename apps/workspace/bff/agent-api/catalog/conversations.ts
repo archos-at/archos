@@ -116,7 +116,7 @@ export const conversationsOperations = [
     domain: 'conversations',
     summary: 'Delete all of the person’s own chats on one side',
     description:
-      'Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats without a project, ' +
+      'Deletes, permanently, every chat the person started on one side: `place=personal` takes the chats started on the personal side, ' +
       '`place=project` with `projectId` the chats in that project. Chats others started, shared ones included, and the other side stay. ' +
       'A chat under a legal hold is kept and named in `held`; `deleted` lists the ids that are gone from every list at once and are erased in the background.',
     method: 'DELETE',

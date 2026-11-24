@@ -131,6 +131,15 @@ describe('resolveConversationContext', () => {
     expect(second.may.restrictedCollections).toEqual([])
   })
 
+  it('never draws on the personal shelf in an old chat without a project that was not started in Persönlich (ADR-0193 amendment)', async () => {
+    state.rows = [row({ unplaced: true })]
+
+    const context = await resolveConversationContext(session, { conversationId: 's_old', kind: 'chat' })
+
+    expect(context.may).toMatchObject({ personalMemory: true, personalShelf: false })
+    expect(context.may.shelves.map((entry) => entry.shelf)).not.toContain('personal')
+  })
+
   it('never draws on the personal shelf in a project chat whose project the reader lost (ADR-0193, rule 4)', async () => {
     state.rows = [row({ projectId: 'p1' })]
     vi.mocked(buildCollectionScopeFromRequest).mockResolvedValueOnce({
