@@ -689,6 +689,14 @@
         },
         {
           "section": "fixes",
+          "area": "answers",
+          "text": {
+            "en": "The cards in an answer's reasoning view (the question, each step, the sources it rests on) now show their outline all the way round instead of only at the corners.",
+            "de": "Die Karten in der Reasoning-Ansicht einer Antwort – die Frage, jeder Schritt und die Quellen, auf denen die Antwort beruht – zeigen jetzt rundum einen Rahmen statt nur an den Ecken."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "collaboration",
           "text": {
             "en": "On a phone, the reply field under an annotation in the Postfach is as tall as its Senden button, so a tap lands in it instead of beside it.",

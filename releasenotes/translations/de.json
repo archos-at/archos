@@ -4456,6 +4456,10 @@
     "de": "Die Schaltflächen in der Herleitung, zum Ein- und Ausklappen der Ebenen und zum Öffnen einer Quelle, reagieren wieder auf Klicks und Antippen. Bei der ersten Frage in einem neuen Chat scrollt die Seite nicht mehr mit der wachsenden Herleitung mit."
   },
   {
+    "en": "The cards in an answer's reasoning view (the question, each step, the sources it rests on) now show their outline all the way round instead of only at the corners.",
+    "de": "Die Karten in der Reasoning-Ansicht einer Antwort – die Frage, jeder Schritt und die Quellen, auf denen die Antwort beruht – zeigen jetzt rundum einen Rahmen statt nur an den Ecken."
+  },
+  {
     "en": "The changelog on piloti.at is quicker to read: the latest week shows its new features and improvements, older busy weeks open with their headings, and fixes stay folded until you open them.",
     "de": "Der Changelog auf piloti.at liest sich schneller: Die jüngste Woche zeigt ihre neuen Funktionen und Verbesserungen, ältere Wochen mit vielen Änderungen zeigen zuerst ihre Überschriften, und Fehlerbehebungen bleiben eingeklappt, bis Sie sie öffnen."
   },
