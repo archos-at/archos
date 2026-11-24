@@ -456,7 +456,7 @@ describe('getAsk and cancelAsk', () => {
     await expect(cancelAsk(SESSION, row.id)).rejects.toBeInstanceOf(ConflictError)
   })
 
-  it('stops the turn as the asker, and ends an ask whose turn is not running', async () => {
+  it('stops the turn as the asker, signed headless as the wake stop is, and ends an ask whose turn is not running', async () => {
     row = askRow({ state: 'working' })
     vi.mocked(cancelHeadlessTurn).mockResolvedValue({ kind: 'not_running' })
     const view = await cancelAsk(SESSION, row.id)
@@ -465,7 +465,7 @@ describe('getAsk and cancelAsk', () => {
     const headers = request?.headers ?? {}
     expect(
       verifyRequestContextEnvelope(headers['x-request-context'], headers['x-request-context-sig'], SECRET),
-    ).toMatchObject({ userId: USER, conversationId: THREAD })
+    ).toMatchObject({ userId: USER, conversationId: THREAD, contextKind: 'headless' })
     expect(endAsk).toHaveBeenCalledWith(ORG, row.id, { state: 'canceled' })
     expect(view.state).toBe('canceled')
   })
