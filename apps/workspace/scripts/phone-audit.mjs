@@ -61,7 +61,7 @@ function measure({ width, min, productName }) {
     const cy = box.top + box.height / 2
     for (const pseudo of ['::after', '::before']) {
       const part = getComputedStyle(el, pseudo)
-      if (part.content === 'none' || part.position !== 'absolute') continue
+      if (part.content === 'none' || part.position !== 'absolute' || part.pointerEvents === 'none') continue
       const pw = parseFloat(part.width) || 0
       const ph = parseFloat(part.height) || 0
       const seen = clipped({ left: cx - pw / 2, right: cx + pw / 2, top: cy - ph / 2, bottom: cy + ph / 2 }, el)
