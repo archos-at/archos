@@ -6,10 +6,16 @@ vi.mock('next/headers', () => ({
 }))
 const redirect = vi.hoisted(() => vi.fn((to: string) => { throw new Error(`redirect:${to}`) }))
 vi.mock('next/navigation', () => ({ redirect }))
-const reach = vi.hoisted(() => ({ project: true as boolean, access: true as boolean }))
-vi.mock('@/lib/auth/require-auth', () => ({
-  withPageSession: async <T,>(fn: (session: { organizationId: string }) => Promise<T>) => fn({ organizationId: 'org-1' }),
-}))
+const reach = vi.hoisted(() => ({ project: true as boolean, access: true as boolean, session: true as boolean }))
+vi.mock('@/lib/auth/require-auth', async () => {
+  const { SessionRequiredError } = await import('@/lib/api/errors')
+  return {
+    withPageSession: async <T,>(fn: (session: { organizationId: string }) => Promise<T>) => {
+      if (!reach.session) throw new SessionRequiredError()
+      return fn({ organizationId: 'org-1' })
+    },
+  }
+})
 vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(async () => {
     if (!reach.access) throw new Error('forbidden')
@@ -25,6 +31,7 @@ beforeEach(() => {
   cookieValue.current = undefined
   reach.project = true
   reach.access = true
+  reach.session = true
   redirect.mockClear()
 })
 
@@ -47,6 +54,12 @@ describe('/app', () => {
   it('opens a new personal chat when the reader lost access to the last project', async () => {
     cookieValue.current = encodeURIComponent('/app/projects/p1/files')
     reach.access = false
+    await expect(AppIndexPage()).rejects.toThrow('redirect:/app/personal/chat?new=1')
+  })
+
+  it('opens a new personal chat when there is no session, never a 500', async () => {
+    cookieValue.current = encodeURIComponent('/app/projects/p1/files')
+    reach.session = false
     await expect(AppIndexPage()).rejects.toThrow('redirect:/app/personal/chat?new=1')
   })
 

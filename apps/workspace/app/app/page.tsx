@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { UnauthorizedError } from '@/lib/api/errors'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { findProjectInOrg } from '@/lib/projects/repository'
@@ -17,6 +18,9 @@ export default async function AppIndexPage(): Promise<never> {
     } catch {
       return false
     }
+  }).catch((error: unknown) => {
+    if (error instanceof UnauthorizedError) return false
+    throw error
   })
   redirect(reachable ? target : FIRST_PLACE)
 }
