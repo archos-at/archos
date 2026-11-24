@@ -47,6 +47,8 @@ export const errors: typeof en.errors = {
     },
   },
   confinement: {
+    personalShelf:
+      'Dieser Chat hat aus „Meine Ablage“ gelesen, deshalb verlässt nichts aus ihm diesen Chat: kein Ablegen in ein Projekt, keine Aufgabe, kein Gedächtnis, keine Anmerkung an einem Dokument anderer. Eine Datei aus Ihrer Ablage kommt nur durch einen eigenen Schritt in ein Projekt.',
     deepResearch:
       'Dieser Chat stützt sich auf einen Ordner mit eingeschränktem Zugriff oder auf ein anderes Projekt, deshalb lässt sich aus ihm keine Tiefenrecherche starten: Recherche, Titel und Bericht wären für alle im Projekt sichtbar, auch für Personen, die diesen Ordner oder dieses Projekt nicht lesen dürfen.',
     task: 'Dieser Chat stützt sich auf einen Ordner mit eingeschränktem Zugriff oder auf ein anderes Projekt, deshalb lässt sich aus ihm keine Aufgabe anlegen: Aufgaben sind für alle im Projekt sichtbar, auch für Personen, die diesen Ordner oder dieses Projekt nicht lesen dürfen.',

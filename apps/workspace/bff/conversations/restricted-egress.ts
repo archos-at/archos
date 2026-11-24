@@ -9,6 +9,8 @@ import { internalRead } from '@/lib/documents/document-reader'
 import { findProjectDocumentsByFilenames } from '@/lib/documents/repository'
 import type { PlanDocument } from '@/lib/runs/plan-documents'
 import { recordedRestrictedFolders, recordedSourceProjects } from './restricted-use'
+import { personalShelfUseOf } from './personal-shelf-use'
+import { personalShelfCollectionName } from '@/lib/personal-shelf/collection'
 
 export type ConfinedAction = ConversationConfinedError['action']
 
@@ -33,11 +35,21 @@ async function originProjects(origin: ConversationOrigin, organizationId: string
   return recordedSourceProjects(origin.conversationId, organizationId)
 }
 
+async function originPersonalShelf(origin: ConversationOrigin, organizationId: string) {
+  if (!origin.conversationId) return null
+  return personalShelfUseOf(organizationId, origin.conversationId)
+}
+
+export async function requireNoPersonalShelfEgress(origin: ConversationOrigin, organizationId: string): Promise<void> {
+  if (await originPersonalShelf(origin, organizationId)) throw confinementRefusal('personalShelf', origin.locale)
+}
+
 export async function requireMayLeaveConversation(
   origin: ConversationOrigin,
   organizationId: string,
-  action: Exclude<ConfinedAction, 'filing' | 'planDocument'>
+  action: Exclude<ConfinedAction, 'filing' | 'planDocument' | 'personalShelf'>
 ): Promise<void> {
+  await requireNoPersonalShelfEgress(origin, organizationId)
   const [folders, projects] = await Promise.all([
     originFolders(origin, organizationId),
     originProjects(origin, organizationId),
@@ -54,6 +66,11 @@ export interface FilingDestination {
 
 export async function requireMayFileFrom(origin: ConversationOrigin, destination: FilingDestination): Promise<void> {
   const { organizationId, projectId, folderId } = destination
+  const personal = await originPersonalShelf(origin, organizationId)
+  if (personal) {
+    const ownShelf = projectId === null && destination.projectCollection === personalShelfCollectionName(organizationId, personal.ownerId)
+    if (!ownShelf) throw confinementRefusal('personalShelf', origin.locale)
+  }
   if ((await originProjects(origin, organizationId)).length > 0) throw confinementRefusal('filing', origin.locale)
   const required = await originFolders(origin, organizationId)
   if (required.length === 0) return

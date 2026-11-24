@@ -3,6 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConversationConfinedError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
+import { personalShelfUseOf } from '@/lib/conversations/personal-shelf-use'
 import { folderReadOnlyError, requireFolderWrite } from '@/lib/authz/folder-access'
 import { makeProject } from '@/test-utils/db-fixtures'
 import { GENERATED_DOCUMENT_PRODUCERS, fileGeneratedDocument } from './generated'
@@ -38,6 +39,7 @@ const {
 
 vi.mock('@/lib/authz/folder-access', async () => (await import('@/test-utils/folder-access')).openFolderAccessModule())
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/conversations/personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => null) }))
 vi.mock('@/lib/s3', () => ({
   s3Client: { send: s3Send },
   bucketAdminS3Client: {},
@@ -238,6 +240,18 @@ describe('filing out of a conversation that drew on a restricted folder (ADR-008
     expect(getOrCreateProjectFolderByName).not.toHaveBeenCalled()
     expect(s3Send).not.toHaveBeenCalled()
     expect(admitOrDiscard).not.toHaveBeenCalled()
+  })
+
+  it('files nothing into a project from a chat that read its owner’s shelf (ADR-0193, rule 4)', async () => {
+    recordedRestrictedFolders.mockResolvedValue([])
+    vi.mocked(personalShelfUseOf).mockResolvedValueOnce({ ownerId: 'user-1' })
+
+    const error = await fileFromChat().catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(ConversationConfinedError)
+    expect((error as ConversationConfinedError).action).toBe('personalShelf')
+    expect(render).not.toHaveBeenCalled()
+    expect(s3Send).not.toHaveBeenCalled()
   })
 
   it('judges a Berichte folder that does not exist yet as the open root folder it would become', async () => {

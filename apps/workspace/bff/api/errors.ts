@@ -41,7 +41,7 @@ export class TemporaryConversationError extends ApiError {
 
 export class ConversationConfinedError extends ApiError {
   constructor(
-    readonly action: 'deepResearch' | 'task' | 'profilePatch' | 'memory' | 'filing' | 'revision' | 'planDocument',
+    readonly action: 'deepResearch' | 'task' | 'profilePatch' | 'memory' | 'filing' | 'revision' | 'planDocument' | 'personalShelf',
     message: string
   ) {
     super(403, 'CONVERSATION_CONFINED', message, { action })

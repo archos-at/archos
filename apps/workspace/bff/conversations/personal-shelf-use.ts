@@ -68,6 +68,18 @@ async function markPersonalShelfUse(executor: DbExecutor, organizationId: string
     )
 }
 
+export async function personalShelfUseOf(
+  organizationId: string,
+  conversationId: string,
+): Promise<{ ownerId: string } | null> {
+  const [row] = await getDb()
+    .select({ usedAt: conversations.personalShelfUsedAt, createdBy: conversations.createdBy })
+    .from(conversations)
+    .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)))
+    .limit(1)
+  return row?.usedAt ? { ownerId: row.createdBy } : null
+}
+
 export async function personalShelfUsed(organizationId: string, conversationId: string, executor: DbExecutor = getDb()): Promise<boolean> {
   const [row] = await executor
     .select({ usedAt: conversations.personalShelfUsedAt })
