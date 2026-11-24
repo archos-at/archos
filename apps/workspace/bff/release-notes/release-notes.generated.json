@@ -65,6 +65,22 @@
         },
         {
           "section": "improvements",
+          "area": "answers",
+          "text": {
+            "en": "An open chat now names itself at the top: its title, a menu to rename or delete it, and the date of the last change, and on the right who sees it, „Nur Sie“ for a chat you have not shared. The same menu stands at each chat in the sidebar.",
+            "de": "Ein offener Chat nennt jetzt oben seinen Titel, daneben ein Menü zum Umbenennen und Löschen und das Datum der letzten Änderung, und rechts, wer ihn sieht: „Nur Sie“ bei einem Chat, den Sie nicht geteilt haben. Dasselbe Menü steht an jedem Chat in der Seitenleiste."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Deleting a single document in a project now moves it to the project's bin instead of removing it for good. It can be restored from there to the folder it came from until the bin's deadline.",
+            "de": "Wer in einem Projekt ein einzelnes Dokument löscht, verschiebt es jetzt in den Papierkorb des Projekts, statt es endgültig zu entfernen. Von dort lässt es sich bis zum Ablauf der Frist in den Ordner zurückholen, aus dem es kam."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "The Ablage has a calmer header: the search, „Auswählen“, the Papierkorb as a window, „Hochladen“ and ⋯, with the view, „Filtern und sortieren“ and „Ordner anlegen“ behind ⋯. „Hochladen“ now gathers every way in, the Outlook import and „Per E-Mail senden“ included, and no longer stands out in black.",
