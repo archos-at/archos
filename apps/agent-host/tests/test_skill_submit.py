@@ -25,7 +25,6 @@ def _valid_body(**overrides) -> dict:
         "user_id": "user_abc",
         "project_id": "proj-uuid-1",
         "owner_email": "creator@example.com",
-        "collection_scope": ["oib_knowledge", "proj_uuid_1", "s_conv1"],
         "budget_header": "eyJyZW1haW5pbmdPcmdVc2QiOjF9",
         "model_overrides": {"researcher": "openrouter/some-model"},
     }
@@ -247,7 +246,7 @@ def test_a_run_that_settled_nothing_sends_neither(client, prod_token, submit_moc
     assert kwargs["documents"] is None
 
 
-def test_successful_submit_forwards_identity_and_scope(client, prod_token, submit_mock):
+def test_successful_submit_forwards_identity_and_no_unsigned_scope(client, prod_token, submit_mock):
     resp = _post(client, _valid_body())
     assert resp.status_code == 200
 
@@ -256,7 +255,7 @@ def test_successful_submit_forwards_identity_and_scope(client, prod_token, submi
     assert kwargs["input_text"] == "Act as a building-physics advisor: check the OIB thermal requirements."
     assert "force_skills" not in kwargs
     assert kwargs["owner"] == "creator@example.com"
-    assert kwargs["collection_scope"] == ["oib_knowledge", "proj_uuid_1", "s_conv1"]
+    assert "collection_scope" not in kwargs
     assert kwargs["project_context"] is None
     assert kwargs["model_overrides"] == {"researcher": "openrouter/some-model"}
     assert kwargs["project_memory"] is None
@@ -360,3 +359,15 @@ def test_a_submit_without_a_run_id_still_runs(client, prod_token, submit_mock):
     resp = _post(client, _valid_body())
     assert resp.status_code == 200
     assert submit_mock.await_args.kwargs["run_id"] is None
+
+
+def test_a_body_that_names_a_scope_no_envelope_signs_is_refused(client, prod_token, submit_mock):
+    resp = _post(client, _valid_body(collection_scope=["oib_knowledge", "proj_other"]))
+    assert resp.status_code == 422
+    submit_mock.assert_not_awaited()
+
+
+def test_an_old_bff_sending_an_empty_scope_without_a_signed_one_is_accepted(client, prod_token, submit_mock):
+    resp = _post(client, _valid_body(collection_scope=[]))
+    assert resp.status_code == 200
+    submit_mock.assert_awaited_once()

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantSlotRoute } from '@/lib/db/tenant-context'
 import { resolveConversationScope } from '@/lib/conversation-context'
-import { encodeCollectionScopeHeader } from '@/lib/retrieval-scope/collection-scope'
 import { isAuthzRefusal } from '@/lib/api/errors'
 import {
   resolveOptionalSession,
@@ -61,9 +60,8 @@ const rejectUnlistedPath = (method: string, path: string[]): NextResponse | null
 }
 
 
-async function scopeHeader(session: UserSession | null, { projectId, conversationId }: ProxyRequestContext): Promise<string> {
-  const { shelves } = await resolveConversationScope(session, { projectId, conversationId, kind: 'run' })
-  return encodeCollectionScopeHeader(shelves)
+async function authorizeScope(session: UserSession | null, { projectId, conversationId }: ProxyRequestContext): Promise<void> {
+  await resolveConversationScope(session, { projectId, conversationId, kind: 'run' }, { withoutShelves: true })
 }
 
 export const GET = tenantSlotRoute(async function GET(
@@ -87,7 +85,7 @@ export const GET = tenantSlotRoute(async function GET(
       return validationError
     }
 
-    const headerValue = await scopeHeader(session, context)
+    await authorizeScope(session, context)
     const authHeaders: Record<string, string> = session
       ? { Authorization: `Bearer ${session.accessToken}` }
       : {}
@@ -97,7 +95,6 @@ export const GET = tenantSlotRoute(async function GET(
       headers: {
         ...authHeaders,
         Accept: 'application/json',
-        'X-Collection-Scope': headerValue,
       },
     })
 
@@ -161,7 +158,7 @@ export const POST = tenantSlotRoute(async function POST(
       return validationError
     }
 
-    const headerValue = await scopeHeader(session, context)
+    await authorizeScope(session, context)
     const authHeaders: Record<string, string> = session
       ? { Authorization: `Bearer ${session.accessToken}` }
       : {}
@@ -171,7 +168,6 @@ export const POST = tenantSlotRoute(async function POST(
       headers: {
         ...authHeaders,
         ...requestHeaders,
-        'X-Collection-Scope': headerValue,
       },
       ...(body ? { body, duplex: 'half' } : {}),
     })
@@ -216,7 +212,7 @@ export const DELETE = tenantSlotRoute(async function DELETE(
       return validationError
     }
 
-    const headerValue = await scopeHeader(session, context)
+    await authorizeScope(session, context)
     const authHeaders: Record<string, string> = session
       ? { Authorization: `Bearer ${session.accessToken}` }
       : {}
@@ -234,7 +230,6 @@ export const DELETE = tenantSlotRoute(async function DELETE(
       headers: {
         ...authHeaders,
         'Content-Type': 'application/json',
-        'X-Collection-Scope': headerValue,
       },
       ...(body ? { body } : {}),
     })

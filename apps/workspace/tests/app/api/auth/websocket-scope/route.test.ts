@@ -51,10 +51,10 @@ describe('/api/auth/websocket-scope', () => {
     mockLoadProjectPromptView.mockResolvedValue(null)
   })
 
-  it('returns scope and header when auth is disabled', async () => {
+  it('returns the turn context without shelves when auth is disabled', async () => {
     vi.stubEnv('REQUIRE_AUTH', 'false')
     mockGetUserSession.mockResolvedValue(null)
-    mockResolveConversationContext.mockResolvedValue(decided([{ collection: 'oib_knowledge', shelf: 'base' }], 'proj-1'))
+    mockResolveConversationContext.mockResolvedValue(decided([], 'proj-1'))
 
     const req = new Request(
       'http://localhost:3000/api/auth/websocket-scope?projectId=proj-1&conversationId=conv-1'
@@ -64,19 +64,19 @@ describe('/api/auth/websocket-scope', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json).toEqual({
-      scope: ['oib_knowledge'],
-      scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }],
-      header: header([{ collection: 'oib_knowledge', shelf: 'base' }]),
+      scope: [],
+      scopedCollections: [],
+      header: header([]),
       projectId: 'proj-1',
       conversationId: 'conv-1',
       memoryReflectionEnabled: true,
     })
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
-    expect(mockResolveConversationContext).toHaveBeenCalledWith(null, {
-      projectId: 'proj-1',
-      conversationId: 'conv-1',
-      kind: 'chat',
-    })
+    expect(mockResolveConversationContext).toHaveBeenCalledWith(
+      null,
+      { projectId: 'proj-1', conversationId: 'conv-1', kind: 'chat' },
+      { withoutShelves: true },
+    )
   })
 
   it('returns 401 when auth is required and there is no session', async () => {
@@ -113,11 +113,11 @@ describe('/api/auth/websocket-scope', () => {
     const res = await GET(req)
 
     expect(res.status).toBe(200)
-    expect(mockResolveConversationContext).toHaveBeenCalledWith(session, {
-      projectId: 'proj-1',
-      conversationId: undefined,
-      kind: 'chat',
-    })
+    expect(mockResolveConversationContext).toHaveBeenCalledWith(
+      session,
+      { projectId: 'proj-1', conversationId: undefined, kind: 'chat' },
+      { withoutShelves: true },
+    )
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
   })
 

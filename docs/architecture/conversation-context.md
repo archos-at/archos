@@ -85,7 +85,9 @@ one. A signed envelope without a kind reads as `chat` (envelopes signed before t
    `begin_restricted_use` runs today (`core/conversation_register.py`), before
    any scope is read: before `get_scoped_collections_from_context`, the loading
    step and `load_inventory`. It calls `resolveConversationContext` and returns
-   the signed decision. It replaces the restricted-use pre-check.
+   the signed decision. It replaces the restricted-use pre-check: since slice
+   3b, `/api/internal/conversations/[id]/restricted-use` only admits (`admit`),
+   and the answer's mark comes from the decision's record.
 2. **`POST /api/internal/turn-context` (as now).** It returns the prompt blocks,
    in parallel with the inventory, and reads the decision's `may.*` rather than
    re-deciding.
@@ -99,7 +101,8 @@ The socket's envelope keeps everything it carries except `collectionScope`:
 identity, the project for a chat whose row is not there yet, budget, model
 overrides, federal state and requester. The `server.js` upgrade cache keeps
 caching that answer and its cap of 32 concurrent upgrades. It just no longer
-holds a scope.
+holds a scope. Since slice 3b the envelope signs no `collectionScope`, and the
+upgrade decides no shelves (`resolveTurnContext` with `shelves: false`).
 
 **Runs** are decided at submit and at every envelope renewal
 (`renewRunEnvelope`, hourly). They are not decided at the socket.
@@ -197,12 +200,17 @@ These routes keep their internal-token guard, and fail-closed does not touch the
 Neither does ingestion. A job worker binds its identity (organization, project,
 user) explicitly from the job it runs, not by parsing plain headers, so a run
 without an envelope still names its organization for residency, credentials and
-cost.
+cost. Since slice 3b a job's scope comes only from its signed envelope
+(`signed_job_scope` in `jobs/submit.py`). A run without one keeps its identity
+(`bind_worker_identity`) but reads no scope, and is counted as
+`jobs.envelope_less_runs`.
 
 **A BFF route serving a turn** takes the turn's shelves from one helper: the
 verified decision when the call carries one, the envelope's signed scope
 otherwise. A socket turn's envelope carries no scope, so a route that checks only
-the envelope would refuse every chat turn.
+the envelope would refuse every chat turn. That helper is `withTurnShelves`
+(`bff/conversation-context/index.ts`), used by the document-file, estate-tree
+and document-annotations routes since slice 3b.
 
 ## What it makes possible
 
@@ -283,11 +291,13 @@ What slice 1 fixes, so no builder has to guess:
    nothing. Only where no decision is required does Python fall back to the old
    envelope scope, inside a valid signature, and a restricted collection there
    still passes the live per-turn check (`begin_restricted_use`) until step 3.
-3. **The old fields are dropped.** That means the upgrade-time scope, the
+3. **The old fields are dropped (slice 3b).** That means the upgrade-time scope, the
    plain-header fallbacks and `begin_restricted_use`. The gate is a fact, not a
    clock: no run that started before step 2 was deployed is still active, and no
    queued `/v1/jobs/async` job holds an old envelope. This goes in step with the
-   header rename that `legacy_headers.py` already schedules.
+   header rename that `legacy_headers.py` already schedules. The gate is
+   checked by `scripts/conversation_context_gate.py`, following
+   [the runbook](../deployment/conversation-context-gate-runbook.md).
 
 ## Slices
 

@@ -24,7 +24,7 @@ import { GET, POST, DELETE } from '@/app/api/v1/[...path]/route'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
 import { resolveConversationScope } from '@/lib/conversation-context'
 import type { ConversationScope } from '@/lib/conversation-context/resolve'
-import { encodeCollectionScopeHeader, type ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
+import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { getDb } from '@/lib/db'
 import { NotFoundError } from '@/lib/api/errors'
@@ -114,7 +114,7 @@ describe('/api/v1/[...path]', () => {
   })
 
   describe('scope header', () => {
-    it('attaches scope header for GET requests', async () => {
+    it('authorizes the scope for GET requests and sends no plain scope header', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockResolveConversationScope.mockResolvedValue(scopeOf(PROJECT_SHELVES, 'proj-1'))
@@ -128,17 +128,17 @@ describe('/api/v1/[...path]', () => {
       expect(res.status).toBe(200)
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const init = fetchMock.mock.calls[0][1] as RequestInit
-      expect(getHeader(init, 'X-Collection-Scope')).toBe(encodeCollectionScopeHeader(PROJECT_SHELVES))
+      expect(getHeader(init, 'X-Collection-Scope')).toBeUndefined()
       expect(getHeader(init, 'Accept')).toBe('application/json')
       expect(getHeader(init, 'Authorization')).toBe('Bearer tok')
-      expect(mockResolveConversationScope).toHaveBeenCalledWith(baseSession, {
-        projectId: 'proj-1',
-        conversationId: 'conv-1',
-        kind: 'run',
-      })
+      expect(mockResolveConversationScope).toHaveBeenCalledWith(
+        baseSession,
+        { projectId: 'proj-1', conversationId: 'conv-1', kind: 'run' },
+        { withoutShelves: true },
+      )
     })
 
-    it('attaches scope header for POST JSON requests', async () => {
+    it('authorizes the scope for POST JSON requests and sends no plain scope header', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockResolveConversationScope.mockResolvedValue(scopeOf(PROJECT_SHELVES, 'proj-1'))
@@ -156,14 +156,14 @@ describe('/api/v1/[...path]', () => {
       expect(res.status).toBe(200)
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const init = fetchMock.mock.calls[0][1] as RequestInit
-      expect(getHeader(init, 'X-Collection-Scope')).toBe(encodeCollectionScopeHeader(PROJECT_SHELVES))
+      expect(getHeader(init, 'X-Collection-Scope')).toBeUndefined()
       expect(getHeader(init, 'Content-Type')).toBe('application/json')
       expect(getHeader(init, 'Authorization')).toBe('Bearer tok')
-      expect(mockResolveConversationScope).toHaveBeenCalledWith(baseSession, {
-        projectId: 'proj-1',
-        conversationId: 'conv-1',
-        kind: 'run',
-      })
+      expect(mockResolveConversationScope).toHaveBeenCalledWith(
+        baseSession,
+        { projectId: 'proj-1', conversationId: 'conv-1', kind: 'run' },
+        { withoutShelves: true },
+      )
     })
 
     it('uses anonymous session when auth is disabled', async () => {
@@ -176,7 +176,7 @@ describe('/api/v1/[...path]', () => {
 
       expect(res.status).toBe(200)
       expect(mockRequireAuthorizedSession).not.toHaveBeenCalled()
-      expect(getHeader(fetchMock.mock.calls[0][1], 'X-Collection-Scope')).toBe(encodeCollectionScopeHeader(ANON_SHELVES))
+      expect(getHeader(fetchMock.mock.calls[0][1], 'X-Collection-Scope')).toBeUndefined()
       expect(getHeader(fetchMock.mock.calls[0][1], 'Authorization')).toBeUndefined()
     })
   })

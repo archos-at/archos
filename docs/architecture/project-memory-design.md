@@ -310,7 +310,7 @@ same text can both be live.
   and the job worker, which fetches the digest over HTTP and writes it into
   its own request state.
 - **Per-query recall (RAG)**: designed as a dedicated vector namespace
-  (`mem_<project>`) reached through `X-Grid-Collection-Scope`. Not built.
+  (`mem_<project>`) reached through the turn's signed scope. Not built.
   Recall runs inside the digest query over the row's own vector (§3.6).
 
 Injection format tags each item so the model treats it correctly, e.g.:

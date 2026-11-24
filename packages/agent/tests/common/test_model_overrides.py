@@ -4,6 +4,7 @@ import json
 import types
 
 import pytest
+from agent_testing.bff import fake_bff
 from pydantic import BaseModel
 
 from agent.common.llm_provider import LLMProvider
@@ -309,23 +310,21 @@ class TestOrgScopedFallbackResolution:
     def test_fetch_sanitizes_payload_and_reads_zdr(self, monkeypatch):
         import agent.common.model_overrides as M
 
-        class FakeResponse:
-            def raise_for_status(self):
-                pass
-
-            def json(self):
-                return {
-                    "overrides": {
-                        "deep_research": "x-ai/grok-4.5",
-                        "bogus_group": "x/y",
-                        "shallow_research": "bad id!!",
-                    },
-                    "zdrOnly": True,
-                }
-
-        monkeypatch.setenv("INTERNAL_API_TOKEN", "t")
-        monkeypatch.setattr("httpx.get", lambda *a, **k: FakeResponse())
+        bff = fake_bff(
+            monkeypatch,
+            {
+                "overrides": {
+                    "deep_research": "x-ai/grok-4.5",
+                    "bogus_group": "x/y",
+                    "shallow_research": "bad id!!",
+                },
+                "zdrOnly": True,
+            },
+            token="t",
+        )
         assert M._fetch_org_config("org_A")[:2] == ({"deep_research": "x-ai/grok-4.5"}, True)
+        assert bff.calls[-1].path == "/api/internal/model-overrides"
+        assert bff.calls[-1].query == {"organizationId": "org_A"}
 
     def test_no_internal_token_is_yaml_models_with_zdr_pinned(self, monkeypatch):
         import agent.common.model_overrides as M

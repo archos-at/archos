@@ -22,7 +22,7 @@ import { findProjectTenancy } from '@/lib/projects/repository'
 import { requireAuthorizedSession } from '@/lib/auth/require-auth'
 import { resolveConversationScope } from '@/lib/conversation-context'
 import type { ConversationScope } from '@/lib/conversation-context/resolve'
-import { encodeCollectionScopeHeader, type ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
+import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 
 const mockRequireAuthorizedSession = vi.mocked(requireAuthorizedSession)
 const mockResolveConversationScope = vi.mocked(resolveConversationScope)
@@ -35,10 +35,7 @@ interface BuiltScope {
   [key: string]: unknown
 }
 
-let decidedShelves: ScopedCollection[] = []
-
 function asScope(built: BuiltScope): ConversationScope {
-  decidedShelves = built.scopedCollections
   return {
     kind: 'run',
     conversationId: null,
@@ -52,7 +49,6 @@ function asScope(built: BuiltScope): ConversationScope {
   }
 }
 
-const decidedHeader = (): string => encodeCollectionScopeHeader(decidedShelves)
 
 
 const baseSession = {
@@ -92,7 +88,7 @@ describe('/api/jobs/async/[...path]', () => {
   })
 
   describe('GET', () => {
-    it('forwards scope header for stream requests', async () => {
+    it('signs the scope for stream requests and sends no plain scope header', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockResolveConversationScope.mockResolvedValue(asScope({
@@ -121,7 +117,7 @@ describe('/api/jobs/async/[...path]', () => {
       expect(res.status).toBe(200)
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const init = fetchMock.mock.calls[0][1] as RequestInit
-      expect(getHeader(init, 'X-Collection-Scope')).toBe(decidedHeader())
+      expect(getHeader(init, 'X-Collection-Scope')).toBeUndefined()
       expect(getHeader(init, 'Accept')).toBe('text/event-stream')
       expect(mockResolveConversationScope).toHaveBeenCalledWith(baseSession, {
         projectId: 'proj-1',
@@ -157,7 +153,7 @@ describe('/api/jobs/async/[...path]', () => {
 
       expect(res.status).toBe(200)
       expect(mockRequireAuthorizedSession).not.toHaveBeenCalled()
-      expect(getHeader(fetchMock.mock.calls[0][1], 'X-Collection-Scope')).toBe(decidedHeader())
+      expect(getHeader(fetchMock.mock.calls[0][1], 'X-Collection-Scope')).toBeUndefined()
     })
 
     it('refuses to submit research in a closed project, and forwards nothing (ADR-0090)', async () => {
@@ -240,7 +236,7 @@ describe('/api/jobs/async/[...path]', () => {
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
-    it('forwards scope header from body', async () => {
+    it('takes the scope from the body and sends no plain scope header', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockResolveConversationScope.mockResolvedValue(asScope({
@@ -271,7 +267,7 @@ describe('/api/jobs/async/[...path]', () => {
       expect(res.status).toBe(200)
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const init = fetchMock.mock.calls[0][1] as RequestInit
-      expect(getHeader(init, 'X-Collection-Scope')).toBe(decidedHeader())
+      expect(getHeader(init, 'X-Collection-Scope')).toBeUndefined()
       expect(mockResolveConversationScope).toHaveBeenCalledWith(baseSession, {
         projectId: 'proj-1',
         conversationId: 'conv-1',
@@ -298,7 +294,7 @@ describe('/api/jobs/async/[...path]', () => {
   })
 
   describe('DELETE', () => {
-    it('forwards scope header from query params', async () => {
+    it('takes the scope from query params and sends no plain scope header', async () => {
       vi.stubEnv('REQUIRE_AUTH', 'true')
       mockRequireAuthorizedSession.mockResolvedValue(baseSession)
       mockResolveConversationScope.mockResolvedValue(asScope({
@@ -328,7 +324,7 @@ describe('/api/jobs/async/[...path]', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1)
       const init = fetchMock.mock.calls[0][1] as RequestInit
       expect(init.method).toBe('DELETE')
-      expect(getHeader(init, 'X-Collection-Scope')).toBe(decidedHeader())
+      expect(getHeader(init, 'X-Collection-Scope')).toBeUndefined()
       expect(mockResolveConversationScope).toHaveBeenCalledWith(baseSession, {
         projectId: 'proj-1',
         conversationId: undefined,

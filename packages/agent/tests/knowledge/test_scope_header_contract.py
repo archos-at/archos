@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,6 @@ from typing import Any
 import pytest
 
 from agent.common.source_kinds import Shelf
-from agent.knowledge.scoping import _base64url_decode
 from agent.knowledge.scoping import _parse_scope_payload
 
 _FIXTURE = Path(__file__).resolve().parents[4] / "tests" / "fixtures" / "collection_scope" / "scope_header.json"
@@ -27,7 +27,7 @@ def _ids() -> list[str]:
 
 @pytest.mark.parametrize("case", _cases(), ids=_ids())
 def test_agent_reads_every_payload_the_bff_can_write(case: dict[str, Any]) -> None:
-    decoded = json.loads(_base64url_decode(case["header"]).decode("utf-8"))
+    decoded = json.loads(base64.urlsafe_b64decode(case["header"] + "=" * (-len(case["header"]) % 4)).decode("utf-8"))
 
     entries = _parse_scope_payload(decoded)
 

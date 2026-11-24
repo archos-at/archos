@@ -46,16 +46,15 @@ The `BACKEND_WS_URL` is derived from `BACKEND_CHAT_URL` by replacing `http` with
 
 `apps/workspace/app/api/auth/websocket-scope/route.ts`
 
-Called internally (no external route) by `server.js` during WebSocket upgrade. Resolves the collection scope for the backend:
+Called internally (no external route) by `server.js` during WebSocket upgrade. Authorizes the turn context the socket envelope signs; it decides no shelves, which each turn takes from its signed decision (ADR-0194):
 
 1. Reads `projectId` and `conversationId` from query params
 2. Calls `getUserSession()` to resolve the WorkOS session (or null in anonymous mode)
 3. If `REQUIRE_AUTH=true` and no session: returns `401`
 4. If project access required: calls `requireProjectAccess()` → returns `403` on failure
-5. Calls `buildCollectionScopeFromRequest(session, { projectId, conversationId })` to build the ordered scope
+5. Calls `resolveTurnContext(session, { projectId, conversationId, shelves: false })`, which authorizes the conversation and the project through `resolveConversationScope(..., { withoutShelves: true })`
 6. Returns JSON:
-   - `scope`: The resolved scope array
-   - `header`: Base64url-encoded `X-Grid-Collection-Scope` header value
+   - `scope`, `header`: empty, since no shelves are decided here
    - `organizationId`: Session org ID (if authenticated)
    - `userId`: Session user ID (if authenticated)
    - `accessToken`: Raw WorkOS JWT (if authenticated)
@@ -64,7 +63,7 @@ Called internally (no external route) by `server.js` during WebSocket upgrade. R
 
 | Header | Source | Purpose |
 |---|---|---|
-| `X-Grid-Collection-Scope` | Base64 JSON array from scope resolution | Tells Python which collections to query |
+| `X-Grid-Request-Context` + `-Sig` | The signed turn context (`socketTurnHeaders`), without a scope | Identity, project, budget and model overrides the turn reads |
 | `X-Grid-Organization-Id` | Session `organizationId` | Tenant identification |
 | `X-Grid-User-Id` | Session `userId` | Caller identity |
 | `Authorization` | `Bearer <accessToken>` | JWT for backend validation |

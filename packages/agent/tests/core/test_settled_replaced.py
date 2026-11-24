@@ -149,16 +149,12 @@ async def test_a_turn_binds_its_decision_before_any_scope_read_and_traces_it(wor
         seen["asked"] = (conversation_id, answer_id)
         return decision
 
-    async def never(*_a, **_kw):
-        raise AssertionError("the restricted-use pre-check ran beside a decision")
-
     def scope():
         seen["bound_at_scope"] = current_turn_decision()
         seen["use"] = current_restricted_use()
 
     traced: dict = {}
     monkeypatch.setattr(cr, "_decide_turn", decide)
-    monkeypatch.setattr(cr, "begin_restricted_use", never)
     monkeypatch.setattr(cr, "get_scoped_collections_from_context", scope)
     monkeypatch.setattr(cr, "record_trace_metadata", lambda **pairs: traced.update(pairs))
     monkeypatch.setattr(cr, "turn_answer_message_id", lambda _c: "answer-1")
@@ -179,49 +175,27 @@ async def test_a_turn_binds_its_decision_before_any_scope_read_and_traces_it(wor
     }
 
 
-async def test_a_turn_without_a_decision_keeps_the_old_pre_check_and_is_marked_missing(workflow, monkeypatch):
+async def test_a_turn_without_a_decision_draws_on_nothing_and_is_marked_missing(workflow, monkeypatch):
     from agent.common.turn_decision import decision_missing
-
-    seen: dict = {}
-
-    async def decide(*_a):
-        return None
-
-    async def begin(*_a, **_kw):
-        seen["begun"] = True
-
-    def scope():
-        seen["missing"] = decision_missing()
-
-    monkeypatch.setattr(cr, "_decide_turn", decide)
-    monkeypatch.setattr(cr, "begin_restricted_use", begin)
-    monkeypatch.setattr(cr, "get_scoped_collections_from_context", scope)
-
-    [_ async for _ in workflow["run"]([], _terminal("A."))]
-
-    assert seen == {"begun": True, "missing": True}
-
-
-async def test_a_required_turn_without_a_decision_draws_on_nothing_and_waits_on_no_second_check(workflow, monkeypatch):
     from agent.knowledge.restricted_use import current_restricted_use
 
     seen: dict = {}
+    traced: dict = {}
 
     async def decide(*_a):
         return None
 
-    async def never(*_a, **_kw):
-        raise AssertionError("a required turn waited on the restricted-use pre-check after its decision failed")
-
     def scope():
+        seen["missing"] = decision_missing()
         seen["use"] = current_restricted_use()
 
-    monkeypatch.setenv("REQUIRE_AUTH", "true")
     monkeypatch.setattr(cr, "_decide_turn", decide)
-    monkeypatch.setattr(cr, "begin_restricted_use", never)
     monkeypatch.setattr(cr, "get_scoped_collections_from_context", scope)
+    monkeypatch.setattr(cr, "record_trace_metadata", lambda **pairs: traced.update(pairs))
 
     [_ async for _ in workflow["run"]([], _terminal("A."))]
 
+    assert seen["missing"] is True
     assert seen["use"].confined is True
     assert seen["use"].drawable == set()
+    assert traced["context.decision"] == "missing"

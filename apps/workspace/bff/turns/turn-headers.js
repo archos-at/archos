@@ -181,23 +181,12 @@ const base64urlJson = (value) => Buffer.from(JSON.stringify(value), 'utf8').toSt
 function turnContextHeaders(data, { issuedAt, secret }) {
   /** @type {Record<string, string>} */
   const headers = {}
-  if (data.header) headers['x-collection-scope'] = data.header
   const authenticated = Boolean(data.organizationId && data.userId)
   if (data.organizationId) {
     headers['x-organization-id'] = data.organizationId
     if (data.userId) headers['x-user-id'] = data.userId
   }
   if (data.accessToken) headers.authorization = `Bearer ${data.accessToken}`
-  if (!authenticated) {
-    for (const [field, header] of /** @type {const} */ ([
-      ['projectContext', 'x-project-context'],
-      ['projectMemory', 'x-project-memory'],
-      ['orgInstructions', 'x-org-instructions'],
-    ])) {
-      const value = data[field]
-      if (value) headers[header] = Buffer.from(value, 'utf8').toString('base64url')
-    }
-  }
   if (data.projectId) headers['x-project-id'] = data.projectId
   headers['x-feature-memory-reflection'] = data.memoryReflectionEnabled ? 'true' : 'false'
   if (data.modelOverrides) headers['x-model-overrides'] = base64urlJson(data.modelOverrides)
@@ -233,4 +222,16 @@ function turnContextHeaders(data, { issuedAt, secret }) {
   return headers
 }
 
-module.exports = { buildRequestContextEnvelopeHeaders, hmacHex, turnContextHeaders }
+/**
+ * The headers of a chat-socket turn: the turn context without its collection
+ * scope, which the turn takes from its signed decision (ADR-0194).
+ *
+ * @param {TurnContextData} data
+ * @param {{ issuedAt: number, secret: string | null | undefined }} options
+ * @returns {Record<string, string>}
+ */
+function socketTurnHeaders(data, options) {
+  return turnContextHeaders({ ...data, header: undefined, scope: undefined, scopedCollections: undefined }, options)
+}
+
+module.exports = { buildRequestContextEnvelopeHeaders, hmacHex, socketTurnHeaders, turnContextHeaders }

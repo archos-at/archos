@@ -10,9 +10,7 @@ from typing import Any
 import pytest
 
 from agent.common import MODEL_OVERRIDES_HEADER
-from agent.project_context import COLLECTION_SCOPE_HEADER
 from agent.project_context import ORGANIZATION_ID_HEADER
-from agent.project_context import PROJECT_CONTEXT_HEADER
 from agent.project_context import PROJECT_ID_HEADER
 from agent.project_context import PROJECT_MEMORY_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
@@ -184,28 +182,16 @@ def _decoded(value: str) -> str:
     return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode()
 
 
-def test_the_scope_headers_are_base64url_so_german_text_survives(monkeypatch):
+def test_a_job_sends_no_unsigned_scope_or_project_context_only_its_model_overrides(monkeypatch):
     injected: dict[str, str] = {}
     monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
-    request = _request(collection_scope=["p_1"], project_context="Bauvorhaben „Hof“ — 3 Geschosse")
+    request = _request(project_context="Hof", model_overrides={"research": "m"})
 
     agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
 
-    assert json.loads(_decoded(injected["x-collection-scope"])) == ["p_1"]
-    assert "„Hof“" in _decoded(injected["x-project-context"])
-
-
-def test_each_scope_header_goes_under_its_new_name_and_the_old_one_its_readers_read(monkeypatch):
-    injected: dict[str, str] = {}
-    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, headers: injected.update(headers))
-    request = _request(collection_scope=["p_1"], project_context="Hof", model_overrides={"research": "m"})
-
-    agent_job_setup._inject_scope_headers(object(), request, SimpleNamespace(type="deep_research_agent"))
-
-    assert injected[COLLECTION_SCOPE_HEADER] == injected["x-collection-scope"]
-    assert injected[PROJECT_CONTEXT_HEADER] == injected["x-project-context"]
+    assert json.loads(_decoded(injected["x-model-overrides"])) == {"research": "m"}
     assert injected[MODEL_OVERRIDES_HEADER] == injected["x-model-overrides"]
-    assert len(injected) == 6
+    assert len(injected) == 2
 
 
 @pytest.mark.asyncio
@@ -395,3 +381,25 @@ def test_the_workflow_span_says_the_conversation_is_temporary_and_only_then():
 
     workflow, _ = agent_job_setup.trace_metadata(_request(usage_context={"identity": {}}), run, object)
     assert "temporary_conversation" not in workflow.provided_metadata
+
+
+@pytest.mark.asyncio
+async def test_a_run_without_an_envelope_binds_its_identity_so_residency_and_byok_know_its_organization(monkeypatch):
+    from agent.project_context import RequestContext
+
+    monkeypatch.setattr(agent_job_setup, "_inject_worker_headers", lambda _state, _headers: None)
+
+    async def no_envelope(*_args: Any, **_kwargs: Any) -> dict[str, str]:
+        return {}
+
+    monkeypatch.setattr(agent_job_setup, "envelope_headers_for_run", no_envelope)
+    counted: list[dict] = []
+    monkeypatch.setattr(agent_job_setup._envelope_less_runs, "add", lambda _n, attributes: counted.append(attributes))
+    identity = {"project_id": "proj-1", "organization_id": "org-1", "user_id": "user-1"}
+
+    await agent_job_setup._inject_identity_headers(object(), _request(usage_context={"identity": identity}))
+
+    assert counted == [{"agent_type": "deep_researcher", "renewal": False}]
+    bound = RequestContext.from_context()
+    assert (bound.organization_id, bound.user_id, bound.project_id) == ("org-1", "user-1", "proj-1")
+    assert bound.collection_scope is None

@@ -34,7 +34,7 @@ vi.mock('@/lib/turns/turn-context', async () => {
   }
   return { resolveTurnContext: vi.fn(), TurnBudgetExhaustedError }
 })
-vi.mock('@/lib/turns/turn-headers.js', () => ({ turnContextHeaders: vi.fn(() => ({ 'x-grid-request-context': 'signed' })) }))
+vi.mock('@/lib/turns/turn-headers.js', () => ({ socketTurnHeaders: vi.fn(() => ({ 'x-grid-request-context': 'signed' })) }))
 
 import { listDocumentAnnotations } from '@/lib/annotations/repository'
 import { ensureDocumentThread } from '@/lib/annotations/document-thread'

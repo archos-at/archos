@@ -7,7 +7,6 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -26,6 +25,7 @@ _TIMEOUT_SECONDS = 2.5
 _KINDS = frozenset({"chat", "run", "headless", "external"})
 _WORKSPACE_READS = frozenset({"none", "document+projectFacts", "all"})
 _REACHES = frozenset({"none", "every-reader", "chat-projects"})
+_SOCKET_TURN_KINDS = frozenset({"chat", "headless"})
 _SHELVES = frozenset({"office_shelf", "project", "session", "base"})
 
 
@@ -108,10 +108,6 @@ def current_turn_decision() -> TurnDecision | None:
 
 def decision_missing() -> bool:
     return isinstance(_bound.get(), _Missing)
-
-
-def decision_required() -> bool:
-    return (os.environ.get("REQUIRE_AUTH") or "").lower() == "true"
 
 
 def _decode(header: str) -> bytes | None:
@@ -286,7 +282,7 @@ def fetch_turn_decision(
     if organization_id is not None and decision.organization_id != organization_id:
         logger.warning("The turn decision names another organization: refused")
         return None
-    if decision.kind != "chat":
-        logger.warning("The turn decision is not for a chat turn: refused")
+    if decision.kind not in _SOCKET_TURN_KINDS:
+        logger.warning("The turn decision is not for a socket turn: refused")
         return None
     return decision

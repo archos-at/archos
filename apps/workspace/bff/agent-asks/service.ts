@@ -29,7 +29,7 @@ import { HEADLESS_MODE_HEADERS, turnDoorHeaders } from '@/lib/turns/headless-mod
 import type { TurnOutcomeRequest } from '@/lib/turns/outcome-types'
 import { askAnswerMessageId } from '@/lib/turns/answer-ids'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
-import { turnContextHeaders } from '@/lib/turns/turn-headers.js'
+import { socketTurnHeaders } from '@/lib/turns/turn-headers.js'
 import { projectValuesFor } from '@/lib/conversations/messages-for-agent'
 import { answerEvidence } from './answer-evidence'
 import { citationStylesFor } from '@/lib/citations/style'
@@ -173,7 +173,7 @@ async function startTurn(
     conversationId: ask.conversationId,
     projectId: context.projectId,
     headers: {
-      ...turnContextHeaders(context, { issuedAt: Date.now(), secret: target.secret }),
+      ...socketTurnHeaders(context, { issuedAt: Date.now(), secret: target.secret }),
       ...HEADLESS_MODE_HEADERS,
       ...turnDoorHeaders(actingDoor()),
     },
@@ -355,7 +355,7 @@ async function stopTurn(row: AgentAskRow): Promise<HeadlessCancelOutcome> {
     conversationId: row.conversationId,
     turnId: row.id,
     headers: {
-      ...turnContextHeaders(
+      ...socketTurnHeaders(
         { organizationId: row.organizationId, userId: row.requestedBy, conversationId: row.conversationId, contextKind: 'headless' },
         { issuedAt: Date.now(), secret: target.secret },
       ),

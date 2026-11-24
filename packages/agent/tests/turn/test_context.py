@@ -6,8 +6,11 @@ import time
 from collections.abc import Iterator
 
 import pytest
+from agent_testing.turn_decision import signed_decision
 
 from agent.common.platform_lessons import LessonsResolution
+from agent.common.turn_decision import bind_turn_decision
+from agent.common.turn_decision import reset_turn_decision
 from agent.knowledge.restricted_use import RestrictedUse
 from agent.knowledge.restricted_use import bind_restricted_use
 from agent.knowledge.restricted_use import reset_restricted_use
@@ -28,6 +31,15 @@ _NO_PERSONAL_FACTS = {"personal_memory_lines": 0, "temporary_conversation": Fals
 
 def _request(**fields) -> RequestContext:
     return RequestContext(**fields)
+
+
+@contextlib.contextmanager
+def decided(restricted=("proj_p1_r0123456789ab",)) -> Iterator[None]:
+    token = bind_turn_decision(signed_decision(conversationId="c1", may={"restrictedCollections": list(restricted)}))
+    try:
+        yield
+    finally:
+        reset_turn_decision(token)
 
 
 @contextlib.contextmanager
@@ -486,7 +498,8 @@ class TestRestrictedMemoryInTheLiveDigest:
             collection_scope=self._SCOPE,
             envelope_header="signed",
         )
-        await load_turn_context(request, conversation_id="c1", query_text="q", resolve_stages=False)
+        with decided():
+            await load_turn_context(request, conversation_id="c1", query_text="q", resolve_stages=False)
         assert stubs["digest_restricted"] == ["proj_p1_r0123456789ab"]
         assert stubs["digest_user"] == "user_asker"
 
@@ -530,9 +543,10 @@ class TestRestrictedMemoryOnTheCompactHandshake:
         monkeypatch.setattr(
             context_mod, "fetch_turn_context", lambda request, *, query: ContextBlocks("PROFILE", "OPEN", "POLICY")
         )
-        context = await load_turn_context(
-            self._bff_request(), conversation_id="c1", query_text="q", resolve_stages=False
-        )
+        with decided():
+            context = await load_turn_context(
+                self._bff_request(), conversation_id="c1", query_text="q", resolve_stages=False
+            )
         assert stubs["digest_restricted"] == ["proj_p1_r0123456789ab"]
         assert stubs["digest_user"] == "user_asker"
         assert context.project_context == "PROFILE\n\nLIVE"
@@ -576,7 +590,7 @@ class TestAConfinedTurnOffersNothingTheWholeProjectReads:
         return settle_restriction(context, request)
 
     async def test_a_drawable_restricted_collection_withdraws_deep_research_and_tasks(self, stubs):
-        with bound_use(drawable={"proj_p1_r0123456789ab"}):
+        with decided(), bound_use(drawable={"proj_p1_r0123456789ab"}):
             context = await self._settled(self._signed())
         assert context.confined is True
         assert context.restricted_scope == ("proj_p1_r0123456789ab",)
@@ -608,7 +622,7 @@ class TestAConfinedTurnOffersNothingTheWholeProjectReads:
 
     async def test_the_fail_open_context_stays_confined(self, stubs):
         stubs["digest"] = TypeError("a bug, not a transport failure")
-        with bound_use(drawable={"proj_p1_r0123456789ab"}):
+        with decided(), bound_use(drawable={"proj_p1_r0123456789ab"}):
             context = await self._settled(self._signed())
         assert context.project_context is None
         assert context.confined is True

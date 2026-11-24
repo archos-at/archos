@@ -5,17 +5,21 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
+from agent_testing.turn_decision import signed_decision
 from langchain_core.messages import ToolMessage
 
 from agent.common import bff_http
+from agent.common.turn_decision import bind_turn_decision
+from agent.common.turn_decision import reset_turn_decision
 from agent.knowledge import restricted_use as ru
 from agent.knowledge import scoping
 from agent.knowledge.restricted_use import WITHHELD_NOTICE
 from agent.knowledge.restricted_use import RestrictedUse
 from agent.knowledge.restricted_use import admit_tool_results
-from agent.knowledge.restricted_use import begin_restricted_use
 from agent.knowledge.restricted_use import bind_restricted_use
+from agent.knowledge.restricted_use import nothing_drawable
 from agent.knowledge.restricted_use import reset_restricted_use
+from agent.knowledge.restricted_use import restricted_use_from_decision
 from agent.knowledge.restricted_use import without_restricted
 from agent.knowledge.scoping import ScopedCollection
 from agent.project_context import RequestContext
@@ -68,35 +72,16 @@ def _request(**fields) -> RequestContext:
 
 
 class TestTurnStart:
-    async def test_an_open_scope_asks_nobody(self, bff):
-        assert await begin_restricted_use(_request(collection_scope=["proj_p1"], envelope_header="x"), "c1") is None
+    def test_a_turn_without_a_decision_draws_on_nothing_and_stays_confined(self, bff):
+        use = nothing_drawable(_request(envelope_header="x"), "c1", answer_message_id="answer-1")
+        assert use.drawable == set() and use.confined is True
+        assert use.answer_message_id == "answer-1"
         assert bff.asked == []
 
-    async def test_the_signed_scope_is_offered_and_only_what_the_bff_allows_is_drawable(self, bff):
-        bff.answer = {"drawable": [VERTRAEGE, "proj_other_r000000000000"], "recorded": []}
-        use = await begin_restricted_use(_request(envelope_header="x"), "c1")
-        assert bff.asked == [{"candidates": [VERTRAEGE, PERSONAL]}]
-        assert use is not None and use.drawable == {VERTRAEGE}
-        assert use.confined is False
-
-    async def test_a_recorded_folder_confines_the_conversation(self, bff):
-        bff.answer = {"drawable": [], "recorded": ["f-vertraege"]}
-        use = await begin_restricted_use(_request(envelope_header="x"), "c1")
-        assert use is not None and use.confined is True
-
-    async def test_an_unreachable_bff_leaves_nothing_drawable_and_the_turn_confined(self, bff):
-        bff.answer = None
-        use = await begin_restricted_use(_request(envelope_header="x"), "c1")
-        assert use is not None and use.drawable == set() and use.confined is True
-
-    async def test_an_unsigned_scope_vouches_for_nothing_and_asks_nobody(self, bff):
-        use = await begin_restricted_use(_request(), "c1")
-        assert use is not None and use.drawable == set() and use.confined is True
-        assert bff.asked == []
-
-    async def test_no_conversation_to_record_in_draws_nothing(self, bff):
-        use = await begin_restricted_use(_request(envelope_header="x"), None)
-        assert use is not None and use.drawable == set()
+    def test_the_decision_names_what_is_drawable_and_asks_nobody(self, bff):
+        decision = signed_decision(may={"restrictedCollections": [VERTRAEGE]}, recordedRestricted=True)
+        use = restricted_use_from_decision(decision, _request(), answer_message_id="answer-1")
+        assert use is not None and use.drawable == {VERTRAEGE} and use.confined is True
         assert bff.asked == []
 
 
@@ -129,31 +114,31 @@ class TestTheAnswerTravels:
         monkeypatch.setattr(bff_http, "_opener", _Opener())
         return seen
 
-    async def test_the_turn_start_and_every_admission_name_the_answer(self, posted):
-        use = await begin_restricted_use(_request(envelope_header="x"), "c1", answer_message_id="answer-1")
-        assert use is not None
+    def test_every_admission_names_the_answer(self, posted):
+        use = _use()
+        use.answer_message_id = "answer-1"
         assert ru.admit(use, [VERTRAEGE]) == {VERTRAEGE}
-        assert [body.get("answerMessageId") for body in posted] == ["answer-1", "answer-1"]
+        assert [body.get("answerMessageId") for body in posted] == ["answer-1"]
 
-    async def test_no_answer_to_name_sends_none(self, posted):
-        await begin_restricted_use(_request(envelope_header="x"), "c1")
+    def test_no_answer_to_name_sends_none(self, posted):
+        ru.admit(_use(), [VERTRAEGE])
         assert "answerMessageId" not in posted[0]
 
 
 class TestTheScopeEveryReadPathTakes:
-    def _entries(self, monkeypatch) -> None:
-        monkeypatch.setattr(
-            scoping, "_parse_scope_payload", lambda _scope: [ScopedCollection(name, None) for name in SCOPE]
-        )
+    @pytest.fixture(autouse=True)
+    def _decided(self):
+        decision = signed_decision(may={"shelves": [{"collection": name, "shelf": "project"} for name in SCOPE]})
+        token = bind_turn_decision(decision)
+        yield
+        reset_turn_decision(token)
 
-    def test_keeps_only_the_restricted_collections_the_turn_may_draw_on(self, monkeypatch):
-        self._entries(monkeypatch)
+    def test_keeps_only_the_restricted_collections_the_turn_may_draw_on(self):
         with bound(_use(drawable={VERTRAEGE})):
             names = [entry.collection for entry in scoping.get_scoped_collections_from_context() or []]
         assert names == ["oib_knowledge", "proj_p1", VERTRAEGE]
 
-    def test_is_unchanged_outside_a_turn_with_restricted_scope(self, monkeypatch):
-        self._entries(monkeypatch)
+    def test_is_unchanged_outside_a_turn_with_restricted_scope(self):
         with bound(None):
             names = [entry.collection for entry in scoping.get_scoped_collections_from_context() or []]
         assert names == SCOPE

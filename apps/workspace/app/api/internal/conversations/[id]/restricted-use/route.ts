@@ -2,24 +2,16 @@ import { z } from 'zod'
 import { BadRequestError } from '@/lib/api/errors'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { withTenant } from '@/lib/db/tenant-context'
-import {
-  ADMISSION_MAX_COLLECTIONS,
-  admitRestrictedUse,
-  drawableRestrictedCollections,
-  markTurnAnswer,
-  recordedRestrictedFolders,
-} from '@/lib/conversations/restricted-use'
+import { ADMISSION_MAX_COLLECTIONS, admitRestrictedUse } from '@/lib/conversations/restricted-use'
 
 type Params = { id: string }
 
-const collectionList = z.array(z.string().min(1).max(200)).max(ADMISSION_MAX_COLLECTIONS).default([])
 
 const restrictedUseSchema = z.object({
   organizationId: z.string().min(1).max(128),
   userId: z.string().min(1).max(128),
   projectId: z.string().min(1).max(128).nullish(),
-  candidates: collectionList,
-  admit: collectionList,
+  admit: z.array(z.string().min(1).max(200)).min(1).max(ADMISSION_MAX_COLLECTIONS),
   answerMessageId: z.guid().nullish(),
 })
 
@@ -37,19 +29,7 @@ export const POST = internalApiRoute<Params>(
       projectId: body.projectId ?? null,
       answerMessageId: body.answerMessageId ?? null,
     }
-    return withTenant({ organizationId: body.organizationId }, async () => {
-      const drawable = await drawableRestrictedCollections(useRequest, body.candidates)
-      if (body.admit.length === 0) {
-        await markTurnAnswer(useRequest)
-        return {
-          drawable,
-          admitted: [],
-          refused: [],
-          recorded: await recordedRestrictedFolders(params.id, body.organizationId),
-        }
-      }
-      return { drawable, ...(await admitRestrictedUse(useRequest, body.admit)) }
-    })
+    return withTenant({ organizationId: body.organizationId }, () => admitRestrictedUse(useRequest, body.admit))
   },
   { tenancy: { fromPayload: 'body.organizationId' } }
 )
