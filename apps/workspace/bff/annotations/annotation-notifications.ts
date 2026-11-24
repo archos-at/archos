@@ -1,4 +1,5 @@
 import 'server-only'
+import { bestEffortInBackground } from '@/lib/best-effort'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { DocumentAnnotationRow } from '@/lib/db/schema/document-annotations'
 import type { Document } from '@/lib/db/schema/documents'
@@ -22,17 +23,8 @@ import type { MarkMention } from './types'
 import { isAgentKind } from '@/lib/agent-kind'
 import type { AnnotationActor } from './annotation-access'
 
-export function bestEffort(label: string, work: () => Promise<unknown>): void {
-  const warn = (error: unknown) => console.warn(`[annotations] ${label} failed:`, error)
-  try {
-    void Promise.resolve(work()).catch(warn)
-  } catch (error) {
-    warn(error)
-  }
-}
-
 export function traceSettled(session: AuthorizedSession, annotationId: string, closed: boolean): void {
-  bestEffort('mark the mark settled', () =>
+  bestEffortInBackground('mark the mark settled', () =>
     onMarkSettledByPerson({
       organizationId: session.organizationId,
       annotationId,
@@ -50,7 +42,7 @@ export async function spendMentions(session: AuthorizedSession, mentioned: strin
 
 export function traceWithdrawn(session: AuthorizedSession, annotationId: string, withdrawn: readonly string[]): void {
   if (withdrawn.length === 0) return
-  bestEffort('withdraw the mentions taken out', () =>
+  bestEffortInBackground('withdraw the mentions taken out', () =>
     onMentionsWithdrawn({ organizationId: session.organizationId, annotationId, userIds: withdrawn })
   )
 }
@@ -67,7 +59,7 @@ export function traceMentioned(
 ): void {
   const told = mentioned.filter((userId) => userId !== assignedNow)
   if (told.length === 0) return
-  bestEffort('tell the people mentioned', () =>
+  bestEffortInBackground('tell the people mentioned', () =>
     onMarkMentioned({
       ...markRefOf(session, doc, mark),
       actorUserId: session.userId,
@@ -83,7 +75,7 @@ export function traceMentioned(
 }
 
 export function traceSet(session: AuthorizedSession, doc: Document, by: MarksSetBy, marks: readonly SetMark[]): void {
-  bestEffort('tell the document’s people', () =>
+  bestEffortInBackground('tell the document’s people', () =>
     onMarksSet({
       organizationId: session.organizationId,
       documentId: doc.id,
@@ -119,7 +111,7 @@ export function traceAssigned(
   previous: string | null,
   actor: AnnotationActor
 ): void {
-  bestEffort('tell the Zuständige', () =>
+  bestEffortInBackground('tell the Zuständige', () =>
     onAssigneeChanged({
       ...markRefOf(session, doc, mark),
       actorUserId: session.userId,
@@ -134,7 +126,7 @@ export function traceAssigned(
 }
 
 function traceRedated(session: AuthorizedSession, doc: Document, mark: ChangedMark, actor: AnnotationActor): void {
-  bestEffort('tell the Zuständige the date', () =>
+  bestEffortInBackground('tell the Zuständige the date', () =>
     onDueChanged({
       ...markRefOf(session, doc, mark),
       actorUserId: session.userId,
@@ -171,7 +163,7 @@ export function traceChange(
   if (closedAs) traceSettled(session, existing.id, true)
   const move = closedAs ?? (existing.status === 'proposed' ? null : 'reopened')
   if (!move) return
-  bestEffort('tell the mark’s author', () =>
+  bestEffortInBackground('tell the mark’s author', () =>
     onMarkMoved({
       ...markRefOf(session, doc, existing),
       actorUserId: session.userId,
