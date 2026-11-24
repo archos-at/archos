@@ -1,6 +1,7 @@
 import { render, screen } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
+import { railActivePillId } from './app-sidebar'
 import { RailChatList, type RailChats } from './rail-chats'
 
 const chats = (over: Partial<RailChats> = {}): RailChats => ({
@@ -13,7 +14,7 @@ describe('RailChatList — the menu at each chat', () => {
   test('renames the chat in place, and keeps the old name on Escape', async () => {
     const onRename = vi.fn()
     const user = userEvent.setup()
-    render(<RailChatList chats={chats({ onRename })} pillId="pill" />)
+    render(<RailChatList chats={chats({ onRename })} />)
 
     await user.click(screen.getByTestId('rail-chat-menu'))
     await user.click(await screen.findByTestId('rail-chat-rename'))
@@ -33,7 +34,7 @@ describe('RailChatList — the menu at each chat', () => {
   test('hands a delete to its source, which asks first', async () => {
     const onDelete = vi.fn()
     const user = userEvent.setup()
-    render(<RailChatList chats={chats({ onDelete })} pillId="pill" />)
+    render(<RailChatList chats={chats({ onDelete })} />)
 
     await user.click(screen.getByTestId('rail-chat-menu'))
     await user.click(await screen.findByTestId('rail-chat-delete'))
@@ -42,7 +43,7 @@ describe('RailChatList — the menu at each chat', () => {
   })
 
   test('a list that can do neither has no menu', () => {
-    render(<RailChatList chats={chats()} pillId="pill" />)
+    render(<RailChatList chats={chats()} />)
 
     expect(screen.queryByTestId('rail-chat-menu')).not.toBeInTheDocument()
   })
@@ -53,7 +54,7 @@ describe('RailChatList — the menu at each chat', () => {
     const user = userEvent.setup()
     const busy = chats({ onRename, onDelete })
     busy.items[0]!.activity = 'working'
-    render(<RailChatList chats={busy} pillId="pill" />)
+    render(<RailChatList chats={busy} />)
 
     await user.click(screen.getByTestId('rail-chat-menu'))
 
@@ -67,12 +68,12 @@ describe('RailChatList — a chat on its way to a name, and a list on its way fr
     chats({ items: [{ id: 'c1', title: 'Wie viele Stellplätze', provisional: true, href: '/app/personal/chat?session=c1', current: true, ...over }] })
 
   test('the first line stands in a quieter ink until the name arrives, then the name takes the same row', () => {
-    const { rerender } = render(<RailChatList chats={provisional()} pillId="pill" />)
+    const { rerender } = render(<RailChatList chats={provisional()} />)
     const link = screen.getByRole('link', { name: 'Wie viele Stellplätze' })
     const title = link.querySelector('[data-provisional]')
     expect(title).toHaveClass('text-subtle', 'truncate')
 
-    rerender(<RailChatList chats={provisional({ title: 'Stellplatznachweis', provisional: false })} pillId="pill" />)
+    rerender(<RailChatList chats={provisional({ title: 'Stellplatznachweis', provisional: false })} />)
 
     const named = screen.getByRole('link', { name: 'Stellplatznachweis' })
     expect(named).toBe(link)
@@ -81,34 +82,44 @@ describe('RailChatList — a chat on its way to a name, and a list on its way fr
   })
 
   test('a first message without words shows a short pending title, named for screen readers', () => {
-    render(<RailChatList chats={provisional({ title: '' })} pillId="pill" />)
+    render(<RailChatList chats={provisional({ title: '' })} />)
     expect(screen.getByTestId('rail-chat-title-pending').querySelector('[data-slot="skeleton"]')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'New chat' })).toBeInTheDocument()
   })
 
   test('while the side’s first listing loads, skeleton rows fill up to three, even before any chat', () => {
-    const { rerender } = render(<RailChatList chats={chats({ items: [], loading: true })} pillId="pill" />)
+    const { rerender } = render(<RailChatList chats={chats({ items: [], loading: true })} />)
     expect(screen.getByRole('list', { name: 'Recent chats' })).toHaveAttribute('aria-busy', 'true')
     expect(screen.getAllByTestId('rail-chat-pending')).toHaveLength(3)
 
-    rerender(<RailChatList chats={chats({ loading: true })} pillId="pill" />)
+    rerender(<RailChatList chats={chats({ loading: true })} />)
     expect(screen.getAllByTestId('rail-chat-pending')).toHaveLength(2)
 
-    rerender(<RailChatList chats={chats()} pillId="pill" />)
+    rerender(<RailChatList chats={chats()} />)
     expect(screen.queryByTestId('rail-chat-pending')).toBeNull()
   })
 
   test('nothing to list and nothing loading: no section at all', () => {
-    const { container } = render(<RailChatList chats={chats({ items: [] })} pillId="pill" />)
+    const { container } = render(<RailChatList chats={chats({ items: [] })} />)
     expect(container).toBeEmptyDOMElement()
   })
 
   test('a row stays lit while its menu is open or the pointer rests on the menu button', () => {
-    render(<RailChatList chats={chats({ onDelete: vi.fn() })} pillId="pill" />)
+    render(<RailChatList chats={chats({ onDelete: vi.fn() })} />)
     expect(screen.getByRole('link', { name: 'Stellplatznachweis' })).toHaveClass(
       'text-muted-foreground',
       'group-hover/chat:bg-selected',
       'group-has-[[data-state=open]]/chat:bg-selected'
     )
+  })
+})
+
+describe('RailChatList — the open chat’s sheet', () => {
+  test('is the list’s own, so it never slides in from the sections across the scroll box that clips it', () => {
+    render(<RailChatList chats={chats({ items: [{ ...chats().items[0]!, current: true }] })} />)
+    const pill = screen.getByRole('link', { name: 'Stellplatznachweis' }).querySelector('[data-slot="rail-active-pill"]')!
+    const sections = [railActivePillId(false, 'personal'), railActivePillId(false, 'project'), railActivePillId(true, 'personal'), railActivePillId(true, 'project')]
+    expect(pill.getAttribute('data-pill-id')).toBeTruthy()
+    expect(sections).not.toContain(pill.getAttribute('data-pill-id'))
   })
 })

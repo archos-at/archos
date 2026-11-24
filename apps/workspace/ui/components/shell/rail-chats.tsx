@@ -177,9 +177,10 @@ function RailChatTitle({ chat }: { chat: RailChat }): JSX.Element {
   )
 }
 
-export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: string }): JSX.Element | null {
+export function RailChatList({ chats }: { chats: RailChats }): JSX.Element | null {
   const t = useTranslations(navCopy)
   const listId = useId()
+  const pillId = useId()
   const [collapsed, toggle] = useRecentChatsCollapsed()
   const [renaming, setRenaming] = useState<string | null>(null)
   const finishRename = (chat: RailChat, title: string | null): void => {
@@ -234,9 +235,8 @@ export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: stri
                   : 'text-muted-foreground group-hover/chat:bg-selected group-hover/chat:text-foreground group-has-[[data-state=open]]/chat:bg-selected active:bg-pressed'
               )}
             >
-              {/* Where the reader is: the rail's one sheet, gliding here from „Chat“ (`railActivePillId`). */}
               {chat.current && (
-                <motion.span layoutId={pillId} data-slot="rail-active-pill" aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" transition={springGlide} />
+                <motion.span layoutId={pillId} data-pill-id={pillId} data-slot="rail-active-pill" aria-hidden className="bg-sheet absolute inset-0 rounded-control shadow-xs" transition={springGlide} />
               )}
               <RailChatTitle chat={chat} />
               <RailChatActivity activity={chat.activity} />
