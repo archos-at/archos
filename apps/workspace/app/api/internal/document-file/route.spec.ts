@@ -66,9 +66,14 @@ function envelope(
 
 function decided(
   shelves: string[],
-  { restricted = [], conversationId = 's_conv_1', userId = 'user_asker' }: { restricted?: string[]; conversationId?: string; userId?: string } = {}
+  {
+    restricted = [],
+    conversationId = 's_conv_1',
+    userId = 'user_asker',
+    kind = 'chat',
+  }: { restricted?: string[]; conversationId?: string; userId?: string; kind?: 'chat' | 'headless' } = {}
 ): Record<string, string> {
-  const closed = closedContext('chat', conversationId)
+  const closed = closedContext(kind, conversationId)
   const may = { ...closed.may, shelves: shelves.map((collection) => ({ collection, shelf: 'project' as const })), restrictedCollections: restricted }
   const { header, signature } = signDecision(decisionOf({ ...closed, may }, { organizationId: 'org_1', userId }, null, Date.now()), 'test-token')
   return { [TURN_DECISION_HEADER]: header, [TURN_DECISION_SIGNATURE_HEADER]: signature }
@@ -275,6 +280,13 @@ describe('GET /api/internal/document-file', () => {
     it('serves a socket turn whose envelope signs no scope, from its decision’s shelves (ADR-0194)', async () => {
       vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
       const headers = { ...envelope({ collectionScope: [] }), ...decided(['proj_1']) }
+      expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(200)
+      expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(404)
+    })
+
+    it('serves the document check, a headless socket turn, its focused document from its decision (ADR-0194)', async () => {
+      vi.mocked(findDocumentStorageKey).mockResolvedValue(STORED)
+      const headers = { ...envelope({ collectionScope: [] }), ...decided(['proj_1'], { kind: 'headless' }) }
       expect((await GET(request('?collection=proj_1&filename=plan.png', 'test-token', headers))).status).toBe(200)
       expect((await GET(request('?collection=oib_knowledge&filename=plan.png', 'test-token', headers))).status).toBe(404)
     })

@@ -5,5 +5,5 @@ operators:
     The agent reads what a turn may draw on only from a signed decision or
     envelope. Deploy only once the conversation-context gate check says no run
     or queued job from before the previous conversation-context release is
-    still active (see the gate runbook). Every agent and worker needs
-    INTERNAL_API_TOKEN, or it reads nothing.
+    still active (see the gate runbook). A chat turn without
+    INTERNAL_API_TOKEN reads no scope.
