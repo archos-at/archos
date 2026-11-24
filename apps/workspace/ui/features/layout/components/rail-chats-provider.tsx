@@ -10,6 +10,7 @@ import { readRecentProjectIds } from '@/components/shell/recent-projects'
 import { shownSide, useRailSide } from '@/components/shell/rail-side'
 import { RAIL_CHAT_LIMIT, RailChatsSource, type RailChats } from '@/components/shell/rail-chats'
 import { useChatStore } from '@/features/chat/store'
+import { serverSideKey } from '@/features/chat/stores/server-sides'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { researchCopy } from '@/i18n/namespaces/research'
@@ -19,6 +20,17 @@ import { DeleteSessionConfirmationModal } from './DeleteSessionConfirmationModal
 
 export function chatPathOf(projectId: string | null): string {
   return projectId ? `/app/projects/${encodeURIComponent(projectId)}/chat` : PERSONAL_CHAT_PATH
+}
+
+export function confirmedOnSide<T extends { id: string; createdAt: Date; untouched: boolean }>(
+  rows: readonly T[],
+  listing: { ids: readonly string[]; since: number } | undefined,
+  isOpen: (row: T) => boolean
+): T[] {
+  const confirmed = new Set(listing?.ids ?? [])
+  return rows.filter(
+    (row) => !row.untouched && (isOpen(row) || confirmed.has(row.id) || (listing !== undefined && +new Date(row.createdAt) >= listing.since))
+  )
 }
 
 export function newestWithCurrent<T>(rows: readonly T[], limit: number, isCurrent: (row: T) => boolean): T[] {
@@ -39,7 +51,8 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   const mode = shown?.mode ?? null
   const projectId = shown?.projectId ?? null
   const side = mode === 'project' ? projectId : null
-  const rows = useSessionRows(side)
+  const sideRows = useSessionRows(side)
+  const listing = useChatStore((s) => (mode === null ? undefined : s.serverSides[serverSideKey(mode, side)]))
   const loadServerConversations = useChatStore((s) => s.loadServerConversations)
   const openId = useChatStore((s) => s.currentConversation?.id ?? null)
   const selectConversation = useChatStore((s) => s.selectConversation)
@@ -53,6 +66,10 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
 
   const allHref = chatPathOf(mode === 'personal' ? null : projectId)
   const onChatPath = useCallback((rowProjectId: string | null) => under(pathname, chatPathOf(rowProjectId)), [pathname])
+  const rows = useMemo(
+    () => confirmedOnSide(sideRows, listing, (row) => onChatPath(row.projectId) && row.id === openId),
+    [sideRows, listing, onChatPath, openId]
+  )
   const projectOf = useMemo(() => new Map(rows.map((row) => [row.id, row.projectId])), [rows])
 
   const onOpen = useCallback(

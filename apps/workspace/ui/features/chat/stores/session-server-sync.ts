@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand'
 import type { ChatStore, Conversation } from '../types'
 import type { SessionsSlice } from './sessions-store'
+import { serverSideKey } from './server-sides'
 import {
   clearAwaitingServerMessages,
   isAwaitingServerMessages,
@@ -32,9 +33,14 @@ export const createSessionServerSyncSlice: StateCreator<
   >
 > = (set, get) => {
   const loadSide = async (projectId?: string, place?: 'personal' | 'project'): Promise<boolean> => {
+    const since = Date.now()
     try {
       const conversationsClient = await getConversationsClient()
       const serverConvs = await conversationsClient.list(projectId, place)
+      if (place) {
+        const key = serverSideKey(place, projectId)
+        set({ serverSides: { ...get().serverSides, [key]: { ids: (serverConvs ?? []).map((c) => c.id), since } } }, false, 'serverSides')
+      }
       if (!serverConvs || serverConvs.length === 0) return true
 
       const { conversations, currentUserId } = get()
@@ -109,7 +115,7 @@ export const createSessionServerSyncSlice: StateCreator<
   return {
   loadServerConversations: (projectId?: string, place?: 'personal' | 'project', wantConversationId?: string) => {
     if (!place) return loadSide(projectId, place).then(() => undefined)
-    const key = `${place}:${projectId ?? ''}`
+    const key = serverSideKey(place, projectId)
     const known = sideLoads.get(key)
     const hasWanted = !wantConversationId || get().conversations.some((c) => c.id === wantConversationId)
     if (known && hasWanted && Date.now() - known.at < SIDE_FRESH_MS) return known.pending

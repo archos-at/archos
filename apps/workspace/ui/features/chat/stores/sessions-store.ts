@@ -1,4 +1,5 @@
 import type { StateCreator } from 'zustand'
+import type { ServerSideListing } from './server-sides'
 import type {
   ChatStore,
   Conversation,
@@ -20,6 +21,7 @@ import { createAnswerRecoverySlice } from './answer-recovery'
 import { turnStateFor, withoutUnseenAnswer } from '../lib/turn-selectors'
 import { createConversationMetadataSlice } from './conversation-metadata'
 
+
 export { patchConversationMessageById } from '../lib/conversation-updates'
 
 export type SessionsSlice = {
@@ -30,6 +32,7 @@ export type SessionsSlice = {
   resumableTurn: ResumableTurn | null
 
   serverConversationsLoaded: boolean
+  serverSides: Record<string, ServerSideListing>
 
   pendingMessagesFor: string | null
 
@@ -97,6 +100,7 @@ export const initialSessionsState = {
   isRecoveryPending: false,
   resumableTurn: null as ResumableTurn | null,
   serverConversationsLoaded: false,
+  serverSides: {} as Record<string, ServerSideListing>,
   pendingMessagesFor: null as string | null,
 }
 

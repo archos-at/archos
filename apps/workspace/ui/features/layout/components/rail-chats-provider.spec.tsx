@@ -31,12 +31,20 @@ function Probe(): null {
   return null
 }
 
-const show = (pathname: string) =>
-  render(
+const confirmEverySide = (): void => {
+  const ids = useChatStore.getState().conversations.map((c) => c.id)
+  const listing = { ids, since: Number.MAX_SAFE_INTEGER }
+  useChatStore.setState({ serverSides: { 'personal:': listing, 'project:p1': listing, 'project:p2': listing } })
+}
+
+const show = (pathname: string, { confirmed = true }: { confirmed?: boolean } = {}) => {
+  if (confirmed) confirmEverySide()
+  return render(
     <RailChatsProvider pathname={pathname}>
       <Probe />
     </RailChatsProvider>
   )
+}
 
 describe('RailChatsProvider', () => {
   const selectConversation = vi.fn()
@@ -54,7 +62,7 @@ describe('RailChatsProvider', () => {
         ...mine,
         conversation('other-project', day(9), { projectId: 'p2' }),
         conversation('colleague', day(9), { userId: 'u2' }),
-        conversation('untitled', day(8), { title: '' }),
+        conversation('untitled', day(8), { title: '', messages: [{ id: 'u1', role: 'user', content: 'Frage', timestamp: day(8) } as never] }),
       ],
       currentConversation: mine[5]!,
       selectConversation,
@@ -205,6 +213,44 @@ describe('RailChatsProvider', () => {
       show('/app/projects/p1/files')
       expect(captured?.items).toHaveLength(5)
       expect(captured?.more).toBe(false)
+    })
+  })
+
+  describe('only what the server confirms for the side, and never an unsent chat', () => {
+    test('a chat nobody has written in is not listed, on either side', () => {
+      useChatStore.setState({
+        conversations: [conversation('sent', day(8)), conversation('draft', day(9), { title: '' })],
+        currentConversation: null,
+      })
+      show('/app/projects/p1/files')
+      expect(captured?.items.map((item) => item.id)).toEqual(['sent'])
+    })
+
+    test('a row the server no longer returns for the side is dropped: a stale or deleted chat does not come back', () => {
+      useChatStore.setState({
+        conversations: [conversation('kept', day(8)), conversation('gone', day(9))],
+        currentConversation: null,
+        serverSides: { 'project:p1': { ids: ['kept'], since: +day(20) } },
+      })
+      show('/app/projects/p1/files', { confirmed: false })
+      expect(captured?.items.map((item) => item.id)).toEqual(['kept'])
+    })
+
+    test('a chat started after the server answered stays, until the next answer includes it', () => {
+      useChatStore.setState({
+        conversations: [conversation('kept', day(8)), conversation('new', day(21))],
+        currentConversation: null,
+        serverSides: { 'project:p1': { ids: ['kept'], since: +day(20) } },
+      })
+      show('/app/projects/p1/files', { confirmed: false })
+      expect(captured?.items.map((item) => item.id)).toEqual(['new', 'kept'])
+    })
+
+    test('before the server has answered for the side, only the open chat stands', () => {
+      useChatStore.setState({ conversations: [conversation('local', day(8))], currentConversation: null, serverSides: {} })
+      show('/app/projects/p1/files', { confirmed: false })
+      expect(captured).not.toBeNull()
+      expect(captured?.items).toEqual([])
     })
   })
 
