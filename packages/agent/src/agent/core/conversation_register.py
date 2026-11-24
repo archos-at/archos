@@ -20,6 +20,7 @@ from agent.common import get_checkpointer
 from agent.common import get_langchain_llm
 from agent.common import validate_tool_availability
 from agent.common.agent_tools import load_agent_tools
+from agent.common.bff_http import SignedEnvelope
 from agent.common.fenced_checkpointer import FencedCheckpointer
 from agent.common.knowledge_context import set_turn_knowledge_context
 from agent.common.knowledge_context import trace_metadata as knowledge_trace_metadata
@@ -27,6 +28,9 @@ from agent.common.knowledge_context import turn_knowledge_context
 from agent.common.profiler import flush_after_answer
 from agent.common.profiler import track_agent_profile
 from agent.common.retrieval_status import documents_loading_step
+from agent.common.turn_decision import TurnDecision
+from agent.common.turn_decision import bind_turn_decision
+from agent.common.turn_decision import fetch_turn_decision
 from agent.common.wire_v2 import EventBody
 from agent.common.wire_v2 import RunFinishedBody
 from agent.common.wire_v2 import StatusStep
@@ -46,6 +50,7 @@ from agent.knowledge.restricted_use import CrossProjectTurn
 from agent.knowledge.restricted_use import begin_restricted_use
 from agent.knowledge.restricted_use import bind_cross_project_turn
 from agent.knowledge.restricted_use import bind_restricted_use
+from agent.knowledge.restricted_use import restricted_use_from_decision
 from agent.knowledge.restricted_use import without_restricted
 from agent.knowledge.scoping import get_scoped_collections_from_context
 from agent.memory.shown_notes import ShownNotes
@@ -409,6 +414,34 @@ async def _answer(turn: _Turn, *, message_id: str, stream: bool) -> AsyncIterato
     )
 
 
+async def _bind_turn_decision(request: RequestContext | None, conversation_id: str | None) -> None:
+    answer_id = turn_answer_message_id(conversation_id)
+    decision = await spanned("setup.turn_decision", _decide_turn(request, conversation_id, answer_id))
+    bind_turn_decision(decision)
+    if decision is not None:
+        record_trace_metadata(**decision.trace_metadata())
+        bind_restricted_use(restricted_use_from_decision(decision, request, answer_message_id=answer_id))
+        return
+    bind_restricted_use(
+        await spanned(
+            "setup.restricted_use", begin_restricted_use(request, conversation_id, answer_message_id=answer_id)
+        )
+    )
+
+
+async def _decide_turn(
+    request: RequestContext | None, conversation_id: str | None, answer_id: str | None
+) -> TurnDecision | None:
+    header = getattr(request, "envelope_header", None)
+    signature = getattr(request, "envelope_signature", None)
+    if not header or not signature:
+        return None
+    envelope = SignedEnvelope(header, signature)
+    return await asyncio.to_thread(
+        fetch_turn_decision, envelope, conversation_id=conversation_id, answer_message_id=answer_id
+    )
+
+
 def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, stage_llms: dict):
     any_stage_llm = any(llm is not None for llm in stage_llms.values())
 
@@ -418,14 +451,7 @@ def _turn_runner(agent: ConversationGraph, config: ChatDeepResearcherConfig, sta
         request = RequestContext.from_context()
         inputs = extract_turn_inputs(query)
         logger.info("ChatDeepResearcherAgent: %s (data sources: %s)", inputs.query_text, inputs.data_sources)
-        bind_restricted_use(
-            await spanned(
-                "setup.restricted_use",
-                begin_restricted_use(
-                    request, conversation_id, answer_message_id=turn_answer_message_id(conversation_id)
-                ),
-            )
-        )
+        await _bind_turn_decision(request, conversation_id)
         if inputs.reply_in_thread:
             withhold_restricted_for_thread()
         bind_cross_project_turn(CrossProjectTurn())

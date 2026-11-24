@@ -4,7 +4,7 @@ import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { folderTree, getHiddenFolderIds, readableByEveryMember, readRestrictingFoldersOnPath } from '@/lib/authz/folder-access'
 import { CrossProjectAudienceChangedError } from '@/lib/api/errors'
 import { drewOnOtherProjects, recordCrossProjectHandOut, type CrossProjectHandOut } from '@/lib/conversations/cross-project-use'
-import { readContextAudience } from '@/lib/conversation-context/audience'
+import { narrowedByDecision, readContextAudience } from '@/lib/conversation-context/audience'
 import type { ContextAudience } from '@/lib/conversation-context/types'
 import { audienceReachAmong } from '@/lib/cross-project/audience-reach'
 import { withTenant } from '@/lib/db/tenant-context'
@@ -39,9 +39,10 @@ const tenantOf = (principal: AgentPrincipal) => ({
 export async function conversationAudienceOf(principal: AgentPrincipal): Promise<ConversationAudience | null> {
   const conversationId = principal.conversationId
   if (!isAgentKind(principal.actor) || !conversationId) return null
-  return withTenant(tenantOf(principal), () =>
+  const now = await withTenant(tenantOf(principal), () =>
     readContextAudience(principal.session.organizationId, conversationId, principal.session.userId)
   )
+  return narrowedByDecision(now, principal.decision, conversationId)
 }
 
 export const READ_REFUSALS = {

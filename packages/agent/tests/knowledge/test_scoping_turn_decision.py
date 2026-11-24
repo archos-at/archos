@@ -1,0 +1,114 @@
+import base64
+import json
+from unittest.mock import MagicMock
+from unittest.mock import patch
+
+import pytest
+from agent_testing.turn_decision import SECRET
+from agent_testing.turn_decision import signed_decision
+
+from agent.common.turn_decision import bind_turn_decision
+from agent.common.turn_decision import reset_turn_decision
+from agent.knowledge.restricted_use import RestrictedUse
+from agent.knowledge.restricted_use import bind_restricted_use
+from agent.knowledge.restricted_use import reset_restricted_use
+from agent.knowledge.restricted_use import restricted_use_from_decision
+from agent.knowledge.scoping import get_scoped_collections_from_context
+from agent.project_context import COLLECTION_SCOPE_HEADER
+
+RESTRICTED = "proj_p1_r0123456789ab"
+
+
+def _plain_scope_headers(scope: list[str]) -> MagicMock:
+    context = MagicMock()
+    encoded = base64.urlsafe_b64encode(json.dumps(scope).encode()).decode()
+    context.metadata.headers = {COLLECTION_SCOPE_HEADER: encoded}
+    return context
+
+
+@pytest.fixture
+def bound():
+    tokens = []
+
+    def bind(decision):
+        tokens.append(bind_turn_decision(decision))
+        return decision
+
+    yield bind
+    for token in reversed(tokens):
+        reset_turn_decision(token)
+
+
+def test_a_turn_searches_the_decision_and_not_the_socket(monkeypatch, bound):
+    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
+    bound(signed_decision(may={"shelves": [{"collection": "proj_row", "shelf": "project"}]}))
+    with patch("agent.knowledge.scoping.Context.get", return_value=_plain_scope_headers(["proj_page_open"])):
+        scoped = get_scoped_collections_from_context()
+    assert [entry.collection for entry in scoped] == ["proj_row"]
+
+
+def test_an_empty_decision_stays_empty(bound):
+    bound(signed_decision(may={"shelves": []}))
+    assert get_scoped_collections_from_context() == []
+
+
+def test_without_a_decision_a_required_turn_reads_nothing_from_plain_headers(monkeypatch, bound):
+    monkeypatch.setenv("REQUIRE_AUTH", "true")
+    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
+    bound(None)
+    with patch("agent.knowledge.scoping.Context.get", return_value=_plain_scope_headers(["oib_knowledge", "proj_x"])):
+        with patch("agent.project_context.get_signed_request_context", return_value=None):
+            assert get_scoped_collections_from_context() == []
+
+
+def test_without_a_decision_a_required_turn_falls_back_only_inside_a_valid_signature(monkeypatch, bound):
+    monkeypatch.setenv("REQUIRE_AUTH", "true")
+    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
+    bound(None)
+    signed = MagicMock(
+        envelope_signature="sig", collection_scope_entries=[{"collection": "proj_signed", "shelf": "project"}]
+    )
+    with patch("agent.project_context.get_signed_request_context", return_value=signed):
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["proj_signed"]
+    monkeypatch.delenv("INTERNAL_API_TOKEN")
+    with patch("agent.project_context.get_signed_request_context", return_value=signed):
+        assert get_scoped_collections_from_context() == []
+
+
+def test_a_restricted_collection_of_the_decision_is_searched_only_while_drawable(bound):
+    decision = bound(
+        signed_decision(
+            may={
+                "shelves": [
+                    {"collection": "proj_p1", "shelf": "project"},
+                    {"collection": RESTRICTED, "shelf": "project"},
+                ],
+                "restrictedCollections": [RESTRICTED],
+            },
+            recordedRestricted=True,
+        )
+    )
+    use = restricted_use_from_decision(decision, MagicMock(organization_id="org_1", user_id="u", project_id="p1"))
+    assert isinstance(use, RestrictedUse)
+    assert use.confined is True
+    token = bind_restricted_use(use)
+    try:
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["proj_p1", RESTRICTED]
+        use.drop({RESTRICTED})
+        assert [entry.collection for entry in get_scoped_collections_from_context()] == ["proj_p1"]
+    finally:
+        reset_restricted_use(token)
+
+
+def test_no_restricted_use_is_bound_when_the_decision_draws_on_none():
+    assert restricted_use_from_decision(signed_decision(), MagicMock()) is None
+
+
+def test_the_search_keeps_an_empty_turn_scope_empty_instead_of_the_config_path(bound):
+    from knowledge_layer.search import resolve_scoped_collections
+
+    config = MagicMock(collection_name="oib_knowledge", use_fixed_collection=False, include_base_collection=True)
+    config.include_session_collection = True
+    config.project_collections = ["proj_config"]
+    bound(signed_decision(may={"shelves": []}))
+    assert resolve_scoped_collections(config, "s_conv_1") == []

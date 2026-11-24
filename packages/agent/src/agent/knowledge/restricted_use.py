@@ -13,6 +13,7 @@ from dataclasses import field
 from typing import Any
 
 from agent.common import bff_http
+from agent.common.turn_decision import TurnDecision
 from agent.knowledge.restricted_collections import is_restricted_collection
 from agent.knowledge.restricted_collections import restricted_collections_in
 
@@ -156,6 +157,22 @@ def admit(use: RestrictedUse, collections: Sequence[str]) -> set[str]:
         use.admitted.update(admitted)
         use.note_recorded()
     return admitted
+
+
+def restricted_use_from_decision(
+    decision: TurnDecision, request: Any, *, answer_message_id: str | None = None
+) -> RestrictedUse | None:
+    if not decision.restricted_collections:
+        return None
+    return RestrictedUse(
+        organization_id=getattr(request, "organization_id", None) or "",
+        user_id=getattr(request, "user_id", None) or "",
+        conversation_id=decision.conversation_id or "",
+        project_id=getattr(request, "project_id", None),
+        drawable=set(decision.restricted_collections),
+        confined=decision.recorded_restricted,
+        answer_message_id=answer_message_id,
+    )
 
 
 async def begin_restricted_use(

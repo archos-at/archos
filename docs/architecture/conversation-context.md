@@ -1,6 +1,6 @@
 # The conversation context
 
-Status: decided in [ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) (proposed). Slice 1 is built (the BFF module, `audience_version`, the per-answer record, `turn-decision`); slices 2 and 3 follow. The evidence it rests on, with file and line, is in
+Status: decided in [ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) (proposed). Slices 1 (the BFF module, `audience_version`, the per-answer record, `turn-decision`) and 2 (Python binds the decision) are built; slice 3 follows. The evidence it rests on, with file and line, is in
 [`audit/chat-scope-and-sharing-2026-11.md`](../audit/chat-scope-and-sharing-2026-11.md).
 Reviewed twice against `develop` by independent agents. Their blockers are folded
 in below.
@@ -107,8 +107,19 @@ one.
    re-deciding.
 
 Python reads scope in exactly one place, `scoping.get_scoped_collections_from_context`.
-The other modules that read `.collection_scope` directly (about eleven) move
-onto it in slice 2.
+In a turn, the other direct readers of `.collection_scope` read the decision
+instead: `signed_restricted_collections` (`turn/context.py`), the base corpus's
+countries (`common/knowledge_context.py`), and the restricted-use binding
+(`restricted_use_from_decision`). The remaining readers serve jobs and the
+agent host (`jobs/run_envelope.py`, `jobs/access.py`, `jobs/agent_job_setup.py`,
+`jobs/submit.py`, `routes/document_search.py`, `routes/skills.py`); they move
+with their kind in slice 3. The agent host's own `internal_api.py` (messages,
+steps, outcome, screening) writes and reads no answer-shaping scope and does not
+carry the decision.
+
+Features fail closed as well: when `/api/internal/stages` cannot be reached,
+deep research and tasks follow the bound decision, and stay off without one
+(`stages/flags.py`); with the stages answering, the decision still ANDs into them.
 
 The socket's envelope keeps everything it carries except `collectionScope`:
 identity, the project for a chat whose row is not there yet, budget, model

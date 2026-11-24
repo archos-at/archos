@@ -14,6 +14,8 @@ vi.mock('./operation-targets', () => ({}))
 
 import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
 import { conversationAudienceOf } from './conversation-audience'
+import { closedContext } from '@/lib/conversation-context/types'
+import { decisionOf } from '@/lib/conversation-context/wire'
 import type { AgentPrincipal } from './principal'
 
 const session = {
@@ -50,6 +52,9 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+const closed = closedContext('chat', 'conv_1')
+const base = decisionOf(closed, null, 1)
+
 describe('conversationAudienceOf', () => {
   it('is null for an external agent and for a call in no conversation', async () => {
     expect(await conversationAudienceOf({ actor: 'external_agent', session, clientId: 'c', scopes: [] })).toBeNull()
@@ -71,5 +76,29 @@ describe('conversationAudienceOf', () => {
       expect(found?.solo, JSON.stringify(shared)).toBe(false)
       expect(found?.version, JSON.stringify(shared)).toBe(4)
     }
+  })
+})
+
+describe('the turn decision narrows the audience, never widens it (ADR-0192)', () => {
+  const decided = (solo: boolean, conversationId = 'conv_1') => ({ conversationId, solo })
+
+  it('reads a chat shared since the turn was decided as shared, and carries today’s version instead of refusing', async () => {
+    vi.mocked(readConversationAudience).mockResolvedValueOnce(audience({ grantees: ['user_2'], version: 9 }))
+    expect(await conversationAudienceOf(inProduct({ decision: { ...base, ...decided(true) } }))).toMatchObject({
+      solo: false,
+      version: 9,
+    })
+  })
+
+  it('keeps a turn decided shared shared, though the grant was revoked since', async () => {
+    vi.mocked(readConversationAudience).mockResolvedValueOnce(audience({}))
+    expect(await conversationAudienceOf(inProduct({ decision: { ...base, ...decided(false) } }))).toMatchObject({ solo: false })
+  })
+
+  it('closes a call whose decision names another conversation', async () => {
+    vi.mocked(readConversationAudience).mockResolvedValueOnce(audience({}))
+    expect(await conversationAudienceOf(inProduct({ decision: { ...base, ...decided(true, 'conv_other') } }))).toMatchObject({
+      solo: false,
+    })
   })
 })
