@@ -4,8 +4,8 @@ import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { folderTree, getHiddenFolderIds, readableByEveryMember, readRestrictingFoldersOnPath } from '@/lib/authz/folder-access'
 import { CrossProjectAudienceChangedError } from '@/lib/api/errors'
 import { drewOnOtherProjects, recordCrossProjectHandOut, type CrossProjectHandOut } from '@/lib/conversations/cross-project-use'
-import { readContextAudience } from '@/lib/conversation-context/audience'
-import { kindOf, workspaceReadOf, type ContextAudience, type WorkspaceRead } from '@/lib/conversation-context/types'
+import { narrowedByDecision, readContextAudience, workspaceReadUnder } from '@/lib/conversation-context/audience'
+import type { ContextAudience, WorkspaceRead } from '@/lib/conversation-context/types'
 import { audienceReachAmong } from '@/lib/cross-project/audience-reach'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { AgentOperation } from './operation'
@@ -46,8 +46,8 @@ export async function conversationAudienceOf(principal: AgentPrincipal): Promise
   const now = await withTenant(tenantOf(principal), () =>
     readContextAudience(principal.session.organizationId, conversationId, principal.session.userId)
   )
-  const kind = kindOf(null, 'ui')
-  return { ...now, workspaceRead: workspaceReadOf(kind, conversationId, now.solo) }
+  const narrowed = narrowedByDecision(now, principal.decision, conversationId)
+  return { ...narrowed, workspaceRead: workspaceReadUnder(principal.decision, conversationId, narrowed.solo) }
 }
 
 export const READ_REFUSALS = {
@@ -124,6 +124,7 @@ export async function judgeWorkspaceRead(
   carries: ReadCarries | undefined,
   ownFolders: () => Promise<string[]>,
 ): Promise<ReadJudgement> {
+  if (audience.workspaceRead === 'none') return refuse(READ_REFUSALS.shared)
   if (!readsAll(audience) && (!op || !carries)) return refuse(READ_REFUSALS.shared)
   const targets = op ? namedTargets(principal, op, input) : []
   if (typeof targets === 'string') return refuse(targets)
@@ -270,14 +271,16 @@ export async function recordWorkspaceHandOut(
 }
 
 export async function proposalReachRefusal(
-  party: { session: AgentPrincipal['session']; conversationId?: string | null; projectId?: string | null },
+  party: Pick<AgentPrincipal, 'session' | 'conversationId' | 'projectId' | 'decision'>,
   targets: readonly OperationTarget[],
 ): Promise<string | null> {
   const { conversationId } = party
   if (!conversationId || targets.length === 0) return null
   const { organizationId, userId } = party.session
-  const { row, solo } = await readContextAudience(organizationId, conversationId, userId)
-  if (workspaceReadOf(kindOf(null, 'ui'), conversationId, solo) === 'all') return null
+  const now = await readContextAudience(organizationId, conversationId, userId)
+  const { row } = now
+  const { solo } = narrowedByDecision(now, party.decision, conversationId)
+  if (workspaceReadUnder(party.decision, conversationId, solo) === 'all') return null
   const places = await placesOf(organizationId, userId, targets)
   const own = party.projectId ?? row.projectId ?? null
   const projectIds = [

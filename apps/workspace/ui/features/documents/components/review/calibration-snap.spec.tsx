@@ -51,7 +51,7 @@ describe('setting a scale snaps like the tape', () => {
     moveTo(0.5, 0.5)
     moveTo(0.5, 0.803)
     await waitFor(() =>
-      expect(screen.getByTestId('calibration-snap-tag')).toHaveTextContent('on line')
+      expect(screen.getByTestId('calibration-snap-tag')).toHaveTextContent('On line')
     )
     moveTo(0.6, 0.3)
     await waitFor(() => expect(screen.queryByTestId('calibration-snap-tag')).toBeNull())

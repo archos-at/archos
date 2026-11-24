@@ -8,6 +8,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { getBackendUrl } from '@/lib/backend-url'
 import { InternalServiceUnavailableError, internalServiceHeaders } from '@/lib/internal-auth'
 import { signedEnvelopeHeaders } from '@/lib/turns/signed-envelope'
+import type { ContextKind } from '@/lib/conversation-context/types'
 import { TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
 import backendTools from '../../tests/fixtures/backend-tools.schema.json'
 import type { AgentDomain, ToolAnnotations } from './operation'
@@ -381,7 +382,7 @@ export async function callBackendOperation(
   name: string,
   args: Record<string, unknown>,
   session: AuthorizedSession,
-  options: { projectId?: string }
+  options: { projectId?: string; kind: ContextKind }
 ): Promise<OperationResult> {
   const op = findBackendOperation(name)
   if (!op) return refusal(404, 'unknown_operation', `${name} is not a backend operation`)
@@ -413,7 +414,7 @@ export async function callBackendOperation(
   try {
     envelope = await withTenant(tenant, async () => {
       if (projectId) await requireProjectAccess(session, projectId, CHAT_PERMISSIONS)
-      return signedEnvelopeHeaders(session, projectId, secret)
+      return signedEnvelopeHeaders(session, projectId, secret, options.kind)
     })
   } catch (error) {
     if (error instanceof TurnBudgetExhaustedError)

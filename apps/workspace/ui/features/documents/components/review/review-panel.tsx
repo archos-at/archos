@@ -26,6 +26,7 @@ import { compareFromReviewHref } from '../../lib/revision-links'
 import { MarkBody } from './mark-body'
 import { MarkRowContent, markRowClassName } from './mark-row'
 import { keptMeasurements, MeasurementsGroup } from './measurements-group'
+import { measurementTotals } from './measurement-total'
 import { markInk } from './review-page-layer'
 import { isAgentKind } from '@/lib/agent-kind'
 
@@ -460,7 +461,7 @@ export function ReviewPanel({
               />
             )}
             {measurements.length > 0 && (
-              <MeasurementsGroup count={measurements.length}>
+              <MeasurementsGroup count={measurements.length} totals={measurementTotals(measurements)}>
                 {measurements.map((annotation) => (
                   <Row
                     key={annotation.id}

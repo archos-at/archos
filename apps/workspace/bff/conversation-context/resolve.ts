@@ -24,7 +24,7 @@ export interface ContextRequest {
 }
 
 export interface AudienceRead {
-  tx: DbExecutor
+  tx?: DbExecutor
   row: ConversationAudienceRow
 }
 
@@ -58,7 +58,7 @@ async function rowOf(
 }
 
 function drawsOnRestricted(kind: ContextKind, conversationId: string | null): boolean {
-  return conversationId !== null && (kind === 'chat' || kind === 'run')
+  return conversationId !== null && kind === 'chat'
 }
 
 export interface ConversationScope {
@@ -69,6 +69,8 @@ export interface ConversationScope {
   projectCollectionName: string | null
   shelves: ConversationContext['may']['shelves']
   restrictedCollections: string[]
+  verifiedConversationId: string | null
+  projectReadOnly: boolean
 }
 
 export async function resolveConversationScope(
@@ -77,7 +79,7 @@ export async function resolveConversationScope(
   options: ContextOptions = {},
 ): Promise<ConversationScope> {
   const { kind } = request
-  const conversationId = kind === 'external' || kind === 'headless' ? null : (request.conversationId ?? null)
+  const conversationId = kind === 'external' ? null : (request.conversationId ?? null)
   const row = await rowOf(session, conversationId, options)
   const userId = session?.userId ?? ''
   const audience = isAuthorized(session) ? audienceOf(row, userId) : { row, solo: false, version: row.version }
@@ -100,6 +102,8 @@ export async function resolveConversationScope(
     projectCollectionName: scope.projectCollectionName ?? null,
     shelves,
     restrictedCollections,
+    verifiedConversationId: scope.verifiedConversationId ?? null,
+    projectReadOnly: scope.projectReadOnly ?? false,
   }
 }
 
@@ -145,4 +149,17 @@ export async function resolveConversationContext(
     },
     recorded,
   }
+}
+
+export async function resolveRunConversationContext(
+  session: AuthorizedSession,
+  request: { projectId: string; conversationId?: string | null; kind: Extract<ContextKind, 'run' | 'headless'> },
+): Promise<ConversationContext> {
+  const row = await rowOf(session, request.conversationId ?? null, {})
+  const inProject = row.exists && row.projectId === request.projectId
+  return resolveConversationContext(
+    session,
+    { projectId: request.projectId, conversationId: inProject ? (request.conversationId ?? undefined) : undefined, kind: request.kind },
+    inProject ? { audience: { row } } : {},
+  )
 }

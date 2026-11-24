@@ -552,6 +552,16 @@ describe('the Python agent’s read tools', () => {
     expect(described.annotations).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: false })
   })
 
+  it('decide their envelope with the caller’s kind, from its door: external for an MCP client and a script', async () => {
+    vi.mocked(callBackendOperation).mockResolvedValue({ status: 200, ok: true, body: { tool: 'knowledge_search', result: 'a passage' } })
+    const script: AgentPrincipal = { actor: 'external_agent', session, clientId: null, scopes: [] }
+    for (const [caller, kind] of [[person, 'external'], [script, 'external']] as const) {
+      vi.mocked(callBackendOperation).mockClear()
+      await callOperationTool(ctx(caller), { name: 'knowledge-search', input: { projectId: PROJECT, query: 'Stellplätze' } })
+      expect(vi.mocked(callBackendOperation).mock.calls[0]?.[3], caller.actor + String(caller.clientId)).toEqual({ projectId: PROJECT, kind })
+    }
+  })
+
   it('are called through callBackendOperation as the person, with the project', async () => {
     vi.mocked(callBackendOperation).mockResolvedValue({ status: 200, ok: true, body: { tool: 'knowledge_search', result: 'a passage' } })
     const result = await callOperationTool(ctx(person), {
@@ -562,7 +572,7 @@ describe('the Python agent’s read tools', () => {
       'knowledge-search',
       { projectId: PROJECT, query: 'Stellplätze' },
       session,
-      { projectId: PROJECT },
+      { projectId: PROJECT, kind: 'external' },
     )
     expect(callOperation).not.toHaveBeenCalled()
     expect(result.structuredContent).toEqual({ result: 'a passage' })

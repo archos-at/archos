@@ -1,0 +1,6 @@
+---
+# area: answers
+improvements:
+  - >
+    The assistant can now measure a PDF drawing between points it places freely,
+    as you do with Ctrl held, and can keep a measurement on the sheet for you.
