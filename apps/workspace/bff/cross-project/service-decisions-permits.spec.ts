@@ -39,7 +39,7 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('./audience-reach', () => ({
-  audienceReach: vi.fn(async () => ({ projects: state.reachable, restrictedFolders: state.restrictedFolders, key: 'audience-key' })),
+  audienceReach: vi.fn(async () => ({ projects: state.reachable, restrictedFolders: state.restrictedFolders, version: 7, ownProjectId: null })),
 }))
 vi.mock('@/lib/conversations/cross-project-use', () => ({
   recordCrossProjectHandOut: vi.fn(
@@ -332,7 +332,7 @@ describe('the permit records other projects went through', () => {
     await searchAcrossProjects(caller(), search({}))
 
     expect(state.recorded).toEqual([{ projectIds: [one.id], folderIds: ['folder-a', 'folder-b'] }])
-    expect(state.recordedFor).toEqual(['audience-key'])
+    expect(state.recordedFor).toEqual([7])
   })
 
   it('are searched over the decisions’ scopes: the page of projects searched, never the conversation’s own', async () => {

@@ -3,6 +3,7 @@ import { and, desc, eq, exists, inArray, isNotNull, isNull, ne, or, sql, type SQ
 import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { stripJsonNullBytes } from '@/lib/text/jsonb'
+import { answerContexts } from '@/lib/db/schema/answer-contexts'
 import { answerFeedback } from '@/lib/db/schema/answer-feedback'
 import { conversationReads, type ConversationRead } from '@/lib/db/schema/conversation-reads'
 import { conversationRestrictedFolders } from '@/lib/db/schema/conversation-restricted-folders'
@@ -347,6 +348,9 @@ export async function deleteConversationInOrg(conversationId: string, organizati
         eq(conversationSourceProjects.conversationId, conversationId),
       ),
     )
+  await db
+    .delete(answerContexts)
+    .where(and(eq(answerContexts.organizationId, organizationId), eq(answerContexts.conversationId, conversationId)))
 }
 
 export const conversationOpenToProjectReaders = (): SQL => sql`(

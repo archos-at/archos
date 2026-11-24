@@ -24,6 +24,7 @@ vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
     scopedCollections: [],
     projectId: undefined,
     verifiedConversationId: undefined,
+    restrictedCollections: [],
   }),
 }))
 
@@ -268,6 +269,7 @@ describe('/api/jobs/async/[...path] proxy — signed X-Request-Context envelope'
       projectCollectionName: 'proj_abc',
       conversationId: undefined,
       verifiedConversationId: undefined,
+      restrictedCollections: [],
     })
     vi.mocked(getEffectiveModelOverrides).mockResolvedValue(null)
     vi.mocked(loadProjectFederalState).mockResolvedValue(null)
@@ -576,6 +578,7 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
       projectCollectionName: 'proj_abc',
       conversationId: 'conv-1',
       verifiedConversationId: 'conv-1',
+      restrictedCollections: [],
     })
     vi.mocked(getEffectiveModelOverrides).mockResolvedValue(null)
     fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
@@ -644,6 +647,7 @@ describe('/api/jobs/async/[...path] proxy — every method carries the signed en
       projectCollectionName: undefined,
       conversationId: 'conv-new',
       verifiedConversationId: undefined,
+      restrictedCollections: [],
     })
 
     await GET(getRequest('https://grid.example/api/jobs/async/job/job-1?conversationId=conv-new'), streamParams(['job', 'job-1']))

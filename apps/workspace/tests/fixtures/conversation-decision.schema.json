@@ -1,0 +1,403 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Conversation decision wire contract (ADR-0192)",
+  "description": "Generated from apps/workspace/bff/conversation-context/wire.ts. Do not edit by hand: wire.spec.ts rewrites this file and fails when it is stale.",
+  "$defs": {
+    "conversationDecision": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "answerMessageId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "chat",
+            "run",
+            "headless",
+            "external"
+          ]
+        },
+        "solo": {
+          "type": "boolean"
+        },
+        "recordedRestricted": {
+          "type": "boolean"
+        },
+        "audienceVersion": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "issuedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "may": {
+          "type": "object",
+          "properties": {
+            "shelves": {
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "collection": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "shelf": {
+                    "type": "string",
+                    "enum": [
+                      "office_shelf",
+                      "project",
+                      "session",
+                      "base"
+                    ]
+                  },
+                  "countries": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 8
+                    }
+                  }
+                },
+                "required": [
+                  "collection"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "restrictedCollections": {
+              "maxItems": 200,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "otherProjects": {
+              "type": "object",
+              "properties": {
+                "reach": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "every-reader",
+                    "chat-projects"
+                  ]
+                },
+                "restrictedFolders": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "reach",
+                "restrictedFolders"
+              ],
+              "additionalProperties": false
+            },
+            "personalMemory": {
+              "type": "boolean"
+            },
+            "personalShelf": {
+              "type": "boolean"
+            },
+            "workspaceRead": {
+              "type": "string",
+              "enum": [
+                "none",
+                "document+projectFacts",
+                "all"
+              ]
+            },
+            "features": {
+              "type": "object",
+              "properties": {
+                "deepResearch": {
+                  "type": "boolean"
+                },
+                "tasks": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "deepResearch",
+                "tasks"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "shelves",
+            "restrictedCollections",
+            "otherProjects",
+            "personalMemory",
+            "personalShelf",
+            "workspaceRead",
+            "features"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "conversationId",
+        "answerMessageId",
+        "kind",
+        "solo",
+        "recordedRestricted",
+        "audienceVersion",
+        "issuedAt",
+        "may"
+      ],
+      "additionalProperties": false
+    },
+    "turnDecisionRequest": {
+      "type": "object",
+      "properties": {
+        "answerMessageId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "turnDecisionResponse": {
+      "type": "object",
+      "properties": {
+        "decision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signature": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "conversationId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "answerMessageId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "chat",
+                "run",
+                "headless",
+                "external"
+              ]
+            },
+            "solo": {
+              "type": "boolean"
+            },
+            "recordedRestricted": {
+              "type": "boolean"
+            },
+            "audienceVersion": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "issuedAt": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "may": {
+              "type": "object",
+              "properties": {
+                "shelves": {
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "collection": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "shelf": {
+                        "type": "string",
+                        "enum": [
+                          "office_shelf",
+                          "project",
+                          "session",
+                          "base"
+                        ]
+                      },
+                      "countries": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 8
+                        }
+                      }
+                    },
+                    "required": [
+                      "collection"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "restrictedCollections": {
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "otherProjects": {
+                  "type": "object",
+                  "properties": {
+                    "reach": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "every-reader",
+                        "chat-projects"
+                      ]
+                    },
+                    "restrictedFolders": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "reach",
+                    "restrictedFolders"
+                  ],
+                  "additionalProperties": false
+                },
+                "personalMemory": {
+                  "type": "boolean"
+                },
+                "personalShelf": {
+                  "type": "boolean"
+                },
+                "workspaceRead": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "document+projectFacts",
+                    "all"
+                  ]
+                },
+                "features": {
+                  "type": "object",
+                  "properties": {
+                    "deepResearch": {
+                      "type": "boolean"
+                    },
+                    "tasks": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "deepResearch",
+                    "tasks"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "shelves",
+                "restrictedCollections",
+                "otherProjects",
+                "personalMemory",
+                "personalShelf",
+                "workspaceRead",
+                "features"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "conversationId",
+            "answerMessageId",
+            "kind",
+            "solo",
+            "recordedRestricted",
+            "audienceVersion",
+            "issuedAt",
+            "may"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "decision",
+        "signature",
+        "body"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

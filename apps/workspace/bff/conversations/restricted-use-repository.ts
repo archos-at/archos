@@ -284,6 +284,7 @@ export interface ConversationAudienceRow {
   createdBy: string | null
   visibility: ResourceVisibility
   grantees: string[]
+  version: number | null
 }
 
 export async function readConversationAudience(
@@ -296,6 +297,7 @@ export async function readConversationAudience(
       projectId: conversations.projectId,
       createdBy: conversations.createdBy,
       visibility: conversations.visibility,
+      audienceVersion: conversations.audienceVersion,
     })
     .from(conversations)
     .where(and(eq(conversations.id, conversationId), eq(conversations.organizationId, organizationId)))
@@ -317,5 +319,6 @@ export async function readConversationAudience(
     createdBy: row?.createdBy ?? null,
     visibility: row?.visibility ?? 'private',
     grantees: [...new Set(grants.map((grant) => String(grant.subjectUserId)))],
+    version: row ? Number(row.audienceVersion) : null,
   }
 }

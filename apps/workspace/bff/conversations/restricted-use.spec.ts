@@ -152,6 +152,7 @@ const audience = (grantees: string[] = [], visibility: 'private' | 'project' = '
   createdBy: OWNER,
   visibility,
   grantees,
+  version: 1,
 })
 
 const request = { organizationId: ORG, conversationId: CONV, userId: OWNER, projectId: PROJECT }
@@ -238,7 +239,7 @@ describe('admitRestrictedUse — the record of use, by source folder', () => {
   })
 
   it('admits the first turn of a chat that does not exist yet, in the stated project', async () => {
-    state.audiences = [{ exists: false, projectId: null, createdBy: null, visibility: 'private', grantees: [] }]
+    state.audiences = [{ exists: false, projectId: null, createdBy: null, visibility: 'private', grantees: [], version: null }]
     expect((await admitRestrictedUse(request, [VERTRAEGE])).admitted).toEqual([VERTRAEGE])
   })
 

@@ -12,8 +12,8 @@ vi.mock('@/lib/authz/projects', () => ({
   requireProjectAccess: vi.fn(),
 }))
 
-vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
-  buildCollectionScopeFromRequest: vi.fn(),
+vi.mock('@/lib/conversation-context', () => ({
+  resolveConversationContext: vi.fn(),
 }))
 
 vi.mock('@/lib/project-profile/prompt-view', () => ({
@@ -28,12 +28,21 @@ vi.mock('@/lib/projects/memory-service', () => ({
 import { GET } from '@/app/api/auth/websocket-scope/route'
 import { getUserSession } from '@/lib/auth/session'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
+import { resolveConversationContext } from '@/lib/conversation-context'
+import { closedContext, type ConversationContext } from '@/lib/conversation-context/types'
+import type { ScopedCollection } from '@/lib/retrieval-scope/collection-scope'
 import { loadProjectPromptView } from '@/lib/project-profile/prompt-view'
 
 const mockGetUserSession = vi.mocked(getUserSession)
 const mockRequireProjectAccess = vi.mocked(requireProjectAccess)
-const mockBuildCollectionScopeFromRequest = vi.mocked(buildCollectionScopeFromRequest)
+const mockResolveConversationContext = vi.mocked(resolveConversationContext)
+
+function decided(shelves: ScopedCollection[], projectId: string | null): ConversationContext {
+  const closed = closedContext('chat', null)
+  return { ...closed, projectId, may: { ...closed.may, shelves } }
+}
+
+const header = (shelves: ScopedCollection[]) => Buffer.from(JSON.stringify(shelves)).toString('base64url')
 const mockLoadProjectPromptView = vi.mocked(loadProjectPromptView)
 
 describe('/api/auth/websocket-scope', () => {
@@ -46,15 +55,7 @@ describe('/api/auth/websocket-scope', () => {
   it('returns scope and header when auth is disabled', async () => {
     vi.stubEnv('REQUIRE_AUTH', 'false')
     mockGetUserSession.mockResolvedValue(null)
-    mockBuildCollectionScopeFromRequest.mockResolvedValue({
-      scope: ['oib_knowledge'],
-      scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }],
-      headerValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
-      projectId: 'proj-1',
-      conversationId: 'conv-1',
-      projectCollectionName: undefined,
-      verifiedConversationId: undefined,
-    })
+    mockResolveConversationContext.mockResolvedValue(decided([{ collection: 'oib_knowledge', shelf: 'base' }], 'proj-1'))
 
     const req = new Request(
       'http://localhost:3000/api/auth/websocket-scope?projectId=proj-1&conversationId=conv-1'
@@ -66,16 +67,16 @@ describe('/api/auth/websocket-scope', () => {
     expect(json).toEqual({
       scope: ['oib_knowledge'],
       scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }],
-      header: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+      header: header([{ collection: 'oib_knowledge', shelf: 'base' }]),
       projectId: 'proj-1',
       conversationId: 'conv-1',
       memoryReflectionEnabled: true,
     })
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
-    expect(mockBuildCollectionScopeFromRequest).toHaveBeenCalledWith(null, {
+    expect(mockResolveConversationContext).toHaveBeenCalledWith(null, {
       projectId: 'proj-1',
       conversationId: 'conv-1',
-      interactiveChat: true,
+      kind: 'chat',
     })
   })
 
@@ -105,24 +106,18 @@ describe('/api/auth/websocket-scope', () => {
   featureFlags: null,
     }
     mockGetUserSession.mockResolvedValue(session)
-    mockBuildCollectionScopeFromRequest.mockResolvedValue({
-      scope: ['oib_knowledge', 'proj_proj-1'],
-      scopedCollections: [{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_proj-1', shelf: 'project' }],
-      headerValue: 'scope-header',
-      projectId: 'proj-1',
-      conversationId: undefined,
-      projectCollectionName: undefined,
-      verifiedConversationId: undefined,
-    })
+    mockResolveConversationContext.mockResolvedValue(
+      decided([{ collection: 'oib_knowledge', shelf: 'base' }, { collection: 'proj_proj-1', shelf: 'project' }], 'proj-1')
+    )
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope?projectId=proj-1')
     const res = await GET(req)
 
     expect(res.status).toBe(200)
-    expect(mockBuildCollectionScopeFromRequest).toHaveBeenCalledWith(session, {
+    expect(mockResolveConversationContext).toHaveBeenCalledWith(session, {
       projectId: 'proj-1',
       conversationId: undefined,
-      interactiveChat: true,
+      kind: 'chat',
     })
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
   })
@@ -141,7 +136,7 @@ describe('/api/auth/websocket-scope', () => {
   featureFlags: null,
     }
     mockGetUserSession.mockResolvedValue(session)
-    mockBuildCollectionScopeFromRequest.mockRejectedValue(new NotFoundError())
+    mockResolveConversationContext.mockRejectedValue(new NotFoundError())
 
     const req = new Request('http://localhost:3000/api/auth/websocket-scope?projectId=proj-1')
     const res = await GET(req)

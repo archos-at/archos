@@ -3,16 +3,10 @@ import 'server-only'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import { folderTree, getHiddenFolderIds, readableByEveryMember, readRestrictingFoldersOnPath } from '@/lib/authz/folder-access'
 import { CrossProjectAudienceChangedError } from '@/lib/api/errors'
-import {
-  audienceKey,
-  drewOnOtherProjects,
-  isSoloAudience,
-  recordCrossProjectHandOut,
-  type CrossProjectHandOut,
-} from '@/lib/conversations/cross-project-use'
-import { readConversationAudience, type ConversationAudienceRow } from '@/lib/conversations/restricted-use-repository'
+import { drewOnOtherProjects, recordCrossProjectHandOut, type CrossProjectHandOut } from '@/lib/conversations/cross-project-use'
+import { readContextAudience } from '@/lib/conversation-context/audience'
+import type { ContextAudience } from '@/lib/conversation-context/types'
 import { audienceReachAmong } from '@/lib/cross-project/audience-reach'
-import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import type { AgentOperation } from './operation'
 import {
@@ -28,11 +22,7 @@ import type { AgentPrincipal } from './principal'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { isAgentKind } from '@/lib/agent-kind'
 
-export interface ConversationAudience {
-  row: ConversationAudienceRow
-  solo: boolean
-  key: string
-}
+export type ConversationAudience = ContextAudience
 
 export type ReadCarries = 'document' | 'projectFacts'
 
@@ -49,10 +39,9 @@ const tenantOf = (principal: AgentPrincipal) => ({
 export async function conversationAudienceOf(principal: AgentPrincipal): Promise<ConversationAudience | null> {
   const conversationId = principal.conversationId
   if (!isAgentKind(principal.actor) || !conversationId) return null
-  const row = await withTenant(tenantOf(principal), () =>
-    readConversationAudience(getDb(), principal.session.organizationId, conversationId)
+  return withTenant(tenantOf(principal), () =>
+    readContextAudience(principal.session.organizationId, conversationId, principal.session.userId)
   )
-  return { row, solo: isSoloAudience(row, principal.session.userId), key: audienceKey(row) }
 }
 
 export const READ_REFUSALS = {
@@ -266,7 +255,7 @@ export async function recordWorkspaceHandOut(
     answerMessageId: principal.answerMessageId ?? null,
   }
   try {
-    await withTenant(tenantOf(principal), () => recordCrossProjectHandOut(party, handOut, audience.key))
+    await withTenant(tenantOf(principal), () => recordCrossProjectHandOut(party, handOut, audience.version))
     return true
   } catch (error) {
     if (error instanceof CrossProjectAudienceChangedError) return false
@@ -281,8 +270,8 @@ export async function proposalReachRefusal(
   const { conversationId } = party
   if (!conversationId || targets.length === 0) return null
   const { organizationId, userId } = party.session
-  const row = await readConversationAudience(getDb(), organizationId, conversationId)
-  if (isSoloAudience(row, userId)) return null
+  const { row, solo } = await readContextAudience(organizationId, conversationId, userId)
+  if (solo) return null
   const places = await placesOf(organizationId, userId, targets)
   const own = party.projectId ?? row.projectId ?? null
   const projectIds = [

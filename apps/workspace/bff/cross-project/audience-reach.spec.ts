@@ -36,11 +36,10 @@ vi.mock('@/lib/authz/project-membership', () => ({
   }),
 }))
 
-import { audienceKey } from '@/lib/conversations/cross-project-use'
 import { audienceReach, audienceReachAmong, REACH_MAX_OTHER_READERS } from './audience-reach'
 
 const session = { userId: OWNER, organizationId: 'org_1' } as AuthorizedSession
-const solo: ConversationAudienceRow = { exists: true, projectId: 'own', createdBy: OWNER, visibility: 'private', grantees: [] }
+const solo: ConversationAudienceRow = { exists: true, projectId: 'own', createdBy: OWNER, visibility: 'private', grantees: [], version: 7 }
 const project = (id: string, status: 'active' | 'closed' = 'active') => ({ id, status }) as Project
 
 beforeEach(() => {
@@ -57,7 +56,7 @@ describe('audienceReach', () => {
     const reach = await audienceReach(session, 's_conv')
 
     expect(ids(reach.projects)).toEqual(['own', 'running', 'foreign', 'archive'])
-    expect(reach).toMatchObject({ restrictedFolders: true, key: audienceKey(solo) })
+    expect(reach).toMatchObject({ restrictedFolders: true, version: 7, ownProjectId: 'own' })
     expect(state.checks).toBe(0)
   })
 
@@ -68,7 +67,7 @@ describe('audienceReach', () => {
     const reach = await audienceReach(session, 's_conv')
 
     expect(ids(reach.projects)).toEqual(['running', 'archive'])
-    expect(reach).toMatchObject({ restrictedFolders: false, key: audienceKey(state.audience) })
+    expect(reach).toMatchObject({ restrictedFolders: false, version: state.audience.version })
   })
 
   it('reaches only the closed projects from a chat the project reads, asking nobody', async () => {
@@ -104,7 +103,7 @@ describe('audienceReachAmong', () => {
     const reach = await audienceReachAmong(session, shared, ['running', 'foreign', 'archive', 'nowhere'])
 
     expect(ids(reach.projects)).toEqual(['running', 'archive'])
-    expect(reach).toMatchObject({ restrictedFolders: false, key: audienceKey(shared) })
+    expect(reach).toMatchObject({ restrictedFolders: false, version: shared.version })
     expect(state.checks).toBe(2)
     expect(ids((await audienceReachAmong(session, solo, ['foreign'])).projects)).toEqual(['foreign'])
   })

@@ -74,14 +74,15 @@ const ctx = (principal: AgentPrincipal) => ({ principal, mode: 'search' as const
 const text = (result: { content: unknown[] }) => (result.content[0] as { text: string }).text
 
 const audienceOf = (solo: boolean): ConversationAudience => ({
-  row: { exists: true, projectId: 'proj_1', createdBy: 'user_1', visibility: 'private', grantees: solo ? [] : ['user_2'] },
+  row: { exists: true, projectId: 'proj_1', createdBy: 'user_1', visibility: 'private', grantees: solo ? [] : ['user_2'], version: solo ? 2 : 3 },
   solo,
-  key: solo ? 'private|user_1' : 'private|user_1|user_2',
+  version: solo ? 2 : 3,
 })
 const reachOf = (ids: string[], solo: boolean) => ({
   projects: ids.map((id) => ({ id }) as Project),
   restrictedFolders: solo,
-  key: audienceOf(solo).key,
+  version: audienceOf(solo).version,
+  ownProjectId: 'proj_1',
 })
 
 beforeEach(() => {

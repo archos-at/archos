@@ -73,6 +73,7 @@ describe('/api/jobs/async/[...path]', () => {
         conversationId: 'conv-1',
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
+        restrictedCollections: [],
       })
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(createStream(), {
@@ -108,6 +109,7 @@ describe('/api/jobs/async/[...path]', () => {
         conversationId: 'conv-1',
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
+        restrictedCollections: [],
       })
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ agents: [] }), {
@@ -138,6 +140,7 @@ describe('/api/jobs/async/[...path]', () => {
         conversationId: 'conv-1',
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
+        restrictedCollections: [],
       })
       vi.mocked(findProjectTenancy).mockResolvedValueOnce({ organizationId: 'org_1', deletedAt: null, status: 'closed' })
       const fetchMock = vi.fn()
@@ -217,6 +220,7 @@ describe('/api/jobs/async/[...path]', () => {
         conversationId: 'conv-1',
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
+        restrictedCollections: [],
       })
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ job_id: 'job-1' }), {
@@ -273,6 +277,7 @@ describe('/api/jobs/async/[...path]', () => {
         conversationId: undefined,
         projectCollectionName: undefined,
         verifiedConversationId: undefined,
+        restrictedCollections: [],
       })
       const fetchMock = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ status: 'cancelled' }), {

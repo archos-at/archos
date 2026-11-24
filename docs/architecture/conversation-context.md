@@ -1,6 +1,6 @@
 # The conversation context
 
-Status: design, decided in [ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) (proposed). Not built yet. The evidence it rests on, with file and line, is in
+Status: decided in [ADR-0192](../adr/0192-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) (proposed). Slice 1 is built (the BFF module, `audience_version`, the per-answer record, `turn-decision`); slices 2 and 3 follow. The evidence it rests on, with file and line, is in
 [`audit/chat-scope-and-sharing-2026-11.md`](../audit/chat-scope-and-sharing-2026-11.md).
 Reviewed twice against `develop` by independent agents. Their blockers are folded
 in below.
@@ -12,14 +12,16 @@ this value, and nothing else re-derives it.
 
 ## The value
 
-A new module, `conversation-context`, sits in the BFF beside `conversations`.
-Its files are `types.ts`, `resolve.ts`, `record.ts`, `wire.ts` and `index.ts`.
+The module `bff/conversation-context/` sits in the BFF beside `conversations`:
+`types.ts` (the value and every predicate), `audience.ts` (the one audience read
+outside the locked writers, and `decidedUnder`), `resolve.ts`, `record.ts`,
+`wire.ts`, `turn-decision.ts` and `index.ts`.
 
 ```ts
 type ContextKind = 'chat' | 'run' | 'headless' | 'external'
 
 resolveConversationContext(
-  session: AuthorizedSession | null,
+  session: UserSession | null,      // null only with REQUIRE_AUTH off
   request: { conversationId?: string; projectId?: string; kind: ContextKind },
   options?: { audience?: AudienceRead }, // AudienceRead = { tx: Tx; row: ConversationAudienceRow }, held under the lock
 ): Promise<ConversationContext>
@@ -32,7 +34,7 @@ interface ConversationContext {
   may: {
     shelves: ScopedCollection[]  // always present, possibly empty: base, office shelf, project, personal, session
     restrictedCollections: string[]
-    otherProjects: { projectIds: string[]; restrictedFolders: boolean }
+    otherProjects: { reach: 'none' | 'every-reader' | 'chat-projects'; restrictedFolders: boolean }
     personalMemory: boolean
     personalShelf: boolean
     projectMemory: { readableFolderIds: string[] }
@@ -43,14 +45,20 @@ interface ConversationContext {
 }
 ```
 
+`otherProjects` carries the rule, not a list of projects. Listing them per turn
+would cost a permission check per reader and project (`audienceReachAmong`, up
+to ten readers times every project the asker may chat in), so a lookup still
+resolves the projects it names, under the rule and the version the turn was
+decided under.
+
 The context carries no list of readers. A project-visible chat's readers are the
 project's members, and they change outside the conversation, so each turn
 resolves the audience afresh.
 
 The decision is never advisory. If it cannot be resolved, the turn fails closed:
 no personal memory, no personal shelf, and no project, restricted or
-other-project source. Today `readSoloAudience` swallows its errors; this design
-does not.
+other-project source. `readSoloAudience` used to swallow its errors; the turn
+context now closes the turn instead (`promptFacts`).
 
 ## What each kind may draw on
 
@@ -72,7 +80,15 @@ one.
   ADR-0180 holds for chats as it does today: a solo project chat keeps personal
   memory.
 - `may.personalShelf = may.personalMemory && projectId === null`, per ADR-0191.
-- `may.features = entitlement && !confined`. A turn that draws on restricted
+- `may.workspaceRead`: `all` when solo or with no conversation, `document+projectFacts`
+  in a shared chat, `none` for `headless`; `external` keeps `all`, because the
+  agent-api's per-target checks hold it.
+- `may.otherProjects.reach`: `chat-projects` when solo (restricted folders too),
+  `every-reader` when shared, `none` for `headless` and for a run without a chat.
+- `may.features = entitlement && !confined`, where the entitlement is what
+  `/api/internal/stages` answers (`bff/turns/feature-entitlement.ts`) and
+  `confined` is: drawable restricted collections, or a recorded restricted
+  folder or other project. A turn that draws on restricted
   folders keeps deep research and tasks off, as `settle_restriction` does today.
 - `isShared` in `bff/sharing/access.ts` stays viewer-independent. It decides
   local-first versus server-held (ADR-0033). It is rewritten over the same
@@ -118,7 +134,7 @@ happen under `grid_app_rw` with a tenant mismatch, and a silently lost bump woul
 fail open.
 
 A change of project membership does not bump the version, and neither does
-`audienceKey` today. Membership is caught by the next turn's fresh resolve.
+`audienceKey` did before it. Membership is caught by the next turn's fresh resolve.
 
 `audience.version` is `null` when no row exists yet. A new chat's first turn can
 run before `_appendMessage` (not awaited) has created the row. `null` keeps
@@ -229,9 +245,12 @@ What slice 1 fixes, so no builder has to guess:
   as in `buildRequestContextEnvelope` and the CommonJS copy in
   `bff/turns/turn-headers.js`. It travels in `x-turn-decision` and
   `x-turn-decision-signature`.
-  - **Fields:** `conversationId`, `answerMessageId`, `kind`, `audienceVersion`
-    (number or null), `issuedAt`, `may` (without `projectMemory`, which stays in
-    the BFF).
+  - **Fields:** `conversationId`, `answerMessageId`, `kind`, `solo` (for the
+    trace), `recordedRestricted` (the chat
+    recorded a restricted folder that still restricts someone: what
+    `RestrictedUse.confined` starts from today), `audienceVersion` (number or null), `issuedAt`, `may` (without
+    `projectMemory`, which stays in the BFF). The route answers
+    `{ decision, signature, body }`.
   - **Maximum age:** 30 minutes for a chat turn. A run's decision is renewed with
     its envelope.
   - **Where it goes:** Python sends it on every agent-api and internal call the
@@ -239,18 +258,20 @@ What slice 1 fixes, so no builder has to guess:
 - **The schema.** A zod `conversationDecisionSchema` in the module's
   `wire.ts` generates a JSON schema named conversation-decision beside the other
   fixtures in `apps/workspace/tests/fixtures/`, as
-  `bff/documents/lifecycle-schema.ts` generates the lifecycle schema. A
-  TypeScript spec, a spec on the CommonJS signer and a Python spec all parse the
-  fixture.
+  `bff/documents/lifecycle-schema.ts` generates the lifecycle schema
+  (`tests/fixtures/conversation-decision.schema.json`). A TypeScript spec and a
+  Python spec parse it. No CommonJS code signs a decision: only `turn-decision`
+  does, so the CommonJS envelope signer has nothing to pin here.
 - **What slice 1 moves.** The turn path: `resolveTurnContext`, the
   `retrieval-scope` builders, `turn-context/service.ts`, the agent-api audience
   reads, and `reach`. The locked writers in `restricted-use.ts` stay as they are.
-  - **Guard spec:** `readConversationAudience` has a ratcheted allowlist of its 15
-    call sites. Slice 1 shrinks it to the module plus the locked writers, and
-    later slices may only shrink it further.
+  - **Guard spec:** `readConversationAudience` had 15 call sites. Slice 1 leaves
+    three (`audience-guard.spec.ts`): `conversation-context/audience.ts`, and the
+    locked writers `recordCrossProjectHandOut` and `admitSourceFolders`, each
+    after taking the lock. Later slices may only shrink it.
   - **The agent-api before slice 2:** it resolves the context per call, as it
     reads the audience today. Slice 2 makes it read the decision the turn sends.
-- **The trace.** Each turn's Langfuse trace carries `context.kind`,
+- **The trace.** Python records it once it binds the decision (slice 2). Each turn's Langfuse trace carries `context.kind`,
   `context.solo`, `context.audienceVersion`, `context.shelves`,
   `context.personalMemory`, `context.personalShelf` and `context.features`.
 
@@ -268,8 +289,8 @@ What slice 1 fixes, so no builder has to guess:
 
 ## Slices
 
-1. **The module, its BFF consumers, `audience_version` and the record per
-   answer**, per the slice 1 contract. Builds on
+1. **The module, its BFF consumers, `audience_version` (migration 0258) and the
+   record per answer (`answer_contexts`, migration 0259)**, per the slice 1 contract. Builds on
    [#1899](https://github.com/archos-at/archos/pull/1899), which already takes a
    turn's project from the row.
 2. **Python binds the decision and fails closed on answer-shaping reads.** The

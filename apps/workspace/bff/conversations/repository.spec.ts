@@ -209,9 +209,11 @@ describe('deleteConversationInOrg', () => {
   it('carries tenancy in the WHERE clause, not only in the service above it', async () => {
     await deleteConversationInOrg('conv_1', 'org_1')
 
-    expect(captured).toHaveLength(4)
+    expect(captured).toHaveLength(5)
     expect(captured[3].sql).toContain('"conversation_source_projects"')
     expect(captured[3].params).toEqual(['org_1', 'conv_1'])
+    expect(captured[4].sql).toContain('"answer_contexts"')
+    expect(captured[4].params).toEqual(['org_1', 'conv_1'])
     const { sql, params } = captured[1]
     expect(sql).toContain('"conversations"."id" = $1')
     expect(sql).toContain('"conversations"."organization_id" = $2')

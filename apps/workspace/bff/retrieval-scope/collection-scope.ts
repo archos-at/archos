@@ -56,3 +56,7 @@ export function computeCollectionScope(
 export function buildCollectionScopeHeader(scope: string[]): string {
   return Buffer.from(JSON.stringify(scope)).toString('base64url')
 }
+
+export function encodeCollectionScopeHeader(collections: ScopedCollection[]): string {
+  return Buffer.from(JSON.stringify(collections)).toString('base64url')
+}

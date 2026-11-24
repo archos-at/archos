@@ -18,9 +18,8 @@ import { buildProposalDecisionsBlock, composeMemoryContext } from '@/lib/project
 import { buildReviewDecisionsBlock } from '@/lib/documents/review-decisions'
 import { buildFolderDescriptionsBlock } from '@/lib/filing/folder-descriptions-block'
 import type { VerifiedRequestContext } from '@/lib/request-context'
-import { getDb } from '@/lib/db'
-import { isSoloAudience } from '@/lib/conversations/cross-project-use'
-import { readConversationAudience } from '@/lib/conversations/restricted-use-repository'
+import { promptFacts, type PromptFacts } from '@/lib/conversation-context'
+import type { ConversationDecision } from '@/lib/conversation-context/wire'
 import { countPendingInboxItems, EVERY_INBOX_TYPE } from '@/lib/inbox/repository'
 import { listConversationProposals } from '@/lib/proposals/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
@@ -56,12 +55,11 @@ async function loadWorkspaceBlock(
   context: VerifiedRequestContext,
   projectAccess: ProjectAccess | null,
   query: string | undefined,
-  solo: Promise<boolean | null>,
+  decided: PromptFacts,
 ): Promise<string> {
   const { organizationId, projectId, conversationId, userId } = context
-  const [project, audience, inboxWaiting, activeRuns, proposals, officeConventions] = await Promise.all([
+  const [project, inboxWaiting, activeRuns, proposals, officeConventions] = await Promise.all([
     projectId ? advisory('load the project', () => findProjectInOrg(projectId, organizationId)) : Promise.resolve(null),
-    solo.then((alone) => (alone === null ? null : alone ? ('solo' as const) : ('shared' as const))),
     advisory('count the inbox', () => countPendingInboxItems(organizationId, userId, EVERY_INBOX_TYPE)),
     projectId
       ? advisory('count the project runs', () => countActiveRunsInProject(projectId, organizationId))
@@ -77,7 +75,7 @@ async function loadWorkspaceBlock(
     organizationRole: session.role || null,
     projectRole: projectAccess?.role ?? null,
     project: projectId && project ? { id: projectId, name: project.name, status: project.status } : null,
-    conversation: conversationId ? { id: conversationId, audience: audience ?? 'unknown' } : null,
+    conversation: conversationId ? { id: conversationId, workspaceRead: decided.workspaceRead } : null,
     inboxWaiting,
     activeRuns,
     proposals: (proposals ?? []).slice(0, MAX_WORKSPACE_PROPOSALS).map((row) => ({
@@ -93,16 +91,8 @@ async function loadWorkspaceBlock(
   return renderWorkspaceBlock(facts)
 }
 
-function readSoloAudience(context: VerifiedRequestContext): Promise<boolean | null> {
-  const { organizationId, conversationId, userId } = context
-  if (!conversationId) return Promise.resolve(null)
-  return advisory('load the conversation audience', async () =>
-    isSoloAudience(await readConversationAudience(getDb(), organizationId, conversationId), userId),
-  )
-}
-
-async function loadPersonalMemory(context: VerifiedRequestContext, solo: Promise<boolean | null>): Promise<string | null> {
-  if (context.conversationId && (await solo) !== true) return null
+async function loadPersonalMemory(context: VerifiedRequestContext, decided: PromptFacts): Promise<string | null> {
+  if (!decided.personalMemory) return null
   return advisory('load the personal memory', () =>
     buildPersonalMemoryDigest({ organizationId: context.organizationId, userId: context.userId }),
   )
@@ -134,6 +124,7 @@ export async function loadTurnContext(
   context: VerifiedRequestContext,
   input: TurnContextRequest,
   timing: TurnContextTiming = new TurnContextTiming(),
+  decision: ConversationDecision | null = null,
 ): Promise<TurnContextResponse> {
   const { organizationId, projectId, conversationId } = context
   const projectAccess = await timing.time('access', () => checkAccess(session, context))
@@ -141,7 +132,7 @@ export async function loadTurnContext(
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
   const goldenTurn = goldenTurnFor(organizationId, conversationId)
-  const solo = readSoloAudience(context)
+  const decided = await timing.time('decision', () => promptFacts(context, decision))
   const knowledge = goldenTurn.then(
     (golden) => golden?.knowledgeContext ?? knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
   )
@@ -150,7 +141,7 @@ export async function loadTurnContext(
     projectId ? timed('profile', () => loadProjectPromptView(projectId, organizationId)) : Promise.resolve(null),
     timed('instructions', () => resolveOrgInstructions(organizationId)),
     timed('memory', () => buildProjectMemoryDigest(projectId ?? undefined, organizationId, { query, timing: digestTiming })),
-    timed('personal-memory', () => loadPersonalMemory(context, solo)),
+    timed('personal-memory', () => loadPersonalMemory(context, decided)),
     timed('temporary', () => isTemporaryConversation(conversationId, organizationId)),
     projectId
       ? timed('decisions', () => advisory('load proposal decisions', () => buildProposalDecisionsBlock(projectId, organizationId)))
@@ -161,7 +152,7 @@ export async function loadTurnContext(
     conversationId ? timed('cross-project', () => drewOnOtherProjects(conversationId, organizationId)) : Promise.resolve(false),
     timed('references', () => advisory('load reference projects', () => loadReferenceBrief(organizationId, projectId ?? null))),
     timed('folders', () => advisory('load folder descriptions', () => buildFolderDescriptionsBlock(organizationId, projectId ?? null))),
-    timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query, solo))),
+    timed('workspace', () => advisory('load the workspace block', () => loadWorkspaceBlock(session, context, projectAccess, query, decided))),
     timed('base-knowledge', () => advisory('load the base knowledge', () => loadOfficeStandards(organizationId, projectId ?? null, knowledge))),
     knowledge,
     projectId
