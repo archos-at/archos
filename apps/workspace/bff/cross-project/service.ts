@@ -191,7 +191,7 @@ export async function listLookupProjects(
   await recordCrossProjectHandOut(
     party(caller),
     { projectIds: projects.filter((project) => !project.current).map((project) => project.id), folderIds: [] },
-    reach.key
+    reach.version
   )
   return { projects, total: matching.length }
 }
@@ -217,7 +217,7 @@ export async function readProjectBrief(
     facts,
   }
   if (!brief.project.current) {
-    await recordCrossProjectHandOut(party(caller), { projectIds: [project.id], folderIds: [] }, reach.key)
+    await recordCrossProjectHandOut(party(caller), { projectIds: [project.id], folderIds: [] }, reach.version)
   }
   return brief
 }
@@ -444,7 +444,7 @@ export async function searchAcrossProjects(
         ...permits.flatMap(({ folderIds }) => folderIds),
       ],
     },
-    reach.key
+    reach.version
   )
   const next = request.offset + page.length
   return {

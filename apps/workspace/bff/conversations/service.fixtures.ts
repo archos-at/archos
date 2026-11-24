@@ -48,6 +48,7 @@ export function stubConversation(
     subjectResourceType: null,
     subjectResourceId: null,
     temporary: false,
+    audienceVersion: 0,
     ...tenancy,
   })
 }

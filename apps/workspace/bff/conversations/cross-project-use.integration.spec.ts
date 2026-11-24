@@ -135,16 +135,16 @@ describe.skipIf(!url)('cross-project use against Postgres (migration 0125)', () 
     )
   const keyOf = async (conversationId: string) => {
     const { readConversationAudience } = await import('./restricted-use-repository')
-    return crossUse.audienceKey(await inOrg(ORG, () => readConversationAudience(db, ORG, conversationId)))
+    return (await inOrg(ORG, () => readConversationAudience(db, ORG, conversationId))).version
   }
   const admit = async (
     conversationId: string,
     folders: readonly string[] = [folderId],
     project = ids.other,
-    searchedFor?: string,
+    searchedFor?: number | null,
     answerMessageId?: string
   ) => {
-    const key = searchedFor ?? (await keyOf(conversationId))
+    const key = searchedFor !== undefined ? searchedFor : await keyOf(conversationId)
     return inOrg(ORG, () =>
       crossUse.recordCrossProjectHandOut(
         { organizationId: ORG, userId: OWNER, conversationId, answerMessageId },
