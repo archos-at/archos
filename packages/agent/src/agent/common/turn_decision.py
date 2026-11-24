@@ -256,6 +256,7 @@ def fetch_turn_decision(
     conversation_id: str | None,
     answer_message_id: str | None,
     user_id: str | None = None,
+    organization_id: str | None = None,
 ) -> TurnDecision | None:
     if envelope is None:
         return None
@@ -281,5 +282,11 @@ def fetch_turn_decision(
         return None
     if user_id is not None and decision.user_id != user_id:
         logger.warning("The turn decision names another asker: refused")
+        return None
+    if organization_id is not None and decision.organization_id != organization_id:
+        logger.warning("The turn decision names another organization: refused")
+        return None
+    if decision.kind != "chat":
+        logger.warning("The turn decision is not for a chat turn: refused")
         return None
     return decision

@@ -148,7 +148,13 @@ def _turn_scope() -> list[ScopedCollection] | None:
     if signed is None and decision_required():
         logger.warning("A turn without a signed decision or envelope reads nothing")
         return []
-    return _drawable_only(_parse_scope_payload(signed)) if signed is not None else None
+    if signed is None:
+        return None
+    parsed = _drawable_only(_parse_scope_payload(signed))
+    if parsed is None and decision_required():
+        logger.warning("A turn without a signed decision whose signed scope does not parse reads nothing")
+        return []
+    return parsed
 
 
 def get_scoped_collections_from_context() -> list[ScopedCollection] | None:

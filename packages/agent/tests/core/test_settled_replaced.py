@@ -200,3 +200,28 @@ async def test_a_turn_without_a_decision_keeps_the_old_pre_check_and_is_marked_m
     [_ async for _ in workflow["run"]([], _terminal("A."))]
 
     assert seen == {"begun": True, "missing": True}
+
+
+async def test_a_required_turn_without_a_decision_draws_on_nothing_and_waits_on_no_second_check(workflow, monkeypatch):
+    from agent.knowledge.restricted_use import current_restricted_use
+
+    seen: dict = {}
+
+    async def decide(*_a):
+        return None
+
+    async def never(*_a, **_kw):
+        raise AssertionError("a required turn waited on the restricted-use pre-check after its decision failed")
+
+    def scope():
+        seen["use"] = current_restricted_use()
+
+    monkeypatch.setenv("REQUIRE_AUTH", "true")
+    monkeypatch.setattr(cr, "_decide_turn", decide)
+    monkeypatch.setattr(cr, "begin_restricted_use", never)
+    monkeypatch.setattr(cr, "get_scoped_collections_from_context", scope)
+
+    [_ async for _ in workflow["run"]([], _terminal("A."))]
+
+    assert seen["use"].confined is True
+    assert seen["use"].drawable == set()

@@ -107,19 +107,21 @@ ANSWER = "5a5a5a5a-0000-4000-8000-000000000001"
 
 
 @pytest.mark.parametrize(
-    ("conversation_id", "answer", "user", "accepted"),
+    ("conversation_id", "answer", "user", "organization", "kind", "accepted"),
     [
-        ("s_conv_1", ANSWER, "user_1", True),
-        ("s_other", ANSWER, "user_1", False),
-        ("s_conv_1", "5a5a5a5a-0000-4000-8000-000000000002", "user_1", False),
-        ("s_conv_1", ANSWER, "user_2", False),
+        ("s_conv_1", ANSWER, "user_1", "org_1", "chat", True),
+        ("s_other", ANSWER, "user_1", "org_1", "chat", False),
+        ("s_conv_1", "5a5a5a5a-0000-4000-8000-000000000002", "user_1", "org_1", "chat", False),
+        ("s_conv_1", ANSWER, "user_2", "org_1", "chat", False),
+        ("s_conv_1", ANSWER, "user_1", "org_2", "chat", False),
+        ("s_conv_1", ANSWER, "user_1", "org_1", "run", False),
     ],
 )
-def test_fetch_refuses_a_decision_for_another_conversation_answer_or_asker(
-    monkeypatch, conversation_id, answer, user, accepted
+def test_fetch_refuses_a_decision_for_another_conversation_answer_asker_organization_or_kind(
+    monkeypatch, conversation_id, answer, user, organization, kind, accepted
 ):
     monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
-    header, signature = sign_payload(decision_payload(answerMessageId=ANSWER))
+    header, signature = sign_payload(decision_payload(answerMessageId=ANSWER, kind=kind))
     response = bff_http.BffResponse(
         status=200,
         content_type="application/json",
@@ -128,7 +130,11 @@ def test_fetch_refuses_a_decision_for_another_conversation_answer_or_asker(
     )
     with patch.object(bff_http, "send", return_value=response) as sent:
         fetched = turn_decision.fetch_turn_decision(
-            bff_http.SignedEnvelope("h", "s"), conversation_id=conversation_id, answer_message_id=answer, user_id=user
+            bff_http.SignedEnvelope("h", "s"),
+            conversation_id=conversation_id,
+            answer_message_id=answer,
+            user_id=user,
+            organization_id=organization,
         )
     assert sent.call_args.kwargs["body"] == {"answerMessageId": answer}
     assert (fetched is not None) is accepted

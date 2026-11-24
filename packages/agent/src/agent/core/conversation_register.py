@@ -31,6 +31,7 @@ from agent.common.retrieval_status import documents_loading_step
 from agent.common.turn_decision import MISSING_TRACE
 from agent.common.turn_decision import TurnDecision
 from agent.common.turn_decision import bind_turn_decision
+from agent.common.turn_decision import decision_required
 from agent.common.turn_decision import fetch_turn_decision
 from agent.common.wire_v2 import EventBody
 from agent.common.wire_v2 import RunFinishedBody
@@ -51,6 +52,7 @@ from agent.knowledge.restricted_use import CrossProjectTurn
 from agent.knowledge.restricted_use import begin_restricted_use
 from agent.knowledge.restricted_use import bind_cross_project_turn
 from agent.knowledge.restricted_use import bind_restricted_use
+from agent.knowledge.restricted_use import nothing_drawable
 from agent.knowledge.restricted_use import restricted_use_from_decision
 from agent.knowledge.restricted_use import without_restricted
 from agent.knowledge.scoping import get_scoped_collections_from_context
@@ -423,6 +425,9 @@ async def _bind_turn_decision(request: RequestContext | None, conversation_id: s
     if decision is not None:
         bind_restricted_use(restricted_use_from_decision(decision, request, answer_message_id=answer_id))
         return
+    if decision_required():
+        bind_restricted_use(nothing_drawable(request, conversation_id, answer_message_id=answer_id))
+        return
     bind_restricted_use(
         await spanned(
             "setup.restricted_use", begin_restricted_use(request, conversation_id, answer_message_id=answer_id)
@@ -444,6 +449,7 @@ async def _decide_turn(
         conversation_id=conversation_id,
         answer_message_id=answer_id,
         user_id=getattr(request, "user_id", None),
+        organization_id=getattr(request, "organization_id", None),
     )
 
 
