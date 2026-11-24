@@ -486,12 +486,14 @@ describe('five neutrals, three elevations', () => {
     expect(layer.get('--elevation-lg')).toBe('var(--elevation-3)')
   })
 
-  it('the radius ladder is the brand ladder 4 / 8 / 14 / full, with no stray --radius', () => {
-    const tokens = sheet(TOKENS)
-    for (const step of ['inline', 'control', 'surface', 'overlay', 'bubble']) {
-      expect(valuesOf(tokens, `--radius-${step}`)).toEqual([`var(--ds-radius-${step})`])
-    }
-    expect(valuesOf(tokens, '--radius')).toEqual([])
+  it('the radius ladder is 4 / 8 / 14 / full, with no stray --radius (#1929)', () => {
+    const brand = sheet('shared/brand/tokens.vars.css')
+    expect(valuesOf(brand, '--ds-radius-control')).toContain('4px')
+    expect(valuesOf(brand, '--ds-radius-inline')).toContain('4px')
+    expect(valuesOf(brand, '--ds-radius-surface')).toContain('8px')
+    expect(valuesOf(brand, '--ds-radius-overlay')).toContain('14px')
+    expect(valuesOf(sheet(TOKENS), '--radius-overlay')).toEqual(['var(--ds-radius-overlay)'])
+    expect(valuesOf(sheet(TOKENS), '--radius')).toEqual([])
   })
 
   it('the neutral ladder steps at least 1.07:1 in both themes, and the dark desk is lighter than its paper', () => {
@@ -660,7 +662,7 @@ describe('press, thumb and sheet', () => {
     expect(ratio(layer.get('--field-border') ?? '', layer.get('--desk') ?? '')).toBeGreaterThanOrEqual(3)
   })
 
-  it('a folder is a sheet that opens: 56px, radius 10, elevation 1, a chevron at its end', () => {
+  it('a folder is a sheet that opens: 56px, radius 4 inside its frame, elevation 1, a chevron at its end', () => {
     expect(stringConst(parseSource(moduleOf('FOLDER_SHEET')), 'FOLDER_SHEET')).toBe('rounded-surface bg-sheet shadow-sm')
     const tile = parseSource(moduleOf('FolderCard'))
     expect(elementsNamed(tile, ['FileTileBody']).some((element) => stringAttribute(element, 'className')?.startsWith('flex h-14 '))).toBe(true)

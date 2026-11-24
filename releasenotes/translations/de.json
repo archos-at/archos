@@ -4768,6 +4768,10 @@
     "de": "Die Rechercheschritte hinter einer Antwort kosten jetzt weniger und dauern kürzer. Die Antwort selbst ändert sich nicht."
   },
   {
+    "en": "The rows in the @-mention and /-command lists now round their corners to match the list around them.",
+    "de": "Die Zeilen in den @-Mention- und /-Command-Listen haben jetzt passend zu den Listen abgerundete Ecken."
+  },
+  {
     "en": "The search field in Files is as tall as the buttons beside it, the reading status above the file list stays quiet once everything is read and says each number once, and the office filing looks like a project's files, with its folder row pinned while you scroll.",
     "de": "Das Suchfeld in Files ist genauso hoch wie die Schaltflächen daneben, der Lesestatus über der Dateiliste bleibt ruhig, sobald alles gelesen ist, und gibt jede Zahl nur einmal aus. Die Büroablage sieht aus wie die Dateien eines Projekts, wobei die Ordnerzeile beim Scrollen fixiert bleibt."
   },
