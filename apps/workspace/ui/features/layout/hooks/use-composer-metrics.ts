@@ -3,7 +3,8 @@
 import { useCallback, useRef, useState, type CSSProperties } from 'react'
 import { flushSync } from 'react-dom'
 import type { Transition } from 'motion/react'
-import { springGlide, useInputSinceMount } from '@/components/motion'
+import { springGlide } from '@/components/motion'
+import { useInputSinceMount } from '@/components/motion/use-input-since-mount'
 
 const COMPOSER_GAP_PX = 32
 

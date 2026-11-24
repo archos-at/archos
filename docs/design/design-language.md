@@ -1026,7 +1026,7 @@ times stops being a physical cue and becomes texture.
   not something the reader did: the composer takes its new place at once and
   the greeting fades in on `--motion-snap` without rising. The composer's glide
   and the greeting's rise play only once the reader has pressed or typed anywhere
-  in the window since the chat mounted (`useInputSinceMount` in the motion kit),
+  in the window since the chat mounted (`components/motion/use-input-since-mount`),
   so sending the first message and „Neuer Chat“ keep them; an activation that
   sends no press or key (a screen reader's virtual cursor) places them at once. A line that arrives after its
   count is fetched (mail waiting, a mail import) fades on `duration-snap`, and a
