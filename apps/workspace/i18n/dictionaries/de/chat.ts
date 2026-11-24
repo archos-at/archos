@@ -1021,6 +1021,13 @@ export const chat: typeof en.chat = {
       more: '+{count} weitere',
       less: 'Weniger anzeigen',
     },
+    trail: {
+      label: 'Gelesen in',
+      withheldProject: 'Ein Projekt, das Sie nicht öffnen dürfen',
+      withheldFolder: 'Ein Ordner, den Sie nicht öffnen dürfen',
+      personalShelf: 'Meine Ablage',
+      personalMemory: 'Persönliches Gedächtnis',
+    },
   },
   profilePatchCard: {
     accept: 'Übernehmen',

@@ -75,12 +75,13 @@ function JumpShortcut({ jumpKey }: { jumpKey: string }) {
 
 export interface CommandPaletteProps {
   open: boolean
+  instant?: boolean
   onOpenChange: (open: boolean) => void
   authRequired: boolean
   canViewOrganization: boolean
 }
 
-export function CommandPalette({ open, onOpenChange, authRequired, canViewOrganization }: CommandPaletteProps) {
+export function CommandPalette({ open, instant = true, onOpenChange, authRequired, canViewOrganization }: CommandPaletteProps) {
   const router = useRouter()
   const tNav = useTranslations(navCopy)
   const theme = useLayoutStore((s) => s.theme)
@@ -241,6 +242,7 @@ export function CommandPalette({ open, onOpenChange, authRequired, canViewOrgani
   return (
     <CommandDialog
       open={open}
+      instant={instant}
       onOpenChange={onOpenChange}
       title={t('title')}
       description={t('description')}

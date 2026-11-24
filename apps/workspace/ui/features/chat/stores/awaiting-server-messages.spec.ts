@@ -24,6 +24,9 @@ const client = vi.hoisted(() => ({
   updateTitle: vi.fn().mockResolvedValue(undefined),
   delete: vi.fn().mockResolvedValue(undefined),
   listMessages: vi.fn(),
+  listReadableMessages: vi.fn(async function (this: { listMessages: (id: string) => Promise<unknown[]> }, id: string) {
+    return { messages: await this.listMessages(id) }
+  }),
   createMessage: vi.fn().mockResolvedValue({}),
   createMessages: vi.fn(),
   newestFrameAge: vi.fn().mockResolvedValue(null),

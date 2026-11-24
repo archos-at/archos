@@ -1356,6 +1356,10 @@
     "de": "Die Details einer Antwort zeigen jetzt, was sie in Punkten gekostet hat, und bei Ihrem eigenen KI-Schlüssel, wie viel davon er verbraucht hat. Beim Überfahren der Zeile mit der Maus sehen Sie, wie viel auf Lesen, Schreiben und Denken entfällt."
   },
   {
+    "en": "An answer's details now show where it read: the projects and folders, and whether Meine Ablage or your personal memory was in play.",
+    "de": "Die Details einer Antwort zeigen jetzt, woher sie ihre Informationen hat: aus welchen Projekten und Ordnern und ob Meine Ablage oder Ihr persönlicher Speicher verwendet wurde."
+  },
+  {
     "en": "An archived document can be brought back into the working set, and Piloti reads it again so it answers questions as before.",
     "de": "Ein archiviertes Dokument lässt sich wieder in den Arbeitsbestand aufnehmen, und Piloti liest es erneut ein, damit es Fragen wieder wie zuvor beantworten kann."
   },
@@ -1886,6 +1890,10 @@
   {
     "en": "Clicking into a text field marks it with its border alone instead of a thick frame, and the logo is a little larger and no longer jumps when you open a project.",
     "de": "Ein Klick in ein Textfeld hebt es nur noch durch seinen Rahmen statt durch einen dicken Rahmen hervor; das Logo ist etwas größer und springt beim Öffnen eines Projekts nicht mehr."
+  },
+  {
+    "en": "Clicking the search button now opens search with a short fade, instead of the panel appearing all at once. Ctrl+K still opens it instantly.",
+    "de": "Ein Klick auf den Suchbutton öffnet die Suche jetzt mit einem kurzen Fade-in, statt dass das Panel sofort erscheint. Ctrl+K öffnet sie weiterhin sofort."
   },
   {
     "en": "Closing a document or annotation opened from the search returns to the search as you left it, with its words, filters, view and sort.",
@@ -2650,6 +2658,10 @@
   {
     "en": "If you connected your own AI assistant to the workspace, that connection keeps working under its old addresses for at least one more release. We will publish the new connection names first, and only then retire the old.",
     "de": "Wenn Sie Ihren eigenen KI-Assistenten mit dem Workspace verbunden haben, funktioniert die Verbindung mindestens noch ein weiteres Release unter den bisherigen Adressen. Wir veröffentlichen zuerst die neuen Verbindungsnamen und nehmen erst danach die alten außer Betrieb."
+  },
+  {
+    "en": "If you join a chat later and may not open every source it used, you now see it up to the question that led to such a source, instead of nothing.",
+    "de": "Wenn Sie später zu einem Chat dazukommen und möglicherweise nicht jede darin verwendete Quelle öffnen können, sehen Sie jetzt den Chatverlauf bis zu der Frage, die zu einer solchen Quelle geführt hat, statt gar nichts."
   },
   {
     "en": "If you may review a held upload, you can view the finding and allow it right in the upload message instead of going to the quarantine first.",
