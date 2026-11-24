@@ -1,4 +1,5 @@
 import { NEW_PERSONAL_CHAT_HREF } from './rail-mode'
+import { projectIdFromPathname } from './org-sections'
 
 export const PROJECT_OVERVIEW_PATH = '/app/projects'
 export const NEW_PROJECT_PATH = `${PROJECT_OVERVIEW_PATH}?new=1`
@@ -13,10 +14,14 @@ export function isPlace(path: string): boolean {
   return !NOT_A_PLACE.some((excluded) => bare === excluded || bare === `${excluded}/`) && !bare.startsWith('/app/onboarding/')
 }
 
+const PROJECT_ID = /^[\w-]{1,64}$/
+
 export function landingPath(lastPlace: string | undefined): string {
   if (!lastPlace) return FIRST_PLACE
   const decoded = safeDecode(lastPlace)
-  return decoded && isPlace(decoded) ? decoded : FIRST_PLACE
+  if (!decoded || !isPlace(decoded)) return FIRST_PLACE
+  const projectId = projectIdFromPathname(decoded)
+  return projectId && PROJECT_ID.test(projectId) ? `/app/projects/${projectId}/chat?new=1` : FIRST_PLACE
 }
 
 function safeDecode(value: string): string | null {

@@ -8,9 +8,19 @@ describe('where /app lands', () => {
     expect(landingPath(undefined)).toBe(NEW_PERSONAL_CHAT_HREF)
   })
 
-  it('opens where the person last was', () => {
-    expect(landingPath(encodeURIComponent('/app/projects/p1/files'))).toBe('/app/projects/p1/files')
-    expect(landingPath('/app/personal-shelf')).toBe('/app/personal-shelf')
+  it('opens a new chat in the project the person last worked in, whichever page of it that was', () => {
+    expect(landingPath(encodeURIComponent('/app/projects/p1/files'))).toBe('/app/projects/p1/chat?new=1')
+    expect(landingPath('/app/projects/p1/chat?session=c9')).toBe('/app/projects/p1/chat?new=1')
+  })
+
+  it('opens a new personal chat when the last place was personal or outside a project', () => {
+    expect(landingPath('/app/personal-shelf')).toBe(NEW_PERSONAL_CHAT_HREF)
+    expect(landingPath('/app/personal/chat?session=c1')).toBe(NEW_PERSONAL_CHAT_HREF)
+    expect(landingPath('/app/office-shelf')).toBe(NEW_PERSONAL_CHAT_HREF)
+  })
+
+  it('never builds a path from a project id that is not one', () => {
+    expect(landingPath(encodeURIComponent('/app/projects/a%2F..%2F..%2Fevil/files'))).toBe(NEW_PERSONAL_CHAT_HREF)
   })
 
   it.each([

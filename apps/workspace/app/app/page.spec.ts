@@ -19,8 +19,8 @@ describe('/app', () => {
     await expect(AppIndexPage()).rejects.toThrow('redirect:/app/personal/chat?new=1')
   })
 
-  it('opens the last place the shell recorded', async () => {
+  it('opens a new chat in the project the shell last recorded', async () => {
     cookieValue.current = encodeURIComponent('/app/projects/p1/files')
-    await expect(AppIndexPage()).rejects.toThrow('redirect:/app/projects/p1/files')
+    await expect(AppIndexPage()).rejects.toThrow('redirect:/app/projects/p1/chat?new=1')
   })
 })
