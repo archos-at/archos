@@ -486,10 +486,11 @@ describe('five neutrals, three elevations', () => {
     expect(layer.get('--elevation-lg')).toBe('var(--elevation-3)')
   })
 
-  it('the radius ladder is 6 / 10 / 16 / full, with no stray --radius', () => {
+  it('the radius ladder is the brand ladder 4 / 8 / 14 / full, with no stray --radius', () => {
     const tokens = sheet(TOKENS)
-    expect(valuesOf(tokens, '--radius-overlay')).toContain('16px')
-    expect(valuesOf(tokens, '--radius-inline')).toContain('6px')
+    for (const step of ['inline', 'control', 'surface', 'overlay', 'bubble']) {
+      expect(valuesOf(tokens, `--radius-${step}`)).toEqual([`var(--ds-radius-${step})`])
+    }
     expect(valuesOf(tokens, '--radius')).toEqual([])
   })
 
@@ -813,9 +814,9 @@ describe('a press looks pressable', () => {
 describe('a choice sits on its track', () => {
   it('the kit draws the track and has no trackless form', () => {
     const kit = moduleOf('ToggleGroup')
-    expect(literalHasRun(kit, ['rounded-control', 'bg-desk', 'p-0.5'])).toBe(true)
+    expect(literalHasRun(kit, ['rounded-[6px]', 'bg-desk', 'p-0.5'])).toBe(true)
     expect(classesOf(kit).includes('bare') || summaryOf(kit).identifiers.includes('bare')).toBe(false)
-    expect(literalHasRun(moduleOf('SectionNav'), ['rounded-control', 'bg-desk', 'p-0.5'])).toBe(true)
+    expect(literalHasRun(moduleOf('SectionNav'), ['rounded-[6px]', 'bg-desk', 'p-0.5'])).toBe(true)
   })
 
   it('the Ablage’s places are words with a rule under the open one, never a second track beside the presses (KAN-86)', () => {
