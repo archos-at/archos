@@ -36,7 +36,7 @@ describe('ProjectSectionFrame', () => {
       </ProjectSectionFrame>,
     )
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Overview' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Project settings' })).toBeInTheDocument()
   })
 
   test('renders children only on the chat route — no page heading', () => {
@@ -186,7 +186,7 @@ describe('ProjectSectionFrame', () => {
       const back = screen.getByTestId('page-header-back')
       expect(titleLine().firstElementChild).toContainElement(back)
       expect(back).toHaveAttribute('href', '/app/projects/p1/settings')
-      expect(back).toHaveAccessibleName('Back to Overview')
+      expect(back).toHaveAccessibleName('Back to Project settings')
       expect(back).toHaveClass('size-11', 'md:hidden')
       expect(titleLine().firstElementChild).toHaveClass('md:hidden')
     })

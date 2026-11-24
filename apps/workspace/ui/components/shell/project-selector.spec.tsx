@@ -44,41 +44,46 @@ describe('the project selector is one press', () => {
     expect(selector()).toHaveAccessibleName(/Wohnbau Seestadt Baufeld D12/)
   })
 
-  test('opens the list under it: a search, the projects by name alone, the current one checked', async () => {
+  test('opens the concept’s menu: one list „Projects“, no search, the current one checked, 320px wide', async () => {
     const user = userEvent.setup()
     show()
     await user.click(selector())
-    const list = await screen.findByRole('listbox')
-    const options = within(list).getAllByRole('option')
-    expect(options.map((option) => option.textContent)).toEqual([
-      'Wohnbau Seestadt Baufeld D12',
-      'Sanierung Amtshaus Favoriten',
-      'Overview',
-      'New project',
-    ])
-    expect(screen.getByRole('combobox')).toBeInTheDocument()
+    const menu = await screen.findByTestId('project-switcher-menu')
+    expect(menu).toHaveClass('w-80')
+    expect(within(menu).queryByRole('combobox')).not.toBeInTheDocument()
+    expect(within(menu).getAllByRole('group')).toHaveLength(1)
+    expect(within(menu).getByText('Projects')).toBeInTheDocument()
+    const options = within(menu).getAllByRole('option')
+    expect(options.map((option) => option.textContent)).toEqual(['Wohnbau Seestadt Baufeld D12', 'Sanierung Amtshaus Favoriten'])
   })
 
-  test('ends in the concept’s two rows: the overview of every project, and a new one', async () => {
+  test('ends under a rule in two equal buttons: the overview of every project, and a new one', async () => {
     const user = userEvent.setup()
     show()
     await user.click(selector())
-    await user.click(await screen.findByRole('option', { name: 'Overview' }))
+    const overview = await screen.findByRole('button', { name: 'Overview' })
+    const create = screen.getByRole('button', { name: 'New project' })
+    expect(overview.parentElement).toBe(create.parentElement)
+    expect(overview.parentElement).toHaveClass('grid-cols-2')
+    await user.click(overview)
     expect(push).toHaveBeenLastCalledWith('/app/projects')
     await user.click(selector())
-    await user.click(await screen.findByRole('option', { name: 'New project' }))
+    await user.click(await screen.findByRole('button', { name: 'New project' }))
     expect(push).toHaveBeenLastCalledWith('/app/projects?new=1')
   })
 
-  test('reaches the current project’s own Übersicht from its row: the gear, or choosing the row itself', async () => {
+  test('choosing the current project only closes the menu; its gear alone opens the project settings', async () => {
     const user = userEvent.setup()
     show()
+    push.mockClear()
     await user.click(selector())
-    const hub = await screen.findByRole('link', { name: 'Settings for Wohnbau Seestadt Baufeld D12' })
-    expect(hub).toHaveAttribute('href', '/app/projects/p-1/settings')
-    expect(within(screen.getByRole('option', { name: /Wohnbau Seestadt/ })).getByRole('link')).toBe(hub)
+    const gear = await screen.findByRole('link', { name: 'Project settings of Wohnbau Seestadt Baufeld D12' })
+    expect(gear).toHaveAttribute('href', '/app/projects/p-1/settings')
+    expect(gear).toHaveAttribute('title', 'Project settings')
+    expect(within(screen.getByRole('option', { name: /Wohnbau Seestadt/ })).getByRole('link')).toBe(gear)
     await user.click(screen.getByRole('option', { name: /Wohnbau Seestadt/ }))
-    expect(push).toHaveBeenLastCalledWith('/app/projects/p-1/settings')
+    expect(push).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('project-switcher-menu')).not.toBeInTheDocument()
     await user.click(selector())
     await user.click(await screen.findByRole('option', { name: 'Sanierung Amtshaus Favoriten' }))
     expect(push).toHaveBeenLastCalledWith('/app/projects/p-2/chat')
