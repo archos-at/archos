@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import type { SearchBody, SearchKind, SearchResponse, SearchScopeQuery } from '@/lib/search/search-wire'
-import { readRecentOpened, rememberOpened, type OpenedEntry } from '../lib/recent-opened'
+import { openedEntry, readRecentOpened, rememberOpened, type OpenedEntry } from '../lib/recent-opened'
 import { postSearch } from '../lib/search-client'
 import { hitHref } from '../lib/search-hrefs'
 import { findHitByHref, parseServerTiming } from '../lib/search-telemetry'
@@ -24,7 +24,9 @@ export interface PaletteSearchHandle extends PaletteSearch {
   retry: () => void
 }
 
-const IDLE: PaletteSearch = { answered: '', response: null, loading: false, failed: false }
+type Asked = PaletteSearch & { asked: string }
+
+const IDLE: Asked = { answered: '', asked: '', response: null, loading: false, failed: false }
 
 export function usePaletteSearch(
   text: string,
@@ -32,7 +34,7 @@ export function usePaletteSearch(
   enabled: boolean,
   options: { kinds?: readonly SearchKind[]; limit?: number } = {}
 ): PaletteSearchHandle {
-  const [state, setState] = useState<PaletteSearch>(IDLE)
+  const [state, setState] = useState<Asked>(IDLE)
   const words = text.trim()
   const scopeKey = JSON.stringify(scope)
   const kindsKey = options.kinds ? options.kinds.join(',') : ''
@@ -70,7 +72,7 @@ export function usePaletteSearch(
             serverTiming: parseServerTiming(serverTiming),
             view: 'list',
           })
-          setState({ answered: words, response, loading: false, failed: false })
+          setState({ answered: words, asked: kindsKey, response, loading: false, failed: false })
         })
         .catch(() => {
           if (controller.signal.aborted) return
@@ -83,7 +85,8 @@ export function usePaletteSearch(
     }
   }, [words, scopeKey, enabled, tracker, kindsKey, limit, attempt])
 
-  const { response } = state
+  const current = state.asked === kindsKey
+  const response = current ? state.response : null
   const opening = useCallback(
     (href: string) => {
       const found = response ? findHitByHref(response.sections, href, hitHref) : null
@@ -92,7 +95,7 @@ export function usePaletteSearch(
     },
     [response, tracker]
   )
-  return { ...state, opening, retry }
+  return { answered: current ? state.answered : '', response, loading: state.loading, failed: state.failed, opening, retry }
 }
 
 export interface RecentOpened {
@@ -100,16 +103,21 @@ export interface RecentOpened {
   remember: (response: SearchResponse | null, href: string) => void
 }
 
-export function useRecentOpened(open: boolean): RecentOpened {
+export function useRecentOpened(open: boolean, owner: string | null): RecentOpened {
   const [entries, setEntries] = useState<OpenedEntry[]>([])
 
   useEffect(() => {
-    if (open) setEntries(readRecentOpened())
-  }, [open])
+    if (open) setEntries(owner ? readRecentOpened(owner) : [])
+  }, [open, owner])
 
-  const remember = useCallback((response: SearchResponse | null, href: string) => {
-    const found = response ? findHitByHref(response.sections, href, hitHref) : null
-    if (found) setEntries(rememberOpened(found.hit))
-  }, [])
+  const remember = useCallback(
+    (response: SearchResponse | null, href: string) => {
+      if (!owner) return
+      const found = response ? findHitByHref(response.sections, href, hitHref) : null
+      const entry = found ? openedEntry(found.hit) : readRecentOpened(owner).find((known) => known.href === href)
+      if (entry) setEntries(rememberOpened(owner, entry))
+    },
+    [owner]
+  )
   return { entries, remember }
 }

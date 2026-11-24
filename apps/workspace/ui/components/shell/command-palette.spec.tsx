@@ -8,7 +8,6 @@ import { server } from '@/mocks/server'
 import { I18nProvider } from '@/i18n'
 import type { SearchBody } from '@/lib/search/search-wire'
 import { SEARCH_FIXTURE_RESPONSE } from '@/app/dev/_fixtures/search'
-import { RECENT_OPENED_KEY } from '@/features/search/lib/recent-opened'
 import { CommandPalette } from './command-palette'
 
 const push = vi.fn()
@@ -17,7 +16,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => pathname,
 }))
-vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ signOut: vi.fn() }) }))
+const signOut = vi.hoisted(() => vi.fn())
+vi.mock('@/adapters/auth/use-auth', () => ({ useAuth: () => ({ user: { id: 'user_1' }, organizationId: 'org_1', signOut }) }))
 
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {}
@@ -31,23 +31,30 @@ let asked: Array<{ query: string; body: SearchBody }> = []
 function palette(): ReactElement {
   return (
     <I18nProvider initialLocale="de" fixedLocale>
-      <CommandPalette open onOpenChange={() => {}} />
+      <CommandPalette open onOpenChange={() => {}} authRequired canViewOrganization />
     </I18nProvider>
   )
 }
 
 const field = (): HTMLElement => screen.getByPlaceholderText(/./)
 
+function ofKinds(kinds: SearchBody['kinds']): typeof SEARCH_FIXTURE_RESPONSE {
+  if (!kinds) return SEARCH_FIXTURE_RESPONSE
+  const sections = Object.fromEntries(Object.entries(SEARCH_FIXTURE_RESPONSE.sections).filter(([kind]) => kinds.some((asked) => asked === kind)))
+  return { ...SEARCH_FIXTURE_RESPONSE, sections }
+}
+
 describe('CommandPalette: the workspace search', () => {
   beforeEach(() => {
     asked = []
     push.mockClear()
     pathname = '/app/projects'
-    window.localStorage.removeItem(RECENT_OPENED_KEY)
+    window.localStorage.clear()
     server.use(
       http.post('*/api/search', async ({ request }) => {
-        asked.push({ query: new URL(request.url).search, body: (await request.json()) as SearchBody })
-        return HttpResponse.json(SEARCH_FIXTURE_RESPONSE)
+        const body = (await request.json()) as SearchBody
+        asked.push({ query: new URL(request.url).search, body })
+        return HttpResponse.json(ofKinds(body.kinds))
       }),
     )
   })
@@ -236,10 +243,18 @@ describe('CommandPalette: the workspace search', () => {
     expect(calls).toBe(2)
   })
 
-  it('before anything is typed: nothing to choose until something was opened from here', async () => {
+  it('before anything is typed: the general entries, and no line about an empty list', async () => {
     render(palette())
-    expect(screen.getByTestId('palette-start')).toHaveTextContent('Noch nichts geöffnet')
-    expect(screen.queryAllByRole('option')).toHaveLength(0)
+    expect(screen.queryByTestId('palette-recent-opened')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Noch nichts/)).not.toBeInTheDocument()
+    expect(screen.getAllByRole('option').map((row) => row.textContent?.replace(/G\s*dann\s*\w$/, ''))).toEqual([
+      'Neues Projekt',
+      'Alle Projekte',
+      'Organisation',
+      'Profil',
+      'Design umschalten',
+      'Abmelden',
+    ])
     expect(asked).toHaveLength(0)
   })
 
@@ -261,12 +276,73 @@ describe('CommandPalette: the workspace search', () => {
     expect(push).toHaveBeenCalledWith(`/app/projects/${PROJECT}/files?doc=${CONCEPT}`)
   })
 
-  it('holds no command: no project list, no section, no theme switch, no sign-out', async () => {
+  it('keeps the general entries findable by name, below the hits, and lists no project and no section of one', async () => {
+    pathname = `/app/projects/${PROJECT}/files`
     render(palette())
+    for (const gone of ['Aktuelles Projekt', 'Projekte', 'Dateien' + ' ', 'Übersicht', 'Einrichtung']) {
+      expect(screen.queryByRole('option', { name: gone.trim() })).not.toBeInTheDocument()
+    }
     await userEvent.type(field(), 'Profil')
     await screen.findByTestId('palette-workspace-search')
-    for (const command of ['Profil', 'Design umschalten', 'Abmelden', 'Neues Projekt', 'Alle Projekte']) {
-      expect(screen.queryByText(command)).not.toBeInTheDocument()
-    }
+    await userEvent.click(screen.getByRole('option', { name: 'Profil' }))
+    expect(push).toHaveBeenCalledWith('/app/profile')
+  })
+
+  it('signs out from the general entries only where signing in is required', async () => {
+    render(palette())
+    await userEvent.click(screen.getByRole('option', { name: 'Abmelden' }))
+    expect(signOut).toHaveBeenCalled()
+  })
+
+  it('reaches the search page from an empty field by Ctrl+Enter, with no entry for it under the general ones', async () => {
+    render(palette())
+    expect(screen.queryByText('Suche mit Filtern öffnen')).not.toBeInTheDocument()
+    field().focus()
+    await userEvent.keyboard('{Control>}{Enter}{/Control}')
+    expect(push).toHaveBeenCalledWith('/app/search')
+  })
+
+  it('after a change of kind shows no hit of the kind before, and Enter waits for the new answer', async () => {
+    let release: (() => void) | null = null
+    render(palette())
+    await userEvent.type(field(), 'Fluchtweg')
+    await screen.findByTestId(`palette-search-hit-document-${CONCEPT}`)
+    server.use(
+      http.post('*/api/search', async ({ request }) => {
+        const body = (await request.json()) as SearchBody
+        await new Promise<void>((resolve) => {
+          release = resolve
+        })
+        return HttpResponse.json(ofKinds(body.kinds))
+      })
+    )
+    await userEvent.click(screen.getByTestId('palette-kind-chats'))
+    expect(field()).toHaveFocus()
+    expect(screen.queryByTestId(`palette-search-hit-document-${CONCEPT}`)).not.toBeInTheDocument()
+    await userEvent.keyboard('{Enter}')
+    expect(push).not.toHaveBeenCalled()
+    await waitFor(() => expect(release).not.toBeNull())
+    release!()
+    await waitFor(() => expect(push).toHaveBeenCalledWith(expect.stringMatching(/\/chat\?session=/)))
+  })
+
+  it('Enter on a kind chooses the kind and opens nothing', async () => {
+    render(palette())
+    await userEvent.type(field(), 'Fluchtweg')
+    await screen.findByTestId(`palette-search-hit-document-${CONCEPT}`)
+    screen.getByTestId('palette-kind-chats').focus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(asked.at(-1)?.body.kinds).toEqual(['conversation']))
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('carries the chosen kind to the search page, with the count of that kind', async () => {
+    render(palette())
+    await userEvent.type(field(), 'Fluchtweg')
+    await userEvent.click(screen.getByTestId('palette-kind-chats'))
+    const all = await screen.findByTestId('palette-workspace-search')
+    await waitFor(() => expect(all).toHaveTextContent('Alle 1 Treffer mit Filtern öffnen'))
+    await userEvent.click(all)
+    expect(push).toHaveBeenCalledWith('/app/search?q=Fluchtweg&kind=conversation')
   })
 })

@@ -141,7 +141,7 @@ function AppSidebarFrame({
 
   const isChatRoute = pathname === `${base}/chat` || pathname.startsWith(`${base}/chat/`)
   const iconRail = state === 'collapsed' && !isMobile && !peek
-  const chatOpen = railChats?.items.some((chat) => chat.current) ?? false
+  const chatOpen = railChats ? (railChats.chatOpen ?? railChats.items.some((chat) => chat.current)) : false
   const back = phoneBackTarget(pathname, projectId)
   const pageHasHeader = framesProjectPage(pathname, projectId)
 

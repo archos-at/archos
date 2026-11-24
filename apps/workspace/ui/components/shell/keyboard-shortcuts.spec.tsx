@@ -43,20 +43,33 @@ describe('KeyboardShortcuts', () => {
     )
   })
 
-  test('⌘K opens the search, which holds no command', async () => {
+  test('⌘K opens the search with the general entries, and lists no project and no section', async () => {
     pathname = '/app/projects/p1/chat'
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     pressCmdK()
 
     expect(await screen.findByPlaceholderText('Find files, chats and projects …')).toBeInTheDocument()
-    for (const command of ['Current project', 'General', 'New project', 'Organization', 'Profile', 'Toggle theme', 'Sign out', 'Alpine Tower']) {
-      expect(screen.queryByText(command)).toBeNull()
+    for (const entry of ['General', 'New project', 'Organization', 'Profile', 'Toggle theme', 'Sign out']) {
+      expect(screen.getByText(entry)).toBeInTheDocument()
+    }
+    for (const gone of ['Current project', 'Alpine Tower', 'Setup']) {
+      expect(screen.queryByText(gone)).toBeNull()
     }
   })
 
+  test('org and sign-out entries follow their capability props', async () => {
+    render(<KeyboardShortcuts authRequired={false} canViewOrganization={false} />)
+
+    pressCmdK()
+
+    expect(await screen.findByText('New project')).toBeInTheDocument()
+    expect(screen.queryByText('Organization')).toBeNull()
+    expect(screen.queryByText('Sign out')).toBeNull()
+  })
+
   test('? opens the shortcuts cheatsheet', async () => {
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
@@ -72,7 +85,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('the cheatsheet documents every jump the handler actually binds', async () => {
-    render(<KeyboardShortcuts canViewOrganization canAccessOfficeShelf />)
+    render(<KeyboardShortcuts authRequired canViewOrganization canAccessOfficeShelf />)
 
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
@@ -90,7 +103,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('a gated-off shortcut group row disappears with its feature', async () => {
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: '?', shiftKey: true })
 
@@ -99,7 +112,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('g then p navigates to the projects list', async () => {
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'p' })
@@ -109,7 +122,7 @@ describe('KeyboardShortcuts', () => {
 
   test('g then a section key jumps within the project the user is in', async () => {
     pathname = '/app/projects/p1/chat'
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'f' })
@@ -119,7 +132,7 @@ describe('KeyboardShortcuts', () => {
 
   test('a project-scoped jump outside a project does nothing', () => {
     pathname = '/app/profile'
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'f' })
@@ -129,7 +142,7 @@ describe('KeyboardShortcuts', () => {
 
   test('cross-project doorways jump from anywhere, and stay gated', async () => {
     pathname = '/app/profile'
-    const { unmount } = render(<KeyboardShortcuts canViewOrganization canAccessOfficeShelf />)
+    const { unmount } = render(<KeyboardShortcuts authRequired canViewOrganization canAccessOfficeShelf />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'a' })
@@ -137,7 +150,7 @@ describe('KeyboardShortcuts', () => {
 
     unmount()
     push.mockClear()
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'a' })
@@ -145,7 +158,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('a lone modifier keypress does not spend the armed leader', async () => {
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'Shift', shiftKey: true })
@@ -156,7 +169,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('Escape cancels a pending leader sequence', () => {
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'Escape' })
@@ -166,7 +179,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('an unbound second key disarms the leader instead of navigating', () => {
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'z' })
@@ -177,7 +190,7 @@ describe('KeyboardShortcuts', () => {
   })
 
   test('a bare modifier keypress does not spend the armed leader', async () => {
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     fireEvent.keyDown(window, { key: 'g' })
     fireEvent.keyDown(window, { key: 'Shift', shiftKey: true })
@@ -190,7 +203,7 @@ describe('KeyboardShortcuts', () => {
     render(
       <>
         <input aria-label="Field" />
-        <KeyboardShortcuts canViewOrganization />
+        <KeyboardShortcuts authRequired canViewOrganization />
       </>,
     )
 
@@ -208,7 +221,7 @@ describe('KeyboardShortcuts', () => {
     window.localStorage.setItem(SHORTCUTS_PREFERENCE_KEY, 'false')
     const addListener = vi.spyOn(window, 'addEventListener')
 
-    const { container } = render(<KeyboardShortcuts canViewOrganization />)
+    const { container } = render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     expect(addListener.mock.calls.filter(([type]) => type === 'keydown')).toHaveLength(0)
     expect(container).toBeEmptyDOMElement()
@@ -229,7 +242,7 @@ describe('KeyboardShortcuts', () => {
     render(
       <>
         <ShellSearchButton />
-        <KeyboardShortcuts canViewOrganization />
+        <KeyboardShortcuts authRequired canViewOrganization />
       </>,
     )
     expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull()
@@ -244,7 +257,7 @@ describe('KeyboardShortcuts', () => {
 
   test('with shortcuts off the keys are inert, but the search button still opens the palette', async () => {
     window.localStorage.setItem(SHORTCUTS_PREFERENCE_KEY, 'false')
-    render(<KeyboardShortcuts canViewOrganization />)
+    render(<KeyboardShortcuts authRequired canViewOrganization />)
 
     pressCmdK()
     expect(screen.queryByPlaceholderText('Find files, chats and projects …')).toBeNull()
@@ -257,7 +270,7 @@ describe('KeyboardShortcuts', () => {
     const addListener = vi.spyOn(window, 'addEventListener')
     const removeListener = vi.spyOn(window, 'removeEventListener')
 
-    const { unmount } = render(<KeyboardShortcuts canViewOrganization />)
+    const { unmount } = render(<KeyboardShortcuts authRequired canViewOrganization />)
     const added = addListener.mock.calls.filter(([type]) => type === 'keydown')
     expect(added).toHaveLength(1)
 

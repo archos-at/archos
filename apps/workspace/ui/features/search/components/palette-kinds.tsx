@@ -39,6 +39,7 @@ export function PaletteKinds({ value, onChange }: { value: PaletteKind; onChange
       }}
       aria-label={t('kindFilter.label')}
       className="flex-nowrap gap-0.5"
+      onKeyDown={(event) => event.stopPropagation()}
       data-testid="palette-kinds"
     >
       {PALETTE_KINDS.map((kind) => (

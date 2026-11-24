@@ -10,11 +10,11 @@ import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { useShellOverlays } from './shell-overlays'
-import { ShortcutKeys } from './shortcut-keys'
-import { MOD } from './shortcuts'
+import { useModifierLabel } from './shortcut-keys'
 
 export function ShellSearchButton({ className }: { className?: string }): JSX.Element {
   const t = useTranslations(navCopy)
+  const mod = useModifierLabel()
   const open = useShellOverlays((s) => s.paletteOpen)
   const setOpen = useShellOverlays((s) => s.setPaletteOpen)
   return (
@@ -38,10 +38,10 @@ export function ShellSearchButton({ className }: { className?: string }): JSX.El
       <Search className="size-[1.125rem]" aria-hidden />
     </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <span className="flex items-center gap-2">
+      <TooltipContent side="bottom" tone="paper">
+        <span className="flex items-baseline gap-2">
           {t('search.open')}
-          <ShortcutKeys segments={[{ kind: 'chord', caps: [MOD, 'K'] }]} />
+          <span className="text-muted-foreground font-normal">{mod} K</span>
         </span>
       </TooltipContent>
     </Tooltip>

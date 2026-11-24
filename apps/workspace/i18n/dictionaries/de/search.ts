@@ -310,8 +310,6 @@ export const search: typeof en.search = {
     retryHint: 'Meist reicht ein zweiter Versuch; sonst die Verbindung prüfen.',
     ofTotal: '{shown} von {total}',
     allIn: 'In {project}',
-    start: 'Noch nichts geöffnet',
-    startHint: 'Was Sie von hier aus öffnen, steht beim nächsten Mal an dieser Stelle.',
     recentOpened: 'Zuletzt geöffnet',
     opened: {
       annotation: 'Anmerkung',

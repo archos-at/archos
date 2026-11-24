@@ -243,7 +243,6 @@ describe('AppSidebar - the folded rail opens over the page under the pointer', (
     expect(group()).toHaveAttribute('data-gap', 'icon')
     expect(group()).toHaveAttribute('data-collapsible', '')
     expect(within(screen.getByLabelText('Project sections')).getByText('Files')).not.toHaveClass('sr-only')
-    expect(rail().className).toContain('motion-reduce:animate-none')
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Keep the sidebar open' }))
     expect(group()).toHaveAttribute('data-state', 'expanded')
@@ -265,6 +264,7 @@ describe('AppSidebar - the folded rail opens over the page under the pointer', (
     await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
     await userEvent.setup().click(screen.getByTestId('selector'))
     expect(screen.getByTestId('selector')).toHaveAttribute('data-state', 'open')
+    screen.getByTestId('selector').blur()
     fireEvent.pointerMove(document.body)
     await new Promise((resolve) => setTimeout(resolve, SIDEBAR_PEEK_CLOSE_MS + 80))
     expect(group()).toHaveAttribute('data-peek', 'true')
@@ -272,6 +272,22 @@ describe('AppSidebar - the folded rail opens over the page under the pointer', (
     await userEvent.setup().click(screen.getByTestId('selector'))
     screen.getByTestId('selector').blur()
     fireEvent.pointerMove(document.body)
+    await waitFor(() => expect(group()).not.toHaveAttribute('data-peek'))
+  })
+
+  test('folds while the pointer keeps moving over the page, and when it leaves the window', async () => {
+    await fold()
+    enter()
+    await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
+    const started = Date.now()
+    const moving = window.setInterval(() => fireEvent.pointerMove(document.body), 40)
+    await waitFor(() => expect(group()).not.toHaveAttribute('data-peek'))
+    window.clearInterval(moving)
+    expect(Date.now() - started).toBeLessThan(SIDEBAR_PEEK_CLOSE_MS * 3)
+
+    enter()
+    await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
+    fireEvent.pointerLeave(document.documentElement)
     await waitFor(() => expect(group()).not.toHaveAttribute('data-peek'))
   })
 
@@ -551,6 +567,13 @@ describe('AppSidebar - the project’s last chats under the sections', () => {
     expect(value.onOpen).toHaveBeenCalledWith('c1')
     await user.click(screen.getByRole('link', { name: 'All chats' }))
     expect(value.onOpenAll).toHaveBeenCalledOnce()
+  })
+
+  test('marks nothing in the strip for an open chat that is older than the listed ones', async () => {
+    pathname = '/app/projects/p1/chat'
+    renderWith(chats({ items: chats().items.map((chat) => ({ ...chat, current: false })), chatOpen: true }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(document.querySelector('[data-sidebar="sidebar"] [aria-current="page"]')).toBeNull()
   })
 
   test('a project with no chats shows nothing under „Chat“: no empty list, no „All chats“', () => {

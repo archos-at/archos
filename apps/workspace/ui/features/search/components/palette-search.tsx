@@ -231,9 +231,9 @@ export interface PaletteRecentOpenedProps {
   itemClassName?: string
 }
 
-export function PaletteRecentOpened({ entries, onOpen, itemClassName }: PaletteRecentOpenedProps): JSX.Element {
+export function PaletteRecentOpened({ entries, onOpen, itemClassName }: PaletteRecentOpenedProps): JSX.Element | null {
   const t = useTranslations(searchCopy)
-  if (entries.length === 0) return <PaletteEmpty title={t('palette.start')} hint={t('palette.startHint')} testId="palette-start" />
+  if (entries.length === 0) return null
   return (
     <CommandGroup heading={t('palette.recentOpened')} forceMount data-testid="palette-recent-opened">
       {entries.map((entry) => (

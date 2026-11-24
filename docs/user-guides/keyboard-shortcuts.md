@@ -105,15 +105,17 @@ Listed in the cheatsheet only for offices with project mail:
 
 ## The search window
 
-⌘K and the magnifier at the top of the sidebar open the same window, and it is
-only the search: no command stands in it. The field finds files, chats and
-projects across the whole office, also from inside a project, and the line
-under it narrows to one kind (Alles, Dateien, Chats, Projekte) and says where
-it searches („im ganzen Büro“). Before anything is typed it lists what was
-opened from this window last, in this browser. With hits, the last row opens
-all of them on the search page with its filters (⌘↵ from any row); that page
-has no entry in the sidebar any more. Profile, theme and sign-out are in the
-menu at your name, and the `g` jumps below still reach every place.
+⌘K and the magnifier at the top of the sidebar open the same window. The field
+finds files, chats and projects across the whole office, also from inside a
+project, and the line under it narrows to one kind (Alles, Dateien, Chats,
+Projekte) and says where it searches („im ganzen Büro“). Before anything is
+typed it lists what you opened from this window last (kept in this browser,
+per person and office), then the general entries under „Allgemein“: a new
+project, all projects, the organisation, the profile, the theme and sign-out. Typing a general entry's name finds it below the hits.
+With hits, the last row opens all of them on the search page with its filters,
+narrowed to the chosen kind (⌘↵ from any row, and from an empty field the page
+as it is); that page has no entry in the sidebar any more. The window no longer lists projects or the sections of the
+current project: projects are found by typing, sections by their `g` jumps.
 
 ## For maintainers
 

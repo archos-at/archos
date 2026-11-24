@@ -23,6 +23,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 export interface KeyboardShortcutsProps {
+  authRequired: boolean
   canViewOrganization: boolean
   showKnowledge?: boolean
   showModels?: boolean
@@ -35,6 +36,7 @@ export interface KeyboardShortcutsProps {
 }
 
 export function KeyboardShortcuts({
+  authRequired,
   canViewOrganization,
   showKnowledge = false,
   showModels = false,
@@ -136,7 +138,7 @@ export function KeyboardShortcuts({
     <>
       {/* Mounted whether or not shortcuts are on: turning the keys off must
           not take the search button's palette with them. */}
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} authRequired={authRequired} canViewOrganization={canViewOrganization} />
       {/* Only `?` opens the cheatsheet, so it only ever opens for someone at a
           keyboard; with shortcuts off it is not mounted at all. */}
       {enabled && (

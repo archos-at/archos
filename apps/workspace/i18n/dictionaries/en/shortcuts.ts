@@ -3,6 +3,8 @@ export const shortcuts = {
     title: 'Search',
     description: 'Find and open files, chats and projects across the office.',
     placeholder: 'Find files, chats and projects …',
+    general: 'General',
+    toggleTheme: 'Toggle theme',
     hints: {
       move: 'choose',
       open: 'open',

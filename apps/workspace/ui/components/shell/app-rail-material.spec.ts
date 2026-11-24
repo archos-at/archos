@@ -134,10 +134,7 @@ const WHITE_ALLOWED: Record<string, { fill: RegExp; what: string }[]> = {
   'ui/components/shell/app-sidebar': [{ fill: /bg-sheet absolute inset-0 rounded-control shadow-xs/, what: 'the current section: a sheet with the thumb’s shadow' }],
   'ui/components/shell/phone-tab-bar': [{ fill: /in-data-\[scope=project\]:bg-sheet in-data-\[scope=project\]:shadow-xs/, what: 'the current tab: the same sheet' }],
   'ui/components/shell/phone-more-sheet': [{ fill: /bg-sheet shadow-press/, what: 'the phone’s project selector, the first row of „Mehr“: a press' }],
-  'ui/components/ui/sidebar': [
-    { fill: /data-\[active=true\]:bg-sheet/, what: 'the primitive’s active row' },
-    { fill: /group-data-\[peek\]:shadow-lg/, what: 'the folded rail opened over the page under the pointer: it lies on the page and casts on it' },
-  ],
+  'ui/components/ui/sidebar': [{ fill: /data-\[active=true\]:bg-sheet/, what: 'the primitive’s active row' }],
 }
 
 const stemOf = (file: string): string => file.replace(/\.[^/.]+$/, '')

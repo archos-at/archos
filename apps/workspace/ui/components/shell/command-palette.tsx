@@ -3,10 +3,13 @@
 import * as React from 'react'
 import { defaultFilter } from 'cmdk'
 import { useRouter } from 'next/navigation'
+import { Building2, FolderKanban, LogOut, Moon, Plus, Sun, UserRound } from 'lucide-react'
 
-import { CommandDialog, CommandInput, CommandList } from '@/components/ui/command'
+import { useAuth } from '@/adapters/auth/use-auth'
+import { CommandDialog, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator, CommandShortcut } from '@/components/ui/command'
 import { DialogClose } from '@/components/ui/dialog'
 import { useHeightGlide } from '@/components/motion/height-glide'
+import { useLayoutStore } from '@/features/layout/store'
 import {
   PALETTE_ALL_RESULTS_VALUE,
   PALETTE_LATE_ANSWER_MS,
@@ -32,10 +35,11 @@ import { useDelayedFlag } from '@/hooks/use-transient-flag'
 import { useTranslations } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { commonCopy } from '@/i18n/namespaces/common'
+import { navCopy } from '@/i18n/namespaces/nav'
 import { searchCopy } from '@/i18n/namespaces/search'
 import { shortcutsCopy } from '@/i18n/namespaces/shortcuts'
 import { ShortcutKeys } from './shortcut-keys'
-import { MOD } from './shortcuts'
+import { LEADER_KEY, MOD } from './shortcuts'
 
 export function projectIdFromPathname(pathname: string): string | null {
   const match = /^\/app\/projects\/([^/]+)/.exec(pathname)
@@ -55,13 +59,32 @@ const PHONE_PALETTE_CLASS = [
 
 const OFFICE = {}
 
+function JumpShortcut({ jumpKey }: { jumpKey: string }) {
+  return (
+    <CommandShortcut className="pointer-coarse:hidden">
+      <ShortcutKeys
+        segments={[
+          { kind: 'chord', caps: [LEADER_KEY.toUpperCase()] },
+          { kind: 'then' },
+          { kind: 'chord', caps: [jumpKey.toUpperCase()] },
+        ]}
+      />
+    </CommandShortcut>
+  )
+}
+
 export interface CommandPaletteProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  authRequired: boolean
+  canViewOrganization: boolean
 }
 
-export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+export function CommandPalette({ open, onOpenChange, authRequired, canViewOrganization }: CommandPaletteProps) {
   const router = useRouter()
+  const tNav = useTranslations(navCopy)
+  const theme = useLayoutStore((s) => s.theme)
+  const setTheme = useLayoutStore((s) => s.setTheme)
   const t = useTranslations(shortcutsCopy, 'palette')
   const tSearch = useTranslations(searchCopy)
   const tCommon = useTranslations(commonCopy)
@@ -77,13 +100,19 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   const asked = React.useMemo(() => paletteKindQuery(kind), [kind])
   const search = usePaletteSearch(query, OFFICE, open, asked)
-  const recent = useRecentOpened(open)
+  const { user, organizationId, signOut } = useAuth()
+  const recent = useRecentOpened(open, user ? `${organizationId ?? ''}:${user.id}` : null)
+  const field = React.useRef<HTMLInputElement>(null)
+  const chooseKind = React.useCallback((next: PaletteKind) => {
+    setKind(next)
+    field.current?.focus()
+  }, [])
 
   const [selected, setSelected] = React.useState('')
   const movedByReader = React.useRef(false)
   React.useEffect(() => {
     movedByReader.current = false
-  }, [words])
+  }, [words, kind])
   const answerHits = React.useMemo(
     () => (search.answered === words && search.response ? paletteHits(search.response, asked.limit).map(paletteHitValue) : []),
     [search.answered, search.response, words, asked.limit],
@@ -116,7 +145,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     },
     [remember, response, opening, onOpenChange, router],
   )
-  const allHref = words ? searchPageHref(words) : null
+  const allHref = searchPageHref(words, null, asked.kinds ?? null)
   const awaitingAnswer = words !== '' && !search.failed && (search.loading || search.answered !== words)
   const [heldEnter, setHeldEnter] = React.useState<string | null>(null)
   React.useEffect(() => {
@@ -127,8 +156,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     }
     if (awaitingAnswer) return
     setHeldEnter(null)
-    openSearchHref(firstHit ? paletteHitHref(firstHit) : searchPageHref(words))
-  }, [heldEnter, words, search.failed, awaitingAnswer, firstHit, openSearchHref])
+    openSearchHref(firstHit ? paletteHitHref(firstHit) : allHref)
+  }, [heldEnter, words, search.failed, awaitingAnswer, firstHit, openSearchHref, allHref])
   const onFieldKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -137,7 +166,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       }
       if (event.key !== 'Enter') return
       const chord = event.metaKey || event.ctrlKey
-      if (chord && allHref) {
+      if (chord) {
         event.preventDefault()
         openSearchHref(allHref)
         return
@@ -188,6 +217,27 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   }, [listElement])
   useHeightGlide(listRef, desktop && open ? `${search.answered}|${search.loading}` : null)
 
+  const runCommand = React.useCallback(
+    (action: () => void) => {
+      onOpenChange(false)
+      action()
+    },
+    [onOpenChange],
+  )
+  const toggleTheme = React.useCallback(() => {
+    const prefersDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isDark = theme === 'dark' || (theme === 'system' && prefersDark)
+    setTheme(isDark ? 'light' : 'dark')
+  }, [theme, setTheme])
+  const general: { key: string; label: string; icon: React.ComponentType<{ className?: string }>; run: () => void; jump?: string }[] = [
+    { key: 'new-project', label: tNav('projectSwitcher.newProject'), icon: Plus, run: () => router.push('/app/projects?new=1') },
+    { key: 'all-projects', label: tNav('projectSwitcher.allProjects'), icon: FolderKanban, run: () => router.push('/app/projects'), jump: 'p' },
+    ...(canViewOrganization ? [{ key: 'organization', label: tNav('userMenu.organization'), icon: Building2, run: () => router.push('/app/organization'), jump: 'o' }] : []),
+    { key: 'profile', label: tNav('userMenu.profile'), icon: UserRound, run: () => router.push('/app/profile') },
+    { key: 'toggle-theme', label: t('toggleTheme'), icon: theme === 'dark' ? Sun : Moon, run: toggleTheme },
+    ...(authRequired ? [{ key: 'sign-out', label: tCommon('actions.signOut'), icon: LogOut, run: () => void signOut() }] : []),
+  ]
+
   return (
     <CommandDialog
       open={open}
@@ -212,8 +262,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       }
     >
       <div className="shrink-0 border-b">
-        <div className="flex items-center [&_[data-slot=command-input-wrapper]]:flex-1 [&_[data-slot=command-input-wrapper]]:border-b-0 max-md:[&_[data-slot=command-input-wrapper]]:h-14 max-md:[&_[data-slot=command-input-wrapper]]:bg-transparent!">
+        <div className="flex items-center [&_[data-slot=command-input-wrapper]]:flex-1 [&_[data-slot=command-input-wrapper]]:border-b-0 [&_[data-slot=command-input-wrapper]]:bg-transparent! md:[&_[data-slot=command-input-wrapper]]:h-12 max-md:[&_[data-slot=command-input-wrapper]]:h-14">
           <CommandInput
+            ref={field}
             value={query}
             onValueChange={setQuery}
             onKeyDown={onFieldKeyDown}
@@ -229,8 +280,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             {tCommon('actions.cancel')}
           </DialogClose>
         </div>
-        <div className="flex items-center justify-between gap-3 px-2 pb-2">
-          <PaletteKinds value={kind} onChange={setKind} />
+        <div className="flex items-center justify-between gap-3 px-2 pt-1 pb-2.5">
+          <PaletteKinds value={kind} onChange={chooseKind} />
           <span className="text-muted-foreground shrink-0 pr-1 text-xs" data-testid="palette-scope">
             {tSearch('palette.scope.office')}
           </span>
@@ -248,13 +299,23 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             failed={search.failed}
             onOpen={openSearchHref}
             onRetry={search.retry}
-            allHref={allHref ?? searchPageHref(words)}
+            allHref={allHref}
             perKind={asked.limit}
             itemClassName={PALETTE_ITEM_CLASS}
           />
         ) : (
           <PaletteRecentOpened entries={recent.entries} onOpen={openSearchHref} itemClassName={PALETTE_ITEM_CLASS} />
         )}
+        {(words !== '' || recent.entries.length > 0) && <CommandSeparator />}
+        <CommandGroup heading={t('general')}>
+          {general.map((item) => (
+            <CommandItem key={item.key} value={`${item.key} ${item.label}`} onSelect={() => runCommand(item.run)} className={PALETTE_ITEM_CLASS}>
+              <item.icon className="text-muted-foreground" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {item.jump ? <JumpShortcut jumpKey={item.jump} /> : null}
+            </CommandItem>
+          ))}
+        </CommandGroup>
       </CommandList>
     </CommandDialog>
   )

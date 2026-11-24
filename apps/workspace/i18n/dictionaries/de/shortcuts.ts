@@ -5,6 +5,8 @@ export const shortcuts: typeof en.shortcuts = {
     title: 'Suche',
     description: 'Dateien, Chats und Projekte im ganzen Büro finden und öffnen.',
     placeholder: 'Dateien, Chats und Projekte finden …',
+    general: 'Allgemein',
+    toggleTheme: 'Design umschalten',
     hints: {
       move: 'wählen',
       open: 'öffnen',

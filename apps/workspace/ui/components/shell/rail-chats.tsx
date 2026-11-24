@@ -23,6 +23,7 @@ export interface RailChat {
 
 export interface RailChats {
   items: RailChat[]
+  chatOpen?: boolean
   allHref: string
   onOpen?: (id: string) => void
   onOpenAll?: () => void

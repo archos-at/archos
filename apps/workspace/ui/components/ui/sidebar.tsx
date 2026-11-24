@@ -237,7 +237,7 @@ function Sidebar({
             ? 'left-0 group-data-[collapsible=offcanvas]:-translate-x-full'
             : 'right-0 group-data-[collapsible=offcanvas]:translate-x-full',
           'group-data-[side=left]:border-r group-data-[side=right]:border-l border-sidebar-border', 'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
-          'group-data-[peek]:z-30 group-data-[peek]:shadow-lg group-data-[peek]:animate-rail-peek motion-reduce:animate-none',
+          'group-data-[peek]:z-30 group-data-[peek]:animate-rail-peek motion-reduce:group-data-[peek]:animate-none',
           className,
         )}
         {...props}
@@ -275,7 +275,7 @@ function SidebarRail({
   onKeyDown,
   ...props
 }: React.ComponentProps<'button'>): React.JSX.Element {
-  const { toggleSidebar, setOpen, state, width, setWidth } = useSidebar()
+  const { toggleSidebar, setOpen, state, peek, width, setWidth } = useSidebar()
   const [resizing, setResizing] = React.useState(false)
   const dragRef = React.useRef<RailDrag | null>(null)
   const suppressClickRef = React.useRef(false)
@@ -329,7 +329,7 @@ function SidebarRail({
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>): void => {
     onPointerDown?.(event)
     if (event.button !== 0 || event.defaultPrevented) return
-    const startWidth = state === 'collapsed' ? SIDEBAR_WIDTH_ICON : width
+    const startWidth = state === 'collapsed' && !peek ? SIDEBAR_WIDTH_ICON : width
     dragRef.current = {
       startX: event.clientX,
       startWidth,

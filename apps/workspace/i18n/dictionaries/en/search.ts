@@ -308,8 +308,6 @@ export const search = {
     retryHint: 'A second try is usually enough; otherwise check the connection.',
     ofTotal: '{shown} of {total}',
     allIn: 'In {project}',
-    start: 'Nothing opened yet',
-    startHint: 'What you open from here stands in this place the next time.',
     recentOpened: 'Opened last',
     opened: {
       annotation: 'Annotation',

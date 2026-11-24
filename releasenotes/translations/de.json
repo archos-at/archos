@@ -5860,8 +5860,8 @@
     "de": "„Offen“ wird jetzt überall gleich gezählt: Vorschläge von Piloti, die niemand übernommen hat, werden in Dateien, in der Prüfansicht oder vor einer Freigabe nicht mehr als offen gezählt. Sie werden separat ausgewiesen: „2 offen · 12 Vorschläge“, damit die Zahl mit „Offene Punkte“ und dem Protokoll übereinstimmt."
   },
   {
-    "en": "The search has a magnifier at the top of the sidebar, and the window behind it and behind Ctrl+K is now only the search: it finds files, chats and projects across the whole office, shows what you opened from it last, and leads to the search with filters. Profile, design and sign-out are in the menu at your name.",
-    "de": "Die Suche hat eine Lupe oben in der Seitenleiste, und das Fenster dahinter und hinter Strg+K ist jetzt nur noch die Suche: Sie findet Dateien, Chats und Projekte im ganzen Büro, zeigt, was Sie zuletzt von dort geöffnet haben, und führt zur Suche mit Filtern. Profil, Design und Abmelden stehen im Menü an Ihrem Namen."
+    "en": "The search has a magnifier at the top of the sidebar, and the window behind it and behind Ctrl+K is now the search first: it finds files, chats and projects across the whole office, narrowed to one kind if you like, and shows what you opened from it last. The general entries stay under it; the list of projects and of the current project's sections is gone.",
+    "de": "Die Suche hat eine Lupe oben in der Seitenleiste, und das Fenster dahinter und hinter Strg+K ist jetzt zuerst die Suche: Sie findet Dateien, Chats und Projekte im ganzen Büro, auf Wunsch nur eine Art davon, und zeigt, was Sie zuletzt von dort geöffnet haben. Die allgemeinen Einträge stehen weiter darunter; die Liste der Projekte und der Bereiche des aktuellen Projekts entfällt."
   },
   {
     "en": "The folded sidebar opens over the page when the pointer rests on it and folds again when the pointer leaves, so every place in it is one click away without keeping it open. Its signs stand at the height of their rows.",

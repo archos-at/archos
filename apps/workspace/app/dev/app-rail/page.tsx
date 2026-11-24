@@ -131,7 +131,7 @@ export default function AppRailPreview(): JSX.Element {
         canManageOrganization={false}
         canManagePlatform={false}
       />
-      <KeyboardShortcuts canViewOrganization />
+      <KeyboardShortcuts authRequired canViewOrganization />
     </div>
     </DevRailChats>
   )

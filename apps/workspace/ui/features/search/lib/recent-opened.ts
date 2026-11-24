@@ -2,7 +2,8 @@ import type { SearchHit, SearchKind } from '@/lib/search/search-wire'
 import { SEARCH_KINDS } from '@/lib/search/search-wire'
 import { hitHref } from './search-hrefs'
 
-export const RECENT_OPENED_KEY = 'search.opened'
+export const RECENT_OPENED_STORAGE = 'search.opened'
+export const recentOpenedKey = (owner: string): string => `${RECENT_OPENED_STORAGE}:${owner}`
 export const RECENT_OPENED_MAX = 5
 
 export interface OpenedEntry {
@@ -56,9 +57,9 @@ function isEntry(value: unknown): value is OpenedEntry {
   )
 }
 
-export function readRecentOpened(): OpenedEntry[] {
+export function readRecentOpened(owner: string): OpenedEntry[] {
   try {
-    const raw = window.localStorage.getItem(RECENT_OPENED_KEY)
+    const raw = window.localStorage.getItem(recentOpenedKey(owner))
     const parsed: unknown = raw ? JSON.parse(raw) : []
     return Array.isArray(parsed) ? parsed.filter(isEntry).slice(0, RECENT_OPENED_MAX) : []
   } catch {
@@ -66,10 +67,10 @@ export function readRecentOpened(): OpenedEntry[] {
   }
 }
 
-export function rememberOpened(hit: SearchHit): OpenedEntry[] {
-  const next = withOpened(readRecentOpened(), openedEntry(hit))
+export function rememberOpened(owner: string, entry: OpenedEntry): OpenedEntry[] {
+  const next = withOpened(readRecentOpened(owner), entry)
   try {
-    window.localStorage.setItem(RECENT_OPENED_KEY, JSON.stringify(next))
+    window.localStorage.setItem(recentOpenedKey(owner), JSON.stringify(next))
   } catch {
     // Storage blocked or full: the hit still opens, it is just not remembered.
   }

@@ -46,6 +46,7 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
         temporary: row.temporary,
         activity: row.activity,
       })),
+      chatOpen: onChatRoute && rows.some((row) => row.id === openId),
       allHref: chatHref,
       onOpen,
       onOpenAll,
