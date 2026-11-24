@@ -181,6 +181,17 @@ describe('resolveConversationContext', () => {
     expect(recorded.may.features).toEqual({ deepResearch: false, tasks: false })
   })
 
+  it('keeps deep research and tasks off once the chat read its owner’s shelf, though the next turn may still draw on it (ADR-0193)', async () => {
+    const fresh = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
+    expect(fresh.may.features).toEqual({ deepResearch: true, tasks: true })
+
+    state.record = { folders: [], otherProjects: [], personalShelf: true }
+    const used = await resolveConversationContext(session, { conversationId: 's_c', kind: 'chat' })
+    expect(used.recorded.personalShelf).toBe(true)
+    expect(used.may.personalShelf).toBe(true)
+    expect(used.may.features).toEqual({ deepResearch: false, tasks: false })
+  })
+
   it('gives a run without a chat, a headless job and an external caller nothing personal', async () => {
     state.rows = [row({ projectId: 'p1' })]
     const run = await resolveConversationContext(session, { kind: 'run', projectId: 'p1' })
