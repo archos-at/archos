@@ -1,4 +1,5 @@
 import 'server-only'
+import { isOutsideTenantSlot } from '@/lib/best-effort'
 import { getTenantContext, withTenant } from '@/lib/db/tenant-context'
 
 export async function bestEffortInbox(
@@ -10,6 +11,7 @@ export async function bestEffortInbox(
     if (getTenantContext()) await write()
     else await withTenant({ organizationId }, write)
   } catch (cause) {
+    if (isOutsideTenantSlot(cause)) throw cause
     console.error(`[inbox] ${label} could not be written:`, cause)
   }
 }
