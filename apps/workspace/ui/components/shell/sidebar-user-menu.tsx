@@ -128,7 +128,7 @@ export function SidebarUserMenu({
           'data-[state=open]:bg-desk in-data-[sidebar=sidebar]:data-[state=open]:bg-selected',
           'active:scale-[0.98] motion-reduce:transition-none',
           compact
-            ? 'w-auto rounded-full p-0 pointer-coarse:size-11 pointer-coarse:justify-center'
+            ? 'size-9 justify-center rounded-full p-0 pointer-coarse:size-11'
             : // The 24px disc at 20–44 (the project mark's edge) and a 7px gap
               'w-full gap-[7px] rounded-control py-1.5 pl-2 pr-3',
         )}

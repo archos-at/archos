@@ -52,6 +52,7 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
         locked: row.contentLocked,
         activity: row.activity,
       })),
+      chatOpen: onChatRoute && rows.some((row) => row.id === openId),
       allHref: chatHref,
       onOpen,
       onOpenAll,
