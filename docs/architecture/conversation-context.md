@@ -194,7 +194,15 @@ eight prefixes and refuses only under `require_auth`:
 - `/v1/drafts`
 
 These routes keep their internal-token guard, and fail-closed does not touch them.
-Neither does ingestion, nor the worker identity headers. They serve no answer.
+Neither does ingestion. A job worker binds its identity (organization, project,
+user) explicitly from the job it runs, not by parsing plain headers, so a run
+without an envelope still names its organization for residency, credentials and
+cost.
+
+**A BFF route serving a turn** takes the turn's shelves from one helper: the
+verified decision when the call carries one, the envelope's signed scope
+otherwise. A socket turn's envelope carries no scope, so a route that checks only
+the envelope would refuse every chat turn.
 
 ## What it makes possible
 
