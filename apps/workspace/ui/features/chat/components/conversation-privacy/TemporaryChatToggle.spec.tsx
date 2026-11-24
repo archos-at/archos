@@ -137,17 +137,43 @@ describe('TemporaryChatToggle', () => {
     expect(screen.queryByTestId('temporary-chat-toggle')).not.toBeInTheDocument()
   })
 
-  test('says its word at every width, on and off: the word is never screen-reader-only, and only the glyph leaves on a phone', () => {
+  test('off it is the glyph alone, on it fills with ink and says „Temporär“, as the concept draws it', () => {
     open(conversation())
     const { rerender } = render(<TemporaryChatToggleView pressed={false} onPressedChange={() => undefined} />)
-    for (const pressed of [false, true]) {
-      rerender(<TemporaryChatToggleView pressed={pressed} onPressedChange={() => undefined} />)
-      const word = screen.getByTestId('temporary-chat-word')
-      expect(word).toHaveTextContent('Temporary')
-      expect(word.className).not.toMatch(/sr-only|hidden/)
-      expect(screen.getByTestId('temporary-chat-glyph')).toHaveClass('max-sm:hidden')
-      expect(toggle()).toHaveAccessibleName(pressed ? 'Turn off temporary chat' : 'Turn on temporary chat')
-    }
+    expect(screen.getByTestId('temporary-chat-glyph')).toBeInTheDocument()
+    expect(screen.getByTestId('temporary-chat-word')).toHaveAttribute('data-shown', 'false')
+    expect(screen.getByTestId('temporary-chat-word')).toHaveClass('grid-cols-[0fr]', 'opacity-0')
+    expect(toggle()).toHaveAccessibleName('Turn on temporary chat')
+    expect(toggle()).toHaveClass('data-[state=on]:bg-foreground', 'data-[state=on]:text-background')
+
+    rerender(<TemporaryChatToggleView pressed onPressedChange={() => undefined} />)
+    const word = screen.getByTestId('temporary-chat-word')
+    expect(word).toHaveTextContent('Temporary')
+    expect(word).toHaveAttribute('data-shown', 'true')
+    expect(word).toHaveClass('grid-cols-[1fr]', 'opacity-100')
+    expect(toggle()).toHaveAttribute('data-state', 'on')
+    expect(toggle()).toHaveAccessibleName('Turn off temporary chat')
+  })
+
+  test('the word opens in its own slot on the quick clock, and at once under reduced motion', () => {
+    open(conversation())
+    render(<TemporaryChatToggleView pressed onPressedChange={() => undefined} />)
+    expect(screen.getByTestId('temporary-chat-word')).toHaveClass(
+      'transition-[grid-template-columns,opacity]',
+      'duration-quick',
+      'motion-reduce:transition-none'
+    )
+  })
+
+  test('while the server confirms, it keeps the wanted state at full ink and takes no second press', async () => {
+    open(conversation())
+    const onPressedChange = vi.fn()
+    render(<TemporaryChatToggleView pressed pending onPressedChange={onPressedChange} />)
+
+    expect(toggle()).not.toBeDisabled()
+    expect(toggle()).toHaveAttribute('aria-busy', 'true')
+    await userEvent.click(toggle())
+    expect(onPressedChange).not.toHaveBeenCalled()
   })
 
   test('is not pressable while the composer may not contribute', () => {

@@ -1,9 +1,10 @@
-import { type FC } from 'react'
+import { type FC, type ReactNode } from 'react'
 import { ShimmerText } from '@/components/ui/shimmer-text'
-import { Lock } from 'lucide-react'
+import { HatGlasses, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useChatStore } from '@/features/chat/store'
+import { useTemporarySwitch } from '@/features/chat/conversation-privacy'
 import { useElapsedSeconds, formatElapsed } from '@/features/chat'
 import { cn } from '@/lib/utils'
 import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
@@ -131,6 +132,8 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
   const tChat = useTranslations(chatCopy)
   const { user } = useAuth()
   const composerSubject = useChatStore((s) => s.composerSubject)
+  const conversationId = useChatStore((s) => s.currentConversation?.id)
+  const temporary = useTemporarySwitch(conversationId).pressed
   const tFiles = useTranslations(filesCopy)
 
   if (!isAuthenticated) {
@@ -167,13 +170,20 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
           project-grounded starters live in their own plan (categorized,
           backend-driven) — until they land, the canvas stays quiet rather
           than showing static examples. */}
-      <h1 className="text-foreground text-center text-[23px] font-medium">
-        {heading}
-      </h1>
-      <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-center text-sm" data-testid="new-chat-only-you">
-        <Lock className="size-3.5 shrink-0" aria-hidden="true" />
-        {tChat('privacy.newChat')}
-      </p>
+      <div className="grid w-full max-w-md items-end justify-items-center" data-temporary={temporary || undefined}>
+        <WelcomeFace shown={!temporary} testId="new-chat-greeting">
+          <h1 className="text-foreground text-center text-[23px] font-medium">{heading}</h1>
+          <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-center text-sm" data-testid="new-chat-only-you">
+            <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+            {tChat('privacy.newChat')}
+          </p>
+        </WelcomeFace>
+        <WelcomeFace shown={temporary} testId="new-chat-temporary">
+          <HatGlasses className="text-foreground mb-3 size-7" aria-hidden="true" />
+          <h1 className="text-foreground text-center text-[23px] font-medium">{tChat('temporary.welcomeTitle')}</h1>
+          <p className="text-muted-foreground mt-2 text-center text-sm text-balance">{tChat('temporary.welcomeBody')}</p>
+        </WelcomeFace>
+      </div>
 
       {/* The chat is about one file: say which. A named file is the state of
           THIS canvas, and it is not recoverable from anything else on
@@ -189,3 +199,17 @@ export const WelcomeState: FC<WelcomeStateProps> = ({
     </div>
   )
 }
+
+const WelcomeFace: FC<{ shown: boolean; testId: string; children: ReactNode }> = ({ shown, testId, children }) => (
+  <div
+    data-testid={testId}
+    aria-hidden={shown ? undefined : true}
+    inert={!shown}
+    className={cn(
+      'col-start-1 row-start-1 flex flex-col items-center transition-opacity duration-quick ease-out motion-reduce:transition-none',
+      shown ? 'opacity-100' : 'pointer-events-none opacity-0'
+    )}
+  >
+    {children}
+  </div>
+)

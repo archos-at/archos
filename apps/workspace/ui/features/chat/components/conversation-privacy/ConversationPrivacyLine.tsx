@@ -50,15 +50,18 @@ export function ConversationPrivacyLineView({
 export interface ConversationPrivacyLineProps {
   conversationId: string | null | undefined
   canCollaborate: boolean
+  statesTemporary?: boolean
   className?: string
 }
 
 export function ConversationPrivacyLine({
   conversationId,
   canCollaborate,
+  statesTemporary = true,
   className,
 }: ConversationPrivacyLineProps): JSX.Element | null {
-  const temporary = useTemporarySwitch(conversationId).statement
+  const statement = useTemporarySwitch(conversationId).statement
+  const temporary = statesTemporary ? statement : null
   const sharing = useThreadSharing(canCollaborate ? conversationId : null)
   return (
     <ConversationPrivacyLineView

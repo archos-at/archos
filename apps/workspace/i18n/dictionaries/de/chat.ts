@@ -1800,6 +1800,8 @@ export const chat: typeof en.chat = {
     turningOff: 'Temporärer Chat wird ausgeschaltet …',
     ownerOnly: 'Das kann nur ändern, wem der Chat gehört.',
     switchFailed: 'Die Einstellung wurde nicht gespeichert. Versuchen Sie es noch einmal.',
+    welcomeTitle: 'Temporärer Chat',
+    welcomeBody: 'Nur Sie sehen diesen Chat, und {productName} merkt sich aus ihm nichts.',
   },
   privacy: {
     onlyYou: 'Nur Sie sehen diesen Chat, bis Sie ihn teilen.',

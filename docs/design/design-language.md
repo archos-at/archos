@@ -1039,6 +1039,18 @@ times stops being a physical cue and becomes texture.
   (`components/motion/reader-input`); its icon never zooms. A composer whose
   session is still being confirmed on a fresh load lands its controls without
   easing (`data-arriving` on its root), so they do not fade up from dimmed.
+- **Turning a chat temporary is one calm change, on colour alone** (the owner,
+  2026-11-24, against the concept on `claude/funny-meitner-k4hjls`). The
+  switch is the glasses glyph alone while off; on, it fills with ink
+  (`Toggle variant="inverted"`) and „Temporär“ opens beside the glyph in a
+  slot that widens with it (`grid-template-columns` 0fr → 1fr), so nothing in
+  the row jumps. The composer's sheet trades its shadow for a dashed ink line
+  drawn as an inset outline, so its size never changes, and an empty chat's
+  greeting and „Temporärer Chat“ stand in one grid cell and cross-fade. All
+  of it on `duration-quick`, at once under reduced motion. While the server
+  confirms, the switch keeps the wanted state at full ink and takes no second
+  press; it never dims. On a new chat the welcome says what temporary means,
+  so the line under the composer stays out and the composer does not move.
 - **Toasts move on Sonner's paths and our clock.** A toast drops in from the
   edge it sits on and leaves through it, and the stack lifts and expands, all
   through Sonner's own CSS transitions, which `globals.css` retimes onto
