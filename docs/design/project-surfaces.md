@@ -25,7 +25,7 @@ projects-home rework grew a second, larger `ProjectResumeCard` beside
 | `components/ui/raised-card.tsx` | The **shape**: the tray, the laid-in white sheet, the footer tab. Shared with the document and job cards |
 | `components/ui/section-label.tsx`, `components/ui/count-pill.tsx` | The eyebrow and the quiet number beside it. The grid's `SectionHeading` is only the arrangement of these two |
 | `components/projects/project-atoms.tsx` | The **project-specific parts**: links, location, activity, doc count, initials tile |
-| `components/projects/project-overview.tsx` | **The card**, in the project overview (`/app/projects`): `RaisedCard` + the atoms. Use this by default |
+| `components/projects/project-overview.tsx` | **The card** for the overview's first six projects (`/app/projects`), and **the row** for every project after them and for search results: name, the one line, `ProjectActivity`, the gear. Use these by default |
 | `components/projects/project-status.tsx` | The status chip and the (deliberately honest) status derivation |
 
 The split matters: the card's geometry is not a project concern. `RaisedCard`

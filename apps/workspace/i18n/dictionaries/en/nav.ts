@@ -100,6 +100,7 @@ export const nav = {
     allProjects: 'All projects',
     overview: 'Overview',
     newProject: 'New project',
+    showAll: 'Show all projects',
   },
   inboundMailWaiting: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',
   tabBar: {

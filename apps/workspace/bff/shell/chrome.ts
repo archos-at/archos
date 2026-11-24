@@ -3,8 +3,14 @@ import 'server-only'
 import { getUserSession } from '@/lib/auth/session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getNavFlags, type NavFlags } from '@/lib/authz/nav'
-import { isIfcModelsEnabled, isInboundMailEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
+import {
+  isIfcModelsEnabled,
+  isInboundMailEnabled,
+  isSkillsEnabled,
+} from '@/lib/authz/feature-flags'
 import { listProjects } from '@/lib/projects/service'
+import { overviewOrder } from '@/lib/projects/overview-order'
+import { lastProjectActivityByUser } from '@/lib/conversations/repository'
 import { getOrganizationDisplayName, switchableOrganizations } from '@/lib/organizations/service'
 import { ensureOrganizationRow } from '@/lib/organizations/home-country-row'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
@@ -80,9 +86,17 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
   let projects: ProjectSwitcherProject[] = []
   if (session.organizationId) {
     try {
-      projects = (await listProjects(session as AuthorizedSession))
-        .map((project) => ({ id: project.id, name: project.name, status: project.status }))
-        .sort((a, b) => a.name.localeCompare(b.name))
+      const visible = await listProjects(session as AuthorizedSession)
+      const activity = await lastProjectActivityByUser(
+        session.organizationId,
+        session.userId,
+        visible.map((project) => project.id)
+      ).catch(() => ({}))
+      projects = overviewOrder(visible, activity).map((project) => ({
+        id: project.id,
+        name: project.name,
+        status: project.status,
+      }))
     } catch {
       projects = []
     }
@@ -96,8 +110,12 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
     organizationName = null
   }
 
-  const tours = session.organizationId ? await resolveTourEligibility(session as AuthorizedSession) : NO_TOURS
-  const whatsNew = session.organizationId ? await resolveWhatsNewNotice(session as AuthorizedSession, tours) : null
+  const tours = session.organizationId
+    ? await resolveTourEligibility(session as AuthorizedSession)
+    : NO_TOURS
+  const whatsNew = session.organizationId
+    ? await resolveWhatsNewNotice(session as AuthorizedSession, tours)
+    : null
 
   return {
     projects,

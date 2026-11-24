@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
 import { makeProject } from '@/test-utils/db-fixtures'
-import { overviewOrder, ProjectOverview } from './project-overview'
+import { overviewOrder } from '@/lib/projects/overview-order'
+import { ProjectOverview } from './project-overview'
 
 let pathname = '/app/projects/p1/files'
 vi.mock('next/navigation', () => ({
@@ -89,7 +90,8 @@ describe('the project overview that replaces the start page', () => {
     show()
     const search = screen.getByRole('textbox', { name: /search projects/i })
     await userEvent.type(search, 'seestadt')
-    expect(cards()).toHaveLength(1)
+    expect(screen.queryAllByTestId('project-overview-card')).toHaveLength(0)
+    expect(screen.getAllByTestId('project-overview-row')).toHaveLength(1)
     await userEvent.clear(search)
     await userEvent.type(search, 'zzz')
     expect(screen.queryAllByTestId('project-overview-card')).toHaveLength(0)
@@ -111,5 +113,48 @@ describe('the project overview that replaces the start page', () => {
 
   test('orders without moving a paused project ahead of an active one', () => {
     expect(overviewOrder(PROJECTS, {}).map((p) => p.id).slice(2)).toEqual(['p3', 'p4'])
+  })
+
+  test('the six projects worked in last stand as cards, every other one follows as a row', () => {
+    const many = Array.from({ length: 9 }, (_, i) => project(`m${i}`, `Projekt ${i}`, { createdAt: new Date(Date.UTC(2026, 0, 1 + i)) }))
+    show({ projects: many, viewerActivity: {} })
+    expect(cards().map((card) => within(card).getAllByRole('link')[0]!.getAttribute('aria-label'))).toEqual(
+      ['8', '7', '6', '5', '4', '3'].map((n) => `Open Projekt ${n}`)
+    )
+    const more = screen.getByRole('region', { name: 'More projects' })
+    const rows = within(more).getAllByTestId('project-overview-row')
+    expect(rows.map((row) => within(row).getAllByRole('link')[0]!.getAttribute('aria-label'))).toEqual(
+      ['2', '1', '0'].map((n) => `Open Projekt ${n}`)
+    )
+  })
+
+  test('a row holds the name, its line, when it was last worked in and the gear, always in view', () => {
+    const many = [...PROJECTS, ...Array.from({ length: 4 }, (_, i) => project(`m${i}`, `Projekt ${i}`))]
+    show({ projects: many })
+    const rows = screen.getAllByTestId('project-overview-row')
+    const closed = rows.find((row) => row.dataset.status === 'closed')!
+    expect(within(closed).getByTestId('project-overview-line')).toHaveTextContent('Closed')
+    expect(within(closed).getByRole('time')).toBeInTheDocument()
+    const gear = within(closed).getByRole('link', { name: 'Project settings of Dachausbau Kaiserstraße' })
+    expect(gear).toHaveAttribute('href', '/app/projects/p4/settings')
+    expect(gear.className).not.toMatch(/opacity-0/)
+  })
+
+  test('a search runs over cards and rows alike and shows the matches as rows', async () => {
+    const many = Array.from({ length: 9 }, (_, i) => project(`m${i}`, `Projekt ${i}`, { createdAt: new Date(Date.UTC(2026, 0, 1 + i)) }))
+    show({ projects: many, viewerActivity: {} })
+    await userEvent.type(screen.getByRole('textbox', { name: /search projects/i }), 'projekt')
+    expect(screen.queryAllByTestId('project-overview-card')).toHaveLength(0)
+    const matches = screen.getByRole('list', { name: 'Matching projects' })
+    expect(within(matches).getAllByTestId('project-overview-row')).toHaveLength(9)
+    await userEvent.clear(screen.getByRole('textbox', { name: /search projects/i }))
+    await userEvent.type(screen.getByRole('textbox', { name: /search projects/i }), 'projekt 0')
+    expect(screen.getAllByTestId('project-overview-row').map((row) => row.textContent)).toEqual([expect.stringContaining('Projekt 0')])
+  })
+
+  test('a card without a line is as tall as its name: no fixed height', () => {
+    show()
+    for (const card of cards()) expect(card.className).not.toMatch(/\bh-\[/)
+    expect(cards()[0]).toHaveClass('rounded-surface')
   })
 })

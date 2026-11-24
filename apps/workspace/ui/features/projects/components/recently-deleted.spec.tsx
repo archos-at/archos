@@ -57,6 +57,16 @@ describe('RecentlyDeleted', () => {
     expect(screen.getByRole('button', { name: /Restore/i })).toBeDefined()
   })
 
+  test('the idle Restore button holds only its label, no hidden spinner pushing it off centre', async () => {
+    vi.stubGlobal('fetch', mockFetch(200, [entry]))
+
+    render(<RecentlyDeleted canManageCompliance />)
+
+    const restore = await screen.findByRole('button', { name: /Restore/i })
+    expect(restore.querySelector('[data-slot="spinner"]')).toBeNull()
+    expect(restore).not.toHaveAttribute('aria-busy')
+  })
+
   test('shows a retryable error state on a real failure, and retry re-fetches', async () => {
     const fetchSpy = vi
       .fn()
