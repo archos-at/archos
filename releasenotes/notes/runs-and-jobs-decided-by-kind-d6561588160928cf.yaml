@@ -1,0 +1,9 @@
+---
+# area: agents
+operators:
+  - >
+    Task runs, document checks, project intake and outside agents now get what
+    they may read from the same decision as a chat turn, by kind (run,
+    headless, external), signed in the request envelope. A run whose chat
+    belongs to another project, or to none, no longer fails at submit: it runs
+    without that chat. A run never reads restricted folders.

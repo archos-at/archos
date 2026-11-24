@@ -365,3 +365,9 @@ def test_a_body_that_names_a_scope_no_envelope_signs_is_refused(client, prod_tok
     resp = _post(client, _valid_body(collection_scope=["oib_knowledge", "proj_other"]))
     assert resp.status_code == 422
     submit_mock.assert_not_awaited()
+
+
+def test_an_old_bff_sending_an_empty_scope_without_a_signed_one_is_accepted(client, prod_token, submit_mock):
+    resp = _post(client, _valid_body(collection_scope=[]))
+    assert resp.status_code == 200
+    submit_mock.assert_awaited_once()

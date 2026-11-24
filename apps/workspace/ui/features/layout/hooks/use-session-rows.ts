@@ -14,6 +14,8 @@ export interface SessionRow {
   hasCompletedReport: boolean
   contentLocked: boolean
   temporary: boolean
+  projectId: string | null
+  shared: boolean
   activity: ConversationActivity | null
 }
 
@@ -29,6 +31,8 @@ const sameRow = (a: SessionRow, b: SessionRow): boolean =>
   a.hasCompletedReport === b.hasCompletedReport &&
   a.contentLocked === b.contentLocked &&
   a.temporary === b.temporary &&
+  a.projectId === b.projectId &&
+  a.shared === b.shared &&
   a.activity === b.activity
 
 const rowFor = (conversation: Conversation, activity: ConversationActivity | null, cache: RowCache): SessionRow => {
@@ -42,6 +46,8 @@ const rowFor = (conversation: Conversation, activity: ConversationActivity | nul
     hasCompletedReport: hasFinishedRun(conversation.messages),
     contentLocked: conversation.contentLocked === true,
     temporary: conversation.temporary === true,
+    projectId: conversation.projectId ?? null,
+    shared: conversation.shared === true,
     activity,
   }
   const previous = cache.byId.get(conversation.id)
@@ -59,7 +65,12 @@ export function useSessionRows(projectId?: string | null): SessionRow[] {
       const scope = projectId === undefined ? s.projectId : projectId
       return (
         s.conversations
-          .filter((c) => c.userId === s.currentUserId && conversationMatchesProject(c, scope) && !isHiddenJobConversation(c))
+          .filter(
+            (c) =>
+              c.userId === s.currentUserId &&
+              conversationMatchesProject(c, scope) &&
+              !isHiddenJobConversation(c)
+          )
           .sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt))
           .map((c) => rowFor(c, conversationActivity(s.turns, s.unseenAnswers, c.id), cache.current))
       )

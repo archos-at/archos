@@ -1,3 +1,4 @@
+import { PERSONAL_SHELF_PATH } from '@/components/shell/rail-mode'
 import type { UploadHistoryEntry, UploadSummary, UploadSummaryDocument } from '@/adapters/api/upload-batches-client'
 import { documentFilesHref } from '@/features/documents/lib/document-question'
 import { documentTypeOf } from '@/lib/documents/tag-vocabulary'

@@ -59,3 +59,27 @@ def test_the_gate_does_not_hold_while_an_old_run_or_queued_job_is_active(tmp_pat
     assert _gate().main(["--since", "2026-11-25T00:00:00", "--app-db-url", app, "--job-db-url", job]) == 1
     out = capsys.readouterr().out
     assert "r_old" in out and "j_old" in out and "1 run(s), 1 job(s)" in out
+
+
+def test_a_deployed_dsn_is_read_through_the_sync_driver():
+    gate = _gate()
+    assert gate.sync_url("postgresql+asyncpg://u:p@h/app") == "postgresql+psycopg://u:p@h/app"
+    assert gate.sync_url("postgresql://u:p@h/jobs") == "postgresql+psycopg://u:p@h/jobs"
+    assert gate.sync_url("postgres://u@h/jobs") == "postgresql+psycopg://u@h/jobs"
+    assert gate.sync_url("sqlite:///x.db") == "sqlite:///x.db"
+
+
+def test_an_asyncpg_ssl_option_becomes_the_libpq_one():
+    gate = _gate()
+    deployed = "postgresql+asyncpg://u:p@h:5432/jobs?ssl=require&application_name=gate"
+    assert gate.sync_url(deployed) == "postgresql+psycopg://u:p@h:5432/jobs?sslmode=require&application_name=gate"
+    assert (
+        gate.sync_url("postgresql://u@h/app?sslmode=verify-full") == "postgresql+psycopg://u@h/app?sslmode=verify-full"
+    )
+
+
+def test_a_since_without_a_zone_is_utc():
+    from datetime import UTC
+
+    assert _gate().since_utc("2026-11-25T00:00:00").tzinfo is UTC
+    assert _gate().since_utc("2026-11-25T01:00:00+01:00").utcoffset().total_seconds() == 3600

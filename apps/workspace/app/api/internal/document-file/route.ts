@@ -11,6 +11,7 @@ import { findDocumentImageStorageKey, findDocumentStorageKey } from '@/lib/docum
 import { activeCalibrationsOfPage } from '@/lib/drawing-calibrations/page-read'
 import { type VerifiedRequestContext } from '@/lib/request-context'
 import { hasHeader } from '@/lib/http/legacy-header-names'
+import { isPersonalShelfCollectionName } from '@/lib/personal-shelf/collection'
 
 const querySchema = z.object({
   collection: z.string().min(1),
@@ -46,7 +47,7 @@ async function requireReadable(
 ): Promise<void> {
   const restricted = isRestrictedCollection(collection)
   if (!context) {
-    if (restricted) throw new NotFoundError('Document not found')
+    if (restricted || isPersonalShelfCollectionName(collection.toLowerCase())) throw new NotFoundError('Document not found')
     return
   }
   if (!context.collectionScope.includes(collection)) throw new NotFoundError('Document not found')

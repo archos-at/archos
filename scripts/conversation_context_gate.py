@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from datetime import UTC
 from datetime import datetime
 
 from sqlalchemy import create_engine
@@ -19,8 +20,27 @@ ACTIVE_JOBS = text(
 )
 
 
+SYNC_DRIVER = "postgresql+psycopg"
+POSTGRES_SCHEMES = ("postgresql+asyncpg", "postgresql+psycopg2", "postgresql", "postgres")
+
+
+def sync_url(url: str) -> str:
+    scheme, separator, rest = url.partition("://")
+    if not separator or scheme not in POSTGRES_SCHEMES:
+        return url
+    location, mark, query = rest.partition("?")
+    if scheme == "postgresql+asyncpg" and mark:
+        query = "&".join("sslmode" + part[3:] if part.startswith("ssl=") else part for part in query.split("&"))
+    return f"{SYNC_DRIVER}://{location}{mark}{query}"
+
+
+def since_utc(value: str) -> datetime:
+    since = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return since if since.tzinfo else since.replace(tzinfo=UTC)
+
+
 def rows(url: str, query, since: datetime) -> list[tuple]:
-    engine = create_engine(url)
+    engine = create_engine(sync_url(url))
     try:
         with engine.connect() as conn:
             return [tuple(row) for row in conn.execute(query, {"since": since})]
@@ -35,13 +55,19 @@ def main(argv: list[str] | None = None) -> int:
             "exit 0 when nothing from before slice 2 is still active"
         )
     )
-    parser.add_argument("--since", required=True, help="when slice 2 (#1906) was deployed, ISO 8601")
-    parser.add_argument("--app-db-url", default=os.environ.get("APP_DATABASE_URL"))
+    parser.add_argument(
+        "--since", required=True, help="when slice 2 (#1906) was deployed, ISO 8601; UTC unless it names a zone"
+    )
+    parser.add_argument(
+        "--app-db-url",
+        default=os.environ.get("APP_MIGRATION_DATABASE_URL"),
+        help="the app database as its owner: the runtime role sees no task_runs row under RLS",
+    )
     parser.add_argument("--job-db-url", default=os.environ.get("NAT_JOB_STORE_DB_URL"))
     args = parser.parse_args(argv)
     if not args.app_db_url or not args.job_db_url:
-        parser.error("both database URLs are required (APP_DATABASE_URL, NAT_JOB_STORE_DB_URL)")
-    since = datetime.fromisoformat(args.since.replace("Z", "+00:00"))
+        parser.error("both database URLs are required (APP_MIGRATION_DATABASE_URL, NAT_JOB_STORE_DB_URL)")
+    since = since_utc(args.since)
 
     runs = rows(args.app_db_url, ACTIVE_RUNS, since)
     jobs = rows(args.job_db_url, ACTIVE_JOBS, since)

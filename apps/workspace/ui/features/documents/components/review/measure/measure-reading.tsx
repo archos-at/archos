@@ -11,7 +11,7 @@ import type { TapeMeasurement } from '@/lib/drawing-tape/wire'
 import { formatRounded, formatScaleRatio, formatTolerance } from '../../../lib/tape-format'
 
 export type ShownReading = Pick<TapeMeasurement, 'value' | 'unit' | 'low' | 'high' | 'provenance'> &
-  Partial<Pick<TapeMeasurement, 'scaleRatio' | 'printed'>>
+  Partial<Pick<TapeMeasurement, 'scaleRatio' | 'printed' | 'printedCheck' | 'perimeter'>>
 
 export function useReadingValue(): (
   reading: Pick<ShownReading, 'value' | 'unit' | 'low' | 'high'>
@@ -80,6 +80,22 @@ export function MeasureReadingLines({
           </>
         )}
       </p>
+      {reading.printedCheck && (
+        <p
+          className={reading.printedCheck.agrees === false ? 'text-meta text-warning' : 'text-meta text-muted-foreground'}
+          data-testid="measure-reading-printed"
+          data-agrees={String(reading.printedCheck.agrees)}
+        >
+          {t(`review.measure.printedCheck.${String(reading.printedCheck.agrees)}`, { figure: reading.printedCheck.text })}
+        </p>
+      )}
+      {reading.perimeter != null && (
+        <p className="text-meta text-muted-foreground tabular-nums" data-testid="measure-reading-perimeter">
+          {t('review.measure.perimeter', {
+            value: formatRounded({ value: reading.perimeter, low: reading.perimeter, high: reading.perimeter, unit: 'm' }, locale),
+          })}
+        </p>
+      )}
     </div>
   )
 }

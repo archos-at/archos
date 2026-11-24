@@ -27,6 +27,7 @@ vi.mock('@/lib/conversations/repository', () => ({
 vi.mock('@/lib/sharing/repository', () => ({
   findGrantForSubject: vi.fn(),
   countGrantsForResource: vi.fn(),
+  resourceIdsWithGrants: vi.fn(async () => new Set<string>()),
 }))
 
 vi.mock('@/lib/sharing/service', () => ({ resolveParticipants: vi.fn() }))

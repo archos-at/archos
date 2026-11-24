@@ -20,6 +20,8 @@ interface UploadEntry {
   tracked: TrackedFile
 }
 
+
+export type UploadShelf = 'project' | 'office_shelf' | 'personal' | 'session'
 export interface UploadOutcome {
   unchangedCount: number
   uploadedTypes: string[]
@@ -32,7 +34,7 @@ export interface UploadTrackedFileContext
     DocumentsActions,
     'updateTrackedFile' | 'setUploadProgress' | 'removeRecentlyDeletedIds' | 'dismissTrackedFiles'
   > {
-  shelf: 'project' | 'office_shelf' | 'session'
+  shelf: UploadShelf
   uploadUrl: string
   targetCollection: string
   projectId: string | undefined
@@ -81,7 +83,7 @@ export async function uploadTrackedFile(
     if (conversationProjectId) formData.append('projectId', conversationProjectId)
   }
   if (projectId) formData.append('projectId', projectId)
-  if (shelf === 'office_shelf') formData.append('scope', 'office_shelf')
+  if (shelf === 'office_shelf' || shelf === 'personal') formData.append('scope', shelf)
   if (shelf === 'office_shelf' && asNorm) formData.append('asNorm', 'true')
   if (shelf !== 'session') {
     const resolved = resolvedFolderId(file)

@@ -20,6 +20,7 @@ OLD_PAYLOAD = {
     "agent_class_path": "agent.agents.deep_researcher.agent.DeepResearcherAgent",
     "agent_config_name": "deep_research_agent",
     "claim_owner": "host:123",
+    "collection_scope": ["proj_p1"],
 }
 
 
@@ -92,10 +93,12 @@ async def test_a_retired_key_does_not_hide_an_unknown_one(db_url, replayed):
 
 
 def test_only_the_named_retired_keys_are_dropped():
-    kwargs = worker_mod._replay_kwargs({"job_id": "j", "scheduler_address": "x", "claim_owner": "w", "other": 1})
+    kwargs = worker_mod._replay_kwargs(
+        {"job_id": "j", "scheduler_address": "x", "claim_owner": "w", "collection_scope": ["proj_p1"], "other": 1}
+    )
 
     assert kwargs == {"job_id": "j", "other": 1}
-    assert worker_mod.RETIRED_PAYLOAD_KEYS == {"scheduler_address", "claim_owner"}
+    assert worker_mod.RETIRED_PAYLOAD_KEYS == {"scheduler_address", "claim_owner", "collection_scope"}
 
 
 def test_no_retired_key_is_a_parameter_again():
