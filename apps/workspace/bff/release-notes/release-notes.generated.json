@@ -515,6 +515,14 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "Persönlich now lists only the chats you start there, so it starts empty instead of showing every older chat that had no project.",
+            "de": "Persönlich zeigt jetzt nur noch die Chats an, die Sie dort starten. Daher ist die Liste zunächst leer, statt alle älteren Chats ohne Projekt anzuzeigen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On a phone, the project's tab bar reads „Projekt“ in full, „Alle archivieren“ in the Postfach no longer runs off the screen, and folder names, a file's age and a shared chat's title are no longer cut short.",
             "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
           }

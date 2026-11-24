@@ -3344,6 +3344,10 @@
     "de": "Bewilligungsbescheide mit mehreren Auflagen werden wieder vollständig berücksichtigt."
   },
   {
+    "en": "Persönlich now lists only the chats you start there, so it starts empty instead of showing every older chat that had no project.",
+    "de": "Persönlich zeigt jetzt nur noch die Chats an, die Sie dort starten. Daher ist die Liste zunächst leer, statt alle älteren Chats ohne Projekt anzuzeigen."
+  },
+  {
     "en": "Photos and other images are now checked against your office's upload screening by what was read off them, like scanned documents. An image that matches is held for review instead of being added, and its preview appears only once it has passed.",
     "de": "Fotos und andere Bilder werden jetzt wie gescannte Dokumente anhand der ausgelesenen Inhalte mit der Upload-Prüfung Ihres Büros abgeglichen. Ein passendes Bild wird zur Überprüfung zurückgehalten, statt hinzugefügt zu werden. Die Vorschau erscheint erst, wenn es die Prüfung bestanden hat."
   },
