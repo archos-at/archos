@@ -23,7 +23,7 @@ SOURCE_KINDS: dict[str, SourceKind] = {
     ),
     "office": SourceKind(
         key="office",
-        label="Büroablage",
+        label="Bürobibliothek",
         description="Standards, Details und Erfahrung deines Büros.",
         css_token="office",
     ),
@@ -132,7 +132,7 @@ def parse_shelf(value: object) -> Shelf | None:
 
 
 SHELF_QUALIFIERS: dict[Shelf, str] = {
-    Shelf.OFFICE_SHELF: "Büroablage",
+    Shelf.OFFICE_SHELF: "Bürobibliothek",
     Shelf.PROJECT: "Projektwissen",
     Shelf.SESSION: "Private Sitzung",
     Shelf.BASE: "Basiswissen",
@@ -146,6 +146,7 @@ SCOPE_QUALIFIERS: dict[str, str] = {
 }
 
 RETIRED_SHELF_QUALIFIERS: dict[str, Shelf] = {
+    "Büroablage": Shelf.OFFICE_SHELF,
     "Büroarchiv": Shelf.OFFICE_SHELF,
 }
 

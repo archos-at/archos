@@ -98,11 +98,11 @@ describe('QuarantineQueue', () => {
     await waitFor(() =>
       expect(within(screen.getByTestId('quarantine-row-doc-1')).getByText(/Project Wohnbau Nord/)).toBeInTheDocument()
     )
-    expect(within(screen.getByTestId('quarantine-row-doc-2')).getByText(/Office filing/)).toBeInTheDocument()
+    expect(within(screen.getByTestId('quarantine-row-doc-2')).getByText(/Office library/)).toBeInTheDocument()
     expect(within(screen.getByTestId('quarantine-row-doc-3')).getByText(/Chat attachment/)).toBeInTheDocument()
   })
 
-  it('links a project file and a Büroablage file to where they are filed, opened on them', async () => {
+  it('links a project file and a Bürobibliothek file to where they are filed, opened on them', async () => {
     stubApi()
     render(<QuarantineQueue />)
     expect(await screen.findByTestId('quarantine-open-doc-1')).toHaveAttribute(

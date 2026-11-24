@@ -116,7 +116,7 @@ async function nameBesideStandards(
     }
   }
   throw new ConflictError(
-    `"${filename}" and its numbered names are all taken in the Büroablage. Rename the file to upload it.`,
+    `"${filename}" and its numbered names are all taken in the Bürobibliothek. Rename the file to upload it.`,
     NAME_TAKEN_DETAILS,
   )
 }

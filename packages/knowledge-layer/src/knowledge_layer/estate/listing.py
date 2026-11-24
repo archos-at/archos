@@ -25,7 +25,7 @@ MAX_DEPTH = 4
 
 MOUNT_LABELS: dict[Mount, str] = {
     "project": "this project",
-    "office": "the Büroablage, the office's shelf",
+    "office": "the Bürobibliothek, the office's shelf",
     "chat": "files dropped into this conversation",
     "law": "the OIB-Richtlinien",
 }

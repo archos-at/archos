@@ -22,7 +22,7 @@ export const nav: typeof en.nav = {
   openNavigation: 'Navigation öffnen',
   sections: {
     chat: 'Chat',
-    files: 'Dateien',
+    files: 'Ablage',
     knowledge: 'Wissen',
     research: 'Recherche',
     automation: 'Automatisierung',
@@ -30,7 +30,7 @@ export const nav: typeof en.nav = {
     skills: 'Skills',
     jobs: 'Jobs',
     tasks: 'Aufgaben',
-    officeShelf: 'Büroablage',
+    officeShelf: 'Bürobibliothek',
     baseKnowledge: 'Normen & Richtlinien',
     search: 'Suche',
     settings: 'Übersicht',
@@ -51,8 +51,8 @@ export const nav: typeof en.nav = {
   },
   subpages: {
     'files/all': {
-      title: 'Dateien',
-      tab: 'Ordner',
+      title: 'Ablage',
+      tab: 'Dateien',
     },
     'files/mail': {
       title: 'E-Mail-Eingang',
@@ -64,7 +64,7 @@ export const nav: typeof en.nav = {
       title: 'Offene Punkte',
     },
   },
-  filesPlaces: 'Orte der Dateien',
+  filesPlaces: 'Orte der Ablage',
   backTo: 'Zurück zu {label}',
   returnTargets: {
     project: 'zum Projekt',

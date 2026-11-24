@@ -71,7 +71,7 @@ describe('useAnswerFileReferences', () => {
     expect(result.current.resolve('PD8280-2.PDF')?.file.id).toBe('p1')
   })
 
-  it('names one of the office’s standards the answer wrote out, which the Büroablage lists only when asked', async () => {
+  it('names one of the office’s standards the answer wrote out, which the Bürobibliothek lists only when asked', async () => {
     server.use(
       shelfGet('project', '/api/documents', () => HttpResponse.json({ documents: [] })),
       shelfGet('office_shelf', '/api/documents', ({ request }) =>

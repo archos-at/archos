@@ -49,7 +49,7 @@ describe('retired German words', () => {
 
 const NORM_PLACES = ['baseKnowledge', 'files.baseKnowledge', 'nav.sections.baseKnowledge', 'organization.baseKnowledge'] as const
 
-describe('a norm of the Büroablage is a Norm, its place Normen & Richtlinien', () => {
+describe('a norm of the Bürobibliothek is a Norm, its place Normen & Richtlinien', () => {
   it('says „Grundlage“ nowhere in the copy of Normen & Richtlinien', () => {
     const found = values(de, '', [])
       .filter(([path]) => NORM_PLACES.some((place) => path === place || path.startsWith(`${place}.`)))

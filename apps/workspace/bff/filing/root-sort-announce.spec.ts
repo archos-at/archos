@@ -83,7 +83,7 @@ describe('announceRootSortRun', () => {
     ])
   })
 
-  it('names no place for the office filing, and points its row at the organization', async () => {
+  it('names no place for the office library, and points its row at the organization', async () => {
     await announceRootSortRun(run({ scope: 'office_shelf', projectId: null }))
 
     expect(findProjectInOrg).not.toHaveBeenCalled()

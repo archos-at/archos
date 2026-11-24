@@ -7,7 +7,7 @@ export const capture = {
     photoLibraryHint: 'Photos on this device',
     chooseFile: 'Choose file',
     chooseFileHint: 'PDF, Office and more',
-    destinationChat: 'Lands in this chat only. For the project files, upload under “Files”.',
+    destinationChat: 'Lands in this chat only. For the project files, upload under “Documents”.',
   },
   photos: {
     fileNamePrefix: 'Photo',

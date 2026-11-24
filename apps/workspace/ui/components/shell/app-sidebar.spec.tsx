@@ -100,7 +100,7 @@ describe('AppSidebar - click-dummy IA (FB-9/FB-10)', () => {
   test('renders the core nav set: Chat, Files', () => {
     render(<AppSidebar {...baseProps} />)
     expect(screen.getAllByText('Chat').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Files').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Documents').length).toBeGreaterThan(0)
   })
 
   test('Members, Research, Knowledge and History no longer appear in the nav', () => {
@@ -139,7 +139,7 @@ describe('AppSidebar - Automation nav item', () => {
     render(<AppSidebar {...baseProps} />)
     expect(screen.queryByText('Automation')).not.toBeInTheDocument()
     expect(screen.getAllByText('Chat').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Files').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Documents').length).toBeGreaterThan(0)
   })
 
   test('shows the Automation nav item when showSkills is true, linking to the merged section', () => {
@@ -158,7 +158,7 @@ describe('AppSidebar - Automation nav item', () => {
 describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
   test('shows office shelf when canAccessOfficeShelf is true, linking to the org office shelf', () => {
     render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
-    const links = screen.getAllByText('Office filing').map((el) => el.closest('a'))
+    const links = screen.getAllByText('Office library').map((el) => el.closest('a'))
     expect(links.length).toBeGreaterThan(0)
     for (const link of links) {
       expect(link).toHaveAttribute('href', '/app/office-shelf')
@@ -167,7 +167,7 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
 
   test('hides office shelf by default (org feature flag off)', () => {
     render(<AppSidebar {...baseProps} />)
-    expect(screen.queryByText('Office filing')).not.toBeInTheDocument()
+    expect(screen.queryByText('Office library')).not.toBeInTheDocument()
   })
 
   test('orders Chat first and Inbox last in the section nav, with the search in the head and not among the doorways', () => {
@@ -177,23 +177,23 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     const labels = Array.from(navs)
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
-    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Documents', 'Overview', 'Office library', 'Inbox'])
     expect(container.querySelector('[data-sidebar="sidebar"] a[href="/app/search"]')).toBeNull()
     expect(container.querySelector('[data-sidebar="sidebar"] [data-testid="shell-search"]')).not.toBeNull()
   })
 
-  test('keeps Office filing lit on its standards tab, which has no doorway of its own', () => {
+  test('keeps Office library lit on its standards tab, which has no doorway of its own', () => {
     pathname = '/app/base-knowledge'
     render(<AppSidebar {...baseProps} canAccessOfficeShelf canAccessOfficeStandards />)
     expect(screen.queryByText('Office standards')).not.toBeInTheDocument()
-    const shelf = screen.getAllByRole('link', { name: /Office filing/ })[0]
+    const shelf = screen.getAllByRole('link', { name: /Office library/ })[0]
     expect(shelf).toHaveAttribute('data-active', 'true')
   })
 
   test('lists no office standards without the office-standards entitlement, the Archiv still there', () => {
     render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
     expect(screen.queryByText('Office standards')).not.toBeInTheDocument()
-    expect(screen.getAllByText('Office filing').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Office library').length).toBeGreaterThan(0)
   })
 })
 
@@ -219,7 +219,7 @@ describe('AppSidebar - collapsed icon rail', () => {
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
 
     expect(within(sections).getByText('Chat')).toHaveClass('sr-only')
-    expect(within(sections).getByText('Files')).toHaveClass('sr-only')
+    expect(within(sections).getByText('Documents')).toHaveClass('sr-only')
     expect(within(org).queryByText('Organization')).not.toBeInTheDocument()
   })
 })
@@ -242,7 +242,7 @@ describe('AppSidebar - the folded rail opens over the page under the pointer', (
     await waitFor(() => expect(group()).toHaveAttribute('data-peek', 'true'))
     expect(group()).toHaveAttribute('data-gap', 'icon')
     expect(group()).toHaveAttribute('data-collapsible', '')
-    expect(within(screen.getByLabelText('Project sections')).getByText('Files')).not.toHaveClass('sr-only')
+    expect(within(screen.getByLabelText('Project sections')).getByText('Documents')).not.toHaveClass('sr-only')
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Keep the sidebar open' }))
     expect(group()).toHaveAttribute('data-state', 'expanded')
@@ -457,11 +457,11 @@ describe('AppSidebar - the org doorways stay reachable from inside a project', (
     pathname = '/app/office-shelf'
     render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
     const officeShelf = screen
-      .getAllByText('Office filing')
+      .getAllByText('Office library')
       .map((el) => el.closest('a'))
       .filter((link): link is HTMLAnchorElement => link !== null)
     expect(officeShelf.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
-    expect(screen.getAllByText('Files').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Documents').length).toBeGreaterThan(0)
   })
 })
 

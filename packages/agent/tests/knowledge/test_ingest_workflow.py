@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -328,6 +330,30 @@ def test_a_bff_that_is_away_fails_the_settle_step_so_it_is_tried_again(token):
         pytest.raises(TransientTaskError, match=r"^BffRefusedError \(transient\)$"),
     ):
         ingest_workflow.settle_step("job-1")
+
+
+def test_a_bff_that_is_away_is_only_an_error_once_the_last_attempt_fails(token, caplog):
+    unreachable = OSError("connection refused")
+    with patch.object(bff_http._opener, "open", side_effect=unreachable), caplog.at_level(logging.WARNING):
+        with pytest.raises(TransientTaskError):
+            ingest_workflow.settle_step("job-1", final=False)
+        assert [(r.levelno, r.exc_info) for r in caplog.records] == [(logging.WARNING, None)]
+
+        caplog.clear()
+        with pytest.raises(TransientTaskError):
+            ingest_workflow.settle_step("job-1", final=True)
+    [record] = caplog.records
+    assert record.levelno == logging.ERROR and record.exc_info is not None
+
+
+def test_both_settle_tasks_know_their_last_attempt(hatchet, token):
+    workflow = ingest_workflow.ingest_workflow()
+    with patch.object(ingest_workflow, "settle_step", return_value={}) as step:
+        for name in (ingest_workflow.SETTLE_STEP, ingest_workflow.SETTLE_FAILED_STEP):
+            task = workflow.step(name)
+            task.fn(SimpleNamespace(job_id="job-1"), SimpleNamespace(attempt_number=2, max_attempts=6))
+            task.fn(SimpleNamespace(job_id="job-1"), SimpleNamespace(attempt_number=6, max_attempts=6))
+    assert [c.kwargs["final"] for c in step.call_args_list] == [False, True, False, True]
 
 
 def test_a_bff_that_refuses_the_call_is_not_asked_again(token):

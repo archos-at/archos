@@ -57,16 +57,16 @@ ARCHOS never uses it, and **Zurücknehmen** undoes either. Your organization's
 operator switches this on (the `office-conventions` flag)
 ([ADR-0129](../adr/0129-piloti-learns-the-office-conventions.md)).
 
-## Normen & Richtlinien in der Büroablage
+## Normen & Richtlinien in der Bürobibliothek
 
 The standards, guidelines, authority directives and commentaries your office
 owns (an ÖNORM you bought, an MA 37 Weisung, a commentary on the Bauordnung)
-live in the Büroablage, on the tab **Normen & Richtlinien** beside **Ordner**.
+live in the Bürobibliothek, on the tab **Normen & Richtlinien** beside **Ordner**.
 Each is called a *Norm* for short; its *Art* says what it is. The tab's tool row is
 the Ordner tab's: search, „Alle Arten“, „Thema anlegen“, **Hochladen**, and ⋯ with
-„Aus Ordnern übernehmen“ (a document already in the Büroablage) and „So funktioniert es“.
+„Aus Ordnern übernehmen“ (a document already in the Bürobibliothek) and „So funktioniert es“.
 
-**Adding norms.** The Büroablage has one **Hochladen**, on either tab. A file
+**Adding norms.** The Bürobibliothek has one **Hochladen**, on either tab. A file
 uploaded on **Normen & Richtlinien** is taken as a norm whatever it is called. On
 **Ordner**, ARCHOS reads the file names as they arrive: a norm goes straight under
 Normen & Richtlinien, never into the folder you uploaded to, while a new Fassung of
@@ -106,28 +106,28 @@ into. ARCHOS does not ask about a norm's licence: a confirmed norm is read,
 whether you bought it or it is freely available.
 
 **Norms in a project or in a folder.** A norm uploaded to a project is offered
-for the Büroablage, where every project finds it. Once ARCHOS has read the
-upload, the same dialog opens in Dateien with Art, Bezeichnung and Ausgabe, read
+for the Bürobibliothek, where every project finds it. Once ARCHOS has read the
+upload, the same dialog opens in the Ablage with Art, Bezeichnung and Ausgabe, read
 from the title page of a PDF where it can and from the name otherwise, and
-asks where the norm belongs: **Büroablage (empfohlen)** if you manage the
-Büroablage, **Für die Büroablage vorschlagen** otherwise (whoever manages it
+asks where the norm belongs: **Bürobibliothek (empfohlen)** if you manage the
+Bürobibliothek, **Für die Bürobibliothek vorschlagen** otherwise (whoever manages it
 decides in the Postfach, checking the same values), **Nur dieses Projekt**, or
 **Später**, which leaves the offer above the files. A norm whose Ausgabe you
 already hold is not offered; a later Ausgabe of a norm you hold is, and joins it as a
 new Ausgabe. A norm moved or taken over
 this way is confirmed with the values you saw, so answers keep using it, and it
-needs its Ausgabe. When nobody who manages the Büroablage may write in the
+needs its Ausgabe. When nobody who manages the Bürobibliothek may write in the
 project, ARCHOS says so and names who could decide once given access; nothing is
 sent. A moved norm leaves a reference in the project folder; if it is later
-taken off the norms, the reference says it still lies in the Büroablage and opens
+taken off the norms, the reference says it still lies in the Bürobibliothek and opens
 the file. Norms you had filed in
-ordinary Büroablage folders are found when you open the folder, which offers
+ordinary Bürobibliothek folders are found when you open the folder, which offers
 **Unter Normen & Richtlinien führen**, which moves them and opens the norm dialog
 for them, or **Im Ordner lassen**. An ordinary folder cannot be moved under
 Normen & Richtlinien.
 
 **The Postfach** shows only what needs your decision: a norm someone suggests
-for the Büroablage, and a norm you hold that is no longer the binding edition for
+for the Bürobibliothek, and a norm you hold that is no longer the binding edition for
 an active project. That notice stays until the binding edition is in hand, even
 while a project's law cannot be read, and comes back if it is owed again after it
 was settled. Everything else stays where the norm is: in the folder, above
@@ -139,7 +139,7 @@ comes from there, for your office's Bundesland today: „Aktuell“ when you hol
 edition, „Neuere Ausgabe“ when a newer one is binding, and the entry page says
 which edition binds and under what („Verbindlich ist heute die Ausgabe …, laut
 …“). When a norm you hold is no longer the binding edition for one of your active
-projects, whoever manages the Büroablage finds it in the Postfach once, with the
+projects, whoever manages the Bürobibliothek finds it in the Postfach once, with the
 projects it affects, „Neue Ausgabe hochladen“ and „Ansehen“; it goes away once you
 hold that edition or no active project is affected. A norm your office never
 bought is never held against you: no badge, no Postfach item, nothing in answers.
@@ -151,7 +151,7 @@ and answers do not mention it.
 **In answers.** Answers in your office draw on confirmed norms, name the
 Ausgabe they used and use the one in force on the project's reference day (today
 when the project has none, and they say so). When another Ausgabe binds that day
-for the project's Bundesland than the one in your Büroablage, the answer may still
+for the project's Bundesland than the one in your Bürobibliothek, the answer may still
 use your copy, and says which Ausgabe binds and under what. A commentary is used
 as interpretation only, and a directive only where its authority decides. Other offices see none of it. The tab appears once
 office standards are switched on for your organization

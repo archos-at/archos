@@ -29,7 +29,7 @@ export const research: typeof en.research = {
     },
     loggedOutTitle: '{productName} wird verfügbar, sobald Ihre Organisation verifiziert ist.',
     loggedOutBody:
-      'Melden Sie sich an, um den Projekt-Arbeitsbereich zu öffnen: Unterlagen, Büroablage, Aufgaben und Recherche.',
+      'Melden Sie sich an, um den Projekt-Arbeitsbereich zu öffnen: Unterlagen, Bürobibliothek, Aufgaben und Recherche.',
     signInSso: 'Mit SSO anmelden',
     welcomeTitle: 'Wie kann {productName} bei Ihrem Projekt helfen?',
   },
@@ -80,7 +80,7 @@ export const research: typeof en.research = {
     toggleAria: '{name} zulassen',
     strata: {
       law: 'Baurecht',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
       project: 'Projektwissen',
       auto: 'Web',
     },
@@ -88,12 +88,12 @@ export const research: typeof en.research = {
       all: 'Alle Quellen',
       law: 'Baurecht & Richtlinien',
       project: 'Projektunterlagen',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
     },
     knowledge: {
       projectName: 'Projektwissen',
       projectDescription: 'Ihre Projektunterlagen in diesem Projekt.',
-      officeName: 'Büroablage',
+      officeName: 'Bürobibliothek',
       officeDescription: 'Freigegebene Unterlagen Ihres Büros.',
     },
   },

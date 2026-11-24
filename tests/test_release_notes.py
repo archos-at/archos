@@ -241,7 +241,7 @@ def test_the_ui_product_terms_are_not_on_the_list():
         "Steckbrief",
         "Fassung",
         "Herleitung",
-        "Büroablage",
+        "Bürobibliothek",
         "Zugriffsliste",
         "Projektspeicher",
         "Bescheid",

@@ -4,13 +4,13 @@ export const search = {
     office: 'Whole office',
     project: 'This project',
     projectFolder: 'This folder',
-    officeShelf: 'Office filing',
+    officeShelf: 'Office library',
   },
   field: {
     placeholder: {
       office: 'Search the whole office…',
       project: 'Search this project…',
-      office_shelf: 'Search the office filing…',
+      office_shelf: 'Search the office library…',
     },
     placeholderShort: 'Search…',
     label: 'Search',
@@ -71,7 +71,7 @@ export const search = {
     page: 'p. {page}',
   },
   where: {
-    officeShelf: 'Office filing',
+    officeShelf: 'Office library',
     folder: 'Folder',
     separator: ' · ',
   },
@@ -274,7 +274,7 @@ export const search = {
     summaryEverything: 'No words or filters',
   },
   mode: {
-    backToFiles: 'Back to files',
+    backToFiles: 'Back to documents',
     backToShelf: 'Back to the filing',
   },
   hitActions: {

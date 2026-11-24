@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     template: `%s — ${PRODUCT_NAME}`,
   },
   description:
-    'Workspace for planning offices: projects, files, the building model, tasks and research, with Office filing and building law at hand. Every answer cites its source.',
+    'Workspace for planning offices: projects, files, the building model, tasks and research, with Office library and building law at hand. Every answer cites its source.',
   robots: { index: false, follow: false },
   appleWebApp: { capable: true, title: PRODUCT_NAME, statusBarStyle: 'default' },
   applicationName: PRODUCT_NAME,

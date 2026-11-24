@@ -41,7 +41,7 @@ export const chat = {
     openBesideChat: 'Open beside the chat',
     kinds: {
       building_law: 'Building law & guidelines',
-      office: 'Office filing',
+      office: 'Office library',
       project: 'Project knowledge',
       praezedenz: 'Precedent',
       web: 'Web source',
@@ -61,7 +61,7 @@ export const chat = {
       office: 'Office',
     },
     unresolvedHint: 'The assistant referenced this file.',
-    openInOfficeShelf: 'Open in Office filing',
+    openInOfficeShelf: 'Open in Office library',
     openInSearch: 'Open in search',
     openInFiles: 'Open in project files',
     loadError: 'Documents couldn’t be loaded.',
@@ -80,7 +80,7 @@ export const chat = {
     writtenAs: 'In the text: {name}',
     shelf: {
       project: 'Project files',
-      office: 'Office filing',
+      office: 'Office library',
       session: 'Attachment in this chat',
     },
     notIndexed: 'Filed, not read. You can open it, but {productName} does not cite it.',
@@ -122,11 +122,11 @@ export const chat = {
   sourceTabs: {
     law: 'Building law',
     project: 'Project knowledge',
-    office: 'Office filing',
+    office: 'Office library',
     auto: 'Web',
     model: 'Model measurement',
     shelves: {
-      office_shelf: 'Office filing',
+      office_shelf: 'Office library',
       project: 'Project knowledge',
       session: 'Private session',
       base: 'Base knowledge',
@@ -156,7 +156,7 @@ export const chat = {
     presets: {
       law: 'Building law & guidelines',
       project: 'Project documents',
-      office: 'Office filing',
+      office: 'Office library',
     },
   },
   greeting: {
@@ -1061,20 +1061,20 @@ export const chat = {
       },
       shelf: {
         project: 'in the project',
-        office: 'in the office filing',
+        office: 'in the office library',
         base: 'in the knowledge base',
         web: 'on the web',
         session: 'in this chat',
       },
       place: {
         project: 'the project',
-        office: 'the office filing',
+        office: 'the office library',
         chat: "this chat's files",
         law: 'the OIB guidelines',
         estate: 'every place',
         folderIn: '{place} ›\u00A0{folder}',
         crumb: {
-          office: 'office filing',
+          office: 'office library',
           chat: 'chat',
           law: 'OIB guidelines',
         },
@@ -1086,7 +1086,7 @@ export const chat = {
       },
       placeIn: {
         project: 'in the project',
-        office: 'in the office filing',
+        office: 'in the office library',
         chat: "in this chat's files",
         law: 'in the OIB guidelines',
         estate: 'in every place',
@@ -1222,7 +1222,7 @@ export const chat = {
       corpusJoin: ' and ',
       status: {
         documents: {
-          officeShelf: 'Reviewing documents from Office filing …',
+          officeShelf: 'Reviewing documents from Office library …',
           project: 'Reviewing documents from the project …',
           session: 'Reviewing documents from this conversation …',
           several: 'Reviewing your documents …',

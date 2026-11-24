@@ -2,7 +2,7 @@ export const projects = {
   list: {
     heading: 'Projects',
     description:
-      'Every building project in one workspace: documents, members, tasks, research and chat, with Office filing and building law at hand.',
+      'Every building project in one workspace: documents, members, tasks, research and chat, with Office library and building law at hand.',
     loading: 'Loading projects…',
     searchPlaceholder: 'Name, place or client…',
     searchAria: 'Search projects by name, address or client',
@@ -307,10 +307,10 @@ export const projects = {
     mailWaitingAria: '{count, plural, one {# mail waits to be filed in {name}} other {# mails wait to be filed in {name}}}',
   },
   officeShelfCard: {
-    title: 'Office filing',
+    title: 'Office library',
     subtitle:
       "Your office's organization-wide knowledge — shared documents and proven details, available in every project.",
-    aria: 'Open Office filing',
+    aria: 'Open Office library',
   },
   dialog: {
     newProject: 'New project',
@@ -429,7 +429,7 @@ export const projects = {
     tryAgain: 'Try again',
     emptyTitle: 'No research runs yet',
     emptyDescription:
-      'Deep research runs appear here once you ask {productName} an involved question in Chat. It works through the project’s files, Office filing and building law, and returns a cited report you can revisit.',
+      'Deep research runs appear here once you ask {productName} an involved question in Chat. It works through the project’s files, Office library and building law, and returns a cited report you can revisit.',
     emptyAction: 'Start a run in Chat',
     viewReport: 'View report',
     viewProgress: 'View progress',

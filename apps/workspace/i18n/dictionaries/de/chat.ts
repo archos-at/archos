@@ -42,7 +42,7 @@ export const chat: typeof en.chat = {
     openBesideChat: 'Neben dem Chat öffnen',
     kinds: {
       building_law: 'Baurecht & Richtlinien',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
       project: 'Projektwissen',
       praezedenz: 'Präzedenzfall',
       web: 'Webquelle',
@@ -62,7 +62,7 @@ export const chat: typeof en.chat = {
       office: 'Büro',
     },
     unresolvedHint: 'Der Assistent hat diese Datei referenziert.',
-    openInOfficeShelf: 'In der Büroablage öffnen',
+    openInOfficeShelf: 'In der Bürobibliothek öffnen',
     openInSearch: 'In der Suche öffnen',
     openInFiles: 'In den Projektdateien öffnen',
     loadError: 'Dokumente konnten nicht geladen werden.',
@@ -81,7 +81,7 @@ export const chat: typeof en.chat = {
     writtenAs: 'Im Text: {name}',
     shelf: {
       project: 'Projektdateien',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
       session: 'Beilage in diesem Chat',
     },
     notIndexed:
@@ -127,11 +127,11 @@ export const chat: typeof en.chat = {
   sourceTabs: {
     law: 'Baurecht',
     project: 'Projektwissen',
-    office: 'Büroablage',
+    office: 'Bürobibliothek',
     auto: 'Web',
     model: 'Modellmessung',
     shelves: {
-      office_shelf: 'Büroablage',
+      office_shelf: 'Bürobibliothek',
       project: 'Projektwissen',
       session: 'Private Sitzung',
       base: 'Basiswissen',
@@ -161,7 +161,7 @@ export const chat: typeof en.chat = {
     presets: {
       law: 'Baurecht & Richtlinien',
       project: 'Projektunterlagen',
-      office: 'Büroablage',
+      office: 'Bürobibliothek',
     },
   },
   greeting: {
@@ -533,7 +533,7 @@ export const chat: typeof en.chat = {
       fileError: 'Das Ablegen hat nicht geklappt. Bitte erneut versuchen.',
       fileConflict: 'Ein Dokument mit diesem Namen liegt bereits im Projekt.',
       fileAnyway: 'Trotzdem ablegen',
-      fileSubmitted: 'Dieser Entwurf ist bereits abgelegt. Weiter unter Dateien.',
+      fileSubmitted: 'Dieser Entwurf ist bereits abgelegt. Weiter in der Ablage.',
       preview: 'Entwurf ansehen',
       previewLoading: 'Entwurf wird geladen …',
       previewError: 'Der Entwurf konnte nicht geladen werden.',
@@ -639,7 +639,7 @@ export const chat: typeof en.chat = {
         assign: '{count, plural, one {Datei zugewiesen.} other {# Dateien zugewiesen.}}',
       },
       partial:
-        'Teilweise übernommen. Einige Einträge konnten nicht ausgeführt werden – sehen Sie unter Dateien nach.',
+        'Teilweise übernommen. Einige Einträge konnten nicht ausgeführt werden – sehen Sie in der Ablage nach.',
       partialCount: '{applied} von {total} übernommen.',
       dismissed: 'Verworfen. Es wurde nichts geändert.',
       notStored:
@@ -1072,20 +1072,20 @@ export const chat: typeof en.chat = {
       },
       shelf: {
         project: 'im Projekt',
-        office: 'in der Büroablage',
+        office: 'in der Bürobibliothek',
         base: 'im Basiswissen',
         web: 'im Web',
         session: 'in diesem Chat',
       },
       place: {
         project: 'das Projekt',
-        office: 'die Büroablage',
+        office: 'die Bürobibliothek',
         chat: 'die Dateien dieses Chats',
         law: 'die OIB-Richtlinien',
         estate: 'alle Ablagen',
         folderIn: '{place} ›\u00A0{folder}',
         crumb: {
-          office: 'Büroablage',
+          office: 'Bürobibliothek',
           chat: 'Chat',
           law: 'OIB-Richtlinien',
         },
@@ -1097,7 +1097,7 @@ export const chat: typeof en.chat = {
       },
       placeIn: {
         project: 'im Projekt',
-        office: 'in der Büroablage',
+        office: 'in der Bürobibliothek',
         chat: 'in den Dateien dieses Chats',
         law: 'in den OIB-Richtlinien',
         estate: 'in allen Ablagen',
@@ -1224,7 +1224,7 @@ export const chat: typeof en.chat = {
       corpusJoin: ' und ',
       status: {
         documents: {
-          officeShelf: 'Unterlagen aus der Büroablage werden gesichtet …',
+          officeShelf: 'Unterlagen aus der Bürobibliothek werden gesichtet …',
           project: 'Unterlagen aus dem Projekt werden gesichtet …',
           session: 'Unterlagen aus diesem Chat werden gesichtet …',
           several: 'Ihre Unterlagen werden gesichtet …',

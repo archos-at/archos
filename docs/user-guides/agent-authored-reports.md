@@ -35,7 +35,7 @@ When the run finishes, the block's one line says what became of the report:
 > Fertig · Bericht abgelegt in Projekt › Berichte — **Im Projekt anzeigen**
 
 The report itself is read in the block, in the thread; *Im Projekt anzeigen*
-opens the filed document in the project's Dateien.
+opens the filed document in the project's Ablage.
 
 **If nothing was filed, the block says so instead of naming a file:**
 
@@ -57,7 +57,7 @@ getting it.
 
 ---
 
-## What you see in Dateien
+## What you see in the Ablage
 
 The report is a normal file in the **Berichte** folder, with three marks on it.
 
@@ -186,7 +186,7 @@ never what happened to it.
 
 ### Finding what is waiting
 
-The filter menu in Dateien has **Freigabe ausstehend** beside *Unvergeben* and
+The filter menu in the Ablage has **Freigabe ausstehend** beside *Unvergeben* and
 *Von ARCHOS*, and the three combine: everything ARCHOS wrote, that nobody has
 taken on, that is waiting for a decision, is one query.
 
@@ -194,7 +194,7 @@ taken on, that is waiting for a decision, is one query.
 
 ## Über ein Dokument sprechen
 
-**Besprechen** steht auf jeder Datei — unter Dateien, auf der
+**Besprechen** steht auf jeder Datei — in der Ablage, auf der
 Berichtskarte im Chat und auf der Freigabe-Aufforderung im Posteingang — und
 öffnet ein Gespräch, das genau um dieses Dokument geht. Es funktioniert auch bei
 einem Entwurf, den noch niemand veröffentlicht hat: ARCHOS liest die Fassung
@@ -229,7 +229,7 @@ back on Friday as if somebody had checked it. Only a report a person approved
 and published is searchable, and even then you can see whose words it is.
 
 A report from deep research is never read into the knowledge base, published or
-not. The file is still a file: you can find it **by name** in Dateien, preview
+not. The file is still a file: you can find it **by name** in the Ablage, preview
 it and read it.
 
 ---
@@ -285,7 +285,7 @@ Nothing ARCHOS writes can be filed without that marking: the service that files
 it checks the finished bytes and refuses them if the statement is missing. A
 document that could not say who wrote it is not filed at all.
 
-**Why a PDF.** The report is filed as a PDF so that it previews inside Dateien
+**Why a PDF.** The report is filed as a PDF so that it previews inside the Ablage
 — a Word file has no in-app preview and can only be downloaded, which is the
 wrong shape for the one document in the project nobody has read yet — and
 because an Einreichung attachment is a PDF. Exporting a *saved answer* from a

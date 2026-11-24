@@ -83,7 +83,7 @@ describe('project tour', () => {
     expect(placed.every((stop) => stop.side === undefined)).toBe(true)
   })
 
-  it('on a phone, points at the tab bar: above each tab, and the Büroablage at "Mehr"', () => {
+  it('on a phone, points at the tab bar: above each tab, and the Bürobibliothek at "Mehr"', () => {
     const tabs: Record<string, AnchorBox> = {
       [tourAnchorSelector(TOUR_ANCHORS.sectionChat)]: { left: 4, right: 81, top: 760, bottom: 812, placement: 'above' },
       [tourAnchorSelector(TOUR_ANCHORS.sectionFiles)]: { left: 81, right: 158, top: 760, bottom: 812, placement: 'above' },

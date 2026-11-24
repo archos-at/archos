@@ -3,7 +3,7 @@ import type { en } from '../en'
 export const inboundMail: typeof en.inboundMail = {
   title: 'E-Mail-Eingang',
   subtitle: 'E-Mails an die E-Mail-Adresse des Projekts warten hier, bis jemand sie ablegt.',
-  back: 'Dateien',
+  back: 'Ablage',
   addressButton: 'Adresse',
   noSelection: 'Wählen Sie eine E-Mail, um zu sehen, was sie enthält.',
 
@@ -321,7 +321,7 @@ export const inboundMail: typeof en.inboundMail = {
       scan_infected: 'Schadsoftware gefunden\u00A0· lässt sich nicht ablegen',
       not_offered: 'Dateityp wird in diesem Büro nicht abgelegt\u00A0· im Original enthalten',
       filing: 'Wird abgelegt …',
-      filed: 'In Dateien abgelegt',
+      filed: 'In der Ablage abgelegt',
       filedTo: 'Abgelegt in {folder}',
       version: 'Fassung {version}',
       dismissed: 'Verworfen',
@@ -630,7 +630,7 @@ export const inboundMail: typeof en.inboundMail = {
     confirmSummary: '{files, plural, one {# Datei} other {# Dateien}} und {texts, plural, one {# E-Mail-Text} other {# E-Mail-Texte}}',
     destination: {
       folder: 'In „{label}“: {count}',
-      root: 'In Dateien (oberste Ebene): {count}',
+      root: 'In der Ablage (oberste Ebene): {count}',
       new_folder: 'In den neuen Ordner „{label}“: {count}',
       thread: 'In E-Mail-Verlauf „{label}“: {count}',
       new_thread: 'Als neuer E-Mail-Verlauf „{label}“',
@@ -690,7 +690,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   address: {
     dialogTitle: 'E-Mail-Adresse des Projekts',
-    lead: 'Setzen Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben. Die Antworten landen dann im E-Mail-Eingang unter Dateien.',
+    lead: 'Setzen Sie diese Adresse in Cc, wenn Sie zum Projekt schreiben. Die Antworten landen dann im E-Mail-Eingang der Ablage.',
     label: 'E-Mail-Adresse des Projekts',
     copy: 'Kopieren',
     copied: 'Kopiert',

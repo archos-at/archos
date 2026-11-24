@@ -518,7 +518,7 @@ describe('ProjectFileWorkspace — a folder larger than one page', () => {
   })
 })
 
-describe('ProjectFileWorkspace — norms that could go to the Büroablage', () => {
+describe('ProjectFileWorkspace — norms that could go to the Bürobibliothek', () => {
   const norms = {
     canManageOfficeShelf: true,
     canWrite: true,
@@ -564,7 +564,7 @@ describe('ProjectFileWorkspace — norms that could go to the Büroablage', () =
     act(() => onStored?.([{ documentId: 'doc-norm', fileName: 'OENORM_B_1600.pdf' }]))
 
     const dialog = await screen.findByTestId('norm-dialog')
-    expect(within(dialog).getByRole('radio', { name: /^Office filing \(recommended\)/ })).toBeChecked()
+    expect(within(dialog).getByRole('radio', { name: /^Office library \(recommended\)/ })).toBeChecked()
     expect(within(dialog).getByRole('radio', { name: /^This project only/ })).toBeInTheDocument()
   })
 

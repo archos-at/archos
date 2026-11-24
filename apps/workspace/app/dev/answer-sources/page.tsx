@@ -62,7 +62,7 @@ const mixed: CitationSource[] = [
     origin: 'kb',
     kind: 'office',
     lane: 'office',
-    laneLabel: 'Büroablage',
+    laneLabel: 'Bürobibliothek',
     page: 2,
     number: 3,
     isCited: true,
@@ -149,7 +149,7 @@ export default function AnswerSourcesPreview() {
 
       <Block
         title="Mixed provenance"
-        note="Each family in its own tint with its authority badge: OIB corpus, RIS legal source, Büroablage, project upload, web page."
+        note="Each family in its own tint with its authority badge: OIB corpus, RIS legal source, Bürobibliothek, project upload, web page."
       >
         <Row inputs={{ citations: mixed }} anchorPrefix="answer-source-preview-b-" />
       </Block>

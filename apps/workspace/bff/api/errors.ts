@@ -1,7 +1,7 @@
 import type { RateLimitDecision } from '@/lib/limits/types'
-import { ApiError, ForbiddenError } from './api-error'
+import { ApiError, ForbiddenError, isApiError } from './api-error'
 
-export { ApiError, BadRequestError, ForbiddenError } from './api-error'
+export { ApiError, BadRequestError, ForbiddenError, isApiError } from './api-error'
 
 const BYTES_PER_MB = 1e6
 
@@ -18,7 +18,7 @@ export class SessionRequiredError extends UnauthorizedError {
 }
 
 export function isAuthzRefusal(error: unknown): error is ApiError {
-  return error instanceof ApiError && (error.status === 401 || error.status === 403 || error.status === 404)
+  return isApiError(error) && (error.status === 401 || error.status === 403 || error.status === 404)
 }
 
 export class NoOrganizationError extends ForbiddenError {

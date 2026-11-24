@@ -11,7 +11,7 @@ export const FOLDER_DESCRIPTIONS_MAX_CHARS = 1800
 
 const LINE_MAX_CHARS = 200
 
-const SHELF_TAG = { project: 'Projekt', office_shelf: 'Büroablage' } as const
+const SHELF_TAG = { project: 'Projekt', office_shelf: 'Bürobibliothek' } as const
 
 export async function buildFolderDescriptionsBlock(
   organizationId: string,
