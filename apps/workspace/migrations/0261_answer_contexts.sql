@@ -1,5 +1,5 @@
 -- 0261: answer_contexts, the server-written record of what one answer was
--- allowed to read and what it read (ADR-0192, "The record per answer").
+-- allowed to read and what it read (ADR-0194, "The record per answer").
 --
 -- One row per answer, keyed by (organization, answer message id), the id the
 -- agent mints for the turn's answer before it reads anything. The BFF writes
@@ -53,6 +53,6 @@ CREATE INDEX IF NOT EXISTS "answer_contexts_conversation_idx"
   ON "answer_contexts" ("organization_id", "conversation_id");
 --> statement-breakpoint
 COMMENT ON TABLE "answer_contexts" IS
-  'What one answer was allowed to read and what it read, written by the BFF (ADR-0192). Never written by the browser.';
+  'What one answer was allowed to read and what it read, written by the BFF (ADR-0194). Never written by the browser.';
 --> statement-breakpoint
 SELECT secure_table('answer_contexts', 'organization_id = current_org()');

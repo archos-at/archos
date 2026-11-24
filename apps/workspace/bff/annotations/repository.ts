@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { getDb } from '@/lib/db'
 import { isUniqueViolation } from '@/lib/db/errors'
@@ -21,6 +21,7 @@ import {
   type MarkTally,
 } from './types'
 import { isAgentKind } from '@/lib/agent-kind'
+import { MEASURE_SHAPES, type KeptReading, type PagePoint } from './measure-shapes'
 
 export interface CarryLink {
   annotationId: string
@@ -156,6 +157,7 @@ export async function tallyLiveMarks(
           eq(documents.organizationId, organizationId),
           inArray(documentAnnotations.documentId, [...documentIds]),
           inArray(documentAnnotations.status, [...LIVE_ANNOTATION_STATUSES]),
+          notInArray(documentAnnotations.shape, [...MEASURE_SHAPES]),
           documentVisibleTo(reader)
         )
       )
@@ -204,6 +206,8 @@ export interface NewAnnotationValues {
   y: number
   w: number | null
   h: number | null
+  points?: PagePoint[] | null
+  reading?: KeptReading | null
   kind: AnnotationKind
   body: string
   mentions?: MarkMention[]

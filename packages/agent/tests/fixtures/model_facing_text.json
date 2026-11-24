@@ -13419,7 +13419,7 @@
     }
   },
   "tool:chat:canvas__mark": {
-    "description": "Sets `proposals` as PROPOSALS from you; none of them counts until a person takes the proposal over in the document or dismisses it. Never say a defect has been entered. `open=true` only when the person asks for exactly this annotation to be set (then it is open at once, in their name; if the office lets you only propose, this is refused, then retry without `open`); your own findings, even in a requested review, stay proposals. First look at the page with `look` and estimate the spot there. Per proposal: `page` (from 1); `shape` `region` (preferred: a tight frame around the component) or `point`; `x`/`y` the top left corner, for `region` also `w`/`h` (x+w and y+h at most 1); `kind` `hint`, `question` or `defect`; `body` in the office's German, concrete and short (at most 2000 characters); `basis` with the source reference when the finding rests on a norm. At most 20 per call, the most important first. The file is called Dokument or Fassung, never Plan. Locations are a share of the page as displayed: 0 to 1, origin top left, no pixels. `document` (optional): the file name from the overview, or the id; without it, the document open on the canvas, otherwise this chat's document.",
+    "description": "Sets `proposals` as PROPOSALS: none counts until a person takes it over or dismisses it. Never say a defect has been entered. `open=true` only when the person asks for exactly this annotation (open at once, in their name; if the office lets you only propose, retry without it); your own findings always stay proposals. Estimate the spot with `look` first. Per proposal: `page` (from 1); `shape` `region` (preferred, tight) with top left `x`/`y` and `w`/`h`, or `point` with `x`/`y`; a measurement on a PDF drawing: `line`, `path` or `polygon` with ordered `points`, no number; `body` in the office's German, concrete and short; `basis` the norm it rests on. At most 20 per call, most important first. The file is called Dokument or Fassung, never Plan. Locations are a share of the page as displayed: 0 to 1, origin top left, no pixels. `document` (optional): the file name from the overview, or the id; without it, the document open on the canvas, otherwise this chat's document.",
     "schema": {
       "properties": {
         "document": {
@@ -13434,7 +13434,6 @@
           "anyOf": [
             {
               "items": {
-                "description": "One finding: where on which page, what kind, what is wrong, what it rests on.",
                 "properties": {
                   "basis": {
                     "anyOf": [
@@ -13477,11 +13476,25 @@
                     "title": "Page",
                     "type": "integer"
                   },
+                  "points": {
+                    "default": [],
+                    "items": {
+                      "items": {
+                        "type": "number"
+                      },
+                      "type": "array"
+                    },
+                    "title": "Points",
+                    "type": "array"
+                  },
                   "shape": {
                     "default": "region",
                     "enum": [
                       "point",
-                      "region"
+                      "region",
+                      "line",
+                      "path",
+                      "polygon"
                     ],
                     "title": "Shape",
                     "type": "string"
@@ -13499,18 +13512,18 @@
                     "title": "W"
                   },
                   "x": {
+                    "default": 0,
                     "title": "X",
                     "type": "number"
                   },
                   "y": {
+                    "default": 0,
                     "title": "Y",
                     "type": "number"
                   }
                 },
                 "required": [
                   "page",
-                  "x",
-                  "y",
                   "kind",
                   "body"
                 ],

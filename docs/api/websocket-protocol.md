@@ -137,7 +137,7 @@ anonymous); the path is NOT on the short exempt list; and no valid envelope is
 present. **Deny by default**: every path needs the envelope, `/websocket`
 included, except
 `ENVELOPE_EXEMPT_HTTP_PATH_PREFIXES` — `/health`, `/v1/collections`,
-`/v1/documents`, `/v1/data_sources`, `/v1/jobs/async/jobs`,
+`/v1/documents`, `/v1/data_sources`,
 `/v1/jobs/async/job`, `/v1/jobs/async/agents`, `/v1/drafts` — which run no
 workflow and which a BFF proxy forwards with the member's bearer alone. The
 list used to be the other way round (an allowlist of enforced paths), and the

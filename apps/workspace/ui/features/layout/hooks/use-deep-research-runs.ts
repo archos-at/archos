@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { listResearchRuns, type ResearchRun } from '@/adapters/api/research-runs-client'
+import { JobApiError, listProjectRuns, type JobRun } from '@/adapters/api/jobs-client'
+
+const RUN_PAGE = 50
+
+export type DeepResearchRunsState =
+  | { kind: 'loading' }
+  | { kind: 'unavailable' }
+  | { kind: 'failed' }
+  | { kind: 'loaded'; runs: JobRun[] }
+
+const isFeatureOff = (error: unknown): boolean =>
+  error instanceof JobApiError && error.status === 403 && error.code === 'feature_disabled'
 
 export const useDeepResearchRuns = ({
   isSessionsPanelOpen,
@@ -8,31 +19,28 @@ export const useDeepResearchRuns = ({
   isSessionsPanelOpen: boolean
   projectId?: string
 }) => {
-  const [deepResearchRuns, setDeepResearchRuns] = useState<ResearchRun[] | null>(null)
-  const [deepResearchError, setDeepResearchError] = useState(false)
-  const deepResearchFetchInFlightRef = useRef(false)
-  const deepResearchProjectRef = useRef<string | null>(null)
+  const [state, setState] = useState<DeepResearchRunsState>({ kind: 'loading' })
+  const inFlightRef = useRef(false)
+  const requestedProjectRef = useRef<string | null>(null)
 
   const fetchDeepResearchRuns = useCallback(() => {
     if (!projectId) return
-    if (deepResearchFetchInFlightRef.current) return
-    deepResearchFetchInFlightRef.current = true
+    if (inFlightRef.current) return
+    inFlightRef.current = true
     const requestedProject = projectId
-    deepResearchProjectRef.current = requestedProject
-    setDeepResearchError(false)
-    listResearchRuns({ projectId: requestedProject, limit: 50 })
-      .then((response) => {
-        if (deepResearchProjectRef.current !== requestedProject) return
-        const sorted = [...response.jobs].sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        )
-        setDeepResearchRuns(sorted)
+    requestedProjectRef.current = requestedProject
+    setState((current) => (current.kind === 'loaded' ? current : { kind: 'loading' }))
+    listProjectRuns(requestedProject, { limit: RUN_PAGE, kind: 'deep-research' })
+      .then((runs) => {
+        if (requestedProjectRef.current !== requestedProject) return
+        setState({ kind: 'loaded', runs })
       })
-      .catch(() => {
-        if (deepResearchProjectRef.current === requestedProject) setDeepResearchError(true)
+      .catch((error: unknown) => {
+        if (requestedProjectRef.current !== requestedProject) return
+        setState(isFeatureOff(error) ? { kind: 'unavailable' } : { kind: 'failed' })
       })
       .finally(() => {
-        deepResearchFetchInFlightRef.current = false
+        inFlightRef.current = false
       })
   }, [projectId])
 
@@ -41,5 +49,5 @@ export const useDeepResearchRuns = ({
     fetchDeepResearchRuns()
   }, [isSessionsPanelOpen, projectId, fetchDeepResearchRuns])
 
-  return { deepResearchRuns, deepResearchError, fetchDeepResearchRuns }
+  return { deepResearch: state, fetchDeepResearchRuns }
 }

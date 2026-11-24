@@ -62,7 +62,7 @@ export const CONVERSATION_DECISION_WIRE_SCHEMAS = {
 
 export function conversationDecisionJsonSchema(): JsonSchemaNode {
   return jsonSchemaDocument(CONVERSATION_DECISION_WIRE_SCHEMAS, {
-    title: 'Conversation decision wire contract (ADR-0192)',
+    title: 'Conversation decision wire contract (ADR-0194)',
     description:
       'Generated from apps/workspace/bff/conversation-context/wire.ts. Do not edit by hand: ' +
       'wire.spec.ts rewrites this file and fails when it is stale.',

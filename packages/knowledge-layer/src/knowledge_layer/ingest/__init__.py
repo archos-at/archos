@@ -106,6 +106,7 @@ _LAZY: dict[str, str] = {
     "_strip_watermark_lines": ".pdf_text",
     "_summary_from_drawing_fields": ".caption_documents",
     "pdfium_lock": ".pdfium_guard",
+    "pdfium_pause": ".pdfium_guard",
 }
 
 __getattr__ = lazy_exports(__name__, _LAZY, cache=False)
@@ -192,6 +193,7 @@ __all__ = [
     "page_texts_for_visual_heuristic",
     "pdf_page_texts",
     "pdfium_lock",
+    "pdfium_pause",
     "provenance_from_config",
     "put_part",
     "put_raster",

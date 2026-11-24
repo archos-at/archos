@@ -26,8 +26,10 @@ import {
 import { projectProtocolQuerySchema } from '@/lib/annotations/project-types'
 import type { AgentOperation } from '../operation'
 import { PRODUCT_NAME } from '@/lib/brand'
-import { listCalibrationsQuerySchema, setCalibrationRequestSchema } from '@/lib/drawing-calibrations/wire'
+import { listCalibrationsQuerySchema } from '@/lib/drawing-calibrations/list-wire'
+import { setCalibrationRequestSchema } from '@/lib/drawing-calibrations/wire'
 import { FEATURE_FLAGS } from '@/lib/authz/feature-flags'
+import { measureRequestSchema } from '@/lib/drawing-tape/wire'
 
 const documentParams = z.object({
   id: z.string().describe('The document id, from a project document listing or workspace-search.'),
@@ -460,6 +462,29 @@ export const reviewOperations = [
   },
 
   {
+    name: 'document-measure',
+    feature: FEATURE_FLAGS.drawingMeasure,
+    domain: 'review',
+    summary: 'Measure a distance, a path or an area on a page of a PDF drawing, or snap points to its linework',
+    description:
+      'Measures on a page of the document’s current version, from the file’s linework: `distance` (two points), `path` (two or ' +
+      'more), `area` (three or more corners in order); `snap` says where each point ties to a line end or corner. Points are ' +
+      'shares of the page, origin top left. Returns a measurement with its interval, provenance and scale state, or no number ' +
+      'with a `code`, reason and remedy. State a number with its interval; never recompute one. Keep it with annotation-create.',
+    method: 'POST',
+    path: '/api/documents/[id]/measure',
+    params: documentParams,
+    body: measureRequestSchema,
+    readOnly: true,
+    examples: [
+      {
+        params: { id: '5b1e7c2a-9d4f-4c3b-8a6e-2f1d0c9b8a7e' },
+        body: { page: 1, operation: 'distance', points: [[0.21, 0.4], [0.36, 0.4]] },
+      },
+    ],
+    load: () => import('@/app/api/documents/[id]/measure/route'),
+  },
+  {
     name: 'drawing-calibration-list',
     feature: FEATURE_FLAGS.drawingMeasure,
     domain: 'review',
@@ -481,7 +506,9 @@ export const reviewOperations = [
     summary: 'Set the scale of a region of a PDF drawing',
     description:
       'Calibrates a region of a page of the document’s current version from two reference points and the true length between them, ' +
-      'superseding the region’s earlier calibration. Both points lie inside `region`, which is never the whole page by default. ' +
+      'superseding the calibration of the same region. Both points lie inside `region`, which is never the whole page by default. ' +
+      'Regions on one page lie apart or one wholly inside another (a 1:20 detail inside a 1:100 sheet; the smaller one holds there); ' +
+      'a region that partly overlaps an active one is refused (409, code `region-overlaps`, `overlapping` names it). ' +
       'A file that is not a PDF is refused (422), a document with no version too (409). Returns the calibration.',
     method: 'POST',
     path: '/api/documents/[id]/calibrations',

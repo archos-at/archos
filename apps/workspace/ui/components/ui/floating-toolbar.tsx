@@ -50,7 +50,7 @@ export function ToolbarTextButton({
       size="sm"
       className={cn(
         'text-muted-foreground hover:text-foreground h-7 shrink-0 rounded-control px-1.5 text-xs font-normal tabular-nums pointer-coarse:h-11',
-        'contrast-more:text-foreground',
+        'data-[state=open]:bg-accent data-[state=open]:text-foreground contrast-more:text-foreground',
         className,
       )}
       {...props}

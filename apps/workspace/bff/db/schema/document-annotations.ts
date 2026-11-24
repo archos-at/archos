@@ -31,6 +31,7 @@ import {
   type AgentWakeStatus,
   type AgentWakeTrigger,
 } from '@/lib/annotations/types'
+import { MAX_MEASURE_POINTS, type KeptReading, type PagePoint } from '@/lib/annotations/measure-shapes'
 import { documentVersions } from './document-versions'
 import { documents } from './documents'
 import { AGENT_KINDS } from '@/lib/agent-kind'
@@ -54,6 +55,8 @@ export const documentAnnotations = pgTable(
     y: doublePrecision('y').notNull(),
     w: doublePrecision('w'),
     h: doublePrecision('h'),
+    points: jsonb('points').$type<PagePoint[]>(),
+    reading: jsonb('reading').$type<KeptReading>(),
     kind: text('kind').$type<AnnotationKind>().notNull(),
     body: text('body').notNull(),
     mentions: jsonb('mentions').$type<MarkMention[]>().notNull().default([]),
@@ -110,7 +113,15 @@ export const documentAnnotations = pgTable(
     ),
     regionOnPage: check(
       'document_annotations_region_on_page',
-      sql`(${table.shape} = 'point' AND ${table.w} IS NULL AND ${table.h} IS NULL) OR (${table.shape} = 'region' AND ${table.w} > 0 AND ${table.h} > 0 AND ${table.x} + ${table.w} <= 1.000001 AND ${table.y} + ${table.h} <= 1.000001)`
+      sql`(${table.shape} = 'point' AND ${table.w} IS NULL AND ${table.h} IS NULL) OR (${table.shape} = 'region' AND ${table.w} > 0 AND ${table.h} > 0 AND ${table.x} + ${table.w} <= 1.000001 AND ${table.y} + ${table.h} <= 1.000001) OR (${table.shape} IN ('line', 'path', 'polygon') AND ${table.w} IS NULL AND ${table.h} IS NULL)`
+    ),
+    pointsForMeasureShapes: check(
+      'document_annotations_points_for_measure_shapes',
+      sql`CASE WHEN ${table.shape} IN ('point', 'region') THEN ${table.points} IS NULL WHEN jsonb_typeof(${table.points}) = 'array' THEN jsonb_array_length(${table.points}) BETWEEN (CASE ${table.shape} WHEN 'polygon' THEN 3 ELSE 2 END) AND (CASE ${table.shape} WHEN 'line' THEN 2 ELSE ${sql.raw(String(MAX_MEASURE_POINTS))} END) AND NOT jsonb_path_exists(${table.points}, 'strict $[*] ? (@.type() != "array" || @.size() != 2 || @[0].type() != "number" || @[1].type() != "number" || @[0] < 0 || @[0] > 1 || @[1] < 0 || @[1] > 1)') ELSE false END`
+    ),
+    measureReading: check(
+      'document_annotations_measure_reading',
+      sql`${table.reading} IS NULL OR CASE WHEN ${table.shape} IN ('line', 'path', 'polygon') AND jsonb_typeof(${table.reading}) = 'object' AND jsonb_typeof(${table.reading} -> 'value') = 'number' AND jsonb_typeof(${table.reading} -> 'low') = 'number' AND jsonb_typeof(${table.reading} -> 'high') = 'number' THEN (${table.reading} ->> 'low')::double precision <= (${table.reading} ->> 'value')::double precision AND (${table.reading} ->> 'value')::double precision <= (${table.reading} ->> 'high')::double precision AND coalesce(${table.reading} ->> 'unit' IN ('m', 'm2'), false) AND ((${table.reading} ->> 'unit') = 'm2') = (${table.shape} = 'polygon') AND coalesce(${table.reading} ->> 'provenance' IN ('printed_figure', 'vector_verified', 'vector_estimated'), false) AND coalesce(${table.reading} ->> 'scaleState' IN ('verified', 'estimated', 'uncalibrated'), false) ELSE false END`
     ),
     kindKnown: check('document_annotations_kind_known', sql`${table.kind} IN (${list(ANNOTATION_KINDS)})`),
     authorKnown: check('document_annotations_author_known', sql`${table.authorKind} IN (${list(ANNOTATION_AUTHORS)})`),

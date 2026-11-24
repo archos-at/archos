@@ -160,6 +160,8 @@ const MARK: AnnotationRecord = {
   y: 0.5,
   w: null,
   h: null,
+  points: null,
+  reading: null,
   kind: 'defect',
   body: 'Tür T30 fehlt im Fluchtweg',
   mentions: [],

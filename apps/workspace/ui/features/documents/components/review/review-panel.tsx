@@ -10,13 +10,22 @@ import { Spinner } from '@/components/ui/spinner'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { formatDayRange } from '@/lib/format'
-import { isForReader, isLive, type AnnotationView, type CarryTargetView } from '@/lib/annotations/types'
+import {
+  isForReader,
+  isLive,
+  isMeasurement,
+  isOpenItem,
+  isProposedItem,
+  type AnnotationView,
+  type CarryTargetView,
+} from '@/lib/annotations/types'
 import type { RevisionRef } from '@/lib/documents/revision-links'
 import { cn } from '@/lib/utils'
 import type { CarriedGroup, DocumentReview, ReviewFilter } from '../../hooks/use-document-review'
 import { compareFromReviewHref } from '../../lib/revision-links'
 import { MarkBody } from './mark-body'
 import { MarkRowContent, markRowClassName } from './mark-row'
+import { keptMeasurements, MeasurementsGroup } from './measurements-group'
 import { markInk } from './review-page-layer'
 import { isAgentKind } from '@/lib/agent-kind'
 
@@ -335,14 +344,14 @@ function AgentVerdict({ annotation, viewerId }: { annotation: AnnotationView; vi
 const FILTERS: ReviewFilter[] = ['open', 'closed']
 
 export function tabCounts(
-  annotations: readonly Pick<AnnotationView, 'status' | 'assigneeUserId'>[],
+  annotations: readonly Pick<AnnotationView, 'status' | 'assigneeUserId' | 'shape'>[],
   mine: { on: boolean; me: string | null }
 ): Record<ReviewFilter | 'proposed', number> {
   const shown = mine.on ? annotations.filter((annotation) => isForReader(annotation, mine.me)) : annotations
   return {
-    open: shown.filter((annotation) => annotation.status === 'open').length,
-    proposed: shown.filter((annotation) => annotation.status === 'proposed').length,
-    closed: shown.filter((annotation) => !isLive(annotation)).length,
+    open: shown.filter(isOpenItem).length,
+    proposed: shown.filter(isProposedItem).length,
+    closed: shown.filter((annotation) => !isLive(annotation) && !isMeasurement(annotation)).length,
   }
 }
 
@@ -365,6 +374,7 @@ export function ReviewPanel({
   const [proposalsOpen, setProposalsOpen] = useState(true)
   const proposals = filter === 'open' ? listed.filter((annotation) => annotation.status === 'proposed') : []
   const rest = listed.filter((annotation) => !proposals.includes(annotation))
+  const measurements = filter === 'open' && !mine ? keptMeasurements(review.annotations) : []
 
   return (
     <aside
@@ -449,6 +459,21 @@ export function ReviewPanel({
                 onWalkProposals={onWalkProposals}
               />
             )}
+            {measurements.length > 0 && (
+              <MeasurementsGroup count={measurements.length}>
+                {measurements.map((annotation) => (
+                  <Row
+                    key={annotation.id}
+                    annotation={annotation}
+                    viewerId={review.me}
+                    selected={annotation.id === review.selectedId}
+                    unread={review.unread.has(annotation.id) && annotation.id !== review.selectedId}
+                    onHover={review.hover}
+                    onOpen={onOpen}
+                  />
+                ))}
+              </MeasurementsGroup>
+            )}
           </>
         )}
       </div>
@@ -525,7 +550,8 @@ function ListedMarks({
 
 function EmptyList({ review }: { review: DocumentReview }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const { counts, filter, annotations, mine } = review
+  const { counts, filter, mine } = review
+  const annotations = review.annotations.filter((annotation) => !isMeasurement(annotation))
   const touch = useMediaQuery('(pointer: coarse)')
   const allDone = filter === 'open' && !mine && annotations.length > 0 && counts.open + counts.proposed === 0
   const Icon = allDone ? CheckCheck : MousePointerClick

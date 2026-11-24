@@ -5,6 +5,7 @@ import { answerCardSchema, type AnswerCard } from '@/shared/cards/schemas'
 import type { ProposedChangeView } from '@/lib/proposals/types'
 import type { CardRenderer } from '@/features/a2ui/catalog'
 import { FileOperationReceipt, MemoryReceipt, OperationReceipt } from '@/features/cards/components/ProposalReceipts'
+import { isCalibrationProposal } from '@/lib/drawing-calibrations/operation'
 
 export interface ProposalTitles {
   files: (count: number) => string
@@ -23,6 +24,7 @@ export function cardOfProposal(proposal: ProposedChangeView, titles: ProposalTit
 function rawCardOf(proposal: ProposedChangeView, titles: ProposalTitles): Record<string, unknown> | null {
   switch (proposal.kind) {
     case 'operation':
+      if (isCalibrationProposal(proposal.payload.operation)) return null
       return {
         type: 'operation_proposal',
         proposal_id: proposal.id,

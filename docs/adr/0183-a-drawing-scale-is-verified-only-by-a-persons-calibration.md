@@ -52,6 +52,20 @@ Chosen: **store what the person did, per version, per region**.
   `withdrawn`. Setting a region again supersedes its active row in one
   transaction; a partial unique index allows one active row per region.
   Withdrawing does not revive what was superseded.
+* **Regions on a page nest or keep apart, never partly overlap.** A region
+  equal to an active one (within 1e-6 of a share) supersedes it; one wholly
+  inside or around an active one stands beside it, as a 1:20 detail inside a
+  1:100 sheet does. One that partly overlaps an active one is refused with 409
+  `region-overlaps` (`overlapping` names it), decided in the setting
+  transaction under an advisory lock on the version and page, so two writers
+  cannot each pass the check (`regionRelation` in
+  `bff/drawing-calibrations/wire.ts`). It is geometric, so no index says it. At
+  a place the smallest active region holding it gives the scale, the newest of
+  equally small ones first; that also reads overlapping rows written before
+  the rule. A shape whose places fall under two regions is measured with
+  neither: the answer names both scales (`two_regions`). An outer region is no
+  contradiction of the one nested inside it; a partly overlapping one that
+  disagrees is.
 * **No new permission.** Listing needs read access to the document; setting
   and withdrawing need `project:documents:write`. Row-level security is the
   organization's; every read also ANDs `documentVisibleTo(reader)`.
@@ -59,8 +73,8 @@ Chosen: **store what the person did, per version, per region**.
   `calibrationsPage` and answers the active calibrations of that version and
   page, at most 50, under the same scope check as the file's key. The agent
   does not cache them: one withdrawn a moment ago is gone from the next call.
-* **A calibration can be contradicted.** Where another calibration, the stored
-  region, or the sheet's own figures disagree with it beyond their errors, the
+* **A calibration can be contradicted.** Where another calibration not around
+  it, the stored region, or the sheet's own figures disagree with it beyond their errors, the
   reading says so and every verdict in the region is `undecidable`
   (`sheet_scale._contradiction`). A person has to look.
 * **Behind `drawing-measure`**, as the tool is. The three operations are
@@ -100,7 +114,9 @@ Chosen: **store what the person did, per version, per region**.
 `packages/agent/tests/drawings/test_sheet_calibration.py` for the record;
 `packages/agent/tests/tools/drawings/test_drawing_measure.py` for a region
 turned `verified`, the place outside it left as it was, a contradiction
-reported, and no caching.
+reported, and no caching; `test_sheet_scale.py` and `test_sheet_measure.py` for
+the smallest region holding, the nested one not contradicted and the span
+across two refused.
 
 ## More Information
 
