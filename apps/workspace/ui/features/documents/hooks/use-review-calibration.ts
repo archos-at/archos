@@ -31,6 +31,7 @@ import {
   type CalibrationDraft,
   type DraftEnd,
 } from '../lib/calibration-draft'
+import { useSnapSheet } from './use-snap-sheet'
 import { DECISION_UNDO_MS, type DocumentReview, type ReviewTool } from './use-document-review'
 
 export type CalibrationHost = Pick<DocumentReview, 'documentId' | 'load' | 'me'> & {
@@ -58,6 +59,7 @@ export function useReviewCalibration(
   const client = options.client ?? calibrationClient
   const t = useTranslations(filesCopy)
   const measuring = tool === 'measure'
+  const snapSheet = useSnapSheet(documentId, measuring)
 
   const [wanted, setWanted] = useState<string | null>(null)
   const [listed, setListed] = useState<Listed | null>(null)
@@ -345,6 +347,8 @@ export function useReviewCalibration(
       me,
       nameOf,
       said,
+      snap: snapSheet.snap,
+      loadSnap: snapSheet.load,
     }),
     [
       shown,
@@ -383,6 +387,7 @@ export function useReviewCalibration(
       me,
       nameOf,
       said,
+      snapSheet,
     ]
   )
 }

@@ -27,6 +27,7 @@ function renderDetail(name: string) {
       folders={FOLDERS}
       client={fixtureClient({ detail: fixture })}
       onChanged={vi.fn()}
+      onFiled={vi.fn()}
       now={FIXTURE_NOW}
       pollMs={1}
     />

@@ -15,9 +15,10 @@ import { ApiRequestError } from '@/adapters/api/api-error'
 import { DETAIL_VARIANTS, FIXTURE_NOW, FOLDERS, PROJECT_ID, fixtureClient, mail, messagePart, part, text } from '@/app/dev/inbound-mail/fixtures'
 import type { InboundMailClient } from '../lib/client'
 import { decisionOf, initialDraft, type DraftCopy } from '../lib/draft'
-import { FILING_QUICK_ROUNDS, InboundMailDetail, type DetailActions } from './inbound-mail-detail'
+import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 
 function renderDetail(name: string, client: InboundMailClient = fixtureClient({ detail: DETAIL_VARIANTS[name] }), onChanged = vi.fn(), actionsRef?: { current: DetailActions | null }) {
+  const onFiled = vi.fn()
   const fixture = DETAIL_VARIANTS[name]
   render(
     <InboundMailDetail
@@ -28,13 +29,14 @@ function renderDetail(name: string, client: InboundMailClient = fixtureClient({ 
       folders={FOLDERS}
       client={client}
       onChanged={onChanged}
+      onFiled={onFiled}
       now={FIXTURE_NOW}
       pollMs={1}
       decidedByOther={fixture.decidedByOther}
       actionsRef={actionsRef}
     />
   )
-  return { client, onChanged }
+  return { client, onChanged, onFiled }
 }
 
 const copy: DraftCopy = { unnamedAttachment: (part) => `Attachment ${part.position}`, untitledThread: '(no subject)' }
@@ -128,7 +130,7 @@ describe('the mail pane', () => {
     const base = DETAIL_VARIANTS['member-verified']
     const failed = { ...base.view, rawScan: 'failed' as const }
     render(
-      <InboundMailDetail projectId={PROJECT_ID} mailId={failed.id} initial={failed} initialText={base.text} folders={FOLDERS} client={fixtureClient({ detail: { ...base, view: failed } })} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
+      <InboundMailDetail projectId={PROJECT_ID} mailId={failed.id} initial={failed} initialText={base.text} folders={FOLDERS} client={fixtureClient({ detail: { ...base, view: failed } })} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
     )
     expect(screen.getByTestId('message-scan-failed')).toHaveTextContent('The mail’s malware check failed and is being repeated. Its text can be filed once the check passes.')
   })
@@ -151,7 +153,7 @@ describe('the mail pane', () => {
     const fixture = DETAIL_VARIANTS['filed-outcome']
     const hidden = { ...fixture.view, parts: fixture.view.parts.map((part) => ({ ...part, filedAs: null, documentId: null })) }
     render(
-      <InboundMailDetail projectId={PROJECT_ID} mailId={hidden.id} initial={hidden} initialText={fixture.text} folders={FOLDERS} client={fixtureClient({ detail: { ...fixture, view: hidden } })} onChanged={vi.fn()} now={FIXTURE_NOW} />
+      <InboundMailDetail projectId={PROJECT_ID} mailId={hidden.id} initial={hidden} initialText={fixture.text} folders={FOLDERS} client={fixtureClient({ detail: { ...fixture, view: hidden } })} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} />
     )
     expect(screen.getByTestId('status-filed')).toHaveTextContent('Filed in Documents')
     expect(screen.getByTestId('status-filed')).not.toHaveTextContent('Behörde')
@@ -197,7 +199,7 @@ describe('the mail pane', () => {
     renderDetail('error', fixtureClient({ detail: DETAIL_VARIANTS.error }))
     expect(screen.getByTestId('inbound-mail-detail')).toBeInTheDocument()
     const fixture = DETAIL_VARIANTS.error
-    render(<InboundMailDetail projectId={PROJECT_ID} mailId={fixture.view.id} initial={null} folders={FOLDERS} client={fixtureClient({ detail: fixture })} onChanged={vi.fn()} />)
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={fixture.view.id} initial={null} folders={FOLDERS} client={fixtureClient({ detail: fixture })} onChanged={vi.fn()} onFiled={vi.fn()} />)
     expect(await screen.findByText('This mail could not be loaded.')).toBeInTheDocument()
   })
 
@@ -232,7 +234,7 @@ describe('„Einordnen“', () => {
     const fixture = DETAIL_VARIANTS['member-verified']
     const client = fixtureClient({ detail: fixture })
     const file = vi.spyOn(client, 'file')
-    const { onChanged } = renderDetail('member-verified', client)
+    const { onChanged, onFiled } = renderDetail('member-verified', client)
     await openFiling()
     expect(stepOf()).toBe('overview')
     expect(within(dialog()).queryByTestId('filing-progress')).toBeNull()
@@ -252,18 +254,13 @@ describe('„Einordnen“', () => {
     expect(body.mails).toEqual([decisionOf(fixture.view, initialDraft(fixture.view, FOLDERS, copy))])
     expect(body.mails[0]).toMatchObject({ message: { text: 'full', thread: { action: 'append' } }, parts: [{ folderId: FOLDERS[1].id, newFolderPath: null, documentType: 'Bescheid' }] })
     expect(body.mails[0]).not.toHaveProperty('acknowledgeSender')
-    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+    await waitFor(() => expect(onFiled).toHaveBeenCalledTimes(1))
+    const [sent, decision] = onFiled.mock.calls[0]
+    expect(sent.id).toBe(fixture.view.id)
+    expect(decision).toEqual(body.mails[0])
     expect(screen.queryByTestId('filing-dialog')).toBeNull()
-    const [title, options] = vi.mocked(toast.success).mock.calls[0] ?? []
-    expect(title).toBe('Filed 1 file and the mail text')
-    expect(options?.action).toMatchObject({ label: 'View' })
-    const description = options?.description
-    render(<>{typeof description === 'function' ? description() : description}</>)
-    const lines = screen.getAllByTestId('filed-lines').at(-1) as HTMLElement
-    expect(within(lines).getAllByRole('listitem').map((line) => line.textContent)).toEqual([
-      'Mail text → “Stellplatznachweis”',
-      'Bescheid_MA37_2026-10-14.pdf → Behörde/Bescheide · revision 1',
-    ])
+    expect(onChanged).not.toHaveBeenCalled()
+    expect(toast.success).not.toHaveBeenCalled()
   })
 
   it('says every part of a mixed mail, what stays out, and that filing dismisses it for 7 days', async () => {
@@ -470,7 +467,7 @@ describe('„Einordnen“', () => {
     const base = DETAIL_VARIANTS['unknown-plan-set']
     const view = { ...base.view, parts: base.view.parts.map((part) => (part.kind === 'attachment' ? { ...part, suggestion: remembered } : part)) }
     render(
-      <InboundMailDetail projectId={PROJECT_ID} mailId={view.id} initial={view} initialText={base.text} folders={FOLDERS} client={fixtureClient({ detail: { ...base, view } })} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
+      <InboundMailDetail projectId={PROJECT_ID} mailId={view.id} initial={view} initialText={base.text} folders={FOLDERS} client={fixtureClient({ detail: { ...base, view } })} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
     )
     const phrases = screen.getAllByTestId('attachment-plan').map((phrase) => phrase.textContent)
     expect(phrases).toEqual(['Folder Pläne/Fassade', 'Folder Pläne/Fassade', 'Folder Pläne/Fassade'])
@@ -560,7 +557,7 @@ describe('„Einordnen“', () => {
     const fixture = DETAIL_VARIANTS['unknown-plan-set']
     const [message, first, ...rest] = fixture.view.parts
     const view = { ...fixture.view, parts: [message, { ...first, suggestion: { folderId: null, folderPath: 'Tragwerk', newFolder: false, documentType: null, reason: 'Fassade' } }, ...rest] }
-    render(<InboundMailDetail projectId={PROJECT_ID} mailId={view.id} initial={view} initialText={fixture.text} folders={FOLDERS} client={fixtureClient({ detail: { ...fixture, view } })} onChanged={vi.fn()} now={FIXTURE_NOW} />)
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={view.id} initial={view} initialText={fixture.text} folders={FOLDERS} client={fixtureClient({ detail: { ...fixture, view } })} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} />)
     await openFiling()
     const picks = within(dialog()).getByTestId('filing-quick-picks')
     expect(within(picks).getByTestId('filing-quick-pick-sibling')).toHaveTextContent('TragwerkFA-201_Ansicht_Ost_B.pdf goes there too')
@@ -699,7 +696,7 @@ describe('„Einordnen“', () => {
       },
     }
     render(
-      <InboundMailDetail projectId={PROJECT_ID} mailId={plain.view.id} initial={plain.view} initialText={plain.text} folders={FOLDERS} client={fixtureClient({ detail: plain })} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
+      <InboundMailDetail projectId={PROJECT_ID} mailId={plain.view.id} initial={plain.view} initialText={plain.text} folders={FOLDERS} client={fixtureClient({ detail: plain })} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
     )
     expect(screen.getByTestId('attachment-plan')).toHaveTextContent('Revision 4 of Statik_Tiefgarage.pdf (revision 3 is kept) · Folder Tragwerk')
     expect(screen.getByTestId('attachment-plan')).not.toHaveTextContent(/replaces/)
@@ -771,7 +768,7 @@ describe('„Einordnen“', () => {
     const fixture = DETAIL_VARIANTS['mixed-attachments']
     const [message, statik, ...rest] = fixture.view.parts
     const view = { ...fixture.view, parts: [message, { ...statik, suggestion: null, revisionCandidate: null, preselected: true }, ...rest] }
-    render(<InboundMailDetail projectId={PROJECT_ID} mailId={view.id} initial={view} initialText={fixture.text} folders={FOLDERS} client={fixtureClient({ detail: { ...fixture, view } })} onChanged={vi.fn()} now={FIXTURE_NOW} />)
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={view.id} initial={view} initialText={fixture.text} folders={FOLDERS} client={fixtureClient({ detail: { ...fixture, view } })} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} />)
     await openFiling()
     expect(stepOf()).toBe('attachments')
     expect(within(dialog()).getAllByRole('listitem').filter((item) => item.dataset.testid?.startsWith('attachment-'))).toHaveLength(1)
@@ -811,7 +808,7 @@ describe('„Einordnen“', () => {
     const client = fixtureClient({ detail: fixture })
     const text = vi.spyOn(client, 'text')
     const handled = { ...mail({ key: 'member-verified', status: 'handled', parts: [messagePart({ id: 'x', state: 'filed' })] }), id: fixture.view.id }
-    render(<InboundMailDetail projectId={PROJECT_ID} mailId={handled.id} initial={handled} folders={FOLDERS} client={client} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />)
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={handled.id} initial={handled} folders={FOLDERS} client={client} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} pollMs={1} />)
     await screen.findByTestId('inbound-mail-detail')
     expect(text).not.toHaveBeenCalled()
     expect(screen.queryByText('The text could not be loaded.')).toBeNull()
@@ -833,7 +830,7 @@ describe('„Einordnen“', () => {
     const handled = { ...filed, senderClass: 'unverified_writer' as const, waitReason: 'signature' as const, incompleteReason: 'not_waiting' as const }
     const client = fixtureClient({ detail: { view: handled, text: text({ ownText: '', quoted: [] }) } })
     const textRead = vi.spyOn(client, 'text').mockRejectedValue(new ApiRequestError('The text of a handled mail is in its mail thread, if it was filed', 409, 'CONFLICT'))
-    render(<InboundMailDetail projectId={PROJECT_ID} mailId={handled.id} initial={handled} folders={FOLDERS} client={client} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />)
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={handled.id} initial={handled} folders={FOLDERS} client={client} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} pollMs={1} />)
     const detail = await screen.findByTestId('inbound-mail-detail')
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 20))
@@ -890,21 +887,6 @@ describe('„Einordnen“', () => {
     await waitFor(() => expect(screen.queryByTestId('status-scan-pending')).not.toBeInTheDocument())
     expect(get.mock.calls.length).toBeGreaterThanOrEqual(2)
     expect(within(dialog()).getByTestId('thread-leave')).toBeChecked()
-  })
-
-  it('says a filing takes longer than usual after the quick rounds, and keeps asking', async () => {
-    const fixture = DETAIL_VARIANTS['member-verified']
-    const client = fixtureClient({ detail: fixture })
-    const filing = { ...fixture.view, parts: fixture.view.parts.map((part) => ({ ...part, state: 'filing' as const })) }
-    vi.spyOn(client, 'file').mockResolvedValue({ mails: [filing], filingJobId: 'job' })
-    const get = vi.spyOn(client, 'get').mockResolvedValue(filing)
-    renderDetail('member-verified', client)
-    await openFiling()
-    await userEvent.click(within(dialog()).getByTestId('decision-file'))
-    expect(await screen.findByText('This takes longer than usual. Filing goes on; you can leave the mail.', {}, { timeout: 4000 })).toBeInTheDocument()
-    const asked = get.mock.calls.length
-    expect(asked).toBeGreaterThanOrEqual(FILING_QUICK_ROUNDS - 1)
-    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(asked))
   })
 })
 
@@ -1015,7 +997,7 @@ describe('an impersonation', () => {
     const base = DETAIL_VARIANTS.impersonation
     const stale = { ...base.view, parts: base.view.parts.map((part) => ({ ...part, preselected: true, suggestion: part.kind === 'attachment' ? suggested : null })) }
     render(
-      <InboundMailDetail projectId={PROJECT_ID} mailId={stale.id} initial={stale} initialText={base.text} folders={FOLDERS} client={fixtureClient({ detail: { ...base, view: stale } })} onChanged={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
+      <InboundMailDetail projectId={PROJECT_ID} mailId={stale.id} initial={stale} initialText={base.text} folders={FOLDERS} client={fixtureClient({ detail: { ...base, view: stale } })} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} pollMs={1} />
     )
     await userEvent.click(screen.getByTestId('impersonation-more-toggle'))
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
@@ -1067,6 +1049,7 @@ describe('the mail’s text and its follow', () => {
         folders={FOLDERS}
         client={fixtureClient({ detail: fixture })}
         onChanged={vi.fn()}
+        onFiled={vi.fn()}
       />
     )
     const own = screen.getByTestId('mail-text-own')
@@ -1091,6 +1074,7 @@ describe('the mail’s text and its follow', () => {
         folders={FOLDERS}
         client={fixtureClient({ detail: fixture })}
         onChanged={vi.fn()}
+        onFiled={vi.fn()}
         now={FIXTURE_NOW}
       />
     )
@@ -1107,7 +1091,7 @@ describe('the mail’s text and its follow', () => {
     const fixture = DETAIL_VARIANTS['member-verified']
     const url = 'https://www.dropbox.com/s/abc/Plan.pdf?dl=0'
     render(
-      <InboundMailDetail projectId={PROJECT_ID} mailId={fixture.view.id} initial={fixture.view} initialText={text({ ownText: `Die Pläne: ${url} danke`, quoted: [] })} folders={FOLDERS} client={fixtureClient({ detail: fixture })} onChanged={vi.fn()} now={FIXTURE_NOW} />
+      <InboundMailDetail projectId={PROJECT_ID} mailId={fixture.view.id} initial={fixture.view} initialText={text({ ownText: `Die Pläne: ${url} danke`, quoted: [] })} folders={FOLDERS} client={fixtureClient({ detail: fixture })} onChanged={vi.fn()} onFiled={vi.fn()} now={FIXTURE_NOW} />
     )
     const link = screen.getByTestId('mail-text-link')
     expect(link.querySelector('a')).toBeNull()
@@ -1158,7 +1142,7 @@ describe('the mail’s text and its follow', () => {
     const view = { ...fixture.view, sender: { ...fixture.view.sender!, trust: 'external_unverified' as const, reason: 'dkim_none' as const } }
     const client = fixtureClient({ detail: { ...fixture, view } })
     const lookup = vi.spyOn(client, 'threadOfDocument')
-    render(<InboundMailDetail projectId={PROJECT_ID} mailId={view.id} initial={view} initialText={fixture.text} folders={FOLDERS} client={client} onChanged={vi.fn()} />)
+    render(<InboundMailDetail projectId={PROJECT_ID} mailId={view.id} initial={view} initialText={fixture.text} folders={FOLDERS} client={client} onChanged={vi.fn()} onFiled={vi.fn()} />)
     await screen.findByTestId('message-filed')
     expect(lookup).not.toHaveBeenCalled()
     expect(screen.queryByTestId('follow-offer')).not.toBeInTheDocument()
