@@ -4036,6 +4036,10 @@
     "de": "Wenn Ihr Büro ein Modell ausgewählt hat, das vor jeder Antwort immer nachdenkt, erscheinen jetzt unter jeder Antwort Folgefragen. Bisher wurden diese Vorschläge bei solchen Modellen nicht angezeigt."
   },
   {
+    "en": "Switching a chat to temporary changes the button, the composer and the line under it in place, and nothing else on the page moves. On a new chat the choice waits for the first message, so no empty chat appears under „Letzte Chats“.",
+    "de": "Beim Wechsel eines Chats zu „temporär“ ändern sich Schaltfläche, Eingabebereich und die Zeile darunter direkt an Ort und Stelle; sonst bleibt die Seite unverändert. In einem neuen Chat wird die Auswahl erst mit der ersten Nachricht wirksam, sodass unter „Letzte Chats“ kein leerer Chat erscheint."
+  },
+  {
     "en": "Switching a chat to temporary is calmer: the glasses button fills and says „Temporär“, the composer's edge turns into a dashed line, and an empty chat says „Temporärer Chat“ in place of the greeting, all in one quiet change without anything jumping.",
     "de": "Beim Wechsel zu einem temporären Chat bleibt alles ruhiger: Die Brillen-Schaltfläche füllt sich und zeigt „Temporär“, der Rand des Eingabefelds wird gestrichelt und in einem leeren Chat steht statt der Begrüßung „Temporärer Chat“ – ohne dass etwas springt."
   },
