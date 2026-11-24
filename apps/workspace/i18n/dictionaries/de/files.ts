@@ -1643,8 +1643,8 @@ export const files: typeof en.files = {
       basis: {
         verified: 'Maßstab bestätigt',
         verifiedRatio: 'Maßstab 1:{ratio}, bestätigt',
-        estimated: 'Maßstab aus dem Plan gelesen, nicht bestätigt',
-        estimatedRatio: 'Maßstab 1:{ratio}, aus dem Plan gelesen, nicht bestätigt',
+        estimated: 'Maßstab aus der Zeichnung gelesen, nicht bestätigt',
+        estimatedRatio: 'Maßstab 1:{ratio}, aus der Zeichnung gelesen, nicht bestätigt',
         printed: 'Abgelesen von der Maßzahl {figure}',
         printedNoFigure: 'Abgelesen von der gedruckten Maßzahl',
       },

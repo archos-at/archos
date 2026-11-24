@@ -434,7 +434,7 @@ describe('the reading', () => {
   it('offers to set the scale under an estimated one', async () => {
     const onSetScale = vi.fn()
     lines({ ...READING, provenance: 'vector_estimated', scaleRatio: null }, onSetScale)
-    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent('Maßstab aus dem Plan gelesen, nicht bestätigt')
+    expect(screen.getByTestId('measure-reading-basis')).toHaveTextContent('Maßstab aus der Zeichnung gelesen, nicht bestätigt')
     await userEvent.click(screen.getByTestId('measure-set-scale'))
     expect(onSetScale).toHaveBeenCalled()
   })
