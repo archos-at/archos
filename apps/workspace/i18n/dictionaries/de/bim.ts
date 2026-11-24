@@ -423,7 +423,7 @@ export const bim: typeof en.bim = {
       horizontal: 'horizontal',
       vertical: 'vertikal',
       first: 'Ersten Punkt anklicken',
-      second: 'Zweiten Punkt anklicken — Esc bricht ab',
+      second: 'Klicken Sie auf den zweiten Punkt · Esc bricht ab',
       firstTouch: 'Ersten Punkt antippen',
       secondTouch: 'Zweiten Punkt antippen — Messen beendet die Messung',
       clear: 'Messungen löschen',

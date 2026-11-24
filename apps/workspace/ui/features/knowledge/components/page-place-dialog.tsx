@@ -1,6 +1,6 @@
 'use client'
 
-import type { FC } from 'react'
+import { useMemo, type FC, type ReactNode } from 'react'
 import { PdfViewerDialog } from './pdf-viewer-dialog'
 import type { PageRegion } from '../lib/page-region'
 import { placeFileUrl, placeRegions, type PagePlace } from '../lib/page-place'
@@ -12,10 +12,22 @@ export interface PagePlaceDialogProps {
   color?: string
   imageUrl?: string | null
   regions?: readonly PageRegion[]
+  zoomToRegion?: boolean
+  overlay?: ReactNode
 }
 
-export const PagePlaceDialog: FC<PagePlaceDialogProps> = ({ place, open, onOpenChange, color, imageUrl, regions }) => {
+export const PagePlaceDialog: FC<PagePlaceDialogProps> = ({
+  place,
+  open,
+  onOpenChange,
+  color,
+  imageUrl,
+  regions,
+  zoomToRegion,
+  overlay,
+}) => {
   const src = imageUrl ?? placeFileUrl(place) ?? undefined
+  const shown = useMemo(() => regions ?? placeRegions(place), [regions, place])
   return (
     <PdfViewerDialog
       open={open}
@@ -25,7 +37,9 @@ export const PagePlaceDialog: FC<PagePlaceDialogProps> = ({ place, open, onOpenC
       src={src}
       page={place.page}
       isImage={Boolean(imageUrl)}
-      regions={regions ?? placeRegions(place)}
+      regions={shown}
+      zoomToRegion={zoomToRegion}
+      pageOverlay={overlay ? (page) => (page === place.page ? overlay : null) : undefined}
       highlightColor={color}
     />
   )

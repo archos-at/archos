@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  REGION_OVERLAPS,
   calibrationListResponseSchema,
   calibrationViewSchema,
   type CalibrationListResponse,
@@ -15,12 +16,16 @@ export class CalibrationRequestError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
-    message: string
+    message: string,
+    readonly overlapping: string | null = null
   ) {
     super(message)
     this.name = 'CalibrationRequestError'
   }
 }
+
+export const regionOverlap = (error: unknown): { overlapping: string | null } | null =>
+  error instanceof CalibrationRequestError && error.code === REGION_OVERLAPS ? { overlapping: error.overlapping } : null
 
 const calibrationResponseSchema = z.object({ calibration: calibrationViewSchema })
 
@@ -33,11 +38,13 @@ async function request<T>(
   const response = await run(path, init)
   const body: unknown = await response.json().catch(() => null)
   if (!response.ok) {
-    const error = (body ?? {}) as { error?: string; code?: string }
+    const error = (body ?? {}) as { error?: string; code?: string; overlapping?: unknown; details?: { overlapping?: unknown } }
+    const overlapping = error.overlapping ?? error.details?.overlapping
     throw new CalibrationRequestError(
       response.status,
       error.code ?? 'UNKNOWN',
-      error.error ?? `Request failed with ${response.status}`
+      error.error ?? `Request failed with ${response.status}`,
+      typeof overlapping === 'string' ? overlapping : null
     )
   }
   return parse(body)

@@ -8,6 +8,7 @@ export interface ForReaderCase {
   status: AnnotationStatus
   assignee: MarkPerson | null
   setBy: MarkPerson
+  shape?: 'line'
   forReader: boolean
   counted: boolean
 }
@@ -21,4 +22,5 @@ export const FOR_READER_CASES: readonly ForReaderCase[] = [
   { name: 'a mark of the agent taken over, the reader Zuständige', authorKind: 'piloti', status: 'open', assignee: 'reader', setBy: 'colleague', forReader: true, counted: true },
   { name: 'resolved, the reader was Zuständige', authorKind: 'person', status: 'resolved', assignee: 'reader', setBy: 'colleague', forReader: true, counted: false },
   { name: 'dismissed, the reader was Zuständige', authorKind: 'person', status: 'dismissed', assignee: 'reader', setBy: 'reader', forReader: true, counted: false },
+  { name: 'a kept measurement, the reader Zuständige', authorKind: 'person', status: 'open', assignee: 'reader', setBy: 'colleague', shape: 'line', forReader: false, counted: false },
 ]

@@ -1819,7 +1819,14 @@
       "idx": 259,
       "version": "7",
       "when": 1795601800000,
-      "tag": "0259_personal_shelf",
+      "tag": "0259_annotation_measure_shapes",
+      "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1795601900000,
+      "tag": "0260_personal_shelf",
       "breakpoints": true
     }
   ]

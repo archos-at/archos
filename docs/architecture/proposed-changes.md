@@ -509,15 +509,20 @@ What each body adds:
 multi-line one is `long` and „Übernehmen“ waits until it was unfolded once (`lib/operation-input.ts`).
 
 **A proposed calibration is one question.** For `drawing-calibration-set` whose input parses with
-the route's own schema, the receipt is not the generic body: its title is „Maßstab bestätigen“, it
-draws the page clip of the region with the reference span on it, asks „Ist die markierte Strecke
-10,80 m lang?“, says what a yes means („Dann gilt im markierten Bereich der Maßstab 1:100.“, computed
-from the page as opened), names the file and the page, and offers „Bestätigen“ and „Verwerfen“
-(`useCalibrationReceipt` in `CalibrationProposalPreview.tsx`). The operation's name, „Betrifft“ and
-the input rows are not shown: the clip and the two sentences show every field of the call, and
-„Bestätigen“ waits until the clip is drawn. Where the clip cannot be drawn (the reader may not open
-the document, or it fails to load), or the input does not parse, the generic receipt with every row
-is shown, so nothing is accepted unseen. Whatever `ProposalReceipts.tsx` imports lands in the MCP App
+the route's own schema, the receipt is not the generic body: its title is „Maßstab bestätigen“ (hidden on
+a phone, where the question says it), it draws a clip cut tight round the reference span so the printed
+figure stays legible at phone width (`spanCrop` in `lib/calibration-proposal.ts`), asks „Ist die
+markierte Strecke 10,80 m lang?“, says what a yes does („Dann rechnet {productName} alle Messungen in diesem
+Bereich mit Maßstab 1:100. Bisher ist er geschätzt.“, computed from the page as opened), names the file
+and the page, offers „Bestätigen“ and „Verwerfen“, and says under them what „Verwerfen“ does
+(`CalibrationReceipt` in `CalibrationProposalPreview.tsx`). The operation's name, „Betrifft“ and the
+input rows are not shown: the clip and the sentences show every field of the call, and „Bestätigen“
+waits until the clip is drawn. Confirming is refused, with the reason and only „Verwerfen“, where the
+server names the document's target without a name (this reader may not open it, decided before any
+file is fetched), where the clip fails or has not loaded after `CLIP_TIMEOUT_MS`, or where the input
+does not parse; nothing is accepted unseen. The receipt says what is true now: „Maßstab 1:100
+bestätigt. Messungen in diesem Bereich gelten jetzt als bestätigt.“ or „Maßstab nicht bestätigt. Er
+bleibt geschätzt.“ Whatever `ProposalReceipts.tsx` imports lands in the MCP App
 view, which is one inline script with no cookie: the calibration receipt is replaced there by a
 stand-in that returns nothing, so the frame shows the generic receipt (`STAND_INS` in
 `scripts/build-mcp-app-views.ts`; the size budget is in `view-build.spec.ts`).

@@ -19,6 +19,11 @@ vi.mock('./page-read', () => ({
   }),
 }))
 vi.mock('./repository', () => ({
+  CalibrationRegionOverlapError: class CalibrationRegionOverlapError extends Error {
+    constructor(readonly overlapping: unknown) {
+      super('overlaps')
+    }
+  },
   CalibrationSetConflictError: class CalibrationSetConflictError extends Error {},
   listDrawingCalibrations: vi.fn(),
   findDrawingCalibration: vi.fn(),
@@ -33,6 +38,7 @@ import type { Document } from '@/lib/db/schema/documents'
 import type { DrawingCalibrationRow } from '@/lib/db/schema/drawing-calibrations'
 import { getAccessibleDocument } from '@/lib/documents/access'
 import {
+  CalibrationRegionOverlapError,
   CalibrationSetConflictError,
   findDrawingCalibration,
   listDrawingCalibrations,
@@ -249,6 +255,22 @@ describe('setCalibration', () => {
   it('answers the loser of two sets at once with a conflict, not a 500', async () => {
     vi.mocked(setDrawingCalibration).mockRejectedValue(new CalibrationSetConflictError())
     await expect(setCalibration(session(), DOC_ID, INPUT)).rejects.toMatchObject({ status: 409 })
+  })
+})
+
+describe('setCalibration over a region that partly overlaps an active one', () => {
+  it('refuses with the region-overlaps problem, naming the calibration it overlaps', async () => {
+    const OTHER_ID = '44444444-4444-4444-8444-444444444444'
+    vi.mocked(setDrawingCalibration).mockRejectedValue(new CalibrationRegionOverlapError(row({ id: OTHER_ID })))
+    const refused = await setCalibration(session(), DOC_ID, INPUT).catch((error: unknown) => error)
+    expect(refused).toMatchObject({
+      status: 409,
+      code: 'region-overlaps',
+      problem: { type: 'urn:problem-type:region-overlaps', status: 409, code: 'region-overlaps', overlapping: OTHER_ID },
+    })
+    expect((refused as Error).message).toContain(OTHER_ID)
+    expect((refused as Error).message).toContain('wholly inside or wholly around')
+    expect(captureServer).not.toHaveBeenCalled()
   })
 })
 

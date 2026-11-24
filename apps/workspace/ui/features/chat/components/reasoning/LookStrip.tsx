@@ -1,7 +1,7 @@
 'use client'
 
 import type { FC } from 'react'
-import { PagePlaceButton } from '@/features/knowledge/components/page-place-button'
+import { PagePlaceButton } from '@/features/knowledge/page-clip'
 import { useTranslations, type Translator } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import type { LookStepGroup, LookStepPlace } from '../../lib/look-steps'
