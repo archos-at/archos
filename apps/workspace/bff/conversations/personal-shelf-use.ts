@@ -7,6 +7,7 @@ import { recordAnswerReads } from '@/lib/conversation-context/record'
 import { isSoloAudience } from '@/lib/conversation-context/types'
 import type { ConversationDecision } from '@/lib/conversation-context/wire'
 import { isPersonalShelfCollectionName, personalShelfCollectionName } from '@/lib/personal-shelf/collection'
+import { personalConversationHidden } from './hidden'
 import { lockConversationAudience, readConversationAudience } from './restricted-use-repository'
 
 export interface PersonalShelfUseRequest {
@@ -74,13 +75,14 @@ async function markPersonalShelfUse(executor: DbExecutor, organizationId: string
 export async function personalShelfUseOf(
   organizationId: string,
   conversationId: string,
-): Promise<{ ownerId: string } | null> {
+): Promise<{ ownerId: string | null } | null> {
   const [row] = await getDb()
     .select({ usedAt: conversations.personalShelfUsedAt, createdBy: conversations.createdBy })
     .from(conversations)
     .where(and(eq(conversations.organizationId, organizationId), eq(conversations.id, conversationId)))
     .limit(1)
-  return row?.usedAt ? { ownerId: row.createdBy } : null
+  if (!row) return (await personalConversationHidden(conversationId)) ? { ownerId: null } : null
+  return row.usedAt ? { ownerId: row.createdBy } : null
 }
 
 export async function personalShelfUsed(organizationId: string, conversationId: string, executor: DbExecutor = getDb()): Promise<boolean> {

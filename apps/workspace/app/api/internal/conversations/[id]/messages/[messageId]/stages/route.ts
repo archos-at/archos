@@ -3,7 +3,7 @@ import { BadRequestError } from '@/lib/api/errors'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { requireVerifiedContext } from '@/lib/api/internal-envelope'
 import { internalStageFrameSchema, recordAgentStageFrame } from '@/lib/conversations/agent-stage-frame'
-import { withTenant } from '@/lib/db/tenant-context'
+import { withSystemReader } from '@/lib/db/tenant-context'
 
 type Params = { id: string; messageId: string }
 
@@ -20,7 +20,7 @@ export const PATCH = internalApiRoute<Params>(
     if (!messageId.success) throw new BadRequestError('Invalid message id')
     const frame = await parseJsonBody(request, internalStageFrameSchema)
     const { organizationId } = context
-    return withTenant({ organizationId }, () => recordAgentStageFrame(organizationId, params.id, messageId.data, frame))
+    return withSystemReader(organizationId, 'agent-host', () => recordAgentStageFrame(organizationId, params.id, messageId.data, frame))
   },
   { tenancy: { fromPayload: 'verified X-Request-Context envelope, never the body' } }
 )

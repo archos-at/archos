@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { internalApiRoute, parseQuery } from '@/lib/api/handler'
-import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
+import { withPlatformAccess, withSystemReader, withTenant } from '@/lib/db/tenant-context'
 import {
   buildProjectMemoryDigest,
   PROJECT_MEMORY_MAX_RESTRICTED_FOLDERS,
@@ -67,9 +67,11 @@ export const GET = internalApiRoute(
         readableFolderIds: readable,
         admitRestricted: async (folderIds) => {
           if (!eligible || !conversationId || !userId) return new Set(folderIds.filter((id) => open.has(id)))
-          const admission = await admitSourceFolders(
-            { organizationId: tenant, conversationId, userId, projectId: projectId ?? null, answerMessageId },
-            folderIds
+          const admission = await withSystemReader(tenant, 'agent-host', () =>
+            admitSourceFolders(
+              { organizationId: tenant, conversationId, userId, projectId: projectId ?? null, answerMessageId },
+              folderIds
+            )
           )
           restrictedFoldersServed = admission.admitted.filter((id) => !open.has(id))
           return new Set(admission.admitted)

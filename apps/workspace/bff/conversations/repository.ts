@@ -46,7 +46,7 @@ export function visibleConversationsWhere(
   const mine = eq(conversations.createdBy, userId)
   const granted = grantNamesCaller(organizationId, userId)
 
-  const withoutContainer = or(mine, granted, eq(conversations.visibility, 'organization'))
+  const withoutContainer = or(mine, granted)
   if (!projects) return and(orgScope, or(isNotNull(conversations.projectId), placed), withoutContainer) as SQL
 
   const { projectIds } = projects

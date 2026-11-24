@@ -1877,6 +1877,13 @@
       "when": 1795602600000,
       "tag": "0267_conversation_started_in_personal",
       "breakpoints": true
+    },
+    {
+      "idx": 269,
+      "version": "7",
+      "when": 1795602800000,
+      "tag": "0269_personal_chat_owner_only",
+      "breakpoints": true
     }
   ]
 }

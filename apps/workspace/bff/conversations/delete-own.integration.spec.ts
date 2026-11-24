@@ -91,6 +91,7 @@ describe.skipIf(!url)('deleting all of one side of my chats against live Postgre
     await withPlatformAccess('test: reset', async () => {
       await db.execute(sql`delete from legal_holds where organization_id in (${ORG}, ${OTHER_ORG})`)
       await db.execute(sql`delete from deletion_queue where organization_id in (${ORG}, ${OTHER_ORG})`)
+      await db.execute(sql`delete from resource_shares where organization_id in (${ORG}, ${OTHER_ORG})`)
       await db.execute(sql`delete from conversations where organization_id in (${ORG}, ${OTHER_ORG})`)
     })
     await asMe(() =>
@@ -102,11 +103,19 @@ describe.skipIf(!url)('deleting all of one side of my chats against live Postgre
           (${MINE_LEGACY}, ${ORG}, ${ME}, 'Alte Startseite', null, 'private', null, false),
           (${MINE_IN_A}, ${ORG}, ${ME}, 'Projekt A', ${projectA}, 'private', null, false),
           (${MINE_IN_B}, ${ORG}, ${ME}, 'Projekt B', ${projectB}, 'project', null, false),
-          (${MINE_ALREADY_DELETING}, ${ORG}, ${ME}, 'Schon gelöscht', null, 'private', now() - interval '1 hour', true),
-          (${COLLEAGUE_PERSONAL_SHARED}, ${ORG}, ${COLLEAGUE}, 'Geteilt', null, 'organization', null, true),
-          (${COLLEAGUE_IN_A}, ${ORG}, ${COLLEAGUE}, 'Kollege in A', ${projectA}, 'project', null, false)
+          (${MINE_ALREADY_DELETING}, ${ORG}, ${ME}, 'Schon gelöscht', null, 'private', now() - interval '1 hour', true)
       `)
     )
+    await withTenant({ organizationId: ORG, userId: COLLEAGUE }, async () => {
+      await db.execute(sql`
+        insert into conversations (id, organization_id, created_by, title, project_id, visibility, deleted_at, started_in_personal) values
+          (${COLLEAGUE_PERSONAL_SHARED}, ${ORG}, ${COLLEAGUE}, 'Geteilt', null, 'private', null, true),
+          (${COLLEAGUE_IN_A}, ${ORG}, ${COLLEAGUE}, 'Kollege in A', ${projectA}, 'project', null, false)
+      `)
+      await db.execute(sql`
+        insert into resource_shares (organization_id, resource_type, resource_id, subject_user_id, role, granted_by)
+        values (${ORG}, 'conversation', ${COLLEAGUE_PERSONAL_SHARED}, ${ME}, 'collaborator', ${COLLEAGUE})`)
+    })
     await withTenant({ organizationId: OTHER_ORG, userId: ME }, () =>
       db.execute(sql`
         insert into conversations (id, organization_id, created_by, title)
@@ -119,6 +128,7 @@ describe.skipIf(!url)('deleting all of one side of my chats against live Postgre
     await withPlatformAccess('test teardown', async () => {
       await db.execute(sql`delete from legal_holds where organization_id in (${ORG}, ${OTHER_ORG})`)
       await db.execute(sql`delete from deletion_queue where organization_id in (${ORG}, ${OTHER_ORG})`)
+      await db.execute(sql`delete from resource_shares where organization_id in (${ORG}, ${OTHER_ORG})`)
       await db.execute(sql`delete from conversations where organization_id in (${ORG}, ${OTHER_ORG})`)
       await db.execute(sql`delete from projects where organization_id = ${ORG}`)
       await db.execute(sql`delete from organizations where workos_organization_id in (${ORG}, ${OTHER_ORG})`)

@@ -4,6 +4,7 @@ import { errorsCopy } from '@/i18n/namespaces/errors'
 import { getDb } from '@/lib/db'
 import { AGENT_REFUSAL_LOCALE } from './restricted-egress'
 import { isUuid } from '@/lib/ids'
+import { personalConversationHidden } from './hidden'
 import { recordedForeignRestrictedFolders } from './restricted-use'
 import {
   listProjectNames,
@@ -63,7 +64,7 @@ export async function drewOnOtherProjects(conversationId: string, organizationId
     listRestrictingSourceProjects(db, organizationId, conversationId),
     recordedForeignRestrictedFolders(conversationId, organizationId),
   ])
-  return projects.length > 0 || folders.size > 0
+  return projects.length > 0 || folders.size > 0 || (await personalConversationHidden(conversationId))
 }
 
 export interface RestrictingOtherProject {

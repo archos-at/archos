@@ -11,6 +11,10 @@ export const SYSTEM_READERS = {
   'search-projection': 'what a document is, projected into its search row, for no reader',
   'document-notices': 'a new Fassung, a check or a due mark is told to the people who may read the document',
   'ingestion-recovery': 'a document or upload batch left mid-ingestion is failed, re-sent or settled, for no reader',
+  'agent-host': 'the agent host writes the answer, steps, stages, admissions and outcome of the turn it runs into that turn’s chat, for no reader',
+  'conversation-erasure': 'a chat marked for deletion is erased with its attachments and grants, for no reader',
+  'run-ledger': 'a background run writes and reads its ledger and report in the message it owns in its chat, for no reader',
+  'conversation-memory': 'whether a chat keeps memory, and what it drew on, is read before a memory is written from it, for no reader',
 } as const
 
 export type SystemReader = keyof typeof SYSTEM_READERS
