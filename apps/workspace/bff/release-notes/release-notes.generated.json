@@ -459,6 +459,30 @@
           "section": "fixes",
           "area": "general",
           "text": {
+            "en": "On a phone, the project's tab bar reads „Projekt“ in full, „Alle archivieren“ in the Postfach no longer runs off the screen, and folder names, a file's age and a shared chat's title are no longer cut short.",
+            "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On a phone, the Offene Punkte tab, the reply button in the Postfach and the source numbers in answers are easier to hit, and the button that jumps to the newest message covers less of the text.",
+            "de": "Auf dem Smartphone lassen sich der Tab „Offene Punkte“, die Antwort-Schaltfläche im Postfach und die Quellenzahlen in Antworten leichter antippen; die Schaltfläche, die zur neuesten Nachricht springt, verdeckt außerdem weniger Text."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "On Profil and Organisation the way back says „Zurück zum Chat“, since it now leads to the chat you last worked in rather than to the projects.",
+            "de": "Bei Profil und Organisation lautet der Zurück-Link „Zurück zum Chat“, da er jetzt zum Chat führt, in dem Sie zuletzt gearbeitet haben, und nicht zu den Projekten."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "general",
+          "text": {
             "en": "On a phone, Persönlich has its own tab bar again: Chat starts a new personal chat, Meine Ablage opens your own files, and Mehr lists the office and your account.",
             "de": "Auf dem Smartphone hat Persönlich wieder eine eigene Tab-Leiste: Chat startet einen neuen persönlichen Chat, Meine Ablage öffnet Ihre eigenen Dateien und Mehr listet das Büro und Ihr Konto auf."
           }

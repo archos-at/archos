@@ -3060,6 +3060,10 @@
     "de": "Ältere und nicht veröffentlichte Fassungen einer Datei zählen jetzt zum Speicher Ihres Büros. Sie wurden bisher aufbewahrt, aber nicht mitgezählt, sodass die angezeigte Speichermenge kleiner war als das, was tatsächlich belegt war."
   },
   {
+    "en": "On Profil and Organisation the way back says „Zurück zum Chat“, since it now leads to the chat you last worked in rather than to the projects.",
+    "de": "Bei Profil und Organisation lautet der Zurück-Link „Zurück zum Chat“, da er jetzt zum Chat führt, in dem Sie zuletzt gearbeitet haben, und nicht zu den Projekten."
+  },
+  {
     "en": "On a phone a drawing now opens full screen, however you reach it, and zooms deep enough to read the 2.5 mm lettering of an A1 plan, with pinch, double tap and sharp lines at every zoom.",
     "de": "Auf dem Smartphone öffnet sich eine Zeichnung jetzt unabhängig davon, wie Sie sie aufrufen, im Vollbild und lässt sich so weit vergrößern, dass die 2,5-mm-Beschriftung eines A1-Plans lesbar ist – mit Pinch-Geste, Doppeltippen und scharfen Linien bei jeder Zoomstufe."
   },
@@ -3120,6 +3124,10 @@
     "de": "Auf dem Handy schluckte die Herleitung unter einer Antwort jede Wischbewegung: Ein Finger auf ihr bewegte nichts, sodass Sie nicht an ihr vorbei zur Antwort selbst scrollen konnten. Sie scrollt jetzt wie der Rest der Seite."
   },
   {
+    "en": "On a phone, the Offene Punkte tab, the reply button in the Postfach and the source numbers in answers are easier to hit, and the button that jumps to the newest message covers less of the text.",
+    "de": "Auf dem Smartphone lassen sich der Tab „Offene Punkte“, die Antwort-Schaltfläche im Postfach und die Quellenzahlen in Antworten leichter antippen; die Schaltfläche, die zur neuesten Nachricht springt, verdeckt außerdem weniger Text."
+  },
+  {
     "en": "On a phone, the document type in the file preview header is shortened instead of running under the buttons.",
     "de": "Am Telefon wird die Dokumentart im Kopf der Dateivorschau gekürzt, statt unter die Schaltflächen zu laufen."
   },
@@ -3130,6 +3138,10 @@
   {
     "en": "On a phone, the paperclip in the chat now offers \"Foto aufnehmen\", which opens the camera directly, and \"Aus Mediathek\", and says that what you add stays in this chat; the upload menu under Dateien offers the same two entries.",
     "de": "Auf dem Smartphone bietet die Büroklammer im Chat jetzt „Foto aufnehmen“, wodurch sich direkt die Kamera öffnet, und „Aus Mediathek“. Außerdem weist sie darauf hin, dass Hinzugefügtes in diesem Chat bleibt. Das Upload-Menü unter Dateien bietet dieselben zwei Einträge."
+  },
+  {
+    "en": "On a phone, the project's tab bar reads „Projekt“ in full, „Alle archivieren“ in the Postfach no longer runs off the screen, and folder names, a file's age and a shared chat's title are no longer cut short.",
+    "de": "Auf dem Smartphone wird „Projekt“ in der Registerleiste des Projekts vollständig angezeigt, „Alle archivieren“ im Postfach läuft nicht mehr über den Bildschirmrand hinaus und Ordnernamen, das Alter einer Datei sowie der Titel eines geteilten Chats werden nicht mehr abgeschnitten."
   },
   {
     "en": "On a phone, the schedule wizard's last step, the run history, the task filters, the Büroablage header and several project and administration pages no longer run off the edge of the screen.",
