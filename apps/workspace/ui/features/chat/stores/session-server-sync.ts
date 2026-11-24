@@ -24,10 +24,10 @@ export const createSessionServerSyncSlice: StateCreator<
     | '_lockConversation'
   >
 > = (set, get) => ({
-  loadServerConversations: async (projectId?: string) => {
+  loadServerConversations: async (projectId?: string, place?: 'personal' | 'project') => {
     try {
       const conversationsClient = await getConversationsClient()
-      const serverConvs = await conversationsClient.list(projectId)
+      const serverConvs = await conversationsClient.list(projectId, place)
       if (!serverConvs || serverConvs.length === 0) return
 
       const { conversations, currentUserId } = get()

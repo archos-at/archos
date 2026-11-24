@@ -53,11 +53,11 @@ describe('the rail switches between Persönlich and Projekt (ADR-0193)', () => {
     expect(screen.queryByTestId('project-switcher')).toBeNull()
   })
 
-  test('one list of last chats on both sides: a chat names its project, and a shared one says so', () => {
+  test('a last chat names no project, and a shared one says so', () => {
     const chats = {
       items: [
         { id: 'c1', title: 'Anfrage Huber', href: `${PERSONAL_CHAT_PATH}?session=c1`, current: false, projectId: null },
-        { id: 'c2', title: 'Fluchtweg', href: '/app/projects/p1/chat?session=c2', current: false, projectId: 'p1', shared: true },
+        { id: 'c2', title: 'Fluchtweg', href: `${PERSONAL_CHAT_PATH}?session=c2`, current: false, projectId: null, shared: true },
       ],
       allHref: PERSONAL_CHAT_PATH,
     }
@@ -68,10 +68,9 @@ describe('the rail switches between Persönlich and Projekt (ADR-0193)', () => {
     )
 
     const shared = screen.getByRole('link', { name: /Fluchtweg/ })
-    expect(shared).toHaveTextContent('Project One')
     expect(shared).toHaveTextContent('(shared)')
+    expect(shared).not.toHaveTextContent('Project One')
     const alone = screen.getByRole('link', { name: /Anfrage Huber/ })
-    expect(alone).not.toHaveTextContent('Project One')
     expect(alone).not.toHaveTextContent('(shared)')
   })
 

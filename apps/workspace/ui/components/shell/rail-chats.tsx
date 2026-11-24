@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX } from 'react'
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useId, useState } from 'react'
 import Link from 'next/link'
 import { ChevronDown, CircleAlert, Loader2, MessageCircleDashed, MessageCircleQuestion, MoreHorizontal, PencilLine, Trash2, Users } from 'lucide-react'
 
@@ -143,17 +143,8 @@ function RailChatRename({ chat, onDone }: { chat: RailChat; onDone: (title: stri
   )
 }
 
-export function RailChatList({
-  chats,
-  pillId,
-  projects = [],
-}: {
-  chats: RailChats
-  pillId: string
-  projects?: readonly { id: string; name: string }[]
-}): JSX.Element | null {
+export function RailChatList({ chats, pillId }: { chats: RailChats; pillId: string }): JSX.Element | null {
   const t = useTranslations(navCopy)
-  const names = useMemo(() => new Map(projects.map(({ id, name }) => [id, name])), [projects])
   const listId = useId()
   const [collapsed, toggle] = useRecentChatsCollapsed()
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -212,16 +203,6 @@ export function RailChatList({
                   <Users className="relative size-3.5 shrink-0" aria-hidden data-testid="rail-chat-shared" />
                   <span className="sr-only">{t('sharedChat')}</span>
                 </>
-              )}
-              {chat.projectId && names.has(chat.projectId) && (
-                <span
-                  dir="rtl"
-                  title={names.get(chat.projectId)}
-                  className="text-muted-foreground text-meta relative max-w-[84px] shrink-0 truncate font-normal"
-                  data-testid="rail-chat-project"
-                >
-                  <bdi dir="ltr">{names.get(chat.projectId)}</bdi>
-                </span>
               )}
               {chat.temporary && (
                 <>

@@ -38,12 +38,14 @@ const conversation = (title: string, index: number): Conversation => ({
   id: `chat-${index + 1}`,
   userId: USER_ID,
   projectId: PROJECT_OF_CHAT[index % PROJECT_OF_CHAT.length],
-  shared: index === 2,
+  shared: index === 2 || index === 3,
   title,
   messages: [],
   createdAt: hoursAgo(index * 20 + 2),
   updatedAt: hoursAgo(index * 20 + 1),
 })
+
+useChatStore.setState({ loadServerConversations: async () => {} })
 
 export function DevRailChats({ pathname, empty = false, children }: { pathname: string; empty?: boolean; children: ReactNode }): JSX.Element {
   const projectId = projectIdFromPathname(pathname)

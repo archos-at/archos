@@ -44,9 +44,10 @@ async function throwIfRightsLost(res: Response): Promise<void> {
 }
 
 export const conversationsClient = {
-  async list(projectId?: string): Promise<ListedConversation[]> {
+  async list(projectId?: string, place?: 'personal' | 'project'): Promise<ListedConversation[]> {
     const params = new URLSearchParams({ limit: '200' })
     if (projectId) params.set('projectId', projectId)
+    if (place) params.set('place', place)
     const res = await fetch(`/api/conversations?${params.toString()}`)
     if (!res.ok) throw new Error('Failed to fetch conversations')
     return ((await res.json()) as { conversations: ListedConversation[] }).conversations

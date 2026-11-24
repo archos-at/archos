@@ -1,7 +1,7 @@
 'use client'
 
 import type { JSX, ReactNode } from 'react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { projectIdFromPathname } from '@/components/shell/org-sections'
@@ -26,7 +26,9 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
   const pathname = pathnameOverride ?? routerPathname ?? ''
   const projectId = projectIdFromPathname(pathname)
   const mode = railModeOf(pathname)
-  const rows = useSessionRows(null)
+  const side = mode === 'project' ? projectId : null
+  const rows = useSessionRows(side)
+  const loadServerConversations = useChatStore((s) => s.loadServerConversations)
   const openId = useChatStore((s) => s.currentConversation?.id ?? null)
   const selectConversation = useChatStore((s) => s.selectConversation)
   const setSessionsPanelOpen = useLayoutStore((s) => s.setSessionsPanelOpen)
@@ -48,6 +50,11 @@ export function RailChatsProvider({ children, pathname: pathnameOverride }: { ch
     [onChatPath, projectOf, selectConversation]
   )
   const onOpenAll = useCallback(() => setSessionsPanelOpen(true), [setSessionsPanelOpen])
+
+  useEffect(() => {
+    if (mode === 'personal') void loadServerConversations(undefined, 'personal')
+    else if (mode === 'project' && projectId) void loadServerConversations(projectId, 'project')
+  }, [mode, projectId, loadServerConversations])
 
   const value = useMemo<RailChats | null>(() => {
     if (mode === null) return null
