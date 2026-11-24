@@ -10,6 +10,7 @@ export const SYSTEM_READERS = {
   rendition: 'a document is rendered or extracted for its preview, for no reader',
   'search-projection': 'what a document is, projected into its search row, for no reader',
   'document-notices': 'a new Fassung, a check or a due mark is told to the people who may read the document',
+  'ingestion-recovery': 'a document or upload batch left mid-ingestion is failed, re-sent or settled, for no reader',
 } as const
 
 export type SystemReader = keyof typeof SYSTEM_READERS
