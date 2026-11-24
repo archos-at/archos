@@ -268,8 +268,12 @@ What slice 1 fixes, so no builder has to guess:
 
 1. **The BFF decides and dual-writes.** `turn-decision` exists, and the socket
    envelope still carries the old `collectionScope`.
-2. **Python binds the decision before any scope read.** It falls back to the old
-   envelope scope only inside a valid signature.
+2. **Python binds the decision before any scope read.** A bound decision is the
+   only scope, and its signature alone authorizes a restricted read. Where a
+   decision is required (`require_auth`) and missing or refused, the turn reads
+   nothing. Only where no decision is required does Python fall back to the old
+   envelope scope, inside a valid signature, and a restricted collection there
+   still passes the live per-turn check (`begin_restricted_use`) until step 3.
 3. **The old fields are dropped.** That means the upgrade-time scope, the
    plain-header fallbacks and `begin_restricted_use`. The gate is a fact, not a
    clock: no run that started before step 2 was deployed is still active, and no
