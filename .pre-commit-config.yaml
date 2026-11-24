@@ -31,7 +31,7 @@ repos:
     hooks:
       - id: sync-platform-skills
         name: platform-skills.ts is generated from the builtin SKILL.md files
-        entry: node apps/workspace/scripts/sync-platform-skills.mjs --check
+        entry: node apps/workspace/scripts/sync-platform-skills.mjs
         language: system
         pass_filenames: false
         files: ^(packages/agent/src/agent/skills/builtin/.*/SKILL\.md|apps/workspace/bff/skills/platform-skills\.ts|apps/workspace/scripts/sync-platform-skills\.mjs)$

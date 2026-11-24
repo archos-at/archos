@@ -2,9 +2,9 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { RUN_LEDGER_LIFECYCLE, RUN_PHASES, RUN_STATUSES, RUN_LEDGER_WIRE_SCHEMAS, TERMINAL_RUN_STATUSES } from './run-ledger-types'
 import { runLedgerJsonSchema } from './run-ledger-schema'
 
@@ -17,14 +17,7 @@ const defs = () => runLedgerJsonSchema().$defs as Record<string, Node>
 describe('run ledger JSON Schema', () => {
   it('matches the committed fixture the Python tier loads', () => {
     const generated = `${JSON.stringify(runLedgerJsonSchema(), null, 2)}\n`
-    if (process.env.UPDATE_FIXTURES === '1') {
-      writeFileSync(FIXTURE, generated, 'utf8')
-    }
-    expect(
-      readFileSync(FIXTURE, 'utf8'),
-      'The wire schemas changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture ' +
-        'in the same change, so the Python models and this tier cannot disagree.'
-    ).toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 
   it('exports every schema the contract map names, and only those', () => {

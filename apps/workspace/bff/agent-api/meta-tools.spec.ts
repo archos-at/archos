@@ -3,9 +3,9 @@
  * @vitest-environment node
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { metaToolsFor } from './discovery'
 import { AGENT_DOMAINS } from './operation'
 
@@ -17,14 +17,13 @@ describe('the meta-tools the in-product agent reads', () => {
       JSON.stringify(
         {
           comment:
-            'Written by apps/workspace/bff/agent-api/meta-tools.spec.ts from metaToolsFor (discovery.ts), the in-product variant. Read by tools/workspace/register.py. Regenerate with UPDATE_FIXTURES=1.',
+            'Written by apps/workspace/bff/agent-api/meta-tools.spec.ts from metaToolsFor (discovery.ts), the in-product variant. Read by tools/workspace/register.py. Regenerate with `task generate`.',
           tools: metaToolsFor({ actor: 'piloti' }),
         },
         null,
         2,
       ) + '\n'
-    if (process.env.UPDATE_FIXTURES === '1') writeFileSync(FIXTURE, generated, 'utf8')
-    expect(readFileSync(FIXTURE, 'utf8'), 'The meta-tools changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture.').toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 
   it('offer every caller the office door’s domains, never the operator console', () => {
