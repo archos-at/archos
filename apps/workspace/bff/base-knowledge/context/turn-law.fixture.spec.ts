@@ -12,12 +12,13 @@
  * it without losing a use; the answer suite reads the same file
  * (`scripts/turn_census/fixture_law.py`).
  *
- * `UPDATE_FIXTURES=1` rewrites both; commit them with the change that moved them.
+ * `task generate` rewrites both; commit them with the change that moved them.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { jsonSchemaDocument } from '@/lib/api/zod-json-schema'
 import { graphFromProposals } from '../chain/from-proposals'
 import { MAX_PROPOSED_RECORDS, proposeRecordsBodySchema } from '../platform/wire'
@@ -85,10 +86,6 @@ const schema = `${JSON.stringify(
   2,
 )}\n`
 
-const committed = (path: string, text: string) => {
-  if (process.env.UPDATE_FIXTURES === '1') writeFileSync(path, text, 'utf8')
-  return readFileSync(path, 'utf8')
-}
 
 describe('the knowledge context’s contract with the Python tier', () => {
   it('reads core coverage, a chain text and named uses in every Land', () => {
@@ -133,10 +130,10 @@ describe('the knowledge context’s contract with the Python tier', () => {
   })
 
   it('is the committed fixture', () => {
-    expect(committed(FIXTURE, generated), 'The packs or the resolver changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture.').toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 
   it('is the committed schema', () => {
-    expect(committed(SCHEMA, schema), 'The context wire changed. Re-run with UPDATE_FIXTURES=1 and commit the schema.').toBe(schema)
+    expectGenerated(SCHEMA, schema)
   })
 })

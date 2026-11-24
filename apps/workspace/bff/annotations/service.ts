@@ -1,4 +1,5 @@
 import 'server-only'
+import { bestEffortInBackground } from '@/lib/best-effort'
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getAccessibleDocument } from '@/lib/documents/access'
@@ -63,7 +64,6 @@ import {
 import { announce, markEvent, traceMove } from './annotation-events'
 import { limitReached, conflict } from './annotation-errors'
 import {
-  bestEffort,
   spendMentions,
   traceWithdrawn,
   traceMentioned,
@@ -368,7 +368,7 @@ export async function deleteAnnotation(
   )
   announce(session, doc.id, [annotationId], 'deleted', actor)
   if (found.takeBack) auditDeletedWithMark(found.takeBack, takeBackAudit(session, doc, existing, actor))
-  bestEffort('clear the deleted mark’s rows', () =>
+  bestEffortInBackground('clear the deleted mark’s rows', () =>
     onMarkDeleted({ organizationId: session.organizationId, annotationId })
   )
   return null

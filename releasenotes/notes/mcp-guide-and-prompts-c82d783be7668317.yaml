@@ -1,4 +1,5 @@
 ---
+# area: agents
 features:
   - >
     When you connect Claude, Cursor or another agent to Piloti, it can now read

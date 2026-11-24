@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     In a conversation you have shared, Piloti no longer looks things up in your

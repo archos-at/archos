@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     Opening a menu or panel with a click no longer pops up the hint of its

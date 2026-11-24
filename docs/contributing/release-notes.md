@@ -118,10 +118,10 @@ A comment and not a key, because reno lints every top-level key as a section.
 
 `AREAS` in [`scripts/release_notes_areas.py`](../../scripts/release_notes_areas.py)
 is the source; the app's `RELEASE_NOTE_AREAS` and its dictionaries are held to it
-by `release-notes.spec.ts`. `task release:lint` fails an unknown area, a second
-area line, or the template's placeholder left in. A note without the line, which
-is every note written before areas existed, gets a guess from its file name and
-text; when the guess is wrong, add the line to that note. Adding an area means
+by `release-notes.spec.ts`. `task release:lint` fails a note without the line,
+an unknown area, a second area line, or the template's placeholder left in, and
+publishing refuses a note without a known area rather than guessing one. When a
+note sits in the wrong area, change its line. Adding an area means
 the vocabulary, the app's wire and both dictionaries in one change.
 
 ## The house rules

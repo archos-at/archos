@@ -4752,3 +4752,39 @@ for name in $(node -e '
   run_backfill_twice bf_registry "$name" any
 done
 echo "==> every registered SQL backfill verified"
+echo "==> verifying the 0258 drawing calibrations table and its down migration on dc_0258"
+migrate_until dc_0258 0258_drawing_calibrations
+check_in dc_0258 "SELECT relrowsecurity::text FROM pg_class WHERE relname = 'drawing_calibrations'" "true" "0258 brings the table up under row-level security"
+sql_in dc_0258 <<'SQL'
+INSERT INTO projects (id, organization_id, name, created_by, collection_name)
+VALUES ('aaaaaaaa-0000-4000-8000-000000000258', 'org_0258', 'Kalibrierung 0258', 'user_1', 'proj_0258');
+INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id)
+VALUES ('d1d1d1d1-0000-4000-8000-000000000258', 'org_0258', 'user_1', 'a.pdf', 'k/0258/a', 'proj_0258', 'completed', 'project', 'aaaaaaaa-0000-4000-8000-000000000258');
+INSERT INTO document_versions (id, organization_id, document_id, project_id, version_number, state, storage_key, content_hash, created_by, approved_by, approved_at)
+VALUES ('e1e1e1e1-0000-4000-8000-000000000258', 'org_0258', 'd1d1d1d1-0000-4000-8000-000000000258', 'aaaaaaaa-0000-4000-8000-000000000258', 1, 'published', 'k/0258/a1', 'sha256:a1', 'user_1', 'user_1', now());
+SQL
+DC236="INSERT INTO drawing_calibrations (organization_id, document_id, version_id, page, region_x, region_y, region_w, region_h, point_a_x, point_a_y, point_b_x, point_b_y, reference_length_m, created_by"
+DC236_ROW="VALUES ('org_0258', 'd1d1d1d1-0000-4000-8000-000000000258', 'e1e1e1e1-0000-4000-8000-000000000258'"
+sql_in dc_0258 <<<"$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5.4, 'user_1')"
+refused_in dc_0258 "$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.3, 0.5, 0.3, 6, 'user_2')" "uniq_drawing_calibrations_active_region" "a second active calibration of one region was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 1, 0.8, 0.1, 0.5, 0.4, 0.9, 0.2, 1, 0.2, 5, 'user_1')" "drawing_calibrations_region_on_page" "a region off the page was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 1, 0.1, 0.1, 0, 0.4, 0.1, 0.2, 0.1, 0.3, 5, 'user_1')" "drawing_calibrations_region_on_page" "a region without width was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.7, 0.2, 5, 'user_1')" "drawing_calibrations_points_in_region" "a point outside its region was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.2, 0.2, 5, 'user_1')" "drawing_calibrations_points_apart" "two points at one place were accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 0, 'user_1')" "drawing_calibrations_length_positive" "a length of zero was accepted"
+refused_in dc_0258 "$DC236) $DC236_ROW, 0, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5, 'user_1')" "drawing_calibrations_page_positive" "page zero was accepted"
+refused_in dc_0258 "$DC236, status) $DC236_ROW, 2, 0.1, 0.1, 0.5, 0.4, 0.2, 0.2, 0.5, 0.2, 5, 'user_1', 'deleted')" "drawing_calibrations_status_known" "an unknown status was accepted"
+refused_in dc_0258 "UPDATE drawing_calibrations SET status = 'withdrawn'" "drawing_calibrations_withdrawal_stamped" "a withdrawal nobody stamped was accepted"
+refused_in dc_0258 "UPDATE drawing_calibrations SET withdrawn_at = now(), withdrawn_by = 'user_1'" "drawing_calibrations_withdrawal_stamped" "an active calibration was stamped withdrawn"
+sql_in dc_0258 <<<"UPDATE drawing_calibrations SET status = 'superseded'"
+sql_in dc_0258 <<<"$DC236) $DC236_ROW, 1, 0.1, 0.1, 0.5, 0.4, 0.2, 0.3, 0.5, 0.3, 6, 'user_2')"
+sql_in dc_0258 <<<"UPDATE drawing_calibrations SET status = 'withdrawn', withdrawn_at = now(), withdrawn_by = 'user_2' WHERE status = 'active'"
+check_in dc_0258 "SELECT string_agg(status, ',' ORDER BY created_at, status) FROM drawing_calibrations" "superseded,withdrawn" "0258: a region's history stands beside it, and a withdrawal revives nothing"
+sql_in dc_0258 <<<"DELETE FROM document_versions WHERE id = 'e1e1e1e1-0000-4000-8000-000000000258'"
+check_in dc_0258 "SELECT count(*) FROM drawing_calibrations" "0" "0258: a version takes its calibrations with it"
+apply_in dc_0258 0258_drawing_calibrations.down.sql
+check_in dc_0258 "SELECT count(*) FROM information_schema.tables WHERE table_name = 'drawing_calibrations'" "0" "0258 down drops the table"
+apply_in dc_0258 0258_drawing_calibrations.sql
+apply_in dc_0258 0258_drawing_calibrations.sql   # up twice: idempotent
+check_in dc_0258 "SELECT relrowsecurity::text || ':' || (SELECT count(*) FROM drawing_calibrations) FROM pg_class WHERE relname = 'drawing_calibrations'" "true:0" "0258 applies again after its down, twice, secured and empty"
+echo "==> 0258 drawing calibrations table and its down migration verified"

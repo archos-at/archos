@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     When Piloti proposes moving, renaming or assigning a file, the proposal now

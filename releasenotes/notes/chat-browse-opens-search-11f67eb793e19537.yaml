@@ -1,4 +1,5 @@
 ---
+# area: search
 improvements:
   - >
     When you ask Piloti to show you files on a topic, it now finds them with the

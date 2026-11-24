@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     Folders in a project's files can now be renamed, moved and deleted, not

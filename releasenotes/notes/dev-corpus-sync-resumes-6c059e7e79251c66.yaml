@@ -1,4 +1,5 @@
 ---
+# area: general
 operators:
   - >
     The staging stack no longer sets the Chroma migration flag. While it was

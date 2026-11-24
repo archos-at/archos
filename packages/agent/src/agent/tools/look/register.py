@@ -85,7 +85,7 @@ def _observe(
     )
 
 
-async def _licence_of(resolved: Any) -> Any:
+async def licence_of(resolved: Any) -> Any:
     from agent.common.licensed_text import LICENSED
     from agent.common.licensed_text import LicenceTerms
     from agent.common.source_kinds import Shelf
@@ -107,6 +107,19 @@ def refuse_unattested_look(licence: Any) -> None:
         )
 
 
+def with_printed(text: str, printed: Any) -> str:
+    from agent.common.image_view_budget import remaining_views_text
+    from agent.common.passage_fence import fence
+
+    if printed is None:
+        return text
+    left = remaining_views_text()
+    tail = f"\n\n{left}" if left and text.endswith(left) else ""
+    text = text[: len(text) - len(left)].rstrip() if tail else text
+    lines = f"\n{fence(chr(10).join(printed.lines))}" if printed.lines else ""
+    return f"{text}\n\n{printed.head}{lines}{tail}"
+
+
 async def _licensed_blocks(
     view: Any, question: str, place: PlaceFacts | None, licence: Any
 ) -> tuple[list[dict], str, str]:
@@ -122,7 +135,9 @@ async def _licensed_blocks(
         return [{"type": "text", "text": "This page belongs to a licensed copy no look may read."}], "", ""
     with licensed_document_scope(licence):
         reading = await read_region(view.jpeg, question.strip() or DEFAULT_QUESTION, region=True)
-    body = f"{view.text}\n\n{render_readings(reading, blind=True)}"
+    printed = getattr(view, "printed", None)
+    text_layer = f"\n\n{printed.head}\n" + "\n".join(printed.lines) if printed is not None else ""
+    body = f"{view.text}{text_layer}\n\n{render_readings(reading, blind=True)}"
     return (
         [
             {
@@ -146,6 +161,7 @@ async def _blocks_for(
 
     if licence is not None and licence.licensed:
         return await _licensed_blocks(view, question, place, licence)
+    view = view.with_text(with_printed(view.text, getattr(view, "printed", None)))
     blind = sees is False
     question = question.strip() or (DEFAULT_QUESTION if blind else "")
     if not question:
@@ -221,7 +237,7 @@ async def _run_look(
                 rendered = await render
             if isinstance(rendered, View):
                 place = place_facts(resolved, page, rendered.region, image_index)
-                licence = await _licence_of(resolved)
+                licence = await licence_of(resolved)
                 refuse_unattested_look(licence)
                 sees = await turn_sees()
                 result, reading, read = await _blocks_for(rendered, question or "", sees, region, place, licence)

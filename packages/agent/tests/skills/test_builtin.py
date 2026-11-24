@@ -8,32 +8,17 @@ from agent.skills.builtin import BUILTIN_SKILLS_DIR
 from agent.skills.builtin import discover_builtin_skills
 from agent.skills.models import SkillValidationError
 
-EXPECTED = {
-    ("bim", "ifc-spatial-reasoning"),
-    ("drawing", "excalidraw-sketch"),
-    ("oib", "plot-development"),
-    ("oib", "existing-building"),
-    ("oib", "fire-safety"),
-    ("oib", "submission-check"),
-    ("oib", "building-class"),
-    ("oib", "hygiene"),
-    ("oib", "safety-in-use"),
-    ("oib", "thermal-protection"),
-    ("office", "execute"),
-    ("office", "office-word"),
-    ("office", "office-excel"),
-    ("office", "office-powerpoint"),
-    ("office", "office-design"),
-    ("office", "office-pdf"),
-    ("office", "office-pdf-charts"),
-    ("office", "office-html-pdf"),
-    ("research", "data-table-analysis"),
-    ("research", "forecast-analysis"),
-    ("research", "lightweight-calculation"),
-    ("synthesis", "long-form-report-writer"),
-    ("synthesis", "prediction-report-writer"),
-    ("synthesis", "inspection-report-writer"),
-}
+
+def _shipped() -> set[tuple[str, str]]:
+    found = {(path.parent.parent.name, path.parent.name) for path in BUILTIN_SKILLS_DIR.rglob("SKILL.md")}
+    assert found, f"no SKILL.md under {BUILTIN_SKILLS_DIR}"
+    misplaced = sorted(
+        str(path.relative_to(BUILTIN_SKILLS_DIR))
+        for path in BUILTIN_SKILLS_DIR.rglob("SKILL.md")
+        if len(path.relative_to(BUILTIN_SKILLS_DIR).parts) != 3
+    )
+    assert not misplaced, f"{misplaced}: a builtin skill lives at builtin/<collection>/<name>/SKILL.md"
+    return found
 
 
 def test_builtin_dir_layout() -> None:
@@ -44,8 +29,9 @@ def test_builtin_dir_layout() -> None:
 
 def test_discovery_finds_every_builtin_skill() -> None:
     skills = discover_builtin_skills()
-    assert {(s.collection, s.name) for s in skills} == EXPECTED
-    assert len(skills) == len(EXPECTED)
+    shipped = _shipped()
+    assert {(s.collection, s.name) for s in skills} == shipped
+    assert len(skills) == len(shipped)
     assert [s.name for s in skills if s.collection == "research"] == [
         "data-table-analysis",
         "forecast-analysis",

@@ -1,4 +1,5 @@
 ---
+# area: administration
 features:
   - >
     The chat now tells you before a usage budget runs out: at 80 and 95 percent,

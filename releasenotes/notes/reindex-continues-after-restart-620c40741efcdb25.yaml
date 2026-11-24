@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     Reprocessing a project and rereading its failed documents now carry on

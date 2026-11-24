@@ -10,7 +10,10 @@ import { IFC_EXTENSIONS } from './types'
 export interface ProjectModelKinds {
   ifc: boolean
   dxf: boolean
+  pdf: boolean
 }
+
+const PDF_EXTENSIONS = ['.pdf'] as const
 
 function endsWithAny(extensions: readonly string[]): SQL {
   return or(...extensions.map((ext) => sql`lower(btrim(${documents.filename})) LIKE ${`%${ext}`}`)) as SQL
@@ -30,6 +33,7 @@ export async function projectModelKinds(
       .select({
         ifc: sql<boolean>`coalesce(bool_or(${endsWithAny(IFC_EXTENSIONS)}), false)`,
         dxf: sql<boolean>`coalesce(bool_or(${endsWithAny(DRAWING_RENDITION_EXTENSIONS)}), false)`,
+        pdf: sql<boolean>`coalesce(bool_or(${endsWithAny(PDF_EXTENSIONS)}), false)`,
       })
       .from(documents)
       .where(
@@ -40,5 +44,5 @@ export async function projectModelKinds(
         ),
       ),
   )
-  return { ifc: row?.ifc === true, dxf: row?.dxf === true }
+  return { ifc: row?.ifc === true, dxf: row?.dxf === true, pdf: row?.pdf === true }
 }

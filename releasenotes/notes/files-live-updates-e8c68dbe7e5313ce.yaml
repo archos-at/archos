@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     Dateien and the Archiv now update while you look at them: a colleague's upload, a file Piloti filed, a move, a rename or a new folder appears without reloading the page, and a file's status changes as soon as it has been read.
