@@ -2,7 +2,7 @@
 # area: general
 fixes:
   - >
-    On a phone, the project's tab bar reads „Übersicht“ in full, „Alle
+    On a phone, the project's tab bar reads „Projekt“ in full, „Alle
     archivieren“ in the Postfach no longer runs off the screen, and folder names,
     a file's age and a shared chat's title are no longer cut short.
   - >
