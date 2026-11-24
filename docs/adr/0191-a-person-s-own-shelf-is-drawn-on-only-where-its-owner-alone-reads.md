@@ -2,7 +2,7 @@
 status: proposed
 date: 2026-11-24
 decision-makers: product owner (Matthias)
-consulted: the survey of chat scope and sharing, [`docs/audit/chat-scope-and-sharing-2026-11.md`](../audit/chat-scope-and-sharing-2026-11.md); the „Mein Bereich“ concept (ticket 81)
+consulted: the survey of chat scope and sharing, [`docs/audit/chat-scope-and-sharing-2026-11.md`](../audit/chat-scope-and-sharing-2026-11.md); how other products do it, [`docs/audit/shared-ai-context-elsewhere-2026-11.md`](../audit/shared-ai-context-elsewhere-2026-11.md); the „Mein Bereich“ concept (ticket 81)
 informed: everyone who builds on documents, retrieval or chats
 ---
 
