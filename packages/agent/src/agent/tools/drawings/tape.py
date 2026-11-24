@@ -101,7 +101,7 @@ def arguments_of(request: TapeRequest) -> DrawingMeasureInput:
 def measured(loaded: LoadedSheet, request: TapeRequest) -> dict[str, Any]:
     if request.operation == "distance" and len(request.points) != 2:
         return _no_number("other", "a distance needs two points", "pass exactly two")
-    return structured(measure(loaded, arguments_of(request)), loaded.sheet.scan)
+    return structured(measure(loaded, arguments_of(request), as_placed=True), loaded.sheet.scan)
 
 
 def _snap_of(loaded: LoadedSheet, share: Sequence[float]) -> dict[str, Any]:

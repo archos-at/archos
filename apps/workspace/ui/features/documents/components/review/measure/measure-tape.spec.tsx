@@ -338,10 +338,14 @@ describe('the measure layer', () => {
     const { review } = layer(tape)
     const capture = screen.getByTestId('measure-capture-1')
     fireEvent.pointerMove(capture, { clientX: 250, clientY: 500 })
-    expect(tape.pointer).toHaveBeenCalledWith(1, [0.25, 0.5], SIZE)
+    expect(tape.pointer).toHaveBeenCalledWith(1, [0.25, 0.5], SIZE, false)
     fireEvent.click(capture, { clientX: 100, clientY: 200 })
     expect(review.select).toHaveBeenCalledWith(null)
-    expect(tape.add).toHaveBeenCalledWith(1, [0.1, 0.2], SIZE)
+    expect(tape.add).toHaveBeenCalledWith(1, [0.1, 0.2], SIZE, false)
+    fireEvent.pointerMove(capture, { clientX: 250, clientY: 500, ctrlKey: true })
+    expect(tape.pointer).toHaveBeenLastCalledWith(1, [0.25, 0.5], SIZE, true)
+    fireEvent.click(capture, { clientX: 100, clientY: 200, metaKey: true })
+    expect(tape.add).toHaveBeenLastCalledWith(1, [0.1, 0.2], SIZE, true)
     fireEvent.pointerLeave(capture)
     expect(tape.pointer).toHaveBeenLastCalledWith(1, null, SIZE)
     fireEvent.doubleClick(capture)
@@ -357,9 +361,17 @@ describe('the measure layer', () => {
     expect(review.select).toHaveBeenCalledWith('ann_m')
   })
 
-  it('lets a click on a kept label through to the drawing while measuring', () => {
-    layer(tapeWith({ active: true }))
+  it('lets a click on a kept label through to the drawing while a measurement is in hand', () => {
+    layer(tapeWith({ active: true, page: 1, points: [[0.1, 0.1]] }))
     expect(screen.getByTestId('measure-kept-ann_m')).toHaveClass('pointer-events-none')
+  })
+
+  it('lets a kept label be selected while measuring when nothing is in hand', async () => {
+    const { review } = layer(tapeWith({ active: true }))
+    const label = screen.getByTestId('measure-kept-ann_m')
+    expect(label).toHaveClass('pointer-events-auto')
+    await userEvent.click(label)
+    expect(review.select).toHaveBeenCalledWith('ann_m')
   })
 
   it('says the area closes when the pointer is back on the first corner', () => {
