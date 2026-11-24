@@ -1,5 +1,6 @@
 import 'server-only'
 import { bestEffortInBackground } from '@/lib/best-effort'
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { defaultLocale, type Locale } from '@/i18n/config'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -130,6 +131,12 @@ function afterDecision(session: AuthorizedSession, row: ProposedChangeRow): void
   bestEffortInBackground('live publish', () => publishProposalDecided(row.id, status))
   bestEffortInBackground('attention (decided)', () => onProposalDecided({ organizationId: row.organizationId, proposalId: row.id }))
   auditProposalDecided(session, row)
+  captureServer({
+    event: 'proposal_decided',
+    distinctId: session.userId,
+    organizationId: row.organizationId,
+    properties: { kind: row.kind, status, scope: row.scope },
+  })
   const decision: Decision | null =
     status === 'dismissed' ? 'dismissed' : status === 'failed' ? null : 'accepted'
   if (!decision) return

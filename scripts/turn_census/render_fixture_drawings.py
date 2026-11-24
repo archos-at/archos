@@ -151,6 +151,14 @@ def render_page(
 
 
 def render_pdf(spec: dict[str, Any], drawing: dict[str, Any], dpi: int | None = None) -> bytes:
+    if drawing.get("render") == "vector":
+        from render_fixture_drawings_vector import render_vector_pdf
+
+        return render_vector_pdf(spec, drawing)
+    if drawing.get("render") == "ground_truth":
+        from render_fixture_drawings_vector import render_ground_truth_pdf
+
+        return render_ground_truth_pdf(drawing)
     dpi = dpi or spec["dpi"]
     pages = [render_page(spec, drawing, page, dpi) for page in drawing["pages"]]
     buffer = io.BytesIO()

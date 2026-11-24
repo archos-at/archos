@@ -1,5 +1,5 @@
 {
- "$comment": "Fixture drawings of the visual eval (ADR-0128). Every figure on a page is an element with its box in shares of the page, origin top left (the frame of `look`'s region). scripts/turn_census/render_fixture_drawings.py draws the pages from this file at suite start; no image is committed. Gold boxes for IoU are these boxes. Names, numbers and parties are invented.",
+ "$comment": "A drawing with \"render\": \"ground_truth\" is one sheet of the measuring engine's ground-truth set (knowledge_layer_testing.ground_truth_sheets, the builder named in \"builder\"), drawn at known dimensions; its elements here are only the gold boxes, held to the sheet by tests/test_visual_eval.py. Fixture drawings of the visual eval (ADR-0128). Every figure on a page is an element with its box in shares of the page, origin top left (the frame of `look`'s region). scripts/turn_census/render_fixture_drawings.py draws the pages from this file at suite start; no image is committed. A drawing with \"render\": \"vector\" is written as page objects (text and lines, render_fixture_drawings_vector.py) and drawn true to the scale its title block states; the others are raster pages. Gold boxes for IoU are these boxes. Names, numbers and parties are invented.",
  "dpi": 200,
  "sheets": {"A3": [420, 297], "A1": [841, 594]},
  "drawings": [
@@ -125,6 +125,55 @@
       {"id": "title-index", "kind": "title_field", "box": [0.75, 0.77, 0.2, 0.04], "key": "Index", "value": "B", "text": "Index: B"},
       {"id": "title-date", "kind": "title_field", "box": [0.75, 0.82, 0.2, 0.04], "key": "Datum", "value": "03.02.2026", "text": "Datum: 03.02.2026"},
       {"id": "title-scale", "kind": "title_field", "box": [0.75, 0.87, 0.2, 0.04], "key": "Maßstab", "value": "1:50", "text": "Maßstab: 1:50"}
+     ]
+    }
+   ]
+  },
+  {
+   "file_name": "EP-03_Grundriss_DG.pdf",
+   "folder": "Einreichung/Pläne",
+   "sheet": "A1",
+   "render": "vector",
+   "pages": [
+    {
+     "number": 1,
+     "storey": "DG",
+     "index_text": "Grundriss Dachgeschoss, Hubergasse 14, Vektorplot aus CAD",
+     "elements": [
+      {"id": "sheet-title", "kind": "note", "box": [0.05, 0.02, 0.3, 0.025], "text": "Grundriss Dachgeschoss"},
+      {"id": "plan-area", "kind": "plan_area", "box": [0.06, 0.12, 0.36, 0.34], "value": 3},
+      {"id": "room-atelier", "kind": "room", "box": [0.1, 0.2, 0.14554, 0.15152], "text": "Atelier"},
+      {"id": "room-lager", "kind": "room", "box": [0.24554, 0.2, 0.08252, 0.15152], "text": "Lager"},
+      {"id": "room-gang", "kind": "room", "box": [0.1, 0.35152, 0.22806, 0.05387], "text": "Gang"},
+      {"id": "dim-atelier", "kind": "dimension", "box": [0.155, 0.15, 0.035, 0.014], "text": "6,12", "value": "6,12", "line": [0.1, 0.17, 0.24554, 0.17]},
+      {"id": "dim-lager", "kind": "dimension", "box": [0.27, 0.15, 0.035, 0.014], "text": "3,47", "value": "3,47", "line": [0.24554, 0.17, 0.32806, 0.17]},
+      {"id": "dim-gang", "kind": "dimension", "box": [0.3335, 0.358, 0.009, 0.04], "text": "1,60", "value": "1,60", "angle": 90, "line": [0.345, 0.35152, 0.345, 0.40539]},
+      {"id": "door-1", "kind": "door", "box": [0.15, 0.32152, 0.02, 0.03]},
+      {"id": "door-2", "kind": "door", "box": [0.27, 0.32152, 0.02, 0.03]},
+      {"id": "door-3", "kind": "door", "box": [0.08, 0.36152, 0.02, 0.03]},
+      {"id": "title-block", "kind": "title_block", "box": [0.74, 0.7, 0.22, 0.22]},
+      {"id": "title-number", "kind": "title_field", "box": [0.75, 0.72, 0.2, 0.04], "key": "Plannummer", "value": "EP-03", "text": "Plannummer: EP-03"},
+      {"id": "title-index", "kind": "title_field", "box": [0.75, 0.77, 0.2, 0.04], "key": "Index", "value": "A", "text": "Index: A"},
+      {"id": "title-date", "kind": "title_field", "box": [0.75, 0.82, 0.2, 0.04], "key": "Datum", "value": "17.03.2026", "text": "Datum: 17.03.2026"},
+      {"id": "title-scale", "kind": "title_field", "box": [0.75, 0.87, 0.2, 0.04], "key": "Maßstab", "value": "1:50", "text": "Maßstab: 1:50"}
+     ]
+    }
+   ]
+  },
+  {
+   "file_name": "EP-04_Grundriss_KG.pdf",
+   "folder": "Einreichung/Pläne",
+   "sheet": "A1",
+   "render": "ground_truth",
+   "builder": "note_only",
+   "pages": [
+    {
+     "number": 1,
+     "storey": "KG",
+     "index_text": "Grundriss Kellergeschoss, Hubergasse 14, Vektorplot aus CAD",
+     "elements": [
+      {"id": "plan-area", "kind": "plan_area", "box": [0.064, 0.2466, 0.2973, 0.3064]},
+      {"id": "title-scale", "kind": "title_field", "box": [0.79, 0.915, 0.035, 0.022], "key": "Maßstab", "value": "1:50", "text": "M 1:50"}
      ]
     }
    ]
