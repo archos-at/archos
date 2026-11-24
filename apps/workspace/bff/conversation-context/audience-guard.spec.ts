@@ -12,7 +12,7 @@ const READS = [ENTRY, 'readConversationRow', 'readContextAudience'] as const
 const RATCHET: Readonly<Record<string, number>> = {
   'bff/conversation-context/audience.ts': 2,
   'bff/conversation-context/index.ts': 1,
-  'bff/conversation-context/resolve.ts': 2,
+  'bff/conversation-context/resolve.ts': 1,
   'bff/conversations/cross-project-use.ts': 1,
   'bff/conversations/restricted-use.ts': 8,
   'bff/agent-api/conversation-audience.ts': 2,

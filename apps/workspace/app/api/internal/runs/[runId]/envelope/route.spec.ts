@@ -104,7 +104,7 @@ beforeEach(() => {
   vi.mocked(isOrgFeatureEnabled).mockResolvedValue(true)
   vi.mocked(requireProjectAccess).mockResolvedValue(member)
   vi.mocked(authorizeConversationScope).mockResolvedValue(true)
-  vi.mocked(resolveRunContext).mockImplementation(async (_subject, _prompt, decision) => ({ ...runContext, conversationId: decision.conversationId ?? null }))
+  vi.mocked(resolveRunContext).mockImplementation(async (_subject, _prompt, decision) => ({ ...runContext, conversationId: decision.kind === 'run' ? (decision.conversationId ?? null) : null }))
 })
 
 describe('POST /api/internal/runs/[runId]/envelope', () => {

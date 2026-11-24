@@ -54,7 +54,7 @@ vi.mock('@/lib/retrieval-scope/collection-scope-request', () => ({
 }))
 
 import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
-import { resolveConversationContext, resolveConversationScope } from './resolve'
+import { resolveConversationContext, resolveConversationScope, resolveRunConversationContext } from './resolve'
 import { conversationRecord, sourceFoldersOf } from '@/lib/conversations/restricted-use'
 import { featureEntitlement } from '@/lib/turns/feature-entitlement'
 
@@ -196,5 +196,21 @@ describe('resolveConversationContext', () => {
     expect(conversationRecord).not.toHaveBeenCalled()
     expect(featureEntitlement).not.toHaveBeenCalled()
     expect(sourceFoldersOf).not.toHaveBeenCalled()
+  })
+
+  it('decides a run in its chat, reading the row once, and without it when the chat is in another project or in none', async () => {
+    state.rows = [row({ projectId: 'p1' })]
+    const inProject = await resolveRunConversationContext(session, { projectId: 'p1', conversationId: 's_c', kind: 'run' })
+    expect(inProject.conversationId).toBe('s_c')
+    expect(state.reads).toBe(1)
+
+    for (const elsewhere of [row({ projectId: 'p2' }), row({ projectId: null })]) {
+      state.rows = [elsewhere]
+      state.reads = 0
+      const run = await resolveRunConversationContext(session, { projectId: 'p1', conversationId: 's_c', kind: 'run' })
+      expect(run.conversationId).toBeNull()
+      expect(run.may.shelves.map((entry) => entry.collection)).not.toContain('s_s_c')
+      expect(state.reads).toBe(1)
+    }
   })
 })
