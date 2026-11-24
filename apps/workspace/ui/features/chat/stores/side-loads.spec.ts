@@ -82,19 +82,24 @@ describe('a side’s chats are fetched once while fresh (ADR-0193, the rail’s 
     expect(useChatStore.getState().serverSides['project:p1']?.ids).toEqual(['s_new'])
   })
 
-  it('a fetch dropped by another person’s sign-in does not mark their list as loaded', async () => {
-    let finishOld: (rows: unknown[]) => void = () => {}
-    list.mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+  it('another person’s sign-in leaves their list unloaded until their own fetch answers', async () => {
     const { loadServerConversations, setCurrentUser } = useChatStore.getState()
     setCurrentUser('u1')
-    const old = loadServerConversations(undefined, 'personal')
-    await vi.waitFor(() => expect(list).toHaveBeenCalled())
+    await loadServerConversations(undefined, 'personal')
+    expect(useChatStore.getState().serverConversationsLoaded).toBe(true)
+
+    let finishOld: (rows: unknown[]) => void = () => {}
+    list.mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
+    const old = loadServerConversations('p1', 'project')
+    await vi.waitFor(() => expect(list).toHaveBeenCalledTimes(2))
     setCurrentUser('u2')
-    useChatStore.setState({ serverConversationsLoaded: false })
+    expect(useChatStore.getState().serverConversationsLoaded).toBe(false)
     finishOld([])
     await old
-
     expect(useChatStore.getState().serverConversationsLoaded).toBe(false)
+
+    await loadServerConversations(undefined, 'personal')
+    expect(useChatStore.getState().serverConversationsLoaded).toBe(true)
   })
 
   it('another person signing in on the same tab fetches their sides afresh', async () => {

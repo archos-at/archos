@@ -82,7 +82,7 @@ export const createSessionNavigationSlice: StateCreator<
 
   setCurrentUser: (userId: string | null) => {
     const { conversations, currentConversation, projectId } = get()
-    if (sideLoadsChangeHands(userId)) set({ serverSides: {} }, false, 'forgetServerSides')
+    if (sideLoadsChangeHands(userId)) set({ serverSides: {}, serverConversationsLoaded: false }, false, 'forgetServerSides')
 
     const shouldClearCurrent =
       currentConversation && (userId === null || currentConversation.userId !== userId)
