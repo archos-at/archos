@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { PanelLeft } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { useSidebar } from '@/components/ui/sidebar'
@@ -9,6 +9,7 @@ import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
+import { ShellSearchButton } from './shell-search-button'
 
 export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   const t = useTranslations(navCopy)
@@ -39,7 +40,10 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   return (
     <div className={cn(BRAND_ROW, BRAND_INSET_RAIL)}>
       {home}
-      {!isMobile && <RailFoldButton className="ml-auto" />}
+      <span className="ml-auto flex items-center gap-0.5">
+        <ShellSearchButton className="size-7 [&_svg]:size-4" />
+        {!isMobile && <RailFoldButton />}
+      </span>
     </div>
   )
 }
@@ -61,7 +65,7 @@ export function RailFoldButton({ className }: { className?: string }) {
         className
       )}
     >
-      {collapsed ? <ChevronsRight className="size-4" aria-hidden /> : <ChevronsLeft className="size-4" aria-hidden />}
+      <PanelLeft className="size-4" aria-hidden />
     </button>
   )
 }

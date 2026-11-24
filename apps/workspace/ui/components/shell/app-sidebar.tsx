@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronLeft, Folder, SquarePen } from 'lucide-react'
+import { Bell, ChevronLeft, Folder, SquarePen } from 'lucide-react'
 
 import { motion, springGlide } from '@/components/motion'
 import {
@@ -34,10 +34,8 @@ import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import {
-  PROJECT_SETTINGS_SECTION,
   railGroups,
   isSectionPathActive,
-  sectionHref,
   sectionLinkHref,
   type ProjectNavGroup,
   type ProjectSection,
@@ -172,25 +170,16 @@ function AppSidebarFrame({
     })
   )
 
-  const orgGroup = groups.find((g) => g.key === 'org')
-  const settingsHref = sectionHref(PROJECT_SETTINGS_SECTION, base)
-  const overview: RailItemModel = {
-    key: PROJECT_SETTINGS_SECTION.key,
-    href: settingsHref,
-    icon: PROJECT_SETTINGS_SECTION.icon,
-    label: sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration),
-    active: pathname.startsWith(settingsHref),
-    badgeCount: 0,
-    waitingCount: null,
-    shortcutKey: PROJECT_SETTINGS_SECTION.shortcutKey,
-  }
+  const org = groups.find((g) => g.key === 'org')
+  const inFoot = (item: RailItemModel): boolean => iconRail || (item.key !== 'search' && item.key !== 'inbox')
+  const orgGroup = org && { ...org, items: org.items.filter(inFoot) }
+  const bell = iconRail ? undefined : org?.items.find((item) => item.key === 'inbox')
   const projectItems: RailItemModel[] =
     mode === 'personal'
       ? personalRailItems(pathname, t, chatOpen)
       : groups
           .filter((g) => g.key !== 'org')
           .flatMap((g) => g.items)
-          .flatMap((item) => (item.key === 'files' ? [item, overview] : [item]))
 
   const activePillId = railActivePillId(iconRail)
   const railItem = (item: RailItemModel): React.JSX.Element => (
@@ -266,7 +255,7 @@ function AppSidebarFrame({
           )}
         >
           <SidebarBrand iconRail={iconRail} />
-          <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
+          <div className={cn('flex', iconRail ? 'mt-2 justify-center' : 'mb-1.5')}>
             <RailModeSwitch mode={mode} collapsed={iconRail} />
           </div>
           {projectId !== null && <ProjectRecorder projectId={projectId} />}
@@ -275,15 +264,16 @@ function AppSidebarFrame({
               keeps it as a tile of its initials, or a collapsed rail could
               not say which project its sections belong to. */}
           {projectId !== null && (
-          <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
-            <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
-          </div>
+            <div className={cn('flex items-center', iconRail ? 'mt-2 justify-center' : 'mt-1')}>
+              <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
+            </div>
           )}
         </SidebarHeader>
 
         <SidebarContent
           className={cn(
-            'mt-3 min-h-0 flex-1 gap-0 overflow-hidden',
+            'min-h-0 flex-1 gap-0 overflow-hidden',
+            mode === 'personal' && !iconRail ? 'mt-4' : 'mt-3',
             column
           )}
         >
@@ -299,6 +289,7 @@ function AppSidebarFrame({
 
         <RailFooter
           orgGroup={orgGroup}
+          bell={bell}
           railItem={railItem}
           iconRail={iconRail}
           column={column}
@@ -349,6 +340,7 @@ function personalRailItems(pathname: string, t: (key: string) => string, chatOpe
 
 export function RailFooter({
   orgGroup,
+  bell,
   railItem,
   iconRail,
   column,
@@ -360,6 +352,7 @@ export function RailFooter({
   canManagePlatform,
 }: {
   orgGroup: RailGroupModel | undefined
+  bell?: RailItemModel
   railItem: (item: RailItemModel) => React.JSX.Element
   iconRail: boolean
   column: string
@@ -403,6 +396,8 @@ export function RailFooter({
           eye) while all is well. Nothing above it moves when it appears:
           the space it takes is the band's empty middle. */}
       <ConnectionBand appearance="rail" compact={iconRail} />
+      <div className={cn('relative', iconRail ? 'w-9' : 'w-full')}>
+      {bell && <RailInboxBell item={bell} />}
       <SidebarUserMenu
         user={user}
         organizationName={organizationName}
@@ -417,7 +412,31 @@ export function RailFooter({
         canViewOrganization={canViewOrganization}
         canManagePlatform={canManagePlatform}
       />
+      </div>
     </SidebarFooter>
+  )
+}
+
+function RailInboxBell({ item }: { item: RailItemModel }): React.JSX.Element {
+  const { door } = item
+  return (
+    <Link
+      href={item.href}
+      aria-label={item.label}
+      aria-current={item.active ? 'page' : undefined}
+      aria-expanded={door?.open}
+      data-dock-door={door?.panel}
+      data-tour={sectionAnchor(item.key)}
+      data-slot="rail-inbox-bell"
+      onClick={door?.onClick}
+      className={cn(
+        'text-muted-foreground hover:text-foreground hover:bg-selected absolute right-9 top-1/2 z-10 flex h-7 -translate-y-1/2 items-center gap-1 rounded-control px-1.5 transition-colors duration-quick ease-out motion-reduce:transition-none',
+        (item.active || door?.open) && 'bg-selected text-foreground'
+      )}
+    >
+      <Bell className="size-4" aria-hidden />
+      <InboxBadge pending={item.badgeCount} />
+    </Link>
   )
 }
 

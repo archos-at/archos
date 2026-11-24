@@ -260,9 +260,9 @@ describe('the app rail’s material', () => {
 
   it('sets a row at 13px, muted at 440 at rest and ink at 500 where the reader is: never 14px or 600', () => {
     shell.pathname = '/app/projects/p1/files'
-    const { container } = renderRail({}, CHATS)
+    const { container } = renderRail({}, { ...CHATS, items: CHATS.items.map((chat) => ({ ...chat, current: false })) })
     const labels = [...container.querySelectorAll('[data-slot="rail-nav-label"]')]
-    const rest = labels.find((el) => el.textContent === 'Overview')!.closest('a') as HTMLElement
+    const rest = labels.find((el) => el.textContent === 'New chat')!.closest('a') as HTMLElement
     expect(classesOf(rest)).toEqual(expect.arrayContaining(['text-muted-foreground', 'h-9', 'text-[13px]', 'font-normal']))
     const active = container.querySelector('nav a[aria-current="page"]') as HTMLElement
     expect(classesOf(active)).toEqual(expect.arrayContaining(['font-medium', 'data-[active=true]:font-medium']))
