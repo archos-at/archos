@@ -6,9 +6,12 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 
 vi.mock('server-only', () => ({}))
 vi.mock('./resolve', () => ({ resolveConversationContext: vi.fn() }))
+const tenancy = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/conversations/repository', () => ({ findConversationTenancy: tenancy }))
+vi.mock('@/lib/projects/repository', () => ({ findProjectCollectionName: vi.fn(async (id: string) => `proj_${id}`) }))
 
 import { resolveConversationContext } from './resolve'
-import { decideTurn } from './turn-decision'
+import { decideTurn, DecisionLeavesItsSideError } from './turn-decision'
 import { closedContext } from './context.fixtures'
 import { verifyDecision } from './wire'
 
@@ -22,6 +25,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('INTERNAL_API_TOKEN', SECRET)
   vi.mocked(resolveConversationContext).mockResolvedValue({ ...closedContext('chat', 's_c'), projectId: 'p_row' })
+  tenancy.mockResolvedValue(null)
 })
 
 describe('decideTurn', () => {
@@ -50,5 +54,44 @@ describe('decideTurn', () => {
 
     await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toThrow(/sign/)
     expect(resolveConversationContext).not.toHaveBeenCalled()
+  })
+
+  describe('signs nothing that would take a chat’s turn to another side (ADR-0193; checked against the row, apart from how the scope was built)', () => {
+    const row = (projectId: string | null) => ({ organizationId: 'org_1', projectId, visibility: 'private', createdBy: 'user_1', deletedAt: null })
+    const withShelves = (shelves: { collection: string; shelf?: 'project' | 'base' | 'personal' }[], restricted: string[] = []) => {
+      const context = { ...closedContext('chat', 's_c'), projectId: 'p_row' }
+      return { ...context, may: { ...context.may, shelves, restrictedCollections: restricted } } as never
+    }
+
+    it('refuses a project shelf for a personal chat', async () => {
+      tenancy.mockResolvedValue(row(null))
+      vi.mocked(resolveConversationContext).mockResolvedValueOnce(withShelves([{ collection: 'proj_p1', shelf: 'project' }]))
+
+      await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toBeInstanceOf(DecisionLeavesItsSideError)
+    })
+
+    it('refuses restricted folders for a personal chat', async () => {
+      tenancy.mockResolvedValue(row(null))
+      vi.mocked(resolveConversationContext).mockResolvedValueOnce(withShelves([], ['proj_p1_restricted']))
+
+      await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toBeInstanceOf(DecisionLeavesItsSideError)
+    })
+
+    it('refuses another project’s shelf for a project’s chat', async () => {
+      tenancy.mockResolvedValue(row('p1'))
+      vi.mocked(resolveConversationContext).mockResolvedValueOnce(withShelves([{ collection: 'proj_p2', shelf: 'project' }]))
+
+      await expect(decideTurn(session, envelope, ANSWER, NOW)).rejects.toBeInstanceOf(DecisionLeavesItsSideError)
+    })
+
+    it('signs a personal chat’s own shelves, and a project chat’s own project and its restricted folders', async () => {
+      tenancy.mockResolvedValue(row(null))
+      vi.mocked(resolveConversationContext).mockResolvedValueOnce(withShelves([{ collection: 'base', shelf: 'base' }, { collection: 'personal_org_1__user_1', shelf: 'personal' }]))
+      await expect(decideTurn(session, envelope, ANSWER, NOW)).resolves.toBeTruthy()
+
+      tenancy.mockResolvedValue(row('p1'))
+      vi.mocked(resolveConversationContext).mockResolvedValueOnce(withShelves([{ collection: 'proj_p1', shelf: 'project' }, { collection: 'proj_p1_r', shelf: 'project' }], ['proj_p1_r']))
+      await expect(decideTurn(session, envelope, ANSWER, NOW)).resolves.toBeTruthy()
+    })
   })
 })
