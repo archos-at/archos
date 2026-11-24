@@ -503,7 +503,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     metadata: { filename: 'string', collectionName: 'string' },
   },
   'personal_shelf.document.uploaded': { targets: [{ type: 'document' }], metadata: { fileSize: 'number' } },
-  'personal_shelf.document.deleted': { targets: [{ type: 'document' }], metadata: {} },
+  'personal_shelf.document.deleted': { targets: [{ type: 'document' }], metadata: { chunksPurged: 'boolean', purgedAgain: 'boolean' } },
   'personal_shelf.document.renamed': { targets: [{ type: 'document' }], metadata: {} },
   'session.document.uploaded': {
     targets: [{ type: 'document' }],

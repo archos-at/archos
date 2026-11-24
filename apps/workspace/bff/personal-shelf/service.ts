@@ -99,11 +99,13 @@ export async function deletePersonalShelfDocument(
   await assertNoActiveHold(session.organizationId, 'document', documentId)
 
   const purgeRef = collectionFileRef(doc)
-  if (purgeRef) await purgeIngestedChunks(getBackendUrl(), purgeRef, BACKEND_FETCH_TIMEOUT_MS, { permanent: true })
+  const purge = async () =>
+    purgeRef ? purgeIngestedChunks(getBackendUrl(), purgeRef, BACKEND_FETCH_TIMEOUT_MS, { permanent: true }) : null
+  const chunksPurged = await purge()
   await eraseDocumentObjectsOrKeepRow(doc, session.organizationId)
   await deletePersonalShelfDocumentRow(documentId, session.organizationId, session.userId)
   publishShelfChanged(session.organizationId, ownShelf(session))
-  if (purgeRef) await purgeIngestedChunks(getBackendUrl(), purgeRef, BACKEND_FETCH_TIMEOUT_MS, { permanent: true })
+  const purgedAgain = await purge()
 
   await recordAuditEvent({
     organizationId: session.organizationId,
@@ -111,7 +113,7 @@ export async function deletePersonalShelfDocument(
     action: 'personal_shelf.document.deleted',
     targetType: 'document',
     targetId: documentId,
-    metadata: {},
+    metadata: { ...(chunksPurged === null ? {} : { chunksPurged }), ...(purgedAgain === null ? {} : { purgedAgain }) },
     request,
   })
 }

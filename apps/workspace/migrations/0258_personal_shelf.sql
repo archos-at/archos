@@ -23,9 +23,10 @@
 --
 -- The tables: `documents` and `project_folders` carry the owner. A version
 -- (`document_versions`) and a search row (`document_search_facets`) carry the
--- document's name and content, so their policy also asks that the document be
--- visible, which brings the documents policy with it. Annotations already ask
--- that (0130).
+-- document's name and content, so their policy asks `personal_document_hidden`
+-- whether the document is someone else's personal one. It reads past the
+-- documents policy, so a version for a deleted document still fails on its
+-- foreign key, not on the policy. Annotations already ask that (0130).
 --
 -- ## When the owner leaves
 --
@@ -44,6 +45,22 @@ COMMENT ON FUNCTION current_system_reader() IS
 ALTER TABLE "documents" ADD COLUMN IF NOT EXISTS "owner_user_id" text;
 --> statement-breakpoint
 ALTER TABLE "project_folders" ADD COLUMN IF NOT EXISTS "owner_user_id" text;
+--> statement-breakpoint
+CREATE OR REPLACE FUNCTION personal_document_hidden(document uuid) RETURNS boolean
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM documents d
+    WHERE d.id = document AND d.organization_id = current_org()
+      AND d.owner_user_id IS NOT NULL AND d.owner_user_id IS DISTINCT FROM current_user_id()
+      AND current_system_reader() IS NULL
+  )
+$$;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION personal_document_hidden(uuid) FROM PUBLIC;
+--> statement-breakpoint
+DO $$ BEGIN
+  EXECUTE format('GRANT EXECUTE ON FUNCTION personal_document_hidden(uuid) TO %I, %I', rls_role('rw'), rls_role('platform'));
+END $$;
 --> statement-breakpoint
 ALTER TABLE "documents" DROP CONSTRAINT IF EXISTS "documents_personal_has_owner";
 --> statement-breakpoint
@@ -104,7 +121,7 @@ SELECT secure_table('project_folders',
   'organization_id = current_org() AND (owner_user_id IS NULL OR owner_user_id = current_user_id() OR current_system_reader() IS NOT NULL)');
 --> statement-breakpoint
 SELECT secure_table('document_versions',
-  'organization_id = current_org() AND (project_id IS NULL OR EXISTS (SELECT 1 FROM projects p WHERE p.id = project_id AND p.organization_id = current_org())) AND (project_id IS NOT NULL OR EXISTS (SELECT 1 FROM documents d WHERE d.id = document_id))');
+  'organization_id = current_org() AND (project_id IS NULL OR EXISTS (SELECT 1 FROM projects p WHERE p.id = project_id AND p.organization_id = current_org())) AND (project_id IS NOT NULL OR NOT personal_document_hidden(document_id))');
 --> statement-breakpoint
 SELECT secure_table('document_search_facets',
-  'organization_id = current_org() AND EXISTS (SELECT 1 FROM documents d WHERE d.id = document_id)');
+  'organization_id = current_org() AND NOT personal_document_hidden(document_id)');

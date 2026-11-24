@@ -64,6 +64,11 @@ beforeEach(() => {
 })
 
 describe('auditQuarantineDecision', () => {
+  it('names no file for a personal upload, which only its owner may read (ADR-0191)', async () => {
+    await auditQuarantineDecision(decision({ scope: 'personal', projectId: null, folderId: null }))
+    expect(vi.mocked(recordAuditEventOrThrow).mock.calls[0][0].metadata).toMatchObject({ filename: '', scope: 'personal' })
+  })
+
   it('sends the decision as the content gate, built from the row alone, then marks it audited', async () => {
     expect(await auditQuarantineDecision(decision())).toBe(true)
 

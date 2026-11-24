@@ -54,4 +54,6 @@ ALTER TABLE "project_folders" DROP COLUMN IF EXISTS "owner_user_id";
 --> statement-breakpoint
 ALTER TABLE "documents" DROP COLUMN IF EXISTS "owner_user_id";
 --> statement-breakpoint
+DROP FUNCTION IF EXISTS personal_document_hidden(uuid);
+--> statement-breakpoint
 DROP FUNCTION IF EXISTS current_system_reader();
