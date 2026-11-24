@@ -11,6 +11,11 @@ vi.mock('@/lib/db', () => ({
   getDb: vi.fn(),
 }))
 
+vi.mock('@/lib/sharing/repository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/sharing/repository')>()),
+  resourceIdsWithGrants: vi.fn(async () => new Set<string>()),
+}))
+
 vi.mock('@/lib/conversations/restricted-use', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/conversations/restricted-use')>()),
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
