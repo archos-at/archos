@@ -1,0 +1,5 @@
+---
+fixes:
+  - >
+    A chat now reads only the project it belongs to. A chat without a project,
+    continued while a project page is open, no longer searches that project.
