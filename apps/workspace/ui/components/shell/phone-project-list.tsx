@@ -97,7 +97,7 @@ export function PhoneProjectList({ projects, activeProjectId, onDone }: PhonePro
               'active:bg-desk'
             )}
           >
-            <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>
+            <span className="min-w-0 flex-1">{t('projectSwitcher.overview')}</span>
             <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
           </Link>
         </div>

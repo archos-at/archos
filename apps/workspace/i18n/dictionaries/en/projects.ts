@@ -1,4 +1,8 @@
 export const projects = {
+  portfolio: {
+    title: 'Project overview',
+    searchPlaceholder: 'Search projects …',
+  },
   list: {
     heading: 'Projects',
     description:
@@ -301,8 +305,8 @@ export const projects = {
     documents: 'documents',
     docLabel: '{count} {unit}',
     open: 'Open {name}',
-    overview: 'Overview',
-    overviewAria: 'Open overview of {name}',
+    settings: 'Project settings',
+    settingsAria: 'Project settings of {name}',
     mailWaiting: '{count, plural, one {# mail waits} other {# mails wait}}',
     mailWaitingAria: '{count, plural, one {# mail waits to be filed in {name}} other {# mails wait to be filed in {name}}}',
   },

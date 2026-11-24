@@ -371,7 +371,7 @@ describe('AppSidebar - the phone top band', () => {
     render(<AppSidebar {...baseProps} />)
     const banner = screen.getByRole('banner')
     const line = banner.querySelector<HTMLElement>('[data-slot="phone-bare-line"]')!
-    expect(within(line).getByRole('link', { name: 'Back to Overview' })).toHaveAttribute('href', '/app/projects/p1/settings')
+    expect(within(line).getByRole('link', { name: 'Back to Project settings' })).toHaveAttribute('href', '/app/projects/p1/settings')
     expect(banner).not.toHaveTextContent('Project One')
     await user.click(within(line).getByTestId('shell-search'))
     expect(useShellOverlays.getState().paletteOpen).toBe(true)

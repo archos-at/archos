@@ -3,15 +3,22 @@
 import type { JSX } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
-import { ProjectsGrid } from '@/components/projects/projects-grid'
+import { ProjectOverview } from '@/components/projects/project-overview'
+import { RoutePageSheet } from '@/components/shell/route-page-sheet'
+import { PageSheetClose } from '@/components/ui/page-sheet'
+import { I18nProvider } from '@/i18n'
 import type { Project } from '@/lib/db/schema/projects'
 
 const minutesAgo = (minutes: number): Date => new Date(Date.now() - minutes * 60_000)
 
-function siteAddressProfile(address: string | null, at: Date): Project['profile'] {
-  const facts: Project['profile']['facts'] = address
-    ? { site_address: { value: address, confidence: 'confirmed', source: 'onboarding', updatedAt: at.toISOString() } }
-    : {}
+const PHASES: Record<string, string> = { p1: 'Einreichplanung', p2: 'Ausführungsplanung', p3: 'Entwurf', p5: 'Einreichplanung', p7: 'Vorentwurf' }
+
+function siteAddressProfile(id: string, address: string | null, at: Date): Project['profile'] {
+  const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: at.toISOString() })
+  const facts: Project['profile']['facts'] = {
+    ...(address ? { site_address: fact(address) } : {}),
+    ...(PHASES[id] ? { project_phase: fact(PHASES[id]) } : {}),
+  }
   return { facts, goals: {}, unknowns: [], assumptions: {} }
 }
 
@@ -29,7 +36,7 @@ function makeProject(
     createdBy: 'user_me',
     collectionName: `proj_${id}`,
     workosResourceId: null,
-    profile: siteAddressProfile(address, minutesAgo(createdMinutesAgo)),
+    profile: siteAddressProfile(id, address, minutesAgo(createdMinutesAgo)),
     profileVersion: 1,
     profilePromptView: null,
     profileDisplay: summary ? { title: name, summary, keyFacts: [], missingInfo: [] } : null,
@@ -58,18 +65,6 @@ const PROJECTS: Project[] = [
   makeProject('p9', 'Pfarrzentrum Klosterneuburg', 'Versammlungsstätte · GK 3 · Niederösterreich', 60 * 24 * 40, 'Stiftsplatz 1, 3400 Klosterneuburg'),
 ]
 
-const DOC_COUNTS: Record<string, number> = {
-  p1: 62,
-  p2: 29,
-  p3: 18,
-  p4: 24,
-  p5: 11,
-  p6: 3,
-  p7: 47,
-  p8: 18,
-  p9: 1,
-}
-
 const VIEWER_ACTIVITY: Record<string, string> = {
   p1: minutesAgo(12).toISOString(),
   p2: minutesAgo(60 * 3).toISOString(),
@@ -91,29 +86,29 @@ const WITH_LIFECYCLE: Project[] = PROJECTS.map((project) => {
   return project
 })
 
-function ProjectsHomePreview(): JSX.Element {
+function ProjectOverviewPreview(): JSX.Element {
   const variant = useSearchParams()?.get('variant')
-  const fresh = variant === 'fresh'
   return (
-    <main
-      data-testid="projects-home-preview"
-      className="min-h-dvh bg-background px-4 py-6 text-foreground md:px-10 md:py-10"
-    >
-      <div className="mx-auto w-full max-w-[1080px]">
-        <ProjectsGrid
-          projects={variant === 'lifecycle' ? WITH_LIFECYCLE : PROJECTS}
-          docCounts={DOC_COUNTS}
-          viewerActivity={fresh ? {} : VIEWER_ACTIVITY}
-        />
-      </div>
-    </main>
+    <div data-testid="project-overview-preview" className="bg-background text-foreground min-h-dvh">
+      <RoutePageSheet title="Projektübersicht" closeLabel="Schließen" headerless standalone size="window">
+        <div className="p-6">
+          <ProjectOverview
+            projects={variant === 'empty' ? [] : WITH_LIFECYCLE}
+            viewerActivity={variant === 'fresh' ? {} : VIEWER_ACTIVITY}
+            closeAction={<PageSheetClose label="Schließen" />}
+          />
+        </div>
+      </RoutePageSheet>
+    </div>
   )
 }
 
-export default function ProjectsHomeDevPage(): JSX.Element {
+export default function ProjectOverviewDevPage(): JSX.Element {
   return (
-    <Suspense>
-      <ProjectsHomePreview />
-    </Suspense>
+    <I18nProvider initialLocale="de" fixedLocale>
+      <Suspense>
+        <ProjectOverviewPreview />
+      </Suspense>
+    </I18nProvider>
   )
 }

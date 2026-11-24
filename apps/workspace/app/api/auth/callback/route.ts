@@ -32,7 +32,7 @@ function reportSignInFailure({ error, request }: { error?: unknown; request: Nex
 }
 
 const authkitCallback = handleAuth({
-  returnPathname: '/app/projects',
+  returnPathname: '/app',
   baseURL,
   onSuccess: announceSignIn,
   onError: reportSignInFailure,

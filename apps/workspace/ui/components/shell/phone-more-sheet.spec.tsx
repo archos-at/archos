@@ -83,7 +83,7 @@ describe('PhoneMoreSheet', () => {
     const list = await screen.findByRole('dialog', { name: 'Switch project' })
     expect(within(list).getByRole('searchbox', { name: 'Search projects' })).toBeInTheDocument()
     expect(within(list).getByRole('button', { name: 'Sanierung Amtshaus Favoriten' })).toBeInTheDocument()
-    expect(within(list).getByRole('link', { name: 'View all projects' })).toBeInTheDocument()
+    expect(within(list).getByRole('link', { name: 'Overview' })).toBeInTheDocument()
 
     await user.click(within(list).getByRole('button', { name: 'Back to More' }))
     expect(await screen.findByRole('dialog', { name: 'More' })).toBeInTheDocument()
