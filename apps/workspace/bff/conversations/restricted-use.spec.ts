@@ -48,8 +48,11 @@ const state = vi.hoisted(() => ({
   projects: [] as string[],
   projectsFor: new Map<string, string[]>(),
   opens: new Set<string>(),
+  personalShelfUsed: false,
   tx: { tx: true },
 }))
+
+vi.mock('./personal-shelf-use', () => ({ personalShelfUsed: vi.fn(async () => state.personalShelfUsed) }))
 
 vi.mock('@/lib/db', () => ({
   getDb: () => ({ transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(state.tx) }),
@@ -121,15 +124,14 @@ import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import {
   admitRestrictedUse,
   admitSourceFolders,
-  assertMayWidenConversation,
   drawableRestrictedCollections,
   foldersEveryoneMayRead,
   lockedConversationIds,
   peopleWhoMayRead,
   READERS_MAX_PEOPLE,
   recordedRestrictedFolders,
-  widenConversationAudience,
 } from './restricted-use'
+import { assertMayWidenConversation, widenConversationAudience } from './audience-widening'
 import { folderTree } from '@/lib/authz/folder-access'
 
 const ORG = 'org_1'
@@ -169,6 +171,7 @@ beforeEach(() => {
   state.projects = []
   state.projectsFor = new Map()
   state.opens = new Set()
+  state.personalShelfUsed = false
   state.members = new Map([
     [OWNER, GF],
     ['user_vertraege', VERTRAEGE_READER],
@@ -273,6 +276,53 @@ describe('recordedRestrictedFolders — judged at read time', () => {
       folder.id === OPENED_ID ? { ...folder, accessMode: 'custom' as const, everyoneReads: false } : folder
     )
     expect(await recordedRestrictedFolders(CONV, ORG)).toEqual([OPENED_ID])
+  })
+})
+
+describe('a chat that drew on its owner’s own shelf (ADR-0193, rule 5)', () => {
+  const toIna = { kind: 'person', userId: 'user_ina', self: false } as const
+  const refusalOf = (promise: Promise<unknown>) =>
+    promise.then(
+      () => null,
+      (error: { details?: unknown }) => error.details
+    )
+
+  beforeEach(() => {
+    state.personalShelfUsed = true
+  })
+
+  it('asks its owner first, for a person and for the whole project, and writes nothing until they confirm', async () => {
+    const write = vi.fn(async () => 'granted')
+
+    expect(await refusalOf(assertMayWidenConversation(session, CONV, toIna))).toEqual({
+      reason: 'personal-shelf-content',
+      confirmable: true,
+    })
+    expect(await refusalOf(widenConversationAudience(session, CONV, { kind: 'visibility' }, write))).toMatchObject({
+      reason: 'personal-shelf-content',
+    })
+    expect(write).not.toHaveBeenCalled()
+
+    await assertMayWidenConversation(session, CONV, { ...toIna, ownerConfirmed: true })
+    expect(await widenConversationAudience(session, CONV, { ...toIna, ownerConfirmed: true }, write)).toBe('granted')
+  })
+
+  it('takes no confirmation from anyone but the chat’s creator', async () => {
+    const coOwner = { ...session, userId: 'user_co_owner' } as AuthorizedSession
+    const write = vi.fn()
+
+    expect(await refusalOf(widenConversationAudience(coOwner, CONV, { ...toIna, ownerConfirmed: true }, write))).toEqual({
+      reason: 'personal-shelf-content',
+      confirmable: false,
+    })
+    expect(write).not.toHaveBeenCalled()
+  })
+
+  it('names a restricted folder first, since a confirmation cannot cover it', async () => {
+    state.recorded = [VERTRAEGE_ID]
+    expect(await refusalOf(assertMayWidenConversation(session, CONV, { ...toIna, ownerConfirmed: true }))).toMatchObject({
+      reason: 'restricted-content',
+    })
   })
 })
 

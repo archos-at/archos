@@ -238,3 +238,28 @@ describe('useMentionCandidates — before the conversation exists', () => {
     expect(result.current.data).toBeNull()
   })
 })
+
+describe('useSharing — a share the owner must confirm (ADR-0193)', () => {
+  test('retries the refused grant with the confirmation, and only that grant', async () => {
+    const refused = {
+      ok: false,
+      status: 409,
+      json: async () => ({ error: 'CONFLICT', details: { reason: 'personal-shelf-content', confirmable: true } }),
+    } as unknown as Response
+    fetchMock.mockResolvedValueOnce(ok()).mockResolvedValueOnce(refused).mockResolvedValue(ok())
+    const { result } = renderHook(() => useSharing('conversation', RESOURCE_ID, true))
+    await tick(0)
+
+    await act(async () => {
+      expect(await result.current.grant('user_ina', 'viewer')).toBe(false)
+    })
+    expect(result.current.failure).toMatchObject({ reason: 'personal-shelf-content', confirmable: true })
+
+    await act(async () => {
+      expect(await result.current.confirmPersonalShelf()).toBe(true)
+    })
+    const [, init] = fetchMock.mock.calls.at(-1) as unknown as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({ subjectUserId: 'user_ina', role: 'viewer', confirmPersonalShelf: true })
+    expect(result.current.failure).toBeNull()
+  })
+})
