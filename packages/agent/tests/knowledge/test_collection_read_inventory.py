@@ -30,6 +30,10 @@ TOOLS: dict[str, tuple[str, str]] = {
         "reports",
         "packages/agent/tests/tools/drawings/test_dxf_measure.py::test_a_read_reports_its_collection_so_a_restricted_folder_is_admitted",
     ),
+    "drawing_measure": (
+        "reports",
+        "packages/agent/tests/tools/drawings/test_drawing_measure.py::test_a_read_reports_its_collection_so_a_restricted_folder_is_admitted",
+    ),
     "list_files": (
         "lists_nothing_restricted",
         "tests/knowledge_layer_tests/test_restricted_reads.py::test_list_files_never_lists_a_restricted_file_when_the_inventory_failed",

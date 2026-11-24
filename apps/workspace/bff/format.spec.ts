@@ -12,6 +12,7 @@ import {
   formatDurationElapsed,
   formatDurationShort,
   formatEur,
+  formatMetres,
   formatTokens,
   formatTransferRate,
   formatUsd,
@@ -41,6 +42,15 @@ describe('formatCount', () => {
     expect(formatCount(1720, 'en')).toBe('1,720')
     expect(formatCount(1720, 'de')).toBe('1.720')
     expect(formatCount(12_400_000, 'en')).toBe('12,400,000')
+  })
+})
+
+describe('formatMetres', () => {
+  test('a length with its unit, two decimals at least and a millimetre at most', () => {
+    expect(formatMetres(4.25, 'de')).toMatch(/^4,25\sm$/)
+    expect(formatMetres(4.25, 'en')).toMatch(/^4\.25\sm$/)
+    expect(formatMetres(12, 'de')).toMatch(/^12,00\sm$/)
+    expect(formatMetres(0.1254, 'en')).toMatch(/^0\.125\sm$/)
   })
 })
 

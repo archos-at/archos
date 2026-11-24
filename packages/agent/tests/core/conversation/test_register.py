@@ -203,6 +203,7 @@ class TestTheProjectModelsReachTheToolBinding:
     async def test_the_kinds_the_bff_sent_are_bound_for_the_agent(self, harness, monkeypatch):
         from dataclasses import replace
 
+        from agent.common import turn_file_kinds
         from agent.core import turn_tools
         from agent.turn import context as context_mod
 
@@ -215,7 +216,7 @@ class TestTheProjectModelsReachTheToolBinding:
         seen: dict = {}
 
         async def shallow(state):
-            seen["models"] = turn_tools._project_models.get()
+            seen["models"] = turn_file_kinds.stated()
             return await _shallow(state)
 
         turn_tools.set_project_models(None)
