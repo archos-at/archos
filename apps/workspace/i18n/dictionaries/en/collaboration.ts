@@ -94,6 +94,11 @@ export const collaboration = {
         'This person may not read every folder with restricted access this conversation draws on, so it cannot be shared with them.',
       restrictedContentSelf:
         'You may not read every folder with restricted access this conversation draws on, so you cannot take it over.',
+      personalShelfContent:
+        'This chat read from your own files. Whoever sees it sees its answers, never the files. After that it no longer reads from them.',
+      personalShelfContentNotOwner:
+        'This chat read from the own files of the person who started it. Only they can share it further.',
+      personalShelfConfirm: 'Share anyway',
       restrictedContentProject:
         'This conversation draws on a folder with restricted access, so it cannot be made visible to the whole project. Share it with individual people who may read that folder instead.',
       crossProjectContent:

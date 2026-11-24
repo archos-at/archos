@@ -3,6 +3,8 @@ import { BadRequestError } from '@/lib/api/errors'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { withTenant } from '@/lib/db/tenant-context'
 import { ADMISSION_MAX_COLLECTIONS, admitRestrictedUse } from '@/lib/conversations/restricted-use'
+import { admitPersonalShelf, splitPersonalShelf } from '@/lib/conversations/personal-shelf-use'
+import { decisionFromRequest } from '@/lib/conversation-context'
 
 type Params = { id: string }
 
@@ -29,7 +31,19 @@ export const POST = internalApiRoute<Params>(
       projectId: body.projectId ?? null,
       answerMessageId: body.answerMessageId ?? null,
     }
-    return withTenant({ organizationId: body.organizationId }, () => admitRestrictedUse(useRequest, body.admit))
+    const decision = decisionFromRequest(request)
+    const { personal, others } = splitPersonalShelf(body.admit)
+    return withTenant({ organizationId: body.organizationId }, async () => {
+      const [folders, ownShelf] = await Promise.all([
+        others.length > 0 ? admitRestrictedUse(useRequest, others) : Promise.resolve({ admitted: [], refused: [], recorded: [] }),
+        personal.length > 0 ? admitPersonalShelf(useRequest, personal, decision) : Promise.resolve([]),
+      ])
+      return {
+        admitted: [...folders.admitted, ...ownShelf],
+        refused: [...folders.refused, ...personal.filter((collection) => !ownShelf.includes(collection))],
+        recorded: folders.recorded,
+      }
+    })
   },
   { tenancy: { fromPayload: 'body.organizationId' } }
 )

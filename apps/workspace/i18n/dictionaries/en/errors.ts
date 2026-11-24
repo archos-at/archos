@@ -43,6 +43,8 @@ export const errors = {
     },
   },
   confinement: {
+    personalShelf:
+      'This conversation read from „Meine Ablage“, so nothing from it leaves it: no filing into a project, no task, no memory, no annotation on someone else’s document. A file from your own shelf enters a project only by a step of its own.',
     deepResearch:
       'This conversation draws on a folder with restricted access or on another project, so it cannot start a deep research run: the run, its title and its report would be visible to everyone in the project, including people who may not read that folder or project.',
     task: 'This conversation draws on a folder with restricted access or on another project, so it cannot create a task: tasks are visible to everyone in the project, including people who may not read that folder or project.',

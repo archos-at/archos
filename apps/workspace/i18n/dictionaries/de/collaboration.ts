@@ -100,6 +100,11 @@ export const collaboration: typeof en.collaboration = {
         'Diese Person darf nicht jeden Ordner mit eingeschränktem Zugriff lesen, auf den sich dieser Chat stützt. Deshalb kann er nicht mit ihr geteilt werden.',
       restrictedContentSelf:
         'Sie dürfen nicht jeden Ordner mit eingeschränktem Zugriff lesen, auf den sich dieser Chat stützt, und können ihn deshalb nicht übernehmen.',
+      personalShelfContent:
+        'Dieser Chat hat aus „Meine Ablage“ gelesen. Wer ihn sieht, sieht seine Antworten, nie die Dateien. Danach liest er nicht mehr aus Ihrer Ablage.',
+      personalShelfContentNotOwner:
+        'Dieser Chat hat aus der persönlichen Ablage der Person gelesen, die ihn begonnen hat. Nur sie kann ihn weiter teilen.',
+      personalShelfConfirm: 'Trotzdem teilen',
       restrictedContentProject:
         'Dieser Chat stützt sich auf einen Ordner mit eingeschränktem Zugriff und kann deshalb nicht für das ganze Projekt sichtbar gemacht werden. Teilen Sie ihn mit einzelnen Personen, die den Ordner lesen dürfen.',
       crossProjectContent:

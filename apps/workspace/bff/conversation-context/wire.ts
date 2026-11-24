@@ -89,7 +89,7 @@ export function decisionOf(
     answerMessageId,
     kind: context.kind,
     solo: context.audience.solo,
-    recordedRestricted: context.recorded.folders.length > 0,
+    recordedRestricted: context.recorded.folders.length > 0 || context.recorded.personalShelf,
     audienceVersion: context.audience.version,
     issuedAt,
     may: { shelves, restrictedCollections, otherProjects, personalMemory, personalShelf, workspaceRead, features },

@@ -12,6 +12,7 @@ export interface SharingFailure {
   message: string | null
   person?: string | null
   folders?: readonly string[]
+  confirmable?: boolean
 }
 
 export const NO_FAILURE_DETAIL: SharingFailure = { reason: null, message: null }
@@ -41,7 +42,7 @@ async function readSharingFailure(response: Response): Promise<SharingFailure> {
   try {
     const body = (await response.json()) as {
       error?: string
-      details?: { reason?: unknown; person?: unknown; folders?: unknown } | null
+      details?: { reason?: unknown; person?: unknown; folders?: unknown; confirmable?: unknown } | null
     }
     const details = body.details ?? {}
     const folders = Array.isArray(details.folders)
@@ -52,6 +53,7 @@ async function readSharingFailure(response: Response): Promise<SharingFailure> {
       message: body.error ?? null,
       person: typeof details.person === 'string' ? details.person : null,
       folders,
+      confirmable: details.confirmable === true,
     }
   } catch {
     return NO_FAILURE_DETAIL
@@ -86,16 +88,24 @@ export const setResourceVisibility = (
   resourceType: ShareableResourceType,
   resourceId: string,
   visibility: ResourceVisibility,
+  confirmPersonalShelf = false,
 ): Promise<ResourceSharingState> =>
-  sendSharingChange(sharingPath(resourceType, resourceId), jsonRequest('PATCH', { visibility }))
+  sendSharingChange(
+    sharingPath(resourceType, resourceId),
+    jsonRequest('PATCH', confirmPersonalShelf ? { visibility, confirmPersonalShelf } : { visibility }),
+  )
 
 export const grantResourceAccess = (
   resourceType: ShareableResourceType,
   resourceId: string,
   subjectUserId: string,
   role: ResourceRole,
+  confirmPersonalShelf = false,
 ): Promise<ResourceSharingState> =>
-  sendSharingChange(`${sharingPath(resourceType, resourceId)}/grants`, jsonRequest('POST', { subjectUserId, role }))
+  sendSharingChange(
+    `${sharingPath(resourceType, resourceId)}/grants`,
+    jsonRequest('POST', confirmPersonalShelf ? { subjectUserId, role, confirmPersonalShelf } : { subjectUserId, role }),
+  )
 
 export const changeResourceRole = (
   resourceType: ShareableResourceType,

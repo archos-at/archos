@@ -7,7 +7,7 @@ export const DELEGATABLE_TASK_KINDS = ["compliance_check", "submission_check", "
 export const SOURCE_KINDS = ["building_law", "office", "project", "web", "measurement"] as const
 
 /** The shelves a retrieved chunk can come from: `Shelf` in `packages/agent/src/agent/common/source_kinds.py`. */
-export const SHELVES = ["office_shelf", "project", "session", "base"] as const
+export const SHELVES = ["office_shelf", "project", "session", "base", "personal"] as const
 
 /** A source record's protocols: the keys of `ACCESS_TYPES` in `packages/public-sources/src/public_sources/access`. */
 export const SOURCE_PROTOCOLS = ["rest", "http_eli", "web_document", "ogc"] as const

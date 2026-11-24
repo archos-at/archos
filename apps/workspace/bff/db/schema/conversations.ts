@@ -22,6 +22,7 @@ export const conversations = pgTable(
     subjectResourceType: text('subject_resource_type').$type<ShareableResourceType>(),
     subjectResourceId: text('subject_resource_id'),
     temporary: boolean('temporary').notNull().default(false),
+    personalShelfUsedAt: timestamp('personal_shelf_used_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

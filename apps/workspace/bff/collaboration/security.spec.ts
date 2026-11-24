@@ -41,6 +41,8 @@ vi.mock('@/lib/auth/require-auth', () => ({
 vi.mock('@/lib/conversations/restricted-use', () => ({
   peopleWhoMayRead: vi.fn(async (_org: string, _id: string, userIds: readonly string[]) => new Set(userIds)),
   lockedConversationIds: vi.fn(async () => new Set<string>()),
+}))
+vi.mock('@/lib/conversations/audience-widening', () => ({
   assertMayWidenConversation: vi.fn(async () => undefined),
   widenConversationAudience: vi.fn(
     async (_session: unknown, _id: string, _widening: unknown, write: (executor: unknown) => Promise<unknown>) =>

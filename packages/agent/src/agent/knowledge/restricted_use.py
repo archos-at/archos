@@ -149,7 +149,7 @@ def admit(use: RestrictedUse, collections: Sequence[str]) -> set[str]:
 def restricted_use_from_decision(
     decision: TurnDecision, request: Any, *, answer_message_id: str | None = None
 ) -> RestrictedUse | None:
-    if not decision.restricted_collections:
+    if not decision.restricted_collections and not decision.recorded_restricted:
         return None
     return RestrictedUse(
         organization_id=getattr(request, "organization_id", None) or "",
@@ -218,7 +218,8 @@ def collections_read(message: Any) -> set[str]:
     return set(_names(value))
 
 
-_RESTRICTED_IN_TEXT = re.compile(r"(?<![\w-])proj_[\w-]+?_r[0-9a-f]{12}(?![\w-])", re.IGNORECASE)
+_RESTRICTED_IN_TEXT = re.compile(r"(?<![\w-])(?i:proj_[\w-]+?_r[0-9a-f]{12})(?![\w-])")
+_PERSONAL_IN_TEXT = re.compile(r"(?<![\w-])personal_org_[A-Za-z0-9-]+__user_[A-Za-z0-9_-]+(?![\w-])")
 
 
 def _text_of(message: Any) -> str:
@@ -233,7 +234,8 @@ def _text_of(message: Any) -> str:
 
 def _carried(message: Any) -> set[str]:
     reported = {name for name in collections_read(message) if is_restricted_collection(name)}
-    named = {match.group(0) for match in _RESTRICTED_IN_TEXT.finditer(_text_of(message))}
+    text = _text_of(message)
+    named = {match.group(0) for pattern in (_RESTRICTED_IN_TEXT, _PERSONAL_IN_TEXT) for match in pattern.finditer(text)}
     return reported | {name for name in named if is_restricted_collection(name)}
 
 

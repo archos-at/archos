@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { ProjectProfileSchema } from '@/lib/project-profile/types'
 
+vi.mock('@/lib/conversations/personal-shelf-use', () => ({ personalShelfUseOf: vi.fn(async () => null) }))
 vi.mock('@/lib/auth/require-auth', () => ({
   requireAuthorizedSession: vi.fn().mockResolvedValue({
     userId: 'user-1',

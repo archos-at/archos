@@ -1,4 +1,5 @@
 import 'server-only'
+import { AGENT_REFUSAL_LOCALE, requireNoPersonalShelfEgress } from '@/lib/conversations/restricted-egress'
 import { ApiError, BadRequestError, NotFoundError, UnprocessableError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { isAgentActsEnabled } from '@/lib/authz/feature-flags'
@@ -36,6 +37,7 @@ export class NoDocumentSubjectError extends UnprocessableError {
 }
 
 const ACTING_OPS: ReadonlySet<InternalAnnotationRequest['op']> = new Set(['create', 'update', 'delete'])
+const WRITING_OPS: ReadonlySet<InternalAnnotationRequest['op']> = new Set(['propose', 'create', 'update', 'reply'])
 
 export class AgentActsOffError extends ApiError {
   constructor(op: InternalAnnotationRequest['op']) {
@@ -53,6 +55,7 @@ export interface AgentDocument {
   id: string
   name: string
   projectId: string | null
+  personal?: boolean
 }
 
 export async function resolveAgentDocument(
@@ -75,7 +78,7 @@ export async function resolveAgentDocument(
     askerUserId: context.userId,
     answerMessageId,
   })
-  return { id: document.id, name: document.filename, projectId: document.projectId ?? null }
+  return { id: document.id, name: document.filename, projectId: document.projectId ?? null, personal: document.ownerUserId != null }
 }
 
 interface AgentInRoom {
@@ -250,6 +253,9 @@ export async function runAgentAnnotationRequest(
   agent: AgentInRoom
 ) {
   if (ACTING_OPS.has(request.op) && !isAgentActsEnabled(session)) throw new AgentActsOffError(request.op)
+  if (WRITING_OPS.has(request.op) && !document.personal) {
+    await requireNoPersonalShelfEgress({ conversationId: agent.conversationId || null, locale: AGENT_REFUSAL_LOCALE }, agent.organizationId)
+  }
   const documentId = document.id
   const turn: Turn = {
     document,

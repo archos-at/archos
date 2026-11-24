@@ -54,6 +54,14 @@ describe('the conversation decision on the wire', () => {
     )
   })
 
+  it('signs a chat that already read its owner’s shelf as recorded-restricted, so a later turn writes nothing shared (ADR-0193)', () => {
+    const context = closedContext('chat', 's_conv_1')
+    const signed = (personalShelf: boolean) =>
+      decisionOf({ ...context, recorded: { ...context.recorded, personalShelf } }, { organizationId: 'org_1', userId: 'user_1' }, ANSWER, NOW)
+    expect(signed(false).recordedRestricted).toBe(false)
+    expect(signed(true).recordedRestricted).toBe(true)
+  })
+
   it('keeps project memory in the BFF, and carries version 0 as 0, not as a missing row', () => {
     const body = decided()
     expect(body.may).not.toHaveProperty('projectMemory')
