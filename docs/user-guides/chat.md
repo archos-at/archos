@@ -145,16 +145,17 @@ The history panel opens from **Chats** in the thread header, or from **Alle Chat
 Its heading names the panel and its size (**Chat history · 12 chats**). Below that, the controls stay pinned while the list scrolls:
 
 - **New chat** — starts a fresh conversation. Disabled while ARCHOS is still answering, and the panel then says so rather than leaving you to discover it.
-- **Search chats** — filters by title, and by the "Untitled chat" placeholder for chats that never got one, so what you see is what you can search. A live **n of N chats** count sits under the field and a **✕** inside it restores the full list; a query that matches nothing gets an empty state that quotes the query and offers the way back. On desktop the field takes focus when the panel opens, so you can open the panel and type. The field is hidden entirely in a project with no chats. The search covers research runs as well as chats.
-- **All / Chats / Deep Research** — in a project with deep research, a filter for which of the two lists to show; it works together with the search.
+- **Search chats** — filters by title, and by the "Untitled chat" placeholder for chats that never got one, so what you see is what you can search. A live **n of N chats** count sits under the field and a **✕** inside it restores the full list; a query that matches nothing gets an empty state that quotes the query and offers the way back. On desktop the field takes focus when the panel opens, so you can open the panel and type. The field is hidden entirely in a project with no chats.
+- **All / Chats / Deep Research** — in a project with deep research, a filter: **Deep Research** shows only the chats that hold a research run (with their count), **Chats** the others. It works together with the search.
 
 The list groups chats by day (Today, Yesterday, then the date) with sticky day headings. A row in **Today** carries a relative time ("4 minutes ago"); every other row carries the time of day ("14:32"), because its day is already on the heading above it. Each row shows a status icon, and the row's accessible name says the same thing in words:
 
-- **Spinner**: a deep research job is running for this chat
-- **Document checkmark**: the chat has a finished research report
+- **Spinner**: a deep research run is going in this chat
+- **Document checkmark**: the chat's newest research run has its report
+- **Warning mark**: the chat's newest research run failed
 - **Chat bubble**: any other chat
 
-Rename and delete appear on the row on hover or keyboard focus; on a touch screen each row has a visible menu at its end instead. A **Deep Research** section above the day groups lists this project's deep research runs, the ones started in a chat and the scheduled ones, under the run's own name, each stating its status in the same words as the task history (*Queued*, *Running*, *Done*, *Failed*, *Stopped*, *Skipped*). A run that is still going has a stop button there. An office without deep research sees neither the section nor the filter; reading a project's documents after an upload is not a research run and is not listed.
+Rename and delete appear on the row on hover or keyboard focus; on a touch screen each row has a visible menu at its end instead. A chat that holds a deep research run, started in it or by a scheduled task, carries a **Deep Research** mark beside its title; there is no separate list of runs, because a run is a message in its chat. A run is stopped from its block in the chat. An office without deep research sees no filter and no marks; reading a project's documents after an upload is not a research run.
 
 The footer explains that chats are saved in your workspace and available on every device, and that research reports may expire on the server, and holds **Delete all chats** — the destructive bulk action, kept at the far end of the panel rather than above the list it deletes. It is scoped to the current project.
 
@@ -207,8 +208,8 @@ whether it was read and where. A report that never reached one says so under
 asking, and a follow-up runs in the same thread: „Bericht fortschreiben“ on a
 finished block commissions the next run with the last report's findings as its
 brief, and „Klären“ on a single finding commissions a run about that one point.
-The thread's history row shows a run going or a report ready; stopping a run is
-done from its block, or from the run's row in the history.
+The thread's history row shows a run going, a report ready or a run that failed;
+stopping a run is done from its block.
 
 ## Herleitung: what ARCHOS looked up, and what the answer stands on
 

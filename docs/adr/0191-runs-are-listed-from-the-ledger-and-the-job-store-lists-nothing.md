@@ -57,12 +57,15 @@ already lives there in product words, and the patch would keep a second list
 whose rows outlive their meaning (a finished job's row says nothing the ledger
 does not, once the reconciler has copied its verdict).
 
-- The section reads the ledger and labels a status with the same copy and badge
-  as the task run history (`RUN_STATUS_VARIANT`, `tasks` copy `status.*`).
+- A run is a message in its thread (ADR-0062), so the history lists no runs
+  of its own. It reads the ledger to mark the chat that holds a run with that
+  run's state (running, report ready, failed), and its Deep Research filter
+  narrows the one list of chats to those chats. A run is stopped from its block
+  in the thread, which goes through `POST /api/projects/{id}/runs/{runId}/cancel`.
 - `kind=deep-research` on the run list asks for the deep-research entitlement;
-  `403 feature_disabled` hides the section and its filter.
-- Stopping a run goes through `POST /api/projects/{id}/runs/{runId}/cancel`,
-  which closes the ledger row too, not through the job cancel that bypassed it.
+  `403 feature_disabled` hides the filter and leaves the chats unmarked.
+- The task run history labels a status with `RUN_STATUS_VARIANT` and the
+  `tasks` copy `status.*` (`bff/tasks/run-display.ts`).
 - The agent host keeps per-job routes (status, stream, state, report and the
   controls, ADR-0084) and lists nothing. The BFF's job proxy answers `404` for
   the list path and names the run list instead.
