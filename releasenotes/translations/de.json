@@ -3964,6 +3964,10 @@
     "de": "Wenn Sie eine Fassung zur Überarbeitung zurücksenden, gibt es dafür jetzt eine zweite Möglichkeit: „Piloti überarbeiten lassen“ steht in Freigabe und Fassungen neben „Änderungen anfordern“, fragt nach derselben schriftlichen Begründung und lässt Piloti anschließend die nächste Fassung erstellen und zur Freigabe einreichen, statt die Arbeit der Person zu überlassen, die sie verfasst hat."
   },
   {
+    "en": "Sending the first message in a new chat no longer briefly shows a loading placeholder that pushed the conversation down.",
+    "de": "Beim Senden der ersten Nachricht in einem neuen Chat wird kein Ladeplatzhalter mehr kurz angezeigt, der die Unterhaltung nach unten verschoben hat."
+  },
+  {
     "en": "Settings, platform and project panels that fail to load now say what failed and offer the same Try again button, which keeps its place and focus while it works instead of greying out.",
     "de": "Einstellungs-, Plattform- und Projektbereiche, die nicht geladen werden, zeigen jetzt an, was fehlgeschlagen ist, und bieten dieselbe Schaltfläche „Erneut versuchen“, die während des Vorgangs an ihrer Stelle und im Fokus bleibt, statt ausgegraut zu werden."
   },

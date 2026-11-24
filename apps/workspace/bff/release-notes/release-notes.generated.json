@@ -537,6 +537,14 @@
         },
         {
           "section": "fixes",
+          "area": "general",
+          "text": {
+            "en": "Sending the first message in a new chat no longer briefly shows a loading placeholder that pushed the conversation down.",
+            "de": "Beim Senden der ersten Nachricht in einem neuen Chat wird kein Ladeplatzhalter mehr kurz angezeigt, der die Unterhaltung nach unten verschoben hat."
+          }
+        },
+        {
+          "section": "fixes",
           "area": "documents",
           "text": {
             "en": "After you filed a mail in the E-Mail-Eingang, it stayed open for a moment as „(ohne Betreff)“ with its text marked as filed before the next mail came up. The next mail now opens as soon as you press „Ablegen“, and a message says where everything went once it has landed.",
