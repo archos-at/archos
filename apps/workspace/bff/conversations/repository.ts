@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, desc, eq, exists, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { stripJsonNullBytes } from '@/lib/text/jsonb'
@@ -13,7 +13,7 @@ import { DELETION_LIFECYCLE, deletionQueue } from '@/lib/db/schema/deletion-queu
 import { messages, type Message, type NewMessage } from '@/lib/db/schema/messages'
 import { mergeMetadataEntries } from './metadata-merge'
 import { projects } from '@/lib/db/schema/projects'
-import { resourceShares, type ShareableResourceType, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
+import { type ShareableResourceType, type ResourceVisibility } from '@/lib/db/schema/resource-shares'
 
 
 export const MESSAGE_LIST_LIMIT = 1000
