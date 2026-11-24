@@ -193,7 +193,7 @@ export function InboxWorkspace({ viewerId = null, offer = null, title, back = nu
           {back}
           {title && <h1 className={PAGE_TITLE_CLASS}>{title}</h1>}
         </div>
-        <div className="flex min-h-8 items-center gap-2">
+        <div className="flex min-h-8 min-w-0 flex-wrap items-center gap-2" data-testid="inbox-head-controls">
           <ToggleGroup type="single" segmented size="sm" value={tab} onValueChange={(value) => value && go({ tab: inboxTabOf(value) })} aria-label={t('inbox.filters.ariaLabel')}>
             {INBOX_TABS.map((key) => (
               <ToggleGroupItem key={key} value={key} data-testid={`inbox-tab-${key}`}>
