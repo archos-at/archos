@@ -7,3 +7,6 @@ fixes:
   - >
     On a phone, the line that folds a background check in a chat open and shut is
     as tall as a fingertip, so it no longer takes a second try.
+  - >
+    On a phone, „Details“ under a file that could not be read is as tall as a
+    fingertip.

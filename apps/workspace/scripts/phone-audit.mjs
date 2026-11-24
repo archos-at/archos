@@ -118,6 +118,7 @@ async function auditRoute(browser, base, route, found, unrendered) {
       if ('Notification' in window) Object.defineProperty(Notification, 'permission', { get: () => 'denied' })
     })
     const page = await context.newPage()
+    await page.clock.install()
     try {
       const load = () => page.goto(base + route, { waitUntil: 'load', timeout: 300000 })
       const first = await load().catch(() => null)
@@ -125,6 +126,7 @@ async function auditRoute(browser, base, route, found, unrendered) {
       if (!response?.ok()) throw new Error(`HTTP ${response?.status() ?? 'no response'}`)
       await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {})
       await page.waitForTimeout(1000)
+      await page.clock.runFor(60000)
       await page.addStyleTag({ content: '* { content-visibility: visible !important; }' })
       await page.evaluate(() => document.querySelectorAll('nextjs-portal').forEach((node) => node.remove()))
       const args = { width: phone.width, min: MIN_TARGET_PX, productName: PRODUCT_NAME }
