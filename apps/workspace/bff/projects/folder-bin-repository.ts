@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbExecutor } from '@/lib/db/executor'
 import { executeRows } from '@/lib/db/execute-rows'
@@ -7,39 +7,57 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { DELETION_LIFECYCLE } from '@/lib/db/schema/deletion-queue'
 import { documents, type Document } from '@/lib/db/schema/documents'
 import { projectFolders } from '@/lib/db/schema/project-folders'
-import { projects } from '@/lib/db/schema/projects'
 import { statusesAccepting } from '@/lib/documents/reading-lifecycle'
+import { binShelfOf, shelfDocumentsOf, shelfFoldersOf, shelfProjectId, type SharedShelf } from '@/lib/documents/shelf'
 import { documentVisibleTo, type DocumentReader } from '@/lib/documents/visibility'
 
 export * from './folder-bin-queue'
 
-export async function listDocumentIdsInFolders(tx: DbExecutor, projectId: string, folderIds: readonly string[]): Promise<string[]> {
+const BIN_SCOPES = ['project', 'office_shelf'] as const
+
+function shelfFolderSql(shelf: SharedShelf, organizationId: string, alias: 'f' | 's'): SQL {
+  const column = (name: string) => sql.raw(`${alias}.${name}`)
+  return shelf.kind === 'project'
+    ? sql`${column('organization_id')} = ${organizationId} AND ${column('project_id')} = ${shelf.projectId}::uuid`
+    : sql`${column('organization_id')} = ${organizationId} AND ${column('scope')} = 'office_shelf'`
+}
+
+export async function listDocumentIdsInFolders(
+  tx: DbExecutor,
+  shelf: SharedShelf,
+  organizationId: string,
+  folderIds: readonly string[]
+): Promise<string[]> {
   if (folderIds.length === 0) return []
   const rows = await tx
     .select({ id: documents.id })
     .from(documents)
-    .where(and(eq(documents.projectId, projectId), inArray(documents.folderId, [...folderIds])))
+    .where(and(shelfDocumentsOf(shelf, organizationId), inArray(documents.folderId, [...folderIds])))
   return rows.map((row) => row.id)
 }
 
-export async function takeBinLock(tx: DbExecutor, projectId: string): Promise<void> {
-  await tx.execute(sql`SELECT pg_advisory_xact_lock(folder_bin_lock_key(${projectId}::uuid))`)
+export async function takeBinLock(tx: DbExecutor, shelf: SharedShelf, organizationId: string): Promise<void> {
+  await tx.execute(
+    sql`SELECT pg_advisory_xact_lock(shelf_bin_lock_key(${shelf.kind}, ${organizationId}, ${shelfProjectId(shelf)}::uuid))`
+  )
 }
 
-export type BinFolderRow = Pick<
+type StoredBinFolderRow = Pick<
   typeof projectFolders.$inferSelect,
-  'id' | 'parentId' | 'name' | 'path' | 'accessMode' | 'deletedAt' | 'deletedBy' | 'binRootId' | 'purgedAt'
-> & { projectId: string }
+  'id' | 'organizationId' | 'scope' | 'projectId' | 'parentId' | 'name' | 'path' | 'accessMode' | 'deletedAt' | 'deletedBy' | 'binRootId' | 'purgedAt'
+>
 
-type StoredBinFolderRow = Omit<BinFolderRow, 'projectId'> & { projectId: string | null }
+export type BinFolderRow = StoredBinFolderRow & { shelf: SharedShelf }
 
-function asProjectFolder(row: StoredBinFolderRow | undefined): BinFolderRow | null {
-  if (!row || row.projectId === null) return null
-  return { ...row, projectId: row.projectId }
+function asBinFolder(row: StoredBinFolderRow | undefined): BinFolderRow | null {
+  const shelf = row ? binShelfOf(row) : null
+  return row && shelf ? { ...row, shelf } : null
 }
 
 const binFolderColumns = {
   id: projectFolders.id,
+  organizationId: projectFolders.organizationId,
+  scope: projectFolders.scope,
   projectId: projectFolders.projectId,
   parentId: projectFolders.parentId,
   name: projectFolders.name,
@@ -53,25 +71,16 @@ const binFolderColumns = {
 
 export async function findFolderInOrg(
   executor: DbExecutor,
+  shelf: SharedShelf,
   organizationId: string,
-  projectId: string,
   folderId: string
 ): Promise<BinFolderRow | null> {
   const [row] = await executor
     .select(binFolderColumns)
     .from(projectFolders)
-    .innerJoin(projects, eq(projects.id, projectFolders.projectId))
-    .where(
-      and(
-        eq(projectFolders.id, folderId),
-        eq(projectFolders.projectId, projectId),
-        eq(projectFolders.organizationId, organizationId),
-        eq(projectFolders.scope, 'project'),
-        eq(projects.organizationId, organizationId)
-      )
-    )
+    .where(and(eq(projectFolders.id, folderId), shelfFoldersOf(shelf, organizationId)))
     .limit(1)
-  return asProjectFolder(row)
+  return asBinFolder(row)
 }
 
 export async function findFolderByIdInOrg(
@@ -82,17 +91,15 @@ export async function findFolderByIdInOrg(
   const [row] = await executor
     .select(binFolderColumns)
     .from(projectFolders)
-    .innerJoin(projects, eq(projects.id, projectFolders.projectId))
     .where(
       and(
         eq(projectFolders.id, folderId),
         eq(projectFolders.organizationId, organizationId),
-        eq(projectFolders.scope, 'project'),
-        eq(projects.organizationId, organizationId)
+        inArray(projectFolders.scope, [...BIN_SCOPES])
       )
     )
     .limit(1)
-  return asProjectFolder(row)
+  return asBinFolder(row)
 }
 
 export async function listEntryFolderIds(executor: DbExecutor, root: BinFolderRow): Promise<string[]> {
@@ -100,17 +107,22 @@ export async function listEntryFolderIds(executor: DbExecutor, root: BinFolderRo
   const rows = await executor
     .select({ id: projectFolders.id })
     .from(projectFolders)
-    .where(and(eq(projectFolders.projectId, root.projectId), eq(projectFolders.binRootId, root.id)))
+    .where(and(shelfFoldersOf(root.shelf, root.organizationId), eq(projectFolders.binRootId, root.id)))
     .limit(10_000)
   return rows.map((row) => row.id)
 }
 
-export async function listLivingSubtree(executor: DbExecutor, projectId: string, rootId: string): Promise<string[]> {
+export async function listLivingSubtree(
+  executor: DbExecutor,
+  shelf: SharedShelf,
+  organizationId: string,
+  rootId: string
+): Promise<string[]> {
   const rows = executeRows<{ id: string }>(
     await executor.execute(sql`
       WITH RECURSIVE subtree AS (
         SELECT f.id FROM project_folders f
-        WHERE f.id = ${rootId}::uuid AND f.project_id = ${projectId}::uuid AND f.deleted_at IS NULL
+        WHERE f.id = ${rootId}::uuid AND ${shelfFolderSql(shelf, organizationId, 'f')} AND f.deleted_at IS NULL
         UNION
         SELECT c.id FROM project_folders c JOIN subtree s ON c.parent_id = s.id
         WHERE c.deleted_at IS NULL
@@ -123,52 +135,57 @@ export async function listLivingSubtree(executor: DbExecutor, projectId: string,
 
 export async function markFoldersBinned(
   tx: DbExecutor,
-  projectId: string,
-  folderIds: readonly string[],
-  rootId: string,
-  deletedBy: string,
-  at: Date
+  shelf: SharedShelf,
+  organizationId: string,
+  binned: { folderIds: readonly string[]; rootId: string; deletedBy: string; at: Date }
 ): Promise<void> {
-  if (folderIds.length === 0) return
+  if (binned.folderIds.length === 0) return
   await tx
     .update(projectFolders)
-    .set({ deletedAt: at, deletedBy, binRootId: rootId, updatedAt: at })
+    .set({ deletedAt: binned.at, deletedBy: binned.deletedBy, binRootId: binned.rootId, updatedAt: binned.at })
     .where(
-      and(eq(projectFolders.projectId, projectId), inArray(projectFolders.id, [...folderIds]), isNull(projectFolders.deletedAt))
+      and(
+        shelfFoldersOf(shelf, organizationId),
+        inArray(projectFolders.id, [...binned.folderIds]),
+        isNull(projectFolders.deletedAt)
+      )
     )
 }
 
-export async function unbinFolders(tx: DbExecutor, projectId: string, rootId: string, at: Date): Promise<string[]> {
+export async function unbinFolders(
+  tx: DbExecutor,
+  shelf: SharedShelf,
+  organizationId: string,
+  rootId: string,
+  at: Date
+): Promise<string[]> {
   const rows = await tx
     .update(projectFolders)
     .set({ deletedAt: null, deletedBy: null, binRootId: null, updatedAt: at })
-    .where(and(eq(projectFolders.projectId, projectId), eq(projectFolders.binRootId, rootId), isNull(projectFolders.purgedAt)))
+    .where(and(shelfFoldersOf(shelf, organizationId), eq(projectFolders.binRootId, rootId), isNull(projectFolders.purgedAt)))
     .returning({ id: projectFolders.id })
   return rows.map((row) => row.id)
 }
 
 export async function markDocumentsRestoring(
   tx: DbExecutor,
+  shelf: SharedShelf,
   organizationId: string,
-  projectId: string,
-  folderIds: readonly string[],
-  jobId: string,
-  at: Date
+  restoring: { folderIds: readonly string[]; jobId: string; at: Date }
 ): Promise<number> {
-  if (folderIds.length === 0) return 0
+  if (restoring.folderIds.length === 0) return 0
   const rows = await tx
     .update(documents)
     .set({
       status: 'processing',
       errorMessage: null,
-      metadata: sql`(coalesce(${documents.metadata}, '{}'::jsonb) - 'ingestJobId') || ${JSON.stringify({ bffJobId: jobId })}::text::jsonb`,
-      updatedAt: at,
+      metadata: sql`(coalesce(${documents.metadata}, '{}'::jsonb) - 'ingestJobId') || ${JSON.stringify({ bffJobId: restoring.jobId })}::text::jsonb`,
+      updatedAt: restoring.at,
     })
     .where(
       and(
-        eq(documents.organizationId, organizationId),
-        eq(documents.projectId, projectId),
-        inArray(documents.folderId, [...folderIds]),
+        shelfDocumentsOf(shelf, organizationId),
+        inArray(documents.folderId, [...restoring.folderIds]),
         inArray(documents.status, statusesAccepting('process')),
         or(eq(documents.authoredBy, 'user'), isNotNull(documents.publishedVersionId))
       )
@@ -179,7 +196,7 @@ export async function markDocumentsRestoring(
 
 export async function listRestoringDocumentPage(
   organizationId: string,
-  projectId: string,
+  shelf: SharedShelf,
   jobId: string,
   afterId: string | null,
   limit: number
@@ -192,8 +209,7 @@ export async function listRestoringDocumentPage(
       .innerJoin(projectFolders, eq(projectFolders.id, documents.folderId))
       .where(
         and(
-          eq(documents.organizationId, organizationId),
-          eq(documents.projectId, projectId),
+          shelfDocumentsOf(shelf, organizationId),
           eq(documents.status, 'processing'),
           sql`${documents.metadata}->>'bffJobId' = ${jobId}`,
           isNull(projectFolders.deletedAt),
@@ -207,36 +223,30 @@ export async function listRestoringDocumentPage(
 
 export async function rehomeFolder(
   tx: DbExecutor,
-  projectId: string,
-  folderId: string,
-  parentId: string | null,
-  oldPath: string,
-  newPath: string,
-  at: Date
+  root: BinFolderRow,
+  home: { parentId: string | null; newPath: string; at: Date }
 ): Promise<void> {
+  const { shelf, organizationId } = root
   await tx
     .update(projectFolders)
-    .set({ parentId, path: newPath, updatedAt: at })
-    .where(and(eq(projectFolders.id, folderId), eq(projectFolders.projectId, projectId)))
-  if (oldPath === newPath) return
-  const escaped = oldPath.replace(/([\\%_])/g, '\\$1')
+    .set({ parentId: home.parentId, path: home.newPath, updatedAt: home.at })
+    .where(and(eq(projectFolders.id, root.id), shelfFoldersOf(shelf, organizationId)))
+  if (root.path === home.newPath) return
+  const escaped = root.path.replace(/([\\%_])/g, '\\$1')
   await tx.execute(sql`
-    UPDATE project_folders
-    SET path = ${newPath} || substring(path from ${oldPath.length + 1}), updated_at = ${at.toISOString()}::timestamptz
-    WHERE project_id = ${projectId}::uuid AND deleted_at IS NULL AND path LIKE ${`${escaped}/%`}
+    UPDATE project_folders f
+    SET path = ${home.newPath} || substring(f.path from ${root.path.length + 1}), updated_at = ${home.at.toISOString()}::timestamptz
+    WHERE ${shelfFolderSql(shelf, organizationId, 'f')} AND f.deleted_at IS NULL AND f.path LIKE ${`${escaped}/%`}
   `)
 }
 
-export async function markFoldersPurged(
-  executor: DbExecutor,
-  projectId: string,
-  rootId: string,
-  at: Date
-): Promise<number> {
+export async function markFoldersPurged(executor: DbExecutor, root: BinFolderRow, at: Date): Promise<number> {
   const rows = await executor
     .update(projectFolders)
     .set({ purgedAt: at, updatedAt: at })
-    .where(and(eq(projectFolders.projectId, projectId), eq(projectFolders.binRootId, rootId), isNull(projectFolders.purgedAt)))
+    .where(
+      and(shelfFoldersOf(root.shelf, root.organizationId), eq(projectFolders.binRootId, root.id), isNull(projectFolders.purgedAt))
+    )
     .returning({ id: projectFolders.id })
   return rows.length
 }
@@ -245,13 +255,13 @@ const DOCUMENT_PAGE = 500
 
 export async function listDocumentsInFolders(
   organizationId: string,
-  projectId: string,
+  shelf: SharedShelf,
   folderIds: readonly string[]
 ): Promise<Document[]> {
   const found: Document[] = []
   let afterId: string | null = null
   for (;;) {
-    const page: Document[] = await listDocumentPageInFolders(organizationId, projectId, folderIds, afterId, DOCUMENT_PAGE)
+    const page: Document[] = await listDocumentPageInFolders(organizationId, shelf, folderIds, afterId, DOCUMENT_PAGE)
     found.push(...page)
     if (page.length < DOCUMENT_PAGE) return found
     afterId = page[page.length - 1].id
@@ -260,7 +270,7 @@ export async function listDocumentsInFolders(
 
 export async function listDocumentPageInFolders(
   organizationId: string,
-  projectId: string,
+  shelf: SharedShelf,
   folderIds: readonly string[],
   afterId: string | null,
   limit: number
@@ -273,8 +283,7 @@ export async function listDocumentPageInFolders(
       .from(documents)
       .where(
         and(
-          eq(documents.organizationId, organizationId),
-          eq(documents.projectId, projectId),
+          shelfDocumentsOf(shelf, organizationId),
           inArray(documents.folderId, [...folderIds]),
           ...(afterId ? [gt(documents.id, afterId)] : [])
         )
@@ -323,7 +332,7 @@ export interface BinEntryPage {
 
 export async function listBinEntries(
   organizationId: string,
-  projectId: string,
+  shelf: SharedShelf,
   reader: DocumentReader,
   page: { limit: number; cursor?: BinEntryCursor }
 ): Promise<BinEntryPage> {
@@ -348,12 +357,11 @@ export async function listBinEntries(
                  AND ${documents.folderId} IN (SELECT s.id FROM project_folders s WHERE s.bin_root_id = f.id)
                  AND ${visible}) AS documents
       FROM project_folders f
-      JOIN projects p ON p.id = f.project_id AND p.organization_id = ${organizationId}
       JOIN deletion_queue q
         ON q.entity_type = 'folder' AND q.entity_id = f.id::text
        AND q.organization_id = ${organizationId}
        AND q.status IN ${sql.raw(LIVE_STATUS_LIST)}
-      WHERE f.project_id = ${projectId}::uuid
+      WHERE ${shelfFolderSql(shelf, organizationId, 'f')}
         AND f.bin_root_id = f.id
         AND f.deleted_at IS NOT NULL
         AND f.purged_at IS NULL
@@ -386,11 +394,16 @@ export async function listBinEntries(
   }
 }
 
-export async function findLivingFolder(tx: DbExecutor, projectId: string, folderId: string): Promise<BinFolderRow | null> {
+export async function findLivingFolder(
+  tx: DbExecutor,
+  shelf: SharedShelf,
+  organizationId: string,
+  folderId: string
+): Promise<BinFolderRow | null> {
   const [row] = await tx
     .select(binFolderColumns)
     .from(projectFolders)
-    .where(and(eq(projectFolders.id, folderId), eq(projectFolders.projectId, projectId), isNull(projectFolders.deletedAt)))
+    .where(and(eq(projectFolders.id, folderId), shelfFoldersOf(shelf, organizationId), isNull(projectFolders.deletedAt)))
     .limit(1)
-  return asProjectFolder(row)
+  return asBinFolder(row)
 }

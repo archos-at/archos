@@ -42,6 +42,7 @@
 import { INBOUND_MAIL_AUDIT_SCHEMAS } from './schemas-inbound-mail.mjs'
 import { PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS } from './schemas-platform-knowledge.mjs'
 import { LEGACY_AGENT_AUDIT_SCHEMAS } from './schemas-legacy-agent.mjs'
+import { FOLDER_BIN_AUDIT_SCHEMAS } from './schemas-folder-bin.mjs'
 export { AWAITING_EMITTER_AUDIT_ACTIONS } from './schemas-inbound-mail.mjs'
 
 /**
@@ -135,18 +136,6 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
   'project.folder.access_changed': {
     targets: [{ type: 'project' }],
     metadata: { folderId: 'string', grants: 'string', roles: 'string', documentsMoved: 'number' },
-  },
-  'project.folder.binned': {
-    targets: [{ type: 'project' }],
-    metadata: { folderId: 'string', documents: 'number', folders: 'number', purgeAfter: 'string' },
-  },
-  'project.folder.restored': {
-    targets: [{ type: 'project' }],
-    metadata: { folderId: 'string', documents: 'number', folders: 'number', restoredTo: 'string' },
-  },
-  'project.folder.purged': {
-    targets: [{ type: 'project' }],
-    metadata: { folderId: 'string', documents: 'number', folders: 'number' },
   },
   'org.deleted_folder_content.updated': {
     targets: [{ type: 'organization' }],
@@ -647,7 +636,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'document' }],
     metadata: { subjectUserId: 'string' },
   },
-  ...INBOUND_MAIL_AUDIT_SCHEMAS, ...PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS, ...LEGACY_AGENT_AUDIT_SCHEMAS,
+  ...INBOUND_MAIL_AUDIT_SCHEMAS, ...PLATFORM_KNOWLEDGE_AUDIT_SCHEMAS, ...LEGACY_AGENT_AUDIT_SCHEMAS, ...FOLDER_BIN_AUDIT_SCHEMAS,
 })
 
 /** @typedef {keyof typeof AUDIT_SCHEMAS} AuditAction */

@@ -14,7 +14,7 @@ mail, confirmed by their domain, is filed directly), and its text becomes an
 A file goes to one of two places, and the place decides who can use it:
 
 - **The project's Ablage** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). The Ablage's header is one row under its title: the search, **„Auswählen“**, the bin (the Papierkorb opens as a window over the page), **„Hochladen“** and **⋯**, and under it the places „Dateien“, „E-Mail-Eingang“ and „Offene Punkte“. The head stays put when you switch places: the title is „Ablage“ on each of them, the place you are in is the underlined word, and a place's own tools take the same row (on the E-Mail-Eingang „Adresse kopieren“ and „Mehr zur Adresse“, on Offene Punkte „Protokoll exportieren“), so only the content under the places changes. Every place starts that row with its search, in the same place and as wide: „In der Projektablage suchen …“ on Dateien, „Im E-Mail-Eingang suchen …“ and „In den offenen Punkten suchen …“ on the other two; each searches what its own place lists, and Escape clears it. Upload with **„Hochladen“** (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**, and in a project, under „E-Mails“, **„Per E-Mail senden …“** and **„Outlook-Archiv importieren …“**), or by dropping files anywhere on the file area (the foot of the upload menu says so, with the formats and the size limit); on a phone „Hochladen“ floats over the foot of the list. The Bürobibliothek has the same controls for the whole office (see [The Bürobibliothek](#the-bürobibliothek-adr-0024)).
-- **Meine Ablage** — your own files (`personal_{org}__{user}` collection). Only you see them: not your colleagues, not an administrator. Open it from the rail's **„Persönlich“** side, with the same head and controls as a project's Ablage (folders, upload, preview, search, delete): over the title **„Meine Ablage“** stands „Persönlich · Nur Sie“, and when you open a folder the head stays where it is and the way to the folder is the line under it, ← one level up at its start. Your own connected agent can work in it with your rights; a project chat never draws on it. Deleting a file here deletes it at once, as in the Bürobibliothek (ADR-0193).
+- **Meine Ablage** — your own files (`personal_{org}__{user}` collection). Only you see them: not your colleagues, not an administrator. Open it from the rail's **„Persönlich“** side, with the same head and controls as a project's Ablage (folders, upload, preview, search, delete): over the title **„Meine Ablage“** stands „Persönlich · Nur Sie“, and when you open a folder the head stays where it is and the way to the folder is the line under it, ← one level up at its start. Your own connected agent can work in it with your rights; a project chat never draws on it. Deleting a file here deletes it at once: Meine Ablage has no Papierkorb (ADR-0193).
 - **A chat** — drop files anywhere over the conversation („Dateien zum Hochladen ablegen“), paste them, or pick them with the paperclip. They stay in that conversation (`s_{conversationId}` collection), and the line under their chips says so: „Hier hochgeladene Dateien gelangen in die private Sitzung, sofern nicht entfernt.“ The chips, **Dateien verwalten** and the touch menu are described in [the chat guide](chat.md#the-composer).
 
 In a project chat that already has a file attached, **Dateien verwalten** also offers **„Hochladen nach“** with **„Projektwissen“** and **„Private Sitzung“**. It starts on „Projektwissen“, so a file added there with **„+ Datei hinzufügen“** goes into the project's Ablage, not into the chat; pick „Private Sitzung“ to keep it in the conversation. A project file listed there is deleted in the Ablage („Projektdateien löschen Sie in den Projektdateien.“), not in the dialog.
@@ -32,7 +32,7 @@ The folders are the project's filing system, and they support the full set of op
 - **Move** — `PATCH …/folders/{folderId}` accepts a new `parentId`; moving a folder into itself or into one of its own subfolders is refused rather than silently producing a loop.
 - **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin in the Ablage's header, which opens the Papierkorb as a window; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
 
-A single document follows the same road: **„Dokument löschen“** asks *"Delete 'Einreichplan_EG.pdf'?"*, its text says that the document goes to the project's bin and can be restored from there, the button reads **„Löschen“**, the toast says until when it can be restored, and the Papierkorb lists it by its own name and puts it back into the folder it came from. A document in the Bürobibliothek has no bin and is deleted for good. So is a file the content check holds back, when a reviewer deletes it: its dialog says that it does not go to the bin.
+A single document follows the same road: **„Dokument löschen“** asks *"Delete 'Einreichplan_EG.pdf'?"*, its text says that the document goes to the project's bin and can be restored from there, the button reads **„Löschen“**, the toast says until when it can be restored, and the Papierkorb lists it by its own name and puts it back into the folder it came from. A document in the Bürobibliothek goes the same way into the Bürobibliothek's own bin (below). A file the content check holds back is deleted for good, when a reviewer deletes it: its dialog says that it does not go to the bin.
 
 Each of these is a write in the folder. In a folder whose access list gives you only **Lesen**, the tree and the file grid mark it **Nur lesen** and offer none of them, nor upload or moving a document in or out; the route refuses them too (403, `reason: folder-read-only`). Who may read and edit a folder: [sensitive data and access](sensitive-data-and-access.md#who-may-read-and-edit-a-folder).
 
@@ -779,7 +779,7 @@ Session-scoped collections are prefixed with `s_` and are automatically reaped b
 The **Bürobibliothek** (English UI: *Office library*) is a top-level document store
 that lives above projects, reachable from the navigation (Bürobibliothek). It is a page
 like the Ablage, beside the sidebar, with the same head: the office's name over the
-title, the search („In der Bürobibliothek suchen …“), „Auswählen“, „Hochladen“ and ⋯,
+title, the search („In der Bürobibliothek suchen …“), „Auswählen“, the bin, „Hochladen“ and ⋯,
 and the places **Dateien** and, where your office has them, **Normen & Richtlinien**. Until
 October 2026 it was called „Archiv“; the URL `/app/office-shelf`, the permission
 `org:office_shelf:manage` and the collection `archiv_{orgId}` keep that name. It is a
@@ -801,9 +801,21 @@ rows. What is specific to the office:
 
 - **Folders** — the office's own tree, separate from every project's. Members
   with `org:office_shelf:manage` create, rename, move and delete folders and re-file
-  documents; deleting a folder never deletes documents, it re-files them into the
-  parent. Everyone else can open folders, search, filter, preview and download
+  documents. Everyone else can open folders, search, filter, preview and download
   but sees no upload, drag, create, rename, move or delete.
+- **The Papierkorb** (ADR-0195) — deleting a folder or a document in the
+  Bürobibliothek moves it, with its subfolders and documents, to the Bürobibliothek's
+  own bin, exactly as in a project: *"Move the folder 'Leitfäden' to the bin? …"*,
+  the toast says until when it can be restored, and it is gone from every listing,
+  search and answer at once. The bin glyph in the head opens the bin as a window
+  (`?bin=1`), listing what was deleted, by whom and until when it stays; for 14 days
+  it can be restored to where it was, and read again, then it is deleted for good.
+  Every member sees the bin; restoring and „Endgültig löschen“ need
+  `org:office_shelf:manage`. A folder or document under a legal hold cannot be
+  deleted. Normen & Richtlinien keep their own way out: deleting a topic moves its
+  norms up a level as before, and a norm is removed with its own „Entfernen“ there,
+  not through the bin (a deleted norm's project reference reads „entfernt“ while it
+  lies in the bin).
 - **Cards as in a project** — a Bürobibliothek card is a project's card: no kind
   chip and no provenance line of its own. There is no "verified" marker — the
   Bürobibliothek has no review workflow.

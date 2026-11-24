@@ -12,6 +12,9 @@ informed: everyone working in this repo
 > a folder's own list is a WorkOS `folder` resource on which people hold a folder role, not
 > rows of role grants; `*` became `project_folders.everyone_reads`. The rule over the path,
 > the ceiling, the bypass, retrieval and the egress rules below still hold.
+>
+> **That an office shelf (Archiv) folder has no bin is superseded by [ADR-0195](0195-the-buerobibliothek-has-its-own-papierkorb-the-project-bin-over-a-shelf.md)**
+> (2026-11-24): the Bürobibliothek's folders and documents go to its own Papierkorb, through the same code.
 
 ## Context and Problem Statement
 

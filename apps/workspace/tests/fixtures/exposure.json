@@ -890,6 +890,26 @@
    "withheld": null,
    "reason": null
   },
+  "office-shelf-folder-bin-list": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "office-shelf-folder-bin-purge": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "office-shelf-folder-create": {
    "kind": "catalog",
    "domain": "folders",
@@ -941,6 +961,16 @@
    "reason": "whether a file in an ordinary folder becomes a norm the office relies on, or stays an ordinary file for good, is the person’s decision"
   },
   "office-shelf-folder-norms-list": {
+   "kind": "catalog",
+   "domain": "folders",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "office-shelf-folder-restore": {
    "kind": "catalog",
    "domain": "folders",
    "sensitivity": null,

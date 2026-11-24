@@ -1,0 +1,14 @@
+---
+# area: documents
+features:
+  - >
+    The Bürobibliothek has its own Papierkorb, opened from its glyph in the
+    header as in a project's Ablage. A folder or a document deleted there goes
+    to the bin with what it holds and can be restored for 14 days before it is
+    deleted for good.
+upgrade:
+  - >
+    Deleting a folder in the Bürobibliothek no longer moves its documents into
+    the folder above; they go to the bin with it. A topic of Normen &
+    Richtlinien still moves its norms up a level, and a norm is still removed
+    from there.

@@ -1,0 +1,7 @@
+---
+# area: documents
+fixes:
+  - >
+    A project document under a legal hold can no longer be deleted into the
+    Papierkorb. „Löschen“ says that the document is under a legal hold, and it
+    stays where it is.

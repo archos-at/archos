@@ -724,6 +724,10 @@
     "de": "Ein Projektadministrator, der das Bild eines Kollegen prüft, sieht es, solange dessen Prüfung noch läuft."
   },
   {
+    "en": "A project document under a legal hold can no longer be deleted into the Papierkorb. „Löschen“ says that the document is under a legal hold, and it stays where it is.",
+    "de": "Ein Projektdokument, für das eine rechtliche Sperre gilt, lässt sich nicht mehr in den Papierkorb löschen. „Löschen“ sagt, dass das Dokument einer rechtlichen Sperre unterliegt, und es bleibt, wo es ist."
+  },
+  {
     "en": "A project link with a mistyped or truncated address now shows the same \"no access\" page as any project you cannot open, instead of a general error page.",
     "de": "Ein Projektlink mit einer falsch eingegebenen oder abgeschnittenen Adresse zeigt jetzt dieselbe Seite „Kein Zugriff“ wie jedes Projekt, das Sie nicht öffnen können, statt einer allgemeinen Fehlerseite."
   },
@@ -2062,6 +2066,10 @@
   {
     "en": "Deleting a folder in a project now moves it to the project's Papierkorb with its subfolders and documents. It disappears from lists, search and answers at once and can be restored with its access for 14 days.",
     "de": "Wer einen Ordner in einem Projekt löscht, verschiebt ihn jetzt samt Unterordnern und Dokumenten in den Papierkorb des Projekts. Er verschwindet sofort aus Listen, Suche und Antworten und lässt sich 14 Tage lang mit seinen Zugriffsrechten wiederherstellen."
+  },
+  {
+    "en": "Deleting a folder in the Bürobibliothek no longer moves its documents into the folder above; they go to the bin with it. A topic of Normen & Richtlinien still moves its norms up a level, and a norm is still removed from there.",
+    "de": "Wer in der Bürobibliothek einen Ordner löscht, verschiebt seine Dokumente nicht mehr in den Ordner darüber; sie kommen mit ihm in den Papierkorb. Ein Thema in Normen & Richtlinien verschiebt seine Normen weiterhin eine Ebene nach oben, und eine Norm wird weiterhin dort entfernt."
   },
   {
     "en": "Deleting a folder moved its documents and subfolders into the folder above first, and the confirmation said where they went, for example to Brandschutz. A message afterwards repeated the count, and project folders have since gone to the bin instead.",
@@ -4074,6 +4082,10 @@
   {
     "en": "The Büroablage now opens at /app/office-shelf. Bookmarks, shared links and Postfach entries that point to /app/archiv keep working and lead there.",
     "de": "Die Büroablage öffnet sich jetzt unter /app/office-shelf. Lesezeichen, geteilte Links und Postfach-Einträge, die auf /app/archiv verweisen, funktionieren weiterhin und führen dorthin."
+  },
+  {
+    "en": "The Bürobibliothek has its own Papierkorb, opened from its glyph in the header as in a project's Ablage. A folder or a document deleted there goes to the bin with what it holds and can be restored for 14 days before it is deleted for good.",
+    "de": "Die Bürobibliothek hat einen eigenen Papierkorb, der sich wie in der Ablage eines Projekts über sein Symbol im Kopf öffnet. Ein dort gelöschter Ordner oder ein gelöschtes Dokument kommt mit allem, was darin liegt, in den Papierkorb und lässt sich 14 Tage lang wiederherstellen, bevor es endgültig gelöscht wird."
   },
   {
     "en": "The Bürobibliothek is a page beside the sidebar now, with the Ablage's header and its places „Dateien“ and „Normen & Richtlinien“, instead of a sheet over the page.",

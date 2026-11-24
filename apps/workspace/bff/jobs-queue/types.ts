@@ -81,7 +81,7 @@ export const placementReingestPayloadSchema = z.object({
 export type PlacementReingestPayload = z.infer<typeof placementReingestPayloadSchema>
 
 export const restoreFolderBinPayloadSchema = z.object({
-  projectId: z.string().min(1),
+  projectId: z.string().min(1).nullable(),
   folderId: z.string().min(1),
   jobId: z.guid(),
   requester: requesterSchema,
@@ -97,7 +97,7 @@ export const rootSortPayloadSchema = z.object({
 export type RootSortPayload = z.infer<typeof rootSortPayloadSchema>
 
 export const purgeBinnedChunksPayloadSchema = z.object({
-  projectId: z.string().min(1),
+  projectId: z.string().min(1).nullable(),
   folderId: z.string().min(1),
   entryId: z.string().min(1),
   requester: requesterSchema,

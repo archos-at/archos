@@ -1,10 +1,11 @@
 import { apiRoute } from '@/lib/api/handler'
+import { projectShelf } from '@/lib/documents/shelf'
 import { restoreFolderFromBin } from '@/lib/projects/folder-bin'
 
 type Params = { id: string; folderId: string }
 
 export const POST = apiRoute<Params>(
   async ({ session, params, request }) =>
-    restoreFolderFromBin(session, { projectId: params.id, folderId: params.folderId }, request),
+    restoreFolderFromBin(session, { shelf: projectShelf(params.id), folderId: params.folderId }, request),
   { authz: { enforcedBy: 'restoreFolderFromBin (project:documents:write; write on the deleted folder)' } }
 )

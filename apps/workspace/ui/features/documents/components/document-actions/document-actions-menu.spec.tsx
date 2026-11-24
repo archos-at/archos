@@ -107,12 +107,12 @@ describe('DocumentActionsMenu — deleting', () => {
     await waitFor(() => expect(onDeleted).toHaveBeenCalledWith('doc-1'))
   })
 
-  it('deletes an Archiv document through the org-scoped route', async () => {
+  it('moves an office shelf document to its bin through the document route', async () => {
     const hits: string[] = []
     server.use(
-      http.delete('/api/documents/:id', ({ params }) => {
+      http.post('/api/documents/:id/bin', ({ params }) => {
         hits.push(String(params.id))
-        return new HttpResponse(null, { status: 204 })
+        return HttpResponse.json({ documentId: params.id, binEntryId: 'holder-1', purgeAfter: '2026-12-08T10:00:00.000Z' })
       })
     )
     const user = userEvent.setup()

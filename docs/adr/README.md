@@ -264,6 +264,7 @@ Consequences, where a reader looks for them.
 | [0192](0192-archos-design-governs-the-app-as-well-as-the-website.md) | ARCHOS Design governs the app as well as the website | Accepted |
 | [0193](0193-a-person-s-own-shelf-is-drawn-on-only-where-its-owner-alone-reads.md) | A person's own shelf is drawn on only where its owner alone reads the chat | Proposed |
 | [0194](0194-a-conversation-s-context-is-decided-once-in-the-bff-and-enforced-everywhere.md) | A conversation's context is decided once, in the BFF, and enforced everywhere | Proposed |
+| [0195](0195-the-buerobibliothek-has-its-own-papierkorb-the-project-bin-over-a-shelf.md) | The Bürobibliothek has its own Papierkorb: the project bin's code over a shelf | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

@@ -143,7 +143,7 @@ export default function BinDevPage(): JSX.Element {
         <ProjectSectionFrame projectId={PROJECT} projectName="Wohnhaus Lend" pathname={`/app/projects/${PROJECT}/files`} inboundMail>
           <div className="h-full" />
         </ProjectSectionFrame>
-        <FolderBinDialog projectId={PROJECT} open onOpenChange={() => {}} />
+        <FolderBinDialog shelf={{ kind: 'project', projectId: PROJECT }} open onOpenChange={() => {}} />
       </div>
       <section className="flex flex-col gap-3 px-4 sm:px-6">
         <h2 className="text-sm font-semibold">Organisation → Sensible Daten → „Inhalte aus gelöschten Ordnern“</h2>

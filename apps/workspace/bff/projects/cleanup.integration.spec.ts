@@ -19,6 +19,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { NotFoundError } from '@/lib/api/errors'
 import { restrictedCollectionName } from '@/lib/authz/folder-access-rule'
+import { projectShelf } from '@/lib/documents/shelf'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend:8000' }))
@@ -34,7 +35,7 @@ vi.mock('@/lib/documents/document-dispatch', () => ({
   dispatchDocument: vi.fn(async () => ({ jobId: 'job', status: 'pending' })),
 }))
 vi.mock('@/lib/documents/document-edits', () => ({
-  eraseProjectDocument: vi.fn(async () => true),
+  eraseShelfDocument: vi.fn(async () => true),
 }))
 vi.mock('@/lib/authz/projects', async () => {
   const { NotFoundError: NotFound } = await import('@/lib/api/errors')
@@ -183,7 +184,7 @@ describe.skipIf(!url)('Ausmisten against Postgres', () => {
     expect((await inOrg(() => access.getProjectFolderAccess(gf, projectId, COLLECTION))).isVisible(contract.folder_id)).toBe(false)
     expect((await documentRow(doc.planV2)).folder_id).toBe(folder.plans)
 
-    await inOrg(() => bin.restoreFolderFromBin(gf, { projectId, folderId: contract.folder_id }))
+    await inOrg(() => bin.restoreFolderFromBin(gf, { shelf: projectShelf(projectId), folderId: contract.folder_id }))
     expect(await folderRow(contract.folder_id)).toMatchObject({ parent_id: folder.contracts, deleted_at: null })
     expect((await inOrg(() => access.getProjectFolderAccess(member, projectId, COLLECTION))).isVisible(contract.folder_id)).toBe(false)
     expect((await inOrg(() => access.getProjectFolderAccess(gf, projectId, COLLECTION))).isVisible(contract.folder_id)).toBe(true)
@@ -221,12 +222,12 @@ describe.skipIf(!url)('Ausmisten against Postgres', () => {
     const theirs = await insertDocument('Protokoll_neu.pdf', holder, COLLECTION)
 
     await expect(
-      inOrg(() => bin.moveFolderToBin(gf, { projectId, folderId: holder }, undefined, { onlyDocuments: [ours] }))
+      inOrg(() => bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: holder }, undefined, { onlyDocuments: [ours] }))
     ).rejects.toMatchObject({ status: 409, details: { reason: bin.FOLDER_CONTENTS_CHANGED_REASON } })
     expect((await folderRow(holder)).deleted_at).toBeNull()
     expect((await documentRow(theirs)).folder_id).toBe(holder)
 
-    const binned = await inOrg(() => bin.moveFolderToBin(gf, { projectId, folderId: holder }, undefined, { onlyDocuments: [ours, theirs] }))
+    const binned = await inOrg(() => bin.moveFolderToBin(gf, { shelf: projectShelf(projectId), folderId: holder }, undefined, { onlyDocuments: [ours, theirs] }))
     expect(binned.documentsBinned).toBe(2)
   })
 

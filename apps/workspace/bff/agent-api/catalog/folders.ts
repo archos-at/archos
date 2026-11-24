@@ -17,7 +17,6 @@ import {
   listFolderNormsQuerySchema,
 } from '@/lib/office-shelf/folder-norms-wire'
 import { folderAccessSchema } from '@/lib/projects/folder-access-wire'
-import { binListQuerySchema } from '@/lib/projects/folder-bin-wire'
 import {
   openUploadBatchSchema,
   sealUploadBatchSchema,
@@ -118,46 +117,6 @@ export const foldersOperations = [
     load: () => import('@/app/api/projects/[id]/folders/[folderId]/route'),
   },
   {
-    name: 'project-folder-bin-list',
-    domain: 'folders',
-    summary: 'List a project’s bin: deleted folders and documents',
-    description:
-      "The project's bin, newest first, paged (`nextCursor`): deleted folders, who deleted each, when it is purged. An entry " +
-      'with `document` is one document: restore it with document-restore; a folder with project-folder-restore.',
-    method: 'GET',
-    path: '/api/projects/[id]/bin',
-    params: projectParams,
-    query: binListQuerySchema,
-    load: () => import('@/app/api/projects/[id]/bin/route'),
-  },
-  {
-    name: 'project-folder-restore',
-    domain: 'folders',
-    summary: 'Restore a folder from the bin',
-    description:
-      'Brings a deleted folder back with its access, subfolders and documents. The response says ' +
-      "`restoredTo: 'root'` when its former parent no longer exists. Folder ids come from " +
-      'project-folder-bin-list.',
-    method: 'POST',
-    path: '/api/projects/[id]/bin/[folderId]/restore',
-    params: folderParams,
-    load: () => import('@/app/api/projects/[id]/bin/[folderId]/restore/route'),
-  },
-  {
-    name: 'project-folder-bin-purge',
-    domain: 'folders',
-    summary: 'Purge a folder from the bin now',
-    description:
-      'Deletes a binned folder for good, with its subfolders and documents, instead of waiting for the ' +
-      'grace period. This cannot be undone. Needs project:manage; a legal hold refuses it with 409 ' +
-      'without naming the hold. Folder ids come from project-folder-bin-list.',
-    method: 'DELETE',
-    path: '/api/projects/[id]/bin/[folderId]',
-    params: folderParams,
-    destructive: true,
-    load: () => import('@/app/api/projects/[id]/bin/[folderId]/route'),
-  },
-  {
     name: 'office-shelf-folder-list',
     domain: 'folders',
     summary: 'List the office shelf folders',
@@ -213,11 +172,13 @@ export const foldersOperations = [
   {
     name: 'office-shelf-folder-delete',
     domain: 'folders',
-    summary: 'Delete an office shelf folder',
+    summary: 'Move an office shelf folder to the bin',
     description:
-      'Deletes the folder; its documents and subfolders are re-filed one level up, not deleted. Returns ' +
-      '`{ documentsMoved, foldersMoved }`. Folder ids come from office-shelf-folder-list. Needs ' +
-      'org:office_shelf:manage.',
+      "Moves the folder with its subfolders and documents to the office shelf's bin, restorable " +
+      '(office-shelf-folder-restore) until the `purgeAfter` the response names: `{ documentsBinned, foldersBinned, ' +
+      'purgeAfter }`. A topic of the base knowledge (under its root) is deleted as before: its norms and subtopics move ' +
+      'up, `{ documentsMoved, foldersMoved }`. A legal hold or a norm in the folder refuses it (409). Folder ids come ' +
+      'from office-shelf-folder-list. Needs org:office_shelf:manage.',
     method: 'DELETE',
     path: '/api/office-shelf/folders/[folderId]',
     params: officeFolderParams,

@@ -600,6 +600,13 @@ export const files: typeof en.files = {
     retry: 'Erneut versuchen',
     document: 'Dokument',
     loadMore: 'Weitere laden',
+    officeShelf: {
+      dialogDescription: 'Gelöschte Dateien und Ordner der Bürobibliothek. Jede Zeile sagt, bis wann sie sich wiederherstellen lässt.',
+      restoredToRoot:
+        '„{name}“ ist wiederhergestellt, und zwar direkt in der Bürobibliothek: Sein übergeordneter Ordner ist gelöscht.',
+      purgeDescription:
+        'Der Ordner, seine Unterordner und {documents, plural, one {# Dokument} other {# Dokumente}} werden sofort gelöscht, mit allen Fassungen und Vorschauen. Das lässt sich nicht rückgängig machen.',
+    },
   },
   workspace: {
     more: 'Mehr',
