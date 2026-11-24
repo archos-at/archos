@@ -28,6 +28,7 @@ from agent.common.knowledge_context import turn_knowledge_context
 from agent.common.profiler import flush_after_answer
 from agent.common.profiler import track_agent_profile
 from agent.common.retrieval_status import documents_loading_step
+from agent.common.turn_decision import MISSING_TRACE
 from agent.common.turn_decision import TurnDecision
 from agent.common.turn_decision import bind_turn_decision
 from agent.common.turn_decision import fetch_turn_decision
@@ -234,7 +235,7 @@ def _turn_state(
         data_sources=inputs.data_sources,
         available_documents=inventory.available_documents,
         in_flight_documents=inventory.in_flight_documents,
-        collection_scope=[entry.collection for entry in header_scope] if header_scope else None,
+        collection_scope=[entry.collection for entry in header_scope] if header_scope is not None else None,
         focus_file_name=inputs.focus_file_name,
         focus_shelf=inputs.focus_shelf,
         focus_region=inputs.focus_region,
@@ -418,8 +419,8 @@ async def _bind_turn_decision(request: RequestContext | None, conversation_id: s
     answer_id = turn_answer_message_id(conversation_id)
     decision = await spanned("setup.turn_decision", _decide_turn(request, conversation_id, answer_id))
     bind_turn_decision(decision)
+    record_trace_metadata(**(decision.trace_metadata() if decision is not None else MISSING_TRACE))
     if decision is not None:
-        record_trace_metadata(**decision.trace_metadata())
         bind_restricted_use(restricted_use_from_decision(decision, request, answer_message_id=answer_id))
         return
     bind_restricted_use(
@@ -438,7 +439,11 @@ async def _decide_turn(
         return None
     envelope = SignedEnvelope(header, signature)
     return await asyncio.to_thread(
-        fetch_turn_decision, envelope, conversation_id=conversation_id, answer_message_id=answer_id
+        fetch_turn_decision,
+        envelope,
+        conversation_id=conversation_id,
+        answer_message_id=answer_id,
+        user_id=getattr(request, "user_id", None),
     )
 
 

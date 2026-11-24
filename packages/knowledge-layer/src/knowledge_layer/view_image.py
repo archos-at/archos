@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from dataclasses import replace
 
+from agent.common import bff_http
 from agent.common import seaweed_s3
 from agent.common.image_view_budget import MAX_IMAGE_VIEWS_PER_TURN
 from agent.common.image_view_budget import MAX_OVERVIEW_VIEWS_PER_TURN
@@ -31,9 +32,6 @@ _DEFAULT_MAX_DIM = 2048
 _VIEW_IMAGES_ENABLED_ENV = "VIEW_IMAGES_ENABLED"
 
 _IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
-
-_FRONTEND_INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
-_INTERNAL_TOKEN_ENV = "INTERNAL_API_TOKEN"
 
 
 def default_max_dim() -> int:
@@ -87,13 +85,9 @@ def location_version(location: object) -> str | None:
 async def _resolve_storage_location(
     collection: str, file_name: str, organization_id: str | None = None, image_index: int | None = None
 ) -> StorageLocation | None:
-    base_url = os.environ.get(_FRONTEND_INTERNAL_URL_ENV, "").strip()
-    token = os.environ.get(_INTERNAL_TOKEN_ENV, "").strip()
-    if not base_url or not token:
+    if not bff_http.internal_token():
         return None
     try:
-        import httpx
-
         if organization_id is None:
             organization_id = office_shelf_organization_id(collection)
         params: dict[str, str] = {"collection": collection, "filename": file_name}
@@ -101,15 +95,11 @@ async def _resolve_storage_location(
             params["organizationId"] = organization_id
         if image_index is not None:
             params["imageIndex"] = str(image_index)
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"{base_url.rstrip('/')}/api/internal/document-file",
-                params=params,
-                headers={"x-internal-token": token, **_envelope_headers()},
-            )
-        if response.status_code != 200:
+        data = await asyncio.to_thread(
+            bff_http.get_json, "/api/internal/document-file", timeout=10.0, query=params, headers=_envelope_headers()
+        )
+        if not isinstance(data, dict):
             return None
-        data = response.json()
         storage_key = data.get("storageKey")
         if not isinstance(storage_key, str) or not storage_key:
             return None

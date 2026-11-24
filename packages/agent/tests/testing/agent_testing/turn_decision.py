@@ -25,6 +25,8 @@ def decision_payload(**overrides: Any) -> dict[str, Any]:
     }
     may.update(overrides.pop("may", {}))
     payload = {
+        "organizationId": "org_1",
+        "userId": "user_1",
         "conversationId": "s_conv_1",
         "answerMessageId": None,
         "kind": "chat",

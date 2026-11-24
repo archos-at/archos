@@ -112,3 +112,40 @@ def test_the_search_keeps_an_empty_turn_scope_empty_instead_of_the_config_path(b
     config.project_collections = ["proj_config"]
     bound(signed_decision(may={"shelves": []}))
     assert resolve_scoped_collections(config, "s_conv_1") == []
+
+
+def test_a_required_turn_without_a_decision_reads_no_countries_from_plain_headers(monkeypatch, bound):
+    from agent.common import knowledge_context
+    from agent.project_context import RequestContext
+
+    monkeypatch.setenv("REQUIRE_AUTH", "true")
+    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
+    bound(None)
+    plain = RequestContext(
+        organization_id="org_1",
+        collection_scope_entries=[{"collection": "oib_knowledge", "shelf": "base", "countries": ["AT"]}],
+    )
+    with (
+        patch("agent.project_context.get_signed_request_context", return_value=None),
+        patch.object(RequestContext, "from_context", return_value=plain),
+    ):
+        assert knowledge_context.corpus_countries() == frozenset()
+
+
+def test_a_turn_reads_the_base_countries_of_its_decision(bound):
+    from agent.common import knowledge_context
+
+    bound(signed_decision(may={"shelves": [{"collection": "oib_knowledge", "shelf": "base", "countries": ["DE"]}]}))
+    assert knowledge_context.corpus_countries() == frozenset({"DE"})
+
+
+def test_a_required_turn_without_a_decision_draws_on_no_restricted_collection_from_plain_headers(monkeypatch, bound):
+    from agent.project_context import RequestContext
+    from agent.turn.context import signed_restricted_collections
+
+    monkeypatch.setenv("REQUIRE_AUTH", "true")
+    monkeypatch.setenv("INTERNAL_API_TOKEN", SECRET)
+    bound(None)
+    request = RequestContext(envelope_header="h", collection_scope=["proj_p1", RESTRICTED])
+    with patch("agent.project_context.get_signed_request_context", return_value=None):
+        assert signed_restricted_collections(request) == []

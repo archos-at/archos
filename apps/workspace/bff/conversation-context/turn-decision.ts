@@ -1,10 +1,7 @@
 import 'server-only'
 import { UnauthorizedError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { markAnswerRestrictedUse } from '@/lib/conversations/restricted-use-repository'
-import { getDb } from '@/lib/db'
 import type { VerifiedRequestContext } from '@/lib/request-context'
-import { recordAnswerContext } from './record'
 import { resolveConversationContext } from './resolve'
 import { decisionOf, signDecision, type ConversationDecision } from './wire'
 
@@ -27,16 +24,6 @@ export async function decideTurn(
     projectId: envelope.projectId ?? undefined,
     kind: 'chat',
   })
-  if (answerMessageId && context.conversationId) {
-    const party = {
-      organizationId: envelope.organizationId,
-      userId: envelope.userId,
-      conversationId: context.conversationId,
-      answerMessageId,
-    }
-    await recordAnswerContext(party, context)
-    await markAnswerRestrictedUse(getDb(), party.organizationId, party.conversationId, answerMessageId)
-  }
   const body = decisionOf(context, envelope, answerMessageId, now)
   const signed = signDecision(body, secret)
   return { decision: signed.header, signature: signed.signature, body }

@@ -21,7 +21,7 @@ TURN_DECISION_PATH = "/api/internal/turn-decision"
 DECISION_HEADER = "x-turn-decision"
 SIGNATURE_HEADER = "x-turn-decision-signature"
 MAX_AGE_MS = 30 * 60 * 1000
-_TIMEOUT_SECONDS = 5.0
+_TIMEOUT_SECONDS = 2.5
 
 _KINDS = frozenset({"chat", "run", "headless", "external"})
 _WORKSPACE_READS = frozenset({"none", "document+projectFacts", "all"})
@@ -33,6 +33,8 @@ _SHELVES = frozenset({"office_shelf", "project", "session", "base"})
 class TurnDecision:
     header: str
     signature: str
+    organization_id: str
+    user_id: str
     conversation_id: str | None
     answer_message_id: str | None
     kind: str
@@ -53,16 +55,25 @@ class TurnDecision:
     def headers(self) -> dict[str, str]:
         return {DECISION_HEADER: self.header, SIGNATURE_HEADER: self.signature}
 
+    def fresh(self, now_ms: int | None = None) -> bool:
+        now = now_ms if now_ms is not None else int(time.time() * 1000)
+        return abs(now - self.issued_at) <= MAX_AGE_MS
+
     def trace_metadata(self) -> dict[str, Any]:
+        features = [name for name, on in (("deepResearch", self.deep_research), ("tasks", self.tasks)) if on]
         return {
+            "context.decision": "bound",
             "context.kind": self.kind,
             "context.solo": self.solo,
-            "context.audienceVersion": self.audience_version,
+            "context.audienceVersion": "null" if self.audience_version is None else self.audience_version,
             "context.shelves": [str(entry.get("collection")) for entry in self.shelves],
             "context.personalMemory": self.personal_memory,
             "context.personalShelf": self.personal_shelf,
-            "context.features": {"deepResearch": self.deep_research, "tasks": self.tasks},
+            "context.features": ",".join(features) or "none",
         }
+
+
+MISSING_TRACE = {"context.decision": "missing"}
 
 
 class _Missing:
@@ -75,13 +86,18 @@ MISSING = _Missing()
 _bound: contextvars.ContextVar[TurnDecision | _Missing | None] = contextvars.ContextVar("turn_decision", default=None)
 
 
+def _decision_headers() -> dict[str, str] | None:
+    decision = current_turn_decision()
+    return decision.headers() if decision is not None and decision.fresh() else None
+
+
 def bind_turn_decision(decision: TurnDecision | None) -> contextvars.Token:
-    bff_http.bind_turn_headers(decision.headers() if decision is not None else None)
-    return _bound.set(decision if decision is not None else MISSING)
+    token = _bound.set(decision if decision is not None else MISSING)
+    bff_http.bind_turn_headers(_decision_headers)
+    return token
 
 
 def reset_turn_decision(token: contextvars.Token) -> None:
-    bff_http.bind_turn_headers(None)
     _bound.reset(token)
 
 
@@ -137,12 +153,39 @@ def _optional_str(value: Any) -> str | None:
     return value
 
 
+_DECISION_KEYS = frozenset(
+    {
+        "organizationId",
+        "userId",
+        "conversationId",
+        "answerMessageId",
+        "kind",
+        "solo",
+        "recordedRestricted",
+        "audienceVersion",
+        "issuedAt",
+        "may",
+    }
+)
+_MAY_KEYS = frozenset(
+    {
+        "shelves",
+        "restrictedCollections",
+        "otherProjects",
+        "personalMemory",
+        "personalShelf",
+        "workspaceRead",
+        "features",
+    }
+)
+
+
 def _build(header: str, signature: str, payload: Any) -> TurnDecision:
-    if not isinstance(payload, dict):
-        raise ValueError("not an object")
+    if not isinstance(payload, dict) or set(payload) != _DECISION_KEYS:
+        raise ValueError("not a decision object")
     may = payload["may"]
-    if not isinstance(may, dict):
-        raise ValueError("may is not an object")
+    if not isinstance(may, dict) or set(may) != _MAY_KEYS:
+        raise ValueError("may is not a decision's may")
     version = payload["audienceVersion"]
     if version is not None and (isinstance(version, bool) or not isinstance(version, int) or version < 0):
         raise ValueError("bad audience version")
@@ -156,9 +199,14 @@ def _build(header: str, signature: str, payload: Any) -> TurnDecision:
         raise ValueError("bad otherProjects or features")
     if not isinstance(may["shelves"], list):
         raise ValueError("shelves is not a list")
+    organization_id, user_id = payload["organizationId"], payload["userId"]
+    if not isinstance(organization_id, str) or not organization_id or not isinstance(user_id, str) or not user_id:
+        raise ValueError("no asker")
     return TurnDecision(
         header=header,
         signature=signature,
+        organization_id=organization_id,
+        user_id=user_id,
         conversation_id=_optional_str(payload["conversationId"]),
         answer_message_id=_optional_str(payload["answerMessageId"]),
         kind=payload["kind"],
@@ -203,7 +251,11 @@ def verify_decision(
 
 
 def fetch_turn_decision(
-    envelope: bff_http.SignedEnvelope | None, *, conversation_id: str | None, answer_message_id: str | None
+    envelope: bff_http.SignedEnvelope | None,
+    *,
+    conversation_id: str | None,
+    answer_message_id: str | None,
+    user_id: str | None = None,
 ) -> TurnDecision | None:
     if envelope is None:
         return None
@@ -222,7 +274,12 @@ def fetch_turn_decision(
     if not isinstance(parsed, dict):
         return None
     decision = verify_decision(parsed.get("decision"), parsed.get("signature"), bff_http.internal_token())
-    if decision is not None and decision.conversation_id != conversation_id:
-        logger.warning("The turn decision names another conversation: refused")
+    if decision is None:
+        return None
+    if decision.conversation_id != conversation_id or decision.answer_message_id != answer_message_id:
+        logger.warning("The turn decision names another conversation or answer: refused")
+        return None
+    if user_id is not None and decision.user_id != user_id:
+        logger.warning("The turn decision names another asker: refused")
         return None
     return decision

@@ -20,6 +20,9 @@ import { buildFolderDescriptionsBlock } from '@/lib/filing/folder-descriptions-b
 import type { VerifiedRequestContext } from '@/lib/request-context'
 import { promptFacts, type PromptFacts } from '@/lib/conversation-context'
 import type { ConversationDecision } from '@/lib/conversation-context/wire'
+import { recordDecidedAnswer } from '@/lib/conversation-context/record'
+import { markAnswerRestrictedUse } from '@/lib/conversations/restricted-use-repository'
+import { getDb } from '@/lib/db'
 import { countPendingInboxItems, EVERY_INBOX_TYPE } from '@/lib/inbox/repository'
 import { listConversationProposals } from '@/lib/proposals/repository'
 import { findProjectInOrg } from '@/lib/projects/repository'
@@ -98,6 +101,12 @@ async function loadPersonalMemory(context: VerifiedRequestContext, decided: Prom
   )
 }
 
+async function recordTurnAnswer(context: VerifiedRequestContext, decision: ConversationDecision): Promise<void> {
+  if (decision.conversationId !== context.conversationId || decision.userId !== context.userId) return
+  if (!(await recordDecidedAnswer(decision, context.projectId))) return
+  await markAnswerRestrictedUse(getDb(), context.organizationId, decision.conversationId!, decision.answerMessageId!)
+}
+
 async function loadOfficeStandards(organizationId: string, projectId: string | null, knowledge: Promise<TurnKnowledge>) {
   if (!(await officeStandardsEnabled(organizationId))) return null
   return baseKnowledgeForTurn(organizationId, projectId, knowledge)
@@ -132,7 +141,10 @@ export async function loadTurnContext(
   const digestTiming: DigestTiming = {}
   const timed = <T>(name: string, load: () => Promise<T>) => timing.time(name, load)
   const goldenTurn = goldenTurnFor(organizationId, conversationId)
-  const decided = await timing.time('decision', () => promptFacts(context, decision))
+  const [decided] = await Promise.all([
+    timing.time('decision', () => promptFacts(context, decision)),
+    decision ? timing.time('answer-record', () => recordTurnAnswer(context, decision)) : Promise.resolve(),
+  ])
   const knowledge = goldenTurn.then(
     (golden) => golden?.knowledgeContext ?? knowledgeContextForTurn(organizationId, projectId ?? null, timed, conversationId ?? null),
   )
