@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAnnotation } from '@/lib/annotations/client'
 import type { AnnotationView } from '@/lib/annotations/types'
 import { isMarkAnchored, type InboxItemView } from '@/lib/inbox/types'
@@ -27,6 +27,8 @@ export function useInboxMark(item: InboxItemView, load: InboxMarkLoad = getAnnot
   const [mark, setMark] = useState<AnnotationView | null>(null)
   const [loading, setLoading] = useState(target !== null)
   const [failed, setFailed] = useState(false)
+  const loader = useRef(load)
+  loader.current = load
 
   useEffect(() => {
     setMark(null)
@@ -37,7 +39,7 @@ export function useInboxMark(item: InboxItemView, load: InboxMarkLoad = getAnnot
     }
     let live = true
     setLoading(true)
-    load(documentId, annotationId)
+    loader.current(documentId, annotationId)
       .then((found) => {
         if (live) setMark(found)
       })
@@ -50,7 +52,7 @@ export function useInboxMark(item: InboxItemView, load: InboxMarkLoad = getAnnot
     return () => {
       live = false
     }
-  }, [documentId, annotationId, load])
+  }, [documentId, annotationId])
 
   const replace = useCallback((next: AnnotationView) => setMark(next), [])
   return { mark, loading, failed, replace }
