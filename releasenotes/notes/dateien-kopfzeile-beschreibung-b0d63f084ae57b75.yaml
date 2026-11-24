@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     The description under Dateien is no longer squeezed into a narrow column of

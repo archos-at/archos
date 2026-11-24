@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     Langfuse moves to 4.71.0 on both images, clearing a critical

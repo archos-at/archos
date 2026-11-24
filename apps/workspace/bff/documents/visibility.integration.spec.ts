@@ -164,7 +164,7 @@ describe.skipIf(!url)('the hold on a document, against Postgres', () => {
     ['a reviewer', () => REVIEWER_READER],
     ['nobody in particular (screened-only)', () => SCREENED_ONLY],
     ['an internal read', () => internalRead('ingest')],
-    ['a project reviewer reading the Büroablage as a member', () => ({
+    ['a project reviewer reading the Bürobibliothek as a member', () => ({
       kind: 'shelves',
       project: REVIEWER_READER,
       officeShelf: memberReader(UPLOADER),

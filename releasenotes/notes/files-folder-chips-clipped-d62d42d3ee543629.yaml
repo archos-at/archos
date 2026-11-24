@@ -1,4 +1,5 @@
 ---
+# area: documents
 fixes:
   - >
     The folder chips above the file list in Dateien are readable again. In

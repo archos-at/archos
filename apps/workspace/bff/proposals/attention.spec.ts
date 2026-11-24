@@ -59,7 +59,7 @@ describe('onProposalCreated', () => {
     })
   })
 
-  it('points a Büroablage filing suggestion, which has no project and no chat, at the organization', async () => {
+  it('points a Bürobibliothek filing suggestion, which has no project and no chat, at the organization', async () => {
     await onProposalCreated({
       ...created,
       projectId: null,

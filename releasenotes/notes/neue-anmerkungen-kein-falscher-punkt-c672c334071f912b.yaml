@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 fixes:
   - >
     A Postfach entry such as „Anna hat 15 Anmerkungen gesetzt“ no longer puts

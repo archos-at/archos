@@ -19,7 +19,7 @@ export const bim = {
   empty: {
     title: 'No IFC model yet',
     description:
-      'Upload an .ifc file under Files. {productName} reads its structure, makes the building queryable in chat, and shows it here in 3D.',
+      'Upload an .ifc file under Documents. {productName} reads its structure, makes the building queryable in chat, and shows it here in 3D.',
     action: 'Go to files',
   },
   status: {

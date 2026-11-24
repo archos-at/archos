@@ -94,19 +94,19 @@ const renderPanel = (load: SimilarPassagesLoader, props: Partial<Parameters<type
 beforeEach(() => vi.clearAllMocks())
 
 describe('SimilarPassagesPanel', () => {
-  it('says it is searching, then answers in one line and lists the places, the Büroablage last', async () => {
+  it('says it is searching, then answers in one line and lists the places, the Bürobibliothek last', async () => {
     let resolve: (response: SimilarPassagesResponse) => void = () => {}
     renderPanel(() => new Promise((done) => (resolve = done)))
 
     expect(screen.getByText(`${PRODUCT_NAME} is checking your projects…`)).toBeTruthy()
     resolve(RESPONSE)
 
-    expect(await screen.findByTestId('similar-headline')).toHaveTextContent('Found in 2 projects and the Büroablage')
+    expect(await screen.findByTestId('similar-headline')).toHaveTextContent('Found in 2 projects and the Bürobibliothek')
     const groups = await screen.findAllByRole('heading', { level: 3 })
     expect(groups.map((heading) => heading.textContent)).toEqual([
       expect.stringContaining('Wohnhaus Mödling'),
       expect.stringContaining('Schule Baden'),
-      'Büroablage',
+      'Bürobibliothek',
     ])
     expect(within(groups[0]!).getByText('This project')).toBeTruthy()
     expect(within(groups[1]!).getByText('closed')).toBeTruthy()
@@ -127,9 +127,9 @@ describe('SimilarPassagesPanel', () => {
     })
   })
 
-  it('says when only the Büroablage holds it', async () => {
+  it('says when only the Bürobibliothek holds it', async () => {
     renderPanel(answering({ ...RESPONSE, groups: RESPONSE.groups.filter((group) => group.kind === 'office_shelf') }))
-    expect(await screen.findByTestId('similar-headline')).toHaveTextContent('Found in the Büroablage')
+    expect(await screen.findByTestId('similar-headline')).toHaveTextContent('Found in the Bürobibliothek')
   })
 
   it('hands the stage the passage to open: its document, page, words and where it is', async () => {
@@ -186,7 +186,7 @@ describe('SimilarPassagesPanel', () => {
   it('says what was searched when nothing came back', async () => {
     renderPanel(answering({ origin: 'embedded', projectsSearched: 2, groups: [] }))
     expect(await screen.findByText('Not handled in your office yet')).toBeTruthy()
-    expect(screen.getByText('Checked this project, 2 other projects and the Büroablage.')).toBeTruthy()
+    expect(screen.getByText('Checked this project, 2 other projects and the Bürobibliothek.')).toBeTruthy()
     expect(screen.queryByTestId('similar-headline')).toBeNull()
   })
 

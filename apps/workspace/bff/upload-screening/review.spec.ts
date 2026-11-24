@@ -99,7 +99,7 @@ describe('mayReviewQuarantine', () => {
     expect(requireProjectAccess).toHaveBeenCalledWith(member, 'proj-1', 'project:manage')
   })
 
-  it('leaves the Büroablage to whoever curates it, and a chat attachment to org admins', async () => {
+  it('leaves the Bürobibliothek to whoever curates it, and a chat attachment to org admins', async () => {
     expect(await mayReviewQuarantine(archivist, { scope: 'office_shelf', projectId: null, folderId: null })).toBe(true)
     expect(await mayReviewQuarantine(member, { scope: 'office_shelf', projectId: null, folderId: null })).toBe(false)
     expect(await mayReviewQuarantine(archivist, { scope: 'session', projectId: null, folderId: null })).toBe(false)

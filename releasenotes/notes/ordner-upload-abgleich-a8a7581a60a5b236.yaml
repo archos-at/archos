@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     An uploaded folder is now matched against the project: Piloti recognises

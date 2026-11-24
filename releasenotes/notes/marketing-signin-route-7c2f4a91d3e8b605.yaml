@@ -1,4 +1,5 @@
 ---
+# area: administration
 fixes:
   - >
     Signing in from the Piloti website works again. Visitors who chose

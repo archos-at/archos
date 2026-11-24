@@ -1,4 +1,5 @@
 ---
+# area: collaboration
 fixes:
   - >
     When a colleague answers or closes many of your Anmerkungen at once, your

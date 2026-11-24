@@ -104,7 +104,7 @@ describe('inside a project', () => {
 })
 
 describe('above a project', () => {
-  it('carries Projekte, the Büroablage and the Postfach, and no "Mehr"', () => {
+  it('carries Projekte, the Bürobibliothek and the Postfach, and no "Mehr"', () => {
     expect(keys(orgPhoneTabs('/app/projects', ALL))).toEqual(['projects', 'officeShelf', 'inbox'])
   })
 
@@ -171,7 +171,7 @@ describe('the phone header back', () => {
 })
 
 describe('the Postfach looks like itself', () => {
-  it('wears one glyph everywhere, and not the Büroablage’s box beside it', () => {
+  it('wears one glyph everywhere, and not the Bürobibliothek’s box beside it', () => {
     const inboxTab = orgPhoneTabs('/app/projects', ALL).find((tab) => tab.key === 'inbox')
     const officeShelfTab = orgPhoneTabs('/app/projects', ALL).find((tab) => tab.key === 'officeShelf')
     expect(inboxTab?.icon).toBe(projectSection('inbox')?.icon)

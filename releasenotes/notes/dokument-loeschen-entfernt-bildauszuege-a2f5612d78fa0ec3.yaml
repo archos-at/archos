@@ -1,4 +1,5 @@
 ---
+# area: documents
 incident:
   - >
     Deleting a document from a project or the Archiv now also deletes the images

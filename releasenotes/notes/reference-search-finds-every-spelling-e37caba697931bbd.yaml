@@ -1,4 +1,5 @@
 ---
+# area: search
 fixes:
   - >
     A search for documents that refer to a standard or a plan now finds them

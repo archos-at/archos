@@ -118,7 +118,7 @@ describe('OfficeShelfWorkspace — library listing', () => {
   it('opens with the project section header: a title, no mark beside it, and the controls in its action slot', async () => {
     render(<OfficeShelfWorkspace canManage trailingActions={<button type="button">Close</button>} />)
     const header = await screen.findByTestId('office-shelf-header')
-    expect(within(header).getByRole('heading', { level: 1, name: /Office filing/ })).toBeInTheDocument()
+    expect(within(header).getByRole('heading', { level: 1, name: /Office library/ })).toBeInTheDocument()
     for (const glyph of header.querySelectorAll('svg')) expect(glyph.closest('button, a, label, input, [role="group"]')).not.toBeNull()
     expect(within(header).getByTestId('office-shelf-controls')).toBeInTheDocument()
     expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()

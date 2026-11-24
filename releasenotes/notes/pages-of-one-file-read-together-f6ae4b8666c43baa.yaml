@@ -1,4 +1,5 @@
 ---
+# area: documents
 improvements:
   - >
     Large files with drawings and scanned pages are read faster: their scanned

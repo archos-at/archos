@@ -148,7 +148,7 @@ describe('ModelStage — the file operations on the building', () => {
   })
 })
 
-describe('ModelStage — a model from the Büroablage', () => {
+describe('ModelStage — a model from the Bürobibliothek', () => {
   it('deletes it through the org-scoped route, not the project one', async () => {
     state.models = [model({ projectId: null })]
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 })

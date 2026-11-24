@@ -1,4 +1,5 @@
 ---
+# area: general
 security:
   - >
     A chat connection now only works for the conversation it was opened for.

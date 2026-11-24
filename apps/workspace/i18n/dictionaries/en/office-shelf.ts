@@ -1,19 +1,19 @@
 export const officeShelf = {
-  title: 'Office filing',
+  title: 'Office library',
   subtitle: 'Shared documents available to every project in your organization',
   backToApp: 'Back to projects',
   backToProject: 'Back to project',
   backToNamedProject: 'Back to {name}',
   toast: {
-    ingestionComplete: '“{name}” is now in Office filing — citable',
+    ingestionComplete: '“{name}” is now in Office library — citable',
   },
   places: {
-    label: 'Office filing places',
-    files: 'Folders',
+    label: 'Office library places',
+    files: 'Files',
     norms: 'Standards & guidelines',
   },
   workspace: {
-    dropToUpload: 'Drop files to add them to Office filing',
+    dropToUpload: 'Drop files to add them to Office library',
   },
   folderNorms: {
     foundOne: '1 file here is a standard.',
@@ -80,13 +80,13 @@ export const officeShelf = {
     },
   },
   delete: {
-    action: 'Delete from Office filing',
+    action: 'Delete from Office library',
     title: 'Delete “{name}”?',
     confirm: 'This removes the document for the whole organization. This cannot be undone.',
     confirmAction: 'Delete',
     cancel: 'Cancel',
     deleting: 'Deleting…',
-    success: '“{name}” was removed from Office filing',
+    success: '“{name}” was removed from Office library',
     error: 'The document could not be deleted',
     legalHold: 'The document is under a legal hold and cannot be deleted',
   },

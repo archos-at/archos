@@ -1,4 +1,5 @@
 ---
+# area: documents
 incident:
   - >
     If a newly uploaded version of a file cannot be processed, for example a

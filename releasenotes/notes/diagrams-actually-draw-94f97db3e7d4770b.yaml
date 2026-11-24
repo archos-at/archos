@@ -1,4 +1,5 @@
 ---
+# area: answers
 fixes:
   - >
     Diagrams in an answer are drawn again instead of appearing as a block of

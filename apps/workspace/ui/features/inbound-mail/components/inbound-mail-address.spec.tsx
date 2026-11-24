@@ -274,7 +274,7 @@ describe('InboundMailAddressDialog', () => {
     expect(get).not.toHaveBeenCalled()
     rerender(<InboundMailAddressDialog projectId={PROJECT_ID} projectName={PROJECT_NAME} open onOpenChange={vi.fn()} client={client} />)
     const lead = await screen.findByTestId('address-lead')
-    expect(lead).toHaveTextContent('Put this address in Cc when you write about the project. The replies then land in Project mail under Files.')
+    expect(lead).toHaveTextContent('Put this address in Cc when you write about the project. The replies then land in Project mail under Documents.')
     expect(lead.compareDocumentPosition(await screen.findByText(ADDRESS)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByTestId('address-held')).toHaveTextContent('Everything else waits in Project mail until someone files it; mail from outside the office for 14 days.')
     expect(get).toHaveBeenCalledTimes(1)

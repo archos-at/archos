@@ -1,4 +1,5 @@
 ---
+# area: documents
 features:
   - >
     A subfolder can only narrow what its parent allows, and someone who may only

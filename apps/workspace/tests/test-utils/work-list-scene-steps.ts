@@ -29,7 +29,7 @@ export interface Hit {
 const LANE: Record<LaneKind, { key: string; label: string }> = {
   building_law: { key: 'building_law_oib', label: 'OIB-Richtlinie' },
   project: { key: 'project', label: 'Projektwissen' },
-  office: { key: 'office', label: 'Büroablage' },
+  office: { key: 'office', label: 'Bürobibliothek' },
   web: { key: 'web', label: 'Web' },
 }
 

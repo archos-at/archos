@@ -440,7 +440,7 @@ export const collaboration = {
       },
       mailImportFailed: {
         title: 'The import of “{subject}” stopped',
-        body: 'What was imported until then stays in the project. The import list under Files gives the reason.',
+        body: 'What was imported until then stays in the project. The import list under Documents gives the reason.',
       },
       taskRunFailed: {
         title: '{productName} could not finish “{subject}”',
@@ -521,8 +521,8 @@ export const collaboration = {
       agentProposalWaiting: {
         title: '{productName} has a proposal for you',
         body: 'The proposal is in the chat. Apply or dismiss it there; nothing changes until then.',
-        bodyProject: 'The proposal waits on the file under Files. Apply or dismiss it there; nothing changes until then.',
-        bodyOrganization: 'The proposal waits on the file in the office filing. Apply or dismiss it there; nothing changes until then.',
+        bodyProject: 'The proposal waits on the file under Documents. Apply or dismiss it there; nothing changes until then.',
+        bodyOrganization: 'The proposal waits on the file in the office library. Apply or dismiss it there; nothing changes until then.',
         variants: {
           move: { title: '{productName} suggests a new place for files' },
           rename: { title: '{productName} suggests a rename' },
@@ -531,7 +531,7 @@ export const collaboration = {
           memory: { title: '{productName} would like to remember a note' },
           project_profile: { title: '{productName} suggests a change to the project context' },
           operation: { title: '{productName} suggests an action' },
-          office_shelf_norm: { title: '{productName} suggests a norm for the office filing' },
+          office_shelf_norm: { title: '{productName} suggests a norm for the office library' },
         },
       },
       agentIntakeReady: {
@@ -704,10 +704,10 @@ export const collaboration = {
         body: 'Look at where each file should go. Nothing moves until you apply it.',
         variants: {
           office: {
-            titleOne: 'The sort of the office filing is ready to review: 1 file',
-            titleMany: 'The sort of the office filing is ready to review: {count} files',
-            titleNone: 'The sort of the office filing is ready to review',
-            title: 'The sort of the office filing is ready to review',
+            titleOne: 'The sort of the office library is ready to review: 1 file',
+            titleMany: 'The sort of the office library is ready to review: {count} files',
+            titleNone: 'The sort of the office library is ready to review',
+            title: 'The sort of the office library is ready to review',
           },
         },
       },
@@ -852,14 +852,14 @@ export const collaboration = {
         title: 'The sort of “{subject}” stopped',
         body: 'What was moved until then stays. Open the files to see the reason.',
         variants: {
-          office: { title: 'The sort of the office filing stopped' },
+          office: { title: 'The sort of the office library stopped' },
         },
       },
       officeShelfNormSuggested: {
-        title: '{actor} suggests a norm for the office filing',
-        titleNoActor: 'A norm is suggested for the office filing',
-        titleResolved: 'The suggestion for the office filing is decided',
-        body: 'From “{subject}”. In the office filing every project finds it.',
+        title: '{actor} suggests a norm for the office library',
+        titleNoActor: 'A norm is suggested for the office library',
+        titleResolved: 'The suggestion for the office library is decided',
+        body: 'From “{subject}”. In the office library every project finds it.',
       },
       unknown: {
         title: 'Something happened',
@@ -893,11 +893,11 @@ export const collaboration = {
       viewEditionLabel: 'View {subject} in Standards & guidelines',
     },
     normSuggestion: {
-      accept: 'Take into the office filing',
+      accept: 'Take into the office library',
       decline: 'Decline',
       visibility: 'Everyone in the office can see it then.',
-      accepted: 'Confirmed and in the office filing. The project keeps a reference.',
-      unconfirmed: 'In the office filing, but waiting for confirmation under Standards & guidelines: {reason}',
+      accepted: 'Confirmed and in the office library. The project keeps a reference.',
+      unconfirmed: 'In the office library, but waiting for confirmation under Standards & guidelines: {reason}',
       declined: 'Declined. The norm stays in the project.',
       failed: 'That did not go through: {reason}',
       stale: 'Someone has already decided.',

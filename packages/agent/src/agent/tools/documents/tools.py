@@ -46,7 +46,7 @@ _TOOL_DESCRIPTIONS = {
     "ls": (
         "Lists the drafts of this conversation. The working directory is at "
         f"`{DRAFT_ROOT}` and contains only what was written in this conversation — "
-        "no project files, no office shelf (Büroablage). Call it before a revision when the "
+        "no project files, no office shelf (Bürobibliothek). Call it before a revision when the "
         "path of the draft is not known."
     ),
     "read_file": (
@@ -74,7 +74,7 @@ _ESTATE_DESCRIPTIONS = {
     "ls": (
         "Lists one folder: its subfolders with their document counts, and its files with pages, Dokumentart, "
         "Plankopf index and date. `path` is an absolute folder path under a mount: /project/ (this project), "
-        "/office/ (the Büroablage), /chat/ (files dropped into this conversation), /law/oib/ (the "
+        "/office/ (the Bürobibliothek), /chat/ (files dropped into this conversation), /law/oib/ (the "
         f'OIB-Richtlinien), {DRAFT_ROOT} (this conversation\'s drafts), {SKILLS_ROOT} (procedures); `ls("/")` '
         "lists the mounts this turn has. `depth` 2 to 4 returns the tree below as folder cards; a folder's "
         "`README.md` is its card. At most 40 files a folder are listed; a listing is an index, never cited. Use "

@@ -1,4 +1,5 @@
 ---
+# area: search
 fixes:
   - >
     When Piloti looks up every place a word appears in your documents, each place now counts once.

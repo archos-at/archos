@@ -1,4 +1,5 @@
 ---
+# area: general
 fixes:
   - >
     On a phone, the search box or button beside a project section's heading now

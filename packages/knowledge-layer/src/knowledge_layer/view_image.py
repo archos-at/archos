@@ -15,6 +15,8 @@ from agent.common.image_view_budget import try_consume_image_view
 from agent.common.source_kinds import office_shelf_organization_id
 from agent.knowledge.restricted_use import note_collections_read
 
+from .sheet.crop_text import CropText
+from .sheet.crop_text import look_text
 from .view_regions import Region
 from .view_regions import parse_region
 from .view_rendering import _crop_image_region
@@ -199,6 +201,7 @@ class View:
     height: int
     region: Region | None = None
     version_id: str | None = None
+    printed: CropText | None = None
 
     def with_text(self, text: str) -> View:
         return replace(self, text=text)
@@ -294,21 +297,15 @@ async def _pdf_view(
         return f"[{tool}] Could not render page {page_number} of '{file_name}': {e}"
     if region is not None:
         note_region_viewed()
-        return View(
-            _region_text(f"page {page_number} of '{file_name}'{origin}", region, width, height, widened),
-            jpeg_bytes,
-            width,
-            height,
-            region,
+        text = _region_text(f"page {page_number} of '{file_name}'{origin}", region, width, height, widened)
+    else:
+        text = (
+            f"Rendered page {page_number} of '{file_name}'{origin} ({width}x{height}px). "
+            "This is the actual page the retrieved chunk describes — inspect it "
+            "for plans, drawings, scale, dimensions and relationships."
         )
-    return View(
-        f"Rendered page {page_number} of '{file_name}'{origin} ({width}x{height}px). "
-        "This is the actual page the retrieved chunk describes — inspect it "
-        "for plans, drawings, scale, dimensions and relationships.",
-        jpeg_bytes,
-        width,
-        height,
-    )
+    printed = await look_text(source, page_number, region, limits.timeout)
+    return View(text, jpeg_bytes, width, height, region, printed=printed)
 
 
 async def _stored_raster(
@@ -324,7 +321,7 @@ async def _stored_raster(
         return f"[{tool}] Invalid image_index {image_index}: indices are 0-based."
     if not collection:
         return (
-            f"[{tool}] image_index addresses a raster stored beside a project or Büroablage "
+            f"[{tool}] image_index addresses a raster stored beside a project or Bürobibliothek "
             f"document, and '{file_name}' was found in none of this turn's collections."
         )
     location = await _resolve_storage_location(collection, file_name, image_index=image_index)

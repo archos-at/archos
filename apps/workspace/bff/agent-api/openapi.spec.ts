@@ -2,9 +2,9 @@
 /**
  * @vitest-environment node
  */
-import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { expectGenerated } from '@/test-utils/generated-file'
 import { AGENT_OPERATIONS } from './catalog'
 import { isOnDoor } from './exposure'
 import { buildOpenApiDocument, documentedOperations, openApiPath } from './openapi'
@@ -32,13 +32,7 @@ const operations = Object.values(paths).flatMap((item) => Object.values(item))
 describe('agent API OpenAPI document', () => {
   it('matches the committed fixture', () => {
     const generated = `${JSON.stringify(document, null, 2)}\n`
-    if (process.env.UPDATE_FIXTURES === '1') {
-      writeFileSync(FIXTURE, generated, 'utf8')
-    }
-    expect(
-      readFileSync(FIXTURE, 'utf8'),
-      'The operation catalog changed. Re-run with UPDATE_FIXTURES=1 and commit the fixture in the same change.',
-    ).toBe(generated)
+    expectGenerated(FIXTURE, generated)
   })
 
   it('is OpenAPI 3.1', () => {

@@ -1,4 +1,5 @@
 ---
+# area: search
 features:
   - >
     When you set up a new project, the address field now suggests matching
