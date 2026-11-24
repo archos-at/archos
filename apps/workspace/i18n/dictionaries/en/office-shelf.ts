@@ -83,7 +83,8 @@ export const officeShelf = {
   delete: {
     action: 'Delete from Office library',
     title: 'Delete “{name}”?',
-    confirm: 'This removes the document for the whole organization. This cannot be undone.',
+    confirm:
+      'The document goes to the Office library’s bin, for the whole organization. It can be restored from there until it is deleted for good.',
     confirmAction: 'Delete',
     cancel: 'Cancel',
     deleting: 'Deleting…',

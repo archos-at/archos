@@ -23,17 +23,20 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle }
 import { useLocale, useTranslations, type Translator } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { CLAUSE_JOIN, formatCalendarDate } from '@/lib/format'
+import type { SharedShelf } from '@/lib/documents/shelf'
 import { FOLDER_NAME_TAKEN_REASON } from '@/lib/projects/folder-bin-codes'
+import { binPathOf } from '@/lib/projects/folder-bin-wire'
 
 export interface FolderBinPanelProps {
-  projectId: string
+  shelf: SharedShelf
   initial?: FolderBinListing | null
   inDialog?: boolean
 }
 
-export function FolderBinPanel({ projectId, initial, inDialog = false }: FolderBinPanelProps): JSX.Element {
+export function FolderBinPanel({ shelf, initial, inDialog = false }: FolderBinPanelProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
+  const binPath = binPathOf(shelf)
   const [listing, setListing] = useState<FolderBinListing | null>(initial ?? null)
   const [loadFailed, setLoadFailed] = useState(initial === null)
   const frame = inDialog ? BIN_IN_DIALOG : BIN_PAGE
@@ -46,12 +49,12 @@ export function FolderBinPanel({ projectId, initial, inDialog = false }: FolderB
 
   const reload = useCallback(async () => {
     try {
-      setListing(await listFolderBin(projectId))
+      setListing(await listFolderBin(binPath))
       setLoadFailed(false)
     } catch {
       setLoadFailed(true)
     }
-  }, [projectId])
+  }, [binPath])
   const loadsItself = initial === undefined
   useEffect(() => {
     if (loadsItself) void reload()
@@ -61,7 +64,7 @@ export function FolderBinPanel({ projectId, initial, inDialog = false }: FolderB
     if (!listing?.nextCursor) return
     setLoadingMore(true)
     try {
-      const next = await listFolderBin(projectId, listing.nextCursor)
+      const next = await listFolderBin(binPath, listing.nextCursor)
       setListing({ ...next, entries: [...listing.entries, ...next.entries] })
     } catch {
       toast.error(t('bin.loadError'))
@@ -75,10 +78,10 @@ export function FolderBinPanel({ projectId, initial, inDialog = false }: FolderB
     try {
       const restored = entry.document
         ? await restoreDocument(entry.document.id)
-        : await restoreFolder(projectId, entry.folderId)
+        : await restoreFolder(binPath, entry.folderId)
       toast.success(
         restored.restoredTo === 'root'
-          ? t('bin.restoredToRoot', { name: entry.name })
+          ? t(shelf.kind === 'office_shelf' ? 'bin.officeShelf.restoredToRoot' : 'bin.restoredToRoot', { name: entry.name })
           : t('bin.restored', { name: entry.name })
       )
       await reload()
@@ -100,7 +103,7 @@ export function FolderBinPanel({ projectId, initial, inDialog = false }: FolderB
     if (!purging) return
     const entry = purging
     try {
-      await purgeFolderNow(projectId, entry.folderId)
+      await purgeFolderNow(binPath, entry.folderId)
       toast.success(t('bin.purged', { name: entry.name }))
       await reload()
     } catch (error) {
@@ -250,7 +253,7 @@ export function FolderBinPanel({ projectId, initial, inDialog = false }: FolderB
         open={purging !== null}
         onOpenChange={(open) => (open ? undefined : setPurging(null))}
         title={t('bin.purgeTitle', { name: purging?.name ?? '' })}
-        description={t('bin.purgeDescription', { documents: purging?.documents ?? 0 })}
+        description={t(shelf.kind === 'office_shelf' ? 'bin.officeShelf.purgeDescription' : 'bin.purgeDescription', { documents: purging?.documents ?? 0 })}
         confirmLabel={t('bin.purge')}
         cancelLabel={t('bin.cancel')}
         onConfirm={purge}

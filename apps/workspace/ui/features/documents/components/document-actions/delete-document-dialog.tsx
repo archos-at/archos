@@ -17,7 +17,7 @@ export interface DeleteDocumentDialogProps {
 export function DeleteDocumentDialog({ open, onOpenChange, scope, actions }: DeleteDocumentDialogProps): JSX.Element {
   const t = useTranslations(DOCUMENT_SCOPE_COPY[scope])
   const tFiles = useTranslations(filesCopy)
-  const heldFile = scope === 'files' && actions.erases
+  const heldFile = actions.erases
   const busyLabel = heldFile ? tFiles('erase.deleting') : t('delete.deleting')
   const confirmLabel = heldFile ? tFiles('erase.confirmAction') : t('delete.confirmAction')
   return (

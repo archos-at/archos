@@ -209,6 +209,76 @@ describe('OfficeShelfWorkspace — library listing', () => {
   })
 })
 
+describe('OfficeShelfWorkspace — the bin', () => {
+  const binListing = {
+    entries: [
+      {
+        folderId: 'f-guides',
+        name: 'Leitfäden',
+        path: 'Leitfäden',
+        deletedAt: '2026-11-24T09:00:00.000Z',
+        deletedBy: { userId: 'user-1', name: 'Maria Huber' },
+        purgeAfter: '2026-12-08T09:00:00.000Z',
+        status: 'pending',
+        documents: 3,
+        folders: 1,
+        canRestore: true,
+        restoreBlocked: null,
+        document: null,
+      },
+    ],
+    canPurge: true,
+    nextCursor: null,
+  }
+
+  it('draws the bin glyph in the head, as the project Ablage does, linking to its own bin window', async () => {
+    deskWidth(1200)
+    render(<OfficeShelfWorkspace canManage />)
+    const row = within(screen.getByTestId('office-shelf-header')).getByTestId('files-tool-row')
+    expect(within(row).getByRole('link', { name: 'Bin' })).toHaveAttribute('href', '/app/office-shelf?bin=1')
+  })
+
+  it('opens the bin window on ?bin=1 and lists the office shelf’s bin, not a project’s', async () => {
+    const asked: string[] = []
+    server.use(
+      http.get('/api/office-shelf/bin', ({ request }) => {
+        asked.push(new URL(request.url).pathname)
+        return HttpResponse.json(binListing)
+      })
+    )
+    currentSearch = 'bin=1'
+    render(<OfficeShelfWorkspace canManage />)
+
+    const dialog = await screen.findByTestId('folder-bin-dialog')
+    expect(within(dialog).getByText(/Deleted files and folders of the Office library/)).toBeInTheDocument()
+    expect(await within(dialog).findByText('Leitfäden')).toBeInTheDocument()
+    expect(asked).toEqual(['/api/office-shelf/bin'])
+  })
+
+  it('restores an entry through the office shelf’s bin route', async () => {
+    const restored: string[] = []
+    server.use(
+      http.get('/api/office-shelf/bin', () => HttpResponse.json(binListing)),
+      http.post('/api/office-shelf/bin/:folderId/restore', ({ params }) => {
+        restored.push(String(params.folderId))
+        return HttpResponse.json({ restoredTo: 'original', folders: 1, documents: 3 })
+      })
+    )
+    currentSearch = 'bin=1'
+    const user = userEvent.setup()
+    render(<OfficeShelfWorkspace canManage />)
+
+    await user.click(await screen.findByTestId('bin-restore-f-guides'))
+    await waitFor(() => expect(restored).toEqual(['f-guides']))
+  })
+
+  it('opens no bin window without ?bin=1', async () => {
+    render(<OfficeShelfWorkspace canManage />)
+    await screen.findByText('brandschutz-gutachten.pdf')
+    expect(screen.queryByTestId('folder-bin-dialog')).not.toBeInTheDocument()
+  })
+})
+
 describe('OfficeShelfWorkspace — permissions', () => {
   it('offers the upload affordance to managers', async () => {
     render(<OfficeShelfWorkspace canManage />)
@@ -510,12 +580,12 @@ async function openActions(user: ReturnType<typeof userEvent.setup>, filename: s
 }
 
 describe('OfficeShelfWorkspace — file operations', () => {
-  it('asks before deleting, names the document, and cancels without deleting', async () => {
+  it('asks before deleting, names the document and the bin, and cancels without deleting', async () => {
     let deleted = false
     server.use(
-      http.delete('/api/documents/:id', () => {
+      http.post('/api/documents/:id/bin', () => {
         deleted = true
-        return new HttpResponse(null, { status: 204 })
+        return HttpResponse.json({ documentId: 'doc-1', binEntryId: 'holder-1', purgeAfter: '2026-12-08T10:00:00.000Z' })
       })
     )
     const user = userEvent.setup()
@@ -525,16 +595,21 @@ describe('OfficeShelfWorkspace — file operations', () => {
     await user.click(await screen.findByRole('menuitem', { name: /delete/i }))
 
     expect(await screen.findByText('Delete “brandschutz-gutachten.pdf”?')).toBeInTheDocument()
-    expect(screen.getByText(/removes the document for the whole organization/i)).toBeInTheDocument()
+    expect(screen.getByText(/goes to the Office library’s bin/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /cancel/i }))
     expect(deleted).toBe(false)
     expect(screen.getAllByText('brandschutz-gutachten.pdf').length).toBeGreaterThan(0)
   })
 
-  it('deletes on confirm and removes the card from the grid', async () => {
+  it('moves the document to the bin on confirm, says until when, and removes the card from the grid', async () => {
+    const binned: string[] = []
     server.use(
-      http.delete('/api/documents/:id', () => new HttpResponse(null, { status: 204 }))
+      http.post('/api/documents/:id/bin', ({ params }) => {
+        binned.push(String(params.id))
+        return HttpResponse.json({ documentId: params.id, binEntryId: 'holder-1', purgeAfter: '2026-12-08T10:00:00.000Z' })
+      }),
+      http.delete('/api/documents/:id', () => HttpResponse.json({ error: 'not this route' }, { status: 500 }))
     )
     const user = userEvent.setup()
     render(<OfficeShelfWorkspace canManage />)
@@ -545,6 +620,8 @@ describe('OfficeShelfWorkspace — file operations', () => {
 
     await waitFor(() => expect(screen.queryByText('fassadendetail.pdf')).not.toBeInTheDocument())
     expect(screen.getByText('brandschutz-gutachten.pdf')).toBeInTheDocument()
+    expect(binned).toEqual(['doc-2'])
+    expect(toastSuccess).toHaveBeenCalledWith(expect.stringMatching(/fassadendetail\.pdf.*bin/))
   })
 
   it('renames through the scope-aware document route and shows the new name on the card', async () => {

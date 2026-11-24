@@ -590,6 +590,12 @@ export const files = {
     retry: 'Try again',
     document: 'Document',
     loadMore: 'Load more',
+    officeShelf: {
+      dialogDescription: 'Deleted files and folders of the Office library. Each row says until when it can be restored.',
+      restoredToRoot: '“{name}” is restored at the top of the Office library, because its parent folder is deleted.',
+      purgeDescription:
+        'The folder, its subfolders and {documents, plural, one {# document} other {# documents}} are deleted now, with every revision and preview. This cannot be undone.',
+    },
   },
   workspace: {
     more: 'More',
